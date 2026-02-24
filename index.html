@@ -306,7 +306,12 @@
                     if (data.last_active_month !== currentMonth) {
                         credits = 0;
                     }
-                    creditBadge.innerText = `${credits}/30 USED`;
+                    // טיפול בתצוגה עבור משתמשי Admin (מספר שלילי מוסתר)
+                    if(credits < 0) {
+                        creditBadge.innerText = "ADMIN ACCESS";
+                    } else {
+                        creditBadge.innerText = `${credits}/30 USED`;
+                    }
                     creditBadge.classList.remove('hidden');
                 }
             } catch (e) {
@@ -430,15 +435,22 @@
                 const downloadUrl = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = downloadUrl;
-                a.download = `Ignite_${new Date().getTime()}.mid`;
+                
+                // התיקון השני: יצירת שם קובץ עשיר ומפורט
+                const safeStyle = payload.style.replace(/[^a-zA-Z0-9]/g, '');
+                const safeKey = payload.key.replace('#', 'Sharp');
+                const timestamp = new Date().toISOString().slice(11,19).replace(/:/g, "");
+                a.download = `Ignite_${safeStyle}_${safeKey}_${payload.bpm}BPM_Comp${payload.comp_level}_${timestamp}.mid`;
+                
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
 
+                // התיקון הראשון: הופעת הודעה ירוקה מיד בעת ההורדה
                 status.innerText = `🔥 IGNITION COMPLETE!`;
                 status.className = "text-[11px] text-green-500 uppercase tracking-widest font-black";
                 
-                // 4. עדכון Firebase חכם (שימוש ב-merge למניעת שגיאות)
+                // 4. עדכון Firebase חכם
                 try {
                     await db.collection('users').doc(user.uid).set({
                         credits_used: creditsUsed + 1,
@@ -461,6 +473,8 @@
                 spinner.classList.add('hidden');
                 wandIcon.classList.remove('hidden');
                 btnText.innerText = "INSPIRE ME";
+                
+                // ההודעה הירוקה תישאר 4 שניות ואז תחזור ל-Engine Ready
                 setTimeout(() => {
                     if(status.innerText.includes("COMPLETE")) {
                         status.innerText = "ENGINE READY";
