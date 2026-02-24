@@ -264,6 +264,25 @@
         </div>
     </div>
 
+    <button onclick="toggleFeedbackModal()" class="fixed bottom-6 right-6 bg-black/60 hover:bg-black/80 text-gray-300 hover:text-orange-400 px-5 py-3 rounded-full text-[10px] uppercase tracking-widest font-black transition-all border border-white/20 backdrop-blur-md z-[999] flex items-center gap-2 shadow-xl">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+        Feedback
+    </button>
+
+    <div id="feedback-modal" class="fixed inset-0 z-[1001] hidden flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div class="glass-panel w-full max-w-md p-8 rounded-3xl relative shadow-[0_0_50px_rgba(255,94,0,0.1)]">
+            <h3 class="text-xl font-black text-orange-400 mb-2 uppercase tracking-tight">Send Feedback</h3>
+            <p class="text-xs text-gray-400 mb-6 uppercase tracking-widest">Help us ignite the engine</p>
+            
+            <textarea id="feedback-text" rows="4" class="w-full pro-input rounded-xl p-4 text-sm mb-6 resize-none" placeholder="What's on your mind? Bug? Feature idea?"></textarea>
+            
+            <div class="flex gap-3">
+                <button onclick="toggleFeedbackModal()" class="flex-1 px-4 py-3 rounded-xl border border-gray-800 text-gray-500 font-bold text-xs uppercase hover:bg-white/5 transition-all">Cancel</button>
+                <button onclick="submitFeedback()" id="send-feedback-btn" class="flex-[2] bg-gradient-to-r from-orange-500 to-red-600 text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest hover:shadow-[0_0_20px_rgba(255,94,0,0.3)] transition-all">Send Message</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const firebaseConfig = {
             apiKey: "AIzaSyCP6Wt4yAkkphPeUvgbgbLHeUfdijZw7M4",
@@ -306,7 +325,6 @@
                     if (data.last_active_month !== currentMonth) {
                         credits = 0;
                     }
-                    // טיפול בתצוגה עבור משתמשי Admin (מספר שלילי מוסתר)
                     if(credits < 0) {
                         creditBadge.innerText = "ADMIN ACCESS";
                     } else {
@@ -368,7 +386,6 @@
 
             if (!user) return;
 
-            // 1. בדיקת קרדיטים עם הגנה חכמה למסמכים חסרים
             let creditsUsed = 0;
             let currentMonth = new Date().getMonth();
 
@@ -379,7 +396,6 @@
                     creditsUsed = userData.credits_used || 0;
                     if (userData.last_active_month !== currentMonth) creditsUsed = 0;
                 } else {
-                    // אם המשתמש קיים ב-Auth אבל אין לו מסמך ב-DB, ניצור אחד עכשיו
                     await db.collection('users').doc(user.uid).set({
                         email: user.email,
                         credits_used: 0,
@@ -397,7 +413,6 @@
                 console.error("Firestore Check Error:", err);
             }
 
-            // 2. הפעלת ה-UI
             btn.disabled = true;
             btn.classList.add('opacity-80', 'cursor-wait');
             wandIcon.classList.add('hidden');
@@ -421,7 +436,6 @@
                 articulation: isExpertMode ? document.getElementById('artic').value : "auto"
             };
 
-            // 3. קריאה לשרת (Render)
             try {
                 const response = await fetch('https://ignite-api-mgwq.onrender.com/generate-midi', {
                     method: 'POST',
@@ -436,7 +450,6 @@
                 const a = document.createElement('a');
                 a.href = downloadUrl;
                 
-                // התיקון השני: יצירת שם קובץ עשיר ומפורט
                 const safeStyle = payload.style.replace(/[^a-zA-Z0-9]/g, '');
                 const safeKey = payload.key.replace('#', 'Sharp');
                 const timestamp = new Date().toISOString().slice(11,19).replace(/:/g, "");
@@ -446,11 +459,9 @@
                 a.click();
                 a.remove();
 
-                // התיקון הראשון: הופעת הודעה ירוקה מיד בעת ההורדה
                 status.innerText = `🔥 IGNITION COMPLETE!`;
                 status.className = "text-[11px] text-green-500 uppercase tracking-widest font-black";
                 
-                // 4. עדכון Firebase חכם
                 try {
                     await db.collection('users').doc(user.uid).set({
                         credits_used: creditsUsed + 1,
@@ -474,7 +485,6 @@
                 wandIcon.classList.remove('hidden');
                 btnText.innerText = "INSPIRE ME";
                 
-                // ההודעה הירוקה תישאר 4 שניות ואז תחזור ל-Engine Ready
                 setTimeout(() => {
                     if(status.innerText.includes("COMPLETE")) {
                         status.innerText = "ENGINE READY";
@@ -483,12 +493,54 @@
                 }, 4000);
             }
         }
+
+        // ==========================================
+        // FEEDBACK LOGIC
+        // ==========================================
+        function toggleFeedbackModal() {
+            const modal = document.getElementById('feedback-modal');
+            modal.classList.toggle('hidden');
+            if(!modal.classList.contains('hidden')) {
+                document.getElementById('feedback-text').focus();
+            }
+        }
+
+        async function submitFeedback() {
+            const text = document.getElementById('feedback-text').value;
+            const btn = document.getElementById('send-feedback-btn');
+            const user = auth.currentUser;
+
+            if (!text.trim()) return;
+
+            btn.disabled = true;
+            btn.innerText = "SENDING...";
+
+            try {
+                await db.collection('feedback').add({
+                    userId: user ? user.uid : 'anonymous',
+                    userEmail: user ? user.email : 'anonymous',
+                    message: text,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    userAgent: navigator.userAgent
+                });
+
+                btn.innerText = "SENT! 🔥";
+                btn.classList.replace('from-orange-500', 'from-green-500');
+                
+                setTimeout(() => {
+                    toggleFeedbackModal();
+                    document.getElementById('feedback-text').value = "";
+                    btn.disabled = false;
+                    btn.innerText = "Send Message";
+                    btn.classList.replace('from-green-500', 'from-orange-500');
+                }, 1500);
+
+            } catch (error) {
+                console.error("Feedback error:", error);
+                btn.innerText = "ERROR!";
+                btn.classList.replace('from-orange-500', 'from-red-600');
+            }
+        }
     </script>
-   <a href="mailto:yossi.bozo112@Gmail.com?subject=IGNITE%20AI%20Feedback" class="fixed bottom-6 right-6 bg-black/60 hover:bg-black/80 text-gray-300 hover:text-orange-400 px-5 py-3 rounded-full text-[10px] uppercase tracking-widest font-black transition-all border border-white/20 backdrop-blur-md z-[999] flex items-center gap-2 shadow-[0_0_15px_rgba(0,0,0,0.5)]">
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
-    Feedback
-</a>
 </body>
 </html>
-
-
