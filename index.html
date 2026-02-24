@@ -246,14 +246,21 @@
                 </div>
             </div>
 
-            <div class="mb-6 flex gap-4">
-                <div class="flex-1">
-                    <label class="block text-[10px] uppercase tracking-widest text-gray-500 mb-2 ml-1 font-bold">Quantity</label>
-                    <select id="quantity" class="w-full pro-input rounded-xl p-3.5 text-sm appearance-none text-center font-bold text-orange-400">
-                        <option value="1">1 Idea</option>
-                        <option value="2">2 Ideas</option>
-                        <option value="3" selected>3 Ideas</option>
-                    </select>
+            <div class="mb-5 flex items-center justify-between bg-black/20 p-2 pl-4 rounded-2xl border border-white/5">
+                <span class="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Ideas Quantity</span>
+                <div class="flex bg-black/50 p-1 rounded-xl border border-gray-800">
+                    <label class="cursor-pointer">
+                        <input type="radio" name="qty" value="1" class="peer sr-only">
+                        <div class="px-5 py-1.5 rounded-lg text-xs font-bold text-gray-500 peer-checked:bg-gradient-to-r peer-checked:from-orange-500/20 peer-checked:to-red-500/20 peer-checked:text-orange-400 peer-checked:border-orange-500/30 border border-transparent transition-all">1</div>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="qty" value="2" class="peer sr-only">
+                        <div class="px-5 py-1.5 rounded-lg text-xs font-bold text-gray-500 peer-checked:bg-gradient-to-r peer-checked:from-orange-500/20 peer-checked:to-red-500/20 peer-checked:text-orange-400 peer-checked:border-orange-500/30 border border-transparent transition-all">2</div>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="qty" value="3" class="peer sr-only" checked>
+                        <div class="px-5 py-1.5 rounded-lg text-xs font-bold text-gray-500 peer-checked:bg-gradient-to-r peer-checked:from-orange-500/20 peer-checked:to-red-500/20 peer-checked:text-orange-400 peer-checked:border-orange-500/30 border border-transparent transition-all">3</div>
+                    </label>
                 </div>
             </div>
 
@@ -396,7 +403,8 @@
 
             if (!user) return;
 
-            const selectedQty = parseInt(document.getElementById('quantity').value) || 1;
+            // עדכון: שאיבת כמות הרעיונות מתוך ה-Toggle החדש
+            const selectedQty = parseInt(document.querySelector('input[name="qty"]:checked').value) || 1;
             let creditsUsed = 0;
             let currentMonth = new Date().getMonth();
 
@@ -483,8 +491,14 @@
                 }
 
                 if (successCount > 0) {
+                    // פידבק בולט ומרשים למשתמש
                     status.innerText = `🔥 ${successCount} IDEAS DOWNLOADED!`;
                     status.className = "text-[11px] text-green-500 uppercase tracking-widest font-black";
+                    
+                    btnText.innerText = `SUCCESS! (${successCount})`;
+                    btn.classList.replace('from-orange-500', 'from-green-500');
+                    btn.classList.replace('to-red-600', 'to-emerald-600');
+                    btn.classList.add('shadow-[0_0_40px_rgba(16,185,129,0.4)]');
                     
                     // עדכון הקרדיטים לאחר הצלחה
                     try {
@@ -505,14 +519,19 @@
                 console.error("Cloud Generation Error:", error);
                 status.innerText = "CONNECTION FAILED. TRY AGAIN.";
                 status.className = "text-[11px] text-red-500 uppercase tracking-widest font-black";
+                btnText.innerText = "ERROR!";
             } finally {
-                btn.disabled = false;
-                btn.classList.remove('opacity-80', 'cursor-wait');
                 spinner.classList.add('hidden');
-                wandIcon.classList.remove('hidden');
-                btnText.innerText = "INSPIRE ME";
                 
+                // מחזירים את הכפתור למצב רגיל רק אחרי 4 שניות של חגיגה
                 setTimeout(() => {
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-80', 'cursor-wait', 'shadow-[0_0_40px_rgba(16,185,129,0.4)]');
+                    btn.classList.replace('from-green-500', 'from-orange-500');
+                    btn.classList.replace('to-emerald-600', 'to-red-600');
+                    wandIcon.classList.remove('hidden');
+                    btnText.innerText = "INSPIRE ME";
+                    
                     if(status.innerText.includes("DOWNLOADED")) {
                         status.innerText = "ENGINE READY";
                         status.className = "text-[11px] text-gray-500 uppercase tracking-widest font-bold transition-colors duration-1000";
