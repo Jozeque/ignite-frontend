@@ -246,6 +246,17 @@
                 </div>
             </div>
 
+            <div class="mb-6 flex gap-4">
+                <div class="flex-1">
+                    <label class="block text-[10px] uppercase tracking-widest text-gray-500 mb-2 ml-1 font-bold">Quantity</label>
+                    <select id="quantity" class="w-full pro-input rounded-xl p-3.5 text-sm appearance-none text-center font-bold text-orange-400">
+                        <option value="1">1 Idea</option>
+                        <option value="2">2 Ideas</option>
+                        <option value="3" selected>3 Ideas</option>
+                    </select>
+                </div>
+            </div>
+
             <button id="generate-btn" onclick="generateMidi()" class="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black py-5 rounded-2xl shadow-[0_10px_30px_rgba(255,50,0,0.3)] hover:shadow-[0_10px_40px_rgba(255,50,0,0.5)] hover:-translate-y-1 transition-all flex items-center justify-center gap-3 text-lg tracking-wider group">
                 
                 <div id="spinner" class="hidden flex items-end h-5 gap-1">
@@ -385,9 +396,11 @@
 
             if (!user) return;
 
+            const selectedQty = parseInt(document.getElementById('quantity').value) || 1;
             let creditsUsed = 0;
             let currentMonth = new Date().getMonth();
 
+            // בדיקת קרדיטים לפני שמתחילים
             try {
                 const userDoc = await db.collection('users').doc(user.uid).get();
                 if (userDoc.exists) {
@@ -403,8 +416,8 @@
                     });
                 }
 
-                if (creditsUsed >= 30) {
-                    status.innerText = "MONTHLY LIMIT REACHED (30/30).";
+                if (creditsUsed + selectedQty > 30) {
+                    status.innerText = `NOT ENOUGH CREDITS FOR ${selectedQty} IDEAS.`;
                     status.className = "text-[11px] text-red-500 uppercase tracking-widest font-black";
                     return;
                 }
@@ -412,11 +425,12 @@
                 console.error("Firestore Check Error:", err);
             }
 
+            // אנימציית טעינה
             btn.disabled = true;
             btn.classList.add('opacity-80', 'cursor-wait');
             wandIcon.classList.add('hidden');
             spinner.classList.remove('hidden');
-            btnText.innerText = "PROCESSING...";
+            btnText.innerText = `IGNITING ${selectedQty} IDEAS...`;
             status.innerText = "ROUTING THROUGH AI NEURAL NETWORK...";
             status.className = "text-[11px] text-orange-400 uppercase tracking-widest font-bold animate-pulse";
 
@@ -435,46 +449,60 @@
                 articulation: isExpertMode ? document.getElementById('artic').value : "auto"
             };
 
-            try {
-                const response = await fetch('https://ignite-api-mgwq.onrender.com/generate-midi', {
+            // יצירת מערך של בקשות במקביל
+            const requests = Array.from({ length: selectedQty }, () => 
+                fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
-                });
+                })
+            );
 
-                if (!response.ok) throw new Error("Server Offline");
+            try {
+                // מריץ את כל הבקשות במקביל ומחכה שכולן יסתיימו
+                const responses = await Promise.all(requests);
+                let successCount = 0;
 
-                const blob = await response.blob();
-                const downloadUrl = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = downloadUrl;
-                
-                const safeStyle = payload.style.replace(/[^a-zA-Z0-9]/g, '');
-                const safeKey = payload.key.replace('#', 'Sharp');
-                const timestamp = new Date().toISOString().slice(11,19).replace(/:/g, "");
-                a.download = `Ignite_${safeStyle}_${safeKey}_${payload.bpm}BPM_Comp${payload.comp_level}_${timestamp}.mid`;
-                
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
+                for (let i = 0; i < responses.length; i++) {
+                    if (responses[i].ok) {
+                        const blob = await responses[i].blob();
+                        const downloadUrl = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = downloadUrl;
+                        
+                        const safeStyle = payload.style.replace(/[^a-zA-Z0-9]/g, '');
+                        const safeKey = payload.key.replace('#', 'Sharp');
+                        const timestamp = new Date().toISOString().slice(11,19).replace(/:/g, "");
+                        a.download = `Ignite_V${i+1}_${safeStyle}_${safeKey}_${payload.bpm}BPM_${timestamp}.mid`;
+                        
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        successCount++;
+                    }
+                }
 
-                status.innerText = `🔥 IGNITION COMPLETE!`;
-                status.className = "text-[11px] text-green-500 uppercase tracking-widest font-black";
-                
-                try {
-                    await db.collection('users').doc(user.uid).set({
-                        credits_used: creditsUsed + 1,
-                        last_active_month: currentMonth,
-                        generations_count: firebase.firestore.FieldValue.increment(1)
-                    }, { merge: true });
+                if (successCount > 0) {
+                    status.innerText = `🔥 ${successCount} IDEAS DOWNLOADED!`;
+                    status.className = "text-[11px] text-green-500 uppercase tracking-widest font-black";
                     
-                    updateCreditsUI(user.uid);
-                } catch (dbErr) {
-                    console.error("DB Update Failed:", dbErr);
+                    // עדכון הקרדיטים לאחר הצלחה
+                    try {
+                        await db.collection('users').doc(user.uid).set({
+                            credits_used: creditsUsed + successCount,
+                            last_active_month: currentMonth,
+                            generations_count: firebase.firestore.FieldValue.increment(successCount)
+                        }, { merge: true });
+                        updateCreditsUI(user.uid);
+                    } catch (dbErr) {
+                        console.error("DB Update Failed:", dbErr);
+                    }
+                } else {
+                    throw new Error("All parallel requests failed.");
                 }
 
             } catch (error) {
-                console.error("Fetch Error:", error);
+                console.error("Cloud Generation Error:", error);
                 status.innerText = "CONNECTION FAILED. TRY AGAIN.";
                 status.className = "text-[11px] text-red-500 uppercase tracking-widest font-black";
             } finally {
@@ -485,7 +513,7 @@
                 btnText.innerText = "INSPIRE ME";
                 
                 setTimeout(() => {
-                    if(status.innerText.includes("COMPLETE")) {
+                    if(status.innerText.includes("DOWNLOADED")) {
                         status.innerText = "ENGINE READY";
                         status.className = "text-[11px] text-gray-500 uppercase tracking-widest font-bold transition-colors duration-1000";
                     }
