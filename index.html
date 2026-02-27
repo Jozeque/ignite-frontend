@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IGNITE | NEVER GET STUCK.</title>
+    <title>IGNITE | Never get stuck.</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
@@ -133,7 +133,7 @@
             <div>
                 <h1 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-500 tracking-tighter leading-none">IGNITE</h1>
                 <div class="flex items-center gap-2 mt-1">
-                    <p class="text-[10px] text-gray-500 font-bold tracking-[0.3em] ml-1">NEVER GET STUCK.</p>
+                    <p class="text-[10px] text-gray-500 font-bold tracking-[0.3em] ml-1">Never get stuck.</p>
                     <span id="credit-badge" class="credits-badge hidden">--/30 USED</span>
                 </div>
             </div>
@@ -403,12 +403,10 @@
 
             if (!user) return;
 
-            // עדכון: שאיבת כמות הרעיונות מתוך ה-Toggle החדש
             const selectedQty = parseInt(document.querySelector('input[name="qty"]:checked').value) || 1;
             let creditsUsed = 0;
             let currentMonth = new Date().getMonth();
 
-            // בדיקת קרדיטים לפני שמתחילים
             try {
                 const userDoc = await db.collection('users').doc(user.uid).get();
                 if (userDoc.exists) {
@@ -433,7 +431,6 @@
                 console.error("Firestore Check Error:", err);
             }
 
-            // אנימציית טעינה
             btn.disabled = true;
             btn.classList.add('opacity-80', 'cursor-wait');
             wandIcon.classList.add('hidden');
@@ -443,31 +440,81 @@
             status.className = "text-[11px] text-orange-400 uppercase tracking-widest font-bold animate-pulse";
 
             const isExpertMode = document.getElementById('expert-toggle').checked;
-            const payload = {
-                style: document.getElementById('style').value,
+            const currentStyle = document.getElementById('style').value;
+            
+            const basePayload = {
+                style: currentStyle,
                 key: document.getElementById('key').value,
                 mode: document.getElementById('mode').value,
                 bpm: parseInt(document.getElementById('bpm').value),
                 bars: parseInt(document.getElementById('bars').value),
                 swing: parseInt(document.getElementById('swing').value),
                 sync_chance: parseInt(document.getElementById('sync').value),
-                comp_level: parseInt(document.getElementById('comp').value),
-                density: isExpertMode ? parseInt(document.getElementById('density').value) : 50,
-                octave_range: isExpertMode ? document.getElementById('octave').value : "auto",
-                articulation: isExpertMode ? document.getElementById('artic').value : "auto"
+                comp_level: parseInt(document.getElementById('comp').value)
             };
 
-            // יצירת מערך של בקשות במקביל
-            const requests = Array.from({ length: selectedQty }, () => 
-                fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
+            const getRandomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+            const getRandomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+            // LOGIC FIX: Generate a UNIQUE payload for EACH request in the loop
+            const requests = Array.from({ length: selectedQty }, () => {
+                let finalDensity = 50;
+                let finalOctave = "mid";
+                let finalArtic = "balanced";
+
+                if (isExpertMode) {
+                    finalDensity = parseInt(document.getElementById('density').value);
+                    finalOctave = document.getElementById('octave').value;
+                    finalArtic = document.getElementById('artic').value;
+                } else {
+                    switch(currentStyle) {
+                        case 'Neo-Soul':
+                            finalDensity = getRandomInt(40, 70);
+                            finalOctave = getRandomItem(['mid', 'wide']);
+                            finalArtic = getRandomItem(['legato', 'balanced']);
+                            break;
+                        case 'Cinematic':
+                            finalDensity = getRandomInt(20, 50);
+                            finalOctave = getRandomItem(['wide', 'low']);
+                            finalArtic = 'legato';
+                            break;
+                        case 'Techno':
+                            finalDensity = getRandomInt(60, 90);
+                            finalOctave = getRandomItem(['low', 'mid']);
+                            finalArtic = 'staccato';
+                            break;
+                        case 'Jazz':
+                            finalDensity = getRandomInt(50, 80);
+                            finalOctave = getRandomItem(['mid', 'wide']);
+                            finalArtic = getRandomItem(['balanced', 'legato']);
+                            break;
+                        case 'Lofi':
+                            finalDensity = getRandomInt(30, 60);
+                            finalOctave = 'mid';
+                            finalArtic = getRandomItem(['balanced', 'staccato']);
+                            break;
+                        default:
+                            finalDensity = getRandomInt(40, 70);
+                            finalOctave = 'mid';
+                            finalArtic = 'balanced';
+                    }
+                }
+
+                const uniquePayload = {
+                    ...basePayload,
+                    density: finalDensity,
+                    octave_range: finalOctave,
+                    articulation: finalArtic
+                };
+
+                return fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                })
-            );
+                    body: JSON.stringify(uniquePayload)
+                });
+            });
 
             try {
-                // מריץ את כל הבקשות במקביל ומחכה שכולן יסתיימו
                 const responses = await Promise.all(requests);
                 let successCount = 0;
 
@@ -478,10 +525,10 @@
                         const a = document.createElement('a');
                         a.href = downloadUrl;
                         
-                        const safeStyle = payload.style.replace(/[^a-zA-Z0-9]/g, '');
-                        const safeKey = payload.key.replace('#', 'Sharp');
+                        const safeStyle = basePayload.style.replace(/[^a-zA-Z0-9]/g, '');
+                        const safeKey = basePayload.key.replace('#', 'Sharp');
                         const timestamp = new Date().toISOString().slice(11,19).replace(/:/g, "");
-                        a.download = `Ignite_V${i+1}_${safeStyle}_${safeKey}_${payload.bpm}BPM_${timestamp}.mid`;
+                        a.download = `Ignite_V${i+1}_${safeStyle}_${safeKey}_${basePayload.bpm}BPM_${timestamp}.mid`;
                         
                         document.body.appendChild(a);
                         a.click();
@@ -491,7 +538,6 @@
                 }
 
                 if (successCount > 0) {
-                    // פידבק בולט ומרשים למשתמש
                     status.innerText = `🔥 ${successCount} IDEAS DOWNLOADED!`;
                     status.className = "text-[11px] text-green-500 uppercase tracking-widest font-black";
                     
@@ -500,7 +546,6 @@
                     btn.classList.replace('to-red-600', 'to-emerald-600');
                     btn.classList.add('shadow-[0_0_40px_rgba(16,185,129,0.4)]');
                     
-                    // עדכון הקרדיטים לאחר הצלחה
                     try {
                         await db.collection('users').doc(user.uid).set({
                             credits_used: creditsUsed + successCount,
@@ -523,7 +568,6 @@
             } finally {
                 spinner.classList.add('hidden');
                 
-                // מחזירים את הכפתור למצב רגיל רק אחרי 4 שניות של חגיגה
                 setTimeout(() => {
                     btn.disabled = false;
                     btn.classList.remove('opacity-80', 'cursor-wait', 'shadow-[0_0_40px_rgba(16,185,129,0.4)]');
@@ -590,6 +634,3 @@
     </script>
 </body>
 </html>
-
-
-
