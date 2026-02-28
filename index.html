@@ -272,8 +272,8 @@
                     <div>
                         <label class="text-[10px] text-gray-500 mb-2 block uppercase">Sustain Pedal (CC64)</label>
                         <select id="sustain" class="w-full pro-input p-3 rounded-xl text-xs appearance-none">
-                            <option value="adaptive" selected>Adaptive (Chord-Sync)</option>
-                            <option value="dry">Dry (No Pedal)</option>
+                            <option value="adaptive">Adaptive (Chord-Sync)</option>
+                            <option value="dry" selected>Dry (No Pedal)</option>
                             <option value="washed">Washed (Ambient)</option>
                         </select>
                     </div>
@@ -517,8 +517,10 @@
             const requests = Array.from({ length: selectedQty }, () => {
                 let finalDensity = 50;
                 let finalArtic = "balanced";
+                
+                // --- הגדרה קשיחה למצב יבש לחלוטין כשמצב Expert כבוי ---
                 let finalPitchBend = "off";
-                let finalSustain = "adaptive";
+                let finalSustain = "dry";
 
                 if (isExpertMode) {
                     finalDensity = parseInt(document.getElementById('density').value);
@@ -526,42 +528,31 @@
                     finalPitchBend = document.getElementById('pitch_bend').value;
                     finalSustain = document.getElementById('sustain').value;
                 } else {
+                    // הרצת לוגיקה סטנדרטית לצפיפות וארטיקולציה בלבד
                     switch(currentStyle) {
                         case 'Neo-Soul':
                             finalDensity = getRandomInt(40, 70);
                             finalArtic = getRandomItem(['legato', 'balanced']);
-                            finalPitchBend = getRandomItem(['off', 'subtle']);
-                            finalSustain = 'adaptive';
                             break;
                         case 'Cinematic':
                             finalDensity = getRandomInt(20, 50);
                             finalArtic = 'legato';
-                            finalPitchBend = 'off';
-                            finalSustain = 'washed';
                             break;
                         case 'Techno':
                             finalDensity = getRandomInt(60, 90);
                             finalArtic = 'staccato';
-                            finalPitchBend = 'off';
-                            finalSustain = 'dry';
                             break;
                         case 'Jazz':
                             finalDensity = getRandomInt(50, 80);
                             finalArtic = getRandomItem(['balanced', 'legato']);
-                            finalPitchBend = getRandomItem(['off', 'subtle']);
-                            finalSustain = 'adaptive';
                             break;
                         case 'Lofi':
                             finalDensity = getRandomInt(30, 60);
                             finalArtic = getRandomItem(['balanced', 'staccato']);
-                            finalPitchBend = getRandomItem(['subtle', 'tapestop']);
-                            finalSustain = getRandomItem(['adaptive', 'washed']);
                             break;
                         default:
                             finalDensity = getRandomInt(40, 70);
                             finalArtic = 'balanced';
-                            finalPitchBend = 'off';
-                            finalSustain = 'adaptive';
                     }
                 }
 
