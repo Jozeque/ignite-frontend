@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IGNITE | Never get stuck.</title>
+    
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cdefs%3E%3ClinearGradient id='igniteGradient' x1='0%25' y1='0%25' x2='100%25' y2='0%25'%3E%3Cstop offset='0%25' stop-color='%23f97316' /%3E%3Cstop offset='100%25' stop-color='%23ef4444' /%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z' stroke='url(%23igniteGradient)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+
     <script src="https://cdn.tailwindcss.com"></script>
     
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
@@ -137,7 +140,13 @@
                     <span id="credit-badge" class="credits-badge hidden">--/30 USED</span>
                 </div>
             </div>
-            <button onclick="handleLogout()" class="text-xs text-gray-600 hover:text-red-400 transition-colors uppercase tracking-wider font-bold">Disconnect</button>
+            <div class="flex items-center gap-4">
+                <button onclick="toggleManualModal()" class="text-xs text-gray-500 hover:text-orange-400 transition-colors uppercase tracking-wider font-bold flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                    Manual
+                </button>
+                <button onclick="handleLogout()" class="text-xs text-gray-600 hover:text-red-400 transition-colors uppercase tracking-wider font-bold">Disconnect</button>
+            </div>
         </div>
 
         <div class="glass-panel rounded-3xl p-8 w-full relative">
@@ -297,6 +306,27 @@
                 <button onclick="toggleFeedbackModal()" class="flex-1 px-4 py-3 rounded-xl border border-gray-800 text-gray-500 font-bold text-xs uppercase hover:bg-white/5 transition-all">Cancel</button>
                 <button onclick="submitFeedback()" id="send-feedback-btn" class="flex-[2] bg-gradient-to-r from-orange-500 to-red-600 text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest hover:shadow-[0_0_20px_rgba(255,94,0,0.3)] transition-all">Send Message</button>
             </div>
+        </div>
+    </div>
+
+    <div id="manual-modal" class="fixed inset-0 z-[1001] hidden flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
+        <div class="glass-panel w-full max-w-lg p-8 rounded-3xl relative shadow-[0_0_50px_rgba(255,94,0,0.1)] max-h-[85vh] overflow-y-auto">
+            <h3 class="text-xl font-black text-orange-400 mb-2 uppercase tracking-tight">Engine Manual</h3>
+            <p class="text-xs text-gray-400 mb-6 uppercase tracking-widest">Parameter Breakdown</p>
+            
+            <div class="space-y-4 text-xs text-gray-300 mb-8">
+                <p><strong class="text-white">Style:</strong> Defines the overarching genre, phrasing, and feeling of the MIDI.</p>
+                <p><strong class="text-white">Key & Mode:</strong> Sets the tonal center and musical scale the generation adheres to.</p>
+                <p><strong class="text-white">Tempo & Bars:</strong> Determines the speed (BPM) and the total length of the sequence.</p>
+                <p><strong class="text-white">Humanize / Swing:</strong> Shifts notes slightly off-grid to create a natural, human groove.</p>
+                <p><strong class="text-white">Syncopation Matrix:</strong> Sets the probability for notes to hit off-beat, creating complex rhythms.</p>
+                <p><strong class="text-white">Harmonic Density:</strong> Scales complexity from simple monophonic lines (Lvl 1) to lush, complex jazz chords (Lvl 5).</p>
+                <p><strong class="text-white">Note Density (Air):</strong> Controls the raw amount of played notes versus silence (rests).</p>
+                <p><strong class="text-white">Octave Range:</strong> Forces the generated sequence into bass, mid, or high keyboard registers.</p>
+                <p><strong class="text-white">Articulation:</strong> Adjusts note lengths from short/plucky (Staccato) to long/smooth (Legato).</p>
+            </div>
+            
+            <button onclick="toggleManualModal()" class="w-full px-4 py-3 rounded-xl border border-gray-800 text-gray-500 font-bold text-xs uppercase hover:bg-white/5 transition-all">Close Manual</button>
         </div>
     </div>
 
@@ -585,7 +615,7 @@
         }
 
         // ==========================================
-        // FEEDBACK LOGIC
+        // UI MODALS LOGIC
         // ==========================================
         function toggleFeedbackModal() {
             const modal = document.getElementById('feedback-modal');
@@ -593,6 +623,11 @@
             if(!modal.classList.contains('hidden')) {
                 document.getElementById('feedback-text').focus();
             }
+        }
+
+        function toggleManualModal() {
+            const modal = document.getElementById('manual-modal');
+            modal.classList.toggle('hidden');
         }
 
         async function submitFeedback() {
