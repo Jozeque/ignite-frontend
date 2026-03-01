@@ -124,6 +124,13 @@
             <button onclick="handleSignUp()" class="w-full bg-transparent border border-gray-700 hover:border-gray-500 text-gray-400 font-bold py-3 rounded-xl transition-colors text-sm uppercase tracking-wider">
                 Register New
             </button>
+            
+            <div id="resend-container" class="hidden mt-4">
+                <button onclick="resendVerification()" class="text-[10px] text-orange-400 hover:text-orange-300 underline uppercase tracking-widest font-bold">
+                    Resend Verification Email
+                </button>
+            </div>
+
             <p id="auth-status" class="text-xs mt-5 font-medium min-h-[1rem] text-center tracking-wide"></p>
         </div>
     </div>
@@ -375,13 +382,14 @@
         const appContent = document.getElementById('app-content');
         const authStatus = document.getElementById('auth-status');
         const creditBadge = document.getElementById('credit-badge');
+        const resendContainer = document.getElementById('resend-container');
 
         auth.onAuthStateChanged(async user => {
             if (user && user.emailVerified) {
                 authModal.classList.add('opacity-0', 'pointer-events-none');
                 setTimeout(() => authModal.classList.add('hidden'), 500);
                 appContent.classList.remove('locked');
-                updateCreditsUI(user.uid);
+                updateCreditsUI(user);
             } else {
                 authModal.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
                 appContent.classList.add('locked');
@@ -389,19 +397,22 @@
             }
         });
 
-        async function updateCreditsUI(uid) {
+        async function updateCreditsUI(user) {
             try {
-                const userDoc = await db.collection('users').doc(uid).get();
+                const userDoc = await db.collection('users').doc(user.uid).get();
                 if (userDoc.exists) {
                     const data = userDoc.data();
                     const currentMonth = new Date().getMonth();
                     let credits = data.credits_used || 0;
                     
-                    if (data.last_active_month !== currentMonth && credits >= 0) {
+                    // Admin Override הרמטי ברמת הקוד
+                    const isAdmin = (user.email && user.email.toLowerCase() === 'yossi.bozo112@gmail.com') || credits < 0;
+                    
+                    if (data.last_active_month !== currentMonth && !isAdmin) {
                         credits = 0;
                     }
                     
-                    if(credits < 0) {
+                    if(isAdmin) {
                         creditBadge.innerText = "ADMIN ACCESS";
                     } else {
                         creditBadge.innerText = `${credits}/30 USED`;
@@ -418,26 +429,35 @@
             const password = document.getElementById('password-input').value;
             authStatus.innerText = "AUTHORIZING...";
             authStatus.className = "text-xs mt-5 font-bold h-4 text-center text-orange-400 tracking-wider";
+            resendContainer.classList.add('hidden');
             
             try {
                 const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                
+                // בודקים אם זה האדמין שנרשם ומגדירים לו ישירות ב-Firestore
+                const isAdmin = email.toLowerCase() === 'yossi.bozo112@gmail.com';
+                
                 await db.collection('users').doc(userCredential.user.uid).set({
                     email: email,
                     joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
                     generations_count: 0,
-                    credits_used: 0,
+                    credits_used: isAdmin ? -9999 : 0,
                     last_active_month: new Date().getMonth()
                 });
 
-                // חסימת גישה ושליחת מייל אימות
                 await userCredential.user.sendEmailVerification();
                 await auth.signOut();
 
                 authStatus.innerText = "VERIFICATION LINK SENT. CHECK INBOX.";
                 authStatus.className = "text-xs mt-5 font-bold min-h-[1rem] text-center text-green-500 tracking-wider";
             } catch (error) {
-                authStatus.innerText = error.message.replace('Firebase: ', '');
-                authStatus.className = "text-xs mt-5 font-bold min-h-[1rem] text-center text-red-500";
+                if(error.code === 'auth/email-already-in-use') {
+                    authStatus.innerText = "ACCOUNT EXISTS. PLEASE LOG IN.";
+                    authStatus.className = "text-xs mt-5 font-bold min-h-[1rem] text-center text-orange-400 tracking-wider";
+                } else {
+                    authStatus.innerText = error.message.replace('Firebase: ', '');
+                    authStatus.className = "text-xs mt-5 font-bold min-h-[1rem] text-center text-red-500";
+                }
             }
         }
 
@@ -446,21 +466,40 @@
             const password = document.getElementById('password-input').value;
             authStatus.innerText = "CONNECTING TO SERVER...";
             authStatus.className = "text-xs mt-5 font-bold h-4 text-center text-orange-400 tracking-wider";
+            resendContainer.classList.add('hidden');
             
             try {
                 const userCredential = await auth.signInWithEmailAndPassword(email, password);
                 
-                // בדיקת סטטוס אימות המייל
                 if (!userCredential.user.emailVerified) {
-                    await auth.signOut();
+                    resendContainer.classList.remove('hidden');
                     authStatus.innerText = "ACCESS DENIED: EMAIL NOT VERIFIED.";
                     authStatus.className = "text-xs mt-5 font-bold min-h-[1rem] text-center text-red-500 tracking-wider";
+                    await auth.signOut();
                     return;
                 }
 
                 authStatus.innerText = "";
             } catch (error) {
                 authStatus.innerText = "INVALID CREDENTIALS";
+                authStatus.className = "text-xs mt-5 font-bold min-h-[1rem] text-center text-red-500 tracking-wider";
+            }
+        }
+
+        async function resendVerification() {
+            const email = document.getElementById('email-input').value;
+            const password = document.getElementById('password-input').value;
+            
+            try {
+                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                await userCredential.user.sendEmailVerification();
+                await auth.signOut();
+                
+                authStatus.innerText = "NEW LINK SENT! CHECK YOUR INBOX.";
+                authStatus.className = "text-xs mt-5 font-bold min-h-[1rem] text-center text-green-500 tracking-wider";
+                resendContainer.classList.add('hidden');
+            } catch (e) {
+                authStatus.innerText = "ERROR SENDING LINK. TRY AGAIN LATER.";
                 authStatus.className = "text-xs mt-5 font-bold min-h-[1rem] text-center text-red-500 tracking-wider";
             }
         }
@@ -482,26 +521,28 @@
             const selectedQty = parseInt(document.querySelector('input[name="qty"]:checked').value) || 1;
             let creditsUsed = 0;
             let currentMonth = new Date().getMonth();
+            let isAdmin = user.email && user.email.toLowerCase() === 'yossi.bozo112@gmail.com';
 
             try {
                 const userDoc = await db.collection('users').doc(user.uid).get();
                 if (userDoc.exists) {
                     const userData = userDoc.data();
                     creditsUsed = userData.credits_used || 0;
+                    if (creditsUsed < 0) isAdmin = true;
                     
-                    if (userData.last_active_month !== currentMonth && creditsUsed >= 0) {
+                    if (userData.last_active_month !== currentMonth && !isAdmin) {
                         creditsUsed = 0;
                     }
                 } else {
                     await db.collection('users').doc(user.uid).set({
                         email: user.email,
-                        credits_used: 0,
+                        credits_used: isAdmin ? -9999 : 0,
                         last_active_month: currentMonth,
                         generations_count: 0
                     });
                 }
 
-                if (creditsUsed + selectedQty > 30) {
+                if (!isAdmin && creditsUsed + selectedQty > 30) {
                     status.innerText = `NOT ENOUGH CREDITS FOR ${selectedQty} IDEAS.`;
                     status.className = "text-[11px] text-red-500 uppercase tracking-widest font-black";
                     return;
@@ -625,11 +666,11 @@
                     
                     try {
                         await db.collection('users').doc(user.uid).set({
-                            credits_used: creditsUsed < 0 ? creditsUsed : creditsUsed + successCount,
+                            credits_used: isAdmin ? -9999 : creditsUsed + successCount,
                             last_active_month: currentMonth,
                             generations_count: firebase.firestore.FieldValue.increment(successCount)
                         }, { merge: true });
-                        updateCreditsUI(user.uid);
+                        updateCreditsUI(user);
                     } catch (dbErr) {
                         console.error("DB Update Failed:", dbErr);
                     }
