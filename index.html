@@ -124,7 +124,7 @@
             <button onclick="handleSignUp()" class="w-full bg-transparent border border-gray-700 hover:border-gray-500 text-gray-400 font-bold py-3 rounded-xl transition-colors text-sm uppercase tracking-wider">
                 Register New
             </button>
-            <p id="auth-status" class="text-xs mt-5 font-medium h-4 text-center tracking-wide"></p>
+            <p id="auth-status" class="text-xs mt-5 font-medium min-h-[1rem] text-center tracking-wide"></p>
         </div>
     </div>
 
@@ -377,7 +377,7 @@
         const creditBadge = document.getElementById('credit-badge');
 
         auth.onAuthStateChanged(async user => {
-            if (user) {
+            if (user && user.emailVerified) {
                 authModal.classList.add('opacity-0', 'pointer-events-none');
                 setTimeout(() => authModal.classList.add('hidden'), 500);
                 appContent.classList.remove('locked');
@@ -397,7 +397,6 @@
                     const currentMonth = new Date().getMonth();
                     let credits = data.credits_used || 0;
                     
-                    // איפוס קרדיטים למשתמשים רגילים בלבד (לא לאדמין עם ערך שלילי)
                     if (data.last_active_month !== currentMonth && credits >= 0) {
                         credits = 0;
                     }
@@ -429,9 +428,16 @@
                     credits_used: 0,
                     last_active_month: new Date().getMonth()
                 });
+
+                // חסימת גישה ושליחת מייל אימות
+                await userCredential.user.sendEmailVerification();
+                await auth.signOut();
+
+                authStatus.innerText = "VERIFICATION LINK SENT. CHECK INBOX.";
+                authStatus.className = "text-xs mt-5 font-bold min-h-[1rem] text-center text-green-500 tracking-wider";
             } catch (error) {
                 authStatus.innerText = error.message.replace('Firebase: ', '');
-                authStatus.className = "text-xs mt-5 font-bold h-4 text-center text-red-500";
+                authStatus.className = "text-xs mt-5 font-bold min-h-[1rem] text-center text-red-500";
             }
         }
 
@@ -442,10 +448,20 @@
             authStatus.className = "text-xs mt-5 font-bold h-4 text-center text-orange-400 tracking-wider";
             
             try {
-                await auth.signInWithEmailAndPassword(email, password);
+                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                
+                // בדיקת סטטוס אימות המייל
+                if (!userCredential.user.emailVerified) {
+                    await auth.signOut();
+                    authStatus.innerText = "ACCESS DENIED: EMAIL NOT VERIFIED.";
+                    authStatus.className = "text-xs mt-5 font-bold min-h-[1rem] text-center text-red-500 tracking-wider";
+                    return;
+                }
+
+                authStatus.innerText = "";
             } catch (error) {
                 authStatus.innerText = "INVALID CREDENTIALS";
-                authStatus.className = "text-xs mt-5 font-bold h-4 text-center text-red-500 tracking-wider";
+                authStatus.className = "text-xs mt-5 font-bold min-h-[1rem] text-center text-red-500 tracking-wider";
             }
         }
 
@@ -473,7 +489,6 @@
                     const userData = userDoc.data();
                     creditsUsed = userData.credits_used || 0;
                     
-                    // איפוס קרדיטים למשתמשים רגילים בלבד
                     if (userData.last_active_month !== currentMonth && creditsUsed >= 0) {
                         creditsUsed = 0;
                     }
@@ -610,7 +625,6 @@
                     
                     try {
                         await db.collection('users').doc(user.uid).set({
-                            // עדכון מוגן: אדמינים (ערך שלילי) לא מקבלים תוספת קרדיטים שמשנה את הסטטוס שלהם
                             credits_used: creditsUsed < 0 ? creditsUsed : creditsUsed + successCount,
                             last_active_month: currentMonth,
                             generations_count: firebase.firestore.FieldValue.increment(successCount)
