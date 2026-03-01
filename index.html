@@ -396,9 +396,12 @@
                     const data = userDoc.data();
                     const currentMonth = new Date().getMonth();
                     let credits = data.credits_used || 0;
-                    if (data.last_active_month !== currentMonth) {
+                    
+                    // איפוס קרדיטים למשתמשים רגילים בלבד (לא לאדמין עם ערך שלילי)
+                    if (data.last_active_month !== currentMonth && credits >= 0) {
                         credits = 0;
                     }
+                    
                     if(credits < 0) {
                         creditBadge.innerText = "ADMIN ACCESS";
                     } else {
@@ -469,7 +472,11 @@
                 if (userDoc.exists) {
                     const userData = userDoc.data();
                     creditsUsed = userData.credits_used || 0;
-                    if (userData.last_active_month !== currentMonth) creditsUsed = 0;
+                    
+                    // איפוס קרדיטים למשתמשים רגילים בלבד
+                    if (userData.last_active_month !== currentMonth && creditsUsed >= 0) {
+                        creditsUsed = 0;
+                    }
                 } else {
                     await db.collection('users').doc(user.uid).set({
                         email: user.email,
@@ -518,7 +525,6 @@
                 let finalDensity = 50;
                 let finalArtic = "balanced";
                 
-                // --- הגדרה קשיחה למצב יבש לחלוטין כשמצב Expert כבוי ---
                 let finalPitchBend = "off";
                 let finalSustain = "dry";
 
@@ -528,7 +534,6 @@
                     finalPitchBend = document.getElementById('pitch_bend').value;
                     finalSustain = document.getElementById('sustain').value;
                 } else {
-                    // הרצת לוגיקה סטנדרטית לצפיפות וארטיקולציה בלבד
                     switch(currentStyle) {
                         case 'Neo-Soul':
                             finalDensity = getRandomInt(40, 70);
@@ -605,7 +610,8 @@
                     
                     try {
                         await db.collection('users').doc(user.uid).set({
-                            credits_used: creditsUsed + successCount,
+                            // עדכון מוגן: אדמינים (ערך שלילי) לא מקבלים תוספת קרדיטים שמשנה את הסטטוס שלהם
+                            credits_used: creditsUsed < 0 ? creditsUsed : creditsUsed + successCount,
                             last_active_month: currentMonth,
                             generations_count: firebase.firestore.FieldValue.increment(successCount)
                         }, { merge: true });
