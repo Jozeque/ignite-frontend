@@ -11,6 +11,10 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+    
+    <script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
+    <script src="https://unpkg.com/@tonejs/midi@2.0.28/build/Midi.js"></script>
+    
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700;900&display=swap" rel="stylesheet">
 
     <style>
@@ -113,7 +117,7 @@
                     <input type="email" id="email-input" placeholder="studio@domain.com" class="w-full pro-input rounded-lg p-3 text-sm">
                 </div>
                 <div>
-                    <label class="block text-[10px] uppercase tracking-widest text-gray-500 mb-1 ml-1">Password</label>
+                    <label class="block text-[10px] uppercase tracking-widest text-gray-500 mb-1 ml-1">Access Key</label>
                     <input type="password" id="password-input" placeholder="••••••••" class="w-full pro-input rounded-lg p-3 text-sm">
                 </div>
             </div>
@@ -135,7 +139,7 @@
         </div>
     </div>
 
-    <div id="app-content" class="locked w-full max-w-lg flex flex-col items-center transition-all duration-700 z-10">
+    <div id="app-content" class="locked w-full max-w-lg flex flex-col items-center transition-all duration-700 z-10 my-10">
         
         <div class="w-full flex justify-between items-end mb-6 px-2">
             <div>
@@ -311,6 +315,8 @@
                 </div>
             </div>
 
+            <div id="results-container" class="hidden flex-col gap-3 mb-5 w-full"></div>
+
             <button id="generate-btn" onclick="generateMidi()" class="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black py-5 rounded-2xl shadow-[0_10px_30px_rgba(255,50,0,0.3)] hover:shadow-[0_10px_40px_rgba(255,50,0,0.5)] hover:-translate-y-1 transition-all flex items-center justify-center gap-3 text-lg tracking-wider group">
                 <div id="spinner" class="hidden flex items-end h-5 gap-1">
                     <div class="eq-bar"></div><div class="eq-bar"></div><div class="eq-bar"></div>
@@ -383,6 +389,11 @@
         const authStatus = document.getElementById('auth-status');
         const creditBadge = document.getElementById('credit-badge');
         const resendContainer = document.getElementById('resend-container');
+        const resultsContainer = document.getElementById('results-container');
+
+        // Audio Engine variables
+        let currentSynths = [];
+        let currentPlayBtn = null;
 
         auth.onAuthStateChanged(async user => {
             if (user && user.emailVerified) {
@@ -405,7 +416,6 @@
                     const currentMonth = new Date().getMonth();
                     let credits = data.credits_used || 0;
                     
-                    // Admin Override הרמטי ברמת הקוד
                     const isAdmin = (user.email && user.email.toLowerCase() === 'yossi.bozo112@gmail.com') || credits < 0;
                     
                     if (data.last_active_month !== currentMonth && !isAdmin) {
@@ -433,8 +443,6 @@
             
             try {
                 const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-                
-                // בודקים אם זה האדמין שנרשם ומגדירים לו ישירות ב-Firestore
                 const isAdmin = email.toLowerCase() === 'yossi.bozo112@gmail.com';
                 
                 await db.collection('users').doc(userCredential.user.uid).set({
@@ -508,6 +516,122 @@
             auth.signOut();
         }
 
+        // --- Audio Engine Functions ---
+        async function togglePlayback(arrayBuffer, btnElement) {
+            await Tone.start(); // Ensure context is started on user gesture
+            
+            // Stop any existing playback
+            Tone.Transport.stop();
+            Tone.Transport.cancel();
+            currentSynths.forEach(s => s.dispose());
+            currentSynths = [];
+
+            // Reset UI for all buttons
+            document.querySelectorAll('.play-btn').forEach(btn => {
+                btn.querySelector('.play-icon').classList.remove('hidden');
+                btn.querySelector('.stop-icon').classList.add('hidden');
+                btn.classList.remove('animate-pulse');
+            });
+
+            // If user clicked the same button that was playing, we just stop.
+            if (currentPlayBtn === btnElement) {
+                currentPlayBtn = null;
+                return;
+            }
+
+            // Start new playback
+            currentPlayBtn = btnElement;
+            btnElement.querySelector('.play-icon').classList.add('hidden');
+            btnElement.querySelector('.stop-icon').classList.remove('hidden');
+            btnElement.classList.add('animate-pulse');
+
+            const midi = new Midi(arrayBuffer);
+            
+            // Setup an elegant sounding synth for previews
+            const synth = new Tone.PolySynth(Tone.Synth, {
+                oscillator: { type: "triangle" },
+                envelope: { attack: 0.01, decay: 0.1, sustain: 0.3, release: 1 }
+            }).toDestination();
+            
+            currentSynths.push(synth);
+
+            const now = Tone.now() + 0.1;
+            midi.tracks.forEach(track => {
+                track.notes.forEach(note => {
+                    Tone.Transport.schedule((time) => {
+                        synth.triggerAttackRelease(note.name, note.duration, time, note.velocity);
+                    }, note.time);
+                });
+            });
+
+            Tone.Transport.start();
+
+            // Auto-reset button when the sequence finishes
+            Tone.Transport.schedule((time) => {
+                Tone.Transport.stop();
+                btnElement.querySelector('.play-icon').classList.remove('hidden');
+                btnElement.querySelector('.stop-icon').classList.add('hidden');
+                btnElement.classList.remove('animate-pulse');
+                currentPlayBtn = null;
+            }, midi.duration + 0.2);
+        }
+
+        // UI Builder for Results
+        function createResultCard(filename, objectUrl, dataUrl, arrayBuffer, index, params) {
+            resultsContainer.classList.remove('hidden');
+            
+            const card = document.createElement('div');
+            card.className = "result-card bg-black/40 border border-white/5 hover:border-orange-500/40 transition-all rounded-2xl p-4 flex items-center justify-between cursor-grab active:cursor-grabbing group";
+            card.draggable = true;
+
+            // Using the filename as title but cleaning it up visually
+            const visualTitle = filename.replace('Ignite_', '').replace('.mid', '').split('_').slice(0, 3).join(' ');
+
+            card.innerHTML = `
+                <div class="flex items-center gap-4 pointer-events-none">
+                    <button class="play-btn pointer-events-auto w-10 h-10 rounded-full bg-gradient-to-r from-orange-500/20 to-red-500/20 flex items-center justify-center border border-orange-500/30 hover:from-orange-500/40 hover:to-red-500/40 text-orange-400 transition-all shadow-[0_0_15px_rgba(255,94,0,0.1)]">
+                        <svg class="w-4 h-4 ml-1 play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        <svg class="w-4 h-4 stop-icon hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
+                    </button>
+                    <div>
+                        <h4 class="text-xs font-black text-gray-200 uppercase tracking-widest">VARIATION ${index}</h4>
+                        <p class="text-[9px] text-gray-500 uppercase tracking-widest font-bold mt-1">${params.bars} BARS • ${params.bpm} BPM</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-orange-400 font-bold uppercase tracking-widest mr-2 pointer-events-none">DRAG TO DAW</div>
+                    <a href="${objectUrl}" download="${filename}" class="pointer-events-auto text-gray-500 hover:text-white p-2 transition-colors" title="Download manually">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    </a>
+                </div>
+            `;
+
+            // Drag Events
+            card.addEventListener('dragstart', (e) => {
+                // Formatting specifically for DAW consumption
+                e.dataTransfer.setData('DownloadURL', `audio/midi:${filename}:${dataUrl}`);
+                e.dataTransfer.setData('application/x-midi', dataUrl); // Fallback
+                e.dataTransfer.effectAllowed = 'copy';
+                
+                // Create Ghost Icon (Visual feedback during drag)
+                const dragIcon = document.createElement('div');
+                dragIcon.className = "bg-gradient-to-r from-orange-500 to-red-600 text-white font-black text-xs px-4 py-2 rounded-lg absolute -left-[9999px] shadow-lg border border-white/20 z-50";
+                dragIcon.innerHTML = "MIDI DATA";
+                document.body.appendChild(dragIcon);
+                e.dataTransfer.setDragImage(dragIcon, 20, 20);
+                setTimeout(() => document.body.removeChild(dragIcon), 100);
+            });
+
+            // Play Event
+            const playBtn = card.querySelector('.play-btn');
+            playBtn.addEventListener('click', async (e) => {
+                e.stopPropagation(); // Prevent drag interference
+                await togglePlayback(arrayBuffer, playBtn);
+            });
+
+            resultsContainer.appendChild(card);
+        }
+
         async function generateMidi() {
             const btn = document.getElementById('generate-btn');
             const btnText = document.getElementById('btn-text');
@@ -551,6 +675,15 @@
                 console.error("Firestore Check Error:", err);
             }
 
+            // UI Reset & Loading State
+            resultsContainer.innerHTML = '';
+            resultsContainer.classList.add('hidden');
+            
+            // Stop any playing audio before generating
+            Tone.Transport.stop();
+            currentSynths.forEach(s => s.dispose());
+            currentSynths = [];
+
             btn.disabled = true;
             btn.classList.add('opacity-80', 'cursor-wait');
             wandIcon.classList.add('hidden');
@@ -580,7 +713,6 @@
             const requests = Array.from({ length: selectedQty }, () => {
                 let finalDensity = 50;
                 let finalArtic = "balanced";
-                
                 let finalPitchBend = "off";
                 let finalSustain = "dry";
 
@@ -639,24 +771,32 @@
                 for (let i = 0; i < responses.length; i++) {
                     if (responses[i].ok) {
                         const blob = await responses[i].blob();
-                        const downloadUrl = window.URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = downloadUrl;
+                        const arrayBuffer = await blob.arrayBuffer();
                         
-                        const safeStyle = basePayload.style.replace(/[^a-zA-Z0-9]/g, '');
-                        const safeKey = basePayload.key.replace('#', 'Sharp');
-                        const timestamp = new Date().toISOString().slice(11,19).replace(/:/g, "");
-                        a.download = `Ignite_V${i+1}_${safeStyle}_${safeKey}_${basePayload.bpm}BPM_${timestamp}.mid`;
-                        
-                        document.body.appendChild(a);
-                        a.click();
-                        a.remove();
+                        // We need the file as DataURL for dragging into DAWs
+                        await new Promise((resolve) => {
+                            const reader = new FileReader();
+                            reader.onload = function(e) {
+                                const dataUrl = e.target.result;
+                                const objectUrl = window.URL.createObjectURL(blob);
+                                
+                                const safeStyle = basePayload.style.replace(/[^a-zA-Z0-9]/g, '');
+                                const safeKey = basePayload.key.replace('#', 'Sharp');
+                                const timestamp = new Date().toISOString().slice(11,19).replace(/:/g, "");
+                                const filename = `Ignite_V${i+1}_${safeStyle}_${safeKey}_${basePayload.bpm}BPM_${timestamp}.mid`;
+                                
+                                createResultCard(filename, objectUrl, dataUrl, arrayBuffer, i + 1, basePayload);
+                                resolve();
+                            };
+                            reader.readAsDataURL(blob);
+                        });
+
                         successCount++;
                     }
                 }
 
                 if (successCount > 0) {
-                    status.innerText = `🔥 ${successCount} IDEAS DOWNLOADED!`;
+                    status.innerText = `🔥 ${successCount} IDEAS READY FOR DAW!`;
                     status.className = "text-[11px] text-green-500 uppercase tracking-widest font-black";
                     
                     btnText.innerText = `SUCCESS! (${successCount})`;
@@ -694,7 +834,7 @@
                     wandIcon.classList.remove('hidden');
                     btnText.innerText = "INSPIRE ME";
                     
-                    if(status.innerText.includes("DOWNLOADED")) {
+                    if(status.innerText.includes("READY")) {
                         status.innerText = "ENGINE READY";
                         status.className = "text-[11px] text-gray-500 uppercase tracking-widest font-bold transition-colors duration-1000";
                     }
@@ -754,4 +894,3 @@
     </script>
 </body>
 </html>
-
