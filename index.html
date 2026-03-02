@@ -94,7 +94,6 @@
             letter-spacing: 0.1em;
         }
         
-        /* Drag helper classes */
         .drag-active {
             border-color: rgba(255, 94, 0, 0.8) !important;
             box-shadow: 0 0 20px rgba(255, 94, 0, 0.2) !important;
@@ -515,29 +514,21 @@
             auth.signOut();
         }
 
-        // --- Aggressive Drag & Drop Engine (with Graceful Degradation for Safari/Firefox) ---
-        function createResultCard(filename, objectUrl, originalDataUrl, index, params) {
+        // --- Pure Data-URI Injection Engine ---
+        function createResultCard(filename, dataUrl, objectUrl, index, params) {
             resultsContainer.classList.remove('hidden');
             
-            // Browser Detection
             const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
             const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
-            const canDragToDAW = !(isSafari || isFirefox); // Chrome, Edge, Arc, Brave will evaluate to true
+            const canDragToDAW = !(isSafari || isFirefox); 
 
-            // Forcing OS-level binary download behavior for Chromium
-            const binaryDataUrl = originalDataUrl.replace(/^data:[^;]+/, 'data:application/octet-stream');
-
-            const card = document.createElement('a');
-            // If dragging is supported, use the Base64 binary URL. If not, use the fast Object URL for direct click-download.
-            card.href = canDragToDAW ? binaryDataUrl : objectUrl; 
-            card.download = filename;
+            // THE FIX: Using a clean <div> instead of <a> to prevent native browser link-dragging conflicts.
+            const card = document.createElement('div');
             card.draggable = canDragToDAW;
             
-            // Adjust cursor based on browser support
             const cursorClass = canDragToDAW ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer';
             card.className = `result-card block bg-black/40 border border-white/5 hover:border-orange-500/40 transition-all rounded-2xl p-4 group select-none ${cursorClass}`;
 
-            // Dynamic UI based on browser capabilities
             const actionText = canDragToDAW ? 'DRAG TO DAW' : 'CLICK TO DOWNLOAD';
             const actionIcon = canDragToDAW 
                 ? `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9h8M8 15h8"></path></svg>`
@@ -568,18 +559,12 @@
             `;
 
             if (canDragToDAW) {
-                // Prevent normal click from triggering a download in Chromium, unless they hit the specific download icon
-                card.addEventListener('click', (e) => {
-                    if (!e.target.closest('.download-btn')) {
-                        e.preventDefault(); 
-                    }
-                });
-
-                // The specific DownloadURL hack for Chrome/Edge
+                // THE FIX: Strict formatting of DownloadURL with proper audio/midi MIME type. 
+                // This forces the OS to create a real .mid file behind the scenes that the DAW will recognize.
                 card.addEventListener('dragstart', (e) => {
                     card.classList.add('drag-active');
-                    const downloadUrlFormat = `application/octet-stream:${filename}:${binaryDataUrl}`;
-                    e.dataTransfer.setData('DownloadURL', downloadUrlFormat);
+                    e.dataTransfer.clearData();
+                    e.dataTransfer.setData('DownloadURL', `audio/midi:${filename}:${dataUrl}`);
                     
                     const dragIcon = document.createElement('div');
                     dragIcon.className = "bg-gradient-to-r from-orange-500 to-red-600 text-white font-black text-xs px-4 py-2 rounded-lg absolute -left-[9999px] shadow-lg border border-white/20 z-50 pointer-events-none";
@@ -593,24 +578,31 @@
                     card.classList.remove('drag-active');
                 });
 
-                // Manual Explicit Download Button (only shown in Chromium)
+                // Manual explicit download button
                 const downloadBtn = card.querySelector('.download-btn');
                 if (downloadBtn) {
                     downloadBtn.addEventListener('click', (e) => {
                         e.stopPropagation(); 
-                        const tempLink = document.createElement('a');
-                        tempLink.href = objectUrl; 
-                        tempLink.download = filename;
-                        document.body.appendChild(tempLink);
-                        tempLink.click();
-                        tempLink.remove();
+                        triggerDownload(objectUrl, filename);
                     });
                 }
-            } 
-            // Note: If canDragToDAW is false (Safari/FF), we DON'T add event.preventDefault() to the click.
-            // This means clicking anywhere on the card will naturally trigger the <a> tag's default download behavior.
+            } else {
+                // Fallback for Safari/Firefox: clicking the card itself downloads it
+                card.addEventListener('click', () => {
+                    triggerDownload(objectUrl, filename);
+                });
+            }
 
             resultsContainer.appendChild(card);
+        }
+
+        function triggerDownload(url, filename) {
+            const tempLink = document.createElement('a');
+            tempLink.href = url; 
+            tempLink.download = filename;
+            document.body.appendChild(tempLink);
+            tempLink.click();
+            tempLink.remove();
         }
 
         async function generateMidi() {
@@ -747,24 +739,26 @@
                 for (let i = 0; i < responses.length; i++) {
                     if (responses[i].ok) {
                         const blob = await responses[i].blob();
+                        const arrayBuffer = await blob.arrayBuffer();
                         
-                        await new Promise((resolve) => {
-                            const reader = new FileReader();
-                            reader.onload = function(e) {
-                                const originalDataUrl = e.target.result;
-                                const objectUrl = window.URL.createObjectURL(blob); 
-                                
-                                const safeStyle = basePayload.style.replace(/[^a-zA-Z0-9]/g, '');
-                                const safeKey = basePayload.key.replace('#', 'Sharp');
-                                const timestamp = new Date().toISOString().slice(11,19).replace(/:/g, "");
-                                const filename = `Ignite_V${i+1}_${safeStyle}_${safeKey}_${basePayload.bpm}BPM_${timestamp}.mid`;
-                                
-                                createResultCard(filename, objectUrl, originalDataUrl, i + 1, basePayload);
-                                resolve();
-                            };
-                            reader.readAsDataURL(blob);
-                        });
-
+                        // THE FIX: Strict Manual Base64 encoding. 
+                        // Prevents the browser's FileReader from guessing wrong MIME types and breaking DAW imports.
+                        const uint8Array = new Uint8Array(arrayBuffer);
+                        let binaryString = '';
+                        for (let j = 0; j < uint8Array.byteLength; j++) {
+                            binaryString += String.fromCharCode(uint8Array[j]);
+                        }
+                        const base64Data = window.btoa(binaryString);
+                        const cleanDataUrl = `data:audio/midi;base64,${base64Data}`;
+                        
+                        const objectUrl = window.URL.createObjectURL(blob); 
+                        
+                        const safeStyle = basePayload.style.replace(/[^a-zA-Z0-9]/g, '');
+                        const safeKey = basePayload.key.replace('#', 'Sharp');
+                        const timestamp = new Date().toISOString().slice(11,19).replace(/:/g, "");
+                        const filename = `Ignite_V${i+1}_${safeStyle}_${safeKey}_${basePayload.bpm}BPM_${timestamp}.mid`;
+                        
+                        createResultCard(filename, cleanDataUrl, objectUrl, i + 1, basePayload);
                         successCount++;
                     }
                 }
