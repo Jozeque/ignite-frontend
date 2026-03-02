@@ -580,42 +580,62 @@
         function createResultCard(filename, objectUrl, dataUrl, arrayBuffer, index, params) {
             resultsContainer.classList.remove('hidden');
             
-            const card = document.createElement('div');
-            card.className = "result-card bg-black/40 border border-white/5 hover:border-orange-500/40 transition-all rounded-2xl p-4 flex items-center justify-between cursor-grab active:cursor-grabbing group";
+            // MAGIC FIX: Wrapping in an <a> tag with href and download tells the browser
+            // to natively construct a real OS file object during the drag operation.
+            const card = document.createElement('a');
+            card.href = dataUrl; // Use Base64 string to ensure the file is self-contained
+            card.download = filename;
+            card.className = "result-card block bg-black/40 border border-white/5 hover:border-orange-500/40 transition-all rounded-2xl p-4 cursor-grab active:cursor-grabbing group select-none";
             card.draggable = true;
 
-            // Using the filename as title but cleaning it up visually
             const visualTitle = filename.replace('Ignite_', '').replace('.mid', '').split('_').slice(0, 3).join(' ');
 
             card.innerHTML = `
-                <div class="flex items-center gap-4 pointer-events-none">
-                    <button class="play-btn pointer-events-auto w-10 h-10 rounded-full bg-gradient-to-r from-orange-500/20 to-red-500/20 flex items-center justify-center border border-orange-500/30 hover:from-orange-500/40 hover:to-red-500/40 text-orange-400 transition-all shadow-[0_0_15px_rgba(255,94,0,0.1)]">
-                        <svg class="w-4 h-4 ml-1 play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                        <svg class="w-4 h-4 stop-icon hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
-                    </button>
-                    <div>
-                        <h4 class="text-xs font-black text-gray-200 uppercase tracking-widest">VARIATION ${index}</h4>
-                        <p class="text-[9px] text-gray-500 uppercase tracking-widest font-bold mt-1">${params.bars} BARS • ${params.bpm} BPM</p>
+                <div class="flex items-center justify-between pointer-events-none w-full">
+                    <div class="flex items-center gap-4">
+                        <button class="play-btn pointer-events-auto w-10 h-10 rounded-full bg-gradient-to-r from-orange-500/20 to-red-500/20 flex items-center justify-center border border-orange-500/30 hover:from-orange-500/40 hover:to-red-500/40 text-orange-400 transition-all shadow-[0_0_15px_rgba(255,94,0,0.1)]">
+                            <svg class="w-4 h-4 ml-1 play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            <svg class="w-4 h-4 stop-icon hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
+                        </button>
+                        <div>
+                            <h4 class="text-xs font-black text-gray-200 uppercase tracking-widest">VARIATION ${index}</h4>
+                            <p class="text-[9px] text-gray-500 uppercase tracking-widest font-bold mt-1">${params.bars} BARS • ${params.bpm} BPM</p>
+                        </div>
                     </div>
-                </div>
-                <div class="flex items-center gap-2">
-                    <div class="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-orange-400 font-bold uppercase tracking-widest mr-2 pointer-events-none">DRAG TO DAW</div>
-                    <a href="${objectUrl}" download="${filename}" class="pointer-events-auto text-gray-500 hover:text-white p-2 transition-colors" title="Download manually">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                    </a>
+                    <div class="flex items-center gap-2">
+                        <div class="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-orange-400 font-bold uppercase tracking-widest mr-2">DRAG TO DAW</div>
+                        <button class="download-btn pointer-events-auto text-gray-500 hover:text-white p-2 transition-colors" title="Download manually">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        </button>
+                    </div>
                 </div>
             `;
 
+            // Click interceptor
+            card.addEventListener('click', (e) => {
+                e.preventDefault(); // Stop native navigation/download on normal clicks to avoid accidental downloads
+                
+                if (e.target.closest('.download-btn')) {
+                    // Manual explicit download when the icon is clicked
+                    const tempLink = document.createElement('a');
+                    tempLink.href = objectUrl;
+                    tempLink.download = filename;
+                    document.body.appendChild(tempLink);
+                    tempLink.click();
+                    tempLink.remove();
+                } 
+                // Play logic is handled separately below
+            });
+
             // Drag Events
             card.addEventListener('dragstart', (e) => {
-                // Formatting specifically for DAW consumption
+                // The native <a> tag naturally handles OS file generation, but we add DownloadURL for maximum DAW compatibility
                 e.dataTransfer.setData('DownloadURL', `audio/midi:${filename}:${dataUrl}`);
-                e.dataTransfer.setData('application/x-midi', dataUrl); // Fallback
                 e.dataTransfer.effectAllowed = 'copy';
                 
-                // Create Ghost Icon (Visual feedback during drag)
+                // Ghost Icon setup
                 const dragIcon = document.createElement('div');
-                dragIcon.className = "bg-gradient-to-r from-orange-500 to-red-600 text-white font-black text-xs px-4 py-2 rounded-lg absolute -left-[9999px] shadow-lg border border-white/20 z-50";
+                dragIcon.className = "bg-gradient-to-r from-orange-500 to-red-600 text-white font-black text-xs px-4 py-2 rounded-lg absolute -left-[9999px] shadow-lg border border-white/20 z-50 pointer-events-none";
                 dragIcon.innerHTML = "MIDI DATA";
                 document.body.appendChild(dragIcon);
                 e.dataTransfer.setDragImage(dragIcon, 20, 20);
@@ -625,7 +645,8 @@
             // Play Event
             const playBtn = card.querySelector('.play-btn');
             playBtn.addEventListener('click', async (e) => {
-                e.stopPropagation(); // Prevent drag interference
+                e.preventDefault();
+                e.stopPropagation();
                 await togglePlayback(arrayBuffer, playBtn);
             });
 
