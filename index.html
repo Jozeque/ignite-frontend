@@ -60,6 +60,7 @@
             cursor: pointer;
             margin-top: -8px;
             box-shadow: 0 0 10px rgba(255, 94, 0, 0.6);
+            transition: background 0.3s, box-shadow 0.3s;
         }
         input[type=range]::-webkit-slider-runnable-track {
             width: 100%;
@@ -69,6 +70,12 @@
             border-radius: 2px;
         }
         input[type=range]:focus { outline: none; }
+
+        /* Dynamic Cosmic Colors for Sliders */
+        .cosmic-active input[type=range]::-webkit-slider-thumb {
+            background: #a855f7;
+            box-shadow: 0 0 10px rgba(168, 85, 247, 0.6);
+        }
 
         .pro-input {
             background: rgba(0, 0, 0, 0.4);
@@ -109,6 +116,12 @@
             font-size: 10px;
             font-weight: 900;
             letter-spacing: 0.1em;
+        }
+        
+        .cosmic-toggle:checked + div {
+            background-color: #a855f7;
+            border-color: #c084fc;
+            box-shadow: 0 0 15px rgba(168, 85, 247, 0.6);
         }
     </style>
 </head>
@@ -231,9 +244,18 @@
                         </select>
                     </div>
                 </div>
+
+                <div class="mb-8 bg-black/20 p-5 rounded-2xl border border-purple-500/10">
+                    <div class="flex justify-between text-xs mb-3 font-medium">
+                        <span class="text-gray-400">Cosmic Flow (Density)</span>
+                        <span id="cosmic-dens-v" class="text-purple-400">50%</span>
+                    </div>
+                    <input type="range" id="cosmic-density" min="1" max="100" value="50" oninput="document.getElementById('cosmic-dens-v').innerText = this.value + '%'">
+                </div>
+
                 <div class="mb-8 p-4 bg-purple-900/10 rounded-xl border border-purple-500/20">
                     <p class="text-[10px] text-purple-300/70 uppercase tracking-widest text-center leading-relaxed">
-                        Notice: Uses melodic arpeggiation (No block chords).<br>Ancient intonation applied via microtonal Pitch Bend.
+                        Notice: AI will generate a straight Bass Drone.<br>Ancient tuning is applied to the upper magic range.
                     </p>
                 </div>
             </div>
@@ -433,6 +455,7 @@
             
             <div class="space-y-4 text-xs text-gray-300 mb-8">
                 <p><strong class="text-white">COSMIC MODE:</strong> Dreamy, cinematic sequence generation. Uses strict rhythmic algorithms (Fibonacci, Tesla 3-6-9) and applies ancient Just Intonation tuning via sequential pitchwheel micro-bending. No block chords.</p>
+                <p><strong class="text-white">Cosmic Flow:</strong> Controls the density and speed of the sequence. Low = Nebula (Sparse/Dreamy), High = Quantum (Rolling/Fast).</p>
                 <p><strong class="text-white">Style:</strong> Defines the overarching genre, phrasing, and feeling of the MIDI.</p>
                 <p><strong class="text-white">Key & Mode:</strong> Sets the tonal center and musical scale the generation adheres to.</p>
                 <p><strong class="text-white">Tempo & Bars:</strong> Determines the speed (BPM) and the total length of the sequence.</p>
@@ -775,7 +798,8 @@
                     ancient_scale: document.getElementById('cosmic-scale').value,
                     key: document.getElementById('cosmic-key').value,
                     bpm: parseInt(document.getElementById('cosmic-bpm').value),
-                    bars: parseInt(document.getElementById('cosmic-bars').value)
+                    bars: parseInt(document.getElementById('cosmic-bars').value),
+                    cosmic_density: parseInt(document.getElementById('cosmic-density').value)
                 };
             } else {
                 basePayload = {
