@@ -11,7 +11,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-storage-compat.js"></script>
     
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700;900&display=swap" rel="stylesheet">
 
@@ -94,12 +93,6 @@
             font-size: 10px;
             font-weight: 900;
             letter-spacing: 0.1em;
-        }
-        
-        .drag-active {
-            border-color: rgba(255, 94, 0, 0.8) !important;
-            box-shadow: 0 0 20px rgba(255, 94, 0, 0.2) !important;
-            transform: scale(0.98);
         }
     </style>
 </head>
@@ -387,7 +380,6 @@
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
-        const storage = firebase.storage(); // אתחול של מודול האחסון
 
         const authModal = document.getElementById('auth-modal');
         const appContent = document.getElementById('app-content');
@@ -517,27 +509,15 @@
             auth.signOut();
         }
 
-        // --- The Ultimate Cloud Storage Drag Engine ---
-        function createResultCard(filename, firebaseUrl, objectUrl, index, params) {
+        // --- The Pro Web Workflow: Download & Drag from Browser Bar ---
+        function createResultCard(filename, objectUrl, index, params) {
             resultsContainer.classList.remove('hidden');
             
-            const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-            const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
-            const canDragToDAW = !(isSafari || isFirefox); 
-
             const card = document.createElement('div');
-            card.draggable = canDragToDAW;
-            
-            const cursorClass = canDragToDAW ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer';
-            card.className = `result-card block bg-black/40 border border-white/5 hover:border-orange-500/40 transition-all rounded-2xl p-4 group select-none ${cursorClass}`;
-
-            const actionText = canDragToDAW ? 'DRAG TO DAW' : 'CLICK TO DOWNLOAD';
-            const actionIcon = canDragToDAW 
-                ? `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9h8M8 15h8"></path></svg>`
-                : `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>`;
+            card.className = "result-card block bg-black/40 border border-white/5 hover:border-orange-500/40 transition-all rounded-2xl p-4 group select-none cursor-pointer relative overflow-hidden";
 
             card.innerHTML = `
-                <div class="flex items-center justify-between w-full pointer-events-none">
+                <div class="flex items-center justify-between w-full pointer-events-none z-10 relative">
                     <div class="flex items-center gap-4">
                         <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500/20 to-red-500/20 flex items-center justify-center border border-orange-500/30 text-orange-400 shadow-[0_0_15px_rgba(255,94,0,0.1)]">
                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg>
@@ -547,68 +527,57 @@
                             <p class="text-[9px] text-gray-500 uppercase tracking-widest font-bold mt-1">${params.bars} BARS • ${params.bpm} BPM</p>
                         </div>
                     </div>
-                    <div class="flex items-center gap-3 pointer-events-auto">
-                        <div class="text-[10px] text-orange-400 font-bold uppercase tracking-widest flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity pointer-events-none">
-                            ${actionIcon}
-                            ${actionText}
+                    
+                    <div class="ui-default flex items-center gap-3 transition-opacity duration-300">
+                        <div class="text-[10px] text-orange-400 font-bold uppercase tracking-widest flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                            CLICK TO DOWNLOAD
                         </div>
-                        ${canDragToDAW ? `
-                        <button class="download-btn text-gray-500 hover:text-white p-2 transition-colors z-10" title="Download manually">
-                            <svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                        </button>` : ''}
+                    </div>
+
+                    <div class="ui-success hidden items-center gap-2 absolute right-0">
+                        <div class="text-[10px] text-green-400 font-bold uppercase tracking-widest flex items-center gap-1 bg-green-900/30 px-3 py-1.5 rounded-lg border border-green-500/30">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            READY IN DOWNLOADS BAR
+                        </div>
                     </div>
                 </div>
             `;
 
-            if (canDragToDAW) {
-                card.addEventListener('dragstart', (e) => {
-                    card.classList.add('drag-active');
-                    e.dataTransfer.clearData();
-                    
-                    // THE FIX: We pass the real HTTPS Firebase URL directly to Ableton.
-                    // Ableton knows exactly how to handle an incoming web link -> it downloads and imports it.
-                    const downloadUrlFormat = `application/octet-stream:${filename}:${firebaseUrl}`;
-                    e.dataTransfer.setData('DownloadURL', downloadUrlFormat);
-                    
-                    // Fallbacks for DAWs that prefer direct URL parsing
-                    e.dataTransfer.setData('text/uri-list', firebaseUrl);
-                    e.dataTransfer.setData('text/plain', firebaseUrl);
-                    
-                    const dragIcon = document.createElement('div');
-                    dragIcon.className = "bg-gradient-to-r from-orange-500 to-red-600 text-white font-black text-xs px-4 py-2 rounded-lg absolute -left-[9999px] shadow-lg border border-white/20 z-50 pointer-events-none";
-                    dragIcon.innerHTML = "MIDI DATA";
-                    document.body.appendChild(dragIcon);
-                    e.dataTransfer.setDragImage(dragIcon, 20, 20);
-                    setTimeout(() => document.body.removeChild(dragIcon), 100);
-                });
+            // On Click -> Download -> Update UI to tell them to drag from their browser
+            card.addEventListener('click', () => {
+                // Trigger the actual physical download
+                const tempLink = document.createElement('a');
+                tempLink.href = objectUrl; 
+                tempLink.download = filename;
+                document.body.appendChild(tempLink);
+                tempLink.click();
+                tempLink.remove();
 
-                card.addEventListener('dragend', () => {
-                    card.classList.remove('drag-active');
-                });
-
-                const downloadBtn = card.querySelector('.download-btn');
-                if (downloadBtn) {
-                    downloadBtn.addEventListener('click', (e) => {
-                        e.stopPropagation(); 
-                        triggerDownload(objectUrl, filename);
-                    });
-                }
-            } else {
-                card.addEventListener('click', () => {
-                    triggerDownload(objectUrl, filename);
-                });
-            }
+                // UI Feedback
+                card.classList.add('border-green-500/40', 'bg-green-900/10');
+                card.classList.remove('hover:border-orange-500/40');
+                
+                const defaultUi = card.querySelector('.ui-default');
+                const successUi = card.querySelector('.ui-success');
+                
+                defaultUi.classList.add('hidden');
+                defaultUi.classList.remove('flex');
+                successUi.classList.remove('hidden');
+                successUi.classList.add('flex');
+                
+                // Reset UI after a few seconds so they can download again if needed
+                setTimeout(() => {
+                    card.classList.remove('border-green-500/40', 'bg-green-900/10');
+                    card.classList.add('hover:border-orange-500/40');
+                    successUi.classList.add('hidden');
+                    successUi.classList.remove('flex');
+                    defaultUi.classList.remove('hidden');
+                    defaultUi.classList.add('flex');
+                }, 4000);
+            });
 
             resultsContainer.appendChild(card);
-        }
-
-        function triggerDownload(url, filename) {
-            const tempLink = document.createElement('a');
-            tempLink.href = url; 
-            tempLink.download = filename;
-            document.body.appendChild(tempLink);
-            tempLink.click();
-            tempLink.remove();
         }
 
         async function generateMidi() {
@@ -654,6 +623,7 @@
                 console.error("Firestore Check Error:", err);
             }
 
+            // UI Reset & Loading State
             resultsContainer.innerHTML = '';
             resultsContainer.classList.add('hidden');
 
@@ -744,28 +714,20 @@
                 for (let i = 0; i < responses.length; i++) {
                     if (responses[i].ok) {
                         const blob = await responses[i].blob();
+                        const objectUrl = window.URL.createObjectURL(blob); 
                         
                         const safeStyle = basePayload.style.replace(/[^a-zA-Z0-9]/g, '');
                         const safeKey = basePayload.key.replace('#', 'Sharp');
                         const timestamp = new Date().toISOString().slice(11,19).replace(/:/g, "");
                         const filename = `Ignite_V${i+1}_${safeStyle}_${safeKey}_${basePayload.bpm}BPM_${timestamp}.mid`;
-
-                        // THE FIX: Upload the blob to Firebase Storage instantly
-                        status.innerText = `SYNCING IDEA ${i+1} TO CLOUD...`;
-                        const storageRef = storage.ref(`temp_midi_generations/${user.uid}/${filename}`);
-                        await storageRef.put(blob);
-                        const firebaseUrl = await storageRef.getDownloadURL();
                         
-                        // Keep ObjectURL for fast manual UI downloads
-                        const objectUrl = window.URL.createObjectURL(blob); 
-                        
-                        createResultCard(filename, firebaseUrl, objectUrl, i + 1, basePayload);
+                        createResultCard(filename, objectUrl, i + 1, basePayload);
                         successCount++;
                     }
                 }
 
                 if (successCount > 0) {
-                    status.innerText = `🔥 ${successCount} IDEAS READY FOR ABLETON!`;
+                    status.innerText = `🔥 ${successCount} IDEAS READY FOR DAW!`;
                     status.className = "text-[11px] text-green-500 uppercase tracking-widest font-black";
                     
                     btnText.innerText = `SUCCESS! (${successCount})`;
