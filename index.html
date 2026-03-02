@@ -110,12 +110,6 @@
             font-weight: 900;
             letter-spacing: 0.1em;
         }
-        
-        .cosmic-toggle:checked + div {
-            background-color: #a855f7;
-            border-color: #c084fc;
-            box-shadow: 0 0 15px rgba(168, 85, 247, 0.6);
-        }
     </style>
 </head>
 <body class="text-gray-100 min-h-screen flex flex-col items-center justify-center p-4 relative overflow-x-hidden">
@@ -179,15 +173,15 @@
 
         <div class="glass-panel rounded-3xl p-8 w-full relative">
             
-            <div class="mb-8 flex items-center justify-between bg-black/40 p-4 rounded-2xl border border-purple-500/20 shadow-[0_0_20px_rgba(168,85,247,0.05)]">
-                <div>
-                    <span class="text-sm font-black text-purple-400 uppercase tracking-widest block">COSMIC MODE</span>
-                    <span class="text-[9px] text-gray-500 uppercase tracking-widest font-bold">Math Rhythm & Ancient Tuning</span>
+            <div class="flex justify-center mb-8">
+                <div class="inline-flex items-center gap-4 bg-black/30 px-5 py-2.5 rounded-full border border-white/5 shadow-inner">
+                    <span id="label-standard" class="text-[10px] font-black tracking-[0.2em] text-orange-400 transition-colors uppercase">STANDARD</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="cosmic-toggle" class="sr-only peer" onchange="toggleCosmicUI()">
+                        <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600 border border-gray-600"></div>
+                    </label>
+                    <span id="label-cosmic" class="text-[10px] font-black tracking-[0.2em] text-gray-500 transition-colors uppercase">COSMIC</span>
                 </div>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" id="cosmic-toggle" class="sr-only cosmic-toggle" onchange="toggleCosmicUI()">
-                    <div class="w-11 h-6 bg-gray-800 rounded-full border border-gray-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
-                </label>
             </div>
 
             <div id="cosmic-params" class="hidden animate-fade-in">
@@ -478,6 +472,8 @@
             const cosmicParams = document.getElementById('cosmic-params');
             const btn = document.getElementById('generate-btn');
             const title = document.getElementById('brand-title');
+            const lblStandard = document.getElementById('label-standard');
+            const lblCosmic = document.getElementById('label-cosmic');
             
             if (isCosmic) {
                 document.body.classList.add('cosmic-active');
@@ -486,7 +482,9 @@
                 
                 title.classList.replace('from-orange-400', 'from-purple-400');
                 title.classList.replace('to-red-500', 'to-indigo-500');
-                title.innerText = "COSMIC";
+                
+                lblStandard.classList.replace('text-orange-400', 'text-gray-500');
+                lblCosmic.classList.replace('text-gray-500', 'text-purple-400');
                 
                 btn.classList.replace('from-orange-500', 'from-purple-600');
                 btn.classList.replace('to-red-600', 'to-indigo-600');
@@ -504,7 +502,9 @@
                 
                 title.classList.replace('from-purple-400', 'from-orange-400');
                 title.classList.replace('to-indigo-500', 'to-red-500');
-                title.innerText = "IGNITE";
+                
+                lblStandard.classList.replace('text-gray-500', 'text-orange-400');
+                lblCosmic.classList.replace('text-purple-400', 'text-gray-500');
                 
                 btn.classList.replace('from-purple-600', 'from-orange-500');
                 btn.classList.replace('to-indigo-600', 'to-red-600');
@@ -653,7 +653,7 @@
                 <div class="flex items-center justify-between w-full pointer-events-none z-10 relative">
                     <div class="flex items-center gap-4">
                         <div class="w-10 h-10 rounded-xl bg-gradient-to-br ${colorClass} flex items-center justify-center border shadow-[0_0_15px_rgba(0,0,0,0.2)]">
-                           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg>
+                           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg>
                         </div>
                         <div>
                             <h4 class="text-xs font-black text-gray-200 uppercase tracking-widest">VARIATION ${index}</h4>
