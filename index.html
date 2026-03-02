@@ -111,7 +111,6 @@
             letter-spacing: 0.1em;
         }
         
-        /* Toggle Switch for Cosmic Mode */
         .cosmic-toggle:checked + div {
             background-color: #a855f7;
             border-color: #c084fc;
@@ -183,7 +182,7 @@
             <div class="mb-8 flex items-center justify-between bg-black/40 p-4 rounded-2xl border border-purple-500/20 shadow-[0_0_20px_rgba(168,85,247,0.05)]">
                 <div>
                     <span class="text-sm font-black text-purple-400 uppercase tracking-widest block">COSMIC MODE</span>
-                    <span class="text-[9px] text-gray-500 uppercase tracking-widest font-bold">Sacred Math & Microtonality</span>
+                    <span class="text-[9px] text-gray-500 uppercase tracking-widest font-bold">Math Rhythm & Ancient Tuning</span>
                 </div>
                 <label class="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" id="cosmic-toggle" class="sr-only cosmic-toggle" onchange="toggleCosmicUI()">
@@ -194,22 +193,33 @@
             <div id="cosmic-params" class="hidden animate-fade-in">
                 <div class="flex items-center gap-3 mb-6">
                     <div class="h-[1px] flex-1 bg-gradient-to-r from-transparent to-purple-900"></div>
-                    <span class="text-[10px] text-purple-400 uppercase tracking-widest font-bold">Universal Algorithms</span>
+                    <span class="text-[10px] text-purple-400 uppercase tracking-widest font-bold">Dreamy Algorithms</span>
                     <div class="h-[1px] flex-1 bg-gradient-to-l from-transparent to-purple-900"></div>
                 </div>
 
-                <div class="mb-6">
-                    <label class="block text-xs text-gray-400 mb-1.5 ml-1 font-medium">Sacred Logic</label>
-                    <select id="cosmic-algo" class="w-full pro-input rounded-xl p-3.5 text-sm appearance-none border-purple-900/50 focus:border-purple-500">
-                        <option value="tesla">Tesla 3-6-9 (Microtonal 432Hz)</option>
-                        <option value="fibonacci">Fibonacci Sequence (Mathematical Grid)</option>
-                        <option value="golden_ratio">Golden Ratio 1.618 (Polyrhythmic Density)</option>
-                    </select>
+                <div class="grid grid-cols-2 gap-4 mb-5">
+                    <div>
+                        <label class="block text-[11px] text-gray-400 mb-1.5 ml-1 font-medium truncate">Ancient Tonality</label>
+                        <select id="cosmic-scale" class="w-full pro-input rounded-xl p-3.5 text-xs appearance-none border-purple-900/50 focus:border-purple-500">
+                            <option value="celestial">Celestial (Lydian)</option>
+                            <option value="mystic">Mystic (Hirajōshi)</option>
+                            <option value="ethereal">Ethereal (Pentatonic)</option>
+                            <option value="enigmatic">Enigmatic (Byzantine)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-gray-400 mb-1.5 ml-1 font-medium truncate">Sacred Rhythm</label>
+                        <select id="cosmic-algo" class="w-full pro-input rounded-xl p-3.5 text-xs appearance-none border-purple-900/50 focus:border-purple-500">
+                            <option value="tesla">Tesla 3-6-9</option>
+                            <option value="fibonacci">Fibonacci Sequence</option>
+                            <option value="golden_ratio">Golden Ratio 1.618</option>
+                        </select>
+                    </div>
                 </div>
                 
                 <div class="grid grid-cols-3 gap-4 mb-8">
                     <div>
-                        <label class="block text-[11px] text-gray-400 mb-1.5 ml-1 font-medium truncate">Root (Anchor)</label>
+                        <label class="block text-[11px] text-gray-400 mb-1.5 ml-1 font-medium truncate">Anchor Root</label>
                         <select id="cosmic-key" class="w-full pro-input rounded-xl p-3.5 text-sm appearance-none border-purple-900/50 focus:border-purple-500 text-purple-400 font-bold text-center">
                             <option>C</option><option>C#</option><option>D</option><option>D#</option>
                             <option>E</option><option>F</option><option>F#</option><option>G</option>
@@ -229,7 +239,7 @@
                 </div>
                 <div class="mb-8 p-4 bg-purple-900/10 rounded-xl border border-purple-500/20">
                     <p class="text-[10px] text-purple-300/70 uppercase tracking-widest text-center leading-relaxed">
-                        Notice: Tuning is hardcoded to 432Hz via Pitch Bend.<br>Voicing spectrum is forced to 6 octaves.
+                        Notice: Uses melodic arpeggiation (No block chords).<br>Ancient intonation applied via microtonal Pitch Bend.
                     </p>
                 </div>
             </div>
@@ -428,7 +438,7 @@
             <p class="text-xs text-gray-400 mb-6 uppercase tracking-widest">Parameter Breakdown</p>
             
             <div class="space-y-4 text-xs text-gray-300 mb-8">
-                <p><strong class="text-white">COSMIC MODE:</strong> Bypasses all standard theory. Enforces hardcoded mathematical generation (Fibonacci, Tesla 3-6-9) and 432Hz tuning via pitchwheel manipulation. Requires a Root Anchor.</p>
+                <p><strong class="text-white">COSMIC MODE:</strong> Dreamy, cinematic sequence generation. Uses strict rhythmic algorithms (Fibonacci, Tesla 3-6-9) and applies ancient Just Intonation tuning via sequential pitchwheel micro-bending. No block chords.</p>
                 <p><strong class="text-white">Style:</strong> Defines the overarching genre, phrasing, and feeling of the MIDI.</p>
                 <p><strong class="text-white">Key & Mode:</strong> Sets the tonal center and musical scale the generation adheres to.</p>
                 <p><strong class="text-white">Tempo & Bars:</strong> Determines the speed (BPM) and the total length of the sequence.</p>
@@ -643,7 +653,7 @@
                 <div class="flex items-center justify-between w-full pointer-events-none z-10 relative">
                     <div class="flex items-center gap-4">
                         <div class="w-10 h-10 rounded-xl bg-gradient-to-br ${colorClass} flex items-center justify-center border shadow-[0_0_15px_rgba(0,0,0,0.2)]">
-                           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg>
+                           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg>
                         </div>
                         <div>
                             <h4 class="text-xs font-black text-gray-200 uppercase tracking-widest">VARIATION ${index}</h4>
@@ -762,6 +772,7 @@
                 basePayload = {
                     is_cosmic: true,
                     cosmic_algo: document.getElementById('cosmic-algo').value,
+                    ancient_scale: document.getElementById('cosmic-scale').value,
                     key: document.getElementById('cosmic-key').value,
                     bpm: parseInt(document.getElementById('cosmic-bpm').value),
                     bars: parseInt(document.getElementById('cosmic-bars').value)
@@ -853,7 +864,7 @@
                         
                         if (isCosmic) {
                             const safeKey = basePayload.key.replace('#', 'Sharp');
-                            filename = `Ignite_Cosmic_${basePayload.cosmic_algo.toUpperCase()}_${safeKey}_V${i+1}_${basePayload.bpm}BPM_${timestamp}.mid`;
+                            filename = `Ignite_Cosmic_${basePayload.ancient_scale.toUpperCase()}_${safeKey}_V${i+1}_${basePayload.bpm}BPM_${timestamp}.mid`;
                         } else {
                             const safeStyle = basePayload.style.replace(/[^a-zA-Z0-9]/g, '');
                             const safeKey = basePayload.key.replace('#', 'Sharp');
