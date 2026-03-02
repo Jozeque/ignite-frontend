@@ -19,6 +19,11 @@
             font-family: 'Outfit', sans-serif; 
             background-color: #050505;
             background-image: radial-gradient(circle at 50% 0%, #1f1005 0%, #050505 50%);
+            transition: background-image 1s ease;
+        }
+        
+        body.cosmic-active {
+            background-image: radial-gradient(circle at 50% 0%, #2a0a3a 0%, #050505 60%);
         }
         
         ::-webkit-scrollbar { width: 6px; }
@@ -31,6 +36,12 @@
             -webkit-backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.05);
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 40px rgba(255, 100, 0, 0.05);
+            transition: all 0.5s ease;
+        }
+        
+        .cosmic-active .glass-panel {
+            border: 1px solid rgba(168, 85, 247, 0.2);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 50px rgba(168, 85, 247, 0.15);
         }
 
         .locked { filter: blur(8px) grayscale(50%); pointer-events: none; user-select: none; transition: filter 0.8s ease; }
@@ -70,6 +81,11 @@
             box-shadow: 0 0 15px rgba(255, 94, 0, 0.2);
             outline: none;
         }
+        
+        .cosmic-active .pro-input:focus {
+            border-color: #a855f7;
+            box-shadow: 0 0 15px rgba(168, 85, 247, 0.3);
+        }
 
         .eq-bar {
             width: 4px;
@@ -94,12 +110,19 @@
             font-weight: 900;
             letter-spacing: 0.1em;
         }
+        
+        /* Toggle Switch for Cosmic Mode */
+        .cosmic-toggle:checked + div {
+            background-color: #a855f7;
+            border-color: #c084fc;
+            box-shadow: 0 0 15px rgba(168, 85, 247, 0.6);
+        }
     </style>
 </head>
 <body class="text-gray-100 min-h-screen flex flex-col items-center justify-center p-4 relative overflow-x-hidden">
 
-    <div class="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-orange-600/5 blur-[120px] pointer-events-none"></div>
-    <div class="fixed bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-red-600/5 blur-[120px] pointer-events-none"></div>
+    <div id="glow-orange" class="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-orange-600/5 blur-[120px] pointer-events-none transition-all duration-1000"></div>
+    <div id="glow-red" class="fixed bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-red-600/5 blur-[120px] pointer-events-none transition-all duration-1000"></div>
 
     <div id="auth-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md transition-opacity">
         <div class="glass-panel rounded-2xl p-10 w-full max-w-sm text-center relative overflow-hidden">
@@ -140,7 +163,7 @@
         
         <div class="w-full flex justify-between items-end mb-6 px-2">
             <div>
-                <h1 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-500 tracking-tighter leading-none">IGNITE</h1>
+                <h1 id="brand-title" class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-500 tracking-tighter leading-none transition-all duration-500">IGNITE</h1>
                 <div class="flex items-center gap-2 mt-1">
                     <p class="text-[10px] text-gray-500 font-bold tracking-[0.3em] ml-1">Never get stuck.</p>
                     <span id="credit-badge" class="credits-badge hidden">--/30 USED</span>
@@ -157,157 +180,211 @@
 
         <div class="glass-panel rounded-3xl p-8 w-full relative">
             
-            <div class="mb-8">
-                <div class="flex items-center gap-3 mb-4">
-                    <div class="h-[1px] flex-1 bg-gradient-to-r from-transparent to-gray-800"></div>
-                    <span class="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Global Parameters</span>
-                    <div class="h-[1px] flex-1 bg-gradient-to-l from-transparent to-gray-800"></div>
+            <div class="mb-8 flex items-center justify-between bg-black/40 p-4 rounded-2xl border border-purple-500/20 shadow-[0_0_20px_rgba(168,85,247,0.05)]">
+                <div>
+                    <span class="text-sm font-black text-purple-400 uppercase tracking-widest block">COSMIC MODE</span>
+                    <span class="text-[9px] text-gray-500 uppercase tracking-widest font-bold">Sacred Math & Microtonality</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="cosmic-toggle" class="sr-only cosmic-toggle" onchange="toggleCosmicUI()">
+                    <div class="w-11 h-6 bg-gray-800 rounded-full border border-gray-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+                </label>
+            </div>
+
+            <div id="cosmic-params" class="hidden animate-fade-in">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="h-[1px] flex-1 bg-gradient-to-r from-transparent to-purple-900"></div>
+                    <span class="text-[10px] text-purple-400 uppercase tracking-widest font-bold">Universal Algorithms</span>
+                    <div class="h-[1px] flex-1 bg-gradient-to-l from-transparent to-purple-900"></div>
                 </div>
 
-                <div class="mb-4">
-                    <label class="block text-xs text-gray-400 mb-1.5 ml-1 font-medium">Musical Style</label>
-                    <select id="style" class="w-full pro-input rounded-xl p-3.5 text-sm appearance-none">
-                        <option>Neo-Soul</option><option>Cinematic</option><option>Techno</option><option>Jazz</option><option>Lofi</option>
+                <div class="mb-6">
+                    <label class="block text-xs text-gray-400 mb-1.5 ml-1 font-medium">Sacred Logic</label>
+                    <select id="cosmic-algo" class="w-full pro-input rounded-xl p-3.5 text-sm appearance-none border-purple-900/50 focus:border-purple-500">
+                        <option value="tesla">Tesla 3-6-9 (Microtonal 432Hz)</option>
+                        <option value="fibonacci">Fibonacci Sequence (Mathematical Grid)</option>
+                        <option value="golden_ratio">Golden Ratio 1.618 (Polyrhythmic Density)</option>
                     </select>
                 </div>
-
-                <div class="grid grid-cols-2 gap-4">
+                
+                <div class="grid grid-cols-3 gap-4 mb-8">
                     <div>
-                        <label class="block text-xs text-gray-400 mb-1.5 ml-1 font-medium">Key</label>
-                        <select id="key" class="w-full pro-input rounded-xl p-3.5 text-sm appearance-none">
+                        <label class="block text-[11px] text-gray-400 mb-1.5 ml-1 font-medium truncate">Root (Anchor)</label>
+                        <select id="cosmic-key" class="w-full pro-input rounded-xl p-3.5 text-sm appearance-none border-purple-900/50 focus:border-purple-500 text-purple-400 font-bold text-center">
                             <option>C</option><option>C#</option><option>D</option><option>D#</option>
                             <option>E</option><option>F</option><option>F#</option><option>G</option>
                             <option>G#</option><option>A</option><option>A#</option><option>B</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs text-gray-400 mb-1.5 ml-1 font-medium">Scale / Mode</label>
-                        <select id="mode" class="w-full pro-input rounded-xl p-3.5 text-sm appearance-none">
-                            <option>Minor (Aeolian)</option><option>Major (Ionian)</option><option>Dorian</option>
-                            <option>Phrygian</option><option>Lydian</option><option>Mixolydian</option><option>Harmonic Minor</option>
-                        </select>
+                        <label class="block text-[11px] text-gray-400 mb-1.5 ml-1 font-medium truncate">Tempo (BPM)</label>
+                        <input type="number" id="cosmic-bpm" value="85" class="w-full pro-input rounded-xl p-3.5 text-sm text-center font-bold text-purple-400 border-purple-900/50 focus:border-purple-500">
                     </div>
                     <div>
-                        <label class="block text-xs text-gray-400 mb-1.5 ml-1 font-medium">Tempo (BPM)</label>
-                        <input type="number" id="bpm" value="85" class="w-full pro-input rounded-xl p-3.5 text-sm text-center font-bold text-orange-400">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-400 mb-1.5 ml-1 font-medium">Length (Bars)</label>
-                        <select id="bars" class="w-full pro-input rounded-xl p-3.5 text-sm appearance-none text-center">
+                        <label class="block text-[11px] text-gray-400 mb-1.5 ml-1 font-medium truncate">Length (Bars)</label>
+                        <select id="cosmic-bars" class="w-full pro-input rounded-xl p-3.5 text-sm appearance-none text-center border-purple-900/50 focus:border-purple-500">
                             <option value="4">4 Bars</option><option value="8" selected>8 Bars</option><option value="16">16 Bars</option>
                         </select>
                     </div>
                 </div>
-            </div>
-
-            <div class="mb-8">
-                <div class="flex items-center gap-3 mb-6">
-                    <div class="h-[1px] flex-1 bg-gradient-to-r from-transparent to-gray-800"></div>
-                    <span class="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Groove & Theory</span>
-                    <div class="h-[1px] flex-1 bg-gradient-to-l from-transparent to-gray-800"></div>
-                </div>
-
-                <div class="mb-5 flex flex-col gap-2">
-                    <span class="text-xs text-gray-400 font-medium ml-1">Rhythmic Grid</span>
-                    <div class="flex bg-black/50 p-1 rounded-xl border border-gray-800 w-full">
-                        <label class="cursor-pointer flex-1 text-center">
-                            <input type="radio" name="grid" value="straight" class="peer sr-only" checked>
-                            <div class="py-2 rounded-lg text-[10px] font-bold text-gray-500 peer-checked:bg-gradient-to-r peer-checked:from-orange-500/20 peer-checked:to-red-500/20 peer-checked:text-orange-400 peer-checked:border-orange-500/30 border border-transparent transition-all tracking-wide">STR8</div>
-                        </label>
-                        <label class="cursor-pointer flex-1 text-center">
-                            <input type="radio" name="grid" value="triplets" class="peer sr-only">
-                            <div class="py-2 rounded-lg text-[10px] font-bold text-gray-500 peer-checked:bg-gradient-to-r peer-checked:from-orange-500/20 peer-checked:to-red-500/20 peer-checked:text-orange-400 peer-checked:border-orange-500/30 border border-transparent transition-all tracking-wide">TRIPLET</div>
-                        </label>
-                        <label class="cursor-pointer flex-1 text-center">
-                            <input type="radio" name="grid" value="quintuplets" class="peer sr-only">
-                            <div class="py-2 rounded-lg text-[10px] font-bold text-gray-500 peer-checked:bg-gradient-to-r peer-checked:from-orange-500/20 peer-checked:to-red-500/20 peer-checked:text-orange-400 peer-checked:border-orange-500/30 border border-transparent transition-all tracking-wide">QUINT</div>
-                        </label>
-                        <label class="cursor-pointer flex-1 text-center">
-                            <input type="radio" name="grid" value="polyrhythm" class="peer sr-only">
-                            <div class="py-2 rounded-lg text-[10px] font-bold text-gray-500 peer-checked:bg-gradient-to-r peer-checked:from-orange-500/20 peer-checked:to-red-500/20 peer-checked:text-orange-400 peer-checked:border-orange-500/30 border border-transparent transition-all tracking-wide">POLY</div>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="space-y-6 bg-black/20 p-5 rounded-2xl border border-white/5">
-                    <div>
-                        <div class="flex justify-between text-xs mb-3 font-medium">
-                            <span class="text-gray-400">Humanize / Swing</span>
-                            <span id="swing-val" class="text-orange-500">45ms</span>
-                        </div>
-                        <input type="range" id="swing" min="0" max="100" value="45" oninput="document.getElementById('swing-val').innerText = this.value + 'ms'">
-                    </div>
-                    <div>
-                        <div class="flex justify-between text-xs mb-3 font-medium">
-                            <span class="text-gray-400">Syncopation Matrix</span>
-                            <span id="sync-val" class="text-orange-500">30%</span>
-                        </div>
-                        <input type="range" id="sync" min="1" max="100" value="30" oninput="document.getElementById('sync-val').innerText = this.value + '%'">
-                    </div>
-                    <div>
-                        <div class="flex justify-between text-xs mb-3 font-medium">
-                            <span class="text-gray-400">Harmonic Density</span>
-                            <span id="comp-val" class="text-orange-500">Lvl 4</span>
-                        </div>
-                        <input type="range" id="comp" min="1" max="5" value="4" oninput="document.getElementById('comp-val').innerText = 'Lvl ' + this.value">
-                    </div>
+                <div class="mb-8 p-4 bg-purple-900/10 rounded-xl border border-purple-500/20">
+                    <p class="text-[10px] text-purple-300/70 uppercase tracking-widest text-center leading-relaxed">
+                        Notice: Tuning is hardcoded to 432Hz via Pitch Bend.<br>Voicing spectrum is forced to 6 octaves.
+                    </p>
                 </div>
             </div>
 
-            <div class="mb-8 border-t border-white/5 pt-6">
-                <div class="flex items-center justify-between mb-4 px-2">
-                    <span class="text-[10px] uppercase text-gray-500 tracking-[0.3em] font-bold">EXPERT DNA SETTINGS</span>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="expert-toggle" class="sr-only peer" onchange="document.getElementById('advanced-panel').classList.toggle('hidden')">
-                        <div class="w-9 h-5 bg-gray-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500 border border-gray-600"></div>
-                    </label>
-                </div>
-                
-                <div id="advanced-panel" class="hidden space-y-6 bg-black/40 p-6 rounded-3xl border border-white/5 transition-all">
-                    <div>
-                        <div class="flex justify-between text-[10px] text-gray-500 mb-2 uppercase"><span>Note Density (Air)</span><span id="dens-v" class="text-orange-400">70%</span></div>
-                        <input type="range" id="density" value="70" oninput="document.getElementById('dens-v').innerText=this.value+'%'">
+            <div id="standard-params" class="transition-all duration-500">
+                <div class="mb-8">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="h-[1px] flex-1 bg-gradient-to-r from-transparent to-gray-800"></div>
+                        <span class="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Global Parameters</span>
+                        <div class="h-[1px] flex-1 bg-gradient-to-l from-transparent to-gray-800"></div>
                     </div>
-                    <div>
-                        <label class="text-[10px] text-gray-500 mb-2 block uppercase">Pitch Glide / Bend</label>
-                        <select id="pitch_bend" class="w-full pro-input p-3 rounded-xl text-xs appearance-none">
-                            <option value="off" selected>Off (Clean)</option>
-                            <option value="subtle">Subtle (Grace Notes)</option>
-                            <option value="portamento">Portamento (Glide)</option>
-                            <option value="tapestop">Tape Stop (Lo-Fi)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="text-[10px] text-gray-500 mb-2 block uppercase">Sustain Pedal (CC64)</label>
-                        <select id="sustain" class="w-full pro-input p-3 rounded-xl text-xs appearance-none">
-                            <option value="adaptive">Adaptive (Chord-Sync)</option>
-                            <option value="dry" selected>Dry (No Pedal)</option>
-                            <option value="washed">Washed (Ambient)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="text-[10px] text-gray-500 mb-2 block uppercase">Articulation</label>
-                        <select id="artic" class="w-full pro-input p-3 rounded-xl text-xs appearance-none">
-                            <option value="staccato">Sharp & Plucky</option><option value="balanced" selected>Natural Flow</option><option value="legato">Lush & Sustained</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
 
-            <div class="mb-5 flex items-center justify-between bg-black/20 p-2 pl-4 rounded-2xl border border-white/5">
+                    <div class="mb-4">
+                        <label class="block text-xs text-gray-400 mb-1.5 ml-1 font-medium">Musical Style</label>
+                        <select id="style" class="w-full pro-input rounded-xl p-3.5 text-sm appearance-none">
+                            <option>Neo-Soul</option><option>Cinematic</option><option>Techno</option><option>Jazz</option><option>Lofi</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1.5 ml-1 font-medium">Key</label>
+                            <select id="key" class="w-full pro-input rounded-xl p-3.5 text-sm appearance-none">
+                                <option>C</option><option>C#</option><option>D</option><option>D#</option>
+                                <option>E</option><option>F</option><option>F#</option><option>G</option>
+                                <option>G#</option><option>A</option><option>A#</option><option>B</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1.5 ml-1 font-medium">Scale / Mode</label>
+                            <select id="mode" class="w-full pro-input rounded-xl p-3.5 text-sm appearance-none">
+                                <option>Minor (Aeolian)</option><option>Major (Ionian)</option><option>Dorian</option>
+                                <option>Phrygian</option><option>Lydian</option><option>Mixolydian</option><option>Harmonic Minor</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1.5 ml-1 font-medium">Tempo (BPM)</label>
+                            <input type="number" id="bpm" value="85" class="w-full pro-input rounded-xl p-3.5 text-sm text-center font-bold text-orange-400">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1.5 ml-1 font-medium">Length (Bars)</label>
+                            <select id="bars" class="w-full pro-input rounded-xl p-3.5 text-sm appearance-none text-center">
+                                <option value="4">4 Bars</option><option value="8" selected>8 Bars</option><option value="16">16 Bars</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-8">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="h-[1px] flex-1 bg-gradient-to-r from-transparent to-gray-800"></div>
+                        <span class="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Groove & Theory</span>
+                        <div class="h-[1px] flex-1 bg-gradient-to-l from-transparent to-gray-800"></div>
+                    </div>
+
+                    <div class="mb-5 flex flex-col gap-2">
+                        <span class="text-xs text-gray-400 font-medium ml-1">Rhythmic Grid</span>
+                        <div class="flex bg-black/50 p-1 rounded-xl border border-gray-800 w-full">
+                            <label class="cursor-pointer flex-1 text-center">
+                                <input type="radio" name="grid" value="straight" class="peer sr-only" checked>
+                                <div class="py-2 rounded-lg text-[10px] font-bold text-gray-500 peer-checked:bg-gradient-to-r peer-checked:from-orange-500/20 peer-checked:to-red-500/20 peer-checked:text-orange-400 peer-checked:border-orange-500/30 border border-transparent transition-all tracking-wide">STR8</div>
+                            </label>
+                            <label class="cursor-pointer flex-1 text-center">
+                                <input type="radio" name="grid" value="triplets" class="peer sr-only">
+                                <div class="py-2 rounded-lg text-[10px] font-bold text-gray-500 peer-checked:bg-gradient-to-r peer-checked:from-orange-500/20 peer-checked:to-red-500/20 peer-checked:text-orange-400 peer-checked:border-orange-500/30 border border-transparent transition-all tracking-wide">TRIPLET</div>
+                            </label>
+                            <label class="cursor-pointer flex-1 text-center">
+                                <input type="radio" name="grid" value="quintuplets" class="peer sr-only">
+                                <div class="py-2 rounded-lg text-[10px] font-bold text-gray-500 peer-checked:bg-gradient-to-r peer-checked:from-orange-500/20 peer-checked:to-red-500/20 peer-checked:text-orange-400 peer-checked:border-orange-500/30 border border-transparent transition-all tracking-wide">QUINT</div>
+                            </label>
+                            <label class="cursor-pointer flex-1 text-center">
+                                <input type="radio" name="grid" value="polyrhythm" class="peer sr-only">
+                                <div class="py-2 rounded-lg text-[10px] font-bold text-gray-500 peer-checked:bg-gradient-to-r peer-checked:from-orange-500/20 peer-checked:to-red-500/20 peer-checked:text-orange-400 peer-checked:border-orange-500/30 border border-transparent transition-all tracking-wide">POLY</div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="space-y-6 bg-black/20 p-5 rounded-2xl border border-white/5">
+                        <div>
+                            <div class="flex justify-between text-xs mb-3 font-medium">
+                                <span class="text-gray-400">Humanize / Swing</span>
+                                <span id="swing-val" class="text-orange-500">45ms</span>
+                            </div>
+                            <input type="range" id="swing" min="0" max="100" value="45" oninput="document.getElementById('swing-val').innerText = this.value + 'ms'">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-3 font-medium">
+                                <span class="text-gray-400">Syncopation Matrix</span>
+                                <span id="sync-val" class="text-orange-500">30%</span>
+                            </div>
+                            <input type="range" id="sync" min="1" max="100" value="30" oninput="document.getElementById('sync-val').innerText = this.value + '%'">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-3 font-medium">
+                                <span class="text-gray-400">Harmonic Density</span>
+                                <span id="comp-val" class="text-orange-500">Lvl 4</span>
+                            </div>
+                            <input type="range" id="comp" min="1" max="5" value="4" oninput="document.getElementById('comp-val').innerText = 'Lvl ' + this.value">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-8 border-t border-white/5 pt-6">
+                    <div class="flex items-center justify-between mb-4 px-2">
+                        <span class="text-[10px] uppercase text-gray-500 tracking-[0.3em] font-bold">EXPERT DNA SETTINGS</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="expert-toggle" class="sr-only peer" onchange="document.getElementById('advanced-panel').classList.toggle('hidden')">
+                            <div class="w-9 h-5 bg-gray-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500 border border-gray-600"></div>
+                        </label>
+                    </div>
+                    
+                    <div id="advanced-panel" class="hidden space-y-6 bg-black/40 p-6 rounded-3xl border border-white/5 transition-all">
+                        <div>
+                            <div class="flex justify-between text-[10px] text-gray-500 mb-2 uppercase"><span>Note Density (Air)</span><span id="dens-v" class="text-orange-400">70%</span></div>
+                            <input type="range" id="density" value="70" oninput="document.getElementById('dens-v').innerText=this.value+'%'">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-gray-500 mb-2 block uppercase">Pitch Glide / Bend</label>
+                            <select id="pitch_bend" class="w-full pro-input p-3 rounded-xl text-xs appearance-none">
+                                <option value="off" selected>Off (Clean)</option>
+                                <option value="subtle">Subtle (Grace Notes)</option>
+                                <option value="portamento">Portamento (Glide)</option>
+                                <option value="tapestop">Tape Stop (Lo-Fi)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-gray-500 mb-2 block uppercase">Sustain Pedal (CC64)</label>
+                            <select id="sustain" class="w-full pro-input p-3 rounded-xl text-xs appearance-none">
+                                <option value="adaptive">Adaptive (Chord-Sync)</option>
+                                <option value="dry" selected>Dry (No Pedal)</option>
+                                <option value="washed">Washed (Ambient)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-gray-500 mb-2 block uppercase">Articulation</label>
+                            <select id="artic" class="w-full pro-input p-3 rounded-xl text-xs appearance-none">
+                                <option value="staccato">Sharp & Plucky</option><option value="balanced" selected>Natural Flow</option><option value="legato">Lush & Sustained</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div> <div class="mb-5 flex items-center justify-between bg-black/20 p-2 pl-4 rounded-2xl border border-white/5">
                 <span class="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Ideas Quantity</span>
                 <div class="flex bg-black/50 p-1 rounded-xl border border-gray-800">
                     <label class="cursor-pointer">
                         <input type="radio" name="qty" value="1" class="peer sr-only">
-                        <div class="px-5 py-1.5 rounded-lg text-xs font-bold text-gray-500 peer-checked:bg-gradient-to-r peer-checked:from-orange-500/20 peer-checked:to-red-500/20 peer-checked:text-orange-400 peer-checked:border-orange-500/30 border border-transparent transition-all">1</div>
+                        <div class="px-5 py-1.5 rounded-lg text-xs font-bold text-gray-500 peer-checked:bg-white/10 peer-checked:text-white border border-transparent transition-all" id="qty-btn-1">1</div>
                     </label>
                     <label class="cursor-pointer">
                         <input type="radio" name="qty" value="2" class="peer sr-only">
-                        <div class="px-5 py-1.5 rounded-lg text-xs font-bold text-gray-500 peer-checked:bg-gradient-to-r peer-checked:from-orange-500/20 peer-checked:to-red-500/20 peer-checked:text-orange-400 peer-checked:border-orange-500/30 border border-transparent transition-all">2</div>
+                        <div class="px-5 py-1.5 rounded-lg text-xs font-bold text-gray-500 peer-checked:bg-white/10 peer-checked:text-white border border-transparent transition-all" id="qty-btn-2">2</div>
                     </label>
                     <label class="cursor-pointer">
                         <input type="radio" name="qty" value="3" class="peer sr-only" checked>
-                        <div class="px-5 py-1.5 rounded-lg text-xs font-bold text-gray-500 peer-checked:bg-gradient-to-r peer-checked:from-orange-500/20 peer-checked:to-red-500/20 peer-checked:text-orange-400 peer-checked:border-orange-500/30 border border-transparent transition-all">3</div>
+                        <div class="px-5 py-1.5 rounded-lg text-xs font-bold text-gray-500 peer-checked:bg-white/10 peer-checked:text-white border border-transparent transition-all" id="qty-btn-3">3</div>
                     </label>
                 </div>
             </div>
@@ -328,7 +405,7 @@
         </div>
     </div>
 
-    <button onclick="toggleFeedbackModal()" class="fixed bottom-6 right-6 bg-black/60 hover:bg-black/80 text-gray-300 hover:text-orange-400 px-5 py-3 rounded-full text-[10px] uppercase tracking-widest font-black transition-all border border-white/20 backdrop-blur-md z-[999] flex items-center gap-2 shadow-xl">
+    <button onclick="toggleFeedbackModal()" class="fixed bottom-6 right-6 bg-black/60 hover:bg-black/80 text-gray-300 hover:text-orange-400 transition-colors px-5 py-3 rounded-full text-[10px] uppercase tracking-widest font-black border border-white/20 backdrop-blur-md z-[999] flex items-center gap-2 shadow-xl">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
         Feedback
     </button>
@@ -351,17 +428,13 @@
             <p class="text-xs text-gray-400 mb-6 uppercase tracking-widest">Parameter Breakdown</p>
             
             <div class="space-y-4 text-xs text-gray-300 mb-8">
+                <p><strong class="text-white">COSMIC MODE:</strong> Bypasses all standard theory. Enforces hardcoded mathematical generation (Fibonacci, Tesla 3-6-9) and 432Hz tuning via pitchwheel manipulation. Requires a Root Anchor.</p>
                 <p><strong class="text-white">Style:</strong> Defines the overarching genre, phrasing, and feeling of the MIDI.</p>
                 <p><strong class="text-white">Key & Mode:</strong> Sets the tonal center and musical scale the generation adheres to.</p>
                 <p><strong class="text-white">Tempo & Bars:</strong> Determines the speed (BPM) and the total length of the sequence.</p>
-                <p><strong class="text-white">Rhythmic Grid:</strong> Sets the internal beat subdivision (Straight, Triplets, Quintuplets, Polyrhythm) to dictate the core groove.</p>
+                <p><strong class="text-white">Rhythmic Grid:</strong> Sets the internal beat subdivision (Straight, Triplets, Quintuplets, Polyrhythm).</p>
                 <p><strong class="text-white">Humanize / Swing:</strong> Shifts notes slightly off-grid to create a natural, human micro-groove.</p>
-                <p><strong class="text-white">Syncopation Matrix:</strong> Sets the probability for notes to hit off-beat, creating complex phrasing.</p>
                 <p><strong class="text-white">Harmonic Density:</strong> Scales complexity from simple monophonic lines (Lvl 1) to lush, complex jazz chords (Lvl 5).</p>
-                <p><strong class="text-white">Note Density (Air):</strong> Controls the raw amount of played notes versus silence (rests).</p>
-                <p><strong class="text-white">Pitch Glide / Bend:</strong> Injects pitchwheel metadata for subtle grace notes, synth glides, or tape-stop effects.</p>
-                <p><strong class="text-white">Sustain Pedal (CC64):</strong> Controls the virtual sustain pedal. Adaptive prevents mud, Washed creates ambient blur, Dry cuts notes instantly.</p>
-                <p><strong class="text-white">Articulation:</strong> Adjusts note lengths from short/plucky (Staccato) to long/smooth (Legato).</p>
             </div>
             <button onclick="toggleManualModal()" class="w-full px-4 py-3 rounded-xl border border-gray-800 text-gray-500 font-bold text-xs uppercase hover:bg-white/5 transition-all">Close Manual</button>
         </div>
@@ -387,6 +460,53 @@
         const creditBadge = document.getElementById('credit-badge');
         const resendContainer = document.getElementById('resend-container');
         const resultsContainer = document.getElementById('results-container');
+        
+        // Cosmic State Handling
+        function toggleCosmicUI() {
+            const isCosmic = document.getElementById('cosmic-toggle').checked;
+            const standardParams = document.getElementById('standard-params');
+            const cosmicParams = document.getElementById('cosmic-params');
+            const btn = document.getElementById('generate-btn');
+            const title = document.getElementById('brand-title');
+            
+            if (isCosmic) {
+                document.body.classList.add('cosmic-active');
+                standardParams.classList.add('hidden');
+                cosmicParams.classList.remove('hidden');
+                
+                title.classList.replace('from-orange-400', 'from-purple-400');
+                title.classList.replace('to-red-500', 'to-indigo-500');
+                title.innerText = "COSMIC";
+                
+                btn.classList.replace('from-orange-500', 'from-purple-600');
+                btn.classList.replace('to-red-600', 'to-indigo-600');
+                btn.classList.replace('hover:from-orange-400', 'hover:from-purple-500');
+                btn.classList.replace('hover:to-red-500', 'hover:to-indigo-500');
+                btn.classList.replace('shadow-[0_10px_30px_rgba(255,50,0,0.3)]', 'shadow-[0_10px_30px_rgba(168,85,247,0.3)]');
+                btn.classList.replace('hover:shadow-[0_10px_40px_rgba(255,50,0,0.5)]', 'hover:shadow-[0_10px_40px_rgba(168,85,247,0.5)]');
+                
+                document.getElementById('glow-orange').classList.replace('bg-orange-600/5', 'bg-purple-600/10');
+                document.getElementById('glow-red').classList.replace('bg-red-600/5', 'bg-indigo-600/10');
+            } else {
+                document.body.classList.remove('cosmic-active');
+                standardParams.classList.remove('hidden');
+                cosmicParams.classList.add('hidden');
+                
+                title.classList.replace('from-purple-400', 'from-orange-400');
+                title.classList.replace('to-indigo-500', 'to-red-500');
+                title.innerText = "IGNITE";
+                
+                btn.classList.replace('from-purple-600', 'from-orange-500');
+                btn.classList.replace('to-indigo-600', 'to-red-600');
+                btn.classList.replace('hover:from-purple-500', 'hover:from-orange-400');
+                btn.classList.replace('hover:to-indigo-500', 'hover:to-red-500');
+                btn.classList.replace('shadow-[0_10px_30px_rgba(168,85,247,0.3)]', 'shadow-[0_10px_30px_rgba(255,50,0,0.3)]');
+                btn.classList.replace('hover:shadow-[0_10px_40px_rgba(168,85,247,0.5)]', 'hover:shadow-[0_10px_40px_rgba(255,50,0,0.5)]');
+                
+                document.getElementById('glow-orange').classList.replace('bg-purple-600/10', 'bg-orange-600/5');
+                document.getElementById('glow-red').classList.replace('bg-indigo-600/10', 'bg-red-600/5');
+            }
+        }
 
         auth.onAuthStateChanged(async user => {
             if (user && user.emailVerified) {
@@ -509,17 +629,20 @@
             auth.signOut();
         }
 
-        // --- The Pro Web Workflow: Download & Drag from Browser Bar ---
         function createResultCard(filename, objectUrl, index, params) {
             resultsContainer.classList.remove('hidden');
+            const isCosmic = document.getElementById('cosmic-toggle').checked;
+            
+            const colorClass = isCosmic ? "from-purple-500/20 to-indigo-500/20 text-purple-400 border-purple-500/30" : "from-orange-500/20 to-red-500/20 text-orange-400 border-orange-500/30";
+            const hoverBorder = isCosmic ? "hover:border-purple-500/40" : "hover:border-orange-500/40";
             
             const card = document.createElement('div');
-            card.className = "result-card block bg-black/40 border border-white/5 hover:border-orange-500/40 transition-all rounded-2xl p-4 group select-none cursor-pointer relative overflow-hidden";
+            card.className = `result-card block bg-black/40 border border-white/5 ${hoverBorder} transition-all rounded-2xl p-4 group select-none cursor-pointer relative overflow-hidden`;
 
             card.innerHTML = `
                 <div class="flex items-center justify-between w-full pointer-events-none z-10 relative">
                     <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500/20 to-red-500/20 flex items-center justify-center border border-orange-500/30 text-orange-400 shadow-[0_0_15px_rgba(255,94,0,0.1)]">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br ${colorClass} flex items-center justify-center border shadow-[0_0_15px_rgba(0,0,0,0.2)]">
                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg>
                         </div>
                         <div>
@@ -529,24 +652,22 @@
                     </div>
                     
                     <div class="ui-default flex items-center gap-3 transition-opacity duration-300">
-                        <div class="text-[10px] text-orange-400 font-bold uppercase tracking-widest flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                        <div class="text-[10px] ${isCosmic ? 'text-purple-400' : 'text-orange-400'} font-bold uppercase tracking-widest flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                            CLICK TO DOWNLOAD
+                            DOWNLOAD
                         </div>
                     </div>
 
                     <div class="ui-success hidden items-center gap-2 absolute right-0">
                         <div class="text-[10px] text-green-400 font-bold uppercase tracking-widest flex items-center gap-1 bg-green-900/30 px-3 py-1.5 rounded-lg border border-green-500/30">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                            READY IN DOWNLOADS BAR
+                            SAVED
                         </div>
                     </div>
                 </div>
             `;
 
-            // On Click -> Download -> Update UI to tell them to drag from their browser
             card.addEventListener('click', () => {
-                // Trigger the actual physical download
                 const tempLink = document.createElement('a');
                 tempLink.href = objectUrl; 
                 tempLink.download = filename;
@@ -554,9 +675,8 @@
                 tempLink.click();
                 tempLink.remove();
 
-                // UI Feedback
                 card.classList.add('border-green-500/40', 'bg-green-900/10');
-                card.classList.remove('hover:border-orange-500/40');
+                card.classList.remove(hoverBorder);
                 
                 const defaultUi = card.querySelector('.ui-default');
                 const successUi = card.querySelector('.ui-success');
@@ -566,10 +686,9 @@
                 successUi.classList.remove('hidden');
                 successUi.classList.add('flex');
                 
-                // Reset UI after a few seconds so they can download again if needed
                 setTimeout(() => {
                     card.classList.remove('border-green-500/40', 'bg-green-900/10');
-                    card.classList.add('hover:border-orange-500/40');
+                    card.classList.add(hoverBorder);
                     successUi.classList.add('hidden');
                     successUi.classList.remove('flex');
                     defaultUi.classList.remove('hidden');
@@ -591,6 +710,7 @@
             if (!user) return;
 
             const selectedQty = parseInt(document.querySelector('input[name="qty"]:checked').value) || 1;
+            const isCosmic = document.getElementById('cosmic-toggle').checked;
             let creditsUsed = 0;
             let currentMonth = new Date().getMonth();
             let isAdmin = user.email && user.email.toLowerCase() === 'yossi.bozo112@gmail.com';
@@ -623,7 +743,6 @@
                 console.error("Firestore Check Error:", err);
             }
 
-            // UI Reset & Loading State
             resultsContainer.innerHTML = '';
             resultsContainer.classList.add('hidden');
 
@@ -633,72 +752,85 @@
             spinner.classList.remove('hidden');
             btnText.innerText = `IGNITING ${selectedQty} IDEAS...`;
             status.innerText = "ROUTING THROUGH AI NEURAL NETWORK...";
-            status.className = "text-[11px] text-orange-400 uppercase tracking-widest font-bold animate-pulse";
+            status.className = `text-[11px] ${isCosmic ? 'text-purple-400' : 'text-orange-400'} uppercase tracking-widest font-bold animate-pulse`;
 
             const isExpertMode = document.getElementById('expert-toggle').checked;
-            const currentStyle = document.getElementById('style').value;
             
-            const basePayload = {
-                style: currentStyle,
-                key: document.getElementById('key').value,
-                mode: document.getElementById('mode').value,
-                bpm: parseInt(document.getElementById('bpm').value),
-                bars: parseInt(document.getElementById('bars').value),
-                swing: parseInt(document.getElementById('swing').value),
-                sync_chance: parseInt(document.getElementById('sync').value),
-                comp_level: parseInt(document.getElementById('comp').value),
-                grid: document.querySelector('input[name="grid"]:checked').value
-            };
+            let basePayload = {};
+            
+            if (isCosmic) {
+                basePayload = {
+                    is_cosmic: true,
+                    cosmic_algo: document.getElementById('cosmic-algo').value,
+                    key: document.getElementById('cosmic-key').value,
+                    bpm: parseInt(document.getElementById('cosmic-bpm').value),
+                    bars: parseInt(document.getElementById('cosmic-bars').value)
+                };
+            } else {
+                basePayload = {
+                    is_cosmic: false,
+                    style: document.getElementById('style').value,
+                    key: document.getElementById('key').value,
+                    mode: document.getElementById('mode').value,
+                    bpm: parseInt(document.getElementById('bpm').value),
+                    bars: parseInt(document.getElementById('bars').value),
+                    swing: parseInt(document.getElementById('swing').value),
+                    sync_chance: parseInt(document.getElementById('sync').value),
+                    comp_level: parseInt(document.getElementById('comp').value),
+                    grid: document.querySelector('input[name="grid"]:checked').value
+                };
+            }
 
             const getRandomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
             const getRandomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
             const requests = Array.from({ length: selectedQty }, () => {
-                let finalDensity = 50;
-                let finalArtic = "balanced";
-                let finalPitchBend = "off";
-                let finalSustain = "dry";
+                let uniquePayload = { ...basePayload };
+                
+                if (!isCosmic) {
+                    let finalDensity = 50;
+                    let finalArtic = "balanced";
+                    let finalPitchBend = "off";
+                    let finalSustain = "dry";
 
-                if (isExpertMode) {
-                    finalDensity = parseInt(document.getElementById('density').value);
-                    finalArtic = document.getElementById('artic').value;
-                    finalPitchBend = document.getElementById('pitch_bend').value;
-                    finalSustain = document.getElementById('sustain').value;
-                } else {
-                    switch(currentStyle) {
-                        case 'Neo-Soul':
-                            finalDensity = getRandomInt(40, 70);
-                            finalArtic = getRandomItem(['legato', 'balanced']);
-                            break;
-                        case 'Cinematic':
-                            finalDensity = getRandomInt(20, 50);
-                            finalArtic = 'legato';
-                            break;
-                        case 'Techno':
-                            finalDensity = getRandomInt(60, 90);
-                            finalArtic = 'staccato';
-                            break;
-                        case 'Jazz':
-                            finalDensity = getRandomInt(50, 80);
-                            finalArtic = getRandomItem(['balanced', 'legato']);
-                            break;
-                        case 'Lofi':
-                            finalDensity = getRandomInt(30, 60);
-                            finalArtic = getRandomItem(['balanced', 'staccato']);
-                            break;
-                        default:
-                            finalDensity = getRandomInt(40, 70);
-                            finalArtic = 'balanced';
+                    if (isExpertMode) {
+                        finalDensity = parseInt(document.getElementById('density').value);
+                        finalArtic = document.getElementById('artic').value;
+                        finalPitchBend = document.getElementById('pitch_bend').value;
+                        finalSustain = document.getElementById('sustain').value;
+                    } else {
+                        switch(basePayload.style) {
+                            case 'Neo-Soul':
+                                finalDensity = getRandomInt(40, 70);
+                                finalArtic = getRandomItem(['legato', 'balanced']);
+                                break;
+                            case 'Cinematic':
+                                finalDensity = getRandomInt(20, 50);
+                                finalArtic = 'legato';
+                                break;
+                            case 'Techno':
+                                finalDensity = getRandomInt(60, 90);
+                                finalArtic = 'staccato';
+                                break;
+                            case 'Jazz':
+                                finalDensity = getRandomInt(50, 80);
+                                finalArtic = getRandomItem(['balanced', 'legato']);
+                                break;
+                            case 'Lofi':
+                                finalDensity = getRandomInt(30, 60);
+                                finalArtic = getRandomItem(['balanced', 'staccato']);
+                                break;
+                            default:
+                                finalDensity = getRandomInt(40, 70);
+                                finalArtic = 'balanced';
+                        }
                     }
-                }
 
-                const uniquePayload = {
-                    ...basePayload,
-                    density: finalDensity,
-                    articulation: finalArtic,
-                    pitch_bend: finalPitchBend,
-                    sustain: finalSustain
-                };
+                    uniquePayload.density = finalDensity;
+                    uniquePayload.articulation = finalArtic;
+                    uniquePayload.pitch_bend = finalPitchBend;
+                    uniquePayload.sustain = finalSustain;
+                }
 
                 return fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
                     method: 'POST',
@@ -716,10 +848,17 @@
                         const blob = await responses[i].blob();
                         const objectUrl = window.URL.createObjectURL(blob); 
                         
-                        const safeStyle = basePayload.style.replace(/[^a-zA-Z0-9]/g, '');
-                        const safeKey = basePayload.key.replace('#', 'Sharp');
+                        let filename = "";
                         const timestamp = new Date().toISOString().slice(11,19).replace(/:/g, "");
-                        const filename = `Ignite_V${i+1}_${safeStyle}_${safeKey}_${basePayload.bpm}BPM_${timestamp}.mid`;
+                        
+                        if (isCosmic) {
+                            const safeKey = basePayload.key.replace('#', 'Sharp');
+                            filename = `Ignite_Cosmic_${basePayload.cosmic_algo.toUpperCase()}_${safeKey}_V${i+1}_${basePayload.bpm}BPM_${timestamp}.mid`;
+                        } else {
+                            const safeStyle = basePayload.style.replace(/[^a-zA-Z0-9]/g, '');
+                            const safeKey = basePayload.key.replace('#', 'Sharp');
+                            filename = `Ignite_V${i+1}_${safeStyle}_${safeKey}_${basePayload.bpm}BPM_${timestamp}.mid`;
+                        }
                         
                         createResultCard(filename, objectUrl, i + 1, basePayload);
                         successCount++;
@@ -731,9 +870,9 @@
                     status.className = "text-[11px] text-green-500 uppercase tracking-widest font-black";
                     
                     btnText.innerText = `SUCCESS! (${successCount})`;
-                    btn.classList.replace('from-orange-500', 'from-green-500');
-                    btn.classList.replace('to-red-600', 'to-emerald-600');
-                    btn.classList.add('shadow-[0_0_40px_rgba(16,185,129,0.4)]');
+                    
+                    btn.classList.remove('from-orange-500', 'from-purple-600', 'to-red-600', 'to-indigo-600');
+                    btn.classList.add('from-green-500', 'to-emerald-600', 'shadow-[0_0_40px_rgba(16,185,129,0.4)]');
                     
                     try {
                         await db.collection('users').doc(user.uid).set({
@@ -751,7 +890,7 @@
 
             } catch (error) {
                 console.error("Cloud Generation Error:", error);
-                status.innerText = "ENGINE AT MAX CAPACITY. High demand right now. Please try again in 30 seconds";
+                status.innerText = "ENGINE AT MAX CAPACITY. Please try again in 30 seconds";
                 status.className = "text-[11px] text-red-500 uppercase tracking-widest font-black";
                 btnText.innerText = "TRY AGAIN";
             } finally {
@@ -759,13 +898,18 @@
                 
                 setTimeout(() => {
                     btn.disabled = false;
-                    btn.classList.remove('opacity-80', 'cursor-wait', 'shadow-[0_0_40px_rgba(16,185,129,0.4)]');
-                    btn.classList.replace('from-green-500', 'from-orange-500');
-                    btn.classList.replace('to-emerald-600', 'to-red-600');
+                    btn.classList.remove('opacity-80', 'cursor-wait', 'shadow-[0_0_40px_rgba(16,185,129,0.4)]', 'from-green-500', 'to-emerald-600');
+                    
+                    if (isCosmic) {
+                        btn.classList.add('from-purple-600', 'to-indigo-600');
+                    } else {
+                        btn.classList.add('from-orange-500', 'to-red-600');
+                    }
+                    
                     wandIcon.classList.remove('hidden');
                     btnText.innerText = "INSPIRE ME";
                     
-                    if(status.innerText.includes("READY")) {
+                    if(status.innerText.includes("READY FOR DAW")) {
                         status.innerText = "ENGINE READY";
                         status.className = "text-[11px] text-gray-500 uppercase tracking-widest font-bold transition-colors duration-1000";
                     }
