@@ -93,6 +93,13 @@
             font-weight: 900;
             letter-spacing: 0.1em;
         }
+        
+        /* Drag helper classes */
+        .drag-active {
+            border-color: rgba(255, 94, 0, 0.8) !important;
+            box-shadow: 0 0 20px rgba(255, 94, 0, 0.2) !important;
+            transform: scale(0.98);
+        }
     </style>
 </head>
 <body class="text-gray-100 min-h-screen flex flex-col items-center justify-center p-4 relative overflow-x-hidden">
@@ -508,14 +515,33 @@
             auth.signOut();
         }
 
-        // --- UI Builder for Results (Drag & Drop Focused) ---
-        function createResultCard(filename, objectUrl, dataUrl, index, params) {
+        // --- Aggressive Drag & Drop Engine (with Graceful Degradation for Safari/Firefox) ---
+        function createResultCard(filename, objectUrl, originalDataUrl, index, params) {
             resultsContainer.classList.remove('hidden');
             
-            // Using a strictly clean DIV for the draggable element to prevent click/drag conflicts
-            const card = document.createElement('div');
-            card.draggable = true;
-            card.className = "result-card block bg-black/40 border border-white/5 hover:border-orange-500/40 transition-all rounded-2xl p-4 cursor-grab active:cursor-grabbing group select-none";
+            // Browser Detection
+            const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+            const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+            const canDragToDAW = !(isSafari || isFirefox); // Chrome, Edge, Arc, Brave will evaluate to true
+
+            // Forcing OS-level binary download behavior for Chromium
+            const binaryDataUrl = originalDataUrl.replace(/^data:[^;]+/, 'data:application/octet-stream');
+
+            const card = document.createElement('a');
+            // If dragging is supported, use the Base64 binary URL. If not, use the fast Object URL for direct click-download.
+            card.href = canDragToDAW ? binaryDataUrl : objectUrl; 
+            card.download = filename;
+            card.draggable = canDragToDAW;
+            
+            // Adjust cursor based on browser support
+            const cursorClass = canDragToDAW ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer';
+            card.className = `result-card block bg-black/40 border border-white/5 hover:border-orange-500/40 transition-all rounded-2xl p-4 group select-none ${cursorClass}`;
+
+            // Dynamic UI based on browser capabilities
+            const actionText = canDragToDAW ? 'DRAG TO DAW' : 'CLICK TO DOWNLOAD';
+            const actionIcon = canDragToDAW 
+                ? `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9h8M8 15h8"></path></svg>`
+                : `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>`;
 
             card.innerHTML = `
                 <div class="flex items-center justify-between w-full pointer-events-none">
@@ -530,47 +556,59 @@
                     </div>
                     <div class="flex items-center gap-3 pointer-events-auto">
                         <div class="text-[10px] text-orange-400 font-bold uppercase tracking-widest flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity pointer-events-none">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9h8M8 15h8"></path></svg>
-                            DRAG TO DAW
+                            ${actionIcon}
+                            ${actionText}
                         </div>
+                        ${canDragToDAW ? `
                         <button class="download-btn text-gray-500 hover:text-white p-2 transition-colors z-10" title="Download manually">
                             <svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                        </button>
+                        </button>` : ''}
                     </div>
                 </div>
             `;
 
-            // Drag Events (The Gold Standard for DAW insertion)
-            card.addEventListener('dragstart', (e) => {
-                // Using application/octet-stream forces the browser to treat this as a physical file download via drag
-                const downloadUrlFormat = `application/octet-stream:${filename}:${dataUrl}`;
-                e.dataTransfer.setData('DownloadURL', downloadUrlFormat);
-                
-                // Fallbacks for OS specific behaviors
-                e.dataTransfer.setData('text/uri-list', dataUrl);
-                e.dataTransfer.setData('text/plain', dataUrl);
-                e.dataTransfer.effectAllowed = 'copy';
-                
-                // Ghost Icon setup
-                const dragIcon = document.createElement('div');
-                dragIcon.className = "bg-gradient-to-r from-orange-500 to-red-600 text-white font-black text-xs px-4 py-2 rounded-lg absolute -left-[9999px] shadow-lg border border-white/20 z-50 pointer-events-none";
-                dragIcon.innerHTML = "MIDI DATA";
-                document.body.appendChild(dragIcon);
-                e.dataTransfer.setDragImage(dragIcon, 20, 20);
-                setTimeout(() => document.body.removeChild(dragIcon), 100);
-            });
+            if (canDragToDAW) {
+                // Prevent normal click from triggering a download in Chromium, unless they hit the specific download icon
+                card.addEventListener('click', (e) => {
+                    if (!e.target.closest('.download-btn')) {
+                        e.preventDefault(); 
+                    }
+                });
 
-            // Manual Download Action
-            const downloadBtn = card.querySelector('.download-btn');
-            downloadBtn.addEventListener('click', (e) => {
-                e.stopPropagation(); // Stop click from affecting drag container
-                const a = document.createElement('a');
-                a.href = objectUrl; // objectUrl is much faster/cleaner for direct clicks than DataURL
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-            });
+                // The specific DownloadURL hack for Chrome/Edge
+                card.addEventListener('dragstart', (e) => {
+                    card.classList.add('drag-active');
+                    const downloadUrlFormat = `application/octet-stream:${filename}:${binaryDataUrl}`;
+                    e.dataTransfer.setData('DownloadURL', downloadUrlFormat);
+                    
+                    const dragIcon = document.createElement('div');
+                    dragIcon.className = "bg-gradient-to-r from-orange-500 to-red-600 text-white font-black text-xs px-4 py-2 rounded-lg absolute -left-[9999px] shadow-lg border border-white/20 z-50 pointer-events-none";
+                    dragIcon.innerHTML = "MIDI DATA";
+                    document.body.appendChild(dragIcon);
+                    e.dataTransfer.setDragImage(dragIcon, 20, 20);
+                    setTimeout(() => document.body.removeChild(dragIcon), 100);
+                });
+
+                card.addEventListener('dragend', () => {
+                    card.classList.remove('drag-active');
+                });
+
+                // Manual Explicit Download Button (only shown in Chromium)
+                const downloadBtn = card.querySelector('.download-btn');
+                if (downloadBtn) {
+                    downloadBtn.addEventListener('click', (e) => {
+                        e.stopPropagation(); 
+                        const tempLink = document.createElement('a');
+                        tempLink.href = objectUrl; 
+                        tempLink.download = filename;
+                        document.body.appendChild(tempLink);
+                        tempLink.click();
+                        tempLink.remove();
+                    });
+                }
+            } 
+            // Note: If canDragToDAW is false (Safari/FF), we DON'T add event.preventDefault() to the click.
+            // This means clicking anywhere on the card will naturally trigger the <a> tag's default download behavior.
 
             resultsContainer.appendChild(card);
         }
@@ -710,19 +748,18 @@
                     if (responses[i].ok) {
                         const blob = await responses[i].blob();
                         
-                        // Converting blob to Base64 (DataURL) needed for the drag and drop OS payload
                         await new Promise((resolve) => {
                             const reader = new FileReader();
                             reader.onload = function(e) {
-                                const dataUrl = e.target.result;
-                                const objectUrl = window.URL.createObjectURL(blob); // Keeping object URL for fast manual downloads
+                                const originalDataUrl = e.target.result;
+                                const objectUrl = window.URL.createObjectURL(blob); 
                                 
                                 const safeStyle = basePayload.style.replace(/[^a-zA-Z0-9]/g, '');
                                 const safeKey = basePayload.key.replace('#', 'Sharp');
                                 const timestamp = new Date().toISOString().slice(11,19).replace(/:/g, "");
                                 const filename = `Ignite_V${i+1}_${safeStyle}_${safeKey}_${basePayload.bpm}BPM_${timestamp}.mid`;
                                 
-                                createResultCard(filename, objectUrl, dataUrl, i + 1, basePayload);
+                                createResultCard(filename, objectUrl, originalDataUrl, i + 1, basePayload);
                                 resolve();
                             };
                             reader.readAsDataURL(blob);
@@ -733,7 +770,7 @@
                 }
 
                 if (successCount > 0) {
-                    status.innerText = `🔥 ${successCount} IDEAS READY FOR DAW!`;
+                    status.innerText = `🔥 ${successCount} IDEAS READY!`;
                     status.className = "text-[11px] text-green-500 uppercase tracking-widest font-black";
                     
                     btnText.innerText = `SUCCESS! (${successCount})`;
