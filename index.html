@@ -11,6 +11,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-storage-compat.js"></script>
+    
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700;900&display=swap" rel="stylesheet">
 
     <style>
@@ -385,6 +387,7 @@
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
+        const storage = firebase.storage(); // אתחול של מודול האחסון
 
         const authModal = document.getElementById('auth-modal');
         const appContent = document.getElementById('app-content');
@@ -514,15 +517,14 @@
             auth.signOut();
         }
 
-        // --- Pure Data-URI Injection Engine ---
-        function createResultCard(filename, dataUrl, objectUrl, index, params) {
+        // --- The Ultimate Cloud Storage Drag Engine ---
+        function createResultCard(filename, firebaseUrl, objectUrl, index, params) {
             resultsContainer.classList.remove('hidden');
             
             const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
             const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
             const canDragToDAW = !(isSafari || isFirefox); 
 
-            // THE FIX: Using a clean <div> instead of <a> to prevent native browser link-dragging conflicts.
             const card = document.createElement('div');
             card.draggable = canDragToDAW;
             
@@ -559,12 +561,18 @@
             `;
 
             if (canDragToDAW) {
-                // THE FIX: Strict formatting of DownloadURL with proper audio/midi MIME type. 
-                // This forces the OS to create a real .mid file behind the scenes that the DAW will recognize.
                 card.addEventListener('dragstart', (e) => {
                     card.classList.add('drag-active');
                     e.dataTransfer.clearData();
-                    e.dataTransfer.setData('DownloadURL', `audio/midi:${filename}:${dataUrl}`);
+                    
+                    // THE FIX: We pass the real HTTPS Firebase URL directly to Ableton.
+                    // Ableton knows exactly how to handle an incoming web link -> it downloads and imports it.
+                    const downloadUrlFormat = `application/octet-stream:${filename}:${firebaseUrl}`;
+                    e.dataTransfer.setData('DownloadURL', downloadUrlFormat);
+                    
+                    // Fallbacks for DAWs that prefer direct URL parsing
+                    e.dataTransfer.setData('text/uri-list', firebaseUrl);
+                    e.dataTransfer.setData('text/plain', firebaseUrl);
                     
                     const dragIcon = document.createElement('div');
                     dragIcon.className = "bg-gradient-to-r from-orange-500 to-red-600 text-white font-black text-xs px-4 py-2 rounded-lg absolute -left-[9999px] shadow-lg border border-white/20 z-50 pointer-events-none";
@@ -578,7 +586,6 @@
                     card.classList.remove('drag-active');
                 });
 
-                // Manual explicit download button
                 const downloadBtn = card.querySelector('.download-btn');
                 if (downloadBtn) {
                     downloadBtn.addEventListener('click', (e) => {
@@ -587,7 +594,6 @@
                     });
                 }
             } else {
-                // Fallback for Safari/Firefox: clicking the card itself downloads it
                 card.addEventListener('click', () => {
                     triggerDownload(objectUrl, filename);
                 });
@@ -648,7 +654,6 @@
                 console.error("Firestore Check Error:", err);
             }
 
-            // UI Reset & Loading State
             resultsContainer.innerHTML = '';
             resultsContainer.classList.add('hidden');
 
@@ -739,32 +744,28 @@
                 for (let i = 0; i < responses.length; i++) {
                     if (responses[i].ok) {
                         const blob = await responses[i].blob();
-                        const arrayBuffer = await blob.arrayBuffer();
-                        
-                        // THE FIX: Strict Manual Base64 encoding. 
-                        // Prevents the browser's FileReader from guessing wrong MIME types and breaking DAW imports.
-                        const uint8Array = new Uint8Array(arrayBuffer);
-                        let binaryString = '';
-                        for (let j = 0; j < uint8Array.byteLength; j++) {
-                            binaryString += String.fromCharCode(uint8Array[j]);
-                        }
-                        const base64Data = window.btoa(binaryString);
-                        const cleanDataUrl = `data:audio/midi;base64,${base64Data}`;
-                        
-                        const objectUrl = window.URL.createObjectURL(blob); 
                         
                         const safeStyle = basePayload.style.replace(/[^a-zA-Z0-9]/g, '');
                         const safeKey = basePayload.key.replace('#', 'Sharp');
                         const timestamp = new Date().toISOString().slice(11,19).replace(/:/g, "");
                         const filename = `Ignite_V${i+1}_${safeStyle}_${safeKey}_${basePayload.bpm}BPM_${timestamp}.mid`;
+
+                        // THE FIX: Upload the blob to Firebase Storage instantly
+                        status.innerText = `SYNCING IDEA ${i+1} TO CLOUD...`;
+                        const storageRef = storage.ref(`temp_midi_generations/${user.uid}/${filename}`);
+                        await storageRef.put(blob);
+                        const firebaseUrl = await storageRef.getDownloadURL();
                         
-                        createResultCard(filename, cleanDataUrl, objectUrl, i + 1, basePayload);
+                        // Keep ObjectURL for fast manual UI downloads
+                        const objectUrl = window.URL.createObjectURL(blob); 
+                        
+                        createResultCard(filename, firebaseUrl, objectUrl, i + 1, basePayload);
                         successCount++;
                     }
                 }
 
                 if (successCount > 0) {
-                    status.innerText = `🔥 ${successCount} IDEAS READY!`;
+                    status.innerText = `🔥 ${successCount} IDEAS READY FOR ABLETON!`;
                     status.className = "text-[11px] text-green-500 uppercase tracking-widest font-black";
                     
                     btnText.innerText = `SUCCESS! (${successCount})`;
