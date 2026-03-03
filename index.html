@@ -245,17 +245,26 @@
                     </div>
                 </div>
 
-                <div class="mb-8 bg-black/20 p-5 rounded-2xl border border-purple-500/10">
-                    <div class="flex justify-between text-xs mb-3 font-medium">
-                        <span class="text-gray-400">Cosmic Flow (Density)</span>
-                        <span id="cosmic-dens-v" class="text-purple-400 font-bold uppercase tracking-widest">Orbit (50%)</span>
+                <div class="mb-8 bg-black/20 p-5 rounded-2xl border border-purple-500/10 space-y-6">
+                    <div>
+                        <div class="flex justify-between text-xs mb-3 font-medium">
+                            <span class="text-gray-400">Cosmic Flow (Density)</span>
+                            <span id="cosmic-dens-v" class="text-purple-400 font-bold uppercase tracking-widest">Orbit (50%)</span>
+                        </div>
+                        <input type="range" id="cosmic-density" min="1" max="100" value="50" oninput="
+                            let s = 'Orbit';
+                            if (this.value < 40) s = 'Nebula';
+                            if (this.value > 70) s = 'Quantum';
+                            document.getElementById('cosmic-dens-v').innerText = `${s} (${this.value}%)`;
+                        ">
                     </div>
-                    <input type="range" id="cosmic-density" min="1" max="100" value="50" oninput="
-                        let s = 'Orbit';
-                        if (this.value < 40) s = 'Nebula';
-                        if (this.value > 70) s = 'Quantum';
-                        document.getElementById('cosmic-dens-v').innerText = `${s} (${this.value}%)`;
-                    ">
+                    <div>
+                        <div class="flex justify-between text-xs mb-3 font-medium">
+                            <span class="text-gray-400">Glissando (Micro-Strum)</span>
+                            <span id="cosmic-gliss-val" class="text-purple-400 font-bold uppercase tracking-widest">30%</span>
+                        </div>
+                        <input type="range" id="cosmic-glissando" min="0" max="100" value="30" oninput="document.getElementById('cosmic-gliss-val').innerText = this.value + '%'">
+                    </div>
                 </div>
 
                 <div class="mb-8 p-4 bg-purple-900/10 rounded-xl border border-purple-500/20">
@@ -360,6 +369,13 @@
                             </div>
                             <input type="range" id="comp" min="1" max="5" value="4" oninput="document.getElementById('comp-val').innerText = 'Lvl ' + this.value">
                         </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-3 font-medium">
+                                <span class="text-gray-400">Glissando (Micro-Strum)</span>
+                                <span id="gliss-val" class="text-orange-500">30%</span>
+                            </div>
+                            <input type="range" id="glissando" min="0" max="100" value="30" oninput="document.getElementById('gliss-val').innerText = this.value + '%'">
+                        </div>
                     </div>
                 </div>
 
@@ -461,6 +477,7 @@
             <div class="space-y-4 text-xs text-gray-300 mb-8">
                 <p><strong class="text-white">COSMIC MODE:</strong> Dreamy, cinematic sequence generation. Uses strict rhythmic algorithms (Fibonacci, Tesla 3-6-9) and applies ancient Just Intonation tuning via sequential pitchwheel micro-bending. No block chords.</p>
                 <p><strong class="text-white">Cosmic Flow:</strong> Controls the density and speed of the sequence. &lt;40% = Nebula (Sparse/Dreamy), 40-70% = Orbit (Pulsing), &gt;70% = Quantum (Rolling/Fast).</p>
+                <p><strong class="text-white">Glissando (Micro-Strum):</strong> Controls the chance to spawn rapid 5-note cascades. The engine enforces an absolute 25ms physical delay between these notes to break the grid and sound human.</p>
                 <p><strong class="text-white">Style:</strong> Defines the overarching genre, phrasing, and feeling of the MIDI.</p>
                 <p><strong class="text-white">Key & Mode:</strong> Sets the tonal center and musical scale the generation adheres to.</p>
                 <p><strong class="text-white">Tempo & Bars:</strong> Determines the speed (BPM) and the total length of the sequence.</p>
@@ -804,7 +821,8 @@
                     key: document.getElementById('cosmic-key').value,
                     bpm: parseInt(document.getElementById('cosmic-bpm').value),
                     bars: parseInt(document.getElementById('cosmic-bars').value),
-                    cosmic_density: parseInt(document.getElementById('cosmic-density').value)
+                    cosmic_density: parseInt(document.getElementById('cosmic-density').value),
+                    gliss_chance: parseInt(document.getElementById('cosmic-glissando').value)
                 };
             } else {
                 basePayload = {
@@ -817,7 +835,8 @@
                     swing: parseInt(document.getElementById('swing').value),
                     sync_chance: parseInt(document.getElementById('sync').value),
                     comp_level: parseInt(document.getElementById('comp').value),
-                    grid: document.querySelector('input[name="grid"]:checked').value
+                    grid: document.querySelector('input[name="grid"]:checked').value,
+                    gliss_chance: parseInt(document.getElementById('glissando').value)
                 };
             }
 
