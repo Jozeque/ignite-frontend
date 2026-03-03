@@ -258,12 +258,23 @@
                             document.getElementById('cosmic-dens-v').innerText = `${s} (${this.value}%)`;
                         ">
                     </div>
-                    <div>
-                        <div class="flex justify-between text-xs mb-3 font-medium">
-                            <span class="text-gray-400">Glissando (Micro-Strum)</span>
-                            <span id="cosmic-gliss-val" class="text-purple-400 font-bold uppercase tracking-widest">30%</span>
+                    
+                    <div class="flex flex-col gap-2">
+                        <span class="text-xs text-gray-400 font-medium">Glissando (Micro-Strum)</span>
+                        <div class="flex bg-black/50 p-1 rounded-xl border border-purple-900/30 w-full">
+                            <label class="cursor-pointer flex-1 text-center">
+                                <input type="radio" name="cosmic-glissando" value="off" class="peer sr-only">
+                                <div class="py-2 rounded-lg text-[10px] font-bold text-gray-500 peer-checked:bg-purple-500/20 peer-checked:text-purple-400 border border-transparent transition-all tracking-wide">OFF</div>
+                            </label>
+                            <label class="cursor-pointer flex-1 text-center">
+                                <input type="radio" name="cosmic-glissando" value="sparse" class="peer sr-only" checked>
+                                <div class="py-2 rounded-lg text-[10px] font-bold text-gray-500 peer-checked:bg-purple-500/20 peer-checked:text-purple-400 border border-transparent transition-all tracking-wide">SPARSE</div>
+                            </label>
+                            <label class="cursor-pointer flex-1 text-center">
+                                <input type="radio" name="cosmic-glissando" value="often" class="peer sr-only">
+                                <div class="py-2 rounded-lg text-[10px] font-bold text-gray-500 peer-checked:bg-purple-500/20 peer-checked:text-purple-400 border border-transparent transition-all tracking-wide">OFTEN</div>
+                            </label>
                         </div>
-                        <input type="range" id="cosmic-glissando" min="0" max="100" value="30" oninput="document.getElementById('cosmic-gliss-val').innerText = this.value + '%'">
                     </div>
                 </div>
 
@@ -369,12 +380,23 @@
                             </div>
                             <input type="range" id="comp" min="1" max="5" value="4" oninput="document.getElementById('comp-val').innerText = 'Lvl ' + this.value">
                         </div>
-                        <div>
-                            <div class="flex justify-between text-xs mb-3 font-medium">
-                                <span class="text-gray-400">Glissando (Micro-Strum)</span>
-                                <span id="gliss-val" class="text-orange-500">30%</span>
+
+                        <div class="flex flex-col gap-2 pt-2">
+                            <span class="text-xs text-gray-400 font-medium">Glissando (Micro-Strum)</span>
+                            <div class="flex bg-black/50 p-1 rounded-xl border border-gray-800 w-full">
+                                <label class="cursor-pointer flex-1 text-center">
+                                    <input type="radio" name="glissando" value="off" class="peer sr-only">
+                                    <div class="py-2 rounded-lg text-[10px] font-bold text-gray-500 peer-checked:bg-orange-500/20 peer-checked:text-orange-400 border border-transparent transition-all tracking-wide">OFF</div>
+                                </label>
+                                <label class="cursor-pointer flex-1 text-center">
+                                    <input type="radio" name="glissando" value="sparse" class="peer sr-only" checked>
+                                    <div class="py-2 rounded-lg text-[10px] font-bold text-gray-500 peer-checked:bg-orange-500/20 peer-checked:text-orange-400 border border-transparent transition-all tracking-wide">SPARSE</div>
+                                </label>
+                                <label class="cursor-pointer flex-1 text-center">
+                                    <input type="radio" name="glissando" value="often" class="peer sr-only">
+                                    <div class="py-2 rounded-lg text-[10px] font-bold text-gray-500 peer-checked:bg-orange-500/20 peer-checked:text-orange-400 border border-transparent transition-all tracking-wide">OFTEN</div>
+                                </label>
                             </div>
-                            <input type="range" id="glissando" min="0" max="100" value="30" oninput="document.getElementById('gliss-val').innerText = this.value + '%'">
                         </div>
                     </div>
                 </div>
@@ -418,7 +440,9 @@
                         </div>
                     </div>
                 </div>
-            </div> <div class="mb-5 flex items-center justify-between bg-black/20 p-2 pl-4 rounded-2xl border border-white/5">
+            </div> 
+            
+            <div class="mb-5 flex items-center justify-between bg-black/20 p-2 pl-4 rounded-2xl border border-white/5">
                 <span class="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Ideas Quantity</span>
                 <div class="flex bg-black/50 p-1 rounded-xl border border-gray-800">
                     <label class="cursor-pointer">
@@ -477,7 +501,7 @@
             <div class="space-y-4 text-xs text-gray-300 mb-8">
                 <p><strong class="text-white">COSMIC MODE:</strong> Dreamy, cinematic sequence generation. Uses strict rhythmic algorithms (Fibonacci, Tesla 3-6-9) and applies ancient Just Intonation tuning via sequential pitchwheel micro-bending. No block chords.</p>
                 <p><strong class="text-white">Cosmic Flow:</strong> Controls the density and speed of the sequence. &lt;40% = Nebula (Sparse/Dreamy), 40-70% = Orbit (Pulsing), &gt;70% = Quantum (Rolling/Fast).</p>
-                <p><strong class="text-white">Glissando (Micro-Strum):</strong> Controls the chance to spawn rapid 5-note cascades. The engine enforces an absolute 25ms physical delay between these notes to break the grid and sound human.</p>
+                <p><strong class="text-white">Glissando (Micro-Strum):</strong> Spawns rapid 3 to 6-note cascades. The engine enforces an absolute 25ms physical delay between notes to sound human. The backend limits this to maximum 1 strum per bar to prevent muddy overlapping.</p>
                 <p><strong class="text-white">Style:</strong> Defines the overarching genre, phrasing, and feeling of the MIDI.</p>
                 <p><strong class="text-white">Key & Mode:</strong> Sets the tonal center and musical scale the generation adheres to.</p>
                 <p><strong class="text-white">Tempo & Bars:</strong> Determines the speed (BPM) and the total length of the sequence.</p>
@@ -822,7 +846,7 @@
                     bpm: parseInt(document.getElementById('cosmic-bpm').value),
                     bars: parseInt(document.getElementById('cosmic-bars').value),
                     cosmic_density: parseInt(document.getElementById('cosmic-density').value),
-                    gliss_chance: parseInt(document.getElementById('cosmic-glissando').value)
+                    gliss_intensity: document.querySelector('input[name="cosmic-glissando"]:checked').value
                 };
             } else {
                 basePayload = {
@@ -836,7 +860,7 @@
                     sync_chance: parseInt(document.getElementById('sync').value),
                     comp_level: parseInt(document.getElementById('comp').value),
                     grid: document.querySelector('input[name="grid"]:checked').value,
-                    gliss_chance: parseInt(document.getElementById('glissando').value)
+                    gliss_intensity: document.querySelector('input[name="glissando"]:checked').value
                 };
             }
 
