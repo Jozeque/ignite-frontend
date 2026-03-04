@@ -833,44 +833,13 @@
 
             const selectedQty = parseInt(document.querySelector('input[name="qty"]:checked').value) || 1;
             const isCosmic = document.getElementById('cosmic-toggle').checked;
-            let creditsUsed = 0;
-            let currentMonth = new Date().getMonth();
-            let isAdmin = user.email && user.email.toLowerCase() === 'yossi.bozo112@gmail.com';
-
-            try {
-                const userDoc = await db.collection('users').doc(user.uid).get();
-                if (userDoc.exists) {
-                    const userData = userDoc.data();
-                    creditsUsed = userData.credits_used || 0;
-                    if (creditsUsed < 0) isAdmin = true;
-                    
-                    if (userData.last_active_month !== currentMonth && !isAdmin) {
-                        creditsUsed = 0;
-                    }
-                } else {
-                    await db.collection('users').doc(user.uid).set({
-                        email: user.email,
-                        credits_used: isAdmin ? -9999 : 0,
-                        last_active_month: currentMonth,
-                        generations_count: 0
-                    });
-                }
-
-                if (!isAdmin && creditsUsed + selectedQty > 30) {
-                    status.innerText = `NOT ENOUGH CREDITS FOR ${selectedQty} IDEAS.`;
-                    status.className = "text-[11px] text-red-500 uppercase tracking-widest font-black";
-                    return;
-                }
-            } catch (err) {
-                console.error("Firestore Check Error:", err);
-            }
 
             btn.disabled = true;
             btn.classList.add('opacity-80', 'cursor-wait');
             wandIcon.classList.add('hidden');
             spinner.classList.remove('hidden');
             btnText.innerText = `IGNITING ${selectedQty} IDEAS...`;
-            status.innerText = "ROUTING THROUGH NEURAL NETWORK...";
+            status.innerText = "ROUTING THROUGH AI NEURAL NETWORK...";
             status.className = `text-[11px] ${isCosmic ? 'text-purple-400' : 'text-orange-400'} uppercase tracking-widest font-bold animate-pulse`;
 
             let basePayload = {};
@@ -899,7 +868,6 @@
                     comp_level: parseInt(document.getElementById('comp').value),
                     grid: document.querySelector('input[name="grid"]:checked').value,
                     gliss_intensity: document.querySelector('input[name="glissando"]:checked').value,
-                    // Expert settings are now always visible and strictly mapped
                     density: parseInt(document.getElementById('density').value),
                     articulation: document.getElementById('artic').value,
                     pitch_bend: document.getElementById('pitch_bend').value,
@@ -907,18 +875,25 @@
                 };
             }
 
-            const requests = Array.from({ length: selectedQty }, () => {
-                let uniquePayload = { ...basePayload };
-                return fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(uniquePayload)
-                });
-            });
-
             try {
+                // Get fresh secure token
+                const idToken = await user.getIdToken(true);
+
+                const requests = Array.from({ length: selectedQty }, () => {
+                    let uniquePayload = { ...basePayload };
+                    return fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${idToken}` // Server verifies this!
+                        },
+                        body: JSON.stringify(uniquePayload)
+                    });
+                });
+
                 const responses = await Promise.all(requests);
                 let successCount = 0;
+                let errorMsg = null;
 
                 for (let i = 0; i < responses.length; i++) {
                     if (responses[i].ok) {
@@ -939,8 +914,14 @@
                         
                         createResultCard(filename, objectUrl, i + 1, basePayload);
                         successCount++;
+                    } else if (responses[i].status === 402) {
+                        const errData = await responses[i].json();
+                        errorMsg = errData.error;
                     }
                 }
+
+                // Update UI from server state
+                updateCreditsUI(user);
 
                 if (successCount > 0) {
                     status.innerText = `🔥 ${successCount} IDEAS SENT TO LIBRARY!`;
@@ -950,24 +931,17 @@
                     
                     btn.classList.remove('from-orange-500', 'from-purple-600', 'to-red-600', 'to-indigo-600');
                     btn.classList.add('from-green-500', 'to-emerald-600', 'shadow-[0_0_40px_rgba(16,185,129,0.4)]');
-                    
-                    try {
-                        await db.collection('users').doc(user.uid).set({
-                            credits_used: isAdmin ? -9999 : creditsUsed + successCount,
-                            last_active_month: currentMonth,
-                            generations_count: firebase.firestore.FieldValue.increment(successCount)
-                        }, { merge: true });
-                        updateCreditsUI(user);
-                    } catch (dbErr) {
-                        console.error("DB Update Failed:", dbErr);
-                    }
+                } else if (errorMsg) {
+                    status.innerText = errorMsg.toUpperCase();
+                    status.className = "text-[11px] text-red-500 uppercase tracking-widest font-black";
+                    btnText.innerText = "NO CREDITS";
                 } else {
                     throw new Error("All parallel requests failed.");
                 }
 
             } catch (error) {
-                console.error("Cloud Generation Error:", error);
-                status.innerText = "ENGINE AT MAX CAPACITY. Please try again in 30 seconds";
+                console.error("Generation Error:", error);
+                status.innerText = "SERVER REJECTED REQUEST. PLEASE TRY AGAIN.";
                 status.className = "text-[11px] text-red-500 uppercase tracking-widest font-black";
                 btnText.innerText = "TRY AGAIN";
             } finally {
@@ -1046,4 +1020,3 @@
     </script>
 </body>
 </html>
-
