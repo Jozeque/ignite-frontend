@@ -623,38 +623,6 @@
         let lastVisibleDoc = null;
         let isHistoryLoading = false;
 
-        // --- CORE HELPER: FORCE DOWNLOAD (FIXES FILENAME ISSUE) ---
-        async function forceDownload(e, url, filename) {
-            if(e) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-            try {
-                const response = await fetch(url);
-                const blob = await response.blob();
-                const blobUrl = window.URL.createObjectURL(blob);
-                
-                const a = document.createElement('a');
-                a.style.display = 'none';
-                a.href = blobUrl;
-                a.download = filename; 
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                
-                setTimeout(() => window.URL.revokeObjectURL(blobUrl), 100);
-            } catch(err) {
-                console.error("Force download failed, fallback to direct link", err);
-                const a = document.createElement('a');
-                a.href = url;
-                a.target = '_blank';
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-            }
-        }
-
         // --- TONE.JS AUDIO ENGINE ---
         let sineSynth, rhodesSynth, padSynth;
         let isAudioInitialized = false;
@@ -1027,10 +995,9 @@
             `;
 
             const downloadTrigger = card.querySelector('.download-trigger');
-            downloadTrigger.addEventListener('click', async (e) => {
+            downloadTrigger.addEventListener('click', (e) => {
                 e.stopPropagation();
                 
-                // UI Visual Success
                 card.classList.add('border-green-500/40', 'bg-green-900/10');
                 card.classList.remove(hoverBorder);
                 
@@ -1042,8 +1009,13 @@
                 successUi.classList.remove('hidden');
                 successUi.classList.add('flex');
                 
-                // Trigger Local Blob Download
-                await forceDownload(e, downloadUrl, filename);
+                const tempLink = document.createElement('a');
+                tempLink.href = downloadUrl; 
+                tempLink.download = filename;
+                tempLink.target = "_blank";
+                document.body.appendChild(tempLink);
+                tempLink.click();
+                tempLink.remove();
                 
                 setTimeout(() => {
                     card.classList.remove('border-green-500/40', 'bg-green-900/10');
@@ -1205,7 +1177,7 @@
                 document.getElementById('load-more-btn').classList.add('hidden');
                 await loadHistory();
             } else {
-                stopPlayback(); // Stop audio if closing vault
+                stopPlayback(); 
             }
         }
 
@@ -1277,10 +1249,10 @@
                         </div>
                         <div class="flex items-center gap-4 z-20">
                             <span class="text-[9px] text-gray-600 uppercase font-bold tracking-widest hidden lg:block">${dateStr}</span>
-                            <button onclick="forceDownload(event, '${data.url}', '${data.filename}')" class="text-[10px] bg-white/5 hover:bg-white/10 text-white font-bold uppercase tracking-widest flex items-center gap-2 px-4 py-3 rounded-xl border border-white/10 transition-all shadow-md">
+                            <a href="${data.url}" target="_blank" download="${data.filename}" class="text-[10px] bg-white/5 hover:bg-white/10 text-white font-bold uppercase tracking-widest flex items-center gap-2 px-4 py-3 rounded-xl border border-white/10 transition-all shadow-md">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                                 Download File
-                            </button>
+                            </a>
                         </div>
                     `;
                     contentDiv.appendChild(card);
