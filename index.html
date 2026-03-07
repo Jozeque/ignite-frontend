@@ -8,7 +8,11 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cdefs%3E%3ClinearGradient id='igniteGradient' x1='0%25' y1='0%25' x2='100%25' y2='0%25'%3E%3Cstop offset='0%25' stop-color='%23f97316' /%3E%3Cstop offset='100%25' stop-color='%23ef4444' /%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z' stroke='url(%23igniteGradient)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 
     <script src="https://unpkg.com/tone@14.8.49/build/Tone.js"></script>
-    <script src="https://unpkg.com/@tonejs/midi"></script>
+    
+    <script type="module">
+        import { Midi } from 'https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/+esm';
+        window.TonejsMidi = Midi;
+    </script>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
@@ -628,7 +632,6 @@
 
         async function initAudio() {
             if(isAudioInitialized) return;
-            await Tone.start();
             
             // 1. Pure Sine (Analyzer)
             sineSynth = new Tone.PolySynth(Tone.Synth, {
@@ -687,6 +690,11 @@
         async function toggleAudio(e, url, btn) {
             e.stopPropagation(); // Prevent download triggered by outer container
             
+            // Fix AudioContext warning by starting immediately on click!
+            if (Tone.context.state !== 'running') {
+                await Tone.start();
+            }
+            
             await initAudio();
             
             const playIcon = btn.querySelector('.play-icon');
@@ -706,11 +714,15 @@
             currentlyPlayingBtn = btn;
             
             try {
-                // Fetch and Parse MIDI (requires CORS if fetching from Storage)
+                if (!window.TonejsMidi) {
+                    throw new Error("MIDI module is still loading...");
+                }
+
+                // Fetch and Parse MIDI 
                 const response = await fetch(url);
                 if (!response.ok) throw new Error("Network response was not ok");
                 const arrayBuffer = await response.arrayBuffer();
-                const midi = new Midi(arrayBuffer);
+                const midi = new window.TonejsMidi(arrayBuffer);
                 
                 // Get globally selected synth
                 const synthType = document.getElementById('synth-selector-session').value;
