@@ -623,6 +623,38 @@
         let lastVisibleDoc = null;
         let isHistoryLoading = false;
 
+        // --- CORE HELPER: FORCE DOWNLOAD (FIXES FILENAME ISSUE) ---
+        async function forceDownload(e, url, filename) {
+            if(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            try {
+                const response = await fetch(url);
+                const blob = await response.blob();
+                const blobUrl = window.URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = blobUrl;
+                a.download = filename; 
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                
+                setTimeout(() => window.URL.revokeObjectURL(blobUrl), 100);
+            } catch(err) {
+                console.error("Force download failed, fallback to direct link", err);
+                const a = document.createElement('a');
+                a.href = url;
+                a.target = '_blank';
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            }
+        }
+
         // --- TONE.JS AUDIO ENGINE ---
         let sineSynth, rhodesSynth, padSynth;
         let isAudioInitialized = false;
@@ -688,9 +720,8 @@
         }
 
         async function toggleAudio(e, url, btn) {
-            e.stopPropagation(); // Prevent download triggered by outer container
+            e.stopPropagation(); 
             
-            // Fix AudioContext warning by starting immediately on click!
             if (Tone.context.state !== 'running') {
                 await Tone.start();
             }
@@ -707,7 +738,6 @@
             
             if (currentlyPlayingBtn) stopPlayback();
             
-            // UI Loading State
             playIcon.classList.add('hidden');
             stopIcon.classList.remove('hidden');
             btn.classList.add('animate-pulse', 'scale-105');
@@ -718,13 +748,11 @@
                     throw new Error("MIDI module is still loading...");
                 }
 
-                // Fetch and Parse MIDI 
                 const response = await fetch(url);
                 if (!response.ok) throw new Error("Network response was not ok");
                 const arrayBuffer = await response.arrayBuffer();
                 const midi = new window.TonejsMidi(arrayBuffer);
                 
-                // Get globally selected synth
                 const synthType = document.getElementById('synth-selector-session').value;
                 let activeSynth = sineSynth;
                 if (synthType === 'rhodes') activeSynth = rhodesSynth;
@@ -757,7 +785,7 @@
                 
                 stopEventId = Tone.Transport.schedule(() => {
                     Tone.Draw.schedule(() => stopPlayback(), Tone.now());
-                }, midi.duration + 2); // Auto-stop after completion
+                }, midi.duration + 2); 
                 
             } catch (err) {
                 console.error("Playback error:", err);
@@ -768,7 +796,6 @@
 
         // --- END AUDIO ENGINE ---
 
-        // Cosmic State Handling
         function toggleCosmicUI() {
             const isCosmic = document.getElementById('cosmic-toggle').checked;
             const standardParams = document.getElementById('standard-params');
@@ -1000,16 +1027,10 @@
             `;
 
             const downloadTrigger = card.querySelector('.download-trigger');
-            downloadTrigger.addEventListener('click', (e) => {
+            downloadTrigger.addEventListener('click', async (e) => {
                 e.stopPropagation();
-                const tempLink = document.createElement('a');
-                tempLink.href = downloadUrl; 
-                tempLink.download = filename;
-                tempLink.target = "_blank";
-                document.body.appendChild(tempLink);
-                tempLink.click();
-                tempLink.remove();
-
+                
+                // UI Visual Success
                 card.classList.add('border-green-500/40', 'bg-green-900/10');
                 card.classList.remove(hoverBorder);
                 
@@ -1020,6 +1041,9 @@
                 defaultUi.classList.remove('flex');
                 successUi.classList.remove('hidden');
                 successUi.classList.add('flex');
+                
+                // Trigger Local Blob Download
+                await forceDownload(e, downloadUrl, filename);
                 
                 setTimeout(() => {
                     card.classList.remove('border-green-500/40', 'bg-green-900/10');
@@ -1253,10 +1277,10 @@
                         </div>
                         <div class="flex items-center gap-4 z-20">
                             <span class="text-[9px] text-gray-600 uppercase font-bold tracking-widest hidden lg:block">${dateStr}</span>
-                            <a href="${data.url}" target="_blank" download="${data.filename}" class="text-[10px] bg-white/5 hover:bg-white/10 text-white font-bold uppercase tracking-widest flex items-center gap-2 px-4 py-3 rounded-xl border border-white/10 transition-all shadow-md">
+                            <button onclick="forceDownload(event, '${data.url}', '${data.filename}')" class="text-[10px] bg-white/5 hover:bg-white/10 text-white font-bold uppercase tracking-widest flex items-center gap-2 px-4 py-3 rounded-xl border border-white/10 transition-all shadow-md">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                                 Download File
-                            </a>
+                            </button>
                         </div>
                     `;
                     contentDiv.appendChild(card);
