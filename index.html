@@ -7,6 +7,9 @@
     
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cdefs%3E%3ClinearGradient id='igniteGradient' x1='0%25' y1='0%25' x2='100%25' y2='0%25'%3E%3Cstop offset='0%25' stop-color='%23f97316' /%3E%3Cstop offset='100%25' stop-color='%23ef4444' /%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z' stroke='url(%23igniteGradient)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 
+    <script src="https://unpkg.com/tone@14.8.49/build/Tone.js"></script>
+    <script src="https://unpkg.com/@tonejs/midi@2.0.28/dist/Midi.js"></script>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
@@ -30,7 +33,6 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
         
-        /* Custom Scrollbars for Panels */
         .custom-scroll::-webkit-scrollbar { width: 4px; }
         .custom-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 10px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; transition: background 0.3s; }
@@ -489,7 +491,14 @@
 
                 <div id="library-panel" class="glass-panel rounded-3xl p-6 flex-1 flex flex-col min-h-0 border-t-4 border-t-orange-500 transition-colors duration-500">
                     <div class="flex justify-between items-center mb-4 px-1">
-                        <h3 class="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Session Library</h3>
+                        <div class="flex items-center gap-3">
+                            <h3 class="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Session Library</h3>
+                            <select id="synth-selector-session" class="bg-black/50 border border-white/10 text-[9px] text-gray-400 hover:text-white rounded px-2 py-1 uppercase font-bold focus:outline-none transition-colors cursor-pointer" onchange="document.getElementById('synth-selector-history').value = this.value">
+                                <option value="sine">Pure Sine</option>
+                                <option value="rhodes">Rhodes EP</option>
+                                <option value="pad">Cosmic Pad</option>
+                            </select>
+                        </div>
                         <div class="flex gap-2">
                             <button onclick="clearSession()" class="text-[9px] bg-red-900/30 hover:bg-red-900/50 text-red-400 px-2 py-1 rounded border border-red-500/30 font-bold transition-colors">NEW SESSION</button>
                             <button onclick="toggleHistoryModal()" class="text-[9px] bg-orange-900/30 hover:bg-orange-900/50 text-orange-400 px-2 py-1 rounded border border-orange-500/30 font-bold transition-colors shadow-[0_0_10px_rgba(255,94,0,0.2)]">HISTORY</button>
@@ -550,9 +559,16 @@
     <div id="history-modal" class="fixed inset-0 z-[1001] hidden flex items-center justify-center p-4 bg-black/90 backdrop-blur-md transition-opacity">
         <div class="glass-panel w-full max-w-4xl p-8 rounded-3xl relative shadow-[0_0_50px_rgba(255,94,0,0.1)] flex flex-col h-[85vh]">
             <div class="flex justify-between items-center mb-6 shrink-0">
-                <div>
-                    <h3 class="text-xl font-black text-orange-400 uppercase tracking-tight">The Vault</h3>
-                    <p class="text-xs text-gray-400 uppercase tracking-widest">Your Cloud History</p>
+                <div class="flex items-center gap-4">
+                    <div>
+                        <h3 class="text-xl font-black text-orange-400 uppercase tracking-tight">The Vault</h3>
+                        <p class="text-xs text-gray-400 uppercase tracking-widest">Your Cloud History</p>
+                    </div>
+                    <select id="synth-selector-history" class="bg-black/50 border border-white/10 text-[9px] text-gray-400 hover:text-white rounded px-2 py-1 uppercase font-bold focus:outline-none transition-colors cursor-pointer" onchange="document.getElementById('synth-selector-session').value = this.value">
+                        <option value="sine">Pure Sine</option>
+                        <option value="rhodes">Rhodes EP</option>
+                        <option value="pad">Cosmic Pad</option>
+                    </select>
                 </div>
                 <button onclick="toggleHistoryModal()" class="p-2 text-gray-500 hover:text-white transition-colors">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
@@ -602,6 +618,143 @@
         // History Pagination State
         let lastVisibleDoc = null;
         let isHistoryLoading = false;
+
+        // --- TONE.JS AUDIO ENGINE ---
+        let sineSynth, rhodesSynth, padSynth;
+        let isAudioInitialized = false;
+        let currentPart = null;
+        let currentlyPlayingBtn = null;
+        let stopEventId = null;
+
+        async function initAudio() {
+            if(isAudioInitialized) return;
+            await Tone.start();
+            
+            // 1. Pure Sine (Analyzer)
+            sineSynth = new Tone.PolySynth(Tone.Synth, {
+                oscillator: { type: "sine" },
+                envelope: { attack: 0.05, decay: 0.1, sustain: 0.3, release: 1 }
+            }).toDestination();
+            sineSynth.volume.value = -6;
+
+            // 2. Rhodes EP (FM Synthesis)
+            rhodesSynth = new Tone.PolySynth(Tone.FMSynth, {
+                harmonicity: 1,
+                modulationIndex: 1.2,
+                oscillator: { type: "sine" },
+                modulation: { type: "sine" },
+                envelope: { attack: 0.01, decay: 0.5, sustain: 0.4, release: 1.2 }
+            }).toDestination();
+            rhodesSynth.volume.value = -2;
+
+            // 3. Cosmic Pad (Sawtooth + Filter + FX)
+            const filter = new Tone.Filter(1500, "lowpass");
+            const chorus = new Tone.Chorus(4, 2.5, 0.5).start();
+            const reverb = new Tone.Freeverb({ roomSize: 0.8, dampening: 2000 });
+            
+            padSynth = new Tone.PolySynth(Tone.Synth, {
+                oscillator: { type: "sawtooth" },
+                envelope: { attack: 0.5, decay: 1, sustain: 0.5, release: 2 }
+            }).chain(filter, chorus, reverb, Tone.Destination);
+            padSynth.volume.value = -8;
+
+            isAudioInitialized = true;
+        }
+
+        function stopPlayback() {
+            if (currentPart) {
+                currentPart.dispose();
+                currentPart = null;
+            }
+            Tone.Transport.stop();
+            Tone.Transport.cancel(0); 
+            if (stopEventId !== null) stopEventId = null;
+            
+            if(isAudioInitialized) {
+                sineSynth.releaseAll();
+                rhodesSynth.releaseAll();
+                padSynth.releaseAll();
+            }
+            
+            if (currentlyPlayingBtn) {
+                currentlyPlayingBtn.querySelector('.play-icon').classList.remove('hidden');
+                currentlyPlayingBtn.querySelector('.stop-icon').classList.add('hidden');
+                currentlyPlayingBtn.classList.remove('animate-pulse', 'scale-105');
+                currentlyPlayingBtn = null;
+            }
+        }
+
+        async function toggleAudio(e, url, btn) {
+            e.stopPropagation(); // Prevent download triggered by outer container
+            
+            await initAudio();
+            
+            const playIcon = btn.querySelector('.play-icon');
+            const stopIcon = btn.querySelector('.stop-icon');
+            
+            if (currentlyPlayingBtn === btn) {
+                stopPlayback();
+                return;
+            }
+            
+            if (currentlyPlayingBtn) stopPlayback();
+            
+            // UI Loading State
+            playIcon.classList.add('hidden');
+            stopIcon.classList.remove('hidden');
+            btn.classList.add('animate-pulse', 'scale-105');
+            currentlyPlayingBtn = btn;
+            
+            try {
+                // Fetch and Parse MIDI (requires CORS if fetching from Storage)
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("Network response was not ok");
+                const arrayBuffer = await response.arrayBuffer();
+                const midi = new Midi(arrayBuffer);
+                
+                // Get globally selected synth
+                const synthType = document.getElementById('synth-selector-session').value;
+                let activeSynth = sineSynth;
+                if (synthType === 'rhodes') activeSynth = rhodesSynth;
+                if (synthType === 'pad') activeSynth = padSynth;
+                
+                const now = Tone.now() + 0.1;
+                const notesToPlay = [];
+                
+                midi.tracks.forEach(track => {
+                    track.notes.forEach(note => {
+                        notesToPlay.push({
+                            time: note.time,
+                            note: note.name,
+                            duration: note.duration,
+                            velocity: note.velocity
+                        });
+                    });
+                });
+                
+                if(notesToPlay.length === 0) {
+                    stopPlayback();
+                    return;
+                }
+                
+                currentPart = new Tone.Part((time, value) => {
+                    activeSynth.triggerAttackRelease(value.note, value.duration, time, value.velocity * 0.7);
+                }, notesToPlay).start(0);
+                
+                Tone.Transport.start(now);
+                
+                stopEventId = Tone.Transport.schedule(() => {
+                    Tone.Draw.schedule(() => stopPlayback(), Tone.now());
+                }, midi.duration + 2); // Auto-stop after completion
+                
+            } catch (err) {
+                console.error("Playback error:", err);
+                stopPlayback();
+                alert("Playback Failed. If loading from Vault, verify Firebase Storage CORS settings.");
+            }
+        }
+
+        // --- END AUDIO ENGINE ---
 
         // Cosmic State Handling
         function toggleCosmicUI() {
@@ -788,6 +941,7 @@
             emptyState.style.display = 'flex';
             totalIdeasGenerated = 0;
             libraryCount.innerText = '0 IDEAS';
+            stopPlayback();
         }
 
         function createResultCard(filename, downloadUrl, index, params) {
@@ -801,28 +955,30 @@
             const hoverBorder = isCosmic ? "hover:border-purple-500/40" : "hover:border-orange-500/40";
             
             const card = document.createElement('div');
-            card.className = `result-card flex-shrink-0 block bg-black/40 border border-white/5 ${hoverBorder} transition-all rounded-2xl p-4 group select-none cursor-pointer relative overflow-hidden`;
+            card.className = `result-card flex-shrink-0 block bg-black/40 border border-white/5 ${hoverBorder} transition-all rounded-2xl p-4 group select-none relative overflow-hidden`;
 
             card.innerHTML = `
-                <div class="flex items-center justify-between w-full pointer-events-none z-10 relative">
+                <div class="flex items-center justify-between w-full z-10 relative">
                     <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br ${colorClass} flex items-center justify-center border shadow-[0_0_15px_rgba(0,0,0,0.2)]">
-                           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg>
-                        </div>
+                        <button onclick="toggleAudio(event, '${downloadUrl}', this)" class="w-10 h-10 rounded-xl bg-gradient-to-br ${colorClass} flex items-center justify-center border shadow-[0_0_15px_rgba(0,0,0,0.2)] hover:scale-110 transition-transform cursor-pointer z-20 group/play">
+                            <svg class="w-5 h-5 play-icon text-white drop-shadow-md" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            <svg class="w-5 h-5 stop-icon text-white drop-shadow-md hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
+                        </button>
+                        
                         <div>
                             <h4 class="text-xs font-black text-gray-200 uppercase tracking-widest truncate max-w-[150px] lg:max-w-[200px]" title="${filename}">${filename.replace('Ignite_', '').split('_').slice(0, 2).join(' ')}</h4>
                             <p class="text-[9px] text-gray-500 uppercase tracking-widest font-bold mt-1">${params.bars} BARS • ${params.bpm} BPM</p>
                         </div>
                     </div>
                     
-                    <div class="ui-default flex items-center gap-3 transition-opacity duration-300">
+                    <div class="ui-default flex items-center gap-3 transition-opacity duration-300 z-20 cursor-pointer download-trigger">
                         <div class="text-[10px] ${isCosmic ? 'text-purple-400' : 'text-orange-400'} font-bold uppercase tracking-widest flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                             DOWNLOAD
                         </div>
                     </div>
 
-                    <div class="ui-success hidden items-center gap-2 absolute right-0 pr-4">
+                    <div class="ui-success hidden items-center gap-2 absolute right-0 pr-4 z-20">
                         <div class="text-[10px] text-green-400 font-bold uppercase tracking-widest flex items-center gap-1 bg-green-900/30 px-3 py-1.5 rounded-lg border border-green-500/30">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                             SAVED
@@ -831,7 +987,9 @@
                 </div>
             `;
 
-            card.addEventListener('click', () => {
+            const downloadTrigger = card.querySelector('.download-trigger');
+            downloadTrigger.addEventListener('click', (e) => {
+                e.stopPropagation();
                 const tempLink = document.createElement('a');
                 tempLink.href = downloadUrl; 
                 tempLink.download = filename;
@@ -1010,6 +1168,8 @@
                 lastVisibleDoc = null;
                 document.getElementById('load-more-btn').classList.add('hidden');
                 await loadHistory();
+            } else {
+                stopPlayback(); // Stop audio if closing vault
             }
         }
 
@@ -1065,9 +1225,11 @@
                     card.className = `flex items-center justify-between bg-black/40 border border-white/5 ${hoverBorder} transition-all rounded-2xl p-4 group select-none relative overflow-hidden`;
                     card.innerHTML = `
                         <div class="flex items-center gap-5">
-                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br ${colorClass} flex items-center justify-center border shadow-[0_0_15px_rgba(0,0,0,0.2)]">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg>
-                            </div>
+                            <button onclick="toggleAudio(event, '${data.url}', this)" class="w-12 h-12 rounded-xl bg-gradient-to-br ${colorClass} flex items-center justify-center border shadow-[0_0_15px_rgba(0,0,0,0.2)] hover:scale-110 transition-transform cursor-pointer z-20 group/play">
+                                <svg class="w-6 h-6 play-icon text-white drop-shadow-md" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                <svg class="w-6 h-6 stop-icon text-white drop-shadow-md hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
+                            </button>
+
                             <div>
                                 <h4 class="text-sm font-black text-gray-200 uppercase tracking-widest">${data.filename.replace('Ignite_', '').split('_').slice(0, 2).join(' ')}</h4>
                                 <div class="flex items-center gap-2 mt-1">
@@ -1077,7 +1239,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="flex items-center gap-4">
+                        <div class="flex items-center gap-4 z-20">
                             <span class="text-[9px] text-gray-600 uppercase font-bold tracking-widest hidden lg:block">${dateStr}</span>
                             <a href="${data.url}" target="_blank" download="${data.filename}" class="text-[10px] bg-white/5 hover:bg-white/10 text-white font-bold uppercase tracking-widest flex items-center gap-2 px-4 py-3 rounded-xl border border-white/10 transition-all shadow-md">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
