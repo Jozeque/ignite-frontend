@@ -490,7 +490,11 @@
                 <div id="library-panel" class="glass-panel rounded-3xl p-6 flex-1 flex flex-col min-h-0 border-t-4 border-t-orange-500 transition-colors duration-500">
                     <div class="flex justify-between items-center mb-4 px-1">
                         <h3 class="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Session Library</h3>
-                        <span id="library-count" class="text-[10px] bg-black/40 px-2 py-1 rounded text-gray-500 font-bold border border-white/5">0 IDEAS</span>
+                        <div class="flex gap-2">
+                            <button onclick="clearSession()" class="text-[9px] bg-red-900/30 hover:bg-red-900/50 text-red-400 px-2 py-1 rounded border border-red-500/30 font-bold transition-colors">NEW SESSION</button>
+                            <button onclick="toggleHistoryModal()" class="text-[9px] bg-orange-900/30 hover:bg-orange-900/50 text-orange-400 px-2 py-1 rounded border border-orange-500/30 font-bold transition-colors shadow-[0_0_10px_rgba(255,94,0,0.2)]">HISTORY</button>
+                            <span id="library-count" class="text-[10px] bg-black/40 px-2 py-1 rounded text-gray-500 font-bold border border-white/5">0 IDEAS</span>
+                        </div>
                     </div>
                     
                     <div id="results-container" class="flex-1 overflow-y-auto custom-scroll flex flex-col gap-3 pr-2">
@@ -499,7 +503,7 @@
                             <p class="text-[10px] uppercase tracking-widest font-bold text-gray-400">No ideas generated yet</p>
                             <p class="text-[9px] text-gray-500 mt-1">Hit 'INSPIRE ME' to build your library.</p>
                         </div>
-                        </div>
+                    </div>
                 </div>
 
             </div>
@@ -543,6 +547,33 @@
         </div>
     </div>
 
+    <div id="history-modal" class="fixed inset-0 z-[1001] hidden flex items-center justify-center p-4 bg-black/90 backdrop-blur-md transition-opacity">
+        <div class="glass-panel w-full max-w-4xl p-8 rounded-3xl relative shadow-[0_0_50px_rgba(255,94,0,0.1)] flex flex-col h-[85vh]">
+            <div class="flex justify-between items-center mb-6 shrink-0">
+                <div>
+                    <h3 class="text-xl font-black text-orange-400 uppercase tracking-tight">The Vault</h3>
+                    <p class="text-xs text-gray-400 uppercase tracking-widest">Your Cloud History</p>
+                </div>
+                <button onclick="toggleHistoryModal()" class="p-2 text-gray-500 hover:text-white transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            
+            <div id="history-content" class="flex-1 overflow-y-auto custom-scroll pr-2 space-y-3">
+                <div class="flex justify-center items-center h-full text-gray-500">
+                    <div class="flex flex-col items-center gap-2">
+                        <div class="eq-bar w-1 h-4 bg-orange-500"></div>
+                        <span class="text-[10px] uppercase tracking-widest font-bold">Loading Vault...</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="shrink-0 pt-4 flex justify-center border-t border-white/5 mt-4">
+                <button id="load-more-btn" onclick="loadHistory()" class="hidden px-6 py-2 rounded-xl border border-gray-800 text-gray-400 hover:text-orange-400 hover:border-orange-500/50 font-bold text-[10px] uppercase transition-all">Load More Results</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const firebaseConfig = {
             apiKey: "AIzaSyCP6Wt4yAkkphPeUvgbgbLHeUfdijZw7M4",
@@ -567,6 +598,10 @@
         const libraryCount = document.getElementById('library-count');
         
         let totalIdeasGenerated = 0;
+
+        // History Pagination State
+        let lastVisibleDoc = null;
+        let isHistoryLoading = false;
 
         // Cosmic State Handling
         function toggleCosmicUI() {
@@ -747,7 +782,15 @@
             auth.signOut();
         }
 
-        function createResultCard(filename, objectUrl, index, params) {
+        function clearSession() {
+            resultsContainer.innerHTML = '';
+            resultsContainer.appendChild(emptyState);
+            emptyState.style.display = 'flex';
+            totalIdeasGenerated = 0;
+            libraryCount.innerText = '0 IDEAS';
+        }
+
+        function createResultCard(filename, downloadUrl, index, params) {
             emptyState.style.display = 'none';
             totalIdeasGenerated++;
             libraryCount.innerText = `${totalIdeasGenerated} IDEAS`;
@@ -790,8 +833,9 @@
 
             card.addEventListener('click', () => {
                 const tempLink = document.createElement('a');
-                tempLink.href = objectUrl; 
+                tempLink.href = downloadUrl; 
                 tempLink.download = filename;
+                tempLink.target = "_blank";
                 document.body.appendChild(tempLink);
                 tempLink.click();
                 tempLink.remove();
@@ -817,7 +861,6 @@
                 }, 4000);
             });
 
-            // Prepend so the newest ideas are always at the top of the library
             resultsContainer.prepend(card);
         }
 
@@ -876,7 +919,6 @@
             }
 
             try {
-                // Get fresh secure token
                 const idToken = await user.getIdToken(true);
 
                 const requests = Array.from({ length: selectedQty }, () => {
@@ -885,7 +927,7 @@
                         method: 'POST',
                         headers: { 
                             'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${idToken}` // Server verifies this!
+                            'Authorization': `Bearer ${idToken}` 
                         },
                         body: JSON.stringify(uniquePayload)
                     });
@@ -897,22 +939,8 @@
 
                 for (let i = 0; i < responses.length; i++) {
                     if (responses[i].ok) {
-                        const blob = await responses[i].blob();
-                        const objectUrl = window.URL.createObjectURL(blob); 
-                        
-                        let filename = "";
-                        const timestamp = new Date().toISOString().slice(11,19).replace(/:/g, "");
-                        
-                        if (isCosmic) {
-                            const safeKey = basePayload.key.replace('#', 'Sharp');
-                            filename = `Ignite_Cosmic_${basePayload.ancient_scale.toUpperCase()}_${safeKey}_V${i+1}_${basePayload.bpm}BPM_${timestamp}.mid`;
-                        } else {
-                            const safeStyle = basePayload.style.replace(/[^a-zA-Z0-9]/g, '');
-                            const safeKey = basePayload.key.replace('#', 'Sharp');
-                            filename = `Ignite_V${i+1}_${safeStyle}_${safeKey}_${basePayload.bpm}BPM_${timestamp}.mid`;
-                        }
-                        
-                        createResultCard(filename, objectUrl, i + 1, basePayload);
+                        const data = await responses[i].json();
+                        createResultCard(data.filename, data.url, i + 1, basePayload);
                         successCount++;
                     } else if (responses[i].status === 402) {
                         const errData = await responses[i].json();
@@ -920,7 +948,6 @@
                     }
                 }
 
-                // Update UI from server state
                 updateCreditsUI(user);
 
                 if (successCount > 0) {
@@ -965,6 +992,115 @@
                         status.className = "text-[11px] text-gray-500 uppercase tracking-widest font-bold transition-colors duration-1000";
                     }
                 }, 4000);
+            }
+        }
+
+        async function toggleHistoryModal() {
+            const modal = document.getElementById('history-modal');
+            modal.classList.toggle('hidden');
+            if(!modal.classList.contains('hidden')) {
+                document.getElementById('history-content').innerHTML = `
+                    <div class="flex justify-center items-center h-full text-gray-500">
+                        <div class="flex flex-col items-center gap-2">
+                            <div class="eq-bar w-1 h-4 bg-orange-500"></div>
+                            <span class="text-[10px] uppercase tracking-widest font-bold animate-pulse">Syncing with Cloud...</span>
+                        </div>
+                    </div>
+                `;
+                lastVisibleDoc = null;
+                document.getElementById('load-more-btn').classList.add('hidden');
+                await loadHistory();
+            }
+        }
+
+        async function loadHistory() {
+            if (isHistoryLoading) return;
+            const user = auth.currentUser;
+            if (!user) return;
+            
+            isHistoryLoading = true;
+            const contentDiv = document.getElementById('history-content');
+            const loadMoreBtn = document.getElementById('load-more-btn');
+
+            try {
+                let query = db.collection('users').doc(user.uid).collection('history')
+                    .orderBy('timestamp', 'desc')
+                    .limit(20);
+
+                if (lastVisibleDoc) {
+                    query = query.startAfter(lastVisibleDoc);
+                }
+
+                const snapshot = await query.get();
+                
+                if (snapshot.empty && !lastVisibleDoc) {
+                    contentDiv.innerHTML = `
+                        <div class="flex flex-col items-center justify-center h-full opacity-50">
+                            <svg class="w-12 h-12 mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+                            <p class="text-[10px] uppercase tracking-widest font-bold text-gray-400">Vault is empty</p>
+                            <p class="text-[9px] text-gray-500 mt-1">Generate MIDI to fill your cloud library.</p>
+                        </div>
+                    `;
+                    isHistoryLoading = false;
+                    return;
+                }
+
+                if (!lastVisibleDoc) {
+                    contentDiv.innerHTML = '';
+                }
+
+                snapshot.docs.forEach(doc => {
+                    const data = doc.data();
+                    const card = document.createElement('div');
+                    const isCosmic = data.is_cosmic;
+                    const colorClass = isCosmic ? "from-purple-500/20 to-indigo-500/20 text-purple-400 border-purple-500/30" : "from-orange-500/20 to-red-500/20 text-orange-400 border-orange-500/30";
+                    const hoverBorder = isCosmic ? "hover:border-purple-500/40" : "hover:border-orange-500/40";
+                    
+                    let dateStr = 'Just Now';
+                    if (data.timestamp) {
+                        const dateObj = data.timestamp.toDate();
+                        dateStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    }
+                    
+                    card.className = `flex items-center justify-between bg-black/40 border border-white/5 ${hoverBorder} transition-all rounded-2xl p-4 group select-none relative overflow-hidden`;
+                    card.innerHTML = `
+                        <div class="flex items-center gap-5">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br ${colorClass} flex items-center justify-center border shadow-[0_0_15px_rgba(0,0,0,0.2)]">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-black text-gray-200 uppercase tracking-widest">${data.filename.replace('Ignite_', '').split('_').slice(0, 2).join(' ')}</h4>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="text-[9px] ${isCosmic ? 'bg-purple-900/30 text-purple-300 border-purple-500/30' : 'bg-orange-900/30 text-orange-300 border-orange-500/30'} px-2 py-0.5 rounded font-bold border uppercase">${data.style}</span>
+                                    <span class="text-[9px] bg-white/5 px-2 py-0.5 rounded text-gray-400 font-bold border border-white/10 uppercase">Key: ${data.key}</span>
+                                    <span class="text-[9px] text-gray-500 font-bold uppercase tracking-widest">• ${data.bars} BARS • ${data.bpm} BPM</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <span class="text-[9px] text-gray-600 uppercase font-bold tracking-widest hidden lg:block">${dateStr}</span>
+                            <a href="${data.url}" target="_blank" download="${data.filename}" class="text-[10px] bg-white/5 hover:bg-white/10 text-white font-bold uppercase tracking-widest flex items-center gap-2 px-4 py-3 rounded-xl border border-white/10 transition-all shadow-md">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                Download File
+                            </a>
+                        </div>
+                    `;
+                    contentDiv.appendChild(card);
+                });
+
+                lastVisibleDoc = snapshot.docs[snapshot.docs.length - 1];
+                
+                if (snapshot.docs.length === 20) {
+                    loadMoreBtn.classList.remove('hidden');
+                } else {
+                    loadMoreBtn.classList.add('hidden');
+                }
+
+            } catch (error) {
+                console.error("Error loading history:", error);
+                contentDiv.innerHTML = `<p class="text-red-500 text-xs text-center font-bold uppercase tracking-widest">Failed to sync with cloud. Check console.</p>`;
+            } finally {
+                isHistoryLoading = false;
             }
         }
 
