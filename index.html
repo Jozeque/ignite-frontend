@@ -495,14 +495,7 @@
 
                 <div id="library-panel" class="glass-panel rounded-3xl p-6 flex-1 flex flex-col min-h-0 border-t-4 border-t-orange-500 transition-colors duration-500">
                     <div class="flex justify-between items-center mb-4 px-1">
-                        <div class="flex items-center gap-3">
-                            <h3 class="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Session Library</h3>
-                            <select id="synth-selector-session" class="bg-black/50 border border-white/10 text-[9px] text-gray-400 hover:text-white rounded px-2 py-1 uppercase font-bold focus:outline-none transition-colors cursor-pointer" onchange="document.getElementById('synth-selector-history').value = this.value">
-                                <option value="sine">Pure Sine</option>
-                                <option value="rhodes">Rhodes EP</option>
-                                <option value="pad">Cosmic Pad</option>
-                            </select>
-                        </div>
+                        <h3 class="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Session Library</h3>
                         <div class="flex gap-2">
                             <button onclick="clearSession()" class="text-[9px] bg-red-900/30 hover:bg-red-900/50 text-red-400 px-2 py-1 rounded border border-red-500/30 font-bold transition-colors">NEW SESSION</button>
                             <button onclick="toggleHistoryModal()" class="text-[9px] bg-orange-900/30 hover:bg-orange-900/50 text-orange-400 px-2 py-1 rounded border border-orange-500/30 font-bold transition-colors shadow-[0_0_10px_rgba(255,94,0,0.2)]">HISTORY</button>
@@ -563,16 +556,9 @@
     <div id="history-modal" class="fixed inset-0 z-[1001] hidden flex items-center justify-center p-4 bg-black/90 backdrop-blur-md transition-opacity">
         <div class="glass-panel w-full max-w-4xl p-8 rounded-3xl relative shadow-[0_0_50px_rgba(255,94,0,0.1)] flex flex-col h-[85vh]">
             <div class="flex justify-between items-center mb-6 shrink-0">
-                <div class="flex items-center gap-4">
-                    <div>
-                        <h3 class="text-xl font-black text-orange-400 uppercase tracking-tight">The Vault</h3>
-                        <p class="text-xs text-gray-400 uppercase tracking-widest">Your Cloud History</p>
-                    </div>
-                    <select id="synth-selector-history" class="bg-black/50 border border-white/10 text-[9px] text-gray-400 hover:text-white rounded px-2 py-1 uppercase font-bold focus:outline-none transition-colors cursor-pointer" onchange="document.getElementById('synth-selector-session').value = this.value">
-                        <option value="sine">Pure Sine</option>
-                        <option value="rhodes">Rhodes EP</option>
-                        <option value="pad">Cosmic Pad</option>
-                    </select>
+                <div>
+                    <h3 class="text-xl font-black text-orange-400 uppercase tracking-tight">The Vault</h3>
+                    <p class="text-xs text-gray-400 uppercase tracking-widest">Your Cloud History</p>
                 </div>
                 <button onclick="toggleHistoryModal()" class="p-2 text-gray-500 hover:text-white transition-colors">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
@@ -623,8 +609,40 @@
         let lastVisibleDoc = null;
         let isHistoryLoading = false;
 
+        // --- CORE HELPER: FORCE DOWNLOAD (FIXES FILENAME ISSUE) ---
+        async function forceDownload(e, url, filename) {
+            if(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            try {
+                const response = await fetch(url);
+                const blob = await response.blob();
+                const blobUrl = window.URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = blobUrl;
+                a.download = filename; 
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                
+                setTimeout(() => window.URL.revokeObjectURL(blobUrl), 100);
+            } catch(err) {
+                console.error("Force download failed, fallback to direct link", err);
+                const a = document.createElement('a');
+                a.href = url;
+                a.target = '_blank';
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            }
+        }
+
         // --- TONE.JS AUDIO ENGINE ---
-        let sineSynth, rhodesSynth, padSynth;
+        let sineSynth;
         let isAudioInitialized = false;
         let currentPart = null;
         let currentlyPlayingBtn = null;
@@ -633,33 +651,12 @@
         async function initAudio() {
             if(isAudioInitialized) return;
             
-            // 1. Pure Sine (Analyzer)
+            // 1. Pure Sine (Analyzer) - Clean, stable, low CPU
             sineSynth = new Tone.PolySynth(Tone.Synth, {
                 oscillator: { type: "sine" },
                 envelope: { attack: 0.05, decay: 0.1, sustain: 0.3, release: 1 }
             }).toDestination();
             sineSynth.volume.value = -6;
-
-            // 2. Rhodes EP (FM Synthesis)
-            rhodesSynth = new Tone.PolySynth(Tone.FMSynth, {
-                harmonicity: 1,
-                modulationIndex: 1.2,
-                oscillator: { type: "sine" },
-                modulation: { type: "sine" },
-                envelope: { attack: 0.01, decay: 0.5, sustain: 0.4, release: 1.2 }
-            }).toDestination();
-            rhodesSynth.volume.value = -2;
-
-            // 3. Cosmic Pad (Sawtooth + Filter + FX)
-            const filter = new Tone.Filter(1500, "lowpass");
-            const chorus = new Tone.Chorus(4, 2.5, 0.5).start();
-            const reverb = new Tone.Freeverb({ roomSize: 0.8, dampening: 2000 });
-            
-            padSynth = new Tone.PolySynth(Tone.Synth, {
-                oscillator: { type: "sawtooth" },
-                envelope: { attack: 0.5, decay: 1, sustain: 0.5, release: 2 }
-            }).chain(filter, chorus, reverb, Tone.Destination);
-            padSynth.volume.value = -8;
 
             isAudioInitialized = true;
         }
@@ -675,8 +672,6 @@
             
             if(isAudioInitialized) {
                 sineSynth.releaseAll();
-                rhodesSynth.releaseAll();
-                padSynth.releaseAll();
             }
             
             if (currentlyPlayingBtn) {
@@ -721,10 +716,8 @@
                 const arrayBuffer = await response.arrayBuffer();
                 const midi = new window.TonejsMidi(arrayBuffer);
                 
-                const synthType = document.getElementById('synth-selector-session').value;
+                // Hardcoded to always use sineSynth for stability
                 let activeSynth = sineSynth;
-                if (synthType === 'rhodes') activeSynth = rhodesSynth;
-                if (synthType === 'pad') activeSynth = padSynth;
                 
                 const now = Tone.now() + 0.1;
                 const notesToPlay = [];
@@ -995,7 +988,7 @@
             `;
 
             const downloadTrigger = card.querySelector('.download-trigger');
-            downloadTrigger.addEventListener('click', (e) => {
+            downloadTrigger.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 
                 card.classList.add('border-green-500/40', 'bg-green-900/10');
@@ -1009,13 +1002,7 @@
                 successUi.classList.remove('hidden');
                 successUi.classList.add('flex');
                 
-                const tempLink = document.createElement('a');
-                tempLink.href = downloadUrl; 
-                tempLink.download = filename;
-                tempLink.target = "_blank";
-                document.body.appendChild(tempLink);
-                tempLink.click();
-                tempLink.remove();
+                await forceDownload(e, downloadUrl, filename);
                 
                 setTimeout(() => {
                     card.classList.remove('border-green-500/40', 'bg-green-900/10');
@@ -1249,10 +1236,10 @@
                         </div>
                         <div class="flex items-center gap-4 z-20">
                             <span class="text-[9px] text-gray-600 uppercase font-bold tracking-widest hidden lg:block">${dateStr}</span>
-                            <a href="${data.url}" target="_blank" download="${data.filename}" class="text-[10px] bg-white/5 hover:bg-white/10 text-white font-bold uppercase tracking-widest flex items-center gap-2 px-4 py-3 rounded-xl border border-white/10 transition-all shadow-md">
+                            <button onclick="forceDownload(event, '${data.url}', '${data.filename}')" class="text-[10px] bg-white/5 hover:bg-white/10 text-white font-bold uppercase tracking-widest flex items-center gap-2 px-4 py-3 rounded-xl border border-white/10 transition-all shadow-md">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                                 Download File
-                            </a>
+                            </button>
                         </div>
                     `;
                     contentDiv.appendChild(card);
