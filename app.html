@@ -294,6 +294,10 @@
 
                 <div class="space-y-4 mb-6 text-left">
                     <div>
+                        <label class="text-[10px] font-bold text-zinc-400 mb-1.5 block uppercase tracking-wider">Artist / Producer Name</label>
+                        <input type="text" id="signup-artist-name" placeholder="Your artist name" class="w-full pro-input rounded-xl p-3.5 text-sm text-zinc-200 focus:ring-2 ring-orange-500/50">
+                    </div>
+                    <div>
                         <label class="text-[10px] font-bold text-zinc-400 mb-1.5 block uppercase tracking-wider">Email Address</label>
                         <input type="email" id="signup-email" placeholder="studio@domain.com" class="w-full pro-input rounded-xl p-3.5 text-sm text-zinc-200 focus:ring-2 ring-orange-500/50">
                     </div>
@@ -2105,19 +2109,28 @@ masterReverb.chain(masterCompressor, masterLimiter);
 
         // --- EMAIL/PASSWORD AUTH ---
         async function handleSignUp() {
+            const artistName = document.getElementById('signup-artist-name').value.trim();
             const email = document.getElementById('signup-email').value;
             const password = document.getElementById('signup-password').value;
             const signupStatus = document.getElementById('signup-status');
-            
+
+            if (!artistName) {
+                signupStatus.innerText = "PLEASE ENTER YOUR ARTIST NAME.";
+                signupStatus.className = "text-xs font-bold min-h-[1rem] text-center mb-4 text-red-500 tracking-wider uppercase";
+                return;
+            }
+
             signupStatus.innerText = "AUTHORIZING...";
             signupStatus.className = "text-xs font-bold min-h-[1rem] text-center mb-4 text-orange-400 tracking-wider uppercase";
-            
+
             try {
                 const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                await userCredential.user.updateProfile({ displayName: artistName });
                 const isAdmin = email.toLowerCase() === 'yossi.bozo112@gmail.com';
-                
+
                 await db.collection('users').doc(userCredential.user.uid).set({
                     email: email,
+                    display_name: artistName,
                     joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
                     generations_count: 0,
                     credits_used: isAdmin ? -9999 : 0,
