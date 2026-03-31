@@ -122,7 +122,7 @@
                     <h3 class="text-lg font-bold text-zinc-300 tracking-wide">See How It Works</h3>
                     <p class="text-xs text-zinc-500 uppercase tracking-widest mt-2 font-medium">Quick Tutorial</p>
                 </div>
-                <iframe id="hero-video-player" class="absolute inset-0 w-full h-full z-10 hidden rounded-3xl" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                <video id="hero-video-player" class="absolute inset-0 w-full h-full z-10 hidden rounded-3xl" controls></video>
             </div>
         </section>
 
@@ -288,12 +288,13 @@
     </div>
 
     <script>
-        const HERO_VIDEO_ID = 'VUORrnfCnqA';
+        const HERO_VIDEO_URL = 'https://firebasestorage.googleapis.com/v0/b/veero-next.firebasestorage.app/o/videos%2F1st%20tut.mp4?alt=media&token=6cde0048-7c36-45c1-800d-6ab51f8ec83e';
+        // const HERO_VIDEO_ID = 'VUORrnfCnqA'; // YouTube fallback
         function playHeroVideo() {
             const poster = document.getElementById('hero-video-poster');
             const player = document.getElementById('hero-video-player');
             const container = document.getElementById('hero-video-container');
-            player.src = `https://www.youtube.com/embed/${HERO_VIDEO_ID}?autoplay=1&rel=0&vq=hd1080`;
+            player.src = HERO_VIDEO_URL;
             poster.classList.add('hidden');
             player.classList.remove('hidden');
             container.style.cursor = 'default';
