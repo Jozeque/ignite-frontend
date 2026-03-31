@@ -365,7 +365,7 @@
                                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                                 </button>
                                 <div class="aspect-video rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl">
-                                    <iframe id="guide-video-player" class="w-full h-full" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                                    <video id="guide-video-player" class="w-full h-full" controls></video>
                                 </div>
                             </div>
                         </div>
@@ -1002,13 +1002,13 @@
                     </div>
 
                     <div class="flex justify-center mt-3">
-                        <label class="flex items-center gap-2 cursor-pointer select-none" title="Fast Mode uses a lighter AI model — faster but less complex output">
-                            <input type="checkbox" id="fast-mode-toggle" class="hidden" onchange="updateFastModeUI()">
-                            <div id="fast-mode-track" class="w-8 h-4 bg-zinc-700 rounded-full transition-colors relative">
-                                <div id="fast-mode-thumb" class="absolute top-0.5 left-0.5 w-3 h-3 bg-zinc-400 rounded-full transition-all"></div>
+                        <label class="flex items-center gap-2 cursor-pointer select-none" title="Thinking Mode uses a deeper model — slower but more complex output">
+                            <input type="checkbox" id="thinking-mode-toggle" class="hidden" onchange="updateThinkingModeUI()">
+                            <div id="thinking-mode-track" class="w-8 h-4 bg-zinc-700 rounded-full transition-colors relative">
+                                <div id="thinking-mode-thumb" class="absolute top-0.5 left-0.5 w-3 h-3 bg-zinc-400 rounded-full transition-all"></div>
                             </div>
-                            <span id="fast-mode-label" class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest transition-colors">Fast Mode</span>
-                            <svg id="fast-mode-icon" class="w-3 h-3 text-zinc-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            <span id="thinking-mode-label" class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest transition-colors">Thinking Mode</span>
+                            <svg id="thinking-mode-icon" class="w-3 h-3 text-zinc-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
                         </label>
                     </div>
 
@@ -1712,17 +1712,19 @@ masterReverb.chain(masterCompressor, masterLimiter);
         }
 
         // --- GUIDE VIDEO ---
-        const GUIDE_VIDEO_ID = 'VUORrnfCnqA';
+        const GUIDE_VIDEO_URL = 'https://firebasestorage.googleapis.com/v0/b/veero-next.firebasestorage.app/o/videos%2F1st%20tut.mp4?alt=media&token=6cde0048-7c36-45c1-800d-6ab51f8ec83e';
+        // const GUIDE_VIDEO_ID = 'VUORrnfCnqA'; // YouTube fallback
         function openGuideVideo() {
             const modal = document.getElementById('guide-video-modal');
             const player = document.getElementById('guide-video-player');
-            player.src = `https://www.youtube.com/embed/${GUIDE_VIDEO_ID}?autoplay=1&rel=0&vq=hd1080`;
+            player.src = GUIDE_VIDEO_URL;
             modal.classList.remove('hidden');
             modal.classList.add('flex');
         }
         function closeGuideVideo() {
             const modal = document.getElementById('guide-video-modal');
             const player = document.getElementById('guide-video-player');
+            player.pause();
             player.src = '';
             modal.classList.add('hidden');
             modal.classList.remove('flex');
@@ -1967,12 +1969,12 @@ masterReverb.chain(masterCompressor, masterLimiter);
             toggleCosmicUI(); 
         }
 
-        function updateFastModeUI() {
-            const on = document.getElementById('fast-mode-toggle').checked;
-            document.getElementById('fast-mode-track').className = on ? 'w-8 h-4 bg-amber-500/60 rounded-full transition-colors relative' : 'w-8 h-4 bg-zinc-700 rounded-full transition-colors relative';
-            document.getElementById('fast-mode-thumb').className = on ? 'absolute top-0.5 left-0.5 w-3 h-3 bg-amber-300 rounded-full transition-all translate-x-4' : 'absolute top-0.5 left-0.5 w-3 h-3 bg-zinc-400 rounded-full transition-all';
-            document.getElementById('fast-mode-label').className = on ? 'text-[10px] text-amber-400 font-bold uppercase tracking-widest transition-colors' : 'text-[10px] text-zinc-500 font-bold uppercase tracking-widest transition-colors';
-            document.getElementById('fast-mode-icon').className = on ? 'w-3 h-3 text-amber-400 transition-colors' : 'w-3 h-3 text-zinc-600 transition-colors';
+        function updateThinkingModeUI() {
+            const on = document.getElementById('thinking-mode-toggle').checked;
+            document.getElementById('thinking-mode-track').className = on ? 'w-8 h-4 bg-purple-500/60 rounded-full transition-colors relative' : 'w-8 h-4 bg-zinc-700 rounded-full transition-colors relative';
+            document.getElementById('thinking-mode-thumb').className = on ? 'absolute top-0.5 left-0.5 w-3 h-3 bg-purple-300 rounded-full transition-all translate-x-4' : 'absolute top-0.5 left-0.5 w-3 h-3 bg-zinc-400 rounded-full transition-all';
+            document.getElementById('thinking-mode-label').className = on ? 'text-[10px] text-purple-400 font-bold uppercase tracking-widest transition-colors' : 'text-[10px] text-zinc-500 font-bold uppercase tracking-widest transition-colors';
+            document.getElementById('thinking-mode-icon').className = on ? 'w-3 h-3 text-purple-400 transition-colors' : 'w-3 h-3 text-zinc-600 transition-colors';
         }
 
         function toggleCosmicUI() {
@@ -2592,8 +2594,8 @@ masterReverb.chain(masterCompressor, masterLimiter);
                 }
             }
 
-            // Fast mode flag
-            if(document.getElementById('fast-mode-toggle').checked) {
+            // Default is fast mode. Thinking mode toggle switches to Pro model.
+            if(!document.getElementById('thinking-mode-toggle').checked) {
                 basePayload.fast_mode = true;
             }
 
