@@ -4231,10 +4231,21 @@ masterReverb.chain(masterCompressor, masterLimiter);
 
         // --- PASTE TO... MULTI-SELECT ---
         window.sdOpenPasteTo = function() {
+            // Auto-copy active lane if clipboard empty
             if(!sdClipboardPoints || !sdClipboardPoints.length) {
-                if(sdActiveParamId) sdCopyLane(); // auto-copy active lane if nothing copied yet
-                if(!sdClipboardPoints || !sdClipboardPoints.length) return;
+                if(sdActiveParamId) sdCopyLane();
             }
+            if(!sdClipboardPoints || !sdClipboardPoints.length) {
+                document.getElementById('sd-canvas-status').textContent = 'Draw points first, then Copy';
+                return;
+            }
+            if(sdCanvasParams.length < 2) {
+                document.getElementById('sd-canvas-status').textContent = 'Need at least 2 lanes';
+                return;
+            }
+            const pop = document.getElementById('sd-paste-to-popover');
+            // Toggle: if already open, close it
+            if(!pop.classList.contains('hidden')) { sdClosePasteTo(); return; }
             const list = document.getElementById('sd-paste-to-list');
             list.innerHTML = sdCanvasParams.filter(p => p.envelopeId !== sdActiveParamId).map(p => `
                 <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 cursor-pointer">
@@ -4244,7 +4255,7 @@ masterReverb.chain(masterCompressor, masterLimiter);
                 </label>
             `).join('');
             document.getElementById('sd-paste-to-all').checked = false;
-            document.getElementById('sd-paste-to-popover').classList.remove('hidden');
+            pop.classList.remove('hidden');
         };
         window.sdClosePasteTo = function() {
             document.getElementById('sd-paste-to-popover').classList.add('hidden');
