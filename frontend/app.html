@@ -361,13 +361,11 @@
                         <!-- Guide video modal -->
                         <div id="guide-video-modal" class="fixed inset-0 z-[1002] hidden items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
                             <div class="w-full max-w-4xl relative">
-                                <button onclick="closeGuideVideo()" class="absolute -top-10 right-0 text-zinc-400 hover:text-white transition-colors">
+                                <button onclick="closeGuideVideo()" class="absolute -top-10 right-0 text-zinc-400 hover:text-white transition-colors z-20">
                                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                                 </button>
                                 <div class="aspect-video rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl">
-                                    <video id="guide-video-player" class="w-full h-full" controls>
-                                        <!-- src will be set when video is ready -->
-                                    </video>
+                                    <iframe id="guide-video-player" class="w-full h-full" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
                                 </div>
                             </div>
                         </div>
@@ -1714,25 +1712,21 @@ masterReverb.chain(masterCompressor, masterLimiter);
         }
 
         // --- GUIDE VIDEO ---
-        const GUIDE_VIDEO_URL = 'https://firebasestorage.googleapis.com/v0/b/veero-next.firebasestorage.app/o/videos%2F1st%20tut.mp4?alt=media&token=6cde0048-7c36-45c1-800d-6ab51f8ec83e';
+        const GUIDE_VIDEO_ID = 'VUORrnfCnqA';
         function openGuideVideo() {
             const modal = document.getElementById('guide-video-modal');
             const player = document.getElementById('guide-video-player');
-            if (GUIDE_VIDEO_URL && !player.src.includes('firebasestorage')) {
-                player.src = GUIDE_VIDEO_URL;
-            }
+            player.src = `https://www.youtube.com/embed/${GUIDE_VIDEO_ID}?autoplay=1&rel=0`;
             modal.classList.remove('hidden');
             modal.classList.add('flex');
-            player.play().catch(() => {});
         }
         function closeGuideVideo() {
             const modal = document.getElementById('guide-video-modal');
             const player = document.getElementById('guide-video-player');
-            player.pause();
+            player.src = '';
             modal.classList.add('hidden');
             modal.classList.remove('flex');
         }
-        // Close modal on backdrop click
         document.addEventListener('DOMContentLoaded', () => {
             const modal = document.getElementById('guide-video-modal');
             if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) closeGuideVideo(); });
