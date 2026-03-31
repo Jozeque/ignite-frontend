@@ -38,18 +38,29 @@ except ImportError:
     GEMINI_READY = False
 
 # --- Supabase (dual-write alongside Firestore) ---
-try:
-    from supabase import create_client
-    SUPABASE_URL = "https://hqhngkgcivdqkqpcqfvb.supabase.co"
-    SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
-    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-    SUPABASE_READY = True
-except Exception:
-    SUPABASE_READY = False
+# Lazy-init: secrets are injected at request time, not at import time
+SUPABASE_URL = "https://hqhngkgcivdqkqpcqfvb.supabase.co"
+SUPABASE_READY = False
+supabase = None
+
+def _ensure_supabase():
+    global supabase, SUPABASE_READY
+    if SUPABASE_READY:
+        return True
+    try:
+        from supabase import create_client
+        key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+        if not key:
+            return False
+        supabase = create_client(SUPABASE_URL, key)
+        SUPABASE_READY = True
+        return True
+    except Exception:
+        return False
 
 def sb_upsert_user(uid, email, is_admin=False):
     """Upsert user into Supabase (non-blocking)."""
-    if not SUPABASE_READY: return
+    if not _ensure_supabase(): return
     try:
         supabase.table("users").upsert({
             "id": uid,
@@ -62,7 +73,7 @@ def sb_upsert_user(uid, email, is_admin=False):
 
 def sb_log_generation(uid, data_dict):
     """Log a generation to Supabase (non-blocking)."""
-    if not SUPABASE_READY: return
+    if not _ensure_supabase(): return
     try:
         row = {"user_id": uid}
         row.update(data_dict)
@@ -72,7 +83,7 @@ def sb_log_generation(uid, data_dict):
 
 def sb_update_credits(uid, credits_used, generations_count, last_active_month):
     """Sync credit state to Supabase (non-blocking)."""
-    if not SUPABASE_READY: return
+    if not _ensure_supabase(): return
     try:
         supabase.table("users").update({
             "credits_used": credits_used,
@@ -870,6 +881,8 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
             bars = max(1, min(32, safe_int(data.get("bars"), 8)))
             max_ticks = bars * 1920
 
+            if not original_url or not original_url.startswith("https://firebasestorage.googleapis.com/"):
+                return jsonify({"error": "Invalid source URL"}), 400
             req_midi = urllib.request.Request(original_url)
             resp_midi = urllib.request.urlopen(req_midi, timeout=15)
             midi_bytes = resp_midi.read()

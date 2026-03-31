@@ -2634,8 +2634,6 @@ masterReverb.chain(masterCompressor, masterLimiter);
                             const aoData = await aoRes.json();
                             const aoParams = { style: aoData.style || 'Automate Only', bpm: aoData.bpm || 0, bars: aoData.bars || 8, key: '—' };
                             createResultCard(aoData.filename, aoData.alc_url, totalIdeasGenerated + 1, aoParams, aoPlaceholderId, false, aoData.alc_url);
-                            totalIdeasGenerated++;
-                            document.getElementById('library-count').textContent = `${resultsContainer.querySelectorAll('.result-card').length} IDEAS`;
                         } else {
                             const errData = await aoRes.json().catch(() => ({ error: 'Server error' }));
                             document.getElementById(aoPlaceholderId)?.remove();
@@ -3797,7 +3795,7 @@ masterReverb.chain(masterCompressor, masterLimiter);
             const mainBars = document.getElementById('bars');
             if(mainBars) mainBars.value = val;
             // Redraw canvas with new length
-            sdDrawCanvas();
+            sdDrawCanvasGrid();
         };
 
 
