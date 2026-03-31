@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STRIDE | Brand Assets Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Outfit', sans-serif; 
+            background-color: #09090b; /* zinc-950 */
+            background-image: radial-gradient(circle at 50% 0%, #1a0f08 0%, #09090b 60%);
+            color: #e4e4e7;
+            min-height: 100vh;
+        }
+        .glass-panel {
+            background: rgba(24, 24, 27, 0.6);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.5);
+        }
+        /* Keep Custom SVG Styling Isolated */
+        .svg-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 1rem;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+    </style>
+</head>
+<body class="p-6 md:p-12 overflow-x-hidden relative">
+
+    <div class="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-orange-600/5 blur-[120px] pointer-events-none"></div>
+
+    <div class="max-w-[1200px] mx-auto relative z-10">
+        <div class="mb-10 text-center">
+            <h1 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-500 tracking-tighter uppercase mb-2">Stride Brand Assets</h1>
+            <p class="text-zinc-400 text-sm font-medium">Download Full Logos & Standalone Icons in all engine color variants (SVG & Ultra-HD PNG).</p>
+        </div>
+
+        <div id="assets-grid" class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <!-- Content will be injected via JS -->
+        </div>
+    </div>
+
+    <script>
+        // Engine Color Variants based on your main Stride UI
+        const variants = [
+            {
+                id: 'standard',
+                name: 'STANDARD',
+                colors: ['#f97316', '#ef4444'], // Orange to Red
+                borderHover: 'hover:border-orange-500/50',
+                shadow: 'hover:shadow-[0_0_30px_rgba(249,115,22,0.15)]'
+            },
+            {
+                id: 'nlp',
+                name: 'NLP STUDIO',
+                colors: ['#06b6d4', '#3b82f6'], // Cyan to Blue
+                borderHover: 'hover:border-cyan-500/50',
+                shadow: 'hover:shadow-[0_0_30px_rgba(6,182,212,0.15)]'
+            },
+            {
+                id: 'cosmic',
+                name: 'COSMIC',
+                colors: ['#a855f7', '#6366f1'], // Purple to Indigo
+                borderHover: 'hover:border-purple-500/50',
+                shadow: 'hover:shadow-[0_0_30px_rgba(168,85,247,0.15)]'
+            }
+        ];
+
+        const FLASK_PATH = "M213.9,139.6 L213.9,103.8 C213.9,102.7 214.8,101.8 215.9,101.8 L223.7,101.8 C224.8,101.8 225.7,100.9 225.7,99.8 L225.7,94.3 C225.7,93.2 224.8,92.3 223.7,92.3 L176.3,92.3 C175.2,92.3 174.3,93.2 174.3,94.3 L174.3,99.8 C174.3,100.9 175.2,101.8 176.3,101.8 L184.1,101.8 C185.2,101.8 186.1,102.7 186.1,103.8 L186.1,139.6 C186.1,143.2 184.1,146.5 180.9,148 L147.2,163.7 C142.1,166.1 138.8,171.2 138.8,176.8 C138.8,184.9 145.4,191.5 153.5,191.5 L246.5,191.5 C254.6,191.5 261.2,184.9 261.2,176.8 C261.2,171.2 257.9,166.1 252.8,163.7 L219.1,148 C215.9,146.5 213.9,143.2 213.9,139.6 Z M208.9,141.9 C213.5,146.7 220.1,149.3 226.7,149.3 C235.8,149.3 244.9,145.8 251.8,138.9 C253,137.7 254.8,137.7 256,138.9 C257.2,140.1 257.2,141.9 256,143.1 C247.9,151.2 237.1,155.3 226.7,155.3 C218.4,155.3 210,152.2 203.9,146.1 L203.8,146 C200.7,142.9 196.2,141.5 191.7,142.1 C187.2,142.8 183.3,145.3 181,149.2 C179.8,151.1 177.4,151.7 175.5,150.5 C173.6,149.3 173,146.9 174.2,145 C177.8,139 183.9,135 191,134 C197.8,133.1 204.6,135.2 208.9,141.9 Z";
+
+        function generateFullSVGString(v, exportWidth = "100%", exportHeight = "100%") {
+            return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="${exportWidth}" height="${exportHeight}">
+  <defs>
+    <linearGradient id="grad-${v.id}-full" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="${v.colors[0]}"/>
+      <stop offset="100%" stop-color="${v.colors[1]}"/>
+    </linearGradient>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@700;900&amp;display=swap');
+      .logo-text { font-family: 'Outfit', Arial, sans-serif; font-weight: 900; font-size: 64px; letter-spacing: 4px; }
+      .tag-text { font-family: 'Outfit', Arial, sans-serif; font-weight: 700; font-size: 14px; letter-spacing: 8px; fill: #71717a; }
+    </style>
+  </defs>
+  <g>
+      <!-- Perfectly balanced optical alignment for the flask -->
+      <g transform="translate(0, -10)">
+        <path d="${FLASK_PATH}" fill="url(#grad-${v.id}-full)" />
+      </g>
+      <!-- Tightened the gap for a cohesive lockup -->
+      <text x="200" y="242" class="logo-text" text-anchor="middle" fill="url(#grad-${v.id}-full)">STRIDE</text>
+      <!-- Adjusted sub-tag proportionally -->
+      <text x="200" y="274" class="tag-text" text-anchor="middle">NEVER GET STUCK.</text>
+  </g>
+</svg>`;
+        }
+
+        function generateIconSVGString(v, exportWidth = "100%", exportHeight = "100%") {
+            // Standalone icon bounding box remains tight around the flask
+            return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="135 85 130 115" width="${exportWidth}" height="${exportHeight}">
+  <defs>
+    <linearGradient id="grad-${v.id}-icon" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="${v.colors[0]}"/>
+      <stop offset="100%" stop-color="${v.colors[1]}"/>
+    </linearGradient>
+  </defs>
+  <path d="${FLASK_PATH}" fill="url(#grad-${v.id}-icon)" />
+</svg>`;
+        }
+
+        function renderDashboard() {
+            const grid = document.getElementById('assets-grid');
+            grid.innerHTML = ''; // Clear just in case
+            
+            variants.forEach(v => {
+                // For display in the browser, we use 100% width/height so it scales to the container
+                const fullSvgDisplay = generateFullSVGString(v, "100%", "100%");
+                const iconSvgDisplay = generateIconSVGString(v, "100%", "100%");
+                
+                const cardHtml = `
+                    <div class="glass-panel rounded-3xl p-6 transition-all duration-500 ${v.borderHover} ${v.shadow} group">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-3 h-3 rounded-full" style="background: linear-gradient(to right, ${v.colors[0]}, ${v.colors[1]})"></div>
+                            <h3 class="text-xs font-black text-zinc-300 uppercase tracking-widest">${v.name}</h3>
+                        </div>
+
+                        <!-- FULL LOGO -->
+                        <div class="mb-8">
+                            <h4 class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-2">Full Logo</h4>
+                            <div class="svg-container w-full h-32" id="render-${v.id}-full">
+                                ${fullSvgDisplay}
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="downloadAsset('${v.id}', 'full', 'svg')" class="flex-1 bg-white/5 hover:bg-white/10 border border-white/5 py-2 rounded-lg text-xs font-bold text-zinc-300 transition-colors uppercase tracking-wider">SVG</button>
+                                <button onclick="downloadAsset('${v.id}', 'full', 'png')" class="flex-1 bg-white/5 hover:bg-white/10 border border-white/5 py-2 rounded-lg text-xs font-bold text-zinc-300 transition-colors uppercase tracking-wider" title="Downloads in 4K Resolution">PNG (HD)</button>
+                            </div>
+                        </div>
+
+                        <!-- ICON ONLY -->
+                        <div>
+                            <h4 class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-2">Icon Mark</h4>
+                            <div class="svg-container w-full h-32" id="render-${v.id}-icon">
+                                ${iconSvgDisplay}
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="downloadAsset('${v.id}', 'icon', 'svg')" class="flex-1 bg-white/5 hover:bg-white/10 border border-white/5 py-2 rounded-lg text-xs font-bold text-zinc-300 transition-colors uppercase tracking-wider">SVG</button>
+                                <button onclick="downloadAsset('${v.id}', 'icon', 'png')" class="flex-1 bg-white/5 hover:bg-white/10 border border-white/5 py-2 rounded-lg text-xs font-bold text-zinc-300 transition-colors uppercase tracking-wider" title="Downloads in High Resolution">PNG (HD)</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                grid.innerHTML += cardHtml;
+            });
+        }
+
+        async function downloadAsset(variantId, type, format) {
+            const v = variants.find(val => val.id === variantId);
+            const filename = `Stride_${v.name.replace(/\s+/g, '_')}_${type === 'full' ? 'Full_Logo' : 'Icon'}.${format}`;
+
+            if (format === 'svg') {
+                // For SVG download, "100%" width/height is best practice for universal scalability
+                const rawSvgString = type === 'full' ? generateFullSVGString(v, "100%", "100%") : generateIconSVGString(v, "100%", "100%");
+                const blob = new Blob([rawSvgString], { type: "image/svg+xml;charset=utf-8" });
+                triggerDownload(URL.createObjectURL(blob), filename);
+            } 
+            else if (format === 'png') {
+                // For PNG, we define absolute Ultra-HD (4K level) pixel dimensions to guarantee maximum crispness
+                const canvasWidth = type === 'full' ? 3200 : 2048;
+                const canvasHeight = type === 'full' ? 2400 : 2048;
+                
+                // Generate SVG string with absolute massive dimensions for the canvas to render sharply
+                const hdSvgString = type === 'full' ? generateFullSVGString(v, canvasWidth, canvasHeight) : generateIconSVGString(v, canvasWidth, canvasHeight);
+
+                const canvas = document.createElement("canvas");
+                const ctx = canvas.getContext("2d");
+                
+                canvas.width = canvasWidth;
+                canvas.height = canvasHeight;
+                
+                const img = new Image();
+                const svgBlob = new Blob([hdSvgString], { type: "image/svg+xml;charset=utf-8" });
+                const url = URL.createObjectURL(svgBlob);
+                
+                img.onload = function() {
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    const pngUrl = canvas.toDataURL("image/png");
+                    triggerDownload(pngUrl, filename);
+                    URL.revokeObjectURL(url);
+                };
+                img.src = url;
+            }
+        }
+
+        function triggerDownload(url, filename) {
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        // Wait for Outfit font to load to ensure it renders correctly on PNGs
+        document.fonts.ready.then(() => {
+            renderDashboard();
+        });
+    </script>
+</body>
+</html>
