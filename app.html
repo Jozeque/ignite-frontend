@@ -3354,7 +3354,23 @@ masterReverb.chain(masterCompressor, masterLimiter);
                         <button onclick="sdCopyLane()" class="text-[9px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0">Copy</button>
                         <button onclick="sdPasteLane(false)" class="text-[9px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0">Paste</button>
                         <button onclick="sdPasteLane(true)" class="text-[9px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0">Paste Inv</button>
-                        <button onclick="sdPasteToAllLanes(false)" class="text-[9px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0">All</button>
+                        <div class="relative">
+                            <button onclick="sdOpenPasteTo()" class="text-[9px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0">Paste To...</button>
+                            <div id="sd-paste-to-popover" class="hidden absolute bottom-full left-0 mb-2 w-56 max-h-64 bg-zinc-900 border border-white/10 rounded-lg shadow-2xl z-50 flex flex-col">
+                                <div class="flex items-center justify-between px-3 py-2 border-b border-white/10">
+                                    <label class="flex items-center gap-1.5 cursor-pointer">
+                                        <input type="checkbox" id="sd-paste-to-all" onchange="sdPasteToToggleAll(this.checked)" class="accent-violet-500 w-3 h-3">
+                                        <span class="text-[9px] text-zinc-300 uppercase font-bold">Select All</span>
+                                    </label>
+                                    <button onclick="sdClosePasteTo()" class="text-zinc-500 hover:text-zinc-300 text-xs">&times;</button>
+                                </div>
+                                <div id="sd-paste-to-list" class="overflow-y-auto flex-1 py-1 custom-scroll"></div>
+                                <div class="flex gap-1 p-2 border-t border-white/10">
+                                    <button onclick="sdPasteToSelected(false)" class="flex-1 text-[9px] text-violet-300 bg-violet-500/20 hover:bg-violet-500/30 py-1.5 rounded uppercase font-bold transition-colors">Paste</button>
+                                    <button onclick="sdPasteToSelected(true)" class="flex-1 text-[9px] text-violet-300 bg-violet-500/20 hover:bg-violet-500/30 py-1.5 rounded uppercase font-bold transition-colors">Paste Inv</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="w-px h-5 bg-white/10 mx-1"></div>
                     <div class="flex items-center gap-1 bg-black/50 p-1 rounded border border-white/5">
@@ -4212,6 +4228,54 @@ masterReverb.chain(masterCompressor, masterLimiter);
             sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
             document.getElementById('sd-canvas-status').textContent='Applied to all lanes';
         };
+
+        // --- PASTE TO... MULTI-SELECT ---
+        window.sdOpenPasteTo = function() {
+            if(!sdClipboardPoints || !sdClipboardPoints.length) {
+                if(sdActiveParamId) sdCopyLane(); // auto-copy active lane if nothing copied yet
+                if(!sdClipboardPoints || !sdClipboardPoints.length) return;
+            }
+            const list = document.getElementById('sd-paste-to-list');
+            list.innerHTML = sdCanvasParams.filter(p => p.envelopeId !== sdActiveParamId).map(p => `
+                <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 cursor-pointer">
+                    <input type="checkbox" class="sd-paste-to-cb accent-violet-500 w-3 h-3" data-id="${p.envelopeId}">
+                    <span class="text-[9px] text-zinc-300 truncate">${p.name}</span>
+                    <span class="text-[8px] text-zinc-600 ml-auto shrink-0">${p.points.length} pts</span>
+                </label>
+            `).join('');
+            document.getElementById('sd-paste-to-all').checked = false;
+            document.getElementById('sd-paste-to-popover').classList.remove('hidden');
+        };
+        window.sdClosePasteTo = function() {
+            document.getElementById('sd-paste-to-popover').classList.add('hidden');
+        };
+        window.sdPasteToToggleAll = function(checked) {
+            document.querySelectorAll('.sd-paste-to-cb').forEach(cb => cb.checked = checked);
+        };
+        window.sdPasteToSelected = function(invert) {
+            const ids = [...document.querySelectorAll('.sd-paste-to-cb:checked')].map(cb => cb.dataset.id);
+            if(!ids.length) return;
+            const srcPoints = sdClipboardPoints;
+            if(!srcPoints || !srcPoints.length) return;
+            const sel = sdGetSelection(); const tS = sel ? sel.startBeat : 0;
+            const cD = Math.max(...srcPoints.map(p => p.time)); const tD = sel ? (sel.endBeat - sel.startBeat) : cD; const sc = cD > 0 ? tD / cD : 1;
+            ids.forEach(id => {
+                const param = sdCanvasParams.find(p => p.envelopeId === id); if(!param) return;
+                if(sel) param.points = param.points.filter(pt => pt.time < sel.startBeat || pt.time > sel.endBeat); else param.points = [];
+                srcPoints.forEach(pt => { param.points.push({time: Math.round((tS + pt.time * sc) * 10000) / 10000, value: invert ? 1 - pt.value : pt.value}); });
+                param.points.sort((a, b) => a.time - b.time);
+            });
+            sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
+            document.getElementById('sd-canvas-status').textContent = `Pasted${invert ? ' inv' : ''} to ${ids.length} lane${ids.length > 1 ? 's' : ''}`;
+            sdClosePasteTo();
+        };
+        // close popover on outside click
+        document.addEventListener('click', function(e) {
+            const pop = document.getElementById('sd-paste-to-popover');
+            if(!pop || pop.classList.contains('hidden')) return;
+            if(!pop.contains(e.target) && !e.target.closest('[onclick*="sdOpenPasteTo"]')) sdClosePasteTo();
+        });
+
         window.sdQuantizeLane = function(gridSize) {
             if(!sdActiveParamId) return; const sel=sdGetSelection();
             sdGetTargetParams().forEach(param=>{
