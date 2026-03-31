@@ -58,16 +58,19 @@ def _ensure_supabase():
     except Exception:
         return False
 
-def sb_upsert_user(uid, email, is_admin=False):
+def sb_upsert_user(uid, email, is_admin=False, display_name=None):
     """Upsert user into Supabase (non-blocking)."""
     if not _ensure_supabase(): return
     try:
-        supabase.table("users").upsert({
+        row = {
             "id": uid,
             "email": email,
             "is_admin": is_admin,
             "last_seen_at": datetime.utcnow().isoformat()
-        }, on_conflict="id").execute()
+        }
+        if display_name:
+            row["display_name"] = display_name
+        supabase.table("users").upsert(row, on_conflict="id").execute()
     except Exception as e:
         print(f"[Supabase] user upsert error: {e}")
 
@@ -165,8 +168,9 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
 
     # Supabase: upsert user on every request (lightweight, keeps last_seen_at fresh)
     user_email = decoded_token.get("email", "")
+    user_display_name = decoded_token.get("name", None)
     is_admin_user = user_email.lower() == "yossi.bozo112@gmail.com"
-    sb_upsert_user(uid, user_email, is_admin_user)
+    sb_upsert_user(uid, user_email, is_admin_user, display_name=user_display_name)
 
     # Safely load JSON data
     data = req.get_json(silent=True)
