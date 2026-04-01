@@ -2089,6 +2089,7 @@ masterReverb.chain(masterCompressor, masterLimiter);
                     const isAdmin = user.email && user.email.toLowerCase() === 'yossi.bozo112@gmail.com';
                     await db.collection('users').doc(user.uid).set({
                         email: user.email,
+                        display_name: user.displayName || "",
                         joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
                         generations_count: 0,
                         credits_used: isAdmin ? -9999 : 0,
