@@ -281,10 +281,11 @@
                 <h2 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-500 mb-2 tracking-tight">JOIN STRIDE</h2>
                 <p class="text-xs text-zinc-400 mb-8 font-medium">Create your studio account</p>
 
-                <button onclick="handleGoogleAuth()" class="w-full bg-white hover:bg-zinc-200 text-black font-bold py-3.5 rounded-xl mb-6 transition-all flex justify-center items-center gap-3 text-sm tracking-wide shadow-md">
+                <button onclick="handleGoogleAuth()" class="w-full bg-white hover:bg-zinc-200 text-black font-bold py-3.5 rounded-xl mb-3 transition-all flex justify-center items-center gap-3 text-sm tracking-wide shadow-md">
                     <svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
                     Sign up with Google
                 </button>
+                <p class="text-[10px] text-zinc-500 text-center mb-6">By signing up, you agree to our <a href="terms.html" target="_blank" class="text-orange-400/70 hover:text-orange-300 underline underline-offset-2">Terms</a> and <a href="privacy.html" target="_blank" class="text-orange-400/70 hover:text-orange-300 underline underline-offset-2">Privacy Policy</a></p>
 
                 <div class="flex items-center gap-3 mb-6">
                     <div class="h-[1px] flex-1 bg-white/10"></div>
@@ -307,6 +308,17 @@
                     </div>
                 </div>
 
+                <div class="space-y-3 mb-6 text-left">
+                    <label class="flex items-start gap-2.5 cursor-pointer">
+                        <input type="checkbox" id="signup-consent-terms" class="mt-0.5 accent-orange-500 w-3.5 h-3.5 shrink-0">
+                        <span class="text-[11px] text-zinc-400 leading-relaxed">I agree to the <a href="terms.html" target="_blank" class="text-orange-400 hover:text-orange-300 underline underline-offset-2">Terms of Service</a> and <a href="privacy.html" target="_blank" class="text-orange-400 hover:text-orange-300 underline underline-offset-2">Privacy Policy</a></span>
+                    </label>
+                    <label class="flex items-start gap-2.5 cursor-pointer">
+                        <input type="checkbox" id="signup-consent-age" class="mt-0.5 accent-orange-500 w-3.5 h-3.5 shrink-0">
+                        <span class="text-[11px] text-zinc-400 leading-relaxed">I confirm I am at least 16 years old</span>
+                    </label>
+                </div>
+
                 <button onclick="handleSignUp()" class="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-black py-4 rounded-xl mb-4 transition-all border border-white/10 flex justify-center items-center gap-2 text-sm tracking-widest uppercase">
                     Create Account
                 </button>
@@ -314,7 +326,7 @@
                 <p id="signup-status" class="text-xs font-bold min-h-[1rem] text-center mb-4 text-red-500 uppercase tracking-widest"></p>
 
                 <p class="text-xs text-zinc-400 font-medium">
-                    Already have an account? 
+                    Already have an account?
                     <button onclick="toggleAuthView('login')" class="text-orange-400 hover:text-orange-300 font-bold ml-1 transition-colors underline decoration-orange-500/30 underline-offset-4">Log in here</button>
                 </p>
             </div>
@@ -2093,7 +2105,11 @@ masterReverb.chain(masterCompressor, masterLimiter);
                         joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
                         generations_count: 0,
                         credits_used: isAdmin ? -9999 : 0,
-                        last_active_month: new Date().getMonth()
+                        last_active_month: new Date().getMonth(),
+                        consent_terms: true,
+                        consent_age: true,
+                        consent_policy_version: "1.0",
+                        consent_timestamp: firebase.firestore.FieldValue.serverTimestamp()
                     });
                 }
                 
@@ -2120,6 +2136,16 @@ masterReverb.chain(masterCompressor, masterLimiter);
                 signupStatus.className = "text-xs font-bold min-h-[1rem] text-center mb-4 text-red-500 tracking-wider uppercase";
                 return;
             }
+            if (!document.getElementById('signup-consent-terms').checked) {
+                signupStatus.innerText = "PLEASE AGREE TO THE TERMS AND PRIVACY POLICY.";
+                signupStatus.className = "text-xs font-bold min-h-[1rem] text-center mb-4 text-red-500 tracking-wider uppercase";
+                return;
+            }
+            if (!document.getElementById('signup-consent-age').checked) {
+                signupStatus.innerText = "YOU MUST BE AT LEAST 16 YEARS OLD.";
+                signupStatus.className = "text-xs font-bold min-h-[1rem] text-center mb-4 text-red-500 tracking-wider uppercase";
+                return;
+            }
 
             signupStatus.innerText = "AUTHORIZING...";
             signupStatus.className = "text-xs font-bold min-h-[1rem] text-center mb-4 text-orange-400 tracking-wider uppercase";
@@ -2135,7 +2161,11 @@ masterReverb.chain(masterCompressor, masterLimiter);
                     joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
                     generations_count: 0,
                     credits_used: isAdmin ? -9999 : 0,
-                    last_active_month: new Date().getMonth()
+                    last_active_month: new Date().getMonth(),
+                    consent_terms: true,
+                    consent_age: true,
+                    consent_policy_version: "1.0",
+                    consent_timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
                 await userCredential.user.sendEmailVerification();
