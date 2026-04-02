@@ -51,11 +51,14 @@ def _ensure_supabase():
         from supabase import create_client
         key = os.environ.get("SUPABASE_SERVICE_KEY", "")
         if not key:
+            print("[Supabase] SUPABASE_SERVICE_KEY not found in environment")
             return False
         supabase = create_client(SUPABASE_URL, key)
         SUPABASE_READY = True
+        print("[Supabase] Client initialized successfully")
         return True
-    except Exception:
+    except Exception as e:
+        print(f"[Supabase] Init failed: {e}")
         return False
 
 def sb_upsert_user(uid, email, is_admin=False, display_name=None):
@@ -74,11 +77,13 @@ def sb_upsert_user(uid, email, is_admin=False, display_name=None):
     except Exception as e:
         print(f"[Supabase] user upsert error: {e}")
 
-def sb_log_generation(uid, data_dict):
+def sb_log_generation(uid, data_dict, display_name=None):
     """Log a generation to Supabase (non-blocking)."""
     if not _ensure_supabase(): return
     try:
         row = {"user_id": uid}
+        if display_name:
+            row["display_name"] = display_name
         row.update(data_dict)
         supabase.table("generations").insert(row).execute()
     except Exception as e:
@@ -653,10 +658,17 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
 
                     if len(user_points) > 0:
                         user_points.sort(key=lambda x: x.get("time", 0.0))
-                        for pt in user_points:
+                        for i, pt in enumerate(user_points):
                             t = float(pt.get("time", 0.0))
                             v = float(pt.get("value", 0.0))
-                            _ao_add_point(t, v)
+                            cv = float(pt.get("curve", 0.0))
+                            # Convert simple curve (-1..1) to Ableton CurveControl format
+                            curve_data = None
+                            if abs(cv) > 0.01 and i < len(user_points) - 1:
+                                # Ableton uses cubic bezier with two control points (x,y) relative to segment
+                                # CurveControl1 and CurveControl2 define the cubic bezier handles
+                                curve_data = (0.5, -cv * 0.5, 0.5, cv * 0.5)
+                            _ao_add_point(t, v, curve=curve_data)
                     else:
                         # No canvas data and no MIDI generation — leave envelope empty
                         pass
@@ -702,7 +714,7 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
                 "bpm": 0,
                 "bars": bars,
                 "action": "automate_only"
-            })
+            }, display_name=user_display_name)
 
             return jsonify({
                 "success": True,
@@ -1877,10 +1889,14 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
                         if len(user_points) > 0:
                             # --- INJECT USER CANVAS DRAWINGS ---
                             user_points.sort(key=lambda x: x.get("time", 0.0))
-                            for pt in user_points:
+                            for i, pt in enumerate(user_points):
                                 t = float(pt.get("time", 0.0))
                                 v = float(pt.get("value", 0.0))
-                                add_point(t, v)
+                                cv = float(pt.get("curve", 0.0))
+                                curve_data = None
+                                if abs(cv) > 0.01 and i < len(user_points) - 1:
+                                    curve_data = (0.5, -cv * 0.5, 0.5, cv * 0.5)
+                                add_point(t, v, curve=curve_data)
                         else:
                             # --- FALLBACK: AI CHAOS SEQUENCER ---
                             current_beat = 0.0
@@ -2041,7 +2057,7 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
             "prompt_text": data.get("prompt_text", "") if data.get("is_prompt_mode") else None,
             "chain_id": chain_id if enable_sound_design else None,
             "fast_mode": data.get("fast_mode", False)
-        })
+        }, display_name=user_display_name)
 
         return jsonify({
             "success": True,
@@ -2076,10 +2092,12 @@ def notify_new_user(event: firestore_fn.Event[firestore_fn.DocumentSnapshot | No
         
     user_data = new_data.to_dict()
     email = user_data.get("email", "Unknown Email")
-    
+    display_name = user_data.get("display_name", "")
+    name_line = f"\n**Producer:** `{display_name}`" if display_name else ""
+
     message = {
         "username": "Stride Engine",
-        "content": f"🔥 **NEW PRODUCER ALERT**\nA new user has just registered to the engine:\n`{email}`"
+        "content": f"🔥 **NEW PRODUCER ALERT**\nA new user has just registered to the engine:\n`{email}`{name_line}"
     }
     
     try:
