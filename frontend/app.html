@@ -387,12 +387,7 @@
                         </div>
 
                         <!-- Rack selection cards -->
-                        <div id="sd-rack-cards" class="grid grid-cols-3 gap-3 mb-4">
-                            <button onclick="openSoundDesignFlow(); switchAlcVaultTab('browse');" class="group relative bg-black/40 border border-white/5 hover:border-fuchsia-500/40 rounded-xl p-5 text-center transition-all hover:bg-fuchsia-500/5 overflow-hidden">
-                                <div class="absolute inset-0 bg-gradient-to-b from-fuchsia-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                <svg class="w-8 h-8 text-fuchsia-400/60 group-hover:text-fuchsia-400 mx-auto mb-2.5 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-                                <span class="text-[11px] font-black text-zinc-400 group-hover:text-fuchsia-400 uppercase tracking-widest transition-colors">Browse Vault</span>
-                            </button>
+                        <div id="sd-rack-cards" class="grid grid-cols-2 gap-3 mb-4">
                             <button onclick="openSoundDesignFlow(); switchAlcVaultTab('personal');" class="group relative bg-black/40 border border-white/5 hover:border-fuchsia-500/40 rounded-xl p-5 text-center transition-all hover:bg-fuchsia-500/5 overflow-hidden">
                                 <div class="absolute inset-0 bg-gradient-to-b from-fuchsia-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                 <svg class="w-8 h-8 text-fuchsia-400/60 group-hover:text-fuchsia-400 mx-auto mb-2.5 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
@@ -1088,8 +1083,7 @@
             <!-- Header: tabs + close + search -->
             <div class="flex items-center justify-between px-8 pt-5 pb-0 border-b border-white/10 shrink-0">
                 <div class="flex gap-6">
-                    <button onclick="switchAlcVaultTab('browse')" id="alc-tab-browse" class="text-[10px] font-black uppercase tracking-widest text-fuchsia-400 pb-3 border-b-2 border-fuchsia-400 transition-colors">Browse Racks</button>
-                    <button onclick="switchAlcVaultTab('personal')" id="alc-tab-personal" class="text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-zinc-300 pb-3 border-b-2 border-transparent transition-colors">My Racks</button>
+                    <button onclick="switchAlcVaultTab('personal')" id="alc-tab-personal" class="text-[10px] font-black uppercase tracking-widest text-fuchsia-400 pb-3 border-b-2 border-fuchsia-400 transition-colors">My Racks</button>
                     <button onclick="switchAlcVaultTab('upload')" id="alc-tab-upload" class="text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-zinc-300 pb-3 border-b-2 border-transparent transition-colors">Upload ALC</button>
                 </div>
                 <button onclick="closeAlcModal()" class="text-zinc-500 hover:text-white pb-3 transition-colors">
@@ -3440,6 +3434,8 @@ masterReverb.chain(masterCompressor, masterLimiter);
         let sdDraggedPoint = null;
         let sdActiveTool = 'select';
         let sdClipboardPoints = null;
+        let sdIsCurveDragging = false;
+        let sdCurveDragSegment = null; // { point: leftPoint, startY: mouseY at start }
         let sdSelectionStart = null;
         let sdSelectionEnd = null;
         let sdIsSelectingRegion = false;
@@ -3472,9 +3468,7 @@ masterReverb.chain(masterCompressor, masterLimiter);
 
         window.openSoundDesignFlow = function() {
             document.getElementById('alc-vault-modal').classList.remove('hidden');
-            switchAlcVaultTab('browse');
-            if(alcRacksList === null) fetchAlcRacks();
-            else renderAlcRacks('');
+            switchAlcVaultTab('personal');
             fetchPersonalAlcRacks();
             document.getElementById('alc-search').focus();
         };
@@ -3496,7 +3490,7 @@ masterReverb.chain(masterCompressor, masterLimiter);
         };
 
         window.switchAlcVaultTab = function(tab) {
-            const tabs = ['browse', 'personal', 'upload'];
+            const tabs = ['personal', 'upload'];
             tabs.forEach(t => {
                 const btn = document.getElementById('alc-tab-' + t);
                 if(t === tab) {
@@ -3505,11 +3499,11 @@ masterReverb.chain(masterCompressor, masterLimiter);
                     btn.className = "text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-zinc-300 pb-3 border-b-2 border-transparent transition-colors";
                 }
             });
-            document.getElementById('alc-list').classList.toggle('hidden', tab !== 'browse');
+            document.getElementById('alc-list').classList.add('hidden');
             document.getElementById('alc-personal-list').classList.toggle('hidden', tab !== 'personal');
             document.getElementById('alc-upload-section').classList.toggle('hidden', tab !== 'upload');
             document.getElementById('alc-search-bar').classList.toggle('hidden', tab === 'upload');
-            document.getElementById('alc-tag-strip').classList.toggle('hidden', tab !== 'browse');
+            document.getElementById('alc-tag-strip').classList.add('hidden');
         };
 
         // Personal racks
@@ -3694,6 +3688,21 @@ masterReverb.chain(masterCompressor, masterLimiter);
                 if(data.success && data.parameters) {
                     sdCanvasParams = data.parameters.map(p => ({ ...p, points: [] }));
                     if(sdCanvasParams.length > 0) sdActiveParamId = sdCanvasParams[0].envelopeId;
+                    // Restore saved canvas state if available
+                    if(isPersonal && auth.currentUser) {
+                        try {
+                            const savedDoc = await db.collection('users').doc(auth.currentUser.uid).collection('alcs').where('path', '==', path).limit(1).get();
+                            if(!savedDoc.empty) {
+                                const saved = savedDoc.docs[0].data().canvasState;
+                                if(saved && Array.isArray(saved)) {
+                                    saved.forEach(sp => {
+                                        const param = sdCanvasParams.find(p => p.envelopeId === sp.envelopeId);
+                                        if(param && sp.points) param.points = sp.points;
+                                    });
+                                }
+                            }
+                        } catch(_) {}
+                    }
                     statusEl.innerText = 'Editor Ready';
                     document.getElementById('sd-param-count').innerText = sdCanvasParams.length + ' params';
                 } else {
@@ -3799,7 +3808,23 @@ masterReverb.chain(masterCompressor, masterLimiter);
 
         window.sdCloseCanvas = function() {
             document.getElementById('sd-canvas-panel').classList.add('translate-y-full');
+            // Auto-save canvas state to personal rack
+            sdSaveCanvasState();
         };
+
+        async function sdSaveCanvasState() {
+            if(!auth.currentUser || !sdSelectedAlcPath || !sdCanvasParams.length) return;
+            try {
+                const snapshot = await db.collection('users').doc(auth.currentUser.uid).collection('alcs').where('path', '==', sdSelectedAlcPath).limit(1).get();
+                if(!snapshot.empty) {
+                    const canvasState = sdCanvasParams.filter(p => p.points.length > 0).map(p => ({
+                        envelopeId: p.envelopeId,
+                        points: p.points.map(pt => ({ time: pt.time, value: pt.value, curve: pt.curve || 0 }))
+                    }));
+                    await snapshot.docs[0].ref.update({ canvasState });
+                }
+            } catch(e) { console.error('[Canvas save]', e); }
+        }
 
         // MIDI generation toggle (off = keep user's MIDI from uploaded ALC)
         window.toggleMidiGeneration = function() {
@@ -3984,7 +4009,20 @@ masterReverb.chain(masterCompressor, masterLimiter);
                 const pt = param.points[i];
                 const x = ((pt.time/totalBeats)*lw*sdViewZoomX)-sdViewPanX;
                 const y = lh-(pt.value*lh);
-                if(i===0) sdCtx.moveTo(x,y); else sdCtx.lineTo(x,y);
+                if(i===0) { sdCtx.moveTo(x,y); }
+                else {
+                    const prev = param.points[i-1];
+                    const cv = prev.curve || 0;
+                    if(cv === 0) { sdCtx.lineTo(x,y); }
+                    else {
+                        const px = ((prev.time/totalBeats)*lw*sdViewZoomX)-sdViewPanX;
+                        const py = lh-(prev.value*lh);
+                        const mx = (px+x)/2;
+                        const my = (py+y)/2;
+                        const cpY = my - cv * Math.abs(y-py) * 1.2;
+                        sdCtx.quadraticCurveTo(mx, cpY, x, y);
+                    }
+                }
             }
             sdCtx.stroke();
             sdCtx.fillStyle = '#a855f7';
@@ -3995,6 +4033,22 @@ masterReverb.chain(masterCompressor, masterLimiter);
                     sdCtx.beginPath(); sdCtx.arc(x, y, 3, 0, Math.PI*2); sdCtx.fill();
                     if(sdDraggedPoint === pt) {
                         sdCtx.beginPath(); sdCtx.fillStyle='rgba(168,85,247,0.4)'; sdCtx.arc(x,y,10,0,Math.PI*2); sdCtx.fill(); sdCtx.fillStyle='#a855f7';
+                    }
+                    // Curve indicator dot on segment
+                    if(pt.curve && pt.curve !== 0) {
+                        const idx = param.points.indexOf(pt);
+                        if(idx < param.points.length-1) {
+                            const next = param.points[idx+1];
+                            const nx = ((next.time/totalBeats)*lw*sdViewZoomX)-sdViewPanX;
+                            const ny = lh-(next.value*lh);
+                            const mx = (x+nx)/2;
+                            const my = (y+ny)/2;
+                            const cpY = my - pt.curve * Math.abs(ny-y) * 1.2;
+                            // small diamond at curve midpoint
+                            sdCtx.fillStyle='rgba(251,191,36,0.7)';
+                            sdCtx.beginPath(); sdCtx.moveTo(mx,cpY-3); sdCtx.lineTo(mx+3,cpY); sdCtx.lineTo(mx,cpY+3); sdCtx.lineTo(mx-3,cpY); sdCtx.closePath(); sdCtx.fill();
+                            sdCtx.fillStyle='#a855f7';
+                        }
                     }
                 }
             });
@@ -4103,6 +4157,18 @@ masterReverb.chain(masterCompressor, masterLimiter);
                 const hitT = (totalBeats*0.02)/sdViewZoomX; const hitV = 0.05;
                 let idx = param.points.findIndex(pt=>Math.abs(pt.time-hd.time)<hitT&&Math.abs(pt.value-hd.value)<hitV);
                 if(e.button===2) { if(idx!==-1) { param.points.splice(idx,1); sdRenderSidebar(); sdDrawCanvasGrid(); } return; }
+                // ALT+click on a segment → curve drag
+                if(e.altKey && param.points.length >= 2 && sdActiveTool==='select') {
+                    const sorted = [...param.points].sort((a,b)=>a.time-b.time);
+                    for(let i=0;i<sorted.length-1;i++) {
+                        if(hd.time >= sorted[i].time && hd.time <= sorted[i+1].time) {
+                            sdIsCurveDragging = true;
+                            sdCurveDragSegment = { point: sorted[i], startY: e.clientY, startCurve: sorted[i].curve || 0 };
+                            sdCanvasEl.style.cursor = 'ns-resize';
+                            return;
+                        }
+                    }
+                }
                 if(sdActiveTool==='freehand') { sdIsDragging=true; sdPaintFreehand(hd.time,hd.value,param,totalBeats); }
                 else {
                     if(idx!==-1) { sdIsDragging=true; sdDraggedPoint=param.points[idx]; sdDrawCanvasGrid(); }
@@ -4120,6 +4186,27 @@ masterReverb.chain(masterCompressor, masterLimiter);
                     sdViewPanX=Math.max(0,Math.min((lw*sdViewZoomX)-lw,sdViewPanX));
                     sdDrawCanvasGrid(); return;
                 }
+                // Curve dragging (ALT+drag on segment)
+                if(sdIsCurveDragging && sdCurveDragSegment) {
+                    const delta = (sdCurveDragSegment.startY - e.clientY) / 150;
+                    sdCurveDragSegment.point.curve = Math.max(-1, Math.min(1, sdCurveDragSegment.startCurve + delta));
+                    sdDrawCanvasGrid(); return;
+                }
+                // ALT hover cursor hint
+                if(e.altKey && !sdIsDragging && !sdIsPanning && sdActiveParamId && sdActiveTool==='select') {
+                    const hd = sdGetTimeValue(e);
+                    const param = sdCanvasParams.find(p=>p.envelopeId===sdActiveParamId);
+                    if(param && param.points.length >= 2) {
+                        const sorted = [...param.points].sort((a,b)=>a.time-b.time);
+                        let onSeg = false;
+                        for(let i=0;i<sorted.length-1;i++) {
+                            if(hd.time >= sorted[i].time && hd.time <= sorted[i+1].time) { onSeg=true; break; }
+                        }
+                        sdCanvasEl.style.cursor = onSeg ? 'ns-resize' : 'crosshair';
+                    }
+                } else if(!sdIsDragging && !sdIsPanning && !sdIsSpacePressed) {
+                    sdCanvasEl.style.cursor = 'crosshair';
+                }
                 if(!sdIsDragging) return;
                 const hd = sdGetTimeValue(e); const bars = sdGetBars(); const totalBeats = bars*4;
                 if(sdActiveTool==='freehand') { const param=sdCanvasParams.find(p=>p.envelopeId===sdActiveParamId); sdPaintFreehand(hd.time,hd.value,param,totalBeats); }
@@ -4131,6 +4218,7 @@ masterReverb.chain(masterCompressor, masterLimiter);
             });
             window.addEventListener('mouseup', () => {
                 if(sdIsPanning) { sdIsPanning=false; if(sdIsSpacePressed&&sdCanvasEl) sdCanvasEl.style.cursor='grab'; }
+                if(sdIsCurveDragging) { sdIsCurveDragging=false; sdCurveDragSegment=null; if(sdCanvasEl) sdCanvasEl.style.cursor='crosshair'; sdDrawCanvasGrid(); }
                 if(sdIsDragging) { sdIsDragging=false; sdDraggedPoint=null; sdRenderSidebar(); sdDrawCanvasGrid(); }
             });
             sdCanvasEl.addEventListener('contextmenu', e=>e.preventDefault());
@@ -4194,7 +4282,7 @@ masterReverb.chain(masterCompressor, masterLimiter);
             sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
         };
 
-        window.sdMirrorLane = function() { if(!sdActiveParamId) return; sdGetTargetParams().forEach(p=>{if(!p.points.length) return; sdGetSelectedPoints(p).forEach(pt=>{pt.value=1-pt.value;});}); sdRenderSidebar(); sdDrawCanvasGrid(); };
+        window.sdMirrorLane = function() { if(!sdActiveParamId) return; sdGetTargetParams().forEach(p=>{if(!p.points.length) return; sdGetSelectedPoints(p).forEach(pt=>{pt.value=1-pt.value;if(pt.curve)pt.curve=-pt.curve;});}); sdRenderSidebar(); sdDrawCanvasGrid(); };
         window.sdFlipLane = function() {
             if(!sdActiveParamId) return;
             const sel=sdGetSelection(); const sB=sel?sel.startBeat:0; const eB=sel?sel.endBeat:sdGetBars()*4;
@@ -4207,7 +4295,7 @@ masterReverb.chain(masterCompressor, masterLimiter);
             if(!param||!param.points.length) return;
             const sel=sdGetSelection(); const pts=sel?sdGetSelectedPoints(param):param.points;
             const minT=sel?sel.startBeat:0;
-            sdClipboardPoints=pts.map(pt=>({time:pt.time-minT, value:pt.value}));
+            sdClipboardPoints=pts.map(pt=>({time:pt.time-minT, value:pt.value, curve:pt.curve||0}));
             document.getElementById('sd-canvas-status').textContent=`Copied ${sdClipboardPoints.length} pts`;
         };
         window.sdPasteLane = function(invert) {
@@ -4216,7 +4304,7 @@ masterReverb.chain(masterCompressor, masterLimiter);
             const sel=sdGetSelection(); const tS=sel?sel.startBeat:0;
             const cD=Math.max(...sdClipboardPoints.map(p=>p.time)); const tD=sel?(sel.endBeat-sel.startBeat):cD; const sc=cD>0?tD/cD:1;
             if(sel) param.points=param.points.filter(pt=>pt.time<sel.startBeat||pt.time>sel.endBeat); else param.points=[];
-            sdClipboardPoints.forEach(pt=>{param.points.push({time:Math.round((tS+pt.time*sc)*10000)/10000,value:invert?1-pt.value:pt.value});});
+            sdClipboardPoints.forEach(pt=>{param.points.push({time:Math.round((tS+pt.time*sc)*10000)/10000,value:invert?1-pt.value:pt.value,curve:invert?-(pt.curve||0):(pt.curve||0)});});
             param.points.sort((a,b)=>a.time-b.time); sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
         };
         window.sdPasteToAllLanes = function(invert) {
@@ -4237,7 +4325,7 @@ masterReverb.chain(masterCompressor, masterLimiter);
             sdCanvasParams.forEach(param=>{
                 if(param.envelopeId === sdActiveParamId) return; // skip source lane
                 if(sel) param.points=param.points.filter(pt=>pt.time<sel.startBeat||pt.time>sel.endBeat); else param.points=[];
-                srcPoints.forEach(pt=>{param.points.push({time:Math.round((tS+pt.time*sc)*10000)/10000,value:invert?1-pt.value:pt.value});});
+                srcPoints.forEach(pt=>{param.points.push({time:Math.round((tS+pt.time*sc)*10000)/10000,value:invert?1-pt.value:pt.value,curve:invert?-(pt.curve||0):(pt.curve||0)});});
                 param.points.sort((a,b)=>a.time-b.time);
             });
             sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
@@ -4292,7 +4380,7 @@ masterReverb.chain(masterCompressor, masterLimiter);
             ids.forEach(id => {
                 const param = sdCanvasParams.find(p => p.envelopeId === id); if(!param) return;
                 if(sel) param.points = param.points.filter(pt => pt.time < sel.startBeat || pt.time > sel.endBeat); else param.points = [];
-                srcPoints.forEach(pt => { param.points.push({time: Math.round((tS + pt.time * sc) * 10000) / 10000, value: invert ? 1 - pt.value : pt.value}); });
+                srcPoints.forEach(pt => { param.points.push({time: Math.round((tS + pt.time * sc) * 10000) / 10000, value: invert ? 1 - pt.value : pt.value, curve: invert ? -(pt.curve||0) : (pt.curve||0)}); });
                 param.points.sort((a, b) => a.time - b.time);
             });
             sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
