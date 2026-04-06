@@ -841,7 +841,14 @@
 
             errorEl.classList.add('hidden');
 
-            // Store buyer info for post-purchase follow-up
+            // Send buyer info to backend (Firestore + Discord notification)
+            fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'buyer_lead', name, email, country, source })
+            }).catch(() => {}); // fire-and-forget, don't block checkout
+
+            // Store locally as backup
             localStorage.setItem('stride_buyer_info', JSON.stringify({
                 name, email, country, source,
                 timestamp: new Date().toISOString()

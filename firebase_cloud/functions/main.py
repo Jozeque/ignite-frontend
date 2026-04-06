@@ -156,6 +156,42 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
     if req.method == 'OPTIONS':
         return https_fn.Response(status=204)
 
+    # --- BUYER LEAD (public, no auth required) ---
+    data_pre = req.get_json(silent=True)
+    if isinstance(data_pre, dict) and data_pre.get("action") == "buyer_lead":
+        name = data_pre.get("name", "").strip()
+        email = data_pre.get("email", "").strip()
+        country = data_pre.get("country", "").strip()
+        source = data_pre.get("source", "").strip()
+        if not name or not email:
+            return jsonify({"error": "Name and email are required"}), 400
+        try:
+            db.collection("buyer_leads").add({
+                "name": name,
+                "email": email,
+                "country": country,
+                "source": source,
+                "created_at": admin_firestore.SERVER_TIMESTAMP,
+            })
+        except Exception as e:
+            print(f"[Firestore] buyer_lead write error: {e}")
+        # Discord notification
+        if ADMIN_WEBHOOK_URL:
+            try:
+                webhook_msg = {
+                    "username": "Stride Engine",
+                    "content": f"💰 **PURCHASE INTEREST**\n**Producer:** `{name}`\n**Email:** `{email}`\n**Country:** `{country}`" + (f"\n**Source:** `{source}`" if source else "")
+                }
+                webhook_req = urllib.request.Request(
+                    ADMIN_WEBHOOK_URL,
+                    data=json.dumps(webhook_msg).encode('utf-8'),
+                    headers={'Content-Type': 'application/json', 'User-Agent': 'Stride-Backend/1.0'}
+                )
+                urllib.request.urlopen(webhook_req, timeout=10)
+            except Exception:
+                pass
+        return jsonify({"success": True}), 200
+
     if not GEMINI_READY or not API_KEY:
         return jsonify({"error": "CRITICAL: Gemini API Key missing or library not installed."}), 500
 
