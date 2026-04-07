@@ -128,9 +128,7 @@
                 <!-- RIGHT — Video -->
                 <div class="flex-1 min-w-0 w-full lg:w-auto">
                     <div id="hero-video-container" class="w-full aspect-video rounded-3xl relative overflow-hidden group cursor-pointer border border-white/10 hover:border-orange-500/30 transition-colors shadow-2xl bg-black" onclick="playHeroVideo()">
-                        <video id="hero-video-player" class="absolute inset-0 w-full h-full object-cover rounded-3xl" poster="https://img.youtube.com/vi/VUORrnfCnqA/maxresdefault.jpg" preload="none" muted>
-                            <source src="https://firebasestorage.googleapis.com/v0/b/veero-next.firebasestorage.app/o/videos%2F1st%20tut.mp4?alt=media&token=6cde0048-7c36-45c1-800d-6ab51f8ec83e" type="video/mp4">
-                        </video>
+                        <img id="hero-video-poster" src="https://img.youtube.com/vi/GQODwvNZQU0/maxresdefault.jpg" alt="Stride Tutorial" class="absolute inset-0 w-full h-full object-cover rounded-3xl">
 
                         <div id="hero-video-overlay" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/30 group-hover:bg-black/20 transition-colors">
                             <div class="w-16 h-16 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center border border-white/20 group-hover:scale-110 group-hover:bg-orange-500/30 group-hover:border-orange-500/40 transition-all shadow-xl text-white group-hover:text-orange-400">
@@ -702,16 +700,10 @@
 
     <script>
         function playHeroVideo() {
-            const overlay = document.getElementById('hero-video-overlay');
-            const player = document.getElementById('hero-video-player');
             const container = document.getElementById('hero-video-container');
-            overlay.classList.add('hidden');
-            player.muted = false;
-            player.controls = true;
-            player.currentTime = 0;
-            container.style.cursor = 'default';
             container.onclick = null;
-            player.play().catch(() => {});
+            container.style.cursor = 'default';
+            container.innerHTML = '<iframe class="absolute inset-0 w-full h-full rounded-3xl" src="https://www.youtube.com/embed/GQODwvNZQU0?autoplay=1&rel=0" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>';
         }
 
         // ─── Waitlist Modal ─────────────────────────────────

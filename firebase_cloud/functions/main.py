@@ -156,31 +156,37 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
     if req.method == 'OPTIONS':
         return https_fn.Response(status=204)
 
-    # --- BUYER LEAD (public, no auth required) ---
+    # --- WAITLIST / BUYER LEAD (public, no auth required) ---
     data_pre = req.get_json(silent=True)
-    if isinstance(data_pre, dict) and data_pre.get("action") == "buyer_lead":
+    if isinstance(data_pre, dict) and data_pre.get("action") in ("waitlist_signup", "buyer_lead"):
         name = data_pre.get("name", "").strip()
         email = data_pre.get("email", "").strip()
         country = data_pre.get("country", "").strip()
         source = data_pre.get("source", "").strip()
         if not name or not email:
             return jsonify({"error": "Name and email are required"}), 400
+        # Always log the full signup so data is never lost
+        print(f"[Waitlist] name={name} email={email} country={country} source={source}")
+        db_ok = False
         try:
-            db.collection("buyer_leads").add({
+            _db = admin_firestore.client()
+            _db.collection("waitlist").add({
                 "name": name,
                 "email": email,
                 "country": country,
                 "source": source,
                 "created_at": admin_firestore.SERVER_TIMESTAMP,
             })
+            db_ok = True
         except Exception as e:
-            print(f"[Firestore] buyer_lead write error: {e}")
-        # Discord notification
+            print(f"[Waitlist] FIRESTORE FAILED: {e} — data logged above")
+        # Discord notification (includes DB failure warning if applicable)
         if ADMIN_WEBHOOK_URL:
             try:
+                status = "" if db_ok else "\n⚠️ **Firestore write failed — recover from logs**"
                 webhook_msg = {
                     "username": "Stride Engine",
-                    "content": f"💰 **PURCHASE INTEREST**\n**Producer:** `{name}`\n**Email:** `{email}`\n**Country:** `{country}`" + (f"\n**Source:** `{source}`" if source else "")
+                    "content": f"🎹 **WAITLIST SIGNUP**\n**Producer:** `{name}`\n**Email:** `{email}`\n**Country:** `{country}`" + (f"\n**Source:** `{source}`" if source else "") + status
                 }
                 webhook_req = urllib.request.Request(
                     ADMIN_WEBHOOK_URL,
@@ -188,8 +194,8 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
                     headers={'Content-Type': 'application/json', 'User-Agent': 'Stride-Backend/1.0'}
                 )
                 urllib.request.urlopen(webhook_req, timeout=10)
-            except Exception:
-                pass
+            except Exception as we:
+                print(f"[Waitlist] DISCORD FAILED: {we} — data logged above")
         return jsonify({"success": True}), 200
 
     if not GEMINI_READY or not API_KEY:
