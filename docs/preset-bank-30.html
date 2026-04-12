@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stride Preset Bank — 30 Presets Spec</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #09090b; color: #d4d4d8; font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.6; padding: 40px; max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 24px; color: #f97316; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px; }
+  h2 { font-size: 17px; color: #e4e4e7; font-weight: 800; margin: 40px 0 12px; padding-bottom: 6px; border-bottom: 1px solid #27272a; text-transform: uppercase; letter-spacing: 1px; }
+  .sub { color: #52525b; font-size: 13px; margin-bottom: 32px; }
+  .count { display: inline-block; font-size: 10px; background: #27272a; color: #a1a1aa; padding: 2px 8px; border-radius: 6px; font-weight: 700; margin-left: 8px; }
+
+  .p-card { background: #111113; border: 1px solid #1a1a1e; border-radius: 12px; padding: 16px 18px; margin-bottom: 10px; border-left: 3px solid; }
+  .p-card .name { font-size: 14px; font-weight: 800; margin-bottom: 2px; }
+  .p-card .vibe { font-size: 11px; color: #52525b; font-style: italic; margin-bottom: 8px; }
+  .p-card .roots { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+  .p-card .root-tag { font-size: 10px; font-weight: 700; background: #18181b; border: 1px solid #27272a; padding: 2px 8px; border-radius: 6px; }
+  .p-card .detail { font-size: 11px; color: #71717a; line-height: 1.7; }
+  .p-card .detail b { color: #a1a1aa; }
+  .p-card .react { font-size: 11px; color: #52525b; margin-top: 4px; }
+
+  .summary { background: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 16px 20px; margin: 20px 0; }
+  .summary p { font-size: 13px; color: #a1a1aa; margin: 0; }
+</style>
+</head>
+<body>
+
+<h1>Preset Bank v1 — 30 Presets</h1>
+<p class="sub">Each preset = 100 reactive lanes. Root curves define the story, everything else derives. Bars: 4 or 8.</p>
+
+<div class="summary">
+  <p><b style="color:#f97316">Mix:</b> 10 groove/choppy + 6 pumper + 5 sweep/evolve + 4 build/surge + 3 texture + 2 cascade</p>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>Groove &amp; Chop <span class="count">10 presets</span></h2>
+<!-- ═══════════════════════════════════════ -->
+
+<div class="p-card" style="border-color:#d946ef">
+  <div class="name" style="color:#d946ef">01 — Slicer</div>
+  <div class="vibe">Choppy gate pattern that evolves. Bar 1: clean 8ths. Bar 2: removes every other hit. Bar 3: triplet feel. Bar 4: rapid stutter.</div>
+  <div class="roots">
+    <span class="root-tag" style="color:#d946ef">Root 1: evolving gate pattern</span>
+    <span class="root-tag" style="color:#f97316">Root 2: slow filter sweep underneath</span>
+  </div>
+  <div class="detail"><b>Root 1:</b> gate/chop pattern — 8th notes bar 1, half removed bar 2, triplets bar 3, 32nd stutter bar 4. Values snap between 0 and 0.8-1.0 (not always full).<br>
+  <b>Root 2:</b> slow filter sweep 0.3→0.7 across 4 bars — changes the TONE of each chop section.</div>
+  <div class="react"><b>Secondary:</b> resonance counter-tracks filter. Drive spikes on the chop hits only. Delay fills the gaps between chops.<br><b>Tertiary:</b> phase-cascaded chop pattern at 10% — adds width and shimmer to each slice.</div>
+</div>
+
+<div class="p-card" style="border-color:#d946ef">
+  <div class="name" style="color:#d946ef">02 — Bounce</div>
+  <div class="vibe">Swung groove. Not straight — everything has 15% swing. Off-beat accents that make static sounds groove.</div>
+  <div class="roots">
+    <span class="root-tag" style="color:#d946ef">Root 1: swung pulse with off-beat accents</span>
+    <span class="root-tag" style="color:#22c55e">Root 2: drift on detune</span>
+  </div>
+  <div class="detail"><b>Root 1:</b> pulse on 8th notes with 15% swing applied. Every other hit is softer (0.6 vs 1.0). Bar 3 adds ghost notes (0.2 value) on the 16th.<br>
+  <b>Root 2:</b> gentle detune drift ±0.1 — makes the groove feel human, not quantized.</div>
+  <div class="react"><b>Secondary:</b> filter follows the accent pattern — opens on strong beats, closes on weak. Pan alternates L/R on the swing.<br><b>Tertiary:</b> micro-groove — all lanes have the same swing timing, but at whisper levels.</div>
+</div>
+
+<div class="p-card" style="border-color:#d946ef">
+  <div class="name" style="color:#d946ef">03 — Pocket</div>
+  <div class="vibe">Tight, locked groove with syncopated accents. Bars 1-2 repeat. Bars 3-4 open up with fills.</div>
+  <div class="roots">
+    <span class="root-tag" style="color:#d946ef">Root 1: syncopated accent pattern</span>
+    <span class="root-tag" style="color:#f97316">Root 2: sidechain pump (slower, 2-beat cycle)</span>
+  </div>
+  <div class="detail"><b>Root 1:</b> accents on beat 1, and-of-2, beat 4 (syncopated). Bars 1-2 identical. Bar 3: accent on and-of-3 added. Bar 4: extra ghost notes fill in.<br>
+  <b>Root 2:</b> slower pump — 2-beat cycle instead of 1-beat. Creates a loping, half-time feel underneath the accents.</div>
+  <div class="react"><b>Secondary:</b> filter opens sharply on each accent then decays. Reverb blooms between the 2-beat pump hits (fills the space).<br><b>Tertiary:</b> lock to the 2-beat pump at micro level — everything breathes at the same pace.</div>
+</div>
+
+<div class="p-card" style="border-color:#d946ef">
+  <div class="name" style="color:#d946ef">04 — Shaker</div>
+  <div class="vibe">Hi-hat energy. Fast 16th note movement on top, half-time anchor underneath. Evolving density.</div>
+  <div class="roots">
+    <span class="root-tag" style="color:#d946ef">Root 1: 16th note pattern, evolving density</span>
+    <span class="root-tag" style="color:#06b6d4">Root 2: half-time anchor pulse</span>
+  </div>
+  <div class="detail"><b>Root 1:</b> 16th notes. Bar 1: every other 16th active (sparse). Bar 2: 3 out of 4 active. Bar 3: all active (full). Bar 4: rolls — accelerating 16th→32nd. Values vary 0.4-1.0 (not all full intensity).<br>
+  <b>Root 2:</b> simple half-time pulse — hits on beat 1 and 3 only. The slow anchor that the fast pattern dances around.</div>
+  <div class="react"><b>Secondary:</b> filter tracks the 16th density — opens as pattern gets denser. Drive follows the half-time anchor.<br><b>Tertiary:</b> the 16th pattern phase-cascaded — each lane starts on a different 16th. Creates stereo shimmer.</div>
+</div>
+
+<div class="p-card" style="border-color:#d946ef">
+  <div class="name" style="color:#d946ef">05 — Strut</div>
+  <div class="vibe">Walking groove. Accent pattern shifts forward by one 8th note each bar — the groove literally moves.</div>
+  <div class="roots">
+    <span class="root-tag" style="color:#d946ef">Root 1: shifting accent (moves each bar)</span>
+    <span class="root-tag" style="color:#f97316">Root 2: filter follows the accent</span>
+  </div>
+  <div class="detail"><b>Root 1:</b> strong accent + 2 ghost notes pattern. Bar 1: accent on beat 1. Bar 2: accent shifts to and-of-1. Bar 3: accent on beat 2. Bar 4: accent on and-of-2. The groove walks forward through time.<br>
+  <b>Root 2:</b> filter opens on whatever beat the accent lands — it walks WITH the accent.</div>
+  <div class="react"><b>Secondary:</b> resonance peaks where accent WAS last bar (echo of previous position). Creates a "shadow" groove.<br><b>Tertiary:</b> micro-movement biased toward the current accent position — the whole sound leans where the groove is.</div>
+</div>
+
+<div class="p-card" style="border-color:#d946ef">
+  <div class="name" style="color:#d946ef">06 — Ricochet</div>
+  <div class="vibe">Call and response between two rhythmic patterns. Root 1 hits bars 1+3, Root 2 answers bars 2+4.</div>
+  <div class="roots">
+    <span class="root-tag" style="color:#d946ef">Root 1: rhythmic pattern A (call)</span>
+    <span class="root-tag" style="color:#06b6d4">Root 2: rhythmic pattern B (response)</span>
+  </div>
+  <div class="detail"><b>Root 1:</b> sharp staccato hits — 3 quick stabs at start of bar 1 and 3, then silence. Short, aggressive.<br>
+  <b>Root 2:</b> rolls/fills that respond in bar 2 and 4 — longer, more fluid. Like a drummer responding to a horn stab.</div>
+  <div class="react"><b>Secondary:</b> reverb only on the response (bar 2+4). Drive only on the call (bar 1+3). Each side has its own character.<br><b>Tertiary:</b> lanes split in half — odd lanes follow call energy, even lanes follow response energy. Two groove armies.</div>
+</div>
+
+<div class="p-card" style="border-color:#d946ef">
+  <div class="name" style="color:#d946ef">07 — Wobble</div>
+  <div class="vibe">LFO that speeds up and slows down. Not a fixed rate — the wobble breathes.</div>
+  <div class="roots">
+    <span class="root-tag" style="color:#d946ef">Root 1: variable-rate sine wobble</span>
+    <span class="root-tag" style="color:#22c55e">Root 2: wobble rate envelope</span>
+  </div>
+  <div class="detail"><b>Root 1:</b> sine wave but the frequency changes: bar 1 = slow (1Hz), bar 2 = faster (4Hz), bar 3 = peak speed (8Hz), bar 4 = decelerates back to 2Hz. The wobble itself tells a story.<br>
+  <b>Root 2:</b> represents the rate — a slow arc that controls how fast Root 1 oscillates.</div>
+  <div class="react"><b>Secondary:</b> resonance peaks when wobble is slow (more audible), ducks when fast (prevents screech). Drive increases with speed.<br><b>Tertiary:</b> phase-cascaded wobble — each lane at the same variable rate but offset. 30 wobbles slightly out of phase = massive movement.</div>
+</div>
+
+<div class="p-card" style="border-color:#d946ef">
+  <div class="name" style="color:#d946ef">08 — Stagger</div>
+  <div class="vibe">4 rhythmic hits per bar, each one different. No two bars feel the same. Constantly evolving groove.</div>
+  <div class="roots">
+    <span class="root-tag" style="color:#d946ef">Root 1: 4 unique hits per bar, changing each bar</span>
+  </div>
+  <div class="detail"><b>Root 1:</b> bar 1: short-short-long-short. Bar 2: long-short-short-long. Bar 3: short-long-short-rest. Bar 4: short-short-short-long-long (5 against 4 feel). Each hit has different value (0.5-1.0) and different decay time.</div>
+  <div class="react"><b>Secondary:</b> each hit type triggers a different secondary behavior. Short hits → drive spike. Long hits → filter sweep. Rests → delay bloom.<br><b>Tertiary:</b> follow the rhythm at micro level but with randomized intensity per hit — no two tertiary lanes accent the same hit.</div>
+</div>
+
+<div class="p-card" style="border-color:#d946ef">
+  <div class="name" style="color:#d946ef">09 — Pendulum</div>
+  <div class="vibe">Swinging motion. Not a sine — more like a pendulum with gravity. Faster at the bottom, lingers at the top.</div>
+  <div class="roots">
+    <span class="root-tag" style="color:#d946ef">Root 1: pendulum curve (fast bottom, slow top)</span>
+    <span class="root-tag" style="color:#f97316">Root 2: swing period changes</span>
+  </div>
+  <div class="detail"><b>Root 1:</b> pendulum arc — spends more time at peaks (lingers at 0 and 1), rushes through the middle. Bar 1-2: wide swing (0→1→0→1). Bar 3-4: swing narrows (0.3→0.7→0.3→0.7) — energy winding down.<br>
+  <b>Root 2:</b> the swing gets shorter over 4 bars — losing momentum.</div>
+  <div class="react"><b>Secondary:</b> resonance peaks at the "linger" moments (top of swing). Drive peaks at the "rush" moments (middle). They alternate.<br><b>Tertiary:</b> each lane is a slightly smaller pendulum — like harmonics of the main swing. Lane 50 barely moves. Lane 2 swings nearly as wide as root.</div>
+</div>
+
+<div class="p-card" style="border-color:#d946ef">
+  <div class="name" style="color:#d946ef">10 — Fracture</div>
+  <div class="vibe">Starts whole, breaks apart. Bar 1 is a clean groove, each bar removes/scrambles pieces until bar 4 is fragments.</div>
+  <div class="roots">
+    <span class="root-tag" style="color:#d946ef">Root 1: groove that degrades</span>
+    <span class="root-tag" style="color:#06b6d4">Root 2: fragmentation control</span>
+  </div>
+  <div class="detail"><b>Root 1:</b> bar 1: clean 4/4 pump. Bar 2: beat 3 splits into two shorter hits. Bar 3: beats get shuffled, gaps appear. Bar 4: stutter fragments — 32nd note shards with silence between.<br>
+  <b>Root 2:</b> ramp 0→1 representing "how broken" the groove is. Controls how derived lanes respond.</div>
+  <div class="react"><b>Secondary:</b> as fragmentation rises — reverb increases (fills the gaps), drive increases (shards get harsher), filter narrows (focus on mid).<br><b>Tertiary:</b> lanes fragment at different rates. Some break early (bar 2), some hold together until bar 4. Creates a dissolving effect across the whole rack.</div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>Pumper Variants <span class="count">6 presets</span></h2>
+<!-- ═══════════════════════════════════════ -->
+
+<div class="p-card" style="border-color:#f97316">
+  <div class="name" style="color:#f97316">11 — The Pumper (Tight)</div>
+  <div class="vibe">The classic evolving pump from the explorations. Tight→syncopated→open→double-time.</div>
+  <div class="detail">See exploration #01. 4 root lanes. Secondary reactive per zone. The reference preset.</div>
+</div>
+
+<div class="p-card" style="border-color:#f97316">
+  <div class="name" style="color:#f97316">12 — The Pumper (Half-Time)</div>
+  <div class="vibe">2-bar pump cycle. Hit + long decay. Secondary fills the decay zone.</div>
+  <div class="detail">See exploration #10. Spacious, heavy, hypnotic. Resonance and delay bloom during the long tail.</div>
+</div>
+
+<div class="p-card" style="border-color:#f97316">
+  <div class="name" style="color:#f97316">13 — The Pumper (Reverse)</div>
+  <div class="vibe">Inverted pump — values rise BEFORE the beat, snap down ON the beat. Reverse sidechain feel.</div>
+  <div class="detail"><b>Root 1:</b> reverse pump — slow ramp 0→1 over each beat, then instant snap to 0 on the next beat. Creates a "sucking in" feel instead of "pushing out".<br>All derivation is the same reactive system, but the energy flows backward.</div>
+</div>
+
+<div class="p-card" style="border-color:#f97316">
+  <div class="name" style="color:#f97316">14 — The Pumper (Triplet)</div>
+  <div class="vibe">3-against-4 pump feel. Creates polyrhythmic tension against a straight beat.</div>
+  <div class="detail"><b>Root 1:</b> pump on dotted-8th grid (triplet feel). 3 pumps per bar instead of 4. Bar 3-4: switches to straight 4 — the moment the polyrhythm resolves is the climax.<br>
+  <b>Secondary:</b> reacts to the grid switch — filter opens wider when the rhythm is "wrong" (triplet zone), tightens when it resolves.</div>
+</div>
+
+<div class="p-card" style="border-color:#f97316">
+  <div class="name" style="color:#f97316">15 — The Pumper (Breathing)</div>
+  <div class="vibe">Pump depth oscillates — bars 1+3 pump hard, bars 2+4 pump gently. Inhale/exhale on the groove itself.</div>
+  <div class="detail"><b>Root 1:</b> pump pattern where the DEPTH changes: bar 1 pumps 0→1, bar 2 pumps 0.3→0.7, bar 3 back to 0→1, bar 4 pumps 0.4→0.6. The groove breathes in intensity.</div>
+</div>
+
+<div class="p-card" style="border-color:#f97316">
+  <div class="name" style="color:#f97316">16 — The Pumper (Decay)</div>
+  <div class="vibe">Fixed pump attack, but the decay shape changes each bar — sharp, medium, long, exponential.</div>
+  <div class="detail"><b>Root 1:</b> all 4 bars have the same attack (instant snap to 1). But: bar 1 = linear decay. Bar 2 = convex decay (holds high then drops). Bar 3 = concave decay (drops then holds low). Bar 4 = exponential (fast start, long tail). Same rhythm, 4 different textures.</div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>Sweep &amp; Evolve <span class="count">5 presets</span></h2>
+<!-- ═══════════════════════════════════════ -->
+
+<div class="p-card" style="border-color:#22c55e">
+  <div class="name" style="color:#22c55e">17 — Slow Burn</div>
+  <div class="vibe">Glacial WT sweep. Filter fills the silence, goes quiet when WT takes over.</div>
+  <div class="detail">See exploration #02. 8-bar version. Secondary lanes trade off ownership of movement.</div>
+</div>
+
+<div class="p-card" style="border-color:#22c55e">
+  <div class="name" style="color:#22c55e">18 — Deep Breath</div>
+  <div class="vibe">Inhale/exhale. Reverb blooms on inhale only. Drive compresses on exhale only.</div>
+  <div class="detail">See exploration #06. Each phase has different secondary owners.</div>
+</div>
+
+<div class="p-card" style="border-color:#22c55e">
+  <div class="name" style="color:#22c55e">19 — Tide</div>
+  <div class="vibe">Two slow sweeps in opposite directions crossing in the middle. The intersection is where magic happens.</div>
+  <div class="detail"><b>Root 1:</b> sweep up 0→1 over 4 bars. <b>Root 2:</b> sweep down 1→0 over 4 bars. They cross at bar 2. Secondary lanes react to the DISTANCE between the two roots — when they're far apart (bar 1, 4) lanes are calm. When they cross (bar 2) all secondary lanes peak with activity. The crossing point is the climax.</div>
+</div>
+
+<div class="p-card" style="border-color:#22c55e">
+  <div class="name" style="color:#22c55e">20 — Orbit</div>
+  <div class="vibe">Two sine waves at different rates creating a Lissajous-like pattern. Complex but smooth.</div>
+  <div class="detail"><b>Root 1:</b> sine at 1 cycle per 4 bars. <b>Root 2:</b> sine at 3 cycles per 4 bars (3:1 ratio). The phase relationship creates a complex evolving pattern that takes 4 bars to repeat. Secondary lanes track the combined energy (sum of both roots). Tertiary phase-cascade from the combined shape.</div>
+</div>
+
+<div class="p-card" style="border-color:#22c55e">
+  <div class="name" style="color:#22c55e">21 — Glacier</div>
+  <div class="vibe">Almost imperceptible movement. 8-bar sweep at 3% range. The subtlest preset — you feel the change, never hear it.</div>
+  <div class="detail"><b>Root 1:</b> sweep 0.48→0.52 over 8 bars. That's it. 4% range. <b>All derived lanes:</b> micro-drift at 2-5% intensity. The entire preset is a whisper. Designed to add "life" to a completely static sound without any obvious modulation.</div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>Build &amp; Surge <span class="count">4 presets</span></h2>
+<!-- ═══════════════════════════════════════ -->
+
+<div class="p-card" style="border-color:#f59e0b">
+  <div class="name" style="color:#f59e0b">22 — Surge</div>
+  <div class="vibe">Staircase build with fake drop at 75%. Real drop at end. Cascading release.</div>
+  <div class="detail">See exploration #03. Reverb goes huge at fake drop, snaps dry at real drop.</div>
+</div>
+
+<div class="p-card" style="border-color:#f59e0b">
+  <div class="name" style="color:#f59e0b">23 — Ignite</div>
+  <div class="vibe">Exponential build — slow start, then accelerates violently into the peak. No fake drop, just raw energy.</div>
+  <div class="detail"><b>Root 1:</b> exponential curve — barely moves bar 1, noticeable bar 2, fast bar 3, vertical bar 4. <b>Secondary:</b> each secondary lane has a different "ignition point" — some start moving in bar 2, others wait until bar 3, a few only activate in bar 4. Creates a cascade of lanes joining the build. Like an engine starting.</div>
+</div>
+
+<div class="p-card" style="border-color:#f59e0b">
+  <div class="name" style="color:#f59e0b">24 — Collapse</div>
+  <div class="vibe">Reverse of Surge — starts at full intensity, deconstructs over 4 bars. Everything falls apart beautifully.</div>
+  <div class="detail"><b>Root 1:</b> starts at 1.0, staircase DOWN. Each step drops lower. <b>Secondary:</b> as root drops, reverb grows (space fills the emptiness), drive drops (loses edge), resonance drifts up (gets more hollow). <b>Tertiary:</b> lanes drop out one by one — by bar 4, only a few whispers remain.</div>
+</div>
+
+<div class="p-card" style="border-color:#f59e0b">
+  <div class="name" style="color:#f59e0b">25 — Tension</div>
+  <div class="vibe">No release. Just builds and builds. 4 bars of increasing everything. Designed to pair before a drop someone else writes.</div>
+  <div class="detail"><b>Root 1:</b> linear ramp 0→0.9 (never reaches 1 — unresolved). <b>Root 2:</b> noise/activity increases alongside. <b>Secondary:</b> every lane rises but at different rates. Filter fast, reverb slow, drive medium. <b>Tertiary:</b> density of micro-movement increases bar by bar. Bar 4 feels like it's about to explode but doesn't.</div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>Texture &amp; Ghost <span class="count">3 presets</span></h2>
+<!-- ═══════════════════════════════════════ -->
+
+<div class="p-card" style="border-color:#71717a">
+  <div class="name" style="color:#71717a">26 — Ghost Machine</div>
+  <div class="vibe">Invisible modulation. 30+ lanes at 5-15%. Nothing audible alone, everything alive together.</div>
+  <div class="detail">See exploration #04. Different drift rates per param type. Correlated counter-motion between clusters.</div>
+</div>
+
+<div class="p-card" style="border-color:#71717a">
+  <div class="name" style="color:#71717a">27 — Shimmer</div>
+  <div class="vibe">Like Ghost Machine but biased upward — micro-movements in the 0.7-1.0 range. Adds sparkle to bright sounds.</div>
+  <div class="detail">Same drift system as Ghost Machine but all values oscillate around 0.85 instead of 0.5. Designed for high-frequency content — makes bright pads and leads glisten without obvious modulation.</div>
+</div>
+
+<div class="p-card" style="border-color:#71717a">
+  <div class="name" style="color:#71717a">28 — Murk</div>
+  <div class="vibe">Like Ghost Machine biased downward — micro-movements in 0.0-0.3 range. Adds darkness and depth to low sounds.</div>
+  <div class="detail">Drift around 0.15. Designed for bass, dark pads, sub textures. The subtle movement adds life without brightening. Filter lanes drift near their minimum, keeping things dark but alive.</div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>Cascade &amp; Special <span class="count">2 presets</span></h2>
+<!-- ═══════════════════════════════════════ -->
+
+<div class="p-card" style="border-color:#f97316">
+  <div class="name" style="color:#f97316">29 — Cascade</div>
+  <div class="vibe">One curve ripples across 100 lanes. Amplitude and shape mutate as the wave travels.</div>
+  <div class="detail">See exploration #08. First lanes full intensity, last lanes ghost whispers. The wave shape softens as it spreads.</div>
+</div>
+
+<div class="p-card" style="border-color:#ef4444">
+  <div class="name" style="color:#ef4444">30 — Chaotic Engine</div>
+  <div class="vibe">Alternating chaos and clarity. Reverb is the inverse anchor — huge in calm moments, dry in madness.</div>
+  <div class="detail">See exploration #07. Rules deliberately broken in chaos zones. The structure is the alternation itself.</div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>Summary</h2>
+<!-- ═══════════════════════════════════════ -->
+
+<div class="summary">
+  <p style="margin-bottom:8px"><b style="color:#d946ef">Groove/Chop (10):</b> Slicer, Bounce, Pocket, Shaker, Strut, Ricochet, Wobble, Stagger, Pendulum, Fracture</p>
+  <p style="margin-bottom:8px"><b style="color:#f97316">Pumper (6):</b> Tight, Half-Time, Reverse, Triplet, Breathing, Decay</p>
+  <p style="margin-bottom:8px"><b style="color:#22c55e">Sweep (5):</b> Slow Burn, Deep Breath, Tide, Orbit, Glacier</p>
+  <p style="margin-bottom:8px"><b style="color:#f59e0b">Build (4):</b> Surge, Ignite, Collapse, Tension</p>
+  <p style="margin-bottom:8px"><b style="color:#71717a">Texture (3):</b> Ghost Machine, Shimmer, Murk</p>
+  <p><b style="color:#ef4444">Special (2):</b> Cascade, Chaotic Engine</p>
+</div>
+
+<br>
+<p style="color:#3f3f46; font-size:11px; text-align:center;">Stride — Sound Design Engine. Your racks, reborn.</p>
+
+</body>
+</html>

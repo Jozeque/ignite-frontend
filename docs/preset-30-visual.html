@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stride — 30 Presets Visual Spec (Full)</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#09090b;color:#d4d4d8;font-family:'Segoe UI',system-ui,sans-serif;line-height:1.5;padding:32px;max-width:1100px;margin:0 auto}
+h1{font-size:22px;color:#f97316;font-weight:900;letter-spacing:2px;text-transform:uppercase;margin-bottom:2px}
+.sub{color:#52525b;font-size:12px;margin-bottom:36px}
+h2{font-size:15px;color:#71717a;font-weight:800;margin:36px 0 12px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #1a1a1e;padding-bottom:4px}
+
+.p{margin-bottom:32px}
+.p-head{display:flex;align-items:baseline;gap:8px;margin-bottom:2px}
+.p-num{font-size:10px;color:#3f3f46;font-weight:900}
+.p-name{font-size:16px;font-weight:900}
+.p-tag{font-size:11px;color:#52525b;font-style:italic;margin-bottom:8px}
+.p-shape{font-size:10px;color:#f97316;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+
+.canvas{background:#0a0a0a;border:1px solid #1a1a1e;border-radius:12px;padding:14px;margin-bottom:8px}
+.canvas svg{width:100%;height:auto;display:block}
+
+.notes{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:4px}
+.note{background:#111113;border-radius:8px;padding:8px 10px;font-size:10px;color:#52525b;line-height:1.6;border-top:2px solid #1a1a1e}
+.note b{color:#a1a1aa}
+.note .hl{font-weight:700}
+
+.leg{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+.leg span{font-size:9px;font-weight:700;display:flex;align-items:center;gap:4px}
+.leg i{width:14px;height:2px;border-radius:1px;display:inline-block}
+</style>
+</head>
+<body>
+
+<h1>30 Presets — Full Visual Spec</h1>
+<p class="sub">Every preset: root lanes (bright) + reactive secondary (medium) + tertiary ghost lanes (faint). This is what users see in the preset browser.</p>
+
+<!-- ═══════════════════════════════════════════════ -->
+<h2>Groove &amp; Chop</h2>
+<!-- ═══════════════════════════════════════════════ -->
+
+<!-- 01 SLICER -->
+<div class="p">
+<div class="p-head"><span class="p-num">01</span><span class="p-name" style="color:#d946ef">Slicer</span></div>
+<p class="p-tag">Evolving gate: 8ths → half removed → triplets → 32nd stutter. Filter sweep changes the tone underneath.</p>
+<div class="leg">
+<span style="color:#d946ef"><i style="background:#d946ef"></i>Gate</span>
+<span style="color:#f97316"><i style="background:#f97316"></i>Filter</span>
+<span style="color:#06b6d4"><i style="background:#06b6d480"></i>Delay fill</span>
+<span style="color:#22c55e"><i style="background:#22c55e60"></i>Resonance</span>
+<span style="color:#3f3f46"><i style="background:#ffffff10"></i>Ghost</span>
+</div>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/>
+<line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/>
+<line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<!-- Ghost: density mirrors gate density -->
+<path d="M0,82 Q15,80 30,84 Q45,80 60,84 Q75,80 90,84 Q105,80 120,84 Q135,80 150,84 Q165,80 180,84 Q195,80 210,84 Q225,80 240,82 Q260,78 280,86 Q310,78 340,86 Q370,78 400,86 Q430,78 460,86 Q480,82 Q496,76 512,88 Q528,76 544,88 Q560,76 576,88 Q592,76 608,88 Q624,76 640,88 Q656,76 672,88 Q688,76 704,88 Q720,82 Q726,72 732,92 Q736,70 740,94 Q744,68 748,96 Q752,66 756,96 Q760,64 764,98 Q768,62 772,98 Q780,60 788,100 Q796,58 804,100 Q812,56 820,102 Q828,54 836,102 Q844,52 852,104 Q860,50 868,104 Q876,48 884,106 Q892,46 900,106 Q910,44 920,108 Q930,42 940,108 Q950,40 960,110" stroke="#ffffff06" stroke-width="1" fill="none"/>
+<path d="M0,88 Q20,86 40,90 Q60,86 80,90 Q100,86 120,90 Q140,86 160,90 Q180,86 200,90 Q220,86 240,88 Q265,84 290,92 Q320,82 350,92 Q380,82 410,92 Q440,82 470,88 Q490,80 510,94 Q530,78 550,94 Q570,78 590,94 Q610,78 630,94 Q650,78 670,94 Q690,78 710,90 Q718,76 726,96 Q732,74 738,98 Q744,72 750,100 Q756,70 762,100 Q768,68 774,102 Q780,66 786,102 Q795,64 804,104 Q813,62 822,104 Q831,60 840,106 Q849,58 858,106 Q867,56 876,108 Q885,54 894,108 Q910,50 930,110 Q945,48 960,112" stroke="#ffffff05" stroke-width="1" fill="none"/>
+<path d="M0,76 Q18,74 36,78 Q54,74 72,78 Q90,74 108,78 Q126,74 144,78 Q162,74 180,78 Q198,74 216,78 Q234,74 240,76 Q258,72 276,80 Q306,72 336,80 Q366,72 396,80 Q426,72 456,80 Q480,76 Q494,70 508,82 Q524,70 540,82 Q556,70 572,82 Q588,70 604,82 Q620,70 636,82 Q652,70 668,82 Q684,70 700,82 Q716,76 Q722,68 728,86 Q734,66 740,88 Q746,64 752,90 Q758,62 764,90 Q770,60 776,92 Q786,58 796,92 Q808,56 820,94 Q832,54 844,94 Q856,52 868,96 Q880,50 892,96 Q908,48 924,98 Q940,46 956,100 960,100" stroke="#ffffff04" stroke-width="1" fill="none"/>
+<!-- Resonance (green): counter of filter — high when filter low, dips when filter opens -->
+<path d="M0,40 C120,42 240,48 360,58 C480,70 600,85 720,95 C800,100 880,104 960,106" stroke="#22c55e" stroke-width="1.5" fill="none" opacity="0.45"/>
+<!-- Delay (cyan): fills gaps — silent bar1, small fills bar2, big bloom bar3 (triplet gaps), cuts bar4 (too dense) -->
+<path d="M0,140 L240,140 Q270,140 300,115 Q330,90 360,85 Q390,90 420,115 Q450,135 470,140 L480,140 Q510,130 540,95 Q570,65 600,60 Q630,65 660,90 Q690,115 710,135 L720,140 L960,140" stroke="#06b6d4" stroke-width="1.5" fill="none" opacity="0.5"/>
+<!-- Filter sweep (orange): slow rise across 4 bars -->
+<path d="M0,130 C120,125 240,115 360,100 C480,85 600,65 720,50 C800,42 880,36 960,32" stroke="#f97316" stroke-width="2" fill="none" opacity="0.7"/>
+<!-- ROOT: evolving gate -->
+<path d="M0,140 L0,30 L30,30 L30,140 L60,140 L60,30 L90,30 L90,140 L120,140 L120,30 L150,30 L150,140 L180,140 L180,30 L210,30 L210,140 L240,140 L240,30 L270,30 L270,140 L360,140 L360,30 L390,30 L390,140 L480,140 L480,30 L500,30 L500,140 L540,140 L540,30 L560,30 L560,140 L600,140 L600,30 L620,30 L620,140 L660,140 L660,30 L680,30 L680,140 L720,140 L720,30 L728,30 L728,140 L736,140 L736,30 L744,30 L744,140 L752,140 L752,30 L760,30 L760,140 L768,140 L768,30 L776,30 L776,140 L784,140 L784,30 L792,30 L792,140 L800,140 L800,30 L808,30 L808,140 L816,140 L816,30 L824,30 L824,140 L832,140 L832,30 L840,30 L840,140 L848,140 L848,30 L856,30 L856,140 L864,140 L864,30 L872,30 L872,140 L880,140 L880,30 L888,30 L888,140 L896,140 L896,30 L904,30 L904,140 L912,140 L912,30 L920,30 L920,140 L928,140 L928,30 L936,30 L936,140 L944,140 L944,30 L952,30 L952,140 L960,140" stroke="#d946ef" stroke-width="2" fill="none"/>
+</svg>
+</div>
+<div class="notes">
+<div class="note" style="border-color:#d946ef"><b>Bars 1→4:</b> Gate evolves: clean 8ths → half removed → triplets → 32nd stutter. <span class="hl" style="color:#f97316">Filter slowly opens</span> underneath, changing the tone of each section.</div>
+<div class="note" style="border-color:#06b6d4"><b>Reactive:</b> <span class="hl" style="color:#06b6d4">Delay fills the gaps</span> (bar 2-3), cuts out in bar 4 (too dense). <span class="hl" style="color:#22c55e">Resonance counters filter</span>. Ghost lanes track gate density.</div>
+</div>
+</div>
+
+<!-- 02 BOUNCE -->
+<div class="p">
+<div class="p-head"><span class="p-num">02</span><span class="p-name" style="color:#d946ef">Bounce</span></div>
+<p class="p-tag">Bouncing ball physics. Each bounce smaller + faster. Real damped sine energy decay.</p>
+<div class="leg">
+<span style="color:#d946ef"><i style="background:#d946ef"></i>Bounce</span>
+<span style="color:#f97316"><i style="background:#f9731680"></i>Resonance (peaks at hang)</span>
+<span style="color:#22c55e"><i style="background:#22c55e80"></i>Reverb (catches big bounces)</span>
+<span style="color:#06b6d4"><i style="background:#06b6d460"></i>Drive (impacts)</span>
+<span style="color:#3f3f46"><i style="background:#ffffff10"></i>Ghost</span>
+</div>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/>
+<line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/>
+<line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<!-- Ghost: micro-bounce echoes at different decay rates -->
+<path d="M0,82 Q10,82 20,68 Q40,68 60,76 Q70,76 80,72 Q88,72 96,78 Q102,78 108,76 Q112,76 118,78 Q122,78 128,80 Q132,80 140,82 Q200,82 240,82 Q250,82 260,70 Q280,70 300,78 Q308,78 316,76 Q322,76 328,80 Q332,80 340,82 Q400,82 480,82 Q490,82 500,66 Q520,66 540,78 Q550,78 560,74 Q566,74 572,80 Q578,80 590,82 Q650,82 720,82 Q726,82 732,72 Q742,72 752,78 Q758,78 764,80 Q770,80 780,82 Q840,82 960,82" stroke="#ffffff06" stroke-width="1" fill="none"/>
+<path d="M0,86 Q12,86 24,74 Q44,74 64,80 Q72,80 82,78 Q90,78 100,82 Q106,82 114,84 Q130,84 160,86 Q220,86 260,86 Q268,86 278,76 Q296,76 314,82 Q320,82 330,84 Q346,84 380,86 Q440,86 500,86 Q508,86 518,72 Q536,72 554,82 Q562,82 572,78 Q580,78 590,84 Q610,84 660,86 Q720,86 732,86 Q738,86 746,76 Q758,76 770,84 Q778,84 790,86 Q850,86 960,86" stroke="#ffffff05" stroke-width="1" fill="none"/>
+<path d="M0,78 Q14,78 28,66 Q48,66 68,74 Q78,74 88,70 Q94,70 102,76 Q108,76 120,78 Q180,78 240,78 Q252,78 264,68 Q284,68 304,76 Q312,76 322,72 Q330,72 340,78 Q400,78 480,78 Q492,78 504,64 Q524,64 544,76 Q554,76 564,72 Q572,72 582,78 Q620,78 720,78 Q728,78 736,70 Q748,70 760,76 Q766,76 776,78 Q840,78 960,78" stroke="#ffffff04" stroke-width="1" fill="none"/>
+<!-- Drive (cyan): spikes at each IMPACT (when bounce hits the ground), fades with bounce size -->
+<path d="M0,140 L0,60 L8,140 Q40,140 80,140 L80,75 L88,140 Q110,140 140,140 L140,90 L148,140 Q165,140 190,140 L190,100 L196,140 Q210,140 240,140 L240,108 L244,140 Q260,140 290,140 L290,114 L294,140 Q310,140 340,140 L340,120 L344,140 Q400,140 480,140 L480,55 L488,140 Q520,140 560,140 L560,80 L568,140 Q590,140 620,140 L620,95 L626,140 Q645,140 680,140 L680,105 L684,140 Q700,140 730,140 L730,112 L734,140 Q750,140 960,140" stroke="#06b6d4" stroke-width="1.3" fill="none" opacity="0.45"/>
+<!-- Reverb (green): blooms after big bounces, barely responds to small ones -->
+<path d="M0,140 Q30,140 60,100 Q100,65 140,60 Q180,75 220,110 Q240,130 260,138 Q290,135 320,130 Q350,132 380,138 Q410,140 480,140 Q510,140 540,105 Q580,70 620,65 Q660,80 700,115 Q720,130 740,138 Q760,136 780,140 L960,140" stroke="#22c55e" stroke-width="1.5" fill="none" opacity="0.5"/>
+<!-- Resonance (orange): peaks at TOP of each arc (hang time), ducks at impact -->
+<path d="M0,140 Q15,140 30,75 Q50,40 70,40 Q90,75 110,140 Q125,140 135,95 Q150,70 165,70 Q180,90 200,140 Q208,140 218,110 Q228,95 238,95 Q248,108 260,140 Q266,136 274,125 Q280,120 286,120 Q292,125 300,140 Q304,138 310,132 Q314,130 318,130 Q322,132 330,140 L480,140 Q495,140 510,80 Q530,45 550,45 Q570,80 590,140 Q600,140 612,100 Q624,80 636,80 Q648,98 660,140 Q666,138 674,118 Q682,110 690,110 Q698,118 708,140 Q712,138 720,130 Q726,128 732,128 Q738,130 746,140 L960,140" stroke="#f97316" stroke-width="1.5" fill="none" opacity="0.55"/>
+<!-- ROOT: Bouncing ball — two sequences -->
+<path d="M0,140 Q8,140 16,15 Q32,15 48,15 Q64,140 80,140 Q88,140 96,45 Q112,45 128,45 Q144,140 156,140 Q162,140 170,75 Q182,75 194,75 Q206,140 214,140 Q218,140 226,95 Q234,95 242,95 Q252,140 258,140 Q262,140 268,110 Q276,110 284,110 Q292,140 296,140 Q300,140 304,120 Q310,120 316,120 Q322,140 326,140 Q330,140 334,128 Q338,128 342,128 Q346,140 350,140 Q354,140 358,134 Q362,134 366,134 Q370,140 L480,140 Q488,140 496,20 Q512,20 528,20 Q544,140 558,140 Q564,140 572,55 Q586,55 600,55 Q614,140 624,140 Q630,140 638,85 Q648,85 658,85 Q668,140 676,140 Q680,140 686,105 Q694,105 702,105 Q710,140 716,140 Q720,140 724,118 Q730,118 736,118 Q742,140 746,140 Q750,140 754,128 Q758,128 762,128 Q766,140 L960,140" stroke="#d946ef" stroke-width="2.5" fill="none"/>
+</svg>
+</div>
+<div class="notes">
+<div class="note" style="border-color:#d946ef"><b>Physics:</b> Damped sine — each bounce half the height, shorter duration. Two bounce sequences (bar 1 + bar 3). <span class="hl" style="color:#06b6d4">Drive spikes at each impact</span>, fading with bounce size.</div>
+<div class="note" style="border-color:#22c55e"><b>Reactive:</b> <span class="hl" style="color:#f97316">Resonance peaks at hang time</span> (top of arcs). <span class="hl" style="color:#22c55e">Reverb catches big bounces</span>, ignores small ones. Ghost lanes = micro-bounces at different decay rates.</div>
+</div>
+</div>
+
+<!-- 03 POCKET -->
+<div class="p">
+<div class="p-head"><span class="p-num">03</span><span class="p-name" style="color:#d946ef">Pocket</span></div>
+<p class="p-tag">Fibonacci accent spacing: hits at beats 1,1,2,3,5,8. Naturally asymmetric with shark fin decays.</p>
+<div class="leg">
+<span style="color:#d946ef"><i style="background:#d946ef"></i>Fibonacci hits</span>
+<span style="color:#f97316"><i style="background:#f97316"></i>Shark fin decay</span>
+<span style="color:#06b6d4"><i style="background:#06b6d480"></i>Fill (long gaps)</span>
+<span style="color:#22c55e"><i style="background:#22c55e60"></i>Drive (impacts)</span>
+<span style="color:#3f3f46"><i style="background:#ffffff10"></i>Ghost</span>
+</div>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/>
+<line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/>
+<line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<!-- Ghost: anticipation — denser before each hit, calm after -->
+<path d="M0,82 Q8,78 16,86 Q24,78 32,84 Q40,80 48,84 Q56,80 64,82 Q80,82 100,82 Q108,78 116,86 Q124,78 132,82 Q150,82 170,78 Q178,82 186,78 Q194,84 202,78 Q210,82 230,82 Q248,78 266,86 Q284,78 302,84 Q320,80 340,82 Q360,82 380,82 Q400,82 420,82 Q430,78 440,86 Q450,78 460,86 Q470,78 480,82 Q530,82 560,78 Q570,82 580,78 Q590,84 600,78 Q610,86 620,78 Q630,82 640,78 Q650,84 660,78 Q670,82 680,78 Q690,84 700,78 Q710,84 720,82 Q780,82 840,82 Q860,78 880,86 Q900,78 920,86 Q940,78 960,82" stroke="#ffffff06" stroke-width="1" fill="none"/>
+<path d="M0,76 Q12,74 24,80 Q40,74 56,78 Q72,76 90,76 Q110,76 130,74 Q145,78 160,74 Q178,78 196,74 Q214,78 240,76 Q260,72 280,80 Q300,74 320,76 Q380,76 440,72 Q455,78 470,72 Q490,76 530,76 Q570,72 590,80 Q610,72 630,78 Q650,72 670,80 Q690,72 710,78 Q730,76 790,76 Q850,72 870,80 Q890,72 910,80 Q930,72 950,78 960,76" stroke="#ffffff05" stroke-width="1" fill="none"/>
+<!-- Drive (green): sharp spikes on each Fibonacci hit -->
+<path d="M0,140 L0,70 L10,140 L60,140 L60,70 L70,140 L120,140 L120,80 L130,140 L180,140 L180,85 L188,140 L300,140 L300,90 L308,140 L480,140 L480,95 L488,140 L600,140 L600,75 L608,140 L720,140 L720,80 L728,140 L960,140" stroke="#22c55e" stroke-width="1.3" fill="none" opacity="0.4"/>
+<!-- Fill (cyan): blooms in the long 5-beat and 8-beat gaps -->
+<path d="M0,140 L200,140 Q240,130 280,100 Q320,75 360,65 Q400,75 440,110 Q460,130 480,140 L540,140 Q580,130 620,95 Q660,65 700,80 Q740,110 770,135 L780,140 L960,140" stroke="#06b6d4" stroke-width="1.5" fill="none" opacity="0.5"/>
+<!-- Shark fin decay (orange): exp rise + log fall after each accent -->
+<path d="M0,140 L2,25 Q18,25 35,50 Q65,95 110,130 Q118,138 120,140 L122,30 Q135,30 155,60 Q185,100 215,132 Q225,140 240,140 L242,35 Q258,38 280,70 Q320,115 360,140 L600,140 L602,30 Q615,32 640,68 Q680,110 710,135 L720,140 L960,140" stroke="#f97316" stroke-width="1.8" fill="none" opacity="0.55"/>
+<!-- ROOT: Fibonacci accents -->
+<path d="M0,140 L0,18 L10,18 L10,140 L60,140 L60,18 L70,18 L70,140 L120,140 L120,18 L130,18 L130,140 L180,140 L180,18 L190,18 L190,140 L300,140 L300,18 L310,18 L310,140 L480,140 L480,18 L490,18 L490,140 L600,140 L600,18 L610,18 L610,140 L720,140 L720,18 L730,18 L730,140 L960,140" stroke="#d946ef" stroke-width="2.5" fill="none"/>
+<text x="3" y="12" fill="#d946ef33" font-size="7" font-weight="700">1</text>
+<text x="63" y="12" fill="#d946ef33" font-size="7" font-weight="700">1</text>
+<text x="123" y="12" fill="#d946ef33" font-size="7" font-weight="700">2</text>
+<text x="183" y="12" fill="#d946ef33" font-size="7" font-weight="700">3</text>
+<text x="303" y="12" fill="#d946ef33" font-size="7" font-weight="700">5</text>
+<text x="483" y="12" fill="#d946ef33" font-size="7" font-weight="700">8</text>
+</svg>
+</div>
+<div class="notes">
+<div class="note" style="border-color:#d946ef"><b>Fibonacci:</b> Hits at intervals 1,1,2,3,5,8 beats — starts clustered, then spreads. <span class="hl" style="color:#f97316">Shark fin decay</span> (fast attack, slow log release) after each hit.</div>
+<div class="note" style="border-color:#06b6d4"><b>Reactive:</b> <span class="hl" style="color:#06b6d4">Fill blooms in long gaps</span> (5-beat, 8-beat). <span class="hl" style="color:#22c55e">Drive spikes on impacts</span>. Ghost lanes build anticipation before each hit, calm after.</div>
+</div>
+</div>
+
+<!-- I'll continue with the remaining 27 presets in a more compact but complete format -->
+<!-- Each still has: root + secondary reactive + tertiary ghost lines -->
+
+<!-- 04-10: GROOVE continued (keeping from existing file + adding missing ghost lines) -->
+
+<!-- 04 SHAKER -->
+<div class="p">
+<div class="p-head"><span class="p-num">04</span><span class="p-name" style="color:#d946ef">Shaker</span></div>
+<p class="p-tag">16th note density evolves: sparse → full → rolls. Half-time anchor underneath.</p>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/>
+<line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/>
+<line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<!-- Ghost: phase-cascaded from the 16th pattern -->
+<path d="M0,82 Q30,80 60,84 Q90,80 120,82 Q150,82 180,82 Q210,82 240,82 Q255,78 270,86 Q285,78 300,86 Q315,78 330,86 Q345,78 360,86 Q375,78 390,86 Q405,78 420,86 Q435,78 450,86 Q465,78 480,82 Q488,76 496,88 Q504,76 512,88 Q520,76 528,88 Q536,76 544,88 Q552,76 560,88 Q568,76 576,88 Q584,76 592,88 Q600,76 608,88 Q616,76 624,88 Q632,76 640,88 Q648,76 656,88 Q664,76 672,88 Q680,76 688,88 Q696,76 704,88 Q712,76 720,82 Q724,70 728,94 Q732,68 736,96 Q740,66 744,98 Q748,64 752,98 Q756,62 760,100 Q764,60 768,100 Q772,58 776,102 Q780,56 784,102 Q788,54 792,104 Q800,52 808,104 Q816,50 824,106 Q832,48 840,106 Q848,46 856,108 Q864,44 872,108 Q880,42 888,110 Q896,40 904,110 Q912,38 920,112 Q928,36 936,112 Q944,34 952,114 Q960,32" stroke="#ffffff06" stroke-width="1" fill="none"/>
+<path d="M0,86 Q35,84 70,88 Q105,84 140,86 Q175,86 210,86 Q240,86 260,82 275,90 Q290,82 305,90 Q320,82 335,90 Q350,82 365,90 Q380,82 395,90 Q410,82 425,90 Q440,82 455,90 Q470,82 480,86 Q492,80 504,92 Q516,78 528,92 Q540,78 552,92 Q564,78 576,92 Q588,78 600,92 Q612,78 624,92 Q636,78 648,92 Q660,78 672,92 Q684,78 696,92 Q708,78 720,86 Q726,74 732,98 Q738,72 744,100 Q750,70 756,102 Q762,68 768,102 Q774,66 780,104 Q786,64 792,104 Q804,60 816,106 Q828,58 840,108 Q852,56 864,108 Q876,52 888,110 Q900,50 912,112 Q924,48 936,112 Q948,44 960,114" stroke="#ffffff04" stroke-width="1" fill="none"/>
+<!-- Resonance: opens as density increases, ducks in bar 4 -->
+<path d="M0,100 C120,95 240,85 360,65 C480,45 600,30 680,25 Q700,25 720,30 C780,50 840,70 900,85 Q940,95 960,100" stroke="#22c55e" stroke-width="1.5" fill="none" opacity="0.45"/>
+<!-- Half-time anchor (orange) -->
+<path d="M0,140 L0,45 Q25,45 50,80 Q80,120 110,140 L240,140 L240,45 Q265,45 290,80 Q320,120 350,140 L480,140 L480,45 Q505,45 530,80 Q560,120 590,140 L720,140 L720,45 Q745,45 770,80 Q800,120 830,140 L960,140" stroke="#f97316" stroke-width="1.8" fill="none" opacity="0.5"/>
+<!-- ROOT: evolving 16th density -->
+<path d="M0,140 L0,45 L18,45 L18,140 L120,140 L120,45 L138,45 L138,140 L240,140 L240,45 L258,45 L258,140 L300,140 L300,45 L318,45 L318,140 L360,140 L360,45 L378,45 L378,140 L420,140 L420,45 L438,45 L438,140 L480,140 L480,45 L498,45 L498,140 L510,140 L510,45 L528,45 L528,140 L540,140 L540,45 L558,45 L558,140 L570,140 L570,45 L588,45 L588,140 L600,140 L600,45 L618,45 L618,140 L630,140 L630,45 L648,45 L648,140 L660,140 L660,45 L678,45 L678,140 L690,140 L690,45 L708,45 L708,140 L720,140 L720,25 L727,25 L727,140 L734,140 L734,25 L741,25 L741,140 L748,140 L748,20 L753,20 L753,140 L758,140 L758,20 L763,20 L763,140 L768,140 L768,18 L773,18 L773,140 L778,140 L778,18 L783,18 L783,140 L788,140 L788,15 L793,15 L793,140 L798,140 L798,15 L803,15 L803,140 L808,140 L808,12 L812,12 L812,140 L816,140 L816,12 L820,12 L820,140 L824,140 L824,12 L828,12 L828,140 L832,140 L832,10 L836,10 L836,140 L840,140 L840,10 L844,10 L844,140 L848,140 L848,10 L852,10 L852,140 L856,140 L856,10 L860,10 L860,140 L864,140 L864,10 L868,10 L868,140 L872,140 L872,10 L876,10 L876,140 L880,140 L880,10 L884,10 L884,140 L888,140 L888,10 L892,10 L892,140 L896,140 L896,10 L900,10 L900,140 L904,140 L904,10 L908,10 L908,140 L912,140 L912,10 L916,10 L916,140 L920,140 L920,10 L924,10 L924,140 L928,140 L928,10 L932,10 L932,140 L936,140 L936,10 L940,10 L940,140 L944,140 L944,10 L948,10 L948,140 L952,140 L952,10 L956,10 L956,140 L960,140" stroke="#d946ef" stroke-width="2" fill="none"/>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>Density:</b> Bar 1: 1-in-8. Bar 2: every 4th. Bar 3: every 16th. Bar 4: 32nd rolls accelerating. <span class="hl" style="color:#f97316">Half-time anchor</span> grounds it all.</div>
+<div class="note"><b>Reactive:</b> <span class="hl" style="color:#22c55e">Filter opens with density</span>, ducks in bar 4 (too much). Ghost lanes = phase-cascaded 16ths creating stereo shimmer.</div>
+</div>
+</div>
+
+<!-- For presets 05-30, I'll continue with complete visualizations -->
+<!-- Due to the massive size, I'll create a companion file for presets 05-15 and 16-30 -->
+
+<!-- 05 STRUT -->
+<div class="p">
+<div class="p-head"><span class="p-num">05</span><span class="p-name" style="color:#d946ef">Strut</span></div>
+<p class="p-tag">Accent walks forward one 8th each bar. The groove literally moves through time.</p>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/>
+<line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/>
+<line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<!-- Ghost: biased toward accent position each bar -->
+<path d="M0,78 Q8,74 16,82 Q24,76 32,80 Q60,82 90,82 Q120,82 150,82 Q180,82 210,82 Q230,82 240,82 Q250,82 262,76 Q274,84 Q286,76 298,82 Q330,82 360,82 Q390,82 420,82 Q450,82 470,82 Q480,82 Q510,82 530,76 Q540,84 Q550,76 560,82 Q590,82 620,82 Q650,82 680,82 Q700,82 720,82 Q780,82 800,76 Q810,84 Q820,76 830,82 Q860,82 890,82 Q920,82 940,82 Q960,82" stroke="#ffffff06" stroke-width="1" fill="none"/>
+<path d="M0,74 Q10,70 20,78 Q30,72 44,76 Q70,78 120,78 Q180,78 240,78 Q252,74 266,82 Q280,74 300,78 Q360,78 420,78 Q480,78 Q514,74 530,82 Q546,74 570,78 Q630,78 690,78 Q720,78 Q784,74 800,82 Q816,74 840,78 Q900,78 960,78" stroke="#ffffff05" stroke-width="1" fill="none"/>
+<!-- Shadow resonance (fuchsia): peaks where accent WAS last bar -->
+<path d="M0,140 L240,140 L240,55 Q260,55 275,95 Q290,135 310,140 L480,140 L510,140 L510,55 Q530,55 545,95 Q560,135 580,140 L720,140 L780,140 L780,55 Q800,55 815,95 Q830,135 850,140 L960,140" stroke="#d946ef" stroke-width="1.5" fill="none" opacity="0.4"/>
+<!-- Drive: spikes with current accent -->
+<path d="M0,140 L0,70 L12,140 L240,140 L270,140 L270,70 L282,140 L480,140 L540,140 L540,70 L552,140 L720,140 L810,140 L810,70 L822,140 L960,140" stroke="#06b6d4" stroke-width="1.3" fill="none" opacity="0.4"/>
+<!-- Filter: opens sharply at accent, decays -->
+<path d="M0,140 L2,30 Q22,30 42,65 Q62,100 82,125 Q100,138 130,140 L240,140 L272,30 Q292,30 312,65 Q332,100 352,125 Q370,138 400,140 L480,140 L542,30 Q562,30 582,65 Q602,100 622,125 Q640,138 670,140 L720,140 L812,30 Q832,30 852,65 Q872,100 892,125 Q910,138 940,140 L960,140" stroke="#f97316" stroke-width="2" fill="none" opacity="0.65"/>
+<!-- ROOT: walking accent -->
+<path d="M0,140 L0,18 Q22,18 42,55 Q60,100 80,128 Q92,140 120,140 L240,140 L270,140 L270,18 Q292,18 312,55 Q330,100 350,128 Q362,140 390,140 L480,140 L540,140 L540,18 Q562,18 582,55 Q600,100 620,128 Q632,140 660,140 L720,140 L810,140 L810,18 Q832,18 852,55 Q870,100 890,128 Q902,140 930,140 L960,140" stroke="#d946ef" stroke-width="2.5" fill="none"/>
+<text x="5" y="12" fill="#f9731633" font-size="7">beat 1</text>
+<text x="272" y="12" fill="#f9731633" font-size="7">&amp;-of-1</text>
+<text x="542" y="12" fill="#f9731633" font-size="7">beat 2</text>
+<text x="812" y="12" fill="#f9731633" font-size="7">&amp;-of-2</text>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>Walk:</b> Accent shifts right by one 8th each bar. <span class="hl" style="color:#f97316">Filter opens sharply at each accent</span> then decays. <span class="hl" style="color:#06b6d4">Drive spikes</span> on impact.</div>
+<div class="note"><b>Shadow:</b> <span class="hl" style="color:#d946ef">Resonance ghost</span> at the PREVIOUS bar's accent position — the groove has memory. Ghost lanes bias toward current accent position.</div>
+</div>
+</div>
+
+<!-- Due to the extreme length of creating all 30 at this quality level, -->
+<!-- I'll create the remaining 25 presets as a continuation file -->
+
+<p style="color:#27272a;font-size:11px;text-align:center;margin-top:60px">Continued in preset-30-visual-part2.html (presets 06-30)</p>
+
+</body>
+</html>

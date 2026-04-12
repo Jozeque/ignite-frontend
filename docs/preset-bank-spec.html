@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stride Preset Bank — Architecture Spec</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #09090b; color: #d4d4d8; font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.6; padding: 40px; max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 28px; color: #f97316; font-weight: 900; margin-bottom: 8px; letter-spacing: 2px; text-transform: uppercase; }
+  h2 { font-size: 20px; color: #e4e4e7; font-weight: 800; margin: 48px 0 16px; padding-bottom: 8px; border-bottom: 1px solid #27272a; text-transform: uppercase; letter-spacing: 1px; }
+  h3 { font-size: 15px; color: #a1a1aa; font-weight: 700; margin: 32px 0 12px; text-transform: uppercase; letter-spacing: 1px; }
+  p { color: #a1a1aa; margin-bottom: 12px; font-size: 14px; }
+  .subtitle { color: #71717a; font-size: 14px; margin-bottom: 40px; }
+  .accent { color: #f97316; font-weight: 700; }
+  .cyan { color: #06b6d4; font-weight: 700; }
+  .fuchsia { color: #d946ef; font-weight: 700; }
+  .green { color: #22c55e; font-weight: 700; }
+  .amber { color: #f59e0b; font-weight: 700; }
+
+  /* Curve illustration containers */
+  .curve-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; margin: 20px 0; }
+  .curve-card { background: #18181b; border: 1px solid #27272a; border-radius: 16px; padding: 20px; }
+  .curve-card h4 { font-size: 13px; color: #e4e4e7; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+  .curve-card .tag { font-size: 10px; color: #71717a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+  .curve-card p { font-size: 12px; color: #71717a; margin-bottom: 0; }
+  .curve-card svg { width: 100%; height: 80px; margin: 8px 0; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0 24px; font-size: 13px; }
+  th { text-align: left; padding: 10px 12px; background: #18181b; color: #a1a1aa; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-size: 10px; border-bottom: 1px solid #27272a; }
+  td { padding: 10px 12px; border-bottom: 1px solid #18181b; color: #d4d4d8; }
+  tr:hover td { background: #18181b; }
+
+  /* Hierarchy diagram */
+  .hierarchy { display: flex; gap: 12px; margin: 20px 0 32px; flex-wrap: wrap; }
+  .h-tier { flex: 1; min-width: 200px; border-radius: 12px; padding: 16px; }
+  .h-root { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: #fff; }
+  .h-secondary { background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); color: #fff; }
+  .h-tertiary { background: linear-gradient(135deg, #27272a 0%, #3f3f46 100%); color: #d4d4d8; }
+  .h-tier h4 { font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+  .h-tier .count { font-size: 24px; font-weight: 900; }
+  .h-tier p { font-size: 11px; opacity: 0.8; margin: 0; }
+
+  /* Derivation flow */
+  .derive-flow { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
+  .derive-row { display: flex; align-items: center; gap: 12px; background: #18181b; border-radius: 12px; padding: 14px 16px; border-left: 3px solid; }
+  .derive-row.phase { border-color: #f97316; }
+  .derive-row.counter { border-color: #d946ef; }
+  .derive-row.echo { border-color: #06b6d4; }
+  .derive-row.fill { border-color: #22c55e; }
+  .derive-row.micro { border-color: #a1a1aa; }
+  .derive-row.harmonic { border-color: #f59e0b; }
+  .derive-label { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; min-width: 110px; }
+  .derive-row.phase .derive-label { color: #f97316; }
+  .derive-row.counter .derive-label { color: #d946ef; }
+  .derive-row.echo .derive-label { color: #06b6d4; }
+  .derive-row.fill .derive-label { color: #22c55e; }
+  .derive-row.micro .derive-label { color: #a1a1aa; }
+  .derive-row.harmonic .derive-label { color: #f59e0b; }
+  .derive-desc { font-size: 12px; color: #a1a1aa; flex: 1; }
+  .derive-row svg { width: 160px; height: 40px; flex-shrink: 0; }
+
+  /* Category cards */
+  .cat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin: 20px 0; }
+  .cat-card { background: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 16px; }
+  .cat-card h4 { font-size: 13px; font-weight: 800; margin-bottom: 2px; }
+  .cat-card .count-badge { display: inline-block; font-size: 10px; background: #27272a; color: #a1a1aa; padding: 2px 8px; border-radius: 6px; font-weight: 700; margin-bottom: 8px; }
+  .cat-card .roots { font-size: 11px; color: #f97316; font-weight: 700; margin-bottom: 6px; }
+  .cat-card p { font-size: 11px; color: #71717a; margin: 0; }
+
+  /* Rules */
+  .rule-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin: 20px 0; }
+  .rule { background: #18181b; border-radius: 12px; padding: 16px; border: 1px solid #27272a; }
+  .rule .arrow { color: #f97316; font-weight: 700; }
+  .rule p { font-size: 12px; margin: 4px 0; }
+  .rule .why { font-size: 11px; color: #52525b; font-style: italic; }
+
+  .section-note { background: #18181b; border: 1px solid #f97316; border-radius: 12px; padding: 16px 20px; margin: 24px 0; }
+  .section-note p { color: #d4d4d8; margin: 0; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<h1>Stride Preset Bank</h1>
+<p class="subtitle">100 presets. 100 lanes each. Every curve talks to every other curve.</p>
+
+<!-- ═══════════════════════════════════════════════ -->
+<h2>Current Feature Map — All Canvas Tools</h2>
+<p>Full inventory of what exists. Looking for: <span class="accent">overlaps to consolidate</span>, <span class="fuchsia">gaps to fill</span>, and <span class="cyan">features that confuse more than help</span>.</p>
+
+<h3>Drawing Tools</h3>
+<table>
+  <tr><th>Tool</th><th>What it does</th><th>Scope</th><th>Notes</th></tr>
+  <tr><td style="font-weight:700">Select</td><td>Click to place points, drag to move, Alt+drag to bend curves between points</td><td>Active lane</td><td>Primary tool. Also handles selection regions on ruler.</td></tr>
+  <tr><td style="font-weight:700">Freehand</td><td>Paint mode — drag to draw continuous curves</td><td>Active lane</td><td>Generates many points. Often needs Smooth after.</td></tr>
+</table>
+
+<h3>Single-Lane Operations</h3>
+<table>
+  <tr><th>Tool</th><th>What it does</th><th>Respects "All"?</th><th>Notes</th></tr>
+  <tr><td style="font-weight:700">Mirror</td><td>Flip values vertically (1 - value)</td><td>Yes</td><td>Also negates curve handles</td></tr>
+  <tr><td style="font-weight:700">Flip</td><td>Reverse points in time (horizontal flip)</td><td>Yes</td><td>Relative to selection or full timeline</td></tr>
+  <tr><td style="font-weight:700">Copy</td><td>Copy active lane's points to clipboard</td><td>No (single)</td><td>Normalizes time to 0-relative</td></tr>
+  <tr><td style="font-weight:700">Paste</td><td>Paste clipboard to active lane</td><td>No (single)</td><td>Scales to fit destination range</td></tr>
+  <tr><td style="font-weight:700">Paste Inv</td><td>Paste with inverted values</td><td>No (single)</td><td>Same as paste + mirror in one step</td></tr>
+  <tr><td style="font-weight:700">Paste To...</td><td>Paste to multiple selected lanes</td><td>Multi (explicit)</td><td>Checkbox picker. Supports invert option.</td></tr>
+  <tr><td style="font-weight:700">Clear</td><td>Delete all points (in selection or lane)</td><td>Yes</td><td>—</td></tr>
+</table>
+
+<h3>Slider-Driven Modifiers</h3>
+<table>
+  <tr><th>Tool</th><th>What it does</th><th>Respects "All"?</th><th>Notes</th></tr>
+  <tr><td style="font-weight:700">Smooth</td><td>Averages neighboring points — reduces sharpness</td><td>Yes (3+ pts)</td><td>Real-time slider from snapshot. Good after Freehand.</td></tr>
+  <tr><td style="font-weight:700">Intensity</td><td>Scale values toward/away from 0.5 (compress/expand)</td><td>Yes (1+ pts)</td><td>Real-time slider from snapshot. Like a "drive" for curves.</td></tr>
+  <tr><td style="font-weight:700">Curve</td><td>Add/modify curve handles on all segments</td><td>Yes (2+ pts)</td><td>Real-time slider. Makes straight lines into Bezier curves.</td></tr>
+  <tr><td style="font-weight:700">Quantize</td><td>Snap point times to grid</td><td>Yes</td><td>Grid resolution based on zoom level (4/8/16)</td></tr>
+  <tr><td style="font-weight:700">Swing</td><td>Push off-grid points for groove feel</td><td>Yes</td><td>Percentage-based swing on even beats</td></tr>
+  <tr><td style="font-weight:700">Time Stretch</td><td>Scale all point times by a factor</td><td>Yes</td><td>Compress or expand the timeline</td></tr>
+</table>
+
+<h3>Templates (Shape Generators)</h3>
+<table>
+  <tr><th>Template</th><th>Shape</th><th>Scope</th><th>Character</th></tr>
+  <tr><td style="font-weight:700">Sine</td><td>Smooth oscillation, freq = duration/4</td><td>Active / All</td><td>Classic LFO. Smooth, predictable.</td></tr>
+  <tr><td style="font-weight:700">Pump</td><td>0→1→0 every beat</td><td>Active / All</td><td>Sidechain compression shape. The bread and butter.</td></tr>
+  <tr><td style="font-weight:700">Glitch</td><td>Random binary spikes (0 or 1), 40% density</td><td>Active / All</td><td>Stutter gate. Random per lane if "All" mode.</td></tr>
+  <tr><td style="font-weight:700">Groove Build</td><td>Sparse → dense → all-on (3-phase)</td><td>Active / All</td><td>Tension builder. Good for transitions.</td></tr>
+  <tr><td style="font-weight:700">Chaos LFO</td><td>Composite: sin(0.8) + cos(1.5) + random noise</td><td>Active / All</td><td>Complex LFO that never repeats. Organic.</td></tr>
+  <tr><td style="font-weight:700">Neuro</td><td>Sequence: syncopated_drops → stutter → exp_build</td><td>Active / All</td><td>DnB/neuro bass movement preset.</td></tr>
+</table>
+
+<h3>Multi-Lane Power Tools</h3>
+<table>
+  <tr><th style="width:100px">Tool</th><th>What it does</th><th>Input</th><th>Relationship between lanes</th></tr>
+  <tr>
+    <td style="font-weight:700; color:#f97316">Chaos</td>
+    <td>Fills ALL lanes with random shapes from a pool of 8 algorithmic patterns (dotted ramp, hard chop, stutter, etc.)</td>
+    <td>None (generates fresh)</td>
+    <td style="color:#ef4444"><strong>NONE</strong> — every lane is independently random. No relationship.</td>
+  </tr>
+  <tr>
+    <td style="font-weight:700; color:#f59e0b">Bloom</td>
+    <td>Spreads active lane to all others using 10 fixed transform recipes (phase + invert + mirror + amplitude)</td>
+    <td>Active lane curve</td>
+    <td style="color:#f59e0b"><strong>RECIPE-BASED</strong> — each lane gets a different combo of: phase shift, value invert, time mirror, amplitude scale. Recipes are fixed, not user-controlled beyond the Morph slider.</td>
+  </tr>
+  <tr>
+    <td style="font-weight:700; color:#06b6d4">Weave Chase</td>
+    <td>Same shape on every lane, evenly phase-shifted. Traveling wave.</td>
+    <td>Active lane curve</td>
+    <td style="color:#22c55e"><strong>EVEN PHASE</strong> — mathematically distributed. Lane N gets offset N/(total+1). Pure phase, no inversion/mirror. Subtle amplitude fade.</td>
+  </tr>
+  <tr>
+    <td style="font-weight:700; color:#06b6d4">Weave Fill</td>
+    <td>Analyzes source for active vs still zones. Generates movement in the still zones.</td>
+    <td>Active lane curve</td>
+    <td style="color:#22c55e"><strong>COUNTERPOINT</strong> — true call-and-response. Lanes move when source is still, hold when source moves. Each lane gets a different fill shape.</td>
+  </tr>
+  <tr>
+    <td style="font-weight:700; color:#d946ef">Mutate</td>
+    <td>Dramatic variation: segments shuffled, chunks flipped/mirrored, random points added/deleted</td>
+    <td>Active lane curve</td>
+    <td style="color:#ef4444"><strong>NONE</strong> — operates per-lane. Creates a wild variation of one curve, doesn't coordinate between lanes.</td>
+  </tr>
+</table>
+
+<h3 style="color:#f97316">Overlap Analysis</h3>
+
+<div class="rule-grid">
+  <div class="rule" style="border:1px solid #f59e0b;">
+    <p><span class="amber">Bloom vs Weave Chase</span></p>
+    <p>Both copy the source curve to all lanes with phase shifts. <strong>Bloom</strong> also applies inversion + mirror + amplitude changes (10 fixed recipes). <strong>Weave Chase</strong> is pure even-phase distribution, cleaner and more predictable.</p>
+    <p class="why">Overlap: ~60%. Bloom is "artistic variation", Weave Chase is "mathematical distribution". Both useful but the phase-shift part overlaps.</p>
+  </div>
+  <div class="rule" style="border:1px solid #22c55e;">
+    <p><span class="green">Weave Fill vs Paste Inv + Paste To</span></p>
+    <p>Both can create "opposite" curves on other lanes. But <strong>Paste Inv</strong> is a simple 1-value flip. <strong>Weave Fill</strong> is activity-aware — it generates movement specifically where the source is still.</p>
+    <p class="why">Overlap: ~20%. Fill is fundamentally different (gap analysis), just solves a similar high-level goal.</p>
+  </div>
+  <div class="rule" style="border:1px solid #ef4444;">
+    <p><span style="color:#ef4444; font-weight:700">Chaos vs Glitch Template</span></p>
+    <p>Both generate random shapes. <strong>Chaos</strong> uses 8 algorithmic shape types across all lanes. <strong>Glitch template</strong> generates binary spikes on the active lane.</p>
+    <p class="why">Overlap: ~40%. Chaos is multi-lane random fill. Glitch is single-lane random spikes. Different scope but similar energy. Could Glitch just be part of Chaos?</p>
+  </div>
+  <div class="rule" style="border:1px solid #d946ef;">
+    <p><span class="fuchsia">Mutate vs Chaos</span></p>
+    <p><strong>Mutate</strong> takes an existing curve and scrambles it (shuffle segments, flip chunks, add/delete points). <strong>Chaos</strong> generates from scratch. Mutate needs input; Chaos doesn't.</p>
+    <p class="why">Overlap: ~15%. Different intent — Mutate = "variation of what I have", Chaos = "give me something new".</p>
+  </div>
+</div>
+
+<div class="section-note">
+  <p><span class="accent">Potential consolidation:</span> Bloom and Weave Chase both do phase-shifted copies. Consider: rename Bloom to something else, or merge its inversion/mirror transforms INTO Weave as additional options (a "Variation" slider alongside the Spread slider). This would give one tool — Weave — with modes: Chase (pure phase), Fill (counterpoint), and Bloom (variation recipes). Fewer buttons, more power per button.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<h2>The Problem</h2>
+<p>100 parameters with random automation = noise. 100 parameters with <span class="accent">intentional relationships</span> = sound design that breathes, grooves, and evolves. The preset bank needs a <strong>system</strong> — not hand-drawing, not randomness.</p>
+
+<div class="section-note">
+  <p><span class="accent">Core principle:</span> A few root curves define the macro story. Everything else is derived. The listener hears one cohesive movement, not 100 independent wiggles.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<h2>Lane Hierarchy</h2>
+<p>Every preset is built from <strong>3-5 root curves</strong>. The other 95+ lanes are mathematically derived from these roots.</p>
+
+<div class="hierarchy">
+  <div class="h-tier h-root">
+    <h4>Root Lanes</h4>
+    <div class="count">3–5</div>
+    <p>Hand-crafted curves on highest-impact params. Filter cutoff, wavetable position, main FX wet/dry. These ARE the sound.</p>
+  </div>
+  <div class="h-tier h-secondary">
+    <h4>Secondary Lanes</h4>
+    <div class="count">10–15</div>
+    <p>Derived with clear relationships: inverse, phase-shifted, scaled. Resonance countering cutoff. Delay echoing the filter sweep.</p>
+  </div>
+  <div class="h-tier h-tertiary">
+    <h4>Tertiary Lanes</h4>
+    <div class="count">80+</div>
+    <p>Micro-variations and fills. Subtle movement at 5-15% intensity. Textural shimmer. Phase-cascaded across chain params.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<h2>Root Curve Archetypes</h2>
+<p>The 5 building blocks. Every root lane is one of these shapes (or a combination).</p>
+
+<div class="curve-grid">
+
+  <div class="curve-card">
+    <h4>Sweep</h4>
+    <div class="tag">Slow directional movement</div>
+    <svg viewBox="0 0 300 60">
+      <path d="M0,55 C75,55 100,8 300,8" stroke="#f97316" stroke-width="2" fill="none"/>
+      <path d="M0,55 C75,50 225,50 300,8" stroke="#f9731644" stroke-width="1.5" fill="none" stroke-dasharray="4,4"/>
+      <line x1="0" y1="58" x2="300" y2="58" stroke="#27272a" stroke-width="1"/>
+    </svg>
+    <p>Ramp up, ramp down, S-curve, or arc. 4-16 bar movement. The "journey" of the sound — filter opens, wavetable morphs, reverb grows.</p>
+  </div>
+
+  <div class="curve-card">
+    <h4>Pulse</h4>
+    <div class="tag">Rhythmic repeating pattern</div>
+    <svg viewBox="0 0 300 60">
+      <path d="M0,50 L0,10 L35,10 L35,50 L75,50 L75,10 L110,10 L110,50 L150,50 L150,10 L185,10 L185,50 L225,50 L225,10 L260,10 L260,50 L300,50" stroke="#d946ef" stroke-width="2" fill="none"/>
+      <line x1="0" y1="58" x2="300" y2="58" stroke="#27272a" stroke-width="1"/>
+    </svg>
+    <p>Sidechain pump, gate, sawtooth LFO. Tempo-synced. Creates rhythm from static sounds. The heartbeat of the preset.</p>
+  </div>
+
+  <div class="curve-card">
+    <h4>Accent</h4>
+    <div class="tag">Sparse impactful moments</div>
+    <svg viewBox="0 0 300 60">
+      <path d="M0,50 L0,50 L70,50 L75,8 L80,50 L190,50 L195,8 L200,50 L300,50" stroke="#06b6d4" stroke-width="2" fill="none"/>
+      <line x1="0" y1="58" x2="300" y2="58" stroke="#27272a" stroke-width="1"/>
+    </svg>
+    <p>Stabs, drops, peaks. Mostly silent, then hits hard. Creates punctuation — the moments that make you rewind. Best on FX sends, drive, pitch.</p>
+  </div>
+
+  <div class="curve-card">
+    <h4>Drift</h4>
+    <div class="tag">Organic micro-movement</div>
+    <svg viewBox="0 0 300 60">
+      <path d="M0,30 C20,28 40,35 60,32 C80,29 100,36 120,33 C140,30 160,27 180,31 C200,34 220,28 240,32 C260,35 280,29 300,31" stroke="#22c55e" stroke-width="2" fill="none"/>
+      <line x1="0" y1="58" x2="300" y2="58" stroke="#27272a" stroke-width="1"/>
+    </svg>
+    <p>Slow random walk, gentle wobble. Never repeats exactly. The "alive" quality — subtle detuning shifts, chorus depth wandering. Barely audible, deeply felt.</p>
+  </div>
+
+  <div class="curve-card">
+    <h4>Build</h4>
+    <div class="tag">Escalating intensity</div>
+    <svg viewBox="0 0 300 60">
+      <path d="M0,55 C50,55 70,52 100,48 C130,44 150,38 180,28 C210,18 240,10 300,5" stroke="#f59e0b" stroke-width="2" fill="none"/>
+      <path d="M0,55 L50,55 L50,48 L100,48 L100,38 L150,38 L150,28 L200,28 L200,15 L250,15 L250,5 L300,5" stroke="#f59e0b44" stroke-width="1.5" fill="none" stroke-dasharray="4,4"/>
+      <line x1="0" y1="58" x2="300" y2="58" stroke="#27272a" stroke-width="1"/>
+    </svg>
+    <p>Linear ramp, exponential curve, or staircase. Creates tension — the thing that makes a drop hit. Filter opening, drive increasing, reverb swelling. Solid line = exponential, dashed = staircase variant.</p>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<h2>Derivation Methods</h2>
+<p>How root curves become 100 lanes. Each method creates a specific musical relationship.</p>
+
+<div class="derive-flow">
+
+  <div class="derive-row phase">
+    <div class="derive-label">Phase Cascade</div>
+    <svg viewBox="0 0 160 40">
+      <path d="M0,35 C20,35 30,5 40,5 C50,5 60,35 80,35 C100,35 110,5 120,5 C130,5 140,35 160,35" stroke="#f97316" stroke-width="1.5" fill="none"/>
+      <path d="M0,20 C10,35 30,35 40,35 C60,35 70,5 80,5 C90,5 110,35 120,35 C140,35 150,5 160,5" stroke="#f9731688" stroke-width="1.5" fill="none"/>
+      <path d="M0,5 C10,5 20,35 40,35 C60,35 80,35 90,5 C100,5 110,5 130,35 140,35 C150,35 155,20 160,20" stroke="#f9731644" stroke-width="1.5" fill="none"/>
+    </svg>
+    <div class="derive-desc">Same shape, each lane offset by <strong>1/N</strong> of a cycle. 10 filters = peaks at 10 different moments. <strong>Traveling wave</strong>. Uses Weave Chase.</div>
+  </div>
+
+  <div class="derive-row counter">
+    <div class="derive-label">Counter</div>
+    <svg viewBox="0 0 160 40">
+      <path d="M0,35 C40,35 60,5 80,5 C100,5 120,35 160,35" stroke="#d946ef" stroke-width="1.5" fill="none"/>
+      <path d="M0,5 C40,5 60,35 80,35 C100,35 120,5 160,5" stroke="#d946ef88" stroke-width="1.5" fill="none"/>
+    </svg>
+    <div class="derive-desc">Inverse relationship. When root goes up, derived goes down. <strong>Cutoff rises → resonance dips.</strong> Scaled by importance — secondary at 80%, tertiary at 30%.</div>
+  </div>
+
+  <div class="derive-row echo">
+    <div class="derive-label">Echo</div>
+    <svg viewBox="0 0 160 40">
+      <path d="M0,35 C20,35 30,5 50,5 C70,5 80,35 100,35 L160,35" stroke="#06b6d4" stroke-width="1.5" fill="none"/>
+      <path d="M30,35 C50,35 60,12 80,12 C100,12 110,35 130,35 L160,35" stroke="#06b6d488" stroke-width="1.5" fill="none"/>
+    </svg>
+    <div class="derive-desc">Same shape, <strong>delayed 1-2 beats</strong>, reduced amplitude. Creates depth — like reverb for automation. Drive echoes filter sweep. Delay feedback echoes cutoff.</div>
+  </div>
+
+  <div class="derive-row fill">
+    <div class="derive-label">Fill</div>
+    <svg viewBox="0 0 160 40">
+      <path d="M0,35 C20,35 30,5 50,5 C60,5 65,20 80,20 L120,20 C130,20 140,35 160,35" stroke="#22c55e88" stroke-width="1.5" fill="none"/>
+      <path d="M0,20 L60,20 C65,20 70,20 80,20 L80,35 C90,35 100,5 110,5 C120,5 130,20 140,20 L160,20" stroke="#22c55e" stroke-width="1.5" fill="none"/>
+    </svg>
+    <div class="derive-desc"><strong>Active where root is still, holds where root moves.</strong> True counterpoint. Root sweeps filter → fill lane holds. Root holds → fill lane moves. Uses Weave Fill.</div>
+  </div>
+
+  <div class="derive-row micro">
+    <div class="derive-label">Micro</div>
+    <svg viewBox="0 0 160 40">
+      <path d="M0,20 C10,19 20,22 30,20 C40,18 50,21 60,20 C70,19 80,22 90,21 C100,19 110,20 120,22 C130,20 140,19 150,21 160,20" stroke="#a1a1aa" stroke-width="1.5" fill="none"/>
+    </svg>
+    <div class="derive-desc">Root shape at <strong>5-15% amplitude</strong>. Almost invisible, deeply felt. Textural shimmer — subtle detuning, chorus depth, stereo width. Applied to 80+ tertiary lanes.</div>
+  </div>
+
+  <div class="derive-row harmonic">
+    <div class="derive-label">Harmonic</div>
+    <svg viewBox="0 0 160 40">
+      <path d="M0,30 C10,30 15,10 20,10 C25,10 30,30 40,30 C50,30 55,10 60,10 C65,10 70,30 80,30 C90,30 95,10 100,10 C105,10 110,30 120,30 C130,30 135,10 140,10 C145,10 150,30 160,30" stroke="#f59e0b" stroke-width="1.5" fill="none"/>
+      <path d="M0,30 C20,30 30,10 40,10 C50,10 60,30 80,30 C100,30 110,10 120,10 C130,10 140,30 160,30" stroke="#f59e0b55" stroke-width="1.5" fill="none"/>
+    </svg>
+    <div class="derive-desc">Root shape at <strong>2x or 3x speed</strong>. Adds rhythmic interest on top of the macro movement. A filter sweep with double-time resonance flutter on top. Dashed = root, solid = 2x.</div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<h2>Counter-Motion Rules</h2>
+<p>What should complement what. These aren't arbitrary — they're how synthesis actually works.</p>
+
+<div class="rule-grid">
+  <div class="rule">
+    <p>Filter cutoff rises <span class="arrow">→</span> Resonance dips</p>
+    <p class="why">Prevents ear-piercing resonance at high cutoff. The classic subtractive synth move.</p>
+  </div>
+  <div class="rule">
+    <p>Drive increases <span class="arrow">→</span> Wet/dry decreases</p>
+    <p class="why">Prevents mud. More saturation = less effect processing needed. Keeps the mix clean.</p>
+  </div>
+  <div class="rule">
+    <p>Delay feedback rises <span class="arrow">→</span> Delay time holds steady</p>
+    <p class="why">Prevents runaway feedback. If both move simultaneously, you get chaos (sometimes desired — see Glitch category).</p>
+  </div>
+  <div class="rule">
+    <p>Reverb size grows <span class="arrow">→</span> Dry signal compresses</p>
+    <p class="why">Creates depth without wash. The space opens up while the source gets tighter. Cinematic technique.</p>
+  </div>
+  <div class="rule">
+    <p>Multiple filters <span class="arrow">→</span> Staggered phases</p>
+    <p class="why">Traveling wave, not a wall. 10 bandpass filters all peaking at different times = evolving movement. All peaking together = one big filter.</p>
+  </div>
+  <div class="rule">
+    <p>Oscillator detune rises <span class="arrow">→</span> Filter cutoff drops slightly</p>
+    <p class="why">Wider detuning = brighter harmonics. Compensate with a darker filter to keep the tone balanced.</p>
+  </div>
+  <div class="rule">
+    <p>LFO rate increases <span class="arrow">→</span> LFO depth decreases</p>
+    <p class="why">Fast + deep = gargle. Fast + subtle = shimmer. Slow + deep = sweep. Scale inversely for musicality.</p>
+  </div>
+  <div class="rule">
+    <p>Wavetable position sweeps <span class="arrow">→</span> Volume micro-compensates</p>
+    <p class="why">Different wavetable positions have different perceived loudness. Subtle volume counter keeps energy consistent while timbre changes.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<h2>Preset Categories</h2>
+<p>100 presets across 8 categories. Each category has a specific root pattern and character.</p>
+
+<div class="cat-grid">
+
+  <div class="cat-card">
+    <h4 style="color:#f97316">The Pumper</h4>
+    <span class="count-badge">12 presets</span>
+    <div class="roots">Evolving Pulse + Counter-reactive lanes</div>
+    <p>Not a boring loop. The pump shape changes every bar — deeper, shorter, syncopated. Derived lanes REACT to the pump's intensity: when the pump hits hard, resonance ducks. When it softens, effects bloom. Constantly evolving rhythmic engine.</p>
+  </div>
+
+  <div class="cat-card">
+    <h4 style="color:#d946ef">Slow Burn</h4>
+    <span class="count-badge">12 presets</span>
+    <div class="roots">Sweep + Drift + Reactive secondaries</div>
+    <p>Glacial movement. 4-16 bar arcs where the sound morphs so slowly you don't notice until it's somewhere completely different. Derived lanes wake up and contribute during the sweep's flat zones. Cinematic. Hypnotic.</p>
+  </div>
+
+  <div class="cat-card">
+    <h4 style="color:#f59e0b">Surge</h4>
+    <span class="count-badge">12 presets</span>
+    <div class="roots">Build + Accent + Reactive release</div>
+    <p>Rising tension → impact → aftermath. The build isn't linear — it stutters, pauses, fakes out. Derived lanes pile on as intensity increases. At the peak, half the lanes snap back while others ring out. The drop isn't one moment — it's a cascade.</p>
+  </div>
+
+  <div class="cat-card">
+    <h4 style="color:#22c55e">Ghost Machine</h4>
+    <span class="count-badge">12 presets</span>
+    <div class="roots">Drift + Micro-sweep + Fill-reactive</div>
+    <p>You can't hear it working, but you feel it. Micro-movements at 5-15% intensity across 80+ lanes. Nothing repeats. Nothing is on the grid. The sound is alive without any obvious modulation. Strip it away and the sound dies. Add it back — magic.</p>
+  </div>
+
+  <div class="cat-card">
+    <h4 style="color:#d946ef">Nerve</h4>
+    <span class="count-badge">12 presets</span>
+    <div class="roots">Fast Pulse + Sweep underlayer + Reactive intensity</div>
+    <p>Aggressive, complex, twitchy. Fast rhythmic movement (16th/32nd) with a slow sweep underneath that changes the character. When the sweep reaches certain zones, the pulse behavior shifts — doubles speed, adds accents, opens up. The lanes track the tension.</p>
+  </div>
+
+  <div class="cat-card">
+    <h4 style="color:#06b6d4">Deep Breath</h4>
+    <span class="count-badge">10 presets</span>
+    <div class="roots">Sweep arc (inhale/exhale) + Reactive fill</div>
+    <p>Inhale: everything opens — filters, space, width. Exhale: everything closes, tightens, compresses. Not just a ramp — the derived lanes participate differently on the inhale vs exhale. Some wake up on the exhale. Some only exist at peak. Organic respiratory motion.</p>
+  </div>
+
+  <div class="cat-card">
+    <h4 style="color:#f97316">Chaotic Engine</h4>
+    <span class="count-badge">10 presets</span>
+    <div class="roots">Accent (random) + Fast Pulse + Broken rules</div>
+    <p>Deliberate disorder. Counter-motion rules are BROKEN — delay time AND feedback move together. Resonance peaks WITH cutoff. The chaos has structure though — energy flows in waves, not constant noise. Moments of clarity between the madness.</p>
+  </div>
+
+  <div class="cat-card">
+    <h4 style="color:#f59e0b">Cascade</h4>
+    <span class="count-badge">10 presets</span>
+    <div class="roots">Phase cascade from single root + Reactive intensity scaling</div>
+    <p>One curve ripples across 100 lanes like a wave through water. But each lane doesn't just phase-shift — it ADAPTS. The first lanes hit hardest, the last lanes are whispers. The wave shape itself mutates as it travels. Stunning with 30+ filters.</p>
+  </div>
+
+  <div class="cat-card">
+    <h4 style="color:#a1a1aa">Sculpted</h4>
+    <span class="count-badge">10 presets</span>
+    <div class="roots">Accent + Counter + Hand-crafted moments</div>
+    <p>Precision. Sparse, deliberate movements — a filter opens on beat 3 of bar 2, reverb blooms on bar 4, drive kicks on the and-of-1. Every move is placed, not generated. Derived lanes support each moment with reactive counter-motion. For producers who want control.</p>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<h2>Visual Example — "The Pumper" over 4 Bars</h2>
+<p>All lanes overlaid on one canvas. <span class="accent">Bright = root lanes</span>. <span class="cyan">Medium = secondary (reactive)</span>. <span style="color:#52525b">Faint = tertiary</span>. Notice: the pump <strong>evolves each bar</strong> — bar 1 is tight, bar 2 syncopates, bar 3 opens up, bar 4 builds to peak. Derived lanes <strong>react</strong> to the root's intensity at each moment.</p>
+
+<div style="background:#0a0a0a; border:1px solid #27272a; border-radius:16px; padding:24px; margin:20px 0; overflow-x:auto;">
+
+  <!-- Legend -->
+  <div style="display:flex; gap:20px; margin-bottom:16px; flex-wrap:wrap;">
+    <div style="display:flex; align-items:center; gap:6px;"><div style="width:12px; height:3px; background:#f97316; border-radius:2px;"></div><span style="font-size:10px; color:#f97316; font-weight:700;">ROOT 1 — Filter Cutoff (Pulse)</span></div>
+    <div style="display:flex; align-items:center; gap:6px;"><div style="width:12px; height:3px; background:#22c55e; border-radius:2px;"></div><span style="font-size:10px; color:#22c55e; font-weight:700;">ROOT 2 — Wavetable Pos (Sweep)</span></div>
+    <div style="display:flex; align-items:center; gap:6px;"><div style="width:12px; height:3px; background:#06b6d4; border-radius:2px;"></div><span style="font-size:10px; color:#06b6d4; font-weight:700;">ROOT 3 — Reverb Send (Accent)</span></div>
+    <div style="display:flex; align-items:center; gap:6px;"><div style="width:12px; height:3px; background:#d946ef; border-radius:2px;"></div><span style="font-size:10px; color:#d946ef; font-weight:700;">ROOT 4 — Chorus Depth (Drift)</span></div>
+    <div style="display:flex; align-items:center; gap:6px;"><div style="width:12px; height:2px; background:#f9731688; border-radius:2px;"></div><span style="font-size:10px; color:#71717a; font-weight:600;">SECONDARY — Counter / Echo / Fill</span></div>
+    <div style="display:flex; align-items:center; gap:6px;"><div style="width:12px; height:1px; background:#ffffff22; border-radius:2px;"></div><span style="font-size:10px; color:#3f3f46; font-weight:600;">TERTIARY — Micro / Phase Cascade (80+ lanes)</span></div>
+  </div>
+
+  <svg viewBox="0 0 960 340" style="width:100%; height:auto;">
+    <!-- Background grid -->
+    <defs>
+      <pattern id="grid" width="60" height="40" patternUnits="userSpaceOnUse">
+        <line x1="60" y1="0" x2="60" y2="40" stroke="#ffffff08" stroke-width="0.5"/>
+        <line x1="0" y1="40" x2="60" y2="40" stroke="#ffffff05" stroke-width="0.5"/>
+      </pattern>
+    </defs>
+    <rect width="960" height="300" fill="url(#grid)" y="20"/>
+
+    <!-- Bar lines -->
+    <line x1="0" y1="20" x2="0" y2="320" stroke="#ffffff15" stroke-width="1"/>
+    <line x1="240" y1="20" x2="240" y2="320" stroke="#ffffff15" stroke-width="1"/>
+    <line x1="480" y1="20" x2="480" y2="320" stroke="#ffffff15" stroke-width="1"/>
+    <line x1="720" y1="20" x2="720" y2="320" stroke="#ffffff15" stroke-width="1"/>
+    <line x1="960" y1="20" x2="960" y2="320" stroke="#ffffff15" stroke-width="1"/>
+
+    <!-- Beat lines (quarter notes) -->
+    <line x1="60" y1="20" x2="60" y2="320" stroke="#ffffff08" stroke-width="0.5"/>
+    <line x1="120" y1="20" x2="120" y2="320" stroke="#ffffff08" stroke-width="0.5"/>
+    <line x1="180" y1="20" x2="180" y2="320" stroke="#ffffff08" stroke-width="0.5"/>
+    <line x1="300" y1="20" x2="300" y2="320" stroke="#ffffff08" stroke-width="0.5"/>
+    <line x1="360" y1="20" x2="360" y2="320" stroke="#ffffff08" stroke-width="0.5"/>
+    <line x1="420" y1="20" x2="420" y2="320" stroke="#ffffff08" stroke-width="0.5"/>
+    <line x1="540" y1="20" x2="540" y2="320" stroke="#ffffff08" stroke-width="0.5"/>
+    <line x1="600" y1="20" x2="600" y2="320" stroke="#ffffff08" stroke-width="0.5"/>
+    <line x1="660" y1="20" x2="660" y2="320" stroke="#ffffff08" stroke-width="0.5"/>
+    <line x1="780" y1="20" x2="780" y2="320" stroke="#ffffff08" stroke-width="0.5"/>
+    <line x1="840" y1="20" x2="840" y2="320" stroke="#ffffff08" stroke-width="0.5"/>
+    <line x1="900" y1="20" x2="900" y2="320" stroke="#ffffff08" stroke-width="0.5"/>
+
+    <!-- Bar labels -->
+    <text x="8" y="14" fill="#3f3f46" font-size="10" font-weight="700">BAR 1</text>
+    <text x="248" y="14" fill="#3f3f46" font-size="10" font-weight="700">BAR 2</text>
+    <text x="488" y="14" fill="#3f3f46" font-size="10" font-weight="700">BAR 3</text>
+    <text x="728" y="14" fill="#3f3f46" font-size="10" font-weight="700">BAR 4</text>
+
+    <!-- ═══ TERTIARY LANES (80+ lanes, very faint) ═══ -->
+    <!-- Phase cascade from Root 1 — 20 chain volume lanes, each offset slightly -->
+    <path d="M0,172 Q15,168 30,170 Q45,172 60,174 Q75,170 90,168 Q105,172 120,174 Q135,170 150,168 Q165,172 180,174 Q195,170 210,168 Q225,172 240,172 Q255,168 270,170 Q285,172 300,174 Q315,170 330,168 Q345,172 360,174 Q375,170 390,168 Q405,172 420,174 Q435,170 450,168 Q465,172 480,172 Q495,168 510,170 Q525,172 540,174 Q555,170 570,168 Q585,172 600,174 Q615,170 630,168 Q645,172 660,174 Q675,170 690,168 Q705,172 720,172 Q735,168 750,170 Q765,172 780,174 Q795,170 810,168 Q825,172 840,174 Q855,170 870,168 Q885,172 900,174 Q915,170 930,168 Q945,172 960,172" stroke="#ffffff08" stroke-width="1" fill="none"/>
+    <path d="M0,178 Q20,174 40,176 Q60,180 80,176 Q100,174 120,178 Q140,176 160,174 Q180,178 200,180 Q220,176 240,178 Q260,174 280,176 Q300,180 320,176 Q340,174 360,178 Q380,176 400,174 Q420,178 440,180 Q460,176 480,178 Q500,174 520,176 Q540,180 560,176 Q580,174 600,178 Q620,176 640,174 Q660,178 680,180 Q700,176 720,178 Q740,174 760,176 Q780,180 800,176 Q820,174 840,178 Q860,176 880,174 Q900,178 920,180 Q940,176 960,178" stroke="#ffffff06" stroke-width="1" fill="none"/>
+    <path d="M0,166 Q25,162 50,164 Q75,168 100,164 Q125,160 150,164 Q175,166 200,162 Q225,166 250,168 Q275,164 300,166 Q325,162 350,164 Q375,168 400,164 Q425,160 450,164 Q475,166 500,162 Q525,166 550,168 Q575,164 600,166 Q625,162 650,164 Q675,168 700,164 Q725,160 750,164 Q775,166 800,162 Q825,166 850,168 Q875,164 900,166 Q925,162 950,164 960,166" stroke="#ffffff06" stroke-width="1" fill="none"/>
+    <!-- Phase cascade from Root 1 — 20 chain pan lanes, phase-shifted the other way -->
+    <path d="M0,185 Q30,182 60,188 Q90,184 120,186 Q150,182 180,188 Q210,184 240,185 Q270,182 300,188 Q330,184 360,186 Q390,182 420,188 Q450,184 480,185 Q510,182 540,188 Q570,184 600,186 Q630,182 660,188 Q690,184 720,185 Q750,182 780,188 Q810,184 840,186 Q870,182 900,188 Q930,184 960,185" stroke="#ffffff05" stroke-width="1" fill="none"/>
+    <path d="M0,160 Q35,156 70,162 Q105,158 140,160 Q175,154 210,158 Q245,162 260,158 Q280,156 320,162 Q355,158 390,160 Q425,154 460,158 Q495,162 510,158 Q530,156 570,162 Q605,158 640,160 Q675,154 710,158 Q745,162 760,158 Q780,156 820,162 Q855,158 890,160 Q925,154 960,160" stroke="#ffffff05" stroke-width="1" fill="none"/>
+    <!-- Micro-drift on effect params — even subtler -->
+    <path d="M0,190 Q40,188 80,192 Q120,190 160,188 Q200,191 240,190 Q280,188 320,192 Q360,190 400,188 Q440,191 480,190 Q520,188 560,192 Q600,190 640,188 Q680,191 720,190 Q760,188 800,192 Q840,190 880,188 Q920,191 960,190" stroke="#ffffff04" stroke-width="1" fill="none"/>
+    <path d="M0,155 Q50,152 100,157 Q150,154 200,156 Q250,152 300,155 Q350,153 400,157 Q450,154 500,155 Q550,152 600,157 Q650,154 700,156 Q750,152 800,155 Q850,153 900,157 Q950,154 960,155" stroke="#ffffff04" stroke-width="1" fill="none"/>
+    <!-- More faint tertiary lanes spread across the canvas -->
+    <path d="M0,200 Q48,196 96,202 Q144,198 192,200 Q240,196 288,202 Q336,198 384,200 Q432,196 480,200 Q528,196 576,202 Q624,198 672,200 Q720,196 768,202 Q816,198 864,200 Q912,196 960,200" stroke="#ffffff04" stroke-width="1" fill="none"/>
+    <path d="M0,148 Q55,144 110,150 Q165,146 220,148 Q275,144 330,150 Q385,146 440,148 Q495,144 550,148 Q605,144 660,150 Q715,146 770,148 Q825,144 880,150 Q935,146 960,148" stroke="#ffffff04" stroke-width="1" fill="none"/>
+    <path d="M0,208 Q65,204 130,210 Q195,206 260,208 Q325,204 390,210 Q455,206 520,208 Q585,204 650,210 Q715,206 780,208 Q845,204 910,210 Q945,206 960,208" stroke="#ffffff03" stroke-width="1" fill="none"/>
+    <path d="M0,140 Q70,136 140,142 Q210,138 280,140 Q350,136 420,142 Q490,138 560,140 Q630,136 700,142 Q770,138 840,140 Q910,136 960,140" stroke="#ffffff03" stroke-width="1" fill="none"/>
+    <path d="M0,215 Q80,212 160,218 Q240,214 320,215 Q400,212 480,215 Q560,212 640,218 Q720,214 800,215 Q880,212 960,215" stroke="#ffffff03" stroke-width="1" fill="none"/>
+    <path d="M0,135 Q60,130 120,137 Q180,133 240,135 Q300,130 360,137 Q420,133 480,135 Q540,130 600,137 Q660,133 720,135 Q780,130 840,137 Q900,133 960,135" stroke="#ffffff03" stroke-width="1" fill="none"/>
+
+    <!-- ═══ SECONDARY LANES (12 lanes, medium opacity) ═══ -->
+
+    <!-- Filter Resonance — Counter of Root 1 (inverted pump) -->
+    <path d="M0,60 Q8,55 15,90 Q30,270 45,280 Q52,280 60,60 Q68,55 75,90 Q90,270 105,280 Q112,280 120,60 Q128,55 135,90 Q150,270 165,280 Q172,280 180,60 Q188,55 195,90 Q210,270 225,280 Q232,280 240,60 Q248,55 255,90 Q270,270 285,280 Q292,280 300,60 Q308,55 315,90 Q330,270 345,280 Q352,280 360,60 Q368,55 375,90 Q390,270 405,280 Q412,280 420,60 Q428,55 435,90 Q450,270 465,280 Q472,280 480,60 Q488,55 495,90 Q510,270 525,280 Q532,280 540,60 Q548,55 555,90 Q570,270 585,280 Q592,280 600,60 Q608,55 615,90 Q630,270 645,280 Q652,280 660,60 Q668,55 675,90 Q690,270 705,280 Q712,280 720,60 Q728,55 735,90 Q750,270 765,280 Q772,280 780,60 Q788,55 795,90 Q810,270 825,280 Q832,280 840,60 Q848,55 855,90 Q870,270 885,280 Q892,280 900,60 Q908,55 915,90 Q930,270 945,280 Q952,280 960,60" stroke="#d946ef40" stroke-width="1.5" fill="none"/>
+
+    <!-- Drive — Echo of Root 1 (+1 beat delay, 60% amp) -->
+    <path d="M0,200 Q23,200 38,100 Q53,30 60,30 Q68,30 75,200 Q83,200 98,100 Q113,30 120,30 Q128,30 135,200 Q143,200 158,100 Q173,30 180,30 Q188,30 195,200 Q203,200 218,100 Q233,30 240,30 Q248,30 255,200 Q263,200 278,100 Q293,30 300,30 Q308,30 315,200 Q323,200 338,100 Q353,30 360,30 Q368,30 375,200 Q383,200 398,100 Q413,30 420,30 Q428,30 435,200 Q443,200 458,100 Q473,30 480,30 Q488,30 495,200 Q503,200 518,100 Q533,30 540,30 Q548,30 555,200 Q563,200 578,100 Q593,30 600,30 Q608,30 615,200 Q623,200 638,100 Q653,30 660,30 Q668,30 675,200 Q683,200 698,100 Q713,30 720,30 Q728,30 735,200 Q743,200 758,100 Q773,30 780,30 Q788,30 795,200 Q803,200 818,100 Q833,30 840,30 Q848,30 855,200 Q863,200 878,100 Q893,30 900,30 Q908,30 915,200 Q923,200 938,100 Q953,30 960,30" stroke="#06b6d430" stroke-width="1.5" fill="none"/>
+
+    <!-- Delay Wet/Dry — Fill (active between reverb accents) -->
+    <path d="M0,120 Q30,110 60,100 Q90,90 120,85 Q150,95 180,110 Q210,120 240,125 Q270,125 300,125 Q330,125 360,125 Q390,125 420,125 Q450,110 480,100 Q510,90 540,85 Q570,95 600,110 Q630,120 660,125 Q690,125 720,120 Q750,110 780,100 Q810,90 840,85 Q870,95 900,110 Q930,120 960,125" stroke="#22c55e35" stroke-width="1.5" fill="none"/>
+
+    <!-- Pan — Phase cascade of Root 1 at 50% offset -->
+    <path d="M30,170 Q45,280 53,280 Q60,280 68,170 Q75,55 83,55 Q90,55 98,170 Q113,280 120,280 Q128,280 135,170 Q143,55 150,55 Q158,55 165,170 Q180,280 188,280 Q195,280 203,170 Q210,55 218,55 Q225,55 233,170 Q248,280 255,280 Q263,280 270,170 Q278,55 285,55 Q293,55 300,170 Q315,280 323,280 Q330,280 338,170 Q345,55 353,55 Q360,55 368,170 Q383,280 390,280 Q398,280 405,170 Q413,55 420,55 Q428,55 435,170 Q450,280 458,280 Q465,280 473,170 Q480,55 488,55 Q495,55 503,170 Q518,280 525,280 Q533,280 540,170 Q548,55 555,55 Q563,55 570,170 Q585,280 593,280 Q600,280 608,170 Q615,55 623,55 Q630,55 638,170 Q653,280 660,280 Q668,280 675,170 Q683,55 690,55 Q698,55 705,170 Q720,280 728,280 Q735,280 743,170 Q750,55 758,55 Q765,55 773,170 Q788,280 795,280 Q803,280 810,170 Q818,55 825,55 Q833,55 840,170 Q855,280 863,280 Q870,280 878,170 Q885,55 893,55 Q900,55 908,170 Q923,280 930,280 Q938,280 945,170 Q953,55 960,55" stroke="#f9731620" stroke-width="1.2" fill="none"/>
+
+    <!-- Osc Detune — Phase of Root 2, offset 25% (~1 bar) -->
+    <path d="M0,220 C240,210 480,120 720,60 Q840,40 960,35" stroke="#22c55e30" stroke-width="1.5" fill="none"/>
+
+    <!-- Chorus Rate — Harmonic 2x of Root 4 (fast drift) -->
+    <path d="M0,160 Q20,155 40,165 Q60,158 80,162 Q100,155 120,168 Q140,160 160,155 Q180,165 200,158 Q220,162 240,156 Q260,168 280,160 Q300,155 320,165 Q340,158 360,162 Q380,155 400,168 Q420,160 440,155 Q460,165 480,158 Q500,162 520,156 Q540,168 560,160 Q580,155 600,165 Q620,158 640,162 Q660,156 680,168 Q700,160 720,155 Q740,165 760,158 Q780,162 800,155 Q820,168 840,160 Q860,155 880,165 Q900,158 920,162 Q940,156 960,160" stroke="#d946ef25" stroke-width="1.3" fill="none"/>
+
+    <!-- ═══ ROOT LANES (4 lanes, full brightness) ═══ -->
+
+    <!-- ROOT 1: Filter Cutoff — EVOLVING Pulse
+         Bar 1: tight, full pump every beat
+         Bar 2: syncopated — 3rd beat delayed, gap on 4th
+         Bar 3: wider/softer — longer decay, lower peaks
+         Bar 4: double-time buildup to peak -->
+    <path d="M0,280 Q8,280 15,50 Q25,30 38,30 Q48,30 60,280
+            Q68,280 75,50 Q85,30 98,30 Q108,30 120,280
+            Q128,280 135,50 Q145,30 158,30 Q168,30 180,280
+            Q188,280 195,50 Q205,30 218,30 Q228,30 240,280
+            Q248,280 255,60 Q268,40 282,40 Q295,40 300,280
+            Q308,280 330,70 Q345,50 358,50 Q368,50 380,280
+            L420,280
+            Q428,280 435,80 Q455,55 480,55
+            Q500,55 510,100 Q530,170 540,200
+            Q550,200 560,100 Q575,60 600,60
+            Q625,60 640,110 Q660,180 680,220
+            Q690,220 700,120 Q715,70 720,70
+            Q730,280 732,280 738,110 Q744,50 750,50 Q756,50 762,200
+            Q768,200 774,120 Q780,40 786,40 Q792,40 798,200
+            Q804,200 810,80 Q816,25 822,25 Q828,25 834,170
+            Q840,170 846,60 Q852,20 858,20 Q864,20 870,140
+            Q876,140 882,40 Q888,15 894,15 Q900,15 906,100
+            Q912,100 918,30 Q924,10 930,10 Q936,10 942,80
+            Q948,80 954,25 Q958,10 960,10" stroke="#f97316" stroke-width="2.5" fill="none"/>
+
+    <!-- ROOT 2: Wavetable Position — Sweep with plateau in middle
+         Not a simple ramp — holds in bars 2-3, then accelerates in bar 4 -->
+    <path d="M0,260 C60,255 120,230 180,200 C220,180 280,165 360,160 L540,158 C600,150 700,90 800,50 C860,35 920,28 960,25" stroke="#22c55e" stroke-width="2.5" fill="none"/>
+
+    <!-- ROOT 3: Reverb Send — Accent: two moments, different intensity
+         Hit at bar 2 beat 3 (medium) and bar 4 beat 1 (full) -->
+    <path d="M0,280 L295,280 L298,120 L305,120 L308,280
+            L710,280 L714,40 L720,40 L724,280 L960,280" stroke="#06b6d4" stroke-width="2.5" fill="none"/>
+
+    <!-- ROOT 4: Chorus Depth — Drift that follows the energy
+         Calmer in bars 1-2, more agitated in bars 3-4 as energy builds -->
+    <path d="M0,170 C30,167 60,174 90,170
+            C120,166 150,173 180,169
+            C210,166 240,172 270,168
+            C300,164 330,175 360,168
+            C390,158 420,178 450,165
+            C480,150 510,180 540,160
+            C570,145 600,182 630,155
+            C660,140 690,185 720,148
+            C750,130 780,180 810,145
+            C840,125 870,178 900,140
+            C930,120 950,170 960,135" stroke="#d946ef" stroke-width="2.5" fill="none"/>
+
+    <!-- Y-axis labels -->
+    <text x="965" y="35" fill="#27272a" font-size="8" text-anchor="end">1.0</text>
+    <text x="965" y="175" fill="#27272a" font-size="8" text-anchor="end">0.5</text>
+    <text x="965" y="290" fill="#27272a" font-size="8" text-anchor="end">0.0</text>
+
+  </svg>
+
+  <div style="margin-top:16px; display:flex; flex-direction:column; gap:8px;">
+    <div style="font-size:11px; color:#52525b;">
+      <span style="color:#f97316; font-weight:700;">Orange pump</span> = filter cutoff. <strong>Bar 1:</strong> tight 4-on-floor. <strong>Bar 2:</strong> syncopates — 3rd beat delayed, 4th drops out. <strong>Bar 3:</strong> opens up, softer peaks, longer decay. <strong>Bar 4:</strong> double-time build to climax. Not a loop — a story.
+    </div>
+    <div style="font-size:11px; color:#52525b;">
+      <span style="color:#22c55e; font-weight:700;">Green sweep</span> = wavetable position. Rises in bar 1, holds through bars 2-3 (plateau), then accelerates in bar 4. The plateau lets the pump changes breathe.
+    </div>
+    <div style="font-size:11px; color:#52525b;">
+      <span style="color:#06b6d4; font-weight:700;">Cyan spikes</span> = reverb send. Two accents: medium hit on bar 2 beat 3 (surprise space), full blast on bar 4 beat 1 (the drop moment). Different intensities.
+    </div>
+    <div style="font-size:11px; color:#52525b;">
+      <span style="color:#d946ef; font-weight:700;">Purple drift</span> = chorus depth. Calm in bars 1-2, gets more agitated as energy builds in bars 3-4. The drift <em>tracks the energy</em> — it's not independent, it's reactive.
+    </div>
+    <div style="font-size:11px; color:#52525b;">
+      <span style="color:#71717a;">Ghost lines</span> = 80+ tertiary lanes. Barely visible, deeply felt. These react too — tighter micro-movement in bar 4 than bar 1.
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<h2>Reactive Derivation — The Key Concept</h2>
+<p>Static derivation: "resonance is always the inverse of cutoff." <strong>Reactive derivation: "resonance BEHAVES DIFFERENTLY depending on what cutoff is doing right now."</strong></p>
+
+<div class="section-note">
+  <p>The root curve is divided into <span class="accent">zones</span> based on its behavior: high-energy zones (peaks, fast movement), low-energy zones (holds, valleys), transition zones (ramps). Each derived lane gets a <strong>different recipe per zone</strong>:</p>
+</div>
+
+<table>
+  <tr><th>Root zone</th><th>Example: Resonance (secondary)</th><th>Example: Delay send (secondary)</th><th>Example: Chain volume (tertiary)</th></tr>
+  <tr><td style="color:#f97316; font-weight:700">Peak (root is high)</td><td>Ducks to 20% — safety</td><td>Holds at 0% — no smear</td><td>Micro-wobble at 5% — shimmer</td></tr>
+  <tr><td style="color:#f59e0b; font-weight:700">Ramp (root is moving)</td><td>Counter-sweeps at 50%</td><td>Rising slowly — builds space</td><td>Phase-cascaded pulse — traveling wave</td></tr>
+  <tr><td style="color:#22c55e; font-weight:700">Valley (root is low/still)</td><td>Rises to 70% + adds LFO wobble</td><td>Peaks — fills the quiet with space</td><td>Active fills — movement in the gaps</td></tr>
+  <tr><td style="color:#06b6d4; font-weight:700">Accent (root spikes)</td><td>Snaps to 0 — hard contrast</td><td>Spike echo — delayed reflection</td><td>All lanes pulse together — impact</td></tr>
+</table>
+
+<p>This means the same derived lane sounds different in bar 1 (tight pump) vs bar 3 (open, softer). <strong>The preset evolves because the relationships evolve.</strong></p>
+
+<h2>Example Preset Recipe</h2>
+<p>Concrete walkthrough: <strong>"The Pumper #1"</strong> — evolving rhythmic engine.</p>
+
+<h3>Root Lanes (4)</h3>
+<table>
+  <tr><th>Root</th><th>Archetype</th><th>Assigned To</th><th>Shape</th></tr>
+  <tr><td style="color:#f97316; font-weight:700">Root 1</td><td>Pulse (1-bar pump)</td><td>Filter Cutoff</td><td>Sidechain curve: 0→1→0 per beat, curved decay</td></tr>
+  <tr><td style="color:#f97316; font-weight:700">Root 2</td><td>Sweep (8-bar arc)</td><td>Wavetable Position</td><td>Slow S-curve, 0.2→0.8 over 8 bars</td></tr>
+  <tr><td style="color:#f97316; font-weight:700">Root 3</td><td>Accent (bar 4 + 8)</td><td>Reverb Send</td><td>Spike to 0.9 on beat 1 of bar 4 and 8, else 0.1</td></tr>
+  <tr><td style="color:#f97316; font-weight:700">Root 4</td><td>Drift</td><td>Chorus Depth</td><td>Random walk ±0.15 around 0.5</td></tr>
+</table>
+
+<h3>Secondary Lanes (12)</h3>
+<table>
+  <tr><th>Lane</th><th>Derived From</th><th>Method</th><th>Result</th></tr>
+  <tr><td>Filter Resonance</td><td>Root 1</td><td><span class="fuchsia">Counter</span> @ 70%</td><td>Dips when cutoff peaks, peaks when cutoff dips</td></tr>
+  <tr><td>Drive</td><td>Root 1</td><td><span class="cyan">Echo</span> +1 beat</td><td>Pump shape delayed by 1 beat, 60% amplitude</td></tr>
+  <tr><td>Delay Wet/Dry</td><td>Root 3</td><td><span class="green">Fill</span></td><td>Active between reverb accents, holds during them</td></tr>
+  <tr><td>Delay Feedback</td><td>Root 2</td><td><span class="fuchsia">Counter</span> @ 40%</td><td>Subtle counter to WT sweep — more feedback when darker</td></tr>
+  <tr><td>Oscillator Detune</td><td>Root 2</td><td><span class="accent">Phase</span> +25%</td><td>Same sweep shape, offset by 2 bars</td></tr>
+  <tr><td>Pan</td><td>Root 1</td><td><span class="accent">Phase</span> +50%</td><td>Pump curve at half-phase offset — stereo movement</td></tr>
+  <tr><td>Reverb Size</td><td>Root 3</td><td><span class="cyan">Echo</span> +2 beats</td><td>Reverb size follows send, delayed</td></tr>
+  <tr><td>Chorus Rate</td><td>Root 4</td><td><span class="amber">Harmonic</span> 2x</td><td>Double-speed drift — faster flutter</td></tr>
+  <tr><td colspan="4" style="color:#52525b; font-style:italic">+ 4 more secondary lanes following the same patterns</td></tr>
+</table>
+
+<h3>Tertiary Lanes (84)</h3>
+<table>
+  <tr><th>Group</th><th>Count</th><th>Method</th><th>Amplitude</th></tr>
+  <tr><td>Chain Volume params</td><td>~30</td><td><span class="accent">Phase Cascade</span> from Root 1</td><td>10-15%</td></tr>
+  <tr><td>Chain Pan params</td><td>~30</td><td><span class="accent">Phase Cascade</span> from Root 1 (opposite direction)</td><td>8-12%</td></tr>
+  <tr><td>Effect sub-params</td><td>~15</td><td><span style="color:#a1a1aa; font-weight:700">Micro</span> from nearest root</td><td>5-10%</td></tr>
+  <tr><td>Remaining misc params</td><td>~9</td><td><span style="color:#a1a1aa; font-weight:700">Micro</span> drift</td><td>3-8%</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════ -->
+<h2>Timing & Feel Profiles</h2>
+<p>Instead of genres, each preset has a <strong>feel profile</strong> that defines its rhythmic DNA.</p>
+
+<table>
+  <tr><th>Feel</th><th>Grid</th><th>Swing</th><th>Root Emphasis</th><th>Used by</th></tr>
+  <tr><td style="font-weight:700">Locked</td><td>Straight 16ths</td><td>0%</td><td>Mechanical, precise, every beat hits</td><td>The Pumper, Nerve</td></tr>
+  <tr><td style="font-weight:700">Loose</td><td>8th notes</td><td>8-15%</td><td>Off-grid accents, bouncy, human</td><td>The Pumper, Deep Breath</td></tr>
+  <tr><td style="font-weight:700">Broken</td><td>Mixed subdivisions</td><td>0%</td><td>Unexpected accents, complex groupings</td><td>Nerve, Chaotic Engine</td></tr>
+  <tr><td style="font-weight:700">Free</td><td>No grid</td><td>N/A</td><td>Drift-based, no sharp edges, organic</td><td>Ghost Machine, Slow Burn</td></tr>
+  <tr><td style="font-weight:700">Accelerating</td><td>Starts slow, doubles</td><td>0%</td><td>Half-time → regular → double-time</td><td>Surge, The Pumper (bar 4)</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════ -->
+<h2>Generation Pipeline</h2>
+<p>How we actually build 100 presets programmatically.</p>
+
+<table>
+  <tr><th>Step</th><th>What</th><th>How</th></tr>
+  <tr><td>1</td><td>Define root archetype library</td><td>5 archetypes x 4-6 variants each = 25-30 root shapes as point arrays</td></tr>
+  <tr><td>2</td><td>Create category configs</td><td>Each of 100 presets gets: category, root selections (3-5), bars, genre timing</td></tr>
+  <tr><td>3</td><td>Generate root lanes</td><td>Pick root shapes, apply timing rules, assign to impact params</td></tr>
+  <tr><td>4</td><td>Derive secondary lanes</td><td>Apply derivation methods (counter, echo, fill, phase) based on counter-motion rules</td></tr>
+  <tr><td>5</td><td>Generate tertiary lanes</td><td>Phase cascade + micro for remaining 80+ params</td></tr>
+  <tr><td>6</td><td>Export as sessions</td><td>JSON files matching Stride's session format, loadable from canvas UI</td></tr>
+  <tr><td>7</td><td>Bundle with app</td><td>Ship in <code>stride-vst/app/presets/</code>, add Preset Browser to canvas</td></tr>
+</table>
+
+<div class="section-note">
+  <p><span class="accent">Key insight:</span> The presets are <strong>rack-agnostic</strong>. They define automation shapes for N lanes — when loaded, they map to whatever rack is currently scanned. A "Techno Pump Engine" preset works on Serum, Wavetable, Operator, or any rack. The shapes adapt to the param count.</p>
+</div>
+
+<br><br>
+<p style="color:#3f3f46; font-size:11px; text-align:center;">Stride — Sound Design Engine. Your racks, reborn.</p>
+
+</body>
+</html>

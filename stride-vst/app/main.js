@@ -1,0 +1,386 @@
+/**
+ * Stride Canvas — Electron Main Process
+ * Creates the main window and manages app lifecycle.
+ */
+
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const path = require('path');
+const fs = require('fs');
+const os = require('os');
+const crypto = require('crypto');
+
+let mainWindow = null;
+
+// Data directory for local state (canvas saves, license, settings)
+const DATA_DIR = path.join(app.getPath('userData'), 'stride-data');
+
+// Template storage
+const STRIDE_DIR = path.join(os.homedir(), 'Desktop', 'Stride');
+const TEMPLATE_DIR = path.join(STRIDE_DIR, 'template');
+const SESSIONS_DIR = path.join(STRIDE_DIR, 'sessions');
+const REGISTRY_FILE = path.join(TEMPLATE_DIR, 'registry.json');
+
+function createWindow() {
+    mainWindow = new BrowserWindow({
+        width: 1400,
+        height: 900,
+        minWidth: 800,
+        minHeight: 600,
+        backgroundColor: '#09090b',
+        titleBarStyle: 'hidden',
+        titleBarOverlay: {
+            color: '#09090b',
+            symbolColor: '#a1a1aa',
+            height: 36
+        },
+        webPreferences: {
+            preload: path.join(__dirname, 'preload.js'),
+            contextIsolation: true,
+            nodeIntegration: false,
+            sandbox: false
+        },
+        icon: path.join(__dirname, 'assets', 'icon.png')
+    });
+
+    mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+
+    // Open DevTools in dev mode
+    if (process.argv.includes('--dev')) {
+        mainWindow.webContents.openDevTools();
+    }
+
+    mainWindow.on('closed', () => {
+        mainWindow = null;
+    });
+}
+
+// ─── IPC Handlers ─────────────────────────────────────────
+
+// Focus window (called from M4L via WebSocket)
+ipcMain.on('focus-window', () => {
+    if (mainWindow) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.show();
+        // Windows requires alwaysOnTop toggle to steal focus from other apps
+        mainWindow.setAlwaysOnTop(true);
+        mainWindow.focus();
+        mainWindow.setAlwaysOnTop(false);
+    }
+});
+
+// Save canvas state locally
+ipcMain.handle('save-canvas-state', async (event, data) => {
+    try {
+        if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+        const filePath = path.join(DATA_DIR, `canvas_${data.rackId || 'default'}.json`);
+        fs.writeFileSync(filePath, JSON.stringify(data.state, null, 2));
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+// Load canvas state
+ipcMain.handle('load-canvas-state', async (event, rackId) => {
+    try {
+        const filePath = path.join(DATA_DIR, `canvas_${rackId || 'default'}.json`);
+        if (fs.existsSync(filePath)) {
+            const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+            return { success: true, state: data };
+        }
+        return { success: true, state: null };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+// Built-in license keys stored as SHA-256 hashes (originals never shipped)
+const BUILTIN_KEY_HASHES = {
+    '074ac7dc594a379be6e5bdfbaab4d16d5400a19cc2f2af9f8c83e88612efdb62': { tier: 'master', label: 'Master' },
+    'f6485506181c07fc0c1513f18de67be3c06828b94d1dd1cdf5bcc1196ad40bb9': { tier: 'ambassador', label: 'Ambassador #1' },
+    '44e1f552ff072c6f1da59c74027aec8f10c2dedd9112059b34db01a30f37ed3c': { tier: 'ambassador', label: 'Ambassador #2' },
+    '858d56da08c740df788f7897938d9f8059261aae942036eeaac52a0831dcecd4': { tier: 'ambassador', label: 'Ambassador #3' },
+    '11837c8ab57deb3cd307fa7f2ad9eeaafdd31d9c7670dcfaa041b13a08d57dfb': { tier: 'ambassador', label: 'Ambassador #4' },
+    '1076e40ca485c754409c235f658f7dc4397f2a89320f4b109bbfda3ada531bb2': { tier: 'ambassador', label: 'Ambassador #5' },
+    '0333a6cb94d67b15cdd146a08a202de830018d8ea573adf73bb152d790848053': { tier: 'ambassador', label: 'Ambassador #6' },
+    'fe9eb70e860352f000a56d9d63fce7effdbf589c05504e4c1d59ee15b1bad6ea': { tier: 'ambassador', label: 'Ambassador #7' },
+    '0474f1fb9cf93ab2b53f10ca69b9c095bd84aff6ba06c8f99ae132ac9244ef65': { tier: 'ambassador', label: 'Ambassador #8' },
+    '6434242c08eb442f27c68ddb23d471f6e43b01159b73ac2e4f5cc2d1dbf48681': { tier: 'ambassador', label: 'Ambassador #9' },
+    '934fb5c23d1285b79f32e0458ac50ad99b1a0a0c67029b2c47edfa8533fb5b54': { tier: 'ambassador', label: 'Ambassador #10' },
+};
+
+// Validate a license key (hash input, compare against stored hashes)
+ipcMain.handle('validate-license-key', async (event, key) => {
+    const upper = (key || '').toUpperCase();
+    const hash = crypto.createHash('sha256').update(upper).digest('hex');
+    const entry = BUILTIN_KEY_HASHES[hash];
+    if (entry) {
+        return { valid: true, tier: entry.tier, customer_name: entry.label, builtin: true };
+    }
+    return { valid: false, builtin: false };
+});
+
+// Save license locally (encrypted cache for offline grace)
+ipcMain.handle('save-license', async (event, licenseData) => {
+    try {
+        if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+        const filePath = path.join(DATA_DIR, 'license.json');
+        fs.writeFileSync(filePath, JSON.stringify({
+            ...licenseData,
+            cached_at: Date.now()
+        }));
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+// Load cached license
+ipcMain.handle('load-license', async () => {
+    try {
+        const filePath = path.join(DATA_DIR, 'license.json');
+        if (fs.existsSync(filePath)) {
+            const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+            return { success: true, license: data };
+        }
+        return { success: true, license: null };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+// Save settings
+ipcMain.handle('save-settings', async (event, settings) => {
+    try {
+        if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+        const filePath = path.join(DATA_DIR, 'settings.json');
+        fs.writeFileSync(filePath, JSON.stringify(settings, null, 2));
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+// Load settings
+ipcMain.handle('load-settings', async () => {
+    try {
+        const filePath = path.join(DATA_DIR, 'settings.json');
+        if (fs.existsSync(filePath)) {
+            const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+            return { success: true, settings: data };
+        }
+        return { success: true, settings: {} };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+// Open URL in system browser
+ipcMain.handle('open-external', async (event, url) => {
+    if (typeof url === 'string' && (url.startsWith('https://') || url.startsWith('http://'))) {
+        await shell.openExternal(url);
+    }
+});
+
+// Get app version
+ipcMain.handle('get-version', () => {
+    return app.getVersion();
+});
+
+// Open file dialog to pick .alc files
+ipcMain.handle('pick-alc-file', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+        title: 'Select .alc template file',
+        filters: [{ name: 'Ableton Clip', extensions: ['alc'] }],
+        properties: ['openFile'],
+        defaultPath: path.join(require('os').homedir(), 'Documents', 'Ableton', 'User Library')
+    });
+    if (result.canceled || !result.filePaths.length) return null;
+    return result.filePaths[0];
+});
+
+// ─── Template Registry ────────────────────────────────────
+
+function loadRegistry() {
+    try {
+        if (fs.existsSync(REGISTRY_FILE)) {
+            return JSON.parse(fs.readFileSync(REGISTRY_FILE, 'utf8'));
+        }
+    } catch (e) {}
+    return {};
+}
+
+function saveRegistry(registry) {
+    if (!fs.existsSync(TEMPLATE_DIR)) fs.mkdirSync(TEMPLATE_DIR, { recursive: true });
+    fs.writeFileSync(REGISTRY_FILE, JSON.stringify(registry, null, 2));
+}
+
+ipcMain.handle('import-template', async (event, { deviceName, sourcePath }) => {
+    try {
+        if (!fs.existsSync(TEMPLATE_DIR)) fs.mkdirSync(TEMPLATE_DIR, { recursive: true });
+        const safeName = deviceName.replace(/[^a-zA-Z0-9 _-]/g, '').replace(/\s+/g, '_');
+        const filename = safeName + '.alc';
+        const destPath = path.join(TEMPLATE_DIR, filename);
+        fs.copyFileSync(sourcePath, destPath);
+
+        const registry = loadRegistry();
+        registry[deviceName] = { filename, saved_at: new Date().toISOString() };
+        saveRegistry(registry);
+
+        return { success: true, deviceName, filename, filePath: destPath };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('list-templates', async () => {
+    const registry = loadRegistry();
+    const templates = [];
+    for (const [deviceName, info] of Object.entries(registry)) {
+        const filePath = path.join(TEMPLATE_DIR, info.filename);
+        if (fs.existsSync(filePath)) {
+            templates.push({
+                device_name: deviceName,
+                filename: info.filename,
+                file_path: filePath,
+                saved_at: info.saved_at
+            });
+        }
+    }
+    return templates;
+});
+
+ipcMain.handle('delete-template', async (event, deviceName) => {
+    const registry = loadRegistry();
+    const info = registry[deviceName];
+    if (info) {
+        try { fs.unlinkSync(path.join(TEMPLATE_DIR, info.filename)); } catch (e) {}
+        delete registry[deviceName];
+        saveRegistry(registry);
+    }
+    return { success: true };
+});
+
+// ─── Sessions (Save/Load full canvas + template state) ────
+
+ipcMain.handle('save-session', async (event, session) => {
+    try {
+        if (!fs.existsSync(SESSIONS_DIR)) fs.mkdirSync(SESSIONS_DIR, { recursive: true });
+        const safeName = (session.name || 'Untitled').replace(/[^a-zA-Z0-9 _-]/g, '').replace(/\s+/g, '_');
+        const filename = safeName + '.json';
+        fs.writeFileSync(path.join(SESSIONS_DIR, filename), JSON.stringify(session, null, 2));
+        return { success: true, filename };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('list-sessions', async () => {
+    try {
+        if (!fs.existsSync(SESSIONS_DIR)) return [];
+        const files = fs.readdirSync(SESSIONS_DIR).filter(f => f.endsWith('.json'));
+        return files.map(f => {
+            try {
+                const data = JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, f), 'utf8'));
+                return {
+                    filename: f,
+                    name: data.name || f.replace('.json', ''),
+                    device_name: data.device_name || '',
+                    template_filename: data.template_filename || '',
+                    param_count: (data.params || []).length,
+                    clip_bars: data.clip_bars || 4,
+                    saved_at: data.saved_at || '',
+                };
+            } catch (e) { return null; }
+        }).filter(Boolean).sort((a, b) => (b.saved_at || '').localeCompare(a.saved_at || ''));
+    } catch (e) {
+        return [];
+    }
+});
+
+ipcMain.handle('load-session', async (event, filename) => {
+    try {
+        const filePath = path.join(SESSIONS_DIR, filename);
+        if (!fs.existsSync(filePath)) return { success: false, error: 'Session file not found' };
+        const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        // Check if template still exists
+        const templatePath = data.template_filename ? path.join(TEMPLATE_DIR, data.template_filename) : null;
+        data._template_exists = templatePath && fs.existsSync(templatePath);
+        data._template_path = templatePath;
+        return { success: true, session: data };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('delete-session', async (event, filename) => {
+    try {
+        const filePath = path.join(SESSIONS_DIR, filename);
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+// ─── User Library Watcher ─────────────────────────────────
+
+let libWatcher = null;
+
+function startLibraryWatcher() {
+    const candidates = [
+        path.join(os.homedir(), 'Documents', 'Ableton', 'User Library'),
+        path.join(os.homedir(), 'Music', 'Ableton', 'User Library'),
+    ];
+    const libDir = candidates.find(d => fs.existsSync(d));
+    if (!libDir) return;
+
+    let debounceTimer = null;
+    let lastDetected = null;
+
+    libWatcher = fs.watch(libDir, { recursive: false }, (eventType, filename) => {
+        if (!filename || !filename.endsWith('.alc') || filename.startsWith('.')) return;
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            const fullPath = path.join(libDir, filename);
+            if (!fs.existsSync(fullPath)) return;
+            if (lastDetected === fullPath) return;
+            lastDetected = fullPath;
+
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('alc-detected', { filename, filePath: fullPath });
+            }
+        }, 1500);
+    });
+}
+
+// ─── App Lifecycle ────────────────────────────────────────
+
+// ─── Single Instance Lock ────────────────────────────────
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+    app.quit();
+} else {
+    app.on('second-instance', () => {
+        if (mainWindow) {
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.focus();
+        }
+    });
+
+    app.whenReady().then(() => {
+        createWindow();
+        startLibraryWatcher();
+    });
+
+    app.on('window-all-closed', () => {
+        app.quit();
+    });
+
+    app.on('activate', () => {
+        if (BrowserWindow.getAllWindows().length === 0) {
+            createWindow();
+        }
+    });
+}

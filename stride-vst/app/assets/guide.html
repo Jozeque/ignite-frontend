@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stride — Getting Started</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0a0a0b; color: #d4d4d8; line-height: 1.6; }
+        .container { max-width: 780px; margin: 0 auto; padding: 48px 28px 80px; }
+        h1 { font-size: 36px; font-weight: 900; letter-spacing: 0.15em; text-transform: uppercase; background: linear-gradient(to right, #f97316, #ef4444); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 6px; }
+        .subtitle { font-size: 14px; color: #52525b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3em; margin-bottom: 52px; }
+        .step { display: flex; gap: 20px; margin-bottom: 40px; }
+        .step-num { flex-shrink: 0; width: 38px; height: 38px; border-radius: 10px; background: rgba(249,115,22,0.12); border: 1px solid rgba(249,115,22,0.25); display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 900; color: #fb923c; }
+        .step-body { flex: 1; min-width: 0; }
+        .step-title { font-size: 16px; font-weight: 800; color: #e4e4e7; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+        .step-text { font-size: 15px; color: #71717a; line-height: 1.7; }
+        .step-text b { color: #a1a1aa; font-weight: 600; }
+        .step-text .key { color: #d4d4d8; font-weight: 700; background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 4px; font-size: 14px; }
+        .tip { margin-top: 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.04); border-radius: 8px; padding: 12px 16px; }
+        .tip-label { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 5px; }
+        .tip-label.pro { color: rgba(245,158,11,0.7); }
+        .tip-label.info { color: rgba(52,211,153,0.7); }
+        .tip-label.next { color: rgba(217,70,239,0.7); }
+        .tip-text { font-size: 14px; color: #52525b; line-height: 1.7; }
+        .tip-text b { color: #71717a; }
+        .step-img { margin-top: 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden; background: rgba(0,0,0,0.3); }
+        .step-img img { width: 100%; display: block; }
+        .divider { height: 1px; background: rgba(255,255,255,0.04); margin: 8px 0; }
+        .footer { margin-top: 52px; padding-top: 28px; border-top: 1px solid rgba(255,255,255,0.05); text-align: center; }
+        .footer p { font-size: 13px; color: #3f3f46; font-weight: 600; text-transform: uppercase; letter-spacing: 0.2em; }
+        .footer a { color: #f97316; text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <h1>STRIDE</h1>
+        <p class="subtitle">Getting Started &mdash; 7 Steps</p>
+
+        <!-- Step 1 -->
+        <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-body">
+                <div class="step-title">Load your instrument</div>
+                <p class="step-text">Build a synth from scratch or load an existing rack/preset onto a MIDI track in Ableton.</p>
+            </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-body">
+                <div class="step-title">Map your parameters</div>
+                <p class="step-text">Open automation lanes for every parameter you want Stride to control and <b>draw a single point</b> on each lane — just one click per lane is enough.</p>
+                <div class="tip">
+                    <div class="tip-label pro">How to do it</div>
+                    <p class="tip-text"><b>1.</b> Show the automation lane for each parameter you want to control.<br><br><b>2.</b> Click once on each lane to draw a single automation point — this tells Ableton to embed that envelope in the template.<br><br><b>3.</b> Create a MIDI clip on the track (double-click a clip slot).</p>
+                </div>
+                <div class="tip">
+                    <div class="tip-label" style="color: rgba(239,68,68,0.8);">Important</div>
+                    <p class="tip-text">Every parameter needs at least one automation point drawn on its lane. Do <b>not</b> use MIDI Map + Record — draw the points manually. Without a point on the lane, Ableton won't embed the envelope and Stride can't write to that parameter.</p>
+                </div>
+                <div class="step-img"><img src="step2.png" alt="Mapped automation lanes in Ableton"></div>
+            </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-body">
+                <div class="step-title">Drop StrideLink on the same track</div>
+                <p class="step-text">Drag <b>StrideLink.amxd</b> from the M4L folder onto the same MIDI track, after your instrument.</p>
+            </div>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-body">
+                <div class="step-title">Save the clip as a template</div>
+                <p class="step-text">Drag the <b>MIDI clip</b> (the clip slot with your recorded automation) to the <b>User Library</b> in Ableton's browser sidebar. Stride detects the new .alc file automatically and imports it as your template.</p>
+                <div class="tip">
+                    <div class="tip-label" style="color: rgba(239,68,68,0.8);">Drag the clip, not the rack</div>
+                    <p class="tip-text">You must drag the <b>clip</b> — the colored block in the clip slot — not the rack/device title bar. Only the clip contains the automation envelopes that Stride needs. If you drag the rack, the template will be missing envelopes.</p>
+                </div>
+                <div class="tip">
+                    <div class="tip-label info">What happens</div>
+                    <p class="tip-text">Stride watches your User Library folder. When the .alc file lands there, the canvas shows a green confirmation — your template is saved to <b>~/Desktop/Stride/template/</b> and ready to use.</p>
+                </div>
+                <div class="step-img"><img src="step4.png" alt="Dragging rack to User Library"></div>
+            </div>
+        </div>
+
+        <!-- Step 5 -->
+        <div class="step">
+            <div class="step-num">5</div>
+            <div class="step-body">
+                <div class="step-title">Click Scan Mapped</div>
+                <p class="step-text">In StrideLink (or the canvas sidebar), click <b>Scan Mapped</b>. This reads all parameters that have automation lanes and loads them into the canvas.</p>
+            </div>
+        </div>
+
+        <!-- Step 6 -->
+        <div class="step">
+            <div class="step-num">6</div>
+            <div class="step-body">
+                <div class="step-title">Open Canvas — get wild</div>
+                <p class="step-text">The Stride canvas launches with your parameters as lanes. Draw curves, apply templates, use <b>Chaos</b> to fill all lanes at once, or <b>Bloom</b> to spread one curve across every lane with variations.</p>
+                <p class="step-text" style="margin-top:6px;">Name your clip in the input field, then click <b>Apply to Clip</b>.</p>
+                <div class="step-img"><img src="step6.png" alt="Stride canvas with automation curves"></div>
+            </div>
+        </div>
+
+        <!-- Step 7 -->
+        <div class="step">
+            <div class="step-num">7</div>
+            <div class="step-body">
+                <div class="step-title">Drag the output .alc into Ableton</div>
+                <p class="step-text">Stride generates a new .alc file in <b>~/Desktop/Stride/</b> and opens the folder for you. Drag it onto a new MIDI track — your rack loads with all the automation baked in.</p>
+                <div class="tip">
+                    <div class="tip-label next">Keep going</div>
+                    <p class="tip-text">Go back to the canvas, tweak your curves, hit Apply again. Each apply creates a new .alc — iterate fast until you find the sound you want.</p>
+                </div>
+                <div class="step-img"><img src="step7.png" alt="Output folder with .alc files"></div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Need help? <a href="https://stridehub.io">stridehub.io</a></p>
+            <p style="margin-top:8px;">Built for producers. Built for Ableton.</p>
+        </div>
+
+    </div>
+</body>
+</html>

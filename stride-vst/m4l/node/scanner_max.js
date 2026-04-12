@@ -1,0 +1,732 @@
+/**
+ * Stride Link — Max Patcher JavaScript
+ * Runs inside Max's [js] object (NOT Node for Max)
+ * Uses the Live Object Model (LOM) to read/write Ableton state
+ *
+ * USAGE IN MAX PATCHER:
+ *   [js scanner_max.js]
+ *     inlet 0: messages (scan_rack, get_clip_info, write_automation, etc.)
+ *     outlet 0: JSON results to [node.script server.js]
+ *     outlet 1: status messages to UI
+ */
+
+autowatch = 1;
+inlets = 1;
+outlets = 2;
+
+// Store original param values for preview restore (keyed by _path)
+var originalParamValues = {};
+
+// Global counter for unique parameter IDs across all devices in a scan
+var _paramIdCounter = 0;
+
+// ─── READ JSON FROM FILE ─────────────────────────────────
+// Max truncates long strings, so Node writes JSON to a temp file
+// and we read it here using Max JS's File object
+function _readJsonFile(filePath) {
+    var f = new File(filePath, "read");
+    if (!f.isopen) {
+        post("Stride: Cannot open file " + filePath + "\n");
+        return null;
+    }
+    var content = "";
+    while (f.position < f.eof) {
+        var line = f.readline();
+        content += line;
+    }
+    f.close();
+    return content;
+}
+
+// ─── COLLECT DEVICE PARAMS ───────────────────────────────
+// Recursively walks all devices on the track, including chains inside racks.
+// Returns an array of { name, min, max, value, _path } objects.
+// filterAutomated: if true, only returns params with automation_state > 0
+
+function _collectParams(basePath, filterAutomated) {
+    var params = [];
+    try {
+        var dev = new LiveAPI(basePath);
+        var devName = dev.get("name").toString();
+        var className = dev.get("class_name").toString();
+
+        // Skip our own device
+        if (devName === "StrideLink") return params;
+
+        // Read this device's parameters
+        var paramIds = dev.get("parameters");
+        var paramCount = paramIds.length / 2;
+
+        for (var i = 0; i < paramCount; i++) {
+            try {
+                var paramPath = basePath + " parameters " + i;
+                var param = new LiveAPI(paramPath);
+
+                // When filtering, check automation_state FIRST (fast reject)
+                // NOTE: automation_state only covers arrangement automation.
+                // Clip envelope automation is not detected here — use Scan All
+                // and let the template define which params get automated.
+                if (filterAutomated) {
+                    var automationState = parseInt(param.get("automation_state"));
+                    if (automationState === 0) continue;
+                }
+
+                var name = param.get("name").toString();
+                if (name === "Device On") continue;
+
+                var min = parseFloat(param.get("min"));
+                var max = parseFloat(param.get("max"));
+                var value = parseFloat(param.get("value"));
+
+                // Detect log-scale params (frequency) via display string
+                var isLog = false;
+                try {
+                    var paramStr = param.get("str").toString();
+                    if (/Hz|kHz/.test(paramStr)) isLog = true;
+                } catch(e) {}
+
+                var displayName = devName + ": " + name;
+
+                params.push({
+                    id: _paramIdCounter++,
+                    name: displayName,
+                    min: min,
+                    max: max,
+                    value: value,
+                    _path: paramPath,
+                    is_log: isLog
+                });
+
+                originalParamValues[paramPath] = value;
+            } catch (pe) {}
+        }
+
+        // If this is a rack, dive into chains and their sub-devices
+        var isRack = (className === "InstrumentGroupDevice" ||
+                      className === "AudioEffectGroupDevice" ||
+                      className === "MidiEffectGroupDevice" ||
+                      className === "DrumGroupDevice");
+
+        if (isRack) {
+            try {
+                var chainIds = dev.get("chains");
+                var chainCount = chainIds.length / 2;
+                for (var c = 0; c < chainCount; c++) {
+                    try {
+                        var chainPath = basePath + " chains " + c;
+                        var chain = new LiveAPI(chainPath);
+                        var chainName = chain.get("name").toString();
+
+                        // Scan chain's mixer_device params (Volume, Pan, Sends)
+                        // MixerDevice doesn't have a "parameters" list in LOM —
+                        // it exposes volume, panning, sends individually.
+                        try {
+                            var mixerPath = chainPath + " mixer_device";
+                            var mixerProps = ["volume", "panning"];
+
+                            // Also check sends
+                            try {
+                                var mixerObj = new LiveAPI(mixerPath);
+                                var sendIds = mixerObj.get("sends");
+                                var sendCount = sendIds.length / 2;
+                                for (var si = 0; si < sendCount; si++) {
+                                    mixerProps.push("sends " + si);
+                                }
+                            } catch (se) {}
+
+                            for (var mp = 0; mp < mixerProps.length; mp++) {
+                                try {
+                                    var mParamPath = mixerPath + " " + mixerProps[mp];
+                                    var mParam = new LiveAPI(mParamPath);
+
+                                    if (!mParam.id || mParam.id === "0") continue;
+
+                                    if (filterAutomated) {
+                                        var mAutoState = parseInt(mParam.get("automation_state"));
+                                        if (mAutoState === 0) continue;
+                                    }
+
+                                    var mName = mParam.get("name").toString();
+                                    var mMin = parseFloat(mParam.get("min"));
+                                    var mMax = parseFloat(mParam.get("max"));
+                                    var mValue = parseFloat(mParam.get("value"));
+
+                                    var mIsLog = false;
+                                    try {
+                                        var mStr = mParam.get("str").toString();
+                                        if (/Hz|kHz/.test(mStr)) mIsLog = true;
+                                    } catch(e) {}
+
+                                    var mDisplayName = (chainName || "Chain " + c) + ": " + mName;
+
+                                    params.push({
+                                        id: _paramIdCounter++,
+                                        name: mDisplayName,
+                                        min: mMin,
+                                        max: mMax,
+                                        value: mValue,
+                                        _path: mParamPath,
+                                        is_log: mIsLog
+                                    });
+
+                                    originalParamValues[mParamPath] = mValue;
+                                } catch (mpe) {}
+                            }
+                        } catch (mxe) {}
+
+                        // Scan sub-devices within the chain
+                        var chainDevIds = chain.get("devices");
+                        var chainDevCount = chainDevIds.length / 2;
+                        for (var d = 0; d < chainDevCount; d++) {
+                            var subDevPath = chainPath + " devices " + d;
+                            var subParams = _collectParams(subDevPath, filterAutomated);
+                            for (var s = 0; s < subParams.length; s++) {
+                                params.push(subParams[s]);
+                            }
+                        }
+                    } catch (ce) {}
+                }
+            } catch (re) {}
+        }
+    } catch (e) {}
+    return params;
+}
+
+// ─── SCAN RACK (ALL PARAMS) ──────────────────────────────
+
+function scan_rack() {
+    try {
+        _paramIdCounter = 0;
+        var track = new LiveAPI("live_set view selected_track");
+        var trackName = track.get("name").toString();
+        // Resolve to absolute path so params stay valid later
+        var trackPath = track.unquotedpath;
+        var deviceIds = track.get("devices");
+        var deviceCount = deviceIds.length / 2;
+
+        var allParams = [];
+        var deviceNames = [];
+
+        for (var i = 0; i < deviceCount; i++) {
+            var devPath = trackPath + " devices " + i;
+            var dev = new LiveAPI(devPath);
+            var dn = dev.get("name").toString();
+            if (dn === "StrideLink") continue;
+            deviceNames.push(dn);
+
+            var devParams = _collectParams(devPath, false);
+            for (var p = 0; p < devParams.length; p++) {
+                allParams.push(devParams[p]);
+            }
+        }
+
+        var clipInfo = _getClipInfo();
+
+        var result = {
+            track_name: trackName,
+            device_name: deviceNames.join(" + ") || "None",
+            clip_bars: clipInfo.clip_bars,
+            clip_slot: clipInfo.clip_slot,
+            has_clip: clipInfo.has_clip,
+            parameters: allParams
+        };
+
+        outlet(0, "rack_params", JSON.stringify(result));
+        outlet(1, "status", "Scanned " + allParams.length + " params");
+
+    } catch (e) {
+        outlet(1, "status", "Scan error: " + e.message);
+        post("Stride scan error: " + e.message + "\n");
+    }
+}
+
+// ─── SCAN MAPPED ─────────────────────────────────────────
+// Only returns parameters that have automation (arrangement or clip)
+
+function scan_mapped() {
+    try {
+        _paramIdCounter = 0;
+        var track = new LiveAPI("live_set view selected_track");
+        var trackName = track.get("name").toString();
+        var trackPath = track.unquotedpath;
+        var deviceIds = track.get("devices");
+        var deviceCount = deviceIds.length / 2;
+
+        var allParams = [];
+        var deviceNames = [];
+
+        for (var i = 0; i < deviceCount; i++) {
+            var devPath = trackPath + " devices " + i;
+            var dev = new LiveAPI(devPath);
+            var dn = dev.get("name").toString();
+            if (dn === "StrideLink") continue;
+            deviceNames.push(dn);
+
+            var devParams = _collectParams(devPath, true);
+            for (var p = 0; p < devParams.length; p++) {
+                allParams.push(devParams[p]);
+            }
+        }
+
+        var clipInfo = _getClipInfo();
+
+        var result = {
+            track_name: trackName,
+            device_name: deviceNames.join(" + ") || "None",
+            clip_bars: clipInfo.clip_bars,
+            clip_slot: clipInfo.clip_slot,
+            has_clip: clipInfo.has_clip,
+            parameters: allParams
+        };
+
+        outlet(0, "rack_params", JSON.stringify(result));
+        outlet(1, "status", "Found " + allParams.length + " mapped params");
+
+    } catch (e) {
+        outlet(1, "status", "Scan mapped error: " + e.message);
+        post("Stride scan_mapped error: " + e.message + "\n");
+    }
+}
+
+// ─── CLIP INFO ────────────────────────────────────────────
+
+function get_clip_info() {
+    var info = _getClipInfo();
+    outlet(0, "clip_info", JSON.stringify(info));
+}
+
+function _getClipInfo() {
+    try {
+        // Find the first clip slot with a clip, or use slot 0
+        var track = new LiveAPI("live_set view selected_track");
+        var clipSlots = track.get("clip_slots");
+        var slotCount = clipSlots.length / 2;
+
+        for (var i = 0; i < Math.min(slotCount, 8); i++) {
+            try {
+                var slot = new LiveAPI("live_set view selected_track clip_slots " + i);
+                var hasClip = parseInt(slot.get("has_clip"));
+                if (hasClip) {
+                    var clip = new LiveAPI("live_set view selected_track clip_slots " + i + " clip");
+                    var clipLength = parseFloat(clip.get("length"));
+                    return {
+                        clip_bars: Math.max(1, Math.round(clipLength / 4)),
+                        has_clip: true,
+                        clip_slot: i
+                    };
+                }
+            } catch (se) {}
+        }
+    } catch (e) {}
+
+    return { clip_bars: 4, has_clip: false, clip_slot: 0 };
+}
+
+// ─── TRACK INFO ───────────────────────────────────────────
+
+function get_track_info() {
+    try {
+        var track = new LiveAPI("live_set view selected_track");
+        var trackName = track.get("name").toString();
+        var deviceIds = track.get("devices");
+        outlet(0, "track_info", JSON.stringify({
+            track_name: trackName,
+            has_device: deviceIds && deviceIds.length >= 2
+        }));
+    } catch (e) {
+        outlet(0, "track_info", JSON.stringify({ track_name: "Unknown", has_device: false }));
+    }
+}
+
+// ─── WRITE AUTOMATION (ARRANGEMENT RECORDING) ────────────
+// Records automation to the ARRANGEMENT timeline.
+// Temporarily slows tempo for higher accuracy, caches LiveAPI objects
+// to avoid creating them every tick, and uses record_mode for arrangement.
+//
+// ALL LOM changes are deferred to a Task to avoid
+// "Changes cannot be triggered by notifications" errors.
+
+var recordTask = null;
+var recordData = null;
+
+function write_automation(filePath) {
+    try {
+        var jsonStr = _readJsonFile(filePath);
+        if (!jsonStr) {
+            outlet(0, "write_result", JSON.stringify({ success: false, message: "Cannot read payload file" }));
+            return;
+        }
+        var data = JSON.parse(jsonStr);
+
+        recordData = {
+            data: data,
+            params: null,        // will hold cached param objects
+            liveSetObj: null,     // cached LiveAPI for song
+            targetLength: 0,
+            startPos: 0,
+            originalTempo: 120,
+            phase: "setup",
+            graceTicks: 40,
+            logCounter: 0
+        };
+
+        post("Stride: Deferring write_automation to Task\n");
+
+        if (recordTask) recordTask.cancel();
+        recordTask = new Task(_writeSetup, this);
+        recordTask.schedule(50);
+
+    } catch (e) {
+        outlet(0, "write_result", JSON.stringify({ success: false, message: e.message }));
+        post("Stride write error: " + e.message + "\n");
+    }
+}
+
+function _writeSetup() {
+    try {
+        var data = recordData.data;
+        var targetLength = (data.clip_bars || 4) * 4;
+
+        // ── Build param list with CACHED LiveAPI objects ──
+        var paramsList = [];
+        for (var p = 0; p < data.params.length; p++) {
+            var paramData = data.params[p];
+            var points = paramData.points || [];
+            if (points.length === 0) continue;
+
+            try {
+                var paramPath = paramData._path || ("live_set view selected_track devices 0 parameters " + paramData.id);
+                var param = new LiveAPI(paramPath);
+
+                if (!param.id || param.id === "0") {
+                    post("Stride: Skipping invalid param " + paramData.name + "\n");
+                    continue;
+                }
+
+                var paramMin = parseFloat(param.get("min"));
+                var paramMax = parseFloat(param.get("max"));
+
+                points.sort(function(a, b) { return a.time - b.time; });
+
+                paramsList.push({
+                    paramObj: param,   // CACHED — no new LiveAPI per tick
+                    name: paramData.name,
+                    min: paramMin,
+                    max: paramMax,
+                    is_log: paramData.is_log || false,
+                    points: points
+                });
+
+                post("Stride: Param " + paramData.name + " — " + points.length + " pts [" + paramMin.toFixed(1) + "–" + paramMax.toFixed(1) + "]\n");
+            } catch (pe) {
+                post("Stride: Error reading param " + paramData.name + ": " + pe.message + "\n");
+            }
+        }
+
+        if (paramsList.length === 0) {
+            outlet(0, "write_result", JSON.stringify({ success: false, message: "No valid params" }));
+            recordData = null;
+            return;
+        }
+
+        recordData.params = paramsList;
+        recordData.targetLength = targetLength;
+        recordData.phase = "recording";
+
+        // ── Cache the song object ──
+        var liveSet = new LiveAPI("live_set");
+        recordData.liveSetObj = liveSet;
+
+        // ── Save and slow tempo for accuracy ──
+        var origTempo = parseFloat(liveSet.get("tempo"));
+        recordData.originalTempo = origTempo;
+
+        // Slow to 40 BPM — gives ~6x more samples per beat at 120 BPM default
+        // 16 beats at 40 BPM = 24 seconds (user said 10-20s is fine)
+        var recordTempo = 40;
+        liveSet.set("tempo", recordTempo);
+        post("Stride: Tempo " + origTempo + " → " + recordTempo + " BPM (will restore after)\n");
+
+        // ── Get current position ──
+        var startPos = parseFloat(liveSet.get("current_song_time"));
+        recordData.startPos = startPos;
+
+        post("Stride: Start: " + startPos.toFixed(2) + " beats, length: " + targetLength + " beats\n");
+
+        // ── Enable ARRANGEMENT recording ──
+        // record_mode = arrangement record (the big red button)
+        liveSet.set("record_mode", 1);
+        post("Stride: record_mode (arrangement) = " + liveSet.get("record_mode") + "\n");
+
+        // Also enable session_automation_record (automation arm)
+        try {
+            liveSet.set("session_automation_record", 1);
+            post("Stride: session_automation_record = " + liveSet.get("session_automation_record") + "\n");
+        } catch (ae) {
+            post("Stride: session_automation_record not available\n");
+        }
+
+        // ── Start arrangement playback ──
+        liveSet.call("start_playing");
+        post("Stride: Playing — recording " + paramsList.length + " params to arrangement\n");
+        outlet(1, "status", "Recording automation...");
+
+        // ── Start tick — 5ms interval for max accuracy ──
+        recordTask = new Task(_recordTick, this);
+        recordTask.interval = 5;
+        recordTask.repeat();
+
+    } catch (e) {
+        // Restore tempo on error
+        try {
+            var ls = new LiveAPI("live_set");
+            ls.set("tempo", recordData.originalTempo);
+        } catch (te) {}
+        outlet(0, "write_result", JSON.stringify({ success: false, message: "Setup error: " + e.message }));
+        post("Stride setup error: " + e.message + "\n");
+        recordData = null;
+    }
+}
+
+function _recordTick() {
+    if (!recordData || recordData.phase !== "recording") {
+        if (recordTask) recordTask.cancel();
+        return;
+    }
+
+    try {
+        // Grace period
+        if (recordData.graceTicks > 0) {
+            recordData.graceTicks--;
+            return;
+        }
+
+        // Use CACHED song object
+        var currentTime = parseFloat(recordData.liveSetObj.get("current_song_time"));
+        var elapsed = currentTime - recordData.startPos;
+
+        if (elapsed >= recordData.targetLength) {
+            _stopRecording(true, null);
+            return;
+        }
+
+        if (elapsed < -1) {
+            _stopRecording(false, "Transport moved backwards");
+            return;
+        }
+        if (elapsed < 0) elapsed = 0;
+
+        recordData.logCounter++;
+        var shouldLog = (recordData.logCounter <= 5) || (recordData.logCounter % 200 === 0);
+
+        // Set each parameter using CACHED LiveAPI objects
+        for (var p = 0; p < recordData.params.length; p++) {
+            var pd = recordData.params[p];
+            var normValue = _interpolateValue(pd.points, elapsed, recordData.targetLength);
+            var actualValue;
+            if (pd.is_log && pd.min > 0 && pd.max > pd.min) {
+                actualValue = pd.min * Math.pow(pd.max / pd.min, normValue);
+            } else {
+                actualValue = pd.min + normValue * (pd.max - pd.min);
+            }
+
+            try {
+                pd.paramObj.set("value", actualValue);
+            } catch (pe) {}
+
+            if (p === 0 && shouldLog) {
+                post("Stride: t=" + elapsed.toFixed(3) + " norm=" + normValue.toFixed(3) + " val=" + actualValue.toFixed(3) + "\n");
+            }
+        }
+
+    } catch (e) {
+        _stopRecording(false, "Tick error: " + e.message);
+    }
+}
+
+function _interpolateValue(points, time, clipLength) {
+    if (points.length === 0) return 0;
+    if (time <= points[0].time) return points[0].value;
+    if (time >= points[points.length - 1].time) return points[points.length - 1].value;
+
+    for (var i = 0; i < points.length - 1; i++) {
+        if (time >= points[i].time && time < points[i + 1].time) {
+            var t = (time - points[i].time) / (points[i + 1].time - points[i].time);
+            return points[i].value + t * (points[i + 1].value - points[i].value);
+        }
+    }
+    return points[points.length - 1].value;
+}
+
+function _stopRecording(success, errorMsg) {
+    if (recordTask) {
+        recordTask.cancel();
+        recordTask = null;
+    }
+
+    // Restore tempo FIRST
+    try {
+        var liveSet = new LiveAPI("live_set");
+        if (recordData && recordData.originalTempo) {
+            liveSet.set("tempo", recordData.originalTempo);
+            post("Stride: Tempo restored to " + recordData.originalTempo + " BPM\n");
+        }
+        liveSet.set("record_mode", 0);
+        liveSet.call("stop_playing");
+    } catch (e) {}
+
+    var paramCount = recordData && recordData.params ? recordData.params.length : 0;
+    recordData = null;
+
+    if (success) {
+        outlet(0, "write_result", JSON.stringify({
+            success: true,
+            params_written: paramCount
+        }));
+        outlet(1, "status", "Recorded " + paramCount + " params");
+        post("Stride: Recording complete — " + paramCount + " params to arrangement\n");
+    } else {
+        outlet(0, "write_result", JSON.stringify({
+            success: false,
+            message: errorMsg || "Recording failed"
+        }));
+        outlet(1, "status", "Recording failed");
+        post("Stride: Recording failed — " + errorMsg + "\n");
+    }
+}
+
+// ─── WRITE MIDI ───────────────────────────────────────────
+
+function write_midi(filePath) {
+    try {
+        var jsonStr = _readJsonFile(filePath);
+        if (!jsonStr) {
+            outlet(0, "write_result", JSON.stringify({ success: false, message: "Cannot read payload file" }));
+            return;
+        }
+        var data = JSON.parse(jsonStr);
+        var slotIdx = data.clip_slot || 0;
+        var clipSlot = new LiveAPI("live_set view selected_track clip_slots " + slotIdx);
+        var hasClip = parseInt(clipSlot.get("has_clip"));
+
+        if (!hasClip) {
+            if (data.create_clip) {
+                clipSlot.call("create_clip", data.clip_length || 16);
+            } else {
+                outlet(0, "write_result", JSON.stringify({ success: false, message: "No clip" }));
+                return;
+            }
+        }
+
+        var clip = new LiveAPI("live_set view selected_track clip_slots " + slotIdx + " clip");
+
+        // Clear existing notes
+        clip.call("select_all_notes");
+        clip.call("replace_selected_notes");
+        clip.call("notes", data.notes.length);
+
+        for (var i = 0; i < data.notes.length; i++) {
+            var n = data.notes[i];
+            clip.call("note", n.pitch, n.time.toFixed(4), n.duration.toFixed(4), n.velocity, 0);
+        }
+
+        clip.call("done");
+
+        outlet(0, "write_result", JSON.stringify({
+            success: true,
+            notes_written: data.notes.length,
+            clip_bars: data.clip_bars
+        }));
+        outlet(1, "status", "Wrote " + data.notes.length + " notes");
+
+    } catch (e) {
+        outlet(0, "write_result", JSON.stringify({ success: false, message: e.message }));
+        post("Stride MIDI write error: " + e.message + "\n");
+    }
+}
+
+// ─── PREVIEW ──────────────────────────────────────────────
+
+function preview_param(path, value) {
+    try {
+        var param = new LiveAPI(path);
+        var min = parseFloat(param.get("min"));
+        var max = parseFloat(param.get("max"));
+        // Detect log-scale (frequency) params for accurate preview
+        var isLog = false;
+        try {
+            var pStr = param.get("str").toString();
+            if (/Hz|kHz/.test(pStr)) isLog = true;
+        } catch(e) {}
+        var actualValue;
+        if (isLog && min > 0 && max > min) {
+            actualValue = min * Math.pow(max / min, value);
+        } else {
+            actualValue = min + value * (max - min);
+        }
+        param.set("value", actualValue);
+    } catch (e) {
+        post("Stride preview error: " + e.message + "\n");
+    }
+}
+
+function stop_preview() {
+    for (var path in originalParamValues) {
+        try {
+            var param = new LiveAPI(path);
+            param.set("value", originalParamValues[path]);
+        } catch (e) {}
+    }
+    outlet(1, "status", "Preview stopped");
+}
+
+// ─── CREATE CLIP ──────────────────────────────────────────
+
+function create_clip(bars, slotIdx) {
+    try {
+        var slot = new LiveAPI("live_set view selected_track clip_slots " + (slotIdx || 0));
+        var hasClip = parseInt(slot.get("has_clip"));
+        if (hasClip) {
+            outlet(1, "status", "Clip already exists");
+            return;
+        }
+        slot.call("create_clip", (bars || 4) * 4);
+        outlet(1, "status", "Created " + bars + " bar clip");
+        // Send updated clip info
+        get_clip_info();
+    } catch (e) {
+        post("Stride create clip error: " + e.message + "\n");
+    }
+}
+
+// ─── MESSAGE ROUTER ───────────────────────────────────────
+
+function anything() {
+    var cmd = messagename;
+    var args = arrayfromargs(arguments);
+
+    // node.script sends "command <actual_cmd>" — unwrap it
+    if (cmd === "command" && args.length > 0) {
+        cmd = args[0].toString();
+        args = args.slice(1);
+    }
+
+    // Ignore status messages from node.script
+    if (cmd === "status") return;
+
+    if (cmd === "scan_rack") scan_rack();
+    else if (cmd === "scan_mapped") scan_mapped();
+    else if (cmd === "get_clip_info") get_clip_info();
+    else if (cmd === "get_track_info") get_track_info();
+    else if (cmd === "write_automation") write_automation(args.join(" "));
+    else if (cmd === "write_midi") write_midi(args.join(" "));
+    else if (cmd === "preview") {
+        // Last arg is value, everything before is the LOM path
+        var previewValue = parseFloat(args[args.length - 1]);
+        var previewPath = args.slice(0, args.length - 1).join(" ");
+        preview_param(previewPath, previewValue);
+    }
+    else if (cmd === "stop_preview") stop_preview();
+    else if (cmd === "create_clip") create_clip(parseInt(args[0]) || 4, parseInt(args[1]) || 0);
+    else post("Stride: Unknown command '" + cmd + "'\n");
+}

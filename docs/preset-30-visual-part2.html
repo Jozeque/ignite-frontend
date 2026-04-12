@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stride — 30 Presets Visual (06-30)</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#09090b;color:#d4d4d8;font-family:'Segoe UI',system-ui,sans-serif;line-height:1.5;padding:32px;max-width:1100px;margin:0 auto}
+h1{font-size:22px;color:#f97316;font-weight:900;letter-spacing:2px;text-transform:uppercase;margin-bottom:2px}
+.sub{color:#52525b;font-size:12px;margin-bottom:36px}
+h2{font-size:15px;color:#71717a;font-weight:800;margin:36px 0 12px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #1a1a1e;padding-bottom:4px}
+.p{margin-bottom:32px}
+.p-head{display:flex;align-items:baseline;gap:8px;margin-bottom:2px}
+.p-num{font-size:10px;color:#3f3f46;font-weight:900}
+.p-name{font-size:16px;font-weight:900}
+.p-tag{font-size:11px;color:#52525b;font-style:italic;margin-bottom:8px}
+.canvas{background:#0a0a0a;border:1px solid #1a1a1e;border-radius:12px;padding:14px;margin-bottom:8px}
+.canvas svg{width:100%;height:auto;display:block}
+.notes{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:4px}
+.note{background:#111113;border-radius:8px;padding:8px 10px;font-size:10px;color:#52525b;line-height:1.6;border-top:2px solid #1a1a1e}
+.note b{color:#a1a1aa}
+.note .hl{font-weight:700}
+.leg{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+.leg span{font-size:9px;font-weight:700;display:flex;align-items:center;gap:4px}
+.leg i{width:14px;height:2px;border-radius:1px;display:inline-block}
+</style>
+</head>
+<body>
+
+<h1>Presets 06-30</h1>
+<p class="sub">Continuation. Full reactive visualizations: root + secondary + ghost lanes.</p>
+
+<!-- 06 RICOCHET -->
+<div class="p">
+<div class="p-head"><span class="p-num">06</span><span class="p-name" style="color:#d946ef">Ricochet</span></div>
+<p class="p-tag">Call and response. Sharp stabs (bars 1+3) alternate with fluid rolls (bars 2+4).</p>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/><line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/><line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<!-- Ghost: odd lanes follow call energy, even lanes follow response -->
+<path d="M0,78 Q8,74 16,82 Q24,76 32,80 Q40,76 48,82 Q56,78 64,80 Q72,78 80,82 Q120,82 180,82 Q220,82 240,82 Q260,82 280,82 Q300,80 320,78 Q340,82 360,80 Q380,82 400,80 Q420,82 440,78 Q460,82 480,82 Q488,76 496,84 Q504,78 512,82 Q520,78 528,84 Q540,78 560,82 Q600,82 660,82 Q700,82 720,82 Q740,82 760,80 Q780,78 800,82 Q820,80 840,78 Q860,82 880,80 Q900,82 920,78 Q940,82 960,82" stroke="#ffffff06" stroke-width="1" fill="none"/>
+<path d="M0,72 Q10,68 20,76 Q28,70 36,74 Q44,70 52,76 Q60,72 70,74 Q90,76 130,76 Q200,76 240,76 Q260,76 280,76 Q310,74 340,72 Q370,76 400,74 Q430,76 460,72 480,76 Q490,70 500,78 Q508,72 516,76 Q524,72 532,78 Q542,72 560,76 Q600,76 660,76 Q700,76 720,76 Q750,74 780,72 Q810,76 840,74 Q870,76 900,72 Q930,76 960,76" stroke="#ffffff04" stroke-width="1" fill="none"/>
+<!-- Reverb (green): only on response bars 2+4 -->
+<path d="M0,140 L240,140 Q280,125 320,85 Q360,60 400,55 Q440,65 470,110 L480,140 L720,140 Q760,128 800,90 Q840,65 880,60 Q920,75 950,120 L960,140" stroke="#22c55e" stroke-width="1.5" fill="none" opacity="0.5"/>
+<!-- Drive (orange): only on call bars 1+3 -->
+<path d="M0,140 L0,60 L12,60 L12,140 L30,140 L30,65 L42,65 L42,140 L60,140 L60,60 L72,60 L72,140 L240,140 L480,140 L480,55 L492,55 L492,140 L510,140 L510,60 L522,60 L522,140 L540,140 L540,55 L552,55 L552,140 L720,140 L960,140" stroke="#f97316" stroke-width="1.5" fill="none" opacity="0.5"/>
+<!-- Response fill (cyan) -->
+<path d="M0,140 L240,140 Q265,125 290,80 Q315,45 340,35 Q365,40 390,70 Q415,100 440,120 Q460,135 480,140 L720,140 Q745,128 770,85 Q795,50 820,40 Q845,48 870,78 Q895,105 920,125 Q940,136 960,140" stroke="#06b6d4" stroke-width="1.8" fill="none" opacity="0.55"/>
+<!-- ROOT: call stabs (1+3) + response arcs (2+4) -->
+<path d="M0,140 L0,18 L14,18 L14,140 L32,140 L32,18 L46,18 L46,140 L64,140 L64,18 L78,18 L78,140 L240,140 Q265,120 290,70 Q320,35 350,25 Q380,35 410,75 Q440,110 465,130 L480,140 L480,18 L494,18 L494,140 L512,140 L512,18 L526,18 L526,140 L544,140 L544,18 L558,18 L558,140 L720,140 Q745,122 770,75 Q800,40 830,30 Q860,40 890,80 Q920,115 945,132 L960,140" stroke="#d946ef" stroke-width="2.5" fill="none"/>
+</svg>
+</div>
+<div class="notes">
+<div class="note" style="border-color:#d946ef"><b>Call (1+3):</b> 3 sharp stabs + silence. <span class="hl" style="color:#f97316">Drive spikes on stabs only</span>. No reverb — dry and punchy.</div>
+<div class="note" style="border-color:#06b6d4"><b>Response (2+4):</b> Fluid arc. <span class="hl" style="color:#22c55e">Reverb blooms</span>. <span class="hl" style="color:#06b6d4">Delay fills the space</span>. Ghost lanes split: odd=call, even=response.</div>
+</div>
+</div>
+
+<!-- 07 WOBBLE -->
+<div class="p">
+<div class="p-head"><span class="p-num">07</span><span class="p-name" style="color:#d946ef">Wobble</span></div>
+<p class="p-tag">Variable-rate sine. Speed changes: slow → fast → peak → decelerate. FM-style.</p>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/><line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/><line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<!-- Ghost: phase-cascaded wobble — 30 wobbles slightly out of phase = massive -->
+<path d="M0,85 Q55,80 110,25 Q165,25 220,80 Q255,135 290,135 Q325,80 345,25 Q365,25 385,80 Q405,130 425,130 Q445,80 Q458,30 472,30 Q486,80 Q496,125 506,125 Q518,80 Q528,35 538,35 Q548,80 Q558,120 568,120 Q580,80 Q590,40 600,40 Q612,80 Q620,115 630,115 Q642,80 Q652,42 662,42 Q672,80 Q682,112 692,112 Q704,80 Q716,48 728,48 Q740,80 Q752,108 764,108 Q776,80 Q785,55 794,55 Q810,80 Q825,100 840,100 Q855,80 880,50 Q900,35 920,40 Q940,65 960,80" stroke="#ffffff07" stroke-width="1" fill="none"/>
+<path d="M0,75 Q65,75 130,20 Q195,20 240,75 Q262,130 284,130 Q306,75 330,25 Q354,25 378,75 Q398,125 418,125 Q438,75 Q452,28 466,28 Q480,75 Q492,120 504,120 Q516,75 Q528,32 540,32 Q552,75 Q564,115 576,115 Q588,75 Q600,38 612,38 Q624,75 Q636,110 648,110 Q660,75 Q670,42 680,42 Q690,75 Q702,105 714,105 Q726,75 Q738,50 750,50 Q766,75 Q782,95 798,95 Q814,75 Q835,55 860,45 Q890,40 920,55 960,75" stroke="#ffffff05" stroke-width="1" fill="none"/>
+<!-- Drive (orange): increases with speed -->
+<path d="M0,130 C120,128 240,115 360,95 C480,65 600,38 660,28 C720,34 800,58 880,88 C920,108 940,118 960,125" stroke="#f97316" stroke-width="1.5" fill="none" opacity="0.5"/>
+<!-- Resonance (green): high when slow (audible), ducks when fast -->
+<path d="M0,35 C120,40 240,55 360,75 C480,105 600,130 660,138 C720,130 800,105 880,75 C920,55 940,45 960,40" stroke="#22c55e" stroke-width="1.5" fill="none" opacity="0.5"/>
+<!-- ROOT: variable-rate sine -->
+<path d="M0,80 Q60,80 120,18 Q180,18 240,80 Q280,140 320,140 Q360,80 385,20 Q410,20 435,80 Q460,140 480,140 Q492,80 Q504,20 516,20 Q528,80 Q540,140 552,140 Q564,80 Q576,20 588,20 Q600,80 Q612,140 624,140 Q636,80 Q648,20 660,20 Q672,80 Q684,140 696,140 Q708,80 Q720,20 730,20 Q744,80 Q758,140 772,140 Q786,80 Q798,25 812,25 Q830,80 Q852,135 874,135 Q900,80 Q920,30 940,30 Q952,55 960,80" stroke="#d946ef" stroke-width="2.5" fill="none"/>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>FM-style:</b> Sine frequency: bar1 ~1Hz, bar2 ~2Hz, bar3 ~4Hz (peak), bar4 decelerates to ~1.5Hz. The RATE itself is an evolving curve.</div>
+<div class="note"><b>Reactive:</b> <span class="hl" style="color:#22c55e">Res HIGH when slow</span> (audible wobble). <span class="hl" style="color:#f97316">Drive HIGH when fast</span> (aggression). Ghost = phase-cascaded wobble → massive stereo.</div>
+</div>
+</div>
+
+<!-- 08 STAGGER -->
+<div class="p">
+<div class="p-head"><span class="p-num">08</span><span class="p-name" style="color:#d946ef">Stagger</span></div>
+<p class="p-tag">Asymmetric hit patterns: short-short-long-short. Changes each bar. No two bars the same.</p>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/><line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/><line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<!-- Ghost: randomized which hits they accent -->
+<path d="M0,80 Q10,76 20,84 Q35,80 55,78 Q80,84 100,78 Q120,82 145,80 Q165,78 190,84 Q210,80 230,82 Q240,80 Q250,76 265,84 Q290,78 320,82 Q350,78 380,84 Q410,78 435,82 Q460,80 480,80 Q492,76 504,84 Q520,78 540,82 Q565,78 590,84 Q620,78 650,82 Q680,80 710,78 720,80 Q732,76 744,84 Q760,78 780,82 Q800,76 830,84 Q860,78 890,82 Q920,78 950,82 960,80" stroke="#ffffff06" stroke-width="1" fill="none"/>
+<path d="M0,86 Q15,82 30,88 Q50,84 75,86 Q100,82 130,88 Q155,84 180,86 Q210,82 240,86 Q258,82 276,88 Q300,84 330,86 Q360,82 395,88 Q425,84 455,86 Q475,82 480,86 Q500,82 520,88 Q550,84 580,86 Q610,82 640,88 Q670,84 700,86 Q720,86 Q740,82 760,88 Q790,82 820,86 Q850,82 880,88 Q910,82 940,86 960,86" stroke="#ffffff04" stroke-width="1" fill="none"/>
+<!-- Filter sweep on long holds (green) -->
+<path d="M0,140 L82,140 Q100,120 130,80 Q148,80 L152,140 L240,140 L242,140 Q260,130 290,95 Q322,95 L328,140 L382,140 Q395,130 410,100 Q425,100 L430,140 L480,140 Q495,130 520,85 Q545,60 595,60 L600,140 L720,140 Q740,130 770,80 Q800,55 835,55 L840,140 L960,140" stroke="#22c55e" stroke-width="1.5" fill="none" opacity="0.45"/>
+<!-- Drive: sharp spikes on short hits, absent on long holds -->
+<path d="M0,140 L0,70 L15,140 L38,140 L38,75 L53,140 L152,140 L152,80 L167,140 L240,140 L240,65 Q250,65 260,80 L320,80 L328,140 L382,140 L382,70 L392,140 L420,140 L420,60 Q430,60 440,80 L480,80 L480,140 L480,55 L495,140 L600,140 L600,65 L615,140 L720,140 L720,55 L730,140 L840,140 L840,70 L850,140 L940,140 L940,60 L950,140 L960,140" stroke="#f97316" stroke-width="1.3" fill="none" opacity="0.45"/>
+<!-- ROOT: asymmetric hit patterns -->
+<path d="M0,140 L0,30 L20,30 L20,140 L40,140 L40,40 L60,40 L60,140 L82,140 L82,35 L150,35 L150,140 L172,140 L172,30 L192,30 L192,140 L240,140 L240,50 L320,50 L320,140 L340,140 L340,40 L360,40 L360,140 L382,140 L382,45 L400,45 L400,140 L420,140 L420,35 L480,35 L480,140 L480,28 L500,28 L500,140 L520,140 L520,40 L590,40 L590,140 L612,140 L612,32 L632,32 L632,140 L720,140 L720,25 L734,25 L734,140 L752,140 L752,45 L770,45 L770,140 L802,140 L802,32 L835,32 L835,140 L842,140 L842,20 L900,20 L900,140 L922,140 L922,40 L938,40 L938,140 L960,140" stroke="#d946ef" stroke-width="2.5" fill="none"/>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>Patterns:</b> Bar1: S-S-L-S. Bar2: L-S-S-L. Bar3: S-L-S-REST. Bar4: irregular 6 hits. <span class="hl" style="color:#f97316">Drive spikes on short hits</span>.</div>
+<div class="note"><b>Reactive:</b> <span class="hl" style="color:#22c55e">Filter sweeps during long holds</span> (fills the sustain). Ghost lanes randomize which hits they accent — no two lanes emphasize the same hit.</div>
+</div>
+</div>
+
+<!-- 09 PENDULUM (Damped Spring) -->
+<div class="p">
+<div class="p-head"><span class="p-num">09</span><span class="p-name" style="color:#d946ef">Pendulum</span></div>
+<p class="p-tag">Damped spring. One pluck — rings out losing energy. Real harmonic decay physics.</p>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/><line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/><line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<!-- Ghost: each lane is the same spring but different damping factor -->
+<path d="M0,80 Q0,25 45,25 Q90,25 90,80 Q90,135 135,135 Q180,135 180,80 Q180,40 215,40 Q250,40 250,80 Q250,120 278,120 Q306,120 306,80 Q306,50 330,50 Q354,50 354,80 Q354,110 374,110 Q394,110 394,80 Q394,58 412,58 Q430,58 430,80 Q430,102 445,102 Q460,102 460,80 L960,80" stroke="#ffffff08" stroke-width="1" fill="none"/>
+<path d="M0,80 Q0,18 50,18 Q100,18 100,80 Q100,142 150,142 Q200,142 200,80 Q200,32 242,32 Q284,32 284,80 Q284,128 316,128 Q348,128 348,80 Q348,42 378,42 Q408,42 408,80 Q408,118 432,118 Q456,118 456,80 Q456,50 478,50 Q500,50 500,80 Q500,110 518,110 Q536,110 536,80 Q536,56 554,56 Q572,56 572,80 Q572,104 586,104 Q600,104 600,80 Q600,60 614,60 Q628,60 628,80 Q628,100 640,100 Q652,100 652,80 Q652,64 664,64 Q676,64 676,80 Q676,96 686,96 Q696,96 696,80 Q696,68 706,68 Q716,68 716,80 L960,80" stroke="#ffffff05" stroke-width="1" fill="none"/>
+<!-- Reverb (green): grows as spring dies — fills the emptying space -->
+<path d="M0,140 C120,135 240,120 360,100 C480,75 600,55 720,42 C840,36 920,34 960,34" stroke="#22c55e" stroke-width="1.5" fill="none" opacity="0.5"/>
+<!-- Drive (orange): tracks amplitude of oscillation — high at start, fades -->
+<path d="M0,30 C80,35 160,50 240,70 C320,88 400,100 480,110 C560,118 640,124 720,130 C800,134 880,137 960,138" stroke="#f97316" stroke-width="1.5" fill="none" opacity="0.5"/>
+<!-- ROOT: damped oscillation centered on y=80 -->
+<path d="M0,80 Q0,8 55,8 Q110,8 110,80 Q110,152 165,152 Q220,152 220,80 Q220,22 268,22 Q316,22 316,80 Q316,138 354,138 Q392,392 392,80 Q392,35 425,35 Q458,458 458,80 Q458,125 484,125 Q510,510 510,80 Q510,44 538,44 Q566,566 566,80 Q566,116 586,116 Q606,606 606,80 Q606,52 628,52 Q650,80 650,80 Q650,108 666,108 Q682,80 682,80 Q682,58 698,58 Q714,80 714,80 Q714,102 726,102 Q738,80 738,80 Q738,62 750,62 Q762,80 762,80 Q762,98 772,98 Q782,80 782,80 Q782,66 792,66 Q802,80 802,80 Q802,94 810,94 Q818,80 818,80 Q818,68 826,68 Q834,80 834,80 Q834,92 840,92 Q846,80 846,80 Q846,72 852,72 Q858,80 858,80 Q858,88 864,88 Q870,80 870,80 L960,80" stroke="#d946ef" stroke-width="2.5" fill="none"/>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>Physics:</b> One "pluck" at beat 0. Oscillation rings out — each cycle smaller. By bar 4, nearly still. Real damped harmonic motion (amplitude decays exponentially).</div>
+<div class="note"><b>Reactive:</b> <span class="hl" style="color:#22c55e">Reverb grows</span> as spring dies (fills the void). <span class="hl" style="color:#f97316">Drive fades</span> with amplitude. Ghost: same spring, different damping factors — some ring longer.</div>
+</div>
+</div>
+
+<!-- 10 FRACTURE -->
+<div class="p">
+<div class="p-head"><span class="p-num">10</span><span class="p-name" style="color:#d946ef">Fracture</span></div>
+<p class="p-tag">Clean groove that breaks apart. Fractal self-similar degradation.</p>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/><line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/><line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<!-- Ghost: lanes fragment at different rates — some break early, some hold -->
+<path d="M0,80 Q8,78 16,82 Q24,78 32,82 Q40,78 48,82 Q56,78 64,82 Q72,78 80,82 Q88,78 96,82 Q104,78 112,82 Q120,78 128,82 Q136,78 144,82 Q152,78 160,82 Q168,78 176,82 Q184,78 192,82 Q200,78 208,82 Q216,78 224,82 Q232,78 240,80 Q250,76 260,84 Q270,76 280,84 Q292,80 310,80 Q330,76 350,84 Q370,80 390,80 Q410,76 430,84 Q450,80 470,80 Q480,80 Q495,74 510,86 Q530,80 560,80 Q575,74 590,86 Q610,80 640,80 Q660,74 680,86 Q700,80 720,80 Q728,72 736,88 Q744,80 756,80 Q768,72 780,88 Q800,80 820,80 Q832,72 844,88 Q860,80 880,80 Q900,72 920,88 Q940,80 960,80" stroke="#ffffff06" stroke-width="1" fill="none"/>
+<!-- Reverb: grows as groove fractures -->
+<path d="M0,140 C240,138 480,120 600,88 C720,58 840,38 960,28" stroke="#22c55e" stroke-width="1.5" fill="none" opacity="0.5"/>
+<!-- Drive: gets harsher on remaining shards -->
+<path d="M0,120 C240,118 480,100 600,70 C720,42 840,25 960,18" stroke="#f97316" stroke-width="1.5" fill="none" opacity="0.45"/>
+<!-- ROOT: degrading groove -->
+<path d="M0,140 L0,30 Q20,30 40,30 L40,140 L60,140 L60,30 Q80,30 100,30 L100,140 L120,140 L120,30 Q140,30 160,30 L160,140 L180,140 L180,30 Q200,30 220,30 L220,140 L240,140 L240,30 Q260,30 280,30 L280,140 L300,140 L300,30 Q320,30 340,30 L340,140 L362,140 L362,40 L375,40 L375,140 L388,140 L388,50 L400,50 L400,140 L420,140 L420,30 Q440,30 460,30 L460,140 L480,140 L480,35 Q490,35 498,35 L498,140 L535,140 L535,45 L548,45 L548,140 L568,140 L568,30 L578,30 L578,140 L610,140 L610,50 L620,50 L620,140 L675,140 L675,40 L685,40 L685,140 L720,140 L726,140 L726,25 L732,25 L732,140 L748,140 L748,35 L754,35 L754,140 L772,140 L772,20 L778,20 L778,140 L800,140 L806,30 L812,30 L812,140 L840,140 L846,25 L850,25 L850,140 L884,140 L890,20 L894,20 L894,140 L930,140 L936,35 L940,35 L940,140 L960,140" stroke="#d946ef" stroke-width="2.5" fill="none"/>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>Fractal:</b> Bar 1: clean 4/4. Bar 2: beat 3 splits. Bar 3: gaps + scramble. Bar 4: shards with silence. Each split contains smaller splits.</div>
+<div class="note"><b>Reactive:</b> <span class="hl" style="color:#22c55e">Reverb grows</span> (fills increasing silence). <span class="hl" style="color:#f97316">Drive harshens</span> remaining shards. Ghost lanes fragment at different rates — dissolving effect.</div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<h2>Pumper Variants</h2>
+<!-- ═══════════════════════════════════════════════ -->
+
+<!-- 11 PUMPER TIGHT -->
+<div class="p">
+<div class="p-head"><span class="p-num">11</span><span class="p-name" style="color:#f97316">The Pumper — Tight</span></div>
+<p class="p-tag">The reference. Tight → syncopated → open → double-time. All lanes react per bar.</p>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/><line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/><line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<path d="M0,82 Q10,80 20,84 Q30,80 40,84 Q50,80 60,82 Q70,80 80,84 Q90,80 100,84 Q110,80 120,82 Q130,80 140,84 Q150,80 160,82 Q170,80 180,84 Q190,80 200,84 Q210,80 220,82 Q230,80 240,82 Q252,78 264,86 Q276,78 288,86 Q300,78 320,86 Q340,78 360,86 Q380,78 400,86 Q420,78 440,86 Q460,78 480,82 Q490,74 500,90 Q508,72 516,90 Q524,70 532,92 Q540,68 548,92 Q556,66 564,94 Q572,64 580,94 Q588,62 596,96 Q604,60 612,96 Q620,58 628,98 Q636,56 644,98 Q652,54 660,100 Q668,52 676,100 Q684,50 692,102 Q700,48 708,102 Q716,46 720,82 Q724,68 728,96 Q732,64 736,98 Q740,60 744,100 Q748,56 752,102 Q756,52 760,104 Q764,48 768,106 Q772,44 776,106 Q780,40 784,108 Q788,38 792,108 Q800,36 808,110 Q816,34 824,110 Q832,32 840,112 Q848,30 856,112 Q864,28 872,114 Q880,26 888,114 Q896,24 904,116 Q912,22 920,116 Q928,20 936,118 Q944,18 952,118 960,18" stroke="#ffffff06" stroke-width="1" fill="none"/>
+<!-- Resonance: counter bar1-2, free wobble bar3, slams zero bar4 -->
+<path d="M0,48 Q8,48 15,130 Q28,145 42,145 Q52,145 60,48 Q68,48 75,130 Q88,145 102,145 Q112,145 120,48 Q128,48 135,130 Q148,145 162,145 Q172,145 180,48 Q188,48 195,130 Q208,145 222,145 Q232,145 240,48 Q248,48 258,120 Q275,135 295,135 Q315,135 330,48 Q340,48 358,100 Q376,120 400,120 Q420,120 440,48 L480,80 Q488,55 496,80 Q504,100 512,80 Q520,55 528,75 Q536,55 544,75 Q552,95 560,75 Q568,55 576,70 Q584,55 592,70 Q600,90 608,70 Q616,55 624,68 Q632,55 640,68 Q648,85 656,68 Q664,58 672,68 Q680,58 688,68 Q696,80 704,68 Q712,60 720,68 Q730,145 740,145 Q760,145 780,145 Q800,145 820,145 Q840,145 860,145 Q880,145 900,145 Q920,145 940,145 Q960,145" stroke="#22c55e" stroke-width="1.5" fill="none" opacity="0.5"/>
+<!-- Delay: silent bar1, fills gaps bar2, blooms bar3, cuts bar4 -->
+<path d="M0,140 L240,140 Q280,140 320,130 Q360,110 400,100 Q420,95 440,100 Q460,120 480,140 Q500,120 530,80 Q560,55 600,50 Q640,55 680,80 Q700,110 710,130 Q718,138 720,140 L960,140" stroke="#06b6d4" stroke-width="1.5" fill="none" opacity="0.45"/>
+<!-- ROOT: evolving pump -->
+<path d="M0,140 Q5,140 10,20 Q25,15 40,15 Q50,15 60,140 Q65,140 70,20 Q85,15 100,15 Q110,15 120,140 Q125,140 130,20 Q145,15 160,15 Q170,15 180,140 Q185,140 190,20 Q205,15 220,15 Q230,15 240,140 Q248,140 258,30 Q275,20 295,20 Q315,20 330,140 Q340,140 360,40 Q380,30 405,30 Q425,30 440,140 L480,140 Q490,110 510,60 Q530,35 560,30 Q580,30 600,50 Q620,80 640,110 Q660,125 680,135 Q700,140 720,140 Q724,120 728,60 Q731,35 734,22 Q737,140 740,120 Q744,55 748,30 Q751,18 755,140 Q758,110 762,45 Q766,22 770,15 Q774,140 778,105 Q782,40 786,18 Q790,12 794,140 Q798,100 802,35 Q806,15 810,10 Q814,140 818,90 Q822,30 828,12 Q832,8 838,140 Q844,80 850,25 Q856,10 862,5 Q868,140 876,70 Q884,20 892,8 Q900,4 908,140 Q918,60 928,15 Q936,5 944,3 Q952,140 958,50 960,5" stroke="#f97316" stroke-width="2.5" fill="none"/>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>4 phases:</b> Tight 4/4 → syncopated → open sweep → double-time build. <span class="hl" style="color:#22c55e">Resonance: counter→wobble→zero.</span></div>
+<div class="note"><b>Reactive:</b> <span class="hl" style="color:#06b6d4">Delay fills gaps bar2-3</span>, cuts bar4. Ghost lanes: tight micro bar1, wider bar2-3, dense cascade bar4.</div>
+</div>
+</div>
+
+<!-- 12-16: Pumper variants -->
+<!-- 12 HALF-TIME -->
+<div class="p">
+<div class="p-head"><span class="p-num">12</span><span class="p-name" style="color:#f97316">The Pumper — Half-Time</span></div>
+<p class="p-tag">2-bar pump cycle. Hit + long exponential decay. Resonance + delay fill the tail.</p>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/><line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/><line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<path d="M0,82 Q30,80 60,84 Q90,80 120,82 Q150,80 180,84 Q210,80 240,82 Q260,78 280,86 Q300,78 320,84 Q340,80 360,86 Q380,78 400,84 Q420,80 440,84 Q460,80 480,82 Q510,80 540,84 Q570,80 600,82 Q630,78 660,86 Q690,78 720,82 Q740,78 760,86 Q780,78 800,84 Q820,80 840,86 Q860,78 880,84 Q900,80 920,84 Q940,80 960,82" stroke="#ffffff06" stroke-width="1" fill="none"/>
+<path d="M0,76 Q40,74 80,78 Q120,74 160,78 Q200,74 240,76 Q270,72 300,80 Q330,72 360,78 Q390,74 420,80 Q450,72 480,76 Q520,74 560,78 Q600,74 640,76 Q680,72 720,76 Q750,72 780,80 Q810,72 840,78 Q870,74 900,80 Q930,72 960,76" stroke="#ffffff04" stroke-width="1" fill="none"/>
+<!-- Resonance (fuchsia): peaks during decay tail — fills the space -->
+<path d="M0,140 L20,140 Q50,130 100,80 Q150,40 200,35 Q250,40 300,70 Q350,100 400,125 Q440,138 480,140 L500,140 Q530,130 580,80 Q630,40 680,35 Q730,40 780,70 Q830,100 880,125 Q920,138 960,140" stroke="#d946ef" stroke-width="1.8" fill="none" opacity="0.55"/>
+<!-- Delay (cyan): blooms in bars 2+4 -->
+<path d="M0,140 L100,140 Q150,130 200,95 Q250,65 300,55 Q350,60 400,85 Q440,115 470,135 L480,140 L580,140 Q630,130 680,95 Q730,65 780,55 Q830,60 880,85 Q920,115 950,135 L960,140" stroke="#06b6d4" stroke-width="1.5" fill="none" opacity="0.45"/>
+<!-- ROOT: half-time pump -->
+<path d="M0,140 Q10,140 20,15 C60,12 100,25 140,48 C180,75 220,105 260,125 C300,138 340,140 400,140 L480,140 Q490,140 500,15 C540,12 580,25 620,48 C660,75 700,105 740,125 C780,138 820,140 880,140 L960,140" stroke="#f97316" stroke-width="2.5" fill="none"/>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>Shape:</b> Sharp attack, long exponential tail over 2 bars. <span class="hl" style="color:#d946ef">Resonance peaks during tail</span> — fills the decay.</div>
+<div class="note"><b>Reactive:</b> <span class="hl" style="color:#06b6d4">Delay blooms in bars 2+4</span> (tail zone). Ghost lanes follow pump energy at micro level. Spacious, heavy, hypnotic.</div>
+</div>
+</div>
+
+<!-- 13 REVERSE -->
+<div class="p">
+<div class="p-head"><span class="p-num">13</span><span class="p-name" style="color:#f97316">The Pumper — Reverse</span></div>
+<p class="p-tag">Values rise BEFORE the beat, snap down ON the beat. Sucking-in energy.</p>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/><line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/><line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<path d="M0,82 Q15,80 30,84 Q45,80 60,82 Q75,80 90,84 Q105,80 120,82 Q135,80 150,84 Q165,80 180,82 Q195,80 210,84 Q225,80 240,82 Q255,80 270,84 Q285,80 300,82 Q315,80 330,84 Q345,80 360,82 Q375,80 390,84 Q405,80 420,82 Q435,80 450,84 Q465,80 480,82 Q495,80 510,84 Q525,80 540,82 Q555,80 570,84 Q585,80 600,82 Q615,80 630,84 Q645,80 660,82 Q675,80 690,84 Q705,80 720,82 Q735,80 750,84 Q765,80 780,82 Q795,80 810,84 Q825,80 840,82 Q855,80 870,84 Q885,80 900,82 Q915,80 930,84 Q945,80 960,82" stroke="#ffffff06" stroke-width="1" fill="none"/>
+<!-- Resonance: counter-rises before snap, slams at snap moment -->
+<path d="M0,80 Q8,80 16,85 Q24,90 32,100 Q40,110 48,125 Q52,132 56,140 L60,60 Q68,60 76,65 Q84,70 92,80 Q100,90 108,105 Q112,115 116,130 L120,55 Q128,55 136,60 Q144,68 152,78 Q160,88 168,102 Q172,112 176,128 L180,50 Q188,52 196,58 Q204,65 212,76 Q220,86 228,100 Q232,110 236,125 L240,48 Q248,50 256,55 Q264,62 272,72 Q280,82 288,96 Q292,106 296,120 L300,45 Q350,48 Q400,52 Q450,58 Q500,66 Q550,78 Q600,92 L960,92" stroke="#22c55e" stroke-width="1.5" fill="none" opacity="0.45"/>
+<!-- Drive: peaks at the snap moment -->
+<path d="M0,140 L56,140 L58,50 L62,140 L116,140 L118,55 L122,140 L176,140 L178,50 L182,140 L236,140 L238,48 L242,140 L296,140 L298,45 L302,140 L960,140" stroke="#f97316" stroke-width="1.3" fill="none" opacity="0.45"/>
+<!-- ROOT: reverse pump -->
+<path d="M0,140 C15,130 30,100 40,65 Q48,35 54,20 L60,140 C75,130 90,100 100,65 Q108,35 114,20 L120,140 C135,130 150,100 160,65 Q168,35 174,20 L180,140 C195,130 210,100 220,65 Q228,35 234,20 L240,140 C255,130 270,100 280,65 Q288,35 294,20 L300,140 C315,130 330,100 340,65 Q348,35 354,20 L360,140 C375,130 390,100 400,65 Q408,35 414,20 L420,140 C435,130 450,100 460,65 Q468,35 474,20 L480,140 C495,130 510,100 520,65 Q528,35 534,20 L540,140 C555,130 570,100 580,65 Q588,35 594,20 L600,140 C615,130 630,100 640,65 Q648,35 654,20 L660,140 C675,130 690,100 700,65 Q708,35 714,20 L720,140 C735,130 750,100 760,65 Q768,35 774,20 L780,140 C795,130 810,100 820,65 Q828,35 834,20 L840,140 C855,130 870,100 880,65 Q888,35 894,20 L900,140 C915,130 930,100 940,65 Q948,35 954,20 L960,140" stroke="#f97316" stroke-width="2.5" fill="none"/>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>Reverse:</b> Exponential ramp UP before each beat, instant snap DOWN on the beat. Energy flows backward — "sucking" instead of "pumping".</div>
+<div class="note"><b>Reactive:</b> <span class="hl" style="color:#22c55e">Resonance counter-rises</span> before each snap (tension building). <span class="hl" style="color:#f97316">Drive spikes at snap moment</span>. Ghost lanes carry the tension buildup at micro level.</div>
+</div>
+</div>
+
+<!-- 14 TRIPLET -->
+<div class="p">
+<div class="p-head"><span class="p-num">14</span><span class="p-name" style="color:#f97316">The Pumper — Triplet</span></div>
+<p class="p-tag">3-against-4 polyrhythm. Triplets resolve to straight in bars 3-4. The lock-in is the climax.</p>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/><line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/><line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<path d="M0,82 Q20,78 40,86 Q60,80 80,82 Q100,78 120,86 Q140,80 160,82 Q180,78 200,86 Q220,80 240,82 Q260,78 280,86 Q300,80 320,82 Q340,78 360,86 Q380,80 400,82 Q420,78 440,86 Q460,80 480,82 Q495,78 510,86 Q525,78 540,86 Q555,78 570,86 Q585,78 600,82 Q615,78 630,86 Q645,78 660,86 Q675,78 690,86 Q705,78 720,82 Q735,78 750,86 Q765,78 780,86 Q795,78 810,86 Q825,78 840,82 Q855,78 870,86 Q885,78 900,86 Q915,78 930,86 Q945,78 960,82" stroke="#ffffff06" stroke-width="1" fill="none"/>
+<!-- Filter: opens wider in triplet zone, tightens when resolves -->
+<path d="M0,50 C120,52 240,55 360,60 C480,65 500,100 520,120 C560,128 600,130 640,130 C700,130 760,128 800,130 C860,130 920,128 960,130" stroke="#22c55e" stroke-width="1.5" fill="none" opacity="0.5"/>
+<!-- Resonance: tracks rhythmic tension -->
+<path d="M0,110 C120,108 240,105 360,98 C480,90 520,50 560,40 C600,38 640,40 680,42 C740,45 800,48 860,50 C920,52 940,55 960,58" stroke="#d946ef" stroke-width="1.5" fill="none" opacity="0.45"/>
+<!-- ROOT: triplet bars 1-2, straight bars 3-4 -->
+<path d="M0,140 Q5,140 10,18 Q30,15 50,15 Q65,15 80,140 Q85,140 90,18 Q110,15 130,15 Q145,15 160,140 Q165,140 170,18 Q190,15 210,15 Q225,15 240,140 Q245,140 250,18 Q270,15 290,15 Q305,15 320,140 Q325,140 330,18 Q350,15 370,15 Q385,15 400,140 Q405,140 410,18 Q430,15 450,15 Q465,15 480,140 Q485,140 490,18 Q505,15 520,15 Q530,15 540,140 Q545,140 550,18 Q565,15 580,15 Q590,15 600,140 Q605,140 610,18 Q625,15 640,15 Q650,15 660,140 Q665,140 670,18 Q685,15 700,15 Q710,15 720,140 Q725,140 730,18 Q745,15 760,15 Q770,15 780,140 Q785,140 790,18 Q805,15 820,15 Q830,15 840,140 Q845,140 850,18 Q865,15 880,15 Q890,15 900,140 Q905,140 910,18 Q925,15 940,15 Q950,15 960,140" stroke="#f97316" stroke-width="2.5" fill="none"/>
+<text x="100" y="10" fill="#f9731633" font-size="8">TRIPLET (3/bar)</text>
+<text x="580" y="10" fill="#22c55e33" font-size="8">STRAIGHT (4/bar) — resolves</text>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>Polyrhythm:</b> Bars 1-2: 3 pumps/bar (triplet). Bars 3-4: straight 4/bar. The moment it locks to grid = maximum groove satisfaction.</div>
+<div class="note"><b>Reactive:</b> <span class="hl" style="color:#22c55e">Filter wider in triplet zone</span> (more space for "wrong" feel). <span class="hl" style="color:#d946ef">Resonance peaks at resolution</span>. Ghost tracks rhythmic tension.</div>
+</div>
+</div>
+
+<!-- 15 SHARK FIN -->
+<div class="p">
+<div class="p-head"><span class="p-num">15</span><span class="p-name" style="color:#f97316">The Pumper — Shark Fin</span></div>
+<p class="p-tag">Asymmetric: exponential rise + logarithmic fall. Each bar a different attack/release ratio.</p>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/><line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/><line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<path d="M0,82 Q15,80 30,84 Q45,80 60,82 Q75,80 90,84 Q105,80 120,82 Q135,80 150,84 Q165,80 180,82 Q195,80 210,84 Q225,80 240,82 Q255,80 270,84 Q285,80 300,82 Q315,80 330,84 Q345,80 360,82 Q375,80 390,84 Q405,80 420,82 Q435,80 450,84 Q465,80 480,82 Q495,80 510,84 Q525,80 540,82 Q555,80 570,84 Q585,80 600,82 Q615,80 630,84 Q645,80 660,82 Q675,80 690,84 Q705,80 720,82 Q735,80 750,84 Q765,80 780,82 Q795,80 810,84 Q825,80 840,82 Q855,80 870,84 Q885,80 900,82 Q915,80 930,84 Q945,80 960,82" stroke="#ffffff06" stroke-width="1" fill="none"/>
+<!-- Resonance (green): inverse asymmetry — when root has sharp attack, res has slow attack -->
+<path d="M0,140 Q15,130 30,80 Q50,55 75,55 Q100,70 120,100 Q135,125 148,140 Q155,140 162,130 Q180,80 200,55 Q220,55 240,100 Q250,130 260,140 Q265,140 290,130 Q320,80 350,55 Q380,80 410,120 Q425,138 440,140 Q445,140 460,130 Q480,80 500,55 Q520,55 540,80 Q555,110 565,130 Q570,140 580,140 L590,140 Q610,130 640,100 Q660,80 680,80 Q700,100 710,130 L720,140 Q735,140 745,130 Q770,105 790,80 Q810,80 830,100 Q845,120 855,135 L860,140 Q870,140 885,130 Q910,100 930,80 Q940,90 950,115 960,140" stroke="#22c55e" stroke-width="1.5" fill="none" opacity="0.5"/>
+<!-- Drive: tracks the sharp edges -->
+<path d="M0,140 L2,50 L10,140 Q30,130 50,120 Q80,135 100,140 L120,50 L128,140 Q148,130 168,120 Q198,135 218,140 L240,140 Q258,130 280,80 L282,140 Q310,140 340,140 Q365,140 395,140 Q420,130 440,80 L442,140 L480,140 Q495,130 510,80 L512,140 Q540,140 570,140 Q580,140 590,130 L592,80 L594,140 Q620,140 660,140 Q680,140 720,140 Q735,130 L737,80 L739,140 Q770,140 810,140 Q830,140 860,140 Q872,130 L874,80 L876,140 Q910,140 960,140" stroke="#f97316" stroke-width="1.3" fill="none" opacity="0.4"/>
+<!-- ROOT: bar1: sharp rise/slow fall. bar2: slow rise/sharp fall. bar3: alternating. bar4: mixed -->
+<path d="M0,140 Q3,140 5,18 Q20,18 45,45 Q80,95 115,130 Q125,140 135,140 Q138,140 140,18 Q155,18 180,45 Q215,95 235,130 L240,140 Q255,120 280,70 Q300,30 310,18 L312,140 Q327,120 350,70 Q370,30 380,18 L382,140 Q397,120 420,70 Q440,30 450,18 L452,140 L480,140 Q483,140 485,18 Q500,18 525,45 Q560,95 575,130 L580,140 Q595,120 620,70 Q640,30 650,18 L652,140 Q655,140 657,18 Q672,18 697,45 Q732,95 750,130 L752,140 Q767,120 790,70 Q810,30 820,18 L822,140 Q825,140 827,18 Q842,18 867,45 Q902,95 920,130 L922,140 Q937,120 952,70 960,30" stroke="#f97316" stroke-width="2.5" fill="none"/>
+<text x="60" y="10" fill="#f9731633" font-size="7">SHARP RISE</text>
+<text x="290" y="10" fill="#f9731633" font-size="7">SLOW RISE</text>
+<text x="520" y="10" fill="#f9731633" font-size="7">ALTERNATING</text>
+<text x="770" y="10" fill="#f9731633" font-size="7">MIXED</text>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>Shark Fin:</b> Bar 1: sharp attack, slow decay. Bar 2: slow rise, sharp drop. Bar 3: alternates within bar. Bar 4: mixed ratios. Asymmetric = natural.</div>
+<div class="note"><b>Reactive:</b> <span class="hl" style="color:#22c55e">Res uses INVERSE asymmetry</span> — when root has sharp attack, res has slow attack. <span class="hl" style="color:#f97316">Drive spikes on sharp edges</span> only. Ghost carries the asymmetry at micro level.</div>
+</div>
+</div>
+
+<!-- 16 DECAY VARIANTS -->
+<div class="p">
+<div class="p-head"><span class="p-num">16</span><span class="p-name" style="color:#f97316">The Pumper — Decay</span></div>
+<p class="p-tag">Same attack, 4 different decay curves: linear, convex, concave, exponential.</p>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/><line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/><line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<path d="M0,82 Q30,80 60,84 Q90,80 120,82 Q150,80 180,84 Q210,80 240,82 Q270,80 300,84 Q330,80 360,82 Q390,80 420,84 Q450,80 480,82 Q510,80 540,84 Q570,80 600,82 Q630,80 660,84 Q690,80 720,82 Q750,80 780,84 Q810,80 840,82 Q870,80 900,84 Q930,80 960,82" stroke="#ffffff06" stroke-width="1" fill="none"/>
+<!-- Resonance: uses inverse decay type -->
+<path d="M0,140 L2,100 Q30,90 60,80 Q90,72 120,60 Q150,50 178,45 Q200,42 220,40 Q238,40 240,140 L242,90 Q250,90 270,85 Q300,82 330,90 Q360,105 390,120 Q420,132 440,140 Q456,140 480,140 L482,110 Q488,108 500,105 Q520,104 540,106 Q560,110 580,118 Q600,128 620,136 Q640,140 660,140 Q678,140 700,140 L702,105 C720,100 740,88 760,75 C780,62 800,52 820,45 C840,40 860,38 880,38 C900,39 920,42 940,48 960,55" stroke="#22c55e" stroke-width="1.5" fill="none" opacity="0.45"/>
+<!-- Drive: matches root but at 50% -->
+<path d="M0,140 L2,75 L58,130 L60,75 L118,130 L120,75 L178,130 L180,75 L238,130 L240,140 L242,75 Q260,75 290,78 Q340,88 380,110 Q420,130 450,140 L480,140 L482,75 L490,118 Q510,128 540,132 Q570,136 600,138 L660,140 Q678,140 700,140 L702,75 C730,80 760,90 790,105 C820,118 850,128 880,132 C910,135 940,138 960,140" stroke="#f97316" stroke-width="1.3" fill="none" opacity="0.4"/>
+<!-- ROOT: 4 decay types -->
+<path d="M0,140 L2,18 L58,130 L60,18 L118,130 L120,18 L178,130 L180,18 L238,130 L240,140 L242,18 Q260,18 290,22 Q340,38 380,75 Q420,115 450,135 Q468,140 480,140 L482,18 L490,100 Q510,120 540,128 Q570,134 600,138 L660,140 Q678,140 700,140 L702,18 C730,30 760,55 790,82 C820,105 850,122 880,132 C910,138 940,140 960,140" stroke="#f97316" stroke-width="2.5" fill="none"/>
+<text x="80" y="10" fill="#f9731633" font-size="7">LINEAR</text>
+<text x="320" y="10" fill="#f9731633" font-size="7">CONVEX (holds high)</text>
+<text x="550" y="10" fill="#f9731633" font-size="7">CONCAVE (drops fast)</text>
+<text x="790" y="10" fill="#f9731633" font-size="7">EXPONENTIAL</text>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>Same rhythm, 4 textures:</b> Linear=robotic. Convex=holds energy. Concave=snappy. Exponential=natural acoustic decay. Each bar is a different character.</div>
+<div class="note"><b>Reactive:</b> <span class="hl" style="color:#22c55e">Resonance uses INVERSE decay type</span> — when root is convex, res is concave. Natural complementary. <span class="hl" style="color:#f97316">Drive follows root shape at 50%</span>.</div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<h2>Sweep &amp; Evolve</h2>
+<!-- ═══════════════════════════════════════════════ -->
+
+<!-- 17 SLOW BURN -->
+<div class="p">
+<div class="p-head"><span class="p-num">17</span><span class="p-name" style="color:#22c55e">Slow Burn</span></div>
+<p class="p-tag">Glacial WT sweep. Filter fills the silence, yields when WT takes over.</p>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/><line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/><line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<path d="M0,82 Q40,80 80,84 Q120,80 160,82 Q200,80 240,82 Q280,78 320,84 Q360,78 400,82 Q440,78 480,82 Q510,76 540,86 Q570,74 600,84 Q630,72 660,86 Q690,70 720,84 Q740,68 760,88 Q780,66 800,90 Q820,64 840,92 Q860,62 880,92 Q900,60 920,94 Q940,58 960,94" stroke="#ffffff06" stroke-width="1" fill="none"/>
+<path d="M0,86 Q50,84 100,88 Q150,84 200,86 Q250,84 300,86 Q340,82 380,88 Q420,82 460,86 Q500,80 540,90 Q580,78 620,88 Q660,76 700,88 Q730,74 760,92 Q790,70 820,92 Q850,68 880,94 Q910,66 940,96 960,66" stroke="#ffffff04" stroke-width="1" fill="none"/>
+<!-- Reverb (fuchsia): counter to sweep — big when dark, small when bright -->
+<path d="M0,30 C160,32 320,38 480,55 C640,80 800,105 960,118" stroke="#d946ef" stroke-width="1.8" fill="none" opacity="0.5"/>
+<!-- Filter (orange): active bars 1-2 (fills stillness), holds bars 3-4 -->
+<path d="M0,120 Q40,80 80,45 Q120,30 160,45 Q200,80 240,120 Q280,80 320,45 Q360,30 400,50 Q440,80 480,100 L560,98 L640,96 L720,94 L800,92 L880,90 L960,88" stroke="#f97316" stroke-width="1.8" fill="none" opacity="0.6"/>
+<!-- Chorus rate (cyan): calm bars 1-2, picks up bars 3-4 -->
+<path d="M0,95 Q30,93 60,97 Q90,95 120,93 Q150,96 180,94 Q210,93 240,95 Q270,91 300,98 Q330,90 360,96 Q390,88 420,96 Q450,86 480,92 Q505,82 530,98 Q555,78 580,96 Q605,74 630,98 Q655,70 680,100 Q705,66 730,102 Q755,62 780,104 Q805,58 830,106 Q855,56 880,108 Q905,52 930,108 Q950,50 960,108" stroke="#06b6d4" stroke-width="1.5" fill="none" opacity="0.45"/>
+<!-- ROOT: glacial WT sweep -->
+<path d="M0,140 C160,136 320,120 480,95 C640,55 800,28 960,18" stroke="#22c55e" stroke-width="2.5" fill="none"/>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>Trade-off:</b> <span class="hl" style="color:#f97316">Filter does sweeps</span> while WT barely moves (bars 1-2). Yields when WT takes over (bars 3-4). <span class="hl" style="color:#d946ef">Reverb counter-tracks WT</span>.</div>
+<div class="note"><b>Reactive:</b> <span class="hl" style="color:#06b6d4">Chorus rate picks up</span> as WT enters bright zone. Ghost lanes: calm bars 1-2, increasingly agitated bars 3-4 (tracking energy of the WT zone).</div>
+</div>
+</div>
+
+<!-- 18 DEEP BREATH -->
+<div class="p">
+<div class="p-head"><span class="p-num">18</span><span class="p-name" style="color:#22c55e">Deep Breath</span></div>
+<p class="p-tag">Inhale/exhale. Reverb blooms on inhale. Drive compresses on exhale. Different lane owners per phase.</p>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/><line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/><line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<text x="80" y="8" fill="#06b6d433" font-size="7">INHALE</text>
+<text x="310" y="8" fill="#f59e0b33" font-size="7">PEAK</text>
+<text x="540" y="8" fill="#d946ef33" font-size="7">EXHALE</text>
+<text x="790" y="8" fill="#3f3f4633" font-size="7">REST</text>
+<path d="M0,82 Q30,80 60,78 Q90,74 120,70 Q150,66 180,62 Q210,58 240,56 Q270,54 300,52 Q330,54 360,56 Q390,60 420,66 Q450,72 480,78 Q510,82 540,84 Q570,84 600,84 Q630,82 660,82 Q690,82 720,82 Q750,82 780,82 Q810,82 840,82 Q870,82 900,82 Q930,82 960,82" stroke="#ffffff06" stroke-width="1" fill="none"/>
+<path d="M0,86 Q40,84 80,82 Q120,78 160,74 Q200,68 240,62 Q270,58 300,56 Q330,58 360,62 Q400,70 440,78 Q470,84 500,88 Q530,88 560,88 Q590,86 620,86 Q650,86 680,86 Q710,86 740,86 Q770,86 800,86 Q830,86 860,86 Q890,86 920,86 Q950,86 960,86" stroke="#ffffff04" stroke-width="1" fill="none"/>
+<!-- Reverb (orange): ONLY active during inhale -->
+<path d="M0,140 C30,128 60,100 90,72 C120,45 160,25 200,18 C240,14 280,16 320,25 C360,45 400,85 440,125 Q465,140 480,140 L960,140" stroke="#f97316" stroke-width="1.8" fill="none" opacity="0.55"/>
+<!-- Drive (fuchsia): ONLY active during exhale -->
+<path d="M0,140 L360,140 C390,138 420,128 450,112 C480,88 510,60 535,42 C555,30 575,35 600,48 C625,70 650,100 680,125 Q700,140 720,140 L960,140" stroke="#d946ef" stroke-width="1.8" fill="none" opacity="0.55"/>
+<!-- Width (cyan): follows breath shape -->
+<path d="M0,135 C60,118 120,85 180,52 C220,30 260,18 300,15 C340,16 380,22 420,42 C460,70 500,105 540,128 C580,138 620,140 660,140 L960,140" stroke="#06b6d4" stroke-width="1.5" fill="none" opacity="0.45"/>
+<!-- ROOT: breath arc -->
+<path d="M0,140 C60,125 120,90 180,55 C220,30 260,15 300,12 C340,12 380,18 420,35 C460,65 500,100 540,125 C580,138 620,140 660,140 L960,140" stroke="#22c55e" stroke-width="2.5" fill="none"/>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>Phase ownership:</b> <span class="hl" style="color:#f97316">Reverb ONLY on inhale</span> — space opens. <span class="hl" style="color:#d946ef">Drive ONLY on exhale</span> — compression. <span class="hl" style="color:#06b6d4">Width follows breath shape</span>.</div>
+<div class="note"><b>Reactive:</b> Each lane "owns" a different breath phase. Some only exist at peak. Some only during rest. Ghost lanes expand on inhale, contract on exhale.</div>
+</div>
+</div>
+
+<!-- 19 TIDE -->
+<div class="p">
+<div class="p-head"><span class="p-num">19</span><span class="p-name" style="color:#22c55e">Tide</span></div>
+<p class="p-tag">Two sweeps in opposite directions crossing at bar 2. The intersection is where everything activates.</p>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/><line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/><line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<!-- Tertiary: energy peaks at crossing point, calm when far apart -->
+<path d="M0,82 Q60,82 120,82 Q180,82 240,82 Q300,80 360,76 Q400,70 420,62 Q440,52 460,42 Q470,35 480,30 Q490,35 500,42 Q520,52 540,62 Q560,70 600,76 Q660,80 720,82 Q780,82 840,82 Q900,82 960,82" stroke="#ffffff10" stroke-width="5" fill="none"/>
+<path d="M0,82 Q60,82 120,82 Q180,81 240,80 Q300,78 340,74 Q380,66 400,58 Q420,48 440,38 Q456,30 468,26 Q480,24 Q492,26 504,30 Q520,38 540,48 Q560,58 580,66 Q620,74 660,78 Q720,80 780,81 Q840,82 960,82" stroke="#ffffff07" stroke-width="4" fill="none"/>
+<!-- Resonance: peaks at crossing -->
+<path d="M0,120 C120,118 240,110 360,90 C420,65 450,40 480,30 C510,40 540,65 600,90 C720,110 840,118 960,120" stroke="#d946ef" stroke-width="1.5" fill="none" opacity="0.5"/>
+<!-- Delay: activates at crossing -->
+<path d="M0,140 C160,140 320,135 400,110 C440,85 460,55 480,40 C500,55 520,85 560,110 C640,135 800,140 960,140" stroke="#06b6d4" stroke-width="1.5" fill="none" opacity="0.45"/>
+<!-- ROOT 1: sweep up -->
+<path d="M0,140 C160,128 320,100 480,72 C640,45 800,25 960,15" stroke="#22c55e" stroke-width="2.5" fill="none"/>
+<!-- ROOT 2: sweep down -->
+<path d="M0,15 C160,25 320,50 480,72 C640,98 800,125 960,140" stroke="#f97316" stroke-width="2.5" fill="none"/>
+<circle cx="480" cy="72" r="6" fill="none" stroke="#f59e0b" stroke-width="1.5" opacity="0.6"/>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>Crossing:</b> <span class="hl" style="color:#22c55e">Sweep UP</span> + <span class="hl" style="color:#f97316">Sweep DOWN</span> cross at bar 2. <span class="hl" style="color:#d946ef">Resonance</span> and <span class="hl" style="color:#06b6d4">delay</span> peak at the intersection.</div>
+<div class="note"><b>Reactive:</b> Ghost lanes' activity = inverse of distance between roots. Maximum movement at crossing. Calm at the edges (bar 1, bar 4). Beautiful tension arc.</div>
+</div>
+</div>
+
+<!-- 20 ORBIT -->
+<div class="p">
+<div class="p-head"><span class="p-num">20</span><span class="p-name" style="color:#22c55e">Orbit</span></div>
+<p class="p-tag">Two sines at golden ratio (1:1.618). Where they ALIGN = explosion. Where they CANCEL = gates slam shut.</p>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/><line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/><line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<!-- Ghost: extreme activity at convergence, dead silence at cancellation -->
+<path d="M0,78 Q10,74 20,86 Q30,72 40,88 Q50,70 60,85 Q80,80 100,82 Q150,82 200,82 Q240,82 Q260,76 280,88 Q300,72 320,90 Q340,68 360,88 Q380,82 400,80 Q440,82 480,82 Q500,76 520,88 Q540,70 560,92 Q580,68 600,90 Q610,66 620,92 Q630,64 640,94 Q650,80 680,82 Q720,82 Q740,76 760,88 Q780,82 820,82 Q860,82 900,80 Q930,78 950,84 960,80" stroke="#ffffff08" stroke-width="1" fill="none"/>
+<path d="M0,72 Q15,68 30,80 Q45,66 60,78 Q75,70 90,76 Q120,78 180,78 Q240,78 Q265,72 290,84 Q315,68 340,86 Q365,64 390,82 Q420,78 460,78 Q480,78 Q505,70 530,86 Q555,64 580,90 Q600,60 620,94 Q640,58 660,92 Q680,78 720,78 Q745,72 770,84 Q800,78 840,78 Q900,78 960,76" stroke="#ffffff06" stroke-width="1" fill="none"/>
+<!-- Drive (orange): EXTREME at convergence peaks, zero at cancellation -->
+<path d="M0,110 Q30,70 60,30 Q80,18 100,30 Q140,80 180,118 Q220,130 240,140 L340,140 Q360,100 380,50 Q400,22 420,15 Q440,22 460,55 Q480,100 Q500,70 520,35 Q540,15 560,8 Q580,8 600,15 Q620,8 640,5 Q660,15 680,45 Q700,90 720,130 L780,140 Q800,130 840,140 Q880,140 920,130 Q940,120 960,110" stroke="#f97316" stroke-width="1.8" fill="none" opacity="0.55"/>
+<!-- Reverb: HUGE at cancellation (fills the void), dry at convergence -->
+<path d="M0,60 Q30,100 60,130 Q80,138 100,130 Q140,88 180,50 Q220,35 240,25 L340,25 Q360,50 380,100 Q400,128 420,138 Q440,128 460,95 Q480,60 Q500,85 520,118 Q540,135 560,142 Q580,145 600,142 Q620,145 640,148 Q660,142 680,110 Q700,65 720,30 L780,25 Q800,35 840,25 Q880,25 920,35 Q940,50 960,60" stroke="#22c55e" stroke-width="1.5" fill="none" opacity="0.5"/>
+<!-- ROOT 1: slow sine -->
+<path d="M0,80 Q120,80 240,18 Q360,18 480,80 Q600,80 720,142 Q840,142 960,80" stroke="#22c55e" stroke-width="2.5" fill="none"/>
+<!-- ROOT 2: golden ratio sine -->
+<path d="M0,80 Q74,18 148,18 Q222,80 296,142 Q370,142 444,80 Q518,18 592,18 Q666,80 740,142 Q814,142 888,80 Q932,18 960,18" stroke="#d946ef" stroke-width="2.5" fill="none" opacity="0.7"/>
+<text x="40" y="10" fill="#f9731633" font-size="7" font-weight="700">CONVERGE</text>
+<text x="190" y="10" fill="#22c55e33" font-size="7" font-weight="700">CANCEL</text>
+<text x="520" y="10" fill="#f9731633" font-size="7" font-weight="700">MEGA CONVERGE</text>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>Convergence = explosion:</b> When both sines align, <span class="hl" style="color:#f97316">drive goes EXTREME</span>, all ghost lanes activate, maximum energy. The convergence at bar 3 is the biggest — both roots peak together.</div>
+<div class="note"><b>Cancellation = void:</b> When sines oppose, <span class="hl" style="color:#22c55e">reverb fills the silence</span>, gates close, ghost lanes die. The contrast between convergence and cancellation IS the groove. Irrational ratio = never repeats.</div>
+</div>
+</div>
+
+<!-- 21 WHIP (replaces Glacier) -->
+<div class="p">
+<div class="p-head"><span class="p-num">21</span><span class="p-name" style="color:#d946ef">Whip</span></div>
+<p class="p-tag">Sharp crack accents with long whip-tail decays. Evolving crack positions + reactive reverb tails.</p>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/><line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/><line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<path d="M0,82 Q30,82 60,82 Q90,82 120,82 Q145,78 160,86 Q172,78 184,82 Q210,82 240,82 Q270,82 300,82 Q330,78 348,86 Q360,78 375,82 Q400,82 430,82 Q455,78 470,86 Q480,82 Q510,76 530,88 Q545,76 560,82 Q590,82 620,82 Q640,78 655,86 Q665,78 680,82 Q710,82 720,82 Q740,78 755,86 Q765,78 780,82 Q790,76 800,88 Q810,76 820,86 Q830,78 840,86 Q850,78 860,86 Q870,78 880,82 Q900,82 920,82 Q940,82 960,82" stroke="#ffffff06" stroke-width="1" fill="none"/>
+<path d="M0,78 Q40,78 80,78 Q115,78 150,74 Q168,82 186,78 Q220,78 260,78 Q300,78 340,74 Q356,82 372,78 Q410,78 450,74 Q468,82 484,78 Q520,72 545,84 Q558,72 575,78 Q610,78 640,74 Q658,82 676,78 Q710,78 730,74 Q748,82 766,78 Q782,72 798,84 Q812,72 826,82 Q840,74 854,82 Q868,74 882,78 Q910,78 940,78 960,78" stroke="#ffffff04" stroke-width="1" fill="none"/>
+<!-- Reverb: catches each whip crack, bloom depends on crack intensity -->
+<path d="M0,140 L155,140 Q170,120 190,85 Q210,60 240,55 Q270,65 300,100 Q320,128 340,140 L455,140 Q470,125 490,95 Q510,70 540,65 Q570,75 600,110 Q620,132 640,140 L750,140 Q762,125 780,90 Q800,60 830,55 Q860,70 890,110 Q910,132 930,140 L960,140" stroke="#22c55e" stroke-width="1.5" fill="none" opacity="0.5"/>
+<!-- Drive: sharp spike on each crack -->
+<path d="M0,140 L155,140 L158,40 L164,140 L340,140 L343,50 L349,140 L455,140 L458,35 L464,140 L640,140 L643,45 L649,140 L750,140 L753,30 L759,140 L960,140" stroke="#f97316" stroke-width="1.3" fill="none" opacity="0.45"/>
+<!-- ROOT: whip cracks with long tail decays — position evolves -->
+<path d="M0,140 L155,140 L158,10 Q165,10 175,35 Q200,80 230,115 Q245,135 260,140 L340,140 L343,12 Q350,12 360,40 Q385,85 415,118 Q435,136 455,140 L455,140 L458,8 Q465,8 478,38 Q505,88 535,120 Q555,138 580,140 L640,140 L643,15 Q650,15 662,42 Q690,90 720,122 Q740,138 760,140 L750,140 L753,5 Q758,5 768,32 Q790,78 820,110 Q845,132 870,140 L960,140" stroke="#d946ef" stroke-width="2.5" fill="none"/>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>Whip:</b> Sharp instant crack → long exponential tail. Each crack has a different tail length. Crack positions shift across bars — groove walks like Strut but with impact.</div>
+<div class="note"><b>Reactive:</b> <span class="hl" style="color:#22c55e">Reverb catches each crack</span> (bloom intensity matches crack intensity). <span class="hl" style="color:#f97316">Drive spikes on crack only</span>. Ghost builds anticipation before each crack.</div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<h2>Build &amp; Surge</h2>
+<!-- ═══════════════════════════════════════════════ -->
+
+<!-- 22 SURGE -->
+<div class="p">
+<div class="p-head"><span class="p-num">22</span><span class="p-name" style="color:#f59e0b">Surge</span></div>
+<p class="p-tag">Staircase build. Fake drop at 75%. Real drop at end. Cascading release.</p>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/><line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/><line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<path d="M0,82 Q30,80 60,84 Q90,78 120,82 Q150,78 180,80 Q210,76 240,80 Q270,74 300,80 Q330,72 360,78 Q390,68 420,76 Q450,64 480,74 Q510,60 540,70 Q570,56 600,66 Q630,52 660,62 Q690,48 720,58 Q740,74 760,80 Q780,76 800,72 Q820,68 840,64 Q860,60 880,56 Q900,52 920,48 Q940,44 960,40" stroke="#ffffff06" stroke-width="1" fill="none"/>
+<!-- Reverb: swells during build, HUGE at fake drop, snaps dry at real drop -->
+<path d="M0,130 C120,125 240,110 360,85 C480,55 540,35 545,30 L548,15 L560,18 C600,40 660,65 700,55 C740,35 780,18 810,12 L815,140 L840,138 L880,135 L920,130 L960,125" stroke="#d946ef" stroke-width="1.8" fill="none" opacity="0.55"/>
+<!-- Drive: piles on, drops at fake, goes harder -->
+<path d="M0,135 C120,128 240,112 360,88 C480,58 540,38 545,32 L548,130 C600,125 660,105 700,80 C740,50 780,28 810,15 L815,15 L840,20 L880,25 L920,30 L960,35" stroke="#f97316" stroke-width="1.5" fill="none" opacity="0.5"/>
+<!-- Width (cyan): expands, collapses at fake, ultra-wide, settles -->
+<path d="M0,125 C120,118 240,100 360,72 C480,40 540,22 545,18 L548,128 C600,120 660,95 700,65 C740,35 780,18 810,10 L815,10 L840,40 L880,55 L920,65 L960,75" stroke="#06b6d4" stroke-width="1.5" fill="none" opacity="0.45"/>
+<!-- ROOT: staircase with fake drop -->
+<path d="M0,140 L80,140 L80,125 L160,125 L160,108 L240,108 L240,90 L320,90 L320,72 L400,72 L400,55 L480,55 L480,40 L540,40 L540,28 L545,28 L548,140 L600,140 L600,115 L660,115 L660,82 L700,82 L700,52 L740,52 L740,28 L780,28 L780,15 L810,15 L815,140 L960,140" stroke="#f59e0b" stroke-width="2.5" fill="none"/>
+<text x="552" y="135" fill="#ef444433" font-size="7" font-weight="700">FAKE</text>
+<text x="818" y="135" fill="#22c55e33" font-size="7" font-weight="700">REAL</text>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>Fake drop at 75%:</b> <span class="hl" style="color:#d946ef">Reverb goes HUGE</span> (rings out). <span class="hl" style="color:#06b6d4">Width collapses to mono</span>. Everything resets.</div>
+<div class="note"><b>Real drop:</b> <span class="hl" style="color:#d946ef">Reverb snaps DRY</span> (total contrast). <span class="hl" style="color:#f97316">Drive holds</span> for impact. Ghost density peaks before each drop.</div>
+</div>
+</div>
+
+<!-- 23-25: remaining builds (compact) -->
+<!-- 23 IGNITE -->
+<div class="p">
+<div class="p-head"><span class="p-num">23</span><span class="p-name" style="color:#f59e0b">Ignite</span></div>
+<p class="p-tag">Exponential build. Lanes join at different ignition points — engine starting.</p>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/><line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/><line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<path d="M0,82 Q120,82 240,82 Q300,80 360,78 Q420,76 480,72 Q520,66 560,58 Q600,48 640,36 Q680,24 720,16 Q760,10 800,6 Q840,4 880,3 Q920,2 960,2" stroke="#ffffff06" stroke-width="1" fill="none"/>
+<!-- Secondary lanes: different ignition points -->
+<path d="M360,140 C420,138 480,130 540,112 C600,85 660,55 720,32 C800,14 880,6 960,4" stroke="#d946ef" stroke-width="1.8" fill="none" opacity="0.5"/>
+<path d="M540,140 C580,135 620,118 660,92 C700,62 740,38 780,22 C840,10 920,5 960,3" stroke="#06b6d4" stroke-width="1.5" fill="none" opacity="0.45"/>
+<path d="M660,140 C700,128 740,100 780,65 C820,38 860,18 900,10 C940,5 960,4" stroke="#22c55e" stroke-width="1.5" fill="none" opacity="0.4"/>
+<text x="365" y="135" fill="#d946ef33" font-size="7">ignites</text>
+<text x="545" y="135" fill="#06b6d433" font-size="7">ignites</text>
+<text x="665" y="135" fill="#22c55e33" font-size="7">ignites</text>
+<!-- ROOT: exponential -->
+<path d="M0,138 C120,137 240,134 360,128 C480,115 600,85 720,45 C800,20 880,8 960,4" stroke="#f59e0b" stroke-width="2.5" fill="none"/>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>y = x^4:</b> Barely moves bars 1-2. Fast bar 3. Vertical bar 4. Most action in the last 25% of the timeline.</div>
+<div class="note"><b>Cascade ignition:</b> <span class="hl" style="color:#d946ef">Lane A joins bar 2</span>. <span class="hl" style="color:#06b6d4">Lane B joins bar 3</span>. <span class="hl" style="color:#22c55e">Lane C joins bar 4</span>. Engine starting — cylinders fire one by one.</div>
+</div>
+</div>
+
+<!-- 24 COLLAPSE -->
+<div class="p">
+<div class="p-head"><span class="p-num">24</span><span class="p-name" style="color:#f59e0b">Collapse</span></div>
+<p class="p-tag">Full intensity → glitching → fragmenting → shards. Not a fade — a structural failure. Things BREAK.</p>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/><line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/><line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<!-- Ghost: healthy bar1, glitching bar2, sparse bar3, dead bar4 -->
+<path d="M0,78 Q8,76 16,80 Q24,76 32,80 Q40,76 48,80 Q56,76 64,80 Q72,76 80,80 Q88,76 96,80 Q104,76 112,80 Q120,76 128,80 Q136,76 144,80 Q152,76 160,80 Q168,76 176,80 Q184,76 192,80 Q200,76 208,80 Q216,76 224,80 Q232,76 240,78 Q248,72 256,86 Q262,78 268,82 Q276,70 284,88 Q290,78 300,82 Q310,68 320,90 Q330,82 350,82 Q370,78 390,82 Q410,78 430,82 Q450,78 470,82 Q480,80 Q495,72 510,88 Q530,82 560,82 Q590,82 620,82 Q650,72 660,90 Q680,82 720,82 Q780,82 840,82 Q900,82 960,82" stroke="#ffffff06" stroke-width="1" fill="none"/>
+<!-- Drive: starts normal, gets harsh and glitchy -->
+<path d="M0,60 Q30,58 60,62 Q90,58 120,62 Q150,58 180,62 Q210,58 240,60 Q248,30 256,100 Q264,60 272,40 Q280,90 290,60 Q300,25 310,110 Q320,60 340,50 Q360,95 380,55 Q400,30 420,105 Q440,60 460,45 Q480,100 Q500,20 520,120 Q540,60 560,80 Q600,60 640,80 Q680,60 720,80 Q760,82 800,82 Q840,82 900,82 960,82" stroke="#f97316" stroke-width="1.5" fill="none" opacity="0.5"/>
+<!-- Reverb: grows massively as structure fails -->
+<path d="M0,130 C120,128 240,110 360,75 C480,40 600,20 720,12 C840,8 920,6 960,5" stroke="#22c55e" stroke-width="1.8" fill="none" opacity="0.55"/>
+<!-- Resonance: starts controlled, goes wild, then dies -->
+<path d="M0,90 Q30,88 60,92 Q90,88 120,92 Q150,88 180,92 Q210,88 240,90 Q248,40 256,130 Q264,50 272,120 Q280,35 290,135 Q300,45 310,125 Q320,55 340,115 Q360,60 380,110 Q400,65 420,108 Q440,70 460,105 Q480,75 Q500,25 520,140 Q540,80 560,100 Q580,140 600,80 Q640,140 680,82 Q720,82 Q780,82 840,82 900,82 960,82" stroke="#d946ef" stroke-width="1.5" fill="none" opacity="0.5"/>
+<!-- ROOT: full intensity → glitches → fragments → shards → dead -->
+<path d="M0,20 L30,20 L30,25 L60,25 L60,18 L90,18 L90,22 L120,22 L120,20 L150,20 L150,25 L180,25 L180,18 L210,18 L210,22 L240,22
+L242,140 L248,22 L252,140 L256,18 L264,18 L270,140 L278,25 L284,140 L290,20 L300,140 L308,22 L316,22 L324,140 L340,18 L350,140 L360,140 L368,20 L374,140 L390,140 L400,22 L408,140 L430,140 L440,18 L445,140 L470,140 L475,20 L480,140
+L500,140 L508,25 L514,140 L560,140 L570,22 L576,140 L640,140 L650,20 L654,140 L720,140 L740,25 L744,140 L840,140 L860,22 L864,140 L960,140" stroke="#f59e0b" stroke-width="2.5" fill="none"/>
+<text x="80" y="10" fill="#f59e0b33" font-size="7">SOLID</text>
+<text x="310" y="10" fill="#ef444433" font-size="7">GLITCHING</text>
+<text x="550" y="10" fill="#ef444433" font-size="7">FRAGMENTING</text>
+<text x="800" y="10" fill="#3f3f4633" font-size="7">SHARDS</text>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>Structural failure:</b> Bar 1: full solid intensity. Bar 2: starts glitching — random cuts to zero, <span class="hl" style="color:#d946ef">resonance goes wild</span>. Bar 3: fragments — mostly silence with stabs. Bar 4: occasional shards in a void.</div>
+<div class="note"><b>Reactive:</b> <span class="hl" style="color:#f97316">Drive gets harsh and erratic</span> as the structure fails. <span class="hl" style="color:#22c55e">Reverb fills the growing void</span>. Ghost lanes die at different rates — some survive longer. Not a fade — a CRASH.</div>
+</div>
+</div>
+
+<!-- 25 TENSION -->
+<div class="p">
+<div class="p-head"><span class="p-num">25</span><span class="p-name" style="color:#f59e0b">Tension</span></div>
+<p class="p-tag">Escalating chaos. Starts calm, stutter appears, noise grows, wobble accelerates, everything rattles. Never releases.</p>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/><line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/><line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<!-- Ghost: calm → slight movement → stutter → CHAOS -->
+<path d="M0,82 Q30,82 60,82 Q90,82 120,82 Q150,82 180,82 Q210,82 240,82 Q256,78 272,86 Q288,76 304,88 Q320,78 336,86 Q352,76 368,88 Q384,78 400,86 Q416,78 432,86 Q448,76 464,88 Q480,82 Q492,70 504,94 Q512,66 520,98 Q528,62 536,100 Q544,58 552,102 Q560,56 568,104 Q576,54 584,106 Q592,52 600,106 Q608,50 616,108 Q624,48 632,108 Q640,46 648,110 Q656,44 664,110 Q672,42 680,112 Q688,40 696,112 Q704,38 712,114 Q720,36 Q728,30 736,118 Q740,28 744,120 Q748,26 752,122 Q756,24 760,124 Q764,22 768,126 Q772,20 776,128 Q780,18 784,128 Q788,16 792,130 Q796,14 800,130 Q804,12 808,132 Q812,10 816,132 Q820,8 824,134 Q828,8 832,134 Q840,6 848,136 Q856,6 864,136 Q872,4 880,138 Q888,4 896,138 Q904,2 912,140 Q920,2 928,140 Q936,2 944,142 Q952,2 960,142" stroke="#ffffff08" stroke-width="1" fill="none"/>
+<path d="M0,78 Q40,78 80,78 Q120,78 160,78 Q200,78 240,78 Q260,74 280,82 Q300,72 320,84 Q340,74 360,82 Q380,72 400,84 Q420,74 440,82 Q460,74 480,78 Q496,66 512,90 Q524,60 536,94 Q548,56 560,98 Q572,52 584,100 Q596,48 608,104 Q620,44 632,106 Q644,40 656,108 Q668,36 680,110 Q692,32 704,114 Q720,30 Q732,24 744,118 Q752,20 760,122 Q768,16 776,126 Q784,12 792,128 Q800,8 808,132 Q816,6 824,134 Q832,4 840,136 Q856,2 872,140 Q888,2 904,142 Q920,2 936,142 Q960,2" stroke="#ffffff05" stroke-width="1" fill="none"/>
+<!-- Resonance: starts flat, adds stutter, goes SCREAMING -->
+<path d="M0,100 Q60,100 120,100 Q180,100 240,100 Q270,92 300,108 Q330,88 360,112 Q390,82 420,115 Q450,78 480,100 Q500,60 520,120 Q540,45 560,130 Q580,35 600,135 Q620,25 640,138 Q660,20 680,140 Q700,15 720,100 Q730,8 740,142 Q750,5 760,145 Q770,4 780,148 Q790,2 800,148 Q810,2 820,150 Q830,2 840,150 Q850,2 860,150 Q870,2 880,150 Q890,2 900,152 Q910,2 920,152 Q930,2 940,152 Q950,2 960,152" stroke="#d946ef" stroke-width="1.5" fill="none" opacity="0.55"/>
+<!-- Drive: exponential rise with stutter overlay -->
+<path d="M0,135 C120,132 240,122 360,105 C480,78 600,45 720,20 C800,10 880,5 960,3" stroke="#f97316" stroke-width="1.8" fill="none" opacity="0.55"/>
+<!-- Filter: builds with accelerating wobble -->
+<path d="M0,130 Q60,128 120,132 Q180,126 240,128 Q280,118 320,132 Q360,108 400,130 Q440,95 480,120 Q510,75 540,125 Q560,55 580,130 Q600,40 620,135 Q640,30 660,138 Q680,22 700,140 Q720,15 740,140 Q752,10 764,142 Q776,6 788,145 Q800,4 812,145 Q824,3 836,148 Q848,2 860,148 Q880,2 900,150 Q920,2 940,150 960,2" stroke="#06b6d4" stroke-width="1.5" fill="none" opacity="0.5"/>
+<!-- ROOT: ramp that gets increasingly chaotic toward the end -->
+<path d="M0,140 C160,135 320,120 480,95 C560,78 620,55 660,40 C700,28 740,18 780,12 C820,8 860,5 900,4 C930,3 950,2 960,2" stroke="#f59e0b" stroke-width="2.5" fill="none"/>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>Escalation:</b> Bar 1: dead calm. Bar 2: slight stutter appears. Bar 3: <span class="hl" style="color:#06b6d4">filter wobble accelerates</span>, <span class="hl" style="color:#d946ef">resonance starts screaming</span>. Bar 4: everything rattles — wobble at max speed, ghost lanes in full chaos.</div>
+<div class="note"><b>Never releases:</b> Ramp reaches 0.98 but never 1.0. The stutter/wobble keeps INCREASING. <span class="hl" style="color:#f97316">Drive goes exponential</span>. The brain braces for a drop that doesn't come. Pair before someone else's drop — maximum anticipation.</div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<h2>Texture &amp; Ghost</h2>
+<!-- ═══════════════════════════════════════════════ -->
+
+<!-- 26 GHOST MACHINE (OVERHAULED) -->
+<div class="p">
+<div class="p-head"><span class="p-num">26</span><span class="p-name" style="color:#a1a1aa">Ghost Machine</span></div>
+<p class="p-tag">Interlocking polyrhythmic gates. Every lane has a DIFFERENT step pattern. 16ths + triplets + dotted 8ths overlapping. Evolves across 4 bars.</p>
+<div class="leg">
+<span style="color:#a1a1aa"><i style="background:#a1a1aa"></i>16th gate</span>
+<span style="color:#d946ef"><i style="background:#d946ef80"></i>Triplet gate</span>
+<span style="color:#f97316"><i style="background:#f9731680"></i>Dotted 8th gate</span>
+<span style="color:#06b6d4"><i style="background:#06b6d460"></i>Sweep underlayer</span>
+<span style="color:#3f3f46"><i style="background:#ffffff10"></i>More gate patterns</span>
+</div>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/><line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/><line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<!-- Ghost: more gate patterns at various rhythms, all interlocking -->
+<path d="M0,140 L0,80 L20,80 L20,140 L80,140 L80,70 L100,70 L100,140 L160,140 L160,75 L180,75 L180,140 L240,140 L240,65 L260,65 L260,140 L320,140 L320,72 L340,72 L340,140 L400,140 L400,68 L420,68 L420,140 L480,140 L480,60 L496,60 L496,140 L550,140 L550,65 L566,65 L566,140 L620,140 L620,58 L636,58 L636,140 L690,140 L690,62 L706,62 L706,140 L760,140 L760,55 L772,55 L772,140 L820,140 L820,58 L832,58 L832,140 L880,140 L880,52 L892,52 L892,140 L940,140 L940,55 L952,55 L952,140 L960,140" stroke="#ffffff10" stroke-width="1" fill="none"/>
+<path d="M0,140 L30,140 L30,85 L45,85 L45,140 L120,140 L120,78 L135,78 L135,140 L210,140 L210,82 L225,82 L225,140 L300,140 L300,72 L315,72 L315,140 L380,140 L380,75 L395,75 L395,140 L460,140 L460,68 L475,68 L475,140 L540,140 L540,62 L552,62 L552,140 L610,140 L610,65 L622,65 L622,140 L680,140 L680,58 L692,58 L692,140 L750,140 L750,60 L762,60 L762,140 L830,140 L830,55 L842,55 L842,140 L910,140 L910,52 L922,52 L922,140 L960,140" stroke="#ffffff08" stroke-width="1" fill="none"/>
+<!-- Sweep underlayer (cyan): slow sweep changes which gate patterns dominate -->
+<path d="M0,120 C160,115 320,100 480,80 C640,55 800,35 960,25" stroke="#06b6d4" stroke-width="1.5" fill="none" opacity="0.4"/>
+<!-- Dotted 8th gate (orange): 3-against-4 polyrhythm, gets louder across bars -->
+<path d="M0,140 L0,100 L22,100 L22,140 L90,140 L90,95 L112,95 L112,140 L180,140 L180,88 L202,88 L202,140 L270,140 L270,80 L292,80 L292,140 L360,140 L360,72 L382,72 L382,140 L450,140 L450,60 L472,60 L472,140 L540,140 L540,50 L558,50 L558,140 L624,140 L624,42 L642,42 L642,140 L708,140 L708,35 L726,35 L726,140 L792,140 L792,28 L810,28 L810,140 L876,140 L876,22 L894,22 L894,140 L960,140" stroke="#f97316" stroke-width="1.8" fill="none" opacity="0.55"/>
+<!-- Triplet gate (fuchsia): different rhythm from the 16th, creates polyrhythmic texture -->
+<path d="M0,140 L0,85 L40,85 L40,140 L80,140 L80,80 L120,80 L120,140 L160,140 L160,75 L200,75 L200,140 L240,140 L240,68 L280,68 L280,140 L320,140 L320,62 L360,62 L360,140 L400,140 L400,55 L440,55 L440,140 L480,140 L480,48 L515,48 L515,140 L550,140 L550,40 L585,40 L585,140 L620,140 L620,35 L655,35 L655,140 L690,140 L690,28 L725,28 L725,140 L760,140 L760,22 L795,22 L795,140 L830,140 L830,18 L862,18 L862,140 L895,140 L895,14 L927,14 L927,140 L960,140" stroke="#d946ef" stroke-width="1.8" fill="none" opacity="0.5"/>
+<!-- ROOT: 16th note gate — evolving density, the primary rhythm -->
+<path d="M0,140 L0,60 L15,60 L15,140 L30,140 L30,65 L45,65 L45,140 L60,140 L60,60 L75,60 L75,140 L90,140 L90,55 L105,55 L105,140 L120,140 L120,60 L135,60 L135,140 L150,140 L150,55 L165,55 L165,140 L180,140 L180,50 L195,50 L195,140 L210,140 L210,55 L225,55 L225,140 L240,140 L240,45 L252,45 L252,140 L264,140 L264,50 L276,50 L276,140 L288,140 L288,42 L300,42 L300,140 L312,140 L312,48 L324,48 L324,140 L336,140 L336,40 L348,40 L348,140 L360,140 L360,45 L372,45 L372,140 L384,140 L384,38 L396,38 L396,140 L408,140 L408,42 L420,42 L420,140 L432,140 L432,35 L444,35 L444,140 L456,140 L456,40 L468,40 L468,140 L480,140 L480,30 L490,30 L490,140 L500,140 L500,35 L510,35 L510,140 L520,140 L520,28 L530,28 L530,140 L540,140 L540,32 L550,32 L550,140 L560,140 L560,25 L570,25 L570,140 L580,140 L580,30 L590,30 L590,140 L600,140 L600,22 L610,22 L610,140 L620,140 L620,28 L630,28 L630,140 L640,140 L640,20 L650,20 L650,140 L660,140 L660,25 L670,25 L670,140 L680,140 L680,18 L690,18 L690,140 L700,140 L700,22 L710,22 L710,140 L720,140 L720,15 L728,15 L728,140 L736,140 L736,20 L744,20 L744,140 L752,140 L752,12 L760,12 L760,140 L768,140 L768,18 L776,18 L776,140 L784,140 L784,10 L792,10 L792,140 L800,140 L800,15 L808,15 L808,140 L816,140 L816,8 L824,8 L824,140 L832,140 L832,12 L840,12 L840,140 L848,140 L848,8 L856,8 L856,140 L864,140 L864,10 L872,10 L872,140 L880,140 L880,6 L888,6 L888,140 L896,140 L896,10 L904,10 L904,140 L912,140 L912,5 L920,5 L920,140 L928,140 L928,8 L936,8 L936,140 L944,140 L944,5 L952,5 L952,140 L960,140" stroke="#a1a1aa" stroke-width="2" fill="none"/>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>Polyrhythmic gates:</b> <span class="hl" style="color:#a1a1aa">16th gate (root)</span> + <span class="hl" style="color:#d946ef">triplet gate</span> + <span class="hl" style="color:#f97316">dotted 8th gate</span> — three different rhythms interlocking. Where they align = PEAK. Where they oppose = silence. Density increases each bar.</div>
+<div class="note"><b>NOT subtle:</b> These are full 0-to-1 gates, not micro-drift. <span class="hl" style="color:#06b6d4">Sweep underlayer</span> changes which gate pattern dominates. GateKeeper-style precision with multi-lane polyrhythmic complexity no single plugin can do.</div>
+</div>
+</div>
+
+<!-- 27 SHIMMER (OVERHAULED) -->
+<div class="p">
+<div class="p-head"><span class="p-num">27</span><span class="p-name" style="color:#f59e0b">Shimmer</span></div>
+<p class="p-tag">Cascading 32nd staccato bursts. Rapid sparkling fire that ripples across lanes like a waterfall. Density builds.</p>
+<div class="leg">
+<span style="color:#f59e0b"><i style="background:#f59e0b"></i>Burst pattern</span>
+<span style="color:#d946ef"><i style="background:#d946ef80"></i>Cascade echo</span>
+<span style="color:#22c55e"><i style="background:#22c55e60"></i>Reverb tails</span>
+<span style="color:#3f3f46"><i style="background:#ffffff10"></i>Ripple lanes</span>
+</div>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/><line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/><line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<!-- Ripple lanes: cascading bursts at slightly different times -->
+<path d="M0,140 L20,140 L20,90 L26,90 L26,140 L110,140 L110,85 L116,85 L116,140 L200,140 L200,80 L206,80 L206,140 L280,140 L280,75 L286,75 L286,140 L350,140 L350,72 L356,72 L356,140 L420,140 L420,68 L426,68 L426,140 L480,140 L480,60 L485,60 L485,140 L510,140 L510,58 L515,58 L515,140 L540,140 L540,55 L545,55 L545,140 L570,140 L570,52 L575,52 L575,140 L600,140 L600,50 L605,50 L605,140 L628,140 L628,48 L633,48 L633,140 L656,140 L656,45 L661,45 L661,140 L684,140 L684,42 L689,42 L689,140 L710,140 L710,40 L714,40 L714,140 L732,140 L732,38 L736,38 L736,140 L754,140 L754,35 L758,35 L758,140 L774,140 L774,32 L778,32 L778,140 L794,140 L794,30 L798,30 L798,140 L812,140 L812,28 L816,28 L816,140 L830,140 L830,25 L834,25 L834,140 L848,140 L848,22 L852,22 L852,140 L864,140 L864,20 L868,20 L868,140 L880,140 L880,18 L884,18 L884,140 L896,140 L896,16 L900,16 L900,140 L910,140 L910,14 L914,14 L914,140 L924,140 L924,12 L928,12 L928,140 L936,140 L936,10 L940,10 L940,140 L948,140 L948,10 L952,10 L952,140 L960,140" stroke="#ffffff08" stroke-width="1" fill="none"/>
+<path d="M0,140 L35,140 L35,92 L41,92 L41,140 L125,140 L125,88 L131,88 L131,140 L215,140 L215,82 L221,82 L221,140 L295,140 L295,78 L301,78 L301,140 L365,140 L365,74 L371,74 L371,140 L435,140 L435,70 L441,70 L441,140 L494,140 L494,62 L499,62 L499,140 L525,140 L525,58 L530,58 L530,140 L556,140 L556,55 L561,55 L561,140 L586,140 L586,52 L591,52 L591,140 L616,140 L616,50 L621,50 L621,140 L644,140 L644,46 L649,46 L649,140 L672,140 L672,44 L677,44 L677,140 L700,140 L700,40 L704,40 L704,140 L722,140 L722,36 L726,36 L726,140 L744,140 L744,34 L748,34 L748,140 L764,140 L764,30 L768,30 L768,140 L784,140 L784,28 L788,28 L788,140 L804,140 L804,24 L808,24 L808,140 L822,140 L822,22 L826,22 L826,140 L840,140 L840,18 L844,18 L844,140 L856,140 L856,16 L860,16 L860,140 L872,140 L872,14 L876,14 L876,140 L888,140 L888,12 L892,12 L892,140 L904,140 L904,10 L908,10 L908,140 L918,140 L918,8 L922,8 L922,140 L932,140 L932,8 L936,8 L936,140 L944,140 L944,6 L948,6 L948,140 L956,140 L956,6 L960,6" stroke="#ffffff06" stroke-width="1" fill="none"/>
+<!-- Reverb: catches burst clusters, blooms after dense sections -->
+<path d="M0,140 L100,140 Q140,130 180,110 Q200,100 220,100 Q240,110 260,130 L300,140 Q330,130 360,110 Q380,95 400,95 Q420,105 440,125 L470,140 Q490,120 510,90 Q530,70 560,65 Q590,70 620,90 Q640,110 660,130 L680,140 Q700,115 720,80 Q740,55 770,48 Q800,55 830,78 Q860,105 890,125 Q920,135 950,140 960,140" stroke="#22c55e" stroke-width="1.5" fill="none" opacity="0.45"/>
+<!-- Cascade echo (fuchsia): same burst pattern but offset and fading -->
+<path d="M0,140 L30,140 L30,70 L36,70 L36,140 L120,140 L120,65 L126,65 L126,140 L210,140 L210,60 L216,60 L216,140 L290,140 L290,55 L296,55 L296,140 L360,140 L360,50 L366,50 L366,140 L430,140 L430,46 L436,46 L436,140 L490,140 L490,40 L495,40 L495,140 L520,140 L520,38 L525,38 L525,140 L550,140 L550,35 L555,35 L555,140 L580,140 L580,32 L585,32 L585,140 L610,140 L610,30 L615,30 L615,140 L638,140 L638,26 L643,26 L643,140 L666,140 L666,24 L671,24 L671,140 L694,140 L694,20 L698,20 L698,140 L718,140 L718,18 L722,18 L722,140 L742,140 L742,16 L746,16 L746,140 L764,140 L764,14 L768,14 L768,140 L784,140 L784,12 L788,12 L788,140 L804,140 L804,10 L808,10 L808,140 L822,140 L822,8 L826,8 L826,140 L840,140 L840,8 L844,8 L844,140 L858,140 L858,6 L862,6 L862,140 L876,140 L876,6 L880,6 L880,140 L894,140 L894,4 L898,4 L898,140 L912,140 L912,4 L916,4 L916,140 L930,140 L930,4 L934,4 L934,140 L948,140 L948,4 L952,4 L952,140 L960,140" stroke="#d946ef" stroke-width="1.5" fill="none" opacity="0.5"/>
+<!-- ROOT: staccato bursts, sparse bar1, denser each bar, cascade in bar 4 -->
+<path d="M0,140 L10,140 L10,40 L16,40 L16,140 L100,140 L100,35 L106,35 L106,140 L190,140 L190,30 L196,30 L196,140 L240,140 L240,28 L246,28 L246,140 L280,140 L280,25 L286,25 L286,140 L320,140 L320,22 L326,22 L326,140 L360,140 L360,20 L366,20 L366,140 L400,140 L400,18 L406,18 L406,140 L436,140 L436,15 L441,15 L441,140 L468,140 L468,15 L473,15 L473,140 L480,140 L480,12 L485,12 L485,140 L502,140 L502,12 L507,12 L507,140 L524,140 L524,10 L529,10 L529,140 L546,140 L546,10 L551,10 L551,140 L566,140 L566,8 L571,8 L571,140 L586,140 L586,8 L591,8 L591,140 L606,140 L606,8 L611,8 L611,140 L626,140 L626,6 L631,6 L631,140 L646,140 L646,6 L651,6 L651,140 L666,140 L666,6 L671,6 L671,140 L684,140 L684,5 L689,5 L689,140 L702,140 L702,5 L707,5 L707,140 L720,140 L720,4 L724,4 L724,140 L736,140 L736,4 L740,4 L740,140 L752,140 L752,4 L756,4 L756,140 L768,140 L768,4 L772,4 L772,140 L784,140 L784,4 L788,4 L788,140 L800,140 L800,4 L804,4 L804,140 L814,140 L814,4 L818,4 L818,140 L828,140 L828,4 L832,4 L832,140 L842,140 L842,4 L846,4 L846,140 L856,140 L856,4 L860,4 L860,140 L868,140 L868,4 L872,4 L872,140 L880,140 L880,4 L884,4 L884,140 L892,140 L892,4 L896,4 L896,140 L904,140 L904,4 L908,4 L908,140 L916,140 L916,4 L920,4 L920,140 L928,140 L928,4 L932,4 L932,140 L940,140 L940,4 L944,4 L944,140 L952,140 L952,4 L956,4 L956,140 L960,140" stroke="#f59e0b" stroke-width="2" fill="none"/>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>Waterfall:</b> Sparse staccato bursts in bar 1 → denser → bar 4 is a WALL of rapid fire. <span class="hl" style="color:#d946ef">Cascade echoes</span> follow each burst, offset slightly — creates sparkling ripple effect across lanes.</div>
+<div class="note"><b>NOT subtle:</b> Full 0-to-1 staccato gates. <span class="hl" style="color:#22c55e">Reverb catches burst clusters</span> (blooms between dense sections). Each lane fires at a slightly different time — 100 lanes firing staccato at near-same-time = glittering shimmer wall.</div>
+</div>
+</div>
+
+<!-- 28 MURK (OVERHAULED) -->
+<div class="p">
+<div class="p-head"><span class="p-num">28</span><span class="p-name" style="color:#d946ef">Murk</span></div>
+<p class="p-tag">Deep slow ducking pressure waves. Heavy GateKeeper-style gates with long exponential tails. Underwater pressure.</p>
+<div class="leg">
+<span style="color:#d946ef"><i style="background:#d946ef"></i>Deep pressure gates</span>
+<span style="color:#f97316"><i style="background:#f9731680"></i>Counter-fill (active in voids)</span>
+<span style="color:#06b6d4"><i style="background:#06b6d460"></i>Sub rumble</span>
+<span style="color:#3f3f46"><i style="background:#ffffff10"></i>Overlapping tails</span>
+</div>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/><line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/><line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<!-- Overlapping tails: same deep gates but offset, creating layered pressure -->
+<path d="M0,140 Q55,140 65,30 C85,28 115,50 150,85 C185,115 215,135 250,140 L360,140 Q380,140 390,35 C410,32 440,55 475,90 C510,120 540,138 580,140 L690,140 Q710,140 720,40 C740,38 770,60 805,95 C840,125 870,140 920,140 L960,140" stroke="#ffffff10" stroke-width="1.5" fill="none"/>
+<path d="M0,140 Q95,140 105,38 C125,35 155,58 190,90 C225,118 255,138 300,140 L420,140 Q440,140 450,42 C470,40 500,62 535,95 C570,122 600,140 650,140 L780,140 Q800,140 810,45 C830,42 860,65 895,98 C930,128 950,140 960,140" stroke="#ffffff08" stroke-width="1.5" fill="none"/>
+<!-- Sub rumble (cyan): low slow oscillation underneath everything -->
+<path d="M0,100 Q60,95 120,108 Q180,92 240,105 Q300,88 360,102 Q420,85 480,98 Q540,82 600,95 Q660,78 720,92 Q780,75 840,88 Q900,72 960,85" stroke="#06b6d4" stroke-width="1.8" fill="none" opacity="0.4"/>
+<!-- Counter-fill (orange): active in the voids between pressure gates -->
+<path d="M0,140 L30,140 Q50,130 70,100 Q100,65 140,50 Q180,45 220,55 Q260,80 300,120 Q320,135 340,140 L380,140 Q400,130 420,95 Q450,60 490,45 Q530,42 570,55 Q610,80 650,120 Q670,135 690,140 L720,140 Q740,130 760,90 Q790,55 830,40 Q870,38 910,55 L960,80" stroke="#f97316" stroke-width="1.5" fill="none" opacity="0.5"/>
+<!-- ROOT: deep slow gates with long exponential tails — heavy, powerful, slow -->
+<path d="M0,140 Q15,140 25,10 C45,8 75,30 110,65 C145,95 175,125 215,138 L240,140 L330,140 Q345,140 355,12 C375,10 405,35 440,70 C475,100 505,128 545,140 L580,140 L660,140 Q675,140 685,15 C705,12 735,40 770,75 C805,108 835,132 875,140 L960,140" stroke="#d946ef" stroke-width="2.5" fill="none"/>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>Deep pressure:</b> Massive slow gates — snap to full intensity then long exponential decay over 2+ beats. Only 3 gates across 4 bars. Each one is an EVENT. <span class="hl" style="color:#f97316">Counter-fill blooms in the voids</span> between gates.</div>
+<div class="note"><b>Underwater:</b> <span class="hl" style="color:#06b6d4">Sub rumble oscillation</span> underneath everything. Ghost lanes = same deep gates but OFFSET, creating overlapping pressure waves. Like being underwater and feeling the bass through your body. NOT subtle — heavy, powerful, slow.</div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<h2>Cascade &amp; Special</h2>
+<!-- ═══════════════════════════════════════════════ -->
+
+<!-- 29 CASCADE -->
+<div class="p">
+<div class="p-head"><span class="p-num">29</span><span class="p-name" style="color:#f97316">Cascade</span></div>
+<p class="p-tag">One sine ripples across 100 lanes. First lanes hit hard, last lanes whisper. Wave mutates as it travels.</p>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/><line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/><line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<!-- Root: full sine -->
+<path d="M0,80 C80,80 120,15 240,15 C360,15 400,145 480,145 C560,145 600,15 720,15 C840,15 880,80 960,80" stroke="#f97316" stroke-width="2.5" fill="none"/>
+<!-- Lane 2: offset 10%, 90% amp -->
+<path d="M0,75 C100,75 150,22 270,22 C390,22 420,138 510,138 C600,138 630,22 750,22 C870,22 910,75 960,75" stroke="#f97316" stroke-width="2" fill="none" opacity="0.65"/>
+<!-- Lane 3 -->
+<path d="M0,72 C120,72 180,30 300,30 C420,30 450,130 540,130 C630,130 660,30 780,30 C900,30 935,72 960,72" stroke="#f59e0b" stroke-width="1.8" fill="none" opacity="0.5"/>
+<!-- Lane 4 -->
+<path d="M0,70 C140,70 210,38 330,38 C450,38 475,122 570,122 C665,122 690,38 810,38 C930,38 950,70 960,70" stroke="#f59e0b" stroke-width="1.5" fill="none" opacity="0.38"/>
+<!-- Lane 5 -->
+<path d="M0,68 C155,68 235,45 360,45 C485,45 505,115 600,115 C695,115 720,45 840,45 C960,45 960,68 960,68" stroke="#d946ef" stroke-width="1.3" fill="none" opacity="0.28"/>
+<!-- Lane 6-8 -->
+<path d="M0,67 C170,67 260,52 390,52 C520,52 535,108 630,108 C725,108 750,52 870,52 C960,52 960,67 960,67" stroke="#d946ef" stroke-width="1.2" fill="none" opacity="0.2"/>
+<path d="M0,66 C185,66 280,58 420,58 C560,58 565,102 660,102 C755,102 780,58 900,58 C960,58 960,66 960,66" stroke="#06b6d4" stroke-width="1" fill="none" opacity="0.14"/>
+<path d="M0,65 C200,65 300,62 450,62 C600,62 600,98 690,98 C780,98 810,62 930,62 C960,62 960,65 960,65" stroke="#06b6d4" stroke-width="1" fill="none" opacity="0.1"/>
+<!-- Far ghost lanes -->
+<path d="M0,80 C220,80 330,70 480,70 C630,70 630,90 720,90 C810,90 840,70 960,70" stroke="#ffffff" stroke-width="0.8" fill="none" opacity="0.05"/>
+<path d="M0,80 C240,80 360,74 510,74 C660,74 660,86 750,86 C840,86 870,74 960,74" stroke="#ffffff" stroke-width="0.8" fill="none" opacity="0.04"/>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>Ripple:</b> Root sine → each lane offset by 1/N, amplitude decreasing. First 5 lanes strong. Next 10 medium. Last 85 whisper-level. The wave shape softens as it propagates.</div>
+<div class="note"><b>Best on:</b> 30+ bandpass filters. The Ableton UI shows every filter moving, all slightly out of phase. THE content piece. This is what sells the tool visually.</div>
+</div>
+</div>
+
+<!-- 30 CHAOTIC ENGINE -->
+<div class="p">
+<div class="p-head"><span class="p-num">30</span><span class="p-name" style="color:#ef4444">Chaotic Engine</span></div>
+<p class="p-tag">Rules broken on purpose. Chaos zones alternate with clarity. Reverb is the inverse anchor.</p>
+<div class="canvas">
+<svg viewBox="0 0 960 160">
+<line x1="240" y1="0" x2="240" y2="160" stroke="#ffffff12"/><line x1="480" y1="0" x2="480" y2="160" stroke="#ffffff12"/><line x1="720" y1="0" x2="720" y2="160" stroke="#ffffff12"/>
+<text x="80" y="8" fill="#ef444425" font-size="7" font-weight="700">CHAOS</text>
+<text x="310" y="8" fill="#22c55e25" font-size="7" font-weight="700">CLARITY</text>
+<text x="560" y="8" fill="#ef444425" font-size="7" font-weight="700">CHAOS+</text>
+<text x="800" y="8" fill="#22c55e25" font-size="7" font-weight="700">RESOLVE</text>
+<!-- Ghost: erratic in chaos, calm in clarity -->
+<path d="M0,75 L8,88 L16,72 L24,90 L32,68 L40,92 L48,70 L56,85 L64,72 L72,90 L80,68 L88,88 L96,72 L104,90 L112,70 L120,88 L128,68 L136,92 L144,72 L152,85 L160,70 L168,90 L176,72 L184,88 L192,68 L200,90 L208,72 L216,85 L224,68 L232,90 L240,80 Q260,80 280,78 Q300,80 320,78 Q340,80 360,78 Q380,80 400,78 Q420,80 440,78 Q460,80 480,80 L488,65 L496,95 L500,62 L504,98 L508,60 L512,100 L516,58 L520,98 L524,55 L528,100 L532,58 L536,102 L540,55 L544,100 L548,52 L552,102 L556,55 L560,105 L564,50 L568,102 L572,52 L576,105 L580,48 L584,102 L588,50 L592,105 L596,48 L600,108 L604,45 L608,105 L612,48 L616,108 L620,45 L624,108 L628,42 L632,108 L636,45 L640,110 L644,42 L648,108 L652,40 L656,110 L660,42 L664,108 L668,40 L672,112 L676,38 L680,110 L684,40 L688,112 L692,38 L696,110 L700,38 L704,112 L708,36 L712,112 L716,38 L720,80 Q740,80 760,78 Q780,80 800,78 Q820,80 840,78 Q860,80 880,78 Q900,80 920,78 Q940,80 960,80" stroke="#ffffff06" stroke-width="1" fill="none"/>
+<!-- Drive: moves WITH root in chaos (rules broken), calm in clarity -->
+<path d="M0,80 L10,95 L20,65 L30,90 L40,60 L50,95 L60,65 L70,92 L80,60 L90,95 L100,62 L110,90 L120,58 L130,92 L140,65 L150,90 L160,58 L170,95 L180,60 L190,88 L200,58 L210,92 L220,62 L230,90 L240,80 L480,80 L488,60 L498,100 L504,55 L514,105 L520,50 L530,108 L536,48 L546,110 L552,45 L562,108 L568,42 L578,112 L584,40 L594,110 L600,38 L610,112 L616,36 L626,115 L632,35 L642,112 L648,32 L658,115 L664,30 L674,118 L680,28 L690,115 L696,30 L706,118 L712,28 L720,80 L960,80" stroke="#f97316" stroke-width="1.5" fill="none" opacity="0.4"/>
+<!-- Reverb: inverse — huge in clarity, dry in chaos -->
+<path d="M0,140 L240,140 C260,120 280,70 300,35 C320,18 340,14 360,14 C380,14 400,20 420,40 C440,75 460,120 480,140 L720,140 C740,125 760,80 780,45 C800,25 820,18 840,15 C860,18 880,30 900,55 C920,90 940,125 960,140" stroke="#22c55e" stroke-width="2" fill="none" opacity="0.55"/>
+<!-- ROOT: erratic in chaos, flat in clarity -->
+<path d="M0,20 L8,135 L16,30 L24,125 L32,15 L40,140 L48,25 L56,130 L64,20 L72,140 L80,35 L88,120 L96,15 L104,135 L112,28 L120,130 L128,18 L136,140 L144,30 L152,125 L160,12 L168,135 L176,25 L184,130 L192,18 L200,140 L208,30 L216,125 L224,15 L232,135 L240,80 C260,82 280,78 300,82 C320,78 340,80 360,78 C380,82 400,80 420,82 C440,78 460,80 480,80 L488,12 L496,142 L500,8 L504,140 L508,15 L512,142 L516,10 L520,140 L524,8 L528,138 L532,12 L536,142 L540,5 L544,140 L548,10 L552,142 L556,8 L560,145 L564,5 L568,142 L572,8 L576,145 L580,5 L584,140 L588,8 L592,145 L596,3 L600,142 L604,5 L608,145 L612,5 L616,140 L620,8 L624,145 L628,3 L632,142 L636,5 L640,148 L644,3 L648,145 L652,2 L656,145 L660,5 L664,142 L668,3 L672,148 L676,2 L680,145 L684,3 L688,148 L692,2 L696,145 L700,3 L704,148 L708,2 L712,145 L716,3 L720,80 C740,82 760,78 780,80 C800,78 820,80 840,78 C860,82 880,80 900,80 C920,78 940,80 960,80" stroke="#ef4444" stroke-width="2" fill="none"/>
+</svg>
+</div>
+<div class="notes">
+<div class="note"><b>Structure:</b> Chaos zones (1+3): everything moves erratically. Drive moves WITH root (rules deliberately broken). Bar 3 is denser/wider than bar 1. Escalating chaos.</div>
+<div class="note"><b>Anchor:</b> <span class="hl" style="color:#22c55e">Reverb is the inverse</span> — dry in chaos, HUGE in clarity. The contrast makes both states hit harder. The alternation IS the groove.</div>
+</div>
+</div>
+
+<br><br>
+<p style="color:#27272a;font-size:10px;text-align:center">Stride — Sound Design Engine. 30 presets. 100 lanes each. Every curve reacts to every other curve.</p>
+
+</body>
+</html>

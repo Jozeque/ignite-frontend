@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stride Preset Explorations — 10 Reactive Presets</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #09090b; color: #d4d4d8; font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.6; padding: 40px; max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 24px; color: #f97316; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px; }
+  .subtitle { color: #52525b; font-size: 13px; margin-bottom: 48px; }
+
+  .preset { margin-bottom: 64px; }
+  .preset-header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+  .preset-num { font-size: 11px; color: #3f3f46; font-weight: 900; }
+  .preset-name { font-size: 18px; font-weight: 900; }
+  .preset-tagline { font-size: 13px; color: #52525b; margin-bottom: 16px; font-style: italic; }
+
+  .canvas-wrap { background: #0a0a0a; border: 1px solid #1a1a1e; border-radius: 16px; padding: 20px; margin-bottom: 12px; }
+  .canvas-wrap svg { width: 100%; height: auto; display: block; }
+
+  .bar-notes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px; }
+  .bar-note { background: #111113; border-radius: 8px; padding: 10px 12px; border-top: 2px solid; }
+  .bar-note h5 { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+  .bar-note p { font-size: 10px; color: #52525b; line-height: 1.5; margin: 0; }
+  .bar-note .root-behavior { font-size: 10px; font-weight: 700; margin-bottom: 2px; }
+  .bar-note .react { font-size: 10px; color: #3f3f46; }
+
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-item span { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  .leg-line { width: 16px; height: 3px; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<h1>Preset Explorations</h1>
+<p class="subtitle">10 presets. Every lane reacts to every other lane. Watch how secondary and tertiary curves change behavior at each bar.</p>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- PRESET 1: THE PUMPER -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="preset">
+  <div class="preset-header">
+    <span class="preset-num">01</span>
+    <span class="preset-name" style="color:#f97316">The Pumper</span>
+  </div>
+  <p class="preset-tagline">Evolving rhythmic engine. The pump tells a story — everything else follows.</p>
+
+  <div class="legend">
+    <div class="legend-item"><div class="leg-line" style="background:#f97316"></div><span style="color:#f97316">Filter Cutoff</span></div>
+    <div class="legend-item"><div class="leg-line" style="background:#d946ef"></div><span style="color:#d946ef">Resonance</span></div>
+    <div class="legend-item"><div class="leg-line" style="background:#06b6d4"></div><span style="color:#06b6d4">Drive</span></div>
+    <div class="legend-item"><div class="leg-line" style="background:#22c55e"></div><span style="color:#22c55e">Delay Send</span></div>
+    <div class="legend-item"><div class="leg-line" style="background:#ffffff15"></div><span style="color:#3f3f46">Tertiary (80+)</span></div>
+  </div>
+
+  <div class="canvas-wrap">
+    <svg viewBox="0 0 960 220">
+      <!-- Grid -->
+      <line x1="0" y1="10" x2="0" y2="210" stroke="#ffffff10" stroke-width="1"/>
+      <line x1="240" y1="10" x2="240" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <line x1="480" y1="10" x2="480" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <line x1="720" y1="10" x2="720" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <line x1="960" y1="10" x2="960" y2="210" stroke="#ffffff10" stroke-width="1"/>
+      <text x="4" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 1</text>
+      <text x="244" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 2</text>
+      <text x="484" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 3</text>
+      <text x="724" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 4</text>
+
+      <!-- Tertiary: Bar 1 tight micro. Bar 2 slightly wider. Bar 3 bolder fill in the gap. Bar 4 dense. -->
+      <path d="M0,112 Q10,110 20,114 Q30,112 40,110 Q50,113 60,111 Q70,110 80,114 Q90,112 100,110 Q110,113 120,111 Q130,110 140,114 Q150,112 160,110 Q170,113 180,111 Q190,110 200,114 Q210,112 220,110 Q230,113 240,112
+              Q250,108 260,116 Q270,110 280,114 Q290,108 300,116 Q310,110 320,115 Q330,108 340,116 Q350,110 360,114 Q370,108 380,116 Q390,110 400,114 Q410,108 420,116 Q430,118 440,108 Q450,118 460,108 Q470,116 480,112
+              Q490,105 500,120 Q510,108 520,118 Q530,100 540,122 Q550,105 560,120 Q570,102 580,118 Q590,100 600,122 Q610,105 620,120 Q630,100 640,122 Q650,105 660,118 Q670,102 680,120 Q690,100 700,115 Q710,105 720,112
+              Q725,100 730,124 Q735,98 740,125 Q745,96 750,126 Q755,95 760,128 Q765,94 770,130 Q775,92 780,130 Q785,90 790,132 Q795,88 800,132 Q805,86 810,134 Q815,85 820,134 Q825,84 830,135 Q835,82 840,136 Q845,80 850,138 Q855,78 860,138 Q865,76 870,140 Q875,75 880,140 Q885,74 890,142 Q895,72 900,144 Q910,70 920,145 Q930,68 940,148 Q950,66 960,150" stroke="#ffffff08" stroke-width="1" fill="none"/>
+      <path d="M0,118 Q15,116 30,120 Q45,118 60,116 Q75,119 90,117 Q105,116 120,120 Q135,118 150,116 Q165,119 180,117 Q195,116 210,120 Q225,118 240,118
+              Q255,114 270,122 Q285,116 300,120 Q315,114 330,122 Q345,116 360,120 Q375,114 390,122 Q405,116 420,120 Q435,122 450,114 Q465,122 480,118
+              Q495,110 510,128 Q525,114 540,124 Q555,108 570,128 Q585,112 600,126 Q615,108 630,128 Q645,112 660,125 Q675,108 690,126 Q705,108 720,118
+              Q728,105 736,130 Q744,102 752,132 Q760,100 768,134 Q776,98 784,136 Q792,96 800,138 Q808,94 816,140 Q824,92 832,140 Q840,88 848,142 Q856,86 864,144 Q872,84 880,146 Q888,82 896,148 Q904,80 912,150 Q920,78 928,152 Q936,76 944,154 Q952,74 960,155" stroke="#ffffff06" stroke-width="1" fill="none"/>
+
+      <!-- Drive (cyan): Bar 1 echoes pump +1beat. Bar 2 echoes syncopation. Bar 3 holds steady (pump is soft). Bar 4 drives hard with the buildup. -->
+      <path d="M0,190 Q15,190 22,140 Q35,110 48,110 Q56,110 68,190
+              Q75,190 82,140 Q95,110 108,110 Q116,110 128,190
+              Q135,190 142,140 Q155,110 168,110 Q176,110 188,190
+              Q195,190 202,140 Q215,110 228,110 Q236,110 240,190
+              Q255,190 268,150 Q286,120 300,120 Q318,120 336,190
+              Q350,190 370,160 Q386,140 405,140 Q420,140 440,190
+              L480,190
+              Q490,180 500,175 Q510,170 520,165 Q530,165 540,175 Q550,180 560,175 Q570,170 580,165 Q590,165 600,175 Q610,180 620,175 Q630,170 640,170 Q650,175 660,178 Q670,175 680,178 Q690,175 700,178 Q710,175 720,178
+              Q725,150 730,120 Q735,110 740,100 Q745,95 750,90 Q755,85 760,80 Q765,78 770,75 Q775,72 780,70 Q785,68 790,65 Q795,62 800,60 Q805,58 810,55 Q815,52 820,50 Q825,48 830,45 Q835,42 840,40 Q845,38 850,35 Q855,35 860,32 Q870,30 880,28 Q890,28 900,25 Q920,22 940,20 Q950,20 960,18" stroke="#06b6d4" stroke-width="1.8" fill="none" opacity="0.6"/>
+
+      <!-- Resonance (fuchsia): Bar 1 tight counter-dips. Bar 2 counter but adds wobble in the gap. Bar 3 free — rises and does its own LFO. Bar 4 slams to zero (gets out of the way). -->
+      <path d="M0,50 Q8,50 15,160 Q28,190 42,190 Q52,190 60,50
+              Q68,50 75,160 Q88,190 102,190 Q112,190 120,50
+              Q128,50 135,160 Q148,190 162,190 Q172,190 180,50
+              Q188,50 195,160 Q208,190 222,190 Q232,190 240,50
+              Q248,50 255,150 Q272,175 290,175 Q310,175 325,50
+              Q335,50 355,130 Q375,155 400,155 Q418,155 430,50
+              Q438,55 445,80 Q455,100 465,80 Q472,55 480,80
+              Q488,55 495,80 Q505,100 515,80 Q522,55 530,80 Q538,55 545,80 Q555,100 565,80 Q572,55 580,75 Q590,55 600,75 Q610,95 620,75 Q630,55 640,75 Q650,55 660,75 Q670,95 680,75 Q690,60 700,75 Q710,60 720,70
+              Q725,195 735,195 Q745,195 755,195 Q765,195 775,195 Q785,195 795,195 Q805,195 815,195 Q825,195 835,195 Q845,195 855,195 Q865,195 875,195 Q885,195 895,195 Q905,195 920,195 Q940,195 960,195" stroke="#d946ef" stroke-width="1.8" fill="none" opacity="0.6"/>
+
+      <!-- Delay Send (green): Bar 1 silent. Bar 2 fills the gap on beat 4. Bar 3 blooms fully (pump is soft). Bar 4 cuts out (too intense for delay). -->
+      <path d="M0,200 L240,200
+              L380,200 Q400,200 410,140 Q420,100 430,100 Q440,100 450,160 Q460,200 480,200
+              Q490,170 510,120 Q530,80 560,70 Q590,65 620,70 Q650,80 680,100 Q700,130 710,150 Q715,165 720,200
+              L960,200" stroke="#22c55e" stroke-width="1.8" fill="none" opacity="0.6"/>
+
+      <!-- ROOT: Filter Cutoff — evolving pump -->
+      <path d="M0,200 Q8,200 15,40 Q28,20 42,20 Q52,20 60,200
+              Q68,200 75,40 Q88,20 102,20 Q112,20 120,200
+              Q128,200 135,40 Q148,20 162,20 Q172,20 180,200
+              Q188,200 195,40 Q208,20 222,20 Q232,20 240,200
+              Q248,200 258,50 Q275,30 295,30 Q315,30 330,200
+              Q342,200 360,60 Q380,45 405,45 Q425,45 440,200
+              L480,200
+              Q490,170 510,100 Q530,60 560,55 Q580,55 600,80 Q620,120 640,140 Q650,150 660,160 Q670,170 680,180 Q690,185 700,190 Q710,195 720,200
+              Q725,180 730,100 Q733,70 736,50 Q739,40 742,35 Q746,200 749,180 Q752,100 755,70 Q758,50 761,35 Q764,200 768,180 Q772,100 775,60 Q778,40 781,30 Q784,200 788,170 Q792,90 795,55 Q798,35 801,25 Q804,200 808,165 Q812,80 815,50 Q818,30 821,20 Q824,200 828,160 Q832,75 835,45 Q838,25 841,18 Q844,200 848,155 Q852,70 855,40 Q858,22 861,15 Q864,200 868,150 Q872,65 875,35 Q878,18 881,12 Q884,200 890,140 Q896,55 900,30 Q904,15 908,10 Q912,200 918,130 Q924,50 930,25 Q936,12 942,8 Q950,200 955,120 Q958,60 960,10" stroke="#f97316" stroke-width="2.5" fill="none"/>
+    </svg>
+  </div>
+
+  <div class="bar-notes">
+    <div class="bar-note" style="border-color:#f97316">
+      <h5 style="color:#f97316">Bar 1 — Locked</h5>
+      <div class="root-behavior" style="color:#f97316">Pump: tight 4/4, full intensity</div>
+      <div class="react"><span style="color:#d946ef">Res:</span> tight counter-dips on every beat</div>
+      <div class="react"><span style="color:#06b6d4">Drive:</span> echoes pump, +1 beat delay</div>
+      <div class="react"><span style="color:#22c55e">Delay:</span> silent — too busy for space</div>
+      <div class="react"><span style="color:#52525b">Tertiary:</span> micro-wobble, tight</div>
+    </div>
+    <div class="bar-note" style="border-color:#f59e0b">
+      <h5 style="color:#f59e0b">Bar 2 — Syncopated</h5>
+      <div class="root-behavior" style="color:#f97316">Pump: beat 3 delayed, beat 4 drops out</div>
+      <div class="react"><span style="color:#d946ef">Res:</span> follows syncopation, wobbles in gap</div>
+      <div class="react"><span style="color:#06b6d4">Drive:</span> echoes the new timing</div>
+      <div class="react"><span style="color:#22c55e">Delay:</span> fills beat 4 gap — space blooms</div>
+      <div class="react"><span style="color:#52525b">Tertiary:</span> slightly wider movement</div>
+    </div>
+    <div class="bar-note" style="border-color:#22c55e">
+      <h5 style="color:#22c55e">Bar 3 — Open</h5>
+      <div class="root-behavior" style="color:#f97316">Pump: soft sweep, no sharp hits</div>
+      <div class="react"><span style="color:#d946ef">Res:</span> free — does its own LFO wobble</div>
+      <div class="react"><span style="color:#06b6d4">Drive:</span> holds steady, gentle</div>
+      <div class="react"><span style="color:#22c55e">Delay:</span> full bloom — owns the bar</div>
+      <div class="react"><span style="color:#52525b">Tertiary:</span> bolder fills in quiet space</div>
+    </div>
+    <div class="bar-note" style="border-color:#ef4444">
+      <h5 style="color:#ef4444">Bar 4 — Climax</h5>
+      <div class="root-behavior" style="color:#f97316">Pump: double-time → accelerating</div>
+      <div class="react"><span style="color:#d946ef">Res:</span> slams to zero — out of the way</div>
+      <div class="react"><span style="color:#06b6d4">Drive:</span> rises with the buildup</div>
+      <div class="react"><span style="color:#22c55e">Delay:</span> cuts out — too dense for space</div>
+      <div class="react"><span style="color:#52525b">Tertiary:</span> dense, cascading, piling on</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- PRESET 2: SLOW BURN -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="preset">
+  <div class="preset-header">
+    <span class="preset-num">02</span>
+    <span class="preset-name" style="color:#22c55e">Slow Burn</span>
+  </div>
+  <p class="preset-tagline">Glacial morphing. So slow you don't notice until you're somewhere completely different.</p>
+
+  <div class="legend">
+    <div class="legend-item"><div class="leg-line" style="background:#22c55e"></div><span style="color:#22c55e">Wavetable Pos</span></div>
+    <div class="legend-item"><div class="leg-line" style="background:#f97316"></div><span style="color:#f97316">Filter Cutoff</span></div>
+    <div class="legend-item"><div class="leg-line" style="background:#d946ef"></div><span style="color:#d946ef">Reverb Size</span></div>
+    <div class="legend-item"><div class="leg-line" style="background:#06b6d4"></div><span style="color:#06b6d4">Chorus Rate</span></div>
+  </div>
+
+  <div class="canvas-wrap">
+    <svg viewBox="0 0 960 220">
+      <line x1="0" y1="10" x2="0" y2="210" stroke="#ffffff10" stroke-width="1"/>
+      <line x1="240" y1="10" x2="240" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <line x1="480" y1="10" x2="480" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <line x1="720" y1="10" x2="720" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <text x="4" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 1</text>
+      <text x="244" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 2</text>
+      <text x="484" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 3</text>
+      <text x="724" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 4</text>
+
+      <!-- Tertiary: almost nothing bars 1-2. Wakes up gradually in bar 3-4 as WT reaches interesting zone -->
+      <path d="M0,112 Q60,112 120,112 Q180,111 240,112 Q300,111 360,113 Q420,110 480,112 Q500,108 520,116 Q540,106 560,118 Q580,104 600,120 Q620,104 640,118 Q660,102 680,120 Q700,100 720,118 Q740,96 760,124 Q780,92 800,128 Q820,88 840,130 Q860,86 880,132 Q900,84 920,134 Q940,82 960,136" stroke="#ffffff07" stroke-width="1" fill="none"/>
+      <path d="M0,115 Q80,115 160,115 Q240,114 320,115 Q400,114 480,115 Q510,112 540,119 Q570,110 600,122 Q630,108 660,124 Q690,105 720,122 Q750,100 780,128 Q810,96 840,132 Q870,92 900,136 Q930,88 960,140" stroke="#ffffff05" stroke-width="1" fill="none"/>
+
+      <!-- Chorus Rate (cyan): mirrors the stasis. Calm in bars 1-2. When WT hits the plateau peak (bar 3-4), rate picks up — reactive to the interesting zone -->
+      <path d="M0,120 Q30,118 60,122 Q90,120 120,118 Q150,121 180,119 Q210,118 240,120
+              Q270,118 300,122 Q330,120 340,117 Q360,122 390,118 Q420,120 450,118 Q470,121 480,118
+              Q500,112 520,126 Q540,108 560,128 Q580,106 600,130 Q620,104 640,128 Q660,100 680,132 Q700,98 720,130
+              Q740,94 760,136 Q780,90 800,138 Q820,86 840,140 Q860,84 880,142 Q900,80 920,144 Q940,78 960,146" stroke="#06b6d4" stroke-width="1.5" fill="none" opacity="0.55"/>
+
+      <!-- Reverb Size (fuchsia): counter to WT sweep. Space is big when WT is low (bars 1-2), shrinks as WT rises (bars 3-4) — keeps the mix clean -->
+      <path d="M0,40 C120,42 240,45 360,50 C480,60 600,100 720,140 C800,170 880,185 960,190" stroke="#d946ef" stroke-width="1.5" fill="none" opacity="0.55"/>
+
+      <!-- Filter Cutoff (orange): fills the stillness. Bars 1-2 WT barely moves so filter does gentle sweeps. Bar 3-4 WT is moving so filter holds steady and lets WT take over -->
+      <path d="M0,160 Q30,120 60,80 Q90,60 120,80 Q150,120 180,160 Q210,130 240,90
+              Q270,70 300,50 Q330,70 360,100 Q390,130 420,160 Q450,140 480,120
+              L560,120 L640,118 L720,115
+              L800,112 L880,110 L960,110" stroke="#f97316" stroke-width="1.8" fill="none" opacity="0.7"/>
+
+      <!-- ROOT: Wavetable Position — glacial S-curve -->
+      <path d="M0,190 C80,188 160,185 240,180 C320,172 400,160 480,140 C560,110 640,70 720,45 C800,30 880,22 960,20" stroke="#22c55e" stroke-width="2.5" fill="none"/>
+    </svg>
+  </div>
+
+  <div class="bar-notes">
+    <div class="bar-note" style="border-color:#22c55e">
+      <h5 style="color:#22c55e">Bar 1 — Still waters</h5>
+      <div class="root-behavior" style="color:#22c55e">WT: barely moved. Dark zone.</div>
+      <div class="react"><span style="color:#f97316">Filter:</span> does gentle sweeps — fills the quiet</div>
+      <div class="react"><span style="color:#d946ef">Reverb:</span> big — space owns the sound</div>
+      <div class="react"><span style="color:#06b6d4">Chorus:</span> slow drift, calm</div>
+    </div>
+    <div class="bar-note" style="border-color:#22c55e">
+      <h5 style="color:#22c55e">Bar 2 — Stirring</h5>
+      <div class="root-behavior" style="color:#22c55e">WT: starting to move. Mid-dark.</div>
+      <div class="react"><span style="color:#f97316">Filter:</span> still sweeping, wider arcs</div>
+      <div class="react"><span style="color:#d946ef">Reverb:</span> starting to pull back</div>
+      <div class="react"><span style="color:#06b6d4">Chorus:</span> slightly more active</div>
+    </div>
+    <div class="bar-note" style="border-color:#f59e0b">
+      <h5 style="color:#f59e0b">Bar 3 — Crossing over</h5>
+      <div class="root-behavior" style="color:#22c55e">WT: sweeping through mid zone.</div>
+      <div class="react"><span style="color:#f97316">Filter:</span> holds — lets WT own the movement</div>
+      <div class="react"><span style="color:#d946ef">Reverb:</span> shrinking — clearing space</div>
+      <div class="react"><span style="color:#06b6d4">Chorus:</span> rate picking up — excitement</div>
+    </div>
+    <div class="bar-note" style="border-color:#f97316">
+      <h5 style="color:#f97316">Bar 4 — Arrived</h5>
+      <div class="root-behavior" style="color:#22c55e">WT: bright zone, high position.</div>
+      <div class="react"><span style="color:#f97316">Filter:</span> locked open — WT needs clarity</div>
+      <div class="react"><span style="color:#d946ef">Reverb:</span> small — tight, present</div>
+      <div class="react"><span style="color:#06b6d4">Chorus:</span> agitated flutter — energy</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- PRESET 3: SURGE -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="preset">
+  <div class="preset-header">
+    <span class="preset-num">03</span>
+    <span class="preset-name" style="color:#f59e0b">Surge</span>
+  </div>
+  <p class="preset-tagline">Rising tension. Fake drop at 75%. Real drop at the end. Everything cascades.</p>
+
+  <div class="legend">
+    <div class="legend-item"><div class="leg-line" style="background:#f59e0b"></div><span style="color:#f59e0b">Filter (Build)</span></div>
+    <div class="legend-item"><div class="leg-line" style="background:#d946ef"></div><span style="color:#d946ef">Reverb Wet</span></div>
+    <div class="legend-item"><div class="leg-line" style="background:#f97316"></div><span style="color:#f97316">Drive</span></div>
+    <div class="legend-item"><div class="leg-line" style="background:#06b6d4"></div><span style="color:#06b6d4">Width</span></div>
+  </div>
+
+  <div class="canvas-wrap">
+    <svg viewBox="0 0 960 220">
+      <line x1="240" y1="10" x2="240" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <line x1="480" y1="10" x2="480" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <line x1="720" y1="10" x2="720" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <text x="4" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 1</text>
+      <text x="244" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 2</text>
+      <text x="484" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 3</text>
+      <text x="724" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 4</text>
+
+      <!-- Tertiary: density increases with the build -->
+      <path d="M0,112 Q60,111 120,113 Q180,112 240,112 Q280,108 320,116 Q360,106 400,118 Q440,104 480,114 Q500,98 520,126 Q540,94 560,130 Q580,90 600,132 Q620,86 640,134 Q660,82 680,136 Q700,80 720,140 Q730,145 740,105 Q750,145 760,108 Q770,145 780,110 Q790,140 800,112 Q810,135 820,115 Q830,130 840,118 Q850,128 860,120 Q880,125 900,118 Q920,122 940,116 Q960,118" stroke="#ffffff06" stroke-width="1" fill="none"/>
+
+      <!-- Width (cyan): expands during build, snaps to mono at fake drop, expands again, goes ultra-wide at real peak -->
+      <path d="M0,140 C60,138 120,130 180,120 C240,110 300,95 360,80 C420,65 480,50 540,40
+              L545,180 L600,178 C640,165 680,140 700,120
+              C720,100 740,80 760,50 C780,35 800,25 820,20
+              L825,20 C840,60 860,90 880,100 C900,110 920,115 960,120" stroke="#06b6d4" stroke-width="1.5" fill="none" opacity="0.55"/>
+
+      <!-- Drive (orange): piles on during build. Backs off at fake drop. Goes HARDER in final build. Stays after drop. -->
+      <path d="M0,190 C80,185 160,175 240,160 C320,140 400,115 480,90 C520,75 540,65 545,60
+              L548,180 C580,175 620,160 660,140
+              C700,110 740,70 760,45 C780,30 800,22 820,18
+              L825,18 L830,30 L840,35 L860,40 L880,45 L920,50 L960,55" stroke="#f97316" stroke-width="1.8" fill="none" opacity="0.65"/>
+
+      <!-- Reverb Wet (fuchsia): swells during build. At fake drop — HUGE reverb tail. Builds again. At real peak — reverb snaps dry. -->
+      <path d="M0,180 C80,175 160,160 240,140 C320,120 400,95 480,70 C520,55 540,45 545,40
+              L548,20 L560,22 L580,30 C620,50 660,70 700,60
+              C720,45 740,30 760,22 C780,18 800,15 820,12
+              L825,200 L840,198 L860,195 L880,190 L920,185 L960,180" stroke="#d946ef" stroke-width="1.8" fill="none" opacity="0.6"/>
+
+      <!-- ROOT: Filter Build — staircase with fake drop at 75% -->
+      <path d="M0,200 L60,200 L60,180 L120,180 L120,155 L180,155 L180,130 L240,130 L240,105 L300,105 L300,80 L360,80 L360,60 L420,60 L420,42 L480,42 L480,30 L540,30 L540,22
+              L545,200 L600,200 L600,170 L660,170 L660,130 L720,130 L720,80 L760,80 L760,45 L800,45 L800,25 L820,25 L820,15
+              L825,15 L830,200 L960,200" stroke="#f59e0b" stroke-width="2.5" fill="none"/>
+    </svg>
+  </div>
+
+  <div class="bar-notes">
+    <div class="bar-note" style="border-color:#f59e0b">
+      <h5 style="color:#f59e0b">Bar 1-2 — Rising</h5>
+      <div class="root-behavior" style="color:#f59e0b">Filter: staircase build, gaining steps</div>
+      <div class="react"><span style="color:#d946ef">Reverb:</span> swelling — tension through space</div>
+      <div class="react"><span style="color:#f97316">Drive:</span> piling on gradually</div>
+      <div class="react"><span style="color:#06b6d4">Width:</span> expanding — sound gets bigger</div>
+    </div>
+    <div class="bar-note" style="border-color:#ef4444">
+      <h5 style="color:#ef4444">Bar 3 start — Fake Drop</h5>
+      <div class="root-behavior" style="color:#f59e0b">Filter: snaps to bottom at 75%</div>
+      <div class="react"><span style="color:#d946ef">Reverb:</span> HUGE tail — rings out</div>
+      <div class="react"><span style="color:#f97316">Drive:</span> drops, resets</div>
+      <div class="react"><span style="color:#06b6d4">Width:</span> collapses to mono — shock</div>
+    </div>
+    <div class="bar-note" style="border-color:#f59e0b">
+      <h5 style="color:#f59e0b">Bar 3-4 — Rebuild (faster)</h5>
+      <div class="root-behavior" style="color:#f59e0b">Filter: rebuilds faster, higher peak</div>
+      <div class="react"><span style="color:#d946ef">Reverb:</span> builds again, gets very wet</div>
+      <div class="react"><span style="color:#f97316">Drive:</span> goes harder than before</div>
+      <div class="react"><span style="color:#06b6d4">Width:</span> ultra-wide — bigger than bar 2</div>
+    </div>
+    <div class="bar-note" style="border-color:#22c55e">
+      <h5 style="color:#22c55e">Bar 4 end — Real Drop</h5>
+      <div class="root-behavior" style="color:#f59e0b">Filter: peak → snaps to bottom</div>
+      <div class="react"><span style="color:#d946ef">Reverb:</span> snaps DRY — total contrast</div>
+      <div class="react"><span style="color:#f97316">Drive:</span> holds — drives the impact</div>
+      <div class="react"><span style="color:#06b6d4">Width:</span> settles — controlled release</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- PRESET 4: GHOST MACHINE -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="preset">
+  <div class="preset-header">
+    <span class="preset-num">04</span>
+    <span class="preset-name" style="color:#71717a">Ghost Machine</span>
+  </div>
+  <p class="preset-tagline">You can't hear it working. Strip it away and the sound dies. Add it back — magic.</p>
+
+  <div class="legend">
+    <div class="legend-item"><div class="leg-line" style="background:#71717a"></div><span style="color:#71717a">Everything is subtle — all lanes at 5-15%</span></div>
+  </div>
+
+  <div class="canvas-wrap">
+    <svg viewBox="0 0 960 220">
+      <line x1="240" y1="10" x2="240" y2="210" stroke="#ffffff08" stroke-width="1"/>
+      <line x1="480" y1="10" x2="480" y2="210" stroke="#ffffff08" stroke-width="1"/>
+      <line x1="720" y1="10" x2="720" y2="210" stroke="#ffffff08" stroke-width="1"/>
+      <text x="4" y="8" fill="#1a1a1e" font-size="9" font-weight="700">BAR 1</text>
+      <text x="244" y="8" fill="#1a1a1e" font-size="9" font-weight="700">BAR 2</text>
+      <text x="484" y="8" fill="#1a1a1e" font-size="9" font-weight="700">BAR 3</text>
+      <text x="724" y="8" fill="#1a1a1e" font-size="9" font-weight="700">BAR 4</text>
+
+      <!-- 30+ lanes, all micro-movement. Different rates, different phases. No lane is loud. Together they create "alive" -->
+      <path d="M0,108 C40,106 80,112 120,109 C160,105 200,113 240,108 C280,104 320,114 360,107 C400,103 440,115 480,108 C520,102 560,116 600,107 C640,101 680,115 720,108 C760,102 800,114 840,108 C880,103 920,113 960,108" stroke="#f9731625" stroke-width="1.5" fill="none"/>
+      <path d="M0,115 C50,113 100,118 150,114 C200,111 250,119 300,115 C350,112 400,120 450,115 C500,110 550,120 600,114 C650,110 700,121 750,114 C800,108 850,119 900,114 C940,110 960,116" stroke="#d946ef20" stroke-width="1.5" fill="none"/>
+      <path d="M0,103 C30,101 60,106 90,102 C120,100 150,107 180,103 C210,99 240,108 270,103 C300,98 330,108 360,102 C390,98 420,109 450,103 C480,97 510,109 540,102 C570,97 600,110 630,103 C660,96 690,110 720,102 C750,96 780,111 810,103 C840,96 870,110 900,103 C930,96 960,105" stroke="#06b6d420" stroke-width="1.5" fill="none"/>
+      <path d="M0,120 C45,118 90,124 135,120 C180,116 225,125 270,119 C315,115 360,126 405,120 C450,114 495,126 540,119 C585,113 630,127 675,120 C720,112 765,127 810,119 C855,112 900,126 945,120 960,118" stroke="#22c55e18" stroke-width="1.5" fill="none"/>
+      <path d="M0,98 C55,96 110,102 165,97 C220,94 275,104 330,98 C385,93 440,105 495,98 C550,92 605,106 660,98 C715,91 770,106 825,98 C880,91 935,104 960,100" stroke="#f59e0b15" stroke-width="1.5" fill="none"/>
+      <path d="M0,125 C35,123 70,128 105,124 C140,121 175,130 210,125 C245,120 280,131 315,124 C350,119 385,132 420,125 C455,118 490,132 525,124 C560,117 595,133 630,125 C665,116 700,133 735,124 C770,116 805,133 840,125 C875,116 910,132 945,125 960,123" stroke="#ffffff0a" stroke-width="1" fill="none"/>
+      <path d="M0,92 C65,90 130,96 195,91 C260,87 325,98 390,92 C455,86 520,99 585,92 C650,85 715,99 780,91 C845,84 910,98 960,94" stroke="#ffffff08" stroke-width="1" fill="none"/>
+      <path d="M0,130 C42,128 84,134 126,130 C168,126 210,136 252,130 C294,124 336,137 378,130 C420,123 462,138 504,130 C546,122 588,138 630,130 C672,122 714,138 756,130 C798,122 840,137 882,130 C924,122 960,132" stroke="#ffffff08" stroke-width="1" fill="none"/>
+      <path d="M0,86 C75,84 150,90 225,85 C300,81 375,92 450,86 C525,79 600,93 675,85 C750,78 825,93 900,86 960,82" stroke="#ffffff06" stroke-width="1" fill="none"/>
+      <path d="M0,136 C38,134 76,140 114,136 C152,132 190,142 228,136 C266,130 304,143 342,136 C380,128 418,143 456,136 C494,128 532,144 570,136 C608,126 646,143 684,136 C722,126 760,143 798,136 C836,128 874,142 912,136 960,133" stroke="#ffffff06" stroke-width="1" fill="none"/>
+      <!-- More ghost lines -->
+      <path d="M0,142 C48,140 96,146 144,142 C192,138 240,148 288,142 C336,136 384,148 432,142 C480,134 528,150 576,142 C624,132 672,149 720,141 C768,132 816,148 864,141 C912,134 960,144" stroke="#ffffff05" stroke-width="1" fill="none"/>
+      <path d="M0,80 C85,78 170,84 255,79 C340,75 425,87 510,80 C595,73 680,87 765,80 C850,73 935,84 960,80" stroke="#ffffff05" stroke-width="1" fill="none"/>
+      <path d="M0,148 C52,146 104,152 156,148 C208,144 260,154 312,148 C364,142 416,154 468,148 C520,140 572,155 624,147 C676,138 728,154 780,147 C832,140 884,153 936,147 960,145" stroke="#ffffff04" stroke-width="1" fill="none"/>
+      <path d="M0,74 C95,72 190,78 285,73 C380,69 475,81 570,74 C665,67 760,81 855,74 960,68" stroke="#ffffff04" stroke-width="1" fill="none"/>
+    </svg>
+  </div>
+
+  <div class="bar-notes">
+    <div class="bar-note" style="border-color:#27272a">
+      <h5 style="color:#52525b">All 4 bars — Imperceptible</h5>
+      <p>No single lane is audible. 30+ lanes at 5-15% amplitude, all drifting at different rates and phases. None repeat. None are on-grid. Together they create an organic, living quality that you only notice when it's gone.</p>
+    </div>
+    <div class="bar-note" style="border-color:#27272a">
+      <h5 style="color:#52525b">The trick</h5>
+      <p>Different parameter types drift at different speeds. Filters: slow (2-4 bar cycles). Detune: faster (1-2 bar). Pan: very slow (8+ bar). Effects: medium. The polyrhythmic phasing means it never loops.</p>
+    </div>
+    <div class="bar-note" style="border-color:#27272a">
+      <h5 style="color:#52525b">Reactive element</h5>
+      <p>Lanes aren't independent — they cluster. When 3 filter lanes drift upward together (by chance), the detune lanes compensate downward slightly. Emergent counter-motion from correlated drift.</p>
+    </div>
+    <div class="bar-note" style="border-color:#27272a">
+      <h5 style="color:#52525b">Best on</h5>
+      <p>Pads, ambient textures, background layers. Anything that needs to feel "produced" without obvious modulation. Stack this on a static chord and it transforms instantly.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- PRESET 5: NERVE -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="preset">
+  <div class="preset-header">
+    <span class="preset-num">05</span>
+    <span class="preset-name" style="color:#ef4444">Nerve</span>
+  </div>
+  <p class="preset-tagline">Twitchy. Aggressive. A slow underlayer changes the character of the fast surface.</p>
+
+  <div class="legend">
+    <div class="legend-item"><div class="leg-line" style="background:#ef4444"></div><span style="color:#ef4444">Filter (fast gate)</span></div>
+    <div class="legend-item"><div class="leg-line" style="background:#22c55e"></div><span style="color:#22c55e">WT Sweep (underlayer)</span></div>
+    <div class="legend-item"><div class="leg-line" style="background:#f59e0b"></div><span style="color:#f59e0b">Res (reactive)</span></div>
+    <div class="legend-item"><div class="leg-line" style="background:#06b6d4"></div><span style="color:#06b6d4">Drive (reactive)</span></div>
+  </div>
+
+  <div class="canvas-wrap">
+    <svg viewBox="0 0 960 220">
+      <line x1="240" y1="10" x2="240" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <line x1="480" y1="10" x2="480" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <line x1="720" y1="10" x2="720" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <text x="4" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 1</text>
+      <text x="244" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 2</text>
+      <text x="484" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 3</text>
+      <text x="724" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 4</text>
+
+      <!-- Tertiary: tight when filter is in low zone, wider when in high zone -->
+      <path d="M0,112 Q8,110 16,114 Q24,110 32,115 Q40,110 48,114 Q56,110 64,114 Q72,111 80,114 Q88,111 96,114 Q104,110 112,115 Q120,110 128,114 Q136,111 144,114 Q152,110 160,115 Q168,110 176,114 Q184,111 192,114 Q200,110 208,115 Q216,110 224,113 Q232,111 240,112 Q248,106 256,118 Q264,104 272,120 Q280,102 288,122 Q296,104 304,118 Q312,106 320,120 Q328,104 336,120 Q344,104 352,118 Q360,106 368,120 Q376,102 384,122 Q392,104 400,118 Q408,106 416,120 Q424,104 432,120 Q440,106 448,118 Q456,104 464,120 Q472,106 480,112 Q488,108 496,116 Q504,108 512,116 Q520,108 528,116 Q536,108 544,116 Q552,108 560,116 Q568,108 576,116 Q584,108 592,116 Q600,108 608,116 Q616,108 624,116 Q632,108 640,116 Q648,108 656,116 Q664,108 672,116 Q680,108 688,116 Q696,108 704,116 Q712,108 720,112 Q728,100 736,126 Q744,96 752,130 Q760,94 768,132 Q776,92 784,134 Q792,90 800,136 Q808,88 816,136 Q824,86 832,138 Q840,84 848,140 Q856,82 864,142 Q872,80 880,142 Q888,78 896,144 Q904,78 912,144 Q920,76 928,146 Q936,74 944,148 Q952,72 960,150" stroke="#ffffff06" stroke-width="1" fill="none"/>
+
+      <!-- Drive (cyan): tracks the underlayer sweep. Low zone = low drive. High zone (bar 2) = high drive. Drops back down. Builds in bar 4 with the WT -->
+      <path d="M0,170 C40,168 80,165 120,160 C160,150 200,130 240,110 C280,85 320,65 360,50 C400,45 440,50 480,60 C520,75 560,90 600,110 C640,130 680,145 720,155 C740,140 760,115 780,85 C800,60 830,40 860,30 C890,25 920,22 960,20" stroke="#06b6d4" stroke-width="1.5" fill="none" opacity="0.55"/>
+
+      <!-- Resonance (amber): opposite behavior in each zone. Low WT zone: res is high (adds harmonic interest to dark sound). High WT zone: res dips (prevents piercing). -->
+      <path d="M0,50 C40,52 80,55 120,60 C160,70 200,90 240,110 C280,135 320,155 360,170 C400,175 440,170 480,160 C520,145 560,130 600,110 C640,90 680,75 720,65 C740,80 760,110 780,140 C800,165 830,180 860,190 C890,195 920,198 960,200" stroke="#f59e0b" stroke-width="1.5" fill="none" opacity="0.6"/>
+
+      <!-- ROOT 2: WT Sweep underlayer — slow arc, peaks at bar 2 -->
+      <path d="M0,190 C80,170 160,130 240,80 C320,40 400,25 480,40 C560,70 640,120 720,160 C800,120 840,60 900,30 960,20" stroke="#22c55e" stroke-width="2" fill="none"/>
+
+      <!-- ROOT 1: Filter — fast rhythmic gate. Rate changes based on WT zone:
+           Bar 1 (low WT): 8th notes, partial open
+           Bar 2 (high WT): 16th notes, full range
+           Bar 3 (mid WT): 8th notes with accents
+           Bar 4 (WT rising): accelerates 8th→16th→32nd -->
+      <path d="M0,180 L0,80 L30,80 L30,180 L60,180 L60,80 L90,80 L90,180 L120,180 L120,80 L150,80 L150,180 L180,180 L180,80 L210,80 L210,180 L240,180
+              L240,200 L255,200 L255,30 L270,30 L270,200 L285,200 L285,30 L300,30 L300,200 L315,200 L315,30 L330,30 L330,200 L345,200 L345,30 L360,30 L360,200 L375,200 L375,30 L390,30 L390,200 L405,200 L405,30 L420,30 L420,200 L435,200 L435,30 L450,30 L450,200 L465,200 L465,30 L480,30 L480,200
+              L480,160 L510,160 L510,60 L540,60 L540,160 L570,160 L570,20 L600,20 L600,160 L630,160 L630,60 L660,60 L660,160 L690,160 L690,20 L720,20 L720,160
+              L720,180 L735,180 L735,40 L750,40 L750,180 L765,180 L765,40 L780,40 L780,180 L788,180 L788,30 L796,30 L796,180 L804,180 L804,30 L812,30 L812,180 L818,180 L818,20 L824,20 L824,180 L830,180 L830,20 L836,20 L836,180 L841,180 L841,15 L846,15 L846,180 L851,180 L851,15 L856,15 L856,180 L860,180 L860,12 L864,12 L864,180 L868,180 L868,12 L872,12 L872,180 L876,180 L876,10 L880,10 L880,180 L884,180 L884,10 L888,10 L888,180 L892,180 L892,10 L896,10 L896,180 L900,180 L900,10 L904,10 L904,180 L908,180 L908,10 L912,10 L912,180 L916,180 L916,10 L920,10 L920,180 L924,180 L924,10 L928,10 L928,180 L932,180 L932,10 L936,10 L936,180 L940,180 L940,10 L944,10 L944,180 L948,180 L948,10 L952,10 L952,180 L956,180 L956,10 L960,10" stroke="#ef4444" stroke-width="2" fill="none"/>
+    </svg>
+  </div>
+
+  <div class="bar-notes">
+    <div class="bar-note" style="border-color:#ef4444">
+      <h5 style="color:#ef4444">Bar 1 — Dark + Slow gate</h5>
+      <div class="root-behavior" style="color:#ef4444">Filter: 8th note gate, partial open</div>
+      <div class="root-behavior" style="color:#22c55e">WT: low zone (dark timbre)</div>
+      <div class="react"><span style="color:#f59e0b">Res:</span> high — adds harmonics to dark sound</div>
+      <div class="react"><span style="color:#06b6d4">Drive:</span> low — clean dark tone</div>
+    </div>
+    <div class="bar-note" style="border-color:#ef4444">
+      <h5 style="color:#ef4444">Bar 2 — Bright + Fast gate</h5>
+      <div class="root-behavior" style="color:#ef4444">Filter: 16th note gate, full range</div>
+      <div class="root-behavior" style="color:#22c55e">WT: peak zone (bright timbre)</div>
+      <div class="react"><span style="color:#f59e0b">Res:</span> dips — prevents piercing</div>
+      <div class="react"><span style="color:#06b6d4">Drive:</span> peaks — adds grit to brightness</div>
+    </div>
+    <div class="bar-note" style="border-color:#ef4444">
+      <h5 style="color:#ef4444">Bar 3 — Return + Accented</h5>
+      <div class="root-behavior" style="color:#ef4444">Filter: 8th notes with accent hits</div>
+      <div class="root-behavior" style="color:#22c55e">WT: falling back to mid</div>
+      <div class="react"><span style="color:#f59e0b">Res:</span> rising back — warmth returns</div>
+      <div class="react"><span style="color:#06b6d4">Drive:</span> dropping — clearing out</div>
+    </div>
+    <div class="bar-note" style="border-color:#ef4444">
+      <h5 style="color:#ef4444">Bar 4 — Accelerating chaos</h5>
+      <div class="root-behavior" style="color:#ef4444">Filter: 8th→16th→32nd, accelerates</div>
+      <div class="root-behavior" style="color:#22c55e">WT: sweeping up again</div>
+      <div class="react"><span style="color:#f59e0b">Res:</span> slams low — out of the way</div>
+      <div class="react"><span style="color:#06b6d4">Drive:</span> maxes out — full aggression</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- PRESET 6: DEEP BREATH -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="preset">
+  <div class="preset-header">
+    <span class="preset-num">06</span>
+    <span class="preset-name" style="color:#06b6d4">Deep Breath</span>
+  </div>
+  <p class="preset-tagline">Inhale: everything opens. Exhale: everything tightens. Different lanes own different phases.</p>
+
+  <div class="legend">
+    <div class="legend-item"><div class="leg-line" style="background:#06b6d4"></div><span style="color:#06b6d4">Filter (breath)</span></div>
+    <div class="legend-item"><div class="leg-line" style="background:#f97316"></div><span style="color:#f97316">Reverb (inhale only)</span></div>
+    <div class="legend-item"><div class="leg-line" style="background:#d946ef"></div><span style="color:#d946ef">Drive (exhale only)</span></div>
+    <div class="legend-item"><div class="leg-line" style="background:#22c55e"></div><span style="color:#22c55e">Width</span></div>
+  </div>
+
+  <div class="canvas-wrap">
+    <svg viewBox="0 0 960 220">
+      <line x1="240" y1="10" x2="240" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <line x1="480" y1="10" x2="480" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <line x1="720" y1="10" x2="720" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <text x="4" y="8" fill="#27272a" font-size="9" font-weight="700">INHALE</text>
+      <text x="244" y="8" fill="#27272a" font-size="9" font-weight="700">PEAK</text>
+      <text x="484" y="8" fill="#27272a" font-size="9" font-weight="700">EXHALE</text>
+      <text x="724" y="8" fill="#27272a" font-size="9" font-weight="700">REST</text>
+
+      <!-- Tertiary: expand on inhale, contract on exhale -->
+      <path d="M0,112 Q30,110 60,108 Q90,104 120,100 Q150,96 180,92 Q210,88 240,85 Q270,82 300,80 Q330,78 360,80 Q390,82 420,86 Q450,92 480,98 Q510,104 540,108 Q570,112 600,114 Q630,115 660,114 Q690,113 720,112 Q750,112 780,112 Q810,112 840,112 Q870,112 900,112 Q930,112 960,112" stroke="#ffffff06" stroke-width="1" fill="none"/>
+      <path d="M0,118 Q40,116 80,112 Q120,108 160,102 Q200,96 240,90 Q280,86 320,84 Q360,82 400,86 Q440,92 480,100 Q520,108 560,114 Q600,118 640,120 Q680,118 720,118 Q760,118 800,118 Q840,118 880,118 Q920,118 960,118" stroke="#ffffff05" stroke-width="1" fill="none"/>
+
+      <!-- Width (green): follows breath shape closely — wide on inhale, narrow on exhale, neutral at rest -->
+      <path d="M0,180 C60,160 120,120 180,80 C220,50 260,35 300,30 C340,28 380,35 420,60 C460,90 520,140 580,170 C620,185 660,192 720,195 L960,195" stroke="#22c55e" stroke-width="1.5" fill="none" opacity="0.5"/>
+
+      <!-- Drive (fuchsia): ONLY active during exhale. Silent during inhale. Compresses the sound as it tightens. -->
+      <path d="M0,200 L340,200 C380,200 400,195 420,180 C440,160 460,130 480,100 C500,80 520,65 540,55 C560,50 580,55 600,65 C620,80 660,120 700,160 C720,180 740,195 760,200 L960,200" stroke="#d946ef" stroke-width="1.8" fill="none" opacity="0.6"/>
+
+      <!-- Reverb (orange): ONLY active during inhale. Blooms as filter opens, disappears before exhale. -->
+      <path d="M0,200 C20,190 40,170 60,150 C80,120 120,80 160,55 C200,35 240,25 280,22 C320,20 360,30 400,55 C440,90 470,150 500,200 L960,200" stroke="#f97316" stroke-width="1.8" fill="none" opacity="0.6"/>
+
+      <!-- ROOT: Filter — breath arc. Inhale (bars 1-2): opens. Peak: holds. Exhale (bar 3): closes. Rest (bar 4): holds low. -->
+      <path d="M0,200 C60,180 120,140 180,90 C220,55 260,30 300,22 C340,18 380,22 420,40 C460,70 500,120 540,160 C580,185 620,195 660,200 L960,200" stroke="#06b6d4" stroke-width="2.5" fill="none"/>
+    </svg>
+  </div>
+
+  <div class="bar-notes">
+    <div class="bar-note" style="border-color:#06b6d4">
+      <h5 style="color:#06b6d4">Inhale — Opening</h5>
+      <div class="root-behavior" style="color:#06b6d4">Filter: sweeps open, slow curve</div>
+      <div class="react"><span style="color:#f97316">Reverb:</span> blooms with the filter — space opens</div>
+      <div class="react"><span style="color:#d946ef">Drive:</span> silent — clean inhale</div>
+      <div class="react"><span style="color:#22c55e">Width:</span> expands — sound breathes out</div>
+    </div>
+    <div class="bar-note" style="border-color:#f59e0b">
+      <h5 style="color:#f59e0b">Peak — Full breath</h5>
+      <div class="root-behavior" style="color:#06b6d4">Filter: wide open, holding</div>
+      <div class="react"><span style="color:#f97316">Reverb:</span> at its biggest — maximum space</div>
+      <div class="react"><span style="color:#d946ef">Drive:</span> starting to rise — transition</div>
+      <div class="react"><span style="color:#22c55e">Width:</span> maximum — stereo field is huge</div>
+    </div>
+    <div class="bar-note" style="border-color:#d946ef">
+      <h5 style="color:#d946ef">Exhale — Closing</h5>
+      <div class="root-behavior" style="color:#06b6d4">Filter: sweeps closed</div>
+      <div class="react"><span style="color:#f97316">Reverb:</span> gone — space contracts</div>
+      <div class="react"><span style="color:#d946ef">Drive:</span> compresses the sound — grit</div>
+      <div class="react"><span style="color:#22c55e">Width:</span> narrowing — sound pulls inward</div>
+    </div>
+    <div class="bar-note" style="border-color:#27272a">
+      <h5 style="color:#52525b">Rest — Held</h5>
+      <div class="root-behavior" style="color:#06b6d4">Filter: closed, holding low</div>
+      <div class="react"><span style="color:#f97316">Reverb:</span> silent</div>
+      <div class="react"><span style="color:#d946ef">Drive:</span> fading out</div>
+      <div class="react"><span style="color:#22c55e">Width:</span> neutral — waiting for next inhale</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- PRESET 7: CHAOTIC ENGINE -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="preset">
+  <div class="preset-header">
+    <span class="preset-num">07</span>
+    <span class="preset-name" style="color:#ef4444">Chaotic Engine</span>
+  </div>
+  <p class="preset-tagline">Rules broken on purpose. Delay time AND feedback move together. Moments of clarity between the madness.</p>
+
+  <div class="canvas-wrap">
+    <svg viewBox="0 0 960 220">
+      <line x1="240" y1="10" x2="240" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <line x1="480" y1="10" x2="480" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <line x1="720" y1="10" x2="720" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <text x="4" y="8" fill="#27272a" font-size="9" font-weight="700">CHAOS</text>
+      <text x="244" y="8" fill="#27272a" font-size="9" font-weight="700">CLARITY</text>
+      <text x="484" y="8" fill="#27272a" font-size="9" font-weight="700">CHAOS+</text>
+      <text x="724" y="8" fill="#27272a" font-size="9" font-weight="700">RESOLVE</text>
+
+      <!-- Everything moves — bars 1 and 3 are intense, bars 2 and 4 are calm -->
+      <!-- Root 1: Filter — erratic in chaos, smooth in clarity -->
+      <path d="M0,30 L8,180 L16,50 L24,160 L32,20 L40,190 L48,40 L56,170 L64,30 L72,200 L80,60 L88,140 L96,20 L104,180 L112,45 L120,165 L128,25 L136,195 L144,55 L152,150 L160,15 L168,185 L176,40 L184,170 L192,30 L200,190 L208,50 L216,160 L224,25 L232,180 L240,110
+              C260,112 280,108 300,112 C320,110 340,112 360,108 C380,112 400,110 420,112 C440,108 460,112 480,110
+              L488,20 L496,200 L504,15 L512,190 L520,30 L528,180 L532,40 L536,200 L540,20 L544,170 L548,50 L552,190 L556,10 L560,200 L564,30 L568,180 L572,45 L576,195 L580,15 L584,190 L588,35 L592,200 L596,20 L600,185 L604,40 L608,195 L612,15 L616,180 L620,25 L624,200 L628,30 L632,190 L636,20 L640,185 L644,35 L648,200 L652,10 L656,195 L660,25 L664,190 L668,30 L672,200 L676,15 L680,185 L684,40 L688,195 L692,20 L696,180 L700,30 L704,200 L708,15 L712,190 L716,25 L720,110
+              C740,115 760,108 780,112 C800,110 820,113 840,109 C860,112 880,110 900,112 C920,110 940,111 960,112" stroke="#ef4444" stroke-width="2" fill="none"/>
+
+      <!-- Drive: moves WITH filter in chaos (breaking rules), holds in clarity -->
+      <path d="M0,40 L12,170 L24,60 L36,150 L48,30 L60,180 L72,50 L84,160 L96,30 L108,170 L120,55 L132,140 L144,25 L156,175 L168,45 L180,155 L192,35 L204,180 L216,60 L228,150 L240,120
+              L360,118 L480,120
+              L488,30 L500,190 L512,25 L524,180 L536,40 L548,185 L556,20 L564,190 L572,35 L580,185 L588,25 L596,195 L604,30 L612,180 L620,40 L628,190 L636,25 L644,185 L652,20 L660,190 L668,35 L676,185 L684,30 L692,195 L700,25 L708,190 L716,30 L720,120
+              L840,118 L960,120" stroke="#f97316" stroke-width="1.5" fill="none" opacity="0.5"/>
+
+      <!-- Reverb: inverse — massive during clarity (the ear needs to rest somewhere beautiful), dry in chaos -->
+      <path d="M0,200 L240,200
+              C260,180 280,100 300,50 C320,30 340,25 360,25 C380,25 400,30 420,50 C440,100 460,180 480,200
+              L720,200
+              C740,180 760,120 780,80 C800,50 820,35 840,30 C860,30 880,40 900,60 C920,100 940,160 960,200" stroke="#d946ef" stroke-width="1.8" fill="none" opacity="0.6"/>
+    </svg>
+  </div>
+
+  <div class="bar-notes">
+    <div class="bar-note" style="border-color:#ef4444">
+      <h5 style="color:#ef4444">Chaos zones (1 & 3)</h5>
+      <p>Everything moves fast and unpredictably. Drive moves WITH filter (breaking counter-motion rules). Resonance is erratic. No safety nets. Bar 3 is faster/denser than bar 1 — escalation.</p>
+    </div>
+    <div class="bar-note" style="border-color:#22c55e">
+      <h5 style="color:#22c55e">Clarity zones (2 & 4)</h5>
+      <p>Everything holds still. But reverb BLOOMS — the ear gets a beautiful, spacious moment to rest. The contrast makes both the chaos and the clarity hit harder. This is the secret structure.</p>
+    </div>
+    <div class="bar-note" style="border-color:#d946ef">
+      <h5 style="color:#d946ef">Reverb as inverse</h5>
+      <p>Reverb is dry during chaos (would just be mud) and huge during clarity (gives the ear something beautiful). It's the anchor that makes the chaos feel intentional, not random.</p>
+    </div>
+    <div class="bar-note" style="border-color:#27272a">
+      <h5 style="color:#52525b">Why it works</h5>
+      <p>Breaking rules WITH structure. The chaos is real, but the alternation with clarity creates narrative tension. The listener braces during chaos and breathes during clarity. That's groove.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- PRESET 8: CASCADE -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="preset">
+  <div class="preset-header">
+    <span class="preset-num">08</span>
+    <span class="preset-name" style="color:#f97316">Cascade</span>
+  </div>
+  <p class="preset-tagline">One curve ripples across 100 lanes. The wave mutates as it travels — first lanes hit hardest, last lanes whisper.</p>
+
+  <div class="canvas-wrap">
+    <svg viewBox="0 0 960 220">
+      <line x1="240" y1="10" x2="240" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <line x1="480" y1="10" x2="480" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <line x1="720" y1="10" x2="720" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <text x="4" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 1</text>
+      <text x="244" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 2</text>
+      <text x="484" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 3</text>
+      <text x="724" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 4</text>
+
+      <!-- Lane 1 (root): Full sine arc, bright -->
+      <path d="M0,170 C80,170 120,30 240,30 C360,30 400,170 480,170 C560,170 600,30 720,30 C840,30 880,170 960,170" stroke="#f97316" stroke-width="2.5" fill="none"/>
+      <!-- Lane 2: offset +10%, 90% amp -->
+      <path d="M0,155 C100,155 150,42 270,42 C390,42 420,155 510,155 C600,155 630,42 750,42 C870,42 910,155 960,155" stroke="#f97316" stroke-width="2" fill="none" opacity="0.7"/>
+      <!-- Lane 3: offset +20%, 80% amp -->
+      <path d="M0,145 C120,145 180,52 300,52 C420,52 450,145 540,145 C630,145 660,52 780,52 C900,52 930,145 960,145" stroke="#f97316" stroke-width="1.8" fill="none" opacity="0.55"/>
+      <!-- Lane 4: offset +30%, 70% amp -->
+      <path d="M0,138 C130,138 200,62 330,62 C460,62 470,138 570,138 C670,138 690,62 810,62 C930,62 950,138 960,138" stroke="#f59e0b" stroke-width="1.5" fill="none" opacity="0.45"/>
+      <!-- Lane 5: offset +40%, 60% amp -->
+      <path d="M0,132 C140,132 220,72 360,72 C500,72 510,132 600,132 C690,132 720,72 840,72 C960,72 960,132 960,132" stroke="#f59e0b" stroke-width="1.3" fill="none" opacity="0.35"/>
+      <!-- Lane 6-10: increasingly offset and faint -->
+      <path d="M0,125 C150,125 240,80 390,80 C540,80 550,125 630,125 C710,125 750,80 870,80 C960,80 960,125 960,125" stroke="#d946ef" stroke-width="1.2" fill="none" opacity="0.25"/>
+      <path d="M0,120 C160,120 260,88 420,88 C580,88 580,120 660,120 C740,120 780,88 900,88 C960,88 960,120 960,120" stroke="#d946ef" stroke-width="1" fill="none" opacity="0.2"/>
+      <path d="M0,116 C170,116 280,94 450,94 C620,94 610,116 690,116 C770,116 810,94 930,94 C960,94 960,116 960,116" stroke="#06b6d4" stroke-width="1" fill="none" opacity="0.15"/>
+      <path d="M0,113 C180,113 300,100 480,100 C660,100 640,113 720,113 C800,113 840,100 960,100" stroke="#06b6d4" stroke-width="1" fill="none" opacity="0.12"/>
+      <path d="M0,111 C190,111 320,104 510,104 C700,104 670,111 750,111 C830,111 870,104 960,104" stroke="#ffffff" stroke-width="0.8" fill="none" opacity="0.06"/>
+    </svg>
+  </div>
+
+  <div class="bar-notes">
+    <div class="bar-note" style="border-color:#f97316">
+      <h5 style="color:#f97316">Lane 1 (root)</h5>
+      <p>Full intensity sine arc. This is the source — the "splash" that creates the ripple. 100% amplitude, zero phase offset.</p>
+    </div>
+    <div class="bar-note" style="border-color:#f59e0b">
+      <h5 style="color:#f59e0b">Lanes 2-5 (near)</h5>
+      <p>Same shape, increasing phase offset (10-40%), decreasing amplitude (90-60%). The wave is visibly "traveling" across these lanes. Still strong enough to hear individually.</p>
+    </div>
+    <div class="bar-note" style="border-color:#d946ef">
+      <h5 style="color:#d946ef">Lanes 6-15 (mid)</h5>
+      <p>More offset (50-80%), lower amplitude (50-20%). The wave shape starts to soften — it's less sharp, more rounded. Gentle echo of the original splash.</p>
+    </div>
+    <div class="bar-note" style="border-color:#27272a">
+      <h5 style="color:#52525b">Lanes 16-100 (far)</h5>
+      <p>Barely visible. Phase is almost fully inverted. Amplitude at 5-15%. The ripple has become a whisper. But 85 whispers at slightly different phases = texture, not silence. This is where Ghost Machine meets Cascade.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- PRESET 9: SCULPTED -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="preset">
+  <div class="preset-header">
+    <span class="preset-num">09</span>
+    <span class="preset-name" style="color:#a1a1aa">Sculpted</span>
+  </div>
+  <p class="preset-tagline">Every movement is placed. Sparse, deliberate. The lanes support each moment with reactive precision.</p>
+
+  <div class="canvas-wrap">
+    <svg viewBox="0 0 960 220">
+      <line x1="240" y1="10" x2="240" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <line x1="480" y1="10" x2="480" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <line x1="720" y1="10" x2="720" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <text x="4" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 1</text>
+      <text x="244" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 2</text>
+      <text x="484" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 3</text>
+      <text x="724" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 4</text>
+
+      <!-- Everything is quiet except for deliberate moments -->
+      <!-- Root: sparse accents — 4 specific moments across 4 bars -->
+      <path d="M0,200 L165,200 L168,200 L172,40 L180,40 L184,200
+              L355,200 L358,200 L362,70 L368,70 L372,200
+              L530,200 L533,200 L537,30 L545,30 L549,200
+              L835,200 L838,200 L842,50 L850,50 L854,200 L960,200" stroke="#a1a1aa" stroke-width="2.5" fill="none"/>
+
+      <!-- Resonance: blooms AFTER each accent (echo), holds during silence -->
+      <path d="M0,200 L184,200 Q200,180 210,120 Q220,80 235,80 Q250,100 270,150 Q290,190 310,200 L372,200 Q385,170 395,130 Q405,110 415,110 Q430,130 445,170 Q460,195 480,200 L549,200 Q560,160 575,90 Q590,60 600,60 Q620,80 640,140 Q660,185 680,200 L854,200 Q870,170 885,110 Q900,85 910,85 Q925,100 940,150 Q950,185 960,200" stroke="#d946ef" stroke-width="1.5" fill="none" opacity="0.5"/>
+
+      <!-- Drive: spikes WITH each accent, sharp -->
+      <path d="M0,200 L170,200 L174,80 L178,80 L182,200
+              L360,200 L364,100 L368,100 L372,200
+              L535,200 L539,60 L543,60 L547,200
+              L840,200 L844,80 L848,80 L852,200 L960,200" stroke="#f97316" stroke-width="1.5" fill="none" opacity="0.5"/>
+
+      <!-- Tertiary: micro-fills between moments, denser before each accent (anticipation) -->
+      <path d="M0,112 Q20,112 40,112 Q60,112 80,112 Q100,111 120,113 Q130,110 140,114 Q148,108 155,116 Q160,106 165,118
+              L184,112 Q200,112 220,112 Q240,112 260,112 Q280,112 300,112 Q310,111 320,113 Q328,110 335,114 Q340,108 348,116 Q352,106 358,118
+              L372,112 Q392,112 412,112 Q432,112 452,112 Q462,111 472,113 Q478,110 484,114 Q492,108 500,116 Q510,106 518,118 Q524,104 530,120
+              L549,112 Q580,112 620,112 Q660,112 700,112 Q740,112 760,111 Q770,113 780,110 Q790,114 798,108 Q806,116 812,106 Q820,118 826,104 Q832,120 835,112
+              L854,112 Q880,112 920,112 Q950,112 960,112" stroke="#ffffff06" stroke-width="1" fill="none"/>
+    </svg>
+  </div>
+
+  <div class="bar-notes">
+    <div class="bar-note" style="border-color:#a1a1aa">
+      <h5 style="color:#a1a1aa">The moments</h5>
+      <p>4 deliberate events across 4 bars. Not random — placed at bar 1 beat 3, bar 2 beat 3, bar 3 beat 2, bar 4 beat 3.5. Irregular spacing creates tension and surprise.</p>
+    </div>
+    <div class="bar-note" style="border-color:#d946ef">
+      <h5 style="color:#d946ef">Resonance: bloom after</h5>
+      <p>Each accent is followed by a resonance bloom — like the ring-out of a bell. Different decay times for each moment. The third hit has the longest tail.</p>
+    </div>
+    <div class="bar-note" style="border-color:#f97316">
+      <h5 style="color:#f97316">Drive: spike with</h5>
+      <p>Sharp drive spike exactly on each accent — adds bite to the moment. No drive between events. Clean silence makes the hits land harder.</p>
+    </div>
+    <div class="bar-note" style="border-color:#27272a">
+      <h5 style="color:#52525b">Tertiary: anticipation</h5>
+      <p>Ghost lanes get slightly denser just BEFORE each accent — like the sound is "winding up." After the accent, they go quiet again. Subliminal tension-release cycle.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- PRESET 10: THE PUMPER v2 — HALF-TIME -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="preset">
+  <div class="preset-header">
+    <span class="preset-num">10</span>
+    <span class="preset-name" style="color:#f97316">The Pumper — Half-Time</span>
+  </div>
+  <p class="preset-tagline">Same concept, different feel. 2-bar pump cycle instead of 1-bar. Derived lanes fill the space between hits.</p>
+
+  <div class="canvas-wrap">
+    <svg viewBox="0 0 960 220">
+      <line x1="240" y1="10" x2="240" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <line x1="480" y1="10" x2="480" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <line x1="720" y1="10" x2="720" y2="210" stroke="#ffffff15" stroke-width="1"/>
+      <text x="4" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 1</text>
+      <text x="244" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 2</text>
+      <text x="484" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 3</text>
+      <text x="724" y="8" fill="#27272a" font-size="9" font-weight="700">BAR 4</text>
+
+      <!-- ROOT: Half-time pump — hits on bar 1 and 3, long decays across bar 2 and 4 -->
+      <path d="M0,200 Q10,200 20,30 C60,25 100,40 140,70 C180,110 220,160 260,185 C300,198 340,200 380,200 L480,200
+              Q490,200 500,30 C540,25 580,40 620,70 C660,110 700,160 740,185 C780,198 820,200 860,200 L960,200" stroke="#f97316" stroke-width="2.5" fill="none"/>
+
+      <!-- Resonance: peaks during the long decay (fill the space), ducks on the hit -->
+      <path d="M0,200 L20,200 L25,200 Q40,180 80,100 C120,60 160,40 200,35 C240,30 280,50 320,80 C360,120 400,170 440,195 Q460,200 480,200
+              L500,200 L505,200 Q520,180 560,100 C600,60 640,40 680,35 C720,30 760,50 800,80 C840,120 880,170 920,195 Q940,200 960,200" stroke="#d946ef" stroke-width="1.8" fill="none" opacity="0.6"/>
+
+      <!-- Delay: active in bar 2 and 4 (the long tail), fills the spaciousness -->
+      <path d="M0,200 L100,200 C140,190 180,150 220,110 C260,80 300,65 340,60 C380,65 420,90 460,140 Q475,180 480,200
+              L580,200 C620,190 660,150 700,110 C740,80 780,65 820,60 C860,65 900,90 940,140 Q955,180 960,200" stroke="#22c55e" stroke-width="1.5" fill="none" opacity="0.5"/>
+
+      <!-- Tertiary: micro during hit, fills become bolder during the long decay -->
+      <path d="M0,112 Q10,110 20,112 Q40,108 60,116 Q80,104 100,120 Q120,102 140,122 Q160,100 180,124 Q200,98 220,126 Q240,100 260,122 Q280,105 300,118 Q320,108 340,116 Q360,110 380,114 Q400,112 420,113 Q440,112 460,112 Q480,112
+              Q490,110 500,112 Q520,108 540,116 Q560,104 580,120 Q600,102 620,122 Q640,100 660,124 Q680,98 700,126 Q720,100 740,122 Q760,105 780,118 Q800,108 820,116 Q840,110 860,114 Q880,112 900,113 Q920,112 940,112 Q960,112" stroke="#ffffff06" stroke-width="1" fill="none"/>
+    </svg>
+  </div>
+
+  <div class="bar-notes">
+    <div class="bar-note" style="border-color:#f97316">
+      <h5 style="color:#f97316">Hit (bar 1 & 3)</h5>
+      <div class="root-behavior" style="color:#f97316">Pump: sharp attack, long exponential decay</div>
+      <div class="react"><span style="color:#d946ef">Res:</span> ducks on impact</div>
+      <div class="react"><span style="color:#22c55e">Delay:</span> silent — impact needs clarity</div>
+    </div>
+    <div class="bar-note" style="border-color:#22c55e">
+      <h5 style="color:#22c55e">Decay (bar 2 & 4)</h5>
+      <div class="root-behavior" style="color:#f97316">Pump: long tail, fading out</div>
+      <div class="react"><span style="color:#d946ef">Res:</span> rises and peaks — fills the space</div>
+      <div class="react"><span style="color:#22c55e">Delay:</span> blooms — adds depth and movement</div>
+    </div>
+    <div class="bar-note" style="border-color:#d946ef">
+      <h5 style="color:#d946ef">The relationship</h5>
+      <p>Resonance and delay are doing the OPPOSITE of the pump — they peak where the pump is quiet. Together they create a call-and-response: pump HITS, space RESPONDS. Continuous movement, never static.</p>
+    </div>
+    <div class="bar-note" style="border-color:#27272a">
+      <h5 style="color:#52525b">vs The Pumper #1</h5>
+      <p>Same core concept, completely different energy. #1 is tight/fast/evolving. Half-time is spacious/heavy/hypnotic. Both use reactive derivation but the feel is night and day.</p>
+    </div>
+  </div>
+</div>
+
+<br><br>
+<p style="color:#3f3f46; font-size:11px; text-align:center;">Stride — Sound Design Engine. Your racks, reborn.</p>
+
+</body>
+</html>

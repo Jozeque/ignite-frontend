@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STRIDE</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src ws://localhost:9100 https://generate-midi-z3spyrafvq-uc.a.run.app https://api.lemonsqueezy.com;">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Outfit', sans-serif; background-color: #09090b; color: #e4e4e7; margin: 0; overflow: hidden; }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
+        .text-gradient { background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-image: linear-gradient(to right, #f97316, #ef4444); }
+        /* Electron title bar drag region */
+        .titlebar-drag { -webkit-app-region: drag; }
+        .titlebar-no-drag { -webkit-app-region: no-drag; }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+
+    <!-- ===================== ACTIVATION GATE ===================== -->
+    <div id="activation-overlay" class="fixed inset-0 z-[9999] bg-[#09090b] flex items-center justify-center">
+        <div class="w-full max-w-sm px-6 text-center">
+            <!-- Logo -->
+            <h1 class="text-4xl font-black text-gradient tracking-tighter mb-1">STRIDE</h1>
+            <p class="text-[10px] text-zinc-600 font-bold uppercase tracking-[0.3em] mb-10">Sound Design Engine</p>
+
+            <!-- Status: checking license -->
+            <div id="activation-checking" class="flex flex-col items-center gap-3">
+                <div class="w-5 h-5 border-2 border-zinc-700 border-t-orange-500 rounded-full animate-spin"></div>
+                <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Checking license...</p>
+            </div>
+
+            <!-- Activation form (hidden until needed) -->
+            <div id="activation-form" class="hidden flex flex-col gap-4">
+                <div>
+                    <input id="serial-input" type="text" placeholder="Enter your license key" class="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors text-center tracking-wider font-medium" spellcheck="false" autocomplete="off">
+                </div>
+                <button onclick="activateLicense()" id="activate-btn" class="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(255,94,0,0.2)]">
+                    Activate
+                </button>
+                <p id="activation-error" class="text-[10px] text-red-400 font-medium hidden"></p>
+                <p class="text-[10px] text-zinc-600 font-medium">
+                    Don't have a key? <a href="#" class="text-orange-500 hover:text-orange-400 underline" onclick="window.stride.openExternal('https://stridehub.io'); return false;">Get Stride</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Title Bar (draggable for Electron) -->
+    <div class="titlebar-drag h-9 bg-zinc-950 border-b border-white/5 flex items-center px-4 shrink-0">
+        <span class="text-[11px] font-black tracking-[0.3em] uppercase text-gradient titlebar-no-drag">STRIDE</span>
+        <div class="flex-1"></div>
+        <!-- Connection status -->
+        <div id="link-status" class="titlebar-no-drag flex items-center gap-2 mr-4">
+            <div id="link-dot" class="w-1.5 h-1.5 rounded-full bg-zinc-600"></div>
+            <span id="link-label" class="text-[9px] text-zinc-500 uppercase font-bold tracking-widest">Disconnected</span>
+        </div>
+        <!-- Sidebar Toggle -->
+        <button onclick="document.getElementById('sd-sidebar').classList.toggle('hidden'); document.getElementById('sd-sidebar').classList.toggle('flex')" class="titlebar-no-drag text-[9px] text-zinc-500 hover:text-orange-400 uppercase font-bold tracking-widest transition-colors mr-3" title="Toggle sidebar">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        </button>
+        <!-- Guide -->
+        <button onclick="document.getElementById('guide-modal').classList.remove('hidden')" class="titlebar-no-drag text-[9px] text-zinc-500 hover:text-orange-400 uppercase font-bold tracking-widest transition-colors mr-3">Guide</button>
+        <!-- Account (online mode) -->
+        <button id="account-btn" onclick="toggleAccountPanel()" class="titlebar-no-drag text-[9px] text-zinc-500 hover:text-zinc-300 uppercase font-bold tracking-widest transition-colors hidden">Account</button>
+    </div>
+
+    <!-- Main Layout -->
+    <div class="flex-1 flex overflow-hidden">
+
+        <!-- Left Sidebar: Parameters -->
+        <div id="sd-sidebar" class="w-56 border-r border-white/10 bg-zinc-900/50 flex flex-col shrink-0">
+            <!-- Rack Info -->
+            <div class="p-3 border-b border-white/5">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-[9px] font-black text-zinc-500 uppercase tracking-[0.2em]">Parameters</h3>
+                    <span id="sd-param-count" class="text-[8px] text-zinc-600 font-bold"></span>
+                </div>
+                <div id="rack-info" class="hidden">
+                    <p id="rack-name" class="text-[10px] text-fuchsia-400/70 font-bold truncate"></p>
+                    <p id="rack-track" class="text-[8px] text-zinc-600 font-bold uppercase tracking-widest mt-0.5"></p>
+                    <div id="template-status" class="hidden mt-1.5"></div>
+                </div>
+                <div id="no-rack-msg" class="text-[9px] text-zinc-600 italic">
+                    Connect M4L device and click Scan
+                </div>
+            </div>
+            <!-- Actions -->
+            <div class="p-2 border-b border-white/5 flex flex-col gap-1.5">
+                <button onclick="scanMapped()" class="w-full text-[9px] text-fuchsia-400 bg-fuchsia-500/10 hover:bg-fuchsia-500/20 border border-fuchsia-500/20 hover:border-fuchsia-500/40 py-1.5 rounded-lg uppercase tracking-widest font-black transition-all">Scan Mapped</button>
+                <input id="clip-name-input" type="text" placeholder="Clip name (optional)" class="w-full text-[9px] text-zinc-300 bg-zinc-800/50 border border-white/5 focus:border-emerald-500/40 rounded-lg px-2 py-1.5 outline-none font-medium placeholder-zinc-600 transition-all" />
+                <button onclick="applyToAbleton()" class="w-full text-[9px] text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 py-1.5 rounded-lg uppercase tracking-widest font-black transition-all">Apply to Clip</button>
+                <div class="flex gap-1.5 mt-1">
+                    <button onclick="sdSaveSession()" class="flex-1 text-[9px] text-sky-400/80 bg-sky-500/5 hover:bg-sky-500/15 border border-sky-500/10 hover:border-sky-500/30 py-1 rounded-lg uppercase tracking-widest font-bold transition-all">Save Session</button>
+                    <button onclick="sdShowSessions()" class="flex-1 text-[9px] text-sky-400/80 bg-sky-500/5 hover:bg-sky-500/15 border border-sky-500/10 hover:border-sky-500/30 py-1 rounded-lg uppercase tracking-widest font-bold transition-all">Load</button>
+                </div>
+            </div>
+            <!-- Param List -->
+            <div id="sd-param-list" class="flex-1 overflow-y-auto custom-scroll p-2 flex flex-col gap-1.5"></div>
+        </div>
+
+        <!-- Save Session Modal -->
+        <div id="save-session-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center" onclick="if(event.target===this)this.classList.add('hidden')">
+            <div class="bg-zinc-900 border border-white/10 rounded-xl p-5 w-80 flex flex-col gap-3">
+                <div class="text-xs text-zinc-200 font-bold uppercase tracking-widest">Save Session</div>
+                <p class="text-[9px] text-zinc-500">Saves all canvas curves, parameters, and template reference.</p>
+                <input id="session-name-input" type="text" placeholder="Session name..." class="bg-black/50 border border-white/10 rounded px-3 py-2 text-xs text-zinc-200 outline-none focus:border-sky-500/50" />
+                <button onclick="sdConfirmSaveSession()" class="text-[9px] text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 py-2 rounded-lg uppercase font-bold transition-all">Save</button>
+                <div id="session-save-status" class="text-[9px] text-zinc-500 text-center"></div>
+            </div>
+        </div>
+
+        <!-- Load Session Modal -->
+        <div id="load-session-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center" onclick="if(event.target===this)this.classList.add('hidden')">
+            <div class="bg-zinc-900 border border-white/10 rounded-xl p-5 w-96 flex flex-col gap-3 max-h-[70vh]">
+                <div class="text-xs text-zinc-200 font-bold uppercase tracking-widest">Saved Sessions</div>
+                <input id="session-search" type="text" placeholder="Search sessions..." oninput="sdFilterSessions(this.value)" class="bg-black/50 border border-white/10 rounded px-3 py-1.5 text-[10px] text-zinc-200 outline-none focus:border-sky-500/50 placeholder-zinc-600" />
+                <div id="session-list" class="flex-1 overflow-y-auto custom-scroll flex flex-col gap-1.5 min-h-[100px]"></div>
+                <div id="session-load-status" class="text-[9px] text-zinc-500 text-center"></div>
+            </div>
+        </div>
+
+        <!-- Save Preset Modal -->
+        <div id="save-preset-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center" onclick="if(event.target===this)this.classList.add('hidden')">
+            <div class="bg-zinc-900 border border-white/10 rounded-xl p-5 w-80 flex flex-col gap-3">
+                <div class="text-xs text-zinc-200 font-bold uppercase tracking-widest">Save Preset</div>
+                <input id="preset-name-input" type="text" placeholder="Preset name..." class="bg-black/50 border border-white/10 rounded px-3 py-2 text-xs text-zinc-200 outline-none focus:border-fuchsia-500/50" />
+                <div class="flex gap-2">
+                    <button onclick="sdConfirmSavePreset('lane')" class="flex-1 text-[9px] text-violet-400 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 py-2 rounded-lg uppercase font-bold transition-all">Active Lane</button>
+                    <button onclick="sdConfirmSavePreset('all')" class="flex-1 text-[9px] text-fuchsia-400 bg-fuchsia-500/10 hover:bg-fuchsia-500/20 border border-fuchsia-500/20 py-2 rounded-lg uppercase font-bold transition-all">All Lanes</button>
+                </div>
+                <div id="preset-save-status" class="text-[9px] text-zinc-500 text-center"></div>
+            </div>
+        </div>
+
+        <!-- All Presets Modal -->
+        <div id="load-preset-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center" onclick="if(event.target===this)this.classList.add('hidden')">
+            <div class="bg-zinc-900 border border-white/10 rounded-xl p-5 w-96 flex flex-col gap-3 max-h-[70vh]">
+                <div class="text-xs text-zinc-200 font-bold uppercase tracking-widest">All Saved Presets</div>
+                <div id="preset-list" class="flex-1 overflow-y-auto custom-scroll flex flex-col gap-1.5 min-h-[100px]"></div>
+                <div id="preset-load-status" class="text-[9px] text-zinc-500 text-center"></div>
+            </div>
+        </div>
+
+        <!-- ===================== GUIDE MODAL ===================== -->
+        <div id="guide-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onclick="if(event.target===this)this.classList.add('hidden')">
+            <div class="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl">
+                <!-- Header -->
+                <div class="flex items-center justify-between px-6 py-4 border-b border-white/5 shrink-0">
+                    <div>
+                        <h2 class="text-sm font-black text-gradient uppercase tracking-widest">Getting Started</h2>
+                        <p class="text-[9px] text-zinc-500 font-medium mt-0.5">Your racks, reborn — in 7 steps</p>
+                    </div>
+                    <button onclick="document.getElementById('guide-modal').classList.add('hidden')" class="text-zinc-500 hover:text-white transition-colors p-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+                <!-- Steps (scrollable) -->
+                <div class="flex-1 overflow-y-auto custom-scroll px-6 py-5">
+                    <div class="flex flex-col gap-5">
+
+                        <!-- Step 1 -->
+                        <div class="flex gap-4">
+                            <div class="shrink-0 w-7 h-7 rounded-lg bg-orange-500/15 border border-orange-500/25 flex items-center justify-center">
+                                <span class="text-[11px] text-orange-400 font-black">1</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-[11px] text-zinc-200 font-bold uppercase tracking-wider">Load your instrument</h3>
+                                <p class="text-[10px] text-zinc-500 leading-relaxed mt-1">Build a synth from scratch or load an existing rack/preset onto a MIDI track.</p>
+                                <div id="guide-img-1" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden hidden"><!-- screenshot slot --></div>
+                            </div>
+                        </div>
+
+                        <!-- Step 2 -->
+                        <div class="flex gap-4">
+                            <div class="shrink-0 w-7 h-7 rounded-lg bg-orange-500/15 border border-orange-500/25 flex items-center justify-center">
+                                <span class="text-[11px] text-orange-400 font-black">2</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-[11px] text-zinc-200 font-bold uppercase tracking-wider">Map your parameters</h3>
+                                <p class="text-[10px] text-zinc-500 leading-relaxed mt-1">Open automation lanes for every parameter you want Stride to control and <span class="text-zinc-300 font-bold">draw a single point</span> on each lane — just one click per lane is enough.</p>
+                                <div class="mt-2 bg-black/30 border border-white/5 rounded-lg px-3 py-2">
+                                    <p class="text-[9px] text-amber-400/80 font-bold uppercase tracking-wider mb-1">How to do it</p>
+                                    <p class="text-[9px] text-zinc-500 leading-relaxed"><span class="text-zinc-300 font-bold">1.</span> Show the automation lane for each parameter you want to control.<br><span class="text-zinc-300 font-bold">2.</span> Click once on each lane to draw a single automation point — this tells Ableton to embed that envelope in the template.<br><span class="text-zinc-300 font-bold">3.</span> Create a MIDI clip on the track (double-click a clip slot).</p>
+                                </div>
+                                <div class="mt-1.5 bg-black/30 border border-red-500/10 rounded-lg px-3 py-2">
+                                    <p class="text-[9px] text-red-400/80 font-bold uppercase tracking-wider mb-1">Important</p>
+                                    <p class="text-[9px] text-zinc-500 leading-relaxed">Every parameter needs at least one automation point drawn on its lane. Do <span class="text-zinc-300 font-bold">not</span> use MIDI Map + Record — draw the points manually. Without a point on the lane, Ableton won't embed the envelope and Stride can't write to that parameter.</p>
+                                </div>
+                                <div id="guide-img-2" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden"><img src="../assets/step2.png" alt="Mapped automation lanes in Ableton" class="w-full"></div>
+                            </div>
+                        </div>
+
+                        <!-- Step 3 -->
+                        <div class="flex gap-4">
+                            <div class="shrink-0 w-7 h-7 rounded-lg bg-orange-500/15 border border-orange-500/25 flex items-center justify-center">
+                                <span class="text-[11px] text-orange-400 font-black">3</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-[11px] text-zinc-200 font-bold uppercase tracking-wider">Drop StrideLink on the same track</h3>
+                                <p class="text-[10px] text-zinc-500 leading-relaxed mt-1">Drag <span class="text-zinc-300 font-medium">StrideLink.amxd</span> from the M4L folder onto the same MIDI track, after your instrument.</p>
+                                <div id="guide-img-3" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden hidden"><!-- screenshot slot --></div>
+                            </div>
+                        </div>
+
+                        <!-- Step 4 -->
+                        <div class="flex gap-4">
+                            <div class="shrink-0 w-7 h-7 rounded-lg bg-orange-500/15 border border-orange-500/25 flex items-center justify-center">
+                                <span class="text-[11px] text-orange-400 font-black">4</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-[11px] text-zinc-200 font-bold uppercase tracking-wider">Save the clip as a template</h3>
+                                <p class="text-[10px] text-zinc-500 leading-relaxed mt-1">Drag the <span class="text-zinc-300 font-bold">MIDI clip</span> (the clip slot with your recorded automation) to the <span class="text-zinc-300 font-medium">User Library</span> in Ableton's browser sidebar. Stride detects the new .alc file automatically and imports it as your template.</p>
+                                <div class="mt-1.5 bg-black/30 border border-red-500/10 rounded-lg px-3 py-2">
+                                    <p class="text-[9px] text-red-400/80 font-bold uppercase tracking-wider mb-1">Drag the clip, not the rack</p>
+                                    <p class="text-[9px] text-zinc-500 leading-relaxed">You must drag the <span class="text-zinc-300 font-bold">clip</span> — the colored block in the clip slot — not the rack/device title bar. Only the clip contains the automation envelopes that Stride needs.</p>
+                                </div>
+                                <div class="mt-1.5 bg-black/30 border border-amber-500/15 rounded-lg px-3 py-2">
+                                    <p class="text-[9px] text-amber-400/80 font-bold uppercase tracking-wider mb-1">Template = snapshot of your rack</p>
+                                    <p class="text-[9px] text-zinc-500 leading-relaxed">The template captures <span class="text-zinc-300 font-bold">exactly which parameters</span> your rack has right now. If you later add or remove devices, change the rack, or work on a different track — <span class="text-amber-400 font-bold">drag a new clip to User Library again</span>. One template per rack setup.</p>
+                                </div>
+                                <div class="mt-1.5 bg-black/30 border border-white/5 rounded-lg px-3 py-2">
+                                    <p class="text-[9px] text-emerald-400/80 font-bold uppercase tracking-wider mb-1">What happens</p>
+                                    <p class="text-[9px] text-zinc-500 leading-relaxed">Stride watches your User Library folder. When the .alc file lands there, the canvas shows a green confirmation — your template is saved to <span class="text-zinc-400 font-mono">~/Desktop/Stride/template/</span> and ready to use.</p>
+                                </div>
+                                <div id="guide-img-4" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden"><img src="../assets/step4.png" alt="Dragging rack to User Library" class="w-full"></div>
+                            </div>
+                        </div>
+
+                        <!-- Step 5 -->
+                        <div class="flex gap-4">
+                            <div class="shrink-0 w-7 h-7 rounded-lg bg-orange-500/15 border border-orange-500/25 flex items-center justify-center">
+                                <span class="text-[11px] text-orange-400 font-black">5</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-[11px] text-zinc-200 font-bold uppercase tracking-wider">Click Scan Mapped</h3>
+                                <p class="text-[10px] text-zinc-500 leading-relaxed mt-1">In StrideLink (or the canvas sidebar), click <span class="text-fuchsia-400 font-bold">Scan Mapped</span>. This reads all parameters that have automation lanes and loads them into the canvas.</p>
+                                <div class="mt-1.5 bg-black/30 border border-white/5 rounded-lg px-3 py-2">
+                                    <p class="text-[9px] text-zinc-400 font-bold uppercase tracking-wider mb-1">Before you scan</p>
+                                    <p class="text-[9px] text-zinc-500 leading-relaxed">Make sure you did Step 4 first — the template must exist before you apply. If you're working on a <span class="text-zinc-300 font-bold">new rack</span> or changed your device chain, drag a fresh clip to User Library again.</p>
+                                </div>
+                                <div id="guide-img-5" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden hidden"><!-- screenshot slot --></div>
+                            </div>
+                        </div>
+
+                        <!-- Step 6 -->
+                        <div class="flex gap-4">
+                            <div class="shrink-0 w-7 h-7 rounded-lg bg-orange-500/15 border border-orange-500/25 flex items-center justify-center">
+                                <span class="text-[11px] text-orange-400 font-black">6</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-[11px] text-zinc-200 font-bold uppercase tracking-wider">Open Canvas — get wild</h3>
+                                <p class="text-[10px] text-zinc-500 leading-relaxed mt-1">The Stride canvas launches with your parameters as lanes. Draw curves, apply templates, use <span class="text-fuchsia-400 font-bold">Chaos</span> to fill all lanes at once, or <span class="text-amber-400 font-bold">Bloom</span> to spread one curve across every lane with variations.</p>
+                                <p class="text-[10px] text-zinc-500 leading-relaxed mt-1.5">Name your clip in the input field, then click <span class="text-emerald-400 font-bold">Apply to Clip</span>.</p>
+                                <div id="guide-img-6" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden"><img src="../assets/step6.png" alt="Stride canvas with automation curves" class="w-full"></div>
+                            </div>
+                        </div>
+
+                        <!-- Step 7 -->
+                        <div class="flex gap-4">
+                            <div class="shrink-0 w-7 h-7 rounded-lg bg-orange-500/15 border border-orange-500/25 flex items-center justify-center">
+                                <span class="text-[11px] text-orange-400 font-black">7</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-[11px] text-zinc-200 font-bold uppercase tracking-wider">Drag the output .alc into Ableton</h3>
+                                <p class="text-[10px] text-zinc-500 leading-relaxed mt-1">Stride generates a new .alc file in <span class="text-zinc-400 font-mono">~/Desktop/Stride/</span> and opens the folder for you. Drag it onto a new MIDI track — your rack loads with all the automation baked in.</p>
+                                <div class="mt-2 bg-black/30 border border-white/5 rounded-lg px-3 py-2">
+                                    <p class="text-[9px] text-fuchsia-400/80 font-bold uppercase tracking-wider mb-1">Keep going</p>
+                                    <p class="text-[9px] text-zinc-500 leading-relaxed">Go back to the canvas, tweak your curves, hit Apply again. Each apply creates a new .alc — iterate fast until you find the sound you want.</p>
+                                </div>
+                                <div class="mt-1.5 bg-black/30 border border-white/5 rounded-lg px-3 py-2">
+                                    <p class="text-[9px] text-zinc-400 font-bold uppercase tracking-wider mb-1">Automation looks wrong?</p>
+                                    <p class="text-[9px] text-zinc-500 leading-relaxed">If the output doesn't match your canvas, your template is probably outdated. Go back to <span class="text-orange-400 font-bold">Step 4</span> — drag a fresh clip to User Library to update the template for your current rack.</p>
+                                </div>
+                                <div id="guide-img-7" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden"><img src="../assets/step7.png" alt="Output folder with .alc files to drag into Ableton" class="w-full"></div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="px-6 py-3 border-t border-white/5 shrink-0 flex items-center justify-between">
+                    <p class="text-[9px] text-zinc-600 font-medium">Need help? <a href="#" onclick="window.stride.openExternal('https://stridehub.io'); return false;" class="text-orange-500 hover:text-orange-400 underline">stridehub.io</a></p>
+                    <button onclick="document.getElementById('guide-modal').classList.add('hidden')" class="text-[9px] text-zinc-400 hover:text-white bg-white/5 hover:bg-white/10 px-4 py-1.5 rounded-lg font-bold uppercase tracking-widest transition-all">Got it</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rescan Confirmation Modal -->
+        <div id="rescan-confirm-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center">
+            <div class="bg-zinc-900 border border-white/10 rounded-xl p-5 w-80 flex flex-col gap-3">
+                <div class="text-xs text-zinc-200 font-bold uppercase tracking-widest">Curves Detected</div>
+                <p class="text-[10px] text-zinc-400 leading-relaxed" id="rescan-confirm-msg">You have existing automation curves. A new scan will replace them.</p>
+                <div class="flex gap-2 mt-1">
+                    <button onclick="window._rescanConfirmKeep()" class="flex-1 py-1.5 rounded-md bg-emerald-600/80 hover:bg-emerald-500 text-[10px] text-white font-bold uppercase tracking-wider">Keep Curves</button>
+                    <button onclick="window._rescanConfirmReplace()" class="flex-1 py-1.5 rounded-md bg-red-600/80 hover:bg-red-500 text-[10px] text-white font-bold uppercase tracking-wider">Replace</button>
+                </div>
+                <button onclick="document.getElementById('rescan-confirm-modal').classList.add('hidden')" class="text-[9px] text-zinc-600 hover:text-zinc-400 text-center mt-1">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Main Area: Toolbar + Canvas -->
+        <div class="flex-1 relative flex flex-col bg-zinc-950">
+
+            <!-- Header Bar: Bars + Generate -->
+            <div class="h-10 border-b border-white/5 flex items-center px-4 gap-3 shrink-0 bg-black/50 overflow-x-auto custom-scroll">
+                <div class="flex items-center gap-1.5 bg-black/50 p-1 rounded-lg border border-white/5 shrink-0">
+                    <span class="text-[8px] font-bold text-zinc-500 uppercase tracking-widest px-1">Bars</span>
+                    <button onclick="sdSetBars(2)" class="sd-bars-btn text-[9px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold transition-colors">2</button>
+                    <button onclick="sdSetBars(4)" class="sd-bars-btn text-[9px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold transition-colors">4</button>
+                    <button onclick="sdSetBars(8)" class="sd-bars-btn text-[9px] text-fuchsia-400 bg-fuchsia-500/20 px-2 py-0.5 rounded font-bold transition-colors">8</button>
+                    <button onclick="sdSetBars(16)" class="sd-bars-btn text-[9px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold transition-colors">16</button>
+                </div>
+                <div class="w-px h-5 bg-white/10 shrink-0"></div>
+                <span id="sd-canvas-status" class="text-[9px] text-zinc-500 uppercase font-bold tracking-[0.2em] bg-white/5 px-2 py-1 rounded shrink-0">Connect M4L</span>
+                <div class="flex-1 min-w-[8px]"></div>
+                <!-- Generate (online only) -->
+                <button id="generate-btn" onclick="openGeneratePanel()" class="hidden shrink-0 text-[9px] text-orange-400 hover:text-white bg-transparent hover:bg-gradient-to-r hover:from-orange-500 hover:to-red-500 border border-orange-500/50 hover:border-transparent px-5 py-1.5 rounded-lg uppercase tracking-widest font-black transition-all flex items-center gap-1.5">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    Generate
+                </button>
+                <button onclick="sdApplyGlobalChaos()" class="shrink-0 text-[9px] text-fuchsia-400 hover:text-white bg-transparent hover:bg-fuchsia-500/10 border border-fuchsia-500/50 hover:border-fuchsia-400 px-5 py-1.5 rounded-lg uppercase tracking-widest font-black transition-all flex items-center gap-1.5">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    Chaos
+                </button>
+                <div class="relative shrink-0">
+                    <button onclick="sdToggleBloom()" title="Bloom: spread active lane across all lanes with variations" class="text-[9px] text-amber-400 hover:text-white bg-transparent hover:bg-amber-500/10 border border-amber-500/50 hover:border-amber-400 px-5 py-1.5 rounded-lg uppercase tracking-widest font-black transition-all flex items-center gap-1.5">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m-8-9H3m18 0h-1m-2.636-5.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m11.314 11.314l.707.707"/></svg>
+                        Bloom
+                    </button>
+                    <div id="sd-bloom-popover" class="hidden fixed bg-zinc-900 border border-amber-500/30 rounded-xl p-4 w-64 shadow-2xl z-[9999]" style="top:50%;left:50%;transform:translate(-50%,-50%)">
+                        <div class="text-[9px] text-amber-400 font-bold uppercase tracking-widest mb-3">Bloom from active lane</div>
+                        <div class="mb-3">
+                            <div class="flex items-center justify-between mb-1.5">
+                                <span class="text-[8px] text-zinc-500 font-bold uppercase">Morph</span>
+                                <span id="sd-bloom-val" class="text-[9px] text-amber-400 font-bold">50%</span>
+                            </div>
+                            <input type="range" id="sd-bloom-spread" min="0" max="100" value="50" class="w-full h-1 accent-amber-500 cursor-pointer" oninput="document.getElementById('sd-bloom-val').textContent=this.value+'%'" />
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="sdApplyBloom()" class="flex-1 text-[9px] text-black bg-amber-500 hover:bg-amber-400 py-1.5 rounded-lg uppercase tracking-wider font-bold transition-colors">Apply</button>
+                            <button onclick="sdToggleBloom()" class="text-[9px] text-zinc-500 hover:text-zinc-300 px-2 py-1.5 rounded-lg transition-colors">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Weave -->
+                <div class="relative shrink-0">
+                    <button onclick="sdToggleWeave()" title="Weave: complementary automation — lanes fill and complete each other" class="text-[9px] text-cyan-400 hover:text-white bg-transparent hover:bg-cyan-500/10 border border-cyan-500/50 hover:border-cyan-400 px-5 py-1.5 rounded-lg uppercase tracking-widest font-black transition-all flex items-center gap-1.5">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        Weave
+                    </button>
+                    <div id="sd-weave-popover" class="hidden fixed bg-zinc-900 border border-cyan-500/30 rounded-xl p-4 w-64 shadow-2xl z-[9999]" style="top:50%;left:50%;transform:translate(-50%,-50%)">
+                        <div class="text-[9px] text-cyan-400 font-bold uppercase tracking-widest mb-3">Weave from active lane</div>
+                        <div class="flex gap-1.5 mb-3">
+                            <button id="sd-weave-mode-chase" onclick="sdSetWeaveMode('chase')" class="flex-1 text-[8px] text-cyan-400 bg-cyan-500/20 border border-cyan-500/40 py-1 rounded-lg uppercase tracking-widest font-bold">Chase</button>
+                            <button id="sd-weave-mode-fill" onclick="sdSetWeaveMode('fill')" class="flex-1 text-[8px] text-zinc-500 bg-transparent border border-white/10 hover:border-white/20 py-1 rounded-lg uppercase tracking-widest font-bold">Fill</button>
+                        </div>
+                        <div class="mb-1 text-[8px] text-zinc-600 leading-relaxed" id="sd-weave-desc">Same shape, phase-shifted — peaks never overlap</div>
+                        <div class="mb-3 mt-2">
+                            <div class="flex items-center justify-between mb-1.5">
+                                <span class="text-[8px] text-zinc-500 font-bold uppercase">Spread</span>
+                                <span id="sd-weave-val" class="text-[9px] text-cyan-400 font-bold">50%</span>
+                            </div>
+                            <input type="range" id="sd-weave-spread" min="0" max="100" value="50" class="w-full h-1 accent-cyan-500 cursor-pointer" oninput="document.getElementById('sd-weave-val').textContent=this.value+'%'" />
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="sdApplyWeave()" class="flex-1 text-[9px] text-black bg-cyan-500 hover:bg-cyan-400 py-1.5 rounded-lg uppercase tracking-wider font-bold transition-colors">Apply</button>
+                            <button onclick="sdToggleWeave()" class="text-[9px] text-zinc-500 hover:text-zinc-300 px-2 py-1.5 rounded-lg transition-colors">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Presets -->
+                <button onclick="sdTogglePresets()" title="Preset bank: 29 complementary automation presets" class="text-[9px] text-rose-400 hover:text-white bg-transparent hover:bg-rose-500/10 border border-rose-500/50 hover:border-rose-400 px-5 py-1.5 rounded-lg uppercase tracking-widest font-black transition-all flex items-center gap-1.5 shrink-0">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                    Presets
+                </button>
+            </div>
+
+            <!-- ROW 1: Draw Tools & Templates -->
+            <div class="h-10 border-b border-white/5 flex items-center px-4 gap-3 shrink-0 bg-black/40 overflow-x-auto custom-scroll">
+                <div class="flex items-center gap-1 bg-black/50 p-1 rounded border border-white/5">
+                    <button id="sd-tool-select" onclick="sdSetTool('select')" class="tool-btn bg-fuchsia-500/20 text-fuchsia-400 px-3 py-1 rounded text-[9px] uppercase tracking-wider font-bold transition-colors">Point</button>
+                    <button id="sd-tool-freehand" onclick="sdSetTool('freehand')" class="tool-btn text-zinc-400 hover:text-fuchsia-400 px-3 py-1 rounded text-[9px] uppercase tracking-wider font-bold transition-colors">Free</button>
+                </div>
+                <div class="w-px h-5 bg-white/10 mx-1"></div>
+                <span class="text-[8px] font-bold text-zinc-500 uppercase tracking-widest shrink-0">Shapes:</span>
+                <button onclick="sdApplyTemplate('sine')" class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0">Sine</button>
+                <button onclick="sdApplyTemplate('pump')" class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0">Pump</button>
+                <button onclick="sdApplyTemplate('glitch')" class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0">Glitch</button>
+                <button onclick="sdApplyTemplate('groove_build')" class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0">Groove</button>
+                <button onclick="sdApplyTemplate('chaos_lfo')" class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0">Chaos</button>
+                <div class="w-px h-5 bg-white/10 mx-1"></div>
+                <div class="w-px h-5 bg-white/10 mx-1"></div>
+                <button onclick="sdApplyComplexTemplate('neuro')" class="text-[9px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-3 py-1 rounded uppercase tracking-wider font-bold transition-colors shrink-0">Neuro</button>
+                <div class="w-px h-5 bg-white/10 mx-1"></div>
+                <span class="text-[8px] font-bold text-zinc-500 uppercase tracking-widest shrink-0">Saved:</span>
+                <div id="user-presets-bar" class="flex items-center gap-1"></div>
+                <button onclick="sdSavePreset()" title="Save active lane as preset" class="text-[9px] text-zinc-400 hover:text-zinc-300 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 px-3 py-1 rounded uppercase tracking-wider font-bold transition-colors ml-auto shrink-0">Save Lane</button>
+                <button onclick="sdClearCurrentCanvas()" class="text-[9px] text-red-400/80 hover:text-red-400 bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 hover:border-red-500/30 px-3 py-1 rounded uppercase tracking-wider font-bold transition-colors shrink-0">Clear Lane</button>
+            </div>
+
+            <!-- ROW 2: Shape Tools & Refinement -->
+            <div class="h-10 border-b border-white/5 flex items-center px-3 gap-1 shrink-0 bg-black/30 overflow-x-auto custom-scroll">
+                <div class="flex items-center gap-0.5 bg-black/50 p-0.5 rounded border border-white/5">
+                    <button onclick="sdMirrorLane()" title="Flip Y-axis" class="text-[8px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">Mirror</button>
+                    <button onclick="sdFlipLane()" title="Reverse time" class="text-[8px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">Flip</button>
+                </div>
+                <div class="w-px h-4 bg-white/10"></div>
+                <div class="flex items-center gap-0.5 bg-black/50 p-0.5 rounded border border-white/5">
+                    <button onclick="sdCopyLane()" class="text-[8px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">Copy</button>
+                    <button onclick="sdPasteLane(false)" class="text-[8px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">Paste</button>
+                    <button onclick="sdPasteLane(true)" class="text-[8px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">Inv</button>
+                    <button id="sd-paste-to-btn" onclick="sdOpenPasteTo()" class="text-[8px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">To...</button>
+                </div>
+                <div class="w-px h-4 bg-white/10"></div>
+                <div class="flex items-center gap-0.5 bg-black/50 p-0.5 rounded border border-white/5">
+                    <button onclick="sdQuantizeLane(1)" class="text-[8px] text-teal-400/80 hover:text-teal-300 bg-teal-500/5 hover:bg-teal-500/15 px-1.5 py-0.5 rounded font-bold transition-colors shrink-0">1/4</button>
+                    <button onclick="sdQuantizeLane(0.5)" class="text-[8px] text-teal-400/80 hover:text-teal-300 bg-teal-500/5 hover:bg-teal-500/15 px-1.5 py-0.5 rounded font-bold transition-colors shrink-0">1/8</button>
+                    <button onclick="sdQuantizeLane(0.25)" class="text-[8px] text-teal-400/80 hover:text-teal-300 bg-teal-500/5 hover:bg-teal-500/15 px-1.5 py-0.5 rounded font-bold transition-colors shrink-0">1/16</button>
+                    <button onclick="sdQuantizeLane(1/3)" class="text-[8px] text-teal-400/80 hover:text-teal-300 bg-teal-500/5 hover:bg-teal-500/15 px-1.5 py-0.5 rounded font-bold transition-colors shrink-0">1/8T</button>
+                    <button onclick="sdQuantizeLane(1/6)" class="text-[8px] text-teal-400/80 hover:text-teal-300 bg-teal-500/5 hover:bg-teal-500/15 px-1.5 py-0.5 rounded font-bold transition-colors shrink-0">1/16T</button>
+                </div>
+                <div class="w-px h-4 bg-white/10"></div>
+                <button onclick="sdApplySwing()" class="text-[8px] text-amber-400/80 hover:text-amber-300 bg-amber-500/5 hover:bg-amber-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">Swing</button>
+                <div class="w-px h-4 bg-white/10"></div>
+                <div class="flex items-center gap-1 shrink-0" title="Smooth">
+                    <span class="text-[7px] font-bold text-zinc-500 uppercase">Smo</span>
+                    <input type="range" id="sd-smooth-slider" min="0" max="100" value="0" class="w-12 h-1 accent-amber-500 cursor-pointer" oninput="sdApplySmooth(this.value)" />
+                    <span id="sd-smooth-val" class="text-[7px] text-amber-400/80 font-mono w-5">0%</span>
+                </div>
+                <div class="flex items-center gap-1 shrink-0" title="Intensity">
+                    <span class="text-[7px] font-bold text-zinc-500 uppercase">Int</span>
+                    <input type="range" id="sd-intensity-slider" min="0" max="200" value="100" class="w-14 h-1 accent-rose-500 cursor-pointer" oninput="sdApplyIntensity(this.value)" />
+                    <span id="sd-intensity-val" class="text-[7px] text-rose-400/80 font-mono w-6">100%</span>
+                </div>
+                <div class="flex items-center gap-1 shrink-0" title="Curve">
+                    <span class="text-[7px] font-bold text-zinc-500 uppercase">Crv</span>
+                    <input type="range" id="sd-curve-slider" min="0" max="100" value="0" class="w-12 h-1 accent-violet-500 cursor-pointer" oninput="sdApplyCurve(this.value)" />
+                    <span id="sd-curve-val" class="text-[7px] text-violet-400/80 font-mono w-5">0%</span>
+                </div>
+                <div class="w-px h-4 bg-white/10"></div>
+                <div class="flex items-center gap-1 shrink-0" title="Floor — raise the minimum value across all lanes">
+                    <span class="text-[7px] font-bold text-cyan-500/80 uppercase">Flr</span>
+                    <input type="range" id="sd-floor-slider" min="0" max="100" value="0" class="w-12 h-1 accent-cyan-500 cursor-pointer" oninput="sdApplyFloor(this.value)" />
+                    <span id="sd-floor-val" class="text-[7px] text-cyan-400/80 font-mono w-5">0%</span>
+                </div>
+                <div class="flex items-center gap-1 shrink-0" title="Ceiling — lower the maximum value across all lanes">
+                    <span class="text-[7px] font-bold text-cyan-500/80 uppercase">Ceil</span>
+                    <input type="range" id="sd-ceil-slider" min="0" max="100" value="100" class="w-12 h-1 accent-cyan-500 cursor-pointer" oninput="sdApplyCeiling(this.value)" />
+                    <span id="sd-ceil-val" class="text-[7px] text-cyan-400/80 font-mono w-6">100%</span>
+                </div>
+                <div class="w-px h-4 bg-white/10"></div>
+                <div class="flex items-center gap-0.5 shrink-0">
+                    <button onclick="sdTimeStretch(2)" title="Stretch 2x" class="text-[8px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded font-bold transition-colors">2x</button>
+                    <button onclick="sdTimeStretch(0.5)" title="Compress ½x" class="text-[8px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded font-bold transition-colors">½x</button>
+                </div>
+                <div class="w-px h-4 bg-white/10"></div>
+                <button onclick="sdMutate()" title="Generate a variation of the current curves" class="text-[8px] text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors shrink-0">Mutate</button>
+                <button onclick="sdShuffleLanes()" title="Shuffle: randomly reassign curves to different params" class="text-[8px] text-violet-400 hover:text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 hover:border-violet-500/40 px-2 py-0.5 rounded uppercase font-bold transition-colors shrink-0 ml-auto">Shuffle</button>
+                <button id="sd-apply-all-toggle" onclick="sdToggleApplyAll()" title="When active, tools apply to ALL lanes" class="text-[8px] text-zinc-500 bg-black/50 border border-white/5 hover:border-fuchsia-500/30 px-2 py-0.5 rounded uppercase font-bold transition-colors shrink-0">All Lanes</button>
+            </div>
+
+            <!-- Canvas Area -->
+            <div class="flex-1 relative overflow-hidden bg-black/20" id="sd-canvas-container">
+                <div id="sd-canvas-ruler" class="absolute top-0 left-0 right-0 h-5 bg-black/60 border-b border-white/10 z-20 cursor-col-resize select-none"></div>
+                <canvas id="sd-canvas" class="absolute top-5 left-0 right-0 bottom-0 w-full cursor-crosshair z-10" style="height: calc(100% - 20px);"></canvas>
+                <div class="absolute bottom-3 left-3 pointer-events-none z-20">
+                    <span class="text-[9px] font-bold text-zinc-600 tracking-widest uppercase bg-black/60 px-2 py-1 rounded">Zoom: Ctrl + Wheel | Pan: Space + Drag | Bend: Alt + Drag</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Paste To... Popover -->
+    <div id="sd-paste-to-popover" class="hidden fixed w-56 max-h-64 bg-zinc-900 border border-white/10 rounded-lg shadow-2xl z-[9999] flex flex-col" style="pointer-events:auto;">
+        <div class="flex items-center justify-between px-3 py-2 border-b border-white/10">
+            <label class="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" id="sd-paste-to-all" onchange="sdPasteToToggleAll(this.checked)" class="accent-violet-500 w-3 h-3">
+                <span class="text-[9px] text-zinc-300 uppercase font-bold">Select All</span>
+            </label>
+            <button onclick="sdClosePasteTo()" class="text-zinc-500 hover:text-zinc-300 text-xs">&times;</button>
+        </div>
+        <div id="sd-paste-to-list" class="overflow-y-auto flex-1 py-1 custom-scroll"></div>
+        <div class="flex gap-1 p-2 border-t border-white/10">
+            <button onclick="sdPasteToSelected(false)" class="flex-1 text-[9px] text-violet-300 bg-violet-500/20 hover:bg-violet-500/30 py-1.5 rounded uppercase font-bold transition-colors">Paste</button>
+            <button onclick="sdPasteToSelected(true)" class="flex-1 text-[9px] text-amber-300 bg-amber-500/20 hover:bg-amber-500/30 py-1.5 rounded uppercase font-bold transition-colors">Paste Inv</button>
+        </div>
+    </div>
+
+    <!-- Generate Panel (online mode overlay) -->
+    <div id="generate-panel" class="hidden fixed inset-0 z-[8000] bg-black/80 backdrop-blur-sm flex items-center justify-center">
+        <div class="bg-zinc-900 border border-white/10 rounded-2xl w-96 shadow-2xl">
+            <div class="flex items-center justify-between px-5 py-3 border-b border-white/5">
+                <h3 class="text-sm font-black text-gradient uppercase tracking-widest">Generate</h3>
+                <button onclick="closeGeneratePanel()" class="text-zinc-500 hover:text-zinc-300 text-lg">&times;</button>
+            </div>
+            <div class="p-5 space-y-4">
+                <div>
+                    <label class="text-[9px] text-zinc-500 uppercase font-bold tracking-widest block mb-1">Style</label>
+                    <select id="gen-style" class="w-full bg-black/50 border border-white/10 text-zinc-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-fuchsia-500/50">
+                        <option value="dark_minimal">Dark Minimal</option>
+                        <option value="acid_techno">Acid Techno</option>
+                        <option value="deep_house">Deep House</option>
+                        <option value="neuro_bass">Neuro Bass</option>
+                        <option value="ambient">Ambient</option>
+                        <option value="experimental">Experimental</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-[9px] text-zinc-500 uppercase font-bold tracking-widest block mb-1">BPM</label>
+                        <input id="gen-bpm" type="number" value="128" min="60" max="200" class="w-full bg-black/50 border border-white/10 text-zinc-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-fuchsia-500/50">
+                    </div>
+                    <div>
+                        <label class="text-[9px] text-zinc-500 uppercase font-bold tracking-widest block mb-1">Key</label>
+                        <select id="gen-key" class="w-full bg-black/50 border border-white/10 text-zinc-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-fuchsia-500/50">
+                            <option value="C">C</option><option value="C#">C#</option><option value="D">D</option>
+                            <option value="D#">D#</option><option value="E">E</option><option value="F">F</option>
+                            <option value="F#">F#</option><option value="G">G</option><option value="G#">G#</option>
+                            <option value="A" selected>A</option><option value="A#">A#</option><option value="B">B</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-[9px] text-zinc-500 uppercase font-bold tracking-widest block mb-1">Prompt (optional)</label>
+                    <input id="gen-prompt" type="text" placeholder="e.g. aggressive filter sweeps with stutter..." class="w-full bg-black/50 border border-white/10 text-zinc-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-fuchsia-500/50">
+                </div>
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" id="gen-midi" class="accent-orange-500 w-3 h-3">
+                        <label for="gen-midi" class="text-[9px] text-zinc-400 uppercase font-bold tracking-widest cursor-pointer">Include MIDI</label>
+                    </div>
+                    <span id="gen-credits" class="text-[9px] text-zinc-600 uppercase font-bold tracking-widest"></span>
+                </div>
+                <button onclick="runGenerate()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] font-black uppercase tracking-[0.3em] hover:shadow-[0_0_20px_rgba(249,115,22,0.3)] transition-all">
+                    Generate
+                </button>
+                <p id="gen-status" class="text-[9px] text-zinc-500 text-center"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Account Panel (online mode overlay) -->
+    <div id="account-panel" class="hidden fixed inset-0 z-[7000] bg-black/80 backdrop-blur-sm flex items-center justify-center">
+        <div class="bg-zinc-900 border border-white/10 rounded-2xl w-80 shadow-2xl">
+            <div class="flex items-center justify-between px-5 py-3 border-b border-white/5">
+                <h3 class="text-sm font-black text-zinc-200 uppercase tracking-widest">Account</h3>
+                <button onclick="closeAccountPanel()" class="text-zinc-500 hover:text-zinc-300 text-lg">&times;</button>
+            </div>
+            <div id="account-signed-out" class="p-5 space-y-3">
+                <p class="text-[10px] text-zinc-400">Sign in with your license to unlock generation features.</p>
+                <input id="auth-serial" type="text" placeholder="Serial key" class="w-full bg-black/50 border border-white/10 text-zinc-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-fuchsia-500/50">
+                <input id="auth-email" type="email" placeholder="Email" class="w-full bg-black/50 border border-white/10 text-zinc-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-fuchsia-500/50">
+                <button onclick="signIn()" class="w-full py-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] font-black uppercase tracking-[0.2em] hover:shadow-[0_0_15px_rgba(249,115,22,0.3)] transition-all">Activate</button>
+                <p id="auth-status" class="text-[9px] text-zinc-500 text-center"></p>
+            </div>
+            <div id="account-signed-in" class="p-5 space-y-3 hidden">
+                <div class="flex items-center justify-between">
+                    <span class="text-[10px] text-zinc-300 font-bold" id="account-name"></span>
+                    <span class="text-[9px] text-fuchsia-400 font-bold" id="account-credits"></span>
+                </div>
+                <p class="text-[9px] text-zinc-500" id="account-email"></p>
+                <button onclick="signOut()" class="w-full py-1.5 rounded-lg bg-white/5 text-zinc-400 text-[9px] uppercase font-bold tracking-widest hover:bg-white/10 transition-colors">Sign Out</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preset Picker Modal -->
+    <div id="sd-preset-modal" class="hidden fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div class="bg-zinc-900 border border-rose-500/20 rounded-2xl w-[640px] max-h-[85vh] flex flex-col shadow-2xl">
+            <div class="px-5 py-3 border-b border-white/5 flex items-center justify-between shrink-0">
+                <div>
+                    <h3 class="text-[13px] text-rose-400 font-black uppercase tracking-widest">Preset Bank</h3>
+                    <p class="text-[9px] text-zinc-600 mt-0.5">Complementary curves for all your params</p>
+                </div>
+                <button onclick="sdTogglePresets()" class="text-zinc-600 hover:text-white text-lg leading-none px-2">&times;</button>
+            </div>
+            <!-- Category Tabs -->
+            <div class="px-4 pt-3 pb-1 flex gap-1.5 shrink-0 overflow-x-auto" id="sd-preset-tabs"></div>
+            <!-- Preset Grid with previews -->
+            <div class="flex-1 overflow-y-auto custom-scroll p-4" id="sd-preset-list">
+                <p class="text-[9px] text-zinc-600">Loading presets...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+    // ─── License Activation Gate ────────────────────────────
+    // Validates license key against Lemon Squeezy Licenses API.
+    // Caches validated license locally with 7-day offline grace period.
+
+    // TODO: Replace with your Lemon Squeezy store ID after creating your product
+    const STRIDE_STORE_ID = 'YOUR_STORE_ID';
+
+    const OFFLINE_GRACE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+    // Built-in keys are validated via main process IPC (not visible in renderer/DevTools)
+    async function checkBuiltinKey(key) {
+        try {
+            const result = await window.stride.validateLicenseKey(key);
+            if (result && result.valid) return { valid: true, tier: result.tier, customer_name: result.customer_name };
+        } catch (e) {}
+        return null;
+    }
+
+    async function checkLicense() {
+        try {
+            const result = await window.stride.loadLicense();
+            if (result.success && result.license) {
+                const lic = result.license;
+                // Check if license was validated and within offline grace period
+                if (lic.valid && lic.key) {
+                    const age = Date.now() - (lic.cached_at || 0);
+                    if (age < OFFLINE_GRACE_MS) {
+                        // Try online re-validation silently, but don't block on failure
+                        revalidateSilently(lic.key);
+                        unlockApp();
+                        return;
+                    }
+                    // Grace expired — need online re-validation
+                    const online = await validateKeyOnline(lic.key);
+                    if (online.valid) {
+                        await cacheLicense(lic.key, online);
+                        unlockApp();
+                        return;
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('License check error:', e);
+        }
+
+        // No valid license — show activation form
+        document.getElementById('activation-checking').classList.add('hidden');
+        document.getElementById('activation-form').classList.remove('hidden');
+    }
+
+    async function activateLicense() {
+        const input = document.getElementById('serial-input');
+        const btn = document.getElementById('activate-btn');
+        const errorEl = document.getElementById('activation-error');
+        const key = input.value.trim();
+
+        if (!key) {
+            showActivationError('Please enter your license key.');
+            return;
+        }
+
+        btn.textContent = 'Validating...';
+        btn.disabled = true;
+        errorEl.classList.add('hidden');
+
+        // Check built-in keys first (via main process IPC, offline)
+        const builtin = await checkBuiltinKey(key);
+        if (builtin && builtin.valid) {
+            await cacheLicense(key, builtin);
+            unlockApp();
+            return;
+        }
+
+        // Otherwise validate against Lemon Squeezy API
+        try {
+            const result = await validateKeyOnline(key);
+
+            if (result.valid) {
+                await cacheLicense(key, result);
+                unlockApp();
+            } else {
+                showActivationError(result.error || 'Invalid license key. Please check and try again.');
+                btn.textContent = 'Activate';
+                btn.disabled = false;
+            }
+        } catch (e) {
+            showActivationError('Could not reach license server. Check your internet connection.');
+            btn.textContent = 'Activate';
+            btn.disabled = false;
+        }
+    }
+
+    async function validateKeyOnline(key) {
+        try {
+            const resp = await fetch('https://api.lemonsqueezy.com/v1/licenses/validate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ license_key: key })
+            });
+            const data = await resp.json();
+
+            if (data.valid) {
+                return {
+                    valid: true,
+                    license_key_id: data.license_key?.id,
+                    instance_name: data.instance?.name,
+                    customer_name: data.meta?.customer_name,
+                };
+            } else {
+                return {
+                    valid: false,
+                    error: data.error || 'License key is not valid or has been deactivated.'
+                };
+            }
+        } catch (e) {
+            throw new Error('Network error');
+        }
+    }
+
+    async function revalidateSilently(key) {
+        // Built-in keys never need online re-validation
+        if (checkBuiltinKey(key)) return;
+        try {
+            const result = await validateKeyOnline(key);
+            if (result.valid) {
+                await cacheLicense(key, result);
+            } else {
+                // License revoked — will catch on next cold start when grace expires
+                console.warn('Stride: License no longer valid on server');
+            }
+        } catch (e) {
+            // Offline — ignore, grace period still active
+        }
+    }
+
+    async function cacheLicense(key, validationResult) {
+        await window.stride.saveLicense({
+            key: key,
+            valid: true,
+            license_key_id: validationResult.license_key_id || null,
+            customer_name: validationResult.customer_name || null,
+            validated_at: Date.now()
+        });
+    }
+
+    function unlockApp() {
+        const overlay = document.getElementById('activation-overlay');
+        overlay.style.transition = 'opacity 0.3s ease';
+        overlay.style.opacity = '0';
+        setTimeout(() => overlay.remove(), 300);
+    }
+
+    function showActivationError(msg) {
+        const el = document.getElementById('activation-error');
+        el.textContent = msg;
+        el.classList.remove('hidden');
+    }
+
+    // Enter key to submit
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('serial-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') activateLicense();
+        });
+        checkLicense();
+    });
+    </script>
+    <script src="ws-client.js"></script>
+    <script src="cloud-client.js"></script>
+    <script src="canvas.js"></script>
+</body>
+</html>

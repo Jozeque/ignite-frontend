@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STRIDE GTM Strategy — Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #09090b;
+            --bg-panel: rgba(24, 24, 27, 0.6);
+            --border-light: rgba(255, 255, 255, 0.06);
+        }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-base);
+            background-image: radial-gradient(circle at 50% 0%, #1a0f08 0%, var(--bg-base) 60%);
+            color: #e4e4e7;
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
+
+        .glass { background: var(--bg-panel); backdrop-filter: blur(24px); border: 1px solid var(--border-light); }
+        .text-gradient { background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-image: linear-gradient(to right, #f97316, #ef4444); }
+
+        /* Collapsible sections */
+        .section-content { max-height: 0; overflow: hidden; transition: max-height 0.4s ease, opacity 0.3s ease; opacity: 0; }
+        .section-content.open { max-height: 8000px; opacity: 1; }
+        .chevron { transition: transform 0.3s ease; }
+        .chevron.rotated { transform: rotate(180deg); }
+
+        /* Status badges */
+        .status-badge { cursor: pointer; user-select: none; transition: all 0.15s ease; }
+        .status-badge:hover { transform: scale(1.05); }
+
+        /* Editable cells */
+        [contenteditable]:focus { outline: 1px solid #f97316; outline-offset: 2px; border-radius: 4px; }
+        [contenteditable]:empty::before { content: attr(data-placeholder); color: #52525b; }
+
+        /* Table styling */
+        table { border-collapse: separate; border-spacing: 0; }
+        th { position: sticky; top: 0; z-index: 10; }
+        tr:hover td { background: rgba(255,255,255,0.02); }
+
+        /* Filter pills */
+        .filter-pill { cursor: pointer; transition: all 0.15s ease; }
+        .filter-pill.active { background: rgba(249, 115, 22, 0.2); border-color: rgba(249, 115, 22, 0.4); color: #fb923c; }
+
+        /* Progress bar */
+        .progress-fill { transition: width 0.5s ease; }
+
+        /* Print styles */
+        @media print {
+            body { background: white; color: black; }
+            .no-print { display: none !important; }
+            .section-content { max-height: none !important; opacity: 1 !important; }
+            .glass { background: #f5f5f5; border: 1px solid #ddd; }
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-20">
+
+    <!-- Fixed top bar -->
+    <nav class="sticky top-0 z-50 glass border-b border-white/5 px-6 py-3 flex items-center justify-between no-print">
+        <div class="flex items-center gap-3">
+            <h1 class="text-xl font-black text-gradient tracking-tighter">STRIDE</h1>
+            <span class="text-zinc-600">|</span>
+            <span class="text-xs text-zinc-500 font-bold uppercase tracking-widest">GTM Dashboard</span>
+        </div>
+        <div class="flex items-center gap-3">
+            <span id="save-indicator" class="text-[10px] text-zinc-600 font-medium transition-opacity">All changes saved</span>
+            <button onclick="exportJSON()" class="text-[10px] bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 px-3 py-1.5 rounded-lg font-bold uppercase tracking-widest transition-all">Export</button>
+            <button onclick="importJSON()" class="text-[10px] bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 px-3 py-1.5 rounded-lg font-bold uppercase tracking-widest transition-all">Import</button>
+            <input type="file" id="import-file" class="hidden" accept=".json" onchange="handleImport(event)">
+        </div>
+    </nav>
+
+    <main class="max-w-[1200px] mx-auto px-6 pt-8">
+
+        <!-- ==================== HEADER ==================== -->
+        <div class="mb-12">
+            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 mb-4">
+                <span class="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+                <span class="text-[10px] text-orange-400 font-bold uppercase tracking-widest">Local M4L Device Launch</span>
+            </div>
+            <h2 class="text-4xl font-black tracking-tight mb-2">GTM Strategy <span class="text-gradient">Roadmap</span></h2>
+            <p class="text-zinc-500 text-sm">Last updated: <span id="last-updated">2026-04-05</span> &mdash; All data saved to browser localStorage</p>
+        </div>
+
+        <!-- ==================== PROGRESS OVERVIEW ==================== -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10">
+            <div class="glass rounded-2xl p-5">
+                <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-2">Phase 1 Progress</p>
+                <div class="w-full h-2 bg-white/5 rounded-full mb-2"><div id="prog-phase1" class="progress-fill h-full bg-orange-500 rounded-full" style="width:0%"></div></div>
+                <p class="text-xs text-zinc-400"><span id="prog-phase1-txt">0</span> / <span id="prog-phase1-total">0</span> tasks</p>
+            </div>
+            <div class="glass rounded-2xl p-5">
+                <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-2">Phase 2 Progress</p>
+                <div class="w-full h-2 bg-white/5 rounded-full mb-2"><div id="prog-phase2" class="progress-fill h-full bg-red-500 rounded-full" style="width:0%"></div></div>
+                <p class="text-xs text-zinc-400"><span id="prog-phase2-txt">0</span> / <span id="prog-phase2-total">0</span> tasks</p>
+            </div>
+            <div class="glass rounded-2xl p-5">
+                <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-2">Phase 3 Progress</p>
+                <div class="w-full h-2 bg-white/5 rounded-full mb-2"><div id="prog-phase3" class="progress-fill h-full bg-purple-500 rounded-full" style="width:0%"></div></div>
+                <p class="text-xs text-zinc-400"><span id="prog-phase3-txt">0</span> / <span id="prog-phase3-total">0</span> tasks</p>
+            </div>
+            <div class="glass rounded-2xl p-5">
+                <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-2">Ambassadors</p>
+                <p class="text-2xl font-black text-white"><span id="amb-count">0</span><span class="text-zinc-600 text-lg"> / 25</span></p>
+                <p class="text-xs text-zinc-400">Recruited</p>
+            </div>
+        </div>
+
+
+        <!-- ==================== SECTION: PRODUCT & VALUE PROP ==================== -->
+        <section class="mb-6">
+            <button onclick="toggleSection('sec-product')" class="w-full glass rounded-2xl p-6 flex items-center justify-between hover:border-orange-500/20 transition-colors group">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-400 flex items-center justify-center border border-orange-500/20">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    </div>
+                    <div class="text-left">
+                        <h3 class="text-lg font-black text-white">Product & Value Proposition</h3>
+                        <p class="text-xs text-zinc-500">What we sell, who we sell to, why they buy</p>
+                    </div>
+                </div>
+                <svg id="chev-sec-product" class="chevron w-5 h-5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div id="sec-product" class="section-content">
+                <div class="px-2 pt-4 space-y-6">
+                    <!-- Product summary -->
+                    <div class="glass rounded-2xl p-6">
+                        <p class="text-[10px] text-orange-400 font-bold uppercase tracking-widest mb-3">Product Summary</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-zinc-400">
+                            <div><span class="text-zinc-200 font-bold">What:</span> Max for Live device — visual automation canvas for Ableton instrument racks</div>
+                            <div><span class="text-zinc-200 font-bold">How:</span> Scan rack &rarr; draw/generate/mutate curves on canvas &rarr; apply automation to clip</div>
+                            <div><span class="text-zinc-200 font-bold">Differentiator:</span> 100% local. No cloud, no account, no AI. Writes native Ableton automation.</div>
+                            <div><span class="text-zinc-200 font-bold">Runs on:</span> Ableton Live 11+ with Max for Live (Suite or Standard + M4L)</div>
+                        </div>
+                    </div>
+
+                    <!-- Value prop -->
+                    <div class="glass rounded-2xl p-6">
+                        <p class="text-[10px] text-orange-400 font-bold uppercase tracking-widest mb-3">Primary Value Prop</p>
+                        <blockquote class="text-xl font-black text-white border-l-4 border-orange-500 pl-4 mb-4">Automate 100 parameters in the time it takes to draw one lane.</blockquote>
+                        <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-3 mt-6">One-liner</p>
+                        <p class="text-sm text-zinc-300 italic">"The automation canvas for Ableton. Draw once, apply everywhere."</p>
+                    </div>
+
+                    <!-- Personas -->
+                    <div class="glass rounded-2xl p-6 overflow-x-auto">
+                        <p class="text-[10px] text-orange-400 font-bold uppercase tracking-widest mb-3">Target Personas</p>
+                        <table class="w-full text-sm">
+                            <thead><tr class="text-left">
+                                <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-4">Producer Type</th>
+                                <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-4">Pain Point</th>
+                                <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3">Stride's Answer</th>
+                            </tr></thead>
+                            <tbody class="text-zinc-400">
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">Working producer</td><td class="py-3 pr-4">Drawing 50 automation lanes takes hours</td><td class="py-3">All Lanes + template = done in seconds</td></tr>
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">Sound designer</td><td class="py-3 pr-4">Working a patch for hours, keeping 5%</td><td class="py-3">Hit Mutate 10 times, keep the best 3</td></tr>
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">"My sound" producer</td><td class="py-3 pr-4">Presets = everyone sounds the same</td><td class="py-3">Your rack, your parameters, Stride adds movement</td></tr>
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">Old project recycler</td><td class="py-3 pr-4">Shelved racks gathering dust</td><td class="py-3">Drag old rack in, Mutate, get 50 new variations</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== SECTION: COMPETITIVE POSITION ==================== -->
+        <section class="mb-6">
+            <button onclick="toggleSection('sec-comp')" class="w-full glass rounded-2xl p-6 flex items-center justify-between hover:border-orange-500/20 transition-colors">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-xl bg-red-500/10 text-red-400 flex items-center justify-center border border-red-500/20">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6m6 0V9a2 2 0 012-2h2a2 2 0 012 2v10m6 0v-4a2 2 0 00-2-2h-2a2 2 0 00-2 2v4"/></svg>
+                    </div>
+                    <div class="text-left">
+                        <h3 class="text-lg font-black text-white">Competitive Position</h3>
+                        <p class="text-xs text-zinc-500">How Stride stacks up vs. alternatives</p>
+                    </div>
+                </div>
+                <svg id="chev-sec-comp" class="chevron w-5 h-5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div id="sec-comp" class="section-content">
+                <div class="px-2 pt-4 space-y-6">
+                    <div class="glass rounded-2xl p-6 overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead><tr class="text-left">
+                                <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-4">Competitor</th>
+                                <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-4">Price</th>
+                                <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-4">What It Does</th>
+                                <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3">Stride's Edge</th>
+                            </tr></thead>
+                            <tbody class="text-zinc-400">
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">Manual (Ableton)</td><td class="py-3 pr-4">Free</td><td class="py-3 pr-4">Draw lanes one by one</td><td class="py-3">All lanes at once, templates, mutate, copy/paste</td></tr>
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">ShaperBox 3</td><td class="py-3 pr-4">$89</td><td class="py-3 pr-4">LFO-based audio effects (real-time)</td><td class="py-3">Writes native Ableton automation on YOUR rack params. Remove Stride, automation stays.</td></tr>
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">Infiltrator 2</td><td class="py-3 pr-4">$127</td><td class="py-3 pr-4">Multi-FX sequencer (real-time audio)</td><td class="py-3">Stride modulates the user's actual rack, not its own FX chain.</td></tr>
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">M4L LFO devices</td><td class="py-3 pr-4">Free-$30</td><td class="py-3 pr-4">Individual LFO modulators</td><td class="py-3">Unified canvas, all params visible, mutate, templates</td></tr>
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">MidiShaper</td><td class="py-3 pr-4">$39</td><td class="py-3 pr-4">CC automation drawing</td><td class="py-3">Limited to MIDI CC. No rack param writing, no mutate.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="glass rounded-2xl p-6">
+                        <p class="text-[10px] text-red-400 font-bold uppercase tracking-widest mb-3">The Moat</p>
+                        <blockquote class="text-sm text-zinc-300 border-l-4 border-red-500 pl-4 italic">"ShaperBox and Infiltrator process audio through their own effects. Stride writes automation into your actual rack parameters &mdash; the automation lives in your Ableton session, not inside a plugin. Remove Stride, the automation stays."</blockquote>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== SECTION: PRICING ==================== -->
+        <section class="mb-6">
+            <button onclick="toggleSection('sec-pricing')" class="w-full glass rounded-2xl p-6 flex items-center justify-between hover:border-orange-500/20 transition-colors">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-xl bg-green-500/10 text-green-400 flex items-center justify-center border border-green-500/20">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </div>
+                    <div class="text-left">
+                        <h3 class="text-lg font-black text-white">Pricing Strategy</h3>
+                        <p class="text-xs text-zinc-500">Launch pricing, future path, rationale</p>
+                    </div>
+                </div>
+                <svg id="chev-sec-pricing" class="chevron w-5 h-5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div id="sec-pricing" class="section-content">
+                <div class="px-2 pt-4 space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="glass rounded-2xl p-6 text-center border-orange-500/20 border">
+                            <p class="text-[10px] text-orange-400 font-bold uppercase tracking-widest mb-2">Launch Price</p>
+                            <p class="text-5xl font-black text-gradient mb-1">$39</p>
+                            <p class="text-xs text-zinc-500">First 2 weeks or first 200 buyers</p>
+                        </div>
+                        <div class="glass rounded-2xl p-6 text-center">
+                            <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-2">Standard Price</p>
+                            <p class="text-5xl font-black text-white mb-1">$49</p>
+                            <p class="text-xs text-zinc-500">Permanent after launch window</p>
+                        </div>
+                    </div>
+                    <div class="glass rounded-2xl p-6">
+                        <p class="text-[10px] text-green-400 font-bold uppercase tracking-widest mb-3">Why $49</p>
+                        <ul class="text-sm text-zinc-400 space-y-2">
+                            <li class="flex items-start gap-2"><span class="text-green-500 mt-0.5">&#10003;</span> Below ShaperBox ($89) and Infiltrator ($127) &mdash; obvious value</li>
+                            <li class="flex items-start gap-2"><span class="text-green-500 mt-0.5">&#10003;</span> Above typical M4L devices ($15-30) &mdash; signals "professional tool"</li>
+                            <li class="flex items-start gap-2"><span class="text-green-500 mt-0.5">&#10003;</span> $49 = "one night out" money for working producers &mdash; low friction</li>
+                            <li class="flex items-start gap-2"><span class="text-green-500 mt-0.5">&#10003;</span> One-time payment = what feedback demands ("no subscription")</li>
+                        </ul>
+                    </div>
+                    <div class="glass rounded-2xl p-6 overflow-x-auto">
+                        <p class="text-[10px] text-green-400 font-bold uppercase tracking-widest mb-3">Future Pricing Path</p>
+                        <table class="w-full text-sm">
+                            <thead><tr class="text-left">
+                                <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-4">Version</th>
+                                <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-4">Price</th>
+                                <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3">What's New</th>
+                            </tr></thead>
+                            <tbody class="text-zinc-400">
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">v1.0 (launch)</td><td class="py-3 pr-4">$49 one-time</td><td class="py-3">Local canvas + automation injection</td></tr>
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">v1.5</td><td class="py-3 pr-4">$49 + $7/mo cloud</td><td class="py-3">Optional MIDI generation via cloud (subscription for credits)</td></tr>
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">v2.0</td><td class="py-3 pr-4">$69-79 one-time</td><td class="py-3">If MIDI is bundled into the core product</td></tr>
+                            </tbody>
+                        </table>
+                        <p class="text-xs text-zinc-500 mt-3">Early buyers get all local updates free. Cloud features are a separate optional subscription &mdash; never forced.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== SECTION: AMBASSADOR PROGRAM ==================== -->
+        <section class="mb-6">
+            <button onclick="toggleSection('sec-amb')" class="w-full glass rounded-2xl p-6 flex items-center justify-between hover:border-orange-500/20 transition-colors">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center border border-purple-500/20">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    </div>
+                    <div class="text-left">
+                        <h3 class="text-lg font-black text-white">Ambassador Program &mdash; "The Founding 25"</h3>
+                        <p class="text-xs text-zinc-500">Recruitment, tracking, discount codes</p>
+                    </div>
+                </div>
+                <svg id="chev-sec-amb" class="chevron w-5 h-5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div id="sec-amb" class="section-content">
+                <div class="px-2 pt-4 space-y-6">
+                    <!-- Structure -->
+                    <div class="glass rounded-2xl p-6">
+                        <p class="text-[10px] text-purple-400 font-bold uppercase tracking-widest mb-3">Program Structure</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-zinc-400">
+                            <div><span class="text-zinc-200 font-bold">Size:</span> 25 hand-picked producers</div>
+                            <div><span class="text-zinc-200 font-bold">They get:</span> Lifetime free license + all future updates</div>
+                            <div><span class="text-zinc-200 font-bold">They do:</span> 1 honest video/post showing their Stride workflow</div>
+                            <div><span class="text-zinc-200 font-bold">Discount code:</span> Unique code &mdash; 25% off ($36.75) for their audience</div>
+                            <div><span class="text-zinc-200 font-bold">Visibility:</span> Credited in "Made with Stride" showcase</div>
+                            <div><span class="text-zinc-200 font-bold">Timeline:</span> Content live within 2 weeks of receiving license</div>
+                        </div>
+                    </div>
+
+                    <!-- Where to recruit -->
+                    <div class="glass rounded-2xl p-6 overflow-x-auto">
+                        <p class="text-[10px] text-purple-400 font-bold uppercase tracking-widest mb-3">Where to Recruit</p>
+                        <table class="w-full text-sm">
+                            <thead><tr class="text-left">
+                                <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-4">Source</th>
+                                <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-4">Profile</th>
+                                <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3">How to Find</th>
+                            </tr></thead>
+                            <tbody class="text-zinc-400">
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">YouTube (5K-50K)</td><td class="py-3 pr-4">Ableton sound design tutorial creators</td><td class="py-3">Search: "Serum automation tutorial", "rack design Ableton"</td></tr>
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">r/ableton</td><td class="py-3 pr-4">Power users who post quality content</td><td class="py-3">Top posts in sound design / M4L threads</td></tr>
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">r/edmproduction</td><td class="py-3 pr-4">Active helpers in sound design</td><td class="py-3">Users who answer automation/modulation questions</td></tr>
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">Ableton Forum</td><td class="py-3 pr-4">Active sound design contributors</td><td class="py-3">Consistent contributors, not lurkers</td></tr>
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">Instagram/TikTok</td><td class="py-3 pr-4">Session screenshot posters</td><td class="py-3">#abletonsounddesign, #serumtutorial, #m4l</td></tr>
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">Discord</td><td class="py-3 pr-4">Mr. Bill, ELPHNT communities</td><td class="py-3">Active members who share racks/techniques</td></tr>
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">Certified Trainers</td><td class="py-3 pr-4">Educators (100s of students/yr)</td><td class="py-3">Ableton's official trainer directory</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Ambassador tracker -->
+                    <div class="glass rounded-2xl p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <p class="text-[10px] text-purple-400 font-bold uppercase tracking-widest">Ambassador Tracker</p>
+                            <button onclick="addAmbassador()" class="text-[10px] bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 px-3 py-1.5 rounded-lg font-bold uppercase tracking-widest transition-all border border-purple-500/20">+ Add</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm" id="amb-table">
+                                <thead><tr class="text-left">
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-3 w-8">#</th>
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-3">Name</th>
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-3">Platform</th>
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-3">Followers</th>
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-3">License Sent</th>
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-3">Content Live</th>
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-3">Code</th>
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-3">Conversions</th>
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 w-8"></th>
+                                </tr></thead>
+                                <tbody id="amb-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== SECTION: MARKETING PHASES ==================== -->
+        <section class="mb-6">
+            <button onclick="toggleSection('sec-marketing')" class="w-full glass rounded-2xl p-6 flex items-center justify-between hover:border-orange-500/20 transition-colors">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center border border-cyan-500/20">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    </div>
+                    <div class="text-left">
+                        <h3 class="text-lg font-black text-white">Marketing Phases & Timeline</h3>
+                        <p class="text-xs text-zinc-500">3-phase roadmap with task tracking</p>
+                    </div>
+                </div>
+                <svg id="chev-sec-marketing" class="chevron w-5 h-5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div id="sec-marketing" class="section-content">
+                <div class="px-2 pt-4 space-y-6">
+
+                    <!-- Phase 1 -->
+                    <div class="glass rounded-2xl p-6">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="w-3 h-3 rounded-full bg-orange-500"></span>
+                            <p class="text-sm font-black text-white uppercase tracking-wider">Phase 1: Seed &mdash; Weeks 1-4</p>
+                            <span class="text-xs text-zinc-500 ml-auto">Goal: Build proof, first 100 sales</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm" id="phase1-table">
+                                <thead><tr class="text-left">
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-3">Action</th>
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-3 w-16">Week</th>
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-3 w-20">Owner</th>
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 w-28">Status</th>
+                                </tr></thead>
+                                <tbody id="phase1-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Phase 2 -->
+                    <div class="glass rounded-2xl p-6">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="w-3 h-3 rounded-full bg-red-500"></span>
+                            <p class="text-sm font-black text-white uppercase tracking-wider">Phase 2: Ignite &mdash; Weeks 5-8</p>
+                            <span class="text-xs text-zinc-500 ml-auto">Goal: Public launch, 500 sales</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm" id="phase2-table">
+                                <thead><tr class="text-left">
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-3">Action</th>
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-3 w-16">Week</th>
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-3 w-20">Owner</th>
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 w-28">Status</th>
+                                </tr></thead>
+                                <tbody id="phase2-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Phase 3 -->
+                    <div class="glass rounded-2xl p-6">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="w-3 h-3 rounded-full bg-purple-500"></span>
+                            <p class="text-sm font-black text-white uppercase tracking-wider">Phase 3: Scale &mdash; Weeks 9-16</p>
+                            <span class="text-xs text-zinc-500 ml-auto">Goal: Sustained growth, 1000+ sales</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm" id="phase3-table">
+                                <thead><tr class="text-left">
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-3">Action</th>
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-3 w-16">Week</th>
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-3 w-20">Owner</th>
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 w-28">Status</th>
+                                </tr></thead>
+                                <tbody id="phase3-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Content Calendar -->
+                    <div class="glass rounded-2xl p-6 overflow-x-auto">
+                        <p class="text-[10px] text-cyan-400 font-bold uppercase tracking-widest mb-3">Content Calendar</p>
+                        <table class="w-full text-sm">
+                            <thead><tr class="text-left">
+                                <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-4">Content</th>
+                                <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-4">Platform</th>
+                                <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-4">Frequency</th>
+                                <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3">Format</th>
+                            </tr></thead>
+                            <tbody class="text-zinc-400">
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">Before/after audio clips</td><td class="py-3 pr-4">IG Reels, TikTok</td><td class="py-3 pr-4">3x/week</td><td class="py-3">15-30 sec, same rack flat vs. Stride</td></tr>
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">"X params in Y seconds"</td><td class="py-3 pr-4">YT Shorts, Twitter/X</td><td class="py-3 pr-4">2x/week</td><td class="py-3">Screen recording, canvas filling up</td></tr>
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">Full workflow tutorial</td><td class="py-3 pr-4">YouTube</td><td class="py-3 pr-4">1x/week</td><td class="py-3">5-10 min, SEO-optimized</td></tr>
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">"Rack of the Week"</td><td class="py-3 pr-4">r/ableton</td><td class="py-3 pr-4">1x/week</td><td class="py-3">Rack + curves + before/after audio</td></tr>
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">User showcase</td><td class="py-3 pr-4">IG, Twitter/X</td><td class="py-3 pr-4">Daily</td><td class="py-3">Repost ambassador content</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Reddit + SEO -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="glass rounded-2xl p-6">
+                            <p class="text-[10px] text-cyan-400 font-bold uppercase tracking-widest mb-3">Reddit Strategy</p>
+                            <ul class="text-sm text-zinc-400 space-y-3">
+                                <li class="flex items-start gap-2"><span class="text-red-500 font-bold text-xs mt-0.5">W1-4</span> Participate genuinely. Answer automation questions. Build reputation.</li>
+                                <li class="flex items-start gap-2"><span class="text-orange-500 font-bold text-xs mt-0.5">W5</span> Launch thread: "I built a M4L device that automates all your rack params &mdash; $49"</li>
+                                <li class="flex items-start gap-2"><span class="text-green-500 font-bold text-xs mt-0.5">W6+</span> "Rack of the Week" posts with audio. Mention Stride naturally.</li>
+                            </ul>
+                        </div>
+                        <div class="glass rounded-2xl p-6">
+                            <p class="text-[10px] text-cyan-400 font-bold uppercase tracking-widest mb-3">SEO Targets</p>
+                            <ul class="text-sm text-zinc-400 space-y-2">
+                                <li class="flex items-center gap-2"><span class="text-green-400 text-xs font-bold">LOW</span> "Ableton automation tool"</li>
+                                <li class="flex items-center gap-2"><span class="text-green-400 text-xs font-bold">V.LOW</span> "automate rack parameters Ableton"</li>
+                                <li class="flex items-center gap-2"><span class="text-green-400 text-xs font-bold">LOW</span> "sound design engine Ableton"</li>
+                                <li class="flex items-center gap-2"><span class="text-green-400 text-xs font-bold">LOW</span> "Max for Live automation device"</li>
+                                <li class="flex items-center gap-2"><span class="text-yellow-400 text-xs font-bold">MED</span> "Ableton sound design workflow"</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Distribution + Ads -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="glass rounded-2xl p-6 overflow-x-auto">
+                            <p class="text-[10px] text-cyan-400 font-bold uppercase tracking-widest mb-3">Distribution Channels</p>
+                            <table class="w-full text-sm">
+                                <tbody class="text-zinc-400">
+                                    <tr class="border-b border-white/5"><td class="py-2 pr-3 text-zinc-200 font-medium">Gumroad / own site</td><td class="py-2 pr-3 text-orange-400 text-xs font-bold">PRIMARY</td><td class="py-2">~95% kept</td></tr>
+                                    <tr class="border-b border-white/5"><td class="py-2 pr-3 text-zinc-200 font-medium">Plugin Boutique</td><td class="py-2 pr-3 text-zinc-500 text-xs font-bold">SECONDARY</td><td class="py-2">~70% kept</td></tr>
+                                    <tr class="border-b border-white/5"><td class="py-2 pr-3 text-zinc-200 font-medium">KVR Audio</td><td class="py-2 pr-3 text-zinc-500 text-xs font-bold">FREE</td><td class="py-2">100% kept</td></tr>
+                                    <tr><td class="py-2 pr-3 text-zinc-200 font-medium">Splice</td><td class="py-2 pr-3 text-zinc-500 text-xs font-bold">EVALUATE W9</td><td class="py-2">Rent-to-own</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="glass rounded-2xl p-6 overflow-x-auto">
+                            <p class="text-[10px] text-cyan-400 font-bold uppercase tracking-widest mb-3">Paid Ads (Phase 3, $500-1K/mo)</p>
+                            <table class="w-full text-sm">
+                                <tbody class="text-zinc-400">
+                                    <tr class="border-b border-white/5"><td class="py-2 pr-3 text-zinc-200 font-medium">YouTube pre-roll</td><td class="py-2">15-sec before/after audio</td></tr>
+                                    <tr class="border-b border-white/5"><td class="py-2 pr-3 text-zinc-200 font-medium">IG/TikTok</td><td class="py-2">15-sec Reel, audio-forward</td></tr>
+                                    <tr class="border-b border-white/5"><td class="py-2 pr-3 text-zinc-200 font-medium">Google Search</td><td class="py-2">"Ableton automation tool" keywords</td></tr>
+                                    <tr><td class="py-2 pr-3 text-zinc-200 font-medium">Retargeting</td><td class="py-2">Landing page visitors who didn't buy</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== SECTION: METRICS ==================== -->
+        <section class="mb-6">
+            <button onclick="toggleSection('sec-metrics')" class="w-full glass rounded-2xl p-6 flex items-center justify-between hover:border-orange-500/20 transition-colors">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-xl bg-yellow-500/10 text-yellow-400 flex items-center justify-center border border-yellow-500/20">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/></svg>
+                    </div>
+                    <div class="text-left">
+                        <h3 class="text-lg font-black text-white">Metrics & Targets</h3>
+                        <p class="text-xs text-zinc-500">Month 1, 3, 6 targets</p>
+                    </div>
+                </div>
+                <svg id="chev-sec-metrics" class="chevron w-5 h-5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div id="sec-metrics" class="section-content">
+                <div class="px-2 pt-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="glass rounded-2xl p-6">
+                            <p class="text-[10px] text-yellow-400 font-bold uppercase tracking-widest mb-4">Month 1</p>
+                            <div class="space-y-3">
+                                <div class="flex justify-between text-sm"><span class="text-zinc-400">Units sold</span><span class="text-zinc-200 font-bold">100</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-zinc-400">Revenue</span><span class="text-zinc-200 font-bold">$3,900</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-zinc-400">Ambassador videos</span><span class="text-zinc-200 font-bold">10</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-zinc-400">Demo views</span><span class="text-zinc-200 font-bold">5,000</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-zinc-400">Refund rate</span><span class="text-zinc-200 font-bold">&lt;5%</span></div>
+                            </div>
+                        </div>
+                        <div class="glass rounded-2xl p-6">
+                            <p class="text-[10px] text-yellow-400 font-bold uppercase tracking-widest mb-4">Month 3</p>
+                            <div class="space-y-3">
+                                <div class="flex justify-between text-sm"><span class="text-zinc-400">Total units</span><span class="text-zinc-200 font-bold">500</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-zinc-400">Total revenue</span><span class="text-zinc-200 font-bold">~$23,000</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-zinc-400">Ambassador videos</span><span class="text-zinc-200 font-bold">25</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-zinc-400">Reddit/KVR mentions</span><span class="text-zinc-200 font-bold">50</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-zinc-400">Refund rate</span><span class="text-zinc-200 font-bold">&lt;3%</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-zinc-400">Email list</span><span class="text-zinc-200 font-bold">2,000+</span></div>
+                            </div>
+                        </div>
+                        <div class="glass rounded-2xl p-6">
+                            <p class="text-[10px] text-yellow-400 font-bold uppercase tracking-widest mb-4">Month 6</p>
+                            <div class="space-y-3">
+                                <div class="flex justify-between text-sm"><span class="text-zinc-400">Total units</span><span class="text-zinc-200 font-bold">1,200</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-zinc-400">Total revenue</span><span class="text-zinc-200 font-bold">~$55,000</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-zinc-400">Plugin Boutique</span><span class="text-zinc-200 font-bold">Listed</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-zinc-400">MIDI cloud add-on</span><span class="text-zinc-200 font-bold">Launched</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-zinc-400">Cloud subscribers</span><span class="text-zinc-200 font-bold">100</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-zinc-400">Cloud MRR</span><span class="text-zinc-200 font-bold">$700-900</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== SECTION: RISKS ==================== -->
+        <section class="mb-6">
+            <button onclick="toggleSection('sec-risks')" class="w-full glass rounded-2xl p-6 flex items-center justify-between hover:border-orange-500/20 transition-colors">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-xl bg-red-500/10 text-red-400 flex items-center justify-center border border-red-500/20">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    </div>
+                    <div class="text-left">
+                        <h3 class="text-lg font-black text-white">Risks & Mitigations</h3>
+                        <p class="text-xs text-zinc-500">What could go wrong and how to handle it</p>
+                    </div>
+                </div>
+                <svg id="chev-sec-risks" class="chevron w-5 h-5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div id="sec-risks" class="section-content">
+                <div class="px-2 pt-4">
+                    <div class="glass rounded-2xl p-6 overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead><tr class="text-left">
+                                <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-4">Risk</th>
+                                <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-4 w-20">Likelihood</th>
+                                <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-4 w-20">Impact</th>
+                                <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3">Mitigation</th>
+                            </tr></thead>
+                            <tbody class="text-zinc-400">
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">"$49 is too high for M4L"</td><td class="py-3 pr-4"><span class="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded font-bold">MED</span></td><td class="py-3 pr-4"><span class="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded font-bold">HIGH</span></td><td class="py-3">Launch at $39 to test. If strong at $39, $49 is safe.</td></tr>
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">"Where's the MIDI?"</td><td class="py-3 pr-4"><span class="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded font-bold">MED</span></td><td class="py-3 pr-4"><span class="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded font-bold">LOW</span></td><td class="py-3">Clear messaging: "automation canvas" not "music generator".</td></tr>
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">Ableton builds this natively</td><td class="py-3 pr-4"><span class="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded font-bold">LOW</span></td><td class="py-3 pr-4"><span class="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded font-bold">CRIT</span></td><td class="py-3">Build community moat now. Ableton moves slowly. 2-3yr window.</td></tr>
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">Product needs too much explanation</td><td class="py-3 pr-4"><span class="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded font-bold">MED</span></td><td class="py-3 pr-4"><span class="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded font-bold">HIGH</span></td><td class="py-3">Demo video IS the product. Before/after audio sells itself.</td></tr>
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">Ambassadors don't deliver</td><td class="py-3 pr-4"><span class="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded font-bold">MED</span></td><td class="py-3 pr-4"><span class="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded font-bold">MED</span></td><td class="py-3">Vet carefully. Only pick regular publishers. Have backup list of 10.</td></tr>
+                                <tr class="border-t border-white/5"><td class="py-3 pr-4 text-zinc-200 font-medium">Low Reddit reception</td><td class="py-3 pr-4"><span class="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded font-bold">LOW</span></td><td class="py-3 pr-4"><span class="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded font-bold">MED</span></td><td class="py-3">Only post after 4+ weeks participation. "I built this" framing.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== SECTION: IDEAS & BACKLOG ==================== -->
+        <section class="mb-6">
+            <button onclick="toggleSection('sec-backlog')" class="w-full glass rounded-2xl p-6 flex items-center justify-between hover:border-orange-500/20 transition-colors">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-xl bg-white/5 text-zinc-400 flex items-center justify-center border border-white/10">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                    </div>
+                    <div class="text-left">
+                        <h3 class="text-lg font-black text-white">Ideas & Task Backlog</h3>
+                        <p class="text-xs text-zinc-500">Everything in one place &mdash; add, prioritize, track</p>
+                    </div>
+                </div>
+                <svg id="chev-sec-backlog" class="chevron w-5 h-5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div id="sec-backlog" class="section-content">
+                <div class="px-2 pt-4 space-y-4">
+                    <!-- Filters -->
+                    <div class="flex items-center gap-2 flex-wrap no-print">
+                        <span class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mr-2">Filter:</span>
+                        <button onclick="filterBacklog('all')" class="filter-pill active text-[10px] px-3 py-1 rounded-full border border-white/10 font-bold uppercase tracking-widest" data-filter="all">All</button>
+                        <button onclick="filterBacklog('P0')" class="filter-pill text-[10px] px-3 py-1 rounded-full border border-white/10 text-zinc-500 font-bold uppercase tracking-widest" data-filter="P0">P0</button>
+                        <button onclick="filterBacklog('P1')" class="filter-pill text-[10px] px-3 py-1 rounded-full border border-white/10 text-zinc-500 font-bold uppercase tracking-widest" data-filter="P1">P1</button>
+                        <button onclick="filterBacklog('P2')" class="filter-pill text-[10px] px-3 py-1 rounded-full border border-white/10 text-zinc-500 font-bold uppercase tracking-widest" data-filter="P2">P2</button>
+                        <span class="text-zinc-700 mx-1">|</span>
+                        <button onclick="filterBacklog('Marketing')" class="filter-pill text-[10px] px-3 py-1 rounded-full border border-white/10 text-zinc-500 font-bold uppercase tracking-widest" data-filter="Marketing">Marketing</button>
+                        <button onclick="filterBacklog('Dev')" class="filter-pill text-[10px] px-3 py-1 rounded-full border border-white/10 text-zinc-500 font-bold uppercase tracking-widest" data-filter="Dev">Dev</button>
+                        <button onclick="filterBacklog('Ops')" class="filter-pill text-[10px] px-3 py-1 rounded-full border border-white/10 text-zinc-500 font-bold uppercase tracking-widest" data-filter="Ops">Ops</button>
+                        <button onclick="filterBacklog('Community')" class="filter-pill text-[10px] px-3 py-1 rounded-full border border-white/10 text-zinc-500 font-bold uppercase tracking-widest" data-filter="Community">Community</button>
+                    </div>
+
+                    <div class="glass rounded-2xl p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <p class="text-[10px] text-zinc-400 font-bold uppercase tracking-widest"><span id="backlog-count">0</span> items</p>
+                            <button onclick="addBacklogItem()" class="text-[10px] bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 px-3 py-1.5 rounded-lg font-bold uppercase tracking-widest transition-all border border-orange-500/20 no-print">+ Add Item</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm" id="backlog-table">
+                                <thead><tr class="text-left">
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-3 w-8">#</th>
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-3">Task / Idea</th>
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-3 w-24">Category</th>
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-3 w-16">Priority</th>
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-3 w-28">Status</th>
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 pr-3">Notes</th>
+                                    <th class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pb-3 w-8 no-print"></th>
+                                </tr></thead>
+                                <tbody id="backlog-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+
+    <!-- ==================== JAVASCRIPT ==================== -->
+    <script>
+    const STORAGE_KEY = 'stride_gtm_data';
+
+    // ── Default Data ──
+    const DEFAULT_DATA = {
+        phases: {
+            phase1: [
+                { action: 'Finalize local-only feature set for v1', week: 'W1', owner: 'Dev', status: 'not-started' },
+                { action: 'Set up Gumroad / payment page', week: 'W1', owner: 'Yossi', status: 'not-started' },
+                { action: 'Update landing page per spec', week: 'W1', owner: 'Dev', status: 'not-started' },
+                { action: 'Record 60-second demo video', week: 'W2', owner: 'Yossi', status: 'not-started' },
+                { action: 'Record 3 before/after audio clips', week: 'W2', owner: 'Yossi', status: 'not-started' },
+                { action: 'Reach out to first 10 ambassadors', week: 'W2', owner: 'Yossi', status: 'not-started' },
+                { action: 'Ship licenses to accepted ambassadors', week: 'W3', owner: 'Yossi', status: 'not-started' },
+                { action: 'Ambassadors post first content', week: 'W3-4', owner: 'Ambassadors', status: 'not-started' },
+                { action: 'Launch price ($39) goes live', week: 'W3', owner: 'Yossi', status: 'not-started' },
+            ],
+            phase2: [
+                { action: 'Collect 5+ testimonials', week: 'W5', owner: 'Yossi', status: 'not-started' },
+                { action: 'Fix onboarding friction from feedback', week: 'W5', owner: 'Dev', status: 'not-started' },
+                { action: 'Public launch post on r/ableton', week: 'W5', owner: 'Yossi', status: 'not-started' },
+                { action: 'Product Hunt launch', week: 'W5', owner: 'Yossi', status: 'not-started' },
+                { action: 'KVR Audio marketplace listing', week: 'W5', owner: 'Yossi', status: 'not-started' },
+                { action: 'Launch price ends → $49', week: 'W6', owner: 'Yossi', status: 'not-started' },
+                { action: 'Submit to Plugin Boutique', week: 'W6', owner: 'Yossi', status: 'not-started' },
+                { action: 'Recruit remaining 15 ambassadors', week: 'W6-8', owner: 'Yossi', status: 'not-started' },
+                { action: 'Begin content cadence', week: 'W6', owner: 'Yossi', status: 'not-started' },
+            ],
+            phase3: [
+                { action: 'Evaluate Splice rent-to-own listing', week: 'W9', owner: 'Yossi', status: 'not-started' },
+                { action: 'Start paid ads ($500-1K/mo)', week: 'W10', owner: 'Yossi', status: 'not-started' },
+                { action: 'Partner outreach: Certified Trainers', week: 'W10', owner: 'Yossi', status: 'not-started' },
+                { action: 'Partner outreach: course creators', week: 'W11', owner: 'Yossi', status: 'not-started' },
+                { action: 'Evaluate MIDI cloud add-on dev', week: 'W12', owner: 'Dev', status: 'not-started' },
+                { action: '"Made with Stride" showcase page', week: 'W12', owner: 'Dev', status: 'not-started' },
+                { action: 'Discord community launch', week: 'W14', owner: 'Yossi', status: 'not-started' },
+            ]
+        },
+        ambassadors: [],
+        backlog: [
+            { task: 'Record 60-sec demo video', category: 'Marketing', priority: 'P0', status: 'not-started', notes: 'Most important conversion asset' },
+            { task: 'Record 3 before/after audio clips (Serum, Vital, Operator)', category: 'Marketing', priority: 'P0', status: 'not-started', notes: 'For landing page + social content' },
+            { task: 'Update landing page per spec', category: 'Dev', priority: 'P0', status: 'not-started', notes: 'See LANDING_PAGE_SPEC.md' },
+            { task: 'Set up Gumroad store page', category: 'Ops', priority: 'P0', status: 'not-started', notes: 'Payment + instant download' },
+            { task: 'Build ambassador shortlist (50 candidates → pick 25)', category: 'Marketing', priority: 'P0', status: 'not-started', notes: '' },
+            { task: 'Write outreach DM template for ambassadors', category: 'Marketing', priority: 'P1', status: 'not-started', notes: '' },
+            { task: 'Create unique discount codes (25 codes, 25% off)', category: 'Ops', priority: 'P1', status: 'not-started', notes: 'One per ambassador' },
+            { task: 'Build demo/lite version (3 params, no presets)', category: 'Dev', priority: 'P1', status: 'not-started', notes: 'Reduces purchase anxiety' },
+            { task: 'Write r/ableton launch post draft', category: 'Marketing', priority: 'P1', status: 'not-started', notes: 'Get feedback before posting' },
+            { task: 'Product Hunt page setup', category: 'Marketing', priority: 'P1', status: 'not-started', notes: '' },
+            { task: 'KVR Audio listing', category: 'Marketing', priority: 'P1', status: 'not-started', notes: 'Free, high-intent traffic' },
+            { task: 'Write 3 SEO blog posts for stridehub.io', category: 'Marketing', priority: 'P2', status: 'not-started', notes: 'Target "Ableton automation tool" etc.' },
+            { task: 'Explore Splice rent-to-own', category: 'Ops', priority: 'P2', status: 'not-started', notes: 'Evaluate at W9' },
+            { task: 'Submit to Plugin Boutique', category: 'Ops', priority: 'P2', status: 'not-started', notes: 'After launch validation' },
+            { task: 'Build "Made with Stride" showcase page', category: 'Dev', priority: 'P2', status: 'not-started', notes: 'Social proof + ambassador incentive' },
+            { task: 'Add MIDI cloud generation as optional subscription', category: 'Dev', priority: 'P2', status: 'not-started', notes: 'v1.5 — only after local product validated' },
+            { task: 'Discord community setup', category: 'Community', priority: 'P2', status: 'not-started', notes: 'After 200+ customers' },
+            { task: 'Preset sharing / community presets', category: 'Dev', priority: 'P2', status: 'not-started', notes: 'Flywheel: users share canvas presets' },
+        ]
+    };
+
+    // ── State ──
+    let data = loadData();
+
+    function loadData() {
+        try {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) return JSON.parse(stored);
+        } catch(e) {}
+        return JSON.parse(JSON.stringify(DEFAULT_DATA));
+    }
+
+    function saveData() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        document.getElementById('save-indicator').textContent = 'Saved ' + new Date().toLocaleTimeString();
+        document.getElementById('last-updated').textContent = new Date().toISOString().split('T')[0];
+        updateProgress();
+    }
+
+    // ── Status cycling ──
+    const STATUSES = ['not-started', 'in-progress', 'done', 'blocked'];
+    const STATUS_LABELS = { 'not-started': 'Not Started', 'in-progress': 'In Progress', 'done': 'Done', 'blocked': 'Blocked' };
+    const STATUS_COLORS = {
+        'not-started': 'bg-white/5 text-zinc-500 border-white/10',
+        'in-progress': 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+        'done': 'bg-green-500/20 text-green-400 border-green-500/30',
+        'blocked': 'bg-red-500/20 text-red-400 border-red-500/30'
+    };
+
+    function statusBadge(status, onclick) {
+        return `<span class="status-badge inline-block text-[10px] px-2.5 py-1 rounded-full border font-bold uppercase tracking-widest ${STATUS_COLORS[status]}" onclick="${onclick}">${STATUS_LABELS[status]}</span>`;
+    }
+
+    function cycleStatus(arr, key, idx) {
+        const current = data[arr][key] ? data[arr][key][idx].status : data[arr][idx].status;
+        const next = STATUSES[(STATUSES.indexOf(current) + 1) % STATUSES.length];
+        if (data[arr][key]) data[arr][key][idx].status = next;
+        else data[arr][idx].status = next;
+        saveData();
+        renderAll();
+    }
+
+    // ── Priority cycling ──
+    const PRIORITIES = ['P0', 'P1', 'P2'];
+    const PRIORITY_COLORS = {
+        'P0': 'bg-red-500/20 text-red-400 border-red-500/30',
+        'P1': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+        'P2': 'bg-white/5 text-zinc-500 border-white/10'
+    };
+
+    // ── Sections ──
+    function toggleSection(id) {
+        const el = document.getElementById(id);
+        const chev = document.getElementById('chev-' + id);
+        el.classList.toggle('open');
+        chev.classList.toggle('rotated');
+    }
+
+    // ── Render phase tables ──
+    function renderPhase(phaseKey, bodyId) {
+        const body = document.getElementById(bodyId);
+        body.innerHTML = data.phases[phaseKey].map((item, i) =>
+            `<tr class="border-t border-white/5">
+                <td class="py-3 pr-3 text-zinc-300">${item.action}</td>
+                <td class="py-3 pr-3 text-zinc-500 text-xs font-bold">${item.week}</td>
+                <td class="py-3 pr-3 text-zinc-500 text-xs">${item.owner}</td>
+                <td class="py-3">${statusBadge(item.status, `cycleStatus('phases','${phaseKey}',${i})`)}</td>
+            </tr>`
+        ).join('');
+    }
+
+    // ── Render ambassador tracker ──
+    function renderAmbassadors() {
+        const body = document.getElementById('amb-body');
+        body.innerHTML = data.ambassadors.map((a, i) =>
+            `<tr class="border-t border-white/5">
+                <td class="py-2 pr-3 text-zinc-500 text-xs">${i + 1}</td>
+                <td class="py-2 pr-3"><span contenteditable data-placeholder="Name..." class="text-zinc-200 text-sm outline-none" onblur="updateAmb(${i},'name',this.textContent)">${a.name}</span></td>
+                <td class="py-2 pr-3"><span contenteditable data-placeholder="Platform..." class="text-zinc-400 text-sm outline-none" onblur="updateAmb(${i},'platform',this.textContent)">${a.platform}</span></td>
+                <td class="py-2 pr-3"><span contenteditable data-placeholder="0" class="text-zinc-400 text-sm outline-none" onblur="updateAmb(${i},'followers',this.textContent)">${a.followers}</span></td>
+                <td class="py-2 pr-3">${statusBadge(a.licenseSent, `cycleAmbField(${i},'licenseSent')`)}</td>
+                <td class="py-2 pr-3">${statusBadge(a.contentLive, `cycleAmbField(${i},'contentLive')`)}</td>
+                <td class="py-2 pr-3"><span contenteditable data-placeholder="CODE" class="text-orange-400 text-xs font-mono outline-none" onblur="updateAmb(${i},'code',this.textContent)">${a.code}</span></td>
+                <td class="py-2 pr-3"><span contenteditable data-placeholder="0" class="text-zinc-400 text-sm outline-none" onblur="updateAmb(${i},'conversions',this.textContent)">${a.conversions}</span></td>
+                <td class="py-2 no-print"><button onclick="removeAmb(${i})" class="text-zinc-700 hover:text-red-400 transition-colors text-xs">&times;</button></td>
+            </tr>`
+        ).join('');
+        document.getElementById('amb-count').textContent = data.ambassadors.filter(a => a.name).length;
+    }
+
+    function addAmbassador() {
+        data.ambassadors.push({ name: '', platform: '', followers: '', licenseSent: 'not-started', contentLive: 'not-started', code: '', conversions: '0' });
+        saveData();
+        renderAmbassadors();
+    }
+
+    function removeAmb(i) {
+        data.ambassadors.splice(i, 1);
+        saveData();
+        renderAmbassadors();
+    }
+
+    function updateAmb(i, field, val) {
+        data.ambassadors[i][field] = val.trim();
+        saveData();
+    }
+
+    function cycleAmbField(i, field) {
+        const current = data.ambassadors[i][field];
+        data.ambassadors[i][field] = STATUSES[(STATUSES.indexOf(current) + 1) % STATUSES.length];
+        saveData();
+        renderAmbassadors();
+    }
+
+    // ── Render backlog ──
+    let activeFilter = 'all';
+
+    function renderBacklog() {
+        const body = document.getElementById('backlog-body');
+        const filtered = data.backlog.map((item, i) => ({ ...item, _i: i })).filter(item => {
+            if (activeFilter === 'all') return true;
+            return item.priority === activeFilter || item.category === activeFilter;
+        });
+        document.getElementById('backlog-count').textContent = filtered.length;
+
+        body.innerHTML = filtered.map(item => {
+            const i = item._i;
+            return `<tr class="border-t border-white/5 backlog-row" data-priority="${item.priority}" data-category="${item.category}">
+                <td class="py-2 pr-3 text-zinc-500 text-xs">${i + 1}</td>
+                <td class="py-2 pr-3"><span contenteditable data-placeholder="Describe task..." class="text-zinc-200 text-sm outline-none" onblur="updateBacklog(${i},'task',this.textContent)">${item.task}</span></td>
+                <td class="py-2 pr-3">
+                    <select class="bg-transparent text-xs text-zinc-400 border border-white/10 rounded px-1.5 py-1 outline-none focus:border-orange-500/50" onchange="updateBacklog(${i},'category',this.value)">
+                        ${['Marketing','Dev','Ops','Community'].map(c => `<option value="${c}" ${item.category===c?'selected':''}>${c}</option>`).join('')}
+                    </select>
+                </td>
+                <td class="py-2 pr-3">
+                    <span class="status-badge inline-block text-[10px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-widest cursor-pointer ${PRIORITY_COLORS[item.priority]}" onclick="cycleBacklogPriority(${i})">${item.priority}</span>
+                </td>
+                <td class="py-2 pr-3">${statusBadge(item.status, `cycleStatus('backlog',null,${i})`)}</td>
+                <td class="py-2 pr-3"><span contenteditable data-placeholder="Notes..." class="text-zinc-500 text-xs outline-none" onblur="updateBacklog(${i},'notes',this.textContent)">${item.notes}</span></td>
+                <td class="py-2 no-print"><button onclick="removeBacklog(${i})" class="text-zinc-700 hover:text-red-400 transition-colors text-xs">&times;</button></td>
+            </tr>`;
+        }).join('');
+    }
+
+    function addBacklogItem() {
+        data.backlog.push({ task: '', category: 'Marketing', priority: 'P1', status: 'not-started', notes: '' });
+        saveData();
+        renderBacklog();
+    }
+
+    function removeBacklog(i) {
+        data.backlog.splice(i, 1);
+        saveData();
+        renderBacklog();
+    }
+
+    function updateBacklog(i, field, val) {
+        data.backlog[i][field] = val.trim();
+        saveData();
+    }
+
+    function cycleBacklogPriority(i) {
+        const current = data.backlog[i].priority;
+        data.backlog[i].priority = PRIORITIES[(PRIORITIES.indexOf(current) + 1) % PRIORITIES.length];
+        saveData();
+        renderBacklog();
+    }
+
+    function filterBacklog(filter) {
+        activeFilter = filter;
+        document.querySelectorAll('.filter-pill').forEach(p => {
+            p.classList.toggle('active', p.dataset.filter === filter);
+        });
+        renderBacklog();
+    }
+
+    // ── Progress bars ──
+    function updateProgress() {
+        ['phase1', 'phase2', 'phase3'].forEach(key => {
+            const items = data.phases[key];
+            const done = items.filter(i => i.status === 'done').length;
+            const pct = items.length ? Math.round((done / items.length) * 100) : 0;
+            document.getElementById(`prog-${key}`).style.width = pct + '%';
+            document.getElementById(`prog-${key}-txt`).textContent = done;
+            document.getElementById(`prog-${key}-total`).textContent = items.length;
+        });
+    }
+
+    // ── Export / Import ──
+    function exportJSON() {
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'stride_gtm_' + new Date().toISOString().split('T')[0] + '.json';
+        a.click();
+    }
+
+    function importJSON() {
+        document.getElementById('import-file').click();
+    }
+
+    function handleImport(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+            try {
+                data = JSON.parse(ev.target.result);
+                saveData();
+                renderAll();
+            } catch(err) {
+                alert('Invalid JSON file');
+            }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+    }
+
+    // ── Render all ──
+    function renderAll() {
+        renderPhase('phase1', 'phase1-body');
+        renderPhase('phase2', 'phase2-body');
+        renderPhase('phase3', 'phase3-body');
+        renderAmbassadors();
+        renderBacklog();
+        updateProgress();
+    }
+
+    // ── Init ──
+    renderAll();
+    </script>
+
+</body>
+</html>
