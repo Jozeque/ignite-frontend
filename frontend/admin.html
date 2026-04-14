@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Stride CRM</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+
+    <style>
+        html, body { font-family: 'Outfit', -apple-system, sans-serif; background: #09090b; color: #e4e4e7; margin: 0; height: 100%; }
+        body { overflow: hidden; }
+        .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+
+        [contenteditable="true"]:focus { outline: 1px solid #f59e0b; outline-offset: -1px; background: #18181b; }
+        [contenteditable="true"] { cursor: text; }
+        [contenteditable="true"]:hover:not(:focus) { background: rgba(255,255,255,0.03); }
+
+        .cell-saving { opacity: 0.5; }
+        .cell-saved { animation: flash-green 0.8s ease-out; }
+        .cell-error { animation: flash-red 0.8s ease-out; }
+        @keyframes flash-green { 0% { background: rgba(34,197,94,0.3); } 100% { background: transparent; } }
+        @keyframes flash-red { 0% { background: rgba(239,68,68,0.4); } 100% { background: transparent; } }
+
+        select, input, textarea { font-family: inherit; }
+        select { background-image: none; }
+
+        .status-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+        .status-new      { background: rgba(113,113,122,0.15); color: #a1a1aa; }
+        .status-contacted{ background: rgba(14,165,233,0.15);  color: #38bdf8; }
+        .status-purchased{ background: rgba(234,179,8,0.18);   color: #facc15; }
+        .status-active   { background: rgba(34,197,94,0.18);   color: #4ade80; }
+        .status-churned  { background: rgba(239,68,68,0.18);   color: #f87171; }
+
+        .src-badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+        .src-waitlist_signup { background: rgba(168,85,247,0.15); color: #c084fc; }
+        .src-buyer_lead      { background: rgba(251,146,60,0.15); color: #fb923c; }
+        .src-lemonsqueezy    { background: rgba(34,197,94,0.15);  color: #4ade80; }
+
+        .copy-btn { cursor: pointer; opacity: 0.4; transition: opacity 0.15s; }
+        .copy-btn:hover { opacity: 1; }
+
+        tbody tr { border-top: 1px solid rgba(255,255,255,0.04); }
+        tbody tr:hover { background: rgba(255,255,255,0.02); }
+    </style>
+</head>
+<body class="text-zinc-100">
+
+    <!-- LOADING -->
+    <div id="loading" class="fixed inset-0 flex items-center justify-center z-50">
+        <div class="text-[10px] text-zinc-500 uppercase tracking-[0.25em] font-bold">Loading CRM…</div>
+    </div>
+
+    <!-- SIGN-IN -->
+    <div id="signin" class="hidden fixed inset-0 flex items-center justify-center z-40">
+        <div class="flex flex-col items-center gap-5 max-w-sm text-center px-6">
+            <h1 class="text-4xl font-black bg-gradient-to-r from-orange-400 via-fuchsia-400 to-orange-400 bg-clip-text text-transparent">STRIDE CRM</h1>
+            <p class="text-[10px] text-zinc-500 uppercase tracking-[0.2em] font-bold">Admin access only</p>
+            <button id="signin-btn" class="text-[11px] text-zinc-100 bg-white/10 hover:bg-white/15 border border-white/20 hover:border-white/40 px-6 py-3 rounded-xl uppercase tracking-widest font-black transition-all flex items-center gap-3">
+                <svg class="w-4 h-4" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4c-7.7 0-14.3 4.4-17.7 10.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.1 4.1-3.9 5.5l6.2 5.2C40.2 36.1 44 30.5 44 24c0-1.3-.1-2.7-.4-3.9z"/></svg>
+                Sign in with Google
+            </button>
+        </div>
+    </div>
+
+    <!-- ACCESS DENIED -->
+    <div id="denied" class="hidden fixed inset-0 flex items-center justify-center z-40">
+        <div class="flex flex-col items-center gap-4 max-w-sm text-center px-6">
+            <h1 class="text-2xl font-black text-red-400">Access denied</h1>
+            <p class="text-[10px] text-zinc-500 uppercase tracking-[0.2em] font-bold" id="denied-email"></p>
+            <p class="text-[11px] text-zinc-400 leading-relaxed">Your account is not on the Stride admin allow-list. If this is a mistake, add your email in <code class="text-fuchsia-400">admin.html</code> and redeploy.</p>
+            <button id="signout-btn-denied" class="text-[10px] text-zinc-400 bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-2 rounded-lg uppercase tracking-widest font-bold transition-all">Sign out</button>
+        </div>
+    </div>
+
+    <!-- MAIN CRM UI -->
+    <div id="crm" class="hidden h-screen flex flex-col">
+
+        <!-- TOP BAR -->
+        <header class="h-14 border-b border-white/5 flex items-center px-5 gap-4 shrink-0 bg-black/40">
+            <h1 class="text-sm font-black uppercase tracking-[0.25em] bg-gradient-to-r from-orange-400 via-fuchsia-400 to-orange-400 bg-clip-text text-transparent">Stride CRM</h1>
+            <div class="w-px h-5 bg-white/10"></div>
+            <div class="text-[9px] text-zinc-500 uppercase tracking-widest font-bold">
+                <span id="count-shown">0</span> shown / <span id="count-total">0</span> total
+            </div>
+            <div class="flex-1"></div>
+            <div class="flex items-center gap-3">
+                <span id="user-email" class="text-[10px] text-zinc-400 font-medium"></span>
+                <button id="signout-btn" class="text-[9px] text-zinc-500 hover:text-zinc-200 bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg uppercase tracking-widest font-bold transition-all">Sign out</button>
+            </div>
+        </header>
+
+        <!-- FILTER BAR -->
+        <div class="h-12 border-b border-white/5 flex items-center px-5 gap-3 shrink-0 bg-black/20">
+            <input id="search" type="search" placeholder="Search name or email…" class="bg-black/40 border border-white/10 focus:border-fuchsia-500/50 outline-none rounded-lg px-3 py-1.5 text-[11px] text-zinc-200 placeholder-zinc-600 w-64" />
+
+            <select id="status-filter" class="bg-black/40 border border-white/10 focus:border-fuchsia-500/50 outline-none rounded-lg px-3 py-1.5 text-[10px] text-zinc-300 uppercase tracking-wider font-bold cursor-pointer">
+                <option value="">All statuses</option>
+                <option value="new">New lead</option>
+                <option value="contacted">Contacted</option>
+                <option value="purchased">Purchased</option>
+                <option value="active">Active</option>
+                <option value="churned">Churned</option>
+            </select>
+
+            <select id="source-filter" class="bg-black/40 border border-white/10 focus:border-fuchsia-500/50 outline-none rounded-lg px-3 py-1.5 text-[10px] text-zinc-300 uppercase tracking-wider font-bold cursor-pointer">
+                <option value="">All sources</option>
+                <option value="waitlist_signup">Waitlist</option>
+                <option value="buyer_lead">Buyer lead</option>
+                <option value="lemonsqueezy">Lemon Squeezy</option>
+            </select>
+
+            <select id="sort" class="bg-black/40 border border-white/10 focus:border-fuchsia-500/50 outline-none rounded-lg px-3 py-1.5 text-[10px] text-zinc-300 uppercase tracking-wider font-bold cursor-pointer">
+                <option value="created_desc">Newest first</option>
+                <option value="created_asc">Oldest first</option>
+                <option value="contacted_desc">Recently contacted</option>
+                <option value="name_asc">Name A→Z</option>
+            </select>
+
+            <div class="flex-1"></div>
+            <div class="text-[9px] text-zinc-600 uppercase tracking-widest">click to edit • live</div>
+        </div>
+
+        <!-- TABLE -->
+        <div class="flex-1 overflow-auto custom-scroll">
+            <table class="w-full text-[11px]">
+                <thead class="sticky top-0 bg-black/80 backdrop-blur z-10">
+                    <tr class="text-left">
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black">Status</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black">Name</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black">Email</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black">Country</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black">Source</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black">License</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black">Amount</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black w-64">Notes</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black">Last contacted</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black">Created</th>
+                    </tr>
+                </thead>
+                <tbody id="rows"></tbody>
+            </table>
+            <div id="empty" class="hidden text-center py-20 text-[10px] text-zinc-600 uppercase tracking-widest">No leads match the current filters.</div>
+        </div>
+
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="hidden fixed bottom-6 right-6 bg-zinc-900 border border-white/10 rounded-lg px-4 py-2 text-[10px] text-zinc-300 uppercase tracking-widest font-bold shadow-2xl z-50"></div>
+
+    <script>
+        // ─── Firebase setup ───────────────────────────────────
+        const firebaseConfig = {
+            apiKey: "AIzaSyCP6Wt4yAkkphPeUvgbgbLHeUfdijZw7M4",
+            authDomain: "veero-next.firebaseapp.com",
+            projectId: "veero-next",
+            storageBucket: "veero-next.firebasestorage.app",
+            messagingSenderId: "293344511627",
+            appId: "1:293344511627:web:7611f4358284b18422b68e"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // Hardcoded admin allow-list. Add emails here to grant CRM access.
+        // Also enforced server-side in main.py's update_lead handler, so the
+        // client-side check is UX-only (the backend is the source of truth).
+        const ADMIN_EMAILS = ['yossi.bozo112@gmail.com'];
+
+        const BACKEND_URL = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
+
+        // ─── State ─────────────────────────────────────────────
+        const state = {
+            user: null,
+            rows: [],         // raw docs from Firestore
+            filtered: [],     // after filter+search+sort
+            search: '',
+            statusFilter: '',
+            sourceFilter: '',
+            sort: 'created_desc',
+            unsub: null
+        };
+
+        // ─── Auth flow ─────────────────────────────────────────
+        auth.onAuthStateChanged((user) => {
+            hide('loading');
+            if (!user) {
+                show('signin'); hide('crm'); hide('denied');
+                return;
+            }
+            if (!ADMIN_EMAILS.includes(user.email)) {
+                document.getElementById('denied-email').textContent = user.email;
+                show('denied'); hide('crm'); hide('signin');
+                return;
+            }
+            state.user = user;
+            document.getElementById('user-email').textContent = user.email;
+            hide('signin'); hide('denied'); show('crm', 'flex');
+            startListening();
+        });
+
+        document.getElementById('signin-btn').addEventListener('click', async () => {
+            try {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                await auth.signInWithPopup(provider);
+            } catch (e) {
+                toast('Sign-in failed: ' + e.message, true);
+            }
+        });
+        document.getElementById('signout-btn').addEventListener('click', () => auth.signOut());
+        document.getElementById('signout-btn-denied').addEventListener('click', () => auth.signOut());
+
+        // ─── Firestore listener ────────────────────────────────
+        function startListening() {
+            if (state.unsub) state.unsub();
+            state.unsub = db.collection('waitlist')
+                .orderBy('created_at', 'desc')
+                .onSnapshot(
+                    (snapshot) => {
+                        state.rows = snapshot.docs.map(d => {
+                            const data = d.data();
+                            return {
+                                id: d.id,
+                                ...data,
+                                created_at: toDate(data.created_at),
+                                purchased_at: toDate(data.purchased_at),
+                                last_contacted_at: toDate(data.last_contacted_at),
+                                updated_at: toDate(data.updated_at),
+                            };
+                        });
+                        applyFilters();
+                    },
+                    (err) => {
+                        console.error('Firestore listener error:', err);
+                        toast('Firestore listener error: ' + err.message, true);
+                    }
+                );
+        }
+
+        function toDate(ts) {
+            if (!ts) return null;
+            if (typeof ts.toDate === 'function') return ts.toDate();
+            if (ts instanceof Date) return ts;
+            if (typeof ts === 'number') return new Date(ts);
+            return null;
+        }
+
+        // ─── Filters / search / sort ───────────────────────────
+        function applyFilters() {
+            let rows = state.rows.slice();
+
+            if (state.search) {
+                const q = state.search.toLowerCase();
+                rows = rows.filter(r =>
+                    (r.name || '').toLowerCase().includes(q) ||
+                    (r.email || '').toLowerCase().includes(q)
+                );
+            }
+            if (state.statusFilter) {
+                rows = rows.filter(r => getStatus(r) === state.statusFilter);
+            }
+            if (state.sourceFilter) {
+                rows = rows.filter(r => (r.source || '') === state.sourceFilter);
+            }
+
+            if (state.sort === 'created_desc') {
+                rows.sort((a, b) => ts(b.created_at) - ts(a.created_at));
+            } else if (state.sort === 'created_asc') {
+                rows.sort((a, b) => ts(a.created_at) - ts(b.created_at));
+            } else if (state.sort === 'contacted_desc') {
+                rows.sort((a, b) => ts(b.last_contacted_at) - ts(a.last_contacted_at));
+            } else if (state.sort === 'name_asc') {
+                rows.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            }
+
+            state.filtered = rows;
+            renderTable();
+        }
+
+        function ts(d) { return d ? d.getTime() : 0; }
+
+        // Derived status — if no explicit field, derive from source + license
+        function getStatus(row) {
+            if (row.status) return row.status;
+            if (row.source === 'lemonsqueezy') return 'purchased';
+            return 'new';
+        }
+
+        // ─── Render table ──────────────────────────────────────
+        function renderTable() {
+            const tbody = document.getElementById('rows');
+            const empty = document.getElementById('empty');
+            document.getElementById('count-shown').textContent = state.filtered.length;
+            document.getElementById('count-total').textContent = state.rows.length;
+
+            if (state.filtered.length === 0) {
+                tbody.innerHTML = '';
+                empty.classList.remove('hidden');
+                return;
+            }
+            empty.classList.add('hidden');
+
+            const html = state.filtered.map(row => rowHtml(row)).join('');
+            tbody.innerHTML = html;
+
+            // Wire inline edit handlers
+            tbody.querySelectorAll('[contenteditable]').forEach(el => {
+                el.addEventListener('blur', onCellBlur);
+                el.addEventListener('keydown', onCellKey);
+            });
+            tbody.querySelectorAll('select[data-field]').forEach(el => {
+                el.addEventListener('change', onSelectChange);
+            });
+            tbody.querySelectorAll('textarea[data-field]').forEach(el => {
+                el.addEventListener('blur', onCellBlur);
+                // auto-resize
+                el.style.height = Math.max(32, el.scrollHeight) + 'px';
+                el.addEventListener('input', () => {
+                    el.style.height = 'auto';
+                    el.style.height = Math.max(32, el.scrollHeight) + 'px';
+                });
+            });
+            tbody.querySelectorAll('button[data-action="mark-contacted"]').forEach(btn => {
+                btn.addEventListener('click', () => markContacted(btn.dataset.id));
+            });
+            tbody.querySelectorAll('button[data-action="copy"]').forEach(btn => {
+                btn.addEventListener('click', () => copyToClipboard(btn.dataset.value));
+            });
+        }
+
+        function rowHtml(row) {
+            const status = getStatus(row);
+            const name = escapeHtml(row.name || '');
+            const email = escapeHtml(row.email || '');
+            const country = escapeHtml(row.country || '');
+            const source = row.source || '';
+            const notes = row.notes || '';
+            const licenseShort = row.license_key_short || (row.license_key ? (row.license_key + '').slice(-8) : '');
+            const licenseFull = row.license_key || '';
+            const amount = formatAmount(row.total_cents, row.currency);
+            const contactedStr = formatDate(row.last_contacted_at);
+            const contactedTitle = row.last_contacted_at ? row.last_contacted_at.toLocaleString() : '';
+            const createdStr = formatDate(row.created_at);
+            const createdTitle = row.created_at ? row.created_at.toLocaleString() : '';
+
+            return `
+            <tr data-id="${row.id}">
+                <td class="px-3 py-2">
+                    <select data-field="status" data-id="${row.id}"
+                            class="bg-transparent border-0 text-[9px] uppercase font-black tracking-widest cursor-pointer px-0 py-0 outline-none status-select status-${status}">
+                        <option value="new"       ${status==='new'?'selected':''}>New lead</option>
+                        <option value="contacted" ${status==='contacted'?'selected':''}>Contacted</option>
+                        <option value="purchased" ${status==='purchased'?'selected':''}>Purchased</option>
+                        <option value="active"    ${status==='active'?'selected':''}>Active</option>
+                        <option value="churned"   ${status==='churned'?'selected':''}>Churned</option>
+                    </select>
+                </td>
+                <td class="px-3 py-2">
+                    <div class="text-zinc-100 font-medium min-w-[120px] rounded px-1" contenteditable="true" data-field="name" data-id="${row.id}" data-original="${name}">${name || '—'}</div>
+                </td>
+                <td class="px-3 py-2">
+                    <div class="flex items-center gap-2">
+                        <span class="text-zinc-300">${email || '—'}</span>
+                        ${email ? `<button class="copy-btn text-zinc-500" data-action="copy" data-value="${email}" title="Copy email">⎘</button>` : ''}
+                    </div>
+                </td>
+                <td class="px-3 py-2">
+                    <div class="text-zinc-400 min-w-[60px] rounded px-1" contenteditable="true" data-field="country" data-id="${row.id}" data-original="${country}">${country || '—'}</div>
+                </td>
+                <td class="px-3 py-2">
+                    ${source ? `<span class="src-badge src-${source}">${sourceLabel(source)}</span>` : '<span class="text-zinc-700">—</span>'}
+                </td>
+                <td class="px-3 py-2">
+                    ${licenseFull
+                        ? `<div class="flex items-center gap-1.5 font-mono text-zinc-400 text-[10px]">
+                             <span>${escapeHtml(licenseShort)}</span>
+                             <button class="copy-btn text-zinc-500" data-action="copy" data-value="${escapeHtml(licenseFull)}" title="Copy full key">⎘</button>
+                           </div>`
+                        : '<span class="text-zinc-700">—</span>'}
+                </td>
+                <td class="px-3 py-2 text-zinc-300 whitespace-nowrap">${amount || '<span class="text-zinc-700">—</span>'}</td>
+                <td class="px-3 py-2">
+                    <textarea data-field="notes" data-id="${row.id}" data-original="${escapeHtml(notes)}"
+                              class="w-full min-w-[220px] max-w-[260px] bg-black/30 border border-white/5 focus:border-amber-500/50 rounded px-2 py-1 text-[10px] text-zinc-300 placeholder-zinc-700 outline-none resize-none"
+                              rows="1" placeholder="Add a note…">${escapeHtml(notes)}</textarea>
+                </td>
+                <td class="px-3 py-2 whitespace-nowrap">
+                    <div class="flex items-center gap-2">
+                        <span class="text-zinc-500 text-[10px]" title="${contactedTitle}">${contactedStr || '<span class="text-zinc-700">—</span>'}</span>
+                        <button data-action="mark-contacted" data-id="${row.id}" class="text-[8px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 border border-sky-500/20 px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors" title="Mark as contacted now">now</button>
+                    </div>
+                </td>
+                <td class="px-3 py-2 text-zinc-600 text-[10px] whitespace-nowrap" title="${createdTitle}">${createdStr || '—'}</td>
+            </tr>
+            `;
+        }
+
+        function sourceLabel(src) {
+            if (src === 'waitlist_signup') return 'Waitlist';
+            if (src === 'buyer_lead') return 'Buyer';
+            if (src === 'lemonsqueezy') return 'LS';
+            return src;
+        }
+
+        function formatAmount(cents, currency) {
+            if (cents == null || cents === '') return '';
+            const n = Number(cents);
+            if (isNaN(n)) return '';
+            return `${(n / 100).toFixed(2)} ${currency || 'USD'}`;
+        }
+
+        function formatDate(d) {
+            if (!d) return '';
+            const now = new Date();
+            const diffMs = now - d;
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            if (diffDays === 0) return 'today';
+            if (diffDays === 1) return 'yesterday';
+            if (diffDays < 7) return `${diffDays}d ago`;
+            if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+            if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`;
+            return `${Math.floor(diffDays / 365)}y ago`;
+        }
+
+        function escapeHtml(s) {
+            return (s || '').toString()
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // ─── Inline edit handlers ──────────────────────────────
+        async function onCellBlur(e) {
+            const el = e.currentTarget;
+            const id = el.dataset.id;
+            const field = el.dataset.field;
+            const original = el.dataset.original || '';
+            const value = (el.tagName === 'TEXTAREA' ? el.value : el.textContent).trim();
+            if (value === original.trim()) return;
+            el.classList.add('cell-saving');
+            const result = await saveUpdate(id, { [field]: value });
+            el.classList.remove('cell-saving');
+            if (result.success) {
+                el.dataset.original = value;
+                flashOk(el);
+            } else {
+                // Revert
+                if (el.tagName === 'TEXTAREA') el.value = original;
+                else el.textContent = original;
+                flashErr(el);
+                toast('Save failed: ' + (result.error || 'unknown'), true);
+            }
+        }
+
+        function onCellKey(e) {
+            if (e.key === 'Enter' && !e.shiftKey && e.currentTarget.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+                e.currentTarget.blur();
+            }
+            if (e.key === 'Escape') {
+                e.currentTarget.textContent = e.currentTarget.dataset.original || '';
+                e.currentTarget.blur();
+            }
+        }
+
+        async function onSelectChange(e) {
+            const el = e.currentTarget;
+            const id = el.dataset.id;
+            const field = el.dataset.field;
+            const value = el.value;
+            el.classList.add('cell-saving');
+            // swap the status-* class for instant visual feedback
+            el.className = el.className.replace(/status-\w+/g, '') + ' status-' + value;
+            const result = await saveUpdate(id, { [field]: value });
+            el.classList.remove('cell-saving');
+            if (result.success) flashOk(el);
+            else { flashErr(el); toast('Save failed', true); }
+        }
+
+        async function markContacted(id) {
+            const result = await saveUpdate(id, { last_contacted_at: '__NOW__' });
+            if (result.success) toast('Marked contacted');
+            else toast('Failed: ' + (result.error || 'unknown'), true);
+        }
+
+        async function saveUpdate(docId, updates) {
+            if (!state.user) return { success: false, error: 'not signed in' };
+            try {
+                const token = await state.user.getIdToken();
+                const res = await fetch(BACKEND_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        action: 'update_lead',
+                        doc_id: docId,
+                        updates: updates
+                    })
+                });
+                return await res.json();
+            } catch (e) {
+                return { success: false, error: e.message };
+            }
+        }
+
+        function flashOk(el) { el.classList.add('cell-saved'); setTimeout(() => el.classList.remove('cell-saved'), 1000); }
+        function flashErr(el) { el.classList.add('cell-error'); setTimeout(() => el.classList.remove('cell-error'), 1000); }
+
+        async function copyToClipboard(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                toast('Copied');
+            } catch (e) {
+                toast('Copy failed', true);
+            }
+        }
+
+        // ─── Toast ─────────────────────────────────────────────
+        let toastTimer = null;
+        function toast(msg, isError) {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.className = el.className.replace('border-white/10', '').replace('border-red-500/40', '');
+            el.classList.remove('hidden');
+            el.classList.add(isError ? 'border-red-500/40' : 'border-white/10');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => el.classList.add('hidden'), 2500);
+        }
+
+        // ─── UI helpers ────────────────────────────────────────
+        function show(id, display) {
+            const el = document.getElementById(id);
+            el.classList.remove('hidden');
+            if (display === 'flex') el.classList.add('flex');
+        }
+        function hide(id) { document.getElementById(id).classList.add('hidden'); }
+
+        // ─── Filter wiring ─────────────────────────────────────
+        document.getElementById('search').addEventListener('input', (e) => {
+            state.search = e.target.value;
+            applyFilters();
+        });
+        document.getElementById('status-filter').addEventListener('change', (e) => {
+            state.statusFilter = e.target.value;
+            applyFilters();
+        });
+        document.getElementById('source-filter').addEventListener('change', (e) => {
+            state.sourceFilter = e.target.value;
+            applyFilters();
+        });
+        document.getElementById('sort').addEventListener('change', (e) => {
+            state.sort = e.target.value;
+            applyFilters();
+        });
+    </script>
+</body>
+</html>

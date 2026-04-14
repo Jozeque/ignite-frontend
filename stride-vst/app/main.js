@@ -109,15 +109,105 @@ const BUILTIN_KEY_HASHES = {
     '934fb5c23d1285b79f32e0458ac50ad99b1a0a0c67029b2c47edfa8533fb5b54': { tier: 'ambassador', label: 'Ambassador #10' },
 };
 
-// Validate a license key (hash input, compare against stored hashes)
+// Backend endpoint that proxies license validation through to Lemon Squeezy.
+// Same Cloud Function as everything else — no separate service.
+const LICENSE_ENDPOINT = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
+
+// Offline grace period: if the backend can't be reached, trust a cached "valid"
+// result for this many days before forcing a fresh online check.
+const LICENSE_OFFLINE_GRACE_DAYS = 14;
+
+// Validate a license key.
+//   1. Fast path: SHA-256 hash check against the built-in ambassador/master keys.
+//      Works offline, zero network, no instance tracking.
+//   2. Slow path: POST to the backend, which proxies to LS /licenses/activate
+//      (first use, no instance_id) or /licenses/validate (subsequent, with instance_id).
+//   3. Offline fallback: if the network fails, trust a recently cached valid result.
 ipcMain.handle('validate-license-key', async (event, key) => {
-    const upper = (key || '').toUpperCase();
+    const upper = (key || '').toUpperCase().trim();
+    if (!upper) return { valid: false, error: 'Empty key', builtin: false };
+
+    // --- 1. Built-in ambassador/master hash check ---
     const hash = crypto.createHash('sha256').update(upper).digest('hex');
     const entry = BUILTIN_KEY_HASHES[hash];
     if (entry) {
         return { valid: true, tier: entry.tier, customer_name: entry.label, builtin: true };
     }
-    return { valid: false, builtin: false };
+
+    // --- 2. Backend proxy to Lemon Squeezy ---
+    // Reuse any previously-stored instance_id so we hit /validate instead of
+    // burning another activation slot on /activate.
+    let cachedInstanceId = null;
+    try {
+        const licenseFile = path.join(DATA_DIR, 'license.json');
+        if (fs.existsSync(licenseFile)) {
+            const cached = JSON.parse(fs.readFileSync(licenseFile, 'utf8'));
+            if (cached && cached.key === upper && cached.instance_id) {
+                cachedInstanceId = cached.instance_id;
+            }
+        }
+    } catch (e) { /* cache miss is fine */ }
+
+    const instanceName = `Stride on ${os.hostname() || 'unknown-host'}`;
+    const body = {
+        action: 'validate_license',
+        key: upper,
+        instance_name: instanceName,
+    };
+    if (cachedInstanceId) body.instance_id = cachedInstanceId;
+
+    try {
+        const res = await fetch(LICENSE_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const result = await res.json().catch(() => ({}));
+        if (result && result.valid) {
+            return {
+                valid: true,
+                tier: 'pro',
+                customer_name: result.customer_name || null,
+                customer_email: result.customer_email || null,
+                product_name: result.product_name || null,
+                activation_limit: result.activation_limit || null,
+                activation_usage: result.activation_usage || null,
+                expires_at: result.expires_at || null,
+                instance_id: result.instance_id || cachedInstanceId || null,
+                status: result.status || 'active',
+                builtin: false,
+            };
+        }
+        return {
+            valid: false,
+            error: (result && result.error) || 'License key is not valid',
+            builtin: false,
+        };
+    } catch (netErr) {
+        // --- 3. Offline fallback: trust recent cached valid result ---
+        try {
+            const licenseFile = path.join(DATA_DIR, 'license.json');
+            if (fs.existsSync(licenseFile)) {
+                const cached = JSON.parse(fs.readFileSync(licenseFile, 'utf8'));
+                if (cached && cached.key === upper && cached.valid && cached.cached_at) {
+                    const ageMs = Date.now() - cached.cached_at;
+                    const graceMs = LICENSE_OFFLINE_GRACE_DAYS * 24 * 60 * 60 * 1000;
+                    if (ageMs < graceMs) {
+                        return {
+                            ...cached,
+                            offline: true,
+                            builtin: false,
+                        };
+                    }
+                }
+            }
+        } catch (e) { /* no cache, fall through */ }
+        return {
+            valid: false,
+            error: `Cannot reach license server: ${netErr.message}`,
+            builtin: false,
+        };
+    }
 });
 
 // Save license locally (encrypted cache for offline grace)
@@ -189,11 +279,21 @@ ipcMain.handle('get-version', () => {
 
 // Open file dialog to pick .alc files
 ipcMain.handle('pick-alc-file', async () => {
+    // Ableton's User Library default location differs by platform:
+    //   Windows: ~/Documents/Ableton/User Library/
+    //   macOS:   ~/Music/Ableton/User Library/
+    const home = os.homedir();
+    const libCandidates = process.platform === 'darwin'
+        ? [path.join(home, 'Music', 'Ableton', 'User Library'),
+           path.join(home, 'Documents', 'Ableton', 'User Library')]
+        : [path.join(home, 'Documents', 'Ableton', 'User Library'),
+           path.join(home, 'Music', 'Ableton', 'User Library')];
+    const defaultPath = libCandidates.find(p => fs.existsSync(p)) || libCandidates[0];
     const result = await dialog.showOpenDialog(mainWindow, {
         title: 'Select .alc template file',
         filters: [{ name: 'Ableton Clip', extensions: ['alc'] }],
         properties: ['openFile'],
-        defaultPath: path.join(require('os').homedir(), 'Documents', 'Ableton', 'User Library')
+        defaultPath
     });
     if (result.canceled || !result.filePaths.length) return null;
     return result.filePaths[0];

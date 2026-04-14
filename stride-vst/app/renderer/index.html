@@ -311,7 +311,7 @@
         <div class="flex-1 relative flex flex-col bg-zinc-950">
 
             <!-- Header Bar: Bars + Generate -->
-            <div class="h-10 border-b border-white/5 flex items-center px-4 gap-3 shrink-0 bg-black/50 overflow-x-auto custom-scroll">
+            <div class="h-10 border-b border-white/5 flex items-center px-4 gap-3 shrink-0 bg-black/50 overflow-hidden">
                 <div class="flex items-center gap-1.5 bg-black/50 p-1 rounded-lg border border-white/5 shrink-0">
                     <span class="text-[8px] font-bold text-zinc-500 uppercase tracking-widest px-1">Bars</span>
                     <button onclick="sdSetBars(2)" class="sd-bars-btn text-[9px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold transition-colors">2</button>
@@ -320,7 +320,7 @@
                     <button onclick="sdSetBars(16)" class="sd-bars-btn text-[9px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold transition-colors">16</button>
                 </div>
                 <div class="w-px h-5 bg-white/10 shrink-0"></div>
-                <span id="sd-canvas-status" class="text-[9px] text-zinc-500 uppercase font-bold tracking-[0.2em] bg-white/5 px-2 py-1 rounded shrink-0">Connect M4L</span>
+                <span id="sd-canvas-status" class="text-[9px] text-zinc-500 uppercase font-bold tracking-[0.2em] bg-white/5 px-2 py-1 rounded truncate min-w-0 max-w-[280px]">Connect M4L</span>
                 <div class="flex-1 min-w-[8px]"></div>
                 <!-- Generate (online only) -->
                 <button id="generate-btn" onclick="openGeneratePanel()" class="hidden shrink-0 text-[9px] text-orange-400 hover:text-white bg-transparent hover:bg-gradient-to-r hover:from-orange-500 hover:to-red-500 border border-orange-500/50 hover:border-transparent px-5 py-1.5 rounded-lg uppercase tracking-widest font-black transition-all flex items-center gap-1.5">
@@ -598,18 +598,15 @@
     // Validates license key against Lemon Squeezy Licenses API.
     // Caches validated license locally with 7-day offline grace period.
 
-    // TODO: Replace with your Lemon Squeezy store ID after creating your product
-    const STRIDE_STORE_ID = 'YOUR_STORE_ID';
-
+    // Offline grace period: how long the renderer trusts a cached-valid license
+    // when the backend can't be reached. Must be <= the main process's grace.
     const OFFLINE_GRACE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-    // Built-in keys are validated via main process IPC (not visible in renderer/DevTools)
-    async function checkBuiltinKey(key) {
-        try {
-            const result = await window.stride.validateLicenseKey(key);
-            if (result && result.valid) return { valid: true, tier: result.tier, customer_name: result.customer_name };
-        } catch (e) {}
-        return null;
+    // Single validation entrypoint: the main process handler does both the
+    // built-in hash check (ambassador/master keys) AND the backend proxy call
+    // to Lemon Squeezy (for real customer keys). It returns a unified result.
+    async function validateKeyOnline(key) {
+        return await window.stride.validateLicenseKey(key);
     }
 
     async function checkLicense() {
@@ -617,18 +614,17 @@
             const result = await window.stride.loadLicense();
             if (result.success && result.license) {
                 const lic = result.license;
-                // Check if license was validated and within offline grace period
                 if (lic.valid && lic.key) {
                     const age = Date.now() - (lic.cached_at || 0);
                     if (age < OFFLINE_GRACE_MS) {
-                        // Try online re-validation silently, but don't block on failure
+                        // Within grace — unlock immediately, revalidate in background
                         revalidateSilently(lic.key);
                         unlockApp();
                         return;
                     }
-                    // Grace expired — need online re-validation
+                    // Grace expired — force fresh online validation
                     const online = await validateKeyOnline(lic.key);
-                    if (online.valid) {
+                    if (online && online.valid) {
                         await cacheLicense(lic.key, online);
                         unlockApp();
                         return;
@@ -659,23 +655,13 @@
         btn.disabled = true;
         errorEl.classList.add('hidden');
 
-        // Check built-in keys first (via main process IPC, offline)
-        const builtin = await checkBuiltinKey(key);
-        if (builtin && builtin.valid) {
-            await cacheLicense(key, builtin);
-            unlockApp();
-            return;
-        }
-
-        // Otherwise validate against Lemon Squeezy API
         try {
             const result = await validateKeyOnline(key);
-
-            if (result.valid) {
+            if (result && result.valid) {
                 await cacheLicense(key, result);
                 unlockApp();
             } else {
-                showActivationError(result.error || 'Invalid license key. Please check and try again.');
+                showActivationError((result && result.error) || 'Invalid license key. Please check and try again.');
                 btn.textContent = 'Activate';
                 btn.disabled = false;
             }
@@ -686,55 +672,37 @@
         }
     }
 
-    async function validateKeyOnline(key) {
-        try {
-            const resp = await fetch('https://api.lemonsqueezy.com/v1/licenses/validate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ license_key: key })
-            });
-            const data = await resp.json();
-
-            if (data.valid) {
-                return {
-                    valid: true,
-                    license_key_id: data.license_key?.id,
-                    instance_name: data.instance?.name,
-                    customer_name: data.meta?.customer_name,
-                };
-            } else {
-                return {
-                    valid: false,
-                    error: data.error || 'License key is not valid or has been deactivated.'
-                };
-            }
-        } catch (e) {
-            throw new Error('Network error');
-        }
-    }
-
     async function revalidateSilently(key) {
-        // Built-in keys never need online re-validation
-        if (checkBuiltinKey(key)) return;
         try {
             const result = await validateKeyOnline(key);
-            if (result.valid) {
+            if (result && result.valid) {
                 await cacheLicense(key, result);
-            } else {
-                // License revoked — will catch on next cold start when grace expires
-                console.warn('Stride: License no longer valid on server');
+            } else if (result && !result.offline) {
+                // Backend reached, license explicitly invalid/revoked.
+                // Will be caught on next cold start when grace expires.
+                console.warn('Stride: license no longer valid on server');
             }
         } catch (e) {
             // Offline — ignore, grace period still active
         }
     }
 
+    // Persist every field the backend returns so subsequent validations can
+    // reuse the LS instance_id (avoids burning a new activation slot each time).
     async function cacheLicense(key, validationResult) {
         await window.stride.saveLicense({
             key: key,
             valid: true,
-            license_key_id: validationResult.license_key_id || null,
+            tier: validationResult.tier || null,
             customer_name: validationResult.customer_name || null,
+            customer_email: validationResult.customer_email || null,
+            product_name: validationResult.product_name || null,
+            instance_id: validationResult.instance_id || null,
+            activation_limit: validationResult.activation_limit || null,
+            activation_usage: validationResult.activation_usage || null,
+            expires_at: validationResult.expires_at || null,
+            status: validationResult.status || 'active',
+            builtin: validationResult.builtin || false,
             validated_at: Date.now()
         });
     }

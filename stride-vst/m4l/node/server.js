@@ -389,29 +389,55 @@ Max.addHandler('open_canvas', () => {
     }
 
     const { exec } = require('child_process');
+    const isWin = process.platform === 'win32';
+    const isMac = process.platform === 'darwin';
 
-    // Detect dist vs dev: in dist, Stride.exe is one level up from M4L/
-    const distExe = path.join(__dirname, '..', 'Stride.exe');
-    const isDist = fs.existsSync(distExe);
-    const processName = isDist ? 'Stride.exe' : 'electron.exe';
+    // Locate the packaged app (one level up from M4L/) — .exe on Windows, .app on Mac
+    let distArtifact, processName, checkCmd, launchCmd;
 
-    exec(`tasklist /FI "IMAGENAME eq ${processName}" /NH`, (err, stdout) => {
-        if (!err && stdout && stdout.toLowerCase().includes(processName.toLowerCase())) {
+    if (isWin) {
+        distArtifact = path.join(__dirname, '..', 'Stride.exe');
+        const isDist = fs.existsSync(distArtifact);
+        processName = isDist ? 'Stride.exe' : 'electron.exe';
+        checkCmd = `tasklist /FI "IMAGENAME eq ${processName}" /NH`;
+        if (isDist) {
+            launchCmd = `start "" "${distArtifact}"`;
+        } else {
+            const appDir = path.join(__dirname, '..', '..', 'app');
+            launchCmd = `cd /d "${appDir}" && start /b npm start`;
+        }
+    } else if (isMac) {
+        distArtifact = path.join(__dirname, '..', 'Stride.app');
+        const isDist = fs.existsSync(distArtifact);
+        processName = isDist ? 'Stride' : 'Electron';
+        // pgrep -x returns PID + exit 0 if running, nothing + exit 1 if not
+        checkCmd = `pgrep -x "${processName}"`;
+        if (isDist) {
+            // `open` launches the .app detached from Max's process tree
+            launchCmd = `open "${distArtifact}"`;
+        } else {
+            const appDir = path.join(__dirname, '..', '..', 'app');
+            launchCmd = `cd "${appDir}" && nohup npm start > /dev/null 2>&1 &`;
+        }
+    } else {
+        Max.post(`Stride: Unsupported platform ${process.platform}`);
+        return;
+    }
+
+    exec(checkCmd, (err, stdout) => {
+        // Windows: tasklist prints matching process line if found (err is null)
+        // Mac:     pgrep prints PID if found (err is null), empty + err on miss
+        const isRunning = !err && stdout && stdout.trim().length > 0 && (
+            isWin ? stdout.toLowerCase().includes(processName.toLowerCase()) : true
+        );
+        if (isRunning) {
             Max.post('Stride: Canvas already running');
             return;
         }
-        if (isDist) {
-            Max.post('Stride: Launching canvas...');
-            exec(`start "" "${distExe}"`, (launchErr) => {
-                if (launchErr) Max.post(`Stride: Launch error — ${launchErr.message}`);
-            });
-        } else {
-            const appDir = path.join(__dirname, '..', '..', 'app');
-            Max.post(`Stride: Launching canvas from ${appDir}`);
-            exec(`cd /d "${appDir}" && start /b npm start`, (launchErr) => {
-                if (launchErr) Max.post(`Stride: Launch error — ${launchErr.message}`);
-            });
-        }
+        Max.post('Stride: Launching canvas...');
+        exec(launchCmd, (launchErr) => {
+            if (launchErr) Max.post(`Stride: Launch error — ${launchErr.message}`);
+        });
     });
 });
 

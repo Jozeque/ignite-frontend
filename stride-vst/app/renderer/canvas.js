@@ -2150,6 +2150,23 @@
         return pts;
     }
 
+    // Curvy chop envelope: instant attack + concave decay tail. Deterministic —
+    // peak is used as-is so presets control dynamics via hardcoded velocity maps.
+    // Pushes 5 points into addTo.
+    function _chopEnv(addTo, t, len, peak, clipEnd) {
+        const end = clipEnd != null ? Math.min(t + len, clipEnd) : t + len;
+        if (end <= t + 0.001) return;
+        const aLen = end - t;
+        const atk = Math.min(0.005, aLen * 0.05);
+        addTo.push(
+            { time: t,                value: 0,           curve: 0 },
+            { time: t + atk,          value: peak,        curve: -0.5 },
+            { time: t + aLen * 0.25,  value: peak * 0.75, curve: -0.4 },
+            { time: t + aLen * 0.6,   value: peak * 0.35, curve: -0.3 },
+            { time: end,              value: 0,           curve: 0 }
+        );
+    }
+
     function _shapeSine(beats, cycles, phase) {
         const pts = [];
         for (let t = 0; t <= beats; t += 0.25) {
@@ -2240,6 +2257,61 @@
             });
         }
         return pts.sort((a, b) => a.time - b.time);
+    }
+
+    // Bloom-style derivation: same recipe table sdApplyBloom uses.
+    // Per-lane unique combo of phase shift / mirror / invert / amp scale+offset.
+    const _BLOOM_TX = [
+        { phase: 0.125,  invert: false, ampScale: 0.85, ampOff: 0.08, mirror: false },
+        { phase: 0,      invert: true,  ampScale: 1.0,  ampOff: 0,    mirror: false },
+        { phase: 0.25,   invert: false, ampScale: 0.7,  ampOff: 0.15, mirror: false },
+        { phase: 0,      invert: false, ampScale: 1.0,  ampOff: 0,    mirror: true  },
+        { phase: 0.5,    invert: false, ampScale: 0.9,  ampOff: 0.05, mirror: false },
+        { phase: 0.125,  invert: true,  ampScale: 0.8,  ampOff: 0.1,  mirror: false },
+        { phase: 0.375,  invert: false, ampScale: 0.6,  ampOff: 0.2,  mirror: true  },
+        { phase: 0,      invert: true,  ampScale: 0.75, ampOff: 0.12, mirror: true  },
+        { phase: 0.0625, invert: false, ampScale: 0.95, ampOff: 0.03, mirror: false },
+        { phase: 0.1875, invert: true,  ampScale: 0.85, ampOff: 0.08, mirror: true  },
+    ];
+    function _deriveBloom(srcPts, laneIdx, beats) {
+        const cycle = Math.floor(laneIdx / _BLOOM_TX.length);
+        const tx = _BLOOM_TX[laneIdx % _BLOOM_TX.length];
+        const totalPhase = (tx.phase + cycle * 0.0625) % 1;
+        let pts = srcPts.map(p => ({ t: p.time / beats, v: p.value, c: p.curve || 0 }));
+        if (totalPhase > 0) {
+            pts = pts.map(p => ({ t: (p.t + totalPhase) % 1, v: p.v, c: p.c }));
+            pts.sort((a, b) => a.t - b.t);
+        }
+        if (tx.mirror) {
+            pts = pts.map(p => ({ t: 1 - p.t, v: p.v, c: p.c ? -p.c : 0 }));
+            pts.sort((a, b) => a.t - b.t);
+        }
+        if (tx.invert) {
+            pts = pts.map(p => ({ t: p.t, v: 1 - p.v, c: p.c ? -p.c : 0 }));
+        }
+        return pts.map(p => ({
+            time: Math.round(p.t * beats * 1000) / 1000,
+            value: Math.max(0, Math.min(1, (p.v - 0.5) * tx.ampScale + 0.5 + tx.ampOff)),
+            curve: p.c
+        }));
+    }
+
+    // Multi-lane builder for Chop presets. First N lanes use rootPts as-is
+    // (root[0] is the chop pattern, root[1..] are accent layers like sweeps/fills).
+    // All other lanes derive from root[0] via Bloom transforms — the rhythm is
+    // distributed across the rack with complementary variation per slot.
+    function _buildChopLanes(laneCount, beats, rootPts) {
+        const lanes = [];
+        const rootCount = rootPts.length;
+        for (let i = 0; i < laneCount; i++) {
+            if (i < rootCount) {
+                lanes.push(rootPts[i]);
+            } else {
+                const bloomIdx = i - rootCount;
+                lanes.push(_deriveBloom(rootPts[0], bloomIdx, beats));
+            }
+        }
+        return lanes;
     }
 
     // --- Preset Definitions ---
@@ -2371,233 +2443,229 @@
 
         // CHOP — groove-oriented, subdivision-focused
         { id: 'tresillo', name: 'Tresillo', cat: 'Chop', gen: (n, b) => {
-            // 3+3+2 pattern in 1/8 notes — the universal groove
+            // 3+3+2 pattern with per-bar accent maps, deterministic ghost fills + flam
             const pts = [];
-            const pattern = [0, 1.5, 3]; // 3+3+2 accents within 4 beats
+            const pattern = [0, 1.5, 3];
+            // Per-bar velocity for the 3 hits — shifting accent position each bar
+            const barVelocities = [
+                [1.00, 0.78, 0.88], // bar 0: accent first
+                [0.85, 1.00, 0.78], // bar 1: accent middle
+                [0.88, 0.85, 1.00], // bar 2: accent last (builds tension)
+                [1.00, 0.95, 0.92], // bar 3: full strength
+            ];
+            // Ghost fills at specific positions (deterministic, not random)
+            const ghostFills = [
+                null,             // bar 0: no ghost
+                { pos: 2.25, h: 0.38 }, // bar 1: ghost between hit 2 and 3
+                null,             // bar 2: no ghost (clean builds)
+                { pos: 0.75, h: 0.32 }, // bar 3: ghost before hit 2
+            ];
             for (let bar = 0; bar < 4; bar++) {
                 const barStart = bar * (b / 4);
-                const h = 0.7 + bar * 0.075; // builds intensity
-                pattern.forEach(pos => {
+                const vels = barVelocities[bar];
+                pattern.forEach((pos, hitIdx) => {
                     const t = barStart + pos;
-                    if (t < b) {
-                        pts.push({ time: t, value: 0, curve: 0 });
-                        pts.push({ time: t + 0.01, value: Math.min(1, h), curve: 0 });
-                        pts.push({ time: t + 0.4, value: Math.min(1, h * 0.6), curve: 0 });
-                        pts.push({ time: t + 0.5, value: 0, curve: 0 });
-                    }
+                    if (t < b) _chopEnv(pts, t, 0.5, vels[hitIdx], b);
                 });
+                const g = ghostFills[bar];
+                if (g) {
+                    const gt = barStart + g.pos;
+                    if (gt < b) _chopEnv(pts, gt, 0.22, g.h, b);
+                }
             }
-            return _buildLanes(n, b, [pts], [
-                { fn: _deriveCounter, args: [0, 0.5] },
-                { fn: _deriveEcho, args: [0, 0.25, 0.6] },
-            ]);
+            // Flam on bar 3's last hit — a quick pre-hit 0.08 beats before the accent
+            const flamT = 3 * (b / 4) + 3 - 0.08;
+            if (flamT > 0 && flamT < b) _chopEnv(pts, flamT, 0.12, 0.55, b);
+            return _buildChopLanes(n, b, [pts]);
         }},
         { id: 'dotted-bounce', name: 'Dotted Bounce', cat: 'Chop', gen: (n, b) => {
-            // Gates every 0.75 beats (dotted 8th) — phase drifts against barline
+            // Dotted 8ths with accent every 3rd hit + deterministic fills
             const pts = [];
+            let hitIdx = 0;
             for (let t = 0; t < b; t += 0.75) {
                 const norm = t / b;
-                const h = 0.6 + 0.4 * norm; // builds across clip
-                pts.push({ time: t, value: 0, curve: 0 });
-                pts.push({ time: t + 0.01, value: h, curve: 0 });
-                pts.push({ time: Math.min(t + 0.35, b), value: h * Math.exp(-3 * 0.35 / 0.75), curve: 0 });
-                pts.push({ time: Math.min(t + 0.7, b), value: 0, curve: 0 });
+                const base = 0.55 + 0.4 * norm;   // builds across clip
+                const accent = (hitIdx % 3 === 0) ? 1.0 : 0.72;
+                _chopEnv(pts, t, 0.7, Math.min(1, base * accent), b);
+                hitIdx++;
             }
-            return _buildLanes(n, b, [pts], [
-                { fn: _deriveCounter, args: [0, 0.6] },
-                { fn: _deriveHarmonic, args: [0, 2] },
-            ]);
+            // Deterministic 16th ghost fills on bars 2 and 4 (adds movement)
+            const barBeats = b / 4;
+            const fills = [barBeats * 1 + 2.125, barBeats * 3 + 2.625];
+            fills.forEach(t => { if (t < b) _chopEnv(pts, t, 0.28, 0.38, b); });
+            return _buildChopLanes(n, b, [pts]);
         }},
         { id: 'trap-roll', name: 'Trap Roll', cat: 'Chop', gen: (n, b) => {
-            // Accelerating density: 1/4 → 1/8 → 1/8t → 1/16
+            // Accelerating density 1/4 → 1/8 → 1/8t → 1/16 with in-bar accents
             const rates = [1, 0.5, 0.333, 0.25];
             const barBeats = b / 4;
             const pts = [];
             for (let bar = 0; bar < 4; bar++) {
                 const rate = rates[Math.min(bar, rates.length - 1)];
                 const barStart = bar * barBeats;
-                const h = 0.7 + bar * 0.08;
+                const baseH = 0.72 + bar * 0.07;
+                let hitCount = 0;
                 for (let t = 0; t < barBeats; t += rate) {
                     const at = barStart + t;
                     if (at >= b) break;
-                    pts.push({ time: at, value: 0, curve: 0 });
-                    pts.push({ time: at + 0.01, value: Math.min(1, h), curve: 0 });
-                    pts.push({ time: Math.min(at + rate * 0.7, b), value: Math.min(1, h * 0.5), curve: 0 });
-                    pts.push({ time: Math.min(at + rate * 0.9, b), value: 0, curve: 0 });
+                    // First hit of bar = strongest, every 4th = accent, rest = taper
+                    const h = (hitCount === 0) ? Math.min(1, baseH * 1.15)
+                            : (hitCount % 4 === 0) ? Math.min(1, baseH * 1.0)
+                            : Math.min(1, baseH * 0.78);
+                    _chopEnv(pts, at, rate * 0.9, h, b);
+                    hitCount++;
                 }
             }
-            return _buildLanes(n, b, [pts], [
-                { fn: _deriveCounter, args: [0, 0.4] },
-                { fn: _deriveEcho, args: [0, 0.125, 0.5] },
-            ]);
+            return _buildChopLanes(n, b, [pts]);
         }},
         { id: 'funk-slice', name: 'Funk Slice', cat: 'Chop', gen: (n, b) => {
-            // 1/16 gate patterns, different syncopated funk pattern each bar
+            // 1/16 gate patterns with baked-in accent maps per bar.
+            // Accent velocities are paired 1:1 with the gate patterns below.
             const patterns = [
                 [1,0,1,1,0,1,0,1],
                 [1,1,0,1,0,0,1,1],
                 [0,1,1,0,1,1,0,1],
                 [1,0,1,0,1,1,1,0]
             ];
+            const accents = [
+                [1.00, 0, 0.72, 0.95, 0, 0.78, 0, 0.85],
+                [1.00, 0.80, 0, 0.78, 0, 0, 0.95, 0.72],
+                [0, 1.00, 0.78, 0, 0.88, 0.95, 0, 0.75],
+                [1.00, 0, 0.82, 0, 0.95, 0.85, 0.75, 0]
+            ];
             const barBeats = b / 4;
             const root = [];
             for (let bar = 0; bar < 4; bar++) {
                 const pat = patterns[bar % patterns.length];
+                const accentMap = accents[bar % accents.length];
                 const stepLen = barBeats / pat.length;
                 for (let i = 0; i < pat.length; i++) {
                     const t = bar * barBeats + i * stepLen;
                     if (pat[i] && t < b) {
-                        const h = 0.75 + Math.random() * 0.25;
-                        root.push({ time: t, value: 0, curve: 0 });
-                        root.push({ time: t + 0.01, value: h, curve: 0 });
-                        root.push({ time: t + stepLen * 0.75, value: h, curve: 0 });
-                        root.push({ time: t + stepLen * 0.76, value: 0, curve: 0 });
+                        _chopEnv(root, t, stepLen * 0.85, accentMap[i], b);
                     }
                 }
             }
             const sweep = _shapeSweep(b, 0.2, 0.8, 'linear');
-            return _buildLanes(n, b, [root, sweep], [
-                { fn: _deriveCounter, args: [0, 0.5] },
-            ]);
+            return _buildChopLanes(n, b, [root, sweep]);
         }},
         { id: 'off-beat', name: 'Off-Beat', cat: 'Chop', gen: (n, b) => {
-            // 1/8 gates only on the "and" — silent on every downbeat
+            // Alternating dominance per bar: bars 0/2 = upbeat voice strong,
+            // bars 1/3 = downbeat voice strong. Creates call-and-response.
             const upbeats = [];
             const downbeats = [];
+            const barBeats = b / 4;
             for (let t = 0; t < b; t += 1) {
+                const bar = Math.floor(t / barBeats);
+                const upStrong = (bar % 2 === 0);
                 const offT = t + 0.5;
                 if (offT < b) {
-                    const h = (Math.floor(t) % 2 === 0) ? 1 : 0.7; // loud-soft alternation
-                    upbeats.push({ time: offT, value: 0, curve: 0 });
-                    upbeats.push({ time: offT + 0.01, value: h, curve: 0 });
-                    upbeats.push({ time: offT + 0.3, value: h * 0.6, curve: 0 });
-                    upbeats.push({ time: offT + 0.45, value: 0, curve: 0 });
+                    const h = upStrong ? 1.00 : 0.55;
+                    _chopEnv(upbeats, offT, 0.45, h, b);
                 }
-                // Counter: downbeat accents
-                downbeats.push({ time: t, value: 0, curve: 0 });
-                downbeats.push({ time: t + 0.01, value: 0.8, curve: 0 });
-                downbeats.push({ time: t + 0.2, value: 0.4, curve: 0 });
-                downbeats.push({ time: t + 0.35, value: 0, curve: 0 });
+                const dh = upStrong ? 0.60 : 1.00;
+                _chopEnv(downbeats, t, 0.35, dh, b);
             }
-            return _buildLanes(n, b, [upbeats, downbeats], [
-                { fn: _deriveEcho, args: [0, 0.125, 0.5] },
-            ]);
+            return _buildChopLanes(n, b, [upbeats, downbeats]);
         }},
         { id: 'shuffle', name: 'Shuffle', cat: 'Chop', gen: (n, b) => {
-            // Swung 1/8 notes — upbeats pushed 60% toward next downbeat
+            // Swung 8ths with beat-position accent map. Beat 1 = strongest.
+            // Bar 4 drops its beat-3 upbeat to give a breath before the loop.
             const pts = [];
-            const swingAmounts = [0.55, 0.55, 0.62, 0.62]; // heavier swing bars 3-4
+            const swingAmounts = [0.55, 0.55, 0.62, 0.62];
+            const downVels = [1.00, 0.78, 0.92, 0.72]; // per beat-in-bar accent
+            const upVels   = [0.70, 0.52, 0.65, 0.48];
             for (let bar = 0; bar < 4; bar++) {
                 const barStart = bar * (b / 4);
-                const barLen = b / 4;
                 const swing = swingAmounts[Math.min(bar, 3)];
-                for (let beat = 0; beat < barLen; beat += 1) {
+                for (let beat = 0; beat < 4; beat++) {
                     const t = barStart + beat;
                     if (t >= b) break;
-                    // Downbeat — strong
-                    pts.push({ time: t, value: 0, curve: 0 });
-                    pts.push({ time: t + 0.01, value: 1, curve: 0 });
-                    pts.push({ time: t + 0.2, value: 0.5, curve: 0 });
-                    pts.push({ time: t + 0.35, value: 0, curve: 0 });
-                    // Upbeat — swung, softer
+                    _chopEnv(pts, t, 0.35, downVels[beat], b);
+                    // Bar 4 drops the beat-3 upbeat for breath
+                    if (bar === 3 && beat === 2) continue;
                     const upT = t + swing;
-                    if (upT < b) {
-                        pts.push({ time: upT, value: 0, curve: 0 });
-                        pts.push({ time: upT + 0.01, value: 0.7, curve: 0 });
-                        pts.push({ time: upT + 0.15, value: 0.3, curve: 0 });
-                        pts.push({ time: upT + 0.25, value: 0, curve: 0 });
-                    }
+                    if (upT < b) _chopEnv(pts, upT, 0.25, upVels[beat], b);
                 }
             }
-            return _buildLanes(n, b, [pts], [
-                { fn: _deriveCounter, args: [0, 0.5] },
-                { fn: _deriveEcho, args: [0, 0.25, 0.4] },
-            ]);
+            return _buildChopLanes(n, b, [pts]);
         }},
         { id: 'razor-chop', name: 'Razor Chop', cat: 'Chop', gen: (n, b) => {
-            // 1/32 burst clusters at different positions each bar
+            // 1/32 burst clusters — each burst accents its first hit then tapers.
             const barBeats = b / 4;
             const pts = [];
             const burstPositions = [
-                [0, 2.5],       // bar 1: 2 bursts
-                [1, 3],         // bar 2: 2 bursts
-                [0.5, 2, 3.5],  // bar 3: 3 bursts
-                [0, 1.5, 2.5, 3.5] // bar 4: 4 bursts
+                [0, 2.5],
+                [1, 3],
+                [0.5, 2, 3.5],
+                [0, 1.5, 2.5, 3.5]
             ];
             for (let bar = 0; bar < 4; bar++) {
                 const positions = burstPositions[Math.min(bar, 3)];
-                const h = 0.8 + bar * 0.05;
+                const baseH = 0.82 + bar * 0.045;
                 positions.forEach(pos => {
                     const burstStart = bar * barBeats + pos;
-                    const burstLen = 4 + bar; // more gates in later bars
+                    const burstLen = 4 + bar;
                     for (let g = 0; g < burstLen; g++) {
                         const t = burstStart + g * 0.125;
                         if (t >= b) break;
-                        pts.push({ time: t, value: 0, curve: 0 });
-                        pts.push({ time: t + 0.01, value: Math.min(1, h), curve: 0 });
-                        pts.push({ time: t + 0.08, value: Math.min(1, h), curve: 0 });
-                        pts.push({ time: t + 0.09, value: 0, curve: 0 });
+                        // First hit = accent, rest taper from 1.0 → 0.6 across burst
+                        const taper = g === 0 ? 1.0 : 1.0 - (g / burstLen) * 0.4;
+                        _chopEnv(pts, t, 0.09, Math.min(1, baseH * taper), b);
                     }
                 });
             }
             const voidSweep = _shapeSweep(b, 0.1, 0.6, 's');
-            return _buildLanes(n, b, [pts, voidSweep], [
-                { fn: _deriveCounter, args: [0, 0.4] },
-            ]);
+            return _buildChopLanes(n, b, [pts, voidSweep]);
         }},
         { id: 'clave', name: 'Clave', cat: 'Chop', gen: (n, b) => {
-            // Son clave 2-3 pattern in 1/8 divisions
-            const clavePattern = [1,0,0,1,0,0,1,0, 0,0,1,0,1,0,0,0]; // 2-3 son clave
-            const stepLen = (b / 4 * 2) / clavePattern.length; // pattern spans 2 bars
+            // Son clave 2-3 with per-hit accent map — "3 side" hit on step 10 is strongest
+            const clavePattern = [1,0,0,1,0,0,1,0, 0,0,1,0,1,0,0,0];
+            const claveVels    = [0.88,0,0,0.82,0,0,0.92,0, 0,0,1.00,0,0.94,0,0,0];
+            const stepLen = (b / 4 * 2) / clavePattern.length; // 2-bar cycle
             const root = [];
             for (let rep = 0; rep < Math.ceil(b / (b / 4 * 2)); rep++) {
                 for (let i = 0; i < clavePattern.length; i++) {
                     const t = rep * (b / 4 * 2) + i * stepLen;
                     if (t >= b) break;
                     if (clavePattern[i]) {
-                        root.push({ time: t, value: 0, curve: 0 });
-                        root.push({ time: t + 0.01, value: 1, curve: 0 });
-                        root.push({ time: t + stepLen * 0.6, value: 0.7, curve: 0 });
-                        root.push({ time: t + stepLen * 0.85, value: 0, curve: 0 });
+                        _chopEnv(root, t, stepLen * 0.85, claveVels[i], b);
                     }
                 }
             }
-            // Ghost fills: 1/16 between clave hits at low intensity
+            // Deterministic ghost fill map — fixed beat positions between clave hits.
+            // Two per 2-bar cycle, repeated through the clip.
             const fills = [];
-            for (let t = 0; t < b; t += 0.25) {
-                const inClave = root.some(pt => Math.abs(pt.time - t) < 0.2 && pt.value > 0.5);
-                if (!inClave && Math.random() > 0.4) {
-                    fills.push({ time: t, value: 0, curve: 0 });
-                    fills.push({ time: t + 0.01, value: 0.3 + Math.random() * 0.2, curve: 0 });
-                    fills.push({ time: t + 0.15, value: 0, curve: 0 });
-                }
+            const ghostRel = [0.5, 1.25, 2.0, 3.25, 4.5, 5.25, 6.0, 7.25];
+            const ghostVel = [0.40, 0.32, 0.45, 0.35, 0.40, 0.32, 0.45, 0.35];
+            for (let i = 0; i < ghostRel.length; i++) {
+                const t = ghostRel[i];
+                if (t < b) _chopEnv(fills, t, 0.18, ghostVel[i], b);
             }
-            return _buildLanes(n, b, [root, fills], [
-                { fn: _deriveHarmonic, args: [0, 2] },
-            ]);
+            return _buildChopLanes(n, b, [root, fills]);
         }},
         { id: 'polyswing', name: 'Polyswing', cat: 'Chop', gen: (n, b) => {
-            // 1/8 + dotted 1/8 interlocked — two rhythms against each other
+            // 1/8 and dotted 1/8 voices with alternating per-bar dominance.
+            // Even bars (0, 2) → eighth voice strong, dotted ghosts.
+            // Odd bars (1, 3) → dotted voice strong, eighth ghosts.
+            const barBeats = b / 4;
             const eighth = [];
             for (let t = 0; t < b; t += 0.5) {
-                const h = 0.7 + 0.3 * Math.sin(Math.PI * t / b);
-                eighth.push({ time: t, value: 0, curve: 0 });
-                eighth.push({ time: t + 0.01, value: h, curve: 0 });
-                eighth.push({ time: t + 0.3, value: h * 0.5, curve: 0 });
-                eighth.push({ time: t + 0.45, value: 0, curve: 0 });
+                const bar = Math.floor(t / barBeats);
+                const strong = (bar % 2 === 0);
+                const arc = 0.85 + 0.15 * Math.sin(Math.PI * t / b); // slow arc
+                const h = strong ? arc : 0.48;
+                _chopEnv(eighth, t, 0.45, h, b);
             }
             const dotted = [];
             for (let t = 0; t < b; t += 0.75) {
-                const h = 0.6 + 0.4 * (1 - Math.abs(2 * t / b - 1));
-                dotted.push({ time: t, value: 0, curve: 0 });
-                dotted.push({ time: t + 0.01, value: h, curve: 0 });
-                dotted.push({ time: Math.min(t + 0.4, b), value: h * 0.4, curve: 0 });
-                dotted.push({ time: Math.min(t + 0.6, b), value: 0, curve: 0 });
+                const bar = Math.floor(t / barBeats);
+                const strong = (bar % 2 === 1);
+                const arc = 0.82 + 0.18 * (1 - Math.abs(2 * t / b - 1)); // tent arc
+                const h = strong ? arc : 0.42;
+                _chopEnv(dotted, t, 0.6, h, b);
             }
-            return _buildLanes(n, b, [eighth, dotted], [
-                { fn: _deriveCounter, args: [0, 0.5] },
-                { fn: _deriveEcho, args: [1, 0.25, 0.4] },
-            ]);
+            return _buildChopLanes(n, b, [eighth, dotted]);
         }},
         { id: 'chop-hold', name: 'Chop & Hold', cat: 'Chop', gen: (n, b) => {
             // Alternating 1/16 stutter zones and sustained holds
@@ -2619,27 +2687,25 @@
                 { start: barBeats * 2 + 3, len: 1 },
             ];
             chopZones.forEach(zone => {
+                let hitIdx = 0;
                 for (let t = zone.start; t < zone.start + zone.len && t < b; t += 0.25) {
-                    pts.push({ time: t, value: 0, curve: 0 });
-                    pts.push({ time: t + 0.01, value: 0.9, curve: 0 });
-                    pts.push({ time: t + 0.18, value: 0.9, curve: 0 });
-                    pts.push({ time: t + 0.19, value: 0, curve: 0 });
+                    // First hit of each zone is accented, rest steady
+                    const h = (hitIdx === 0) ? 1.00 : 0.82;
+                    _chopEnv(pts, t, 0.19, h, b);
+                    hitIdx++;
                 }
             });
             holdZones.forEach(zone => {
                 const t = zone.start;
                 if (t < b) {
                     pts.push({ time: t, value: 0, curve: 0 });
-                    pts.push({ time: t + 0.01, value: 0.7, curve: 0 });
-                    pts.push({ time: Math.min(t + zone.len - 0.1, b), value: 0.5, curve: 0 });
+                    pts.push({ time: t + 0.01, value: 0.7, curve: -0.3 });
+                    pts.push({ time: Math.min(t + zone.len - 0.1, b), value: 0.5, curve: -0.2 });
                     pts.push({ time: Math.min(t + zone.len, b), value: 0, curve: 0 });
                 }
             });
             pts.sort((a, c) => a.time - c.time);
-            return _buildLanes(n, b, [pts], [
-                { fn: _deriveCounter, args: [0, 0.6] },
-                { fn: _deriveEcho, args: [0, 0.5, 0.5] },
-            ]);
+            return _buildChopLanes(n, b, [pts]);
         }},
 
         // PUMPER VARIANTS

@@ -4,11 +4,13 @@ import mido
 import json
 import os
 import re
-import time 
+import time
 import urllib.request
 import urllib.parse
 import uuid
 import io
+import hmac
+import hashlib
 from datetime import datetime, timedelta
 from mido import Message, MidiFile, MidiTrack
 
@@ -133,10 +135,284 @@ def safe_int(val, default=0):
     except (ValueError, TypeError):
         return default
 
+# ─── Lemon Squeezy integration ────────────────────────────────────────
+# Two public entry points (no Firebase auth required):
+#   1. Webhooks from LS (order_created, license_key_created) — HMAC-authenticated
+#   2. License validation proxy — called from the Electron desktop app
+#
+# Secrets injected via Firebase Secret Manager:
+#   LEMONSQUEEZY_API_KEY         — store API key (used to call LS API)
+#   LEMONSQUEEZY_WEBHOOK_SECRET  — webhook signing secret (used to verify HMAC)
+
+def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
+    """Receive a Lemon Squeezy webhook, verify HMAC, upsert customer in Firestore.
+
+    raw_body:      the unparsed request body bytes (needed for HMAC signature check)
+    event_name:    value of X-Event-Name header (e.g. 'order_created', 'license_key_created')
+    received_sig:  value of X-Signature header (hex HMAC-SHA256 of raw_body)
+    """
+    secret = os.environ.get("LEMONSQUEEZY_WEBHOOK_SECRET", "")
+    if not secret:
+        print("[LS Webhook] LEMONSQUEEZY_WEBHOOK_SECRET not set — rejecting")
+        return jsonify({"error": "webhook not configured"}), 500
+
+    expected_sig = hmac.new(secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected_sig, (received_sig or "").strip()):
+        print(f"[LS Webhook] REJECTED signature for event={event_name}")
+        return jsonify({"error": "invalid signature"}), 401
+
+    try:
+        payload = json.loads(raw_body.decode("utf-8") or "{}")
+    except Exception as je:
+        print(f"[LS Webhook] invalid JSON: {je}")
+        return jsonify({"error": "invalid json"}), 400
+
+    data_obj = payload.get("data") or {}
+    attrs = data_obj.get("attributes") or {}
+    email = (attrs.get("user_email") or "").lower().strip()
+    name = (attrs.get("user_name") or "").strip()
+    print(f"[LS Webhook] event={event_name} id={data_obj.get('id')} email={email}")
+
+    try:
+        _db = admin_firestore.client()
+    except Exception as dbe:
+        print(f"[LS Webhook] Firestore client failed: {dbe}")
+        # Still return 200 so LS doesn't retry forever — log it for manual recovery
+        return jsonify({"received": True, "warning": "firestore unavailable"}), 200
+
+    try:
+        if event_name == "order_created":
+            order_item = attrs.get("first_order_item") or {}
+            doc_data = {
+                "name": name,
+                "email": email,
+                "source": "lemonsqueezy",
+                "status": "purchased",
+                "ls_order_id": str(data_obj.get("id") or ""),
+                "ls_customer_id": attrs.get("customer_id"),
+                "ls_product_id": order_item.get("product_id"),
+                "ls_variant_id": order_item.get("variant_id"),
+                "order_identifier": attrs.get("identifier"),
+                "total_cents": attrs.get("total"),
+                "currency": attrs.get("currency"),
+                "purchased_at": admin_firestore.SERVER_TIMESTAMP,
+                "updated_at": admin_firestore.SERVER_TIMESTAMP,
+            }
+
+            # Merge with existing waitlist lead (same email) if one exists
+            existing = []
+            if email:
+                existing = list(
+                    _db.collection("waitlist").where("email", "==", email).limit(1).stream()
+                )
+            if existing:
+                existing[0].reference.update(doc_data)
+                print(f"[LS Webhook] upgraded lead {existing[0].id} → customer")
+            else:
+                _db.collection("waitlist").add({
+                    **doc_data,
+                    "created_at": admin_firestore.SERVER_TIMESTAMP,
+                })
+                print(f"[LS Webhook] new customer record for {email}")
+
+            # Discord alert
+            if ADMIN_WEBHOOK_URL and email:
+                try:
+                    amount_str = ""
+                    if attrs.get("total") is not None:
+                        amount_str = f"${(attrs.get('total', 0) or 0) / 100:.2f} {attrs.get('currency', '')}"
+                    msg = {
+                        "username": "Stride Engine",
+                        "content": (
+                            f"🔑 **NEW CUSTOMER**\n"
+                            f"**Name:** `{name or '?'}`\n"
+                            f"**Email:** `{email}`\n"
+                            f"**Amount:** `{amount_str or '?'}`\n"
+                            f"**Order:** `{attrs.get('identifier') or '?'}`"
+                        ),
+                    }
+                    urllib.request.urlopen(
+                        urllib.request.Request(
+                            ADMIN_WEBHOOK_URL,
+                            data=json.dumps(msg).encode("utf-8"),
+                            headers={
+                                "Content-Type": "application/json",
+                                "User-Agent": "Stride-Backend/1.0",
+                            },
+                        ),
+                        timeout=10,
+                    )
+                except Exception as we:
+                    print(f"[LS Webhook] Discord alert failed: {we}")
+
+        elif event_name == "license_key_created":
+            # LS generated a license key for a completed order. Link the key
+            # to the customer record we (hopefully) created from order_created.
+            update = {
+                "license_key": attrs.get("key") or "",
+                "license_key_short": attrs.get("key_short") or "",
+                "ls_license_key_id": str(data_obj.get("id") or ""),
+                "license_activation_limit": attrs.get("activation_limit"),
+                "license_status": attrs.get("status") or "active",
+                "license_created_at": admin_firestore.SERVER_TIMESTAMP,
+                "updated_at": admin_firestore.SERVER_TIMESTAMP,
+            }
+            order_id = attrs.get("order_id")
+
+            match = None
+            # Prefer lookup by order_id (exact) then fall back to email
+            if order_id is not None:
+                try:
+                    found = list(
+                        _db.collection("waitlist")
+                        .where("ls_order_id", "==", str(order_id))
+                        .limit(1)
+                        .stream()
+                    )
+                    if found:
+                        match = found[0]
+                except Exception as qe:
+                    print(f"[LS Webhook] query by ls_order_id failed: {qe}")
+            if match is None and email:
+                found = list(
+                    _db.collection("waitlist").where("email", "==", email).limit(1).stream()
+                )
+                if found:
+                    match = found[0]
+
+            if match is not None:
+                match.reference.update(update)
+                print(f"[LS Webhook] attached license key to {match.id}")
+            else:
+                # Orphan license — create a minimal record so the CRM still sees it
+                _db.collection("waitlist").add({
+                    **update,
+                    "name": name,
+                    "email": email,
+                    "source": "lemonsqueezy",
+                    "status": "purchased",
+                    "ls_order_id": str(order_id) if order_id is not None else None,
+                    "created_at": admin_firestore.SERVER_TIMESTAMP,
+                })
+                print(f"[LS Webhook] orphan license record for {email}")
+
+        else:
+            print(f"[LS Webhook] ignoring unhandled event: {event_name}")
+
+        return jsonify({"received": True, "event": event_name}), 200
+
+    except Exception as e:
+        print(f"[LS Webhook] processing error: {e}")
+        # Return 200 so LS doesn't retry forever; the error is logged.
+        return jsonify({"received": True, "error": str(e)}), 200
+
+
+def _handle_validate_license(data: dict):
+    """Proxy a license validation call through to the Lemon Squeezy API.
+
+    First-time use (no instance_id): activates a new instance (creates an activation
+    slot tied to this machine) and returns the new instance_id.
+    Returning use (instance_id present): validates the existing instance.
+
+    Request body (from Electron app):
+      { action: 'validate_license', key: 'XXXX-YYYY-ZZZZ',
+        instance_id?: 'saved-from-previous-activation',
+        instance_name?: 'Stride on <hostname>' }
+    """
+    key = (data.get("key") or "").strip().upper()
+    instance_id = (data.get("instance_id") or "").strip()
+    instance_name = (data.get("instance_name") or "Stride Desktop").strip()[:255]
+
+    if not key:
+        return jsonify({"valid": False, "error": "Missing license key"}), 400
+
+    api_key = os.environ.get("LEMONSQUEEZY_API_KEY", "")
+    if not api_key:
+        print("[License] LEMONSQUEEZY_API_KEY not set")
+        return jsonify({"valid": False, "error": "License service not configured"}), 500
+
+    # Activate on first use, validate on subsequent calls.
+    if instance_id:
+        url = "https://api.lemonsqueezy.com/v1/licenses/validate"
+        form = {"license_key": key, "instance_id": instance_id}
+    else:
+        url = "https://api.lemonsqueezy.com/v1/licenses/activate"
+        form = {"license_key": key, "instance_name": instance_name}
+
+    try:
+        req_obj = urllib.request.Request(
+            url,
+            data=urllib.parse.urlencode(form).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Accept": "application/json",
+                "User-Agent": "Stride-Backend/1.0",
+            },
+        )
+        with urllib.request.urlopen(req_obj, timeout=15) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as he:
+        err_body = ""
+        try:
+            err_body = he.read().decode("utf-8")
+        except Exception:
+            pass
+        print(f"[License] LS API HTTP {he.code}: {err_body[:300]}")
+        # Bubble up a clean error (LS returns JSON with an 'error' field on 400s)
+        try:
+            parsed = json.loads(err_body) if err_body else {}
+            msg = parsed.get("error") or f"License server rejected (HTTP {he.code})"
+        except Exception:
+            msg = f"License server rejected (HTTP {he.code})"
+        return jsonify({"valid": False, "error": msg}), 200
+    except Exception as e:
+        print(f"[License] LS API request failed: {e}")
+        return jsonify({"valid": False, "error": "Cannot reach license server"}), 200
+
+    if not result.get("valid"):
+        return jsonify({
+            "valid": False,
+            "error": result.get("error") or "License key is not valid",
+        }), 200
+
+    lk = result.get("license_key") or {}
+    inst = result.get("instance") or {}
+    meta = result.get("meta") or {}
+    customer_email = (meta.get("customer_email") or "").lower().strip()
+
+    # Best-effort: bump last-validated timestamp on the matching customer record
+    try:
+        if customer_email:
+            _db = admin_firestore.client()
+            matches = list(
+                _db.collection("waitlist").where("email", "==", customer_email).limit(1).stream()
+            )
+            if matches:
+                matches[0].reference.update({
+                    "license_last_validated_at": admin_firestore.SERVER_TIMESTAMP,
+                    "license_status": lk.get("status") or "active",
+                })
+    except Exception as fe:
+        print(f"[License] Firestore touch failed (non-fatal): {fe}")
+
+    return jsonify({
+        "valid": True,
+        "instance_id": inst.get("id"),
+        "customer_name": meta.get("customer_name"),
+        "customer_email": customer_email,
+        "product_name": meta.get("product_name"),
+        "activation_limit": lk.get("activation_limit"),
+        "activation_usage": lk.get("activation_usage"),
+        "expires_at": lk.get("expires_at"),
+        "status": lk.get("status") or "active",
+    }), 200
+
+
 @https_fn.on_request(
     cors=options.CorsOptions(
         cors_origins=[
-            "https://veero-next.web.app", 
+            "https://veero-next.web.app",
             "https://veero-next.firebaseapp.com",
             "https://jozeque.github.io",
             "https://stridehub.io",
@@ -144,17 +420,27 @@ def safe_int(val, default=0):
             "http://localhost:5000",
             "http://localhost:5173",
             "http://127.0.0.1:5000"
-        ], 
+        ],
         cors_methods=["POST", "OPTIONS"]
     ),
     timeout_sec=540,
     memory=options.MemoryOption.GB_1,
     max_instances=200,
-    secrets=["SUPABASE_SERVICE_KEY"]
+    secrets=["SUPABASE_SERVICE_KEY", "LEMONSQUEEZY_API_KEY", "LEMONSQUEEZY_WEBHOOK_SECRET"]
 )
 def generate_midi(req: https_fn.Request) -> https_fn.Response:
     if req.method == 'OPTIONS':
         return https_fn.Response(status=204)
+
+    # --- LEMON SQUEEZY WEBHOOK (public, HMAC-authenticated) ---
+    # LS POSTs with X-Event-Name and X-Signature headers. We read the raw body
+    # ONCE so the HMAC verification can use the exact bytes that were signed.
+    # Flask caches the raw body, so later get_json() calls still work below.
+    ls_event = req.headers.get("X-Event-Name") or req.headers.get("x-event-name")
+    ls_sig = req.headers.get("X-Signature") or req.headers.get("x-signature")
+    if ls_event and ls_sig:
+        raw_body = req.get_data(cache=True) or b""
+        return _handle_lemon_webhook(raw_body, ls_event, ls_sig)
 
     # --- WAITLIST / BUYER LEAD (public, no auth required) ---
     data_pre = req.get_json(silent=True)
@@ -198,6 +484,12 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
                 print(f"[Waitlist] DISCORD FAILED: {we} — data logged above")
         return jsonify({"success": True}), 200
 
+    # --- VALIDATE LICENSE (public, proxies to Lemon Squeezy API) ---
+    # Called by the Electron desktop app to check if a license key is valid.
+    # No Firebase auth — the license key itself IS the credential.
+    if isinstance(data_pre, dict) and data_pre.get("action") == "validate_license":
+        return _handle_validate_license(data_pre)
+
     if not GEMINI_READY or not API_KEY:
         return jsonify({"error": "CRITICAL: Gemini API Key missing or library not installed."}), 500
 
@@ -225,7 +517,53 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
         data = {}
         
     action = data.get("action", "generate")
-    
+
+    # --- ADMIN CRM: UPDATE LEAD (admin-only, writes to waitlist collection) ---
+    # Called by admin.html when an admin edits a cell in the CRM table.
+    # Caller is already Firebase-auth'd above; we just require admin email.
+    # Field whitelist below prevents tampering with LS-managed fields like
+    # license_key, ls_order_id, total_cents, etc.
+    if action == "update_lead":
+        if not is_admin_user:
+            return jsonify({"error": "Admin access required"}), 403
+
+        doc_id = (data.get("doc_id") or "").strip()
+        updates_in = data.get("updates") or {}
+        if not doc_id:
+            return jsonify({"error": "Missing doc_id"}), 400
+        if not isinstance(updates_in, dict):
+            return jsonify({"error": "updates must be an object"}), 400
+
+        ALLOWED_FIELDS = {"name", "country", "status", "notes", "assigned_to"}
+        clean_updates = {}
+        for k, v in updates_in.items():
+            if k in ALLOWED_FIELDS and v is not None:
+                # Sanity cap on string lengths so notes can't grow unbounded
+                if isinstance(v, str):
+                    clean_updates[k] = v[:5000]
+                else:
+                    clean_updates[k] = v
+
+        # Special-case: "mark contacted now" — client sends the sentinel string
+        # and the server stamps the actual server timestamp.
+        if updates_in.get("last_contacted_at") == "__NOW__":
+            clean_updates["last_contacted_at"] = admin_firestore.SERVER_TIMESTAMP
+
+        if not clean_updates:
+            return jsonify({"error": "No valid fields to update"}), 400
+
+        clean_updates["updated_at"] = admin_firestore.SERVER_TIMESTAMP
+        clean_updates["last_edited_by"] = user_email
+
+        try:
+            _db = admin_firestore.client()
+            _db.collection("waitlist").document(doc_id).update(clean_updates)
+            print(f"[CRM] {user_email} updated {doc_id} → {list(clean_updates.keys())}")
+            return jsonify({"success": True, "updated": list(clean_updates.keys())}), 200
+        except Exception as e:
+            print(f"[CRM] update_lead failed: {e}")
+            return jsonify({"error": f"Firestore update failed: {str(e)}"}), 500
+
     # --- FAST LANE 1: ENHANCE PROMPT (No DB, No Cost) ---
     if action == "enhance_prompt":
         base_text = data.get("text", "")
