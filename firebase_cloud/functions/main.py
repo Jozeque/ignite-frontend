@@ -557,6 +557,41 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
 
         try:
             _db = admin_firestore.client()
+
+            # Virtual rows: user exists in `users` collection but has no
+            # waitlist record yet. Client sends doc_id="virtual_<uid>" plus
+            # the email so we can upsert-by-email into waitlist.
+            if doc_id.startswith("virtual_"):
+                virtual_email = (data.get("email") or "").strip().lower()
+                if not virtual_email:
+                    return jsonify({"error": "Missing email for virtual doc"}), 400
+
+                existing = list(
+                    _db.collection("waitlist")
+                    .where("email", "==", virtual_email)
+                    .limit(1)
+                    .stream()
+                )
+                if existing:
+                    existing[0].reference.update(clean_updates)
+                    target_id = existing[0].id
+                    print(f"[CRM] {user_email} virtual-merged {virtual_email} → {target_id}")
+                else:
+                    virtual_name = (data.get("name") or "").strip()
+                    virtual_uid = doc_id.replace("virtual_", "", 1)
+                    new_doc = {
+                        "email": virtual_email,
+                        "name": virtual_name,
+                        "source": "registered_user",
+                        "firebase_uid": virtual_uid,
+                        "created_at": admin_firestore.SERVER_TIMESTAMP,
+                    }
+                    new_doc.update(clean_updates)
+                    _, ref = _db.collection("waitlist").add(new_doc)
+                    target_id = ref.id
+                    print(f"[CRM] {user_email} virtual-created {virtual_email} → {target_id}")
+                return jsonify({"success": True, "upserted": target_id, "updated": list(clean_updates.keys())}), 200
+
             _db.collection("waitlist").document(doc_id).update(clean_updates)
             print(f"[CRM] {user_email} updated {doc_id} → {list(clean_updates.keys())}")
             return jsonify({"success": True, "updated": list(clean_updates.keys())}), 200

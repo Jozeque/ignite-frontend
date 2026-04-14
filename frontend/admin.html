@@ -45,6 +45,7 @@
         .src-waitlist_signup { background: rgba(168,85,247,0.15); color: #c084fc; }
         .src-buyer_lead      { background: rgba(251,146,60,0.15); color: #fb923c; }
         .src-lemonsqueezy    { background: rgba(34,197,94,0.15);  color: #4ade80; }
+        .src-registered_user { background: rgba(56,189,248,0.15); color: #38bdf8; }
 
         .copy-btn { cursor: pointer; opacity: 0.4; transition: opacity 0.15s; }
         .copy-btn:hover { opacity: 1; }
@@ -117,6 +118,7 @@
                 <option value="waitlist_signup">Waitlist</option>
                 <option value="buyer_lead">Buyer lead</option>
                 <option value="lemonsqueezy">Lemon Squeezy</option>
+                <option value="registered_user">Registered user</option>
             </select>
 
             <select id="sort" class="bg-black/40 border border-white/10 focus:border-fuchsia-500/50 outline-none rounded-lg px-3 py-1.5 text-[10px] text-zinc-300 uppercase tracking-wider font-bold cursor-pointer">
@@ -181,13 +183,16 @@
         // ─── State ─────────────────────────────────────────────
         const state = {
             user: null,
-            rows: [],         // raw docs from Firestore
+            waitlistRows: [], // from `waitlist` collection (live)
+            userRows: [],     // from `users` collection (live)
+            rows: [],         // merged + deduped by email (waitlist wins)
             filtered: [],     // after filter+search+sort
             search: '',
             statusFilter: '',
             sourceFilter: '',
             sort: 'created_desc',
-            unsub: null
+            unsubWaitlist: null,
+            unsubUsers: null
         };
 
         // ─── Auth flow ─────────────────────────────────────────
@@ -219,14 +224,19 @@
         document.getElementById('signout-btn').addEventListener('click', () => auth.signOut());
         document.getElementById('signout-btn-denied').addEventListener('click', () => auth.signOut());
 
-        // ─── Firestore listener ────────────────────────────────
+        // ─── Firestore listeners ───────────────────────────────
+        // Two live listeners: `waitlist` for leads/customers, `users` for
+        // Firebase-Auth registered users. Merged in memory, deduped by email
+        // (waitlist rows always win since they carry CRM metadata).
         function startListening() {
-            if (state.unsub) state.unsub();
-            state.unsub = db.collection('waitlist')
+            if (state.unsubWaitlist) state.unsubWaitlist();
+            if (state.unsubUsers) state.unsubUsers();
+
+            state.unsubWaitlist = db.collection('waitlist')
                 .orderBy('created_at', 'desc')
                 .onSnapshot(
                     (snapshot) => {
-                        state.rows = snapshot.docs.map(d => {
+                        state.waitlistRows = snapshot.docs.map(d => {
                             const data = d.data();
                             return {
                                 id: d.id,
@@ -237,13 +247,72 @@
                                 updated_at: toDate(data.updated_at),
                             };
                         });
-                        applyFilters();
+                        mergeAndRender();
                     },
                     (err) => {
-                        console.error('Firestore listener error:', err);
-                        toast('Firestore listener error: ' + err.message, true);
+                        console.error('Waitlist listener error:', err);
+                        toast('Waitlist error: ' + err.message, true);
                     }
                 );
+
+            state.unsubUsers = db.collection('users')
+                .onSnapshot(
+                    (snapshot) => {
+                        state.userRows = snapshot.docs.map(d => {
+                            const data = d.data();
+                            return {
+                                uid: d.id,
+                                email: (data.email || '').trim(),
+                                display_name: data.display_name || '',
+                                credits_used: data.credits_used || 0,
+                                generations_count: data.generations_count || 0,
+                                is_admin: data.is_admin === true,
+                            };
+                        });
+                        mergeAndRender();
+                    },
+                    (err) => {
+                        console.error('Users listener error:', err);
+                        toast('Users error: ' + err.message, true);
+                    }
+                );
+        }
+
+        function mergeAndRender() {
+            // Waitlist rows always win (they hold CRM metadata).
+            const merged = state.waitlistRows.slice();
+            const seenEmails = new Set();
+            for (const r of merged) {
+                if (r.email) seenEmails.add(r.email.toLowerCase().trim());
+            }
+
+            const adminEmail = (state.user && state.user.email || '').toLowerCase();
+
+            // Add virtual rows for registered users not already in waitlist.
+            for (const u of state.userRows) {
+                const email = (u.email || '').toLowerCase().trim();
+                if (!email) continue;
+                if (email === adminEmail) continue;      // skip the admin themselves
+                if (seenEmails.has(email)) continue;     // already in waitlist — skip
+                merged.push({
+                    id: 'virtual_' + u.uid,
+                    uid: u.uid,
+                    name: u.display_name || '',
+                    email: u.email,
+                    country: '',
+                    source: 'registered_user',
+                    status: null,
+                    notes: '',
+                    created_at: null,
+                    last_contacted_at: null,
+                    updated_at: null,
+                    _virtual: true
+                });
+                seenEmails.add(email);
+            }
+
+            state.rows = merged;
+            applyFilters();
         }
 
         function toDate(ts) {
@@ -408,6 +477,7 @@
             if (src === 'waitlist_signup') return 'Waitlist';
             if (src === 'buyer_lead') return 'Buyer';
             if (src === 'lemonsqueezy') return 'LS';
+            if (src === 'registered_user') return 'Registered';
             return src;
         }
 
@@ -498,17 +568,27 @@
             if (!state.user) return { success: false, error: 'not signed in' };
             try {
                 const token = await state.user.getIdToken();
+                const body = {
+                    action: 'update_lead',
+                    doc_id: docId,
+                    updates: updates
+                };
+                // Virtual rows (from the `users` collection) need email+name
+                // so the backend can upsert a real waitlist doc on first edit.
+                if (docId.startsWith('virtual_')) {
+                    const row = state.rows.find(r => r.id === docId);
+                    if (row) {
+                        body.email = row.email;
+                        body.name = row.name || '';
+                    }
+                }
                 const res = await fetch(BACKEND_URL, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({
-                        action: 'update_lead',
-                        doc_id: docId,
-                        updates: updates
-                    })
+                    body: JSON.stringify(body)
                 });
                 return await res.json();
             } catch (e) {
