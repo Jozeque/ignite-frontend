@@ -164,21 +164,97 @@ rm -f "$NOTARIZE_ZIP"
 ditto -c -k --keepParent "$MAC_OUT/Stride.app" "$NOTARIZE_ZIP"
 echo "      Zip ready ($(du -h "$NOTARIZE_ZIP" | cut -f1)) — uploading to Apple..."
 
-xcrun notarytool submit "$NOTARIZE_ZIP" \
+# Submit WITHOUT --wait. We'll poll the status ourselves in a loop below
+# so transient network errors from Apple's own polling infrastructure
+# (we hit a -1009 "Internet connection offline" error during a previous
+# run even though the runner had perfect network) become retry-and-continue
+# instead of "whole build fails".
+SUBMIT_OUTPUT=$(xcrun notarytool submit "$NOTARIZE_ZIP" \
     --apple-id "$APPLE_ID" \
     --password "$APPLE_APP_SPECIFIC_PASSWORD" \
     --team-id "$APPLE_TEAM_ID" \
-    --wait 2>&1 | tee "$APP_DIR/dist/notarize.log"
-
-NOTARIZE_STATUS=${PIPESTATUS[0]}
+    --output-format json 2>&1)
+SUBMIT_STATUS=$?
+echo "      submit output: $SUBMIT_OUTPUT"
 rm -f "$NOTARIZE_ZIP"
 
-if [ "$NOTARIZE_STATUS" -ne 0 ]; then
-    echo "❌ notarytool submit failed (exit $NOTARIZE_STATUS)"
-    echo "--- last lines of notarize log ---"
-    tail -20 "$APP_DIR/dist/notarize.log" || true
+if [ "$SUBMIT_STATUS" -ne 0 ]; then
+    echo "❌ notarytool submit failed (exit $SUBMIT_STATUS)"
     exit 1
 fi
+
+SUBMISSION_ID=$(echo "$SUBMIT_OUTPUT" | python3 -c "import json,sys; print(json.loads(sys.stdin.read().splitlines()[-1])['id'])" 2>/dev/null || true)
+if [ -z "$SUBMISSION_ID" ]; then
+    echo "❌ Could not extract submission ID from notarytool output"
+    exit 1
+fi
+echo "      Submission ID: $SUBMISSION_ID"
+
+# Manual poll loop with retry. Each iteration calls `notarytool info` for
+# the submission. On a network error, sleep 30s and retry — do NOT die.
+# Success conditions: status=Accepted. Hard fail: status=Invalid/Rejected.
+# Wall-clock budget: 90 minutes. If Apple is still "In Progress" after that,
+# we give up and the workflow retries later.
+echo "      Polling Apple for verdict (check every 30s, max 90min)..."
+START_TS=$(date +%s)
+MAX_WAIT_SEC=5400  # 90 minutes
+POLL_FAILS=0
+MAX_POLL_FAILS=20
+while true; do
+    ELAPSED=$(( $(date +%s) - START_TS ))
+    if [ "$ELAPSED" -gt "$MAX_WAIT_SEC" ]; then
+        echo "❌ Polling timeout after ${ELAPSED}s — Apple still hasn't returned a verdict"
+        echo "   You can resume later by running this workflow again — the submission"
+        echo "   ID $SUBMISSION_ID will still be cached by Apple."
+        exit 1
+    fi
+
+    INFO_JSON=$(xcrun notarytool info "$SUBMISSION_ID" \
+        --apple-id "$APPLE_ID" \
+        --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+        --team-id "$APPLE_TEAM_ID" \
+        --output-format json 2>&1)
+    INFO_STATUS=$?
+
+    if [ "$INFO_STATUS" -ne 0 ]; then
+        POLL_FAILS=$((POLL_FAILS + 1))
+        echo "      [${ELAPSED}s] poll error #$POLL_FAILS (will retry in 30s): $(echo "$INFO_JSON" | tail -1)"
+        if [ "$POLL_FAILS" -gt "$MAX_POLL_FAILS" ]; then
+            echo "❌ Too many consecutive poll failures ($POLL_FAILS) — giving up"
+            exit 1
+        fi
+        sleep 30
+        continue
+    fi
+    POLL_FAILS=0
+
+    STATUS=$(echo "$INFO_JSON" | python3 -c "import json,sys; d=json.loads(sys.stdin.read().splitlines()[-1]); print(d.get('status','?'))" 2>/dev/null || echo "?")
+    echo "      [${ELAPSED}s] status=$STATUS"
+
+    case "$STATUS" in
+        "Accepted")
+            echo "      ✅ Apple accepted the submission"
+            break
+            ;;
+        "Invalid"|"Rejected")
+            echo "❌ Apple rejected the submission ($STATUS)"
+            echo "--- notarization log from Apple ---"
+            xcrun notarytool log "$SUBMISSION_ID" \
+                --apple-id "$APPLE_ID" \
+                --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+                --team-id "$APPLE_TEAM_ID" 2>&1 || true
+            exit 1
+            ;;
+        "In Progress"|"?")
+            # Still processing — keep polling
+            sleep 30
+            ;;
+        *)
+            echo "      unknown status '$STATUS' — treating as still in progress"
+            sleep 30
+            ;;
+    esac
+done
 
 # Staple the notarization ticket onto the .app so Gatekeeper doesn't
 # need to phone Apple on first launch
