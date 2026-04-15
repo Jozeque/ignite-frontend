@@ -146,10 +146,19 @@ codesign --verify --deep --strict --verbose=2 "$MAC_OUT/Stride.app" 2>&1 || {
 echo "      ✅ Signed cleanly"
 
 # ─── Step 2c: Manual notarization via xcrun notarytool ─
-# Zip the signed .app, submit it to Apple, wait for verdict, staple.
-# stdbuf forces line-buffered output so we see notarytool's progress.
+# Pre-flight: show any recent submissions so we can see if an earlier run
+# already has a verdict cached. Useful when a previous run timed out at
+# GitHub's step limit while Apple was still processing — that submission
+# may have completed server-side and is now waiting for us to check.
 echo ""
-echo "[2c/4] Submitting to Apple notarization..."
+echo "[2c/4] Checking Apple notarization history..."
+xcrun notarytool history \
+    --apple-id "$APPLE_ID" \
+    --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+    --team-id "$APPLE_TEAM_ID" 2>&1 | head -30 || true
+
+echo ""
+echo "      Submitting new bundle to Apple..."
 NOTARIZE_ZIP="$APP_DIR/dist/Stride-for-notarize.zip"
 rm -f "$NOTARIZE_ZIP"
 ditto -c -k --keepParent "$MAC_OUT/Stride.app" "$NOTARIZE_ZIP"
@@ -166,6 +175,8 @@ rm -f "$NOTARIZE_ZIP"
 
 if [ "$NOTARIZE_STATUS" -ne 0 ]; then
     echo "❌ notarytool submit failed (exit $NOTARIZE_STATUS)"
+    echo "--- last lines of notarize log ---"
+    tail -20 "$APP_DIR/dist/notarize.log" || true
     exit 1
 fi
 

@@ -12,7 +12,11 @@ jobs:
   build-mac:
     name: Sign, notarize, package
     runs-on: macos-14  # Apple Silicon M1 runner — arm64 native
-    timeout-minutes: 60
+    # Apple's notary service can sit on first-time submissions for a brand-new
+    # Developer ID account for 1-2 hours while it validates the team. Second+
+    # runs usually finish in 2-10 minutes because the team is already cached.
+    # 120 gives us headroom for the slow first run.
+    timeout-minutes: 120
 
     steps:
       - name: Checkout repository
