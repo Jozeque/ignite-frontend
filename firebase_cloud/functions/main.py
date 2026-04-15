@@ -449,10 +449,29 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
         email = data_pre.get("email", "").strip()
         country = data_pre.get("country", "").strip()
         source = data_pre.get("source", "").strip()
+        # Terms acknowledgment record — legal audit trail for any future
+        # chargeback / refund dispute. We capture as much context as the
+        # browser can give us (user agent, timezone, the exact URL they
+        # were on when they clicked accept) plus the server IP so the
+        # acceptance is cryptographically timestamped in Firestore.
+        terms_in = data_pre.get("terms_accepted") or {}
+        terms_accepted = {
+            "accepted": bool(terms_in.get("accepted", False)),
+            "version": (terms_in.get("version") or "").strip() or "unversioned",
+            "accepted_at_client": (terms_in.get("accepted_at") or "").strip() or None,
+            "scope": (terms_in.get("scope") or "waitlist_signup").strip(),
+            "user_agent": (terms_in.get("user_agent") or req.headers.get("User-Agent") or "").strip() or None,
+            "tz_offset_min": terms_in.get("tz_offset_min"),
+            "page_url": (terms_in.get("page_url") or "").strip() or None,
+            # Server-side facts the client can't spoof:
+            "ip": req.headers.get("X-Forwarded-For", req.remote_addr or "").split(",")[0].strip() or None,
+            "accepted_at_server": admin_firestore.SERVER_TIMESTAMP,
+        }
+
         if not name or not email:
             return jsonify({"error": "Name and email are required"}), 400
         # Always log the full signup so data is never lost
-        print(f"[Waitlist] name={name} email={email} country={country} source={source}")
+        print(f"[Waitlist] name={name} email={email} country={country} source={source} terms_ok={terms_accepted['accepted']}")
         db_ok = False
         try:
             _db = admin_firestore.client()
@@ -461,6 +480,7 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
                 "email": email,
                 "country": country,
                 "source": source,
+                "terms_accepted": terms_accepted,
                 "created_at": admin_firestore.SERVER_TIMESTAMP,
             })
             db_ok = True

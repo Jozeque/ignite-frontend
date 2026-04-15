@@ -660,6 +660,19 @@
                 </div>
             </div>
 
+            <!-- Terms acknowledgment — creates a defensible record per email so that when we flip
+                 to real purchase mode, the same checkbox already serves as the Article 16(m)
+                 express-consent waiver under EU Directive 2011/83/EU. -->
+            <label class="flex items-start gap-2.5 mb-4 cursor-pointer select-none group">
+                <input id="buy-terms" type="checkbox" class="mt-0.5 shrink-0 w-4 h-4 accent-orange-500 cursor-pointer">
+                <span class="text-[11px] text-zinc-400 leading-snug group-hover:text-zinc-300 transition-colors">
+                    I've read the <a href="terms.html#requirements" target="_blank" class="text-orange-400 hover:text-orange-300 underline">system requirements</a>,
+                    the <a href="terms.html#refund" target="_blank" class="text-orange-400 hover:text-orange-300 underline">refund policy</a>,
+                    and the <a href="terms.html" target="_blank" class="text-orange-400 hover:text-orange-300 underline">Terms of Service</a>.
+                    I understand Stride is a digital product delivered immediately and I accept the purchase conditions.
+                </span>
+            </label>
+
             <p id="buy-error" class="text-xs text-red-400 mb-3 hidden font-medium"></p>
 
             <button onclick="submitBuyForm()" class="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black py-3.5 rounded-xl text-xs uppercase tracking-widest transition-all shadow-[0_10px_30px_rgba(255,50,0,0.3)] hover:shadow-[0_10px_40px_rgba(255,50,0,0.5)]">
@@ -721,30 +734,56 @@
             }
         }
 
+        // Bumping TERMS_VERSION invalidates previous acknowledgments. Any
+        // record in Firestore with terms_version < current is "stale" and
+        // should be re-collected before a future purchase.
+        const TERMS_VERSION = '2026-04-15-v2';
+
         function submitBuyForm() {
             const name = document.getElementById('buy-name').value.trim();
             const email = document.getElementById('buy-email').value.trim();
             const country = document.getElementById('buy-country').value;
             const source = document.getElementById('buy-source').value;
+            const termsChecked = document.getElementById('buy-terms').checked;
             const errorEl = document.getElementById('buy-error');
 
             // Validate
             if (!name) { showBuyError('Please enter your producer name'); return; }
             if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showBuyError('Please enter a valid email'); return; }
             if (!country) { showBuyError('Please select your country'); return; }
+            if (!termsChecked) { showBuyError('Please read and accept the terms to continue'); return; }
 
             errorEl.classList.add('hidden');
+
+            // Build the acknowledgment payload. These fields form the
+            // legal audit trail — stored in Firestore (+ Supabase dual-
+            // write) so we can produce them later if a buyer disputes a
+            // charge or claims they were misled.
+            const termsAccepted = {
+                accepted: true,
+                version: TERMS_VERSION,
+                accepted_at: new Date().toISOString(),
+                scope: 'waitlist_signup',  // becomes 'purchase' when we flip to LS checkout
+                user_agent: navigator.userAgent || null,
+                tz_offset_min: new Date().getTimezoneOffset(),
+                page_url: location.href,
+            };
 
             // Send waitlist signup to backend
             fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'waitlist_signup', name, email, country, source })
+                body: JSON.stringify({
+                    action: 'waitlist_signup',
+                    name, email, country, source,
+                    terms_accepted: termsAccepted,
+                })
             }).catch(() => {});
 
             // Store locally
             localStorage.setItem('stride_waitlist', JSON.stringify({
                 name, email, country, source,
+                terms_accepted: termsAccepted,
                 timestamp: new Date().toISOString()
             }));
 
