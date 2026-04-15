@@ -30,78 +30,13 @@ jobs:
         run: npm ci
 
       - name: Import signing certificate to keychain
-        env:
-          CSC_LINK: ${{ secrets.APPLE_DEVELOPER_ID_P12_BASE64 }}
-          CSC_KEY_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.APPLE_DEVELOPER_ID_P12_BASE64 }}
+          p12-password: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
+
+      - name: Verify signing identity is present
         run: |
-          if [ -z "$CSC_LINK" ] || [ -z "$CSC_KEY_PASSWORD" ]; then
-            echo "❌ Cert secrets not set."
-            exit 1
-          fi
-
-          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain-db"
-          KEYCHAIN_PWD="$(openssl rand -base64 24)"
-          CERT_PATH="$RUNNER_TEMP/cert.p12"
-
-          # Decode base64 .p12 into a file
-          echo "$CSC_LINK" | base64 --decode > "$CERT_PATH"
-          if [ ! -s "$CERT_PATH" ]; then
-            echo "❌ Decoded .p12 is empty — CSC_LINK secret is likely malformed"
-            exit 1
-          fi
-
-          # Diagnostics — compare these against local .p12 to catch a bad paste
-          echo "--- .p12 diagnostics ---"
-          echo "  decoded size:    $(wc -c < "$CERT_PATH") bytes"
-          echo "  decoded sha256:  $(shasum -a 256 "$CERT_PATH" | awk '{print $1}')"
-          echo "  password length: ${#CSC_KEY_PASSWORD}"
-          echo "  expected size:   3174 bytes"
-          echo "  expected sha256: 174943e1a116ee8a67cca05d0f5effb00cc324634c40c4cf2d6b7267787fe133"
-          echo "  expected pwdlen: 24"
-
-          # Pre-verify with openssl BEFORE security import.
-          # If openssl succeeds but security fails → macOS PKCS12 format issue.
-          # If openssl fails too → password or bytes are wrong.
-          if openssl pkcs12 -in "$CERT_PATH" -noout -password pass:"$CSC_KEY_PASSWORD" 2>/dev/null; then
-            echo "  openssl verify:  ✅ password + bytes OK"
-          else
-            echo "  openssl verify:  ❌ FAILED — password or bytes wrong"
-            echo ""
-            echo "Possible causes:"
-            echo "  1) APPLE_DEVELOPER_ID_P12_PASSWORD secret was pasted with"
-            echo "     extra whitespace or newline (expected length 24)"
-            echo "  2) APPLE_DEVELOPER_ID_P12_BASE64 secret was truncated or"
-            echo "     reformatted (expected decoded size 3332 bytes)"
-            exit 1
-          fi
-
-          # Create, configure, unlock the keychain
-          security create-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN_PATH"
-
-          # Import the .p12 — -T whitelists tools that can access the key
-          security import "$CERT_PATH" \
-            -P "$CSC_KEY_PASSWORD" \
-            -k "$KEYCHAIN_PATH" \
-            -T /usr/bin/codesign \
-            -T /usr/bin/security \
-            -T /usr/bin/productbuild
-
-          # CRITICAL: pre-authorize partition list so codesign won't prompt.
-          # Without this step, codesign hangs forever on a headless CI runner
-          # waiting for a GUI password prompt that can never be answered.
-          security set-key-partition-list \
-            -S apple-tool:,apple:,codesign: \
-            -s \
-            -k "$KEYCHAIN_PWD" \
-            "$KEYCHAIN_PATH"
-
-          # Put the new keychain at the FRONT of the search list so codesign
-          # finds our cert before anything in login.keychain
-          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed 's/"//g' | tr '\n' ' ')
-
-          # Verify the Developer ID Application identity is visible
           echo "--- identities visible to codesign ---"
           security find-identity -v -p codesigning
           if ! security find-identity -v -p codesigning | grep -q "Developer ID Application"; then
@@ -110,18 +45,12 @@ jobs:
           fi
           echo "✅ Developer ID Application identity is present"
 
-          rm "$CERT_PATH"
-
-          # Export for subsequent steps so electron-builder uses OUR keychain
-          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
-          echo "CSC_KEYCHAIN=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
-
       - name: Build, sign, and notarize
         working-directory: stride-vst
         env:
-          # CSC_KEYCHAIN comes from GITHUB_ENV (set by the previous step).
-          # Do NOT pass CSC_LINK here — that would make electron-builder
-          # create its own keychain and bypass our partition-list fix.
+          # apple-actions/import-codesign-certs imports the cert into its own
+          # signing_temp keychain with partition-list pre-authorized. Do NOT
+          # pass CSC_LINK here or electron-builder creates ANOTHER keychain.
           CSC_IDENTITY_AUTO_DISCOVERY: 'true'
           # afterSign hook (build/notarize.js) reads these to notarize:
           APPLE_ID: ${{ secrets.APPLE_ID }}
