@@ -103,9 +103,9 @@
         document.querySelectorAll('.sd-bars-btn').forEach(btn => {
             const btnVal = parseInt(btn.textContent);
             if (btnVal === val) {
-                btn.className = 'sd-bars-btn text-[9px] text-fuchsia-400 bg-fuchsia-500/20 px-2 py-0.5 rounded font-bold transition-colors';
+                btn.className = 'sd-bars-btn text-[11px] text-fuchsia-400 bg-fuchsia-500/20 px-3 py-1 rounded font-bold transition-colors';
             } else {
-                btn.className = 'sd-bars-btn text-[9px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold transition-colors';
+                btn.className = 'sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-3 py-1 rounded font-bold transition-colors';
             }
         });
         sdDrawCanvasGrid();
@@ -1530,11 +1530,70 @@
         if (type === 'sine') { for (let b = 0; b <= dur; b += 0.25) pts.push({ time: sB + b, value: (Math.sin((b / dur) * Math.PI * 2 * Math.max(1, Math.round(dur / 4))) + 1) / 2 }); }
         else if (type === 'pump') { for (let b = 0; b < dur; b++) { pts.push({ time: sB + b, value: 0 }); pts.push({ time: sB + b + 0.5, value: 1 }); pts.push({ time: sB + b + 0.99, value: 0 }); } }
         else if (type === 'glitch') { for (let b = 0; b < dur; b += 0.25) { if (Math.random() > 0.4) { const v = Math.random() > 0.5 ? 1 : 0; pts.push({ time: sB + b, value: v }); pts.push({ time: sB + b + 0.125, value: v }); } } pts.push({ time: eB, value: 0 }); }
-        else if (type === 'groove_build') { for (let b = 0; b < dur; b += 0.25) { if (b < dur * 0.5) { if (b % 0.5 === 0) { pts.push({ time: sB + b, value: 0 }); pts.push({ time: sB + b + 0.25, value: 0.8 }); } } else if (b < dur * 0.75) { pts.push({ time: sB + b, value: b % 0.5 === 0 ? 1 : 0 }); } else { if (Math.abs(b - dur * 0.75) < 0.01) pts.push({ time: sB + b, value: 0 }); } } pts.push({ time: eB, value: 1 }); }
+        else if (type === 'groove_build') {
+            // Sparse → building density → drop → resolve high. Every press re-rolls
+            // the specifics (zone boundaries, hit positions, heights, resolve level)
+            // so you get a different build each time but the same overall shape.
+            const zone1End = dur * (0.42 + Math.random() * 0.12);        // ~42-54%
+            const zone2End = dur * (0.68 + Math.random() * 0.10);        // ~68-78%
+            const settleT  = dur * (0.86 + Math.random() * 0.08);        // ~86-94%
+            // Zone 1: 2-3 sparse accents scattered in the first half
+            const numSparse = 2 + Math.floor(Math.random() * 2);
+            for (let i = 0; i < numSparse; i++) {
+                const t = Math.random() * zone1End;
+                const h = 0.6 + Math.random() * 0.4;
+                pts.push({ time: sB + t, value: 0 });
+                pts.push({ time: sB + t + 0.05, value: h });
+                pts.push({ time: sB + t + 0.25, value: 0 });
+            }
+            // Zone 2: rising density — probability of a hit grows with progress
+            for (let b = zone1End; b < zone2End; b += 0.25) {
+                const progress = (b - zone1End) / (zone2End - zone1End);
+                if (Math.random() < 0.4 + progress * 0.5) {
+                    const h = 0.7 + Math.random() * 0.3;
+                    pts.push({ time: sB + b, value: 0 });
+                    pts.push({ time: sB + b + 0.05, value: h });
+                    pts.push({ time: sB + b + 0.18, value: 0 });
+                }
+            }
+            // Drop + resolve: flat silence then a held note at a random high value
+            pts.push({ time: sB + zone2End, value: 0 });
+            pts.push({ time: sB + settleT, value: 0 });
+            pts.push({ time: eB, value: 0.7 + Math.random() * 0.3 });
+        }
         else if (type === 'chaos_lfo') {
+            // Fully re-rollable chaos: 2-4 random wave layers (freq + amp + phase
+            // randomized per press) + variable noise level + random spike injection.
+            // Every press produces a genuinely different shape, not just a "noisier
+            // version of the same curve."
+            const numLayers = 2 + Math.floor(Math.random() * 3);    // 2-4 layers
+            const waves = [];
+            for (let i = 0; i < numLayers; i++) {
+                waves.push({
+                    freq:   0.3 + Math.random() * 2.2,               // 0.3-2.5
+                    amp:    0.15 + Math.random() * 0.35,             // 0.15-0.5
+                    phase:  Math.random() * Math.PI * 2,
+                    useCos: Math.random() > 0.5
+                });
+            }
+            const noiseAmt  = 0.1 + Math.random() * 0.25;            // 0.1-0.35
+            const spikeProb = 0.08 + Math.random() * 0.15;           // 8-23% per sample
             const raw = [];
-            for (let b = 0; b <= dur; b += 0.25) { const l1 = Math.sin(b * 0.8) * 0.5, l2 = Math.cos(b * 1.5) * 0.3, rd = (Math.random() * 0.2) - 0.1; raw.push({ time: sB + b, value: 0.5 + l1 + l2 + rd }); }
-            const rMin = Math.min(...raw.map(p => p.value)), rMax = Math.max(...raw.map(p => p.value)), rRange = rMax - rMin || 1;
+            for (let b = 0; b <= dur; b += 0.25) {
+                let v = 0.5;
+                for (const w of waves) {
+                    v += (w.useCos ? Math.cos(b * w.freq + w.phase) : Math.sin(b * w.freq + w.phase)) * w.amp;
+                }
+                if (Math.random() < spikeProb) {
+                    v = Math.random();                                // full random jump
+                } else {
+                    v += (Math.random() * 2 - 1) * noiseAmt;
+                }
+                raw.push({ time: sB + b, value: v });
+            }
+            const rMin = Math.min(...raw.map(p => p.value));
+            const rMax = Math.max(...raw.map(p => p.value));
+            const rRange = rMax - rMin || 1;
             raw.forEach(p => pts.push({ time: p.time, value: Math.max(0, Math.min(1, (p.value - rMin) / rRange)) }));
         }
         return pts;
@@ -1567,9 +1626,26 @@
     // Takes existing curves and produces dramatic variations:
     // cuts segments, relocates them, flips sections, scales amplitude
 
+    // Shared helper: pops a warning modal when Bloom / Weave / Mutate is
+    // invoked before the user has drawn any curves to transform.
+    window.sdShowRequirement = function(title, msg) {
+        const titleEl = document.getElementById('sd-req-title');
+        const msgEl = document.getElementById('sd-req-msg');
+        if (titleEl) titleEl.textContent = title;
+        if (msgEl) msgEl.textContent = msg;
+        const modal = document.getElementById('sd-requirement-modal');
+        if (modal) modal.classList.remove('hidden');
+    };
+
     window.sdMutate = function() {
         const targets = sdGetTargetParams().filter(p => p.points.length >= 2);
-        if (!targets.length) return;
+        if (!targets.length) {
+            sdShowRequirement(
+                'Draw a curve first',
+                'Mutate generates dramatic variations of existing curves. Draw a curve on the active lane (or turn on All Lanes to target every lane), then press Mutate again.'
+            );
+            return;
+        }
         pushUndo();
 
         const sel = sdGetSelection();
@@ -1708,14 +1784,26 @@
     };
 
     window.sdApplyBloom = function() {
-        if (!sdActiveParamId) return;
+        if (!sdActiveParamId) {
+            sdShowRequirement(
+                'Select a lane first',
+                'Bloom needs an active lane to copy from. Click one of the lanes in the sidebar, draw a curve on it, then press Bloom.'
+            );
+            return;
+        }
         const masterParam = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
         if (!masterParam || !masterParam.points.length) {
-            document.getElementById('sd-canvas-status').textContent = 'Draw a curve on the active lane first';
+            sdShowRequirement(
+                'Draw a curve first',
+                'Bloom spreads the active lane\u2019s curve across all other lanes with complementary variations. Draw a curve on the active lane, then press Bloom again.'
+            );
             return;
         }
         if (sdCanvasParams.length < 2) {
-            document.getElementById('sd-canvas-status').textContent = 'Need at least 2 lanes';
+            sdShowRequirement(
+                'Need more lanes',
+                'Bloom spreads a curve across multiple lanes. Your rack only has one mapped parameter \u2014 Bloom needs at least two lanes to work with.'
+            );
             return;
         }
 
@@ -1836,14 +1924,26 @@
     };
 
     window.sdApplyWeave = function() {
-        if (!sdActiveParamId) return;
+        if (!sdActiveParamId) {
+            sdShowRequirement(
+                'Select a lane first',
+                'Weave needs an active lane as the source. Click one of the lanes in the sidebar, draw a curve on it, then press Weave.'
+            );
+            return;
+        }
         const sourceParam = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
         if (!sourceParam || !sourceParam.points.length) {
-            document.getElementById('sd-canvas-status').textContent = 'Draw a curve on the active lane first';
+            sdShowRequirement(
+                'Draw a curve first',
+                'Weave creates complementary automation across lanes based on a source curve. Draw a curve on the active lane, then press Weave again.'
+            );
             return;
         }
         if (sdCanvasParams.length < 2) {
-            document.getElementById('sd-canvas-status').textContent = 'Need at least 2 lanes';
+            sdShowRequirement(
+                'Need more lanes',
+                'Weave builds relationships between lanes. Your rack only has one mapped parameter \u2014 Weave needs at least two lanes to work with.'
+            );
             return;
         }
 

@@ -307,17 +307,35 @@
             </div>
         </div>
 
+        <!-- Requirement Warning Modal (used by Bloom, Weave, Mutate) -->
+        <div id="sd-requirement-modal" class="hidden fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center" onclick="if(event.target===this)this.classList.add('hidden')">
+            <div class="bg-zinc-900 border border-amber-500/30 rounded-2xl p-6 max-w-sm w-full mx-6 flex flex-col gap-4 shadow-2xl">
+                <div class="flex items-start gap-3">
+                    <div class="shrink-0 w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 id="sd-req-title" class="text-xs text-zinc-100 font-black uppercase tracking-widest">Draw a curve first</h3>
+                        <p id="sd-req-msg" class="text-[10px] text-zinc-400 leading-relaxed mt-2"></p>
+                    </div>
+                </div>
+                <button onclick="document.getElementById('sd-requirement-modal').classList.add('hidden')" class="w-full text-[10px] text-zinc-100 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 hover:border-amber-500/50 py-2 rounded-lg uppercase tracking-widest font-bold transition-all">Got it</button>
+            </div>
+        </div>
+
         <!-- Main Area: Toolbar + Canvas -->
         <div class="flex-1 relative flex flex-col bg-zinc-950">
 
             <!-- Header Bar: Bars + Generate -->
             <div class="h-10 border-b border-white/5 flex items-center px-4 gap-3 shrink-0 bg-black/50 overflow-hidden">
-                <div class="flex items-center gap-1.5 bg-black/50 p-1 rounded-lg border border-white/5 shrink-0">
-                    <span class="text-[8px] font-bold text-zinc-500 uppercase tracking-widest px-1">Bars</span>
-                    <button onclick="sdSetBars(2)" class="sd-bars-btn text-[9px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold transition-colors">2</button>
-                    <button onclick="sdSetBars(4)" class="sd-bars-btn text-[9px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold transition-colors">4</button>
-                    <button onclick="sdSetBars(8)" class="sd-bars-btn text-[9px] text-fuchsia-400 bg-fuchsia-500/20 px-2 py-0.5 rounded font-bold transition-colors">8</button>
-                    <button onclick="sdSetBars(16)" class="sd-bars-btn text-[9px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold transition-colors">16</button>
+                <div class="flex items-center gap-1.5 bg-black/50 p-1.5 rounded-lg border border-fuchsia-500/30 shrink-0" title="Length of your generated MIDI clip (in bars)">
+                    <span class="text-[9px] font-black text-fuchsia-300 uppercase tracking-widest px-1">Loop Length</span>
+                    <button onclick="sdSetBars(2)" class="sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-3 py-1 rounded font-bold transition-colors">2</button>
+                    <button onclick="sdSetBars(4)" class="sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-3 py-1 rounded font-bold transition-colors">4</button>
+                    <button onclick="sdSetBars(8)" class="sd-bars-btn text-[11px] text-fuchsia-400 bg-fuchsia-500/20 px-3 py-1 rounded font-bold transition-colors">8</button>
+                    <button onclick="sdSetBars(16)" class="sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-3 py-1 rounded font-bold transition-colors">16</button>
                 </div>
                 <div class="w-px h-5 bg-white/10 shrink-0"></div>
                 <span id="sd-canvas-status" class="text-[9px] text-zinc-500 uppercase font-bold tracking-[0.2em] bg-white/5 px-2 py-1 rounded truncate min-w-0 max-w-[280px]">Connect M4L</span>
@@ -408,64 +426,64 @@
             </div>
 
             <!-- ROW 2: Shape Tools & Refinement -->
-            <div class="h-10 border-b border-white/5 flex items-center px-3 gap-1 shrink-0 bg-black/30 overflow-x-auto custom-scroll">
+            <div class="h-11 border-b border-white/5 flex items-center px-3 gap-2 shrink-0 bg-black/30 overflow-x-auto custom-scroll">
                 <div class="flex items-center gap-0.5 bg-black/50 p-0.5 rounded border border-white/5">
-                    <button onclick="sdMirrorLane()" title="Flip Y-axis" class="text-[8px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">Mirror</button>
-                    <button onclick="sdFlipLane()" title="Reverse time" class="text-[8px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">Flip</button>
-                </div>
-                <div class="w-px h-4 bg-white/10"></div>
-                <div class="flex items-center gap-0.5 bg-black/50 p-0.5 rounded border border-white/5">
-                    <button onclick="sdCopyLane()" class="text-[8px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">Copy</button>
-                    <button onclick="sdPasteLane(false)" class="text-[8px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">Paste</button>
-                    <button onclick="sdPasteLane(true)" class="text-[8px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">Inv</button>
-                    <button id="sd-paste-to-btn" onclick="sdOpenPasteTo()" class="text-[8px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">To...</button>
+                    <button onclick="sdMirrorLane()" title="Flip Y-axis" class="text-[9px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0">Mirror</button>
+                    <button onclick="sdFlipLane()" title="Reverse time" class="text-[9px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0">Flip</button>
                 </div>
                 <div class="w-px h-4 bg-white/10"></div>
                 <div class="flex items-center gap-0.5 bg-black/50 p-0.5 rounded border border-white/5">
-                    <button onclick="sdQuantizeLane(1)" class="text-[8px] text-teal-400/80 hover:text-teal-300 bg-teal-500/5 hover:bg-teal-500/15 px-1.5 py-0.5 rounded font-bold transition-colors shrink-0">1/4</button>
-                    <button onclick="sdQuantizeLane(0.5)" class="text-[8px] text-teal-400/80 hover:text-teal-300 bg-teal-500/5 hover:bg-teal-500/15 px-1.5 py-0.5 rounded font-bold transition-colors shrink-0">1/8</button>
-                    <button onclick="sdQuantizeLane(0.25)" class="text-[8px] text-teal-400/80 hover:text-teal-300 bg-teal-500/5 hover:bg-teal-500/15 px-1.5 py-0.5 rounded font-bold transition-colors shrink-0">1/16</button>
-                    <button onclick="sdQuantizeLane(1/3)" class="text-[8px] text-teal-400/80 hover:text-teal-300 bg-teal-500/5 hover:bg-teal-500/15 px-1.5 py-0.5 rounded font-bold transition-colors shrink-0">1/8T</button>
-                    <button onclick="sdQuantizeLane(1/6)" class="text-[8px] text-teal-400/80 hover:text-teal-300 bg-teal-500/5 hover:bg-teal-500/15 px-1.5 py-0.5 rounded font-bold transition-colors shrink-0">1/16T</button>
+                    <button onclick="sdCopyLane()" class="text-[9px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0">Copy</button>
+                    <button onclick="sdPasteLane(false)" class="text-[9px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0">Paste</button>
+                    <button onclick="sdPasteLane(true)" class="text-[9px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0">Inv</button>
+                    <button id="sd-paste-to-btn" onclick="sdOpenPasteTo()" class="text-[9px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0">Paste To...</button>
                 </div>
                 <div class="w-px h-4 bg-white/10"></div>
-                <button onclick="sdApplySwing()" class="text-[8px] text-amber-400/80 hover:text-amber-300 bg-amber-500/5 hover:bg-amber-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">Swing</button>
-                <div class="w-px h-4 bg-white/10"></div>
-                <div class="flex items-center gap-1 shrink-0" title="Smooth">
-                    <span class="text-[7px] font-bold text-zinc-500 uppercase">Smo</span>
-                    <input type="range" id="sd-smooth-slider" min="0" max="100" value="0" class="w-12 h-1 accent-amber-500 cursor-pointer" oninput="sdApplySmooth(this.value)" />
-                    <span id="sd-smooth-val" class="text-[7px] text-amber-400/80 font-mono w-5">0%</span>
-                </div>
-                <div class="flex items-center gap-1 shrink-0" title="Intensity">
-                    <span class="text-[7px] font-bold text-zinc-500 uppercase">Int</span>
-                    <input type="range" id="sd-intensity-slider" min="0" max="200" value="100" class="w-14 h-1 accent-rose-500 cursor-pointer" oninput="sdApplyIntensity(this.value)" />
-                    <span id="sd-intensity-val" class="text-[7px] text-rose-400/80 font-mono w-6">100%</span>
-                </div>
-                <div class="flex items-center gap-1 shrink-0" title="Curve">
-                    <span class="text-[7px] font-bold text-zinc-500 uppercase">Crv</span>
-                    <input type="range" id="sd-curve-slider" min="0" max="100" value="0" class="w-12 h-1 accent-violet-500 cursor-pointer" oninput="sdApplyCurve(this.value)" />
-                    <span id="sd-curve-val" class="text-[7px] text-violet-400/80 font-mono w-5">0%</span>
+                <div class="flex items-center gap-0.5 bg-black/50 p-0.5 rounded border border-white/5">
+                    <button onclick="sdQuantizeLane(1)" class="text-[9px] text-teal-400/80 hover:text-teal-300 bg-teal-500/5 hover:bg-teal-500/15 px-2 py-1 rounded font-bold transition-colors shrink-0">1/4</button>
+                    <button onclick="sdQuantizeLane(0.5)" class="text-[9px] text-teal-400/80 hover:text-teal-300 bg-teal-500/5 hover:bg-teal-500/15 px-2 py-1 rounded font-bold transition-colors shrink-0">1/8</button>
+                    <button onclick="sdQuantizeLane(0.25)" class="text-[9px] text-teal-400/80 hover:text-teal-300 bg-teal-500/5 hover:bg-teal-500/15 px-2 py-1 rounded font-bold transition-colors shrink-0">1/16</button>
+                    <button onclick="sdQuantizeLane(1/3)" class="text-[9px] text-teal-400/80 hover:text-teal-300 bg-teal-500/5 hover:bg-teal-500/15 px-2 py-1 rounded font-bold transition-colors shrink-0">1/8T</button>
+                    <button onclick="sdQuantizeLane(1/6)" class="text-[9px] text-teal-400/80 hover:text-teal-300 bg-teal-500/5 hover:bg-teal-500/15 px-2 py-1 rounded font-bold transition-colors shrink-0">1/16T</button>
                 </div>
                 <div class="w-px h-4 bg-white/10"></div>
-                <div class="flex items-center gap-1 shrink-0" title="Floor — raise the minimum value across all lanes">
-                    <span class="text-[7px] font-bold text-cyan-500/80 uppercase">Flr</span>
-                    <input type="range" id="sd-floor-slider" min="0" max="100" value="0" class="w-12 h-1 accent-cyan-500 cursor-pointer" oninput="sdApplyFloor(this.value)" />
-                    <span id="sd-floor-val" class="text-[7px] text-cyan-400/80 font-mono w-5">0%</span>
+                <button onclick="sdApplySwing()" class="text-[9px] text-amber-400/80 hover:text-amber-300 bg-amber-500/5 hover:bg-amber-500/15 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0">Swing</button>
+                <div class="w-px h-4 bg-white/10"></div>
+                <div class="flex items-center gap-1.5 shrink-0" title="Smooth">
+                    <span class="text-[9px] font-bold text-zinc-500 uppercase">Smo</span>
+                    <input type="range" id="sd-smooth-slider" min="0" max="100" value="0" class="w-20 h-1 accent-amber-500 cursor-pointer" oninput="sdApplySmooth(this.value)" />
+                    <span id="sd-smooth-val" class="text-[9px] text-amber-400/80 font-mono w-8">0%</span>
                 </div>
-                <div class="flex items-center gap-1 shrink-0" title="Ceiling — lower the maximum value across all lanes">
-                    <span class="text-[7px] font-bold text-cyan-500/80 uppercase">Ceil</span>
-                    <input type="range" id="sd-ceil-slider" min="0" max="100" value="100" class="w-12 h-1 accent-cyan-500 cursor-pointer" oninput="sdApplyCeiling(this.value)" />
-                    <span id="sd-ceil-val" class="text-[7px] text-cyan-400/80 font-mono w-6">100%</span>
+                <div class="flex items-center gap-1.5 shrink-0" title="Intensity">
+                    <span class="text-[9px] font-bold text-zinc-500 uppercase">Int</span>
+                    <input type="range" id="sd-intensity-slider" min="0" max="200" value="100" class="w-20 h-1 accent-rose-500 cursor-pointer" oninput="sdApplyIntensity(this.value)" />
+                    <span id="sd-intensity-val" class="text-[9px] text-rose-400/80 font-mono w-10">100%</span>
+                </div>
+                <div class="flex items-center gap-1.5 shrink-0" title="Curve">
+                    <span class="text-[9px] font-bold text-zinc-500 uppercase">Crv</span>
+                    <input type="range" id="sd-curve-slider" min="0" max="100" value="0" class="w-20 h-1 accent-violet-500 cursor-pointer" oninput="sdApplyCurve(this.value)" />
+                    <span id="sd-curve-val" class="text-[9px] text-violet-400/80 font-mono w-8">0%</span>
+                </div>
+                <div class="w-px h-4 bg-white/10"></div>
+                <div class="flex items-center gap-1.5 shrink-0" title="Floor — raise the minimum value across all lanes">
+                    <span class="text-[9px] font-bold text-cyan-500/80 uppercase">Flr</span>
+                    <input type="range" id="sd-floor-slider" min="0" max="100" value="0" class="w-20 h-1 accent-cyan-500 cursor-pointer" oninput="sdApplyFloor(this.value)" />
+                    <span id="sd-floor-val" class="text-[9px] text-cyan-400/80 font-mono w-8">0%</span>
+                </div>
+                <div class="flex items-center gap-1.5 shrink-0" title="Ceiling — lower the maximum value across all lanes">
+                    <span class="text-[9px] font-bold text-cyan-500/80 uppercase">Ceil</span>
+                    <input type="range" id="sd-ceil-slider" min="0" max="100" value="100" class="w-20 h-1 accent-cyan-500 cursor-pointer" oninput="sdApplyCeiling(this.value)" />
+                    <span id="sd-ceil-val" class="text-[9px] text-cyan-400/80 font-mono w-10">100%</span>
                 </div>
                 <div class="w-px h-4 bg-white/10"></div>
                 <div class="flex items-center gap-0.5 shrink-0">
-                    <button onclick="sdTimeStretch(2)" title="Stretch 2x" class="text-[8px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded font-bold transition-colors">2x</button>
-                    <button onclick="sdTimeStretch(0.5)" title="Compress ½x" class="text-[8px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded font-bold transition-colors">½x</button>
+                    <button onclick="sdTimeStretch(2)" title="Stretch 2x" class="text-[9px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-2 py-1 rounded font-bold transition-colors">2x</button>
+                    <button onclick="sdTimeStretch(0.5)" title="Compress ½x" class="text-[9px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-2 py-1 rounded font-bold transition-colors">½x</button>
                 </div>
                 <div class="w-px h-4 bg-white/10"></div>
-                <button onclick="sdMutate()" title="Generate a variation of the current curves" class="text-[8px] text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors shrink-0">Mutate</button>
-                <button onclick="sdShuffleLanes()" title="Shuffle: randomly reassign curves to different params" class="text-[8px] text-violet-400 hover:text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 hover:border-violet-500/40 px-2 py-0.5 rounded uppercase font-bold transition-colors shrink-0 ml-auto">Shuffle</button>
-                <button id="sd-apply-all-toggle" onclick="sdToggleApplyAll()" title="When active, tools apply to ALL lanes" class="text-[8px] text-zinc-500 bg-black/50 border border-white/5 hover:border-fuchsia-500/30 px-2 py-0.5 rounded uppercase font-bold transition-colors shrink-0">All Lanes</button>
+                <button onclick="sdMutate()" title="Generate a variation of the current curves" class="text-[9px] text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 px-2.5 py-1 rounded uppercase tracking-wider font-bold transition-colors shrink-0">Mutate</button>
+                <button onclick="sdShuffleLanes()" title="Shuffle: randomly reassign curves to different params" class="text-[9px] text-violet-400 hover:text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 hover:border-violet-500/40 px-2.5 py-1 rounded uppercase font-bold transition-colors shrink-0 ml-auto">Shuffle</button>
+                <button id="sd-apply-all-toggle" onclick="sdToggleApplyAll()" title="When active, tools apply to ALL lanes" class="text-[9px] text-zinc-500 bg-black/50 border border-white/5 hover:border-fuchsia-500/30 px-2.5 py-1 rounded uppercase font-bold transition-colors shrink-0">All Lanes</button>
             </div>
 
             <!-- Canvas Area -->
