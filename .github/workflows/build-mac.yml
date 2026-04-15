@@ -50,6 +50,31 @@ jobs:
             exit 1
           fi
 
+          # Diagnostics — compare these against local .p12 to catch a bad paste
+          echo "--- .p12 diagnostics ---"
+          echo "  decoded size:    $(wc -c < "$CERT_PATH") bytes"
+          echo "  decoded sha256:  $(shasum -a 256 "$CERT_PATH" | awk '{print $1}')"
+          echo "  password length: ${#CSC_KEY_PASSWORD}"
+          echo "  expected size:   3332 bytes"
+          echo "  expected sha256: 3cce3768bc82dab6f7404fbe3796cd39d4a177c5f03c2e380686b29176843405"
+          echo "  expected pwdlen: 24"
+
+          # Pre-verify with openssl BEFORE security import.
+          # If openssl succeeds but security fails → macOS PKCS12 format issue.
+          # If openssl fails too → password or bytes are wrong.
+          if openssl pkcs12 -in "$CERT_PATH" -noout -password pass:"$CSC_KEY_PASSWORD" 2>/dev/null; then
+            echo "  openssl verify:  ✅ password + bytes OK"
+          else
+            echo "  openssl verify:  ❌ FAILED — password or bytes wrong"
+            echo ""
+            echo "Possible causes:"
+            echo "  1) APPLE_DEVELOPER_ID_P12_PASSWORD secret was pasted with"
+            echo "     extra whitespace or newline (expected length 24)"
+            echo "  2) APPLE_DEVELOPER_ID_P12_BASE64 secret was truncated or"
+            echo "     reformatted (expected decoded size 3332 bytes)"
+            exit 1
+          fi
+
           # Create, configure, unlock the keychain
           security create-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
