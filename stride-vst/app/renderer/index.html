@@ -93,15 +93,9 @@
             </div>
             <!-- Actions -->
             <div class="p-2 border-b border-white/5 flex flex-col gap-1.5">
-                <button onclick="scanMapped()" title="Read every parameter you've mapped in Ableton into the canvas as a lane" class="w-full text-[9px] text-fuchsia-400 bg-fuchsia-500/10 hover:bg-fuchsia-500/20 border border-fuchsia-500/20 hover:border-fuchsia-500/40 py-1.5 rounded-lg uppercase tracking-widest font-black transition-all flex flex-col items-center leading-tight">
-                    <span>Scan Mapped</span>
-                    <span class="text-[10px] text-zinc-400 font-medium tracking-normal normal-case mt-0.5">pull params from Ableton</span>
-                </button>
+                <button onclick="scanMapped()" title="Read every parameter you've mapped in Ableton into the canvas as a lane" class="w-full text-[9px] text-fuchsia-400 bg-fuchsia-500/10 hover:bg-fuchsia-500/20 border border-fuchsia-500/20 hover:border-fuchsia-500/40 py-1.5 rounded-lg uppercase tracking-widest font-black transition-all">Scan Mapped</button>
                 <input id="clip-name-input" type="text" placeholder="Clip name (optional)" class="w-full text-[9px] text-zinc-300 bg-zinc-800/50 border border-white/5 focus:border-emerald-500/40 rounded-lg px-2 py-1.5 outline-none font-medium placeholder-zinc-600 transition-all" />
-                <button onclick="applyToAbleton()" title="Creates a .alc file — drag it onto an empty clip slot in Ableton to apply the automation" class="w-full text-[9px] text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 py-1.5 rounded-lg uppercase tracking-widest font-black transition-all flex flex-col items-center leading-tight">
-                    <span>Apply to Clip</span>
-                    <span class="text-[10px] text-zinc-400 font-medium tracking-normal normal-case mt-0.5">creates .alc → drag to clip slot</span>
-                </button>
+                <button onclick="applyToAbleton()" title="Creates a .alc file — drag it onto an empty clip slot in Ableton to apply the automation" class="w-full text-[9px] text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 py-1.5 rounded-lg uppercase tracking-widest font-black transition-all">Apply to Clip</button>
                 <div class="flex gap-1.5 mt-1">
                     <button onclick="sdSaveSession()" class="flex-1 text-[9px] text-sky-400/80 bg-sky-500/5 hover:bg-sky-500/15 border border-sky-500/10 hover:border-sky-500/30 py-1 rounded-lg uppercase tracking-widest font-bold transition-all">Save Session</button>
                     <button onclick="sdShowSessions()" class="flex-1 text-[9px] text-sky-400/80 bg-sky-500/5 hover:bg-sky-500/15 border border-sky-500/10 hover:border-sky-500/30 py-1 rounded-lg uppercase tracking-widest font-bold transition-all">Load</button>
@@ -383,12 +377,14 @@
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                     Generate
                 </button>
+                <!-- Generative group: Chaos (origin) → Bloom / Weave (shape around active) -->
+                <div class="flex items-center gap-1.5 shrink-0 p-1 rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/[0.04]" title="Generative tools — Chaos fills lanes, then Bloom or Weave shape the rest around the selected parameter">
                 <button onclick="sdApplyGlobalChaos()" class="shrink-0 text-[9px] text-fuchsia-400 hover:text-white bg-transparent hover:bg-fuchsia-500/10 border border-fuchsia-500/50 hover:border-fuchsia-400 px-5 py-1 rounded-lg uppercase tracking-widest font-black transition-all flex flex-col items-center leading-tight">
                     <div class="flex items-center gap-1.5">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                         Chaos
                     </div>
-                    <span class="text-[10px] text-zinc-400 font-medium tracking-normal normal-case mt-0.5">random patterns</span>
+                    <span class="text-[9px] text-zinc-400 font-medium tracking-normal normal-case mt-0.5">random patterns</span>
                 </button>
                 <div class="relative shrink-0">
                     <button id="sd-bloom-btn" onclick="sdToggleBloom()" title="Bloom: shape the other lanes around the selected parameter" class="text-[9px] text-amber-400 hover:text-white bg-transparent hover:bg-amber-500/10 border border-amber-500/50 hover:border-amber-400 px-5 py-1 rounded-lg uppercase tracking-widest font-black transition-all flex flex-col items-center leading-tight">
@@ -396,7 +392,7 @@
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m-8-9H3m18 0h-1m-2.636-5.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m11.314 11.314l.707.707"/></svg>
                             Bloom
                         </div>
-                        <span class="text-[10px] text-zinc-400 font-medium tracking-normal normal-case mt-0.5">complement active</span>
+                        <span class="text-[9px] text-zinc-400 font-medium tracking-normal normal-case mt-0.5">complement active</span>
                     </button>
                     <div id="sd-bloom-popover" class="hidden fixed bg-zinc-900 border border-amber-500/30 rounded-xl p-4 w-64 shadow-2xl z-[9999]" style="top:50%;left:50%;transform:translate(-50%,-50%)">
                         <div class="text-[9px] text-amber-400 font-bold uppercase tracking-widest mb-3">Bloom from active lane</div>
@@ -420,7 +416,7 @@
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                             Weave
                         </div>
-                        <span class="text-[10px] text-zinc-400 font-medium tracking-normal normal-case mt-0.5">phase-shift lanes</span>
+                        <span class="text-[9px] text-zinc-400 font-medium tracking-normal normal-case mt-0.5">phase-shift lanes</span>
                     </button>
                     <div id="sd-weave-popover" class="hidden fixed bg-zinc-900 border border-cyan-500/30 rounded-xl p-4 w-64 shadow-2xl z-[9999]" style="top:50%;left:50%;transform:translate(-50%,-50%)">
                         <div class="text-[9px] text-cyan-400 font-bold uppercase tracking-widest mb-3">Weave from active lane</div>
@@ -442,13 +438,15 @@
                         </div>
                     </div>
                 </div>
+                </div><!-- /generative group -->
+                <div class="w-px h-7 bg-white/10 shrink-0"></div>
                 <!-- Presets -->
                 <button onclick="sdTogglePresets()" title="Preset bank: ready-made multi-lane patterns" class="text-[9px] text-rose-400 hover:text-white bg-transparent hover:bg-rose-500/10 border border-rose-500/50 hover:border-rose-400 px-5 py-1 rounded-lg uppercase tracking-widest font-black transition-all flex flex-col items-center leading-tight shrink-0">
                     <div class="flex items-center gap-1.5">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
                         Presets
                     </div>
-                    <span class="text-[10px] text-zinc-400 font-medium tracking-normal normal-case mt-0.5">ready-made patterns</span>
+                    <span class="text-[9px] text-zinc-400 font-medium tracking-normal normal-case mt-0.5">ready-made patterns</span>
                 </button>
             </div>
 
@@ -533,7 +531,7 @@
                 <div class="w-px h-4 bg-white/10"></div>
                 <button id="sd-mutate-btn" onclick="sdMutate()" title="Mutate: reshape the selected parameter's curve with a subtle variation" class="text-[9px] text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 px-2.5 py-0.5 rounded uppercase tracking-wider font-bold transition-colors shrink-0 flex flex-col items-center leading-tight">
                     <span>Mutate</span>
-                    <span class="text-[10px] text-zinc-400 font-medium tracking-normal normal-case mt-0">reshape active</span>
+                    <span class="text-[9px] text-zinc-400 font-medium tracking-normal normal-case mt-0">reshape active</span>
                 </button>
                 <button onclick="sdShuffleLanes()" title="Shuffle: randomly reassign curves to different params" class="text-[9px] text-violet-400 hover:text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 hover:border-violet-500/40 px-2.5 py-1 rounded uppercase font-bold transition-colors shrink-0 ml-auto">Shuffle</button>
                 <button id="sd-apply-all-toggle" onclick="sdToggleApplyAll()" title="When active, tools apply to ALL lanes" class="text-[9px] text-zinc-500 bg-black/50 border border-white/5 hover:border-fuchsia-500/30 px-2.5 py-1 rounded uppercase font-bold transition-colors shrink-0">All Lanes</button>
