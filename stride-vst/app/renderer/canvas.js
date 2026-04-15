@@ -46,12 +46,12 @@
 
     // ─── MULTI-LANE VIEW ─────────────────────────────────
     // Stride has two canvas view modes:
-    //   'focus' = one active lane fills the full canvas height (default, original)
     //   'multi' = every parameter gets its own horizontal strip stacked
-    //             vertically. Lets the user see how the rack modulates
-    //             coherently across all params at once. Scroll to reach
-    //             lanes that don't fit.
-    let sdViewMode = 'focus';
+    //             vertically. Default — teaches the tool's purpose
+    //             instantly (you see the whole rack modulating at once).
+    //   'focus' = one active lane fills the full canvas height. Better
+    //             for precise per-lane editing. One click away.
+    let sdViewMode = 'multi';
     let sdMultiScrollOffset = 0;              // # of lanes scrolled off the top
     const SD_MULTI_LANE_HEIGHT = 64;          // px per lane in multi view
     const SD_MULTI_LABEL_WIDTH = 120;         // px reserved on the left for the param name
@@ -1296,17 +1296,43 @@
         if (!ruler) return;
         const bars = sdGetBars(); const totalBeats = bars * 4; const rw = ruler.offsetWidth;
         const sel = sdGetSelection();
+        // In multi-lane view the grid lives inside the right-hand side of
+        // the canvas — the left SD_MULTI_LABEL_WIDTH pixels are reserved
+        // for param names. The ruler must match that offset so bar 1
+        // sits above the actual start of the grid, not above the labels.
+        const xOff = sdViewMode === 'multi' ? SD_MULTI_LABEL_WIDTH : 0;
+        const drawW = Math.max(1, rw - xOff);
+        const timeToRulerX = (beat) => xOff + ((beat / totalBeats) * drawW * sdViewZoomX) - sdViewPanX;
         let html = '';
+        // Label-column background so the ruler visually continues the
+        // canvas's own label column
+        if (xOff > 0) {
+            html += `<div class="absolute top-0 bottom-0 left-0 bg-black/40 border-r border-white/10" style="width:${xOff}px;"></div>`;
+        }
         if (sel) {
-            const sx = ((sel.startBeat / totalBeats) * rw * sdViewZoomX) - sdViewPanX;
-            const ex = ((sel.endBeat / totalBeats) * rw * sdViewZoomX) - sdViewPanX;
-            html += `<div class="absolute top-0 bottom-0 bg-fuchsia-500/20 border-l border-r border-fuchsia-400/50" style="left:${Math.max(0, sx)}px;width:${Math.min(rw, ex) - Math.max(0, sx)}px;"></div>`;
+            const sx = timeToRulerX(sel.startBeat);
+            const ex = timeToRulerX(sel.endBeat);
+            const clampedLeft = Math.max(xOff, sx);
+            const clampedRight = Math.min(rw, ex);
+            if (clampedRight > clampedLeft) {
+                html += `<div class="absolute top-0 bottom-0 bg-fuchsia-500/20 border-l border-r border-fuchsia-400/50" style="left:${clampedLeft}px;width:${clampedRight - clampedLeft}px;"></div>`;
+            }
         }
         for (let bar = 0; bar < bars; bar++) {
-            const beat = bar * 4; const x = ((beat / totalBeats) * rw * sdViewZoomX) - sdViewPanX;
-            if (x >= -40 && x <= rw + 40) html += `<span class="absolute text-[8px] font-bold text-zinc-400 select-none pointer-events-none" style="left:${x + 4}px;top:3px;">${bar + 1}</span>`;
-            for (let b = 1; b < 4; b++) { const bx = (((beat + b) / totalBeats) * rw * sdViewZoomX) - sdViewPanX; if (bx >= 0 && bx <= rw) html += `<div class="absolute top-3 w-px h-1.5 bg-white/10" style="left:${bx}px;"></div>`; }
-            if (x >= 0 && x <= rw) html += `<div class="absolute top-1 w-px h-3.5 bg-white/20" style="left:${x}px;"></div>`;
+            const beat = bar * 4;
+            const x = timeToRulerX(beat);
+            if (x >= xOff - 40 && x <= rw + 40) {
+                html += `<span class="absolute text-[8px] font-bold text-zinc-400 select-none pointer-events-none" style="left:${x + 4}px;top:3px;">${bar + 1}</span>`;
+            }
+            for (let b = 1; b < 4; b++) {
+                const bx = timeToRulerX(beat + b);
+                if (bx >= xOff && bx <= rw) {
+                    html += `<div class="absolute top-3 w-px h-1.5 bg-white/10" style="left:${bx}px;"></div>`;
+                }
+            }
+            if (x >= xOff && x <= rw) {
+                html += `<div class="absolute top-1 w-px h-3.5 bg-white/20" style="left:${x}px;"></div>`;
+            }
         }
         ruler.innerHTML = html;
     }
@@ -1318,19 +1344,27 @@
         if (!ruler) return;
         function beatFromX(clientX) {
             const rect = ruler.getBoundingClientRect();
-            const x = clientX - rect.left;
+            const xOff = sdViewMode === 'multi' ? SD_MULTI_LABEL_WIDTH : 0;
+            const drawW = Math.max(1, rect.width - xOff);
+            const x = clientX - rect.left - xOff;
             const bars = sdGetBars(); const totalBeats = bars * 4;
-            const beat = ((x + sdViewPanX) / (rect.width * sdViewZoomX)) * totalBeats;
+            const beat = ((x + sdViewPanX) / (drawW * sdViewZoomX)) * totalBeats;
             return Math.max(0, Math.min(totalBeats, Math.round(beat)));
         }
         ruler.addEventListener('mousedown', e => {
+            // Ignore clicks on the label column (only valid above the grid)
+            const r0 = ruler.getBoundingClientRect();
+            const xOff0 = sdViewMode === 'multi' ? SD_MULTI_LABEL_WIDTH : 0;
+            if ((e.clientX - r0.left) < xOff0) return;
             const beat = beatFromX(e.clientX);
             const sel = sdGetSelection();
             if (sel) {
                 const rect = ruler.getBoundingClientRect();
-                const rw = rect.width; const bars = sdGetBars(); const totalBeats = bars * 4;
-                const sxPx = ((sel.startBeat / totalBeats) * rw * sdViewZoomX) - sdViewPanX;
-                const exPx = ((sel.endBeat / totalBeats) * rw * sdViewZoomX) - sdViewPanX;
+                const xOff = sdViewMode === 'multi' ? SD_MULTI_LABEL_WIDTH : 0;
+                const drawW = Math.max(1, rect.width - xOff);
+                const bars = sdGetBars(); const totalBeats = bars * 4;
+                const sxPx = xOff + ((sel.startBeat / totalBeats) * drawW * sdViewZoomX) - sdViewPanX;
+                const exPx = xOff + ((sel.endBeat / totalBeats) * drawW * sdViewZoomX) - sdViewPanX;
                 const mx = e.clientX - rect.left;
                 if (Math.abs(mx - sxPx) < 8) { sdSelectionDragEdge = 'start'; sdIsSelectingRegion = true; return; }
                 if (Math.abs(mx - exPx) < 8) { sdSelectionDragEdge = 'end'; sdIsSelectingRegion = true; return; }
