@@ -42,7 +42,10 @@ npm install --omit=dev 2>&1 | tail -5
 echo ""
 echo "[2/4] Running electron-builder (signs + notarizes + staples)..."
 cd "$APP_DIR"
-npx electron-builder --mac --arm64 2>&1
+# --publish=never: electron-builder auto-detects CI and tries to upload to a
+# GitHub draft release. Without GH_TOKEN it can hang mid-build waiting on a
+# network call that never returns. We upload artifacts via actions/upload.
+npx electron-builder --mac --arm64 --publish=never 2>&1
 
 # Locate the output .app — electron-builder puts it in dist/mac-arm64/
 MAC_OUT=""
@@ -124,10 +127,15 @@ cat > "$DIST/Stride/README.txt" << 'READMEEOF'
  INSTALL
 ---------------------------------------------------------------
 
-1. Drag Stride.app into your /Applications folder
-2. Double-click to launch - signed with an Apple Developer ID
-   and notarized by Apple, no security bypass required.
-3. Paste your license key when prompted
+1. Drag Stride.app into your /Applications folder.
+2. Keep the M4L/ folder and the Guide/ folder next to
+   Stride.app (or anywhere you like - the M4L device finds
+   the app either next to itself or in /Applications).
+3. You don't launch Stride manually. Drag StrideLink.amxd
+   onto a track in Ableton, click "Open Canvas" on the
+   device - Stride launches and asks for your license key.
+   Paste it there and you're in. Signed with an Apple
+   Developer ID and notarized by Apple, no security bypass.
 4. Requirements: Ableton Live 11+ Suite (or Standard + M4L),
    Python 3 (usually preinstalled, or: brew install python3),
    macOS 11 (Big Sur) or later
@@ -145,7 +153,8 @@ cat > "$DIST/Stride/README.txt" << 'READMEEOF'
     (You only do this ONCE per rack. Change devices -> drag again.)
  4. Drag StrideLink.amxd (from the M4L/ folder in this zip)
     onto the same track.
- 5. Launch Stride.app. Click "Scan Mapped" in the sidebar.
+ 5. On StrideLink, click "Open Canvas" - Stride launches (or
+    focuses if it's already open). Click "Scan Mapped".
  6. The canvas fills with one lane per mapped parameter.
  7. Either draw by hand OR smash one of the Presets / Chaos /
     Bloom / Weave buttons. Start with a preset.
@@ -189,7 +198,7 @@ cat > "$DIST/Stride/README.txt" << 'READMEEOF'
 Canvas says "Disconnected"
   -> StrideLink.amxd got reloaded. In Ableton, right-click
      StrideLink -> Delete -> drag it back onto the track.
-  -> Close and reopen Stride.app.
+  -> Click "Open Canvas" on the device again.
 
 ---------------------------------------------------------------
  SUPPORT
