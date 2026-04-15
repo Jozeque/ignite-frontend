@@ -40,17 +40,33 @@ exports.default = async function afterSign(context) {
     const appName = packager.appInfo.productFilename;
     const appPath = path.join(appOutDir, `${appName}.app`);
 
-    console.log(`  [notarize] submitting ${appPath} to Apple...`);
+    // Force unbuffered stdout — GitHub Actions sometimes holds back
+    // node's console.log output mid-step, making it look like we're
+    // hung when we're really just waiting on Apple.
+    const log = (msg) => { process.stdout.write(`  [notarize] ${msg}\n`); };
+
+    log(`submitting ${appPath} to Apple...`);
+    log(`apple-id=${process.env.APPLE_ID}  team-id=${process.env.APPLE_TEAM_ID}`);
     const startedAt = Date.now();
 
-    await notarize({
-        tool: 'notarytool',
-        appPath,
-        appleId: process.env.APPLE_ID,
-        appleIdPassword: process.env.APPLE_APP_SPECIFIC_PASSWORD,
-        teamId: process.env.APPLE_TEAM_ID,
-    });
+    // Heartbeat every 30s so we can see the wait is alive
+    const heartbeat = setInterval(() => {
+        const secs = Math.round((Date.now() - startedAt) / 1000);
+        log(`still waiting on Apple... (${secs}s elapsed)`);
+    }, 30_000);
+
+    try {
+        await notarize({
+            tool: 'notarytool',
+            appPath,
+            appleId: process.env.APPLE_ID,
+            appleIdPassword: process.env.APPLE_APP_SPECIFIC_PASSWORD,
+            teamId: process.env.APPLE_TEAM_ID,
+        });
+    } finally {
+        clearInterval(heartbeat);
+    }
 
     const secs = Math.round((Date.now() - startedAt) / 1000);
-    console.log(`  [notarize] done in ${secs}s — ticket stapled ✅`);
+    log(`done in ${secs}s — ticket stapled ✅`);
 };
