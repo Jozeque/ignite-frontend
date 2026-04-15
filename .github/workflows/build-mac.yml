@@ -52,6 +52,9 @@ jobs:
           # signing_temp keychain with partition-list pre-authorized. Do NOT
           # pass CSC_LINK here or electron-builder creates ANOTHER keychain.
           CSC_IDENTITY_AUTO_DISCOVERY: 'true'
+          # Verbose logging — prints each codesign invocation so we can see
+          # which nested binary is causing the hang (if any).
+          DEBUG: 'electron-osx-sign*,electron-builder'
           # afterSign hook (build/notarize.js) reads these to notarize:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
