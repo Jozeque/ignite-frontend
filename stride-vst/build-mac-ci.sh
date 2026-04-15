@@ -34,33 +34,110 @@ cd "$M4L_DIR/node"
 rm -rf node_modules
 npm install --omit=dev 2>&1 | tail -5
 
-# ─── Step 2a: electron-builder (build + sign only — NO notarize hook) ─
-# electron-builder reads from the pre-configured keychain (set up by
-# apple-actions/import-codesign-certs) to sign the .app + helper apps +
-# frameworks. We removed the afterSign hook from package.json because
-# @electron/notarize was silently hanging after "Application signed" with
-# zero output. We'll notarize manually below using xcrun notarytool.
+# ─── Step 2a: @electron/packager — build the unsigned .app ─
+# We deliberately DO NOT use electron-builder on macOS. Every time we
+# did, it completed the sign step with "Application signed" and then
+# hung forever with zero output — with and without the afterSign
+# hook, with and without --publish=never. Possibly a node/signal
+# plumbing bug in electron-builder@25 on macos-14 arm64.
+# @electron/packager is simpler and well-behaved: it just builds the
+# .app bundle and exits. We sign + notarize + staple manually below.
 echo ""
-echo "[2a/4] Running electron-builder (sign only, no notarize)..."
+echo "[2a/4] Running @electron/packager (unsigned .app build)..."
 cd "$APP_DIR"
-npx electron-builder --mac --arm64 --publish=never 2>&1
+rm -rf dist
 
-# Locate the output .app — electron-builder puts it in dist/mac-arm64/
-MAC_OUT=""
-for candidate in dist/mac-arm64 dist/mac dist/mac-universal; do
-    if [ -d "$candidate/Stride.app" ]; then
-        MAC_OUT="$APP_DIR/$candidate"
-        break
-    fi
-done
-if [ -z "$MAC_OUT" ]; then
-    echo "❌ Stride.app not found after electron-builder. dist/ contents:"
+# packager flags:
+#   .                 source directory (app/)
+#   Stride            product name → Stride.app
+#   --platform=darwin macOS target
+#   --arch=arm64      Apple Silicon native
+#   --out=dist        output dir
+#   --asar            bundle JS into app.asar
+#   --overwrite       replace existing output
+#   --ignore          skip dist/ in source to avoid recursive inclusion
+#   --prune=true      strip devDependencies from bundled node_modules
+stdbuf -oL -eL npx --yes @electron/packager . Stride \
+    --platform=darwin \
+    --arch=arm64 \
+    --out=dist \
+    --asar \
+    --overwrite \
+    --app-bundle-id=io.stridehub.canvas \
+    --app-category-type=public.app-category.music \
+    --app-version="${VERSION}" \
+    --build-version="${VERSION}" \
+    --ignore="^/dist($|/)" \
+    --prune=true 2>&1 | tail -30
+
+# packager writes to dist/Stride-darwin-arm64/Stride.app
+MAC_OUT="$APP_DIR/dist/Stride-darwin-arm64"
+if [ ! -d "$MAC_OUT/Stride.app" ]; then
+    echo "❌ Stride.app not found after packager. dist/ contents:"
     find dist -maxdepth 3 -type d
     exit 1
 fi
 echo "      Stride.app built at $MAC_OUT"
 
-# Verify the signature is valid BEFORE notarizing
+# Verify .app bundle structure — fail fast if anything critical is missing
+for rel in "Stride.app/Contents/Info.plist" \
+           "Stride.app/Contents/MacOS/Stride" \
+           "Stride.app/Contents/Resources/app.asar" \
+           "Stride.app/Contents/Frameworks/Electron Framework.framework"; do
+    if [ ! -e "$MAC_OUT/$rel" ]; then
+        echo "❌ .app bundle is broken — missing $rel"
+        exit 1
+    fi
+done
+echo "      ✅ .app bundle structure verified"
+
+# ─── Step 2b: Sign the .app with @electron/osx-sign (direct library call) ─
+# We call @electron/osx-sign as a node library here instead of going through
+# electron-builder. The osx-sign output we saw earlier always completed
+# cleanly — the hang was ALWAYS in electron-builder's wrapper code after
+# osx-sign returned. Cutting electron-builder out of the picture removes
+# that failure mode entirely.
+#
+# @electron/osx-sign is already installed as a transitive dep of
+# electron-builder (via npm ci), so it's available in node_modules.
+echo ""
+echo "[2b/4] Signing .app with @electron/osx-sign..."
+
+# Identity string we already verified in the "Verify signing identity is
+# present" workflow step. The apple-actions/import-codesign-certs action
+# imported the cert into a keychain that codesign can find automatically.
+IDENTITY="Developer ID Application: Yossi Bozo (B3Y92NHRMC)"
+ENTITLEMENTS="$APP_DIR/build/entitlements.mac.plist"
+
+stdbuf -oL -eL node -e "
+const { signAsync } = require('@electron/osx-sign');
+(async () => {
+  const log = (msg) => process.stdout.write('  [sign] ' + msg + '\n');
+  log('start');
+  try {
+    await signAsync({
+      app: '$MAC_OUT/Stride.app',
+      identity: '$IDENTITY',
+      hardenedRuntime: true,
+      entitlements: '$ENTITLEMENTS',
+      entitlementsInherit: '$ENTITLEMENTS',
+      platform: 'darwin',
+      type: 'distribution',
+      gatekeeperAssess: false,
+      optionsForFile: () => ({
+        hardenedRuntime: true,
+        entitlements: '$ENTITLEMENTS',
+      }),
+    });
+    log('signed OK');
+    process.exit(0);
+  } catch (e) {
+    log('FAILED: ' + (e && e.message || e));
+    process.exit(1);
+  }
+})();
+" 2>&1
+
 echo "      Verifying codesign signature..."
 codesign --verify --deep --strict --verbose=2 "$MAC_OUT/Stride.app" 2>&1 || {
     echo "❌ Signature verification failed"
@@ -68,20 +145,16 @@ codesign --verify --deep --strict --verbose=2 "$MAC_OUT/Stride.app" 2>&1 || {
 }
 echo "      ✅ Signed cleanly"
 
-# ─── Step 2b: Manual notarization via xcrun notarytool ─
-# We zip the .app into a temp archive, submit it, wait for Apple's verdict,
-# then staple the ticket onto the .app. notarytool --wait blocks until done
-# but prints its own progress — no silent hang like @electron/notarize did.
+# ─── Step 2c: Manual notarization via xcrun notarytool ─
+# Zip the signed .app, submit it to Apple, wait for verdict, staple.
+# stdbuf forces line-buffered output so we see notarytool's progress.
 echo ""
-echo "[2b/4] Submitting to Apple notarization..."
+echo "[2c/4] Submitting to Apple notarization..."
 NOTARIZE_ZIP="$APP_DIR/dist/Stride-for-notarize.zip"
 rm -f "$NOTARIZE_ZIP"
 ditto -c -k --keepParent "$MAC_OUT/Stride.app" "$NOTARIZE_ZIP"
-echo "      Uploading $NOTARIZE_ZIP to Apple (this can take 2-15 min)..."
+echo "      Zip ready ($(du -h "$NOTARIZE_ZIP" | cut -f1)) — uploading to Apple..."
 
-# Run notarytool with output unbuffered (stdbuf forces line-buffered writes)
-# so we see progress in real time instead of waiting for the subprocess to
-# flush at the end.
 stdbuf -oL -eL xcrun notarytool submit "$NOTARIZE_ZIP" \
     --apple-id "$APPLE_ID" \
     --password "$APPLE_APP_SPECIFIC_PASSWORD" \
@@ -93,8 +166,6 @@ rm -f "$NOTARIZE_ZIP"
 
 if [ "$NOTARIZE_STATUS" -ne 0 ]; then
     echo "❌ notarytool submit failed (exit $NOTARIZE_STATUS)"
-    echo "--- notarize log ---"
-    cat "$APP_DIR/dist/notarize.log" || true
     exit 1
 fi
 
@@ -105,9 +176,6 @@ xcrun stapler staple "$MAC_OUT/Stride.app" 2>&1 || {
     echo "❌ Stapler failed"
     exit 1
 }
-echo "      ✅ Stapled"
-
-echo "      Final verification..."
 xcrun stapler validate "$MAC_OUT/Stride.app" 2>&1 || {
     echo "⚠  Stapler validate failed — may need to rerun workflow"
 }
