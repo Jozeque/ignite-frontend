@@ -1584,10 +1584,16 @@
         sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
     };
     window.sdClearCurrentCanvas = function() {
-        if (!sdActiveParamId) return;
+        const sel = sdGetSelection();
+        const targets = sdApplyAllMode
+            ? sdCanvasParams
+            : (sdActiveParamId ? [sdCanvasParams.find(p => p.envelopeId === sdActiveParamId)].filter(Boolean) : []);
+        if (!targets.length) return;
         pushUndo();
-        const param = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId); const sel = sdGetSelection();
-        if (sel) param.points = param.points.filter(pt => pt.time < sel.startBeat || pt.time > sel.endBeat); else param.points = [];
+        targets.forEach(param => {
+            if (sel) param.points = param.points.filter(pt => pt.time < sel.startBeat || pt.time > sel.endBeat);
+            else param.points = [];
+        });
         sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
     };
     window.sdToggleApplyAll = function() {

@@ -242,8 +242,10 @@ cat > "$DIST/Stride/README.txt" << 'READMEEOF'
 ---------------------------------------------------------------
 
 1. Unzip, move Stride.app to /Applications
-2. Do the xattr -cr step above ONCE
-3. Double-click Stride.app - paste your license key when asked
+2. Do the xattr -cr step above ONCE (see FIRST-LAUNCH section)
+3. You don't launch Stride manually. Drag StrideLink.amxd
+   onto a track in Ableton, click "Open Canvas" on the
+   device - Stride launches and asks for your license key.
 4. Requirements: Ableton Live 11+ Suite (or Standard + M4L),
    Python 3 (usually preinstalled, or: brew install python3),
    macOS 11 (Big Sur) or later
@@ -261,7 +263,8 @@ cat > "$DIST/Stride/README.txt" << 'READMEEOF'
     (You only do this ONCE per rack. Change devices -> drag again.)
  4. Drag StrideLink.amxd (from the M4L/ folder in this zip)
     onto the same track.
- 5. Launch Stride.app. Click "Scan Mapped" in the sidebar.
+ 5. On StrideLink, click "Open Canvas" - Stride launches (or
+    focuses if it's already open). Click "Scan Mapped".
  6. The canvas fills with one lane per mapped parameter.
  7. Either draw by hand OR smash one of the Presets / Chaos /
     Bloom / Weave buttons. Start with a preset.
@@ -281,6 +284,12 @@ cat > "$DIST/Stride/README.txt" << 'READMEEOF'
   hit Chaos -> Apply to Clip -> Chaos -> Apply to Clip -> ...
   Each Apply creates a new .alc with different curves.
   Audition them all against your track and pick the keeper.
+
+* ANCHOR + COMPLEMENT: hit Chaos, find the single curve you
+  love the most, click that lane to make it active, then hit
+  Bloom (or Weave) - the rest of the lanes rearrange to
+  complement your anchor curve instead of fighting it.
+  This is the fastest way to a cohesive modulation pattern.
 
 * ADJUST MASTER BPM while auditioning .alc variations - the
   same curves feel radically different at 120 vs 140 BPM.
@@ -305,7 +314,7 @@ cat > "$DIST/Stride/README.txt" << 'READMEEOF'
 Canvas says "Disconnected"
   -> StrideLink.amxd got reloaded. In Ableton, right-click
      StrideLink -> Delete -> drag it back onto the track.
-  -> Close and reopen Stride.app.
+  -> Click "Open Canvas" on the device again.
 
 ---------------------------------------------------------------
  SUPPORT

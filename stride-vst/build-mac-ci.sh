@@ -281,6 +281,12 @@ cat > "$DIST/Stride/README.txt" << 'READMEEOF'
   Each Apply creates a new .alc with different curves.
   Audition them all against your track and pick the keeper.
 
+* ANCHOR + COMPLEMENT: hit Chaos, find the single curve you
+  love the most, click that lane to make it active, then hit
+  Bloom (or Weave) - the rest of the lanes rearrange to
+  complement your anchor curve instead of fighting it.
+  This is the fastest way to a cohesive modulation pattern.
+
 * ADJUST MASTER BPM while auditioning .alc variations - the
   same curves feel radically different at 120 vs 140 BPM.
   Some sweet spots only reveal themselves at specific tempos.

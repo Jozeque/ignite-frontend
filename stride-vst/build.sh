@@ -144,8 +144,14 @@ cat > "$DIST/Stride/README.txt" << 'READMEEOF'
  INSTALL
 ---------------------------------------------------------------
 
-1. Unzip Stride_v1.0.0_Windows.zip anywhere you like
-2. Run Stride.exe - paste your license key when asked
+1. Unzip Stride_v1.0.0_Windows.zip anywhere you like.
+   Keep Stride.exe, the M4L/ folder, and the Guide/ folder all
+   sitting next to each other - the M4L device launches Stride
+   by looking right next to itself.
+2. You don't run anything manually the first time. Drag
+   StrideLink.amxd onto a track in Ableton, click "Open Canvas"
+   on the device - Stride will launch and ask for your license
+   key. Paste it there and you're in.
 3. Requirements: Ableton Live 11+ Suite (or Standard + M4L),
    Python 3 (python.org), Windows 10 or 11
 
@@ -162,7 +168,8 @@ cat > "$DIST/Stride/README.txt" << 'READMEEOF'
     (You only do this ONCE per rack. Change devices -> drag again.)
  4. Drag StrideLink.amxd (from the M4L/ folder in this zip)
     onto the same track.
- 5. Launch Stride.exe. Click "Scan Mapped" in the sidebar.
+ 5. On StrideLink, click "Open Canvas" - Stride launches (or
+    focuses if it's already open). Click "Scan Mapped".
  6. The canvas fills with one lane per mapped parameter.
  7. Either draw by hand OR smash one of the Presets / Chaos /
     Bloom / Weave buttons. Start with a preset.
@@ -182,6 +189,12 @@ cat > "$DIST/Stride/README.txt" << 'READMEEOF'
   hit Chaos -> Apply to Clip -> Chaos -> Apply to Clip -> ...
   Each Apply creates a new .alc with different curves.
   Audition them all against your track and pick the keeper.
+
+* ANCHOR + COMPLEMENT: hit Chaos, find the single curve you
+  love the most, click that lane to make it active, then hit
+  Bloom (or Weave) - the rest of the lanes rearrange to
+  complement your anchor curve instead of fighting it.
+  This is the fastest way to a cohesive modulation pattern.
 
 * ADJUST MASTER BPM while auditioning .alc variations - the
   same curves feel radically different at 120 vs 140 BPM.
@@ -206,7 +219,7 @@ cat > "$DIST/Stride/README.txt" << 'READMEEOF'
 Canvas says "Disconnected"
   -> StrideLink.amxd got reloaded. In Ableton, right-click
      StrideLink -> Delete -> drag it back onto the track.
-  -> Close and reopen Stride.exe.
+  -> Click "Open Canvas" on the device again.
 
 ---------------------------------------------------------------
  SUPPORT
