@@ -341,6 +341,11 @@
         } else {
             status.textContent = `${msg.filename} saved — drag it onto your clip slot`;
             status.style.color = '#4ade80';
+            // Pop the bottom-right success toast (3s, X to close, click Open
+            // folder to re-reveal the file). Does not replace the Explorer
+            // window that server.js already opens — this is just a second
+            // chance in case the user closed it.
+            _showApplyToast(msg.filename, msg.filePath);
         }
         setTimeout(() => { status.style.color = ''; }, 8000);
     });
@@ -506,6 +511,60 @@
                 setTimeout(() => toast.remove(), 300);
             }
         }, 4000);
+    }
+
+    // ─── APPLY-TO-CLIP SUCCESS TOAST ─────────────────────────
+    // Bottom-right toast that confirms .alc generation. Auto-fades after 3s
+    // (with hover-to-pause) and has an explicit close (X) button. The
+    // "Open folder" button re-reveals the generated .alc in Explorer/Finder
+    // (server.js already opens it on Apply, this is a second chance if the
+    // user dismissed the window). Multiple rapid Apply clicks reset the timer
+    // cleanly — no visual flicker.
+    let _sdApplyToastTimer = null;
+    function _showApplyToast(filename, filePath) {
+        const toast = document.getElementById('sd-apply-toast');
+        if (!toast) return;
+        const msgEl = document.getElementById('sd-apply-toast-msg');
+        const openBtn = document.getElementById('sd-apply-toast-open-btn');
+        const closeBtn = document.getElementById('sd-apply-toast-close');
+
+        // Wire up button actions fresh each time (overwrites prior handlers)
+        if (msgEl) msgEl.textContent = filename ? `Drag ${filename} onto your clip slot.` : 'Drag it onto your clip slot.';
+
+        openBtn.onclick = async (e) => {
+            e.stopPropagation();
+            try {
+                if (filePath && window.stride && window.stride.revealInFolder) {
+                    await window.stride.revealInFolder(filePath);
+                }
+            } catch (err) { /* silent — fall back to doing nothing */ }
+        };
+
+        closeBtn.onclick = () => {
+            toast.classList.add('hidden');
+            if (_sdApplyToastTimer) { clearTimeout(_sdApplyToastTimer); _sdApplyToastTimer = null; }
+        };
+
+        // Hover pauses the auto-fade, mouse-leave resumes it
+        toast.onmouseenter = () => {
+            if (_sdApplyToastTimer) { clearTimeout(_sdApplyToastTimer); _sdApplyToastTimer = null; }
+        };
+        toast.onmouseleave = () => {
+            if (!_sdApplyToastTimer) {
+                _sdApplyToastTimer = setTimeout(() => {
+                    toast.classList.add('hidden');
+                    _sdApplyToastTimer = null;
+                }, 1500);
+            }
+        };
+
+        // Show, and (re)arm the 3-second auto-dismiss
+        toast.classList.remove('hidden');
+        if (_sdApplyToastTimer) clearTimeout(_sdApplyToastTimer);
+        _sdApplyToastTimer = setTimeout(() => {
+            toast.classList.add('hidden');
+            _sdApplyToastTimer = null;
+        }, 3000);
     }
 
     // ─── TEMPLATE IMPORT ─────────────────────────────────────
@@ -728,6 +787,19 @@
         sdDrawCanvasGrid();
     }
 
+    // ─── EMPTY-CANVAS CTA ─────────────────────────────────
+    // Shows a centered "No lanes yet — press Scan Mapped" card inside the
+    // canvas area when sdCanvasParams is empty. Called whenever the param
+    // list changes (scan results, session load, clear lane, etc).
+    function sdUpdateEmptyState() {
+        try {
+            const cta = document.getElementById('sd-empty-canvas-cta');
+            if (!cta) return;
+            const empty = !sdCanvasParams || sdCanvasParams.length === 0;
+            cta.classList.toggle('hidden', !empty);
+        } catch (e) { /* DOM not ready — will be called again after */ }
+    }
+
     // ─── SIDEBAR ──────────────────────────────────────────
 
     function sdRenderSidebar() {
@@ -759,6 +831,9 @@
                 </div>
             </button>`;
         }).join('');
+
+        // Keep the empty-canvas CTA in sync with the param list
+        sdUpdateEmptyState();
     }
 
     window.sdSetActiveParam = function(id) {
@@ -3860,10 +3935,95 @@
         }
     })();
 
+    // ─── FIRST-RUN WELCOME ────────────────────────────────
+    // Shows a welcome card with two options on the very first launch:
+    //  - "Watch the 3-min intro" → opens the Guide folder in Explorer/Finder
+    //  - "Skip"                   → dismisses immediately
+    // Either way, marks first_run_done=true in settings.json so the overlay
+    // never shows again. Fails GRACEFULLY — if settings.json can't be read
+    // or the IPC is missing, the overlay just doesn't appear (user still
+    // reaches the canvas, no dead-end state).
+    async function sdCheckFirstRun() {
+        try {
+            if (!window.stride || typeof window.stride.loadSettings !== 'function') return;
+            const result = await window.stride.loadSettings();
+            const settings = (result && result.success && result.settings) || {};
+            if (!settings.first_run_done) {
+                const overlay = document.getElementById('sd-welcome-overlay');
+                if (overlay) overlay.classList.remove('hidden');
+            }
+        } catch (e) {
+            console.warn('First-run check failed (non-fatal):', e);
+        }
+    }
+
+    async function sdMarkFirstRunDone() {
+        // Always hide the overlay first, even if the save fails — we never
+        // want a user stuck staring at the welcome card because of a
+        // background settings-write error.
+        const overlay = document.getElementById('sd-welcome-overlay');
+        if (overlay) overlay.classList.add('hidden');
+        try {
+            if (!window.stride || typeof window.stride.saveSettings !== 'function') return;
+            const result = await window.stride.loadSettings();
+            const settings = (result && result.success && result.settings) || {};
+            settings.first_run_done = true;
+            await window.stride.saveSettings(settings);
+        } catch (e) {
+            console.warn('Mark first-run done failed (non-fatal):', e);
+        }
+    }
+
+    function sdWireWelcomeButtons() {
+        const overlay = document.getElementById('sd-welcome-overlay');
+        const videosBtn = document.getElementById('sd-welcome-videos-btn');
+        const skipBtn = document.getElementById('sd-welcome-skip-btn');
+        if (videosBtn) {
+            videosBtn.addEventListener('click', async () => {
+                // Try to open the Guide folder — non-blocking, don't let
+                // a folder-open failure trap the user on the welcome screen
+                try {
+                    if (window.stride && window.stride.openGuideFolder) {
+                        await window.stride.openGuideFolder();
+                    }
+                } catch (e) { /* silent */ }
+                sdMarkFirstRunDone();
+            });
+        }
+        if (skipBtn) {
+            skipBtn.addEventListener('click', sdMarkFirstRunDone);
+        }
+        // Escape hatches so the user can NEVER be trapped on this screen:
+        //   - click outside the card (on the dim backdrop)
+        //   - press Escape
+        if (overlay) {
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) sdMarkFirstRunDone();
+            });
+        }
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && overlay && !overlay.classList.contains('hidden')) {
+                sdMarkFirstRunDone();
+            }
+        });
+    }
+
+    // Expose sdCheckFirstRun globally so index.html's unlockApp() can call
+    // it after the license activation overlay is removed. This ensures the
+    // welcome overlay NEVER stacks on top of the license screen — it only
+    // appears after the app has been unlocked.
+    window.sdCheckFirstRun = sdCheckFirstRun;
+
     // Init canvas immediately (no need to wait for rack scan — grid shows empty)
     document.addEventListener('DOMContentLoaded', () => {
         initSdCanvas();
         setTimeout(() => sdResizeCanvas(), 100);
+        // Wire welcome buttons immediately (so clicks work when the welcome
+        // overlay eventually appears), and paint the empty-canvas CTA. We
+        // DO NOT call sdCheckFirstRun here — that's triggered by unlockApp()
+        // in index.html after the license screen dismisses.
+        sdWireWelcomeButtons();
+        sdUpdateEmptyState();
     });
 
 })();

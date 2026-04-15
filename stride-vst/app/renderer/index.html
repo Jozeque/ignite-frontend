@@ -307,6 +307,38 @@
             </div>
         </div>
 
+        <!-- First-run Welcome Overlay (shown once on first launch) -->
+        <div id="sd-welcome-overlay" class="hidden fixed inset-0 bg-black/85 backdrop-blur-md z-[10000] flex items-center justify-center">
+            <div class="bg-zinc-900 border border-fuchsia-500/30 rounded-2xl p-7 max-w-md w-full mx-6 flex flex-col gap-5 shadow-2xl">
+                <div class="flex items-center gap-4">
+                    <div class="shrink-0 w-14 h-14 rounded-xl bg-gradient-to-br from-orange-500/25 to-fuchsia-500/25 border border-fuchsia-500/40 flex items-center justify-center">
+                        <svg class="w-7 h-7 text-fuchsia-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h1 class="text-xl font-black tracking-tight bg-gradient-to-r from-orange-400 via-fuchsia-400 to-orange-400 bg-clip-text text-transparent">Welcome to Stride</h1>
+                        <p class="text-[9px] text-zinc-500 uppercase tracking-[0.2em] font-black mt-1">Your racks, reborn.</p>
+                    </div>
+                </div>
+                <p class="text-[11px] text-zinc-300 leading-relaxed">
+                    Stride turns your Ableton racks into modulation playgrounds. Before you dive in — there are two short videos in the <span class="text-fuchsia-400 font-bold">Guide</span> folder. Three minutes total. Watching them first will save you hours.
+                </p>
+                <div class="flex flex-col gap-2">
+                    <button id="sd-welcome-videos-btn" class="w-full text-[11px] text-zinc-100 bg-fuchsia-500/15 hover:bg-fuchsia-500/25 border border-fuchsia-500/40 hover:border-fuchsia-500/60 py-3 rounded-xl uppercase tracking-widest font-black transition-all flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        Watch the 3-min intro
+                    </button>
+                    <button id="sd-welcome-skip-btn" class="w-full text-[10px] text-zinc-500 hover:text-zinc-300 py-2 rounded-xl uppercase tracking-widest font-bold transition-colors">
+                        Skip &rsaquo; take me to the canvas
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Requirement Warning Modal (used by Bloom, Weave, Mutate) -->
         <div id="sd-requirement-modal" class="hidden fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center" onclick="if(event.target===this)this.classList.add('hidden')">
             <div class="bg-zinc-900 border border-amber-500/30 rounded-2xl p-6 max-w-sm w-full mx-6 flex flex-col gap-4 shadow-2xl">
@@ -492,6 +524,24 @@
                 <canvas id="sd-canvas" class="absolute top-5 left-0 right-0 bottom-0 w-full cursor-crosshair z-10" style="height: calc(100% - 20px);"></canvas>
                 <div class="absolute bottom-3 left-3 pointer-events-none z-20">
                     <span class="text-[9px] font-bold text-zinc-600 tracking-widest uppercase bg-black/60 px-2 py-1 rounded">Zoom: Ctrl + Wheel | Pan: Space + Drag | Bend: Alt + Drag</span>
+                </div>
+
+                <!-- Empty-canvas CTA — shown when sdCanvasParams is empty -->
+                <div id="sd-empty-canvas-cta" class="hidden absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
+                    <div class="bg-black/70 backdrop-blur-sm border border-fuchsia-500/25 rounded-2xl p-7 max-w-sm flex flex-col items-center gap-4 shadow-2xl pointer-events-auto">
+                        <div class="w-14 h-14 rounded-xl bg-fuchsia-500/15 border border-fuchsia-500/30 flex items-center justify-center">
+                            <svg class="w-7 h-7 text-fuchsia-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>
+                            </svg>
+                        </div>
+                        <h2 class="text-lg font-black text-zinc-100 tracking-tight">No lanes yet</h2>
+                        <p class="text-[11px] text-zinc-400 text-center leading-relaxed">
+                            Press <span class="text-fuchsia-400 font-black uppercase tracking-wider">Scan Mapped</span> in the sidebar to pull your rack's parameters into the canvas.
+                        </p>
+                        <div class="text-[9px] text-zinc-600 text-center leading-relaxed border-t border-white/5 pt-3 w-full">
+                            <span class="text-amber-400 font-bold">Heads up:</span> make sure you've opened automation lanes for each parameter in Ableton first. The scan reads those lanes.
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -729,7 +779,10 @@
         const overlay = document.getElementById('activation-overlay');
         overlay.style.transition = 'opacity 0.3s ease';
         overlay.style.opacity = '0';
-        setTimeout(() => overlay.remove(), 300);
+        setTimeout(() => {
+            overlay.remove();
+            if (window.sdCheckFirstRun) window.sdCheckFirstRun();
+        }, 300);
     }
 
     function showActivationError(msg) {
@@ -746,6 +799,25 @@
         checkLicense();
     });
     </script>
+
+    <!-- Apply-to-Clip success toast — bottom right, auto-fades after 3s -->
+    <div id="sd-apply-toast" class="hidden fixed bottom-6 right-6 bg-zinc-900 border border-emerald-500/40 rounded-xl shadow-2xl z-[9999] max-w-sm flex items-start gap-3 p-4">
+        <div class="shrink-0 w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
+            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+            </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+            <div class="text-[10px] text-emerald-400 font-black uppercase tracking-widest">Template ready</div>
+            <p id="sd-apply-toast-msg" class="text-[10px] text-zinc-400 mt-1 leading-snug truncate"></p>
+            <button id="sd-apply-toast-open-btn" class="mt-2 text-[9px] text-emerald-400/80 hover:text-emerald-300 uppercase tracking-widest font-black transition-colors flex items-center gap-1">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                Open folder
+            </button>
+        </div>
+        <button id="sd-apply-toast-close" class="shrink-0 text-zinc-600 hover:text-zinc-200 text-base leading-none transition-colors w-5 h-5 flex items-center justify-center" aria-label="Close">&times;</button>
+    </div>
+
     <script src="ws-client.js"></script>
     <script src="cloud-client.js"></script>
     <script src="canvas.js"></script>

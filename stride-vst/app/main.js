@@ -265,6 +265,59 @@ ipcMain.handle('load-settings', async () => {
     }
 });
 
+// Open the shipped Guide folder (where the tutorial videos live) in Explorer/Finder.
+// Resolves the folder location differently in dev vs packaged builds.
+function _locateGuideFolder() {
+    // Packaged on Windows:  <Stride>/Stride.exe         → <Stride>/Guide
+    // Packaged on macOS:    <Stride>/Stride.app/Contents/MacOS/Stride → <Stride>/Guide
+    // Dev (npm start):      stride-vst/app/             → stride-vst/Guide (may not exist)
+    const candidates = [];
+    const exeDir = path.dirname(process.execPath);
+    if (process.platform === 'win32') {
+        candidates.push(path.join(exeDir, 'Guide'));
+    } else if (process.platform === 'darwin') {
+        candidates.push(path.join(exeDir, '..', '..', '..', 'Guide'));
+    }
+    // Dev-mode fallbacks (when running via `npm start`)
+    candidates.push(path.join(__dirname, '..', '..', 'Guide'));
+    candidates.push(path.join(__dirname, '..', 'Guide'));
+    for (const c of candidates) {
+        try { if (fs.existsSync(c)) return c; } catch (e) {}
+    }
+    return null;
+}
+
+ipcMain.handle('open-guide-folder', async () => {
+    try {
+        const guideDir = _locateGuideFolder();
+        if (!guideDir) {
+            return { success: false, error: 'Guide folder not found in the distribution' };
+        }
+        const err = await shell.openPath(guideDir);
+        if (err) return { success: false, error: err };
+        return { success: true, path: guideDir };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+// Reveal a specific file in Explorer/Finder (highlighted, folder opens automatically).
+// Used by the Apply-to-Clip success toast's "Open folder" button.
+ipcMain.handle('reveal-in-folder', async (event, filePath) => {
+    try {
+        if (!filePath || typeof filePath !== 'string') {
+            return { success: false, error: 'No file path provided' };
+        }
+        if (!fs.existsSync(filePath)) {
+            return { success: false, error: 'File no longer exists' };
+        }
+        shell.showItemInFolder(filePath);
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
 // Open URL in system browser
 ipcMain.handle('open-external', async (event, url) => {
     if (typeof url === 'string' && (url.startsWith('https://') || url.startsWith('http://'))) {

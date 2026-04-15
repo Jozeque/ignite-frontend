@@ -64,6 +64,14 @@ contextBridge.exposeInMainWorld('stride', {
     openExternal: (url) =>
         ipcRenderer.invoke('open-external', url),
 
+    // Open the shipped Guide folder (tutorial videos) in Explorer/Finder
+    openGuideFolder: () =>
+        ipcRenderer.invoke('open-guide-folder'),
+
+    // Reveal a specific file in Explorer/Finder (highlighted)
+    revealInFolder: (filePath) =>
+        ipcRenderer.invoke('reveal-in-folder', filePath),
+
     // Platform info
     platform: process.platform
 });
