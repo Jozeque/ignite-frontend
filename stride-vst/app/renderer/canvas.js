@@ -2250,21 +2250,80 @@
         return pts;
     }
 
-    // Curvy chop envelope: instant attack + concave decay tail. Deterministic —
-    // peak is used as-is so presets control dynamics via hardcoded velocity maps.
-    // Pushes 5 points into addTo.
-    function _chopEnv(addTo, t, len, peak, clipEnd) {
+    // Chop envelope character system.
+    //
+    // Each character is a 5-point shape [tFrac, absoluteValue, curve] where
+    // tFrac is a fraction of the allotted length (0..1) and value is the
+    // absolute height (NOT scaled by a peak argument). The character alone
+    // dictates dynamic range AND envelope shape, which gives us wide y-axis
+    // variation (ghost 0.18 → punch 0.95) and distinct curve character per
+    // hit type (sharp punches, sustained holds, soft swells, fast stabs).
+    //
+    // Preset code picks a character per hit position based on its musical
+    // role (downbeat = punch, fill = ghost, accent = accent, etc.). Pass
+    // `null` for a character to produce deliberate silence.
+    const _CHOP_CHARS = {
+        // Strong downbeat — sharp attack, quick drop to a tail, fades out fast.
+        punch: [
+            [0,     0,    0   ],
+            [0.005, 0.95, -0.6],
+            [0.18,  0.70, -0.5],
+            [0.50,  0.25, -0.3],
+            [1,     0,    0   ],
+        ],
+        // Secondary accent — same shape as punch but softer overall.
+        accent: [
+            [0,     0,    0   ],
+            [0.005, 0.75, -0.5],
+            [0.22,  0.55, -0.4],
+            [0.58,  0.25, -0.3],
+            [1,     0,    0   ],
+        ],
+        // Held note — plateau near peak, then gentler fall.
+        sustain: [
+            [0,     0,    0   ],
+            [0.005, 0.65, -0.3],
+            [0.35,  0.60, -0.3],
+            [0.80,  0.35, -0.4],
+            [1,     0,    0   ],
+        ],
+        // Soft pad-ish swell — slow attack (convex), broad body, gentle fall.
+        swell: [
+            [0,     0,     0.4],
+            [0.22,  0.50,  0.1],
+            [0.60,  0.50, -0.2],
+            [0.88,  0.25, -0.3],
+            [1,     0,    0   ],
+        ],
+        // Background fill — low, soft, linear decay.
+        ghost: [
+            [0,     0,    0 ],
+            [0.02,  0.22, 0 ],
+            [0.35,  0.18, 0 ],
+            [0.65,  0.08, 0 ],
+            [1,     0,    0 ],
+        ],
+        // Staccato punch — sharp peak, cuts off fast, rest of allotted length is silence.
+        stab: [
+            [0,     0,    0 ],
+            [0.003, 0.85, 0 ],
+            [0.09,  0.45, 0 ],
+            [0.16,  0,    0 ],
+            [1,     0,    0 ],
+        ],
+    };
+
+    // Emit a chop envelope at time t with length len, using the named character.
+    // Pass character=null to produce silence (skips all output, effectively a rest).
+    function _chopEnv(addTo, t, len, character, clipEnd) {
+        if (!character) return; // explicit rest
+        const shape = _CHOP_CHARS[character] || _CHOP_CHARS.punch;
         const end = clipEnd != null ? Math.min(t + len, clipEnd) : t + len;
         if (end <= t + 0.001) return;
         const aLen = end - t;
-        const atk = Math.min(0.005, aLen * 0.05);
-        addTo.push(
-            { time: t,                value: 0,           curve: 0 },
-            { time: t + atk,          value: peak,        curve: -0.5 },
-            { time: t + aLen * 0.25,  value: peak * 0.75, curve: -0.4 },
-            { time: t + aLen * 0.6,   value: peak * 0.35, curve: -0.3 },
-            { time: end,              value: 0,           curve: 0 }
-        );
+        for (const [tFrac, value, curve] of shape) {
+            addTo.push({ time: t + aLen * tFrac, value: value, curve: curve });
+        }
     }
 
     function _shapeSine(beats, cycles, phase) {
@@ -2543,106 +2602,113 @@
 
         // CHOP — groove-oriented, subdivision-focused
         { id: 'tresillo', name: 'Tresillo', cat: 'Chop', gen: (n, b) => {
-            // 3+3+2 pattern with per-bar accent maps, deterministic ghost fills + flam
+            // 3+3+2 pattern with per-hit character maps. Uses deliberate silence
+            // in bar 2 (null character) to create negative space that makes
+            // bar 3 hit harder. Varied envelope characters give real dynamic range.
             const pts = [];
             const pattern = [0, 1.5, 3];
-            // Per-bar velocity for the 3 hits — shifting accent position each bar
-            const barVelocities = [
-                [1.00, 0.78, 0.88], // bar 0: accent first
-                [0.85, 1.00, 0.78], // bar 1: accent middle
-                [0.88, 0.85, 1.00], // bar 2: accent last (builds tension)
-                [1.00, 0.95, 0.92], // bar 3: full strength
+            // Per-bar character for the 3 hits. `null` = deliberate rest.
+            const barChars = [
+                ['punch',   'ghost',   'accent' ], // bar 0: big-soft-medium
+                ['accent',  'sustain', 'ghost'  ], // bar 1: medium-held-soft
+                ['sustain', null,      'punch'  ], // bar 2: held-SILENCE-bang (negative space)
+                ['punch',   'accent',  'sustain'], // bar 3: big-medium-held (resolve)
             ];
             // Ghost fills at specific positions (deterministic, not random)
             const ghostFills = [
-                null,             // bar 0: no ghost
-                { pos: 2.25, h: 0.38 }, // bar 1: ghost between hit 2 and 3
-                null,             // bar 2: no ghost (clean builds)
-                { pos: 0.75, h: 0.32 }, // bar 3: ghost before hit 2
+                null,
+                { pos: 2.25 }, // bar 1: ghost fill between hit 2 and 3
+                null,
+                { pos: 0.75 }, // bar 3: ghost before hit 2
             ];
             for (let bar = 0; bar < 4; bar++) {
                 const barStart = bar * (b / 4);
-                const vels = barVelocities[bar];
+                const chars = barChars[bar];
                 pattern.forEach((pos, hitIdx) => {
                     const t = barStart + pos;
-                    if (t < b) _chopEnv(pts, t, 0.5, vels[hitIdx], b);
+                    if (t < b) _chopEnv(pts, t, 0.5, chars[hitIdx], b);
                 });
                 const g = ghostFills[bar];
                 if (g) {
                     const gt = barStart + g.pos;
-                    if (gt < b) _chopEnv(pts, gt, 0.22, g.h, b);
+                    if (gt < b) _chopEnv(pts, gt, 0.35, 'ghost', b);
                 }
             }
-            // Flam on bar 3's last hit — a quick pre-hit 0.08 beats before the accent
+            // Flam on bar 3's last hit — a quick stab 0.08 beats before the sustain
             const flamT = 3 * (b / 4) + 3 - 0.08;
-            if (flamT > 0 && flamT < b) _chopEnv(pts, flamT, 0.12, 0.55, b);
+            if (flamT > 0 && flamT < b) _chopEnv(pts, flamT, 0.15, 'stab', b);
             return _buildChopLanes(n, b, [pts]);
         }},
         { id: 'dotted-bounce', name: 'Dotted Bounce', cat: 'Chop', gen: (n, b) => {
-            // Dotted 8ths with accent every 3rd hit + deterministic fills
+            // Dotted 8ths with character cycling. Every 3rd hit is a punch, the
+            // others rotate through softer characters — big y-axis variation.
             const pts = [];
+            // 6-step character cycle — creates a phrase that feels unpredictable
+            // but still musical (big-small-medium repeating with variation)
+            const cycle = ['punch', 'ghost', 'accent', 'sustain', 'ghost', 'punch'];
             let hitIdx = 0;
             for (let t = 0; t < b; t += 0.75) {
-                const norm = t / b;
-                const base = 0.55 + 0.4 * norm;   // builds across clip
-                const accent = (hitIdx % 3 === 0) ? 1.0 : 0.72;
-                _chopEnv(pts, t, 0.7, Math.min(1, base * accent), b);
+                const ch = cycle[hitIdx % cycle.length];
+                _chopEnv(pts, t, 0.7, ch, b);
                 hitIdx++;
             }
-            // Deterministic 16th ghost fills on bars 2 and 4 (adds movement)
+            // Deterministic 16th ghost fills on bars 2 and 4 (adds movement
+            // between the dotted pulses — answers the main rhythm softly)
             const barBeats = b / 4;
             const fills = [barBeats * 1 + 2.125, barBeats * 3 + 2.625];
-            fills.forEach(t => { if (t < b) _chopEnv(pts, t, 0.28, 0.38, b); });
+            fills.forEach(t => { if (t < b) _chopEnv(pts, t, 0.35, 'ghost', b); });
             return _buildChopLanes(n, b, [pts]);
         }},
         { id: 'trap-roll', name: 'Trap Roll', cat: 'Chop', gen: (n, b) => {
-            // Accelerating density 1/4 → 1/8 → 1/8t → 1/16 with in-bar accents
+            // Accelerating density 1/4 → 1/8 → 1/8t → 1/16 with character-
+            // driven dynamics. Bar 0 is sparse and dramatic (punch/sustain
+            // interplay). Later bars are rolls (mostly ghost-level with
+            // punctuating punches on downbeats) — classic trap aesthetic.
             const rates = [1, 0.5, 0.333, 0.25];
+            // Character cycle per bar — first hit always punch, rest reflects
+            // the "rolling soft texture with occasional big hits" trap feel
+            const barCycles = [
+                ['punch', 'accent', 'sustain', 'accent'],                                          // bar 0: 4 hits, dramatic
+                ['punch', 'ghost', 'accent', 'ghost', 'sustain', 'ghost', 'accent', 'ghost'],      // bar 1: 8 hits
+                ['punch', 'ghost', 'ghost', 'accent', 'ghost', 'ghost', 'punch', 'ghost', 'ghost', 'accent', 'ghost', 'ghost'], // bar 2: 12 hits (1/8t)
+                ['punch', 'stab', 'ghost', 'stab', 'accent', 'stab', 'ghost', 'stab', 'punch', 'stab', 'ghost', 'stab', 'accent', 'stab', 'ghost', 'stab'], // bar 3: 16 hits of rapid stabs
+            ];
             const barBeats = b / 4;
             const pts = [];
             for (let bar = 0; bar < 4; bar++) {
                 const rate = rates[Math.min(bar, rates.length - 1)];
                 const barStart = bar * barBeats;
-                const baseH = 0.72 + bar * 0.07;
+                const cycle = barCycles[bar];
                 let hitCount = 0;
                 for (let t = 0; t < barBeats; t += rate) {
                     const at = barStart + t;
                     if (at >= b) break;
-                    // First hit of bar = strongest, every 4th = accent, rest = taper
-                    const h = (hitCount === 0) ? Math.min(1, baseH * 1.15)
-                            : (hitCount % 4 === 0) ? Math.min(1, baseH * 1.0)
-                            : Math.min(1, baseH * 0.78);
-                    _chopEnv(pts, at, rate * 0.9, h, b);
+                    const ch = cycle[hitCount % cycle.length];
+                    _chopEnv(pts, at, rate * 0.9, ch, b);
                     hitCount++;
                 }
             }
             return _buildChopLanes(n, b, [pts]);
         }},
         { id: 'funk-slice', name: 'Funk Slice', cat: 'Chop', gen: (n, b) => {
-            // 1/16 gate patterns with baked-in accent maps per bar.
-            // Accent velocities are paired 1:1 with the gate patterns below.
-            const patterns = [
-                [1,0,1,1,0,1,0,1],
-                [1,1,0,1,0,0,1,1],
-                [0,1,1,0,1,1,0,1],
-                [1,0,1,0,1,1,1,0]
-            ];
-            const accents = [
-                [1.00, 0, 0.72, 0.95, 0, 0.78, 0, 0.85],
-                [1.00, 0.80, 0, 0.78, 0, 0, 0.95, 0.72],
-                [0, 1.00, 0.78, 0, 0.88, 0.95, 0, 0.75],
-                [1.00, 0, 0.82, 0, 0.95, 0.85, 0.75, 0]
+            // 1/16 gate patterns with character maps per bar. null entries are
+            // deliberate rests (negative space). Mix of punches, stabs, accents
+            // and ghosts gives full dynamic range per bar without being "busy".
+            const barCharPatterns = [
+                ['punch',   null,   'ghost',   'accent', null,      'stab',   null,   'accent' ],
+                ['punch',   'stab', null,      'accent', null,      null,     'punch','ghost'  ],
+                [null,      'punch','stab',    null,     'sustain', 'accent', null,   'ghost'  ],
+                ['punch',   null,   'accent',  null,     'sustain', 'stab',   'ghost',null     ],
             ];
             const barBeats = b / 4;
             const root = [];
             for (let bar = 0; bar < 4; bar++) {
-                const pat = patterns[bar % patterns.length];
-                const accentMap = accents[bar % accents.length];
-                const stepLen = barBeats / pat.length;
-                for (let i = 0; i < pat.length; i++) {
+                const row = barCharPatterns[bar % barCharPatterns.length];
+                const stepLen = barBeats / row.length;
+                for (let i = 0; i < row.length; i++) {
                     const t = bar * barBeats + i * stepLen;
-                    if (pat[i] && t < b) {
-                        _chopEnv(root, t, stepLen * 0.85, accentMap[i], b);
+                    if (row[i] && t < b) {
+                        _chopEnv(root, t, stepLen * 0.85, row[i], b);
                     }
                 }
             }
@@ -2650,48 +2716,67 @@
             return _buildChopLanes(n, b, [root, sweep]);
         }},
         { id: 'off-beat', name: 'Off-Beat', cat: 'Chop', gen: (n, b) => {
-            // Alternating dominance per bar: bars 0/2 = upbeat voice strong,
-            // bars 1/3 = downbeat voice strong. Creates call-and-response.
+            // Alternating dominance per bar with character variation. Bars 0/2
+            // give upbeats big punches while downbeats become ghost murmurs;
+            // bars 1/3 flip. Extra variation via sustain hits on specific beats.
             const upbeats = [];
             const downbeats = [];
             const barBeats = b / 4;
+            // Per-bar character maps for the 4 downbeats and 4 upbeats
+            const upCharsByBar = [
+                ['punch',  'accent',  'punch',   'sustain'],
+                ['ghost',  'ghost',   'stab',    'ghost'  ],
+                ['sustain','punch',   'accent',  'punch'  ],
+                ['ghost',  'stab',    'ghost',   'ghost'  ],
+            ];
+            const downCharsByBar = [
+                ['ghost',  'ghost',   'stab',    'ghost'  ],
+                ['punch',  'sustain', 'punch',   'accent' ],
+                ['ghost',  'stab',    'ghost',   'ghost'  ],
+                ['punch',  'accent',  'sustain', 'punch'  ],
+            ];
             for (let t = 0; t < b; t += 1) {
                 const bar = Math.floor(t / barBeats);
-                const upStrong = (bar % 2 === 0);
+                const beatInBar = Math.floor(t - bar * barBeats);
                 const offT = t + 0.5;
                 if (offT < b) {
-                    const h = upStrong ? 1.00 : 0.55;
-                    _chopEnv(upbeats, offT, 0.45, h, b);
+                    _chopEnv(upbeats, offT, 0.45, upCharsByBar[bar][beatInBar], b);
                 }
-                const dh = upStrong ? 0.60 : 1.00;
-                _chopEnv(downbeats, t, 0.35, dh, b);
+                _chopEnv(downbeats, t, 0.35, downCharsByBar[bar][beatInBar], b);
             }
             return _buildChopLanes(n, b, [upbeats, downbeats]);
         }},
         { id: 'shuffle', name: 'Shuffle', cat: 'Chop', gen: (n, b) => {
-            // Swung 8ths with beat-position accent map. Beat 1 = strongest.
-            // Bar 4 drops its beat-3 upbeat to give a breath before the loop.
+            // Swung 8ths with character-driven dynamics. Classic "1-AND-2-AND"
+            // with beat 1 as the biggest punch, beat 3 as a secondary accent,
+            // beats 2 and 4 as softer held notes. Upbeats are ghosts or stabs.
+            // Bar 4 deliberately drops the beat-3 upbeat — negative space
+            // makes the loop breathe before looping back.
             const pts = [];
             const swingAmounts = [0.55, 0.55, 0.62, 0.62];
-            const downVels = [1.00, 0.78, 0.92, 0.72]; // per beat-in-bar accent
-            const upVels   = [0.70, 0.52, 0.65, 0.48];
+            // Downbeat chars by beat position 0/1/2/3
+            const downChars = ['punch', 'sustain', 'accent', 'ghost'];
+            // Upbeat chars by beat position 0/1/2/3
+            const upChars   = ['accent', 'stab',    'ghost',  'stab' ];
             for (let bar = 0; bar < 4; bar++) {
                 const barStart = bar * (b / 4);
                 const swing = swingAmounts[Math.min(bar, 3)];
                 for (let beat = 0; beat < 4; beat++) {
                     const t = barStart + beat;
                     if (t >= b) break;
-                    _chopEnv(pts, t, 0.35, downVels[beat], b);
-                    // Bar 4 drops the beat-3 upbeat for breath
+                    _chopEnv(pts, t, 0.35, downChars[beat], b);
+                    // Bar 4 beat 3 upbeat = deliberate silence
                     if (bar === 3 && beat === 2) continue;
                     const upT = t + swing;
-                    if (upT < b) _chopEnv(pts, upT, 0.25, upVels[beat], b);
+                    if (upT < b) _chopEnv(pts, upT, 0.25, upChars[beat], b);
                 }
             }
             return _buildChopLanes(n, b, [pts]);
         }},
         { id: 'razor-chop', name: 'Razor Chop', cat: 'Chop', gen: (n, b) => {
-            // 1/32 burst clusters — each burst accents its first hit then tapers.
+            // 1/32 burst clusters. Each burst opens with a punch (or sustain
+            // for the "big drops") followed by stab-stab-ghost rolls. This is
+            // the "rapid fire with breath between bursts" razor-chop aesthetic.
             const barBeats = b / 4;
             const pts = [];
             const burstPositions = [
@@ -2700,18 +2785,26 @@
                 [0.5, 2, 3.5],
                 [0, 1.5, 2.5, 3.5]
             ];
+            // Burst character templates — first slot is the attack, rest is the tail.
+            // We cycle through these to give each burst a distinct feel.
+            const burstTemplates = [
+                ['punch',   'stab', 'stab',  'ghost', 'stab', 'ghost', 'stab'],
+                ['sustain', 'stab', 'ghost', 'stab',  'stab', 'ghost', 'stab'],
+                ['accent',  'stab', 'stab',  'stab',  'ghost','stab',  'ghost'],
+                ['punch',   'stab', 'ghost', 'stab',  'stab', 'stab',  'ghost'],
+            ];
+            let burstIdx = 0;
             for (let bar = 0; bar < 4; bar++) {
                 const positions = burstPositions[Math.min(bar, 3)];
-                const baseH = 0.82 + bar * 0.045;
                 positions.forEach(pos => {
                     const burstStart = bar * barBeats + pos;
-                    const burstLen = 4 + bar;
+                    const burstLen = 4 + bar; // 4-7 hits per burst
+                    const tmpl = burstTemplates[burstIdx % burstTemplates.length];
+                    burstIdx++;
                     for (let g = 0; g < burstLen; g++) {
                         const t = burstStart + g * 0.125;
                         if (t >= b) break;
-                        // First hit = accent, rest taper from 1.0 → 0.6 across burst
-                        const taper = g === 0 ? 1.0 : 1.0 - (g / burstLen) * 0.4;
-                        _chopEnv(pts, t, 0.09, Math.min(1, baseH * taper), b);
+                        _chopEnv(pts, t, 0.09, tmpl[g % tmpl.length], b);
                     }
                 });
             }
@@ -2719,51 +2812,64 @@
             return _buildChopLanes(n, b, [pts, voidSweep]);
         }},
         { id: 'clave', name: 'Clave', cat: 'Chop', gen: (n, b) => {
-            // Son clave 2-3 with per-hit accent map — "3 side" hit on step 10 is strongest
-            const clavePattern = [1,0,0,1,0,0,1,0, 0,0,1,0,1,0,0,0];
-            const claveVels    = [0.88,0,0,0.82,0,0,0.92,0, 0,0,1.00,0,0.94,0,0,0];
-            const stepLen = (b / 4 * 2) / clavePattern.length; // 2-bar cycle
+            // Son clave 2-3 with character map — step 10 (the "3-side" strongest
+            // hit in the clave rhythm) is a punch, the others are accent/sustain.
+            // null entries = rests, matching the off-beats of the clave pattern.
+            const claveChars = [
+                'accent', null, null, 'sustain', null, null, 'punch', null,
+                null,     null, 'punch', null,   'accent', null, null, null
+            ];
+            const stepLen = (b / 4 * 2) / claveChars.length; // 2-bar cycle
             const root = [];
             for (let rep = 0; rep < Math.ceil(b / (b / 4 * 2)); rep++) {
-                for (let i = 0; i < clavePattern.length; i++) {
+                for (let i = 0; i < claveChars.length; i++) {
                     const t = rep * (b / 4 * 2) + i * stepLen;
                     if (t >= b) break;
-                    if (clavePattern[i]) {
-                        _chopEnv(root, t, stepLen * 0.85, claveVels[i], b);
-                    }
+                    _chopEnv(root, t, stepLen * 0.85, claveChars[i], b);
                 }
             }
             // Deterministic ghost fill map — fixed beat positions between clave hits.
-            // Two per 2-bar cycle, repeated through the clip.
             const fills = [];
             const ghostRel = [0.5, 1.25, 2.0, 3.25, 4.5, 5.25, 6.0, 7.25];
-            const ghostVel = [0.40, 0.32, 0.45, 0.35, 0.40, 0.32, 0.45, 0.35];
-            for (let i = 0; i < ghostRel.length; i++) {
-                const t = ghostRel[i];
-                if (t < b) _chopEnv(fills, t, 0.18, ghostVel[i], b);
+            for (const t of ghostRel) {
+                if (t < b) _chopEnv(fills, t, 0.25, 'ghost', b);
             }
             return _buildChopLanes(n, b, [root, fills]);
         }},
         { id: 'polyswing', name: 'Polyswing', cat: 'Chop', gen: (n, b) => {
-            // 1/8 and dotted 1/8 voices with alternating per-bar dominance.
-            // Even bars (0, 2) → eighth voice strong, dotted ghosts.
-            // Odd bars (1, 3) → dotted voice strong, eighth ghosts.
+            // 1/8 and dotted 1/8 voices alternating dominance per bar. Uses
+            // character cycles per bar so the "dominant" voice gets punches
+            // and the "background" voice gets ghosts — classic call-and-response.
             const barBeats = b / 4;
+            // Bar index -> character cycle for each voice
+            const eighthByBar = [
+                ['punch',  'accent', 'sustain','accent', 'punch',  'accent', 'sustain','accent'],
+                ['ghost',  'stab',   'ghost',  'stab',   'ghost',  'stab',   'ghost',  'stab'  ],
+                ['sustain','punch',  'accent', 'punch',  'sustain','punch',  'accent', 'punch' ],
+                ['ghost',  'ghost',  'stab',   'ghost',  'ghost',  'ghost',  'stab',   'ghost' ],
+            ];
+            const dottedByBar = [
+                ['ghost',  'stab',   'ghost'],
+                ['punch',  'accent', 'sustain'],
+                ['ghost',  'ghost',  'stab'],
+                ['sustain','punch',  'accent'],
+            ];
             const eighth = [];
+            let eIdx = 0;
             for (let t = 0; t < b; t += 0.5) {
                 const bar = Math.floor(t / barBeats);
-                const strong = (bar % 2 === 0);
-                const arc = 0.85 + 0.15 * Math.sin(Math.PI * t / b); // slow arc
-                const h = strong ? arc : 0.48;
-                _chopEnv(eighth, t, 0.45, h, b);
+                const cycle = eighthByBar[bar % 4];
+                const hitInBar = Math.floor((t - bar * barBeats) / 0.5);
+                _chopEnv(eighth, t, 0.45, cycle[hitInBar % cycle.length], b);
+                eIdx++;
             }
             const dotted = [];
+            let dIdx = 0;
             for (let t = 0; t < b; t += 0.75) {
                 const bar = Math.floor(t / barBeats);
-                const strong = (bar % 2 === 1);
-                const arc = 0.82 + 0.18 * (1 - Math.abs(2 * t / b - 1)); // tent arc
-                const h = strong ? arc : 0.42;
-                _chopEnv(dotted, t, 0.6, h, b);
+                const cycle = dottedByBar[bar % 4];
+                _chopEnv(dotted, t, 0.6, cycle[dIdx % cycle.length], b);
+                dIdx++;
             }
             return _buildChopLanes(n, b, [eighth, dotted]);
         }},
@@ -2786,22 +2892,20 @@
                 { start: barBeats + 1, len: 3 },
                 { start: barBeats * 2 + 3, len: 1 },
             ];
+            // Chop zone character cycle — first hit is always punch, then stabs,
+            // with the occasional accent for dynamic variation
+            const chopCycle = ['punch', 'stab', 'accent', 'stab', 'ghost', 'stab', 'punch', 'stab', 'accent', 'stab', 'ghost', 'stab'];
             chopZones.forEach(zone => {
                 let hitIdx = 0;
                 for (let t = zone.start; t < zone.start + zone.len && t < b; t += 0.25) {
-                    // First hit of each zone is accented, rest steady
-                    const h = (hitIdx === 0) ? 1.00 : 0.82;
-                    _chopEnv(pts, t, 0.19, h, b);
+                    _chopEnv(pts, t, 0.19, chopCycle[hitIdx % chopCycle.length], b);
                     hitIdx++;
                 }
             });
+            // Hold zones get the 'sustain' character scaled to the full zone length
             holdZones.forEach(zone => {
-                const t = zone.start;
-                if (t < b) {
-                    pts.push({ time: t, value: 0, curve: 0 });
-                    pts.push({ time: t + 0.01, value: 0.7, curve: -0.3 });
-                    pts.push({ time: Math.min(t + zone.len - 0.1, b), value: 0.5, curve: -0.2 });
-                    pts.push({ time: Math.min(t + zone.len, b), value: 0, curve: 0 });
+                if (zone.start < b) {
+                    _chopEnv(pts, zone.start, zone.len, 'sustain', b);
                 }
             });
             pts.sort((a, c) => a.time - c.time);

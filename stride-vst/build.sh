@@ -130,40 +130,96 @@ echo "      Source code obfuscated"
 # ─── Step 4: Add README ─────────────────────────────────
 echo "[4/5] Adding README..."
 cat > "$DIST/Stride/README.txt" << 'READMEEOF'
-STRIDE — Sound Design Engine for Ableton Live
-===============================================
+===============================================================
+ STRIDE - Sound Design Engine for Ableton Live
+ Your racks, reborn.
+===============================================================
 
-INSTALLATION
-------------
+>> START HERE: watch the two short videos inside the Guide/ folder.
+   - Flow A-Z.mp4           - the full Stride workflow
+   - Canvas Walkthrough.mov - tools and shortcuts
+   Takes about 3 minutes total. Seriously, watch them first.
 
-1. STRIDE CANVAS (this app)
-   - Run Stride.exe from this folder
-   - Enter your license key when prompted
-   - Keep this folder anywhere you like
+---------------------------------------------------------------
+ INSTALL
+---------------------------------------------------------------
 
-2. STRIDELINK (Max for Live device)
-   - Open the M4L folder in this directory
-   - Drag "StrideLink.amxd" onto any MIDI track in Ableton Live
-   - The device bridges Ableton and the Stride Canvas
+1. Unzip Stride_v1.0.0_Windows.zip anywhere you like
+2. Run Stride.exe - paste your license key when asked
+3. Requirements: Ableton Live 11+ Suite (or Standard + M4L),
+   Python 3 (python.org), Windows 10 or 11
 
-REQUIREMENTS
-------------
-- Ableton Live 11+ (Suite, or Standard + Max for Live add-on)
-- Python 3 installed on your system (python.org)
-- Windows 10/11
+---------------------------------------------------------------
+ YOUR FIRST CLIP - 10 STEPS
+---------------------------------------------------------------
 
-QUICK START
------------
-1. Drop StrideLink.amxd on a track with an Instrument Rack
-2. Click "Scan Mapped" in the M4L device (or in the Canvas sidebar)
-3. Draw automation curves on the canvas
-4. Click "Apply to Clip"
-5. Drag the generated .alc file onto your clip slot
+ 1. In Ableton, create or open a track with an Instrument Rack
+ 2. MAP YOUR PARAMETERS - open the automation lane for every
+    parameter you want Stride to control. Fastest way:
+    F9 + nudge each knob. Or: draw a single point on each lane.
+ 3. Create a MIDI clip on that track and drag it into the
+    "User Library" sidebar in Ableton.
+    (You only do this ONCE per rack. Change devices -> drag again.)
+ 4. Drag StrideLink.amxd (from the M4L/ folder in this zip)
+    onto the same track.
+ 5. Launch Stride.exe. Click "Scan Mapped" in the sidebar.
+ 6. The canvas fills with one lane per mapped parameter.
+ 7. Either draw by hand OR smash one of the Presets / Chaos /
+    Bloom / Weave buttons. Start with a preset.
+ 8. Click "Apply to Clip". Stride generates a .alc file and
+    opens the Stride folder for you.
+ 9. Drag the .alc onto a new MIDI clip slot on that track.
+10. Hit play. Your rack is now automated. You're done.
 
-Your racks, reborn.
+---------------------------------------------------------------
+ TIPS (read once, use forever)
+---------------------------------------------------------------
 
-SUPPORT: yossi.bozo112@gmail.com
-WEB: https://stridehub.io
+* SAVE YOUR RACK inside the Canvas ("Save Session") so you
+  can reload the same curves next time without re-scanning.
+
+* GENERATE 5 VARIATIONS IN A ROW:
+  hit Chaos -> Apply to Clip -> Chaos -> Apply to Clip -> ...
+  Each Apply creates a new .alc with different curves.
+  Audition them all against your track and pick the keeper.
+
+* ADJUST MASTER BPM while auditioning .alc variations - the
+  same curves feel radically different at 120 vs 140 BPM.
+  Some sweet spots only reveal themselves at specific tempos.
+
+* EXPERIMENT. Stride rewards exploration. There are endless
+  variations and combinations you can chase with the preset
+  + Chaos + Bloom + Weave toolkit. No two sessions are alike.
+
+---------------------------------------------------------------
+ TROUBLESHOOTING
+---------------------------------------------------------------
+
+"Scan Mapped" does nothing
+  -> Did you map parameters first? See step 2 above.
+  -> Check StrideLink.amxd is on the SAME track as the rack.
+
+"Apply to Clip" says "No template found"
+  -> You skipped step 3. Drag a fresh MIDI clip from your track
+     into the User Library. Stride uses that clip as the template.
+
+Canvas says "Disconnected"
+  -> StrideLink.amxd got reloaded. In Ableton, right-click
+     StrideLink -> Delete -> drag it back onto the track.
+  -> Close and reopen Stride.exe.
+
+---------------------------------------------------------------
+ SUPPORT
+---------------------------------------------------------------
+
+ Questions, feedback, bugs:   home@stridehub.io
+ Web:                         https://stridehub.io
+
+ I'm still exploring the tool myself and keep pushing releases.
+ Send me your findings - I reply to everyone.
+
+ Your racks, reborn.
+===============================================================
 READMEEOF
 
 # ─── Step 5: Zip ────────────────────────────────────────
