@@ -1,22 +1,48 @@
 name: Build Mac (signed + notarized)
 
-# Manual trigger only — click "Run workflow" in the Actions tab.
-# (Also fires automatically on git tags matching v*.)
+# Two-job architecture:
+#   Job 1 (build-and-submit): packager + sign + submit to Apple, ~5 min.
+#     Uploads the signed Stride.app as an artifact. No polling.
+#   Job 2 (wait-and-staple): polls Apple for up to ~5h 40m, then staples
+#     the ticket onto the .app from Job 1's artifact and assembles the
+#     final release zip. Can be re-run manually (with resume inputs)
+#     without rebuilding if Apple still isn't done.
+#
+# Why split? Apple's notary service holds FIRST submissions from a brand-
+# new Developer ID for 1 hour to several days (confirmed by Apple DTS on
+# developer forums). We can't out-wait this in a single 120 min job, and
+# we don't want to burn CI minutes rebuilding while waiting. The signed
+# artifact is the fingerprint Apple validated — we must reuse it exactly
+# (cdhash-bound).
+
 on:
   workflow_dispatch:
+    inputs:
+      resume_submission_id:
+        description: "(Optional) Resume staple: poll this existing submission instead of submitting a new one"
+        required: false
+        type: string
+      resume_run_id:
+        description: "(Optional) Resume staple: run ID whose signed-app artifact to reuse (leave blank to use latest)"
+        required: false
+        type: string
   push:
     tags:
       - 'v*'
 
+permissions:
+  contents: read
+  actions: read  # Needed so Job 2 can download an artifact from a previous run
+
 jobs:
-  build-mac:
-    name: Sign, notarize, package
+  # ─────────────────────────────────────────────────────
+  # JOB 1: Build + sign + submit (skipped on resume)
+  # ─────────────────────────────────────────────────────
+  build-and-submit:
+    name: Build + sign + submit
+    if: ${{ github.event.inputs.resume_submission_id == '' || github.event.inputs.resume_submission_id == null }}
     runs-on: macos-14  # Apple Silicon M1 runner — arm64 native
-    # Apple's notary service can sit on first-time submissions for a brand-new
-    # Developer ID account for 1-2 hours while it validates the team. Second+
-    # runs usually finish in 2-10 minutes because the team is already cached.
-    # 120 gives us headroom for the slow first run.
-    timeout-minutes: 120
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -39,39 +65,98 @@ jobs:
           p12-file-base64: ${{ secrets.APPLE_DEVELOPER_ID_P12_BASE64 }}
           p12-password: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
 
-      - name: Verify signing identity is present
+      - name: Verify signing identity
         run: |
-          echo "--- identities visible to codesign ---"
           security find-identity -v -p codesigning
           if ! security find-identity -v -p codesigning | grep -q "Developer ID Application"; then
-            echo "❌ Developer ID Application identity not found after import"
+            echo "❌ Developer ID Application identity not found"
             exit 1
           fi
-          echo "✅ Developer ID Application identity is present"
+          echo "✅ Identity present"
 
-      - name: Build, sign, and notarize
+      - name: Build, sign, and submit to Apple
         working-directory: stride-vst
         env:
-          # apple-actions/import-codesign-certs imports the cert into its own
-          # signing_temp keychain with partition-list pre-authorized. Do NOT
-          # pass CSC_LINK here or electron-builder creates ANOTHER keychain.
-          CSC_IDENTITY_AUTO_DISCOVERY: 'true'
-          # Verbose logging — prints each codesign invocation so we can see
-          # which nested binary is causing the hang (if any).
-          DEBUG: 'electron-osx-sign*,electron-builder'
-          # afterSign hook (build/notarize.js) reads these to notarize:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: bash build-mac-ci.sh
+        run: bash build-mac-ci-sign.sh
 
-      - name: Upload Mac artifact
+      - name: Upload signed .app + submission ID
         uses: actions/upload-artifact@v4
         with:
-          name: Stride-Mac-signed-${{ github.sha }}
+          name: stride-signed-unnotarized
+          path: |
+            stride-vst/Stride-signed.zip
+            stride-vst/submission-id.txt
+            stride-vst/version.txt
+          retention-days: 90
+          if-no-files-found: error
+
+  # ─────────────────────────────────────────────────────
+  # JOB 2: Poll + staple + package
+  # ─────────────────────────────────────────────────────
+  wait-and-staple:
+    name: Poll Apple + staple + package
+    needs: build-and-submit
+    # Run in both fresh-build and resume paths. `always()` is required so
+    # this job still runs when Job 1 was skipped (the resume case).
+    if: ${{ always() && (needs.build-and-submit.result == 'success' || needs.build-and-submit.result == 'skipped') }}
+    runs-on: macos-14
+    timeout-minutes: 350  # Max GitHub-hosted runner job timeout is 360
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Fresh-build path: Job 1 just uploaded the signed artifact in this run
+      - name: Download signed .app (fresh build)
+        if: ${{ github.event.inputs.resume_submission_id == '' || github.event.inputs.resume_submission_id == null }}
+        uses: actions/download-artifact@v4
+        with:
+          name: stride-signed-unnotarized
+          path: stride-vst
+
+      # Resume path: grab the signed artifact from a PREVIOUS run
+      - name: Download signed .app (resume from previous run)
+        if: ${{ github.event.inputs.resume_submission_id != '' && github.event.inputs.resume_submission_id != null }}
+        uses: actions/download-artifact@v4
+        with:
+          name: stride-signed-unnotarized
+          path: stride-vst
+          run-id: ${{ github.event.inputs.resume_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve submission ID
+        id: sid
+        working-directory: stride-vst
+        run: |
+          if [ -n "${{ github.event.inputs.resume_submission_id }}" ]; then
+            ID="${{ github.event.inputs.resume_submission_id }}"
+            echo "Using resume submission ID: $ID"
+          else
+            ID=$(cat submission-id.txt)
+            echo "Using fresh submission ID: $ID"
+          fi
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
+
+      - name: Poll Apple, staple, and assemble
+        working-directory: stride-vst
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          SUBMISSION_ID: ${{ steps.sid.outputs.id }}
+          SIGNED_ZIP: ${{ github.workspace }}/stride-vst/Stride-signed.zip
+        run: bash build-mac-ci-staple.sh
+
+      - name: Upload final release zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: Stride-Mac-${{ github.sha }}
           path: |
             stride-vst/dist-release-mac-signed/*.zip
-          retention-days: 30
+          retention-days: 90
           if-no-files-found: error
 
       - name: Show final output
