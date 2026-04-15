@@ -57,7 +57,7 @@ rm -rf dist
 #   --overwrite       replace existing output
 #   --ignore          skip dist/ in source to avoid recursive inclusion
 #   --prune=true      strip devDependencies from bundled node_modules
-stdbuf -oL -eL npx --yes @electron/packager . Stride \
+npx --yes @electron/packager . Stride \
     --platform=darwin \
     --arch=arm64 \
     --out=dist \
@@ -109,7 +109,7 @@ echo "[2b/4] Signing .app with @electron/osx-sign..."
 IDENTITY="Developer ID Application: Yossi Bozo (B3Y92NHRMC)"
 ENTITLEMENTS="$APP_DIR/build/entitlements.mac.plist"
 
-stdbuf -oL -eL node -e "
+node -e "
 const { signAsync } = require('@electron/osx-sign');
 (async () => {
   const log = (msg) => process.stdout.write('  [sign] ' + msg + '\n');
@@ -155,7 +155,7 @@ rm -f "$NOTARIZE_ZIP"
 ditto -c -k --keepParent "$MAC_OUT/Stride.app" "$NOTARIZE_ZIP"
 echo "      Zip ready ($(du -h "$NOTARIZE_ZIP" | cut -f1)) — uploading to Apple..."
 
-stdbuf -oL -eL xcrun notarytool submit "$NOTARIZE_ZIP" \
+xcrun notarytool submit "$NOTARIZE_ZIP" \
     --apple-id "$APPLE_ID" \
     --password "$APPLE_APP_SPECIFIC_PASSWORD" \
     --team-id "$APPLE_TEAM_ID" \
