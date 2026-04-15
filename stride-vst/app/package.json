@@ -14,6 +14,7 @@
     "ws": "^8.16.0"
   },
   "devDependencies": {
+    "@electron/notarize": "^2.5.0",
     "electron": "^33.0.0",
     "electron-builder": "^25.0.0",
     "javascript-obfuscator": "^5.4.1"
@@ -22,23 +23,38 @@
     "appId": "io.stridehub.canvas",
     "productName": "Stride",
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "build"
     },
     "files": [
       "main.js",
       "preload.js",
       "renderer/**/*",
       "assets/**/*",
-      "node_modules/**/*"
+      "node_modules/**/*",
+      "!build/**/*"
     ],
+    "afterSign": "build/notarize.js",
     "win": {
       "target": "nsis",
       "icon": "assets/icon.png"
     },
     "mac": {
-      "target": "dmg",
+      "target": {
+        "target": "dir",
+        "arch": [
+          "arm64"
+        ]
+      },
       "icon": "assets/icon.png",
-      "category": "public.app-category.music"
+      "category": "public.app-category.music",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "extendInfo": {
+        "NSHighResolutionCapable": true
+      }
     },
     "nsis": {
       "oneClick": false,
