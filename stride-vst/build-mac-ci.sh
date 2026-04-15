@@ -34,17 +34,15 @@ cd "$M4L_DIR/node"
 rm -rf node_modules
 npm install --omit=dev 2>&1 | tail -5
 
-# ─── Step 2: electron-builder (build + sign + notarize + staple) ─
-# electron-builder reads CSC_LINK and CSC_KEY_PASSWORD to import the cert
-# into a temporary keychain, signs the .app + helper apps + frameworks,
-# then our afterSign hook (build/notarize.js) submits to Apple and staples.
-# Target is "dir" — we'll package into the final zip ourselves below.
+# ─── Step 2a: electron-builder (build + sign only — NO notarize hook) ─
+# electron-builder reads from the pre-configured keychain (set up by
+# apple-actions/import-codesign-certs) to sign the .app + helper apps +
+# frameworks. We removed the afterSign hook from package.json because
+# @electron/notarize was silently hanging after "Application signed" with
+# zero output. We'll notarize manually below using xcrun notarytool.
 echo ""
-echo "[2/4] Running electron-builder (signs + notarizes + staples)..."
+echo "[2a/4] Running electron-builder (sign only, no notarize)..."
 cd "$APP_DIR"
-# --publish=never: electron-builder auto-detects CI and tries to upload to a
-# GitHub draft release. Without GH_TOKEN it can hang mid-build waiting on a
-# network call that never returns. We upload artifacts via actions/upload.
 npx electron-builder --mac --arm64 --publish=never 2>&1
 
 # Locate the output .app — electron-builder puts it in dist/mac-arm64/
@@ -62,18 +60,58 @@ if [ -z "$MAC_OUT" ]; then
 fi
 echo "      Stride.app built at $MAC_OUT"
 
-# Verify the signature is valid + notarized (ticket stapled)
-echo "      Verifying signature..."
+# Verify the signature is valid BEFORE notarizing
+echo "      Verifying codesign signature..."
 codesign --verify --deep --strict --verbose=2 "$MAC_OUT/Stride.app" 2>&1 || {
     echo "❌ Signature verification failed"
     exit 1
 }
-echo "      Verifying notarization staple..."
-xcrun stapler validate "$MAC_OUT/Stride.app" 2>&1 || {
-    echo "⚠  Stapler validation failed — may need to rerun workflow"
-    # Don't exit — Apple notarization can be flaky, allow the build to continue
+echo "      ✅ Signed cleanly"
+
+# ─── Step 2b: Manual notarization via xcrun notarytool ─
+# We zip the .app into a temp archive, submit it, wait for Apple's verdict,
+# then staple the ticket onto the .app. notarytool --wait blocks until done
+# but prints its own progress — no silent hang like @electron/notarize did.
+echo ""
+echo "[2b/4] Submitting to Apple notarization..."
+NOTARIZE_ZIP="$APP_DIR/dist/Stride-for-notarize.zip"
+rm -f "$NOTARIZE_ZIP"
+ditto -c -k --keepParent "$MAC_OUT/Stride.app" "$NOTARIZE_ZIP"
+echo "      Uploading $NOTARIZE_ZIP to Apple (this can take 2-15 min)..."
+
+# Run notarytool with output unbuffered (stdbuf forces line-buffered writes)
+# so we see progress in real time instead of waiting for the subprocess to
+# flush at the end.
+stdbuf -oL -eL xcrun notarytool submit "$NOTARIZE_ZIP" \
+    --apple-id "$APPLE_ID" \
+    --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+    --team-id "$APPLE_TEAM_ID" \
+    --wait 2>&1 | tee "$APP_DIR/dist/notarize.log"
+
+NOTARIZE_STATUS=${PIPESTATUS[0]}
+rm -f "$NOTARIZE_ZIP"
+
+if [ "$NOTARIZE_STATUS" -ne 0 ]; then
+    echo "❌ notarytool submit failed (exit $NOTARIZE_STATUS)"
+    echo "--- notarize log ---"
+    cat "$APP_DIR/dist/notarize.log" || true
+    exit 1
+fi
+
+# Staple the notarization ticket onto the .app so Gatekeeper doesn't
+# need to phone Apple on first launch
+echo "      Stapling notarization ticket..."
+xcrun stapler staple "$MAC_OUT/Stride.app" 2>&1 || {
+    echo "❌ Stapler failed"
+    exit 1
 }
-echo "      ✅ Signed and notarized"
+echo "      ✅ Stapled"
+
+echo "      Final verification..."
+xcrun stapler validate "$MAC_OUT/Stride.app" 2>&1 || {
+    echo "⚠  Stapler validate failed — may need to rerun workflow"
+}
+echo "      ✅ Signed + notarized + stapled"
 
 # ─── Step 3: Assemble final distribution folder ──────────
 echo ""
