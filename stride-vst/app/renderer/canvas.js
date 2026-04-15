@@ -44,6 +44,18 @@
     let currentTemplatePath = null; // Resolved template file path
     let templateMatchState = 'none'; // 'exact', 'fallback', 'none'
 
+    // ─── MULTI-LANE VIEW ─────────────────────────────────
+    // Stride has two canvas view modes:
+    //   'focus' = one active lane fills the full canvas height (default, original)
+    //   'multi' = every parameter gets its own horizontal strip stacked
+    //             vertically. Lets the user see how the rack modulates
+    //             coherently across all params at once. Scroll to reach
+    //             lanes that don't fit.
+    let sdViewMode = 'focus';
+    let sdMultiScrollOffset = 0;              // # of lanes scrolled off the top
+    const SD_MULTI_LANE_HEIGHT = 64;          // px per lane in multi view
+    const SD_MULTI_LABEL_WIDTH = 120;         // px reserved on the left for the param name
+
     // ─── UNDO / REDO ─────────────────────────────────────
     let undoStack = [];
     let redoStack = [];
@@ -915,12 +927,59 @@
 
     // ─── DRAWING ──────────────────────────────────────────
 
+    // ─── MULTI-VIEW HELPERS ──────────────────────────────
+    // How many lanes fit visually in the current canvas height.
+    function sdMultiVisibleLaneCount() {
+        if (!sdCanvasEl) return 0;
+        const h = sdCanvasEl.getBoundingClientRect().height;
+        return Math.max(1, Math.floor(h / SD_MULTI_LANE_HEIGHT));
+    }
+
+    // Clamp scroll offset to legal range whenever lane count changes.
+    function sdMultiClampScroll() {
+        const visible = sdMultiVisibleLaneCount();
+        const maxOffset = Math.max(0, sdCanvasParams.length - visible);
+        if (sdMultiScrollOffset > maxOffset) sdMultiScrollOffset = maxOffset;
+        if (sdMultiScrollOffset < 0) sdMultiScrollOffset = 0;
+    }
+
+    // For a visible row index (0 = topmost visible), return the Y rect on canvas.
+    function sdMultiGetVisibleRowRect(rowIdx) {
+        const top = rowIdx * SD_MULTI_LANE_HEIGHT;
+        return {
+            top,
+            bottom: top + SD_MULTI_LANE_HEIGHT,
+            height: SD_MULTI_LANE_HEIGHT,
+        };
+    }
+
+    // Given a canvas Y pixel, which param (if any) is under it in multi view?
+    function sdMultiGetParamAtY(y) {
+        if (y < 0) return null;
+        const rowIdx = Math.floor(y / SD_MULTI_LANE_HEIGHT);
+        const visible = sdMultiVisibleLaneCount();
+        if (rowIdx < 0 || rowIdx >= visible) return null;
+        const paramIdx = rowIdx + sdMultiScrollOffset;
+        if (paramIdx >= sdCanvasParams.length) return null;
+        return {
+            param: sdCanvasParams[paramIdx],
+            rect: sdMultiGetVisibleRowRect(rowIdx),
+            rowIdx,
+        };
+    }
+
     function sdDrawCanvasGrid() {
         if (!sdCtx || !sdCanvasEl || !sdCanvasRect) return;
         sdDrawRuler();
         const lw = sdCanvasEl.getBoundingClientRect().width;
         const lh = sdCanvasEl.getBoundingClientRect().height;
         sdCtx.clearRect(0, 0, lw, lh);
+
+        // Multi-lane view branches to its own renderer
+        if (sdViewMode === 'multi') {
+            sdDrawMultiView(lw, lh);
+            return;
+        }
         const bars = sdGetBars();
         const totalBeats = bars * 4;
         let gridStep = 0.25;
@@ -1029,6 +1088,209 @@
         });
     }
 
+    // ─── MULTI-LANE RENDERER ──────────────────────────────
+    // Renders every visible param as a horizontal strip of SD_MULTI_LANE_HEIGHT
+    // pixels tall. The left SD_MULTI_LABEL_WIDTH pixels of each row show the
+    // parameter name + index. The remaining width shows the curve at the
+    // normal time zoom + pan. The active param row has a fuchsia border
+    // highlight so the user always knows which lane their tool edits target.
+    function sdDrawMultiView(lw, lh) {
+        sdMultiClampScroll();
+        const bars = sdGetBars();
+        const totalBeats = bars * 4;
+        const laneDrawLeft = SD_MULTI_LABEL_WIDTH;
+        const laneDrawWidth = Math.max(1, lw - SD_MULTI_LABEL_WIDTH);
+
+        // Shared time grid lines — drawn across the whole canvas height so
+        // they form vertical rulers connecting all lanes visually.
+        let gridStep = 0.25;
+        if (sdViewZoomX > 3) gridStep = 0.125;
+        if (sdViewZoomX > 8) gridStep = 0.0625;
+        sdCtx.save();
+        sdCtx.beginPath();
+        sdCtx.rect(laneDrawLeft, 0, laneDrawWidth, lh);
+        sdCtx.clip();
+        for (let b = 0; b <= totalBeats; b += gridStep) {
+            const x = laneDrawLeft + ((b / totalBeats) * laneDrawWidth * sdViewZoomX) - sdViewPanX;
+            if (x < laneDrawLeft - 50 || x > lw + 50) continue;
+            if (b % 4 === 0) { sdCtx.strokeStyle = 'rgba(255,255,255,0.18)'; sdCtx.lineWidth = 2; }
+            else if (b % 1 === 0) { sdCtx.strokeStyle = 'rgba(255,255,255,0.09)'; sdCtx.lineWidth = 1; }
+            else if (b % 0.25 === 0) { sdCtx.strokeStyle = 'rgba(255,255,255,0.03)'; sdCtx.lineWidth = 1; }
+            else { sdCtx.strokeStyle = 'rgba(255,255,255,0.015)'; sdCtx.lineWidth = 1; }
+            sdCtx.beginPath(); sdCtx.moveTo(x, 0); sdCtx.lineTo(x, lh); sdCtx.stroke();
+        }
+        sdCtx.restore();
+
+        // Label column background
+        sdCtx.fillStyle = 'rgba(0,0,0,0.35)';
+        sdCtx.fillRect(0, 0, laneDrawLeft, lh);
+        sdCtx.strokeStyle = 'rgba(255,255,255,0.08)';
+        sdCtx.lineWidth = 1;
+        sdCtx.beginPath(); sdCtx.moveTo(laneDrawLeft, 0); sdCtx.lineTo(laneDrawLeft, lh); sdCtx.stroke();
+
+        // Build a name counter so duplicates get a numeric suffix
+        const nameCounts = {};
+        const nameIndex = {};
+        sdCanvasParams.forEach(p => { nameCounts[p.name] = (nameCounts[p.name] || 0) + 1; });
+
+        // Per-lane render
+        const visible = sdMultiVisibleLaneCount();
+        const sel = sdGetSelection();
+        for (let row = 0; row < visible; row++) {
+            const paramIdx = row + sdMultiScrollOffset;
+            if (paramIdx >= sdCanvasParams.length) break;
+            const param = sdCanvasParams[paramIdx];
+            nameIndex[param.name] = (nameIndex[param.name] || 0) + 1;
+            const displayName = nameCounts[param.name] > 1
+                ? `${param.name} (${nameIndex[param.name]})`
+                : param.name;
+            const rect = sdMultiGetVisibleRowRect(row);
+            const isActive = sdActiveParamId === param.envelopeId;
+
+            // Row background stripe (alternating to make rows scannable)
+            sdCtx.fillStyle = row % 2 === 0 ? 'rgba(255,255,255,0.015)' : 'rgba(0,0,0,0.15)';
+            sdCtx.fillRect(laneDrawLeft, rect.top, laneDrawWidth, rect.height);
+
+            // Active-row highlight (fuchsia tint + border)
+            if (isActive) {
+                sdCtx.fillStyle = 'rgba(168,85,247,0.08)';
+                sdCtx.fillRect(0, rect.top, lw, rect.height);
+                sdCtx.strokeStyle = 'rgba(168,85,247,0.55)';
+                sdCtx.lineWidth = 1.5;
+                sdCtx.strokeRect(0.75, rect.top + 0.75, lw - 1.5, rect.height - 1.5);
+            }
+
+            // Horizontal lane divider below
+            sdCtx.strokeStyle = 'rgba(255,255,255,0.06)';
+            sdCtx.lineWidth = 1;
+            sdCtx.beginPath(); sdCtx.moveTo(0, rect.bottom); sdCtx.lineTo(lw, rect.bottom); sdCtx.stroke();
+
+            // Center reference line (0.5) — subtle
+            const midY = rect.top + rect.height / 2;
+            sdCtx.strokeStyle = 'rgba(255,255,255,0.04)';
+            sdCtx.beginPath(); sdCtx.moveTo(laneDrawLeft, midY); sdCtx.lineTo(lw, midY); sdCtx.stroke();
+
+            // Param name (label column)
+            sdCtx.fillStyle = isActive ? 'rgba(232,121,249,0.95)' : 'rgba(228,228,231,0.75)';
+            sdCtx.font = isActive ? 'bold 11px Outfit' : '600 10px Outfit';
+            sdCtx.textAlign = 'left';
+            sdCtx.textBaseline = 'middle';
+            const labelText = displayName.length > 17 ? displayName.slice(0, 16) + '…' : displayName;
+            sdCtx.fillText(labelText, 8, midY - 5);
+
+            // Point count + range line
+            sdCtx.font = '10px Outfit';
+            sdCtx.fillStyle = 'rgba(161,161,170,0.7)';
+            sdCtx.fillText(`${param.points.length} pts`, 8, midY + 10);
+
+            // Selection shade inside this lane's drawing area
+            if (sel) {
+                const sx = laneDrawLeft + ((sel.startBeat / totalBeats) * laneDrawWidth * sdViewZoomX) - sdViewPanX;
+                const ex = laneDrawLeft + ((sel.endBeat / totalBeats) * laneDrawWidth * sdViewZoomX) - sdViewPanX;
+                sdCtx.save();
+                sdCtx.beginPath();
+                sdCtx.rect(laneDrawLeft, rect.top, laneDrawWidth, rect.height);
+                sdCtx.clip();
+                sdCtx.fillStyle = 'rgba(0,0,0,0.35)';
+                if (sx > laneDrawLeft) sdCtx.fillRect(laneDrawLeft, rect.top, sx - laneDrawLeft, rect.height);
+                if (ex < lw) sdCtx.fillRect(ex, rect.top, lw - ex, rect.height);
+                sdCtx.strokeStyle = 'rgba(168,85,247,0.5)';
+                sdCtx.lineWidth = 1.5;
+                sdCtx.beginPath(); sdCtx.moveTo(sx, rect.top); sdCtx.lineTo(sx, rect.bottom); sdCtx.stroke();
+                sdCtx.beginPath(); sdCtx.moveTo(ex, rect.top); sdCtx.lineTo(ex, rect.bottom); sdCtx.stroke();
+                sdCtx.restore();
+            }
+
+            // Draw this lane's curve
+            if (!param.points.length) continue;
+            const sortedPts = param.points.slice().sort((a, b) => a.time - b.time);
+            const valueToY = (v) => rect.bottom - v * rect.height;
+            const timeToX = (t) => laneDrawLeft + ((t / totalBeats) * laneDrawWidth * sdViewZoomX) - sdViewPanX;
+
+            sdCtx.save();
+            sdCtx.beginPath();
+            sdCtx.rect(laneDrawLeft, rect.top, laneDrawWidth, rect.height);
+            sdCtx.clip();
+
+            // Fill under curve (subtle)
+            sdCtx.beginPath();
+            sdCtx.fillStyle = isActive ? 'rgba(168,85,247,0.12)' : 'rgba(168,85,247,0.06)';
+            sdCtx.moveTo(timeToX(sortedPts[0].time), rect.bottom);
+            for (let i = 0; i < sortedPts.length; i++) {
+                const pt = sortedPts[i];
+                const x = timeToX(pt.time);
+                const y = valueToY(pt.value);
+                if (i === 0) { sdCtx.lineTo(x, y); }
+                else {
+                    const prev = sortedPts[i - 1];
+                    const cv = prev.curve || 0;
+                    if (cv === 0) { sdCtx.lineTo(x, y); }
+                    else {
+                        const px = timeToX(prev.time);
+                        const py = valueToY(prev.value);
+                        const mx = (px + x) / 2;
+                        const my = (py + y) / 2;
+                        const cpY = my - cv * Math.abs(y - py) * 1.2;
+                        sdCtx.quadraticCurveTo(mx, cpY, x, y);
+                    }
+                }
+            }
+            sdCtx.lineTo(timeToX(sortedPts[sortedPts.length - 1].time), rect.bottom);
+            sdCtx.closePath();
+            sdCtx.fill();
+
+            // Curve stroke
+            sdCtx.beginPath();
+            sdCtx.strokeStyle = isActive ? '#c084fc' : 'rgba(168,85,247,0.6)';
+            sdCtx.lineWidth = isActive ? 2 : 1.5;
+            for (let i = 0; i < sortedPts.length; i++) {
+                const pt = sortedPts[i];
+                const x = timeToX(pt.time);
+                const y = valueToY(pt.value);
+                if (i === 0) { sdCtx.moveTo(x, y); }
+                else {
+                    const prev = sortedPts[i - 1];
+                    const cv = prev.curve || 0;
+                    if (cv === 0) { sdCtx.lineTo(x, y); }
+                    else {
+                        const px = timeToX(prev.time);
+                        const py = valueToY(prev.value);
+                        const mx = (px + x) / 2;
+                        const my = (py + y) / 2;
+                        const cpY = my - cv * Math.abs(y - py) * 1.2;
+                        sdCtx.quadraticCurveTo(mx, cpY, x, y);
+                    }
+                }
+            }
+            sdCtx.stroke();
+
+            // Point dots (only on active lane to reduce clutter)
+            if (isActive) {
+                sdCtx.fillStyle = '#a855f7';
+                sortedPts.forEach(pt => {
+                    const x = timeToX(pt.time);
+                    const y = valueToY(pt.value);
+                    if (x >= laneDrawLeft - 10 && x <= lw + 10) {
+                        sdCtx.beginPath(); sdCtx.arc(x, y, 3, 0, Math.PI * 2); sdCtx.fill();
+                    }
+                });
+            }
+            sdCtx.restore();
+        }
+
+        // Scroll indicator on the far right (thin track)
+        if (sdCanvasParams.length > visible) {
+            const trackW = 4;
+            const trackX = lw - trackW - 2;
+            sdCtx.fillStyle = 'rgba(255,255,255,0.05)';
+            sdCtx.fillRect(trackX, 0, trackW, lh);
+            const thumbH = Math.max(20, (visible / sdCanvasParams.length) * lh);
+            const thumbY = (sdMultiScrollOffset / sdCanvasParams.length) * lh;
+            sdCtx.fillStyle = 'rgba(168,85,247,0.55)';
+            sdCtx.fillRect(trackX, thumbY, trackW, thumbH);
+        }
+    }
+
     function sdDrawRuler() {
         const ruler = document.getElementById('sd-canvas-ruler');
         if (!ruler) return;
@@ -1097,6 +1359,28 @@
         const rect = sdCanvasEl.getBoundingClientRect();
         const pos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
         const bars = sdGetBars(); const totalBeats = bars * 4;
+
+        if (sdViewMode === 'multi') {
+            // Draw area is offset by the label column on the left. Time math
+            // runs against the narrower draw width.
+            const drawWidth = Math.max(1, rect.width - SD_MULTI_LABEL_WIDTH);
+            const xLocal = pos.x - SD_MULTI_LABEL_WIDTH;
+            const time = ((xLocal + sdViewPanX) / (drawWidth * sdViewZoomX)) * totalBeats;
+
+            // Y → value maps against the ACTIVE lane's visible strip, so an
+            // in-progress drag doesn't cross into a neighbour lane's space.
+            const activeIdx = sdCanvasParams.findIndex(p => p.envelopeId === sdActiveParamId);
+            if (activeIdx === -1) return { time, value: 0 };
+            const rowIdx = activeIdx - sdMultiScrollOffset;
+            if (rowIdx < 0 || rowIdx >= sdMultiVisibleLaneCount()) {
+                return { time, value: 0 };
+            }
+            const laneRect = sdMultiGetVisibleRowRect(rowIdx);
+            const value = Math.max(0, Math.min(1, 1 - ((pos.y - laneRect.top) / laneRect.height)));
+            return { time, value };
+        }
+
+        // Focus mode (original behavior)
         return { time: ((pos.x + sdViewPanX) / (rect.width * sdViewZoomX)) * totalBeats, value: 1 - (pos.y / rect.height) };
     }
 
@@ -1118,6 +1402,16 @@
         sdCanvasEl.addEventListener('wheel', e => {
             e.preventDefault();
             const rect = sdCanvasEl.getBoundingClientRect(); const lw = rect.width;
+
+            // Multi view: plain wheel scrolls the lane list vertically
+            if (sdViewMode === 'multi' && !(e.ctrlKey || e.metaKey)) {
+                const dir = e.deltaY > 0 ? 1 : -1;
+                sdMultiScrollOffset += dir;
+                sdMultiClampScroll();
+                sdDrawCanvasGrid();
+                return;
+            }
+
             if (e.ctrlKey || e.metaKey) {
                 const mouseX = e.clientX - rect.left;
                 const dir = e.deltaY > 0 ? -1 : 1;
@@ -1131,6 +1425,29 @@
         });
         sdCanvasEl.addEventListener('mousedown', e => {
             if (sdIsSpacePressed) { sdIsPanning = true; sdLastMouseX = e.clientX; sdCanvasEl.style.cursor = 'grabbing'; return; }
+
+            // Multi view: the clicked Y position decides which lane the tool
+            // targets. Clicking a non-active lane just activates it (no draw)
+            // so users can safely browse without accidentally dropping points.
+            // A second click on the already-active lane performs the draw.
+            if (sdViewMode === 'multi') {
+                const mrect = sdCanvasEl.getBoundingClientRect();
+                const my = e.clientY - mrect.top;
+                const mx = e.clientX - mrect.left;
+                const hit = sdMultiGetParamAtY(my);
+                if (!hit) return;
+                const wasActive = sdActiveParamId === hit.param.envelopeId;
+                if (!wasActive) {
+                    sdActiveParamId = hit.param.envelopeId;
+                    sdResetSliderSnapshots();
+                    sdRenderSidebar();
+                    sdDrawCanvasGrid();
+                    return;
+                }
+                // Click inside the label column on the active lane → no-op
+                if (mx < SD_MULTI_LABEL_WIDTH) return;
+            }
+
             if (!sdActiveParamId) return;
             const hd = sdGetTimeValue(e); const param = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
             const bars = sdGetBars(); const totalBeats = bars * 4;
@@ -1645,6 +1962,44 @@
         btn.className = sdApplyAllMode
             ? "text-[9px] text-fuchsia-300 bg-fuchsia-500/20 border border-fuchsia-500/40 hover:bg-fuchsia-500/30 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0 ml-auto shadow-[0_0_8px_rgba(217,70,239,0.2)]"
             : "text-[9px] text-zinc-500 bg-black/50 border border-white/5 hover:border-fuchsia-500/30 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0 ml-auto";
+    };
+
+    // ─── VIEW MODE TOGGLE (focus ↔ multi) ─────────────────
+    // Flips the canvas between single-lane focus and the stacked multi-lane
+    // "god view" where every param gets its own row. Does not touch data —
+    // just changes how lanes are drawn and how clicks are routed. Scroll
+    // offset resets on toggle so the user always sees the active lane.
+    window.sdToggleViewMode = function() {
+        sdViewMode = sdViewMode === 'multi' ? 'focus' : 'multi';
+        // Reset time pan so multi view starts cleanly — the focus pan math
+        // uses full-width whereas multi uses width - label column, so reusing
+        // the old pan value can make curves look off-screen at the boundary.
+        sdViewPanX = 0;
+        // Scroll so the active lane is visible (top of the visible window)
+        if (sdViewMode === 'multi' && sdActiveParamId) {
+            const idx = sdCanvasParams.findIndex(p => p.envelopeId === sdActiveParamId);
+            if (idx >= 0) {
+                const visible = sdMultiVisibleLaneCount();
+                if (idx < sdMultiScrollOffset || idx >= sdMultiScrollOffset + visible) {
+                    sdMultiScrollOffset = Math.max(0, idx - Math.floor(visible / 2));
+                }
+            }
+        }
+        sdMultiClampScroll();
+        // Update the button appearance
+        const btn = document.getElementById('sd-view-mode-toggle');
+        if (btn) {
+            if (sdViewMode === 'multi') {
+                btn.classList.add('bg-fuchsia-500/20', 'border-fuchsia-500/50', 'text-fuchsia-300');
+                btn.classList.remove('text-zinc-500', 'border-white/10');
+                btn.title = 'Currently in Multi-Lane view — click to return to Focus view';
+            } else {
+                btn.classList.remove('bg-fuchsia-500/20', 'border-fuchsia-500/50', 'text-fuchsia-300');
+                btn.classList.add('text-zinc-500', 'border-white/10');
+                btn.title = 'Click to switch to Multi-Lane view — see every parameter at once';
+            }
+        }
+        sdDrawCanvasGrid();
     };
 
     // ─── TEMPLATES ─────────────────────────────────────────
