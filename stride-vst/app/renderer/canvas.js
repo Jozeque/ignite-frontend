@@ -800,6 +800,47 @@
         } catch (e) { /* DOM not ready — will be called again after */ }
     }
 
+    // ─── TOOL AVAILABILITY (gray-out Bloom / Weave / Mutate) ─
+    // Bloom, Weave, and Mutate all need the selected parameter to have a
+    // curve drawn on it (and Bloom/Weave additionally need ≥2 lanes so
+    // there's something to propagate to). Instead of letting users click
+    // and hit a modal explaining why it didn't work, we visually dim the
+    // buttons when their preconditions aren't met. Clicks still fire the
+    // existing requirement modals so the teaching still happens — the dim
+    // is just an upfront signal.
+    function sdUpdateToolAvailability() {
+        try {
+            const activeParam = sdActiveParamId
+                ? sdCanvasParams.find(p => p.envelopeId === sdActiveParamId)
+                : null;
+            const activeHasCurve = !!(activeParam && activeParam.points && activeParam.points.length > 0);
+            const hasMultipleLanes = sdCanvasParams.length >= 2;
+
+            const dim = (id, disabled, reason) => {
+                const btn = document.getElementById(id);
+                if (!btn) return;
+                if (disabled) {
+                    btn.classList.add('opacity-40');
+                    btn.setAttribute('data-unavailable', reason);
+                } else {
+                    btn.classList.remove('opacity-40');
+                    btn.removeAttribute('data-unavailable');
+                }
+            };
+
+            // Bloom and Weave both want active curve + ≥2 lanes
+            const bloomWeaveReason = !activeHasCurve
+                ? 'Pick a parameter in the sidebar and draw or Chaos a curve first'
+                : (!hasMultipleLanes ? 'Need at least 2 lanes' : '');
+            dim('sd-bloom-btn', !activeHasCurve || !hasMultipleLanes, bloomWeaveReason);
+            dim('sd-weave-btn', !activeHasCurve || !hasMultipleLanes, bloomWeaveReason);
+
+            // Mutate only needs active curve
+            dim('sd-mutate-btn', !activeHasCurve,
+                'Pick a parameter in the sidebar and draw or Chaos a curve first');
+        } catch (e) { /* DOM not ready yet */ }
+    }
+
     // ─── SIDEBAR ──────────────────────────────────────────
 
     function sdRenderSidebar() {
@@ -834,6 +875,8 @@
 
         // Keep the empty-canvas CTA in sync with the param list
         sdUpdateEmptyState();
+        // Keep Bloom/Weave/Mutate gray-out state in sync
+        sdUpdateToolAvailability();
     }
 
     window.sdSetActiveParam = function(id) {
@@ -4030,6 +4073,7 @@
         // in index.html after the license screen dismisses.
         sdWireWelcomeButtons();
         sdUpdateEmptyState();
+        sdUpdateToolAvailability();
     });
 
 })();
