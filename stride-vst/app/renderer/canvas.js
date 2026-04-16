@@ -373,12 +373,13 @@
             _showMismatchWarning(msg.mismatch_count, msg.params_written, msg.requested_count,
                 `Your rack has ${msg.mismatch_count} more parameter${msg.mismatch_count > 1 ? 's' : ''} than the saved template. Those parameters won't have automation in the clip. <strong style="color:#e7e5e4;">Drag a fresh clip to User Library</strong> to update the template with all current parameters.`);
         } else {
-            status.textContent = `${msg.filename} saved — drag it onto your clip slot`;
+            status.textContent = `${msg.filename} ready — drag onto an empty clip slot`;
             status.style.color = '#4ade80';
             _showApplyToast(msg.filename, msg.filePath);
             _showDragHandle(msg.filename, msg.filePath);
         }
-        setTimeout(() => { status.style.color = ''; }, 8000);
+        // Clear the status after 4 seconds so it doesn't stick permanently
+        setTimeout(() => { status.textContent = ''; status.style.color = ''; }, 4000);
     });
 
     strideLink.on('apply_success', (msg) => {
@@ -397,7 +398,7 @@
         const status = document.getElementById('sd-canvas-status');
         status.textContent = 'Template needed — import a clip first';
         status.style.color = '#fbbf24';
-        setTimeout(() => { status.style.color = ''; }, 8000);
+        setTimeout(() => { status.textContent = ''; status.style.color = ''; }, 4000);
         _showTemplateGuide();
     });
 
