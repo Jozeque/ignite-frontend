@@ -12,9 +12,10 @@
         ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
-        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
         .custom-scroll::-webkit-scrollbar-track { background: transparent; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
         .text-gradient { background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-image: linear-gradient(to right, #f97316, #ef4444); }
         /* Electron title bar drag region */
         .titlebar-drag { -webkit-app-region: drag; }
@@ -361,7 +362,7 @@
         <div class="flex-1 relative flex flex-col bg-zinc-950">
 
             <!-- Header Bar: Bars + Generate -->
-            <div class="h-10 border-b border-white/5 flex items-center px-4 gap-3 shrink-0 bg-black/50 overflow-hidden">
+            <div class="h-10 border-b border-white/5 flex items-center px-4 gap-3 shrink-0 bg-black/50 overflow-x-auto custom-scroll">
                 <div class="flex items-center gap-1.5 bg-black/50 p-1.5 rounded-lg border border-fuchsia-500/30 shrink-0" title="Length of your generated MIDI clip (in bars)">
                     <span class="text-[9px] font-black text-fuchsia-300 uppercase tracking-widest px-1">Loop Length</span>
                     <button onclick="sdSetBars(2)" class="sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-3 py-1 rounded font-bold transition-colors">2</button>
