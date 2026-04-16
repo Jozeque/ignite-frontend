@@ -64,6 +64,10 @@ contextBridge.exposeInMainWorld('stride', {
     openExternal: (url) =>
         ipcRenderer.invoke('open-external', url),
 
+    // Open ~/Desktop/Stride folder (all generated .alc files)
+    openStrideFolder: () =>
+        ipcRenderer.invoke('open-stride-folder'),
+
     // Open the shipped Guide folder (tutorial videos) in Explorer/Finder
     openGuideFolder: () =>
         ipcRenderer.invoke('open-guide-folder'),

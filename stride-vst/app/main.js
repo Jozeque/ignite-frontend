@@ -297,6 +297,18 @@ function _locateGuideFolder() {
     return null;
 }
 
+// Open the ~/Desktop/Stride folder (all generated .alc files live here)
+ipcMain.handle('open-stride-folder', async () => {
+    try {
+        if (!fs.existsSync(STRIDE_DIR)) fs.mkdirSync(STRIDE_DIR, { recursive: true });
+        const err = await shell.openPath(STRIDE_DIR);
+        if (err) return { success: false, error: err };
+        return { success: true, path: STRIDE_DIR };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
 ipcMain.handle('open-guide-folder', async () => {
     try {
         const guideDir = _locateGuideFolder();
