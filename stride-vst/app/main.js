@@ -107,6 +107,16 @@ const BUILTIN_KEY_HASHES = {
     '0474f1fb9cf93ab2b53f10ca69b9c095bd84aff6ba06c8f99ae132ac9244ef65': { tier: 'ambassador', label: 'Ambassador #8' },
     '6434242c08eb442f27c68ddb23d471f6e43b01159b73ac2e4f5cc2d1dbf48681': { tier: 'ambassador', label: 'Ambassador #9' },
     '934fb5c23d1285b79f32e0458ac50ad99b1a0a0c67029b2c47edfa8533fb5b54': { tier: 'ambassador', label: 'Ambassador #10' },
+    '796d3cf2bb41c7bb5682143ee0b2bf3e0a910e51194b8195c5215a6ad0bcde20': { tier: 'ambassador', label: 'Ambassador #11' },
+    'afe99867541df34bce675d0d5a44b585556396cd21438987337ee69bcb2a8a42': { tier: 'ambassador', label: 'Ambassador #12' },
+    '36129c1682dd13bfb260b28545a4e4ce03371e425bdd05a3c3fc8b35df414369': { tier: 'ambassador', label: 'Ambassador #13' },
+    'e1ba03fa1978ddb39e186a9ed6c65b7969f90d3c2a3badec94e3a96269551a21': { tier: 'ambassador', label: 'Ambassador #14' },
+    'a3fcd7166cec022bd629cd408c81999d95b22f99a5111d7665da1ae091f79b7e': { tier: 'ambassador', label: 'Ambassador #15' },
+    '967f5404c56687f0fd7cbcdde0d47d694d3cfc0e9a60b55aa207575e63eead7c': { tier: 'ambassador', label: 'Ambassador #16' },
+    '1e9f68e8e33345bc9496efb17f0ff60aefa0a410cc99204ec3e7695c7bc07f96': { tier: 'ambassador', label: 'Ambassador #17' },
+    '28082797a73f7c2b16c6e625898d4b69617f4602dee9306a1ce10881782de72a': { tier: 'ambassador', label: 'Ambassador #18' },
+    'ff2fce5c727259e4b596ed3e9a8a7a89f31c86c65051da1676ae262aefba6474': { tier: 'ambassador', label: 'Ambassador #19' },
+    '18bf914c5d3b4fa50b15bd7fdb41af741726359d9d2623186c72aba3d68ef4df': { tier: 'ambassador', label: 'Ambassador #20' },
 };
 
 // Backend endpoint that proxies license validation through to Lemon Squeezy.
