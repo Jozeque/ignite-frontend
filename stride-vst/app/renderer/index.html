@@ -20,76 +20,6 @@
         /* Electron title bar drag region */
         .titlebar-drag { -webkit-app-region: drag; }
         .titlebar-no-drag { -webkit-app-region: no-drag; }
-
-        /* ─── Light Mode ──────────────────────────────
-           Flips the entire dark UI to light grey + dark text using broad
-           attribute selectors so EVERY element is caught — not just the
-           ones we remembered to list. Accent colors (fuchsia, amber,
-           cyan, emerald, orange, etc.) are left untouched; they read
-           well on both light and dark backgrounds.
-           Canvas area stays dark — industry standard for audio tools. */
-
-        /* ── Base ── */
-        body.light-mode { background-color: #e4e4e8 !important; color: #27272a !important; }
-        body.light-mode .titlebar-drag { background-color: #d8d8dc !important; }
-        body.light-mode .text-gradient { background-image: linear-gradient(to right, #c2410c, #b91c1c) !important; }
-
-        /* ── ALL dark backgrounds → light grey ── */
-        body.light-mode [class*="bg-black"] { background-color: rgba(210,210,216,0.75) !important; }
-        body.light-mode [class*="bg-zinc-950"] { background-color: #e4e4e8 !important; }
-        body.light-mode [class*="bg-zinc-900"] { background-color: #d8d8dc !important; }
-        body.light-mode [class*="bg-zinc-800"] { background-color: #dcdce0 !important; }
-        body.light-mode [class*="bg-\[#09090b\]"] { background-color: #e4e4e8 !important; }
-
-        /* ── ALL "white on dark" backgrounds → "dark on light" ── */
-        body.light-mode [class*="bg-white\/"] { background-color: rgba(0,0,0,0.05) !important; }
-
-        /* ── ALL light text → dark text ── */
-        body.light-mode [class*="text-zinc-1"] { color: #18181b !important; }
-        body.light-mode [class*="text-zinc-2"] { color: #27272a !important; }
-        body.light-mode [class*="text-zinc-3"] { color: #3f3f46 !important; }
-        body.light-mode [class*="text-zinc-4"] { color: #52525b !important; }
-        body.light-mode [class*="text-zinc-5"] { color: #71717a !important; }
-        body.light-mode [class*="text-zinc-6"] { color: #52525b !important; }
-        body.light-mode [class*="text-white"] { color: #18181b !important; }
-
-        /* ── ALL light borders → subtle dark borders ── */
-        body.light-mode [class*="border-white"] { border-color: rgba(0,0,0,0.1) !important; }
-
-        /* ── Inputs & placeholders ── */
-        body.light-mode input, body.light-mode select {
-            background-color: rgba(255,255,255,0.6) !important;
-            border-color: rgba(0,0,0,0.12) !important;
-            color: #27272a !important;
-        }
-        body.light-mode input::placeholder, body.light-mode select { color: #a1a1aa !important; }
-
-        /* ── Modals/overlays background ── */
-        body.light-mode [class*="bg-black\/70"] { background-color: rgba(200,200,206,0.85) !important; }
-        body.light-mode [class*="bg-black\/80"] { background-color: rgba(200,200,206,0.9) !important; }
-        body.light-mode [class*="bg-black\/85"] { background-color: rgba(200,200,206,0.92) !important; }
-
-        /* ── Scrollbar ── */
-        body.light-mode .custom-scroll::-webkit-scrollbar-thumb { background: #a1a1aa; }
-        body.light-mode .custom-scroll::-webkit-scrollbar-thumb:hover { background: #71717a; }
-
-        /* ── KEEP CANVAS DARK ──
-           Double-override: the broad [class*="bg-black"] rule above
-           would lighten the canvas container. We force it back to dark
-           here. The canvas element itself is drawn programmatically so
-           the CSS doesn't affect the actual curves/grid. */
-        body.light-mode #sd-canvas-container,
-        body.light-mode #sd-canvas-container [class*="bg-black"] {
-            background-color: rgba(9,9,11,0.92) !important;
-            color: #e4e4e7 !important;
-        }
-        body.light-mode #sd-canvas-ruler {
-            background-color: rgba(0,0,0,0.75) !important;
-            color: #e4e4e7 !important;
-        }
-        body.light-mode #sd-canvas-container [class*="text-zinc"] {
-            color: inherit !important;
-        }
     </style>
 </head>
 <body class="h-screen flex flex-col">
@@ -126,10 +56,6 @@
     <!-- Title Bar (draggable for Electron) -->
     <div class="titlebar-drag h-9 bg-zinc-950 border-b border-white/5 flex items-center px-4 shrink-0">
         <span class="text-[11px] font-black tracking-[0.3em] uppercase text-gradient titlebar-no-drag">STRIDE</span>
-        <button id="theme-toggle" onclick="toggleTheme()" class="titlebar-no-drag ml-3 text-zinc-500 hover:text-orange-400 transition-colors" title="Toggle light/dark mode">
-            <svg id="theme-icon-sun" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-            <svg id="theme-icon-moon" class="w-3.5 h-3.5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
-        </button>
         <div class="flex-1"></div>
         <!-- Connection status -->
         <div id="link-status" class="titlebar-no-drag flex items-center gap-2 mr-4">
@@ -928,27 +854,6 @@
         <button id="sd-apply-toast-close" class="shrink-0 text-zinc-600 hover:text-zinc-200 text-base leading-none transition-colors w-5 h-5 flex items-center justify-center" aria-label="Close">&times;</button>
     </div>
 
-    <script>
-    // ─── Theme Toggle (light/dark) ─────────────────────────
-    // Persists to localStorage. Light mode applies a body class that
-    // CSS overrides pick up — canvas stays dark (industry standard).
-    function toggleTheme() {
-        const isLight = document.body.classList.toggle('light-mode');
-        localStorage.setItem('stride_theme', isLight ? 'light' : 'dark');
-        document.getElementById('theme-icon-sun').classList.toggle('hidden', isLight);
-        document.getElementById('theme-icon-moon').classList.toggle('hidden', !isLight);
-    }
-    // Restore saved theme on load (before first paint flicker)
-    (function() {
-        if (localStorage.getItem('stride_theme') === 'light') {
-            document.body.classList.add('light-mode');
-            var sun = document.getElementById('theme-icon-sun');
-            var moon = document.getElementById('theme-icon-moon');
-            if (sun) sun.classList.add('hidden');
-            if (moon) moon.classList.remove('hidden');
-        }
-    })();
-    </script>
     <script src="ws-client.js"></script>
     <script src="cloud-client.js"></script>
     <script src="canvas.js"></script>
