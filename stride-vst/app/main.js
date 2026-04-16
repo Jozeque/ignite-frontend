@@ -332,13 +332,25 @@ ipcMain.handle('reveal-in-folder', async (event, filePath) => {
 // UI directly into Ableton (or any other app that accepts file drops).
 // Electron's webContents.startDrag() initiates a native OS drag event.
 ipcMain.on('ondragstart', (event, filePath) => {
-    if (!filePath || !fs.existsSync(filePath)) return;
-    // Create a simple drag icon (small colored rectangle with "ALC" text)
-    // nativeImage from a 1x1 pixel is fine — the OS shows the filename too
-    const icon = nativeImage.createFromDataURL(
-        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAJpJREFUWEft1LEJwDAMBVBp/6FcuHThIuBKhYfwEO4MsuAMocJVJGGSIhDB8D9C+lbhf4jI6/dP4AbuDgY4R/AEngCwAfCMnwUb4JSKvwV3BMAZ+EfAU8Brm1v/Aw6rfxT8I7j7H+AA4AAQQAAAQQAAQQAAAQQAAQQAAAQQ8BdA6v3u/V/wAC7AA7gBD8mVOB5AAAAAASUVORK5CYII='
-    );
-    event.sender.startDrag({ file: filePath, icon });
+    if (!filePath || typeof filePath !== 'string') return;
+    if (!fs.existsSync(filePath)) {
+        console.log('[Drag] File not found:', filePath);
+        return;
+    }
+    // Use the app icon as drag ghost — guaranteed valid nativeImage
+    const iconPath = path.join(__dirname, 'assets', 'icon.png');
+    let icon;
+    if (fs.existsSync(iconPath)) {
+        icon = nativeImage.createFromPath(iconPath).resize({ width: 32, height: 32 });
+    } else {
+        // Fallback: create a tiny valid PNG programmatically
+        icon = nativeImage.createEmpty();
+    }
+    try {
+        event.sender.startDrag({ file: filePath, icon });
+    } catch (e) {
+        console.log('[Drag] startDrag failed:', e.message);
+    }
 });
 
 // Open URL in system browser

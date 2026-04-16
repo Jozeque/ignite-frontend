@@ -614,13 +614,29 @@
         handle.classList.remove('hidden');
     }
 
-    // Wire up the native drag event on DOMContentLoaded
+    // Wire up the native drag event on DOMContentLoaded.
+    // We use BOTH dragstart (official Electron pattern) AND mousedown
+    // (fallback). dragstart fires the native drag via startDrag(),
+    // mousedown is a backup in case the HTML5 drag doesn't initiate.
     function _wireDragHandle() {
         const handle = document.getElementById('sd-drag-alc');
         if (!handle) return;
+
+        // Primary: HTML5 dragstart → Electron native drag
         handle.addEventListener('dragstart', (e) => {
             e.preventDefault();
             if (_lastAlcPath && window.stride && window.stride.startDrag) {
+                console.log('[Drag] dragstart → startDrag:', _lastAlcPath);
+                window.stride.startDrag(_lastAlcPath);
+            }
+        });
+
+        // Fallback: mousedown triggers drag directly (some Electron
+        // versions on Windows don't fire dragstart reliably)
+        handle.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return; // left click only
+            if (_lastAlcPath && window.stride && window.stride.startDrag) {
+                console.log('[Drag] mousedown → startDrag:', _lastAlcPath);
                 window.stride.startDrag(_lastAlcPath);
             }
         });
