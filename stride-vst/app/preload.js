@@ -72,6 +72,10 @@ contextBridge.exposeInMainWorld('stride', {
     revealInFolder: (filePath) =>
         ipcRenderer.invoke('reveal-in-folder', filePath),
 
+    // Native file drag-out (drag .alc into Ableton)
+    startDrag: (filePath) =>
+        ipcRenderer.send('ondragstart', filePath),
+
     // Platform info
     platform: process.platform
 });

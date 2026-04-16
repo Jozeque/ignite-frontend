@@ -3,7 +3,7 @@
  * Creates the main window and manages app lifecycle.
  */
 
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -326,6 +326,19 @@ ipcMain.handle('reveal-in-folder', async (event, filePath) => {
     } catch (e) {
         return { success: false, error: e.message };
     }
+});
+
+// Native file drag-out — lets the user drag a .alc file from the Stride
+// UI directly into Ableton (or any other app that accepts file drops).
+// Electron's webContents.startDrag() initiates a native OS drag event.
+ipcMain.on('ondragstart', (event, filePath) => {
+    if (!filePath || !fs.existsSync(filePath)) return;
+    // Create a simple drag icon (small colored rectangle with "ALC" text)
+    // nativeImage from a 1x1 pixel is fine — the OS shows the filename too
+    const icon = nativeImage.createFromDataURL(
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAJpJREFUWEft1LEJwDAMBVBp/6FcuHThIuBKhYfwEO4MsuAMocJVJGGSIhDB8D9C+lbhf4jI6/dP4AbuDgY4R/AEngCwAfCMnwUb4JSKvwV3BMAZ+EfAU8Brm1v/Aw6rfxT8I7j7H+AA4AAQQAAAQQAAQQAAAQQAAQQAAAQQ8BdA6v3u/V/wAC7AA7gBD8mVOB5AAAAAASUVORK5CYII='
+    );
+    event.sender.startDrag({ file: filePath, icon });
 });
 
 // Open URL in system browser

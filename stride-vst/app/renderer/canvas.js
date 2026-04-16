@@ -375,11 +375,8 @@
         } else {
             status.textContent = `${msg.filename} saved — drag it onto your clip slot`;
             status.style.color = '#4ade80';
-            // Pop the bottom-right success toast (3s, X to close, click Open
-            // folder to re-reveal the file). Does not replace the Explorer
-            // window that server.js already opens — this is just a second
-            // chance in case the user closed it.
             _showApplyToast(msg.filename, msg.filePath);
+            _showDragHandle(msg.filename, msg.filePath);
         }
         setTimeout(() => { status.style.color = ''; }, 8000);
     });
@@ -599,6 +596,34 @@
             toast.classList.add('hidden');
             _sdApplyToastTimer = null;
         }, 3000);
+    }
+
+    // ─── DRAG .ALC INTO ABLETON ─────────────────────────────
+    // After Apply succeeds, a drag handle appears in the sidebar. The user
+    // drags it directly into an Ableton clip slot — Electron's startDrag()
+    // initiates a native OS drag event that Ableton picks up as a file drop.
+    // No need to open Explorer, find the file, drag from there.
+    let _lastAlcPath = null;
+
+    function _showDragHandle(filename, filePath) {
+        _lastAlcPath = filePath;
+        const handle = document.getElementById('sd-drag-alc');
+        const nameEl = document.getElementById('sd-drag-alc-name');
+        if (!handle || !nameEl) return;
+        nameEl.textContent = filename || 'clip.alc';
+        handle.classList.remove('hidden');
+    }
+
+    // Wire up the native drag event on DOMContentLoaded
+    function _wireDragHandle() {
+        const handle = document.getElementById('sd-drag-alc');
+        if (!handle) return;
+        handle.addEventListener('dragstart', (e) => {
+            e.preventDefault();
+            if (_lastAlcPath && window.stride && window.stride.startDrag) {
+                window.stride.startDrag(_lastAlcPath);
+            }
+        });
     }
 
     // ─── TEMPLATE IMPORT ─────────────────────────────────────
@@ -4485,6 +4510,7 @@
         sdWireWelcomeButtons();
         sdUpdateEmptyState();
         sdUpdateToolAvailability();
+        _wireDragHandle();
     });
 
 })();
