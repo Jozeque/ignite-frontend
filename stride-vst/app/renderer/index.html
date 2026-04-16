@@ -362,30 +362,30 @@
         <div class="flex-1 relative flex flex-col bg-zinc-950">
 
             <!-- Header Bar: Bars + Generate -->
-            <div class="h-10 border-b border-white/5 flex items-center px-4 gap-3 shrink-0 bg-black/50 overflow-x-auto custom-scroll">
-                <div class="flex items-center gap-1.5 bg-black/50 p-1.5 rounded-lg border border-fuchsia-500/30 shrink-0" title="Length of your generated MIDI clip (in bars)">
-                    <span class="text-[9px] font-black text-fuchsia-300 uppercase tracking-widest px-1">Loop Length</span>
+            <div class="h-10 border-b border-white/5 flex items-center px-2 gap-1.5 shrink-0 bg-black/50 overflow-x-auto custom-scroll">
+                <div class="flex items-center gap-1 bg-black/50 p-1 rounded-lg border border-fuchsia-500/30 shrink-0" title="Length of your generated MIDI clip (in bars)">
+                    <span class="text-[9px] font-black text-fuchsia-300 uppercase tracking-wider px-0.5">Loop</span>
                     <button onclick="sdSetBars(2)" class="sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-3 py-1 rounded font-bold transition-colors">2</button>
                     <button onclick="sdSetBars(4)" class="sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-3 py-1 rounded font-bold transition-colors">4</button>
                     <button onclick="sdSetBars(8)" class="sd-bars-btn text-[11px] text-fuchsia-400 bg-fuchsia-500/20 px-3 py-1 rounded font-bold transition-colors">8</button>
                     <button onclick="sdSetBars(16)" class="sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-3 py-1 rounded font-bold transition-colors">16</button>
                 </div>
-                <div class="w-px h-5 bg-white/10 shrink-0"></div>
-                <button id="sd-view-mode-toggle" onclick="sdToggleViewMode()" title="Currently in Multi-Lane view — click to return to Focus view" class="text-[9px] text-fuchsia-300 bg-fuchsia-500/20 border border-fuchsia-500/50 hover:border-fuchsia-400 px-2.5 py-1 rounded uppercase font-bold tracking-widest transition-all shrink-0 flex items-center gap-1.5">
+                <div class="w-px h-5 bg-white/10"></div>
+                <button id="sd-view-mode-toggle" onclick="sdToggleViewMode()" title="Currently in Multi-Lane view — click to return to Focus view" class="text-[9px] text-fuchsia-300 bg-fuchsia-500/20 border border-fuchsia-500/50 hover:border-fuchsia-400 px-2 py-1 rounded uppercase font-bold tracking-wider transition-all shrink-0 flex items-center gap-1">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                     Multi-Lane
                 </button>
-                <div class="w-px h-5 bg-white/10 shrink-0"></div>
+                <div class="w-px h-5 bg-white/10"></div>
                 <span id="sd-canvas-status" class="text-[9px] text-zinc-500 uppercase font-bold tracking-[0.2em] bg-white/5 px-2 py-1 rounded truncate min-w-0 max-w-[280px]">Connect M4L</span>
-                <div class="flex-1 min-w-[8px]"></div>
+                <div class="flex-1 min-w-0"></div>
                 <!-- Generate (online only) -->
-                <button id="generate-btn" onclick="openGeneratePanel()" class="hidden shrink-0 text-[9px] text-orange-400 hover:text-white bg-transparent hover:bg-gradient-to-r hover:from-orange-500 hover:to-red-500 border border-orange-500/50 hover:border-transparent px-5 py-1.5 rounded-lg uppercase tracking-widest font-black transition-all flex items-center gap-1.5">
+                <button id="generate-btn" onclick="openGeneratePanel()" class="hidden shrink-0 text-[9px] text-orange-400 hover:text-white bg-transparent hover:bg-gradient-to-r hover:from-orange-500 hover:to-red-500 border border-orange-500/50 hover:border-transparent px-3 py-1.5 rounded-lg uppercase tracking-wider font-black transition-all flex items-center gap-1.5">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                     Generate
                 </button>
                 <!-- Generative group: Chaos (origin) → Bloom / Weave (shape around active) -->
-                <div class="flex items-center gap-1.5 shrink-0 p-1 rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/[0.04]" title="Generative tools — Chaos fills lanes, then Bloom or Weave shape the rest around the selected parameter">
-                <button onclick="sdApplyGlobalChaos()" class="shrink-0 text-[9px] text-fuchsia-400 hover:text-white bg-transparent hover:bg-fuchsia-500/10 border border-fuchsia-500/50 hover:border-fuchsia-400 px-5 py-1 rounded-lg uppercase tracking-widest font-black transition-all flex flex-col items-center leading-tight">
+                <div class="flex items-center gap-1 shrink-0 p-0.5 rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/[0.04]" title="Generative tools — Chaos fills lanes, then Bloom or Weave shape the rest around the selected parameter">
+                <button onclick="sdApplyGlobalChaos()" class="shrink-0 text-[9px] text-fuchsia-400 hover:text-white bg-transparent hover:bg-fuchsia-500/10 border border-fuchsia-500/50 hover:border-fuchsia-400 px-3 py-1 rounded-lg uppercase tracking-wider font-black transition-all flex flex-col items-center leading-tight">
                     <div class="flex items-center gap-1.5">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                         Chaos
@@ -393,7 +393,7 @@
                     <span class="text-[9px] text-zinc-400 font-medium tracking-normal normal-case mt-0.5">randomize</span>
                 </button>
                 <div class="relative shrink-0">
-                    <button id="sd-bloom-btn" onclick="sdToggleBloom()" title="Bloom: shape the other lanes around the selected parameter" class="text-[9px] text-amber-400 hover:text-white bg-transparent hover:bg-amber-500/10 border border-amber-500/50 hover:border-amber-400 px-5 py-1 rounded-lg uppercase tracking-widest font-black transition-all flex flex-col items-center leading-tight">
+                    <button id="sd-bloom-btn" onclick="sdToggleBloom()" title="Bloom: shape the other lanes around the selected parameter" class="text-[9px] text-amber-400 hover:text-white bg-transparent hover:bg-amber-500/10 border border-amber-500/50 hover:border-amber-400 px-3 py-1 rounded-lg uppercase tracking-wider font-black transition-all flex flex-col items-center leading-tight">
                         <div class="flex items-center gap-1.5">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m-8-9H3m18 0h-1m-2.636-5.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m11.314 11.314l.707.707"/></svg>
                             Bloom
@@ -417,7 +417,7 @@
                 </div>
                 <!-- Weave -->
                 <div class="relative shrink-0">
-                    <button id="sd-weave-btn" onclick="sdToggleWeave()" title="Weave: phase-shift other lanes so peaks don't overlap with the selected parameter" class="text-[9px] text-cyan-400 hover:text-white bg-transparent hover:bg-cyan-500/10 border border-cyan-500/50 hover:border-cyan-400 px-5 py-1 rounded-lg uppercase tracking-widest font-black transition-all flex flex-col items-center leading-tight">
+                    <button id="sd-weave-btn" onclick="sdToggleWeave()" title="Weave: phase-shift other lanes so peaks don't overlap with the selected parameter" class="text-[9px] text-cyan-400 hover:text-white bg-transparent hover:bg-cyan-500/10 border border-cyan-500/50 hover:border-cyan-400 px-3 py-1 rounded-lg uppercase tracking-wider font-black transition-all flex flex-col items-center leading-tight">
                         <div class="flex items-center gap-1.5">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                             Weave
@@ -447,14 +447,14 @@
                 </div><!-- /generative group -->
                 <div class="w-px h-7 bg-white/10 shrink-0"></div>
                 <!-- Presets -->
-                <button onclick="sdTogglePresets()" title="Preset bank: ready-made multi-lane patterns" class="text-[9px] text-rose-400 hover:text-white bg-transparent hover:bg-rose-500/10 border border-rose-500/50 hover:border-rose-400 px-5 py-1.5 rounded-lg uppercase tracking-widest font-black transition-all flex items-center gap-1.5 shrink-0">
+                <button onclick="sdTogglePresets()" title="Preset bank: ready-made multi-lane patterns" class="text-[9px] text-rose-400 hover:text-white bg-transparent hover:bg-rose-500/10 border border-rose-500/50 hover:border-rose-400 px-3 py-1.5 rounded-lg uppercase tracking-wider font-black transition-all flex items-center gap-1.5 shrink-0">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
                     Presets
                 </button>
             </div>
 
             <!-- ROW 1: Draw Tools & Templates -->
-            <div class="h-10 border-b border-white/5 flex items-center px-4 gap-3 shrink-0 bg-black/40 overflow-x-auto custom-scroll">
+            <div class="h-10 border-b border-white/5 flex items-center px-2 gap-1.5 shrink-0 bg-black/40 overflow-x-auto custom-scroll">
                 <div class="flex items-center gap-1 bg-black/50 p-1 rounded border border-white/5">
                     <button id="sd-tool-select" onclick="sdSetTool('select')" class="tool-btn bg-fuchsia-500/20 text-fuchsia-400 px-3 py-1 rounded text-[9px] uppercase tracking-wider font-bold transition-colors">Point</button>
                     <button id="sd-tool-freehand" onclick="sdSetTool('freehand')" class="tool-btn text-zinc-400 hover:text-fuchsia-400 px-3 py-1 rounded text-[9px] uppercase tracking-wider font-bold transition-colors">Free</button>
@@ -477,7 +477,7 @@
             </div>
 
             <!-- ROW 2: Shape Tools & Refinement -->
-            <div class="h-11 border-b border-white/5 flex items-center px-3 gap-2 shrink-0 bg-black/30 overflow-x-auto custom-scroll">
+            <div class="h-11 border-b border-white/5 flex items-center px-2 gap-1.5 shrink-0 bg-black/30 overflow-x-auto custom-scroll">
                 <div class="flex items-center gap-0.5 bg-black/50 p-0.5 rounded border border-white/5">
                     <button onclick="sdMirrorLane()" title="Flip Y-axis" class="text-[9px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0">Mirror</button>
                     <button onclick="sdFlipLane()" title="Reverse time" class="text-[9px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0">Flip</button>
