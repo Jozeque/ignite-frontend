@@ -612,6 +612,21 @@
         if (!handle || !nameEl) return;
         nameEl.textContent = filename || 'clip.alc';
         handle.classList.remove('hidden');
+
+        // Flash animation so the user sees "new file ready" even if the
+        // handle was already visible from a previous Apply
+        handle.style.transition = 'none';
+        handle.style.borderColor = 'rgba(52,211,153,0.8)';
+        handle.style.backgroundColor = 'rgba(16,185,129,0.2)';
+        handle.style.transform = 'scale(1.03)';
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                handle.style.transition = 'all 0.6s ease-out';
+                handle.style.borderColor = '';
+                handle.style.backgroundColor = '';
+                handle.style.transform = '';
+            });
+        });
     }
 
     // Wire up the native drag event on DOMContentLoaded.
