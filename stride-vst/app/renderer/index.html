@@ -376,7 +376,7 @@
                     Multi-Lane
                 </button>
                 <div class="w-px h-5 bg-white/10"></div>
-                <span id="sd-canvas-status" class="text-[9px] text-zinc-500 uppercase font-bold tracking-wider bg-white/5 px-1.5 py-0.5 rounded truncate min-w-0 max-w-[180px]">Connect M4L</span>
+                <div class="flex-1 min-w-0"></div>
                 <!-- Generate (online only) -->
                 <button id="generate-btn" onclick="openGeneratePanel()" class="hidden shrink-0 text-[9px] text-orange-400 hover:text-white bg-transparent hover:bg-gradient-to-r hover:from-orange-500 hover:to-red-500 border border-orange-500/50 hover:border-transparent px-3 py-1.5 rounded-lg uppercase tracking-wider font-black transition-all flex items-center gap-1.5">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
@@ -471,7 +471,8 @@
                 <div class="w-px h-5 bg-white/10 mx-1"></div>
                 <span class="text-[8px] font-bold text-zinc-500 uppercase tracking-widest shrink-0">Saved:</span>
                 <div id="user-presets-bar" class="flex items-center gap-1"></div>
-                <button onclick="sdSavePreset()" title="Save active lane as preset" class="text-[9px] text-zinc-400 hover:text-zinc-300 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 px-3 py-1 rounded uppercase tracking-wider font-bold transition-colors ml-auto shrink-0">Save Lane</button>
+                <div class="flex-1 min-w-0"></div>
+                <button onclick="sdSavePreset()" title="Save active lane as preset" class="text-[9px] text-zinc-400 hover:text-zinc-300 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 px-3 py-1 rounded uppercase tracking-wider font-bold transition-colors shrink-0">Save Lane</button>
                 <button onclick="sdClearCurrentCanvas()" class="text-[9px] text-red-400/80 hover:text-red-400 bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 hover:border-red-500/30 px-3 py-1 rounded uppercase tracking-wider font-bold transition-colors shrink-0">Clear Lane</button>
             </div>
 
@@ -535,7 +536,8 @@
                     <span>Mutate</span>
                     <span class="text-[9px] text-zinc-400 font-medium tracking-normal normal-case mt-0">reshape active</span>
                 </button>
-                <button onclick="sdShuffleLanes()" title="Shuffle: randomly reassign curves to different params" class="text-[9px] text-violet-400 hover:text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 hover:border-violet-500/40 px-2.5 py-1 rounded uppercase font-bold transition-colors shrink-0 ml-auto">Shuffle</button>
+                <div class="flex-1 min-w-0"></div>
+                <button onclick="sdShuffleLanes()" title="Shuffle: randomly reassign curves to different params" class="text-[9px] text-violet-400 hover:text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 hover:border-violet-500/40 px-2.5 py-1 rounded uppercase font-bold transition-colors shrink-0">Shuffle</button>
                 <button id="sd-apply-all-toggle" onclick="sdToggleApplyAll()" title="When active, tools apply to ALL lanes" class="text-[9px] text-zinc-500 bg-black/50 border border-white/5 hover:border-fuchsia-500/30 px-2.5 py-1 rounded uppercase font-bold transition-colors shrink-0">All Lanes</button>
             </div>
 
@@ -543,7 +545,8 @@
             <div class="flex-1 relative overflow-hidden bg-black/20" id="sd-canvas-container">
                 <div id="sd-canvas-ruler" class="absolute top-0 left-0 right-0 h-5 bg-black/60 border-b border-white/10 z-20 cursor-col-resize select-none"></div>
                 <canvas id="sd-canvas" class="absolute top-5 left-0 right-0 bottom-0 w-full cursor-crosshair z-10" style="height: calc(100% - 20px);"></canvas>
-                <div class="absolute bottom-3 left-3 pointer-events-none z-20">
+                <div class="absolute bottom-3 left-3 pointer-events-none z-20 flex items-center gap-2">
+                    <span id="sd-canvas-status" class="text-[9px] font-bold text-zinc-500 uppercase tracking-wider bg-black/70 px-2 py-1 rounded">Connect M4L</span>
                     <span class="text-[9px] font-bold text-zinc-600 tracking-widest uppercase bg-black/60 px-2 py-1 rounded">Zoom: Ctrl + Wheel | Pan: Space + Drag | Bend: Alt + Drag</span>
                 </div>
 
