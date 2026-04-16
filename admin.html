@@ -93,6 +93,15 @@
             <div class="text-[9px] text-zinc-500 uppercase tracking-widest font-bold">
                 <span id="count-shown">0</span> shown / <span id="count-total">0</span> total
             </div>
+            <div class="w-px h-5 bg-white/10"></div>
+            <button onclick="exportCSV()" class="text-[9px] text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 px-3 py-1.5 rounded-lg uppercase tracking-widest font-bold transition-all flex items-center gap-1.5">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                Export CSV
+            </button>
+            <button onclick="exportEmailsOnly()" class="text-[9px] text-sky-400 hover:text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 hover:border-sky-500/40 px-3 py-1.5 rounded-lg uppercase tracking-widest font-bold transition-all flex items-center gap-1.5">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                Emails Only
+            </button>
             <div class="flex-1"></div>
             <div class="flex items-center gap-3">
                 <span id="user-email" class="text-[10px] text-zinc-400 font-medium"></span>
@@ -645,6 +654,47 @@
             state.sort = e.target.value;
             applyFilters();
         });
+
+        // ─── CSV Export ──────────────────────────────────
+        function exportCSV() {
+            if (!state.filtered.length) { alert('No rows to export'); return; }
+            const headers = ['name', 'email', 'country', 'source', 'status', 'created_at', 'notes'];
+            const escape = (v) => {
+                if (v == null) return '';
+                const s = String(v).replace(/"/g, '""');
+                return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s}"` : s;
+            };
+            let csv = headers.join(',') + '\n';
+            state.filtered.forEach(r => {
+                csv += headers.map(h => {
+                    if (h === 'created_at') {
+                        const d = r[h];
+                        return d && d.toDate ? escape(d.toDate().toISOString()) : escape(r[h] || '');
+                    }
+                    return escape(r[h] || '');
+                }).join(',') + '\n';
+            });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `stride_crm_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function exportEmailsOnly() {
+            if (!state.filtered.length) { alert('No rows to export'); return; }
+            const emails = state.filtered.map(r => r.email).filter(Boolean);
+            const unique = [...new Set(emails)];
+            const blob = new Blob([unique.join('\n')], { type: 'text/plain;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `stride_emails_${new Date().toISOString().slice(0,10)}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
     </script>
 </body>
 </html>
