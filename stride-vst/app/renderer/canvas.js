@@ -132,6 +132,12 @@
     window.scanAll = function() {
         scanMode = 'all';
         document.getElementById('sd-canvas-status').textContent = 'Scanning...';
+        const btn = document.getElementById('scan-mapped-btn');
+        if (btn) {
+            btn.textContent = 'Scanning...';
+            btn.classList.add('animate-pulse', 'opacity-70');
+            btn.disabled = true;
+        }
         strideLink.requestScan();
     };
 
@@ -139,8 +145,23 @@
     window.scanMapped = function() {
         scanMode = 'mapped';
         document.getElementById('sd-canvas-status').textContent = 'Scanning mapped...';
+        const btn = document.getElementById('scan-mapped-btn');
+        if (btn) {
+            btn.textContent = 'Scanning...';
+            btn.classList.add('animate-pulse', 'opacity-70');
+            btn.disabled = true;
+        }
         strideLink.send({ type: 'request_scan_mapped' });
     };
+
+    function _resetScanButton() {
+        const btn = document.getElementById('scan-mapped-btn');
+        if (btn) {
+            btn.textContent = 'Scan Mapped';
+            btn.classList.remove('animate-pulse', 'opacity-70');
+            btn.disabled = false;
+        }
+    }
 
     // Param picker UI
     window.togglePickAll = function(checked) {
@@ -244,6 +265,7 @@
 
     // Handle rack scan results from M4L
     strideLink.on('rack_scanned', (msg) => {
+        _resetScanButton();
         const rackInfo = {
             device_name: msg.device_name,
             track_name: msg.track_name,
