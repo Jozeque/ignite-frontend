@@ -244,18 +244,10 @@ function applyViaAlcFile(msg) {
                 template_matched_name: result.templateMatchedName || null,
             });
 
-            // Open Explorer with the file selected (no hunting)
-            try {
-                const { exec } = require('child_process');
-                const cmd = process.platform === 'win32'
-                    ? `explorer /select,"${result.filePath}"`
-                    : `open -R "${result.filePath}"`;
-                exec(cmd, (err) => {
-                    if (err) Max.post(`Stride: Could not open folder — ${err.message}`);
-                });
-            } catch (e) {
-                Max.post(`Stride: Could not open folder — ${e.message}`);
-            }
+            // Folder auto-open removed — the canvas now shows a drag handle
+            // that lets the user drag the .alc directly into Ableton. The
+            // "Open folder" button in the success toast is still available
+            // as a fallback if the user prefers the old workflow.
         } else if (result.needsTemplate) {
             // No template — guide user to import one via My Racks
             Max.post('Stride: No template — user needs to import a rack template');
