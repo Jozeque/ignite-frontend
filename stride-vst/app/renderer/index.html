@@ -22,38 +22,74 @@
         .titlebar-no-drag { -webkit-app-region: no-drag; }
 
         /* ─── Light Mode ──────────────────────────────
-           Toggle via body.light-mode. Canvas area stays dark (industry
-           standard for audio tools), chrome/toolbars/sidebar go light.
-           Colors chosen for reduced eye strain in daylight studios. */
-        body.light-mode { background-color: #e8e8ec !important; color: #27272a !important; }
-        body.light-mode .titlebar-drag { background-color: #dcdce0 !important; border-color: rgba(0,0,0,0.08) !important; }
-        body.light-mode .text-gradient { background-image: linear-gradient(to right, #c2410c, #dc2626) !important; }
-        body.light-mode .bg-zinc-950 { background-color: #e8e8ec !important; }
-        body.light-mode .bg-zinc-900\/60 { background-color: rgba(220,220,224,0.9) !important; }
-        body.light-mode .bg-black\/50 { background-color: rgba(228,228,232,0.8) !important; }
-        body.light-mode .bg-black\/40 { background-color: rgba(228,228,232,0.7) !important; }
-        body.light-mode .bg-black\/30 { background-color: rgba(228,228,232,0.6) !important; }
-        body.light-mode .border-white\/5 { border-color: rgba(0,0,0,0.08) !important; }
-        body.light-mode .border-white\/10 { border-color: rgba(0,0,0,0.12) !important; }
-        body.light-mode .bg-white\/5 { background-color: rgba(0,0,0,0.04) !important; }
-        body.light-mode .bg-white\/10 { background-color: rgba(0,0,0,0.06) !important; }
-        body.light-mode .text-zinc-400 { color: #52525b !important; }
-        body.light-mode .text-zinc-500 { color: #71717a !important; }
-        body.light-mode .text-zinc-600 { color: #52525b !important; }
-        body.light-mode .text-zinc-300 { color: #3f3f46 !important; }
-        body.light-mode .text-zinc-200 { color: #27272a !important; }
-        body.light-mode .text-zinc-100 { color: #18181b !important; }
-        body.light-mode .bg-zinc-800\/50 { background-color: rgba(228,228,232,0.8) !important; }
-        body.light-mode .bg-zinc-900 { background-color: #dcdce0 !important; }
-        body.light-mode .placeholder-zinc-600::placeholder { color: #a1a1aa !important; }
-        /* Sidebar param list */
-        body.light-mode .bg-black\/20 { background-color: rgba(0,0,0,0.04) !important; }
-        /* Scrollbar */
+           Flips the entire dark UI to light grey + dark text using broad
+           attribute selectors so EVERY element is caught — not just the
+           ones we remembered to list. Accent colors (fuchsia, amber,
+           cyan, emerald, orange, etc.) are left untouched; they read
+           well on both light and dark backgrounds.
+           Canvas area stays dark — industry standard for audio tools. */
+
+        /* ── Base ── */
+        body.light-mode { background-color: #e4e4e8 !important; color: #27272a !important; }
+        body.light-mode .titlebar-drag { background-color: #d8d8dc !important; }
+        body.light-mode .text-gradient { background-image: linear-gradient(to right, #c2410c, #b91c1c) !important; }
+
+        /* ── ALL dark backgrounds → light grey ── */
+        body.light-mode [class*="bg-black"] { background-color: rgba(210,210,216,0.75) !important; }
+        body.light-mode [class*="bg-zinc-950"] { background-color: #e4e4e8 !important; }
+        body.light-mode [class*="bg-zinc-900"] { background-color: #d8d8dc !important; }
+        body.light-mode [class*="bg-zinc-800"] { background-color: #dcdce0 !important; }
+        body.light-mode [class*="bg-\[#09090b\]"] { background-color: #e4e4e8 !important; }
+
+        /* ── ALL "white on dark" backgrounds → "dark on light" ── */
+        body.light-mode [class*="bg-white\/"] { background-color: rgba(0,0,0,0.05) !important; }
+
+        /* ── ALL light text → dark text ── */
+        body.light-mode [class*="text-zinc-1"] { color: #18181b !important; }
+        body.light-mode [class*="text-zinc-2"] { color: #27272a !important; }
+        body.light-mode [class*="text-zinc-3"] { color: #3f3f46 !important; }
+        body.light-mode [class*="text-zinc-4"] { color: #52525b !important; }
+        body.light-mode [class*="text-zinc-5"] { color: #71717a !important; }
+        body.light-mode [class*="text-zinc-6"] { color: #52525b !important; }
+        body.light-mode [class*="text-white"] { color: #18181b !important; }
+
+        /* ── ALL light borders → subtle dark borders ── */
+        body.light-mode [class*="border-white"] { border-color: rgba(0,0,0,0.1) !important; }
+
+        /* ── Inputs & placeholders ── */
+        body.light-mode input, body.light-mode select {
+            background-color: rgba(255,255,255,0.6) !important;
+            border-color: rgba(0,0,0,0.12) !important;
+            color: #27272a !important;
+        }
+        body.light-mode input::placeholder, body.light-mode select { color: #a1a1aa !important; }
+
+        /* ── Modals/overlays background ── */
+        body.light-mode [class*="bg-black\/70"] { background-color: rgba(200,200,206,0.85) !important; }
+        body.light-mode [class*="bg-black\/80"] { background-color: rgba(200,200,206,0.9) !important; }
+        body.light-mode [class*="bg-black\/85"] { background-color: rgba(200,200,206,0.92) !important; }
+
+        /* ── Scrollbar ── */
         body.light-mode .custom-scroll::-webkit-scrollbar-thumb { background: #a1a1aa; }
         body.light-mode .custom-scroll::-webkit-scrollbar-thumb:hover { background: #71717a; }
-        /* Keep canvas area dark — standard for audio tools */
-        body.light-mode #sd-canvas-container { background-color: rgba(0,0,0,0.85) !important; }
-        body.light-mode #sd-canvas-ruler { background-color: rgba(0,0,0,0.7) !important; }
+
+        /* ── KEEP CANVAS DARK ──
+           Double-override: the broad [class*="bg-black"] rule above
+           would lighten the canvas container. We force it back to dark
+           here. The canvas element itself is drawn programmatically so
+           the CSS doesn't affect the actual curves/grid. */
+        body.light-mode #sd-canvas-container,
+        body.light-mode #sd-canvas-container [class*="bg-black"] {
+            background-color: rgba(9,9,11,0.92) !important;
+            color: #e4e4e7 !important;
+        }
+        body.light-mode #sd-canvas-ruler {
+            background-color: rgba(0,0,0,0.75) !important;
+            color: #e4e4e7 !important;
+        }
+        body.light-mode #sd-canvas-container [class*="text-zinc"] {
+            color: inherit !important;
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col">
