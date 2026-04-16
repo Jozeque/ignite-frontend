@@ -150,11 +150,12 @@ jobs:
           SIGNED_ZIP: ${{ github.workspace }}/stride-vst/Stride-signed.zip
         run: bash build-mac-ci-staple.sh
 
-      - name: Upload final release zip
+      - name: Upload final release (DMG + zip)
         uses: actions/upload-artifact@v4
         with:
           name: Stride-Mac-${{ github.sha }}
           path: |
+            stride-vst/dist-release-mac-signed/*.dmg
             stride-vst/dist-release-mac-signed/*.zip
           retention-days: 90
           if-no-files-found: error

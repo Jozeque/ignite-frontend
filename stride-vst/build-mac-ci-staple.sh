@@ -330,14 +330,49 @@ READMEEOF
 
 echo "      Distribution assembled at $DIST/Stride"
 
-# ─── Step 5: Zip with ditto ────────────────────────────────
+# ─── Step 5: Create DMG + zip ──────────────────────────────
 echo ""
-echo "[5/5] Creating final release zip..."
+echo "[5/5] Creating DMG installer..."
 cd "$DIST"
+
+# Stage a DMG source folder:
+#   Stride.app          — the signed + notarized app
+#   M4L/                — StrideLink.amxd + node scripts
+#   Guide/              — guide.html + screenshots + videos
+#   README.txt          — install + workflow instructions
+#   Applications        — symlink to /Applications for drag-install
+DMG_STAGE="$DIST/_dmg_stage"
+rm -rf "$DMG_STAGE"
+mkdir -p "$DMG_STAGE"
+ditto "$DIST/Stride/Stride.app" "$DMG_STAGE/Stride.app"
+cp -R "$DIST/Stride/M4L" "$DMG_STAGE/M4L"
+cp -R "$DIST/Stride/Guide" "$DMG_STAGE/Guide"
+cp "$DIST/Stride/README.txt" "$DMG_STAGE/README.txt"
+ln -s /Applications "$DMG_STAGE/Applications"
+
+DMG_NAME="Stride_v${VERSION}_Mac.dmg"
+rm -f "$DMG_NAME"
+
+# hdiutil create: built into macOS, no extra deps
+#   -volname   — volume name shown in Finder title bar when mounted
+#   -srcfolder — source directory to pack into the DMG
+#   -ov        — overwrite if exists
+#   -format UDZO — compressed (zlib), standard distribution format
+hdiutil create \
+    -volname "Stride" \
+    -srcfolder "$DMG_STAGE" \
+    -ov \
+    -format UDZO \
+    "$DMG_NAME" 2>&1
+
+rm -rf "$DMG_STAGE"
+
+# Also create zip as fallback (some corporate firewalls block DMG downloads)
 ZIP_NAME="Stride_v${VERSION}_Mac.zip"
 rm -f "$ZIP_NAME"
 ditto -c -k --sequesterRsrc --keepParent Stride "$ZIP_NAME"
 
+DMG_SIZE=$(du -h "$DMG_NAME" | cut -f1)
 ZIP_SIZE=$(du -h "$ZIP_NAME" | cut -f1)
 FOLDER_SIZE=$(du -sh Stride | cut -f1)
 
@@ -347,8 +382,9 @@ echo "  MAC BUILD COMPLETE"
 echo "═══════════════════════════════════════════════"
 echo ""
 echo "  Folder:  dist-release-mac-signed/Stride/              ($FOLDER_SIZE)"
+echo "  DMG:     dist-release-mac-signed/$DMG_NAME            ($DMG_SIZE)"
 echo "  Zip:     dist-release-mac-signed/$ZIP_NAME            ($ZIP_SIZE)"
 echo ""
 echo "  ✅ Signed with Developer ID + notarized by Apple."
-echo "     Users can double-click and run — no Gatekeeper warnings."
+echo "     Users open the DMG, drag Stride.app to Applications."
 echo ""
