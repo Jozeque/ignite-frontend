@@ -20,6 +20,40 @@
         /* Electron title bar drag region */
         .titlebar-drag { -webkit-app-region: drag; }
         .titlebar-no-drag { -webkit-app-region: no-drag; }
+
+        /* ─── Light Mode ──────────────────────────────
+           Toggle via body.light-mode. Canvas area stays dark (industry
+           standard for audio tools), chrome/toolbars/sidebar go light.
+           Colors chosen for reduced eye strain in daylight studios. */
+        body.light-mode { background-color: #e8e8ec !important; color: #27272a !important; }
+        body.light-mode .titlebar-drag { background-color: #dcdce0 !important; border-color: rgba(0,0,0,0.08) !important; }
+        body.light-mode .text-gradient { background-image: linear-gradient(to right, #c2410c, #dc2626) !important; }
+        body.light-mode .bg-zinc-950 { background-color: #e8e8ec !important; }
+        body.light-mode .bg-zinc-900\/60 { background-color: rgba(220,220,224,0.9) !important; }
+        body.light-mode .bg-black\/50 { background-color: rgba(228,228,232,0.8) !important; }
+        body.light-mode .bg-black\/40 { background-color: rgba(228,228,232,0.7) !important; }
+        body.light-mode .bg-black\/30 { background-color: rgba(228,228,232,0.6) !important; }
+        body.light-mode .border-white\/5 { border-color: rgba(0,0,0,0.08) !important; }
+        body.light-mode .border-white\/10 { border-color: rgba(0,0,0,0.12) !important; }
+        body.light-mode .bg-white\/5 { background-color: rgba(0,0,0,0.04) !important; }
+        body.light-mode .bg-white\/10 { background-color: rgba(0,0,0,0.06) !important; }
+        body.light-mode .text-zinc-400 { color: #52525b !important; }
+        body.light-mode .text-zinc-500 { color: #71717a !important; }
+        body.light-mode .text-zinc-600 { color: #52525b !important; }
+        body.light-mode .text-zinc-300 { color: #3f3f46 !important; }
+        body.light-mode .text-zinc-200 { color: #27272a !important; }
+        body.light-mode .text-zinc-100 { color: #18181b !important; }
+        body.light-mode .bg-zinc-800\/50 { background-color: rgba(228,228,232,0.8) !important; }
+        body.light-mode .bg-zinc-900 { background-color: #dcdce0 !important; }
+        body.light-mode .placeholder-zinc-600::placeholder { color: #a1a1aa !important; }
+        /* Sidebar param list */
+        body.light-mode .bg-black\/20 { background-color: rgba(0,0,0,0.04) !important; }
+        /* Scrollbar */
+        body.light-mode .custom-scroll::-webkit-scrollbar-thumb { background: #a1a1aa; }
+        body.light-mode .custom-scroll::-webkit-scrollbar-thumb:hover { background: #71717a; }
+        /* Keep canvas area dark — standard for audio tools */
+        body.light-mode #sd-canvas-container { background-color: rgba(0,0,0,0.85) !important; }
+        body.light-mode #sd-canvas-ruler { background-color: rgba(0,0,0,0.7) !important; }
     </style>
 </head>
 <body class="h-screen flex flex-col">
@@ -56,6 +90,10 @@
     <!-- Title Bar (draggable for Electron) -->
     <div class="titlebar-drag h-9 bg-zinc-950 border-b border-white/5 flex items-center px-4 shrink-0">
         <span class="text-[11px] font-black tracking-[0.3em] uppercase text-gradient titlebar-no-drag">STRIDE</span>
+        <button id="theme-toggle" onclick="toggleTheme()" class="titlebar-no-drag ml-3 text-zinc-500 hover:text-orange-400 transition-colors" title="Toggle light/dark mode">
+            <svg id="theme-icon-sun" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+            <svg id="theme-icon-moon" class="w-3.5 h-3.5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+        </button>
         <div class="flex-1"></div>
         <!-- Connection status -->
         <div id="link-status" class="titlebar-no-drag flex items-center gap-2 mr-4">
@@ -384,14 +422,20 @@
                 <!-- CENTER: Generative tools + Presets -->
                 <div class="flex items-center justify-center gap-1.5">
                     <div class="flex items-center gap-1 shrink-0 p-0.5 rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/[0.04]" title="Generative tools">
-                        <button onclick="sdApplyGlobalChaos()" class="shrink-0 text-[9px] text-fuchsia-400 hover:text-white bg-transparent hover:bg-fuchsia-500/10 border border-fuchsia-500/50 hover:border-fuchsia-400 px-3 py-1 rounded-lg uppercase tracking-wider font-black transition-all flex items-center gap-1.5">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                            Chaos
+                        <button onclick="sdApplyGlobalChaos()" class="shrink-0 text-[9px] text-fuchsia-400 hover:text-white bg-transparent hover:bg-fuchsia-500/10 border border-fuchsia-500/50 hover:border-fuchsia-400 px-3 py-1 rounded-lg uppercase tracking-wider font-black transition-all flex flex-col items-center leading-tight">
+                            <div class="flex items-center gap-1.5">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                Chaos
+                            </div>
+                            <span class="text-[9px] text-zinc-400 font-medium tracking-normal normal-case mt-0.5">randomize</span>
                         </button>
                         <div class="relative shrink-0">
-                            <button id="sd-bloom-btn" onclick="sdToggleBloom()" title="Bloom: complementary curves from the selected parameter" class="text-[9px] text-amber-400 hover:text-white bg-transparent hover:bg-amber-500/10 border border-amber-500/50 hover:border-amber-400 px-3 py-1 rounded-lg uppercase tracking-wider font-black transition-all flex items-center gap-1.5">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m-8-9H3m18 0h-1m-2.636-5.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m11.314 11.314l.707.707"/></svg>
-                                Bloom
+                            <button id="sd-bloom-btn" onclick="sdToggleBloom()" title="Bloom: complementary curves from the selected parameter" class="text-[9px] text-amber-400 hover:text-white bg-transparent hover:bg-amber-500/10 border border-amber-500/50 hover:border-amber-400 px-3 py-1 rounded-lg uppercase tracking-wider font-black transition-all flex flex-col items-center leading-tight">
+                                <div class="flex items-center gap-1.5">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m-8-9H3m18 0h-1m-2.636-5.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m11.314 11.314l.707.707"/></svg>
+                                    Bloom
+                                </div>
+                                <span class="text-[9px] text-zinc-400 font-medium tracking-normal normal-case mt-0.5">complementary</span>
                             </button>
                     <div id="sd-bloom-popover" class="hidden fixed bg-zinc-900 border border-amber-500/30 rounded-xl p-4 w-64 shadow-2xl z-[9999]" style="top:50%;left:50%;transform:translate(-50%,-50%)">
                         <div class="text-[9px] text-amber-400 font-bold uppercase tracking-widest mb-3">Bloom from active lane</div>
@@ -848,6 +892,27 @@
         <button id="sd-apply-toast-close" class="shrink-0 text-zinc-600 hover:text-zinc-200 text-base leading-none transition-colors w-5 h-5 flex items-center justify-center" aria-label="Close">&times;</button>
     </div>
 
+    <script>
+    // ─── Theme Toggle (light/dark) ─────────────────────────
+    // Persists to localStorage. Light mode applies a body class that
+    // CSS overrides pick up — canvas stays dark (industry standard).
+    function toggleTheme() {
+        const isLight = document.body.classList.toggle('light-mode');
+        localStorage.setItem('stride_theme', isLight ? 'light' : 'dark');
+        document.getElementById('theme-icon-sun').classList.toggle('hidden', isLight);
+        document.getElementById('theme-icon-moon').classList.toggle('hidden', !isLight);
+    }
+    // Restore saved theme on load (before first paint flicker)
+    (function() {
+        if (localStorage.getItem('stride_theme') === 'light') {
+            document.body.classList.add('light-mode');
+            var sun = document.getElementById('theme-icon-sun');
+            var moon = document.getElementById('theme-icon-moon');
+            if (sun) sun.classList.add('hidden');
+            if (moon) moon.classList.remove('hidden');
+        }
+    })();
+    </script>
     <script src="ws-client.js"></script>
     <script src="cloud-client.js"></script>
     <script src="canvas.js"></script>
