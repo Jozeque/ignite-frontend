@@ -140,6 +140,9 @@ jobs:
           fi
           echo "id=$ID" >> "$GITHUB_OUTPUT"
 
+      - name: Install DMG tools
+        run: brew install create-dmg
+
       - name: Poll Apple, staple, and assemble
         working-directory: stride-vst
         env:

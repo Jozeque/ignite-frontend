@@ -331,41 +331,72 @@ READMEEOF
 echo "      Distribution assembled at $DIST/Stride"
 
 # ─── Step 5: Create DMG + zip ──────────────────────────────
+# Professional DMG with drag-to-Applications layout using create-dmg.
+# User opens the DMG → sees Stride.app on the left, Applications
+# alias on the right → drags to install. M4L + Guide + README sit
+# below as companion files the user copies alongside.
 echo ""
 echo "[5/5] Creating DMG installer..."
 cd "$DIST"
 
-# Stage a DMG source folder:
-#   Stride.app          — the signed + notarized app
-#   M4L/                — StrideLink.amxd + node scripts
-#   Guide/              — guide.html + screenshots + videos
-#   README.txt          — install + workflow instructions
-#   Applications        — symlink to /Applications for drag-install
 DMG_STAGE="$DIST/_dmg_stage"
 rm -rf "$DMG_STAGE"
 mkdir -p "$DMG_STAGE"
+
+# Copy all distribution items into the staging folder
 ditto "$DIST/Stride/Stride.app" "$DMG_STAGE/Stride.app"
 cp -R "$DIST/Stride/M4L" "$DMG_STAGE/M4L"
 cp -R "$DIST/Stride/Guide" "$DMG_STAGE/Guide"
 cp "$DIST/Stride/README.txt" "$DMG_STAGE/README.txt"
-ln -s /Applications "$DMG_STAGE/Applications"
 
 DMG_NAME="Stride_v${VERSION}_Mac.dmg"
 rm -f "$DMG_NAME"
 
-# hdiutil create: built into macOS, no extra deps
-#   -volname   — volume name shown in Finder title bar when mounted
-#   -srcfolder — source directory to pack into the DMG
-#   -ov        — overwrite if exists
-#   -format UDZO — compressed (zlib), standard distribution format
-hdiutil create \
-    -volname "Stride" \
-    -srcfolder "$DMG_STAGE" \
-    -ov \
-    -format UDZO \
-    "$DMG_NAME" 2>&1
+# create-dmg: professional DMG with icon positioning + Applications
+# drop target. Installed via brew in the workflow step.
+#
+# Flags:
+#   --volname        Finder window title when mounted
+#   --window-size    Width × height of the Finder window
+#   --icon-size      Size of icons in the DMG view
+#   --icon           Position a specific item at (x, y)
+#   --app-drop-link  Creates the /Applications symlink at (x, y)
+#   --text-size      Label font size
+#   --hide-extension Don't show .app extension on the icon
+#
+# Note: create-dmg returns exit code 2 if it can't apply a
+# background image (cosmetic, DMG still works). We allow this.
+create-dmg \
+    --volname "Stride" \
+    --window-size 660 500 \
+    --icon-size 100 \
+    --icon "Stride.app" 165 180 \
+    --app-drop-link 495 180 \
+    --icon "M4L" 120 380 \
+    --icon "Guide" 280 380 \
+    --icon "README.txt" 440 380 \
+    --text-size 12 \
+    --hide-extension \
+    "$DMG_NAME" \
+    "$DMG_STAGE" 2>&1 || {
+    DMG_EXIT=$?
+    if [ "$DMG_EXIT" -eq 2 ]; then
+        echo "      create-dmg exit 2 (cosmetic issue, DMG is valid)"
+    else
+        echo "❌ create-dmg failed (exit $DMG_EXIT)"
+        # Fallback: basic hdiutil if create-dmg fails entirely
+        echo "      Falling back to hdiutil..."
+        ln -s /Applications "$DMG_STAGE/Applications"
+        hdiutil create -volname "Stride" -srcfolder "$DMG_STAGE" -ov -format UDZO "$DMG_NAME" 2>&1
+    fi
+}
 
 rm -rf "$DMG_STAGE"
+
+if [ ! -f "$DMG_NAME" ]; then
+    echo "❌ DMG not created"
+    exit 1
+fi
 
 # Also create zip as fallback (some corporate firewalls block DMG downloads)
 ZIP_NAME="Stride_v${VERSION}_Mac.zip"
@@ -387,4 +418,5 @@ echo "  Zip:     dist-release-mac-signed/$ZIP_NAME            ($ZIP_SIZE)"
 echo ""
 echo "  ✅ Signed with Developer ID + notarized by Apple."
 echo "     Users open the DMG, drag Stride.app to Applications."
+echo "     M4L + Guide visible in the DMG for easy access."
 echo ""
