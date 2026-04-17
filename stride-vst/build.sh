@@ -81,47 +81,70 @@ ASAR_TMP="$DIST/_asar_tmp"
 # Extract asar
 npx asar extract "$ASAR" "$ASAR_TMP"
 
-# Obfuscate Electron app JS files
+# Obfuscate Electron app JS files — max safe protection
+# renameGlobals + renameProperties MUST stay false (breaks Electron APIs)
+# debugProtection MUST stay false (freezes DevTools, can cause issues)
 for f in main.js preload.js renderer/canvas.js renderer/ws-client.js renderer/cloud-client.js; do
     echo "      obfuscate: $f"
     "$OBFUSCATOR" "$ASAR_TMP/$f" --output "$ASAR_TMP/$f" \
         --compact true \
         --control-flow-flattening true \
-        --control-flow-flattening-threshold 0.3 \
+        --control-flow-flattening-threshold 0.75 \
+        --dead-code-injection true \
+        --dead-code-injection-threshold 0.4 \
         --string-array true \
         --string-array-encoding base64 \
-        --string-array-threshold 0.5 \
+        --string-array-threshold 0.75 \
+        --string-array-rotate true \
+        --string-array-shuffle true \
+        --unicode-escape-sequence true \
+        --numbers-to-expressions true \
+        --simplify true \
+        --transform-object-keys true \
+        --self-defending true \
         --rename-globals false \
-        --self-defending false
+        --rename-properties false
 done
 
 # Repack asar
 npx asar pack "$ASAR_TMP" "$ASAR"
 rm -rf "$ASAR_TMP"
 
-# Obfuscate M4L Node files
+# Obfuscate M4L Node files — same max profile as Electron
 for f in server.js scanner.js writer.js alc-generator.js alc-injector.js; do
     echo "      obfuscate: M4L/$f"
     "$OBFUSCATOR" "$DIST/Stride/M4L/$f" --output "$DIST/Stride/M4L/$f" \
         --compact true \
         --control-flow-flattening true \
-        --control-flow-flattening-threshold 0.3 \
+        --control-flow-flattening-threshold 0.75 \
+        --dead-code-injection true \
+        --dead-code-injection-threshold 0.4 \
         --string-array true \
         --string-array-encoding base64 \
-        --string-array-threshold 0.5 \
+        --string-array-threshold 0.75 \
+        --string-array-rotate true \
+        --string-array-shuffle true \
+        --unicode-escape-sequence true \
+        --numbers-to-expressions true \
+        --simplify true \
+        --transform-object-keys true \
+        --self-defending true \
         --rename-globals false \
-        --self-defending false
+        --rename-properties false
 done
 
 # scanner_max.js uses Max's older JS engine — lighter obfuscation
+# (no control-flow-flattening, no dead-code-injection, target=browser)
 echo "      obfuscate: M4L/scanner_max.js (Max JS)"
 "$OBFUSCATOR" "$DIST/Stride/M4L/scanner_max.js" --output "$DIST/Stride/M4L/scanner_max.js" \
     --compact true \
     --string-array true \
     --string-array-encoding base64 \
-    --string-array-threshold 0.5 \
+    --string-array-threshold 0.75 \
+    --string-array-rotate true \
+    --string-array-shuffle true \
     --rename-globals false \
-    --self-defending false \
+    --rename-properties false \
     --control-flow-flattening false \
     --target browser
 

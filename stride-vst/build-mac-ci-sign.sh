@@ -71,6 +71,44 @@ for rel in "Stride.app/Contents/Info.plist" \
 done
 echo "      ✅ .app bundle structure verified"
 
+# ─── Step 1b: Obfuscate source code ────────────────────────
+# Extract app.asar → obfuscate all JS → repack. This happens BEFORE
+# signing so the signature covers the obfuscated code (not the source).
+echo ""
+echo "[1b/4] Obfuscating source code..."
+OBFUSCATOR="$APP_DIR/node_modules/.bin/javascript-obfuscator"
+ASAR="$MAC_OUT/Stride.app/Contents/Resources/app.asar"
+ASAR_TMP="$(mktemp -d)"
+
+npx @electron/asar extract "$ASAR" "$ASAR_TMP"
+
+# Max safe protection — renameGlobals + renameProperties stay false
+for f in main.js preload.js renderer/canvas.js renderer/ws-client.js renderer/cloud-client.js; do
+    echo "      obfuscate: $f"
+    "$OBFUSCATOR" "$ASAR_TMP/$f" --output "$ASAR_TMP/$f" \
+        --compact true \
+        --control-flow-flattening true \
+        --control-flow-flattening-threshold 0.75 \
+        --dead-code-injection true \
+        --dead-code-injection-threshold 0.4 \
+        --string-array true \
+        --string-array-encoding base64 \
+        --string-array-threshold 0.75 \
+        --string-array-rotate true \
+        --string-array-shuffle true \
+        --unicode-escape-sequence true \
+        --numbers-to-expressions true \
+        --simplify true \
+        --transform-object-keys true \
+        --self-defending true \
+        --rename-globals false \
+        --rename-properties false
+done
+
+npx @electron/asar pack "$ASAR_TMP" "$ASAR"
+rm -rf "$ASAR_TMP"
+echo "      ✅ Source code obfuscated"
+
 # ─── Step 2: Sign with @electron/osx-sign ──────────────────
 # Calling osx-sign as a library via `node -e` — we bypass electron-builder
 # entirely. osx-sign is the low-level signer electron-builder delegates
