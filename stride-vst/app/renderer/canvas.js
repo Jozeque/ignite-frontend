@@ -606,59 +606,165 @@
     }
 
     // ─── DRAG .ALC INTO ABLETON ─────────────────────────────
-    // After Apply succeeds, a drag handle appears in the sidebar. The user
-    // drags it directly into an Ableton clip slot — Electron's startDrag()
-    // initiates a native OS drag event that Ableton picks up as a file drop.
-    // No need to open Explorer, find the file, drag from there.
+    // After Apply succeeds, a floating "Ready to drop" card appears at the
+    // bottom-center of the canvas. User drags it directly into an Ableton
+    // clip slot — Electron's startDrag() initiates a native OS drag event
+    // Ableton picks up as a file drop.
+    //
+    // Behavior:
+    //   - Card auto-dismisses after APPLY_REVEAL_TTL_MS
+    //   - Hovering the card PAUSES the timer (so the user can read/drag it)
+    //   - Leaving the card RESUMES the timer (shorter remaining budget)
+    //   - × button dismisses instantly
+    //   - Rapid-fire Apply: each new call replaces the filename in place and
+    //     flashes the card (no stacking, no queue — user sees the latest file,
+    //     can always re-drag older ones from the ~/Desktop/Stride folder)
     let _lastAlcPath = null;
+    let _applyRevealTimer = null;
+    let _applyRevealHovered = false;
+    const APPLY_REVEAL_TTL_MS = 10000;
+    const APPLY_REVEAL_RESUME_MS = 5000;
 
     function _showDragHandle(filename, filePath) {
         _lastAlcPath = filePath;
-        const handle = document.getElementById('sd-drag-alc');
-        const nameEl = document.getElementById('sd-drag-alc-name');
-        if (!handle || !nameEl) return;
+        const card = document.getElementById('sd-apply-reveal');
+        const nameEl = document.getElementById('sd-apply-reveal-name');
+        if (!card || !nameEl) return;
         nameEl.textContent = filename || 'clip.alc';
-        handle.classList.remove('hidden');
 
-        // Flash animation so the user sees "new file ready" even if the
-        // handle was already visible from a previous Apply
-        handle.style.transition = 'none';
-        handle.style.borderColor = 'rgba(52,211,153,0.8)';
-        handle.style.backgroundColor = 'rgba(16,185,129,0.2)';
-        handle.style.transform = 'scale(1.03)';
-        requestAnimationFrame(() => {
+        const wasVisible = !card.classList.contains('hidden');
+        card.classList.remove('hidden');
+
+        if (!wasVisible) {
+            // Entry animation: slide up from below + subtle scale pop
+            card.style.transition = 'none';
+            card.style.opacity = '0';
+            card.style.transform = 'translate(-50%, 20px) scale(0.95)';
             requestAnimationFrame(() => {
-                handle.style.transition = 'all 0.6s ease-out';
-                handle.style.borderColor = '';
-                handle.style.backgroundColor = '';
-                handle.style.transform = '';
+                requestAnimationFrame(() => {
+                    card.style.transition = 'opacity 200ms ease-out, transform 240ms cubic-bezier(0.34, 1.56, 0.64, 1)';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translate(-50%, 0) scale(1)';
+                });
             });
-        });
+        } else {
+            // Already visible (rapid-fire Apply) — flash the outer glow briefly
+            // to signal the filename just updated
+            try {
+                card.animate([
+                    { boxShadow: '0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(16,185,129,0.25), 0 0 50px rgba(16,185,129,0.2)' },
+                    { boxShadow: '0 20px 60px rgba(0,0,0,0.6), 0 0 0 2px rgba(16,185,129,0.7), 0 0 80px rgba(16,185,129,0.45)' },
+                    { boxShadow: '0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(16,185,129,0.25), 0 0 50px rgba(16,185,129,0.2)' },
+                ], { duration: 450, easing: 'ease-out' });
+            } catch (e) { /* WAAPI unavailable — ignore */ }
+        }
+
+        _startApplyRevealTimer(APPLY_REVEAL_TTL_MS);
     }
 
-    // Wire up the native drag event on DOMContentLoaded.
-    // We use BOTH dragstart (official Electron pattern) AND mousedown
-    // (fallback). dragstart fires the native drag via startDrag(),
-    // mousedown is a backup in case the HTML5 drag doesn't initiate.
+    function _startApplyRevealTimer(ms) {
+        const card = document.getElementById('sd-apply-reveal');
+        const bar = document.getElementById('sd-apply-reveal-timer');
+        if (!card) return;
+        if (_applyRevealTimer) { clearTimeout(_applyRevealTimer); _applyRevealTimer = null; }
+        // Reset + animate the countdown bar from 100% → 0% over ms
+        if (bar) {
+            bar.style.transition = 'none';
+            bar.style.transform = 'scaleX(1)';
+            requestAnimationFrame(() => {
+                bar.style.transition = `transform ${ms}ms linear`;
+                bar.style.transform = 'scaleX(0)';
+            });
+        }
+        _applyRevealTimer = setTimeout(() => {
+            _applyRevealTimer = null;
+            if (!_applyRevealHovered) _hideApplyReveal();
+        }, ms);
+    }
+
+    function _pauseApplyRevealTimer() {
+        const bar = document.getElementById('sd-apply-reveal-timer');
+        if (_applyRevealTimer) { clearTimeout(_applyRevealTimer); _applyRevealTimer = null; }
+        if (bar) {
+            // Freeze the bar where it currently sits
+            try {
+                const cs = getComputedStyle(bar);
+                const m = new DOMMatrixReadOnly(cs.transform);
+                bar.style.transition = 'none';
+                bar.style.transform = `scaleX(${m.a})`;
+            } catch (e) {
+                bar.style.transition = 'none';
+            }
+        }
+    }
+
+    function _hideApplyReveal() {
+        const card = document.getElementById('sd-apply-reveal');
+        if (!card || card.classList.contains('hidden')) return;
+        card.style.transition = 'opacity 180ms ease-in, transform 180ms ease-in';
+        card.style.opacity = '0';
+        card.style.transform = 'translate(-50%, 12px) scale(0.98)';
+        setTimeout(() => {
+            card.classList.add('hidden');
+            card.style.transition = '';
+            card.style.opacity = '';
+            card.style.transform = '';
+        }, 200);
+        if (_applyRevealTimer) { clearTimeout(_applyRevealTimer); _applyRevealTimer = null; }
+    }
+
     function _wireDragHandle() {
-        const handle = document.getElementById('sd-drag-alc');
-        if (!handle) return;
+        const card = document.getElementById('sd-apply-reveal');
+        if (!card) return;
+
+        // Hover pauses the dismiss timer AND lifts the card slightly — makes
+        // it feel like a physical object you can pick up.
+        card.addEventListener('mouseenter', () => {
+            _applyRevealHovered = true;
+            _pauseApplyRevealTimer();
+            card.style.transition = 'transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 180ms ease-out';
+            card.style.transform = 'translate(-50%, -4px) scale(1.02)';
+            card.style.boxShadow = '0 30px 80px rgba(0,0,0,0.75), 0 0 0 2px rgba(16,185,129,0.7), 0 0 80px rgba(16,185,129,0.45)';
+        });
+        card.addEventListener('mouseleave', () => {
+            _applyRevealHovered = false;
+            card.style.transition = 'transform 180ms ease-out, box-shadow 180ms ease-out';
+            card.style.transform = 'translate(-50%, 0) scale(1)';
+            card.style.boxShadow = '';
+            if (!card.classList.contains('hidden')) {
+                _startApplyRevealTimer(APPLY_REVEAL_RESUME_MS);
+            }
+        });
+
+        // Explicit × button — instant dismiss, don't leak into drag/mousedown
+        const closeBtn = document.getElementById('sd-apply-reveal-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('mousedown', (e) => { e.stopPropagation(); });
+            closeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                _hideApplyReveal();
+            });
+        }
 
         // Primary: HTML5 dragstart → Electron native drag
-        handle.addEventListener('dragstart', (e) => {
+        card.addEventListener('dragstart', (e) => {
+            // Let × behave as a normal button, not a drag source
+            if (e.target && e.target.closest && e.target.closest('#sd-apply-reveal-close')) {
+                e.preventDefault();
+                return;
+            }
             e.preventDefault();
             if (_lastAlcPath && window.stride && window.stride.startDrag) {
-                console.log('[Drag] dragstart → startDrag:', _lastAlcPath);
                 window.stride.startDrag(_lastAlcPath);
             }
         });
 
-        // Fallback: mousedown triggers drag directly (some Electron
-        // versions on Windows don't fire dragstart reliably)
-        handle.addEventListener('mousedown', (e) => {
-            if (e.button !== 0) return; // left click only
+        // Fallback: some Electron builds on Windows don't fire dragstart
+        // reliably. mousedown triggers startDrag() directly as a backup.
+        card.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return;
+            if (e.target && e.target.closest && e.target.closest('#sd-apply-reveal-close')) return;
             if (_lastAlcPath && window.stride && window.stride.startDrag) {
-                console.log('[Drag] mousedown → startDrag:', _lastAlcPath);
                 window.stride.startDrag(_lastAlcPath);
             }
         });
@@ -979,6 +1085,19 @@
     window.sdSetActiveParam = function(id) {
         sdActiveParamId = id;
         sdResetSliderSnapshots();
+        // In multi-lane view, scroll the canvas so the clicked param's lane is
+        // actually visible. Without this, clicking a param off-screen highlights
+        // it in the sidebar but the user has to manually scroll to find its lane.
+        if (sdViewMode === 'multi') {
+            const idx = sdCanvasParams.findIndex(p => p.envelopeId === id);
+            if (idx >= 0) {
+                const visible = sdMultiVisibleLaneCount();
+                if (idx < sdMultiScrollOffset || idx >= sdMultiScrollOffset + visible) {
+                    sdMultiScrollOffset = Math.max(0, idx - Math.floor(visible / 2));
+                    sdMultiClampScroll();
+                }
+            }
+        }
         sdRenderSidebar();
         sdDrawCanvasGrid();
     };

@@ -27,6 +27,66 @@ const RESULT_FILE = path.join(os.homedir(), '_stride_result.json');
 let wss = null;
 let appSocket = null;
 
+// ─── Port Conflict Recovery ───────────────────────────────
+// Max for Live on Windows sometimes leaks the node.script child process when
+// the device is reloaded (track change, device swap, project re-open). The
+// old Node keeps port 9100 bound and the new Node can't listen. We detect
+// this EADDRINUSE case and kill the offending Node PID — ONLY if it's
+// actually a Node process, never anything else (defensive: don't kill a
+// user's printer daemon if it happens to grab 9100).
+function killNodeOnPort(port, callback) {
+    const { exec } = require('child_process');
+    const isWin = process.platform === 'win32';
+
+    if (isWin) {
+        exec(`netstat -ano | findstr :${port}`, (err, stdout) => {
+            if (err || !stdout) return callback(false, 'nothing listening on port');
+            const pids = new Set();
+            stdout.split(/\r?\n/).forEach(line => {
+                const m = line.match(/LISTENING\s+(\d+)/);
+                if (m) pids.add(m[1]);
+            });
+            if (pids.size === 0) return callback(false, 'no listener PID found');
+            let remaining = pids.size;
+            let killedAny = false;
+            pids.forEach(pid => {
+                exec(`tasklist /FI "PID eq ${pid}" /FO CSV /NH`, (e, out) => {
+                    const isNode = !e && /"node\.exe"/i.test(out);
+                    if (isNode) {
+                        exec(`taskkill /PID ${pid} /F`, (ke) => {
+                            if (!ke) killedAny = true;
+                            if (--remaining === 0) callback(killedAny, killedAny ? null : 'kill failed');
+                        });
+                    } else {
+                        if (--remaining === 0) callback(killedAny, killedAny ? null : 'port held by non-Node process');
+                    }
+                });
+            });
+        });
+    } else {
+        exec(`lsof -ti:${port}`, (err, stdout) => {
+            if (err || !stdout) return callback(false, 'nothing listening on port');
+            const pids = stdout.trim().split(/\s+/).filter(Boolean);
+            if (pids.length === 0) return callback(false, 'no listener PID found');
+            let remaining = pids.length;
+            let killedAny = false;
+            pids.forEach(pid => {
+                exec(`ps -p ${pid} -o comm=`, (e, out) => {
+                    const isNode = !e && /node/i.test(out);
+                    if (isNode) {
+                        exec(`kill -9 ${pid}`, (ke) => {
+                            if (!ke) killedAny = true;
+                            if (--remaining === 0) callback(killedAny, killedAny ? null : 'kill failed');
+                        });
+                    } else {
+                        if (--remaining === 0) callback(killedAny, killedAny ? null : 'port held by non-Node process');
+                    }
+                });
+            });
+        });
+    }
+}
+
 // ─── Max API Handlers ─────────────────────────────────────
 
 /**
@@ -146,15 +206,21 @@ function startServer(retryCount) {
     wss.on('error', (err) => {
         if (err.code === 'EADDRINUSE') {
             if (retryCount < 3) {
-                Max.post(`Stride: Port ${PORT} in use — retrying in 2s (attempt ${retryCount + 1}/3)`);
+                Max.post(`Stride: Port ${PORT} in use — trying to clear stale process (attempt ${retryCount + 1}/3)`);
                 wss.close();
-                // Kill stale process and retry
-                const { exec } = require('child_process');
-                exec(`npx kill-port ${PORT}`, () => {
-                    setTimeout(() => startServer(retryCount + 1), 2000);
+                // Native OS kill — npx kill-port isn't available in Max's Node env
+                killNodeOnPort(PORT, (killed, reason) => {
+                    if (killed) {
+                        Max.post(`Stride: Cleared stale Node process on port ${PORT}`);
+                    } else {
+                        Max.post(`Stride: Could not clear port — ${reason || 'reason unknown'}`);
+                    }
+                    setTimeout(() => startServer(retryCount + 1), 1500);
                 });
             } else {
-                Max.post(`Stride: Port ${PORT} in use — giving up after 3 retries. Close other Max instances.`);
+                Max.post(`Stride: Port ${PORT} in use — giving up after 3 retries. ` +
+                         `Another app is holding the port. Try: close Ableton fully, ` +
+                         `reboot, then reopen the project.`);
                 Max.outlet('status', 'port_in_use');
             }
         } else {
@@ -377,6 +443,13 @@ function sendToApp(msg) {
 // it (especially important on Mac where Stride.app lives in /Applications
 // while the M4L folder is in the Ableton User Library, and on Windows when
 // the user unzips Stride.exe somewhere non-standard).
+//
+// File format:
+//   Line 1: exe path (Stride.exe / Stride.app in prod, electron.exe in dev)
+//   Line 2 (optional): "MODE=dev"   — indicates dev-launch via `npm start`
+//   Line 3 (optional): "APP_DIR=…"  — absolute path to the source app dir
+//
+// Returns: { exe, mode: 'prod'|'dev', appDir: string|null } or null if missing.
 function readAppPathMarker() {
     try {
         const home = os.homedir();
@@ -387,10 +460,18 @@ function readAppPathMarker() {
                 : path.join(home, '.config', 'stride-canvas', 'stride-data');
         const marker = path.join(dataDir, 'app-path.txt');
         if (!fs.existsSync(marker)) return null;
-        const p = fs.readFileSync(marker, 'utf8').trim();
-        if (!p) return null;
-        if (!fs.existsSync(p)) return null;
-        return p;
+        const raw = fs.readFileSync(marker, 'utf8').trim();
+        if (!raw) return null;
+        const lines = raw.split(/\r?\n/);
+        const exe = lines[0];
+        if (!exe || !fs.existsSync(exe)) return null;
+        let mode = 'prod';
+        let appDir = null;
+        for (const line of lines.slice(1)) {
+            if (line === 'MODE=dev') mode = 'dev';
+            else if (line.startsWith('APP_DIR=')) appDir = line.slice('APP_DIR='.length);
+        }
+        return { exe, mode, appDir };
     } catch (e) {
         return null;
     }
@@ -414,9 +495,21 @@ function findStrideExecutable() {
     // Step 2 — canonical path written by Stride itself on every launch
     const recorded = readAppPathMarker();
     if (recorded) {
-        return isWin
-            ? { launchCmd: `start "" "${recorded}"`, processName: 'Stride.exe' }
-            : { launchCmd: `open "${recorded}"`, processName: 'Stride' };
+        if (recorded.mode === 'dev') {
+            // Dev mode: the recorded exe is electron.exe itself. Launching it
+            // alone would just show the default "To run a local app" window.
+            // We need `electron.exe <app-dir>` so Electron loads our source.
+            if (recorded.appDir && fs.existsSync(recorded.appDir)) {
+                return isWin
+                    ? { launchCmd: `start "" "${recorded.exe}" "${recorded.appDir}"`, processName: 'electron.exe' }
+                    : { launchCmd: `"${recorded.exe}" "${recorded.appDir}" &`, processName: 'Electron' };
+            }
+            // Dev marker but no usable app-dir — skip, let later steps try
+        } else {
+            return isWin
+                ? { launchCmd: `start "" "${recorded.exe}"`, processName: 'Stride.exe' }
+                : { launchCmd: `open "${recorded.exe}"`, processName: 'Stride' };
+        }
     }
 
     // Step 3 — Mac: LaunchServices bundle-ID lookup (finds it anywhere on the system)
@@ -511,6 +604,21 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason) => {
     Max.post(`Stride: Unhandled promise rejection (recovered) — ${reason}`);
 });
+
+// ─── Clean Port Release on Exit ───────────────────────────
+// Max sometimes terminates node.script without giving us time to gracefully
+// close. Try to close wss on the common signals so the next Node instance
+// doesn't hit EADDRINUSE. Best-effort — if Max kills us hard, the auto-kill
+// retry logic above will clean up the next run.
+function shutdown() {
+    try {
+        if (appSocket) { try { appSocket.close(); } catch {} }
+        if (wss) { try { wss.close(); } catch {} }
+    } catch {}
+}
+process.on('exit', shutdown);
+process.on('SIGINT', () => { shutdown(); process.exit(0); });
+process.on('SIGTERM', () => { shutdown(); process.exit(0); });
 
 // ─── Start ────────────────────────────────────────────────
 

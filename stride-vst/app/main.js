@@ -500,13 +500,30 @@ function writeAppPathMarker() {
         const marker = path.join(DATA_DIR, 'app-path.txt');
         if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
         let execPath = process.execPath;
-        // On Mac, process.execPath is <bundle>/Contents/MacOS/Stride.
-        // Walk up to the .app bundle so `open <path>` works directly.
+
+        // Detect dev mode — true when Electron was launched with `electron .`
+        // or `npm start` pointing at a source directory rather than a packaged
+        // .app / .exe. In that case, process.execPath is the electron.exe
+        // binary itself, which if re-launched alone just shows the default
+        // "To run a local app" window.
+        const isDev = !!process.defaultApp;
+
         if (process.platform === 'darwin') {
             const appIdx = execPath.indexOf('.app/');
             if (appIdx > 0) execPath = execPath.slice(0, appIdx + 4);
         }
-        fs.writeFileSync(marker, execPath, 'utf8');
+
+        // Format:
+        //   Line 1: absolute path to the executable (Stride.exe / Stride.app
+        //           in prod, electron.exe in dev)
+        //   Line 2 (dev only): MODE=dev plus the app source directory so the
+        //           M4L locator can launch electron.exe with the right arg
+        const lines = [execPath];
+        if (isDev) {
+            lines.push(`MODE=dev`);
+            lines.push(`APP_DIR=${app.getAppPath()}`);
+        }
+        fs.writeFileSync(marker, lines.join('\n'), 'utf8');
     } catch (e) {
         console.log('[Stride] Could not write app-path marker:', e.message);
     }
