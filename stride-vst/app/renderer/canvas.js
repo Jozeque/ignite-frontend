@@ -379,8 +379,12 @@
             _showMismatchWarning(msg.mismatch_count, msg.params_written, msg.requested_count,
                 `Your rack has ${msg.mismatch_count} more parameter${msg.mismatch_count > 1 ? 's' : ''} than the saved template. Those parameters won't have automation in the clip. <strong style="color:#e7e5e4;">Drag a fresh clip to User Library</strong> to update the template with all current parameters.`);
         } else {
-            status.textContent = `${msg.filename} ready — drag onto an empty clip slot`;
-            status.style.color = '#4ade80';
+            // No bottom-left green confirmation text — the big center card
+            // and the bottom-right "Template ready / Open folder" toast are
+            // the two feedback channels. Duplicating in the status pill just
+            // creates noise.
+            status.textContent = '';
+            status.style.color = '';
             _showApplyToast(msg.filename, msg.filePath);
             _showDragHandle(msg.filename, msg.filePath);
         }
@@ -552,12 +556,9 @@
     }
 
     // ─── APPLY-TO-CLIP SUCCESS TOAST ─────────────────────────
-    // Bottom-right toast that confirms .alc generation. Auto-fades after 3s
-    // (with hover-to-pause) and has an explicit close (X) button. The
-    // "Open folder" button re-reveals the generated .alc in Explorer/Finder
-    // (server.js already opens it on Apply, this is a second chance if the
-    // user dismissed the window). Multiple rapid Apply clicks reset the timer
-    // cleanly — no visual flicker.
+    // Bottom-right toast — small persistent confirmation with an "Open
+    // folder" escape hatch for users who want to manage the generated .alc
+    // files in Explorer/Finder. Auto-fades after 3s, paused on hover.
     let _sdApplyToastTimer = null;
     function _showApplyToast(filename, filePath) {
         const toast = document.getElementById('sd-apply-toast');
@@ -566,7 +567,6 @@
         const openBtn = document.getElementById('sd-apply-toast-open-btn');
         const closeBtn = document.getElementById('sd-apply-toast-close');
 
-        // Wire up button actions fresh each time (overwrites prior handlers)
         if (msgEl) msgEl.textContent = filename ? `Drag ${filename} onto your clip slot.` : 'Drag it onto your clip slot.';
 
         openBtn.onclick = async (e) => {
@@ -575,7 +575,7 @@
                 if (filePath && window.stride && window.stride.revealInFolder) {
                     await window.stride.revealInFolder(filePath);
                 }
-            } catch (err) { /* silent — fall back to doing nothing */ }
+            } catch (err) { /* silent */ }
         };
 
         closeBtn.onclick = () => {
@@ -583,7 +583,6 @@
             if (_sdApplyToastTimer) { clearTimeout(_sdApplyToastTimer); _sdApplyToastTimer = null; }
         };
 
-        // Hover pauses the auto-fade, mouse-leave resumes it
         toast.onmouseenter = () => {
             if (_sdApplyToastTimer) { clearTimeout(_sdApplyToastTimer); _sdApplyToastTimer = null; }
         };
@@ -596,7 +595,6 @@
             }
         };
 
-        // Show, and (re)arm the 3-second auto-dismiss
         toast.classList.remove('hidden');
         if (_sdApplyToastTimer) clearTimeout(_sdApplyToastTimer);
         _sdApplyToastTimer = setTimeout(() => {
@@ -717,19 +715,19 @@
         const card = document.getElementById('sd-apply-reveal');
         if (!card) return;
 
-        // Hover pauses the dismiss timer AND lifts the card slightly — makes
-        // it feel like a physical object you can pick up.
+        // Hover pauses the dismiss timer and bumps the shadow — keep transform
+        // as-is so the text doesn't re-rasterize and blur. Earlier version
+        // added scale(1.02), which looked like it "lifted" the card but made
+        // everything fuzzy on subpixel rounding.
         card.addEventListener('mouseenter', () => {
             _applyRevealHovered = true;
             _pauseApplyRevealTimer();
-            card.style.transition = 'transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 180ms ease-out';
-            card.style.transform = 'translate(-50%, -4px) scale(1.02)';
+            card.style.transition = 'box-shadow 180ms ease-out';
             card.style.boxShadow = '0 30px 80px rgba(0,0,0,0.75), 0 0 0 2px rgba(16,185,129,0.7), 0 0 80px rgba(16,185,129,0.45)';
         });
         card.addEventListener('mouseleave', () => {
             _applyRevealHovered = false;
-            card.style.transition = 'transform 180ms ease-out, box-shadow 180ms ease-out';
-            card.style.transform = 'translate(-50%, 0) scale(1)';
+            card.style.transition = 'box-shadow 180ms ease-out';
             card.style.boxShadow = '';
             if (!card.classList.contains('hidden')) {
                 _startApplyRevealTimer(APPLY_REVEAL_RESUME_MS);
