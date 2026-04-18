@@ -33,6 +33,13 @@ echo "  STRIDE MAC SIGN — v${VERSION}"
 echo "═══════════════════════════════════════════════"
 echo ""
 
+# ─── Step 0: Regenerate .icns from assets/icon.png ─────
+# Keeps the .app's icon in sync with assets/icon.png. png2icons runs
+# cross-platform in pure JS so CI doesn't need iconutil / ImageMagick.
+echo "[0/4] Regenerating build/icon.icns from assets/icon.png..."
+cd "$APP_DIR"
+node -e "const p=require('png2icons');const fs=require('fs');const d=fs.readFileSync('assets/icon.png');const icns=p.createICNS(d,p.BILINEAR,0);if(!icns){console.error('ICNS fail');process.exit(1);}fs.writeFileSync('build/icon.icns',icns);console.log('build/icon.icns ->',icns.length,'bytes');"
+
 # ─── Step 1: @electron/packager (unsigned .app build) ─
 echo "[1/4] Running @electron/packager..."
 cd "$APP_DIR"
@@ -46,6 +53,7 @@ npx --yes @electron/packager . Stride \
     --overwrite \
     --app-bundle-id=io.stridehub.canvas \
     --app-category-type=public.app-category.music \
+    --icon=build/icon.icns \
     --app-version="${VERSION}" \
     --build-version="${VERSION}" \
     --ignore="^/dist($|/)" \
@@ -108,6 +116,75 @@ done
 npx @electron/asar pack "$ASAR_TMP" "$ASAR"
 rm -rf "$ASAR_TMP"
 echo "      ✅ Source code obfuscated"
+
+# ─── Step 1c: Bundle M4L inside Stride.app ────────────────
+# Put the Max device + node scripts into Contents/Resources/M4L/ so they
+# ship WITH the signed, notarized app. On first launch Stride copies this
+# folder into the user's Ableton User Library so StrideLink appears in
+# Ableton's browser. This is the critical piece that fixes path issues:
+# the M4L folder always travels with Stride.app — wherever Stride.app
+# ends up, we can always reach the M4L payload.
+#
+# osx-sign will pick these up as "resources" during the deep signing pass.
+# We only ship pure JS (ws + @xmldom, no native bindings) so there are no
+# Mach-O binaries nested inside that would need separate signing passes.
+echo ""
+echo "[1c/4] Bundling M4L inside Stride.app..."
+M4L_SRC="$SCRIPT_DIR/m4l"
+M4L_DEST="$MAC_OUT/Stride.app/Contents/Resources/M4L"
+
+# Fresh install of M4L node deps (ws + @xmldom) so the bundled copy is
+# complete. Omit dev deps to keep size minimal.
+echo "      Installing M4L node dependencies..."
+(cd "$M4L_SRC/node" && rm -rf node_modules && npm install --omit=dev 2>&1 | tail -3)
+
+mkdir -p "$M4L_DEST"
+cp "$M4L_SRC/StrideLink.amxd" "$M4L_DEST/"
+cp "$M4L_SRC/node/"*.js "$M4L_DEST/"
+cp "$M4L_SRC/node/"*.py "$M4L_DEST/"
+cp -R "$M4L_SRC/node/node_modules" "$M4L_DEST/node_modules"
+
+# Clean dev leftovers
+rm -rf "$M4L_DEST/__pycache__"
+rm -f "$M4L_DEST/_stride_"*.json
+
+# Obfuscate bundled M4L JS files (same settings as the electron app.asar
+# above — max safe protection with rename-globals/properties off).
+echo "      Obfuscating bundled M4L JS..."
+for f in server.js scanner.js writer.js alc-generator.js alc-injector.js; do
+    "$OBFUSCATOR" "$M4L_DEST/$f" --output "$M4L_DEST/$f" \
+        --compact true \
+        --control-flow-flattening true \
+        --control-flow-flattening-threshold 0.75 \
+        --dead-code-injection true \
+        --dead-code-injection-threshold 0.4 \
+        --string-array true \
+        --string-array-encoding base64 \
+        --string-array-threshold 0.75 \
+        --string-array-rotate true \
+        --string-array-shuffle true \
+        --unicode-escape-sequence true \
+        --numbers-to-expressions true \
+        --simplify true \
+        --transform-object-keys true \
+        --self-defending true \
+        --rename-globals false \
+        --rename-properties false 2>&1 | tail -1
+done
+# scanner_max.js runs in Max's older JS engine — lighter profile
+"$OBFUSCATOR" "$M4L_DEST/scanner_max.js" --output "$M4L_DEST/scanner_max.js" \
+    --compact true \
+    --string-array true \
+    --string-array-encoding base64 \
+    --string-array-threshold 0.75 \
+    --string-array-rotate true \
+    --string-array-shuffle true \
+    --rename-globals false \
+    --rename-properties false \
+    --control-flow-flattening false \
+    --target browser 2>&1 | tail -1
+
+echo "      ✅ M4L bundled at $M4L_DEST"
 
 # ─── Step 2: Sign with @electron/osx-sign ──────────────────
 # Calling osx-sign as a library via `node -e` — we bypass electron-builder

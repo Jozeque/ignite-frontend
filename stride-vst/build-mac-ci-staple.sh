@@ -169,22 +169,16 @@ xcrun stapler validate "$WORK_DIR/Stride.app" 2>&1 || {
 echo "      ✅ Signed + notarized + stapled"
 
 # ─── Step 4: Assemble final distribution folder ──────────
-# Job 2 needs to install M4L node dependencies fresh (Job 1 didn't do
-# this; M4L deps live alongside the .amxd, not inside Stride.app). Then
-# copy everything into the Stride/ folder for the final zip.
+# The M4L folder is ALREADY bundled inside Stride.app/Contents/Resources/M4L/
+# by the sign step (build-mac-ci-sign.sh), so the DMG just needs Stride.app
+# itself — everything the user needs travels with the app bundle. On first
+# launch Stride copies the bundled M4L folder into the user's Ableton User
+# Library. Zero path issues, standard drag-to-install UX.
 echo ""
 echo "[4/5] Assembling distribution folder..."
 
-# Install M4L node dependencies (ws + xmldom) for inclusion in the zip
-echo "      Installing M4L node dependencies..."
-cd "$M4L_DIR/node"
-rm -rf node_modules
-npm install --omit=dev 2>&1 | tail -5
-cd "$SCRIPT_DIR"
-
 rm -rf "$DIST"
-mkdir -p "$DIST/Stride/M4L"
-mkdir -p "$DIST/Stride/Guide"
+mkdir -p "$DIST/Stride"
 
 # Copy the stapled .app with ditto (preserves everything including the
 # new notarization ticket)
@@ -200,53 +194,38 @@ xcrun stapler validate "$DIST/Stride/Stride.app" 2>&1 || {
     echo "⚠  Stapler validation on copy failed — zip may still work"
 }
 
-# Copy M4L device + node scripts
-cp "$M4L_DIR/StrideLink.amxd" "$DIST/Stride/M4L/"
-cp "$M4L_DIR/node/"*.js "$DIST/Stride/M4L/"
-cp "$M4L_DIR/node/"*.py "$DIST/Stride/M4L/"
-cp -R "$M4L_DIR/node/node_modules" "$DIST/Stride/M4L/node_modules"
-rm -rf "$DIST/Stride/M4L/__pycache__"
-rm -f "$DIST/Stride/M4L/_stride_"*.json
+# Sanity-check the bundled M4L payload — if this is missing, first-launch
+# installation to Ableton User Library won't work.
+if [ ! -f "$DIST/Stride/Stride.app/Contents/Resources/M4L/StrideLink.amxd" ]; then
+    echo "❌ Bundled M4L payload missing from Stride.app"
+    exit 1
+fi
+echo "      ✅ Bundled M4L payload verified"
 
-# Copy Getting Started guide
-cp "$APP_DIR/assets/guide.html" "$DIST/Stride/Guide/"
-for img in step2.png step4.png step6.png step7.png; do
-    [ -f "$APP_DIR/assets/$img" ] && cp "$APP_DIR/assets/$img" "$DIST/Stride/Guide/"
-done
-
-# Copy tutorial videos (if present in stride-vst/ root)
-for vid in "$SCRIPT_DIR"/*.mov "$SCRIPT_DIR"/*.mp4; do
-    [ -f "$vid" ] && cp "$vid" "$DIST/Stride/Guide/"
-done
-
-# README
+# README (short — the full guide lives inside Stride.app and the sidebar)
 cat > "$DIST/Stride/README.txt" << 'READMEEOF'
 ===============================================================
  STRIDE - Sound Design Engine for Ableton Live
  Your racks, reborn.
 ===============================================================
 
->> START HERE: watch the two short videos inside the Guide/ folder.
-   - Flow A-Z.mp4           - the full Stride workflow
-   - Canvas Walkthrough.mov - tools and shortcuts
-   Takes about 3 minutes total. Seriously, watch them first.
-
 ---------------------------------------------------------------
- INSTALL
+ INSTALL  (two steps, no Terminal)
 ---------------------------------------------------------------
 
 1. Drag Stride.app into your /Applications folder.
-2. Keep the M4L/ folder and the Guide/ folder next to
-   Stride.app (or anywhere you like - the M4L device finds
-   the app either next to itself or in /Applications).
-3. You don't launch Stride manually. Drag StrideLink.amxd
-   onto a track in Ableton, click "Open Canvas" on the
-   device - Stride launches and asks for your license key.
-   Paste it there and you're in. Signed with an Apple
-   Developer ID and notarized by Apple, no security bypass.
-4. Requirements: Ableton Live 11+ Suite (or Standard + M4L),
-   Python 3 (usually preinstalled, or: brew install python3),
-   macOS 11 (Big Sur) or later
+2. Launch Stride once from /Applications. It pops a welcome
+   window asking to install StrideLink to your Ableton User
+   Library -- click "Install to Ableton". Done. Signed with
+   an Apple Developer ID and notarized by Apple; no Gatekeeper
+   bypass required.
+
+Then: open Ableton Live -> browser sidebar -> User Library
+-> Stride -> drag StrideLink onto any MIDI track.
+
+Requirements: Ableton Live 11+ Suite (or Standard + M4L),
+macOS 11 (Big Sur) or later. Python 3 only needed if Python
+fallback is triggered (almost never — usually preinstalled).
 
 ---------------------------------------------------------------
  YOUR FIRST CLIP - 10 STEPS
@@ -259,10 +238,10 @@ cat > "$DIST/Stride/README.txt" << 'READMEEOF'
  3. Create a MIDI clip on that track and drag it into the
     "User Library" sidebar in Ableton.
     (You only do this ONCE per rack. Change devices -> drag again.)
- 4. Drag StrideLink.amxd (from the M4L/ folder in this zip)
-    onto the same track.
- 5. On StrideLink, click "Open Canvas" - Stride launches (or
-    focuses if it's already open). Click "Scan Mapped".
+ 4. From Ableton's browser: User Library -> Stride -> drag
+    StrideLink onto the same track.
+ 5. On StrideLink, click "Open Canvas" - Stride focuses (it's
+    already running). Click "Scan Mapped".
  6. The canvas fills with one lane per mapped parameter.
  7. Either draw by hand OR smash one of the Presets / Chaos /
     Bloom / Weave buttons. Start with a preset.
@@ -331,10 +310,11 @@ READMEEOF
 echo "      Distribution assembled at $DIST/Stride"
 
 # ─── Step 5: Create DMG + zip ──────────────────────────────
-# Professional DMG with drag-to-Applications layout using create-dmg.
-# User opens the DMG → sees Stride.app on the left, Applications
-# alias on the right → drags to install. M4L + Guide + README sit
-# below as companion files the user copies alongside.
+# Professional drag-to-Applications DMG. The window shows exactly two
+# icons: Stride.app on the left, an Applications alias on the right.
+# User drags Stride.app onto Applications, ejects, and launches — the
+# app installs StrideLink into the Ableton User Library on first run.
+# No companion folders, no orphaned files, no path confusion.
 echo ""
 echo "[5/5] Creating DMG installer..."
 cd "$DIST"
@@ -343,40 +323,32 @@ DMG_STAGE="$DIST/_dmg_stage"
 rm -rf "$DMG_STAGE"
 mkdir -p "$DMG_STAGE"
 
-# Copy all distribution items into the staging folder
+# Only Stride.app gets staged for the DMG. Everything the user needs is
+# already inside the app bundle (M4L payload at Contents/Resources/M4L/).
 ditto "$DIST/Stride/Stride.app" "$DMG_STAGE/Stride.app"
-cp -R "$DIST/Stride/M4L" "$DMG_STAGE/M4L"
-cp -R "$DIST/Stride/Guide" "$DMG_STAGE/Guide"
-cp "$DIST/Stride/README.txt" "$DMG_STAGE/README.txt"
 
 DMG_NAME="Stride_v${VERSION}_Mac.dmg"
 rm -f "$DMG_NAME"
 
-# create-dmg: professional DMG with icon positioning + Applications
-# drop target. Installed via brew in the workflow step.
-#
+# create-dmg: two-icon layout — Stride.app + Applications alias.
 # Flags:
-#   --volname        Finder window title when mounted
-#   --window-size    Width × height of the Finder window
-#   --icon-size      Size of icons in the DMG view
-#   --icon           Position a specific item at (x, y)
-#   --app-drop-link  Creates the /Applications symlink at (x, y)
-#   --text-size      Label font size
-#   --hide-extension Don't show .app extension on the icon
+#   --volname        Finder window title when mounted ("Stride")
+#   --window-size    660 × 400 — tight, focused window
+#   --icon-size      128 — large, clear icons
+#   --icon           position Stride.app on the left
+#   --app-drop-link  position the Applications alias on the right
+#   --hide-extension hide .app suffix on the icon
 #
-# Note: create-dmg returns exit code 2 if it can't apply a
-# background image (cosmetic, DMG still works). We allow this.
+# create-dmg returns exit code 2 if it can't apply a background image
+# (cosmetic only — the DMG still works). We treat exit 2 as success.
 create-dmg \
     --volname "Stride" \
-    --window-size 660 500 \
-    --icon-size 100 \
-    --icon "Stride.app" 165 180 \
-    --app-drop-link 495 180 \
-    --icon "M4L" 120 380 \
-    --icon "Guide" 280 380 \
-    --icon "README.txt" 440 380 \
-    --text-size 12 \
-    --hide-extension \
+    --window-size 660 400 \
+    --icon-size 128 \
+    --icon "Stride.app" 170 180 \
+    --app-drop-link 490 180 \
+    --hide-extension "Stride.app" \
+    --text-size 13 \
     "$DMG_NAME" \
     "$DMG_STAGE" 2>&1 || {
     DMG_EXIT=$?
@@ -384,7 +356,8 @@ create-dmg \
         echo "      create-dmg exit 2 (cosmetic issue, DMG is valid)"
     else
         echo "❌ create-dmg failed (exit $DMG_EXIT)"
-        # Fallback: basic hdiutil if create-dmg fails entirely
+        # Fallback: basic hdiutil — still produces a working drag-to-install
+        # DMG, just without create-dmg's icon positioning.
         echo "      Falling back to hdiutil..."
         ln -s /Applications "$DMG_STAGE/Applications"
         hdiutil create -volname "Stride" -srcfolder "$DMG_STAGE" -ov -format UDZO "$DMG_NAME" 2>&1
@@ -398,7 +371,8 @@ if [ ! -f "$DMG_NAME" ]; then
     exit 1
 fi
 
-# Also create zip as fallback (some corporate firewalls block DMG downloads)
+# Companion zip (Stride.app + tiny README) for firewalls that block DMG.
+# We wrap them in Stride/ so the user gets a clear folder when they unzip.
 ZIP_NAME="Stride_v${VERSION}_Mac.zip"
 rm -f "$ZIP_NAME"
 ditto -c -k --sequesterRsrc --keepParent Stride "$ZIP_NAME"
@@ -417,6 +391,6 @@ echo "  DMG:     dist-release-mac-signed/$DMG_NAME            ($DMG_SIZE)"
 echo "  Zip:     dist-release-mac-signed/$ZIP_NAME            ($ZIP_SIZE)"
 echo ""
 echo "  ✅ Signed with Developer ID + notarized by Apple."
-echo "     Users open the DMG, drag Stride.app to Applications."
-echo "     M4L + Guide visible in the DMG for easy access."
+echo "     Users drag Stride.app to Applications → launch →"
+echo "     click 'Install to Ableton'. That's it."
 echo ""

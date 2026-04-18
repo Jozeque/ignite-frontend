@@ -76,6 +76,14 @@ contextBridge.exposeInMainWorld('stride', {
     revealInFolder: (filePath) =>
         ipcRenderer.invoke('reveal-in-folder', filePath),
 
+    // StrideLink M4L installer
+    checkStrideLinkInstalled: () =>
+        ipcRenderer.invoke('check-stride-link-installed'),
+    installStrideLinkToAbleton: (destDir) =>
+        ipcRenderer.invoke('install-stride-link-to-ableton', { destDir }),
+    pickUserLibraryFolder: () =>
+        ipcRenderer.invoke('pick-user-library-folder'),
+
     // Native file drag-out (drag .alc into Ableton)
     startDrag: (filePath) =>
         ipcRenderer.send('ondragstart', filePath),

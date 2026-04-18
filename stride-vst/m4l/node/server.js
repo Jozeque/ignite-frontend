@@ -372,6 +372,75 @@ function sendToApp(msg) {
 
 // ─── Open Canvas App ─────────────────────────────────────
 
+// Stride's Electron main process writes its own executable path to this file
+// on every launch, so we can find the app no matter where the user installed
+// it (especially important on Mac where Stride.app lives in /Applications
+// while the M4L folder is in the Ableton User Library, and on Windows when
+// the user unzips Stride.exe somewhere non-standard).
+function readAppPathMarker() {
+    try {
+        const home = os.homedir();
+        const dataDir = process.platform === 'win32'
+            ? path.join(home, 'AppData', 'Roaming', 'stride-canvas', 'stride-data')
+            : process.platform === 'darwin'
+                ? path.join(home, 'Library', 'Application Support', 'stride-canvas', 'stride-data')
+                : path.join(home, '.config', 'stride-canvas', 'stride-data');
+        const marker = path.join(dataDir, 'app-path.txt');
+        if (!fs.existsSync(marker)) return null;
+        const p = fs.readFileSync(marker, 'utf8').trim();
+        if (!p) return null;
+        if (!fs.existsSync(p)) return null;
+        return p;
+    } catch (e) {
+        return null;
+    }
+}
+
+// Multi-step locator — tries every strategy we know before giving up.
+// Returns { launchCmd, processName } or null if nothing is found.
+function findStrideExecutable() {
+    const isWin = process.platform === 'win32';
+    const isMac = process.platform === 'darwin';
+
+    // Step 1 — portable mode: Stride sitting right next to the M4L folder
+    // (the unzipped Windows dist layout, or a developer running from the repo)
+    const portable = path.join(__dirname, '..', isWin ? 'Stride.exe' : 'Stride.app');
+    if (fs.existsSync(portable)) {
+        return isWin
+            ? { launchCmd: `start "" "${portable}"`, processName: 'Stride.exe' }
+            : { launchCmd: `open "${portable}"`, processName: 'Stride' };
+    }
+
+    // Step 2 — canonical path written by Stride itself on every launch
+    const recorded = readAppPathMarker();
+    if (recorded) {
+        return isWin
+            ? { launchCmd: `start "" "${recorded}"`, processName: 'Stride.exe' }
+            : { launchCmd: `open "${recorded}"`, processName: 'Stride' };
+    }
+
+    // Step 3 — Mac: LaunchServices bundle-ID lookup (finds it anywhere on the system)
+    if (isMac) {
+        return { launchCmd: `open -b io.stridehub.canvas`, processName: 'Stride' };
+    }
+
+    // Step 4 — Windows: common install locations
+    if (isWin) {
+        const candidates = [
+            path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Stride', 'Stride.exe'),
+            path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Stride', 'Stride.exe'),
+            path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Stride', 'Stride.exe'),
+        ];
+        for (const c of candidates) {
+            if (c && fs.existsSync(c)) {
+                return { launchCmd: `start "" "${c}"`, processName: 'Stride.exe' };
+            }
+        }
+    }
+
+    return null;
+}
+
 Max.addHandler('open_canvas', () => {
     // If canvas is already connected, just tell it to focus
     if (appSocket && appSocket.readyState === 1) {
@@ -384,50 +453,37 @@ Max.addHandler('open_canvas', () => {
     const isWin = process.platform === 'win32';
     const isMac = process.platform === 'darwin';
 
-    // Locate the packaged app (one level up from M4L/) — .exe on Windows, .app on Mac
-    let distArtifact, processName, checkCmd, launchCmd;
-
-    if (isWin) {
-        distArtifact = path.join(__dirname, '..', 'Stride.exe');
-        const isDist = fs.existsSync(distArtifact);
-        processName = isDist ? 'Stride.exe' : 'electron.exe';
-        checkCmd = `tasklist /FI "IMAGENAME eq ${processName}" /NH`;
-        if (isDist) {
-            launchCmd = `start "" "${distArtifact}"`;
-        } else {
-            const appDir = path.join(__dirname, '..', '..', 'app');
-            launchCmd = `cd /d "${appDir}" && start /b npm start`;
-        }
-    } else if (isMac) {
-        distArtifact = path.join(__dirname, '..', 'Stride.app');
-        const isDist = fs.existsSync(distArtifact);
-        processName = isDist ? 'Stride' : 'Electron';
-        // pgrep -x returns PID + exit 0 if running, nothing + exit 1 if not
-        checkCmd = `pgrep -x "${processName}"`;
-        if (isDist) {
-            // `open` launches the .app detached from Max's process tree
-            launchCmd = `open "${distArtifact}"`;
-        } else {
-            const appDir = path.join(__dirname, '..', '..', 'app');
-            launchCmd = `cd "${appDir}" && nohup npm start > /dev/null 2>&1 &`;
-        }
-    } else {
+    if (!isWin && !isMac) {
         Max.post(`Stride: Unsupported platform ${process.platform}`);
         return;
     }
 
+    const resolved = findStrideExecutable();
+    if (!resolved) {
+        Max.post('Stride: Could not find Stride app. Launch Stride once from your ' +
+                 (isMac ? 'Applications folder' : 'Start Menu or the folder you unzipped it to') +
+                 ' so its location is registered, then click Open Canvas again.');
+        return;
+    }
+
+    // Is Stride already running? pgrep (Mac) / tasklist (Win).
+    const checkCmd = isWin
+        ? `tasklist /FI "IMAGENAME eq ${resolved.processName}" /NH`
+        : `pgrep -x "${resolved.processName}"`;
+
     exec(checkCmd, (err, stdout) => {
-        // Windows: tasklist prints matching process line if found (err is null)
-        // Mac:     pgrep prints PID if found (err is null), empty + err on miss
         const isRunning = !err && stdout && stdout.trim().length > 0 && (
-            isWin ? stdout.toLowerCase().includes(processName.toLowerCase()) : true
+            isWin ? stdout.toLowerCase().includes(resolved.processName.toLowerCase()) : true
         );
         if (isRunning) {
-            Max.post('Stride: Canvas already running');
+            Max.post('Stride: Canvas already running — focusing...');
+            // Focus via WebSocket if we have a socket, else the open/start commands
+            // will bring the window forward on both platforms.
+            exec(resolved.launchCmd, () => {});
             return;
         }
         Max.post('Stride: Launching canvas...');
-        exec(launchCmd, (launchErr) => {
+        exec(resolved.launchCmd, (launchErr) => {
             if (launchErr) Max.post(`Stride: Launch error — ${launchErr.message}`);
         });
     });

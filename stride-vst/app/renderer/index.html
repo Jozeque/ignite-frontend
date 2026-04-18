@@ -68,6 +68,8 @@
         </button>
         <!-- Guide -->
         <button onclick="document.getElementById('guide-modal').classList.remove('hidden')" class="titlebar-no-drag text-[9px] text-zinc-500 hover:text-orange-400 uppercase font-bold tracking-widest transition-colors mr-3">Guide</button>
+        <!-- Re-open Install-to-Ableton modal (user may want to re-install after Ableton User Library moves) -->
+        <button onclick="if(window.sdShowInstallM4LOverlay)window.sdShowInstallM4LOverlay()" class="titlebar-no-drag text-[9px] text-zinc-500 hover:text-orange-400 uppercase font-bold tracking-widest transition-colors mr-3" title="Install or re-install the StrideLink Max device to your Ableton User Library">Install to Ableton</button>
         <button onclick="if(window.stride&&window.stride.openStrideFolder)window.stride.openStrideFolder()" class="titlebar-no-drag text-zinc-500 hover:text-orange-400 transition-colors mr-3" title="Open Stride folder — all your generated .alc files">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
         </button>
@@ -316,6 +318,38 @@
                     <button onclick="window._rescanConfirmReplace()" class="flex-1 py-1.5 rounded-md bg-red-600/80 hover:bg-red-500 text-[10px] text-white font-bold uppercase tracking-wider">Replace</button>
                 </div>
                 <button onclick="document.getElementById('rescan-confirm-modal').classList.add('hidden')" class="text-[9px] text-zinc-600 hover:text-zinc-400 text-center mt-1">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Install-StrideLink-to-Ableton Overlay (shown on first launch OR re-triggered from titlebar) -->
+        <div id="sd-install-m4l-overlay" class="hidden fixed inset-0 bg-black/85 backdrop-blur-md z-[10001] flex items-center justify-center" style="font-family:'Outfit',sans-serif">
+            <div class="bg-zinc-900 border border-orange-500/30 rounded-2xl p-7 max-w-md w-full mx-6 flex flex-col gap-5 shadow-2xl">
+                <div class="flex items-center gap-4">
+                    <div class="shrink-0 w-14 h-14 rounded-xl bg-gradient-to-br from-orange-500/25 to-fuchsia-500/25 border border-orange-500/40 flex items-center justify-center">
+                        <svg class="w-7 h-7 text-orange-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h1 class="text-xl font-black tracking-tight bg-gradient-to-r from-orange-400 to-fuchsia-400 bg-clip-text text-transparent">Install to Ableton</h1>
+                        <p class="text-[9px] text-zinc-500 uppercase tracking-[0.2em] font-black mt-1">One-time setup</p>
+                    </div>
+                </div>
+                <p class="text-[11px] text-zinc-300 leading-relaxed">
+                    Stride needs to drop its Max device (<span class="text-orange-400 font-bold">StrideLink</span>) into your Ableton User Library. Afterwards, open Ableton's browser → <span class="text-zinc-100 font-bold">User Library</span> → <span class="text-zinc-100 font-bold">Stride</span> → drag <span class="text-orange-400 font-bold">StrideLink</span> onto any MIDI track.
+                </p>
+                <div id="sd-install-m4l-status" class="hidden text-[10px] leading-relaxed px-3 py-2 rounded-lg"></div>
+                <div class="flex flex-col gap-2">
+                    <button id="sd-install-m4l-btn" class="w-full text-[11px] text-zinc-100 bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/40 hover:border-orange-500/60 py-3 rounded-xl uppercase tracking-widest font-black transition-all flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        Install to Ableton
+                    </button>
+                    <button id="sd-install-m4l-skip-btn" class="w-full text-[10px] text-zinc-500 hover:text-zinc-300 py-2 rounded-xl uppercase tracking-widest font-bold transition-colors">
+                        Skip &rsaquo; I'll do it manually
+                    </button>
+                </div>
             </div>
         </div>
 

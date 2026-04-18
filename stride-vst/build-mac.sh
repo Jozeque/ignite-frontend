@@ -32,6 +32,10 @@ echo "  STRIDE BUILD — v${VERSION} (Mac, ${MAC_ARCH}, UNSIGNED)"
 echo "═══════════════════════════════════════"
 echo ""
 
+# ─── Step 0: Regenerate .icns from assets/icon.png ─────
+echo "[0/5] Regenerating build/icon.icns from assets/icon.png..."
+(cd "$APP_DIR" && node -e "const p=require('png2icons');const fs=require('fs');const d=fs.readFileSync('assets/icon.png');const icns=p.createICNS(d,p.BILINEAR,0);if(!icns){process.exit(1);}fs.writeFileSync('build/icon.icns',icns);console.log('build/icon.icns ->',icns.length,'bytes');")
+
 # ─── Step 1: Build Electron app for Mac (direct into dist-release-mac) ──
 # NOTE: electron-builder v25 dropped Windows→Mac cross-compile. We use
 # @electron/packager instead.
@@ -84,6 +88,7 @@ npx --yes @electron/packager . Stride \
     --overwrite \
     --app-bundle-id=io.stridehub.canvas \
     --app-category-type=public.app-category.music \
+    --icon=build/icon.icns \
     --app-version="${VERSION}" \
     --build-version="${VERSION}" \
     --ignore="^/dist($|/)" \

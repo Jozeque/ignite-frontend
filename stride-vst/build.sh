@@ -19,6 +19,13 @@ echo "  STRIDE BUILD — v${VERSION}"
 echo "═══════════════════════════════════════"
 echo ""
 
+# ─── Step 0: Regenerate .ico from assets/icon.png ────────
+# Keeps the Windows .exe icon in sync with the source PNG. png2icons is a
+# pure-JS npm devDep so this works on any OS without ImageMagick.
+echo "[0/5] Regenerating build/icon.ico from assets/icon.png..."
+cd "$APP_DIR"
+node -e "const p=require('png2icons');const fs=require('fs');const d=fs.readFileSync('assets/icon.png');const ico=p.createICO(d,p.BILINEAR,0,false);if(!ico){console.error('ICO fail');process.exit(1);}fs.writeFileSync('build/icon.ico',ico);console.log('build/icon.ico ->',ico.length,'bytes');"
+
 # ─── Step 1: Build Electron app ──────────────────────────
 echo "[1/5] Building Electron app..."
 cd "$APP_DIR"
@@ -150,6 +157,19 @@ echo "      obfuscate: M4L/scanner_max.js (Max JS)"
 
 echo "      Source code obfuscated"
 
+# ─── Step 3b: Embed M4L copy inside resources/ for first-launch install ──
+# Stride's main process copies this bundled folder to the user's Ableton
+# User Library when they click "Install to Ableton". Keeping it inside
+# resources/ lets main.js find it via process.resourcesPath — the same
+# lookup path that works on Mac (Contents/Resources/M4L).
+#
+# We copy the ALREADY-OBFUSCATED M4L folder so the bundled copy gets the
+# same protection as the top-level Stride/M4L/ folder used by portable mode.
+echo "      Embedding M4L into resources/M4L/ for first-launch install..."
+mkdir -p "$DIST/Stride/resources/M4L"
+cp -R "$DIST/Stride/M4L/"* "$DIST/Stride/resources/M4L/"
+echo "      M4L embedded at resources/M4L/"
+
 # ─── Step 4: Add README ─────────────────────────────────
 echo "[4/5] Adding README..."
 cat > "$DIST/Stride/README.txt" << 'READMEEOF'
@@ -164,19 +184,23 @@ cat > "$DIST/Stride/README.txt" << 'READMEEOF'
    Takes about 3 minutes total. Seriously, watch them first.
 
 ---------------------------------------------------------------
- INSTALL
+ INSTALL  (two steps)
 ---------------------------------------------------------------
 
-1. Unzip Stride_v1.0.0_Windows.zip anywhere you like.
-   Keep Stride.exe, the M4L/ folder, and the Guide/ folder all
-   sitting next to each other - the M4L device launches Stride
-   by looking right next to itself.
-2. You don't run anything manually the first time. Drag
-   StrideLink.amxd onto a track in Ableton, click "Open Canvas"
-   on the device - Stride will launch and ask for your license
-   key. Paste it there and you're in.
-3. Requirements: Ableton Live 11+ Suite (or Standard + M4L),
-   Python 3 (python.org), Windows 10 or 11
+1. Unzip Stride_v1.0.0_Windows.zip anywhere you like (Desktop
+   is fine). Keep Stride.exe, the M4L/ folder, and the Guide/
+   folder sitting next to each other in the same Stride/ folder.
+2. Double-click Stride.exe once to launch it. A welcome window
+   offers to install StrideLink into your Ableton User Library
+   — click "Install to Ableton". After that, paste your license
+   key and you're activated.
+
+Then: open Ableton Live -> browser sidebar -> User Library
+-> Stride -> drag StrideLink onto any MIDI track.
+
+Requirements: Ableton Live 11+ Suite (or Standard + M4L),
+Python 3 (python.org — only needed if the Python fallback is
+triggered, rarely). Windows 10 or 11.
 
 ---------------------------------------------------------------
  YOUR FIRST CLIP - 10 STEPS
@@ -189,8 +213,8 @@ cat > "$DIST/Stride/README.txt" << 'READMEEOF'
  3. Create a MIDI clip on that track and drag it into the
     "User Library" sidebar in Ableton.
     (You only do this ONCE per rack. Change devices -> drag again.)
- 4. Drag StrideLink.amxd (from the M4L/ folder in this zip)
-    onto the same track.
+ 4. From Ableton's browser: User Library -> Stride -> drag
+    StrideLink onto the same track.
  5. On StrideLink, click "Open Canvas" - Stride launches (or
     focuses if it's already open). Click "Scan Mapped".
  6. The canvas fills with one lane per mapped parameter.

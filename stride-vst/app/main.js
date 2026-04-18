@@ -377,6 +377,130 @@ ipcMain.handle('get-version', () => {
     return app.getVersion();
 });
 
+// ─── StrideLink M4L Installer ─────────────────────────────
+//
+// The M4L folder (StrideLink.amxd + server.js + node_modules + siblings)
+// is bundled inside the Stride app. The user invokes this once from the
+// welcome modal or Settings, and we copy the whole folder into their
+// Ableton User Library so the device shows up in Ableton's browser and
+// the node.script next to it can see its siblings at runtime.
+//
+// Layout after install:
+//   <User Library>/Stride/
+//     StrideLink.amxd
+//     server.js
+//     scanner.js
+//     ...
+//     node_modules/
+//
+// User Library defaults:
+//   macOS:   ~/Music/Ableton/User Library/
+//   Windows: ~/Documents/Ableton/User Library/
+// If neither is found the renderer opens a folder picker as fallback.
+
+function getBundledM4LSource() {
+    // In packaged builds the M4L folder lives next to the electron resources:
+    //   Mac:     Stride.app/Contents/Resources/M4L/
+    //   Windows: <install-dir>/resources/M4L/
+    //   Dev:     stride-vst/m4l/node/   (alongside stride-vst/app/)
+    const packaged = process.resourcesPath
+        ? path.join(process.resourcesPath, 'M4L')
+        : null;
+    if (packaged && fs.existsSync(packaged)) return packaged;
+    const devSource = path.join(__dirname, '..', 'm4l', 'node');
+    if (fs.existsSync(devSource)) return devSource;
+    return null;
+}
+
+function getDefaultUserLibraryPath() {
+    const home = os.homedir();
+    const candidates = process.platform === 'darwin'
+        ? [path.join(home, 'Music', 'Ableton', 'User Library'),
+           path.join(home, 'Documents', 'Ableton', 'User Library')]
+        : [path.join(home, 'Documents', 'Ableton', 'User Library'),
+           path.join(home, 'Music', 'Ableton', 'User Library')];
+    return candidates.find(p => fs.existsSync(p)) || null;
+}
+
+function copyDirRecursive(src, dest) {
+    fs.mkdirSync(dest, { recursive: true });
+    for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+        const s = path.join(src, entry.name);
+        const d = path.join(dest, entry.name);
+        if (entry.isDirectory()) copyDirRecursive(s, d);
+        else if (entry.isSymbolicLink()) fs.symlinkSync(fs.readlinkSync(s), d);
+        else fs.copyFileSync(s, d);
+    }
+}
+
+// Report whether StrideLink is already present at the conventional location.
+// Renderer uses this to decide whether to show the first-launch prompt.
+ipcMain.handle('check-stride-link-installed', async () => {
+    const lib = getDefaultUserLibraryPath();
+    if (!lib) return { installed: false, libraryFound: false };
+    const target = path.join(lib, 'Stride', 'StrideLink.amxd');
+    return { installed: fs.existsSync(target), libraryFound: true, targetDir: path.join(lib, 'Stride') };
+});
+
+// Copy the bundled M4L folder into the user's Ableton User Library.
+// `destDir` is optional — if omitted we use the detected User Library.
+ipcMain.handle('install-stride-link-to-ableton', async (event, { destDir } = {}) => {
+    try {
+        const source = getBundledM4LSource();
+        if (!source) {
+            return { success: false, error: 'Bundled M4L folder not found. Please reinstall Stride.' };
+        }
+        let target;
+        if (destDir && typeof destDir === 'string') {
+            target = path.join(destDir, 'Stride');
+        } else {
+            const lib = getDefaultUserLibraryPath();
+            if (!lib) return { success: false, error: 'userLibraryNotFound' };
+            target = path.join(lib, 'Stride');
+        }
+        if (fs.existsSync(target)) fs.rmSync(target, { recursive: true, force: true });
+        copyDirRecursive(source, target);
+        return { success: true, targetDir: target };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+// Let the renderer open a folder picker for a custom User Library path.
+ipcMain.handle('pick-user-library-folder', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+        title: "Select your Ableton User Library folder",
+        properties: ['openDirectory'],
+        defaultPath: os.homedir()
+    });
+    if (result.canceled || !result.filePaths.length) return null;
+    return result.filePaths[0];
+});
+
+// ─── Executable Path Registry ─────────────────────────────
+//
+// Written on every launch so the M4L server (running inside Ableton's Max
+// device, which has no idea where Stride lives) can find the Stride
+// executable no matter where the user put it. See m4l/node/server.js
+// `findStrideExecutable()` for the read side.
+
+function writeAppPathMarker() {
+    try {
+        const marker = path.join(DATA_DIR, 'app-path.txt');
+        if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+        let execPath = process.execPath;
+        // On Mac, process.execPath is <bundle>/Contents/MacOS/Stride.
+        // Walk up to the .app bundle so `open <path>` works directly.
+        if (process.platform === 'darwin') {
+            const appIdx = execPath.indexOf('.app/');
+            if (appIdx > 0) execPath = execPath.slice(0, appIdx + 4);
+        }
+        fs.writeFileSync(marker, execPath, 'utf8');
+    } catch (e) {
+        console.log('[Stride] Could not write app-path marker:', e.message);
+    }
+}
+
 // Open file dialog to pick .alc files
 ipcMain.handle('pick-alc-file', async () => {
     // Ableton's User Library default location differs by platform:
@@ -570,6 +694,7 @@ if (!gotTheLock) {
     });
 
     app.whenReady().then(() => {
+        writeAppPathMarker();
         createWindow();
         startLibraryWatcher();
     });

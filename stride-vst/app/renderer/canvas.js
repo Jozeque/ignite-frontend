@@ -4453,19 +4453,32 @@
     })();
 
     // ─── FIRST-RUN WELCOME ────────────────────────────────
-    // Shows a welcome card with two options on the very first launch:
-    //  - "Watch the 3-min intro" → opens the Guide folder in Explorer/Finder
-    //  - "Skip"                   → dismisses immediately
-    // Either way, marks first_run_done=true in settings.json so the overlay
-    // never shows again. Fails GRACEFULLY — if settings.json can't be read
-    // or the IPC is missing, the overlay just doesn't appear (user still
-    // reaches the canvas, no dead-end state).
+    // Two-step first-launch flow:
+    //  1. If StrideLink isn't already in the user's Ableton User Library,
+    //     show the Install-to-Ableton overlay. User can Install or Skip.
+    //  2. Then show the welcome/intro overlay with "Watch videos" / "Skip".
+    // Both overlays fail GRACEFULLY — a missing IPC or read error never
+    // traps the user on a modal.
     async function sdCheckFirstRun() {
         try {
             if (!window.stride || typeof window.stride.loadSettings !== 'function') return;
             const result = await window.stride.loadSettings();
             const settings = (result && result.success && result.settings) || {};
+
+            // Step 1: install-to-Ableton modal (only if not already installed and not previously skipped this run)
             if (!settings.first_run_done) {
+                let needsInstall = true;
+                try {
+                    if (window.stride.checkStrideLinkInstalled) {
+                        const status = await window.stride.checkStrideLinkInstalled();
+                        needsInstall = !(status && status.installed);
+                    }
+                } catch (e) { /* fall through — still prompt */ }
+                if (needsInstall) {
+                    sdShowInstallM4LOverlay(true);
+                    return; // welcome overlay will chain after install modal closes
+                }
+                // Already installed — skip straight to welcome overlay
                 const overlay = document.getElementById('sd-welcome-overlay');
                 if (overlay) overlay.classList.remove('hidden');
             }
@@ -4474,12 +4487,121 @@
         }
     }
 
-    async function sdMarkFirstRunDone() {
+    // Called from titlebar "Install to Ableton" button or from sdCheckFirstRun
+    // When isFirstRun is true, closing the install modal chains into the welcome modal.
+    let _sdInstallIsFirstRun = false;
+    function sdShowInstallM4LOverlay(isFirstRun) {
+        _sdInstallIsFirstRun = !!isFirstRun;
+        const overlay = document.getElementById('sd-install-m4l-overlay');
+        const status = document.getElementById('sd-install-m4l-status');
+        if (status) {
+            status.className = 'hidden text-[10px] leading-relaxed px-3 py-2 rounded-lg';
+            status.textContent = '';
+        }
+        if (overlay) overlay.classList.remove('hidden');
+    }
+    window.sdShowInstallM4LOverlay = sdShowInstallM4LOverlay;
+
+    function sdCloseInstallM4LOverlay() {
+        const overlay = document.getElementById('sd-install-m4l-overlay');
+        if (overlay) overlay.classList.add('hidden');
+        if (_sdInstallIsFirstRun) {
+            _sdInstallIsFirstRun = false;
+            // Chain into the existing welcome overlay
+            const welcome = document.getElementById('sd-welcome-overlay');
+            if (welcome) welcome.classList.remove('hidden');
+        }
+    }
+
+    function sdSetInstallStatus(kind, msg) {
+        const el = document.getElementById('sd-install-m4l-status');
+        if (!el) return;
+        const palette = {
+            success: 'text-emerald-300 bg-emerald-500/10 border border-emerald-500/30',
+            error:   'text-red-300 bg-red-500/10 border border-red-500/30',
+            info:    'text-zinc-300 bg-zinc-500/10 border border-zinc-500/30'
+        };
+        el.className = `text-[10px] leading-relaxed px-3 py-2 rounded-lg ${palette[kind] || palette.info}`;
+        el.textContent = msg;
+    }
+
+    function sdWireInstallM4LButtons() {
+        const installBtn = document.getElementById('sd-install-m4l-btn');
+        const skipBtn = document.getElementById('sd-install-m4l-skip-btn');
+        const overlay = document.getElementById('sd-install-m4l-overlay');
+
+        if (installBtn) {
+            installBtn.addEventListener('click', async () => {
+                installBtn.disabled = true;
+                sdSetInstallStatus('info', 'Installing...');
+                try {
+                    if (!window.stride || !window.stride.installStrideLinkToAbleton) {
+                        sdSetInstallStatus('error', 'Install handler not available.');
+                        installBtn.disabled = false;
+                        return;
+                    }
+                    let res = await window.stride.installStrideLinkToAbleton();
+                    // If User Library auto-detection failed, offer a folder picker
+                    if (res && !res.success && res.error === 'userLibraryNotFound') {
+                        sdSetInstallStatus('info', "Couldn't find your Ableton User Library. Please choose the folder manually.");
+                        const picked = window.stride.pickUserLibraryFolder
+                            ? await window.stride.pickUserLibraryFolder()
+                            : null;
+                        if (!picked) {
+                            sdSetInstallStatus('error', 'Cancelled — no folder selected.');
+                            installBtn.disabled = false;
+                            return;
+                        }
+                        res = await window.stride.installStrideLinkToAbleton(picked);
+                    }
+                    if (res && res.success) {
+                        sdSetInstallStatus('success', `Installed to ${res.targetDir}. In Ableton, open User Library → Stride → drag StrideLink onto a track.`);
+                        // Auto-dismiss after a moment so the user sees the confirmation
+                        setTimeout(() => {
+                            sdCloseInstallM4LOverlay();
+                            // Persist the "first run done" flag so we don't ask again
+                            sdMarkFirstRunDone(true);
+                        }, 2600);
+                    } else {
+                        sdSetInstallStatus('error', (res && res.error) || 'Install failed. Please try again.');
+                        installBtn.disabled = false;
+                    }
+                } catch (e) {
+                    sdSetInstallStatus('error', e.message || 'Install failed.');
+                    installBtn.disabled = false;
+                }
+            });
+        }
+        if (skipBtn) {
+            skipBtn.addEventListener('click', () => {
+                sdCloseInstallM4LOverlay();
+                // Don't mark first-run done yet — only skipping THIS step;
+                // sdCloseInstallM4LOverlay chains into the welcome modal, which marks done.
+            });
+        }
+        // Backdrop click + Escape to dismiss (never trap the user)
+        if (overlay) {
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) sdCloseInstallM4LOverlay();
+            });
+        }
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && overlay && !overlay.classList.contains('hidden')) {
+                sdCloseInstallM4LOverlay();
+            }
+        });
+    }
+
+    async function sdMarkFirstRunDone(skipHideOverlay) {
         // Always hide the overlay first, even if the save fails — we never
         // want a user stuck staring at the welcome card because of a
         // background settings-write error.
-        const overlay = document.getElementById('sd-welcome-overlay');
-        if (overlay) overlay.classList.add('hidden');
+        // When called from the install success path, the welcome overlay
+        // was never opened, so skipHideOverlay=true avoids touching it.
+        if (!skipHideOverlay) {
+            const overlay = document.getElementById('sd-welcome-overlay');
+            if (overlay) overlay.classList.add('hidden');
+        }
         try {
             if (!window.stride || typeof window.stride.saveSettings !== 'function') return;
             const result = await window.stride.loadSettings();
@@ -4540,6 +4662,7 @@
         // DO NOT call sdCheckFirstRun here — that's triggered by unlockApp()
         // in index.html after the license screen dismisses.
         sdWireWelcomeButtons();
+        sdWireInstallM4LButtons();
         sdUpdateEmptyState();
         sdUpdateToolAvailability();
         _wireDragHandle();
