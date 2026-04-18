@@ -749,7 +749,9 @@
 
     // Offline grace period: how long the renderer trusts a cached-valid license
     // when the backend can't be reached. Must be <= the main process's grace.
-    const OFFLINE_GRACE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+    // Must match main.js's LICENSE_OFFLINE_GRACE_DAYS. Mismatch locks out genuine
+    // users who go offline between the shorter grace and the longer one.
+    const OFFLINE_GRACE_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 
     // Single validation entrypoint: the main process handler does both the
     // built-in hash check (ambassador/master keys) AND the backend proxy call

@@ -166,12 +166,18 @@ ipcMain.handle('validate-license-key', async (event, key) => {
     };
     if (cachedInstanceId) body.instance_id = cachedInstanceId;
 
+    // Timeout the network call so a hung/slow server doesn't freeze the
+    // activation button forever. 10s is plenty for LS → Firebase → us.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
     try {
         const res = await fetch(LICENSE_ENDPOINT, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
+            signal: controller.signal,
         });
+        clearTimeout(timeoutId);
         const result = await res.json().catch(() => ({}));
         if (result && result.valid) {
             return {
@@ -194,6 +200,7 @@ ipcMain.handle('validate-license-key', async (event, key) => {
             builtin: false,
         };
     } catch (netErr) {
+        clearTimeout(timeoutId);
         // --- 3. Offline fallback: trust recent cached valid result ---
         try {
             const licenseFile = path.join(DATA_DIR, 'license.json');
@@ -212,9 +219,13 @@ ipcMain.handle('validate-license-key', async (event, key) => {
                 }
             }
         } catch (e) { /* no cache, fall through */ }
+        // AbortError = our own timeout; network errors = DNS/offline/etc.
+        const isTimeout = netErr && netErr.name === 'AbortError';
         return {
             valid: false,
-            error: `Cannot reach license server: ${netErr.message}`,
+            error: isTimeout
+                ? 'License server is taking too long to respond. Check your internet connection and try again.'
+                : 'License server unreachable. Check your internet connection and try again.',
             builtin: false,
         };
     }

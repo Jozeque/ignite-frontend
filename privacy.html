@@ -47,7 +47,7 @@
             <!-- 1 -->
             <section>
                 <h2 class="text-base font-bold text-zinc-200 uppercase tracking-wider mb-3">1. Who We Are</h2>
-                <p>Stride ("we", "us", "our") operates the web application at <strong class="text-zinc-300">stridehub.io</strong>. Stride is a sound design engine for Ableton Live that helps electronic music producers generate automation curves and MIDI patterns for their instrument racks.</p>
+                <p>Stride ("we", "us", "our") publishes the Stride desktop application and operates the website at <strong class="text-zinc-300">stridehub.io</strong>. Stride is a sound design engine for Ableton Live — a local desktop app that helps electronic music producers design modulation curves and apply them to instrument racks in Ableton Live.</p>
                 <p class="mt-2">For privacy inquiries, contact us at: <strong class="text-zinc-300">home@stridehub.io</strong></p>
             </section>
 
@@ -57,24 +57,20 @@
 
                 <h3 class="text-sm font-bold text-zinc-300 mt-4 mb-2">Data you provide directly:</h3>
                 <ul class="list-disc list-inside space-y-1 ml-2">
-                    <li>Email address (at sign-up)</li>
-                    <li>Artist / display name (at sign-up)</li>
-                    <li>Password (hashed — we never see or store your plaintext password)</li>
-                    <li>Ableton instrument rack files (.alc) you upload for processing</li>
-                    <li>MIDI files you upload for processing</li>
-                    <li>Text prompts and generation preferences you submit</li>
-                    <li>Google account information if you use Google Sign-In (name, email)</li>
+                    <li>Email address (when you sign up to the waitlist or purchase a license)</li>
+                    <li>Artist / display name (if you provide one at waitlist signup — optional)</li>
+                    <li>Payment and billing information (collected by Lemon Squeezy — see Section 6)</li>
                 </ul>
 
                 <h3 class="text-sm font-bold text-zinc-300 mt-4 mb-2">Data we collect automatically:</h3>
                 <ul class="list-disc list-inside space-y-1 ml-2">
-                    <li>Generation history (timestamps, settings used, file references)</li>
-                    <li>Credit usage and account activity</li>
-                    <li>Account metadata (creation date, last active date)</li>
+                    <li>License key status (validated against our backend when you activate or re-check)</li>
+                    <li>Approximate activation machine identifier (hostname) — so your license can be tied to the devices you installed it on</li>
                 </ul>
 
                 <h3 class="text-sm font-bold text-zinc-300 mt-4 mb-2">Data we do NOT collect:</h3>
                 <ul class="list-disc list-inside space-y-1 ml-2">
+                    <li>Your Ableton rack files, MIDI clips, automation curves, or any content you create in Stride — all of that stays on your local machine and is never transmitted to us</li>
                     <li>We do not use tracking cookies or third-party analytics</li>
                     <li>We do not collect browsing behavior, IP addresses for profiling, or device fingerprints</li>
                     <li>We do not purchase data from third parties</li>
@@ -85,10 +81,9 @@
             <section>
                 <h2 class="text-base font-bold text-zinc-200 uppercase tracking-wider mb-3">3. How We Use Your Data</h2>
                 <ul class="list-disc list-inside space-y-1 ml-2">
-                    <li><strong class="text-zinc-300">To provide the service:</strong> process your racks and generate automations, MIDI, and sound design outputs</li>
-                    <li><strong class="text-zinc-300">Account management:</strong> authentication, credit tracking, generation history</li>
-                    <li><strong class="text-zinc-300">AI processing:</strong> your rack parameters and generation settings are sent to Google Gemini API to generate outputs (see Section 5)</li>
-                    <li><strong class="text-zinc-300">Service communications:</strong> account verification, critical service updates</li>
+                    <li><strong class="text-zinc-300">To deliver the service:</strong> validate your license key when you activate Stride or launch it periodically</li>
+                    <li><strong class="text-zinc-300">Order fulfillment:</strong> deliver your license key and receipt to the email you provided at purchase</li>
+                    <li><strong class="text-zinc-300">Service communications:</strong> critical updates (e.g. a bug-fix release, security advisory) sent to the email you used for purchase or waitlist signup</li>
                 </ul>
                 <p class="mt-2">We do <strong class="text-zinc-300">not</strong> use your data for advertising, profiling, or marketing without your explicit consent.</p>
             </section>
@@ -98,23 +93,22 @@
                 <h2 class="text-base font-bold text-zinc-200 uppercase tracking-wider mb-3">4. Legal Basis for Processing (GDPR)</h2>
                 <p>If you are in the EU/EEA or UK, we process your personal data under the following lawful bases:</p>
                 <ul class="list-disc list-inside space-y-1 ml-2 mt-2">
-                    <li><strong class="text-zinc-300">Contract performance:</strong> account data, service delivery, file processing — necessary to provide the service you signed up for</li>
-                    <li><strong class="text-zinc-300">Legitimate interest:</strong> usage tracking for credit management, security monitoring, service improvement</li>
-                    <li><strong class="text-zinc-300">Consent:</strong> marketing communications (if any), processing of data via Google Sign-In</li>
+                    <li><strong class="text-zinc-300">Contract performance:</strong> order processing, license delivery, license validation — necessary to provide the product you purchased</li>
+                    <li><strong class="text-zinc-300">Legitimate interest:</strong> limiting license activations per seat, preventing fraud, critical service notices</li>
+                    <li><strong class="text-zinc-300">Consent:</strong> marketing communications, if any</li>
                 </ul>
             </section>
 
             <!-- 5 -->
             <section>
-                <h2 class="text-base font-bold text-zinc-200 uppercase tracking-wider mb-3">5. AI Processing</h2>
-                <p>Stride uses Google's Gemini API (paid tier) to process your generation requests. When you generate, the following data is sent to Google Gemini:</p>
+                <h2 class="text-base font-bold text-zinc-200 uppercase tracking-wider mb-3">5. Local-First Processing</h2>
+                <p>Stride runs as a desktop application on your computer. All sound design work — scanning your Ableton racks, drawing automation curves, generating .alc files — happens <strong class="text-zinc-300">entirely on your local machine</strong>. Your project files, MIDI data, instrument presets, and canvas state never leave your computer.</p>
+                <p class="mt-3">The only network traffic Stride initiates is:</p>
                 <ul class="list-disc list-inside space-y-1 ml-2 mt-2">
-                    <li>Rack parameter names and value ranges from your uploaded .alc files</li>
-                    <li>MIDI note data (if provided)</li>
-                    <li>Your generation settings (style, key, BPM, bars, prompt text)</li>
+                    <li>An occasional license-key validation call to our backend (Cloud Functions on Firebase), which proxies to Lemon Squeezy for activation and re-validation</li>
+                    <li>Downloading application updates, when prompted</li>
                 </ul>
-                <p class="mt-3"><strong class="text-zinc-300">Important:</strong> We use the paid Gemini API tier. Under Google's Cloud Data Processing Addendum, your data is <strong class="text-zinc-300">not used to train Google's AI models</strong>. Google processes data solely to deliver the API response and does not retain it beyond the processing window.</p>
-                <p class="mt-2">Generated outputs (MIDI files, automation data, .alc files) are yours. Stride does not claim any ownership over content generated through the service.</p>
+                <p class="mt-3">Whatever you create in Stride is yours. Stride does not claim any ownership over content you produce with the software.</p>
             </section>
 
             <!-- 6 -->
@@ -122,23 +116,18 @@
                 <h2 class="text-base font-bold text-zinc-200 uppercase tracking-wider mb-3">6. Third Parties Who Receive Your Data</h2>
                 <div class="space-y-3 mt-2">
                     <div class="bg-white/5 rounded-lg p-4 border border-white/5">
-                        <p class="font-bold text-zinc-300">Google LLC</p>
-                        <p class="text-xs text-zinc-500 mt-1">Services: Firebase Authentication, Cloud Firestore, Firebase Storage, Gemini API</p>
-                        <p class="text-xs text-zinc-500">Purpose: Authentication, data storage, file storage, AI generation processing</p>
-                        <p class="text-xs text-zinc-500">DPA: Google Cloud Data Processing Addendum</p>
-                    </div>
-                    <div class="bg-white/5 rounded-lg p-4 border border-white/5">
-                        <p class="font-bold text-zinc-300">Supabase Inc.</p>
-                        <p class="text-xs text-zinc-500 mt-1">Services: Database (analytics mirror)</p>
-                        <p class="text-xs text-zinc-500">Purpose: Data storage for analytics and operational queries</p>
-                        <p class="text-xs text-zinc-500">DPA: Supabase Data Processing Agreement</p>
-                    </div>
-                    <div class="bg-white/5 rounded-lg p-4 border border-white/5">
                         <p class="font-bold text-zinc-300">Lemon Squeezy (Lemon Squeezy, LLC)</p>
                         <p class="text-xs text-zinc-500 mt-1">Services: Payment processing, order management, license key issuance and validation</p>
                         <p class="text-xs text-zinc-500">Purpose: Processing your purchase, delivering your license key, validating activations</p>
                         <p class="text-xs text-zinc-500">Data shared: name, email, billing country, order details, license key metadata</p>
-                        <p class="text-xs text-zinc-500">DPA: Lemon Squeezy Data Processing Addendum</p>
+                        <p class="text-xs text-zinc-500">DPA: Lemon Squeezy Data Processing Addendum (acting as Merchant of Record)</p>
+                    </div>
+                    <div class="bg-white/5 rounded-lg p-4 border border-white/5">
+                        <p class="font-bold text-zinc-300">Google LLC</p>
+                        <p class="text-xs text-zinc-500 mt-1">Services: Firebase Cloud Functions, Cloud Firestore (for our license validation proxy and waitlist storage)</p>
+                        <p class="text-xs text-zinc-500">Purpose: Hosting the backend that proxies license validation to Lemon Squeezy, and storing waitlist signup emails</p>
+                        <p class="text-xs text-zinc-500">Data shared: email (waitlist), license key + hostname (validation)</p>
+                        <p class="text-xs text-zinc-500">DPA: Google Cloud Data Processing Addendum</p>
                     </div>
                 </div>
                 <p class="mt-3">We do <strong class="text-zinc-300">not sell, rent, or share your personal data</strong> with any third party for advertising or marketing purposes.</p>
@@ -159,12 +148,11 @@
             <section>
                 <h2 class="text-base font-bold text-zinc-200 uppercase tracking-wider mb-3">8. Data Retention</h2>
                 <ul class="list-disc list-inside space-y-1 ml-2">
-                    <li><strong class="text-zinc-300">Account data:</strong> retained until you delete your account</li>
-                    <li><strong class="text-zinc-300">Generation history:</strong> retained while your account is active</li>
-                    <li><strong class="text-zinc-300">Generated files (MIDI, ALC):</strong> retained until you delete them or your account</li>
-                    <li><strong class="text-zinc-300">Billing records:</strong> retained as required by applicable tax law (up to 7 years)</li>
+                    <li><strong class="text-zinc-300">Waitlist email:</strong> retained until you unsubscribe or request deletion</li>
+                    <li><strong class="text-zinc-300">Purchase records (email, order, license key):</strong> retained for the lifetime of the license and as required by applicable tax law (up to 7 years)</li>
+                    <li><strong class="text-zinc-300">License validation logs:</strong> retained for up to 12 months for fraud prevention and support</li>
                 </ul>
-                <p class="mt-2">Upon account deletion, all personal data is purged from our systems within <strong class="text-zinc-300">30 days</strong>.</p>
+                <p class="mt-2">Upon deletion request, all personal data we hold about you is purged from our systems within <strong class="text-zinc-300">30 days</strong>, subject to legal retention requirements for tax records.</p>
             </section>
 
             <!-- 9 -->
@@ -205,8 +193,8 @@
             <!-- 11 -->
             <section>
                 <h2 class="text-base font-bold text-zinc-200 uppercase tracking-wider mb-3">11. Local Storage</h2>
-                <p>We use your browser's localStorage to maintain your authentication session. This is strictly necessary for the service to function — it keeps you logged in between visits.</p>
-                <p class="mt-2">We do <strong class="text-zinc-300">not</strong> use cookies for tracking, advertising, or analytics. No third-party tracking technologies are present on our site.</p>
+                <p>Stride's desktop app stores your license status, settings, and your canvas sessions locally on your computer (in your user-data folder). This data is never transmitted to us and is purely there to keep the app working between launches.</p>
+                <p class="mt-2">Our website does <strong class="text-zinc-300">not</strong> use cookies for tracking, advertising, or analytics. No third-party tracking technologies are present on our site.</p>
             </section>
 
             <!-- 12 -->

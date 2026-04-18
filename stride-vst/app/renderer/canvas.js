@@ -10,6 +10,12 @@
  */
 
 (function() {
+    // Cloud generation (Account panel + Generate button) is hidden for v1.
+    // The feature exists in code but the backend contract is incomplete and
+    // v1 ships as a local-only product. Flip this to true in v2 once the
+    // backend handlers for 'generate' / 'check_credits' are shipped.
+    const CLOUD_GEN_ENABLED = false;
+
     // ─── STATE ────────────────────────────────────────────
 
     let sdCanvasParams = [];
@@ -4413,6 +4419,7 @@
     };
 
     window.signIn = async function() {
+        if (!CLOUD_GEN_ENABLED) return; // v1: cloud-gen disabled
         const serial = document.getElementById('auth-serial').value.trim();
         const email = document.getElementById('auth-email').value.trim();
         const statusEl = document.getElementById('auth-status');
@@ -4430,6 +4437,7 @@
     };
 
     window.signOut = async function() {
+        if (!CLOUD_GEN_ENABLED) return;
         await strideCloud.signOut();
         document.getElementById('generate-btn').classList.add('hidden');
         document.getElementById('account-btn').classList.add('hidden');
@@ -4438,8 +4446,9 @@
 
     // ─── INIT ON LOAD ─────────────────────────────────────
 
-    // Try restoring cached license on startup
+    // Try restoring cached cloud session on startup (disabled for v1)
     (async () => {
+        if (!CLOUD_GEN_ENABLED) return;
         if (window.stride) {
             const result = await window.stride.loadLicense();
             if (result.success && result.license && result.license.token) {
