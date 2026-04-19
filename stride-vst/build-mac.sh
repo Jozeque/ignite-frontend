@@ -4,9 +4,9 @@
 # For signed production releases, run this on an actual Mac with Apple Dev ID.
 #
 # Usage:
-#   bash build-mac.sh               # default: arm64 (Apple Silicon M1+)
-#   MAC_ARCH=x64 bash build-mac.sh  # Intel Macs
-#   MAC_ARCH=universal bash build-mac.sh  # both (2x size, may fail on Windows)
+#   bash build-mac.sh                # default: universal (Intel + Apple Silicon)
+#   MAC_ARCH=arm64 bash build-mac.sh # Apple Silicon only (faster dev build)
+#   MAC_ARCH=x64 bash build-mac.sh   # Intel Macs only
 #
 # Output: dist-release-mac/Stride/ + dist-release-mac/Stride_v<VERSION>_Mac.zip
 #
@@ -22,8 +22,9 @@ M4L_DIR="$SCRIPT_DIR/m4l"
 DIST="$SCRIPT_DIR/dist-release-mac"
 VERSION=$(node -e "console.log(require('./app/package.json').version)")
 
-# Target architecture. Default arm64 (2020+ Macs). Override with MAC_ARCH env var.
-MAC_ARCH="${MAC_ARCH:-arm64}"
+# Target architecture. Default universal so the produced .app runs on both
+# Intel and Apple Silicon. Override with MAC_ARCH env var for faster dev builds.
+MAC_ARCH="${MAC_ARCH:-universal}"
 
 OBFUSCATOR="$APP_DIR/node_modules/.bin/javascript-obfuscator"
 

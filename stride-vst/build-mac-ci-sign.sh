@@ -47,7 +47,7 @@ rm -rf dist
 
 npx --yes @electron/packager . Stride \
     --platform=darwin \
-    --arch=arm64 \
+    --arch=universal \
     --out=dist \
     --asar \
     --overwrite \
@@ -59,8 +59,17 @@ npx --yes @electron/packager . Stride \
     --ignore="^/dist($|/)" \
     --prune=true 2>&1 | tail -30
 
-MAC_OUT="$APP_DIR/dist/Stride-darwin-arm64"
-if [ ! -d "$MAC_OUT/Stride.app" ]; then
+# Universal build lands at dist/Stride-darwin-universal/. Fall back to single-
+# arch output paths in case a dev ever flips --arch locally without updating
+# this script — we walk candidates in preference order.
+MAC_OUT=""
+for candidate in "Stride-darwin-universal" "Stride-darwin-arm64" "Stride-darwin-x64"; do
+    if [ -d "$APP_DIR/dist/$candidate/Stride.app" ]; then
+        MAC_OUT="$APP_DIR/dist/$candidate"
+        break
+    fi
+done
+if [ -z "$MAC_OUT" ]; then
     echo "❌ Stride.app not found after packager. dist/ contents:"
     find dist -maxdepth 3 -type d
     exit 1

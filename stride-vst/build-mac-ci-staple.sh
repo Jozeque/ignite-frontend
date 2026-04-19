@@ -55,7 +55,9 @@ echo ""
 # Put it where Job 1's packager put it so any relative paths in the
 # original script still work. Recreate the packager output directory.
 echo "[1/5] Unzipping signed .app..."
-WORK_DIR="$APP_DIR/dist/Stride-darwin-arm64"
+# Folder name is cosmetic — the zip contains Stride.app at the root and we
+# just need a working directory. "universal" reflects the arch from Job 1.
+WORK_DIR="$APP_DIR/dist/Stride-darwin-universal"
 rm -rf "$APP_DIR/dist"
 mkdir -p "$WORK_DIR"
 ditto -x -k "$SIGNED_ZIP" "$WORK_DIR/"
