@@ -442,11 +442,31 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
         raw_body = req.get_data(cache=True) or b""
         return _handle_lemon_webhook(raw_body, ls_event, ls_sig)
 
-    # --- WAITLIST / BUYER LEAD (public, no auth required) ---
+    # --- FOUNDERS COUNTER (public, no auth) ---
+    # Returns the real number of purchased rows in the waitlist collection so
+    # the landing page can display a live founding-member progress bar. The
+    # frontend applies its own multiplier + seed to the returned count — this
+    # endpoint just reports the raw ground truth.
     data_pre = req.get_json(silent=True)
+    if isinstance(data_pre, dict) and data_pre.get("action") == "founders_count":
+        try:
+            _db = admin_firestore.client()
+            purchased = list(
+                _db.collection("waitlist").where("status", "==", "purchased").stream()
+            )
+            return jsonify({"count": len(purchased)}), 200
+        except Exception as e:
+            print(f"[FoundersCount] firestore query failed: {e}")
+            return jsonify({"count": 0, "error": "firestore unavailable"}), 200
+
+    # --- WAITLIST / BUYER LEAD (public, no auth required) ---
     if isinstance(data_pre, dict) and data_pre.get("action") in ("waitlist_signup", "buyer_lead"):
         name = data_pre.get("name", "").strip()
-        email = data_pre.get("email", "").strip()
+        # Normalize email to lowercase for consistent dedup matching against the
+        # LS webhook (which also lowercases). Firestore queries are case-sensitive
+        # so "Alice@X.com" and "alice@x.com" would be treated as different
+        # contacts without this — caused duplicate CRM rows before the fix.
+        email = data_pre.get("email", "").strip().lower()
         country = data_pre.get("country", "").strip()
         source = data_pre.get("source", "").strip()
         # Terms acknowledgment record — legal audit trail for any future

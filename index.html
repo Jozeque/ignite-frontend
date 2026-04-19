@@ -972,6 +972,43 @@
             document.getElementById('contact-message').value = '';
             toggleContactModal();
         }
+
+        // ── Live founding-member counter ─────────────────────────
+        // Fetches the real count of purchased customers from our backend and
+        // updates the progress bar + "N left" label. Formula:
+        //   displayed = 13 + 2 × real_sales  (capped at 100)
+        // The "+2 per sale" amplifies each purchase's visual impact so the bar
+        // moves noticeably with every buyer. The "13" seed accounts for 10
+        // ambassador seats + small priority waitlist buffer. When real_sales=1
+        // (the validation test purchase) → displayed=15, matching the initial
+        // server-rendered state. When real_sales=2 (first customer) → 17, etc.
+        // Caps at 100% so the bar never overflows; at that point you should
+        // rotate LS_CHECKOUT_URL to the $59 variant.
+        async function updateFoundersCounter() {
+            try {
+                const res = await fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ action: 'founders_count' })
+                });
+                const data = await res.json();
+                const realSales = Math.max(0, parseInt(data.count || 0, 10));
+                const displayed = Math.min(100, 13 + 2 * realSales);
+                const left = Math.max(0, 100 - displayed);
+                const bar = document.getElementById('tier-progress');
+                const remaining = document.getElementById('tier-remaining');
+                if (bar) bar.style.width = displayed + '%';
+                if (remaining) remaining.textContent = left + ' left';
+            } catch (e) {
+                // Silently fall back to the server-rendered 15%/85 left defaults
+                // — a failed counter fetch should never degrade the page.
+            }
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', updateFoundersCounter);
+        } else {
+            updateFoundersCounter();
+        }
     </script>
 
 </body>
