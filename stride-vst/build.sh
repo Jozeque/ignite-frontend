@@ -184,22 +184,31 @@ cat > "$DIST/Stride/README.txt" << 'READMEEOF'
    Takes about 3 minutes total. Seriously, watch them first.
 
 ---------------------------------------------------------------
- INSTALL  (two steps)
+ INSTALL  (three steps)
 ---------------------------------------------------------------
 
-1. Unzip Stride_v1.0.0_Windows.zip anywhere you like (Desktop
-   is fine). Keep Stride.exe, the M4L/ folder, and the Guide/
-   folder sitting next to each other in the same Stride/ folder.
-2. Double-click Stride.exe once to launch it. A welcome window
-   offers to install StrideLink into your Ableton User Library
-   — click "Install to Ableton". After that, paste your license
-   key and you're activated.
+1. Unzip Stride_v1.0.0_Windows.zip to your Desktop or Documents
+   (NOT Downloads - Windows sometimes cleans it). Keep Stride.exe,
+   the M4L/ folder, and the Guide/ folder together in the Stride/
+   folder.
+
+2. Double-click Stride.exe.
+   FIRST LAUNCH ONLY: Windows shows "Windows protected your PC"
+   (SmartScreen). Click "More info" -> "Run anyway". One time.
+   This happens because Stride isn't code-signed for Windows
+   (small indie product, no signing cert yet). After that first
+   Run anyway, Windows never asks again on this machine.
+
+3. Enter your license key when Stride asks for it (from your
+   purchase email). After activation, a welcome window pops
+   asking to install StrideLink to your Ableton User Library
+   - click "Install to Ableton". Done.
 
 Then: open Ableton Live -> browser sidebar -> User Library
 -> Stride -> drag StrideLink onto any MIDI track.
 
 Requirements: Ableton Live 11+ Suite (or Standard + M4L),
-Python 3 (python.org — only needed if the Python fallback is
+Python 3 (python.org - only needed if the Python fallback is
 triggered, rarely). Windows 10 or 11.
 
 ---------------------------------------------------------------

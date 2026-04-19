@@ -223,22 +223,26 @@ cat > "$DIST/Stride/README.txt" << 'READMEEOF'
 ===============================================================
 
 ---------------------------------------------------------------
- INSTALL  (two steps, no Terminal)
+ INSTALL  (three steps, no Terminal)
 ---------------------------------------------------------------
 
 1. Drag Stride.app into your /Applications folder.
-2. Launch Stride once from /Applications. It pops a welcome
-   window asking to install StrideLink to your Ableton User
-   Library -- click "Install to Ableton". Done. Signed with
-   an Apple Developer ID and notarized by Apple; no Gatekeeper
-   bypass required.
+
+2. Launch Stride from /Applications. Signed with an Apple
+   Developer ID and notarized by Apple - no Gatekeeper bypass,
+   no right-click Open, no xattr. Just double-click.
+
+3. Enter your license key when Stride asks for it (from your
+   purchase email). After activation, a welcome window pops
+   asking to install StrideLink to your Ableton User Library
+   - click "Install to Ableton". Done.
 
 Then: open Ableton Live -> browser sidebar -> User Library
 -> Stride -> drag StrideLink onto any MIDI track.
 
 Requirements: Ableton Live 11+ Suite (or Standard + M4L),
 macOS 11 (Big Sur) or later. Python 3 only needed if Python
-fallback is triggered (almost never — usually preinstalled).
+fallback is triggered (almost never - usually preinstalled).
 
 ---------------------------------------------------------------
  YOUR FIRST CLIP - 10 STEPS
