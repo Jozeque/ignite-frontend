@@ -473,26 +473,47 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
         # Always log the full signup so data is never lost
         print(f"[Waitlist] name={name} email={email} country={country} source={source} terms_ok={terms_accepted['accepted']}")
         db_ok = False
+        was_existing = False
         try:
             _db = admin_firestore.client()
-            _db.collection("waitlist").add({
+            # Dedupe by email — same email submitting the form twice (waitlist
+            # then buy modal, or multiple visits) must not produce duplicate
+            # rows. Update the existing record if one exists; otherwise create.
+            # NOTE: does NOT touch the `status` field — the LS `order_created`
+            # webhook owns that. A returning customer who already purchased
+            # keeps their `purchased` status even if they re-submit the form.
+            existing = list(
+                _db.collection("waitlist").where("email", "==", email).limit(1).stream()
+            )
+            payload = {
                 "name": name,
                 "email": email,
                 "country": country,
                 "source": source,
                 "terms_accepted": terms_accepted,
-                "created_at": admin_firestore.SERVER_TIMESTAMP,
-            })
+                "updated_at": admin_firestore.SERVER_TIMESTAMP,
+            }
+            if existing:
+                existing[0].reference.update(payload)
+                was_existing = True
+                print(f"[Waitlist] updated existing lead {existing[0].id} (email already on list)")
+            else:
+                payload["created_at"] = admin_firestore.SERVER_TIMESTAMP
+                _db.collection("waitlist").add(payload)
+                print(f"[Waitlist] created new lead for {email}")
             db_ok = True
         except Exception as e:
             print(f"[Waitlist] FIRESTORE FAILED: {e} — data logged above")
-        # Discord notification (includes DB failure warning if applicable)
+        # Discord notification (includes DB failure warning if applicable).
+        # Flag returning leads so admin can distinguish first-time vs refreshed
+        # signups — useful for spotting buying-intent patterns.
         if ADMIN_WEBHOOK_URL:
             try:
                 status = "" if db_ok else "\n⚠️ **Firestore write failed — recover from logs**"
+                heading = "🎹 **WAITLIST SIGNUP — returning**" if was_existing else "🎹 **WAITLIST SIGNUP**"
                 webhook_msg = {
                     "username": "Stride Engine",
-                    "content": f"🎹 **WAITLIST SIGNUP**\n**Producer:** `{name}`\n**Email:** `{email}`\n**Country:** `{country}`" + (f"\n**Source:** `{source}`" if source else "") + status
+                    "content": f"{heading}\n**Producer:** `{name}`\n**Email:** `{email}`\n**Country:** `{country}`" + (f"\n**Source:** `{source}`" if source else "") + status
                 }
                 webhook_req = urllib.request.Request(
                     ADMIN_WEBHOOK_URL,
