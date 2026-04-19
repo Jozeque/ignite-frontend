@@ -199,15 +199,32 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
                 "updated_at": admin_firestore.SERVER_TIMESTAMP,
             }
 
-            # Merge with existing waitlist lead (same email) if one exists
-            existing = []
+            # Find existing row to merge into. Check BOTH email and ls_order_id:
+            # - email match catches prior waitlist signups / buy-modal leads
+            # - ls_order_id match catches orphans created by a license_key_created
+            #   webhook that arrived BEFORE this order_created (rare but real —
+            #   LS doesn't guarantee webhook order). Without the ls_order_id
+            #   check, we'd create a duplicate row with USD+email while the
+            #   orphan kept the license key → two partial records per customer.
+            order_id_str = str(data_obj.get("id") or "")
+            match = None
             if email:
-                existing = list(
+                found = list(
                     _db.collection("waitlist").where("email", "==", email).limit(1).stream()
                 )
-            if existing:
-                existing[0].reference.update(doc_data)
-                print(f"[LS Webhook] upgraded lead {existing[0].id} → customer")
+                if found:
+                    match = found[0]
+            if match is None and order_id_str:
+                found = list(
+                    _db.collection("waitlist").where("ls_order_id", "==", order_id_str).limit(1).stream()
+                )
+                if found:
+                    match = found[0]
+                    print(f"[LS Webhook] found orphan row {match.id} by ls_order_id — merging")
+
+            if match is not None:
+                match.reference.update(doc_data)
+                print(f"[LS Webhook] upgraded lead {match.id} → customer")
             else:
                 _db.collection("waitlist").add({
                     **doc_data,
