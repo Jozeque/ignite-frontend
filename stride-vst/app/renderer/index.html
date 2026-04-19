@@ -54,8 +54,13 @@
         </div>
     </div>
 
-    <!-- Title Bar (draggable for Electron) -->
-    <div class="titlebar-drag h-9 bg-zinc-950 border-b border-white/5 flex items-center px-4 shrink-0">
+    <!-- Title Bar (draggable for Electron).
+         pr-36 (144px) reserves space for Windows' native min/max/close
+         controls sitting in the titleBarOverlay area, so our own buttons
+         on the right (M4L status, Guide, Install to Ableton, folder)
+         don't get clipped. Mac's traffic lights are on the LEFT, so the
+         extra right padding is harmless there. -->
+    <div class="titlebar-drag h-9 bg-zinc-950 border-b border-white/5 flex items-center pl-4 pr-36 shrink-0">
         <span class="text-[11px] font-black tracking-[0.3em] uppercase text-gradient titlebar-no-drag">STRIDE</span>
         <div class="flex-1"></div>
         <!-- Connection status -->
@@ -202,14 +207,18 @@
                             </div>
                             <div class="flex-1 min-w-0">
                                 <h3 class="text-[11px] text-zinc-200 font-bold uppercase tracking-wider">Map your parameters</h3>
-                                <p class="text-[10px] text-zinc-500 leading-relaxed mt-1">Open automation lanes for every parameter you want Stride to control and <span class="text-zinc-300 font-bold">draw a single point</span> on each lane — just one click per lane is enough.</p>
-                                <div class="mt-2 bg-black/30 border border-white/5 rounded-lg px-3 py-2">
-                                    <p class="text-[9px] text-amber-400/80 font-bold uppercase tracking-wider mb-1">How to do it</p>
-                                    <p class="text-[9px] text-zinc-500 leading-relaxed"><span class="text-zinc-300 font-bold">1.</span> Show the automation lane for each parameter you want to control.<br><span class="text-zinc-300 font-bold">2.</span> Click once on each lane to draw a single automation point — this tells Ableton to embed that envelope in the template.<br><span class="text-zinc-300 font-bold">3.</span> Create a MIDI clip on the track (double-click a clip slot).</p>
+                                <p class="text-[10px] text-zinc-500 leading-relaxed mt-1">Every parameter you want Stride to control needs a single automation point on its lane — just enough to tell Ableton "embed this envelope in the clip." The fastest way: arm recording and touch each knob once.</p>
+                                <div class="mt-2 bg-black/30 border border-emerald-500/30 rounded-lg px-3 py-2">
+                                    <p class="text-[9px] text-emerald-400/90 font-bold uppercase tracking-wider mb-1">Fastest way (recommended)</p>
+                                    <p class="text-[9px] text-zinc-500 leading-relaxed"><span class="text-zinc-300 font-bold">1.</span> Hit <span class="text-emerald-400 font-mono font-bold">F9</span> to arm automation recording.<br><span class="text-zinc-300 font-bold">2.</span> Nudge every knob you want Stride to control — Ableton drops an automation point on each one you touch.<br><span class="text-zinc-300 font-bold">3.</span> Hit <span class="text-emerald-400 font-mono font-bold">F9</span> again to disarm. Done.</p>
+                                </div>
+                                <div class="mt-1.5 bg-black/30 border border-white/5 rounded-lg px-3 py-2">
+                                    <p class="text-[9px] text-amber-400/80 font-bold uppercase tracking-wider mb-1">Or, manually</p>
+                                    <p class="text-[9px] text-zinc-500 leading-relaxed">Show the automation lane for each parameter → click once on each lane to drop a single point. Slower, but works if you don't want to arm recording.</p>
                                 </div>
                                 <div class="mt-1.5 bg-black/30 border border-red-500/10 rounded-lg px-3 py-2">
                                     <p class="text-[9px] text-red-400/80 font-bold uppercase tracking-wider mb-1">Important</p>
-                                    <p class="text-[9px] text-zinc-500 leading-relaxed">Every parameter needs at least one automation point drawn on its lane. Do <span class="text-zinc-300 font-bold">not</span> use MIDI Map + Record — draw the points manually. Without a point on the lane, Ableton won't embed the envelope and Stride can't write to that parameter.</p>
+                                    <p class="text-[9px] text-zinc-500 leading-relaxed">Every parameter needs at least one automation point on its lane. Without a point, Ableton won't embed the envelope and Stride can't write to that parameter.</p>
                                 </div>
                                 <div id="guide-img-2" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden"><img src="../assets/step2.png" alt="Mapped automation lanes in Ableton" class="w-full"></div>
                             </div>
@@ -286,17 +295,21 @@
                                 <span class="text-[11px] text-orange-400 font-black">7</span>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <h3 class="text-[11px] text-zinc-200 font-bold uppercase tracking-wider">Drag the output .alc into Ableton</h3>
-                                <p class="text-[10px] text-zinc-500 leading-relaxed mt-1">Stride generates a new .alc file in <span class="text-zinc-400 font-mono">~/Desktop/Stride/</span> and opens the folder for you. Drag it onto a new MIDI track — your rack loads with all the automation baked in.</p>
+                                <h3 class="text-[11px] text-zinc-200 font-bold uppercase tracking-wider">Drag the output into Ableton</h3>
+                                <p class="text-[10px] text-zinc-500 leading-relaxed mt-1">After you hit Apply, a big <span class="text-emerald-400 font-bold">Ready to drop</span> card slides up in the middle of Stride. Grab it and drag it straight into an <span class="text-zinc-300 font-bold">empty clip slot</span> in Ableton. That's it — no folder to find, no file to open.</p>
                                 <div class="mt-2 bg-black/30 border border-white/5 rounded-lg px-3 py-2">
                                     <p class="text-[9px] text-fuchsia-400/80 font-bold uppercase tracking-wider mb-1">Keep going</p>
-                                    <p class="text-[9px] text-zinc-500 leading-relaxed">Go back to the canvas, tweak your curves, hit Apply again. Each apply creates a new .alc — iterate fast until you find the sound you want.</p>
+                                    <p class="text-[9px] text-zinc-500 leading-relaxed">Tweak your curves, hit Apply again — each apply updates the card in place with a fresh .alc. Drop 3-5 variations in a row, then A/B them in Ableton.</p>
+                                </div>
+                                <div class="mt-1.5 bg-black/30 border border-white/5 rounded-lg px-3 py-2">
+                                    <p class="text-[9px] text-zinc-400 font-bold uppercase tracking-wider mb-1">Need the file?</p>
+                                    <p class="text-[9px] text-zinc-500 leading-relaxed">Every .alc is also saved to <span class="text-zinc-400 font-mono">~/Desktop/Stride/</span>. Hit <span class="text-emerald-400 font-bold">Open folder</span> on the bottom-right toast to browse them in Explorer.</p>
                                 </div>
                                 <div class="mt-1.5 bg-black/30 border border-white/5 rounded-lg px-3 py-2">
                                     <p class="text-[9px] text-zinc-400 font-bold uppercase tracking-wider mb-1">Automation looks wrong?</p>
                                     <p class="text-[9px] text-zinc-500 leading-relaxed">If the output doesn't match your canvas, your template is probably outdated. Go back to <span class="text-orange-400 font-bold">Step 4</span> — drag a fresh clip to User Library to update the template for your current rack.</p>
                                 </div>
-                                <div id="guide-img-7" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden"><img src="../assets/step7.png" alt="Output folder with .alc files to drag into Ableton" class="w-full"></div>
+                                <div id="guide-img-7" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden"><img src="../assets/step7.png" alt="Ready to drop card — drag straight into an Ableton clip slot" class="w-full"></div>
                             </div>
                         </div>
 
