@@ -867,13 +867,13 @@
         const TERMS_VERSION = '2026-04-16-v2';
 
         // ── Lemon Squeezy checkout URL ──
-        // Paste your LS checkout URL here. The email gets appended as a
-        // query param so LS pre-fills the buyer's email on the checkout page.
-        // To get this URL: LS Dashboard → Products → Stride → $39 variant → Share → Copy URL
+        // The email + name are appended as query params so LS pre-fills the
+        // checkout page when the buyer lands on it (less friction → higher
+        // conversion). To rotate tiers as they fill (100 → $59, 500 → $79),
+        // swap this URL with the next variant's checkout URL.
         // ── LAUNCH SWITCH ──
-        // Set to '' for waitlist mode (current). When ready to launch,
-        // paste the LS checkout URL to activate purchase mode.
-        const LS_CHECKOUT_URL = '';
+        // Set to '' for waitlist mode. A non-empty URL activates purchase mode.
+        const LS_CHECKOUT_URL = 'https://strideengine.lemonsqueezy.com/checkout/buy/692f2af4-4227-4f75-8975-352196d45840';
 
         function submitBuyForm() {
             const name = document.getElementById('buy-name').value.trim();
