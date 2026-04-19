@@ -165,8 +165,15 @@ xcrun stapler staple "$WORK_DIR/Stride.app" 2>&1 || {
     echo "❌ Stapler failed"
     exit 1
 }
+# STRICT: if validate doesn't confirm the ticket is attached, abort. Previous
+# warning-only behaviour caused at least one build to ship unstapled (April 2026
+# incident — user's friend got "File created by an AppSandbox, exec/open not
+# allowed" on macOS 14+). Never trust a green CI without validate passing.
 xcrun stapler validate "$WORK_DIR/Stride.app" 2>&1 || {
-    echo "⚠  Stapler validate warning — continuing anyway"
+    echo "❌ Stapler validate FAILED — notarization ticket not actually attached to Stride.app"
+    echo "   Apple accepted the submission but the ticket didn't land on the bundle."
+    echo "   Gatekeeper will reject this DMG. Aborting build."
+    exit 1
 }
 echo "      ✅ Signed + notarized + stapled"
 
@@ -191,9 +198,13 @@ codesign --verify --strict "$DIST/Stride/Stride.app" 2>&1 || {
     exit 1
 }
 
-# Re-verify stapler on the copy
+# Re-verify stapler on the copy. STRICT: if the ticket didn't survive the
+# ditto copy to the final dist folder, the DMG we're about to package is
+# going to fail Gatekeeper. Fail loud instead of shipping broken.
 xcrun stapler validate "$DIST/Stride/Stride.app" 2>&1 || {
-    echo "⚠  Stapler validation on copy failed — zip may still work"
+    echo "❌ Stapler validate FAILED after ditto copy — ticket was stripped in transit."
+    echo "   The DMG would be rejected by Gatekeeper. Aborting."
+    exit 1
 }
 
 # Sanity-check the bundled M4L payload — if this is missing, first-launch
