@@ -542,15 +542,25 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
         except Exception as e:
             print(f"[Waitlist] FIRESTORE FAILED: {e} — data logged above")
         # Discord notification (includes DB failure warning if applicable).
-        # Flag returning leads so admin can distinguish first-time vs refreshed
-        # signups — useful for spotting buying-intent patterns.
+        # Heading reflects the action type AND returning vs first-time:
+        #   buyer_lead      -> user is actively in the buy flow (on LS checkout
+        #                      right now, or just abandoned it). Fresh intent.
+        #   waitlist_signup -> pre-launch waitlist signup (rare post-launch).
+        # "returning" suffix fires on dedup match (this email already had a
+        # row) so admin can spot repeat buyers / re-engagers.
+        action_type = data_pre.get("action", "")
         if ADMIN_WEBHOOK_URL:
             try:
                 status = "" if db_ok else "\n⚠️ **Firestore write failed — recover from logs**"
-                heading = "🎹 **WAITLIST SIGNUP — returning**" if was_existing else "🎹 **WAITLIST SIGNUP**"
+                is_buyer = action_type == "buyer_lead"
+                if is_buyer:
+                    base = "🛒 **BUYER LEAD** — on checkout"
+                else:
+                    base = "🎹 **WAITLIST SIGNUP**"
+                heading = f"{base} — returning" if was_existing else base
                 webhook_msg = {
                     "username": "Stride Engine",
-                    "content": f"{heading}\n**Producer:** `{name}`\n**Email:** `{email}`\n**Country:** `{country}`" + (f"\n**Source:** `{source}`" if source else "") + status
+                    "content": f"{heading}\n**Producer:** `{name}`\n**Email:** `{email}`\n**Country:** `{country}`" + (f"\n**Heard from:** `{source}`" if source else "") + status
                 }
                 webhook_req = urllib.request.Request(
                     ADMIN_WEBHOOK_URL,
