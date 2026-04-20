@@ -331,12 +331,23 @@ def _handle_validate_license(data: dict):
     slot tied to this machine) and returns the new instance_id.
     Returning use (instance_id present): validates the existing instance.
 
+    Stale-instance self-heal: if /validate returns "not found" AND the client
+    had a cached instance_id, we automatically retry as /activate so the
+    client gets a fresh instance. This recovers from cases where the admin
+    deactivated the old instance on LS but the client still has the old
+    instance_id cached in license.json.
+
     Request body (from Electron app):
       { action: 'validate_license', key: 'XXXX-YYYY-ZZZZ',
         instance_id?: 'saved-from-previous-activation',
         instance_name?: 'Stride on <hostname>' }
     """
-    key = (data.get("key") or "").strip().upper()
+    # Aggressive key normalization — strip all whitespace AND invisible unicode
+    # (non-breaking space, zero-width joiner/non-joiner, BOM). These sneak in
+    # when users copy keys from email clients that render rich text. Hyphens
+    # are preserved — they're part of LS's UUID format.
+    raw_key = data.get("key") or ""
+    key = re.sub(r"[\s\u00A0\u200B\u200C\u200D\uFEFF]", "", raw_key).upper()
     instance_id = (data.get("instance_id") or "").strip()
     instance_name = (data.get("instance_name") or "Stride Desktop").strip()[:255]
 
@@ -348,7 +359,34 @@ def _handle_validate_license(data: dict):
         print("[License] LEMONSQUEEZY_API_KEY not set")
         return jsonify({"valid": False, "error": "License service not configured"}), 500
 
-    # Activate on first use, validate on subsequent calls.
+    def _call_ls(url: str, form: dict):
+        """Call LS API. Returns (result_dict_or_None, err_body_str, http_status_int).
+        Never raises."""
+        try:
+            req_obj = urllib.request.Request(
+                url,
+                data=urllib.parse.urlencode(form).encode("utf-8"),
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Accept": "application/json",
+                    "User-Agent": "Stride-Backend/1.0",
+                },
+            )
+            with urllib.request.urlopen(req_obj, timeout=15) as resp:
+                return json.loads(resp.read().decode("utf-8")), "", resp.status
+        except urllib.error.HTTPError as he:
+            body = ""
+            try:
+                body = he.read().decode("utf-8")
+            except Exception:
+                pass
+            return None, body, he.code
+        except Exception as e:
+            return None, str(e), 0
+
+    # First call: /validate if we have an instance_id, /activate otherwise.
+    used_instance_id = bool(instance_id)
     if instance_id:
         url = "https://api.lemonsqueezy.com/v1/licenses/validate"
         form = {"license_key": key, "instance_id": instance_id}
@@ -356,38 +394,56 @@ def _handle_validate_license(data: dict):
         url = "https://api.lemonsqueezy.com/v1/licenses/activate"
         form = {"license_key": key, "instance_name": instance_name}
 
-    try:
-        req_obj = urllib.request.Request(
-            url,
-            data=urllib.parse.urlencode(form).encode("utf-8"),
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/x-www-form-urlencoded",
-                "Accept": "application/json",
-                "User-Agent": "Stride-Backend/1.0",
-            },
-        )
-        with urllib.request.urlopen(req_obj, timeout=15) as resp:
-            result = json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as he:
-        err_body = ""
-        try:
-            err_body = he.read().decode("utf-8")
-        except Exception:
-            pass
-        print(f"[License] LS API HTTP {he.code}: {err_body[:300]}")
-        # Bubble up a clean error (LS returns JSON with an 'error' field on 400s)
-        try:
-            parsed = json.loads(err_body) if err_body else {}
-            msg = parsed.get("error") or f"License server rejected (HTTP {he.code})"
-        except Exception:
-            msg = f"License server rejected (HTTP {he.code})"
-        return jsonify({"valid": False, "error": msg}), 200
-    except Exception as e:
-        print(f"[License] LS API request failed: {e}")
-        return jsonify({"valid": False, "error": "Cannot reach license server"}), 200
+    result, err_body, status = _call_ls(url, form)
 
-    if not result.get("valid"):
+    # Stale-instance retry: if /validate failed with "not found" type error
+    # and we had an instance_id, treat it as stale and retry as /activate.
+    if used_instance_id:
+        stale_signal = False
+        if result is None:
+            # HTTP error — check err_body for stale-instance markers
+            body_low = (err_body or "").lower()
+            if status == 404 or "not found" in body_low or "instance" in body_low:
+                stale_signal = True
+        elif not (result.get("valid") or result.get("activated")):
+            err_low = str(result.get("error") or "").lower()
+            if "not found" in err_low or "instance" in err_low:
+                stale_signal = True
+
+        if stale_signal:
+            print(f"[License] stale instance_id ({instance_id[:8]}...), retrying as /activate")
+            url = "https://api.lemonsqueezy.com/v1/licenses/activate"
+            form = {"license_key": key, "instance_name": instance_name}
+            result, err_body, status = _call_ls(url, form)
+
+    # Handle network/HTTP failure (result is None = never got parseable JSON back)
+    if result is None:
+        msg = ""
+        if err_body:
+            try:
+                msg = json.loads(err_body).get("error") or ""
+            except Exception:
+                pass
+        if not msg:
+            msg = f"License server rejected (HTTP {status})" if status else "Cannot reach license server"
+        print(f"[License] LS API HTTP {status}: {(err_body or '(no body)')[:300]}")
+        return jsonify({"valid": False, "error": msg}), 200
+
+    # Log the raw response (first 500 chars) so future debugging has ground
+    # truth on what LS actually returned. Sensitive fields like license key
+    # are already in the JSON so no extra exposure.
+    try:
+        raw_preview = json.dumps(result)[:500]
+        print(f"[License] LS API HTTP {status} response: {raw_preview}")
+    except Exception:
+        pass
+
+    # Success check — accept BOTH "valid" (/validate response) and "activated"
+    # (/activate response). Earlier code only checked "valid" which would have
+    # incorrectly rejected successful activations if LS ever omitted that field
+    # from the /activate response body.
+    success = bool(result.get("valid") or result.get("activated"))
+    if not success:
         return jsonify({
             "valid": False,
             "error": result.get("error") or "License key is not valid",

@@ -844,14 +844,27 @@
         document.getElementById('activation-form').classList.remove('hidden');
     }
 
+    // Module-level re-entrancy lock. Without this, a user pressing Enter AND
+    // clicking Activate in rapid succession could fire two concurrent calls
+    // before btn.disabled = true takes effect — which double-consumes LS
+    // activation slots (confirmed in production with carrieres@gmail.com).
+    let _activating = false;
     async function activateLicense() {
+        if (_activating) return;
+        _activating = true;
         const input = document.getElementById('serial-input');
         const btn = document.getElementById('activate-btn');
         const errorEl = document.getElementById('activation-error');
-        const key = input.value.trim();
+
+        // Aggressive key normalization — strip whitespace AND invisible unicode
+        // (non-breaking space, zero-width joiner, BOM) that rich-text email
+        // clients sometimes embed when users copy a key from their receipt.
+        // Hyphens preserved — part of LS's UUID format.
+        const key = (input.value || '').replace(/[\s\u00A0\u200B\u200C\u200D\uFEFF]/g, '').toUpperCase();
 
         if (!key) {
             showActivationError('Please enter your license key.');
+            _activating = false;
             return;
         }
 
@@ -864,15 +877,20 @@
             if (result && result.valid) {
                 await cacheLicense(key, result);
                 unlockApp();
+                // Note: don't reset _activating/btn state on success —
+                // unlockApp removes the overlay, so no further activation calls
+                // can happen from this window.
             } else {
                 showActivationError((result && result.error) || 'Invalid license key. Please check and try again.');
                 btn.textContent = 'Activate';
                 btn.disabled = false;
+                _activating = false;
             }
         } catch (e) {
             showActivationError('Could not reach license server. Check your internet connection.');
             btn.textContent = 'Activate';
             btn.disabled = false;
+            _activating = false;
         }
     }
 
