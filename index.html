@@ -904,12 +904,18 @@
                 page_url: location.href,
             };
 
-            // Save lead + terms acceptance to Firestore (non-blocking)
+            // Save lead + terms acceptance to Firestore (non-blocking).
+            // Action name reflects the current store mode: 'buyer_lead' when
+            // LS checkout is wired (post-launch), 'waitlist_signup' when not.
+            // Backend uses this to differentiate Discord notifications so
+            // admin can distinguish fresh buy-flow intent from pre-launch
+            // waitlist signups.
+            const leadAction = LS_CHECKOUT_URL ? 'buyer_lead' : 'waitlist_signup';
             fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    action: 'waitlist_signup',
+                    action: leadAction,
                     name, email, country, source,
                     terms_accepted: termsAccepted,
                 })
