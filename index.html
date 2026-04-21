@@ -911,8 +911,13 @@
             // admin can distinguish fresh buy-flow intent from pre-launch
             // waitlist signups.
             const leadAction = LS_CHECKOUT_URL ? 'buyer_lead' : 'waitlist_signup';
+            // keepalive: true is critical — without it, mobile browsers cancel
+            // this request when window.location.href redirects to LS below,
+            // and the backend never receives it. Silently lost all buyer-lead
+            // Discord pings from mobile traffic until this was added.
             fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
                 method: 'POST',
+                keepalive: true,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: leadAction,
