@@ -715,11 +715,27 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
-            <p class="text-sm text-zinc-400 mb-6 font-medium">Have a question or feedback? Drop us a line.</p>
+            <p class="text-sm text-zinc-400 mb-6 font-medium">Have a question or feedback? Drop us a line. We reply within 48 hours.</p>
 
-            <textarea id="contact-message" rows="5" class="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-base text-zinc-200 mb-6 resize-none focus:outline-none focus:border-orange-500/50 transition-colors" placeholder="Write your message here..."></textarea>
+            <div class="space-y-4 mb-4">
+                <div>
+                    <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">Email *</label>
+                    <input id="contact-email" type="email" placeholder="you@example.com" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors">
+                </div>
+                <div>
+                    <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">Name (optional)</label>
+                    <input id="contact-name" type="text" placeholder="Producer name" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors">
+                </div>
+                <div>
+                    <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">Message *</label>
+                    <textarea id="contact-message" rows="5" class="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-base text-zinc-200 resize-none focus:outline-none focus:border-orange-500/50 transition-colors" placeholder="What's on your mind?"></textarea>
+                </div>
+            </div>
 
-            <button onclick="sendContactEmail()" class="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md hover:shadow-lg">
+            <div id="contact-error" class="hidden text-red-400 text-xs font-medium mb-3"></div>
+            <div id="contact-success" class="hidden text-emerald-400 text-xs font-medium mb-3">Got it. We'll reply within 48 hours.</div>
+
+            <button id="contact-submit-btn" onclick="sendContactMessage()" class="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
                 Send Message
             </button>
         </div>
@@ -967,21 +983,67 @@
             modal.classList.toggle('hidden');
         }
 
-        function sendContactEmail() {
-            const message = document.getElementById('contact-message').value;
-            if (!message.trim()) {
-                alert("Please write a message first.");
+        // Submit the contact form to our backend. Replaced the old mailto:
+        // approach which silently failed on mobile and on machines without a
+        // configured email client — we lost real tickets that way. Now the
+        // message goes straight to a Discord webhook via Firebase.
+        function sendContactMessage() {
+            const email = (document.getElementById('contact-email').value || '').trim();
+            const name = (document.getElementById('contact-name').value || '').trim();
+            const message = (document.getElementById('contact-message').value || '').trim();
+            const errorEl = document.getElementById('contact-error');
+            const successEl = document.getElementById('contact-success');
+            const btn = document.getElementById('contact-submit-btn');
+
+            errorEl.classList.add('hidden');
+            successEl.classList.add('hidden');
+
+            if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                errorEl.textContent = 'Please enter a valid email so we can reply.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            if (!message) {
+                errorEl.textContent = 'Please write a message.';
+                errorEl.classList.remove('hidden');
                 return;
             }
 
-            const email = "home@stridehub.io";
-            const subject = encodeURIComponent("Message from Stride Landing Page");
-            const body = encodeURIComponent(message);
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
 
-            window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
-
-            document.getElementById('contact-message').value = '';
-            toggleContactModal();
+            fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
+                method: 'POST',
+                keepalive: true,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'contact_message',
+                    email, name, message
+                })
+            })
+            .then(res => {
+                if (!res.ok) throw new Error('server ' + res.status);
+                return res.json().catch(() => ({}));
+            })
+            .then(() => {
+                successEl.classList.remove('hidden');
+                document.getElementById('contact-email').value = '';
+                document.getElementById('contact-name').value = '';
+                document.getElementById('contact-message').value = '';
+                btn.textContent = 'Sent';
+                setTimeout(() => {
+                    toggleContactModal();
+                    btn.disabled = false;
+                    btn.textContent = 'Send Message';
+                    successEl.classList.add('hidden');
+                }, 2000);
+            })
+            .catch(() => {
+                errorEl.textContent = 'Could not send. Try again in a moment, or email home@stridehub.io directly.';
+                errorEl.classList.remove('hidden');
+                btn.disabled = false;
+                btn.textContent = 'Send Message';
+            });
         }
 
         // ── Live founding-member counter ─────────────────────────
