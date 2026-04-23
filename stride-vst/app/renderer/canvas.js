@@ -258,7 +258,7 @@
         if (sdCanvasParams.length > 0) {
             document.getElementById('sd-canvas-status').textContent = 'Editor Ready';
         } else {
-            document.getElementById('sd-canvas-status').textContent = 'No mapped params found — try Scan All';
+            document.getElementById('sd-canvas-status').textContent = 'No automation found — arm automation in Ableton and touch your mapped knobs first';
         }
 
         restoreCanvasState();

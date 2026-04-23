@@ -628,6 +628,43 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
                 print(f"[Waitlist] DISCORD FAILED: {we} — data logged above")
         return jsonify({"success": True}), 200
 
+    # --- CONTACT FORM (public, no auth required) ---
+    # Previously the landing-page contact modal used a mailto: link, which
+    # silently fails on mobile and on desktops without a configured email
+    # client — we lost real customer tickets this way (e.g., Omer 2026-04-23).
+    # Now the form POSTs here directly and we fire a Discord ping so every
+    # message is guaranteed to reach us.
+    if isinstance(data_pre, dict) and data_pre.get("action") == "contact_message":
+        email = data_pre.get("email", "").strip().lower()
+        name = data_pre.get("name", "").strip()
+        message = data_pre.get("message", "").strip()
+
+        if not email or not message:
+            return jsonify({"error": "Email and message are required"}), 400
+
+        # Always log — data is never lost even if Discord fails
+        print(f"[Contact] email={email} name={name} len={len(message)} msg={message[:200]}")
+
+        if ADMIN_WEBHOOK_URL:
+            try:
+                sender_label = f"`{name}` <`{email}`>" if name else f"`{email}`"
+                # Clamp message to stay under Discord's 2000-char content limit
+                clipped = message if len(message) <= 1500 else message[:1500] + "\n…(truncated)"
+                webhook_msg = {
+                    "username": "Stride Engine",
+                    "content": f"📬 **CONTACT FORM**\n**From:** {sender_label}\n**Message:**\n```{clipped}```"
+                }
+                webhook_req = urllib.request.Request(
+                    ADMIN_WEBHOOK_URL,
+                    data=json.dumps(webhook_msg).encode('utf-8'),
+                    headers={'Content-Type': 'application/json', 'User-Agent': 'Stride-Backend/1.0'}
+                )
+                urllib.request.urlopen(webhook_req, timeout=10)
+            except Exception as we:
+                print(f"[Contact] DISCORD FAILED: {we} — data logged above")
+
+        return jsonify({"success": True}), 200
+
     # --- VALIDATE LICENSE (public, proxies to Lemon Squeezy API) ---
     # Called by the Electron desktop app to check if a license key is valid.
     # No Firebase auth — the license key itself IS the credential.
