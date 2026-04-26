@@ -105,6 +105,63 @@ def sb_update_credits(uid, credits_used, generations_count, last_active_month):
 
 API_KEY = os.environ.get("GEMINI_API_KEY")
 ADMIN_WEBHOOK_URL = os.environ.get("ADMIN_WEBHOOK_URL")
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
+
+# Plain-text welcome email sent once per customer after license_key_created.
+# Personal tone + plain text + no tracking maximises Gmail Primary tab landing.
+WELCOME_EMAIL_TEMPLATE = """\
+Hey{name_part},
+
+Joe here, welcome aboard.
+
+Start here, a 3-minute video walkthrough. Covers the exact setup so you're rolling on the first try.
+
+stridehub.io/welcome
+
+Stuck on anything? That same page has a Book a Call button. Pick a slot, I'll get you moving.
+
+Stride turns your existing racks into sound design playgrounds. Same rack, infinite variations. You're about to discover sounds in your own instruments you didn't know were there.
+
+Your license key is in the Lemon Squeezy receipt that came separately. Paste it on first launch.
+
+Reply to this email anytime.
+
+Best regards,
+Joe
+"""
+
+def _send_welcome_email(email: str, full_name: str) -> bool:
+    """Send the post-purchase welcome email via Resend. Returns True on success.
+
+    Failures are logged but never raised — webhook must still 200.
+    Skipped silently if RESEND_API_KEY is unset (safe to deploy before secret).
+    """
+    if not RESEND_API_KEY:
+        print("[Welcome Email] RESEND_API_KEY not set — skipping send")
+        return False
+    if not email:
+        print("[Welcome Email] no recipient — skipping send")
+        return False
+
+    first_name = (full_name or "").strip().split(" ")[0] if full_name else ""
+    name_part = f" {first_name}" if first_name else ""
+    body = WELCOME_EMAIL_TEMPLATE.format(name_part=name_part)
+
+    try:
+        import resend
+        resend.api_key = RESEND_API_KEY
+        result = resend.Emails.send({
+            "from": "Joe <home@stridehub.io>",
+            "to": [email],
+            "reply_to": "home@stridehub.io",
+            "subject": "Welcome to Stride",
+            "text": body,
+        })
+        print(f"[Welcome Email] sent to {email} id={result.get('id') if isinstance(result, dict) else result}")
+        return True
+    except Exception as e:
+        print(f"[Welcome Email] send failed for {email}: {e}")
+        return False
 
 def parse_midi_to_json(midi_bytes):
     """Parses a raw MIDI byte stream into a simplified JSON note array for Gemini."""
@@ -297,21 +354,42 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
                 if found:
                     match = found[0]
 
+            order_id_str = str(order_id) if order_id is not None else ""
+
             if match is not None:
+                existing = match.to_dict() or {}
                 match.reference.update(update)
                 print(f"[LS Webhook] attached license key to {match.id}")
+
+                # Welcome email — dedup by ORDER (not customer) so a returning
+                # buyer gets a fresh welcome on each new purchase, while LS
+                # webhook retries for the same order are still skipped.
+                sent_for_orders = existing.get("welcome_email_sent_for_orders") or []
+                if order_id_str and order_id_str not in sent_for_orders:
+                    if _send_welcome_email(email, name or existing.get("name") or ""):
+                        match.reference.update({
+                            "welcome_email_sent_for_orders": admin_firestore.ArrayUnion([order_id_str]),
+                            "welcome_email_last_sent_at": admin_firestore.SERVER_TIMESTAMP,
+                        })
             else:
                 # Orphan license — create a minimal record so the CRM still sees it
-                _db.collection("waitlist").add({
+                _, new_ref = _db.collection("waitlist").add({
                     **update,
                     "name": name,
                     "email": email,
                     "source": "lemonsqueezy",
                     "status": "purchased",
-                    "ls_order_id": str(order_id) if order_id is not None else None,
+                    "ls_order_id": order_id_str or None,
                     "created_at": admin_firestore.SERVER_TIMESTAMP,
                 })
                 print(f"[LS Webhook] orphan license record for {email}")
+
+                # Welcome email — orphan branch still represents a real customer
+                if order_id_str and _send_welcome_email(email, name):
+                    new_ref.update({
+                        "welcome_email_sent_for_orders": admin_firestore.ArrayUnion([order_id_str]),
+                        "welcome_email_last_sent_at": admin_firestore.SERVER_TIMESTAMP,
+                    })
 
         else:
             print(f"[LS Webhook] ignoring unhandled event: {event_name}")
@@ -499,7 +577,7 @@ def _handle_validate_license(data: dict):
     timeout_sec=540,
     memory=options.MemoryOption.GB_1,
     max_instances=200,
-    secrets=["SUPABASE_SERVICE_KEY", "LEMONSQUEEZY_API_KEY", "LEMONSQUEEZY_WEBHOOK_SECRET"]
+    secrets=["SUPABASE_SERVICE_KEY", "LEMONSQUEEZY_API_KEY", "LEMONSQUEEZY_WEBHOOK_SECRET", "RESEND_API_KEY"]
 )
 def generate_midi(req: https_fn.Request) -> https_fn.Response:
     if req.method == 'OPTIONS':
