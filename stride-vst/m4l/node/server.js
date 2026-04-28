@@ -163,6 +163,54 @@ Max.addHandler('write_result', (jsonStr) => {
     }
 });
 
+// ─── Gate Feature Handlers ────────────────────────────────
+
+Max.addHandler('all_devices', (jsonStr) => {
+    try {
+        const data = JSON.parse(jsonStr);
+        sendToApp({
+            type: 'devices_scanned',
+            track_name: data.track_name || 'Unknown',
+            devices: data.devices || []
+        });
+        Max.post(`Stride: Scanned ${(data.devices || []).length} devices for Gate`);
+    } catch (e) {
+        Max.post(`Stride: Error parsing all_devices — ${e.message}`);
+    }
+});
+
+Max.addHandler('gate_result', (jsonStr) => {
+    try {
+        const data = JSON.parse(jsonStr);
+        sendToApp({
+            type: 'gate_status',
+            success: data.success !== false,
+            stopped: data.stopped === true,
+            message: data.message || null,
+            devices_playing: data.devices_playing || 0,
+            resolution: data.resolution || null,
+            bars: data.bars || null,
+            record_mode: data.record_mode === true
+        });
+    } catch (e) {
+        Max.post(`Stride: Error parsing gate_result — ${e.message}`);
+    }
+});
+
+Max.addHandler('gate_position', (jsonStr) => {
+    try {
+        const data = JSON.parse(jsonStr);
+        sendToApp({
+            type: 'gate_position',
+            step: data.step,
+            cycle_time: data.cycle_time,
+            song_time: data.song_time
+        });
+    } catch (e) {
+        // silently ignore malformed position updates
+    }
+});
+
 // ─── WebSocket Server ─────────────────────────────────────
 
 function startServer(retryCount) {
@@ -270,6 +318,42 @@ function handleAppMessage(msg) {
         case 'request_create_clip':
             // Ask Max to create a clip
             Max.outlet('create_clip', msg.bars || 4, msg.slot_index || 0);
+            break;
+
+        case 'request_scan_devices':
+            // Gate feature: enumerate every device on the selected track
+            Max.outlet('command', 'scan_all_devices');
+            break;
+
+        case 'start_gate':
+            // Gate feature: begin real-time Device On/Off sequencing.
+            // Pattern payload written to a temp file (Max truncates long messages).
+            try {
+                const gateTempPath = path.join(os.tmpdir(), 'stride_gate_pattern.json');
+                fs.writeFileSync(gateTempPath, JSON.stringify({
+                    resolution: msg.resolution || 16,
+                    bars: msg.bars || 4,
+                    record_mode: msg.record_mode === true,
+                    devices: msg.devices || []
+                }));
+                Max.outlet('command', 'start_gate_playback', gateTempPath);
+            } catch (e) {
+                Max.post(`Stride: Error writing gate pattern — ${e.message}`);
+                sendToApp({
+                    type: 'gate_status',
+                    success: false,
+                    message: 'Failed to write gate pattern file'
+                });
+            }
+            break;
+
+        case 'stop_gate':
+            Max.outlet('command', 'stop_gate_playback');
+            break;
+
+        case 'start_gate_test':
+            // Smoke test: hardcoded pattern on first non-StrideLink device
+            Max.outlet('command', 'start_gate_test');
             break;
 
         default:

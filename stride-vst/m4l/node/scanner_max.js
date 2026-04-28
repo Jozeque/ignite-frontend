@@ -62,10 +62,10 @@ function _collectParams(basePath, filterAutomated) {
                 var paramPath = basePath + " parameters " + i;
                 var param = new LiveAPI(paramPath);
 
-                // When filtering, check automation_state FIRST (fast reject)
-                // NOTE: automation_state only covers arrangement automation.
-                // Clip envelope automation is not detected here — use Scan All
-                // and let the template define which params get automated.
+                // When filtering, check automation_state FIRST (fast reject).
+                // This covers arrangement-view automation — the recommended
+                // workflow for Stride. Producers arm automation, play, touch
+                // their mapped knobs once, and those params show up here.
                 if (filterAutomated) {
                     var automationState = parseInt(param.get("automation_state"));
                     if (automationState === 0) continue;
@@ -699,6 +699,322 @@ function create_clip(bars, slotIdx) {
     }
 }
 
+// ─── SCAN ALL DEVICES (Gate feature) ──────────────────────
+// Returns the full device tree of the selected track: one entry per device,
+// including nested rack chain devices. Each entry carries the LOM path of the
+// device's "Device On" parameter (always device.parameters 0), ready for
+// boolean automation from the Gate step-grid.
+
+function scan_all_devices() {
+    try {
+        var track = new LiveAPI("live_set view selected_track");
+        var trackName = track.get("name").toString();
+        var trackPath = track.unquotedpath;
+        var deviceIds = track.get("devices");
+        var deviceCount = deviceIds.length / 2;
+
+        var devices = [];
+        var idCounter = 0;
+
+        function walkDevices(basePath, depth, chainName) {
+            try {
+                var dev = new LiveAPI(basePath);
+                var devName = dev.get("name").toString();
+                if (devName === "StrideLink") return;
+
+                var className = dev.get("class_name").toString();
+                var classDisplayName = devName;
+                try {
+                    var cdn = dev.get("class_display_name");
+                    if (cdn) classDisplayName = cdn.toString();
+                } catch (e) {}
+
+                var isRack = (className === "InstrumentGroupDevice" ||
+                              className === "AudioEffectGroupDevice" ||
+                              className === "MidiEffectGroupDevice" ||
+                              className === "DrumGroupDevice");
+
+                var isActive = 1;
+                try { isActive = parseInt(dev.get("is_active")); } catch (e) {}
+
+                devices.push({
+                    id: idCounter++,
+                    name: devName,
+                    class_display_name: classDisplayName,
+                    class_name: className,
+                    is_rack: isRack,
+                    is_active: isActive,
+                    depth: depth,
+                    chain_name: chainName,
+                    _path: basePath,
+                    device_on_path: basePath + " parameters 0"
+                });
+
+                if (isRack) {
+                    try {
+                        var chainIds = dev.get("chains");
+                        var chainCount = chainIds.length / 2;
+                        for (var c = 0; c < chainCount; c++) {
+                            var chainPath = basePath + " chains " + c;
+                            try {
+                                var chain = new LiveAPI(chainPath);
+                                var chName = chain.get("name").toString();
+                                var chainDevIds = chain.get("devices");
+                                var chainDevCount = chainDevIds.length / 2;
+                                for (var d = 0; d < chainDevCount; d++) {
+                                    walkDevices(chainPath + " devices " + d, depth + 1, chName || ("Chain " + c));
+                                }
+                            } catch (ce) {}
+                        }
+                    } catch (re) {}
+                }
+            } catch (e) {}
+        }
+
+        for (var i = 0; i < deviceCount; i++) {
+            walkDevices(trackPath + " devices " + i, 0, null);
+        }
+
+        var result = {
+            track_name: trackName,
+            devices: devices
+        };
+
+        outlet(0, "all_devices", JSON.stringify(result));
+        outlet(1, "status", "Found " + devices.length + " devices");
+
+    } catch (e) {
+        outlet(1, "status", "scan_all_devices error: " + e.message);
+        post("Stride scan_all_devices error: " + e.message + "\n");
+    }
+}
+
+// ─── GATE PLAYBACK (real-time device on/off sequencer) ────
+// Drives Device On parameters from a step pattern synced to Ableton's
+// transport. Polls current_song_time at 5ms, computes the current step,
+// and calls param.set("value", 0|1) only when a device's state changes.
+//
+// Live mode (default): just plays, Ableton hears the toggles but records
+// nothing.
+//
+// Record mode (record_mode:true in pattern): enables arrangement record
+// and session_automation_record before starting. Ableton captures the
+// boolean changes into an arrangement automation lane — the user's
+// "bake the variation" button.
+
+var _gateTask = null;
+var _gateData = null;
+
+function start_gate_playback(filePath) {
+    try {
+        var jsonStr = _readJsonFile(filePath);
+        if (!jsonStr) {
+            outlet(0, "gate_result", JSON.stringify({ success: false, message: "Cannot read pattern file" }));
+            return;
+        }
+        var data = JSON.parse(jsonStr);
+        _startGateWithData(data);
+    } catch (e) {
+        outlet(0, "gate_result", JSON.stringify({ success: false, message: e.message }));
+        post("Stride Gate start error: " + e.message + "\n");
+    }
+}
+
+function _startGateWithData(data) {
+    // Stop any previous session first (restores original device states)
+    stop_gate_playback();
+
+    var resolution = parseInt(data.resolution) || 16;
+    var bars = parseInt(data.bars) || 4;
+    var inputDevices = data.devices || [];
+
+    // Cache LiveAPI objects for each device's Device On parameter
+    var devices = [];
+    for (var d = 0; d < inputDevices.length; d++) {
+        var devData = inputDevices[d];
+        if (!devData.device_on_path) continue;
+        try {
+            var paramObj = new LiveAPI(devData.device_on_path);
+            if (!paramObj.id || paramObj.id === "0") continue;
+
+            var originalValue = parseFloat(paramObj.get("value"));
+            devices.push({
+                name: devData.name || "Device",
+                paramObj: paramObj,
+                steps: devData.steps || [],
+                originalValue: originalValue,
+                lastSetValue: -1  // force first-tick write
+            });
+        } catch (pe) {
+            post("Stride Gate: failed to bind " + devData.name + " — " + pe.message + "\n");
+        }
+    }
+
+    if (devices.length === 0) {
+        outlet(0, "gate_result", JSON.stringify({ success: false, message: "No valid devices in pattern" }));
+        return;
+    }
+
+    _gateData = {
+        devices: devices,
+        resolution: resolution,
+        bars: bars,
+        totalSteps: resolution * bars,
+        beatsPerStep: 4.0 / resolution,
+        cycleBeats: 4.0 * bars,
+        liveSetObj: new LiveAPI("live_set"),
+        recordMode: data.record_mode === true,
+        positionTickCounter: 0
+    };
+
+    // Optionally arm Ableton automation recording (bake mode)
+    if (_gateData.recordMode) {
+        try {
+            _gateData.liveSetObj.set("record_mode", 1);
+            _gateData.liveSetObj.set("session_automation_record", 1);
+            post("Stride Gate: Record mode ON\n");
+        } catch (re) {}
+    }
+
+    _gateTask = new Task(_gateTick, this);
+    _gateTask.interval = 5;
+    _gateTask.repeat();
+
+    outlet(0, "gate_result", JSON.stringify({
+        success: true,
+        devices_playing: devices.length,
+        resolution: resolution,
+        bars: bars,
+        record_mode: _gateData.recordMode
+    }));
+    outlet(1, "status", "Gate playing " + devices.length + " devices");
+    post("Stride Gate: Started — " + devices.length + " devices, 1/" + resolution + " steps, " + bars + " bars\n");
+}
+
+function _gateTick() {
+    if (!_gateData) return;
+    try {
+        var isPlaying = parseInt(_gateData.liveSetObj.get("is_playing"));
+        if (!isPlaying) {
+            // Transport stopped — hold last state, don't spam param.set
+            return;
+        }
+
+        var currentTime = parseFloat(_gateData.liveSetObj.get("current_song_time"));
+        var cycleTime = currentTime % _gateData.cycleBeats;
+        if (cycleTime < 0) cycleTime += _gateData.cycleBeats;
+
+        var currentStep = Math.floor(cycleTime / _gateData.beatsPerStep);
+        if (currentStep >= _gateData.totalSteps) currentStep = _gateData.totalSteps - 1;
+        if (currentStep < 0) currentStep = 0;
+
+        for (var d = 0; d < _gateData.devices.length; d++) {
+            var dev = _gateData.devices[d];
+            var targetValue = dev.steps[currentStep] ? 1 : 0;
+            if (dev.lastSetValue !== targetValue) {
+                try {
+                    dev.paramObj.set("value", targetValue);
+                    dev.lastSetValue = targetValue;
+                } catch (pe) {}
+            }
+        }
+
+        // Emit playhead position every ~10 ticks (50ms) for canvas indicator
+        _gateData.positionTickCounter++;
+        if (_gateData.positionTickCounter >= 10) {
+            _gateData.positionTickCounter = 0;
+            outlet(0, "gate_position", JSON.stringify({
+                step: currentStep,
+                cycle_time: cycleTime,
+                song_time: currentTime
+            }));
+        }
+    } catch (e) {
+        post("Stride Gate tick error: " + e.message + "\n");
+    }
+}
+
+function stop_gate_playback() {
+    if (_gateTask) {
+        _gateTask.cancel();
+        _gateTask = null;
+    }
+
+    if (_gateData) {
+        // Restore each device to its original Device On state
+        for (var d = 0; d < _gateData.devices.length; d++) {
+            var dev = _gateData.devices[d];
+            try {
+                dev.paramObj.set("value", dev.originalValue);
+            } catch (pe) {}
+        }
+
+        // Clear recording arm if we set it
+        if (_gateData.recordMode) {
+            try {
+                _gateData.liveSetObj.set("record_mode", 0);
+                _gateData.liveSetObj.set("session_automation_record", 0);
+            } catch (re) {}
+        }
+
+        _gateData = null;
+    }
+
+    outlet(0, "gate_result", JSON.stringify({ success: true, stopped: true }));
+    outlet(1, "status", "Gate stopped");
+    post("Stride Gate: Stopped\n");
+}
+
+// Hardcoded smoke-test pattern — picks the first non-StrideLink device on the
+// selected track and toggles it ON for beat 1, OFF for beat 2, ON for beat 3,
+// OFF for beat 4 (one bar, 1/16 resolution). Useful to verify the LOM/transport
+// wiring without the canvas UI. Trigger via message: "start_gate_test".
+
+function start_gate_test() {
+    try {
+        var track = new LiveAPI("live_set view selected_track");
+        var trackPath = track.unquotedpath;
+        var deviceIds = track.get("devices");
+        var deviceCount = deviceIds.length / 2;
+
+        var testDevice = null;
+        for (var i = 0; i < deviceCount; i++) {
+            var devPath = trackPath + " devices " + i;
+            var dev = new LiveAPI(devPath);
+            var devName = dev.get("name").toString();
+            if (devName !== "StrideLink") {
+                testDevice = { name: devName, device_on_path: devPath + " parameters 0" };
+                break;
+            }
+        }
+
+        if (!testDevice) {
+            post("Stride Gate Test: No non-StrideLink device found on track\n");
+            outlet(1, "status", "Gate test: no target device");
+            return;
+        }
+
+        // 1 bar of 1/16 steps = 16 cells. ON for beats 1+3, OFF for beats 2+4.
+        var testPattern = {
+            resolution: 16,
+            bars: 1,
+            record_mode: false,
+            devices: [{
+                name: testDevice.name,
+                device_on_path: testDevice.device_on_path,
+                steps: [1,1,1,1, 0,0,0,0, 1,1,1,1, 0,0,0,0]
+            }]
+        };
+
+        post("Stride Gate Test: Targeting '" + testDevice.name + "' — press Play in Ableton\n");
+        _startGateWithData(testPattern);
+
+    } catch (e) {
+        post("Stride Gate Test error: " + e.message + "\n");
+        outlet(1, "status", "Gate test error: " + e.message);
+    }
+}
+
 // ─── MESSAGE ROUTER ───────────────────────────────────────
 
 function anything() {
@@ -728,5 +1044,9 @@ function anything() {
     }
     else if (cmd === "stop_preview") stop_preview();
     else if (cmd === "create_clip") create_clip(parseInt(args[0]) || 4, parseInt(args[1]) || 0);
+    else if (cmd === "scan_all_devices") scan_all_devices();
+    else if (cmd === "start_gate_playback") start_gate_playback(args.join(" "));
+    else if (cmd === "stop_gate_playback") stop_gate_playback();
+    else if (cmd === "start_gate_test") start_gate_test();
     else post("Stride: Unknown command '" + cmd + "'\n");
 }
