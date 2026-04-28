@@ -680,18 +680,32 @@ ipcMain.handle('delete-session', async (event, filename) => {
 let libWatcher = null;
 
 function startLibraryWatcher() {
-    const candidates = [
-        path.join(os.homedir(), 'Documents', 'Ableton', 'User Library'),
-        path.join(os.homedir(), 'Music', 'Ableton', 'User Library'),
-    ];
+    const home = os.homedir();
+    // Platform-aware ordering. Mac defaults to ~/Music/...; Windows to ~/Documents/...
+    // Some Mac users have a leftover ~/Documents/Ableton/ from Live auto-create or
+    // older versions — if we check Documents first we lock onto the wrong path
+    // and never see drops to their real Music-based library. (Same ordering as
+    // getDefaultUserLibraryPath above; keeping the watcher consistent.)
+    const candidates = process.platform === 'darwin'
+        ? [path.join(home, 'Music', 'Ableton', 'User Library'),
+           path.join(home, 'Documents', 'Ableton', 'User Library')]
+        : [path.join(home, 'Documents', 'Ableton', 'User Library'),
+           path.join(home, 'Music', 'Ableton', 'User Library')];
     const libDir = candidates.find(d => fs.existsSync(d));
     if (!libDir) return;
 
     let debounceTimer = null;
     let lastDetected = null;
 
-    libWatcher = fs.watch(libDir, { recursive: false }, (eventType, filename) => {
-        if (!filename || !filename.endsWith('.alc') || filename.startsWith('.')) return;
+    // recursive: true catches drops into any subfolder of User Library —
+    // power users organize into Sounds/, Drums/, custom-pack folders, etc.
+    // and never drop into the bare root. Supported on macOS (FSEvents) and
+    // Windows (ReadDirectoryChangesW). The reported `filename` may include a
+    // relative subpath, so checks/event payload use path.basename().
+    libWatcher = fs.watch(libDir, { recursive: true }, (eventType, filename) => {
+        if (!filename) return;
+        const base = path.basename(filename);
+        if (!base.endsWith('.alc') || base.startsWith('.')) return;
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
             const fullPath = path.join(libDir, filename);
@@ -700,7 +714,7 @@ function startLibraryWatcher() {
             lastDetected = fullPath;
 
             if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send('alc-detected', { filename, filePath: fullPath });
+                mainWindow.webContents.send('alc-detected', { filename: base, filePath: fullPath });
             }
         }, 1500);
     });
