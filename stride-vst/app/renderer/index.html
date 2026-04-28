@@ -25,6 +25,27 @@
 </head>
 <body class="h-screen flex flex-col">
 
+    <!-- Drop-import overlay: shows while the user is dragging a file (typically
+         a MIDI clip from Ableton's session view) onto the Stride window. Drop
+         here imports the .alc as a template AND auto-triggers Scan Mapped, so
+         the user never has to navigate to User Library or click Scan Mapped
+         themselves. The legacy User Library drag flow still works as a backup. -->
+    <div id="stride-drop-overlay"
+         class="hidden fixed inset-0 z-[10000] bg-black/70 backdrop-blur-md flex items-center justify-center pointer-events-none"
+         style="font-family:'Outfit',sans-serif;">
+        <div class="rounded-3xl border-2 border-dashed border-fuchsia-400/70 bg-fuchsia-500/10 px-12 py-10 flex flex-col items-center gap-4 shadow-[0_0_60px_rgba(217,70,239,0.4)]">
+            <svg class="w-16 h-16 text-fuchsia-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+            </svg>
+            <div class="text-center">
+                <h2 class="text-2xl font-black text-zinc-100 tracking-tight">Drop your clip here</h2>
+                <p class="text-[11px] text-zinc-400 mt-2 leading-relaxed max-w-xs">
+                    Drag the MIDI clip from your rack's track to set it as the template. Stride will scan automatically.
+                </p>
+            </div>
+        </div>
+    </div>
+
     <!-- ===================== ACTIVATION GATE ===================== -->
     <div id="activation-overlay" class="fixed inset-0 z-[9999] bg-[#09090b] flex items-center justify-center">
         <div class="w-full max-w-sm px-6 text-center">
