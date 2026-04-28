@@ -138,6 +138,7 @@
                 <option value="created_asc">Oldest first</option>
                 <option value="contacted_desc">Recently contacted</option>
                 <option value="name_asc">Name A→Z</option>
+                <option value="status_priority">By status (revenue first)</option>
             </select>
 
             <div class="flex-1"></div>
@@ -361,6 +362,25 @@
                 rows.sort((a, b) => ts(b.last_contacted_at) - ts(a.last_contacted_at));
             } else if (state.sort === 'name_asc') {
                 rows.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            } else if (state.sort === 'status_priority') {
+                // Group revenue + recovery candidates at the top: paying
+                // customers first (active > purchased), then abandoned
+                // carts (high-intent recovery targets), then engaged leads,
+                // then everything else. Within each bucket, newest first.
+                const order = {
+                    active: 0,
+                    purchased: 1,
+                    abandoned_cart: 2,
+                    contacted: 3,
+                    new: 4,
+                    churned: 5,
+                };
+                rows.sort((a, b) => {
+                    const sa = order[getStatus(a)] ?? 99;
+                    const sb = order[getStatus(b)] ?? 99;
+                    if (sa !== sb) return sa - sb;
+                    return ts(b.created_at) - ts(a.created_at);
+                });
             }
 
             state.filtered = rows;
