@@ -279,24 +279,6 @@
         };
 
         currentDeviceName = msg.device_name;
-
-        // Pending drop-into-canvas import: the user dropped a clip onto the
-        // Stride window before scanning. Now that we know the real rack name,
-        // import that file as the template under the proper key. Done before
-        // resolveTemplate so the green "Template ready" pill shows immediately.
-        if (_pendingDroppedTemplate && currentDeviceName && window.stride && window.stride.importTemplate) {
-            const stashedPath = _pendingDroppedTemplate;
-            _pendingDroppedTemplate = null;
-            window.stride.importTemplate(currentDeviceName, stashedPath).then(result => {
-                if (result && result.success) {
-                    resolveTemplate();
-                    const status = document.getElementById('sd-canvas-status');
-                    if (status) status.textContent =
-                        `Template "${currentDeviceName}" imported — ready to draw`;
-                }
-            }).catch(() => {});
-        }
-
         // Check if template exists for this rack
         resolveTemplate();
 
@@ -479,128 +461,6 @@
     if (window.stride && window.stride.onAlcDetected) {
         window.stride.onAlcDetected((data) => {
             _showAlcDetectedToast(data.filename, data.filePath);
-        });
-    }
-
-    // ─── DRAG-INTO-CANVAS TEMPLATE IMPORT ───────────────────
-    // Power-user shortcut: drop the MIDI clip directly onto the Stride
-    // window instead of navigating to Ableton's User Library. Triggers
-    // an automatic Scan Mapped so the user gets a fully-set-up canvas
-    // from a single drag. The User Library drag flow still works as a
-    // backup for users who learned that path or whose Ableton drag
-    // doesn't expose a file payload to external apps.
-    let _pendingDroppedTemplate = null;
-
-    function _wireCanvasDropImport() {
-        const overlay = document.getElementById('stride-drop-overlay');
-        if (!overlay) return;
-        let dragDepth = 0;
-
-        // Conservative: did this drag carry anything that LOOKS like a file?
-        // Ableton's session-clip drag on macOS often does NOT include the
-        // standard 'Files' type — it uses a custom UTI. So check items.kind
-        // and a few other common indicators. Only used for showing the
-        // overlay; we accept all drops at the preventDefault layer.
-        function looksLikeFileDrag(e) {
-            if (!e.dataTransfer) return false;
-            if (e.dataTransfer.types) {
-                const types = Array.from(e.dataTransfer.types);
-                if (types.includes('Files')) return true;
-                if (types.includes('application/x-moz-file')) return true;
-            }
-            if (e.dataTransfer.items && e.dataTransfer.items.length) {
-                for (let i = 0; i < e.dataTransfer.items.length; i++) {
-                    if (e.dataTransfer.items[i].kind === 'file') return true;
-                }
-            }
-            return false;
-        }
-
-        // Critical: ALWAYS preventDefault on dragenter/dragover regardless
-        // of what we think the drag is. Without this, macOS shows the
-        // "no-drop" prohibition cursor and the drop event never fires —
-        // even for legitimate Ableton drags that we'd accept on inspection.
-        document.body.addEventListener('dragenter', (e) => {
-            e.preventDefault();
-            if (looksLikeFileDrag(e)) {
-                dragDepth++;
-                if (dragDepth === 1) overlay.classList.remove('hidden');
-            }
-        });
-
-        document.body.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            try { e.dataTransfer.dropEffect = 'copy'; } catch (err) {}
-        });
-
-        document.body.addEventListener('dragleave', (e) => {
-            if (!looksLikeFileDrag(e)) return;
-            dragDepth = Math.max(0, dragDepth - 1);
-            if (dragDepth === 0) overlay.classList.add('hidden');
-        });
-
-        document.body.addEventListener('drop', async (e) => {
-            e.preventDefault();
-            dragDepth = 0;
-            overlay.classList.add('hidden');
-
-            const status = document.getElementById('sd-canvas-status');
-            const files = Array.from(e.dataTransfer.files || []);
-            const alcFile = files.find(f => f.name && f.name.toLowerCase().endsWith('.alc'));
-
-            // Diagnostic logging so we can see what Ableton actually sends
-            // when this fails — open DevTools (Ctrl+Shift+I) before dropping.
-            try {
-                console.log('[Stride drop]', {
-                    types: e.dataTransfer.types ? Array.from(e.dataTransfer.types) : [],
-                    fileCount: files.length,
-                    fileNames: files.map(f => f.name),
-                    items: e.dataTransfer.items
-                        ? Array.from(e.dataTransfer.items).map(it => ({ kind: it.kind, type: it.type }))
-                        : [],
-                });
-            } catch (err) {}
-
-            if (!alcFile) {
-                if (files.length === 0) {
-                    if (status) status.textContent =
-                        'Drop received but no file — Ableton may not export clips to external apps. Try User Library drag instead.';
-                } else {
-                    if (status) status.textContent =
-                        'Need a .alc — drag a MIDI clip from your rack track';
-                }
-                return;
-            }
-            if (!strideLink || !strideLink.connected) {
-                if (status) status.textContent =
-                    'M4L not connected — load StrideLink in Ableton first, then drop again';
-                return;
-            }
-
-            // Resolve absolute disk path. Newer Electron deprecated file.path
-            // in favor of webUtils.getPathForFile (exposed via preload). Try
-            // file.path first for compatibility, fall back to webUtils.
-            let filePath = (alcFile.path && typeof alcFile.path === 'string') ? alcFile.path : null;
-            if (!filePath && window.stride && window.stride.getPathForFile) {
-                try { filePath = window.stride.getPathForFile(alcFile); }
-                catch (err) { filePath = null; }
-            }
-            if (!filePath) {
-                if (status) status.textContent =
-                    'Could not read file — try dragging to User Library instead';
-                return;
-            }
-
-            // Stash for the rack_scanned handler to consume. Importing now
-            // would key the template on the filename; we want the real
-            // rack name, which arrives with rack_scanned shortly after.
-            _pendingDroppedTemplate = filePath;
-            if (status) status.textContent =
-                `Got "${alcFile.name}" — scanning rack...`;
-
-            if (typeof window.scanMapped === 'function') {
-                window.scanMapped();
-            }
         });
     }
 
@@ -5053,7 +4913,6 @@
         sdUpdateToolAvailability();
         _wireDragHandle();
         _refreshGenerationsDock();
-        _wireCanvasDropImport();
     });
 
 })();

@@ -3,7 +3,7 @@
  * Exposes safe IPC bridges to the renderer process.
  */
 
-const { contextBridge, ipcRenderer, webUtils } = require('electron');
+const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('stride', {
     // Canvas state persistence (local file, not cloud)
@@ -61,15 +61,6 @@ contextBridge.exposeInMainWorld('stride', {
     // app was closed (the watcher only fires while listening).
     triggerLibraryScan: () =>
         ipcRenderer.invoke('trigger-library-scan'),
-
-    // Resolve the absolute disk path of a File dropped onto the renderer.
-    // Used by the drag-into-canvas template flow. webUtils.getPathForFile
-    // is the modern (Electron 32+) API; legacy file.path still works in
-    // sandbox:false renderers but is deprecated.
-    getPathForFile: (file) => {
-        try { return webUtils.getPathForFile(file); }
-        catch (e) { return null; }
-    },
 
     // Window control
     focusWindow: () =>
