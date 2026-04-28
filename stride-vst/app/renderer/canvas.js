@@ -496,42 +496,79 @@
         if (!overlay) return;
         let dragDepth = 0;
 
-        function isFileDrag(e) {
-            if (!e.dataTransfer || !e.dataTransfer.types) return false;
-            return Array.from(e.dataTransfer.types).includes('Files');
+        // Conservative: did this drag carry anything that LOOKS like a file?
+        // Ableton's session-clip drag on macOS often does NOT include the
+        // standard 'Files' type — it uses a custom UTI. So check items.kind
+        // and a few other common indicators. Only used for showing the
+        // overlay; we accept all drops at the preventDefault layer.
+        function looksLikeFileDrag(e) {
+            if (!e.dataTransfer) return false;
+            if (e.dataTransfer.types) {
+                const types = Array.from(e.dataTransfer.types);
+                if (types.includes('Files')) return true;
+                if (types.includes('application/x-moz-file')) return true;
+            }
+            if (e.dataTransfer.items && e.dataTransfer.items.length) {
+                for (let i = 0; i < e.dataTransfer.items.length; i++) {
+                    if (e.dataTransfer.items[i].kind === 'file') return true;
+                }
+            }
+            return false;
         }
 
+        // Critical: ALWAYS preventDefault on dragenter/dragover regardless
+        // of what we think the drag is. Without this, macOS shows the
+        // "no-drop" prohibition cursor and the drop event never fires —
+        // even for legitimate Ableton drags that we'd accept on inspection.
         document.body.addEventListener('dragenter', (e) => {
-            if (!isFileDrag(e)) return;
-            dragDepth++;
-            if (dragDepth === 1) overlay.classList.remove('hidden');
             e.preventDefault();
+            if (looksLikeFileDrag(e)) {
+                dragDepth++;
+                if (dragDepth === 1) overlay.classList.remove('hidden');
+            }
         });
 
         document.body.addEventListener('dragover', (e) => {
-            if (!isFileDrag(e)) return;
             e.preventDefault();
             try { e.dataTransfer.dropEffect = 'copy'; } catch (err) {}
         });
 
         document.body.addEventListener('dragleave', (e) => {
-            if (!isFileDrag(e)) return;
+            if (!looksLikeFileDrag(e)) return;
             dragDepth = Math.max(0, dragDepth - 1);
             if (dragDepth === 0) overlay.classList.add('hidden');
         });
 
         document.body.addEventListener('drop', async (e) => {
-            if (!isFileDrag(e)) return;
             e.preventDefault();
             dragDepth = 0;
             overlay.classList.add('hidden');
 
+            const status = document.getElementById('sd-canvas-status');
             const files = Array.from(e.dataTransfer.files || []);
             const alcFile = files.find(f => f.name && f.name.toLowerCase().endsWith('.alc'));
-            const status = document.getElementById('sd-canvas-status');
+
+            // Diagnostic logging so we can see what Ableton actually sends
+            // when this fails — open DevTools (Ctrl+Shift+I) before dropping.
+            try {
+                console.log('[Stride drop]', {
+                    types: e.dataTransfer.types ? Array.from(e.dataTransfer.types) : [],
+                    fileCount: files.length,
+                    fileNames: files.map(f => f.name),
+                    items: e.dataTransfer.items
+                        ? Array.from(e.dataTransfer.items).map(it => ({ kind: it.kind, type: it.type }))
+                        : [],
+                });
+            } catch (err) {}
+
             if (!alcFile) {
-                if (status) status.textContent =
-                    'Need a .alc — drag a MIDI clip from your rack track';
+                if (files.length === 0) {
+                    if (status) status.textContent =
+                        'Drop received but no file — Ableton may not export clips to external apps. Try User Library drag instead.';
+                } else {
+                    if (status) status.textContent =
+                        'Need a .alc — drag a MIDI clip from your rack track';
+                }
                 return;
             }
             if (!strideLink || !strideLink.connected) {
