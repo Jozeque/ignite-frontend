@@ -32,8 +32,15 @@ class StrideLink {
         this.ws.onmessage = (event) => {
             try {
                 const msg = JSON.parse(event.data);
-                if (msg.type === 'focus_window' && window.electronAPI) {
-                    window.electronAPI.focusWindow();
+                // The IPC bridge is exposed as `window.stride` (preload.js).
+                // The previous reference to `window.electronAPI` was a stale
+                // name from an earlier rename; it silently dropped focus
+                // requests when the user pressed Launch while Stride was
+                // already running but minimized/hidden, making the launch
+                // button look broken until they removed and re-added the M4L
+                // device.
+                if (msg.type === 'focus_window' && window.stride && window.stride.focusWindow) {
+                    window.stride.focusWindow();
                 }
                 this._emit(msg.type, msg);
             } catch (e) {
