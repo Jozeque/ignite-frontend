@@ -56,6 +56,12 @@ contextBridge.exposeInMainWorld('stride', {
     onAlcDetected: (callback) =>
         ipcRenderer.on('alc-detected', (event, data) => callback(data)),
 
+    // Trigger a one-shot scan of the User Library for recently-modified .alc
+    // files. Used after Scan Mapped so we catch templates dropped while the
+    // app was closed (the watcher only fires while listening).
+    triggerLibraryScan: () =>
+        ipcRenderer.invoke('trigger-library-scan'),
+
     // Window control
     focusWindow: () =>
         ipcRenderer.send('focus-window'),

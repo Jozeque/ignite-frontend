@@ -282,6 +282,15 @@
         // Check if template exists for this rack
         resolveTemplate();
 
+        // Catch templates dropped while Stride was closed: ask main to walk
+        // the User Library for any .alc modified in the last few minutes.
+        // The watcher only fires while listening, so prior drops are invisible.
+        // If main finds one, it emits the same alc-detected event the watcher
+        // uses, and the existing import flow takes over.
+        if (window.stride && window.stride.triggerLibraryScan) {
+            window.stride.triggerLibraryScan().catch(() => {});
+        }
+
         // Check if canvas already has curves drawn
         const hasExistingCurves = sdCanvasParams.some(p => p.points && p.points.length > 0);
 

@@ -679,19 +679,42 @@ ipcMain.handle('delete-session', async (event, filename) => {
 
 let libWatcher = null;
 
-function startLibraryWatcher() {
+// Resolve the user's Ableton User Library, ordering candidates by platform.
+// Mac defaults to ~/Music/...; Windows to ~/Documents/.... Some Mac users have
+// a leftover ~/Documents/Ableton/ from Live auto-create or older versions —
+// if we check Documents first we lock onto the wrong path and never see drops
+// to their real Music-based library.
+function _findUserLibraryDir() {
     const home = os.homedir();
-    // Platform-aware ordering. Mac defaults to ~/Music/...; Windows to ~/Documents/...
-    // Some Mac users have a leftover ~/Documents/Ableton/ from Live auto-create or
-    // older versions — if we check Documents first we lock onto the wrong path
-    // and never see drops to their real Music-based library. (Same ordering as
-    // getDefaultUserLibraryPath above; keeping the watcher consistent.)
     const candidates = process.platform === 'darwin'
         ? [path.join(home, 'Music', 'Ableton', 'User Library'),
            path.join(home, 'Documents', 'Ableton', 'User Library')]
         : [path.join(home, 'Documents', 'Ableton', 'User Library'),
            path.join(home, 'Music', 'Ableton', 'User Library')];
-    const libDir = candidates.find(d => fs.existsSync(d));
+    return candidates.find(d => fs.existsSync(d)) || null;
+}
+
+// Walk a directory tree, calling onAlc(fullPath) for every .alc file found.
+// Skips Stride's own User Library/Stride/ folder so we don't surface our
+// own templates as "new drops" on subsequent scans.
+function _walkAlcFiles(dir, onAlc) {
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
+    catch (e) { return; }
+    for (const entry of entries) {
+        if (entry.name.startsWith('.')) continue;
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+            if (entry.name === 'Stride') continue;
+            _walkAlcFiles(fullPath, onAlc);
+        } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.alc')) {
+            onAlc(fullPath);
+        }
+    }
+}
+
+function startLibraryWatcher() {
+    const libDir = _findUserLibraryDir();
     if (!libDir) return;
 
     let debounceTimer = null;
@@ -710,8 +733,14 @@ function startLibraryWatcher() {
         debounceTimer = setTimeout(() => {
             const fullPath = path.join(libDir, filename);
             if (!fs.existsSync(fullPath)) return;
-            if (lastDetected === fullPath) return;
-            lastDetected = fullPath;
+            // Dedupe by path + mtime so a drag-replace (same filename, fresh
+            // mtime) is treated as a new event. Path-only dedupe silently
+            // ate the second drag, which looked like a regression to the user.
+            let mtime = 0;
+            try { mtime = fs.statSync(fullPath).mtimeMs; } catch (e) {}
+            const key = `${fullPath}|${mtime}`;
+            if (lastDetected === key) return;
+            lastDetected = key;
 
             if (mainWindow && !mainWindow.isDestroyed()) {
                 mainWindow.webContents.send('alc-detected', { filename: base, filePath: fullPath });
@@ -719,6 +748,37 @@ function startLibraryWatcher() {
         }, 1500);
     });
 }
+
+// Fired by the renderer right after Scan Mapped completes. Catches the case
+// where a user drags a clip to User Library BEFORE opening Stride — the
+// watcher only sees events while listening, so prior drops are invisible.
+// We pick the most-recently-modified .alc within a 15-min window and fire
+// the same alc-detected event the watcher uses, so the renderer's existing
+// import flow handles it identically. Returning null means "no recent drop";
+// the renderer just shows its usual "no template" state.
+const ALC_RECENCY_MS = 15 * 60 * 1000;
+ipcMain.handle('trigger-library-scan', async () => {
+    const libDir = _findUserLibraryDir();
+    if (!libDir) return { found: false };
+    const cutoff = Date.now() - ALC_RECENCY_MS;
+    let best = null;
+    _walkAlcFiles(libDir, (alcPath) => {
+        try {
+            const mtimeMs = fs.statSync(alcPath).mtimeMs;
+            if (mtimeMs >= cutoff && (!best || mtimeMs > best.mtimeMs)) {
+                best = { alcPath, mtimeMs };
+            }
+        } catch (e) {}
+    });
+    if (!best) return { found: false };
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('alc-detected', {
+            filename: path.basename(best.alcPath),
+            filePath: best.alcPath,
+        });
+    }
+    return { found: true, filename: path.basename(best.alcPath), filePath: best.alcPath };
+});
 
 // ─── App Lifecycle ────────────────────────────────────────
 
