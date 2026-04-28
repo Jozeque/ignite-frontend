@@ -656,11 +656,16 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
             existing = list(
                 _db.collection("waitlist").where("email", "==", email).limit(1).stream()
             )
+            # last_action captures the action type ("buyer_lead" or
+            # "waitlist_signup") that produced this write. Lets the admin
+            # CRM derive "abandoned cart" status (last_action == buyer_lead
+            # AND status != purchased) without crawling Discord history.
             payload = {
                 "name": name,
                 "email": email,
                 "country": country,
                 "source": source,
+                "last_action": data_pre.get("action", ""),
                 "terms_accepted": terms_accepted,
                 "updated_at": admin_firestore.SERVER_TIMESTAMP,
             }

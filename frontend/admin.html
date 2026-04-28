@@ -35,11 +35,15 @@
         select { background-image: none; }
 
         .status-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
-        .status-new      { background: rgba(113,113,122,0.15); color: #a1a1aa; }
-        .status-contacted{ background: rgba(14,165,233,0.15);  color: #38bdf8; }
-        .status-purchased{ background: rgba(234,179,8,0.18);   color: #facc15; }
-        .status-active   { background: rgba(34,197,94,0.18);   color: #4ade80; }
-        .status-churned  { background: rgba(239,68,68,0.18);   color: #f87171; }
+        .status-new            { background: rgba(113,113,122,0.15); color: #a1a1aa; }
+        .status-contacted      { background: rgba(14,165,233,0.15);  color: #38bdf8; }
+        .status-purchased      { background: rgba(234,179,8,0.18);   color: #facc15; }
+        .status-active         { background: rgba(34,197,94,0.18);   color: #4ade80; }
+        .status-churned        { background: rgba(239,68,68,0.18);   color: #f87171; }
+        /* Abandoned cart: high-intent leads who started checkout but didn't
+           complete. Derived from last_action === 'buyer_lead' && !purchased.
+           Distinct burnt-orange so they jump out in the table. */
+        .status-abandoned_cart { background: rgba(251,146,60,0.18);  color: #fb923c; }
 
         .src-badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
         .src-waitlist_signup { background: rgba(168,85,247,0.15); color: #c084fc; }
@@ -117,6 +121,7 @@
                 <option value="">All statuses</option>
                 <option value="new">New lead</option>
                 <option value="contacted">Contacted</option>
+                <option value="abandoned_cart">Abandoned cart</option>
                 <option value="purchased">Purchased</option>
                 <option value="active">Active</option>
                 <option value="churned">Churned</option>
@@ -124,8 +129,6 @@
 
             <select id="source-filter" class="bg-black/40 border border-white/10 focus:border-fuchsia-500/50 outline-none rounded-lg px-3 py-1.5 text-[10px] text-zinc-300 uppercase tracking-wider font-bold cursor-pointer">
                 <option value="">All sources</option>
-                <option value="waitlist_signup">Waitlist</option>
-                <option value="buyer_lead">Buyer lead</option>
                 <option value="lemonsqueezy">Lemon Squeezy</option>
                 <option value="registered_user">Registered user</option>
             </select>
@@ -366,10 +369,17 @@
 
         function ts(d) { return d ? d.getTime() : 0; }
 
-        // Derived status — if no explicit field, derive from source + license
+        // Derived status — if no explicit field, derive from action + source.
+        // Manual `row.status` always wins (admin can override the derivation
+        // by picking from the dropdown). Otherwise we infer:
+        //   - lemonsqueezy source means the order_created webhook fired -> purchased
+        //   - last_action 'buyer_lead' without a purchase row means the user
+        //     hit checkout and bounced -> abandoned cart (high-intent lead)
+        //   - everything else falls back to 'new'
         function getStatus(row) {
             if (row.status) return row.status;
             if (row.source === 'lemonsqueezy') return 'purchased';
+            if (row.last_action === 'buyer_lead') return 'abandoned_cart';
             return 'new';
         }
 
@@ -435,11 +445,12 @@
                 <td class="px-3 py-2">
                     <select data-field="status" data-id="${row.id}"
                             class="bg-transparent border-0 text-[9px] uppercase font-black tracking-widest cursor-pointer px-0 py-0 outline-none status-select status-${status}">
-                        <option value="new"       ${status==='new'?'selected':''}>New lead</option>
-                        <option value="contacted" ${status==='contacted'?'selected':''}>Contacted</option>
-                        <option value="purchased" ${status==='purchased'?'selected':''}>Purchased</option>
-                        <option value="active"    ${status==='active'?'selected':''}>Active</option>
-                        <option value="churned"   ${status==='churned'?'selected':''}>Churned</option>
+                        <option value="new"             ${status==='new'?'selected':''}>New lead</option>
+                        <option value="contacted"       ${status==='contacted'?'selected':''}>Contacted</option>
+                        <option value="abandoned_cart"  ${status==='abandoned_cart'?'selected':''}>Abandoned cart</option>
+                        <option value="purchased"       ${status==='purchased'?'selected':''}>Purchased</option>
+                        <option value="active"          ${status==='active'?'selected':''}>Active</option>
+                        <option value="churned"         ${status==='churned'?'selected':''}>Churned</option>
                     </select>
                 </td>
                 <td class="px-3 py-2">
@@ -483,8 +494,11 @@
         }
 
         function sourceLabel(src) {
-            if (src === 'waitlist_signup') return 'Waitlist';
-            if (src === 'buyer_lead') return 'Buyer';
+            // `source` is the user-typed "Heard from" value (Reddit, Instagram,
+            // friend, etc.), not the action type. lemonsqueezy / registered_user
+            // are the system-set values; everything else passes through as-is.
+            // The action type lives on row.last_action; abandoned-cart status
+            // is derived from there in getStatus().
             if (src === 'lemonsqueezy') return 'LS';
             if (src === 'registered_user') return 'Registered';
             return src;
