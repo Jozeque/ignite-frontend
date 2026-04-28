@@ -308,6 +308,50 @@ function _locateGuideFolder() {
     return null;
 }
 
+// Save a thumbnail PNG next to a generated .alc file. The renderer
+// captures the canvas at gen-time and sends a data URL; we just decode
+// and write to disk. The dock reads sibling .png files via list-recent-generations.
+ipcMain.handle('save-generation-thumbnail', async (event, alcPath, dataUrl) => {
+    try {
+        if (!alcPath || typeof alcPath !== 'string' || !dataUrl) return { success: false };
+        const m = dataUrl.match(/^data:image\/png;base64,(.+)$/);
+        if (!m) return { success: false, error: 'Invalid PNG data URL' };
+        const buf = Buffer.from(m[1], 'base64');
+        const pngPath = alcPath.replace(/\.alc$/i, '.png');
+        fs.writeFileSync(pngPath, buf);
+        return { success: true, pngPath };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+// List the 5 most recently generated .alc files in ~/Desktop/Stride/.
+// Pairs each with its sibling thumbnail PNG when present. Powers the dock.
+ipcMain.handle('list-recent-generations', async () => {
+    try {
+        if (!fs.existsSync(STRIDE_DIR)) return [];
+        const entries = fs.readdirSync(STRIDE_DIR, { withFileTypes: true })
+            .filter(d => d.isFile() && d.name.toLowerCase().endsWith('.alc'))
+            .map(d => {
+                const alcPath = path.join(STRIDE_DIR, d.name);
+                let mtimeMs = 0;
+                try { mtimeMs = fs.statSync(alcPath).mtimeMs; } catch (e) {}
+                const pngPath = alcPath.replace(/\.alc$/i, '.png');
+                return {
+                    name: d.name,
+                    alcPath,
+                    pngPath: fs.existsSync(pngPath) ? pngPath : null,
+                    mtimeMs,
+                };
+            })
+            .sort((a, b) => b.mtimeMs - a.mtimeMs)
+            .slice(0, 5);
+        return entries;
+    } catch (e) {
+        return [];
+    }
+});
+
 // Open the ~/Desktop/Stride folder (all generated .alc files live here)
 ipcMain.handle('open-stride-folder', async () => {
     try {

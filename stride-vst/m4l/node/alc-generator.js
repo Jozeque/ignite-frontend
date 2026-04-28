@@ -255,9 +255,11 @@ function createAlcFile(msg, templatePath) {
         String(now.getSeconds()).padStart(2, '0');
     const safeDev = (msg.device_name || 'Rack').replace(/[^a-zA-Z0-9 _-]/g, '').replace(/\s+/g, '_');
     const clipName = msg.clip_name ? msg.clip_name.replace(/[^a-zA-Z0-9 _-]/g, '').replace(/\s+/g, '_') : null;
+    // Filename always leads with the rack/clip identifier (so the user can tell
+    // which rack a file is for at a glance) and ends with "_Stride" for branding.
     const filename = clipName
-        ? `${clipName}_${clipBars}bars_${ts}.alc`
-        : `Stride_${safeDev}_${clipBars}bars_${ts}.alc`;
+        ? `${clipName}_${clipBars}bars_${ts}_Stride.alc`
+        : `${safeDev}_${clipBars}bars_${ts}_Stride.alc`;
     const outputPath = path.join(STRIDE_DIR, filename);
 
     // Call JS injector directly — no Python dependency

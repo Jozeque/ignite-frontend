@@ -397,6 +397,15 @@
             _showApplyToast(msg.filename, msg.filePath);
             _showDragHandle(msg.filename, msg.filePath);
         }
+        // Snapshot the canvas for the generations dock thumbnail, then refresh
+        // the dock. Both run on every alc_generated event regardless of
+        // template-match outcome — even a partial Apply produced a usable .alc.
+        if (msg.filePath) {
+            _captureAlcThumbnail(msg.filePath);
+            // Slight delay so the thumbnail write has a chance to land before
+            // the dock re-reads the directory. 250ms is comfortable for local fs.
+            setTimeout(() => _refreshGenerationsDock(), 250);
+        }
         // Clear the status after 4 seconds so it doesn't stick permanently
         setTimeout(() => { status.textContent = ''; status.style.color = ''; }, 4000);
     });
@@ -4476,6 +4485,108 @@
         _renderPresetModal(); // refresh modal if open
     };
 
+    // ─── RECENT GENERATIONS DOCK ───────────────────────────
+    // Last 5 .alc files in ~/Desktop/Stride/, always visible at the bottom
+    // of the canvas, each card draggable straight into Ableton.
+
+    function _captureAlcThumbnail(alcPath) {
+        // Snapshot the current canvas at the moment of Apply, scaled to 160×64.
+        // Aspect ~2.5:1 matches the dock card's preview area, so object-cover
+        // shows ~70% of the horizontal range instead of clipping to the start.
+        try {
+            const src = document.getElementById('sd-canvas');
+            if (!src || !alcPath) return;
+            const W = 160, H = 64;
+            const off = document.createElement('canvas');
+            off.width = W;
+            off.height = H;
+            const ctx = off.getContext('2d');
+            ctx.fillStyle = '#0a0a0c';
+            ctx.fillRect(0, 0, W, H);
+            ctx.drawImage(src, 0, 0, src.width, src.height, 0, 0, W, H);
+            const dataUrl = off.toDataURL('image/png');
+            if (window.stride && window.stride.saveGenerationThumbnail) {
+                window.stride.saveGenerationThumbnail(alcPath, dataUrl).catch(() => {});
+            }
+        } catch (e) { /* thumbnail is non-critical, swallow */ }
+    }
+
+    function _formatGenerationTime(mtimeMs) {
+        try {
+            const d = new Date(mtimeMs);
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mm = String(d.getMinutes()).padStart(2, '0');
+            return `${hh}:${mm}`;
+        } catch (e) { return ''; }
+    }
+
+    async function _refreshGenerationsDock() {
+        const cards = document.getElementById('sd-generations-cards');
+        const empty = document.getElementById('sd-generations-empty');
+        if (!cards) return;
+        // Dock is always visible (it hosts the canvas status pills on the right).
+        // Toggle between cards list and the "no generations yet" placeholder.
+        if (!window.stride || !window.stride.listRecentGenerations) {
+            cards.classList.add('hidden');
+            if (empty) empty.classList.remove('hidden');
+            return;
+        }
+        let items = [];
+        try { items = await window.stride.listRecentGenerations(); } catch (e) {}
+        if (!Array.isArray(items) || items.length === 0) {
+            cards.classList.add('hidden');
+            cards.innerHTML = '';
+            if (empty) empty.classList.remove('hidden');
+            return;
+        }
+        cards.classList.remove('hidden');
+        if (empty) empty.classList.add('hidden');
+        cards.innerHTML = items.map((it, idx) => {
+            const displayName = (it.name || '').replace(/\.alc$/i, '');
+            const time = _formatGenerationTime(it.mtimeMs);
+            const thumb = it.pngPath
+                ? `<img src="file://${it.pngPath.replace(/\\/g, '/')}?t=${it.mtimeMs}" class="w-full h-full object-cover" alt="" draggable="false">`
+                : `<div class="w-full h-full flex items-center justify-center text-zinc-600 text-[9px]">no preview</div>`;
+            return `
+                <div class="sd-gen-card shrink-0 w-56 h-full rounded-md border border-white/5 hover:border-emerald-400/40 bg-black/40 hover:bg-black/60 cursor-grab active:cursor-grabbing overflow-hidden flex group transition-colors"
+                     draggable="true"
+                     data-idx="${idx}"
+                     title="Drag into an empty clip slot in Ableton">
+                    <div class="shrink-0 w-28 h-full bg-black/40 border-r border-white/5 overflow-hidden">${thumb}</div>
+                    <div class="flex-1 min-w-0 px-2 py-1.5 flex flex-col justify-between">
+                        <div class="text-[10px] text-zinc-200 font-bold truncate group-hover:text-emerald-200" title="${displayName}">${displayName}</div>
+                        <div class="flex items-center justify-between text-[9px] text-zinc-500">
+                            <span>${time}</span>
+                            <svg class="w-3 h-3 text-zinc-600 group-hover:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/></svg>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        // Wire drag-out for each card. Use the same Electron startDrag bridge
+        // as the apply-reveal card — that's the proven path into Ableton.
+        Array.from(cards.querySelectorAll('.sd-gen-card')).forEach((card, idx) => {
+            const item = items[idx];
+            if (!item) return;
+            card.addEventListener('dragstart', (e) => {
+                e.preventDefault();
+                if (window.stride && window.stride.startDrag) {
+                    window.stride.startDrag(item.alcPath);
+                }
+            });
+            // Windows fallback — same as the apply-reveal card
+            card.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return;
+                if (window.stride && window.stride.startDrag) {
+                    window.stride.startDrag(item.alcPath);
+                }
+            });
+        });
+    }
+
+    // Expose the refresh so external triggers (e.g. settings reset) can call it
+    window._refreshGenerationsDock = _refreshGenerationsDock;
+
     // ─── EXPOSE FOR GENERATION ─────────────────────────────
 
     window.getSdCanvasParams = function() { return sdCanvasParams; };
@@ -4801,6 +4912,7 @@
         sdUpdateEmptyState();
         sdUpdateToolAvailability();
         _wireDragHandle();
+        _refreshGenerationsDock();
     });
 
 })();

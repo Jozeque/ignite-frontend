@@ -420,7 +420,7 @@
         </div>
 
         <!-- Main Area: Toolbar + Canvas -->
-        <div class="flex-1 relative flex flex-col bg-zinc-950">
+        <div class="flex-1 min-w-0 relative flex flex-col bg-zinc-950">
 
             <!-- ROW 0: Header — CSS grid: left controls | centered generative group | empty right -->
             <div class="min-h-[40px] border-b border-white/5 shrink-0 bg-black/50 px-2 py-1 grid items-center" style="grid-template-columns: auto 1fr auto;">
@@ -618,10 +618,6 @@
             <div class="flex-1 relative overflow-hidden bg-black/20" id="sd-canvas-container">
                 <div id="sd-canvas-ruler" class="absolute top-0 left-0 right-0 h-5 bg-black/60 border-b border-white/10 z-20 cursor-col-resize select-none"></div>
                 <canvas id="sd-canvas" class="absolute top-5 left-0 right-0 bottom-0 w-full cursor-crosshair z-10" style="height: calc(100% - 20px);"></canvas>
-                <div class="absolute bottom-3 left-3 pointer-events-none z-20 flex items-center gap-2">
-                    <span id="sd-canvas-status" class="text-[9px] font-bold text-zinc-500 uppercase tracking-wider bg-black/70 px-2 py-1 rounded">Connect M4L</span>
-                    <span class="text-[9px] font-bold text-zinc-600 tracking-widest uppercase bg-black/60 px-2 py-1 rounded">Zoom: Ctrl + Wheel | Pan: Space + Drag | Bend: Alt + Drag</span>
-                </div>
 
                 <!-- Apply Reveal — floating drag card shown after a successful
                      Apply. Replaces the old sidebar drag handle. Auto-dismisses
@@ -676,6 +672,24 @@
                             <span class="text-amber-400 font-bold">Heads up:</span> make sure you've opened automation lanes for each parameter in Ableton first. The scan reads those lanes.
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Recent generations dock — last 5 .alc files in ~/Desktop/Stride/.
+                 Each card is draggable straight into Ableton. Always visible:
+                 the right side hosts the canvas status pills (M4L connection,
+                 keyboard hints) so they don't crowd the drawing surface.
+                 Pills column shrinks gracefully on narrower screens; the long
+                 hints pill hides entirely below xl (1280px) to free space. -->
+            <div id="sd-generations-dock" class="shrink-0 h-20 border-t border-white/5 bg-black/40 flex items-stretch gap-2 px-3 py-2 min-w-0">
+                <div class="flex items-center pr-2 border-r border-white/5 shrink-0">
+                    <span class="text-[9px] font-black text-zinc-500 uppercase tracking-widest leading-tight">Recent<br>Generations</span>
+                </div>
+                <div id="sd-generations-cards" class="flex-1 flex items-stretch gap-2 overflow-x-auto custom-scroll min-w-0"></div>
+                <div id="sd-generations-empty" class="hidden flex-1 flex items-center text-[10px] text-zinc-600 italic min-w-0">No generations yet — Apply a clip to start filling this dock.</div>
+                <div class="flex flex-col justify-center gap-1 pl-2 border-l border-white/5 min-w-0 max-w-[260px]">
+                    <span id="sd-canvas-status" class="block text-[9px] font-bold text-zinc-500 uppercase tracking-wider bg-black/70 px-2 py-1 rounded text-right truncate">Connect M4L</span>
+                    <span class="hidden xl:block text-[9px] font-bold text-zinc-600 tracking-widest uppercase bg-black/60 px-2 py-1 rounded text-right truncate">Ctrl+Wheel · Space+Drag · Alt+Drag</span>
                 </div>
             </div>
         </div>
