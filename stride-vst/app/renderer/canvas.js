@@ -366,6 +366,10 @@
 
     // Handle .alc file generated
     strideLink.on('alc_generated', (msg) => {
+        // Snapshot the loading-spinner's position BEFORE we hide it, so
+        // the fly-to-dock orb (fired from _refreshGenerationsDock below)
+        // launches from where the user was just looking.
+        const _flyFrom = _captureLoadingCenter();
         _hideLoading();
         const status = document.getElementById('sd-canvas-status');
 
@@ -406,7 +410,9 @@
             _captureAlcThumbnail(msg.filePath);
             // Slight delay so the thumbnail write has a chance to land before
             // the dock re-reads the directory. 250ms is comfortable for local fs.
-            setTimeout(() => _refreshGenerationsDock(), 250);
+            // Pass the captured loading-spinner position so the dock can fire
+            // a fly-to orb when the new card lands.
+            setTimeout(() => _refreshGenerationsDock(_flyFrom), 250);
         }
         // Clear the status after 4 seconds so it doesn't stick permanently
         setTimeout(() => { status.textContent = ''; status.style.color = ''; }, 4000);
@@ -4529,7 +4535,58 @@
     let _lastSeenGenMtime = 0;
     let _ledFadeTimer = null;
 
-    async function _refreshGenerationsDock() {
+    // Snapshot the loading-spinner's center BEFORE we hide it, so the
+    // fly-to-dock orb can launch from where the user's eyes were just
+    // tracking. Falls back to viewport center if the overlay isn't
+    // visible for any reason. Returns {x, y} in viewport coords.
+    function _captureLoadingCenter() {
+        try {
+            const overlay = document.getElementById('stride-loading');
+            if (overlay && overlay.style.display !== 'none') {
+                const rect = overlay.getBoundingClientRect();
+                return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+            }
+        } catch (e) {}
+        return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    }
+
+    // Yellow→lime glowing orb that flies from (fromX, fromY) to the
+    // center of `targetCard`, scales down, and fades out as it arrives.
+    // Visually connects the loading spinner to the new dock entry that
+    // the LED border is about to highlight. ~650ms total.
+    function _flyOrbToCard(fromX, fromY, targetCard) {
+        if (!targetCard) return;
+        try {
+            const toRect = targetCard.getBoundingClientRect();
+            const dx = (toRect.left + toRect.width / 2) - fromX;
+            const dy = (toRect.top + toRect.height / 2) - fromY;
+            const orb = document.createElement('div');
+            orb.style.cssText = [
+                'position:fixed',
+                `left:${fromX}px`,
+                `top:${fromY}px`,
+                'width:28px',
+                'height:28px',
+                'margin-left:-14px',
+                'margin-top:-14px',
+                'border-radius:50%',
+                'background:radial-gradient(circle at 35% 35%, #fef9c3, #facc15 45%, #a3e635 100%)',
+                'box-shadow:0 0 18px rgba(250,204,21,0.85), 0 0 36px rgba(163,230,53,0.5)',
+                'z-index:10001',
+                'pointer-events:none',
+                'transform:translate(0,0) scale(1)',
+                'transition:transform 650ms cubic-bezier(0.4,0,0.2,1), opacity 200ms ease-out 500ms',
+            ].join(';');
+            document.body.appendChild(orb);
+            requestAnimationFrame(() => {
+                orb.style.transform = `translate(${dx}px, ${dy}px) scale(0.2)`;
+                orb.style.opacity = '0';
+            });
+            setTimeout(() => { try { orb.remove(); } catch (e) {} }, 750);
+        } catch (e) {}
+    }
+
+    async function _refreshGenerationsDock(flyFrom) {
         const cards = document.getElementById('sd-generations-cards');
         const empty = document.getElementById('sd-generations-empty');
         if (!cards) return;
@@ -4604,6 +4661,18 @@
                 if (led) led.classList.remove('gen-card-led');
                 _ledFadeTimer = null;
             }, 15000);
+
+            // Fly-from-loading orb. Wait one frame so the new card is
+            // actually laid out, then launch from the captured loading
+            // center toward the (now-glowing) leftmost card. Skipped if
+            // the caller didn't pass a launch point — e.g., dock refreshes
+            // triggered by reasons other than a fresh Apply.
+            if (flyFrom) {
+                requestAnimationFrame(() => {
+                    const newCard = cards.querySelector('.gen-card-led');
+                    if (newCard) _flyOrbToCard(flyFrom.x, flyFrom.y, newCard);
+                });
+            }
         }
 
         // Wire drag-out for each card. Same Electron startDrag bridge that
