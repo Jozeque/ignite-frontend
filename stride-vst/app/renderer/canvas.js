@@ -388,14 +388,16 @@
             _showMismatchWarning(msg.mismatch_count, msg.params_written, msg.requested_count,
                 `Your rack has ${msg.mismatch_count} more parameter${msg.mismatch_count > 1 ? 's' : ''} than the saved template. Those parameters won't have automation in the clip. <strong style="color:#e7e5e4;">Drag a fresh clip to User Library</strong> to update the template with all current parameters.`);
         } else {
-            // No bottom-left green confirmation text — the big center card
-            // and the bottom-right "Template ready / Open folder" toast are
-            // the two feedback channels. Duplicating in the status pill just
-            // creates noise.
+            // Quiet success — feedback comes from the LED-border animation
+            // on the newest card in the generations dock (handled in
+            // _refreshGenerationsDock below). The old big center card
+            // and bottom-right toast were too loud after every generation;
+            // the dock LED is the single, subtle "your file is ready"
+            // signal now. Both helpers (_showApplyToast / _showDragHandle)
+            // are kept in the file for potential reuse but no longer fire
+            // on a successful Apply.
             status.textContent = '';
             status.style.color = '';
-            _showApplyToast(msg.filename, msg.filePath);
-            _showDragHandle(msg.filename, msg.filePath);
         }
         // Snapshot the canvas for the generations dock thumbnail, then refresh
         // the dock. Both run on every alc_generated event regardless of
@@ -4520,6 +4522,13 @@
         } catch (e) { return ''; }
     }
 
+    // Tracks the mtime of the most recent generation we've already shown
+    // in the dock. The leftmost card glows with the LED border ONLY when
+    // its mtime exceeds this — otherwise the LED would re-fire on every
+    // dock refresh (window focus, tab switch, etc.) which is noise.
+    let _lastSeenGenMtime = 0;
+    let _ledFadeTimer = null;
+
     async function _refreshGenerationsDock() {
         const cards = document.getElementById('sd-generations-cards');
         const empty = document.getElementById('sd-generations-empty');
@@ -4541,30 +4550,64 @@
         }
         cards.classList.remove('hidden');
         if (empty) empty.classList.add('hidden');
+
+        // Decide whether the leftmost card is "fresh" enough to glow.
+        // First-load sentinel: if we've never tracked anything, treat the
+        // initial render as already-seen so the LED only fires on NEW
+        // generations during this session, not on every app startup.
+        const newest = items[0];
+        let isFresh = false;
+        if (newest && _lastSeenGenMtime === 0) {
+            _lastSeenGenMtime = newest.mtimeMs;
+        } else if (newest && newest.mtimeMs > _lastSeenGenMtime) {
+            isFresh = true;
+            _lastSeenGenMtime = newest.mtimeMs;
+        }
+
         cards.innerHTML = items.map((it, idx) => {
             const displayName = (it.name || '').replace(/\.alc$/i, '');
             const time = _formatGenerationTime(it.mtimeMs);
             const thumb = it.pngPath
                 ? `<img src="file://${it.pngPath.replace(/\\/g, '/')}?t=${it.mtimeMs}" class="w-full h-full object-cover" alt="" draggable="false">`
                 : `<div class="w-full h-full flex items-center justify-center text-zinc-600 text-[9px]">no preview</div>`;
+            // The LED ring sits on a wrapper div so the inner card keeps
+            // its overflow-hidden + rounded corners (clipping the
+            // thumbnail) while the ring extends slightly outside the
+            // wrapper, where it isn't clipped.
+            const ledClass = (idx === 0 && isFresh) ? 'gen-card-led' : '';
             return `
-                <div class="sd-gen-card shrink-0 w-56 h-full rounded-md border border-white/5 hover:border-emerald-400/40 bg-black/40 hover:bg-black/60 cursor-grab active:cursor-grabbing overflow-hidden flex group transition-colors"
-                     draggable="true"
-                     data-idx="${idx}"
-                     title="Drag into an empty clip slot in Ableton">
-                    <div class="shrink-0 w-28 h-full bg-black/40 border-r border-white/5 overflow-hidden">${thumb}</div>
-                    <div class="flex-1 min-w-0 px-2 py-1.5 flex flex-col justify-between">
-                        <div class="text-[10px] text-zinc-200 font-bold truncate group-hover:text-emerald-200" title="${displayName}">${displayName}</div>
-                        <div class="flex items-center justify-between text-[9px] text-zinc-500">
-                            <span>${time}</span>
-                            <svg class="w-3 h-3 text-zinc-600 group-hover:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/></svg>
+                <div class="${ledClass} shrink-0 w-56 h-full rounded-md">
+                    <div class="sd-gen-card relative w-full h-full rounded-md border border-white/5 hover:border-emerald-400/40 bg-black/40 hover:bg-black/60 cursor-grab active:cursor-grabbing overflow-hidden flex group transition-colors"
+                         draggable="true"
+                         data-idx="${idx}"
+                         title="Drag into an empty clip slot in Ableton">
+                        <div class="shrink-0 w-28 h-full bg-black/40 border-r border-white/5 overflow-hidden">${thumb}</div>
+                        <div class="flex-1 min-w-0 px-2 py-1.5 flex flex-col justify-between">
+                            <div class="text-[10px] text-zinc-200 font-bold truncate group-hover:text-emerald-200" title="${displayName}">${displayName}</div>
+                            <div class="flex items-center justify-between text-[9px] text-zinc-500">
+                                <span>${time}</span>
+                                <svg class="w-3 h-3 text-zinc-600 group-hover:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/></svg>
+                            </div>
                         </div>
                     </div>
                 </div>
             `;
         }).join('');
-        // Wire drag-out for each card. Use the same Electron startDrag bridge
-        // as the apply-reveal card — that's the proven path into Ableton.
+
+        // Auto-remove the LED after ~15s so the dock doesn't stay busy
+        // forever after an Apply. New generations re-trigger the glow on
+        // the next refresh.
+        if (isFresh) {
+            if (_ledFadeTimer) clearTimeout(_ledFadeTimer);
+            _ledFadeTimer = setTimeout(() => {
+                const led = cards.querySelector('.gen-card-led');
+                if (led) led.classList.remove('gen-card-led');
+                _ledFadeTimer = null;
+            }, 15000);
+        }
+
+        // Wire drag-out for each card. Same Electron startDrag bridge that
+        // the apply-reveal card used — proven path into Ableton.
         Array.from(cards.querySelectorAll('.sd-gen-card')).forEach((card, idx) => {
             const item = items[idx];
             if (!item) return;
@@ -4574,7 +4617,7 @@
                     window.stride.startDrag(item.alcPath);
                 }
             });
-            // Windows fallback — same as the apply-reveal card
+            // Windows fallback for some Electron builds
             card.addEventListener('mousedown', (e) => {
                 if (e.button !== 0) return;
                 if (window.stride && window.stride.startDrag) {
