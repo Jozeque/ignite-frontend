@@ -4552,8 +4552,10 @@
 
     // Yellow→lime glowing orb that flies from (fromX, fromY) to the
     // center of `targetCard`, scales down, and fades out as it arrives.
-    // Visually connects the loading spinner to the new dock entry that
-    // the LED border is about to highlight. ~650ms total.
+    // The moment of arrival also triggers a green-flash pulse on the
+    // inner card to mark "this is the new file." LED ring keeps spinning
+    // throughout (it's on the wrapper, decoupled from the flash). ~650ms
+    // for the flight + 1s for the flash.
     function _flyOrbToCard(fromX, fromY, targetCard) {
         if (!targetCard) return;
         try {
@@ -4582,6 +4584,19 @@
                 orb.style.transform = `translate(${dx}px, ${dy}px) scale(0.2)`;
                 orb.style.opacity = '0';
             });
+            // Green-flash pulse on the inner card right as the orb arrives.
+            // 600ms matches the orb's transform timing so the flash builds
+            // as the orb fades. Auto-removed at 1s so the bg-black/40 base
+            // class kicks back in cleanly.
+            setTimeout(() => {
+                try {
+                    const innerCard = targetCard.querySelector('.sd-gen-card') || targetCard;
+                    innerCard.classList.add('sd-gen-card-flash');
+                    setTimeout(() => {
+                        try { innerCard.classList.remove('sd-gen-card-flash'); } catch (e) {}
+                    }, 1000);
+                } catch (e) {}
+            }, 600);
             setTimeout(() => { try { orb.remove(); } catch (e) {} }, 750);
         } catch (e) {}
     }

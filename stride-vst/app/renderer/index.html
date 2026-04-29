@@ -62,6 +62,31 @@
             filter: drop-shadow(0 0 4px rgba(163, 230, 53, 0.5));
             z-index: 5;
         }
+
+        /* Impact flash on the inner dock card the moment the fly-orb lands.
+           Quick punchy ramp to a saturated green wash + a soft scale pulse,
+           then settles back to the card's normal state. The LED ring lives
+           on the wrapper above this so it keeps spinning untouched. */
+        @keyframes gen-card-flash {
+            0% {
+                background-color: rgba(132, 204, 22, 0);
+                box-shadow: 0 0 0 0 rgba(132, 204, 22, 0);
+                transform: scale(1);
+            }
+            12% {
+                background-color: rgba(132, 204, 22, 0.55);
+                box-shadow: 0 0 36px 6px rgba(132, 204, 22, 0.45);
+                transform: scale(1.025);
+            }
+            100% {
+                background-color: rgba(132, 204, 22, 0);
+                box-shadow: 0 0 0 0 rgba(132, 204, 22, 0);
+                transform: scale(1);
+            }
+        }
+        .sd-gen-card.sd-gen-card-flash {
+            animation: gen-card-flash 1s ease-out;
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col">
