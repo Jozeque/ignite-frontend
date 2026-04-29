@@ -73,10 +73,11 @@ cp "$APP_DIR/assets/step4.png" "$DIST/Stride/Guide/"
 cp "$APP_DIR/assets/step6.png" "$DIST/Stride/Guide/"
 cp "$APP_DIR/assets/step7.png" "$DIST/Stride/Guide/"
 
-# Copy tutorial videos (if present)
-for vid in "$SCRIPT_DIR"/*.mov "$SCRIPT_DIR"/*.mp4; do
-    [ -f "$vid" ] && cp "$vid" "$DIST/Stride/Guide/"
-done
+# Tutorial videos used to be bundled here (~104 MB combined). They now
+# live on YouTube + the stridehub.io/welcome page (linked from the
+# post-purchase email), so we don't ship them in the build anymore.
+# Saves the user a 100 MB download and lets us update the videos
+# without re-shipping the whole app.
 
 echo "      Distribution assembled"
 
@@ -178,10 +179,11 @@ cat > "$DIST/Stride/README.txt" << 'READMEEOF'
  Your racks, reborn.
 ===============================================================
 
->> START HERE: watch the two short videos inside the Guide/ folder.
-   - Flow A-Z.mp4           - the full Stride workflow
-   - Canvas Walkthrough.mov - tools and shortcuts
-   Takes about 3 minutes total. Seriously, watch them first.
+>> START HERE: watch the 3-minute walkthrough at
+   https://stridehub.io/welcome  (the same link is in your purchase email).
+   More tutorials, tips, and inspiration live on YouTube:
+   https://www.youtube.com/@strideengine
+   Seriously, watch the welcome video first.
 
 ---------------------------------------------------------------
  INSTALL  (three steps)
