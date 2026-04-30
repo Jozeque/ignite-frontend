@@ -1440,6 +1440,38 @@
 
     // ─── MULTI-LANE RENDERER ──────────────────────────────
     // Renders every visible param as a horizontal strip of SD_MULTI_LANE_HEIGHT
+    // Tiny canvas-rendered lock icon used in the multi-lane label column.
+    // Two parts: a half-circle shackle + a rectangular body. Drawn with
+    // currentColor-style flexibility via the `color` argument.
+    function _drawLockIcon(ctx, x, y, size, color) {
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 1.4;
+        // Shackle (top arc)
+        ctx.beginPath();
+        ctx.arc(x + size / 2, y + size * 0.42, size * 0.27, Math.PI, 0, false);
+        ctx.stroke();
+        // Body (filled rounded rect)
+        const bx = x + size * 0.16;
+        const by = y + size * 0.42;
+        const bw = size * 0.68;
+        const bh = size * 0.50;
+        const r = 1;
+        ctx.beginPath();
+        ctx.moveTo(bx + r, by);
+        ctx.lineTo(bx + bw - r, by);
+        ctx.quadraticCurveTo(bx + bw, by, bx + bw, by + r);
+        ctx.lineTo(bx + bw, by + bh - r);
+        ctx.quadraticCurveTo(bx + bw, by + bh, bx + bw - r, by + bh);
+        ctx.lineTo(bx + r, by + bh);
+        ctx.quadraticCurveTo(bx, by + bh, bx, by + bh - r);
+        ctx.lineTo(bx, by + r);
+        ctx.quadraticCurveTo(bx, by, bx + r, by);
+        ctx.fill();
+        ctx.restore();
+    }
+
     // pixels tall. The left SD_MULTI_LABEL_WIDTH pixels of each row show the
     // parameter name + index. The remaining width shows the curve at the
     // normal time zoom + pan. The active param row has a fuchsia border
@@ -1520,18 +1552,32 @@
             sdCtx.strokeStyle = 'rgba(255,255,255,0.04)';
             sdCtx.beginPath(); sdCtx.moveTo(laneDrawLeft, midY); sdCtx.lineTo(lw, midY); sdCtx.stroke();
 
-            // Param name (label column)
-            sdCtx.fillStyle = isActive ? 'rgba(232,121,249,0.95)' : 'rgba(228,228,231,0.75)';
+            // Param name (label column). Locked lanes get a small amber
+            // lock glyph at the right edge of the label column AND the
+            // name itself dims to amber-ish so the row reads as "frozen"
+            // even at a quick scan.
+            const isLocked = !!param.locked;
+            sdCtx.fillStyle = isLocked
+                ? 'rgba(251,191,36,0.85)'   // amber-400
+                : (isActive ? 'rgba(232,121,249,0.95)' : 'rgba(228,228,231,0.75)');
             sdCtx.font = isActive ? 'bold 11px Outfit' : '600 10px Outfit';
             sdCtx.textAlign = 'left';
             sdCtx.textBaseline = 'middle';
-            const labelText = displayName.length > 17 ? displayName.slice(0, 16) + '…' : displayName;
+            // Reserve space for the lock icon when locked so the name
+            // doesn't bleed into it. 14px of padding on the right.
+            const maxChars = isLocked ? 15 : 17;
+            const labelText = displayName.length > maxChars ? displayName.slice(0, maxChars - 1) + '…' : displayName;
             sdCtx.fillText(labelText, 8, midY - 5);
 
             // Point count + range line
             sdCtx.font = '10px Outfit';
-            sdCtx.fillStyle = 'rgba(161,161,170,0.7)';
-            sdCtx.fillText(`${param.points.length} pts`, 8, midY + 10);
+            sdCtx.fillStyle = isLocked ? 'rgba(251,191,36,0.55)' : 'rgba(161,161,170,0.7)';
+            sdCtx.fillText(`${param.points.length} pts${isLocked ? ' · locked' : ''}`, 8, midY + 10);
+
+            // Lock glyph at the right edge of the label column
+            if (isLocked) {
+                _drawLockIcon(sdCtx, laneDrawLeft - 18, midY - 6, 12, 'rgba(251,191,36,0.9)');
+            }
 
             // Selection shade inside this lane's drawing area
             if (sel) {
@@ -1551,8 +1597,14 @@
                 sdCtx.restore();
             }
 
-            // Draw this lane's curve
+            // Draw this lane's curve. Locked lanes render at reduced
+            // alpha so the row reads as "frozen" at a quick scan, while
+            // still being clearly visible as context. Setting globalAlpha
+            // here applies to every stroke/fill until restore() at the
+            // end of this row's drawing block.
             if (!param.points.length) continue;
+            sdCtx.save();
+            if (isLocked) sdCtx.globalAlpha = 0.4;
             const sortedPts = param.points.slice().sort((a, b) => a.time - b.time);
             const valueToY = (v) => rect.bottom - v * rect.height;
             const timeToX = (t) => laneDrawLeft + ((t / totalBeats) * laneDrawWidth * sdViewZoomX) - sdViewPanX;
@@ -1625,7 +1677,8 @@
                     }
                 });
             }
-            sdCtx.restore();
+            sdCtx.restore();   // closes the clip-region save
+            sdCtx.restore();   // closes the locked-alpha save
         }
 
         // Scroll indicator on the far right (thin track)
