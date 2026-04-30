@@ -1440,10 +1440,18 @@
 
     // ─── MULTI-LANE RENDERER ──────────────────────────────
     // Renders every visible param as a horizontal strip of SD_MULTI_LANE_HEIGHT
+    // Width of the clickable lock-icon zone at the right edge of the
+    // multi-view label column. Used both by the renderer (where to draw)
+    // and the mousedown hit-test (what counts as a lock click). Keep in
+    // sync if the visual layout changes.
+    const SD_MULTI_LOCK_HIT_W = 22;
+
     // Tiny canvas-rendered lock icon used in the multi-lane label column.
-    // Two parts: a half-circle shackle + a rectangular body. Drawn with
-    // currentColor-style flexibility via the `color` argument.
-    function _drawLockIcon(ctx, x, y, size, color) {
+    // Two parts: a half-circle shackle + a rectangular body. When locked,
+    // the body is filled. When unlocked, the body is just stroked — so
+    // users can tell at a glance which lanes are protected and which
+    // are clickable-to-lock.
+    function _drawLockIcon(ctx, x, y, size, color, locked) {
         ctx.save();
         ctx.strokeStyle = color;
         ctx.fillStyle = color;
@@ -1452,7 +1460,7 @@
         ctx.beginPath();
         ctx.arc(x + size / 2, y + size * 0.42, size * 0.27, Math.PI, 0, false);
         ctx.stroke();
-        // Body (filled rounded rect)
+        // Body (rounded rect — filled when locked, stroked when unlocked)
         const bx = x + size * 0.16;
         const by = y + size * 0.42;
         const bw = size * 0.68;
@@ -1468,7 +1476,8 @@
         ctx.quadraticCurveTo(bx, by + bh, bx, by + bh - r);
         ctx.lineTo(bx, by + r);
         ctx.quadraticCurveTo(bx, by, bx + r, by);
-        ctx.fill();
+        if (locked) ctx.fill();
+        else ctx.stroke();
         ctx.restore();
     }
 
@@ -1563,9 +1572,10 @@
             sdCtx.font = isActive ? 'bold 11px Outfit' : '600 10px Outfit';
             sdCtx.textAlign = 'left';
             sdCtx.textBaseline = 'middle';
-            // Reserve space for the lock icon when locked so the name
-            // doesn't bleed into it. 14px of padding on the right.
-            const maxChars = isLocked ? 15 : 17;
+            // Always reserve space for the lock glyph (drawn for every
+            // lane below) so name truncation is consistent regardless of
+            // lock state.
+            const maxChars = 15;
             const labelText = displayName.length > maxChars ? displayName.slice(0, maxChars - 1) + '…' : displayName;
             sdCtx.fillText(labelText, 8, midY - 5);
 
@@ -1574,10 +1584,12 @@
             sdCtx.fillStyle = isLocked ? 'rgba(251,191,36,0.55)' : 'rgba(161,161,170,0.7)';
             sdCtx.fillText(`${param.points.length} pts${isLocked ? ' · locked' : ''}`, 8, midY + 10);
 
-            // Lock glyph at the right edge of the label column
-            if (isLocked) {
-                _drawLockIcon(sdCtx, laneDrawLeft - 18, midY - 6, 12, 'rgba(251,191,36,0.9)');
-            }
+            // Lock glyph at the right edge of the label column. Always
+            // shown so the user can click to LOCK as well as UNLOCK
+            // directly from the canvas — not only from the sidebar.
+            // Locked = filled amber; unlocked = subtle zinc outline.
+            const lockColor = isLocked ? 'rgba(251,191,36,0.9)' : 'rgba(161,161,170,0.45)';
+            _drawLockIcon(sdCtx, laneDrawLeft - 18, midY - 6, 12, lockColor, isLocked);
 
             // Selection shade inside this lane's drawing area
             if (sel) {
@@ -1873,6 +1885,20 @@
                 const mx = e.clientX - mrect.left;
                 const hit = sdMultiGetParamAtY(my);
                 if (!hit) return;
+
+                // Lock-icon click — anywhere in the right ~22px of the
+                // label column toggles the lane's lock state. Works from
+                // any lane (active or not), so users don't have to first
+                // activate a lane just to lock it.
+                const lockHitLeft = SD_MULTI_LABEL_WIDTH - SD_MULTI_LOCK_HIT_W;
+                const lockHitRight = SD_MULTI_LABEL_WIDTH;
+                if (mx >= lockHitLeft && mx <= lockHitRight) {
+                    if (typeof window.sdToggleLockLane === 'function') {
+                        window.sdToggleLockLane(hit.param.envelopeId);
+                    }
+                    return;
+                }
+
                 const wasActive = sdActiveParamId === hit.param.envelopeId;
                 if (!wasActive) {
                     sdActiveParamId = hit.param.envelopeId;
