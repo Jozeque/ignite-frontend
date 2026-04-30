@@ -2330,10 +2330,17 @@
     let _sdFloorCeilKey = null;
 
     function _getFloorCeilTargets() {
-        // Floor/Ceiling sliders skip locked lanes — their curves stay at
-        // whatever the user crafted, no scaling.
-        const targets = sdCanvasParams.filter(p => p.points.length > 0 && !p.locked);
-        return targets;
+        // Match the All-Lanes / active-only pattern that every other
+        // slider uses. Previously Floor/Ceiling applied to every lane
+        // regardless of the toggle — a long-standing bug. Locked lanes
+        // are also filtered out: their curves stay where the user
+        // crafted them.
+        if (sdApplyAllMode) {
+            return sdCanvasParams.filter(p => p.points.length > 0 && !p.locked);
+        }
+        if (!sdActiveParamId) return [];
+        const param = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
+        return (param && param.points.length > 0 && !param.locked) ? [param] : [];
     }
 
     function _ensureFloorCeilSnapshot() {
