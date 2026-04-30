@@ -129,10 +129,28 @@
     <div class="titlebar-drag h-9 bg-zinc-950 border-b border-white/5 flex items-center pl-4 pr-36 shrink-0">
         <span class="text-[11px] font-black tracking-[0.3em] uppercase text-gradient titlebar-no-drag">STRIDE</span>
         <div class="flex-1"></div>
-        <!-- Connection status -->
-        <div id="link-status" class="titlebar-no-drag flex items-center gap-2 mr-4">
-            <div id="link-dot" class="w-1.5 h-1.5 rounded-full bg-zinc-600"></div>
-            <span id="link-label" class="text-[9px] text-zinc-500 uppercase font-bold tracking-widest">Disconnected</span>
+        <!-- Connection status (clickable — opens troubleshooter when red).
+             Bigger and brighter than before so users notice when they're
+             not connected. Pulses on Scan press if disconnected. -->
+        <button id="link-status" type="button" onclick="sdToggleConnectionHelp()" title="Click for troubleshooting" class="titlebar-no-drag flex items-center gap-2 mr-4 px-2.5 py-1 rounded-md hover:bg-white/5 transition-colors cursor-pointer">
+            <div id="link-dot" class="w-2 h-2 rounded-full bg-zinc-600"></div>
+            <span id="link-label" class="text-[10px] text-zinc-400 uppercase font-bold tracking-widest">Disconnected</span>
+        </button>
+
+        <!-- Connection troubleshooter popover — opens on click of #link-status.
+             Lists the most common failure modes with concrete fixes so users
+             can self-diagnose instead of bouncing through email support. -->
+        <div id="sd-connection-help" class="hidden fixed top-12 right-4 z-50 w-[380px] rounded-xl border border-white/10 shadow-2xl titlebar-no-drag" style="background: rgba(9,9,11,0.98); backdrop-filter: blur(14px);">
+            <div class="px-4 py-3 border-b border-white/5 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <div id="sd-help-dot" class="w-2.5 h-2.5 rounded-full bg-zinc-600"></div>
+                    <span id="sd-help-title" class="text-[12px] text-zinc-200 font-bold uppercase tracking-wider">Not Connected</span>
+                </div>
+                <button onclick="sdToggleConnectionHelp()" class="text-zinc-500 hover:text-zinc-300 text-lg leading-none">×</button>
+            </div>
+            <div id="sd-help-body" class="p-4 text-[11px] text-zinc-300 space-y-3 leading-relaxed">
+                <!-- populated dynamically by sdRenderConnectionHelp() -->
+            </div>
         </div>
         <!-- Sidebar Toggle -->
         <button onclick="document.getElementById('sd-sidebar').classList.toggle('hidden'); document.getElementById('sd-sidebar').classList.toggle('flex')" class="titlebar-no-drag text-[9px] text-zinc-500 hover:text-orange-400 uppercase font-bold tracking-widest transition-colors mr-3" title="Toggle sidebar">
@@ -625,16 +643,18 @@
                         <button onclick="sdQuantizeLane(1/6)" class="text-[9px] text-teal-400/80 hover:text-teal-300 bg-teal-500/5 hover:bg-teal-500/15 px-1.5 py-0.5 rounded font-bold transition-colors">1/16T</button>
                     </div>
                     <button onclick="sdApplySwing()" class="text-[9px] text-amber-400/80 hover:text-amber-300 bg-amber-500/5 hover:bg-amber-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Swing</button>
-                    <div class="flex items-center gap-0.5">
-                        <button onclick="sdTimeStretch(2)" title="Stretch 2x" class="text-[9px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded font-bold transition-colors">2x</button>
-                        <button onclick="sdTimeStretch(0.5)" title="Compress ½x" class="text-[9px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded font-bold transition-colors">½x</button>
-                    </div>
                 </div>
-                <!-- Group D: Actions (Mutate, Shuffle, All Lanes, Lock All) — sliders moved to sidebar EDIT section -->
+                <!-- Group D: Actions (Mutate, Shuffle, Stretch, All Lanes, Lock All) — sliders moved to sidebar EDIT section -->
                 <div class="flex items-center gap-1 shrink-0">
                     <div class="w-px h-4 bg-white/10"></div>
                     <button id="sd-mutate-btn" onclick="sdMutate()" title="Mutate: reshape active" class="text-[9px] text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors">Mutate</button>
                     <button onclick="sdShuffleLanes()" title="Shuffle curves between lanes" class="text-[9px] text-violet-400 hover:text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 hover:border-violet-500/40 px-2 py-0.5 rounded uppercase font-bold transition-colors">Shuffle</button>
+                    <div class="w-px h-4 bg-white/10"></div>
+                    <div class="flex items-center gap-1 bg-sky-500/5 border border-sky-500/20 rounded px-1.5 py-0.5">
+                        <span class="text-[9px] text-sky-300/70 font-black uppercase tracking-wider">Stretch</span>
+                        <button onclick="sdTimeStretch(2)" title="Stretch 2x — doubles the lane length" class="text-[10px] text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/30 hover:border-sky-400/60 px-2 py-0.5 rounded font-black transition-colors">2x</button>
+                        <button onclick="sdTimeStretch(0.5)" title="Compress 1/2x — halves the lane length" class="text-[10px] text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/30 hover:border-sky-400/60 px-2 py-0.5 rounded font-black transition-colors">1/2x</button>
+                    </div>
                     <button id="sd-apply-all-toggle" onclick="sdToggleApplyAll()" title="When active, tools apply to ALL lanes" class="text-[9px] text-zinc-500 bg-black/50 border border-white/5 hover:border-fuchsia-500/30 px-2 py-0.5 rounded uppercase font-bold transition-colors">All Lanes</button>
                     <button onclick="sdToggleLockAll()" title="Lock or unlock every lane at once. Locked lanes are skipped by all generative tools." class="text-[9px] text-amber-400/80 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 hover:border-amber-500/40 px-2 py-0.5 rounded uppercase font-bold transition-colors flex items-center gap-1">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>

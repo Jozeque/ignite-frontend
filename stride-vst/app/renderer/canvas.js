@@ -140,7 +140,16 @@
         }, 500);
     }
 
-    window.sdSetBars = function(val) {
+    // Cached sticky value so scan / clip_changed handlers can resolve it
+    // synchronously without re-reading settings.json.
+    let _sdStickyBars = null;
+
+    // sdSetBars(val, persist=true)
+    //   persist=true  → user clicked a bar pill, write to settings.json (sticky)
+    //   persist=false → system-driven (rack scan, clip change, session load).
+    //                   We must NOT overwrite the user's preference in this case.
+    window.sdSetBars = function(val, persist) {
+        if (persist === undefined) persist = true;
         sdBars = val;
         document.querySelectorAll('.sd-bars-btn').forEach(btn => {
             const btnVal = parseInt(btn.textContent);
@@ -151,8 +160,20 @@
             }
         });
         sdDrawCanvasGrid();
-        _persistLastUsedBars(val);
+        if (persist) {
+            _sdStickyBars = sdValidateBars(val);
+            _persistLastUsedBars(val);
+        }
     };
+
+    // Resolve which bar count to use when the system (scan / clip_changed)
+    // wants to set bars. The user's sticky preference always wins; the
+    // Ableton-clip value is only a fallback for first-time users who never
+    // picked a bar pill.
+    function _sdResolveSystemBars(systemVal) {
+        if (_sdStickyBars && SD_VALID_BARS.includes(_sdStickyBars)) return _sdStickyBars;
+        return systemVal;
+    }
 
     // Read the user's last-used bar count from settings.json and apply it.
     // Called once during canvas init AFTER the toolbar is in the DOM.
@@ -166,6 +187,7 @@
             if (last && SD_VALID_BARS.includes(parseInt(last, 10))) {
                 // Apply WITHOUT triggering the persist write — we just read it.
                 sdBars = parseInt(last, 10);
+                _sdStickyBars = sdBars;
                 document.querySelectorAll('.sd-bars-btn').forEach(btn => {
                     const btnVal = parseInt(btn.textContent);
                     btn.className = btnVal === sdBars
@@ -182,8 +204,51 @@
     let pendingScanParams = []; // holds all params before user picks
     let scanMode = null; // 'all' or 'mapped'
 
+    // Pre-flight: every scan/apply request goes through this. If the WS
+    // to M4L is closed, we'd otherwise spin the button forever with no
+    // feedback. Returning false here lets the caller bail with a clear,
+    // actionable message instead of silent failure.
+    function _sdRequireM4LConnection() {
+        if (strideLink.connected) return true;
+        const status = document.getElementById('sd-canvas-status');
+        if (status) {
+            status.textContent = 'Not connected to Ableton — open StrideLink in Ableton, then click the status pill (top-right) for help.';
+            status.style.color = '#fbbf24';
+            setTimeout(() => { if (status) status.style.color = ''; }, 6000);
+        }
+        // Pulse the titlebar pill so the user knows where to look.
+        const pill = document.getElementById('link-status');
+        if (pill) {
+            pill.classList.add('animate-pulse');
+            setTimeout(() => pill.classList.remove('animate-pulse'), 2400);
+        }
+        return false;
+    }
+
+    // After issuing a scan we expect a rack_scanned event back. If M4L's
+    // server is up but its scanner doesn't respond (Live API stuck, track
+    // empty, or Max patcher silently broken), the spinner would hang.
+    // 8s is enough for any real scan; longer means something is wrong.
+    let _sdScanTimeoutId = null;
+    function _sdArmScanTimeout() {
+        if (_sdScanTimeoutId) clearTimeout(_sdScanTimeoutId);
+        _sdScanTimeoutId = setTimeout(() => {
+            _resetScanButton();
+            const status = document.getElementById('sd-canvas-status');
+            if (status) {
+                status.textContent = 'M4L not responding — make sure StrideLink is loaded on a track with an instrument rack, then try again.';
+                status.style.color = '#fbbf24';
+                setTimeout(() => { if (status) status.style.color = ''; }, 8000);
+            }
+        }, 8000);
+    }
+    function _sdCancelScanTimeout() {
+        if (_sdScanTimeoutId) { clearTimeout(_sdScanTimeoutId); _sdScanTimeoutId = null; }
+    }
+
     // Scan All — shows picker for user to choose which params to load
     window.scanAll = function() {
+        if (!_sdRequireM4LConnection()) return;
         scanMode = 'all';
         document.getElementById('sd-canvas-status').textContent = 'Scanning...';
         const btn = document.getElementById('scan-mapped-btn');
@@ -192,11 +257,13 @@
             btn.classList.add('animate-pulse', 'opacity-70');
             btn.disabled = true;
         }
+        _sdArmScanTimeout();
         strideLink.requestScan();
     };
 
     // Scan Mapped — only loads params that already have automation in the clip
     window.scanMapped = function() {
+        if (!_sdRequireM4LConnection()) return;
         scanMode = 'mapped';
         document.getElementById('sd-canvas-status').textContent = 'Scanning mapped...';
         const btn = document.getElementById('scan-mapped-btn');
@@ -205,10 +272,12 @@
             btn.classList.add('animate-pulse', 'opacity-70');
             btn.disabled = true;
         }
+        _sdArmScanTimeout();
         strideLink.send({ type: 'request_scan_mapped' });
     };
 
     function _resetScanButton() {
+        _sdCancelScanTimeout();
         const btn = document.getElementById('scan-mapped-btn');
         if (btn) {
             btn.textContent = 'Scan Mapped';
@@ -264,7 +333,7 @@
         document.getElementById('rack-name').textContent = rackInfo.device_name;
         document.getElementById('rack-track').textContent = 'Track: ' + rackInfo.track_name;
 
-        if (rackInfo.clip_bars && rackInfo.clip_bars > 0) sdSetBars(rackInfo.clip_bars);
+        if (rackInfo.clip_bars && rackInfo.clip_bars > 0) sdSetBars(_sdResolveSystemBars(rackInfo.clip_bars), false);
         currentRackId = (rackInfo.track_name + '_' + rackInfo.device_name).replace(/[^a-zA-Z0-9]/g, '_');
 
         // Render checkboxes
@@ -302,13 +371,21 @@
         document.getElementById('rack-track').textContent = 'Track: ' + rackInfo.track_name;
         document.getElementById('sd-param-count').textContent = sdCanvasParams.length + ' params';
 
-        if (rackInfo.clip_bars && rackInfo.clip_bars > 0) sdSetBars(rackInfo.clip_bars);
+        if (rackInfo.clip_bars && rackInfo.clip_bars > 0) sdSetBars(_sdResolveSystemBars(rackInfo.clip_bars), false);
         currentRackId = (rackInfo.track_name + '_' + rackInfo.device_name).replace(/[^a-zA-Z0-9]/g, '_');
 
         if (sdCanvasParams.length > 0) {
             document.getElementById('sd-canvas-status').textContent = 'Editor Ready';
         } else {
-            document.getElementById('sd-canvas-status').textContent = 'No automation found — arm automation in Ableton and touch your mapped knobs first';
+            // Differentiate the failure cause so the user knows what to fix.
+            const status = document.getElementById('sd-canvas-status');
+            if (!rackInfo.device_name || rackInfo.device_name === 'None') {
+                status.textContent = 'No instrument rack on track "' + (rackInfo.track_name || 'selected') + '". Add a rack with mapped parameters, then Scan Mapped again.';
+            } else {
+                status.textContent = 'Rack "' + rackInfo.device_name + '" found, but no parameters detected. Map your parameters with Quick Arm + Record to create Quick Automation Lanes, then Scan Mapped again.';
+            }
+            status.style.color = '#fbbf24';
+            setTimeout(() => { if (status) status.style.color = ''; }, 10000);
         }
 
         restoreCanvasState();
@@ -407,10 +484,11 @@
         scanMode = null;
     });
 
-    // Handle clip changes
+    // Handle clip changes — Ableton's clip length should NOT clobber the
+    // user's sticky preference. _sdResolveSystemBars returns sticky if set.
     strideLink.on('clip_changed', (msg) => {
         if (msg.clip_bars && msg.clip_bars > 0) {
-            sdSetBars(msg.clip_bars);
+            sdSetBars(_sdResolveSystemBars(msg.clip_bars), false);
         }
     });
 
@@ -492,17 +570,87 @@
         document.getElementById('guide-modal').classList.remove('hidden');
     });
 
-    // Connection status
+    // Connection status — pill in titlebar reflects WS state. The pill is
+    // clickable; sdToggleConnectionHelp() opens a troubleshooter popover.
     strideLink.on('connected', () => {
-        document.getElementById('link-dot').className = 'w-1.5 h-1.5 rounded-full bg-emerald-400';
-        document.getElementById('link-label').textContent = 'M4L Connected';
+        document.getElementById('link-dot').className = 'w-2 h-2 rounded-full bg-emerald-400';
+        const label = document.getElementById('link-label');
+        label.textContent = 'M4L Connected';
+        label.className = 'text-[10px] text-emerald-300 uppercase font-bold tracking-widest';
         document.getElementById('sd-canvas-status').textContent = 'Connected — Click Scan';
+        // Refresh the popover if it happens to be open.
+        const help = document.getElementById('sd-connection-help');
+        if (help && !help.classList.contains('hidden')) sdRenderConnectionHelp();
     });
 
     strideLink.on('disconnected', () => {
-        document.getElementById('link-dot').className = 'w-1.5 h-1.5 rounded-full bg-zinc-600';
-        document.getElementById('link-label').textContent = 'Disconnected';
+        document.getElementById('link-dot').className = 'w-2 h-2 rounded-full bg-red-500 animate-pulse';
+        const label = document.getElementById('link-label');
+        label.textContent = 'Disconnected';
+        label.className = 'text-[10px] text-red-400 uppercase font-bold tracking-widest';
+        const help = document.getElementById('sd-connection-help');
+        if (help && !help.classList.contains('hidden')) sdRenderConnectionHelp();
     });
+
+    // Troubleshooter popover — opened by clicking the connection pill.
+    // Content updates based on current WS state so the user always sees
+    // relevant fixes for what's actually wrong.
+    window.sdToggleConnectionHelp = function() {
+        const help = document.getElementById('sd-connection-help');
+        if (!help) return;
+        const willOpen = help.classList.contains('hidden');
+        if (willOpen) {
+            sdRenderConnectionHelp();
+            help.classList.remove('hidden');
+            // Click outside to close.
+            setTimeout(() => {
+                const closer = (e) => {
+                    if (!help.contains(e.target) && e.target.id !== 'link-status' && !document.getElementById('link-status').contains(e.target)) {
+                        help.classList.add('hidden');
+                        document.removeEventListener('mousedown', closer);
+                    }
+                };
+                document.addEventListener('mousedown', closer);
+            }, 0);
+        } else {
+            help.classList.add('hidden');
+        }
+    };
+
+    function sdRenderConnectionHelp() {
+        const dot = document.getElementById('sd-help-dot');
+        const title = document.getElementById('sd-help-title');
+        const body = document.getElementById('sd-help-body');
+        if (!dot || !title || !body) return;
+        if (strideLink.connected) {
+            dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400';
+            title.textContent = 'Connected to Ableton';
+            title.className = 'text-[12px] text-emerald-300 font-bold uppercase tracking-wider';
+            body.innerHTML = `
+                <p class="text-emerald-300">Stride is talking to StrideLink in Ableton.</p>
+                <p>If <strong>Scan Mapped</strong> still doesn't load any params:</p>
+                <ul class="list-disc pl-5 space-y-1 text-zinc-400">
+                    <li>Make sure the track with your instrument rack is <strong>selected</strong> in Ableton.</li>
+                    <li>Map every parameter you want to automate using <strong>Quick Arm + Record</strong> to create Quick Automation Lanes — that's how Stride detects them.</li>
+                </ul>
+            `;
+        } else {
+            dot.className = 'w-2.5 h-2.5 rounded-full bg-red-500';
+            title.textContent = 'Not Connected to Ableton';
+            title.className = 'text-[12px] text-red-400 font-bold uppercase tracking-wider';
+            body.innerHTML = `
+                <p class="text-red-300">Stride can't reach StrideLink in Ableton on port 9100.</p>
+                <p class="font-bold text-zinc-200">Try in this order:</p>
+                <ol class="list-decimal pl-5 space-y-1.5 text-zinc-300">
+                    <li>Open Ableton and drag <strong>StrideLink</strong> from User Library → Max for Live → Audio Effects onto a MIDI track. The device should appear and Stride will auto-connect within ~3 seconds.</li>
+                    <li>If StrideLink is already loaded, <strong>remove it and re-add it</strong> to the track (this restarts its server).</li>
+                    <li>If it still won't connect, <strong>quit Stride and Ableton, launch Stride first, then Ableton</strong>.</li>
+                    <li>Windows only — check that Windows Defender Firewall isn't blocking Node.js on port 9100. Allow it on private networks.</li>
+                </ol>
+                <p class="text-zinc-500 text-[10px] pt-2 border-t border-white/5">Stride retries automatically every 3 seconds. The pill will turn green when the connection is established.</p>
+            `;
+        }
+    }
 
     // ─── TEMPLATE MANAGEMENT (via Electron IPC) ─────────────
 
@@ -4826,8 +4974,9 @@
             });
         });
 
-        // Restore state
-        if (session.clip_bars) sdSetBars(session.clip_bars);
+        // Restore state — session bars apply for THIS session only, do not
+        // overwrite the user's sticky preference (per spec).
+        if (session.clip_bars) sdSetBars(session.clip_bars, false);
         if (session.device_name) {
             currentDeviceName = session.device_name;
             document.getElementById('rack-name').textContent = session.device_name;
