@@ -2076,8 +2076,14 @@
     };
     window.sdPasteLane = function(invert) {
         if (!sdActiveParamId || !sdClipboardPoints || !sdClipboardPoints.length) return;
+        const param = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
+        if (!param) return;
+        if (param.locked) {
+            const status = document.getElementById('sd-canvas-status');
+            if (status) status.textContent = 'Active lane is locked — unlock to paste';
+            return;
+        }
         pushUndo();
-        const param = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId); if (!param) return;
         const sel = sdGetSelection(); const tS = sel ? sel.startBeat : 0;
         const cD = Math.max(...sdClipboardPoints.map(p => p.time)); const tD = sel ? (sel.endBeat - sel.startBeat) : cD; const sc = cD > 0 ? tD / cD : 1;
         if (sel) param.points = param.points.filter(pt => pt.time < sel.startBeat || pt.time > sel.endBeat); else param.points = [];
@@ -2110,8 +2116,21 @@
     window.sdClosePasteTo = function() { document.getElementById('sd-paste-to-popover').classList.add('hidden'); };
     window.sdPasteToToggleAll = function(checked) { document.querySelectorAll('.sd-paste-to-cb').forEach(cb => cb.checked = checked); };
     window.sdPasteToSelected = function(invert) {
-        const ids = [...document.querySelectorAll('.sd-paste-to-cb:checked')].map(cb => cb.dataset.id);
-        if (!ids.length) return;
+        const allIds = [...document.querySelectorAll('.sd-paste-to-cb:checked')].map(cb => cb.dataset.id);
+        if (!allIds.length) return;
+        // Locked targets are filtered out — paste-to never overwrites a
+        // locked lane's curve, even if the user ticked its checkbox.
+        const ids = allIds.filter(id => {
+            const p = sdCanvasParams.find(p => p.envelopeId === id);
+            return p && !p.locked;
+        });
+        const skippedLocked = allIds.length - ids.length;
+        if (!ids.length) {
+            const status = document.getElementById('sd-canvas-status');
+            if (status) status.textContent = 'All selected lanes locked — unlock to paste';
+            sdClosePasteTo();
+            return;
+        }
         pushUndo();
         const srcPoints = sdClipboardPoints;
         if (!srcPoints || !srcPoints.length) return;
@@ -2124,7 +2143,8 @@
             param.points.sort((a, b) => a.time - b.time);
         });
         sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
-        document.getElementById('sd-canvas-status').textContent = `Pasted${invert ? ' inv' : ''} to ${ids.length} lane${ids.length > 1 ? 's' : ''}`;
+        const skipNote = skippedLocked > 0 ? ` (${skippedLocked} locked, skipped)` : '';
+        document.getElementById('sd-canvas-status').textContent = `Pasted${invert ? ' inv' : ''} to ${ids.length} lane${ids.length > 1 ? 's' : ''}${skipNote}`;
         sdClosePasteTo();
     };
     document.addEventListener('click', function(e) {
@@ -2172,10 +2192,12 @@
     window.sdApplySmooth = function(val) {
         document.getElementById('sd-smooth-val').textContent = val + '%';
         if (!sdActiveParamId) return;
-        const targets = sdApplyAllMode ? sdCanvasParams.filter(p => p.points.length >= 3) : [];
+        // Locked lanes never receive slider edits — filter both in
+        // All-Lanes mode and skip the active branch when active is locked.
+        const targets = sdApplyAllMode ? sdCanvasParams.filter(p => p.points.length >= 3 && !p.locked) : [];
         if (!sdApplyAllMode) {
             const param = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
-            if (!param || param.points.length < 3) return;
+            if (!param || param.points.length < 3 || param.locked) return;
             targets.push(param);
         }
         if (!targets.length) return;
@@ -2205,10 +2227,11 @@
     window.sdApplyIntensity = function(val) {
         document.getElementById('sd-intensity-val').textContent = val + '%';
         if (!sdActiveParamId) return;
-        const targets = sdApplyAllMode ? sdCanvasParams.filter(p => p.points.length > 0) : [];
+        // Locked lanes never receive slider edits.
+        const targets = sdApplyAllMode ? sdCanvasParams.filter(p => p.points.length > 0 && !p.locked) : [];
         if (!sdApplyAllMode) {
             const param = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
-            if (!param) return;
+            if (!param || param.locked) return;
             targets.push(param);
         }
         if (!targets.length) return;
@@ -2235,11 +2258,12 @@
         document.getElementById('sd-curve-val').textContent = val + '%';
         const amount = parseInt(val) / 100; // 0 to 1
 
-        const targets = sdApplyAllMode ? sdCanvasParams.filter(p => p.points.length >= 2) : [];
+        // Locked lanes never receive slider edits.
+        const targets = sdApplyAllMode ? sdCanvasParams.filter(p => p.points.length >= 2 && !p.locked) : [];
         if (!sdApplyAllMode) {
             if (!sdActiveParamId) return;
             const param = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
-            if (!param || param.points.length < 2) return;
+            if (!param || param.points.length < 2 || param.locked) return;
             targets.push(param);
         }
         if (!targets.length) return;
@@ -2306,7 +2330,9 @@
     let _sdFloorCeilKey = null;
 
     function _getFloorCeilTargets() {
-        const targets = sdCanvasParams.filter(p => p.points.length > 0);
+        // Floor/Ceiling sliders skip locked lanes — their curves stay at
+        // whatever the user crafted, no scaling.
+        const targets = sdCanvasParams.filter(p => p.points.length > 0 && !p.locked);
         return targets;
     }
 
