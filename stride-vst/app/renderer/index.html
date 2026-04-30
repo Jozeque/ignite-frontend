@@ -200,34 +200,40 @@
                      (Bloom/Weave with live-morph sliders). -->
                 <div id="sd-generative-section"></div>
 
-                <!-- EDIT section: live-morph sliders -->
+                <!-- EDIT section: live-morph sliders. Labels + value text
+                     are neutral zinc so they don't read as related to the
+                     tool-colored buttons (e.g. amber Smooth was confusing
+                     with amber Bloom). The slider thumb keeps a single
+                     fuchsia accent so the section still has a clear
+                     interactive cue without competing with the GENERATIVE
+                     palette. -->
                 <div>
                     <div class="text-[8px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-1.5 px-1">Edit</div>
                     <div class="flex flex-col gap-1.5 px-1">
                         <div class="flex items-center gap-2" title="Smooth — averages neighboring points to soften the curve">
                             <span class="text-[9px] font-bold text-zinc-500 uppercase w-12 shrink-0">Smooth</span>
-                            <input type="range" id="sd-smooth-slider" min="0" max="100" value="0" class="flex-1 h-1 accent-amber-500 cursor-pointer" oninput="sdApplySmooth(this.value)" />
-                            <span id="sd-smooth-val" class="text-[9px] text-amber-400/80 font-mono w-9 text-right">0%</span>
+                            <input type="range" id="sd-smooth-slider" min="0" max="100" value="0" class="flex-1 h-1 accent-fuchsia-500 cursor-pointer" oninput="sdApplySmooth(this.value)" />
+                            <span id="sd-smooth-val" class="text-[9px] text-zinc-400 font-mono w-9 text-right">0%</span>
                         </div>
                         <div class="flex items-center gap-2" title="Depth — scales values around 0.5">
                             <span class="text-[9px] font-bold text-zinc-500 uppercase w-12 shrink-0">Depth</span>
-                            <input type="range" id="sd-intensity-slider" min="0" max="200" value="100" class="flex-1 h-1 accent-rose-500 cursor-pointer" oninput="sdApplyIntensity(this.value)" />
-                            <span id="sd-intensity-val" class="text-[9px] text-rose-400/80 font-mono w-9 text-right">100%</span>
+                            <input type="range" id="sd-intensity-slider" min="0" max="200" value="100" class="flex-1 h-1 accent-fuchsia-500 cursor-pointer" oninput="sdApplyIntensity(this.value)" />
+                            <span id="sd-intensity-val" class="text-[9px] text-zinc-400 font-mono w-9 text-right">100%</span>
                         </div>
                         <div class="flex items-center gap-2" title="Curve — bends segments between points">
                             <span class="text-[9px] font-bold text-zinc-500 uppercase w-12 shrink-0">Curve</span>
-                            <input type="range" id="sd-curve-slider" min="0" max="100" value="0" class="flex-1 h-1 accent-violet-500 cursor-pointer" oninput="sdApplyCurve(this.value)" />
-                            <span id="sd-curve-val" class="text-[9px] text-violet-400/80 font-mono w-9 text-right">0%</span>
+                            <input type="range" id="sd-curve-slider" min="0" max="100" value="0" class="flex-1 h-1 accent-fuchsia-500 cursor-pointer" oninput="sdApplyCurve(this.value)" />
+                            <span id="sd-curve-val" class="text-[9px] text-zinc-400 font-mono w-9 text-right">0%</span>
                         </div>
                         <div class="flex items-center gap-2" title="Floor — minimum value of the curve">
-                            <span class="text-[9px] font-bold text-cyan-500/80 uppercase w-12 shrink-0">Floor</span>
-                            <input type="range" id="sd-floor-slider" min="0" max="100" value="0" class="flex-1 h-1 accent-cyan-500 cursor-pointer" oninput="sdApplyFloor(this.value)" />
-                            <span id="sd-floor-val" class="text-[9px] text-cyan-400/80 font-mono w-9 text-right">0%</span>
+                            <span class="text-[9px] font-bold text-zinc-500 uppercase w-12 shrink-0">Floor</span>
+                            <input type="range" id="sd-floor-slider" min="0" max="100" value="0" class="flex-1 h-1 accent-fuchsia-500 cursor-pointer" oninput="sdApplyFloor(this.value)" />
+                            <span id="sd-floor-val" class="text-[9px] text-zinc-400 font-mono w-9 text-right">0%</span>
                         </div>
                         <div class="flex items-center gap-2" title="Ceiling — maximum value of the curve">
-                            <span class="text-[9px] font-bold text-cyan-500/80 uppercase w-12 shrink-0">Ceiling</span>
-                            <input type="range" id="sd-ceil-slider" min="0" max="100" value="100" class="flex-1 h-1 accent-cyan-500 cursor-pointer" oninput="sdApplyCeiling(this.value)" />
-                            <span id="sd-ceil-val" class="text-[9px] text-cyan-400/80 font-mono w-9 text-right">100%</span>
+                            <span class="text-[9px] font-bold text-zinc-500 uppercase w-12 shrink-0">Ceiling</span>
+                            <input type="range" id="sd-ceil-slider" min="0" max="100" value="100" class="flex-1 h-1 accent-fuchsia-500 cursor-pointer" oninput="sdApplyCeiling(this.value)" />
+                            <span id="sd-ceil-val" class="text-[9px] text-zinc-400 font-mono w-9 text-right">100%</span>
                         </div>
                     </div>
                 </div>
