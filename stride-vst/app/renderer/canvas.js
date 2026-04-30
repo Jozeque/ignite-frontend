@@ -2787,13 +2787,246 @@
         document.getElementById('sd-canvas-status').textContent = 'Mutated';
     };
 
-    // ─── BLOOM ────────────────────────────────────────────────
-    // Spread the active lane's curve across all other lanes with
-    // deterministic, complementary variations.
+    // ─── TOOL MODE STATE ──────────────────────────────────────
+    // Generative tools (Bloom, Weave) operate in two states:
+    //   - default: GENERATIVE section shows the Chaos / Bloom / Weave grid
+    //   - active: section is replaced by the entered tool's panel with a
+    //     live-morph slider. Slider drags write to non-active unlocked
+    //     lanes in real time. Commit / Cancel buttons exit.
+    let _sdActiveTool = null;        // null | 'bloom' | 'weave'
+    let _sdToolSnapshot = null;      // captured at entry
+    let _sdToolDirty = false;        // has the user touched the slider?
 
+    function _sdSnapshotAll() {
+        return sdCanvasParams.map(p => ({
+            envelopeId: p.envelopeId,
+            points: p.points.map(pt => ({ time: pt.time, value: pt.value, curve: pt.curve || 0 })),
+        }));
+    }
+
+    function _sdEnterToolGuard(toolLabel, drawHint) {
+        if (!sdActiveParamId) {
+            sdShowRequirement('Select a lane first', toolLabel + ' needs an active lane to read from. Click one of the lanes in the canvas, draw a curve on it, then press ' + toolLabel + '.');
+            return false;
+        }
+        const masterParam = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
+        if (!masterParam || !masterParam.points.length) {
+            sdShowRequirement('Draw a curve first', drawHint);
+            return false;
+        }
+        if (sdCanvasParams.length < 2) {
+            sdShowRequirement('Need more lanes', toolLabel + ' spreads a curve across multiple lanes. Your rack only has one mapped parameter.');
+            return false;
+        }
+        return true;
+    }
+
+    function _sdRenderGenerativeDefault() {
+        const sec = document.getElementById('sd-generative-section');
+        if (!sec) return;
+        sec.innerHTML = '<div class="text-[8px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-1.5 px-1">Generative</div>'
+            + '<div class="grid grid-cols-3 gap-1.5">'
+            + '<button onclick="sdApplyGlobalChaos()" title="Chaos: randomize every unlocked lane" class="text-[9px] text-fuchsia-400 hover:text-white bg-transparent hover:bg-fuchsia-500/10 border border-fuchsia-500/50 hover:border-fuchsia-400 px-2 py-1.5 rounded uppercase tracking-wider font-black transition-all flex items-center justify-center gap-1">'
+            + '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>'
+            + 'Chaos</button>'
+            + '<button id="sd-bloom-btn" onclick="sdToggleBloom()" title="Bloom: complementary curves from the active lane" class="text-[9px] text-amber-400 hover:text-white bg-transparent hover:bg-amber-500/10 border border-amber-500/50 hover:border-amber-400 px-2 py-1.5 rounded uppercase tracking-wider font-black transition-all flex items-center justify-center gap-1">'
+            + '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m-8-9H3m18 0h-1m-2.636-5.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m11.314 11.314l.707.707"/></svg>'
+            + 'Bloom</button>'
+            + '<button id="sd-weave-btn" onclick="sdToggleWeave()" title="Weave: phase-shift other lanes so peaks do not overlap" class="text-[9px] text-cyan-400 hover:text-white bg-transparent hover:bg-cyan-500/10 border border-cyan-500/50 hover:border-cyan-400 px-2 py-1.5 rounded uppercase tracking-wider font-black transition-all flex items-center justify-center gap-1">'
+            + '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>'
+            + 'Weave</button>'
+            + '</div>';
+    }
+
+    function _sdRenderBloomPanel() {
+        const sec = document.getElementById('sd-generative-section');
+        if (!sec) return;
+        sec.innerHTML = ''
+            + '<div class="flex items-center justify-between mb-2 px-1">'
+            + '<button onclick="sdCancelTool()" title="Cancel and revert" class="text-[9px] text-zinc-500 hover:text-zinc-200 transition-colors flex items-center gap-0.5">'
+            + '<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>Back</button>'
+            + '<span class="text-[9px] font-black text-amber-400 uppercase tracking-[0.2em]">Bloom</span>'
+            + '<span class="text-[8px] text-amber-400/70 uppercase tracking-widest font-bold">Live</span>'
+            + '</div>'
+            + '<div class="px-1 flex flex-col gap-2">'
+            + '<div class="flex items-center gap-2">'
+            + '<span class="text-[9px] font-bold text-zinc-500 uppercase w-12 shrink-0">Spread</span>'
+            + '<input type="range" id="sd-bloom-spread" min="0" max="100" value="50" class="flex-1 h-1 accent-amber-500 cursor-pointer" oninput="_sdToolMorph(this.value)">'
+            + '<span id="sd-bloom-val" class="text-[9px] text-amber-400 font-mono w-9 text-right">50%</span>'
+            + '</div>'
+            + '<div class="flex gap-1.5 mt-1">'
+            + '<button onclick="sdCommitTool()" class="flex-1 text-[9px] text-black bg-amber-500 hover:bg-amber-400 py-1.5 rounded uppercase tracking-wider font-bold transition-colors">Commit</button>'
+            + '<button onclick="sdCancelTool()" class="flex-1 text-[9px] text-zinc-400 bg-white/5 hover:bg-white/10 border border-white/10 py-1.5 rounded uppercase tracking-wider font-bold transition-colors">Cancel</button>'
+            + '</div>'
+            + '</div>';
+    }
+
+    function _sdRenderWeavePanel() {
+        const sec = document.getElementById('sd-generative-section');
+        if (!sec) return;
+        const isChase = _weaveMode === 'chase';
+        const chaseClass = isChase ? 'text-cyan-400 bg-cyan-500/20 border-cyan-500/40' : 'text-zinc-500 bg-transparent border-white/10 hover:border-white/20';
+        const fillClass  = !isChase ? 'text-cyan-400 bg-cyan-500/20 border-cyan-500/40' : 'text-zinc-500 bg-transparent border-white/10 hover:border-white/20';
+        const desc = isChase ? 'Same shape, phase-shifted — peaks never overlap' : 'Counterpoint — lanes move where the source is still';
+        sec.innerHTML = ''
+            + '<div class="flex items-center justify-between mb-2 px-1">'
+            + '<button onclick="sdCancelTool()" title="Cancel and revert" class="text-[9px] text-zinc-500 hover:text-zinc-200 transition-colors flex items-center gap-0.5">'
+            + '<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>Back</button>'
+            + '<span class="text-[9px] font-black text-cyan-400 uppercase tracking-[0.2em]">Weave</span>'
+            + '<span class="text-[8px] text-cyan-400/70 uppercase tracking-widest font-bold">Live</span>'
+            + '</div>'
+            + '<div class="px-1 flex flex-col gap-2">'
+            + '<div class="flex gap-1.5">'
+            + '<button id="sd-weave-mode-chase" onclick="sdSetWeaveMode(\'chase\')" class="flex-1 text-[8px] ' + chaseClass + ' border py-1 rounded uppercase tracking-widest font-bold">Chase</button>'
+            + '<button id="sd-weave-mode-fill" onclick="sdSetWeaveMode(\'fill\')" class="flex-1 text-[8px] ' + fillClass + ' border py-1 rounded uppercase tracking-widest font-bold">Fill</button>'
+            + '</div>'
+            + '<div id="sd-weave-desc" class="text-[8px] text-zinc-600 leading-relaxed px-0.5">' + desc + '</div>'
+            + '<div class="flex items-center gap-2">'
+            + '<span class="text-[9px] font-bold text-zinc-500 uppercase w-12 shrink-0">Spread</span>'
+            + '<input type="range" id="sd-weave-spread" min="0" max="100" value="50" class="flex-1 h-1 accent-cyan-500 cursor-pointer" oninput="_sdToolMorph(this.value)">'
+            + '<span id="sd-weave-val" class="text-[9px] text-cyan-400 font-mono w-9 text-right">50%</span>'
+            + '</div>'
+            + '<div class="flex gap-1.5 mt-1">'
+            + '<button onclick="sdCommitTool()" class="flex-1 text-[9px] text-black bg-cyan-500 hover:bg-cyan-400 py-1.5 rounded uppercase tracking-wider font-bold transition-colors">Commit</button>'
+            + '<button onclick="sdCancelTool()" class="flex-1 text-[9px] text-zinc-400 bg-white/5 hover:bg-white/10 border border-white/10 py-1.5 rounded uppercase tracking-wider font-bold transition-colors">Cancel</button>'
+            + '</div>'
+            + '</div>';
+    }
+
+    function _sdRestoreRecipientsFromSnapshot() {
+        if (!_sdToolSnapshot) return;
+        _sdToolSnapshot.forEach(sp => {
+            if (sp.envelopeId === sdActiveParamId) return;
+            const param = sdCanvasParams.find(p => p.envelopeId === sp.envelopeId);
+            if (param && !param.locked) {
+                param.points = sp.points.map(pt => ({ ...pt }));
+            }
+        });
+    }
+
+    window._sdToolMorph = function(val) {
+        _sdToolDirty = true;
+        if (_sdActiveTool === 'bloom') {
+            const valEl = document.getElementById('sd-bloom-val');
+            if (valEl) valEl.textContent = val + '%';
+            _sdRestoreRecipientsFromSnapshot();
+            _sdBloomCompute();
+        } else if (_sdActiveTool === 'weave') {
+            const valEl = document.getElementById('sd-weave-val');
+            if (valEl) valEl.textContent = val + '%';
+            _sdRestoreRecipientsFromSnapshot();
+            _sdWeaveCompute();
+        }
+        sdRenderSidebar();
+        sdDrawCanvasGrid();
+    };
+
+    window.sdCommitTool = function() {
+        if (!_sdActiveTool) return;
+        if (_sdToolDirty && _sdToolSnapshot) {
+            undoStack.push(_sdToolSnapshot);
+            if (undoStack.length > MAX_UNDO) undoStack.shift();
+            redoStack = [];
+        }
+        _sdActiveTool = null;
+        _sdToolSnapshot = null;
+        _sdToolDirty = false;
+        _sdRenderGenerativeDefault();
+        sdRenderSidebar();
+        sdDrawCanvasGrid();
+    };
+
+    window.sdCancelTool = function() {
+        if (!_sdActiveTool) return;
+        if (_sdToolSnapshot) applySnapshot(_sdToolSnapshot);
+        _sdActiveTool = null;
+        _sdToolSnapshot = null;
+        _sdToolDirty = false;
+        _sdRenderGenerativeDefault();
+    };
+
+    document.addEventListener('keydown', e => {
+        if (e.key !== 'Escape') return;
+        if (!_sdActiveTool) return;
+        const tag = (e.target && e.target.tagName) || '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+        window.sdCancelTool();
+    });
+
+    // ─── BLOOM ────────────────────────────────────────────────
+    // Pure math, no pushUndo. Reads the inline slider sd-bloom-spread
+    // and the master from sdActiveParamId; writes to every non-active,
+    // non-locked lane.
+    function _sdBloomCompute() {
+        const slider = document.getElementById('sd-bloom-spread');
+        const masterParam = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
+        if (!slider || !masterParam || !masterParam.points.length) return;
+        const spread = parseInt(slider.value) / 100;
+        const totalBeats = sdGetBars() * 4;
+        const masterPts = masterParam.points.map(pt => ({
+            t: pt.time / totalBeats,
+            v: pt.value,
+            curve: pt.curve || 0,
+        }));
+        const transforms = [
+            { phase: 0.125,  invert: false, ampScale: 0.85, ampOff: 0.08, mirror: false },
+            { phase: 0,      invert: true,  ampScale: 1.0,  ampOff: 0,    mirror: false },
+            { phase: 0.25,   invert: false, ampScale: 0.7,  ampOff: 0.15, mirror: false },
+            { phase: 0,      invert: false, ampScale: 1.0,  ampOff: 0,    mirror: true  },
+            { phase: 0.5,    invert: false, ampScale: 0.9,  ampOff: 0.05, mirror: false },
+            { phase: 0.125,  invert: true,  ampScale: 0.8,  ampOff: 0.1,  mirror: false },
+            { phase: 0.375,  invert: false, ampScale: 0.6,  ampOff: 0.2,  mirror: true  },
+            { phase: 0,      invert: true,  ampScale: 0.75, ampOff: 0.12, mirror: true  },
+            { phase: 0.0625, invert: false, ampScale: 0.95, ampOff: 0.03, mirror: false },
+            { phase: 0.1875, invert: true,  ampScale: 0.85, ampOff: 0.08, mirror: true  },
+        ];
+        let laneIdx = 0;
+        sdCanvasParams.forEach(param => {
+            if (param.envelopeId === sdActiveParamId) return;
+            if (param.locked) return;
+            const tx = transforms[laneIdx % transforms.length];
+            laneIdx++;
+            let pts = masterPts.map(p => ({ t: p.t, v: p.v, curve: p.curve }));
+            const phaseAmt = tx.phase * spread;
+            if (phaseAmt > 0) {
+                pts = pts.map(p => ({ t: (p.t + phaseAmt) % 1.0, v: p.v, curve: p.curve }));
+                pts.sort((a, b) => a.t - b.t);
+            }
+            if (tx.mirror && spread > 0.2) {
+                pts = pts.map(p => ({ t: 1.0 - p.t, v: p.v, curve: p.curve ? -p.curve : 0 }));
+                pts.sort((a, b) => a.t - b.t);
+            }
+            if (tx.invert) {
+                pts = pts.map(p => ({
+                    t: p.t,
+                    v: p.v + (1.0 - 2 * p.v) * spread,
+                    curve: p.curve ? p.curve * (1 - 2 * spread) : 0,
+                }));
+            }
+            const scale = 1.0 + (tx.ampScale - 1.0) * spread;
+            const offset = tx.ampOff * spread;
+            pts = pts.map(p => ({
+                t: p.t,
+                v: Math.max(0, Math.min(1, (p.v - 0.5) * scale + 0.5 + offset)),
+                curve: p.curve,
+            }));
+            param.points = pts.map(p => ({
+                time: Math.round(p.t * totalBeats * 10000) / 10000,
+                value: Math.max(0, Math.min(1, p.v)),
+                curve: p.curve || 0,
+            }));
+        });
+    }
+
+    // sdToggleBloom now ENTERS the inline live-morph panel instead of
+    // toggling a popover modal. If already in Bloom mode, acts as Cancel.
     window.sdToggleBloom = function() {
-        const pop = document.getElementById('sd-bloom-popover');
-        pop.classList.toggle('hidden');
+        if (_sdActiveTool === 'bloom') { window.sdCancelTool(); return; }
+        if (!_sdEnterToolGuard('Bloom', 'Bloom spreads the active lane’s curve across all other lanes with complementary variations. Draw a curve on the active lane, then press Bloom.')) return;
+        _sdActiveTool = 'bloom';
+        _sdToolSnapshot = _sdSnapshotAll();
+        _sdToolDirty = false;
+        _sdRenderBloomPanel();
     };
 
     window.sdApplyBloom = function() {
@@ -2918,24 +3151,44 @@
     // Chase = same shape, phase-shifted so peaks never overlap (traveling wave).
     // Fill = counterpoint — lanes move where the source is still, hold where it moves.
 
+    let _weaveMode = 'chase'; // 'chase' or 'fill'
+
     window.sdToggleWeave = function() {
-        const pop = document.getElementById('sd-weave-popover');
-        pop.classList.toggle('hidden');
+        if (_sdActiveTool === 'weave') { window.sdCancelTool(); return; }
+        if (!_sdEnterToolGuard('Weave', 'Weave creates complementary automation across lanes based on a source curve. Draw a curve on the active lane, then press Weave again.')) return;
+        _sdActiveTool = 'weave';
+        _sdToolSnapshot = _sdSnapshotAll();
+        _sdToolDirty = false;
+        _sdRenderWeavePanel();
     };
 
-    let _weaveMode = 'chase'; // 'chase' or 'fill'
     window.sdSetWeaveMode = function(mode) {
         _weaveMode = mode;
-        document.getElementById('sd-weave-mode-chase').className = mode === 'chase'
-            ? 'flex-1 text-[8px] text-cyan-400 bg-cyan-500/20 border border-cyan-500/40 py-1 rounded-lg uppercase tracking-widest font-bold'
-            : 'flex-1 text-[8px] text-zinc-500 bg-transparent border border-white/10 hover:border-white/20 py-1 rounded-lg uppercase tracking-widest font-bold';
-        document.getElementById('sd-weave-mode-fill').className = mode === 'fill'
-            ? 'flex-1 text-[8px] text-cyan-400 bg-cyan-500/20 border border-cyan-500/40 py-1 rounded-lg uppercase tracking-widest font-bold'
-            : 'flex-1 text-[8px] text-zinc-500 bg-transparent border border-white/10 hover:border-white/20 py-1 rounded-lg uppercase tracking-widest font-bold';
-        document.getElementById('sd-weave-desc').textContent = mode === 'chase'
-            ? 'Same shape, phase-shifted — peaks never overlap'
-            : 'Counterpoint — lanes move where the source is still';
+        // Re-render the panel so the mode buttons reflect the new state,
+        // then re-run live morph from the snapshot so the canvas updates.
+        if (_sdActiveTool === 'weave') {
+            _sdRenderWeavePanel();
+            _sdRestoreRecipientsFromSnapshot();
+            _sdWeaveCompute();
+            _sdToolDirty = true;
+            sdRenderSidebar();
+            sdDrawCanvasGrid();
+        }
     };
+
+    // Pure math, no pushUndo — used by the live-morph slider.
+    function _sdWeaveCompute() {
+        const slider = document.getElementById('sd-weave-spread');
+        const sourceParam = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
+        if (!slider || !sourceParam || !sourceParam.points.length) return;
+        const spread = parseInt(slider.value) / 100;
+        const totalBeats = sdGetBars() * 4;
+        if (_weaveMode === 'chase') {
+            _weaveChase(sourceParam, spread, totalBeats);
+        } else {
+            _weaveFill(sourceParam, spread, totalBeats);
+        }
+    }
 
     window.sdApplyWeave = function() {
         if (!sdActiveParamId) {
@@ -5339,6 +5592,10 @@
         // toolbar's hardcoded default of 8). No-op for first-run users
         // who haven't picked a bar count yet.
         sdApplyStickyBars();
+        // Paint the default GENERATIVE section (Chaos / Bloom / Weave grid).
+        // Active-tool panels replace this on click and Cancel/Commit
+        // restore it via _sdRenderGenerativeDefault.
+        _sdRenderGenerativeDefault();
     });
 
 })();
