@@ -2983,10 +2983,23 @@
             { phase: 0.1875, invert: true,  ampScale: 0.85, ampOff: 0.08, mirror: true  },
         ];
         let laneIdx = 0;
+        // Diagnostic — set to true and reload to log per-lane bloom math
+        // to DevTools (Ctrl+Shift+I → Console). Useful when a lane
+        // appears unresponsive: paste the log to identify the transform
+        // that lane is getting and whether its math produces visible
+        // change at the current Morph value.
+        const DEBUG_BLOOM = false;
         sdCanvasParams.forEach(param => {
-            if (param.envelopeId === sdActiveParamId) return;
-            if (param.locked) return;
+            if (param.envelopeId === sdActiveParamId) {
+                if (DEBUG_BLOOM) console.log('[Bloom] SKIP master:', param.name);
+                return;
+            }
+            if (param.locked) {
+                if (DEBUG_BLOOM) console.log('[Bloom] SKIP locked:', param.name);
+                return;
+            }
             const tx = transforms[laneIdx % transforms.length];
+            if (DEBUG_BLOOM) console.log('[Bloom] lane', laneIdx, param.name, 'tx#' + (laneIdx % transforms.length), tx, 'spread=' + spread);
             laneIdx++;
             let pts = masterPts.map(p => ({ t: p.t, v: p.v, curve: p.curve }));
             const phaseAmt = tx.phase * spread;
