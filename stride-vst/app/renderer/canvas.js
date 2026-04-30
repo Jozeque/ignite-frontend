@@ -111,9 +111,33 @@
 
     // ─── BARS ─────────────────────────────────────────────
 
+    // Valid loop-length values (matches the toolbar pill row).
+    const SD_VALID_BARS = [2, 4, 8, 16];
+    function sdValidateBars(val) {
+        const n = parseInt(val, 10);
+        return SD_VALID_BARS.includes(n) ? n : 4;
+    }
+
     function sdGetBars() {
         if (sdBars > 0) return sdBars;
         return 8;
+    }
+
+    // Debounced settings.json write so rapid-fire bar clicks don't hammer
+    // disk. Stride remembers the last bar count the user picked and
+    // applies it on next launch / new rack scan.
+    let _sdBarsSaveTimer = null;
+    function _persistLastUsedBars(val) {
+        if (!window.stride || !window.stride.loadSettings || !window.stride.saveSettings) return;
+        if (_sdBarsSaveTimer) clearTimeout(_sdBarsSaveTimer);
+        _sdBarsSaveTimer = setTimeout(async () => {
+            try {
+                const res = await window.stride.loadSettings();
+                const settings = (res && res.settings) || {};
+                settings.lastUsedBars = sdValidateBars(val);
+                await window.stride.saveSettings(settings);
+            } catch (e) { /* non-critical */ }
+        }, 500);
     }
 
     window.sdSetBars = function(val) {
@@ -127,7 +151,31 @@
             }
         });
         sdDrawCanvasGrid();
+        _persistLastUsedBars(val);
     };
+
+    // Read the user's last-used bar count from settings.json and apply it.
+    // Called once during canvas init AFTER the toolbar is in the DOM.
+    // Skipped silently if the setting is missing/invalid (falls back to
+    // whatever the toolbar's default-selected pill was, currently 8).
+    async function sdApplyStickyBars() {
+        if (!window.stride || !window.stride.loadSettings) return;
+        try {
+            const res = await window.stride.loadSettings();
+            const last = res && res.settings && res.settings.lastUsedBars;
+            if (last && SD_VALID_BARS.includes(parseInt(last, 10))) {
+                // Apply WITHOUT triggering the persist write — we just read it.
+                sdBars = parseInt(last, 10);
+                document.querySelectorAll('.sd-bars-btn').forEach(btn => {
+                    const btnVal = parseInt(btn.textContent);
+                    btn.className = btnVal === sdBars
+                        ? 'sd-bars-btn text-[11px] text-fuchsia-400 bg-fuchsia-500/20 px-3 py-1 rounded font-bold transition-colors'
+                        : 'sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-3 py-1 rounded font-bold transition-colors';
+                });
+                sdDrawCanvasGrid();
+            }
+        } catch (e) { /* non-critical */ }
+    }
 
     // ─── SCAN MODES ──────────────────────────────────────
 
@@ -191,6 +239,7 @@
                 id: p.id,
                 _path: p._path,
                 is_log: p.is_log || false,
+                locked: false,
                 points: []
             }));
 
@@ -241,6 +290,7 @@
             id: p.id,
             _path: p._path,
             is_log: p.is_log || false,
+            locked: false,
             points: []
         }));
 
@@ -963,10 +1013,16 @@
 
     async function saveCanvasState() {
         if (!currentRackId || !window.stride) return;
-        const state = sdCanvasParams.filter(p => p.points.length > 0).map(p => ({
-            envelopeId: p.envelopeId,
-            points: p.points.map(pt => ({ time: pt.time, value: pt.value, curve: pt.curve || 0 }))
-        }));
+        // Save lanes that either have points OR are explicitly locked.
+        // A locked-but-empty lane is still meaningful intent (the user
+        // marked it "don't touch") so we preserve that across reloads.
+        const state = sdCanvasParams
+            .filter(p => p.points.length > 0 || p.locked)
+            .map(p => ({
+                envelopeId: p.envelopeId,
+                locked: !!p.locked,
+                points: p.points.map(pt => ({ time: pt.time, value: pt.value, curve: pt.curve || 0 }))
+            }));
         await window.stride.saveCanvasState(currentRackId, state);
     }
 
@@ -976,7 +1032,9 @@
         if (result.success && result.state && Array.isArray(result.state)) {
             result.state.forEach(sp => {
                 const param = sdCanvasParams.find(p => p.envelopeId === sp.envelopeId);
-                if (param && sp.points) param.points = sp.points;
+                if (!param) return;
+                if (sp.points) param.points = sp.points;
+                if (typeof sp.locked === 'boolean') param.locked = sp.locked;
             });
         }
     }
@@ -1090,14 +1148,33 @@
         list.innerHTML = sdCanvasParams.map(p => {
             nameIndex[p.name] = (nameIndex[p.name] || 0) + 1;
             const displayName = nameCounts[p.name] > 1 ? `${p.name} (${nameIndex[p.name]})` : p.name;
+            const isActive = sdActiveParamId === p.envelopeId;
+            const isLocked = !!p.locked;
+            // Lock icon SVG — outline when unlocked (zinc-500), filled with
+            // amber when locked. onclick stops propagation so it doesn't
+            // also fire the lane's "set active" handler.
+            const lockIcon = isLocked
+                ? `<svg class="w-3 h-3 text-amber-400 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a5 5 0 00-5 5v3H6a2 2 0 00-2 2v9a2 2 0 002 2h12a2 2 0 002-2v-9a2 2 0 00-2-2h-1V7a5 5 0 00-5-5zm-3 8V7a3 3 0 016 0v3H9z"/></svg>`
+                : `<svg class="w-3 h-3 text-zinc-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>`;
+            const dim = isLocked ? 'opacity-60' : '';
+            const bg = isActive
+                ? 'bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/30'
+                : isLocked
+                    ? 'bg-amber-500/5 text-zinc-400 border border-amber-500/20'
+                    : 'bg-black/20 text-zinc-400 border border-white/5 hover:bg-white/5';
             return `
-            <button onclick="sdSetActiveParam('${p.envelopeId}')" class="w-full text-left px-3 py-2 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-colors ${sdActiveParamId === p.envelopeId ? 'bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/30' : 'bg-black/20 text-zinc-400 border border-white/5 hover:bg-white/5'}">
-                <div class="truncate">${displayName}</div>
-                <div class="flex items-center justify-between mt-0.5">
-                    <span class="text-[8px] text-zinc-600">${p.points.length} pts${p.is_log ? ' · log' : ''}</span>
-                    <span class="text-[8px] text-zinc-600 font-mono">${fmtVal(p.min)} - ${fmtVal(p.max)}</span>
-                </div>
-            </button>`;
+            <div class="relative ${dim}">
+                <button onclick="sdSetActiveParam('${p.envelopeId}')" class="w-full text-left px-3 py-2 pr-9 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-colors ${bg}">
+                    <div class="truncate">${displayName}</div>
+                    <div class="flex items-center justify-between mt-0.5">
+                        <span class="text-[8px] text-zinc-600">${p.points.length} pts${p.is_log ? ' · log' : ''}</span>
+                        <span class="text-[8px] text-zinc-600 font-mono">${fmtVal(p.min)} - ${fmtVal(p.max)}</span>
+                    </div>
+                </button>
+                <button onclick="event.stopPropagation(); window.sdToggleLockLane('${p.envelopeId}')" class="absolute top-1.5 right-1.5 p-1 rounded hover:bg-white/10 transition-colors" title="${isLocked ? 'Locked — generative tools and sliders skip this lane. Click to unlock.' : 'Lock this lane — generative tools and sliders will skip it.'}">
+                    ${lockIcon}
+                </button>
+            </div>`;
         }).join('');
 
         // Keep the empty-canvas CTA in sync with the param list
@@ -1105,6 +1182,34 @@
         // Keep Bloom/Weave/Mutate gray-out state in sync
         sdUpdateToolAvailability();
     }
+
+    // Toggle the lock state of a single lane. Locked lanes are skipped
+    // by all generative tools, sliders, and manual drawing. The .alc
+    // export still includes them — lock is about EDIT protection.
+    window.sdToggleLockLane = function(envelopeId) {
+        const p = sdCanvasParams.find(p => p.envelopeId === envelopeId);
+        if (!p) return;
+        p.locked = !p.locked;
+        sdRenderSidebar();
+        sdDrawCanvasGrid();
+        saveCanvasState(); // persist the lock state immediately
+    };
+
+    // Toolbar action: lock or unlock every lane at once. If any lane is
+    // currently unlocked, the action LOCKS all. If everything is already
+    // locked, the action UNLOCKS all. Single-button toggle.
+    window.sdToggleLockAll = function() {
+        if (!sdCanvasParams.length) return;
+        const anyUnlocked = sdCanvasParams.some(p => !p.locked);
+        sdCanvasParams.forEach(p => { p.locked = anyUnlocked; });
+        sdRenderSidebar();
+        sdDrawCanvasGrid();
+        saveCanvasState();
+        const status = document.getElementById('sd-canvas-status');
+        if (status) status.textContent = anyUnlocked
+            ? `All ${sdCanvasParams.length} lanes locked`
+            : `All ${sdCanvasParams.length} lanes unlocked`;
+    };
 
     window.sdSetActiveParam = function(id) {
         sdActiveParamId = id;
@@ -1148,9 +1253,26 @@
     }
 
     function sdGetTargetParams() {
-        if (sdApplyAllMode) return sdCanvasParams;
+        // Locked lanes are always skipped — that's the whole contract of
+        // the lock feature. Tools that go through this helper auto-skip;
+        // tools that iterate sdCanvasParams directly need their own
+        // explicit !p.locked filter (Chaos, Bloom, Weave, Mutate, Shuffle).
+        if (sdApplyAllMode) return sdCanvasParams.filter(p => !p.locked);
         const p = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
-        return p ? [p] : [];
+        return (p && !p.locked) ? [p] : [];
+    }
+
+    // Used by tools that iterate sdCanvasParams directly. Counts how many
+    // lanes were locked-out so we can surface "Generated X/Y — Z locked"
+    // status feedback at the call site.
+    function sdGetUnlockedParams() {
+        return sdCanvasParams.filter(p => !p.locked);
+    }
+    function sdLockSkipMessage(processedCount) {
+        const total = sdCanvasParams.length;
+        const locked = sdCanvasParams.filter(p => p.locked).length;
+        if (locked === 0) return null;
+        return `Applied to ${processedCount}/${total} lanes — ${locked} locked`;
     }
 
     // ─── DRAWING ──────────────────────────────────────────
@@ -1712,6 +1834,19 @@
 
             if (!sdActiveParamId) return;
             const hd = sdGetTimeValue(e); const param = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
+            // Locked lanes block ALL mouse interactions: no add/move/delete
+            // points, no curve drag, no freehand. The toast hint reminds the
+            // user how to unlock without being a modal nag.
+            if (param && param.locked) {
+                const status = document.getElementById('sd-canvas-status');
+                if (status) {
+                    status.textContent = 'Lane locked — click the lock icon in the sidebar to unlock';
+                    setTimeout(() => {
+                        if (status.textContent.startsWith('Lane locked')) status.textContent = '';
+                    }, 2500);
+                }
+                return;
+            }
             const bars = sdGetBars(); const totalBeats = bars * 4;
             const hitT = (totalBeats * 0.02) / sdViewZoomX; const hitV = 0.05;
             let idx = param.points.findIndex(pt => Math.abs(pt.time - hd.time) < hitT && Math.abs(pt.value - hd.value) < hitV);
@@ -1815,17 +1950,32 @@
     };
 
     window.sdApplyGlobalChaos = function() {
-        if (!sdCanvasParams.length) return;
+        const targets = sdGetUnlockedParams();
+        if (!targets.length) {
+            const status = document.getElementById('sd-canvas-status');
+            if (status) status.textContent = sdCanvasParams.length
+                ? 'All lanes locked — unlock to generate'
+                : 'No lanes loaded';
+            return;
+        }
         pushUndo();
         const bars = sdGetBars(); const totalBeats = bars * 4;
         const sel = sdGetSelection(); const sB = sel ? sel.startBeat : 0; const eB = sel ? sel.endBeat : totalBeats;
         const pool = ['dotted_ramp', 'mid_value_hold', 'offgrid_saw', 'hard_chop', 'exponential_build', 'hyper_stutter', 'rhythmic_gate_build', 'syncopated_drops'];
-        sdCanvasParams.forEach(param => {
+        targets.forEach(param => {
             if (sel) param.points = param.points.filter(pt => pt.time < sB || pt.time > eB); else param.points = [];
             let cB = sB;
             while (cB < eB - 0.001) { let chunk = [0.5, 1, 1.5, 2, 4][Math.floor(Math.random() * 5)]; if (cB + chunk > eB) chunk = eB - cB; sdInjectShape(param, pool[Math.floor(Math.random() * pool.length)], cB, chunk); cB = Math.round((cB + chunk) * 10000) / 10000; }
         });
         sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
+        const skipMsg = sdLockSkipMessage(targets.length);
+        if (skipMsg) {
+            const status = document.getElementById('sd-canvas-status');
+            if (status) {
+                status.textContent = skipMsg;
+                setTimeout(() => { if (status.textContent === skipMsg) status.textContent = ''; }, 3000);
+            }
+        }
     };
 
     window.sdMirrorLane = function() { if (!sdActiveParamId) return; pushUndo(); sdGetTargetParams().forEach(p => { if (!p.points.length) return; sdGetSelectedPoints(p).forEach(pt => { pt.value = 1 - pt.value; if (pt.curve) pt.curve = -pt.curve; }); }); sdRenderSidebar(); sdDrawCanvasGrid(); };
@@ -2578,6 +2728,7 @@
         let laneIdx = 0;
         sdCanvasParams.forEach(param => {
             if (param.envelopeId === sdActiveParamId) return; // skip master
+            if (param.locked) return; // locked lanes never receive Bloom output
 
             const tx = transforms[laneIdx % transforms.length];
             laneIdx++;
@@ -2714,7 +2865,10 @@
             curve: pt.curve || 0
         }));
 
-        const targets = sdCanvasParams.filter(p => p.envelopeId !== sdActiveParamId);
+        // Locked lanes never receive Weave output. Source can be locked
+        // (read-only seed) — that's the spec: lock = edit protection,
+        // not read protection.
+        const targets = sdCanvasParams.filter(p => p.envelopeId !== sdActiveParamId && !p.locked);
         const n = targets.length;
 
         targets.forEach((param, i) => {
@@ -2787,7 +2941,8 @@
         // Classify each interval: active (source moving) or passive (source still)
         const isPassive = activity.map(a => a <= threshold);
 
-        const targets = sdCanvasParams.filter(p => p.envelopeId !== sdActiveParamId);
+        // Locked lanes never receive Weave fill output.
+        const targets = sdCanvasParams.filter(p => p.envelopeId !== sdActiveParamId && !p.locked);
         const n = targets.length;
 
         // Shape pool for fill zones
@@ -3964,26 +4119,38 @@
     // --- Preset UI ---
     // --- Shuffle: randomize which curves land on which params ---
     window.sdShuffleLanes = function() {
-        if (sdCanvasParams.length < 2) return;
-        const lanesWithPoints = sdCanvasParams.filter(p => p.points.length > 0);
+        // Shuffle only operates on UNLOCKED lanes. Locked lanes keep
+        // their points exactly where they were — that's the user's
+        // commitment ("don't touch these").
+        const movable = sdCanvasParams.filter(p => !p.locked);
+        if (movable.length < 2) {
+            const status = document.getElementById('sd-canvas-status');
+            if (status) status.textContent = movable.length === 0
+                ? 'All lanes locked — unlock to shuffle'
+                : 'Need at least 2 unlocked lanes to shuffle';
+            return;
+        }
+        const lanesWithPoints = movable.filter(p => p.points.length > 0);
         if (lanesWithPoints.length < 2) {
-            document.getElementById('sd-canvas-status').textContent = 'Need curves on at least 2 lanes';
+            document.getElementById('sd-canvas-status').textContent = 'Need curves on at least 2 unlocked lanes';
             return;
         }
         pushUndo();
-        // Collect all point arrays
-        const allPoints = sdCanvasParams.map(p => p.points.slice());
+        // Collect point arrays from movable lanes only
+        const allPoints = movable.map(p => p.points.slice());
         // Fisher-Yates shuffle
         for (let i = allPoints.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [allPoints[i], allPoints[j]] = [allPoints[j], allPoints[i]];
         }
-        // Reassign
-        sdCanvasParams.forEach((p, i) => { p.points = allPoints[i]; });
+        // Reassign back to the same movable lanes
+        movable.forEach((p, i) => { p.points = allPoints[i]; });
         sdResetSliderSnapshots();
         sdRenderSidebar();
         sdDrawCanvasGrid();
-        document.getElementById('sd-canvas-status').textContent = 'Shuffled — lanes reassigned randomly';
+        const lockMsg = sdLockSkipMessage(movable.length);
+        document.getElementById('sd-canvas-status').textContent = lockMsg
+            || 'Shuffled — lanes reassigned randomly';
     };
 
     window.sdTogglePresets = function() {
@@ -4008,7 +4175,9 @@
             const n = sdCanvasParams.length;
             let lanes = preset.gen(n, beats);
 
+            let processed = 0;
             sdCanvasParams.forEach((param, i) => {
+                if (param.locked) return; // preset never overwrites a locked lane
                 if (i < lanes.length && lanes[i] && lanes[i].length) {
                     param.points = lanes[i].filter(pt => pt && isFinite(pt.time) && isFinite(pt.value)).map(pt => ({
                         time: Math.max(0, Math.min(beats, pt.time)),
@@ -4018,13 +4187,16 @@
                 } else {
                     param.points = [];
                 }
+                processed++;
             });
 
             document.getElementById('sd-preset-modal').classList.add('hidden');
             sdResetSliderSnapshots();
             sdRenderSidebar();
             sdDrawCanvasGrid();
-            document.getElementById('sd-canvas-status').textContent = 'Preset: ' + preset.name + ' — ' + n + ' lanes';
+            const lockMsg = sdLockSkipMessage(processed);
+            document.getElementById('sd-canvas-status').textContent = lockMsg
+                || ('Preset: ' + preset.name + ' — ' + n + ' lanes');
         } catch (e) {
             console.error('[Stride] Preset error:', e);
             document.getElementById('sd-canvas-status').textContent = 'Preset error: ' + e.message;
@@ -4255,6 +4427,7 @@
                 name: p.name,
                 min: p.min,
                 max: p.max,
+                locked: !!p.locked,
                 points: (p.points || []).map(pt => ({
                     time: pt.time,
                     value: pt.value,
@@ -5040,6 +5213,10 @@
         sdUpdateToolAvailability();
         _wireDragHandle();
         _refreshGenerationsDock();
+        // Apply the user's sticky last-used bar count (overrides the
+        // toolbar's hardcoded default of 8). No-op for first-run users
+        // who haven't picked a bar count yet.
+        sdApplyStickyBars();
     });
 
 })();
