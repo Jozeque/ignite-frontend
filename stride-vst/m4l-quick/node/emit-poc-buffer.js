@@ -47,24 +47,25 @@ const points = gen(beatsPerLoop);
 //    audio engine, which means buffer playback at 1.0 = real-time at any BPM.
 const sampleCount = sampleCountForLoop(bars, bpm, SAMPLE_RATE);
 
-// 3) Apply log scaling for a filter-cutoff target (20 Hz - 20 kHz). live.remote~
-//    will receive these native-range values directly. For a different param,
-//    change paramScale or pass {} to keep [0..1] normalized output.
-const paramScale = { name: 'Filter Cutoff', min: 20, max: 20000, is_log: true };
-const samples = rasterizeCurve(points, beatsPerLoop, sampleCount, paramScale);
+// 3) Keep output as normalized [0..1] curve values — NO log scaling baked in.
+//    Why: Max's buffer~ doesn't reliably read Float32 WAVs and we want 16-bit
+//    PCM. Storing as normalized lets us write standard PCM, then we recover
+//    [0..1] in Max and feed to live.remote~ in normalized mode (Live applies
+//    the parameter's natural log/linear scaling internally).
+const samples = rasterizeCurve(points, beatsPerLoop, sampleCount);
 
-// 4) Write Float32 mono WAV. buffer~ accepts this without conversion.
-//    WAV header layout (44 bytes):
-//      RIFF[4] size[4] WAVE[4]
-//      fmt [4] 16[4] format[2] channels[2] rate[4] byteRate[4] blockAlign[2] bitsPerSample[2]
-//      data[4] dataSize[4] [samples...]
-function writeFloatWav(filename, float32Samples, sampleRate) {
+// 4) Write 16-bit PCM mono WAV — universally readable by Max's buffer~.
+//    Each sample is normalized [0..1] → int16 [-32768..+32767] using the
+//    standard audio convention (0 → -32768, 0.5 → 0, 1 → +32767). When
+//    play~ reads back, it outputs values in [-1..+1]. We re-center in Max
+//    via [+~ 1 → *~ 0.5] before sending to live.remote~ in normalized mode.
+function write16PcmWav(filename, normalizedSamples, sampleRate) {
     const numChannels = 1;
-    const bitsPerSample = 32;
-    const formatCode = 3;  // 3 = IEEE float (1 = PCM int)
+    const bitsPerSample = 16;
+    const formatCode = 1;  // 1 = PCM int (universally readable)
     const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
     const blockAlign = numChannels * (bitsPerSample / 8);
-    const dataSize = float32Samples.length * 4;
+    const dataSize = normalizedSamples.length * 2;
     const headerSize = 44;
     const buffer = Buffer.alloc(headerSize + dataSize);
 
@@ -82,27 +83,30 @@ function writeFloatWav(filename, float32Samples, sampleRate) {
     buffer.write('data', 36);
     buffer.writeUInt32LE(dataSize, 40);
 
-    // Important: live.remote~ expects values in the param's native range.
-    // For our 20..20000 Hz log-scaled cutoff, that means samples are real
-    // frequency values, NOT [0..1]. The buffer~ can hold any Float32 — Live
-    // will interpret them as parameter values when fed via live.remote~.
-    for (let i = 0; i < float32Samples.length; i++) {
-        buffer.writeFloatLE(float32Samples[i], headerSize + i * 4);
+    // Map normalized [0..1] → audio [-1..+1] → int16 [-32768..+32767].
+    for (let i = 0; i < normalizedSamples.length; i++) {
+        const v = Math.max(0, Math.min(1, normalizedSamples[i]));
+        const audio = v * 2 - 1;            // [-1..+1]
+        const int16 = Math.round(audio * 32767);
+        buffer.writeInt16LE(int16, headerSize + i * 2);
     }
 
     fs.writeFileSync(filename, buffer);
 }
 
 const outPath = path.join(__dirname, '..', 'stride_q_poc.wav');
-writeFloatWav(outPath, samples, SAMPLE_RATE);
+write16PcmWav(outPath, samples, SAMPLE_RATE);
 
 console.log(`StrideQuick POC buffer ready.`);
 console.log(`  preset:        ${preset}`);
 console.log(`  bars:          ${bars}  (${beatsPerLoop} beats)`);
 console.log(`  bpm:           ${bpm}`);
-console.log(`  param target:  ${paramScale.name}  range=[${paramScale.min}..${paramScale.max}]  log=${!!paramScale.is_log}`);
+console.log(`  format:        16-bit PCM mono (universally readable by Max buffer~)`);
+console.log(`  range:         normalized [0..1] → audio [-1..+1] → int16`);
 console.log(`  samples:       ${sampleCount} @ ${SAMPLE_RATE} Hz`);
 console.log(`  output:        ${outPath}`);
-console.log(`  size:          ${(samples.length * 4 / 1024).toFixed(1)} KB`);
-console.log(`\nDrop this WAV into a buffer~ in Max via the [replace ${outPath}] message.`);
-console.log(`Or via the buffer~ inspector: Sample = ${path.relative(process.cwd(), outPath)}`);
+console.log(`  size:          ${(samples.length * 2 / 1024).toFixed(1)} KB`);
+console.log(`\nIn Max, send the buffer~ a [replace stride_q_poc.wav] message`);
+console.log(`with the WAV in the same folder as the .amxd. After play~, recenter`);
+console.log(`with [+~ 1] → [*~ 0.5] before live.remote~, and use live.remote~ in`);
+console.log(`normalized mode so Live applies the parameter's natural scaling.`);
