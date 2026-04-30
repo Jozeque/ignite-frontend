@@ -1129,7 +1129,17 @@
     // ─── SIDEBAR ──────────────────────────────────────────
 
     function sdRenderSidebar() {
+        // The sd-param-list element was removed — its space is now used
+        // by the context panel (Generative + Edit sliders). The function
+        // is kept because many call sites rely on it for downstream
+        // effects (empty-state CTA, tool availability). If a future
+        // build re-introduces the param list, this guard is harmless.
         const list = document.getElementById('sd-param-list');
+        if (!list) {
+            sdUpdateEmptyState();
+            sdUpdateToolAvailability();
+            return;
+        }
         const fmtVal = v => {
             if (!isFinite(v)) return '?';
             if (Math.abs(v) >= 10000) return (v / 1000).toFixed(1) + 'k';
