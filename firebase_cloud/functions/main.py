@@ -122,6 +122,8 @@ Stuck on anything? That same page has a Book a Call button. Pick a slot, I'll ge
 
 Stride turns your existing racks into sound design playgrounds. Same rack, infinite variations. You're about to discover sounds in your own instruments you didn't know were there.
 
+A quick note on workflow: Stride is a creative tool, not a mixing tool. You draw curves first, then hear them after — that loop is built for exploration, not for tight mixing feedback. Lean into it for variation, motion, and "what does this preset do that I haven't tried yet."
+
 Your license key is in the Lemon Squeezy receipt that came separately. Paste it on first launch.
 
 Reply to this email anytime.
