@@ -83,26 +83,31 @@ function specToggleLockAll(params) {
     });
 }
 
-// Mutual exclusion contract: Select All and Select cannot both be active.
-// `state` is { params, selectMode } — these specs mirror sdSelectAll and
-// sdToggleSelectMode.
-function specSelectAllGuarded(state) {
-    if (state.selectMode) return; // disabled while in select mode
+// Mode-switching contract: Select All and Select are alternative modes.
+// Pressing the OTHER button while one is active SWITCHES — both stay
+// enabled at all times. `state` is { params, selectMode }.
+function specSelectAllSwitch(state) {
+    // Pressing Select All exits select mode if it was on.
+    state.selectMode = false;
     specSelectAll(state.params);
 }
-function specToggleSelectModeGuarded(state) {
+function specToggleSelectModeSwitch(state) {
     const unlocked = state.params.filter(p => !p.locked);
     const allSelected = unlocked.length > 0 && unlocked.every(p => p.selected);
-    if (allSelected && !state.selectMode) return; // can't enter while all selected
+    // Switching from "all" → "manual" clears selection so user starts fresh.
+    if (allSelected && !state.selectMode) {
+        state.params.forEach(p => { p.selected = false; });
+    }
     state.selectMode = !state.selectMode;
 }
-// Disabled-state predicates (must mirror _sdUpdateSelectionButtons logic).
-function specSelectAllIsDisabled(state) {
-    return !!state.selectMode;
-}
-function specSelectModeIsDisabled(state) {
+// Highlight predicates (must mirror _sdUpdateSelectionButtons logic).
+function specSelectAllIsHighlighted(state) {
     const unlocked = state.params.filter(p => !p.locked);
-    return unlocked.length > 0 && unlocked.every(p => p.selected);
+    const allSelected = unlocked.length > 0 && unlocked.every(p => p.selected);
+    return allSelected && !state.selectMode;
+}
+function specSelectModeIsHighlighted(state) {
+    return !!state.selectMode;
 }
 
 // ─── Test fixture ────────────────────────────────────────────────
@@ -382,79 +387,91 @@ test('Selection cleared by lock → falls back to active', () => {
     assertEq(targets[0].envelopeId, 'a');
 });
 
-// ─── Mutual exclusion (Select All ↔ Select) ─────────────────────
+// ─── Mode switching (Select All ↔ Select) ───────────────────────
 
-console.log('\nMutual exclusion: Select All vs Select mode\n');
+console.log('\nMode switching: Select All vs Select\n');
 
-test('Default: neither mode active, both buttons enabled', () => {
+test('Default: neither mode highlighted', () => {
     const state = { params: freshLanes(), selectMode: false };
-    assertEq(specSelectAllIsDisabled(state), false);
-    assertEq(specSelectModeIsDisabled(state), false);
+    assertEq(specSelectAllIsHighlighted(state), false);
+    assertEq(specSelectModeIsHighlighted(state), false);
 });
 
-test('Select All pressed → Select button is disabled', () => {
+test('Press Select All → Select All highlighted, Select not', () => {
     const state = { params: freshLanes(), selectMode: false };
-    specSelectAllGuarded(state);
-    // Now all are selected
-    assert(state.params.every(p => p.selected), 'all should be selected');
-    assertEq(specSelectModeIsDisabled(state), true);
-    assertEq(specSelectAllIsDisabled(state), false);  // Select All is highlighted, not disabled
+    specSelectAllSwitch(state);
+    assertEq(specSelectAllIsHighlighted(state), true);
+    assertEq(specSelectModeIsHighlighted(state), false);
 });
 
-test('Select All again → both buttons available, neither active', () => {
+test('Press Select All twice → neither highlighted (toggle off)', () => {
     const state = { params: freshLanes(), selectMode: false };
-    specSelectAllGuarded(state);  // select all
-    specSelectAllGuarded(state);  // deselect all
-    assert(state.params.every(p => !p.selected), 'all should be deselected');
-    assertEq(specSelectModeIsDisabled(state), false);
-    assertEq(specSelectAllIsDisabled(state), false);
+    specSelectAllSwitch(state);  // on
+    specSelectAllSwitch(state);  // off
+    assertEq(specSelectAllIsHighlighted(state), false);
+    assertEq(specSelectModeIsHighlighted(state), false);
+    assert(state.params.every(p => !p.selected), 'selection should be cleared');
 });
 
-test('Entering Select mode → Select All is disabled', () => {
+test('Press Select → Select highlighted, Select All not', () => {
     const state = { params: freshLanes(), selectMode: false };
-    specToggleSelectModeGuarded(state);
+    specToggleSelectModeSwitch(state);
     assertEq(state.selectMode, true);
-    assertEq(specSelectAllIsDisabled(state), true);
+    assertEq(specSelectModeIsHighlighted(state), true);
+    assertEq(specSelectAllIsHighlighted(state), false);
 });
 
-test('Pressing Select All while in Select mode → no-op (guard blocks it)', () => {
-    const state = { params: freshLanes(), selectMode: true };
-    specSelectAllGuarded(state);
-    // Nothing should have changed
-    assert(state.params.every(p => !p.selected), 'select all should be blocked in select mode');
-});
-
-test('Pressing Select while all already selected → no-op (guard blocks entering)', () => {
+test('Switch from Select All to Select → Select All un-highlights, Select highlights, selection cleared', () => {
     const state = { params: freshLanes(), selectMode: false };
-    specSelectAllGuarded(state); // all selected
-    specToggleSelectModeGuarded(state); // attempt to enter select mode
-    assertEq(state.selectMode, false);  // blocked
+    specSelectAllSwitch(state);  // all selected, Select All highlighted
+    specToggleSelectModeSwitch(state);  // press Select → switches to manual
+    assertEq(state.selectMode, true);
+    assert(state.params.every(p => !p.selected), 'switching to manual should clear selection');
+    assertEq(specSelectAllIsHighlighted(state), false);
+    assertEq(specSelectModeIsHighlighted(state), true);
 });
 
-test('Leaving Select mode is always allowed (no all-selected guard)', () => {
-    const state = { params: freshLanes(), selectMode: true };
-    // Manually mark all as selected (could happen via per-lane toggles)
-    state.params.forEach(p => { p.selected = true; });
-    specToggleSelectModeGuarded(state);  // toggling OFF should still work
+test('Switch from Select to Select All → Select exits, Select All highlights, all selected', () => {
+    const state = { params: freshLanes(), selectMode: false };
+    specToggleSelectModeSwitch(state);  // enter select mode
+    // User picks one lane manually
+    state.params[0].selected = true;
+    // Now press Select All → switches to "all" mode
+    specSelectAllSwitch(state);
     assertEq(state.selectMode, false);
+    assert(state.params.every(p => p.selected), 'all should be selected');
+    assertEq(specSelectAllIsHighlighted(state), true);
+    assertEq(specSelectModeIsHighlighted(state), false);
 });
 
-test('Locking lanes can re-enable Select if "all selected" no longer holds', () => {
+test('Press Select twice → neither highlighted (toggle off, selection persists if any)', () => {
     const state = { params: freshLanes(), selectMode: false };
-    specSelectAllGuarded(state); // all selected → Select disabled
-    assertEq(specSelectModeIsDisabled(state), true);
-    specToggleLockLane(state.params, 'a'); // locks 'a', clears its selection
-    // Now not all unlocked are selected (b/c/d are selected, but unlocked count is 3 and only 3 selected)
-    // Wait — after locking 'a', unlocked is b/c/d, all of which are still selected. So Select is still disabled.
-    assertEq(specSelectModeIsDisabled(state), true);
+    specToggleSelectModeSwitch(state);  // on
+    state.params[1].selected = true;    // user picked one lane
+    specToggleSelectModeSwitch(state);  // off
+    assertEq(state.selectMode, false);
+    assertEq(state.params[1].selected, true);  // selection persists outside of mode
 });
 
-test('Manually deselecting a lane re-enables Select button', () => {
+test('At most one mode is highlighted at any time (mutual exclusion)', () => {
     const state = { params: freshLanes(), selectMode: false };
-    specSelectAllGuarded(state); // all selected → Select disabled
-    state.params[1].selected = false;  // deselect 'b' manually
-    // Now not all are selected
-    assertEq(specSelectModeIsDisabled(state), false);
+    // From every reachable state, both can never be highlighted.
+    const checks = [
+        () => {},                                                                       // default
+        () => specSelectAllSwitch(state),                                               // all
+        () => { specSelectAllSwitch(state); specToggleSelectModeSwitch(state); },       // all → manual
+        () => specToggleSelectModeSwitch(state),                                        // manual
+        () => { specToggleSelectModeSwitch(state); specSelectAllSwitch(state); },       // manual → all
+    ];
+    for (const transition of checks) {
+        // reset state
+        state.params = freshLanes();
+        state.selectMode = false;
+        transition();
+        const a = specSelectAllIsHighlighted(state);
+        const m = specSelectModeIsHighlighted(state);
+        assert(!(a && m), `both highlighted after transition ${transition.name || ''}`);
+    }
 });
 
 console.log(`\n${passed} passed, ${failed} failed\n`);

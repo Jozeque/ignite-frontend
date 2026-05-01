@@ -2669,22 +2669,35 @@
     };
     // ─── Lane selection actions ─────────────────────────────
 
-    // Select All — toggles the entire selection set across unlocked lanes.
-    // First click: marks every unlocked lane as selected (brighter visual).
-    // If everything is already selected, second click clears the selection
-    // entirely. Locked lanes are never touched in either direction.
+    // Select All and Select represent two alternative selection modes.
+    // Pressing one of them while the other is active SWITCHES modes — both
+    // buttons stay enabled at all times. The user never has to "disable"
+    // one to use the other.
     //
-    // Mutual exclusion: no-op while sdSelectMode is on (the button is also
-    // visually disabled, this is a defense-in-depth check).
+    // Modes (at most one active at a time):
+    //   • "all"    — all unlocked lanes selected, sdSelectMode false
+    //   • "manual" — sdSelectMode true (clicks toggle individual selection)
+    //   • "none"   — no selection, sdSelectMode false
+    //
+    // Transitions on button press:
+    //   from any mode, Select All  → "all" (or "none" if already all)
+    //   from any mode, Select      → "manual" (or "none" if already manual)
+
     window.sdSelectAll = function() {
-        if (sdSelectMode) return;
+        // Switching out of manual mode if it was on.
+        sdSelectMode = false;
+
         const unlocked = sdCanvasParams.filter(p => !p.locked);
-        if (!unlocked.length) return;
+        if (!unlocked.length) {
+            _sdUpdateSelectionButtons();
+            return;
+        }
         const allSelected = unlocked.every(p => p.selected);
         if (allSelected) {
-            // Clear — second click on a fully-selected state acts as "deselect all"
+            // Already all selected → toggle off (deselect all)
             sdCanvasParams.forEach(p => { p.selected = false; });
         } else {
+            // Fill: select every unlocked lane (locked stay alone)
             sdCanvasParams.forEach(p => {
                 if (!p.locked) p.selected = true;
             });
@@ -2694,22 +2707,20 @@
         sdDrawCanvasGrid();
     };
 
-    // Select (mode toggle) — when ON, clicking a lane toggles its selected
-    // state instead of activating it. When OFF, clicking activates as usual.
-    //
-    // Mutual exclusion: no-op while all unlocked lanes are already selected
-    // (the button is also visually disabled in that state).
     window.sdToggleSelectMode = function() {
         const unlocked = sdCanvasParams.filter(p => !p.locked);
         const allSelected = unlocked.length > 0 && unlocked.every(p => p.selected);
-        // Only block ENTERING select mode when all are already selected.
-        // Always allow LEAVING select mode (sdSelectMode true → toggle off
-        // is fine regardless of selection state).
-        if (allSelected && !sdSelectMode) return;
+
+        // Switching from "all" mode → manual mode: clear the selection
+        // first so the user starts fresh with manual picking. Without this,
+        // pressing Select right after Select All would put them in select
+        // mode WITH everything pre-selected, which is rarely what's wanted.
+        if (allSelected && !sdSelectMode) {
+            sdCanvasParams.forEach(p => { p.selected = false; });
+        }
         sdSelectMode = !sdSelectMode;
         _sdUpdateSelectionButtons();
-        // Cursor hint via canvas: subtly tint when in select mode so the
-        // user knows clicks behave differently.
+        sdRenderSidebar();
         sdDrawCanvasGrid();
     };
 
@@ -2727,40 +2738,27 @@
     // Refresh the visual state of both selection buttons in the toolbar.
     // Called whenever selection state or select-mode changes.
     //
-    // Mutual exclusion rule: the two buttons represent alternative selection
-    // modes and can't both be "active" at once.
-    //   - Select All highlighted (allSelected) → Select button disabled
-    //   - Select Mode active (sdSelectMode)    → Select All button disabled
-    //   - Neither active                       → both available
+    // Both buttons stay enabled at all times. Pressing the OTHER button
+    // switches modes — see sdSelectAll / sdToggleSelectMode for transitions.
+    // Highlight rule (at most one is highlighted at a time):
+    //   - Select All highlighted: !sdSelectMode AND all unlocked selected
+    //   - Select highlighted:     sdSelectMode (regardless of selection state)
     function _sdUpdateSelectionButtons() {
         const ACTIVE_CLASS = "text-[9px] text-fuchsia-300 bg-fuchsia-500/20 border border-fuchsia-500/40 hover:bg-fuchsia-500/30 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0 shadow-[0_0_8px_rgba(217,70,239,0.2)]";
         const IDLE_CLASS = "text-[9px] text-zinc-500 bg-black/50 border border-white/5 hover:border-fuchsia-500/30 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0";
-        const DISABLED_CLASS = "text-[9px] text-zinc-700 bg-black/30 border border-white/5 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0 cursor-not-allowed opacity-40 pointer-events-none";
 
         const unlocked = sdCanvasParams.filter(p => !p.locked);
         const allSelected = unlocked.length > 0 && unlocked.every(p => p.selected);
 
         const allBtn = document.getElementById('sd-select-all-toggle');
         if (allBtn) {
-            if (sdSelectMode) {
-                // In manual select mode → Select All is disabled.
-                allBtn.disabled = true;
-                allBtn.className = DISABLED_CLASS;
-            } else {
-                allBtn.disabled = false;
-                allBtn.className = allSelected ? ACTIVE_CLASS : IDLE_CLASS;
-            }
+            allBtn.disabled = false;
+            allBtn.className = (allSelected && !sdSelectMode) ? ACTIVE_CLASS : IDLE_CLASS;
         }
         const selBtn = document.getElementById('sd-select-mode-toggle');
         if (selBtn) {
-            if (allSelected) {
-                // All unlocked are already selected → Select mode is moot, disabled.
-                selBtn.disabled = true;
-                selBtn.className = DISABLED_CLASS;
-            } else {
-                selBtn.disabled = false;
-                selBtn.className = sdSelectMode ? ACTIVE_CLASS : IDLE_CLASS;
-            }
+            selBtn.disabled = false;
+            selBtn.className = sdSelectMode ? ACTIVE_CLASS : IDLE_CLASS;
         }
     }
 
