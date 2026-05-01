@@ -33,7 +33,20 @@
     let sdSelectionEnd = null;
     let sdIsSelectingRegion = false;
     let sdSelectionDragEdge = null;
-    let sdApplyAllMode = false;
+    // ─── Lane selection ─────────────────────────────────────
+    // Each lane has a `selected: boolean` field (the reverse of `locked`).
+    // When any lane is selected, tools target the selection set instead of
+    // the active lane. Selection visually highlights the lane the same way
+    // the active lane is currently highlighted (brighter opacity).
+    //
+    // sdSelectMode is a UI gesture mode: when ON, clicking a lane toggles
+    // its `selected` state instead of activating it. When OFF (default),
+    // clicking a lane sets it as active (current behavior).
+    //
+    // Selection is session-only — not persisted to canvas state on disk.
+    // Lock is intent ("don't touch this"); selection is "I'm focusing here
+    // right now". Different lifetimes.
+    let sdSelectMode = false;
     let sdViewZoomX = 1;
     let sdViewPanX = 0;
     let sdIsSpacePressed = false;
@@ -309,6 +322,7 @@
                 _path: p._path,
                 is_log: p.is_log || false,
                 locked: false,
+                selected: false,
                 points: []
             }));
 
@@ -360,6 +374,7 @@
             _path: p._path,
             is_log: p.is_log || false,
             locked: false,
+            selected: false,
             points: []
         }));
 
@@ -1348,9 +1363,13 @@
         const p = sdCanvasParams.find(p => p.envelopeId === envelopeId);
         if (!p) return;
         p.locked = !p.locked;
+        // Locking a lane clears its selection — locked = "off limits", which
+        // is incompatible with "in the active selection set".
+        if (p.locked) p.selected = false;
         sdRenderSidebar();
         sdDrawCanvasGrid();
         saveCanvasState(); // persist the lock state immediately
+        if (typeof _sdUpdateSelectionButtons === 'function') _sdUpdateSelectionButtons();
     };
 
     // Toolbar action: lock or unlock every lane at once. If any lane is
@@ -1359,10 +1378,14 @@
     window.sdToggleLockAll = function() {
         if (!sdCanvasParams.length) return;
         const anyUnlocked = sdCanvasParams.some(p => !p.locked);
-        sdCanvasParams.forEach(p => { p.locked = anyUnlocked; });
+        sdCanvasParams.forEach(p => {
+            p.locked = anyUnlocked;
+            if (p.locked) p.selected = false;
+        });
         sdRenderSidebar();
         sdDrawCanvasGrid();
         saveCanvasState();
+        if (typeof _sdUpdateSelectionButtons === 'function') _sdUpdateSelectionButtons();
         const status = document.getElementById('sd-canvas-status');
         if (status) status.textContent = anyUnlocked
             ? `All ${sdCanvasParams.length} lanes locked`
@@ -1411,19 +1434,30 @@
     }
 
     function sdGetTargetParams() {
-        // Locked lanes are always skipped — that's the whole contract of
-        // the lock feature. Tools that go through this helper auto-skip;
-        // tools that iterate sdCanvasParams directly need their own
-        // explicit !p.locked filter (Chaos, Bloom, Weave, Mutate, Shuffle).
-        if (sdApplyAllMode) return sdCanvasParams.filter(p => !p.locked);
+        // Selection set wins when non-empty: tools target selected (unlocked)
+        // lanes. Otherwise fall back to active lane only (legacy behavior).
+        // Locked lanes are always skipped regardless of selection — lock is
+        // an absolute "don't touch" contract.
+        const selected = sdCanvasParams.filter(p => p.selected && !p.locked);
+        if (selected.length > 0) return selected;
         const p = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
         return (p && !p.locked) ? [p] : [];
     }
 
-    // Used by tools that iterate sdCanvasParams directly. Counts how many
-    // lanes were locked-out so we can surface "Generated X/Y — Z locked"
-    // status feedback at the call site.
+    // Counts how many lanes are in the active selection set (unlocked only).
+    // Used by tools that iterate sdCanvasParams directly to know whether
+    // to scope to selected or to all unlocked.
+    function sdHasSelection() {
+        return sdCanvasParams.some(p => p.selected && !p.locked);
+    }
+
+    // Used by tools that iterate sdCanvasParams directly. Returns selected
+    // lanes if there's a selection, else all unlocked. Locked are always
+    // filtered out.
     function sdGetUnlockedParams() {
+        if (sdHasSelection()) {
+            return sdCanvasParams.filter(p => p.selected && !p.locked);
+        }
         return sdCanvasParams.filter(p => !p.locked);
     }
     function sdLockSkipMessage(processedCount) {
@@ -1695,17 +1729,23 @@
                 : param.name;
             const rect = sdMultiGetVisibleRowRect(row);
             const isActive = sdActiveParamId === param.envelopeId;
+            // Selected lanes get the same brighter visual treatment as the
+            // active lane. A lane can be both — that's fine, isHighlighted
+            // unifies them.
+            const isHighlighted = isActive || !!param.selected;
 
             // Row background stripe (alternating to make rows scannable)
             sdCtx.fillStyle = row % 2 === 0 ? 'rgba(255,255,255,0.015)' : 'rgba(0,0,0,0.15)';
             sdCtx.fillRect(laneDrawLeft, rect.top, laneDrawWidth, rect.height);
 
-            // Active-row highlight (fuchsia tint + border)
-            if (isActive) {
+            // Highlighted row (fuchsia tint + border) — active OR selected.
+            // Active lane gets a stronger border; selected-only lanes get
+            // a softer accent so the focus distinction is preserved.
+            if (isHighlighted) {
                 sdCtx.fillStyle = 'rgba(168,85,247,0.08)';
                 sdCtx.fillRect(0, rect.top, lw, rect.height);
-                sdCtx.strokeStyle = 'rgba(168,85,247,0.55)';
-                sdCtx.lineWidth = 1.5;
+                sdCtx.strokeStyle = isActive ? 'rgba(168,85,247,0.55)' : 'rgba(168,85,247,0.30)';
+                sdCtx.lineWidth = isActive ? 1.5 : 1;
                 sdCtx.strokeRect(0.75, rect.top + 0.75, lw - 1.5, rect.height - 1.5);
             }
 
@@ -1726,8 +1766,8 @@
             const isLocked = !!param.locked;
             sdCtx.fillStyle = isLocked
                 ? 'rgba(251,191,36,0.85)'   // amber-400
-                : (isActive ? 'rgba(232,121,249,0.95)' : 'rgba(228,228,231,0.75)');
-            sdCtx.font = isActive ? 'bold 11px Outfit' : '600 10px Outfit';
+                : (isHighlighted ? 'rgba(232,121,249,0.95)' : 'rgba(228,228,231,0.75)');
+            sdCtx.font = isHighlighted ? 'bold 11px Outfit' : '600 10px Outfit';
             sdCtx.textAlign = 'left';
             sdCtx.textBaseline = 'middle';
             // Always reserve space for the lock glyph (drawn for every
@@ -1786,7 +1826,7 @@
 
             // Fill under curve (subtle)
             sdCtx.beginPath();
-            sdCtx.fillStyle = isActive ? 'rgba(168,85,247,0.12)' : 'rgba(168,85,247,0.06)';
+            sdCtx.fillStyle = isHighlighted ? 'rgba(168,85,247,0.12)' : 'rgba(168,85,247,0.06)';
             sdCtx.moveTo(timeToX(sortedPts[0].time), rect.bottom);
             for (let i = 0; i < sortedPts.length; i++) {
                 const pt = sortedPts[i];
@@ -1813,8 +1853,8 @@
 
             // Curve stroke
             sdCtx.beginPath();
-            sdCtx.strokeStyle = isActive ? '#c084fc' : 'rgba(168,85,247,0.6)';
-            sdCtx.lineWidth = isActive ? 2 : 1.5;
+            sdCtx.strokeStyle = isHighlighted ? '#c084fc' : 'rgba(168,85,247,0.6)';
+            sdCtx.lineWidth = isHighlighted ? 2 : 1.5;
             for (let i = 0; i < sortedPts.length; i++) {
                 const pt = sortedPts[i];
                 const x = timeToX(pt.time);
@@ -2053,6 +2093,16 @@
                 if (mx >= lockHitLeft && mx <= lockHitRight) {
                     if (typeof window.sdToggleLockLane === 'function') {
                         window.sdToggleLockLane(hit.param.envelopeId);
+                    }
+                    return;
+                }
+
+                // Select-mode click: toggle the lane's selection instead of
+                // activating it. Active lane stays put. Locked lanes are
+                // ignored (sdToggleLaneSelection no-ops on locked).
+                if (sdSelectMode) {
+                    if (typeof window.sdToggleLaneSelection === 'function') {
+                        window.sdToggleLaneSelection(hit.param.envelopeId);
                     }
                     return;
                 }
@@ -2350,14 +2400,9 @@
     window.sdApplySmooth = function(val) {
         document.getElementById('sd-smooth-val').textContent = val + '%';
         if (!sdActiveParamId) return;
-        // Locked lanes never receive slider edits — filter both in
-        // All-Lanes mode and skip the active branch when active is locked.
-        const targets = sdApplyAllMode ? sdCanvasParams.filter(p => p.points.length >= 3 && !p.locked) : [];
-        if (!sdApplyAllMode) {
-            const param = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
-            if (!param || param.points.length < 3 || param.locked) return;
-            targets.push(param);
-        }
+        // Targets: selected (unlocked) lanes if there's a selection, else
+        // active lane only. Smooth needs at least 3 points to do anything.
+        const targets = sdGetTargetParams().filter(p => p.points.length >= 3);
         if (!targets.length) return;
         const sel = sdGetSelection();
         const snapshotKey = targets.map(p => p.envelopeId).join(',');
@@ -2385,13 +2430,9 @@
     window.sdApplyIntensity = function(val) {
         document.getElementById('sd-intensity-val').textContent = val + '%';
         if (!sdActiveParamId) return;
-        // Locked lanes never receive slider edits.
-        const targets = sdApplyAllMode ? sdCanvasParams.filter(p => p.points.length > 0 && !p.locked) : [];
-        if (!sdApplyAllMode) {
-            const param = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
-            if (!param || param.locked) return;
-            targets.push(param);
-        }
+        // Targets: selected (unlocked) lanes if there's a selection, else
+        // active lane only. Intensity needs at least 1 point.
+        const targets = sdGetTargetParams().filter(p => p.points.length > 0);
         if (!targets.length) return;
         const sel = sdGetSelection();
         const snapshotKey = targets.map(p => p.envelopeId).join(',');
@@ -2416,14 +2457,9 @@
         document.getElementById('sd-curve-val').textContent = val + '%';
         const amount = parseInt(val) / 100; // 0 to 1
 
-        // Locked lanes never receive slider edits.
-        const targets = sdApplyAllMode ? sdCanvasParams.filter(p => p.points.length >= 2 && !p.locked) : [];
-        if (!sdApplyAllMode) {
-            if (!sdActiveParamId) return;
-            const param = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
-            if (!param || param.points.length < 2 || param.locked) return;
-            targets.push(param);
-        }
+        // Targets: selected (unlocked) lanes if there's a selection, else
+        // active lane only. Curve needs at least 2 points.
+        const targets = sdGetTargetParams().filter(p => p.points.length >= 2);
         if (!targets.length) return;
 
         const sel = sdGetSelection();
@@ -2488,17 +2524,9 @@
     let _sdFloorCeilKey = null;
 
     function _getFloorCeilTargets() {
-        // Match the All-Lanes / active-only pattern that every other
-        // slider uses. Previously Floor/Ceiling applied to every lane
-        // regardless of the toggle — a long-standing bug. Locked lanes
-        // are also filtered out: their curves stay where the user
-        // crafted them.
-        if (sdApplyAllMode) {
-            return sdCanvasParams.filter(p => p.points.length > 0 && !p.locked);
-        }
-        if (!sdActiveParamId) return [];
-        const param = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
-        return (param && param.points.length > 0 && !param.locked) ? [param] : [];
+        // Targets: selected (unlocked) lanes if there's a selection, else
+        // active lane only. Floor/Ceiling needs at least 1 point.
+        return sdGetTargetParams().filter(p => p.points.length > 0);
     }
 
     function _ensureFloorCeilSnapshot() {
@@ -2627,9 +2655,10 @@
     };
     window.sdClearCurrentCanvas = function() {
         const sel = sdGetSelection();
-        const targets = sdApplyAllMode
-            ? sdCanvasParams
-            : (sdActiveParamId ? [sdCanvasParams.find(p => p.envelopeId === sdActiveParamId)].filter(Boolean) : []);
+        // Targets: selected (unlocked) lanes if there's a selection, else
+        // active lane only. Locked lanes are protected from clear too —
+        // sdGetTargetParams filters them out.
+        const targets = sdGetTargetParams();
         if (!targets.length) return;
         pushUndo();
         targets.forEach(param => {
@@ -2638,13 +2667,102 @@
         });
         sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
     };
-    window.sdToggleApplyAll = function() {
-        sdApplyAllMode = !sdApplyAllMode;
-        const btn = document.getElementById('sd-apply-all-toggle');
-        btn.className = sdApplyAllMode
-            ? "text-[9px] text-fuchsia-300 bg-fuchsia-500/20 border border-fuchsia-500/40 hover:bg-fuchsia-500/30 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0 ml-auto shadow-[0_0_8px_rgba(217,70,239,0.2)]"
-            : "text-[9px] text-zinc-500 bg-black/50 border border-white/5 hover:border-fuchsia-500/30 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0 ml-auto";
+    // ─── Lane selection actions ─────────────────────────────
+
+    // Select All — toggles the entire selection set across unlocked lanes.
+    // First click: marks every unlocked lane as selected (brighter visual).
+    // If everything is already selected, second click clears the selection
+    // entirely. Locked lanes are never touched in either direction.
+    //
+    // Mutual exclusion: no-op while sdSelectMode is on (the button is also
+    // visually disabled, this is a defense-in-depth check).
+    window.sdSelectAll = function() {
+        if (sdSelectMode) return;
+        const unlocked = sdCanvasParams.filter(p => !p.locked);
+        if (!unlocked.length) return;
+        const allSelected = unlocked.every(p => p.selected);
+        if (allSelected) {
+            // Clear — second click on a fully-selected state acts as "deselect all"
+            sdCanvasParams.forEach(p => { p.selected = false; });
+        } else {
+            sdCanvasParams.forEach(p => {
+                if (!p.locked) p.selected = true;
+            });
+        }
+        _sdUpdateSelectionButtons();
+        sdRenderSidebar();
+        sdDrawCanvasGrid();
     };
+
+    // Select (mode toggle) — when ON, clicking a lane toggles its selected
+    // state instead of activating it. When OFF, clicking activates as usual.
+    //
+    // Mutual exclusion: no-op while all unlocked lanes are already selected
+    // (the button is also visually disabled in that state).
+    window.sdToggleSelectMode = function() {
+        const unlocked = sdCanvasParams.filter(p => !p.locked);
+        const allSelected = unlocked.length > 0 && unlocked.every(p => p.selected);
+        // Only block ENTERING select mode when all are already selected.
+        // Always allow LEAVING select mode (sdSelectMode true → toggle off
+        // is fine regardless of selection state).
+        if (allSelected && !sdSelectMode) return;
+        sdSelectMode = !sdSelectMode;
+        _sdUpdateSelectionButtons();
+        // Cursor hint via canvas: subtly tint when in select mode so the
+        // user knows clicks behave differently.
+        sdDrawCanvasGrid();
+    };
+
+    // Toggle a single lane's selected state. Called from the multi-view
+    // click handler when sdSelectMode is on, OR programmatically by tests.
+    window.sdToggleLaneSelection = function(envelopeId) {
+        const p = sdCanvasParams.find(p => p.envelopeId === envelopeId);
+        if (!p || p.locked) return;
+        p.selected = !p.selected;
+        _sdUpdateSelectionButtons();
+        sdRenderSidebar();
+        sdDrawCanvasGrid();
+    };
+
+    // Refresh the visual state of both selection buttons in the toolbar.
+    // Called whenever selection state or select-mode changes.
+    //
+    // Mutual exclusion rule: the two buttons represent alternative selection
+    // modes and can't both be "active" at once.
+    //   - Select All highlighted (allSelected) → Select button disabled
+    //   - Select Mode active (sdSelectMode)    → Select All button disabled
+    //   - Neither active                       → both available
+    function _sdUpdateSelectionButtons() {
+        const ACTIVE_CLASS = "text-[9px] text-fuchsia-300 bg-fuchsia-500/20 border border-fuchsia-500/40 hover:bg-fuchsia-500/30 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0 shadow-[0_0_8px_rgba(217,70,239,0.2)]";
+        const IDLE_CLASS = "text-[9px] text-zinc-500 bg-black/50 border border-white/5 hover:border-fuchsia-500/30 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0";
+        const DISABLED_CLASS = "text-[9px] text-zinc-700 bg-black/30 border border-white/5 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0 cursor-not-allowed opacity-40 pointer-events-none";
+
+        const unlocked = sdCanvasParams.filter(p => !p.locked);
+        const allSelected = unlocked.length > 0 && unlocked.every(p => p.selected);
+
+        const allBtn = document.getElementById('sd-select-all-toggle');
+        if (allBtn) {
+            if (sdSelectMode) {
+                // In manual select mode → Select All is disabled.
+                allBtn.disabled = true;
+                allBtn.className = DISABLED_CLASS;
+            } else {
+                allBtn.disabled = false;
+                allBtn.className = allSelected ? ACTIVE_CLASS : IDLE_CLASS;
+            }
+        }
+        const selBtn = document.getElementById('sd-select-mode-toggle');
+        if (selBtn) {
+            if (allSelected) {
+                // All unlocked are already selected → Select mode is moot, disabled.
+                selBtn.disabled = true;
+                selBtn.className = DISABLED_CLASS;
+            } else {
+                selBtn.disabled = false;
+                selBtn.className = sdSelectMode ? ACTIVE_CLASS : IDLE_CLASS;
+            }
+        }
+    }
 
     // ─── VIEW MODE TOGGLE (focus ↔ multi) ─────────────────
     // Flips the canvas between single-lane focus and the stacked multi-lane
