@@ -688,7 +688,7 @@
                     </div>
 
                     <h3 class="text-5xl md:text-6xl font-black text-white mb-3 tracking-tight">Be first.</h3>
-                    <p class="text-base text-zinc-400 font-medium mb-10">Founding-member pricing for the first 100 buyers. After that it's $49 — and stays there. Lock in the lowest price while it lasts.</p>
+                    <p class="text-base text-zinc-400 font-medium mb-10">Founding-member pricing for the first 100 buyers. After that it's $59. Lock in the lowest price while it lasts.</p>
 
                     <div class="flex flex-col gap-3 text-left max-w-xs mx-auto mb-10">
                         <div class="flex items-center gap-3">
@@ -718,7 +718,7 @@
                         <div class="bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/30 rounded-2xl p-5">
                             <div class="flex items-baseline gap-3 mb-2">
                                 <span class="text-3xl font-black text-white">$39</span>
-                                <span class="text-sm text-zinc-400 line-through">$49</span>
+                                <span class="text-sm text-zinc-400 line-through">$59</span>
                                 <span class="text-[10px] text-orange-400 uppercase font-black tracking-widest bg-orange-500/15 px-2 py-0.5 rounded-full">Founding Member</span>
                             </div>
                             <div class="flex items-center gap-2 mb-4">
@@ -730,10 +730,10 @@
                                 </div>
                                 <span id="tier-remaining" class="text-[10px] text-orange-400 font-black shrink-0">85 left</span>
                             </div>
-                            <p class="text-[11px] text-zinc-500 leading-relaxed">One-time purchase. 2 machines. Free updates in v1.x. First 100 buyers lock in the lowest price — goes to $49 after, and stays there.</p>
+                            <p class="text-[11px] text-zinc-500 leading-relaxed">One-time purchase. 2 machines. Free updates in v1.x. First 100 buyers lock in the lowest price — goes to $59 after.</p>
                         </div>
                         <div class="flex items-center justify-center gap-4 mt-3 text-[9px] text-zinc-600 uppercase tracking-widest font-bold">
-                            <span>After 100 → $49 forever</span>
+                            <span>After 100 → $59</span>
                         </div>
                     </div>
 
@@ -1054,7 +1054,7 @@
         // The email + name are appended as query params so LS pre-fills the
         // checkout page when the buyer lands on it (less friction → higher
         // conversion). When the founder counter hits 100, swap this URL
-        // with the next variant's checkout URL ($49 — final tier).
+        // with the next variant's checkout URL ($59 — next tier).
         // ── LAUNCH SWITCH ──
         // Set to '' for waitlist mode. A non-empty URL activates purchase mode.
         const LS_CHECKOUT_URL = 'https://strideengine.lemonsqueezy.com/checkout/buy/692f2af4-4227-4f75-8975-352196d45840';
@@ -1221,7 +1221,7 @@
         // (the validation test purchase) → displayed=15, matching the initial
         // server-rendered state. When real_sales=2 (first customer) → 17, etc.
         // Caps at 100% so the bar never overflows; at that point you should
-        // rotate LS_CHECKOUT_URL to the $49 variant — the final tier.
+        // rotate LS_CHECKOUT_URL to the $59 variant — the next tier.
         async function updateFoundersCounter() {
             try {
                 const res = await fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
