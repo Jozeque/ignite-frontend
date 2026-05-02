@@ -156,6 +156,8 @@
                         <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black">Country</th>
                         <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black">Source</th>
                         <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black">License</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black" title="LS license has been activated at least once (user opened Stride and entered their key)">Activated</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black" title="User has opened Stride 2+ times (returning user, past initial activation)">Onboarding</th>
                         <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black">Amount</th>
                         <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black w-64">Notes</th>
                         <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black">Last contacted</th>
@@ -496,6 +498,8 @@
                            </div>`
                         : '<span class="text-zinc-700">—</span>'}
                 </td>
+                <td class="px-3 py-2">${activatedBadge(row)}</td>
+                <td class="px-3 py-2">${onboardingBadge(row)}</td>
                 <td class="px-3 py-2 text-zinc-300 whitespace-nowrap">${amount || '<span class="text-zinc-700">—</span>'}</td>
                 <td class="px-3 py-2">
                     <textarea data-field="notes" data-id="${row.id}" data-original="${escapeHtml(notes)}"
@@ -522,6 +526,43 @@
             if (src === 'lemonsqueezy') return 'LS';
             if (src === 'registered_user') return 'Registered';
             return src;
+        }
+
+        // Activated YES/NO — paid customer's license has been activated at
+        // least once on Lemon Squeezy (means they opened Stride and pasted
+        // their key). Backed by license_activation_usage (int from LS, written
+        // to Firestore on every license validation).
+        //   '—'  — no license at all (lead/waitlist signup, never paid)
+        //   YES  — license_activation_usage > 0 OR license_last_validated_at exists
+        //   NO   — has license but never activated
+        function activatedBadge(row) {
+            if (!row.license_key) {
+                return '<span class="text-zinc-700 text-[10px]">—</span>';
+            }
+            const usage = parseInt(row.license_activation_usage) || 0;
+            const everValidated = !!row.license_last_validated_at;
+            if (usage > 0 || everValidated) {
+                return '<span class="text-emerald-400 font-black text-[9px] uppercase tracking-wider">Yes</span>';
+            }
+            return '<span class="text-red-400/80 font-black text-[9px] uppercase tracking-wider">No</span>';
+        }
+
+        // Onboarding YES/NO — paid + activated + actually came back to use the
+        // app at least 2 times (signal of meaningful engagement past initial
+        // activation). Backed by license_validation_count (incremented on each
+        // backend license check).
+        //   '—'  — no license at all
+        //   YES  — license_validation_count >= 2 (returned to the app)
+        //   NO   — has license, may be activated, but only validated once or never
+        function onboardingBadge(row) {
+            if (!row.license_key) {
+                return '<span class="text-zinc-700 text-[10px]">—</span>';
+            }
+            const count = parseInt(row.license_validation_count) || 0;
+            if (count >= 2) {
+                return '<span class="text-emerald-400 font-black text-[9px] uppercase tracking-wider">Yes</span>';
+            }
+            return '<span class="text-amber-400/80 font-black text-[9px] uppercase tracking-wider">No</span>';
         }
 
         function formatAmount(cents, currency) {

@@ -544,7 +544,15 @@ def _handle_validate_license(data: dict):
     meta = result.get("meta") or {}
     customer_email = (meta.get("customer_email") or "").lower().strip()
 
-    # Best-effort: bump last-validated timestamp on the matching customer record
+    # Best-effort: bump last-validated timestamp + activation tracking so the
+    # admin CRM can show Activated YES/NO and Onboarding YES/NO columns.
+    #
+    #   license_activation_usage   — int from LS, count of activated installs
+    #   license_activation_limit   — int from LS, max allowed installs
+    #   license_validation_count   — incremented on each call, our usage signal
+    #   first_validated_at         — set once on first validation
+    #   license_last_validated_at  — bumped on every call (existing)
+    #   license_status             — "active"/"inactive"/"expired" (existing)
     try:
         if customer_email:
             _db = admin_firestore.client()
@@ -552,10 +560,18 @@ def _handle_validate_license(data: dict):
                 _db.collection("waitlist").where("email", "==", customer_email).limit(1).stream()
             )
             if matches:
-                matches[0].reference.update({
+                ref = matches[0].reference
+                existing = matches[0].to_dict() or {}
+                updates = {
                     "license_last_validated_at": admin_firestore.SERVER_TIMESTAMP,
                     "license_status": lk.get("status") or "active",
-                })
+                    "license_activation_usage": int(lk.get("activation_usage") or 0),
+                    "license_activation_limit": int(lk.get("activation_limit") or 0),
+                    "license_validation_count": int(existing.get("license_validation_count") or 0) + 1,
+                }
+                if not existing.get("first_validated_at"):
+                    updates["first_validated_at"] = admin_firestore.SERVER_TIMESTAMP
+                ref.update(updates)
     except Exception as fe:
         print(f"[License] Firestore touch failed (non-fatal): {fe}")
 
