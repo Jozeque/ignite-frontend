@@ -132,6 +132,45 @@ Best regards,
 Joe
 """
 
+# Inbox where admin notifications (buyer leads, waitlist signups, contact
+# form messages) get mirrored — in addition to the Discord webhook ping.
+# Sending to two addresses ensures the message lands even if the
+# stridehub.io→Gmail forwarding ever breaks.
+ADMIN_NOTIFICATION_RECIPIENTS = [
+    "home@stridehub.io",
+    "stride.engine@gmail.com",
+]
+
+
+def _send_admin_notification(subject: str, body: str) -> bool:
+    """Send an admin notification email via Resend.
+
+    Used to mirror buyer leads, waitlist signups, and contact form messages
+    into Gmail in addition to Discord. Failures are logged but never raised
+    — the request flow must always succeed even if email is down.
+
+    Skipped silently if RESEND_API_KEY is unset.
+    """
+    if not RESEND_API_KEY:
+        print("[Admin Email] RESEND_API_KEY not set — skipping send")
+        return False
+    try:
+        import resend
+        resend.api_key = RESEND_API_KEY
+        result = resend.Emails.send({
+            "from": "Stride Notifications <home@stridehub.io>",
+            "to": ADMIN_NOTIFICATION_RECIPIENTS,
+            "reply_to": "home@stridehub.io",
+            "subject": subject,
+            "text": body,
+        })
+        print(f"[Admin Email] sent: {subject[:60]} id={result.get('id') if isinstance(result, dict) else result}")
+        return True
+    except Exception as e:
+        print(f"[Admin Email] send failed: {e}")
+        return False
+
+
 def _send_welcome_email(email: str, full_name: str) -> bool:
     """Send the post-purchase welcome email via Resend. Returns True on success.
 
@@ -711,6 +750,31 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
                 urllib.request.urlopen(webhook_req, timeout=10)
             except Exception as we:
                 print(f"[Waitlist] DISCORD FAILED: {we} — data logged above")
+
+        # Mirror to Gmail via Resend so admin can manage all customer comms
+        # in one inbox alongside support replies. Independent of Discord —
+        # if Discord is down, the email still goes; if Resend is down, the
+        # Discord ping still goes.
+        try:
+            db_status_line = "" if db_ok else "\n⚠️ FIRESTORE WRITE FAILED — recover from logs."
+            returning_line = " (returning customer)" if was_existing else " (new lead)"
+            kind = "BUYER LEAD" if action_type == "buyer_lead" else "WAITLIST SIGNUP"
+            subject = f"[Stride] {kind} — {name or email}{returning_line}"
+            body = (
+                f"{kind}{returning_line}\n"
+                f"\n"
+                f"Producer:    {name or '(no name)'}\n"
+                f"Email:       {email}\n"
+                f"Country:     {country or '(not specified)'}\n"
+                f"Heard from:  {source or '(not specified)'}\n"
+                f"\n"
+                f"Action:      {action_type}\n"
+                f"{db_status_line}"
+            )
+            _send_admin_notification(subject, body.strip())
+        except Exception as ee:
+            print(f"[Waitlist] ADMIN EMAIL FAILED: {ee} — data logged above")
+
         return jsonify({"success": True}), 200
 
     # --- CONTACT FORM (public, no auth required) ---
@@ -747,6 +811,37 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
                 urllib.request.urlopen(webhook_req, timeout=10)
             except Exception as we:
                 print(f"[Contact] DISCORD FAILED: {we} — data logged above")
+
+        # Mirror to Gmail via Resend — easier to reply to a real email than
+        # copy a Discord ping into Gmail every time. Reply-to is set to the
+        # sender so admin can hit Reply directly and reach the user.
+        try:
+            sender_label = f"{name} <{email}>" if name else email
+            subject = f"[Stride] Contact form: {name or email}"
+            body = (
+                f"From: {sender_label}\n"
+                f"\n"
+                f"Message:\n"
+                f"{message}\n"
+            )
+            # Override default reply_to so admin can hit Reply and the
+            # message goes back to the user, not to home@stridehub.io.
+            if RESEND_API_KEY:
+                try:
+                    import resend
+                    resend.api_key = RESEND_API_KEY
+                    resend.Emails.send({
+                        "from": "Stride Notifications <home@stridehub.io>",
+                        "to": ADMIN_NOTIFICATION_RECIPIENTS,
+                        "reply_to": email,
+                        "subject": subject,
+                        "text": body,
+                    })
+                    print(f"[Contact] admin email sent to {ADMIN_NOTIFICATION_RECIPIENTS}")
+                except Exception as ce:
+                    print(f"[Contact] ADMIN EMAIL FAILED: {ce}")
+        except Exception as ee:
+            print(f"[Contact] ADMIN EMAIL OUTER FAILED: {ee}")
 
         return jsonify({"success": True}), 200
 
