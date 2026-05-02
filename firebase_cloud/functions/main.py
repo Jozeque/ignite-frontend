@@ -132,43 +132,14 @@ Best regards,
 Joe
 """
 
-# Inbox where admin notifications (buyer leads, waitlist signups, contact
-# form messages) get mirrored — in addition to the Discord webhook ping.
-# Sending to two addresses ensures the message lands even if the
-# stridehub.io→Gmail forwarding ever breaks.
-ADMIN_NOTIFICATION_RECIPIENTS = [
+# Where contact-form messages get mirrored — admin handles every customer
+# inquiry from one Gmail inbox. Two recipients for redundancy in case the
+# stridehub.io→Gmail forwarding ever breaks. Buyer leads + waitlist signups
+# deliberately stay on Discord (high volume, no reply expected).
+CONTACT_FORM_RECIPIENTS = [
     "home@stridehub.io",
     "stride.engine@gmail.com",
 ]
-
-
-def _send_admin_notification(subject: str, body: str) -> bool:
-    """Send an admin notification email via Resend.
-
-    Used to mirror buyer leads, waitlist signups, and contact form messages
-    into Gmail in addition to Discord. Failures are logged but never raised
-    — the request flow must always succeed even if email is down.
-
-    Skipped silently if RESEND_API_KEY is unset.
-    """
-    if not RESEND_API_KEY:
-        print("[Admin Email] RESEND_API_KEY not set — skipping send")
-        return False
-    try:
-        import resend
-        resend.api_key = RESEND_API_KEY
-        result = resend.Emails.send({
-            "from": "Stride Notifications <home@stridehub.io>",
-            "to": ADMIN_NOTIFICATION_RECIPIENTS,
-            "reply_to": "home@stridehub.io",
-            "subject": subject,
-            "text": body,
-        })
-        print(f"[Admin Email] sent: {subject[:60]} id={result.get('id') if isinstance(result, dict) else result}")
-        return True
-    except Exception as e:
-        print(f"[Admin Email] send failed: {e}")
-        return False
 
 
 def _send_welcome_email(email: str, full_name: str) -> bool:
@@ -750,31 +721,10 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
                 urllib.request.urlopen(webhook_req, timeout=10)
             except Exception as we:
                 print(f"[Waitlist] DISCORD FAILED: {we} — data logged above")
-
-        # Mirror to Gmail via Resend so admin can manage all customer comms
-        # in one inbox alongside support replies. Independent of Discord —
-        # if Discord is down, the email still goes; if Resend is down, the
-        # Discord ping still goes.
-        try:
-            db_status_line = "" if db_ok else "\n⚠️ FIRESTORE WRITE FAILED — recover from logs."
-            returning_line = " (returning customer)" if was_existing else " (new lead)"
-            kind = "BUYER LEAD" if action_type == "buyer_lead" else "WAITLIST SIGNUP"
-            subject = f"[Stride] {kind} — {name or email}{returning_line}"
-            body = (
-                f"{kind}{returning_line}\n"
-                f"\n"
-                f"Producer:    {name or '(no name)'}\n"
-                f"Email:       {email}\n"
-                f"Country:     {country or '(not specified)'}\n"
-                f"Heard from:  {source or '(not specified)'}\n"
-                f"\n"
-                f"Action:      {action_type}\n"
-                f"{db_status_line}"
-            )
-            _send_admin_notification(subject, body.strip())
-        except Exception as ee:
-            print(f"[Waitlist] ADMIN EMAIL FAILED: {ee} — data logged above")
-
+        # Buyer leads + waitlist signups deliberately stay Discord-only —
+        # admin doesn't want Gmail flooded with high-volume lead pings. Only
+        # the contact form (much lower volume, requires reply) gets mirrored
+        # to email.
         return jsonify({"success": True}), 200
 
     # --- CONTACT FORM (public, no auth required) ---
@@ -832,12 +782,12 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
                     resend.api_key = RESEND_API_KEY
                     resend.Emails.send({
                         "from": "Stride Notifications <home@stridehub.io>",
-                        "to": ADMIN_NOTIFICATION_RECIPIENTS,
+                        "to": CONTACT_FORM_RECIPIENTS,
                         "reply_to": email,
                         "subject": subject,
                         "text": body,
                     })
-                    print(f"[Contact] admin email sent to {ADMIN_NOTIFICATION_RECIPIENTS}")
+                    print(f"[Contact] admin email sent to {CONTACT_FORM_RECIPIENTS}")
                 except Exception as ce:
                     print(f"[Contact] ADMIN EMAIL FAILED: {ce}")
         except Exception as ee:
