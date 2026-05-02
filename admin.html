@@ -134,11 +134,11 @@
             </select>
 
             <select id="sort" class="bg-black/40 border border-white/10 focus:border-fuchsia-500/50 outline-none rounded-lg px-3 py-1.5 text-[10px] text-zinc-300 uppercase tracking-wider font-bold cursor-pointer">
+                <option value="status_priority" selected>By status (revenue first)</option>
                 <option value="created_desc">Newest first</option>
                 <option value="created_asc">Oldest first</option>
                 <option value="contacted_desc">Recently contacted</option>
                 <option value="name_asc">Name A→Z</option>
-                <option value="status_priority">By status (revenue first)</option>
             </select>
 
             <div class="flex-1"></div>
@@ -205,7 +205,7 @@
             search: '',
             statusFilter: '',
             sourceFilter: '',
-            sort: 'created_desc',
+            sort: 'status_priority',
             unsubWaitlist: null,
             unsubUsers: null
         };
@@ -445,6 +445,24 @@
             tbody.querySelectorAll('button[data-action="copy"]').forEach(btn => {
                 btn.addEventListener('click', () => copyToClipboard(btn.dataset.value));
             });
+            tbody.querySelectorAll('button[data-action="toggle-onboarding"]').forEach(btn => {
+                btn.addEventListener('click', () => toggleOnboarding(btn.dataset.id, btn.dataset.next === 'true'));
+            });
+        }
+
+        // Toggle onboarding YES/NO. Manual admin input — judgment call after
+        // a Zoom call, support email, or other engagement signal. Optimistic
+        // update: re-render before backend confirms (the onSnapshot will
+        // reconcile to ground truth in ~100ms).
+        async function toggleOnboarding(docId, nextValue) {
+            const row = state.rows.find(r => r.id === docId);
+            if (row) row.onboarding = nextValue;
+            renderTable();
+            const result = await saveUpdate(docId, { onboarding: nextValue });
+            if (!result || !result.success) {
+                toast(`Onboarding update failed: ${result && result.error || 'unknown'}`, true);
+                if (row) { row.onboarding = !nextValue; renderTable(); }
+            }
         }
 
         function rowHtml(row) {
@@ -547,22 +565,24 @@
             return '<span class="text-red-400/80 font-black text-[9px] uppercase tracking-wider">No</span>';
         }
 
-        // Onboarding YES/NO — paid + activated + actually came back to use the
-        // app at least 2 times (signal of meaningful engagement past initial
-        // activation). Backed by license_validation_count (incremented on each
-        // backend license check).
-        //   '—'  — no license at all
-        //   YES  — license_validation_count >= 2 (returned to the app)
-        //   NO   — has license, may be activated, but only validated once or never
+        // Onboarding YES/NO — manual admin input. Click the badge to toggle.
+        // Reflects "did the customer go through onboarding successfully" — a
+        // judgment call admin makes after a Zoom call, support email exchange,
+        // or seeing them post about Stride. Stored as boolean `row.onboarding`.
+        //   '—'   — no license (lead/waitlist, not a paying customer)
+        //   YES   — admin marked: onboarded successfully (emerald)
+        //   NO    — admin marked: not onboarded (amber, default for new buyers)
         function onboardingBadge(row) {
             if (!row.license_key) {
                 return '<span class="text-zinc-700 text-[10px]">—</span>';
             }
-            const count = parseInt(row.license_validation_count) || 0;
-            if (count >= 2) {
-                return '<span class="text-emerald-400 font-black text-[9px] uppercase tracking-wider">Yes</span>';
-            }
-            return '<span class="text-amber-400/80 font-black text-[9px] uppercase tracking-wider">No</span>';
+            const isOnboarded = !!row.onboarding;
+            const next = isOnboarded ? 'false' : 'true';
+            const label = isOnboarded ? 'Yes' : 'No';
+            const colorClass = isOnboarded ? 'text-emerald-400' : 'text-amber-400/80';
+            return `<button data-action="toggle-onboarding" data-id="${row.id}" data-next="${next}"
+                            class="${colorClass} font-black text-[9px] uppercase tracking-wider hover:opacity-70 cursor-pointer transition-opacity"
+                            title="Click to toggle onboarding status">${label}</button>`;
         }
 
         function formatAmount(cents, currency) {
