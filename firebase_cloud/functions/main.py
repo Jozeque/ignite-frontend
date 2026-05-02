@@ -861,7 +861,7 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
         if not isinstance(updates_in, dict):
             return jsonify({"error": "updates must be an object"}), 400
 
-        ALLOWED_FIELDS = {"name", "country", "status", "notes", "assigned_to"}
+        ALLOWED_FIELDS = {"name", "country", "status", "notes", "assigned_to", "onboarding"}
         clean_updates = {}
         for k, v in updates_in.items():
             if k in ALLOWED_FIELDS and v is not None:
