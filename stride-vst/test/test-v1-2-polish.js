@@ -24,7 +24,7 @@ function assertEq(a, b, msg) {
 
 // ─── Sticky bars — validation contract ───────────────────────────
 
-const SD_VALID_BARS = [2, 4, 8, 16];
+const SD_VALID_BARS = [2, 4, 8, 16, 32];
 function specValidateBars(val) {
     const n = parseInt(val, 10);
     return SD_VALID_BARS.includes(n) ? n : 4;
@@ -36,9 +36,11 @@ test('Valid 2 stays 2', () => assertEq(specValidateBars(2), 2));
 test('Valid 4 stays 4', () => assertEq(specValidateBars(4), 4));
 test('Valid 8 stays 8', () => assertEq(specValidateBars(8), 8));
 test('Valid 16 stays 16', () => assertEq(specValidateBars(16), 16));
+test('Valid 32 stays 32', () => assertEq(specValidateBars(32), 32));
 test('String "8" parses to 8', () => assertEq(specValidateBars("8"), 8));
+test('String "32" parses to 32', () => assertEq(specValidateBars("32"), 32));
 test('Invalid 7 falls back to 4', () => assertEq(specValidateBars(7), 4));
-test('Invalid 32 falls back to 4', () => assertEq(specValidateBars(32), 4));
+test('Invalid 64 falls back to 4', () => assertEq(specValidateBars(64), 4));
 test('Negative falls back to 4', () => assertEq(specValidateBars(-4), 4));
 test('Zero falls back to 4', () => assertEq(specValidateBars(0), 4));
 test('Null falls back to 4', () => assertEq(specValidateBars(null), 4));

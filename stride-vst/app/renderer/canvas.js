@@ -125,7 +125,7 @@
     // ─── BARS ─────────────────────────────────────────────
 
     // Valid loop-length values (matches the toolbar pill row).
-    const SD_VALID_BARS = [2, 4, 8, 16];
+    const SD_VALID_BARS = [2, 4, 8, 16, 32];
     function sdValidateBars(val) {
         const n = parseInt(val, 10);
         return SD_VALID_BARS.includes(n) ? n : 4;
