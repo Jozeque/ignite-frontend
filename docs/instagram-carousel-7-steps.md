@@ -106,7 +106,7 @@ Skip this and Stride has nothing to scan.
 
 ---
 
-## SLIDE 4 — Step 3
+## SLIDE 4 — Step 3 (real-user fail mode — make it impossible to miss)
 
 **BIG:**
 ```
@@ -116,17 +116,19 @@ ADD STRIDELINK
 
 **Smaller:**
 ```
-Drag the Max for Live device
-onto the same MIDI track.
+In Stride, click "Install to Ableton" first.
+Then drag StrideLink from Ableton's
+User Library onto your MIDI track.
 ```
 
-**Tiny note (amber-400, ⚠):**
+**Tiny note (red-400, ⚠):**
 ```
-Status dot red? Quit Stride and Ableton.
-Open Stride first, then Ableton.
+The biggest "won't connect" mistake:
+skipping "Install to Ableton" in Stride.
+The dot stays red and Scan does nothing.
 ```
 
-**Visual:** small screenshot of the M4L device on a track.
+**Visual:** small screenshot showing the "Install to Ableton" button highlighted in Stride's titlebar, with an arrow pointing to it.
 
 ---
 

@@ -319,6 +319,27 @@
                 <div class="flex-1 overflow-y-auto custom-scroll px-7 py-6">
                     <div class="flex flex-col gap-7">
 
+                        <!-- FIRST-TIME SETUP — must happen before Step 1.
+                             Most common "M4L disconnected / Scan does nothing"
+                             cause is users skipping this step entirely. Big red
+                             callout up top so nobody misses it. -->
+                        <div class="rounded-xl border-2 border-red-500/40 p-5" style="background: linear-gradient(135deg, rgba(239,68,68,0.10), rgba(249,115,22,0.06));">
+                            <div class="flex items-start gap-3">
+                                <div class="shrink-0 w-10 h-10 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-xs text-red-400 font-black uppercase tracking-widest mb-1">First-time setup — do this once</p>
+                                    <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Install StrideLink to Ableton</h3>
+                                    <p class="text-base text-zinc-300 leading-relaxed mt-2">Click <span class="text-orange-400 font-bold">"Install to Ableton"</span> in Stride's titlebar (top of this window). This copies <span class="text-zinc-100 font-mono">StrideLink.amxd</span> into your Ableton User Library so you can drag it onto a track in Step 3.</p>
+                                    <div class="mt-3 bg-black/40 border border-red-500/25 rounded-lg px-4 py-3">
+                                        <p class="text-xs text-red-400/85 font-black uppercase tracking-wider mb-2">Skipped this? Here's what happens.</p>
+                                        <p class="text-sm text-zinc-300 leading-relaxed">The M4L pill in Stride stays <b class="text-red-400">red</b>. Scan Mapped does nothing. Most common cause of "Stride won't connect" — fix it by clicking Install to Ableton, then drag StrideLink fresh from User Library onto a track.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Step 1 -->
                         <div class="flex gap-4">
                             <div class="shrink-0 w-10 h-10 rounded-xl bg-orange-500/15 border border-orange-500/25 flex items-center justify-center">
@@ -362,7 +383,11 @@
                             </div>
                             <div class="flex-1 min-w-0">
                                 <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Drop StrideLink on the same track</h3>
-                                <p class="text-base text-zinc-400 leading-relaxed mt-1">Drag <span class="text-zinc-300 font-medium">StrideLink.amxd</span> from the M4L folder onto the same MIDI track, after your instrument.</p>
+                                <p class="text-base text-zinc-400 leading-relaxed mt-1">In Ableton's Browser, find <span class="text-zinc-300 font-medium">StrideLink.amxd</span> under <span class="text-zinc-300 font-medium">User Library → Presets → Audio Effects → Max Audio Effect</span>. Drag it onto the same MIDI track, after your instrument.</p>
+                                <div class="mt-2 bg-black/30 border border-red-500/20 rounded-lg px-3 py-2">
+                                    <p class="text-xs text-red-400/80 font-black uppercase tracking-wider mb-2">Don't see StrideLink in your User Library?</p>
+                                    <p class="text-sm text-zinc-400 leading-relaxed">Scroll up to <b class="text-orange-400">First-Time Setup</b> at the top of this guide. You skipped clicking "Install to Ableton" in Stride's titlebar.</p>
+                                </div>
                                 <div id="guide-img-3" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden hidden"><!-- screenshot slot --></div>
                             </div>
                         </div>
