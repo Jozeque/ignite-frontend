@@ -2362,6 +2362,13 @@
     });
 
     // Quantize, Swing, Smooth, Intensity
+    //
+    // sdQuantizeLane is INTENTIONALLY ORPHANED from the UI as of 2026-05-03.
+    // The 1/4 / 1/8 / 1/16 / 1/8T / 1/16T toolbar buttons were removed because
+    // no one was using them. The function stays compilable here so we can
+    // re-wire it later — see project memory: project_quantize_triplet_spec.md
+    // for the future direction (triplet-aware preset shapes + Chaos triplet
+    // mode rather than raw quantize buttons).
     window.sdQuantizeLane = function(gridSize) {
         if (!sdActiveParamId) return; pushUndo(); const sel = sdGetSelection();
         const totalBeats = sdGetBars() * 4;
