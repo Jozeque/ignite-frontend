@@ -2283,20 +2283,41 @@
         document.getElementById('sd-canvas-status').textContent = `Copied ${sdClipboardPoints.length} pts`;
     };
     window.sdPasteLane = function(invert) {
-        if (!sdActiveParamId || !sdClipboardPoints || !sdClipboardPoints.length) return;
-        const param = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
-        if (!param) return;
-        if (param.locked) {
+        if (!sdClipboardPoints || !sdClipboardPoints.length) return;
+        // Honor the Select feature: if any lanes are selected, paste targets
+        // them (Inv flips values per-target). Otherwise fall back to the
+        // active lane. Locked lanes are filtered out by sdGetTargetParams.
+        // Pre-fix bug: this used sdActiveParamId directly, so Copy from lane A
+        // → Select lane B → Paste Inv landed back on lane A instead of B.
+        const targets = sdGetTargetParams();
+        if (!targets.length) {
             const status = document.getElementById('sd-canvas-status');
-            if (status) status.textContent = 'Active lane is locked — unlock to paste';
+            if (status) status.textContent = sdHasSelection()
+                ? 'All selected lanes are locked — unlock to paste'
+                : 'No active lane (or it\'s locked) — pick a lane first';
             return;
         }
         pushUndo();
-        const sel = sdGetSelection(); const tS = sel ? sel.startBeat : 0;
-        const cD = Math.max(...sdClipboardPoints.map(p => p.time)); const tD = sel ? (sel.endBeat - sel.startBeat) : cD; const sc = cD > 0 ? tD / cD : 1;
-        if (sel) param.points = param.points.filter(pt => pt.time < sel.startBeat || pt.time > sel.endBeat); else param.points = [];
-        sdClipboardPoints.forEach(pt => { param.points.push({ time: Math.round((tS + pt.time * sc) * 10000) / 10000, value: invert ? 1 - pt.value : pt.value, curve: invert ? -(pt.curve || 0) : (pt.curve || 0) }); });
-        param.points.sort((a, b) => a.time - b.time); sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
+        const sel = sdGetSelection();
+        const tS = sel ? sel.startBeat : 0;
+        const cD = Math.max(...sdClipboardPoints.map(p => p.time));
+        const tD = sel ? (sel.endBeat - sel.startBeat) : cD;
+        const sc = cD > 0 ? tD / cD : 1;
+        targets.forEach(param => {
+            if (sel) param.points = param.points.filter(pt => pt.time < sel.startBeat || pt.time > sel.endBeat);
+            else param.points = [];
+            sdClipboardPoints.forEach(pt => {
+                param.points.push({
+                    time: Math.round((tS + pt.time * sc) * 10000) / 10000,
+                    value: invert ? 1 - pt.value : pt.value,
+                    curve: invert ? -(pt.curve || 0) : (pt.curve || 0),
+                });
+            });
+            param.points.sort((a, b) => a.time - b.time);
+        });
+        sdResetSliderSnapshots();
+        sdRenderSidebar();
+        sdDrawCanvasGrid();
     };
 
     // Paste To... multi-select
@@ -5548,6 +5569,40 @@
 
     // Expose the refresh so external triggers (e.g. settings reset) can call it
     window._refreshGenerationsDock = _refreshGenerationsDock;
+
+    // Clear all generation files from ~/Desktop/Stride/ (moves to OS Trash,
+    // not a hard delete — recoverable). User invokes via the dock's Clear
+    // button. Use case: starting a fresh sound-design session and not wanting
+    // last week's experiments cluttering the dock. Also resets the seen-
+    // marker so the next generation gets the LED highlight again.
+    window.sdClearGenerations = async function() {
+        if (!window.stride || !window.stride.clearGenerations) return;
+        const ok = window.confirm(
+            'Move all generation files (.alc + thumbnails) to Trash?\n\n' +
+            'This clears the Recent Generations dock so you can start fresh.\n' +
+            'Files go to your OS Trash — recoverable if you change your mind.\n\n' +
+            'Templates and saved sessions are untouched.'
+        );
+        if (!ok) return;
+        const status = document.getElementById('sd-canvas-status');
+        try {
+            const result = await window.stride.clearGenerations();
+            if (result && result.success) {
+                _lastSeenGenMtime = 0;
+                if (status) {
+                    status.textContent = result.removed > 0
+                        ? `Cleared ${result.removed} file${result.removed > 1 ? 's' : ''}`
+                        : 'Nothing to clear';
+                    setTimeout(() => { if (status && status.textContent.startsWith('Cleared') || status.textContent === 'Nothing to clear') status.textContent = ''; }, 3000);
+                }
+                _refreshGenerationsDock();
+            } else if (status) {
+                status.textContent = 'Clear failed: ' + (result && result.error || 'unknown');
+            }
+        } catch (e) {
+            if (status) status.textContent = 'Clear failed: ' + e.message;
+        }
+    };
 
     // ─── EXPOSE FOR GENERATION ─────────────────────────────
 

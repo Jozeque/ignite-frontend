@@ -352,6 +352,34 @@ ipcMain.handle('list-recent-generations', async () => {
     }
 });
 
+// Clear Recent Generations dock — moves all .alc files (and sibling .png
+// thumbnails) in ~/Desktop/Stride/ to the OS trash, not a hard delete. User
+// can recover from Recycle Bin / Trash if they nuked something they wanted.
+// Subfolders (Stride/template/, Stride/sessions/) and any non-.alc/png files
+// are left alone — only the loose generation artifacts at the top level go.
+ipcMain.handle('clear-generations', async () => {
+    try {
+        if (!fs.existsSync(STRIDE_DIR)) return { success: true, removed: 0 };
+        const entries = fs.readdirSync(STRIDE_DIR, { withFileTypes: true })
+            .filter(d => d.isFile() && /\.(alc|png)$/i.test(d.name));
+        let removed = 0;
+        for (const e of entries) {
+            const p = path.join(STRIDE_DIR, e.name);
+            try {
+                await shell.trashItem(p);
+                removed++;
+            } catch (err) {
+                // If trash fails (locked file, permissions), fall back to unlink
+                // so the dock at least clears in the UI.
+                try { fs.unlinkSync(p); removed++; } catch (e2) {}
+            }
+        }
+        return { success: true, removed };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
 // Open the ~/Desktop/Stride folder (all generated .alc files live here)
 ipcMain.handle('open-stride-folder', async () => {
     try {
