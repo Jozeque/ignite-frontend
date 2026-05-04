@@ -12,8 +12,20 @@
  */
 
 const fs = require('fs');
+const path = require('path');
 const zlib = require('zlib');
 const { DOMParser, XMLSerializer } = require('@xmldom/xmldom');
+
+// Windows MAX_PATH is 260 chars. When the user's rack chain is huge (20+
+// devices), the generated .alc filename can blow past that and Node's fs
+// rejects the write with ENOENT. The "\\?\" prefix puts Win32 into
+// extended-length mode (~32,767 chars). Path must be absolute, normalized,
+// and use backslashes — path.join() on Windows already produces all three.
+function toLongPath(p) {
+    if (process.platform !== 'win32') return p;
+    if (!p || p.startsWith('\\\\?\\') || !path.isAbsolute(p)) return p;
+    return '\\\\?\\' + path.normalize(p);
+}
 
 // ─── DOM Helpers ─────────────────────────────────────────
 // ElementTree uses find/findall with XPath-like syntax.
@@ -547,11 +559,12 @@ function injectAlcFile(templatePath, autoData, outputPath) {
 
         const compressed = zlib.gzipSync(Buffer.from(xmlStr, 'utf-8'));
 
-        const dir = require('path').dirname(outputPath);
+        const longOut = toLongPath(outputPath);
+        const dir = path.dirname(longOut);
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
         }
-        fs.writeFileSync(outputPath, compressed);
+        fs.writeFileSync(longOut, compressed);
     } catch (e) {
         return { success: false, error: 'Failed to write .alc: ' + e.message };
     }

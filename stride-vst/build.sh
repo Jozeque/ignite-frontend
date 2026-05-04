@@ -189,7 +189,7 @@ cat > "$DIST/Stride/README.txt" << 'READMEEOF'
  INSTALL  (three steps)
 ---------------------------------------------------------------
 
-1. Unzip Stride_v1.0.0_Windows.zip to your Desktop or Documents
+1. Unzip the Stride .zip to your Desktop or Documents
    (NOT Downloads - Windows sometimes cleans it). Keep Stride.exe,
    the M4L/ folder, and the Guide/ folder together in the Stride/
    folder.
@@ -230,7 +230,7 @@ triggered, rarely). Windows 10 or 11.
     focuses if it's already open). Click "Scan Mapped".
  6. The canvas fills with one lane per mapped parameter.
  7. Either draw by hand OR smash one of the Presets / Chaos /
-    Bloom / Weave buttons. Start with a preset.
+    Bloom / Prism buttons. Start with a preset.
  8. Click "Apply to Clip". Stride generates a .alc file and
     opens the Stride folder for you.
  9. Drag the .alc onto a new MIDI clip slot on that track.
@@ -250,7 +250,7 @@ triggered, rarely). Windows 10 or 11.
 
 * ANCHOR + COMPLEMENT: hit Chaos, find the single curve you
   love the most, click that lane to make it active, then hit
-  Bloom (or Weave) - the rest of the lanes rearrange to
+  Bloom (or Prism) - the rest of the lanes rearrange to
   complement your anchor curve instead of fighting it.
   This is the fastest way to a cohesive modulation pattern.
 
@@ -260,7 +260,7 @@ triggered, rarely). Windows 10 or 11.
 
 * EXPERIMENT. Stride rewards exploration. There are endless
   variations and combinations you can chase with the preset
-  + Chaos + Bloom + Weave toolkit. No two sessions are alike.
+  + Chaos + Bloom + Prism toolkit. No two sessions are alike.
 
 ---------------------------------------------------------------
  TROUBLESHOOTING

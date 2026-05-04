@@ -257,9 +257,27 @@ function createAlcFile(msg, templatePath) {
     const clipName = msg.clip_name ? msg.clip_name.replace(/[^a-zA-Z0-9 _-]/g, '').replace(/\s+/g, '_') : null;
     // Filename always leads with the rack/clip identifier (so the user can tell
     // which rack a file is for at a glance) and ends with "_Stride" for branding.
-    const filename = clipName
-        ? `${clipName}_${clipBars}bars_${ts}_Stride.alc`
-        : `${safeDev}_${clipBars}bars_${ts}_Stride.alc`;
+    //
+    // The cap here has to cover BOTH constraints, in this order of strictness:
+    //   1. Windows Shell drag-and-drop uses an older Win32 API limited to
+    //      MAX_PATH = 260 chars TOTAL path. Ableton's drop handler reads
+    //      the file via this API. The file's full path C:\Users\<user>\
+    //      Desktop\Stride\<filename> must stay under 260 or drag fails
+    //      silently — the .alc writes fine but is undraggable.
+    //   2. NTFS / APFS / ext4 enforce a 255-char per-filename component.
+    //
+    // STRIDE_DIR prefix is ~30 chars for most users, up to ~55 for long
+    // usernames. Capping the filename at 200 chars guarantees total path
+    // stays under 260 even in the worst-case username scenario.
+    // The bars/timestamp/_Stride suffix is preserved verbatim so
+    // timestamps and bar lengths are never garbled.
+    const MAX_FILENAME = 200;
+    const suffix = `_${clipBars}bars_${ts}_Stride.alc`;
+    const namePortion = clipName || safeDev;
+    const truncatedName = namePortion.length + suffix.length > MAX_FILENAME
+        ? namePortion.slice(0, MAX_FILENAME - suffix.length)
+        : namePortion;
+    const filename = truncatedName + suffix;
     const outputPath = path.join(STRIDE_DIR, filename);
 
     // Call JS injector directly — no Python dependency

@@ -1248,9 +1248,9 @@
         } catch (e) { /* DOM not ready — will be called again after */ }
     }
 
-    // ─── TOOL AVAILABILITY (gray-out Bloom / Weave / Mutate) ─
-    // Bloom, Weave, and Mutate all need the selected parameter to have a
-    // curve drawn on it (and Bloom/Weave additionally need ≥2 lanes so
+    // ─── TOOL AVAILABILITY (gray-out Bloom / Prism / Mutate) ─
+    // Bloom, Prism, and Mutate all need the selected parameter to have a
+    // curve drawn on it (and Bloom/Prism additionally need ≥2 lanes so
     // there's something to propagate to). Instead of letting users click
     // and hit a modal explaining why it didn't work, we visually dim the
     // buttons when their preconditions aren't met. Clicks still fire the
@@ -1276,12 +1276,21 @@
                 }
             };
 
-            // Bloom and Weave both want active curve + ≥2 lanes
-            const bloomWeaveReason = !activeHasCurve
+            // Bloom needs an existing curve to copy (it's a one-shot operation
+            // that fans out the active lane's current curve to siblings).
+            const bloomReason = !activeHasCurve
                 ? 'Pick a parameter in the sidebar and draw or Chaos a curve first'
                 : (!hasMultipleLanes ? 'Need at least 2 lanes' : '');
-            dim('sd-bloom-btn', !activeHasCurve || !hasMultipleLanes, bloomWeaveReason);
-            dim('sd-weave-btn', !activeHasCurve || !hasMultipleLanes, bloomWeaveReason);
+            dim('sd-bloom-btn', !activeHasCurve || !hasMultipleLanes, bloomReason);
+
+            // Prism is live-draw — variants react to source as it's drawn,
+            // so an empty active lane is fine. Only need a selected lane
+            // and ≥2 lanes total to have anything to spread to.
+            const hasActive = !!sdActiveParamId;
+            const prismReason = !hasActive
+                ? 'Pick a parameter in the sidebar to be the source'
+                : (!hasMultipleLanes ? 'Need at least 2 lanes' : '');
+            dim('sd-prism-btn', !hasActive || !hasMultipleLanes, prismReason);
 
             // Mutate only needs active curve
             dim('sd-mutate-btn', !activeHasCurve,
@@ -1352,7 +1361,7 @@
 
         // Keep the empty-canvas CTA in sync with the param list
         sdUpdateEmptyState();
-        // Keep Bloom/Weave/Mutate gray-out state in sync
+        // Keep Bloom/Prism/Mutate gray-out state in sync
         sdUpdateToolAvailability();
     }
 
@@ -2137,7 +2146,7 @@
             const bars = sdGetBars(); const totalBeats = bars * 4;
             const hitT = (totalBeats * 0.02) / sdViewZoomX; const hitV = 0.05;
             let idx = param.points.findIndex(pt => Math.abs(pt.time - hd.time) < hitT && Math.abs(pt.value - hd.value) < hitV);
-            if (e.button === 2) { if (idx !== -1) { pushUndo(); param.points.splice(idx, 1); sdRenderSidebar(); sdDrawCanvasGrid(); } return; }
+            if (e.button === 2) { if (idx !== -1) { pushUndo(); param.points.splice(idx, 1); sdRenderSidebar(); sdDrawCanvasGrid(); if (_sdActiveTool === 'prism' && param.envelopeId === sdActiveParamId) _sdPrismLiveTick(); } return; }
             // ALT+click on a segment → curve drag
             if (e.altKey && param.points.length >= 2 && sdActiveTool === 'select') {
                 const sorted = [...param.points].sort((a, b) => a.time - b.time);
@@ -2194,11 +2203,38 @@
                 sdDraggedPoint.time = Math.max(0, Math.min(totalBeats, Math.round(hd.time * snap) / snap));
                 sdDraggedPoint.value = Math.max(0, Math.min(1, hd.value)); sdDrawCanvasGrid();
             }
+            // Prism live-draw: rAF-throttled recompute while user is
+            // editing the source lane. The tick restores variants from
+            // snapshot first so successive ticks don't compound drift.
+            if (_sdActiveTool === 'prism' && sdIsDragging && !_sdPrismRecomputeQueued) {
+                _sdPrismRecomputeQueued = true;
+                requestAnimationFrame(() => {
+                    _sdPrismRecomputeQueued = false;
+                    if (_sdActiveTool === 'prism' && sdIsDragging) _sdPrismLiveTick();
+                });
+            }
         });
         window.addEventListener('mouseup', () => {
             if (sdIsPanning) { sdIsPanning = false; if (sdIsSpacePressed && sdCanvasEl) sdCanvasEl.style.cursor = 'grab'; }
-            if (sdIsCurveDragging) { pushUndo(); sdIsCurveDragging = false; sdCurveDragSegment = null; if (sdCanvasEl) sdCanvasEl.style.cursor = 'crosshair'; sdDrawCanvasGrid(); }
-            if (sdIsDragging) { pushUndo(); sdIsDragging = false; sdDraggedPoint = null; sdRenderSidebar(); sdDrawCanvasGrid(); }
+            if (sdIsCurveDragging) {
+                pushUndo();
+                sdIsCurveDragging = false;
+                sdCurveDragSegment = null;
+                if (sdCanvasEl) sdCanvasEl.style.cursor = 'crosshair';
+                sdDrawCanvasGrid();
+                if (_sdActiveTool === 'prism') _sdPrismLiveTick();
+            }
+            if (sdIsDragging) {
+                pushUndo();
+                sdIsDragging = false;
+                sdDraggedPoint = null;
+                sdRenderSidebar();
+                sdDrawCanvasGrid();
+                // Final Prism pass on release — guarantees variants
+                // match the final source curve, not the last rAF tick
+                // (which may have skipped the very last mousemove).
+                if (_sdActiveTool === 'prism') _sdPrismLiveTick();
+            }
         });
         sdCanvasEl.addEventListener('contextmenu', e => e.preventDefault());
     }
@@ -2931,7 +2967,7 @@
     // Takes existing curves and produces dramatic variations:
     // cuts segments, relocates them, flips sections, scales amplitude
 
-    // Shared helper: pops a warning modal when Bloom / Weave / Mutate is
+    // Shared helper: pops a warning modal when Bloom / Prism / Mutate is
     // invoked before the user has drawn any curves to transform.
     window.sdShowRequirement = function(title, msg) {
         const titleEl = document.getElementById('sd-req-title');
@@ -3080,12 +3116,14 @@
     };
 
     // ─── TOOL MODE STATE ──────────────────────────────────────
-    // Generative tools (Bloom, Weave) operate in two states:
-    //   - default: GENERATIVE section shows the Chaos / Bloom / Weave grid
+    // Generative tools (Bloom, Prism) operate in two states:
+    //   - default: GENERATIVE section shows the Chaos / Bloom / Prism grid
     //   - active: section is replaced by the entered tool's panel with a
     //     live-morph slider. Slider drags write to non-active unlocked
     //     lanes in real time. Commit / Cancel buttons exit.
-    let _sdActiveTool = null;        // null | 'bloom' | 'weave'
+    // Weave is kept in code as a dormant tool (per Prism spec decision #7)
+    // — UI button removed, functions retained for potential future re-wiring.
+    let _sdActiveTool = null;        // null | 'bloom' | 'weave' | 'prism'
     let _sdToolSnapshot = null;      // captured at entry
     let _sdToolDirty = false;        // has the user touched the slider?
 
@@ -3124,9 +3162,9 @@
             + '<button id="sd-bloom-btn" onclick="sdToggleBloom()" title="Bloom: complementary curves from the active lane" class="text-[9px] text-amber-400 hover:text-white bg-transparent hover:bg-amber-500/10 border border-amber-500/50 hover:border-amber-400 px-2 py-1.5 rounded uppercase tracking-wider font-black transition-all flex items-center justify-center gap-1">'
             + '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m-8-9H3m18 0h-1m-2.636-5.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m11.314 11.314l.707.707"/></svg>'
             + 'Bloom</button>'
-            + '<button id="sd-weave-btn" onclick="sdToggleWeave()" title="Weave: phase-shift other lanes so peaks do not overlap" class="text-[9px] text-cyan-400 hover:text-white bg-transparent hover:bg-cyan-500/10 border border-cyan-500/50 hover:border-cyan-400 px-2 py-1.5 rounded uppercase tracking-wider font-black transition-all flex items-center justify-center gap-1">'
-            + '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>'
-            + 'Weave</button>'
+            + '<button id="sd-prism-btn" onclick="sdTogglePrism()" title="Prism: draw on one lane, every other lane responds live with the same anchors and a different path" class="text-[9px] text-violet-400 hover:text-white bg-transparent hover:bg-violet-500/10 border border-violet-500/50 hover:border-violet-400 px-2 py-1.5 rounded uppercase tracking-wider font-black transition-all flex items-center justify-center gap-1">'
+            + '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3 L21 21 L3 21 Z"/></svg>'
+            + 'Prism</button>'
             + '</div>';
     }
 
@@ -3210,6 +3248,11 @@
             if (valEl) valEl.textContent = val + '%';
             _sdRestoreRecipientsFromSnapshot();
             _sdWeaveCompute();
+        } else if (_sdActiveTool === 'prism') {
+            const valEl = document.getElementById('sd-prism-val');
+            if (valEl) valEl.textContent = val + '%';
+            _sdRestoreRecipientsFromSnapshot();
+            _sdPrismCompute();
         }
         sdRenderSidebar();
         sdDrawCanvasGrid();
@@ -3225,6 +3268,8 @@
         _sdActiveTool = null;
         _sdToolSnapshot = null;
         _sdToolDirty = false;
+        _sdPrismPerLane = null;
+        _sdPrismRngSeed = null;
         _sdRenderGenerativeDefault();
         sdRenderSidebar();
         sdDrawCanvasGrid();
@@ -3232,11 +3277,22 @@
 
     window.sdCancelTool = function() {
         if (!_sdActiveTool) return;
-        if (_sdToolSnapshot) applySnapshot(_sdToolSnapshot);
+        if (_sdActiveTool === 'prism') {
+            // Per spec: Prism Cancel reverts ONLY the variant lanes —
+            // the source lane keeps whatever the user drew during the
+            // session (drawing is still a normal canvas action).
+            _sdRestoreRecipientsFromSnapshot();
+        } else if (_sdToolSnapshot) {
+            applySnapshot(_sdToolSnapshot);
+        }
         _sdActiveTool = null;
         _sdToolSnapshot = null;
         _sdToolDirty = false;
+        _sdPrismPerLane = null;
+        _sdPrismRngSeed = null;
         _sdRenderGenerativeDefault();
+        sdRenderSidebar();
+        sdDrawCanvasGrid();
     };
 
     document.addEventListener('keydown', e => {
@@ -3453,10 +3509,14 @@
             'Bloom applied — ' + (sdCanvasParams.length - 1) + ' lanes from ' + masterParam.name;
     };
 
-    // ─── WEAVE ────────────────────────────────────────────────
-    // Complementary automation: makes lanes work together instead of independently.
-    // Chase = same shape, phase-shifted so peaks never overlap (traveling wave).
-    // Fill = counterpoint — lanes move where the source is still, hold where it moves.
+    // ─── WEAVE (DORMANT — superseded by Prism, kept for reference) ─
+    // Per Prism spec decision #7: button removed from UI but functions
+    // retained in case the chase/fill metaphor is ever revisited. No
+    // current callers — sdToggleWeave is unreachable from the UI.
+    //
+    // Original behavior: complementary automation across lanes.
+    // Chase = same shape, phase-shifted so peaks never overlap.
+    // Fill = counterpoint — lanes move where the source is still.
 
     let _weaveMode = 'chase'; // 'chase' or 'fill'
 
@@ -3715,6 +3775,331 @@
 
             param.points = pts;
         });
+    }
+
+    // ─── PRISM ────────────────────────────────────────────────
+    // Live-draw multi-lane variant engine. Replaces Weave.
+    // Every variant lane shares the source's per-bar peak/valley
+    // anchors (musical coherence — peaks land at the same beat
+    // across every parameter), but the path BETWEEN anchors mutates
+    // per-lane via a "personality" (sonic variety). User draws on
+    // source → variants update in real time via rAF-throttled tick.
+
+    const PRISM_PERSONALITIES = [
+        'mirror', 'mutate', 'mutateMirror', 'stutter',
+        'smooth', 'step',   'drift',        'chase',
+    ];
+    let _sdPrismRngSeed = null;
+    let _sdPrismPerLane = null;
+    let _sdPrismRecomputeQueued = false;
+
+    function _sdPrismMakeRng(seed) {
+        let a = (seed >>> 0) || 1;
+        return function() {
+            a = (a + 0x6D2B79F5) >>> 0;
+            let t = a;
+            t = Math.imul(t ^ (t >>> 15), t | 1);
+            t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+    }
+
+    function _sdPrismHashStr(s) {
+        let h = 2166136261;
+        for (let i = 0; i < s.length; i++) {
+            h ^= s.charCodeAt(i);
+            h = Math.imul(h, 16777619);
+        }
+        return h >>> 0;
+    }
+
+    function _sdPrismExtractAnchors(points, totalBeats) {
+        if (!points.length) return [];
+        const sorted = [...points].sort((a, b) => a.time - b.time);
+        const bars = Math.max(1, Math.round(totalBeats / 4));
+        const anchors = [];
+        for (let b = 0; b < bars; b++) {
+            const barStart = b * 4;
+            const barEnd = (b + 1) * 4;
+            const inBar = sorted.filter(p => p.time >= barStart && p.time < barEnd);
+            if (inBar.length === 0) continue;
+            if (inBar.length === 1) {
+                anchors.push({ time: inBar[0].time, value: inBar[0].value });
+                continue;
+            }
+            let peak = inBar[0], valley = inBar[0];
+            for (const p of inBar) {
+                if (p.value > peak.value) peak = p;
+                if (p.value < valley.value) valley = p;
+            }
+            if (peak === valley) {
+                anchors.push({ time: peak.time, value: peak.value });
+            } else if (peak.time < valley.time) {
+                anchors.push({ time: peak.time, value: peak.value });
+                anchors.push({ time: valley.time, value: valley.value });
+            } else {
+                anchors.push({ time: valley.time, value: valley.value });
+                anchors.push({ time: peak.time, value: peak.value });
+            }
+        }
+        // Bound the path with the actual first/last source points so
+        // variants cover the same time range as the source curve.
+        const first = sorted[0];
+        const last = sorted[sorted.length - 1];
+        if (anchors.length === 0 || anchors[0].time > first.time + 0.0001) {
+            anchors.unshift({ time: first.time, value: first.value });
+        }
+        if (anchors[anchors.length - 1].time < last.time - 0.0001) {
+            anchors.push({ time: last.time, value: last.value });
+        }
+        const out = [];
+        for (const a of anchors) {
+            if (!out.length || a.time > out[out.length - 1].time + 0.0001) out.push(a);
+        }
+        return out;
+    }
+
+    // Personality functions: each takes (anchorA, anchorB, diversity, rng)
+    // and returns the MIDPOINTS between A and B (NOT including A or B —
+    // the dispatcher emits anchors verbatim). Output values clamp to [0,1].
+
+    function _personalityMirror(a, b, diversity, rng) {
+        const midT = (a.time + b.time) / 2;
+        const linearV = (a.value + b.value) / 2;
+        const flippedV = 1 - linearV;
+        const v = linearV + (flippedV - linearV) * diversity;
+        return [{ time: midT, value: Math.max(0, Math.min(1, v)), curve: 0 }];
+    }
+
+    function _personalityMutate(a, b, diversity, rng) {
+        const numChunks = 3 + Math.floor(rng() * 5);
+        const dy = b.value - a.value;
+        const dx = b.time - a.time;
+        const out = [];
+        for (let i = 1; i < numChunks; i++) {
+            const t = i / numChunks;
+            const baseV = a.value + dy * t;
+            const wander = (rng() - 0.5) * diversity * 0.6;
+            out.push({
+                time: a.time + dx * t,
+                value: Math.max(0, Math.min(1, baseV + wander)),
+                curve: (rng() - 0.5) * diversity * 0.4,
+            });
+        }
+        return out;
+    }
+
+    function _personalityMutateMirror(a, b, diversity, rng) {
+        return _personalityMutate(a, b, diversity, rng).map(p => ({
+            time: p.time,
+            value: Math.max(0, Math.min(1, 1 - p.value)),
+            curve: -p.curve,
+        }));
+    }
+
+    function _personalityStutter(a, b, diversity, rng) {
+        const numSteps = 4 + Math.floor(rng() * 6);
+        const dy = b.value - a.value;
+        const dx = b.time - a.time;
+        const out = [];
+        for (let i = 1; i < numSteps; i++) {
+            const t = i / numSteps;
+            const baseV = a.value + dy * t;
+            const swing = (i % 2 === 0 ? 1 : -1) * diversity * 0.4;
+            out.push({
+                time: a.time + dx * t,
+                value: Math.max(0, Math.min(1, baseV + swing)),
+                curve: 0,
+            });
+        }
+        return out;
+    }
+
+    function _personalitySmooth(a, b, diversity, rng) {
+        const midT = (a.time + b.time) / 2;
+        const midV = (a.value + b.value) / 2;
+        const sign = rng() < 0.5 ? -1 : 1;
+        return [{ time: midT, value: midV, curve: sign * diversity * 0.85 }];
+    }
+
+    function _personalityStep(a, b, diversity, rng) {
+        const holdT = a.time + (b.time - a.time) * 0.95;
+        return [{ time: holdT, value: a.value, curve: 0 }];
+    }
+
+    function _personalityDrift(a, b, diversity, rng) {
+        const numSteps = 6;
+        const dy = b.value - a.value;
+        const dx = b.time - a.time;
+        const out = [];
+        for (let i = 1; i < numSteps; i++) {
+            const t = i / numSteps;
+            const baseV = a.value + dy * t;
+            const wander = (rng() - 0.5) * diversity * 0.3;
+            out.push({
+                time: a.time + dx * t,
+                value: Math.max(0, Math.min(1, baseV + wander)),
+                curve: 0,
+            });
+        }
+        return out;
+    }
+
+    function _personalityChase(a, b, diversity, rng) {
+        const dx = b.time - a.time;
+        const offsetFrac = (rng() < 0.5 ? -1 : 1) * 0.25 * diversity;
+        const midT = a.time + dx * (0.5 + offsetFrac);
+        const midV = (a.value + b.value) / 2;
+        const safeT = Math.max(a.time + dx * 0.05, Math.min(b.time - dx * 0.05, midT));
+        return [{ time: safeT, value: midV, curve: 0 }];
+    }
+
+    const _PRISM_FNS = {
+        mirror: _personalityMirror,
+        mutate: _personalityMutate,
+        mutateMirror: _personalityMutateMirror,
+        stutter: _personalityStutter,
+        smooth: _personalitySmooth,
+        step: _personalityStep,
+        drift: _personalityDrift,
+        chase: _personalityChase,
+    };
+
+    function _sdPrismGenerateVariant(anchors, personality, diversity, rng) {
+        if (!anchors.length) return [];
+        if (anchors.length === 1) {
+            return [{ time: anchors[0].time, value: anchors[0].value, curve: 0 }];
+        }
+        const fn = _PRISM_FNS[personality] || _personalityMirror;
+        const out = [{ time: anchors[0].time, value: anchors[0].value, curve: 0 }];
+        for (let i = 0; i < anchors.length - 1; i++) {
+            const mids = fn(anchors[i], anchors[i + 1], diversity, rng);
+            for (const m of mids) {
+                if (m.time > out[out.length - 1].time + 0.0001 && m.time < anchors[i + 1].time - 0.0001) {
+                    out.push(m);
+                }
+            }
+            out.push({ time: anchors[i + 1].time, value: anchors[i + 1].value, curve: 0 });
+        }
+        return out;
+    }
+
+    function _sdPrismAssignPersonalities(targets, seed) {
+        const rng = _sdPrismMakeRng(seed);
+        const order = [...PRISM_PERSONALITIES];
+        for (let i = order.length - 1; i > 0; i--) {
+            const j = Math.floor(rng() * (i + 1));
+            [order[i], order[j]] = [order[j], order[i]];
+        }
+        const assignment = {};
+        targets.forEach((t, i) => {
+            assignment[t.envelopeId] = order[i % order.length];
+        });
+        return assignment;
+    }
+
+    function _sdPrismCompute() {
+        const slider = document.getElementById('sd-prism-diversity');
+        const sourceParam = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
+        if (!slider || !sourceParam) return;
+        const diversity = parseInt(slider.value) / 100;
+        const totalBeats = sdGetBars() * 4;
+        const anchors = _sdPrismExtractAnchors(sourceParam.points, totalBeats);
+        const targets = sdCanvasParams.filter(p => p.envelopeId !== sdActiveParamId && !p.locked);
+        if (!anchors.length) {
+            // Source has nothing to anchor against — leave variants alone.
+            // The live-draw entry point may have empty source until user
+            // draws their first stroke; we don't want entry-with-empty-source
+            // to wipe whatever variants were already on screen.
+            return;
+        }
+        targets.forEach(param => {
+            const personality = (_sdPrismPerLane && _sdPrismPerLane[param.envelopeId]) || 'mirror';
+            const laneSeed = ((_sdPrismRngSeed || 1) ^ _sdPrismHashStr(param.envelopeId)) >>> 0;
+            const rng = _sdPrismMakeRng(laneSeed);
+            const variant = _sdPrismGenerateVariant(anchors, personality, diversity, rng);
+            param.points = variant.map(p => ({
+                time: Math.round(p.time * 10000) / 10000,
+                value: Math.max(0, Math.min(1, p.value)),
+                curve: p.curve || 0,
+            }));
+        });
+    }
+
+    function _sdPrismLiveTick() {
+        if (_sdActiveTool !== 'prism') return;
+        // Restore variants from snapshot first so each tick computes
+        // from the original variants, not the previous tick's output
+        // (no compounding drift across rapid mousemove ticks).
+        _sdRestoreRecipientsFromSnapshot();
+        _sdPrismCompute();
+        _sdToolDirty = true;
+        sdRenderSidebar();
+        sdDrawCanvasGrid();
+    }
+
+    window.sdPrismReroll = function() {
+        if (_sdActiveTool !== 'prism') return;
+        _sdPrismRngSeed = (Math.floor(Math.random() * 0xFFFFFFFF)) >>> 0;
+        const targets = sdCanvasParams.filter(p => p.envelopeId !== sdActiveParamId && !p.locked);
+        _sdPrismPerLane = _sdPrismAssignPersonalities(targets, _sdPrismRngSeed);
+        _sdPrismLiveTick();
+    };
+
+    window.sdTogglePrism = function() {
+        if (_sdActiveTool === 'prism') { window.sdCancelTool(); return; }
+        // Custom guard — Prism is live-draw, so unlike Bloom/Weave it
+        // does NOT require the source lane to already have a curve.
+        // User can enter the mode on an empty lane and watch variants
+        // generate live as they draw the very first stroke.
+        if (!sdActiveParamId) {
+            sdShowRequirement('Select a lane first', 'Prism needs an active lane as the source. Click one of the lanes in the sidebar, then press Prism.');
+            return;
+        }
+        if (sdCanvasParams.length < 2) {
+            sdShowRequirement('Need more lanes', 'Prism spreads a curve across multiple lanes. Your rack only has one mapped parameter — Prism needs at least two lanes to work with.');
+            return;
+        }
+        _sdActiveTool = 'prism';
+        _sdToolSnapshot = _sdSnapshotAll();
+        _sdToolDirty = false;
+        _sdPrismRngSeed = (Math.floor(Math.random() * 0xFFFFFFFF)) >>> 0;
+        const targets = sdCanvasParams.filter(p => p.envelopeId !== sdActiveParamId && !p.locked);
+        _sdPrismPerLane = _sdPrismAssignPersonalities(targets, _sdPrismRngSeed);
+        _sdRenderPrismPanel();
+        // Initial compute so variants snap to source if it already has
+        // points. If source is empty, compute is a no-op — variants stay
+        // as they were until the user draws the first stroke.
+        _sdPrismCompute();
+        sdRenderSidebar();
+        sdDrawCanvasGrid();
+    };
+
+    function _sdRenderPrismPanel() {
+        const sec = document.getElementById('sd-generative-section');
+        if (!sec) return;
+        sec.innerHTML = ''
+            + '<div class="flex items-center justify-between mb-2 px-1">'
+            + '<button onclick="sdCancelTool()" title="Cancel and revert" class="text-[9px] text-zinc-500 hover:text-zinc-200 transition-colors flex items-center gap-0.5">'
+            + '<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>Back</button>'
+            + '<span class="text-[9px] font-black text-violet-400 uppercase tracking-[0.2em]">Prism</span>'
+            + '<span class="text-[8px] text-violet-400/70 uppercase tracking-widest font-bold">Live</span>'
+            + '</div>'
+            + '<div class="text-[8px] text-zinc-600 leading-relaxed px-1 mb-1">Draw on the active lane — every other unlocked lane responds with the same anchors, different paths.</div>'
+            + '<div class="px-1 flex flex-col gap-2">'
+            + '<div class="flex items-center gap-2">'
+            + '<span class="text-[9px] font-bold text-zinc-500 uppercase w-12 shrink-0">Diversity</span>'
+            + '<input type="range" id="sd-prism-diversity" min="0" max="100" value="100" class="flex-1 h-1 accent-violet-500 cursor-pointer" oninput="_sdToolMorph(this.value)">'
+            + '<span id="sd-prism-val" class="text-[9px] text-violet-400 font-mono w-9 text-right">100%</span>'
+            + '</div>'
+            + '<button onclick="sdPrismReroll()" title="Re-roll personality assignments across variant lanes" class="text-[9px] text-violet-400 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 hover:border-violet-500/50 py-1.5 rounded uppercase tracking-wider font-bold transition-colors flex items-center justify-center gap-1">'
+            + '<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>'
+            + 'Reroll</button>'
+            + '<div class="flex gap-1.5 mt-1">'
+            + '<button onclick="sdCommitTool()" class="flex-1 text-[9px] text-black bg-violet-500 hover:bg-violet-400 py-1.5 rounded uppercase tracking-wider font-bold transition-colors">Commit</button>'
+            + '<button onclick="sdCancelTool()" class="flex-1 text-[9px] text-zinc-400 bg-white/5 hover:bg-white/10 border border-white/10 py-1.5 rounded uppercase tracking-wider font-bold transition-colors">Cancel</button>'
+            + '</div>'
+            + '</div>';
     }
 
     // ─── PRESET ENGINE ─────────────────────────────────────
@@ -5928,7 +6313,7 @@
         // toolbar's hardcoded default of 8). No-op for first-run users
         // who haven't picked a bar count yet.
         sdApplyStickyBars();
-        // Paint the default GENERATIVE section (Chaos / Bloom / Weave grid).
+        // Paint the default GENERATIVE section (Chaos / Bloom / Prism grid).
         // Active-tool panels replace this on click and Cancel/Commit
         // restore it via _sdRenderGenerativeDefault.
         _sdRenderGenerativeDefault();
