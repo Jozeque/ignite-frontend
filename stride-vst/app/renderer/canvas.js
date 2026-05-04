@@ -5390,6 +5390,9 @@
     // dock refresh (window focus, tab switch, etc.) which is noise.
     let _lastSeenGenMtime = 0;
     let _ledFadeTimer = null;
+    // Visual-only dock clear: set when user hits Clear, the dock filters out
+    // generations with mtime <= this value. Files remain on disk.
+    let _dockClearedAfterMs = 0;
 
     // Snapshot the loading-spinner's center BEFORE we hide it, so the
     // fly-to-dock orb can launch from where the user's eyes were just
@@ -5470,6 +5473,12 @@
         }
         let items = [];
         try { items = await window.stride.listRecentGenerations(); } catch (e) {}
+        // Visual-only Clear: filter out anything created at or before the
+        // last Clear click. Files stay on disk; they're just hidden from the
+        // dock until a fresh generation pushes the mtime past the marker.
+        if (Array.isArray(items) && _dockClearedAfterMs > 0) {
+            items = items.filter(it => (it.mtimeMs || 0) > _dockClearedAfterMs);
+        }
         if (!Array.isArray(items) || items.length === 0) {
             cards.classList.add('hidden');
             cards.innerHTML = '';
@@ -5570,37 +5579,22 @@
     // Expose the refresh so external triggers (e.g. settings reset) can call it
     window._refreshGenerationsDock = _refreshGenerationsDock;
 
-    // Clear all generation files from ~/Desktop/Stride/ (moves to OS Trash,
-    // not a hard delete — recoverable). User invokes via the dock's Clear
-    // button. Use case: starting a fresh sound-design session and not wanting
-    // last week's experiments cluttering the dock. Also resets the seen-
-    // marker so the next generation gets the LED highlight again.
-    window.sdClearGenerations = async function() {
-        if (!window.stride || !window.stride.clearGenerations) return;
-        const ok = window.confirm(
-            'Move all generation files (.alc + thumbnails) to Trash?\n\n' +
-            'This clears the Recent Generations dock so you can start fresh.\n' +
-            'Files go to your OS Trash — recoverable if you change your mind.\n\n' +
-            'Templates and saved sessions are untouched.'
-        );
-        if (!ok) return;
+    // Visual-only clear of the Recent Generations dock. Files in
+    // ~/Desktop/Stride/ are NEVER deleted — user can still find every .alc
+    // there or via Open Folder. This just sets a session-only timestamp:
+    // the dock filters out any generation with mtime <= clearedAfterMs.
+    // New generations after this point still appear normally.
+    // Doesn't persist across app restarts (intentional — restart = fresh slate).
+    window.sdClearGenerations = function() {
+        _dockClearedAfterMs = Date.now();
+        _lastSeenGenMtime = _dockClearedAfterMs;  // also reset the LED-glow seen-marker
+        _refreshGenerationsDock();
         const status = document.getElementById('sd-canvas-status');
-        try {
-            const result = await window.stride.clearGenerations();
-            if (result && result.success) {
-                _lastSeenGenMtime = 0;
-                if (status) {
-                    status.textContent = result.removed > 0
-                        ? `Cleared ${result.removed} file${result.removed > 1 ? 's' : ''}`
-                        : 'Nothing to clear';
-                    setTimeout(() => { if (status && status.textContent.startsWith('Cleared') || status.textContent === 'Nothing to clear') status.textContent = ''; }, 3000);
-                }
-                _refreshGenerationsDock();
-            } else if (status) {
-                status.textContent = 'Clear failed: ' + (result && result.error || 'unknown');
-            }
-        } catch (e) {
-            if (status) status.textContent = 'Clear failed: ' + e.message;
+        if (status) {
+            status.textContent = 'Dock cleared — files still in ~/Desktop/Stride/';
+            setTimeout(() => {
+                if (status && status.textContent.startsWith('Dock cleared')) status.textContent = '';
+            }, 3000);
         }
     };
 
