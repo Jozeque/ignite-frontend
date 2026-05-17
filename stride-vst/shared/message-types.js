@@ -24,7 +24,12 @@ const APPLY_ERROR = 'apply_error';
 
 /** Connection handshake from M4L */
 const M4L_READY = 'm4l_ready';
-// { type, version }
+// { type, version, user_library_path }
+// user_library_path: string | null — added in Phase 2 of the
+// install-to-ableton fix. The M4L device knows where it lives (which IS
+// the User Library), so it tells the app. Null in dev mode and on any
+// path-computation error. Optional/backwards-compatible: older app
+// builds that don't read it just ignore the field.
 
 /** Sent when track or device selection changes in Ableton */
 const TRACK_CHANGED = 'track_changed';

@@ -211,6 +211,56 @@ Max.addHandler('gate_position', (jsonStr) => {
     }
 });
 
+// ─── User Library Self-Report ─────────────────────────────
+//
+// StrideLink lives INSIDE the Ableton User Library:
+//   <UserLibrary>/Stride/server.js
+// So __dirname is <UserLibrary>/Stride and its parent is the real User
+// Library — with zero guessing, zero detection, zero ambiguity. We send
+// this on the m4l_ready handshake; the Electron app caches it via the
+// library-path resolver (source: 'm4l') so the watcher, install flow,
+// and template detection use the real path regardless of how
+// non-standard the user's setup is.
+//
+// Returns null in dev mode (parent is the repo, not a library) and on
+// any error — the handshake still completes with user_library_path=null,
+// so this code is purely additive.  See docs/install-to-ableton-spec.md.
+//
+// Computed once at server start since server.js's file location doesn't
+// change at runtime. Keep the function defined for clarity / future tests.
+function computeUserLibraryPath() {
+    try {
+        const parent = path.dirname(__dirname);
+        if (!parent) return null;
+
+        // Definitive: Ableton's User Library folder is literally named
+        // "User Library" — even when relocated via Live's preferences.
+        if (path.basename(parent) === 'User Library') return parent;
+
+        // Paranoia fallback: a renamed parent that still has Ableton-shaped
+        // siblings. Two marker subdirectories = plausible. Mirrors the
+        // marker list in app/lib/library-path.js (keep both in sync).
+        const markers = ['Presets', 'Samples', 'Sounds', 'Defaults', 'Templates'];
+        let hits = 0;
+        for (const m of markers) {
+            try {
+                if (fs.statSync(path.join(parent, m)).isDirectory()) {
+                    hits++;
+                    if (hits >= 2) return parent;
+                }
+            } catch (e) { /* marker absent — keep counting */ }
+        }
+        return null;
+    } catch (e) {
+        return null;
+    }
+}
+
+const USER_LIBRARY_PATH = computeUserLibraryPath();
+if (USER_LIBRARY_PATH) {
+    Max.post(`Stride: Self-located in User Library at ${USER_LIBRARY_PATH}`);
+}
+
 // ─── WebSocket Server ─────────────────────────────────────
 
 function startServer(retryCount) {
@@ -227,8 +277,15 @@ function startServer(retryCount) {
         Max.post('Stride: Canvas app connected');
         appSocket = ws;
 
-        // Send handshake
-        sendToApp({ type: 'm4l_ready', version: VERSION });
+        // Send handshake — user_library_path is the spine of the
+        // install-to-ableton fix (see docs/install-to-ableton-spec.md
+        // Phase 2). Sent on every connect so reconnects also refresh
+        // the persisted path if it moves.
+        sendToApp({
+            type: 'm4l_ready',
+            version: VERSION,
+            user_library_path: USER_LIBRARY_PATH,
+        });
         Max.outlet('status', 'app_connected');
 
         ws.on('message', (raw) => {

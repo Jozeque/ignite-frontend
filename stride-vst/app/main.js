@@ -8,11 +8,18 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const crypto = require('crypto');
+const libraryPath = require('./lib/library-path');
 
 let mainWindow = null;
 
 // Data directory for local state (canvas saves, license, settings)
 const DATA_DIR = path.join(app.getPath('userData'), 'stride-data');
+
+// Wire the User Library resolver to our data directory. It caches its own
+// state in <DATA_DIR>/library-path.json — separate from settings.json so the
+// renderer's whole-file save-settings IPC can't race with M4L self-report
+// writes from main. See docs/install-to-ableton-spec.md.
+libraryPath._setDataDir(DATA_DIR);
 
 // Template storage
 const STRIDE_DIR = path.join(os.homedir(), 'Desktop', 'Stride');
@@ -286,6 +293,29 @@ ipcMain.handle('load-settings', async () => {
     }
 });
 
+// ─── User Library Path Resolver ───────────────────────────
+//
+// Persist a confirmed User Library path. Used by:
+//   • M4L self-report handshake (Phase 2)        — source: 'm4l'
+//   • Install success path (Phase 3)             — source: 'detected' or 'manual'
+//   • Settings UI "Change folder" (Phase 5)      — source: 'manual'
+//   • Settings UI "Re-detect" (Phase 5)          — calls forget then persist
+//
+// Returns { ok: true, changed: bool } on success, { ok: false, error } on
+// failure. `changed` lets the caller decide whether to restart the library
+// watcher when the path moves.
+ipcMain.handle('persist-library-path', async (event, { path: libPath, source } = {}) => {
+    return libraryPath.persist(libPath, source);
+});
+
+// Read the currently-known User Library path without re-running detection.
+// Returns { path, source } or null.
+ipcMain.handle('get-cached-library-path', async () => {
+    const p = libraryPath.cached();
+    if (!p) return null;
+    return { path: p, source: libraryPath.cachedSource() };
+});
+
 // Open the shipped Guide folder (where the tutorial videos live) in Explorer/Finder.
 // Resolves the folder location differently in dev vs packaged builds.
 function _locateGuideFolder() {
@@ -453,17 +483,60 @@ ipcMain.handle('get-version', () => {
 //   Windows: ~/Documents/Ableton/User Library/
 // If neither is found the renderer opens a folder picker as fallback.
 
+// Resolve the bundled M4L payload. Returns
+//   { primaryDir, extras: [absoluteFilePaths] }
+// or null if no source can be found.
+//
+// Three layouts to support:
+//   1. <Stride.exe dir>/M4L/            — legacy Windows portable zip
+//                                         (Stride_vX.X.X_Windows.zip). M4L
+//                                         sits as a SIBLING of Stride.exe,
+//                                         not inside resources/.
+//   2. <Resources>/M4L/                 — Mac signed/notarized .app, and
+//                                         any future build (Win or Mac)
+//                                         that uses extraResources to put
+//                                         M4L into the resources folder.
+//                                         Single flat layout: StrideLink
+//                                         + .js + node_modules/ together.
+//   3. Dev mode (repo split layout)     — StrideLink.amxd at m4l/ root,
+//                                         server.js + node_modules under
+//                                         m4l/node/. Treated as a flat
+//                                         "primaryDir = m4l/node + extras
+//                                         = [m4l/StrideLink.amxd]" so the
+//                                         installer reassembles the flat
+//                                         layout at the target.
+//
+// Resolution priority: sibling-of-exe (1) → resources (2) → dev (3). Sibling
+// wins because legacy zip users have a literal M4L folder next to Stride.exe
+// and we want to honor that even if process.resourcesPath also resolves to
+// a (possibly empty) directory.
 function getBundledM4LSource() {
-    // In packaged builds the M4L folder lives next to the electron resources:
-    //   Mac:     Stride.app/Contents/Resources/M4L/
-    //   Windows: <install-dir>/resources/M4L/
-    //   Dev:     stride-vst/m4l/node/   (alongside stride-vst/app/)
+    // 1. Legacy portable zip — M4L sibling of the executable
+    try {
+        const exeDir = path.dirname(process.execPath || '');
+        if (exeDir) {
+            const sibling = path.join(exeDir, 'M4L');
+            if (fs.existsSync(sibling)) {
+                return { primaryDir: sibling, extras: [] };
+            }
+        }
+    } catch (e) { /* fall through to next check */ }
+
+    // 2. Mac signed app or Win build with extraResources — M4L in resources/
     const packaged = process.resourcesPath
         ? path.join(process.resourcesPath, 'M4L')
         : null;
-    if (packaged && fs.existsSync(packaged)) return packaged;
-    const devSource = path.join(__dirname, '..', 'm4l', 'node');
-    if (fs.existsSync(devSource)) return devSource;
+    if (packaged && fs.existsSync(packaged)) {
+        return { primaryDir: packaged, extras: [] };
+    }
+
+    // 3. Dev mode — repo split layout
+    const devNodeDir = path.join(__dirname, '..', 'm4l', 'node');
+    const devAmxd = path.join(__dirname, '..', 'm4l', 'StrideLink.amxd');
+    if (fs.existsSync(devNodeDir)) {
+        const extras = fs.existsSync(devAmxd) ? [devAmxd] : [];
+        return { primaryDir: devNodeDir, extras };
+    }
     return null;
 }
 
@@ -497,14 +570,47 @@ ipcMain.handle('check-stride-link-installed', async () => {
     return { installed: fs.existsSync(target), libraryFound: true, targetDir: path.join(lib, 'Stride') };
 });
 
+// Critical files we expect inside the M4L bundle. Both pre-flight (source)
+// and post-copy (target) verification check for these three — if any are
+// missing on either side, we surface a structured error instead of
+// reporting a false success. Keeps the install honest in the face of:
+//   • empty/incomplete bundled M4L payload (build pipeline regression)
+//   • macOS quarantine / app-translocation making the source unreadable
+//   • antivirus blocking individual file copies mid-loop
+//   • OneDrive sync paused / target write partially failed
+//   • any other reason copyDirRecursive silently produces an empty target
+// See docs/install-to-ableton-spec.md and the keifr + macOS Sequoia
+// customer cases that motivated this guard.
+const installVerify = require('./lib/install-verify');
+const INSTALL_REQUIRED_FILES = installVerify.INSTALL_REQUIRED_FILES;
+const checkInstallFiles = installVerify.checkInstallFiles;
+
 // Copy the bundled M4L folder into the user's Ableton User Library.
 // `destDir` is optional — if omitted we use the detected User Library.
 ipcMain.handle('install-stride-link-to-ableton', async (event, { destDir } = {}) => {
     try {
-        const source = getBundledM4LSource();
-        if (!source) {
+        const sourceInfo = getBundledM4LSource();
+        if (!sourceInfo) {
             return { success: false, error: 'Bundled M4L folder not found. Please reinstall Stride.' };
         }
+        const { primaryDir, extras } = sourceInfo;
+
+        // Pre-flight: confirm the bundle (primary dir + extras combined)
+        // has what we're about to copy. The "extras" path matters in dev
+        // mode where StrideLink.amxd sits as a sibling of m4l/node/ rather
+        // than inside it — without checking extras we'd false-positive
+        // "missing StrideLink.amxd" on every dev install.
+        const sourceMissing = installVerify.checkInstallSource(primaryDir, extras);
+        if (sourceMissing.length > 0) {
+            return {
+                success: false,
+                error: 'source_bundle_incomplete',
+                message: `Stride's M4L bundle is missing critical files (${sourceMissing.join(', ')}). The Stride install itself may be corrupt or blocked by antivirus/quarantine — try re-downloading Stride.`,
+                missing: sourceMissing,
+                sourceDir: primaryDir,
+            };
+        }
+
         let target;
         if (destDir && typeof destDir === 'string') {
             target = path.join(destDir, 'Stride');
@@ -513,9 +619,88 @@ ipcMain.handle('install-stride-link-to-ableton', async (event, { destDir } = {})
             if (!lib) return { success: false, error: 'userLibraryNotFound' };
             target = path.join(lib, 'Stride');
         }
-        if (fs.existsSync(target)) fs.rmSync(target, { recursive: true, force: true });
-        copyDirRecursive(source, target);
-        return { success: true, targetDir: target };
+
+        // "Already installed" short-circuit. If the target exists AND every
+        // required file is already there AND the install's version marker
+        // matches the current Stride version, return success WITHOUT
+        // touching anything. Touching would EBUSY on Windows if Ableton has
+        // the .js files locked through node.exe.
+        //
+        // Version-aware: a stale or missing marker means the user just
+        // updated Stride and the User Library copy is from an older build.
+        // We fall through to the normal rm + copy so the new files actually
+        // land. Without this, "Install to Ableton" after a Stride update
+        // would silently skip the copy and the user would run new Stride.exe
+        // with stale M4L code — exactly the "ship-with-delete-step" gotcha
+        // we're fixing.
+        const currentVersion = app.getVersion();
+        if (fs.existsSync(target) && checkInstallFiles(target).length === 0) {
+            const installedVersion = installVerify.readInstallMarker(target);
+            if (installedVersion && installedVersion === currentVersion) {
+                return {
+                    success: true,
+                    targetDir: target,
+                    alreadyInstalled: true,
+                    version: currentVersion,
+                };
+            }
+            // Marker missing (pre-versioning install) or stale (older build
+            // still in User Library) → fall through to fresh copy below.
+        }
+
+        // Partial install or fresh target — try to clear and copy fresh.
+        // Wrap rmSync because EBUSY/EPERM is the most common Windows
+        // failure mode here (Ableton has files locked). Surface it as a
+        // clean structured error instead of raw fs exception text.
+        if (fs.existsSync(target)) {
+            try {
+                fs.rmSync(target, { recursive: true, force: true });
+            } catch (e) {
+                const lockedRe = /EBUSY|EPERM|resource busy|locked/i;
+                if (e && (lockedRe.test(e.code || '') || lockedRe.test(e.message || ''))) {
+                    return {
+                        success: false,
+                        error: 'target_locked',
+                        message: 'Stride is already installed but the files are locked — close Ableton (which has StrideLink loaded) and try again.',
+                        targetDir: target,
+                    };
+                }
+                throw e;
+            }
+        }
+        copyDirRecursive(primaryDir, target);
+        // Copy any extras (e.g. StrideLink.amxd in dev) into the target's
+        // root so the final layout matches what a packaged install produces.
+        for (const extraPath of extras) {
+            try {
+                fs.copyFileSync(extraPath, path.join(target, path.basename(extraPath)));
+            } catch (e) {
+                // Surface as a verification failure below — keeps one error path.
+            }
+        }
+
+        // Post-copy verify: confirm the critical files actually landed.
+        // copyDirRecursive can succeed silently with zero files copied
+        // (empty source dir, or readdirSync returning [] for any reason).
+        // Never report success unless the files are demonstrably present.
+        const targetMissing = checkInstallFiles(target);
+        if (targetMissing.length > 0) {
+            return {
+                success: false,
+                error: 'install_verification_failed',
+                message: `Install ran but ${targetMissing.length} critical file(s) didn't land at ${target}. Try a different folder via "Choose folder manually", or copy the M4L folder by hand.`,
+                missing: targetMissing,
+                targetDir: target,
+            };
+        }
+
+        // Stamp the install with the current Stride version. Best-effort
+        // — if the marker write fails (read-only fs, quota, etc.) we still
+        // report install success; worst case the next click does a redundant
+        // fresh copy. See lib/install-verify.js for the read/write helpers.
+        installVerify.writeInstallMarker(target, currentVersion);
+
+        return { success: true, targetDir: target, version: currentVersion };
     } catch (e) {
         return { success: false, error: e.message };
     }

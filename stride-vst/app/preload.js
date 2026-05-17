@@ -96,6 +96,14 @@ contextBridge.exposeInMainWorld('stride', {
     pickUserLibraryFolder: () =>
         ipcRenderer.invoke('pick-user-library-folder'),
 
+    // User Library path resolver (Phase 1 of install-to-ableton-spec.md)
+    // Persist a confirmed library path. source ∈ 'detected' | 'manual' | 'm4l'.
+    persistLibraryPath: (path, source) =>
+        ipcRenderer.invoke('persist-library-path', { path, source }),
+    // Read the currently-known library path without re-running detection.
+    getCachedLibraryPath: () =>
+        ipcRenderer.invoke('get-cached-library-path'),
+
     // Native file drag-out (drag .alc into Ableton)
     startDrag: (filePath) =>
         ipcRenderer.send('ondragstart', filePath),

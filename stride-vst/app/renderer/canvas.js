@@ -49,7 +49,9 @@
     let sdSelectMode = false;
     let sdViewZoomX = 1;
     let sdViewPanX = 0;
-    let sdIsSpacePressed = false;
+    // Pan trigger is middle-mouse-button (Ableton convention) — no keyboard
+    // state needed. The legacy sdIsSpacePressed variable was removed when
+    // pan switched from Space+drag to middle-click+drag.
     let sdIsPanning = false;
     let sdLastMouseX = 0;
     let _sdSmoothSnapshot = null;
@@ -410,6 +412,26 @@
     }
 
     // ─── M4L BRIDGE ───────────────────────────────────────
+
+    // M4L self-report — silent path caching.
+    //
+    // StrideLink lives inside the Ableton User Library, so the M4L device
+    // knows exactly where the User Library is and tells us in the handshake.
+    // We cache that via the library-path resolver (source: 'm4l') so the
+    // watcher, install flow, and template detection benefit from the real
+    // path on subsequent runs — regardless of how non-standard the user's
+    // setup is.
+    //
+    // Phase 2 of docs/install-to-ableton-spec.md. Purely additive: no UI,
+    // no toast, no behavior change. Silent failure on every error path so
+    // a bad cache write can never block the user.
+    strideLink.on('m4l_ready', (msg) => {
+        if (!msg || !msg.user_library_path) return;
+        if (!window.stride || !window.stride.persistLibraryPath) return;
+        try {
+            window.stride.persistLibraryPath(msg.user_library_path, 'm4l').catch(() => {});
+        } catch (e) { /* never let invisible self-healing break anything */ }
+    });
 
     // Handle rack scan results from M4L
     strideLink.on('rack_scanned', (msg) => {
@@ -2047,13 +2069,7 @@
             if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ' && e.shiftKey) { e.preventDefault(); sdRedo(); return; }
             if ((e.ctrlKey || e.metaKey) && e.code === 'KeyY') { e.preventDefault(); sdRedo(); return; }
             if (e.code === 'Escape') { sdClearSelection(); return; }
-            if (e.code === 'Space') {
-                if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
-                e.preventDefault(); sdIsSpacePressed = true; if (sdCanvasEl) sdCanvasEl.style.cursor = 'grab';
-            }
-        });
-        window.addEventListener('keyup', e => {
-            if (e.code === 'Space') { sdIsSpacePressed = false; if (sdCanvasEl) sdCanvasEl.style.cursor = 'crosshair'; sdIsPanning = false; }
+            // Pan is middle-click + drag now (Ableton-style). Space is free.
         });
         sdCanvasEl.addEventListener('wheel', e => {
             e.preventDefault();
@@ -2080,7 +2096,16 @@
             sdDrawCanvasGrid();
         });
         sdCanvasEl.addEventListener('mousedown', e => {
-            if (sdIsSpacePressed) { sdIsPanning = true; sdLastMouseX = e.clientX; sdCanvasEl.style.cursor = 'grabbing'; return; }
+            // Middle-mouse-button (mousewheel press) + drag pans the canvas,
+            // matching Ableton's convention. preventDefault suppresses the
+            // browser's auto-scroll cursor on some platforms.
+            if (e.button === 1) {
+                e.preventDefault();
+                sdIsPanning = true;
+                sdLastMouseX = e.clientX;
+                sdCanvasEl.style.cursor = 'grabbing';
+                return;
+            }
 
             // Multi view: the clicked Y position decides which lane the tool
             // targets. Clicking a non-active lane just activates it (no draw)
@@ -2192,7 +2217,7 @@
                     }
                     sdCanvasEl.style.cursor = onSeg ? 'ns-resize' : 'crosshair';
                 }
-            } else if (!sdIsDragging && !sdIsPanning && !sdIsSpacePressed) {
+            } else if (!sdIsDragging && !sdIsPanning) {
                 sdCanvasEl.style.cursor = 'crosshair';
             }
             if (!sdIsDragging) return;
@@ -2214,8 +2239,13 @@
                 });
             }
         });
-        window.addEventListener('mouseup', () => {
-            if (sdIsPanning) { sdIsPanning = false; if (sdIsSpacePressed && sdCanvasEl) sdCanvasEl.style.cursor = 'grab'; }
+        window.addEventListener('mouseup', e => {
+            // Only the middle button ends a pan — guards against a stray
+            // left/right mouseup interrupting a mid-pan drag.
+            if (sdIsPanning && e.button === 1) {
+                sdIsPanning = false;
+                if (sdCanvasEl) sdCanvasEl.style.cursor = 'crosshair';
+            }
             if (sdIsCurveDragging) {
                 pushUndo();
                 sdIsCurveDragging = false;
@@ -2272,7 +2302,13 @@
         else { bF.className = "tool-btn bg-fuchsia-500/20 text-fuchsia-400 px-3 py-1 rounded text-[9px] uppercase tracking-wider font-bold transition-colors"; bS.className = "tool-btn text-zinc-400 hover:text-fuchsia-400 px-3 py-1 rounded text-[9px] uppercase tracking-wider font-bold transition-colors"; }
     };
 
-    window.sdApplyGlobalChaos = function() {
+    // Neuro: random-pool shape injection across every unlocked lane.
+    // Picks random chunks (0.5-4 beats) and fills them with random shapes
+    // from an 8-entry pool — gives wildly varied, gnarly modulation that
+    // feels chaotic but musical. Originally named sdApplyGlobalChaos;
+    // renamed to Neuro when a second, simpler "Chaos = chaos_lfo on all
+    // lanes" button was added to the GENERATIVE section (4-button layout).
+    window.sdApplyGlobalNeuro = function() {
         const targets = sdGetUnlockedParams();
         if (!targets.length) {
             const status = document.getElementById('sd-canvas-status');
@@ -2290,6 +2326,165 @@
             let cB = sB;
             while (cB < eB - 0.001) { let chunk = [0.5, 1, 1.5, 2, 4][Math.floor(Math.random() * 5)]; if (cB + chunk > eB) chunk = eB - cB; sdInjectShape(param, pool[Math.floor(Math.random() * pool.length)], cB, chunk); cB = Math.round((cB + chunk) * 10000) / 10000; }
         });
+        sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
+        const skipMsg = sdLockSkipMessage(targets.length);
+        if (skipMsg) {
+            const status = document.getElementById('sd-canvas-status');
+            if (status) {
+                status.textContent = skipMsg;
+                setTimeout(() => { if (status.textContent === skipMsg) status.textContent = ''; }, 3000);
+            }
+        }
+    };
+
+    // Chaos: applies the SHAPES "Chaos" template (chaos_lfo — multi-layer
+    // wave noise across the loop) to every unlocked lane in one click.
+    // Collapses the old workflow (Select All → click SHAPES Chaos) into a
+    // single button in the GENERATIVE section. The SHAPES toolbar's Chaos
+    // button (sdApplyTemplate('chaos_lfo')) still exists and still targets
+    // selection/active-lane only — this just adds the global one-shot.
+    window.sdApplyGlobalChaos = function() {
+        const targets = sdGetUnlockedParams();
+        if (!targets.length) {
+            const status = document.getElementById('sd-canvas-status');
+            if (status) status.textContent = sdCanvasParams.length
+                ? 'All lanes locked — unlock to generate'
+                : 'No lanes loaded';
+            return;
+        }
+        pushUndo();
+        const bars = sdGetBars(); const totalBeats = bars * 4;
+        const sel = sdGetSelection(); const sB = sel ? sel.startBeat : 0; const eB = sel ? sel.endBeat : totalBeats;
+        targets.forEach(param => {
+            if (sel) param.points = param.points.filter(pt => pt.time < sB || pt.time > eB); else param.points = [];
+            param.points = param.points.concat(_sdGenTemplatePts('chaos_lfo', sB, eB)).sort((a, b) => a.time - b.time);
+        });
+        sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
+        const skipMsg = sdLockSkipMessage(targets.length);
+        if (skipMsg) {
+            const status = document.getElementById('sd-canvas-status');
+            if (status) {
+                status.textContent = skipMsg;
+                setTimeout(() => { if (status.textContent === skipMsg) status.textContent = ''; }, 3000);
+            }
+        }
+    };
+
+    // Reflector: pairs up unlocked lanes into tight base+mirror pairs.
+    //
+    // Every two consecutive lanes form a base/mirror pair — the fold reads
+    // at the smallest possible scale on the canvas, so the visual impact
+    // hits immediately instead of requiring the eye to track across half
+    // the rack.
+    //
+    //   For N=20 lanes (the canonical case):
+    //     lanes 1-2   = Neuro A   +  mirror(A)
+    //     lanes 3-4   = Neuro B   +  mirror(B)
+    //     ... (5 neuro pairs total) ...
+    //     lanes 9-10  = Neuro E   +  mirror(E)
+    //     lanes 11-12 = Chaos F   +  mirror(F)
+    //     ... (5 chaos pairs total) ...
+    //     lanes 19-20 = Chaos J   +  mirror(J)
+    //
+    // Non-multiple-of-20 lanes degrade gracefully: pair count = floor(N/2),
+    // split into neuroPairs/chaosPairs with a coin flip choosing which side
+    // gets the extra pair when pairs is odd. Odd-N leftover lane (if any)
+    // gets one extra unpaired random pattern.
+    //
+    // "Mirror" = value-flip (value = 1 - value, curve negated). Matches the
+    // sdMirrorLane vocabulary in the codebase. (sdFlipLane is time-reverse;
+    // that's not what we want here.)
+    //
+    // Selection-aware: when a region is selected, only that region of each
+    // lane is touched; the rest is preserved (same pattern as Prism/Bloom/
+    // Chaos/Neuro/Stretch).
+    window.sdApplyGlobalReflector = function() {
+        const targets = sdGetUnlockedParams();
+        if (targets.length < 2) {
+            const status = document.getElementById('sd-canvas-status');
+            if (status) status.textContent = sdCanvasParams.length
+                ? 'Reflector needs at least 2 unlocked lanes — unlock more to pair'
+                : 'No lanes loaded';
+            return;
+        }
+        pushUndo();
+        const totalBeats = sdGetBars() * 4;
+        const sel = sdGetSelection();
+        const sB = sel ? sel.startBeat : 0;
+        const eB = sel ? sel.endBeat : totalBeats;
+        if (eB <= sB) return;
+
+        // Pair sizing — every pair = base + mirror. Coin flip decides which
+        // type (neuro vs chaos) gets the extra pair when total pairs is odd.
+        const N = targets.length;
+        const pairs = Math.floor(N / 2);
+        const flip = Math.random() < 0.5;
+        const neuroPairs = flip ? Math.ceil(pairs / 2) : Math.floor(pairs / 2);
+        const chaosPairs = pairs - neuroPairs;
+
+        // Pattern generators — each call produces a fresh random pattern
+        // confined to the [sB, eB] range. Same logic as sdApplyGlobalNeuro
+        // and sdApplyGlobalChaos respectively.
+        const NEURO_POOL = ['dotted_ramp', 'mid_value_hold', 'offgrid_saw', 'hard_chop',
+                            'exponential_build', 'hyper_stutter', 'rhythmic_gate_build',
+                            'syncopated_drops'];
+        function genNeuro() {
+            const tmp = { points: [] };
+            let cB = sB;
+            while (cB < eB - 0.001) {
+                let chunk = [0.5, 1, 1.5, 2, 4][Math.floor(Math.random() * 5)];
+                if (cB + chunk > eB) chunk = eB - cB;
+                sdInjectShape(tmp, NEURO_POOL[Math.floor(Math.random() * NEURO_POOL.length)], cB, chunk);
+                cB = Math.round((cB + chunk) * 10000) / 10000;
+            }
+            return tmp.points;
+        }
+        function genChaos() {
+            return _sdGenTemplatePts('chaos_lfo', sB, eB);
+        }
+        function mirror(points) {
+            return points.map(pt => ({
+                time: pt.time,
+                value: Math.max(0, Math.min(1, 1 - pt.value)),
+                curve: pt.curve ? -pt.curve : 0,
+            }));
+        }
+        function applyToLane(param, newPoints) {
+            const sorted = newPoints.slice().sort((a, b) => a.time - b.time);
+            if (sel) {
+                const outside = param.points.filter(pt => pt.time < sB || pt.time > eB);
+                param.points = outside.concat(sorted).sort((a, b) => a.time - b.time);
+            } else {
+                param.points = sorted;
+            }
+        }
+
+        // Generate base arrays ONCE so mirrors are exact reflections of
+        // their paired base (not independent random patterns).
+        const neuroBases = [];
+        for (let i = 0; i < neuroPairs; i++) neuroBases.push(genNeuro());
+        const chaosBases = [];
+        for (let i = 0; i < chaosPairs; i++) chaosBases.push(genChaos());
+
+        // Lay out as tight base+mirror pairs — each mirror sits in the
+        // lane IMMEDIATELY below its base (not below the whole base group).
+        // Every two consecutive lanes are a visual pair.
+        //   Neuro section: [N₁, mirror(N₁), N₂, mirror(N₂), …]
+        //   Chaos section: [C₁, mirror(C₁), C₂, mirror(C₂), …]
+        //   Leftover (N odd): one unpaired random pattern.
+        let idx = 0;
+        for (let i = 0; i < neuroPairs; i++) {
+            applyToLane(targets[idx++], neuroBases[i]);
+            applyToLane(targets[idx++], mirror(neuroBases[i]));
+        }
+        for (let i = 0; i < chaosPairs; i++) {
+            applyToLane(targets[idx++], chaosBases[i]);
+            applyToLane(targets[idx++], mirror(chaosBases[i]));
+        }
+        while (idx < N) {
+            applyToLane(targets[idx++], Math.random() < 0.5 ? genNeuro() : genChaos());
+        }
+
         sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
         const skipMsg = sdLockSkipMessage(targets.length);
         if (skipMsg) {
@@ -2693,7 +2888,12 @@
                         });
                     }
                 }
-                param.points = outside.concat(inside.filter(pt => pt.time >= 0 && pt.time <= totalBeats));
+                // Clip to the SELECTION (not the whole clip). With factor > 1
+                // the stretched points can land past eB; without this clamp
+                // the overflow leaks outside the selected region — that was
+                // the reported bug. Lower bound stays >= sB defensively even
+                // though stretched points can't go below sB given factor>0.
+                param.points = outside.concat(inside.filter(pt => pt.time >= sB && pt.time <= eB));
             } else {
                 // Stretch entire lane
                 param.points.forEach(pt => {
@@ -3154,10 +3354,19 @@
     function _sdRenderGenerativeDefault() {
         const sec = document.getElementById('sd-generative-section');
         if (!sec) return;
+        // 4 generative tools in a 2x2 grid:
+        //   Row 1: Neuro (random-pool gnarly modulation) | Chaos (chaos_lfo on all)
+        //   Row 2: Bloom (complementary morph)          | Prism (live multi-lane variants)
+        // Neuro keeps the fuchsia + lightning visuals from when it was called Chaos
+        // (preserves muscle memory). The new GENERATIVE Chaos gets cyan + wave so
+        // it reads as distinct at a glance.
         sec.innerHTML = '<div class="text-[8px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-1.5 px-1">Generative</div>'
-            + '<div class="grid grid-cols-3 gap-1.5">'
-            + '<button onclick="sdApplyGlobalChaos()" title="Chaos: randomize every unlocked lane" class="text-[9px] text-fuchsia-400 hover:text-white bg-transparent hover:bg-fuchsia-500/10 border border-fuchsia-500/50 hover:border-fuchsia-400 px-2 py-1.5 rounded uppercase tracking-wider font-black transition-all flex items-center justify-center gap-1">'
+            + '<div class="grid grid-cols-2 gap-1.5">'
+            + '<button onclick="sdApplyGlobalNeuro()" title="Neuro: gnarly random-pool modulation across every unlocked lane" class="text-[9px] text-fuchsia-400 hover:text-white bg-transparent hover:bg-fuchsia-500/10 border border-fuchsia-500/50 hover:border-fuchsia-400 px-2 py-1.5 rounded uppercase tracking-wider font-black transition-all flex items-center justify-center gap-1">'
             + '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>'
+            + 'Neuro</button>'
+            + '<button onclick="sdApplyGlobalChaos()" title="Chaos: apply the Chaos (chaos_lfo) template to every unlocked lane in one click" class="text-[9px] text-cyan-400 hover:text-white bg-transparent hover:bg-cyan-500/10 border border-cyan-500/50 hover:border-cyan-400 px-2 py-1.5 rounded uppercase tracking-wider font-black transition-all flex items-center justify-center gap-1">'
+            + '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12 Q6 6 9 12 T15 12 T21 12"/></svg>'
             + 'Chaos</button>'
             + '<button id="sd-bloom-btn" onclick="sdToggleBloom()" title="Bloom: complementary curves from the active lane" class="text-[9px] text-amber-400 hover:text-white bg-transparent hover:bg-amber-500/10 border border-amber-500/50 hover:border-amber-400 px-2 py-1.5 rounded uppercase tracking-wider font-black transition-all flex items-center justify-center gap-1">'
             + '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m-8-9H3m18 0h-1m-2.636-5.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m11.314 11.314l.707.707"/></svg>'
@@ -3165,6 +3374,11 @@
             + '<button id="sd-prism-btn" onclick="sdTogglePrism()" title="Prism: draw on one lane, every other lane responds live with the same anchors and a different path" class="text-[9px] text-violet-400 hover:text-white bg-transparent hover:bg-violet-500/10 border border-violet-500/50 hover:border-violet-400 px-2 py-1.5 rounded uppercase tracking-wider font-black transition-all flex items-center justify-center gap-1">'
             + '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3 L21 21 L3 21 Z"/></svg>'
             + 'Prism</button>'
+            // Reflector spans both columns — it's the "headline" multi-tool of
+            // the section (Neuro + Chaos + mirrored variants, all in one click).
+            + '<button onclick="sdApplyGlobalReflector()" title="Reflector: pairs every unlocked lane into base + mirror — half Neuro, half Chaos, each followed by its value-mirrored twin so the rack folds in on itself" class="col-span-2 text-[9px] text-sky-400 hover:text-white bg-transparent hover:bg-sky-500/10 border border-sky-500/50 hover:border-sky-400 px-2 py-1.5 rounded uppercase tracking-wider font-black transition-all flex items-center justify-center gap-1">'
+            + '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8 L11 12 L5 16 M19 8 L13 12 L19 16"/></svg>'
+            + 'Reflector</button>'
             + '</div>';
     }
 
@@ -3313,8 +3527,26 @@
         if (!slider || !masterParam || !masterParam.points.length) return;
         const spread = parseInt(slider.value) / 100;
         const totalBeats = sdGetBars() * 4;
-        const masterPts = masterParam.points.map(pt => ({
-            t: pt.time / totalBeats,
+
+        // Selection-scoped behavior — same shape as the Prism fix. If the
+        // user selected a region, Bloom only touches that region on variant
+        // lanes: master points are filtered to the selection, time is
+        // renormalized to selection-local 0-1 so internal transforms (phase
+        // shift, mirror) wrap within the selection rather than the whole
+        // timeline, and variant-lane points outside the selection are
+        // preserved (the live-tick restore puts them back, we keep them
+        // alongside the new variant). No selection → original behavior.
+        const sel = sdGetSelection();
+        const sB = sel ? sel.startBeat : 0;
+        const eB = sel ? sel.endBeat : totalBeats;
+        const spanBeats = eB - sB;
+        if (sel && spanBeats <= 0) return;
+        const masterInSel = sel
+            ? masterParam.points.filter(pt => pt.time >= sB && pt.time <= eB)
+            : masterParam.points;
+        if (!masterInSel.length) return;
+        const masterPts = masterInSel.map(pt => ({
+            t: sel ? (pt.time - sB) / spanBeats : pt.time / totalBeats,
             v: pt.value,
             curve: pt.curve || 0,
         }));
@@ -3373,11 +3605,23 @@
                 v: Math.max(0, Math.min(1, (p.v - 0.5) * scale + 0.5 + offset)),
                 curve: p.curve,
             }));
-            param.points = pts.map(p => ({
-                time: Math.round(p.t * totalBeats * 10000) / 10000,
+            // Convert normalized t back to beat time. When scoped, t=0 maps
+            // to selection start and t=1 maps to selection end, so all
+            // output lands inside the selection by construction.
+            const newPoints = pts.map(p => ({
+                time: Math.round((sel ? (sB + p.t * spanBeats) : p.t * totalBeats) * 10000) / 10000,
                 value: Math.max(0, Math.min(1, p.v)),
                 curve: p.curve || 0,
             }));
+            if (sel) {
+                // Keep pre-Bloom points outside selection (restore-from-
+                // snapshot already put them back this tick), drop anything
+                // strictly inside, concat the new variant, sort by time.
+                const outside = param.points.filter(pt => pt.time < sB || pt.time > eB);
+                param.points = outside.concat(newPoints).sort((a, b) => a.time - b.time);
+            } else {
+                param.points = newPoints;
+            }
         });
     }
 
@@ -4004,13 +4248,28 @@
         if (!slider || !sourceParam) return;
         const diversity = parseInt(slider.value) / 100;
         const totalBeats = sdGetBars() * 4;
-        const anchors = _sdPrismExtractAnchors(sourceParam.points, totalBeats);
+
+        // Selection-scoped behavior: if the user selected a region, Prism
+        // only touches that region on variant lanes. Anchors come from the
+        // source's points within the selection (so variants follow whatever
+        // is in the selected bars), variant output occupies the selection
+        // range only, and each variant lane's points OUTSIDE the selection
+        // are preserved (the live-tick restore reset them to pre-Prism
+        // state already, so we just keep those alongside the new variant).
+        // No selection → full-timeline variant, original behavior.
+        const sel = sdGetSelection();
+        const sB = sel ? sel.startBeat : 0;
+        const eB = sel ? sel.endBeat : totalBeats;
+        const sourceForAnchors = sel
+            ? sourceParam.points.filter(pt => pt.time >= sB && pt.time <= eB)
+            : sourceParam.points;
+
+        const anchors = _sdPrismExtractAnchors(sourceForAnchors, totalBeats);
         const targets = sdCanvasParams.filter(p => p.envelopeId !== sdActiveParamId && !p.locked);
         if (!anchors.length) {
-            // Source has nothing to anchor against — leave variants alone.
-            // The live-draw entry point may have empty source until user
-            // draws their first stroke; we don't want entry-with-empty-source
-            // to wipe whatever variants were already on screen.
+            // Source has nothing to anchor against (in the selection range,
+            // if there is one) — leave variants alone. Live-draw may enter
+            // with empty source; we don't want that to wipe variants either.
             return;
         }
         targets.forEach(param => {
@@ -4018,11 +4277,20 @@
             const laneSeed = ((_sdPrismRngSeed || 1) ^ _sdPrismHashStr(param.envelopeId)) >>> 0;
             const rng = _sdPrismMakeRng(laneSeed);
             const variant = _sdPrismGenerateVariant(anchors, personality, diversity, rng);
-            param.points = variant.map(p => ({
+            const newPoints = variant.map(p => ({
                 time: Math.round(p.time * 10000) / 10000,
                 value: Math.max(0, Math.min(1, p.value)),
                 curve: p.curve || 0,
             }));
+            if (sel) {
+                // Keep pre-Prism points outside selection (restore-from-
+                // snapshot already put them back this tick), drop anything
+                // strictly inside, concat the new variant, sort by time.
+                const outside = param.points.filter(pt => pt.time < sB || pt.time > eB);
+                param.points = outside.concat(newPoints).sort((a, b) => a.time - b.time);
+            } else {
+                param.points = newPoints;
+            }
         });
     }
 
@@ -6167,6 +6435,50 @@
         el.textContent = msg;
     }
 
+    // Maps install-handler responses (from main.js install-stride-link-to-ableton)
+    // into status panel text. Knows the new error codes added with the verify
+    // patch — source_bundle_incomplete + install_verification_failed — and
+    // surfaces actionable next steps instead of raw error codes.
+    // Re-enables disabled buttons on failure so the user can retry. On
+    // success: green status, auto-dismiss after 2.6s, mark first-run done.
+    function _handleInstallResult(res) {
+        if (res && res.success) {
+            // Distinguish a fresh install from "already there, nothing to do".
+            // The latter happens when the user clicks Install on a machine
+            // where Stride was previously installed — we skip the destructive
+            // overwrite to avoid EBUSY when Ableton has the files locked.
+            const msg = res.alreadyInstalled
+                ? `Stride is already installed at ${res.targetDir}. In Ableton, open User Library → Stride → drag StrideLink onto a track.`
+                : `Installed to ${res.targetDir}. In Ableton, open User Library → Stride → drag StrideLink onto a track.`;
+            sdSetInstallStatus('success', msg);
+            setTimeout(() => {
+                sdCloseInstallM4LOverlay();
+                sdMarkFirstRunDone(true);
+            }, 2600);
+            return true;
+        }
+        const errCode = res && res.error;
+        let msg;
+        if (errCode === 'source_bundle_incomplete') {
+            msg = (res && res.message) ||
+                  "Stride's bundled M4L files aren't accessible. Try re-downloading Stride.";
+        } else if (errCode === 'install_verification_failed') {
+            msg = (res && res.message) ||
+                  `Install ran but files didn't land at ${res && res.targetDir}. Try "Choose folder manually" with a different folder, or copy resources/M4L there by hand.`;
+        } else if (errCode === 'target_locked') {
+            msg = (res && res.message) ||
+                  'Stride is already installed but the files are locked — close Ableton (which has StrideLink loaded) and try again.';
+        } else if (errCode === 'userLibraryNotFound') {
+            msg = "Couldn't find your Ableton User Library at the default location. Click \"Choose folder manually\" below and point Stride at it.";
+        } else {
+            msg = (res && (res.message || res.error)) || 'Install failed. Please try again.';
+        }
+        sdSetInstallStatus('error', msg);
+        const installBtn = document.getElementById('sd-install-m4l-btn');
+        if (installBtn) installBtn.disabled = false;
+        return false;
+    }
+
     function sdWireInstallM4LButtons() {
         const installBtn = document.getElementById('sd-install-m4l-btn');
         const skipBtn = document.getElementById('sd-install-m4l-skip-btn');
@@ -6183,42 +6495,57 @@
                         return;
                     }
                     let res = await window.stride.installStrideLinkToAbleton();
-                    // If User Library auto-detection failed, offer a folder picker
+                    // If User Library auto-detection failed, automatically open
+                    // the folder picker — same UX as clicking "Choose folder
+                    // manually" but triggered as a fallback.
                     if (res && !res.success && res.error === 'userLibraryNotFound') {
                         sdSetInstallStatus('info', "Couldn't find your Ableton User Library. Please choose the folder manually.");
                         const picked = window.stride.pickUserLibraryFolder
                             ? await window.stride.pickUserLibraryFolder()
                             : null;
                         if (!picked) {
-                            sdSetInstallStatus('error', 'Cancelled — no folder selected.');
+                            sdSetInstallStatus('error', 'Cancelled — no folder selected. Click "Choose folder manually" to try again.');
                             installBtn.disabled = false;
                             return;
                         }
                         res = await window.stride.installStrideLinkToAbleton(picked);
                     }
-                    if (res && res.success) {
-                        sdSetInstallStatus('success', `Installed to ${res.targetDir}. In Ableton, open User Library → Stride → drag StrideLink onto a track.`);
-                        // Auto-dismiss after a moment so the user sees the confirmation
-                        setTimeout(() => {
-                            sdCloseInstallM4LOverlay();
-                            // Persist the "first run done" flag so we don't ask again
-                            sdMarkFirstRunDone(true);
-                        }, 2600);
-                    } else {
-                        sdSetInstallStatus('error', (res && res.error) || 'Install failed. Please try again.');
-                        installBtn.disabled = false;
-                    }
+                    _handleInstallResult(res);
                 } catch (e) {
                     sdSetInstallStatus('error', e.message || 'Install failed.');
                     installBtn.disabled = false;
                 }
             });
         }
+
+        // "Choose folder manually" — opens a folder picker and installs into
+        // whatever the user picks. Replaces the old "Skip — I'll do it manually"
+        // dead-end (which just dismissed the modal with no guidance). User
+        // cancelling the picker = effective skip, dismisses the modal so they
+        // can do it later via the titlebar Install to Ableton button.
         if (skipBtn) {
-            skipBtn.addEventListener('click', () => {
-                sdCloseInstallM4LOverlay();
-                // Don't mark first-run done yet — only skipping THIS step;
-                // sdCloseInstallM4LOverlay chains into the welcome modal, which marks done.
+            skipBtn.addEventListener('click', async () => {
+                if (!window.stride || !window.stride.pickUserLibraryFolder || !window.stride.installStrideLinkToAbleton) {
+                    sdCloseInstallM4LOverlay();
+                    return;
+                }
+                const picked = await window.stride.pickUserLibraryFolder();
+                if (!picked) {
+                    // Cancelled the picker → treat as a true skip, just close.
+                    sdCloseInstallM4LOverlay();
+                    return;
+                }
+                skipBtn.disabled = true;
+                if (installBtn) installBtn.disabled = true;
+                sdSetInstallStatus('info', 'Installing to selected folder...');
+                try {
+                    const res = await window.stride.installStrideLinkToAbleton(picked);
+                    _handleInstallResult(res);
+                } catch (e) {
+                    sdSetInstallStatus('error', e.message || 'Install failed.');
+                } finally {
+                    skipBtn.disabled = false;
+                }
             });
         }
         // Backdrop click + Escape to dismiss (never trap the user)
