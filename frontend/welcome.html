@@ -8,6 +8,85 @@
     <meta name="robots" content="noindex, nofollow">
     <meta name="description" content="Welcome to Stride. Onboarding video for new customers.">
 
+    <!-- Meta Pixel — Phase 2 of docs/meta-pixel-integration-spec.md.
+         Fires PageView + Purchase when the buyer lands here after a Lemon
+         Squeezy checkout. The Purchase event carries an event_id that's
+         deduplicated against the future server-side Conversions API event
+         (Phase 3) in the LS webhook handler — so the same Purchase isn't
+         counted twice when both sides fire. -->
+    <script>
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t,s)}(window, document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '2369051023577964');
+    fbq('track', 'PageView');
+
+    // Fire Purchase ONLY when we have evidence this is a real post-purchase
+    // landing — either an order_id in the URL (from the LS confirmation
+    // modal's Button link variable substitution) OR an event_id we stored
+    // in sessionStorage when the user clicked GET STRIDE on the landing
+    // page. Random/bookmarked visits get PageView only, not Purchase.
+    (function fireStridePurchase() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const order = (params.get('order') || '').trim();
+
+            // event_id resolution order:
+            //   1. URL param  (LS link variable {checkout.custom.event_id})
+            //   2. sessionStorage (set on landing page at GET STRIDE click)
+            //   3. Fresh UUID — last resort; means no dedup with server CAPI
+            let eventId = (params.get('event_id') || '').trim();
+            if (!eventId) {
+                try { eventId = sessionStorage.getItem('stride_pixel_event_id') || ''; } catch (e) {}
+            }
+
+            const isFreshPurchase = !!(order || eventId);
+            let alreadyFired = false;
+            try { alreadyFired = sessionStorage.getItem('stride_pixel_purchase_fired') === '1'; } catch (e) {}
+            if (!isFreshPurchase || alreadyFired) return;
+
+            if (!eventId) {
+                eventId = (window.crypto && window.crypto.randomUUID)
+                    ? window.crypto.randomUUID()
+                    : 'evt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+            }
+
+            // Value: default 39 USD. LS link variables don't include
+            // order_total, so the client side fires a fixed value. Phase 3
+            // server-side CAPI carries the REAL order_total from the webhook
+            // — Meta dedupes via event_id and treats the server value as
+            // authoritative when both events arrive. Meta penalizes
+            // zero-value Purchase events for optimization, so we never
+            // fire 0; the worst case is "right ballpark" until Phase 3.
+            const purchaseData = {
+                value: 39,
+                currency: 'USD',
+                content_name: 'Stride Sound Design Engine',
+                content_type: 'product',
+            };
+            if (order) purchaseData.content_ids = [order];
+
+            fbq('track', 'Purchase', purchaseData, { eventID: eventId });
+
+            // Mark as fired so reloads don't double-count, then clear the
+            // event_id so it doesn't accidentally tag a future purchase.
+            try { sessionStorage.setItem('stride_pixel_purchase_fired', '1'); } catch (e) {}
+            try { sessionStorage.removeItem('stride_pixel_event_id'); } catch (e) {}
+        } catch (e) {
+            // Never let tracking break the page
+            if (window.console && console.warn) console.warn('Stride pixel: Purchase event failed', e);
+        }
+    })();
+    </script>
+    <noscript><img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=2369051023577964&ev=PageView&noscript=1"
+    /></noscript>
+
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cdefs%3E%3ClinearGradient id='strideGradient' x1='0%25' y1='0%25' x2='100%25' y2='0%25'%3E%3Cstop offset='0%25' stop-color='%23f97316' /%3E%3Cstop offset='100%25' stop-color='%23ef4444' /%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z' stroke='url(%23strideGradient)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 
     <script src="https://cdn.tailwindcss.com"></script>
