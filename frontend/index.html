@@ -1054,10 +1054,30 @@
                 timestamp: new Date().toISOString()
             }));
 
-            // Redirect to Lemon Squeezy checkout with email pre-filled
+            // Generate a unique event ID for Meta Pixel deduplication. This
+            // ID rides through to LS as "custom data" and surfaces on both
+            // (a) the welcome.html URL after purchase (via the LS link
+            // variable in the confirmation modal Button link), and (b) the
+            // webhook payload at meta.custom_data.event_id for the future
+            // server-side Conversions API event. Both sides submit the same
+            // event_id → Meta dedupes → high-quality match.
+            // See docs/meta-pixel-integration-spec.md (Phase 2 + 3).
+            const eventId = (window.crypto && window.crypto.randomUUID)
+                ? window.crypto.randomUUID()
+                : 'evt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+            try { sessionStorage.setItem('stride_pixel_event_id', eventId); } catch (e) {}
+
+            // Redirect to Lemon Squeezy checkout with email pre-filled and
+            // event_id passed through as custom checkout data. Per LS docs
+            // (Passing Custom Data), checkout[custom][<key>]=<value> surfaces
+            // on both the redirect URL (when link variables are used) and
+            // the webhook payload at meta.custom_data.<key>.
             if (LS_CHECKOUT_URL) {
                 const sep = LS_CHECKOUT_URL.includes('?') ? '&' : '?';
-                window.location.href = LS_CHECKOUT_URL + sep + 'checkout[email]=' + encodeURIComponent(email) + '&checkout[name]=' + encodeURIComponent(name);
+                window.location.href = LS_CHECKOUT_URL + sep
+                    + 'checkout[email]=' + encodeURIComponent(email)
+                    + '&checkout[name]=' + encodeURIComponent(name)
+                    + '&checkout[custom][event_id]=' + encodeURIComponent(eventId);
             } else {
                 // Fallback: LS URL not configured yet — show thank-you for now
                 toggleBuyModal();
