@@ -73,6 +73,15 @@
 
             fbq('track', 'Purchase', purchaseData, { eventID: eventId });
 
+            // Custom conversion event 'welcome' — the optimization target
+            // for the conversion campaign. Same event_id as Purchase: Meta
+            // dedupes per (event_name + event_id), so different event names
+            // sharing an event_id are still counted separately (one welcome,
+            // one Purchase) — what the same event_id buys us is server-side
+            // CAPI dedup of THIS welcome event against the corresponding
+            // CAPI welcome event for the same conversion.
+            fbq('track', 'welcome', purchaseData, { eventID: eventId });
+
             // Mark as fired so reloads don't double-count, then clear the
             // event_id so it doesn't accidentally tag a future purchase.
             try { sessionStorage.setItem('stride_pixel_purchase_fired', '1'); } catch (e) {}

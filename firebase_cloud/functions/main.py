@@ -213,6 +213,12 @@ def safe_int(val, default=0):
 #   LEMONSQUEEZY_API_KEY         — store API key (used to call LS API)
 #   LEMONSQUEEZY_WEBHOOK_SECRET  — webhook signing secret (used to verify HMAC)
 
+# Meta Conversions API (Phase 3 of docs/meta-pixel-integration-spec.md).
+# Pure helpers live in meta_capi.py for testability — they don't need
+# firebase_admin or the Flask request context.
+from meta_capi import _fire_meta_purchase_capi
+
+
 def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
     """Receive a Lemon Squeezy webhook, verify HMAC, upsert customer in Firestore.
 
@@ -330,6 +336,29 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
                     )
                 except Exception as we:
                     print(f"[LS Webhook] Discord alert failed: {we}")
+
+            # Meta Conversions API — server-side Purchase event for ad
+            # measurement. Shares event_id with the client Pixel in
+            # welcome.html so Meta dedupes them. Best-effort: any failure
+            # is swallowed inside _fire_meta_purchase_capi so the webhook
+            # still 200s.
+            try:
+                capi_event_id = (
+                    ((payload.get("meta") or {}).get("custom_data") or {}).get("event_id")
+                    or ""
+                )
+                _fire_meta_purchase_capi(
+                    {
+                        "email": email,
+                        "order_id": data_obj.get("id"),
+                        "order_identifier": attrs.get("identifier"),
+                        "total_cents": attrs.get("total"),
+                        "currency": attrs.get("currency"),
+                    },
+                    capi_event_id,
+                )
+            except Exception as ce:
+                print(f"[Meta CAPI] integration error: {ce}")
 
         elif event_name == "license_key_created":
             # LS generated a license key for a completed order. Link the key
@@ -605,7 +634,7 @@ def _handle_validate_license(data: dict):
     timeout_sec=540,
     memory=options.MemoryOption.GB_1,
     max_instances=200,
-    secrets=["SUPABASE_SERVICE_KEY", "LEMONSQUEEZY_API_KEY", "LEMONSQUEEZY_WEBHOOK_SECRET", "RESEND_API_KEY"]
+    secrets=["SUPABASE_SERVICE_KEY", "LEMONSQUEEZY_API_KEY", "LEMONSQUEEZY_WEBHOOK_SECRET", "RESEND_API_KEY", "META_CAPI_ACCESS_TOKEN"]
 )
 def generate_midi(req: https_fn.Request) -> https_fn.Response:
     if req.method == 'OPTIONS':
