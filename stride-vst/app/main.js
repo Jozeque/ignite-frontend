@@ -302,10 +302,17 @@ ipcMain.handle('load-settings', async () => {
 //   • Settings UI "Re-detect" (Phase 5)          — calls forget then persist
 //
 // Returns { ok: true, changed: bool } on success, { ok: false, error } on
-// failure. `changed` lets the caller decide whether to restart the library
-// watcher when the path moves.
+// failure. When the path actually moved (changed: true), restart the watcher
+// so it points at the new folder — otherwise drops to the new path land in a
+// folder no one is listening to and Stride silently misses every template.
+// Repro this without the restart: relocate Ableton's User Library mid-session,
+// drag a clip → no "Template saved" toast → Apply uses old template.
 ipcMain.handle('persist-library-path', async (event, { path: libPath, source } = {}) => {
-    return libraryPath.persist(libPath, source);
+    const result = libraryPath.persist(libPath, source);
+    if (result && result.ok && result.changed) {
+        restartLibraryWatcher();
+    }
+    return result;
 });
 
 // Read the currently-known User Library path without re-running detection.
@@ -540,7 +547,18 @@ function getBundledM4LSource() {
     return null;
 }
 
+// Resolve the User Library for the install flow + "is Stride installed?" check.
+// Same priority order as _findUserLibraryDir() — prefer the resolver (which
+// knows about custom paths from m4l self-report / persisted cache) before
+// falling back to standard locations.
+//
+// Without this, check-stride-link-installed reports `installed: false` for
+// any custom-path user even when Stride IS correctly installed in their
+// non-standard library, because this function only checked the two default
+// locations.
 function getDefaultUserLibraryPath() {
+    const resolved = libraryPath.resolve();
+    if (resolved && resolved.path) return resolved.path;
     const home = os.homedir();
     const candidates = process.platform === 'darwin'
         ? [path.join(home, 'Music', 'Ableton', 'User Library'),
@@ -908,12 +926,26 @@ ipcMain.handle('delete-session', async (event, filename) => {
 
 let libWatcher = null;
 
-// Resolve the user's Ableton User Library, ordering candidates by platform.
-// Mac defaults to ~/Music/...; Windows to ~/Documents/.... Some Mac users have
-// a leftover ~/Documents/Ableton/ from Live auto-create or older versions —
-// if we check Documents first we lock onto the wrong path and never see drops
-// to their real Music-based library.
+// Resolve the user's Ableton User Library for the watcher + catch-up scan.
+//
+// Priority order:
+//   1. The library-path resolver — uses M4L self-report (StrideLink reports
+//      its own parent folder, which IS the User Library by definition) →
+//      persisted cache → smart detection. This handles users who relocated
+//      Ableton's User Library to a custom path (e.g. external SSD) — drops
+//      land there, so the watcher must listen there.
+//   2. Hardcoded standard-location fallback — only used at cold start before
+//      M4L has ever connected. Without this, default-path users with no prior
+//      install state get a null libDir and the watcher never starts.
+//
+// Without the resolver step, the watcher silently watches the wrong folder
+// (or doesn't start) for any custom-path user — drops never get detected,
+// templates never get imported, Apply uses stale/no template. Repro:
+// relocate Ableton's User Library to a non-default path → drag clip → Stride
+// shows no "Template saved" toast → Apply silently uses old template.
 function _findUserLibraryDir() {
+    const resolved = libraryPath.resolve();
+    if (resolved && resolved.path) return resolved.path;
     const home = os.homedir();
     const candidates = process.platform === 'darwin'
         ? [path.join(home, 'Music', 'Ableton', 'User Library'),
@@ -940,6 +972,18 @@ function _walkAlcFiles(dir, onAlc) {
             onAlc(fullPath);
         }
     }
+}
+
+// Close + restart the watcher. Called when the resolved User Library path
+// changes mid-session (m4l self-report reports a different path than what's
+// cached, or the user picks a new folder via Settings). Idempotent — safe to
+// call even if the watcher was never started or already closed.
+function restartLibraryWatcher() {
+    if (libWatcher) {
+        try { libWatcher.close(); } catch (e) { /* fs.watch close errors are non-fatal */ }
+        libWatcher = null;
+    }
+    startLibraryWatcher();
 }
 
 function startLibraryWatcher() {
