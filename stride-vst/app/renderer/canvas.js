@@ -2370,6 +2370,108 @@
         }
     };
 
+    // S&H (Sample & Hold): per-lane stepped-random staircase across every
+    // unlocked lane. Flat held values that jump to a new random level on a
+    // rhythmic grid — NO bezier, hard steps only. The rate CHANGES per bar
+    // (drawn from a straight + triplet pool, max 1/32), and each lane rolls
+    // its own intensity band, so lanes land on mismatched grids and the rack
+    // reads as polyrhythmic (e.g. 1/4 against 1/8T = 4-against-3), phase-locked
+    // to the bar.
+    //
+    // Each step = two points at the same value via the ε-gap technique already
+    // used by mid_value_hold / hyper_stutter:  addPt(t, v); addPt(t+r-ε, v).
+    // The next step's point sits ε beats later → a vertical jump. So S&H steps
+    // inject into the .alc identically to the existing stepped shapes — no
+    // M4L / injector / writer changes.
+    //
+    // Selection- and lock-aware (same scaffolding as Neuro/Chaos/Reflector).
+    // One click generates; click again rerolls.
+    //
+    // NOTE: the pure step-math here is mirrored by stride-vst/test/
+    // test-sample-hold.js — if you change the rate pool, bands, or stepping,
+    // update that spec too.
+    window.sdApplyGlobalSampleHold = function() {
+        const targets = sdGetUnlockedParams();
+        if (!targets.length) {
+            const status = document.getElementById('sd-canvas-status');
+            if (status) status.textContent = sdCanvasParams.length
+                ? 'All lanes locked — unlock to generate'
+                : 'No lanes loaded';
+            return;
+        }
+        pushUndo();
+        const totalBeats = sdGetBars() * 4;
+        const sel = sdGetSelection();
+        const sB = sel ? sel.startBeat : 0;
+        const eB = sel ? sel.endBeat : totalBeats;
+        if (eB <= sB) return;
+
+        // Rate pool in beats (4/4: 1 bar = 4 beats). Every entry tiles a bar
+        // evenly — straight 1/2…1/32 plus triplets 1/4T (6/bar), 1/8T (12),
+        // 1/16T (24). Smallest = 1/32 (0.125) per the "max 1/32" cap.
+        const RATES = [2, 1, 0.5, 0.25, 0.125, 4 / 6, 2 / 6, 1 / 6];
+        // Full-range: every lane spans the ENTIRE 0–1 axis. We deliberately do
+        // NOT confine any lane to a sub-band — the user dials individual lanes
+        // back afterward with the Intensity edit tool. minDelta only keeps
+        // adjacent steps visibly apart.
+        const EPS = 0.005;
+        const MIN_DELTA = 0.15;
+        const round4 = t => Math.round(t * 10000) / 10000;
+
+        targets.forEach(param => {
+            const pts = [];
+            let lastV = null, prevRate = null;
+
+            // Walk bar-aligned sections so triplet rates tile cleanly and rate
+            // changes land on bar lines. First/last sections can be partial if
+            // a selection doesn't start/end on a bar boundary.
+            let secStart = sB;
+            while (secStart < eB - 1e-4) {
+                const secEnd = Math.min((Math.floor(secStart / 4) + 1) * 4, eB);
+                // ~50% keep the previous rate (stickiness) so it isn't frantic.
+                const rate = (prevRate !== null && Math.random() < 0.5)
+                    ? prevRate
+                    : RATES[Math.floor(Math.random() * RATES.length)];
+                prevRate = rate;
+
+                let t = secStart;
+                while (t < secEnd - 1e-4) {
+                    const stepEnd = Math.min(t + rate, secEnd);
+                    // Random value across the FULL 0–1 axis, forced to differ
+                    // from the last step so every jump reads.
+                    let v, tries = 0;
+                    do { v = Math.random(); tries++; }
+                    while (lastV !== null && Math.abs(v - lastV) < MIN_DELTA && tries < 12);
+                    lastV = v;
+                    const cv = Math.max(0, Math.min(1, v));
+                    const tA = round4(t);
+                    pts.push({ time: tA, value: cv });
+                    const tB = round4(stepEnd - EPS);
+                    if (tB > tA) pts.push({ time: tB, value: cv });   // flat hold
+                    t = stepEnd;
+                }
+                secStart = secEnd;
+            }
+
+            if (sel) {
+                const outside = param.points.filter(pt => pt.time < sB || pt.time > eB);
+                param.points = outside.concat(pts).sort((a, b) => a.time - b.time);
+            } else {
+                param.points = pts;
+            }
+        });
+
+        sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
+        const skipMsg = sdLockSkipMessage(targets.length);
+        if (skipMsg) {
+            const status = document.getElementById('sd-canvas-status');
+            if (status) {
+                status.textContent = skipMsg;
+                setTimeout(() => { if (status.textContent === skipMsg) status.textContent = ''; }, 3000);
+            }
+        }
+    };
+
     // Reflector: pairs up unlocked lanes into tight base+mirror pairs.
     //
     // Every two consecutive lanes form a base/mirror pair — the fold reads
@@ -3374,6 +3476,11 @@
             + '<button id="sd-prism-btn" onclick="sdTogglePrism()" title="Prism: draw on one lane, every other lane responds live with the same anchors and a different path" class="text-[9px] text-violet-400 hover:text-white bg-transparent hover:bg-violet-500/10 border border-violet-500/50 hover:border-violet-400 px-2 py-1.5 rounded uppercase tracking-wider font-black transition-all flex items-center justify-center gap-1">'
             + '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3 L21 21 L3 21 Z"/></svg>'
             + 'Prism</button>'
+            // S&H spans both columns — a per-lane stepped-random generator;
+            // each lane on its own rate grid makes the rack polyrhythmic.
+            + '<button onclick="sdApplyGlobalSampleHold()" title="Sample &amp; Hold: per-lane stepped random — values jump on a per-bar rate (straight + triplet), each lane unique so the rack reads polyrhythmic. Click again to reroll." class="col-span-2 text-[9px] text-lime-400 hover:text-white bg-transparent hover:bg-lime-500/10 border border-lime-500/50 hover:border-lime-400 px-2 py-1.5 rounded uppercase tracking-wider font-black transition-all flex items-center justify-center gap-1">'
+            + '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16 H7 V11 H11 V15 H15 V8 H19 V13"/></svg>'
+            + 'S&amp;H</button>'
             // Reflector spans both columns — it's the "headline" multi-tool of
             // the section (Neuro + Chaos + mirrored variants, all in one click).
             + '<button onclick="sdApplyGlobalReflector()" title="Reflector: pairs every unlocked lane into base + mirror — half Neuro, half Chaos, each followed by its value-mirrored twin so the rack folds in on itself" class="col-span-2 text-[9px] text-sky-400 hover:text-white bg-transparent hover:bg-sky-500/10 border border-sky-500/50 hover:border-sky-400 px-2 py-1.5 rounded uppercase tracking-wider font-black transition-all flex items-center justify-center gap-1">'
