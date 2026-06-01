@@ -1,73 +1,182 @@
-# Live needs a bezier envelope API
+# A small API addition that would unlock a new class of creative tools in Live
 
-*A modest proposal from a Max for Live developer*
-
----
-
-**Contents**
-- [TL;DR](#tldr)
-- [The friction, named](#the-friction-named)
-- [The user-facing pain (a real story)](#the-user-facing-pain-a-real-story)
-- [The technical reality](#the-technical-reality)
-- [The proposed API](#the-proposed-api)
-- [What this single change unlocks](#what-this-single-change-unlocks)
-- [Who benefits](#who-benefits)
-- [Cost on Ableton's side](#cost-on-abletons-side)
-- [Backwards compatibility](#backwards-compatibility)
-- [How M4L devs can help](#how-m4l-devs-can-help)
+*An open letter from a Max for Live developer building inside Ableton's ecosystem*
 
 ---
 
-## TL;DR
+## In one paragraph
 
-Ableton's Live Object Model lets us write breakpoints into clip envelopes — but only as stair-step plateaus. There's no programmatic way to write bezier curve handles. As a result, every Max for Live modulator developer working with smooth automation has to take a bizarre detour: generate an `.alc` file on disk, then ask the user to drag it manually into a clip slot.
+There's a small gap in Ableton's Live Object Model that's currently capping the growth of an entire category of creative tools. Producers want to draw automation curves visually and apply them to their racks — and the tools to do this exist, ship, and work. But because LOM can only write flat stair-step plateaus into clip envelopes (not the bezier curves Live itself draws beautifully in the UI), every tool in this category has to route through a file-drag intermediate step. The workflow works; producers are willing to learn it because the creative payoff is real. But that learning curve is a tax on every new user, and it's the single biggest reason these tools haven't reached the mainstream Live audience yet. **Exposing programmatic bezier-write on Live's existing automation surfaces — both clip envelopes and arrangement track envelopes — would remove that tax, unlock creative capabilities that don't exist in any DAW today (live preview during edits, per-lane Apply, undo at the clip level, track-mismatch protection), and make Live's stock instruments meaningfully more powerful in the hands of sound designers.**
 
-**One new LOM method removes a six-step friction pipeline AND unlocks five capabilities that don't exist anywhere else in Live today.**
+---
 
-## The friction, named
+## Who's writing this
 
-I've been building **Stride** — a desktop app + Max for Live device that lets producers draw automation curves visually and apply them to instrument racks in Ableton. The intended workflow is: scan rack → draw curves → apply → hear it. The actual workflow looks like this:
+I'm Joe — I build **Stride**, a desktop app + Max for Live device that lets producers draw automation curves on a visual canvas and apply them to any Ableton rack. Think of it as "sound design through gesture": you load your favourite Operator patch, draw an evolving curve on the Cutoff parameter, and the rack starts moving in ways you'd never program by hand.
 
-1. User scans their rack — Stride reads every parameter via LOM ✓
-2. User drags a MIDI clip from the rack's track into the User Library to **create a template** ✗
-3. User draws bezier curves on a canvas ✓
-4. Stride generates the curves and writes them to an `.alc` file on disk ✗
-5. User finds the file in `~/Desktop/Stride/` ✗
-6. User drags the file into Ableton's clip slot ✗
-7. **User often drops on the wrong track. The drop "succeeds" silently. No automation is applied.** ✗
-8. They press play and hear nothing change. They email me confused. ✗
+Where Stride is today:
+- **166 producers engaged** in the CRM — paying customers, ambassadors, and active waitlist combined
+- **~30% conversion to paid** on those leads — and **this is before any marketing has started**
+- **Growing daily** across YouTube subscribers, Instagram followers, Reddit engagement, and purchases — pure organic, word-of-mouth growth from Reddit's electronic-music production communities
+- **Realistic 6-month forecast: 1,000+ engaged producers** as marketing ramps from zero
+- Several customers are professional producers and Ableton-certified trainers
 
-Steps 2, 4, 5, 6, 7, 8 should not exist. They exist only because **LOM cannot write bezier breakpoints into a clip envelope.**
+The audience is exactly Ableton's core: electronic producers who live inside Live and want deeper sound-design tools. The pre-marketing conversion rate is the signal — when producers find Stride, they buy it. The cap on growth right now isn't reach; it's the workflow friction documented below.
 
-## The user-facing pain (a real story)
+The problem I want to walk Ableton through isn't a Stride problem. It's an LOM problem that affects every developer working in this space — and more importantly, it affects every producer who tries to use these tools.
 
-A producer emailed me last week: *"I drew curves, hit Apply, dragged the .alc onto a clip slot — nothing happened. The track plays but no automation."*
+---
 
-The cause: he dropped the `.alc` on a MIDI track that had a **different rack** than the one he scanned with. The `.alc` references parameter `PointeeId`s from the original rack. On the target track, those IDs don't exist. Ableton imports the clip without erroring, but every envelope is orphaned. **Total silent failure.**
+## What producers are saying
 
-The workaround I had to give him: "drop on a fresh empty MIDI track with no rack on it." That works, but it's voodoo. He'd never figure it out from the UI.
+Stride works end-to-end — the math, the canvas, the rack scanning, the apply pipeline. Every customer who pushes through the workflow gets curves into their tracks and falls in love with what they hear. The friction isn't in the product; it's in the path from "I clicked Apply" to "I'm hearing the curve."
 
-This is one of dozens of similar emails. Each one is a producer who almost refunded because Stride looked broken — when the broken thing is actually LOM forcing us through a file-mediated handoff that loses parameter identity at the drop boundary.
+**Every new customer has to learn the same workflow before they're independent.** A typical first-day email reads:
 
-## The technical reality
+> *"I just bought Stride today but can't get it to work. I'm getting the following error whenever I press Apply To Clip… I don't understand what's happening. I am using an instrument with 8 parameters, and the template does have 8 parameters."*
 
-`Clip.create_automation_envelope(parameter)` returns an `AutomationEnvelope` object whose entire writable surface is one method:
+The pattern: they did everything right. Their rack has 8 parameters, their canvas shows 8 lanes, they drew their curves. The friction is that Stride has to route those curves through a file-drag intermediate step — and that step requires a pre-prepared "template" clip with all 8 envelopes embedded. They didn't know Ableton only embeds an envelope in a clip if the parameter has been manually touched at least once first. After a brief support email, they're working — and the follow-up messages are excited, full of sounds they discovered they couldn't have programmed by hand.
 
-```
-insert_step(time: float, length: float, value: float) → None
-```
+**The value at the end is real enough that producers push through.** The process of getting there is tedious and the order of operations is unintuitive — but they stay on it. Every week brings new customers walking the same path, each one needing personal hand-holding before they're independent. That's not a sustainable adoption pattern.
 
-This produces flat plateaus followed by vertical jumps. Not even linear interpolation between values — actual stair-steps.
+**The friction isn't unique to Stride, though.** It's a Max for Live ecosystem-level pattern that developers and producers have been documenting on the Cycling '74 forum and Ableton Forum for over a decade. A short sample of the dozens of public threads:
 
-What `.alc` XML supports (and what Live's clip envelope engine renders beautifully) is far richer. Each `<FloatEvent>` element supports `CurveControl1X/Y` and `CurveControl2X/Y` attributes that bend the segment between two breakpoints into a quadratic bezier. **You can see this when you draw an automation curve in Live by hand and pull a handle.**
+> *"LOM has no means of writing automation lines."*
+> — Norman Freund, on a thread asking for an M4L API to snapshot all device parameters into a clip envelope.
+>
+> Reply from Diemo Schwarz (recognised M4L developer):
+> *"This is indeed my biggest incomprehension with Live."*
+>
+> [cycling74.com — Touch all Params to Clip Automations](https://cycling74.com/forums/touch-all-params-to-clip-automations)
 
-The ask: expose those bezier handles to LOM.
+> *"As of now (Ableton 12.1) there is no possibility to do this, sadly. But it would be amazing."*
+> — hoowdie, on a multi-year Cycling '74 thread requesting programmatic clip envelope editing. The thread spans Live 10 → Live 12.1 with no resolution.
+>
+> [cycling74.com — Programatic Clip Envelope Editing??](https://cycling74.com/forums/programatic-clip-envelope-editing)
 
-## The proposed API
+> *"Would be great if we could modify the automation envelope programatically. In the API docs there's a `Live.Clip.AutomationEnvelope.insert_step()` method. Could this be implemented?"*
+> — hilifit, filed January 2024 against AbletonOSC (the most popular open-source Ableton OSC bridge). Shows the demand extends beyond M4L into the Python/OSC scripting community.
+>
+> [github.com — AbletonOSC Issue #112](https://github.com/ideoforms/AbletonOSC/issues/112)
 
-Two viable shapes. Either solves the problem.
+These are independent voices, across three different developer communities, spanning ~20 years. The same request keeps surfacing with the same workarounds and the same lack of resolution.
 
-### Option A — batch on `Clip`
+There's also a moment that proves the technical capability exists internally: a developer ([Cycling '74 thread](https://cycling74.com/forums/parameter-automation-per-step)) reverse-engineered Live's compiled Python files (`LomTypes.pyc`, `MxDCore.pyc`) to expose `create_automation_envelope`, `insert_step`, and `value_at_time`. He explicitly noted the work was "a gray area" and refused to publish it, but explicitly asked Cycling '74 / Ableton to release these features officially. The methods exist inside Live — they're just not exposed to LOM.
+
+What also matters is what we don't see: the silent majority — producers who hit the workflow once, decide it's too much friction, and quietly move on without ever sending an email. Stride's 30% pre-marketing conversion is just the producers who pushed through. The full audience is bigger.
+
+The friction also shapes producers' expectations of M4L modulation tools generally — including future devices Ableton itself might release.
+
+---
+
+## What's actually missing
+
+When you draw an automation curve in Live by hand and pull a handle to bend a segment, Live stores that bend as a bezier curve. The data lives in Live's automation format — whether it's a clip envelope (used in Session view, and inside Arrangement clips) or a track-level automation envelope (used on the Arrangement timeline). The renderer handles both. Save the project, reopen it — the curves are still there, still beautiful.
+
+**The Live Object Model — the scripting interface Max for Live and Remote Scripts use — has no way to write that same bezier curve programmatically in either location.** The current state:
+
+- **Clip envelopes:** LOM exposes `clip.create_automation_envelope(parameter)` → returns an envelope object whose only writable method is `insert_step(time, length, value)`. Produces flat stair-step plateaus. No interpolation. No bezier.
+- **Arrangement / track-level automation:** LOM exposes nothing at all. No entry point to create, write, or modify track automation programmatically. Confirmed by multiple Cycling '74 community threads (*"to my knowledge there has never been any API for manipulating automation values in the timeline"* — tyler mazaika, on the Cycling '74 forum).
+
+Stride works in both contexts: producers drop the generated automation into Session clip slots (uses clip envelopes) OR into the Arrangement timeline (uses track-level envelopes). Both workflows are common; both hit the same wall.
+
+So every external tool that wants to produce smooth, curved automation has built the same workaround: a file-mediated path through Ableton's `.alc` format, which contains both clip envelopes and track-level envelopes in one bundle. The path works — Stride uses it today and ships real value to producers through it — but it requires every user to learn:
+
+1. How to prepare a "template" MIDI clip with one automation point on every parameter they want to control
+2. How to find the generated `.alc` on disk after clicking Apply
+3. How to drag it into Ableton's clip slot without accidentally targeting the wrong track (which silently orphans every envelope because parameter IDs don't match the new track's rack)
+4. How to identify which clip slot is the "right" one for their current session
+5. How to recognise the difference between a successful drop and a no-op silent drop
+6. How to re-prepare the template if they change their rack later
+
+These six things make sense to anyone who's done it twice. They're a wall for the producer doing it once. **None of them would exist if external tools could write bezier breakpoints directly into Live's automation (clip envelopes for Session, track envelopes for Arrangement).** All six collapse into a single Apply button click.
+
+---
+
+## What we're asking for
+
+Additive LOM methods that let external tools write bezier breakpoints into Live's automation envelopes — the same way Live writes them when a producer draws by hand — for **both** of the contexts producers actually use:
+
+- **Clip envelopes** (used in Session view and inside Arrangement clips). Roughly:
+  ```
+  Clip.set_envelope_breakpoints(parameter, breakpoints)
+  ```
+- **Track-level automation envelopes** (used on the Arrangement timeline). Roughly:
+  ```
+  Track.set_arrangement_envelope_breakpoints(parameter, breakpoints)
+  ```
+
+Where each breakpoint carries a time, value, and the bezier handle coordinates that already exist in Live's storage format. Backwards-compatible with everything that exists today. The existing `insert_step` keeps working untouched. The new methods just slot in alongside it.
+
+This is one cohesive capability — programmatic bezier write into Live's automation system — split across two existing surfaces in LOM. Producers don't think of these as two separate things; the tools shouldn't have to either.
+
+Technical details on possible API shapes are at the end of this doc — Ableton's engineering team would obviously pick whichever fits their patterns best. We're flexible on shape.
+
+---
+
+## What changes when this ships
+
+### For producers using tools like Stride
+
+The learning-curve tax disappears entirely. The workflow collapses into: **draw → apply.** Time per iteration goes from ~10 seconds of file management to ~half a second. Producers who already love the value can now iterate 20x more frequently per session — meaning 20x more sound-design exploration in the same amount of studio time. And the silent majority who currently bounce off the workflow before they get to the value? They convert.
+
+Critically, the silent-failure class goes away entirely. Tools can read which clip the producer has open, walk up to its track, compare against the rack they're working with — and refuse to write with a clear error if they don't match. No more *"I followed the steps and nothing happened."*
+
+### For Ableton's stock instruments
+
+This is the part I think is most under-appreciated. Operator, Wavetable, Drum Bus, Echo, Auto Filter, Roar, the rest of the stock devices — they all have ~50-200 modulatable parameters each. **In the hands of a producer with no external tools, producers automate maybe 1-2 parameters per track because manual envelope drawing is slow.** With visual curve-drawing tools that write directly to clips, that same producer routinely automates 8-20 parameters per track. The same rack becomes a different instrument.
+
+Every time a Stride user discovers a sound in Operator they didn't know was possible, that's a producer falling more in love with an Ableton instrument. The friction the bezier API removes isn't just Stride's friction — it's the friction between Ableton's instruments and the deep sound-design workflows producers want from them.
+
+### For the M4L developer ecosystem
+
+Modulation devices, generative tools, curve drawing apps, AI-driven automation, parameter sequencers, evolving texture generators — entire categories of devices that today are awkward-to-impossible become natural. Any developer who's tried to build a "draw curves and hear them" tool has hit this exact wall. Removing it doesn't just help one device; it makes the whole M4L marketplace more inventive.
+
+### For Ableton's business
+
+- **Live becomes the only DAW with deep programmable bezier automation.** FL Studio, Logic, Bitwig — none of them have an open, scriptable curve-writing path into either clip envelopes or arrangement automation. This is a real differentiator in the sound-design-tools segment.
+- **Strong Suite upsell driver.** Every interesting M4L modulator that ships post-API becomes a reason to be on Suite instead of Standard. The M4L ecosystem's strength is one of Suite's load-bearing value props.
+- **Producer retention.** Sound designers who currently bounce off Live's stock automation tools (and migrate to Bitwig for its modulation system) get a programmable answer inside Live. This is the audience most likely to switch DAWs for deeper modulation.
+- **Aligns with the Live 12.x LOM extension trajectory.** The API additions in 12.1 (`create_audio_clip`, `create_midi_clip`, take-lane access, `display_value`) all follow the same pattern: expose existing internal capabilities so the developer ecosystem can build interesting things on top. The bezier write API is the same pattern, applied to the gap that's currently bottlenecking the most creative category of M4L tooling.
+
+---
+
+## What we know is already in place
+
+A few things worth flagging — not to tell Ableton how to implement, but to point out that the foundations exist:
+
+- The Live project XML already stores bezier handle data for both clip envelopes and track-level automation. Any `.als` or `.alc` opened in a text editor shows `CurveControl1X/Y` and `CurveControl2X/Y` attributes on `<FloatEvent>` elements, inside both `<ClipEnvelope>` containers (clip-internal) and `<AutomationEnvelope>` containers (track-level).
+- Live's envelope renderer already draws bezier curves from that data in both contexts — it's what user-drawn curves use today, whether in a clip's envelope view or on an arrangement automation lane.
+- A developer in the Cycling '74 community has previously demonstrated (and refused to publish) that internal Python classes for envelope creation and writing exist in `LomTypes.pyc` / `MxDCore.pyc` — they're just not exposed to LOM.
+
+The proposal is **purely additive**. No deprecations. No breaking changes. Every existing M4L device that uses `insert_step` continues to work exactly as it does today. The new methods exist alongside it.
+
+---
+
+## What I'd love to discuss
+
+I'd welcome the chance to:
+- Demo Stride live (5-10 minute walkthrough showing the workflow today + a paper sketch of what the same workflow looks like once the API ships)
+- Share the full friction inventory from our user research (~13 distinct points, ~10 of which evaporate with this single API)
+- Co-design the API shape with Ableton's LOM team to make sure it fits their patterns
+- Be a public partner in announcing it when it ships — the Stride community would be a strong amplifier
+
+Reachable any time at `home@stridehub.io`.
+
+Thank you for reading.
+
+— Joe
+[stridehub.io](https://stridehub.io) · [YouTube](https://www.youtube.com/@strideengine) · [Instagram](https://www.instagram.com/strideengine)
+
+---
+
+## Appendix: technical API shape options
+
+Two parallel surfaces are needed — one for clip envelopes (Session view + clips inside Arrangement) and one for track-level envelopes (Arrangement timeline). Either of the two write-method shapes below works on either surface. Ableton's engineering team should obviously pick whichever fits their LOM patterns best — and may choose different shapes for the two surfaces if that fits internal patterns better.
+
+### Clip envelope surface (extends existing `Clip.create_automation_envelope` path)
+
+**Option A — batch:**
 
 ```python
 Clip.set_envelope_breakpoints(
@@ -76,12 +185,10 @@ Clip.set_envelope_breakpoints(
     # [{ "time": 0.0, "value": 0.5,
     #    "c1x": 0.5, "c1y": -0.3,
     #    "c2x": 0.5, "c2y":  0.3 }, ...]
-) → None
+) -> None
 ```
 
-Atomic, fast for bulk writes (which is what most envelope-drawing devices do). Follows Ableton's recent LOM extension pattern: task-specific methods on parent objects (see `create_audio_clip`, `create_midi_clip` added in Live 12.1).
-
-### Option B — per-breakpoint method
+**Option B — per-breakpoint:**
 
 ```python
 Clip.add_envelope_breakpoint(
@@ -90,99 +197,38 @@ Clip.add_envelope_breakpoint(
     value: float,
     c1x: float = 0.5, c1y: float = 0.0,
     c2x: float = 0.5, c2y: float = 0.0,
-) → None
+) -> None
 ```
 
-Defaults that produce a linear segment — backwards-compatible mental model. More LOM calls per write but smaller API surface.
+### Track-level (arrangement) envelope surface (new — no existing LOM entry point)
 
-## What this single change unlocks
+**Option A — batch:**
 
-It's not just "make Stride less awkward." Five concrete categories of capability appear that aren't possible today.
+```python
+Track.set_arrangement_envelope_breakpoints(
+    parameter,
+    breakpoints: list[dict]
+) -> None
+```
 
-### 1. Direct write — six friction steps collapse to one
+**Option B — per-breakpoint:**
 
-The eight-step nightmare above becomes: **scan → draw → apply.** No template, no file, no folder, no drag, no track confusion, no silent failures. Producer time per iteration: **~10 seconds → ~0.5 seconds.**
+```python
+Track.add_arrangement_envelope_breakpoint(
+    parameter,
+    time: float,
+    value: float,
+    c1x: float = 0.5, c1y: float = 0.0,
+    c2x: float = 0.5, c2y: float = 0.0,
+) -> None
+```
 
-### 2. Track-mismatch detection — kills the silent-fail class
+Batch shape is atomic and faster for bulk writes (which is what most envelope-drawing devices do). Follows Ableton's recent LOM extension pattern: task-specific methods on parent objects (see `create_audio_clip`, `create_midi_clip` added in Live 12.1). Per-breakpoint shape has the smallest per-call surface and lets defaults produce a linear segment for the simplest mental model.
 
-Stride reads `live_set view detail_clip`, walks up to its track, compares against the rack's track. If they don't match, refuse to write and show: *"The clip you have open is on track 'X'. Stride is bound to track 'Y'. Open a clip on the right track."* The producer sees the actual problem instead of staring at unmoving parameters.
+### Coordinate space
 
-This single check eliminates an entire class of "I followed the steps and it didn't work" support tickets.
+Live's project XML already serializes `CurveControl1X/Y` and `CurveControl2X/Y` on `<FloatEvent>` elements in both clip envelopes and track-level envelopes, in a normalized coordinate space where X is along the segment (0 to 1) and Y is the deflection from the linear interpolation line. The new APIs should accept the same coordinate space so existing tools that already produce this format (including Stride's `.alc` writer) can map their output directly.
 
-### 3. Live preview — closes the feedback loop
+### Read access (nice-to-have, not required)
 
-With direct envelope writes, Stride can debounce slider input at ~30 Hz and write each tick directly to the clip. Producer drags Smooth → hears the curve smoothing **in real time during the drag.** Drags Filter Floor → hears the cutoff opening **as they pull the slider.**
-
-This is the **only** way to get real-time programmable automation feedback in Live today:
-- `live.remote~` modulates parameters in real time but writes nothing to clips (modulation dies when the device is removed).
-- Native automation lanes have no programmatic-write path.
-- The bezier API enables **both**: real-time preview AND clip-persistent storage in one capability.
-
-This is the single biggest creative-workflow improvement Live could ship for sound designers.
-
-### 4. Per-lane Apply — additive instead of clip replacement
-
-Today, `.alc` import REPLACES the clip's entire envelope set. Producer wants to add a Cutoff curve without touching their existing Filter Resonance automation? Impossible without re-creating Filter Resonance from scratch in the new `.alc`.
-
-With the API, devices write only the lanes the user picked. Other envelopes stay untouched. Producers can layer curves across multiple sessions without rewriting their work each time.
-
-### 5. Undo Apply — first-class clip-level revert
-
-Snapshot existing breakpoints before write. On Undo, restore them. Today there's no way back from a bad Apply.
-
-### Bonus: new device categories that don't exist today
-
-- **Curve marketplaces** — share a curve as a `.curve` file, apply to any rack via LOM `_path` matching. Currently impossible because curves are tied to template envelope structure.
-- **Generative modulators that write to clips** (not just modulate live) — algorithmic envelope generation, AI-driven automation, streaming generation pipelines.
-- **Curve editors that aren't tied to specific devices** — third-party envelope drawing tools that work with ANY rack, not just ones with pre-saved templates.
-
-## Who benefits
-
-**M4L modulator developers (~50–100 commercial devs):**
-- Drawing tools write directly to clips. No `.alc` files, no drag-drop, no silent failures.
-- Custom envelope generators (Shaper-style, but programmable from outside) become possible.
-- Generative automation tools can write smooth modulation programmatically — currently impossible.
-
-**Producers using those devices:**
-- Most-friction step removed from any "draw curves and hear them" workflow.
-- Real-time preview where there's currently a 10-second feedback loop.
-- No more "I followed the steps and it didn't work" silent failures.
-- More iterations per session = more sound design exploration.
-
-**Ableton:**
-- Live becomes the only DAW with deep programmable bezier automation. FL Studio, Logic, Bitwig — none of them have this.
-- Differentiator that attracts sound designers who currently bounce off Live's stock automation tools.
-- Suite upsell driver — every interesting M4L modulator becomes a reason to be on Suite.
-- Aligns with the recent Live 12.x LOM expansion direction (`create_audio_clip`, `create_midi_clip`, take-lane access, `display_value`).
-
-## Cost on Ableton's side
-
-Estimated **1–2 engineering weeks** based on what already exists internally:
-
-- The `.alc` XML format already supports bezier handles (`CurveControl1X/Y`, `CurveControl2X/Y` are written by Live itself when users draw curves manually).
-- The clip envelope engine already renders bezier — that's how Live displays user-drawn curves.
-- The work is exposing the existing internal capability through LOM, not building new rendering or storage.
-
-Compared to the developer ecosystem this enables and the producer workflow improvement it unblocks, it's a small investment for a large multiplier.
-
-## Backwards compatibility
-
-The proposal is **purely additive**. `insert_step` continues to work exactly as it does today. Existing M4L devices that use it are unaffected. The new method exists alongside, with sensible defaults that produce linear segments when curve handles aren't specified — approachable for developers who don't need bezier.
-
-No breaking changes to LOM. No deprecations. Just a new capability slotting in where one is missing.
-
-## How M4L devs can help
-
-If you've hit this wall too — building modulators, automation tools, generative devices — pile on:
-
-- Comment on the [Cycling 74 forum thread on this topic](https://cycling74.com/forums/) (or start one if none exists)
-- File a feature request in Ableton's [developer feedback channel](https://www.ableton.com/en/help/article/contact-us/)
-- Tag your tweets / posts with `#M4LBezier`
-
-Pressure from working developers is what drives LOM extensions. The hooks are already inside Live. They just need to be exposed.
-
----
-
-*Written by Joe — building [Stride](https://stridehub.io), the sound design engine that shouldn't need a file dragger.*
-
-*[stridehub.io](https://stridehub.io) · [YouTube](https://www.youtube.com/@strideengine)*
+If the APIs also expose breakpoint reading (`Clip.get_envelope_breakpoints` and `Track.get_arrangement_envelope_breakpoints`), it enables one more capability: tools can implement true Undo Apply by snapshotting the existing envelope before write. Without read access, tools can still undo their own writes by remembering what they wrote — acceptable degradation. This isn't a blocker; ship write-only first if it's faster.

@@ -84,7 +84,7 @@ class StrideLink {
         return this.send({ type: 'request_scan_mapped' });
     }
 
-    applyAutomation(params, clipBars, deviceName, templatePath, createIfMissing = true, clipName = null) {
+    applyAutomation(params, clipBars, deviceName, templatePath, createIfMissing = true, clipName = null, midiNotes = null) {
         return this.send({
             type: 'apply_automation',
             create_clip_if_missing: createIfMissing,
@@ -93,6 +93,10 @@ class StrideLink {
             template_path: templatePath || null,
             clip_name: clipName || null,
             total_param_count: params._totalParamCount || params.length,
+            // Pattern Library v1.2: if user has armed a pattern, its
+            // pre-expanded notes ride along on the same apply message.
+            // Null/empty = curves-only flow (the v1.1 default, unchanged).
+            midi_notes: Array.isArray(midiNotes) && midiNotes.length > 0 ? midiNotes : null,
             parameters: params.map(p => ({
                 id: p.id,
                 name: p.name,
@@ -101,6 +105,45 @@ class StrideLink {
                 max: p.max != null ? p.max : 1,
                 is_log: p.is_log || false,
                 envelope_index: p.envelope_index != null ? p.envelope_index : null,
+                points: (p.points || []).map(pt => ({
+                    time: pt.time,
+                    value: pt.value,
+                    curve: pt.curve || 0
+                }))
+            }))
+        });
+    }
+
+    /**
+     * v.next direct-inject path. Writes envelopes straight into the selected
+     * clip via the StrideInject Remote Script — no .alc file, no drag.
+     *
+     * The caller is responsible for waiting on 'inject_success' / 'inject_error'
+     * events to confirm the write. Falls back to insert_step subdivision inside
+     * StrideInject if Live's bezier classes aren't available.
+     *
+     * @param {Array}   params
+     * @param {number}  clipBars
+     * @param {Object}  [opts]
+     * @param {boolean} [opts.createIfMissing=true]
+     * @param {boolean} [opts.forceLegacyStep=false]  Skip bezier even if available
+     * @param {number}  [opts.clipSlot=0]
+     */
+    applyDirectInject(params, clipBars, opts) {
+        const o = opts || {};
+        return this.send({
+            type: 'apply_inject',
+            create_clip_if_missing: o.createIfMissing !== false,
+            clip_bars: clipBars,
+            clip_slot: o.clipSlot || 0,
+            force_legacy_step: o.forceLegacyStep === true,
+            parameters: params.map(p => ({
+                id: p.id,
+                name: p.name,
+                _path: p._path || null,
+                min: p.min != null ? p.min : 0,
+                max: p.max != null ? p.max : 1,
+                is_log: p.is_log || false,
                 points: (p.points || []).map(pt => ({
                     time: pt.time,
                     value: pt.value,

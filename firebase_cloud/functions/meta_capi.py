@@ -74,9 +74,11 @@ def _build_capi_payload(order_data, event_id):
     except (TypeError, ValueError):
         value = 0.0
     # Meta penalizes 0-value Purchase events in campaign optimization,
-    # so fall back to the list price rather than send zero.
+    # so fall back to the current list price rather than send zero.
+    # Bump this if the base price flips again (founding $39 era ended
+    # 2026-05-24 → flat $59).
     if value <= 0:
-        value = 39.0
+        value = 59.0
     currency = (order_data.get("currency") or "USD").upper()
     order_id = str(
         order_data.get("order_id")
@@ -87,6 +89,20 @@ def _build_capi_payload(order_data, event_id):
     user_data = {}
     if email:
         user_data["em"] = [_hash_pii(email)]
+    # Meta attribution fields — captured at landing-page time from the
+    # ad click and passed through LS custom checkout data. fbc/fbp/UA
+    # are NOT hashed (Meta requirement); they're raw cookie/header
+    # values. Each is optional — when missing, CAPI still works but
+    # match quality drops, which costs us on campaign optimization.
+    fbc = (order_data.get("fbc") or "").strip()
+    if fbc:
+        user_data["fbc"] = fbc
+    fbp = (order_data.get("fbp") or "").strip()
+    if fbp:
+        user_data["fbp"] = fbp
+    client_ua = (order_data.get("client_user_agent") or "").strip()
+    if client_ua:
+        user_data["client_user_agent"] = client_ua
 
     resolved_event_id = event_id or str(uuid.uuid4())
     event_time = int(time.time())

@@ -229,6 +229,9 @@ function createAlcFile(msg, templatePath) {
     const autoData = {
         clip_bars: clipBars,
         total_param_count: totalParamCount,
+        // Optional: armed pattern notes (Pattern Library v1.2). Forwarded
+        // verbatim to alc-injector.injectMidiNotes if present.
+        midi_notes: Array.isArray(msg.midi_notes) ? msg.midi_notes : null,
         params: activeParams.map((p, idx) => ({
             name: p.name,
             id: p.id != null ? p.id : null,
@@ -308,6 +311,9 @@ function createAlcFile(msg, templatePath) {
             totalParamCount: result.total_param_count || 0,
             templateMatched: templateMatched,
             templateMatchedName: templateMatchedName,
+            notesWritten: result.notes_written || 0,
+            pitchCount: result.pitch_count || 0,
+            noteInjectError: result.note_inject_error || null,
         };
     } catch (e) {
         return { success: false, error: 'Failed to inject automation: ' + e.message };

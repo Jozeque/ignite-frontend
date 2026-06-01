@@ -160,7 +160,7 @@ rm -f "$M4L_DEST/_stride_"*.json
 # Obfuscate bundled M4L JS files (same settings as the electron app.asar
 # above — max safe protection with rename-globals/properties off).
 echo "      Obfuscating bundled M4L JS..."
-for f in server.js scanner.js writer.js alc-generator.js alc-injector.js; do
+for f in server.js scanner.js writer.js inject-writer.js alc-generator.js alc-injector.js; do
     "$OBFUSCATOR" "$M4L_DEST/$f" --output "$M4L_DEST/$f" \
         --compact true \
         --control-flow-flattening true \

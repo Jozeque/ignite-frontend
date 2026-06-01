@@ -10,6 +10,7 @@
 const { WebSocketServer } = require('ws');
 const scanner = require('./scanner');
 const writer = require('./writer');
+const inject = require('./inject-writer');
 const alcGen = require('./alc-generator');
 const Max = require('max-api');
 const fs = require('fs');
@@ -357,6 +358,29 @@ function handleAppMessage(msg) {
             applyViaAlcFile(msg);
             break;
 
+        case 'apply_inject':
+            // v.next direct-inject path: writes envelopes straight into the
+            // selected clip via the StrideInject Remote Script. No .alc, no
+            // drag. Opt-in — apply_automation is still the default.
+            inject.writeInject(msg, {
+                onSuccess: (data) => {
+                    const mode = data && data.mode ? data.mode : 'unknown';
+                    Max.post(`Stride: inject success — ${data.params_written || 0} params, ${data.points_written || 0} events (${mode} mode)`);
+                    sendToApp({
+                        type: 'inject_success',
+                        params_written: (data && data.params_written) || 0,
+                        points_written: (data && data.points_written) || 0,
+                        mode: mode,
+                        clip_bars: msg.clip_bars || 4,
+                    });
+                },
+                onError: (message) => {
+                    Max.post(`Stride: inject error — ${message}`);
+                    sendToApp({ type: 'inject_error', message: message });
+                },
+            });
+            break;
+
         case 'apply_midi':
             // Forward MIDI notes to Max patcher
             writer.writeMidi(msg);
@@ -432,12 +456,30 @@ function applyViaAlcFile(msg) {
 
     Max.post(`Stride: Injecting automation — ${params.length} params, ${clipBars} bars`);
     Max.post(`Stride: device_name="${msg.device_name || '(none)'}" template_path="${msg.template_path || '(none)'}"`);
+    // Confirms the pattern payload arrived intact at the m4l side. If this
+    // line is missing after Apply when the canvas log shows notes=N, the
+    // m4l device is running stale code — reload StrideLink.amxd.
+    if (Array.isArray(msg.midi_notes) && msg.midi_notes.length > 0) {
+        Max.post(`Stride: received armed pattern with ${msg.midi_notes.length} notes (will replace template's notes)`);
+    } else {
+        Max.post(`Stride: no pattern armed — keeping template's notes as-is`);
+    }
 
     try {
         const result = alcGen.createAlcFile(msg);
 
         if (result.success) {
-            Max.post(`Stride: .alc saved → ${result.filename} (${result.paramsWritten}/${result.requestedCount} params, ${result.skippedCount} skipped, template_matched=${result.templateMatched})`);
+            // Note-inject result is surfaced loudly so silent failure of
+            // injectMidiNotes can't masquerade as "everything worked" — a
+            // common confusion when the user picks a pattern, gets a green
+            // toast, and Live shows the wrong notes.
+            const notesPart = (result.notesWritten || 0) > 0
+                ? `, notes=${result.notesWritten} (${result.pitchCount || 0} pitches)`
+                : '';
+            Max.post(`Stride: .alc saved → ${result.filename} (${result.paramsWritten}/${result.requestedCount} params, ${result.skippedCount} skipped, template_matched=${result.templateMatched}${notesPart})`);
+            if (result.noteInjectError) {
+                Max.post(`Stride: !! MIDI note inject FAILED — ${result.noteInjectError}`);
+            }
             sendToApp({
                 type: 'alc_generated',
                 success: true,
@@ -449,6 +491,9 @@ function applyViaAlcFile(msg) {
                 mismatch_count: result.mismatchCount || 0,
                 template_matched: result.templateMatched !== false,
                 template_matched_name: result.templateMatchedName || null,
+                notes_written: result.notesWritten || 0,
+                pitch_count: result.pitchCount || 0,
+                note_inject_error: result.noteInjectError || null,
             });
 
             // Folder auto-open removed — the canvas now shows a drag handle

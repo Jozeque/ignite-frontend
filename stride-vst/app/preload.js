@@ -108,6 +108,14 @@ contextBridge.exposeInMainWorld('stride', {
     startDrag: (filePath) =>
         ipcRenderer.send('ondragstart', filePath),
 
+    // Pattern Library v1.2 — manifest + .mid byte loaders (CSP blocks
+    // fetch() for file:// resources, so the renderer reads pattern
+    // assets through IPC). Paths validated server-side.
+    loadPatternManifest: () =>
+        ipcRenderer.invoke('load-pattern-manifest'),
+    loadPatternFile: (relPath) =>
+        ipcRenderer.invoke('load-pattern-file', relPath),
+
     // Platform info
     platform: process.platform
 });

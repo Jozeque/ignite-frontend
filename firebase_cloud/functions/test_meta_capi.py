@@ -135,20 +135,22 @@ class BuildCapiPayloadTests(unittest.TestCase):
             self.assertEqual(ev["custom_data"]["value"], 39.99)
 
     def test_zero_value_falls_back_to_list_price(self):
-        # Meta penalizes zero-value Purchase events — never send 0
+        # Meta penalizes zero-value Purchase events — never send 0.
+        # Fallback bumped from 39 → 59 when founding-member era ended
+        # (2026-05-24). Bump again here if base price changes.
         payload = _build_capi_payload({"total_cents": 0, "currency": "USD"}, "evt-1")
         for ev in payload["data"]:
-            self.assertEqual(ev["custom_data"]["value"], 39.0)
+            self.assertEqual(ev["custom_data"]["value"], 59.0)
 
     def test_missing_total_falls_back_to_list_price(self):
         payload = _build_capi_payload({"currency": "USD"}, "evt-1")
         for ev in payload["data"]:
-            self.assertEqual(ev["custom_data"]["value"], 39.0)
+            self.assertEqual(ev["custom_data"]["value"], 59.0)
 
     def test_non_numeric_total_falls_back_to_list_price(self):
         payload = _build_capi_payload({"total_cents": "garbage"}, "evt-1")
         for ev in payload["data"]:
-            self.assertEqual(ev["custom_data"]["value"], 39.0)
+            self.assertEqual(ev["custom_data"]["value"], 59.0)
 
     def test_currency_uppercased(self):
         payload = _build_capi_payload({"total_cents": 3900, "currency": "usd"}, "evt-1")
@@ -212,6 +214,84 @@ class BuildCapiPayloadTests(unittest.TestCase):
         for ev in payload["data"]:
             em = ev["user_data"]["em"][0]
             self.assertEqual(em, hashlib.sha256(b"buyer@example.com").hexdigest())
+
+    # ─── Meta attribution fields (fbc / fbp / client_user_agent) ─────
+    # Critical for campaign-driven Purchase events: Meta needs these to
+    # match the server event back to the ad click that drove it. Without
+    # them, the campaign optimizer can't credit the conversion → CPA
+    # appears artificially high → profitable ads get killed prematurely.
+
+    def test_fbc_included_in_user_data_when_provided(self):
+        order = {
+            "email": "buyer@example.com",
+            "total_cents": 5900,
+            "fbc": "fb.1.1717250000000.IwAR0FakeClickId",
+        }
+        payload = _build_capi_payload(order, "evt-1")
+        for ev in payload["data"]:
+            self.assertEqual(ev["user_data"]["fbc"], "fb.1.1717250000000.IwAR0FakeClickId")
+
+    def test_fbp_included_in_user_data_when_provided(self):
+        order = {
+            "email": "buyer@example.com",
+            "total_cents": 5900,
+            "fbp": "fb.1.1717250000000.987654321",
+        }
+        payload = _build_capi_payload(order, "evt-1")
+        for ev in payload["data"]:
+            self.assertEqual(ev["user_data"]["fbp"], "fb.1.1717250000000.987654321")
+
+    def test_client_user_agent_included_when_provided(self):
+        ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        order = {"email": "buyer@example.com", "total_cents": 5900, "client_user_agent": ua}
+        payload = _build_capi_payload(order, "evt-1")
+        for ev in payload["data"]:
+            self.assertEqual(ev["user_data"]["client_user_agent"], ua)
+
+    def test_all_attribution_fields_combine(self):
+        order = {
+            "email": "buyer@example.com",
+            "total_cents": 5900,
+            "fbc": "fb.1.123.abc",
+            "fbp": "fb.1.456.xyz",
+            "client_user_agent": "TestAgent/1.0",
+        }
+        payload = _build_capi_payload(order, "evt-1")
+        for ev in payload["data"]:
+            ud = ev["user_data"]
+            self.assertIn("em", ud)
+            self.assertEqual(ud["fbc"], "fb.1.123.abc")
+            self.assertEqual(ud["fbp"], "fb.1.456.xyz")
+            self.assertEqual(ud["client_user_agent"], "TestAgent/1.0")
+
+    def test_attribution_fields_absent_when_not_provided(self):
+        # Backwards-compat: organic visit with no fbclid → no fbc/fbp/ua
+        # in user_data. Payload still valid, em still present.
+        order = {"email": "buyer@example.com", "total_cents": 5900}
+        payload = _build_capi_payload(order, "evt-1")
+        for ev in payload["data"]:
+            ud = ev["user_data"]
+            self.assertIn("em", ud)
+            self.assertNotIn("fbc", ud)
+            self.assertNotIn("fbp", ud)
+            self.assertNotIn("client_user_agent", ud)
+
+    def test_empty_string_attribution_fields_are_omitted(self):
+        # Defensive: if upstream passes "" instead of missing, we still
+        # treat it as absent. Meta rejects empty-string user_data fields.
+        order = {
+            "email": "buyer@example.com",
+            "total_cents": 5900,
+            "fbc": "",
+            "fbp": "   ",
+            "client_user_agent": "",
+        }
+        payload = _build_capi_payload(order, "evt-1")
+        for ev in payload["data"]:
+            ud = ev["user_data"]
+            self.assertNotIn("fbc", ud)
+            self.assertNotIn("fbp", ud)
+            self.assertNotIn("client_user_agent", ud)
 
     def test_welcome_event_carries_same_custom_data_as_purchase(self):
         # The welcome custom event should carry the same value/currency

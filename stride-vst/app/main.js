@@ -293,6 +293,49 @@ ipcMain.handle('load-settings', async () => {
     }
 });
 
+// Pattern Library v1.2 — manifest + .mid byte loaders.
+// CSP in the renderer blocks fetch() for file:// resources, so we route
+// pattern asset reads through IPC. Paths are validated to stay inside
+// the bundled assets/patterns/ tree — no escape via "../" or absolute paths.
+const PATTERNS_ROOT = path.join(__dirname, 'assets', 'patterns');
+
+function _safePatternPath(rel) {
+    if (typeof rel !== 'string' || rel.length === 0) return null;
+    // Reject absolute paths, drive letters, and any ".." segments.
+    if (path.isAbsolute(rel) || /(^|[\\/])\.\.(?:$|[\\/])/.test(rel) || /^[a-zA-Z]:/.test(rel)) {
+        return null;
+    }
+    const full = path.normalize(path.join(PATTERNS_ROOT, rel));
+    // Must remain inside PATTERNS_ROOT after normalization.
+    if (!full.startsWith(PATTERNS_ROOT + path.sep) && full !== PATTERNS_ROOT) return null;
+    return full;
+}
+
+ipcMain.handle('load-pattern-manifest', async () => {
+    try {
+        const full = path.join(PATTERNS_ROOT, 'manifest.json');
+        if (!fs.existsSync(full)) return { success: false, error: 'manifest.json missing' };
+        const data = JSON.parse(fs.readFileSync(full, 'utf8'));
+        return { success: true, manifest: data };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('load-pattern-file', async (event, relPath) => {
+    try {
+        const full = _safePatternPath(relPath);
+        if (!full) return { success: false, error: 'invalid pattern path' };
+        if (!fs.existsSync(full)) return { success: false, error: 'file not found' };
+        const buf = fs.readFileSync(full);
+        // Send as Uint8Array so the renderer can wrap it as ArrayBuffer
+        // and feed straight into strideMidi.parse.
+        return { success: true, bytes: new Uint8Array(buf) };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
 // ─── User Library Path Resolver ───────────────────────────
 //
 // Persist a confirmed User Library path. Used by:

@@ -22,6 +22,20 @@ const APPLY_SUCCESS = 'apply_success';
 const APPLY_ERROR = 'apply_error';
 // { type, message }
 
+/** v.next direct-inject path — sent after StrideInject Remote Script
+ *  writes envelopes directly into the selected clip (no .alc file, no
+ *  drag). mode = 'bezier' when the script used Live 12's native bezier
+ *  envelope API, 'step' when it fell back to insert_step subdivision. */
+const INJECT_SUCCESS = 'inject_success';
+// { type, params_written, points_written, mode, clip_bars }
+
+/** v.next direct-inject path — sent when the inject flow fails (Remote
+ *  Script not installed, target clip missing, write error, etc.). The
+ *  legacy .alc path is unaffected — clients should fall back to
+ *  apply_automation if they want a drag-based result. */
+const INJECT_ERROR = 'inject_error';
+// { type, message }
+
 /** Connection handshake from M4L */
 const M4L_READY = 'm4l_ready';
 // { type, version, user_library_path }
@@ -44,6 +58,13 @@ const REQUEST_SCAN = 'request_scan';
 /** Send automation curves to write into clip */
 const APPLY_AUTOMATION = 'apply_automation';
 // { type, create_clip_if_missing, clip_bars, parameters: [{ id, name, points: [{ time, value, curve }] }] }
+
+/** v.next direct-inject path — write envelopes straight into the selected
+ *  clip via the StrideInject Remote Script. No .alc file, no drag.
+ *  Same parameter shape as apply_automation, plus optional force_legacy_step. */
+const APPLY_INJECT = 'apply_inject';
+// { type, create_clip_if_missing, clip_bars, clip_slot, force_legacy_step,
+//   parameters: [{ id, name, _path, min, max, is_log, points: [{ time, value, curve }] }] }
 
 /** Send MIDI notes to write into clip */
 const APPLY_MIDI = 'apply_midi';
@@ -70,8 +91,9 @@ const APP_READY = 'app_ready';
 if (typeof module !== 'undefined') {
     module.exports = {
         RACK_SCANNED, CLIP_CHANGED, APPLY_SUCCESS, APPLY_ERROR,
+        INJECT_SUCCESS, INJECT_ERROR,
         M4L_READY, TRACK_CHANGED,
-        REQUEST_SCAN, APPLY_AUTOMATION, APPLY_MIDI,
+        REQUEST_SCAN, APPLY_AUTOMATION, APPLY_INJECT, APPLY_MIDI,
         PREVIEW_PARAM, STOP_PREVIEW, REQUEST_CREATE_CLIP, APP_READY
     };
 }

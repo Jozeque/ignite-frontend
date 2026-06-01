@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Stride Canvas — v1.1.0 (Typography Pass)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- v1.1.0 fix: drop unused font-weight 300, keep 400/500/700/900 -->
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Outfit', sans-serif; background:#09090b; color:#fafafa; }
+  .text-gradient { background: linear-gradient(90deg,#f97316,#ef4444); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .grid-bg {
+    background-color: #0a0a0b;
+    background-image:
+      linear-gradient(rgba(244,114,182,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(244,114,182,0.04) 1px, transparent 1px);
+    background-size: 28px 22px;
+  }
+  .marker {
+    position: absolute;
+    width: 18px; height: 18px;
+    background: linear-gradient(135deg,#f97316,#ef4444);
+    color:#fff;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 900;
+    box-shadow: 0 2px 6px rgba(249,115,22,0.4), 0 0 0 2px rgba(0,0,0,0.6);
+    z-index: 50;
+  }
+  .slider-track { height:4px; background:rgba(255,255,255,0.08); border-radius:2px; position:relative; }
+  .slider-fill { position:absolute; left:0; top:0; height:100%; background:rgba(161,161,170,0.6); border-radius:2px; }
+  .slider-thumb { position:absolute; top:50%; width:10px; height:10px; background:#d4d4d8; border-radius:50%; transform:translate(-50%,-50%); }
+  .curve-source { stroke:#a855f7; stroke-width:2; fill:none; }
+  .curve-variant { stroke:#a855f7; stroke-width:1.4; stroke-opacity:0.55; fill:none; }
+  .legend-num {
+    flex-shrink: 0;
+    width: 22px; height: 22px;
+    background: linear-gradient(135deg,#f97316,#ef4444);
+    color:#fff;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 900;
+  }
+  .lane-row {
+    height: 56px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    display: flex;
+  }
+  .lane-row .lane-label {
+    width: 130px; border-right: 1px solid rgba(255,255,255,0.04);
+    padding: 4px 8px;
+    font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .lane-row .lane-curve { flex:1; }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- ─── HEADER ─── -->
+<div class="max-w-[1280px] mx-auto pt-8 pb-6 px-6">
+  <div class="flex items-end justify-between mb-3">
+    <h1 class="text-3xl font-black uppercase tracking-tight">
+      Stride Canvas <span class="text-gradient">v1.1.0</span> — Typography Pass
+    </h1>
+    <span class="text-xs text-zinc-500 uppercase tracking-widest">Static mockup · 1:1 with current app</span>
+  </div>
+
+  <div class="bg-zinc-900 border border-zinc-700 rounded-lg p-4 mb-4">
+    <p class="text-sm text-orange-300 font-bold uppercase tracking-widest mb-2">Scope: typography + consistency only</p>
+    <p class="text-[12px] text-zinc-300 leading-relaxed mb-2">
+      This is the safe, conservative v1.1.0 — same exact layout, same colors, same buttons, same Apply-to-Clip
+      placement as the current app. The only changes are typography and tiny consistency fixes.
+      <strong>~3 hours of work, low risk, ships independently.</strong>
+    </p>
+    <p class="text-[12px] text-zinc-400 leading-relaxed">
+      Bolder hierarchy / structural changes (Apply to Clip promoted, Generate-vs-Generative rename, toolbar
+      category labels, titlebar icons, multi-view scroll, keyboard shortcuts) are deferred to <code>canvas-ui-v1-2-0-spec.html</code>.
+    </p>
+  </div>
+
+  <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4 mb-4">
+    <p class="text-sm text-emerald-300 font-bold uppercase tracking-widest mb-2">Hard rules preserved</p>
+    <ul class="text-[12px] text-zinc-300 space-y-1 leading-relaxed">
+      <li>· <b>Sidebar never scrolls</b> — top block sized to fit, no overflow.</li>
+      <li>· Multi-view canvas scrolls when params exceed visible rows (existing behavior).</li>
+      <li>· No new buttons, no removed buttons, no repositioned buttons.</li>
+      <li>· Color palette unchanged (10 accent colors stay — palette consolidation is v1.2 territory).</li>
+      <li>· Apply to Clip stays emerald in its current location (gradient promotion is v1.2).</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ─── MOCKUP ─── -->
+<div class="max-w-[1280px] mx-auto px-6">
+<div class="relative bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden shadow-2xl">
+
+  <!-- Titlebar (1:1 with current app) -->
+  <div class="h-9 bg-zinc-950 border-b border-white/5 flex items-center pl-4 pr-3">
+    <span class="text-[11px] font-black tracking-[0.3em] uppercase text-gradient">STRIDE</span>
+    <div class="flex-1"></div>
+
+    <!-- Connection pill — text-[10px] → text-[9px] (v1.1 fix) -->
+    <button class="flex items-center gap-2 mr-4 px-2.5 py-1 rounded-md hover:bg-white/5">
+      <div class="w-2 h-2 rounded-full bg-emerald-400"></div>
+      <span class="text-[9px] text-emerald-400 uppercase font-bold tracking-widest">Connected</span>
+    </button>
+
+    <!-- Sidebar toggle (icon, unchanged) -->
+    <button class="text-[9px] text-zinc-500 hover:text-orange-400 mr-3" title="Toggle sidebar">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+
+    <!-- Guide / Install / Folder (text buttons stay — no icon swap in v1.1) -->
+    <button class="text-[9px] text-zinc-500 hover:text-orange-400 uppercase font-bold tracking-widest mr-3">Guide</button>
+    <button class="text-[9px] text-zinc-500 hover:text-orange-400 uppercase font-bold tracking-widest mr-3">Install to Ableton</button>
+    <button class="text-zinc-500 hover:text-orange-400 mr-3" title="Open Stride folder">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+    </button>
+  </div>
+
+  <!-- Toolbar (1:1 with current app, just typography fixes) -->
+  <div class="flex flex-col">
+
+    <!-- Row 0: Loop pill / Multi / Presets — bg-black/50 height matches current -->
+    <div class="min-h-[40px] border-b border-white/5 bg-black/50 px-2 py-1 grid items-center gap-2" style="grid-template-columns: auto 1fr auto;">
+      <div class="flex items-center gap-1.5">
+        <!-- Loop pill — bars-pill text-[11px] → text-[9px], padding consistent (v1.1 fix to bug + consistency) -->
+        <div class="flex items-center gap-1 bg-black/50 p-1 rounded-lg border border-fuchsia-500/30">
+          <span class="text-[9px] font-black text-fuchsia-300 uppercase tracking-wider px-0.5">Loop</span>
+          <button class="text-[9px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold">2</button>
+          <button class="text-[9px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold">4</button>
+          <button class="text-[9px] text-fuchsia-400 bg-fuchsia-500/20 px-2 py-0.5 rounded font-bold">8</button>
+          <button class="text-[9px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold">16</button>
+          <button class="text-[9px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold">32</button>
+        </div>
+        <!-- Multi/Focus toggle (unchanged) -->
+        <button class="text-[9px] text-fuchsia-300 bg-fuchsia-500/20 border border-fuchsia-500/50 px-2 py-1 rounded uppercase font-bold tracking-wider flex items-center gap-1">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+          Multi
+        </button>
+      </div>
+      <!-- CENTER: Presets (unchanged) -->
+      <div class="flex justify-center">
+        <button class="text-[9px] text-rose-400 hover:text-white border border-rose-500/50 hover:border-rose-400 px-3 py-1 rounded-lg uppercase tracking-wider font-black flex items-center gap-1.5">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2"/></svg>
+          Presets
+        </button>
+      </div>
+      <div></div>
+    </div>
+
+    <!-- Row 1: Tool / Shapes / Saved / Save Lane / Clear Lane (1:1) -->
+    <div class="min-h-[36px] border-b border-white/5 flex flex-wrap items-center px-2 gap-x-1.5 gap-y-0.5 py-0.5 bg-black/40">
+      <!-- Tool wrapper -->
+      <div class="flex items-center gap-1 bg-black/50 p-0.5 rounded border border-white/5">
+        <button class="bg-fuchsia-500/20 text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Point</button>
+        <button class="text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Free</button>
+      </div>
+      <div class="w-px h-5 bg-white/10"></div>
+      <!-- "Shapes:" label text-[8px] → text-[9px] (v1.1 fix) -->
+      <span class="text-[9px] font-bold text-zinc-500 uppercase">Shapes:</span>
+      <!-- Shape templates: each gets a tooltip (v1.1 fix — currently no tooltips) -->
+      <button class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold" title="Sine — smooth sustained sine wave modulation">Sine</button>
+      <button class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold" title="Pump — sidechain-style ducking on every beat">Pump</button>
+      <button class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold" title="Glitch — random on/off bursts for glitch automation">Glitch</button>
+      <button class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold" title="Groove — sparse → dense build that drops and resolves">Groove</button>
+      <button class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold" title="Chaos — multi-layer wave noise across the loop">Chaos</button>
+      <div class="w-px h-5 bg-white/10"></div>
+      <button class="text-[9px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-2 py-0.5 rounded uppercase tracking-wider font-bold" title="Neuro — drops, stutters and builds across each bar (complex preset)">Neuro</button>
+      <div class="w-px h-5 bg-white/10"></div>
+      <!-- "Saved:" label text-[8px] → text-[9px] (v1.1 fix) -->
+      <div class="flex items-center gap-1 flex-1 min-w-0">
+        <span class="text-[9px] font-bold text-zinc-500 uppercase">Saved:</span>
+        <div class="flex items-center gap-1 min-w-0 overflow-x-auto">
+          <button class="text-[9px] text-zinc-300 bg-white/5 hover:bg-white/10 border border-white/10 px-2 py-0.5 rounded uppercase tracking-wider font-bold shrink-0">Bass FX 1</button>
+          <button class="text-[9px] text-zinc-300 bg-white/5 hover:bg-white/10 border border-white/10 px-2 py-0.5 rounded uppercase tracking-wider font-bold shrink-0">Pad Wash</button>
+        </div>
+      </div>
+      <div class="flex items-center gap-1 pl-1.5 border-l border-white/10">
+        <button class="text-[9px] text-zinc-400 hover:text-zinc-300 bg-white/5 hover:bg-white/10 border border-white/5 px-2 py-0.5 rounded uppercase tracking-wider font-bold" title="Save active lane as preset">Save Lane</button>
+        <!-- Clear Lane: tooltip added (v1.1 fix — currently missing) -->
+        <button class="text-[9px] text-red-400/80 hover:text-red-400 bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 hover:border-red-500/30 px-2 py-0.5 rounded uppercase tracking-wider font-bold" title="Clear curves on the active lane (locked lanes are skipped)">Clear Lane</button>
+      </div>
+    </div>
+
+    <!-- Row 2: Mirror/Flip / Copy/Paste/Inv/Paste-To / Swing / Mutate/Shuffle / Stretch / Select All/Pick / Lock All (1:1) -->
+    <div class="border-b border-white/5 flex flex-wrap items-center px-2 gap-x-1 gap-y-0.5 py-0.5 bg-black/30">
+      <div class="flex items-center gap-0.5 bg-black/50 p-0.5 rounded border border-white/5">
+        <button class="text-[9px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded uppercase font-bold" title="Mirror — flip Y-axis values">Mirror</button>
+        <button class="text-[9px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded uppercase font-bold" title="Flip — reverse time">Flip</button>
+      </div>
+      <div class="w-px h-4 bg-white/10"></div>
+      <div class="flex items-center gap-0.5 bg-black/50 p-0.5 rounded border border-white/5">
+        <button class="text-[9px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded uppercase font-bold">Copy</button>
+        <button class="text-[9px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded uppercase font-bold">Paste</button>
+        <button class="text-[9px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded uppercase font-bold">Inv</button>
+        <button class="text-[9px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded uppercase font-bold" title="Pick which lanes to paste into">Paste To</button>
+      </div>
+      <div class="w-px h-4 bg-white/10"></div>
+      <button class="text-[9px] text-amber-400/80 hover:text-amber-300 bg-amber-500/5 hover:bg-amber-500/15 px-1.5 py-0.5 rounded uppercase font-bold" title="Add 16th-note swing to the active lane">Swing</button>
+      <div class="w-px h-4 bg-white/10"></div>
+      <button class="text-[9px] text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 px-2 py-0.5 rounded uppercase tracking-wider font-bold" title="Mutate — randomly cut, shuffle and re-layer the active lane">Mutate</button>
+      <button class="text-[9px] text-violet-400 hover:text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 hover:border-violet-500/40 px-2 py-0.5 rounded uppercase font-bold" title="Shuffle — swap curves between lanes">Shuffle</button>
+      <div class="w-px h-4 bg-white/10"></div>
+      <!-- Stretch: 2x/1/2x text-[10px] → text-[9px] (v1.1 fix — was inconsistent with rest of row) -->
+      <div class="flex items-center gap-1 bg-sky-500/5 border border-sky-500/20 rounded px-1.5 py-0.5">
+        <span class="text-[9px] text-sky-300/70 font-black uppercase tracking-wider">Stretch</span>
+        <button class="text-[9px] text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/30 hover:border-sky-400/60 px-2 py-0.5 rounded font-black" title="2× — stretch curve to twice its length">2x</button>
+        <button class="text-[9px] text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/30 hover:border-sky-400/60 px-2 py-0.5 rounded font-black" title="½× — compress curve to half its length">1/2x</button>
+      </div>
+      <button class="text-[9px] text-zinc-500 bg-black/50 border border-white/5 hover:border-fuchsia-500/30 px-2 py-0.5 rounded uppercase font-bold" title="Select All — fill all unlocked lanes into the selection. Click again to clear.">Select All</button>
+      <button class="text-[9px] text-zinc-500 bg-black/50 border border-white/5 hover:border-fuchsia-500/30 px-2 py-0.5 rounded uppercase font-bold" title="Toggle Select mode — click any lane to add/remove from selection">Select</button>
+      <button class="text-[9px] text-amber-400/80 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 hover:border-amber-500/40 px-2 py-0.5 rounded uppercase font-bold flex items-center gap-1" title="Lock All / Unlock All — toggles every lane's lock state">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
+        Lock All
+      </button>
+    </div>
+  </div>
+
+  <!-- Sidebar + Canvas (1:1 with current app — sidebar 224px, no scroll) -->
+  <div class="flex" style="height: 540px;">
+
+    <!-- Sidebar: 224px (w-56), no scroll, sized to fit -->
+    <aside class="w-56 border-r border-white/10 bg-zinc-900/50 flex flex-col shrink-0">
+
+      <!-- Rack Info -->
+      <div class="p-3 border-b border-white/5">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-[9px] font-black text-zinc-500 uppercase tracking-[0.2em]">Parameters</h3>
+          <!-- Param count text-[8px] → text-[9px] (v1.1 fix — match section header size) -->
+          <span class="text-[9px] text-zinc-600 font-bold">30</span>
+        </div>
+        <p class="text-[10px] text-fuchsia-400/70 font-bold truncate">Operator Bass · Acid Pluck</p>
+        <!-- Track text-[8px] → text-[9px] (v1.1 fix — match Parameters header) -->
+        <p class="text-[9px] text-zinc-600 font-bold uppercase tracking-widest mt-0.5">Track 3 · MIDI</p>
+        <!-- Template Ready pill (existing — retained as-is) -->
+        <div class="mt-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30">
+          <span class="w-1 h-1 rounded-full bg-emerald-400"></span>
+          <span class="text-[9px] text-emerald-400 font-bold uppercase tracking-wider">Template Ready</span>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="p-2 border-b border-white/5 flex flex-col gap-1.5">
+        <button class="w-full text-[9px] text-fuchsia-400 bg-fuchsia-500/10 hover:bg-fuchsia-500/20 border border-fuchsia-500/20 hover:border-fuchsia-500/40 py-1.5 rounded-lg uppercase tracking-widest font-black"
+                title="Read every parameter you've mapped in Ableton into the canvas as a lane">
+          Scan Mapped
+        </button>
+        <input type="text" placeholder="Clip name (optional)" value="Bass_Drop_v3"
+               class="w-full text-[9px] text-zinc-300 bg-zinc-800/50 border border-white/5 rounded-lg px-2 py-1.5 outline-none font-medium placeholder-zinc-600">
+
+        <!-- Apply to Clip — STAYS EMERALD in v1.1 (gradient promotion is v1.2) -->
+        <button class="w-full text-[9px] text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 py-1.5 rounded-lg uppercase tracking-widest font-black"
+                title="Creates a .alc file — drag it onto an empty clip slot in Ableton">
+          Apply to Clip
+        </button>
+
+        <div class="flex gap-1.5 mt-1">
+          <button class="flex-1 text-[9px] text-sky-400/80 bg-sky-500/5 hover:bg-sky-500/15 border border-sky-500/10 hover:border-sky-500/30 py-1 rounded-lg uppercase tracking-widest font-bold">Save Session</button>
+          <button class="flex-1 text-[9px] text-sky-400/80 bg-sky-500/5 hover:bg-sky-500/15 border border-sky-500/10 hover:border-sky-500/30 py-1 rounded-lg uppercase tracking-widest font-bold">Load</button>
+        </div>
+      </div>
+
+      <!-- Context Panel: Generative + Edit (NO SCROLL, sized to fit) -->
+      <div class="flex-1 overflow-hidden p-2 flex flex-col gap-3">
+        <!-- Generative section -->
+        <div>
+          <!-- Section header text-[8px] → text-[9px] (v1.1 fix — match Parameters header) -->
+          <div class="text-[9px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-1.5 px-1">Generative</div>
+          <div class="grid grid-cols-3 gap-1.5">
+            <button class="text-[9px] text-fuchsia-400 hover:text-white bg-transparent hover:bg-fuchsia-500/10 border border-fuchsia-500/50 hover:border-fuchsia-400 px-2 py-1.5 rounded uppercase tracking-wider font-black">Chaos</button>
+            <button class="text-[9px] text-amber-400 hover:text-white bg-transparent hover:bg-amber-500/10 border border-amber-500/50 hover:border-amber-400 px-2 py-1.5 rounded uppercase tracking-wider font-black">Bloom</button>
+            <button class="text-[9px] text-violet-400 hover:text-white bg-transparent hover:bg-violet-500/10 border border-violet-500/50 hover:border-violet-400 px-2 py-1.5 rounded uppercase tracking-wider font-black">Prism</button>
+          </div>
+        </div>
+
+        <!-- Edit section -->
+        <div>
+          <!-- Section header text-[8px] → text-[9px] (v1.1 fix — match other section headers) -->
+          <div class="text-[9px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-1.5 px-1">Edit</div>
+          <div class="flex flex-col gap-1.5 px-1">
+            <div class="flex items-center gap-2">
+              <span class="text-[9px] font-bold text-zinc-500 uppercase w-12 shrink-0">Smooth</span>
+              <div class="slider-track flex-1"><div class="slider-fill" style="width:0%"></div><div class="slider-thumb" style="left:0%"></div></div>
+              <span class="text-[9px] text-zinc-400 font-mono w-9 text-right">0%</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-[9px] font-bold text-zinc-500 uppercase w-12 shrink-0">Depth</span>
+              <div class="slider-track flex-1"><div class="slider-fill" style="width:50%"></div><div class="slider-thumb" style="left:50%"></div></div>
+              <span class="text-[9px] text-zinc-400 font-mono w-9 text-right">100%</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-[9px] font-bold text-zinc-500 uppercase w-12 shrink-0">Curve</span>
+              <div class="slider-track flex-1"><div class="slider-fill" style="width:50%"></div><div class="slider-thumb" style="left:50%"></div></div>
+              <span class="text-[9px] text-zinc-400 font-mono w-9 text-right">0%</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-[9px] font-bold text-zinc-500 uppercase w-12 shrink-0">Floor</span>
+              <div class="slider-track flex-1"><div class="slider-fill" style="width:0%"></div><div class="slider-thumb" style="left:0%"></div></div>
+              <span class="text-[9px] text-zinc-400 font-mono w-9 text-right">0%</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-[9px] font-bold text-zinc-500 uppercase w-12 shrink-0">Ceiling</span>
+              <div class="slider-track flex-1"><div class="slider-fill" style="width:100%"></div><div class="slider-thumb" style="left:100%"></div></div>
+              <span class="text-[9px] text-zinc-400 font-mono w-9 text-right">100%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Canvas area -->
+    <div class="flex-1 relative grid-bg overflow-hidden">
+      <div class="absolute top-2 left-[130px] right-3 flex justify-between text-[9px] text-zinc-600 font-mono">
+        <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span>
+      </div>
+
+      <div class="absolute inset-x-0 top-7 bottom-0">
+        <div class="lane-row">
+          <div class="lane-label text-violet-300">
+            <span class="w-1.5 h-1.5 rounded-full bg-violet-400"></span>Filter Cutoff
+          </div>
+          <svg class="lane-curve" preserveAspectRatio="none" viewBox="0 0 800 56">
+            <path class="curve-source" d="M0,50 Q100,38 200,28 T400,9 T600,28 T800,14"/>
+          </svg>
+        </div>
+        <div class="lane-row">
+          <div class="lane-label text-zinc-500">Reverb Send</div>
+          <svg class="lane-curve" preserveAspectRatio="none" viewBox="0 0 800 56">
+            <path class="curve-variant" d="M0,6 Q100,18 200,28 T400,47 T600,28 T800,42"/>
+          </svg>
+        </div>
+        <div class="lane-row">
+          <div class="lane-label text-zinc-500">Delay Feedback</div>
+          <svg class="lane-curve" preserveAspectRatio="none" viewBox="0 0 800 56">
+            <path class="curve-variant" d="M0,50 L40,50 L40,32 L80,32 L80,20 L160,20 L160,6 L320,6 L320,28 L480,28 L480,14 L640,14 L640,28 L800,28"/>
+          </svg>
+        </div>
+        <div class="lane-row">
+          <div class="lane-label text-zinc-500">Drive</div>
+          <svg class="lane-curve" preserveAspectRatio="none" viewBox="0 0 800 56">
+            <path class="curve-variant" d="M0,50 C50,36 80,50 120,36 S180,24 220,24 S320,12 400,9 S540,24 600,28 S720,16 800,14"/>
+          </svg>
+        </div>
+        <div class="lane-row">
+          <div class="lane-label text-zinc-500">Pan</div>
+          <svg class="lane-curve" preserveAspectRatio="none" viewBox="0 0 800 56">
+            <path class="curve-variant" d="M0,50 L100,50 L100,28 L200,28 L200,9 L400,9 L400,28 L600,28 L600,14 L800,14"/>
+          </svg>
+        </div>
+        <div class="lane-row opacity-60">
+          <div class="lane-label text-amber-400">
+            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M5 11V7a7 7 0 0114 0v4h2v10H3V11h2zm2 0h10V7a5 5 0 00-10 0v4z"/></svg>
+            Wavefolder
+          </div>
+          <svg class="lane-curve" preserveAspectRatio="none" viewBox="0 0 800 56">
+            <path d="M0,28 L800,28" stroke="rgba(161,161,170,0.25)" stroke-width="1" fill="none"/>
+          </svg>
+        </div>
+        <div class="lane-row">
+          <div class="lane-label text-zinc-500">Chorus Depth</div>
+          <svg class="lane-curve" preserveAspectRatio="none" viewBox="0 0 800 56">
+            <path class="curve-variant" d="M0,14 Q100,24 200,36 T400,47 T600,28 T800,14"/>
+          </svg>
+        </div>
+        <div class="lane-row">
+          <div class="lane-label text-zinc-500">Bit Crush</div>
+          <svg class="lane-curve" preserveAspectRatio="none" viewBox="0 0 800 56">
+            <path class="curve-variant" d="M0,50 L60,14 L120,50 L180,11 L240,50 L300,14 L360,50 L420,11 L480,50 L540,17 L600,50 L660,14 L720,50 L800,14"/>
+          </svg>
+        </div>
+        <div class="lane-row">
+          <div class="lane-label text-zinc-500">Resonance</div>
+          <svg class="lane-curve" preserveAspectRatio="none" viewBox="0 0 800 56">
+            <path class="curve-variant" d="M0,32 L800,18"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Generations dock (1:1 with current app, just typography fixes) -->
+  <div class="h-20 border-t border-white/5 bg-black/40 flex items-stretch gap-2 px-3 py-2">
+    <div class="flex items-center pr-2 border-r border-white/5 gap-2">
+      <!-- "Recent Generations" text-[9px] (unchanged) -->
+      <span class="text-[9px] font-black text-zinc-500 uppercase tracking-widest leading-tight">Recent<br>Generations</span>
+      <!-- Clear button text-[8px] → text-[9px] (v1.1 fix — match label size) -->
+      <button class="text-[9px] text-zinc-500 hover:text-zinc-300 bg-black/40 hover:bg-white/10 border border-white/5 hover:border-white/15 px-2 py-1 rounded uppercase tracking-widest font-black" title="Hide all current generations from the dock">Clear</button>
+    </div>
+
+    <div class="flex-1 flex items-stretch gap-2 overflow-x-auto">
+      <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-emerald-500/10 border border-emerald-500/40 cursor-grab" style="box-shadow: 0 0 0 1px rgba(34,197,94,0.15) inset;">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+        <div class="flex flex-col">
+          <span class="text-[10px] font-bold text-emerald-300">Bass_Drop_v3_142510.alc</span>
+          <span class="text-[9px] text-emerald-400/60 font-mono">just now</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-white/5 border border-white/10 cursor-grab">
+        <div class="flex flex-col">
+          <span class="text-[10px] font-bold text-zinc-300">FX_Wash_141820.alc</span>
+          <span class="text-[9px] text-zinc-500 font-mono">2 min ago</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-white/5 border border-white/10 cursor-grab">
+        <div class="flex flex-col">
+          <span class="text-[10px] font-bold text-zinc-300">Op_Pad_141432.alc</span>
+          <span class="text-[9px] text-zinc-500 font-mono">7 min ago</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex flex-col justify-center gap-1 pl-2 border-l border-white/5 max-w-[260px]">
+      <span class="text-[9px] font-bold text-zinc-500 uppercase tracking-wider bg-black/70 px-2 py-1 rounded text-right truncate">Connected · Operator Bass</span>
+      <!-- Keyboard hints — was hidden xl: only, now ALWAYS visible (v1.1 fix) -->
+      <span class="text-[9px] font-bold text-zinc-600 tracking-widest uppercase bg-black/60 px-2 py-1 rounded text-right truncate">Ctrl+Wheel · Space+Drag · Alt+Drag</span>
+    </div>
+  </div>
+
+  <!-- ─── Numbered annotation markers ─── -->
+  <span class="marker" style="top: 8px; right: 200px;">1</span>     <!-- Connection pill -->
+  <span class="marker" style="top: 50px; left: 32px;">2</span>      <!-- Loop pill consistent padding -->
+  <span class="marker" style="top: 91px; left: 195px;">3</span>     <!-- Shapes label -->
+  <span class="marker" style="top: 91px; left: 480px;">4</span>     <!-- Saved label -->
+  <span class="marker" style="top: 91px; left: 750px;">5</span>     <!-- Clear Lane tooltip -->
+  <span class="marker" style="top: 124px; left: 530px;">6</span>    <!-- Stretch buttons text size -->
+  <span class="marker" style="top: 195px; left: 23px;">7</span>     <!-- Param count + section headers -->
+  <span class="marker" style="top: 245px; left: 23px;">8</span>     <!-- Track text size -->
+  <span class="marker" style="top: 380px; left: 23px;">9</span>     <!-- Generative + Edit headers -->
+  <span class="marker" style="bottom: 56px; left: 90px;">10</span>  <!-- Clear button text size -->
+  <span class="marker" style="bottom: 18px; right: 22px;">11</span> <!-- Always-on keyboard hints -->
+</div>
+</div>
+
+<!-- ─── ANNOTATION LEGEND ─── -->
+<div class="max-w-[1280px] mx-auto px-6 mt-10 pb-12">
+  <h2 class="text-2xl font-black uppercase tracking-tight mb-1">What changed (typography pass only)</h2>
+  <p class="text-sm text-zinc-500 mb-6">11 surgical fixes. No layout changes. No new features. No color changes.</p>
+
+  <div class="grid grid-cols-2 gap-x-10 gap-y-4">
+
+    <div class="flex gap-3 items-start">
+      <span class="legend-num">1</span>
+      <div>
+        <div class="text-sm font-bold text-orange-400 mb-0.5">Connection pill: <code>text-[10px]</code> → <code>text-[9px]</code></div>
+        <div class="text-[12px] text-zinc-400 leading-relaxed">Was 10px while every other titlebar button is 9px. One-pixel mismatch reads as "different element." Now matches.</div>
+      </div>
+    </div>
+
+    <div class="flex gap-3 items-start">
+      <span class="legend-num">2</span>
+      <div>
+        <div class="text-sm font-bold text-orange-400 mb-0.5">Loop pill: bars-pill rebuild bug fixed</div>
+        <div class="text-[12px] text-zinc-400 leading-relaxed">Static HTML used <code>px-2 py-0.5</code>; the JS rebuild after first click switched to <code>px-3 py-1</code>. Buttons grew on first interaction. Both sides now <code>px-2 py-0.5</code>. Same fix on Tool buttons. Numbers also dropped from <code>text-[11px]</code> → <code>text-[9px]</code> to match the rest of Row 0.</div>
+      </div>
+    </div>
+
+    <div class="flex gap-3 items-start">
+      <span class="legend-num">3</span>
+      <div>
+        <div class="text-sm font-bold text-orange-400 mb-0.5">"Shapes:" label: <code>text-[8px]</code> → <code>text-[9px]</code></div>
+        <div class="text-[12px] text-zinc-400 leading-relaxed">Group label sat at 8px while the buttons it grouped were 9px. Label should never be smaller than the elements it labels.</div>
+      </div>
+    </div>
+
+    <div class="flex gap-3 items-start">
+      <span class="legend-num">4</span>
+      <div>
+        <div class="text-sm font-bold text-orange-400 mb-0.5">"Saved:" label: <code>text-[8px]</code> → <code>text-[9px]</code></div>
+        <div class="text-[12px] text-zinc-400 leading-relaxed">Same fix as Shapes label. Both group labels in Row 1 now at 9px.</div>
+      </div>
+    </div>
+
+    <div class="flex gap-3 items-start">
+      <span class="legend-num">5</span>
+      <div>
+        <div class="text-sm font-bold text-orange-400 mb-0.5">Tooltips added on every shape template + Clear Lane</div>
+        <div class="text-[12px] text-zinc-400 leading-relaxed">Sine / Pump / Glitch / Groove / Chaos / Neuro had no tooltips. New users couldn't tell what they did. Each now gets a one-sentence "what it'll do" hint. Same fix on Clear Lane (also missing).</div>
+      </div>
+    </div>
+
+    <div class="flex gap-3 items-start">
+      <span class="legend-num">6</span>
+      <div>
+        <div class="text-sm font-bold text-orange-400 mb-0.5">Stretch 2× / ½× buttons: <code>text-[10px]</code> → <code>text-[9px]</code></div>
+        <div class="text-[12px] text-zinc-400 leading-relaxed">These were the only buttons in Row 2 at 10px — leftover from when the group was meant to feel "louder." Now matches the rest of the row.</div>
+      </div>
+    </div>
+
+    <div class="flex gap-3 items-start">
+      <span class="legend-num">7</span>
+      <div>
+        <div class="text-sm font-bold text-orange-400 mb-0.5">Param count: <code>text-[8px]</code> → <code>text-[9px]</code></div>
+        <div class="text-[12px] text-zinc-400 leading-relaxed">Param count read smaller than the section header. Now matches.</div>
+      </div>
+    </div>
+
+    <div class="flex gap-3 items-start">
+      <span class="legend-num">8</span>
+      <div>
+        <div class="text-sm font-bold text-orange-400 mb-0.5">Track label: <code>text-[8px]</code> → <code>text-[9px]</code></div>
+        <div class="text-[12px] text-zinc-400 leading-relaxed">Same as #7. Sub-label was smaller than parent label by 1px — hierarchy was inverted.</div>
+      </div>
+    </div>
+
+    <div class="flex gap-3 items-start">
+      <span class="legend-num">9</span>
+      <div>
+        <div class="text-sm font-bold text-orange-400 mb-0.5">Section headers (Edit, Generative): <code>text-[8px]</code> → <code>text-[9px]</code></div>
+        <div class="text-[12px] text-zinc-400 leading-relaxed">All sidebar section headers now at <code>text-[9px] font-black tracking-[0.2em] text-zinc-500</code> — single token, applied everywhere. Was a mix of 8/9 with different tracking.</div>
+      </div>
+    </div>
+
+    <div class="flex gap-3 items-start">
+      <span class="legend-num">10</span>
+      <div>
+        <div class="text-sm font-bold text-orange-400 mb-0.5">Dock Clear button: <code>text-[8px]</code> → <code>text-[9px]</code></div>
+        <div class="text-[12px] text-zinc-400 leading-relaxed">Companion action sat smaller than its own section label ("Recent Generations"). Now matches.</div>
+      </div>
+    </div>
+
+    <div class="flex gap-3 items-start">
+      <span class="legend-num">11</span>
+      <div>
+        <div class="text-sm font-bold text-orange-400 mb-0.5">Keyboard hints: always visible (was hidden behind <code>xl:</code> breakpoint)</div>
+        <div class="text-[12px] text-zinc-400 leading-relaxed">"Ctrl+Wheel · Space+Drag · Alt+Drag" was only shown above 1280px window width — invisible at most Stride window sizes. Now persistent so producers can discover the shortcuts that already exist.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Subtle global changes -->
+  <div class="mt-10 border-t border-zinc-800 pt-8">
+    <h3 class="text-base font-black uppercase tracking-widest text-zinc-400 mb-4">Subtle global changes (no marker — applied throughout)</h3>
+    <ul class="grid grid-cols-2 gap-x-10 gap-y-2.5 text-[12px] text-zinc-400">
+      <li><span class="text-orange-400 font-bold">·</span> <code>font-weight: 300</code> dropped from Outfit URL (was loaded but never used — saves ~20kb per cold start)</li>
+      <li><span class="text-orange-400 font-bold">·</span> Letter-spacing scale collapsed: drop <code>tracking-[0.3em]</code> (5 uses, indistinguishable from <code>tracking-widest</code> at 9px) and <code>tracking-tighter</code> (1 use, replace with <code>tracking-tight</code>)</li>
+      <li><span class="text-orange-400 font-bold">·</span> Font weight rule applied: <code>font-black</code> only on caps section headers + primary CTAs; <code>font-bold</code> on everything else</li>
+      <li><span class="text-orange-400 font-bold">·</span> Lock-icon padding bumped <code>p-1</code> → <code>p-1.5</code> (24px touch target — barely visible visually, big difference for fat-finger producers)</li>
+      <li><span class="text-orange-400 font-bold">·</span> Empty-state copy fixed: "Connect M4L device and click Scan" → "Click <b>Scan Mapped</b> to load your rack" (button name has changed)</li>
+      <li><span class="text-orange-400 font-bold">·</span> Empty-canvas H2 <code>text-lg</code> → <code>text-base</code> (was the only <code>text-lg</code> in the canvas chrome)</li>
+    </ul>
+  </div>
+
+  <!-- What's NOT in this version -->
+  <div class="mt-10 bg-zinc-900 border border-zinc-700 rounded-xl p-6">
+    <h3 class="text-base font-black uppercase tracking-widest text-zinc-300 mb-3">What's NOT in v1.1.0 (deferred to v1.2.0)</h3>
+    <p class="text-[12px] text-zinc-500 mb-3">Bigger changes saved for the next release — see <code>canvas-ui-v1-2-0-spec.html</code>:</p>
+    <ul class="text-[12px] text-zinc-400 space-y-1.5">
+      <li>· <b>Apply to Clip promoted to brand-gradient hero</b> — currently emerald; gradient promotion is a hierarchy decision worth landing carefully.</li>
+      <li>· <b>"Generate" vs "Generative" naming conflict resolution</b> — toolbar Generate (cloud) vs sidebar Generative (local). Rename one.</li>
+      <li>· <b>Toolbar Row 2 category labels</b> (Edit / Generate / Time / Select).</li>
+      <li>· <b>Multi-view wheel-scroll handler</b> + scroll indicator for racks &gt; visible lanes.</li>
+      <li>· <b>Keyboard shortcuts wired</b> — <code>Ctrl+Z</code> / <code>Ctrl+Shift+Z</code> / <code>Ctrl+S</code> / <code>Ctrl+A</code>.</li>
+      <li>· <b>Titlebar text buttons → icon-only</b> (reclaims ~140px on Windows).</li>
+      <li>· <b>Modal sweep</b> — close-button standardization, header standardization, overlay backgrounds, z-index layers.</li>
+      <li>· <b>Color palette consolidation</b> — drop cyan + sky, retain 7 tokens max with semantic roles.</li>
+      <li>· <b>Sidebar widening</b> 224 → 256px (test against typical rack sizes first).</li>
+    </ul>
+  </div>
+
+  <!-- Effort -->
+  <div class="mt-6 bg-gradient-to-br from-orange-500/10 to-red-500/10 border border-orange-500/30 rounded-xl p-6">
+    <h3 class="text-base font-black uppercase tracking-widest text-orange-300 mb-3">Effort + ship plan</h3>
+    <p class="text-sm text-zinc-300 mb-3"><b>~3 hours total. Single commit. Low risk.</b> All changes are CSS class swaps + a few <code>title</code> attribute additions + a font URL trim. No JS logic touched.</p>
+    <p class="text-[12px] text-zinc-500">Test plan: side-by-side the v1.0 build against v1.1.0 build at the same window size. Visually compare each row of the toolbar + each section of the sidebar. The redesign should look almost identical — that's the success criterion. If any element looks <i>different</i>, the consistency fix went too far.</p>
+  </div>
+
+</div>
+
+</body>
+</html>

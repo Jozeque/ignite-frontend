@@ -39,14 +39,31 @@
     // the active lane. Selection visually highlights the lane the same way
     // the active lane is currently highlighted (brighter opacity).
     //
-    // sdSelectMode is a UI gesture mode: when ON, clicking a lane toggles
-    // its `selected` state instead of activating it. When OFF (default),
-    // clicking a lane sets it as active (current behavior).
-    //
     // Selection is session-only — not persisted to canvas state on disk.
     // Lock is intent ("don't touch this"); selection is "I'm focusing here
     // right now". Different lifetimes.
-    let sdSelectMode = false;
+    //
+    // Multi-select gestures (no mode toggle — always available in multi-view):
+    //   - Ctrl/Cmd + click on any lane → toggle that lane's selection
+    //   - Ctrl/Cmd + drag through lanes → add every dragged-over lane
+    //   - "Select All" toolbar button → all unlocked lanes (click again clears)
+
+    // ─── Drag-select state (multi-view + Ctrl/Cmd) ─────────
+    // Click-drag with Ctrl held picks up every lane the cursor passes over.
+    // The click-only behavior (toggle) is preserved if the mouse never moves
+    // more than SD_DRAG_SELECT_THRESHOLD_PX before mouseup. Drag is always
+    // additive — to remove a lane, Ctrl+click it individually. Wired in the
+    // multi-view mousedown branch + the global mousemove handler near the
+    // wheel/mouseup section.
+    let _sdDragSelectPending = null;     // { startX, startY, laneId } at mousedown
+    let _sdDragSelectActive = false;     // promoted true once movement passes threshold
+    let _sdDragSelectVisited = new Set();
+    let _sdEdgeScrollRaf = 0;
+    let _sdEdgeScrollLastTickAt = 0;
+    let _sdLastMouseClientY = 0;
+    const SD_DRAG_SELECT_THRESHOLD_PX = 3;
+    const SD_EDGE_SCROLL_ZONE_PX = 40;
+
     let sdViewZoomX = 1;
     let sdViewPanX = 0;
     // Pan trigger is middle-mouse-button (Ableton convention) — no keyboard
@@ -65,6 +82,20 @@
     let currentTemplatePath = null; // Resolved template file path
     let templateMatchState = 'none'; // 'exact', 'fallback', 'none'
 
+    // ─── Pattern Library armed state ─────────────────────
+    // When the user picks a pattern from the Library overlay, it sits in
+    // sdArmedPattern until Apply to Clip runs (or they clear the chip).
+    // Notes are pre-expanded to the current canvas bar count by the
+    // library UI; if the user changes bars after arming, the chip stays
+    // but the next Apply re-expands from rawNotes.
+    let sdArmedPattern = null;
+    // Shape: {
+    //   id, name, bars, key, bpm,
+    //   rawNotes: [{pitch, time, duration, velocity}],   // pattern source
+    //   expandedNotes: same shape, looped to canvas bars at arm time
+    //   expandedForBars: number,                         // bars they were expanded for
+    // }
+
     // ─── MULTI-LANE VIEW ─────────────────────────────────
     // Stride has two canvas view modes:
     //   'multi' = every parameter gets its own horizontal strip stacked
@@ -76,6 +107,18 @@
     let sdMultiScrollOffset = 0;              // # of lanes scrolled off the top
     const SD_MULTI_LANE_HEIGHT = 64;          // px per lane in multi view
     const SD_MULTI_LABEL_WIDTH = 120;         // px reserved on the left for the param name
+
+    // Case-insensitive name comparator. Used to sort the param list right
+    // after a scan so identically-named macros (e.g. multiple "Filter Cutoff"
+    // lanes) sit adjacent. Adjacency is what makes Reflector pair like-with-
+    // like and what lets the user Ctrl+drag through a group of similar params
+    // in one quick gesture. Stable secondary key on envelopeId keeps lane
+    // order deterministic across reloads.
+    function _sdSortByName(a, b) {
+        const cmp = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+        if (cmp !== 0) return cmp;
+        return String(a.envelopeId).localeCompare(String(b.envelopeId));
+    }
 
     // ─── UNDO / REDO ─────────────────────────────────────
     let undoStack = [];
@@ -137,6 +180,9 @@
         if (sdBars > 0) return sdBars;
         return 8;
     }
+    // Exposed so the Pattern Library overlay can default its bar filter
+    // to whatever the canvas currently shows.
+    window.sdGetBars = sdGetBars;
 
     // Debounced settings.json write so rapid-fire bar clicks don't hammer
     // disk. Stride remembers the last bar count the user picked and
@@ -326,7 +372,8 @@
                 locked: false,
                 selected: false,
                 points: []
-            }));
+            }))
+            .sort(_sdSortByName);
 
         if (sdCanvasParams.length > 0) sdActiveParamId = sdCanvasParams[0].envelopeId;
         document.getElementById('param-picker').classList.add('hidden');
@@ -378,7 +425,7 @@
             locked: false,
             selected: false,
             points: []
-        }));
+        })).sort(_sdSortByName);
 
         if (sdCanvasParams.length > 0) sdActiveParamId = sdCanvasParams[0].envelopeId;
 
@@ -1089,9 +1136,110 @@
         const clipName = (document.getElementById('clip-name-input').value || '').trim();
         paramsWithPoints._totalParamCount = sdCanvasParams.length;
         _showLoading(paramsWithPoints.length, totalPoints);
-        console.log('[Stride] Apply: device=' + currentDeviceName + ' template=' + currentTemplatePath + ' name=' + clipName + ' totalParams=' + sdCanvasParams.length);
-        strideLink.applyAutomation(paramsWithPoints, sdGetBars(), currentDeviceName, currentTemplatePath, true, clipName || null);
+        // If a pattern is armed but the user has since changed bar count,
+        // re-expand the raw notes against the current canvas length so the
+        // injected notes match the clip we're about to write.
+        const currentBars = sdGetBars();
+        const midiNotes = _resolveArmedNotesForBars(currentBars);
+        console.log('[Stride] Apply: device=' + currentDeviceName +
+                    ' template=' + currentTemplatePath +
+                    ' name=' + clipName +
+                    ' totalParams=' + sdCanvasParams.length +
+                    ' pattern=' + (sdArmedPattern ? sdArmedPattern.name : 'none') +
+                    ' notes=' + (midiNotes ? midiNotes.length : 0));
+        strideLink.applyAutomation(
+            paramsWithPoints, currentBars, currentDeviceName,
+            currentTemplatePath, true, clipName || null, midiNotes
+        );
         saveCanvasState();
+    };
+
+    // ─── Armed pattern: arm / clear / chip render ─────────
+
+    function _renderArmedChip() {
+        const chip = document.getElementById('sd-armed-pattern-chip');
+        const label = document.getElementById('sd-armed-pattern-label');
+        if (!chip || !label) return;
+        if (!sdArmedPattern) {
+            chip.classList.add('hidden');
+            return;
+        }
+        chip.classList.remove('hidden');
+        const p = sdArmedPattern;
+        const parts = [p.name];
+        if (p.key) parts.push(p.key);
+        if (p.bars) parts.push(p.bars + (p.bars === 1 ? ' bar' : ' bars'));
+        label.textContent = parts.join(' · ');
+    }
+
+    function _expandPatternNotes(rawNotes, patternBars, canvasBars) {
+        if (!Array.isArray(rawNotes) || rawNotes.length === 0) return [];
+        const canvasBeats = canvasBars * 4;
+        if (patternBars >= canvasBars) {
+            return rawNotes
+                .filter(n => n.time < canvasBeats)
+                .map(n => ({
+                    ...n,
+                    duration: Math.min(n.duration, canvasBeats - n.time),
+                }));
+        }
+        const reps = Math.floor(canvasBars / patternBars);
+        const patternBeats = patternBars * 4;
+        const out = [];
+        for (let r = 0; r < reps; r++) {
+            const offset = r * patternBeats;
+            for (const n of rawNotes) out.push({ ...n, time: n.time + offset });
+        }
+        return out;
+    }
+
+    function _resolveArmedNotesForBars(canvasBars) {
+        if (!sdArmedPattern) return null;
+        if (sdArmedPattern.expandedForBars === canvasBars && Array.isArray(sdArmedPattern.expandedNotes)) {
+            return sdArmedPattern.expandedNotes;
+        }
+        // Re-expand from raw against the new canvas length
+        const expanded = _expandPatternNotes(
+            sdArmedPattern.rawNotes,
+            sdArmedPattern.bars,
+            canvasBars
+        );
+        sdArmedPattern.expandedNotes = expanded;
+        sdArmedPattern.expandedForBars = canvasBars;
+        return expanded;
+    }
+
+    /**
+     * Arm a pattern from the Library overlay. Called by pattern-library.js
+     * when the user clicks "Pick Pattern".
+     *
+     * @param {Object} pattern    manifest entry (id, name, bars, key, bpm, ...)
+     * @param {Array}  rawNotes   parsed notes from the .mid (time/duration in beats)
+     */
+    window.sdArmPattern = function(pattern, rawNotes) {
+        if (!pattern || !Array.isArray(rawNotes)) return false;
+        const canvasBars = sdGetBars();
+        sdArmedPattern = {
+            id: pattern.id,
+            name: pattern.name,
+            bars: pattern.bars,
+            key: pattern.key,
+            bpm: pattern.bpm,
+            rawNotes: rawNotes,
+            expandedNotes: _expandPatternNotes(rawNotes, pattern.bars, canvasBars),
+            expandedForBars: canvasBars,
+        };
+        _renderArmedChip();
+        return true;
+    };
+
+    window.sdClearPattern = function() {
+        sdArmedPattern = null;
+        _renderArmedChip();
+    };
+
+    window.sdGetArmedPattern = function() {
+        return sdArmedPattern ? { id: sdArmedPattern.id, name: sdArmedPattern.name } : null;
     };
 
     // ─── LOADING OVERLAY ─────────────────────────────────
@@ -2073,6 +2221,7 @@
         });
         sdCanvasEl.addEventListener('wheel', e => {
             e.preventDefault();
+            _sdHideTooltip();
             const rect = sdCanvasEl.getBoundingClientRect(); const lw = rect.width;
 
             // Multi view: plain wheel scrolls the lane list vertically
@@ -2096,6 +2245,7 @@
             sdDrawCanvasGrid();
         });
         sdCanvasEl.addEventListener('mousedown', e => {
+            _sdHideTooltip();
             // Middle-mouse-button (mousewheel press) + drag pans the canvas,
             // matching Ableton's convention. preventDefault suppresses the
             // browser's auto-scroll cursor on some platforms.
@@ -2131,13 +2281,16 @@
                     return;
                 }
 
-                // Select-mode click: toggle the lane's selection instead of
-                // activating it. Active lane stays put. Locked lanes are
-                // ignored (sdToggleLaneSelection no-ops on locked).
-                if (sdSelectMode) {
+                // Ctrl/Cmd + click on any lane → toggle that lane's
+                // selection. Sets up drag-pending so Ctrl + drag multi-
+                // selects every lane the cursor passes over. Ctrl is the
+                // only modifier that enters selection-without-activating;
+                // the Select All toolbar button is the other entry point.
+                if (e.ctrlKey || e.metaKey) {
                     if (typeof window.sdToggleLaneSelection === 'function') {
                         window.sdToggleLaneSelection(hit.param.envelopeId);
                     }
+                    _sdDragSelectArm(e, hit.param.envelopeId);
                     return;
                 }
 
@@ -2195,6 +2348,7 @@
             }
         });
         sdCanvasEl.addEventListener('mousemove', e => {
+            _sdMaybeShowLaneTooltip(e);
             if (sdIsPanning) {
                 sdViewPanX += sdLastMouseX - e.clientX; sdLastMouseX = e.clientX;
                 const rect = sdCanvasEl.getBoundingClientRect(); const lw = rect.width;
@@ -2239,6 +2393,216 @@
                 });
             }
         });
+        // ─── Drag-select (multi-view + Select Mode) ─────────────
+        // Global mousemove so the gesture keeps tracking even when the
+        // pointer briefly leaves the canvas. Cheap early-return when no
+        // drag is in flight.
+        window.addEventListener('mousemove', e => {
+            if (!_sdDragSelectPending && !_sdDragSelectActive) return;
+            _sdLastMouseClientY = e.clientY;
+
+            // Promote pending → active once movement crosses the threshold.
+            // Drag NEVER modifies the start lane's selection — that was set
+            // by the mousedown toggle. Critical for Ctrl+click-to-deselect:
+            // even a small hand wobble after the click would otherwise force
+            // the lane back to selected. Drag only adds subsequent lanes.
+            if (_sdDragSelectPending && !_sdDragSelectActive) {
+                const dx = e.clientX - _sdDragSelectPending.startX;
+                const dy = e.clientY - _sdDragSelectPending.startY;
+                if (Math.hypot(dx, dy) >= SD_DRAG_SELECT_THRESHOLD_PX) {
+                    _sdDragSelectActive = true;
+                    _sdEdgeScrollSchedule();
+                }
+            }
+
+            if (_sdDragSelectActive) {
+                _sdDragSelectAddAtClientY(e.clientY);
+                _sdEdgeScrollSchedule();
+            }
+        });
+
+        // Arm a fresh drag-select gesture from a mousedown. Captures the
+        // start position + lane so the global mousemove handler can promote
+        // pending → active once the cursor moves past the threshold. The
+        // starting lane is added to the visited set so it isn't re-toggled
+        // when the drag pass crosses back over it.
+        function _sdDragSelectArm(e, laneId) {
+            _sdDragSelectPending = {
+                startX: e.clientX,
+                startY: e.clientY,
+                laneId,
+            };
+            _sdDragSelectActive = false;
+            _sdDragSelectVisited = new Set([laneId]);
+        }
+
+        // Add the lane under the given clientY to the selection. No-op if
+        // already visited this drag, locked, or vertically outside canvas.
+        function _sdDragSelectAddAtClientY(clientY) {
+            if (!sdCanvasEl) return;
+            const rect = sdCanvasEl.getBoundingClientRect();
+            const localY = clientY - rect.top;
+            if (localY < 0 || localY > rect.height) return;
+            const hit = sdMultiGetParamAtY(localY);
+            if (!hit) return;
+            const id = hit.param.envelopeId;
+            if (_sdDragSelectVisited.has(id)) return;
+            _sdDragSelectVisited.add(id);
+            if (hit.param.locked) return;
+            if (!hit.param.selected) {
+                hit.param.selected = true;
+                if (typeof _sdUpdateSelectionButtons === 'function') _sdUpdateSelectionButtons();
+                sdRenderSidebar();
+                sdDrawCanvasGrid();
+            }
+        }
+
+        function _sdEdgeScrollSchedule() {
+            if (_sdEdgeScrollRaf) return;
+            _sdEdgeScrollLastTickAt = 0;
+            _sdEdgeScrollRaf = requestAnimationFrame(_sdEdgeScrollTick);
+        }
+
+        // rAF-driven auto-scroll while the cursor sits in the top or bottom
+        // edge zone during an active drag. Cadence is three-tier by edge
+        // proximity (closer = faster). Stops when the cursor leaves the
+        // zone; the next mousemove can re-arm it. Stops when drag ends.
+        function _sdEdgeScrollTick(timestamp) {
+            _sdEdgeScrollRaf = 0;
+            if (!_sdDragSelectActive || !sdCanvasEl) return;
+            if (sdViewMode !== 'multi') return;
+
+            const rect = sdCanvasEl.getBoundingClientRect();
+            const y = _sdLastMouseClientY;
+            const distTop = y - rect.top;
+            const distBot = rect.bottom - y;
+
+            let dir = 0;
+            let cadenceMs = 80;
+            if (distTop >= 0 && distTop < SD_EDGE_SCROLL_ZONE_PX) {
+                dir = -1;
+                cadenceMs = distTop < 10 ? 30 : (distTop < 20 ? 50 : 80);
+            } else if (distBot >= 0 && distBot < SD_EDGE_SCROLL_ZONE_PX) {
+                dir = 1;
+                cadenceMs = distBot < 10 ? 30 : (distBot < 20 ? 50 : 80);
+            }
+            if (dir === 0) return;
+
+            if (!_sdEdgeScrollLastTickAt) _sdEdgeScrollLastTickAt = timestamp;
+            if (timestamp - _sdEdgeScrollLastTickAt >= cadenceMs) {
+                const before = sdMultiScrollOffset;
+                sdMultiScrollOffset += dir;
+                sdMultiClampScroll();
+                if (sdMultiScrollOffset !== before) {
+                    sdDrawCanvasGrid();
+                    // A new lane is now under the cursor — pick it up now,
+                    // don't wait for the next mousemove (user may be holding
+                    // still in the edge zone).
+                    _sdDragSelectAddAtClientY(_sdLastMouseClientY);
+                }
+                _sdEdgeScrollLastTickAt = timestamp;
+            }
+            _sdEdgeScrollRaf = requestAnimationFrame(_sdEdgeScrollTick);
+        }
+
+        // ─── Lane-name hover tooltip (multi-view label column) ──
+        // Custom div tooltip — instant, no browser title delay. Triggers
+        // only when the cursor is inside a lane's label column so it
+        // doesn't pollute the curve area. Hidden during pan/drag/scroll
+        // so the user isn't distracted by it during gestures.
+        let _sdTooltipEl = null;
+        let _sdTooltipNameNode = null;
+        let _sdTooltipRangeNode = null;
+
+        function _sdTooltipInit() {
+            if (_sdTooltipEl) return;
+            _sdTooltipEl = document.getElementById('sd-canvas-tooltip');
+            if (!_sdTooltipEl) return;
+            _sdTooltipNameNode = document.createElement('div');
+            _sdTooltipRangeNode = document.createElement('div');
+            _sdTooltipRangeNode.className = 'text-zinc-500 font-normal mt-0.5 text-[9px]';
+            _sdTooltipEl.appendChild(_sdTooltipNameNode);
+            _sdTooltipEl.appendChild(_sdTooltipRangeNode);
+        }
+
+        function _sdHideTooltip() {
+            if (!_sdTooltipEl) _sdTooltipInit();
+            if (_sdTooltipEl) _sdTooltipEl.classList.add('hidden');
+        }
+
+        function _sdFormatRangeVal(v) {
+            if (!isFinite(v)) return '?';
+            if (Math.abs(v) >= 10000) return (v / 1000).toFixed(1) + 'k';
+            if (Number.isInteger(v) || Math.abs(v) >= 100) return String(Math.round(v));
+            if (Math.abs(v) >= 10) return v.toFixed(1);
+            return parseFloat(v.toFixed(3)).toString();
+        }
+
+        function _sdMaybeShowLaneTooltip(e) {
+            _sdTooltipInit();
+            if (!_sdTooltipEl || !sdCanvasEl) return;
+            // Suppress during any active gesture — tooltip would just
+            // hover distractingly.
+            if (sdIsPanning || sdIsDragging || sdIsCurveDragging || _sdDragSelectActive) {
+                _sdHideTooltip();
+                return;
+            }
+            if (sdViewMode !== 'multi') { _sdHideTooltip(); return; }
+
+            const rect = sdCanvasEl.getBoundingClientRect();
+            const localX = e.clientX - rect.left;
+            const localY = e.clientY - rect.top;
+            if (localX < 0 || localX >= SD_MULTI_LABEL_WIDTH) { _sdHideTooltip(); return; }
+            if (localY < 0 || localY >= rect.height) { _sdHideTooltip(); return; }
+
+            const hit = sdMultiGetParamAtY(localY);
+            if (!hit) { _sdHideTooltip(); return; }
+
+            // Same display-name logic as the canvas renderer: suffix
+            // (1)/(2)/... for duplicate names so the tooltip matches what
+            // the user expects to see.
+            const param = hit.param;
+            const sameNamed = sdCanvasParams.filter(p => p.name === param.name);
+            let displayName = param.name;
+            if (sameNamed.length > 1) {
+                const idx = sameNamed.indexOf(param) + 1;
+                displayName = `${param.name} (${idx})`;
+            }
+            const range = `${_sdFormatRangeVal(param.min)} – ${_sdFormatRangeVal(param.max)}${param.is_log ? ' · log' : ''}${param.locked ? ' · locked' : ''}`;
+
+            _sdTooltipNameNode.textContent = displayName;
+            _sdTooltipRangeNode.textContent = range;
+
+            // Position relative to the canvas container (the positioned
+            // ancestor of the tooltip div). Offset from cursor; clamp to
+            // the container right edge so long names don't spill out.
+            const container = sdCanvasEl.parentElement;
+            if (!container) return;
+            const cRect = container.getBoundingClientRect();
+            _sdTooltipEl.classList.remove('hidden');
+            const tw = _sdTooltipEl.offsetWidth;
+            const x = e.clientX - cRect.left + 14;
+            const y = e.clientY - cRect.top + 14;
+            const maxX = cRect.width - tw - 4;
+            _sdTooltipEl.style.left = Math.max(2, Math.min(x, maxX)) + 'px';
+            _sdTooltipEl.style.top = y + 'px';
+        }
+
+        // Window blur cancels any in-flight drag-select. Catches alt-tab,
+        // app-switch, and similar — otherwise the gesture would resume
+        // mid-flight when the user returns, which is jarring.
+        window.addEventListener('blur', () => {
+            if (_sdDragSelectPending || _sdDragSelectActive) {
+                _sdDragSelectPending = null;
+                _sdDragSelectActive = false;
+                _sdDragSelectVisited = new Set();
+                if (_sdEdgeScrollRaf) {
+                    cancelAnimationFrame(_sdEdgeScrollRaf);
+                    _sdEdgeScrollRaf = 0;
+                }
+            }
+        });
+
         window.addEventListener('mouseup', e => {
             // Only the middle button ends a pan — guards against a stray
             // left/right mouseup interrupting a mid-pan drag.
@@ -2265,8 +2629,22 @@
                 // (which may have skipped the very last mousemove).
                 if (_sdActiveTool === 'prism') _sdPrismLiveTick();
             }
+            // Drag-select cleanup. Fires whether or not the drag ever
+            // crossed the threshold — covers the click-only path too.
+            if (_sdDragSelectPending || _sdDragSelectActive) {
+                _sdDragSelectPending = null;
+                _sdDragSelectActive = false;
+                _sdDragSelectVisited = new Set();
+                if (_sdEdgeScrollRaf) {
+                    cancelAnimationFrame(_sdEdgeScrollRaf);
+                    _sdEdgeScrollRaf = 0;
+                }
+            }
         });
         sdCanvasEl.addEventListener('contextmenu', e => e.preventDefault());
+        // Hide lane tooltip when the cursor leaves the canvas entirely —
+        // mousemove on sdCanvasEl stops firing once out of bounds.
+        sdCanvasEl.addEventListener('mouseleave', () => _sdHideTooltip());
     }
 
     function sdPaintFreehand(time, value, param, totalBeats) {
@@ -3035,24 +3413,11 @@
     };
     // ─── Lane selection actions ─────────────────────────────
 
-    // Select All and Select represent two alternative selection modes.
-    // Pressing one of them while the other is active SWITCHES modes — both
-    // buttons stay enabled at all times. The user never has to "disable"
-    // one to use the other.
-    //
-    // Modes (at most one active at a time):
-    //   • "all"    — all unlocked lanes selected, sdSelectMode false
-    //   • "manual" — sdSelectMode true (clicks toggle individual selection)
-    //   • "none"   — no selection, sdSelectMode false
-    //
-    // Transitions on button press:
-    //   from any mode, Select All  → "all" (or "none" if already all)
-    //   from any mode, Select      → "manual" (or "none" if already manual)
+    // Select All toggles between "all unlocked lanes selected" and "none".
+    // Individual lanes are managed by Ctrl+click (or Ctrl+drag) on the
+    // canvas — see the multi-view mousedown branch.
 
     window.sdSelectAll = function() {
-        // Switching out of manual mode if it was on.
-        sdSelectMode = false;
-
         const unlocked = sdCanvasParams.filter(p => !p.locked);
         if (!unlocked.length) {
             _sdUpdateSelectionButtons();
@@ -3073,25 +3438,9 @@
         sdDrawCanvasGrid();
     };
 
-    window.sdToggleSelectMode = function() {
-        const unlocked = sdCanvasParams.filter(p => !p.locked);
-        const allSelected = unlocked.length > 0 && unlocked.every(p => p.selected);
-
-        // Switching from "all" mode → manual mode: clear the selection
-        // first so the user starts fresh with manual picking. Without this,
-        // pressing Select right after Select All would put them in select
-        // mode WITH everything pre-selected, which is rarely what's wanted.
-        if (allSelected && !sdSelectMode) {
-            sdCanvasParams.forEach(p => { p.selected = false; });
-        }
-        sdSelectMode = !sdSelectMode;
-        _sdUpdateSelectionButtons();
-        sdRenderSidebar();
-        sdDrawCanvasGrid();
-    };
-
     // Toggle a single lane's selected state. Called from the multi-view
-    // click handler when sdSelectMode is on, OR programmatically by tests.
+    // mousedown handler on Ctrl+click, by the drag-select gesture, and
+    // programmatically by tests.
     window.sdToggleLaneSelection = function(envelopeId) {
         const p = sdCanvasParams.find(p => p.envelopeId === envelopeId);
         if (!p || p.locked) return;
@@ -3101,14 +3450,8 @@
         sdDrawCanvasGrid();
     };
 
-    // Refresh the visual state of both selection buttons in the toolbar.
-    // Called whenever selection state or select-mode changes.
-    //
-    // Both buttons stay enabled at all times. Pressing the OTHER button
-    // switches modes — see sdSelectAll / sdToggleSelectMode for transitions.
-    // Highlight rule (at most one is highlighted at a time):
-    //   - Select All highlighted: !sdSelectMode AND all unlocked selected
-    //   - Select highlighted:     sdSelectMode (regardless of selection state)
+    // Refresh the visual state of the Select All button. Highlighted when
+    // every unlocked lane is selected; idle otherwise.
     function _sdUpdateSelectionButtons() {
         const ACTIVE_CLASS = "text-[9px] text-fuchsia-300 bg-fuchsia-500/20 border border-fuchsia-500/40 hover:bg-fuchsia-500/30 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0 shadow-[0_0_8px_rgba(217,70,239,0.2)]";
         const IDLE_CLASS = "text-[9px] text-zinc-500 bg-black/50 border border-white/5 hover:border-fuchsia-500/30 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0";
@@ -3118,13 +3461,7 @@
 
         const allBtn = document.getElementById('sd-select-all-toggle');
         if (allBtn) {
-            allBtn.disabled = false;
-            allBtn.className = (allSelected && !sdSelectMode) ? ACTIVE_CLASS : IDLE_CLASS;
-        }
-        const selBtn = document.getElementById('sd-select-mode-toggle');
-        if (selBtn) {
-            selBtn.disabled = false;
-            selBtn.className = sdSelectMode ? ACTIVE_CLASS : IDLE_CLASS;
+            allBtn.className = allSelected ? ACTIVE_CLASS : IDLE_CLASS;
         }
     }
 

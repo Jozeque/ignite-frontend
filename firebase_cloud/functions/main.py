@@ -343,10 +343,8 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
             # is swallowed inside _fire_meta_purchase_capi so the webhook
             # still 200s.
             try:
-                capi_event_id = (
-                    ((payload.get("meta") or {}).get("custom_data") or {}).get("event_id")
-                    or ""
-                )
+                custom = (payload.get("meta") or {}).get("custom_data") or {}
+                capi_event_id = custom.get("event_id") or ""
                 _fire_meta_purchase_capi(
                     {
                         "email": email,
@@ -354,6 +352,14 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
                         "order_identifier": attrs.get("identifier"),
                         "total_cents": attrs.get("total"),
                         "currency": attrs.get("currency"),
+                        # Meta attribution fields passed from the landing
+                        # page through LS custom checkout data. Without
+                        # these, Meta's campaign optimizer can't credit
+                        # this Purchase back to the ad click that drove
+                        # it. fbc/fbp NOT hashed; UA NOT hashed.
+                        "fbc": custom.get("fbc") or "",
+                        "fbp": custom.get("fbp") or "",
+                        "client_user_agent": custom.get("ua") or "",
                     },
                     capi_event_id,
                 )

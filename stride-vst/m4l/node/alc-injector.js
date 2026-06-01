@@ -506,6 +506,114 @@ function injectAutomation(doc, root, paramsData, clipBars) {
     return { paramsWritten, totalPoints, debugLines };
 }
 
+// ─── Inject MIDI Notes ─────────────────────────────────
+
+/**
+ * Replace the MIDI notes inside the template's MidiClip with a new set.
+ * Used when the user picks a pattern from the Pattern Library; the
+ * automation curves are already injected into ClipEnvelopes by
+ * injectAutomation — this layers the note material on top.
+ *
+ * Idempotent w.r.t. envelopes: it never touches ClipEnvelope / Events /
+ * AutomationEnvelope subtrees. Only mutates the Notes/KeyTracks block.
+ *
+ * @param {Document} doc    parsed .alc XML document
+ * @param {Element}  root   document.documentElement
+ * @param {Array}    notes  [{pitch, time, duration, velocity}] (beats)
+ * @param {number}   clipBeats  total clip length in beats (clip_bars * 4)
+ * @returns {{ notesWritten: number, pitchCount: number }}
+ *
+ * Throws if no MidiClip is present (audio rack — unsupported scenario;
+ * caller should fall back to envelopes-only inject).
+ */
+function injectMidiNotes(doc, root, notes, clipBeats) {
+    const midiClip = findDescendant(root, 'MidiClip');
+    if (!midiClip) {
+        throw new Error('Template has no MidiClip — note injection not supported on audio racks');
+    }
+    const notesContainer = findChild(midiClip, 'Notes');
+    if (!notesContainer) {
+        throw new Error('MidiClip has no <Notes> container — template is malformed');
+    }
+    let keyTracks = findChild(notesContainer, 'KeyTracks');
+    if (!keyTracks) {
+        // Defensive: a brand-new empty MidiClip might lack the wrapper.
+        // Create it so injection still works.
+        keyTracks = doc.createElement('KeyTracks');
+        notesContainer.appendChild(keyTracks);
+    }
+
+    // 1. Wipe existing KeyTracks (we replace, not merge — Stride patterns
+    //    are the source of truth once a pattern is armed).
+    while (keyTracks.firstChild) keyTracks.removeChild(keyTracks.firstChild);
+
+    if (!Array.isArray(notes) || notes.length === 0) {
+        // Caller passed no notes — wipe is enough, leave an empty KeyTracks.
+        _resetNoteIdGen(notesContainer, 1);
+        return { notesWritten: 0, pitchCount: 0 };
+    }
+
+    // 2. Group notes by pitch (one KeyTrack per pitch in the .alc format).
+    const byPitch = {};
+    let nextNoteId = 1;
+    for (const n of notes) {
+        if (!n || typeof n.pitch !== 'number') continue;
+        if (typeof n.time !== 'number' || n.time < 0) continue;
+        if (n.time >= clipBeats) continue;
+        const pitch = Math.max(0, Math.min(127, Math.round(n.pitch)));
+        const duration = Math.max(0.001,
+            Math.min(typeof n.duration === 'number' ? n.duration : 0.25,
+                     clipBeats - n.time));
+        const velocity = Math.max(1, Math.min(127,
+            Math.round(typeof n.velocity === 'number' ? n.velocity : 100)));
+        if (!byPitch[pitch]) byPitch[pitch] = [];
+        byPitch[pitch].push({
+            time: n.time, duration, velocity, noteId: nextNoteId++,
+        });
+    }
+
+    // 3. Emit one KeyTrack per pitch, sorted by pitch ascending (matches
+    //    Ableton's own write order).
+    let trackId = 1;
+    const pitches = Object.keys(byPitch).map(p => +p).sort((a, b) => a - b);
+    for (const pitch of pitches) {
+        const keyTrack = doc.createElement('KeyTrack');
+        keyTrack.setAttribute('Id', String(trackId++));
+        const trackNotes = doc.createElement('Notes');
+        for (const evt of byPitch[pitch]) {
+            const e = doc.createElement('MidiNoteEvent');
+            e.setAttribute('Time', _fmtBeat(evt.time));
+            e.setAttribute('Duration', _fmtBeat(evt.duration));
+            e.setAttribute('Velocity', String(evt.velocity));
+            e.setAttribute('OffVelocity', '64');
+            e.setAttribute('NoteId', String(evt.noteId));
+            trackNotes.appendChild(e);
+        }
+        keyTrack.appendChild(trackNotes);
+        const midiKey = doc.createElement('MidiKey');
+        midiKey.setAttribute('Value', String(pitch));
+        keyTrack.appendChild(midiKey);
+        keyTracks.appendChild(keyTrack);
+    }
+
+    _resetNoteIdGen(notesContainer, nextNoteId);
+    return { notesWritten: nextNoteId - 1, pitchCount: pitches.length };
+}
+
+function _fmtBeat(v) {
+    // Match Ableton's own precision: full float without unnecessary zeros.
+    // 5 dp covers triplet/quintuplet timing without bloating XML.
+    const s = v.toFixed(5).replace(/0+$/, '').replace(/\.$/, '');
+    return s === '' ? '0' : s;
+}
+
+function _resetNoteIdGen(notesContainer, nextId) {
+    const gen = findChild(notesContainer, 'NoteIdGenerator');
+    if (!gen) return;
+    const nextEl = findChild(gen, 'NextId');
+    if (nextEl) nextEl.setAttribute('Value', String(Math.max(1, nextId)));
+}
+
 // ─── Main: Inject and Write ─────────────────────────────
 
 /**
@@ -545,6 +653,22 @@ function injectAlcFile(templatePath, autoData, outputPath) {
         debugLines = result.debugLines;
     } catch (e) {
         return { success: false, error: 'Injection failed: ' + e.message };
+    }
+
+    // Inject MIDI notes (optional — only when a pattern is armed).
+    // Failure is non-fatal: we keep the envelopes and surface a warning
+    // to the user, so a missing MidiClip (audio rack) doesn't kill Apply.
+    let notesWritten = 0;
+    let pitchCount = 0;
+    let noteInjectError = null;
+    if (autoData.midi_notes && Array.isArray(autoData.midi_notes) && autoData.midi_notes.length > 0) {
+        try {
+            const r = injectMidiNotes(doc, root, autoData.midi_notes, clipBars * 4);
+            notesWritten = r.notesWritten;
+            pitchCount = r.pitchCount;
+        } catch (e) {
+            noteInjectError = e.message;
+        }
     }
 
     // Serialize and compress
@@ -592,6 +716,9 @@ function injectAlcFile(templatePath, autoData, outputPath) {
         skipped_count: skippedActive,
         mismatch_count: mismatchCount,
         debug_lines: debugLines,
+        notes_written: notesWritten,
+        pitch_count: pitchCount,
+        note_inject_error: noteInjectError,
     };
 }
 
@@ -601,4 +728,5 @@ module.exports = {
     countEnvelopes,
     buildParamBounds,
     injectAutomation,
+    injectMidiNotes,
 };

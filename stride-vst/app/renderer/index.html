@@ -128,6 +128,12 @@
          extra right padding is harmless there. -->
     <div class="titlebar-drag h-9 bg-zinc-950 border-b border-white/5 flex items-center pl-4 pr-36 shrink-0">
         <span class="text-[11px] font-black tracking-[0.3em] uppercase text-gradient titlebar-no-drag">STRIDE</span>
+        <!-- Patterns library — full-takeover overlay with curated MIDI patterns.
+             Lives next to the brand so it reads as a primary surface, not a secondary tool. -->
+        <button id="sd-pattern-library-btn" type="button" class="titlebar-no-drag ml-6 flex items-center gap-1.5 text-[9px] text-zinc-500 hover:text-orange-400 uppercase font-bold tracking-widest transition-colors data-[active=true]:text-orange-400" title="Browse MIDI patterns (L)">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19a3 3 0 11-6 0 3 3 0 016 0zm12-3a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span>Patterns</span>
+        </button>
         <div class="flex-1"></div>
         <!-- Connection status (clickable — opens troubleshooter when red).
              Bigger and brighter than before so users notice when they're
@@ -191,6 +197,13 @@
             <div class="p-2 border-b border-white/5 flex flex-col gap-1.5">
                 <button id="scan-mapped-btn" onclick="scanMapped()" title="Read every parameter you've mapped in Ableton into the canvas as a lane" class="w-full text-[9px] text-fuchsia-400 bg-fuchsia-500/10 hover:bg-fuchsia-500/20 border border-fuchsia-500/20 hover:border-fuchsia-500/40 py-1.5 rounded-lg uppercase tracking-widest font-black transition-all">Scan Mapped</button>
                 <input id="clip-name-input" type="text" placeholder="Clip name (optional)" class="w-full text-[9px] text-zinc-300 bg-zinc-800/50 border border-white/5 focus:border-emerald-500/40 rounded-lg px-2 py-1.5 outline-none font-medium placeholder-zinc-600 transition-all" />
+                <!-- Armed pattern chip — visible only when user picked a pattern in the Library overlay.
+                     Tells them the next Apply to Clip will include MIDI notes from this pattern. -->
+                <div id="sd-armed-pattern-chip" class="hidden w-full text-[9px] bg-orange-500/10 border border-orange-500/30 rounded-lg px-2 py-1.5 flex items-center gap-1.5">
+                    <svg class="w-3 h-3 text-orange-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19a3 3 0 11-6 0 3 3 0 016 0zm12-3a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    <span id="sd-armed-pattern-label" class="text-orange-300 font-bold uppercase tracking-wider truncate min-w-0 flex-1"></span>
+                    <button id="sd-armed-pattern-clear" onclick="if(window.sdClearPattern)window.sdClearPattern()" title="Clear pattern" class="text-orange-400/70 hover:text-orange-300 shrink-0 text-sm leading-none px-1">×</button>
+                </div>
                 <button onclick="applyToAbleton()" title="Creates a .alc file — drag it onto an empty clip slot in Ableton to apply the automation" class="w-full text-[9px] text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 py-1.5 rounded-lg uppercase tracking-widest font-black transition-all">Apply to Clip</button>
                 <!-- Legacy drag handle — superseded by #sd-apply-reveal floating card.
                      Kept hidden (display:none) for backwards compat; canvas.js no
@@ -705,8 +718,7 @@
                         <button onclick="sdTimeStretch(2)" title="Stretch 2x — doubles the lane length" class="text-[10px] text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/30 hover:border-sky-400/60 px-2 py-0.5 rounded font-black transition-colors">2x</button>
                         <button onclick="sdTimeStretch(0.5)" title="Compress 1/2x — halves the lane length" class="text-[10px] text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/30 hover:border-sky-400/60 px-2 py-0.5 rounded font-black transition-colors">1/2x</button>
                     </div>
-                    <button id="sd-select-all-toggle" onclick="sdSelectAll()" title="Select every unlocked lane. Tools then target the whole selection. Click again to deselect." class="text-[9px] text-zinc-500 bg-black/50 border border-white/5 hover:border-fuchsia-500/30 px-2 py-0.5 rounded uppercase font-bold transition-colors">Select All</button>
-                    <button id="sd-select-mode-toggle" onclick="sdToggleSelectMode()" title="Toggle Select mode. When ON, click any lane to add/remove it from the selection. Reverse of Lock — controls only the lanes you pick." class="text-[9px] text-zinc-500 bg-black/50 border border-white/5 hover:border-fuchsia-500/30 px-2 py-0.5 rounded uppercase font-bold transition-colors">Select</button>
+                    <button id="sd-select-all-toggle" onclick="sdSelectAll()" title="Select every unlocked lane (click again to clear). Tip: Ctrl+click a lane to toggle it individually, or Ctrl+drag through lanes to multi-select. Tools then target the selection." class="text-[9px] text-zinc-500 bg-black/50 border border-white/5 hover:border-fuchsia-500/30 px-2 py-0.5 rounded uppercase font-bold transition-colors">Select All</button>
                     <button onclick="sdToggleLockAll()" title="Lock or unlock every lane at once. Locked lanes are skipped by all generative tools." class="text-[9px] text-amber-400/80 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 hover:border-amber-500/40 px-2 py-0.5 rounded uppercase font-bold transition-colors flex items-center gap-1">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
                         Lock All
@@ -718,6 +730,11 @@
             <div class="flex-1 relative overflow-hidden bg-black/20" id="sd-canvas-container">
                 <div id="sd-canvas-ruler" class="absolute top-0 left-0 right-0 h-5 bg-black/60 border-b border-white/10 z-20 cursor-col-resize select-none"></div>
                 <canvas id="sd-canvas" class="absolute top-5 left-0 right-0 bottom-0 w-full cursor-crosshair z-10" style="height: calc(100% - 20px);"></canvas>
+                <!-- Hover tooltip — shows full lane name + value range when the
+                     cursor is over the label column of a lane. Positioned by
+                     canvas.js mousemove handler; pointer-events:none so it
+                     never intercepts clicks. -->
+                <div id="sd-canvas-tooltip" class="absolute z-30 hidden bg-black/95 border border-fuchsia-500/40 rounded px-2 py-1.5 text-[10px] text-zinc-100 font-bold pointer-events-none shadow-lg max-w-[280px] leading-tight" style="white-space: nowrap;"></div>
 
                 <!-- Apply Reveal — floating drag card shown after a successful
                      Apply. Replaces the old sidebar drag handle. Auto-dismisses
@@ -1089,8 +1106,418 @@
         <button id="sd-apply-toast-close" class="shrink-0 text-zinc-600 hover:text-zinc-200 text-base leading-none transition-colors w-5 h-5 flex items-center justify-center" aria-label="Close">&times;</button>
     </div>
 
+    <!-- ─── Pattern Library overlay ───────────────────────────
+         Full-takeover library that slides in from the left. The rightmost
+         80px is a "peek strip" — semi-transparent, click anywhere on it
+         (or hit ESC / L) to return to the automations canvas.
+         The overlay is invisible until #sd-pattern-library-overlay has the
+         .sd-lib-open class added by pattern-library.js init().
+    -->
+    <style>
+        #sd-pattern-library-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 8500;
+            pointer-events: none;
+        }
+        #sd-pattern-library-overlay.hidden { display: none; }
+        #sd-pattern-library-panel {
+            position: absolute;
+            top: 0; bottom: 0; left: 0; right: 80px;
+            background: #09090b;
+            border-right: 1px solid rgba(255,255,255,0.05);
+            transform: translateX(-100%);
+            transition: transform 200ms ease-out;
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #sd-pattern-library-peek {
+            position: absolute;
+            top: 0; bottom: 0; right: 0;
+            width: 80px;
+            background: rgba(9,9,11,0.75);
+            border-left: 1px solid rgba(249,115,22,0.25);
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 200ms ease-out, background 150ms ease-out, border-color 150ms ease-out;
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        #sd-pattern-library-peek:hover {
+            background: rgba(249,115,22,0.12);
+            border-left-color: rgba(249,115,22,0.55);
+        }
+        #sd-pattern-library-peek .sd-peek-arrow {
+            color: #fb923c;
+            font-size: 24px;
+            line-height: 1;
+            font-weight: 300;
+            opacity: 0.85;
+            transition: transform 150ms ease-out, opacity 150ms ease-out;
+        }
+        #sd-pattern-library-peek:hover .sd-peek-arrow {
+            opacity: 1;
+            transform: translateX(-4px);
+        }
+        #sd-pattern-library-peek .sd-peek-label {
+            color: #fb923c;
+            font-family: Outfit, sans-serif;
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+            opacity: 0.85;
+            transition: opacity 150ms ease-out;
+        }
+        #sd-pattern-library-peek:hover .sd-peek-label { opacity: 1; }
+        @keyframes sd-peek-pulse {
+            0%, 100% { box-shadow: inset 4px 0 0 -3px rgba(249,115,22,0.3); }
+            50%      { box-shadow: inset 4px 0 0 -3px rgba(249,115,22,0.7); }
+        }
+        #sd-pattern-library-overlay.sd-lib-open #sd-pattern-library-peek {
+            animation: sd-peek-pulse 2.4s ease-in-out infinite;
+        }
+        /* ← Back button in the library header (top-left of the overlay).
+           Lives next to the brand crumb so the affordance is in the
+           reading-order spot users scan first. */
+        #sd-lib-back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(249,115,22,0.08);
+            border: 1px solid rgba(249,115,22,0.25);
+            border-radius: 6px;
+            padding: 5px 10px 5px 8px;
+            color: #fb923c;
+            font-family: Outfit, sans-serif;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 120ms ease-out;
+        }
+        #sd-lib-back-btn:hover {
+            background: rgba(249,115,22,0.18);
+            border-color: rgba(249,115,22,0.5);
+            color: #fff;
+        }
+        #sd-lib-back-btn svg { width: 14px; height: 14px; }
+        #sd-pattern-library-overlay.sd-lib-open #sd-pattern-library-panel {
+            transform: translateX(0);
+        }
+        #sd-pattern-library-overlay.sd-lib-open #sd-pattern-library-peek {
+            opacity: 1;
+        }
+        .sd-lib-cat {
+            text-align: left;
+            padding: 8px 12px;
+            font-family: Outfit, sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #a8a29e;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 120ms ease-out;
+        }
+        .sd-lib-cat:hover { color: #f97316; background: rgba(249,115,22,0.05); }
+        .sd-lib-cat-active { color: #fb923c; background: rgba(249,115,22,0.12); }
+        .sd-lib-filter {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: Outfit, sans-serif;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: #a8a29e;
+        }
+        .sd-lib-filter span { color: #71717a; }
+        .sd-lib-select {
+            background: rgba(255,255,255,0.04);
+            color: #e7e5e4;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 6px;
+            padding: 4px 6px;
+            font-family: Outfit, sans-serif;
+            font-size: 11px;
+            outline: none;
+            cursor: pointer;
+        }
+        .sd-lib-select:focus { border-color: #f97316; }
+        /* The open <option> list is rendered by the OS / Chromium and does
+           not inherit the translucent background above. Give options an
+           explicit solid dark background + light text so they're readable
+           when the dropdown is expanded. */
+        .sd-lib-select option {
+            background-color: #18181b;   /* zinc-900 */
+            color: #e4e4e7;              /* zinc-200 */
+        }
+        .sd-lib-select option:checked {
+            background-color: #27272a;   /* zinc-800 — currently selected */
+        }
+        .sd-lib-search {
+            background: rgba(255,255,255,0.04);
+            color: #e7e5e4;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 6px;
+            padding: 5px 10px;
+            font-family: Outfit, sans-serif;
+            font-size: 11px;
+            outline: none;
+            min-width: 180px;
+        }
+        .sd-lib-search:focus { border-color: #f97316; }
+        .sd-lib-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 10px;
+            padding: 10px 12px;
+            cursor: pointer;
+            transition: border-color 120ms ease-out, background 120ms ease-out, transform 120ms ease-out;
+            font-family: Outfit, sans-serif;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            user-select: none;
+        }
+        .sd-lib-card:hover {
+            border-color: rgba(249,115,22,0.4);
+            background: rgba(249,115,22,0.04);
+        }
+        .sd-lib-card.sd-lib-card-selected {
+            border-color: #f97316;
+            background: rgba(249,115,22,0.08);
+        }
+        .sd-lib-card-title {
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
+            color: #e7e5e4; font-size: 12px; font-weight: 700;
+        }
+        .sd-lib-card-star {
+            color: #52525b; font-size: 14px; line-height: 1;
+            background: transparent; border: none; cursor: pointer; padding: 0 2px;
+            transition: color 120ms ease-out;
+        }
+        .sd-lib-card-star:hover { color: #fbbf24; }
+        .sd-lib-card-star.sd-fav { color: #fbbf24; }
+        .sd-lib-card-meta {
+            color: #71717a; font-size: 10px; letter-spacing: 0.05em;
+            display: flex; gap: 6px; align-items: center;
+        }
+        .sd-lib-card-meta b { color: #a8a29e; font-weight: 600; }
+        .sd-lib-card-thumb { width: 100%; height: 44px; display: block; }
+        .sd-lib-empty {
+            grid-column: 1 / -1;
+            text-align: center;
+            color: #52525b;
+            font-size: 12px;
+            padding: 60px 20px;
+        }
+        .sd-lib-action-btn, .sd-lib-pick-btn {
+            font-family: Outfit, sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 8px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.04);
+            color: #d4d4d8;
+            display: inline-flex; align-items: center; gap: 6px;
+            transition: all 120ms ease-out;
+        }
+        .sd-lib-action-btn:hover:not(:disabled) {
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+        }
+        .sd-lib-pick-btn {
+            flex: 1;
+            justify-content: center;
+            background: linear-gradient(90deg, #f97316, #d946ef);
+            color: #fff;
+            border-color: transparent;
+        }
+        .sd-lib-pick-btn:hover:not(:disabled) {
+            filter: brightness(1.1);
+        }
+        .sd-lib-action-btn:disabled, .sd-lib-pick-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .sd-lib-preview-title {
+            font-size: 14px; font-weight: 800; color: #fff;
+            margin-bottom: 4px;
+        }
+        .sd-lib-preview-meta {
+            font-size: 10px; color: #a8a29e; letter-spacing: 0.05em;
+            margin-bottom: 14px;
+        }
+        .sd-lib-preview-tags {
+            display: flex; flex-wrap: wrap; gap: 4px;
+            margin-top: 8px;
+        }
+        .sd-lib-preview-tag {
+            font-size: 9px; padding: 2px 6px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 4px; color: #a8a29e;
+            text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;
+        }
+        .sd-lib-preview-roll {
+            width: 100%;
+            height: 140px;
+            background: rgba(0,0,0,0.25);
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.05);
+            display: block;
+        }
+    </style>
+    <div id="sd-pattern-library-overlay" class="hidden">
+        <div id="sd-pattern-library-panel">
+            <!-- Header strip — back button + brand + label. -->
+            <div class="h-12 px-5 flex items-center border-b border-white/5 shrink-0 gap-3">
+                <button id="sd-lib-back-btn" title="Back to canvas (ESC)">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+                    <span>Canvas</span>
+                </button>
+                <div class="w-px h-5 bg-white/5"></div>
+                <span class="text-[11px] font-black tracking-[0.3em] uppercase text-gradient">STRIDE</span>
+                <span class="text-zinc-700">/</span>
+                <span class="text-[11px] font-black tracking-[0.25em] uppercase text-zinc-300">Patterns</span>
+                <div class="flex-1"></div>
+                <span class="text-[9px] text-zinc-600 uppercase tracking-widest">ESC or L to close</span>
+            </div>
+            <!-- Body: three-column layout — categories | grid | preview -->
+            <div id="sd-pattern-library-body" class="flex-1 flex overflow-hidden">
+                <!-- Left rail: categories -->
+                <aside class="w-44 border-r border-white/5 flex flex-col py-3 px-2 gap-0.5 shrink-0 overflow-y-auto">
+                    <button data-lib-cat="all"        class="sd-lib-cat sd-lib-cat-active">All</button>
+                    <button data-lib-cat="bass"       class="sd-lib-cat">Bass</button>
+                    <button data-lib-cat="leads"      class="sd-lib-cat">Leads</button>
+                    <button data-lib-cat="chords"     class="sd-lib-cat">Chords</button>
+                    <button data-lib-cat="melodic"    class="sd-lib-cat">Melodic</button>
+                    <button data-lib-cat="drums"      class="sd-lib-cat">Drums</button>
+                    <button data-lib-cat="ambient"    class="sd-lib-cat">Ambient</button>
+                    <button data-lib-cat="sequences"  class="sd-lib-cat">Sequences</button>
+                    <div class="my-2 border-t border-white/5"></div>
+                    <button data-lib-cat="favorites"  class="sd-lib-cat">★ Favorites</button>
+                    <button data-lib-cat="recent"     class="sd-lib-cat">◷ Recent</button>
+                </aside>
+
+                <!-- Center: filters + grid (fills full width — preview pane removed) -->
+                <main class="flex-1 flex flex-col min-w-0">
+                    <div class="h-12 px-5 flex items-center gap-3 border-b border-white/5 shrink-0">
+                        <label class="sd-lib-filter">
+                            <span>Bars</span>
+                            <select id="sd-lib-bars" class="sd-lib-select">
+                                <option value="auto">Auto</option>
+                                <option value="all">All</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="4">4</option>
+                                <option value="8">8</option>
+                                <option value="16">16</option>
+                            </select>
+                        </label>
+                        <label class="sd-lib-filter">
+                            <span>Style</span>
+                            <select id="sd-lib-style" class="sd-lib-select">
+                                <option value="">Any</option>
+                            </select>
+                        </label>
+                        <label class="sd-lib-filter">
+                            <span>Root</span>
+                            <select id="sd-lib-root" class="sd-lib-select">
+                                <option value="">Any</option>
+                                <option value="A">A</option>
+                                <option value="C">C</option>
+                                <option value="D">D</option>
+                                <option value="E">E</option>
+                                <option value="F">F</option>
+                                <option value="G">G</option>
+                            </select>
+                        </label>
+                        <label class="sd-lib-filter">
+                            <span>Scale</span>
+                            <select id="sd-lib-scale" class="sd-lib-select">
+                                <option value="">Any</option>
+                                <option value="maj">Maj</option>
+                                <option value="min">Min</option>
+                                <option value="phr">Phr</option>
+                            </select>
+                        </label>
+                        <label class="sd-lib-filter">
+                            <span>Energy</span>
+                            <select id="sd-lib-energy" class="sd-lib-select">
+                                <option value="">Any</option>
+                                <option value="2">Low</option>
+                                <option value="3">Mid</option>
+                                <option value="4">High</option>
+                            </select>
+                        </label>
+                        <input id="sd-lib-search" type="text" placeholder="Search…" class="sd-lib-search" />
+                        <div class="flex-1"></div>
+                        <span id="sd-lib-count" class="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">0 patterns</span>
+                    </div>
+                    <div id="sd-lib-grid" class="flex-1 overflow-y-auto p-4 grid grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 content-start">
+                        <!-- Cards rendered by pattern-library.js -->
+                    </div>
+                </main>
+            </div>
+        </div>
+        <div id="sd-pattern-library-peek" title="Click to go back to the canvas (or press ESC)">
+            <span class="sd-peek-arrow">←</span>
+            <span class="sd-peek-label">Back to Canvas</span>
+        </div>
+    </div>
+
     <script src="ws-client.js"></script>
     <script src="cloud-client.js"></script>
+    <script src="midi-parser.js"></script>
+    <script src="audition.js"></script>
+    <script src="pattern-loader.js"></script>
+    <script src="pattern-library.js"></script>
+    <script>
+        // Bootstrap pattern library data — load the bundled manifest via
+        // IPC (renderer's CSP blocks fetch() for file:// assets, so we
+        // can't use fetch here). Failures are non-fatal: the PATTERNS
+        // button still works but the body shows an empty state.
+        (async () => {
+            try {
+                if (!window.stride || !window.stride.loadPatternManifest) {
+                    throw new Error('IPC bridge missing loadPatternManifest');
+                }
+                const res = await window.stride.loadPatternManifest();
+                if (!res || !res.success) throw new Error(res && res.error || 'manifest load failed');
+                const manifest = res.manifest;
+                if (window.strideLibraryModule) {
+                    window.strideLibraryModule.bootstrap(manifest);
+                    console.log('[Stride] Pattern library loaded:', manifest.patterns.length, 'patterns');
+                    if (window.strideLibraryUI && window.strideLibraryUI.isOpen()) {
+                        window.strideLibraryUI.refresh();
+                    }
+                }
+            } catch (e) {
+                console.warn('[Stride] Pattern library bootstrap failed:', e.message);
+                window.strideLibrary = window.strideLibrary || { patterns: [], byId: {}, filter: () => [] };
+            }
+        })();
+    </script>
     <script src="canvas.js"></script>
 </body>
 </html>

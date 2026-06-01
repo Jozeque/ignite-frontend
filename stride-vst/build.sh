@@ -119,7 +119,7 @@ npx asar pack "$ASAR_TMP" "$ASAR"
 rm -rf "$ASAR_TMP"
 
 # Obfuscate M4L Node files — same max profile as Electron
-for f in server.js scanner.js writer.js alc-generator.js alc-injector.js; do
+for f in server.js scanner.js writer.js inject-writer.js alc-generator.js alc-injector.js; do
     echo "      obfuscate: M4L/$f"
     "$OBFUSCATOR" "$DIST/Stride/M4L/$f" --output "$DIST/Stride/M4L/$f" \
         --compact true \

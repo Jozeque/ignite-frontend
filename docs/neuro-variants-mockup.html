@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Neuro variants — 8-bar mockups</title>
+<style>
+  :root {
+    --bg: #09090b;
+    --panel: #18181b;
+    --line: #27272a;
+    --text: #e4e4e7;
+    --muted: #71717a;
+    --accent: #d946ef;     /* fuchsia-500 — Neuro */
+    --accent-dim: #d946ef33;
+    --lane: #0c0a14;
+    --grid: #ffffff10;
+    --bar: #ffffff1a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px 32px;
+    line-height: 1.5;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: 22px;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px 0;
+  }
+  h1 .accent { color: var(--accent); }
+  .lede {
+    color: var(--muted);
+    font-size: 13px;
+    max-width: 800px;
+    margin-bottom: 28px;
+  }
+  .variant {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 16px;
+  }
+  .variant-header {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 10px;
+  }
+  .variant-name {
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .variant-name.baseline { color: var(--muted); }
+  .variant-desc {
+    font-size: 12px;
+    color: var(--muted);
+    flex: 1;
+  }
+  .reroll-btn {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    padding: 4px 10px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .reroll-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .lane-svg {
+    width: 100%;
+    height: 90px;
+    background: var(--lane);
+    border-radius: 6px;
+    display: block;
+  }
+  .impl-notes {
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--muted);
+    font-family: ui-monospace, "JetBrains Mono", Consolas, monospace;
+  }
+  .impl-notes b { color: #fb923c; font-weight: 600; }
+  .footnote {
+    color: var(--muted);
+    font-size: 11px;
+    margin-top: 32px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    max-width: 800px;
+  }
+  .footnote b { color: var(--text); }
+</style>
+</head>
+<body>
+
+<h1>Neuro<span class="accent"> v2</span> — make it less robotic, more alive</h1>
+<p class="lede">
+  Each row below is one Neuro variant rendered as an 8-bar lane (32 beats). Same canvas, same generator concept — different orchestration of points + curves between them. <b>Click "Reroll"</b> to see another random instance from the same algorithm. <br>
+  Pick one or a few (you can combine: e.g. "V1 curves" + "V4 alternation" → both).
+</p>
+
+<!-- Variants get rendered here by JS -->
+<div id="variants-root"></div>
+
+<p class="footnote">
+  Implementation footprint: all 6 variants are achievable with the existing point-and-curve model in <b>canvas.js</b>. <b>V1</b> is a 10-minute change (add curve values to existing shape generators). <b>V2 / V4</b> need bar-level orchestration logic (~30-40 min). <b>V3 / V5 / V6</b> need 1-2 new shape primitives each (~20 min apiece). The "baseline" lane up top is what Neuro currently produces today — for comparison only.
+</p>
+
+<script>
+// ─── SVG renderer (handles bezier "curve" field on points) ────────
+function pointsToSvgPath(points, w, h, totalBeats) {
+  if (!points.length) return '';
+  const toX = t => (t / totalBeats) * w;
+  const toY = v => h - Math.max(0, Math.min(1, v)) * h;
+  let d = `M ${toX(points[0].time)} ${toY(points[0].value)}`;
+  for (let i = 1; i < points.length; i++) {
+    const p0 = points[i-1], p1 = points[i];
+    const x0 = toX(p0.time), y0 = toY(p0.value);
+    const x1 = toX(p1.time), y1 = toY(p1.value);
+    const c = p1.curve || 0;
+    if (c === 0) {
+      d += ` L ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+    } else {
+      // Symmetric bezier S-curve, mirroring how Stride writes CurveControl 1/2.
+      const cx1 = x0 + (x1 - x0) * 0.5;
+      const cy1 = y0 - c * (y1 - y0) * 0.5;
+      const cx2 = x0 + (x1 - x0) * 0.5;
+      const cy2 = y1 + c * (y1 - y0) * 0.5;
+      d += ` C ${cx1.toFixed(2)} ${cy1.toFixed(2)}, ${cx2.toFixed(2)} ${cy2.toFixed(2)}, ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+    }
+  }
+  return d;
+}
+
+function renderLane(container, points, totalBeats) {
+  const w = container.clientWidth || 1200;
+  const h = 90;
+  const xPerBeat = w / totalBeats;
+  const path = pointsToSvgPath(points, w, h, totalBeats);
+
+  // Grid: bar lines every 4 beats
+  let grid = '';
+  for (let b = 0; b <= totalBeats; b += 4) {
+    const x = b * xPerBeat;
+    const isBar = b % 4 === 0;
+    grid += `<line x1="${x}" y1="0" x2="${x}" y2="${h}" stroke="${isBar ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)'}" stroke-width="${b===0 || b===totalBeats ? 0 : 1}"/>`;
+  }
+  // Center line
+  grid += `<line x1="0" y1="${h/2}" x2="${w}" y2="${h/2}" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>`;
+
+  // Point dots
+  let dots = '';
+  for (const p of points) {
+    const x = (p.time / totalBeats) * w;
+    const y = h - Math.max(0, Math.min(1, p.value)) * h;
+    dots += `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="1.8" fill="#d946ef"/>`;
+  }
+
+  container.innerHTML = `
+    <svg class="lane-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+      ${grid}
+      <path d="${path}" stroke="#d946ef" stroke-width="1.6" fill="none" stroke-linejoin="round"/>
+      ${dots}
+    </svg>
+  `;
+}
+
+// ─── Utility: simple seeded random for reroll determinism ────────
+function makeRng(seed) {
+  let a = (seed >>> 0) || 1;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const TOTAL_BEATS = 32; // 8 bars
+
+// ─── Variant 0: BASELINE — current Neuro (hard, robotic) ─────────
+function genBaseline(rnd) {
+  const out = [];
+  const pool = ['ramp','hold','sawDrop','chop','build','stutter','gate','syncDrop'];
+  let t = 0;
+  while (t < TOTAL_BEATS - 0.001) {
+    let chunk = [0.5, 1, 1.5, 2, 4][Math.floor(rnd() * 5)];
+    if (t + chunk > TOTAL_BEATS) chunk = TOTAL_BEATS - t;
+    const shape = pool[Math.floor(rnd() * pool.length)];
+    injectShape(out, shape, t, chunk, rnd, 0); // curve=0 → linear
+    t = Math.round((t + chunk) * 10000) / 10000;
+  }
+  return out;
+}
+
+function injectShape(out, shape, cB, chunk, rnd, curveVal) {
+  const c = curveVal || 0;
+  const add = (t, v, cv) => out.push({ time: t, value: Math.max(0, Math.min(1, v)), curve: (cv === undefined ? 0 : cv) });
+  if (shape === 'ramp') {
+    const pk = 0.4 + rnd() * 0.6;
+    add(cB, 0);
+    add(cB + chunk * 0.75, pk, c);
+    add(cB + chunk * 0.75 + 0.01, 0);
+    add(cB + chunk, 0);
+  } else if (shape === 'hold') {
+    const mv = 0.15 + rnd() * 0.35, pk = 0.7 + rnd() * 0.3;
+    add(cB, 0);
+    add(cB + 0.01, pk);
+    add(cB + chunk * 0.25, pk, c);
+    add(cB + chunk * 0.25 + 0.01, mv);
+    add(cB + chunk * 0.75, mv, c);
+    add(cB + chunk * 0.75 + 0.01, pk);
+    add(cB + chunk - 0.01, pk);
+    add(cB + chunk, 0);
+  } else if (shape === 'sawDrop') {
+    const pk = 0.5 + rnd() * 0.5, og = [0.216, 0.414, 0.618, 0.88][Math.floor(rnd() * 4)];
+    add(cB, 0);
+    add(cB + 0.01, pk);
+    add(cB + chunk * og, 0, c);
+    add(cB + chunk, 0);
+  } else if (shape === 'chop') {
+    const sub = chunk / 4;
+    for (let i = 0; i < 4; i++) {
+      const val = rnd() > 0.5 ? (rnd() > 0.5 ? 1 : 0.3 + rnd() * 0.5) : 0;
+      if (val > 0) {
+        const t = cB + i * sub;
+        add(t, 0); add(t + 0.01, val); add(t + sub * 0.85, 0, c);
+      }
+    }
+    add(cB + chunk, 0);
+  } else if (shape === 'build') {
+    add(cB, 0);
+    add(cB + chunk * 0.5, 0.2, c);
+    add(cB + chunk * 0.8, 0.5, c);
+    add(cB + chunk - 0.01, 1, c);
+    add(cB + chunk, 0);
+  } else if (shape === 'stutter') {
+    const ss = rnd() > 0.5 ? 0.125 : 0.0625;
+    const steps = Math.floor(chunk / ss);
+    for (let i = 0; i < steps; i++) {
+      if (i % 2 === 0) {
+        const t = cB + i * ss;
+        add(t, 0); add(t + 0.001, 0.6 + rnd() * 0.4); add(t + ss * 0.9, 0);
+      }
+    }
+    add(cB + chunk, 0);
+  } else if (shape === 'gate') {
+    const step = [0.125, 0.25, 0.5][Math.floor(rnd() * 3)];
+    const steps = Math.floor(chunk / step);
+    const sv = 0.7 + rnd() * 0.3, ev = rnd() * 0.3;
+    const up = rnd() > 0.5;
+    for (let i = 0; i < steps; i++) {
+      const t = cB + i * step, pr = i / Math.max(1, steps - 1);
+      const cp = up ? ev + (sv - ev) * pr : sv + (ev - sv) * pr;
+      add(t, 0); add(t + 0.001, cp); add(t + step * 0.85, 0);
+    }
+    add(cB + chunk, 0);
+  } else if (shape === 'syncDrop') {
+    const step = 0.25, steps = Math.floor(chunk / step);
+    for (let i = 0; i < steps; i++) {
+      if (rnd() > 0.3) {
+        const t = cB + i * step, pk = 0.3 + rnd() * 0.7;
+        add(t, 0); add(t + 0.001, pk); add(t + step * 0.8, pk * 0.8, c); add(t + step * 0.81, 0);
+      }
+    }
+    add(cB + chunk, 0);
+  }
+}
+
+// ─── V1: SMOOTH NEURO — same shapes, bezier curves between points ──
+function genSmoothNeuro(rnd) {
+  const out = [];
+  const pool = ['ramp','hold','sawDrop','chop','build','stutter','gate','syncDrop'];
+  let t = 0;
+  while (t < TOTAL_BEATS - 0.001) {
+    let chunk = [0.5, 1, 1.5, 2, 4][Math.floor(rnd() * 5)];
+    if (t + chunk > TOTAL_BEATS) chunk = TOTAL_BEATS - t;
+    const shape = pool[Math.floor(rnd() * pool.length)];
+    // Random curve value per chunk — gives bezier ease instead of linear
+    const curveVal = (rnd() * 1.4) - 0.7; // -0.7..0.7
+    injectShape(out, shape, t, chunk, rnd, curveVal);
+    t = Math.round((t + chunk) * 10000) / 10000;
+  }
+  return out;
+}
+
+// ─── V2: CHAOS BUILD — chained contrasting segments + inversions ───
+// Each 1-bar segment picks a totally different pattern from a pool of 9
+// types — dense 1/16 chops, INVERTED chops (peaks become valleys against
+// a high baseline), triplet flurries, sudden gaps, 1/32 glitch storms,
+// echo decays, reverse-ramps (loud→quiet→loud), off-grid irregular hits,
+// octave slams. Final bar = climactic release. The result feels like a
+// DJ smashing 8 different patterns together.
+function genChaosBuild(rnd) {
+  const out = [];
+  const segmentTypes = [
+    'denseChop', 'invertedChop', 'tripletFlurry', 'suddenGap',
+    'glitchStorm', 'dropEcho', 'reverseRamp', 'offGridStutter', 'octaveSlam',
+  ];
+  // Pick 7 random segments for bars 0-6 — try to avoid immediate repeats
+  let lastType = null;
+  const chosen = [];
+  for (let i = 0; i < 7; i++) {
+    let candidate;
+    do {
+      candidate = segmentTypes[Math.floor(rnd() * segmentTypes.length)];
+    } while (candidate === lastType);
+    chosen.push(candidate);
+    lastType = candidate;
+  }
+  for (let bar = 0; bar < 7; bar++) {
+    emitChaosSegment(out, chosen[bar], bar * 4, 4, rnd);
+  }
+  // Bar 7 (final) — release with ringing echo decay
+  const rs = 28;
+  out.push({ time: rs, value: 0.05, curve: 0 });
+  out.push({ time: rs + 0.04, value: 1.0, curve: 0 });
+  out.push({ time: rs + 0.6, value: 0.35, curve: -0.55 });
+  out.push({ time: rs + 1.4, value: 0.75, curve: 0.45 });
+  out.push({ time: rs + 2.2, value: 0.2, curve: -0.5 });
+  out.push({ time: rs + 3.0, value: 0.45, curve: 0.35 });
+  out.push({ time: TOTAL_BEATS, value: 0, curve: -0.7 });
+  out.sort((a, b) => a.time - b.time);
+  return out;
+}
+
+function emitChaosSegment(out, type, start, len, rnd) {
+  if (type === 'denseChop') {
+    // 1/16 hits with 75% probability, peaks up
+    for (let i = 0; i < 16; i++) {
+      if (rnd() > 0.25) {
+        const t = start + i * 0.25;
+        const v = 0.65 + rnd() * 0.35;
+        out.push({ time: t, value: 0.08, curve: 0 });
+        out.push({ time: t + 0.005, value: v, curve: 0 });
+        out.push({ time: t + 0.17, value: 0.08, curve: -0.4 });
+      }
+    }
+  } else if (type === 'invertedChop') {
+    // INVERSION: high baseline, chops DOWN into valleys
+    out.push({ time: start, value: 0.88, curve: 0 });
+    for (let i = 0; i < 16; i++) {
+      if (rnd() > 0.4) {
+        const t = start + i * 0.25;
+        out.push({ time: t, value: 0.88, curve: 0 });
+        out.push({ time: t + 0.005, value: 0.08, curve: 0 });
+        out.push({ time: t + 0.17, value: 0.88, curve: 0.4 });
+      }
+    }
+    out.push({ time: start + len - 0.01, value: 0.88, curve: 0.2 });
+  } else if (type === 'tripletFlurry') {
+    // 12 triplet hits per bar (4/12 = 0.333 spacing)
+    for (let i = 0; i < 12; i++) {
+      const t = start + i * (4/12);
+      const v = 0.5 + rnd() * 0.5;
+      out.push({ time: t, value: 0.1, curve: 0 });
+      out.push({ time: t + 0.005, value: v, curve: 0 });
+      out.push({ time: t + (4/12) * 0.7, value: 0.1, curve: -0.3 });
+    }
+  } else if (type === 'suddenGap') {
+    // Quick burst, then 2.5 beats of silence, then huge slam
+    out.push({ time: start, value: 0, curve: 0 });
+    out.push({ time: start + 0.04, value: 0.95, curve: 0 });
+    out.push({ time: start + 0.4, value: 0, curve: -0.4 });
+    out.push({ time: start + 0.8, value: 0.8, curve: 0 });
+    out.push({ time: start + 1.1, value: 0, curve: -0.4 });
+    // Gap
+    out.push({ time: start + 3.5, value: 0, curve: 0 });
+    out.push({ time: start + 3.55, value: 1.0, curve: 0 });
+    out.push({ time: start + 3.95, value: 0.2, curve: -0.5 });
+  } else if (type === 'glitchStorm') {
+    // 1/32 ULTRAFAST hits, 65% probability
+    for (let i = 0; i < 32; i++) {
+      if (rnd() > 0.35) {
+        const t = start + i * 0.125;
+        const v = rnd() > 0.3 ? (0.55 + rnd() * 0.45) : 0.25;
+        out.push({ time: t, value: 0.04, curve: 0 });
+        out.push({ time: t + 0.002, value: v, curve: 0 });
+        out.push({ time: t + 0.07, value: 0.04, curve: -0.3 });
+      }
+    }
+  } else if (type === 'dropEcho') {
+    // One huge slam at start, then ringing bezier-shaped echoes decaying
+    out.push({ time: start, value: 0, curve: 0 });
+    out.push({ time: start + 0.04, value: 1.0, curve: 0 });
+    out.push({ time: start + 0.4, value: 0.35, curve: -0.55 });
+    out.push({ time: start + 0.9, value: 0.75, curve: 0.45 });
+    out.push({ time: start + 1.4, value: 0.18, curve: -0.5 });
+    out.push({ time: start + 1.9, value: 0.5, curve: 0.4 });
+    out.push({ time: start + 2.4, value: 0.1, curve: -0.5 });
+    out.push({ time: start + 2.9, value: 0.3, curve: 0.4 });
+    out.push({ time: start + 3.4, value: 0.05, curve: -0.5 });
+    out.push({ time: start + len - 0.01, value: 0.02, curve: -0.4 });
+  } else if (type === 'reverseRamp') {
+    // Peaks decrease then increase (V-shaped envelope)
+    const peaks = [0.95, 0.75, 0.5, 0.2, 0.45, 0.7, 0.95];
+    const step = len / peaks.length;
+    for (let i = 0; i < peaks.length; i++) {
+      const t = start + i * step;
+      out.push({ time: t, value: 0.08, curve: 0 });
+      out.push({ time: t + 0.005, value: peaks[i], curve: 0 });
+      out.push({ time: t + step * 0.7, value: 0.08, curve: -0.4 });
+    }
+  } else if (type === 'offGridStutter') {
+    // Random off-grid positions, 8-12 hits per bar
+    const positions = [];
+    const numHits = 8 + Math.floor(rnd() * 5);
+    for (let i = 0; i < numHits; i++) positions.push(rnd() * (len - 0.2));
+    positions.sort((a, b) => a - b);
+    let lastT = -1;
+    for (const p of positions) {
+      const t = start + p;
+      if (t - lastT < 0.12) continue; // skip too-close
+      const v = 0.5 + rnd() * 0.5;
+      out.push({ time: t, value: 0.05, curve: 0 });
+      out.push({ time: t + 0.005, value: v, curve: 0 });
+      out.push({ time: t + 0.1, value: 0.05, curve: -0.4 });
+      lastT = t;
+    }
+  } else if (type === 'octaveSlam') {
+    // INVERSION: hard alternation 1 ↔ 0 like a square wave
+    for (let i = 0; i < 16; i++) {
+      const t = start + i * 0.25;
+      const v = i % 2 === 0 ? 1.0 : 0.04;
+      out.push({ time: t, value: v, curve: 0 });
+      out.push({ time: t + 0.23, value: v, curve: 0 });
+    }
+  }
+}
+
+// ─── V3: POLYRHYTHM LOCK — 3-against-4 with bar-line anchors ───────
+// Two interleaved layers per bar: 3 high hits + 4 low hits. They never
+// fight because they sit in different value bands. Every bar starts
+// at an anchor low value — pulls structure into the chaos.
+function genPolyrhythm(rnd) {
+  const out = [];
+  const HIGH_BASE = 0.62, LOW_BASE = 0.32, ANCHOR = 0.10;
+  for (let bar = 0; bar < 8; bar++) {
+    const start = bar * 4;
+    out.push({ time: start, value: ANCHOR, curve: 0 });
+    // 3 high hits per bar at 0, 4/3, 8/3
+    const hits = [];
+    for (let i = 0; i < 3; i++) hits.push({ t: i * (4/3), level: 'high' });
+    // 4 low hits per bar, offset by 0.5 to interleave
+    for (let i = 0; i < 4; i++) hits.push({ t: 0.5 + i, level: 'low' });
+    hits.sort((a, b) => a.t - b.t);
+    for (const h of hits) {
+      const t = start + h.t;
+      const target = h.level === 'high'
+        ? HIGH_BASE + rnd() * 0.25
+        : LOW_BASE + rnd() * 0.12;
+      out.push({ time: Math.max(start + 0.001, t - 0.05), value: ANCHOR, curve: 0.4 });
+      out.push({ time: t, value: target, curve: 0 });
+      out.push({ time: t + 0.16, value: ANCHOR + 0.04, curve: -0.5 });
+    }
+    out.push({ time: start + 3.92, value: ANCHOR, curve: 0.25 });
+  }
+  out.push({ time: TOTAL_BEATS, value: ANCHOR, curve: 0 });
+  // Sort + dedupe near-identical timestamps
+  out.sort((a, b) => a.time - b.time);
+  return out;
+}
+
+// ─── V4: CALL & RESPONSE — alternating bars: aggressive / smooth ──
+function genCallResponse(rnd) {
+  const out = [];
+  const pool = ['chop','stutter','syncDrop'];
+  for (let bar = 0; bar < 8; bar++) {
+    const start = bar * 4;
+    if (bar % 2 === 0) {
+      // Aggressive bar: chops + stutters
+      const shape = pool[Math.floor(rnd() * pool.length)];
+      injectShape(out, shape, start, 4, rnd, 0);
+    } else {
+      // Response bar: smooth swell with mid-bar peak
+      const pk = 0.7 + rnd() * 0.3;
+      out.push({ time: start, value: 0.1, curve: 0 });
+      out.push({ time: start + 1.5, value: pk * 0.7, curve: 0.4 });
+      out.push({ time: start + 2.5, value: pk, curve: 0.3 });
+      out.push({ time: start + 3.7, value: pk * 0.3, curve: 0.5 });
+      out.push({ time: start + 4, value: 0.1, curve: 0.2 });
+    }
+  }
+  return out;
+}
+
+// ─── V5: ACID SLIDES — 16th-note grid with bezier slides between hits
+// 303-style bass character: most hits are sharp on-grid pulses, but
+// ~30% of adjacent hits "slide" into each other via long bezier curves
+// instead of falling to silence between. Accent pattern: downbeats are
+// almost always hit, off-beats sometimes skipped. Picks from a 4-tone
+// "scale" (0.25 / 0.45 / 0.65 / 0.85) for note variety.
+function genAcidSlides(rnd) {
+  const out = [];
+  const tones = [0.25, 0.45, 0.65, 0.85];
+  const stepBeats = 0.25;
+  const totalSteps = TOTAL_BEATS / stepBeats;
+  // Pre-decide rhythm + slide flags
+  const events = [];
+  for (let s = 0; s < totalSteps; s++) {
+    const isDownbeat = s % 4 === 0;
+    const hitProb = isDownbeat ? 0.96 : 0.55;
+    if (rnd() < hitProb) {
+      events.push({
+        step: s,
+        tone: tones[Math.floor(rnd() * tones.length)],
+        slidesToNext: false, // set below
+      });
+    }
+  }
+  // Mark slide pairs (only when adjacent steps both active)
+  for (let i = 0; i < events.length - 1; i++) {
+    if (events[i+1].step - events[i].step === 1 && rnd() < 0.35) {
+      events[i].slidesToNext = true;
+    }
+  }
+  // Emit
+  let inSlide = false;
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i];
+    const t = e.step * stepBeats;
+    if (!inSlide) {
+      // Hard rise from zero
+      out.push({ time: Math.max(0, t - 0.001), value: 0, curve: 0 });
+      out.push({ time: t, value: e.tone, curve: 0 });
+    } else {
+      // Continue from previous slide — just mark this tone (the bezier
+      // is the path between the previous tone hold and this one)
+      out.push({ time: t, value: e.tone, curve: 0.7 });
+    }
+    if (e.slidesToNext) {
+      // Hold the current tone until just before next, then bezier-slide
+      const nextT = events[i+1].step * stepBeats;
+      out.push({ time: nextT - 0.001, value: e.tone, curve: 0 });
+      inSlide = true;
+    } else {
+      // Hard decay
+      out.push({ time: t + stepBeats * 0.7, value: e.tone, curve: 0 });
+      out.push({ time: t + stepBeats * 0.88, value: 0, curve: -0.5 });
+      inSlide = false;
+    }
+  }
+  out.push({ time: TOTAL_BEATS, value: 0, curve: 0 });
+  out.sort((a, b) => a.time - b.time);
+  return out;
+}
+
+// ─── V6: ANCHOR & EXCURSION — phrased bars, always return home ─────
+// Every bar starts AND ends at "home" (0.5). Between anchors, picks one
+// of 9 excursion shapes — 6 musical + 3 edgy (glitchSpray, chopGate,
+// asymStab). Pool biased toward the edgier shapes so the average bar
+// has more grit. PLUS: every bar has a 35% chance of mid-bar glitch
+// injection — 1-3 micro-spikes that briefly poke up or drop down over
+// whatever the main excursion is doing, then snap back.
+function genAnchorExcursion(rnd) {
+  const out = [];
+  const HOME = 0.5;
+  // Pool with WEIGHTED bias toward edgy shapes (some listed 2-3x)
+  const pool = [
+    'peakUp', 'valleyDown', 'doublePeak',
+    'stutterBurst', 'stutterBurst',           // ×2
+    'sineSwell',
+    'octaveJump', 'octaveJump',                // ×2
+    'glitchSpray', 'glitchSpray', 'glitchSpray', // ×3 (new, edgy)
+    'asymStab', 'asymStab',                    // ×2 (new)
+    'chopGate', 'chopGate',                    // ×2 (new)
+  ];
+
+  for (let bar = 0; bar < 8; bar++) {
+    const start = bar * 4;
+    out.push({ time: start, value: HOME, curve: 0 });
+    const ex = pool[Math.floor(rnd() * pool.length)];
+
+    if (ex === 'peakUp') {
+      out.push({ time: start + 1, value: 0.93, curve: 0.45 });
+      out.push({ time: start + 2.5, value: 0.7, curve: 0.2 });
+      out.push({ time: start + 3.5, value: HOME, curve: 0.35 });
+    } else if (ex === 'valleyDown') {
+      out.push({ time: start + 1, value: 0.07, curve: -0.45 });
+      out.push({ time: start + 2.5, value: 0.28, curve: -0.2 });
+      out.push({ time: start + 3.5, value: HOME, curve: -0.35 });
+    } else if (ex === 'doublePeak') {
+      out.push({ time: start + 0.5, value: 0.88, curve: 0.5 });
+      out.push({ time: start + 1.5, value: HOME, curve: -0.4 });
+      out.push({ time: start + 2.5, value: 0.95, curve: 0.5 });
+      out.push({ time: start + 3.5, value: HOME, curve: -0.4 });
+    } else if (ex === 'stutterBurst') {
+      for (let i = 0; i < 6; i++) {
+        const t = start + 0.4 + i * 0.45;
+        const v = i % 2 === 0 ? 0.85 + rnd() * 0.1 : 0.18;
+        out.push({ time: t, value: v, curve: 0 });
+      }
+      out.push({ time: start + 3.7, value: HOME, curve: 0.3 });
+    } else if (ex === 'sineSwell') {
+      for (let i = 1; i < 8; i++) {
+        const t = start + i * 0.5;
+        const v = HOME + Math.sin((i / 8) * Math.PI * 2) * 0.38;
+        out.push({ time: t, value: v, curve: 0.55 });
+      }
+    } else if (ex === 'octaveJump') {
+      out.push({ time: start + 0.8, value: 0.04, curve: -0.65 });
+      out.push({ time: start + 1.5, value: 0.98, curve: 0.65 });
+      out.push({ time: start + 2.3, value: 0.04, curve: -0.65 });
+      out.push({ time: start + 3.0, value: 0.94, curve: 0.65 });
+      out.push({ time: start + 3.7, value: HOME, curve: -0.3 });
+    } else if (ex === 'glitchSpray') {
+      // EDGY: 8-14 rapid hits at random positions, sharp spikes back to HOME
+      const numHits = 8 + Math.floor(rnd() * 7);
+      const hitTimes = [];
+      for (let i = 0; i < numHits; i++) hitTimes.push(0.3 + rnd() * 3.2);
+      hitTimes.sort((a, b) => a - b);
+      let lastT = -1;
+      for (const ht of hitTimes) {
+        const t = start + ht;
+        if (t - lastT < 0.1) continue;
+        const v = rnd() > 0.4 ? (0.75 + rnd() * 0.25) : 0.1;
+        out.push({ time: t - 0.015, value: HOME, curve: 0 });
+        out.push({ time: t, value: v, curve: 0 });
+        out.push({ time: t + 0.05, value: HOME, curve: -0.4 });
+        lastT = t + 0.05;
+      }
+    } else if (ex === 'asymStab') {
+      // EDGY: instant rise to peak, slow bezier decay back to HOME
+      out.push({ time: start + 0.6, value: HOME, curve: 0 });
+      out.push({ time: start + 0.62, value: 1.0, curve: 0 });
+      out.push({ time: start + 3.7, value: HOME, curve: -0.75 });
+    } else if (ex === 'chopGate') {
+      // EDGY: hard on-off square wave bursts, no bezier
+      for (let i = 0; i < 8; i++) {
+        const t = start + i * 0.5;
+        const v = i % 2 === 0 ? 0.92 : 0.08;
+        out.push({ time: t, value: v, curve: 0 });
+        out.push({ time: t + 0.47, value: v, curve: 0 });
+      }
+    }
+
+    // ─── MID-BAR GLITCH INJECTION ───
+    // 35% chance to overlay 1-3 micro-glitches anywhere within the bar.
+    // Each glitch = tiny spike/drop that pokes through the excursion
+    // for ~0.05 beats then snaps back. Avoids clobbering existing
+    // points by checking proximity.
+    if (rnd() < 0.35) {
+      const numGlitches = 1 + Math.floor(rnd() * 3);
+      for (let g = 0; g < numGlitches; g++) {
+        const gt = start + 0.4 + rnd() * 3.2;
+        // Direction: up or down spike, magnitude varies
+        const goingUp = rnd() > 0.5;
+        const gv = goingUp ? (0.92 + rnd() * 0.08) : (0.02 + rnd() * 0.1);
+        // Brief poke
+        out.push({ time: gt - 0.015, value: HOME, curve: 0 });
+        out.push({ time: gt, value: gv, curve: 0 });
+        out.push({ time: gt + 0.03, value: HOME, curve: 0 });
+      }
+    }
+
+    // Anchor at next bar line — keeps phrases clean and loopable
+    const endT = (bar < 7) ? (start + 4) : TOTAL_BEATS;
+    out.push({ time: endT, value: HOME, curve: 0.25 });
+  }
+  out.sort((a, b) => a.time - b.time);
+  return out;
+}
+
+// ─── Variant catalog ────────────────────────────────────────────
+const VARIANTS = [
+  {
+    name: 'Current Neuro',
+    isBaseline: true,
+    desc: 'What Neuro produces today. 8 hard shapes random-stamped, linear interpolation between points. Energetic but robotic — every segment is straight lines, no breathing.',
+    impl: 'Reference. No change.',
+    gen: genBaseline,
+  },
+  {
+    name: 'V1 — Smooth Neuro',
+    desc: 'Same chops, ramps, stutters — but every segment between points gets a random bezier curve value (–0.7 to +0.7). Same gnarly content with S-shaped transitions instead of hard linear. The fastest "more alive" feel.',
+    impl: 'Add a per-chunk <b>curveVal</b> to sdInjectShape and pass it on the value field of points. ~10 min.',
+    gen: genSmoothNeuro,
+  },
+  {
+    name: 'V2 — Chaos Build',
+    desc: 'Chained contrasting segments — each bar slams a totally different pattern: dense 1/16 chops, <b>INVERTED</b> chops (peaks become valleys against a high baseline), triplet flurries, sudden gaps, 1/32 glitch storms, ringing echo decays, V-shaped reverse ramps (loud→quiet→loud), off-grid irregular hits, square-wave octave slams. Bar 8 = climactic release with bezier-shaped ringing tail. Like a DJ smashing 8 patterns together over the build.',
+    impl: '9-segment dispatcher: each bar picks a different segment type from a pool with anti-repeat guard. Each segment has its own emitter. ~60 min.',
+    gen: genChaosBuild,
+  },
+  {
+    name: 'V3 — Polyrhythm Lock',
+    desc: '3-against-4 cross-rhythm: 3 "high" hits (~0.65-0.85) interleave with 4 "low" hits (~0.32-0.45) inside every bar, then everyone re-anchors at the bar line. Creates a rolling/lopsided motion that always re-grounds to the grid. Use case: tribal house, broken techno, polyrhythmic flavor without losing the beat.',
+    impl: 'New orchestrator: 7 hits per bar at pre-computed positions, two value bands, anchor return at bar end. ~25 min.',
+    gen: genPolyrhythm,
+  },
+  {
+    name: 'V4 — Call & Response',
+    desc: 'Bars alternate: aggressive (chops/stutters/drops) → smooth response (slow bell-curve swell). Creates dialogue between energy + recovery. Stays gnarly but never relentless.',
+    impl: 'Orchestration: track bar index inside sdApplyGlobalNeuro; even bars get the existing pool, odd bars get a new smooth-swell primitive. ~40 min.',
+    gen: genCallResponse,
+  },
+  {
+    name: 'V5 — Acid Slides',
+    desc: '16th-note hits on a 4-tone scale (0.25 / 0.45 / 0.65 / 0.85), with ~35% of adjacent hits sliding into each other via long bezier curves instead of falling to silence. Downbeats almost always hit, off-beats vary. The 303 character without copying the 303 — versatile for bass lanes, filter cutoff, anything monophonic.',
+    impl: 'New shape primitive + slide-state machine: walk 16th positions, decide hit/skip, mark slide pairs, emit pulses with bezier connections between sliding pairs. ~35 min.',
+    gen: genAcidSlides,
+  },
+  {
+    name: 'V6 — Anchor & Excursion ⭐ (edgier)',
+    desc: 'Every bar still starts AND ends at home (0.5) — but the excursion pool now has <b>9 shapes</b> with 3 new edgy additions: <b>glitchSpray</b> (8-14 rapid random spikes), <b>asymStab</b> (instant slam + slow bezier tail), <b>chopGate</b> (hard square-wave on/off). Pool is weighted toward edgier shapes. PLUS: every bar has a 35% chance of <b>mid-bar glitch injection</b> — 1-3 micro-spikes that briefly poke up or drop down over the main excursion, then snap back. Phrasing stays musical, but each bar can suddenly bite.',
+    impl: 'Bar-level dispatcher (existing) + 3 new excursion types + per-bar glitch-injection step. ~70 min total. Each excursion + glitch logic is isolated, easy to tune.',
+    gen: genAnchorExcursion,
+  },
+];
+
+// ─── Render ──────────────────────────────────────────────────────
+const root = document.getElementById('variants-root');
+VARIANTS.forEach((v, i) => {
+  const el = document.createElement('div');
+  el.className = 'variant';
+  el.innerHTML = `
+    <div class="variant-header">
+      <div class="variant-name${v.isBaseline ? ' baseline' : ''}">${v.name}</div>
+      <div class="variant-desc">${v.desc}</div>
+      <button class="reroll-btn" data-i="${i}">Reroll</button>
+    </div>
+    <div id="lane-${i}" class="lane-host"></div>
+    <div class="impl-notes"><b>Implementation:</b> ${v.impl}</div>
+  `;
+  root.appendChild(el);
+});
+
+// Initial render with deterministic seeds per row
+let seedCounter = { val: 1001 };
+function renderRow(i) {
+  const v = VARIANTS[i];
+  const rnd = makeRng(seedCounter.val + i * 137);
+  const points = v.gen(rnd);
+  const laneHost = document.getElementById(`lane-${i}`);
+  renderLane(laneHost, points, TOTAL_BEATS);
+}
+VARIANTS.forEach((_, i) => renderRow(i));
+
+// Reroll wiring
+document.addEventListener('click', (e) => {
+  if (e.target.matches('.reroll-btn')) {
+    const i = +e.target.dataset.i;
+    seedCounter.val = Math.floor(Math.random() * 1000000);
+    renderRow(i);
+  }
+});
+
+// Re-render on resize so the SVG width tracks the panel width
+let resizeT;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeT);
+  resizeT = setTimeout(() => VARIANTS.forEach((_, i) => renderRow(i)), 150);
+});
+</script>
+
+</body>
+</html>
