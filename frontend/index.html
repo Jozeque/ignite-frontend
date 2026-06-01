@@ -47,6 +47,27 @@
     'https://connect.facebook.net/en_US/fbevents.js');
     fbq('init', '952457524222772');
     fbq('track', 'PageView');
+
+    // Capture fbclid from the URL on landing → format into Meta's _fbc
+    // shape (`fb.{subdomain_index}.{ts}.{fbclid}`) and persist for 90 days
+    // so it rides along to LS checkout even if the buyer navigates around
+    // first. Without _fbc, server-side CAPI Purchase events can't be
+    // matched to ad clicks → campaign optimizer flies blind on those
+    // conversions. See docs/meta-pixel-integration-spec.md (attribution
+    // wiring). Pixel sets _fbp itself on first PageView for free.
+    (function captureFbclid() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const fbclid = params.get('fbclid');
+            if (!fbclid) return;
+            const fbc = 'fb.1.' + Date.now() + '.' + fbclid;
+            const maxAge = 90 * 24 * 60 * 60;
+            document.cookie = '_fbc=' + encodeURIComponent(fbc) +
+                '; max-age=' + maxAge +
+                '; path=/; SameSite=Lax; Secure';
+            try { sessionStorage.setItem('stride_fbc', fbc); } catch (e) {}
+        } catch (e) {}
+    })();
     </script>
     <noscript><img height="1" width="1" style="display:none"
     src="https://www.facebook.com/tr?id=952457524222772&ev=PageView&noscript=1"
@@ -1013,16 +1034,37 @@
             try { sessionStorage.setItem('stride_pixel_event_id', eventId); } catch (e) {}
 
             // Redirect to Lemon Squeezy checkout with email pre-filled and
-            // event_id passed through as custom checkout data. Per LS docs
-            // (Passing Custom Data), checkout[custom][<key>]=<value> surfaces
-            // on both the redirect URL (when link variables are used) and
-            // the webhook payload at meta.custom_data.<key>.
+            // event_id + Meta attribution data passed through as custom
+            // checkout fields. Per LS docs (Passing Custom Data),
+            // checkout[custom][<key>]=<value> surfaces on both the redirect
+            // URL (when link variables are used) and the webhook payload
+            // at meta.custom_data.<key>. The fbc / fbp / ua values let the
+            // server-side CAPI handler match this Purchase event back to
+            // the originating ad click — critical for Meta's campaign
+            // optimizer to learn from conversions.
+            const fbcFromCookie = (function () {
+                const m = document.cookie.match(/(?:^|; )_fbc=([^;]*)/);
+                return m ? decodeURIComponent(m[1]) : '';
+            })();
+            const fbc = fbcFromCookie || (function () {
+                try { return sessionStorage.getItem('stride_fbc') || ''; } catch (e) { return ''; }
+            })();
+            const fbp = (function () {
+                const m = document.cookie.match(/(?:^|; )_fbp=([^;]*)/);
+                return m ? decodeURIComponent(m[1]) : '';
+            })();
+            const ua = (navigator.userAgent || '').slice(0, 512); // cap length
+
             if (LS_CHECKOUT_URL) {
                 const sep = LS_CHECKOUT_URL.includes('?') ? '&' : '?';
-                window.location.href = LS_CHECKOUT_URL + sep
+                let url = LS_CHECKOUT_URL + sep
                     + 'checkout[email]=' + encodeURIComponent(email)
                     + '&checkout[name]=' + encodeURIComponent(name)
                     + '&checkout[custom][event_id]=' + encodeURIComponent(eventId);
+                if (fbc) url += '&checkout[custom][fbc]=' + encodeURIComponent(fbc);
+                if (fbp) url += '&checkout[custom][fbp]=' + encodeURIComponent(fbp);
+                if (ua)  url += '&checkout[custom][ua]='  + encodeURIComponent(ua);
+                window.location.href = url;
             } else {
                 // Fallback: LS URL not configured yet — show thank-you for now
                 toggleBuyModal();

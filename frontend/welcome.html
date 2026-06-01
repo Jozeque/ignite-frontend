@@ -56,15 +56,19 @@
                     : 'evt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
             }
 
-            // Value: default 39 USD. LS link variables don't include
-            // order_total, so the client side fires a fixed value. Phase 3
-            // server-side CAPI carries the REAL order_total from the webhook
-            // — Meta dedupes via event_id and treats the server value as
+            // Value: default 59 USD (current flat list price; founding-member
+            // $39 era ended 2026-05-24). LS link variables don't include
+            // order_total, so the client side fires a fixed value. Server-
+            // side CAPI carries the REAL order_total from the webhook —
+            // Meta dedupes via event_id and treats the server value as
             // authoritative when both events arrive. Meta penalizes
             // zero-value Purchase events for optimization, so we never
-            // fire 0; the worst case is "right ballpark" until Phase 3.
+            // fire 0; this hardcoded value is the optimistic floor that
+            // gets corrected by CAPI seconds later. Bump this if base price
+            // changes again. With REKZ-style coupons in flight, expect
+            // CAPI to often correct DOWN ($59 → ~$50 after 15% off).
             const purchaseData = {
-                value: 39,
+                value: 59,
                 currency: 'USD',
                 content_name: 'Stride Sound Design Engine',
                 content_type: 'product',
