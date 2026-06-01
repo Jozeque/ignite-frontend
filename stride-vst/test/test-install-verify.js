@@ -67,9 +67,16 @@ console.log('\ninstall-verify.js — verify-patch tests\n');
 
 test('INSTALL_REQUIRED_FILES is non-empty and contains expected entries', () => {
     assert(Array.isArray(INSTALL_REQUIRED_FILES), 'should be array');
-    assert(INSTALL_REQUIRED_FILES.length >= 3, 'should have at least 3 required files');
+    assert(INSTALL_REQUIRED_FILES.length >= 4, 'should have at least 4 required files');
     assert(INSTALL_REQUIRED_FILES.includes('StrideLink.amxd'), 'StrideLink.amxd is required');
     assert(INSTALL_REQUIRED_FILES.includes('server.js'), 'server.js is required');
+    // inject-writer.js — required by server.js at module load. Without it,
+    // node.script crashes silently. Lock the requirement in writing so this
+    // can't regress (it has regressed once already during v1.2.0 work).
+    assert(
+        INSTALL_REQUIRED_FILES.includes('inject-writer.js'),
+        'inject-writer.js MUST be in INSTALL_REQUIRED_FILES — server.js requires it at module load'
+    );
     // The node_modules/ws/package.json check is the strong-evidence one —
     // confirms node_modules tree was actually copied, not just an empty husk.
     assert(
@@ -156,11 +163,14 @@ test('EMPTY node_modules/ws/ directory still flagged as missing (the false-pass 
         // Populate the OTHER required files normally.
         fs.writeFileSync(path.join(tmp, 'StrideLink.amxd'), 'fixture');
         fs.writeFileSync(path.join(tmp, 'server.js'), 'fixture');
+        fs.writeFileSync(path.join(tmp, 'inject-writer.js'), 'fixture');
         // Create node_modules/ws/ as an EMPTY directory (no package.json).
         fs.mkdirSync(path.join(tmp, 'node_modules', 'ws'), { recursive: true });
-        // The check should catch this — folder exists but is a husk.
+        // The check should catch this — folder exists but is a husk. Only
+        // the ws/package.json entry should be flagged; everything else is
+        // present in the fixture.
         const missing = checkInstallFiles(tmp);
-        assertEq(missing.length, 1, 'empty ws/ folder should be flagged');
+        assertEq(missing.length, 1, 'only ws/package.json should be flagged when everything else is present');
         assert(missing[0].endsWith('package.json'), 'the missing entry is the package.json file');
     } finally {
         fs.rmSync(tmp, { recursive: true, force: true });

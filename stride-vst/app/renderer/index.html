@@ -91,6 +91,30 @@
 </head>
 <body class="h-screen flex flex-col">
 
+    <!-- ===================== STALE-INSTALL BANNER =====================
+         Non-dismissible top banner that appears when Stride detects that
+         the StrideLink install in the User Library is on an OLDER version
+         than the running Stride.exe. Without this prompt, users would
+         update Stride.exe but skip the "Install to Ableton" step → Max
+         loads stale m4l code → silent failures inside Live → support
+         tickets. Banner is dismissible only by clicking the action
+         button + a successful install. -->
+    <div id="stride-stale-banner" class="hidden fixed top-0 left-0 right-0 z-[9998] bg-gradient-to-r from-orange-600 to-fuchsia-600 text-white px-4 py-3 flex items-center gap-4 shadow-2xl" style="font-family:'Outfit',sans-serif">
+        <div class="shrink-0 w-7 h-7 rounded-full bg-white/15 flex items-center justify-center">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
+            </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+            <div id="stride-stale-banner-title" class="text-xs font-black uppercase tracking-[0.15em]">Ableton install is out of date</div>
+            <div id="stride-stale-banner-msg" class="text-[11px] opacity-90 mt-0.5 truncate">Stride 1.2.0 is running but your Ableton install is on an older version. Update it so new features work in Live.</div>
+        </div>
+        <button id="stride-stale-banner-btn" class="shrink-0 bg-white text-orange-700 hover:bg-orange-50 hover:text-orange-800 px-4 py-1.5 rounded-md text-[11px] font-black uppercase tracking-[0.1em] transition-colors shadow-sm">
+            Update Ableton install
+        </button>
+        <span id="stride-stale-banner-status" class="hidden shrink-0 text-[10px] font-bold uppercase tracking-widest opacity-80"></span>
+    </div>
+
     <!-- ===================== ACTIVATION GATE ===================== -->
     <div id="activation-overlay" class="fixed inset-0 z-[9999] bg-[#09090b] flex items-center justify-center">
         <div class="w-full max-w-sm px-6 text-center">
@@ -1083,7 +1107,98 @@
             if (e.key === 'Enter') activateLicense();
         });
         checkLicense();
+        // Fire the stale-install check on every launch. If the user updated
+        // Stride.exe but didn't re-run "Install to Ableton", their User
+        // Library install will be from an older build → silent failures
+        // inside Live. Non-dismissible banner forces them to update before
+        // their next session goes sideways. See ipcMain handler
+        // 'check-stride-link-stale' in main.js for the contract.
+        checkAndShowStaleBanner();
     });
+
+    async function checkAndShowStaleBanner() {
+        try {
+            if (!window.stride || typeof window.stride.checkStrideLinkStale !== 'function') return;
+            const res = await window.stride.checkStrideLinkStale();
+            if (!res || !res.stale) return;
+            // Build the banner message based on WHY it's stale.
+            const banner = document.getElementById('stride-stale-banner');
+            const msgEl = document.getElementById('stride-stale-banner-msg');
+            const btn = document.getElementById('stride-stale-banner-btn');
+            const status = document.getElementById('stride-stale-banner-status');
+            if (!banner || !msgEl || !btn) return;
+            if (res.reason === 'version-mismatch') {
+                msgEl.textContent =
+                    'Stride ' + (res.currentVersion || '') +
+                    ' is running, but your Ableton install is on ' +
+                    (res.installedVersion || 'an older version') +
+                    '. Click to update — new features won\'t work in Live until you do.';
+            } else if (res.reason === 'no-marker') {
+                msgEl.textContent =
+                    'Stride is installed in Ableton but its version is unknown. ' +
+                    'Click to refresh — keeps your m4l side in sync with the app.';
+            } else {
+                msgEl.textContent = 'Your Ableton install of Stride is out of date. Click to update.';
+            }
+            banner.classList.remove('hidden');
+            btn.addEventListener('click', async () => {
+                if (btn.disabled) return;
+                btn.disabled = true;
+                btn.style.opacity = '0.6';
+                if (status) {
+                    status.textContent = 'Updating…';
+                    status.classList.remove('hidden');
+                }
+                try {
+                    const result = await window.stride.installStrideLinkToAbleton(null);
+                    if (result && result.success) {
+                        // Hide banner. Surface success via the existing apply
+                        // toast (relabeled) so the user gets the critical
+                        // "reload StrideLink in Ableton" reminder.
+                        banner.classList.add('hidden');
+                        showStrideLinkReloadToast();
+                    } else {
+                        // Surface error inline so user can act on it.
+                        msgEl.textContent = (result && result.message)
+                            ? result.message
+                            : 'Update failed. Try closing the Live project first, then click again.';
+                        if (status) status.classList.add('hidden');
+                        btn.disabled = false;
+                        btn.style.opacity = '1';
+                    }
+                } catch (e) {
+                    msgEl.textContent = 'Update failed unexpectedly. Try again or restart Stride.';
+                    if (status) status.classList.add('hidden');
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
+                }
+            });
+        } catch (e) {
+            // Never let banner-init break the app boot.
+            console.warn('[Stride] Stale-install check failed:', e && e.message ? e.message : e);
+        }
+    }
+
+    // Toast shown after a successful "Install to Ableton" — tells the user
+    // the critical next step: Max's node.script process is still on the OLD
+    // code until they reload StrideLink in Live (close+reopen the project
+    // OR drag the device off and back on). Without this reminder users
+    // think the update is done when in fact it lands on Max's next reload.
+    function showStrideLinkReloadToast() {
+        // Reuse the existing apply toast container if available, otherwise
+        // log to console. Keeps surface minimal.
+        const toast = document.getElementById('sd-apply-toast');
+        const msg = document.getElementById('sd-apply-toast-msg');
+        const title = toast && toast.querySelector('.text-emerald-400');
+        if (toast && msg) {
+            if (title) title.textContent = 'Update installed';
+            msg.textContent = 'Now reload StrideLink in Ableton: close + reopen the Live project, OR drag StrideLink off the track and back on.';
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 9000);
+        } else {
+            console.log('[Stride] Update installed — reload StrideLink in Ableton to pick up new m4l code.');
+        }
+    }
     </script>
 
     <!-- Apply-to-Clip success toast — bottom right, auto-fades after 3s.

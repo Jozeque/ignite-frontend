@@ -91,6 +91,11 @@ contextBridge.exposeInMainWorld('stride', {
     // StrideLink M4L installer
     checkStrideLinkInstalled: () =>
         ipcRenderer.invoke('check-stride-link-installed'),
+    // Returns { stale, reason, installedVersion?, currentVersion?, targetDir? }
+    // Renderer should call this on launch + show a non-dismissible banner if
+    // stale === true. See ipcMain handler in main.js for the contract.
+    checkStrideLinkStale: () =>
+        ipcRenderer.invoke('check-stride-link-stale'),
     installStrideLinkToAbleton: (destDir) =>
         ipcRenderer.invoke('install-stride-link-to-ableton', { destDir }),
     pickUserLibraryFolder: () =>

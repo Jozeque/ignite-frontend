@@ -26,6 +26,12 @@ const path = require('path');
 //
 // StrideLink.amxd  — the Max device itself (definitive proof of payload)
 // server.js        — the Node WebSocket server (proves core script copied)
+// inject-writer.js — required by server.js at module load (added v1.2.0
+//   for the direct-inject path). If this file is missing, node.script
+//   crashes silently on load and clicking the M4L launch button surfaces
+//   "Node script not ready" — the exact failure mode we hit during v1.2.0
+//   pre-launch. Defensive add so a partial bundle can't fake a successful
+//   install.
 // node_modules/ws/package.json — proves the dependency tree was copied and
 //   isn't just an empty husk. Checking the inner package.json (not just the
 //   ws/ folder) defeats the false-positive where an empty dir would pass
@@ -36,6 +42,7 @@ const path = require('path');
 const INSTALL_REQUIRED_FILES = [
     'StrideLink.amxd',
     'server.js',
+    'inject-writer.js',
     path.join('node_modules', 'ws', 'package.json'),
 ];
 

@@ -631,6 +631,51 @@ ipcMain.handle('check-stride-link-installed', async () => {
     return { installed: fs.existsSync(target), libraryFound: true, targetDir: path.join(lib, 'Stride') };
 });
 
+// Report whether the StrideLink install in the User Library is STALE — i.e.
+// installed but the .stride-build-version marker doesn't match the current
+// Stride.exe version. This is the "they upgraded Stride but didn't click
+// Install to Ableton" case. The renderer calls this on launch; if stale,
+// it pins a non-dismissible banner telling the user to update the M4L
+// install (otherwise they'd run new Stride with stale m4l code → silent
+// failures, support tickets, exactly what motivated this whole audit).
+//
+// Returns one of:
+//   { stale: false, reason: 'no-library' }       — no Ableton User Library found
+//   { stale: false, reason: 'not-installed' }    — User Library exists, no Stride yet
+//   { stale: false, reason: 'matches-current' }  — installed AND marker == current version
+//   { stale: true,  reason: 'no-marker',   ... } — pre-versioning install or marker lost
+//   { stale: true,  reason: 'version-mismatch', installedVersion, currentVersion, ... }
+ipcMain.handle('check-stride-link-stale', async () => {
+    const lib = getDefaultUserLibraryPath();
+    if (!lib) return { stale: false, reason: 'no-library' };
+    const target = path.join(lib, 'Stride');
+    const amxd = path.join(target, 'StrideLink.amxd');
+    if (!fs.existsSync(amxd)) {
+        return { stale: false, reason: 'not-installed', targetDir: target };
+    }
+    const currentVersion = app.getVersion();
+    const installedVersion = installVerify.readInstallMarker(target);
+    if (!installedVersion) {
+        return {
+            stale: true,
+            reason: 'no-marker',
+            installedVersion: null,
+            currentVersion,
+            targetDir: target,
+        };
+    }
+    if (installedVersion !== currentVersion) {
+        return {
+            stale: true,
+            reason: 'version-mismatch',
+            installedVersion,
+            currentVersion,
+            targetDir: target,
+        };
+    }
+    return { stale: false, reason: 'matches-current', installedVersion, currentVersion };
+});
+
 // Critical files we expect inside the M4L bundle. Both pre-flight (source)
 // and post-copy (target) verification check for these three — if any are
 // missing on either side, we surface a structured error instead of
@@ -711,22 +756,41 @@ ipcMain.handle('install-stride-link-to-ableton', async (event, { destDir } = {})
 
         // Partial install or fresh target — try to clear and copy fresh.
         // Wrap rmSync because EBUSY/EPERM is the most common Windows
-        // failure mode here (Ableton has files locked). Surface it as a
-        // clean structured error instead of raw fs exception text.
+        // failure mode here (Ableton has files locked through node.exe).
+        // One-shot retry with a 1-second sleep before erroring — covers
+        // the common case where Max keeps the node process alive for a
+        // brief moment after Ableton releases the device.
+        const lockedRe = /EBUSY|EPERM|resource busy|locked/i;
         if (fs.existsSync(target)) {
+            const tryRm = () => fs.rmSync(target, { recursive: true, force: true });
+            let lastErr = null;
             try {
-                fs.rmSync(target, { recursive: true, force: true });
+                tryRm();
             } catch (e) {
-                const lockedRe = /EBUSY|EPERM|resource busy|locked/i;
-                if (e && (lockedRe.test(e.code || '') || lockedRe.test(e.message || ''))) {
+                lastErr = e;
+            }
+            if (lastErr && (lockedRe.test(lastErr.code || '') || lockedRe.test(lastErr.message || ''))) {
+                // Sleep ~1s and retry once. This handles the "Max hasn't
+                // released the file handle yet" race that's common right
+                // after the user closes a Live project.
+                await new Promise(r => setTimeout(r, 1000));
+                try {
+                    tryRm();
+                    lastErr = null;
+                } catch (e2) {
+                    lastErr = e2;
+                }
+            }
+            if (lastErr) {
+                if (lockedRe.test(lastErr.code || '') || lockedRe.test(lastErr.message || '')) {
                     return {
                         success: false,
                         error: 'target_locked',
-                        message: 'Stride is already installed but the files are locked — close Ableton (which has StrideLink loaded) and try again.',
+                        message: 'Stride\'s M4L files are locked — Ableton has them open through Max. Please CLOSE the Live PROJECT (not just minimize Ableton), wait 2 seconds, then click "Update Ableton install" again. If Ableton auto-loads the project back, quit Ableton entirely first.',
                         targetDir: target,
                     };
                 }
-                throw e;
+                throw lastErr;
             }
         }
         copyDirRecursive(primaryDir, target);
