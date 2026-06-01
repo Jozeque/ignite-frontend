@@ -1152,11 +1152,11 @@
                 try {
                     const result = await window.stride.installStrideLinkToAbleton(null);
                     if (result && result.success) {
-                        // Hide banner. Surface success via the existing apply
-                        // toast (relabeled) so the user gets the critical
-                        // "reload StrideLink in Ableton" reminder.
-                        banner.classList.add('hidden');
-                        showStrideLinkReloadToast();
+                        // Repaint the banner in-place as a success state
+                        // (green) with the critical follow-up reminder.
+                        // Avoid mutating the apply toast — keeps that
+                        // toast's labels stable for subsequent applies.
+                        showBannerSuccessState(banner);
                     } else {
                         // Surface error inline so user can act on it.
                         msgEl.textContent = (result && result.message)
@@ -1179,25 +1179,31 @@
         }
     }
 
-    // Toast shown after a successful "Install to Ableton" — tells the user
-    // the critical next step: Max's node.script process is still on the OLD
-    // code until they reload StrideLink in Live (close+reopen the project
+    // Repaint the stale-install banner as a green "success + reload
+    // reminder" state, then auto-hide after 10s. Tells the user the
+    // critical next step: Max's node.script is STILL on the OLD code
+    // until StrideLink is reloaded in Live (close+reopen the project,
     // OR drag the device off and back on). Without this reminder users
-    // think the update is done when in fact it lands on Max's next reload.
-    function showStrideLinkReloadToast() {
-        // Reuse the existing apply toast container if available, otherwise
-        // log to console. Keeps surface minimal.
-        const toast = document.getElementById('sd-apply-toast');
-        const msg = document.getElementById('sd-apply-toast-msg');
-        const title = toast && toast.querySelector('.text-emerald-400');
-        if (toast && msg) {
-            if (title) title.textContent = 'Update installed';
-            msg.textContent = 'Now reload StrideLink in Ableton: close + reopen the Live project, OR drag StrideLink off the track and back on.';
-            toast.classList.remove('hidden');
-            setTimeout(() => toast.classList.add('hidden'), 9000);
-        } else {
-            console.log('[Stride] Update installed — reload StrideLink in Ableton to pick up new m4l code.');
+    // think the upgrade is complete when in fact it lands on Max's next
+    // reload. Reuses the banner element instead of opening a second
+    // toast so we don't have two surfaces competing for attention.
+    function showBannerSuccessState(banner) {
+        if (!banner) return;
+        const title = document.getElementById('stride-stale-banner-title');
+        const msg = document.getElementById('stride-stale-banner-msg');
+        const btn = document.getElementById('stride-stale-banner-btn');
+        const status = document.getElementById('stride-stale-banner-status');
+        // Swap gradient to emerald — visual cue for "done."
+        banner.classList.remove('from-orange-600', 'to-fuchsia-600');
+        banner.classList.add('from-emerald-600', 'to-emerald-700');
+        if (title) title.textContent = 'Update installed';
+        if (msg) {
+            msg.classList.remove('truncate');
+            msg.textContent = 'Now reload StrideLink in Ableton — close + reopen the Live project, OR drag StrideLink off the track and back on. Without this, Live will keep running the old m4l code.';
         }
+        if (btn) btn.classList.add('hidden');
+        if (status) status.classList.add('hidden');
+        setTimeout(() => banner.classList.add('hidden'), 10000);
     }
     </script>
 
