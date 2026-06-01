@@ -91,28 +91,37 @@
 </head>
 <body class="h-screen flex flex-col">
 
-    <!-- ===================== STALE-INSTALL BANNER =====================
-         Non-dismissible top banner that appears when Stride detects that
-         the StrideLink install in the User Library is on an OLDER version
-         than the running Stride.exe. Without this prompt, users would
-         update Stride.exe but skip the "Install to Ableton" step → Max
-         loads stale m4l code → silent failures inside Live → support
-         tickets. Banner is dismissible only by clicking the action
-         button + a successful install. -->
-    <div id="stride-stale-banner" class="hidden fixed top-0 left-0 right-0 z-[9998] bg-gradient-to-r from-orange-600 to-fuchsia-600 text-white px-4 py-3 flex items-center gap-4 shadow-2xl" style="font-family:'Outfit',sans-serif">
-        <div class="shrink-0 w-7 h-7 rounded-full bg-white/15 flex items-center justify-center">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
-            </svg>
+    <!-- ===================== STALE-INSTALL NOTICE =====================
+         Centered card — same design language as the empty-canvas "No lanes
+         yet" CTA — shown when the StrideLink install in the User Library is
+         on an OLDER version than the running Stride.exe. Without this
+         prompt, users update Stride.exe but skip "Install to Ableton" → Max
+         loads stale m4l code → silent failures in Live → support tickets.
+         Non-dismissible: clears only on a successful update or its 10s
+         auto-hide.
+
+         WHY CENTERED (not a top bar): the action button must sit OUTSIDE
+         the titlebar .titlebar-drag strip (-webkit-app-region:drag, top
+         36px). A button inside that strip never receives clicks on Windows
+         — the OS treats mousedown there as a window drag, so the old
+         top-bar button silently did nothing. pointer-events-none on the
+         full-screen container keeps the rest of the app usable around the
+         card; titlebar-no-drag on the button is belt-and-suspenders. -->
+    <div id="stride-stale-banner" class="hidden fixed inset-0 z-[9998] flex items-center justify-center pointer-events-none" style="font-family:'Outfit',sans-serif">
+        <div id="stride-stale-banner-card" class="bg-black border border-fuchsia-500/25 rounded-2xl p-7 max-w-sm flex flex-col items-center gap-4 shadow-2xl pointer-events-auto">
+            <div id="stride-stale-banner-icon" class="w-14 h-14 rounded-xl bg-fuchsia-500/15 border border-fuchsia-500/30 flex items-center justify-center">
+                <svg class="w-7 h-7 text-fuchsia-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
+                </svg>
+            </div>
+            <h2 id="stride-stale-banner-title" class="text-lg font-black text-zinc-100 tracking-tight text-center">Ableton install is out of date</h2>
+            <p id="stride-stale-banner-msg" class="text-[11px] text-zinc-400 text-center leading-relaxed">Stride is running a newer version than your Ableton install. Update it so new features work in Live.</p>
+            <button id="stride-stale-banner-btn" type="button" class="titlebar-no-drag w-full bg-fuchsia-500/15 hover:bg-fuchsia-500/25 border border-fuchsia-500/30 text-fuchsia-100 px-4 py-2.5 rounded-lg text-[11px] font-black uppercase tracking-[0.1em] transition-colors">Update Ableton install</button>
+            <div id="stride-stale-banner-hint" class="text-[11px] text-zinc-300 text-center leading-relaxed border-t border-white/5 pt-3 w-full">
+                <span class="text-amber-400 font-bold">Heads up:</span> if Ableton is open, fully close the Live project first — Stride can't replace files while Max is using them.
+            </div>
+            <span id="stride-stale-banner-status" class="hidden text-[10px] font-bold uppercase tracking-widest text-zinc-500"></span>
         </div>
-        <div class="flex-1 min-w-0">
-            <div id="stride-stale-banner-title" class="text-xs font-black uppercase tracking-[0.15em]">Ableton install is out of date</div>
-            <div id="stride-stale-banner-msg" class="text-[11px] opacity-90 mt-0.5 truncate">Stride 1.2.0 is running but your Ableton install is on an older version. Update it so new features work in Live.</div>
-        </div>
-        <button id="stride-stale-banner-btn" class="shrink-0 bg-white text-orange-700 hover:bg-orange-50 hover:text-orange-800 px-4 py-1.5 rounded-md text-[11px] font-black uppercase tracking-[0.1em] transition-colors shadow-sm">
-            Update Ableton install
-        </button>
-        <span id="stride-stale-banner-status" class="hidden shrink-0 text-[10px] font-bold uppercase tracking-widest opacity-80"></span>
     </div>
 
     <!-- ===================== ACTIVATION GATE ===================== -->
@@ -1189,19 +1198,29 @@
     // toast so we don't have two surfaces competing for attention.
     function showBannerSuccessState(banner) {
         if (!banner) return;
+        const card = document.getElementById('stride-stale-banner-card');
+        const icon = document.getElementById('stride-stale-banner-icon');
         const title = document.getElementById('stride-stale-banner-title');
         const msg = document.getElementById('stride-stale-banner-msg');
         const btn = document.getElementById('stride-stale-banner-btn');
+        const hint = document.getElementById('stride-stale-banner-hint');
         const status = document.getElementById('stride-stale-banner-status');
-        // Swap gradient to emerald — visual cue for "done."
-        banner.classList.remove('from-orange-600', 'to-fuchsia-600');
-        banner.classList.add('from-emerald-600', 'to-emerald-700');
-        if (title) title.textContent = 'Update installed';
-        if (msg) {
-            msg.classList.remove('truncate');
-            msg.textContent = 'Now reload StrideLink in Ableton — close + reopen the Live project, OR drag StrideLink off the track and back on. Without this, Live will keep running the old m4l code.';
+        // Swap the card accent fuchsia → emerald and the icon → checkmark.
+        // (emerald-500/15, emerald-500/30, emerald-400 already appear on the
+        // apply toast below, so Tailwind's CDN JIT has them generated.)
+        if (card) {
+            card.classList.remove('border-fuchsia-500/25');
+            card.classList.add('border-emerald-500/30');
         }
+        if (icon) {
+            icon.classList.remove('bg-fuchsia-500/15', 'border-fuchsia-500/30');
+            icon.classList.add('bg-emerald-500/15', 'border-emerald-500/30');
+            icon.innerHTML = '<svg class="w-7 h-7 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+        }
+        if (title) title.textContent = 'Update installed';
+        if (msg) msg.textContent = 'Now reload StrideLink in Ableton — close + reopen the Live project, OR drag StrideLink off the track and back on. Without this, Live keeps running the old m4l code.';
         if (btn) btn.classList.add('hidden');
+        if (hint) hint.classList.add('hidden');
         if (status) status.classList.add('hidden');
         setTimeout(() => banner.classList.add('hidden'), 10000);
     }
