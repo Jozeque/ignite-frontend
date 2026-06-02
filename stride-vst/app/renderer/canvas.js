@@ -1105,9 +1105,31 @@
             document.getElementById('sd-canvas-status').textContent = 'Not connected to M4L';
             return;
         }
-        // Assign correct envelope_index from position in full array, then filter
+        // Routing index MUST follow the rack's device-parameter order — which
+        // is the order envelopes appear in the template .alc, and the order the
+        // injector consumes (alc-injector.js maps envelope_index → the Nth
+        // template envelope in document order). It must NOT follow the
+        // alphabetical DISPLAY sort (_sdSortByName) applied to sdCanvasParams,
+        // nor the saved order of a loaded session.
+        //
+        // envelopeId is the scanner's sequential device-order id (String(p.id)
+        // from scanner_max.js) and is preserved across live scans AND session
+        // loads, so ranking params by numeric envelopeId reconstructs device
+        // order regardless of how lanes are currently displayed or were saved.
+        // This reproduces the pre-v1.2 routing that the v1.2 lane sort broke.
+        // DO NOT replace this with the array index — see test-envelope-routing.js.
+        const _routeRank = new Map(
+            sdCanvasParams
+                .map(p => p.envelopeId)
+                .sort((a, b) => {
+                    const na = Number(a), nb = Number(b);
+                    if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+                    return String(a).localeCompare(String(b));
+                })
+                .map((eid, i) => [eid, i])
+        );
         const paramsWithPoints = sdCanvasParams
-            .map((p, idx) => ({ ...p, envelope_index: idx }))
+            .map(p => ({ ...p, envelope_index: _routeRank.get(p.envelopeId) }))
             .filter(p => p.points.length > 0);
         if (paramsWithPoints.length === 0) {
             document.getElementById('sd-canvas-status').textContent = 'Draw some curves first';
