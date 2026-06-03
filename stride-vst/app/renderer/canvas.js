@@ -6509,6 +6509,56 @@
     // dock refresh (window focus, tab switch, etc.) which is noise.
     let _lastSeenGenMtime = 0;
     let _ledFadeTimer = null;
+
+    // Inner draggable card markup shared by the Recent Generations dock and
+    // the "All Generations" modal, so the two render identically. Caller
+    // supplies the outer wrapper (LED ring for the dock, grid cell for the
+    // modal). `idx` is the card's position so _wireGenCardDrag can map it
+    // back to its item.
+    function _genCardInnerHtml(it, idx) {
+        const displayName = (it.name || '').replace(/\.alc$/i, '');
+        const time = _formatGenerationTime(it.mtimeMs);
+        const thumb = it.pngPath
+            ? `<img src="file://${it.pngPath.replace(/\\/g, '/')}?t=${it.mtimeMs}" class="w-full h-full object-cover" alt="" draggable="false">`
+            : `<div class="w-full h-full flex items-center justify-center text-zinc-600 text-[9px]">no preview</div>`;
+        return `
+            <div class="sd-gen-card relative w-full h-full rounded-md border border-white/5 hover:border-emerald-400/40 bg-black/40 hover:bg-black/60 cursor-grab active:cursor-grabbing overflow-hidden flex group transition-colors"
+                 draggable="true"
+                 data-idx="${idx}"
+                 title="Drag into an empty clip slot in Ableton">
+                <div class="shrink-0 w-28 h-full bg-black/40 border-r border-white/5 overflow-hidden">${thumb}</div>
+                <div class="flex-1 min-w-0 px-2 py-1.5 flex flex-col justify-between">
+                    <div class="text-[10px] text-zinc-200 font-bold truncate group-hover:text-emerald-200" title="${displayName}">${displayName}</div>
+                    <div class="flex items-center justify-between text-[9px] text-zinc-500">
+                        <span>${time}</span>
+                        <svg class="w-3 h-3 text-zinc-600 group-hover:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/></svg>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    // Wire native drag-out (and a Windows mousedown fallback) for every
+    // .sd-gen-card inside `container`, mapping each to items[idx] by DOM
+    // order. Same Electron startDrag bridge proven to land .alc in Ableton.
+    function _wireGenCardDrag(container, items) {
+        Array.from(container.querySelectorAll('.sd-gen-card')).forEach((card, idx) => {
+            const item = items[idx];
+            if (!item) return;
+            card.addEventListener('dragstart', (e) => {
+                e.preventDefault();
+                if (window.stride && window.stride.startDrag) {
+                    window.stride.startDrag(item.alcPath);
+                }
+            });
+            // Windows fallback for some Electron builds
+            card.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return;
+                if (window.stride && window.stride.startDrag) {
+                    window.stride.startDrag(item.alcPath);
+                }
+            });
+        });
+    }
     // Visual-only dock clear: set when user hits Clear, the dock filters out
     // generations with mtime <= this value. Files remain on disk.
     let _dockClearedAfterMs = 0;
@@ -6621,11 +6671,6 @@
         }
 
         cards.innerHTML = items.map((it, idx) => {
-            const displayName = (it.name || '').replace(/\.alc$/i, '');
-            const time = _formatGenerationTime(it.mtimeMs);
-            const thumb = it.pngPath
-                ? `<img src="file://${it.pngPath.replace(/\\/g, '/')}?t=${it.mtimeMs}" class="w-full h-full object-cover" alt="" draggable="false">`
-                : `<div class="w-full h-full flex items-center justify-center text-zinc-600 text-[9px]">no preview</div>`;
             // The LED ring sits on a wrapper div so the inner card keeps
             // its overflow-hidden + rounded corners (clipping the
             // thumbnail) while the ring extends slightly outside the
@@ -6633,19 +6678,7 @@
             const ledClass = (idx === 0 && isFresh) ? 'gen-card-led' : '';
             return `
                 <div class="${ledClass} shrink-0 w-56 h-full rounded-md">
-                    <div class="sd-gen-card relative w-full h-full rounded-md border border-white/5 hover:border-emerald-400/40 bg-black/40 hover:bg-black/60 cursor-grab active:cursor-grabbing overflow-hidden flex group transition-colors"
-                         draggable="true"
-                         data-idx="${idx}"
-                         title="Drag into an empty clip slot in Ableton">
-                        <div class="shrink-0 w-28 h-full bg-black/40 border-r border-white/5 overflow-hidden">${thumb}</div>
-                        <div class="flex-1 min-w-0 px-2 py-1.5 flex flex-col justify-between">
-                            <div class="text-[10px] text-zinc-200 font-bold truncate group-hover:text-emerald-200" title="${displayName}">${displayName}</div>
-                            <div class="flex items-center justify-between text-[9px] text-zinc-500">
-                                <span>${time}</span>
-                                <svg class="w-3 h-3 text-zinc-600 group-hover:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/></svg>
-                            </div>
-                        </div>
-                    </div>
+                    ${_genCardInnerHtml(it, idx)}
                 </div>
             `;
         }).join('');
@@ -6676,23 +6709,7 @@
 
         // Wire drag-out for each card. Same Electron startDrag bridge that
         // the apply-reveal card used — proven path into Ableton.
-        Array.from(cards.querySelectorAll('.sd-gen-card')).forEach((card, idx) => {
-            const item = items[idx];
-            if (!item) return;
-            card.addEventListener('dragstart', (e) => {
-                e.preventDefault();
-                if (window.stride && window.stride.startDrag) {
-                    window.stride.startDrag(item.alcPath);
-                }
-            });
-            // Windows fallback for some Electron builds
-            card.addEventListener('mousedown', (e) => {
-                if (e.button !== 0) return;
-                if (window.stride && window.stride.startDrag) {
-                    window.stride.startDrag(item.alcPath);
-                }
-            });
-        });
+        _wireGenCardDrag(cards, items);
     }
 
     // Expose the refresh so external triggers (e.g. settings reset) can call it
@@ -6716,6 +6733,57 @@
             }, 3000);
         }
     };
+
+    // ─── ALL GENERATIONS MODAL ─────────────────────────────
+    // Folder button in the dock opens a modal listing EVERY .alc in
+    // ~/Desktop/Stride/, newest-first (no 5-card cap, ignores the dock's
+    // session Clear). Each card drags into Ableton exactly like the dock.
+    window.sdOpenAllGenerations = async function() {
+        const overlay = document.getElementById('sd-all-gens-overlay');
+        const grid = document.getElementById('sd-all-gens-grid');
+        const empty = document.getElementById('sd-all-gens-empty');
+        const count = document.getElementById('sd-all-gens-count');
+        if (!overlay || !grid) return;
+
+        let items = [];
+        if (window.stride && window.stride.listAllGenerations) {
+            try { items = await window.stride.listAllGenerations(); } catch (e) {}
+        }
+        items = Array.isArray(items) ? items : [];
+
+        if (count) count.textContent = items.length ? `· ${items.length}` : '';
+
+        if (items.length === 0) {
+            grid.innerHTML = '';
+            grid.classList.add('hidden');
+            if (empty) empty.classList.remove('hidden');
+        } else {
+            grid.classList.remove('hidden');
+            if (empty) empty.classList.add('hidden');
+            // Each grid cell is a fixed-height wrapper so the inner card's
+            // h-full resolves the same way it does inside the dock.
+            grid.innerHTML = items.map((it, idx) =>
+                `<div class="h-16">${_genCardInnerHtml(it, idx)}</div>`
+            ).join('');
+            _wireGenCardDrag(grid, items);
+        }
+
+        overlay.classList.remove('hidden');
+    };
+
+    window.sdCloseAllGenerations = function() {
+        const overlay = document.getElementById('sd-all-gens-overlay');
+        if (overlay) overlay.classList.add('hidden');
+    };
+
+    // ESC closes the modal when it's open.
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        const overlay = document.getElementById('sd-all-gens-overlay');
+        if (overlay && !overlay.classList.contains('hidden')) {
+            window.sdCloseAllGenerations();
+        }
+    });
 
     // ─── EXPOSE FOR GENERATION ─────────────────────────────
 

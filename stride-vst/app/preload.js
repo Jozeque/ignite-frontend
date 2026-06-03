@@ -79,6 +79,8 @@ contextBridge.exposeInMainWorld('stride', {
         ipcRenderer.invoke('save-generation-thumbnail', alcPath, dataUrl),
     listRecentGenerations: () =>
         ipcRenderer.invoke('list-recent-generations'),
+    listAllGenerations: () =>
+        ipcRenderer.invoke('list-all-generations'),
 
     // Open the shipped Guide folder (tutorial videos) in Explorer/Finder
     openGuideFolder: () =>

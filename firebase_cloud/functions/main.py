@@ -246,7 +246,23 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
     attrs = data_obj.get("attributes") or {}
     email = (attrs.get("user_email") or "").lower().strip()
     name = (attrs.get("user_name") or "").strip()
-    print(f"[LS Webhook] event={event_name} id={data_obj.get('id')} email={email}")
+
+    # Meta attribution. `fbc` is passed through LS checkout custom data and is
+    # set ONLY when the buyer arrived via a Meta ad click (an fbclid), so its
+    # presence flags a Meta-sourced customer. `fbp` is deliberately NOT used —
+    # the pixel sets it for every visitor, ad or organic, so it would
+    # false-positive everyone. fbc shape: fb.{subdomain}.{ts}.{fbclid}.
+    custom = (payload.get("meta") or {}).get("custom_data") or {}
+    fbc = (custom.get("fbc") or "").strip()
+    from_meta = bool(fbc)
+    acquisition_source = "meta_ad" if from_meta else "direct"
+    fbclid = fbc.split(".")[-1] if fbc else ""
+    src_note = ""
+    if event_name == "order_created":
+        src_note = f" source={'META_AD' if from_meta else 'direct'}"
+        if fbclid:
+            src_note += f" fbclid={fbclid}"
+    print(f"[LS Webhook] event={event_name} id={data_obj.get('id')} email={email}{src_note}")
 
     try:
         _db = admin_firestore.client()
@@ -272,6 +288,9 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
                 "currency": attrs.get("currency"),
                 "purchased_at": admin_firestore.SERVER_TIMESTAMP,
                 "updated_at": admin_firestore.SERVER_TIMESTAMP,
+                # Acquisition attribution (see fbc note above).
+                "acquisition_source": acquisition_source,
+                "fbclid": fbclid,
             }
 
             # Find existing row to merge into. Check BOTH email and ls_order_id:
@@ -320,6 +339,7 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
                             f"**Name:** `{name or '?'}`\n"
                             f"**Email:** `{email}`\n"
                             f"**Amount:** `{amount_str or '?'}`\n"
+                            f"**Source:** {'🎯 Meta ad' if from_meta else 'Direct / organic'}\n"
                             f"**Order:** `{attrs.get('identifier') or '?'}`"
                         ),
                     }

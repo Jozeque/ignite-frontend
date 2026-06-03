@@ -834,6 +834,9 @@
             <div id="sd-generations-dock" class="shrink-0 h-20 border-t border-white/5 bg-black/40 flex items-stretch gap-2 px-3 py-2 min-w-0">
                 <div class="flex items-center pr-2 border-r border-white/5 shrink-0 gap-2">
                     <span class="text-[9px] font-black text-zinc-500 uppercase tracking-widest leading-tight">Recent<br>Generations</span>
+                    <button id="sd-all-generations-btn" onclick="sdOpenAllGenerations()" title="Browse all generations — drag any of them into Ableton." class="shrink-0 text-zinc-500 hover:text-emerald-300 bg-black/40 hover:bg-white/10 border border-white/5 hover:border-white/15 p-1.5 rounded transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+                    </button>
                     <button id="sd-clear-generations-btn" onclick="sdClearGenerations()" title="Hide all current generations from the dock — fresh slate for a new session. Files stay on disk in ~/Desktop/Stride/ and any new generation will appear normally." class="text-[8px] text-zinc-500 hover:text-zinc-300 bg-black/40 hover:bg-white/10 border border-white/5 hover:border-white/15 px-2 py-1 rounded uppercase tracking-widest font-black transition-colors">Clear</button>
                 </div>
                 <div id="sd-generations-cards" class="flex-1 flex items-stretch gap-2 overflow-x-auto custom-scroll min-w-0"></div>
@@ -843,6 +846,24 @@
                     <span class="hidden xl:block text-[9px] font-bold text-zinc-600 tracking-widest uppercase bg-black/60 px-2 py-1 rounded text-right truncate">Ctrl+Wheel · Space+Drag · Alt+Drag</span>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- All Generations modal — every .alc in ~/Desktop/Stride/, newest-first.
+         Opened by the folder button in the Recent Generations dock. Each card
+         is draggable straight into Ableton, identical to the dock cards. -->
+    <div id="sd-all-gens-overlay" class="hidden fixed inset-0 z-[9998] bg-black/70 backdrop-blur-sm flex items-center justify-center p-8" onclick="if(event.target===this)sdCloseAllGenerations()">
+        <div class="w-full max-w-4xl max-h-[80vh] bg-zinc-900 border border-white/10 rounded-xl shadow-2xl flex flex-col overflow-hidden">
+            <div class="h-12 px-5 flex items-center gap-3 border-b border-white/10 shrink-0">
+                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+                <span class="text-[11px] font-black tracking-[0.25em] uppercase text-zinc-200">All Generations</span>
+                <span id="sd-all-gens-count" class="text-[10px] text-zinc-500 font-bold"></span>
+                <div class="flex-1"></div>
+                <span class="text-[9px] text-zinc-600 uppercase tracking-widest mr-1">Drag any card into Ableton</span>
+                <button onclick="sdCloseAllGenerations()" class="text-zinc-500 hover:text-zinc-200 text-lg leading-none px-1">&times;</button>
+            </div>
+            <div id="sd-all-gens-grid" class="flex-1 overflow-y-auto custom-scroll p-4 grid grid-cols-2 md:grid-cols-3 gap-3 content-start"></div>
+            <div id="sd-all-gens-empty" class="hidden flex-1 flex items-center justify-center text-[11px] text-zinc-600 italic p-8">No generations yet — Apply a clip to start filling this list.</div>
         </div>
     </div>
 

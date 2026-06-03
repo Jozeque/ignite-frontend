@@ -432,6 +432,33 @@ ipcMain.handle('list-recent-generations', async () => {
     }
 });
 
+// List EVERY generated .alc file in ~/Desktop/Stride/, newest-first.
+// Same shape as list-recent-generations but with no count cap — powers the
+// "browse all generations" modal opened from the dock's folder button.
+ipcMain.handle('list-all-generations', async () => {
+    try {
+        if (!fs.existsSync(STRIDE_DIR)) return [];
+        const entries = fs.readdirSync(STRIDE_DIR, { withFileTypes: true })
+            .filter(d => d.isFile() && d.name.toLowerCase().endsWith('.alc'))
+            .map(d => {
+                const alcPath = path.join(STRIDE_DIR, d.name);
+                let mtimeMs = 0;
+                try { mtimeMs = fs.statSync(alcPath).mtimeMs; } catch (e) {}
+                const pngPath = alcPath.replace(/\.alc$/i, '.png');
+                return {
+                    name: d.name,
+                    alcPath,
+                    pngPath: fs.existsSync(pngPath) ? pngPath : null,
+                    mtimeMs,
+                };
+            })
+            .sort((a, b) => b.mtimeMs - a.mtimeMs);
+        return entries;
+    } catch (e) {
+        return [];
+    }
+});
+
 // Open the ~/Desktop/Stride folder (all generated .alc files live here)
 ipcMain.handle('open-stride-folder', async () => {
     try {
