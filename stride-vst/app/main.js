@@ -505,7 +505,21 @@ ipcMain.handle('reveal-in-folder', async (event, filePath) => {
 // Native file drag-out — lets the user drag a .alc file from the Stride
 // UI directly into Ableton (or any other app that accepts file drops).
 // Electron's webContents.startDrag() initiates a native OS drag event.
+//
+// Drag de-dupe guard. Every draggable card wires BOTH a `dragstart` and a
+// `mousedown` handler that call startDrag — the mousedown one is a Windows
+// fallback for builds where dragstart doesn't fire reliably. On platforms
+// where BOTH fire (notably macOS) the native drag launched twice, so the
+// clip "sticks to the cursor" and duplicates before becoming unstuck. We
+// keep both renderer handlers for cross-platform reliability and dedupe
+// HERE instead: ignore any startDrag within DRAG_DEDUPE_MS of the previous
+// one. Re-armed after startDrag returns, because it can block for the whole
+// drag on some platforms (the duplicate IPC is queued during that block and
+// lands immediately after it completes).
+let _dragLockUntil = 0;
+const DRAG_DEDUPE_MS = 500;
 ipcMain.on('ondragstart', (event, filePath) => {
+    if (Date.now() < _dragLockUntil) return;  // duplicate call from the second handler — ignore
     if (!filePath || typeof filePath !== 'string') return;
     if (!fs.existsSync(filePath)) {
         console.log('[Drag] File not found:', filePath);
@@ -520,11 +534,16 @@ ipcMain.on('ondragstart', (event, filePath) => {
         // Fallback: create a tiny valid PNG programmatically
         icon = nativeImage.createEmpty();
     }
+    _dragLockUntil = Date.now() + DRAG_DEDUPE_MS;  // arm just before the native drag
     try {
         event.sender.startDrag({ file: filePath, icon });
     } catch (e) {
         console.log('[Drag] startDrag failed:', e.message);
     }
+    // Re-arm AFTER startDrag returns: it can block for the entire drag on
+    // some platforms, so the duplicate IPC (queued during the block) lands
+    // right here and must still fall inside the cooldown to be ignored.
+    _dragLockUntil = Date.now() + DRAG_DEDUPE_MS;
 });
 
 // Open URL in system browser
