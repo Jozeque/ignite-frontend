@@ -1066,14 +1066,20 @@
         });
 
         // Fallback: some Electron builds on Windows don't fire dragstart
-        // reliably. mousedown triggers startDrag() directly as a backup.
-        card.addEventListener('mousedown', (e) => {
-            if (e.button !== 0) return;
-            if (e.target && e.target.closest && e.target.closest('#sd-apply-reveal-close')) return;
-            if (_lastAlcPath && window.stride && window.stride.startDrag) {
-                window.stride.startDrag(_lastAlcPath);
-            }
-        });
+        // reliably, so mousedown triggers startDrag() directly as a backup.
+        // WINDOWS-ONLY: on macOS dragstart fires reliably, and starting the
+        // native drag from mousedown (on the press, before a real drag
+        // gesture) makes the clip "stick to the cursor" on trackpads. Mac
+        // uses the standard dragstart path above.
+        if (window.stride && window.stride.platform === 'win32') {
+            card.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return;
+                if (e.target && e.target.closest && e.target.closest('#sd-apply-reveal-close')) return;
+                if (_lastAlcPath && window.stride && window.stride.startDrag) {
+                    window.stride.startDrag(_lastAlcPath);
+                }
+            });
+        }
     }
 
     // ─── TEMPLATE IMPORT ─────────────────────────────────────
@@ -6550,13 +6556,18 @@
                     window.stride.startDrag(item.alcPath);
                 }
             });
-            // Windows fallback for some Electron builds
-            card.addEventListener('mousedown', (e) => {
-                if (e.button !== 0) return;
-                if (window.stride && window.stride.startDrag) {
-                    window.stride.startDrag(item.alcPath);
-                }
-            });
+            // Windows fallback for some Electron builds (see apply-reveal
+            // note). WINDOWS-ONLY: on macOS dragstart fires reliably, and
+            // starting the drag from mousedown sticks the clip to the cursor
+            // on trackpads. Mac uses the dragstart path above.
+            if (window.stride && window.stride.platform === 'win32') {
+                card.addEventListener('mousedown', (e) => {
+                    if (e.button !== 0) return;
+                    if (window.stride && window.stride.startDrag) {
+                        window.stride.startDrag(item.alcPath);
+                    }
+                });
+            }
         });
     }
     // Visual-only dock clear: set when user hits Clear, the dock filters out
