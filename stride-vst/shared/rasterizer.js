@@ -147,6 +147,34 @@ function sampleCountForLoop(bars, bpm, hz) {
     return Math.max(1, Math.round(seconds * rate));
 }
 
+/**
+ * Rasterize a Stride lane into a flat list of step values for the
+ * direct-inject path (StrideInject writes each as an insert_step). Reuses
+ * rasterizeCurve, so the shape is byte-identical to the canvas draw and the
+ * value scaling is the same log-scaling.js the .alc path uses. Output values
+ * are in the parameter's NATIVE range (bezier + log already applied) — the
+ * Remote Script writes them verbatim (values_are_actual), so there's no
+ * dependence on Ableton's envelope interpolation matching ours.
+ *
+ * @param {object} param           { points, min, max, is_log?, name? }
+ * @param {number} bars            loop length in bars
+ * @param {number} [stepBeats=0.02] step resolution in beats (smaller = finer)
+ * @returns {{ stepDur:number, count:number, values:number[] }}
+ *   stepDur — duration of each insert_step in beats
+ *   count   — number of steps (bounded by lengthBeats/stepBeats, NOT by
+ *             how many points the user drew)
+ *   values  — native-range value per step, tracing the curve
+ */
+function rasterizeLaneToSteps(param, bars, stepBeats) {
+    const step = stepBeats && stepBeats > 0 ? stepBeats : 0.02;
+    const lengthBeats = (bars || 0) * 4;
+    const count = Math.max(1, Math.round(lengthBeats / step));
+    const buf = rasterizeCurve(param.points || [], lengthBeats, count, {
+        min: param.min, max: param.max, is_log: param.is_log, name: param.name,
+    });
+    return { stepDur: count > 0 ? lengthBeats / count : lengthBeats, count, values: Array.from(buf) };
+}
+
 if (typeof module !== 'undefined') {
-    module.exports = { rasterizeCurve, sampleSegment, sampleCountForLoop };
+    module.exports = { rasterizeCurve, sampleSegment, sampleCountForLoop, rasterizeLaneToSteps };
 }

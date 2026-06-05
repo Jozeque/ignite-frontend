@@ -307,6 +307,42 @@
         if (_sdScanTimeoutId) { clearTimeout(_sdScanTimeoutId); _sdScanTimeoutId = null; }
     }
 
+    // ─── AUTOSCAN ─────────────────────────────────────────
+    // On open (M4L connect) and on rack switch, silently re-run the MAPPED scan
+    // and merge into the canvas: pulls the rack's current mapped params,
+    // preserves drawn curves (restoreCanvasState matches by envelopeId within
+    // the rack), and surfaces newly-mapped params as empty lanes. No template
+    // needed. Stays true to intentional mapping — MAPPED scan, never scan-all.
+    let _isAutoScan = false;
+    let _sdTrackChangeTimer = null;
+    let _sdLastAutoScanAt = 0;
+    let _sdCurrentTrackName = null;   // for same-track detection across autoscans
+    // "N Params Empty" notice: armed by a scan (loadParamsDirectly), ticks down
+    // as the user fills lanes, disarms at 0 and stays gone until the NEXT scan
+    // finds empty params — a notification, not a permanent live counter.
+    let _syncWarnActive = false;
+    function _sdAutoScan() {
+        if (!strideLink.connected) return;
+        _sdLastAutoScanAt = Date.now();
+        _isAutoScan = true;
+        scanMode = 'mapped';
+        // Deliberately NO _sdArmScanTimeout(): an auto-scan must stay silent if
+        // nothing responds (e.g. no rack selected) — the user can scan manually.
+        strideLink.send({ type: 'request_scan_mapped' });
+    }
+
+    // "Opening Stride again": when the user switches back to the Stride window
+    // (e.g. after adding a device/param in Ableton), silently rescan so new
+    // mapped params show up as gaps WITHOUT a manual Scan. Throttled so rapid
+    // focus changes don't thrash the scanner. The connect handler covers a cold
+    // reopen; this covers the common "edit rack → switch back to Stride" loop.
+    function _sdAutoScanOnFocus() {
+        if (!strideLink.connected) return;
+        if (Date.now() - _sdLastAutoScanAt < 1500) return;   // throttle
+        Promise.resolve(saveCanvasState()).then(_sdAutoScan);
+    }
+    window.addEventListener('focus', _sdAutoScanOnFocus);
+
     // Scan All — shows picker for user to choose which params to load
     window.scanAll = function() {
         if (!_sdRequireM4LConnection()) return;
@@ -398,6 +434,7 @@
 
         if (rackInfo.clip_bars && rackInfo.clip_bars > 0) sdSetBars(_sdResolveSystemBars(rackInfo.clip_bars), false);
         currentRackId = (rackInfo.track_name + '_' + rackInfo.device_name).replace(/[^a-zA-Z0-9]/g, '_');
+        _sdCurrentTrackName = rackInfo.track_name;
 
         // Render checkboxes
         const list = document.getElementById('param-pick-list');
@@ -414,6 +451,7 @@
     }
 
     function loadParamsDirectly(params, rackInfo) {
+        _syncWarnActive = true;   // a scan re-arms the "N Params Empty" notice
         sdCanvasParams = params.map(p => ({
             envelopeId: String(p.id),
             name: p.name,
@@ -437,6 +475,7 @@
 
         if (rackInfo.clip_bars && rackInfo.clip_bars > 0) sdSetBars(_sdResolveSystemBars(rackInfo.clip_bars), false);
         currentRackId = (rackInfo.track_name + '_' + rackInfo.device_name).replace(/[^a-zA-Z0-9]/g, '_');
+        _sdCurrentTrackName = rackInfo.track_name;
 
         if (sdCanvasParams.length > 0) {
             document.getElementById('sd-canvas-status').textContent = 'Editor Ready';
@@ -488,6 +527,67 @@
             track_name: msg.track_name,
             clip_bars: msg.clip_bars
         };
+
+        // Auto-scan path (open / rack switch): silent curve-preserving merge,
+        // never the rescan modal. loadParamsDirectly swaps the lane set and
+        // restoreCanvasState() refills curves for THIS rack by envelopeId (same
+        // rack → ids match; different rack → that rack's own saved curves);
+        // newly-mapped params arrive as empty lanes, surfaced by the indicator.
+        if (_isAutoScan) {
+            _isAutoScan = false;
+            scanMode = null;
+            _resetScanButton();
+            const params = msg.parameters || [];
+            // No params (e.g. opened with no rack selected): stay quiet, don't
+            // wipe whatever is currently loaded.
+            if (params.length === 0) {
+                currentDeviceName = msg.device_name;
+                resolveTemplate();
+                _renderTemplateStatus();
+                return;
+            }
+            // No-op when nothing changed — so a window-focus rescan doesn't
+            // disrupt the user's active lane every time they switch back. Only
+            // an actual param add/remove (or device change) triggers a merge.
+            const newIds = params.map(p => String(p.id)).sort().join(',');
+            const curIds = sdCanvasParams.map(p => p.envelopeId).sort().join(',');
+            if (newIds === curIds && currentDeviceName === msg.device_name && sdCanvasParams.length > 0) {
+                return;
+            }
+            // Structural change (param/device added or removed). Merge WITHOUT
+            // losing drawn curves. Snapshot the current lanes' curves IN MEMORY
+            // by envelopeId and re-apply after the reload — this is
+            // rackId-independent, so it survives even when adding a device
+            // changes the rack's name (device_name = all device names joined →
+            // a new saved-state key). Only carry within the SAME track; a
+            // different track is a different rack whose own saved curves load.
+            currentDeviceName = msg.device_name;
+            resolveTemplate();
+            const sameTrack = (rackInfo.track_name === _sdCurrentTrackName);
+            const carried = {};
+            if (sameTrack) {
+                sdCanvasParams.forEach(p => {
+                    if (p.points && p.points.length) carried[p.envelopeId] = p.points;
+                });
+            }
+            const prevActive = sdActiveParamId;
+            loadParamsDirectly(params, rackInfo);   // updates _sdCurrentTrackName
+            let kept = 0;
+            if (sameTrack) {
+                sdCanvasParams.forEach(p => {
+                    if (carried[p.envelopeId]) { p.points = carried[p.envelopeId]; kept++; }
+                });
+                // Migrate the curves to the (possibly renamed) rack's saved key
+                // so a later cold reopen restores them too.
+                if (kept) saveCanvasState();
+            }
+            if (prevActive && sdCanvasParams.some(p => p.envelopeId === prevActive)) {
+                sdActiveParamId = prevActive;
+            }
+            sdRenderSidebar();
+            sdDrawCanvasGrid();
+            return;
+        }
 
         currentDeviceName = msg.device_name;
         // Check if template exists for this rack
@@ -576,6 +676,19 @@
         }
     });
 
+    // Rack switch in Ableton → autosync the canvas to the newly selected rack.
+    // Debounced so clicking through tracks doesn't thrash the scanner, and the
+    // current rack's work is saved before switching so nothing is lost.
+    strideLink.on('track_changed', (msg) => {
+        if (!msg || msg.has_device === false) return;   // only tracks with a device
+        if (_sdTrackChangeTimer) clearTimeout(_sdTrackChangeTimer);
+        _sdTrackChangeTimer = setTimeout(() => {
+            _sdTrackChangeTimer = null;
+            if (!strideLink.connected) return;
+            Promise.resolve(saveCanvasState()).then(_sdAutoScan);
+        }, 450);
+    });
+
     // Handle .alc file generated
     strideLink.on('alc_generated', (msg) => {
         // Snapshot the loading-spinner's position BEFORE we hide it, so
@@ -632,12 +745,38 @@
 
     strideLink.on('apply_success', (msg) => {
         _hideLoading();
-        document.getElementById('sd-canvas-status').textContent = `Applied ${msg.params_written} params to clip`;
+        const params = msg.params_written || 0;
+        document.getElementById('sd-canvas-status').textContent = `Applied ${params} params to clip`;
+        _sdShowSuccessPopup('Applied to clip', `${params} param${params === 1 ? '' : 's'}`);
     });
 
     strideLink.on('apply_error', (msg) => {
         _hideLoading();
         document.getElementById('sd-canvas-status').textContent = 'Error: ' + msg.message;
+    });
+
+    // Direct-inject result (opt-in path — writes straight into the selected
+    // Session clip via StrideInject, no .alc/drag). Separate from apply_*.
+    strideLink.on('inject_success', (msg) => {
+        _hideLoading();
+        const params = msg.params_written || 0;
+        const pts = msg.points_written || 0;
+        const el = document.getElementById('sd-canvas-status');
+        if (el) {
+            el.style.color = '';
+            el.textContent = `Injected → clip: ${params} param${(params === 1) ? '' : 's'} (${msg.mode || 'step'} mode)`;
+        }
+        const detail = `${params} param${params === 1 ? '' : 's'}` + (pts ? ` · ${pts.toLocaleString()} points` : '');
+        _sdShowSuccessPopup('Injected to clip', detail);
+    });
+    strideLink.on('inject_error', (msg) => {
+        _hideLoading();
+        const el = document.getElementById('sd-canvas-status');
+        if (el) {
+            el.style.color = '#fbbf24';
+            el.textContent = 'Direct inject: ' + (msg.message || 'failed');
+            setTimeout(() => { if (el) el.style.color = ''; }, 6000);
+        }
     });
 
     // Handle needs_template — guide user to import template .alc
@@ -661,10 +800,14 @@
         const label = document.getElementById('link-label');
         label.textContent = 'M4L Connected';
         label.className = 'text-[10px] text-emerald-300 uppercase font-bold tracking-widest';
-        document.getElementById('sd-canvas-status').textContent = 'Connected — Click Scan';
+        document.getElementById('sd-canvas-status').textContent = 'Connected — syncing rack…';
         // Refresh the popover if it happens to be open.
         const help = document.getElementById('sd-connection-help');
         if (help && !help.classList.contains('hidden')) sdRenderConnectionHelp();
+        // Autoscan on open — silently pull the rack's mapped params + sync the
+        // canvas (persists current work first). Small delay lets the M4L
+        // handshake (m4l_ready / clip / track info) settle first.
+        setTimeout(() => { Promise.resolve(saveCanvasState()).then(_sdAutoScan); }, 500);
     });
 
     strideLink.on('disconnected', () => {
@@ -801,13 +944,30 @@
 
         el.classList.remove('hidden');
 
+        // ── Primary: sync status (direct-inject). A scan arms _syncWarnActive;
+        // the badge then counts mapped lanes that still have NO drawn curve and
+        // ticks DOWN as the user fills them. At 0 it disarms and stays gone
+        // until the NEXT scan finds new empties — a "you mapped params you
+        // haven't drawn yet" notice, not a permanent live counter.
+        const emptyCount = sdCanvasParams.filter(p => (!p.points || p.points.length === 0) && !p.locked).length;
+        if (emptyCount === 0) _syncWarnActive = false;
+        let syncHtml = '';
+        if (_syncWarnActive && emptyCount > 0) {
+            syncHtml = `<div class="flex items-center gap-1.5 px-2 py-1 rounded bg-amber-500/10 border border-amber-500/20 mb-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0"></span>
+                <span class="text-[8px] text-amber-400 font-bold uppercase tracking-wider truncate">${emptyCount} Param${emptyCount === 1 ? '' : 's'} Empty</span>
+            </div>`;
+        }
+
+        // ── Secondary: template badge (kept below — for the .alc path).
+        let tmplHtml;
         if (templateMatchState === 'exact') {
-            el.innerHTML = `<div class="flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20">
+            tmplHtml = `<div class="flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20">
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
                 <span class="text-[8px] text-emerald-400 font-bold uppercase tracking-wider truncate">Template ready</span>
             </div>`;
         } else if (templateMatchState === 'fallback') {
-            el.innerHTML = `<div class="flex flex-col gap-1 px-2 py-1.5 rounded bg-amber-500/10 border border-amber-500/20">
+            tmplHtml = `<div class="flex flex-col gap-1 px-2 py-1.5 rounded bg-amber-500/10 border border-amber-500/20">
                 <div class="flex items-center gap-1.5">
                     <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0"></span>
                     <span class="text-[8px] text-amber-400 font-bold uppercase tracking-wider">Wrong template</span>
@@ -815,7 +975,7 @@
                 <span class="text-[8px] text-zinc-500 leading-tight">Using "${_fallbackTemplateName || '?'}" template — drag a clip from <strong class="text-zinc-300">${currentDeviceName}</strong> track to User Library</span>
             </div>`;
         } else {
-            el.innerHTML = `<div class="flex flex-col gap-1 px-2 py-1.5 rounded bg-red-500/10 border border-red-500/20">
+            tmplHtml = `<div class="flex flex-col gap-1 px-2 py-1.5 rounded bg-red-500/10 border border-red-500/20">
                 <div class="flex items-center gap-1.5">
                     <span class="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0"></span>
                     <span class="text-[8px] text-red-400 font-bold uppercase tracking-wider">No template</span>
@@ -823,6 +983,39 @@
                 <span class="text-[8px] text-zinc-500 leading-tight">Drag the <strong class="text-zinc-300">MIDI clip</strong> (not the device) to User Library</span>
             </div>`;
         }
+
+        el.innerHTML = syncHtml + tmplHtml;
+    }
+
+    // ─── SUCCESS POPUP ──────────────────────────────────────
+    // Prominent, centered, auto-dismissing confirmation so applies/injects
+    // don't go unnoticed in the tiny bottom status line. Self-contained
+    // (inline styles, no extra HTML); auto-removes after 2s.
+    function _sdShowSuccessPopup(title, detail) {
+        const old = document.getElementById('sd-success-popup');
+        if (old) old.remove();
+        const el = document.createElement('div');
+        el.id = 'sd-success-popup';
+        el.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0.96);' +
+            'z-index:99999;opacity:0;transition:opacity .18s ease,transform .18s ease;pointer-events:none;';
+        el.innerHTML =
+            '<div style="background:rgba(9,9,11,.95);border:1px solid rgba(16,185,129,.45);border-radius:16px;' +
+            'padding:22px 30px;box-shadow:0 24px 70px rgba(0,0,0,.6);text-align:center;backdrop-filter:blur(10px);">' +
+            '<div style="font-size:30px;line-height:1;margin-bottom:8px;">✓</div>' +
+            '<div style="color:#34d399;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;">' +
+            (title || 'Done') + '</div>' +
+            (detail ? '<div style="color:#a1a1aa;font-size:12px;margin-top:7px;">' + detail + '</div>' : '') +
+            '</div>';
+        document.body.appendChild(el);
+        requestAnimationFrame(() => {
+            el.style.opacity = '1';
+            el.style.transform = 'translate(-50%,-50%) scale(1)';
+        });
+        setTimeout(() => {
+            el.style.opacity = '0';
+            el.style.transform = 'translate(-50%,-50%) scale(0.96)';
+            setTimeout(() => { if (el && el.parentNode) el.remove(); }, 220);
+        }, 2000);
     }
 
     // ─── ALC DETECTED TOAST ─────────────────────────────────
@@ -1182,6 +1375,47 @@
         saveCanvasState();
     };
 
+    // ─── DIRECT INJECT (opt-in, no .alc / no template / no drag) ──────────
+    // Writes automation STRAIGHT into the selected Session clip via the
+    // StrideInject Remote Script. Parallel to applyToAbleton (the .alc path),
+    // which is left completely UNTOUCHED. Routes by LOM `_path` (so no
+    // envelope_index, no template clip needed). Requires StrideInject enabled
+    // in Ableton → Preferences → Link/Tempo/MIDI → Control Surface.
+    //
+    // Automation only — armed MIDI-note patterns still go through the .alc
+    // path (StrideInject writes envelopes, not notes).
+    window.applyToAbletonDirect = function() {
+        const el = document.getElementById('sd-canvas-status');
+        if (!strideLink.connected) {
+            if (el) el.textContent = 'Not connected to M4L';
+            return;
+        }
+        const params = sdCanvasParams
+            .filter(p => p.points && p.points.length > 0)
+            .map(p => ({
+                id: p.id,
+                name: p.name,
+                _path: p._path || null,
+                min: p.min,
+                max: p.max,
+                is_log: p.is_log || false,
+                points: p.points,
+            }));
+        if (params.length === 0) {
+            if (el) el.textContent = 'Draw some curves first';
+            return;
+        }
+        // Direct inject resolves params by their live LOM path. A loaded
+        // session has no _path until a fresh scan — guide the user.
+        if (!params.some(p => p._path)) {
+            if (el) el.textContent = 'Direct inject needs a fresh Scan Mapped first';
+            return;
+        }
+        if (el) { el.style.color = ''; el.textContent = 'Injecting directly into clip…'; }
+        strideLink.applyDirectInject(params, sdGetBars(), { createIfMissing: true });
+        saveCanvasState();
+    };
+
     // ─── Armed pattern: arm / clear / chip render ─────────
 
     function _renderArmedChip() {
@@ -1398,6 +1632,9 @@
                 if (typeof sp.locked === 'boolean') param.locked = sp.locked;
             });
         }
+        // Reflect restored curves in the "N Params Empty" indicator (curves are
+        // filled here, a tick after loadParamsDirectly swaps the lane set).
+        _renderTemplateStatus();
     }
 
     // Auto-save periodically
@@ -1508,6 +1745,7 @@
         if (!list) {
             sdUpdateEmptyState();
             sdUpdateToolAvailability();
+            _renderTemplateStatus();   // keep the "N Params Empty" notice live as lanes fill
             return;
         }
         const fmtVal = v => {

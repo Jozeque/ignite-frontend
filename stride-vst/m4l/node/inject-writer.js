@@ -27,7 +27,10 @@ const TRIGGER_FILE = path.join(os.homedir(), '_stride_inject_trigger.json');
 const RESULT_FILE = path.join(os.homedir(), '_stride_inject_result.json');
 
 const POLL_INTERVAL_MS = 200;
-const POLL_TIMEOUT_MS = 30000;
+// StrideInject now writes steps in chunks across Ableton's scheduler (so it
+// never blocks the UI). A big multi-lane 32-bar clip can take a while to drain;
+// give it generous headroom so the bridge doesn't time out mid-write.
+const POLL_TIMEOUT_MS = 120000;
 const FIRST_CHECK_DELAY_MS = 400;
 
 function _safeUnlink(p) {

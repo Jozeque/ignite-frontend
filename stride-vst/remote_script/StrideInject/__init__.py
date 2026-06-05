@@ -43,12 +43,33 @@ try:
 except ImportError:
     from ableton.v3.control_surface import ControlSurface
 
+# Pure curve + scaling helpers (no Ableton deps; mirrors shared/rasterizer.js
+# + shared/log-scaling.js). Relative import in the package; fall back to flat.
+try:
+    from ._curve import sample_segment, should_use_log, scale_value, adaptive_steps
+except (ImportError, ValueError):
+    from _curve import sample_segment, should_use_log, scale_value, adaptive_steps
+
 _HOME = os.path.expanduser("~")
 TRIGGER = os.path.join(_HOME, "_stride_inject_trigger.json")
 RESULT = os.path.join(_HOME, "_stride_inject_result.json")
 
 # Subdivision used by the step-mode fallback. Matches legacy StrideWriter.
 LEGACY_STEP_SIZE = 0.02
+
+# Adaptive step generation — prevents the bulk-write freeze/crash WITHOUT losing
+# resolution. PROBE_BEATS is the cheap (Python-only) sampling granularity used to
+# FIND where the curve moves; EPS_NORM is how far the normalized value must move
+# before we emit an actual insert_step (the expensive LOM call) — so flat holds
+# collapse to one step but every MOVE is kept; CHUNK_SIZE spreads the LOM writes
+# across scheduler ticks so the ~128k writes that froze/crashed Ableton can never
+# block the main thread again, no matter the clip length.
+PROBE_BEATS = 0.02         # cheap Python probe granularity (find where curve moves)
+EPS_NORM = 0.0025          # emit a step when normalized value moves this much →
+                           # max deviation 0.25% → ≥99.75% match. NO lossy cap:
+                           # every move is kept; flat holds collapse to one step.
+CHUNK_SIZE = 400           # insert_steps per scheduler tick — keeps Ableton
+                           # responsive so ANY number of steps writes without freezing
 
 # Cubic bezier identity — a straight line from P0 to P3.
 DEFAULT_COEFFS = (0.5, 0.5, 0.5, 0.5)
@@ -100,6 +121,12 @@ class StrideInject(ControlSurface):
         self._create_event_works = None
         self._mode_default = "bezier" if self._EnvelopeEvent else "step"
         self._mode = self._mode_default
+        # Chunked-write state — bulk insert_step writes are spread CHUNK_SIZE per
+        # scheduler tick so a huge clip never blocks Ableton's main thread.
+        self._busy = False
+        self._write_queue = []
+        self._write_idx = 0
+        self._pending = None
         self.log_message("StrideInject: ready (classes-imported=%s, write-mode-at-startup=%s). Watching %s" % (
             self._EnvelopeEvent is not None, self._mode_default, TRIGGER))
         self._poll()
@@ -161,33 +188,57 @@ class StrideInject(ControlSurface):
     # ─── target resolution ────────────────────────────────────────────────
 
     def _get_target_clip(self, data, target_length):
+        """Target the clip the user actually has selected / open in Live's
+        Detail (Clip) View — works for BOTH Session and Arrangement clips.
+        Replaces the old clip_slots[0] default, which always hit the first
+        Session slot regardless of what was selected."""
         song = self.song()
-        track = song.view.selected_track
-        clip_slot_idx = int(data.get("clip_slot", 0))
-        create_if_missing = bool(data.get("create_clip", True))
-
-        if clip_slot_idx >= len(track.clip_slots):
-            return None, "Clip slot %d out of range" % clip_slot_idx
-        slot = track.clip_slots[clip_slot_idx]
-
-        if not slot.has_clip:
-            if not create_if_missing:
-                return None, "No clip in slot %d" % clip_slot_idx
-            try:
-                slot.create_clip(_d(target_length))
-            except Exception as e:
-                return None, "create_clip failed: " + str(e)
-
-        clip = slot.clip
+        clip = None
         try:
-            if abs(float(clip.length) - target_length) > 0.1:
-                clip.loop_end = _d(target_length)
-        except Exception as e:
-            self.log_message("StrideInject: could not resize clip: " + str(e))
-        try:
-            clip.looping = True
+            clip = song.view.detail_clip
         except Exception:
-            pass
+            clip = None
+
+        # Fallback: a highlighted Session slot that already holds a clip.
+        if clip is None:
+            try:
+                hslot = song.view.highlighted_clip_slot
+                if hslot is not None and hslot.has_clip:
+                    clip = hslot.clip
+            except Exception:
+                clip = None
+
+        if clip is None:
+            return None, ("No clip selected. Open or select a clip in Live "
+                          "(Session or Arrangement) so it shows in the Detail "
+                          "view, then inject.")
+
+        # Detect arrangement clips — their loop_end is read-only / has different
+        # semantics, so only resize/loop Session clips.
+        try:
+            is_arr = bool(getattr(clip, "is_arrangement_clip", False))
+        except Exception:
+            is_arr = False
+        self.log_message("StrideInject: target clip = %s (arrangement=%s)" % (
+            getattr(clip, "name", "?"), is_arr))
+        if is_arr:
+            # Ableton exposes no API to write automation into Arrangement clips
+            # (automation_envelope returns None for them — verified). Direct
+            # inject is Session-only; arrangement goes through the .alc path.
+            return None, ("Direct inject is Session-only (Ableton has no API to "
+                          "write Arrangement automation). Inject into a Session "
+                          "clip, then drag that clip into the Arrangement — the "
+                          "curves travel with it.")
+        if not is_arr:
+            try:
+                if abs(float(clip.length) - target_length) > 0.1:
+                    clip.loop_end = _d(target_length)
+            except Exception as e:
+                self.log_message("StrideInject: could not resize clip: " + str(e))
+            try:
+                clip.looping = True
+            except Exception:
+                pass
         return clip, None
 
     def _resolve_param(self, lom_path):
@@ -269,7 +320,7 @@ class StrideInject(ControlSurface):
 
     # ─── write paths ──────────────────────────────────────────────────────
 
-    def _write_bezier(self, env, points, target_length, pmin, pmax):
+    def _write_bezier(self, env, points, target_length, pmin, pmax, use_log):
         EE = self._EnvelopeEvent
         CC = self._ControlCoeffs
 
@@ -283,7 +334,7 @@ class StrideInject(ControlSurface):
         for i, p in enumerate(sorted_pts):
             t = _d(p.get("time", 0))
             v_norm = max(0.0, min(1.0, float(p.get("value", 0))))
-            v_actual = _d(pmin + v_norm * (pmax - pmin))
+            v_actual = _d(scale_value(v_norm, pmin, pmax, use_log))
 
             if i + 1 < len(sorted_pts):
                 x1, y1, x2, y2 = self._coeffs_for_segment(p, sorted_pts[i + 1])
@@ -300,54 +351,34 @@ class StrideInject(ControlSurface):
                 self.log_message("StrideInject: create_event failed at t=%s: %s" % (t, str(e)))
         return pts_written
 
-    def _write_step(self, env, points, target_length, pmin, pmax):
-        """Subdivision fallback — mirrors StrideWriter line-for-line."""
-        try:
-            env.delete_events_in_range(_d(0.0), _d(target_length))
-        except Exception:
-            pass
-
-        sorted_pts = sorted(points, key=lambda p: float(p.get("time", 0)))
-        pts_written = 0
-        for i in range(len(sorted_pts)):
-            t0 = _d(sorted_pts[i].get("time", 0))
-            v0 = _d(sorted_pts[i].get("value", 0))
-            if i + 1 < len(sorted_pts):
-                t1 = _d(sorted_pts[i + 1].get("time", 0))
-                v1 = _d(sorted_pts[i + 1].get("value", 0))
-            else:
-                t1 = target_length
-                v1 = v0
-
-            seg = t1 - t0
-            if seg <= 0.0001:
-                continue
-            n = max(1, int(seg / LEGACY_STEP_SIZE))
-            step_dur = _d(seg / n)
-            for s in range(n):
-                frac = s / float(n)
-                v = v0 + frac * (v1 - v0)
-                t = _d(t0 + s * step_dur)
-                clamped = max(0.0, min(1.0, v))
-                actual = _d(pmin + clamped * (pmax - pmin))
-                env.insert_step(_d(t), _d(step_dur), _d(actual))
-                pts_written += 1
-        return pts_written
+    def _adaptive_step_tuples(self, points, target_length, pmin, pmax, use_log):
+        """Thin wrapper over the pure, unit-tested _curve.adaptive_steps (see
+        test/test_stride_inject_curve.py). Coerces each value to a Boost-safe
+        float via _d() for the LOM. Emits a step only where the curve moves
+        (>= EPS_NORM), so flat holds collapse but every move is kept at probe
+        resolution — redundancy removal, not resolution loss (≥99.75% match)."""
+        return [(_d(t), _d(dur), _d(val)) for (t, dur, val) in adaptive_steps(
+            points, target_length, pmin, pmax, use_log,
+            PROBE_BEATS, EPS_NORM)]
 
     # ─── main entry ───────────────────────────────────────────────────────
 
     def _write_inject(self, data):
+        if self._busy:
+            self._fail("Busy writing a previous inject — try again in a moment")
+            return
+
         clip_bars = int(data.get("clip_bars", 4))
         target_length = clip_bars * 4
         force_legacy = bool(data.get("force_legacy_step", False))
         use_bezier = (self._EnvelopeEvent is not None) and (not force_legacy)
-        self._mode = "bezier" if use_bezier else "step"
 
         clip, err = self._get_target_clip(data, target_length)
         if clip is None:
             self._fail(err or "No target clip")
             return
 
+        queue = []           # (env, time, dur, native_value) for chunked step writes
         params_written = 0
         points_written = 0
         for pd in data.get("params", []):
@@ -367,6 +398,9 @@ class StrideInject(ControlSurface):
                 pmin = _d(param.min)
                 pmax = _d(param.max)
 
+            # Same log-scaling decision the .alc path makes (shared/log-scaling.js).
+            use_log = should_use_log(pd.get("name"), pmin, pmax, pd.get("is_log"))
+
             env = self._get_or_create_envelope(clip, param)
             if env is None:
                 self.log_message("StrideInject: no envelope for '%s' — skipping" % pd.get("name"))
@@ -383,26 +417,90 @@ class StrideInject(ControlSurface):
                     self.log_message("StrideInject: env.create_event not exposed in this Live build — falling back to step mode for the rest of this run")
             if use_bezier and not self._create_event_works:
                 use_bezier = False
-                self._mode = "step"
+
+            # Clear existing automation for this param over the clip range.
+            try:
+                env.delete_events_in_range(_d(0.0), _d(target_length))
+            except Exception:
+                pass
 
             try:
                 if use_bezier:
-                    n = self._write_bezier(env, points, target_length, pmin, pmax)
+                    # Bezier writes few events (one per drawn point) — small
+                    # enough to do synchronously.
+                    n = self._write_bezier(env, points, target_length, pmin, pmax, use_log)
+                    if n > 0:
+                        params_written += 1
+                        points_written += n
+                    self.log_message("StrideInject: %s -> %d events (bezier)" % (pd.get("name"), n))
                 else:
-                    n = self._write_step(env, points, target_length, pmin, pmax)
-                if n > 0:
-                    params_written += 1
-                    points_written += n
-                self.log_message("StrideInject: %s -> %d events (%s mode)" % (
-                    pd.get("name"), n, self._mode))
+                    tuples = self._adaptive_step_tuples(points, target_length, pmin, pmax, use_log)
+                    if tuples:
+                        for (t, dur, val) in tuples:
+                            queue.append((env, t, dur, val))
+                        params_written += 1
+                        points_written += len(tuples)
+                    self.log_message("StrideInject: %s -> %d steps queued" % (pd.get("name"), len(tuples)))
             except Exception as e:
-                self.log_message("StrideInject: write failed for '%s': %s" % (pd.get("name"), str(e)))
+                self.log_message("StrideInject: prepare failed for '%s': %s" % (pd.get("name"), str(e)))
                 self.log_message(traceback.format_exc())
 
-        if params_written > 0:
-            self._ok(params_written, points_written)
-        else:
+        self._mode = "bezier" if use_bezier else "step"
+
+        if params_written == 0:
             self._fail("No parameters were written — check Ableton log", 0)
+            return
+
+        if not queue:
+            # All-bezier path — already written synchronously above.
+            self._ok(params_written, points_written)
+            return
+
+        # Step mode: every param resolved and its envelope exists, so the inject
+        # has effectively succeeded — the queued insert_steps themselves are
+        # reliable. Report success NOW so a big clip never trips a false bridge
+        # timeout, then stream the writes in CHUNK_SIZE batches across the
+        # scheduler (responsive, never blocks Ableton). The automation fills into
+        # the clip as the queue drains.
+        self._ok(params_written, points_written)
+        self._busy = True
+        self._write_queue = queue
+        self._write_idx = 0
+        self._pending = {"params": params_written, "points": points_written}
+        self.log_message("StrideInject: streaming %d steps across %d params in chunks of %d (background)" % (
+            len(queue), params_written, CHUNK_SIZE))
+        self._flush_chunk()
+
+    def _flush_chunk(self):
+        """Write up to CHUNK_SIZE queued insert_steps, then yield to Ableton and
+        reschedule until the queue is drained — keeps the UI responsive so any
+        number of steps streams in without freezing. Success was already reported
+        when the queue was built, so this just lays the steps down."""
+        q = self._write_queue
+        start = self._write_idx
+        end = min(start + CHUNK_SIZE, len(q))
+        try:
+            for i in range(start, end):
+                env, t, dur, val = q[i]
+                try:
+                    env.insert_step(t, dur, val)
+                except Exception as e:
+                    self.log_message("StrideInject: insert_step failed: " + str(e))
+            self._write_idx = end
+        except Exception as e:
+            self.log_message("StrideInject: chunk error: " + str(e))
+            self._write_idx = len(q)  # bail out of this run
+
+        if self._write_idx < len(q):
+            if (self._write_idx // 6000) != (start // 6000):   # ~every 6000 steps
+                self.log_message("StrideInject: %d / %d steps written" % (self._write_idx, len(q)))
+            self.schedule_message(1, self._flush_chunk)
+        else:
+            self.log_message("StrideInject: finished writing %d steps" % len(q))
+            self._busy = False
+            self._write_queue = []
+            self._write_idx = 0
+            self._pending = None
 
     def disconnect(self):
         self.log_message("StrideInject: disconnected")

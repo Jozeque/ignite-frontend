@@ -238,6 +238,10 @@
                     <button id="sd-armed-pattern-clear" onclick="if(window.sdClearPattern)window.sdClearPattern()" title="Clear pattern" class="text-orange-400/70 hover:text-orange-300 shrink-0 text-sm leading-none px-1">×</button>
                 </div>
                 <button onclick="applyToAbleton()" title="Creates a .alc file — drag it onto an empty clip slot in Ableton to apply the automation" class="w-full text-[9px] text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 py-1.5 rounded-lg uppercase tracking-widest font-black transition-all">Apply to Clip</button>
+                <!-- Opt-in direct-inject (beta): writes automation straight into the
+                     selected Session clip via the StrideInject Remote Script — no
+                     .alc, no template, no drag. The .alc button above is untouched. -->
+                <button onclick="applyToAbletonDirect()" title="BETA — writes automation straight into the selected Session clip. No file, no template, no drag. Requires StrideInject enabled in Ableton → Preferences → Link/Tempo/MIDI → Control Surface." class="w-full mt-1 text-[8px] text-sky-300/90 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 hover:border-sky-500/40 py-1.5 rounded-lg uppercase tracking-widest font-black transition-all">⚡ Direct Inject (beta)</button>
                 <!-- Legacy drag handle — superseded by #sd-apply-reveal floating card.
                      Kept hidden (display:none) for backwards compat; canvas.js no
                      longer targets this element. Safe to delete in a later cleanup. -->
