@@ -4,7 +4,7 @@
 
 Stride is a **Sound Design Engine for Ableton Live** — a desktop app (Electron) paired with a Max for Live device (StrideLink). Producers load their own Ableton instrument racks, draw dynamic automation curves on a visual canvas, and apply them directly to clips. Optional cloud generation creates curves and MIDI via API.
 
-**Tagline:** Sound Design Engine. Your racks, reborn.
+**Tagline:** Sound Design Engine. Modulate everything in your session.
 
 **Critical rule:** This is NOT an AI tool in public messaging. Never mention AI, LLMs, or Gemini in any user-facing copy, UI text, or marketing. The product is a **sound design engine** — the technology behind it is irrelevant to the user.
 

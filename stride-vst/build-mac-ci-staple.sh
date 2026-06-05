@@ -219,7 +219,7 @@ echo "      ✅ Bundled M4L payload verified"
 cat > "$DIST/Stride/README.txt" << 'READMEEOF'
 ===============================================================
  STRIDE - Sound Design Engine for Ableton Live
- Your racks, reborn.
+ Modulate everything in your session.
 ===============================================================
 
 ---------------------------------------------------------------
@@ -320,7 +320,7 @@ Canvas says "Disconnected"
  I'm still exploring the tool myself and keep pushing releases.
  Send me your findings - I reply to everyone.
 
- Your racks, reborn.
+ Modulate everything in your session.
 ===============================================================
 READMEEOF
 

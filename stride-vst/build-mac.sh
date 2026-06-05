@@ -222,7 +222,7 @@ echo "[4/5] Adding README..."
 cat > "$DIST/Stride/README.txt" << 'READMEEOF'
 ===============================================================
  STRIDE - Sound Design Engine for Ableton Live (macOS BETA)
- Your racks, reborn.
+ Modulate everything in your session.
 ===============================================================
 
 >> THIS IS AN UNSIGNED BETA BUILD cross-compiled from Windows.
@@ -332,7 +332,7 @@ Canvas says "Disconnected"
  I'm still exploring the tool myself and keep pushing releases.
  Send me your findings - I reply to everyone.
 
- Your racks, reborn.
+ Modulate everything in your session.
 ===============================================================
 READMEEOF
 
