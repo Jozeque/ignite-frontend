@@ -365,11 +365,12 @@ function handleAppMessage(msg) {
             inject.writeInject(msg, {
                 onSuccess: (data) => {
                     const mode = data && data.mode ? data.mode : 'unknown';
-                    Max.post(`Stride: inject success — ${data.params_written || 0} params, ${data.points_written || 0} events (${mode} mode)`);
+                    Max.post(`Stride: inject success — ${data.params_written || 0} params, ${data.points_written || 0} events, ${data.notes_written || 0} notes (${mode} mode)`);
                     sendToApp({
                         type: 'inject_success',
                         params_written: (data && data.params_written) || 0,
                         points_written: (data && data.points_written) || 0,
+                        notes_written: (data && data.notes_written) || 0,
                         mode: mode,
                         clip_bars: msg.clip_bars || 4,
                     });

@@ -160,13 +160,14 @@ class StrideInject(ControlSurface):
 
     # ─── result reporting ─────────────────────────────────────────────────
 
-    def _ok(self, params_written, points_written):
+    def _ok(self, params_written, points_written, notes_written=0):
         self._result({
             "success": True,
             "message": "OK",
             "mode": self._mode,
             "params_written": params_written,
             "points_written": points_written,
+            "notes_written": notes_written,
         })
 
     def _fail(self, message, params_written=0):
@@ -361,6 +362,71 @@ class StrideInject(ControlSurface):
             points, target_length, pmin, pmax, use_log,
             PROBE_BEATS, EPS_NORM)]
 
+    # ─── MIDI notes (armed Pattern Library patterns ride the same inject) ──
+
+    def _write_notes(self, clip, notes):
+        """Write the armed pattern's MIDI notes into the target clip, replacing
+        existing notes — unifies the Pattern Library into Direct Inject so
+        "Inject to Clip" lays down curves AND notes in one shot. Tries the
+        stable select-all/replace path, then set_notes, then the Live 11+
+        add_new_notes API — whichever this build exposes (logged on failure)."""
+        tuples = []
+        for n in notes:
+            try:
+                pitch = int(n.get("pitch"))
+                start = float(n.get("time", 0))
+                dur = float(n.get("duration", 0.25))
+                vel = int(n.get("velocity", 100))
+            except Exception:
+                continue
+            if pitch < 0 or pitch > 127 or start < 0 or dur <= 0:
+                continue
+            vel = 1 if vel < 1 else (127 if vel > 127 else vel)
+            tuples.append((pitch, start, dur, vel, False))
+        if not tuples:
+            return 0
+        note_tuple = tuple(tuples)
+
+        # 1) Stable path: select all, replace with our set (clears + writes).
+        try:
+            clip.select_all_notes()
+            clip.replace_selected_notes(note_tuple)
+            try:
+                clip.deselect_all_notes()
+            except Exception:
+                pass
+            return len(tuples)
+        except Exception as e:
+            self.log_message("StrideInject: replace_selected_notes failed: " + str(e))
+
+        # 2) Fallback: clear then set_notes.
+        try:
+            try:
+                clip.select_all_notes()
+                clip.replace_selected_notes(tuple())
+            except Exception:
+                pass
+            clip.set_notes(note_tuple)
+            return len(tuples)
+        except Exception as e:
+            self.log_message("StrideInject: set_notes failed: " + str(e))
+
+        # 3) Last resort: Live 11+ MidiNoteSpecification / add_new_notes.
+        try:
+            from Live.Clip import MidiNoteSpecification as _MNS
+            specs = tuple(_MNS(pitch=t[0], start_time=t[1], duration=t[2],
+                               velocity=t[3], mute=False) for t in tuples)
+            try:
+                span = max((t[1] + t[2]) for t in tuples)
+                clip.remove_notes_extended(0, 128, _d(0.0), _d(span))
+            except Exception:
+                pass
+            clip.add_new_notes(specs)
+            return len(tuples)
+        except Exception as e:
+            self.log_message("StrideInject: add_new_notes failed: " + str(e))
+        return 0
+
     # ─── main entry ───────────────────────────────────────────────────────
 
     def _write_inject(self, data):
@@ -445,15 +511,28 @@ class StrideInject(ControlSurface):
                 self.log_message("StrideInject: prepare failed for '%s': %s" % (pd.get("name"), str(e)))
                 self.log_message(traceback.format_exc())
 
+        # Armed-pattern MIDI notes ride the same inject — "Inject to Clip" does
+        # curves AND patterns. Written synchronously (a single LOM replace, not
+        # thousands of insert_steps), into the same clip as the envelopes.
+        notes = data.get("notes") or []
+        notes_written = 0
+        if notes:
+            try:
+                notes_written = self._write_notes(clip, notes)
+                self.log_message("StrideInject: wrote %d notes" % notes_written)
+            except Exception as e:
+                self.log_message("StrideInject: note write failed: " + str(e))
+                self.log_message(traceback.format_exc())
+
         self._mode = "bezier" if use_bezier else "step"
 
-        if params_written == 0:
-            self._fail("No parameters were written — check Ableton log", 0)
+        if params_written == 0 and notes_written == 0:
+            self._fail("Nothing to inject — no curves or notes (check Ableton log)", 0)
             return
 
         if not queue:
-            # All-bezier path — already written synchronously above.
-            self._ok(params_written, points_written)
+            # No queued step-writes (all-bezier, or notes-only) — done.
+            self._ok(params_written, points_written, notes_written)
             return
 
         # Step mode: every param resolved and its envelope exists, so the inject
@@ -462,7 +541,7 @@ class StrideInject(ControlSurface):
         # timeout, then stream the writes in CHUNK_SIZE batches across the
         # scheduler (responsive, never blocks Ableton). The automation fills into
         # the clip as the queue drains.
-        self._ok(params_written, points_written)
+        self._ok(params_written, points_written, notes_written)
         self._busy = True
         self._write_queue = queue
         self._write_idx = 0

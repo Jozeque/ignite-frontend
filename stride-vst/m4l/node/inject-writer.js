@@ -55,8 +55,9 @@ function writeInject(msg, callbacks) {
     const onError = (callbacks && callbacks.onError) || function () {};
 
     const params = (msg && msg.parameters) || [];
-    if (params.length === 0) {
-        onError('No parameters to inject');
+    const notes = (msg && msg.notes) || [];
+    if (params.length === 0 && notes.length === 0) {
+        onError('Nothing to inject');
         return;
     }
 
@@ -78,6 +79,14 @@ function writeInject(msg, callbacks) {
                 curve: pt.curve || 0,
             })),
         })),
+        // Armed Pattern Library notes ride along — StrideInject writes them into
+        // the same clip as the envelopes (unify patterns with Direct Inject).
+        notes: notes.map(n => ({
+            pitch: n.pitch,
+            time: n.time,
+            duration: n.duration,
+            velocity: n.velocity != null ? n.velocity : 100,
+        })),
     };
 
     let totalPoints = 0;
@@ -89,7 +98,7 @@ function writeInject(msg, callbacks) {
 
     try {
         fs.writeFileSync(TRIGGER_FILE, JSON.stringify(payload));
-        Max.post(`Stride: inject trigger written — ${params.length} params, ${totalPoints} points`);
+        Max.post(`Stride: inject trigger written — ${params.length} params, ${totalPoints} points, ${notes.length} notes`);
     } catch (e) {
         onError('Failed to write inject trigger: ' + e.message);
         return;

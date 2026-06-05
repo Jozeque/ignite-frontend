@@ -317,10 +317,6 @@
     let _sdTrackChangeTimer = null;
     let _sdLastAutoScanAt = 0;
     let _sdCurrentTrackName = null;   // for same-track detection across autoscans
-    // "N Params Empty" notice: armed by a scan (loadParamsDirectly), ticks down
-    // as the user fills lanes, disarms at 0 and stays gone until the NEXT scan
-    // finds empty params — a notification, not a permanent live counter.
-    let _syncWarnActive = false;
     function _sdAutoScan() {
         if (!strideLink.connected) return;
         _sdLastAutoScanAt = Date.now();
@@ -342,6 +338,17 @@
         Promise.resolve(saveCanvasState()).then(_sdAutoScan);
     }
     window.addEventListener('focus', _sdAutoScanOnFocus);
+
+    // Manual re-sync (the small refresh icon) — silent curve-preserving merge,
+    // same path as autoscan. Insurance for when auto triggers miss something.
+    window.sdRefreshSync = function() {
+        if (!strideLink.connected) {
+            const el = document.getElementById('sd-canvas-status');
+            if (el) el.textContent = 'Not connected to Ableton';
+            return;
+        }
+        _sdAutoScan();
+    };
 
     // Scan All — shows picker for user to choose which params to load
     window.scanAll = function() {
@@ -451,7 +458,6 @@
     }
 
     function loadParamsDirectly(params, rackInfo) {
-        _syncWarnActive = true;   // a scan re-arms the "N Params Empty" notice
         sdCanvasParams = params.map(p => ({
             envelopeId: String(p.id),
             name: p.name,
@@ -761,13 +767,17 @@
         _hideLoading();
         const params = msg.params_written || 0;
         const pts = msg.points_written || 0;
+        const notes = msg.notes_written || 0;
         const el = document.getElementById('sd-canvas-status');
         if (el) {
             el.style.color = '';
-            el.textContent = `Injected → clip: ${params} param${(params === 1) ? '' : 's'} (${msg.mode || 'step'} mode)`;
+            el.textContent = `Injected → clip: ${params} param${(params === 1) ? '' : 's'}${notes ? ', ' + notes + ' notes' : ''} (${msg.mode || 'step'} mode)`;
         }
-        const detail = `${params} param${params === 1 ? '' : 's'}` + (pts ? ` · ${pts.toLocaleString()} points` : '');
-        _sdShowSuccessPopup('Injected to clip', detail);
+        const parts = [];
+        if (params) parts.push(`${params} param${params === 1 ? '' : 's'}`);
+        if (pts) parts.push(`${pts.toLocaleString()} points`);
+        if (notes) parts.push(`${notes} note${notes === 1 ? '' : 's'}`);
+        _sdShowSuccessPopup('Injected to clip', parts.join(' · ') || 'done');
     });
     strideLink.on('inject_error', (msg) => {
         _hideLoading();
@@ -944,47 +954,22 @@
 
         el.classList.remove('hidden');
 
-        // ── Primary: sync status (direct-inject). A scan arms _syncWarnActive;
-        // the badge then counts mapped lanes that still have NO drawn curve and
-        // ticks DOWN as the user fills them. At 0 it disarms and stays gone
-        // until the NEXT scan finds new empties — a "you mapped params you
-        // haven't drawn yet" notice, not a permanent live counter.
+        // ── "N Params Empty" — a LIVE count of mapped lanes with no drawn curve
+        // yet (locked-empty lanes are intentional, so excluded). Updates on every
+        // edit/scan via sdRenderSidebar: ticks DOWN as you fill lanes, back UP
+        // when you clear one, hidden when all are filled.
         const emptyCount = sdCanvasParams.filter(p => (!p.points || p.points.length === 0) && !p.locked).length;
-        if (emptyCount === 0) _syncWarnActive = false;
         let syncHtml = '';
-        if (_syncWarnActive && emptyCount > 0) {
+        if (emptyCount > 0) {
             syncHtml = `<div class="flex items-center gap-1.5 px-2 py-1 rounded bg-amber-500/10 border border-amber-500/20 mb-1">
                 <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0"></span>
                 <span class="text-[8px] text-amber-400 font-bold uppercase tracking-wider truncate">${emptyCount} Param${emptyCount === 1 ? '' : 's'} Empty</span>
             </div>`;
         }
 
-        // ── Secondary: template badge (kept below — for the .alc path).
-        let tmplHtml;
-        if (templateMatchState === 'exact') {
-            tmplHtml = `<div class="flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
-                <span class="text-[8px] text-emerald-400 font-bold uppercase tracking-wider truncate">Template ready</span>
-            </div>`;
-        } else if (templateMatchState === 'fallback') {
-            tmplHtml = `<div class="flex flex-col gap-1 px-2 py-1.5 rounded bg-amber-500/10 border border-amber-500/20">
-                <div class="flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0"></span>
-                    <span class="text-[8px] text-amber-400 font-bold uppercase tracking-wider">Wrong template</span>
-                </div>
-                <span class="text-[8px] text-zinc-500 leading-tight">Using "${_fallbackTemplateName || '?'}" template — drag a clip from <strong class="text-zinc-300">${currentDeviceName}</strong> track to User Library</span>
-            </div>`;
-        } else {
-            tmplHtml = `<div class="flex flex-col gap-1 px-2 py-1.5 rounded bg-red-500/10 border border-red-500/20">
-                <div class="flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0"></span>
-                    <span class="text-[8px] text-red-400 font-bold uppercase tracking-wider">No template</span>
-                </div>
-                <span class="text-[8px] text-zinc-500 leading-tight">Drag the <strong class="text-zinc-300">MIDI clip</strong> (not the device) to User Library</span>
-            </div>`;
-        }
-
-        el.innerHTML = syncHtml + tmplHtml;
+        // Stride 2.0: templates are retired from the UI — only the sync notice
+        // shows here now (the .alc/template engine still exists for stride-1.x).
+        el.innerHTML = syncHtml;
     }
 
     // ─── SUCCESS POPUP ──────────────────────────────────────
@@ -1401,18 +1386,20 @@
                 is_log: p.is_log || false,
                 points: p.points,
             }));
-        if (params.length === 0) {
-            if (el) el.textContent = 'Draw some curves first';
+        // Armed Pattern Library notes ride the same inject — curves AND notes.
+        const notes = _resolveArmedNotesForBars(sdGetBars()) || [];
+        if (params.length === 0 && notes.length === 0) {
+            if (el) el.textContent = 'Draw some curves or pick a pattern first';
             return;
         }
-        // Direct inject resolves params by their live LOM path. A loaded
-        // session has no _path until a fresh scan — guide the user.
-        if (!params.some(p => p._path)) {
-            if (el) el.textContent = 'Direct inject needs a fresh Scan Mapped first';
+        // Curve params resolve by their live LOM path; a loaded session has no
+        // _path until a fresh sync. (Notes-only injects don't need a path.)
+        if (params.length > 0 && !params.some(p => p._path)) {
+            if (el) el.textContent = 'Inject needs a fresh sync first';
             return;
         }
-        if (el) { el.style.color = ''; el.textContent = 'Injecting directly into clip…'; }
-        strideLink.applyDirectInject(params, sdGetBars(), { createIfMissing: true });
+        if (el) { el.style.color = ''; el.textContent = 'Injecting into clip…'; }
+        strideLink.applyDirectInject(params, sdGetBars(), { createIfMissing: true, notes: notes });
         saveCanvasState();
     };
 
@@ -2482,6 +2469,14 @@
             if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ' && !e.shiftKey) { e.preventDefault(); sdUndo(); return; }
             if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ' && e.shiftKey) { e.preventDefault(); sdRedo(); return; }
             if ((e.ctrlKey || e.metaKey) && e.code === 'KeyY') { e.preventDefault(); sdRedo(); return; }
+            // Copy / paste the active lane's curve. Skipped while typing in a
+            // field so native text copy/paste still works.
+            {
+                const _ae = document.activeElement;
+                const _typing = _ae && (_ae.tagName === 'INPUT' || _ae.tagName === 'TEXTAREA' || _ae.isContentEditable);
+                if (!_typing && (e.ctrlKey || e.metaKey) && e.code === 'KeyC') { e.preventDefault(); if (window.sdCopyLane) sdCopyLane(); return; }
+                if (!_typing && (e.ctrlKey || e.metaKey) && e.code === 'KeyV') { e.preventDefault(); if (window.sdPasteLane) sdPasteLane(false); return; }
+            }
             if (e.code === 'Escape') { sdClearSelection(); return; }
             // Pan is middle-click + drag now (Ableton-style). Space is free.
         });
@@ -2562,14 +2557,27 @@
 
                 const wasActive = sdActiveParamId === hit.param.envelopeId;
                 if (!wasActive) {
+                    // Plain click = clean single-select: this lane becomes the
+                    // ONLY selection (also clears any multi-lane selection so a
+                    // fresh click never adds to a stuck set).
+                    sdCanvasParams.forEach(p => { p.selected = false; });
                     sdActiveParamId = hit.param.envelopeId;
                     sdResetSliderSnapshots();
                     sdRenderSidebar();
                     sdDrawCanvasGrid();
                     return;
                 }
-                // Click inside the label column on the active lane → no-op
-                if (mx < SD_MULTI_LABEL_WIDTH) return;
+                // Click the active lane's label again → DESELECT everything, so
+                // the UI goes fully unselected and the next lane you click is the
+                // only one selected. (Clicks on the lane body still edit points.)
+                if (mx < SD_MULTI_LABEL_WIDTH) {
+                    sdCanvasParams.forEach(p => { p.selected = false; });
+                    sdActiveParamId = null;
+                    sdResetSliderSnapshots();
+                    sdRenderSidebar();
+                    sdDrawCanvasGrid();
+                    return;
+                }
             }
 
             if (!sdActiveParamId) return;

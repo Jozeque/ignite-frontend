@@ -215,7 +215,12 @@
             <div class="p-3 border-b border-white/5">
                 <div class="flex items-center justify-between mb-2">
                     <h3 class="text-[9px] font-black text-zinc-500 uppercase tracking-[0.2em]">Parameters</h3>
-                    <span id="sd-param-count" class="text-[8px] text-zinc-600 font-bold"></span>
+                    <div class="flex items-center gap-1.5">
+                        <span id="sd-param-count" class="text-[8px] text-zinc-600 font-bold"></span>
+                        <button onclick="if(window.sdRefreshSync)window.sdRefreshSync()" title="Re-sync your rack's mapped parameters from Ableton (Stride also syncs automatically on open and when you switch back)" class="text-zinc-600 hover:text-fuchsia-400 transition-colors p-0.5 rounded-md hover:bg-white/5" aria-label="Re-sync params">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h5M20 20v-5h-5M5.5 9a7 7 0 0111.5-2.5L20 9M18.5 15a7 7 0 01-11.5 2.5L4 15"/></svg>
+                        </button>
+                    </div>
                 </div>
                 <div id="rack-info" class="hidden">
                     <p id="rack-name" class="text-[10px] text-fuchsia-400/70 font-bold truncate"></p>
@@ -223,39 +228,21 @@
                     <div id="template-status" class="hidden mt-1.5"></div>
                 </div>
                 <div id="no-rack-msg" class="text-[9px] text-zinc-600 italic">
-                    Connect M4L device and click Scan
+                    Connect Ableton — Stride syncs your mapped rack automatically
                 </div>
             </div>
             <!-- Actions -->
             <div class="p-2 border-b border-white/5 flex flex-col gap-1.5">
-                <button id="scan-mapped-btn" onclick="scanMapped()" title="Read every parameter you've mapped in Ableton into the canvas as a lane" class="w-full text-[9px] text-fuchsia-400 bg-fuchsia-500/10 hover:bg-fuchsia-500/20 border border-fuchsia-500/20 hover:border-fuchsia-500/40 py-1.5 rounded-lg uppercase tracking-widest font-black transition-all">Scan Mapped</button>
-                <input id="clip-name-input" type="text" placeholder="Clip name (optional)" class="w-full text-[9px] text-zinc-300 bg-zinc-800/50 border border-white/5 focus:border-emerald-500/40 rounded-lg px-2 py-1.5 outline-none font-medium placeholder-zinc-600 transition-all" />
-                <!-- Armed pattern chip — visible only when user picked a pattern in the Library overlay.
-                     Tells them the next Apply to Clip will include MIDI notes from this pattern. -->
+                <!-- Armed pattern chip — visible only when a pattern is picked in the Library overlay. -->
                 <div id="sd-armed-pattern-chip" class="hidden w-full text-[9px] bg-orange-500/10 border border-orange-500/30 rounded-lg px-2 py-1.5 flex items-center gap-1.5">
                     <svg class="w-3 h-3 text-orange-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19a3 3 0 11-6 0 3 3 0 016 0zm12-3a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                     <span id="sd-armed-pattern-label" class="text-orange-300 font-bold uppercase tracking-wider truncate min-w-0 flex-1"></span>
                     <button id="sd-armed-pattern-clear" onclick="if(window.sdClearPattern)window.sdClearPattern()" title="Clear pattern" class="text-orange-400/70 hover:text-orange-300 shrink-0 text-sm leading-none px-1">×</button>
                 </div>
-                <button onclick="applyToAbleton()" title="Creates a .alc file — drag it onto an empty clip slot in Ableton to apply the automation" class="w-full text-[9px] text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 py-1.5 rounded-lg uppercase tracking-widest font-black transition-all">Apply to Clip</button>
-                <!-- Opt-in direct-inject (beta): writes automation straight into the
-                     selected Session clip via the StrideInject Remote Script — no
-                     .alc, no template, no drag. The .alc button above is untouched. -->
-                <button onclick="applyToAbletonDirect()" title="BETA — writes automation straight into the selected Session clip. No file, no template, no drag. Requires StrideInject enabled in Ableton → Preferences → Link/Tempo/MIDI → Control Surface." class="w-full mt-1 text-[8px] text-sky-300/90 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 hover:border-sky-500/40 py-1.5 rounded-lg uppercase tracking-widest font-black transition-all">⚡ Direct Inject (beta)</button>
-                <!-- Legacy drag handle — superseded by #sd-apply-reveal floating card.
-                     Kept hidden (display:none) for backwards compat; canvas.js no
-                     longer targets this element. Safe to delete in a later cleanup. -->
-                <div id="sd-drag-alc" style="display:none" class="w-full rounded-xl border-2 border-dashed border-emerald-500/40 bg-emerald-500/5 py-3 px-3 flex items-center gap-2.5 select-none">
-                    <svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
-                    <div class="flex flex-col min-w-0">
-                        <span id="sd-drag-alc-name" class="text-[11px] text-emerald-400 font-black truncate"></span>
-                        <span class="text-[9px] text-zinc-500 font-bold">drag onto an <span class="text-emerald-400/80">empty clip slot</span> in Ableton</span>
-                    </div>
-                </div>
-                <div class="flex gap-1.5 mt-1">
-                    <button onclick="sdSaveSession()" class="flex-1 text-[9px] text-sky-400/80 bg-sky-500/5 hover:bg-sky-500/15 border border-sky-500/10 hover:border-sky-500/30 py-1 rounded-lg uppercase tracking-widest font-bold transition-all">Save Session</button>
-                    <button onclick="sdShowSessions()" class="flex-1 text-[9px] text-sky-400/80 bg-sky-500/5 hover:bg-sky-500/15 border border-sky-500/10 hover:border-sky-500/30 py-1 rounded-lg uppercase tracking-widest font-bold transition-all">Load</button>
-                </div>
+                <!-- Primary CTA — Stride 2.0: writes your curves straight into the
+                     selected clip via StrideInject. No .alc, no template, no drag. -->
+                <button onclick="applyToAbletonDirect()" id="sd-inject-btn" title="Write your curves straight into the selected clip in Ableton — no file, no drag. Requires StrideInject enabled: Ableton → Preferences → Link/Tempo/MIDI → Control Surface." class="w-full text-[9px] text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 py-1.5 rounded-lg uppercase tracking-widest font-black transition-all">Inject to Clip</button>
+                <!-- (Stride 2.0: Save/Load Session removed — per-rack autosave + autoscan persist curves; sessions had no live _path and risked rack mismatch.) -->
             </div>
             <!-- Context Panel — replaces the old param list. Hosts the
                  generative tools and edit sliders so the toolbar can stay
@@ -358,7 +345,7 @@
                 <div class="flex items-center justify-between px-7 py-5 border-b border-white/5 shrink-0">
                     <div>
                         <h2 class="text-lg font-black text-gradient uppercase tracking-widest">Getting Started</h2>
-                        <p class="text-xs text-zinc-500 font-medium mt-1">Your racks, reborn — in 7 steps</p>
+                        <p class="text-xs text-zinc-500 font-medium mt-1">Your racks, reborn — 6 simple steps</p>
                     </div>
                     <button onclick="document.getElementById('guide-modal').classList.add('hidden')" class="text-zinc-500 hover:text-white transition-colors p-1">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
@@ -369,18 +356,17 @@
                 <div class="flex-1 overflow-y-auto custom-scroll px-7 py-6">
                     <div class="flex flex-col gap-7">
 
-                        <!-- FIRST-TIME SETUP — must happen before Step 1.
-                             Most common "M4L disconnected" cause is skipping
-                             this. Compact callout up top so nobody misses it. -->
+                        <!-- ONE-TIME SETUP — install + enable StrideInject. Most
+                             "not connected / timeout" issues are skipping this. -->
                         <div class="rounded-xl border border-orange-500/30 p-5" style="background: linear-gradient(135deg, rgba(249,115,22,0.08), rgba(239,68,68,0.04));">
                             <div class="flex items-start gap-3">
                                 <div class="shrink-0 w-10 h-10 rounded-xl bg-orange-500/15 border border-orange-500/30 flex items-center justify-center">
                                     <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
                                 </div>
                                 <div class="flex-1 min-w-0">
-                                    <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Install StrideLink to Ableton</h3>
-                                    <p class="text-base text-zinc-300 leading-relaxed mt-2">Click <span class="text-orange-400 font-bold">"Install to Ableton"</span> in Stride's titlebar (top of this window). This copies <span class="text-zinc-100 font-mono">StrideLink.amxd</span> into your Ableton User Library so you can drag it onto a track in Step 3.</p>
-                                    <p class="text-sm text-zinc-400 leading-relaxed mt-2"><b class="text-zinc-300">Tip:</b> in Ableton's Browser, right-click StrideLink and add it to your Favorites — one click to drop it on any new track later.</p>
+                                    <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">One-time setup</h3>
+                                    <p class="text-base text-zinc-300 leading-relaxed mt-2"><span class="text-orange-400 font-bold">1.</span> Click <span class="text-orange-400 font-bold">"Install to Ableton"</span> in Stride's titlebar — installs StrideLink + StrideInject.</p>
+                                    <p class="text-base text-zinc-300 leading-relaxed mt-2"><span class="text-orange-400 font-bold">2.</span> In Ableton: <span class="text-zinc-100 font-bold">Preferences → Link/Tempo/MIDI → Control Surface</span> → choose <span class="text-zinc-100 font-mono">StrideInject</span>. Once, and you're set.</p>
                                 </div>
                             </div>
                         </div>
@@ -391,9 +377,9 @@
                                 <span class="text-base text-orange-400 font-black">1</span>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Load your instrument</h3>
-                                <p class="text-base text-zinc-400 leading-relaxed mt-1">Build a synth from scratch or load an existing rack/preset onto a MIDI track.</p>
-                                <div id="guide-img-1" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden hidden"><!-- screenshot slot --></div>
+                                <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Load StrideLink on your track</h3>
+                                <p class="text-base text-zinc-400 leading-relaxed mt-1">Drop the <span class="text-zinc-300 font-medium">StrideLink</span> device onto the track with your instrument.</p>
+                                <div id="guide-img-1" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden hidden"></div>
                             </div>
                         </div>
 
@@ -404,20 +390,8 @@
                             </div>
                             <div class="flex-1 min-w-0">
                                 <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Map your parameters</h3>
-                                <p class="text-base text-zinc-400 leading-relaxed mt-1">Every parameter you want Stride to control needs a single automation point on its lane — just enough to tell Ableton "embed this envelope in the clip." The fastest way: arm recording and touch each knob once.</p>
-                                <div class="mt-2 bg-black/30 border border-emerald-500/30 rounded-lg px-3 py-2">
-                                    <p class="text-xs text-emerald-400/90 font-black uppercase tracking-wider mb-2">Fastest way (recommended)</p>
-                                    <p class="text-sm text-zinc-400 leading-relaxed"><span class="text-zinc-300 font-bold">1.</span> Hit <span class="text-emerald-400 font-mono font-bold">F9</span> to arm automation recording.<br><span class="text-zinc-300 font-bold">2.</span> Nudge every knob you want Stride to control — Ableton drops an automation point on each one you touch.<br><span class="text-zinc-300 font-bold">3.</span> Hit <span class="text-emerald-400 font-mono font-bold">F9</span> again to disarm. Done.</p>
-                                </div>
-                                <div class="mt-1.5 bg-black/30 border border-white/5 rounded-lg px-3 py-2">
-                                    <p class="text-xs text-amber-400/80 font-black uppercase tracking-wider mb-2">Or, manually</p>
-                                    <p class="text-sm text-zinc-400 leading-relaxed">Show the automation lane for each parameter → click once on each lane to drop a single point. Slower, but works if you don't want to arm recording.</p>
-                                </div>
-                                <div class="mt-1.5 bg-black/30 border border-red-500/10 rounded-lg px-3 py-2">
-                                    <p class="text-xs text-red-400/80 font-black uppercase tracking-wider mb-2">Important</p>
-                                    <p class="text-sm text-zinc-400 leading-relaxed">Every parameter needs at least one automation point on its lane. Without a point, Ableton won't embed the envelope and Stride can't write to that parameter.</p>
-                                </div>
-                                <div id="guide-img-2" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden"><img src="../assets/step2.png" alt="Mapped automation lanes in Ableton" class="w-full"></div>
+                                <p class="text-base text-zinc-400 leading-relaxed mt-1">Arm record (<span class="text-emerald-400 font-mono font-bold">F9</span>), nudge each knob you want to modulate, then disarm. Stride pulls them in as lanes — <span class="text-fuchsia-400 font-bold">automatically</span>.</p>
+                                <div id="guide-img-2" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden hidden"></div>
                             </div>
                         </div>
 
@@ -427,13 +401,9 @@
                                 <span class="text-base text-orange-400 font-black">3</span>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Drop StrideLink on the same track</h3>
-                                <p class="text-base text-zinc-400 leading-relaxed mt-1">In Ableton's Browser, find <span class="text-zinc-300 font-medium">StrideLink.amxd</span> under <span class="text-zinc-300 font-medium">User Library → Presets → Audio Effects → Max Audio Effect</span>. Drag it onto the same MIDI track, after your instrument.</p>
-                                <div class="mt-2 bg-black/30 border border-red-500/20 rounded-lg px-3 py-2">
-                                    <p class="text-xs text-red-400/80 font-black uppercase tracking-wider mb-2">Don't see StrideLink in your User Library?</p>
-                                    <p class="text-sm text-zinc-400 leading-relaxed">Scroll up to <b class="text-orange-400">First-Time Setup</b> at the top of this guide. You skipped clicking "Install to Ableton" in Stride's titlebar.</p>
-                                </div>
-                                <div id="guide-img-3" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden hidden"><!-- screenshot slot --></div>
+                                <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Draw your curves</h3>
+                                <p class="text-base text-zinc-400 leading-relaxed mt-1">Your mapped params show up as lanes in Stride. Draw a curve on each — freehand, shape templates, or the generative tools.</p>
+                                <div id="guide-img-3" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden hidden"></div>
                             </div>
                         </div>
 
@@ -443,21 +413,9 @@
                                 <span class="text-base text-orange-400 font-black">4</span>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Save the clip as a template</h3>
-                                <p class="text-base text-zinc-400 leading-relaxed mt-1">Drag the <span class="text-zinc-300 font-bold">MIDI clip</span> (the clip slot with your recorded automation) to the <span class="text-zinc-300 font-medium">User Library</span> in Ableton's browser sidebar. Stride detects the new .alc file automatically and imports it as your template.</p>
-                                <div class="mt-1.5 bg-black/30 border border-red-500/10 rounded-lg px-3 py-2">
-                                    <p class="text-xs text-red-400/80 font-black uppercase tracking-wider mb-2">Drag the clip, not the rack</p>
-                                    <p class="text-sm text-zinc-400 leading-relaxed">You must drag the <span class="text-zinc-300 font-bold">clip</span> — the colored block in the clip slot — not the rack/device title bar. Only the clip contains the automation envelopes that Stride needs.</p>
-                                </div>
-                                <div class="mt-1.5 bg-black/30 border border-amber-500/15 rounded-lg px-3 py-2">
-                                    <p class="text-xs text-amber-400/80 font-black uppercase tracking-wider mb-2">Template = snapshot of your rack</p>
-                                    <p class="text-sm text-zinc-400 leading-relaxed">The template captures <span class="text-zinc-300 font-bold">exactly which parameters</span> your rack has right now. If you later add or remove devices, change the rack, or work on a different track — <span class="text-amber-400 font-bold">drag a new clip to User Library again</span>. One template per rack setup.</p>
-                                </div>
-                                <div class="mt-1.5 bg-black/30 border border-white/5 rounded-lg px-3 py-2">
-                                    <p class="text-xs text-emerald-400/80 font-black uppercase tracking-wider mb-2">What happens</p>
-                                    <p class="text-sm text-zinc-400 leading-relaxed">Stride watches your User Library folder. When the .alc file lands there, the canvas shows a green confirmation — your template is saved to <span class="text-zinc-400 font-mono">~/Desktop/Stride/template/</span> and ready to use.</p>
-                                </div>
-                                <div id="guide-img-4" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden"><img src="../assets/step4.png" alt="Dragging rack to User Library" class="w-full"></div>
+                                <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Select your clip</h3>
+                                <p class="text-base text-zinc-400 leading-relaxed mt-1">In Ableton, click the MIDI clip you want — make sure it's the one open in the <span class="text-zinc-300 font-bold">Detail view</span> (double-click it). That's where Stride writes.</p>
+                                <div id="guide-img-4" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden hidden"></div>
                             </div>
                         </div>
 
@@ -467,13 +425,9 @@
                                 <span class="text-base text-orange-400 font-black">5</span>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Click Scan Mapped</h3>
-                                <p class="text-base text-zinc-400 leading-relaxed mt-1">In StrideLink (or the canvas sidebar), click <span class="text-fuchsia-400 font-bold">Scan Mapped</span>. This reads all parameters that have automation lanes and loads them into the canvas.</p>
-                                <div class="mt-1.5 bg-black/30 border border-white/5 rounded-lg px-3 py-2">
-                                    <p class="text-xs text-zinc-400 font-black uppercase tracking-wider mb-2">Before you scan</p>
-                                    <p class="text-sm text-zinc-400 leading-relaxed">Make sure you did Step 4 first — the template must exist before you apply. If you're working on a <span class="text-zinc-300 font-bold">new rack</span> or changed your device chain, drag a fresh clip to User Library again.</p>
-                                </div>
-                                <div id="guide-img-5" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden hidden"><!-- screenshot slot --></div>
+                                <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Inject to Clip</h3>
+                                <p class="text-base text-zinc-400 leading-relaxed mt-1">Hit <span class="text-emerald-400 font-bold">Inject to Clip</span>. Stride writes your curves straight into that clip — no file, no drag.</p>
+                                <div id="guide-img-5" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden hidden"></div>
                             </div>
                         </div>
 
@@ -483,39 +437,22 @@
                                 <span class="text-base text-orange-400 font-black">6</span>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Open Canvas — get wild</h3>
-                                <p class="text-base text-zinc-400 leading-relaxed mt-1">The Stride canvas launches with your parameters as lanes — one lane per mapped knob. Draw curves freehand, apply shape templates (<span class="text-zinc-300 font-bold">Sine, Pump, Glitch, Groove, Chaos, Neuro</span>), use <span class="text-fuchsia-400 font-bold">Chaos</span> to fill every lane at once, <span class="text-amber-400 font-bold">Bloom</span> to spread one curve across all lanes with variations, or <span class="text-sky-400 font-bold">Weave</span> for phase-shifted counterpoint.</p>
-                                <p class="text-base text-zinc-400 leading-relaxed mt-1.5">Shape each lane with the sidebar sliders — <span class="text-zinc-300 font-bold">Smooth, Depth, Curve, Floor, Ceiling</span>. Use <span class="text-zinc-300 font-bold">Select All</span> or <span class="text-zinc-300 font-bold">Select</span> mode to apply tools to multiple lanes at once. <span class="text-zinc-300 font-bold">Lock</span> any lane you want to protect from changes.</p>
-                                <p class="text-base text-zinc-400 leading-relaxed mt-1.5">Pick your loop length (2/4/8/16 bars), name your clip in the input field, then click <span class="text-emerald-400 font-bold">Apply to Clip</span>.</p>
-                                <div id="guide-img-6" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden"><img src="../assets/step6.png" alt="Stride canvas with curves drawn across all lanes, sidebar showing EDIT sliders + GENERATIVE tools, and Recent Generations dock" class="w-full"></div>
+                                <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Play &amp; record</h3>
+                                <p class="text-base text-zinc-400 leading-relaxed mt-1">Hit play and listen. When it sounds right, record the take.</p>
+                                <div id="guide-img-6" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden hidden"></div>
                             </div>
                         </div>
 
-                        <!-- Step 7 -->
-                        <div class="flex gap-4">
-                            <div class="shrink-0 w-10 h-10 rounded-xl bg-orange-500/15 border border-orange-500/25 flex items-center justify-center">
-                                <span class="text-base text-orange-400 font-black">7</span>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Drag the output into Ableton</h3>
-                                <p class="text-base text-zinc-400 leading-relaxed mt-1">After you hit Apply, your generation appears in the <span class="text-fuchsia-400 font-bold">Recent Generations</span> dock at the bottom of Stride. Grab any card from the dock and drag it straight into an <span class="text-zinc-300 font-bold">empty clip slot</span> in Ableton — the slot above the device area on the right side, NOT into the rack itself.</p>
-                                <div class="mt-2 bg-black/30 border border-red-500/30 rounded-lg px-3 py-2">
-                                    <p class="text-xs text-red-400/85 font-black uppercase tracking-wider mb-2">If your curves don't apply</p>
-                                    <p class="text-sm text-zinc-400 leading-relaxed">Drop the .alc onto a <span class="text-zinc-300 font-bold">fresh empty MIDI track</span> with no rack on it (the slot will say "Drop an Instrument or Sample Here" below). Don't drop it onto the same track that has your rack — that can silently fail because Ableton tries to match the existing devices and gets confused. New empty track every time. It just works.</p>
+                        <!-- ADD MORE — the 2.0 superpower: live re-sync. -->
+                        <div class="rounded-xl border border-fuchsia-500/25 p-5" style="background: linear-gradient(135deg, rgba(217,70,239,0.08), rgba(249,115,22,0.04));">
+                            <div class="flex items-start gap-3">
+                                <div class="shrink-0 w-10 h-10 rounded-xl bg-fuchsia-500/15 border border-fuchsia-500/30 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-fuchsia-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
                                 </div>
-                                <div class="mt-1.5 bg-black/30 border border-white/5 rounded-lg px-3 py-2">
-                                    <p class="text-xs text-fuchsia-400/80 font-black uppercase tracking-wider mb-2">Keep going</p>
-                                    <p class="text-sm text-zinc-400 leading-relaxed">Tweak your curves, hit Apply again — each apply adds a new card to the dock. Drop 3-5 variations in a row, then A/B them in Ableton.</p>
+                                <div class="flex-1 min-w-0">
+                                    <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Want more params? Just map them.</h3>
+                                    <p class="text-base text-zinc-300 leading-relaxed mt-2">Map more params (arm + record) → they <span class="text-fuchsia-400 font-bold">auto-appear</span> in Stride → draw curves → <span class="text-emerald-400 font-bold">Inject to Clip</span> again. The new params join the modulated chain. No re-setup, no re-scan.</p>
                                 </div>
-                                <div class="mt-1.5 bg-black/30 border border-white/5 rounded-lg px-3 py-2">
-                                    <p class="text-xs text-zinc-400 font-black uppercase tracking-wider mb-2">Need the file?</p>
-                                    <p class="text-sm text-zinc-400 leading-relaxed">Every .alc is also saved to <span class="text-zinc-400 font-mono">~/Desktop/Stride/</span>. Hit <span class="text-emerald-400 font-bold">Open folder</span> on the bottom-right toast to browse them in Explorer.</p>
-                                </div>
-                                <div class="mt-1.5 bg-black/30 border border-white/5 rounded-lg px-3 py-2">
-                                    <p class="text-xs text-zinc-400 font-black uppercase tracking-wider mb-2">Automation looks wrong?</p>
-                                    <p class="text-sm text-zinc-400 leading-relaxed">If the output doesn't match your canvas, your template is probably outdated. Go back to <span class="text-orange-400 font-bold">Step 4</span> — drag a fresh clip to User Library to update the template for your current rack.</p>
-                                </div>
-                                <div id="guide-img-7" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden"><img src="../assets/step7.png" alt="Drag from the Recent Generations dock at the bottom of Stride straight onto an empty clip slot in Ableton" class="w-full"></div>
                             </div>
                         </div>
 
@@ -773,42 +710,7 @@
                      never intercepts clicks. -->
                 <div id="sd-canvas-tooltip" class="absolute z-30 hidden bg-black/95 border border-fuchsia-500/40 rounded px-2 py-1.5 text-[10px] text-zinc-100 font-bold pointer-events-none shadow-lg max-w-[280px] leading-tight" style="white-space: nowrap;"></div>
 
-                <!-- Apply Reveal — floating drag card shown after a successful
-                     Apply. Replaces the old sidebar drag handle. Auto-dismisses
-                     after ~10s (paused on hover). Click × to dismiss instantly.
-                     Rapid-fire workflow (Chaos → Apply → Chaos → Apply) updates
-                     this card in place with each new file. -->
-                <div id="sd-apply-reveal"
-                     class="hidden absolute bottom-16 left-1/2 -translate-x-1/2 z-40 w-[600px] max-w-[92vw] rounded-2xl cursor-grab active:cursor-grabbing select-none group"
-                     style="font-family:'Outfit',sans-serif; background: rgba(9,9,11,0.96); backdrop-filter: blur(14px); box-shadow: 0 24px 70px rgba(0,0,0,0.7), 0 0 0 2px rgba(16,185,129,0.5), 0 0 60px rgba(16,185,129,0.3);"
-                     draggable="true"
-                     title="Drag onto an empty clip slot in Ableton Live">
-                    <div class="p-6 flex items-center gap-5">
-                        <div class="shrink-0 w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-500/40 to-orange-500/30 border-2 border-emerald-400/60 flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.3)]">
-                            <svg class="w-10 h-10 text-emerald-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
-                            </svg>
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <div class="text-[13px] text-emerald-400 font-black uppercase tracking-[0.3em]">Ready to drop</div>
-                            <div id="sd-apply-reveal-name" class="text-2xl text-zinc-100 font-black tracking-tight truncate mt-1"></div>
-                            <div class="text-[13px] text-zinc-400 font-bold mt-1.5">Drag onto an empty clip slot in Ableton</div>
-                        </div>
-                        <div class="shrink-0 flex flex-col items-center gap-1 pr-2 text-emerald-400" aria-hidden="true">
-                            <svg class="w-8 h-8 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
-                            </svg>
-                            <div class="text-[10px] font-black uppercase tracking-[0.2em]">Drag</div>
-                        </div>
-                        <button id="sd-apply-reveal-close" draggable="false" class="absolute top-2.5 right-2.5 w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-zinc-100 hover:bg-white/10 rounded-lg transition-colors" aria-label="Dismiss">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
-                            </svg>
-                        </button>
-                    </div>
-                    <!-- Countdown bar along the bottom edge — shrinks from full to zero over the auto-dismiss window -->
-                    <div id="sd-apply-reveal-timer" class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 to-orange-400 rounded-b-2xl origin-left" style="transform: scaleX(1);"></div>
-                </div>
+                <!-- (Stride 2.0: .alc drag card removed — Inject to Clip writes directly.) -->
 
                 <!-- Empty-canvas CTA — shown when sdCanvasParams is empty -->
                 <div id="sd-empty-canvas-cta" class="hidden absolute inset-0 flex items-center justify-center z-30 pointer-events-none" style="font-family:'Outfit',sans-serif">
@@ -820,56 +722,26 @@
                         </div>
                         <h2 class="text-lg font-black text-zinc-100 tracking-tight">No lanes yet</h2>
                         <p class="text-[11px] text-zinc-400 text-center leading-relaxed">
-                            Press <span class="text-fuchsia-400 font-black uppercase tracking-wider">Scan Mapped</span> in the sidebar to pull your rack's parameters into the canvas.
+                            Map parameters in Ableton (Quick Arm + Record) — Stride pulls them in <span class="text-fuchsia-400 font-black uppercase tracking-wider">automatically</span>, on open and when you switch back.
                         </p>
                         <div class="text-[11px] text-zinc-300 text-center leading-relaxed border-t border-white/5 pt-3 w-full">
-                            <span class="text-amber-400 font-bold">Heads up:</span> make sure you've opened automation lanes for each parameter in Ableton first. The scan reads those lanes.
+                            <span class="text-amber-400 font-bold">Heads up:</span> open an automation lane for each parameter in Ableton first — that's what Stride reads.
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Recent generations dock — last 5 .alc files in ~/Desktop/Stride/.
-                 Each card is draggable straight into Ableton. Always visible:
-                 the right side hosts the canvas status pills (M4L connection,
-                 keyboard hints) so they don't crowd the drawing surface.
-                 Pills column shrinks gracefully on narrower screens; the long
-                 hints pill hides entirely below xl (1280px) to free space. -->
-            <div id="sd-generations-dock" class="shrink-0 h-20 border-t border-white/5 bg-black/40 flex items-stretch gap-2 px-3 py-2 min-w-0">
-                <div class="flex items-center pr-2 border-r border-white/5 shrink-0 gap-2">
-                    <span class="text-[9px] font-black text-zinc-500 uppercase tracking-widest leading-tight">Recent<br>Generations</span>
-                    <button id="sd-all-generations-btn" onclick="sdOpenAllGenerations()" title="Browse all generations — drag any of them into Ableton." class="shrink-0 text-zinc-500 hover:text-emerald-300 bg-black/40 hover:bg-white/10 border border-white/5 hover:border-white/15 p-1.5 rounded transition-colors">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
-                    </button>
-                    <button id="sd-clear-generations-btn" onclick="sdClearGenerations()" title="Hide all current generations from the dock — fresh slate for a new session. Files stay on disk in ~/Desktop/Stride/ and any new generation will appear normally." class="text-[8px] text-zinc-500 hover:text-zinc-300 bg-black/40 hover:bg-white/10 border border-white/5 hover:border-white/15 px-2 py-1 rounded uppercase tracking-widest font-black transition-colors">Clear</button>
-                </div>
-                <div id="sd-generations-cards" class="flex-1 flex items-stretch gap-2 overflow-x-auto custom-scroll min-w-0"></div>
-                <div id="sd-generations-empty" class="hidden flex-1 flex items-center text-[10px] text-zinc-600 italic min-w-0">No generations yet — Apply a clip to start filling this dock.</div>
-                <div class="flex flex-col justify-center gap-1 pl-2 border-l border-white/5 min-w-0 max-w-[260px]">
-                    <span id="sd-canvas-status" class="block text-[9px] font-bold text-zinc-500 uppercase tracking-wider bg-black/70 px-2 py-1 rounded text-right truncate">Connect M4L</span>
-                    <span class="hidden xl:block text-[9px] font-bold text-zinc-600 tracking-widest uppercase bg-black/60 px-2 py-1 rounded text-right truncate">Ctrl+Wheel · Space+Drag · Alt+Drag</span>
-                </div>
+            <!-- Slim status bar — Stride 2.0 reclaimed the Recent Generations
+                 dock for canvas space. Keeps the status line + keyboard hints;
+                 success is now the centered popup. -->
+            <div class="shrink-0 h-7 border-t border-white/5 bg-black/40 flex items-center justify-between gap-3 px-3 min-w-0">
+                <span class="hidden xl:block text-[9px] font-bold text-zinc-600 tracking-widest uppercase truncate">Ctrl+Wheel · Space+Drag · Alt+Drag</span>
+                <span id="sd-canvas-status" class="block text-[9px] font-bold text-zinc-500 uppercase tracking-wider truncate text-right flex-1">Connecting…</span>
             </div>
         </div>
     </div>
 
-    <!-- All Generations modal — every .alc in ~/Desktop/Stride/, newest-first.
-         Opened by the folder button in the Recent Generations dock. Each card
-         is draggable straight into Ableton, identical to the dock cards. -->
-    <div id="sd-all-gens-overlay" class="hidden fixed inset-0 z-[9998] bg-black/70 backdrop-blur-sm flex items-center justify-center p-8" onclick="if(event.target===this)sdCloseAllGenerations()">
-        <div class="w-full max-w-4xl max-h-[80vh] bg-zinc-900 border border-white/10 rounded-xl shadow-2xl flex flex-col overflow-hidden">
-            <div class="h-12 px-5 flex items-center gap-3 border-b border-white/10 shrink-0">
-                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
-                <span class="text-[11px] font-black tracking-[0.25em] uppercase text-zinc-200">All Generations</span>
-                <span id="sd-all-gens-count" class="text-[10px] text-zinc-500 font-bold"></span>
-                <div class="flex-1"></div>
-                <span class="text-[9px] text-zinc-600 uppercase tracking-widest mr-1">Drag any card into Ableton</span>
-                <button onclick="sdCloseAllGenerations()" class="text-zinc-500 hover:text-zinc-200 text-lg leading-none px-1">&times;</button>
-            </div>
-            <div id="sd-all-gens-grid" class="flex-1 overflow-y-auto custom-scroll p-4 grid grid-cols-2 md:grid-cols-3 gap-3 content-start"></div>
-            <div id="sd-all-gens-empty" class="hidden flex-1 flex items-center justify-center text-[11px] text-zinc-600 italic p-8">No generations yet — Apply a clip to start filling this list.</div>
-        </div>
-    </div>
+    <!-- (Stride 2.0: All Generations modal removed with the .alc dock.) -->
 
     <!-- Paste To... Popover -->
     <div id="sd-paste-to-popover" class="hidden fixed w-56 max-h-64 bg-zinc-900 border border-white/10 rounded-lg shadow-2xl z-[9999] flex flex-col" style="pointer-events:auto;">

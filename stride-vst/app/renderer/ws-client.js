@@ -137,6 +137,8 @@ class StrideLink {
             clip_bars: clipBars,
             clip_slot: o.clipSlot || 0,
             force_legacy_step: o.forceLegacyStep === true,
+            // Armed Pattern Library notes ride the same inject (curves + notes).
+            notes: Array.isArray(o.notes) && o.notes.length > 0 ? o.notes : [],
             parameters: params.map(p => ({
                 id: p.id,
                 name: p.name,
