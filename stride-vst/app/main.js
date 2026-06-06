@@ -636,6 +636,46 @@ function getBundledM4LSource() {
     return null;
 }
 
+// Resolve the bundled StrideInject Remote Script (Python). Mirrors
+// getBundledM4LSource: sibling-of-exe -> resources -> dev repo. Stride 2.0:
+// direct-inject ("Inject to Clip") needs this installed in Ableton.
+function getBundledStrideInjectSource() {
+    try {
+        const exeDir = path.dirname(process.execPath || '');
+        if (exeDir) {
+            const sibling = path.join(exeDir, 'StrideInject');
+            if (fs.existsSync(path.join(sibling, '__init__.py'))) return sibling;
+        }
+    } catch (e) { /* fall through */ }
+    const packaged = process.resourcesPath ? path.join(process.resourcesPath, 'StrideInject') : null;
+    if (packaged && fs.existsSync(path.join(packaged, '__init__.py'))) return packaged;
+    const dev = path.join(__dirname, '..', 'remote_script', 'StrideInject');
+    if (fs.existsSync(path.join(dev, '__init__.py'))) return dev;
+    return null;
+}
+
+// Install StrideInject into <User Library>/Remote Scripts/StrideInject so
+// Ableton lists it as a Control Surface (no admin needed — the User Library
+// Remote Scripts folder is user-writable and scanned by Live). The user still
+// has to ENABLE it once in Preferences (no API to auto-enable a control
+// surface) — the renderer shows the enable coach on success. Best-effort:
+// tolerates a locked target (Ableton holding the script) and just reports
+// whether __init__.py ended up present. libRoot = the User Library dir.
+function installStrideInject(libRoot) {
+    const siTarget = path.join(libRoot, 'Remote Scripts', 'StrideInject');
+    try {
+        const siSrc = getBundledStrideInjectSource();
+        if (siSrc) {
+            try { fs.rmSync(siTarget, { recursive: true, force: true }); } catch (e) { /* locked: copy over what we can */ }
+            copyDirRecursive(siSrc, siTarget);
+        }
+    } catch (e) { /* leave whatever's there; status reflects reality below */ }
+    return {
+        strideInjectInstalled: fs.existsSync(path.join(siTarget, '__init__.py')),
+        strideInjectDir: siTarget,
+    };
+}
+
 // Resolve the User Library for the install flow + "is Stride installed?" check.
 // Same priority order as _findUserLibraryDir() — prefer the resolver (which
 // knows about custom paths from m4l self-report / persisted cache) before
@@ -675,6 +715,17 @@ ipcMain.handle('check-stride-link-installed', async () => {
     if (!lib) return { installed: false, libraryFound: false };
     const target = path.join(lib, 'Stride', 'StrideLink.amxd');
     return { installed: fs.existsSync(target), libraryFound: true, targetDir: path.join(lib, 'Stride') };
+});
+
+// Report whether the StrideInject Remote Script is present in the User Library
+// Remote Scripts folder (Stride 2.0 direct-inject dependency). Note: this only
+// confirms it's INSTALLED, not ENABLED — enabling is a manual one-time step in
+// Ableton's Control Surface preferences (no API to detect/automate that).
+ipcMain.handle('check-strideinject-installed', async () => {
+    const lib = getDefaultUserLibraryPath();
+    if (!lib) return { installed: false };
+    const dir = path.join(lib, 'Remote Scripts', 'StrideInject');
+    return { installed: fs.existsSync(path.join(dir, '__init__.py')), targetDir: dir };
 });
 
 // Report whether the StrideLink install in the User Library is STALE — i.e.
@@ -789,11 +840,16 @@ ipcMain.handle('install-stride-link-to-ableton', async (event, { destDir } = {})
         if (fs.existsSync(target) && checkInstallFiles(target).length === 0) {
             const installedVersion = installVerify.readInstallMarker(target);
             if (installedVersion && installedVersion === currentVersion) {
+                // M4L is current — but still (re)install StrideInject so v1.x
+                // users who had StrideLink but never had StrideInject get it.
+                const si = installStrideInject(path.dirname(target));
                 return {
                     success: true,
                     targetDir: target,
                     alreadyInstalled: true,
                     version: currentVersion,
+                    strideInjectInstalled: si.strideInjectInstalled,
+                    strideInjectDir: si.strideInjectDir,
                 };
             }
             // Marker missing (pre-versioning install) or stale (older build
@@ -871,7 +927,14 @@ ipcMain.handle('install-stride-link-to-ableton', async (event, { destDir } = {})
         // fresh copy. See lib/install-verify.js for the read/write helpers.
         installVerify.writeInstallMarker(target, currentVersion);
 
-        return { success: true, targetDir: target, version: currentVersion };
+        const si = installStrideInject(path.dirname(target));
+        return {
+            success: true,
+            targetDir: target,
+            version: currentVersion,
+            strideInjectInstalled: si.strideInjectInstalled,
+            strideInjectDir: si.strideInjectDir,
+        };
     } catch (e) {
         return { success: false, error: e.message };
     }

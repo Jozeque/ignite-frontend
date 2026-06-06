@@ -93,6 +93,10 @@ contextBridge.exposeInMainWorld('stride', {
     // StrideLink M4L installer
     checkStrideLinkInstalled: () =>
         ipcRenderer.invoke('check-stride-link-installed'),
+    // Stride 2.0: is the StrideInject Remote Script present in the User Library
+    // Remote Scripts folder? (Installed, not necessarily enabled.)
+    checkStrideInjectInstalled: () =>
+        ipcRenderer.invoke('check-strideinject-installed'),
     // Returns { stale, reason, installedVersion?, currentVersion?, targetDir? }
     // Renderer should call this on launch + show a non-dismissible banner if
     // stale === true. See ipcMain handler in main.js for the contract.

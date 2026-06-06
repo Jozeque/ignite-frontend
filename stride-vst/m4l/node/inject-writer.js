@@ -145,7 +145,7 @@ function writeInject(msg, callbacks) {
             // Filesystem hiccup — keep trying until deadline
         }
         if (Date.now() >= deadline) {
-            onError('Timeout waiting for StrideInject. Install the Remote Script and enable it in Ableton Preferences -> Link/Tempo/MIDI -> Control Surface.');
+            onError('Inject needs StrideInject enabled. Click "Install to Ableton" in Stride, then in Ableton: Preferences -> Link/Tempo/MIDI -> Control Surface -> choose StrideInject.');
             return;
         }
         setTimeout(check, POLL_INTERVAL_MS);

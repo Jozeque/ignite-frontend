@@ -7234,18 +7234,22 @@
     // success: green status, auto-dismiss after 2.6s, mark first-run done.
     function _handleInstallResult(res) {
         if (res && res.success) {
-            // Distinguish a fresh install from "already there, nothing to do".
-            // The latter happens when the user clicks Install on a machine
-            // where Stride was previously installed — we skip the destructive
-            // overwrite to avoid EBUSY when Ableton has the files locked.
-            const msg = res.alreadyInstalled
-                ? `Stride is already installed at ${res.targetDir}. In Ableton, open User Library → Stride → drag StrideLink onto a track.`
-                : `Installed to ${res.targetDir}. In Ableton, open User Library → Stride → drag StrideLink onto a track.`;
-            sdSetInstallStatus('success', msg);
-            setTimeout(() => {
-                sdCloseInstallM4LOverlay();
-                sdMarkFirstRunDone(true);
-            }, 2600);
+            const where = res.targetDir;
+            const base = res.alreadyInstalled ? `Stride is installed at ${where}.` : `Installed to ${where}.`;
+            if (res.strideInjectInstalled) {
+                // Stride 2.0: two one-time steps. The enable step is the easy-to-
+                // miss one (Ableton can't auto-enable a Control Surface) — make it
+                // explicit. The inject-timeout diagnostic backs it up if missed.
+                sdSetInstallStatus('success', base +
+                    ' Two one-time steps in Ableton: ' +
+                    '1) drag User Library → Stride → StrideLink onto a track. ' +
+                    '2) Enable StrideInject — Preferences → Link/Tempo/MIDI → Control Surface → choose "StrideInject". That powers Inject to Clip.');
+                setTimeout(() => { sdCloseInstallM4LOverlay(); sdMarkFirstRunDone(true); }, 7000);
+            } else {
+                sdSetInstallStatus('error', base +
+                    " StrideLink is in — but StrideInject didn't copy (Ableton may have it locked). Close the Live project and click Install again. StrideInject powers Inject to Clip.");
+                setTimeout(() => { sdCloseInstallM4LOverlay(); sdMarkFirstRunDone(true); }, 5000);
+            }
             return true;
         }
         const errCode = res && res.error;

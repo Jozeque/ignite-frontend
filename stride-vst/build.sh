@@ -171,6 +171,17 @@ mkdir -p "$DIST/Stride/resources/M4L"
 cp -R "$DIST/Stride/M4L/"* "$DIST/Stride/resources/M4L/"
 echo "      M4L embedded at resources/M4L/"
 
+# ─── Step 3c: Embed StrideInject Remote Script for the install flow ──
+# Stride 2.0: "Install to Ableton" copies this into <User Library>/Remote
+# Scripts/StrideInject so Ableton lists it as a Control Surface (direct inject).
+# main.js finds it via process.resourcesPath/StrideInject. Shipped as plain .py
+# (Ableton runs Remote Scripts from source; the JS obfuscator doesn't apply).
+echo "      Embedding StrideInject into resources/StrideInject/ ..."
+mkdir -p "$DIST/Stride/resources/StrideInject"
+cp "$SCRIPT_DIR/remote_script/StrideInject/"*.py "$DIST/Stride/resources/StrideInject/"
+rm -rf "$DIST/Stride/resources/StrideInject/__pycache__"
+echo "      StrideInject embedded at resources/StrideInject/"
+
 # ─── Step 4: Add README ─────────────────────────────────
 echo "[4/5] Adding README..."
 cat > "$DIST/Stride/README.txt" << 'READMEEOF'
