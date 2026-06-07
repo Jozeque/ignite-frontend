@@ -229,7 +229,17 @@
                 <!-- RIGHT — Video -->
                 <div class="flex-1 min-w-0 w-full lg:w-auto">
                     <div id="hero-video-container" class="w-full aspect-video rounded-3xl relative overflow-hidden group cursor-pointer border border-white/10 hover:border-orange-500/30 transition-colors shadow-2xl bg-black" onclick="playHeroVideo()">
-                        <img id="hero-video-poster" src="https://img.youtube.com/vi/W5khsc6lgoQ/maxresdefault.jpg" alt="Stride Tutorial" class="absolute inset-0 w-full h-full object-cover rounded-3xl">
+                        <!-- Branded backdrop instead of the YouTube thumbnail (it's a
+                             different design language). Clicking still loads the YT
+                             player via playHeroVideo(), which replaces this container. -->
+                        <div class="absolute inset-0 rounded-3xl overflow-hidden" style="background: radial-gradient(120% 90% at 50% 0%, rgba(249,115,22,.14), transparent 60%), linear-gradient(180deg,#0c0c0e,#060608)">
+                            <svg class="absolute inset-0 w-full h-full" style="opacity:.12" viewBox="0 0 800 450" preserveAspectRatio="none" fill="none" stroke="#f97316" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M0,90 L100,30 L100,90 L200,30 L200,90 L300,30 L300,90 L400,30 L400,90 L500,30 L500,90 L600,30 L600,90 L700,30 L700,90 L800,45"/>
+                                <path d="M0,200 C100,150 200,150 300,200 C400,250 500,250 600,200 C700,150 800,150 800,200"/>
+                                <path d="M0,320 L100,320 L100,270 L220,270 L220,320 L340,320 L340,285 L460,285 L460,320 L580,320 L580,265 L700,265 L700,320 L800,300"/>
+                                <path d="M0,410 L0,450 Q100,430 200,400 L200,450 Q300,430 400,400 L400,450 Q500,430 600,400 L600,450 Q700,430 800,410"/>
+                            </svg>
+                        </div>
 
                         <div id="hero-video-overlay" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/30 group-hover:bg-black/20 transition-colors">
                             <div class="w-16 h-16 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center border border-white/20 group-hover:scale-110 group-hover:bg-orange-500/30 group-hover:border-orange-500/40 transition-all shadow-xl text-white group-hover:text-orange-400">
@@ -493,8 +503,7 @@
         <!-- ===================== 8.4. USE-CASE FIT =====================
              Sets creative-tool expectations before the technical compat matrix.
              What Stride is built for vs. where it doesn't fit. Filters out
-             mixdown-focused buyers who'd refund, and clarifies the audio-track
-             Sampler workaround so audio-focused producers don't churn. -->
+             mixdown-focused buyers who'd refund. -->
         <section class="w-full max-w-4xl mx-auto px-6 mb-24">
             <div class="text-center mb-10">
                 <h2 class="text-3xl md:text-5xl font-black mb-3 tracking-tight text-white">Where Stride shines</h2>
@@ -530,7 +539,6 @@
                     <ul class="space-y-2.5 text-[15px] text-zinc-300">
                         <li class="flex gap-2.5"><span class="text-amber-400 font-black shrink-0">!</span><span>Mixing finished tracks <span class="text-zinc-500">(you draw first, hear after — slow for tight feedback loops)</span></span></li>
                         <li class="flex gap-2.5"><span class="text-amber-400 font-black shrink-0">!</span><span>Surgical mix-bus edits where real-time response matters</span></li>
-                        <li class="flex gap-2.5"><span class="text-amber-400 font-black shrink-0">!</span><span>Audio tracks directly <span class="text-zinc-500">(Sampler workaround works — load audio into Sampler, draw a held C3, treat it like an instrument)</span></span></li>
                     </ul>
                 </div>
             </div>
@@ -671,17 +679,7 @@
             </div>
 
             <div class="space-y-3">
-                <details class="group bg-zinc-900/40 border border-white/5 rounded-2xl">
-                    <summary class="cursor-pointer p-5 font-bold text-base text-zinc-200 flex items-center justify-between list-none">
-                        <span>Does Stride work on audio tracks?</span>
-                        <span class="text-zinc-500 group-open:rotate-180 transition-transform shrink-0 ml-4">▾</span>
-                    </summary>
-                    <div class="px-5 pb-5 text-sm text-zinc-400 leading-relaxed">
-                        Not directly. Stride writes automation into MIDI clips, which only exist on MIDI tracks with instrument racks. <b class="text-zinc-300">Workaround:</b> load your audio into a Sampler instrument, draw a held C3 note in a MIDI clip, then treat that Sampler track like any other instrument rack. Stride can automate every Sampler parameter (filter, envelope, FX) the same way it would automate a synth.
-                    </div>
-                </details>
-
-                <details class="group bg-zinc-900/40 border border-white/5 rounded-2xl">
+<details class="group bg-zinc-900/40 border border-white/5 rounded-2xl">
                     <summary class="cursor-pointer p-5 font-bold text-base text-zinc-200 flex items-center justify-between list-none">
                         <span>Can I use Stride for mixing?</span>
                         <span class="text-zinc-500 group-open:rotate-180 transition-transform shrink-0 ml-4">▾</span>
@@ -741,15 +739,6 @@
                     </div>
                 </details>
 
-                <details class="group bg-zinc-900/40 border border-white/5 rounded-2xl">
-                    <summary class="cursor-pointer p-5 font-bold text-base text-zinc-200 flex items-center justify-between list-none">
-                        <span>Is it AI?</span>
-                        <span class="text-zinc-500 group-open:rotate-180 transition-transform shrink-0 ml-4">▾</span>
-                    </summary>
-                    <div class="px-5 pb-5 text-sm text-zinc-400 leading-relaxed">
-                        No. Stride generates curves with deterministic math (bezier, randomized within musical constraints). What it makes is yours — no cloud, no model, no learning from your data. Just patterns running through math you control.
-                    </div>
-                </details>
             </div>
         </section>
 
