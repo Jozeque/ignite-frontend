@@ -7440,9 +7440,10 @@
                 // miss one (Ableton can't auto-enable a Control Surface) — make it
                 // explicit. The inject-timeout diagnostic backs it up if missed.
                 sdSetInstallStatus('success', base +
-                    ' Two one-time steps in Ableton: ' +
+                    ' One-time setup in Ableton: ' +
                     '1) drag User Library → Stride → StrideLink onto a track. ' +
-                    '2) Enable StrideInject — Preferences → Link/Tempo/MIDI → Control Surface → choose "StrideInject". That powers Inject to Clip.');
+                    '2) RESTART Ableton if it was already open — it only detects StrideInject on launch. ' +
+                    '3) Enable it: Preferences → Link/Tempo/MIDI → Control Surface → choose "StrideInject". That powers Inject to Clip.');
                 setTimeout(() => { sdCloseInstallM4LOverlay(); sdMarkFirstRunDone(true); }, 7000);
             } else {
                 sdSetInstallStatus('error', base +

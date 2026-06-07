@@ -81,7 +81,7 @@ function _collectParams(basePath, filterAutomated) {
                 // Detect log-scale params (frequency) via display string
                 var isLog = false;
                 try {
-                    var paramStr = param.get("str").toString();
+                    var paramStr = param.call("str_for_value", value).toString();
                     if (/Hz|kHz/.test(paramStr)) isLog = true;
                 } catch(e) {}
 
@@ -153,7 +153,7 @@ function _collectParams(basePath, filterAutomated) {
 
                                     var mIsLog = false;
                                     try {
-                                        var mStr = mParam.get("str").toString();
+                                        var mStr = mParam.call("str_for_value", mValue).toString();
                                         if (/Hz|kHz/.test(mStr)) mIsLog = true;
                                     } catch(e) {}
 
@@ -655,7 +655,7 @@ function preview_param(path, value) {
         // Detect log-scale (frequency) params for accurate preview
         var isLog = false;
         try {
-            var pStr = param.get("str").toString();
+            var pStr = param.call("str_for_value", param.get("value")).toString();
             if (/Hz|kHz/.test(pStr)) isLog = true;
         } catch(e) {}
         var actualValue;
