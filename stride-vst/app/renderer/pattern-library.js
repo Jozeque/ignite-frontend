@@ -286,7 +286,7 @@
             const noteW = Math.max(1.5, (n.duration / totalBeats) * innerW);
             const y = pad + ((maxP - n.pitch) / range) * (innerH - 4);
             const op = 0.45 + (n.velocity / 127) * 0.55;
-            return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${noteW.toFixed(1)}" height="3" rx="1" fill="#f97316" opacity="${op.toFixed(2)}"/>`;
+            return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${noteW.toFixed(1)}" height="3" rx="1" style="fill:rgb(var(--o500))" opacity="${op.toFixed(2)}"/>`;
         }).join('');
         return `<svg viewBox="0 0 ${w} ${h}" class="sd-lib-card-thumb" preserveAspectRatio="none">${rects}</svg>`;
     }

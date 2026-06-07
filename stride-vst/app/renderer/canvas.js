@@ -240,6 +240,70 @@
     // Called once during canvas init AFTER the toolbar is in the DOM.
     // Skipped silently if the setting is missing/invalid (falls back to
     // whatever the toolbar's default-selected pill was, currently 8).
+    // ─────────────────────────────────────────────────────────────────────
+    // SKINS — design-only theming. Chrome colors come from CSS vars swapped by
+    // the [data-skin] attribute on <html> (see index.html); the canvas (drawn
+    // in JS) reads its accent colors from sdSkinColors below. Switching a skin
+    // ONLY changes colors — no layout, tools, math, or data are affected.
+    // ─────────────────────────────────────────────────────────────────────
+    const SD_SKIN_ORDER  = ['copper', 'steel', 'brass', 'teal', 'patch', 'midnight'];
+    const SD_SKIN_LABELS = { copper:'Copper', steel:'Steel', brass:'Brass', teal:'Teal', patch:'Patch', midnight:'Midnight' };
+    // Per-skin canvas accent colors. `rgb` = curve channels for rgba() builds;
+    // `curve`/`hi` = solid stroke + highlight; `labelRGB` = highlighted-lane
+    // label. `patch` (multi mode) gives each lane its own color by index.
+    const SD_SKIN_COLORS = {
+        midnight: { rgb:'168,85,247',  curve:'#a855f7', hi:'#c084fc', labelRGB:'232,121,249' },
+        copper:   { rgb:'169,159,194', curve:'#a99fc2', hi:'#c6bce0', labelRGB:'169,159,194' },
+        steel:    { rgb:'134,176,203', curve:'#86b0cb', hi:'#b6d6ee', labelRGB:'134,176,203' },
+        brass:    { rgb:'159,174,134', curve:'#9fae86', hi:'#c5d3a6', labelRGB:'159,174,134' },
+        teal:     { rgb:'147,178,194', curve:'#93b2c2', hi:'#bcd9e8', labelRGB:'147,178,194' },
+        patch:    { rgb:'169,159,194', curve:'#a99fc2', hi:'#c6bce0', labelRGB:'169,159,194',
+                    patch:['198,113,43','47,116,142','91,123,85','163,78,82','84,75,109'] },
+    };
+    let sdCurrentSkin = 'copper';
+    let sdSkinColors = SD_SKIN_COLORS.copper;
+    // Curve channels for a given lane: a multi-color skin (Patch) gives each
+    // param its own stable color by index; every other skin uses one color.
+    function sdLaneRGB(paramIdx) {
+        if (sdSkinColors.patch) return sdSkinColors.patch[paramIdx % sdSkinColors.patch.length];
+        return sdSkinColors.rgb;
+    }
+    function sdApplySkin(name, persist) {
+        if (!SD_SKIN_COLORS[name]) name = 'copper';
+        sdCurrentSkin = name;
+        sdSkinColors = SD_SKIN_COLORS[name];
+        try { document.documentElement.dataset.skin = name; } catch (e) {}
+        const nameEl = document.getElementById('sd-skin-name');
+        if (nameEl) nameEl.textContent = SD_SKIN_LABELS[name];
+        if (typeof sdDrawCanvasGrid === 'function') sdDrawCanvasGrid();
+        if (persist) sdSaveSkin(name);
+    }
+    // Cycle to the next skin (wired to the title-bar swatch).
+    window.strideCycleSkin = function() {
+        const i = SD_SKIN_ORDER.indexOf(sdCurrentSkin);
+        sdApplySkin(SD_SKIN_ORDER[(i + 1) % SD_SKIN_ORDER.length], true);
+    };
+    async function sdSaveSkin(name) {
+        try {
+            if (!window.stride || typeof window.stride.saveSettings !== 'function') return;
+            const result = await window.stride.loadSettings();
+            const settings = (result && result.success && result.settings) || {};
+            settings.skin = name;
+            await window.stride.saveSettings(settings);
+        } catch (e) { /* non-critical */ }
+    }
+    async function sdInitSkin() {
+        let name = 'copper';
+        try {
+            if (window.stride && window.stride.loadSettings) {
+                const res = await window.stride.loadSettings();
+                const saved = res && res.settings && res.settings.skin;
+                if (saved && SD_SKIN_COLORS[saved]) name = saved;
+            }
+        } catch (e) { /* fall back to default */ }
+        sdApplySkin(name, false);
+    }
+
     async function sdApplyStickyBars() {
         if (!window.stride || !window.stride.loadSettings) return;
         try {
@@ -806,10 +870,10 @@
     // Connection status — pill in titlebar reflects WS state. The pill is
     // clickable; sdToggleConnectionHelp() opens a troubleshooter popover.
     strideLink.on('connected', () => {
-        document.getElementById('link-dot').className = 'w-2 h-2 rounded-full bg-emerald-400';
+        document.getElementById('link-dot').className = 'w-2 h-2 rounded-full bg-green-500';
         const label = document.getElementById('link-label');
         label.textContent = 'M4L Connected';
-        label.className = 'text-[10px] text-emerald-300 uppercase font-bold tracking-widest';
+        label.className = 'text-[10px] text-green-400 uppercase font-bold tracking-widest';   // green stays green in every skin (not remapped)
         document.getElementById('sd-canvas-status').textContent = 'Connected — syncing rack…';
         // Refresh the popover if it happens to be open.
         const help = document.getElementById('sd-connection-help');
@@ -1638,6 +1702,16 @@
         sdCanvasEl = document.getElementById('sd-canvas');
         if (!sdCanvasEl) return;
         sdCtx = sdCanvasEl.getContext('2d');
+        sdCanvasFx = document.getElementById('sd-canvas-fx');
+        if (sdCanvasFx) {
+            sdFxCtx = sdCanvasFx.getContext('2d');
+            sdStartFx();
+            // Pause the comet when Stride isn't focused/visible — zero CPU while
+            // you're in Ableton or the window is minimized.
+            window.addEventListener('focus', sdStartFx);
+            window.addEventListener('blur', sdStopFx);
+            document.addEventListener('visibilitychange', () => { if (document.hidden) sdStopFx(); else sdStartFx(); });
+        }
         window.addEventListener('resize', sdResizeCanvas);
         setupSdCanvasInteractions();
         setupSdRulerInteraction();
@@ -1653,6 +1727,14 @@
         sdCtx.scale(dpr, dpr);
         sdCanvasEl.style.width = container.clientWidth + 'px';
         sdCanvasEl.style.height = container.clientHeight + 'px';
+        if (sdCanvasFx && sdFxCtx) {     // keep the comet overlay pixel-aligned with the main canvas
+            sdCanvasFx.width = container.clientWidth * dpr;
+            sdCanvasFx.height = container.clientHeight * dpr;
+            sdFxCtx.setTransform(1, 0, 0, 1, 0, 0);
+            sdFxCtx.scale(dpr, dpr);
+            sdCanvasFx.style.width = container.clientWidth + 'px';
+            sdCanvasFx.style.height = container.clientHeight + 'px';
+        }
         sdCanvasRect = sdCanvasEl.getBoundingClientRect();
         sdDrawCanvasGrid();
     }
@@ -1776,7 +1858,7 @@
                         <span class="text-[8px] text-zinc-600 font-mono">${fmtVal(p.min)} - ${fmtVal(p.max)}</span>
                     </div>
                 </button>
-                <button onclick="event.stopPropagation(); window.sdToggleLockLane('${p.envelopeId}')" class="absolute top-1.5 right-1.5 p-1 rounded hover:bg-white/10 transition-colors" title="${isLocked ? 'Locked — generative tools and sliders skip this lane. Click to unlock.' : 'Lock this lane — generative tools and sliders will skip it.'}">
+                <button onclick="event.stopPropagation(); window.sdToggleLockLane('${p.envelopeId}')" class="absolute top-1.5 right-1.5 p-1 rounded hover:bg-white/10 transition-colors" title="${isLocked ? 'Locked — motion tools and sliders skip this lane. Click to unlock.' : 'Lock this lane — motion tools and sliders will skip it.'}">
                     ${lockIcon}
                 </button>
             </div>`;
@@ -1942,6 +2024,132 @@
         };
     }
 
+    // ─────────────────────────────────────────────────────────────────────
+    // LANE COMET (Option C) — a small glowing dot + short trailing tail rides
+    // each drawn lane's curve, looping across the bar. A decorative "alive /
+    // modulating" cue. Drawn on a SEPARATE FX overlay canvas so the main canvas
+    // stays static (no full redraw per frame). Only lanes WITH a curve animate;
+    // empty lanes stay still. Multi-view only. Skin-colored (uses sdLaneRGB).
+    // ─────────────────────────────────────────────────────────────────────
+    let sdCanvasFx = null, sdFxCtx = null;
+    let _sdLaneGeom = [];            // per-visible-lane {poly:[{x,y}], rgb} cached on each main draw
+    let _sdFxRAF = 0;
+    const SD_FX_LOOP = 16800;        // ms per comet pass (slow ambient drift — 4× slower)
+    const SD_FX_TRAIL = 12;          // trail length in poly samples
+
+    // Sample a lane's curve into pixel points, matching the draw's per-segment
+    // interpolation (linear, or the same quadratic bend). Pixel-space, so the
+    // comet rides exactly where the curve is drawn (tracks zoom/pan/scroll).
+    function _sdSampleLanePixels(pts, timeToX, valueToY) {
+        const out = [];
+        if (!pts || pts.length < 2) return out;
+        // Walk EVERY segment so the polyline follows the drawn curve 1:1 —
+        // straight segments need one step; curved (bezier) segments subdivide.
+        // (A flat global sample count under-samples dense generative curves and
+        // makes the comet visibly cut corners.)
+        for (let i = 0; i < pts.length - 1; i++) {
+            const a = pts[i], b = pts[i + 1];
+            const ax = timeToX(a.time), ay = valueToY(a.value);
+            const bx = timeToX(b.time), by = valueToY(b.value);
+            const cv = a.curve || 0;
+            const steps = cv === 0 ? 1 : 12;
+            for (let s = (i === 0 ? 0 : 1); s <= steps; s++) {   // skip dup join points
+                const u = s / steps;
+                const x = ax + (bx - ax) * u;                    // x linear in u (matches the draw's midpoint-control quad)
+                let y;
+                if (cv === 0) {
+                    y = ay + (by - ay) * u;
+                } else {
+                    const my = (ay + by) / 2;
+                    const cpY = my - cv * Math.abs(by - ay) * 1.2;
+                    y = (1 - u) * (1 - u) * ay + 2 * (1 - u) * u * cpY + u * u * by;
+                }
+                out.push({ x, y });
+            }
+        }
+        return out;
+    }
+
+    function _sdFxFrame(ts) {
+        _sdFxRAF = requestAnimationFrame(_sdFxFrame);
+        if (!sdFxCtx || !sdCanvasFx) return;
+        sdFxCtx.clearRect(0, 0, sdCanvasFx.width, sdCanvasFx.height);
+        if (sdViewMode !== 'multi' || !_sdLaneGeom.length) return;
+        const phase = (ts % SD_FX_LOOP) / SD_FX_LOOP;
+        sdFxCtx.lineCap = 'round';
+        for (let li = 0; li < _sdLaneGeom.length; li++) {
+            const g = _sdLaneGeom[li], poly = g.poly;
+            if (!poly || poly.length < 2) continue;
+            const n = poly.length;
+            // Position the head by x (time) so the comet keeps an even pace even
+            // though curved segments carry more samples than straight ones.
+            const tx = poly[0].x + phase * (poly[n - 1].x - poly[0].x);
+            let idx = 0; while (idx < n - 1 && poly[idx + 1].x <= tx) idx++;
+            for (let k = 0; k < SD_FX_TRAIL; k++) {        // fading trail behind the head
+                const i1 = idx - k, i0 = i1 - 1;
+                if (i0 < 0) break;
+                const a = poly[i0], b = poly[i1];
+                sdFxCtx.strokeStyle = 'rgba(' + g.rgb + ',' + ((1 - k / SD_FX_TRAIL) * 0.5).toFixed(3) + ')';
+                sdFxCtx.lineWidth = 2;
+                sdFxCtx.beginPath(); sdFxCtx.moveTo(a.x, a.y); sdFxCtx.lineTo(b.x, b.y); sdFxCtx.stroke();
+            }
+            const head = poly[Math.min(idx, n - 1)];        // glowing head dot
+            sdFxCtx.save();
+            sdFxCtx.shadowBlur = 8;
+            sdFxCtx.shadowColor = 'rgba(' + g.rgb + ',0.9)';
+            sdFxCtx.fillStyle = 'rgba(' + g.rgb + ',0.95)';
+            sdFxCtx.beginPath(); sdFxCtx.arc(head.x, head.y, 2.6, 0, Math.PI * 2); sdFxCtx.fill();
+            sdFxCtx.fillStyle = 'rgba(255,255,255,0.9)';
+            sdFxCtx.beginPath(); sdFxCtx.arc(head.x, head.y, 1.1, 0, Math.PI * 2); sdFxCtx.fill();
+            sdFxCtx.restore();
+        }
+    }
+    // Start/stop the FX loop. Paused when Stride is unfocused or hidden so it
+    // costs zero CPU while you're working in Ableton (the common case).
+    function sdStartFx() { if (_sdFxRAF) return; _sdFxRAF = requestAnimationFrame(_sdFxFrame); }
+    function sdStopFx() {
+        if (_sdFxRAF) { cancelAnimationFrame(_sdFxRAF); _sdFxRAF = 0; }
+        if (sdFxCtx && sdCanvasFx) sdFxCtx.clearRect(0, 0, sdCanvasFx.width, sdCanvasFx.height);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // INJECT-RAIL CABLES (Option B) — one cable per lane (with a curve) runs
+    // from its right edge into the centered "Inject to Clip" hub on the right.
+    // Skin-colored (Patch gives each lane its own color). Rebuilt on every
+    // multi-view redraw so cables track scroll/zoom; cleared in single view.
+    // SVG (#sd-cables) lives inside the rail; coords are rail-local.
+    // ─────────────────────────────────────────────────────────────────────
+    function _sdRenderCables() {
+        const svg = document.getElementById('sd-cables');
+        const rail = document.getElementById('sd-inject-rail');
+        if (!svg || !rail) return;
+        if (sdViewMode !== 'multi' || !_sdLaneGeom.length) { svg.innerHTML = ''; return; }
+        const rw = rail.clientWidth, rh = rail.clientHeight;
+        const RULER_H = 20;                              // lane coords start below the ruler
+        const JACK_X = 5.5;                              // plug's left edge sits exactly on the lane's end (x=0 = canvas right edge)
+        const endX = rw * 0.5 - 48, endY = rh * 0.5;     // hub left edge (CTA centered in rail)
+        const k = Math.max(22, (endX - JACK_X) * 0.5);
+        let cables = '', jacks = '';
+        // A neutral metallic jack (grey in every skin via the --z ramp): dark
+        // socket body + grey collar, dark hole, light center pin. cx/cy/r vary.
+        const jack = (x, y, r) =>
+            '<circle cx="' + x + '" cy="' + y + '" r="' + r + '" style="fill:rgb(var(--z800));stroke:rgb(var(--z500))" stroke-width="1.5"/>' +
+            '<circle cx="' + x + '" cy="' + y + '" r="' + (r * 0.42).toFixed(2) + '" style="fill:rgb(var(--z950))"/>' +
+            '<circle cx="' + x + '" cy="' + y + '" r="' + (r * 0.16).toFixed(2) + '" style="fill:rgb(var(--z300))"/>';
+        for (let i = 0; i < _sdLaneGeom.length; i++) {
+            const g = _sdLaneGeom[i];
+            const sy = (RULER_H + g.cy).toFixed(1);
+            const col = 'rgb(' + g.rgb + ')';
+            const d = 'M' + JACK_X + ',' + sy + ' C' + (JACK_X + k).toFixed(1) + ',' + sy + ' ' + (endX - k).toFixed(1) + ',' + endY.toFixed(1) + ' ' + endX.toFixed(1) + ',' + endY.toFixed(1);
+            // Cable = dark casing under a colored core, so it reads as a round cable, not a hairline.
+            cables += '<path d="' + d + '" fill="none" stroke="rgba(0,0,0,0.4)" stroke-width="5" stroke-linecap="round"/>';
+            cables += '<path d="' + d + '" fill="none" stroke="' + col + '" stroke-opacity="0.85" stroke-width="3" stroke-linecap="round"/>';
+            jacks += jack(JACK_X, sy, 5.5);             // neutral input plug on the lane's edge
+        }
+        jacks += jack(endX.toFixed(1), endY.toFixed(1), 7);   // hub input jack (where every cable seats)
+        svg.innerHTML = cables + jacks;              // cables under the jacks so plugs sit on top
+    }
+
     function sdDrawCanvasGrid() {
         if (!sdCtx || !sdCanvasEl || !sdCanvasRect) return;
         sdDrawRuler();
@@ -1952,8 +2160,10 @@
         // Multi-lane view branches to its own renderer
         if (sdViewMode === 'multi') {
             sdDrawMultiView(lw, lh);
+            _sdRenderCables();
             return;
         }
+        { const _cab = document.getElementById('sd-cables'); if (_cab) _cab.innerHTML = ''; }   // single view: no rail cables
         const bars = sdGetBars();
         const totalBeats = bars * 4;
         let gridStep = 0.25;
@@ -1986,7 +2196,7 @@
             if (ap && ap.min !== undefined && ap.max !== undefined) {
                 const fv = v => { if (!isFinite(v)) return '?'; if (Math.abs(v) >= 10000) return (v / 1000).toFixed(1) + 'k'; if (Number.isInteger(v) || Math.abs(v) >= 100) return String(Math.round(v)); if (Math.abs(v) >= 10) return v.toFixed(1); return parseFloat(v.toFixed(3)).toString(); };
                 sdCtx.font = 'bold 9px Outfit'; sdCtx.textAlign = 'left';
-                sdCtx.fillStyle = 'rgba(168,85,247,0.9)'; sdCtx.fillText(fv(ap.max), 4, 13);
+                sdCtx.fillStyle = 'rgba(' + sdSkinColors.rgb + ',0.9)'; sdCtx.fillText(fv(ap.max), 4, 13);
                 sdCtx.fillStyle = 'rgba(255,255,255,0.25)'; sdCtx.fillText(fv(ap.min + (ap.max - ap.min) * 0.5), 4, lh / 2 + 4);
                 sdCtx.fillStyle = 'rgba(255,255,255,0.5)'; sdCtx.fillText(fv(ap.min), 4, lh - 3);
             }
@@ -2000,7 +2210,7 @@
             sdCtx.fillStyle = 'rgba(0,0,0,0.45)';
             if (sx > 0) sdCtx.fillRect(0, 0, sx, lh);
             if (ex < lw) sdCtx.fillRect(ex, 0, lw - ex, lh);
-            sdCtx.strokeStyle = 'rgba(168,85,247,0.6)'; sdCtx.lineWidth = 2;
+            sdCtx.strokeStyle = 'rgba(' + sdSkinColors.rgb + ',0.6)'; sdCtx.lineWidth = 2;
             sdCtx.beginPath(); sdCtx.moveTo(sx, 0); sdCtx.lineTo(sx, lh); sdCtx.stroke();
             sdCtx.beginPath(); sdCtx.moveTo(ex, 0); sdCtx.lineTo(ex, lh); sdCtx.stroke();
         }
@@ -2012,7 +2222,7 @@
         param.points.sort((a, b) => a.time - b.time);
 
         // Draw curve line
-        sdCtx.beginPath(); sdCtx.strokeStyle = '#a855f7'; sdCtx.lineWidth = 2;
+        sdCtx.beginPath(); sdCtx.strokeStyle = sdSkinColors.curve; sdCtx.lineWidth = 2;
         for (let i = 0; i < param.points.length; i++) {
             const pt = param.points[i];
             const x = ((pt.time / totalBeats) * lw * sdViewZoomX) - sdViewPanX;
@@ -2035,14 +2245,14 @@
         sdCtx.stroke();
 
         // Draw points and curve indicators
-        sdCtx.fillStyle = '#a855f7';
+        sdCtx.fillStyle = sdSkinColors.curve;
         param.points.forEach(pt => {
             const x = ((pt.time / totalBeats) * lw * sdViewZoomX) - sdViewPanX;
             const y = lh - (pt.value * lh);
             if (x >= -10 && x <= lw + 10) {
                 sdCtx.beginPath(); sdCtx.arc(x, y, 3, 0, Math.PI * 2); sdCtx.fill();
                 if (sdDraggedPoint === pt) {
-                    sdCtx.beginPath(); sdCtx.fillStyle = 'rgba(168,85,247,0.4)'; sdCtx.arc(x, y, 10, 0, Math.PI * 2); sdCtx.fill(); sdCtx.fillStyle = '#a855f7';
+                    sdCtx.beginPath(); sdCtx.fillStyle = 'rgba(' + sdSkinColors.rgb + ',0.4)'; sdCtx.arc(x, y, 10, 0, Math.PI * 2); sdCtx.fill(); sdCtx.fillStyle = sdSkinColors.curve;
                 }
                 if (pt.curve && pt.curve !== 0) {
                     const idx = param.points.indexOf(pt);
@@ -2055,7 +2265,7 @@
                         const cpY = my - pt.curve * Math.abs(ny - y) * 1.2;
                         sdCtx.fillStyle = 'rgba(251,191,36,0.7)';
                         sdCtx.beginPath(); sdCtx.moveTo(mx, cpY - 3); sdCtx.lineTo(mx + 3, cpY); sdCtx.lineTo(mx, cpY + 3); sdCtx.lineTo(mx - 3, cpY); sdCtx.closePath(); sdCtx.fill();
-                        sdCtx.fillStyle = '#a855f7';
+                        sdCtx.fillStyle = sdSkinColors.curve;
                     }
                 }
             }
@@ -2111,6 +2321,7 @@
     // highlight so the user always knows which lane their tool edits target.
     function sdDrawMultiView(lw, lh) {
         sdMultiClampScroll();
+        _sdLaneGeom = [];   // rebuilt below for the comet FX overlay
         const bars = sdGetBars();
         const totalBeats = bars * 4;
         const laneDrawLeft = SD_MULTI_LABEL_WIDTH;
@@ -2174,9 +2385,9 @@
             // Active lane gets a stronger border; selected-only lanes get
             // a softer accent so the focus distinction is preserved.
             if (isHighlighted) {
-                sdCtx.fillStyle = 'rgba(168,85,247,0.08)';
+                sdCtx.fillStyle = 'rgba(' + sdLaneRGB(paramIdx) + ',0.08)';
                 sdCtx.fillRect(0, rect.top, lw, rect.height);
-                sdCtx.strokeStyle = isActive ? 'rgba(168,85,247,0.55)' : 'rgba(168,85,247,0.30)';
+                sdCtx.strokeStyle = isActive ? 'rgba(' + sdLaneRGB(paramIdx) + ',0.55)' : 'rgba(' + sdLaneRGB(paramIdx) + ',0.30)';
                 sdCtx.lineWidth = isActive ? 1.5 : 1;
                 sdCtx.strokeRect(0.75, rect.top + 0.75, lw - 1.5, rect.height - 1.5);
             }
@@ -2198,7 +2409,7 @@
             const isLocked = !!param.locked;
             sdCtx.fillStyle = isLocked
                 ? 'rgba(251,191,36,0.85)'   // amber-400
-                : (isHighlighted ? 'rgba(232,121,249,0.95)' : 'rgba(228,228,231,0.75)');
+                : (isHighlighted ? 'rgba(' + sdSkinColors.labelRGB + ',0.95)' : 'rgba(228,228,231,0.75)');
             sdCtx.font = isHighlighted ? 'bold 11px Outfit' : '600 10px Outfit';
             sdCtx.textAlign = 'left';
             sdCtx.textBaseline = 'middle';
@@ -2232,7 +2443,7 @@
                 sdCtx.fillStyle = 'rgba(0,0,0,0.35)';
                 if (sx > laneDrawLeft) sdCtx.fillRect(laneDrawLeft, rect.top, sx - laneDrawLeft, rect.height);
                 if (ex < lw) sdCtx.fillRect(ex, rect.top, lw - ex, rect.height);
-                sdCtx.strokeStyle = 'rgba(168,85,247,0.5)';
+                sdCtx.strokeStyle = 'rgba(' + sdLaneRGB(paramIdx) + ',0.5)';
                 sdCtx.lineWidth = 1.5;
                 sdCtx.beginPath(); sdCtx.moveTo(sx, rect.top); sdCtx.lineTo(sx, rect.bottom); sdCtx.stroke();
                 sdCtx.beginPath(); sdCtx.moveTo(ex, rect.top); sdCtx.lineTo(ex, rect.bottom); sdCtx.stroke();
@@ -2250,6 +2461,7 @@
             const sortedPts = param.points.slice().sort((a, b) => a.time - b.time);
             const valueToY = (v) => rect.bottom - v * rect.height;
             const timeToX = (t) => laneDrawLeft + ((t / totalBeats) * laneDrawWidth * sdViewZoomX) - sdViewPanX;
+            _sdLaneGeom.push({ cy: rect.top + rect.height / 2, rgb: sdLaneRGB(paramIdx), poly: (param.points.length >= 2 ? _sdSampleLanePixels(sortedPts, timeToX, valueToY) : null) });
 
             sdCtx.save();
             sdCtx.beginPath();
@@ -2258,7 +2470,7 @@
 
             // Fill under curve (subtle)
             sdCtx.beginPath();
-            sdCtx.fillStyle = isHighlighted ? 'rgba(168,85,247,0.12)' : 'rgba(168,85,247,0.06)';
+            sdCtx.fillStyle = isHighlighted ? 'rgba(' + sdLaneRGB(paramIdx) + ',0.12)' : 'rgba(' + sdLaneRGB(paramIdx) + ',0.06)';
             sdCtx.moveTo(timeToX(sortedPts[0].time), rect.bottom);
             for (let i = 0; i < sortedPts.length; i++) {
                 const pt = sortedPts[i];
@@ -2285,7 +2497,7 @@
 
             // Curve stroke
             sdCtx.beginPath();
-            sdCtx.strokeStyle = isHighlighted ? '#c084fc' : 'rgba(168,85,247,0.6)';
+            sdCtx.strokeStyle = isHighlighted ? (sdSkinColors.patch ? 'rgb(' + sdLaneRGB(paramIdx) + ')' : sdSkinColors.hi) : 'rgba(' + sdLaneRGB(paramIdx) + ',0.6)';
             sdCtx.lineWidth = isHighlighted ? 2 : 1.5;
             for (let i = 0; i < sortedPts.length; i++) {
                 const pt = sortedPts[i];
@@ -2310,7 +2522,7 @@
 
             // Point dots (only on active lane to reduce clutter)
             if (isActive) {
-                sdCtx.fillStyle = '#a855f7';
+                sdCtx.fillStyle = sdSkinColors.patch ? 'rgb(' + sdLaneRGB(paramIdx) + ')' : sdSkinColors.curve;
                 sortedPts.forEach(pt => {
                     const x = timeToX(pt.time);
                     const y = valueToY(pt.value);
@@ -2331,7 +2543,7 @@
             sdCtx.fillRect(trackX, 0, trackW, lh);
             const thumbH = Math.max(20, (visible / sdCanvasParams.length) * lh);
             const thumbY = (sdMultiScrollOffset / sdCanvasParams.length) * lh;
-            sdCtx.fillStyle = 'rgba(168,85,247,0.55)';
+            sdCtx.fillStyle = 'rgba(' + sdSkinColors.rgb + ',0.55)';
             sdCtx.fillRect(trackX, thumbY, trackW, thumbH);
         }
     }
@@ -4067,36 +4279,23 @@
     function _sdRenderGenerativeDefault() {
         const sec = document.getElementById('sd-generative-section');
         if (!sec) return;
-        // 4 generative tools in a 2x2 grid:
-        //   Row 1: Neuro (random-pool gnarly modulation) | Chaos (chaos_lfo on all)
-        //   Row 2: Bloom (complementary morph)          | Prism (live multi-lane variants)
-        // Neuro keeps the fuchsia + lightning visuals from when it was called Chaos
-        // (preserves muscle memory). The new GENERATIVE Chaos gets cyan + wave so
-        // it reads as distinct at a glance.
-        sec.innerHTML = '<div class="text-[8px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-1.5 px-1">Generative</div>'
+        // Motion — the 6 all-lanes tools; the SECOND CTA after "Inject to Clip".
+        // One unified accent treatment (skin orange) so they read as a single
+        // important group (not a rainbow), each kept distinct by its own icon.
+        // 1×6 vertical stack — every tool gets its own full-width row.
+        const btn = (onclick, id, name, title, icon) =>
+            '<button onclick="' + onclick + '"' + (id ? ' id="' + id + '"' : '')
+            + ' title="' + title + '" class="flex items-center justify-center gap-1 text-[9px] text-zinc-950 bg-orange-400 hover:bg-orange-300 border border-black/10 shadow-sm px-2 py-2 rounded uppercase tracking-wider font-black transition-colors">'
+            + '<svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="' + icon + '"/></svg>'
+            + '<span>' + name + '</span></button>';
+        sec.innerHTML = '<div class="text-[8px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-1.5 px-1">Motion</div>'
             + '<div class="grid grid-cols-2 gap-1.5">'
-            + '<button onclick="sdApplyGlobalNeuro()" title="Neuro: gnarly random-pool modulation across every unlocked lane" class="text-[9px] text-fuchsia-400 hover:text-white bg-transparent hover:bg-fuchsia-500/10 border border-fuchsia-500/50 hover:border-fuchsia-400 px-2 py-1.5 rounded uppercase tracking-wider font-black transition-all flex items-center justify-center gap-1">'
-            + '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>'
-            + 'Neuro</button>'
-            + '<button onclick="sdApplyGlobalChaos()" title="Chaos: apply the Chaos (chaos_lfo) template to every unlocked lane in one click" class="text-[9px] text-cyan-400 hover:text-white bg-transparent hover:bg-cyan-500/10 border border-cyan-500/50 hover:border-cyan-400 px-2 py-1.5 rounded uppercase tracking-wider font-black transition-all flex items-center justify-center gap-1">'
-            + '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12 Q6 6 9 12 T15 12 T21 12"/></svg>'
-            + 'Chaos</button>'
-            + '<button id="sd-bloom-btn" onclick="sdToggleBloom()" title="Bloom: complementary curves from the active lane" class="text-[9px] text-amber-400 hover:text-white bg-transparent hover:bg-amber-500/10 border border-amber-500/50 hover:border-amber-400 px-2 py-1.5 rounded uppercase tracking-wider font-black transition-all flex items-center justify-center gap-1">'
-            + '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m-8-9H3m18 0h-1m-2.636-5.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m11.314 11.314l.707.707"/></svg>'
-            + 'Bloom</button>'
-            + '<button id="sd-prism-btn" onclick="sdTogglePrism()" title="Prism: draw on one lane, every other lane responds live with the same anchors and a different path" class="text-[9px] text-violet-400 hover:text-white bg-transparent hover:bg-violet-500/10 border border-violet-500/50 hover:border-violet-400 px-2 py-1.5 rounded uppercase tracking-wider font-black transition-all flex items-center justify-center gap-1">'
-            + '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3 L21 21 L3 21 Z"/></svg>'
-            + 'Prism</button>'
-            // S&H spans both columns — a per-lane stepped-random generator;
-            // each lane on its own rate grid makes the rack polyrhythmic.
-            + '<button onclick="sdApplyGlobalSampleHold()" title="Sample &amp; Hold: per-lane stepped random — values jump on a per-bar rate (straight + triplet), each lane unique so the rack reads polyrhythmic. Click again to reroll." class="col-span-2 text-[9px] text-lime-400 hover:text-white bg-transparent hover:bg-lime-500/10 border border-lime-500/50 hover:border-lime-400 px-2 py-1.5 rounded uppercase tracking-wider font-black transition-all flex items-center justify-center gap-1">'
-            + '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16 H7 V11 H11 V15 H15 V8 H19 V13"/></svg>'
-            + 'S&amp;H</button>'
-            // Reflector spans both columns — it's the "headline" multi-tool of
-            // the section (Neuro + Chaos + mirrored variants, all in one click).
-            + '<button onclick="sdApplyGlobalReflector()" title="Reflector: pairs every unlocked lane into base + mirror — half Neuro, half Chaos, each followed by its value-mirrored twin so the rack folds in on itself" class="col-span-2 text-[9px] text-sky-400 hover:text-white bg-transparent hover:bg-sky-500/10 border border-sky-500/50 hover:border-sky-400 px-2 py-1.5 rounded uppercase tracking-wider font-black transition-all flex items-center justify-center gap-1">'
-            + '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8 L11 12 L5 16 M19 8 L13 12 L19 16"/></svg>'
-            + 'Reflector</button>'
+            + btn('sdApplyGlobalNeuro()', '', 'Neuro', 'Neuro: gnarly random-pool modulation across every unlocked lane', 'M13 10V3L4 14h7v7l9-11h-7z')
+            + btn('sdApplyGlobalChaos()', '', 'Chaos', 'Chaos: apply the Chaos (chaos_lfo) template to every unlocked lane in one click', 'M3 12 Q6 6 9 12 T15 12 T21 12')
+            + btn('sdToggleBloom()', 'sd-bloom-btn', 'Bloom', 'Bloom: complementary curves from the active lane', 'M12 3v1m0 16v1m-8-9H3m18 0h-1m-2.636-5.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m11.314 11.314l.707.707')
+            + btn('sdTogglePrism()', 'sd-prism-btn', 'Prism', 'Prism: draw on one lane, every other lane responds live with the same anchors and a different path', 'M12 3 L21 21 L3 21 Z')
+            + btn('sdApplyGlobalSampleHold()', '', 'S&amp;H', 'Sample &amp; Hold: per-lane stepped random — values jump on a per-bar rate (straight + triplet), each lane unique so the rack reads polyrhythmic. Click again to reroll.', 'M3 16 H7 V11 H11 V15 H15 V8 H19 V13')
+            + btn('sdApplyGlobalReflector()', '', 'Reflector', 'Reflector: pairs every unlocked lane into base + mirror — half Neuro, half Chaos, each followed by its value-mirrored twin so the rack folds in on itself', 'M5 8 L11 12 L5 16 M19 8 L13 12 L19 16')
             + '</div>';
     }
 
@@ -5068,21 +5267,21 @@
             + '<div class="flex items-center justify-between mb-2 px-1">'
             + '<button onclick="sdCancelTool()" title="Cancel and revert" class="text-[9px] text-zinc-500 hover:text-zinc-200 transition-colors flex items-center gap-0.5">'
             + '<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>Back</button>'
-            + '<span class="text-[9px] font-black text-violet-400 uppercase tracking-[0.2em]">Prism</span>'
-            + '<span class="text-[8px] text-violet-400/70 uppercase tracking-widest font-bold">Live</span>'
+            + '<span class="text-[9px] font-black text-amber-400 uppercase tracking-[0.2em]">Prism</span>'
+            + '<span class="text-[8px] text-amber-400/70 uppercase tracking-widest font-bold">Live</span>'
             + '</div>'
             + '<div class="text-[8px] text-zinc-600 leading-relaxed px-1 mb-1">Draw on the active lane — every other unlocked lane responds with the same anchors, different paths.</div>'
             + '<div class="px-1 flex flex-col gap-2">'
             + '<div class="flex items-center gap-2">'
             + '<span class="text-[9px] font-bold text-zinc-500 uppercase w-12 shrink-0">Diversity</span>'
-            + '<input type="range" id="sd-prism-diversity" min="0" max="100" value="100" class="flex-1 h-1 accent-violet-500 cursor-pointer" oninput="_sdToolMorph(this.value)">'
-            + '<span id="sd-prism-val" class="text-[9px] text-violet-400 font-mono w-9 text-right">100%</span>'
+            + '<input type="range" id="sd-prism-diversity" min="0" max="100" value="100" class="flex-1 h-1 accent-amber-500 cursor-pointer" oninput="_sdToolMorph(this.value)">'
+            + '<span id="sd-prism-val" class="text-[9px] text-amber-400 font-mono w-9 text-right">100%</span>'
             + '</div>'
-            + '<button onclick="sdPrismReroll()" title="Re-roll personality assignments across variant lanes" class="text-[9px] text-violet-400 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 hover:border-violet-500/50 py-1.5 rounded uppercase tracking-wider font-bold transition-colors flex items-center justify-center gap-1">'
+            + '<button onclick="sdPrismReroll()" title="Re-roll personality assignments across variant lanes" class="text-[9px] text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-500/50 py-1.5 rounded uppercase tracking-wider font-bold transition-colors flex items-center justify-center gap-1">'
             + '<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>'
             + 'Reroll</button>'
             + '<div class="flex gap-1.5 mt-1">'
-            + '<button onclick="sdCommitTool()" class="flex-1 text-[9px] text-black bg-violet-500 hover:bg-violet-400 py-1.5 rounded uppercase tracking-wider font-bold transition-colors">Commit</button>'
+            + '<button onclick="sdCommitTool()" class="flex-1 text-[9px] text-black bg-amber-500 hover:bg-amber-400 py-1.5 rounded uppercase tracking-wider font-bold transition-colors">Commit</button>'
             + '<button onclick="sdCancelTool()" class="flex-1 text-[9px] text-zinc-400 bg-white/5 hover:bg-white/10 border border-white/10 py-1.5 rounded uppercase tracking-wider font-bold transition-colors">Cancel</button>'
             + '</div>'
             + '</div>';
@@ -7435,6 +7634,7 @@
         // toolbar's hardcoded default of 8). No-op for first-run users
         // who haven't picked a bar count yet.
         sdApplyStickyBars();
+        sdInitSkin();   // apply saved skin (or default) + paint the swatch
         // Paint the default GENERATIVE section (Chaos / Bloom / Prism grid).
         // Active-tool panels replace this on click and Cancel/Commit
         // restore it via _sdRenderGenerativeDefault.

@@ -195,6 +195,25 @@ done
 
 echo "      ✅ M4L bundled at $M4L_DEST"
 
+# ─── Step 1d: Bundle StrideInject Remote Script inside Stride.app ──
+# Stride 2.0: "Install to Ableton" copies this into <User Library>/Remote
+# Scripts/StrideInject so Ableton lists it as a Control Surface (direct
+# inject — the core 2.0 workflow). main.js finds it at
+# Contents/Resources/StrideInject (process.resourcesPath). Embedded BEFORE
+# signing so osx-sign seals it into the notarized bundle. Plain .py — Ableton
+# runs Remote Scripts from source, so no obfuscation and no Mach-O to sign.
+echo ""
+echo "[1d/4] Bundling StrideInject inside Stride.app..."
+SI_DEST="$MAC_OUT/Stride.app/Contents/Resources/StrideInject"
+mkdir -p "$SI_DEST"
+cp "$SCRIPT_DIR/remote_script/StrideInject/"*.py "$SI_DEST/"
+rm -rf "$SI_DEST/__pycache__"
+if [ ! -f "$SI_DEST/__init__.py" ]; then
+    echo "❌ StrideInject payload missing — __init__.py not copied"
+    exit 1
+fi
+echo "      ✅ StrideInject bundled at $SI_DEST"
+
 # ─── Step 2: Sign with @electron/osx-sign ──────────────────
 # Calling osx-sign as a library via `node -e` — we bypass electron-builder
 # entirely. osx-sign is the low-level signer electron-builder delegates

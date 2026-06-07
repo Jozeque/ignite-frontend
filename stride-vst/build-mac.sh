@@ -157,10 +157,9 @@ for img in step2.png step4.png step6.png step7.png; do
     [ -f "$APP_DIR/assets/$img" ] && cp "$APP_DIR/assets/$img" "$DIST/Stride/Guide/"
 done
 
-# Copy tutorial videos (if present)
-for vid in "$SCRIPT_DIR"/*.mov "$SCRIPT_DIR"/*.mp4; do
-    [ -f "$vid" ] && cp "$vid" "$DIST/Stride/Guide/"
-done
+# Tutorial videos are NOT bundled — they live on YouTube + the
+# stridehub.io/welcome page (linked from the purchase email). Keeps the
+# download light and lets us update the videos without re-shipping the app.
 
 echo "      Distribution assembled"
 
@@ -217,6 +216,24 @@ echo "      obfuscate: M4L/scanner_max.js (Max JS)"
 
 echo "      Source code obfuscated"
 
+# ─── Step 3b: Embed M4L + StrideInject inside the .app bundle ──────
+# main.js resolves both at Contents/Resources/{M4L,StrideInject}
+# (process.resourcesPath). The sibling Stride/M4L/ folder above is NOT found
+# on Mac (exeDir is Contents/MacOS), so the install flow needs them here too.
+# Unsigned beta — no codesign ordering concerns. M4L is the already-obfuscated
+# copy; StrideInject ships as plain .py (Ableton runs Remote Scripts from source).
+echo "      Embedding M4L + StrideInject into Stride.app/Contents/Resources/ ..."
+APP_RES="$DIST/Stride/Stride.app/Contents/Resources"
+mkdir -p "$APP_RES/M4L" "$APP_RES/StrideInject"
+cp -R "$DIST/Stride/M4L/"* "$APP_RES/M4L/"
+cp "$SCRIPT_DIR/remote_script/StrideInject/"*.py "$APP_RES/StrideInject/"
+rm -rf "$APP_RES/StrideInject/__pycache__"
+if [ ! -f "$APP_RES/StrideInject/__init__.py" ] || [ ! -f "$APP_RES/M4L/StrideLink.amxd" ]; then
+    echo "ERROR: bundled M4L/StrideInject payload missing from Stride.app"
+    exit 1
+fi
+echo "      M4L + StrideInject embedded in the .app"
+
 # ─── Step 4: Add README ─────────────────────────────────
 echo "[4/5] Adding README..."
 cat > "$DIST/Stride/README.txt" << 'READMEEOF'
@@ -238,89 +255,97 @@ cat > "$DIST/Stride/README.txt" << 'READMEEOF'
    After the first launch, it behaves like any other app.
    (A signed/notarized release is on the way.)
 
->> START HERE: watch the two short videos inside the Guide/ folder.
-   - Flow A-Z.mp4           - the full Stride workflow
-   - Canvas Walkthrough.mov - tools and shortcuts
-   Takes about 3 minutes total. Seriously, watch them first.
+>> START HERE: watch the 3-minute walkthrough at
+   https://stridehub.io/welcome  (same link as your purchase email).
+   More tutorials live on YouTube: https://www.youtube.com/@strideengine
+   Seriously, watch the welcome video first.
 
 ---------------------------------------------------------------
- INSTALL
+ INSTALL  (beta — one Terminal step)
 ---------------------------------------------------------------
 
-1. Unzip, move Stride.app to /Applications
-2. Do the xattr -cr step above ONCE (see FIRST-LAUNCH section)
-3. You don't launch Stride manually. Drag StrideLink.amxd
-   onto a track in Ableton, click "Open Canvas" on the
-   device - Stride launches and asks for your license key.
-4. Requirements: Ableton Live 11+ Suite (or Standard + M4L),
-   Python 3 (usually preinstalled, or: brew install python3),
-   macOS 11 (Big Sur) or later
+1. Unzip and move Stride.app to /Applications.
+2. Run the xattr -cr step ONCE (see FIRST-LAUNCH above) - this
+   unsigned beta needs it; the signed release won't.
+3. Launch Stride from /Applications and enter your license key
+   (from your purchase email).
+
+Requirements: Ableton Live 11+ Suite (or Standard + Max for Live),
+macOS 11 (Big Sur) or later.
 
 ---------------------------------------------------------------
- YOUR FIRST CLIP - 10 STEPS
+ ONE-TIME SETUP  (do this once)
 ---------------------------------------------------------------
 
- 1. In Ableton, create or open a track with an Instrument Rack
- 2. MAP YOUR PARAMETERS - open the automation lane for every
-    parameter you want Stride to control. Fastest way:
-    F9 + nudge each knob. Or: draw a single point on each lane.
- 3. Create a MIDI clip on that track and drag it into the
-    "User Library" sidebar in Ableton.
-    (You only do this ONCE per rack. Change devices -> drag again.)
- 4. Drag StrideLink.amxd (from the M4L/ folder in this zip)
-    onto the same track.
- 5. On StrideLink, click "Open Canvas" - Stride launches (or
-    focuses if it's already open). Click "Scan Mapped".
- 6. The canvas fills with one lane per mapped parameter.
- 7. Either draw by hand OR smash one of the Presets / Chaos /
-    Bloom / Weave buttons. Start with a preset.
- 8. Click "Apply to Clip". Stride generates a .alc file and
-    opens the Stride folder for you.
- 9. Drag the .alc onto a new MIDI clip slot on that track.
-10. Hit play. Your rack is now automated. You're done.
+1. In Stride's title bar, click "Install to Ableton". This installs
+   StrideLink (the Max device) AND StrideInject (the engine that
+   writes your curves straight into clips) into your Ableton User
+   Library.
+
+2. In Ableton: Preferences -> Link/Tempo/MIDI -> Control Surface
+   -> choose "StrideInject". Once, and you're set.
 
 ---------------------------------------------------------------
- TIPS (read once, use forever)
+ YOUR WORKFLOW
 ---------------------------------------------------------------
 
-* SAVE YOUR RACK inside the Canvas ("Save Session") so you
-  can reload the same curves next time without re-scanning.
+ 1. In Ableton's browser: User Library -> Stride -> drag StrideLink
+    onto the track with your instrument.
 
-* GENERATE 5 VARIATIONS IN A ROW:
-  hit Chaos -> Apply to Clip -> Chaos -> Apply to Clip -> ...
-  Each Apply creates a new .alc with different curves.
-  Audition them all against your track and pick the keeper.
+ 2. MAP YOUR PARAMETERS: arm record (F9), nudge each knob you want
+    to modulate, then disarm. Stride pulls them in as lanes
+    AUTOMATICALLY - on open and whenever you switch back to it.
 
-* ANCHOR + COMPLEMENT: hit Chaos, find the single curve you
-  love the most, click that lane to make it active, then hit
-  Bloom (or Weave) - the rest of the lanes rearrange to
-  complement your anchor curve instead of fighting it.
-  This is the fastest way to a cohesive modulation pattern.
+ 3. Hit a MOTION tool (Chaos, Neuro, Prism, Bloom, Reflector, S&H).
+    It lays modulation across EVERY lane in one click. Then reshape
+    by hand or hit Mutate until it feels right.
 
-* ADJUST MASTER BPM while auditioning .alc variations - the
-  same curves feel radically different at 120 vs 140 BPM.
-  Some sweet spots only reveal themselves at specific tempos.
+ 4. In Ableton, select the MIDI clip you want (double-click it so
+    it's open in the Detail view - that's where Stride writes).
 
-* EXPERIMENT. Stride rewards exploration. There are endless
-  variations and combinations you can chase with the preset
-  + Chaos + Bloom + Weave toolkit. No two sessions are alike.
+ 5. Click "Inject to Clip". Stride writes your curves straight into
+    that clip. No file, no drag, no export.
+
+ 6. Hit play. Your rack is modulating. Record the take when it's right.
+
+ WANT MORE? Map more params (arm + record) -> they auto-appear in
+ Stride -> draw curves -> Inject to Clip again. The new params join
+ the modulated chain. No re-setup, no re-scan.
+
+---------------------------------------------------------------
+ TIPS
+---------------------------------------------------------------
+
+* MOTION tools hit every unlocked lane at once - the fastest way to
+  a fully modulated rack. Start there, then refine by hand.
+
+* ANCHOR + COMPLEMENT: find the one curve you love most, click that
+  lane to make it active, then hit Bloom or Prism - the other lanes
+  rearrange to complement your anchor instead of fighting it.
+
+* LOCK a lane (the lock icon) to protect it - Motion tools and the
+  edit sliders skip locked lanes.
+
+* The canvas auto-saves per rack. Switch racks and come back - your
+  curves are still there.
 
 ---------------------------------------------------------------
  TROUBLESHOOTING
 ---------------------------------------------------------------
 
-"Scan Mapped" does nothing
-  -> Did you map parameters first? See step 2 above.
-  -> Check StrideLink.amxd is on the SAME track as the rack.
+"Inject to Clip" errors or does nothing
+  -> Enable StrideInject: Ableton Preferences -> Link/Tempo/MIDI ->
+     Control Surface -> StrideInject (the one-time setup step).
+  -> Select a MIDI clip first (open it in the Detail view).
 
-"Apply to Clip" says "No template found"
-  -> You skipped step 3. Drag a fresh MIDI clip from your track
-     into the User Library. Stride uses that clip as the template.
+No lanes appear in Stride
+  -> Map parameters first: open an automation lane for each knob
+     (arm record + nudge, or draw a point). Then Stride syncs them.
+  -> Check StrideLink is on the SAME track as your rack.
 
 Canvas says "Disconnected"
-  -> StrideLink.amxd got reloaded. In Ableton, right-click
-     StrideLink -> Delete -> drag it back onto the track.
-  -> Click "Open Canvas" on the device again.
+  -> In Ableton, right-click StrideLink -> Delete -> drag it back
+     onto the track, then click "Open Canvas" again.
 
 ---------------------------------------------------------------
  SUPPORT

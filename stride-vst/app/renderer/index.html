@@ -1,23 +1,52 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en" class="dark" data-skin="copper">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>STRIDE</title>
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src ws://localhost:9100 https://generate-midi-z3spyrafvq-uc.a.run.app https://api.lemonsqueezy.com;">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // SKINS: remap the palettes the UI uses to CSS variables so a single
+      // [data-skin] swap re-skins the whole app. Channels are space-separated
+      // RGB so Tailwind's /opacity modifiers keep working. Status colors
+      // (emerald/amber/red/sky/violet/rose) are intentionally NOT remapped —
+      // they stay semantic across every skin.
+      tailwind.config = {
+        darkMode: 'class',
+        theme: { extend: { colors: {
+          zinc: { 50:'rgb(var(--z50) / <alpha-value>)',100:'rgb(var(--z100) / <alpha-value>)',200:'rgb(var(--z200) / <alpha-value>)',300:'rgb(var(--z300) / <alpha-value>)',400:'rgb(var(--z400) / <alpha-value>)',500:'rgb(var(--z500) / <alpha-value>)',600:'rgb(var(--z600) / <alpha-value>)',700:'rgb(var(--z700) / <alpha-value>)',800:'rgb(var(--z800) / <alpha-value>)',900:'rgb(var(--z900) / <alpha-value>)',950:'rgb(var(--z950) / <alpha-value>)' },
+          orange: { 50:'rgb(var(--o50) / <alpha-value>)',100:'rgb(var(--o100) / <alpha-value>)',200:'rgb(var(--o200) / <alpha-value>)',300:'rgb(var(--o300) / <alpha-value>)',400:'rgb(var(--o400) / <alpha-value>)',500:'rgb(var(--o500) / <alpha-value>)',600:'rgb(var(--o600) / <alpha-value>)',700:'rgb(var(--o700) / <alpha-value>)',800:'rgb(var(--o800) / <alpha-value>)',900:'rgb(var(--o900) / <alpha-value>)',950:'rgb(var(--o950) / <alpha-value>)' },
+          fuchsia: { 50:'rgb(var(--f50) / <alpha-value>)',100:'rgb(var(--f100) / <alpha-value>)',200:'rgb(var(--f200) / <alpha-value>)',300:'rgb(var(--f300) / <alpha-value>)',400:'rgb(var(--f400) / <alpha-value>)',500:'rgb(var(--f500) / <alpha-value>)',600:'rgb(var(--f600) / <alpha-value>)',700:'rgb(var(--f700) / <alpha-value>)',800:'rgb(var(--f800) / <alpha-value>)',900:'rgb(var(--f900) / <alpha-value>)',950:'rgb(var(--f950) / <alpha-value>)' },
+          emerald: { 50:'rgb(var(--em50) / <alpha-value>)',100:'rgb(var(--em100) / <alpha-value>)',200:'rgb(var(--em200) / <alpha-value>)',300:'rgb(var(--em300) / <alpha-value>)',400:'rgb(var(--em400) / <alpha-value>)',500:'rgb(var(--em500) / <alpha-value>)',600:'rgb(var(--em600) / <alpha-value>)',700:'rgb(var(--em700) / <alpha-value>)',800:'rgb(var(--em800) / <alpha-value>)',900:'rgb(var(--em900) / <alpha-value>)',950:'rgb(var(--em950) / <alpha-value>)' },
+          amber: { 50:'rgb(var(--am50) / <alpha-value>)',100:'rgb(var(--am100) / <alpha-value>)',200:'rgb(var(--am200) / <alpha-value>)',300:'rgb(var(--am300) / <alpha-value>)',400:'rgb(var(--am400) / <alpha-value>)',500:'rgb(var(--am500) / <alpha-value>)',600:'rgb(var(--am600) / <alpha-value>)',700:'rgb(var(--am700) / <alpha-value>)',800:'rgb(var(--am800) / <alpha-value>)',900:'rgb(var(--am900) / <alpha-value>)',950:'rgb(var(--am950) / <alpha-value>)' },
+          sky: { 50:'rgb(var(--sk50) / <alpha-value>)',100:'rgb(var(--sk100) / <alpha-value>)',200:'rgb(var(--sk200) / <alpha-value>)',300:'rgb(var(--sk300) / <alpha-value>)',400:'rgb(var(--sk400) / <alpha-value>)',500:'rgb(var(--sk500) / <alpha-value>)',600:'rgb(var(--sk600) / <alpha-value>)',700:'rgb(var(--sk700) / <alpha-value>)',800:'rgb(var(--sk800) / <alpha-value>)',900:'rgb(var(--sk900) / <alpha-value>)',950:'rgb(var(--sk950) / <alpha-value>)' },
+          violet: { 50:'rgb(var(--vi50) / <alpha-value>)',100:'rgb(var(--vi100) / <alpha-value>)',200:'rgb(var(--vi200) / <alpha-value>)',300:'rgb(var(--vi300) / <alpha-value>)',400:'rgb(var(--vi400) / <alpha-value>)',500:'rgb(var(--vi500) / <alpha-value>)',600:'rgb(var(--vi600) / <alpha-value>)',700:'rgb(var(--vi700) / <alpha-value>)',800:'rgb(var(--vi800) / <alpha-value>)',900:'rgb(var(--vi900) / <alpha-value>)',950:'rgb(var(--vi950) / <alpha-value>)' },
+          rose: { 50:'rgb(var(--ro50) / <alpha-value>)',100:'rgb(var(--ro100) / <alpha-value>)',200:'rgb(var(--ro200) / <alpha-value>)',300:'rgb(var(--ro300) / <alpha-value>)',400:'rgb(var(--ro400) / <alpha-value>)',500:'rgb(var(--ro500) / <alpha-value>)',600:'rgb(var(--ro600) / <alpha-value>)',700:'rgb(var(--ro700) / <alpha-value>)',800:'rgb(var(--ro800) / <alpha-value>)',900:'rgb(var(--ro900) / <alpha-value>)',950:'rgb(var(--ro950) / <alpha-value>)' },
+        }}}
+      };
+    </script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Outfit', sans-serif; background-color: #09090b; color: #e4e4e7; margin: 0; overflow: hidden; }
+        /* ── SKINS: palette variables as RGB channels. :root = Midnight (the
+              original look); [data-skin] swaps to a vintage palette. Generated
+              from anchor colors — see docs/mockup-stride2-vintage.html. ── */
+        :root{--z50:250 250 250;--z100:244 244 245;--z200:228 228 231;--z300:212 212 216;--z400:161 161 170;--z500:113 113 122;--z600:82 82 91;--z700:63 63 70;--z800:39 39 42;--z900:24 24 27;--z950:9 9 11;--o50:255 247 237;--o100:255 237 213;--o200:254 215 170;--o300:253 186 116;--o400:251 146 60;--o500:249 115 22;--o600:234 88 12;--o700:194 65 12;--o800:154 52 18;--o900:124 45 18;--o950:67 20 7;--f50:253 244 255;--f100:250 232 255;--f200:245 208 254;--f300:240 171 252;--f400:232 121 249;--f500:217 70 239;--f600:192 38 211;--f700:162 28 175;--f800:134 25 143;--f900:112 26 117;--f950:74 4 78;--em50:236 253 245;--em100:209 250 229;--em200:167 243 208;--em300:110 231 183;--em400:52 211 153;--em500:16 185 129;--em600:5 150 105;--em700:4 120 87;--em800:6 95 70;--em900:6 78 59;--em950:2 44 34;--am50:255 251 235;--am100:254 243 199;--am200:253 230 138;--am300:252 211 77;--am400:251 191 36;--am500:245 158 11;--am600:217 119 6;--am700:180 83 9;--am800:146 64 14;--am900:120 53 15;--am950:69 26 3;--sk50:240 249 255;--sk100:224 242 254;--sk200:186 230 253;--sk300:125 211 252;--sk400:56 189 248;--sk500:14 165 233;--sk600:2 132 199;--sk700:3 105 161;--sk800:7 89 133;--sk900:12 74 110;--sk950:8 47 73;--vi50:245 243 255;--vi100:237 233 254;--vi200:221 214 254;--vi300:196 181 253;--vi400:167 139 250;--vi500:139 92 246;--vi600:124 58 237;--vi700:109 40 217;--vi800:91 33 182;--vi900:76 29 149;--vi950:46 16 101;--ro50:255 241 242;--ro100:255 228 230;--ro200:254 205 211;--ro300:253 164 175;--ro400:251 113 133;--ro500:244 63 94;--ro600:225 29 72;--ro700:190 18 60;--ro800:159 18 57;--ro900:136 19 55;--ro950:76 5 25;--brand1:249 115 22;--brand2:239 68 68;--app-bg:9 9 11;--sb-thumb:63 63 70;--sb-hover:82 82 91}
+        [data-skin="copper"]{--z50:238 240 240;--z100:225 227 227;--z200:209 213 213;--z300:188 192 192;--z400:154 157 158;--z500:113 118 118;--z600:90 95 95;--z700:68 71 71;--z800:54 57 57;--z900:43 45 45;--z950:22 22 22;--o50:249 241 234;--o100:244 227 213;--o200:232 198 170;--o300:215 156 107;--o400:198 113 43;--o500:174 99 38;--o600:143 81 31;--o700:109 62 24;--o800:79 45 17;--o900:55 32 12;--o950:30 17 6;--f50:var(--o50);--f100:var(--o100);--f200:var(--o200);--f300:var(--o300);--f400:var(--o400);--f500:var(--o500);--f600:var(--o600);--f700:var(--o700);--f800:var(--o800);--f900:var(--o900);--f950:var(--o950);--em50:var(--o50);--em100:var(--o100);--em200:var(--o200);--em300:var(--o300);--em400:var(--o400);--em500:var(--o500);--em600:var(--o600);--em700:var(--o700);--em800:var(--o800);--em900:var(--o900);--em950:var(--o950);--am50:var(--o50);--am100:var(--o100);--am200:var(--o200);--am300:var(--o300);--am400:var(--o400);--am500:var(--o500);--am600:var(--o600);--am700:var(--o700);--am800:var(--o800);--am900:var(--o900);--am950:var(--o950);--sk50:var(--z50);--sk100:var(--z100);--sk200:var(--z200);--sk300:var(--z300);--sk400:var(--z400);--sk500:var(--z500);--sk600:var(--z600);--sk700:var(--z700);--sk800:var(--z800);--sk900:var(--z900);--sk950:var(--z950);--vi50:var(--z50);--vi100:var(--z100);--vi200:var(--z200);--vi300:var(--z300);--vi400:var(--z400);--vi500:var(--z500);--vi600:var(--z600);--vi700:var(--z700);--vi800:var(--z800);--vi900:var(--z900);--vi950:var(--z950);--ro50:var(--z50);--ro100:var(--z100);--ro200:var(--z200);--ro300:var(--z300);--ro400:var(--z400);--ro500:var(--z500);--ro600:var(--z600);--ro700:var(--z700);--ro800:var(--z800);--ro900:var(--z900);--ro950:var(--z950);--brand1:198 113 43;--brand2:217 144 74;--app-bg:22 22 22;--sb-thumb:68 71 71;--sb-hover:90 95 95}
+        [data-skin="steel"]{--z50:238 242 246;--z100:221 228 235;--z200:207 216 225;--z300:180 191 202;--z400:147 160 173;--z500:105 116 127;--z600:79 91 102;--z700:59 70 81;--z800:46 54 64;--z900:35 41 49;--z950:20 23 26;--o50:253 243 234;--o100:250 232 213;--o200:245 208 171;--o300:238 173 109;--o400:230 138 46;--o500:202 121 40;--o600:166 99 33;--o700:127 76 25;--o800:92 55 18;--o900:64 39 13;--o950:35 21 7;--f50:var(--o50);--f100:var(--o100);--f200:var(--o200);--f300:var(--o300);--f400:var(--o400);--f500:var(--o500);--f600:var(--o600);--f700:var(--o700);--f800:var(--o800);--f900:var(--o900);--f950:var(--o950);--em50:var(--o50);--em100:var(--o100);--em200:var(--o200);--em300:var(--o300);--em400:var(--o400);--em500:var(--o500);--em600:var(--o600);--em700:var(--o700);--em800:var(--o800);--em900:var(--o900);--em950:var(--o950);--am50:var(--o50);--am100:var(--o100);--am200:var(--o200);--am300:var(--o300);--am400:var(--o400);--am500:var(--o500);--am600:var(--o600);--am700:var(--o700);--am800:var(--o800);--am900:var(--o900);--am950:var(--o950);--sk50:var(--z50);--sk100:var(--z100);--sk200:var(--z200);--sk300:var(--z300);--sk400:var(--z400);--sk500:var(--z500);--sk600:var(--z600);--sk700:var(--z700);--sk800:var(--z800);--sk900:var(--z900);--sk950:var(--z950);--vi50:var(--z50);--vi100:var(--z100);--vi200:var(--z200);--vi300:var(--z300);--vi400:var(--z400);--vi500:var(--z500);--vi600:var(--z600);--vi700:var(--z700);--vi800:var(--z800);--vi900:var(--z900);--vi950:var(--z950);--ro50:var(--z50);--ro100:var(--z100);--ro200:var(--z200);--ro300:var(--z300);--ro400:var(--z400);--ro500:var(--z500);--ro600:var(--z600);--ro700:var(--z700);--ro800:var(--z800);--ro900:var(--z900);--ro950:var(--z950);--brand1:230 138 46;--brand2:240 168 90;--app-bg:20 23 26;--sb-thumb:59 70 81;--sb-hover:79 91 102}
+        [data-skin="brass"]{--z50:241 236 226;--z100:228 221 208;--z200:215 207 192;--z300:195 187 171;--z400:163 154 138;--z500:118 111 99;--z600:88 82 73;--z700:67 62 53;--z800:53 49 41;--z900:42 39 34;--z950:21 19 15;--o50:250 246 237;--o100:244 236 219;--o200:233 218 183;--o300:217 190 129;--o400:201 162 75;--o500:177 143 66;--o600:145 117 54;--o700:111 89 41;--o800:80 65 30;--o900:56 45 21;--o950:30 24 11;--f50:var(--o50);--f100:var(--o100);--f200:var(--o200);--f300:var(--o300);--f400:var(--o400);--f500:var(--o500);--f600:var(--o600);--f700:var(--o700);--f800:var(--o800);--f900:var(--o900);--f950:var(--o950);--em50:var(--o50);--em100:var(--o100);--em200:var(--o200);--em300:var(--o300);--em400:var(--o400);--em500:var(--o500);--em600:var(--o600);--em700:var(--o700);--em800:var(--o800);--em900:var(--o900);--em950:var(--o950);--am50:var(--o50);--am100:var(--o100);--am200:var(--o200);--am300:var(--o300);--am400:var(--o400);--am500:var(--o500);--am600:var(--o600);--am700:var(--o700);--am800:var(--o800);--am900:var(--o900);--am950:var(--o950);--sk50:var(--z50);--sk100:var(--z100);--sk200:var(--z200);--sk300:var(--z300);--sk400:var(--z400);--sk500:var(--z500);--sk600:var(--z600);--sk700:var(--z700);--sk800:var(--z800);--sk900:var(--z900);--sk950:var(--z950);--vi50:var(--z50);--vi100:var(--z100);--vi200:var(--z200);--vi300:var(--z300);--vi400:var(--z400);--vi500:var(--z500);--vi600:var(--z600);--vi700:var(--z700);--vi800:var(--z800);--vi900:var(--z900);--vi950:var(--z950);--ro50:var(--z50);--ro100:var(--z100);--ro200:var(--z200);--ro300:var(--z300);--ro400:var(--z400);--ro500:var(--z500);--ro600:var(--z600);--ro700:var(--z700);--ro800:var(--z800);--ro900:var(--z900);--ro950:var(--z950);--brand1:201 162 75;--brand2:220 186 110;--app-bg:21 19 15;--sb-thumb:67 62 53;--sb-hover:88 82 73}
+        [data-skin="teal"]{--z50:238 240 240;--z100:223 226 226;--z200:208 212 213;--z300:186 191 191;--z400:152 156 157;--z500:111 117 118;--z600:87 92 93;--z700:66 71 71;--z800:52 57 57;--z900:41 45 45;--z950:20 22 23;--o50:234 241 244;--o100:213 227 232;--o200:172 199 210;--o300:109 158 176;--o400:47 116 142;--o500:41 102 125;--o600:34 84 102;--o700:26 64 78;--o800:19 46 57;--o900:13 32 40;--o950:7 17 21;--f50:var(--o50);--f100:var(--o100);--f200:var(--o200);--f300:var(--o300);--f400:var(--o400);--f500:var(--o500);--f600:var(--o600);--f700:var(--o700);--f800:var(--o800);--f900:var(--o900);--f950:var(--o950);--em50:var(--o50);--em100:var(--o100);--em200:var(--o200);--em300:var(--o300);--em400:var(--o400);--em500:var(--o500);--em600:var(--o600);--em700:var(--o700);--em800:var(--o800);--em900:var(--o900);--em950:var(--o950);--am50:var(--o50);--am100:var(--o100);--am200:var(--o200);--am300:var(--o300);--am400:var(--o400);--am500:var(--o500);--am600:var(--o600);--am700:var(--o700);--am800:var(--o800);--am900:var(--o900);--am950:var(--o950);--sk50:var(--z50);--sk100:var(--z100);--sk200:var(--z200);--sk300:var(--z300);--sk400:var(--z400);--sk500:var(--z500);--sk600:var(--z600);--sk700:var(--z700);--sk800:var(--z800);--sk900:var(--z900);--sk950:var(--z950);--vi50:var(--z50);--vi100:var(--z100);--vi200:var(--z200);--vi300:var(--z300);--vi400:var(--z400);--vi500:var(--z500);--vi600:var(--z600);--vi700:var(--z700);--vi800:var(--z800);--vi900:var(--z900);--vi950:var(--z950);--ro50:var(--z50);--ro100:var(--z100);--ro200:var(--z200);--ro300:var(--z300);--ro400:var(--z400);--ro500:var(--z500);--ro600:var(--z600);--ro700:var(--z700);--ro800:var(--z800);--ro900:var(--z900);--ro950:var(--z950);--brand1:47 116 142;--brand2:74 147 173;--app-bg:20 22 23;--sb-thumb:66 71 71;--sb-hover:87 92 93}
+        [data-skin="patch"]{--z50:238 240 240;--z100:225 227 227;--z200:209 213 213;--z300:188 192 192;--z400:154 157 158;--z500:113 118 118;--z600:90 95 95;--z700:68 71 71;--z800:54 57 57;--z900:43 45 45;--z950:22 22 22;--o50:249 241 234;--o100:244 227 213;--o200:232 198 170;--o300:215 156 107;--o400:198 113 43;--o500:174 99 38;--o600:143 81 31;--o700:109 62 24;--o800:79 45 17;--o900:55 32 12;--o950:30 17 6;--f50:var(--o50);--f100:var(--o100);--f200:var(--o200);--f300:var(--o300);--f400:var(--o400);--f500:var(--o500);--f600:var(--o600);--f700:var(--o700);--f800:var(--o800);--f900:var(--o900);--f950:var(--o950);--em50:var(--o50);--em100:var(--o100);--em200:var(--o200);--em300:var(--o300);--em400:var(--o400);--em500:var(--o500);--em600:var(--o600);--em700:var(--o700);--em800:var(--o800);--em900:var(--o900);--em950:var(--o950);--am50:var(--o50);--am100:var(--o100);--am200:var(--o200);--am300:var(--o300);--am400:var(--o400);--am500:var(--o500);--am600:var(--o600);--am700:var(--o700);--am800:var(--o800);--am900:var(--o900);--am950:var(--o950);--sk50:var(--z50);--sk100:var(--z100);--sk200:var(--z200);--sk300:var(--z300);--sk400:var(--z400);--sk500:var(--z500);--sk600:var(--z600);--sk700:var(--z700);--sk800:var(--z800);--sk900:var(--z900);--sk950:var(--z950);--vi50:var(--z50);--vi100:var(--z100);--vi200:var(--z200);--vi300:var(--z300);--vi400:var(--z400);--vi500:var(--z500);--vi600:var(--z600);--vi700:var(--z700);--vi800:var(--z800);--vi900:var(--z900);--vi950:var(--z950);--ro50:var(--z50);--ro100:var(--z100);--ro200:var(--z200);--ro300:var(--z300);--ro400:var(--z400);--ro500:var(--z500);--ro600:var(--z600);--ro700:var(--z700);--ro800:var(--z800);--ro900:var(--z900);--ro950:var(--z950);--brand1:198 113 43;--brand2:217 144 74;--app-bg:22 22 22;--sb-thumb:68 71 71;--sb-hover:90 95 95}
+        body { font-family: 'Outfit', sans-serif; background-color: rgb(var(--app-bg)); color: rgb(var(--z200)); margin: 0; overflow: hidden; }
         ::-webkit-scrollbar { width: 10px; height: 10px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
-        ::-webkit-scrollbar-thumb:hover { background: #52525b; background-clip: padding-box; border: 2px solid transparent; }
+        ::-webkit-scrollbar-thumb { background: rgb(var(--sb-thumb)); border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
+        ::-webkit-scrollbar-thumb:hover { background: rgb(var(--sb-hover)); background-clip: padding-box; border: 2px solid transparent; }
         .custom-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
         .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
-        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #52525b; background-clip: padding-box; border: 2px solid transparent; }
-        .text-gradient { background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-image: linear-gradient(to right, #f97316, #ef4444); }
+        .custom-scroll::-webkit-scrollbar-thumb { background: rgb(var(--sb-thumb)); border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: rgb(var(--sb-hover)); background-clip: padding-box; border: 2px solid transparent; }
+        .text-gradient { background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-image: linear-gradient(to right, rgb(var(--brand1)), rgb(var(--brand2))); }
         /* Electron title bar drag region */
         .titlebar-drag { -webkit-app-region: drag; }
         .titlebar-no-drag { -webkit-app-region: no-drag; }
@@ -125,7 +154,7 @@
     </div>
 
     <!-- ===================== ACTIVATION GATE ===================== -->
-    <div id="activation-overlay" class="fixed inset-0 z-[9999] bg-[#09090b] flex items-center justify-center">
+    <div id="activation-overlay" class="fixed inset-0 z-[9999] bg-zinc-950 flex items-center justify-center">
         <div class="w-full max-w-sm px-6 text-center">
             <!-- Logo -->
             <h1 class="text-4xl font-black text-gradient tracking-tighter mb-1">STRIDE</h1>
@@ -175,11 +204,18 @@
             <div id="link-dot" class="w-2 h-2 rounded-full bg-zinc-600"></div>
             <span id="link-label" class="text-[10px] text-zinc-400 uppercase font-bold tracking-widest">Disconnected</span>
         </button>
+        <!-- Skin switcher — cycles the app palette (design-only; persisted).
+             The dot reflects the active skin via --brand1; label updates in JS. -->
+        <button id="sd-skin-swatch" type="button" onclick="window.strideCycleSkin && window.strideCycleSkin()" title="Switch skin"
+            class="titlebar-no-drag flex items-center gap-1.5 mr-4 px-2 py-1 rounded-md border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 transition-colors">
+            <span class="w-3 h-3 rounded-full" style="background: rgb(var(--brand1)); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);"></span>
+            <span id="sd-skin-name" class="text-[9px] text-zinc-400 uppercase font-bold tracking-widest">Copper</span>
+        </button>
 
         <!-- Connection troubleshooter popover — opens on click of #link-status.
              Lists the most common failure modes with concrete fixes so users
              can self-diagnose instead of bouncing through email support. -->
-        <div id="sd-connection-help" class="hidden fixed top-12 right-4 z-50 w-[380px] rounded-xl border border-white/10 shadow-2xl titlebar-no-drag" style="background: rgba(9,9,11,0.98); backdrop-filter: blur(14px);">
+        <div id="sd-connection-help" class="hidden fixed top-12 right-4 z-50 w-[380px] rounded-xl border border-white/10 shadow-2xl titlebar-no-drag" style="background: rgb(var(--app-bg) / 0.98); backdrop-filter: blur(14px);">
             <div class="px-4 py-3 border-b border-white/5 flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <div id="sd-help-dot" class="w-2.5 h-2.5 rounded-full bg-zinc-600"></div>
@@ -239,9 +275,8 @@
                     <span id="sd-armed-pattern-label" class="text-orange-300 font-bold uppercase tracking-wider truncate min-w-0 flex-1"></span>
                     <button id="sd-armed-pattern-clear" onclick="if(window.sdClearPattern)window.sdClearPattern()" title="Clear pattern" class="text-orange-400/70 hover:text-orange-300 shrink-0 text-sm leading-none px-1">×</button>
                 </div>
-                <!-- Primary CTA — Stride 2.0: writes your curves straight into the
-                     selected clip via StrideInject. No .alc, no template, no drag. -->
-                <button onclick="applyToAbletonDirect()" id="sd-inject-btn" title="Write your curves straight into the selected clip in Ableton — no file, no drag. Requires StrideInject enabled: Ableton → Preferences → Link/Tempo/MIDI → Control Surface." class="w-full text-[9px] text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 py-1.5 rounded-lg uppercase tracking-widest font-black transition-all">Inject to Clip</button>
+                <!-- Primary CTA moved to the right Inject rail (Option B). -->
+                <!-- (#sd-inject-btn now lives in #sd-inject-rail beside the canvas.) -->
                 <!-- (Stride 2.0: Save/Load Session removed — per-rack autosave + autoscan persist curves; sessions had no live _path and risked rack mismatch.) -->
             </div>
             <!-- Context Panel — replaces the old param list. Hosts the
@@ -358,7 +393,7 @@
 
                         <!-- ONE-TIME SETUP — install + enable StrideInject. Most
                              "not connected / timeout" issues are skipping this. -->
-                        <div class="rounded-xl border border-orange-500/30 p-5" style="background: linear-gradient(135deg, rgba(249,115,22,0.08), rgba(239,68,68,0.04));">
+                        <div class="rounded-xl border border-orange-500/30 p-5" style="background: linear-gradient(135deg, rgb(var(--o500) / 0.08), rgba(239,68,68,0.04));">
                             <div class="flex items-start gap-3">
                                 <div class="shrink-0 w-10 h-10 rounded-xl bg-orange-500/15 border border-orange-500/30 flex items-center justify-center">
                                     <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
@@ -367,6 +402,7 @@
                                     <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">One-time setup</h3>
                                     <p class="text-base text-zinc-300 leading-relaxed mt-2"><span class="text-orange-400 font-bold">1.</span> Click <span class="text-orange-400 font-bold">"Install to Ableton"</span> in Stride's titlebar — installs StrideLink + StrideInject.</p>
                                     <p class="text-base text-zinc-300 leading-relaxed mt-2"><span class="text-orange-400 font-bold">2.</span> In Ableton: <span class="text-zinc-100 font-bold">Preferences → Link/Tempo/MIDI → Control Surface</span> → choose <span class="text-zinc-100 font-mono">StrideInject</span>. Once, and you're set.</p>
+                                    <div id="guide-img-1" class="mt-3 rounded-lg bg-black/30 border border-white/5 overflow-hidden"><img src="../assets/ss/step1.png" alt="One-time setup — load StrideLink on your track" class="w-full"></div>
                                 </div>
                             </div>
                         </div>
@@ -379,7 +415,6 @@
                             <div class="flex-1 min-w-0">
                                 <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Load StrideLink on your track</h3>
                                 <p class="text-base text-zinc-400 leading-relaxed mt-1">Drop the <span class="text-zinc-300 font-medium">StrideLink</span> device onto the track with your instrument.</p>
-                                <div id="guide-img-1" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden"><img src="../assets/ss/step1.png" alt="Load StrideLink on your track" class="w-full"></div>
                             </div>
                         </div>
 
@@ -402,7 +437,7 @@
                             </div>
                             <div class="flex-1 min-w-0">
                                 <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Generate — one click, every lane</h3>
-                                <p class="text-base text-zinc-400 leading-relaxed mt-1">Your mapped params show up as lanes. Hit a <span class="text-fuchsia-400 font-bold">generative tool</span> (Chaos, Neuro, Prism, S&amp;H…) — it lays down modulation across <span class="text-zinc-300 font-bold">every lane at once</span>. Then <span class="text-zinc-300 font-bold">reshape</span> or <span class="text-zinc-300 font-bold">Mutate</span> until it feels right.</p>
+                                <p class="text-base text-zinc-400 leading-relaxed mt-1">Your mapped params show up as lanes. Hit a <span class="text-fuchsia-400 font-bold">motion tool</span> (Chaos, Neuro, Prism, S&amp;H…) — it lays down modulation across <span class="text-zinc-300 font-bold">every lane at once</span>. Then <span class="text-zinc-300 font-bold">reshape</span> or <span class="text-zinc-300 font-bold">Mutate</span> until it feels right.</p>
                                 <div id="guide-img-3" class="mt-2 rounded-lg bg-black/30 border border-white/5 overflow-hidden hidden"></div>
                             </div>
                         </div>
@@ -444,7 +479,7 @@
                         </div>
 
                         <!-- ADD MORE — the 2.0 superpower: live re-sync. -->
-                        <div class="rounded-xl border border-fuchsia-500/25 p-5" style="background: linear-gradient(135deg, rgba(217,70,239,0.08), rgba(249,115,22,0.04));">
+                        <div class="rounded-xl border border-fuchsia-500/25 p-5" style="background: linear-gradient(135deg, rgb(var(--f500) / 0.08), rgb(var(--o500) / 0.04));">
                             <div class="flex items-start gap-3">
                                 <div class="shrink-0 w-10 h-10 rounded-xl bg-fuchsia-500/15 border border-fuchsia-500/30 flex items-center justify-center">
                                     <svg class="w-5 h-5 text-fuchsia-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
@@ -460,12 +495,12 @@
                         <!-- Prominent end-of-guide help block — direct route for stuck users.
                              Both CTAs land on stridehub.io/welcome which hosts the
                              VO walkthrough video AND the Calendly book-a-call link. -->
-                        <div class="mt-6 p-7 rounded-2xl border border-orange-500/25" style="background: linear-gradient(135deg, rgba(249,115,22,0.10), rgba(239,68,68,0.06));">
+                        <div class="mt-6 p-7 rounded-2xl border border-orange-500/25" style="background: linear-gradient(135deg, rgb(var(--o500) / 0.10), rgba(239,68,68,0.06));">
                             <p class="text-xs text-orange-400 font-black uppercase tracking-[0.3em] mb-3 text-center">Stuck? Get help.</p>
                             <h3 class="text-2xl font-black text-zinc-100 text-center mb-2">We've got you.</h3>
                             <p class="text-base text-zinc-400 text-center leading-relaxed mb-5 max-w-md mx-auto">Watch the full walkthrough video with voiceover, or book a free 30-minute Zoom call and we'll get you rolling. No question is too small.</p>
                             <div class="flex gap-3 justify-center flex-wrap">
-                                <a href="#" onclick="window.stride.openExternal('https://stridehub.io/welcome'); return false;" class="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-black uppercase tracking-widest text-white shadow-[0_4px_16px_rgba(249,115,22,0.3)] hover:shadow-[0_6px_20px_rgba(249,115,22,0.45)] transition-all" style="background: linear-gradient(to right, #f97316, #ef4444);">▶ Watch the walkthrough</a>
+                                <a href="#" onclick="window.stride.openExternal('https://stridehub.io/welcome'); return false;" class="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-black uppercase tracking-widest text-white shadow-[0_4px_16px_rgba(249,115,22,0.3)] hover:shadow-[0_6px_20px_rgba(249,115,22,0.45)] transition-all" style="background: linear-gradient(to right, rgb(var(--brand1)), rgb(var(--brand2)));">▶ Watch the walkthrough</a>
                                 <a href="#" onclick="window.stride.openExternal('https://stridehub.io/welcome'); return false;" class="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-black uppercase tracking-widest text-zinc-200 bg-white/5 hover:bg-white/10 border border-white/10 transition-all">📅 Book a Zoom call</a>
                             </div>
                         </div>
@@ -694,17 +729,22 @@
                         <button onclick="sdTimeStretch(0.5)" title="Compress 1/2x — halves the lane length" class="text-[10px] text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/30 hover:border-sky-400/60 px-2 py-0.5 rounded font-black transition-colors">1/2x</button>
                     </div>
                     <button id="sd-select-all-toggle" onclick="sdSelectAll()" title="Select every unlocked lane (click again to clear). Tip: Ctrl+click a lane to toggle it individually, or Ctrl+drag through lanes to multi-select. Tools then target the selection." class="text-[9px] text-zinc-500 bg-black/50 border border-white/5 hover:border-fuchsia-500/30 px-2 py-0.5 rounded uppercase font-bold transition-colors">Select All</button>
-                    <button onclick="sdToggleLockAll()" title="Lock or unlock every lane at once. Locked lanes are skipped by all generative tools." class="text-[9px] text-amber-400/80 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 hover:border-amber-500/40 px-2 py-0.5 rounded uppercase font-bold transition-colors flex items-center gap-1">
+                    <button onclick="sdToggleLockAll()" title="Lock or unlock every lane at once. Locked lanes are skipped by all motion tools." class="text-[9px] text-amber-400/80 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 hover:border-amber-500/40 px-2 py-0.5 rounded uppercase font-bold transition-colors flex items-center gap-1">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
                         Lock All
                     </button>
                 </div>
             </div>
 
-            <!-- Canvas Area -->
-            <div class="flex-1 relative overflow-hidden bg-black/20" id="sd-canvas-container">
+            <!-- Canvas Area + Inject rail (Option B: CTA on the right of the lanes, cables fan in) -->
+            <div class="flex-1 flex min-h-0" id="sd-editor-row">
+              <div class="flex-1 min-w-0 relative overflow-hidden bg-black/20" id="sd-canvas-container">
                 <div id="sd-canvas-ruler" class="absolute top-0 left-0 right-0 h-5 bg-black/60 border-b border-white/10 z-20 cursor-col-resize select-none"></div>
                 <canvas id="sd-canvas" class="absolute top-5 left-0 right-0 bottom-0 w-full cursor-crosshair z-10" style="height: calc(100% - 20px);"></canvas>
+                <!-- Lane comet FX overlay (Option C). pointer-events:none so it
+                     never blocks canvas interaction; above the curve canvas,
+                     below the ruler (z-20) and tooltip (z-30). -->
+                <canvas id="sd-canvas-fx" class="absolute top-5 left-0 right-0 bottom-0 w-full pointer-events-none z-[15]" style="height: calc(100% - 20px);"></canvas>
                 <!-- Hover tooltip — shows full lane name + value range when the
                      cursor is over the label column of a lane. Positioned by
                      canvas.js mousemove handler; pointer-events:none so it
@@ -730,6 +770,13 @@
                         </div>
                     </div>
                 </div>
+              </div>
+              <!-- Inject rail (Option B) — the primary CTA lives here as a hub;
+                   cables fan from each lane's right edge into it (canvas.js → _sdRenderCables). -->
+              <div id="sd-inject-rail" class="shrink-0 w-[200px] relative bg-black/30 border-l border-white/5 flex items-center justify-center">
+                <svg id="sd-cables" class="absolute inset-0 w-full h-full pointer-events-none z-0" style="overflow:visible"></svg>
+                <button onclick="applyToAbletonDirect()" id="sd-inject-btn" title="Write your curves straight into the selected clip in Ableton — no file, no drag. Requires StrideInject enabled: Ableton → Preferences → Link/Tempo/MIDI → Control Surface." class="relative z-10 w-24 h-24 rounded-full flex flex-col items-center justify-center gap-0.5 text-[10px] text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 hover:border-emerald-500/50 uppercase tracking-widest font-black transition-all leading-tight text-center shadow-lg">Inject<br>to Clip</button>
+              </div>
             </div>
 
             <!-- Slim status bar — Stride 2.0 reclaimed the Recent Generations
@@ -1162,7 +1209,7 @@
         #sd-pattern-library-panel {
             position: absolute;
             top: 0; bottom: 0; left: 0; right: 80px;
-            background: #09090b;
+            background: rgb(var(--app-bg));
             border-right: 1px solid rgba(255,255,255,0.05);
             transform: translateX(-100%);
             transition: transform 200ms ease-out;
@@ -1176,7 +1223,7 @@
             top: 0; bottom: 0; right: 0;
             width: 80px;
             background: rgba(9,9,11,0.75);
-            border-left: 1px solid rgba(249,115,22,0.25);
+            border-left: 1px solid rgb(var(--o500) / 0.25);
             cursor: pointer;
             opacity: 0;
             transition: opacity 200ms ease-out, background 150ms ease-out, border-color 150ms ease-out;
@@ -1188,11 +1235,11 @@
             gap: 10px;
         }
         #sd-pattern-library-peek:hover {
-            background: rgba(249,115,22,0.12);
-            border-left-color: rgba(249,115,22,0.55);
+            background: rgb(var(--o500) / 0.12);
+            border-left-color: rgb(var(--o500) / 0.55);
         }
         #sd-pattern-library-peek .sd-peek-arrow {
-            color: #fb923c;
+            color: rgb(var(--o400));
             font-size: 24px;
             line-height: 1;
             font-weight: 300;
@@ -1204,7 +1251,7 @@
             transform: translateX(-4px);
         }
         #sd-pattern-library-peek .sd-peek-label {
-            color: #fb923c;
+            color: rgb(var(--o400));
             font-family: Outfit, sans-serif;
             font-size: 9px;
             font-weight: 800;
@@ -1217,8 +1264,8 @@
         }
         #sd-pattern-library-peek:hover .sd-peek-label { opacity: 1; }
         @keyframes sd-peek-pulse {
-            0%, 100% { box-shadow: inset 4px 0 0 -3px rgba(249,115,22,0.3); }
-            50%      { box-shadow: inset 4px 0 0 -3px rgba(249,115,22,0.7); }
+            0%, 100% { box-shadow: inset 4px 0 0 -3px rgb(var(--o500) / 0.3); }
+            50%      { box-shadow: inset 4px 0 0 -3px rgb(var(--o500) / 0.7); }
         }
         #sd-pattern-library-overlay.sd-lib-open #sd-pattern-library-peek {
             animation: sd-peek-pulse 2.4s ease-in-out infinite;
@@ -1230,11 +1277,11 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            background: rgba(249,115,22,0.08);
-            border: 1px solid rgba(249,115,22,0.25);
+            background: rgb(var(--o500) / 0.08);
+            border: 1px solid rgb(var(--o500) / 0.25);
             border-radius: 6px;
             padding: 5px 10px 5px 8px;
-            color: #fb923c;
+            color: rgb(var(--o400));
             font-family: Outfit, sans-serif;
             font-size: 10px;
             font-weight: 800;
@@ -1244,8 +1291,8 @@
             transition: all 120ms ease-out;
         }
         #sd-lib-back-btn:hover {
-            background: rgba(249,115,22,0.18);
-            border-color: rgba(249,115,22,0.5);
+            background: rgb(var(--o500) / 0.18);
+            border-color: rgb(var(--o500) / 0.5);
             color: #fff;
         }
         #sd-lib-back-btn svg { width: 14px; height: 14px; }
@@ -1270,8 +1317,8 @@
             cursor: pointer;
             transition: all 120ms ease-out;
         }
-        .sd-lib-cat:hover { color: #f97316; background: rgba(249,115,22,0.05); }
-        .sd-lib-cat-active { color: #fb923c; background: rgba(249,115,22,0.12); }
+        .sd-lib-cat:hover { color: rgb(var(--o500)); background: rgb(var(--o500) / 0.05); }
+        .sd-lib-cat-active { color: rgb(var(--o400)); background: rgb(var(--o500) / 0.12); }
         .sd-lib-filter {
             display: flex;
             align-items: center;
@@ -1295,7 +1342,7 @@
             outline: none;
             cursor: pointer;
         }
-        .sd-lib-select:focus { border-color: #f97316; }
+        .sd-lib-select:focus { border-color: rgb(var(--o500)); }
         /* The open <option> list is rendered by the OS / Chromium and does
            not inherit the translucent background above. Give options an
            explicit solid dark background + light text so they're readable
@@ -1318,7 +1365,7 @@
             outline: none;
             min-width: 180px;
         }
-        .sd-lib-search:focus { border-color: #f97316; }
+        .sd-lib-search:focus { border-color: rgb(var(--o500)); }
         .sd-lib-card {
             background: rgba(255,255,255,0.02);
             border: 1px solid rgba(255,255,255,0.06);
@@ -1333,12 +1380,12 @@
             user-select: none;
         }
         .sd-lib-card:hover {
-            border-color: rgba(249,115,22,0.4);
-            background: rgba(249,115,22,0.04);
+            border-color: rgb(var(--o500) / 0.4);
+            background: rgb(var(--o500) / 0.04);
         }
         .sd-lib-card.sd-lib-card-selected {
-            border-color: #f97316;
-            background: rgba(249,115,22,0.08);
+            border-color: rgb(var(--o500));
+            background: rgb(var(--o500) / 0.08);
         }
         .sd-lib-card-title {
             display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -1386,7 +1433,7 @@
         .sd-lib-pick-btn {
             flex: 1;
             justify-content: center;
-            background: linear-gradient(90deg, #f97316, #d946ef);
+            background: linear-gradient(90deg, rgb(var(--o500)), rgb(var(--f500)));
             color: #fff;
             border-color: transparent;
         }
