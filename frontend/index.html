@@ -151,6 +151,17 @@
   .lane{fill:none;stroke-width:2}
   details>summary{list-style:none}details>summary::-webkit-details-marker{display:none}
   .gen-card{transition:transform .15s,border-color .15s}.gen-card:hover{transform:translateY(-3px)}
+  /* hero background lanes — gentle staggered undulation (subtle, low-opacity) */
+  @keyframes heroLaneA{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+  @keyframes heroLaneB{0%,100%{transform:translateY(0)}50%{transform:translateY(8px)}}
+  @keyframes heroLaneC{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+  .hero-lanes path{will-change:transform}
+  .hero-lanes path:nth-of-type(1){animation:heroLaneA 9s ease-in-out infinite}
+  .hero-lanes path:nth-of-type(2){animation:heroLaneB 11s ease-in-out -2s infinite}
+  .hero-lanes path:nth-of-type(3){animation:heroLaneC 8s ease-in-out -4s infinite}
+  .hero-lanes path:nth-of-type(4){animation:heroLaneA 12s ease-in-out -1s infinite}
+  .hero-lanes path:nth-of-type(5){animation:heroLaneB 10s ease-in-out -3s infinite}
+  @media (prefers-reduced-motion:reduce){.hero-lanes path{animation:none}}
 </style>
 </head>
 <body>
@@ -181,7 +192,7 @@
 
   <!-- ───────────────── HERO ───────────────── -->
   <section class="relative overflow-hidden pt-12 pb-14">
-    <svg class="absolute inset-0 w-full h-full pointer-events-none" style="opacity:.10" viewBox="0 0 1400 520" preserveAspectRatio="none" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <svg class="hero-lanes absolute inset-0 w-full h-full pointer-events-none" style="opacity:.10" viewBox="0 0 1400 520" preserveAspectRatio="none" fill="none" stroke-linecap="round" stroke-linejoin="round">
       <path d="M0,80 L90,30 L90,80 L180,30 L180,80 L360,30 L360,80 L540,30 L540,80 L720,30 L720,80 L900,30 L900,80 L1080,30 L1080,80 L1260,30 L1260,80 L1400,50" stroke="#c6712b" stroke-width="1.5"/>
       <path d="M0,170 L40,120 L80,170 L120,150 L160,170 L240,110 L320,170 L400,150 L480,170 L560,110 L640,170 L720,150 L800,170 L900,115 L1000,170 L1120,150 L1240,170 L1340,115 L1400,170" stroke="#5e9aad" stroke-width="1.5"/>
       <path d="M0,270 L80,270 L80,220 L200,220 L200,270 L320,270 L320,235 L440,235 L440,270 L560,270 L560,210 L700,210 L700,270 L840,270 L840,230 L980,230 L980,270 L1120,270 L1120,215 L1280,215 L1280,270 L1400,270" stroke="#86a87f" stroke-width="1.5"/>
