@@ -399,6 +399,10 @@
     function _sdAutoScanOnFocus() {
         if (!strideLink.connected) return;
         if (Date.now() - _sdLastAutoScanAt < 1500) return;   // throttle
+        // Re-scan when the user switches back to Stride so params they just
+        // mapped in Ableton appear without a manual re-scan. This is cheap now
+        // that scanner_max.js caps per-device params (256) — the freeze was the
+        // uncapped 2086-param VST3 walk, NOT the autoscan itself.
         Promise.resolve(saveCanvasState()).then(_sdAutoScan);
     }
     window.addEventListener('focus', _sdAutoScanOnFocus);

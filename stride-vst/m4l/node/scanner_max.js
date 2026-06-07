@@ -57,6 +57,16 @@ function _collectParams(basePath, filterAutomated) {
         var paramIds = dev.get("parameters");
         var paramCount = paramIds.length / 2;
 
+        // VST3 plugins can expose THOUSANDS of internal automatable params to
+        // the host (e.g. kHs Transient Shaper reports 2086 even though its UI
+        // shows ~5 knobs). Walking them all blocks Ableton's main thread on
+        // every scan -> freeze. Cap the per-device scan; real/mapped params are
+        // virtually always within the first couple hundred entries.
+        if (paramCount > 500) {
+            post("Stride: '" + devName + "' exposes " + paramCount + " params (likely a VST3); scanning first 500 to avoid freezing Ableton.\n");
+            paramCount = 500;
+        }
+
         for (var i = 0; i < paramCount; i++) {
             try {
                 var paramPath = basePath + " parameters " + i;
