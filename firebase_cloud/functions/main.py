@@ -694,7 +694,7 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
             return jsonify({"count": 0, "error": "firestore unavailable"}), 200
 
     # --- WAITLIST / BUYER LEAD (public, no auth required) ---
-    if isinstance(data_pre, dict) and data_pre.get("action") in ("waitlist_signup", "buyer_lead"):
+    if isinstance(data_pre, dict) and data_pre.get("action") in ("waitlist_signup", "buyer_lead", "sample_pack_signup"):
         name = data_pre.get("name", "").strip()
         # Normalize email to lowercase for consistent dedup matching against the
         # LS webhook (which also lowercases). Firestore queries are case-sensitive
@@ -777,6 +777,8 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
                 is_buyer = action_type == "buyer_lead"
                 if is_buyer:
                     base = "🛒 **BUYER LEAD** — on checkout"
+                elif action_type == "sample_pack_signup":
+                    base = "🎁 **FREE PACK** — sample download"
                 else:
                     base = "🎹 **WAITLIST SIGNUP**"
                 heading = f"{base} — returning" if was_existing else base
