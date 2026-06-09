@@ -26,112 +26,137 @@
     <meta name="twitter:description" content="Notes, drops, and collabs from the Stride lab.">
     <meta name="twitter:image" content="https://stridehub.io/og-image.png">
 
-    <meta name="theme-color" content="#040406">
+    <meta name="theme-color" content="#141310">
 
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cdefs%3E%3ClinearGradient id='strideGradient' x1='0%25' y1='0%25' x2='100%25' y2='0%25'%3E%3Cstop offset='0%25' stop-color='%23f97316' /%3E%3Cstop offset='100%25' stop-color='%23ef4444' /%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z' stroke='url(%23strideGradient)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cdefs%3E%3ClinearGradient id='strideGradient' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23eaa54e' /%3E%3Cstop offset='100%25' stop-color='%23c6712b' /%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z' stroke='url(%23strideGradient)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&display=swap" rel="stylesheet">
-
-    <style>
-        :root {
-            --bg-base: #040406;
-            --border-light: rgba(255, 255, 255, 0.06);
-        }
-
-        body {
-            font-family: 'Outfit', sans-serif;
-            background-color: var(--bg-base);
-            color: #e4e4e7;
-            overflow-x: hidden;
-        }
-
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
-
-        .text-gradient {
-            background-clip: text;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-image: linear-gradient(to right, #f97316, #ef4444);
-        }
-    </style>
+    <script>
+      // VINTAGE (Patchbay) skin: remap Tailwind palettes -> CSS vars (same as index.html)
+      (function(){
+        function r(p){var o={},s=[50,100,200,300,400,500,600,700,800,900,950];for(var i=0;i<s.length;i++){o[s[i]]='rgb(var(--'+p+s[i]+') / <alpha-value>)';}return o;}
+        tailwind.config={darkMode:'class',theme:{extend:{colors:{
+          zinc:r('z'), orange:r('o'), red:r('rd'), amber:r('am'), emerald:r('em'),
+          cyan:r('cy'), sky:r('z'), lime:r('em'), fuchsia:r('o'),
+          violet:r('vi'), purple:r('vi'), rose:r('ro'), pink:r('ro')
+        }}}};
+      })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  /* ── PATCHBAY (vintage modular) brand palette — matches index.html ── */
+  :root{
+    --bg:#141310; --bg2:#191611; --panel:#1d1b16; --raise:#252119; --line:rgba(216,201,176,.11);
+    --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
+    --copper:#c6712b; --copper-lt:#dd9a52; --amber:#d9822b; --ember:#e58a2e;
+    --teal:#2f748e;  --teal-lt:#5e9aad;
+    --z50:241 236 226;--z100:228 221 208;--z200:215 207 192;--z300:195 187 171;--z400:163 154 138;--z500:118 111 99;--z600:88 82 73;--z700:66 61 52;--z800:37 33 25;--z900:29 27 22;--z950:20 19 16;
+    --o50:249 241 234;--o100:244 227 213;--o200:232 198 170;--o300:222 154 82;--o400:198 113 43;--o500:174 99 38;--o600:143 81 31;--o700:109 62 24;--o800:79 45 17;--o900:55 32 12;--o950:30 17 6;
+    --rd50:250 238 232;--rd100:246 220 209;--rd200:235 186 167;--rd300:216 132 104;--rd400:199 100 66;--rd500:176 80 49;--rd600:150 66 40;--rd700:117 51 32;--rd800:84 37 24;--rd900:56 25 17;--rd950:31 14 10;
+    --am50:250 246 237;--am100:244 236 219;--am200:233 218 183;--am300:217 190 129;--am400:201 162 75;--am500:177 143 66;--am600:145 117 54;--am700:111 89 41;--am800:80 65 30;--am900:56 45 21;--am950:30 24 11;
+    --em50:235 240 233;--em100:214 224 210;--em200:181 198 175;--em300:134 168 127;--em400:110 146 102;--em500:91 123 85;--em600:73 99 67;--em700:56 77 52;--em800:40 56 38;--em900:27 38 25;--em950:15 22 13;
+    --cy50:233 240 243;--cy100:208 226 232;--cy200:171 200 211;--cy300:126 176 192;--cy400:94 154 173;--cy500:47 116 142;--cy600:38 96 117;--cy700:30 75 91;--cy800:22 54 66;--cy900:15 36 44;--cy950:9 20 25;
+    --vi50:240 237 246;--vi100:226 221 238;--vi200:202 193 221;--vi300:172 159 199;--vi400:154 140 187;--vi500:125 111 158;--vi600:100 88 127;--vi700:78 68 99;--vi800:56 49 71;--vi900:38 33 48;--vi950:22 19 28;
+    --ro50:250 238 238;--ro100:245 221 221;--ro200:235 191 192;--ro300:213 145 147;--ro400:197 128 127;--ro500:163 78 82;--ro600:138 62 66;--ro700:108 47 50;--ro800:79 34 36;--ro900:53 23 24;--ro950:30 13 14;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Outfit',sans-serif;background:var(--bg);color:var(--ink2);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  ::selection{background:rgba(198,113,43,.3)}
+  ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:#2a2620;border-radius:10px}
+  body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(120% 80% at 50% -10%, rgba(198,113,43,.07), transparent 60%),
+               radial-gradient(100% 60% at 50% 110%, rgba(47,116,142,.05), transparent 60%);}
+  .wrap{position:relative;z-index:1}
+  .mono{font-family:'Space Mono',ui-monospace,monospace}
+  .silk{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--ink3)}
+  .brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .ink{color:var(--ink)} .ink2{color:var(--ink2)} .ink3{color:var(--ink3)}
+  h1,h2,h3,h4{color:var(--ink);font-weight:900;letter-spacing:-.01em}
+  .panel{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(0,0,0,.14)),var(--panel);
+    border:1px solid var(--line);border-radius:18px;
+    box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 24px 50px -30px rgba(0,0,0,.9)}
+  .btn-copper{display:inline-flex;align-items:center;justify-content:center;gap:.6rem;background:linear-gradient(180deg,var(--ember),var(--copper));
+    color:#1c1206;font-weight:900;letter-spacing:.04em;border:1px solid rgba(255,210,150,.25);border-radius:14px;
+    box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 12px 24px -14px rgba(198,113,43,.8);transition:transform .15s,filter .15s;cursor:pointer}
+  .btn-copper:hover{transform:translateY(-2px);filter:brightness(1.06)}
+  .pill-warm{border:1px solid rgba(198,113,43,.4);background:rgba(198,113,43,.12);color:var(--copper-lt)}
+  .chip{font-size:9px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;border-radius:999px;padding:4px 11px;display:inline-block}
+  .divider{height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
+  .gen-card{transition:transform .15s,border-color .15s}.gen-card:hover{transform:translateY(-3px)}
+</style>
 </head>
 <body class="min-h-screen flex flex-col">
+<div class="wrap flex-1 flex flex-col w-full">
 
-    <!-- ===================== NAV ===================== -->
-    <nav class="w-full max-w-[1400px] mx-auto p-6 flex justify-between items-center relative z-50">
-        <a href="index.html" class="flex items-center gap-2 cursor-pointer">
-            <h1 class="text-3xl font-black text-gradient tracking-tighter leading-none">STRIDE</h1>
+  <!-- ===================== NAV ===================== -->
+  <nav class="w-full max-w-[1400px] mx-auto px-6 py-6 flex justify-between items-center">
+    <a href="index.html" class="flex items-center gap-3">
+      <span class="text-3xl font-black brand tracking-tighter leading-none">STRIDE</span>
+      <span class="silk hidden sm:block border-l pl-3" style="border-color:var(--line)">Sound Design Engine</span>
+    </a>
+    <div class="flex items-center gap-5">
+      <a class="silk transition-colors" style="color:var(--copper-lt)" href="blog.html">Blog</a>
+      <a class="silk hover:text-[color:var(--copper-lt)] transition-colors" href="samples.html">Sample Packs</a>
+      <a href="https://www.instagram.com/stride_engine/" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[color:var(--copper-lt)] transition-colors" title="Follow us on Instagram">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+      </a>
+      <a href="https://www.youtube.com/@strideengine" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[color:var(--copper-lt)] transition-colors" title="Subscribe on YouTube">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+      </a>
+      <span class="w-px h-6 mx-1 hidden sm:block" style="background:var(--line)"></span>
+      <a href="index.html#pricing" class="btn-copper text-[11px] uppercase tracking-widest px-5 py-2.5 rounded-full">Get Stride</a>
+    </div>
+  </nav>
+
+  <main class="flex-1 flex flex-col items-center w-full">
+    <section class="w-full max-w-3xl mx-auto px-6 pt-12 pb-24">
+
+      <!-- Header -->
+      <div class="text-center mb-14">
+        <span class="chip pill-warm mb-5">Lab Notes</span>
+        <h1 class="text-4xl md:text-6xl font-black tracking-tight mt-5">From the <span class="brand">lab</span>.</h1>
+        <p class="text-sm ink3 mt-3">Drops, collabs, and notes from the bench.</p>
+      </div>
+
+      <!-- Article list -->
+      <div class="space-y-6">
+
+        <a href="blog/outerverse.html" class="gen-card group block panel overflow-hidden">
+          <div class="h-40 md:h-48 relative overflow-hidden" style="background:linear-gradient(120deg,#c6712b 0%,#d9822b 42%,#2f748e 100%)">
+            <div class="absolute inset-0" style="background:radial-gradient(120% 140% at 50% -20%, rgba(255,255,255,.18), transparent 60%)"></div>
+            <div class="absolute inset-0 flex items-center justify-center px-6 gap-3 md:gap-5">
+              <span class="text-white font-black text-xl md:text-3xl tracking-tighter drop-shadow-lg">STRIDE</span>
+              <span class="text-white/80 font-black text-2xl md:text-4xl drop-shadow-lg">×</span>
+              <img src="assets/outerverse/logo.png" alt="Outerverse" class="h-5 md:h-7 w-auto drop-shadow-lg">
+            </div>
+          </div>
+          <div class="p-6 md:p-8">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="silk">May 11, 2026</span>
+            </div>
+            <h3 class="text-2xl md:text-3xl font-black mb-3 group-hover:text-[color:var(--copper-lt)] transition-colors">Stride × Outerverse</h3>
+            <p class="text-sm md:text-base ink2 leading-relaxed mb-5">Outerverse build some of the deepest racks in psy. Stride is the tool to explore them — top-tier engineering meets macro automation at scale.</p>
+            <span class="silk group-hover:text-[color:var(--copper-lt)] transition-colors inline-flex items-center gap-2" style="color:var(--ink2)">
+              Read more
+              <svg class="w-3 h-3 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+            </span>
+          </div>
         </a>
-        <div class="flex items-center gap-4">
-            <a href="blog.html" class="text-orange-400 hover:text-orange-300 transition-colors text-xs font-bold uppercase tracking-widest">Blog</a>
 
-            <a href="https://www.instagram.com/stride_engine/" target="_blank" rel="noopener noreferrer" class="text-zinc-400 hover:text-orange-400 transition-colors" title="Follow us on Instagram">
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
-            </a>
+      </div>
+    </section>
+  </main>
 
-            <a href="https://www.youtube.com/@strideengine" target="_blank" rel="noopener noreferrer" class="text-zinc-400 hover:text-orange-400 transition-colors" title="Subscribe on YouTube">
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-            </a>
+  <!-- ===================== FOOTER ===================== -->
+  <footer class="w-full border-t py-8 text-center" style="border-color:var(--line)">
+    <div class="flex items-center justify-center gap-5 mb-3">
+      <a href="privacy.html" class="silk hover:text-[color:var(--ink2)] transition-colors">Privacy Policy</a>
+      <span style="color:var(--ink3)">·</span>
+      <a href="terms.html" class="silk hover:text-[color:var(--ink2)] transition-colors">Terms of Service</a>
+    </div>
+    <p class="silk">&copy; 2026 STRIDE ENGINE — Modulate everything in your session.</p>
+  </footer>
 
-            <div class="w-px h-6 bg-white/10 mx-1 hidden sm:block"></div>
-
-            <a href="index.html#pricing" class="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white text-xs font-black px-6 py-2.5 rounded-full transition-all uppercase tracking-widest shadow-[0_0_20px_rgba(255,94,0,0.3)] hover:shadow-[0_0_30px_rgba(255,94,0,0.5)]">Get Stride</a>
-        </div>
-    </nav>
-
-    <main class="flex-1 flex flex-col items-center relative z-10 w-full">
-
-        <section class="w-full max-w-3xl mx-auto px-6 pt-12 pb-24">
-
-            <!-- Header -->
-            <div class="text-center mb-14">
-                <p class="text-xs text-fuchsia-400 uppercase tracking-[0.3em] font-black mb-3">Lab Notes</p>
-                <h2 class="text-4xl md:text-6xl font-black tracking-tight text-white">Blog</h2>
-                <p class="text-sm text-zinc-500 mt-3">Drops, collabs, and notes from the lab.</p>
-            </div>
-
-            <!-- Article list -->
-            <div class="space-y-6">
-
-                <a href="blog/outerverse.html" class="group block bg-zinc-900/40 border border-white/5 rounded-3xl overflow-hidden hover:border-fuchsia-500/30 transition-all hover:-translate-y-1 shadow-xl">
-                    <div class="h-40 md:h-48 bg-gradient-to-br from-orange-500 via-red-500 to-fuchsia-500 relative overflow-hidden">
-                        <div class="absolute inset-0 flex items-center justify-center px-6 gap-3 md:gap-5">
-                            <span class="text-white font-black text-xl md:text-3xl tracking-tighter drop-shadow-lg">STRIDE</span>
-                            <span class="text-white/80 font-black text-2xl md:text-4xl drop-shadow-lg">×</span>
-                            <img src="assets/outerverse/logo.png" alt="Outerverse" class="h-5 md:h-7 w-auto drop-shadow-lg">
-                        </div>
-                    </div>
-                    <div class="p-6 md:p-8">
-                        <div class="flex items-center gap-2 mb-3">
-                            <span class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">May 11, 2026</span>
-                        </div>
-                        <h3 class="text-2xl md:text-3xl font-black text-white mb-3 group-hover:text-orange-400 transition-colors">Stride × Outerverse</h3>
-                        <p class="text-sm md:text-base text-zinc-400 leading-relaxed mb-5">Outerverse build some of the deepest racks in psy. Stride is the tool to explore them — top-tier engineering meets macro automation at scale.</p>
-                        <span class="text-xs text-zinc-300 group-hover:text-orange-400 font-black uppercase tracking-widest transition-colors inline-flex items-center gap-2">
-                            Read more
-                            <svg class="w-3 h-3 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
-                        </span>
-                    </div>
-                </a>
-
-            </div>
-
-        </section>
-
-    </main>
-
-    <!-- ===================== FOOTER ===================== -->
-    <footer class="w-full border-t border-white/5 bg-[#09090b] py-8 text-center relative z-20">
-        <div class="flex items-center justify-center gap-6 mb-3">
-            <a href="privacy.html" class="text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors">Privacy Policy</a>
-            <span class="text-zinc-700">|</span>
-            <a href="terms.html" class="text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors">Terms of Service</a>
-        </div>
-        <p class="text-[13px] text-zinc-500 font-bold uppercase tracking-widest">&copy; 2026 STRIDE ENGINE. BUILT FOR PRODUCERS. BUILT FOR ABLETON.</p>
-    </footer>
-
+</div>
 </body>
 </html>

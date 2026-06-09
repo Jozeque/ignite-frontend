@@ -7,6 +7,7 @@
 
     <meta name="robots" content="noindex, nofollow">
     <meta name="description" content="Welcome to Stride. Onboarding video for new customers.">
+    <meta name="theme-color" content="#141310">
 
     <!-- Meta Pixel — Phase 2 of docs/meta-pixel-integration-spec.md.
          Fires PageView + Purchase when the buyer lands here after a Lemon
@@ -100,128 +101,146 @@
     src="https://www.facebook.com/tr?id=952457524222772&ev=PageView&noscript=1"
     /></noscript>
 
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cdefs%3E%3ClinearGradient id='strideGradient' x1='0%25' y1='0%25' x2='100%25' y2='0%25'%3E%3Cstop offset='0%25' stop-color='%23f97316' /%3E%3Cstop offset='100%25' stop-color='%23ef4444' /%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z' stroke='url(%23strideGradient)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cdefs%3E%3ClinearGradient id='strideGradient' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23eaa54e' /%3E%3Cstop offset='100%25' stop-color='%23c6712b' /%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z' stroke='url(%23strideGradient)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&display=swap" rel="stylesheet">
-
-    <style>
-        body {
-            font-family: 'Outfit', sans-serif;
-            background-color: #09090b;
-            color: #e4e4e7;
-        }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
-        .text-gradient {
-            background-clip: text;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-image: linear-gradient(to right, #f97316, #ef4444);
-        }
-        video {
-            outline: none;
-            display: block;
-        }
-        /* Subtle glow behind the video to echo the Stride aesthetic */
-        .video-frame {
-            position: relative;
-        }
-        .video-frame::before {
-            content: '';
-            position: absolute;
-            inset: -20px;
-            background: radial-gradient(circle at center, rgba(249, 115, 22, 0.08), transparent 70%);
-            pointer-events: none;
-            z-index: -1;
-        }
-    </style>
+    <script>
+      (function(){
+        function r(p){var o={},s=[50,100,200,300,400,500,600,700,800,900,950];for(var i=0;i<s.length;i++){o[s[i]]='rgb(var(--'+p+s[i]+') / <alpha-value>)';}return o;}
+        tailwind.config={darkMode:'class',theme:{extend:{colors:{
+          zinc:r('z'), orange:r('o'), red:r('rd'), amber:r('am'), emerald:r('em'),
+          cyan:r('cy'), sky:r('z'), lime:r('em'), fuchsia:r('o'),
+          violet:r('vi'), purple:r('vi'), rose:r('ro'), pink:r('ro')
+        }}}};
+      })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  /* ── PATCHBAY brand palette — matches index.html ── */
+  :root{
+    --bg:#141310; --bg2:#191611; --panel:#1d1b16; --raise:#252119; --line:rgba(216,201,176,.11);
+    --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
+    --copper:#c6712b; --copper-lt:#dd9a52; --amber:#d9822b; --ember:#e58a2e;
+    --teal:#2f748e;  --teal-lt:#5e9aad;
+    --z50:241 236 226;--z100:228 221 208;--z200:215 207 192;--z300:195 187 171;--z400:163 154 138;--z500:118 111 99;--z600:88 82 73;--z700:66 61 52;--z800:37 33 25;--z900:29 27 22;--z950:20 19 16;
+    --o50:249 241 234;--o100:244 227 213;--o200:232 198 170;--o300:222 154 82;--o400:198 113 43;--o500:174 99 38;--o600:143 81 31;--o700:109 62 24;--o800:79 45 17;--o900:55 32 12;--o950:30 17 6;
+    --rd50:250 238 232;--rd100:246 220 209;--rd200:235 186 167;--rd300:216 132 104;--rd400:199 100 66;--rd500:176 80 49;--rd600:150 66 40;--rd700:117 51 32;--rd800:84 37 24;--rd900:56 25 17;--rd950:31 14 10;
+    --am50:250 246 237;--am100:244 236 219;--am200:233 218 183;--am300:217 190 129;--am400:201 162 75;--am500:177 143 66;--am600:145 117 54;--am700:111 89 41;--am800:80 65 30;--am900:56 45 21;--am950:30 24 11;
+    --em50:235 240 233;--em100:214 224 210;--em200:181 198 175;--em300:134 168 127;--em400:110 146 102;--em500:91 123 85;--em600:73 99 67;--em700:56 77 52;--em800:40 56 38;--em900:27 38 25;--em950:15 22 13;
+    --cy50:233 240 243;--cy100:208 226 232;--cy200:171 200 211;--cy300:126 176 192;--cy400:94 154 173;--cy500:47 116 142;--cy600:38 96 117;--cy700:30 75 91;--cy800:22 54 66;--cy900:15 36 44;--cy950:9 20 25;
+    --vi50:240 237 246;--vi100:226 221 238;--vi200:202 193 221;--vi300:172 159 199;--vi400:154 140 187;--vi500:125 111 158;--vi600:100 88 127;--vi700:78 68 99;--vi800:56 49 71;--vi900:38 33 48;--vi950:22 19 28;
+    --ro50:250 238 238;--ro100:245 221 221;--ro200:235 191 192;--ro300:213 145 147;--ro400:197 128 127;--ro500:163 78 82;--ro600:138 62 66;--ro700:108 47 50;--ro800:79 34 36;--ro900:53 23 24;--ro950:30 13 14;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Outfit',sans-serif;background:var(--bg);color:var(--ink2);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  ::selection{background:rgba(198,113,43,.3)}
+  ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:#2a2620;border-radius:10px}
+  body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(120% 80% at 50% -10%, rgba(198,113,43,.07), transparent 60%),
+               radial-gradient(100% 60% at 50% 110%, rgba(47,116,142,.05), transparent 60%);}
+  .wrap{position:relative;z-index:1}
+  .silk{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--ink3)}
+  .brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .ink{color:var(--ink)} .ink2{color:var(--ink2)} .ink3{color:var(--ink3)}
+  h1,h2,h3,h4{color:var(--ink);font-weight:900;letter-spacing:-.01em}
+  .panel{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(0,0,0,.14)),var(--panel);
+    border:1px solid var(--line);border-radius:18px;
+    box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 24px 50px -30px rgba(0,0,0,.9)}
+  .pill-warm{border:1px solid rgba(198,113,43,.4);background:rgba(198,113,43,.12);color:var(--copper-lt)}
+  .chip{font-size:9px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;border-radius:999px;padding:4px 11px;display:inline-block}
+  video{outline:none;display:block}
+  .video-frame{position:relative}
+  .video-frame::before{content:'';position:absolute;inset:-20px;pointer-events:none;z-index:-1;
+    background:radial-gradient(circle at center, rgba(198,113,43,.10), transparent 70%)}
+  .support-card{transition:transform .15s,border-color .15s}
+  .support-card:hover{transform:translateY(-2px)}
+</style>
 </head>
 <body class="min-h-screen flex flex-col">
+<div class="wrap flex-1 flex flex-col w-full">
 
-    <!-- Nav -->
-    <nav class="w-full border-b border-white/5 bg-[#09090b]/80 backdrop-blur-xl sticky top-0 z-50">
-        <div class="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-            <a href="index.html" class="text-lg font-black tracking-wider text-gradient">STRIDE</a>
-            <a href="index.html" class="text-xs text-zinc-500 hover:text-zinc-300 transition-colors uppercase tracking-widest font-bold">&larr; Home</a>
-        </div>
-    </nav>
+  <!-- Nav (post-purchase: minimal, no Get-Stride CTA) -->
+  <nav class="w-full border-b sticky top-0 z-50" style="border-color:var(--line);background:rgba(20,19,16,.82);backdrop-filter:blur(18px)">
+    <div class="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+      <a href="index.html" class="text-lg font-black tracking-wider brand">STRIDE</a>
+      <a href="index.html" class="silk hover:text-[color:var(--copper-lt)] transition-colors">&larr; Home</a>
+    </div>
+  </nav>
 
-    <!-- Content -->
-    <main class="flex-1 max-w-6xl mx-auto px-6 py-8 w-full">
+  <!-- Content -->
+  <main class="flex-1 max-w-6xl mx-auto px-6 py-8 w-full">
 
-        <!-- Hero (compact so video + CTAs stay above the fold on desktop) -->
-        <div class="text-center mb-6">
-            <p class="text-[10px] text-orange-400 font-bold uppercase tracking-widest mb-2">You're in</p>
-            <h1 class="text-3xl md:text-4xl font-black uppercase tracking-tight mb-2">
-                Welcome to <span class="text-gradient">Stride</span>
-            </h1>
-            <p class="text-sm text-zinc-400 font-medium max-w-lg mx-auto leading-relaxed">
-                Watch this before you start.
-            </p>
-        </div>
+    <!-- Hero (compact so video + CTAs stay above the fold on desktop) -->
+    <div class="text-center mb-6">
+      <span class="chip pill-warm mb-3">You're in</span>
+      <h1 class="text-3xl md:text-4xl font-black uppercase tracking-tight mb-2 mt-3">
+        Welcome to <span class="brand">Stride</span>
+      </h1>
+      <p class="text-sm ink2 font-medium max-w-lg mx-auto leading-relaxed">
+        Watch this before you start.
+      </p>
+    </div>
 
-        <!-- Video (2/3) + Support cards (1/3) side-by-side on desktop -->
-        <div class="grid md:grid-cols-3 gap-4 mb-10">
+    <!-- Video (2/3) + Support cards (1/3) side-by-side on desktop -->
+    <div class="grid md:grid-cols-3 gap-4 mb-10">
 
-            <!-- Video -->
-            <div class="md:col-span-2 video-frame rounded-2xl overflow-hidden border border-white/10 shadow-[0_0_80px_rgba(249,115,22,0.08)]">
-                <video controls preload="metadata" class="w-full aspect-video bg-black">
-                    <source src="https://firebasestorage.googleapis.com/v0/b/veero-next.firebasestorage.app/o/videos%2Fwelcomevideo2.mov.mp4?alt=media&amp;token=4b98382e-7edd-4a0f-be97-d1c9c106ae8f" type="video/mp4">
-                    Your browser doesn't support embedded video. <a href="https://firebasestorage.googleapis.com/v0/b/veero-next.firebasestorage.app/o/videos%2Fwelcomevideo2.mov.mp4?alt=media&amp;token=4b98382e-7edd-4a0f-be97-d1c9c106ae8f" class="text-orange-400 underline">Download the video directly</a>.
-                </video>
-            </div>
+      <!-- Video -->
+      <div class="md:col-span-2 video-frame rounded-2xl overflow-hidden" style="border:1px solid var(--line);box-shadow:0 30px 60px -28px rgba(0,0,0,.9)">
+        <video controls preload="metadata" class="w-full aspect-video bg-black">
+          <source src="https://firebasestorage.googleapis.com/v0/b/veero-next.firebasestorage.app/o/videos%2Fwelcomevideo2.mov.mp4?alt=media&amp;token=4b98382e-7edd-4a0f-be97-d1c9c106ae8f" type="video/mp4">
+          Your browser doesn't support embedded video. <a href="https://firebasestorage.googleapis.com/v0/b/veero-next.firebasestorage.app/o/videos%2Fwelcomevideo2.mov.mp4?alt=media&amp;token=4b98382e-7edd-4a0f-be97-d1c9c106ae8f" style="color:var(--copper-lt)" class="underline">Download the video directly</a>.
+        </video>
+      </div>
 
-            <!-- Support cards column -->
-            <div class="flex flex-col gap-4">
+      <!-- Support cards column -->
+      <div class="flex flex-col gap-4">
 
-                <a href="https://calendly.com/stride-engine" target="_blank" rel="noopener noreferrer" class="flex-1 flex flex-col justify-between p-5 bg-gradient-to-br from-orange-500/10 to-red-600/10 border border-orange-500/20 hover:border-orange-500/40 rounded-2xl transition-all group">
-                    <div>
-                        <p class="text-[10px] text-orange-400 font-bold uppercase tracking-widest mb-2">Stuck or curious?</p>
-                        <p class="text-xl font-black text-zinc-100 mb-1.5">Book a call</p>
-                        <p class="text-xs text-zinc-500 leading-relaxed">Pick a slot that works. Whatever's in your way, we'll get you past it.</p>
-                    </div>
-                    <p class="text-xs text-orange-400 mt-4 group-hover:text-orange-300 uppercase tracking-widest font-bold">Schedule &rarr;</p>
-                </a>
+        <a href="https://calendly.com/stride-engine" target="_blank" rel="noopener noreferrer" class="support-card flex-1 flex flex-col justify-between p-5 rounded-2xl group" style="border:1px solid rgba(198,113,43,.30);background:rgba(198,113,43,.08)">
+          <div>
+            <p class="silk mb-2" style="color:var(--copper-lt)">Stuck or curious?</p>
+            <p class="text-xl font-black ink mb-1.5">Book a call</p>
+            <p class="text-xs ink3 leading-relaxed">Pick a slot that works. Whatever's in your way, we'll get you past it.</p>
+          </div>
+          <p class="silk mt-4 group-hover:text-[color:var(--ember)] transition-colors" style="color:var(--copper-lt)">Schedule &rarr;</p>
+        </a>
 
-                <a href="mailto:home@stridehub.io" class="flex-1 flex flex-col justify-between p-5 bg-zinc-900/40 border border-white/5 hover:border-white/20 rounded-2xl transition-all group">
-                    <div>
-                        <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-2">Quick question?</p>
-                        <p class="text-xl font-black text-zinc-100 mb-1.5">Email support</p>
-                        <p class="text-xs text-zinc-500 leading-relaxed">Reply within 48 hours. Every email reaches me directly.</p>
-                    </div>
-                    <p class="text-xs text-zinc-400 mt-4 group-hover:text-zinc-200 uppercase tracking-widest font-bold">home@stridehub.io &rarr;</p>
-                </a>
+        <a href="mailto:home@stridehub.io" class="support-card flex-1 flex flex-col justify-between p-5 rounded-2xl group panel">
+          <div>
+            <p class="silk mb-2">Quick question?</p>
+            <p class="text-xl font-black ink mb-1.5">Email support</p>
+            <p class="text-xs ink3 leading-relaxed">Reply within 48 hours. Every email reaches me directly.</p>
+          </div>
+          <p class="silk mt-4 group-hover:text-[color:var(--ink)] transition-colors" style="color:var(--ink2)">home@stridehub.io &rarr;</p>
+        </a>
 
-            </div>
+      </div>
 
-        </div>
+    </div>
 
-        <!-- Expectation-setting note (creative tool, not mixing tool).
-             Sits between video and closing tag so producers see it after
-             watching the walkthrough — primes their first session correctly. -->
-        <div class="max-w-2xl mx-auto mb-10 p-5 rounded-2xl bg-zinc-900/40 border border-white/5">
-            <p class="text-[10px] text-fuchsia-400 font-bold uppercase tracking-widest mb-2">A note before you start</p>
-            <p class="text-sm text-zinc-300 leading-relaxed">
-                Stride is a <b class="text-zinc-100">sound design tool</b>, not a mixing tool. You'll draw curves first, then drag the .alc into Ableton to hear them. That loop is built for creative exploration — picking an Ableton rack (synth + effects), scanning every parameter, designing curves you'd never draw by hand. Lean into it for variation, motion, and "what does this rack do that I haven't tried yet" — not for surgical mix work.
-            </p>
-        </div>
+    <!-- Expectation-setting note (creative tool, not mixing tool). Sits between
+         video and closing tag so producers see it after the walkthrough. -->
+    <div class="max-w-2xl mx-auto mb-10 p-5 rounded-2xl panel">
+      <p class="silk mb-2" style="color:var(--copper-lt)">A note before you start</p>
+      <p class="text-sm ink2 leading-relaxed">
+        Stride is a <b class="ink">sound design tool</b>, not a mixing tool. You draw curves on the canvas, then inject them straight into your Ableton clip — no files, no dragging. That loop is built for creative exploration: pick a rack (synth + effects), scan its parameters, and design motion you'd never draw by hand. Lean into it for variation, movement, and "what does this rack do that I haven't tried yet" — not for surgical mix work.
+      </p>
+    </div>
 
-        <!-- Closing tag -->
-        <p class="text-xs text-zinc-600 text-center font-medium uppercase tracking-widest">Modulate everything in your session.</p>
+    <!-- Closing tag -->
+    <p class="silk text-center">Modulate everything in your session.</p>
 
-    </main>
+  </main>
 
-    <!-- Footer -->
-    <footer class="w-full border-t border-white/5 bg-[#09090b] py-8 text-center">
-        <div class="flex items-center justify-center gap-6 mb-3">
-            <a href="privacy.html" class="text-[10px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors">Privacy Policy</a>
-            <span class="text-zinc-700">|</span>
-            <a href="terms.html" class="text-[10px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors">Terms of Service</a>
-        </div>
-        <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">&copy; 2026 STRIDE ENGINE. BUILT FOR PRODUCERS. BUILT FOR ABLETON.</p>
-    </footer>
+  <!-- Footer -->
+  <footer class="w-full border-t py-8 text-center" style="border-color:var(--line)">
+    <div class="flex items-center justify-center gap-5 mb-3">
+      <a href="privacy.html" class="silk hover:text-[color:var(--ink2)] transition-colors">Privacy Policy</a>
+      <span style="color:var(--ink3)">·</span>
+      <a href="terms.html" class="silk hover:text-[color:var(--ink2)] transition-colors">Terms of Service</a>
+    </div>
+    <p class="silk">&copy; 2026 STRIDE ENGINE — Modulate everything in your session.</p>
+  </footer>
 
+</div>
 </body>
 </html>
