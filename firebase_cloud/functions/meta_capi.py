@@ -159,16 +159,33 @@ def _fire_meta_purchase_capi(order_data, event_id):
         )
         with urllib.request.urlopen(req, timeout=3) as resp:
             status = resp.getcode()
-            if 200 <= status < 300:
-                first = payload["data"][0]
-                names = ",".join(ev.get("event_name", "?") for ev in payload["data"])
-                print(
-                    f"[Meta CAPI] sent events=[{names}] event_id={first['event_id']} "
-                    f"value={first['custom_data']['value']} status={status}"
-                )
-                return True
-            print(f"[Meta CAPI] non-2xx status {status}")
-            return False
+            body = resp.read().decode("utf-8", "replace")
+        first = payload["data"][0]
+        names = ",".join(ev.get("event_name", "?") for ev in payload["data"])
+        # Which match keys actually went out. A 200'd event that still doesn't
+        # attribute is almost always thin user_data (no fbc / no hashed email),
+        # so log the keys present — this is the single most useful diagnostic.
+        ud = first.get("user_data", {})
+        keys = ",".join(k for k in ("em", "fbc", "fbp", "client_user_agent") if ud.get(k)) or "NONE"
+        if 200 <= status < 300:
+            recvd = trace = "?"
+            msgs = []
+            try:
+                rj = json.loads(body)
+                recvd = rj.get("events_received", "?")
+                trace = rj.get("fbtrace_id", "")
+                msgs = rj.get("messages") or []
+            except Exception:
+                pass
+            print(
+                f"[Meta CAPI] sent events=[{names}] event_id={first['event_id']} "
+                f"value={first['custom_data']['value']} status={status} "
+                f"received={recvd} match_keys=[{keys}] fbtrace={trace}"
+                + (f" messages={msgs}" if msgs else "")
+            )
+            return True
+        print(f"[Meta CAPI] non-2xx status {status} match_keys=[{keys}] body={body[:300]}")
+        return False
     except Exception as e:
         # urllib.error.HTTPError, URLError, socket.timeout, JSON errors,
         # anything — all swallowed. Webhook MUST 200 for LS.
