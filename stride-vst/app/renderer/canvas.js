@@ -593,6 +593,69 @@
         } catch (e) { /* never let invisible self-healing break anything */ }
     });
 
+    // ─── Read existing curves (Option B, opt-in) ───────────
+    // Pulls the open clip's EXISTING automation onto matching lanes. Manual
+    // trigger only (never autoscan) so it can't clobber in-progress edits.
+    //   Mode A = sampled (value_at_time) · Mode B = breakpoints (events_in_range)
+    // Work mode. A (default) = today's behavior, untouched: autosync params,
+    // never read clip automation — just draw/edit in Stride and save its own
+    // data. B = read the existing automation straight from the open Ableton
+    // clip so the user can edit it and inject new curves. Switching to B pulls
+    // immediately; the "Pull from clip" button re-reads on demand. The read
+    // method (value_at_time sampling) is internal — not a user choice.
+    let sdWorkMode = 'A';
+    window.sdSetWorkMode = function (m) {
+        sdWorkMode = (m === 'B') ? 'B' : 'A';
+        const a = document.getElementById('sd-mode-a');
+        const b = document.getElementById('sd-mode-b');
+        const bc = document.getElementById('sd-mode-b-controls');
+        const onCls = 'flex-1 py-1 rounded text-[9px] font-black uppercase tracking-wider bg-fuchsia-500 text-black transition-colors';
+        const offCls = 'flex-1 py-1 rounded text-[9px] font-black uppercase tracking-wider text-zinc-400 hover:text-zinc-200 transition-colors';
+        if (a) a.className = (sdWorkMode === 'A') ? onCls : offCls;
+        if (b) b.className = (sdWorkMode === 'B') ? onCls : offCls;
+        if (bc) bc.classList.toggle('hidden', sdWorkMode !== 'B');
+        // Entering B pulls the open clip's curves so the user immediately sees
+        // what's in Ableton. (Manual only — autosync-on-focus never pulls, so
+        // it can't clobber edits.)
+        if (sdWorkMode === 'B') window.sdReadCurvesNow();
+    };
+    window.sdReadCurvesNow = function () {
+        const status = document.getElementById('sd-canvas-status');
+        if (!strideLink.connected) { if (status) status.textContent = 'Not connected to Ableton'; return; }
+        if (!sdCanvasParams || sdCanvasParams.length === 0) { if (status) status.textContent = 'Scan a rack first, then switch to Mode B'; return; }
+        if (status) status.textContent = 'Reading curves from Ableton…';
+        strideLink.readClipCurves('A');   // sampled (value_at_time) — the safe read path
+    };
+
+    strideLink.on('clip_curves_read', (msg) => {
+        try { console.log('[Stride] clip_curves_read', msg); } catch (e) {}
+        const incoming = (msg && msg.params) || [];
+        const status = document.getElementById('sd-canvas-status');
+        let filled = 0, matched = 0;
+        if (typeof pushUndo === 'function' && incoming.length) { try { pushUndo(); } catch (e) {} }
+        incoming.forEach(rp => {
+            const lane = sdCanvasParams.find(p => p._path && rp._path && p._path === rp._path);
+            if (!lane) return;
+            matched++;
+            if (rp.points && rp.points.length) {
+                lane.points = rp.points.map(pt => ({
+                    time: pt.time,
+                    value: Math.max(0, Math.min(1, pt.value)),
+                    curve: pt.curve || 0
+                }));
+                filled++;
+            }
+        });
+        if (status) {
+            if (filled > 0) status.textContent = 'Pulled ' + filled + ' lane(s) from the clip — edit, then inject';
+            else if (incoming.length === 0) status.textContent = 'No automation found on this clip';
+            else status.textContent = 'Found ' + incoming.length + ' curve(s) but none matched your lanes';
+        }
+        try { sdRenderSidebar(); } catch (e) {}
+        try { sdDrawCanvasGrid(); } catch (e) {}
+        try { if (typeof saveCanvasState === 'function') saveCanvasState(); } catch (e) {}
+    });
+
     // Handle rack scan results from M4L
     strideLink.on('rack_scanned', (msg) => {
         _resetScanButton();
@@ -1776,10 +1839,10 @@
                 const btn = document.getElementById(id);
                 if (!btn) return;
                 if (disabled) {
-                    btn.classList.add('opacity-40');
+                    btn.classList.add('opacity-40', 'cursor-not-allowed');
                     btn.setAttribute('data-unavailable', reason);
                 } else {
-                    btn.classList.remove('opacity-40');
+                    btn.classList.remove('opacity-40', 'cursor-not-allowed');
                     btn.removeAttribute('data-unavailable');
                 }
             };
@@ -3340,6 +3403,65 @@
         }
     };
 
+    // Single-lane Sample & Hold — the SHAPES-row sibling of the Motion-section
+    // global S&H. Injects ONE stepped-random S&H pattern onto the selected lane
+    // (or every target lane when All-Lanes is on), reusing the same rate pool
+    // and ε-gap hold logic as the global version. Click again to reroll.
+    window.sdApplySampleHoldLane = function() {
+        if (!sdActiveParamId) {
+            const status = document.getElementById('sd-canvas-status');
+            if (status) status.textContent = 'Select a lane first';
+            return;
+        }
+        pushUndo();
+        const sel = sdGetSelection();
+        const allBeats = sdGetBars() * 4;
+        const sB = sel ? sel.startBeat : 0;
+        const eB = sel ? sel.endBeat : allBeats;
+        if (eB <= sB) return;
+
+        const RATES = [2, 1, 0.5, 0.25, 0.125, 4 / 6, 2 / 6, 1 / 6];
+        const EPS = 0.005;
+        const MIN_DELTA = 0.15;
+        const round4 = t => Math.round(t * 10000) / 10000;
+
+        sdGetTargetParams().forEach(param => {
+            const pts = [];
+            let lastV = null, prevRate = null;
+            let secStart = sB;
+            while (secStart < eB - 1e-4) {
+                const secEnd = Math.min((Math.floor(secStart / 4) + 1) * 4, eB);
+                const rate = (prevRate !== null && Math.random() < 0.5)
+                    ? prevRate
+                    : RATES[Math.floor(Math.random() * RATES.length)];
+                prevRate = rate;
+                let t = secStart;
+                while (t < secEnd - 1e-4) {
+                    const stepEnd = Math.min(t + rate, secEnd);
+                    let v, tries = 0;
+                    do { v = Math.random(); tries++; }
+                    while (lastV !== null && Math.abs(v - lastV) < MIN_DELTA && tries < 12);
+                    lastV = v;
+                    const cv = Math.max(0, Math.min(1, v));
+                    const tA = round4(t);
+                    pts.push({ time: tA, value: cv });
+                    const tB = round4(stepEnd - EPS);
+                    if (tB > tA) pts.push({ time: tB, value: cv });   // flat hold
+                    t = stepEnd;
+                }
+                secStart = secEnd;
+            }
+            if (sel) {
+                const outside = param.points.filter(pt => pt.time < sB || pt.time > eB);
+                param.points = outside.concat(pts).sort((a, b) => a.time - b.time);
+            } else {
+                param.points = pts;
+            }
+        });
+
+        sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
+    };
+
     // Reflector: pairs up unlocked lanes into tight base+mirror pairs.
     //
     // Every two consecutive lanes form a base/mirror pair — the fold reads
@@ -4301,6 +4423,10 @@
             + btn('sdApplyGlobalSampleHold()', '', 'S&amp;H', 'Sample &amp; Hold: per-lane stepped random — values jump on a per-bar rate (straight + triplet), each lane unique so the rack reads polyrhythmic. Click again to reroll.', 'M3 16 H7 V11 H11 V15 H15 V8 H19 V13')
             + btn('sdApplyGlobalReflector()', '', 'Reflector', 'Reflector: pairs every unlocked lane into base + mirror — half Neuro, half Chaos, each followed by its value-mirrored twin so the rack folds in on itself', 'M5 8 L11 12 L5 16 M19 8 L13 12 L19 16')
             + '</div>';
+        // Re-apply the Bloom/Prism dimming — re-rendering these buttons drops
+        // the opacity-40 class, so without this Prism looks enabled even with
+        // no lanes loaded.
+        sdUpdateToolAvailability();
     }
 
     function _sdRenderBloomPanel() {

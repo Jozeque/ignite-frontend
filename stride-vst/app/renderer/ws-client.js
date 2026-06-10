@@ -176,6 +176,13 @@ class StrideLink {
         return this.send({ type: 'request_create_clip', bars, slot_index: slotIndex });
     }
 
+    // "Read existing curves" feature: ask the scanner to pull the open clip's
+    // existing automation onto the canvas lanes. mode 'A' = sampled (value_at_time),
+    // 'B' = breakpoints (events_in_range). Result arrives as 'clip_curves_read'.
+    readClipCurves(mode) {
+        return this.send({ type: 'read_clip_curves', mode: (mode === 'B' ? 'B' : 'A') });
+    }
+
     // ─── Event System ──────────────────────────────────
 
     on(event, handler) {

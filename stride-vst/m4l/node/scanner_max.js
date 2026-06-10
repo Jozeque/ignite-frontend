@@ -72,6 +72,17 @@ function _collectParams(basePath, filterAutomated) {
                 var paramPath = basePath + " parameters " + i;
                 var param = new LiveAPI(paramPath);
 
+                // Skip params whose path didn't resolve to a real object (id 0).
+                // Some AU/VST plugins report a `parameters` count larger than the
+                // objects Live actually exposes, so the trailing indices resolve to
+                // nothing. Calling .get() on an unresolved object floods the Max
+                // window with "jsliveapi get: no valid object set" AND burns a
+                // main-thread LOM round-trip per bad index -> Ableton freezes on
+                // every (auto)scan. Mirrors the guard in the mixer_device loop below.
+                // Output-neutral: these params were already dropped by the catch,
+                // just noisily and expensively.
+                if (!param.id || param.id === "0") continue;
+
                 // When filtering, check automation_state FIRST (fast reject).
                 // This covers arrangement-view automation — the recommended
                 // workflow for Stride. Producers arm automation, play, touch
@@ -1025,6 +1036,338 @@ function start_gate_test() {
     }
 }
 
+// ─── READ-PROBE (diagnostic, READ-ONLY) ───────────────────
+// Tests whether Max JS LiveAPI can READ an existing clip automation
+// envelope — the gate for the "read existing curves" feature. This NEVER
+// creates, sets, or clears anything: it only calls the getter
+// `automation_envelope`, plus `value_at_time` / `events_in_range` / `.get`
+// / `.info` (all read). Safe to run on a real project.
+//
+// Trigger: app sends {type:'scan_read_test'} → server.js emits the
+// "scan_read_envelopes" command. Result: outlet 0 "read_probe_result" →
+// server.js writes ~/_stride_read_probe_result.json.
+
+function _extractEnvId(ret) {
+    try {
+        if (ret === null || ret === undefined) return null;
+        if (typeof ret === "number") return ret > 0 ? ret : null;
+        if (typeof ret === "string") { var n = parseInt(ret); return (n > 0) ? n : null; }
+        if (ret instanceof Array) {
+            for (var i = 0; i < ret.length; i++) {
+                if (ret[i] === "id" && i + 1 < ret.length) {
+                    var v = parseInt(ret[i + 1]); if (v > 0) return v;
+                }
+            }
+            var last = parseInt(ret[ret.length - 1]); if (last > 0) return last;
+        }
+    } catch (e) {}
+    return null;
+}
+
+function scan_read_envelopes() {
+    var R = { ok: true, live_version: "", clip_source: "none", clip_id: "", clip_length: 0,
+              params_with_automation: 0, attempts: [], envelope: null, notes: [] };
+    function note(s) { R.notes.push(s); post("Stride ReadProbe: " + s + "\n"); }
+
+    try {
+        try {
+            var app = new LiveAPI("live_app");
+            R.live_version = app.call("get_major_version") + "." + app.call("get_minor_version") + "." + app.call("get_bugfix_version");
+        } catch (ve) { R.live_version = "unknown (" + ve.message + ")"; }
+        note("Live " + R.live_version);
+
+        // ── Target clip: detail_clip first (the clip open in Live's editor),
+        //    else the selected track's first clip slot that holds a clip ──
+        var clip = null;
+        try {
+            var dc = new LiveAPI("live_set view detail_clip");
+            if (dc && dc.id && dc.id != 0) { clip = dc; R.clip_source = "detail_clip"; }
+        } catch (de) {}
+        if (!clip) {
+            try {
+                var trk0 = new LiveAPI("live_set view selected_track");
+                var slots = trk0.get("clip_slots"); var sc = slots.length / 2;
+                for (var s = 0; s < Math.min(sc, 16); s++) {
+                    var slot = new LiveAPI("live_set view selected_track clip_slots " + s);
+                    if (parseInt(slot.get("has_clip"))) {
+                        clip = new LiveAPI("live_set view selected_track clip_slots " + s + " clip");
+                        R.clip_source = "selected_track clip_slots " + s;
+                        break;
+                    }
+                }
+            } catch (fe) {}
+        }
+        if (!clip || !clip.id || clip.id == 0) {
+            R.ok = false; note("No clip found — open a clip in Live's detail view (or put one on the selected track).");
+            outlet(0, "read_probe_result", JSON.stringify(R)); return;
+        }
+        R.clip_id = String(clip.id);
+        R.clip_length = parseFloat(clip.get("length"));
+        note("clip via " + R.clip_source + " id=" + R.clip_id + " length=" + R.clip_length + " beats");
+
+        // ── Walk selected-track params; find one with a clip envelope ──
+        var track = new LiveAPI("live_set view selected_track");
+        var trackPath = track.unquotedpath;
+        var devIds = track.get("devices"); var devCount = devIds.length / 2;
+        var foundEnvId = null, foundSig = "", foundParam = "";
+
+        var TRY_CAP = 200;   // bound automation_envelope attempts (probe safety on big racks)
+        var tried = 0;
+        for (var i = 0; i < devCount && !foundEnvId; i++) {
+            var devPath = trackPath + " devices " + i;
+            var dev = new LiveAPI(devPath);
+            if (dev.get("name").toString() === "StrideLink") continue;
+            var pIds = dev.get("parameters"); var pCount = pIds.length / 2;
+            if (pCount > 300) pCount = 300;
+
+            for (var p = 0; p < pCount && !foundEnvId && tried < TRY_CAP; p++) {
+                var prm;
+                try { prm = new LiveAPI(devPath + " parameters " + p); } catch (pe) { continue; }
+                var autoState = 0;
+                try { autoState = parseInt(prm.get("automation_state")); } catch (ae) {}
+                if (autoState > 0) R.params_with_automation++;
+
+                var pName = prm.get("name").toString();
+                var pid = prm.id;
+                tried++;
+
+                // Try the getter regardless of automation_state — a hand-drawn
+                // clip envelope doesn't always raise automation_state, and the
+                // getter is non-destructive (returns None when there's no
+                // envelope, never creates one).
+                var aRet = null, aErr = null;
+                try { aRet = clip.call("automation_envelope", pid); } catch (eA) { aErr = eA.message; }
+                var aId = _extractEnvId(aRet);
+
+                var bRet = null, bErr = null, bId = null;
+                if (!aId) {
+                    try { bRet = clip.call("automation_envelope", "id", pid); } catch (eB) { bErr = eB.message; }
+                    bId = _extractEnvId(bRet);
+                }
+
+                // Keep the result readable: log the first few attempts (to show the
+                // raw return shape for non-automated params), plus anything that
+                // errored or actually yielded an envelope.
+                if (R.attempts.length < 6 || aId || bId || aErr || bErr) {
+                    R.attempts.push({ param: pName, auto_state: autoState,
+                                      A_raw: String(aRet), A_err: aErr, A_id: aId,
+                                      B_raw: (aId ? "(skipped)" : String(bRet)), B_err: bErr, B_id: bId });
+                }
+
+                if (aId) { foundEnvId = aId; foundSig = "call(name,id)"; foundParam = pName; }
+                else if (bId) { foundEnvId = bId; foundSig = "call(name,'id',id)"; foundParam = pName; }
+            }
+        }
+
+        note("params tried: " + tried + ", with automation_state>0: " + R.params_with_automation);
+        if (!foundEnvId) {
+            note("Could not obtain an envelope from Max JS — either no param has a CLIP envelope, or automation_envelope isn't reachable here. (Try a clip where you drew automation by hand.)");
+            outlet(0, "read_probe_result", JSON.stringify(R)); return;
+        }
+        note("GOT envelope id=" + foundEnvId + " via " + foundSig + " for '" + foundParam + "'");
+
+        var env = new LiveAPI("id " + foundEnvId);
+        var envInfo = "";
+        try { envInfo = String(env.info); } catch (ie) { envInfo = "info error: " + ie.message; }
+
+        var E = { env_id: String(foundEnvId), via: foundSig, param: foundParam,
+                  info_excerpt: envInfo.substring(0, 700),
+                  value_at_time: null, value_at_time_err: null,
+                  events_in_range_raw: null, events_in_range_err: null };
+
+        // value_at_time sampling — the Max-JS-friendly read path (returns plain numbers)
+        try {
+            var len = R.clip_length || 4;
+            var samples = [];
+            for (var sIdx = 0; sIdx <= 8; sIdx++) {
+                var t = len * sIdx / 8;
+                samples.push({ t: Math.round(t * 1000) / 1000, v: env.call("value_at_time", t) });
+            }
+            E.value_at_time = samples;
+            note("value_at_time OK: " + JSON.stringify(samples));
+        } catch (sErr) { E.value_at_time_err = sErr.message; note("value_at_time FAILED: " + sErr.message); }
+
+        // events_in_range — the breakpoint-enumeration path (may not survive Max JS)
+        try {
+            var evs = env.call("events_in_range", 0.0, R.clip_length || 4);
+            E.events_in_range_raw = String(evs);
+            note("events_in_range returned: " + String(evs).substring(0, 300));
+        } catch (eErr) { E.events_in_range_err = eErr.message; note("events_in_range FAILED: " + eErr.message); }
+
+        R.envelope = E;
+        outlet(0, "read_probe_result", JSON.stringify(R));
+        outlet(1, "status", "Read probe done — see _stride_read_probe_result.json");
+
+    } catch (e) {
+        R.ok = false; R.fatal = e.message;
+        note("FATAL: " + e.message);
+        try { outlet(0, "read_probe_result", JSON.stringify(R)); } catch (oe) {}
+    }
+}
+
+// ─── READ EXISTING CURVES (feature, Option B) ─────────────
+// Pulls the existing automation off the synced clip and returns it as canvas
+// points (time in beats, value normalized 0-1) keyed by LOM _path so the
+// canvas can drop each curve onto its matching lane. READ-ONLY.
+//   mode "A" — value_at_time sampling (dense samples; the Max-JS-safe path)
+//   mode "B" — events_in_range breakpoints (exact points; may not survive Max JS)
+
+function _normValue(v, min, max, isLog) {
+    if (max === min) return 0;
+    var n;
+    if (isLog && min > 0 && max > min && v > 0) {
+        n = Math.log(v / min) / Math.log(max / min);
+    } else {
+        n = (v - min) / (max - min);
+    }
+    return n < 0 ? 0 : (n > 1 ? 1 : n);
+}
+
+function _callAutoEnv(clip, pid) {
+    var r = null;
+    try { r = clip.call("automation_envelope", pid); } catch (e) {}
+    if (_extractEnvId(r)) return r;
+    try { r = clip.call("automation_envelope", "id", pid); } catch (e) {}
+    return r;
+}
+
+// events_in_range shape from Max JS is uncertain — coerce a flat [t,v,t,v,...]
+// number array if that's what we get; otherwise return [] (mode B not usable).
+function _coerceEvents(evs) {
+    var out = [];
+    try {
+        if (evs instanceof Array && evs.length >= 2) {
+            var nums = [];
+            for (var i = 0; i < evs.length; i++) {
+                var f = parseFloat(evs[i]);
+                if (f !== f) return out;   // non-number → can't interpret
+                nums.push(f);
+            }
+            for (var j = 0; j + 1 < nums.length; j += 2) {
+                out.push({ time: nums[j], value: nums[j + 1] });
+            }
+        }
+    } catch (e) {}
+    return out;
+}
+
+function read_clip_curves(mode) {
+    mode = (mode === "B") ? "B" : "A";
+    var out = { ok: true, mode: mode, clip_source: "none", clip_length: 0,
+                params: [], lanes_found: 0, walked: 0, notes: [] };
+    function note(s) { out.notes.push(s); post("Stride ReadCurves: " + s + "\n"); }
+
+    try {
+        // Target clip: detail_clip (open in the editor) → selected track's first clip
+        var clip = null;
+        try {
+            var dc = new LiveAPI("live_set view detail_clip");
+            if (dc && dc.id && dc.id != 0) { clip = dc; out.clip_source = "detail_clip"; }
+        } catch (de) {}
+        if (!clip) {
+            try {
+                var trk0 = new LiveAPI("live_set view selected_track");
+                var slots = trk0.get("clip_slots"); var sc = slots.length / 2;
+                for (var s = 0; s < Math.min(sc, 16); s++) {
+                    var slot = new LiveAPI("live_set view selected_track clip_slots " + s);
+                    if (parseInt(slot.get("has_clip"))) {
+                        clip = new LiveAPI("live_set view selected_track clip_slots " + s + " clip");
+                        out.clip_source = "clip_slots " + s; break;
+                    }
+                }
+            } catch (fe) {}
+        }
+        if (!clip || !clip.id || clip.id == 0) {
+            out.ok = false; note("no clip (open a clip in the detail view)");
+            outlet(0, "clip_curves", JSON.stringify(out)); return;
+        }
+        var clipLen = parseFloat(clip.get("length"));
+        out.clip_length = clipLen;
+        note("clip via " + out.clip_source + " length=" + clipLen + " beats, mode " + mode);
+
+        var track = new LiveAPI("live_set view selected_track");
+        var trackPath = track.unquotedpath;
+        var devIds = track.get("devices"); var devCount = devIds.length / 2;
+        var SAMPLES = 48;   // mode A resolution across the clip
+        var CAP = 300;      // bound total params walked
+        var dbgCount = 0;   // raw automation_envelope returns for the first N params
+
+        for (var i = 0; i < devCount; i++) {
+            var devPath = trackPath + " devices " + i;
+            var dev = new LiveAPI(devPath);
+            var devName = dev.get("name").toString();
+            if (devName === "StrideLink") continue;
+            var pIds = dev.get("parameters"); var pCount = pIds.length / 2;
+            if (pCount > 300) pCount = 300;
+
+            for (var p = 0; p < pCount && out.walked < CAP; p++) {
+                out.walked++;
+                var prm;
+                try { prm = new LiveAPI(devPath + " parameters " + p); } catch (pe) { continue; }
+                var pName = prm.get("name").toString();
+                if (pName === "Device On") continue;
+
+                // Read the clip envelope for this param. Capture the raw returns
+                // for the first dozen params so we can see whether Max JS gets an
+                // envelope object back at all (the open question).
+                var pid = prm.id;
+                var aRaw = null, aErr = null, bRaw = null, bErr = null;
+                try { aRaw = clip.call("automation_envelope", pid); } catch (ae) { aErr = ae.message; }
+                var envId = _extractEnvId(aRaw);
+                if (!envId) {
+                    try { bRaw = clip.call("automation_envelope", "id", pid); } catch (be) { bErr = be.message; }
+                    envId = _extractEnvId(bRaw);
+                }
+                if (dbgCount < 12) {
+                    dbgCount++;
+                    out.notes.push("p['" + pName + "'] A=" + String(aRaw) + (aErr ? (" Aerr=" + aErr) : "") +
+                                   " B=" + String(bRaw) + (bErr ? (" Berr=" + bErr) : "") + " envId=" + envId);
+                }
+                if (!envId) continue;          // no envelope on this param for this clip
+
+                var env = new LiveAPI("id " + envId);
+                var pmin = parseFloat(prm.get("min"));
+                var pmax = parseFloat(prm.get("max"));
+                var pIsLog = false;
+                try { var ps = prm.call("str_for_value", prm.get("value")).toString(); if (/Hz|kHz/.test(ps)) pIsLog = true; } catch (le) {}
+
+                var pts = [];
+                if (mode === "A") {
+                    for (var sIdx = 0; sIdx <= SAMPLES; sIdx++) {
+                        var t = clipLen * sIdx / SAMPLES;
+                        var raw;
+                        try { raw = parseFloat(env.call("value_at_time", t)); } catch (ve) { raw = NaN; }
+                        if (raw !== raw) continue;
+                        pts.push({ time: Math.round(t * 1000) / 1000, value: _normValue(raw, pmin, pmax, pIsLog), curve: 0 });
+                    }
+                } else {
+                    try {
+                        var evs = env.call("events_in_range", 0.0, clipLen);
+                        var arr = _coerceEvents(evs);
+                        for (var k = 0; k < arr.length; k++) {
+                            pts.push({ time: Math.round(arr[k].time * 1000) / 1000, value: _normValue(arr[k].value, pmin, pmax, pIsLog), curve: 0 });
+                        }
+                        if (arr.length === 0) note("events_in_range gave no usable points for '" + pName + "' (raw: " + String(evs).substring(0, 80) + ")");
+                    } catch (ee) { note("events_in_range failed for '" + pName + "': " + ee.message); }
+                }
+
+                if (pts.length) {
+                    out.params.push({ _path: devPath + " parameters " + p, name: devName + ": " + pName, points: pts });
+                    out.lanes_found++;
+                }
+            }
+        }
+
+        note("lanes with curves: " + out.lanes_found + " (walked " + out.walked + " params)");
+        outlet(0, "clip_curves", JSON.stringify(out));
+        outlet(1, "status", "Read " + out.lanes_found + " existing lanes (mode " + mode + ")");
+
+    } catch (e) {
+        out.ok = false; out.fatal = e.message; note("FATAL: " + e.message);
+        try { outlet(0, "clip_curves", JSON.stringify(out)); } catch (oe) {}
+    }
+}
+
 // ─── MESSAGE ROUTER ───────────────────────────────────────
 
 function anything() {
@@ -1058,5 +1401,7 @@ function anything() {
     else if (cmd === "start_gate_playback") start_gate_playback(args.join(" "));
     else if (cmd === "stop_gate_playback") stop_gate_playback();
     else if (cmd === "start_gate_test") start_gate_test();
+    else if (cmd === "scan_read_envelopes") scan_read_envelopes();
+    else if (cmd === "read_clip_curves") read_clip_curves(args[0] ? args[0].toString() : "A");
     else post("Stride: Unknown command '" + cmd + "'\n");
 }

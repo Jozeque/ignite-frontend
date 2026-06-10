@@ -212,7 +212,53 @@ Max.addHandler('gate_position', (jsonStr) => {
     }
 });
 
-// ─── User Library Self-Report ─────────────────────────────
+// ─── Read-Probe Result (diagnostic) ───────────────────────
+// scanner_max.js's read-only envelope probe sends its findings here. We
+// write them to a file in the user's home dir so they're easy to inspect,
+// and forward to the app so they also show in the DevTools console.
+Max.addHandler('read_probe_result', (jsonStr) => {
+    try {
+        const outPath = path.join(os.homedir(), '_stride_read_probe_result.json');
+        let pretty = jsonStr;
+        try { pretty = JSON.stringify(JSON.parse(jsonStr), null, 2); } catch (e) {}
+        fs.writeFileSync(outPath, pretty);
+        Max.post(`Stride: read-probe result written to ${outPath}`);
+        sendToApp({ type: 'read_probe_result', data: jsonStr });
+    } catch (e) {
+        Max.post(`Stride: failed to write read-probe result — ${e.message}`);
+    }
+});
+
+// ─── Read Existing Curves (feature) ───────────────────────
+// scanner_max.js's read_clip_curves sends the clip's existing automation here
+// (already normalized to canvas space). Forward straight to the app, which
+// drops each curve onto its matching lane by _path.
+Max.addHandler('clip_curves', (jsonStr) => {
+    try {
+        const data = JSON.parse(jsonStr);
+        // Diagnostic: write the full result to a file we can inspect (Max device
+        // post() output isn't captured in Ableton's Log.txt).
+        try {
+            const dbgPath = path.join(os.homedir(), '_stride_read_curves_result.json');
+            fs.writeFileSync(dbgPath, JSON.stringify(data, null, 2));
+            Max.post(`Stride: read-curves diagnostic → ${dbgPath}`);
+        } catch (we) {}
+        sendToApp({
+            type: 'clip_curves_read',
+            ok: data.ok !== false,
+            mode: data.mode || 'A',
+            clip_source: data.clip_source || '',
+            lanes_found: data.lanes_found || 0,
+            params: data.params || [],
+            notes: data.notes || [],
+        });
+        Max.post(`Stride: read ${data.lanes_found || 0} existing lane(s) from clip (mode ${data.mode || 'A'})`);
+    } catch (e) {
+        Max.post(`Stride: error parsing clip_curves — ${e.message}`);
+    }
+});
+
+// ─── Read-Probe Result (diagnostic) ───────────────────────
 //
 // StrideLink lives INSIDE the Ableton User Library:
 //   <UserLibrary>/Stride/server.js
@@ -436,6 +482,19 @@ function handleAppMessage(msg) {
         case 'start_gate_test':
             // Smoke test: hardcoded pattern on first non-StrideLink device
             Max.outlet('command', 'start_gate_test');
+            break;
+
+        case 'scan_read_test':
+            // Diagnostic: probe whether Max JS can READ a clip automation
+            // envelope (gate for the "read existing curves" feature). Read-only.
+            Max.post('Stride: read-probe requested');
+            Max.outlet('command', 'scan_read_envelopes');
+            break;
+
+        case 'read_clip_curves':
+            // "Read existing curves" feature: pull the open clip's automation
+            // onto the canvas lanes. mode A = sampled, B = breakpoints. Read-only.
+            Max.outlet('command', 'read_clip_curves', (msg.mode === 'B' ? 'B' : 'A'));
             break;
 
         default:

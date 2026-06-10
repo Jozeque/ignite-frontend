@@ -275,6 +275,25 @@
                     <span id="sd-armed-pattern-label" class="text-orange-300 font-bold uppercase tracking-wider truncate min-w-0 flex-1"></span>
                     <button id="sd-armed-pattern-clear" onclick="if(window.sdClearPattern)window.sdClearPattern()" title="Clear pattern" class="text-orange-400/70 hover:text-orange-300 shrink-0 text-sm leading-none px-1">×</button>
                 </div>
+                <!-- Work mode (A/B). A = default Stride flow (no reading from Ableton).
+                     B = read existing automation from the open clip to edit + re-inject.
+                     HIDDEN 2026-06-10: Read (Mode B) is incomplete / untested live, so the
+                     panel is hidden from users. All logic stays wired and dormant
+                     (sdSetWorkMode / sdReadCurvesNow / clip_curves_read + the M4L read
+                     path) — the app simply stays in default Mode A. To resume testing the
+                     feature later, remove the leading `hidden` class on the div below. -->
+                <div class="hidden w-full rounded-lg border border-white/10 bg-black/20 px-2 py-1.5 flex flex-col gap-1.5">
+                    <span class="text-[9px] text-zinc-500 font-black uppercase tracking-wider">Mode</span>
+                    <div class="flex gap-1">
+                        <button id="sd-mode-a" onclick="window.sdSetWorkMode('A')" title="Default — draw in Stride, autosync params, no reading from Ableton" class="flex-1 py-1 rounded text-[9px] font-black uppercase tracking-wider bg-fuchsia-500 text-black transition-colors">A · Default</button>
+                        <button id="sd-mode-b" onclick="window.sdSetWorkMode('B')" title="Read existing automation from the open clip so you can edit + re-inject" class="flex-1 py-1 rounded text-[9px] font-black uppercase tracking-wider text-zinc-400 hover:text-zinc-200 transition-colors">B · Read</button>
+                    </div>
+                    <div id="sd-mode-b-controls" class="hidden">
+                        <button onclick="window.sdReadCurvesNow()" class="w-full py-1 mb-1 rounded bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 text-[9px] font-black uppercase tracking-wider transition-colors">Pull curves from clip</button>
+                        <span class="block text-[8px] text-zinc-500 leading-tight">Reads the open clip's automation onto your lanes so you can edit and re-inject.</span>
+                    </div>
+                </div>
+
                 <!-- Primary CTA moved to the right Inject rail (Option B). -->
                 <!-- (#sd-inject-btn now lives in #sd-inject-rail beside the canvas.) -->
                 <!-- (Stride 2.0: Save/Load Session removed — per-rack autosave + autoscan persist curves; sessions had no live _path and risked rack mismatch.) -->
@@ -675,9 +694,10 @@
                 <button onclick="sdApplyTemplate('pump')" class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">Pump</button>
                 <button onclick="sdApplyTemplate('glitch')" class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">Glitch</button>
                 <button onclick="sdApplyTemplate('groove_build')" class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">Groove</button>
-                <button onclick="sdApplyTemplate('chaos_lfo')" class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">Chaos</button>
                 <div class="w-px h-5 bg-white/10"></div>
+                <button onclick="sdApplyTemplate('chaos_lfo')" class="text-[9px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors shrink-0">Chaos</button>
                 <button onclick="sdApplyComplexTemplate('neuro')" class="text-[9px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors shrink-0">Neuro</button>
+                <button onclick="sdApplySampleHoldLane()" title="Sample &amp; Hold — inject one stepped-random S&amp;H pattern onto the selected lane. Click again to reroll." class="text-[9px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors shrink-0">S&amp;H</button>
                 <div class="w-px h-5 bg-white/10"></div>
                 <!-- Saved presets — takes remaining space -->
                 <div class="flex items-center gap-1 flex-1 min-w-0 shrink-0">

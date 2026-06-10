@@ -149,7 +149,10 @@ class StrideInject(ControlSurface):
                     self.schedule_message(20, self._poll)
                     return
                 try:
-                    self._write_inject(data)
+                    if isinstance(data, dict) and data.get("action") == "read_probe":
+                        self._read_probe(data)
+                    else:
+                        self._write_inject(data)
                 except Exception as e:
                     self.log_message("StrideInject: unhandled error: " + str(e))
                     self.log_message(traceback.format_exc())
@@ -271,6 +274,154 @@ class StrideInject(ControlSurface):
             return obj
         self.log_message("StrideInject: resolved object is not a DeviceParameter")
         return None
+
+    def _write_json(self, path, obj):
+        try:
+            with open(path, "w") as f:
+                json.dump(obj, f, indent=2)
+        except Exception as e:
+            self.log_message("StrideInject: could not write " + path + ": " + str(e))
+
+    def _read_probe(self, data):
+        """Diagnostic + foundation for 'read existing curves' (Mode B).
+        Reads the open clip's CLIP ENVELOPES via the proven Python path
+        (clip.automation_envelope) and reports what's there. Walks the
+        selected track's devices INCLUDING rack chains. READ-ONLY — never
+        creates/clears. Writes ~/_stride_inject_read_probe.json."""
+        probe_path = os.path.join(_HOME, "_stride_inject_read_probe.json")
+        out = {"ok": True, "clip_name": "?", "clip_length": 0.0,
+               "params_walked": 0, "params_with_env": 0, "found": [], "notes": []}
+        def note(s):
+            out["notes"].append(s)
+            self.log_message("StrideInject ReadProbe: " + s)
+        try:
+            song = self.song()
+            clip = None
+            try:
+                clip = song.view.detail_clip
+            except Exception:
+                clip = None
+            if clip is None:
+                try:
+                    hs = song.view.highlighted_clip_slot
+                    if hs is not None and hs.has_clip:
+                        clip = hs.clip
+                except Exception:
+                    clip = None
+            if clip is None:
+                out["ok"] = False
+                note("no clip selected (open a clip in the detail view)")
+                self._write_json(probe_path, out)
+                return
+            try: out["clip_name"] = str(getattr(clip, "name", "?"))
+            except Exception: pass
+            try: out["clip_length"] = float(clip.length)
+            except Exception: pass
+            clip_len = out["clip_length"] or 4.0
+            note("clip='%s' length=%s" % (out["clip_name"], out["clip_length"]))
+
+            try:
+                track = song.view.selected_track
+            except Exception:
+                track = None
+            if track is None:
+                out["ok"] = False
+                note("no selected track")
+                self._write_json(probe_path, out)
+                return
+
+            walked = [0]
+            CAP = 400
+
+            def test_param(param, label):
+                if walked[0] >= CAP:
+                    return
+                walked[0] += 1
+                env = None
+                try:
+                    env = clip.automation_envelope(param)
+                except Exception as e:
+                    if not out["found"]:
+                        note("automation_envelope raised for '%s': %s" % (label, str(e)))
+                    return
+                if env is None:
+                    return
+                samples = []
+                try:
+                    for k in range(5):
+                        t = clip_len * k / 4.0
+                        samples.append(round(float(env.value_at_time(t)), 5))
+                except Exception as e:
+                    samples = ["value_at_time err: " + str(e)]
+                ev_count = None
+                try:
+                    ev_count = len(list(env.events_in_range(0.0, clip_len)))
+                except Exception as e:
+                    ev_count = "events err: " + str(e)
+                rec = {"param": label, "value_at_time": samples, "event_count": ev_count}
+                try:
+                    rec["min"] = float(param.min)
+                    rec["max"] = float(param.max)
+                except Exception:
+                    pass
+                out["found"].append(rec)
+
+            def walk_device(dev):
+                if walked[0] >= CAP:
+                    return
+                try:
+                    dname = str(getattr(dev, "name", "dev"))
+                except Exception:
+                    dname = "dev"
+                if dname == "StrideLink":
+                    return
+                try:
+                    for p in dev.parameters:
+                        if walked[0] >= CAP:
+                            break
+                        try:
+                            pn = str(p.name)
+                        except Exception:
+                            pn = "?"
+                        if pn == "Device On":
+                            continue
+                        test_param(p, dname + ": " + pn)
+                except Exception:
+                    pass
+                try:
+                    chains = getattr(dev, "chains", None)
+                    if chains:
+                        for ch in chains:
+                            try:
+                                for sub in ch.devices:
+                                    walk_device(sub)
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
+
+            try:
+                for dev in track.devices:
+                    if walked[0] >= CAP:
+                        break
+                    walk_device(dev)
+            except Exception as e:
+                note("device walk error: " + str(e))
+
+            out["params_walked"] = walked[0]
+            out["params_with_env"] = len(out["found"])
+            out["found"] = out["found"][:50]
+            note("walked=%d params_with_env=%d" % (walked[0], len(out["found"])))
+            self._write_json(probe_path, out)
+        except Exception as e:
+            out["ok"] = False
+            out["fatal"] = str(e)
+            self.log_message("StrideInject ReadProbe FATAL: " + str(e))
+            self.log_message(traceback.format_exc())
+            try:
+                self._write_json(probe_path, out)
+            except Exception:
+                pass
 
     def _get_or_create_envelope(self, clip, param):
         """clip.clear_envelope() invalidates the envelope reference in Live 12 —
