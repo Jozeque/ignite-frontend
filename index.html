@@ -382,6 +382,27 @@
       <h2 class="text-4xl md:text-6xl mb-3">How It Works</h2>
       <p class="silk">Three steps. Zero friction.</p>
     </div>
+
+    <!-- Walkthrough — branded click-to-load YouTube facade. Shows the real
+         thumbnail + copper play button on load (zero YouTube weight); on
+         click it swaps in the player and plays inline in-section. See
+         loadHowItWorksVideo() below. Start at 0:00 (full tutorial). -->
+    <div class="panel screws rounded-3xl p-3 pt-7 mb-12"><span class="s s1"></span><span class="s s2"></span>
+      <div id="how-video" class="rounded-2xl overflow-hidden relative" style="background:#100f0c;border:1px solid var(--line);aspect-ratio:16/9">
+        <button type="button" onclick="loadHowItWorksVideo(this)" aria-label="Play the Stride walkthrough — How to Modulate properly in Ableton" class="group absolute inset-0 w-full h-full block cursor-pointer p-0 border-0 bg-transparent">
+          <img src="https://i.ytimg.com/vi/5SvNHxFtiik/maxresdefault.jpg" onerror="this.onerror=null;this.src='https://i.ytimg.com/vi/5SvNHxFtiik/hqdefault.jpg'" alt="How to Modulate properly in Ableton — Stride walkthrough" loading="lazy" class="absolute inset-0 w-full h-full object-cover">
+          <span class="absolute inset-0" style="background:radial-gradient(120% 90% at 50% 50%, rgba(28,18,6,.12), rgba(16,15,12,.6))"></span>
+          <span class="absolute inset-0 flex flex-col items-center justify-center gap-3">
+            <span class="w-20 h-20 rounded-full flex items-center justify-center transition-transform group-hover:scale-110" style="background:linear-gradient(180deg,var(--ember),var(--copper));box-shadow:0 14px 32px -12px rgba(198,113,43,.8),0 1px 0 rgba(255,255,255,.25) inset">
+              <svg class="w-8 h-8" style="margin-left:4px" viewBox="0 0 24 24" fill="#1c1206"><path d="M8 5v14l11-7z"/></svg>
+            </span>
+            <span class="silk" style="color:var(--copper-lt)">Watch the full walkthrough</span>
+            <span class="mono text-[10px] ink3">How to Modulate properly in Ableton · YouTube</span>
+          </span>
+        </button>
+      </div>
+    </div>
+
     <div class="grid md:grid-cols-3 gap-6">
       <div class="panel rounded-2xl p-7 text-center">
         <div class="mono text-3xl mb-4" style="color:var(--copper-lt)">01</div>
@@ -685,6 +706,25 @@
 </div>
 
 <script>
+    // ─── How It Works walkthrough ───────────────────────
+    // Click-to-load: replace the thumbnail facade with the YouTube player
+    // and autoplay inline. The click is the user gesture, so sound-on
+    // autoplay is allowed. youtube-nocookie + on-demand load keeps the
+    // landing page light and drops no YT cookies until the user opts in.
+    function loadHowItWorksVideo(btn) {
+        const wrap = document.getElementById('how-video');
+        if (!wrap) return;
+        const iframe = document.createElement('iframe');
+        iframe.src = 'https://www.youtube-nocookie.com/embed/5SvNHxFtiik?autoplay=1&playsinline=1&rel=0&modestbranding=1';
+        iframe.title = 'How to Modulate properly in Ableton — Stride walkthrough';
+        iframe.className = 'absolute inset-0 w-full h-full';
+        iframe.setAttribute('frameborder', '0');
+        iframe.setAttribute('allow', 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share');
+        iframe.allowFullscreen = true;
+        wrap.innerHTML = '';
+        wrap.appendChild(iframe);
+    }
+
     // ─── Buy Modal ──────────────────────────────────────
     function toggleBuyModal() {
         const modal = document.getElementById('buy-modal');
