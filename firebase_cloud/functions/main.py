@@ -316,6 +316,20 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
                     match = found[0]
                     print(f"[LS Webhook] found orphan row {match.id} by ls_order_id — merging")
 
+            # Recover Meta attribution from the lead row when LS didn't forward
+            # the checkout custom data (fbc empty on the webhook). The landing
+            # page stored fbc/fbclid/fbp/ua/event_id on the buyer_lead, keyed by
+            # email — join it here so a Meta sale is never mislabeled "direct".
+            prev = match.to_dict() if match is not None else {}
+            if not fbc and (prev.get("fbc") or "").strip():
+                fbc = (prev.get("fbc") or "").strip()
+                from_meta = True
+                acquisition_source = "meta_ad"
+                fbclid = (prev.get("fbclid") or "").strip() or (fbc.split(".")[-1] if fbc else "")
+                doc_data["acquisition_source"] = acquisition_source
+                doc_data["fbclid"] = fbclid
+                print(f"[LS Webhook] recovered Meta attribution from lead row for {email}")
+
             if match is not None:
                 match.reference.update(doc_data)
                 print(f"[LS Webhook] upgraded lead {match.id} → customer")
@@ -364,7 +378,7 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
             # still 200s.
             try:
                 custom = (payload.get("meta") or {}).get("custom_data") or {}
-                capi_event_id = custom.get("event_id") or ""
+                capi_event_id = custom.get("event_id") or (prev.get("event_id") if prev else "") or ""
                 _fire_meta_purchase_capi(
                     {
                         "email": email,
@@ -372,14 +386,13 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
                         "order_identifier": attrs.get("identifier"),
                         "total_cents": attrs.get("total"),
                         "currency": attrs.get("currency"),
-                        # Meta attribution fields passed from the landing
-                        # page through LS custom checkout data. Without
-                        # these, Meta's campaign optimizer can't credit
-                        # this Purchase back to the ad click that drove
-                        # it. fbc/fbp NOT hashed; UA NOT hashed.
-                        "fbc": custom.get("fbc") or "",
-                        "fbp": custom.get("fbp") or "",
-                        "client_user_agent": custom.get("ua") or "",
+                        # Meta attribution. Primary source is the LS checkout
+                        # custom data; if LS dropped it we fall back to the
+                        # values the landing page stored on the buyer_lead
+                        # (joined by email above). fbc/fbp/UA NOT hashed.
+                        "fbc": fbc or "",
+                        "fbp": custom.get("fbp") or (prev.get("fbp") if prev else "") or "",
+                        "client_user_agent": custom.get("ua") or (prev.get("ua") if prev else "") or "",
                     },
                     capi_event_id,
                 )
@@ -752,6 +765,14 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
                 "terms_accepted": terms_accepted,
                 "updated_at": admin_firestore.SERVER_TIMESTAMP,
             }
+            # Meta attribution carried from the landing page. Stored here so the
+            # LS order_created webhook can recover it by email even if Lemon
+            # Squeezy doesn't forward the checkout custom data. Only write
+            # non-empty values so a later organic re-submit can't wipe a real fbc.
+            for _k in ("fbc", "fbclid", "fbp", "ua", "event_id"):
+                _v = (data_pre.get(_k) or "").strip()
+                if _v:
+                    payload[_k] = _v
             if existing:
                 existing[0].reference.update(payload)
                 was_existing = True

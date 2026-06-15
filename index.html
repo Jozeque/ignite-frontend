@@ -777,7 +777,30 @@
             page_url: location.href,
         };
 
-        // Save lead + terms acceptance to Firestore (non-blocking).
+        // Meta attribution — captured ONCE here and reused for: (a) the
+        // buyer_lead beacon below (so the backend can recover it by email at
+        // purchase time even if Lemon Squeezy drops the checkout custom data),
+        // (b) the LS checkout params, (c) welcome.html's Pixel event (shared
+        // event_id for dedup).
+        const eventId = (window.crypto && window.crypto.randomUUID)
+            ? window.crypto.randomUUID()
+            : 'evt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+        try { sessionStorage.setItem('stride_pixel_event_id', eventId); } catch (e) {}
+        const fbc = (function () {
+            const m = document.cookie.match(/(?:^|; )_fbc=([^;]*)/);
+            if (m) return decodeURIComponent(m[1]);
+            try { return sessionStorage.getItem('stride_fbc') || ''; } catch (e) { return ''; }
+        })();
+        const fbp = (function () {
+            const m = document.cookie.match(/(?:^|; )_fbp=([^;]*)/);
+            return m ? decodeURIComponent(m[1]) : '';
+        })();
+        const ua = (navigator.userAgent || '').slice(0, 512);
+        const fbclid = fbc ? fbc.split('.').pop() : '';
+
+        // Save lead + terms acceptance to Firestore (non-blocking). Attribution
+        // (fbc/fbclid/fbp/ua/event_id) rides along so the backend can join it to
+        // the order by email even if LS doesn't forward the checkout custom data.
         const leadAction = LS_CHECKOUT_URL ? 'buyer_lead' : 'waitlist_signup';
         // keepalive: true is critical — without it, mobile browsers cancel
         // this request when window.location.href redirects to LS below.
@@ -788,6 +811,7 @@
             body: JSON.stringify({
                 action: leadAction,
                 name, email, country, source,
+                fbc, fbclid, fbp, ua, event_id: eventId,
                 terms_accepted: termsAccepted,
             })
         }).catch(() => {});
@@ -799,26 +823,9 @@
             timestamp: new Date().toISOString()
         }));
 
-        // Generate a unique event ID for Meta Pixel deduplication.
-        const eventId = (window.crypto && window.crypto.randomUUID)
-            ? window.crypto.randomUUID()
-            : 'evt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
-        try { sessionStorage.setItem('stride_pixel_event_id', eventId); } catch (e) {}
-
-        // Redirect to Lemon Squeezy checkout with email pre-filled + Meta attribution.
-        const fbcFromCookie = (function () {
-            const m = document.cookie.match(/(?:^|; )_fbc=([^;]*)/);
-            return m ? decodeURIComponent(m[1]) : '';
-        })();
-        const fbc = fbcFromCookie || (function () {
-            try { return sessionStorage.getItem('stride_fbc') || ''; } catch (e) { return ''; }
-        })();
-        const fbp = (function () {
-            const m = document.cookie.match(/(?:^|; )_fbp=([^;]*)/);
-            return m ? decodeURIComponent(m[1]) : '';
-        })();
-        const ua = (navigator.userAgent || '').slice(0, 512); // cap length
-
+        // eventId, fbc, fbp, ua were computed above (before the buyer_lead
+        // beacon) — reuse the same values here so the LS checkout params and the
+        // server-side fallback always carry identical attribution.
         if (LS_CHECKOUT_URL) {
             const sep = LS_CHECKOUT_URL.includes('?') ? '&' : '?';
             let url = LS_CHECKOUT_URL + sep
