@@ -803,9 +803,14 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
                 else:
                     base = "🎹 **WAITLIST SIGNUP**"
                 heading = f"{base} — returning" if was_existing else base
+                # Show Meta attribution on the buyer lead too (the landing page
+                # now sends fbc) so we can confirm a checkout came from an ad
+                # immediately, without waiting for the purchase alert.
+                from_meta_lead = bool((data_pre.get("fbc") or "").strip())
+                source_line = (f"\n**Source:** {'🎯 Meta ad' if from_meta_lead else 'Direct / organic'}") if is_buyer else ""
                 webhook_msg = {
                     "username": "Stride Engine",
-                    "content": f"{heading}\n**Producer:** `{name}`\n**Email:** `{email}`\n**Country:** `{country}`" + (f"\n**Heard from:** `{source}`" if source else "") + status
+                    "content": f"{heading}\n**Producer:** `{name}`\n**Email:** `{email}`\n**Country:** `{country}`" + source_line + (f"\n**Heard from:** `{source}`" if source else "") + status
                 }
                 webhook_req = urllib.request.Request(
                     ADMIN_WEBHOOK_URL,
