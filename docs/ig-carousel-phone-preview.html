@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>STRIDE · Carousel on a Phone</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root{
+    --bg:#0b0a09; --line:#262219; --ink:#f4f1ea; --ink2:#cabfae; --ink3:#8a8170;
+    --copper:#c6712b; --ember:#e58a2e; --copper-lt:#dd9a52; --teal:#5e9aad; --sage:#86a87f; --violet:#9a8cbb;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(120% 50% at 50% -8%, rgba(198,113,43,.10), transparent 55%),var(--bg);
+       color:var(--ink2);font-family:'Outfit',sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:980px;margin:0 auto;padding:28px 22px 80px;text-align:center}
+  .brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .silk{font:700 10px 'Space Mono';letter-spacing:.26em;text-transform:uppercase;color:var(--ink3)}
+  header{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:8px}
+  .sub{font-size:13px;color:var(--ink3);margin-bottom:18px}
+  .toolbar{display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;margin:14px 0 22px}
+  .btn{cursor:pointer;border:none;border-radius:10px;font:800 12px 'Outfit';letter-spacing:.04em;text-transform:uppercase;padding:10px 15px}
+  .btn-copper{background:linear-gradient(180deg,var(--ember),var(--copper));color:#1c1206}
+  .btn-ghost{background:rgba(255,255,255,.05);color:var(--ink2);border:1px solid var(--line)}
+
+  /* ── phone ── */
+  .phone{width:442px;margin:0 auto;background:#0b0a09;border:14px solid #1b1916;border-radius:54px;
+         box-shadow:0 50px 90px -34px #000, inset 0 0 0 2px #000;overflow:hidden;position:relative}
+  .island{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:118px;height:30px;background:#000;border-radius:18px;z-index:30}
+  .status{height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 26px 0 30px;color:#f4f1ea;font:700 14px 'Outfit'}
+  .status .r{display:flex;gap:7px;align-items:center;font-size:12px;color:#e9e2d5}
+  .ig-head{display:flex;align-items:center;gap:10px;padding:8px 14px}
+  .av{width:38px;height:38px;border-radius:50%;padding:2px;background:conic-gradient(from 200deg,#e58a2e,#c5807f,#9a8cbb,#5e9aad,#e58a2e)}
+  .av i{display:block;width:100%;height:100%;border-radius:50%;background:radial-gradient(circle at 35% 30%,#3a342a,#161616);border:2px solid #0b0a09}
+  .ig-head .nm{font:700 14px 'Outfit';color:#f4f1ea;line-height:1.1;text-align:left}
+  .ig-head .nm s{display:block;text-decoration:none;font:500 11px 'Outfit';color:#9a8f78}
+  .ig-head .fol{margin-left:6px;font:700 13px 'Outfit';color:#5e9aad}
+  .ig-head .dots3{margin-left:auto;color:#cabfae;font-size:20px;letter-spacing:2px}
+
+  .viewport{position:relative;width:414px;height:518px;overflow:hidden;background:#0b0a09}
+  .track{display:flex;width:2070px;height:518px;transition:transform .34s cubic-bezier(.4,0,.2,1)}
+  .pv-stage{width:414px;height:518px;overflow:hidden;flex:0 0 414px}
+  .pv-wrap{width:1080px;height:1350px;transform:scale(.383334);transform-origin:top left}
+  .count{position:absolute;top:12px;right:12px;z-index:12;background:rgba(0,0,0,.6);color:#fff;font:700 12px 'Outfit';padding:4px 11px;border-radius:999px}
+  .navzone{position:absolute;top:0;bottom:0;width:38%;z-index:11;cursor:pointer}
+  .navzone.l{left:0}.navzone.r{right:0}
+
+  .ig-dots{display:flex;gap:6px;justify-content:center;padding:11px 0 6px}
+  .ig-dots i{width:6px;height:6px;border-radius:50%;background:#3a342a}
+  .ig-dots i.on{background:#5e9aad}
+  .ig-act{display:flex;align-items:center;gap:16px;padding:4px 16px 0;font-size:23px;color:#f4f1ea}
+  .ig-act .sp{margin-left:auto}
+  .ig-likes{padding:8px 16px 0;font:700 13px 'Outfit';color:#f4f1ea;text-align:left}
+  .ig-cap{padding:3px 16px 0;font:400 13px 'Outfit';color:#e7ddcd;text-align:left;line-height:1.4}
+  .ig-cap b{font-weight:700}.ig-cap s{text-decoration:none;color:#8a8170}
+  .ig-time{padding:6px 16px 16px;font:400 10px 'Outfit';color:#8a8170;text-align:left;text-transform:uppercase;letter-spacing:.04em}
+
+  /* ── the 1080×1350 slide ── */
+  .slide{position:relative;width:1080px;height:1350px;background:var(--bg);overflow:hidden}
+  .slide .cv{position:absolute;inset:0;width:1080px;height:1350px}
+  .slide .glow{position:absolute;inset:0;background:radial-gradient(92% 38% at 50% -6%, rgba(198,113,43,.16), transparent 60%)}
+  .slide .stripe{position:absolute;top:0;left:0;right:0;height:10px;background:var(--ember)}
+  .pad{position:absolute;inset:0;padding:104px 92px 92px}
+  .bignum{position:absolute;top:54px;right:74px;font:200 232px 'Outfit';line-height:1;letter-spacing:-.04em;color:rgba(229,138,46,.10)}
+  .kick{font:700 25px 'Space Mono';letter-spacing:.28em;text-transform:uppercase;color:var(--copper-lt)}
+  .body{margin-top:46px;font-weight:400;font-size:48px;line-height:1.5;color:var(--ink2)}
+  .statement{position:absolute;left:92px;right:92px;top:40%;transform:translateY(-50%);font-weight:800;font-size:104px;line-height:1.04;letter-spacing:-.025em;color:var(--ink)}
+  .lead{margin-top:42px;font-weight:600;font-size:52px;line-height:1.3;letter-spacing:-.01em;color:#e7ddcd}
+  .cu{color:var(--ember);font-weight:700}
+  .b{color:var(--ink);font-weight:700}
+  .callout{margin-top:40px;border:1px solid rgba(229,138,46,.42);border-radius:22px;padding:38px 40px;background:linear-gradient(180deg,rgba(229,138,46,.07),rgba(0,0,0,0))}
+  .callout .lbl{font:700 24px 'Space Mono';letter-spacing:.2em;text-transform:uppercase;color:var(--ember);margin-bottom:16px}
+  .callout p{margin:0;font-weight:500;font-size:46px;line-height:1.4;color:#ece3d4}
+  .foot{position:absolute;left:92px;right:92px;bottom:78px;display:flex;align-items:flex-end;justify-content:space-between}
+  .wm{font:900 38px 'Outfit';letter-spacing:-.02em;color:var(--ink);line-height:1;text-align:left}
+  .wm small{display:block;font:700 14px 'Space Mono';letter-spacing:.24em;color:var(--ink3);margin-top:8px}
+  .swipe{font:700 23px 'Space Mono';letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <span style="font:900 26px 'Outfit';letter-spacing:-.03em" class="brand">STRIDE</span>
+    <span class="silk" style="border-left:1px solid var(--line);padding-left:14px">Carousel · true feed scale</span>
+  </header>
+  <div class="sub">Tap the left / right side of the image, use the arrows, or ← → keys. This is roughly how it reads on a phone in-feed.</div>
+
+  <div class="toolbar">
+    <button class="btn btn-ghost" onclick="go(-1)">‹ Prev</button>
+    <button class="btn btn-ghost" onclick="go(1)">Next ›</button>
+    <button class="btn btn-copper" onclick="dlAll()">⤓ Download all 5</button>
+    <button class="btn btn-ghost" onclick="dlCur()">⤓ This slide</button>
+  </div>
+
+  <div class="phone">
+    <div class="island"></div>
+    <div class="status"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨&nbsp;&nbsp;100%</span></div>
+    <div class="ig-head">
+      <span class="av"><i></i></span>
+      <span class="nm">stride_engine<s>Sound Design Engine</s></span>
+      <span class="fol">· Follow</span>
+      <span class="dots3">⋯</span>
+    </div>
+
+    <div class="viewport">
+      <div class="count" id="count">1/5</div>
+      <div class="navzone l" onclick="go(-1)"></div>
+      <div class="navzone r" onclick="go(1)"></div>
+      <div class="track" id="track">
+
+        <div class="pv-stage"><div class="pv-wrap"><div class="slide" id="s1">
+          <svg class="cv" id="cv1" viewBox="0 0 1080 1350" preserveAspectRatio="none"></svg><div class="glow"></div><div class="stripe"></div><div class="bignum">01</div>
+          <div class="pad"><div class="kick">01 · Happy Mistakes</div>
+            <div class="body">Sometimes, and honestly most of the time, the most special and inspiring moments are the <span class="cu">happy mistakes</span>. They are the ones you stumble into without even thinking.<br><br>
+              We spend hours overthinking, tweaking, grinding through trial and error to replicate a sound or match a reference. But your true <span class="b">signature sound</span>? That almost always comes from the <span class="cu">unexpected</span>.</div>
+            <div class="foot"><div class="wm">STRIDE<small>SOUND DESIGN ENGINE</small></div><div class="swipe">Swipe →</div></div>
+          </div></div></div></div>
+
+        <div class="pv-stage"><div class="pv-wrap"><div class="slide" id="s2">
+          <svg class="cv" id="cv2" viewBox="0 0 1080 1350" preserveAspectRatio="none"></svg><div class="glow"></div><div class="stripe"></div><div class="bignum">02</div>
+          <div class="pad"><div class="kick">02 · The Spark</div>
+            <div class="body">You can sit in the studio for weeks feeling like a <span class="b">fraud</span> who can't finish a single project, and then suddenly, a <span class="cu">single spark</span> lets you crush a whole track in a day.<br><br>
+              Those are the moments where the unpredictable takes over, unlocking new directions and pulling you deeper into the <span class="cu">flow</span>.</div>
+            <div class="foot"><div class="wm">STRIDE<small>SOUND DESIGN ENGINE</small></div><div class="swipe">Swipe →</div></div>
+          </div></div></div></div>
+
+        <div class="pv-stage"><div class="pv-wrap"><div class="slide" id="s3">
+          <svg class="cv" id="cv3" viewBox="0 0 1080 1350" preserveAspectRatio="none"></svg><div class="glow"></div><div class="stripe"></div><div class="bignum">03</div>
+          <div class="pad"><div class="kick">03 · Built For This</div>
+            <div class="statement">Stride was built <span class="cu">exactly</span> for this.</div>
+            <div class="foot"><div class="wm">STRIDE<small>SOUND DESIGN ENGINE</small></div><div class="swipe">Swipe →</div></div>
+          </div></div></div></div>
+
+        <div class="pv-stage"><div class="pv-wrap"><div class="slide" id="s4">
+          <svg class="cv" id="cv4" viewBox="0 0 1080 1350" preserveAspectRatio="none"></svg><div class="glow"></div><div class="stripe"></div><div class="bignum">04</div>
+          <div class="pad"><div class="kick">04 · What It Does</div>
+            <div class="body" style="margin-top:44px">Instead of endless menu-diving, Stride instantly applies massive manipulation to your existing instruments, giving you <span class="cu">endless variations on the fly</span>.<br><br>
+              Map <span class="b">20 automation curves</span> across <span class="b">20 parameters</span> and you unlock an <span class="cu">infinite intersection</span> of possibilities, shifting every second into completely new sonic events.</div>
+            <div class="foot"><div class="wm">STRIDE<small>SOUND DESIGN ENGINE</small></div><div class="swipe">Swipe →</div></div>
+          </div></div></div></div>
+
+        <div class="pv-stage"><div class="pv-wrap"><div class="slide" id="s5">
+          <svg class="cv" id="cv5" viewBox="0 0 1080 1350" preserveAspectRatio="none"></svg><div class="glow"></div><div class="stripe"></div><div class="bignum">05</div>
+          <div class="pad"><div class="kick">05 · One Click</div>
+            <div class="lead">The best part?</div>
+            <div class="callout"><div class="lbl">Swap everything, instantly</div>
+              <p>Swap all 20 automations for a fresh set of patterns with a <span class="cu">single click</span>, instantly triggering unpredictable, inspiring variations.</p></div>
+            <div class="foot"><div class="wm">STRIDE<small>SOUND DESIGN ENGINE</small></div><div class="swipe">stridehub.io</div></div>
+          </div></div></div></div>
+
+      </div>
+    </div>
+
+    <div class="ig-dots" id="dots"></div>
+    <div class="ig-act">♡ <span>💬</span> <span>✈</span> <span class="sp">🔖</span></div>
+    <div class="ig-likes">428 likes</div>
+    <div class="ig-cap"><b>stride_engine</b> The most inspiring moments are the happy mistakes. Here's how we built a tool for them… <s>more</s></div>
+    <div class="ig-time">2 hours ago</div>
+  </div>
+
+</div>
+
+<script>
+  const NS='http://www.w3.org/2000/svg';
+  const COPPER='#e58a2e', TEAL='#5e9aad', SAGE='#86a87f', VIOLET='#9a8cbb', COPPERLT='#dd9a52';
+  function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  function rgba(hex,a){const h=hex.replace('#','');const n=parseInt(h,16);return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
+  function pts(W,segs,yMid,amp,seed){const r=mulberry32(seed);const a=[];for(let i=0;i<=segs;i++){a.push([W*i/segs, yMid+(r()*2-1)*amp]);}return a;}
+  function spline(p,k){k=k==null?1:k;if(p.length<2)return '';let d=`M ${p[0][0].toFixed(1)} ${p[0][1].toFixed(1)}`;
+    for(let i=0;i<p.length-1;i++){const p0=p[i-1]||p[i],p1=p[i],p2=p[i+1],p3=p[i+2]||p2;
+      const c1x=p1[0]+(p2[0]-p0[0])/6*k, c1y=p1[1]+(p2[1]-p0[1])/6*k, c2x=p2[0]-(p3[0]-p1[0])/6*k, c2y=p2[1]-(p3[1]-p1[1])/6*k;
+      d+=` C ${c1x.toFixed(1)} ${c1y.toFixed(1)} ${c2x.toFixed(1)} ${c2y.toFixed(1)} ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;}
+    return d;}
+  function lane(svg,d,color,w,glow){const p=document.createElementNS(NS,'path');p.setAttribute('d',d);p.setAttribute('fill','none');
+    p.setAttribute('stroke',color);p.setAttribute('stroke-width',w);p.setAttribute('stroke-linecap','round');p.setAttribute('stroke-linejoin','round');
+    if(glow)p.setAttribute('style','filter:drop-shadow(0 0 '+glow+'px '+color+')');svg.appendChild(p);}
+  function dot(svg,x,y,color,r){const c=document.createElementNS(NS,'circle');c.setAttribute('cx',x);c.setAttribute('cy',y);c.setAttribute('r',r||9);
+    c.setAttribute('fill','#0b0a09');c.setAttribute('stroke',color);c.setAttribute('stroke-width','5');c.setAttribute('style','filter:drop-shadow(0 0 12px '+color+')');svg.appendChild(c);}
+
+  // evolving curve: calm → spark → signature → building → many (lives low, clear of text)
+  (function(){const s=document.getElementById('cv1');lane(s,spline(pts(1080,6,320,40,11)),rgba(TEAL,.05),3,0);
+    lane(s,spline([[0,1148],[200,1144],[400,1150],[560,1140],[650,1108],[740,1146],[920,1148],[1080,1144]]),rgba(COPPER,.9),5,12);dot(s,650,1108,COPPER,9);})();
+  (function(){const s=document.getElementById('cv2');lane(s,spline(pts(1080,6,320,46,7)),rgba(VIOLET,.05),3,0);
+    lane(s,spline([[0,1152],[180,1148],[360,1154],[500,1150],[572,1066],[648,1150],[820,1154],[1080,1148]]),rgba(COPPER,.95),6,16);dot(s,572,1066,COPPER,12);})();
+  (function(){const s=document.getElementById('cv3');const hp=pts(1080,5,1120,54,5);lane(s,spline(hp),rgba(COPPER,.95),6,16);
+    hp.forEach(([x,y])=>dot(s,x,y,COPPER,8));lane(s,spline(pts(1080,6,360,40,9)),rgba(TEAL,.05),3,0);})();
+  (function(){const s=document.getElementById('cv4');const cols=[TEAL,VIOLET,SAGE];
+    for(let i=0;i<3;i++)lane(s,spline(pts(1080,7,1130,26+i*10,40+i*30)),rgba(cols[i],.4),3,0);
+    lane(s,spline(pts(1080,7,1124,40,5)),COPPER,5,12);})();
+  (function(){const s=document.getElementById('cv5');const cols=[TEAL,VIOLET,SAGE,COPPERLT,COPPER];
+    for(let i=0;i<5;i++){const hero=i===4;lane(s,spline(pts(1080,8,1124,24+i*9,100+i*27)),hero?COPPER:rgba(cols[i],.5-i*.05),hero?5:3,hero?12:0);}})();
+
+  // ── carousel nav ──
+  const N=5; let idx=0;
+  const track=document.getElementById('track'), count=document.getElementById('count'), dotsEl=document.getElementById('dots');
+  dotsEl.innerHTML=Array.from({length:N},(_,i)=>`<i class="${i===0?'on':''}"></i>`).join('');
+  const dotI=[...dotsEl.children];
+  function render(){track.style.transform='translateX('+(-idx*414)+'px)';count.textContent=(idx+1)+'/'+N;dotI.forEach((d,i)=>d.classList.toggle('on',i===idx));}
+  function go(d){idx=Math.max(0,Math.min(N-1,idx+d));render();}
+  window.go=go;
+  document.addEventListener('keydown',e=>{if(e.key==='ArrowRight')go(1);if(e.key==='ArrowLeft')go(-1);});
+
+  // ── export ──
+  async function dl(id,name){const el=document.getElementById(id);
+    if(typeof html2canvas==='undefined'){alert('Export needs internet (html2canvas didn\'t load). Just screenshot instead.');return;}
+    const wrap=el.parentElement, prev=wrap.style.transform; wrap.style.transform='none';
+    try{const c=await html2canvas(el,{backgroundColor:'#0b0a09',scale:1,width:1080,height:1350,windowWidth:1080,windowHeight:1350});
+      const a=document.createElement('a');a.href=c.toDataURL('image/png');a.download=name;a.click();}finally{wrap.style.transform=prev;}}
+  window.dlCur=()=>dl('s'+(idx+1),'stride-carousel-'+(idx+1)+'.png');
+  window.dlAll=async()=>{for(let i=1;i<=N;i++)await dl('s'+i,'stride-carousel-'+i+'.png');};
+  render();
+</script>
+</body>
+</html>
