@@ -1,0 +1,255 @@
+/* ============================================================
+   TENDRIL — per-voice DSP   (GenExpr)
+   ============================================================
+   HOW TO USE
+     Create [gen~ tendril_voice] inside a voice patcher, then put a
+     [codebox] in it and paste this whole file. (Or save as
+     tendril_voice.gendsp via the makegendsp tool and load with
+     [gen~ @gen tendril_voice].) This voice patcher is what [poly~]
+     instantiates N times — see ../BUILD-IN-MAX.md.
+
+   INPUTS  (signals)
+     in1 = MIDI pitch  (note + global Pitch + Glide already applied
+                        upstream, or feed raw note and let Glide param ride)
+     in2 = gate        (0/1 ; reserved — env is done with [adsr~] outside)
+     in3 = amp env     (0..1 from [adsr~] in the patcher; multiplies output)
+   OUTPUT
+     out1 = voice audio  (pre-FX ; goes to the FX builder)
+
+   BUFFERS  (generate with data/gen-wavetables.js, then load in Max)
+     tendril_wt_a , tendril_wt_b : 64 frames x 2048 samples, mono.
+
+   STATUS: first working scaffold. The CORE (dual cube morph, FM/Ring,
+   sub, noise, warp, fold, tilt, SVF filter) is meant to compile & sound
+   right. Items tagged  // ITER:  are intentionally simple — tune by ear
+   in Max, that's the plan. A few tagged // VERIFY: use operators whose
+   exact signature you should confirm against your Max version.
+   ============================================================ */
+
+// ---- constants (MUST match gen-wavetables.js) ----
+FRAME = 2048;     // samples per single-cycle frame
+NFR   = 4;        // cube edge (4x4x4 = 64 frames)
+EDGE  = NFR - 1;  // 3
+
+Buffer wtA("tendril_wt_a");
+Buffer wtB("tendril_wt_b");
+
+// ---- parameters (scripting names match tendril-params.js) ----
+Param a_tone(0.5);  Param a_body(0.5);  Param a_air(0.5);  Param a_bank(0);
+Param a_level(0.85);Param a_oct(0);     Param a_fine(0);
+Param b_tone(0.5);  Param b_body(0.5);  Param b_air(0.5);  Param b_bank(0.4);
+Param b_level(0.5); Param b_oct(0);     Param b_fine(0);
+Param fm_amt(0);    Param ring_amt(0);  Param sync_amt(0);
+Param sub_lvl(0.3); Param noise_lvl(0);
+Param density(0.3); Param comb(0);      Param fold_amt(0);   // 'fold' is a reserved gen operator -> renamed
+Param tilt(0.5);    Param formant(0);   Param warp(0);
+Param cutoff(0.7);  Param reso(0.2);    Param ftype(0);   // 0=LP24 1=LP12 2=HP 3=BP 4=Notch 5=Peak
+
+// ============================================================
+// helpers
+// ============================================================
+
+// linear-interp read of one single-cycle frame at phase ph(0..1).
+// Two readers because passing a Buffer into a function is version-iffy.
+// Constants inlined (2048 = FRAME, 4 = NFR, 3 = EDGE, 16 = NFR*NFR) because
+// GenExpr functions don't reliably see outer-scope vars -> avoids a compile error.
+readA(f, ph) {
+    base = f * 2048;
+    idx  = ph * 2048;
+    i0   = floor(idx);
+    fr   = idx - i0;
+    i1   = i0 + 1;
+    if (i1 >= 2048) i1 = 0;              // wrap within the cycle
+    s0 = peek(wtA, base + i0, 0);
+    s1 = peek(wtA, base + i1, 0);
+    return s0 + fr * (s1 - s0);
+}
+readB(f, ph) {
+    base = f * 2048;
+    idx  = ph * 2048;
+    i0   = floor(idx);
+    fr   = idx - i0;
+    i1   = i0 + 1;
+    if (i1 >= 2048) i1 = 0;
+    s0 = peek(wtB, base + i0, 0);
+    s1 = peek(wtB, base + i1, 0);
+    return s0 + fr * (s1 - s0);
+}
+
+// trilinear morph through the 4x4x4 cube. x,y,z in 0..1.
+cubeA(x, y, z, ph) {
+    fx = clamp(x, 0, 1) * 3;  fy = clamp(y, 0, 1) * 3;  fz = clamp(z, 0, 1) * 3;
+    xi = floor(fx);  yi = floor(fy);  zi = floor(fz);
+    xf = fx - xi;    yf = fy - yi;    zf = fz - zi;
+    xj = min(xi + 1, 3);  yj = min(yi + 1, 3);  zj = min(zi + 1, 3);
+    // frame index f = xi + yi*4 + zi*16
+    c000 = readA(xi + yi*4 + zi*16, ph);
+    c100 = readA(xj + yi*4 + zi*16, ph);
+    c010 = readA(xi + yj*4 + zi*16, ph);
+    c110 = readA(xj + yj*4 + zi*16, ph);
+    c001 = readA(xi + yi*4 + zj*16, ph);
+    c101 = readA(xj + yi*4 + zj*16, ph);
+    c011 = readA(xi + yj*4 + zj*16, ph);
+    c111 = readA(xj + yj*4 + zj*16, ph);
+    x00 = c000 + xf*(c100 - c000);  x10 = c010 + xf*(c110 - c010);
+    x01 = c001 + xf*(c101 - c001);  x11 = c011 + xf*(c111 - c011);
+    y0  = x00 + yf*(x10 - x00);     y1  = x01 + yf*(x11 - x01);
+    return y0 + zf*(y1 - y0);
+}
+cubeB(x, y, z, ph) {
+    fx = clamp(x, 0, 1) * 3;  fy = clamp(y, 0, 1) * 3;  fz = clamp(z, 0, 1) * 3;
+    xi = floor(fx);  yi = floor(fy);  zi = floor(fz);
+    xf = fx - xi;    yf = fy - yi;    zf = fz - zi;
+    xj = min(xi + 1, 3);  yj = min(yi + 1, 3);  zj = min(zi + 1, 3);
+    c000 = readB(xi + yi*4 + zi*16, ph);
+    c100 = readB(xj + yi*4 + zi*16, ph);
+    c010 = readB(xi + yj*4 + zi*16, ph);
+    c110 = readB(xj + yj*4 + zi*16, ph);
+    c001 = readB(xi + yi*4 + zj*16, ph);
+    c101 = readB(xj + yi*4 + zj*16, ph);
+    c011 = readB(xi + yj*4 + zj*16, ph);
+    c111 = readB(xj + yj*4 + zj*16, ph);
+    x00 = c000 + xf*(c100 - c000);  x10 = c010 + xf*(c110 - c010);
+    x01 = c001 + xf*(c101 - c001);  x11 = c011 + xf*(c111 - c011);
+    y0  = x00 + yf*(x10 - x00);     y1  = x01 + yf*(x11 - x01);
+    return y0 + zf*(y1 - y0);
+}
+
+// phase distortion (WARP): bends the read phase around a moving pivot.
+// w 0..1. Always continuous & monotonic -> modulation-safe.
+warpphase(ph, w) {
+    k = 0.5 + clamp(w, 0, 1) * 0.48;        // pivot 0.5..0.98
+    lo = (ph / k) * 0.5;
+    hi = 0.5 + ((ph - k) / (1 - k)) * 0.5;
+    return (ph < k) ? lo : hi;
+}
+
+// ============================================================
+// signal
+// ============================================================
+sr = samplerate;
+
+// ---- pitch / frequency ----
+pitchA = in1 + a_oct*12 + a_fine*0.01;
+pitchB = in1 + b_oct*12 + b_fine*0.01;
+fA = mtof(pitchA);
+fB = mtof(pitchB);
+
+// ---- OSC B (modulator) ----
+History phB(0);
+incB = fB / sr;
+phBn = wrap(phB + incB, 0, 1);
+// hard-sync edge detect: B wrapped this sample?
+bWrapped = (phBn < phB) ? 1 : 0;
+phB = phBn;
+bsig = cubeB(b_tone, b_body, b_air, warpphase(phB, warp));
+
+// ---- OSC A (carrier) with FM from B + hard sync ----
+History phA(0);
+incA = fA / sr;
+// FM: bounded index (fm_amt^2 for finer low-end control), keytracked via incA
+fmdev = fm_amt * fm_amt * 0.5 * bsig;
+phAn = wrap(phA + incA + fmdev, 0, 1);
+// SYNC: when B wraps, pull A's phase back toward 0 by sync_amt (soft hard-sync)
+phAn = (bWrapped > 0) ? mix(phAn, 0, sync_amt) : phAn;   // ITER: true hard reset = sync_amt full
+phA = phAn;
+asig = cubeA(a_tone, a_body, a_air, warpphase(phA, warp));
+
+// ---- mix oscillators ----
+osc = asig * a_level + bsig * b_level;
+
+// RING mod (A*B), equal-ish power blend
+ringsig = asig * bsig * 1.6;
+osc = mix(osc, ringsig, ring_amt);
+
+// SUB (sine, -1 oct of A)
+History phsub(0);
+phsub = wrap(phsub + (fA * 0.5) / sr, 0, 1);
+subsig = sin(phsub * 2 * pi);   // 'sub' is a reserved gen operator -> renamed
+osc = osc + subsig * sub_lvl * 0.8;
+
+// NOISE (bounded)
+osc = osc + (noise() * 0.5) * noise_lvl;
+
+// ============================================================
+// spectral stage (add / remove frequencies on the same source)
+// ============================================================
+
+// WARP already applied at read time (above) — phase distortion edge.
+
+// FOLD: bounded sine wavefolder -> adds harmonics, self-limiting
+drv = 1 + fold_amt * 5;
+folded = sin(osc * drv * 1.1);
+osc = mix(osc, folded, fold_amt);
+
+// DENSITY: crude harmonic exciter (adds upper content). ITER: replace with
+// a proper tilt-emphasis or additive bank later.
+History xprev(0);
+diff = osc - xprev;
+xprev = osc;
+osc = osc + diff * density * 0.5;     // was 1.5 — too fizzy/harsh; ITER: replace
+                                      // this crude first-difference exciter with a
+                                      // proper tilt-emphasis later
+
+// TILT: one-pole dark<->bright balance around center. tilt 0=dark 1=bright
+History lpz(0);
+a_lp = 0.15;                          // ITER: tune
+lpz = lpz + a_lp * (osc - lpz);
+low = lpz;
+high = osc - lpz;
+osc = low * (1.0 - (tilt - 0.5)) + high * (1.0 + (tilt - 0.5));
+
+// FORMANT: vowel-like resonant peak. DISABLED in this scaffold (the clean
+// way is a dedicated 2nd SVF set to bandpass, blended by `formant`). Wire it
+// after P0 so we tune it by ear. `formant` param exists already; left inert.
+// ITER: formant = blend a bandpass resonator at fc 300..2800 Hz into osc.
+
+// COMB: DISABLED for P0 — the gen delay() operator signature varies by Max
+// version and is the most likely compile error. The `comb` Param stays (inert)
+// so the parameter surface is unchanged. Re-enable once we confirm delay() in
+// your Max:
+//   dlen = 1 + comb*400;
+//   combed = osc + delay(osc, 512, dlen)*(comb*0.7);
+//   osc = mix(osc, combed, comb);
+
+// ============================================================
+// multimode SVF filter (TPT / Cytomic) — gen~ for guaranteed safety
+// ============================================================
+// cutoff: exponential 20Hz .. 18kHz ; reso bounded so it sings but never screams
+fc = 20 * pow(900, clamp(cutoff, 0, 1));
+g  = tan(pi * clamp(fc, 20, 18000) / sr);
+k  = 2.0 - 1.85 * clamp(reso, 0, 1);          // damping (lower k = more resonance)
+
+History ic1(0);
+History ic2(0);
+a1 = 1 / (1 + g*(g + k));
+a2 = g * a1;
+a3 = g * a2;
+v3 = osc - ic2;
+v1 = a1*ic1 + a2*v3;
+v2 = ic2 + a2*ic1 + a3*v3;
+ic1 = 2*v1 - ic1;
+ic2 = 2*v2 - ic2;
+
+lp    = v2;
+bp    = v1;
+hp    = osc - k*v1 - v2;
+notch = osc - k*v1;
+peak  = lp - hp;
+// LP24 = run LP twice (one extra pole pair would be ideal; approximate w/ steeper mix)
+lp24  = lp;   // ITER: cascade a 2nd SVF for true 24 dB
+
+ft = floor(ftype + 0.5);
+filt = (ft == 0) ? lp24
+     : (ft == 1) ? lp
+     : (ft == 2) ? hp
+     : (ft == 3) ? bp
+     : (ft == 4) ? notch
+     : peak;
+
+// ============================================================
+// output: apply amp envelope (from [adsr~]) + gentle safety clip
+// ============================================================
+v = filt * in3 * 0.5;     // -6 dB master headroom so the tanh below stays a
+                          // SAFETY net, not the sound (was slamming -> distortion)
+out1 = tanh(v * 0.9);     // soft ceiling — last line of "can't blow up" defense

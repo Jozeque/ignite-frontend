@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stride — CTA Hub + Cables (3 options)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#09090b; --panel:#0e0e11; --line:rgba(255,255,255,.06);
+    --zinc3:#d4d4d8; --zinc4:#a1a1aa; --zinc5:#71717a; --zinc6:#52525b;
+    --emerald:#34d399; --fuchsia:#e879f9; --orange:#fb923c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:#e4e4e7;font-family:'Outfit',sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1040px;margin:0 auto;padding:32px 24px 90px}
+  h1{font-size:18px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;margin:0 0 4px;
+     background:linear-gradient(90deg,#f97316,#d946ef);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{font-size:12px;color:var(--zinc5);margin:0 0 26px;line-height:1.6}
+
+  .opt{margin:0 0 30px;border:1px solid var(--line);border-radius:16px;background:var(--panel);overflow:hidden}
+  .opt-head{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}
+  .badge{font-size:10px;font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:var(--emerald);
+         background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);padding:4px 9px;border-radius:7px}
+  .opt-title{font-size:13px;font-weight:800;color:#f4f4f5}
+  .opt-desc{font-size:11px;color:var(--zinc5);margin-left:auto;text-align:right;max-width:50%;line-height:1.5}
+
+  /* device panel — the reimagined Stride sidebar */
+  .panel{position:relative;padding:22px;min-height:300px}
+  .panel svg.cables{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
+  .cable{fill:none;stroke:url(#cab);stroke-width:2;opacity:.9}
+  .pulse{position:absolute;width:6px;height:6px;border-radius:50%;left:0;top:0;transform:translate(-50%,-50%);
+         background:radial-gradient(circle,#fff,var(--emerald));box-shadow:0 0 8px 2px rgba(16,185,129,.8);
+         z-index:2;offset-rotate:0deg;animation:flow 2.6s linear infinite}
+  @keyframes flow{from{offset-distance:0%;opacity:0}10%{opacity:1}90%{opacity:1}to{offset-distance:100%;opacity:0}}
+
+  /* param node — current row style (bg-black/20, white/5 border; active = fuchsia) */
+  .param{position:relative;z-index:3;background:rgba(0,0,0,.30);border:1px solid var(--line);border-radius:9px;
+         padding:8px 11px;width:160px;display:flex;flex-direction:column;gap:2px}
+  .param .nm{font-size:9px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;color:var(--zinc4)}
+  .param .rw{display:flex;justify-content:space-between;align-items:center}
+  .param .pts{font-size:8px;color:var(--zinc6)}
+  .param .rng{font-size:8px;color:var(--zinc6);font-family:ui-monospace,monospace}
+  .param.active{background:rgba(217,70,239,.16);border-color:rgba(217,70,239,.35)}
+  .param.active .nm{color:var(--fuchsia)}
+  .port{position:absolute;width:7px;height:7px;border-radius:50%;background:#27272a;border:1px solid rgba(16,185,129,.5);top:50%;transform:translateY(-50%)}
+  .port.l{left:-4px} .port.r{right:-4px} .port.t{top:-4px;left:50%;transform:translateX(-50%)}
+
+  /* CTA hub */
+  .hub{position:relative;z-index:4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+       width:120px;height:120px;border-radius:50%;cursor:pointer;
+       background:radial-gradient(circle at 50% 40%,rgba(16,185,129,.22),rgba(16,185,129,.06));
+       border:1.5px solid rgba(16,185,129,.5);box-shadow:0 0 30px rgba(16,185,129,.18),inset 0 0 24px rgba(16,185,129,.08)}
+  .hub .ji{font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--emerald);text-align:center;line-height:1.2}
+  .hub .js{font-size:8px;color:var(--zinc5);text-transform:uppercase;letter-spacing:.1em}
+  .hub.pill{width:auto;height:auto;border-radius:10px;padding:11px 22px;flex-direction:row;gap:7px}
+
+  /* generative tools + faders (current look, compact) */
+  .tools{display:flex;flex-wrap:wrap;gap:5px}
+  .tchip{font-size:8.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#d8b4fe;
+         background:rgba(217,70,239,.10);border:1px solid rgba(217,70,239,.22);border-radius:7px;padding:5px 8px}
+  .tchip.alt{color:#fdba74;background:rgba(249,115,22,.10);border-color:rgba(249,115,22,.22)}
+  .faders{display:flex;flex-direction:column;gap:7px;min-width:150px}
+  .fader{display:flex;align-items:center;gap:8px}
+  .fader .fl{font-size:8px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--zinc5);width:48px}
+  .track{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.08);position:relative}
+  .track i{position:absolute;top:50%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:var(--zinc3);box-shadow:0 0 5px rgba(255,255,255,.2)}
+  .secttl{font-size:8px;font-weight:900;letter-spacing:.2em;text-transform:uppercase;color:var(--zinc6);margin:0 0 8px}
+
+  /* layouts */
+  .l-center{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:60px}
+  .colL,.colR{display:flex;flex-direction:column;gap:14px}
+  .colR .param{margin-left:auto}
+  .l-top{display:flex;flex-direction:column;align-items:center;gap:18px}
+  .l-top .fan{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;max-width:760px}
+  .topbar{display:flex;gap:24px;align-items:flex-start;padding:14px 16px;margin:-22px -22px 22px;border-bottom:1px solid var(--line);background:rgba(0,0,0,.25);flex-wrap:wrap}
+  .legend{font-size:10px;color:var(--zinc6);padding:0 18px 16px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>CTA Hub + Cables — 3 layouts</h1>
+  <p class="sub">Same Stride pieces (param rows, emerald Inject CTA, generative chips, edit faders) — re-laid-out so the CTA is the hub and a patch cable runs from it to each mapped param. Fewer params = fewer cables. A pulse flows the cable on each "inject."</p>
+
+  <!-- OPTION 1 — CENTER HUB -->
+  <div class="opt">
+    <div class="opt-head"><span class="badge">Option 1</span><span class="opt-title">Center Hub</span>
+      <span class="opt-desc">CTA sits dead-center; params split left/right and fan out as cables. Reads like a patchbay master jack.</span></div>
+    <div class="panel" id="p1">
+      <svg class="cables"><defs><linearGradient id="cab" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="rgba(16,185,129,.85)"/><stop offset="100%" stop-color="rgba(168,85,247,.5)"/></linearGradient></defs></svg>
+      <div class="l-center">
+        <div class="colL" data-side="l"></div>
+        <div class="hub" data-hub><div class="ji">Inject<br>to Clip</div><div class="js">▶ fire</div></div>
+        <div class="colR" data-side="r"></div>
+      </div>
+      <div style="display:flex;gap:24px;justify-content:center;margin-top:26px;position:relative;z-index:3">
+        <div><div class="secttl">Generative</div><div class="tools" data-tools></div></div>
+        <div><div class="secttl">Edit</div><div class="faders" data-faders></div></div>
+      </div>
+    </div>
+    <div class="legend">Most "modular synth". The hub is the gravity center; cables make the param→CTA relationship literal.</div>
+  </div>
+
+  <!-- OPTION 2 — TOP HUB -->
+  <div class="opt">
+    <div class="opt-head"><span class="badge">Option 2</span><span class="opt-title">Top Hub</span>
+      <span class="opt-desc">CTA pinned top-center; params hang below as a cable harness. Compact, fits a narrow sidebar.</span></div>
+    <div class="panel" id="p2">
+      <svg class="cables"></svg>
+      <div class="l-top">
+        <div class="hub pill" data-hub><span class="ji">Inject to Clip</span><span class="js">▶</span></div>
+        <div class="fan" data-side="t"></div>
+      </div>
+      <div style="display:flex;gap:24px;justify-content:center;margin-top:22px;position:relative;z-index:3">
+        <div><div class="secttl">Generative</div><div class="tools" data-tools></div></div>
+        <div><div class="secttl">Edit</div><div class="faders" data-faders></div></div>
+      </div>
+    </div>
+    <div class="legend">Closest to today's narrow sidebar — just the CTA promoted to a hub and the params wired beneath it.</div>
+  </div>
+
+  <!-- OPTION 3 — TOOLS ON TOP + CENTER HUB -->
+  <div class="opt">
+    <div class="opt-head"><span class="badge">Option 3</span><span class="opt-title">Tools on Top + Hub</span>
+      <span class="opt-desc">Generative chips + faders move to a top toolbar, freeing the body for the hub + cabled params.</span></div>
+    <div class="panel" id="p3">
+      <div class="topbar">
+        <div><div class="secttl">Generative</div><div class="tools" data-tools></div></div>
+        <div style="flex:1"><div class="secttl">Edit</div><div class="faders" data-faders style="min-width:0"></div></div>
+      </div>
+      <svg class="cables"></svg>
+      <div class="l-center">
+        <div class="colL" data-side="l"></div>
+        <div class="hub" data-hub><div class="ji">Inject<br>to Clip</div><div class="js">▶ fire</div></div>
+        <div class="colR" data-side="r"></div>
+      </div>
+    </div>
+    <div class="legend">Maximises canvas/param space below; the toolbar stays out of the signal-flow picture.</div>
+  </div>
+</div>
+
+<script>
+const PARAMS=[
+  {nm:'Filter Freq', rng:'120 - 8.0k', pts:'14 pts', active:true},
+  {nm:'Filter Res',  rng:'0.0 - 1.0',  pts:'9 pts'},
+  {nm:'LFO Amount',  rng:'0 - 127',    pts:'22 pts'},
+  {nm:'LFO Rate',    rng:'0 - 1.0',    pts:'8 pts'},
+  {nm:'Drive',       rng:'0 - 100',    pts:'11 pts'},
+  {nm:'Pan',         rng:'-1 - 1',     pts:'6 pts'},
+  {nm:'Delay Mix',   rng:'0 - 100',    pts:'7 pts'},
+  {nm:'Reverb',      rng:'0 - 100',    pts:'5 pts'},
+];
+const TOOLS=['Sine','Pump','Glitch','Groove','Chaos','Neuro','Prism','S&H'];
+const ALT=['Bloom','Mutate'];
+const FADERS=[['Smooth',.4],['Depth',.7],['Curve',.5],['Floor',.2],['Ceiling',.85]];
+
+function paramEl(p,port){
+  const d=document.createElement('div'); d.className='param'+(p.active?' active':'');
+  d.innerHTML=`<div class="nm">${p.nm}</div><div class="rw"><span class="pts">${p.pts}</span><span class="rng">${p.rng}</span></div>
+    <span class="port ${port}"></span>`;
+  return d;
+}
+function fillTools(host){TOOLS.forEach(t=>{const c=document.createElement('span');c.className='tchip';c.textContent=t;host.appendChild(c);});
+  ALT.forEach(t=>{const c=document.createElement('span');c.className='tchip alt';c.textContent=t;host.appendChild(c);});}
+function fillFaders(host){FADERS.forEach(([n,v])=>{const f=document.createElement('div');f.className='fader';
+  f.innerHTML=`<span class="fl">${n}</span><div class="track"><i style="left:${v*100}%"></i></div>`;host.appendChild(f);});}
+
+// Build each panel
+document.querySelectorAll('.panel').forEach(panel=>{
+  panel.querySelectorAll('[data-tools]').forEach(fillTools);
+  panel.querySelectorAll('[data-faders]').forEach(fillFaders);
+  const sideL=panel.querySelector('[data-side="l"]');
+  const sideR=panel.querySelector('[data-side="r"]');
+  const sideT=panel.querySelector('[data-side="t"]');
+  if(sideT){ PARAMS.forEach(p=>sideT.appendChild(paramEl(p,'t'))); }
+  else { PARAMS.forEach((p,i)=> (i%2?sideR:sideL).appendChild(paramEl(p, i%2?'r':'l'))); }
+});
+
+function wire(panel){
+  const svg=panel.querySelector('svg.cables');
+  const hub=panel.querySelector('[data-hub]');
+  const ports=panel.querySelectorAll('.param .port');
+  const pr=panel.getBoundingClientRect();
+  // clear old cables/pulses (keep defs)
+  svg.querySelectorAll('path.cable').forEach(e=>e.remove());
+  panel.querySelectorAll('.pulse').forEach(e=>e.remove());
+  const hb=hub.getBoundingClientRect();
+  // hub connector: center of its nearest edge per param handled generically
+  const hx=hb.left+hb.width/2-pr.left, hy=hb.top+hb.height/2-pr.top;
+  ports.forEach((port,idx)=>{
+    const b=port.getBoundingClientRect();
+    const ex=b.left+b.width/2-pr.left, ey=b.top+b.height/2-pr.top;
+    // start at hub edge toward the param
+    const ang=Math.atan2(ey-hy,ex-hx); const sx=hx+Math.cos(ang)*(hb.width/2), sy=hy+Math.sin(ang)*(hb.height/2);
+    const dx=ex-sx, dy=ey-sy; const k=Math.max(34,Math.hypot(dx,dy)*0.42);
+    let c1x,c1y,c2x,c2y;
+    if(Math.abs(dy)>Math.abs(dx)){c1x=sx;c1y=sy+Math.sign(dy)*k;c2x=ex;c2y=ey-Math.sign(dy)*k;}
+    else{c1x=sx+Math.sign(dx||1)*k;c1y=sy;c2x=ex-Math.sign(dx||1)*k;c2y=ey;}
+    const d=`M${sx.toFixed(1)},${sy.toFixed(1)} C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${ex.toFixed(1)},${ey.toFixed(1)}`;
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('class','cable'); path.setAttribute('d',d); svg.appendChild(path);
+    const pulse=document.createElement('div'); pulse.className='pulse';
+    pulse.style.offsetPath=`path('${d}')`; pulse.style.animationDelay=(idx*0.28)+'s';
+    panel.appendChild(pulse);
+  });
+}
+function wireAll(){document.querySelectorAll('.panel').forEach(wire);}
+window.addEventListener('load',wireAll);
+window.addEventListener('resize',()=>{clearTimeout(window._t);window._t=setTimeout(wireAll,120);});
+</script>
+</body>
+</html>

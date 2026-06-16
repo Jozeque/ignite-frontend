@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TENDRIL</title>
+<style>
+:root{
+  --bg:#141310; --panel:#1d1b16; --raise:#252119;
+  --line:rgba(216,201,176,.12); --line2:rgba(216,201,176,.06);
+  --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
+  --copper:#c6712b; --copper-lt:#dd9a52; --ember:#e58a2e;
+  --teal:#5e9aad; --sage:#86a87f; --rose:#c5807f; --violet:#9a8cbb;
+}
+*{box-sizing:border-box;-webkit-user-select:none;user-select:none}
+html,body{margin:0;height:100%;overflow:hidden}
+body{font-family:'Outfit','Segoe UI',system-ui,sans-serif;color:var(--ink2);display:flex;flex-direction:column;
+  background:radial-gradient(130% 70% at 50% -10%, rgba(198,113,43,.10), transparent 55%),linear-gradient(180deg,#1a1712,#141310 40%)}
+.mono{font-family:'Cascadia Mono','Consolas',monospace}
+
+.titlebar{display:flex;align-items:center;gap:12px;padding:9px 16px;flex:none;
+  background:linear-gradient(180deg,#211d16,#1a1712);border-bottom:1px solid var(--line)}
+.dot{width:10px;height:10px;border-radius:50%;flex:none;background:radial-gradient(circle at 35% 30%,var(--ember),#7a3f12);box-shadow:0 0 12px rgba(229,138,46,.7)}
+.logo{font-weight:900;letter-spacing:.34em;font-size:16px;background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.tabs{display:flex;gap:4px;margin-left:14px}
+.tab{font-size:10px;font-weight:800;letter-spacing:.18em;padding:5px 14px;border-radius:8px 8px 0 0;cursor:pointer;
+  color:var(--ink3);border:1px solid transparent}
+.tab.on{color:var(--ember);background:rgba(229,138,46,.12);border-color:var(--line);border-bottom-color:transparent}
+.ver{margin-left:auto;font-size:9px;color:var(--ink3)}
+
+.view{flex:1;display:flex;flex-direction:column;min-height:0;padding:10px 14px 12px;gap:8px}
+.oscrow{flex:1.35;display:grid;grid-template-columns:176px 1fr 190px;gap:10px;min-height:0}
+.col{border:1px solid var(--line);border-radius:12px;background:linear-gradient(180deg,#1d1a14,#181510);
+  padding:8px 8px 10px;display:flex;flex-direction:column;min-height:0;gap:4px;overflow-y:auto;overflow-x:hidden}
+.col::-webkit-scrollbar{width:5px}.col::-webkit-scrollbar-thumb{background:#2a2620;border-radius:6px}
+.col h3{margin:0 0 2px;font-size:9px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3);display:flex;align-items:center;gap:7px}
+.col h3 .pip{width:5px;height:5px;border-radius:50%;background:var(--copper)}
+.knobgrid{display:flex;flex-wrap:wrap;gap:4px 6px;justify-content:center}
+
+.center{display:flex;flex-direction:column;min-height:0;gap:5px}
+.wtwrap{flex:1;position:relative;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:linear-gradient(180deg,#0e0d0a,#100f0c);min-height:120px;cursor:crosshair}
+#paint{position:absolute;inset:0;width:100%;height:100%}
+.wt-ov{position:absolute;left:10px;top:7px;font-size:8.5px;color:var(--ink3);pointer-events:none}
+.wt-ov2{position:absolute;right:10px;top:7px;font-size:8.5px;color:var(--copper-lt);pointer-events:none}
+
+/* ── Oscilloscope (live output waveform) ── */
+.scopewrap{flex:none;position:relative;height:56px;border:1px solid var(--line);border-radius:11px;overflow:hidden;background:linear-gradient(180deg,#0c0b09,#100f0c)}
+.scopewrap canvas{position:absolute;inset:0;width:100%;height:100%}
+.scopelbl{position:absolute;left:9px;top:5px;font-size:8px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);pointer-events:none}
+/* ── Scenes bar (filmstrip + morph), under the canvas ── */
+.scenesbar{flex:none;display:flex;flex-direction:column;gap:5px;border:1px solid var(--line);border-radius:11px;background:linear-gradient(180deg,#1b1813,#161310);padding:6px 9px 8px}
+.scenehd{display:flex;align-items:center;justify-content:space-between;font-size:9px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3)}
+.scenehd .pip{width:5px;height:5px;border-radius:50%;background:var(--copper);display:inline-block;margin-right:6px;vertical-align:middle}
+.filmstrip{display:flex;gap:5px;height:42px}
+.scell{flex:1;position:relative;border:1px solid var(--line);border-radius:7px;background:#141210;cursor:pointer;overflow:hidden;transition:border-color .12s,box-shadow .12s}
+.scell:hover{border-color:var(--ink3)}
+.scell.on{border-color:rgba(229,138,46,.6);box-shadow:0 0 0 1px rgba(229,138,46,.28),0 0 9px rgba(229,138,46,.22) inset}
+.scell.empty{border-style:dashed}
+.scell canvas{position:absolute;inset:0;width:100%;height:100%}
+.scell .sn{position:absolute;left:4px;top:2px;font-size:8px;font-weight:800;color:var(--ink3);z-index:2;pointer-events:none}
+.scell .cp{position:absolute;right:3px;top:1px;font-size:9px;color:var(--copper-lt);opacity:0;transition:opacity .12s;z-index:2;pointer-events:none}
+.scell:hover .cp{opacity:.85}
+.scell .plus{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--ink3);opacity:0;pointer-events:none}
+.scell.empty .plus{opacity:.4}
+.morphrow{display:flex;align-items:center;justify-content:center;gap:16px;min-height:60px}
+.morphval{font-size:8px;color:var(--copper-lt);flex:none;min-width:54px;text-align:right;letter-spacing:0}
+.mtoggle{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;flex:none}
+.mtoggle .mt{font-size:8px;font-weight:800;padding:3px 7px;cursor:pointer;color:var(--ink3);background:var(--raise);letter-spacing:.04em}
+.mtoggle .mt.on{color:var(--ember);background:rgba(229,138,46,.16)}
+.railsep{height:1px;background:var(--line);margin:8px 2px 6px}
+.gbtn{font-size:9px;font-weight:800;padding:6px 8px;border-radius:8px;cursor:pointer;border:1px solid var(--line);background:var(--raise);color:var(--ink2);text-transform:uppercase;text-align:center}
+.gbtn.rec.on{border-color:rgba(197,128,127,.7);background:rgba(197,128,127,.18);color:var(--rose);animation:blink 1s ease-in-out infinite}
+.gbtn.play.on{border-color:rgba(134,168,127,.6);background:rgba(134,168,127,.15);color:var(--sage)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.55}}
+.gframes{font-size:8px;color:var(--ink3);text-align:center}
+select{font-family:inherit;font-size:9px;background:var(--raise);color:var(--copper-lt);border:1px solid var(--line);border-radius:7px;padding:3px 4px;width:100%;cursor:pointer}
+.subh{font-size:8px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3);margin:4px 0 1px;text-align:center}
+
+.knob{position:relative;width:56px;text-align:center;flex:none}
+.knob.sm{width:48px}
+.dial{position:relative;width:44px;height:44px;margin:0 auto 3px;border-radius:50%;cursor:ns-resize;touch-action:none}
+.knob.sm .dial{width:38px;height:38px}
+.dial .arc{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 220deg, var(--col,var(--copper-lt)) 0 calc(var(--v,.5)*280deg), rgba(255,255,255,.05) calc(var(--v,.5)*280deg) 280deg, transparent 280deg);-webkit-mask:radial-gradient(circle,transparent 54%,#000 55%);mask:radial-gradient(circle,transparent 54%,#000 55%)}
+.dial .cap{position:absolute;inset:6px;border-radius:50%;background:radial-gradient(circle at 35% 28%,#6a6253,#272218);box-shadow:0 0 0 1px rgba(0,0,0,.55),0 2px 4px rgba(0,0,0,.5),0 1px 0 rgba(255,255,255,.05) inset}
+.dial .ptr{position:absolute;left:50%;top:6px;width:2px;height:9px;margin-left:-1px;background:var(--ember);transform-origin:50% 16px;border-radius:2px;box-shadow:0 0 5px rgba(229,138,46,.8)}
+.knob.sm .dial .ptr{transform-origin:50% 13px;height:8px}
+/* ── modulation viz (Serum-style): range arc + live moving dot, hugging the dial's outer edge ── */
+.dial .modarc{position:absolute;inset:-4px;border-radius:50%;pointer-events:none;opacity:0;transition:opacity .15s;
+  background:conic-gradient(from 220deg, transparent 0 calc(var(--mlo,0)*280deg),
+    var(--mcol,#6fb3c9) calc(var(--mlo,0)*280deg) calc(var(--mhi,0)*280deg),
+    transparent calc(var(--mhi,0)*280deg) 280deg);
+  -webkit-mask:radial-gradient(circle, transparent 0 87%, #000 88%, #000 97%, transparent 98%);
+  mask:radial-gradient(circle, transparent 0 87%, #000 88%, #000 97%, transparent 98%)}
+.dial .moddot{position:absolute;inset:-4px;border-radius:50%;pointer-events:none;opacity:0;
+  transition:opacity .15s, transform .05s linear;transform:rotate(calc(var(--mv,.5)*280deg - 140deg))}
+.dial .moddot::before{content:"";position:absolute;left:50%;top:-1px;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;
+  background:var(--mcol,#6fb3c9);box-shadow:0 0 6px 1px var(--mcol,#6fb3c9)}
+.dial.modon .modarc,.dial.modon .moddot{opacity:1}
+.knob .lbl{font-size:8.5px;font-weight:700;color:var(--ink);letter-spacing:.04em;line-height:1.1;white-space:nowrap}
+.knob .val{font-size:7.5px;color:var(--ink3);height:9px;margin-top:1px}
+/* per-knob arm LED */
+.led{position:absolute;top:0;right:4px;width:8px;height:8px;border-radius:50%;cursor:pointer;
+  background:#2a2620;border:1px solid rgba(0,0,0,.5);transition:all .12s}
+.led:hover{border-color:var(--ink3)}
+.led.on{background:var(--ember);box-shadow:0 0 8px 1px rgba(229,138,46,.85);border-color:var(--ember)}
+
+.rack{flex:none;border:1px solid var(--line);border-radius:12px;background:linear-gradient(180deg,#17140f,#141310);padding:7px 10px 9px}
+.rackhead{display:flex;align-items:center;gap:10px;margin-bottom:5px}
+.rackhead .t{font-size:9px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:var(--copper-lt)}
+.rackhead .hint{font-size:8px;color:var(--ink3)}
+.rackbody{display:flex;gap:10px;align-items:stretch}
+.lanes{flex:1;display:flex;flex-direction:column;gap:6px;min-width:0}
+.lane{display:flex;gap:7px;align-items:stretch;min-height:96px;border:1px dashed var(--line2);border-radius:10px;padding:4px;transition:border-color .15s, background .15s}
+.lane.over{border-color:var(--copper);background:rgba(198,113,43,.05)}
+.lane .lanelbl{flex:none;width:16px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;letter-spacing:.1em;color:var(--ink3);writing-mode:vertical-rl}
+.lane.a .lanelbl{color:var(--copper-lt)} .lane.b .lanelbl{color:var(--teal)}
+.lane.b{min-height:50px}
+.lane.b:not(.haz):after{content:"drag a module here to run it in parallel";align-self:center;font-size:8.5px;color:var(--ink3);opacity:.7;margin-left:8px}
+.card{flex:none;border:1px solid var(--line);border-radius:10px;padding:5px 7px 6px;background:linear-gradient(180deg,#1f1b15,#181510);cursor:grab;display:flex;flex-direction:column}
+.card.dragging{opacity:.35}
+.card h4{margin:0 0 3px;font-size:8.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--copper-lt);display:flex;align-items:center;gap:5px}
+.card h4 .grip{color:var(--ink3);font-size:10px;letter-spacing:-1px}
+.card .kn{display:flex;gap:2px;justify-content:center;flex:1}
+.card select{margin-top:2px}
+.noteread{font-size:15px;font-weight:700;color:var(--ember);text-align:center;line-height:1;text-shadow:0 0 10px rgba(229,138,46,.45);margin:1px 0 0}
+.notesub{font-size:7px;color:var(--ink3);text-align:center}
+.master{flex:none;width:120px;display:flex;flex-wrap:wrap;gap:4px;align-content:center;justify-content:center;border:1px solid var(--line);border-radius:10px;background:linear-gradient(180deg,#1d1a14,#171410);padding:6px 4px}
+.master .dis{opacity:.35;pointer-events:none}
+.foot{flex:none;display:flex;gap:14px;padding:0 4px;font-size:8px;color:var(--ink3)}
+.foot .preview{color:var(--rose)}
+
+/* ── MOTION view ── */
+.motionwrap{flex:1;display:grid;grid-template-columns:1fr 1.2fr;gap:12px;min-height:0}
+.mpanel{border:1px solid var(--line);border-radius:12px;background:linear-gradient(180deg,#1d1a14,#181510);padding:14px;display:flex;flex-direction:column;gap:12px;overflow:auto}
+.mpanel h3{margin:0;font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3)}
+.typegrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.typebtn{padding:14px 8px;border-radius:10px;cursor:pointer;text-align:center;border:1px solid var(--line);background:var(--raise);color:var(--ink2);font-weight:800;letter-spacing:.04em}
+.typebtn .d{font-size:8px;font-weight:400;color:var(--ink3);margin-top:3px;letter-spacing:0}
+.typebtn.on{border-color:rgba(229,138,46,.6);background:rgba(229,138,46,.14);color:var(--ember)}
+.seg{display:flex;gap:3px}
+.segb{flex:1;text-align:center;font-size:11px;font-weight:800;padding:7px 0;border-radius:7px;cursor:pointer;border:1px solid var(--line);background:var(--raise);color:var(--ink2)}
+.segb.on{border-color:rgba(229,138,46,.6);background:rgba(229,138,46,.16);color:var(--ember)}
+.row{display:flex;gap:14px;align-items:center}
+.row > div:first-child{font-size:9px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);width:60px}
+.bigbtn{padding:12px;border-radius:10px;cursor:pointer;text-align:center;font-weight:800;letter-spacing:.1em;border:1px solid var(--line);background:var(--raise);color:var(--ink2);text-transform:uppercase}
+.bigbtn.on{border-color:rgba(134,168,127,.6);background:rgba(134,168,127,.15);color:var(--sage)}
+.bigbtn.mut:hover{border-color:var(--copper-lt);color:var(--copper-lt)}
+.mviz{border:1px solid var(--line);border-radius:12px;background:#100f0c;position:relative;overflow:hidden}
+#mcurve{position:absolute;inset:0;width:100%;height:100%}
+.mvtag{position:absolute;left:10px;top:8px;font-size:9px;color:var(--ink3)}
+.arminfo{font-size:9px;color:var(--ink3);line-height:1.5}
+.arminfo b{color:var(--ember)}
+</style>
+</head>
+<body>
+  <div class="titlebar">
+    <span class="dot"></span><span class="logo">TENDRIL</span>
+    <div class="tabs">
+      <div class="tab on" data-view="synth">SYNTH</div>
+      <div class="tab" data-view="motion">MOTION</div>
+    </div>
+    <span class="ver mono" id="bridgeState">v0.5</span>
+  </div>
+
+  <!-- ════════════ SYNTH VIEW ════════════ -->
+  <div class="view" id="view-synth">
+    <div class="oscrow">
+      <div class="col">
+        <h3><span class="pip"></span>Amp Envelope</h3>
+        <div class="knobgrid" id="ampKnobs"></div>
+        <div class="arminfo" style="text-align:center;margin-top:3px">shapes each note · arm a knob's <span style="color:var(--ember)">●</span> so Stride evolves it over the phrase</div>
+        <div class="railsep"></div>
+        <div class="subh">Inter-harmonic rules</div>
+        <select id="rmodeSel" title="How neighboring harmonics respond while you draw"><option value="0">Spread — neighbors follow</option><option value="1">Odd/Even — parity follows</option><option value="2">Conserve — energy trade</option></select>
+        <div class="knobgrid" id="ruleKnobs"></div>
+      </div>
+      <div class="col center">
+        <h3><span class="pip"></span>Oscillator — Harmonic Canvas · 80 partials · draw the waveform itself</h3>
+        <div class="wtwrap" id="paintWrap"><canvas id="paint"></canvas>
+          <span class="wt-ov">this IS the oscillator: each bar = one harmonic you drew · glow = what's actually sounding (after position · macros)</span>
+          <span class="wt-ov2 mono" id="featRead"></span></div>
+        <div class="scopewrap"><canvas id="scope"></canvas><span class="scopelbl">output wave</span></div>
+        <div class="scenesbar">
+          <div class="scenehd"><span><span class="pip"></span>Wavetable</span><span class="morphval mono" id="morphRead">frame 1</span></div>
+          <div class="filmstrip" id="sceneStrip"></div>
+          <div class="morphrow">
+            <div id="morphHolder" title="Position — scan through your wavetable frames; land between two to blend them. Arm its ● for Stride to sweep it."></div>
+            <div class="mtoggle" id="morphMode" title="smooth glides between frames · step hard-switches at each frame"><span class="mt on" data-m="0">smooth</span><span class="mt" data-m="1">step</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <h3><span class="pip"></span>Macro Shapers</h3>
+        <div class="knobgrid" id="macroKnobs"></div>
+        <div class="subh">Voice</div>
+        <div class="knobgrid" id="voiceKnobs"></div>
+      </div>
+    </div>
+    <div class="rack">
+      <div class="rackhead"><span class="t">FX Rack</span><span class="hint">drag ⠿ to reorder · drop into Lane B to run it in parallel · Mingle scrambles the order · Resonate follows your last note</span></div>
+      <div class="rackbody">
+        <div class="lanes"><div class="lane a" id="laneA"><span class="lanelbl">LANE A</span></div><div class="lane b" id="laneB"><span class="lanelbl">LANE B</span></div></div>
+        <div class="master" id="master"></div>
+      </div>
+    </div>
+    <div class="foot"><span>TENDRIL · Patchbay</span><span>arm any knob's LED, open MOTION, hit play — the synth animates itself (Stride built in)</span><span class="preview" id="previewNote" style="display:none">browser preview — no audio engine</span></div>
+  </div>
+
+  <!-- ════════════ MOTION VIEW ════════════ -->
+  <div class="view" id="view-motion" style="display:none">
+    <div class="motionwrap">
+      <div class="mpanel">
+        <h3>Motion Engine</h3>
+        <div class="bigbtn" id="motionOn">Motion: OFF</div>
+        <h3>Generator</h3>
+        <div class="typegrid" id="typeGrid"></div>
+        <div class="row"><div>Length</div><div class="seg" id="segLength" style="flex:1"></div></div>
+        <div class="row"><div>Rate</div><div class="seg" id="segRate" style="flex:1"></div></div>
+        <div class="row"><div>Depth</div><div id="depthHolder"></div>
+          <div class="arminfo" style="flex:1">how far motion pushes each armed knob<br>(100% = full Stride-style injection)</div></div>
+        <div class="bigbtn mut" id="mutateBtn">⟳ Mutate — reroll all curves</div>
+        <div class="arminfo"><b id="armCount">0</b> params armed. Arm them with the little <span style="color:var(--ember)">●</span> light on each knob in the SYNTH tab.</div>
+      </div>
+      <div class="mpanel" style="padding:10px">
+        <h3>Motion Curve</h3>
+        <div class="mviz" style="flex:1"><canvas id="mcurve"></canvas><span class="mvtag mono" id="mvtag">Reflector</span></div>
+        <div class="arminfo">Each armed knob gets its own seeded variation of this shape — they move together in character, never in lockstep. Tempo-synced to your DAW; free-runs when stopped.</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+window.onerror=function(m,s,l){try{var e=document.getElementById('bridgeState');e.textContent='JS: '+m+' @'+l;e.style.color='#c5807f';}catch(_){}};
+const B=(window.__JUCE__&&window.__JUCE__.backend)||null;
+function emit(n,p){try{if(B)B.emitEvent(n,p);}catch(e){}}
+if(!B){document.getElementById('previewNote').style.display='inline';document.getElementById('bridgeState').textContent='preview';}
+
+const NOTE_NAMES=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const noteFromNorm=n=>{const s=Math.round(n*24);return NOTE_NAMES[s%12]+Math.floor(s/12);};
+const D={pct:n=>Math.round(n*100)+'%',rate:n=>(Math.pow(2,(n-0.5)*4)).toFixed(2)+'x',oct:n=>{const o=Math.round(n*4)-2;return(o>0?'+':'')+o+' oct';},note:n=>noteFromNorm(n),
+  scene:n=>{const p=n*4,a=Math.floor(p+1e-6),f=p-a;const t=(f<0.02||a>=4)?('frame '+Math.min(5,a+1)):((a+1)+' ▸ '+(a+2)+' · '+Math.round(f*100)+'%');const hr=document.getElementById('morphRead');if(hr)hr.textContent=t;return'';}};
+
+const KNOBS={
+  amp:[{id:'amp_attack',l:'Attack',sm:1},{id:'amp_decay',l:'Decay',sm:1},{id:'amp_sustain',l:'Sustain',sm:1},{id:'amp_release',l:'Release',sm:1}],
+  rule:[{id:'rules_amt',l:'Amount',sm:1}],
+  macro:[{id:'tilt',l:'Tilt',c:'--copper-lt',sm:1},{id:'spread',l:'Spread',c:'--teal',sm:1},{id:'skew',l:'Skew',c:'--sage',sm:1},{id:'density',l:'Density',c:'--violet',sm:1},{id:'comb',l:'Comb',c:'--rose',sm:1}],
+  voice:[{id:'a_level',l:'Level',sm:1},{id:'glide',l:'Glide',sm:1},{id:'sub_lvl',l:'Sub',sm:1},{id:'fold_amt',l:'Fold',sm:1},{id:'warp',l:'Warp',sm:1}],
+  master:[{id:'fx_order',l:'Mingle',c:'--rose'},{id:'fx_blend',l:'Blend',c:'--teal',blend:1},{id:'output',l:'Output',c:'--ember'}],
+};
+const CARDS=[
+  {mod:'filter',title:'Filter',knobs:[{id:'cutoff',l:'Cutoff'},{id:'reso',l:'Reso'},{id:'filter_char',l:'Char',sm:1}],select:{id:'ftype',opts:['LP24','LP12','HP','BP','Notch','Peak']}},
+  {mod:'drive',title:'Drive',knobs:[{id:'fx_drive',l:'Drive'},{id:'fx_drivechar',l:'Char',sm:1}],select:{id:'dtype',opts:['Tube','Tape','Diode','Wavefold','Foldback','HardClip','Sine','Asym','Grit']}},
+  {mod:'crush',title:'Crush',knobs:[{id:'fx_crush',l:'Crush'}]},
+  {mod:'reson',title:'Resonate',knobs:[{id:'fx_reson',l:'Amount'},{id:'fx_resontune',l:'Tune',sm:1}]},
+  {mod:'delay',title:'Note Delay',note:1,knobs:[{id:'delay_note',l:'Note',disp:'note',c:'--ember'},{id:'fx_motionfb',l:'Feedb',sm:1},{id:'delay_mix',l:'Mix',sm:1}]},
+  {mod:'space',title:'Space',knobs:[{id:'fx_spacesize',l:'Size'},{id:'fx_spacemix',l:'Mix',sm:1}]},
+];
+
+const state={},ctrls={},defs={},armed=new Set(),ledEls={},modEls={};
+let suppressSend=false;
+
+function setArmCount(){const e=document.getElementById('armCount');if(e)e.textContent=armed.size;}
+function setLed(id,on){const el=ledEls[id];if(el)el.classList.toggle('on',on);}
+
+function mkKnob(cfg){
+  const w=document.createElement('div');w.className='knob'+(cfg.sm?' sm':'');
+  w.innerHTML=`<div class="dial"${cfg.c?` style="--col:var(${cfg.c})"`:''}><div class="modarc"></div><div class="arc"></div><div class="cap"></div><div class="ptr"></div><div class="moddot"></div></div><div class="lbl">${cfg.l}</div><div class="val mono"></div>`;
+  const dial=w.querySelector('.dial'),ptr=w.querySelector('.ptr'),val=w.querySelector('.val');
+  if(cfg.id){const _b=cfg.id.split('@')[0];(modEls[_b]||(modEls[_b]=[])).push({dial,id:cfg.id});}   // motion-viz target (keyed by base id, tagged with full id)
+  const disp=D[cfg.disp||'pct'];
+  function render(){const n=state[cfg.id]??0;dial.style.setProperty('--v',n);ptr.style.transform=`rotate(${n*280-140}deg)`;val.textContent=disp(n);
+    if(cfg.disp==='note'&&ctrls[cfg.id]?.noteEl)ctrls[cfg.id].noteEl.textContent=noteFromNorm(n);}
+  ctrls[cfg.id]={set(n){state[cfg.id]=n;render();}};
+  let dr=false,sy=0,sn=0;
+  dial.addEventListener('pointerdown',e=>{dr=true;sy=e.clientY;sn=state[cfg.id]??0.5;dial.setPointerCapture(e.pointerId);emit('paramChanged',{id:cfg.id,value:sn,phase:'begin'});e.preventDefault();});
+  dial.addEventListener('pointermove',e=>{if(!dr)return;let n=Math.min(1,Math.max(0,sn+(sy-e.clientY)/180));if(cfg.disp==='note')n=Math.round(n*24)/24;if(cfg.quant)n=cfg.quant(n);state[cfg.id]=n;render();if(!suppressSend)emit('paramChanged',{id:cfg.id,value:n,phase:'move'});});
+  dial.addEventListener('pointerup',()=>{if(!dr)return;dr=false;emit('paramChanged',{id:cfg.id,value:state[cfg.id]??0.5,phase:'end'});});
+  dial.addEventListener('dblclick',()=>{const n=defs[cfg.id]??0.5;state[cfg.id]=n;render();emit('paramChanged',{id:cfg.id,value:n,phase:'begin'});emit('paramChanged',{id:cfg.id,value:n,phase:'end'});});
+  if(cfg.id&&!cfg.noLed){
+    const led=document.createElement('div');led.className='led';led.title='arm '+cfg.l+' for Motion';
+    led.addEventListener('click',e=>{e.stopPropagation();const on=!armed.has(cfg.id);if(on)armed.add(cfg.id);else armed.delete(cfg.id);led.classList.toggle('on',on);setArmCount();emit('modToggle',{id:cfg.id,on});});
+    ledEls[cfg.id]=led;w.appendChild(led);
+  }
+  render();return w;
+}
+
+for(const c of KNOBS.amp)document.getElementById('ampKnobs').appendChild(mkKnob(c));
+for(const c of KNOBS.rule)document.getElementById('ruleKnobs').appendChild(mkKnob(c));
+for(const c of KNOBS.macro)document.getElementById('macroKnobs').appendChild(mkKnob(c));
+for(const c of KNOBS.voice)document.getElementById('voiceKnobs').appendChild(mkKnob(c));
+{const m=document.getElementById('master');for(const c of KNOBS.master){const k=mkKnob(c);if(c.blend)k.id='blendKnob';m.appendChild(k);}}
+
+document.getElementById('rmodeSel').addEventListener('change',e=>{const n=(+e.target.value)/2;emit('paramChanged',{id:'rmode',value:n,phase:'begin'});emit('paramChanged',{id:'rmode',value:n,phase:'end'});});
+ctrls['rmode']={set(n){document.getElementById('rmodeSel').value=Math.round(n*2);}};
+
+/* ── Scenes: filmstrip + Morph axis ── */
+const N=5;let activeScene=0,sceneCache=new Array(N).fill(null);
+const strip=document.getElementById('sceneStrip');
+const thumbCanvases=[],thumbCtxs=[],cellEls=[];
+function scArrFor(i){return i===activeScene?sceneArr:sceneCache[i];}
+for(let i=0;i<N;i++){
+  const cell=document.createElement('div');cell.className='scell empty';cell.title='click: edit scene '+(i+1)+' · shift-click: copy current scene here';
+  const tcv=document.createElement('canvas');cell.appendChild(tcv);
+  const sn=document.createElement('span');sn.className='sn';sn.textContent=i+1;cell.appendChild(sn);
+  const cp=document.createElement('span');cp.className='cp';cp.textContent='⧉';cell.appendChild(cp);
+  const pl=document.createElement('span');pl.className='plus';pl.textContent='+';cell.appendChild(pl);
+  cell.addEventListener('click',e=>{if(e.shiftKey){const cur=scArrFor(activeScene);sceneCache[i]=cur?cur.slice():new Array(NP).fill(0);emit('scene',{op:'copy',i});}else selectScene(i);});
+  strip.appendChild(cell);cellEls.push(cell);thumbCanvases.push(tcv);thumbCtxs.push(tcv.getContext('2d'));
+}
+function selectScene(i){if(i===activeScene)return;const cur=scArrFor(activeScene);if(cur)sceneCache[activeScene]=cur.slice();activeScene=i;renderStripSel();emit('scene',{op:'select',i});}
+function renderStripSel(){cellEls.forEach((c,i)=>c.classList.toggle('on',i===activeScene));}
+function fitThumbs(){for(let i=0;i<N;i++){const c=thumbCanvases[i];const r=c.getBoundingClientRect();c.width=Math.max(1,r.width|0);c.height=Math.max(1,r.height|0);}}
+new ResizeObserver(fitThumbs).observe(strip);renderStripSel();
+function drawStrip(){
+  for(let i=0;i<N;i++){const c2=thumbCtxs[i],c=thumbCanvases[i];if(!c2)continue;const W=c.width,H=c.height;if(!(W>0&&H>0))continue;
+    const arr=scArrFor(i);const filled=!!(arr&&arr.length&&arr.some(v=>v>0.002));
+    cellEls[i].classList.toggle('empty',!filled);
+    c2.clearRect(0,0,W,H);if(!filled)continue;
+    const bw=W/NP;c2.fillStyle=i===activeScene?'rgba(229,138,46,.62)':'rgba(198,113,43,.34)';
+    for(let k=0;k<NP;k++){const h=(arr[k]||0)*(H-1);if(h>0.4)c2.fillRect(k*bw,H-h,Math.max(0.7,bw-0.4),h);}
+  }
+}
+/* Morph knob — drives scene_morph (continuous, Stride-automatable). Step snaps to a scene. */
+let morphStep=false;
+document.getElementById('morphHolder').appendChild(mkKnob({id:'scene_morph',l:'Position',c:'--ember',disp:'scene',quant:n=>morphStep?Math.round(n*(N-1))/(N-1):n}));
+function setMorphMode(step,emitIt){morphStep=step;document.querySelectorAll('#morphMode .mt').forEach(x=>x.classList.toggle('on',(x.dataset.m==='1')===step));
+  if(step&&ctrls['scene_morph']){const n=Math.round((state['scene_morph']??0)*(N-1))/(N-1);state['scene_morph']=n;ctrls['scene_morph'].set(n);if(emitIt){emit('paramChanged',{id:'scene_morph',value:n,phase:'begin'});emit('paramChanged',{id:'scene_morph',value:n,phase:'end'});}}
+  if(emitIt){emit('paramChanged',{id:'scene_morph_mode',value:step?1:0,phase:'begin'});emit('paramChanged',{id:'scene_morph_mode',value:step?1:0,phase:'end'});}}
+document.querySelectorAll('#morphMode .mt').forEach(el=>el.addEventListener('click',()=>setMorphMode(el.dataset.m==='1',true)));
+ctrls['scene_morph_mode']={set(n){setMorphMode(n>0.5,false);}};
+
+/* ── FX cards + routing: the 6 modules, each used once · drag ⠿ to reorder or move to lane B (parallel) ── */
+const laneA=document.getElementById('laneA'),laneB=document.getElementById('laneB');
+function mkCard(c){
+  const el=document.createElement('div');el.className='card';el.draggable=true;el.dataset.mod=c.mod;
+  el.innerHTML=`<h4><span class="grip">⠿</span>${c.title}</h4>`;
+  if(c.note){const nr=document.createElement('div');nr.className='noteread mono';nr.textContent='C1';const ns=document.createElement('div');ns.className='notesub';ns.textContent='delay tuned to note';el.appendChild(nr);el.appendChild(ns);setTimeout(()=>{if(ctrls['delay_note'])ctrls['delay_note'].noteEl=nr;},0);}
+  const kn=document.createElement('div');kn.className='kn';for(const k of c.knobs)kn.appendChild(mkKnob(k));el.appendChild(kn);
+  if(c.select){const s=document.createElement('select');c.select.opts.forEach((o,i)=>{const op=document.createElement('option');op.value=i;op.textContent=o;s.appendChild(op);});
+    s.addEventListener('pointerdown',ev=>ev.stopPropagation());
+    s.addEventListener('change',()=>{const n=c.select.opts.length>1?(+s.value)/(c.select.opts.length-1):0;emit('paramChanged',{id:c.select.id,value:n,phase:'begin'});emit('paramChanged',{id:c.select.id,value:n,phase:'end'});});
+    ctrls[c.select.id]={set(n){s.value=Math.round(n*(c.select.opts.length-1));}};el.appendChild(s);}
+  el.addEventListener('dragstart',e=>{el.classList.add('dragging');e.dataTransfer.setData('text/plain',c.mod);});
+  el.addEventListener('dragend',()=>el.classList.remove('dragging'));return el;
+}
+const cardEls={};for(const c of CARDS)cardEls[c.mod]=mkCard(c);
+for(const lane of[laneA,laneB]){
+  lane.addEventListener('dragover',e=>{e.preventDefault();lane.classList.add('over');const d=document.querySelector('.card.dragging');if(!d)return;
+    const after=[...lane.querySelectorAll('.card:not(.dragging)')].find(c=>e.clientX<c.getBoundingClientRect().left+c.offsetWidth/2);if(after)lane.insertBefore(d,after);else lane.appendChild(d);});
+  lane.addEventListener('dragleave',()=>lane.classList.remove('over'));
+  lane.addEventListener('drop',e=>{e.preventDefault();lane.classList.remove('over');sendRouting();});
+}
+function laneMods(l){return[...l.querySelectorAll('.card')].map(c=>c.dataset.mod);}   // engine wants string names
+function sendRouting(){updateLaneHints();emit('routingChanged',{a:laneMods(laneA),b:laneMods(laneB)});}
+function applyRouting(r){const a=(r&&r.a)||['filter','drive','crush','reson','delay','space'];const b=(r&&r.b)||[];for(const m of a)if(cardEls[m])laneA.appendChild(cardEls[m]);for(const m of b)if(cardEls[m])laneB.appendChild(cardEls[m]);updateLaneHints();}
+function updateLaneHints(){const hasB=laneB.querySelectorAll('.card').length>0;laneB.classList.toggle('haz',hasB);const bl=document.getElementById('blendKnob');if(bl)bl.classList.toggle('dis',!hasB);}
+applyRouting(null);
+applyRouting(null);
+
+/* ── MOTION controls ── */
+let motionOn=false,motionType=0;
+const onBtn=document.getElementById('motionOn');
+onBtn.addEventListener('click',()=>{motionOn=!motionOn;updMotionOn();emit('paramChanged',{id:'motion_on',value:motionOn?1:0,phase:'begin'});emit('paramChanged',{id:'motion_on',value:motionOn?1:0,phase:'end'});});
+function updMotionOn(){onBtn.textContent='Motion: '+(motionOn?'ON':'OFF');onBtn.classList.toggle('on',motionOn);}
+ctrls['motion_on']={set(n){motionOn=n>0.5;updMotionOn();}};
+
+const TYPES=[['Reflector','symmetric, mirrored'],['S&H','stepped random'],['Neuro','aggressive, gridded'],['Chaos','smooth wander']];
+const tg=document.getElementById('typeGrid');
+TYPES.forEach((t,i)=>{const b=document.createElement('div');b.className='typebtn';b.innerHTML=t[0]+'<div class="d">'+t[1]+'</div>';
+  b.addEventListener('click',()=>{motionType=i;updType();const n=i/3;emit('paramChanged',{id:'motion_type',value:n,phase:'begin'});emit('paramChanged',{id:'motion_type',value:n,phase:'end'});});tg.appendChild(b);});
+function updType(){[...tg.children].forEach((b,i)=>b.classList.toggle('on',i===motionType));document.getElementById('mvtag').textContent=TYPES[motionType][0];}
+ctrls['motion_type']={set(n){motionType=Math.round(n*3);updType();}};updType();
+
+function mkSeg(host,opts,id){const w=document.getElementById(host);opts.forEach((o,i)=>{const b=document.createElement('div');b.className='segb';b.textContent=o;
+  b.addEventListener('click',()=>{const n=opts.length>1?i/(opts.length-1):0;[...w.children].forEach((x,j)=>x.classList.toggle('on',j===i));emit('paramChanged',{id,value:n,phase:'begin'});emit('paramChanged',{id,value:n,phase:'end'});});w.appendChild(b);});
+  ctrls[id]={set(n){const i=Math.round(n*(opts.length-1));[...w.children].forEach((x,j)=>x.classList.toggle('on',j===i));}};}
+mkSeg('segLength',['4','8','16','32'],'motion_length');
+mkSeg('segRate',['0.5X','1X','2X'],'motion_rate');
+document.getElementById('depthHolder').appendChild(mkKnob({id:'motion_depth',l:'Depth',c:'--ember',noLed:1}));
+document.getElementById('mutateBtn').addEventListener('click',()=>emit('motionMutate',{}));
+
+/* tabs */
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t));
+  const v=t.dataset.view;document.getElementById('view-synth').style.display=v==='synth'?'flex':'none';document.getElementById('view-motion').style.display=v==='motion'?'flex':'none';
+}));
+
+/* ── bridge inbound ── */
+function onInit(d){
+  suppressSend=true;
+  const ps=d.params||{};for(const id in ps){defs[id]=defs[id]??ps[id];if(ctrls[id])ctrls[id].set(ps[id]);else state[id]=ps[id];}
+  try{applyRouting(JSON.parse(d.routing||'null'));}catch(e){applyRouting(null);}
+  armed.clear();(d.armed||[]).forEach(id=>{armed.add(id);setLed(id,true);});setArmCount();
+  suppressSend=false;document.getElementById('bridgeState').textContent='engine linked';
+}
+function onParams(d){suppressSend=true;for(const id in d){if(ctrls[id])ctrls[id].set(d[id]);else state[id]=d[id];}suppressSend=false;}
+
+const NP=80;let sceneArr=new Array(NP).fill(0),masterArr=new Array(NP).fill(0),scopeWave=null;
+function onSpectrum(d){
+  if(typeof d.active==='number'&&d.active!==activeScene){const cur=scArrFor(activeScene);if(cur)sceneCache[activeScene]=cur.slice();activeScene=d.active;renderStripSel();}
+  if(Array.isArray(d.scene)){sceneArr=d.scene;sceneCache[activeScene]=d.scene;}
+  if(Array.isArray(d.master))masterArr=d.master;
+  scopeWave=Array.isArray(d.wave)?d.wave:null;
+  if(Array.isArray(d.scenes)){for(let i=0;i<N;i++)if(Array.isArray(d.scenes[i]))sceneCache[i]=d.scenes[i];}
+  document.getElementById('featRead').textContent='brightness '+((d.centroid||0)*100|0)+'%';
+}
+/* motion viz — paint each armed knob's modulation range + live moving dot (base pointer stays put) */
+function onModViz(d){
+  const m=Array.isArray(d&&d.m)?d.m:[];const live={};
+  for(const it of m)live[it.id]=it;
+  // show the moving range ONLY on knobs the user has armed (LED on); everything else clears
+  for(const base in modEls)for(const e of modEls[base]){
+    const it=live[base];
+    if(it&&armed.has(e.id)){
+      e.dial.style.setProperty('--mlo',it.lo);e.dial.style.setProperty('--mhi',it.hi);e.dial.style.setProperty('--mv',it.v);
+      e.dial.classList.add('modon');
+    }else e.dial.classList.remove('modon');
+  }
+}
+if(B){B.addEventListener('init',onInit);B.addEventListener('params',onParams);B.addEventListener('spectrum',onSpectrum);B.addEventListener('modviz',onModViz);}
+window.addEventListener('load',()=>emit('uiReady',{}));setTimeout(()=>emit('uiReady',{}),400);
+
+/* paint */
+const wrap=document.getElementById('paintWrap'),cv=document.getElementById('paint'),ctx=cv.getContext('2d');
+function fit(){const r=cv.getBoundingClientRect();cv.width=r.width;cv.height=r.height;}new ResizeObserver(fit).observe(cv);fit();
+let painting=false;
+function paintAt(e){const r=cv.getBoundingClientRect();const x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;const k=Math.min(NP-1,Math.max(0,Math.floor(x*NP)));const v=Math.min(1,Math.max(0,1-y));sceneArr[k]=v;emit('paint',{k,v});}
+wrap.addEventListener('pointerdown',e=>{painting=true;wrap.setPointerCapture(e.pointerId);paintAt(e);});
+wrap.addEventListener('pointermove',e=>{if(painting)paintAt(e);});
+wrap.addEventListener('pointerup',()=>painting=false);
+
+/* ── Oscilloscope — live output waveform (engine samples if sent, else reconstructed from the sounding harmonics) ── */
+const sc=document.getElementById('scope'),scx=sc.getContext('2d');
+function scfit(){const r=sc.getBoundingClientRect();sc.width=Math.max(1,r.width|0);sc.height=Math.max(1,r.height|0);}new ResizeObserver(scfit).observe(sc);scfit();
+const SC_CYC=2;let scopeTick=0;
+function scopeSpec(){let e=0;for(let k=0;k<NP;k++)e+=masterArr[k]||0;return e>0.002?masterArr:sceneArr;} // post-FX master if engine is feeding it, else the drawn scene
+function drawScope(){const W=sc.width,H=sc.height;if(!(W>0&&H>0))return;scx.clearRect(0,0,W,H);
+  scx.strokeStyle='rgba(216,201,176,.06)';scx.lineWidth=1;scx.beginPath();scx.moveTo(0,(H/2|0)+0.5);scx.lineTo(W,(H/2|0)+0.5);scx.stroke();
+  for(let i=1;i<SC_CYC;i++){const x=(i/SC_CYC*W)|0;scx.beginPath();scx.moveTo(x+0.5,0);scx.lineTo(x+0.5,H);scx.stroke();}
+  const NS=Math.max(2,Math.min(W,360));const pts=new Float32Array(NS);let max=0;
+  if(scopeWave&&scopeWave.length>1){const L=scopeWave.length;for(let i=0;i<NS;i++){const v=scopeWave[(i/NS*L)|0]||0;pts[i]=v;const a=Math.abs(v);if(a>max)max=a;}}
+  else{const spec=scopeSpec();for(let i=0;i<NS;i++){const t=i/NS*SC_CYC;let s=0;for(let k=0;k<NP;k++){const a=spec[k]||0;if(a>0.0025)s+=a*Math.sin(6.283185307*(k+1)*t);}pts[i]=s;const as=Math.abs(s);if(as>max)max=as;}}
+  if(max<1e-4)return; // silence → just the center line
+  const amp=(H*0.42)/max,dx=W/(NS-1);
+  scx.beginPath();for(let i=0;i<NS;i++){const y=H/2-pts[i]*amp;i===0?scx.moveTo(0,y):scx.lineTo(i*dx,y);}
+  scx.strokeStyle='rgba(221,154,82,.95)';scx.lineWidth=1.6;scx.shadowColor='rgba(229,138,46,.5)';scx.shadowBlur=7;scx.stroke();scx.shadowBlur=0;}
+
+(function draw(){const W=cv.width,H=cv.height;if(W>0&&H>0){ctx.clearRect(0,0,W,H);const bw=W/NP;
+  ctx.fillStyle='rgba(216,201,176,.04)';for(let k=10;k<NP;k+=10)ctx.fillRect(k*bw,0,1,H);
+  for(let k=0;k<NP;k++){const h=(sceneArr[k]||0)*(H-6);ctx.fillStyle='rgba(198,113,43,.34)';ctx.fillRect(k*bw+1,H-h,bw-2,h);}
+  ctx.beginPath();for(let k=0;k<NP;k++){const v=Math.min(1,(masterArr[k]||0)*1.8);const x=k*bw+bw/2,y=H-v*(H-6);k===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
+  ctx.strokeStyle='rgba(229,138,46,.95)';ctx.lineWidth=1.6;ctx.shadowColor='rgba(229,138,46,.6)';ctx.shadowBlur=8;ctx.stroke();ctx.shadowBlur=0;}
+  drawStrip();if((scopeTick++&1)===0)drawScope();
+  requestAnimationFrame(draw);})();
+
+/* motion curve preview (client-side approximation, just for feel) */
+const mc=document.getElementById('mcurve'),mctx=mc.getContext('2d');
+function mfit(){const r=mc.getBoundingClientRect();mc.width=r.width;mc.height=r.height;}new ResizeObserver(mfit).observe(mc);mfit();
+let mt=0;
+function curveVal(type,x){ // x 0..1
+  if(type===0){const t=x<0.5?x*2:(1-x)*2;return 0.5+0.4*Math.sin(t*6.28*1.5);} // reflector (mirrored)
+  if(type===1){return 0.5+0.42*(Math.sin(Math.floor(x*16)*12.9)%1);} // S&H (stepped)
+  if(type===2){const s=Math.floor(x*24);const f=x*24-s;return (0.5+0.4*(Math.sin(s*7.1)%1))*Math.exp(-f*3.2);} // neuro
+  return 0.5+0.35*Math.sin(x*6.28*1.3)+0.12*Math.sin(x*6.28*5.7); // chaos
+}
+(function mdraw(){const W=mc.width,H=mc.height;if(W>0&&H>0){mctx.clearRect(0,0,W,H);
+  mctx.beginPath();for(let i=0;i<=W;i++){const x=i/W;let v=curveVal(motionType,x);v=Math.max(0,Math.min(1,v));const y=H-8-v*(H-16);i===0?mctx.moveTo(i,y):mctx.lineTo(i,y);}
+  mctx.strokeStyle='rgba(229,138,46,.9)';mctx.lineWidth=2;mctx.shadowColor='rgba(229,138,46,.5)';mctx.shadowBlur=8;mctx.stroke();mctx.shadowBlur=0;
+  const px=(mt%1)*W;mctx.strokeStyle='rgba(94,154,173,.7)';mctx.lineWidth=1;mctx.beginPath();mctx.moveTo(px,0);mctx.lineTo(px,H);mctx.stroke();}
+  if(motionOn)mt+=0.004;requestAnimationFrame(mdraw);})();
+</script>
+</body>
+</html>

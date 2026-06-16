@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STRIDE — UI Mockup (1:1 · designer handoff)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  body { font-family:'Outfit',sans-serif; background:#050507; color:#e4e4e7; margin:0; }
+  .text-gradient { background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-image:linear-gradient(to right,#f97316,#ef4444); }
+  ::-webkit-scrollbar { width:10px; height:10px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:#3f3f46; border-radius:10px; border:2px solid transparent; background-clip:padding-box; }
+  .custom-scroll::-webkit-scrollbar { height:8px; }
+  /* travelling LED ring on the freshest generation card — copied 1:1 from the app */
+  @property --gen-led-angle { syntax:'<angle>'; initial-value:0deg; inherits:false; }
+  @keyframes gen-led-spin { to { --gen-led-angle:360deg; } }
+  .gen-card-led { position:relative; }
+  .gen-card-led::before {
+    content:''; position:absolute; inset:-1.5px; border-radius:0.5rem; padding:1.5px;
+    background:conic-gradient(from var(--gen-led-angle,0deg), transparent 270deg, #facc15 320deg, #a3e635 350deg, transparent 360deg);
+    -webkit-mask:linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude;
+    animation:gen-led-spin 2.2s linear infinite; pointer-events:none;
+    filter:drop-shadow(0 0 4px rgba(163,230,53,.5)); z-index:5;
+  }
+  /* designer callouts — toggled via the button up top */
+  .annot { position:relative; }
+  body.show-notes .annot { outline:1px dashed rgba(56,189,248,.5); outline-offset:-1px; }
+  body.show-notes .annot::after {
+    content:attr(data-note); position:absolute; top:0; left:0; transform:translateY(-100%);
+    background:#0ea5e9; color:#001018; font-size:9px; font-weight:900; letter-spacing:.04em;
+    padding:2px 6px; border-radius:0 4px 0 0; white-space:nowrap; z-index:80; box-shadow:0 4px 14px rgba(0,0,0,.5); }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- =========================================================================
+     STRIDE — 1:1 STATIC MOCKUP for designer handoff.
+     Markup, classes, sizes, labels, icons and colors copied verbatim from the
+     shipping app (stride-vst/app/renderer/index.html + canvas.js, v1.2.x).
+     Nothing is wired up. The canvas drawing surface is a real <canvas> in the
+     app rendered by JS; here it's faithfully re-created with SVG curves.
+     Toggle the blue design callouts with the button, top-right.
+     ========================================================================= -->
+
+<div class="px-5 py-6" style="min-width:1500px">
+
+  <div class="flex items-end justify-between mb-4 max-w-[1460px] mx-auto">
+    <div>
+      <div class="text-[10px] uppercase tracking-[0.3em] text-zinc-600 font-bold">Designer handoff · 1:1 static mockup · STRIDE v1.2.x</div>
+      <h1 class="text-2xl font-black mt-1"><span class="text-gradient">STRIDE</span> <span class="text-zinc-500 font-light">— Sound Design Engine UI</span></h1>
+    </div>
+    <button onclick="document.body.classList.toggle('show-notes')"
+      class="text-[10px] uppercase tracking-widest font-black text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 px-3 py-2 rounded-lg">
+      Toggle design notes
+    </button>
+  </div>
+
+  <!-- =====================================================================
+       THE APP WINDOW — 1460 × 760, the real proportions on a wide display
+       ===================================================================== -->
+  <div class="max-w-[1460px] mx-auto rounded-xl overflow-hidden border border-white/10 shadow-2xl flex flex-col" style="background:#09090b; height:760px">
+
+    <!-- ============ TITLE BAR (h-9 / 36px, drag region) ============ -->
+    <div class="h-9 bg-zinc-950 border-b border-white/5 flex items-center pl-4 pr-4 shrink-0 annot" data-note="Titlebar · 36px · drag region">
+      <span class="text-[11px] font-black tracking-[0.3em] uppercase text-gradient">STRIDE</span>
+      <!-- Patterns library entry, next to the brand -->
+      <button class="ml-6 flex items-center gap-1.5 text-[9px] text-zinc-500 hover:text-orange-400 uppercase font-bold tracking-widest">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19a3 3 0 11-6 0 3 3 0 016 0zm12-3a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <span>Patterns</span>
+      </button>
+      <div class="flex-1"></div>
+      <!-- Connection status pill (shown here in CONNECTED state) -->
+      <button class="flex items-center gap-2 mr-4 px-2.5 py-1 rounded-md hover:bg-white/5 annot" data-note="WS link → Ableton (live status)">
+        <div class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,.85)]"></div>
+        <span class="text-[10px] text-emerald-300 uppercase font-bold tracking-widest">Connected</span>
+      </button>
+      <button class="text-zinc-500 hover:text-orange-400 mr-3" title="Toggle sidebar"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <button class="text-[9px] text-zinc-500 hover:text-orange-400 uppercase font-bold tracking-widest mr-3">Guide</button>
+      <button class="text-[9px] text-zinc-500 hover:text-orange-400 uppercase font-bold tracking-widest mr-3">Install to Ableton</button>
+      <button class="text-zinc-500 hover:text-orange-400 mr-1" title="Open Stride folder"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg></button>
+    </div>
+
+    <!-- ============ MAIN LAYOUT (sidebar + canvas column) ============ -->
+    <div class="flex-1 flex overflow-hidden">
+
+      <!-- ====== LEFT SIDEBAR · w-56 / 224px ====== -->
+      <div class="w-56 border-r border-white/10 bg-zinc-900/50 flex flex-col shrink-0 annot" data-note="Sidebar · 224px">
+        <!-- Rack info -->
+        <div class="p-3 border-b border-white/5">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-[9px] font-black text-zinc-500 uppercase tracking-[0.2em]">Parameters</h3>
+            <span class="text-[8px] text-zinc-600 font-bold">6 mapped</span>
+          </div>
+          <div>
+            <p class="text-[10px] text-fuchsia-400/70 font-bold truncate">Operator — Growl Bass</p>
+            <p class="text-[8px] text-zinc-600 font-bold uppercase tracking-widest mt-0.5">Track 3 · MIDI</p>
+            <div class="mt-1.5 text-[8px] text-emerald-400/80 font-bold uppercase tracking-wider">● Template matched</div>
+          </div>
+        </div>
+        <!-- Actions -->
+        <div class="p-2 border-b border-white/5 flex flex-col gap-1.5 annot" data-note="Primary actions · color = meaning">
+          <button class="w-full text-[9px] text-fuchsia-400 bg-fuchsia-500/10 hover:bg-fuchsia-500/20 border border-fuchsia-500/20 hover:border-fuchsia-500/40 py-1.5 rounded-lg uppercase tracking-widest font-black">Scan Mapped</button>
+          <input value="Growl Bass A" class="w-full text-[9px] text-zinc-300 bg-zinc-800/50 border border-white/5 focus:border-emerald-500/40 rounded-lg px-2 py-1.5 outline-none font-medium" placeholder="Clip name (optional)">
+          <!-- armed pattern chip (visible only when a library pattern is picked) -->
+          <div class="w-full text-[9px] bg-orange-500/10 border border-orange-500/30 rounded-lg px-2 py-1.5 flex items-center gap-1.5">
+            <svg class="w-3 h-3 text-orange-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19a3 3 0 11-6 0 3 3 0 016 0zm12-3a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span class="text-orange-300 font-bold uppercase tracking-wider truncate min-w-0 flex-1">Reese Roller</span>
+            <button class="text-orange-400/70 hover:text-orange-300 shrink-0 text-sm leading-none px-1">×</button>
+          </div>
+          <button class="w-full text-[9px] text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 py-1.5 rounded-lg uppercase tracking-widest font-black">Apply to Clip</button>
+          <button class="w-full mt-1 text-[8px] text-sky-300/90 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 hover:border-sky-500/40 py-1.5 rounded-lg uppercase tracking-widest font-black">⚡ Direct Inject (beta)</button>
+          <div class="flex gap-1.5 mt-1">
+            <button class="flex-1 text-[9px] text-sky-400/80 bg-sky-500/5 hover:bg-sky-500/15 border border-sky-500/10 py-1 rounded-lg uppercase tracking-widest font-bold">Save Session</button>
+            <button class="flex-1 text-[9px] text-sky-400/80 bg-sky-500/5 hover:bg-sky-500/15 border border-sky-500/10 py-1 rounded-lg uppercase tracking-widest font-bold">Load</button>
+          </div>
+        </div>
+        <!-- Context panel: GENERATIVE grid + EDIT sliders -->
+        <div class="flex-1 overflow-hidden p-2 flex flex-col gap-3">
+          <!-- GENERATIVE (rendered by canvas.js) -->
+          <div class="annot" data-note="Generative engines · act on all unlocked lanes">
+            <div class="text-[8px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-1.5 px-1">Generative</div>
+            <div class="grid grid-cols-2 gap-1.5">
+              <button class="text-[9px] text-fuchsia-400 hover:text-white bg-transparent hover:bg-fuchsia-500/10 border border-fuchsia-500/50 px-2 py-1.5 rounded uppercase tracking-wider font-black flex items-center justify-center gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>Neuro</button>
+              <button class="text-[9px] text-cyan-400 hover:text-white bg-transparent hover:bg-cyan-500/10 border border-cyan-500/50 px-2 py-1.5 rounded uppercase tracking-wider font-black flex items-center justify-center gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12 Q6 6 9 12 T15 12 T21 12"/></svg>Chaos</button>
+              <button class="text-[9px] text-amber-400 hover:text-white bg-transparent hover:bg-amber-500/10 border border-amber-500/50 px-2 py-1.5 rounded uppercase tracking-wider font-black flex items-center justify-center gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m-8-9H3m18 0h-1m-2.636-5.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m11.314 11.314l.707.707"/></svg>Bloom</button>
+              <button class="text-[9px] text-violet-400 hover:text-white bg-transparent hover:bg-violet-500/10 border border-violet-500/50 px-2 py-1.5 rounded uppercase tracking-wider font-black flex items-center justify-center gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3 L21 21 L3 21 Z"/></svg>Prism</button>
+              <button class="col-span-2 text-[9px] text-lime-400 hover:text-white bg-transparent hover:bg-lime-500/10 border border-lime-500/50 px-2 py-1.5 rounded uppercase tracking-wider font-black flex items-center justify-center gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16 H7 V11 H11 V15 H15 V8 H19 V13"/></svg>S&amp;H</button>
+              <button class="col-span-2 text-[9px] text-sky-400 hover:text-white bg-transparent hover:bg-sky-500/10 border border-sky-500/50 px-2 py-1.5 rounded uppercase tracking-wider font-black flex items-center justify-center gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8 L11 12 L5 16 M19 8 L13 12 L19 16"/></svg>Reflector</button>
+            </div>
+          </div>
+          <!-- EDIT sliders (all neutral zinc) -->
+          <div class="annot" data-note="Edit · non-destructive shaping">
+            <div class="text-[8px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-1.5 px-1">Edit</div>
+            <div class="flex flex-col gap-1.5 px-1">
+              <div class="flex items-center gap-2"><span class="text-[9px] font-bold text-zinc-500 uppercase w-12 shrink-0">Smooth</span><input type="range" min="0" max="100" value="0" class="flex-1 h-1 accent-zinc-300"><span class="text-[9px] text-zinc-400 font-mono w-9 text-right">0%</span></div>
+              <div class="flex items-center gap-2"><span class="text-[9px] font-bold text-zinc-500 uppercase w-12 shrink-0">Depth</span><input type="range" min="0" max="200" value="100" class="flex-1 h-1 accent-zinc-300"><span class="text-[9px] text-zinc-400 font-mono w-9 text-right">100%</span></div>
+              <div class="flex items-center gap-2"><span class="text-[9px] font-bold text-zinc-500 uppercase w-12 shrink-0">Curve</span><input type="range" min="0" max="100" value="0" class="flex-1 h-1 accent-zinc-300"><span class="text-[9px] text-zinc-400 font-mono w-9 text-right">0%</span></div>
+              <div class="flex items-center gap-2"><span class="text-[9px] font-bold text-zinc-500 uppercase w-12 shrink-0">Floor</span><input type="range" min="0" max="100" value="0" class="flex-1 h-1 accent-zinc-300"><span class="text-[9px] text-zinc-400 font-mono w-9 text-right">0%</span></div>
+              <div class="flex items-center gap-2"><span class="text-[9px] font-bold text-zinc-500 uppercase w-12 shrink-0">Ceiling</span><input type="range" min="0" max="100" value="100" class="flex-1 h-1 accent-zinc-300"><span class="text-[9px] text-zinc-400 font-mono w-9 text-right">100%</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====== MAIN CANVAS COLUMN ====== -->
+      <div class="flex-1 min-w-0 relative flex flex-col bg-zinc-950">
+
+        <!-- ROW 0: loop + view | presets | (empty) -->
+        <div class="min-h-[40px] border-b border-white/5 shrink-0 bg-black/50 px-2 py-1 grid items-center annot" data-note="Toolbar row 0" style="grid-template-columns:auto 1fr auto">
+          <div class="flex items-center gap-1.5 shrink-0">
+            <div class="flex items-center gap-1 bg-black/50 p-1 rounded-lg border border-fuchsia-500/30">
+              <span class="text-[9px] font-black text-fuchsia-300 uppercase tracking-wider px-0.5">Loop</span>
+              <button class="text-[11px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold">2</button>
+              <button class="text-[11px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold">4</button>
+              <button class="text-[11px] text-fuchsia-400 bg-fuchsia-500/20 px-2 py-0.5 rounded font-bold">8</button>
+              <button class="text-[11px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold">16</button>
+              <button class="text-[11px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold">32</button>
+            </div>
+            <button class="text-[9px] text-fuchsia-300 bg-fuchsia-500/20 border border-fuchsia-500/50 px-2 py-1 rounded uppercase font-bold tracking-wider flex items-center gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>Multi</button>
+          </div>
+          <div class="flex items-center justify-center gap-1.5">
+            <button class="text-[9px] text-rose-400 hover:text-white bg-transparent hover:bg-rose-500/10 border border-rose-500/50 px-3 py-1 rounded-lg uppercase tracking-wider font-black flex items-center gap-1.5"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>Presets</button>
+          </div>
+          <div></div>
+        </div>
+
+        <!-- ROW 1: draw tools + shapes -->
+        <div class="min-h-[36px] border-b border-white/5 flex flex-wrap items-center px-2 gap-x-1.5 gap-y-0.5 py-0.5 shrink-0 bg-black/40 annot" data-note="Toolbar row 1 · draw + shape templates">
+          <div class="flex items-center gap-1 bg-black/50 p-0.5 rounded border border-white/5 shrink-0">
+            <button class="bg-fuchsia-500/20 text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Point</button>
+            <button class="text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Free</button>
+          </div>
+          <div class="w-px h-5 bg-white/10"></div>
+          <span class="text-[8px] font-bold text-zinc-500 uppercase shrink-0">Shapes:</span>
+          <button class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold">Sine</button>
+          <button class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold">Pump</button>
+          <button class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold">Glitch</button>
+          <button class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold">Groove</button>
+          <button class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold">Chaos</button>
+          <div class="w-px h-5 bg-white/10"></div>
+          <button class="text-[9px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 px-2 py-0.5 rounded uppercase tracking-wider font-bold">Neuro</button>
+          <div class="w-px h-5 bg-white/10"></div>
+          <div class="flex items-center gap-1 flex-1 min-w-0">
+            <span class="text-[8px] font-bold text-zinc-500 uppercase shrink-0">Saved:</span>
+            <div class="flex items-center gap-1 min-w-0 overflow-x-auto">
+              <button class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 px-1.5 py-0.5 rounded uppercase font-bold shrink-0">Wub A</button>
+              <button class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 px-1.5 py-0.5 rounded uppercase font-bold shrink-0">Riser</button>
+            </div>
+          </div>
+          <div class="flex items-center gap-1 shrink-0 pl-1.5 border-l border-white/10">
+            <button class="text-[9px] text-zinc-400 hover:text-zinc-300 bg-white/5 hover:bg-white/10 border border-white/5 px-2 py-0.5 rounded uppercase tracking-wider font-bold">Save Lane</button>
+            <button class="text-[9px] text-red-400/80 hover:text-red-400 bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 px-2 py-0.5 rounded uppercase tracking-wider font-bold">Clear Lane</button>
+          </div>
+        </div>
+
+        <!-- ROW 2: transforms -->
+        <div class="border-b border-white/5 flex flex-wrap items-center px-2 gap-x-1 gap-y-0.5 py-0.5 shrink-0 bg-black/30 annot" data-note="Toolbar row 2 · transforms (color-coded groups)">
+          <div class="flex items-center gap-1 shrink-0">
+            <div class="flex items-center gap-0.5 bg-black/50 p-0.5 rounded border border-white/5">
+              <button class="text-[9px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded uppercase font-bold">Mirror</button>
+              <button class="text-[9px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded uppercase font-bold">Flip</button>
+            </div>
+            <div class="w-px h-4 bg-white/10"></div>
+            <div class="flex items-center gap-0.5 bg-black/50 p-0.5 rounded border border-white/5">
+              <button class="text-[9px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded uppercase font-bold">Copy</button>
+              <button class="text-[9px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded uppercase font-bold">Paste</button>
+              <button class="text-[9px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded uppercase font-bold">Inv</button>
+              <button class="text-[9px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded uppercase font-bold">Paste To</button>
+            </div>
+          </div>
+          <div class="flex items-center gap-1 shrink-0">
+            <div class="w-px h-4 bg-white/10"></div>
+            <button class="text-[9px] text-amber-400/80 hover:text-amber-300 bg-amber-500/5 hover:bg-amber-500/15 px-1.5 py-0.5 rounded uppercase font-bold">Swing</button>
+          </div>
+          <div class="flex items-center gap-1 shrink-0">
+            <div class="w-px h-4 bg-white/10"></div>
+            <button class="text-[9px] text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 px-2 py-0.5 rounded uppercase tracking-wider font-bold">Mutate</button>
+            <button class="text-[9px] text-violet-400 hover:text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 px-2 py-0.5 rounded uppercase font-bold">Shuffle</button>
+            <div class="w-px h-4 bg-white/10"></div>
+            <div class="flex items-center gap-1 bg-sky-500/5 border border-sky-500/20 rounded px-1.5 py-0.5">
+              <span class="text-[9px] text-sky-300/70 font-black uppercase tracking-wider">Stretch</span>
+              <button class="text-[10px] text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/30 px-2 py-0.5 rounded font-black">2x</button>
+              <button class="text-[10px] text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/30 px-2 py-0.5 rounded font-black">1/2x</button>
+            </div>
+            <button class="text-[9px] text-zinc-500 bg-black/50 border border-white/5 hover:border-fuchsia-500/30 px-2 py-0.5 rounded uppercase font-bold">Select All</button>
+            <button class="text-[9px] text-amber-400/80 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 px-2 py-0.5 rounded uppercase font-bold flex items-center gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>Lock All</button>
+          </div>
+        </div>
+
+        <!-- ====== CANVAS AREA ====== -->
+        <div class="flex-1 relative overflow-hidden bg-black/20 annot" data-note="Canvas · real app draws this on an HTML5 <canvas>; SVG re-creation here">
+          <!-- ruler -->
+          <div class="absolute top-0 left-0 right-0 h-5 bg-black/60 border-b border-white/10 z-20 flex text-[9px] text-zinc-600 font-mono select-none">
+            <div class="w-[120px] shrink-0 border-r border-white/10"></div>
+            <div class="flex-1 flex">
+              <div class="flex-1 border-r border-white/5 pl-1.5 flex items-center">1</div>
+              <div class="flex-1 border-r border-white/5 pl-1.5 flex items-center">2</div>
+              <div class="flex-1 border-r border-white/5 pl-1.5 flex items-center">3</div>
+              <div class="flex-1 border-r border-white/5 pl-1.5 flex items-center">4</div>
+              <div class="flex-1 border-r border-white/5 pl-1.5 flex items-center">5</div>
+              <div class="flex-1 border-r border-white/5 pl-1.5 flex items-center">6</div>
+              <div class="flex-1 border-r border-white/5 pl-1.5 flex items-center">7</div>
+              <div class="flex-1 pl-1.5 flex items-center">8</div>
+            </div>
+          </div>
+
+          <!-- multi-lane stack (lane label col 120px, lane height 64px) -->
+          <div class="absolute top-5 left-0 right-0 bottom-0">
+            <!-- LANE 1 — active -->
+            <div class="flex items-stretch border-b border-white/5 bg-fuchsia-500/[0.04]" style="height:64px">
+              <div class="w-[120px] shrink-0 border-r border-white/5 px-2 flex flex-col justify-center">
+                <span class="text-[10px] font-bold text-fuchsia-300 truncate">Filter Freq</span>
+                <span class="text-[8px] uppercase tracking-wider text-fuchsia-500/60">active</span>
+              </div>
+              <div class="flex-1 relative">
+                <svg class="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 800 64"><path d="M0,50 C80,8 140,56 220,30 S360,4 420,40 S600,56 680,16 S780,46 800,28" fill="none" stroke="#e879f9" stroke-width="2"/><circle cx="220" cy="30" r="3" fill="#e879f9"/><circle cx="420" cy="40" r="3" fill="#e879f9"/><circle cx="680" cy="16" r="3" fill="#e879f9"/></svg>
+              </div>
+            </div>
+            <!-- LANE 2 -->
+            <div class="flex items-stretch border-b border-white/5" style="height:64px">
+              <div class="w-[120px] shrink-0 border-r border-white/5 px-2 flex flex-col justify-center"><span class="text-[10px] font-bold text-zinc-300 truncate">Resonance</span><span class="text-[8px] uppercase tracking-wider text-zinc-600">0 – 100%</span></div>
+              <div class="flex-1 relative"><svg class="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 800 64"><path d="M0,40 Q100,40 100,14 T200,14 Q200,40 300,40 T400,40 Q400,12 500,12 T600,40 Q600,46 700,20 T800,20" fill="none" stroke="#38bdf8" stroke-width="2"/></svg></div>
+            </div>
+            <!-- LANE 3 — locked -->
+            <div class="flex items-stretch border-b border-white/5 bg-amber-500/[0.03]" style="height:64px">
+              <div class="w-[120px] shrink-0 border-r border-white/5 px-2 flex flex-col justify-center"><span class="text-[10px] font-bold text-zinc-400 truncate flex items-center gap-1"><svg class="w-2.5 h-2.5 text-amber-400/70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>Drive</span><span class="text-[8px] uppercase tracking-wider text-amber-500/60">locked</span></div>
+              <div class="flex-1 relative opacity-50"><svg class="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 800 64"><path d="M0,55 L160,55 L160,20 L320,20 L320,48 L480,48 L480,12 L640,12 L640,40 L800,40" fill="none" stroke="#fbbf24" stroke-width="2"/></svg></div>
+            </div>
+            <!-- LANE 4 -->
+            <div class="flex items-stretch border-b border-white/5" style="height:64px">
+              <div class="w-[120px] shrink-0 border-r border-white/5 px-2 flex flex-col justify-center"><span class="text-[10px] font-bold text-zinc-300 truncate">LFO Rate</span><span class="text-[8px] uppercase tracking-wider text-zinc-600">0 – 100%</span></div>
+              <div class="flex-1 relative"><svg class="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 800 64"><path d="M0,32 C60,5 120,5 180,32 S300,59 360,32 S480,5 540,32 S660,59 720,32 S800,18 800,18" fill="none" stroke="#84cc16" stroke-width="2"/></svg></div>
+            </div>
+            <!-- LANE 5 -->
+            <div class="flex items-stretch border-b border-white/5" style="height:64px">
+              <div class="w-[120px] shrink-0 border-r border-white/5 px-2 flex flex-col justify-center"><span class="text-[10px] font-bold text-zinc-300 truncate">Amp Env</span><span class="text-[8px] uppercase tracking-wider text-zinc-600">0 – 100%</span></div>
+              <div class="flex-1 relative"><svg class="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 800 64"><path d="M0,58 L40,8 C80,8 120,55 200,55 L240,8 C280,8 320,55 400,55 L440,8 C480,8 520,55 600,55 L640,8 C680,8 720,55 800,55" fill="none" stroke="#a78bfa" stroke-width="2"/></svg></div>
+            </div>
+            <!-- LANE 6 -->
+            <div class="flex items-stretch" style="height:64px">
+              <div class="w-[120px] shrink-0 border-r border-white/5 px-2 flex flex-col justify-center"><span class="text-[10px] font-bold text-zinc-300 truncate">Reverb Wet</span><span class="text-[8px] uppercase tracking-wider text-zinc-600">0 – 100%</span></div>
+              <div class="flex-1 relative"><svg class="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 800 64"><path d="M0,48 C200,48 200,20 400,20 C600,20 600,40 800,12" fill="none" stroke="#34d399" stroke-width="2"/></svg></div>
+            </div>
+          </div>
+
+          <!-- NOTE: the real app shows NO floating "ready" card on Apply.
+               Success = a fly-to-dock orb animates from the canvas into the
+               dock, and the new dock card (bottom) gets a spinning LED ring +
+               lime flash. The brief status text appears in the dock's status
+               pill. Nothing overlays the canvas. -->
+        </div>
+
+        <!-- ====== RECENT GENERATIONS DOCK (h-20 / 80px) ====== -->
+        <div class="shrink-0 h-20 border-t border-white/5 bg-black/40 flex items-stretch gap-2 px-3 py-2 min-w-0 annot" data-note="Recent Generations dock · cards = curve thumbnail + name + time, draggable .alc">
+          <div class="flex items-center pr-2 border-r border-white/5 shrink-0 gap-2">
+            <span class="text-[9px] font-black text-zinc-500 uppercase tracking-widest leading-tight">Recent<br>Generations</span>
+            <button class="shrink-0 text-zinc-500 hover:text-emerald-300 bg-black/40 hover:bg-white/10 border border-white/5 p-1.5 rounded" title="All generations"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg></button>
+            <button class="text-[8px] text-zinc-500 hover:text-zinc-300 bg-black/40 hover:bg-white/10 border border-white/5 px-2 py-1 rounded uppercase tracking-widest font-black">Clear</button>
+          </div>
+          <!-- cards: w-56 wrapper, w-28 thumbnail = PNG snapshot of the whole
+               multi-lane canvas (here drawn as a mini stack), then name + time
+               + drag-handle icon. Freshest card carries the LED ring. -->
+          <div class="flex-1 flex items-stretch gap-2 overflow-x-auto custom-scroll min-w-0">
+            <!-- freshest = LED ring -->
+            <div class="gen-card-led shrink-0 w-56 h-full rounded-md">
+              <div class="sd-gen-card relative w-full h-full rounded-md border border-white/5 bg-black/40 overflow-hidden flex cursor-grab">
+                <div class="shrink-0 w-28 h-full bg-black/40 border-r border-white/5"><svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 112 56"><path d="M0,8 C28,2 40,13 56,7 S90,1 112,6" fill="none" stroke="#e879f9" stroke-width="1.5"/><path d="M0,20 Q28,20 28,15 T56,25 T84,15 T112,22" fill="none" stroke="#38bdf8" stroke-width="1.5"/><path d="M0,34 L22,34 L22,28 L45,28 L45,38 L68,38 L68,27 L90,27 L90,35 L112,35" fill="none" stroke="#fbbf24" stroke-width="1.5"/><path d="M0,48 C28,42 28,52 56,47 S84,42 112,49" fill="none" stroke="#84cc16" stroke-width="1.5"/></svg></div>
+                <div class="flex-1 min-w-0 px-2 py-1.5 flex flex-col justify-between">
+                  <div class="text-[10px] text-zinc-200 font-bold truncate">Growl Bass A_142037</div>
+                  <div class="flex items-center justify-between text-[9px] text-zinc-500"><span>14:20</span><svg class="w-3 h-3 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/></svg></div>
+                </div>
+              </div>
+            </div>
+            <div class="shrink-0 w-56 h-full rounded-md">
+              <div class="sd-gen-card relative w-full h-full rounded-md border border-white/5 bg-black/40 overflow-hidden flex cursor-grab">
+                <div class="shrink-0 w-28 h-full bg-black/40 border-r border-white/5"><svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 112 56"><path d="M0,9 Q28,9 28,4 T56,14 T84,4 T112,11" fill="none" stroke="#e879f9" stroke-width="1.5"/><path d="M0,22 C28,16 28,28 56,22 S84,16 112,24" fill="none" stroke="#38bdf8" stroke-width="1.5"/><path d="M0,36 C18,18 38,46 56,30 S90,18 112,34" fill="none" stroke="#a78bfa" stroke-width="1.5"/><path d="M0,46 L20,46 L20,40 L48,40 L48,50 L76,50 L76,40 L112,46" fill="none" stroke="#84cc16" stroke-width="1.5"/></svg></div>
+                <div class="flex-1 min-w-0 px-2 py-1.5 flex flex-col justify-between">
+                  <div class="text-[10px] text-zinc-200 font-bold truncate">Reese Roller_141802</div>
+                  <div class="flex items-center justify-between text-[9px] text-zinc-500"><span>14:18</span><svg class="w-3 h-3 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/></svg></div>
+                </div>
+              </div>
+            </div>
+            <div class="shrink-0 w-56 h-full rounded-md">
+              <div class="sd-gen-card relative w-full h-full rounded-md border border-white/5 bg-black/40 overflow-hidden flex cursor-grab">
+                <div class="shrink-0 w-28 h-full bg-black/40 border-r border-white/5"><svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 112 56"><path d="M0,10 C28,4 40,15 56,9 S90,3 112,8" fill="none" stroke="#34d399" stroke-width="1.5"/><path d="M0,24 Q20,24 20,12 T48,30 T76,12 T112,26" fill="none" stroke="#38bdf8" stroke-width="1.5"/><path d="M0,40 L24,40 L24,32 L52,32 L52,44 L80,44 L80,31 L112,38" fill="none" stroke="#fbbf24" stroke-width="1.5"/></svg></div>
+                <div class="flex-1 min-w-0 px-2 py-1.5 flex flex-col justify-between">
+                  <div class="text-[10px] text-zinc-200 font-bold truncate">Pluck Stab_141145</div>
+                  <div class="flex items-center justify-between text-[9px] text-zinc-500"><span>14:11</span><svg class="w-3 h-3 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/></svg></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- status pills (right block). Top = transient status text (often
+               blank when idle); bottom = keyboard hints, hidden below 1280px. -->
+          <div class="flex flex-col justify-center gap-1 pl-2 border-l border-white/5 min-w-0 max-w-[260px]">
+            <span class="block text-[9px] font-bold text-zinc-500 uppercase tracking-wider bg-black/70 px-2 py-1 rounded text-right truncate">Scanned 6 params</span>
+            <span class="block text-[9px] font-bold text-zinc-600 tracking-widest uppercase bg-black/60 px-2 py-1 rounded text-right truncate">Ctrl+Wheel · Space+Drag · Alt+Drag</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       SECONDARY SURFACES (1:1) — gate, All-Generations modal, Pattern Library
+       ===================================================================== -->
+  <div class="max-w-[1460px] mx-auto grid grid-cols-3 gap-5 mt-8">
+
+    <!-- Activation gate -->
+    <div class="rounded-xl border border-white/10 overflow-hidden" style="background:#09090b">
+      <div class="text-[9px] uppercase tracking-widest text-zinc-600 font-bold px-3 pt-3">Screen · Activation gate</div>
+      <div class="h-72 flex flex-col items-center justify-center gap-3 px-8">
+        <div class="text-3xl font-black tracking-[0.3em] uppercase text-gradient">STRIDE</div>
+        <div class="text-[10px] uppercase tracking-[0.3em] text-zinc-600 font-bold">Sound Design Engine</div>
+        <input placeholder="Enter license key" class="w-full mt-4 text-xs bg-zinc-900 border border-white/10 focus:border-orange-500/50 rounded-lg px-3 py-2 text-center placeholder-zinc-600 outline-none">
+        <button class="w-full text-[11px] uppercase tracking-widest font-black text-white rounded-lg px-3 py-2.5" style="background:linear-gradient(to right,#f97316,#dc2626)">Activate</button>
+        <a class="text-[10px] text-orange-500 hover:text-orange-400 font-bold">Get Stride →</a>
+      </div>
+    </div>
+
+    <!-- All Generations modal -->
+    <div class="rounded-xl border border-white/10 overflow-hidden" style="background:#09090b">
+      <div class="text-[9px] uppercase tracking-widest text-zinc-600 font-bold px-3 pt-3">Modal · All Generations</div>
+      <div class="h-72 p-4 flex flex-col">
+        <div class="h-9 flex items-center gap-3 border-b border-white/10 mb-3">
+          <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+          <span class="text-[11px] font-black tracking-[0.25em] uppercase text-zinc-200">All Generations</span>
+          <span class="text-[10px] text-zinc-500 font-bold">14</span>
+          <div class="flex-1"></div>
+          <span class="text-[9px] text-zinc-600 uppercase tracking-widest">Drag into Ableton</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2 overflow-y-auto content-start">
+          <div class="h-16 rounded-md border border-white/5 bg-black/40 flex overflow-hidden"><div class="w-24 bg-black/40 border-r border-white/5"><svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 96 56"><path d="M0,9 C24,3 34,14 48,8 S78,2 96,7" fill="none" stroke="#e879f9" stroke-width="1.5"/><path d="M0,22 Q24,22 24,16 T48,26 T72,16 T96,23" fill="none" stroke="#38bdf8" stroke-width="1.5"/><path d="M0,36 L19,36 L19,29 L38,29 L38,40 L58,40 L58,28 L77,28 L77,37 L96,37" fill="none" stroke="#fbbf24" stroke-width="1.5"/><path d="M0,49 C24,43 24,53 48,48 S72,43 96,50" fill="none" stroke="#84cc16" stroke-width="1.5"/></svg></div><div class="flex-1 px-2 py-1.5 flex flex-col justify-between"><div class="text-[10px] text-zinc-200 font-bold truncate">Growl Bass A</div><div class="text-[9px] text-zinc-500">14:20</div></div></div>
+          <div class="h-16 rounded-md border border-white/5 bg-black/40 flex overflow-hidden"><div class="w-24 bg-black/40 border-r border-white/5"><svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 96 56"><path d="M0,9 Q24,9 24,4 T48,14 T72,4 T96,11" fill="none" stroke="#e879f9" stroke-width="1.5"/><path d="M0,23 C24,17 24,29 48,23 S72,17 96,25" fill="none" stroke="#38bdf8" stroke-width="1.5"/><path d="M0,37 C16,19 36,47 56,31 S82,19 96,35" fill="none" stroke="#a78bfa" stroke-width="1.5"/><path d="M0,49 L18,49 L18,42 L42,42 L42,52 L70,52 L70,42 L96,49" fill="none" stroke="#84cc16" stroke-width="1.5"/></svg></div><div class="flex-1 px-2 py-1.5 flex flex-col justify-between"><div class="text-[10px] text-zinc-200 font-bold truncate">Reese Roller</div><div class="text-[9px] text-zinc-500">14:18</div></div></div>
+          <div class="h-16 rounded-md border border-white/5 bg-black/40 flex overflow-hidden"><div class="w-24 bg-black/40 border-r border-white/5"><svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 96 56"><path d="M0,10 C24,4 34,15 48,9 S78,3 96,8" fill="none" stroke="#34d399" stroke-width="1.5"/><path d="M0,24 Q18,24 18,12 T44,30 T72,12 T96,26" fill="none" stroke="#38bdf8" stroke-width="1.5"/><path d="M0,40 L20,40 L20,32 L44,32 L44,44 L68,44 L68,31 L96,38" fill="none" stroke="#fbbf24" stroke-width="1.5"/></svg></div><div class="flex-1 px-2 py-1.5 flex flex-col justify-between"><div class="text-[10px] text-zinc-200 font-bold truncate">Pluck Stab</div><div class="text-[9px] text-zinc-500">14:11</div></div></div>
+          <div class="h-16 rounded-md border border-white/5 bg-black/40 flex overflow-hidden"><div class="w-24 bg-black/40 border-r border-white/5"><svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 96 56"><path d="M0,12 C24,6 34,17 48,11 S78,5 96,10" fill="none" stroke="#e879f9" stroke-width="1.5"/><path d="M0,28 C24,22 24,34 48,28 S72,22 96,30" fill="none" stroke="#38bdf8" stroke-width="1.5"/><path d="M0,44 C24,38 24,50 48,44 S72,38 96,46" fill="none" stroke="#a78bfa" stroke-width="1.5"/></svg></div><div class="flex-1 px-2 py-1.5 flex flex-col justify-between"><div class="text-[10px] text-zinc-200 font-bold truncate">Sub Wobble</div><div class="text-[9px] text-zinc-500">14:02</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pattern Library overlay -->
+    <div class="rounded-xl border border-white/10 overflow-hidden" style="background:#09090b">
+      <div class="text-[9px] uppercase tracking-widest text-zinc-600 font-bold px-3 pt-3">Overlay · Pattern Library</div>
+      <div class="h-72 flex flex-col">
+        <div class="h-9 px-4 flex items-center gap-2 border-b border-white/10 shrink-0">
+          <button class="text-[9px] text-orange-400 bg-orange-500/10 border border-orange-500/25 px-2 py-0.5 rounded uppercase font-bold">← Back</button>
+          <span class="text-[10px] font-black tracking-[0.2em] uppercase text-gradient">Stride / Patterns</span>
+          <div class="flex-1"></div>
+          <span class="text-[8px] text-zinc-600 uppercase tracking-widest">ESC or L</span>
+        </div>
+        <div class="flex-1 flex min-h-0">
+          <div class="w-20 shrink-0 border-r border-white/5 py-2 px-1.5 space-y-1 overflow-y-auto">
+            <div class="text-[10px] font-bold text-orange-400 bg-orange-500/10 rounded px-1.5 py-1">All</div>
+            <div class="text-[10px] font-bold text-amber-400/70 rounded px-1.5 py-1">Bass</div>
+            <div class="text-[10px] font-bold text-amber-400/70 rounded px-1.5 py-1">Leads</div>
+            <div class="text-[10px] font-bold text-amber-400/70 rounded px-1.5 py-1">Drums</div>
+            <div class="text-[10px] font-bold text-amber-400/70 rounded px-1.5 py-1">★ Favs</div>
+          </div>
+          <div class="flex-1 flex flex-col min-w-0">
+            <div class="h-8 border-b border-white/5 flex items-center gap-1.5 px-2 text-[8px] text-zinc-500 uppercase font-bold">
+              <span class="bg-black/40 border border-white/5 rounded px-1.5 py-0.5">Bars ▾</span>
+              <span class="bg-black/40 border border-white/5 rounded px-1.5 py-0.5">Root ▾</span>
+              <span class="bg-black/40 border border-white/5 rounded px-1.5 py-0.5">Energy ▾</span>
+              <span class="flex-1 bg-black/40 border border-white/5 rounded px-1.5 py-0.5 text-zinc-600">Search…</span>
+            </div>
+            <div class="flex-1 p-2 grid grid-cols-3 gap-2 overflow-y-auto content-start">
+              <div class="aspect-square rounded-lg bg-zinc-900 border border-orange-500/40 p-1.5 flex flex-col justify-end"><div class="text-[8px] font-bold text-zinc-200 truncate">Reese Roller</div><div class="text-[7px] text-zinc-600">Fm·8</div></div>
+              <div class="aspect-square rounded-lg bg-zinc-900 border border-white/5 p-1.5 flex flex-col justify-end"><div class="text-[8px] font-bold text-zinc-200 truncate">Sub Pulse</div><div class="text-[7px] text-zinc-600">C·4</div></div>
+              <div class="aspect-square rounded-lg bg-zinc-900 border border-white/5 p-1.5 flex flex-col justify-end"><div class="text-[8px] font-bold text-zinc-200 truncate">Acid 303</div><div class="text-[7px] text-zinc-600">Am·8</div></div>
+              <div class="aspect-square rounded-lg bg-zinc-900 border border-white/5 p-1.5 flex flex-col justify-end"><div class="text-[8px] font-bold text-zinc-200 truncate">Growl Wob</div><div class="text-[7px] text-zinc-600">Gm·8</div></div>
+              <div class="aspect-square rounded-lg bg-zinc-900 border border-white/5 p-1.5 flex flex-col justify-end"><div class="text-[8px] font-bold text-zinc-200 truncate">Donk Bass</div><div class="text-[7px] text-zinc-600">Dm·4</div></div>
+              <div class="aspect-square rounded-lg bg-zinc-900 border border-white/5 p-1.5 flex flex-col justify-end"><div class="text-[8px] font-bold text-zinc-200 truncate">FM Stab</div><div class="text-[7px] text-zinc-600">Em·8</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="text-[10px] text-zinc-600 mt-6 text-center max-w-[1460px] mx-auto">1:1 static mockup of STRIDE v1.2.x — markup, sizes, labels &amp; colors copied from the shipping app. The canvas drawing surface is a real HTML5 &lt;canvas&gt; in the app; here it is re-created with SVG. Not interactive.</p>
+</div>
+</body>
+</html>

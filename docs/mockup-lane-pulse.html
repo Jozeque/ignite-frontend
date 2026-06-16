@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stride — Lane Pulse (3 options)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#09090b; --panel:#0e0e11; --line:rgba(255,255,255,.06);
+    --zinc4:#a1a1aa; --zinc5:#71717a; --zinc6:#52525b;
+    --curve:#a855f7;            /* Stride lane curve purple */
+    --curve-soft:rgba(168,85,247,.85);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:#e4e4e7;font-family:'Outfit',sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:980px;margin:0 auto;padding:32px 24px 80px}
+  h1{font-size:18px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;margin:0 0 4px;
+     background:linear-gradient(90deg,#f97316,#d946ef);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{font-size:12px;color:var(--zinc5);margin:0 0 6px}
+  .note{font-size:11px;color:var(--zinc6);margin:0 0 28px;line-height:1.6}
+  .opt{margin:0 0 30px;border:1px solid var(--line);border-radius:16px;background:var(--panel);overflow:hidden}
+  .opt-head{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}
+  .badge{font-size:10px;font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:#34d399;
+         background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);padding:4px 9px;border-radius:7px}
+  .opt-title{font-size:13px;font-weight:800;color:#f4f4f5}
+  .opt-desc{font-size:11px;color:var(--zinc5);margin-left:auto;text-align:right;max-width:46%;line-height:1.5}
+  .lanes{padding:14px 16px;display:flex;flex-direction:column;gap:9px}
+
+  /* One lane = label column + curve strip, mimicking the multi-lane canvas */
+  .lane{display:flex;align-items:stretch;height:64px;border-radius:9px;overflow:hidden;
+        background:rgba(0,0,0,.28);border:1px solid var(--line)}
+  .lane .label{width:128px;flex:none;padding:8px 10px;border-right:1px solid var(--line);
+        display:flex;flex-direction:column;justify-content:center;gap:3px;background:rgba(0,0,0,.2)}
+  .lane .nm{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--zinc4)}
+  .lane .meta{font-size:8px;color:var(--zinc6);font-family:ui-monospace,monospace}
+  .lane .stage{position:relative;flex:1;min-width:0}
+  .lane.empty .nm{color:var(--zinc6)}
+  .lane .stage svg{position:absolute;inset:0;width:100%;height:100%}
+  .gridline{stroke:rgba(255,255,255,.05);stroke-width:1}
+  .curve-path{fill:none;stroke:var(--curve);stroke-width:2;filter:drop-shadow(0 0 3px rgba(168,85,247,.35))}
+  .curve-dim{fill:none;stroke:rgba(168,85,247,.25);stroke-width:2}
+
+  /* The travelling dot (JS positions it at x=playhead, y=curve(x)) */
+  .dot{position:absolute;width:9px;height:9px;border-radius:50%;left:0;top:0;
+       transform:translate(-50%,-50%);pointer-events:none;
+       background:radial-gradient(circle at 50% 50%,#fff 0%,#f0abfc 45%,var(--curve) 75%);}
+  /* A: soft glow */
+  .glowA{box-shadow:0 0 10px 3px rgba(168,85,247,.7),0 0 22px 8px rgba(168,85,247,.35)}
+  /* B: tighter dot, paired with a sweeping playhead line */
+  .glowB{box-shadow:0 0 8px 2px rgba(217,70,239,.75)}
+  .playhead{position:absolute;top:0;bottom:0;width:1.5px;left:0;
+       background:linear-gradient(to bottom,rgba(244,114,182,0),rgba(244,114,182,.55),rgba(244,114,182,0));
+       box-shadow:0 0 8px rgba(244,114,182,.5);pointer-events:none}
+  /* C: comet — bright trailing segment drawn behind the dot */
+  .trail{fill:none;stroke:url(#cometGrad);stroke-width:3;stroke-linecap:round;
+         filter:drop-shadow(0 0 5px rgba(168,85,247,.6))}
+  .glowC{box-shadow:0 0 12px 3px rgba(168,85,247,.85)}
+
+  .legend{font-size:10px;color:var(--zinc6);padding:0 18px 16px;line-height:1.6}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:10px;color:var(--zinc5);
+        border:1px solid var(--line);border-radius:20px;padding:3px 10px;margin-top:10px}
+  .pdot{width:6px;height:6px;border-radius:50%;background:#34d399;box-shadow:0 0 6px #34d399;animation:blink 1.6s ease-in-out infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Lane Pulse — 3 options</h1>
+  <p class="sub">A glowing dot rides each lane's curve at playhead speed (x = track time, y = the curve's value there). All lanes stay in sync — like a playhead sweeping the loop.</p>
+  <p class="note">Interpretation of "only when there's a raw lane": the pulse runs only on lanes that have a drawn curve. Empty lanes stay still (shown at the bottom of each option). Loop = 4s here. <span class="pill"><span class="pdot"></span>playing</span></p>
+
+  <!-- OPTION A -->
+  <div class="opt" id="optA">
+    <div class="opt-head"><span class="badge">Option A</span><span class="opt-title">Glow Dot</span>
+      <span class="opt-desc">Clean white-hot dot with a soft purple halo. Minimal, never competes with the curve.</span></div>
+    <div class="lanes" data-opt="A"></div>
+    <div class="legend">Subtlest. Reads as "this lane is live" without any extra geometry on the canvas.</div>
+  </div>
+
+  <!-- OPTION B -->
+  <div class="opt" id="optB">
+    <div class="opt-head"><span class="badge">Option B</span><span class="opt-title">Dot + Playhead Line</span>
+      <span class="opt-desc">The dot rides the curve while a faint vertical line marks the exact time position across all lanes.</span></div>
+    <div class="lanes" data-opt="B"></div>
+    <div class="legend">Most "DAW-like" — the shared sweep line ties every lane to the same moment in the bar.</div>
+  </div>
+
+  <!-- OPTION C -->
+  <div class="opt" id="optC">
+    <div class="opt-head"><span class="badge">Option C</span><span class="opt-title">Comet Trail</span>
+      <span class="opt-desc">A short luminous tail trails the dot along the curve, lighting the path it just travelled.</span></div>
+    <div class="lanes" data-opt="C"></div>
+    <div class="legend">Most energetic — the trail emphasises motion + direction. Best for the "alive / modulating" feel.</div>
+  </div>
+</div>
+
+<script>
+const W=560, H=64;                 // stage size (px) used for path coords
+const LOOP=4000;                   // ms per loop (track time)
+// Lane definitions: name, meta, and a curve value fn f(t) -> 0..1 (t in 0..1).
+// 'raw:false' = empty lane (no pulse), to show the "only raw lanes" rule.
+const LANES=[
+  {nm:'Filter Freq', meta:'120 - 8.0k · log', raw:true,  f:t=>0.18+0.66*Math.pow(t,0.55)+0.05*Math.sin(t*Math.PI*6)},
+  {nm:'LFO Amount',  meta:'0 - 127',          raw:true,  f:t=>0.5+0.40*Math.sin(t*Math.PI*4)},
+  {nm:'Resonance',   meta:'0.0 - 1.0',        raw:true,  f:t=>0.30+0.55*Math.abs(((t*3)%1)-0.5)*2*Math.pow(0.7,Math.floor(t*3))+0.1},
+  {nm:'Drive',       meta:'0 - 100  ·  empty', raw:false, f:t=>0.5},
+];
+function pathD(f){let d='';for(let i=0;i<=80;i++){const t=i/80;const x=t*W;const y=H-(Math.max(0,Math.min(1,f(t)))*(H-8))-4;d+=(i?'L':'M')+x.toFixed(1)+','+y.toFixed(1);}return d;}
+// y at a given t (for dot + trail)
+function yAt(f,t){return H-(Math.max(0,Math.min(1,f(t)))*(H-8))-4;}
+
+function buildLane(opt,L){
+  const lane=document.createElement('div');
+  lane.className='lane'+(L.raw?'':' empty');
+  lane.innerHTML=`<div class="label"><div class="nm">${L.nm}</div><div class="meta">${L.meta}</div></div>
+    <div class="stage"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      <line class="gridline" x1="0" y1="${H/2}" x2="${W}" y2="${H/2}"/>
+      ${L.raw && opt==='C' ? `<defs><linearGradient id="cometGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="rgba(168,85,247,0)"/><stop offset="100%" stop-color="#f0abfc"/></linearGradient></defs>
+        <path class="curve-dim" d="${pathD(L.f)}"/><path class="trail" d=""/>`
+      : `<path class="${L.raw?'curve-path':'curve-dim'}" d="${pathD(L.f)}"/>`}
+    </svg></div>`;
+  return lane;
+}
+
+const reg=[]; // {opt, L, el:{stage,dot,playhead,trail,svgScaleX,svgScaleY}}
+['A','B','C'].forEach(opt=>{
+  const host=document.querySelector(`.lanes[data-opt="${opt}"]`);
+  LANES.forEach(L=>{
+    const lane=buildLane(opt,L); host.appendChild(lane);
+    if(!L.raw) return;
+    const stage=lane.querySelector('.stage');
+    const dot=document.createElement('div');
+    dot.className='dot '+(opt==='A'?'glowA':opt==='B'?'glowB':'glowC');
+    stage.appendChild(dot);
+    let playhead=null, trail=null;
+    if(opt==='B'){playhead=document.createElement('div');playhead.className='playhead';stage.appendChild(playhead);}
+    if(opt==='C'){trail=stage.querySelector('.trail');}
+    reg.push({opt,L,stage,dot,playhead,trail});
+  });
+});
+
+function frame(ts){
+  const ph=(ts%LOOP)/LOOP;                       // 0..1 playhead
+  reg.forEach(r=>{
+    const rect=r.stage.getBoundingClientRect();
+    const sx=rect.width/W, sy=rect.height/H;
+    const px=ph*W*sx, py=yAt(r.L.f,ph)*sy;
+    r.dot.style.left=px+'px'; r.dot.style.top=py+'px';
+    if(r.playhead) r.playhead.style.left=(ph*100)+'%';
+    if(r.trail){
+      const tl=0.13; let d='';                    // short trail behind the dot
+      for(let i=0;i<=18;i++){let t=ph-tl*(1-i/18); if(t<0)t=0; d+=(i?'L':'M')+(t*W).toFixed(1)+','+yAt(r.L.f,t).toFixed(1);}
+      r.trail.setAttribute('d',d);
+    }
+  });
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

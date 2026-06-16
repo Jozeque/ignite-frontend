@@ -1,0 +1,34 @@
+{
+  "_comment": "Box coordinates are in pixels of your LANDSCAPE recording. Estimated from your OBS screenshot (1920x1080). The --still preview tells you if they're right; tweak and re-run.",
+
+  "source_w": 1920,
+  "source_h": 1080,
+  "fps": 30,
+  "output_dir": "D:/Stridehub content/Reels",
+
+  "out_w": 1080,
+  "out_h": 1920,
+  "cam_top_h": 480,
+
+  "cam_box":     { "x": 1290, "y": 0, "w": 630,  "h": 300 },
+  "content_box": { "x": 0,    "y": 0, "w": 1920, "h": 1080 },
+
+  "_comment_cam_avoid": "cam_box frames the FACE into the top slot (head only). cam_avoid_box is the FULL camera PiP - shoulders/arm included - that must NEVER leak into the bottom content. cam_safe_margin pads it. Measured from raw_frame.png: PiP runs top down to ~480px. crop_size (580) + margin (16) keep the square just small enough to glide BELOW the cam, so it follows the cursor on the right/bottom smoothly instead of pinning. Constraint: crop_size + cam_safe_margin <= 600.",
+  "cam_avoid_box": { "x": 1290, "y": 0, "w": 630, "h": 480 },
+  "cam_safe_margin": 16,
+
+  "crop_size": 580,
+  "still_x": 300,
+  "still_y": 360,
+
+  "smoothing":      { "min_cutoff": 1.0, "beta": 0.02 },
+  "dead_zone":      0,
+  "monitor_offset": { "x": 0, "y": 0 },
+
+  "monitors": [
+    { "name": "stride",  "vx": -1920, "vy": 0, "vw": 1536, "vh": 864,  "fx": 0, "fy": 0, "fw": 1920, "fh": 1080 },
+    { "name": "ableton", "vx": 0,     "vy": 0, "vw": 1920, "vh": 1080, "fx": 0, "fy": 0, "fw": 1920, "fh": 1080 }
+  ],
+
+  "obs": { "host": "localhost", "port": 4455, "password": "LnMFX79X1qXoFSwa" }
+}

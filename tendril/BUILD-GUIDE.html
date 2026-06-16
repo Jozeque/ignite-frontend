@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TENDRIL — Visual Build Guide (Max for Live)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#141310; --panel:#1d1b16; --raise:#252119;
+  --line:rgba(216,201,176,.12); --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
+  --copper:#c6712b; --copper-lt:#dd9a52; --ember:#e58a2e; --teal-lt:#5e9aad; --sage-lt:#86a87f; --rose-lt:#c5807f;
+  /* max-canvas diagram tokens */
+  --mxbg:#2b2b2b; --mxobj:#d7d3c7; --mxobj-edge:#0c0c0c; --mxtext:#161616;
+  --cord-ctrl:#9a9a9a; --cord-aud:#e0b13e; --io:#1a1a1a;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:'Outfit',sans-serif;background:#0c0b09;color:var(--ink2);-webkit-font-smoothing:antialiased;line-height:1.55}
+.mono{font-family:'Space Mono',ui-monospace,monospace}
+.wrap{max-width:1080px;margin:0 auto;padding:30px 24px 80px}
+h1{font-weight:900;letter-spacing:.02em;font-size:30px;margin:0 0 4px}
+.brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.sub{color:var(--ink3);font-size:14px;margin:0 0 26px}
+h2{font-size:21px;color:var(--ink);margin:46px 0 6px;padding-top:14px;border-top:1px solid var(--line)}
+h2 .num{display:inline-flex;width:30px;height:30px;align-items:center;justify-content:center;background:linear-gradient(180deg,var(--ember),var(--copper));color:#1c1206;font-weight:900;border-radius:8px;font-size:15px;margin-right:10px;vertical-align:middle}
+h3{font-size:15px;color:var(--copper-lt);margin:22px 0 6px;letter-spacing:.02em}
+p{margin:8px 0}
+code{font-family:'Space Mono',monospace;background:var(--raise);color:var(--copper-lt);padding:1px 6px;border-radius:5px;font-size:13px}
+ol,ul{margin:8px 0 8px 4px;padding-left:22px}
+li{margin:5px 0}
+a{color:var(--copper-lt)}
+.diagram{background:var(--mxbg);border:1px solid #000;border-radius:12px;margin:14px 0;padding:8px;box-shadow:0 18px 40px -22px #000}
+.diagram svg{display:block;width:100%;height:auto}
+.dcap{font-size:11px;color:#a9a39a;text-align:center;padding:4px 0 6px;font-family:'Space Mono',monospace}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--ink2);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin:10px 0}
+.legend b{color:var(--ink)}
+.callout{border:1px solid var(--line);border-left:3px solid var(--copper);background:var(--panel);border-radius:8px;padding:10px 14px;margin:12px 0;font-size:13.5px}
+.callout.warn{border-left-color:var(--rose-lt)}
+.callout.tip{border-left-color:var(--sage-lt)}
+.callout .h{font-weight:800;color:var(--ink);font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
+/* inspector mock */
+.insp{font-family:'Space Mono',monospace;font-size:12px;background:#1c1c1c;border:1px solid #000;border-radius:8px;max-width:340px;margin:10px 0;overflow:hidden}
+.insp .t{background:#333;color:#eee;padding:6px 10px;font-weight:700}
+.insp .r{display:flex;justify-content:space-between;padding:5px 10px;border-top:1px solid #2a2a2a;color:#cfcabd}
+.insp .r b{color:#fff}
+.insp .r .v{color:var(--copper-lt)}
+.toc{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 18px;columns:2;font-size:13.5px}
+.toc a{display:block;margin:3px 0;text-decoration:none}
+.kbd{font-family:'Space Mono',monospace;background:#333;color:#eee;border:1px solid #000;border-bottom-width:2px;border-radius:5px;padding:1px 6px;font-size:12px}
+.pill{display:inline-block;background:rgba(229,138,46,.12);border:1px solid rgba(229,138,46,.35);color:var(--copper-lt);font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px;margin-left:6px;text-transform:uppercase;letter-spacing:.06em}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1><span class="brand">TENDRIL</span> — Visual Build Guide</h1>
+  <p class="sub">A→Z assembly in the Max for Live editor. Diagrams show how each patch should look &amp; wire. Pairs with <code>BUILD-IN-MAX.md</code> (text reference) and the code in this folder.</p>
+
+  <div class="legend">
+    <span><b>How to read the diagrams:</b></span>
+    <span><svg width="34" height="16" style="vertical-align:middle"><rect x="2" y="2" width="30" height="12" rx="2" fill="#d7d3c7" stroke="#000"/></svg> Max object</span>
+    <span><svg width="20" height="12" style="vertical-align:middle"><rect x="3" y="3" width="6" height="3" fill="#1a1a1a"/></svg> inlet (top) / outlet (bottom)</span>
+    <span><svg width="34" height="12" style="vertical-align:middle"><line x1="2" y1="6" x2="32" y2="6" stroke="#9a9a9a" stroke-width="1.6"/></svg> control cord</span>
+    <span><svg width="34" height="12" style="vertical-align:middle"><line x1="2" y1="6" x2="32" y2="6" stroke="#e0b13e" stroke-width="3"/></svg> <b>audio</b> cord (thick/yellow)</span>
+  </div>
+
+  <div class="toc">
+    <a href="#s0">0 · Max editor basics (read first)</a>
+    <a href="#s1">1 · Create the device</a>
+    <a href="#s2">2 · Load the wavetables (buffer~)</a>
+    <a href="#s3">3 · P0: one voice you can hear ★</a>
+    <a href="#s4">4 · Parameters &amp; the inspector</a>
+    <a href="#s5">5 · Hear it + read CPU (the gate)</a>
+    <a href="#s6">6 · The voice patcher</a>
+    <a href="#s7">7 · poly~ (8 voices)</a>
+    <a href="#s8">8 · Full param surface + ORDER</a>
+    <a href="#s9">9 · FX builder (matrix~ + ABL + feedback)</a>
+    <a href="#s10">10 · The jweb UI</a>
+    <a href="#s11">11 · Stride glow bridge</a>
+    <a href="#s12">12 · Freeze &amp; ship</a>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="s0"><span class="num">0</span>Max editor basics <span class="pill">read first</span></h2>
+  <p>If Max is new: a device is a <b>patcher</b> — boxes (objects) connected by <b>cords</b>. Signal generally flows <b>top → bottom</b>. Each object has <b>inlets</b> on top and <b>outlets</b> on the bottom; hover to see what each does.</p>
+  <ul>
+    <li><b>New object:</b> unlock the patch (<span class="kbd">Cmd/Ctrl‑E</span>), double‑click empty canvas (or press <span class="kbd">n</span>), type the object name, click away.</li>
+    <li><b>Connect:</b> drag from an outlet (bottom nub) to an inlet (top nub). An <b>audio</b> connection shows a thick striped (yellow/black) cord; <b>control</b> messages show a thin cord.</li>
+    <li><b>Edit vs play:</b> <span class="kbd">Cmd/Ctrl‑E</span> toggles edit/locked. Locked = you can click dials/play.</li>
+    <li><b>Presentation Mode</b> (the UI Live shows): <span class="kbd">Cmd/Ctrl‑Opt‑E</span>. Objects must be added to presentation (right‑click → Add to Presentation).</li>
+    <li><b>Inspector</b> (object settings — crucial for parameters): select an object, open the inspector (the <i>ⓘ</i> in the toolbar or <span class="kbd">Cmd/Ctrl‑I</span>).</li>
+    <li>Use <b>dark theme</b> (matches these diagrams): Max menu → Options → … theme, pick a dark one.</li>
+  </ul>
+  <div class="callout tip"><div class="h">Workflow that saves the most time</div>Build <b>§3 (P0)</b> completely and get sound first. Everything after is expansion. Don't wire the whole thing before you've heard one voice.</div>
+
+  <!-- ============================================================ -->
+  <h2 id="s1"><span class="num">1</span>Create the device</h2>
+  <ol>
+    <li>In Live: drag a <b>Max Instrument</b> onto a MIDI track (Max for Live → Max Instrument → Max Instrument).</li>
+    <li>Click the <b>edit (pencil)</b> button on the device title bar → Max opens the patcher.</li>
+    <li>You'll see the instrument template: roughly <code>[midiin]→[midiparse]</code> and an audio output <code>[plugout~]</code>. Keep <code>[plugout~]</code> — that's your audio out. You can delete the demo synth objects between them.</li>
+    <li><span class="kbd">Cmd/Ctrl‑S</span> → save as <code>TENDRIL.amxd</code> (somewhere in your User Library).</li>
+  </ol>
+
+  <!-- ============================================================ -->
+  <h2 id="s2"><span class="num">2</span>Load the wavetables</h2>
+  <p>First run the generator (one time): <code>cd tendril/data &amp;&amp; node gen-wavetables.js</code> → makes <code>tendril_wt_a.wav</code> and <code>tendril_wt_b.wav</code>. Put those next to the device (or use full paths). Then add two <code>buffer~</code> objects:</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 900 150">
+      <!-- buffer A -->
+      <rect x="40" y="30" width="380" height="34" rx="3" fill="var(--mxobj)" stroke="var(--mxobj-edge)"/>
+      <text x="52" y="52" font-family="Space Mono" font-size="14" fill="var(--mxtext)">buffer~ tendril_wt_a tendril_wt_a.wav</text>
+      <!-- buffer B -->
+      <rect x="40" y="86" width="380" height="34" rx="3" fill="var(--mxobj)" stroke="var(--mxobj-edge)"/>
+      <text x="52" y="108" font-family="Space Mono" font-size="14" fill="var(--mxtext)">buffer~ tendril_wt_b tendril_wt_b.wav</text>
+      <!-- note -->
+      <line x1="430" y1="47" x2="500" y2="47" stroke="var(--copper)" stroke-width="1.4" stroke-dasharray="4 3"/>
+      <line x1="430" y1="103" x2="500" y2="103" stroke="var(--copper)" stroke-width="1.4" stroke-dasharray="4 3"/>
+      <text x="510" y="62" font-family="Outfit" font-size="14" fill="var(--copper-lt)">The gen~ voice reads these by NAME</text>
+      <text x="510" y="82" font-family="Outfit" font-size="14" fill="var(--copper-lt)">(tendril_wt_a / _b) — no cords needed.</text>
+      <text x="510" y="102" font-family="Outfit" font-size="13" fill="#a9a39a">Click a buffer~ to confirm it shows a waveform.</text>
+    </svg>
+    <div class="dcap">two buffer~ objects · names MUST match the genexpr (tendril_wt_a / tendril_wt_b)</div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="s3"><span class="num">3</span>P0 — one voice you can hear ★</h2>
+  <p>This is the whole point of P0: ~7 objects, hear a morphing tone, read the CPU. Build exactly this:</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 900 600">
+      <defs>
+        <style>
+          .obj{fill:#d7d3c7;stroke:#0c0c0c;stroke-width:1}
+          .ot{font-family:'Space Mono',monospace;font-size:13px;fill:#161616}
+          .io{fill:#1a1a1a}
+          .c{fill:none;stroke:#9a9a9a;stroke-width:1.6}
+          .ca{fill:none;stroke:#e0b13e;stroke-width:3}
+          .ann{font-family:Outfit;font-size:12px;fill:#c98a3a}
+          .lbl{font-family:Outfit;font-size:11px;fill:#9a9a9a}
+        </style>
+      </defs>
+
+      <!-- notein -->
+      <rect class="obj" x="60" y="24" width="92" height="30"/>
+      <text class="ot" x="72" y="44">notein</text>
+      <rect class="io" x="64" y="51" width="7" height="4"/><text class="lbl" x="58" y="70">pitch</text>
+      <rect class="io" x="100" y="51" width="7" height="4"/><text class="lbl" x="92" y="82">vel</text>
+
+      <!-- sig~ pitch -->
+      <rect class="obj" x="40" y="120" width="64" height="28"/><text class="ot" x="52" y="139">sig~</text>
+      <rect class="io" x="44" y="117" width="7" height="4"/>
+      <rect class="io" x="44" y="145" width="7" height="4"/>
+      <!-- > 0 -->
+      <rect class="obj" x="150" y="120" width="56" height="28"/><text class="ot" x="160" y="139">&gt; 0</text>
+      <rect class="io" x="154" y="117" width="7" height="4"/>
+      <rect class="io" x="154" y="145" width="7" height="4"/>
+      <!-- adsr~ -->
+      <rect class="obj" x="250" y="120" width="190" height="28"/><text class="ot" x="262" y="139">adsr~ 5 80 0.7 200</text>
+      <rect class="io" x="254" y="117" width="7" height="4"/>
+      <rect class="io" x="254" y="145" width="7" height="4"/>
+
+      <!-- sig~ gate -->
+      <rect class="obj" x="150" y="180" width="64" height="28"/><text class="ot" x="162" y="199">sig~</text>
+      <rect class="io" x="154" y="177" width="7" height="4"/>
+      <rect class="io" x="154" y="205" width="7" height="4"/>
+
+      <!-- gen~ -->
+      <rect class="obj" x="120" y="280" width="320" height="78"/>
+      <text class="ot" x="134" y="312" font-size="14" font-weight="700">gen~</text>
+      <text class="ot" x="134" y="334" font-size="11">codebox: tendril_voice.genexpr</text>
+      <!-- inlets -->
+      <rect class="io" x="140" y="277" width="8" height="5"/><text class="lbl" x="132" y="272">1 pitch</text>
+      <rect class="io" x="270" y="277" width="8" height="5"/><text class="lbl" x="258" y="272">2 gate</text>
+      <rect class="io" x="400" y="277" width="8" height="5"/><text class="lbl" x="388" y="272">3 env</text>
+      <!-- outlet -->
+      <rect class="io" x="140" y="355" width="8" height="5"/>
+
+      <!-- live.gain~ -->
+      <rect class="obj" x="110" y="410" width="120" height="30"/><text class="ot" x="122" y="430">live.gain~</text>
+      <rect class="io" x="114" y="407" width="8" height="5"/>
+      <rect class="io" x="114" y="438" width="8" height="5"/>
+      <!-- plugout~ -->
+      <rect class="obj" x="110" y="490" width="110" height="30"/><text class="ot" x="122" y="510">plugout~</text>
+      <rect class="io" x="114" y="487" width="8" height="5"/>
+      <rect class="io" x="150" y="487" width="8" height="5"/>
+
+      <!-- param dial example -->
+      <rect class="obj" x="560" y="120" width="120" height="56"/><text class="ot" x="572" y="142">live.dial</text><text class="ot" x="572" y="162" font-size="11">"Tone" → a_tone</text>
+      <rect class="io" x="564" y="173" width="8" height="5"/>
+      <rect class="obj" x="560" y="220" width="160" height="28"/><text class="ot" x="572" y="239">prepend a_tone</text>
+      <rect class="io" x="564" y="217" width="8" height="5"/>
+      <rect class="io" x="564" y="245" width="8" height="5"/>
+
+      <!-- buffers note -->
+      <rect class="obj" x="560" y="300" width="300" height="26"/><text class="ot" x="570" y="318" font-size="11">buffer~ tendril_wt_a  tendril_wt_a.wav</text>
+      <rect class="obj" x="560" y="332" width="300" height="26"/><text class="ot" x="570" y="350" font-size="11">buffer~ tendril_wt_b  tendril_wt_b.wav</text>
+      <text class="ann" x="560" y="382">↑ read by name inside gen~ (no cords)</text>
+
+      <!-- CORDS -->
+      <!-- notein pitch -> sig~ pitch -->
+      <path class="c" d="M67,55 C67,90 47,90 47,117"/>
+      <!-- notein vel -> >0 -->
+      <path class="c" d="M103,55 C103,90 157,90 157,117"/>
+      <!-- notein vel -> adsr~ -->
+      <path class="c" d="M103,55 C150,80 257,90 257,117"/>
+      <!-- >0 -> sig~ gate -->
+      <path class="c" d="M157,148 C157,162 157,162 157,177"/>
+      <!-- sig~ pitch -> gen in1 (AUDIO) -->
+      <path class="ca" d="M47,149 C47,230 144,230 144,277"/>
+      <!-- sig~ gate -> gen in2 (AUDIO) -->
+      <path class="ca" d="M157,209 C157,250 274,250 274,277"/>
+      <!-- adsr~ -> gen in3 (AUDIO) -->
+      <path class="ca" d="M257,148 C257,230 404,230 404,277"/>
+      <!-- gen out -> live.gain~ (AUDIO) -->
+      <path class="ca" d="M144,360 C144,385 118,385 118,407"/>
+      <!-- live.gain~ -> plugout~ L (AUDIO) -->
+      <path class="ca" d="M118,443 C118,465 118,465 118,487"/>
+      <!-- live.gain~ -> plugout~ R (AUDIO) -->
+      <path class="ca" d="M118,443 C118,470 154,470 154,487"/>
+      <!-- dial -> prepend -->
+      <path class="c" d="M568,176 C568,198 568,198 568,217"/>
+      <!-- prepend -> gen in1 (control message sets the Param) -->
+      <path class="c" d="M568,248 C520,275 200,255 148,278"/>
+      <text class="ann" x="300" y="262">"a_tone 0.5" → gen~ leftmost inlet sets the Param</text>
+    </svg>
+    <div class="dcap">P0 single voice. Yellow = audio cords. notein drives pitch+gate+env; gen~ makes the sound; live.gain~ → plugout~ to Live.</div>
+  </div>
+
+  <ol>
+    <li>Make <code>[gen~]</code>, double‑click it, delete contents, add a <code>[codebox]</code>, paste all of <code>gen/tendril_voice.genexpr</code>, connect codebox <code>out1</code> → the gen~ patcher's <code>[out 1]</code>.</li>
+    <li>Wire <code>[notein]</code> pitch → <code>[sig~]</code> → <b>gen~ inlet 1</b>. (Pitch is fed as a signal; the genexpr does <code>mtof</code> internally.)</li>
+    <li><code>[notein]</code> velocity → <code>[> 0]</code> → <code>[sig~]</code> → <b>gen~ inlet 2</b> (gate).</li>
+    <li><code>[notein]</code> velocity → <code>[adsr~ 5 80 0.7 200]</code> → <b>gen~ inlet 3</b> (the amp envelope; gen~ multiplies by it).</li>
+    <li>gen~ outlet → <code>[live.gain~]</code> → <code>[plugout~]</code> (both inlets for L/R).</li>
+    <li>One param to prove the pattern: <code>[live.dial]</code> → <code>[prepend a_tone]</code> → gen~ <b>leftmost</b> inlet. Sending <code>a_tone 0.5</code> sets that Param.</li>
+  </ol>
+  <div class="callout warn"><div class="h">If it's silent</div>Check: buffers loaded (click them — waveforms visible)? Audio on in Live? A note held so <code>adsr~</code> output (inlet 3) is &gt; 0? Pitch reaching inlet 1 (~60)? Codebox compiled with no red errors (look at the Max Console, <span class="kbd">Cmd/Ctrl‑M</span>)?</div>
+
+  <!-- ============================================================ -->
+  <h2 id="s4"><span class="num">4</span>Parameters &amp; the inspector</h2>
+  <p>Every <code>live.dial</code> that should be automatable (and visible to Stride) needs inspector settings. Select the dial → open inspector → set it like this (values come from <code>tendril-params.js</code>):</p>
+
+  <div class="insp">
+    <div class="t">live.dial — Inspector</div>
+    <div class="r"><b>Parameter Mode Enable</b><span class="v">On</span></div>
+    <div class="r"><b>Long Name</b><span class="v">A Tone</span></div>
+    <div class="r"><b>Short Name</b><span class="v">Tone</span></div>
+    <div class="r"><b>Link to Scripting Name</b><span class="v">On</span></div>
+    <div class="r"><b>Scripting Name</b><span class="v">a_tone</span></div>
+    <div class="r"><b>Type</b><span class="v">Float ← must be Float, NOT Int</span></div>
+    <div class="r"><b>Range/Enum</b><span class="v">0. … 127.</span></div>
+    <div class="r"><b>Parameter Visibility</b><span class="v">Automated and Stored</span></div>
+    <div class="r"><b>Exponent</b><span class="v">1 (or ~3 if log)</span></div>
+    <div class="r"><b>Modulation Mode</b><span class="v">Bipolar (Float)</span></div>
+  </div>
+  <div class="callout warn"><div class="h">Why Float + 0–127 (the on/off trap)</div>Stride writes a <b>BoolEvent</b> (true/false) or <b>IntEvent</b> (rounded) when a parameter's Type is Bool/Int — that's what makes it inject as <b>ON/OFF</b>. A <b>Float</b> param injects smooth values. Use <b>Type = Float</b> and range <b>0.–127.</b> to match Ableton's macro convention Stride is tuned for. Then scale into gen~: <code>[live.dial 0.–127. Float] → [/ 127.] → [prepend a_tone] → gen~</code> (gen~ wants 0–1). Real-ranged params (Pitch ±24, Octave ±2, Fine ±50) stay Float at those ranges, no /127.</div>
+  <ul>
+    <li><b>Long Name</b> = what Live automation &amp; Stride show. <b>Scripting Name</b> = unique id, must match the <code>Param</code> in the genexpr. Turn on <b>Link to Scripting Name</b> to keep them unified.</li>
+    <li><b>Exponent ~3</b> for the <code>log:true</code> rows (cutoff, glide, times) so motion feels perceptual.</li>
+    <li>Selectors (<code>ftype</code>, <code>dtype</code>): use <code>[live.menu]</code>, set <b>Visibility = Stored Only</b> (hidden from automation — they're hand‑set, not Stride lanes).</li>
+  </ul>
+
+  <!-- ============================================================ -->
+  <h2 id="s5"><span class="num">5</span>Hear it + read CPU <span class="pill">the gate</span></h2>
+  <ol>
+    <li>Lock the patch (<span class="kbd">Cmd/Ctrl‑E</span>), play a note on the track. You should hear a morphing wavetable tone.</li>
+    <li>Turn Tone / (add Body, Air, Cutoff) — confirm it's musical across the <b>whole</b> range of each (that's the modulation‑safe promise).</li>
+    <li>Turn on Live's <b>CPU meter</b>. Note the cost of one voice. Then go to §7, wrap in <code>[poly~]</code> at 8 voices, and re‑check.</li>
+  </ol>
+  <div class="callout"><div class="h">The decision</div>If 8 voices of this dual‑osc engine is affordable on a mid machine → green light to build the rest. If it's heavy → we switch <code>poly~</code>→MC, trim wavetable partials, or drop voice count. <b>Report the number back to me.</b></div>
+
+  <!-- ============================================================ -->
+  <h2 id="s6"><span class="num">6</span>The voice patcher</h2>
+  <p>To go polyphonic, the voice must be its own patcher that <code>poly~</code> clones. Save this as <code>tendril_voice.maxpat</code> (next to the device). One clean trick keeps it tiny: <b>one <code>[route midinote]</code></b> splits note messages from parameter messages — and parameter messages pass straight into gen~ (gen~ accepts <code>"name value"</code> Param messages on its left inlet).</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 900 470">
+      <defs><style>
+        .obj{fill:#d7d3c7;stroke:#0c0c0c;stroke-width:1}.ot{font-family:'Space Mono',monospace;font-size:13px;fill:#161616}
+        .io{fill:#1a1a1a}.c{fill:none;stroke:#9a9a9a;stroke-width:1.6}.ca{fill:none;stroke:#e0b13e;stroke-width:3}
+        .ann{font-family:Outfit;font-size:12px;fill:#c98a3a}.lbl{font-family:Outfit;font-size:11px;fill:#9a9a9a}
+      </style></defs>
+
+      <rect class="obj" x="60" y="24" width="70" height="28"/><text class="ot" x="72" y="43">in 1</text>
+      <rect class="io" x="64" y="49" width="7" height="4"/>
+      <text class="ann" x="140" y="42">poly~ sends notes AND param msgs here</text>
+
+      <rect class="obj" x="60" y="96" width="150" height="28"/><text class="ot" x="72" y="115">route midinote</text>
+      <rect class="io" x="64" y="93" width="7" height="4"/>
+      <rect class="io" x="64" y="121" width="7" height="4"/><text class="lbl" x="40" y="140">note</text>
+      <rect class="io" x="195" y="121" width="7" height="4"/><text class="lbl" x="180" y="140">everything else</text>
+
+      <!-- note branch -->
+      <rect class="obj" x="40" y="170" width="100" height="28"/><text class="ot" x="52" y="189">unpack 0 0</text>
+      <rect class="io" x="44" y="167" width="7" height="4"/>
+      <rect class="io" x="44" y="195" width="7" height="4"/><text class="lbl" x="20" y="214">pitch</text>
+      <rect class="io" x="120" y="195" width="7" height="4"/><text class="lbl" x="110" y="214">vel</text>
+
+      <rect class="obj" x="30" y="240" width="60" height="26"/><text class="ot" x="40" y="258">sig~</text>
+      <rect class="obj" x="110" y="240" width="50" height="26"/><text class="ot" x="118" y="258">&gt; 0</text>
+      <rect class="obj" x="180" y="240" width="180" height="26"/><text class="ot" x="190" y="258">adsr~ 5 80 0.7 200</text>
+      <rect class="obj" x="110" y="296" width="60" height="26"/><text class="ot" x="120" y="314">sig~</text>
+
+      <!-- gen~ -->
+      <rect class="obj" x="60" y="350" width="300" height="60"/><text class="ot" x="74" y="378" font-weight="700">gen~  (tendril_voice codebox)</text>
+      <rect class="io" x="80" y="347" width="8" height="5"/><text class="lbl" x="74" y="343">1</text>
+      <rect class="io" x="200" y="347" width="8" height="5"/><text class="lbl" x="196" y="343">2</text>
+      <rect class="io" x="320" y="347" width="8" height="5"/><text class="lbl" x="316" y="343">3</text>
+      <rect class="io" x="80" y="407" width="8" height="5"/>
+
+      <!-- param passthrough -->
+      <text class="ann" x="430" y="128">param messages e.g. "a_tone 0.5"</text>
+      <text class="ann" x="430" y="146">go straight to gen~ left inlet →</text>
+
+      <rect class="obj" x="60" y="430" width="70" height="0"/>
+      <rect class="obj" x="40" y="430" width="70" height="0"/>
+
+      <!-- out -->
+      <rect class="obj" x="40" y="430" width="70" height="28"/><text class="ot" x="52" y="449">out 1</text>
+      <rect class="io" x="44" y="427" width="7" height="4"/>
+
+      <!-- cords -->
+      <path class="c" d="M67,52 C67,74 67,74 67,93"/>
+      <path class="c" d="M67,125 C67,148 47,148 47,167"/> <!-- note out -> unpack -->
+      <path class="c" d="M198,125 C260,180 330,300 326,347"/> <!-- params -> gen left? to right inlet visually; goes to leftmost in real patch -->
+      <text class="lbl" x="250" y="320">(connect to gen~ LEFTMOST inlet)</text>
+      <path class="c" d="M47,198 C47,220 47,220 47,240"/> <!-- pitch -> sig -->
+      <path class="c" d="M123,198 C123,220 123,220 123,240"/> <!-- vel -> >0 -->
+      <path class="c" d="M123,198 C160,220 200,225 200,240"/> <!-- vel -> adsr -->
+      <path class="c" d="M123,266 C123,281 123,281 123,296"/> <!-- >0 -> sig gate -->
+      <path class="ca" d="M40,266 C40,300 84,320 84,347"/> <!-- pitch sig -> gen1 -->
+      <path class="ca" d="M123,322 C123,335 204,335 204,347"/> <!-- gate sig -> gen2 -->
+      <path class="ca" d="M200,266 C200,310 324,310 324,347"/> <!-- adsr -> gen3 -->
+      <path class="ca" d="M84,412 C84,425 50,425 48,427"/> <!-- gen out -> out1 -->
+    </svg>
+    <div class="dcap">tendril_voice.maxpat · [route midinote] splits notes from param messages; params flow straight to gen~.</div>
+  </div>
+  <div class="callout tip"><div class="h">Why this is clean</div>Because gen~ accepts <code>"paramname value"</code> messages directly, you don't need a prepend per parameter inside the voice — every param message just falls through <code>route</code>'s right outlet into gen~.</div>
+
+  <!-- ============================================================ -->
+  <h2 id="s7"><span class="num">7</span>poly~ (8 voices)</h2>
+  <p>At the top level, host the voice with <code>poly~</code>. Notes are auto‑allocated with the <code>midinote</code> message (allocation ignores <code>target</code>, so global params can use <code>target 0</code> safely).</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 900 430">
+      <defs><style>
+        .obj{fill:#d7d3c7;stroke:#0c0c0c;stroke-width:1}.ot{font-family:'Space Mono',monospace;font-size:13px;fill:#161616}
+        .io{fill:#1a1a1a}.c{fill:none;stroke:#9a9a9a;stroke-width:1.6}.ca{fill:none;stroke:#e0b13e;stroke-width:3}
+        .ann{font-family:Outfit;font-size:12px;fill:#c98a3a}.lbl{font-family:Outfit;font-size:11px;fill:#9a9a9a}
+      </style></defs>
+
+      <!-- notes path -->
+      <rect class="obj" x="40" y="24" width="90" height="28"/><text class="ot" x="52" y="43">notein</text>
+      <rect class="io" x="44" y="51" width="7" height="4"/><rect class="io" x="80" y="51" width="7" height="4"/>
+      <rect class="obj" x="40" y="96" width="90" height="28"/><text class="ot" x="52" y="115">pack 0 0</text>
+      <rect class="io" x="44" y="93" width="7" height="4"/><rect class="io" x="110" y="93" width="7" height="4"/>
+      <rect class="io" x="44" y="121" width="7" height="4"/>
+      <rect class="obj" x="40" y="168" width="150" height="28"/><text class="ot" x="52" y="187">prepend midinote</text>
+      <rect class="io" x="44" y="165" width="7" height="4"/><rect class="io" x="44" y="193" width="7" height="4"/>
+
+      <!-- params path -->
+      <rect class="obj" x="430" y="24" width="150" height="50"/><text class="ot" x="442" y="46">live.dial "Tone"</text><text class="ot" x="442" y="64" font-size="11">scripting a_tone</text>
+      <rect class="io" x="434" y="71" width="7" height="4"/>
+      <rect class="obj" x="430" y="96" width="160" height="28"/><text class="ot" x="442" y="115">prepend a_tone</text>
+      <rect class="io" x="434" y="93" width="7" height="4"/><rect class="io" x="434" y="121" width="7" height="4"/>
+      <rect class="obj" x="430" y="168" width="230" height="28" fill="#cfe0cf"/><text class="ot" x="442" y="187">message:  target 0, $1 $2</text>
+      <rect class="io" x="434" y="165" width="7" height="4"/><rect class="io" x="434" y="193" width="7" height="4"/>
+      <text class="ann" x="430" y="150">→ broadcasts "a_tone 0.5" to ALL voices</text>
+
+      <!-- poly~ -->
+      <rect class="obj" x="120" y="250" width="340" height="56"/><text class="ot" x="134" y="282" font-weight="700">poly~ tendril_voice 8</text>
+      <rect class="io" x="140" y="247" width="8" height="5"/><text class="lbl" x="120" y="242">in 1</text>
+      <rect class="io" x="140" y="303" width="8" height="5"/>
+
+      <rect class="obj" x="120" y="350" width="120" height="30"/><text class="ot" x="132" y="370">live.gain~</text>
+      <rect class="io" x="124" y="347" width="8" height="5"/><rect class="io" x="124" y="381" width="8" height="5"/>
+      <rect class="obj" x="280" y="350" width="100" height="30"/><text class="ot" x="292" y="370">plugout~</text>
+      <rect class="io" x="284" y="347" width="8" height="5"/>
+
+      <!-- cords -->
+      <path class="c" d="M47,52 C47,74 47,74 47,93"/>           <!-- pitch->pack L -->
+      <path class="c" d="M83,52 C110,72 113,72 113,93"/>        <!-- vel->pack R -->
+      <path class="c" d="M47,124 C47,146 47,146 47,165"/>       <!-- pack->prepend -->
+      <path class="c" d="M47,196 C47,225 144,225 144,247"/>     <!-- midinote->poly in1 -->
+      <path class="c" d="M437,74 C437,85 437,85 437,93"/>       <!-- dial->prepend -->
+      <path class="c" d="M437,124 C437,146 437,146 437,165"/>   <!-- prepend->msg -->
+      <path class="c" d="M437,196 C437,225 148,225 146,247"/>   <!-- msg->poly in1 -->
+      <path class="ca" d="M144,306 C144,330 128,330 128,347"/>  <!-- poly->gain -->
+      <path class="ca" d="M128,383 C128,420 284,420 288,347"/>  <!-- gain->plugout (curve) -->
+    </svg>
+    <div class="dcap">Top level. Notes → "midinote p v" (auto‑allocated). Params → "target 0, name value" (all voices). Both enter poly~ inlet 1.</div>
+  </div>
+  <div class="callout warn"><div class="h">The one gotcha</div>Send notes as <code>midinote</code> (auto voice‑allocation, unaffected by target). Send params with a leading <code>target 0,</code> so every voice updates. If params don't reach voices in your Max version, that's the spot to check.</div>
+
+  <!-- ============================================================ -->
+  <h2 id="s8"><span class="num">8</span>Full param surface + ORDER <span class="pill">critical</span></h2>
+  <p>Create one control per <code>stride:true</code> row in <code>tendril-params.js</code> (49 of them), each with inspector settings from §4. They can sit in a tidy grid off to the side — only the inspector matters functionally; the pretty layout is the jweb UI (§10).</p>
+  <div class="callout warn"><div class="h">Order = the Stride API</div>Stride injects automation by <b>parameter position</b> (<code>envelope_index</code>). Create the dials in the <b>exact index order 0,1,2,… of <code>tendril-params.js</code></b>. Verify in Max's <b>Parameters</b> sidebar (the list view) and drag to fix order if needed. <b>Never insert in the middle later — append only</b> (the reserved slots are there for this).</p>
+  <p style="margin-top:6px">This is exactly what burned v1.2.0 of Stride (positional misroute). Get the order right once.</div>
+  <div class="callout tip"><div class="h">Verify with Stride</div>Launch Stride → <b>Scan Mapped</b>. You should get exactly the ~49 named lanes, in order, no junk. That's your contract confirmed.</div>
+
+  <!-- ============================================================ -->
+  <h2 id="s9"><span class="num">9</span>FX builder — matrix~ + ABL + feedback</h2>
+  <p>Engines: <b>ABL objects</b> (Ableton's real devices, Max 9) for the modules they nail; <b>gen~</b> for the safety‑critical feedback limiter. Each module is wrapped behind ONE macro dial.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 900 420">
+      <defs><style>
+        .obj{fill:#d7d3c7;stroke:#0c0c0c;stroke-width:1}.abl{fill:#cdd8e0;stroke:#0c0c0c}.gen{fill:#e0d3cd;stroke:#0c0c0c}
+        .ot{font-family:'Space Mono',monospace;font-size:12px;fill:#161616}
+        .io{fill:#1a1a1a}.ca{fill:none;stroke:#e0b13e;stroke-width:3}.c{fill:none;stroke:#9a9a9a;stroke-width:1.6}
+        .ann{font-family:Outfit;font-size:12px;fill:#c98a3a}.lbl{font-family:Outfit;font-size:11px;fill:#9a9a9a}
+      </style></defs>
+
+      <text class="lbl" x="30" y="40">from poly~</text>
+      <rect class="obj" x="30" y="60" width="120" height="40"/><text class="ot" x="40" y="78">matrix~</text><text class="ot" x="40" y="94" font-size="10">router (reorder)</text>
+      <rect class="io" x="34" y="57" width="8" height="5"/><rect class="io" x="34" y="98" width="8" height="5"/>
+
+      <!-- lane A modules -->
+      <rect class="abl" x="200" y="36" width="120" height="34"/><text class="ot" x="210" y="57">abl…roar~ (Drive)</text>
+      <rect class="abl" x="340" y="36" width="120" height="34"/><text class="ot" x="350" y="57">abl…redux~ (Crush)</text>
+      <rect class="abl" x="480" y="36" width="130" height="34"/><text class="ot" x="490" y="57">abl…echo~ (Motion)</text>
+      <rect class="abl" x="630" y="36" width="160" height="34"/><text class="ot" x="640" y="57">abl…compressor~ (Glue)</text>
+      <!-- lane B -->
+      <rect class="abl" x="200" y="120" width="200" height="34"/><text class="ot" x="210" y="141">abl…spectralresonator~ (Resonate)</text>
+      <rect class="abl" x="480" y="120" width="130" height="34"/><text class="ot" x="490" y="141">abl…reverb~ (Space)</text>
+
+      <!-- blend -->
+      <rect class="obj" x="650" y="120" width="140" height="34"/><text class="ot" x="660" y="141">*~  (equal‑power)</text>
+      <text class="ann" x="650" y="172">Parallel Blend (fx_blend) crossfades A/B</text>
+
+      <!-- feedback gen~ -->
+      <rect class="gen" x="200" y="250" width="320" height="44"/><text class="ot" x="212" y="272" font-weight="700">gen~  tendril_fx_feedback</text><text class="ot" x="212" y="288" font-size="10">self‑limiter: feedback can't blow up</text>
+      <rect class="io" x="214" y="247" width="8" height="5"/><rect class="io" x="214" y="297" width="8" height="5"/>
+
+      <text class="ann" x="30" y="270">tap chain output →</text>
+      <text class="ann" x="30" y="290">sum back before a slot</text>
+
+      <rect class="obj" x="560" y="250" width="120" height="40"/><text class="ot" x="572" y="272">limiter~</text><text class="ot" x="572" y="288" font-size="10">master safety</text>
+      <text class="lbl" x="700" y="274">→ to UI / out</text>
+
+      <!-- cords (schematic) -->
+      <path class="ca" d="M150,80 C175,60 185,53 200,53"/>
+      <path class="ca" d="M320,53 H340"/><path class="ca" d="M460,53 H480"/><path class="ca" d="M610,53 H630"/>
+      <path class="ca" d="M150,82 C175,120 185,137 200,137"/>
+      <path class="ca" d="M400,137 H480"/>
+      <path class="ca" d="M610,137 H650"/>
+      <path class="ca" d="M790,53 C820,90 760,120 720,134"/>
+      <path class="ca" d="M720,154 C700,200 560,210 520,250" stroke-dasharray="6 4"/>
+      <path class="ca" d="M214,272 C120,272 120,140 150,100" stroke-dasharray="6 4"/>
+    </svg>
+    <div class="dcap">Schematic. Blue = ABL (Ableton engines). Tan = gen~. matrix~ sets order/parallel; dashed = the self‑limited feedback loop (feedback→distortion stays musical).</div>
+  </div>
+  <ul>
+    <li>Use the exact ABL object names your Max exposes (check the <code>abl.device.*</code> list). <b>Standard, not <code>mc.</code></b> variants (those aren't licensed for M4L distribution).</li>
+    <li>Each macro dial (e.g. <code>fx_drive</code>) drives a curated path into the ABL device's params + auto makeup. Never expose raw ABL params to Live/Stride.</li>
+    <li>Feedback gen~ = <code>gen/tendril_fx_feedback.genexpr</code>. Tap post‑chain → its in1; its out1 sums back pre‑slot. <code>fx_fbamt</code>/<code>fx_motiontime</code> control it.</li>
+  </ul>
+
+  <!-- ============================================================ -->
+  <h2 id="s10"><span class="num">10</span>The jweb UI</h2>
+  <p>Add <code>[jweb @file ui/tendril-ui.html]</code>. The UI auto‑builds all knobs from the contract and talks to Max via <code>window.max</code>. Wire both directions:</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 900 320">
+      <defs><style>
+        .obj{fill:#d7d3c7;stroke:#0c0c0c;stroke-width:1}.ot{font-family:'Space Mono',monospace;font-size:12px;fill:#161616}
+        .io{fill:#1a1a1a}.c{fill:none;stroke:#9a9a9a;stroke-width:1.6}
+        .ann{font-family:Outfit;font-size:12px;fill:#c98a3a}.lbl{font-family:Outfit;font-size:11px;fill:#9a9a9a}
+      </style></defs>
+
+      <rect class="obj" x="350" y="20" width="200" height="46"/><text class="ot" x="362" y="42">jweb</text><text class="ot" x="362" y="60" font-size="10">@file ui/tendril-ui.html</text>
+      <rect class="io" x="354" y="17" width="8" height="5"/><rect class="io" x="354" y="64" width="8" height="5"/>
+
+      <!-- page -> max -->
+      <rect class="obj" x="60" y="130" width="240" height="28"/><text class="ot" x="72" y="149">route a_tone a_body … (or dict)</text>
+      <rect class="obj" x="60" y="190" width="240" height="28"/><text class="ot" x="72" y="209">scale 0. 1. min max  → live.dial (set $1)</text>
+      <text class="ann" x="60" y="118">page → Max  (knob dragged: outlet "a_tone 0.5")</text>
+
+      <!-- max -> page -->
+      <rect class="obj" x="560" y="130" width="300" height="28" fill="#cfe0cf"/><text class="ot" x="572" y="149">message:  set $1 $2   (e.g. set a_tone 0.5)</text>
+      <text class="ann" x="560" y="118">Max → page  (echo param / Stride glow)</text>
+      <text class="lbl" x="560" y="186">UI listens via window.max.bindInlet('set' / 'glow')</text>
+
+      <path class="c" d="M358,69 C300,100 190,105 180,130"/>
+      <path class="c" d="M180,158 C180,176 180,176 180,190"/>
+      <path class="c" d="M700,158 C700,110 470,90 450,69"/>
+    </svg>
+    <div class="dcap">jweb bridge. Left outlet → params (page→Max). Right: send "set name value" into jweb to echo values / glow (Max→page).</div>
+  </div>
+  <ul>
+    <li><b>Presentation:</b> put <code>[jweb]</code> in Presentation Mode, sized to the device strip. Add an "Open" button (<code>[live.text]</code>) → <code>[thispatcher]</code> to pop a <b>floating</b> resizable window for the full UI.</li>
+    <li><b>Freeze caveat:</b> a frozen device can't load the HTML into jweb directly — use the <code>executejavascript</code>‑after‑<code>onloadend</code> injection (h1data/M4L‑jweb‑injection). Build unfrozen first.</li>
+  </ul>
+
+  <!-- ============================================================ -->
+  <h2 id="s11"><span class="num">11</span>Stride glow bridge <span class="pill">optional</span></h2>
+  <p>Add <code>[node.script tendril-bridge.js]</code>. It connects to Stride on <code>localhost:9100</code> and emits <code>glow</code>/<code>glowoff</code> messages. Route those into <code>[jweb]</code> so knobs pulse in their lane color while Stride injects. Pure cosmetics — skip for P0. Needs the <code>ws</code> module available to node.script.</p>
+
+  <!-- ============================================================ -->
+  <h2 id="s12"><span class="num">12</span>Freeze &amp; ship</h2>
+  <ul>
+    <li>Confirm param <b>order</b> via Stride Scan Mapped; confirm CPU at target voices; confirm a feedback→distortion patch at max stays musical.</li>
+    <li>Add the jweb injection step for the frozen device.</li>
+    <li><b>Freeze</b> the device (the freeze button) so all assets bundle into the <code>.amxd</code>.</li>
+    <li>Release: Win build locally, Mac via CI from a <code>v*</code> tag (mirror Stride's pipeline).</li>
+  </ul>
+
+  <div class="callout tip"><div class="h">What to send me after P0</div>The CPU number at 8 voices, any codebox compile errors (Max Console), and how Tone/Body/Air/Cutoff sound across their range. Then we iterate the <code>.genexpr</code> by ear together — that's the loop.</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TENDRIL UI</title>
+<!--
+  TENDRIL — jweb UI (real, wired)
+  ================================
+  Loaded by a [jweb] object in the device. Knobs are GENERATED from the
+  embedded param config (kept in sync with ../tendril-params.js), so the
+  UI and the Stride contract never drift.
+
+  MAX BRIDGE
+    page -> Max : window.max.outlet(scripting, value01)   on knob drag
+    Max  -> page: window.max.bindInlet('set',  (scripting, value01) => ...)   // param echo
+                  window.max.bindInlet('glow', (scripting, laneColorIdx) => ...) // Stride lane glow
+                  window.max.bindInlet('wt',   (a_tone,a_body,a_air,...) => ...) // optional viz drive
+  FROZEN-DEVICE NOTE
+    HTML can't load into jweb inside a *frozen* M4L device. Use the
+    executejavascript-injection pattern (h1data/M4L-jweb-injection) — see
+    ../BUILD-IN-MAX.md §UI. This file works as-is unfrozen and in a browser.
+
+  Runs standalone in a browser too (window.max is stubbed) so you can design.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#141310; --panel:#1d1b16; --raise:#252119;
+  --line:rgba(216,201,176,.11); --line2:rgba(216,201,176,.06);
+  --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
+  --copper:#c6712b; --copper-lt:#dd9a52; --ember:#e58a2e;
+  --teal-lt:#5e9aad; --sage-lt:#86a87f; --rose-lt:#c5807f; --violet-lt:#9a8cbb;
+}
+*{box-sizing:border-box} html,body{margin:0;height:100%}
+body{font-family:'Outfit',sans-serif;background:#0c0b09;color:var(--ink2);-webkit-font-smoothing:antialiased;user-select:none;overflow:hidden}
+.mono{font-family:'Space Mono',ui-monospace,monospace}
+.brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.cap{text-transform:uppercase;letter-spacing:.18em}
+
+.app{display:flex;flex-direction:column;height:100vh;
+  background:radial-gradient(130% 70% at 50% -10%, rgba(198,113,43,.10), transparent 55%), linear-gradient(180deg,#1a1712,#141310 40%)}
+.titlebar{display:flex;align-items:center;gap:12px;padding:10px 16px;background:linear-gradient(180deg,#211d16,#1a1712);border-bottom:1px solid var(--line);flex:none}
+.dot{width:10px;height:10px;border-radius:50%;background:radial-gradient(circle at 35% 30%,var(--ember),#7a3f12);box-shadow:0 0 12px rgba(229,138,46,.7)}
+.logo{font-weight:900;letter-spacing:.34em;font-size:17px}
+.tag{font-size:10px;color:var(--ink3)}
+.stride-tag{margin-left:auto;font-size:9px;font-weight:800;letter-spacing:.16em;color:var(--ember);border:1px solid rgba(229,138,46,.35);background:rgba(229,138,46,.1);border-radius:999px;padding:4px 9px;text-transform:uppercase}
+
+.main{flex:1;display:grid;grid-template-columns:1fr 360px;gap:0;min-height:0}
+.left{overflow:auto;padding:6px 4px}
+.viz{border-left:1px solid var(--line);display:flex;flex-direction:column}
+#wt{width:100%;flex:1;display:block;background:#100f0c}
+.vizfoot{padding:8px 12px;font-size:9px;color:var(--ink3);border-top:1px solid var(--line)}
+
+.group{padding:10px 14px 4px}
+.group h3{font-size:10px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:var(--ink3);margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.group h3::after{content:"";flex:1;height:1px;background:var(--line)}
+.group h3 .pip{width:6px;height:6px;border-radius:50%;background:var(--copper)}
+.row{display:flex;flex-wrap:wrap;gap:14px 12px}
+
+.knob{width:62px;text-align:center}
+.dial{position:relative;width:60px;height:60px;margin:0 auto 6px;border-radius:50%;cursor:ns-resize}
+.dial .arc{position:absolute;inset:0;border-radius:50%;
+  background:conic-gradient(from 220deg, var(--col,var(--copper-lt)) 0 calc(var(--v,.5)*280deg), rgba(255,255,255,.05) calc(var(--v,.5)*280deg) 280deg, transparent 280deg);
+  -webkit-mask:radial-gradient(circle,transparent 56%,#000 57%);mask:radial-gradient(circle,transparent 56%,#000 57%)}
+.dial .cap{position:absolute;inset:8px;border-radius:50%;background:radial-gradient(circle at 35% 28%,#6a6253,#272218);box-shadow:0 0 0 1px rgba(0,0,0,.55),0 2px 5px rgba(0,0,0,.5),0 1px 0 rgba(255,255,255,.05) inset}
+.dial .ptr{position:absolute;left:50%;top:8px;width:2px;height:13px;background:var(--ember);transform-origin:50% 22px;border-radius:2px;box-shadow:0 0 6px rgba(229,138,46,.8)}
+.knob .lbl{font-size:10px;font-weight:700;color:var(--ink);letter-spacing:.03em;line-height:1.12}
+.knob .val{font-size:8.5px;color:var(--ink3);margin-top:2px;height:10px}
+.knob.glow .cap{animation:pulse 1.7s ease-in-out infinite}
+.knob.glow .lbl{color:var(--col,var(--copper-lt))}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 1px rgba(0,0,0,.55),0 0 9px 1px var(--col)}50%{box-shadow:0 0 0 1px rgba(0,0,0,.55),0 0 20px 4px var(--col)}}
+
+select{font-family:'Outfit';font-size:10px;background:var(--raise);color:var(--copper-lt);border:1px solid var(--line);border-radius:7px;padding:4px 6px}
+.selrow{display:flex;gap:16px;align-items:center;padding:4px 14px 12px}
+.selrow label{font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.1em;margin-right:6px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="titlebar">
+    <span class="dot"></span><span class="logo brand">TENDRIL</span>
+    <span class="tag cap">built to be modulated</span>
+    <span class="stride-tag" id="strideTag">◉ Stride :9100</span>
+  </div>
+  <div class="main">
+    <div class="left" id="panel"><!-- groups generated here --></div>
+    <div class="viz">
+      <canvas id="wt"></canvas>
+      <div class="vizfoot mono" id="vizfoot">dual 4×4×4 wavetank · morph live</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── param config (mirror of tendril-params.js — keep in sync) ── */
+const P = [
+  {s:'pitch',n:'Pitch',g:'Global',min:-24,max:24,def:0,u:'st'},
+  {s:'glide',n:'Glide',g:'Global',min:0,max:1,def:.05},
+  {s:'cutoff',n:'Cutoff',g:'Global',min:0,max:1,def:.7},
+  {s:'reso',n:'Reso',g:'Global',min:0,max:1,def:.2},
+  {s:'a_tone',n:'Tone',g:'Osc A',min:0,max:1,def:.5,c:'--copper-lt'},
+  {s:'a_body',n:'Body',g:'Osc A',min:0,max:1,def:.5,c:'--teal-lt'},
+  {s:'a_air',n:'Air',g:'Osc A',min:0,max:1,def:.5,c:'--sage-lt'},
+  {s:'a_bank',n:'Bank',g:'Osc A',min:0,max:1,def:0},
+  {s:'a_level',n:'Level',g:'Osc A',min:0,max:1,def:.85},
+  {s:'a_oct',n:'Oct',g:'Osc A',min:-2,max:2,def:0},
+  {s:'a_fine',n:'Fine',g:'Osc A',min:-50,max:50,def:0,u:'ct'},
+  {s:'b_tone',n:'Tone',g:'Osc B',min:0,max:1,def:.5,c:'--copper-lt'},
+  {s:'b_body',n:'Body',g:'Osc B',min:0,max:1,def:.5,c:'--teal-lt'},
+  {s:'b_air',n:'Air',g:'Osc B',min:0,max:1,def:.5,c:'--sage-lt'},
+  {s:'b_bank',n:'Bank',g:'Osc B',min:0,max:1,def:.4},
+  {s:'b_level',n:'Level',g:'Osc B',min:0,max:1,def:.5},
+  {s:'b_oct',n:'Oct',g:'Osc B',min:-2,max:2,def:0},
+  {s:'b_fine',n:'Fine',g:'Osc B',min:-50,max:50,def:0,u:'ct'},
+  {s:'fm_amt',n:'FM',g:'Cross',min:0,max:1,def:0},
+  {s:'ring_amt',n:'Ring',g:'Cross',min:0,max:1,def:0},
+  {s:'sync_amt',n:'Sync',g:'Cross',min:0,max:1,def:0},
+  {s:'sub_lvl',n:'Sub',g:'Cross',min:0,max:1,def:.3},
+  {s:'noise_lvl',n:'Noise',g:'Cross',min:0,max:1,def:0},
+  {s:'density',n:'Density',g:'Spectral',min:0,max:1,def:.3},
+  {s:'comb',n:'Comb',g:'Spectral',min:0,max:1,def:0},
+  {s:'fold_amt',n:'Fold',g:'Spectral',min:0,max:1,def:0},
+  {s:'tilt',n:'Tilt',g:'Spectral',min:0,max:1,def:.5},
+  {s:'formant',n:'Formant',g:'Spectral',min:0,max:1,def:0},
+  {s:'warp',n:'Warp',g:'Spectral',min:0,max:1,def:0},
+  {s:'fx_reson',n:'Resonate',g:'FX',min:0,max:1,def:0},
+  {s:'fx_resontune',n:'Res Tune',g:'FX',min:0,max:1,def:.5},
+  {s:'fx_drive',n:'Drive',g:'FX',min:0,max:1,def:0},
+  {s:'fx_drivechar',n:'Drv Char',g:'FX',min:0,max:1,def:.5},
+  {s:'fx_crush',n:'Crush',g:'FX',min:0,max:1,def:0},
+  {s:'fx_crushrate',n:'Crush Rt',g:'FX',min:0,max:1,def:1},
+  {s:'fx_glue',n:'Glue',g:'FX',min:0,max:1,def:0},
+  {s:'fx_spacesize',n:'Space Sz',g:'FX',min:0,max:1,def:.4},
+  {s:'fx_spacemix',n:'Space Mix',g:'FX',min:0,max:1,def:.2},
+  {s:'fx_motionfb',n:'Motion Fb',g:'FX',min:0,max:1,def:0},
+  {s:'fx_motiontime',n:'Motion T',g:'FX',min:0,max:1,def:.3},
+  {s:'env_mod',n:'Env Mod',g:'FX',min:0,max:1,def:.5},
+  {s:'fx_blend',n:'Blend',g:'Routing',min:0,max:1,def:.5},
+  {s:'fx_fbamt',n:'Feedback',g:'Routing',min:0,max:.98,def:0},
+  {s:'macro1',n:'Macro 1',g:'Macros',min:0,max:1,def:0,c:'--teal-lt'},
+  {s:'macro2',n:'Macro 2',g:'Macros',min:0,max:1,def:0,c:'--rose-lt'},
+  {s:'macro3',n:'Macro 3',g:'Macros',min:0,max:1,def:0,c:'--sage-lt'},
+  {s:'macro4',n:'Macro 4',g:'Macros',min:0,max:1,def:0,c:'--violet-lt'},
+];
+const SEL = [
+  {s:'ftype',n:'Filter',opts:['LP24','LP12','HP','BP','Notch','Peak']},
+  {s:'dtype',n:'Distortion',opts:['Tube','Tape','Diode','Wavefold','Foldback','HardClip','Sine','Asym','RoarMB']},
+];
+const LANE_COL = ['--teal-lt','--rose-lt','--sage-lt','--violet-lt','--copper-lt'];
+
+/* ── Max bridge (stub when running in a browser) ── */
+const MAX = (typeof window.max !== 'undefined') ? window.max : {
+  outlet(){}, bindInlet(){}, // no-op stubs for browser preview
+};
+function toMax(scripting, v){ try{ MAX.outlet(scripting, v); }catch(e){} }
+
+/* ── build UI from config ── */
+const state = {};                     // scripting -> normalized 0..1
+const els   = {};                     // scripting -> {dial, valEl, p}
+const panel = document.getElementById('panel');
+const norm  = (p,v)=>(v-p.min)/(p.max-p.min);
+const denorm= (p,t)=>p.min+t*(p.max-p.min);
+const fmt   = (p,v)=> (p.u==='st'||p.u==='ct') ? (v>0?'+':'')+v.toFixed(0)+p.u : v.toFixed(2);
+
+const groupsOrder = ['Global','Osc A','Osc B','Cross','Spectral','FX','Routing','Macros'];
+for(const g of groupsOrder){
+  const items = P.filter(p=>p.g===g);
+  if(!items.length) continue;
+  const sec = document.createElement('div'); sec.className='group';
+  sec.innerHTML = `<h3><span class="pip"></span>${g}</h3>`;
+  const row = document.createElement('div'); row.className='row';
+  for(const p of items) row.appendChild(makeKnob(p));
+  sec.appendChild(row);
+  // selectors appended under their home group
+  if(g==='Global') sec.appendChild(makeSelectors());
+  panel.appendChild(sec);
+}
+
+function makeKnob(p){
+  const t = norm(p, p.def); state[p.s]=t;
+  const wrap = document.createElement('div'); wrap.className='knob';
+  wrap.innerHTML =
+    `<div class="dial" style="${p.c?`--col:var(${p.c})`:''}">
+       <div class="arc"></div><div class="cap"></div><div class="ptr"></div>
+     </div>
+     <div class="lbl">${p.n}</div><div class="val mono"></div>`;
+  const dial = wrap.querySelector('.dial');
+  const valEl= wrap.querySelector('.val');
+  els[p.s] = {dial, valEl, p, wrap};
+  setVisual(p.s, t);
+  // drag to change (vertical)
+  let dragging=false, startY=0, startT=t;
+  dial.addEventListener('mousedown', e=>{dragging=true;startY=e.clientY;startT=state[p.s];e.preventDefault();});
+  window.addEventListener('mousemove', e=>{
+    if(!dragging)return;
+    const nt = Math.min(1,Math.max(0, startT + (startY-e.clientY)/200));
+    state[p.s]=nt; setVisual(p.s,nt);
+    toMax(p.s, nt);                   // <-- send normalized 0..1 to Max
+  });
+  window.addEventListener('mouseup', ()=>dragging=false);
+  dial.addEventListener('dblclick', ()=>{const nt=norm(p,p.def);state[p.s]=nt;setVisual(p.s,nt);toMax(p.s,nt);});
+  return wrap;
+}
+function setVisual(s, t){
+  const e=els[s]; if(!e)return;
+  e.dial.style.setProperty('--v', t);
+  e.dial.querySelector('.ptr').style.transform = `rotate(${t*280-140}deg)`;
+  e.valEl.textContent = fmt(e.p, denorm(e.p,t));
+}
+function makeSelectors(){
+  const box=document.createElement('div'); box.className='selrow';
+  for(const sl of SEL){
+    const span=document.createElement('span');
+    span.innerHTML=`<label>${sl.n}</label>`;
+    const sel=document.createElement('select');
+    sl.opts.forEach((o,i)=>{const op=document.createElement('option');op.value=i;op.textContent=o;sel.appendChild(op);});
+    sel.addEventListener('change',()=>toMax(sl.s, +sel.value));
+    span.appendChild(sel); box.appendChild(span);
+  }
+  return box;
+}
+
+/* ── inbound from Max ── */
+MAX.bindInlet && MAX.bindInlet('set', (s, t)=>{ if(els[s]){state[s]=t; setVisual(s,t);} });
+MAX.bindInlet && MAX.bindInlet('glow',(s, laneIdx)=>{
+  const e=els[s]; if(!e)return;
+  const on = laneIdx>=0;
+  e.wrap.classList.toggle('glow', on);
+  if(on) e.dial.style.setProperty('--col', `var(${LANE_COL[laneIdx%LANE_COL.length]})`);
+});
+// optional: Max can push live osc positions to drive the viz: ('wt', ax,ay,az,bx,by,bz)
+let viz={ax:.5,ay:.5,az:.5};
+MAX.bindInlet && MAX.bindInlet('wt',(ax,ay,az)=>{viz.ax=ax;viz.ay=ay;viz.az=az;});
+
+/* ── animated wavetable view (reads current osc-A morph state) ── */
+const cv=document.getElementById('wt'), ctx=cv.getContext('2d');
+function resize(){cv.width=cv.clientWidth*1;cv.height=cv.clientHeight*1;}
+window.addEventListener('resize',resize); resize();
+let tt=0;
+function draw(){
+  const W=cv.width,H=cv.height; ctx.clearRect(0,0,W,H);
+  // pull live morph from knob state so the picture matches the sound
+  const bright=state['a_tone']??.5, body=state['a_body']??.5, air=state['a_air']??.5;
+  const rows=18, cols=110, ox=W*0.16, oy=H*0.14, dx=(W*0.62)/rows, dy=(H*0.6)/rows;
+  for(let r=rows-1;r>=0;r--){
+    const depth=r/rows, bx=ox+(rows-1-r)*dx*0.42, by=oy+r*dy*0.55+H*0.05, amp=(H*0.10)*(0.55+0.45*(1-depth));
+    const cur=r===Math.floor(rows*0.45+2.5*Math.sin(tt*0.6));
+    ctx.beginPath();
+    for(let c=0;c<=cols;c++){
+      const ph=c/cols;
+      const h1=Math.sin(ph*Math.PI*2+tt*0.4);
+      const h2=body*(1-depth)*Math.sin(ph*Math.PI*(4+bright*10)+tt*0.7+r);
+      const h3=air*depth*Math.sin(ph*Math.PI*(8+bright*16)+tt*0.5);
+      const y=h1+h2*0.6+h3*0.5;
+      const px=bx+ph*(W*0.62-(rows-1-r)*dx*0.42), py=by-y*amp;
+      c===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+    }
+    if(cur){ctx.strokeStyle='rgba(229,138,46,.95)';ctx.lineWidth=2;ctx.shadowColor='rgba(229,138,46,.7)';ctx.shadowBlur=10;}
+    else{const a=0.10+0.42*(1-depth);ctx.strokeStyle=`rgba(${200-60*depth},${120-40*depth},${70-20*depth},${a})`;ctx.lineWidth=1;ctx.shadowBlur=0;}
+    ctx.stroke();ctx.shadowBlur=0;
+  }
+  tt+=0.025; requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>

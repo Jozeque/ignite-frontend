@@ -1,0 +1,53 @@
+/* ============================================================
+   TENDRIL — FX feedback loop with self-limiter   (GenExpr)
+   ============================================================
+   This is the safety-critical piece that lets the user freely patch
+   "feedback -> distortion" (or any aggressive routing) WITHOUT it ever
+   screaming or blowing up to DC. It returns a delayed, soft-saturated,
+   gain-capped copy of the chain output to be summed back into a pre-slot
+   node in the matrix~ FX router (see ../BUILD-IN-MAX.md §FX).
+
+   Put a [codebox] inside [gen~ tendril_fb] and paste this.
+
+   INPUTS
+     in1 = chain output to feed back (post-FX tap)
+     in2 = (optional) live signal sum-in if you want the loop self-contained
+   OUTPUT
+     out1 = feedback signal to add BEFORE the chain (or the wet loop out)
+
+   PARAMS  (match tendril-params.js)
+     fx_fbamt    0..0.98  feedback depth
+     fx_motiontime 0..1   loop time (mapped 1..500 ms)
+   ============================================================ */
+
+Param fx_fbamt(0);          // feedback amount (hard-capped below regardless)
+Param fx_motiontime(0.3);   // 0..1 -> 1..500 ms
+
+sr = samplerate;
+
+// loop time in samples (tempo-sync can replace this later via a param in ms/beats)
+ms   = 1 + fx_motiontime * 499;          // 1..500 ms
+dt   = ms * sr / 1000;
+MAXD = 48000;                            // 1 s max @ <=48k ; raise if needed. VERIFY delay() args.
+
+// read the delayed loop state
+History wet(0);
+d = delay(wet, MAXD, dt);                // VERIFY: delay(in, maxSamples, delaySamples)
+
+// inject new energy + previous loop, soft-saturate, then HARD CAP < 1.0
+amt = min(fx_fbamt, 0.98);               // never reach unity -> bounded-input bounded-output
+mixed = in1 + d * amt;
+
+// self-limiter: tanh soft clip keeps it musical; the *0.98 ceiling guarantees
+// the loop gain can't reach 1, so it always decays instead of running away.
+loop = tanh(mixed * 1.2) * 0.98;
+
+// DC blocker so folded/distorted feedback can't accumulate offset
+History dcx(0);
+History dcy(0);
+hp = loop - dcx + 0.9995 * dcy;
+dcx = loop;
+dcy = hp;
+
+wet = hp;          // store for next sample
+out1 = wet * amt;  // what gets summed back before the chain

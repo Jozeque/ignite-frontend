@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stride 2.0 — CTA + cable directions (full UI)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#09090b;--line:rgba(255,255,255,.06);
+    --z3:#d4d4d8;--z4:#a1a1aa;--z5:#71717a;--z6:#52525b;
+    --curve:#a855f7;--fuchsia:#d946ef;--orange:#fb923c;--emerald:#34d399;--blue:#38bdf8;--amber:#fbbf24;
+    /* CTA + cable color (switchable). Default = orange (brand logo, complements purple). */
+    --ctaText:#fb923c;--ctaBg:rgba(249,115,22,.14);--ctaBd:rgba(249,115,22,.5);--ctaGlow:rgba(249,115,22,.18);--cableC:rgba(251,146,60,.55);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:#e4e4e7;font-family:'Outfit',sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
+  .app{width:100vw;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+  .toggle{position:fixed;top:42px;right:14px;z-index:50;display:flex;flex-direction:column;gap:5px;background:rgba(9,9,11,.92);
+    border:1px solid var(--line);border-radius:10px;padding:8px;backdrop-filter:blur(8px)}
+  .toggle .tt{font-size:8px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:var(--z6);padding:0 2px 2px}
+  .toggle button.dir{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--z4);text-align:left;
+    background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:7px;padding:6px 10px;cursor:pointer}
+  .toggle button.dir.on{color:var(--ctaText);background:var(--ctaBg);border-color:var(--ctaBd)}
+  .toggle .cap{font-size:9px;color:var(--z5);line-height:1.45;max-width:182px;padding:4px 2px 0}
+  .toggle .sw{width:24px;height:24px;border-radius:6px;padding:0;background:var(--s);border:2px solid rgba(255,255,255,.15);cursor:pointer;opacity:.8}
+  .toggle .sw.on{border-color:#fff;opacity:1}
+
+  .logo{font-size:11px;font-weight:900;letter-spacing:.30em;text-transform:uppercase;
+        background-image:linear-gradient(to right,#f97316,#ef4444);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+
+  .tb{height:34px;flex:none;display:flex;align-items:center;gap:14px;padding:0 14px;border-bottom:1px solid var(--line);background:#0a0a0d}
+  .tb .pat{font-size:9px;color:var(--z5);letter-spacing:.12em;text-transform:uppercase}
+  .tb .r{margin-left:auto;display:flex;align-items:center;gap:16px;font-size:8.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--z5)}
+  .ok{color:var(--emerald)} .ok::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--emerald);box-shadow:0 0 6px var(--emerald);margin-right:6px;vertical-align:middle}
+
+  /* top toolbar = OPS only (generative + faders live in the left panel) */
+  .bar{flex:none;border-bottom:1px solid var(--line);background:rgba(0,0,0,.18);padding:6px 12px;display:flex;flex-direction:column;gap:6px}
+  .row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .lbl{font-size:8px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--z6);margin:0 4px 0 8px}
+  .btn{font-size:8.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:4px 8px;border-radius:6px;white-space:nowrap;color:var(--z4);background:rgba(255,255,255,.03);border:1px solid var(--line)}
+  .b-fuchsia{color:#e9a3f5;background:rgba(217,70,239,.12);border-color:rgba(217,70,239,.28)}
+  .b-fuchsia.on{color:#fff;background:rgba(217,70,239,.30);border-color:rgba(217,70,239,.5)}
+  .b-blue{color:#7dd3fc;background:rgba(56,189,248,.10);border-color:rgba(56,189,248,.24)}
+  .b-blue.on{color:#fff;background:rgba(56,189,248,.28);border-color:rgba(56,189,248,.5)}
+  .b-emerald{color:#6ee7b7;background:rgba(16,185,129,.10);border-color:rgba(16,185,129,.24)}
+  .b-amber{color:#fcd34d;background:rgba(245,158,11,.10);border-color:rgba(245,158,11,.24)}
+  .b-purple{color:#c4b5fd;background:rgba(139,92,246,.10);border-color:rgba(139,92,246,.24)}
+  .spacer{flex:1}
+
+  .body{flex:1;display:flex;min-height:0;position:relative}
+  /* LEFT panel: Parameters + CTA slot + GENERATIVE + EDIT (the real context panel) */
+  .strip{width:218px;flex:none;border-right:1px solid var(--line);padding:10px 11px;display:flex;flex-direction:column;gap:10px;background:rgba(0,0,0,.16);position:relative;z-index:3;overflow:hidden}
+  .ph{display:flex;align-items:center;justify-content:space-between}
+  .ph .t{font-size:8px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:var(--z5)}
+  .ph .c{font-size:7.5px;color:var(--z6)}
+  .rk{font-size:9px;color:#c084fc;font-weight:700;margin-top:5px;line-height:1.3}
+  .trk{font-size:7.5px;color:var(--z6);letter-spacing:.12em;text-transform:uppercase;margin-top:3px}
+  #ctaSlot{flex:none}                              /* reserves room for the in-strip CTA (direction A) */
+  .secttl{font-size:8px;font-weight:900;letter-spacing:.2em;text-transform:uppercase;color:var(--z6);margin-bottom:6px}
+  .gens{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .gen{font-size:8.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#d8b4fe;background:rgba(217,70,239,.10);border:1px solid rgba(217,70,239,.22);border-radius:6px;padding:6px 6px;text-align:center}
+  .gen.o{color:#fdba74;background:rgba(249,115,22,.10);border-color:rgba(249,115,22,.22)}
+  .fad{display:flex;align-items:center;gap:7px}
+  .fad .fl{font-size:8px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--z5);width:44px}
+  .trk2{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.08);position:relative}
+  .trk2 i{position:absolute;top:50%;transform:translate(-50%,-50%);width:8px;height:8px;border-radius:50%;background:var(--z3)}
+
+  .canvas{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
+  .ruler{height:18px;flex:none;border-bottom:1px solid var(--line);position:relative;background:rgba(0,0,0,.12)}
+  .ruler span{position:absolute;top:3px;font-size:7px;color:var(--z6);font-family:ui-monospace,monospace}
+  .lanes{flex:1;display:flex;flex-direction:column;min-height:0}
+  .lane{flex:1;display:flex;min-height:0;border-bottom:1px solid rgba(255,255,255,.03);position:relative}
+  .lane .lab{width:118px;flex:none;padding:5px 8px;display:flex;flex-direction:column;justify-content:center;gap:1px;border-right:1px solid rgba(255,255,255,.04);position:relative}
+  .lane .nm{font-size:8.5px;font-weight:700;color:#a78bfa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lane .pt{font-size:7px;color:var(--z6)}
+  .lane.active{background:rgba(168,85,247,.07)} .lane.active .nm{color:#d8b4fe}
+  .lane .stage{flex:1;min-width:0;position:relative}
+  .lane .stage svg{position:absolute;inset:0;width:100%;height:100%}
+  .cdim{fill:none;stroke:rgba(168,85,247,.32);stroke-width:1.4}
+  .lane.active .cdim{stroke:rgba(168,85,247,.5)}
+  .trail{fill:none;stroke:url(#comet);stroke-width:2.4;stroke-linecap:round;filter:drop-shadow(0 0 4px rgba(168,85,247,.55))}
+  .dot{position:absolute;width:8px;height:8px;border-radius:50%;left:0;top:0;transform:translate(-50%,-50%);pointer-events:none;background:radial-gradient(circle at 50% 50%,#fff 0%,#f0abfc 45%,var(--curve) 75%);box-shadow:0 0 11px 3px rgba(168,85,247,.8);z-index:4}
+  .port{position:absolute;width:6px;height:6px;border-radius:50%;background:#18181b;border:1.4px solid var(--ctaBd);top:50%;transform:translateY(-50%);z-index:6;display:none}
+  .port.pL{left:-3px} .port.pR{right:-3px}
+
+  .status{height:22px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 12px;border-top:1px solid var(--line);background:rgba(0,0,0,.25);font-size:8px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--z6)}
+
+  #ovl{position:absolute;inset:0;pointer-events:none;z-index:5}
+  #ovl svg{position:absolute;inset:0;width:100%;height:100%}
+  .cable{fill:none;stroke:var(--cableC);stroke-width:1.4}        /* static — animation is on lanes only */
+  #cta{position:absolute;z-index:7;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;
+       color:var(--ctaText);background:var(--ctaBg);border:1.5px solid var(--ctaBd);box-shadow:0 0 22px var(--ctaGlow)}
+  #cta .t{font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;text-align:center;line-height:1.15}
+  #cta .s{font-size:7px;color:var(--z5);letter-spacing:.12em;text-transform:uppercase}
+</style>
+</head>
+<body>
+  <div class="toggle">
+    <span class="tt">CTA placement</span>
+    <button class="dir on" data-dir="A">A · Left (with tools) → names</button>
+    <button class="dir" data-dir="B">B · Right hub → lane ends</button>
+    <button class="dir" data-dir="C">C · Top → names</button>
+    <div class="cap" id="cap"></div>
+    <span class="tt" style="margin-top:8px">CTA + cable color</span>
+    <div style="display:flex;gap:5px;flex-wrap:wrap">
+      <button class="sw on" data-col="orange" style="--s:#fb923c" title="Orange — brand logo, complements purple"></button>
+      <button class="sw" data-col="amber" style="--s:#fbbf24" title="Amber / gold (your MODULATE sketch)"></button>
+      <button class="sw" data-col="cyan" style="--s:#22d3ee" title="Cyan — cool complement to purple"></button>
+      <button class="sw" data-col="fuchsia" style="--s:#e879f9" title="Fuchsia — cohesive with the lanes"></button>
+      <button class="sw" data-col="emerald" style="--s:#34d399" title="Emerald (old)"></button>
+    </div>
+  </div>
+
+  <div class="app">
+    <div class="tb"><span class="logo">STRIDE</span><span class="pat">♪ Patterns</span>
+      <div class="r"><span class="ok">M4L Connected</span><span>Guide</span><span>Install to Ableton</span><span style="color:var(--z6)">— ▢ ✕</span></div></div>
+
+    <div class="bar">
+      <div class="row"><span class="lbl">Loop</span>
+        <span class="btn">2</span><span class="btn">4</span><span class="btn">8</span><span class="btn b-fuchsia on">16</span><span class="btn">32</span>
+        <span class="btn b-purple">≡ Multi</span><span class="spacer"></span><span class="btn b-fuchsia">⬡ Presets</span></div>
+      <div class="row"><span class="btn b-fuchsia on">Point</span><span class="btn b-purple">Free</span>
+        <span class="lbl">Edit</span>
+        <span class="btn b-blue">Mirror</span><span class="btn b-blue">Flip</span><span class="btn b-blue">Copy</span><span class="btn b-blue">Paste</span><span class="btn b-blue">Inv</span><span class="btn b-blue">Paste To</span>
+        <span class="btn b-purple">Swing</span><span class="btn b-emerald">Mutate</span><span class="btn b-purple">Shuffle</span><span class="btn b-amber">Stretch</span><span class="btn">2×</span><span class="btn b-blue on">½×</span>
+        <span class="spacer"></span><span class="btn b-purple">Select All</span><span class="btn b-amber">🔒 Lock All</span><span class="btn">Save Lane</span><span class="btn">Clear Lane</span></div>
+    </div>
+
+    <div class="body" id="bodyEl">
+      <div class="strip" id="strip">
+        <div>
+          <div class="ph"><span class="t">Parameters</span><span class="c">11 ⟳</span></div>
+          <div class="rk">Operator + VerbSuite Classics + Acid Dist…</div>
+          <div class="trk">Track: 3-Operator</div>
+        </div>
+        <div id="ctaSlot"></div>
+        <div><div class="secttl">Generative</div>
+          <div class="gens">
+            <span class="gen">Sine</span><span class="gen">Pump</span><span class="gen">Glitch</span><span class="gen">Groove</span>
+            <span class="gen o">Chaos</span><span class="gen o">Neuro</span><span class="gen">S&amp;H</span><span class="gen">Prism</span>
+            <span class="gen">Bloom</span><span class="gen">Reflector</span>
+          </div>
+        </div>
+        <div><div class="secttl">Edit</div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div class="fad"><span class="fl">Smooth</span><div class="trk2"><i style="left:30%"></i></div></div>
+            <div class="fad"><span class="fl">Depth</span><div class="trk2"><i style="left:70%"></i></div></div>
+            <div class="fad"><span class="fl">Curve</span><div class="trk2"><i style="left:50%"></i></div></div>
+            <div class="fad"><span class="fl">Floor</span><div class="trk2"><i style="left:18%"></i></div></div>
+            <div class="fad"><span class="fl">Ceiling</span><div class="trk2"><i style="left:85%"></i></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="canvas" id="canvasEl">
+        <div class="ruler" id="ruler"></div>
+        <div class="lanes" id="lanes"></div>
+      </div>
+      <div id="ovl"><svg id="cables"></svg></div>
+      <div id="cta"><div class="t">Inject<br>to Clip</div><div class="s">▶ fire</div></div>
+    </div>
+
+    <div class="status"><span>Ctrl+Wheel · Space+Drag · Alt+Drag</span><span>Editor Ready</span></div>
+  </div>
+
+<script>
+const W=900,H=42;
+const F=[
+  t=>0.5+0.42*Math.sin(t*Math.PI*8)*Math.sin(t*Math.PI*1.3), t=>0.3+0.5*Math.abs(((t*4)%1)*2-1),
+  t=>0.5+0.40*Math.sin(t*Math.PI*5+0.6), t=>0.2+0.66*Math.pow(t,0.6), t=>0.55-0.42*Math.sin(t*Math.PI*3),
+  t=>0.4+0.45*Math.sin(t*Math.PI*6)*0.7+0.15*Math.sin(t*Math.PI*1.5), t=>0.5+0.43*Math.sin(t*Math.PI*9)*Math.cos(t*Math.PI*2),
+  t=>0.7-0.5*Math.pow(t,2), t=>0.35+0.5*Math.abs(((t*2.5)%1)*2-1), t=>0.45+0.4*Math.sin(t*Math.PI*4+1.2), t=>0.3+0.55*t-0.2*Math.sin(t*Math.PI*7),
+];
+const NAMES=['Acid Distortio…','Acid Distortio…','Acid Distortio…','Acid Distortio…','Acid Distortio…','Acid Distortio…','Acid Distortio…','Acid Distortio…','Acid Distortio…','Acid Distortio…','Basic Feedback…'];
+const ACTIVE=6;
+const clamp=v=>Math.max(.05,Math.min(.95,v));
+const pathD=f=>{let d='';for(let i=0;i<=70;i++){const t=i/70;d+=(i?'L':'M')+(t*W).toFixed(1)+','+(H-clamp(f(t))*(H-6)-3).toFixed(1);}return d;};
+const yAt=(f,t)=>H-clamp(f(t))*(H-6)-3;
+
+const ruler=document.getElementById('ruler');
+for(let b=1;b<=16;b++){const s=document.createElement('span');s.textContent=b;ruler.appendChild(s);}
+function placeRuler(){const cv=document.getElementById('canvasEl').getBoundingClientRect();const x0=118;const wpx=cv.width-x0;
+  [...ruler.children].forEach((s,i)=>{s.style.left=(x0+(i/16)*wpx)+'px';});}
+
+const lanesEl=document.getElementById('lanes');const reg=[];
+NAMES.forEach((nm,i)=>{
+  const lane=document.createElement('div');lane.className='lane'+(i===ACTIVE?' active':'');
+  lane.innerHTML=`<div class="lab"><div class="nm">${nm}</div><div class="pt">${240+(i*37)%60} pts 🔒</div><span class="port pL"></span></div>
+    <div class="stage"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      ${i===ACTIVE?'<defs><linearGradient id="comet" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="rgba(168,85,247,0)"/><stop offset="100%" stop-color="#f0abfc"/></linearGradient></defs>':''}
+      <path class="cdim" d="${pathD(F[i])}"/><path class="trail" d=""/></svg><span class="port pR"></span></div>`;
+  lanesEl.appendChild(lane);
+  const stage=lane.querySelector('.stage');const dot=document.createElement('div');dot.className='dot';stage.appendChild(dot);
+  reg.push({f:F[i],stage,dot,trail:lane.querySelector('.trail')});
+});
+
+// comet pulse on lanes only
+const LOOP=4000;
+function frame(ts){const ph=(ts%LOOP)/LOOP;
+  reg.forEach(r=>{const rc=r.stage.getBoundingClientRect();const sx=rc.width/W,sy=rc.height/H;
+    r.dot.style.left=(ph*W*sx)+'px';r.dot.style.top=(yAt(r.f,ph)*sy)+'px';
+    let d='';const tl=0.14;for(let i=0;i<=16;i++){let t=ph-tl*(1-i/16);if(t<0)t=0;d+=(i?'L':'M')+(t*W).toFixed(1)+','+yAt(r.f,t).toFixed(1);}
+    r.trail.setAttribute('d',d);});
+  requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+
+const cta=document.getElementById('cta'),ovl=document.getElementById('ovl'),svg=document.getElementById('cables');
+const strip=document.getElementById('strip'),body=document.getElementById('bodyEl'),slot=document.getElementById('ctaSlot');
+let DIR='A';
+const CAP={
+  A:"CTA stays in the left panel (with the generative tools + faders, where they already live) and cables run to each param name. Nothing relocates — just adds the routing.",
+  B:"CTA hub on the right, cables off each lane end. Bold 'signal out' read, but eats canvas width and splits the CTA away from the tools.",
+  C:"CTA pinned top-left, cables drop into each name. Canvas stays full; CTA sits by the toolbar, tools stay in the left panel."
+};
+function bez(sx,sy,ex,ey,h){const k=Math.max(26,Math.abs(ex-sx)*0.5);
+  return h?`M${sx},${sy} C${sx+k},${sy} ${ex-k},${ey} ${ex},${ey}`:`M${sx},${sy} C${sx},${sy+(ey-sy)/2} ${ex},${sy+(ey-sy)/2} ${ex},${ey}`;}
+function render(){
+  svg.innerHTML='';placeRuler();
+  const br=body.getBoundingClientRect();
+  const lP=[...document.querySelectorAll('.port.pL')],rP=[...document.querySelectorAll('.port.pR')];
+  document.querySelectorAll('.port').forEach(p=>p.style.display='none');cta.style.transform='none';
+  const add=d=>{const p=document.createElementNS('http://www.w3.org/2000/svg','path');p.setAttribute('class','cable');p.setAttribute('d',d);svg.appendChild(p);};
+
+  if(DIR==='A'){
+    slot.style.height='62px';                                  // reserve room in the strip
+    const slr=slot.getBoundingClientRect();
+    cta.style.width=(slr.width)+'px';cta.style.height='56px';cta.style.borderRadius='12px';cta.style.right='auto';
+    cta.style.left=(slr.left-br.left)+'px';cta.style.top=(slr.top-br.top)+'px';
+    lP.forEach(p=>p.style.display='block');
+    const cb=cta.getBoundingClientRect();const hx=cb.left+cb.width-br.left,hy=cb.top+cb.height/2-br.top;
+    lP.forEach(p=>{const b=p.getBoundingClientRect();add(bez(hx,hy,b.left+b.width/2-br.left,b.top+b.height/2-br.top,true));});
+  } else if(DIR==='B'){
+    slot.style.height='0px';
+    cta.style.width='110px';cta.style.height='110px';cta.style.borderRadius='50%';cta.style.left='auto';cta.style.right='24px';cta.style.top='50%';cta.style.transform='translateY(-50%)';
+    rP.forEach(p=>p.style.display='block');
+    const cb=cta.getBoundingClientRect();const hx=cb.left-br.left,hy=cb.top+cb.height/2-br.top;
+    rP.forEach(p=>{const b=p.getBoundingClientRect();add(bez(b.left+b.width/2-br.left,b.top+b.height/2-br.top,hx,hy,true));});
+  } else {
+    slot.style.height='0px';
+    const cvTop=document.getElementById('canvasEl').getBoundingClientRect().top-br.top;
+    cta.style.width='132px';cta.style.height='44px';cta.style.borderRadius='10px';cta.style.right='auto';
+    cta.style.left=(strip.getBoundingClientRect().right-br.left+8)+'px';cta.style.top=(cvTop+16)+'px';
+    lP.forEach(p=>p.style.display='block');
+    const cb=cta.getBoundingClientRect();const hx=cb.left+cb.width/2-br.left,hy=cb.top+cb.height-br.top;
+    lP.forEach(p=>{const b=p.getBoundingClientRect();add(bez(hx,hy,b.left+b.width/2-br.left,b.top+b.height/2-br.top,false));});
+  }
+}
+document.querySelectorAll('.toggle .dir').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.toggle .dir').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  DIR=b.dataset.dir;document.getElementById('cap').innerHTML=CAP[DIR];render();}));
+document.getElementById('cap').innerHTML=CAP.A;
+
+const COLORS={
+  orange:{t:'#fb923c',bg:'rgba(249,115,22,.14)',bd:'rgba(249,115,22,.5)',g:'rgba(249,115,22,.18)',c:'rgba(251,146,60,.55)'},
+  amber:{t:'#fbbf24',bg:'rgba(245,158,11,.14)',bd:'rgba(245,158,11,.5)',g:'rgba(245,158,11,.18)',c:'rgba(251,191,36,.55)'},
+  cyan:{t:'#22d3ee',bg:'rgba(34,211,238,.13)',bd:'rgba(34,211,238,.5)',g:'rgba(34,211,238,.18)',c:'rgba(34,211,238,.5)'},
+  fuchsia:{t:'#e879f9',bg:'rgba(217,70,239,.14)',bd:'rgba(217,70,239,.5)',g:'rgba(217,70,239,.18)',c:'rgba(232,121,249,.5)'},
+  emerald:{t:'#34d399',bg:'rgba(16,185,129,.12)',bd:'rgba(16,185,129,.45)',g:'rgba(16,185,129,.16)',c:'rgba(52,211,153,.5)'},
+};
+function setColor(k){const c=COLORS[k],r=document.documentElement.style;
+  r.setProperty('--ctaText',c.t);r.setProperty('--ctaBg',c.bg);r.setProperty('--ctaBd',c.bd);r.setProperty('--ctaGlow',c.g);r.setProperty('--cableC',c.c);}
+document.querySelectorAll('.toggle .sw').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.toggle .sw').forEach(x=>x.classList.remove('on'));b.classList.add('on');setColor(b.dataset.col);}));
+
+window.addEventListener('load',()=>setTimeout(render,60));
+window.addEventListener('resize',()=>{clearTimeout(window._t);window._t=setTimeout(render,120);});
+</script>
+</body>
+</html>

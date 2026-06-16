@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>STRIDE — Treated Plugin Covers · Variations</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0a09; --panel:#141312; --raise:#1b1916; --line:#262219;
+    --ink:#f4f1ea; --ink2:#c9c2b5; --ink3:#8a8170;
+    --copper:#c6712b; --ember:#e58a2e; --copper-lt:#dd9a52;
+    --teal:#5e9aad; --sage:#86a87f; --violet:#9a8cbb; --rose:#c5807f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(120% 50% at 50% -8%, rgba(198,113,43,.10), transparent 55%),var(--bg);
+       color:var(--ink2);font-family:'Outfit',sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1240px;margin:0 auto;padding:30px 22px 90px}
+  h1,h2,h3{color:var(--ink);font-weight:900;letter-spacing:-.02em;margin:0}
+  .silk{font:700 10px 'Space Mono',monospace;letter-spacing:.26em;text-transform:uppercase;color:var(--ink3)}
+  .brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px}
+  .pill{font:700 9px 'Space Mono',monospace;letter-spacing:.16em;text-transform:uppercase;border:1px solid var(--line);border-radius:999px;padding:5px 12px;color:var(--copper-lt)}
+  .lead{max-width:780px;font-size:15px;line-height:1.65}.lead b{color:var(--ink)}
+  .divider{height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent);margin:30px 0}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:30px;justify-items:center}
+  .card{width:300px}
+  .cap{margin-top:14px}
+  .cap .n{display:flex;align-items:baseline;gap:8px}
+  .cap h3{font-size:16px}
+  .cap .tagn{font:700 9px 'Space Mono';letter-spacing:.16em;text-transform:uppercase;color:var(--copper-lt)}
+  .cap p{font-size:12.5px;line-height:1.55;color:var(--ink2);margin:6px 0 0}
+
+  /* reel */
+  .reel{position:relative;width:300px;height:533px;border-radius:22px;overflow:hidden;background:#0b0a09;
+        border:1px solid #221f1a;box-shadow:0 34px 64px -32px #000, inset 0 0 90px rgba(0,0,0,.55)}
+  .ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;display:block}
+  .ov.screen{mix-blend-mode:screen}
+  .glow{position:absolute;inset:0;pointer-events:none}
+  .scrimT{position:absolute;top:0;left:0;right:0;height:32%;background:linear-gradient(180deg,rgba(8,8,10,.72),transparent);pointer-events:none}
+  .scrimB{position:absolute;bottom:0;left:0;right:0;height:44%;background:linear-gradient(0deg,rgba(8,8,10,.85),transparent);pointer-events:none}
+  .cdiv{position:absolute;height:3px;border-radius:2px;background:var(--ember)}
+  .kick{position:absolute;top:24px;left:24px;z-index:7;font:700 9px 'Space Mono',monospace;letter-spacing:.24em;color:#cdbfa6;text-transform:uppercase}
+  .idx{position:absolute;bottom:22px;right:24px;z-index:7;font:700 8px 'Space Mono',monospace;letter-spacing:.18em;color:#9b9180}
+  .stmt{position:absolute;left:24px;z-index:7;color:#f4f1ea;font-family:'Outfit';letter-spacing:-.02em;text-shadow:0 3px 20px rgba(0,0,0,.55)}
+  .stmt .cu{color:var(--ember)}
+
+  /* device chassis */
+  .dev{position:absolute;background:linear-gradient(180deg,#231f18,#141109);border:1px solid #36301f;border-radius:12px;overflow:hidden;
+       box-shadow:0 16px 36px -16px #000, inset 0 1px 0 rgba(255,255,255,.05)}
+  .dev .dvtitle{display:flex;justify-content:space-between;align-items:center;padding:7px 11px;border-bottom:1px solid #2a251c;
+                font:700 7px 'Space Mono';letter-spacing:.22em;color:#9a8f78;text-transform:uppercase}
+  .dev .led{width:6px;height:6px;border-radius:50%;background:var(--ember);box-shadow:0 0 8px var(--ember)}
+  .scr{position:absolute;width:6px;height:6px;border-radius:50%;z-index:3;background:radial-gradient(circle at 35% 35%,#6a6253,#221c14)}
+  .sframe{position:absolute;border:1px solid #342e22;border-radius:10px;background:linear-gradient(180deg,#15130f,#0c0b08);overflow:hidden}
+  .sframe svg{position:absolute;inset:0;width:100%;height:100%}
+  .sframe .sl{position:absolute;top:8px;left:10px;z-index:2;font:700 7px 'Space Mono';letter-spacing:.2em;color:#9a8f78}
+  .jack{position:absolute;z-index:4;width:15px;height:15px;border-radius:50%;background:#14110c;border:2px solid var(--ember);
+        box-shadow:0 0 9px rgba(229,138,46,.5),inset 0 0 4px #000;transform:translate(-50%,-50%)}
+  .jack::after{content:'';position:absolute;inset:4px;border-radius:50%;background:#0a0907}
+
+  /* the screen = where the real screenshot lives (here a loud stand-in) */
+  .screen{position:relative;overflow:hidden;border-radius:6px}
+  .dev .screen{margin:9px}
+  .ovg{position:absolute;inset:0;pointer-events:none}
+  /* grade filters on the plugin */
+  .gl{filter:saturate(.82) brightness(.92) contrast(1.02)}
+  .gm{filter:saturate(.6) brightness(.82) contrast(1.03)}
+  .gh{filter:saturate(.4) brightness(.74) contrast(1.05)}
+  .gd{filter:grayscale(1) brightness(.78) contrast(1.08)}
+  /* grade overlays */
+  .gradeL{background:linear-gradient(180deg,rgba(198,113,43,.16),rgba(11,10,9,.4));mix-blend-mode:multiply}
+  .gradeM{background:linear-gradient(180deg,rgba(198,113,43,.22),rgba(11,10,9,.5));mix-blend-mode:multiply}
+  .gradeH{background:linear-gradient(180deg,rgba(198,113,43,.34),rgba(11,10,9,.62));mix-blend-mode:multiply}
+  .gradeD{background:linear-gradient(155deg,#e58a2e,#6e370f);mix-blend-mode:color;opacity:.92}
+  .crop .lp,.lp.crop{transform:scale(1.7);transform-origin:top center}
+
+  /* loud plugin (stand-in for a real screenshot) */
+  .lp{position:absolute;inset:0;overflow:hidden;background:linear-gradient(180deg,#121829,#0a0e19)}
+  .lp-disp{position:relative;height:74px;margin:9px;border-radius:6px;overflow:hidden;
+           background:radial-gradient(130% 120% at 25% -10%, rgba(34,211,238,.5), transparent 55%),linear-gradient(120deg,#0ea5e9,#a855f7 58%,#f43f5e)}
+  .lp-disp svg{position:absolute;inset:0;width:100%;height:100%}
+  .lp-tabs{display:flex;gap:4px;padding:0 9px 8px}
+  .lp-tabs i{flex:1;height:5px;border-radius:3px;background:#26314c}
+  .lp-tabs i:nth-child(1){background:#22d3ee}.lp-tabs i:nth-child(2){background:#a855f7}.lp-tabs i:nth-child(3){background:#84cc16}
+  .lp-knobs{display:grid;grid-template-columns:repeat(6,1fr);gap:10px 6px;padding:2px 12px}
+  .lpk{position:relative;width:20px;height:20px;margin:0 auto;border-radius:50%;border:1px solid #38445f;background:radial-gradient(circle at 35% 30%,#28324c,#0b1020)}
+  .lpk span{position:absolute;left:50%;top:2px;width:2px;height:7px;border-radius:1px;transform-origin:50% 8px;transform:translateX(-50%) rotate(var(--r,0deg))}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div style="display:flex;align-items:center;gap:14px">
+      <span style="font:900 28px 'Outfit';letter-spacing:-.03em" class="brand">STRIDE</span>
+      <span class="silk" style="border-left:1px solid var(--line);padding-left:14px">Treated Plugin Covers · Variations</span>
+    </div>
+    <span class="pill">real UI · house-treated · 6 takes</span>
+  </header>
+
+  <p class="lead">
+    Six variations of the look you picked — the <b>real plugin screenshot</b>, framed and warm-graded into the brand with Stride's curves on top.
+    Same system every time (the colourful panel is a stand-in for your screenshot, and each shows a different plugin to prove it travels). What changes:
+    <b>composition</b>, <b>grade depth</b>, and <b>how the curves show up</b>.
+  </p>
+
+  <div class="divider"></div>
+
+  <div class="grid">
+
+    <!-- V1 · UNIT -->
+    <div class="card"><div class="reel" id="v1">
+      <div class="dev" style="top:150px;left:30px;right:30px;height:230px">
+        <div class="scr" style="left:7px;top:7px"></div><div class="scr" style="right:7px;top:7px"></div>
+        <div class="scr" style="left:7px;bottom:7px"></div><div class="scr" style="right:7px;bottom:7px"></div>
+        <div class="dvtitle"><span>SERUM</span><span class="led"></span></div>
+        <div class="screen" id="v1s" style="height:178px"><div class="ovg gradeM"></div></div>
+      </div>
+      <svg class="ov screen" id="v1c" viewBox="0 0 300 533" preserveAspectRatio="none"></svg>
+      <div class="kick">STRIDE · WORKS WITH SERUM</div>
+      <div class="stmt" style="bottom:44px;font-size:31px;font-weight:800;line-height:1.05">do what it<br><span class="cu">never could</span></div>
+      <div class="idx">V1 · unit</div>
+    </div>
+      <div class="cap"><div class="n"><h3>V1 · Unit</h3><span class="tagn">baseline</span></div>
+        <p>Full hardware unit, curves pour over the screen, bold hook. The clean default — most legible, most repeatable.</p></div></div>
+
+    <!-- V2 · TIGHT CROP -->
+    <div class="card"><div class="reel" id="v2">
+      <div class="dev" style="top:118px;left:28px;right:28px;height:300px">
+        <div class="scr" style="left:7px;top:7px"></div><div class="scr" style="right:7px;top:7px"></div>
+        <div class="scr" style="left:7px;bottom:7px"></div><div class="scr" style="right:7px;bottom:7px"></div>
+        <div class="dvtitle"><span>SERUM · WAVETABLE</span><span class="led"></span></div>
+        <div class="screen" id="v2s" style="height:248px"><div class="ovg gradeM"></div></div>
+      </div>
+      <svg class="ov screen" id="v2c" viewBox="0 0 300 533" preserveAspectRatio="none"></svg>
+      <div class="kick">STRIDE · INSIDE THE WAVETABLE</div>
+      <div class="stmt" style="bottom:40px;font-size:18px;font-weight:600;color:var(--ink2)">this is the motion<br><span class="cu" style="font-weight:800;font-size:26px;color:#f4f1ea">living inside it</span></div>
+      <div class="idx">V2 · crop</div>
+    </div>
+      <div class="cap"><div class="n"><h3>V2 · Tight crop</h3><span class="tagn">hero detail</span></div>
+        <p>Zoom into the plugin's signature display — abstract, premium, still recognizable. Quieter type.</p></div></div>
+
+    <!-- V3 · PATCHED IN -->
+    <div class="card"><div class="reel" id="v3">
+      <div class="sframe" style="top:62px;left:34px;right:34px;height:118px"><svg id="v3strip" viewBox="0 0 232 118" preserveAspectRatio="none"></svg><div class="sl">STRIDE</div></div>
+      <div class="dev" style="top:248px;left:40px;right:40px;height:150px">
+        <div class="scr" style="left:7px;top:7px"></div><div class="scr" style="right:7px;top:7px"></div>
+        <div class="scr" style="left:7px;bottom:7px"></div><div class="scr" style="right:7px;bottom:7px"></div>
+        <div class="dvtitle"><span>MASSIVE</span><span class="led"></span></div>
+        <div class="screen" id="v3s" style="height:104px"><div class="ovg gradeM"></div></div>
+      </div>
+      <svg class="ov" id="v3cable" viewBox="0 0 300 533" preserveAspectRatio="none"></svg>
+      <div class="jack" style="left:150px;top:180px"></div><div class="jack" style="left:150px;top:248px"></div>
+      <div class="kick">STRIDE · PATCH IT IN</div>
+      <div class="stmt" style="bottom:40px;font-size:29px;font-weight:700;line-height:1.06">works with<br><span class="cu">what you own</span></div>
+      <div class="idx">V3 · patched</div>
+    </div>
+      <div class="cap"><div class="n"><h3>V3 · Patched in</h3><span class="tagn">most promo</span></div>
+        <p>Stride wired into the plugin with a copper cable. The clearest "this works with your rack" message.</p></div></div>
+
+    <!-- V4 · DUOTONE FULL-BLEED -->
+    <div class="card"><div class="reel" id="v4">
+      <div class="screen" id="v4s" style="position:absolute;inset:0;border-radius:0"><div class="ovg gradeD"></div></div>
+      <div class="scrimT"></div><div class="scrimB"></div>
+      <svg class="ov screen" id="v4c" viewBox="0 0 300 533" preserveAspectRatio="none"></svg>
+      <div class="kick">STRIDE · MODULATE IT</div>
+      <div class="stmt" style="bottom:46px;font-size:37px;font-weight:800;line-height:1">every knob,<br><span class="cu">moving</span></div>
+      <div class="idx">V4 · duotone</div>
+    </div>
+      <div class="cap"><div class="n"><h3>V4 · Duotone</h3><span class="tagn">boldest</span></div>
+        <p>Plugin full-bleed as a copper duotone, curves glowing over. Pure mood — the screenshot becomes texture + recognition.</p></div></div>
+
+    <!-- V5 · FLOATING UNIT -->
+    <div class="card"><div class="reel" id="v5">
+      <div class="glow" style="background:radial-gradient(66% 40% at 50% 40%, rgba(198,113,43,.28), transparent 62%)"></div>
+      <div class="dev" style="top:176px;left:50px;right:50px;height:160px;transform:rotate(-4deg)">
+        <div class="scr" style="left:7px;top:7px"></div><div class="scr" style="right:7px;top:7px"></div>
+        <div class="scr" style="left:7px;bottom:7px"></div><div class="scr" style="right:7px;bottom:7px"></div>
+        <div class="dvtitle"><span>DIVA</span><span class="led"></span></div>
+        <div class="screen" id="v5s" style="height:114px"><div class="ovg gradeL"></div></div>
+      </div>
+      <svg class="ov" id="v5c" viewBox="0 0 300 533" preserveAspectRatio="none"></svg>
+      <div class="kick">STRIDE · FOR YOUR INSTRUMENTS</div>
+      <div class="stmt" style="bottom:46px;font-size:27px;font-weight:600;line-height:1.06">your rack,<br><span class="cu">in motion</span></div>
+      <div class="idx">V5 · the unit</div>
+    </div>
+      <div class="cap"><div class="n"><h3>V5 · Floating unit</h3><span class="tagn">finest</span></div>
+        <p>Product-shot energy: tilted, rim-lit, one curve as an underline. The gallery-grade way to feature gear.</p></div></div>
+
+    <!-- V6 · SPLIT -->
+    <div class="card"><div class="reel" id="v6">
+      <svg class="ov" id="v6top" viewBox="0 0 300 533" preserveAspectRatio="none"></svg>
+      <div class="cdiv" style="left:30px;right:30px;top:286px"></div>
+      <div class="dev" style="top:300px;left:30px;right:30px;height:196px">
+        <div class="scr" style="left:7px;top:7px"></div><div class="scr" style="right:7px;top:7px"></div>
+        <div class="scr" style="left:7px;bottom:7px"></div><div class="scr" style="right:7px;bottom:7px"></div>
+        <div class="dvtitle"><span>VITAL</span><span class="led"></span></div>
+        <div class="screen" id="v6s" style="height:144px"><div class="ovg gradeM"></div></div>
+      </div>
+      <div class="kick">STRIDE · DRAW THE MOTION</div>
+      <div class="stmt" style="top:150px;font-size:36px;font-weight:800;line-height:.98">make it<br><span class="cu">move.</span></div>
+      <div class="idx">V6 · split</div>
+    </div>
+      <div class="cap"><div class="n"><h3>V6 · Split</h3><span class="tagn">safest for demos</span></div>
+        <p>Curves hero up top, framed plugin below, copper divider. Most balanced and readable — a dependable workhorse.</p></div></div>
+
+  </div>
+
+  <div class="divider"></div>
+  <p class="lead" style="color:var(--ink3)">All six are the same paste-and-treat pipeline — only the frame, grade depth and curve placement differ. Tell me which one (or two) to build into <b style="color:var(--ink2)">ig-cover-studio.html</b> as selectable styles, and I'll wire the grade + curve as adjustable layers.</p>
+
+</div>
+
+<script>
+  const NS='http://www.w3.org/2000/svg';
+  const COPPER='#e58a2e', TEAL='#5e9aad', SAGE='#86a87f', VIOLET='#9a8cbb', ROSE='#c5807f', COPPERLT='#dd9a52';
+  function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  function rgba(hex,a){const h=hex.replace('#','');const n=parseInt(h,16);return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
+  function pts(W,segs,yMid,amp,seed){const r=mulberry32(seed);const a=[];for(let i=0;i<=segs;i++){a.push([W*i/segs, yMid+(r()*2-1)*amp]);}return a;}
+  function spline(p,k){k=k==null?1:k;if(p.length<2)return '';let d=`M ${p[0][0].toFixed(1)} ${p[0][1].toFixed(1)}`;
+    for(let i=0;i<p.length-1;i++){const p0=p[i-1]||p[i],p1=p[i],p2=p[i+1],p3=p[i+2]||p2;
+      const c1x=p1[0]+(p2[0]-p0[0])/6*k, c1y=p1[1]+(p2[1]-p0[1])/6*k, c2x=p2[0]-(p3[0]-p1[0])/6*k, c2y=p2[1]-(p3[1]-p1[1])/6*k;
+      d+=` C ${c1x.toFixed(1)} ${c1y.toFixed(1)} ${c2x.toFixed(1)} ${c2y.toFixed(1)} ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;}
+    return d;}
+  function lane(svg,d,color,w,glow,dash){const p=document.createElementNS(NS,'path');
+    p.setAttribute('d',d);p.setAttribute('fill','none');p.setAttribute('stroke',color);p.setAttribute('stroke-width',w);
+    p.setAttribute('stroke-linecap','round');p.setAttribute('stroke-linejoin','round');
+    if(dash)p.setAttribute('stroke-dasharray',dash);
+    if(glow)p.setAttribute('style','filter:drop-shadow(0 0 '+glow+'px '+color+')');svg.appendChild(p);return p;}
+  function nodes(svg,p,color){p.forEach(([x,y])=>{const c=document.createElementNS(NS,'circle');
+    c.setAttribute('cx',x);c.setAttribute('cy',y);c.setAttribute('r',3.1);c.setAttribute('fill','#0b0a09');
+    c.setAttribute('stroke',color);c.setAttribute('stroke-width','1.8');svg.appendChild(c);});}
+  function cable(svg,x1,y1,x2,y2){const p=document.createElementNS(NS,'path');const dip=Math.max(16,Math.abs(y2-y1)*0.45);
+    p.setAttribute('d',`M ${x1} ${y1} C ${x1-34} ${y1+dip}, ${x2+34} ${y2-dip}, ${x2} ${y2}`);
+    p.setAttribute('fill','none');p.setAttribute('stroke',COPPER);p.setAttribute('stroke-width','5');p.setAttribute('stroke-linecap','round');
+    p.setAttribute('style','filter:drop-shadow(0 0 6px '+rgba(COPPER,.6)+')');svg.appendChild(p);}
+
+  function loudPluginHTML(seed,count){count=count||12;const cols=['#22d3ee','#a855f7','#f43f5e','#84cc16','#eab308','#38bdf8'];const r=mulberry32(seed);
+    let kn='';for(let i=0;i<count;i++){const a=(-130+r()*260).toFixed(0);const c=cols[i%cols.length];
+      kn+=`<div class="lpk"><span style="--r:${a}deg;background:${c};box-shadow:0 0 5px ${c}"></span></div>`;}
+    return `<div class="lp"><div class="lp-disp"><svg viewBox="0 0 200 74" preserveAspectRatio="none" class="lpwave"></svg></div>`+
+           `<div class="lp-tabs"><i></i><i></i><i></i><i></i><i></i></div><div class="lp-knobs">${kn}</div></div>`;}
+  function renderLoud(scope){scope.querySelectorAll('.lpwave').forEach(w=>{
+    lane(w,spline(pts(200,7,40,16,3)),'#e6f7ff',2,3);lane(w,spline(pts(200,7,50,11,9)),'rgba(255,255,255,.5)',1.4,2);});}
+  // paste-and-treat: drop the plugin into a screen, grade it, keep the overlay on top
+  function treat(screenId,seed,count,gradeFilter,cropped){
+    const s=document.getElementById(screenId);s.insertAdjacentHTML('afterbegin',loudPluginHTML(seed,count));
+    const lp=s.querySelector('.lp');if(gradeFilter)lp.classList.add(gradeFilter);if(cropped)lp.classList.add('crop');renderLoud(s);}
+
+  // V1 unit — curves pour over
+  treat('v1s',7,12,'gm');
+  (function(){const c=document.getElementById('v1c');lane(c,spline(pts(300,6,250,108,3)),rgba(COPPER,.92),3,9);lane(c,spline(pts(300,6,300,80,17)),rgba(TEAL,.5),2,5);})();
+
+  // V2 tight crop — curves pour over a zoomed display
+  treat('v2s',4,12,'gm',true);
+  (function(){const c=document.getElementById('v2c');lane(c,spline(pts(300,6,270,120,5)),rgba(COPPER,.9),3,9);lane(c,spline(pts(300,6,320,70,12)),rgba(TEAL,.45),2,5);})();
+
+  // V3 patched — Stride strip + cable to plugin
+  treat('v3s',19,9,'gm');
+  (function(){const st=document.getElementById('v3strip');
+    lane(st,spline(pts(232,6,58,16,4)),rgba(TEAL,.42),1.6,3);lane(st,spline(pts(232,6,82,14,15)),rgba(VIOLET,.3),1.6,3);
+    const hp=pts(232,6,70,22,9);lane(st,spline(hp),COPPER,2.2,5);nodes(st,hp,COPPER);
+    cable(document.getElementById('v3cable'),150,184,150,244);})();
+
+  // V4 duotone full-bleed — curves glow over
+  treat('v4s',11,18,'gd');
+  (function(){const c=document.getElementById('v4c');lane(c,spline(pts(300,6,250,120,3)),rgba(COPPER,.95),3,10);lane(c,spline(pts(300,6,300,86,17)),rgba(COPPERLT,.6),2,6);})();
+
+  // V5 floating unit — light grade + underline curve + halo
+  treat('v5s',31,9,'gl');
+  (function(){const c=document.getElementById('v5c');
+    lane(c,spline(pts(300,6,150,40,18)),rgba(VIOLET,.16),2,4);
+    const hp=pts(300,5,396,16,7);lane(c,spline(hp),COPPER,2.6,7);nodes(c,hp,COPPER);})();
+
+  // V6 split — curves hero on top, plugin framed below
+  treat('v6s',23,9,'gm');
+  (function(){const t=document.getElementById('v6top');
+    lane(t,spline(pts(300,6,120,30,11)),rgba(TEAL,.4),2,4);lane(t,spline(pts(300,6,210,34,22)),rgba(VIOLET,.3),2,4);
+    const hp=pts(300,6,165,46,5);lane(t,spline(hp),COPPER,3,8);nodes(t,hp,COPPER);})();
+</script>
+</body>
+</html>

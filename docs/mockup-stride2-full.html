@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stride 2.0 — Full UI (lanes + cable hub)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#09090b;--panel:#0d0d10;--line:rgba(255,255,255,.06);
+    --zinc3:#d4d4d8;--zinc4:#a1a1aa;--zinc5:#71717a;--zinc6:#52525b;
+    --curve:#a855f7;--emerald:#34d399;--fuchsia:#e879f9;--orange:#fb923c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#050506;color:#e4e4e7;font-family:'Outfit',sans-serif;-webkit-font-smoothing:antialiased;padding:26px}
+  .cap{max-width:1140px;margin:0 auto 14px;font-size:12px;color:var(--zinc5);line-height:1.6}
+  .cap b{color:var(--emerald);font-weight:800}
+  /* App window */
+  .app{max-width:1140px;margin:0 auto;height:680px;background:var(--bg);border:1px solid var(--line);
+       border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 30px 90px rgba(0,0,0,.6)}
+  .titlebar{height:42px;flex:none;display:flex;align-items:center;gap:14px;padding:0 16px;border-bottom:1px solid var(--line);background:#0b0b0e}
+  .logo{font-size:13px;font-weight:900;letter-spacing:.28em;background:linear-gradient(90deg,#f97316,#d946ef);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .tb-right{margin-left:auto;display:flex;align-items:center;gap:16px;font-size:9px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--zinc5)}
+  .link-dot{width:7px;height:7px;border-radius:50%;background:var(--emerald);box-shadow:0 0 7px var(--emerald);display:inline-block;margin-right:6px}
+
+  /* Top toolbar: generative + faders (the "tools on top" direction) */
+  .toolbar{flex:none;display:flex;gap:26px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);background:rgba(0,0,0,.25)}
+  .secttl{font-size:8px;font-weight:900;letter-spacing:.22em;text-transform:uppercase;color:var(--zinc6);margin-bottom:7px}
+  .tools{display:flex;flex-wrap:wrap;gap:5px;max-width:560px}
+  .tchip{font-size:8.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#d8b4fe;background:rgba(217,70,239,.10);border:1px solid rgba(217,70,239,.22);border-radius:7px;padding:5px 8px}
+  .tchip.alt{color:#fdba74;background:rgba(249,115,22,.10);border-color:rgba(249,115,22,.22)}
+  .faders{display:flex;gap:16px}
+  .fader{display:flex;flex-direction:column;gap:5px;width:84px}
+  .fl{font-size:8px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--zinc5)}
+  .track{height:3px;border-radius:2px;background:rgba(255,255,255,.08);position:relative}
+  .track i{position:absolute;top:50%;transform:translate(-50%,-50%);width:8px;height:8px;border-radius:50%;background:var(--zinc3);box-shadow:0 0 5px rgba(255,255,255,.2)}
+
+  /* Body: lanes (left) + inject hub rail (right) */
+  .body{flex:1;display:flex;min-height:0;position:relative}
+  .lanes{flex:1;min-width:0;padding:12px 0 12px 12px;display:flex;flex-direction:column;gap:7px}
+  .lane{position:relative;display:flex;height:1px;flex:1;border-radius:9px 0 0 9px;background:rgba(0,0,0,.28);border:1px solid var(--line);border-right:none}
+  .lane .label{width:130px;flex:none;padding:8px 10px;border-right:1px solid var(--line);display:flex;flex-direction:column;justify-content:center;gap:3px;background:rgba(0,0,0,.22)}
+  .lane .nm{font-size:9px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;color:var(--zinc4)}
+  .lane.active .nm{color:var(--fuchsia)}
+  .lane .meta{font-size:8px;color:var(--zinc6);font-family:ui-monospace,monospace}
+  .lane .stage{position:relative;flex:1;min-width:0}
+  .lane .stage svg{position:absolute;inset:0;width:100%;height:100%}
+  .gridline{stroke:rgba(255,255,255,.05);stroke-width:1}
+  .curve-dim{fill:none;stroke:rgba(168,85,247,.32);stroke-width:2}
+  .trail{fill:none;stroke:url(#cometGrad);stroke-width:3;stroke-linecap:round;filter:drop-shadow(0 0 5px rgba(168,85,247,.6))}
+  .dot{position:absolute;width:9px;height:9px;border-radius:50%;left:0;top:0;transform:translate(-50%,-50%);pointer-events:none;
+       background:radial-gradient(circle at 50% 50%,#fff 0%,#f0abfc 45%,var(--curve) 75%);box-shadow:0 0 12px 3px rgba(168,85,247,.85);z-index:4}
+  .port{position:absolute;right:-5px;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background:#18181b;border:1.5px solid rgba(16,185,129,.6);z-index:5;box-shadow:0 0 6px rgba(16,185,129,.3)}
+
+  /* Inject hub rail */
+  .rail{width:330px;flex:none;position:relative;border-left:1px solid var(--line);background:linear-gradient(90deg,rgba(0,0,0,.25),rgba(0,0,0,.05))}
+  .rail svg.cables{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
+  .cable{fill:none;stroke:url(#cab);stroke-width:2;opacity:.85}
+  .pulse{position:absolute;width:6px;height:6px;border-radius:50%;left:0;top:0;transform:translate(-50%,-50%);
+         background:radial-gradient(circle,#fff,var(--emerald));box-shadow:0 0 8px 2px rgba(16,185,129,.85);z-index:2;
+         animation:flow 2.4s linear infinite}
+  @keyframes flow{from{offset-distance:0%;opacity:0}12%{opacity:1}88%{opacity:1}to{offset-distance:100%;opacity:0}}
+  .hub{position:absolute;top:50%;right:34px;transform:translateY(-50%);z-index:3;width:128px;height:128px;border-radius:50%;
+       display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;
+       background:radial-gradient(circle at 50% 38%,rgba(16,185,129,.24),rgba(16,185,129,.05));
+       border:1.5px solid rgba(16,185,129,.55);box-shadow:0 0 34px rgba(16,185,129,.22),inset 0 0 26px rgba(16,185,129,.08)}
+  .hub .ji{font-size:12px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--emerald);text-align:center;line-height:1.15}
+  .hub .js{font-size:8px;color:var(--zinc5);text-transform:uppercase;letter-spacing:.12em}
+  .rail .bars{position:absolute;top:14px;right:18px;font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--zinc5);
+       border:1px solid var(--line);border-radius:6px;padding:4px 8px;background:rgba(0,0,0,.3)}
+
+  .status{height:28px;flex:none;display:flex;align-items:center;justify-content:flex-end;gap:14px;padding:0 14px;border-top:1px solid var(--line);background:rgba(0,0,0,.3);
+       font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--zinc6)}
+  .sync{color:#fbbf24}
+</style>
+</head>
+<body>
+  <p class="cap">Stride 2.0 — full window with the <b>cable hub</b> alongside the real lanes. Generative + faders on top, lanes in the main area (with the <b>Option C comet pulse</b>), and the <b>Inject to Clip</b> hub on the right with a patch cable to every lane. One cable per mapped param — fewer params, fewer cables.</p>
+  <div class="app">
+    <div class="titlebar">
+      <span class="logo">STRIDE</span>
+      <span style="font-size:9px;color:var(--zinc6);letter-spacing:.14em;text-transform:uppercase">Operator + Reverb</span>
+      <div class="tb-right"><span><span class="link-dot"></span>M4L Connected</span><span>Guide</span><span>Install to Ableton</span></div>
+    </div>
+
+    <div class="toolbar">
+      <div><div class="secttl">Generative</div><div class="tools" id="tools"></div></div>
+      <div><div class="secttl">Edit</div><div class="faders" id="faders"></div></div>
+    </div>
+
+    <div class="body">
+      <div class="lanes" id="lanes"></div>
+      <div class="rail" id="rail">
+        <div class="bars">4 Bars</div>
+        <svg class="cables"><defs>
+          <linearGradient id="cab" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="rgba(168,85,247,.55)"/><stop offset="100%" stop-color="rgba(16,185,129,.9)"/></linearGradient>
+          <linearGradient id="cometGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="rgba(168,85,247,0)"/><stop offset="100%" stop-color="#f0abfc"/></linearGradient>
+        </defs></svg>
+        <div class="hub" id="hub"><div class="ji">Inject<br>to Clip</div><div class="js">▶ fire</div></div>
+      </div>
+    </div>
+
+    <div class="status"><span class="sync">1 Param Empty</span><span>Ctrl+Wheel · Space+Drag · Alt+Drag</span><span>Injected → 6 params · 4,312 points</span></div>
+  </div>
+
+<script>
+const LANES=[
+  {nm:'Filter Freq',meta:'120 - 8.0k · log',raw:true,active:true,f:t=>0.18+0.66*Math.pow(t,0.55)+0.05*Math.sin(t*Math.PI*6)},
+  {nm:'Filter Res', meta:'0.0 - 1.0',       raw:true,f:t=>0.30+0.5*Math.abs(((t*3)%1)*2-1)},
+  {nm:'LFO Amount', meta:'0 - 127',         raw:true,f:t=>0.5+0.40*Math.sin(t*Math.PI*4)},
+  {nm:'LFO Rate',   meta:'0 - 1.0',         raw:true,f:t=>0.25+0.6*t},
+  {nm:'Drive',      meta:'0 - 100',         raw:true,f:t=>0.4+0.45*Math.sin(t*Math.PI*2+1)},
+  {nm:'Delay Mix',  meta:'0 - 100',         raw:true,f:t=>0.7-0.5*Math.pow(t,2)},
+  {nm:'Reverb',     meta:'0 - 100 · empty',  raw:false,f:t=>0.5},
+];
+const TOOLS=['Sine','Pump','Glitch','Groove','Chaos','Neuro','Prism','S&H'], ALT=['Bloom','Mutate'];
+const FADERS=[['Smooth',.4],['Depth',.7],['Curve',.5],['Floor',.2],['Ceiling',.85]];
+const W=480,H=48;
+const tools=document.getElementById('tools'); TOOLS.forEach(t=>{const c=document.createElement('span');c.className='tchip';c.textContent=t;tools.appendChild(c);});
+ALT.forEach(t=>{const c=document.createElement('span');c.className='tchip alt';c.textContent=t;tools.appendChild(c);});
+const fd=document.getElementById('faders'); FADERS.forEach(([n,v])=>{const f=document.createElement('div');f.className='fader';f.innerHTML=`<span class="fl">${n}</span><div class="track"><i style="left:${v*100}%"></i></div>`;fd.appendChild(f);});
+
+function pathD(f){let d='';for(let i=0;i<=70;i++){const t=i/70;const x=t*W;const y=H-(Math.max(0,Math.min(1,f(t)))*(H-8))-4;d+=(i?'L':'M')+x.toFixed(1)+','+y.toFixed(1);}return d;}
+function yAt(f,t){return H-(Math.max(0,Math.min(1,f(t)))*(H-8))-4;}
+
+const lanesEl=document.getElementById('lanes');const reg=[];
+LANES.forEach(L=>{
+  const lane=document.createElement('div');lane.className='lane'+(L.active?' active':'');
+  lane.innerHTML=`<div class="label"><div class="nm">${L.nm}</div><div class="meta">${L.meta}</div></div>
+    <div class="stage"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      <line class="gridline" x1="0" y1="${H/2}" x2="${W}" y2="${H/2}"/>
+      <path class="curve-dim" d="${pathD(L.f)}"/>${L.raw?'<path class="trail" d=""/>':''}
+    </svg></div>${L.raw?'<span class="port"></span>':''}`;
+  lanesEl.appendChild(lane);
+  if(L.raw){reg.push({L,stage:lane.querySelector('.stage'),dot:Object.assign(document.createElement('div'),{className:'dot'}),trail:lane.querySelector('.trail'),port:lane.querySelector('.port')});
+    reg[reg.length-1].stage.appendChild(reg[reg.length-1].dot);}
+});
+
+// comet pulse on lanes (Option C), shared phase
+const LOOP=4000;
+function frame(ts){const ph=(ts%LOOP)/LOOP;
+  reg.forEach(r=>{const rect=r.stage.getBoundingClientRect();const sx=rect.width/W,sy=rect.height/H;
+    r.dot.style.left=(ph*W*sx)+'px';r.dot.style.top=(yAt(r.L.f,ph)*sy)+'px';
+    const tl=0.14;let d='';for(let i=0;i<=18;i++){let t=ph-tl*(1-i/18);if(t<0)t=0;d+=(i?'L':'M')+(t*W).toFixed(1)+','+yAt(r.L.f,t).toFixed(1);}
+    r.trail.setAttribute('d',d);});
+  requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+
+// cables: each lane port -> hub
+function wire(){
+  const rail=document.getElementById('rail');const svg=rail.querySelector('svg.cables');const hub=document.getElementById('hub');
+  const rr=rail.getBoundingClientRect();svg.querySelectorAll('path.cable').forEach(e=>e.remove());rail.querySelectorAll('.pulse').forEach(e=>e.remove());
+  const hb=hub.getBoundingClientRect();const hx=hb.left-rr.left,hy=hb.top+hb.height/2-rr.top;
+  reg.forEach((r,idx)=>{const b=r.port.getBoundingClientRect();const sx=b.left+b.width/2-rr.left,sy=b.top+b.height/2-rr.top;
+    const ex=hx,ey=hy;const dx=ex-sx;const k=Math.max(40,Math.abs(dx)*0.55);
+    const d=`M${sx.toFixed(1)},${sy.toFixed(1)} C${(sx+k).toFixed(1)},${sy.toFixed(1)} ${(ex-k).toFixed(1)},${ey.toFixed(1)} ${ex.toFixed(1)},${ey.toFixed(1)}`;
+    const p=document.createElementNS('http://www.w3.org/2000/svg','path');p.setAttribute('class','cable');p.setAttribute('d',d);svg.appendChild(p);
+    const pl=document.createElement('div');pl.className='pulse';pl.style.offsetPath=`path('${d}')`;pl.style.animationDelay=(idx*0.3)+'s';rail.appendChild(pl);
+  });
+}
+window.addEventListener('load',()=>setTimeout(wire,60));
+window.addEventListener('resize',()=>{clearTimeout(window._t);window._t=setTimeout(wire,120);});
+</script>
+</body>
+</html>

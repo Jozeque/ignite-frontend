@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stride 2.0 — vintage modular re-skin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+<style>
+  /* ── Vintage modular palette (matte, low-glow). Driven by CSS vars; the
+        vibe toggle swaps accent/cable colors. ── */
+  :root{
+    --bg:#161616;            /* charcoal screen (canvas) */
+    --panel:#313434;         /* slate panel body (toolbar, left strip) */
+    --raise:#2a2c2c;         /* knob/button face */
+    --sub:#3f4243;           /* sub-panel / hover */
+    --border:rgba(209,213,214,.10);
+    --silver:#D1D5D6;        /* metallic text */
+    --silver-dim:#9a9d9e;
+    --silver-faint:#73797a;
+    --amber:#D9822B;         /* warm highlight (active) */
+    --curve:#a99fc2;         /* muted lavender lane curve */
+    --curveA:#c6bce0;        /* active lane curve */
+    --cta:#C6712B;           /* CTA + cable accent (vibe-driven) */
+    --cta-bg:rgba(198,113,43,.14);
+    --cable:rgba(198,113,43,.55);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--silver);font-family:'Outfit',sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
+  .app{width:100vw;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+  .toggle{position:fixed;top:42px;right:14px;z-index:50;display:flex;flex-direction:column;gap:5px;background:rgba(22,22,22,.94);border:1px solid var(--border);border-radius:10px;padding:9px;backdrop-filter:blur(6px)}
+  .toggle .tt{font-size:8px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:var(--silver-faint);padding:0 2px 2px}
+  .toggle button{font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--silver-dim);text-align:left;background:var(--raise);border:1px solid var(--border);border-radius:7px;padding:7px 11px;cursor:pointer}
+  .toggle button.on{color:var(--amber);background:var(--cta-bg);border-color:var(--cta)}
+  .toggle .cap{font-size:9px;color:var(--silver-dim);line-height:1.45;max-width:188px;padding:4px 2px 0}
+
+  .logo{font-size:11px;font-weight:900;letter-spacing:.30em;text-transform:uppercase;color:var(--amber)}  /* matte amber — no gradient/glow in this vibe */
+  .tb{height:34px;flex:none;display:flex;align-items:center;gap:14px;padding:0 14px;border-bottom:1px solid var(--border);background:var(--panel)}
+  .tb .pat{font-size:9px;color:var(--silver-faint);letter-spacing:.12em;text-transform:uppercase}
+  .tb .r{margin-left:auto;display:flex;align-items:center;gap:16px;font-size:8.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--silver-dim)}
+  .ok::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:#5B7B55;margin-right:6px;vertical-align:middle}  /* muted sage "connected" */
+
+  .bar{flex:none;border-bottom:1px solid var(--border);background:var(--panel);padding:6px 12px;display:flex;flex-direction:column;gap:6px}
+  .row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .lbl{font-size:8px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--silver-faint);margin:0 4px 0 8px}
+  .btn{font-size:8.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:4px 8px;border-radius:5px;white-space:nowrap;color:var(--silver-dim);background:var(--raise);border:1px solid var(--border)}
+  .btn.on{color:#161616;background:var(--amber);border-color:var(--amber)}     /* active = amber, dark text */
+  .spacer{flex:1}
+
+  .body{flex:1;display:flex;min-height:0;position:relative}
+  .strip{width:218px;flex:none;border-right:1px solid var(--border);padding:10px 11px;display:flex;flex-direction:column;gap:10px;background:var(--panel);position:relative;z-index:3;overflow:hidden}
+  .ph{display:flex;align-items:center;justify-content:space-between}
+  .ph .t{font-size:8px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:var(--silver-dim)}
+  .ph .c{font-size:7.5px;color:var(--silver-faint)}
+  .rk{font-size:9px;color:var(--silver);font-weight:700;margin-top:5px;line-height:1.3}
+  .trk{font-size:7.5px;color:var(--silver-faint);letter-spacing:.12em;text-transform:uppercase;margin-top:3px}
+  #ctaSlot{flex:none}
+  .secttl{font-size:8px;font-weight:900;letter-spacing:.2em;text-transform:uppercase;color:var(--silver-faint);margin-bottom:6px}
+  .gens{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .gen{font-size:8.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--silver-dim);background:var(--raise);border:1px solid var(--border);border-radius:5px;padding:6px;text-align:center}
+  .gen.o{color:var(--amber);border-color:rgba(217,130,43,.35)}
+  .fad{display:flex;align-items:center;gap:7px}
+  .fad .fl{font-size:8px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--silver-faint);width:44px}
+  .trk2{flex:1;height:3px;border-radius:2px;background:rgba(209,213,214,.12);position:relative}
+  .trk2 i{position:absolute;top:50%;transform:translate(-50%,-50%);width:8px;height:8px;border-radius:50%;background:var(--silver)}
+
+  .canvas{flex:1;min-width:0;display:flex;flex-direction:column;position:relative;background:var(--bg)}
+  .ruler{height:18px;flex:none;border-bottom:1px solid var(--border);position:relative}
+  .ruler span{position:absolute;top:3px;font-size:7px;color:var(--silver-faint);font-family:ui-monospace,monospace}
+  .lanes{flex:1;display:flex;flex-direction:column;min-height:0}
+  .lane{flex:1;display:flex;min-height:0;border-bottom:1px solid rgba(209,213,214,.04);position:relative}
+  .lane .lab{width:118px;flex:none;padding:5px 8px;display:flex;flex-direction:column;justify-content:center;gap:1px;border-right:1px solid rgba(209,213,214,.05);position:relative}
+  .lane .nm{font-size:8.5px;font-weight:700;color:var(--silver-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lane .pt{font-size:7px;color:var(--silver-faint)}
+  .lane.active{background:rgba(209,213,214,.04)} .lane.active .nm{color:var(--silver)}
+  .lane .stage{flex:1;min-width:0;position:relative}
+  .lane .stage svg{position:absolute;inset:0;width:100%;height:100%}
+  .cdim{fill:none;stroke:var(--curve);stroke-width:1.3;opacity:.6}
+  .lane.active .cdim{stroke:var(--curveA);opacity:.9}
+  .trail{fill:none;stroke:var(--curveA);stroke-width:2;stroke-linecap:round}  /* matte — no drop-shadow */
+  .dot{position:absolute;width:6px;height:6px;border-radius:50%;left:0;top:0;transform:translate(-50%,-50%);pointer-events:none;background:var(--silver);box-shadow:0 0 4px 1px rgba(217,130,43,.45);z-index:4}  /* subtle */
+  .port{position:absolute;width:6px;height:6px;border-radius:50%;background:var(--raise);border:1.4px solid var(--cta);top:50%;transform:translateY(-50%);z-index:6;display:none}
+  .port.pL{left:-3px} .port.pR{right:-3px}
+
+  .status{height:22px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 12px;border-top:1px solid var(--border);background:var(--panel);font-size:8px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--silver-faint)}
+
+  /* right output rail — the hub lives here, lane ends route into it (Option B) */
+  .rail{width:300px;flex:none;border-left:1px solid var(--border);background:rgba(0,0,0,.10);position:relative;z-index:3}
+  .railhdr{position:absolute;top:9px;left:0;right:0;text-align:center;font-size:8px;font-weight:900;letter-spacing:.22em;text-transform:uppercase;color:var(--silver-faint)}
+
+  #ovl{position:absolute;inset:0;pointer-events:none;z-index:5}
+  #ovl svg{position:absolute;inset:0;width:100%;height:100%}
+  .cable{fill:none;stroke:var(--cable);stroke-width:1.6}     /* matte patch cable, no glow */
+  #cta{position:absolute;z-index:7;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;border-radius:10px;
+       color:var(--cta);background:var(--cta-bg);border:1.5px solid var(--cta)}   /* matte — no box-shadow glow */
+  #cta .t{font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;text-align:center;line-height:1.15}
+  #cta .s{font-size:7px;color:var(--silver-faint);letter-spacing:.12em;text-transform:uppercase}
+</style>
+</head>
+<body>
+  <div class="toggle">
+    <span class="tt">Vibe</span>
+    <button class="on" data-v="copper">1 · Slate + Copper</button>
+    <button data-v="teal">2 · Charcoal + Teal</button>
+    <button data-v="patch">3 · Patchbay (multi)</button>
+    <button data-v="steel">4 · Bazille Steel</button>
+    <button data-v="brass">5 · Bazille Brass</button>
+    <div class="cap" id="cap"></div>
+  </div>
+
+  <div class="app">
+    <div class="tb"><span class="logo">STRIDE</span><span class="pat">♪ Patterns</span>
+      <div class="r"><span class="ok">M4L Connected</span><span>Guide</span><span>Install to Ableton</span><span style="color:var(--silver-faint)">— ▢ ✕</span></div></div>
+
+    <div class="bar">
+      <div class="row"><span class="lbl">Loop</span>
+        <span class="btn">2</span><span class="btn">4</span><span class="btn">8</span><span class="btn on">16</span><span class="btn">32</span>
+        <span class="btn">≡ Multi</span><span class="spacer"></span><span class="btn">⬡ Presets</span></div>
+      <div class="row"><span class="btn on">Point</span><span class="btn">Free</span>
+        <span class="lbl">Edit</span>
+        <span class="btn">Mirror</span><span class="btn">Flip</span><span class="btn">Copy</span><span class="btn">Paste</span><span class="btn">Inv</span><span class="btn">Paste To</span>
+        <span class="btn">Swing</span><span class="btn">Mutate</span><span class="btn">Shuffle</span><span class="btn">Stretch</span><span class="btn">2×</span><span class="btn on">½×</span>
+        <span class="spacer"></span><span class="btn">Select All</span><span class="btn">🔒 Lock All</span><span class="btn">Save Lane</span><span class="btn">Clear Lane</span></div>
+    </div>
+
+    <div class="body" id="bodyEl">
+      <div class="strip" id="strip">
+        <div><div class="ph"><span class="t">Parameters</span><span class="c">11 ⟳</span></div>
+          <div class="rk">Operator + VerbSuite Classics + Acid Dist…</div>
+          <div class="trk">Track: 3-Operator</div></div>
+        <div><div class="secttl">Generative · All Lanes</div>
+          <div class="gens">
+            <span class="gen o">Chaos</span><span class="gen o">Neuro</span><span class="gen o">Prism</span>
+            <span class="gen o">Bloom</span><span class="gen o">Reflector</span><span class="gen o">S&amp;H</span>
+          </div></div>
+        <div><div class="secttl">Shapes · Single Lane</div>
+          <div class="gens">
+            <span class="gen">Sine</span><span class="gen">Pump</span><span class="gen">Glitch</span><span class="gen">Groove</span>
+          </div></div>
+        <div><div class="secttl">Edit</div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div class="fad"><span class="fl">Smooth</span><div class="trk2"><i style="left:30%"></i></div></div>
+            <div class="fad"><span class="fl">Depth</span><div class="trk2"><i style="left:70%"></i></div></div>
+            <div class="fad"><span class="fl">Curve</span><div class="trk2"><i style="left:50%"></i></div></div>
+            <div class="fad"><span class="fl">Floor</span><div class="trk2"><i style="left:18%"></i></div></div>
+            <div class="fad"><span class="fl">Ceiling</span><div class="trk2"><i style="left:85%"></i></div></div>
+          </div></div>
+      </div>
+      <div class="canvas" id="canvasEl"><div class="ruler" id="ruler"></div><div class="lanes" id="lanes"></div></div>
+      <div class="rail" id="rail"><div class="railhdr">▸ Output</div></div>
+      <div id="ovl"><svg id="cables"></svg></div>
+      <div id="cta"><div class="t">Inject<br>to Clip</div><div class="s">→ clip</div></div>
+    </div>
+
+    <div class="status"><span>Ctrl+Wheel · Space+Drag · Alt+Drag</span><span>Editor Ready</span></div>
+  </div>
+
+<script>
+const W=900,H=42;
+const F=[t=>0.5+0.42*Math.sin(t*Math.PI*8)*Math.sin(t*Math.PI*1.3),t=>0.3+0.5*Math.abs(((t*4)%1)*2-1),t=>0.5+0.40*Math.sin(t*Math.PI*5+0.6),t=>0.2+0.66*Math.pow(t,0.6),t=>0.55-0.42*Math.sin(t*Math.PI*3),t=>0.4+0.45*Math.sin(t*Math.PI*6)*0.7+0.15*Math.sin(t*Math.PI*1.5),t=>0.5+0.43*Math.sin(t*Math.PI*9)*Math.cos(t*Math.PI*2),t=>0.7-0.5*Math.pow(t,2),t=>0.35+0.5*Math.abs(((t*2.5)%1)*2-1),t=>0.45+0.4*Math.sin(t*Math.PI*4+1.2),t=>0.3+0.55*t-0.2*Math.sin(t*Math.PI*7)];
+const NAMES=Array(10).fill('Acid Distortio…').concat('Basic Feedback…');
+const ACTIVE=6;const clamp=v=>Math.max(.05,Math.min(.95,v));
+const pathD=f=>{let d='';for(let i=0;i<=70;i++){const t=i/70;d+=(i?'L':'M')+(t*W).toFixed(1)+','+(H-clamp(f(t))*(H-6)-3).toFixed(1);}return d;};
+const yAt=(f,t)=>H-clamp(f(t))*(H-6)-3;
+// muted patch-cable palette (for vibe 3)
+const PATCH=['#C6712B','#2F748E','#5B7B55','#A34E52','#544B6D'];
+
+const ruler=document.getElementById('ruler');for(let b=1;b<=16;b++){const s=document.createElement('span');s.textContent=b;ruler.appendChild(s);}
+function placeRuler(){const cv=document.getElementById('canvasEl').getBoundingClientRect();const x0=118,wpx=cv.width-x0;[...ruler.children].forEach((s,i)=>s.style.left=(x0+(i/16)*wpx)+'px');}
+
+const lanesEl=document.getElementById('lanes');const reg=[];
+NAMES.forEach((nm,i)=>{const lane=document.createElement('div');lane.className='lane'+(i===ACTIVE?' active':'');
+  lane.innerHTML=`<div class="lab"><div class="nm">${nm}</div><div class="pt">${240+(i*37)%60} pts 🔒</div><span class="port pL"></span></div>
+    <div class="stage"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><path class="cdim" d="${pathD(F[i])}"/><path class="trail" d=""/></svg><span class="port pR"></span></div>`;
+  lanesEl.appendChild(lane);const stage=lane.querySelector('.stage');const dot=document.createElement('div');dot.className='dot';stage.appendChild(dot);
+  reg.push({f:F[i],stage,dot,trail:lane.querySelector('.trail'),cdim:lane.querySelector('.cdim')});});
+
+const LOOP=4000;
+function frame(ts){const ph=(ts%LOOP)/LOOP;reg.forEach(r=>{const rc=r.stage.getBoundingClientRect();const sx=rc.width/W,sy=rc.height/H;
+  r.dot.style.left=(ph*W*sx)+'px';r.dot.style.top=(yAt(r.f,ph)*sy)+'px';
+  let d='';const tl=0.13;for(let i=0;i<=14;i++){let t=ph-tl*(1-i/14);if(t<0)t=0;d+=(i?'L':'M')+(t*W).toFixed(1)+','+yAt(r.f,t).toFixed(1);}
+  r.trail.setAttribute('d',d);});requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+
+const cta=document.getElementById('cta'),ovl=document.getElementById('ovl'),svg=document.getElementById('cables');
+const strip=document.getElementById('strip'),body=document.getElementById('bodyEl');
+let VIBE='copper';
+const CAP={copper:"Slate panels, charcoal screen, metallic-silver text, warm-amber active states, copper patch cables. Matte, no glow.",
+  teal:"Same matte base, muted teal cables + CTA — cooler. Amber stays for active controls.",
+  patch:"Real patchbay: each cable a different muted color (copper/teal/sage/rose/violet) and each lane tinted to match its cable.",
+  steel:"Inspired by u-he Bazille: cold blue-grey steel panels, cool off-white text, the signature warm-orange knob accent + cables. Classic dark-metal modular.",
+  brass:"Bazille, warmer read: taupe-graphite panels, ivory text, brass/gold accent + muted-olive cables. Organic, vintage-instrument feel."};
+
+function render(){
+  svg.innerHTML='';placeRuler();
+  const br=body.getBoundingClientRect();
+  const rP=[...document.querySelectorAll('.port.pR')];rP.forEach(p=>p.style.display='block');
+  const rail=document.getElementById('rail').getBoundingClientRect();
+  // CTA = circular output hub, vertically centered in the right rail; lane ends route into it (Option B)
+  cta.style.width='122px';cta.style.height='122px';cta.style.borderRadius='50%';
+  cta.style.left=(rail.left-br.left+(rail.width-122)/2)+'px';cta.style.top='50%';cta.style.transform='translateY(-50%)';
+  const cb=cta.getBoundingClientRect();const hx=cb.left-br.left,hy=cb.top+cb.height/2-br.top;   // hub LEFT edge — cables enter here
+  rP.forEach((p,i)=>{const b=p.getBoundingClientRect();const ex=b.left+b.width/2-br.left,ey=b.top+b.height/2-br.top;
+    const k=Math.max(22,Math.abs(hx-ex)*0.5);const d=`M${ex},${ey} C${ex+k},${ey} ${hx-k},${hy} ${hx},${hy}`;
+    const pa=document.createElementNS('http://www.w3.org/2000/svg','path');pa.setAttribute('class','cable');pa.setAttribute('d',d);
+    if(VIBE==='patch'){pa.style.stroke=PATCH[i%PATCH.length]+'cc';p.style.borderColor=PATCH[i%PATCH.length];}
+    svg.appendChild(pa);});
+  reg.forEach((r,i)=>{if(VIBE==='patch'){r.cdim.style.stroke=PATCH[i%PATCH.length];r.trail.style.stroke=PATCH[i%PATCH.length];}else{r.cdim.style.stroke='';r.trail.style.stroke='';}});
+}
+// each vibe is now a FULL palette (base + accent), so switching is a complete re-skin
+const BASE={bg:'#161616',panel:'#313434',raise:'#2a2c2c',sub:'#3f4243',border:'rgba(209,213,214,.10)',silver:'#D1D5D6',sdim:'#9a9d9e',sfaint:'#73797a',curve:'#a99fc2',curveA:'#c6bce0',amber:'#D9822B'};
+const VIBES={
+  copper:Object.assign({},BASE,{cta:'#C6712B',ctabg:'rgba(198,113,43,.14)',cable:'rgba(198,113,43,.6)'}),
+  teal:Object.assign({},BASE,{curve:'#93b2c2',curveA:'#bcd9e8',cta:'#2F748E',ctabg:'rgba(47,116,142,.16)',cable:'rgba(47,116,142,.6)'}),
+  patch:Object.assign({},BASE,{cta:'#C6712B',ctabg:'rgba(198,113,43,.14)',cable:'rgba(198,113,43,.6)'}),
+  // ── inspired by u-he Bazille ──
+  steel:{bg:'#191c20',panel:'#2c333b',raise:'#252b32',sub:'#39424c',border:'rgba(198,212,226,.10)',silver:'#cfd8e1',sdim:'#93a0ad',sfaint:'#69747f',curve:'#86b0cb',curveA:'#b6d6ee',amber:'#E68A2E',cta:'#E68A2E',ctabg:'rgba(230,138,46,.13)',cable:'rgba(230,138,46,.52)'},
+  brass:{bg:'#181613',panel:'#33302b',raise:'#2b2823',sub:'#423e37',border:'rgba(214,206,192,.10)',silver:'#d7cfc0',sdim:'#a39a8a',sfaint:'#766f63',curve:'#9fae86',curveA:'#c5d3a6',amber:'#C9A24B',cta:'#C9A24B',ctabg:'rgba(201,162,75,.13)',cable:'rgba(201,162,75,.5)'},
+};
+function setVibe(v){VIBE=v;const c=VIBES[v],r=document.documentElement.style;
+  r.setProperty('--bg',c.bg);r.setProperty('--panel',c.panel);r.setProperty('--raise',c.raise);r.setProperty('--sub',c.sub);
+  r.setProperty('--border',c.border);r.setProperty('--silver',c.silver);r.setProperty('--silver-dim',c.sdim);r.setProperty('--silver-faint',c.sfaint);
+  r.setProperty('--curve',c.curve);r.setProperty('--curveA',c.curveA);r.setProperty('--amber',c.amber);
+  r.setProperty('--cta',c.cta);r.setProperty('--cta-bg',c.ctabg);r.setProperty('--cable',c.cable);
+  document.getElementById('cap').innerHTML=CAP[v];render();}
+document.querySelectorAll('.toggle button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.toggle button').forEach(x=>x.classList.remove('on'));b.classList.add('on');setVibe(b.dataset.v);}));
+
+document.getElementById('cap').innerHTML=CAP.copper;
+window.addEventListener('load',()=>setTimeout(render,60));
+window.addEventListener('resize',()=>{clearTimeout(window._t);window._t=setTimeout(render,120);});
+</script>
+</body>
+</html>

@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STRIDE · Thumbnail Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Outfit:wght@400;500;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  /* ── PATCHBAY (vintage modular) brand palette — matches stridehub.io landing ── */
+  :root{
+    --bg:#141310; --bg2:#191611; --panel:#1d1b16; --raise:#252119; --line:rgba(216,201,176,.11);
+    --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
+    --copper:#c6712b; --copper-lt:#dd9a52; --amber:#d9822b; --ember:#e58a2e;
+    --teal:#2f748e; --teal-lt:#5e9aad;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;font-family:'Outfit',sans-serif;background:var(--bg);color:var(--ink2);-webkit-font-smoothing:antialiased;overflow:hidden}
+  ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#2a2620;border-radius:10px}::-webkit-scrollbar-track{background:transparent}
+  .mono{font-family:'Space Mono',monospace}
+  .silk{font-size:9px;letter-spacing:.22em;text-transform:uppercase;font-weight:800;color:var(--ink3)}
+  .brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  h1,h2,h3{color:var(--ink);font-weight:900;letter-spacing:-.01em;margin:0}
+
+  /* layout */
+  .app{display:grid;grid-template-columns:372px 1fr;height:100vh}
+  .side{background:linear-gradient(180deg,rgba(255,255,255,.018),transparent),var(--bg2);border-right:1px solid var(--line);overflow-y:auto;padding:0 0 40px}
+  .stage{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:26px;gap:18px;overflow:auto;
+    background:radial-gradient(120% 80% at 50% -10%, rgba(198,113,43,.06), transparent 60%);}
+
+  /* header */
+  .head{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:11px;padding:16px 18px;background:rgba(20,19,16,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  .head .t{font-size:15px;font-weight:900;color:var(--ink);letter-spacing:-.01em}
+  .head .s{font-size:9.5px}
+
+  /* sections */
+  .sec{padding:16px 18px;border-bottom:1px solid var(--line)}
+  .sec>.silk{display:block;margin-bottom:11px}
+  .row{display:flex;gap:8px;align-items:center}
+  .row+.row{margin-top:9px}
+
+  /* segmented buttons */
+  .seg{display:flex;gap:6px}
+  .seg button{flex:1;padding:9px 6px;border-radius:10px;border:1px solid var(--line);background:var(--raise);color:var(--ink2);
+    font-weight:800;font-size:11px;letter-spacing:.02em;cursor:pointer;transition:.13s;text-transform:uppercase}
+  .seg button:hover{border-color:rgba(198,113,43,.4);color:var(--ink)}
+  .seg button.on{background:linear-gradient(180deg,var(--ember),var(--copper));color:#1c1206;border-color:rgba(255,210,150,.3);box-shadow:0 8px 18px -12px rgba(198,113,43,.9)}
+
+  /* inputs */
+  label.fld{display:block;margin-bottom:5px}
+  input[type=text]{width:100%;background:rgba(0,0,0,.4);border:1px solid var(--line);border-radius:11px;padding:10px 12px;color:var(--ink);
+    font-family:'Outfit';font-weight:700;font-size:14px;outline:none;transition:.13s}
+  input[type=text]:focus{border-color:rgba(198,113,43,.55)}
+  input[type=range]{width:100%;accent-color:var(--copper);cursor:pointer}
+  .hint{font-size:10.5px;color:var(--ink3);margin-top:3px;line-height:1.4}
+
+  /* slot cards */
+  .slot{display:flex;gap:10px;align-items:center;background:var(--raise);border:1px solid var(--line);border-radius:13px;padding:9px}
+  .slot .thumb{width:74px;height:42px;border-radius:7px;flex:none;overflow:hidden;background:#100f0c;border:1px dashed rgba(221,154,82,.4);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative}
+  .slot .thumb img{width:100%;height:100%;object-fit:cover}
+  .slot .thumb .ph{font-size:18px;color:rgba(221,154,82,.7);font-weight:800}
+  .slot .meta{flex:1;min-width:0}
+  .slot .meta .nm{font-size:11px;font-weight:800;color:var(--ink);text-transform:uppercase;letter-spacing:.04em}
+  .slot .zoomrow{display:flex;align-items:center;gap:7px;margin-top:5px}
+  .slot .zoomrow .silk{font-size:8px}
+  .mini{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);background:transparent;border:1px solid var(--line);
+    border-radius:7px;padding:4px 7px;cursor:pointer;transition:.12s}
+  .mini:hover{color:var(--ink);border-color:rgba(198,113,43,.4)}
+
+  /* swatches */
+  .swatches{display:flex;gap:8px;flex-wrap:wrap}
+  .sw{width:46px;height:30px;border-radius:9px;border:2px solid transparent;cursor:pointer;transition:.12s;position:relative;outline:1px solid var(--line)}
+  .sw:hover{transform:translateY(-1px)}
+  .sw.on{border-color:#fff;box-shadow:0 0 0 1px var(--copper)}
+  .dot{width:30px;height:30px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:.12s;outline:1px solid var(--line)}
+  .dot.on{border-color:#fff}
+
+  /* canvas stage */
+  .frame{position:relative;width:100%;max-width:940px;border-radius:14px;overflow:hidden;border:1px solid var(--line);
+    box-shadow:0 30px 70px -30px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.05) inset;background:#000}
+  canvas#stage{display:block;width:100%;height:auto;cursor:grab}
+  .stagebar{display:flex;align-items:center;justify-content:space-between;width:100%;max-width:940px;gap:14px}
+  .tips{font-size:11px;color:var(--ink3);line-height:1.5}
+  .tips b{color:var(--copper-lt);font-weight:800}
+
+  .btn-copper{display:inline-flex;align-items:center;justify-content:center;gap:.55rem;background:linear-gradient(180deg,var(--ember),var(--copper));
+    color:#1c1206;font-weight:900;letter-spacing:.05em;border:1px solid rgba(255,210,150,.25);border-radius:13px;padding:12px 22px;font-size:12px;
+    text-transform:uppercase;cursor:pointer;box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 12px 24px -14px rgba(198,113,43,.85);transition:.14s;white-space:nowrap}
+  .btn-copper:hover{transform:translateY(-2px);filter:brightness(1.06)}
+  .dim{font-size:10px;color:var(--ink3)}
+  .logo{flex:none}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--panel);border:1px solid rgba(198,113,43,.4);
+    color:var(--ink);font-weight:700;font-size:12px;padding:11px 18px;border-radius:12px;opacity:0;pointer-events:none;transition:.25s;z-index:50;box-shadow:0 20px 40px -20px #000}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ════════════ CONTROLS ════════════ -->
+  <aside class="side">
+    <div class="head">
+      <svg class="logo" width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" stroke="#dd9a52" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div>
+        <div class="t">Thumbnail <span class="brand">Studio</span></div>
+        <div class="s silk">YouTube · 1280×720</div>
+      </div>
+    </div>
+
+    <!-- Layout -->
+    <div class="sec">
+      <span class="silk">Layout</span>
+      <div class="seg" id="layoutSeg">
+        <button data-l="single">Single</button>
+        <button data-l="duo" class="on">Split</button>
+        <button data-l="trio">Trio</button>
+      </div>
+      <div class="row" id="splitRow" style="margin-top:12px">
+        <span class="silk" style="width:44px">Seam</span>
+        <input type="range" id="split" min="25" max="75" value="50">
+      </div>
+    </div>
+
+    <!-- Images -->
+    <div class="sec">
+      <span class="silk">Images</span>
+      <div id="slots"></div>
+      <div class="hint">Tip: drag an image right onto the preview to drop it in that panel — or paste a screenshot with <b>Ctrl/⌘+V</b>.</div>
+    </div>
+
+    <!-- Headline -->
+    <div class="sec">
+      <span class="silk">Headline</span>
+      <label class="fld silk" style="margin-top:2px">Line 1 — white</label>
+      <input type="text" id="line1" value="GET YOUR" maxlength="32" placeholder="GET YOUR">
+      <label class="fld silk" style="margin-top:11px">Line 2 — gradient punchline</label>
+      <input type="text" id="line2" value="PERCUSSIONS REKT" maxlength="32" placeholder="PERCUSSIONS REKT">
+
+      <div class="row" style="margin-top:13px">
+        <span class="silk" style="width:44px">Font</span>
+        <div class="seg" style="flex:1" id="fontSeg">
+          <button data-f="Outfit" class="on">Outfit</button>
+          <button data-f="Anton">Impact</button>
+        </div>
+      </div>
+
+      <div style="margin-top:13px"><span class="silk">Gradient</span>
+        <div class="swatches" id="gradSw" style="margin-top:8px"></div>
+      </div>
+
+      <div class="row" style="margin-top:13px">
+        <span class="silk" style="width:44px">Place</span>
+        <div class="seg" style="flex:1" id="posSeg">
+          <button data-p="bottom" class="on">Bottom</button>
+          <button data-p="center">Center</button>
+        </div>
+        <div class="seg" style="flex:1" id="alignSeg">
+          <button data-a="center" class="on">Center</button>
+          <button data-a="left">Left</button>
+        </div>
+      </div>
+      <div class="row" style="margin-top:11px">
+        <span class="silk" style="width:44px">Size</span>
+        <input type="range" id="tsize" min="60" max="150" value="100">
+      </div>
+    </div>
+
+    <!-- Connector badge -->
+    <div class="sec">
+      <div class="row" style="justify-content:space-between">
+        <span class="silk">“+” Connector</span>
+        <div class="seg" id="badgeSeg" style="width:120px">
+          <button data-b="on" class="on">On</button>
+          <button data-b="off">Off</button>
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <span class="silk" style="width:44px">Color</span>
+        <div class="swatches" id="badgeSw"></div>
+      </div>
+      <div class="row" style="margin-top:11px">
+        <span class="silk" style="width:44px">Size</span>
+        <input type="range" id="bsize" min="28" max="80" value="48">
+      </div>
+    </div>
+
+    <!-- Finish -->
+    <div class="sec" style="border-bottom:none">
+      <span class="silk">Finish</span>
+      <div class="row" style="margin-top:9px">
+        <span class="silk" style="width:64px">Darken</span>
+        <input type="range" id="scrim" min="0" max="85" value="55">
+      </div>
+      <div class="hint" style="margin-top:9px">Darkens behind the text so it stays readable over busy screenshots.</div>
+    </div>
+  </aside>
+
+  <!-- ════════════ PREVIEW ════════════ -->
+  <main class="stage">
+    <div class="frame">
+      <canvas id="stage" width="2560" height="1440"></canvas>
+    </div>
+    <div class="stagebar">
+      <div class="tips">
+        <b>Drag</b> to reposition · <b>Scroll</b> to zoom · click an empty panel to upload
+        <div class="dim mono" id="dims">1280 × 720</div>
+      </div>
+      <div class="row">
+        <div class="seg" id="fmtSeg" style="width:120px">
+          <button data-fmt="png" class="on">PNG</button>
+          <button data-fmt="jpg">JPG</button>
+        </div>
+        <button class="btn-copper" id="exportBtn">⬇ Export</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+<input type="file" id="filepick" accept="image/*" style="display:none">
+
+<script>
+const W=1280, H=720, SS=2;
+const canvas=document.getElementById('stage');
+const ctx=canvas.getContext('2d');
+
+const GRADIENTS={
+  spectrum:[[0,'#22d3ee'],[0.38,'#3b82f6'],[0.68,'#8b5cf6'],[1,'#e879f9']],
+  copper:[[0,'#f2bd82'],[0.5,'#dd9a52'],[1,'#e0801f']],
+  gold:[[0,'#f8e6a6'],[0.5,'#ecc869'],[1,'#c9a24b']],
+  ice:[[0,'#a5f3eb'],[0.5,'#5e9aad'],[1,'#2f748e']],
+  fire:[[0,'#fde047'],[0.5,'#fb923c'],[1,'#ef4444']],
+};
+const BADGES={
+  copper:{a:'#ef9a3e',b:'#c6712b',glow:'rgba(198,113,43,.85)'},
+  violet:{a:'#a78bfa',b:'#6d4fd0',glow:'rgba(139,92,246,.85)'},
+  cyan:{a:'#67e8f9',b:'#2f9bb5',glow:'rgba(45,170,200,.8)'},
+};
+
+const state={
+  layout:'duo', split:0.5,
+  slots:[newSlot(),newSlot()],
+  line1:'GET YOUR', line2:'PERCUSSIONS REKT',
+  font:'Outfit', gradient:'spectrum',
+  textPos:'bottom', align:'center', textScale:1,
+  badge:true, badgeColor:'copper', badgeSize:48,
+  scrim:0.55, format:'png',
+};
+function newSlot(){return {img:null, name:'', scale:1, panX:0, panY:0};}
+function slotCount(){return state.layout==='single'?1:state.layout==='duo'?2:3;}
+
+function regions(){
+  if(state.layout==='single') return [{x:0,y:0,w:W,h:H}];
+  if(state.layout==='duo'){const sx=Math.round(W*state.split);return [{x:0,y:0,w:sx,h:H},{x:sx,y:0,w:W-sx,h:H}];}
+  const a=Math.round(W/3),b=Math.round(2*W/3);
+  return [{x:0,y:0,w:a,h:H},{x:a,y:0,w:b-a,h:H},{x:b,y:0,w:W-b,h:H}];
+}
+function seams(){
+  if(state.layout==='duo') return [Math.round(W*state.split)];
+  if(state.layout==='trio') return [Math.round(W/3),Math.round(2*W/3)];
+  return [];
+}
+
+/* ─────────── RENDER ─────────── */
+function render(){
+  ctx.setTransform(SS,0,0,SS,0,0);
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#141310'; ctx.fillRect(0,0,W,H);
+
+  const regs=regions();
+  regs.forEach((r,i)=>drawSlot(state.slots[i],r));
+  drawSeams();
+  drawScrim();
+  if(state.badge) seams().forEach(sx=>drawBadge(sx,H*0.44,state.badgeSize));
+  drawHeadline();
+}
+
+function drawSlot(slot,r){
+  if(!slot||!slot.img){drawPlaceholder(r);return;}
+  const img=slot.img;
+  const base=Math.max(r.w/img.width, r.h/img.height);
+  const s=base*slot.scale;
+  const dw=img.width*s, dh=img.height*s;
+  const cX=r.x+(r.w-dw)/2, cY=r.y+(r.h-dh)/2;
+  let dx=cX+slot.panX, dy=cY+slot.panY;
+  dx=Math.min(r.x, Math.max(r.x+r.w-dw, dx));
+  dy=Math.min(r.y, Math.max(r.y+r.h-dh, dy));
+  slot.panX=dx-cX; slot.panY=dy-cY;
+  ctx.save(); ctx.beginPath(); ctx.rect(r.x,r.y,r.w,r.h); ctx.clip();
+  ctx.drawImage(img,dx,dy,dw,dh);
+  ctx.restore();
+}
+function drawPlaceholder(r){
+  ctx.save(); ctx.beginPath(); ctx.rect(r.x,r.y,r.w,r.h); ctx.clip();
+  const g=ctx.createLinearGradient(0,r.y,0,r.y+r.h);
+  g.addColorStop(0,'#201d17'); g.addColorStop(1,'#16140f');
+  ctx.fillStyle=g; ctx.fillRect(r.x,r.y,r.w,r.h);
+  ctx.strokeStyle='rgba(221,154,82,.4)'; ctx.lineWidth=3; ctx.setLineDash([13,11]);
+  ctx.strokeRect(r.x+16,r.y+16,r.w-32,r.h-32); ctx.setLineDash([]);
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='rgba(221,154,82,.85)';
+  ctx.font=`900 ${Math.min(38,r.w*0.1)}px 'Outfit',sans-serif`;
+  ctx.fillText('+', r.x+r.w/2, r.y+r.h/2-18);
+  ctx.fillStyle='rgba(184,173,155,.7)';
+  ctx.font=`700 ${Math.min(15,r.w*0.045)}px 'Outfit',sans-serif`;
+  ctx.fillText('DROP IMAGE', r.x+r.w/2, r.y+r.h/2+18);
+  ctx.restore();
+}
+function drawSeams(){
+  ctx.save();
+  seams().forEach(sx=>{
+    const g=ctx.createLinearGradient(sx-14,0,sx+14,0);
+    g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(.5,'rgba(0,0,0,.4)'); g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=g; ctx.fillRect(sx-14,0,28,H);
+    ctx.fillStyle='rgba(255,255,255,.06)'; ctx.fillRect(sx-1,0,2,H);
+  });
+  ctx.restore();
+}
+function drawScrim(){
+  if(state.scrim<=0) return;
+  ctx.save();
+  if(state.textPos==='bottom'){
+    const g=ctx.createLinearGradient(0,H*0.34,0,H);
+    g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,`rgba(0,0,0,${state.scrim})`);
+    ctx.fillStyle=g; ctx.fillRect(0,H*0.34,W,H*0.66);
+  }else{
+    const g=ctx.createLinearGradient(0,H*0.18,0,H*0.82);
+    g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(.5,`rgba(0,0,0,${state.scrim})`); g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  }
+  ctx.restore();
+}
+function drawBadge(cx,cy,r){
+  const c=BADGES[state.badgeColor]||BADGES.copper;
+  ctx.save();
+  ctx.shadowColor=c.glow; ctx.shadowBlur=48;
+  const grad=ctx.createLinearGradient(cx,cy-r,cx,cy+r);
+  grad.addColorStop(0,c.a); grad.addColorStop(1,c.b);
+  ctx.fillStyle=grad;
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+  ctx.save();
+  ctx.lineWidth=Math.max(2,r*0.05); ctx.strokeStyle='rgba(255,255,255,.4)';
+  ctx.beginPath(); ctx.arc(cx,cy,r*0.93,0,Math.PI*2); ctx.stroke();
+  ctx.restore();
+  ctx.save();
+  ctx.strokeStyle='#fff'; ctx.lineCap='round'; ctx.lineWidth=r*0.17;
+  const a=r*0.42;
+  ctx.beginPath();
+  ctx.moveTo(cx-a,cy); ctx.lineTo(cx+a,cy);
+  ctx.moveTo(cx,cy-a); ctx.lineTo(cx,cy+a);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function fontStack(){return state.font==='Anton'?"'Anton',sans-serif":"'Outfit',sans-serif";}
+function fontWeight(){return state.font==='Anton'?400:900;}
+
+function drawHeadline(){
+  const fam=fontStack(), wt=fontWeight();
+  const maxW=W*0.92;
+  const t1=(state.line1||'').trim().toUpperCase();
+  const t2=(state.line2||'').trim().toUpperCase();
+  const baseBig=148*state.textScale;
+  function fit(t,size){if(!t)return size; ctx.font=`${wt} ${size}px ${fam}`; const w=ctx.measureText(t).width; return w>maxW? size*maxW/w : size;}
+  const s2=fit(t2, baseBig);
+  const s1=fit(t1, baseBig*0.6);
+  const lh1=s1*0.96, lh2=s2*0.96, gap=s2*0.05;
+  const total=(t1?lh1:0)+(t2?lh2:0)+((t1&&t2)?gap:0);
+  let top = state.textPos==='center' ? (H/2-total/2) : (H-58-total);
+  const ax = state.align==='left'? W*0.055 : W/2;
+  ctx.textAlign=state.align==='left'?'left':'center';
+  ctx.textBaseline='top';
+  let y=top;
+  if(t1){ ctx.font=`${wt} ${s1}px ${fam}`; paintText(t1,ax,y,'#ffffff',s1); y+=lh1+gap; }
+  if(t2){
+    ctx.font=`${wt} ${s2}px ${fam}`;
+    const tw=ctx.measureText(t2).width;
+    paintText(t2,ax,y,textGradient(state.gradient,ax,tw),s2);
+  }
+}
+function paintText(text,x,y,fill,size){
+  ctx.save();
+  ctx.shadowColor='rgba(0,0,0,.5)'; ctx.shadowBlur=size*0.12; ctx.shadowOffsetY=size*0.04;
+  ctx.fillStyle=fill; ctx.fillText(text,x,y);
+  ctx.restore();
+  ctx.fillStyle=fill; ctx.fillText(text,x,y); // crisp pass over the shadow
+}
+function textGradient(name,ax,tw){
+  let x0,x1;
+  if(state.align==='left'){x0=ax;x1=ax+tw;}else{x0=ax-tw/2;x1=ax+tw/2;}
+  const g=ctx.createLinearGradient(x0,0,x1,0);
+  (GRADIENTS[name]||GRADIENTS.spectrum).forEach(([s,c])=>g.addColorStop(s,c));
+  return g;
+}
+
+/* ─────────── IMAGE LOADING ─────────── */
+function loadFileToSlot(file,idx){
+  if(!file||!file.type.startsWith('image/'))return;
+  const url=URL.createObjectURL(file);
+  const img=new Image();
+  img.onload=()=>{ const sl=state.slots[idx]; sl.img=img; sl.name=file.name||'image'; sl.scale=1; sl.panX=0; sl.panY=0; URL.revokeObjectURL(url); render(); buildSlotUI(); toast('Image added'); };
+  img.onerror=()=>{ URL.revokeObjectURL(url); toast('Could not load that image'); };
+  img.src=url;
+}
+function firstEmpty(){for(let i=0;i<slotCount();i++) if(!state.slots[i].img) return i; return 0;}
+
+let pickTarget=0;
+const filepick=document.getElementById('filepick');
+filepick.addEventListener('change',e=>{ if(e.target.files[0]) loadFileToSlot(e.target.files[0],pickTarget); filepick.value=''; });
+function pickFile(idx){ pickTarget=idx; filepick.click(); }
+
+/* ─────────── SLOT UI ─────────── */
+function buildSlotUI(){
+  const wrap=document.getElementById('slots');
+  wrap.innerHTML='';
+  const labels=state.layout==='single'?['Image']:state.layout==='duo'?['Left panel','Right panel']:['Left','Center','Right'];
+  for(let i=0;i<slotCount();i++){
+    const sl=state.slots[i];
+    const el=document.createElement('div'); el.className='slot';
+    el.innerHTML=`
+      <div class="thumb" data-pick="${i}">${sl.img?`<img src="${sl.img.src}">`:'<span class="ph">+</span>'}</div>
+      <div class="meta">
+        <div class="nm">${labels[i]}</div>
+        <div class="zoomrow">
+          <span class="silk">Zoom</span>
+          <input type="range" data-zoom="${i}" min="100" max="400" value="${Math.round(sl.scale*100)}" ${sl.img?'':'disabled'} style="flex:1">
+          <button class="mini" data-reset="${i}" ${sl.img?'':'disabled'}>Reset</button>
+        </div>
+      </div>`;
+    wrap.appendChild(el);
+  }
+  wrap.querySelectorAll('[data-pick]').forEach(t=>t.addEventListener('click',()=>pickFile(+t.dataset.pick)));
+  wrap.querySelectorAll('[data-zoom]').forEach(z=>z.addEventListener('input',()=>{ state.slots[+z.dataset.zoom].scale=z.value/100; render(); }));
+  wrap.querySelectorAll('[data-reset]').forEach(b=>b.addEventListener('click',()=>{ const s=state.slots[+b.dataset.reset]; s.scale=1; s.panX=0; s.panY=0; render(); buildSlotUI(); }));
+}
+
+/* ─────────── CANVAS INTERACTION ─────────── */
+function toLogical(e){ const b=canvas.getBoundingClientRect(); return {x:(e.clientX-b.left)*(W/b.width), y:(e.clientY-b.top)*(H/b.height)}; }
+function regionAt(p){ const regs=regions(); for(let i=0;i<regs.length;i++){const r=regs[i]; if(p.x>=r.x&&p.x<r.x+r.w&&p.y>=r.y&&p.y<r.y+r.h) return i;} return -1; }
+let active=-1, dragging=false, last=null;
+canvas.addEventListener('pointerdown',e=>{
+  const p=toLogical(e); const i=regionAt(p); active=i;
+  if(i<0) return;
+  if(!state.slots[i].img){ pickFile(i); return; }
+  dragging=true; last=p; canvas.setPointerCapture(e.pointerId); canvas.style.cursor='grabbing';
+});
+canvas.addEventListener('pointermove',e=>{
+  if(!dragging||active<0) return;
+  const p=toLogical(e); const s=state.slots[active];
+  s.panX+=(p.x-last.x); s.panY+=(p.y-last.y); last=p; render();
+});
+canvas.addEventListener('pointerup',()=>{ dragging=false; canvas.style.cursor='grab'; });
+canvas.addEventListener('wheel',e=>{
+  const p=toLogical(e); const i=regionAt(p);
+  if(i<0||!state.slots[i].img) return;
+  e.preventDefault();
+  const s=state.slots[i];
+  s.scale=Math.min(4, Math.max(1, s.scale*(e.deltaY<0?1.08:0.926)));
+  render(); buildSlotUI();
+},{passive:false});
+canvas.addEventListener('dragover',e=>e.preventDefault());
+canvas.addEventListener('drop',e=>{
+  e.preventDefault();
+  const p=toLogical(e); let i=regionAt(p); if(i<0) i=firstEmpty();
+  if(e.dataTransfer.files[0]) loadFileToSlot(e.dataTransfer.files[0],i);
+});
+window.addEventListener('paste',e=>{
+  const items=(e.clipboardData||{}).items||[];
+  for(const it of items){ if(it.type&&it.type.startsWith('image/')){ const f=it.getAsFile(); loadFileToSlot(f, active>=0?Math.min(active,slotCount()-1):firstEmpty()); break; } }
+});
+
+/* ─────────── CONTROL WIRING ─────────── */
+function segWire(id,attr,fn){
+  const seg=document.getElementById(id);
+  seg.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+    seg.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); fn(b.dataset[attr]); render();
+  }));
+}
+segWire('layoutSeg','l',v=>{ state.layout=v; const n=slotCount(); while(state.slots.length<n) state.slots.push(newSlot()); state.slots.length=Math.max(state.slots.length,n); document.getElementById('splitRow').style.display = v==='duo'?'flex':'none'; buildSlotUI(); });
+segWire('fontSeg','f',v=>state.font=v);
+segWire('posSeg','p',v=>state.textPos=v);
+segWire('alignSeg','a',v=>state.align=v);
+segWire('badgeSeg','b',v=>state.badge=(v==='on'));
+segWire('fmtSeg','fmt',v=>state.format=v);
+
+document.getElementById('split').addEventListener('input',e=>{ state.split=e.target.value/100; render(); });
+document.getElementById('line1').addEventListener('input',e=>{ state.line1=e.target.value; render(); });
+document.getElementById('line2').addEventListener('input',e=>{ state.line2=e.target.value; render(); });
+document.getElementById('tsize').addEventListener('input',e=>{ state.textScale=e.target.value/100; render(); });
+document.getElementById('bsize').addEventListener('input',e=>{ state.badgeSize=+e.target.value; render(); });
+document.getElementById('scrim').addEventListener('input',e=>{ state.scrim=e.target.value/100; render(); });
+
+/* gradient + badge swatches */
+function buildSwatches(){
+  const gs=document.getElementById('gradSw'); gs.innerHTML='';
+  Object.keys(GRADIENTS).forEach(k=>{
+    const stops=GRADIENTS[k].map(([s,c])=>`${c} ${Math.round(s*100)}%`).join(',');
+    const d=document.createElement('div'); d.className='sw'+(k===state.gradient?' on':'');
+    d.style.background=`linear-gradient(90deg,${stops})`; d.title=k; d.dataset.g=k;
+    d.addEventListener('click',()=>{ state.gradient=k; gs.querySelectorAll('.sw').forEach(x=>x.classList.remove('on')); d.classList.add('on'); render(); });
+    gs.appendChild(d);
+  });
+  const bs=document.getElementById('badgeSw'); bs.innerHTML='';
+  Object.keys(BADGES).forEach(k=>{
+    const c=BADGES[k];
+    const d=document.createElement('div'); d.className='dot'+(k===state.badgeColor?' on':'');
+    d.style.background=`linear-gradient(180deg,${c.a},${c.b})`; d.title=k; d.dataset.b=k;
+    d.addEventListener('click',()=>{ state.badgeColor=k; bs.querySelectorAll('.dot').forEach(x=>x.classList.remove('on')); d.classList.add('on'); render(); });
+    bs.appendChild(d);
+  });
+}
+
+/* ─────────── EXPORT ─────────── */
+document.getElementById('exportBtn').addEventListener('click',()=>{
+  const out=document.createElement('canvas'); out.width=W; out.height=H;
+  out.getContext('2d').drawImage(canvas,0,0,W,H);
+  const type=state.format==='jpg'?'image/jpeg':'image/png';
+  out.toBlob(blob=>{
+    if(!blob){toast('Export failed');return;}
+    const mb=(blob.size/1048576).toFixed(1);
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='stride-thumbnail.'+(state.format==='jpg'?'jpg':'png');
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+    toast(`Saved · ${mb} MB`+(blob.size>2097152?' (over 2MB — try JPG)':''));
+  }, type, 0.92);
+});
+
+/* ─────────── TOAST ─────────── */
+let toastT;
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2200); }
+
+/* ─────────── BOOT ─────────── */
+buildSlotUI();
+buildSwatches();
+document.getElementById('splitRow').style.display='flex';
+if(document.fonts&&document.fonts.ready){ document.fonts.ready.then(render); }
+render();
+</script>
+</body>
+</html>

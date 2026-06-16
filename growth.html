@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Stride · Growth Console</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Same Firebase compat SDK + project as the CRM (admin.html) so this
+         console reads the exact same live `waitlist` / `users` collections. -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+
+    <style>
+        html, body { font-family: 'Outfit', -apple-system, sans-serif; background: #09090b; color: #e4e4e7; margin: 0; min-height: 100%; }
+        .custom-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #27272a; border-radius: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+
+        .card { background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.18)), #131316; border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; }
+        .stat { background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.20)), #131316; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; }
+
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; }
+        .s-new          { background: rgba(113,113,122,0.15); color: #a1a1aa; }
+        .s-contacted    { background: rgba(14,165,233,0.15);  color: #38bdf8; }
+        .s-abandoned    { background: rgba(251,146,60,0.18);  color: #fb923c; }
+        .s-purchased    { background: rgba(234,179,8,0.18);   color: #facc15; }
+        .s-active       { background: rgba(34,197,94,0.18);   color: #4ade80; }
+        .s-churned      { background: rgba(239,68,68,0.18);   color: #f87171; }
+        .s-pack         { background: rgba(198,113,43,0.20);  color: #dd9a52; border: 1px solid rgba(198,113,43,0.35); }
+        .s-all          { background: rgba(217,70,239,0.15);  color: #e879f9; }
+
+        .chip { display:inline-block; padding: 1px 7px; border-radius: 6px; font-size: 9px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+        .chip-ch { background: rgba(255,255,255,0.05); color: #d4d4d8; border: 1px solid rgba(255,255,255,0.10); }
+        .ice-H { background: rgba(34,197,94,0.16); color: #4ade80; }
+        .ice-M { background: rgba(234,179,8,0.16); color: #facc15; }
+        .ice-L { background: rgba(113,113,122,0.16); color: #a1a1aa; }
+
+        .play { background: #18181b; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; cursor: grab; transition: border-color .15s, transform .1s, box-shadow .15s; }
+        .play:hover { border-color: rgba(245,158,11,0.4); box-shadow: 0 8px 24px -16px rgba(0,0,0,0.9); }
+        .play.dragging { opacity: 0.4; }
+        .col-drop { transition: background .15s, border-color .15s; }
+        .col-drop.drag-over { background: rgba(245,158,11,0.05); border-color: rgba(245,158,11,0.4) !important; }
+        #dropzone.drag-over { border-color: rgba(245,158,11,0.6); background: rgba(245,158,11,0.07); color: #e4e4e7; }
+
+        .btn { border-radius: 10px; font-weight: 800; letter-spacing: 0.04em; transition: filter .15s, transform .1s; cursor: pointer; }
+        .btn:hover { filter: brightness(1.1); }
+        .btn:active { transform: translateY(1px); }
+        .btn-copper { background: linear-gradient(180deg, #e58a2e, #c6712b); color: #1c1206; }
+        .btn-ghost { background: rgba(255,255,255,0.05); color: #d4d4d8; border: 1px solid rgba(255,255,255,0.10); }
+
+        input, select, textarea { font-family: inherit; }
+        .fld { width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.10); border-radius: 10px; padding: 8px 12px; font-size: 13px; color: #e4e4e7; outline: none; }
+        .fld:focus { border-color: rgba(245,158,11,0.5); }
+        details > summary { list-style: none; cursor: pointer; } details > summary::-webkit-details-marker { display: none; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body class="custom-scroll">
+
+    <!-- Loading / Sign-in / Denied gates (same admin allow-list as the CRM) -->
+    <div id="loading" class="fixed inset-0 flex items-center justify-center text-zinc-500 text-xs uppercase tracking-widest font-bold">Loading…</div>
+
+    <div id="signin" class="hidden fixed inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center overflow-y-auto py-8">
+        <div class="text-3xl font-black tracking-tighter" style="background:linear-gradient(90deg,#dd9a52,#e58a2e);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">STRIDE</div>
+        <div class="text-[10px] uppercase tracking-[0.24em] font-extrabold text-zinc-500">Growth Console</div>
+
+        <!-- Primary path: load a CRM export. No sign-in, works as a local file. -->
+        <div class="card p-5 max-w-sm w-full mt-1 text-left">
+            <div class="text-sm font-bold text-zinc-100 mb-1">Load your CRM data</div>
+            <div class="text-xs text-zinc-500 mb-3">Pick or drop a <span class="text-zinc-300">stride-crm-export.json</span>. No sign-in — runs fully offline as a local file.</div>
+            <div id="dropzone" class="border border-dashed border-white/15 rounded-xl py-6 px-3 text-center text-zinc-500 text-xs cursor-pointer hover:border-amber-500/40 hover:text-zinc-300 transition-colors">
+                Drop the export here, or <span class="text-amber-400 font-bold">browse</span>
+            </div>
+            <input id="data-file" type="file" accept="application/json,.json" class="hidden">
+            <details class="mt-3">
+                <summary class="text-[11px] text-zinc-400 font-bold cursor-pointer">How do I get the export file? →</summary>
+                <div class="text-[11px] text-zinc-500 mt-2 leading-relaxed space-y-1">
+                    <div>1. Open <span class="text-zinc-300">stridehub.io/admin.html</span> (you're already signed in there).</div>
+                    <div>2. Press <span class="text-zinc-300">F12</span> → <span class="text-zinc-300">Console</span> tab.</div>
+                    <div>3. Paste the one-line snippet, press Enter → it downloads <span class="text-zinc-300">stride-crm-export.json</span>.</div>
+                    <div>4. Drop that file above. Done — no sign-in.</div>
+                </div>
+            </details>
+        </div>
+
+        <!-- Secondary path: live sign-in (only works on stridehub.io). -->
+        <button id="signin-btn" class="text-[11px] text-zinc-500 hover:text-zinc-300 underline underline-offset-2">or sign in for live data (stridehub.io only)</button>
+        <div id="signin-error" class="hidden max-w-sm text-[11px] leading-relaxed text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2"></div>
+    </div>
+
+    <div id="denied" class="hidden fixed inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center">
+        <div class="text-red-400 text-sm font-bold uppercase tracking-widest">Access denied</div>
+        <div class="text-zinc-500 text-xs"><span id="denied-email"></span> is not on the admin allow-list.</div>
+        <button id="signout-btn-denied" class="btn btn-ghost px-5 py-2 text-xs uppercase">Sign out</button>
+    </div>
+
+    <!-- ───────────────────────── CONSOLE ───────────────────────── -->
+    <div id="console" class="hidden max-w-[1400px] mx-auto px-5 py-6">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between flex-wrap gap-3 mb-6">
+            <div class="flex items-center gap-3">
+                <span class="text-2xl font-black tracking-tighter" style="background:linear-gradient(90deg,#dd9a52,#e58a2e);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">STRIDE</span>
+                <span class="text-[10px] uppercase tracking-[0.24em] font-extrabold text-zinc-500 border-l border-white/10 pl-3">Growth Console</span>
+            </div>
+            <div class="flex items-center gap-2 text-[10px] uppercase tracking-widest font-bold">
+                <span id="live-dot" class="inline-flex items-center gap-1.5 text-emerald-400"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Live</span>
+                <span class="text-zinc-600" id="updated-at"></span>
+                <a href="admin.html" class="btn btn-ghost px-3 py-1.5 ml-2">Open CRM →</a>
+                <span class="text-zinc-500 normal-case tracking-normal" id="user-email"></span>
+                <button id="signout-btn" class="btn btn-ghost px-3 py-1.5">Sign out</button>
+            </div>
+        </div>
+
+        <!-- Mission statement -->
+        <div class="card p-4 mb-6 flex items-start gap-3">
+            <span class="text-lg">🎯</span>
+            <div>
+                <div class="text-sm font-extrabold text-zinc-100">Mission: convert the people already in the CRM who haven't bought yet.</div>
+                <div class="text-xs text-zinc-500 mt-0.5">The numbers below are pulled live from the <span class="text-zinc-300 font-semibold">waitlist</span> + <span class="text-zinc-300 font-semibold">users</span> collections. The board is yours to edit, drag, and track — it saves locally in this browser (Export to back it up / move it).</div>
+            </div>
+        </div>
+
+        <!-- ── LIVE FUNNEL KPIs ── -->
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-3">
+            <div class="stat p-4">
+                <div class="text-[9px] uppercase tracking-widest font-extrabold text-zinc-500">Total contacts</div>
+                <div id="kpi-total" class="text-3xl font-black text-zinc-100 mt-1">—</div>
+            </div>
+            <!-- HERO: the headline answer to "how many didn't purchase" -->
+            <div class="stat p-4 col-span-2 md:col-span-1" style="border-color:rgba(198,113,43,0.45)">
+                <div class="text-[9px] uppercase tracking-widest font-extrabold" style="color:#dd9a52">Haven't purchased</div>
+                <div id="kpi-nonbuyers" class="text-3xl font-black mt-1" style="color:#e58a2e">—</div>
+                <div id="kpi-nonbuyers-pct" class="text-[10px] text-zinc-500 font-bold mt-0.5"></div>
+            </div>
+            <div class="stat p-4">
+                <div class="text-[9px] uppercase tracking-widest font-extrabold" style="color:#fb923c">Abandoned cart</div>
+                <div id="kpi-abandoned" class="text-3xl font-black mt-1" style="color:#fb923c">—</div>
+                <div class="text-[10px] text-zinc-600 font-bold mt-0.5">hottest non-buyers</div>
+            </div>
+            <div class="stat p-4">
+                <div class="text-[9px] uppercase tracking-widest font-extrabold" style="color:#dd9a52">🎁 Free-pack leads</div>
+                <div id="kpi-pack" class="text-3xl font-black mt-1" style="color:#dd9a52">—</div>
+                <div class="text-[10px] text-zinc-600 font-bold mt-0.5">largest cold pool</div>
+            </div>
+            <div class="stat p-4">
+                <div class="text-[9px] uppercase tracking-widest font-extrabold" style="color:#f87171">Churned</div>
+                <div id="kpi-churned" class="text-3xl font-black mt-1" style="color:#f87171">—</div>
+                <div class="text-[10px] text-zinc-600 font-bold mt-0.5">refunded / dead</div>
+            </div>
+            <div class="stat p-4">
+                <div class="text-[9px] uppercase tracking-widest font-extrabold" style="color:#4ade80">Customers</div>
+                <div id="kpi-customers" class="text-3xl font-black mt-1" style="color:#4ade80">—</div>
+                <div id="kpi-conv" class="text-[10px] text-zinc-500 font-bold mt-0.5"></div>
+            </div>
+        </div>
+
+        <!-- Funnel bar -->
+        <div class="card p-4 mb-3">
+            <div class="flex items-center justify-between mb-2">
+                <div class="text-[9px] uppercase tracking-widest font-extrabold text-zinc-500">Pipeline composition</div>
+                <div class="text-[10px] text-zinc-600 font-bold">click a segment row below to see the play</div>
+            </div>
+            <div id="funnel-bar" class="flex w-full h-6 rounded-lg overflow-hidden bg-black/30"></div>
+            <div id="funnel-legend" class="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[10px] font-bold text-zinc-400"></div>
+        </div>
+
+        <!-- ── SEGMENTS → PLAY ── -->
+        <div class="card p-4 mb-8">
+            <div class="text-[9px] uppercase tracking-widest font-extrabold text-zinc-500 mb-3">Who we're converting · live counts · primary play</div>
+            <div class="overflow-x-auto custom-scroll">
+                <table class="w-full text-left" style="border-collapse:collapse">
+                    <thead>
+                        <tr class="text-[8px] uppercase tracking-widest text-zinc-600 font-black">
+                            <th class="py-2 pr-3">Segment</th>
+                            <th class="py-2 pr-3">Live</th>
+                            <th class="py-2 pr-3">Temp</th>
+                            <th class="py-2 pr-3">Primary play</th>
+                            <th class="py-2 pr-3">Plays on board</th>
+                        </tr>
+                    </thead>
+                    <tbody id="segments-body" class="text-[12px] text-zinc-300"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ── CONVERSION MISSION BOARD ── -->
+        <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+            <div class="text-sm font-extrabold text-zinc-100">Conversion Mission Board</div>
+            <div class="flex items-center gap-2 text-[10px]">
+                <button id="add-play" class="btn btn-copper px-3 py-1.5 uppercase">+ New play</button>
+                <button id="export-board" class="btn btn-ghost px-3 py-1.5 uppercase">Export</button>
+                <button id="import-board" class="btn btn-ghost px-3 py-1.5 uppercase">Import</button>
+                <button id="reset-board" class="btn btn-ghost px-3 py-1.5 uppercase" title="Reload my seeded strategy (overwrites the board)">Reset to seed</button>
+                <input id="import-file" type="file" accept="application/json" class="hidden">
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mb-10" id="board">
+            <!-- columns injected -->
+        </div>
+
+        <!-- ── PLAYBOOK / RATIONALE ── -->
+        <details class="card p-5 mb-12" open>
+            <summary class="text-sm font-extrabold text-zinc-100 flex items-center gap-2">📖 The playbook <span class="text-[10px] text-zinc-600 font-bold">(my read + sequencing — click to collapse)</span></summary>
+            <div class="mt-4 grid lg:grid-cols-2 gap-5 text-[13px] leading-relaxed text-zinc-400">
+                <div>
+                    <div class="text-zinc-200 font-bold mb-1">The diagnosis</div>
+                    <p>A week of zero sales right after the flat-$59 flip tells me this is a <span class="text-zinc-200">conversion problem, not a traffic problem</span>. Leads exist; they aren't completing. The biggest, cheapest leak is <span style="color:#fb923c">abandoned carts</span> — people who opened checkout and bounced. Their intent is already proven. We start there before we spend a dollar on new traffic.</p>
+                    <div class="text-zinc-200 font-bold mt-4 mb-1">Sequencing — three sprints</div>
+                    <p><span class="text-zinc-200">1 · Stop the leak (week 1).</span> Abandoned-cart email + WhatsApp concierge to every high-intent lead. Ask the one question: <em>"what stopped you?"</em> Diagnose before discounting.</p>
+                    <p class="mt-1"><span class="text-zinc-200">2 · Warm the pool (weeks 2–3).</span> The 🎁 free-pack list is the largest asset — they opted in but came for samples. Nurture from "here are sounds" → "here's the engine that makes infinite ones from racks you already own," then a bonus/bundle bridge (REKZ coupon).</p>
+                    <p class="mt-1"><span class="text-zinc-200">3 · Proof flywheel (weeks 3–4).</span> Free access to 3–5 engaged users → testimonials/UGC → relaunch the 2.0 "Inject to Clip" story to all cold/new leads with social proof behind it.</p>
+                </div>
+                <div>
+                    <div class="text-zinc-200 font-bold mb-1">Messaging angles by segment</div>
+                    <p><span style="color:#fb923c">Abandoned cart →</span> objection handling + a 60-sec inject demo. Human 1:1, not a broadcast. The reasons are usually: Live-version compatibility, "is this AI?", or value doubt at $59.</p>
+                    <p class="mt-1"><span style="color:#dd9a52">Free-pack →</span> teach first, sell second. The pack is the hook; Stride is the upgrade that makes endless versions from their own gear.</p>
+                    <p class="mt-1"><span style="color:#a1a1aa">New / waitlist →</span> lead with the 2.0 one-click direct-inject — the product story changed, give them a reason to act now.</p>
+                    <p class="mt-1"><span style="color:#f87171">Churned →</span> mostly intel. Learn the refund reason; a light "we shipped 2.0" win-back is secondary.</p>
+                    <div class="text-zinc-200 font-bold mt-4 mb-1">Guardrails (brand rules)</div>
+                    <ul class="list-disc pl-5 space-y-1">
+                        <li>Never mention AI / "generates music for you." It's a sound-design engine you drive.</li>
+                        <li>No founding-member / scarcity framing — that era ended. Use <span class="text-zinc-200">bonuses, bundles, and concierge</span>, not fake urgency.</li>
+                        <li>Producer voice — racks, clips, automation, Live. Confidence, no hype.</li>
+                        <li>Diagnose the abandoned-cart reason <em>before</em> discounting the whole list.</li>
+                    </ul>
+                </div>
+            </div>
+        </details>
+    </div>
+
+    <!-- ── EDIT PLAY MODAL ── -->
+    <div id="play-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div class="card p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto custom-scroll">
+            <div class="flex items-center justify-between mb-4">
+                <div class="text-sm font-extrabold text-zinc-100" id="modal-title">Edit play</div>
+                <button id="modal-close" class="text-zinc-500 hover:text-white text-xl leading-none">&times;</button>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-[9px] uppercase tracking-widest font-extrabold text-zinc-500 mb-1">Title</label>
+                    <input id="f-title" class="fld" placeholder="e.g. Abandoned-cart recovery email">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[9px] uppercase tracking-widest font-extrabold text-zinc-500 mb-1">Segment</label>
+                        <select id="f-segment" class="fld"></select>
+                    </div>
+                    <div>
+                        <label class="block text-[9px] uppercase tracking-widest font-extrabold text-zinc-500 mb-1">Channel</label>
+                        <select id="f-channel" class="fld">
+                            <option>Email</option><option>WhatsApp</option><option>Meta ads</option>
+                            <option>Instagram</option><option>Reddit / Community</option><option>In-app</option>
+                            <option>Site / checkout</option><option>1:1 outreach</option><option>YouTube</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[9px] uppercase tracking-widest font-extrabold text-zinc-500 mb-1">Hypothesis / offer</label>
+                    <textarea id="f-hypothesis" rows="3" class="fld" placeholder="What we'll say / do and why it converts"></textarea>
+                </div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-[9px] uppercase tracking-widest font-extrabold text-zinc-500 mb-1">Impact</label>
+                        <select id="f-impact" class="fld"><option>H</option><option>M</option><option>L</option></select>
+                    </div>
+                    <div>
+                        <label class="block text-[9px] uppercase tracking-widest font-extrabold text-zinc-500 mb-1">Effort</label>
+                        <select id="f-effort" class="fld"><option>L</option><option>M</option><option>H</option></select>
+                    </div>
+                    <div>
+                        <label class="block text-[9px] uppercase tracking-widest font-extrabold text-zinc-500 mb-1">Status</label>
+                        <select id="f-status" class="fld"><option value="backlog">Backlog</option><option value="queued">Queued</option><option value="live">Live</option><option value="done">Done</option></select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[9px] uppercase tracking-widest font-extrabold text-zinc-500 mb-1">Owner</label>
+                        <input id="f-owner" class="fld" placeholder="You / —">
+                    </div>
+                    <div>
+                        <label class="block text-[9px] uppercase tracking-widest font-extrabold text-zinc-500 mb-1">Success metric</label>
+                        <input id="f-metric" class="fld" placeholder="e.g. cart-recovery %">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[9px] uppercase tracking-widest font-extrabold text-zinc-500 mb-1">Notes</label>
+                    <textarea id="f-notes" rows="2" class="fld" placeholder="Anything else"></textarea>
+                </div>
+            </div>
+            <div class="flex items-center justify-between mt-5">
+                <button id="f-delete" class="btn btn-ghost px-3 py-2 text-[10px] uppercase" style="color:#f87171">Delete</button>
+                <div class="flex gap-2">
+                    <button id="f-cancel" class="btn btn-ghost px-4 py-2 text-[10px] uppercase">Cancel</button>
+                    <button id="f-save" class="btn btn-copper px-5 py-2 text-[10px] uppercase">Save play</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="hidden fixed bottom-6 right-6 bg-zinc-900 border border-white/10 rounded-lg px-4 py-2 text-[10px] text-zinc-300 uppercase tracking-widest font-bold shadow-2xl z-[60]"></div>
+
+<script>
+    /* ─────────────────────────────────────────────────────────────
+       Firebase — identical project to the CRM so we read live data.
+       Access is admin-gated (Firestore rules + the allow-list below).
+    ───────────────────────────────────────────────────────────────*/
+    const firebaseConfig = {
+        apiKey: "AIzaSyCP6Wt4yAkkphPeUvgbgbLHeUfdijZw7M4",
+        authDomain: "veero-next.firebaseapp.com",
+        projectId: "veero-next",
+        storageBucket: "veero-next.firebasestorage.app",
+        messagingSenderId: "293344511627",
+        appId: "1:293344511627:web:7611f4358284b18422b68e"
+    };
+    let auth = null, db = null, firebaseOK = false;
+    try {
+        firebase.initializeApp(firebaseConfig);
+        auth = firebase.auth();
+        db = firebase.firestore();
+        firebaseOK = true;
+    } catch (e) { console.warn('[firebase] not available in this context:', e && (e.code || e.message)); }
+    const ADMIN_EMAILS = ['yossi.bozo112@gmail.com'];
+
+    const $ = (id) => document.getElementById(id);
+    const show = (id, d='block') => { const e=$(id); if(e){ e.classList.remove('hidden'); e.style.display=d; } };
+    const hide = (id) => { const e=$(id); if(e){ e.classList.add('hidden'); e.style.display='none'; } };
+
+    let toastTimer;
+    function toast(msg) { const t=$('toast'); t.textContent=msg; t.classList.remove('hidden'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.add('hidden'),2200); }
+
+    /* ── Data source: 'live' (Firestore) or 'file' (offline export) ── */
+    let dataSource = 'live';
+
+    /* ── Auth gate (mirrors admin.html) — only when Firebase Auth can run ── */
+    if (firebaseOK) {
+        auth.onAuthStateChanged((user) => {
+            hide('loading');
+            if (!user) { show('signin','flex'); hide('console'); hide('denied'); return; }
+            if (!ADMIN_EMAILS.includes(user.email)) {
+                $('denied-email').textContent = user.email;
+                show('denied','flex'); hide('console'); hide('signin'); return;
+            }
+            dataSource = 'live';
+            $('user-email').textContent = user.email;
+            hide('signin'); hide('denied'); show('console');
+            renderBoard();            // board works instantly (local)
+            startListening();         // live CRM numbers
+        });
+    } else {
+        // file:// or any context where Firebase Auth can't run — go straight to
+        // the offline loader. No sign-in required.
+        hide('loading'); show('signin','flex');
+    }
+
+    function showAuthError(msg) { const e = $('signin-error'); if (e) { e.textContent = msg; e.classList.remove('hidden'); } }
+
+    $('signin-btn').addEventListener('click', async () => {
+        $('signin-error').classList.add('hidden');
+        if (!firebaseOK || location.protocol === 'file:') {
+            showAuthError("Live sign-in only works on stridehub.io. On a local file, use “Load your CRM data” above — no sign-in needed.");
+            return;
+        }
+        try {
+            await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+        } catch (e) {
+            console.error('[auth]', e);
+            let msg = 'Sign-in failed: ' + (e.code || e.message || 'unknown error');
+            if (e.code === 'auth/unauthorized-domain' || e.code === 'auth/operation-not-supported-in-this-environment') {
+                msg = "Live sign-in needs stridehub.io — it can't run from a local file. Use “Load your CRM data” above (no sign-in).";
+            } else if (['auth/popup-blocked','auth/popup-closed-by-user','auth/cancelled-popup-request'].includes(e.code)) {
+                msg = 'The Google popup was blocked or closed. Allow popups for this site and try again.';
+            }
+            showAuthError(msg);
+            toast('Sign-in failed');
+        }
+    });
+
+    $('signout-btn').addEventListener('click', () => { if (auth && auth.currentUser) auth.signOut(); else location.reload(); });
+    $('signout-btn-denied').addEventListener('click', () => { if (auth) auth.signOut(); });
+
+    /* ── Offline loader: read a CRM export JSON and render — no sign-in ── */
+    function loadData(obj) {
+        if (Array.isArray(obj)) { stateCRM.waitlist = obj; stateCRM.users = []; }
+        else { stateCRM.waitlist = obj.waitlist || []; stateCRM.users = obj.users || []; }
+        dataSource = 'file';
+        hide('signin'); hide('denied'); show('console');
+        $('live-dot').innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>Offline file';
+        $('user-email').textContent = (obj && obj.exported_at) ? ('export · ' + new Date(obj.exported_at).toLocaleString()) : '';
+        renderBoard();
+        computeFunnel();
+    }
+    function readDataFile(file) {
+        if (!file) return;
+        const r = new FileReader();
+        r.onload = () => {
+            try { loadData(JSON.parse(r.result)); toast('CRM data loaded'); }
+            catch (e) { toast('Invalid JSON file'); }
+        };
+        r.readAsText(file);
+    }
+    (function wireLoader(){
+        const dz = $('dropzone'), inp = $('data-file');
+        if (!dz || !inp) return;
+        dz.addEventListener('click', () => inp.click());
+        inp.addEventListener('change', e => readDataFile(e.target.files[0]));
+        ['dragenter','dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('drag-over'); }));
+        dz.addEventListener('dragleave', e => { e.preventDefault(); dz.classList.remove('drag-over'); });
+        dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); readDataFile(e.dataTransfer.files[0]); });
+    })();
+
+    /* ─────────────────────────────────────────────────────────────
+       LIVE CRM — same merge + status derivation as the CRM, so the
+       funnel numbers match admin.html exactly.
+    ───────────────────────────────────────────────────────────────*/
+    const stateCRM = { waitlist: [], users: [], unsubW: null, unsubU: null };
+
+    function startListening() {
+        if (stateCRM.unsubW) stateCRM.unsubW();
+        if (stateCRM.unsubU) stateCRM.unsubU();
+        stateCRM.unsubW = db.collection('waitlist').onSnapshot(
+            (snap) => { stateCRM.waitlist = snap.docs.map(d => ({ id:d.id, ...d.data() })); computeFunnel(); },
+            (err) => { console.error(err); toast('Waitlist read error'); $('live-dot').innerHTML='<span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>Error'; }
+        );
+        stateCRM.unsubU = db.collection('users').onSnapshot(
+            (snap) => { stateCRM.users = snap.docs.map(d => ({ uid:d.id, ...d.data() })); computeFunnel(); },
+            (err) => { console.error(err); }
+        );
+    }
+
+    // Manual status wins; else lemonsqueezy→purchased, buyer_lead→abandoned, else new.
+    function getStatus(row) {
+        if (row.status) return row.status;
+        if (row.source === 'lemonsqueezy') return 'purchased';
+        if (row.last_action === 'buyer_lead') return 'abandoned_cart';
+        return 'new';
+    }
+
+    function mergedRows() {
+        const merged = stateCRM.waitlist.slice();
+        const seen = new Set(merged.map(r => (r.email||'').toLowerCase().trim()).filter(Boolean));
+        const adminEmail = ((auth && auth.currentUser && auth.currentUser.email) || ADMIN_EMAILS[0] || '').toLowerCase();
+        for (const u of stateCRM.users) {
+            const email = (u.email||'').toLowerCase().trim();
+            if (!email || email === adminEmail || seen.has(email)) continue;
+            merged.push({ id:'virtual_'+u.uid, email:u.email, source:'registered_user', status:null });
+            seen.add(email);
+        }
+        return merged;
+    }
+
+    let lastCounts = null;
+    function computeFunnel() {
+        const rows = mergedRows();
+        const c = { total: rows.length, new:0, contacted:0, abandoned_cart:0, purchased:0, active:0, churned:0, pack:0 };
+        for (const r of rows) {
+            const s = getStatus(r);
+            if (c[s] !== undefined) c[s]++;
+            // 🎁 free-pack origin among non-buyers (overlaps the 'new' bucket)
+            if (r.last_action === 'sample_pack_signup' && s !== 'purchased' && s !== 'active') c.pack++;
+        }
+        c.customers = c.purchased + c.active;
+        c.nonbuyers = c.total - c.customers;
+        c.conv = c.total ? (c.customers / c.total * 100) : 0;
+        lastCounts = c;
+
+        $('kpi-total').textContent = c.total;
+        $('kpi-nonbuyers').textContent = c.nonbuyers;
+        $('kpi-nonbuyers-pct').textContent = c.total ? Math.round(c.nonbuyers/c.total*100)+'% of all contacts' : '';
+        $('kpi-abandoned').textContent = c.abandoned_cart;
+        $('kpi-pack').textContent = c.pack;
+        $('kpi-churned').textContent = c.churned;
+        $('kpi-customers').textContent = c.customers;
+        $('kpi-conv').textContent = c.conv.toFixed(1) + '% conversion';
+        $('updated-at').textContent = (dataSource === 'file') ? 'from export' : ('updated ' + new Date().toLocaleTimeString());
+
+        renderFunnelBar(c);
+        renderSegments();
+    }
+
+    function renderFunnelBar(c) {
+        const segs = [
+            { k:'active',         label:'Active',        col:'#22c55e', n:c.active },
+            { k:'purchased',      label:'Purchased',     col:'#eab308', n:c.purchased },
+            { k:'abandoned_cart', label:'Abandoned',     col:'#fb923c', n:c.abandoned_cart },
+            { k:'contacted',      label:'Contacted',     col:'#0ea5e9', n:c.contacted },
+            { k:'new',            label:'New',           col:'#71717a', n:c.new },
+            { k:'churned',        label:'Churned',       col:'#ef4444', n:c.churned },
+        ];
+        const total = c.total || 1;
+        $('funnel-bar').innerHTML = segs.filter(s=>s.n>0).map(s =>
+            `<div title="${s.label}: ${s.n}" style="width:${(s.n/total*100).toFixed(2)}%;background:${s.col}"></div>`).join('');
+        $('funnel-legend').innerHTML = segs.map(s =>
+            `<span class="inline-flex items-center gap-1.5"><span style="width:8px;height:8px;border-radius:2px;background:${s.col};display:inline-block"></span>${s.label} <span class="text-zinc-200">${s.n}</span></span>`).join('');
+    }
+
+    /* ── Segment → play table ── */
+    const SEGMENTS = [
+        { key:'abandoned_cart', label:'Abandoned cart',  badge:'s-abandoned', temp:'🔥', count:c=>c.abandoned_cart, play:'1:1 recovery — email + WhatsApp within 24h. Ask "what stopped you?"' },
+        { key:'free_pack',      label:'🎁 Free-pack leads', badge:'s-pack',    temp:'🌡️', count:c=>c.pack,           play:'Value-first nurture → bridge to Stride → bonus/bundle (REKZ).' },
+        { key:'contacted',      label:'Contacted',       badge:'s-contacted', temp:'🔥', count:c=>c.contacted,      play:'Keep cadence; move to WhatsApp; send tailored proof clip.' },
+        { key:'new_waitlist',   label:'New / waitlist',  badge:'s-new',       temp:'❄️', count:c=>c.new,            play:'Relaunch 2.0 "Inject to Clip" + Reddit re-engagement.' },
+        { key:'churned',        label:'Churned',         badge:'s-churned',   temp:'❄️', count:c=>c.churned,        play:'Learn the refund reason; light "we shipped 2.0" win-back.' },
+        { key:'customers',      label:'Customers',       badge:'s-active',    temp:'💚', count:c=>c.customers,      play:'Seed 3–5 for testimonials → fuel the proof flywheel.' },
+    ];
+    function renderSegments() {
+        const c = lastCounts || {};
+        const board = loadBoard();
+        $('segments-body').innerHTML = SEGMENTS.map(s => {
+            const n = c && s.count ? (s.count(c) ?? '—') : '—';
+            const onBoard = board.filter(p => p.segment === s.label).length;
+            return `<tr class="border-t border-white/5">
+                <td class="py-2 pr-3"><span class="badge ${s.badge}">${s.label}</span></td>
+                <td class="py-2 pr-3 font-black text-zinc-100">${n === undefined ? '—' : n}</td>
+                <td class="py-2 pr-3">${s.temp}</td>
+                <td class="py-2 pr-3 text-zinc-400">${s.play}</td>
+                <td class="py-2 pr-3 text-zinc-500">${onBoard || '—'}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    /* ─────────────────────────────────────────────────────────────
+       CONVERSION MISSION BOARD — localStorage, drag-and-drop, editable.
+       Seeded with the strategy. Export/Import JSON to back up or share.
+    ───────────────────────────────────────────────────────────────*/
+    const BOARD_KEY = 'stride_growth_board_v1';
+    const COLUMNS = [
+        { key:'backlog', label:'Backlog',  hint:'ideas + parked' },
+        { key:'queued',  label:'Queued',   hint:'next up' },
+        { key:'live',    label:'Live',     hint:'running now' },
+        { key:'done',    label:'Done',     hint:'shipped / measured' },
+    ];
+    const SEGMENT_OPTIONS = ['Abandoned cart','🎁 Free-pack leads','Contacted','New / waitlist','Churned','Customers','All non-buyers'];
+
+    // My seeded strategy — concrete, prioritised plays mapped to segments.
+    const SEED = [
+        { title:'Abandoned-cart recovery email (24h trigger)', segment:'Abandoned cart', channel:'Email', impact:'H', effort:'M', status:'queued', owner:'You', metric:'cart-recovery %', hypothesis:'Auto-email anyone with last_action=buyer_lead & not purchased. Lead with a 60-sec inject demo + handle the top objection (Live version, "not AI"). No discount on the first touch — proof first.', notes:'Backend already tags abandoned_cart; just needs the trigger + copy.' },
+        { title:'WhatsApp concierge for high-intent leads', segment:'Abandoned cart', channel:'WhatsApp', impact:'H', effort:'L', status:'queued', owner:'You', metric:'replies → closes', hypothesis:'1:1 human nudge: "Saw you checking out Stride — what stopped you? Happy to send a walkthrough." A $59 considered purchase closes in conversation, not broadcast.', notes:'We just added the WA button (+972 52 433 8671). Lowest effort, highest leverage.' },
+        { title:'Founder outreach to every abandoned cart', segment:'Abandoned cart', channel:'1:1 outreach', impact:'H', effort:'M', status:'backlog', owner:'You', metric:'reply rate', hypothesis:'Short personal Loom of the exact result they would get on their own rack. Ask the one objection question.', notes:'Pairs with the diagnostic — this is how we learn WHY the $59 flip stalled sales.' },
+        { title:'Diagnose the post-$59 stall ("what stopped you?")', segment:'Abandoned cart', channel:'Email', impact:'H', effort:'L', status:'queued', owner:'You', metric:'# responses / themes', hypothesis:'Before discounting the whole list, collect the real reason checkout stalled after the flat-price flip. Cheapest, highest-learning play.', notes:'7 days of zero sales after the flip = conversion problem, not traffic. Get the reason first.' },
+        { title:'Free-pack nurture sequence (4 emails)', segment:'🎁 Free-pack leads', channel:'Email', impact:'H', effort:'H', status:'backlog', owner:'You', metric:'pack → checkout CTR', hypothesis:'Teach sound design with the free pack, then bridge: "Stride is the engine that makes infinite versions of these from racks you already own." Sell second.', notes:'Largest opted-in pool. They came for samples — earn the product reveal.' },
+        { title:'Free-pack → Stride bridge offer (bonus/bundle)', segment:'🎁 Free-pack leads', channel:'Email', impact:'M', effort:'L', status:'backlog', owner:'You', metric:'coupon redemption', hypothesis:'Warmed-list coupon (REKZ already live) + a bonus rack pack with purchase. A bundle, NOT founding/scarcity framing.', notes:'Respect the pricing rule: no fake urgency. Value-add, not discount theatre.' },
+        { title:'Meta retargeting: proof video to cart-starters + free-pack', segment:'🎁 Free-pack leads', channel:'Meta ads', impact:'M', effort:'M', status:'backlog', owner:'You', metric:'CPA / ROAS', hypothesis:'Retarget the hottest audiences first (cart-starters, then free-pack) with "every lane is a variation" — the wow is visual/audible.', notes:'Asset exists: frontend/assets/every lane is a variation.mp4.' },
+        { title:'Relaunch 2.0 "Inject to Clip" to all new/waitlist', segment:'New / waitlist', channel:'Email', impact:'H', effort:'L', status:'queued', owner:'You', metric:'open → checkout', hypothesis:'The product story changed — one-click direct inject. Give cold/new leads a concrete reason to act now.', notes:'30+ Reddit waitlist leads have never seen the 2.0 workflow.' },
+        { title:'Reddit re-engagement (waitlist origin)', segment:'New / waitlist', channel:'Reddit / Community', impact:'M', effort:'M', status:'backlog', owner:'You', metric:'clicks → checkout', hypothesis:'They came from Reddit — meet them there with a producer-credible before/after demo, not a sales post.', notes:'' },
+        { title:'Testimonial seeding — free access to 3–5 engaged users', segment:'Customers', channel:'1:1 outreach', impact:'H', effort:'M', status:'backlog', owner:'You', metric:'# testimonials / UGC', hypothesis:'Hand free access to the most engaged, collect short clips/quotes. Social proof is the unlock that converts the cold majority.', notes:'From the launch strategy — proof flywheel feeds every other play.' },
+        { title:'Objection-killer FAQ at the buy modal', segment:'All non-buyers', channel:'Site / checkout', impact:'M', effort:'L', status:'backlog', owner:'You', metric:'cart completion %', hypothesis:'Add Live-version compatibility, "you own every output", and refund safety right at checkout to kill the doubts that stall the click.', notes:'Targets the same drop the diagnostic explains.' },
+        { title:'Win-back churned (post-2.0)', segment:'Churned', channel:'Email', impact:'L', effort:'L', status:'backlog', owner:'You', metric:'reactivation', hypothesis:'"We shipped 2.0 — here is what changed." Mostly to mine refund reasons; reactivation is a bonus.', notes:'Lowest priority vs the hot segments.' },
+    ];
+
+    function loadBoard() {
+        try {
+            const raw = localStorage.getItem(BOARD_KEY);
+            if (raw) return JSON.parse(raw);
+        } catch (e) {}
+        const seeded = SEED.map((p, i) => ({ id: 'seed_'+i, ...p }));
+        localStorage.setItem(BOARD_KEY, JSON.stringify(seeded));
+        return seeded;
+    }
+    function saveBoard(b) { localStorage.setItem(BOARD_KEY, JSON.stringify(b)); }
+    function newId() { return 'p_' + Math.random().toString(36).slice(2,9) + (window.performance ? Math.floor(performance.now()) : ''); }
+
+    function iceScore(p) { const m={H:3,M:2,L:1}; return (m[p.impact]||0)*2 - (m[p.effort]||0); } // impact-weighted
+
+    function renderBoard() {
+        const board = loadBoard();
+        const el = $('board');
+        el.innerHTML = COLUMNS.map(col => {
+            const cards = board.filter(p => (p.status||'backlog') === col.key).sort((a,b)=>iceScore(b)-iceScore(a));
+            return `<div class="card p-3 col-drop" data-col="${col.key}" style="min-height:120px">
+                <div class="flex items-center justify-between mb-2 px-1">
+                    <div class="text-[10px] uppercase tracking-widest font-black text-zinc-300">${col.label} <span class="text-zinc-600">${cards.length}</span></div>
+                    <div class="text-[8px] uppercase tracking-wider text-zinc-600 font-bold">${col.hint}</div>
+                </div>
+                <div class="space-y-2" data-drop="${col.key}">
+                    ${cards.map(cardHTML).join('') || `<div class="text-[10px] text-zinc-700 italic px-1 py-4 text-center">drop plays here</div>`}
+                </div>
+            </div>`;
+        }).join('');
+        wireDnD();
+        renderSegments();
+    }
+
+    function segBadgeClass(seg) {
+        return ({'Abandoned cart':'s-abandoned','🎁 Free-pack leads':'s-pack','Contacted':'s-contacted','New / waitlist':'s-new','Churned':'s-churned','Customers':'s-active','All non-buyers':'s-all'})[seg] || 's-new';
+    }
+    function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    function cardHTML(p) {
+        return `<div class="play p-2.5" draggable="true" data-id="${p.id}">
+            <div class="text-[12px] font-bold text-zinc-100 leading-snug mb-1.5">${esc(p.title)}</div>
+            <div class="flex flex-wrap items-center gap-1 mb-1.5">
+                <span class="badge ${segBadgeClass(p.segment)}">${esc(p.segment)}</span>
+                <span class="chip chip-ch">${esc(p.channel)}</span>
+            </div>
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-1">
+                    <span class="chip ice-${p.impact}" title="Impact">I·${p.impact}</span>
+                    <span class="chip ice-${p.effort}" title="Effort">E·${p.effort}</span>
+                </div>
+                <span class="text-[9px] text-zinc-600 font-bold uppercase tracking-wider">${esc(p.metric||'')}</span>
+            </div>
+        </div>`;
+    }
+
+    /* Drag & drop between columns */
+    let dragId = null;
+    function wireDnD() {
+        document.querySelectorAll('.play').forEach(el => {
+            el.addEventListener('dragstart', e => { dragId = el.dataset.id; el.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+            el.addEventListener('dragend', () => { el.classList.remove('dragging'); dragId=null; });
+            el.addEventListener('click', () => openModal(el.dataset.id));
+        });
+        document.querySelectorAll('.col-drop').forEach(col => {
+            col.addEventListener('dragover', e => { e.preventDefault(); col.classList.add('drag-over'); });
+            col.addEventListener('dragleave', () => col.classList.remove('drag-over'));
+            col.addEventListener('drop', e => {
+                e.preventDefault(); col.classList.remove('drag-over');
+                if (!dragId) return;
+                const board = loadBoard();
+                const card = board.find(p => p.id === dragId);
+                if (card && card.status !== col.dataset.col) { card.status = col.dataset.col; saveBoard(board); renderBoard(); toast('Moved → ' + col.dataset.col); }
+            });
+        });
+    }
+
+    /* Edit modal */
+    let editingId = null;
+    function fillSegmentOptions() {
+        $('f-segment').innerHTML = SEGMENT_OPTIONS.map(s=>`<option>${s}</option>`).join('');
+    }
+    function openModal(id) {
+        const board = loadBoard();
+        const p = board.find(x => x.id === id);
+        if (!p) return;
+        editingId = id;
+        fillSegmentOptions();
+        $('modal-title').textContent = 'Edit play';
+        $('f-title').value=p.title||''; $('f-segment').value=p.segment||SEGMENT_OPTIONS[0];
+        $('f-channel').value=p.channel||'Email'; $('f-hypothesis').value=p.hypothesis||'';
+        $('f-impact').value=p.impact||'M'; $('f-effort').value=p.effort||'M'; $('f-status').value=p.status||'backlog';
+        $('f-owner').value=p.owner||''; $('f-metric').value=p.metric||''; $('f-notes').value=p.notes||'';
+        show('play-modal','flex');
+    }
+    function closeModal() { hide('play-modal'); editingId=null; }
+    $('modal-close').addEventListener('click', closeModal);
+    $('f-cancel').addEventListener('click', closeModal);
+    $('play-modal').addEventListener('click', e => { if (e.target.id==='play-modal') closeModal(); });
+
+    $('f-save').addEventListener('click', () => {
+        const board = loadBoard();
+        const p = board.find(x => x.id === editingId);
+        if (!p) return;
+        p.title=$('f-title').value.trim()||'Untitled play'; p.segment=$('f-segment').value; p.channel=$('f-channel').value;
+        p.hypothesis=$('f-hypothesis').value.trim(); p.impact=$('f-impact').value; p.effort=$('f-effort').value;
+        p.status=$('f-status').value; p.owner=$('f-owner').value.trim(); p.metric=$('f-metric').value.trim(); p.notes=$('f-notes').value.trim();
+        saveBoard(board); renderBoard(); closeModal(); toast('Saved');
+    });
+    $('f-delete').addEventListener('click', () => {
+        if (!editingId) return;
+        const board = loadBoard().filter(x => x.id !== editingId);
+        saveBoard(board); renderBoard(); closeModal(); toast('Deleted');
+    });
+
+    $('add-play').addEventListener('click', () => {
+        const board = loadBoard();
+        const id = newId();
+        board.push({ id, title:'New play', segment:SEGMENT_OPTIONS[0], channel:'Email', impact:'M', effort:'M', status:'backlog', owner:'', metric:'', hypothesis:'', notes:'' });
+        saveBoard(board); renderBoard(); openModal(id);
+    });
+
+    $('reset-board').addEventListener('click', () => {
+        if (!confirm('Reload the seeded strategy? This overwrites the current board.')) return;
+        localStorage.removeItem(BOARD_KEY); renderBoard(); toast('Reset to seed');
+    });
+
+    /* Export / Import */
+    $('export-board').addEventListener('click', () => {
+        const data = JSON.stringify(loadBoard(), null, 2);
+        const blob = new Blob([data], {type:'application/json'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'stride-growth-board.json';
+        a.click(); URL.revokeObjectURL(a.href); toast('Exported');
+    });
+    $('import-board').addEventListener('click', () => $('import-file').click());
+    $('import-file').addEventListener('change', (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            try {
+                const arr = JSON.parse(reader.result);
+                if (!Array.isArray(arr)) throw new Error('not an array');
+                saveBoard(arr); renderBoard(); toast('Imported ' + arr.length + ' plays');
+            } catch (err) { toast('Import failed — invalid file'); }
+            $('import-file').value = '';
+        };
+        reader.readAsText(file);
+    });
+</script>
+</body>
+</html>
