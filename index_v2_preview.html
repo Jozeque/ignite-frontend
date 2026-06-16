@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STRIDE | Sound Design Engine for Ableton Live</title>
+
+    <!-- SEO -->
+    <meta name="description" content="Stride is a sound design engine for Ableton Live. Draw modulation curves on a visual canvas, apply them to any instrument rack, generate endless variations. Your racks, reborn.">
+    <meta name="keywords" content="Ableton Live, sound design, modulation, automation, Max for Live, instrument rack, music production">
+    <meta name="author" content="Stride">
+    <link rel="canonical" href="https://stridehub.io/">
+
+    <!-- Open Graph / Social cards -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://stridehub.io/">
+    <meta property="og:title" content="STRIDE | Sound Design Engine for Ableton Live">
+    <meta property="og:description" content="Draw modulation curves on a canvas, apply them to any Ableton rack, generate endless variations. Your racks, reborn.">
+    <meta property="og:image" content="https://stridehub.io/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:site_name" content="Stride">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="STRIDE | Sound Design Engine for Ableton Live">
+    <meta name="twitter:description" content="Draw modulation curves on a canvas, apply them to any Ableton rack, generate endless variations.">
+    <meta name="twitter:image" content="https://stridehub.io/og-image.png">
+
+    <!-- Theme color for mobile browsers -->
+    <meta name="theme-color" content="#040406">
+
+    <!-- Meta Pixel — landing PageView tracking (Phase 1 of
+         docs/meta-pixel-integration-spec.md). Fires fbq('init') +
+         fbq('track', 'PageView') as early as possible in <head> so it
+         catches the visit before any other resource blocks. The Phase 2
+         Purchase event lives on welcome.html; Phase 3 server-side CAPI
+         lives in the Lemon Squeezy webhook handler. -->
+    <script>
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t,s)}(window, document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '952457524222772');
+    fbq('track', 'PageView');
+    </script>
+    <noscript><img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=952457524222772&ev=PageView&noscript=1"
+    /></noscript>
+
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cdefs%3E%3ClinearGradient id='strideGradient' x1='0%25' y1='0%25' x2='100%25' y2='0%25'%3E%3Cstop offset='0%25' stop-color='%23f97316' /%3E%3Cstop offset='100%25' stop-color='%23ef4444' /%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z' stroke='url(%23strideGradient)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-base: #040406;
+            --bg-panel: rgba(24, 24, 27, 0.6);
+            --border-light: rgba(255, 255, 255, 0.06);
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-base);
+            color: #e4e4e7;
+            overflow-x: hidden;
+        }
+
+        /* Hero background curves — evokes the canvas behind the marketing copy.
+           Pink fuchsia at low opacity so it reads as texture, not a chart. */
+        .hero-curves {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.07;
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
+
+        .glass-panel {
+            background: var(--bg-panel);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--border-light);
+            box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.5);
+        }
+
+        .text-gradient {
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-image: linear-gradient(to right, #f97316, #ef4444);
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        .animate-float {
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes ticker-scroll {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        .ticker-track {
+            animation: ticker-scroll 30s linear infinite;
+        }
+        .ticker-track:hover {
+            animation-play-state: paused;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col relative selection:bg-orange-500/30">
+
+
+    <!-- ===================== 1. NAV ===================== -->
+    <nav class="w-full max-w-[1400px] mx-auto p-6 flex justify-between items-center relative z-50">
+        <div class="flex items-center gap-2 cursor-pointer">
+            <h1 class="text-3xl font-black text-gradient tracking-tighter leading-none">STRIDE</h1>
+        </div>
+        <div class="flex items-center gap-4">
+            <a href="blog.html" class="text-zinc-400 hover:text-orange-400 transition-colors text-xs font-bold uppercase tracking-widest">Blog</a>
+
+            <a href="https://www.instagram.com/stride_engine/" target="_blank" rel="noopener noreferrer" class="text-zinc-400 hover:text-orange-400 transition-colors" title="Follow us on Instagram">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+            </a>
+
+            <a href="https://www.youtube.com/@strideengine" target="_blank" rel="noopener noreferrer" class="text-zinc-400 hover:text-orange-400 transition-colors" title="Subscribe on YouTube">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+            </a>
+
+            <button onclick="toggleContactModal()" class="text-zinc-400 hover:text-orange-400 transition-colors" title="Contact Us">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+            </button>
+
+            <div class="w-px h-6 bg-white/10 mx-1 hidden sm:block"></div>
+
+            <a href="#pricing" class="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white text-xs font-black px-6 py-2.5 rounded-full transition-all uppercase tracking-widest shadow-[0_0_20px_rgba(255,94,0,0.3)] hover:shadow-[0_0_30px_rgba(255,94,0,0.5)]">Get Stride</a>
+        </div>
+    </nav>
+
+    <main class="flex-1 flex flex-col items-center relative z-10 w-full">
+
+        <!-- ===================== 2. HERO — side by side ===================== -->
+        <section class="w-full max-w-[1400px] mx-auto px-6 pt-16 pb-12 relative overflow-hidden">
+
+            <!-- Background curves: 5 lanes of automation-style paths.
+                 Static SVG, no animation, pointer-events disabled. -->
+            <svg class="hero-curves" viewBox="0 0 1400 500" preserveAspectRatio="none"
+                 fill="none" stroke="#d946ef" stroke-width="1.5"
+                 stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
+                <!-- Lane 1: sawtooth ramps -->
+                <path d="M 0,80 L 90,20 L 90,80 L 180,20 L 180,80 L 270,20 L 270,80 L 360,20 L 360,80 L 450,20 L 450,80 L 540,20 L 540,80 L 630,20 L 630,80 L 720,20 L 720,80 L 810,20 L 810,80 L 900,20 L 900,80 L 990,20 L 990,80 L 1080,20 L 1080,80 L 1170,20 L 1170,80 L 1260,20 L 1260,80 L 1350,20 L 1350,80 L 1400,40"/>
+                <!-- Lane 2: neuro spikes (alternating tall/short triangles) -->
+                <path d="M 0,160 L 30,110 L 60,160 L 90,140 L 120,160 L 150,100 L 180,160 L 210,150 L 240,160 L 270,105 L 300,160 L 330,145 L 360,160 L 390,108 L 420,160 L 450,140 L 480,160 L 510,100 L 540,160 L 570,150 L 600,160 L 630,105 L 660,160 L 690,145 L 720,160 L 750,108 L 780,160 L 810,140 L 840,160 L 870,100 L 900,160 L 930,150 L 960,160 L 990,105 L 1020,160 L 1050,145 L 1080,160 L 1110,108 L 1140,160 L 1170,140 L 1200,160 L 1230,100 L 1260,160 L 1290,150 L 1320,160 L 1350,105 L 1400,160"/>
+                <!-- Lane 3: step / glitch (square wave with varying heights) -->
+                <path d="M 0,260 L 80,260 L 80,210 L 160,210 L 160,260 L 240,260 L 240,225 L 320,225 L 320,260 L 400,260 L 400,200 L 480,200 L 480,260 L 560,260 L 560,235 L 640,235 L 640,260 L 720,260 L 720,205 L 800,205 L 800,260 L 880,260 L 880,220 L 960,220 L 960,260 L 1040,260 L 1040,200 L 1120,200 L 1120,260 L 1200,260 L 1200,235 L 1280,235 L 1280,260 L 1360,260 L 1360,210 L 1400,210"/>
+                <!-- Lane 4: smooth sine -->
+                <path d="M 0,340 C 70,290 140,290 210,340 C 280,390 350,390 420,340 C 490,290 560,290 630,340 C 700,390 770,390 840,340 C 910,290 980,290 1050,340 C 1120,390 1190,390 1260,340 C 1330,290 1400,290 1400,340"/>
+                <!-- Lane 5: pump (sharp drop, gradual rise) -->
+                <path d="M 0,420 L 0,470 Q 50,450 100,420 L 100,470 Q 150,450 200,420 L 200,470 Q 250,450 300,420 L 300,470 Q 350,450 400,420 L 400,470 Q 450,450 500,420 L 500,470 Q 550,450 600,420 L 600,470 Q 650,450 700,420 L 700,470 Q 750,450 800,420 L 800,470 Q 850,450 900,420 L 900,470 Q 950,450 1000,420 L 1000,470 Q 1050,450 1100,420 L 1100,470 Q 1150,450 1200,420 L 1200,470 Q 1250,450 1300,420 L 1300,470 Q 1350,450 1400,420"/>
+            </svg>
+
+            <div class="relative z-10 flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
+
+                <!-- LEFT — Copy -->
+                <div class="flex-1 flex flex-col items-start text-left min-w-0">
+                    <h2 class="text-5xl md:text-6xl xl:text-7xl font-black mb-6 tracking-tight leading-[1.05]">
+                        Sound Design Engine.<br>
+                        <span class="text-gradient">Your racks, reborn.</span>
+                    </h2>
+
+                    <p class="text-lg md:text-xl text-zinc-400 max-w-xl mb-8 leading-relaxed font-light">
+                        A visual canvas to automate every parameter in your Ableton rack — at once. Draw, mutate, and shape sounds you've never heard from instruments you already own. <strong class="text-zinc-200">One click. Straight into your clip. Done.</strong>
+                    </p>
+
+                    <div class="flex flex-col items-start gap-3">
+                        <a href="#pricing" class="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black py-4 px-10 rounded-2xl shadow-[0_10px_30px_rgba(255,50,0,0.3)] hover:shadow-[0_10px_40px_rgba(255,50,0,0.5)] hover:-translate-y-1 transition-all flex items-center justify-center gap-3 text-lg tracking-wider group">
+                            GET STRIDE — $59
+                            <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                        </a>
+                        <div class="flex items-center gap-3">
+                            <span class="text-[9px] bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">Available now</span>
+                        </div>
+                    </div>
+
+                    <!-- Requirements disclaimer — sits below the CTA, smaller + icon-less.
+                         Still catches the skimmer who's about to click buy, without
+                         stealing visual weight from the CTA itself. -->
+                    <div class="mt-5 text-[10px] leading-tight max-w-md">
+                        <span class="text-orange-400 font-black uppercase tracking-[0.18em]">For Ableton Live 11+ only</span>
+                        <span class="text-zinc-500"> &middot; Suite (built-in M4L) or Standard with the Max for Live add-on</span>
+                    </div>
+                </div>
+
+                <!-- RIGHT — Video -->
+                <div class="flex-1 min-w-0 w-full lg:w-auto">
+                    <div id="hero-video-container" class="w-full aspect-video rounded-3xl relative overflow-hidden group cursor-pointer border border-white/10 hover:border-orange-500/30 transition-colors shadow-2xl bg-black" onclick="playHeroVideo()">
+                        <img id="hero-video-poster" src="https://img.youtube.com/vi/W5khsc6lgoQ/maxresdefault.jpg" alt="Stride Tutorial" class="absolute inset-0 w-full h-full object-cover rounded-3xl">
+
+                        <div id="hero-video-overlay" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/30 group-hover:bg-black/20 transition-colors">
+                            <div class="w-16 h-16 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center border border-white/20 group-hover:scale-110 group-hover:bg-orange-500/30 group-hover:border-orange-500/40 transition-all shadow-xl text-white group-hover:text-orange-400">
+                                <svg class="w-7 h-7 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            </div>
+                            <p class="text-[10px] text-zinc-400 uppercase tracking-widest mt-3 font-bold">Watch Tutorial</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ===================== 3. SCROLLING PILLS STRIP ===================== -->
+        <section class="w-full max-w-[1400px] mx-auto px-6 mb-8">
+            <div class="overflow-hidden rounded-2xl border border-white/5 bg-black/30 py-4">
+                <div class="ticker-track flex items-center gap-4 w-max">
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-sm text-orange-400 font-bold uppercase tracking-widest whitespace-nowrap">100+ Parameters</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-sm text-zinc-400 font-bold uppercase tracking-widest whitespace-nowrap">Mutate</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-sm text-zinc-400 font-bold uppercase tracking-widest whitespace-nowrap">Mirror</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-sm text-zinc-400 font-bold uppercase tracking-widest whitespace-nowrap">Chaos LFO</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-sm text-zinc-400 font-bold uppercase tracking-widest whitespace-nowrap">Swing</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-sm text-zinc-400 font-bold uppercase tracking-widest whitespace-nowrap">Quantize</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-sm text-zinc-400 font-bold uppercase tracking-widest whitespace-nowrap">Neuro</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-sm text-zinc-400 font-bold uppercase tracking-widest whitespace-nowrap">Freehand Draw</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-sm text-zinc-400 font-bold uppercase tracking-widest whitespace-nowrap">Bezier Curves</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-sm text-zinc-400 font-bold uppercase tracking-widest whitespace-nowrap">All Lanes</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-sm text-zinc-400 font-bold uppercase tracking-widest whitespace-nowrap">Paste To...</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-sm text-zinc-400 font-bold uppercase tracking-widest whitespace-nowrap">Smooth</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-sm text-zinc-400 font-bold uppercase tracking-widest whitespace-nowrap">Groove Build</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-sm text-orange-400 font-bold uppercase tracking-widest whitespace-nowrap">Bloom</span>
+                    <!-- Repeat for seamless loop -->
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-sm text-orange-400 font-bold uppercase tracking-widest whitespace-nowrap">100+ Parameters</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-sm text-zinc-400 font-bold uppercase tracking-widest whitespace-nowrap">Mutate</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-sm text-zinc-400 font-bold uppercase tracking-widest whitespace-nowrap">Mirror</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-sm text-zinc-400 font-bold uppercase tracking-widest whitespace-nowrap">Chaos LFO</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-sm text-zinc-400 font-bold uppercase tracking-widest whitespace-nowrap">Swing</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-sm text-zinc-400 font-bold uppercase tracking-widest whitespace-nowrap">Quantize</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-sm text-zinc-400 font-bold uppercase tracking-widest whitespace-nowrap">Neuro</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-sm text-zinc-400 font-bold uppercase tracking-widest whitespace-nowrap">Freehand Draw</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-sm text-zinc-400 font-bold uppercase tracking-widest whitespace-nowrap">Bezier Curves</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-sm text-zinc-400 font-bold uppercase tracking-widest whitespace-nowrap">All Lanes</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-sm text-zinc-400 font-bold uppercase tracking-widest whitespace-nowrap">Paste To...</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-sm text-zinc-400 font-bold uppercase tracking-widest whitespace-nowrap">Smooth</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-sm text-zinc-400 font-bold uppercase tracking-widest whitespace-nowrap">Groove Build</span>
+                    <span class="shrink-0 text-zinc-700">/</span>
+                    <span class="shrink-0 px-4 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-sm text-orange-400 font-bold uppercase tracking-widest whitespace-nowrap">Bloom</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================== 4. ONE CLICK TO RULE THEM ALL — generator showcase (NEW) ===================== -->
+        <section class="w-full max-w-[1400px] mx-auto px-6 mb-32">
+            <div class="text-center mb-16">
+                <p class="text-sm text-orange-400 font-bold uppercase tracking-widest mb-4">Press one button</p>
+                <h2 class="text-4xl md:text-6xl font-black mb-4 tracking-tight text-white">One click to rule them all</h2>
+                <p class="text-base text-zinc-400 leading-relaxed max-w-2xl mx-auto">Push your instruments to the edge. One click injects dozens of unique automation curves across your rack. Click again. And again. In under a minute you've got 32 bars of pure chaos written across every parameter.</p>
+            </div>
+
+            <!-- Row 1: CHAOS — image left, text right on lg -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14 items-center mb-20 lg:mb-28">
+                <div class="rounded-2xl overflow-hidden border border-cyan-500/20 bg-black/40 shadow-[0_0_80px_-30px_rgba(34,211,238,0.45)] lg:order-1">
+                    <img src="chaos.png" alt="Stride canvas with Chaos applied — multi-layer wave noise filling every lane" class="w-full block" loading="lazy">
+                </div>
+                <div class="lg:order-2">
+                    <h3 class="text-5xl md:text-6xl font-black text-cyan-400 leading-none mb-4 tracking-tight">Chaos</h3>
+                    <p class="text-xl md:text-2xl font-black text-white leading-tight mb-5">One click. Every lane filled.</p>
+                    <p class="text-base text-zinc-400 leading-relaxed mb-4 max-w-md">Stamps the chaos curve — multi-layer wave noise — onto every unlocked parameter in your rack. Smooth, organic, never the same twice.</p>
+                    <p class="text-[13px] text-zinc-500 leading-relaxed max-w-md"><span class="text-cyan-400/80 font-black uppercase tracking-widest">Good for</span> &middot; dense evolving textures, ambient pads, slow-motion sound design — anywhere you want everything moving with zero drawing.</p>
+                </div>
+            </div>
+
+            <!-- Row 2: NEURO — text left, image right on lg -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14 items-center mb-20 lg:mb-28">
+                <div class="rounded-2xl overflow-hidden border border-fuchsia-500/20 bg-black/40 shadow-[0_0_80px_-30px_rgba(217,70,239,0.45)] lg:order-2">
+                    <img src="neuro.png" alt="Stride canvas with Neuro applied — jagged ramps, chops and stutters across every lane" class="w-full block" loading="lazy">
+                </div>
+                <div class="lg:order-1">
+                    <h3 class="text-5xl md:text-6xl font-black text-fuchsia-400 leading-none mb-4 tracking-tight">Neuro</h3>
+                    <p class="text-xl md:text-2xl font-black text-white leading-tight mb-5">Gnarly. Random. Musical.</p>
+                    <p class="text-base text-zinc-400 leading-relaxed mb-4 max-w-md">Picks random shape chunks — dotted ramps, hard chops, hyper-stutters, syncopated drops — across every unlocked lane. Wildly varied, never static.</p>
+                    <p class="text-[13px] text-zinc-500 leading-relaxed max-w-md"><span class="text-fuchsia-400/80 font-black uppercase tracking-widest">Good for</span> &middot; neuro &amp; DnB bass, dubstep wobbles, aggressive sound design where chaos still has to lock to the grid.</p>
+                </div>
+            </div>
+
+            <!-- Row 3: REFLECTOR — image left, text right on lg -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14 items-center mb-20 lg:mb-28">
+                <div class="rounded-2xl overflow-hidden border border-sky-500/20 bg-black/40 shadow-[0_0_80px_-30px_rgba(56,189,248,0.45)] lg:order-1">
+                    <img src="reflector.png" alt="Stride canvas with Reflector applied — lane pairs in base + mirror configuration" class="w-full block" loading="lazy">
+                </div>
+                <div class="lg:order-2">
+                    <h3 class="text-5xl md:text-6xl font-black text-sky-400 leading-none mb-4 tracking-tight">Reflector</h3>
+                    <p class="text-xl md:text-2xl font-black text-white leading-tight mb-5">Mirrored motion. Coherent rack.</p>
+                    <p class="text-base text-zinc-400 leading-relaxed mb-4 max-w-md">Pairs every two lanes — base plus a value-flipped mirror — so the rack folds in on itself. Half Neuro pairs, half Chaos pairs, all in one click.</p>
+                    <p class="text-[13px] text-zinc-500 leading-relaxed max-w-md"><span class="text-sky-400/80 font-black uppercase tracking-widest">Good for</span> &middot; macro modulation where parameters move in opposition: filter opens / resonance drops, drive up / volume down. Instant coherence across the whole rack.</p>
+                </div>
+            </div>
+
+            <!-- Row 4: S&H — text left, image right on lg -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14 items-center">
+                <div class="rounded-2xl overflow-hidden border border-lime-500/20 bg-black/40 shadow-[0_0_80px_-30px_rgba(163,230,53,0.45)] lg:order-2">
+                    <img src="sh.png" alt="Stride canvas with Sample &amp; Hold applied — stepped staircases at different rates per lane" class="w-full block" loading="lazy">
+                </div>
+                <div class="lg:order-1">
+                    <h3 class="text-5xl md:text-6xl font-black text-lime-400 leading-none mb-4 tracking-tight">Sample &amp; Hold</h3>
+                    <p class="text-xl md:text-2xl font-black text-white leading-tight mb-5">Polyrhythmic stepped motion.</p>
+                    <p class="text-base text-zinc-400 leading-relaxed mb-4 max-w-md">Per-lane stepped-random staircase. Each lane rolls its own rate — straight and triplet, down to 1/32 — so 1/4 against 1/8T locks into 4-against-3 across your rack.</p>
+                    <p class="text-[13px] text-zinc-500 leading-relaxed max-w-md"><span class="text-lime-400/80 font-black uppercase tracking-widest">Good for</span> &middot; glitchy stepped textures, sequenced modulation, anywhere you want rhythmic motion without drawing a single step.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================== 5. STACK VARIATIONS — drag-to-Ableton workflow (NEW) ===================== -->
+        <section class="w-full max-w-[1400px] mx-auto px-6 mb-32">
+            <div class="text-center mb-12">
+                <p class="text-sm text-violet-400 font-bold uppercase tracking-widest mb-4">Variations on demand</p>
+                <h2 class="text-4xl md:text-6xl font-black mb-4 tracking-tight text-white">Every button is a <span class="text-gradient">variation</span>.</h2>
+                <p class="text-base text-zinc-400 leading-relaxed max-w-2xl mx-auto">Get multiple variations from the same synth/instrument rack instantly, with just a few clicks.</p>
+            </div>
+
+            <!-- Hero visual: PRISM screenshot — source on top, variants below -->
+            <div class="rounded-3xl overflow-hidden border border-violet-500/20 bg-black/40 shadow-[0_0_120px_-30px_rgba(139,92,246,0.5)] mb-12">
+                <img src="prism.png" alt="Stride canvas with Prism — source lane on top, multiple variant lanes anchored to the same peaks" class="w-full block" loading="lazy">
+            </div>
+
+            <!-- 3 supporting cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+                <div class="glass-panel rounded-2xl p-6">
+                    <div class="w-10 h-10 rounded-lg bg-violet-500/10 text-violet-400 flex items-center justify-center mb-4 border border-violet-500/20">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3 L21 21 L3 21 Z"/></svg>
+                    </div>
+                    <h4 class="text-lg font-black text-zinc-100 mb-2">Every generator is a fresh take</h4>
+                    <p class="text-sm text-zinc-400 leading-relaxed">Chaos, Neuro, Reflector, S&amp;H — same rack, four totally different sound design directions. Roll through them in seconds.</p>
+                </div>
+
+                <div class="glass-panel rounded-2xl p-6">
+                    <div class="w-10 h-10 rounded-lg bg-orange-500/10 text-orange-400 flex items-center justify-center mb-4 border border-orange-500/20">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
+                    </div>
+                    <h4 class="text-lg font-black text-zinc-100 mb-2">Stack them on the timeline</h4>
+                    <p class="text-sm text-zinc-400 leading-relaxed">Apply, drag the <code class="text-orange-300 bg-orange-500/10 px-1 rounded text-[12px]">.alc</code> onto a clip. Click another generator, apply again, drag onto the next clip. A/B variations side-by-side in Ableton.</p>
+                </div>
+
+                <div class="glass-panel rounded-2xl p-6">
+                    <div class="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-4 border border-emerald-500/20">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    </div>
+                    <h4 class="text-lg font-black text-zinc-100 mb-2">Mutate &amp; Prism for finer takes</h4>
+                    <p class="text-sm text-zinc-400 leading-relaxed">Found a curve you love? Hit <strong class="text-emerald-400">Mutate</strong> to reroll it, or <strong class="text-violet-400">Prism</strong> to spin siblings across every other lane — keeping your anchors locked.</p>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ===================== 7. HOW IT WORKS — 3 steps ===================== -->
+        <section class="w-full max-w-[1400px] mx-auto px-6 mb-32">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl md:text-6xl font-black mb-4 tracking-tight text-white">How It Works</h2>
+                <p class="text-base text-zinc-400 uppercase tracking-widest font-bold">Three steps. Zero friction.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+
+                <div class="flex flex-col items-center text-center h-full">
+                    <div class="w-16 h-16 rounded-2xl bg-orange-500/10 text-orange-400 flex items-center justify-center mb-6 border border-orange-500/20">
+                        <span class="text-3xl font-black">01</span>
+                    </div>
+                    <h4 class="text-xl font-black text-zinc-200 mb-3">Drop Stride on your track</h4>
+                    <p class="text-base text-zinc-400 leading-relaxed max-w-xs">Add the Max for Live device to any track with an instrument rack. Stride scans your rack and loads every parameter.</p>
+                    <div class="mt-auto pt-6 w-full rounded-2xl overflow-hidden">
+                        <div class="w-full rounded-2xl bg-gradient-to-br from-orange-950/30 to-black/50 border border-white/5 overflow-hidden aspect-[2.35/1] flex items-center justify-center relative">
+                            <!-- Mouse cursor illustration conveying "drag StrideLink onto a track".
+                                 Previous PNG was only 252x107 and pixelated when upscaled; this
+                                 SVG scales crisply and matches the aspect of the other two steps. -->
+                            <svg class="w-16 h-16 text-orange-400 drop-shadow-[0_0_12px_rgba(249,115,22,0.4)]" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M5.5 3.5 L5.5 19.5 L9.8 15.6 L12.2 21 L14.5 20 L12.1 14.5 L18 14.5 Z"/>
+                            </svg>
+                            <div class="absolute bottom-3 left-0 right-0 text-center">
+                                <span class="text-[10px] text-zinc-500 uppercase tracking-[0.3em] font-black">Drag &middot; Drop</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col items-center text-center h-full">
+                    <div class="w-16 h-16 rounded-2xl bg-red-500/10 text-red-400 flex items-center justify-center mb-6 border border-red-500/20">
+                        <span class="text-3xl font-black">02</span>
+                    </div>
+                    <h4 class="text-xl font-black text-zinc-200 mb-3">Shape your sound</h4>
+                    <p class="text-base text-zinc-400 leading-relaxed max-w-xs">Hit Chaos to fill every lane at once. Pick your favorite curve, then Bloom to make the rest complement it. Fine-tune with Smooth, Quantize, and Swing.</p>
+                    <div class="mt-auto pt-6 w-full rounded-2xl overflow-hidden">
+                        <div class="rounded-2xl bg-black/40 border border-white/5 overflow-hidden">
+                            <img src="canvaswithcurves.png" alt="Stride canvas with multi-lane automation curves" class="w-full" loading="lazy">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col items-center text-center h-full">
+                    <div class="w-16 h-16 rounded-2xl bg-purple-500/10 text-purple-400 flex items-center justify-center mb-6 border border-purple-500/20">
+                        <span class="text-3xl font-black">03</span>
+                    </div>
+                    <h4 class="text-xl font-black text-zinc-200 mb-3">Apply to clip</h4>
+                    <p class="text-base text-zinc-400 leading-relaxed max-w-xs">One click writes all automation directly into an Ableton clip. Drag it onto your track. Hit play. The automation stays — Stride's job is done.</p>
+                    <div class="mt-auto pt-6 w-full rounded-2xl overflow-hidden">
+                        <div class="rounded-2xl bg-black/40 border border-white/5 overflow-hidden">
+                            <img src="clipautomation.png" alt="Ableton clip with Stride-generated automation" class="w-full" loading="lazy">
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ===================== 8. WORKS WITH — synth strip ===================== -->
+        <section class="w-full max-w-[1400px] mx-auto px-6 mb-32">
+            <div class="text-center mb-10">
+                <p class="text-base text-zinc-400 uppercase tracking-widest font-bold">Works with any Ableton instrument rack</p>
+            </div>
+            <div class="flex flex-wrap items-center justify-center gap-3">
+                <span class="px-5 py-2 rounded-full bg-white/5 border border-white/5 text-base text-zinc-300 font-bold">Serum</span>
+                <span class="px-5 py-2 rounded-full bg-white/5 border border-white/5 text-base text-zinc-300 font-bold">Vital</span>
+                <span class="px-5 py-2 rounded-full bg-white/5 border border-white/5 text-base text-zinc-300 font-bold">Operator</span>
+                <span class="px-5 py-2 rounded-full bg-white/5 border border-white/5 text-base text-zinc-300 font-bold">Wavetable</span>
+                <span class="px-5 py-2 rounded-full bg-white/5 border border-white/5 text-base text-zinc-300 font-bold">Pigments</span>
+                <span class="px-5 py-2 rounded-full bg-white/5 border border-white/5 text-base text-zinc-300 font-bold">Phase Plant</span>
+                <span class="px-5 py-2 rounded-full bg-white/5 border border-white/5 text-base text-zinc-300 font-bold">Diva</span>
+                <span class="px-5 py-2 rounded-full bg-white/5 border border-white/5 text-base text-zinc-300 font-bold">Massive X</span>
+                <span class="px-5 py-2 rounded-full bg-white/5 border border-white/5 text-base text-zinc-300 font-bold">Analog</span>
+                <span class="px-5 py-2 rounded-full bg-white/5 border border-white/5 text-base text-zinc-300 font-bold">Omnisphere</span>
+                <span class="px-5 py-2 rounded-full bg-orange-500/10 border border-orange-500/20 text-base text-orange-400 font-bold">any plugin</span>
+            </div>
+        </section>
+
+        <!-- ===================== 8.4. USE-CASE FIT =====================
+             Sets creative-tool expectations before the technical compat matrix.
+             What Stride is built for vs. where it doesn't fit. Filters out
+             mixdown-focused buyers who'd refund, and clarifies the audio-track
+             Sampler workaround so audio-focused producers don't churn. -->
+        <section class="w-full max-w-4xl mx-auto px-6 mb-24">
+            <div class="text-center mb-10">
+                <h2 class="text-3xl md:text-5xl font-black mb-3 tracking-tight text-white">Where Stride shines</h2>
+                <p class="text-sm text-zinc-500 uppercase tracking-widest font-bold">Be honest about what you need</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-5">
+                <!-- MADE FOR — creative use cases -->
+                <div class="bg-fuchsia-500/5 border border-fuchsia-500/25 rounded-2xl p-6">
+                    <div class="flex items-center gap-2 mb-5">
+                        <div class="w-8 h-8 rounded-lg bg-fuchsia-500/15 border border-fuchsia-500/30 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-fuchsia-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                        </div>
+                        <h3 class="text-base font-black text-fuchsia-400 uppercase tracking-widest">Made for</h3>
+                    </div>
+                    <ul class="space-y-2.5 text-[15px] text-zinc-300">
+                        <li class="flex gap-2.5"><span class="text-fuchsia-400 font-black shrink-0">✓</span><span>Generating unique variations from any Ableton rack you already own — synth, effects, and everything in between</span></li>
+                        <li class="flex gap-2.5"><span class="text-fuchsia-400 font-black shrink-0">✓</span><span>Sound design sessions where you want curves you'd never draw by hand</span></li>
+                        <li class="flex gap-2.5"><span class="text-fuchsia-400 font-black shrink-0">✓</span><span>Adding unexpected motion to static patches and racks</span></li>
+                        <li class="flex gap-2.5"><span class="text-fuchsia-400 font-black shrink-0">✓</span><span>Bass, leads, pads, FX — making instruments do things they don't usually do</span></li>
+                        <li class="flex gap-2.5"><span class="text-fuchsia-400 font-black shrink-0">✓</span><span>Per-clip automation that lives with the song</span></li>
+                    </ul>
+                </div>
+
+                <!-- NOT MADE FOR — honest filtering -->
+                <div class="bg-amber-500/5 border border-amber-500/25 rounded-2xl p-6">
+                    <div class="flex items-center gap-2 mb-5">
+                        <div class="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                        </div>
+                        <h3 class="text-base font-black text-amber-400 uppercase tracking-widest">Not made for</h3>
+                    </div>
+                    <ul class="space-y-2.5 text-[15px] text-zinc-300">
+                        <li class="flex gap-2.5"><span class="text-amber-400 font-black shrink-0">!</span><span>Mixing finished tracks <span class="text-zinc-500">(you draw first, hear after — slow for tight feedback loops)</span></span></li>
+                        <li class="flex gap-2.5"><span class="text-amber-400 font-black shrink-0">!</span><span>Surgical mix-bus edits where real-time response matters</span></li>
+                        <li class="flex gap-2.5"><span class="text-amber-400 font-black shrink-0">!</span><span>Audio tracks directly <span class="text-zinc-500">(Sampler workaround works — load audio into Sampler, draw a held C3, treat it like an instrument)</span></span></li>
+                    </ul>
+                </div>
+            </div>
+
+            <p class="text-center text-[13px] text-zinc-500 mt-7 max-w-2xl mx-auto leading-relaxed">
+                Stride is a <b class="text-zinc-300">creative tool</b>. If you're trying to mix 10 tracks fast, look elsewhere. If you're trying to make one instrument do something it's never done before, you're in the right place.
+            </p>
+        </section>
+
+        <!-- ===================== 8.5. COMPATIBILITY MATRIX =====================
+             Last stop before pricing. Buyers see a side-by-side "works / won't
+             work" grid so they can't claim surprise when they realize Stride is
+             Ableton-only. Directly reduces refund volume. -->
+        <section class="w-full max-w-4xl mx-auto px-6 mb-24">
+            <div class="text-center mb-10">
+                <h2 class="text-3xl md:text-5xl font-black mb-3 tracking-tight text-white">Will it run for you?</h2>
+                <p class="text-sm text-zinc-500 uppercase tracking-widest font-bold">Technical compatibility</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-5">
+                <!-- YES column -->
+                <div class="bg-emerald-500/5 border border-emerald-500/25 rounded-2xl p-6">
+                    <div class="flex items-center gap-2 mb-5">
+                        <div class="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                        </div>
+                        <h3 class="text-base font-black text-emerald-400 uppercase tracking-widest">Yes — Stride works</h3>
+                    </div>
+                    <ul class="space-y-2.5 text-[15px] text-zinc-300">
+                        <li class="flex gap-2.5"><span class="text-emerald-400 font-black shrink-0">✓</span><span>Ableton Live 11 or 12 <b>Suite</b></span></li>
+                        <li class="flex gap-2.5"><span class="text-emerald-400 font-black shrink-0">✓</span><span>Ableton Live 11/12 <b>Standard</b> with the Max for Live add-on</span></li>
+                        <li class="flex gap-2.5"><span class="text-emerald-400 font-black shrink-0">✓</span><span>macOS 11 or later <span class="text-zinc-500">(Intel + Apple Silicon)</span></span></li>
+                        <li class="flex gap-2.5"><span class="text-emerald-400 font-black shrink-0">✓</span><span>Windows 10 or 11</span></li>
+                    </ul>
+                </div>
+
+                <!-- NO column -->
+                <div class="bg-red-500/5 border border-red-500/25 rounded-2xl p-6">
+                    <div class="flex items-center gap-2 mb-5">
+                        <div class="w-8 h-8 rounded-lg bg-red-500/15 border border-red-500/30 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </div>
+                        <h3 class="text-base font-black text-red-400 uppercase tracking-widest">No — won't help you</h3>
+                    </div>
+                    <ul class="space-y-2.5 text-[15px] text-zinc-300">
+                        <li class="flex gap-2.5"><span class="text-red-400 font-black shrink-0">✗</span><span>Ableton Live <b>Lite</b> or <b>Intro</b> <span class="text-zinc-500">(no M4L support)</span></span></li>
+                        <li class="flex gap-2.5"><span class="text-red-400 font-black shrink-0">✗</span><span>FL Studio</span></li>
+                        <li class="flex gap-2.5"><span class="text-red-400 font-black shrink-0">✗</span><span>Logic Pro / GarageBand</span></li>
+                        <li class="flex gap-2.5"><span class="text-red-400 font-black shrink-0">✗</span><span>Cubase, Nuendo</span></li>
+                        <li class="flex gap-2.5"><span class="text-red-400 font-black shrink-0">✗</span><span>Pro Tools, Reaper, Bitwig, Studio One</span></li>
+                        <li class="flex gap-2.5"><span class="text-red-400 font-black shrink-0">✗</span><span>Any other DAW</span></li>
+                    </ul>
+                </div>
+            </div>
+
+            <p class="text-center text-[13px] text-zinc-500 mt-7 max-w-2xl mx-auto leading-relaxed">
+                Stride uses <b class="text-zinc-300">Max for Live</b> to talk directly to Ableton's rack parameters. That's the tech under the hood — it's the reason Stride can't work in any other DAW, and why Live must be Suite or Standard with M4L.
+            </p>
+        </section>
+
+        <!-- ===================== 9. PRICING ===================== -->
+        <section id="pricing" class="w-full max-w-2xl mx-auto px-6 mb-32">
+            <div class="glass-panel rounded-3xl p-10 md:p-14 relative overflow-hidden text-center">
+                <div class="absolute -top-20 left-1/2 -translate-x-1/2 w-80 h-80 bg-orange-500/10 rounded-full blur-[100px] pointer-events-none"></div>
+
+                <div class="relative z-10">
+                    <!-- On-sale badge -->
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/25 mb-6">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span class="text-[13px] text-emerald-400 font-bold uppercase tracking-widest">Available now</span>
+                    </div>
+
+                    <h3 class="text-5xl md:text-6xl font-black text-white mb-3 tracking-tight">Yours forever.</h3>
+                    <p class="text-base text-zinc-400 font-medium mb-10">One-time purchase — $59. Free updates through v1.x. No subscription, ever.</p>
+
+                    <div class="flex flex-col gap-3 text-left max-w-xs mx-auto mb-10">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-5 h-5 text-orange-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            <span class="text-base text-zinc-300">Max for Live device</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <svg class="w-5 h-5 text-orange-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            <span class="text-base text-zinc-300">Visual canvas + automation tools</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <svg class="w-5 h-5 text-orange-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            <span class="text-base text-zinc-300">Mutate engine + templates</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <svg class="w-5 h-5 text-orange-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            <span class="text-base text-zinc-300">One-time purchase. No subscription.</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <svg class="w-5 h-5 text-orange-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            <span class="text-base text-zinc-300">Free updates through v1.x</span>
+                        </div>
+                    </div>
+
+                    <!-- Pricing tiers -->
+                    <div id="pricing" class="w-full max-w-md mx-auto mb-6">
+                        <div class="bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/30 rounded-2xl p-5">
+                            <div class="flex items-baseline gap-3 mb-2">
+                                <span class="text-3xl font-black text-white">$59</span>
+                                <span class="text-[10px] text-orange-400 uppercase font-black tracking-widest bg-orange-500/15 px-2 py-0.5 rounded-full">One-time</span>
+                            </div>
+                            <p class="text-[11px] text-zinc-500 leading-relaxed">Use on up to 2 machines. Instant download. Free updates through v1.x.</p>
+                        </div>
+                        <div class="flex items-center justify-center gap-4 mt-3 text-[9px] text-zinc-600 uppercase tracking-widest font-bold">
+                            <span>One-time payment · No subscription</span>
+                        </div>
+                    </div>
+
+                    <!-- Final-check amber line right above the CTA. Refund shield:
+                         by buying past this, the customer has been told three times
+                         (hero badge, compat matrix, and here) that it's Ableton-only. -->
+                    <div class="flex items-start gap-2.5 mb-5 max-w-sm mx-auto text-left bg-amber-500/5 border border-amber-500/25 rounded-xl px-4 py-3">
+                        <svg class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                        <p class="text-[11px] text-amber-300/90 leading-relaxed"><b>Ableton Live 11+ required.</b> Stride does not work with FL Studio, Logic, Cubase, or any other DAW. No exceptions.</p>
+                    </div>
+
+                    <button onclick="toggleBuyModal()" id="checkout-btn" class="inline-flex bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black py-4 px-12 rounded-2xl shadow-[0_10px_30px_rgba(255,50,0,0.3)] hover:shadow-[0_10px_40px_rgba(255,50,0,0.5)] hover:-translate-y-1 transition-all text-lg tracking-wider cursor-pointer">
+                        GET STRIDE — $59
+                    </button>
+                    <p class="text-[13px] text-zinc-500 mt-4 font-medium">Works with Ableton Live 11+ Suite or Standard + Max for Live.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================== 10. FAQ =====================
+             The questions that drive refunds when answered too late. Putting
+             them BEFORE the bottom CTA so buyers can self-qualify rather
+             than buying first and refunding second. Native <details> for
+             accessibility — no JS required, keyboard friendly. -->
+        <section class="w-full max-w-3xl mx-auto px-6 mb-24">
+            <div class="text-center mb-10">
+                <h2 class="text-3xl md:text-5xl font-black mb-3 tracking-tight text-white">FAQ</h2>
+                <p class="text-sm text-zinc-500 uppercase tracking-widest font-bold">The questions everyone asks</p>
+            </div>
+
+            <div class="space-y-3">
+                <details class="group bg-zinc-900/40 border border-white/5 rounded-2xl">
+                    <summary class="cursor-pointer p-5 font-bold text-base text-zinc-200 flex items-center justify-between list-none">
+                        <span>Does Stride work on audio tracks?</span>
+                        <span class="text-zinc-500 group-open:rotate-180 transition-transform shrink-0 ml-4">▾</span>
+                    </summary>
+                    <div class="px-5 pb-5 text-sm text-zinc-400 leading-relaxed">
+                        Not directly. Stride writes automation into MIDI clips, which only exist on MIDI tracks with instrument racks. <b class="text-zinc-300">Workaround:</b> load your audio into a Sampler instrument, draw a held C3 note in a MIDI clip, then treat that Sampler track like any other instrument rack. Stride can automate every Sampler parameter (filter, envelope, FX) the same way it would automate a synth.
+                    </div>
+                </details>
+
+                <details class="group bg-zinc-900/40 border border-white/5 rounded-2xl">
+                    <summary class="cursor-pointer p-5 font-bold text-base text-zinc-200 flex items-center justify-between list-none">
+                        <span>Can I use Stride for mixing?</span>
+                        <span class="text-zinc-500 group-open:rotate-180 transition-transform shrink-0 ml-4">▾</span>
+                    </summary>
+                    <div class="px-5 pb-5 text-sm text-zinc-400 leading-relaxed">
+                        Probably not. Stride uses a draw-first / hear-after workflow — you design curves visually, then drag the .alc into Ableton to hear them. Great for creative exploration, slow for the tight feedback loop a mix needs. Use Stride for sound design and creative variation; use Ableton's native automation lanes for surgical mix work.
+                    </div>
+                </details>
+
+                <details class="group bg-zinc-900/40 border border-white/5 rounded-2xl">
+                    <summary class="cursor-pointer p-5 font-bold text-base text-zinc-200 flex items-center justify-between list-none">
+                        <span>Which Ableton edition do I need?</span>
+                        <span class="text-zinc-500 group-open:rotate-180 transition-transform shrink-0 ml-4">▾</span>
+                    </summary>
+                    <div class="px-5 pb-5 text-sm text-zinc-400 leading-relaxed">
+                        Live 11 or 12, <b class="text-zinc-300">Suite</b> edition (includes Max for Live). If you have <b class="text-zinc-300">Standard</b>, Stride works with the Max for Live add-on. <b class="text-red-400">Lite and Intro are not supported</b> — they don't include M4L.
+                    </div>
+                </details>
+
+                <details class="group bg-zinc-900/40 border border-white/5 rounded-2xl">
+                    <summary class="cursor-pointer p-5 font-bold text-base text-zinc-200 flex items-center justify-between list-none">
+                        <span>Does it work on Mac and Windows?</span>
+                        <span class="text-zinc-500 group-open:rotate-180 transition-transform shrink-0 ml-4">▾</span>
+                    </summary>
+                    <div class="px-5 pb-5 text-sm text-zinc-400 leading-relaxed">
+                        Both. Mac on macOS 11+ (Intel and Apple Silicon native), Windows on Windows 10/11.
+                    </div>
+                </details>
+
+                <details class="group bg-zinc-900/40 border border-white/5 rounded-2xl">
+                    <summary class="cursor-pointer p-5 font-bold text-base text-zinc-200 flex items-center justify-between list-none">
+                        <span>Can I get a refund?</span>
+                        <span class="text-zinc-500 group-open:rotate-180 transition-transform shrink-0 ml-4">▾</span>
+                    </summary>
+                    <div class="px-5 pb-5 text-sm text-zinc-400 leading-relaxed">
+                        Yes — if Stride doesn't fit your setup, email us within 14 days for a full refund. No interrogation, no hoops.
+                    </div>
+                </details>
+
+                <details class="group bg-zinc-900/40 border border-white/5 rounded-2xl">
+                    <summary class="cursor-pointer p-5 font-bold text-base text-zinc-200 flex items-center justify-between list-none">
+                        <span>How many machines can I install on?</span>
+                        <span class="text-zinc-500 group-open:rotate-180 transition-transform shrink-0 ml-4">▾</span>
+                    </summary>
+                    <div class="px-5 pb-5 text-sm text-zinc-400 leading-relaxed">
+                        Two — your studio + laptop, or main + backup. One license, two activations.
+                    </div>
+                </details>
+
+                <details class="group bg-zinc-900/40 border border-white/5 rounded-2xl">
+                    <summary class="cursor-pointer p-5 font-bold text-base text-zinc-200 flex items-center justify-between list-none">
+                        <span>Will it work with FL Studio / Logic / Bitwig?</span>
+                        <span class="text-zinc-500 group-open:rotate-180 transition-transform shrink-0 ml-4">▾</span>
+                    </summary>
+                    <div class="px-5 pb-5 text-sm text-zinc-400 leading-relaxed">
+                        No. Stride uses Max for Live to talk directly to Ableton's rack parameters. It can't run anywhere else. If you don't use Ableton, Stride isn't for you.
+                    </div>
+                </details>
+
+                <details class="group bg-zinc-900/40 border border-white/5 rounded-2xl">
+                    <summary class="cursor-pointer p-5 font-bold text-base text-zinc-200 flex items-center justify-between list-none">
+                        <span>Is it AI?</span>
+                        <span class="text-zinc-500 group-open:rotate-180 transition-transform shrink-0 ml-4">▾</span>
+                    </summary>
+                    <div class="px-5 pb-5 text-sm text-zinc-400 leading-relaxed">
+                        No. Stride generates curves with deterministic math (bezier, randomized within musical constraints). What it makes is yours — no cloud, no model, no learning from your data. Just patterns running through math you control.
+                    </div>
+                </details>
+            </div>
+        </section>
+
+        <!-- ===================== 11. BOTTOM CTA ===================== -->
+        <section class="w-full bg-black border-t border-white/5 py-24 px-6 relative overflow-hidden">
+            <div class="absolute inset-0 bg-gradient-to-t from-orange-500/5 to-transparent z-0"></div>
+            <div class="max-w-3xl mx-auto text-center relative z-10 flex flex-col items-center">
+                <h2 class="text-5xl md:text-6xl font-black mb-6 tracking-tight text-white">Your instruments.<br>Infinite variations.</h2>
+                <p class="text-base text-zinc-400 mb-10 max-w-lg mx-auto">Drop Stride on a track. Shape your sound. Apply to clip. That's the loop.</p>
+                <button onclick="toggleBuyModal()" class="bg-white text-black hover:bg-zinc-200 font-black py-4 px-12 rounded-full shadow-xl hover:-translate-y-1 transition-all text-sm tracking-widest uppercase cursor-pointer">
+                    Get Stride — $59
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ===================== 12. FOOTER ===================== -->
+    <footer class="w-full border-t border-white/5 bg-[#09090b] py-8 text-center relative z-20">
+        <div class="flex items-center justify-center gap-6 mb-3">
+            <a href="privacy.html" class="text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors">Privacy Policy</a>
+            <span class="text-zinc-700">|</span>
+            <a href="terms.html" class="text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors">Terms of Service</a>
+        </div>
+        <p class="text-[13px] text-zinc-500 font-bold uppercase tracking-widest">&copy; 2026 STRIDE ENGINE. BUILT FOR PRODUCERS. BUILT FOR ABLETON.</p>
+    </footer>
+
+    <!-- Contact Modal -->
+    <div id="contact-modal" class="fixed inset-0 z-[1001] hidden flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
+        <div class="glass-panel w-full max-w-md p-8 rounded-3xl relative shadow-[0_0_50px_rgba(255,94,0,0.1)]">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-black text-orange-400 uppercase tracking-tight">Contact Us</h3>
+                <button onclick="toggleContactModal()" class="text-zinc-500 hover:text-white transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <p class="text-sm text-zinc-400 mb-6 font-medium">Have a question or feedback? Drop us a line. We reply within 48 hours.</p>
+
+            <div class="space-y-4 mb-4">
+                <div>
+                    <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">Email *</label>
+                    <input id="contact-email" type="email" placeholder="you@example.com" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors">
+                </div>
+                <div>
+                    <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">Name (optional)</label>
+                    <input id="contact-name" type="text" placeholder="Producer name" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors">
+                </div>
+                <div>
+                    <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">Message *</label>
+                    <textarea id="contact-message" rows="5" class="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-base text-zinc-200 resize-none focus:outline-none focus:border-orange-500/50 transition-colors" placeholder="What's on your mind?"></textarea>
+                </div>
+            </div>
+
+            <div id="contact-error" class="hidden text-red-400 text-xs font-medium mb-3"></div>
+            <div id="contact-success" class="hidden text-emerald-400 text-xs font-medium mb-3">Got it. We'll reply within 48 hours.</div>
+
+            <button id="contact-submit-btn" onclick="sendContactMessage()" class="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                Send Message
+            </button>
+        </div>
+    </div>
+
+    <!-- ===================== BUY STRIDE FORM MODAL ===================== -->
+    <div id="buy-modal" class="fixed inset-0 z-[1002] hidden flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
+        <div class="glass-panel w-full max-w-md p-8 rounded-3xl relative shadow-[0_0_50px_rgba(255,94,0,0.1)]">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-2xl font-black text-orange-400 uppercase tracking-tight">Get Stride</h3>
+                <button onclick="toggleBuyModal()" class="text-zinc-500 hover:text-white transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <p class="text-sm text-zinc-400 mb-6 font-medium">One-time purchase. Windows + Mac. Instant download and license key emailed to you.</p>
+
+            <div class="space-y-4 mb-6">
+                <div>
+                    <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">Producer Name *</label>
+                    <input id="buy-name" type="text" placeholder="Your artist / producer name" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors">
+                </div>
+                <div>
+                    <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">Email *</label>
+                    <input id="buy-email" type="email" placeholder="you@example.com" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors">
+                </div>
+                <div>
+                    <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">Country *</label>
+                    <select id="buy-country" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-orange-500/50 transition-colors appearance-none" style="background-image: url('data:image/svg+xml;utf8,<svg fill=\"%2371717a\" viewBox=\"0 0 20 20\" xmlns=\"http://www.w3.org/2000/svg\"><path fill-rule=\"evenodd\" d=\"M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z\" clip-rule=\"evenodd\"/></svg>'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
+                        <option value="" class="bg-zinc-900">Select your country</option>
+                        <option value="US" class="bg-zinc-900">United States</option>
+                        <option value="GB" class="bg-zinc-900">United Kingdom</option>
+                        <option value="DE" class="bg-zinc-900">Germany</option>
+                        <option value="FR" class="bg-zinc-900">France</option>
+                        <option value="NL" class="bg-zinc-900">Netherlands</option>
+                        <option value="SE" class="bg-zinc-900">Sweden</option>
+                        <option value="NO" class="bg-zinc-900">Norway</option>
+                        <option value="CA" class="bg-zinc-900">Canada</option>
+                        <option value="AU" class="bg-zinc-900">Australia</option>
+                        <option value="JP" class="bg-zinc-900">Japan</option>
+                        <option value="BR" class="bg-zinc-900">Brazil</option>
+                        <option value="MX" class="bg-zinc-900">Mexico</option>
+                        <option value="IL" class="bg-zinc-900">Israel</option>
+                        <option value="IN" class="bg-zinc-900">India</option>
+                        <option value="KR" class="bg-zinc-900">South Korea</option>
+                        <option value="ES" class="bg-zinc-900">Spain</option>
+                        <option value="IT" class="bg-zinc-900">Italy</option>
+                        <option value="PL" class="bg-zinc-900">Poland</option>
+                        <option value="BE" class="bg-zinc-900">Belgium</option>
+                        <option value="AT" class="bg-zinc-900">Austria</option>
+                        <option value="CH" class="bg-zinc-900">Switzerland</option>
+                        <option value="DK" class="bg-zinc-900">Denmark</option>
+                        <option value="FI" class="bg-zinc-900">Finland</option>
+                        <option value="OTHER" class="bg-zinc-900">Other</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">How did you hear about Stride?</label>
+                    <select id="buy-source" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-orange-500/50 transition-colors appearance-none" style="background-image: url('data:image/svg+xml;utf8,<svg fill=\"%2371717a\" viewBox=\"0 0 20 20\" xmlns=\"http://www.w3.org/2000/svg\"><path fill-rule=\"evenodd\" d=\"M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z\" clip-rule=\"evenodd\"/></svg>'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
+                        <option value="" class="bg-zinc-900">Select (optional)</option>
+                        <option value="reddit" class="bg-zinc-900">Reddit</option>
+                        <option value="youtube" class="bg-zinc-900">YouTube</option>
+                        <option value="ableton-forum" class="bg-zinc-900">Ableton Forum</option>
+                        <option value="friend" class="bg-zinc-900">Friend / Word of mouth</option>
+                        <option value="kvr" class="bg-zinc-900">KVR Audio</option>
+                        <option value="google" class="bg-zinc-900">Google Search</option>
+                        <option value="other" class="bg-zinc-900">Other</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Terms acknowledgment — creates a defensible record per email so that when we flip
+                 to real purchase mode, the same checkbox already serves as the Article 16(m)
+                 express-consent waiver under EU Directive 2011/83/EU. -->
+            <label class="flex items-start gap-2.5 mb-4 cursor-pointer select-none group">
+                <input id="buy-terms" type="checkbox" class="mt-0.5 shrink-0 w-4 h-4 accent-orange-500 cursor-pointer">
+                <span class="text-[11px] text-zinc-400 leading-snug group-hover:text-zinc-300 transition-colors">
+                    I've read the <a href="terms.html#requirements" target="_blank" class="text-orange-400 hover:text-orange-300 underline">system requirements</a>,
+                    the <a href="terms.html#refund" target="_blank" class="text-orange-400 hover:text-orange-300 underline">refund policy</a>,
+                    and the <a href="terms.html" target="_blank" class="text-orange-400 hover:text-orange-300 underline">Terms of Service</a>.
+                    I understand Stride is a digital product delivered immediately and I accept the purchase conditions.
+                </span>
+            </label>
+
+            <p id="buy-error" class="text-xs text-red-400 mb-3 hidden font-medium"></p>
+
+            <button onclick="submitBuyForm()" class="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black py-3.5 rounded-xl text-xs uppercase tracking-widest transition-all shadow-[0_10px_30px_rgba(255,50,0,0.3)] hover:shadow-[0_10px_40px_rgba(255,50,0,0.5)]">
+                Continue to checkout
+            </button>
+            <p class="text-[11px] text-zinc-600 mt-3 text-center font-medium">Secure checkout via Lemon Squeezy. Cards, Apple Pay, Google Pay accepted.</p>
+        </div>
+    </div>
+
+    <!-- ===================== WAITLIST THANK-YOU OVERLAY ===================== -->
+    <div id="thankyou-overlay" class="fixed inset-0 z-[2000] hidden flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+        <div class="glass-panel w-full max-w-lg p-10 rounded-3xl relative text-center shadow-[0_0_80px_rgba(255,94,0,0.15)]">
+            <div class="w-16 h-16 mx-auto mb-6 rounded-2xl bg-orange-500/10 border border-orange-500/30 flex items-center justify-center">
+                <svg class="w-8 h-8 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"></path></svg>
+            </div>
+            <h3 class="text-3xl font-black text-white mb-3">You're on the list.</h3>
+            <p class="text-zinc-400 text-base mb-4">Stride is almost ready.</p>
+            <p class="text-zinc-500 text-sm mb-8 leading-relaxed max-w-sm mx-auto">When the Max for Live device drops, you'll be the first to know. Early access pricing included. Keep making noise.</p>
+
+            <div class="bg-black/50 border border-white/10 rounded-xl p-4 mb-6">
+                <div class="flex items-center justify-center gap-3">
+                    <span class="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+                    <span class="text-sm text-orange-400 font-bold uppercase tracking-widest">Launch incoming</span>
+                    <span class="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+                </div>
+            </div>
+
+            <a href="https://www.instagram.com/stride_engine/" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-zinc-400 hover:text-orange-400 transition-colors text-sm font-medium">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+                Follow @stride_engine for updates
+            </a>
+
+            <p class="mt-6 text-[10px] text-zinc-600 leading-relaxed max-w-xs mx-auto">
+                Want off the list? Email <a href="mailto:home@stridehub.io?subject=Unsubscribe" class="text-zinc-500 hover:text-orange-400 underline">home@stridehub.io</a> and we'll remove you within 30 days.
+            </p>
+
+            <button onclick="closeThankYou()" class="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        function playHeroVideo() {
+            const container = document.getElementById('hero-video-container');
+            container.onclick = null;
+            container.style.cursor = 'default';
+            container.innerHTML = '<iframe class="absolute inset-0 w-full h-full rounded-3xl" src="https://www.youtube.com/embed/W5khsc6lgoQ?autoplay=1&rel=0" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>';
+        }
+
+        // ─── Waitlist Modal ─────────────────────────────────
+        function toggleBuyModal() {
+            const modal = document.getElementById('buy-modal');
+            modal.classList.toggle('hidden');
+            if (!modal.classList.contains('hidden')) {
+                document.body.style.overflow = 'hidden';
+            } else {
+                document.body.style.overflow = '';
+            }
+        }
+
+        // Bumping TERMS_VERSION invalidates previous acknowledgments. Any
+        // record in Firestore with terms_version < current is "stale" and
+        // should be re-collected before a future purchase.
+        const TERMS_VERSION = '2026-04-16-v2';
+
+        // ── Lemon Squeezy checkout URL ──
+        // The email + name are appended as query params so LS pre-fills the
+        // checkout page when the buyer lands on it (less friction → higher
+        // conversion). Flat one-time price ($59) — this points at the live
+        // Lemon Squeezy variant.
+        // ── LAUNCH SWITCH ──
+        // Set to '' for waitlist mode. A non-empty URL activates purchase mode.
+        const LS_CHECKOUT_URL = 'https://strideengine.lemonsqueezy.com/checkout/buy/9099d993-aa75-42d5-800f-299445b9350a';
+
+        function submitBuyForm() {
+            const name = document.getElementById('buy-name').value.trim();
+            const email = document.getElementById('buy-email').value.trim();
+            const country = document.getElementById('buy-country').value;
+            const source = document.getElementById('buy-source').value;
+            const termsChecked = document.getElementById('buy-terms').checked;
+            const errorEl = document.getElementById('buy-error');
+
+            // Validate
+            if (!name) { showBuyError('Please enter your producer name'); return; }
+            if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showBuyError('Please enter a valid email'); return; }
+            if (!country) { showBuyError('Please select your country'); return; }
+            if (!termsChecked) { showBuyError('Please read and accept the terms to continue'); return; }
+
+            errorEl.classList.add('hidden');
+
+            const termsAccepted = {
+                accepted: true,
+                version: TERMS_VERSION,
+                accepted_at: new Date().toISOString(),
+                scope: 'waitlist_signup',
+                user_agent: navigator.userAgent || null,
+                tz_offset_min: new Date().getTimezoneOffset(),
+                page_url: location.href,
+            };
+
+            // Save lead + terms acceptance to Firestore (non-blocking).
+            // Action name reflects the current store mode: 'buyer_lead' when
+            // LS checkout is wired (post-launch), 'waitlist_signup' when not.
+            // Backend uses this to differentiate Discord notifications so
+            // admin can distinguish fresh buy-flow intent from pre-launch
+            // waitlist signups.
+            const leadAction = LS_CHECKOUT_URL ? 'buyer_lead' : 'waitlist_signup';
+            // keepalive: true is critical — without it, mobile browsers cancel
+            // this request when window.location.href redirects to LS below,
+            // and the backend never receives it. Silently lost all buyer-lead
+            // Discord pings from mobile traffic until this was added.
+            fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
+                method: 'POST',
+                keepalive: true,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: leadAction,
+                    name, email, country, source,
+                    terms_accepted: termsAccepted,
+                })
+            }).catch(() => {});
+
+            // Store locally
+            localStorage.setItem('stride_purchase', JSON.stringify({
+                name, email, country, source,
+                terms_accepted: termsAccepted,
+                timestamp: new Date().toISOString()
+            }));
+
+            // Generate a unique event ID for Meta Pixel deduplication. This
+            // ID rides through to LS as "custom data" and surfaces on both
+            // (a) the welcome.html URL after purchase (via the LS link
+            // variable in the confirmation modal Button link), and (b) the
+            // webhook payload at meta.custom_data.event_id for the future
+            // server-side Conversions API event. Both sides submit the same
+            // event_id → Meta dedupes → high-quality match.
+            // See docs/meta-pixel-integration-spec.md (Phase 2 + 3).
+            const eventId = (window.crypto && window.crypto.randomUUID)
+                ? window.crypto.randomUUID()
+                : 'evt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+            try { sessionStorage.setItem('stride_pixel_event_id', eventId); } catch (e) {}
+
+            // Redirect to Lemon Squeezy checkout with email pre-filled and
+            // event_id passed through as custom checkout data. Per LS docs
+            // (Passing Custom Data), checkout[custom][<key>]=<value> surfaces
+            // on both the redirect URL (when link variables are used) and
+            // the webhook payload at meta.custom_data.<key>.
+            if (LS_CHECKOUT_URL) {
+                const sep = LS_CHECKOUT_URL.includes('?') ? '&' : '?';
+                window.location.href = LS_CHECKOUT_URL + sep
+                    + 'checkout[email]=' + encodeURIComponent(email)
+                    + '&checkout[name]=' + encodeURIComponent(name)
+                    + '&checkout[custom][event_id]=' + encodeURIComponent(eventId);
+            } else {
+                // Fallback: LS URL not configured yet — show thank-you for now
+                toggleBuyModal();
+                showThankYou();
+            }
+        }
+
+        function showBuyError(msg) {
+            const el = document.getElementById('buy-error');
+            el.textContent = msg;
+            el.classList.remove('hidden');
+        }
+
+        // ─── Thank You Overlay ──────────────────────────────
+        function showThankYou() {
+            document.getElementById('thankyou-overlay').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeThankYou() {
+            document.getElementById('thankyou-overlay').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        // ─── Contact Modal ──────────────────────────────────
+        function toggleContactModal() {
+            const modal = document.getElementById('contact-modal');
+            modal.classList.toggle('hidden');
+        }
+
+        // Submit the contact form to our backend. Replaced the old mailto:
+        // approach which silently failed on mobile and on machines without a
+        // configured email client — we lost real tickets that way. Now the
+        // message goes straight to a Discord webhook via Firebase.
+        function sendContactMessage() {
+            const email = (document.getElementById('contact-email').value || '').trim();
+            const name = (document.getElementById('contact-name').value || '').trim();
+            const message = (document.getElementById('contact-message').value || '').trim();
+            const errorEl = document.getElementById('contact-error');
+            const successEl = document.getElementById('contact-success');
+            const btn = document.getElementById('contact-submit-btn');
+
+            errorEl.classList.add('hidden');
+            successEl.classList.add('hidden');
+
+            if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                errorEl.textContent = 'Please enter a valid email so we can reply.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            if (!message) {
+                errorEl.textContent = 'Please write a message.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+
+            fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
+                method: 'POST',
+                keepalive: true,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'contact_message',
+                    email, name, message
+                })
+            })
+            .then(res => {
+                if (!res.ok) throw new Error('server ' + res.status);
+                return res.json().catch(() => ({}));
+            })
+            .then(() => {
+                successEl.classList.remove('hidden');
+                document.getElementById('contact-email').value = '';
+                document.getElementById('contact-name').value = '';
+                document.getElementById('contact-message').value = '';
+                btn.textContent = 'Sent';
+                setTimeout(() => {
+                    toggleContactModal();
+                    btn.disabled = false;
+                    btn.textContent = 'Send Message';
+                    successEl.classList.add('hidden');
+                }, 2000);
+            })
+            .catch(() => {
+                errorEl.textContent = 'Could not send. Try again in a moment, or email home@stridehub.io directly.';
+                errorEl.classList.remove('hidden');
+                btn.disabled = false;
+                btn.textContent = 'Send Message';
+            });
+        }
+
+        // (Founding-member live counter removed when the founding era ended —
+        //  pricing is now a flat one-time $59. The backend founders_count
+        //  endpoint is left in place but unused.)
+    </script>
+
+</body>
+</html>
