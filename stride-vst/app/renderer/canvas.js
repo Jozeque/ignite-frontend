@@ -71,6 +71,119 @@
     // pan switched from Space+drag to middle-click+drag.
     let sdIsPanning = false;
     let sdLastMouseX = 0;
+
+    // ─── GRID RESOLUTION (Ableton-style) ─────────────────────────────────
+    // Default is ADAPTIVE: sdGridIndex === null means the visual grid AND all
+    // snapping follow the zoom level exactly as they always have (nothing
+    // changes). The moment the user presses Ctrl/Cmd+1/2/3 the grid locks to a
+    // fixed rung and every edit (draw, drag, freehand) snaps to it — 1:1 with
+    // Live, where the grid drives snapping. Ctrl/Cmd+5 flips back to adaptive.
+    // Session-only; not persisted. Time is in beats (1 beat = a 1/4 note;
+    // totalBeats = bars * 4).
+    const SD_GRID_LADDER = [
+        { beats: 4,      label: '1 bar' },   // 0  coarsest
+        { beats: 2,      label: '1/2'   },   // 1
+        { beats: 1,      label: '1/4'   },   // 2
+        { beats: 0.5,    label: '1/8'   },   // 3
+        { beats: 0.25,   label: '1/16'  },   // 4  (matches adaptive at ≤3× zoom)
+        { beats: 0.125,  label: '1/32'  },   // 5
+        { beats: 0.0625, label: '1/64'  },   // 6  finest
+    ];
+    const SD_GRID_TRIPLET = 2 / 3;           // triplet spacing = straight × 2/3
+    let sdGridIndex = null;                  // null = adaptive
+    let sdGridTriplet = false;
+
+    // Zoom-derived step used in adaptive mode (mirrors the historical values).
+    function sdAdaptiveGridBeats() {
+        let s = 0.25;
+        if (sdViewZoomX > 3) s = 0.125;
+        if (sdViewZoomX > 8) s = 0.0625;
+        return s;
+    }
+    // Fixed grid spacing in beats (triplet applied), or null when adaptive.
+    function sdManualGridBeats() {
+        if (sdGridIndex === null) return null;
+        return SD_GRID_LADDER[sdGridIndex].beats * (sdGridTriplet ? SD_GRID_TRIPLET : 1);
+    }
+    // Spacing the visual grid renders at — manual if set, else adaptive.
+    function sdVisualGridBeats() {
+        const m = sdManualGridBeats();
+        return m !== null ? m : sdAdaptiveGridBeats();
+    }
+    function sdNearestGridIndex(beats) {
+        let best = 4, bestErr = Infinity;
+        for (let i = 0; i < SD_GRID_LADDER.length; i++) {
+            const err = Math.abs(SD_GRID_LADDER[i].beats - beats);
+            if (err < bestErr) { bestErr = err; best = i; }
+        }
+        return best;
+    }
+    // Snap a beat to an arbitrary grid spacing, rounded to stable precision
+    // (triplet spacings are repeating decimals).
+    function sdSnapToBeats(t, step) {
+        return Math.round((Math.round(t / step) * step) * 10000) / 10000;
+    }
+    // Edit snap: a manual grid wins; otherwise fall back to the site's existing
+    // zoom-derived divisions so adaptive behavior is byte-for-byte unchanged.
+    function sdSnapDrawBeat(t) {
+        const g = sdManualGridBeats();
+        if (g !== null) return sdSnapToBeats(t, g);
+        let d = 4; if (sdViewZoomX > 3) d = 8; if (sdViewZoomX > 8) d = 16;
+        return Math.round(t * d) / d;
+    }
+    function sdSnapFreehandBeat(t) {
+        const g = sdManualGridBeats();
+        if (g !== null) return sdSnapToBeats(t, g);
+        let d = 8; if (sdViewZoomX > 3) d = 16;
+        return Math.round(t * d) / d;
+    }
+    function sdGridLabel() {
+        if (sdGridIndex === null) return 'Adaptive';
+        const lab = SD_GRID_LADDER[sdGridIndex].label;
+        if (!sdGridTriplet) return lab;
+        return lab.charAt(0) === '1' && lab.charAt(1) === '/' ? lab + 'T' : lab + ' T';
+    }
+    let _sdGridStatusTimer = null;
+    function sdGridChanged() {
+        sdDrawCanvasGrid();
+        const status = document.getElementById('sd-canvas-status');
+        if (!status) return;
+        status.textContent = 'Grid: ' + sdGridLabel();
+        if (_sdGridStatusTimer) clearTimeout(_sdGridStatusTimer);
+        _sdGridStatusTimer = setTimeout(() => {
+            if (status.textContent.indexOf('Grid: ') === 0) status.textContent = '';
+        }, 1600);
+    }
+    // First manual change from adaptive seeds the rung nearest the current
+    // zoom-derived step, so the switch is visually seamless.
+    function sdGridSeedFromAdaptive() {
+        if (sdGridIndex === null) sdGridIndex = sdNearestGridIndex(sdAdaptiveGridBeats());
+    }
+    function sdGridNarrow() {             // Ctrl/Cmd+1 — finer
+        sdGridSeedFromAdaptive();
+        sdGridIndex = Math.min(SD_GRID_LADDER.length - 1, sdGridIndex + 1);
+        sdGridChanged();
+    }
+    function sdGridWiden() {              // Ctrl/Cmd+2 — coarser
+        sdGridSeedFromAdaptive();
+        sdGridIndex = Math.max(0, sdGridIndex - 1);
+        sdGridChanged();
+    }
+    function sdGridToggleTriplet() {      // Ctrl/Cmd+3
+        sdGridSeedFromAdaptive();
+        sdGridTriplet = !sdGridTriplet;
+        sdGridChanged();
+    }
+    function sdGridToggleAdaptive() {     // Ctrl/Cmd+5 — fixed <-> adaptive
+        if (sdGridIndex === null) {
+            sdGridIndex = sdNearestGridIndex(sdAdaptiveGridBeats());
+        } else {
+            sdGridIndex = null;
+            sdGridTriplet = false;
+        }
+        sdGridChanged();
+    }
+
     let _sdSmoothSnapshot = null;
     let _sdSmoothParamId = null;
     let _sdIntensitySnapshot = null;
@@ -659,6 +772,10 @@
     // Handle rack scan results from M4L
     strideLink.on('rack_scanned', (msg) => {
         _resetScanButton();
+        // StrideQuick readout: remember how many params the chain scan found,
+        // then push fresh counts once this handler's lane updates have settled.
+        _sdLastChainParamCount = (msg.parameters || []).length;
+        setTimeout(_sdSendQuickState, 0);
         const rackInfo = {
             device_name: msg.device_name,
             track_name: msg.track_name,
@@ -896,6 +1013,11 @@
     // Session clip via StrideInject, no .alc/drag). Separate from apply_*.
     strideLink.on('inject_success', (msg) => {
         _hideLoading();
+        // Device status: brief "Injected ✓" flash, then back to ready.
+        _sdInjecting = false; _sdJustInjected = true;
+        if (_sdJustInjectedTimer) clearTimeout(_sdJustInjectedTimer);
+        _sdJustInjectedTimer = setTimeout(function () { _sdJustInjected = false; _sdSendQuickState(); }, 2500);
+        _sdSendQuickState();
         const params = msg.params_written || 0;
         const pts = msg.points_written || 0;
         const notes = msg.notes_written || 0;
@@ -912,6 +1034,7 @@
     });
     strideLink.on('inject_error', (msg) => {
         _hideLoading();
+        _sdInjecting = false; _sdJustInjected = false; _sdSendQuickState();
         const el = document.getElementById('sd-canvas-status');
         if (el) {
             el.style.color = '#fbbf24';
@@ -949,6 +1072,8 @@
         // canvas (persists current work first). Small delay lets the M4L
         // handshake (m4l_ready / clip / track info) settle first.
         setTimeout(() => { Promise.resolve(saveCanvasState()).then(_sdAutoScan); }, 500);
+        // StrideQuick: send the initial panel readout (connection + counts).
+        _sdSendQuickState();
     });
 
     strideLink.on('disconnected', () => {
@@ -958,6 +1083,121 @@
         label.className = 'text-[10px] text-red-400 uppercase font-bold tracking-widest';
         const help = document.getElementById('sd-connection-help');
         if (help && !help.classList.contains('hidden')) sdRenderConnectionHelp();
+    });
+
+    // ─── StrideQuick — remote control of the canvas from the M4L panel ─────
+    // The StrideLink "Quick" panel presses arrive as `quick_command` messages.
+    // The dispatcher runs the SAME window.sd* function the on-screen button
+    // calls — zero new generator logic, so lane-lock / undo / selection /
+    // redraw all behave identically to clicking in the canvas. The canvas
+    // updates instantly even when its window is in the background, so the user
+    // never has to switch screens. After each action we push fresh counts
+    // back to the panel.
+    let _sdLastChainParamCount = 0;
+    let _sdMoveStack = [];           // moves stacked since the last fresh generation (device status)
+    let _sdInjecting = false;        // true while an inject is in flight
+    let _sdJustInjected = false;     // brief "Injected" flash after success
+    let _sdJustInjectedTimer = null;
+    const _SD_ACTION_LABELS = { chaos:'Chaos', neuro:'Neuro', reflector:'Reflector', sh:'S&H', prism:'Prism', mutate:'Mutate', shuffle:'Shuffle', double:'2x', half:'0.5x' };
+    // Generators REPLACE the curves, so pressing one resets the stack; transforms
+    // modify the existing curves, so they append (deduped). bars/rescan/inject
+    // leave the stack alone.
+    const _SD_GENERATORS = ['chaos','neuro','reflector','sh','prism'];
+
+    function _sdSendQuickState() {
+        if (!strideLink || !strideLink.connected) return;
+        // Counter = how many loaded lanes actually have curves drawn ("moving")
+        // vs the total loaded. Lets the user see e.g. 10 / 20 on the device: 10
+        // params are moving, 10 are still empty and need injection.
+        const total = sdCanvasParams.length;
+        // "Moving" = the curve actually varies. Empty lanes (no points) and flat
+        // lanes (a baseline sitting at one value) don't count — only lanes whose
+        // automation moves by more than a hair register as having a real curve.
+        const moving = sdCanvasParams.filter(function (p) {
+            if (!p.points || p.points.length < 2) return false;
+            let lo = p.points[0].value, hi = p.points[0].value;
+            for (let i = 1; i < p.points.length; i++) {
+                const v = p.points[i].value;
+                if (v < lo) lo = v;
+                if (v > hi) hi = v;
+            }
+            return (hi - lo) > 0.001;
+        }).length;
+        // Live device status line. Combines the loop length + last move so the
+        // panel reads e.g. "8 Reflector ready to inject". Plain words and numbers
+        // separated by spaces, no commas or dividers.
+        const _bars = sdGetBars();
+        let status;
+        if (_sdInjecting) status = 'Injecting';
+        else if (_sdJustInjected) status = 'Injected';
+        else if (total === 0) status = 'Scanning';
+        else if (moving === 0) { _sdMoveStack = []; status = _bars + ' apply a move'; }
+        else status = _bars + (_sdMoveStack.length ? ' ' + _sdMoveStack.join(' ') : '') + ' ready';
+        strideLink.send({
+            type: 'quick_state',
+            on_chain: moving,    // first number: lanes with curves
+            on_canvas: total,    // second number: total loaded lanes
+            bars: sdGetBars(),
+            connected: 1,
+            status: status,
+        });
+    }
+    // Keep the device counter live no matter how curves change (Quick buttons,
+    // manual draws, clears). Light poll, only actually sends when connected.
+    setInterval(_sdSendQuickState, 1200);
+
+    window.sdHandleQuickCommand = function(action, arg) {
+        switch (action) {
+            case 'rescan':    window.sdRefreshSync(); break;
+            case 'chaos':     window.sdApplyGlobalChaos(); break;
+            case 'neuro':     window.sdApplyGlobalNeuro(); break;
+            case 'reflector': window.sdApplyGlobalReflector(); break;
+            case 'sh':        window.sdApplyGlobalSampleHold(); break;
+            case 'prism':     window.sdApplyGlobalPrism(); break;
+            // Mutate / 2x / ½x = "select all + transform": force EVERY unlocked
+            // lane regardless of the on-canvas selection (per locked decision).
+            case 'mutate':    window.sdMutate(sdCanvasParams.filter(p => !p.locked)); break;
+            case 'shuffle':   window.sdShuffleLanes(); break;
+            case 'double':    window.sdTimeStretch(2, sdCanvasParams.filter(p => !p.locked)); break;   // 2x = stretch (slower / more spread)
+            case 'half':      window.sdTimeStretch(0.5, sdCanvasParams.filter(p => !p.locked)); break; // ½x = compress (faster / denser)
+            case 'bars':      window.sdSetBars(parseInt(arg) || 4, true); break;
+            case 'inject':    window.applyToAbletonDirect(); break;
+            default:
+                console.warn('[Stride] quick: unknown action', action);
+                return;
+        }
+        // Build the move stack for the status line. A generator starts a fresh
+        // recipe; a transform stacks on top (deduped). bars shows separately and
+        // rescan/inject don't touch it. So Neuro then 2x reads "8 Neuro 2x
+        // ready"; a later Chaos resets it to "8 Chaos ready".
+        if (_SD_ACTION_LABELS[action]) {
+            const lbl = _SD_ACTION_LABELS[action];
+            if (_SD_GENERATORS.indexOf(action) !== -1) _sdMoveStack = [lbl];
+            else if (_sdMoveStack.indexOf(lbl) === -1) _sdMoveStack.push(lbl);
+        }
+        _sdSendQuickState();
+    };
+
+    // Lane actions (generators, transforms, inject) need a scanned rack with
+    // curves. If the canvas was just auto-launched by this very press, the
+    // open-scan has not populated lanes yet, so wait for them (and the restored
+    // curves) before running, instead of firing on an empty canvas. rescan/bars
+    // do not need lanes, so they run immediately. Gives up quietly after ~10s
+    // (no rack mapped, nothing to do).
+    const _SD_LANE_ACTIONS = ['chaos','neuro','reflector','sh','prism','mutate','shuffle','double','half','inject'];
+    function _sdRunQuickWhenReady(action, arg, tries) {
+        if (sdCanvasParams.length > 0) { window.sdHandleQuickCommand(action, arg); return; }
+        if (tries <= 0) return;
+        setTimeout(function () { _sdRunQuickWhenReady(action, arg, tries - 1); }, 300);
+    }
+    strideLink.on('quick_command', (m) => {
+        if (!m || !m.action) return;
+        const needsLanes = _SD_LANE_ACTIONS.indexOf(m.action) !== -1;
+        if (!needsLanes || sdCanvasParams.length > 0) {
+            window.sdHandleQuickCommand(m.action, m.arg);
+        } else {
+            _sdRunQuickWhenReady(m.action, m.arg, 33);   // 33 x 300ms ~ 10s
+        }
     });
 
     // Troubleshooter popover — opened by clicking the connection pill.
@@ -1530,6 +1770,7 @@
             return;
         }
         if (el) { el.style.color = ''; el.textContent = 'Injecting into clip…'; }
+        _sdInjecting = true; _sdJustInjected = false; _sdSendQuickState();
         strideLink.applyDirectInject(params, sdGetBars(), { createIfMissing: true, notes: notes });
         saveCanvasState();
     };
@@ -2233,21 +2474,31 @@
         { const _cab = document.getElementById('sd-cables'); if (_cab) _cab.innerHTML = ''; }   // single view: no rail cables
         const bars = sdGetBars();
         const totalBeats = bars * 4;
-        let gridStep = 0.25;
-        if (sdViewZoomX > 3) gridStep = 0.125;
-        if (sdViewZoomX > 8) gridStep = 0.0625;
+        const gridStep = sdVisualGridBeats();
+        const _gm = (v, m) => Math.abs(v / m - Math.round(v / m)) < 1e-6;
+        const _gx = (b) => ((b / totalBeats) * lw * sdViewZoomX) - sdViewPanX;
 
-        // Vertical grid lines
-        for (let b = 0; b <= totalBeats; b += gridStep) {
-            const x = ((b / totalBeats) * lw * sdViewZoomX) - sdViewPanX;
-            if (x >= -50 && x <= lw + 50) {
-                sdCtx.beginPath();
-                if (b % 4 === 0) { sdCtx.strokeStyle = 'rgba(255,255,255,0.2)'; sdCtx.lineWidth = 2; }
-                else if (b % 1 === 0) { sdCtx.strokeStyle = 'rgba(255,255,255,0.1)'; sdCtx.lineWidth = 1; }
-                else if (b % 0.25 === 0) { sdCtx.strokeStyle = 'rgba(255,255,255,0.03)'; sdCtx.lineWidth = 1; }
-                else { sdCtx.strokeStyle = 'rgba(255,255,255,0.015)'; sdCtx.lineWidth = 1; }
-                sdCtx.moveTo(x, 0); sdCtx.lineTo(x, lh); sdCtx.stroke();
+        // Subdivision lines at the active grid resolution (faint; hidden when
+        // they'd pack closer than ~5px so dense/triplet grids don't smear).
+        if ((gridStep / totalBeats) * lw * sdViewZoomX >= 5) {
+            const nSub = Math.floor(totalBeats / gridStep + 1e-6);
+            for (let i = 0; i <= nSub; i++) {
+                const b = i * gridStep;
+                if (_gm(b, 1)) continue;                  // beats drawn in the pass below
+                const x = _gx(b);
+                if (x < -50 || x > lw + 50) continue;
+                sdCtx.strokeStyle = _gm(b, 0.25) ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.015)';
+                sdCtx.lineWidth = 1;
+                sdCtx.beginPath(); sdCtx.moveTo(x, 0); sdCtx.lineTo(x, lh); sdCtx.stroke();
             }
+        }
+        // Bar + beat lines — always drawn so the canvas stays legible at any grid.
+        for (let b = 0; b <= totalBeats; b += 1) {
+            const x = _gx(b);
+            if (x < -50 || x > lw + 50) continue;
+            if (b % 4 === 0) { sdCtx.strokeStyle = 'rgba(255,255,255,0.2)'; sdCtx.lineWidth = 2; }
+            else { sdCtx.strokeStyle = 'rgba(255,255,255,0.1)'; sdCtx.lineWidth = 1; }
+            sdCtx.beginPath(); sdCtx.moveTo(x, 0); sdCtx.lineTo(x, lh); sdCtx.stroke();
         }
 
         // Horizontal grid lines
@@ -2396,20 +2647,33 @@
 
         // Shared time grid lines — drawn across the whole canvas height so
         // they form vertical rulers connecting all lanes visually.
-        let gridStep = 0.25;
-        if (sdViewZoomX > 3) gridStep = 0.125;
-        if (sdViewZoomX > 8) gridStep = 0.0625;
+        const gridStep = sdVisualGridBeats();
+        const _gm = (v, m) => Math.abs(v / m - Math.round(v / m)) < 1e-6;
+        const _gx = (b) => laneDrawLeft + ((b / totalBeats) * laneDrawWidth * sdViewZoomX) - sdViewPanX;
         sdCtx.save();
         sdCtx.beginPath();
         sdCtx.rect(laneDrawLeft, 0, laneDrawWidth, lh);
         sdCtx.clip();
-        for (let b = 0; b <= totalBeats; b += gridStep) {
-            const x = laneDrawLeft + ((b / totalBeats) * laneDrawWidth * sdViewZoomX) - sdViewPanX;
+        // Subdivision lines at the active grid resolution (faint; hidden when
+        // they'd pack closer than ~5px so dense/triplet grids don't smear).
+        if ((gridStep / totalBeats) * laneDrawWidth * sdViewZoomX >= 5) {
+            const nSub = Math.floor(totalBeats / gridStep + 1e-6);
+            for (let i = 0; i <= nSub; i++) {
+                const b = i * gridStep;
+                if (_gm(b, 1)) continue;                  // beats drawn in the pass below
+                const x = _gx(b);
+                if (x < laneDrawLeft - 50 || x > lw + 50) continue;
+                sdCtx.strokeStyle = _gm(b, 0.25) ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.015)';
+                sdCtx.lineWidth = 1;
+                sdCtx.beginPath(); sdCtx.moveTo(x, 0); sdCtx.lineTo(x, lh); sdCtx.stroke();
+            }
+        }
+        // Bar + beat lines — always drawn so lanes stay legible at any grid.
+        for (let b = 0; b <= totalBeats; b += 1) {
+            const x = _gx(b);
             if (x < laneDrawLeft - 50 || x > lw + 50) continue;
             if (b % 4 === 0) { sdCtx.strokeStyle = 'rgba(255,255,255,0.18)'; sdCtx.lineWidth = 2; }
-            else if (b % 1 === 0) { sdCtx.strokeStyle = 'rgba(255,255,255,0.09)'; sdCtx.lineWidth = 1; }
-            else if (b % 0.25 === 0) { sdCtx.strokeStyle = 'rgba(255,255,255,0.03)'; sdCtx.lineWidth = 1; }
-            else { sdCtx.strokeStyle = 'rgba(255,255,255,0.015)'; sdCtx.lineWidth = 1; }
+            else { sdCtx.strokeStyle = 'rgba(255,255,255,0.09)'; sdCtx.lineWidth = 1; }
             sdCtx.beginPath(); sdCtx.moveTo(x, 0); sdCtx.lineTo(x, lh); sdCtx.stroke();
         }
         sdCtx.restore();
@@ -2756,6 +3020,20 @@
                 if (!_typing && (e.ctrlKey || e.metaKey) && e.code === 'KeyC') { e.preventDefault(); if (window.sdCopyLane) sdCopyLane(); return; }
                 if (!_typing && (e.ctrlKey || e.metaKey) && e.code === 'KeyV') { e.preventDefault(); if (window.sdPasteLane) sdPasteLane(false); return; }
             }
+            // Grid resolution (Ableton-style). Ctrl/Cmd + the physical number
+            // row, so it works on any keyboard layout. Skipped while typing so
+            // it never eats input. 1 = narrow (finer), 2 = widen (coarser),
+            // 3 = triplet toggle, 5 = fixed/adaptive toggle.
+            {
+                const _ae2 = document.activeElement;
+                const _typing2 = _ae2 && (_ae2.tagName === 'INPUT' || _ae2.tagName === 'TEXTAREA' || _ae2.isContentEditable);
+                if (!_typing2 && (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
+                    if (e.code === 'Digit1') { e.preventDefault(); sdGridNarrow(); return; }
+                    if (e.code === 'Digit2') { e.preventDefault(); sdGridWiden(); return; }
+                    if (e.code === 'Digit3') { e.preventDefault(); sdGridToggleTriplet(); return; }
+                    if (e.code === 'Digit5') { e.preventDefault(); sdGridToggleAdaptive(); return; }
+                }
+            }
             if (e.code === 'Escape') { sdClearSelection(); return; }
             // Pan is middle-click + drag now (Ableton-style). Space is free.
         });
@@ -2894,8 +3172,7 @@
             else {
                 if (idx !== -1) { sdIsDragging = true; sdDraggedPoint = param.points[idx]; sdDrawCanvasGrid(); }
                 else {
-                    let snap = 4; if (sdViewZoomX > 3) snap = 8; if (sdViewZoomX > 8) snap = 16;
-                    const np = { time: Math.round(hd.time * snap) / snap, value: Math.max(0, Math.min(1, hd.value)) };
+                    const np = { time: sdSnapDrawBeat(hd.time), value: Math.max(0, Math.min(1, hd.value)) };
                     param.points.push(np); sdIsDragging = true; sdDraggedPoint = np; sdRenderSidebar(); sdDrawCanvasGrid();
                 }
             }
@@ -2931,8 +3208,7 @@
             const hd = sdGetTimeValue(e); const bars = sdGetBars(); const totalBeats = bars * 4;
             if (sdActiveTool === 'freehand') { const param = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId); sdPaintFreehand(hd.time, hd.value, param, totalBeats); }
             else if (sdDraggedPoint) {
-                let snap = 4; if (sdViewZoomX > 3) snap = 8; if (sdViewZoomX > 8) snap = 16;
-                sdDraggedPoint.time = Math.max(0, Math.min(totalBeats, Math.round(hd.time * snap) / snap));
+                sdDraggedPoint.time = Math.max(0, Math.min(totalBeats, sdSnapDrawBeat(hd.time)));
                 sdDraggedPoint.value = Math.max(0, Math.min(1, hd.value)); sdDrawCanvasGrid();
             }
             // Prism live-draw: rAF-throttled recompute while user is
@@ -3201,8 +3477,7 @@
     }
 
     function sdPaintFreehand(time, value, param, totalBeats) {
-        let snap = 8; if (sdViewZoomX > 3) snap = 16;
-        let st = Math.max(0, Math.min(totalBeats, Math.round(time * snap) / snap));
+        let st = Math.max(0, Math.min(totalBeats, sdSnapFreehandBeat(time)));
         let cv = Math.max(0, Math.min(1, value));
         param.points = param.points.filter(p => p.time !== st);
         param.points.push({ time: st, value: cv });
@@ -3951,12 +4226,16 @@
     }
 
     // ─── TIME STRETCH ────────────────────────────────────────
-    window.sdTimeStretch = function(factor) {
-        if (!sdActiveParamId) return;
+    window.sdTimeStretch = function(factor, targetsOverride) {
+        // targetsOverride: StrideQuick passes the all-unlocked-lanes set so
+        // 2x / ½x affect every lane (select-all + stretch). Omitted = the
+        // on-screen button's original active/selected-lane behavior, which
+        // requires an active lane.
+        if (!targetsOverride && !sdActiveParamId) return;
         pushUndo();
         const totalBeats = sdGetBars() * 4;
         const sel = sdGetSelection();
-        sdGetTargetParams().forEach(param => {
+        (targetsOverride || sdGetTargetParams()).forEach(param => {
             if (!param.points.length) return;
             if (sel) {
                 // Stretch only within selection
@@ -4229,8 +4508,12 @@
         if (modal) modal.classList.remove('hidden');
     };
 
-    window.sdMutate = function() {
-        const targets = sdGetTargetParams().filter(p => p.points.length >= 2);
+    window.sdMutate = function(targetsOverride) {
+        // targetsOverride: StrideQuick passes the all-unlocked-lanes set so
+        // "Mutate" affects every lane (select-all + mutate). Omitted = the
+        // on-screen button's original active/selected-lane behavior.
+        const base = targetsOverride || sdGetTargetParams();
+        const targets = base.filter(p => p.points.length >= 2);
         if (!targets.length) {
             sdShowRequirement(
                 'Draw a curve first',
@@ -5340,6 +5623,89 @@
             }
         });
     }
+
+    // StrideQuick one-shot Prism: spread lane[0]'s curve across every other
+    // unlocked lane in a single click (no live-draw tool, no mode switch).
+    // Per spec the SOURCE is fixed to the first parameter in the canvas.
+    // Reuses the exact live-Prism math (_sdPrismExtractAnchors /
+    // _sdPrismAssignPersonalities / _sdPrismGenerateVariant) but with LOCAL
+    // seed + personalities, so it never disturbs an in-progress live Prism
+    // session (_sdPrismRngSeed / _sdPrismPerLane / _sdActiveTool untouched).
+    window.sdApplyGlobalPrism = function() {
+        const status = document.getElementById('sd-canvas-status');
+        const setStatus = (t) => { if (status) status.textContent = t; };
+        if (sdCanvasParams.length < 2) {
+            setStatus(sdCanvasParams.length ? 'Prism needs at least 2 lanes' : 'No lanes loaded');
+            return;
+        }
+        // Source: same as the canvas tool — the SELECTED lane drives the rest —
+        // when the active lane has a moving curve. Quick mode has no live
+        // selection step, so if the active lane is bare we auto-pick the lane
+        // with the most movement. Any lane works (1, 2, 5...); we just need a
+        // REAL moving curve so the spread isn't a flat/single-point wipe (the
+        // "80% of the canvas got deleted" bug, from a bare mapping-point source).
+        const _laneRange = (p) => {
+            if (!p.points || p.points.length < 2) return 0;
+            let lo = p.points[0].value, hi = p.points[0].value;
+            for (let i = 1; i < p.points.length; i++) { const v = p.points[i].value; if (v < lo) lo = v; if (v > hi) hi = v; }
+            return hi - lo;
+        };
+        let source = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
+        if (!source || _laneRange(source) <= 0.001) {
+            source = null;
+            let best = 0.001;
+            sdCanvasParams.forEach(p => { const r = _laneRange(p); if (r > best) { best = r; source = p; } });
+        }
+        if (!source) {
+            setStatus('Draw a moving curve on a lane first — Prism spreads it across the rest');
+            return;
+        }
+        const totalBeats = sdGetBars() * 4;
+        const sel = sdGetSelection();
+        const sB = sel ? sel.startBeat : 0;
+        const eB = sel ? sel.endBeat : totalBeats;
+        const srcPts = sel ? source.points.filter(pt => pt.time >= sB && pt.time <= eB) : source.points;
+        const anchors = _sdPrismExtractAnchors(srcPts, totalBeats);
+        const aVals = anchors.map(a => a.value);
+        const anchorRange = aVals.length ? (Math.max.apply(null, aVals) - Math.min.apply(null, aVals)) : 0;
+        if (anchors.length < 2 || anchorRange <= 0.001) {
+            // Selection (if any) leaves the source flat in range — nothing to spread.
+            setStatus('No moving curve in range — Prism needs a curve to spread');
+            return;
+        }
+        // Recipients = every unlocked lane EXCEPT the chosen source.
+        const targets = sdCanvasParams.filter(p => p !== source && !p.locked);
+        if (!targets.length) { setStatus('No unlocked lanes to receive Prism'); return; }
+        pushUndo();
+        // Local seed + personality map — do NOT touch the live-tool globals.
+        const seed = (Math.floor(Math.random() * 0xFFFFFFFF)) >>> 0;
+        const perLane = _sdPrismAssignPersonalities(targets, seed);
+        // Quick Prism skips the live tool's diversity slider + commit step:
+        // roll a lively amount each press (50%-100%).
+        const diversity = 0.5 + Math.random() * 0.5;
+        targets.forEach(param => {
+            const personality = perLane[param.envelopeId] || 'mirror';
+            const rng = _sdPrismMakeRng((seed ^ _sdPrismHashStr(param.envelopeId)) >>> 0);
+            const variant = _sdPrismGenerateVariant(anchors, personality, diversity, rng);
+            const newPoints = variant.map(p => ({
+                time: Math.round(p.time * 10000) / 10000,
+                value: Math.max(0, Math.min(1, p.value)),
+                curve: p.curve || 0,
+            }));
+            if (sel) {
+                const outside = param.points.filter(pt => pt.time < sB || pt.time > eB);
+                param.points = outside.concat(newPoints).sort((a, b) => a.time - b.time);
+            } else {
+                param.points = newPoints;
+            }
+        });
+        sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
+        const skipMsg = sdLockSkipMessage(targets.length);
+        if (skipMsg) {
+            setStatus(skipMsg);
+            setTimeout(() => { if (status && status.textContent === skipMsg) status.textContent = ''; }, 3000);
+        }
+    };
 
     function _sdPrismLiveTick() {
         if (_sdActiveTool !== 'prism') return;

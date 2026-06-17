@@ -23,10 +23,18 @@ const VERSION = '1.0.0';
 // Remote Script file-based communication
 const TRIGGER_FILE = path.join(os.homedir(), '_stride_trigger.json');
 const RESULT_FILE = path.join(os.homedir(), '_stride_result.json');
+// StrideQuick command relay. A button press may be received by a DIFFERENT
+// node.script instance than the one holding the canvas WebSocket (multiple
+// StrideLink bridges can co-exist — the known node-leak). The press is written
+// here; whichever instance actually has the canvas picks it up in the relay
+// poll and forwards it. Makes Quick robust to the split-brain.
+const QUICK_FILE = path.join(os.homedir(), '_stride_quick_cmd.json');
 
 
 let wss = null;
 let appSocket = null;
+let _lastQuickNonce = null;  // StrideQuick relay: last command nonce forwarded to the canvas
+let _revealOnConnect = false;  // Open Canvas pressed during a silent boot: reveal once connected
 
 // ─── Port Conflict Recovery ───────────────────────────────
 // Max for Live on Windows sometimes leaks the node.script child process when
@@ -323,6 +331,20 @@ function startServer(retryCount) {
     wss.on('connection', (ws) => {
         Max.post('Stride: Canvas app connected');
         appSocket = ws;
+        // Reconcile the relay command on connect. A STALE press (left from a
+        // previous session) must not replay, so mark it seen. A FRESH press (the
+        // one that just auto-launched this canvas, seconds old) SHOULD run once
+        // we are connected, so leave it unseen and let _pollQuickRelay() forward
+        // it after the open-scan settles.
+        try {
+            if (fs.existsSync(QUICK_FILE)) {
+                const c = JSON.parse(fs.readFileSync(QUICK_FILE, 'utf8'));
+                const fresh = c && c.ts && (Date.now() - c.ts < 30000);
+                if (!fresh) {
+                    _lastQuickNonce = (c && c.nonce) ? c.nonce : null;
+                }
+            }
+        } catch (e) { /* ignore */ }
 
         // Send handshake — user_library_path is the spine of the
         // install-to-ableton fix (see docs/install-to-ableton-spec.md
@@ -334,6 +356,9 @@ function startServer(retryCount) {
             user_library_path: USER_LIBRARY_PATH,
         });
         Max.outlet('status', 'app_connected');
+        // If Open Canvas was pressed while the canvas was still booting hidden,
+        // reveal it now that it's connected.
+        if (_revealOnConnect) { _revealOnConnect = false; sendToApp({ type: 'focus_window' }); }
 
         ws.on('message', (raw) => {
             try {
@@ -347,7 +372,12 @@ function startServer(retryCount) {
         ws.on('close', () => {
             Max.post('Stride: Canvas app disconnected');
             appSocket = null;
+            _canvasLaunchAt = 0;   // canvas died — allow an immediate relaunch (the debounce was only for the boot window)
             Max.outlet('status', 'app_disconnected');
+            // "Connected" not "Disconnected": the device is still wired into
+            // Ableton and a press will spin the engine up. Reads as ready, not
+            // broken.
+            Max.outlet('quick_status', 'Connected');
         });
 
         ws.on('error', (err) => {
@@ -495,6 +525,16 @@ function handleAppMessage(msg) {
             // "Read existing curves" feature: pull the open clip's automation
             // onto the canvas lanes. mode A = sampled, B = breakpoints. Read-only.
             Max.outlet('command', 'read_clip_curves', (msg.mode === 'B' ? 'B' : 'A'));
+            break;
+
+        case 'quick_state':
+            // StrideQuick panel readout: chain/canvas param counts, loop bars,
+            // connection (1/0). Patcher routes it: [route quick_state] → [unpack].
+            Max.outlet('quick_state', msg.on_chain || 0, msg.on_canvas || 0, msg.bars || 4, msg.connected ? 1 : 0);
+            // Live status line on its own outlet: [route quick_status] → [prepend
+            // set] → message box. One symbol that may contain spaces (e.g.
+            // "Chaos · ready to inject"); the message box renders it verbatim.
+            if (msg.status) Max.outlet('quick_status', String(msg.status));
             break;
 
         default:
@@ -780,14 +820,12 @@ function findStrideExecutable() {
     return null;
 }
 
-Max.addHandler('open_canvas', () => {
-    // If canvas is already connected, just tell it to focus
-    if (appSocket && appSocket.readyState === 1) {
-        Max.post('Stride: Canvas already connected — focusing window');
-        sendToApp({ type: 'focus_window' });
-        return;
-    }
-
+// Launch the Stride canvas app. Resolves its location, skips relaunch if the
+// canvas is already connected, and debounces so a burst of presses cannot spawn
+// two windows. Shared by the Open Canvas button and the auto-launch path that
+// fires when a device button is pressed with no canvas connected.
+let _canvasLaunchAt = 0;       // when we last kicked off a launch
+function launchCanvasApp(hidden) {
     const { exec } = require('child_process');
     const isWin = process.platform === 'win32';
     const isMac = process.platform === 'darwin';
@@ -801,31 +839,47 @@ Max.addHandler('open_canvas', () => {
     if (!resolved) {
         Max.post('Stride: Could not find Stride app. Launch Stride once from your ' +
                  (isMac ? 'Applications folder' : 'Start Menu or the folder you unzipped it to') +
-                 ' so its location is registered, then click Open Canvas again.');
+                 ' so its location is registered, then try again.');
         return;
     }
 
-    // Is Stride already running? pgrep (Mac) / tasklist (Win).
-    const checkCmd = isWin
-        ? `tasklist /FI "IMAGENAME eq ${resolved.processName}" /NH`
-        : `pgrep -x "${resolved.processName}"`;
+    // Already connected: never relaunch. A hidden (feature) press just lets its
+    // command flow through; a visible (Open Canvas) press focuses the window.
+    if (appSocket && appSocket.readyState === 1) {
+        if (!hidden) sendToApp({ type: 'focus_window' });
+        return;
+    }
 
-    exec(checkCmd, (err, stdout) => {
-        const isRunning = !err && stdout && stdout.trim().length > 0 && (
-            isWin ? stdout.toLowerCase().includes(resolved.processName.toLowerCase()) : true
-        );
-        if (isRunning) {
-            Max.post('Stride: Canvas already running — focusing...');
-            // Focus via WebSocket if we have a socket, else the open/start commands
-            // will bring the window forward on both platforms.
-            exec(resolved.launchCmd, () => {});
-            return;
-        }
-        Max.post('Stride: Launching canvas...');
-        exec(resolved.launchCmd, (launchErr) => {
-            if (launchErr) Max.post(`Stride: Launch error — ${launchErr.message}`);
-        });
+    // Not connected. Guard against double-launching while a previous launch is
+    // still booting. We deliberately do NOT use tasklist/pgrep: in dev the
+    // process is a generic 'electron.exe' that matches OTHER Electron apps (VS
+    // Code, etc.), so it false-positives and wrongly skips the launch (that was
+    // the "pressed a feature, nothing opened" bug). Debounce on our own launch
+    // timestamp instead; Stride's single-instance lock is the final backstop.
+    const now = Date.now();
+    if (now - _canvasLaunchAt < 15000) return;
+    _canvasLaunchAt = now;
+
+    // A hidden launch passes STRIDE_START_HIDDEN=1 so main.js starts the window
+    // with show:false (feature presses run silently; Open Canvas reveals it).
+    const opts = hidden ? { env: Object.assign({}, process.env, { STRIDE_START_HIDDEN: '1' }) } : {};
+    Max.post(hidden ? 'Stride: Launching canvas (background)...' : 'Stride: Launching canvas...');
+    exec(resolved.launchCmd, opts, (launchErr) => {
+        if (launchErr) Max.post(`Stride: Launch error — ${launchErr.message}`);
     });
+}
+
+Max.addHandler('open_canvas', () => {
+    // If canvas is already connected, just tell it to focus
+    if (appSocket && appSocket.readyState === 1) {
+        Max.post('Stride: Canvas already connected — focusing window');
+        sendToApp({ type: 'focus_window' });
+        return;
+    }
+    // Not connected: the user explicitly wants the window, so reveal it once it
+    // connects (covers a feature press that already booted it hidden).
+    _revealOnConnect = true;
+    launchCanvasApp(false);
 });
 
 // ─── Show Guide ──────────────────────────────────────────
@@ -838,6 +892,59 @@ Max.addHandler('show_guide', () => {
         Max.post('Stride: Canvas not connected — cannot show guide');
     }
 });
+
+// ─── StrideQuick — quick-control panel ────────────────────
+// The StrideLink device's folding "Quick" panel sends `quick <action> [arg]`
+// here. We forward it to the canvas app, which runs the matching shortcut
+// (the SAME function the on-screen button calls — no new logic, the canvas
+// stays the single source of truth). Inert when the app isn't connected.
+Max.addHandler('quick', (action, arg) => {
+    if (action === undefined || action === null) return;
+    // Write the press to the shared relay file. We do NOT sendToApp directly:
+    // this instance may not be the one holding the canvas. The canvas-holding
+    // instance forwards it from _pollQuickRelay(). Single path, no double-apply.
+    // `ts` lets a just-connected canvas tell a fresh press (run it) from a stale
+    // one left over from a previous session (skip it).
+    try {
+        const payload = {
+            action: String(action),
+            arg: (arg !== undefined ? arg : null),
+            nonce: Date.now() + '_' + Math.random().toString(36).slice(2),
+            ts: Date.now(),
+        };
+        fs.writeFileSync(QUICK_FILE, JSON.stringify(payload));
+        Max.post(`Stride quick: ${action}${arg !== undefined ? (' ' + arg) : ''} (relayed)`);
+    } catch (e) {
+        Max.post(`Stride quick: relay write failed — ${e.message}`);
+    }
+    // Auto-launch: if no canvas is connected to this bridge, start it so the
+    // press is not a silent no-op. launchCanvasApp() no-ops if Stride is already
+    // running; the press waits in the relay file and runs once the canvas
+    // connects and scans (the connection handler forwards a fresh press).
+    if (!appSocket || appSocket.readyState !== 1) {
+        launchCanvasApp(true);
+    }
+});
+
+// Relay poll — the instance that actually holds the canvas connection forwards
+// queued Quick commands to it. Runs in every instance, but only the one with a
+// live appSocket forwards, so the command reaches the canvas no matter which
+// bridge received the button press.
+function _pollQuickRelay() {
+    if (!appSocket || appSocket.readyState !== 1) return;
+    let cmd;
+    try {
+        if (!fs.existsSync(QUICK_FILE)) return;
+        cmd = JSON.parse(fs.readFileSync(QUICK_FILE, 'utf8'));
+    } catch (e) {
+        return;  // mid-write or transient — retry next tick
+    }
+    if (cmd && cmd.nonce && cmd.nonce !== _lastQuickNonce) {
+        _lastQuickNonce = cmd.nonce;
+        sendToApp({ type: 'quick_command', action: cmd.action, arg: cmd.arg });
+    }
+}
+setInterval(_pollQuickRelay, 75);
 
 // ─── Error Safety Net ────────────────────────────────────
 // Prevent uncaught exceptions from crashing Node for Max

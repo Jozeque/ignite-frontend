@@ -86,6 +86,22 @@ const REQUEST_CREATE_CLIP = 'request_create_clip';
 const APP_READY = 'app_ready';
 // { type, version }
 
+// ─── StrideQuick (M4L quick-control panel) ────────────────
+
+/** M4L → App: a StrideQuick panel button was pressed. The app runs the
+ *  matching canvas shortcut — the SAME function the on-screen button calls,
+ *  so the canvas stays the single source of truth and updates instantly. */
+const QUICK_COMMAND = 'quick_command';
+// { type, action, arg }
+//   action: 'rescan'|'chaos'|'neuro'|'reflector'|'sh'|'prism'|'mutate'
+//           |'shuffle'|'double'|'half'|'bars'|'inject'
+//   arg: bar count for 'bars' (4|8|16|32), else null
+
+/** App → M4L: current canvas readout for the panel (param counts, loop
+ *  length, connection). Pushed after every quick action and on each scan. */
+const QUICK_STATE = 'quick_state';
+// { type, on_chain, on_canvas, bars, connected }
+
 // ─── Export ────────────────────────────────────────────────
 
 if (typeof module !== 'undefined') {
@@ -94,6 +110,7 @@ if (typeof module !== 'undefined') {
         INJECT_SUCCESS, INJECT_ERROR,
         M4L_READY, TRACK_CHANGED,
         REQUEST_SCAN, APPLY_AUTOMATION, APPLY_INJECT, APPLY_MIDI,
-        PREVIEW_PARAM, STOP_PREVIEW, REQUEST_CREATE_CLIP, APP_READY
+        PREVIEW_PARAM, STOP_PREVIEW, REQUEST_CREATE_CLIP, APP_READY,
+        QUICK_COMMAND, QUICK_STATE
     };
 }

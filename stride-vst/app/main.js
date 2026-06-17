@@ -27,6 +27,15 @@ const TEMPLATE_DIR = path.join(STRIDE_DIR, 'template');
 const SESSIONS_DIR = path.join(STRIDE_DIR, 'sessions');
 const REGISTRY_FILE = path.join(TEMPLATE_DIR, 'registry.json');
 
+// StrideQuick: stop Chromium from backgrounding/occluding the canvas renderer so
+// curve updates pushed from the M4L panel paint live even when Ableton has focus.
+// backgroundThrottling:false (below) covers timers/rAF; these cover the occlusion
+// and renderer-backgrounding paths Windows uses when the window sits behind Ableton.
+// Must be appended before the app is ready.
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1400,
@@ -34,6 +43,12 @@ function createWindow() {
         minWidth: 800,
         minHeight: 600,
         backgroundColor: '#09090b',
+        // StrideQuick silent launch: a feature press (Chaos/Inject/etc.) auto-
+        // launches the canvas in the BACKGROUND — the bridge sets
+        // STRIDE_START_HIDDEN=1 so no window pops up mid-session. Open Canvas
+        // launches without it (visible), and focus_window (mainWindow.show())
+        // reveals a hidden one whenever the user actually asks for it.
+        show: process.env.STRIDE_START_HIDDEN !== '1',
         titleBarStyle: 'hidden',
         titleBarOverlay: {
             color: '#09090b',
@@ -44,7 +59,13 @@ function createWindow() {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
             nodeIntegration: false,
-            sandbox: false
+            sandbox: false,
+            // StrideQuick: keep the renderer painting while the window is in the
+            // background (Ableton focused). Without this, Chromium throttles the
+            // backgrounded renderer and the canvas only repaints when you click it,
+            // which defeats driving the canvas from the M4L panel without switching
+            // screens.
+            backgroundThrottling: false
         },
         icon: path.join(__dirname, 'assets', 'icon.png')
     });
