@@ -29,12 +29,14 @@ const RESULT_FILE = path.join(os.homedir(), '_stride_result.json');
 // here; whichever instance actually has the canvas picks it up in the relay
 // poll and forwards it. Makes Quick robust to the split-brain.
 const QUICK_FILE = path.join(os.homedir(), '_stride_quick_cmd.json');
+const STATE_FILE = path.join(os.homedir(), '_stride_quick_state.json');  // canvas->device readout, relayed so EVERY StrideLink instance shows it (fixes "Disconnected" on a duplicated track)
 
 
 let wss = null;
 let appSocket = null;
 let _lastQuickNonce = null;  // StrideQuick relay: last command nonce forwarded to the canvas
 let _revealOnConnect = false;  // Open Canvas pressed during a silent boot: reveal once connected
+let _lastStateNonce = null;    // StrideQuick state relay: last readout ts this bridge outlet
 
 // ─── Port Conflict Recovery ───────────────────────────────
 // Max for Live on Windows sometimes leaks the node.script child process when
@@ -374,10 +376,18 @@ function startServer(retryCount) {
             appSocket = null;
             _canvasLaunchAt = 0;   // canvas died — allow an immediate relaunch (the debounce was only for the boot window)
             Max.outlet('status', 'app_disconnected');
+            // Write the idle readout to the relay so ALL instances update.
             // "Connected" not "Disconnected": the device is still wired into
-            // Ableton and a press will spin the engine up. Reads as ready, not
-            // broken.
-            Max.outlet('quick_status', 'Connected');
+            // Ableton and a press spins the engine up — reads as ready, not
+            // broken. Preserve the last counts so they don't flash to 0.
+            try {
+                let prev = {};
+                try { prev = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch (e) {}
+                fs.writeFileSync(STATE_FILE, JSON.stringify({
+                    on_chain: prev.on_chain || 0, on_canvas: prev.on_canvas || 0,
+                    bars: prev.bars || 4, connected: 0, status: 'Connected', ts: Date.now(),
+                }));
+            } catch (e) { /* ignore */ }
         });
 
         ws.on('error', (err) => {
@@ -528,13 +538,18 @@ function handleAppMessage(msg) {
             break;
 
         case 'quick_state':
-            // StrideQuick panel readout: chain/canvas param counts, loop bars,
-            // connection (1/0). Patcher routes it: [route quick_state] → [unpack].
-            Max.outlet('quick_state', msg.on_chain || 0, msg.on_canvas || 0, msg.bars || 4, msg.connected ? 1 : 0);
-            // Live status line on its own outlet: [route quick_status] → [prepend
-            // set] → message box. One symbol that may contain spaces (e.g.
-            // "Chaos · ready to inject"); the message box renders it verbatim.
-            if (msg.status) Max.outlet('quick_status', String(msg.status));
+            // StrideQuick panel readout: chain/canvas counts, loop bars, status.
+            // Relay it through a file instead of outletting directly, so EVERY
+            // StrideLink bridge (not only the one holding the canvas) can show
+            // it: _pollQuickStateRelay in each bridge picks it up and outlets to
+            // its own device. Fixes a duplicated track showing "Disconnected".
+            try {
+                fs.writeFileSync(STATE_FILE, JSON.stringify({
+                    on_chain: msg.on_chain || 0, on_canvas: msg.on_canvas || 0,
+                    bars: msg.bars || 4, connected: msg.connected ? 1 : 0,
+                    status: msg.status || '', ts: Date.now(),
+                }));
+            } catch (e) { /* mid-write, retry next readout */ }
             break;
 
         default:
@@ -945,6 +960,25 @@ function _pollQuickRelay() {
     }
 }
 setInterval(_pollQuickRelay, 75);
+
+// State/status relay — the mirror of the command relay, other direction. The
+// canvas-holding bridge writes the readout to STATE_FILE (the 'quick_state'
+// case + on ws close); EVERY bridge polls it and outlets to its own device, so
+// a duplicated StrideLink shows the same live status/counter instead of a stale
+// "Disconnected".
+function _pollQuickStateRelay() {
+    let s;
+    try {
+        if (!fs.existsSync(STATE_FILE)) return;
+        s = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+    } catch (e) { return; }
+    if (s && s.ts && s.ts !== _lastStateNonce) {
+        _lastStateNonce = s.ts;
+        Max.outlet('quick_state', s.on_chain || 0, s.on_canvas || 0, s.bars || 4, s.connected ? 1 : 0);
+        if (s.status) Max.outlet('quick_status', String(s.status));
+    }
+}
+setInterval(_pollQuickStateRelay, 100);
 
 // ─── Error Safety Net ────────────────────────────────────
 // Prevent uncaught exceptions from crashing Node for Max
