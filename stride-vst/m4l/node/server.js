@@ -385,7 +385,7 @@ function startServer(retryCount) {
                 try { prev = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch (e) {}
                 fs.writeFileSync(STATE_FILE, JSON.stringify({
                     on_chain: prev.on_chain || 0, on_canvas: prev.on_canvas || 0,
-                    bars: prev.bars || 4, connected: 0, status: 'Connected', ts: Date.now(),
+                    bars: prev.bars || 4, connected: 0, locked: prev.locked || 0, status: 'Connected', ts: Date.now(),
                 }));
             } catch (e) { /* ignore */ }
         });
@@ -547,6 +547,7 @@ function handleAppMessage(msg) {
                 fs.writeFileSync(STATE_FILE, JSON.stringify({
                     on_chain: msg.on_chain || 0, on_canvas: msg.on_canvas || 0,
                     bars: msg.bars || 4, connected: msg.connected ? 1 : 0,
+                    locked: msg.locked || 0,
                     status: msg.status || '', ts: Date.now(),
                 }));
             } catch (e) { /* mid-write, retry next readout */ }
@@ -975,6 +976,7 @@ function _pollQuickStateRelay() {
     if (s && s.ts && s.ts !== _lastStateNonce) {
         _lastStateNonce = s.ts;
         Max.outlet('quick_state', s.on_chain || 0, s.on_canvas || 0, s.bars || 4, s.connected ? 1 : 0);
+        Max.outlet('quick_locked', s.locked || 0);   // separate outlet so the Lock readout wires in without touching the existing unpack
         if (s.status) Max.outlet('quick_status', String(s.status));
     }
 }

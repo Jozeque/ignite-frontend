@@ -47,6 +47,12 @@ function _collectParams(basePath, filterAutomated) {
     var params = [];
     try {
         var dev = new LiveAPI(basePath);
+        // Guard: a path that didn't resolve (e.g. a chain/device over-reporting
+        // its child count, so a trailing index points at nothing) floods the Max
+        // window with "no valid object set" on every .get() and freezes Live.
+        // Skip it — an unresolved device has no params to collect anyway. Same
+        // proven guard as the param/mixer loops, just one level up.
+        if (!dev.id || dev.id === "0") return params;
         var devName = dev.get("name").toString();
         var className = dev.get("class_name").toString();
 
@@ -136,6 +142,9 @@ function _collectParams(basePath, filterAutomated) {
                     try {
                         var chainPath = basePath + " chains " + c;
                         var chain = new LiveAPI(chainPath);
+                        // Same guard for the chain object: a rack can report more
+                        // chains than exist, so a trailing index resolves to nothing.
+                        if (!chain.id || chain.id === "0") continue;
                         var chainName = chain.get("name").toString();
 
                         // Scan chain's mixer_device params (Volume, Pan, Sends)
@@ -148,10 +157,13 @@ function _collectParams(basePath, filterAutomated) {
                             // Also check sends
                             try {
                                 var mixerObj = new LiveAPI(mixerPath);
-                                var sendIds = mixerObj.get("sends");
-                                var sendCount = sendIds.length / 2;
-                                for (var si = 0; si < sendCount; si++) {
-                                    mixerProps.push("sends " + si);
+                                // Guard the mixer object before reading sends.
+                                if (mixerObj.id && mixerObj.id !== "0") {
+                                    var sendIds = mixerObj.get("sends");
+                                    var sendCount = sendIds.length / 2;
+                                    for (var si = 0; si < sendCount; si++) {
+                                        mixerProps.push("sends " + si);
+                                    }
                                 }
                             } catch (se) {}
 
@@ -231,6 +243,7 @@ function scan_rack() {
         for (var i = 0; i < deviceCount; i++) {
             var devPath = trackPath + " devices " + i;
             var dev = new LiveAPI(devPath);
+            if (!dev.id || dev.id === "0") continue;
             var dn = dev.get("name").toString();
             if (dn === "StrideLink") continue;
             deviceNames.push(dn);
@@ -279,6 +292,7 @@ function scan_mapped() {
         for (var i = 0; i < deviceCount; i++) {
             var devPath = trackPath + " devices " + i;
             var dev = new LiveAPI(devPath);
+            if (!dev.id || dev.id === "0") continue;
             var dn = dev.get("name").toString();
             if (dn === "StrideLink") continue;
             deviceNames.push(dn);
@@ -740,6 +754,10 @@ function scan_all_devices() {
         function walkDevices(basePath, depth, chainName) {
             try {
                 var dev = new LiveAPI(basePath);
+                // Guard: a chain/device over-reporting its child count yields a
+                // trailing index that resolves to nothing; reading it floods the
+                // Max window with "no valid object set" and freezes Live. Skip.
+                if (!dev.id || dev.id === "0") return;
                 var devName = dev.get("name").toString();
                 if (devName === "StrideLink") return;
 
@@ -779,6 +797,7 @@ function scan_all_devices() {
                             var chainPath = basePath + " chains " + c;
                             try {
                                 var chain = new LiveAPI(chainPath);
+                                if (!chain.id || chain.id === "0") continue;
                                 var chName = chain.get("name").toString();
                                 var chainDevIds = chain.get("devices");
                                 var chainDevCount = chainDevIds.length / 2;
@@ -1116,6 +1135,7 @@ function scan_read_envelopes() {
         for (var i = 0; i < devCount && !foundEnvId; i++) {
             var devPath = trackPath + " devices " + i;
             var dev = new LiveAPI(devPath);
+            if (!dev.id || dev.id === "0") continue;
             if (dev.get("name").toString() === "StrideLink") continue;
             var pIds = dev.get("parameters"); var pCount = pIds.length / 2;
             if (pCount > 300) pCount = 300;
@@ -1123,6 +1143,7 @@ function scan_read_envelopes() {
             for (var p = 0; p < pCount && !foundEnvId && tried < TRY_CAP; p++) {
                 var prm;
                 try { prm = new LiveAPI(devPath + " parameters " + p); } catch (pe) { continue; }
+                if (!prm.id || prm.id === "0") continue;
                 var autoState = 0;
                 try { autoState = parseInt(prm.get("automation_state")); } catch (ae) {}
                 if (autoState > 0) R.params_with_automation++;
@@ -1295,6 +1316,7 @@ function read_clip_curves(mode) {
         for (var i = 0; i < devCount; i++) {
             var devPath = trackPath + " devices " + i;
             var dev = new LiveAPI(devPath);
+            if (!dev.id || dev.id === "0") continue;
             var devName = dev.get("name").toString();
             if (devName === "StrideLink") continue;
             var pIds = dev.get("parameters"); var pCount = pIds.length / 2;
@@ -1304,6 +1326,7 @@ function read_clip_curves(mode) {
                 out.walked++;
                 var prm;
                 try { prm = new LiveAPI(devPath + " parameters " + p); } catch (pe) { continue; }
+                if (!prm.id || prm.id === "0") continue;
                 var pName = prm.get("name").toString();
                 if (pName === "Device On") continue;
 

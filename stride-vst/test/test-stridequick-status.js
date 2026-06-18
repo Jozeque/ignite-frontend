@@ -139,6 +139,6 @@ test('one real curve among bare lanes is found', () => {
 });
 
 console.log(`\n${'─'.repeat(46)}`);
-console.log(`  ${passed} passed   ${failed} failed`);
+console.log(`  ${passed} passed, ${failed} failed`);
 console.log(`${'─'.repeat(46)}`);
 process.exit(failed ? 1 : 0);

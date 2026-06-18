@@ -238,7 +238,9 @@
     let redoStack = [];
     const MAX_UNDO = 50;
 
+    let _sdDirty = false;   // un-injected curve changes exist; drives the "INJECT TO CLIP" shout in the StrideQuick device status
     function pushUndo() {
+        _sdDirty = true;    // any curve edit makes the clip stale until the next inject
         const snapshot = sdCanvasParams.map(p => ({
             envelopeId: p.envelopeId,
             points: p.points.map(pt => ({ time: pt.time, value: pt.value, curve: pt.curve || 0 }))
@@ -818,10 +820,18 @@
             currentDeviceName = msg.device_name;
             resolveTemplate();
             const sameTrack = (rackInfo.track_name === _sdCurrentTrackName);
+            // Carry BOTH the drawn curve AND the lock flag across the reload,
+            // keyed by envelopeId (stable even when adding a device renames the
+            // rack). loadParamsDirectly rebuilds every lane with locked:false, so
+            // without carrying the lock a rescan-before-generate (the Quick Motion
+            // flow) would silently unfreeze every locked lane and the generator
+            // would overwrite exactly the lanes the user just locked.
             const carried = {};
             if (sameTrack) {
                 sdCanvasParams.forEach(p => {
-                    if (p.points && p.points.length) carried[p.envelopeId] = p.points;
+                    if ((p.points && p.points.length) || p.locked) {
+                        carried[p.envelopeId] = { points: (p.points && p.points.length) ? p.points : null, locked: !!p.locked };
+                    }
                 });
             }
             const prevActive = sdActiveParamId;
@@ -829,10 +839,15 @@
             let kept = 0;
             if (sameTrack) {
                 sdCanvasParams.forEach(p => {
-                    if (carried[p.envelopeId]) { p.points = carried[p.envelopeId]; kept++; }
+                    const c = carried[p.envelopeId];
+                    if (c) {
+                        if (c.points) p.points = c.points;
+                        if (c.locked) p.locked = true;
+                        kept++;
+                    }
                 });
-                // Migrate the curves to the (possibly renamed) rack's saved key
-                // so a later cold reopen restores them too.
+                // Migrate the curves + locks to the (possibly renamed) rack's saved
+                // key so a later cold reopen restores them too.
                 if (kept) saveCanvasState();
             }
             if (prevActive && sdCanvasParams.some(p => p.envelopeId === prevActive)) {
@@ -874,8 +889,12 @@
                 modal.classList.add('hidden');
                 const oldCurves = {};
                 sdCanvasParams.forEach(p => {
-                    if (p.points && p.points.length > 0) {
-                        oldCurves[p.envelopeId] = { points: JSON.parse(JSON.stringify(p.points)), envelope_index: p.envelope_index };
+                    if ((p.points && p.points.length > 0) || p.locked) {
+                        oldCurves[p.envelopeId] = {
+                            points: (p.points && p.points.length > 0) ? JSON.parse(JSON.stringify(p.points)) : null,
+                            envelope_index: p.envelope_index,
+                            locked: !!p.locked
+                        };
                     }
                 });
 
@@ -888,9 +907,10 @@
                 // Restore curves for params that still exist by envelopeId
                 let restored = 0;
                 sdCanvasParams.forEach(p => {
-                    if (oldCurves[p.envelopeId]) {
-                        p.points = oldCurves[p.envelopeId].points;
-                        restored++;
+                    const c = oldCurves[p.envelopeId];
+                    if (c) {
+                        if (c.points) { p.points = c.points; restored++; }
+                        if (c.locked) p.locked = true;
                     }
                 });
                 if (restored > 0) {
@@ -1013,8 +1033,9 @@
     // Session clip via StrideInject, no .alc/drag). Separate from apply_*.
     strideLink.on('inject_success', (msg) => {
         _hideLoading();
+        if (_sdInjectTimeout) { clearTimeout(_sdInjectTimeout); _sdInjectTimeout = null; }
         // Device status: brief "Injected ✓" flash, then back to ready.
-        _sdInjecting = false; _sdJustInjected = true;
+        _sdInjecting = false; _sdJustInjected = true; _sdDirty = false;   // clip now matches the canvas
         if (_sdJustInjectedTimer) clearTimeout(_sdJustInjectedTimer);
         _sdJustInjectedTimer = setTimeout(function () { _sdJustInjected = false; _sdSendQuickState(); }, 2500);
         _sdSendQuickState();
@@ -1034,6 +1055,7 @@
     });
     strideLink.on('inject_error', (msg) => {
         _hideLoading();
+        if (_sdInjectTimeout) { clearTimeout(_sdInjectTimeout); _sdInjectTimeout = null; }
         _sdInjecting = false; _sdJustInjected = false; _sdSendQuickState();
         const el = document.getElementById('sd-canvas-status');
         if (el) {
@@ -1098,31 +1120,35 @@
     let _sdInjecting = false;        // true while an inject is in flight
     let _sdJustInjected = false;     // brief "Injected" flash after success
     let _sdJustInjectedTimer = null;
+    let _sdInjectTimeout = null;     // so "Injecting…" can't hang forever if StrideInject never answers
     const _SD_ACTION_LABELS = { chaos:'Chaos', neuro:'Neuro', reflector:'Reflector', sh:'S&H', prism:'Prism', mutate:'Mutate', shuffle:'Shuffle', double:'2x', half:'0.5x' };
     // Generators REPLACE the curves, so pressing one resets the stack; transforms
     // modify the existing curves, so they append (deduped). bars/rescan/inject
     // leave the stack alone.
     const _SD_GENERATORS = ['chaos','neuro','reflector','sh','prism'];
 
+    // A lane "moves" when its curve actually varies (not empty, not a flat
+    // baseline). Shared by the moving counter and "Lock current lanes".
+    function _sdLaneMoving(p) {
+        if (!p.points || p.points.length < 2) return false;
+        let lo = p.points[0].value, hi = p.points[0].value;
+        for (let i = 1; i < p.points.length; i++) {
+            const v = p.points[i].value;
+            if (v < lo) lo = v;
+            if (v > hi) hi = v;
+        }
+        return (hi - lo) > 0.001;
+    }
+
     function _sdSendQuickState() {
-        if (!strideLink || !strideLink.connected) return;
-        // Counter = how many loaded lanes actually have curves drawn ("moving")
-        // vs the total loaded. Lets the user see e.g. 10 / 20 on the device: 10
-        // params are moving, 10 are still empty and need injection.
         const total = sdCanvasParams.length;
         // "Moving" = the curve actually varies. Empty lanes (no points) and flat
-        // lanes (a baseline sitting at one value) don't count — only lanes whose
+        // lanes (a baseline sitting at one value) don't count, only lanes whose
         // automation moves by more than a hair register as having a real curve.
-        const moving = sdCanvasParams.filter(function (p) {
-            if (!p.points || p.points.length < 2) return false;
-            let lo = p.points[0].value, hi = p.points[0].value;
-            for (let i = 1; i < p.points.length; i++) {
-                const v = p.points[i].value;
-                if (v < lo) lo = v;
-                if (v > hi) hi = v;
-            }
-            return (hi - lo) > 0.001;
-        }).length;
+        const moving = sdCanvasParams.filter(_sdLaneMoving).length;
+        if (!strideLink || !strideLink.connected) return;
+        // Counter = moving vs total loaded; lets the user see e.g. 10 / 20 on the
+        // device: 10 params are moving, 10 are still empty and need injection.
         // Live device status line. Combines the loop length + last move so the
         // panel reads e.g. "8 Reflector ready to inject". Plain words and numbers
         // separated by spaces, no commas or dividers.
@@ -1132,13 +1158,15 @@
         else if (_sdJustInjected) status = 'Injected';
         else if (total === 0) status = 'Scanning';
         else if (moving === 0) { _sdMoveStack = []; status = _bars + ' apply a move'; }
-        else status = _bars + (_sdMoveStack.length ? ' ' + _sdMoveStack.join(' ') : '') + ' ready';
+        else if (_sdDirty) status = _bars + (_sdMoveStack.length ? ' ' + _sdMoveStack.join(' ') : '') + ' Ready to Inject ---->';
+        else status = _bars + (_sdMoveStack.length ? ' ' + _sdMoveStack.join(' ') : '') + ' Injected';
         strideLink.send({
             type: 'quick_state',
             on_chain: moving,    // first number: lanes with curves
             on_canvas: total,    // second number: total loaded lanes
             bars: sdGetBars(),
             connected: 1,
+            locked: sdCanvasParams.filter(function (p) { return p.locked; }).length,  // how many lanes are frozen (device readout under the Lock button)
             status: status,
         });
     }
@@ -1146,7 +1174,9 @@
     // manual draws, clears). Light poll, only actually sends when connected.
     setInterval(_sdSendQuickState, 1200);
 
-    window.sdHandleQuickCommand = function(action, arg) {
+    // The actual apply of a Quick action. The wrapper below decides whether to
+    // rescan first. Same window.sd* functions the on-screen buttons call.
+    function _sdApplyQuickAction(action, arg) {
         switch (action) {
             case 'rescan':    window.sdRefreshSync(); break;
             case 'chaos':     window.sdApplyGlobalChaos(); break;
@@ -1160,6 +1190,8 @@
             case 'shuffle':   window.sdShuffleLanes(); break;
             case 'double':    window.sdTimeStretch(2, sdCanvasParams.filter(p => !p.locked)); break;   // 2x = stretch (slower / more spread)
             case 'half':      window.sdTimeStretch(0.5, sdCanvasParams.filter(p => !p.locked)); break; // ½x = compress (faster / denser)
+            case 'lockcurrent': window.sdLockCurrentLanes(); break;
+            case 'unlockall':   window.sdUnlockAllLanes(); break;
             case 'bars':      window.sdSetBars(parseInt(arg) || 4, true); break;
             case 'inject':    window.applyToAbletonDirect(); break;
             default:
@@ -1167,14 +1199,88 @@
                 return;
         }
         // Build the move stack for the status line. A generator starts a fresh
-        // recipe; a transform stacks on top (deduped). bars shows separately and
-        // rescan/inject don't touch it. So Neuro then 2x reads "8 Neuro 2x
-        // ready"; a later Chaos resets it to "8 Chaos ready".
+        // recipe; a transform stacks on top (deduped). bars/rescan/inject/lock
+        // don't touch it. So Neuro then 2x reads "8 Neuro 2x ready"; a later
+        // Chaos resets it to "8 Chaos ready".
         if (_SD_ACTION_LABELS[action]) {
             const lbl = _SD_ACTION_LABELS[action];
             if (_SD_GENERATORS.indexOf(action) !== -1) _sdMoveStack = [lbl];
             else if (_sdMoveStack.indexOf(lbl) === -1) _sdMoveStack.push(lbl);
         }
+        _sdSendQuickState();
+    }
+
+    // Motion generators RESCAN first, then apply, pulling in any params you
+    // automated since the last sync (curves + locks preserved), so a newly-added
+    // param is never silently skipped. Transforms / inject / bars / lock apply
+    // directly (they work on what's already loaded). A fallback timer means a
+    // press is never lost if the rescan doesn't answer; the rack_scanned listener
+    // runs the queued generator once the merge lands.
+    let _sdGenAfterScan = null;
+    let _sdGenAfterScanTimer = null;
+    window.sdHandleQuickCommand = function(action, arg) {
+        if (_SD_GENERATORS.indexOf(action) !== -1 && strideLink.connected) {
+            _sdGenAfterScan = { action: action, arg: arg };
+            if (_sdGenAfterScanTimer) clearTimeout(_sdGenAfterScanTimer);
+            _sdGenAfterScanTimer = setTimeout(function () {
+                _sdGenAfterScanTimer = null;
+                if (_sdGenAfterScan) { const q = _sdGenAfterScan; _sdGenAfterScan = null; _sdApplyQuickAction(q.action, q.arg); }
+            }, 3000);
+            window.sdRefreshSync();   // _sdAutoScan -> request_scan_mapped -> rack_scanned (merges)
+            return;
+        }
+        _sdApplyQuickAction(action, arg);
+    };
+    // Apply a queued generator once its rescan has merged. on() APPENDS, so this
+    // runs AFTER the main rack_scanned handler — sdCanvasParams already holds the
+    // new lanes. Fires on merge OR no-change, so the generator always lands.
+    strideLink.on('rack_scanned', function () {
+        if (!_sdGenAfterScan) return;
+        if (_sdGenAfterScanTimer) { clearTimeout(_sdGenAfterScanTimer); _sdGenAfterScanTimer = null; }
+        const q = _sdGenAfterScan; _sdGenAfterScan = null;
+        _sdApplyQuickAction(q.action, q.arg);
+    });
+
+    // "Lock current lanes": lock every lane that's actually moving, so the next
+    // generator skips them and only modulates the still-empty (newly-added)
+    // lanes. Lets the user keep their original movement and bring new params in
+    // with a different sound. Empty/flat lanes stay unlocked so they get filled.
+    window.sdLockCurrentLanes = function() {
+        let n = 0, moving = 0;
+        sdCanvasParams.forEach(function (p) {
+            if (_sdLaneMoving(p)) { moving++; if (!p.locked) n++; p.locked = true; }
+        });
+        sdRenderSidebar();
+        sdDrawCanvasGrid();
+        const el = document.getElementById('sd-canvas-status');
+        if (el) {
+            el.style.color = '';
+            if (n) el.textContent = 'Locked ' + n + ' lane' + (n === 1 ? '' : 's') + '. Generators now touch only new params';
+            else if (moving) el.textContent = 'All ' + moving + ' moving lane' + (moving === 1 ? '' : 's') + ' already locked';
+            else el.textContent = 'No moving lanes to lock yet';
+        }
+        saveCanvasState();
+        _sdSendQuickState();
+    };
+
+    // "Unlock all": the mirror of Lock current. Clears every lane lock so the
+    // next generator modulates everything again (your earlier curves included).
+    // This is how you get back to a full-rack move after layering with locks.
+    window.sdUnlockAllLanes = function() {
+        let n = 0;
+        sdCanvasParams.forEach(function (p) {
+            if (p.locked) { n++; p.locked = false; }
+        });
+        sdRenderSidebar();
+        sdDrawCanvasGrid();
+        const el = document.getElementById('sd-canvas-status');
+        if (el) {
+            el.style.color = '';
+            el.textContent = n
+                ? ('Unlocked ' + n + ' lane' + (n === 1 ? '' : 's') + '. Generators now modulate every lane')
+                : 'Nothing was locked';
+        }
+        saveCanvasState();
         _sdSendQuickState();
     };
 
@@ -1184,7 +1290,7 @@
     // curves) before running, instead of firing on an empty canvas. rescan/bars
     // do not need lanes, so they run immediately. Gives up quietly after ~10s
     // (no rack mapped, nothing to do).
-    const _SD_LANE_ACTIONS = ['chaos','neuro','reflector','sh','prism','mutate','shuffle','double','half','inject'];
+    const _SD_LANE_ACTIONS = ['chaos','neuro','reflector','sh','prism','mutate','shuffle','double','half','inject','lockcurrent','unlockall'];
     function _sdRunQuickWhenReady(action, arg, tries) {
         if (sdCanvasParams.length > 0) { window.sdHandleQuickCommand(action, arg); return; }
         if (tries <= 0) return;
@@ -1192,8 +1298,15 @@
     }
     strideLink.on('quick_command', (m) => {
         if (!m || !m.action) return;
+        // Generators self-rescan (sdHandleQuickCommand fires a scan then applies
+        // once it merges), so they work even from an empty canvas — route them
+        // straight through. Only transforms / inject (which need existing curves)
+        // wait for a boot scan to populate lanes first. Without the isGenerator
+        // bypass, a generator pressed on a 0-lane canvas would sit in
+        // _sdRunQuickWhenReady waiting for lanes that nothing ever scans in.
+        const isGenerator = _SD_GENERATORS.indexOf(m.action) !== -1;
         const needsLanes = _SD_LANE_ACTIONS.indexOf(m.action) !== -1;
-        if (!needsLanes || sdCanvasParams.length > 0) {
+        if (isGenerator || !needsLanes || sdCanvasParams.length > 0) {
             window.sdHandleQuickCommand(m.action, m.arg);
         } else {
             _sdRunQuickWhenReady(m.action, m.arg, 33);   // 33 x 300ms ~ 10s
@@ -1773,6 +1886,20 @@
         _sdInjecting = true; _sdJustInjected = false; _sdSendQuickState();
         strideLink.applyDirectInject(params, sdGetBars(), { createIfMissing: true, notes: notes });
         saveCanvasState();
+        // Don't hang on "Injecting…" forever when StrideInject never answers — the
+        // #1 cause is the Remote Script not being enabled. Time out with guidance.
+        // (inject_success/inject_error clear this; if a slow inject answers late it
+        // self-corrects.)
+        if (_sdInjectTimeout) clearTimeout(_sdInjectTimeout);
+        _sdInjectTimeout = setTimeout(function () {
+            _sdInjectTimeout = null;
+            _sdInjecting = false; _sdJustInjected = false; _sdSendQuickState();
+            const el2 = document.getElementById('sd-canvas-status');
+            if (el2) {
+                el2.style.color = '#fbbf24';
+                el2.textContent = "StrideInject didn't respond. In Live: Preferences → Link/Tempo/MIDI → Control Surface → pick StrideInject (use Install to Ableton first if it isn't listed).";
+            }
+        }, 15000);
     };
 
     // ─── Armed pattern: arm / clear / chip render ─────────
@@ -3009,6 +3136,14 @@
     function setupSdCanvasInteractions() {
         if (!sdCanvasEl) return;
         window.addEventListener('keydown', e => {
+            // Space would otherwise "click" the last-focused button (re-injecting
+            // or re-running it) instead of reaching Ableton for play/stop. Swallow
+            // it and drop focus, unless the user is typing in a field.
+            if (e.code === 'Space') {
+                const _ae = document.activeElement;
+                const _typingSp = _ae && (_ae.tagName === 'INPUT' || _ae.tagName === 'TEXTAREA' || _ae.isContentEditable);
+                if (!_typingSp) { e.preventDefault(); if (_ae && _ae.blur) _ae.blur(); return; }
+            }
             if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ' && !e.shiftKey) { e.preventDefault(); sdUndo(); return; }
             if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ' && e.shiftKey) { e.preventDefault(); sdRedo(); return; }
             if ((e.ctrlKey || e.metaKey) && e.code === 'KeyY') { e.preventDefault(); sdRedo(); return; }

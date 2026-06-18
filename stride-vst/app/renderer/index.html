@@ -50,6 +50,8 @@
         /* Electron title bar drag region */
         .titlebar-drag { -webkit-app-region: drag; }
         .titlebar-no-drag { -webkit-app-region: no-drag; }
+        /* Mac: the traffic-light buttons sit top-left, so pad the titlebar so the STRIDE mark clears them (Windows' overlay controls are on the right via pr-36). */
+        html.is-mac .titlebar-drag { padding-left: 78px; }
 
         /* Animated LED border for the most-recently-generated card in the
            generations dock. A single bright dot travels clockwise around
@@ -188,6 +190,7 @@
          on the right (M4L status, Guide, Install to Ableton, folder)
          don't get clipped. Mac's traffic lights are on the LEFT, so the
          extra right padding is harmless there. -->
+    <script>if (window.stride && window.stride.platform === 'darwin') document.documentElement.classList.add('is-mac');</script>
     <div class="titlebar-drag h-9 bg-zinc-950 border-b border-white/5 flex items-center pl-4 pr-36 shrink-0">
         <span class="text-[11px] font-black tracking-[0.3em] uppercase text-gradient titlebar-no-drag">STRIDE</span>
         <!-- Patterns library — full-takeover overlay with curated MIDI patterns.
