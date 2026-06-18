@@ -16,7 +16,7 @@ const ACCOUNT = 'act_3411622499006924';
 const BASE = 'https://graph.facebook.com/' + V;
 
 const CFG = {
-  videoPath: 'D:/Stridehub content/June New Commercial/Finals/Hook 2 Final - Captions.mp4',
+  videoPath: process.env.VIDEO_PATH || 'D:/Stridehub content/June New Commercial/Finals/Hook 2 Final - Captions.mp4',
   adsetId: process.env.ADSET_ID || '120250812785600440',  // default winner; override via ADSET_ID env
   pageId: '1161197470406860',
   igUserId: '17841440065213071',
@@ -96,9 +96,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   afd.append('name', CFG.adName);
   afd.append('adset_id', CFG.adsetId);
   afd.append('creative', JSON.stringify({ creative_id: cr.id }));
-  afd.append('status', 'PAUSED');
+  afd.append('status', process.env.AD_STATUS || 'PAUSED');
   afd.append('access_token', T);
   const ad = await fetch(BASE + '/' + ACCOUNT + '/ads', { method: 'POST', body: afd }).then((r) => r.json());
   if (ad.error) { console.error('AD FAILED:', JSON.stringify(ad.error)); process.exit(1); }
-  console.log('\nAD CREATED (PAUSED) id =', ad.id, '\nPreview it in Ads Manager, then activate.');
+  console.log('\nAD CREATED (' + (process.env.AD_STATUS || 'PAUSED') + ') id =', ad.id);
 })().catch((e) => { console.error('ERR', e.message); process.exit(1); });
