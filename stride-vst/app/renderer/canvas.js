@@ -192,6 +192,31 @@
     let sdCanvasInitialized = false;
     let currentRackId = null; // For local state saving
     let currentDeviceName = null; // For template matching
+
+    // Per-CLIP canvas state. The clip in Live's detail view is the source of
+    // truth, so each clip on a track carries its own curves (the variations
+    // workflow). Slot 0 keeps the legacy rack key, so every canvas saved before
+    // this change still loads as that track's primary clip.
+    let currentClipSlot = 0;
+    let currentClipKey = null;
+    let currentTrackIndex = -1;        // absolute LOM track index — UNIQUE per track
+    let currentLegacyKey = null;       // pre-track-index (name-based) key, for migration fallback on restore
+    const _sdAutoReadAttempted = {};   // clipKey -> true: auto-read an empty clip's automation only once
+    function _sdClipKey(rackId, slot) {
+        return (slot && slot > 0) ? (rackId + '_s' + slot) : rackId;
+    }
+    // A DUPLICATED track shares its name, device, params AND clip slot with the
+    // original — so name alone can't tell them apart, and switching back to the
+    // original clip looks like "nothing changed". The scanned params carry their
+    // absolute LOM path ("live_set tracks N …"), so the track index comes for
+    // free; we use it to key per-clip state and to gate the no-op guard.
+    function _sdTrackIdxFromParams(params) {
+        try {
+            const p = (params || [])[0];
+            const m = p && p._path && String(p._path).match(/tracks (\d+)/);
+            return m ? parseInt(m[1], 10) : -1;
+        } catch (e) { return -1; }
+    }
     let currentTemplatePath = null; // Resolved template file path
     let templateMatchState = 'none'; // 'exact', 'fallback', 'none'
 
@@ -439,6 +464,55 @@
         } catch (e) { /* non-critical */ }
     }
 
+    // Auto-Rescan toggle for the StrideQuick MOTION buttons. GREEN/ON (default) =
+    // rescan-then-apply (the original behavior — always syncs 1:1 to the current
+    // rack before applying; silent when the canvas runs hidden). GREY/OFF = apply on
+    // the loaded params only, for cranking the same rack repeatedly without a scan.
+    // Canvas-owned + persisted (no bridge → no race); the device ↻ button toggles it
+    // and its color reflects via quick_state.rescan. SAFETY: even when OFF, a Motion
+    // press still rescans if the track/clip changed since the last scan (the
+    // _sdContextDirty guard in sdHandleQuickCommand) so it can never apply a stale rack.
+    function _sdPaintAutoRescanBtn() {
+        const b = document.getElementById('sd-autorescan-btn');
+        if (!b) return;
+        b.textContent = 'Rescan: ' + (sdAutoRescan ? 'ON' : 'OFF');
+        b.className = (sdAutoRescan
+            ? 'text-[9px] text-emerald-400/90 hover:text-emerald-300 bg-emerald-500/10 border border-emerald-500/30'
+            : 'text-[9px] text-zinc-500 hover:text-zinc-300 bg-white/5 border border-white/10')
+            + ' px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors shrink-0';
+        b.title = sdAutoRescan
+            ? 'Auto-rescan ON: Motion buttons rescan the rack before applying. Click to turn OFF to crank the same rack without re-scanning.'
+            : 'Auto-rescan OFF: Motion buttons apply on the loaded params only. Turn ON to pull in newly-mapped params (it still rescans automatically if you switch rack/clip).';
+    }
+    function _sdPersistAutoRescan() {
+        (async () => {
+            try {
+                if (!window.stride || !window.stride.loadSettings) return;
+                const res = await window.stride.loadSettings();
+                const settings = (res && res.success && res.settings) || {};
+                settings.autoRescan = sdAutoRescan;
+                await window.stride.saveSettings(settings);
+            } catch (e) { /* non-critical */ }
+        })();
+    }
+    window.sdSetAutoRescan = function (on) {
+        on = !!on;
+        const changed = (on !== sdAutoRescan);
+        sdAutoRescan = on;
+        _sdPaintAutoRescanBtn();
+        if (changed) _sdPersistAutoRescan();
+    };
+    window.sdToggleAutoRescan = function () { window.sdSetAutoRescan(!sdAutoRescan); };
+    async function sdInitAutoRescan() {
+        try {
+            if (window.stride && window.stride.loadSettings) {
+                const res = await window.stride.loadSettings();
+                if (res && res.settings && typeof res.settings.autoRescan === 'boolean') sdAutoRescan = res.settings.autoRescan;
+            }
+        } catch (e) { /* non-critical */ }
+        _sdPaintAutoRescanBtn();
+    }
+
     // ─── SCAN MODES ──────────────────────────────────────
 
     let pendingScanParams = []; // holds all params before user picks
@@ -494,6 +568,8 @@
     // needed. Stays true to intentional mapping — MAPPED scan, never scan-all.
     let _isAutoScan = false;
     let _sdTrackChangeTimer = null;
+    let _sdContextDirty = false;   // true after a track/clip switch until the next scan lands — gates the (main-thread, UI-freezing) rescan-before-inject
+    let sdAutoRescan = true;       // GREEN/ON (default) = Motion buttons rescan-then-apply (original behavior). GREY/OFF = apply on loaded params only (crank the same rack). Canvas-owned + persisted; the device ↻ toggles it + reflects via quick_state.rescan.
     let _sdLastAutoScanAt = 0;
     let _sdCurrentTrackName = null;   // for same-track detection across autoscans
     function _sdAutoScan() {
@@ -521,6 +597,7 @@
         Promise.resolve(saveCanvasState()).then(_sdAutoScan);
     }
     window.addEventListener('focus', _sdAutoScanOnFocus);
+    sdInitAutoRescan();   // restore the persisted Auto-rescan toggle state + paint the on-screen button
 
     // Manual re-sync (the small refresh icon) — silent curve-preserving merge,
     // same path as autoscan. Insurance for when auto triggers miss something.
@@ -623,7 +700,12 @@
         document.getElementById('rack-track').textContent = 'Track: ' + rackInfo.track_name;
 
         if (rackInfo.clip_bars && rackInfo.clip_bars > 0) sdSetBars(_sdResolveSystemBars(rackInfo.clip_bars), false);
-        currentRackId = (rackInfo.track_name + '_' + rackInfo.device_name).replace(/[^a-zA-Z0-9]/g, '_');
+        currentTrackIndex = _sdTrackIdxFromParams(params);
+        const _legacyRackId = (rackInfo.track_name + '_' + rackInfo.device_name).replace(/[^a-zA-Z0-9]/g, '_');
+        currentRackId = ((currentTrackIndex >= 0 ? 't' + currentTrackIndex + '_' : '') + rackInfo.track_name + '_' + rackInfo.device_name).replace(/[^a-zA-Z0-9]/g, '_');
+        currentClipSlot = (rackInfo.clip_slot != null) ? rackInfo.clip_slot : 0;
+        currentClipKey = _sdClipKey(currentRackId, currentClipSlot);
+        currentLegacyKey = _sdClipKey(_legacyRackId, currentClipSlot);
         _sdCurrentTrackName = rackInfo.track_name;
 
         // Render checkboxes
@@ -663,7 +745,12 @@
         document.getElementById('sd-param-count').textContent = sdCanvasParams.length + ' params';
 
         if (rackInfo.clip_bars && rackInfo.clip_bars > 0) sdSetBars(_sdResolveSystemBars(rackInfo.clip_bars), false);
-        currentRackId = (rackInfo.track_name + '_' + rackInfo.device_name).replace(/[^a-zA-Z0-9]/g, '_');
+        currentTrackIndex = _sdTrackIdxFromParams(params);
+        const _legacyRackId = (rackInfo.track_name + '_' + rackInfo.device_name).replace(/[^a-zA-Z0-9]/g, '_');
+        currentRackId = ((currentTrackIndex >= 0 ? 't' + currentTrackIndex + '_' : '') + rackInfo.track_name + '_' + rackInfo.device_name).replace(/[^a-zA-Z0-9]/g, '_');
+        currentClipSlot = (rackInfo.clip_slot != null) ? rackInfo.clip_slot : 0;
+        currentClipKey = _sdClipKey(currentRackId, currentClipSlot);
+        currentLegacyKey = _sdClipKey(_legacyRackId, currentClipSlot);
         _sdCurrentTrackName = rackInfo.track_name;
 
         if (sdCanvasParams.length > 0) {
@@ -774,6 +861,7 @@
     // Handle rack scan results from M4L
     strideLink.on('rack_scanned', (msg) => {
         _resetScanButton();
+        _sdContextDirty = false;   // a scan landed — loaded params/paths now match the current track/clip
         // StrideQuick readout: remember how many params the chain scan found,
         // then push fresh counts once this handler's lane updates have settled.
         _sdLastChainParamCount = (msg.parameters || []).length;
@@ -807,7 +895,16 @@
             // an actual param add/remove (or device change) triggers a merge.
             const newIds = params.map(p => String(p.id)).sort().join(',');
             const curIds = sdCanvasParams.map(p => p.envelopeId).sort().join(',');
-            if (newIds === curIds && currentDeviceName === msg.device_name && sdCanvasParams.length > 0) {
+            // A clip switch (same rack/params, different detail-view clip) must
+            // NOT no-op: we still need to swap in that clip's own curves + bars.
+            const _newSlot = (msg.clip_slot != null) ? msg.clip_slot : 0;
+            const _newTrackIdx = _sdTrackIdxFromParams(params);
+            const _slotSame = (_newSlot === currentClipSlot);
+            // A duplicated track shares name/params/slot with its source, so only
+            // the track index tells them apart — without it, switching back to the
+            // original clip reads as "nothing changed" and never re-syncs.
+            const _trackSame = (_newTrackIdx === currentTrackIndex);
+            if (newIds === curIds && currentDeviceName === msg.device_name && sdCanvasParams.length > 0 && _slotSame && _trackSame) {
                 return;
             }
             // Structural change (param/device added or removed). Merge WITHOUT
@@ -819,27 +916,39 @@
             // different track is a different rack whose own saved curves load.
             currentDeviceName = msg.device_name;
             resolveTemplate();
-            const sameTrack = (rackInfo.track_name === _sdCurrentTrackName);
+            const sameTrack = _trackSame;   // by track INDEX, not name — duplicated tracks share a name but are different tracks
             // Carry BOTH the drawn curve AND the lock flag across the reload,
-            // keyed by envelopeId (stable even when adding a device renames the
-            // rack). loadParamsDirectly rebuilds every lane with locked:false, so
+            // keyed by the param's STABLE LOM _path — NOT the scanner's positional
+            // id/envelopeId, which RENUMBERS when params are added/removed and would
+            // carry locks/curves onto the WRONG params (the "Chaos hit my locked
+            // lanes" bug). loadParamsDirectly rebuilds every lane with locked:false, so
             // without carrying the lock a rescan-before-generate (the Quick Motion
             // flow) would silently unfreeze every locked lane and the generator
             // would overwrite exactly the lanes the user just locked.
+            // Carry in-memory curves/locks across the reload ONLY when staying on
+            // the SAME clip (e.g. a device was added → params change but it's the
+            // same clip's work). On a CLIP SWITCH (slot changed) we must NOT carry
+            // — each clip is its own variation; restoreCanvasState loads that
+            // clip's saved curves instead (or auto-reads them).
             const carried = {};
-            if (sameTrack) {
+            if (sameTrack && _slotSame) {
                 sdCanvasParams.forEach(p => {
                     if ((p.points && p.points.length) || p.locked) {
-                        carried[p.envelopeId] = { points: (p.points && p.points.length) ? p.points : null, locked: !!p.locked };
+                        // Key by the stable _path; fall back to NAME for lanes that
+                        // have no _path yet (e.g. a just-loaded session) so their
+                        // curves/locks survive the first rescan-merge instead of
+                        // being dropped. Never the positional envelopeId.
+                        const k = p._path || ('n:' + p.name);
+                        carried[k] = { points: (p.points && p.points.length) ? p.points : null, locked: !!p.locked };
                     }
                 });
             }
             const prevActive = sdActiveParamId;
             loadParamsDirectly(params, rackInfo);   // updates _sdCurrentTrackName
             let kept = 0;
-            if (sameTrack) {
+            if (sameTrack && _slotSame) {
                 sdCanvasParams.forEach(p => {
-                    const c = carried[p.envelopeId];
+                    const c = (p._path && carried[p._path]) || carried['n:' + p.name];
                     if (c) {
                         if (c.points) p.points = c.points;
                         if (c.locked) p.locked = true;
@@ -890,7 +999,12 @@
                 const oldCurves = {};
                 sdCanvasParams.forEach(p => {
                     if ((p.points && p.points.length > 0) || p.locked) {
-                        oldCurves[p.envelopeId] = {
+                        // Stable _path key (name fallback for lanes lacking it), NOT
+                        // the positional envelopeId — which renumbers when params are
+                        // added, so the manual Keep-Curves merge would otherwise land
+                        // curves/locks on the WRONG params (same bug as the auto-merge).
+                        const k = p._path || ('n:' + p.name);
+                        oldCurves[k] = {
                             points: (p.points && p.points.length > 0) ? JSON.parse(JSON.stringify(p.points)) : null,
                             envelope_index: p.envelope_index,
                             locked: !!p.locked
@@ -907,7 +1021,7 @@
                 // Restore curves for params that still exist by envelopeId
                 let restored = 0;
                 sdCanvasParams.forEach(p => {
-                    const c = oldCurves[p.envelopeId];
+                    const c = (p._path && oldCurves[p._path]) || oldCurves['n:' + p.name];
                     if (c) {
                         if (c.points) { p.points = c.points; restored++; }
                         if (c.locked) p.locked = true;
@@ -955,12 +1069,31 @@
     // current rack's work is saved before switching so nothing is lost.
     strideLink.on('track_changed', (msg) => {
         if (!msg || msg.has_device === false) return;   // only tracks with a device
+        _sdContextDirty = true;   // track changed → loaded param paths may be stale until the next scan
         if (_sdTrackChangeTimer) clearTimeout(_sdTrackChangeTimer);
         _sdTrackChangeTimer = setTimeout(() => {
             _sdTrackChangeTimer = null;
             if (!strideLink.connected) return;
             Promise.resolve(saveCanvasState()).then(_sdAutoScan);
         }, 450);
+    });
+
+    // Detail-view clip changed — the clip in Live's editor is the source of
+    // truth. Re-sync so the canvas shows THIS clip's curves + bars, even when
+    // the track selection didn't change (switching clips on the same track).
+    // We save the current clip first, then re-scan; the authoritative slot comes
+    // back on rack_scanned (from detail_clip), which re-keys per-clip state.
+    // Shares the track-change debounce so a clip-open that also reselects the
+    // track only scans once.
+    strideLink.on('clip_focus_changed', (msg) => {
+        if (!msg) return;
+        _sdContextDirty = true;   // clip changed → re-key + paths may be stale until the next scan
+        if (_sdTrackChangeTimer) clearTimeout(_sdTrackChangeTimer);
+        _sdTrackChangeTimer = setTimeout(() => {
+            _sdTrackChangeTimer = null;
+            if (!strideLink.connected) return;
+            Promise.resolve(saveCanvasState()).then(_sdAutoScan);
+        }, 250);
     });
 
     // Handle .alc file generated
@@ -1167,6 +1300,7 @@
             bars: sdGetBars(),
             connected: 1,
             locked: sdCanvasParams.filter(function (p) { return p.locked; }).length,  // how many lanes are frozen (device readout under the Lock button)
+            rescan: sdAutoRescan ? 1 : 0,   // Auto-rescan state → reflected to the device ↻ button color (green = ON)
             status: status,
         });
     }
@@ -1179,6 +1313,11 @@
     function _sdApplyQuickAction(action, arg) {
         switch (action) {
             case 'rescan':    window.sdRefreshSync(); break;
+            // StrideLink device ↻ Auto-Rescan toggle. GREEN/ON = Motion rescans first
+            // (default); GREY/OFF = Motion applies on the loaded params only. _set
+            // carries 0/1 (a toggle-mode device button sends $1); _toggle just flips.
+            case 'rescan_set':    window.sdSetAutoRescan(parseInt(arg, 10) === 1); break;
+            case 'rescan_toggle': window.sdSetAutoRescan(!sdAutoRescan); break;
             case 'chaos':     window.sdApplyGlobalChaos(); break;
             case 'neuro':     window.sdApplyGlobalNeuro(); break;
             case 'reflector': window.sdApplyGlobalReflector(); break;
@@ -1210,16 +1349,27 @@
         _sdSendQuickState();
     }
 
-    // Motion generators RESCAN first, then apply, pulling in any params you
-    // automated since the last sync (curves + locks preserved), so a newly-added
-    // param is never silently skipped. Transforms / inject / bars / lock apply
-    // directly (they work on what's already loaded). A fallback timer means a
-    // press is never lost if the rescan doesn't answer; the rack_scanned listener
-    // runs the queued generator once the merge lands.
+    // Motion generators AND inject RESCAN first, then apply, pulling in any
+    // params you automated since the last sync (curves + locks preserved) and —
+    // critically for inject — refreshing each lane's absolute LOM _path so it
+    // matches the clip/track you're on NOW. Injecting on a stale _path (from a
+    // previously-selected track, before the debounced auto-sync has landed) makes
+    // every clip envelope fail in StrideInject ("no envelope" → "nothing to
+    // inject"). Transforms / bars / lock still apply directly (they only touch
+    // what's already loaded). A fallback timer means a press is never lost if the
+    // rescan doesn't answer; the rack_scanned listener runs the queued action
+    // once the merge lands.
     let _sdGenAfterScan = null;
     let _sdGenAfterScanTimer = null;
     window.sdHandleQuickCommand = function(action, arg) {
-        if (_SD_GENERATORS.indexOf(action) !== -1 && strideLink.connected) {
+        // Generators always rescan (to pull in params automated since the last
+        // sync). Inject only rescans if the track/clip changed since the last scan
+        // — otherwise the loaded paths are already fresh, so skip the main-thread,
+        // UI-freezing scan and inject directly. Undoes the extra freeze the
+        // unconditional rescan-before-inject added, while keeping the stale-path
+        // protection right after a switch.
+        const _rescanFirst = (_SD_GENERATORS.indexOf(action) !== -1 && (sdAutoRescan || _sdContextDirty)) || (action === 'inject' && _sdContextDirty);
+        if (_rescanFirst && strideLink.connected) {
             _sdGenAfterScan = { action: action, arg: arg };
             if (_sdGenAfterScanTimer) clearTimeout(_sdGenAfterScanTimer);
             _sdGenAfterScanTimer = setTimeout(function () {
@@ -2093,26 +2243,44 @@
     // ─── LOCAL STATE PERSISTENCE ──────────────────────────
 
     async function saveCanvasState() {
-        if (!currentRackId || !window.stride) return;
+        const key = currentClipKey || currentRackId;
+        if (!key || !window.stride) return;
         // Save lanes that either have points OR are explicitly locked.
         // A locked-but-empty lane is still meaningful intent (the user
         // marked it "don't touch") so we preserve that across reloads.
         const state = sdCanvasParams
             .filter(p => p.points.length > 0 || p.locked)
             .map(p => ({
-                envelopeId: p.envelopeId,
+                envelopeId: p.envelopeId,   // legacy / back-compat key
+                _path: p._path || null,     // STABLE key — match on this; positional envelopeId renumbers when params are added
                 locked: !!p.locked,
                 points: p.points.map(pt => ({ time: pt.time, value: pt.value, curve: pt.curve || 0 }))
             }));
-        await window.stride.saveCanvasState(currentRackId, state);
+        await window.stride.saveCanvasState(key, state);
     }
 
     async function restoreCanvasState() {
-        if (!currentRackId || !window.stride) return;
-        const result = await window.stride.loadCanvasState(currentRackId);
+        const key = currentClipKey || currentRackId;
+        if (!key || !window.stride) return;
+        let result = await window.stride.loadCanvasState(key);
+        // Migration fallback: states saved before the track-index key change live
+        // under the legacy name-based key. If nothing is saved under the current
+        // key, load the legacy one (recovers older curves + locks); the next save
+        // writes it under the current key, so it self-heals after one cycle.
+        if (!(result && result.success && result.state && result.state.length)
+            && currentLegacyKey && currentLegacyKey !== key) {
+            const legacy = await window.stride.loadCanvasState(currentLegacyKey);
+            if (legacy && legacy.success && legacy.state && legacy.state.length) result = legacy;
+        }
         if (result.success && result.state && Array.isArray(result.state)) {
             result.state.forEach(sp => {
-                const param = sdCanvasParams.find(p => p.envelopeId === sp.envelopeId);
+                // Match on the STABLE LOM _path; fall back to the positional
+                // envelopeId ONLY for legacy saves that predate _path (the
+                // positional id renumbers when params are added, so it would restore
+                // curves/locks onto the wrong param).
+                const param = sp._path
+                    ? sdCanvasParams.find(p => p._path && p._path === sp._path)
+                    : sdCanvasParams.find(p => p.envelopeId === sp.envelopeId);
                 if (!param) return;
                 if (sp.points) param.points = sp.points;
                 if (typeof sp.locked === 'boolean') param.locked = sp.locked;
@@ -2121,6 +2289,20 @@
         // Reflect restored curves in the "N Params Empty" indicator (curves are
         // filled here, a tick after loadParamsDirectly swaps the lane set).
         _renderTemplateStatus();
+
+        // Unknown clip — no curves for this clip yet (a fresh clip, or automation
+        // drawn directly in Ableton). Auto-read the clip's existing automation
+        // onto the matching lanes so the canvas reflects what's really in the
+        // clip ("clip is the source of truth"). Once per clip key, and only when
+        // the canvas is genuinely empty — we check live lane points (not just
+        // restored ones) so a device-added rescan that carried in-memory curves
+        // is never clobbered by a read.
+        const anyCurves = sdCanvasParams.some(p => p.points && p.points.length > 0);
+        if (!anyCurves && !_sdAutoReadAttempted[key]
+            && sdCanvasParams.length > 0 && strideLink.connected) {
+            _sdAutoReadAttempted[key] = true;
+            try { strideLink.readClipCurves('A'); } catch (e) {}
+        }
     }
 
     // Auto-save periodically

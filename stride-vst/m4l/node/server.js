@@ -30,6 +30,7 @@ const RESULT_FILE = path.join(os.homedir(), '_stride_result.json');
 // poll and forwards it. Makes Quick robust to the split-brain.
 const QUICK_FILE = path.join(os.homedir(), '_stride_quick_cmd.json');
 const STATE_FILE = path.join(os.homedir(), '_stride_quick_state.json');  // canvas->device readout, relayed so EVERY StrideLink instance shows it (fixes "Disconnected" on a duplicated track)
+const BRIDGE_ALIVE_FILE = path.join(os.homedir(), '_stride_bridge_alive.json');  // port-holder heartbeat: lets a 2nd bridge tell a LIVE holder (coexist as relay) from a dead/leaked node (clear + take over)
 
 
 let wss = null;
@@ -37,6 +38,9 @@ let appSocket = null;
 let _lastQuickNonce = null;  // StrideQuick relay: last command nonce forwarded to the canvas
 let _revealOnConnect = false;  // Open Canvas pressed during a silent boot: reveal once connected
 let _lastStateNonce = null;    // StrideQuick state relay: last readout ts this bridge outlet
+let _relayOnly = false;        // true when another LIVE StrideLink bridge owns port 9100 — we run as a command/status relay instead of fighting for it
+let _bridgeHeartbeatTimer = null;
+let _rebindTimer = null;
 
 // ─── Port Conflict Recovery ───────────────────────────────
 // Max for Live on Windows sometimes leaks the node.script child process when
@@ -149,6 +153,25 @@ Max.addHandler('track_info', (jsonStr) => {
         });
     } catch (e) {
         Max.post(`Stride: Error parsing track info — ${e.message}`);
+    }
+});
+
+// Detail-view clip changed — the clip in Live's editor is the source of truth.
+// Pushed by scanner_max.js's detail_clip observer so the canvas re-syncs to the
+// open clip (bars + per-clip curves) the moment it changes, even on the same track.
+Max.addHandler('clip_focus', (jsonStr) => {
+    try {
+        const data = JSON.parse(jsonStr);
+        sendToApp({
+            type: 'clip_focus_changed',
+            clip_slot: data.clip_slot || 0,
+            clip_bars: data.clip_bars || 4,
+            has_clip: data.has_clip !== false,
+            clip_id: data.clip_id || null,
+            source: data.source || ''
+        });
+    } catch (e) {
+        Max.post(`Stride: Error parsing clip focus — ${e.message}`);
     }
 });
 
@@ -318,6 +341,45 @@ if (USER_LIBRARY_PATH) {
     Max.post(`Stride: Self-located in User Library at ${USER_LIBRARY_PATH}`);
 }
 
+// ─── Multi-bridge coexistence ─────────────────────────────
+// Two live StrideLink devices (e.g. a duplicated track) used to fight over port
+// 9100: the 2nd bridge would KILL the 1st's node, leaving that device's panel
+// dead (Unlock/commands do nothing) while the survivor showed "Connected". Now
+// the port-holder writes a heartbeat; a 2nd bridge that finds the port taken
+// checks it — a LIVE holder means coexist as a relay (commands already route via
+// the command-relay file, status via the state-relay file), and we only clear a
+// holder that looks dead/leaked. A relay bridge watches the heartbeat and takes
+// over the port if the holder closes.
+function _startBridgeHeartbeat() {
+    if (_bridgeHeartbeatTimer) return;
+    const beat = () => {
+        try { fs.writeFileSync(BRIDGE_ALIVE_FILE, JSON.stringify({ pid: process.pid, ts: Date.now() })); } catch (e) {}
+    };
+    beat();
+    _bridgeHeartbeatTimer = setInterval(beat, 2000);
+}
+// Is a DIFFERENT, live bridge currently holding the port? Fresh (<6s) heartbeat
+// from another pid = yes. Missing/stale/our-own = no (treat as dead/leaked).
+function _bridgeHolderFresh() {
+    try {
+        const h = JSON.parse(fs.readFileSync(BRIDGE_ALIVE_FILE, 'utf8'));
+        return !!(h && h.ts && h.pid !== process.pid && (Date.now() - h.ts) < 6000);
+    } catch (e) { return false; }
+}
+// While relay-only, watch the holder; if its heartbeat goes stale (device removed
+// / Ableton closed it), grab the port so the canvas keeps working.
+function _scheduleRebind() {
+    if (_rebindTimer) return;
+    _rebindTimer = setInterval(() => {
+        if (!_relayOnly) { clearInterval(_rebindTimer); _rebindTimer = null; return; }
+        if (!_bridgeHolderFresh()) {
+            _relayOnly = false;
+            clearInterval(_rebindTimer); _rebindTimer = null;
+            try { startServer(0); } catch (e) {}
+        }
+    }, 4000);
+}
+
 // ─── WebSocket Server ─────────────────────────────────────
 
 function startServer(retryCount) {
@@ -326,6 +388,8 @@ function startServer(retryCount) {
     wss = new WebSocketServer({ port: PORT });
 
     wss.on('listening', () => {
+        _relayOnly = false;
+        _startBridgeHeartbeat();   // we own the port — advertise liveness so a sibling bridge coexists instead of killing us
         Max.post(`Stride: WebSocket server running on localhost:${PORT}`);
         Max.outlet('status', 'server_ready');
     });
@@ -385,7 +449,9 @@ function startServer(retryCount) {
                 try { prev = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch (e) {}
                 fs.writeFileSync(STATE_FILE, JSON.stringify({
                     on_chain: prev.on_chain || 0, on_canvas: prev.on_canvas || 0,
-                    bars: prev.bars || 4, connected: 0, locked: prev.locked || 0, status: 'Connected', ts: Date.now(),
+                    bars: prev.bars || 4, connected: 0, locked: prev.locked || 0,
+                    rescan: (typeof prev.rescan === 'number' ? prev.rescan : 1),
+                    status: 'Connected', ts: Date.now(),
                 }));
             } catch (e) { /* ignore */ }
         });
@@ -397,10 +463,22 @@ function startServer(retryCount) {
 
     wss.on('error', (err) => {
         if (err.code === 'EADDRINUSE') {
-            if (retryCount < 3) {
-                Max.post(`Stride: Port ${PORT} in use — trying to clear stale process (attempt ${retryCount + 1}/3)`);
-                wss.close();
-                // Native OS kill — npx kill-port isn't available in Max's Node env
+            wss.close();
+            // Is a LIVE StrideLink bridge holding the port (a sibling device — e.g.
+            // a duplicated track)? Then DON'T kill it: killing the sibling is what
+            // left that device's panel dead while this one showed "Connected".
+            // Coexist as a relay — panel presses already route through the
+            // command-relay file (the holder forwards them) and status comes via
+            // the state-relay — and take over only if the holder closes. We clear
+            // the port only when the holder looks dead/leaked (stale heartbeat),
+            // which preserves the original reload-leak recovery.
+            if (_bridgeHolderFresh()) {
+                _relayOnly = true;
+                Max.post(`Stride: Port ${PORT} held by a live StrideLink — running as a relay (commands + status still work; will take over if it closes).`);
+                Max.outlet('status', 'app_connected');
+                _scheduleRebind();
+            } else if (retryCount < 3) {
+                Max.post(`Stride: Port ${PORT} held by a stale/dead process — clearing (attempt ${retryCount + 1}/3)`);
                 killNodeOnPort(PORT, (killed, reason) => {
                     if (killed) {
                         Max.post(`Stride: Cleared stale Node process on port ${PORT}`);
@@ -548,6 +626,7 @@ function handleAppMessage(msg) {
                     on_chain: msg.on_chain || 0, on_canvas: msg.on_canvas || 0,
                     bars: msg.bars || 4, connected: msg.connected ? 1 : 0,
                     locked: msg.locked || 0,
+                    rescan: msg.rescan ? 1 : 0,
                     status: msg.status || '', ts: Date.now(),
                 }));
             } catch (e) { /* mid-write, retry next readout */ }
@@ -909,6 +988,20 @@ Max.addHandler('show_guide', () => {
     }
 });
 
+// A canvas connected to ANY bridge (this one OR a sibling on a duplicated track)
+// writes connected:1 to STATE_FILE every ~1.2s. If one is alive, a relay-only
+// bridge (appSocket null) must NOT auto-launch a SECOND instance on a feature/
+// Motion press — that launch hits the single-instance lock and POPS the hidden
+// canvas over Ableton. The press still reaches the canvas via the relay file, so
+// gating the launch loses nothing. (4s window tolerates a crashed canvas whose
+// connected:0 never got written — its STATE_FILE ts goes stale.)
+function _aCanvasIsConnectedAnywhere() {
+    try {
+        const s = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+        return !!(s && s.connected === 1 && s.ts && (Date.now() - s.ts < 4000));
+    } catch (e) { return false; }
+}
+
 // ─── StrideQuick — quick-control panel ────────────────────
 // The StrideLink device's folding "Quick" panel sends `quick <action> [arg]`
 // here. We forward it to the canvas app, which runs the matching shortcut
@@ -937,7 +1030,10 @@ Max.addHandler('quick', (action, arg) => {
     // press is not a silent no-op. launchCanvasApp() no-ops if Stride is already
     // running; the press waits in the relay file and runs once the canvas
     // connects and scans (the connection handler forwards a fresh press).
-    if (!appSocket || appSocket.readyState !== 1) {
+    // BUT skip it if a canvas is already connected to ANOTHER bridge (duplicated
+    // track) — launching a second instance there pops the hidden canvas; the
+    // press relays to the canvas-holding bridge instead.
+    if ((!appSocket || appSocket.readyState !== 1) && !_aCanvasIsConnectedAnywhere()) {
         launchCanvasApp(true);
     }
 });
@@ -977,10 +1073,13 @@ function _pollQuickStateRelay() {
         _lastStateNonce = s.ts;
         Max.outlet('quick_state', s.on_chain || 0, s.on_canvas || 0, s.bars || 4, s.connected ? 1 : 0);
         Max.outlet('quick_locked', s.locked || 0);   // separate outlet so the Lock readout wires in without touching the existing unpack
+        Max.outlet('quick_rescan', (typeof s.rescan === 'number' ? s.rescan : 1));   // separate outlet → drives the device ↻ Auto-Rescan button color (canvas-owned, reflected via quick_state)
         if (s.status) Max.outlet('quick_status', String(s.status));
     }
 }
 setInterval(_pollQuickStateRelay, 100);
+
+// (bridge-owned Auto-Rescan setting removed — reverted; the canvas's Motion buttons always rescan-then-apply.)
 
 // ─── Error Safety Net ────────────────────────────────────
 // Prevent uncaught exceptions from crashing Node for Max
@@ -1003,6 +1102,10 @@ function shutdown() {
     try {
         if (appSocket) { try { appSocket.close(); } catch {} }
         if (wss) { try { wss.close(); } catch {} }
+        // Stop advertising as the port-holder and clear our heartbeat so a sibling
+        // bridge takes over the port immediately instead of waiting for it to go stale.
+        if (_bridgeHeartbeatTimer) { try { clearInterval(_bridgeHeartbeatTimer); } catch {} _bridgeHeartbeatTimer = null; }
+        if (!_relayOnly) { try { fs.unlinkSync(BRIDGE_ALIVE_FILE); } catch {} }
     } catch {}
 }
 process.on('exit', shutdown);

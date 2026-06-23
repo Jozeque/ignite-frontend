@@ -20,6 +20,15 @@ var originalParamValues = {};
 // Global counter for unique parameter IDs across all devices in a scan
 var _paramIdCounter = 0;
 
+// ─── DETAIL-CLIP SOURCE OF TRUTH ──────────────────────────
+// The clip open in Live's detail view is the single source of truth for bars,
+// reading existing automation, and inject. We remember the last clip that WAS
+// in detail view, so a momentarily-empty detail view (the user clicked away)
+// still resolves to the clip they're working on.
+var _lastDetailClipId = null;   // id of the most recent valid detail_clip
+var _clipObs = null;            // LiveAPI observer on `live_set view` detail_clip
+var _lastFocusEmitId = null;    // de-dupe repeated detail_clip fires
+
 // ─── READ JSON FROM FILE ─────────────────────────────────
 // Max truncates long strings, so Node writes JSON to a temp file
 // and we read it here using Max JS's File object
@@ -317,6 +326,9 @@ function scan_mapped() {
         outlet(0, "rack_params", JSON.stringify(result));
         outlet(1, "status", "Found " + allParams.length + " mapped params");
 
+        // Install the detail-clip observer once LiveAPI is warm (first scan).
+        _setupClipObserver();
+
     } catch (e) {
         outlet(1, "status", "Scan mapped error: " + e.message);
         post("Stride scan_mapped error: " + e.message + "\n");
@@ -330,31 +342,106 @@ function get_clip_info() {
     outlet(0, "clip_info", JSON.stringify(info));
 }
 
-function _getClipInfo() {
-    try {
-        // Find the first clip slot with a clip, or use slot 0
-        var track = new LiveAPI("live_set view selected_track");
-        var clipSlots = track.get("clip_slots");
-        var slotCount = clipSlots.length / 2;
+function _validClip(api) {
+    return api && api.id && api.id != 0;
+}
 
-        for (var i = 0; i < Math.min(slotCount, 8); i++) {
-            try {
-                var slot = new LiveAPI("live_set view selected_track clip_slots " + i);
-                var hasClip = parseInt(slot.get("has_clip"));
-                if (hasClip) {
-                    var clip = new LiveAPI("live_set view selected_track clip_slots " + i + " clip");
-                    var clipLength = parseFloat(clip.get("length"));
-                    return {
-                        clip_bars: Math.max(1, Math.round(clipLength / 4)),
-                        has_clip: true,
-                        clip_slot: i
-                    };
-                }
-            } catch (se) {}
+// "live_set tracks N clip_slots M clip" -> { track: N, slot: M }; -1 if unknown
+function _clipSlotFromPath(p) {
+    var m = String(p).match(/tracks (\d+) clip_slots (\d+)/);
+    if (m) return { track: parseInt(m[1]), slot: parseInt(m[2]) };
+    return { track: -1, slot: -1 };
+}
+
+// Resolve the target clip — the single source of truth used by scan/read/inject.
+//   1) detail_clip (the clip open in Live's editor)
+//   2) the LAST clip that was in detail view (cached) — survives clicking away
+//   3) the selected track's first non-empty clip slot
+// Returns { clip, track, slot, source } or null.
+function _resolveTargetClip() {
+    try {
+        var dc = new LiveAPI("live_set view detail_clip");
+        if (_validClip(dc)) {
+            _lastDetailClipId = dc.id;
+            var loc = _clipSlotFromPath(dc.unquotedpath);
+            return { clip: dc, track: loc.track, slot: loc.slot, source: "detail_clip" };
         }
     } catch (e) {}
 
-    return { clip_bars: 4, has_clip: false, clip_slot: 0 };
+    if (_lastDetailClipId) {
+        try {
+            var lc = new LiveAPI("id " + _lastDetailClipId);
+            if (_validClip(lc)) {
+                var loc2 = _clipSlotFromPath(lc.unquotedpath);
+                return { clip: lc, track: loc2.track, slot: loc2.slot, source: "last_detail" };
+            }
+        } catch (e2) {}
+        _lastDetailClipId = null;   // cached clip is gone
+    }
+
+    try {
+        var trk = new LiveAPI("live_set view selected_track");
+        var slots = trk.get("clip_slots"); var sc = slots.length / 2;
+        for (var s = 0; s < Math.min(sc, 16); s++) {
+            var slot = new LiveAPI("live_set view selected_track clip_slots " + s);
+            if (parseInt(slot.get("has_clip"))) {
+                var clip = new LiveAPI("live_set view selected_track clip_slots " + s + " clip");
+                if (_validClip(clip)) {
+                    var loc3 = _clipSlotFromPath(clip.unquotedpath);
+                    return { clip: clip, track: loc3.track, slot: (loc3.slot >= 0 ? loc3.slot : s), source: "first_slot" };
+                }
+            }
+        }
+    } catch (e3) {}
+    return null;
+}
+
+function _getClipInfo() {
+    try {
+        var r = _resolveTargetClip();
+        if (r && r.clip) {
+            var clipLength = parseFloat(r.clip.get("length"));
+            return {
+                clip_bars: Math.max(1, Math.round(clipLength / 4)),
+                has_clip: true,
+                clip_slot: (r.slot >= 0 ? r.slot : 0),
+                clip_source: r.source
+            };
+        }
+    } catch (e) {}
+
+    return { clip_bars: 4, has_clip: false, clip_slot: 0, clip_source: "none" };
+}
+
+// ─── DETAIL-CLIP OBSERVER ─────────────────────────────────
+// Watches the clip in Live's detail view so Stride re-syncs the moment you
+// open a different clip — even on the same track (no window refocus needed).
+// Lightweight: it only reports the clip's identity + bars; the canvas drives
+// the (debounced) param scan. Installed lazily on the first scan, once.
+function _onDetailClipChange(args) {
+    try {
+        var r = _resolveTargetClip();
+        var id = (r && r.clip) ? String(r.clip.id) : "0";
+        if (id === _lastFocusEmitId) return;     // de-dupe repeated fires
+        _lastFocusEmitId = id;
+        var info = { has_clip: false, clip_slot: 0, clip_bars: 4, clip_id: id, source: (r ? r.source : "none") };
+        if (r && r.clip) {
+            info.has_clip = true;
+            info.clip_slot = (r.slot >= 0 ? r.slot : 0);
+            var len = parseFloat(r.clip.get("length"));
+            info.clip_bars = Math.max(1, Math.round(len / 4));
+        }
+        outlet(0, "clip_focus", JSON.stringify(info));
+    } catch (e) { post("Stride clip_focus error: " + e.message + "\n"); }
+}
+
+function _setupClipObserver() {
+    if (_clipObs) return;
+    try {
+        _clipObs = new LiveAPI(_onDetailClipChange, "live_set view");
+        _clipObs.property = "detail_clip";
+        post("Stride: detail_clip observer installed\n");
+    } catch (e) { post("Stride: clip observer setup failed: " + e.message + "\n"); }
 }
 
 // ─── TRACK INFO ───────────────────────────────────────────
@@ -1279,25 +1366,12 @@ function read_clip_curves(mode) {
     function note(s) { out.notes.push(s); post("Stride ReadCurves: " + s + "\n"); }
 
     try {
-        // Target clip: detail_clip (open in the editor) → selected track's first clip
-        var clip = null;
-        try {
-            var dc = new LiveAPI("live_set view detail_clip");
-            if (dc && dc.id && dc.id != 0) { clip = dc; out.clip_source = "detail_clip"; }
-        } catch (de) {}
-        if (!clip) {
-            try {
-                var trk0 = new LiveAPI("live_set view selected_track");
-                var slots = trk0.get("clip_slots"); var sc = slots.length / 2;
-                for (var s = 0; s < Math.min(sc, 16); s++) {
-                    var slot = new LiveAPI("live_set view selected_track clip_slots " + s);
-                    if (parseInt(slot.get("has_clip"))) {
-                        clip = new LiveAPI("live_set view selected_track clip_slots " + s + " clip");
-                        out.clip_source = "clip_slots " + s; break;
-                    }
-                }
-            } catch (fe) {}
-        }
+        // Target clip via the shared resolver: detail_clip → last clip that was
+        // in detail view → selected track's first slot. Same source of truth as
+        // scan/bars and inject, so all three always agree.
+        var _r = _resolveTargetClip();
+        var clip = _r ? _r.clip : null;
+        if (_r) out.clip_source = _r.source;
         if (!clip || !clip.id || clip.id == 0) {
             out.ok = false; note("no clip (open a clip in the detail view)");
             outlet(0, "clip_curves", JSON.stringify(out)); return;

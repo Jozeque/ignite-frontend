@@ -156,6 +156,12 @@ ok('canvas: quick_state sends locked count', /locked:\s*sdCanvasParams\.filter/.
 // the merge fix: carry AND restore the lock flag
 ok('canvas: merge carries locked', canvasSrc.indexOf('locked: !!p.locked }') !== -1 || /locked:\s*!!p\.locked\s*\}/.test(canvasSrc));
 ok('canvas: merge restores locked', canvasSrc.indexOf('if (c.locked) p.locked = true;') !== -1);
+// param-identity fix: carry/save/restore key on the STABLE LOM _path, NOT the
+// scanner's positional envelopeId (which renumbers when params are added, landing
+// locks/curves on the wrong params — the "Chaos hit my locked lanes" bug).
+ok('canvas: merge carries by stable _path (not positional envelopeId)', /carried\[p\._path\]/.test(canvasSrc) && canvasSrc.indexOf('carried[p.envelopeId]') === -1);
+ok('canvas: saveCanvasState stores _path', /_path: p\._path \|\| null/.test(canvasSrc));
+ok('canvas: restoreCanvasState matches by _path', /find\(p => p\._path && p\._path === sp\._path\)/.test(canvasSrc));
 // copy rule: no em dash in the lock/unlock status strings
 ok('canvas: lock status has no em dash', canvasSrc.indexOf('Generators now touch only new params') !== -1);
 ok('canvas: unlock status has no em dash', canvasSrc.indexOf('Generators now modulate every lane') !== -1);

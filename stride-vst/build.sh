@@ -57,6 +57,13 @@ done
 
 # Copy M4L device + node scripts (flat alongside .amxd so Max finds them)
 cp "$M4L_DIR/StrideLink.amxd" "$DIST/Stride/M4L/"
+# Optional Push-mappable variant: StrideQuick buttons are live.text (not
+# textbutton) so Ableton Push can map them. OFF by default — ship it only when
+# a user wants Push, with:  SHIP_PUSH=1 bash build.sh
+if [ "${SHIP_PUSH:-0}" = "1" ] && [ -f "$M4L_DIR/StrideLink_push.amxd" ]; then
+    cp "$M4L_DIR/StrideLink_push.amxd" "$DIST/Stride/M4L/"
+    echo "      + StrideLink_push.amxd (Push-mappable variant) included"
+fi
 cp "$M4L_DIR/node/"*.js "$DIST/Stride/M4L/"
 cp "$M4L_DIR/node/"*.py "$DIST/Stride/M4L/"
 cp -r "$M4L_DIR/node/node_modules" "$DIST/Stride/M4L/node_modules"

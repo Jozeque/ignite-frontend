@@ -84,16 +84,24 @@ function createWindow() {
 
 // ─── IPC Handlers ─────────────────────────────────────────
 
+// Reveal the window whenever the user explicitly asks for it — via WebSocket
+// (Open Canvas / focus_window) OR a second launch hitting the single-instance
+// lock. CRUCIAL: this calls show(). A feature/Motion press boots the canvas
+// HIDDEN (STRIDE_START_HIDDEN=1, show:false), so focus() alone would leave it
+// invisible — it must be shown, not just focused.
+function revealMainWindow() {
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    // Windows requires alwaysOnTop toggle to steal focus from other apps
+    mainWindow.setAlwaysOnTop(true);
+    mainWindow.focus();
+    mainWindow.setAlwaysOnTop(false);
+}
+
 // Focus window (called from M4L via WebSocket)
 ipcMain.on('focus-window', () => {
-    if (mainWindow) {
-        if (mainWindow.isMinimized()) mainWindow.restore();
-        mainWindow.show();
-        // Windows requires alwaysOnTop toggle to steal focus from other apps
-        mainWindow.setAlwaysOnTop(true);
-        mainWindow.focus();
-        mainWindow.setAlwaysOnTop(false);
-    }
+    revealMainWindow();
 });
 
 // Save canvas state locally
@@ -1299,10 +1307,11 @@ if (!gotTheLock) {
     app.quit();
 } else {
     app.on('second-instance', () => {
-        if (mainWindow) {
-            if (mainWindow.isMinimized()) mainWindow.restore();
-            mainWindow.focus();
-        }
+        // A second launch (e.g. Open Canvas while an instance is already running,
+        // possibly HIDDEN from a feature press) must REVEAL the window — focus()
+        // alone leaves a hidden window invisible, which reads as "Open Canvas does
+        // nothing".
+        revealMainWindow();
     });
 
     app.whenReady().then(() => {
@@ -1318,6 +1327,8 @@ if (!gotTheLock) {
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
             createWindow();
+        } else {
+            revealMainWindow();   // a hidden (not closed) window should come back on activate too
         }
     });
 }

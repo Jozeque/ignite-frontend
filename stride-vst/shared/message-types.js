@@ -49,6 +49,12 @@ const M4L_READY = 'm4l_ready';
 const TRACK_CHANGED = 'track_changed';
 // { type, track_name, has_device }
 
+/** Sent when the clip in Live's detail view changes (the source-of-truth clip).
+ *  Pushed by the detail_clip observer so the canvas re-syncs to the open clip
+ *  — bars + per-clip curves — even when the track selection didn't change. */
+const CLIP_FOCUS_CHANGED = 'clip_focus_changed';
+// { type, clip_slot, clip_bars, has_clip, clip_id, source }
+
 // ─── App → M4L ────────────────────────────────────────────
 
 /** Request M4L to scan the current rack */
@@ -95,12 +101,14 @@ const QUICK_COMMAND = 'quick_command';
 // { type, action, arg }
 //   action: 'rescan'|'chaos'|'neuro'|'reflector'|'sh'|'prism'|'mutate'
 //           |'shuffle'|'double'|'half'|'bars'|'inject'
-//   arg: bar count for 'bars' (4|8|16|32), else null
+//           |'rescan_set'|'rescan_toggle'   (device ↻ Auto-Rescan toggle; canvas-owned)
+//   arg: bar count for 'bars' (4|8|16|32); 0|1 for 'rescan_set'; else null
 
 /** App → M4L: current canvas readout for the panel (param counts, loop
  *  length, connection). Pushed after every quick action and on each scan. */
 const QUICK_STATE = 'quick_state';
-// { type, on_chain, on_canvas, bars, connected }
+// { type, on_chain, on_canvas, bars, connected, locked, rescan, status }
+//   rescan: 1 = Motion buttons rescan-then-apply (green), 0 = apply on loaded params (grey)
 
 // ─── Export ────────────────────────────────────────────────
 
@@ -108,7 +116,7 @@ if (typeof module !== 'undefined') {
     module.exports = {
         RACK_SCANNED, CLIP_CHANGED, APPLY_SUCCESS, APPLY_ERROR,
         INJECT_SUCCESS, INJECT_ERROR,
-        M4L_READY, TRACK_CHANGED,
+        M4L_READY, TRACK_CHANGED, CLIP_FOCUS_CHANGED,
         REQUEST_SCAN, APPLY_AUTOMATION, APPLY_INJECT, APPLY_MIDI,
         PREVIEW_PARAM, STOP_PREVIEW, REQUEST_CREATE_CLIP, APP_READY,
         QUICK_COMMAND, QUICK_STATE
