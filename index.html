@@ -376,52 +376,27 @@
     </div>
   </section>
 
-  <!-- ───────────────── HOW IT WORKS ───────────────── -->
+  <!-- ───────────────── HOW IT WORKS (interactive device explorer) ───────────────── -->
   <section class="mb-28">
-    <div class="text-center mb-14">
-      <h2 class="text-4xl md:text-6xl mb-3">How It Works</h2>
-      <p class="silk">Three steps. Zero friction.</p>
-    </div>
-
-    <!-- Walkthrough — branded click-to-load YouTube facade. The real thumbnail
-         is blurred/dimmed into a copper-tinted backdrop so the bigger play
-         button reads as the focal point (raw thumbnail clashed with the warm
-         button); zero YouTube weight until click, then loadHowItWorksVideo()
-         swaps in the player and plays inline in-section. Start at 0:00. -->
-    <div class="panel screws rounded-3xl p-3 pt-7 mb-12"><span class="s s1"></span><span class="s s2"></span>
-      <div id="how-video" class="rounded-2xl overflow-hidden relative" style="background:#100f0c;border:1px solid var(--line);aspect-ratio:16/9">
-        <button type="button" onclick="loadHowItWorksVideo(this)" aria-label="Play the Stride walkthrough — How to Modulate properly in Ableton" class="group absolute inset-0 w-full h-full block cursor-pointer p-0 border-0 bg-transparent">
-          <img src="https://i.ytimg.com/vi/5SvNHxFtiik/maxresdefault.jpg" onerror="this.onerror=null;this.src='https://i.ytimg.com/vi/5SvNHxFtiik/hqdefault.jpg'" alt="How to Modulate properly in Ableton — Stride walkthrough" loading="lazy" class="absolute inset-0 w-full h-full object-cover" style="filter:blur(11px) saturate(.7) brightness(.5);transform:scale(1.12)">
-          <span class="absolute inset-0" style="background:radial-gradient(circle at 50% 30%, rgba(198,113,43,.14), rgba(16,15,12,.55) 65%)"></span>
-          <span class="absolute inset-0 flex flex-col items-center justify-center gap-3">
-            <span class="w-[108px] h-[108px] rounded-full flex items-center justify-center transition-transform group-hover:scale-110" style="background:linear-gradient(180deg,var(--ember),var(--copper));box-shadow:0 18px 40px -14px rgba(198,113,43,.85),0 1px 0 rgba(255,255,255,.28) inset">
-              <svg class="w-[43px] h-[43px]" style="margin-left:5px" viewBox="0 0 24 24" fill="#1c1206"><path d="M8 5v14l11-7z"/></svg>
-            </span>
-            <span class="silk" style="color:var(--copper-lt)">Watch the full walkthrough</span>
-            <span class="mono text-[10px] ink3">How to Modulate properly in Ableton · YouTube</span>
-          </span>
-        </button>
-      </div>
-    </div>
-
-    <div class="grid md:grid-cols-3 gap-6">
-      <div class="panel rounded-2xl p-7 text-center">
-        <div class="mono text-3xl mb-4" style="color:var(--copper-lt)">01</div>
-        <h4 class="text-xl mb-3">Drop Stride on your track</h4>
-        <p class="text-base leading-relaxed ink2">Add the Max for Live device to any track with an instrument rack. Stride scans your rack and loads every parameter.</p>
-      </div>
-      <div class="panel rounded-2xl p-7 text-center">
-        <div class="mono text-3xl mb-4" style="color:var(--teal-lt)">02</div>
-        <h4 class="text-xl mb-3">Shape your sound</h4>
-        <p class="text-base leading-relaxed ink2">Hit Chaos to fill every lane at once. Pick your favorite curve, then Bloom to make the rest complement it. Fine-tune with Smooth, Quantize, Swing.</p>
-      </div>
-      <div class="panel rounded-2xl p-7 text-center">
-        <div class="mono text-3xl mb-4" style="color:var(--violet-lt)">03</div>
-        <h4 class="text-xl mb-3">Apply to clip</h4>
-        <p class="text-base leading-relaxed ink2">One click writes all automation directly into an Ableton clip. Drag it onto your track. Hit play. The automation stays - Stride's job is done.</p>
-      </div>
-    </div>
+    <!-- The 1:1 StrideLink device. Click any button to see exactly what it does.
+         Embeds docs/how-it-works-device.html (single source of truth); the iframe
+         auto-sizes to its content via postMessage (see the script just below). -->
+    <iframe id="hiw-frame" src="docs/how-it-works-device.html"
+            title="How Stride works — click any button on the device to see what it does"
+            loading="lazy" scrolling="no"
+            style="width:100%;border:0;display:block;height:1180px;overflow:hidden"></iframe>
   </section>
+  <script>
+    // Size the How-It-Works iframe to its content height (responsive, no inner scroll).
+    (function () {
+      window.addEventListener('message', function (e) {
+        if (e && e.data && e.data.type === 'hiw-height') {
+          var f = document.getElementById('hiw-frame');
+          if (f && e.data.h) f.style.height = e.data.h + 'px';
+        }
+      });
+    })();
+  </script>
 
   <!-- ───────────────── WORKS WITH ───────────────── -->
   <section class="mb-28 text-center">
