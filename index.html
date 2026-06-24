@@ -341,6 +341,28 @@
     </div>
   </section>
 
+  <!-- ───────────────── HOW IT WORKS (interactive device explorer) ───────────────── -->
+  <section class="mb-28">
+    <!-- The 1:1 StrideLink device. Click any button to see exactly what it does.
+         Embeds docs/how-it-works-device.html (single source of truth); the iframe
+         auto-sizes to its content via postMessage (see the script just below). -->
+    <iframe id="hiw-frame" src="docs/how-it-works-device.html"
+            title="How Stride works — click any button on the device to see what it does"
+            loading="lazy" scrolling="no"
+            style="width:100%;border:0;display:block;height:1180px;overflow:hidden"></iframe>
+  </section>
+  <script>
+    // Size the How-It-Works iframe to its content height (responsive, no inner scroll).
+    (function () {
+      window.addEventListener('message', function (e) {
+        if (e && e.data && e.data.type === 'hiw-height') {
+          var f = document.getElementById('hiw-frame');
+          if (f && e.data.h) f.style.height = e.data.h + 'px';
+        }
+      });
+    })();
+  </script>
+
   <!-- ───────────────── PRISM / VARIATIONS ───────────────── -->
   <section class="mb-28">
     <div class="text-center mb-10">
@@ -375,28 +397,6 @@
       </div>
     </div>
   </section>
-
-  <!-- ───────────────── HOW IT WORKS (interactive device explorer) ───────────────── -->
-  <section class="mb-28">
-    <!-- The 1:1 StrideLink device. Click any button to see exactly what it does.
-         Embeds docs/how-it-works-device.html (single source of truth); the iframe
-         auto-sizes to its content via postMessage (see the script just below). -->
-    <iframe id="hiw-frame" src="docs/how-it-works-device.html"
-            title="How Stride works — click any button on the device to see what it does"
-            loading="lazy" scrolling="no"
-            style="width:100%;border:0;display:block;height:1180px;overflow:hidden"></iframe>
-  </section>
-  <script>
-    // Size the How-It-Works iframe to its content height (responsive, no inner scroll).
-    (function () {
-      window.addEventListener('message', function (e) {
-        if (e && e.data && e.data.type === 'hiw-height') {
-          var f = document.getElementById('hiw-frame');
-          if (f && e.data.h) f.style.height = e.data.h + 'px';
-        }
-      });
-    })();
-  </script>
 
   <!-- ───────────────── WORKS WITH ───────────────── -->
   <section class="mb-28 text-center">
