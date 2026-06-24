@@ -226,23 +226,21 @@ class StrideInject(ControlSurface):
         self.log_message("StrideInject: target clip = %s (arrangement=%s)" % (
             getattr(clip, "name", "?"), is_arr))
         if is_arr:
-            # Ableton exposes no API to write automation into Arrangement clips
-            # (automation_envelope returns None for them — verified). Direct
-            # inject is Session-only; arrangement goes through the .alc path.
-            return None, ("Direct inject is Session-only (Ableton has no API to "
-                          "write Arrangement automation). Inject into a Session "
-                          "clip, then drag that clip into the Arrangement — the "
-                          "curves travel with it.")
-        if not is_arr:
-            try:
-                if abs(float(clip.length) - target_length) > 0.1:
-                    clip.loop_end = _d(target_length)
-            except Exception as e:
-                self.log_message("StrideInject: could not resize clip: " + str(e))
-            try:
-                clip.looping = True
-            except Exception:
-                pass
+            # Arrangement clips can't take direct envelope writes and must not be
+            # resized via loop_end. Hand the clip back untouched; _write_inject
+            # detects it and routes to the rebuild-and-place arrangement path.
+            # See docs/arrangement-inject-spec.md.
+            return clip, None
+        # Session clips: size to the requested bar count and loop (unchanged).
+        try:
+            if abs(float(clip.length) - target_length) > 0.1:
+                clip.loop_end = _d(target_length)
+        except Exception as e:
+            self.log_message("StrideInject: could not resize clip: " + str(e))
+        try:
+            clip.looping = True
+        except Exception:
+            pass
         return clip, None
 
     def _resolve_param(self, lom_path):
@@ -595,6 +593,17 @@ class StrideInject(ControlSurface):
             self._fail(err or "No target clip")
             return
 
+        # Arrangement clips can't take direct envelope writes — rebuild the clip
+        # in a Session slot and place it onto the timeline. Session path below is
+        # untouched. See docs/arrangement-inject-spec.md.
+        try:
+            _is_arr = bool(getattr(clip, "is_arrangement_clip", False))
+        except Exception:
+            _is_arr = False
+        if _is_arr:
+            self._write_inject_arrangement(data, clip, clip_bars)
+            return
+
         queue = []           # (env, time, dur, native_value) for chunked step writes
         params_written = 0
         points_written = 0
@@ -731,6 +740,282 @@ class StrideInject(ControlSurface):
             self._write_queue = []
             self._write_idx = 0
             self._pending = None
+
+    # ─── Arrangement inject: rebuild-in-Session + place-on-timeline ────────
+    #
+    # Direct envelope writes are impossible on Arrangement clips (the LOM's
+    # automation_envelope / create_automation_envelope return None there, and
+    # even has_envelopes reads False). So we rebuild the clip in a Session slot
+    # (where envelope writes work), then duplicate it onto the timeline at the
+    # original clip's start (overwriting + extending as needed) and delete the
+    # original. duplicate_clip_to_arrangement carries the clip envelopes across.
+    # Full design + proof: docs/arrangement-inject-spec.md.
+
+    def _resolve_clip_track(self, clip):
+        """The clip's own track. Arrangement: clip -> track. Session: clip ->
+        clip_slot -> track. Walk canonical_parent until it quacks like a Track;
+        fall back to the selected track."""
+        def _is_track(o):
+            return o is not None and hasattr(o, "devices") and hasattr(o, "clip_slots")
+        try:
+            cur = clip
+            for _ in range(6):
+                if cur is None:
+                    break
+                if _is_track(cur):
+                    return cur
+                cur = getattr(cur, "canonical_parent", None)
+        except Exception:
+            pass
+        try:
+            return self.song().view.selected_track
+        except Exception:
+            return None
+
+    def _read_clip_notes(self, clip, length):
+        """Read a clip's notes as [{pitch,time,duration,velocity}]. Works on
+        Arrangement clips (the note API is not blind like the envelope API).
+        Prefers get_notes_extended (Live 11+), falls back to get_notes."""
+        out = []
+        try:
+            vec = clip.get_notes_extended(0, 128, _d(0.0), _d(length))
+            for n in vec:
+                out.append({"pitch": int(n.pitch), "time": float(n.start_time),
+                            "duration": float(n.duration), "velocity": int(n.velocity)})
+            return out
+        except Exception:
+            pass
+        try:
+            for row in clip.get_notes(_d(0.0), 0, _d(length), 128):
+                out.append({"pitch": int(row[0]), "time": float(row[1]),
+                            "duration": float(row[2]), "velocity": int(row[3])})
+        except Exception as e:
+            self.log_message("StrideInject: arr read notes failed: " + str(e))
+        return out
+
+    def _write_notes_to_fresh_clip(self, clip, notes):
+        """Add notes to a freshly-created (empty) clip using the MODERN
+        add_new_notes API only — avoids the deprecated replace_selected_notes /
+        set_notes path (the likely source of the Live confirmation popup). Falls
+        back to the shared _write_notes only if add_new_notes is unavailable."""
+        valid = []
+        for n in notes:
+            try:
+                pitch = int(n.get("pitch"))
+                start = float(n.get("time", 0))
+                dur = float(n.get("duration", 0.25))
+                vel = int(n.get("velocity", 100))
+            except Exception:
+                continue
+            if pitch < 0 or pitch > 127 or start < 0 or dur <= 0:
+                continue
+            vel = 1 if vel < 1 else (127 if vel > 127 else vel)
+            valid.append((pitch, start, dur, vel))
+        if not valid:
+            return 0
+        try:
+            from Live.Clip import MidiNoteSpecification as _MNS
+            specs = tuple(_MNS(pitch=p, start_time=_d(s), duration=_d(d),
+                               velocity=v, mute=False) for (p, s, d, v) in valid)
+            clip.add_new_notes(specs)
+            return len(valid)
+        except Exception as e:
+            self.log_message("StrideInject: add_new_notes (fresh) unavailable, falling back: " + str(e))
+            return self._write_notes(clip, notes)
+
+    def _find_empty_slot(self, track):
+        """First empty Session slot on the track, or None."""
+        try:
+            for cs in track.clip_slots:
+                try:
+                    if not cs.has_clip:
+                        return cs
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        return None
+
+    def _apply_curves_sync(self, clip, params, target_length):
+        """Write each param's curve into `clip`'s envelope SYNCHRONOUSLY (no
+        chunk streaming) — the writes must be complete before the clip is
+        duplicated to the timeline. Returns (params_written, points_written).
+        Reuses the same param resolution + bezier/step math as the Session
+        path; only the (synchronous) emit differs."""
+        use_bezier = (self._EnvelopeEvent is not None)
+        params_written = 0
+        points_written = 0
+        for pd in params:
+            points = pd.get("points", [])
+            if not points:
+                continue
+            param = self._resolve_param(pd.get("_path"))
+            if param is None:
+                self.log_message("StrideInject: arr could not resolve '%s'" % pd.get("name"))
+                continue
+            try:
+                pmin = _d(pd["min"]) if "min" in pd else _d(param.min)
+                pmax = _d(pd["max"]) if "max" in pd else _d(param.max)
+            except Exception:
+                pmin = _d(param.min)
+                pmax = _d(param.max)
+            use_log = should_use_log(pd.get("name"), pmin, pmax, pd.get("is_log"))
+            env = self._get_or_create_envelope(clip, param)
+            if env is None:
+                self.log_message("StrideInject: arr no envelope for '%s'" % pd.get("name"))
+                continue
+            if use_bezier and self._create_event_works is None:
+                self._create_event_works = hasattr(env, 'create_event')
+            this_bezier = use_bezier and bool(self._create_event_works)
+            try:
+                env.delete_events_in_range(_d(0.0), _d(target_length))
+            except Exception:
+                pass
+            try:
+                if this_bezier:
+                    n = self._write_bezier(env, points, target_length, pmin, pmax, use_log)
+                    if n > 0:
+                        params_written += 1
+                        points_written += n
+                else:
+                    tuples = self._adaptive_step_tuples(points, target_length, pmin, pmax, use_log)
+                    for (t, dur, val) in tuples:
+                        try:
+                            env.insert_step(t, dur, val)
+                        except Exception as e:
+                            self.log_message("StrideInject: arr insert_step failed: " + str(e))
+                    if tuples:
+                        params_written += 1
+                        points_written += len(tuples)
+            except Exception as e:
+                self.log_message("StrideInject: arr curve write failed for '%s': %s" % (pd.get("name"), str(e)))
+        return params_written, points_written
+
+    def _write_inject_arrangement(self, data, original_clip, clip_bars):
+        """Replace-in-place for an Arrangement clip. The result clip's length is
+        the REQUESTED bar count (clip_bars), placed at the original's start,
+        carrying the original's notes (or the armed pattern's) + the curves."""
+        if self._busy:
+            self._fail("Busy writing a previous inject — try again in a moment")
+            return
+        L_new = float(clip_bars * 4)
+
+        # 1) Capture the original BEFORE any mutation.
+        try:
+            T = float(original_clip.start_time)
+        except Exception:
+            self._fail("Arrangement inject: could not read the clip's start time")
+            return
+        try:
+            orig_len = float(original_clip.length)
+        except Exception:
+            orig_len = L_new
+        cap = {}
+        for attr in ("name", "color", "looping"):
+            try:
+                cap[attr] = getattr(original_clip, attr)
+            except Exception:
+                pass
+
+        # 2) The clip's own track.
+        track = self._resolve_clip_track(original_clip)
+        if track is None:
+            self._fail("Arrangement inject: could not resolve the clip's track")
+            return
+
+        # 3) Notes: armed-pattern payload notes if present, else the clip's own.
+        #    Drop notes that start past the new (requested) length.
+        notes = data.get("notes") or []
+        if not notes:
+            notes = self._read_clip_notes(original_clip, orig_len)
+        notes = [n for n in notes if float(n.get("time", 0)) < L_new - 1e-6]
+
+        # 4) Need a free Session slot to build the temp clip in.
+        slot = self._find_empty_slot(track)
+        if slot is None:
+            self._fail("Arrangement inject needs a free Session slot on this track — free one and retry")
+            return
+
+        # 5) Group everything into one undo step where supported.
+        song = self.song()
+        undo = hasattr(song, "begin_undo_step") and hasattr(song, "end_undo_step")
+        if undo:
+            try:
+                song.begin_undo_step()
+            except Exception:
+                undo = False
+
+        params_written = 0
+        points_written = 0
+        notes_written = 0
+        try:
+            # 6) Build the temp Session clip at the REQUESTED length.
+            slot.create_clip(_d(L_new))
+            temp = slot.clip
+            try:
+                temp.looping = True
+            except Exception:
+                pass
+            for attr in ("name", "color"):
+                if attr in cap:
+                    try:
+                        setattr(temp, attr, cap[attr])
+                    except Exception:
+                        pass
+            # 7) Notes (modern API) + 8) curves (synchronous, before the copy).
+            if notes:
+                notes_written = self._write_notes_to_fresh_clip(temp, notes)
+            params_written, points_written = self._apply_curves_sync(temp, data.get("params", []), L_new)
+
+            if params_written == 0 and notes_written == 0:
+                try:
+                    slot.delete_clip()
+                except Exception:
+                    pass
+                if undo:
+                    try:
+                        song.end_undo_step()
+                    except Exception:
+                        pass
+                self._fail("Nothing to inject — no curves or notes (check Ableton log)")
+                return
+
+            # 9) Delete the original, 10) place the temp at the original's start
+            #    (overwrites + extends that span), 11) clean up the temp.
+            try:
+                track.delete_clip(original_clip)
+            except Exception as e:
+                self.log_message("StrideInject: arr delete original failed (place overwrites the span): " + str(e))
+            track.duplicate_clip_to_arrangement(temp, _d(T))
+            try:
+                slot.delete_clip()
+            except Exception as e:
+                self.log_message("StrideInject: arr temp cleanup failed: " + str(e))
+        except Exception as e:
+            self.log_message("StrideInject: arrangement inject error: " + str(e))
+            self.log_message(traceback.format_exc())
+            try:
+                slot.delete_clip()
+            except Exception:
+                pass
+            if undo:
+                try:
+                    song.end_undo_step()
+                except Exception:
+                    pass
+            self._fail("Arrangement inject failed: " + str(e))
+            return
+
+        if undo:
+            try:
+                song.end_undo_step()
+            except Exception:
+                pass
+
+        self._mode = "arrangement"
+        self.log_message("StrideInject: arrangement inject OK — %d bars, %d params, %d notes at beat %.2f" % (
+            clip_bars, params_written, notes_written, T))
+        self._ok(params_written, points_written, notes_written)
 
     def disconnect(self):
         self.log_message("StrideInject: disconnected")
