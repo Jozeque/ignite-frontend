@@ -41,8 +41,10 @@ ok('canvas: sdDismissStrideInjectSetup chains to the welcome overlay on first ru
    /function sdDismissStrideInjectSetup\(\)[\s\S]{0,400}sd-welcome-overlay/.test(canvas));
 ok('canvas: sdOpenGuideFromInstall opens the guide modal',
    /function sdOpenGuideFromInstall\(\)[\s\S]{0,400}guide-modal/.test(canvas));
-ok('canvas: install success shows the popup (sdShowStrideInjectSetup)',
-   /strideInjectInstalled[\s\S]{0,500}sdShowStrideInjectSetup\(\)/.test(canvas));
+ok('canvas: install success opens the Setup Guide immediately (sdOpenGuideFromInstall)',
+   /res\.strideInjectInstalled[\s\S]{0,800}sdOpenGuideFromInstall\(\)/.test(canvas));
+ok('canvas: sdOpenGuideFromInstall hides the install overlay + opens the guide',
+   /function sdOpenGuideFromInstall\(\)[\s\S]{0,500}sd-install-m4l-overlay[\s\S]{0,400}guide-modal/.test(canvas));
 ok('canvas: the old auto-dismissing multi-step status text is gone',
    !/One-time setup in Ableton:/.test(canvas));
 

@@ -8313,16 +8313,25 @@
     }
     window.sdDismissStrideInjectSetup = sdDismissStrideInjectSetup;
 
-    // "Open setup guide" from the post-install popup → the full Getting Started guide
-    // (now carries the StrideInject + recommended-settings steps). Opening it satisfies
-    // first-run education, so we don't also pop the welcome overlay underneath it.
+    // Open the full Getting Started / Setup guide (carries the StrideInject Control-
+    // Surface step + recommended settings, the workflow, AND the Arrangement-view
+    // section). Now fires AUTOMATICALLY right after Install to Ableton succeeds (and
+    // from the post-install popup's "Open setup guide" button). Hides the install
+    // overlay + the popup, scrolls to the top (so the Control-Surface step shows
+    // first), and marks first-run done so the welcome overlay doesn't pop underneath.
     function sdOpenGuideFromInstall() {
+        const overlay = document.getElementById('sd-install-m4l-overlay');
+        if (overlay) overlay.classList.add('hidden');
         const m = document.getElementById('sd-strideinject-modal');
         if (m) m.classList.add('hidden');
         sdMarkFirstRunDone(true);
         _sdInstallIsFirstRun = false;
         const guide = document.getElementById('guide-modal');
-        if (guide) guide.classList.remove('hidden');
+        if (guide) {
+            guide.classList.remove('hidden');
+            const sc = guide.querySelector('.overflow-y-auto');
+            if (sc) sc.scrollTop = 0;   // start at the top — the Control-Surface + settings step
+        }
     }
     window.sdOpenGuideFromInstall = sdOpenGuideFromInstall;
 
@@ -8337,12 +8346,13 @@
             const where = res.targetDir;
             const base = res.alreadyInstalled ? `Stride is installed at ${where}.` : `Installed to ${where}.`;
             if (res.strideInjectInstalled) {
-                // Hand off to the persistent StrideInject Control-Surface popup (with the
-                // screenshot) — Ableton can't auto-enable a Control Surface, and the old
-                // 7s auto-dismissing status line was missed every time ("they always hit
-                // that wall"). Brief green confirm, then the popup takes over.
+                // Pop the full Setup Guide immediately after install. Its FIRST block is
+                // the StrideInject Control-Surface step (with screenshot) + recommended
+                // settings — the one manual step Ableton can't do — followed by the
+                // workflow and the Arrangement-view section. Brief green confirm, then
+                // the guide takes over.
                 sdSetInstallStatus('success', base + ' StrideLink + StrideInject copied.');
-                setTimeout(() => { sdShowStrideInjectSetup(); }, 350);
+                setTimeout(() => { sdOpenGuideFromInstall(); }, 350);
             } else {
                 sdSetInstallStatus('error', base +
                     " StrideLink is in — but StrideInject didn't copy (Ableton may have it locked). Close the Live project and click Install again. StrideInject powers Inject to Clip.");
