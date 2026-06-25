@@ -60,12 +60,29 @@ ok('asset: app bundle has assets/ss/step1.png', fs.existsSync(path.join(appDir, 
 
 // ── guide: Arrangement-view guidance (the 2 unfold arrows + clip selection) ──
 ok('guide: Arrangement-view block added', /Working in Arrangement view/.test(idx));
-ok('guide: arrangement block tells the user to unfold the track / turn on the two arrows',
-   /unfold the track[\s\S]{0,220}two arrows/.test(idx));
-ok('guide: arrangement block requires selecting the MIDI clip in the Detail view',
-   /Working in Arrangement view[\s\S]{0,700}MIDI clip[\s\S]{0,200}Detail view/.test(idx));
+ok('guide: arrangement block tells the user to turn on the two arrows',
+   /turn ON the[\s\S]{0,80}two arrows/.test(idx));
+ok('guide: arrangement block requires the MIDI clip selected in the Detail view',
+   /MIDI clip[\s\S]{0,260}Detail view/.test(idx));
 ok('guide: arrangement block shows the unfold-arrows screenshot (arrangement.png)', /arrangement\.png/.test(idx));
 ok('asset: app bundle has assets/ss/arrangement.png', fs.existsSync(path.join(appDir, 'assets', 'ss', 'arrangement.png')));
+
+// ── website parity: the in-app guide mirrors setup.html (The Workflow header + 5-step flow) ──
+// The website guide was refined (Select-clip moved up, motion+inject combined → 5 steps, the
+// stale "F9" mapping replaced with the Record button). Bring the in-app guide-modal in line.
+ok('parity: subtitle says 5 simple steps (was 6)', /5 simple steps/.test(idx) && !/6 simple steps/.test(idx));
+ok('parity: "The Workflow" section header present', /<h3[^>]*>The Workflow<\/h3>/.test(idx));
+ok('parity: Step 2 fixed to "Click Record" (no stale F9 mapping)',
+   /Click <span[^>]*>Record<\/span>, then move the parameters/.test(idx) && !/Arm record \(<span[^>]*>F9/.test(idx));
+ok('parity: Step 2 explains blue = Arrangement, red = Session',
+   /blue<\/span> button is Record for <span[^>]*>Arrangement/.test(idx) && /red<\/span> is Record for <span[^>]*>Session/.test(idx));
+ok('parity: Step 2 uses the record-buttons screenshot', /record-buttons\.png/.test(idx));
+ok('asset: app bundle has assets/ss/record-buttons.png', fs.existsSync(path.join(appDir, 'assets', 'ss', 'record-buttons.png')));
+ok('parity: motion + inject combined into one step', /Pick a motion, then Inject to Clip/.test(idx));
+ok('parity: combined step lists the motion tools then Inject to Clip',
+   /motion tool<\/span> \(Chaos, Neuro, Reflector, S&amp;H, Prism\)[\s\S]{0,400}Inject to Clip/.test(idx));
+ok('parity: old separate "Generate — one click" step is gone', !/Generate — one click/.test(idx));
+ok('parity: "Select your clip" still present (now Step 3)', /Select your clip/.test(idx));
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);
