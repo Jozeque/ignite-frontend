@@ -52,6 +52,9 @@ ok('canvas: the old auto-dismissing multi-step status text is gone',
 ok('guide: Record, Warp & Launch recommended-settings step added', /Record, Warp &amp; Launch/.test(idx));
 ok('guide: Record Session automation in = All Tracks', /Record Session automation in[\s\S]{0,160}All Tracks/.test(idx));
 ok('guide: Start Transport With Record = On', /Start Transport With Record[\s\S]{0,160}>On</.test(idx));
+ok('guide: Recommended-settings step shows the settings.png screenshot',
+   /Record, Warp &amp; Launch[\s\S]{0,600}settings\.png/.test(idx));
+ok('asset: app bundle has assets/ss/settings.png', fs.existsSync(path.join(appDir, 'assets', 'ss', 'settings.png')));
 ok('guide: step1.png alt fixed to describe the Control Surface (not "load StrideLink")',
    /step1\.png" alt="Choose StrideInject as the Control Surface/.test(idx));
 
