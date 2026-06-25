@@ -501,6 +501,7 @@
         sdAutoRescan = on;
         _sdPaintAutoRescanBtn();
         if (changed) _sdPersistAutoRescan();
+        try { _sdSendQuickState(); } catch (e) {}   // push so the DEVICE button reflects the new value immediately and matches the Motion gate
     };
     window.sdToggleAutoRescan = function () { window.sdSetAutoRescan(!sdAutoRescan); };
     async function sdInitAutoRescan() {
@@ -511,6 +512,13 @@
             }
         } catch (e) { /* non-critical */ }
         _sdPaintAutoRescanBtn();
+        // Re-push the RESTORED value to the device. The `connected` handler can fire
+        // its quick_state (with the default sdAutoRescan=true → green) BEFORE this async
+        // restore lands, leaving the device button green while the real value is OFF —
+        // so a Motion press (gate reads the real value) wouldn't rescan despite a green
+        // button, and a grey→green toggle "fixed" it by re-syncing. Re-push here so the
+        // device display and the gate always agree on launch.
+        try { _sdSendQuickState(); } catch (e) {}
     }
 
     // ─── SCAN MODES ──────────────────────────────────────
@@ -571,10 +579,24 @@
     let _sdContextDirty = false;   // true after a track/clip switch until the next scan lands — gates the (main-thread, UI-freezing) rescan-before-inject
     let sdAutoRescan = true;       // GREEN/ON (default) = Motion buttons rescan-then-apply (original behavior). GREY/OFF = apply on loaded params only (crank the same rack). Canvas-owned + persisted; the device ↻ toggles it + reflects via quick_state.rescan.
     let _sdLastAutoScanAt = 0;
+    let _sdScanPending = false;       // a request_scan_mapped is in flight (awaiting rack_scanned) — coalesces stacked auto-scans so the launch pile-up doesn't freeze Ableton's single-threaded scanner
     let _sdCurrentTrackName = null;   // for same-track detection across autoscans
-    function _sdAutoScan() {
+    // force === true marks a DELIBERATE user action (the manual re-sync icon or a
+    // Motion-button rescan). A forced scan is NEVER coalesced — in Session view
+    // clip-focus scans fire constantly, and without this they would eat the user's
+    // Motion rescan and leave the generator running on stale lanes. Incidental
+    // scans (launch boot, window-focus, clip/track change) call with no arg and so
+    // keep the anti-pile-up guard.
+    function _sdAutoScan(force) {
         if (!strideLink.connected) return;
+        // Coalesce stacked auto-scans: on launch the connect boot-scan, the window-focus
+        // scan, and a Motion/inject rescan can all fire within a few hundred ms — that
+        // pile-up is what freezes Ableton's single-threaded scanner. The in-flight scan's
+        // rack_scanned still runs any queued action, so dropping the duplicate is safe.
+        // The 2.5s bound self-heals if a scan never answers (no rack selected → silent).
+        if (!force && _sdScanPending && (Date.now() - _sdLastAutoScanAt) < 2500) return;   // deliberate (force) scans are never dropped; incidental ones coalesce
         _sdLastAutoScanAt = Date.now();
+        _sdScanPending = true;
         _isAutoScan = true;
         scanMode = 'mapped';
         // Deliberately NO _sdArmScanTimeout(): an auto-scan must stay silent if
@@ -594,7 +616,7 @@
         // mapped in Ableton appear without a manual re-scan. This is cheap now
         // that scanner_max.js caps per-device params (256) — the freeze was the
         // uncapped 2086-param VST3 walk, NOT the autoscan itself.
-        Promise.resolve(saveCanvasState()).then(_sdAutoScan);
+        Promise.resolve(saveCanvasState()).then(() => _sdAutoScan());
     }
     window.addEventListener('focus', _sdAutoScanOnFocus);
     sdInitAutoRescan();   // restore the persisted Auto-rescan toggle state + paint the on-screen button
@@ -607,7 +629,7 @@
             if (el) el.textContent = 'Not connected to Ableton';
             return;
         }
-        _sdAutoScan();
+        _sdAutoScan(true);   // deliberate user re-sync (and the Motion-button rescan that calls this) — force past the coalesce guard
     };
 
     // Scan All — shows picker for user to choose which params to load
@@ -861,6 +883,8 @@
     // Handle rack scan results from M4L
     strideLink.on('rack_scanned', (msg) => {
         _resetScanButton();
+        _sdScanPending = false;    // scan answered — release the coalesce guard for the next auto-scan
+        const _wasContextDirty = _sdContextDirty;   // capture BEFORE clearing — the empty-rack clear below needs it
         _sdContextDirty = false;   // a scan landed — loaded params/paths now match the current track/clip
         // StrideQuick readout: remember how many params the chain scan found,
         // then push fresh counts once this handler's lane updates have settled.
@@ -886,6 +910,24 @@
             // wipe whatever is currently loaded.
             if (params.length === 0) {
                 currentDeviceName = msg.device_name;
+                // A real context SWITCH (connect / track / clip change set _sdContextDirty)
+                // that lands on a rack with NO mapped params must CLEAR the previous rack's
+                // lanes — otherwise they linger and get injected into the new clip (the
+                // "moving 2 / total 4 on a fresh Operator with no mapped params" stale-cache
+                // bug). A TRANSIENT empty scan on the SAME rack (not dirty, e.g. a momentary
+                // no-selection) still keeps the lanes so in-progress work isn't wiped. The
+                // prior rack's curves were already persisted (saveCanvasState runs before
+                // every context scan), so returning to that rack reloads them.
+                if (_wasContextDirty && sdCanvasParams.length > 0) {
+                    sdCanvasParams = [];
+                    sdActiveParamId = null;
+                    currentRackId = (msg.track_name + '_' + msg.device_name).replace(/[^a-zA-Z0-9]/g, '_');
+                    currentClipSlot = (msg.clip_slot != null) ? msg.clip_slot : 0;
+                    currentClipKey = _sdClipKey(currentRackId, currentClipSlot);
+                    try { sdRenderSidebar(); } catch (e) {}
+                    try { sdDrawCanvasGrid(); } catch (e) {}
+                    try { _sdSendQuickState(); } catch (e) {}   // push moving 0 / total 0 to the device panel
+                }
                 resolveTemplate();
                 _renderTemplateStatus();
                 return;
@@ -1074,7 +1116,7 @@
         _sdTrackChangeTimer = setTimeout(() => {
             _sdTrackChangeTimer = null;
             if (!strideLink.connected) return;
-            Promise.resolve(saveCanvasState()).then(_sdAutoScan);
+            Promise.resolve(saveCanvasState()).then(() => _sdAutoScan());
         }, 450);
     });
 
@@ -1092,7 +1134,7 @@
         _sdTrackChangeTimer = setTimeout(() => {
             _sdTrackChangeTimer = null;
             if (!strideLink.connected) return;
-            Promise.resolve(saveCanvasState()).then(_sdAutoScan);
+            Promise.resolve(saveCanvasState()).then(() => _sdAutoScan());
         }, 250);
     });
 
@@ -1223,10 +1265,19 @@
         // Refresh the popover if it happens to be open.
         const help = document.getElementById('sd-connection-help');
         if (help && !help.classList.contains('hidden')) sdRenderConnectionHelp();
+        // (Re)connect safety: the lanes we restored are from a prior session/launch and
+        // may not match the track you're on NOW. You can switch tracks in Ableton while
+        // the canvas is closed — those track_changed events are dropped (no client to
+        // receive them) — so on relaunch the canvas can't know the context moved. Treat
+        // it as stale until a scan lands, so the first inject rescans-then-writes instead
+        // of injecting the previous track's _paths ("nothing to inject"). rack_scanned
+        // clears this; once cleared, inject writes directly with NO extra scan — so the
+        // normal Motion→Inject flow stays a single scan (Motion already refreshed it).
+        _sdContextDirty = true;
         // Autoscan on open — silently pull the rack's mapped params + sync the
         // canvas (persists current work first). Small delay lets the M4L
         // handshake (m4l_ready / clip / track info) settle first.
-        setTimeout(() => { Promise.resolve(saveCanvasState()).then(_sdAutoScan); }, 500);
+        setTimeout(() => { Promise.resolve(saveCanvasState()).then(() => _sdAutoScan()); }, 500);
         // StrideQuick: send the initial panel readout (connection + counts).
         _sdSendQuickState();
     });
@@ -8238,6 +8289,43 @@
         el.textContent = msg;
     }
 
+    // Post-install: hand off from the install overlay to the persistent StrideInject
+    // Control-Surface popup (the one manual step Ableton can't do for you). Hide the
+    // install overlay WITHOUT the first-run welcome chain — that happens after this
+    // popup is dismissed (or is skipped if the user opens the full guide instead).
+    function sdShowStrideInjectSetup() {
+        const overlay = document.getElementById('sd-install-m4l-overlay');
+        if (overlay) overlay.classList.add('hidden');
+        const m = document.getElementById('sd-strideinject-modal');
+        if (m) m.classList.remove('hidden');
+    }
+    window.sdShowStrideInjectSetup = sdShowStrideInjectSetup;
+
+    function sdDismissStrideInjectSetup() {
+        const m = document.getElementById('sd-strideinject-modal');
+        if (m) m.classList.add('hidden');
+        sdMarkFirstRunDone(true);
+        if (_sdInstallIsFirstRun) {
+            _sdInstallIsFirstRun = false;
+            const welcome = document.getElementById('sd-welcome-overlay');
+            if (welcome) welcome.classList.remove('hidden');
+        }
+    }
+    window.sdDismissStrideInjectSetup = sdDismissStrideInjectSetup;
+
+    // "Open setup guide" from the post-install popup → the full Getting Started guide
+    // (now carries the StrideInject + recommended-settings steps). Opening it satisfies
+    // first-run education, so we don't also pop the welcome overlay underneath it.
+    function sdOpenGuideFromInstall() {
+        const m = document.getElementById('sd-strideinject-modal');
+        if (m) m.classList.add('hidden');
+        sdMarkFirstRunDone(true);
+        _sdInstallIsFirstRun = false;
+        const guide = document.getElementById('guide-modal');
+        if (guide) guide.classList.remove('hidden');
+    }
+    window.sdOpenGuideFromInstall = sdOpenGuideFromInstall;
+
     // Maps install-handler responses (from main.js install-stride-link-to-ableton)
     // into status panel text. Knows the new error codes added with the verify
     // patch — source_bundle_incomplete + install_verification_failed — and
@@ -8249,15 +8337,12 @@
             const where = res.targetDir;
             const base = res.alreadyInstalled ? `Stride is installed at ${where}.` : `Installed to ${where}.`;
             if (res.strideInjectInstalled) {
-                // Stride 2.0: two one-time steps. The enable step is the easy-to-
-                // miss one (Ableton can't auto-enable a Control Surface) — make it
-                // explicit. The inject-timeout diagnostic backs it up if missed.
-                sdSetInstallStatus('success', base +
-                    ' One-time setup in Ableton: ' +
-                    '1) drag User Library → Stride → StrideLink onto a track. ' +
-                    '2) RESTART Ableton if it was already open — it only detects StrideInject on launch. ' +
-                    '3) Enable it: Preferences → Link/Tempo/MIDI → Control Surface → choose "StrideInject". That powers Inject to Clip.');
-                setTimeout(() => { sdCloseInstallM4LOverlay(); sdMarkFirstRunDone(true); }, 7000);
+                // Hand off to the persistent StrideInject Control-Surface popup (with the
+                // screenshot) — Ableton can't auto-enable a Control Surface, and the old
+                // 7s auto-dismissing status line was missed every time ("they always hit
+                // that wall"). Brief green confirm, then the popup takes over.
+                sdSetInstallStatus('success', base + ' StrideLink + StrideInject copied.');
+                setTimeout(() => { sdShowStrideInjectSetup(); }, 350);
             } else {
                 sdSetInstallStatus('error', base +
                     " StrideLink is in — but StrideInject didn't copy (Ableton may have it locked). Close the Live project and click Install again. StrideInject powers Inject to Clip.");

@@ -66,5 +66,49 @@ ok('behav: GREY generator skips rescan on a stable rack (crank)', rescanFirst(tr
 ok('behav: GREY generator STILL rescans if rack/clip changed (safety)', rescanFirst(true, false, true, false) === true);
 ok('behav: inject rescans only when context dirty', rescanFirst(false, false, false, true) === false && rescanFirst(false, false, true, true) === true);
 
+// ── 6. coalesce-guard BYPASS: a deliberate Motion / re-sync scan is never dropped ──
+// Root cause (2026-06-25): in Session view, clip_focus scans fire constantly (detail_clip
+// changes as you click the clip grid), so the 2.5s coalesce guard silently dropped the
+// Motion-button rescan and the generator ran on stale lanes (newly-mapped params missing).
+// Arrangement view was fine because detail_clip is stable there, so the guard window stayed
+// clear. Fix: a DELIBERATE scan (force) bypasses the guard; incidental scans keep it.
+ok('canvas: _sdAutoScan takes a force param', /function _sdAutoScan\(force\)/.test(canvasSrc));
+ok('canvas: guard is skipped when force (deliberate scans never coalesced)',
+   /if \(!force && _sdScanPending && \(Date\.now\(\) - _sdLastAutoScanAt\) < 2500\) return;/.test(canvasSrc));
+ok('canvas: sdRefreshSync forces (manual re-sync + Motion rescan both route through it)',
+   /_sdAutoScan\(true\)/.test(canvasSrc));
+ok('canvas: Motion generators rescan via sdRefreshSync', /window\.sdRefreshSync\(\);/.test(canvasSrc));
+// incidental scans must NOT force: they pass a thunk, never the bare fn (which would hand
+// saveCanvasState()'s resolved value to `force` and bypass the guard by accident).
+ok('canvas: incidental scans use a thunk, do NOT force (all 4)',
+   (canvasSrc.match(/\.then\(\(\) => _sdAutoScan\(\)\)/g) || []).length === 4);
+ok('canvas: no bare .then(_sdAutoScan) left (would accidentally force)',
+   !/\.then\(_sdAutoScan\)/.test(canvasSrc));
+
+// behavioral replica of the post-fix gate: does _sdAutoScan actually SEND a scan?
+function autoScanSends(force, pending, lastAt, now) { return !!force || !(pending && (now - lastAt) < 2500); }
+const NOW = 100000;
+ok('behav: FORCED scan sends even when a scan is pending & recent (the bug fix)',
+   autoScanSends(true, true, NOW - 100, NOW) === true);
+ok('behav: incidental scan COALESCED when pending & recent (guard preserved)',
+   autoScanSends(false, true, NOW - 100, NOW) === false);
+ok('behav: incidental scan sends when nothing is pending',
+   autoScanSends(false, false, NOW - 100, NOW) === true);
+ok('behav: incidental scan self-heals after 2.5s even if still pending',
+   autoScanSends(false, true, NOW - 3000, NOW) === true);
+ok('behav: forced scan sends on a clean slate too',
+   autoScanSends(true, false, 0, NOW) === true);
+
+// ── 7. launch sync: device button reflects the RESTORED value (no stale-green) ──
+// Bug (2026-06-25): on launch the connected handler pushed quick_state with the default
+// sdAutoRescan=true (green) BEFORE the async sdInitAutoRescan restored the persisted (off)
+// value, and neither the restore nor the toggle re-pushed — so the device showed green
+// while the gate read off, and a grey→green toggle "fixed" it. Fix: re-push quick_state
+// after restoring and after every set.
+ok('canvas: sdSetAutoRescan pushes quick_state (toggle syncs the device button to the gate value)',
+   /window\.sdSetAutoRescan = function[\s\S]{0,300}_sdSendQuickState\(\)/.test(canvasSrc));
+ok('canvas: sdInitAutoRescan re-pushes quick_state after restoring (kills the stale-green-on-launch desync)',
+   /async function sdInitAutoRescan[\s\S]{0,600}_sdPaintAutoRescanBtn\(\);[\s\S]{0,600}_sdSendQuickState\(\)/.test(canvasSrc));
+
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);

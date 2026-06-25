@@ -424,7 +424,18 @@
                                     <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">One-time setup</h3>
                                     <p class="text-base text-zinc-300 leading-relaxed mt-2"><span class="text-orange-400 font-bold">1.</span> Click <span class="text-orange-400 font-bold">"Install to Ableton"</span> in Stride's titlebar — installs StrideLink + StrideInject.</p>
                                     <p class="text-base text-zinc-300 leading-relaxed mt-2"><span class="text-orange-400 font-bold">2.</span> In Ableton: <span class="text-zinc-100 font-bold">Preferences → Link/Tempo/MIDI → Control Surface</span> → choose <span class="text-zinc-100 font-mono">StrideInject</span>. Once, and you're set.</p>
-                                    <div id="guide-img-1" class="mt-3 rounded-lg bg-black/30 border border-white/5 overflow-hidden"><img src="../assets/ss/step1.png" alt="One-time setup — load StrideLink on your track" class="w-full"></div>
+                                    <div id="guide-img-1" class="mt-3 rounded-lg bg-black/30 border border-white/5 overflow-hidden"><img src="../assets/ss/step1.png" alt="Choose StrideInject as the Control Surface in Ableton's Link, Tempo and MIDI settings" class="w-full"></div>
+                                    <p class="text-base text-zinc-300 leading-relaxed mt-3"><span class="text-orange-400 font-bold">3.</span> Recommended: open <span class="text-zinc-100 font-bold">Settings → Record, Warp &amp; Launch</span> and set these two, so mapping captures reliably on every track:</p>
+                                    <div class="mt-2 rounded-lg border border-white/10 overflow-hidden text-[13px]">
+                                        <div class="flex items-center justify-between gap-3 px-4 py-2.5 bg-white/5 border-b border-white/5">
+                                            <span class="text-zinc-300">Record Session automation in</span>
+                                            <span class="text-emerald-300 font-mono font-bold shrink-0">All Tracks</span>
+                                        </div>
+                                        <div class="flex items-center justify-between gap-3 px-4 py-2.5">
+                                            <span class="text-zinc-300">Start Transport With Record</span>
+                                            <span class="text-emerald-300 font-mono font-bold shrink-0">On</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -514,6 +525,21 @@
                             </div>
                         </div>
 
+                        <!-- ARRANGEMENT VIEW — works on the timeline too, once the track is unfolded so the rack + clip are reachable, and the clip is selected in the Detail view. -->
+                        <div class="rounded-xl border border-orange-500/25 p-5" style="background: linear-gradient(135deg, rgb(var(--o500) / 0.08), rgba(59,130,246,0.05));">
+                            <div class="flex items-start gap-3">
+                                <div class="shrink-0 w-10 h-10 rounded-xl bg-orange-500/15 border border-orange-500/30 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Working in Arrangement view</h3>
+                                    <p class="text-base text-zinc-300 leading-relaxed mt-2">Stride works on the timeline too. First, <span class="text-orange-400 font-bold">unfold the track</span> — turn ON the <span class="text-zinc-100 font-bold">two arrows</span> at the bottom of the track (circled below) so you can see the rack with StrideLink and open the clip's envelopes.</p>
+                                    <p class="text-base text-zinc-300 leading-relaxed mt-2">Then <span class="text-zinc-100 font-bold">click the MIDI clip</span> on the timeline so it's the one showing in the <span class="text-zinc-300 font-bold">Detail view</span> — that's how Stride knows which clip to write into. Select the clip, then <span class="text-emerald-400 font-bold">Inject to Clip</span>.</p>
+                                    <div class="mt-3 rounded-lg bg-black/30 border border-white/5 overflow-hidden"><img src="../assets/ss/arrangement.png" alt="In Arrangement view, turn on the track's two unfold arrows so the rack and clip are reachable, then select the MIDI clip in the Detail view" class="w-full"></div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Prominent end-of-guide help block — direct route for stuck users.
                              Both CTAs land on stridehub.io/welcome which hosts the
                              VO walkthrough video AND the Calendly book-a-call link. -->
@@ -551,6 +577,41 @@
         </div>
 
         <!-- Install-StrideLink-to-Ableton Overlay (shown on first launch OR re-triggered from titlebar) -->
+        <!-- POST-INSTALL: enable StrideInject. Shown after a successful "Install to
+             Ableton". This is the wall every new user hits — Ableton can't auto-enable
+             a Control Surface, so the one remaining manual step gets a loud, PERSISTENT
+             popup (no auto-dismiss) with the exact screenshot, instead of the old 7s
+             status line everyone missed. -->
+        <div id="sd-strideinject-modal" class="hidden fixed inset-0 bg-black/85 backdrop-blur-md z-[10002] flex items-center justify-center p-4" style="font-family:'Outfit',sans-serif">
+            <div class="bg-zinc-900 border border-emerald-500/30 rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl">
+                <div class="flex items-start gap-4 px-7 pt-7 pb-3 shrink-0">
+                    <div class="shrink-0 w-12 h-12 rounded-xl bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h2 class="text-xl font-black tracking-tight text-emerald-300">StrideLink installed</h2>
+                        <p class="text-[10px] text-zinc-500 uppercase tracking-[0.2em] font-black mt-1">One step left before you can inject</p>
+                    </div>
+                </div>
+                <div class="px-7 pb-2 overflow-y-auto custom-scroll">
+                    <p class="text-[13px] text-zinc-300 leading-relaxed">
+                        In Ableton, open <span class="text-zinc-100 font-bold">Settings → Link, Tempo &amp; MIDI</span>, find <span class="text-zinc-100 font-bold">Control Surface</span>, and choose <span class="text-emerald-300 font-mono font-bold">StrideInject</span>. This is what lets Stride write automation into your clips.
+                    </p>
+                    <div class="mt-3 rounded-lg bg-black/30 border border-white/5 overflow-hidden">
+                        <img src="../assets/ss/step1.png" alt="Choose StrideInject as the Control Surface in Ableton's Link, Tempo and MIDI settings" class="w-full">
+                    </div>
+                    <p class="text-[11px] text-amber-300/90 leading-relaxed mt-3 flex items-start gap-2">
+                        <svg class="w-4 h-4 shrink-0 mt-px" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                        <span><span class="font-bold">Restart Ableton</span> if it was already open — it only detects StrideInject on launch.</span>
+                    </p>
+                </div>
+                <div class="px-7 py-5 mt-2 border-t border-white/5 shrink-0 flex items-center justify-between gap-3">
+                    <button onclick="if(window.sdOpenGuideFromInstall)window.sdOpenGuideFromInstall()" class="text-[11px] text-orange-300 hover:text-orange-200 font-bold uppercase tracking-widest transition-colors">Open setup guide</button>
+                    <button onclick="if(window.sdDismissStrideInjectSetup)window.sdDismissStrideInjectSetup()" class="text-xs text-zinc-100 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 px-6 py-2.5 rounded-xl font-black uppercase tracking-widest transition-all">Got it</button>
+                </div>
+            </div>
+        </div>
+
         <div id="sd-install-m4l-overlay" class="hidden fixed inset-0 bg-black/85 backdrop-blur-md z-[10001] flex items-center justify-center" style="font-family:'Outfit',sans-serif">
             <div class="bg-zinc-900 border border-orange-500/30 rounded-2xl p-7 max-w-md w-full mx-6 flex flex-col gap-5 shadow-2xl">
                 <div class="flex items-center gap-4">
