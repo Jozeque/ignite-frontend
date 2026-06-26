@@ -50,6 +50,20 @@
         .src-buyer_lead      { background: rgba(251,146,60,0.15); color: #fb923c; }
         .src-lemonsqueezy    { background: rgba(34,197,94,0.15);  color: #4ade80; }
         .src-registered_user { background: rgba(56,189,248,0.15); color: #38bdf8; }
+        /* Acquisition-source badges. `meta_ad` is the hard paid-attribution
+           signal (from the Meta click id `fbc`); the rest are the buyer's
+           self-reported "How did you hear" answer. `direct` = a confirmed
+           purchase with no ad tag and no self-report (incl. legacy rows that
+           used to read "LS"). See displaySource(). */
+        .src-meta_ad         { background: rgba(59,130,246,0.18);  color: #60a5fa; }
+        .src-youtube         { background: rgba(239,68,68,0.16);   color: #f87171; }
+        .src-reddit          { background: rgba(249,115,22,0.16);  color: #fb923c; }
+        .src-ableton-forum   { background: rgba(148,163,184,0.16); color: #cbd5e1; }
+        .src-friend          { background: rgba(34,197,94,0.15);   color: #4ade80; }
+        .src-kvr             { background: rgba(168,85,247,0.15);  color: #c084fc; }
+        .src-google          { background: rgba(20,184,166,0.16);  color: #2dd4bf; }
+        .src-other           { background: rgba(113,113,122,0.18); color: #a1a1aa; }
+        .src-direct          { background: rgba(82,82,91,0.30);    color: #a1a1aa; }
         /* Origin tag for free-sample-pack downloaders (last_action ===
            'sample_pack_signup', from /samples.html). Brand copper so these
            lead-magnet signups are instantly scannable and never get lost among
@@ -112,6 +126,10 @@
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                 Emails Only
             </button>
+            <button onclick="openDashboard()" class="text-[9px] text-fuchsia-400 hover:text-fuchsia-300 bg-fuchsia-500/10 hover:bg-fuchsia-500/20 border border-fuchsia-500/20 hover:border-fuchsia-500/40 px-3 py-1.5 rounded-lg uppercase tracking-widest font-bold transition-all flex items-center gap-1.5">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                Dashboard
+            </button>
             <div class="flex-1"></div>
             <div class="flex items-center gap-3">
                 <span id="user-email" class="text-[10px] text-zinc-400 font-medium"></span>
@@ -165,8 +183,16 @@
 
             <select id="source-filter" class="bg-black/40 border border-white/10 focus:border-fuchsia-500/50 outline-none rounded-lg px-3 py-1.5 text-[10px] text-zinc-300 uppercase tracking-wider font-bold cursor-pointer">
                 <option value="">All sources</option>
-                <option value="lemonsqueezy">Lemon Squeezy</option>
-                <option value="registered_user">Registered user</option>
+                <option value="meta_ad">Meta ad</option>
+                <option value="youtube">YouTube</option>
+                <option value="reddit">Reddit</option>
+                <option value="ableton-forum">Ableton Forum</option>
+                <option value="friend">Friend</option>
+                <option value="kvr">KVR Audio</option>
+                <option value="google">Google</option>
+                <option value="other">Other</option>
+                <option value="direct">Direct</option>
+                <option value="registered_user">Registered</option>
             </select>
 
             <select id="sort" class="bg-black/40 border border-white/10 focus:border-fuchsia-500/50 outline-none rounded-lg px-3 py-1.5 text-[10px] text-zinc-300 uppercase tracking-wider font-bold cursor-pointer">
@@ -205,6 +231,53 @@
             <div id="empty" class="hidden text-center py-20 text-[10px] text-zinc-600 uppercase tracking-widest">No leads match the current filters.</div>
         </div>
 
+    </div>
+
+    <!-- AD ROAS DASHBOARD (overlay) -->
+    <div id="dashboard-overlay" class="hidden fixed inset-0 z-50 bg-[#09090b] overflow-auto custom-scroll">
+        <div class="max-w-6xl mx-auto px-6 py-6">
+            <div class="flex items-center gap-4 mb-5">
+                <h1 class="text-sm font-black uppercase tracking-[0.25em] bg-gradient-to-r from-orange-400 via-fuchsia-400 to-orange-400 bg-clip-text text-transparent">Ad ROAS Dashboard</h1>
+                <span id="dash-meta" class="text-[9px] text-zinc-500 uppercase tracking-widest font-bold"></span>
+                <div class="flex-1"></div>
+                <button onclick="openDashboard()" class="text-[9px] text-sky-400 hover:text-sky-300 bg-sky-500/10 border border-sky-500/20 px-3 py-1.5 rounded-lg uppercase tracking-widest font-bold transition-all">Refresh</button>
+                <button onclick="closeDashboard()" class="text-[9px] text-zinc-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg uppercase tracking-widest font-bold transition-all">Close ✕</button>
+            </div>
+            <div id="dash-kpis" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 mb-6"></div>
+            <div class="mb-1.5 text-[10px] text-zinc-400 uppercase tracking-widest font-bold">Daily · last 14 days</div>
+            <div class="mb-6 border border-white/5 rounded-lg overflow-hidden">
+                <table class="w-full text-[11px]">
+                    <thead class="bg-black/50"><tr class="text-left">
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black">Day</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Spend (out)</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Meta rev</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Organic rev</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Total in</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Meta ROAS</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Overall ROAS</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Net</th>
+                    </tr></thead>
+                    <tbody id="dash-daily"></tbody>
+                </table>
+            </div>
+            <div class="mb-1.5 text-[10px] text-zinc-400 uppercase tracking-widest font-bold">Weekly · last 8 weeks</div>
+            <div class="border border-white/5 rounded-lg overflow-hidden">
+                <table class="w-full text-[11px]">
+                    <thead class="bg-black/50"><tr class="text-left">
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black">Week of</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Spend (out)</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Meta rev</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Organic rev</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Total in</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Meta ROAS</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Overall ROAS</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Net</th>
+                    </tr></thead>
+                    <tbody id="dash-weekly"></tbody>
+                </table>
+            </div>
+            <div id="dash-status" class="mt-4 text-[10px] text-zinc-500 leading-relaxed"></div>
+        </div>
     </div>
 
     <!-- Toast -->
@@ -405,7 +478,7 @@
                 }
             }
             if (state.sourceFilter) {
-                rows = rows.filter(r => (r.source || '') === state.sourceFilter);
+                rows = rows.filter(r => displaySource(r).key === state.sourceFilter);
             }
 
             if (state.sort === 'created_desc') {
@@ -522,7 +595,7 @@
             const name = escapeHtml(row.name || '');
             const email = escapeHtml(row.email || '');
             const country = escapeHtml(row.country || '');
-            const source = row.source || '';
+            const ds = displaySource(row);
             const origin = originBadge(row);
             const notes = row.notes || '';
             const licenseShort = row.license_key_short || (row.license_key ? (row.license_key + '').slice(-8) : '');
@@ -560,7 +633,7 @@
                 </td>
                 <td class="px-3 py-2">
                     <div class="flex flex-wrap items-center gap-1">
-                        ${origin}${source ? `<span class="src-badge src-${source}">${sourceLabel(source)}</span>` : ''}${(!origin && !source) ? '<span class="text-zinc-700">—</span>' : ''}
+                        ${origin}${ds.key ? `<span class="src-badge src-${ds.key}">${ds.label}</span>` : ''}${(!origin && !ds.key) ? '<span class="text-zinc-700">—</span>' : ''}
                     </div>
                 </td>
                 <td class="px-3 py-2">
@@ -601,15 +674,39 @@
             return '';
         }
 
-        function sourceLabel(src) {
-            // `source` is the user-typed "Heard from" value (Reddit, Instagram,
-            // friend, etc.), not the action type. lemonsqueezy / registered_user
-            // are the system-set values; everything else passes through as-is.
-            // The action type lives on row.last_action; abandoned-cart status
-            // is derived from there in getStatus().
-            if (src === 'lemonsqueezy') return 'LS';
-            if (src === 'registered_user') return 'Registered';
-            return src;
+        // Real acquisition source for the Source column. Resolves the most
+        // informative signal we have into { key, label } — `key` drives the
+        // badge color class, the source filter, and the CSV export; `label` is
+        // what's shown. Replaces the old behavior where every customer read "LS"
+        // because the Lemon Squeezy order webhook overwrote `source`.
+        //
+        // Priority:
+        //   1. Meta ad    — `acquisition_source === 'meta_ad'` or a Meta click id
+        //                   (`fbc`) is present. The hard paid-attribution signal
+        //                   (Instagram/Facebook ads), so it wins over the softer
+        //                   self-report below.
+        //   2. Heard-from — the buyer's "How did you hear about Stride?" answer,
+        //                   preserved on the lead row (no longer clobbered on
+        //                   purchase).
+        //   3. Registered — Firebase-Auth user with no lead / heard-from.
+        //   4. Direct     — confirmed purchase with no ad tag and no self-report
+        //                   (`acquisition_source === 'direct'`, or a legacy
+        //                   `source === 'lemonsqueezy'` row from before this fix).
+        //   5. (none)     — not enough info; the cell renders "—".
+        const HEARD_FROM_LABELS = {
+            youtube: 'YouTube', reddit: 'Reddit', 'ableton-forum': 'Ableton Forum',
+            friend: 'Friend', kvr: 'KVR Audio', google: 'Google', other: 'Other',
+        };
+        function displaySource(row) {
+            const src = (row.source || '').trim();
+            const acq = (row.acquisition_source || '').trim();
+            const hasFbc = !!(row.fbc && String(row.fbc).trim());
+
+            if (acq === 'meta_ad' || hasFbc)  return { key: 'meta_ad', label: 'Meta ad' };
+            if (HEARD_FROM_LABELS[src])       return { key: src, label: HEARD_FROM_LABELS[src] };
+            if (src === 'registered_user')    return { key: 'registered_user', label: 'Registered' };
+            if (acq === 'direct' || src === 'lemonsqueezy') return { key: 'direct', label: 'Direct' };
+            return { key: '', label: '' };
         }
 
         // Activated YES/NO — paid customer's license has been activated at
@@ -798,6 +895,133 @@
         }
         function hide(id) { document.getElementById(id).classList.add('hidden'); }
 
+        // ─── Ad ROAS Dashboard ─────────────────────────────────
+        // "Money out" (Meta spend) comes from the backend `ad_dashboard` action
+        // (token stays server-side); "money in" is computed here from the
+        // already-loaded purchase rows, split by displaySource (Meta vs organic).
+        // Shown in USD: revenue is USD, spend (ILS) converted at the live rate
+        // the backend returns.
+        const usd0 = (n) => (n < 0 ? '-$' : '$') + Math.abs(Math.round(n)).toLocaleString();
+        const roasStr = (rev, spend) => spend > 0 ? (rev / spend).toFixed(2) + 'x' : '—';
+        const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
+        function dashRevenueByDay(rate) {
+            const by = {};
+            for (const row of state.rows) {
+                const cents = Number(row.total_cents);
+                const d = row.purchased_at;
+                if (!cents || !(d instanceof Date) || isNaN(d)) continue;
+                let usd = cents / 100;
+                if ((row.currency || 'USD').toUpperCase() === 'ILS') usd = usd / rate;
+                const k = ymd(d);
+                const isMeta = displaySource(row).key === 'meta_ad';
+                (by[k] = by[k] || { meta: 0, organic: 0, mc: 0, oc: 0 });
+                if (isMeta) { by[k].meta += usd; by[k].mc++; } else { by[k].organic += usd; by[k].oc++; }
+            }
+            return by;
+        }
+
+        async function openDashboard() {
+            show('dashboard-overlay');
+            document.getElementById('dash-status').textContent = 'Loading Meta spend…';
+            document.getElementById('dash-meta').textContent = '';
+            let data = { ok: false, days: [], rate_ils_per_usd: 3.0, spend_error: 'not loaded' };
+            try {
+                const token = await state.user.getIdToken();
+                const res = await fetch(BACKEND_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ action: 'ad_dashboard' })
+                });
+                data = await res.json();
+            } catch (e) { data.spend_error = e.message; }
+            renderDashboard(data);
+        }
+        function closeDashboard() { hide('dashboard-overlay'); }
+
+        function renderDashboard(data) {
+            const rate = Number(data.rate_ils_per_usd) || 3.0;
+            const spendByDay = {};
+            (data.days || []).forEach(d => { if (d && d.date) spendByDay[d.date] = (Number(d.spend_ils) || 0) / rate; });
+            const revByDay = dashRevenueByDay(rate);
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const cell = (txt, cls) => `<td class="px-3 py-1.5 text-right tabular-nums ${cls || ''}">${txt}</td>`;
+            const netCls = (n) => n >= 0 ? 'text-emerald-400' : 'text-red-400';
+
+            // Daily — last 14 days
+            let dailyHtml = '';
+            for (let i = 0; i < 14; i++) {
+                const dt = new Date(today); dt.setDate(today.getDate() - i);
+                const k = ymd(dt);
+                const spend = spendByDay[k] || 0;
+                const r = revByDay[k] || { meta: 0, organic: 0 };
+                const total = r.meta + r.organic, net = total - spend;
+                const lbl = i === 0 ? 'Today' : (i === 1 ? 'Yesterday' : dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+                dailyHtml += `<tr class="border-t border-white/5 ${i === 0 ? 'bg-white/[0.02]' : ''}">
+                    <td class="px-3 py-1.5 text-zinc-300 whitespace-nowrap">${lbl}</td>
+                    ${cell(usd0(spend), 'text-zinc-400')}${cell(usd0(r.meta), 'text-blue-300')}${cell(usd0(r.organic), 'text-zinc-400')}${cell(usd0(total), 'text-zinc-100 font-semibold')}
+                    ${cell(roasStr(r.meta, spend), 'text-zinc-300')}${cell(roasStr(total, spend), 'text-zinc-300')}${cell(usd0(net), netCls(net) + ' font-semibold')}
+                </tr>`;
+            }
+            document.getElementById('dash-daily').innerHTML = dailyHtml;
+
+            // Weekly — last 8 weeks (Monday start)
+            const weekStart = (d) => { const x = new Date(d); const off = (x.getDay() + 6) % 7; x.setDate(x.getDate() - off); x.setHours(0, 0, 0, 0); return x; };
+            const wk = {};
+            for (let i = 0; i < 63; i++) {
+                const dt = new Date(today); dt.setDate(today.getDate() - i);
+                const k = ymd(dt), wkey = ymd(weekStart(dt));
+                (wk[wkey] = wk[wkey] || { spend: 0, meta: 0, organic: 0 });
+                wk[wkey].spend += spendByDay[k] || 0;
+                const r = revByDay[k]; if (r) { wk[wkey].meta += r.meta; wk[wkey].organic += r.organic; }
+            }
+            let weekHtml = '';
+            Object.keys(wk).sort().reverse().slice(0, 8).forEach((wkey, idx) => {
+                const a = wk[wkey], total = a.meta + a.organic, net = total - a.spend;
+                const d = new Date(wkey + 'T00:00:00');
+                const lbl = (idx === 0 ? 'This week · ' : '') + d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                weekHtml += `<tr class="border-t border-white/5 ${idx === 0 ? 'bg-white/[0.02]' : ''}">
+                    <td class="px-3 py-1.5 text-zinc-300 whitespace-nowrap">${lbl}</td>
+                    ${cell(usd0(a.spend), 'text-zinc-400')}${cell(usd0(a.meta), 'text-blue-300')}${cell(usd0(a.organic), 'text-zinc-400')}${cell(usd0(total), 'text-zinc-100 font-semibold')}
+                    ${cell(roasStr(a.meta, a.spend), 'text-zinc-300')}${cell(roasStr(total, a.spend), 'text-zinc-300')}${cell(usd0(net), netCls(net) + ' font-semibold')}
+                </tr>`;
+            });
+            document.getElementById('dash-weekly').innerHTML = weekHtml;
+
+            // KPI strip — last 30 days
+            let s30 = 0, m30 = 0, o30 = 0, mc30 = 0, oc30 = 0;
+            for (let i = 0; i < 30; i++) {
+                const dt = new Date(today); dt.setDate(today.getDate() - i);
+                const k = ymd(dt);
+                s30 += spendByDay[k] || 0;
+                const r = revByDay[k]; if (r) { m30 += r.meta; o30 += r.organic; mc30 += r.mc || 0; oc30 += r.oc || 0; }
+            }
+            const tot30 = m30 + o30, net30 = tot30 - s30, sales30 = mc30 + oc30;
+            const kpi = (label, val, sub, cls) => `<div class="bg-white/[0.03] border border-white/5 rounded-lg px-3 py-2">
+                <div class="text-[8px] text-zinc-500 uppercase tracking-widest font-bold mb-0.5">${label}</div>
+                <div class="text-base font-black ${cls || 'text-zinc-100'}">${val}</div>
+                ${sub ? `<div class="text-[8px] text-zinc-600 mt-0.5">${sub}</div>` : ''}
+            </div>`;
+            document.getElementById('dash-kpis').innerHTML =
+                kpi('Spent', usd0(s30)) +
+                kpi('Revenue', usd0(tot30), 'AOV ' + (sales30 ? usd0(tot30 / sales30) : '—')) +
+                kpi('Net profit', usd0(net30), null, net30 >= 0 ? 'text-emerald-400' : 'text-red-400') +
+                kpi('Meta ROAS', roasStr(m30, s30)) +
+                kpi('Overall ROAS', roasStr(tot30, s30)) +
+                kpi('Meta sales', mc30, 'CPA ' + (mc30 ? usd0(s30 / mc30) : '—')) +
+                kpi('Organic sales', oc30) +
+                kpi('Total sales', sales30);
+
+            document.getElementById('dash-meta').textContent = `Last 30 days · USD @ ${rate.toFixed(2)} ₪/$`;
+            const st = document.getElementById('dash-status');
+            const fetched = data.fetched_at ? new Date(data.fetched_at * 1000).toLocaleTimeString() : '';
+            if (data.spend_error) {
+                st.innerHTML = `<span class="text-amber-400">Meta spend unavailable: ${escapeHtml(String(data.spend_error))}.</span> Revenue is still accurate; ROAS needs spend. If the token expired, refresh the <code class="text-fuchsia-400">META_ACCESS_TOKEN</code> secret and redeploy.`;
+            } else {
+                st.textContent = `Spend = all Meta campaigns, converted to USD at ${rate.toFixed(2)} ₪/$. Revenue from your CRM, split by attribution (Meta = fbc/meta_ad, Organic = everything else). Updated ${fetched}.`;
+            }
+        }
+
         // ─── Filter wiring ─────────────────────────────────────
         document.getElementById('search').addEventListener('input', (e) => {
             state.search = e.target.value;
@@ -889,6 +1113,7 @@
                     // a targeted campaign. `status` uses the derived value so
                     // leads without an explicit status field aren't blank.
                     if (h === 'origin') return escape(r.last_action || '');
+                    if (h === 'source') return escape(displaySource(r).label || '');
                     if (h === 'status') return escape(getStatus(r));
                     return escape(r[h] || '');
                 }).join(',') + '\n';
