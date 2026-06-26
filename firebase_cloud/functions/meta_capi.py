@@ -191,3 +191,63 @@ def _fire_meta_purchase_capi(order_data, event_id):
         # anything — all swallowed. Webhook MUST 200 for LS.
         print(f"[Meta CAPI] POST failed: {e}")
         return False
+
+
+def _build_pageview_payload(user_data, event_id, event_source_url):
+    """Build a server-side PageView event for the Conversions API. Used to grow
+    the website Custom Audiences (retargeting pools): the browser pixel's
+    PageView is blocked/unmatched for most iOS/Safari/ad-blocker visitors, but a
+    server event carrying the visitor's IP + user-agent + fbp lets Meta match
+    them anyway. action_source='website' + a URL makes it qualify for the
+    'all website visitors' audience rule."""
+    ud = {}
+    for k in ("fbp", "fbc", "client_ip_address", "client_user_agent"):
+        v = user_data.get(k)
+        if isinstance(v, str):
+            v = v.strip()
+        if v:
+            ud[k] = v
+    return {
+        "data": [
+            {
+                "event_name": "PageView",
+                "event_time": int(time.time()),
+                "event_id": event_id or str(uuid.uuid4()),
+                "event_source_url": event_source_url or "https://stridehub.io/",
+                "action_source": "website",
+                "user_data": ud,
+            }
+        ]
+    }
+
+
+def _fire_meta_pageview_capi(user_data, event_id, event_source_url):
+    """POST a server-side PageView to Meta's CAPI. Best-effort — never raises.
+    Returns True on HTTP 2xx, False otherwise. The IP comes from the request on
+    the server side (the one signal the browser can't reliably deliver), so this
+    is what actually fills the website retargeting audiences."""
+    token = os.environ.get("META_CAPI_ACCESS_TOKEN") or ""
+    if not token:
+        return False
+    try:
+        payload = _build_pageview_payload(user_data, event_id, event_source_url)
+        url = (
+            f"https://graph.facebook.com/{META_CAPI_VERSION}/"
+            f"{META_PIXEL_ID}/events?access_token={urllib.parse.quote(token, safe='')}"
+        )
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json", "User-Agent": "Stride-Backend/1.0"},
+        )
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            status = resp.getcode()
+        ud = payload["data"][0].get("user_data", {})
+        keys = ",".join(k for k in ("fbp", "fbc", "client_ip_address", "client_user_agent") if ud.get(k)) or "NONE"
+        ok = 200 <= status < 300
+        if not ok:
+            print(f"[Meta CAPI PageView] non-2xx status {status} match_keys=[{keys}]")
+        return ok
+    except Exception as e:
+        print(f"[Meta CAPI PageView] POST failed: {e}")
+        return False

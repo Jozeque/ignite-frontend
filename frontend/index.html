@@ -68,6 +68,31 @@
             try { sessionStorage.setItem('stride_fbc', fbc); } catch (e) {}
         } catch (e) {}
     })();
+
+    // Server-side PageView → our backend → Meta CAPI. The browser PageView
+    // above is dropped/unmatched for most iOS/Safari/ad-blocker visitors, so
+    // Meta can't build a retargetable "site visitors" audience from it alone.
+    // This ping lets the backend forward a PageView carrying the visitor's
+    // SERVER IP (+ fbp/fbc/UA) — the signal Meta can match — which fills the
+    // retargeting pool. Fire-and-forget, delayed so _fbp (set by the pixel
+    // above) is available. Wrapped so it can never affect the page or checkout.
+    (function serverPageView() {
+        try {
+            setTimeout(function () {
+                try {
+                    var ck = function (n) { var m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : ''; };
+                    var fbp = ck('_fbp');
+                    var fbc = ck('_fbc') || (function () { try { return sessionStorage.getItem('stride_fbc') || ''; } catch (e) { return ''; } })();
+                    var eid = 'pv.' + Date.now() + '.' + Math.random().toString(36).slice(2, 10);
+                    fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
+                        method: 'POST', keepalive: true,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'track_pageview', fbp: fbp, fbc: fbc, event_id: eid, url: location.href })
+                    }).catch(function () {});
+                } catch (e) {}
+            }, 1500);
+        } catch (e) {}
+    })();
     </script>
     <noscript><img height="1" width="1" style="display:none"
     src="https://www.facebook.com/tr?id=952457524222772&ev=PageView&noscript=1"

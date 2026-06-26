@@ -216,7 +216,7 @@ def safe_int(val, default=0):
 # Meta Conversions API (Phase 3 of docs/meta-pixel-integration-spec.md).
 # Pure helpers live in meta_capi.py for testability — they don't need
 # firebase_admin or the Flask request context.
-from meta_capi import _fire_meta_purchase_capi
+from meta_capi import _fire_meta_purchase_capi, _fire_meta_pageview_capi
 
 
 def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
@@ -706,6 +706,30 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
     # frontend applies its own multiplier + seed to the returned count — this
     # endpoint just reports the raw ground truth.
     data_pre = req.get_json(silent=True)
+
+    # --- WEB PAGEVIEW -> CAPI (public, no auth) ---
+    # The landing page beacons every visit here so we fire a SERVER-side PageView
+    # to Meta carrying the visitor's IP (+ fbp/fbc/UA). That match signal survives
+    # iOS/Safari/ad-blockers, which the browser pixel alone does not — so this is
+    # what fills the website Custom Audiences (retargeting pools) that otherwise
+    # sit near-empty. Best-effort; always 200 fast so it never blocks the page.
+    if isinstance(data_pre, dict) and data_pre.get("action") == "track_pageview":
+        try:
+            ip = (req.headers.get("X-Forwarded-For", req.remote_addr or "") or "").split(",")[0].strip()
+            _fire_meta_pageview_capi(
+                {
+                    "fbp": (data_pre.get("fbp") or "").strip(),
+                    "fbc": (data_pre.get("fbc") or "").strip(),
+                    "client_ip_address": ip,
+                    "client_user_agent": req.headers.get("User-Agent", ""),
+                },
+                (data_pre.get("event_id") or "").strip(),
+                (data_pre.get("url") or "https://stridehub.io/").strip(),
+            )
+        except Exception as e:
+            print(f"[CAPI PageView] handler error: {e}")
+        return jsonify({"ok": True}), 200
+
     if isinstance(data_pre, dict) and data_pre.get("action") == "founders_count":
         try:
             _db = admin_firestore.client()
