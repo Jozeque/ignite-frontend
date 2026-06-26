@@ -277,7 +277,16 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
             doc_data = {
                 "name": name,
                 "email": email,
-                "source": "lemonsqueezy",
+                # Deliberately NOT writing `source` here. `source` holds the
+                # buyer's "How did you hear about Stride?" answer (set at
+                # buyer_lead time, see the waitlist handler below). Overwriting
+                # it with "lemonsqueezy" on every purchase destroyed the
+                # acquisition attribution in the CRM (every customer showed up as
+                # "LS"). The purchase itself is already recorded via `status` +
+                # `ls_order_id`, and ad attribution lives in `acquisition_source`,
+                # so leaving `source` untouched preserves the heard-from answer on
+                # the existing lead row. Orphan orders (no prior lead) simply have
+                # no `source`; the CRM falls back to `acquisition_source`.
                 "status": "purchased",
                 "ls_order_id": str(data_obj.get("id") or ""),
                 "ls_customer_id": attrs.get("customer_id"),
@@ -457,7 +466,9 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
                     **update,
                     "name": name,
                     "email": email,
-                    "source": "lemonsqueezy",
+                    # No `source`: see the order_created note above — don't mask
+                    # the heard-from answer with "lemonsqueezy". (Orphan licenses
+                    # have no lead row anyway, so there's nothing to preserve.)
                     "status": "purchased",
                     "ls_order_id": order_id_str or None,
                     "created_at": admin_firestore.SERVER_TIMESTAMP,
@@ -673,7 +684,7 @@ def _handle_validate_license(data: dict):
     timeout_sec=540,
     memory=options.MemoryOption.GB_1,
     max_instances=200,
-    secrets=["SUPABASE_SERVICE_KEY", "LEMONSQUEEZY_API_KEY", "LEMONSQUEEZY_WEBHOOK_SECRET", "RESEND_API_KEY", "META_CAPI_ACCESS_TOKEN"]
+    secrets=["SUPABASE_SERVICE_KEY", "LEMONSQUEEZY_API_KEY", "LEMONSQUEEZY_WEBHOOK_SECRET", "RESEND_API_KEY", "META_CAPI_ACCESS_TOKEN", "META_ACCESS_TOKEN"]
 )
 def generate_midi(req: https_fn.Request) -> https_fn.Response:
     if req.method == 'OPTIONS':
@@ -1008,6 +1019,74 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
         except Exception as e:
             print(f"[CRM] update_lead failed: {e}")
             return jsonify({"error": f"Firestore update failed: {str(e)}"}), 500
+
+    # --- ADMIN: AD ROAS DASHBOARD (admin-only) ---
+    # Returns daily Meta ad spend (account-level, ILS) + the live USD/ILS rate
+    # so admin.html can render the spend-vs-revenue dashboard. Revenue itself is
+    # computed client-side from the already-loaded waitlist rows (by
+    # acquisition_source), so this endpoint only supplies the "money out" side.
+    if action == "ad_dashboard":
+        if not is_admin_user:
+            return jsonify({"error": "Admin access required"}), 403
+
+        meta_token = os.environ.get("META_ACCESS_TOKEN") or ""
+        acct = "act_3411622499006924"
+
+        # Live USD->ILS (Meta bills in ILS; product revenue is USD). Fallback to
+        # a near-current constant if the FX service is unreachable.
+        rate = None
+        try:
+            with urllib.request.urlopen("https://api.frankfurter.app/latest?from=USD&to=ILS", timeout=5) as r:
+                rate = float(json.loads(r.read().decode("utf-8"))["rates"]["ILS"])
+        except Exception as fe:
+            print(f"[AdDashboard] FX fetch failed: {fe}")
+        if not rate or rate <= 0:
+            rate = 3.0
+
+        # Daily account-level spend for the last 63 days, INCLUDING today
+        # (date_preset last_Nd excludes today, so use an explicit time_range).
+        days = []
+        spend_error = None
+        if not meta_token:
+            spend_error = "META_ACCESS_TOKEN secret not set"
+        else:
+            try:
+                _today = datetime.now().date()
+                _since = _today - timedelta(days=63)
+                _tr = json.dumps({"since": _since.isoformat(), "until": _today.isoformat()})
+                _q = urllib.parse.urlencode({
+                    "access_token": meta_token,
+                    "fields": "spend",
+                    "time_increment": "1",
+                    "time_range": _tr,
+                    "limit": "200",
+                })
+                _url = f"https://graph.facebook.com/v23.0/{acct}/insights?{_q}"
+                with urllib.request.urlopen(_url, timeout=15) as r:
+                    _body = json.loads(r.read().decode("utf-8"))
+                if isinstance(_body, dict) and _body.get("error"):
+                    spend_error = _body["error"].get("message", "Meta API error")
+                else:
+                    for d in _body.get("data", []):
+                        days.append({"date": d.get("date_start"), "spend_ils": float(d.get("spend") or 0)})
+            except Exception as me:
+                _msg = str(me)
+                try:
+                    if hasattr(me, "read"):
+                        _msg = json.loads(me.read().decode("utf-8")).get("error", {}).get("message", _msg)
+                except Exception:
+                    pass
+                spend_error = _msg
+                print(f"[AdDashboard] Meta spend fetch failed: {_msg}")
+
+        return jsonify({
+            "ok": spend_error is None,
+            "rate_ils_per_usd": rate,
+            "account_currency": "ILS",
+            "days": days,
+            "spend_error": spend_error,
+            "fetched_at": int(time.time()),
+        }), 200
 
     # --- FAST LANE 1: ENHANCE PROMPT (No DB, No Cost) ---
     if action == "enhance_prompt":
