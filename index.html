@@ -821,6 +821,10 @@
             const m = document.cookie.match(/(?:^|; )_fbp=([^;]*)/);
             return m ? decodeURIComponent(m[1]) : '';
         })();
+        const xid = (function () {
+            const m = document.cookie.match(/(?:^|; )stride_xid=([^;]*)/);
+            return m ? decodeURIComponent(m[1]) : '';
+        })();
         const ua = (navigator.userAgent || '').slice(0, 512);
         const fbclid = fbc ? fbc.split('.').pop() : '';
 
@@ -837,10 +841,16 @@
             body: JSON.stringify({
                 action: leadAction,
                 name, email, country, source,
-                fbc, fbclid, fbp, ua, event_id: eventId,
+                fbc, fbclid, fbp, ua, event_id: eventId, external_id: xid,
                 terms_accepted: termsAccepted,
             })
         }).catch(() => {});
+
+        // Browser-side InitiateCheckout (deduped with the server-side event in
+        // the buyer_lead handler via the shared eventId). Builds the
+        // "started checkout" / cart-abandoner audience for retargeting. Wrapped
+        // + best-effort so it can never block the redirect to checkout below.
+        try { if (window.fbq) fbq('track', 'InitiateCheckout', { value: 59, currency: 'USD' }, { eventID: eventId }); } catch (e) {}
 
         // Store locally
         localStorage.setItem('stride_purchase', JSON.stringify({
