@@ -3,7 +3,7 @@
  * Creates the main window and manages app lifecycle.
  */
 
-const { app, BrowserWindow, ipcMain, dialog, shell, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, nativeImage, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const libraryPath = require('./lib/library-path');
 
 let mainWindow = null;
+let _mainCompact = false;   // true while THIS window is toggled into compact mode (keeps it pinned)
 
 // Data directory for local state (canvas saves, license, settings)
 const DATA_DIR = path.join(app.getPath('userData'), 'stride-data');
@@ -96,12 +97,219 @@ function revealMainWindow() {
     // Windows requires alwaysOnTop toggle to steal focus from other apps
     mainWindow.setAlwaysOnTop(true);
     mainWindow.focus();
-    mainWindow.setAlwaysOnTop(false);
+    // Keep it pinned while in compact mode — otherwise a reveal (device press /
+    // second-instance / activate) un-sticks the sticky compact panel.
+    if (!_mainCompact) mainWindow.setAlwaysOnTop(false);
 }
 
 // Focus window (called from M4L via WebSocket)
 ipcMain.on('focus-window', () => {
     revealMainWindow();
+});
+
+// ─── QuickPanel (compact companion window) ────────────────
+//
+// A small, SEPARATE, pinned window that mirrors the canvas's multi-lane view in
+// a compact layout — for quick tweaks and for screen-recording the whole
+// workflow beside Ableton (the main canvas shrinks lanes when not fullscreen,
+// and gets occluded behind Ableton). FULLY ISOLATED: its own preload + renderer;
+// it does NOT load canvas.js, ws-client.js, or connect to the M4L bridge, so it
+// cannot affect the main canvas, app logic, or StrideQuick. Read-only: it loads
+// the latest saved canvas_*.json and re-reads when one changes on disk.
+let quickPanelWindow = null;
+let quickPanelWatcher = null;
+let lastQuickPanelState = null;   // most recent live lane snapshot pushed from the canvas
+
+// Remember the QuickPanel's size + position so it reopens exactly how the user
+// last left it (a main-owned file, separate from the renderer's settings.json so
+// the two can't race). Falls back to the compact default on first open.
+const QP_BOUNDS_FILE = path.join(DATA_DIR, 'quickpanel-bounds.json');
+let _qpBoundsSaveTimer = null;
+function _qpReadBounds() {
+    try {
+        if (fs.existsSync(QP_BOUNDS_FILE)) {
+            const b = JSON.parse(fs.readFileSync(QP_BOUNDS_FILE, 'utf8'));
+            if (b && b.width > 200 && b.height > 150 && b.width <= 1200 && b.height <= 950) return b;   // reject a corrupted full-size save
+        }
+    } catch (e) {}
+    return null;
+}
+function _qpSaveBounds() {
+    if (!quickPanelWindow || quickPanelWindow.isDestroyed()) return;
+    try {
+        if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+        fs.writeFileSync(QP_BOUNDS_FILE, JSON.stringify(quickPanelWindow.getBounds()));
+    } catch (e) {}
+}
+function _qpSaveBoundsDebounced() {
+    if (_qpBoundsSaveTimer) clearTimeout(_qpBoundsSaveTimer);
+    _qpBoundsSaveTimer = setTimeout(_qpSaveBounds, 400);
+}
+
+function startQuickPanelWatcher() {
+    if (quickPanelWatcher) return;
+    try {
+        if (!fs.existsSync(DATA_DIR)) return;
+        quickPanelWatcher = fs.watch(DATA_DIR, (evt, filename) => {
+            if (!filename || !/^canvas_.*\.json$/.test(filename)) return;
+            if (quickPanelWindow && !quickPanelWindow.isDestroyed()) {
+                quickPanelWindow.webContents.send('canvas-file-changed');
+            }
+        });
+    } catch (e) { /* watcher is best-effort; the panel's manual Refresh still works */ }
+}
+function stopQuickPanelWatcher() {
+    if (quickPanelWatcher) { try { quickPanelWatcher.close(); } catch (e) {} quickPanelWatcher = null; }
+}
+
+function createQuickPanelWindow() {
+    if (quickPanelWindow && !quickPanelWindow.isDestroyed()) {
+        if (quickPanelWindow.isMinimized()) quickPanelWindow.restore();
+        quickPanelWindow.show();
+        quickPanelWindow.focus();
+        return quickPanelWindow;
+    }
+    const _qpSaved = _qpReadBounds();
+    quickPanelWindow = new BrowserWindow({
+        width: (_qpSaved && _qpSaved.width) || 900,
+        height: (_qpSaved && _qpSaved.height) || 588,   // default: a touch taller so the bottom lane isn't clipped
+        ...(_qpSaved && Number.isInteger(_qpSaved.x) && Number.isInteger(_qpSaved.y) ? { x: _qpSaved.x, y: _qpSaved.y } : {}),
+        minWidth: 560,
+        minHeight: 360,
+        backgroundColor: '#161616',           // patch-skin app bg
+        title: 'Stride QuickPanel',
+        alwaysOnTop: true,                     // "pinned" — stays visible over Ableton (toggleable in-panel)
+        show: true,
+        titleBarStyle: 'hidden',
+        titleBarOverlay: { color: '#161616', symbolColor: '#9a9d9e', height: 32 },
+        webPreferences: {
+            preload: path.join(__dirname, 'quickpanel-preload.js'),
+            contextIsolation: true,
+            nodeIntegration: false,
+            sandbox: false,
+            backgroundThrottling: false
+        },
+        icon: path.join(__dirname, 'assets', 'icon.png')
+    });
+    quickPanelWindow.loadFile(path.join(__dirname, 'renderer', 'quickpanel.html'));
+    // Replay the latest known snapshot once the panel loads, so opening it
+    // mid-session shows the current rack immediately (not sample/file data).
+    quickPanelWindow.webContents.on('did-finish-load', () => {
+        if (lastQuickPanelState && quickPanelWindow && !quickPanelWindow.isDestroyed()) {
+            quickPanelWindow.webContents.send('quickpanel-state', lastQuickPanelState);
+        }
+    });
+    startQuickPanelWatcher();
+    quickPanelWindow.on('resize', _qpSaveBoundsDebounced);
+    quickPanelWindow.on('move', _qpSaveBoundsDebounced);
+    quickPanelWindow.on('close', _qpSaveBounds);   // capture final size/pos before it's gone
+    quickPanelWindow.on('closed', () => {
+        quickPanelWindow = null;
+        stopQuickPanelWatcher();
+    });
+    return quickPanelWindow;
+}
+
+// Open the QuickPanel. Triggered for now by a global shortcut (below); the M4L
+// device button that opens it is wired in a later step.
+ipcMain.on('open-quickpanel', () => { createQuickPanelWindow(); });
+
+// Read the most-recently-modified canvas_*.json (READ-ONLY) for the QuickPanel.
+ipcMain.handle('quickpanel-get-latest', async () => {
+    try {
+        if (!fs.existsSync(DATA_DIR)) return { success: true, state: null };
+        const files = fs.readdirSync(DATA_DIR).filter(f => /^canvas_.*\.json$/.test(f));
+        if (!files.length) return { success: true, state: null };
+        let best = null;
+        for (const f of files) {
+            const fp = path.join(DATA_DIR, f);
+            let m = 0; try { m = fs.statSync(fp).mtimeMs; } catch (e) {}
+            if (!best || m > best.m) best = { fp, m };
+        }
+        const data = JSON.parse(fs.readFileSync(best.fp, 'utf8'));
+        return { success: true, state: data };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+// In-panel "Pin" toggle (alwaysOnTop).
+ipcMain.on('quickpanel-set-pin', (event, pinned) => {
+    if (quickPanelWindow && !quickPanelWindow.isDestroyed()) {
+        quickPanelWindow.setAlwaysOnTop(!!pinned);
+    }
+});
+
+// Receive a live lane snapshot from the canvas and forward it to the panel.
+// One-way (canvas → panel); the panel never writes back, so it cannot affect
+// the canvas, app logic, or StrideQuick.
+ipcMain.on('quickpanel-push-state', (event, state) => {
+    lastQuickPanelState = state;
+    if (quickPanelWindow && !quickPanelWindow.isDestroyed()) {
+        quickPanelWindow.webContents.send('quickpanel-state', state);
+    }
+});
+
+// Forward an edit command from the QuickPanel to the canvas (panel → canvas).
+// The canvas validates + executes it; the result returns via the normal push.
+ipcMain.on('quickpanel-command', (event, cmd) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('quickpanel-command', cmd);
+    }
+});
+
+// ─── Compact mode (the FUSED QuickPanel — same window, toggled layout) ───
+// The renderer flips a #qp-compact overlay; here we shrink + pin the window so it
+// reads as a sticky compact panel beside Ableton, and restore the full size on the
+// way back. Compact size is remembered (reuses quickpanel-bounds.json).
+let _mainFullBounds = null;
+let _mainWasMaximized = false;
+let _compactResizeHooked = false;
+let _compactSaveTimer = null;
+function _saveCompactBounds() {
+    if (!_mainCompact || !mainWindow || mainWindow.isDestroyed()) return;
+    try {
+        if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+        fs.writeFileSync(QP_BOUNDS_FILE, JSON.stringify(mainWindow.getBounds()));
+    } catch (e) {}
+}
+function _qpSaveCompactDebounced() {
+    if (_compactSaveTimer) clearTimeout(_compactSaveTimer);
+    _compactSaveTimer = setTimeout(_saveCompactBounds, 400);
+}
+ipcMain.on('set-compact-mode', (event, on) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    on = !!on;
+    if (on === _mainCompact) return;
+    _mainCompact = on;
+    if (on) {
+        _mainWasMaximized = mainWindow.isMaximized();
+        _mainFullBounds = mainWindow.getBounds();                 // remember full size
+        const cb = _qpReadBounds() || { width: 900, height: 588 };   // remembered compact size, else the QuickPanel spec
+        // A MAXIMIZED or fullscreen window IGNORES setSize — drop those states first,
+        // otherwise pressing Compact does nothing when the canvas is maximized.
+        if (mainWindow.isFullScreen()) mainWindow.setFullScreen(false);
+        if (mainWindow.isMaximized()) mainWindow.unmaximize();
+        // Full mode pins a minWidth/minHeight of 800x600 — relax it so the window
+        // can actually shrink down to the compact QuickPanel size.
+        mainWindow.setMinimumSize(360, 360);
+        mainWindow.setAlwaysOnTop(true);
+        if (Number.isInteger(cb.x) && Number.isInteger(cb.y)) {
+            mainWindow.setBounds({ x: cb.x, y: cb.y, width: Math.round(cb.width), height: Math.round(cb.height) });
+        } else {
+            mainWindow.setSize(Math.round(cb.width), Math.round(cb.height));
+            mainWindow.center();
+        }
+        if (!_compactResizeHooked) { mainWindow.on('resize', _qpSaveCompactDebounced); _compactResizeHooked = true; }
+    } else {
+        mainWindow.setAlwaysOnTop(false);
+        mainWindow.setMinimumSize(800, 600);                       // restore the full-canvas minimum
+        if (_mainWasMaximized) mainWindow.maximize();              // restore the maximized/full state
+        else if (_mainFullBounds) mainWindow.setSize(_mainFullBounds.width, _mainFullBounds.height);
+    }
+});
+ipcMain.on('set-compact-pin', (event, pinned) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setAlwaysOnTop(!!pinned);
 });
 
 // Save canvas state locally
@@ -1318,10 +1526,19 @@ if (!gotTheLock) {
         writeAppPathMarker();
         createWindow();
         startLibraryWatcher();
+        // QuickPanel opener — temporary global shortcut so it can be opened for
+        // review/recording. The M4L device button that opens it lands later.
+        try {
+            globalShortcut.register('CommandOrControl+Shift+Q', () => { createQuickPanelWindow(); });
+        } catch (e) { /* shortcut registration is best-effort */ }
     });
 
     app.on('window-all-closed', () => {
         app.quit();
+    });
+
+    app.on('will-quit', () => {
+        try { globalShortcut.unregisterAll(); } catch (e) {}
     });
 
     app.on('activate', () => {

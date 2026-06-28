@@ -66,6 +66,25 @@ contextBridge.exposeInMainWorld('stride', {
     focusWindow: () =>
         ipcRenderer.send('focus-window'),
 
+    // Open the compact QuickPanel companion window (separate, isolated window)
+    openQuickPanel: () =>
+        ipcRenderer.send('open-quickpanel'),
+
+    // Mirror the canvas's current lanes to the QuickPanel (one-way push).
+    quickPanelPush: (state) =>
+        ipcRenderer.send('quickpanel-push-state', state),
+
+    // Compact mode (fused QuickPanel in this same window): shrink + pin / restore.
+    setCompactMode: (on) =>
+        ipcRenderer.send('set-compact-mode', on),
+    setCompactPin: (pinned) =>
+        ipcRenderer.send('set-compact-pin', pinned),
+
+    // Receive edit commands FROM the QuickPanel (panel → canvas). The canvas
+    // validates + executes them on its real state (single source of truth).
+    onQuickPanelCommand: (callback) =>
+        ipcRenderer.on('quickpanel-command', (e, cmd) => callback(cmd)),
+
     // Open URL in system browser
     openExternal: (url) =>
         ipcRenderer.invoke('open-external', url),

@@ -149,6 +149,26 @@ console.log('test-detail-clip-source.js');
     ok('scan_mapped clip_bars = 16', res.clip_bars === 16, 'bars=' + res.clip_bars);
 })();
 
+// ── detail-clip observer emits track_index (drives the canvas same-track fast path) ──
+(function () {
+    const ctx = makeContext(makeTree(2)); loadScanner(ctx);
+    ctx._onDetailClipChange();
+    const o = lastOutlet(ctx, 'clip_focus');
+    const info = o ? JSON.parse(o[2]) : {};
+    ok('clip_focus emits track_index 0 (session clip on track 0)', info.track_index === 0, 'track_index=' + info.track_index);
+    ok('clip_focus still carries slot 2 + bars 16', info.clip_slot === 2 && info.clip_bars === 16, JSON.stringify(info));
+})();
+
+// ── canvas + server wiring for the same-track fast path (static guards) ──
+(function () {
+    const canvasSrc = fs.readFileSync(path.join(__dirname, '..', 'app', 'renderer', 'canvas.js'), 'utf8');
+    const serverSrc = fs.readFileSync(path.join(__dirname, '..', 'm4l', 'node', 'server.js'), 'utf8');
+    ok('canvas: clip_focus same-track skips the scan (fast re-key)', /ti >= 0 && ti === currentTrackIndex/.test(canvasSrc) && /function _sdReKeyClipNoScan/.test(canvasSrc));
+    ok('canvas: fast re-key blanks lanes before restore (per-clip variation)', /function _sdReKeyClipNoScan[\s\S]{0,1400}p\.points = \[\]; p\.locked = false; p\.selected = false/.test(canvasSrc));
+    ok('canvas: fast re-key restores the clip without a param walk', /function _sdReKeyClipNoScan[\s\S]{0,1600}restoreCanvasState\(\)/.test(canvasSrc));
+    ok('server: clip_focus_changed forwards track_index', /clip_focus_changed[\s\S]{0,320}track_index:/.test(serverSrc));
+})();
+
 // ── fallback: last clip that was in detail view ──
 (function () {
     const ctx = makeContext(makeTree(2)); loadScanner(ctx);

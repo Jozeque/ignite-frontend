@@ -1022,77 +1022,54 @@
             window.stride.triggerLibraryScan().catch(() => {});
         }
 
-        // Check if canvas already has curves drawn
+        // A scan that has work to preserve ALWAYS keeps it — a silent,
+        // curve-preserving merge. Drawn curves AND locks carry across by the
+        // param's stable _path, so a rescan only folds in newly-added params (as
+        // empty lanes) and never loses anything. This removes the old
+        // "Keep / Replace?" modal: it was unnecessary (the merge already keeps
+        // everything), it BLOCKED behind Ableton, and it popped up spuriously via
+        // the scan-classification race.
         const hasExistingCurves = sdCanvasParams.some(p => p.points && p.points.length > 0);
-
-        if (hasExistingCurves) {
-            // Show confirmation — don't silently wipe curves
-            const curveCount = sdCanvasParams.filter(p => p.points && p.points.length > 0).length;
-            const modal = document.getElementById('rescan-confirm-modal');
-            document.getElementById('rescan-confirm-msg').textContent =
-                `You have curves on ${curveCount} lane${curveCount > 1 ? 's' : ''}. A new scan will replace them.`;
-            modal.classList.remove('hidden');
-
-            const _mode = scanMode;
-
-            // "Keep Curves" — merge: load new params but preserve curves for matching names
-            window._rescanConfirmKeep = () => {
-                modal.classList.add('hidden');
-                const oldCurves = {};
-                sdCanvasParams.forEach(p => {
-                    if ((p.points && p.points.length > 0) || p.locked) {
-                        // Stable _path key (name fallback for lanes lacking it), NOT
-                        // the positional envelopeId — which renumbers when params are
-                        // added, so the manual Keep-Curves merge would otherwise land
-                        // curves/locks on the WRONG params (same bug as the auto-merge).
-                        const k = p._path || ('n:' + p.name);
-                        oldCurves[k] = {
-                            points: (p.points && p.points.length > 0) ? JSON.parse(JSON.stringify(p.points)) : null,
-                            envelope_index: p.envelope_index,
-                            locked: !!p.locked
-                        };
-                    }
-                });
-
-                if (_mode === 'all') {
-                    showParamPicker(msg.parameters, rackInfo);
-                } else {
-                    loadParamsDirectly(msg.parameters, rackInfo);
+        const hasLocks = sdCanvasParams.some(p => p.locked);
+        const _newIds = (msg.parameters || []).map(p => String(p.id)).sort().join(',');
+        const _curIds = sdCanvasParams.map(p => p.envelopeId).sort().join(',');
+        if (scanMode === 'all') {
+            // "Scan all" is an explicit pick-your-params action — keep the picker.
+            showParamPicker(msg.parameters, rackInfo);
+        } else if (_newIds === _curIds && sdCanvasParams.length > 0) {
+            // Same params already loaded → nothing structural changed. Keep the lanes
+            // (curves + locks intact) WITHOUT a full reload — reloading the whole rack
+            // on every (often duplicate) rescan thrashes the main thread and is a big
+            // driver of the "stuck" on heavy racks.
+            sdRenderSidebar();
+            sdDrawCanvasGrid();
+        } else if (hasExistingCurves || hasLocks) {
+            // Snapshot current curves + locks by stable _path, reload, re-apply.
+            const oldCurves = {};
+            sdCanvasParams.forEach(p => {
+                if ((p.points && p.points.length > 0) || p.locked) {
+                    const k = p._path || ('n:' + p.name);
+                    oldCurves[k] = {
+                        points: (p.points && p.points.length > 0) ? JSON.parse(JSON.stringify(p.points)) : null,
+                        locked: !!p.locked
+                    };
                 }
-
-                // Restore curves for params that still exist by envelopeId
-                let restored = 0;
-                sdCanvasParams.forEach(p => {
-                    const c = (p._path && oldCurves[p._path]) || oldCurves['n:' + p.name];
-                    if (c) {
-                        if (c.points) { p.points = c.points; restored++; }
-                        if (c.locked) p.locked = true;
-                    }
-                });
-                if (restored > 0) {
-                    document.getElementById('sd-canvas-status').textContent =
-                        `Editor Ready — ${restored} curve${restored > 1 ? 's' : ''} preserved`;
-                    sdRenderSidebar();
-                    sdDrawCanvasGrid();
-                }
-            };
-
-            // "Replace" — load fresh, wipe all curves
-            window._rescanConfirmReplace = () => {
-                modal.classList.add('hidden');
-                if (_mode === 'all') {
-                    showParamPicker(msg.parameters, rackInfo);
-                } else {
-                    loadParamsDirectly(msg.parameters, rackInfo);
-                }
-            };
-        } else {
-            // No existing curves — load normally
-            if (scanMode === 'all') {
-                showParamPicker(msg.parameters, rackInfo);
-            } else {
-                loadParamsDirectly(msg.parameters, rackInfo);
+            });
+            loadParamsDirectly(msg.parameters, rackInfo);
+            let restored = 0;
+            sdCanvasParams.forEach(p => {
+                const c = (p._path && oldCurves[p._path]) || oldCurves['n:' + p.name];
+                if (c) { if (c.points) { p.points = c.points; restored++; } if (c.locked) p.locked = true; }
+            });
+            sdRenderSidebar();
+            sdDrawCanvasGrid();
+            if (restored > 0) {
+                const _st = document.getElementById('sd-canvas-status');
+                if (_st) _st.textContent = `Editor Ready — ${restored} curve${restored > 1 ? 's' : ''} preserved`;
             }
+        } else {
+            // Nothing drawn or locked — load fresh.
+            loadParamsDirectly(msg.parameters, rackInfo);
         }
 
         scanMode = null;
@@ -1120,15 +1097,50 @@
         }, 450);
     });
 
-    // Detail-view clip changed — the clip in Live's editor is the source of
-    // truth. Re-sync so the canvas shows THIS clip's curves + bars, even when
-    // the track selection didn't change (switching clips on the same track).
-    // We save the current clip first, then re-scan; the authoritative slot comes
-    // back on rack_scanned (from detail_clip), which re-keys per-clip state.
-    // Shares the track-change debounce so a clip-open that also reselects the
-    // track only scans once.
+    // Detail-view clip changed — the clip in Live's editor is the source of truth.
+    // Re-sync so the canvas shows THIS clip's curves + bars, even when the track
+    // selection didn't change (switching clips on the same track).
+    //
+    // FAST PATH: when the new clip is on the SAME track as the loaded rack (the
+    // M4L sends the clip's track_index), the params can't have changed — so skip
+    // the heavy LOM param walk and just re-key + restore this clip's curves. Only
+    // a real track/rack change (or an arrangement clip / older M4L that sends no
+    // track index) falls through to the full debounced scan (today's behavior).
+    function _sdReKeyClipNoScan(slot, bars) {
+        // Persist the clip we're leaving, THEN re-key to the new slot. Same rack →
+        // currentRackId is unchanged; rebuild the legacy migration key from the
+        // cached track+device names. Blank the lanes + restore THIS clip's saved
+        // curves (restoreCanvasState also auto-reads the clip's real automation when
+        // it has none) — mirrors the scan's clip-switch path, minus the param walk.
+        Promise.resolve(saveCanvasState()).then(() => {
+            currentClipSlot = (slot != null) ? slot : 0;
+            currentClipKey = _sdClipKey(currentRackId, currentClipSlot);
+            const legacyRackId = ((_sdCurrentTrackName || '') + '_' + (currentDeviceName || '')).replace(/[^a-zA-Z0-9]/g, '_');
+            currentLegacyKey = _sdClipKey(legacyRackId, currentClipSlot);
+            _sdContextDirty = false;   // same params, just re-keyed to this clip
+            sdCanvasParams.forEach(p => { p.points = []; p.locked = false; p.selected = false; });
+            Promise.resolve(restoreCanvasState()).then(() => {
+                if (bars && bars > 0) sdSetBars(_sdResolveSystemBars(bars), false);
+                try { sdRenderSidebar(); sdDrawCanvasGrid(); _sdSendQuickState(); } catch (e) {}
+            });
+        });
+    }
     strideLink.on('clip_focus_changed', (msg) => {
         if (!msg) return;
+        const ti = (typeof msg.track_index === 'number') ? msg.track_index : -1;
+        // Same loaded track + a real session slot → fast re-key, no scan. Debounced
+        // so clicking through clips on one track collapses to the clip you land on.
+        if (ti >= 0 && ti === currentTrackIndex && sdCanvasParams.length > 0) {
+            if (_sdTrackChangeTimer) clearTimeout(_sdTrackChangeTimer);
+            const _slot = msg.clip_slot, _bars = msg.clip_bars;
+            _sdTrackChangeTimer = setTimeout(() => {
+                _sdTrackChangeTimer = null;
+                if (!strideLink.connected) return;
+                _sdReKeyClipNoScan(_slot, _bars);
+            }, 150);
+            return;
+        }
+        // Different track / arrangement / no track index → full re-sync (debounced).
         _sdContextDirty = true;   // clip changed → re-key + paths may be stale until the next scan
         if (_sdTrackChangeTimer) clearTimeout(_sdTrackChangeTimer);
         _sdTrackChangeTimer = setTimeout(() => {
@@ -1310,6 +1322,9 @@
     // modify the existing curves, so they append (deduped). bars/rescan/inject
     // leave the stack alone.
     const _SD_GENERATORS = ['chaos','neuro','reflector','sh','prism'];
+    // Quick actions that REWRITE lanes in memory (generators + transforms). They
+    // must persist immediately — see the saveCanvasState() note in _sdApplyQuickAction.
+    const _SD_QUICK_MUTATORS = ['chaos','neuro','reflector','sh','prism','mutate','shuffle','double','half'];
 
     // A lane "moves" when its curve actually varies (not empty, not a flat
     // baseline). Shared by the moving counter and "Lock current lanes".
@@ -1397,6 +1412,15 @@
             if (_SD_GENERATORS.indexOf(action) !== -1) _sdMoveStack = [lbl];
             else if (_sdMoveStack.indexOf(lbl) === -1) _sdMoveStack.push(lbl);
         }
+        // Persist a freshly generated/transformed curve right away. Generators and
+        // transforms rewrite lanes IN MEMORY only (no saveCanvasState of their own).
+        // With Auto-Rescan ON the device fires a rescan, whose merge can reload
+        // canvas_<rackId>.json from disk — and without this it would restore the
+        // last SAVED curve OVER the new one (the "S&H keeps the old Chaos/Neuro
+        // pattern, but ONLY with Auto-Rescan ON" bug; Auto-Rescan OFF does no
+        // rescan so the in-memory curve survived). Saving makes any later reload
+        // restore THIS curve. Fire-and-forget: the display is already correct.
+        if (_SD_QUICK_MUTATORS.indexOf(action) !== -1) { try { saveCanvasState(); } catch (e) {} }
         _sdSendQuickState();
     }
 
@@ -2817,6 +2841,26 @@
         jacks += jack(endX.toFixed(1), endY.toFixed(1), 7);   // hub input jack (where every cable seats)
         svg.innerHTML = cables + jacks;              // cables under the jacks so plugs sit on top
     }
+
+    // ── Compact mode ────────────────────────────────────────────────────
+    // Compact is the SAME real canvas, reflowed — NOT a separate renderer.
+    // toggleCompactMode flips body.qp-compact, which (via CSS in index.html)
+    // hides the full-only chrome (sidebar, the two big toolbar rows, the inject
+    // rail) and shows the slim .sd-compact-only toolbar + slider strip. Those
+    // compact controls call the REAL canvas functions directly (sdMirrorLane,
+    // sdApplyIntensity, …), so there's ONE source of truth and no mirror to fall
+    // out of sync (the bug that lost edits made in the old compact view). Main
+    // shrinks + pins the window via the set-compact-mode IPC.
+    let _sdCompact = false;   // true while this window is toggled into compact mode
+    window.toggleCompactMode = function () {
+        _sdCompact = !_sdCompact;
+        document.body.classList.toggle('qp-compact', _sdCompact);
+        try { if (window.stride && window.stride.setCompactMode) window.stride.setCompactMode(_sdCompact); } catch (e) {}
+        // Re-fit the real canvas to the new (smaller/larger) viewport once the
+        // layout settles — it resizes to its container on 'resize'. Fires on BOTH
+        // directions so the canvas grows back when leaving compact.
+        setTimeout(function () { try { window.dispatchEvent(new Event('resize')); } catch (e) {} }, 40);
+    };
 
     function sdDrawCanvasGrid() {
         if (!sdCtx || !sdCanvasEl || !sdCanvasRect) return;
@@ -4537,11 +4581,18 @@
         return targets;
     }
 
+    // Floor/Ceiling read+write their slider DOM directly (unlike Smooth/Depth/Curve,
+    // which take the value as an arg). In compact mode the sidebar EDIT strip is
+    // hidden and the #qpc-* strip is what the user drives, so resolve to whichever
+    // strip is active — same suffixes, sd-/qpc- prefix. Without this the compact
+    // Floor/Ceiling sliders moved nothing (the math read the sidebar's defaults).
+    function _sdFcEl(suffix) { return document.getElementById((_sdCompact ? 'qpc-' : 'sd-') + suffix); }
+    function _sdFcInt(suffix, dflt) { const el = _sdFcEl(suffix); return el ? parseInt(el.value) : dflt; }
     function _applyFloorCeil() {
         const targets = _ensureFloorCeilSnapshot();
         if (!targets) return;
-        const floor = parseInt(document.getElementById('sd-floor-slider').value) / 100;
-        const ceil = parseInt(document.getElementById('sd-ceil-slider').value) / 100;
+        const floor = _sdFcInt('floor-slider', 0) / 100;
+        const ceil = _sdFcInt('ceil-slider', 100) / 100;
         const range = Math.max(0.001, ceil - floor);
         targets.forEach(p => {
             const snap = _sdFloorCeilSnapshot[p.envelopeId];
@@ -4556,25 +4607,25 @@
     }
 
     window.sdApplyFloor = function(val) {
-        document.getElementById('sd-floor-val').textContent = val + '%';
+        const fv = _sdFcEl('floor-val'); if (fv) fv.textContent = val + '%';
         if (!_sdFloorCeilSnapshot) pushUndo();
-        // Clamp ceiling above floor
-        const ceilSlider = document.getElementById('sd-ceil-slider');
-        if (parseInt(val) > parseInt(ceilSlider.value)) {
+        // Clamp ceiling above floor (on the active strip — sidebar or compact)
+        const ceilSlider = _sdFcEl('ceil-slider');
+        if (ceilSlider && parseInt(val) > parseInt(ceilSlider.value)) {
             ceilSlider.value = val;
-            document.getElementById('sd-ceil-val').textContent = val + '%';
+            const cv = _sdFcEl('ceil-val'); if (cv) cv.textContent = val + '%';
         }
         _applyFloorCeil();
     };
 
     window.sdApplyCeiling = function(val) {
-        document.getElementById('sd-ceil-val').textContent = val + '%';
+        const cv = _sdFcEl('ceil-val'); if (cv) cv.textContent = val + '%';
         if (!_sdFloorCeilSnapshot) pushUndo();
-        // Clamp floor below ceiling
-        const floorSlider = document.getElementById('sd-floor-slider');
-        if (parseInt(val) < parseInt(floorSlider.value)) {
+        // Clamp floor below ceiling (on the active strip — sidebar or compact)
+        const floorSlider = _sdFcEl('floor-slider');
+        if (floorSlider && parseInt(val) < parseInt(floorSlider.value)) {
             floorSlider.value = val;
-            document.getElementById('sd-floor-val').textContent = val + '%';
+            const fv = _sdFcEl('floor-val'); if (fv) fv.textContent = val + '%';
         }
         _applyFloorCeil();
     };
@@ -4591,6 +4642,21 @@
         const fs2 = document.getElementById('sd-floor-slider'), cls = document.getElementById('sd-ceil-slider');
         if (fs2) { fs2.value = 0; document.getElementById('sd-floor-val').textContent = '0%'; }
         if (cls) { cls.value = 100; document.getElementById('sd-ceil-val').textContent = '100%'; }
+        // Mirror the reset to the compact-mode slider strip (same controls, own ids)
+        // so switching the active lane returns them to neutral too.
+        _sdResetCompactSliders();
+    }
+    // Reset the compact slider strip (#qpc-*) to neutral. Separate from the sidebar
+    // sliders (different ids); kept in sync via sdResetSliderSnapshots so the compact
+    // and full edit strips never drift. No-op if the compact strip isn't in the DOM.
+    function _sdResetCompactSliders() {
+        const defs = { 'qpc-smooth': 0, 'qpc-intensity': 100, 'qpc-curve': 0, 'qpc-floor': 0, 'qpc-ceil': 100 };
+        Object.keys(defs).forEach(function (k) {
+            const sl = document.getElementById(k + '-slider');
+            if (sl) sl.value = defs[k];
+            const v = document.getElementById(k + '-val');
+            if (v) v.textContent = defs[k] + '%';
+        });
     }
 
     // ─── TIME STRETCH ────────────────────────────────────────

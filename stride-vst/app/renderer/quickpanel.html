@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<!-- Stride QuickPanel — compact companion window. data-skin matches the main
+     canvas (default 'patch'). ISOLATED: loads only quickpanel-core.js +
+     quickpanel.js — never canvas.js, ws-client.js, or the M4L bridge. -->
+<html lang="en" class="dark" data-skin="patch">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stride QuickPanel</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com;">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // SAME palette→CSS-var remap as index.html so the panel is skin-identical.
+      tailwind.config = {
+        darkMode: 'class',
+        theme: { extend: { colors: {
+          zinc: { 50:'rgb(var(--z50) / <alpha-value>)',100:'rgb(var(--z100) / <alpha-value>)',200:'rgb(var(--z200) / <alpha-value>)',300:'rgb(var(--z300) / <alpha-value>)',400:'rgb(var(--z400) / <alpha-value>)',500:'rgb(var(--z500) / <alpha-value>)',600:'rgb(var(--z600) / <alpha-value>)',700:'rgb(var(--z700) / <alpha-value>)',800:'rgb(var(--z800) / <alpha-value>)',900:'rgb(var(--z900) / <alpha-value>)',950:'rgb(var(--z950) / <alpha-value>)' },
+          orange: { 50:'rgb(var(--o50) / <alpha-value>)',100:'rgb(var(--o100) / <alpha-value>)',200:'rgb(var(--o200) / <alpha-value>)',300:'rgb(var(--o300) / <alpha-value>)',400:'rgb(var(--o400) / <alpha-value>)',500:'rgb(var(--o500) / <alpha-value>)',600:'rgb(var(--o600) / <alpha-value>)',700:'rgb(var(--o700) / <alpha-value>)',800:'rgb(var(--o800) / <alpha-value>)',900:'rgb(var(--o900) / <alpha-value>)',950:'rgb(var(--o950) / <alpha-value>)' },
+          fuchsia: { 50:'rgb(var(--f50) / <alpha-value>)',100:'rgb(var(--f100) / <alpha-value>)',200:'rgb(var(--f200) / <alpha-value>)',300:'rgb(var(--f300) / <alpha-value>)',400:'rgb(var(--f400) / <alpha-value>)',500:'rgb(var(--f500) / <alpha-value>)',600:'rgb(var(--f600) / <alpha-value>)',700:'rgb(var(--f700) / <alpha-value>)',800:'rgb(var(--f800) / <alpha-value>)',900:'rgb(var(--f900) / <alpha-value>)',950:'rgb(var(--f950) / <alpha-value>)' },
+          emerald: { 400:'rgb(var(--em400) / <alpha-value>)',500:'rgb(var(--em500) / <alpha-value>)' },
+          amber: { 400:'rgb(var(--am400) / <alpha-value>)',500:'rgb(var(--am500) / <alpha-value>)' },
+          sky: { 300:'rgb(var(--sk300) / <alpha-value>)',400:'rgb(var(--sk400) / <alpha-value>)',500:'rgb(var(--sk500) / <alpha-value>)' },
+          violet: { 300:'rgb(var(--vi300) / <alpha-value>)',400:'rgb(var(--vi400) / <alpha-value>)',500:'rgb(var(--vi500) / <alpha-value>)' },
+        }}}
+      };
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        /* SAME skin vars as index.html — :root = Midnight, [data-skin] = vintage. */
+        :root{--z50:250 250 250;--z100:244 244 245;--z200:228 228 231;--z300:212 212 216;--z400:161 161 170;--z500:113 113 122;--z600:82 82 91;--z700:63 63 70;--z800:39 39 42;--z900:24 24 27;--z950:9 9 11;--o50:255 247 237;--o100:255 237 213;--o200:254 215 170;--o300:253 186 116;--o400:251 146 60;--o500:249 115 22;--o600:234 88 12;--o700:194 65 12;--o800:154 52 18;--o900:124 45 18;--o950:67 20 7;--f50:253 244 255;--f100:250 232 255;--f200:245 208 254;--f300:240 171 252;--f400:232 121 249;--f500:217 70 239;--f600:192 38 211;--f700:162 28 175;--f800:134 25 143;--f900:112 26 117;--f950:74 4 78;--em400:52 211 153;--em500:16 185 129;--am400:251 191 36;--am500:245 158 11;--sk300:125 211 252;--sk400:56 189 248;--sk500:14 165 233;--vi300:196 181 253;--vi400:167 139 250;--vi500:139 92 246;--brand1:249 115 22;--app-bg:9 9 11}
+        [data-skin="patch"]{--z50:238 240 240;--z100:225 227 227;--z200:209 213 213;--z300:188 192 192;--z400:154 157 158;--z500:113 118 118;--z600:90 95 95;--z700:68 71 71;--z800:54 57 57;--z900:43 45 45;--z950:22 22 22;--o50:249 241 234;--o100:244 227 213;--o200:232 198 170;--o300:215 156 107;--o400:198 113 43;--o500:174 99 38;--o600:143 81 31;--o700:109 62 24;--o800:79 45 17;--o900:55 32 12;--o950:30 17 6;--f400:198 113 43;--f500:174 99 38;--f300:215 156 107;--f600:143 81 31;--em400:198 113 43;--em500:174 99 38;--am400:251 191 36;--am500:245 158 11;--sk300:188 192 192;--sk400:154 157 158;--sk500:113 118 118;--vi300:188 192 192;--vi400:154 157 158;--vi500:113 118 118;--brand1:198 113 43;--app-bg:22 22 22}
+        body { font-family: 'Outfit', sans-serif; background-color: rgb(var(--app-bg)); color: rgb(var(--z200)); margin: 0; overflow: hidden; user-select: none; }
+        .titlebar-drag { -webkit-app-region: drag; }
+        .titlebar-no-drag { -webkit-app-region: no-drag; }
+        .text-gradient { background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-image: linear-gradient(to right, rgb(var(--brand1)), rgb(var(--o300))); }
+        input[type=range] { accent-color: rgb(var(--z300)); }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-thumb { background: rgb(var(--z700)); border-radius: 8px; }
+        .tool-btn { transition: all .12s; }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+
+    <!-- Title bar (draggable) -->
+    <div class="titlebar-drag h-8 bg-zinc-950 border-b border-white/5 flex items-center pl-3 pr-2 shrink-0 gap-3">
+        <span class="text-[10px] font-black tracking-[0.28em] uppercase text-gradient">Stride</span>
+        <span class="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500 -ml-1">QuickPanel</span>
+        <span id="qp-size" class="titlebar-no-drag text-[8px] font-mono text-zinc-600 ml-2" title="window size — resize to taste; it's remembered as your default">900 × 588</span>
+        <div class="flex-1"></div>
+        <span id="qp-link" class="flex items-center gap-1.5 mr-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            <span class="text-[8px] uppercase font-bold tracking-widest text-zinc-500">Live</span>
+        </span>
+        <button id="qp-refresh" title="Reload lanes from the canvas" class="titlebar-no-drag text-[8px] uppercase font-bold tracking-widest text-zinc-500 hover:text-zinc-200 px-1.5 py-1 rounded">↻ Refresh</button>
+        <button id="qp-pin" title="Keep on top of Ableton" class="titlebar-no-drag text-[8px] uppercase font-bold tracking-widest text-orange-400 px-1.5 py-1 rounded border border-orange-500/30 bg-orange-500/10">● Pinned</button>
+    </div>
+
+    <!-- Toolbar (1:1 classes with the main canvas; patch skin auto-remaps the hues) -->
+    <div class="bg-zinc-950 border-b border-white/5 px-2.5 py-1.5 flex items-center gap-2 flex-wrap shrink-0">
+        <!-- back button — only in single-lane (focus) view -->
+        <button id="qp-back" class="hidden tool-btn text-zinc-400 hover:text-zinc-100 bg-white/5 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">← All lanes</button>
+        <span id="qp-focus-title" class="hidden text-[10px] font-bold uppercase tracking-widest text-zinc-300"></span>
+
+        <div id="qp-toolgroups" class="flex items-center gap-2 flex-wrap">
+            <div class="flex items-center gap-1">
+                <button data-tool="point" class="tool-btn bg-fuchsia-500/20 text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Point</button>
+                <button data-tool="freehand" class="tool-btn text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Free</button>
+            </div>
+            <span class="w-px h-4 bg-white/10"></span>
+            <div class="flex items-center gap-1">
+                <button data-act="mirror" class="tool-btn text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Mirror</button>
+                <button data-act="flip" class="tool-btn text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Flip</button>
+            </div>
+            <div class="flex items-center gap-1">
+                <button data-act="copy" class="tool-btn text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Copy</button>
+                <button data-act="paste" class="tool-btn text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Paste</button>
+                <button data-act="invert" class="tool-btn text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Inv</button>
+                <button data-act="pasteTo" class="tool-btn text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Paste To</button>
+            </div>
+            <div class="flex items-center gap-1">
+                <button data-act="swing" class="tool-btn text-amber-400/80 hover:text-amber-300 bg-amber-500/5 hover:bg-amber-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Swing</button>
+                <button data-act="quantize" class="tool-btn text-amber-400/80 hover:text-amber-300 bg-amber-500/5 hover:bg-amber-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Quantize</button>
+            </div>
+            <span class="w-px h-4 bg-white/10"></span>
+            <button data-act="mutate" class="tool-btn text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Mutate</button>
+        </div>
+        <div class="flex-1"></div>
+        <button id="qp-select-all" class="tool-btn text-zinc-400 hover:text-zinc-100 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold border border-white/10">Select All</button>
+        <button id="qp-lock-all" class="tool-btn text-zinc-400 hover:text-zinc-100 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold border border-white/10">Lock All</button>
+    </div>
+
+    <!-- Lane area (single <canvas>, painted 1:1 with canvas.js multi/single view) -->
+    <div id="qp-canvas-wrap" class="flex-1 relative bg-[rgb(var(--app-bg))] overflow-hidden">
+        <canvas id="qp-canvas" class="absolute inset-0"></canvas>
+        <div id="qp-empty" class="hidden absolute inset-0 flex items-center justify-center text-center px-6">
+            <div>
+                <div class="text-zinc-300 text-sm font-bold">No lanes yet</div>
+                <div class="text-zinc-500 text-[11px] mt-1 max-w-xs">Scan a rack in the main canvas, or press a Motion button on StrideLink. The panel mirrors whatever the canvas holds.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Adjustment sliders — ALL on one row in the default small window -->
+    <div class="bg-zinc-950 border-t border-white/5 px-2.5 py-1.5 shrink-0 flex items-center gap-2.5 flex-nowrap overflow-hidden">
+        <span id="qp-adjust-label" class="text-[8px] font-bold text-zinc-600 uppercase tracking-wider shrink-0 leading-none">Active</span>
+        <div class="flex items-center gap-1.5 flex-1 min-w-0"><span class="text-[8px] font-bold text-zinc-500 uppercase shrink-0">Smooth</span><input type="range" data-fx="smooth" min="0" max="100" value="0" class="flex-1 min-w-0 h-1 cursor-pointer"><span data-val="smooth" class="text-[8px] text-zinc-400 font-mono shrink-0 w-7 text-right">0%</span></div>
+        <div class="flex items-center gap-1.5 flex-1 min-w-0"><span class="text-[8px] font-bold text-zinc-500 uppercase shrink-0">Depth</span><input type="range" data-fx="depth" min="0" max="200" value="100" class="flex-1 min-w-0 h-1 cursor-pointer"><span data-val="depth" class="text-[8px] text-zinc-400 font-mono shrink-0 w-8 text-right">100%</span></div>
+        <div class="flex items-center gap-1.5 flex-1 min-w-0"><span class="text-[8px] font-bold text-zinc-500 uppercase shrink-0">Curve</span><input type="range" data-fx="curve" min="0" max="100" value="0" class="flex-1 min-w-0 h-1 cursor-pointer"><span data-val="curve" class="text-[8px] text-zinc-400 font-mono shrink-0 w-7 text-right">0%</span></div>
+        <div class="flex items-center gap-1.5 flex-1 min-w-0"><span class="text-[8px] font-bold text-zinc-500 uppercase shrink-0">Floor</span><input type="range" data-fx="floor" min="0" max="100" value="0" class="flex-1 min-w-0 h-1 cursor-pointer"><span data-val="floor" class="text-[8px] text-zinc-400 font-mono shrink-0 w-7 text-right">0%</span></div>
+        <div class="flex items-center gap-1.5 flex-1 min-w-0"><span class="text-[8px] font-bold text-zinc-500 uppercase shrink-0">Ceiling</span><input type="range" data-fx="ceil" min="0" max="100" value="100" class="flex-1 min-w-0 h-1 cursor-pointer"><span data-val="ceil" class="text-[8px] text-zinc-400 font-mono shrink-0 w-8 text-right">100%</span></div>
+    </div>
+
+    <!-- Status bar -->
+    <div class="h-6 bg-black/40 border-t border-white/5 flex items-center px-3 gap-3 shrink-0 text-[9px] font-mono text-zinc-600">
+        <span id="qp-status-mode" class="text-zinc-400">All lanes</span>
+        <span id="qp-status-count"></span>
+        <span class="flex-1"></span>
+        <span>click ⤢ on a lane to focus it · click 🔒 to lock</span>
+    </div>
+
+    <script src="quickpanel-core.js"></script>
+    <script src="quickpanel.js"></script>
+</body>
+</html>

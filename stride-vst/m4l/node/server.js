@@ -168,6 +168,7 @@ Max.addHandler('clip_focus', (jsonStr) => {
             clip_bars: data.clip_bars || 4,
             has_clip: data.has_clip !== false,
             clip_id: data.clip_id || null,
+            track_index: (typeof data.track_index === 'number') ? data.track_index : -1,
             source: data.source || ''
         });
     } catch (e) {

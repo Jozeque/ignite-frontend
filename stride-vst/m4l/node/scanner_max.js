@@ -424,7 +424,10 @@ function _onDetailClipChange(args) {
         var id = (r && r.clip) ? String(r.clip.id) : "0";
         if (id === _lastFocusEmitId) return;     // de-dupe repeated fires
         _lastFocusEmitId = id;
-        var info = { has_clip: false, clip_slot: 0, clip_bars: 4, clip_id: id, source: (r ? r.source : "none") };
+        // track_index lets the canvas detect a same-track clip switch and skip the
+        // heavy param re-scan. -1 for arrangement clips (no clip_slots path) → the
+        // canvas falls back to a full scan, which is correct for those.
+        var info = { has_clip: false, clip_slot: 0, clip_bars: 4, clip_id: id, source: (r ? r.source : "none"), track_index: (r && r.track >= 0) ? r.track : -1 };
         if (r && r.clip) {
             info.has_clip = true;
             info.clip_slot = (r.slot >= 0 ? r.slot : 0);
