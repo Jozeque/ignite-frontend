@@ -167,6 +167,15 @@ console.log('test-detail-clip-source.js');
     ok('canvas: fast re-key blanks lanes before restore (per-clip variation)', /function _sdReKeyClipNoScan[\s\S]{0,1400}p\.points = \[\]; p\.locked = false; p\.selected = false/.test(canvasSrc));
     ok('canvas: fast re-key restores the clip without a param walk', /function _sdReKeyClipNoScan[\s\S]{0,1600}restoreCanvasState\(\)/.test(canvasSrc));
     ok('server: clip_focus_changed forwards track_index', /clip_focus_changed[\s\S]{0,320}track_index:/.test(serverSrc));
+    // A late AUTO-read must not clobber a lane the user just drew (the duplicate-clip
+    // "new curves flash then revert to the copy's automation" bug).
+    ok('canvas: auto-read fills empty lanes only (no clobber)', /_fillOnly && lane\.points && lane\.points\.length\) return/.test(canvasSrc));
+    ok('canvas: auto-read sets fill-only; manual Pull overwrites', /_sdReadFillOnly = true;[\s\S]{0,140}readClipCurves\('A'\)/.test(canvasSrc) && /_sdReadFillOnly = false;[\s\S]{0,140}readClipCurves\('A'\)/.test(canvasSrc));
+    // A rescan-merge's async restore must not land ON TOP of a generator you just
+    // pressed (duplicate-clip "flash then instantly revert"): pushUndo bumps an epoch,
+    // restoreCanvasState bails if it changed during the async disk load.
+    ok('canvas: pushUndo bumps the curve epoch', /function pushUndo\(\)[\s\S]{0,160}_sdCurveEpoch\+\+/.test(canvasSrc));
+    ok('canvas: restore protects fresh curves but ALWAYS restores locks', /const _epoch = _sdCurveEpoch/.test(canvasSrc) && /const _stale = \(_epoch !== _sdCurveEpoch\)/.test(canvasSrc) && /if \(sp\.locked\) \{[\s\S]{0,90}param\.locked = true/.test(canvasSrc) && /!\(_stale && param\.points && param\.points\.length\)/.test(canvasSrc));
 })();
 
 // ── fallback: last clip that was in detail view ──

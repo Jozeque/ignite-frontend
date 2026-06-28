@@ -202,6 +202,8 @@
     let currentTrackIndex = -1;        // absolute LOM track index — UNIQUE per track
     let currentLegacyKey = null;       // pre-track-index (name-based) key, for migration fallback on restore
     const _sdAutoReadAttempted = {};   // clipKey -> true: auto-read an empty clip's automation only once
+    let _sdReadFillOnly = false;       // true while an AUTO-read is in flight: clip_curves_read then fills ONLY empty lanes, so a late read can't clobber curves you just applied (the duplicate-clip "reverts to previous curves" bug). A manual "Pull curves" sets it false → it overwrites.
+    let _sdCurveEpoch = 0;             // bumped on every curve edit (pushUndo); lets an in-flight async restoreCanvasState detect that you applied curves mid-load and NOT overwrite them.
     function _sdClipKey(rackId, slot) {
         return (slot && slot > 0) ? (rackId + '_s' + slot) : rackId;
     }
@@ -266,6 +268,7 @@
     let _sdDirty = false;   // un-injected curve changes exist; drives the "INJECT TO CLIP" shout in the StrideQuick device status
     function pushUndo() {
         _sdDirty = true;    // any curve edit makes the clip stale until the next inject
+        _sdCurveEpoch++;    // mark a fresh edit so an in-flight restoreCanvasState won't clobber it
         const snapshot = sdCanvasParams.map(p => ({
             envelopeId: p.envelopeId,
             points: p.points.map(pt => ({ time: pt.time, value: pt.value, curve: pt.curve || 0 }))
@@ -848,12 +851,14 @@
         if (!strideLink.connected) { if (status) status.textContent = 'Not connected to Ableton'; return; }
         if (!sdCanvasParams || sdCanvasParams.length === 0) { if (status) status.textContent = 'Scan a rack first, then switch to Mode B'; return; }
         if (status) status.textContent = 'Reading curves from Ableton…';
+        _sdReadFillOnly = false;   // manual "Pull curves" — overwrite intentionally
         strideLink.readClipCurves('A');   // sampled (value_at_time) — the safe read path
     };
 
     strideLink.on('clip_curves_read', (msg) => {
         try { console.log('[Stride] clip_curves_read', msg); } catch (e) {}
         const incoming = (msg && msg.params) || [];
+        const _fillOnly = _sdReadFillOnly; _sdReadFillOnly = false;   // consume the auto-read flag
         const status = document.getElementById('sd-canvas-status');
         let filled = 0, matched = 0;
         if (typeof pushUndo === 'function' && incoming.length) { try { pushUndo(); } catch (e) {} }
@@ -861,6 +866,12 @@
             const lane = sdCanvasParams.find(p => p._path && rp._path && p._path === rp._path);
             if (!lane) return;
             matched++;
+            // An AUTO-read (clip-switch "source of truth") must NOT overwrite a lane
+            // you've already drawn on — a late read would otherwise clobber the curves
+            // you just applied (duplicate clip → new curves flash then revert to the
+            // copy's automation). Manual "Pull curves" runs with _fillOnly=false and
+            // overwrites intentionally.
+            if (_fillOnly && lane.points && lane.points.length) return;
             if (rp.points && rp.points.length) {
                 lane.points = rp.points.map(pt => ({
                     time: pt.time,
@@ -2337,6 +2348,7 @@
     async function restoreCanvasState() {
         const key = currentClipKey || currentRackId;
         if (!key || !window.stride) return;
+        const _epoch = _sdCurveEpoch;   // detect a curve edit that lands DURING the async load below
         let result = await window.stride.loadCanvasState(key);
         // Migration fallback: states saved before the track-index key change live
         // under the legacy name-based key. If nothing is saved under the current
@@ -2347,6 +2359,10 @@
             const legacy = await window.stride.loadCanvasState(currentLegacyKey);
             if (legacy && legacy.success && legacy.state && legacy.state.length) result = legacy;
         }
+        // _stale = you applied curves (a generator press / draw) WHILE we were loading
+        // from disk. The rescan-merge kicks off this restore (via loadParamsDirectly)
+        // BEFORE a queued generator runs, but the disk read resolves just AFTER it.
+        const _stale = (_epoch !== _sdCurveEpoch);
         if (result.success && result.state && Array.isArray(result.state)) {
             result.state.forEach(sp => {
                 // Match on the STABLE LOM _path; fall back to the positional
@@ -2357,8 +2373,20 @@
                     ? sdCanvasParams.find(p => p._path && p._path === sp._path)
                     : sdCanvasParams.find(p => p.envelopeId === sp.envelopeId);
                 if (!param) return;
-                if (sp.points) param.points = sp.points;
-                if (typeof sp.locked === 'boolean') param.locked = sp.locked;
+                // A LOCKED saved lane is ALWAYS restored (curve + lock) — even right
+                // after a generator press. loadParamsDirectly rebuilds every lane
+                // UNLOCKED, so without this a rescan-before-generate unlocks the lanes
+                // you locked and lets the generator overwrite them (the "press Motion →
+                // unlock all" bug). An UNLOCKED lane only takes its saved curve when it's
+                // empty under a STALE restore, so a late disk read can't clobber curves
+                // you just applied (the duplicate-clip flash-then-revert).
+                if (sp.locked) {
+                    if (sp.points) param.points = sp.points;
+                    param.locked = true;
+                } else {
+                    if (typeof sp.locked === 'boolean') param.locked = sp.locked;
+                    if (sp.points && !(_stale && param.points && param.points.length)) param.points = sp.points;
+                }
             });
         }
         // Reflect restored curves in the "N Params Empty" indicator (curves are
@@ -2376,6 +2404,7 @@
         if (!anyCurves && !_sdAutoReadAttempted[key]
             && sdCanvasParams.length > 0 && strideLink.connected) {
             _sdAutoReadAttempted[key] = true;
+            _sdReadFillOnly = true;   // auto-read: fill empty lanes only, never clobber user curves
             try { strideLink.readClipCurves('A'); } catch (e) {}
         }
     }
