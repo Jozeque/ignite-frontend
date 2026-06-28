@@ -103,6 +103,20 @@ def _build_capi_payload(order_data, event_id):
     client_ua = (order_data.get("client_user_agent") or "").strip()
     if client_ua:
         user_data["client_user_agent"] = client_ua
+    # client_ip_address (raw, NOT hashed) — Meta's top Purchase match rec
+    # (~+6.28% additional conversions). Recovered from the buyer_lead, which
+    # captured the buyer's IP server-side at checkout-intent.
+    client_ip = (order_data.get("client_ip_address") or "").strip()
+    if client_ip:
+        user_data["client_ip_address"] = client_ip
+    # first/last name (hashed) from the Lemon Squeezy order — Meta's
+    # name/address match rec. Each hashed field is an array of one hash.
+    fn = order_data.get("first_name")
+    if fn:
+        user_data["fn"] = [_hash_pii(fn)]
+    ln = order_data.get("last_name")
+    if ln:
+        user_data["ln"] = [_hash_pii(ln)]
 
     resolved_event_id = event_id or str(uuid.uuid4())
     event_time = int(time.time())

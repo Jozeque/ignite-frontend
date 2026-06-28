@@ -388,6 +388,7 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
             try:
                 custom = (payload.get("meta") or {}).get("custom_data") or {}
                 capi_event_id = custom.get("event_id") or (prev.get("event_id") if prev else "") or ""
+                _np = (name or "").split()
                 _fire_meta_purchase_capi(
                     {
                         "email": email,
@@ -402,6 +403,11 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
                         "fbc": fbc or "",
                         "fbp": custom.get("fbp") or (prev.get("fbp") if prev else "") or "",
                         "client_user_agent": custom.get("ua") or (prev.get("ua") if prev else "") or "",
+                        # IP recovered from the buyer_lead (captured server-side at
+                        # checkout-intent) + name from LS — raise Purchase match quality.
+                        "client_ip_address": (prev.get("ip") if prev else "") or "",
+                        "first_name": _np[0] if _np else "",
+                        "last_name": " ".join(_np[1:]) if len(_np) > 1 else "",
                     },
                     capi_event_id,
                 )
