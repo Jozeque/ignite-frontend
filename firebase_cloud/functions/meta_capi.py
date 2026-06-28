@@ -267,3 +267,54 @@ def _fire_meta_pageview_capi(user_data, event_id, event_source_url):
     except Exception as e:
         print(f"[Meta CAPI PageView] POST failed: {e}")
         return False
+
+
+def _fire_meta_initiatecheckout_capi(user_data, event_id):
+    """Server-side InitiateCheckout (checkout-intent) → Meta CAPI. Fired from the
+    buyer_lead handler the instant a buyer enters their email + hits Buy (before
+    they bounce to Lemon Squeezy). That moment carries our richest match data
+    (hashed email + fbp + fbc + IP + UA + external_id), so it builds a
+    high-quality, high-INTENT audience: 'started checkout'. Retarget those who
+    InitiateCheckout but don't Purchase = cart abandoners. Best-effort; never
+    raises. Shares event_id with the browser pixel InitiateCheckout for dedup."""
+    token = os.environ.get("META_CAPI_ACCESS_TOKEN") or ""
+    if not token:
+        return False
+    try:
+        ud = {}
+        email = (user_data.get("email") or "").strip().lower()
+        if email:
+            ud["em"] = [_hash_pii(email)]
+        for k in ("fbp", "fbc", "external_id", "client_ip_address", "client_user_agent"):
+            v = user_data.get(k)
+            if isinstance(v, str):
+                v = v.strip()
+            if v:
+                ud[k] = v
+        payload = {
+            "data": [
+                {
+                    "event_name": "InitiateCheckout",
+                    "event_time": int(time.time()),
+                    "event_id": event_id or str(uuid.uuid4()),
+                    "event_source_url": "https://stridehub.io/",
+                    "action_source": "website",
+                    "user_data": ud,
+                    "custom_data": {"value": 59.0, "currency": "USD", "content_name": "Stride Sound Design Engine"},
+                }
+            ]
+        }
+        url = (
+            f"https://graph.facebook.com/{META_CAPI_VERSION}/"
+            f"{META_PIXEL_ID}/events?access_token={urllib.parse.quote(token, safe='')}"
+        )
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json", "User-Agent": "Stride-Backend/1.0"},
+        )
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            return 200 <= resp.getcode() < 300
+    except Exception as e:
+        print(f"[Meta CAPI InitiateCheckout] POST failed: {e}")
+        return False

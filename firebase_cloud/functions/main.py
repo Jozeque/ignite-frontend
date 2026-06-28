@@ -216,7 +216,7 @@ def safe_int(val, default=0):
 # Meta Conversions API (Phase 3 of docs/meta-pixel-integration-spec.md).
 # Pure helpers live in meta_capi.py for testability — they don't need
 # firebase_admin or the Flask request context.
-from meta_capi import _fire_meta_purchase_capi, _fire_meta_pageview_capi
+from meta_capi import _fire_meta_purchase_capi, _fire_meta_pageview_capi, _fire_meta_initiatecheckout_capi
 
 
 def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
@@ -862,6 +862,29 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
                 urllib.request.urlopen(webhook_req, timeout=10)
             except Exception as we:
                 print(f"[Waitlist] DISCORD FAILED: {we} — data logged above")
+        # Server-side InitiateCheckout → Meta CAPI. ONLY at real checkout-intent
+        # (buyer_lead), never waitlist/sample signups. This moment carries our
+        # richest match data (email + IP + UA + fbp + fbc + external_id), so it
+        # builds a high-quality, high-intent "started checkout" audience —
+        # retarget those who don't go on to Purchase (= cart abandoners).
+        # Shares event_id with the browser pixel InitiateCheckout for dedup.
+        if data_pre.get("action") == "buyer_lead":
+            try:
+                _ic_ip = (req.headers.get("X-Forwarded-For", req.remote_addr or "") or "").split(",")[0].strip()
+                _fire_meta_initiatecheckout_capi(
+                    {
+                        "email": email,
+                        "fbc": (data_pre.get("fbc") or "").strip(),
+                        "fbp": (data_pre.get("fbp") or "").strip(),
+                        "external_id": (data_pre.get("external_id") or "").strip(),
+                        "client_ip_address": _ic_ip,
+                        "client_user_agent": (data_pre.get("ua") or req.headers.get("User-Agent", "")),
+                    },
+                    (data_pre.get("event_id") or "").strip(),
+                )
+            except Exception as ie:
+                print(f"[CAPI InitiateCheckout] handler error: {ie}")
+
         # Buyer leads + waitlist signups deliberately stay Discord-only —
         # admin doesn't want Gmail flooded with high-volume lead pings. Only
         # the contact form (much lower volume, requires reply) gets mirrored
