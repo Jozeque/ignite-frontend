@@ -720,6 +720,7 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
                 {
                     "fbp": (data_pre.get("fbp") or "").strip(),
                     "fbc": (data_pre.get("fbc") or "").strip(),
+                    "external_id": (data_pre.get("external_id") or "").strip(),
                     "client_ip_address": ip,
                     "client_user_agent": req.headers.get("User-Agent", ""),
                 },

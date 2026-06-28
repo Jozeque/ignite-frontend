@@ -45,7 +45,22 @@
     t.src=v;s=b.getElementsByTagName(e)[0];
     s.parentNode.insertBefore(t,s)}(window, document,'script',
     'https://connect.facebook.net/en_US/fbevents.js');
-    fbq('init', '952457524222772');
+    // First-party visitor id for Advanced Matching — a stable, deterministic
+    // match key sent on EVERY event (browser pixel + the server CAPI below).
+    // Cold visitors have no email, so external_id is the main lever that lifts
+    // the pixel's Event Match Quality. Persisted 180d; not PII (random id).
+    var _strideXid = (function () {
+        try {
+            var m = document.cookie.match(/(?:^|; )stride_xid=([^;]*)/);
+            if (m) return decodeURIComponent(m[1]);
+            var id = (self.crypto && crypto.randomUUID) ? crypto.randomUUID()
+                : (Date.now().toString(36) + Math.random().toString(36).slice(2, 12));
+            document.cookie = 'stride_xid=' + encodeURIComponent(id) +
+                '; max-age=' + (180 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+            return id;
+        } catch (e) { return ''; }
+    })();
+    fbq('init', '952457524222772', _strideXid ? { external_id: _strideXid } : {});
     fbq('track', 'PageView');
 
     // Capture fbclid from the URL on landing → format into Meta's _fbc
@@ -83,11 +98,12 @@
                     var ck = function (n) { var m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : ''; };
                     var fbp = ck('_fbp');
                     var fbc = ck('_fbc') || (function () { try { return sessionStorage.getItem('stride_fbc') || ''; } catch (e) { return ''; } })();
+                    var xid = ck('stride_xid');
                     var eid = 'pv.' + Date.now() + '.' + Math.random().toString(36).slice(2, 10);
                     fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
                         method: 'POST', keepalive: true,
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'track_pageview', fbp: fbp, fbc: fbc, event_id: eid, url: location.href })
+                        body: JSON.stringify({ action: 'track_pageview', fbp: fbp, fbc: fbc, external_id: xid, event_id: eid, url: location.href })
                     }).catch(function () {});
                 } catch (e) {}
             }, 1500);

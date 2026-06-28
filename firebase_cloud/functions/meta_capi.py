@@ -201,7 +201,9 @@ def _build_pageview_payload(user_data, event_id, event_source_url):
     them anyway. action_source='website' + a URL makes it qualify for the
     'all website visitors' audience rule."""
     ud = {}
-    for k in ("fbp", "fbc", "client_ip_address", "client_user_agent"):
+    # external_id = first-party visitor id (raw, non-PII) sent on every event;
+    # the main lever for PageView Event Match Quality on email-less cold traffic.
+    for k in ("fbp", "fbc", "external_id", "client_ip_address", "client_user_agent"):
         v = user_data.get(k)
         if isinstance(v, str):
             v = v.strip()
