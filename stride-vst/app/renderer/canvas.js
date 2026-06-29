@@ -3476,6 +3476,19 @@
                 }
             }
             if (e.code === 'Escape') { sdClearSelection(); return; }
+            // Delete / Backspace: clear the curve on the selected (or active) lane(s).
+            // Wipe a lane to redraw it, or empty a duplicated clip's carried-over
+            // curve. Skipped while typing in a field. sdClearCurrentCanvas is
+            // selection-aware, locked-safe, and persists (so a rescan can't refill it).
+            {
+                const _aeD = document.activeElement;
+                const _typingD = _aeD && (_aeD.tagName === 'INPUT' || _aeD.tagName === 'TEXTAREA' || _aeD.isContentEditable);
+                if (!_typingD && (e.code === 'Delete' || e.code === 'Backspace')) {
+                    e.preventDefault();
+                    if (window.sdClearCurrentCanvas) window.sdClearCurrentCanvas();
+                    return;
+                }
+            }
             // Pan is middle-click + drag now (Ableton-style). Space is free.
         });
         sdCanvasEl.addEventListener('wheel', e => {
@@ -3947,6 +3960,16 @@
         const bF = document.getElementById('sd-tool-freehand');
         if (tool === 'select') { bS.className = "tool-btn bg-fuchsia-500/20 text-fuchsia-400 px-3 py-1 rounded text-[9px] uppercase tracking-wider font-bold transition-colors"; bF.className = "tool-btn text-zinc-400 hover:text-fuchsia-400 px-3 py-1 rounded text-[9px] uppercase tracking-wider font-bold transition-colors"; }
         else { bF.className = "tool-btn bg-fuchsia-500/20 text-fuchsia-400 px-3 py-1 rounded text-[9px] uppercase tracking-wider font-bold transition-colors"; bS.className = "tool-btn text-zinc-400 hover:text-fuchsia-400 px-3 py-1 rounded text-[9px] uppercase tracking-wider font-bold transition-colors"; }
+        // Compact-mode Point/Free mirror the active tool too (own ids; toggle via
+        // classList so their smaller sizing is preserved). Without this, clicking
+        // Free in compact switched the tool but the button never lit up ("nothing happens").
+        const qP = document.getElementById('qpc-tool-point');
+        const qF = document.getElementById('qpc-tool-free');
+        if (qP && qF) {
+            const on = (tool === 'select') ? qP : qF, off = (tool === 'select') ? qF : qP;
+            on.classList.add('bg-fuchsia-500/20', 'text-fuchsia-400'); on.classList.remove('text-zinc-400');
+            off.classList.remove('bg-fuchsia-500/20', 'text-fuchsia-400'); off.classList.add('text-zinc-400');
+        }
     };
 
     // Neuro: random-pool shape injection across every unlocked lane.
@@ -4764,6 +4787,9 @@
             else param.points = [];
         });
         sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
+        // Persist the clear so a follow-up rescan-merge's restore (which fills empty
+        // lanes from the saved state) can't re-add the curve you just deleted.
+        try { if (typeof saveCanvasState === 'function') saveCanvasState(); } catch (e) {}
     };
     // ─── Lane selection actions ─────────────────────────────
 

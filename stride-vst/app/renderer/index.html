@@ -831,21 +831,19 @@
                 <button onclick="window.toggleCompactMode&&window.toggleCompactMode()" title="Back to the full canvas" class="text-[9px] font-bold uppercase tracking-widest text-zinc-400 hover:text-orange-400 px-1.5 py-1 rounded">← Full</button>
                 <span class="w-px h-4 bg-white/10"></span>
                 <div class="flex items-center gap-1">
-                    <button onclick="sdSetTool('select')" class="tool-btn bg-fuchsia-500/20 text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Point</button>
-                    <button onclick="sdSetTool('freehand')" class="tool-btn text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Free</button>
+                    <button id="qpc-tool-point" onclick="sdSetTool('select')" class="tool-btn bg-fuchsia-500/20 text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Point</button>
+                    <button id="qpc-tool-free" onclick="sdSetTool('freehand')" class="tool-btn text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Free</button>
                 </div>
                 <span class="w-px h-4 bg-white/10"></span>
                 <div class="flex items-center gap-1">
                     <button onclick="sdMirrorLane()" title="Flip Y-axis" class="tool-btn text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Mirror</button>
                     <button onclick="sdFlipLane()" title="Reverse time" class="tool-btn text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Flip</button>
                 </div>
-                <div class="flex items-center gap-1">
-                    <button onclick="sdCopyLane()" class="tool-btn text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Copy</button>
-                    <button onclick="sdPasteLane(false)" class="tool-btn text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Paste</button>
-                    <button onclick="sdPasteLane(true)" class="tool-btn text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Inv</button>
-                    <button onclick="sdOpenPasteTo()" class="tool-btn text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Paste To</button>
-                </div>
                 <button onclick="sdApplySwing()" class="tool-btn text-amber-400/80 hover:text-amber-300 bg-amber-500/5 hover:bg-amber-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Swing</button>
+                <div class="flex items-center gap-1">
+                    <button onclick="sdTimeStretch(2)" title="Stretch 2x — spread the curve over twice the time" class="tool-btn text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/30 px-1.5 py-0.5 rounded text-[9px] font-bold">2x</button>
+                    <button onclick="sdTimeStretch(0.5)" title="Compress 1/2x — pack the curve into half the time" class="tool-btn text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/30 px-1.5 py-0.5 rounded text-[9px] font-bold">1/2x</button>
+                </div>
                 <span class="w-px h-4 bg-white/10"></span>
                 <button onclick="sdMutate()" class="tool-btn text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Mutate</button>
                 <div class="flex-1"></div>

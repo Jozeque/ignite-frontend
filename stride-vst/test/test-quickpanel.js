@@ -126,6 +126,14 @@ ok('index: in-process mirror shim removed', !/window\.strideQuick = \{/.test(ind
 ok('index: reflow classes drive compact (full-only hides, compact-only shows)', /body\.qp-compact \.sd-full-only \{ display: none/.test(indexSrc) && /body\.qp-compact \.sd-compact-only \{ display: flex/.test(indexSrc));
 ok('index: sidebar + inject rail are full-only', /id="sd-sidebar" class="sd-full-only/.test(indexSrc) && /id="sd-inject-rail" class="sd-full-only/.test(indexSrc));
 ok('index: compact toolbar wired to REAL fns', /sd-compact-only[\s\S]{0,1500}onclick="sdMirrorLane\(\)"/.test(indexSrc) && /onclick="sdMutate\(\)"/.test(indexSrc));
+// Compact toolbar refinements (2026-06-29): Point/Free have ids (so sdSetTool can
+// light them), 2x/1/2x added, Copy/Paste/Paste To removed, DEL clears the lane.
+ok('index: compact Point/Free have ids', /id="qpc-tool-point"/.test(indexSrc) && /id="qpc-tool-free"/.test(indexSrc));
+ok('index: compact has 2x / 1/2x stretch', /sd-compact-only[\s\S]{0,1800}onclick="sdTimeStretch\(2\)"/.test(indexSrc) && /onclick="sdTimeStretch\(0\.5\)"/.test(indexSrc));
+ok('index: compact dropped the clipboard ops (Paste To only in full toolbar)', (indexSrc.match(/>Paste To</g) || []).length === 1);
+ok('canvas: sdSetTool lights the compact Point/Free', /sdSetTool = function[\s\S]{0,1400}qpc-tool-point/.test(canvasSrc) && /qpc-tool-free/.test(canvasSrc));
+ok('canvas: DEL/Backspace clears the selected lane', /e\.code === 'Delete' \|\| e\.code === 'Backspace'[\s\S]{0,120}sdClearCurrentCanvas/.test(canvasSrc));
+ok('canvas: clear persists (saveCanvasState)', /sdClearCurrentCanvas = function[\s\S]{0,900}saveCanvasState/.test(canvasSrc));
 ok('index: compact slider strip wired to REAL edit fns', /id="qpc-intensity-slider"[\s\S]{0,140}sdApplyIntensity/.test(indexSrc) && /id="qpc-smooth-slider"[\s\S]{0,140}sdApplySmooth/.test(indexSrc));
 ok('index: compact Unlock All present (real fn)', /sdUnlockAllLanes\(\)/.test(indexSrc) && />Unlock All</.test(indexSrc));
 ok('canvas: toggleCompactMode added (simplified, no mirror)', /window\.toggleCompactMode = function/.test(canvasSrc) && !/_sdEmitQp/.test(canvasSrc));
