@@ -1179,10 +1179,25 @@ ipcMain.handle('install-stride-link-to-ableton', async (event, { destDir } = {})
 
 // Let the renderer open a folder picker for a custom User Library path.
 ipcMain.handle('pick-user-library-folder', async () => {
+    // Open the picker NEAR where the User Library usually lives so the user starts
+    // close to it (macOS: ~/Music/Ableton, Windows: ~/Documents/Ableton), else Home.
+    const home = os.homedir();
+    const abletonDir = process.platform === 'darwin'
+        ? path.join(home, 'Music', 'Ableton')
+        : path.join(home, 'Documents', 'Ableton');
+    let startAt = home;
+    try { if (fs.existsSync(abletonDir)) startAt = abletonDir; } catch (e) {}
     const result = await dialog.showOpenDialog(mainWindow, {
         title: "Select your Ableton User Library folder",
+        // macOS shows `message` PROMINENTLY inside the dialog (the title bar is easy
+        // to miss) — so the user understands WHY this opened instead of just seeing a
+        // Finder window pop up with no context (the #1 "it just opens folders" support
+        // confusion). `message` is macOS-only; Windows ignores it (auto-detect rarely
+        // fails there). The same guidance also shows in Stride's install panel.
+        message: "Stride couldn't find your Ableton User Library automatically — please select it here.\n\nTip: in Ableton, right-click \"User Library\" in the browser sidebar → Show in Finder to locate it.",
+        buttonLabel: "Install here",
         properties: ['openDirectory'],
-        defaultPath: os.homedir()
+        defaultPath: startAt
     });
     if (result.canceled || !result.filePaths.length) return null;
     return result.filePaths[0];

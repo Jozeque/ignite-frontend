@@ -48,6 +48,9 @@ const ORIGINAL_CHANNELS = [
     'reveal-in-folder', 'open-stride-folder', 'open-guide-folder',
 ];
 ORIGINAL_CHANNELS.forEach(ch => ok('main: original IPC "' + ch + '" still registered', mainSrc.indexOf("'" + ch + "'") !== -1));
+// User-Library picker explains WHY it opened (the Mac "it just opens folders"
+// confusion) — prominent macOS `message` + opens near the Ableton folder.
+ok('main: User-Library picker shows guidance + opens near Ableton', /'pick-user-library-folder'[\s\S]{0,1400}message:/.test(mainSrc) && /defaultPath: startAt/.test(mainSrc));
 
 // ── 1c. main preload: full 'stride' surface intact + exposes ONLY the opener
 //        (never the panel's read-only data bridge — that stays isolated) ──
