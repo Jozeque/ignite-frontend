@@ -1139,11 +1139,23 @@
     strideLink.on('clip_focus_changed', (msg) => {
         if (!msg) return;
         const ti = (typeof msg.track_index === 'number') ? msg.track_index : -1;
-        // Same loaded track + a real session slot → fast re-key, no scan. Debounced
-        // so clicking through clips on one track collapses to the clip you land on.
+        const slot = (msg.clip_slot != null) ? msg.clip_slot : 0;
+        // Same track as the loaded rack → the params can't have changed → SKIP the
+        // heavy LOM param scan (the big-rack freeze) for BOTH Session and Arrangement.
         if (ti >= 0 && ti === currentTrackIndex && sdCanvasParams.length > 0) {
             if (_sdTrackChangeTimer) clearTimeout(_sdTrackChangeTimer);
-            const _slot = msg.clip_slot, _bars = msg.clip_bars;
+            if (slot === currentClipSlot) {
+                // Same clip/slot — and EVERY Arrangement clip (they share slot 0, so
+                // there's no per-clip variation to load) — so just sync this clip's
+                // bars and KEEP the curves you're working on. No scan, no blank → no
+                // freeze, no flicker (mirrors the full-scan path's same-clip no-op).
+                if (msg.clip_bars && msg.clip_bars > 0) sdSetBars(_sdResolveSystemBars(msg.clip_bars), false);
+                _sdContextDirty = false;
+                return;
+            }
+            // Same track, DIFFERENT Session slot → fast re-key to that clip's curves.
+            // Debounced so clicking through clips collapses to the one you land on.
+            const _slot = slot, _bars = msg.clip_bars;
             _sdTrackChangeTimer = setTimeout(() => {
                 _sdTrackChangeTimer = null;
                 if (!strideLink.connected) return;
@@ -1151,7 +1163,7 @@
             }, 150);
             return;
         }
-        // Different track / arrangement / no track index → full re-sync (debounced).
+        // Different track / no track index / older M4L → full re-sync (debounced).
         _sdContextDirty = true;   // clip changed → re-key + paths may be stale until the next scan
         if (_sdTrackChangeTimer) clearTimeout(_sdTrackChangeTimer);
         _sdTrackChangeTimer = setTimeout(() => {

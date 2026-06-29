@@ -418,6 +418,26 @@ function _getClipInfo() {
 // open a different clip — even on the same track (no window refocus needed).
 // Lightweight: it only reports the clip's identity + bars; the canvas drives
 // the (debounced) param scan. Installed lazily on the first scan, once.
+// Resolve the focused clip's TRACK index, even for ARRANGEMENT clips. Session
+// clips give it via `tracks N clip_slots M` (sessionTrack, from _clipSlotFromPath);
+// arrangement clips have no clip_slots path, so fall back to a loose `tracks N`
+// match on the clip's own path, then to the SELECTED track (focusing a clip selects
+// its track). This is what lets the canvas skip the heavy param scan on a same-track
+// arrangement clip click — the big-rack Arrangement freeze.
+function _resolveTrackIdx(clip, sessionTrack) {
+    if (typeof sessionTrack === "number" && sessionTrack >= 0) return sessionTrack;
+    try {
+        var cm = (clip && clip.unquotedpath) ? String(clip.unquotedpath).match(/tracks (\d+)/) : null;
+        if (cm) return parseInt(cm[1]);
+    } catch (e) {}
+    try {
+        var st = new LiveAPI("live_set view selected_track");
+        var sm = st.unquotedpath ? String(st.unquotedpath).match(/tracks (\d+)/) : null;
+        if (sm) return parseInt(sm[1]);
+    } catch (e2) {}
+    return -1;
+}
+
 function _onDetailClipChange(args) {
     try {
         var r = _resolveTargetClip();
@@ -425,9 +445,9 @@ function _onDetailClipChange(args) {
         if (id === _lastFocusEmitId) return;     // de-dupe repeated fires
         _lastFocusEmitId = id;
         // track_index lets the canvas detect a same-track clip switch and skip the
-        // heavy param re-scan. -1 for arrangement clips (no clip_slots path) → the
-        // canvas falls back to a full scan, which is correct for those.
-        var info = { has_clip: false, clip_slot: 0, clip_bars: 4, clip_id: id, source: (r ? r.source : "none"), track_index: (r && r.track >= 0) ? r.track : -1 };
+        // heavy param re-scan. Resolved for ARRANGEMENT clips too (via selected track)
+        // so they get the same scan-skip and don't freeze on big racks.
+        var info = { has_clip: false, clip_slot: 0, clip_bars: 4, clip_id: id, source: (r ? r.source : "none"), track_index: _resolveTrackIdx(r ? r.clip : null, r ? r.track : -1) };
         if (r && r.clip) {
             info.has_clip = true;
             info.clip_slot = (r.slot >= 0 ? r.slot : 0);

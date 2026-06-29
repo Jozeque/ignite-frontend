@@ -159,6 +159,15 @@ console.log('test-detail-clip-source.js');
     ok('clip_focus still carries slot 2 + bars 16', info.clip_slot === 2 && info.clip_bars === 16, JSON.stringify(info));
 })();
 
+// ── _resolveTrackIdx: ARRANGEMENT clips still resolve a track (so they skip the
+//    scan instead of freezing on big racks) ──
+(function () {
+    const ctx = makeContext(makeTree(2)); loadScanner(ctx);
+    ok('_resolveTrackIdx: session track passes through', ctx._resolveTrackIdx(null, 4) === 4);
+    ok('_resolveTrackIdx: loose tracks-N on the clip path (arrangement)', ctx._resolveTrackIdx({ unquotedpath: 'live_set tracks 3 arrangement_clips 1' }, -1) === 3);
+    ok('_resolveTrackIdx: falls back to the selected track (tracks 0 in fixture)', ctx._resolveTrackIdx({ unquotedpath: 'live_set view detail_clip' }, -1) === 0);
+})();
+
 // ── canvas + server wiring for the same-track fast path (static guards) ──
 (function () {
     const canvasSrc = fs.readFileSync(path.join(__dirname, '..', 'app', 'renderer', 'canvas.js'), 'utf8');
@@ -167,6 +176,9 @@ console.log('test-detail-clip-source.js');
     ok('canvas: fast re-key blanks lanes before restore (per-clip variation)', /function _sdReKeyClipNoScan[\s\S]{0,1400}p\.points = \[\]; p\.locked = false; p\.selected = false/.test(canvasSrc));
     ok('canvas: fast re-key restores the clip without a param walk', /function _sdReKeyClipNoScan[\s\S]{0,1600}restoreCanvasState\(\)/.test(canvasSrc));
     ok('server: clip_focus_changed forwards track_index', /clip_focus_changed[\s\S]{0,320}track_index:/.test(serverSrc));
+    // Arrangement freeze fix: same-track arrangement clicks skip the scan + keep curves.
+    ok('canvas: arrangement same-track keeps curves + skips scan (same-slot branch)', /slot === currentClipSlot[\s\S]{0,500}sdSetBars[\s\S]{0,120}_sdContextDirty = false/.test(canvasSrc));
+    ok('scanner: track_index resolves for arrangement (selected-track fallback)', (() => { const s = fs.readFileSync(path.join(__dirname, '..', 'm4l', 'node', 'scanner_max.js'), 'utf8'); return /function _resolveTrackIdx/.test(s) && /_resolveTrackIdx[\s\S]{0,400}selected_track/.test(s) && /track_index: _resolveTrackIdx/.test(s); })());
     // A late AUTO-read must not clobber a lane the user just drew (the duplicate-clip
     // "new curves flash then revert to the copy's automation" bug).
     ok('canvas: auto-read fills empty lanes only (no clobber)', /_fillOnly && lane\.points && lane\.points\.length\) return/.test(canvasSrc));
