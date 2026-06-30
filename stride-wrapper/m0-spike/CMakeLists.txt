@@ -47,12 +47,12 @@ juce_add_binary_data(StrideWrapperM0Data SOURCES
     ui/index.html
     ui/shim.js
     ui/tailwind.js
-    ../../stride-vst/app/renderer/canvas.js
-    ../../stride-vst/app/renderer/midi-parser.js
-    ../../stride-vst/app/renderer/audition.js
-    ../../stride-vst/app/renderer/pattern-loader.js
-    ../../stride-vst/app/renderer/pattern-library.js
-    ../../docs/_fonts/Outfit.ttf
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../stride-vst/app/renderer/canvas.js
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../stride-vst/app/renderer/midi-parser.js
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../stride-vst/app/renderer/audition.js
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../stride-vst/app/renderer/pattern-loader.js
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../stride-vst/app/renderer/pattern-library.js
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../docs/_fonts/Outfit.ttf
 )
 
 juce_add_plugin(StrideWrapperM0

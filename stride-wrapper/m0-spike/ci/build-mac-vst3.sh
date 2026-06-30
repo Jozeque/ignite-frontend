@@ -36,7 +36,7 @@ cmake -S "$SCRIPT_DIR" -B "$BUILD_DIR" \
     -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
 cmake --build "$BUILD_DIR" --config Release -j3 --target StrideWrapperM0_VST3
 
-VST3="$(find "$BUILD_DIR" -name 'Stride.vst3' -type d -print -quit)"
+VST3="$(find "$BUILD_DIR" -name 'Stride.vst3' -type d | head -1)"
 if [ -z "$VST3" ]; then
     echo "❌ Stride.vst3 not found after build"; find "$BUILD_DIR" -name '*.vst3' 2>/dev/null; exit 1
 fi
