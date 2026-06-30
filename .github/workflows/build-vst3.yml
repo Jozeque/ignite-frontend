@@ -48,7 +48,8 @@ jobs:
           [ -n "$VST3" ] || { echo "Stride.vst3 not found"; find build -name '*.vst3'; exit 1; }
           echo "Found: $VST3"
           cd "$(dirname "$VST3")"
-          7z a -tzip "$GITHUB_WORKSPACE/Stride-VST3-Windows.zip" "Stride.vst3" >/dev/null
+          cp "$GITHUB_WORKSPACE/stride-wrapper/m0-spike/ci/README.txt" .
+          7z a -tzip "$GITHUB_WORKSPACE/Stride-VST3-Windows.zip" "Stride.vst3" "README.txt" >/dev/null
           echo "Zipped Stride-VST3-Windows.zip"
 
       - uses: actions/upload-artifact@v4

@@ -75,6 +75,11 @@ target_sources(StrideWrapperM0 PRIVATE
     src/PluginEditor.cpp
 )
 
+# macOS transport-key forwarding (Objective-C++) — Mac only
+if(APPLE)
+    target_sources(StrideWrapperM0 PRIVATE src/MacKeyForward.mm)
+endif()
+
 target_compile_definitions(StrideWrapperM0 PUBLIC
     JUCE_PLUGINHOST_VST3=1                          # the whole point — host VST3s
     JUCE_PLUGINHOST_AU=0                            # AU hosting is a later macOS milestone

@@ -75,10 +75,13 @@ xcrun stapler validate "$VST3" || { echo "❌ stapler validate failed"; exit 1; 
 echo "      ✅ stapled"
 
 # ─── 5. Package ─────────────────────────────────────────────────────────────
-echo "[5/5] package..."
+echo "[5/5] package (Stride.vst3 + README)..."
 DIST="$SCRIPT_DIR/dist-mac"
-rm -rf "$DIST"; mkdir -p "$DIST"
-ditto -c -k --keepParent "$VST3" "$DIST/Stride-VST3-Mac.zip"
+rm -rf "$DIST"; mkdir -p "$DIST/Stride"
+ditto "$VST3" "$DIST/Stride/Stride.vst3"
+cp "$CI_DIR/README.txt" "$DIST/Stride/README.txt"
+xcrun stapler validate "$DIST/Stride/Stride.vst3" || { echo "❌ staple lost after copy"; exit 1; }
+ditto -c -k --keepParent "$DIST/Stride" "$DIST/Stride-VST3-Mac.zip"
 echo ""
 echo "✅ DONE: $DIST/Stride-VST3-Mac.zip ($(du -h "$DIST/Stride-VST3-Mac.zip" | cut -f1))"
 echo "   Universal, Developer ID signed, notarized + stapled."

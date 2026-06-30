@@ -1,6 +1,7 @@
 #include "PluginEditor.h"
 #include "BinaryData.h"
 #include "License.h"
+#include "MacKeyForward.h"
 
 #include <optional>
 #include <vector>
@@ -160,12 +161,18 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
    #if JUCE_WINDOWS
     installKeyHook();     // forward Space/Return from hosted synth windows to the DAW transport
    #endif
+   #if JUCE_MAC
+    strideMacKeyForward_install();   // same, via an NSEvent monitor
+   #endif
 }
 
 StrideWrapperEditor::~StrideWrapperEditor()
 {
    #if JUCE_WINDOWS
     removeKeyHook();
+   #endif
+   #if JUCE_MAC
+    strideMacKeyForward_remove();
    #endif
     stopTimer();
     synthWindows.clear();
@@ -259,6 +266,9 @@ void StrideWrapperEditor::openMissingSynthWindows()
                 auto w = std::make_unique<HostedWindow> (i < names.size() ? names[i] : juce::String(), ed);
                 w->setTopLeftPosition (90 + i * 40, 90 + i * 40);   // stack / cascade
                 synthWindows[(size_t) i] = std::move (w);
+               #if JUCE_MAC
+                if (auto* pr = synthWindows[(size_t) i]->getPeer()) strideMacKeyForward_tagWindow (pr->getNativeHandle());
+               #endif
             }
 }
 
@@ -285,6 +295,9 @@ void StrideWrapperEditor::openOneSynthWindow (int i)
             auto w = std::make_unique<HostedWindow> (i < names.size() ? names[i] : juce::String(), ed);
             w->setTopLeftPosition (90 + i * 40, 90 + i * 40);
             synthWindows[(size_t) i] = std::move (w);
+           #if JUCE_MAC
+            if (auto* pr = synthWindows[(size_t) i]->getPeer()) strideMacKeyForward_tagWindow (pr->getNativeHandle());
+           #endif
         }
     if (synthWindows[(size_t) i]) { synthWindows[(size_t) i]->setVisible (true); synthWindows[(size_t) i]->setMinimised (false); synthWindows[(size_t) i]->toFront (true); }
 }
