@@ -1,0 +1,1751 @@
+<!DOCTYPE html>
+<html lang="en" class="dark" data-skin="copper">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STRIDE</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'self';">
+    <!-- JUCE bridge shim: defines window.stride / strideLink / strideCloud BEFORE anything else -->
+    <script src="shim.js"></script>
+    <script src="tailwind.js"></script>
+    <script>
+      // SKINS: remap the palettes the UI uses to CSS variables so a single
+      // [data-skin] swap re-skins the whole app. Channels are space-separated
+      // RGB so Tailwind's /opacity modifiers keep working. Status colors
+      // (emerald/amber/red/sky/violet/rose) are intentionally NOT remapped —
+      // they stay semantic across every skin.
+      tailwind.config = {
+        darkMode: 'class',
+        theme: { extend: { colors: {
+          zinc: { 50:'rgb(var(--z50) / <alpha-value>)',100:'rgb(var(--z100) / <alpha-value>)',200:'rgb(var(--z200) / <alpha-value>)',300:'rgb(var(--z300) / <alpha-value>)',400:'rgb(var(--z400) / <alpha-value>)',500:'rgb(var(--z500) / <alpha-value>)',600:'rgb(var(--z600) / <alpha-value>)',700:'rgb(var(--z700) / <alpha-value>)',800:'rgb(var(--z800) / <alpha-value>)',900:'rgb(var(--z900) / <alpha-value>)',950:'rgb(var(--z950) / <alpha-value>)' },
+          orange: { 50:'rgb(var(--o50) / <alpha-value>)',100:'rgb(var(--o100) / <alpha-value>)',200:'rgb(var(--o200) / <alpha-value>)',300:'rgb(var(--o300) / <alpha-value>)',400:'rgb(var(--o400) / <alpha-value>)',500:'rgb(var(--o500) / <alpha-value>)',600:'rgb(var(--o600) / <alpha-value>)',700:'rgb(var(--o700) / <alpha-value>)',800:'rgb(var(--o800) / <alpha-value>)',900:'rgb(var(--o900) / <alpha-value>)',950:'rgb(var(--o950) / <alpha-value>)' },
+          fuchsia: { 50:'rgb(var(--f50) / <alpha-value>)',100:'rgb(var(--f100) / <alpha-value>)',200:'rgb(var(--f200) / <alpha-value>)',300:'rgb(var(--f300) / <alpha-value>)',400:'rgb(var(--f400) / <alpha-value>)',500:'rgb(var(--f500) / <alpha-value>)',600:'rgb(var(--f600) / <alpha-value>)',700:'rgb(var(--f700) / <alpha-value>)',800:'rgb(var(--f800) / <alpha-value>)',900:'rgb(var(--f900) / <alpha-value>)',950:'rgb(var(--f950) / <alpha-value>)' },
+          emerald: { 50:'rgb(var(--em50) / <alpha-value>)',100:'rgb(var(--em100) / <alpha-value>)',200:'rgb(var(--em200) / <alpha-value>)',300:'rgb(var(--em300) / <alpha-value>)',400:'rgb(var(--em400) / <alpha-value>)',500:'rgb(var(--em500) / <alpha-value>)',600:'rgb(var(--em600) / <alpha-value>)',700:'rgb(var(--em700) / <alpha-value>)',800:'rgb(var(--em800) / <alpha-value>)',900:'rgb(var(--em900) / <alpha-value>)',950:'rgb(var(--em950) / <alpha-value>)' },
+          amber: { 50:'rgb(var(--am50) / <alpha-value>)',100:'rgb(var(--am100) / <alpha-value>)',200:'rgb(var(--am200) / <alpha-value>)',300:'rgb(var(--am300) / <alpha-value>)',400:'rgb(var(--am400) / <alpha-value>)',500:'rgb(var(--am500) / <alpha-value>)',600:'rgb(var(--am600) / <alpha-value>)',700:'rgb(var(--am700) / <alpha-value>)',800:'rgb(var(--am800) / <alpha-value>)',900:'rgb(var(--am900) / <alpha-value>)',950:'rgb(var(--am950) / <alpha-value>)' },
+          sky: { 50:'rgb(var(--sk50) / <alpha-value>)',100:'rgb(var(--sk100) / <alpha-value>)',200:'rgb(var(--sk200) / <alpha-value>)',300:'rgb(var(--sk300) / <alpha-value>)',400:'rgb(var(--sk400) / <alpha-value>)',500:'rgb(var(--sk500) / <alpha-value>)',600:'rgb(var(--sk600) / <alpha-value>)',700:'rgb(var(--sk700) / <alpha-value>)',800:'rgb(var(--sk800) / <alpha-value>)',900:'rgb(var(--sk900) / <alpha-value>)',950:'rgb(var(--sk950) / <alpha-value>)' },
+          violet: { 50:'rgb(var(--vi50) / <alpha-value>)',100:'rgb(var(--vi100) / <alpha-value>)',200:'rgb(var(--vi200) / <alpha-value>)',300:'rgb(var(--vi300) / <alpha-value>)',400:'rgb(var(--vi400) / <alpha-value>)',500:'rgb(var(--vi500) / <alpha-value>)',600:'rgb(var(--vi600) / <alpha-value>)',700:'rgb(var(--vi700) / <alpha-value>)',800:'rgb(var(--vi800) / <alpha-value>)',900:'rgb(var(--vi900) / <alpha-value>)',950:'rgb(var(--vi950) / <alpha-value>)' },
+          rose: { 50:'rgb(var(--ro50) / <alpha-value>)',100:'rgb(var(--ro100) / <alpha-value>)',200:'rgb(var(--ro200) / <alpha-value>)',300:'rgb(var(--ro300) / <alpha-value>)',400:'rgb(var(--ro400) / <alpha-value>)',500:'rgb(var(--ro500) / <alpha-value>)',600:'rgb(var(--ro600) / <alpha-value>)',700:'rgb(var(--ro700) / <alpha-value>)',800:'rgb(var(--ro800) / <alpha-value>)',900:'rgb(var(--ro900) / <alpha-value>)',950:'rgb(var(--ro950) / <alpha-value>)' },
+        }}}
+      };
+    </script>
+    <style>
+      /* Outfit, bundled locally (variable) — 1:1 typography with the Ableton version. */
+      @font-face { font-family:'Outfit'; src:url('Outfit.ttf') format('truetype'); font-weight:100 900; font-display:swap; }
+    </style>
+
+    <style>
+        /* ── SKINS: palette variables as RGB channels. :root = Midnight (the
+              original look); [data-skin] swaps to a vintage palette. Generated
+              from anchor colors — see docs/mockup-stride2-vintage.html. ── */
+        :root{--z50:250 250 250;--z100:244 244 245;--z200:228 228 231;--z300:212 212 216;--z400:161 161 170;--z500:113 113 122;--z600:82 82 91;--z700:63 63 70;--z800:39 39 42;--z900:24 24 27;--z950:9 9 11;--o50:255 247 237;--o100:255 237 213;--o200:254 215 170;--o300:253 186 116;--o400:251 146 60;--o500:249 115 22;--o600:234 88 12;--o700:194 65 12;--o800:154 52 18;--o900:124 45 18;--o950:67 20 7;--f50:253 244 255;--f100:250 232 255;--f200:245 208 254;--f300:240 171 252;--f400:232 121 249;--f500:217 70 239;--f600:192 38 211;--f700:162 28 175;--f800:134 25 143;--f900:112 26 117;--f950:74 4 78;--em50:236 253 245;--em100:209 250 229;--em200:167 243 208;--em300:110 231 183;--em400:52 211 153;--em500:16 185 129;--em600:5 150 105;--em700:4 120 87;--em800:6 95 70;--em900:6 78 59;--em950:2 44 34;--am50:255 251 235;--am100:254 243 199;--am200:253 230 138;--am300:252 211 77;--am400:251 191 36;--am500:245 158 11;--am600:217 119 6;--am700:180 83 9;--am800:146 64 14;--am900:120 53 15;--am950:69 26 3;--sk50:240 249 255;--sk100:224 242 254;--sk200:186 230 253;--sk300:125 211 252;--sk400:56 189 248;--sk500:14 165 233;--sk600:2 132 199;--sk700:3 105 161;--sk800:7 89 133;--sk900:12 74 110;--sk950:8 47 73;--vi50:245 243 255;--vi100:237 233 254;--vi200:221 214 254;--vi300:196 181 253;--vi400:167 139 250;--vi500:139 92 246;--vi600:124 58 237;--vi700:109 40 217;--vi800:91 33 182;--vi900:76 29 149;--vi950:46 16 101;--ro50:255 241 242;--ro100:255 228 230;--ro200:254 205 211;--ro300:253 164 175;--ro400:251 113 133;--ro500:244 63 94;--ro600:225 29 72;--ro700:190 18 60;--ro800:159 18 57;--ro900:136 19 55;--ro950:76 5 25;--brand1:249 115 22;--brand2:239 68 68;--app-bg:9 9 11;--sb-thumb:63 63 70;--sb-hover:82 82 91}
+        [data-skin="copper"]{--z50:238 240 240;--z100:225 227 227;--z200:209 213 213;--z300:188 192 192;--z400:154 157 158;--z500:113 118 118;--z600:90 95 95;--z700:68 71 71;--z800:54 57 57;--z900:43 45 45;--z950:22 22 22;--o50:249 241 234;--o100:244 227 213;--o200:232 198 170;--o300:215 156 107;--o400:198 113 43;--o500:174 99 38;--o600:143 81 31;--o700:109 62 24;--o800:79 45 17;--o900:55 32 12;--o950:30 17 6;--f50:var(--o50);--f100:var(--o100);--f200:var(--o200);--f300:var(--o300);--f400:var(--o400);--f500:var(--o500);--f600:var(--o600);--f700:var(--o700);--f800:var(--o800);--f900:var(--o900);--f950:var(--o950);--em50:var(--o50);--em100:var(--o100);--em200:var(--o200);--em300:var(--o300);--em400:var(--o400);--em500:var(--o500);--em600:var(--o600);--em700:var(--o700);--em800:var(--o800);--em900:var(--o900);--em950:var(--o950);--am50:var(--o50);--am100:var(--o100);--am200:var(--o200);--am300:var(--o300);--am400:var(--o400);--am500:var(--o500);--am600:var(--o600);--am700:var(--o700);--am800:var(--o800);--am900:var(--o900);--am950:var(--o950);--sk50:var(--z50);--sk100:var(--z100);--sk200:var(--z200);--sk300:var(--z300);--sk400:var(--z400);--sk500:var(--z500);--sk600:var(--z600);--sk700:var(--z700);--sk800:var(--z800);--sk900:var(--z900);--sk950:var(--z950);--vi50:var(--z50);--vi100:var(--z100);--vi200:var(--z200);--vi300:var(--z300);--vi400:var(--z400);--vi500:var(--z500);--vi600:var(--z600);--vi700:var(--z700);--vi800:var(--z800);--vi900:var(--z900);--vi950:var(--z950);--ro50:var(--z50);--ro100:var(--z100);--ro200:var(--z200);--ro300:var(--z300);--ro400:var(--z400);--ro500:var(--z500);--ro600:var(--z600);--ro700:var(--z700);--ro800:var(--z800);--ro900:var(--z900);--ro950:var(--z950);--brand1:198 113 43;--brand2:217 144 74;--app-bg:22 22 22;--sb-thumb:68 71 71;--sb-hover:90 95 95}
+        [data-skin="steel"]{--z50:238 242 246;--z100:221 228 235;--z200:207 216 225;--z300:180 191 202;--z400:147 160 173;--z500:105 116 127;--z600:79 91 102;--z700:59 70 81;--z800:46 54 64;--z900:35 41 49;--z950:20 23 26;--o50:253 243 234;--o100:250 232 213;--o200:245 208 171;--o300:238 173 109;--o400:230 138 46;--o500:202 121 40;--o600:166 99 33;--o700:127 76 25;--o800:92 55 18;--o900:64 39 13;--o950:35 21 7;--f50:var(--o50);--f100:var(--o100);--f200:var(--o200);--f300:var(--o300);--f400:var(--o400);--f500:var(--o500);--f600:var(--o600);--f700:var(--o700);--f800:var(--o800);--f900:var(--o900);--f950:var(--o950);--em50:var(--o50);--em100:var(--o100);--em200:var(--o200);--em300:var(--o300);--em400:var(--o400);--em500:var(--o500);--em600:var(--o600);--em700:var(--o700);--em800:var(--o800);--em900:var(--o900);--em950:var(--o950);--am50:var(--o50);--am100:var(--o100);--am200:var(--o200);--am300:var(--o300);--am400:var(--o400);--am500:var(--o500);--am600:var(--o600);--am700:var(--o700);--am800:var(--o800);--am900:var(--o900);--am950:var(--o950);--sk50:var(--z50);--sk100:var(--z100);--sk200:var(--z200);--sk300:var(--z300);--sk400:var(--z400);--sk500:var(--z500);--sk600:var(--z600);--sk700:var(--z700);--sk800:var(--z800);--sk900:var(--z900);--sk950:var(--z950);--vi50:var(--z50);--vi100:var(--z100);--vi200:var(--z200);--vi300:var(--z300);--vi400:var(--z400);--vi500:var(--z500);--vi600:var(--z600);--vi700:var(--z700);--vi800:var(--z800);--vi900:var(--z900);--vi950:var(--z950);--ro50:var(--z50);--ro100:var(--z100);--ro200:var(--z200);--ro300:var(--z300);--ro400:var(--z400);--ro500:var(--z500);--ro600:var(--z600);--ro700:var(--z700);--ro800:var(--z800);--ro900:var(--z900);--ro950:var(--z950);--brand1:230 138 46;--brand2:240 168 90;--app-bg:20 23 26;--sb-thumb:59 70 81;--sb-hover:79 91 102}
+        [data-skin="brass"]{--z50:241 236 226;--z100:228 221 208;--z200:215 207 192;--z300:195 187 171;--z400:163 154 138;--z500:118 111 99;--z600:88 82 73;--z700:67 62 53;--z800:53 49 41;--z900:42 39 34;--z950:21 19 15;--o50:250 246 237;--o100:244 236 219;--o200:233 218 183;--o300:217 190 129;--o400:201 162 75;--o500:177 143 66;--o600:145 117 54;--o700:111 89 41;--o800:80 65 30;--o900:56 45 21;--o950:30 24 11;--f50:var(--o50);--f100:var(--o100);--f200:var(--o200);--f300:var(--o300);--f400:var(--o400);--f500:var(--o500);--f600:var(--o600);--f700:var(--o700);--f800:var(--o800);--f900:var(--o900);--f950:var(--o950);--em50:var(--o50);--em100:var(--o100);--em200:var(--o200);--em300:var(--o300);--em400:var(--o400);--em500:var(--o500);--em600:var(--o600);--em700:var(--o700);--em800:var(--o800);--em900:var(--o900);--em950:var(--o950);--am50:var(--o50);--am100:var(--o100);--am200:var(--o200);--am300:var(--o300);--am400:var(--o400);--am500:var(--o500);--am600:var(--o600);--am700:var(--o700);--am800:var(--o800);--am900:var(--o900);--am950:var(--o950);--sk50:var(--z50);--sk100:var(--z100);--sk200:var(--z200);--sk300:var(--z300);--sk400:var(--z400);--sk500:var(--z500);--sk600:var(--z600);--sk700:var(--z700);--sk800:var(--z800);--sk900:var(--z900);--sk950:var(--z950);--vi50:var(--z50);--vi100:var(--z100);--vi200:var(--z200);--vi300:var(--z300);--vi400:var(--z400);--vi500:var(--z500);--vi600:var(--z600);--vi700:var(--z700);--vi800:var(--z800);--vi900:var(--z900);--vi950:var(--z950);--ro50:var(--z50);--ro100:var(--z100);--ro200:var(--z200);--ro300:var(--z300);--ro400:var(--z400);--ro500:var(--z500);--ro600:var(--z600);--ro700:var(--z700);--ro800:var(--z800);--ro900:var(--z900);--ro950:var(--z950);--brand1:201 162 75;--brand2:220 186 110;--app-bg:21 19 15;--sb-thumb:67 62 53;--sb-hover:88 82 73}
+        [data-skin="teal"]{--z50:238 240 240;--z100:223 226 226;--z200:208 212 213;--z300:186 191 191;--z400:152 156 157;--z500:111 117 118;--z600:87 92 93;--z700:66 71 71;--z800:52 57 57;--z900:41 45 45;--z950:20 22 23;--o50:234 241 244;--o100:213 227 232;--o200:172 199 210;--o300:109 158 176;--o400:47 116 142;--o500:41 102 125;--o600:34 84 102;--o700:26 64 78;--o800:19 46 57;--o900:13 32 40;--o950:7 17 21;--f50:var(--o50);--f100:var(--o100);--f200:var(--o200);--f300:var(--o300);--f400:var(--o400);--f500:var(--o500);--f600:var(--o600);--f700:var(--o700);--f800:var(--o800);--f900:var(--o900);--f950:var(--o950);--em50:var(--o50);--em100:var(--o100);--em200:var(--o200);--em300:var(--o300);--em400:var(--o400);--em500:var(--o500);--em600:var(--o600);--em700:var(--o700);--em800:var(--o800);--em900:var(--o900);--em950:var(--o950);--am50:var(--o50);--am100:var(--o100);--am200:var(--o200);--am300:var(--o300);--am400:var(--o400);--am500:var(--o500);--am600:var(--o600);--am700:var(--o700);--am800:var(--o800);--am900:var(--o900);--am950:var(--o950);--sk50:var(--z50);--sk100:var(--z100);--sk200:var(--z200);--sk300:var(--z300);--sk400:var(--z400);--sk500:var(--z500);--sk600:var(--z600);--sk700:var(--z700);--sk800:var(--z800);--sk900:var(--z900);--sk950:var(--z950);--vi50:var(--z50);--vi100:var(--z100);--vi200:var(--z200);--vi300:var(--z300);--vi400:var(--z400);--vi500:var(--z500);--vi600:var(--z600);--vi700:var(--z700);--vi800:var(--z800);--vi900:var(--z900);--vi950:var(--z950);--ro50:var(--z50);--ro100:var(--z100);--ro200:var(--z200);--ro300:var(--z300);--ro400:var(--z400);--ro500:var(--z500);--ro600:var(--z600);--ro700:var(--z700);--ro800:var(--z800);--ro900:var(--z900);--ro950:var(--z950);--brand1:47 116 142;--brand2:74 147 173;--app-bg:20 22 23;--sb-thumb:66 71 71;--sb-hover:87 92 93}
+        [data-skin="patch"]{--z50:238 240 240;--z100:225 227 227;--z200:209 213 213;--z300:188 192 192;--z400:154 157 158;--z500:113 118 118;--z600:90 95 95;--z700:68 71 71;--z800:54 57 57;--z900:43 45 45;--z950:22 22 22;--o50:249 241 234;--o100:244 227 213;--o200:232 198 170;--o300:215 156 107;--o400:198 113 43;--o500:174 99 38;--o600:143 81 31;--o700:109 62 24;--o800:79 45 17;--o900:55 32 12;--o950:30 17 6;--f50:var(--o50);--f100:var(--o100);--f200:var(--o200);--f300:var(--o300);--f400:var(--o400);--f500:var(--o500);--f600:var(--o600);--f700:var(--o700);--f800:var(--o800);--f900:var(--o900);--f950:var(--o950);--em50:var(--o50);--em100:var(--o100);--em200:var(--o200);--em300:var(--o300);--em400:var(--o400);--em500:var(--o500);--em600:var(--o600);--em700:var(--o700);--em800:var(--o800);--em900:var(--o900);--em950:var(--o950);--am50:var(--o50);--am100:var(--o100);--am200:var(--o200);--am300:var(--o300);--am400:var(--o400);--am500:var(--o500);--am600:var(--o600);--am700:var(--o700);--am800:var(--o800);--am900:var(--o900);--am950:var(--o950);--sk50:var(--z50);--sk100:var(--z100);--sk200:var(--z200);--sk300:var(--z300);--sk400:var(--z400);--sk500:var(--z500);--sk600:var(--z600);--sk700:var(--z700);--sk800:var(--z800);--sk900:var(--z900);--sk950:var(--z950);--vi50:var(--z50);--vi100:var(--z100);--vi200:var(--z200);--vi300:var(--z300);--vi400:var(--z400);--vi500:var(--z500);--vi600:var(--z600);--vi700:var(--z700);--vi800:var(--z800);--vi900:var(--z900);--vi950:var(--z950);--ro50:var(--z50);--ro100:var(--z100);--ro200:var(--z200);--ro300:var(--z300);--ro400:var(--z400);--ro500:var(--z500);--ro600:var(--z600);--ro700:var(--z700);--ro800:var(--z800);--ro900:var(--z900);--ro950:var(--z950);--brand1:198 113 43;--brand2:217 144 74;--app-bg:22 22 22;--sb-thumb:68 71 71;--sb-hover:90 95 95}
+        body { font-family: 'Outfit', sans-serif; background-color: rgb(var(--app-bg)); color: rgb(var(--z200)); margin: 0; overflow: hidden; }
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgb(var(--sb-thumb)); border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
+        ::-webkit-scrollbar-thumb:hover { background: rgb(var(--sb-hover)); background-clip: padding-box; border: 2px solid transparent; }
+        .custom-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: rgb(var(--sb-thumb)); border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: rgb(var(--sb-hover)); background-clip: padding-box; border: 2px solid transparent; }
+        .text-gradient { background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-image: linear-gradient(to right, rgb(var(--brand1)), rgb(var(--brand2))); }
+        /* Electron title bar drag region */
+        .titlebar-drag { -webkit-app-region: drag; }
+        .titlebar-no-drag { -webkit-app-region: no-drag; }
+        /* Mac: the traffic-light buttons sit top-left, so pad the titlebar so the STRIDE mark clears them (Windows' overlay controls are on the right via pr-36). */
+        html.is-mac .titlebar-drag { padding-left: 78px; }
+
+        /* Animated LED border for the most-recently-generated card in the
+           generations dock. A single bright dot travels clockwise around
+           the card's edge, then trails into a yellow→lime gradient. The
+           drop-shadow filter adds a soft halo so the motion reads even at
+           a glance. Auto-removed after ~15s to keep the dock from staying
+           visually busy. */
+        @property --gen-led-angle {
+            syntax: '<angle>';
+            initial-value: 0deg;
+            inherits: false;
+        }
+        @keyframes gen-led-spin {
+            to { --gen-led-angle: 360deg; }
+        }
+        .gen-card-led {
+            position: relative;
+        }
+        .gen-card-led::before {
+            content: '';
+            position: absolute;
+            inset: -1.5px;
+            border-radius: 0.5rem;
+            padding: 1.5px;
+            background: conic-gradient(
+                from var(--gen-led-angle, 0deg),
+                transparent 270deg,
+                #facc15 320deg,
+                #a3e635 350deg,
+                transparent 360deg
+            );
+            -webkit-mask:
+                linear-gradient(#fff 0 0) content-box,
+                linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+                    mask-composite: exclude;
+            animation: gen-led-spin 2.2s linear infinite;
+            pointer-events: none;
+            filter: drop-shadow(0 0 4px rgba(163, 230, 53, 0.5));
+            z-index: 5;
+        }
+
+        /* Impact flash on the inner dock card the moment the fly-orb lands.
+           Quick punchy ramp to a saturated green wash + a soft scale pulse,
+           then settles back to the card's normal state. The LED ring lives
+           on the wrapper above this so it keeps spinning untouched. */
+        @keyframes gen-card-flash {
+            0% {
+                background-color: rgba(132, 204, 22, 0);
+                box-shadow: 0 0 0 0 rgba(132, 204, 22, 0);
+                transform: scale(1);
+            }
+            12% {
+                background-color: rgba(132, 204, 22, 0.55);
+                box-shadow: 0 0 36px 6px rgba(132, 204, 22, 0.45);
+                transform: scale(1.025);
+            }
+            100% {
+                background-color: rgba(132, 204, 22, 0);
+                box-shadow: 0 0 0 0 rgba(132, 204, 22, 0);
+                transform: scale(1);
+            }
+        }
+        .sd-gen-card.sd-gen-card-flash {
+            animation: gen-card-flash 1s ease-out;
+        }
+        /* Compact mode — the SAME real canvas, reflowed. Full-only chrome
+           (sidebar, big toolbars, inject rail) hides; compact-only chrome
+           (slim toolbar + slider strip) shows. No second renderer. */
+        .sd-compact-only { display: none; }
+        body.qp-compact .sd-full-only { display: none !important; }
+        body.qp-compact .sd-compact-only { display: flex; }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+
+    <!-- ===================== STALE-INSTALL NOTICE =====================
+         Centered card — same design language as the empty-canvas "No lanes
+         yet" CTA — shown when the StrideLink install in the User Library is
+         on an OLDER version than the running Stride.exe. Without this
+         prompt, users update Stride.exe but skip "Install to Ableton" → Max
+         loads stale m4l code → silent failures in Live → support tickets.
+         Non-dismissible: clears only on a successful update or its 10s
+         auto-hide.
+
+         WHY CENTERED (not a top bar): the action button must sit OUTSIDE
+         the titlebar .titlebar-drag strip (-webkit-app-region:drag, top
+         36px). A button inside that strip never receives clicks on Windows
+         — the OS treats mousedown there as a window drag, so the old
+         top-bar button silently did nothing. pointer-events-none on the
+         full-screen container keeps the rest of the app usable around the
+         card; titlebar-no-drag on the button is belt-and-suspenders. -->
+    <div id="stride-stale-banner" class="hidden fixed inset-0 z-[9998] flex items-center justify-center pointer-events-none" style="font-family:'Outfit',sans-serif">
+        <div id="stride-stale-banner-card" class="bg-black border border-fuchsia-500/25 rounded-2xl p-7 max-w-sm flex flex-col items-center gap-4 shadow-2xl pointer-events-auto">
+            <div id="stride-stale-banner-icon" class="w-14 h-14 rounded-xl bg-fuchsia-500/15 border border-fuchsia-500/30 flex items-center justify-center">
+                <svg class="w-7 h-7 text-fuchsia-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
+                </svg>
+            </div>
+            <h2 id="stride-stale-banner-title" class="text-lg font-black text-zinc-100 tracking-tight text-center">Ableton install is out of date</h2>
+            <p id="stride-stale-banner-msg" class="text-[11px] text-zinc-400 text-center leading-relaxed">Stride is running a newer version than your Ableton install. Update it so new features work in Live.</p>
+            <button id="stride-stale-banner-btn" type="button" class="titlebar-no-drag w-full bg-fuchsia-500/15 hover:bg-fuchsia-500/25 border border-fuchsia-500/30 text-fuchsia-100 px-4 py-2.5 rounded-lg text-[11px] font-black uppercase tracking-[0.1em] transition-colors">Update Ableton install</button>
+            <div id="stride-stale-banner-hint" class="text-[11px] text-zinc-300 text-center leading-relaxed border-t border-white/5 pt-3 w-full">
+                <span class="text-amber-400 font-bold">Heads up:</span> if Ableton is open, fully close the Live project first — Stride can't replace files while Max is using them.
+            </div>
+            <span id="stride-stale-banner-status" class="hidden text-[10px] font-bold uppercase tracking-widest text-zinc-500"></span>
+        </div>
+    </div>
+
+    <!-- ===================== ACTIVATION GATE ===================== -->
+    <div id="activation-overlay" class="fixed inset-0 z-[9999] bg-zinc-950 flex items-center justify-center">
+        <div class="w-full max-w-sm px-6 text-center">
+            <!-- Logo -->
+            <h1 class="text-4xl font-black text-gradient tracking-tighter mb-1">STRIDE</h1>
+            <p class="text-[10px] text-zinc-600 font-bold uppercase tracking-[0.3em] mb-10">Sound Design Engine</p>
+
+            <!-- Status: checking license -->
+            <div id="activation-checking" class="flex flex-col items-center gap-3">
+                <div class="w-5 h-5 border-2 border-zinc-700 border-t-orange-500 rounded-full animate-spin"></div>
+                <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Checking license...</p>
+            </div>
+
+            <!-- Activation form (hidden until needed) -->
+            <div id="activation-form" class="hidden flex flex-col gap-4">
+                <div>
+                    <input id="serial-input" type="text" placeholder="Enter your license key" class="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors text-center tracking-wider font-medium" spellcheck="false" autocomplete="off">
+                </div>
+                <button onclick="activateLicense()" id="activate-btn" class="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(255,94,0,0.2)]">
+                    Activate
+                </button>
+                <p id="activation-error" class="text-[10px] text-red-400 font-medium hidden"></p>
+                <p class="text-[10px] text-zinc-600 font-medium">
+                    Don't have a key? <a href="#" class="text-orange-500 hover:text-orange-400 underline" onclick="window.stride.openExternal('https://stridehub.io'); return false;">Get Stride</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Title Bar (draggable for Electron).
+         pr-36 (144px) reserves space for Windows' native min/max/close
+         controls sitting in the titleBarOverlay area, so our own buttons
+         on the right (M4L status, Guide, Install to Ableton, folder)
+         don't get clipped. Mac's traffic lights are on the LEFT, so the
+         extra right padding is harmless there. -->
+    <script>if (window.stride && window.stride.platform === 'darwin') document.documentElement.classList.add('is-mac');</script>
+    <div class="titlebar-drag h-9 bg-zinc-950 border-b border-white/5 flex items-center pl-4 pr-36 shrink-0">
+        <span class="text-[11px] font-black tracking-[0.3em] uppercase text-gradient titlebar-no-drag">STRIDE</span>
+        <!-- Compact — toggles THIS window into the sticky compact reference layout. -->
+        <button id="sd-quickpanel-btn" type="button" onclick="window.toggleCompactMode && window.toggleCompactMode()" class="titlebar-no-drag ml-5 flex items-center gap-1.5 text-[9px] text-zinc-500 hover:text-orange-400 uppercase font-bold tracking-widest transition-colors" title="Toggle the sticky compact reference panel">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            <span>Compact</span>
+        </button>
+        <div class="flex-1"></div>
+        <!-- Connection status (clickable — opens troubleshooter when red).
+             Bigger and brighter than before so users notice when they're
+             not connected. Pulses on Scan press if disconnected. -->
+        <button id="link-status" type="button" onclick="sdToggleConnectionHelp()" title="Click for troubleshooting" class="titlebar-no-drag flex items-center gap-2 mr-4 px-2.5 py-1 rounded-md hover:bg-white/5 transition-colors cursor-pointer">
+            <div id="link-dot" class="w-2 h-2 rounded-full bg-zinc-600"></div>
+            <span id="link-label" class="text-[10px] text-zinc-400 uppercase font-bold tracking-widest">Disconnected</span>
+        </button>
+        <!-- Skin switcher — cycles the app palette (design-only; persisted).
+             The dot reflects the active skin via --brand1; label updates in JS. -->
+        <button id="sd-skin-swatch" type="button" onclick="window.strideCycleSkin && window.strideCycleSkin()" title="Switch skin"
+            class="titlebar-no-drag flex items-center gap-1.5 mr-4 px-2 py-1 rounded-md border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 transition-colors">
+            <span class="w-3 h-3 rounded-full" style="background: rgb(var(--brand1)); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);"></span>
+            <span id="sd-skin-name" class="text-[9px] text-zinc-400 uppercase font-bold tracking-widest">Copper</span>
+        </button>
+
+        <!-- Connection troubleshooter popover — opens on click of #link-status.
+             Lists the most common failure modes with concrete fixes so users
+             can self-diagnose instead of bouncing through email support. -->
+        <div id="sd-connection-help" class="hidden fixed top-12 right-4 z-50 w-[380px] rounded-xl border border-white/10 shadow-2xl titlebar-no-drag" style="background: rgb(var(--app-bg) / 0.98); backdrop-filter: blur(14px);">
+            <div class="px-4 py-3 border-b border-white/5 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <div id="sd-help-dot" class="w-2.5 h-2.5 rounded-full bg-zinc-600"></div>
+                    <span id="sd-help-title" class="text-[12px] text-zinc-200 font-bold uppercase tracking-wider">Not Connected</span>
+                </div>
+                <button onclick="sdToggleConnectionHelp()" class="text-zinc-500 hover:text-zinc-300 text-lg leading-none">×</button>
+            </div>
+            <div id="sd-help-body" class="p-4 text-[11px] text-zinc-300 space-y-3 leading-relaxed">
+                <!-- populated dynamically by sdRenderConnectionHelp() -->
+            </div>
+        </div>
+        <!-- Sidebar Toggle -->
+        <button onclick="document.getElementById('sd-sidebar').classList.toggle('hidden'); document.getElementById('sd-sidebar').classList.toggle('flex')" class="titlebar-no-drag text-[9px] text-zinc-500 hover:text-orange-400 uppercase font-bold tracking-widest transition-colors mr-3" title="Toggle sidebar">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        </button>
+        <!-- Guide -->
+        <button onclick="document.getElementById('guide-modal').classList.remove('hidden')" class="titlebar-no-drag text-[9px] text-zinc-500 hover:text-orange-400 uppercase font-bold tracking-widest transition-colors mr-3">Guide</button>
+        <!-- Install-to-Ableton removed: the VST wrapper has no M4L device. -->
+        <button onclick="if(window.stride&&window.stride.openStrideFolder)window.stride.openStrideFolder()" class="titlebar-no-drag text-zinc-500 hover:text-orange-400 transition-colors mr-3" title="Open Stride folder — all your generated .alc files">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+        </button>
+        <!-- Account (online mode) -->
+        <button id="account-btn" onclick="toggleAccountPanel()" class="titlebar-no-drag text-[9px] text-zinc-500 hover:text-zinc-300 uppercase font-bold tracking-widest transition-colors hidden">Account</button>
+    </div>
+
+    <!-- Wrapper control bar (Stride VST host) — favorites / add / map / open / clear + device list.
+         Populated by shim.js so the controls live in the layout instead of floating overlays. -->
+    <div id="stride-wrap-controls" class="bg-zinc-950 border-b border-white/5 px-3 py-1.5 flex items-center gap-2 flex-wrap shrink-0"></div>
+
+    <!-- Main Layout -->
+    <div class="flex-1 flex overflow-hidden">
+
+        <!-- Left Sidebar: Parameters -->
+        <div id="sd-sidebar" class="sd-full-only w-56 border-r border-white/10 bg-zinc-900/50 flex flex-col shrink-0">
+            <!-- Rack Info -->
+            <div class="p-3 border-b border-white/5">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-[9px] font-black text-zinc-500 uppercase tracking-[0.2em]">Parameters</h3>
+                    <div class="flex items-center gap-1.5">
+                        <span id="sd-param-count" class="text-[8px] text-zinc-600 font-bold"></span>
+                        <button onclick="if(window.sdRefreshSync)window.sdRefreshSync()" title="Re-sync your rack's mapped parameters from Ableton (Stride also syncs automatically on open and when you switch back)" class="text-zinc-600 hover:text-fuchsia-400 transition-colors p-0.5 rounded-md hover:bg-white/5" aria-label="Re-sync params">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h5M20 20v-5h-5M5.5 9a7 7 0 0111.5-2.5L20 9M18.5 15a7 7 0 01-11.5 2.5L4 15"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div id="rack-info" class="hidden">
+                    <p id="rack-name" class="text-[10px] text-fuchsia-400/70 font-bold truncate"></p>
+                    <p id="rack-track" class="text-[8px] text-zinc-600 font-bold uppercase tracking-widest mt-0.5"></p>
+                    <div id="template-status" class="hidden mt-1.5"></div>
+                </div>
+                <div id="no-rack-msg" class="text-[9px] text-zinc-600 italic">
+                    Connect Ableton — Stride syncs your mapped rack automatically
+                </div>
+            </div>
+            <!-- Actions -->
+            <div class="p-2 border-b border-white/5 flex flex-col gap-1.5">
+                <!-- Armed pattern chip — visible only when a pattern is picked in the Library overlay. -->
+                <div id="sd-armed-pattern-chip" class="hidden w-full text-[9px] bg-orange-500/10 border border-orange-500/30 rounded-lg px-2 py-1.5 flex items-center gap-1.5">
+                    <svg class="w-3 h-3 text-orange-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19a3 3 0 11-6 0 3 3 0 016 0zm12-3a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    <span id="sd-armed-pattern-label" class="text-orange-300 font-bold uppercase tracking-wider truncate min-w-0 flex-1"></span>
+                    <button id="sd-armed-pattern-clear" onclick="if(window.sdClearPattern)window.sdClearPattern()" title="Clear pattern" class="text-orange-400/70 hover:text-orange-300 shrink-0 text-sm leading-none px-1">×</button>
+                </div>
+                <!-- Work mode (A/B). A = default Stride flow (no reading from Ableton).
+                     B = read existing automation from the open clip to edit + re-inject.
+                     HIDDEN 2026-06-10: Read (Mode B) is incomplete / untested live, so the
+                     panel is hidden from users. All logic stays wired and dormant
+                     (sdSetWorkMode / sdReadCurvesNow / clip_curves_read + the M4L read
+                     path) — the app simply stays in default Mode A. To resume testing the
+                     feature later, remove the leading `hidden` class on the div below. -->
+                <div class="hidden w-full rounded-lg border border-white/10 bg-black/20 px-2 py-1.5 flex flex-col gap-1.5">
+                    <span class="text-[9px] text-zinc-500 font-black uppercase tracking-wider">Mode</span>
+                    <div class="flex gap-1">
+                        <button id="sd-mode-a" onclick="window.sdSetWorkMode('A')" title="Default — draw in Stride, autosync params, no reading from Ableton" class="flex-1 py-1 rounded text-[9px] font-black uppercase tracking-wider bg-fuchsia-500 text-black transition-colors">A · Default</button>
+                        <button id="sd-mode-b" onclick="window.sdSetWorkMode('B')" title="Read existing automation from the open clip so you can edit + re-inject" class="flex-1 py-1 rounded text-[9px] font-black uppercase tracking-wider text-zinc-400 hover:text-zinc-200 transition-colors">B · Read</button>
+                    </div>
+                    <div id="sd-mode-b-controls" class="hidden">
+                        <button onclick="window.sdReadCurvesNow()" class="w-full py-1 mb-1 rounded bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 text-[9px] font-black uppercase tracking-wider transition-colors">Pull curves from clip</button>
+                        <span class="block text-[8px] text-zinc-500 leading-tight">Reads the open clip's automation onto your lanes so you can edit and re-inject.</span>
+                    </div>
+                </div>
+
+                <!-- Primary CTA moved to the right Inject rail (Option B). -->
+                <!-- (#sd-inject-btn now lives in #sd-inject-rail beside the canvas.) -->
+                <!-- (Stride 2.0: Save/Load Session removed — per-rack autosave + autoscan persist curves; sessions had no live _path and risked rack mismatch.) -->
+            </div>
+            <!-- Context Panel — replaces the old param list. Hosts the
+                 generative tools and edit sliders so the toolbar can stay
+                 slim and the sliders get more horizontal travel for fine
+                 control. Top block (Parameters / Scan / Apply / Save) is
+                 untouched. No scrolling — content is sized to fit. -->
+            <div id="sd-context-panel" class="flex-1 overflow-hidden p-2 flex flex-col gap-3">
+                <!-- GENERATIVE section. innerHTML is swapped by canvas.js
+                     between the default tool grid and an active-tool panel
+                     (Bloom/Weave with live-morph sliders). -->
+                <div id="sd-generative-section"></div>
+
+                <!-- EDIT section: live-morph sliders. All neutral zinc —
+                     labels, values, AND the slider thumb. Per-slider
+                     colors competed with the tool-colored GENERATIVE
+                     buttons (amber Smooth read like Bloom). Fuchsia
+                     thumbs competed with the lane curves on the canvas.
+                     A quiet zinc-300 thumb keeps the focus where it
+                     belongs — on the curves. -->
+                <div>
+                    <div class="text-[8px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-1.5 px-1">Edit</div>
+                    <div class="flex flex-col gap-1.5 px-1">
+                        <div class="flex items-center gap-2" title="Smooth — averages neighboring points to soften the curve">
+                            <span class="text-[9px] font-bold text-zinc-500 uppercase w-12 shrink-0">Smooth</span>
+                            <input type="range" id="sd-smooth-slider" min="0" max="100" value="0" class="flex-1 h-1 accent-zinc-300 cursor-pointer" oninput="sdApplySmooth(this.value)" />
+                            <span id="sd-smooth-val" class="text-[9px] text-zinc-400 font-mono w-9 text-right">0%</span>
+                        </div>
+                        <div class="flex items-center gap-2" title="Depth — scales values around 0.5">
+                            <span class="text-[9px] font-bold text-zinc-500 uppercase w-12 shrink-0">Depth</span>
+                            <input type="range" id="sd-intensity-slider" min="0" max="200" value="100" class="flex-1 h-1 accent-zinc-300 cursor-pointer" oninput="sdApplyIntensity(this.value)" />
+                            <span id="sd-intensity-val" class="text-[9px] text-zinc-400 font-mono w-9 text-right">100%</span>
+                        </div>
+                        <div class="flex items-center gap-2" title="Curve — bends segments between points">
+                            <span class="text-[9px] font-bold text-zinc-500 uppercase w-12 shrink-0">Curve</span>
+                            <input type="range" id="sd-curve-slider" min="0" max="100" value="0" class="flex-1 h-1 accent-zinc-300 cursor-pointer" oninput="sdApplyCurve(this.value)" />
+                            <span id="sd-curve-val" class="text-[9px] text-zinc-400 font-mono w-9 text-right">0%</span>
+                        </div>
+                        <div class="flex items-center gap-2" title="Floor — minimum value of the curve">
+                            <span class="text-[9px] font-bold text-zinc-500 uppercase w-12 shrink-0">Floor</span>
+                            <input type="range" id="sd-floor-slider" min="0" max="100" value="0" class="flex-1 h-1 accent-zinc-300 cursor-pointer" oninput="sdApplyFloor(this.value)" />
+                            <span id="sd-floor-val" class="text-[9px] text-zinc-400 font-mono w-9 text-right">0%</span>
+                        </div>
+                        <div class="flex items-center gap-2" title="Ceiling — maximum value of the curve">
+                            <span class="text-[9px] font-bold text-zinc-500 uppercase w-12 shrink-0">Ceiling</span>
+                            <input type="range" id="sd-ceil-slider" min="0" max="100" value="100" class="flex-1 h-1 accent-zinc-300 cursor-pointer" oninput="sdApplyCeiling(this.value)" />
+                            <span id="sd-ceil-val" class="text-[9px] text-zinc-400 font-mono w-9 text-right">100%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Save Session Modal -->
+        <div id="save-session-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center" onclick="if(event.target===this)this.classList.add('hidden')">
+            <div class="bg-zinc-900 border border-white/10 rounded-xl p-5 w-80 flex flex-col gap-3">
+                <div class="text-xs text-zinc-200 font-bold uppercase tracking-widest">Save Session</div>
+                <p class="text-[9px] text-zinc-500">Saves all canvas curves, parameters, and template reference.</p>
+                <input id="session-name-input" type="text" placeholder="Session name..." class="bg-black/50 border border-white/10 rounded px-3 py-2 text-xs text-zinc-200 outline-none focus:border-sky-500/50" />
+                <button onclick="sdConfirmSaveSession()" class="text-[9px] text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 py-2 rounded-lg uppercase font-bold transition-all">Save</button>
+                <div id="session-save-status" class="text-[9px] text-zinc-500 text-center"></div>
+            </div>
+        </div>
+
+        <!-- Load Session Modal -->
+        <div id="load-session-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center" onclick="if(event.target===this)this.classList.add('hidden')">
+            <div class="bg-zinc-900 border border-white/10 rounded-xl p-5 w-96 flex flex-col gap-3 max-h-[70vh]">
+                <div class="text-xs text-zinc-200 font-bold uppercase tracking-widest">Saved Sessions</div>
+                <input id="session-search" type="text" placeholder="Search sessions..." oninput="sdFilterSessions(this.value)" class="bg-black/50 border border-white/10 rounded px-3 py-1.5 text-[10px] text-zinc-200 outline-none focus:border-sky-500/50 placeholder-zinc-600" />
+                <div id="session-list" class="flex-1 overflow-y-auto custom-scroll flex flex-col gap-1.5 min-h-[100px]"></div>
+                <div id="session-load-status" class="text-[9px] text-zinc-500 text-center"></div>
+            </div>
+        </div>
+
+        <!-- Save Preset Modal -->
+        <div id="save-preset-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center" onclick="if(event.target===this)this.classList.add('hidden')">
+            <div class="bg-zinc-900 border border-white/10 rounded-xl p-5 w-80 flex flex-col gap-3">
+                <div class="text-xs text-zinc-200 font-bold uppercase tracking-widest">Save Preset</div>
+                <input id="preset-name-input" type="text" placeholder="Preset name..." class="bg-black/50 border border-white/10 rounded px-3 py-2 text-xs text-zinc-200 outline-none focus:border-fuchsia-500/50" />
+                <div class="flex gap-2">
+                    <button onclick="sdConfirmSavePreset('lane')" class="flex-1 text-[9px] text-violet-400 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 py-2 rounded-lg uppercase font-bold transition-all">Active Lane</button>
+                    <button onclick="sdConfirmSavePreset('all')" class="flex-1 text-[9px] text-fuchsia-400 bg-fuchsia-500/10 hover:bg-fuchsia-500/20 border border-fuchsia-500/20 py-2 rounded-lg uppercase font-bold transition-all">All Lanes</button>
+                </div>
+                <div id="preset-save-status" class="text-[9px] text-zinc-500 text-center"></div>
+            </div>
+        </div>
+
+        <!-- All Presets Modal -->
+        <div id="load-preset-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center" onclick="if(event.target===this)this.classList.add('hidden')">
+            <div class="bg-zinc-900 border border-white/10 rounded-xl p-5 w-96 flex flex-col gap-3 max-h-[70vh]">
+                <div class="text-xs text-zinc-200 font-bold uppercase tracking-widest">All Saved Presets</div>
+                <div id="preset-list" class="flex-1 overflow-y-auto custom-scroll flex flex-col gap-1.5 min-h-[100px]"></div>
+                <div id="preset-load-status" class="text-[9px] text-zinc-500 text-center"></div>
+            </div>
+        </div>
+
+        <!-- ===================== GUIDE MODAL ===================== -->
+        <div id="guide-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4" style="font-family:'Outfit',sans-serif" onclick="if(event.target===this)this.classList.add('hidden')">
+            <div class="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-3xl max-h-[88vh] flex flex-col shadow-2xl">
+                <!-- Header -->
+                <div class="flex items-center justify-between px-7 py-5 border-b border-white/5 shrink-0">
+                    <div>
+                        <h2 class="text-lg font-black text-gradient uppercase tracking-widest">Getting Started</h2>
+                        <p class="text-xs text-zinc-500 font-medium mt-1">Modulate everything in your session. 5 simple steps.</p>
+                    </div>
+                    <button onclick="document.getElementById('guide-modal').classList.add('hidden')" class="text-zinc-500 hover:text-white transition-colors p-1">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+                <!-- Steps (scrollable) -->
+                <div class="flex-1 overflow-y-auto custom-scroll px-7 py-6">
+                    <div class="flex flex-col gap-7">
+
+                        <!-- ONE-TIME SETUP — install + enable StrideInject. Most
+                             "not connected / timeout" issues are skipping this. -->
+                        <div class="rounded-xl border border-orange-500/30 p-5" style="background: linear-gradient(135deg, rgb(var(--o500) / 0.08), rgba(239,68,68,0.04));">
+                            <div class="flex items-start gap-3">
+                                <div class="shrink-0 w-10 h-10 rounded-xl bg-orange-500/15 border border-orange-500/30 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Everything runs inside Stride</h3>
+                                    <p class="text-base text-zinc-300 leading-relaxed mt-2">No setup, no install. Load your synth and effects right here, draw motion, and Stride modulates them live in any DAW, locked to the transport. Your whole rack and its curves save with the project.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- THE WORKFLOW — section divider, mirrors the website setup guide -->
+                        <div class="pt-1">
+                            <h3 class="text-xl font-black text-zinc-100 tracking-tight">The Workflow</h3>
+                        </div>
+
+                        <!-- Step 1 -->
+                        <div class="flex gap-4">
+                            <div class="shrink-0 w-10 h-10 rounded-xl bg-orange-500/15 border border-orange-500/25 flex items-center justify-center">
+                                <span class="text-base text-orange-400 font-black">1</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Add your synth</h3>
+                                <p class="text-base text-zinc-400 leading-relaxed mt-1">Hit <span class="text-orange-400 font-bold">+ Add</span> and pick a VST3 instrument. It loads inside Stride and lands in your favorites for next time. Add effects after it the same way and they chain in series, so Stride can modulate the whole rack.</p>
+                            </div>
+                        </div>
+
+                        <!-- Step 2 -->
+                        <div class="flex gap-4">
+                            <div class="shrink-0 w-10 h-10 rounded-xl bg-orange-500/15 border border-orange-500/25 flex items-center justify-center">
+                                <span class="text-base text-orange-400 font-black">2</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Map the knobs you want to move</h3>
+                                <p class="text-base text-zinc-400 leading-relaxed mt-1">Press <span class="text-violet-300 font-bold">Map</span> (it lights up), then click any knob in the synth or its effects. Each one drops in as a <span class="text-fuchsia-400 font-bold">lane</span> automatically. Press Map again when you're done. Your curves modulate the moment you draw them, playing or not.</p>
+                            </div>
+                        </div>
+
+                        <!-- Step 3 — select your clip, right after mapping -->
+                        <div class="flex gap-4">
+                            <div class="shrink-0 w-10 h-10 rounded-xl bg-orange-500/15 border border-orange-500/25 flex items-center justify-center">
+                                <span class="text-base text-orange-400 font-black">3</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Draw the motion</h3>
+                                <p class="text-base text-zinc-400 leading-relaxed mt-1">Draw a curve on any lane, or fire a <span class="text-orange-400 font-bold">Motion tool</span> (Chaos, Neuro, Reflector, S&amp;H, Prism, Bloom) to lay motion across <span class="text-zinc-300 font-bold">every lane at once</span>. Reshape, Mutate, Mirror, until it feels right.</p>
+                            </div>
+                        </div>
+
+                        <!-- Step 4 — pick a motion + Inject to Clip, one move -->
+                        <div class="flex gap-4">
+                            <div class="shrink-0 w-10 h-10 rounded-xl bg-orange-500/15 border border-orange-500/25 flex items-center justify-center">
+                                <span class="text-base text-orange-400 font-black">4</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Set the loop length</h3>
+                                <p class="text-base text-zinc-400 leading-relaxed mt-1">Pick <span class="text-zinc-300 font-bold">Bars</span> (4, 8, 16, 32). That sets how long the modulation loop runs before it repeats.</p>
+                            </div>
+                        </div>
+
+                        <!-- Step 5 — play & record -->
+                        <div class="flex gap-4">
+                            <div class="shrink-0 w-10 h-10 rounded-xl bg-orange-500/15 border border-orange-500/25 flex items-center justify-center">
+                                <span class="text-base text-orange-400 font-black">5</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Press play</h3>
+                                <p class="text-base text-zinc-400 leading-relaxed mt-1">Hit play in your DAW. Stride modulates the synth live, in sync with the transport. Tweak a curve and it updates as it plays.</p>
+                            </div>
+                        </div>
+
+                        <!-- ADD MORE — the 2.0 superpower: live re-sync. -->
+                        <div class="rounded-xl border border-fuchsia-500/25 p-5" style="background: linear-gradient(135deg, rgb(var(--f500) / 0.08), rgb(var(--o500) / 0.04));">
+                            <div class="flex items-start gap-3">
+                                <div class="shrink-0 w-10 h-10 rounded-xl bg-fuchsia-500/15 border border-fuchsia-500/30 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-fuchsia-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Want more params? Just map them.</h3>
+                                    <p class="text-base text-zinc-300 leading-relaxed mt-2">Press <span class="text-violet-300 font-bold">Map</span> again and click more knobs, on the synth or any effect in the chain. They <span class="text-fuchsia-400 font-bold">auto-appear</span> as new lanes. Draw, and they modulate with the rest.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ARRANGEMENT VIEW — works on the timeline too, once the track is unfolded so the rack + clip are reachable, and the clip is selected in the Detail view. -->
+                        <div class="rounded-xl border border-orange-500/25 p-5" style="background: linear-gradient(135deg, rgb(var(--o500) / 0.08), rgba(59,130,246,0.05));">
+                            <div class="flex items-start gap-3">
+                                <div class="shrink-0 w-10 h-10 rounded-xl bg-orange-500/15 border border-orange-500/30 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Long chain? Open one device at a time</h3>
+                                    <p class="text-base text-zinc-300 leading-relaxed mt-2">Every loaded device shows in the bar under the logo. Click the <span class="text-fuchsia-400 font-bold">⛶</span> on a device to open just that plugin's window, or the <span class="text-zinc-300 font-bold">⛶</span> in the control bar to open them all. The <span class="text-zinc-400 font-bold">✕</span> removes one, and Ctrl+Z brings it back.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Prominent end-of-guide help block — direct route for stuck users.
+                             Both CTAs land on stridehub.io/welcome which hosts the
+                             VO walkthrough video AND the Calendly book-a-call link. -->
+                        <div class="mt-6 p-7 rounded-2xl border border-orange-500/25" style="background: linear-gradient(135deg, rgb(var(--o500) / 0.10), rgba(239,68,68,0.06));">
+                            <p class="text-xs text-orange-400 font-black uppercase tracking-[0.3em] mb-3 text-center">Stuck? Get help.</p>
+                            <h3 class="text-2xl font-black text-zinc-100 text-center mb-2">We've got you.</h3>
+                            <p class="text-base text-zinc-400 text-center leading-relaxed mb-5 max-w-md mx-auto">Watch the full walkthrough video with voiceover, or book a free 30-minute Zoom call and we'll get you rolling. No question is too small.</p>
+                            <div class="flex gap-3 justify-center flex-wrap">
+                                <a href="#" onclick="window.stride.openExternal('https://stridehub.io/welcome'); return false;" class="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-black uppercase tracking-widest text-white shadow-[0_4px_16px_rgba(249,115,22,0.3)] hover:shadow-[0_6px_20px_rgba(249,115,22,0.45)] transition-all" style="background: linear-gradient(to right, rgb(var(--brand1)), rgb(var(--brand2)));">▶ Watch the walkthrough</a>
+                                <a href="#" onclick="window.stride.openExternal('https://stridehub.io/welcome'); return false;" class="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-black uppercase tracking-widest text-zinc-200 bg-white/5 hover:bg-white/10 border border-white/10 transition-all">📅 Book a Zoom call</a>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="px-7 py-4 border-t border-white/5 shrink-0 flex items-center justify-end">
+                    <button onclick="document.getElementById('guide-modal').classList.add('hidden')" class="text-xs text-zinc-300 hover:text-white bg-white/5 hover:bg-white/10 px-5 py-2 rounded-lg font-bold uppercase tracking-widest transition-all">Got it</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rescan Confirmation Modal -->
+        <div id="rescan-confirm-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center">
+            <div class="bg-zinc-900 border border-white/10 rounded-xl p-5 w-80 flex flex-col gap-3">
+                <div class="text-xs text-zinc-200 font-bold uppercase tracking-widest">Curves Detected</div>
+                <p class="text-[10px] text-zinc-400 leading-relaxed" id="rescan-confirm-msg">You have existing automation curves. A new scan will replace them.</p>
+                <div class="flex gap-2 mt-1">
+                    <button onclick="window._rescanConfirmKeep()" class="flex-1 py-1.5 rounded-md bg-emerald-600/80 hover:bg-emerald-500 text-[10px] text-white font-bold uppercase tracking-wider">Keep Curves</button>
+                    <button onclick="window._rescanConfirmReplace()" class="flex-1 py-1.5 rounded-md bg-red-600/80 hover:bg-red-500 text-[10px] text-white font-bold uppercase tracking-wider">Replace</button>
+                </div>
+                <button onclick="document.getElementById('rescan-confirm-modal').classList.add('hidden')" class="text-[9px] text-zinc-600 hover:text-zinc-400 text-center mt-1">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Install-StrideLink-to-Ableton Overlay (shown on first launch OR re-triggered from titlebar) -->
+        <!-- POST-INSTALL: enable StrideInject. Shown after a successful "Install to
+             Ableton". This is the wall every new user hits — Ableton can't auto-enable
+             a Control Surface, so the one remaining manual step gets a loud, PERSISTENT
+             popup (no auto-dismiss) with the exact screenshot, instead of the old 7s
+             status line everyone missed. -->
+        <div id="sd-strideinject-modal" class="hidden fixed inset-0 bg-black/85 backdrop-blur-md z-[10002] flex items-center justify-center p-4" style="font-family:'Outfit',sans-serif">
+            <div class="bg-zinc-900 border border-emerald-500/30 rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl">
+                <div class="flex items-start gap-4 px-7 pt-7 pb-3 shrink-0">
+                    <div class="shrink-0 w-12 h-12 rounded-xl bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h2 class="text-xl font-black tracking-tight text-emerald-300">StrideLink installed</h2>
+                        <p class="text-[10px] text-zinc-500 uppercase tracking-[0.2em] font-black mt-1">One step left before you can inject</p>
+                    </div>
+                </div>
+                <div class="px-7 pb-2 overflow-y-auto custom-scroll">
+                    <p class="text-[13px] text-zinc-300 leading-relaxed">
+                        In Ableton, open <span class="text-zinc-100 font-bold">Settings → Link, Tempo &amp; MIDI</span>, find <span class="text-zinc-100 font-bold">Control Surface</span>, and choose <span class="text-emerald-300 font-mono font-bold">StrideInject</span>. This is what lets Stride write automation into your clips.
+                    </p>
+                    <div class="mt-3 rounded-lg bg-black/30 border border-white/5 overflow-hidden">
+                        <img src="../assets/ss/step1.png" alt="Choose StrideInject as the Control Surface in Ableton's Link, Tempo and MIDI settings" class="w-full">
+                    </div>
+                    <p class="text-[11px] text-amber-300/90 leading-relaxed mt-3 flex items-start gap-2">
+                        <svg class="w-4 h-4 shrink-0 mt-px" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                        <span><span class="font-bold">Restart Ableton</span> if it was already open — it only detects StrideInject on launch.</span>
+                    </p>
+                </div>
+                <div class="px-7 py-5 mt-2 border-t border-white/5 shrink-0 flex items-center justify-between gap-3">
+                    <button onclick="if(window.sdOpenGuideFromInstall)window.sdOpenGuideFromInstall()" class="text-[11px] text-orange-300 hover:text-orange-200 font-bold uppercase tracking-widest transition-colors">Open setup guide</button>
+                    <button onclick="if(window.sdDismissStrideInjectSetup)window.sdDismissStrideInjectSetup()" class="text-xs text-zinc-100 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 px-6 py-2.5 rounded-xl font-black uppercase tracking-widest transition-all">Got it</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="sd-install-m4l-overlay" class="hidden fixed inset-0 bg-black/85 backdrop-blur-md z-[10001] flex items-center justify-center" style="font-family:'Outfit',sans-serif">
+            <div class="bg-zinc-900 border border-orange-500/30 rounded-2xl p-7 max-w-md w-full mx-6 flex flex-col gap-5 shadow-2xl">
+                <div class="flex items-center gap-4">
+                    <div class="shrink-0 w-14 h-14 rounded-xl bg-gradient-to-br from-orange-500/25 to-fuchsia-500/25 border border-orange-500/40 flex items-center justify-center">
+                        <svg class="w-7 h-7 text-orange-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h1 class="text-xl font-black tracking-tight bg-gradient-to-r from-orange-400 to-fuchsia-400 bg-clip-text text-transparent">Install to Ableton</h1>
+                        <p class="text-[9px] text-zinc-500 uppercase tracking-[0.2em] font-black mt-1">One-time setup</p>
+                    </div>
+                </div>
+                <p class="text-[11px] text-zinc-300 leading-relaxed">
+                    Stride needs to drop its Max device (<span class="text-orange-400 font-bold">StrideLink</span>) into your Ableton User Library. Afterwards, open Ableton's browser → <span class="text-zinc-100 font-bold">User Library</span> → <span class="text-zinc-100 font-bold">Stride</span> → drag <span class="text-orange-400 font-bold">StrideLink</span> onto any MIDI track.
+                </p>
+                <div id="sd-install-m4l-status" class="hidden text-[10px] leading-relaxed px-3 py-2 rounded-lg"></div>
+                <div class="flex flex-col gap-2">
+                    <button id="sd-install-m4l-btn" class="w-full text-[11px] text-zinc-100 bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/40 hover:border-orange-500/60 py-3 rounded-xl uppercase tracking-widest font-black transition-all flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        Install to Ableton
+                    </button>
+                    <button id="sd-install-m4l-skip-btn" class="w-full text-[10px] text-zinc-500 hover:text-zinc-300 py-2 rounded-xl uppercase tracking-widest font-bold transition-colors">
+                        Choose folder manually
+                    </button>
+                </div>
+                <!-- Always-visible help line — most install confusion is
+                     "I don't know where my User Library is". Telling them
+                     once, up front, beats every support ticket about it.
+                     The deeper "copy resources/M4L by hand" fallback lives
+                     in the verification-failure error message instead,
+                     since it's only relevant when the in-app paths failed. -->
+                <p class="text-[9px] text-zinc-500 leading-relaxed">
+                    <span class="text-zinc-400 font-bold uppercase tracking-wider">Tip:</span>
+                    Not sure where your User Library is? In Ableton, right-click
+                    <span class="text-zinc-300 font-mono">User Library</span>
+                    in the browser sidebar &rarr;
+                    <span class="text-zinc-300">Show in Explorer</span>.
+                    That's the folder Stride writes to.
+                </p>
+            </div>
+        </div>
+
+        <!-- First-run Welcome Overlay (shown once on first launch) -->
+        <div id="sd-welcome-overlay" class="hidden fixed inset-0 bg-black/85 backdrop-blur-md z-[10000] flex items-center justify-center" style="font-family:'Outfit',sans-serif">
+            <div class="bg-zinc-900 border border-fuchsia-500/30 rounded-2xl p-7 max-w-md w-full mx-6 flex flex-col gap-5 shadow-2xl">
+                <div class="flex items-center gap-4">
+                    <div class="shrink-0 w-14 h-14 rounded-xl bg-gradient-to-br from-orange-500/25 to-fuchsia-500/25 border border-fuchsia-500/40 flex items-center justify-center">
+                        <svg class="w-7 h-7 text-fuchsia-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h1 class="text-xl font-black tracking-tight bg-gradient-to-r from-orange-400 via-fuchsia-400 to-orange-400 bg-clip-text text-transparent">Welcome to Stride</h1>
+                        <p class="text-[9px] text-zinc-500 uppercase tracking-[0.2em] font-black mt-1">Modulate everything in your session.</p>
+                    </div>
+                </div>
+                <p class="text-[11px] text-zinc-300 leading-relaxed">
+                    Stride turns your Ableton racks into modulation playgrounds. Before you dive in — there are two short videos in the <span class="text-fuchsia-400 font-bold">Guide</span> folder. Three minutes total. Watching them first will save you hours.
+                </p>
+                <div class="flex flex-col gap-2">
+                    <button id="sd-welcome-videos-btn" class="w-full text-[11px] text-zinc-100 bg-fuchsia-500/15 hover:bg-fuchsia-500/25 border border-fuchsia-500/40 hover:border-fuchsia-500/60 py-3 rounded-xl uppercase tracking-widest font-black transition-all flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        Watch the 3-min intro
+                    </button>
+                    <button id="sd-welcome-skip-btn" class="w-full text-[10px] text-zinc-500 hover:text-zinc-300 py-2 rounded-xl uppercase tracking-widest font-bold transition-colors">
+                        Skip &rsaquo; take me to the canvas
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Requirement Warning Modal (used by Bloom, Weave, Mutate) -->
+        <div id="sd-requirement-modal" class="hidden fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center" onclick="if(event.target===this)this.classList.add('hidden')" style="font-family:'Outfit',sans-serif">
+            <div class="bg-zinc-900 border border-amber-500/30 rounded-2xl p-6 max-w-sm w-full mx-6 flex flex-col gap-4 shadow-2xl">
+                <div class="flex items-start gap-3">
+                    <div class="shrink-0 w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 id="sd-req-title" class="text-xs text-zinc-100 font-black uppercase tracking-widest">Draw a curve first</h3>
+                        <p id="sd-req-msg" class="text-[10px] text-zinc-400 leading-relaxed mt-2"></p>
+                    </div>
+                </div>
+                <button onclick="document.getElementById('sd-requirement-modal').classList.add('hidden')" class="w-full text-[10px] text-zinc-100 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 hover:border-amber-500/50 py-2 rounded-lg uppercase tracking-widest font-bold transition-all">Got it</button>
+            </div>
+        </div>
+
+        <!-- Main Area: Toolbar + Canvas -->
+        <div class="flex-1 min-w-0 relative flex flex-col bg-zinc-950">
+
+            <!-- ROW 0: Header — CSS grid: left controls | centered generative group | empty right -->
+            <div class="sd-full-only min-h-[40px] border-b border-white/5 shrink-0 bg-black/50 px-2 py-1 grid items-center" style="grid-template-columns: auto 1fr auto;">
+                <!-- LEFT: Loop + View toggle -->
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <div class="flex items-center gap-1 bg-black/50 p-1 rounded-lg border border-fuchsia-500/30 shrink-0" title="Loop length (bars)">
+                        <span class="text-[9px] font-black text-fuchsia-300 uppercase tracking-wider px-0.5">Loop</span>
+                        <button onclick="sdSetBars(2)" class="sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold transition-colors">2</button>
+                        <button onclick="sdSetBars(4)" class="sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold transition-colors">4</button>
+                        <button onclick="sdSetBars(8)" class="sd-bars-btn text-[11px] text-fuchsia-400 bg-fuchsia-500/20 px-2 py-0.5 rounded font-bold transition-colors">8</button>
+                        <button onclick="sdSetBars(16)" class="sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold transition-colors">16</button>
+                        <button onclick="sdSetBars(32)" class="sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold transition-colors">32</button>
+                    </div>
+                    <button id="sd-view-mode-toggle" onclick="sdToggleViewMode()" title="Currently in Multi-Lane view — click to return to Focus view" class="text-[9px] text-fuchsia-300 bg-fuchsia-500/20 border border-fuchsia-500/50 hover:border-fuchsia-400 px-2 py-1 rounded uppercase font-bold tracking-wider transition-all shrink-0 flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                        Multi
+                    </button>
+                    <button id="generate-btn" onclick="openGeneratePanel()" class="hidden shrink-0 text-[9px] text-orange-400 hover:text-white bg-transparent hover:bg-gradient-to-r hover:from-orange-500 hover:to-red-500 border border-orange-500/50 hover:border-transparent px-3 py-1 rounded-lg uppercase tracking-wider font-black transition-all flex items-center gap-1.5">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        Generate
+                    </button>
+                </div>
+                <!-- CENTER: Presets only (Chaos/Bloom/Weave moved to sidebar) -->
+                <div class="flex items-center justify-center gap-1.5">
+                    <button onclick="sdTogglePresets()" title="Preset bank" class="text-[9px] text-rose-400 hover:text-white bg-transparent hover:bg-rose-500/10 border border-rose-500/50 hover:border-rose-400 px-3 py-1 rounded-lg uppercase tracking-wider font-black transition-all flex items-center gap-1.5 shrink-0">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                        Presets
+                    </button>
+                </div>
+                <!-- RIGHT: empty (grid balance) -->
+                <div></div>
+            </div>
+
+<!-- Bloom/Weave popovers removed — replaced by inline live-morph
+                 panels rendered by canvas.js into #sd-generative-section
+                 when those tools are active. -->
+
+            <!-- ROW 1: Draw Tools & Templates -->
+            <div class="sd-full-only min-h-[36px] border-b border-white/5 flex flex-wrap items-center px-2 gap-x-1.5 gap-y-0.5 py-0.5 shrink-0 bg-black/40">
+                <div class="flex items-center gap-1 bg-black/50 p-0.5 rounded border border-white/5 shrink-0">
+                    <button id="sd-tool-select" onclick="sdSetTool('select')" class="tool-btn bg-fuchsia-500/20 text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold transition-colors">Point</button>
+                    <button id="sd-tool-freehand" onclick="sdSetTool('freehand')" class="tool-btn text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold transition-colors">Free</button>
+                </div>
+                <div class="w-px h-5 bg-white/10"></div>
+                <span class="text-[8px] font-bold text-zinc-500 uppercase shrink-0">Shapes:</span>
+                <button onclick="sdApplyTemplate('sine')" class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">Sine</button>
+                <button onclick="sdApplyTemplate('pump')" class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">Pump</button>
+                <button onclick="sdApplyTemplate('glitch')" class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">Glitch</button>
+                <button onclick="sdApplyTemplate('groove_build')" class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">Groove</button>
+                <div class="w-px h-5 bg-white/10"></div>
+                <button onclick="sdApplyTemplate('chaos_lfo')" class="text-[9px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors shrink-0">Chaos</button>
+                <button onclick="sdApplyComplexTemplate('neuro')" class="text-[9px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors shrink-0">Neuro</button>
+                <button onclick="sdApplySampleHoldLane()" title="Sample &amp; Hold — inject one stepped-random S&amp;H pattern onto the selected lane. Click again to reroll." class="text-[9px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors shrink-0">S&amp;H</button>
+                <button id="sd-autorescan-btn" onclick="window.sdToggleAutoRescan()" title="Auto-rescan for the StrideQuick Motion buttons. ON (green) rescans the rack before applying; OFF applies on the loaded params only, to crank the same rack without re-scanning." class="text-[9px] text-emerald-400/90 hover:text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors shrink-0">Rescan: ON</button>
+                <div class="w-px h-5 bg-white/10"></div>
+                <!-- Saved presets — takes remaining space -->
+                <div class="flex items-center gap-1 flex-1 min-w-0 shrink-0">
+                    <span class="text-[8px] font-bold text-zinc-500 uppercase shrink-0">Saved:</span>
+                    <div id="user-presets-bar" class="flex items-center gap-1 min-w-0 overflow-x-auto custom-scroll"></div>
+                </div>
+                <!-- Save/Clear — visually separated -->
+                <div class="flex items-center gap-1 shrink-0 pl-1.5 border-l border-white/10">
+                    <button onclick="sdSavePreset()" title="Save active lane as preset" class="text-[9px] text-zinc-400 hover:text-zinc-300 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors">Save Lane</button>
+                    <button onclick="sdClearCurrentCanvas()" class="text-[9px] text-red-400/80 hover:text-red-400 bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 hover:border-red-500/30 px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors">Clear Lane</button>
+                </div>
+            </div>
+
+            <!-- ROW 2: Shape Tools & Refinement — 4 groups that wrap as blocks -->
+            <div class="sd-full-only border-b border-white/5 flex flex-wrap items-center px-2 gap-x-1 gap-y-0.5 py-0.5 shrink-0 bg-black/30">
+                <!-- Group A: Mirror/Flip + Copy/Paste -->
+                <div class="flex items-center gap-1 shrink-0">
+                    <div class="flex items-center gap-0.5 bg-black/50 p-0.5 rounded border border-white/5">
+                        <button onclick="sdMirrorLane()" title="Flip Y-axis" class="text-[9px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Mirror</button>
+                        <button onclick="sdFlipLane()" title="Reverse time" class="text-[9px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Flip</button>
+                    </div>
+                    <div class="w-px h-4 bg-white/10"></div>
+                    <div class="flex items-center gap-0.5 bg-black/50 p-0.5 rounded border border-white/5">
+                        <button onclick="sdCopyLane()" class="text-[9px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Copy</button>
+                        <button onclick="sdPasteLane(false)" class="text-[9px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Paste</button>
+                        <button onclick="sdPasteLane(true)" class="text-[9px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Inv</button>
+                        <button id="sd-paste-to-btn" onclick="sdOpenPasteTo()" class="text-[9px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Paste To</button>
+                    </div>
+                </div>
+                <!-- Group B: Swing
+                     Quantize button cluster (1/4 1/8 1/16 1/8T 1/16T) was here.
+                     Removed 2026-05-03 — never used. The window.sdQuantizeLane
+                     function in canvas.js is intentionally orphaned (kept for
+                     potential re-wiring later — see project memory:
+                     project_quantize_triplet_spec.md for the future direction). -->
+                <div class="flex items-center gap-1 shrink-0">
+                    <div class="w-px h-4 bg-white/10"></div>
+                    <button onclick="sdApplySwing()" class="text-[9px] text-amber-400/80 hover:text-amber-300 bg-amber-500/5 hover:bg-amber-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Swing</button>
+                </div>
+                <!-- Group D: Actions (Mutate, Shuffle, Stretch, Select All, Select, Lock All) — sliders moved to sidebar EDIT section -->
+                <div class="flex items-center gap-1 shrink-0">
+                    <div class="w-px h-4 bg-white/10"></div>
+                    <button id="sd-mutate-btn" onclick="sdMutate()" title="Mutate: reshape active" class="text-[9px] text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors">Mutate</button>
+                    <button onclick="sdShuffleLanes()" title="Shuffle curves between lanes" class="text-[9px] text-violet-400 hover:text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 hover:border-violet-500/40 px-2 py-0.5 rounded uppercase font-bold transition-colors">Shuffle</button>
+                    <div class="w-px h-4 bg-white/10"></div>
+                    <div class="flex items-center gap-1 bg-sky-500/5 border border-sky-500/20 rounded px-1.5 py-0.5">
+                        <span class="text-[9px] text-sky-300/70 font-black uppercase tracking-wider">Stretch</span>
+                        <button onclick="sdTimeStretch(2)" title="Stretch 2x — doubles the lane length" class="text-[10px] text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/30 hover:border-sky-400/60 px-2 py-0.5 rounded font-black transition-colors">2x</button>
+                        <button onclick="sdTimeStretch(0.5)" title="Compress 1/2x — halves the lane length" class="text-[10px] text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/30 hover:border-sky-400/60 px-2 py-0.5 rounded font-black transition-colors">1/2x</button>
+                    </div>
+                    <button id="sd-select-all-toggle" onclick="sdSelectAll()" title="Select every unlocked lane (click again to clear). Tip: Ctrl+click a lane to toggle it individually, or Ctrl+drag through lanes to multi-select. Tools then target the selection." class="text-[9px] text-zinc-500 bg-black/50 border border-white/5 hover:border-fuchsia-500/30 px-2 py-0.5 rounded uppercase font-bold transition-colors">Select All</button>
+                    <button onclick="sdToggleLockAll()" title="Lock or unlock every lane at once. Locked lanes are skipped by all motion tools." class="text-[9px] text-amber-400/80 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 hover:border-amber-500/40 px-2 py-0.5 rounded uppercase font-bold transition-colors flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
+                        Lock All
+                    </button>
+                </div>
+            </div>
+
+            <!-- COMPACT toolbar — slim tweak tools wired DIRECTLY to the real
+                 canvas functions (no mirror renderer). Shown only in compact mode;
+                 the big ROW 1/ROW 2 toolbars are .sd-full-only and hide. -->
+            <div class="sd-compact-only bg-zinc-950 border-b border-white/5 px-2.5 py-1.5 items-center gap-2 flex-wrap shrink-0">
+                <div class="flex items-center gap-1">
+                    <button id="qpc-tool-point" onclick="sdSetTool('select')" class="tool-btn bg-fuchsia-500/20 text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Point</button>
+                    <button id="qpc-tool-free" onclick="sdSetTool('freehand')" class="tool-btn text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Free</button>
+                </div>
+                <span class="w-px h-4 bg-white/10"></span>
+                <div class="flex items-center gap-1">
+                    <button onclick="sdMirrorLane()" title="Flip Y-axis" class="tool-btn text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Mirror</button>
+                    <button onclick="sdFlipLane()" title="Reverse time" class="tool-btn text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Flip</button>
+                </div>
+                <button onclick="sdApplySwing()" class="tool-btn text-amber-400/80 hover:text-amber-300 bg-amber-500/5 hover:bg-amber-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Swing</button>
+                <div class="flex items-center gap-1">
+                    <button onclick="sdTimeStretch(2)" title="Stretch 2x — spread the curve over twice the time" class="tool-btn text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/30 px-1.5 py-0.5 rounded text-[9px] font-bold">2x</button>
+                    <button onclick="sdTimeStretch(0.5)" title="Compress 1/2x — pack the curve into half the time" class="tool-btn text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/30 px-1.5 py-0.5 rounded text-[9px] font-bold">1/2x</button>
+                </div>
+                <span class="w-px h-4 bg-white/10"></span>
+                <button onclick="sdMutate()" class="tool-btn text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Mutate</button>
+                <span class="w-px h-4 bg-white/10"></span>
+                <!-- Shapes — per-lane curve templates -->
+                <div class="flex items-center gap-1">
+                    <button onclick="sdApplyTemplate('sine')" class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Sine</button>
+                    <button onclick="sdApplyTemplate('pump')" class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Pump</button>
+                    <button onclick="sdApplyTemplate('glitch')" class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Glitch</button>
+                    <button onclick="sdApplyTemplate('groove_build')" class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Groove</button>
+                </div>
+                <span class="w-px h-4 bg-white/10"></span>
+                <!-- MOTION TOOLS — generative, applied to ALL mapped params in one click (1:1 with the full window's global generators) -->
+                <div class="flex items-center gap-1.5">
+                    <span class="text-[8px] text-zinc-500 uppercase tracking-[0.18em] font-bold">Motion</span>
+                    <button onclick="sdApplyGlobalChaos()" title="Chaos — generative motion across every mapped param" class="text-[10px] text-orange-400 hover:text-orange-300 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/25 px-2.5 py-1 rounded uppercase tracking-wider font-bold transition-colors">Chaos</button>
+                    <button onclick="sdApplyGlobalNeuro()" title="Neuro — generative motion across every mapped param" class="text-[10px] text-orange-400 hover:text-orange-300 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/25 px-2.5 py-1 rounded uppercase tracking-wider font-bold transition-colors">Neuro</button>
+                    <button onclick="sdApplyGlobalReflector()" title="Reflector — generative motion across every mapped param" class="text-[10px] text-orange-400 hover:text-orange-300 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/25 px-2.5 py-1 rounded uppercase tracking-wider font-bold transition-colors">Reflector</button>
+                    <button onclick="sdApplyGlobalSampleHold()" title="Sample &amp; Hold — generative motion across every mapped param" class="text-[10px] text-orange-400 hover:text-orange-300 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/25 px-2.5 py-1 rounded uppercase tracking-wider font-bold transition-colors">S&amp;H</button>
+                    <button onclick="sdApplyGlobalPrism()" title="Prism — generative motion across every mapped param" class="text-[10px] text-orange-400 hover:text-orange-300 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/25 px-2.5 py-1 rounded uppercase tracking-wider font-bold transition-colors">Prism</button>
+                    <button onclick="sdApplyBloom()" title="Bloom — generative motion across every mapped param" class="text-[10px] text-orange-400 hover:text-orange-300 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/25 px-2.5 py-1 rounded uppercase tracking-wider font-bold transition-colors">Bloom</button>
+                </div>
+                <span class="w-px h-4 bg-white/10"></span>
+                <!-- BARS — loop length (drives the host modulation loop too) -->
+                <div class="flex items-center gap-1">
+                    <span class="text-[8px] text-zinc-500 uppercase tracking-[0.18em] font-bold">Bars</span>
+                    <button onclick="sdSetBarsAndPush(4)"  class="sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold transition-colors">4</button>
+                    <button onclick="sdSetBarsAndPush(8)"  class="sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold transition-colors">8</button>
+                    <button onclick="sdSetBarsAndPush(16)" class="sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold transition-colors">16</button>
+                    <button onclick="sdSetBarsAndPush(32)" class="sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold transition-colors">32</button>
+                </div>
+                <div class="flex-1"></div>
+                <button onclick="sdSelectAll()" class="tool-btn text-zinc-400 hover:text-zinc-100 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold border border-white/10">Select All</button>
+                <button onclick="sdToggleLockAll()" class="tool-btn text-zinc-400 hover:text-zinc-100 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold border border-white/10">Lock All</button>
+                <button onclick="window.sdUnlockAllLanes&&window.sdUnlockAllLanes()" class="tool-btn text-zinc-400 hover:text-zinc-100 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold border border-white/10">Unlock All</button>
+            </div>
+
+            <!-- Canvas Area + Inject rail (Option B: CTA on the right of the lanes, cables fan in) -->
+            <div class="flex-1 flex min-h-0" id="sd-editor-row">
+              <div class="flex-1 min-w-0 relative overflow-hidden bg-black/20" id="sd-canvas-container">
+                <div id="sd-canvas-ruler" class="absolute top-0 left-0 right-0 h-5 bg-black/60 border-b border-white/10 z-20 cursor-col-resize select-none"></div>
+                <canvas id="sd-canvas" class="absolute top-5 left-0 right-0 bottom-0 w-full cursor-crosshair z-10" style="height: calc(100% - 20px);"></canvas>
+                <!-- Lane comet FX overlay (Option C). pointer-events:none so it
+                     never blocks canvas interaction; above the curve canvas,
+                     below the ruler (z-20) and tooltip (z-30). -->
+                <canvas id="sd-canvas-fx" class="absolute top-5 left-0 right-0 bottom-0 w-full pointer-events-none z-[15]" style="height: calc(100% - 20px);"></canvas>
+                <!-- Hover tooltip — shows full lane name + value range when the
+                     cursor is over the label column of a lane. Positioned by
+                     canvas.js mousemove handler; pointer-events:none so it
+                     never intercepts clicks. -->
+                <div id="sd-canvas-tooltip" class="absolute z-30 hidden bg-black/95 border border-fuchsia-500/40 rounded px-2 py-1.5 text-[10px] text-zinc-100 font-bold pointer-events-none shadow-lg max-w-[280px] leading-tight" style="white-space: nowrap;"></div>
+
+                <!-- (Stride 2.0: .alc drag card removed — Inject to Clip writes directly.) -->
+
+                <!-- Empty-canvas CTA — shown when sdCanvasParams is empty -->
+                <div id="sd-empty-canvas-cta" class="hidden absolute inset-0 flex items-center justify-center z-30 pointer-events-none" style="font-family:'Outfit',sans-serif">
+                    <div class="bg-black/70 backdrop-blur-sm border border-fuchsia-500/25 rounded-2xl p-7 max-w-sm flex flex-col items-center gap-4 shadow-2xl pointer-events-auto">
+                        <div class="w-14 h-14 rounded-xl bg-fuchsia-500/15 border border-fuchsia-500/30 flex items-center justify-center">
+                            <svg class="w-7 h-7 text-fuchsia-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>
+                            </svg>
+                        </div>
+                        <h2 class="text-lg font-black text-zinc-100 tracking-tight">No lanes yet</h2>
+                        <p class="text-[11px] text-zinc-400 text-center leading-relaxed">
+                            Map parameters in Ableton (Quick Arm + Record) — Stride pulls them in <span class="text-fuchsia-400 font-black uppercase tracking-wider">automatically</span>, on open and when you switch back.
+                        </p>
+                        <div class="text-[11px] text-zinc-300 text-center leading-relaxed border-t border-white/5 pt-3 w-full">
+                            <span class="text-amber-400 font-bold">Heads up:</span> open an automation lane for each parameter in Ableton first — that's what Stride reads.
+                        </div>
+                    </div>
+                </div>
+              </div>
+              <!-- Inject rail (Option B) — the primary CTA lives here as a hub;
+                   cables fan from each lane's right edge into it (canvas.js → _sdRenderCables). -->
+              <div id="sd-inject-rail" class="sd-full-only shrink-0 w-[200px] relative bg-black/30 border-l border-white/5 flex items-center justify-center">
+                <svg id="sd-cables" class="absolute inset-0 w-full h-full pointer-events-none z-0" style="overflow:visible"></svg>
+                <button onclick="applyToAbletonDirect()" id="sd-inject-btn" title="Write your curves straight into the selected clip in Ableton — no file, no drag. Requires StrideInject enabled: Ableton → Preferences → Link/Tempo/MIDI → Control Surface." class="relative z-10 w-24 h-24 rounded-full flex flex-col items-center justify-center gap-0.5 text-[10px] text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 hover:border-emerald-500/50 uppercase tracking-widest font-black transition-all leading-tight text-center shadow-lg">Inject<br>to Clip</button>
+              </div>
+            </div>
+
+            <!-- COMPACT slider strip — one row, wired to the REAL edit functions
+                 (sdApplySmooth / sdApplyIntensity / …). Shown only in compact. -->
+            <div class="sd-compact-only bg-zinc-950 border-t border-white/5 px-2.5 py-1.5 shrink-0 items-center gap-2.5 flex-nowrap overflow-hidden">
+                <span class="text-[8px] font-bold text-zinc-600 uppercase tracking-wider shrink-0 leading-none">Active</span>
+                <div class="flex items-center gap-1.5 flex-1 min-w-0"><span class="text-[8px] font-bold text-zinc-500 uppercase shrink-0">Smooth</span><input id="qpc-smooth-slider" type="range" min="0" max="100" value="0" oninput="window.sdApplySmooth(this.value);qpcVal('qpc-smooth-val',this.value)" class="flex-1 min-w-0 h-1 accent-zinc-300 cursor-pointer"><span id="qpc-smooth-val" class="text-[8px] text-zinc-400 font-mono shrink-0 w-7 text-right">0%</span></div>
+                <div class="flex items-center gap-1.5 flex-1 min-w-0"><span class="text-[8px] font-bold text-zinc-500 uppercase shrink-0">Depth</span><input id="qpc-intensity-slider" type="range" min="0" max="200" value="100" oninput="window.sdApplyIntensity(this.value);qpcVal('qpc-intensity-val',this.value)" class="flex-1 min-w-0 h-1 accent-zinc-300 cursor-pointer"><span id="qpc-intensity-val" class="text-[8px] text-zinc-400 font-mono shrink-0 w-8 text-right">100%</span></div>
+                <div class="flex items-center gap-1.5 flex-1 min-w-0"><span class="text-[8px] font-bold text-zinc-500 uppercase shrink-0">Curve</span><input id="qpc-curve-slider" type="range" min="0" max="100" value="0" oninput="window.sdApplyCurve(this.value);qpcVal('qpc-curve-val',this.value)" class="flex-1 min-w-0 h-1 accent-zinc-300 cursor-pointer"><span id="qpc-curve-val" class="text-[8px] text-zinc-400 font-mono shrink-0 w-7 text-right">0%</span></div>
+                <div class="flex items-center gap-1.5 flex-1 min-w-0"><span class="text-[8px] font-bold text-zinc-500 uppercase shrink-0">Floor</span><input id="qpc-floor-slider" type="range" min="0" max="100" value="0" oninput="window.sdApplyFloor(this.value);qpcVal('qpc-floor-val',this.value)" class="flex-1 min-w-0 h-1 accent-zinc-300 cursor-pointer"><span id="qpc-floor-val" class="text-[8px] text-zinc-400 font-mono shrink-0 w-7 text-right">0%</span></div>
+                <div class="flex items-center gap-1.5 flex-1 min-w-0"><span class="text-[8px] font-bold text-zinc-500 uppercase shrink-0">Ceiling</span><input id="qpc-ceil-slider" type="range" min="0" max="100" value="100" oninput="window.sdApplyCeiling(this.value);qpcVal('qpc-ceil-val',this.value)" class="flex-1 min-w-0 h-1 accent-zinc-300 cursor-pointer"><span id="qpc-ceil-val" class="text-[8px] text-zinc-400 font-mono shrink-0 w-8 text-right">100%</span></div>
+            </div>
+
+            <!-- Slim status bar — Stride 2.0 reclaimed the Recent Generations
+                 dock for canvas space. Keeps the status line + keyboard hints;
+                 success is now the centered popup. -->
+            <div class="shrink-0 h-7 border-t border-white/5 bg-black/40 flex items-center justify-between gap-3 px-3 min-w-0">
+                <span class="hidden xl:block text-[9px] font-bold text-zinc-600 tracking-widest uppercase truncate">Ctrl+Wheel · Space+Drag · Alt+Drag</span>
+                <span id="sd-canvas-status" class="block text-[9px] font-bold text-zinc-500 uppercase tracking-wider truncate text-right flex-1">Connecting…</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- (Stride 2.0: All Generations modal removed with the .alc dock.) -->
+
+    <!-- Paste To... Popover -->
+    <div id="sd-paste-to-popover" class="hidden fixed w-56 max-h-64 bg-zinc-900 border border-white/10 rounded-lg shadow-2xl z-[9999] flex flex-col" style="pointer-events:auto;">
+        <div class="flex items-center justify-between px-3 py-2 border-b border-white/10">
+            <label class="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" id="sd-paste-to-all" onchange="sdPasteToToggleAll(this.checked)" class="accent-violet-500 w-3 h-3">
+                <span class="text-[9px] text-zinc-300 uppercase font-bold">Select All</span>
+            </label>
+            <button onclick="sdClosePasteTo()" class="text-zinc-500 hover:text-zinc-300 text-xs">&times;</button>
+        </div>
+        <div id="sd-paste-to-list" class="overflow-y-auto flex-1 py-1 custom-scroll"></div>
+        <div class="flex gap-1 p-2 border-t border-white/10">
+            <button onclick="sdPasteToSelected(false)" class="flex-1 text-[9px] text-violet-300 bg-violet-500/20 hover:bg-violet-500/30 py-1.5 rounded uppercase font-bold transition-colors">Paste</button>
+            <button onclick="sdPasteToSelected(true)" class="flex-1 text-[9px] text-amber-300 bg-amber-500/20 hover:bg-amber-500/30 py-1.5 rounded uppercase font-bold transition-colors">Paste Inv</button>
+        </div>
+    </div>
+
+    <!-- Generate Panel (online mode overlay) -->
+    <div id="generate-panel" class="hidden fixed inset-0 z-[8000] bg-black/80 backdrop-blur-sm flex items-center justify-center">
+        <div class="bg-zinc-900 border border-white/10 rounded-2xl w-96 shadow-2xl">
+            <div class="flex items-center justify-between px-5 py-3 border-b border-white/5">
+                <h3 class="text-sm font-black text-gradient uppercase tracking-widest">Generate</h3>
+                <button onclick="closeGeneratePanel()" class="text-zinc-500 hover:text-zinc-300 text-lg">&times;</button>
+            </div>
+            <div class="p-5 space-y-4">
+                <div>
+                    <label class="text-[9px] text-zinc-500 uppercase font-bold tracking-widest block mb-1">Style</label>
+                    <select id="gen-style" class="w-full bg-black/50 border border-white/10 text-zinc-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-fuchsia-500/50">
+                        <option value="dark_minimal">Dark Minimal</option>
+                        <option value="acid_techno">Acid Techno</option>
+                        <option value="deep_house">Deep House</option>
+                        <option value="neuro_bass">Neuro Bass</option>
+                        <option value="ambient">Ambient</option>
+                        <option value="experimental">Experimental</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-[9px] text-zinc-500 uppercase font-bold tracking-widest block mb-1">BPM</label>
+                        <input id="gen-bpm" type="number" value="128" min="60" max="200" class="w-full bg-black/50 border border-white/10 text-zinc-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-fuchsia-500/50">
+                    </div>
+                    <div>
+                        <label class="text-[9px] text-zinc-500 uppercase font-bold tracking-widest block mb-1">Key</label>
+                        <select id="gen-key" class="w-full bg-black/50 border border-white/10 text-zinc-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-fuchsia-500/50">
+                            <option value="C">C</option><option value="C#">C#</option><option value="D">D</option>
+                            <option value="D#">D#</option><option value="E">E</option><option value="F">F</option>
+                            <option value="F#">F#</option><option value="G">G</option><option value="G#">G#</option>
+                            <option value="A" selected>A</option><option value="A#">A#</option><option value="B">B</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-[9px] text-zinc-500 uppercase font-bold tracking-widest block mb-1">Prompt (optional)</label>
+                    <input id="gen-prompt" type="text" placeholder="e.g. aggressive filter sweeps with stutter..." class="w-full bg-black/50 border border-white/10 text-zinc-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-fuchsia-500/50">
+                </div>
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" id="gen-midi" class="accent-orange-500 w-3 h-3">
+                        <label for="gen-midi" class="text-[9px] text-zinc-400 uppercase font-bold tracking-widest cursor-pointer">Include MIDI</label>
+                    </div>
+                    <span id="gen-credits" class="text-[9px] text-zinc-600 uppercase font-bold tracking-widest"></span>
+                </div>
+                <button onclick="runGenerate()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] font-black uppercase tracking-[0.3em] hover:shadow-[0_0_20px_rgba(249,115,22,0.3)] transition-all">
+                    Generate
+                </button>
+                <p id="gen-status" class="text-[9px] text-zinc-500 text-center"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Account Panel (online mode overlay) -->
+    <div id="account-panel" class="hidden fixed inset-0 z-[7000] bg-black/80 backdrop-blur-sm flex items-center justify-center">
+        <div class="bg-zinc-900 border border-white/10 rounded-2xl w-80 shadow-2xl">
+            <div class="flex items-center justify-between px-5 py-3 border-b border-white/5">
+                <h3 class="text-sm font-black text-zinc-200 uppercase tracking-widest">Account</h3>
+                <button onclick="closeAccountPanel()" class="text-zinc-500 hover:text-zinc-300 text-lg">&times;</button>
+            </div>
+            <div id="account-signed-out" class="p-5 space-y-3">
+                <p class="text-[10px] text-zinc-400">Sign in with your license to unlock generation features.</p>
+                <input id="auth-serial" type="text" placeholder="Serial key" class="w-full bg-black/50 border border-white/10 text-zinc-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-fuchsia-500/50">
+                <input id="auth-email" type="email" placeholder="Email" class="w-full bg-black/50 border border-white/10 text-zinc-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-fuchsia-500/50">
+                <button onclick="signIn()" class="w-full py-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] font-black uppercase tracking-[0.2em] hover:shadow-[0_0_15px_rgba(249,115,22,0.3)] transition-all">Activate</button>
+                <p id="auth-status" class="text-[9px] text-zinc-500 text-center"></p>
+            </div>
+            <div id="account-signed-in" class="p-5 space-y-3 hidden">
+                <div class="flex items-center justify-between">
+                    <span class="text-[10px] text-zinc-300 font-bold" id="account-name"></span>
+                    <span class="text-[9px] text-fuchsia-400 font-bold" id="account-credits"></span>
+                </div>
+                <p class="text-[9px] text-zinc-500" id="account-email"></p>
+                <button onclick="signOut()" class="w-full py-1.5 rounded-lg bg-white/5 text-zinc-400 text-[9px] uppercase font-bold tracking-widest hover:bg-white/10 transition-colors">Sign Out</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preset Picker Modal -->
+    <div id="sd-preset-modal" class="hidden fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div class="bg-zinc-900 border border-rose-500/20 rounded-2xl w-[640px] max-h-[85vh] flex flex-col shadow-2xl">
+            <div class="px-5 py-3 border-b border-white/5 flex items-center justify-between shrink-0">
+                <div>
+                    <h3 class="text-[13px] text-rose-400 font-black uppercase tracking-widest">Preset Bank</h3>
+                    <p class="text-[9px] text-zinc-600 mt-0.5">Complementary curves for all your params</p>
+                </div>
+                <button onclick="sdTogglePresets()" class="text-zinc-600 hover:text-white text-lg leading-none px-2">&times;</button>
+            </div>
+            <!-- Category Tabs -->
+            <div class="px-4 pt-3 pb-1 flex gap-1.5 shrink-0 overflow-x-auto" id="sd-preset-tabs"></div>
+            <!-- Preset Grid with previews -->
+            <div class="flex-1 overflow-y-auto custom-scroll p-4" id="sd-preset-list">
+                <p class="text-[9px] text-zinc-600">Loading presets...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+    // ─── License Activation Gate ────────────────────────────
+    // Validates license key against Lemon Squeezy Licenses API.
+    // Caches validated license locally with 7-day offline grace period.
+
+    // Offline grace period: how long the renderer trusts a cached-valid license
+    // when the backend can't be reached. Must be <= the main process's grace.
+    // Must match main.js's LICENSE_OFFLINE_GRACE_DAYS. Mismatch locks out genuine
+    // users who go offline between the shorter grace and the longer one.
+    const OFFLINE_GRACE_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+
+    // Single validation entrypoint: the main process handler does both the
+    // built-in hash check (ambassador/master keys) AND the backend proxy call
+    // to Lemon Squeezy (for real customer keys). It returns a unified result.
+    async function validateKeyOnline(key) {
+        return await window.stride.validateLicenseKey(key);
+    }
+
+    async function checkLicense() {
+        try {
+            const result = await window.stride.loadLicense();
+            if (result.success && result.license) {
+                const lic = result.license;
+                if (lic.valid && lic.key) {
+                    const age = Date.now() - (lic.cached_at || 0);
+                    if (age < OFFLINE_GRACE_MS) {
+                        // Within grace — unlock immediately, revalidate in background
+                        revalidateSilently(lic.key);
+                        unlockApp();
+                        return;
+                    }
+                    // Grace expired — force fresh online validation
+                    const online = await validateKeyOnline(lic.key);
+                    if (online && online.valid) {
+                        await cacheLicense(lic.key, online);
+                        unlockApp();
+                        return;
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('License check error:', e);
+        }
+
+        // No valid license — show activation form
+        document.getElementById('activation-checking').classList.add('hidden');
+        document.getElementById('activation-form').classList.remove('hidden');
+    }
+
+    // Module-level re-entrancy lock. Without this, a user pressing Enter AND
+    // clicking Activate in rapid succession could fire two concurrent calls
+    // before btn.disabled = true takes effect — which double-consumes LS
+    // activation slots (confirmed in production with carrieres@gmail.com).
+    let _activating = false;
+    async function activateLicense() {
+        if (_activating) return;
+        _activating = true;
+        const input = document.getElementById('serial-input');
+        const btn = document.getElementById('activate-btn');
+        const errorEl = document.getElementById('activation-error');
+
+        // Aggressive key normalization — strip whitespace AND invisible unicode
+        // (non-breaking space, zero-width joiner, BOM) that rich-text email
+        // clients sometimes embed when users copy a key from their receipt.
+        // Hyphens preserved — part of LS's UUID format.
+        const key = (input.value || '').replace(/[\s\u00A0\u200B\u200C\u200D\uFEFF]/g, '').toUpperCase();
+
+        if (!key) {
+            showActivationError('Please enter your license key.');
+            _activating = false;
+            return;
+        }
+
+        btn.textContent = 'Validating...';
+        btn.disabled = true;
+        errorEl.classList.add('hidden');
+
+        try {
+            const result = await validateKeyOnline(key);
+            if (result && result.valid) {
+                await cacheLicense(key, result);
+                unlockApp();
+                // Note: don't reset _activating/btn state on success —
+                // unlockApp removes the overlay, so no further activation calls
+                // can happen from this window.
+            } else {
+                showActivationError((result && result.error) || 'Invalid license key. Please check and try again.');
+                btn.textContent = 'Activate';
+                btn.disabled = false;
+                _activating = false;
+            }
+        } catch (e) {
+            showActivationError('Could not reach license server. Check your internet connection.');
+            btn.textContent = 'Activate';
+            btn.disabled = false;
+            _activating = false;
+        }
+    }
+
+    async function revalidateSilently(key) {
+        try {
+            const result = await validateKeyOnline(key);
+            if (result && result.valid) {
+                await cacheLicense(key, result);
+            } else if (result && !result.offline) {
+                // Backend reached, license explicitly invalid/revoked.
+                // Will be caught on next cold start when grace expires.
+                console.warn('Stride: license no longer valid on server');
+            }
+        } catch (e) {
+            // Offline — ignore, grace period still active
+        }
+    }
+
+    // Persist every field the backend returns so subsequent validations can
+    // reuse the LS instance_id (avoids burning a new activation slot each time).
+    async function cacheLicense(key, validationResult) {
+        await window.stride.saveLicense({
+            key: key,
+            valid: true,
+            tier: validationResult.tier || null,
+            customer_name: validationResult.customer_name || null,
+            customer_email: validationResult.customer_email || null,
+            product_name: validationResult.product_name || null,
+            instance_id: validationResult.instance_id || null,
+            activation_limit: validationResult.activation_limit || null,
+            activation_usage: validationResult.activation_usage || null,
+            expires_at: validationResult.expires_at || null,
+            status: validationResult.status || 'active',
+            builtin: validationResult.builtin || false,
+            validated_at: Date.now()
+        });
+    }
+
+    function unlockApp() {
+        const overlay = document.getElementById('activation-overlay');
+        overlay.style.transition = 'opacity 0.3s ease';
+        overlay.style.opacity = '0';
+        setTimeout(() => {
+            overlay.remove();
+            if (window.sdCheckFirstRun) window.sdCheckFirstRun();
+        }, 300);
+    }
+
+    function showActivationError(msg) {
+        const el = document.getElementById('activation-error');
+        el.textContent = msg;
+        el.classList.remove('hidden');
+    }
+
+    // Enter key to submit
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('serial-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') activateLicense();
+        });
+        checkLicense();
+        // Fire the stale-install check on every launch. If the user updated
+        // Stride.exe but didn't re-run "Install to Ableton", their User
+        // Library install will be from an older build → silent failures
+        // inside Live. Non-dismissible banner forces them to update before
+        // their next session goes sideways. See ipcMain handler
+        // 'check-stride-link-stale' in main.js for the contract.
+        checkAndShowStaleBanner();
+    });
+
+    async function checkAndShowStaleBanner() {
+        try {
+            if (!window.stride || typeof window.stride.checkStrideLinkStale !== 'function') return;
+            const res = await window.stride.checkStrideLinkStale();
+            if (!res || !res.stale) return;
+            // Build the banner message based on WHY it's stale.
+            const banner = document.getElementById('stride-stale-banner');
+            const msgEl = document.getElementById('stride-stale-banner-msg');
+            const btn = document.getElementById('stride-stale-banner-btn');
+            const status = document.getElementById('stride-stale-banner-status');
+            if (!banner || !msgEl || !btn) return;
+            if (res.reason === 'version-mismatch') {
+                msgEl.textContent =
+                    'Stride ' + (res.currentVersion || '') +
+                    ' is running, but your Ableton install is on ' +
+                    (res.installedVersion || 'an older version') +
+                    '. Click to update — new features won\'t work in Live until you do.';
+            } else if (res.reason === 'no-marker') {
+                msgEl.textContent =
+                    'Stride is installed in Ableton but its version is unknown. ' +
+                    'Click to refresh — keeps your m4l side in sync with the app.';
+            } else {
+                msgEl.textContent = 'Your Ableton install of Stride is out of date. Click to update.';
+            }
+            banner.classList.remove('hidden');
+            btn.addEventListener('click', async () => {
+                if (btn.disabled) return;
+                btn.disabled = true;
+                btn.style.opacity = '0.6';
+                if (status) {
+                    status.textContent = 'Updating…';
+                    status.classList.remove('hidden');
+                }
+                try {
+                    const result = await window.stride.installStrideLinkToAbleton(null);
+                    if (result && result.success) {
+                        // Repaint the banner in-place as a success state
+                        // (green) with the critical follow-up reminder.
+                        // Avoid mutating the apply toast — keeps that
+                        // toast's labels stable for subsequent applies.
+                        showBannerSuccessState(banner);
+                    } else {
+                        // Surface error inline so user can act on it.
+                        msgEl.textContent = (result && result.message)
+                            ? result.message
+                            : 'Update failed. Try closing the Live project first, then click again.';
+                        if (status) status.classList.add('hidden');
+                        btn.disabled = false;
+                        btn.style.opacity = '1';
+                    }
+                } catch (e) {
+                    msgEl.textContent = 'Update failed unexpectedly. Try again or restart Stride.';
+                    if (status) status.classList.add('hidden');
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
+                }
+            });
+        } catch (e) {
+            // Never let banner-init break the app boot.
+            console.warn('[Stride] Stale-install check failed:', e && e.message ? e.message : e);
+        }
+    }
+
+    // Repaint the stale-install banner as a green "success + reload
+    // reminder" state, then auto-hide after 10s. Tells the user the
+    // critical next step: Max's node.script is STILL on the OLD code
+    // until StrideLink is reloaded in Live (close+reopen the project,
+    // OR drag the device off and back on). Without this reminder users
+    // think the upgrade is complete when in fact it lands on Max's next
+    // reload. Reuses the banner element instead of opening a second
+    // toast so we don't have two surfaces competing for attention.
+    function showBannerSuccessState(banner) {
+        if (!banner) return;
+        const card = document.getElementById('stride-stale-banner-card');
+        const icon = document.getElementById('stride-stale-banner-icon');
+        const title = document.getElementById('stride-stale-banner-title');
+        const msg = document.getElementById('stride-stale-banner-msg');
+        const btn = document.getElementById('stride-stale-banner-btn');
+        const hint = document.getElementById('stride-stale-banner-hint');
+        const status = document.getElementById('stride-stale-banner-status');
+        // Swap the card accent fuchsia → emerald and the icon → checkmark.
+        // (emerald-500/15, emerald-500/30, emerald-400 already appear on the
+        // apply toast below, so Tailwind's CDN JIT has them generated.)
+        if (card) {
+            card.classList.remove('border-fuchsia-500/25');
+            card.classList.add('border-emerald-500/30');
+        }
+        if (icon) {
+            icon.classList.remove('bg-fuchsia-500/15', 'border-fuchsia-500/30');
+            icon.classList.add('bg-emerald-500/15', 'border-emerald-500/30');
+            icon.innerHTML = '<svg class="w-7 h-7 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+        }
+        if (title) title.textContent = 'Update installed';
+        if (msg) msg.textContent = 'Now reload StrideLink in Ableton — close + reopen the Live project, OR drag StrideLink off the track and back on. Without this, Live keeps running the old m4l code.';
+        if (btn) btn.classList.add('hidden');
+        if (hint) hint.classList.add('hidden');
+        if (status) status.classList.add('hidden');
+        setTimeout(() => banner.classList.add('hidden'), 10000);
+    }
+    </script>
+
+    <!-- Apply-to-Clip success toast — bottom right, auto-fades after 3s.
+         Small corner confirmation with an "Open folder" escape hatch for
+         users who want to manage the generated .alc files in Explorer. -->
+    <div id="sd-apply-toast" class="hidden fixed bottom-6 right-6 bg-zinc-900 border border-emerald-500/40 rounded-xl shadow-2xl z-[9999] max-w-sm flex items-start gap-3 p-4" style="font-family:'Outfit',sans-serif">
+        <div class="shrink-0 w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
+            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+            </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+            <div class="text-[10px] text-emerald-400 font-black uppercase tracking-widest">Template ready</div>
+            <p id="sd-apply-toast-msg" class="text-[10px] text-zinc-400 mt-1 leading-snug truncate"></p>
+            <button id="sd-apply-toast-open-btn" class="mt-2 text-[9px] text-emerald-400/80 hover:text-emerald-300 uppercase tracking-widest font-black transition-colors flex items-center gap-1">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                Open folder
+            </button>
+        </div>
+        <button id="sd-apply-toast-close" class="shrink-0 text-zinc-600 hover:text-zinc-200 text-base leading-none transition-colors w-5 h-5 flex items-center justify-center" aria-label="Close">&times;</button>
+    </div>
+
+    <!-- ─── Pattern Library overlay ───────────────────────────
+         Full-takeover library that slides in from the left. The rightmost
+         80px is a "peek strip" — semi-transparent, click anywhere on it
+         (or hit ESC / L) to return to the automations canvas.
+         The overlay is invisible until #sd-pattern-library-overlay has the
+         .sd-lib-open class added by pattern-library.js init().
+    -->
+    <style>
+        #sd-pattern-library-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 8500;
+            pointer-events: none;
+        }
+        #sd-pattern-library-overlay.hidden { display: none; }
+        #sd-pattern-library-panel {
+            position: absolute;
+            top: 0; bottom: 0; left: 0; right: 80px;
+            background: rgb(var(--app-bg));
+            border-right: 1px solid rgba(255,255,255,0.05);
+            transform: translateX(-100%);
+            transition: transform 200ms ease-out;
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #sd-pattern-library-peek {
+            position: absolute;
+            top: 0; bottom: 0; right: 0;
+            width: 80px;
+            background: rgba(9,9,11,0.75);
+            border-left: 1px solid rgb(var(--o500) / 0.25);
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 200ms ease-out, background 150ms ease-out, border-color 150ms ease-out;
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        #sd-pattern-library-peek:hover {
+            background: rgb(var(--o500) / 0.12);
+            border-left-color: rgb(var(--o500) / 0.55);
+        }
+        #sd-pattern-library-peek .sd-peek-arrow {
+            color: rgb(var(--o400));
+            font-size: 24px;
+            line-height: 1;
+            font-weight: 300;
+            opacity: 0.85;
+            transition: transform 150ms ease-out, opacity 150ms ease-out;
+        }
+        #sd-pattern-library-peek:hover .sd-peek-arrow {
+            opacity: 1;
+            transform: translateX(-4px);
+        }
+        #sd-pattern-library-peek .sd-peek-label {
+            color: rgb(var(--o400));
+            font-family: Outfit, sans-serif;
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+            opacity: 0.85;
+            transition: opacity 150ms ease-out;
+        }
+        #sd-pattern-library-peek:hover .sd-peek-label { opacity: 1; }
+        @keyframes sd-peek-pulse {
+            0%, 100% { box-shadow: inset 4px 0 0 -3px rgb(var(--o500) / 0.3); }
+            50%      { box-shadow: inset 4px 0 0 -3px rgb(var(--o500) / 0.7); }
+        }
+        #sd-pattern-library-overlay.sd-lib-open #sd-pattern-library-peek {
+            animation: sd-peek-pulse 2.4s ease-in-out infinite;
+        }
+        /* ← Back button in the library header (top-left of the overlay).
+           Lives next to the brand crumb so the affordance is in the
+           reading-order spot users scan first. */
+        #sd-lib-back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgb(var(--o500) / 0.08);
+            border: 1px solid rgb(var(--o500) / 0.25);
+            border-radius: 6px;
+            padding: 5px 10px 5px 8px;
+            color: rgb(var(--o400));
+            font-family: Outfit, sans-serif;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 120ms ease-out;
+        }
+        #sd-lib-back-btn:hover {
+            background: rgb(var(--o500) / 0.18);
+            border-color: rgb(var(--o500) / 0.5);
+            color: #fff;
+        }
+        #sd-lib-back-btn svg { width: 14px; height: 14px; }
+        #sd-pattern-library-overlay.sd-lib-open #sd-pattern-library-panel {
+            transform: translateX(0);
+        }
+        #sd-pattern-library-overlay.sd-lib-open #sd-pattern-library-peek {
+            opacity: 1;
+        }
+        .sd-lib-cat {
+            text-align: left;
+            padding: 8px 12px;
+            font-family: Outfit, sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #a8a29e;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 120ms ease-out;
+        }
+        .sd-lib-cat:hover { color: rgb(var(--o500)); background: rgb(var(--o500) / 0.05); }
+        .sd-lib-cat-active { color: rgb(var(--o400)); background: rgb(var(--o500) / 0.12); }
+        .sd-lib-filter {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: Outfit, sans-serif;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: #a8a29e;
+        }
+        .sd-lib-filter span { color: #71717a; }
+        .sd-lib-select {
+            background: rgba(255,255,255,0.04);
+            color: #e7e5e4;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 6px;
+            padding: 4px 6px;
+            font-family: Outfit, sans-serif;
+            font-size: 11px;
+            outline: none;
+            cursor: pointer;
+        }
+        .sd-lib-select:focus { border-color: rgb(var(--o500)); }
+        /* The open <option> list is rendered by the OS / Chromium and does
+           not inherit the translucent background above. Give options an
+           explicit solid dark background + light text so they're readable
+           when the dropdown is expanded. */
+        .sd-lib-select option {
+            background-color: #18181b;   /* zinc-900 */
+            color: #e4e4e7;              /* zinc-200 */
+        }
+        .sd-lib-select option:checked {
+            background-color: #27272a;   /* zinc-800 — currently selected */
+        }
+        .sd-lib-search {
+            background: rgba(255,255,255,0.04);
+            color: #e7e5e4;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 6px;
+            padding: 5px 10px;
+            font-family: Outfit, sans-serif;
+            font-size: 11px;
+            outline: none;
+            min-width: 180px;
+        }
+        .sd-lib-search:focus { border-color: rgb(var(--o500)); }
+        .sd-lib-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 10px;
+            padding: 10px 12px;
+            cursor: pointer;
+            transition: border-color 120ms ease-out, background 120ms ease-out, transform 120ms ease-out;
+            font-family: Outfit, sans-serif;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            user-select: none;
+        }
+        .sd-lib-card:hover {
+            border-color: rgb(var(--o500) / 0.4);
+            background: rgb(var(--o500) / 0.04);
+        }
+        .sd-lib-card.sd-lib-card-selected {
+            border-color: rgb(var(--o500));
+            background: rgb(var(--o500) / 0.08);
+        }
+        .sd-lib-card-title {
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
+            color: #e7e5e4; font-size: 12px; font-weight: 700;
+        }
+        .sd-lib-card-star {
+            color: #52525b; font-size: 14px; line-height: 1;
+            background: transparent; border: none; cursor: pointer; padding: 0 2px;
+            transition: color 120ms ease-out;
+        }
+        .sd-lib-card-star:hover { color: #fbbf24; }
+        .sd-lib-card-star.sd-fav { color: #fbbf24; }
+        .sd-lib-card-meta {
+            color: #71717a; font-size: 10px; letter-spacing: 0.05em;
+            display: flex; gap: 6px; align-items: center;
+        }
+        .sd-lib-card-meta b { color: #a8a29e; font-weight: 600; }
+        .sd-lib-card-thumb { width: 100%; height: 44px; display: block; }
+        .sd-lib-empty {
+            grid-column: 1 / -1;
+            text-align: center;
+            color: #52525b;
+            font-size: 12px;
+            padding: 60px 20px;
+        }
+        .sd-lib-action-btn, .sd-lib-pick-btn {
+            font-family: Outfit, sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 8px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.04);
+            color: #d4d4d8;
+            display: inline-flex; align-items: center; gap: 6px;
+            transition: all 120ms ease-out;
+        }
+        .sd-lib-action-btn:hover:not(:disabled) {
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+        }
+        .sd-lib-pick-btn {
+            flex: 1;
+            justify-content: center;
+            background: linear-gradient(90deg, rgb(var(--o500)), rgb(var(--f500)));
+            color: #fff;
+            border-color: transparent;
+        }
+        .sd-lib-pick-btn:hover:not(:disabled) {
+            filter: brightness(1.1);
+        }
+        .sd-lib-action-btn:disabled, .sd-lib-pick-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .sd-lib-preview-title {
+            font-size: 14px; font-weight: 800; color: #fff;
+            margin-bottom: 4px;
+        }
+        .sd-lib-preview-meta {
+            font-size: 10px; color: #a8a29e; letter-spacing: 0.05em;
+            margin-bottom: 14px;
+        }
+        .sd-lib-preview-tags {
+            display: flex; flex-wrap: wrap; gap: 4px;
+            margin-top: 8px;
+        }
+        .sd-lib-preview-tag {
+            font-size: 9px; padding: 2px 6px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 4px; color: #a8a29e;
+            text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;
+        }
+        .sd-lib-preview-roll {
+            width: 100%;
+            height: 140px;
+            background: rgba(0,0,0,0.25);
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.05);
+            display: block;
+        }
+    </style>
+    <div id="sd-pattern-library-overlay" class="hidden">
+        <div id="sd-pattern-library-panel">
+            <!-- Header strip — back button + brand + label. -->
+            <div class="h-12 px-5 flex items-center border-b border-white/5 shrink-0 gap-3">
+                <button id="sd-lib-back-btn" title="Back to canvas (ESC)">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+                    <span>Canvas</span>
+                </button>
+                <div class="w-px h-5 bg-white/5"></div>
+                <span class="text-[11px] font-black tracking-[0.3em] uppercase text-gradient">STRIDE</span>
+                <span class="text-zinc-700">/</span>
+                <span class="text-[11px] font-black tracking-[0.25em] uppercase text-zinc-300">Patterns</span>
+                <div class="flex-1"></div>
+                <span class="text-[9px] text-zinc-600 uppercase tracking-widest">ESC or L to close</span>
+            </div>
+            <!-- Body: three-column layout — categories | grid | preview -->
+            <div id="sd-pattern-library-body" class="flex-1 flex overflow-hidden">
+                <!-- Left rail: categories -->
+                <aside class="w-44 border-r border-white/5 flex flex-col py-3 px-2 gap-0.5 shrink-0 overflow-y-auto">
+                    <button data-lib-cat="all"        class="sd-lib-cat sd-lib-cat-active">All</button>
+                    <button data-lib-cat="bass"       class="sd-lib-cat">Bass</button>
+                    <button data-lib-cat="leads"      class="sd-lib-cat">Leads</button>
+                    <button data-lib-cat="chords"     class="sd-lib-cat">Chords</button>
+                    <button data-lib-cat="melodic"    class="sd-lib-cat">Melodic</button>
+                    <button data-lib-cat="drums"      class="sd-lib-cat">Drums</button>
+                    <button data-lib-cat="ambient"    class="sd-lib-cat">Ambient</button>
+                    <button data-lib-cat="sequences"  class="sd-lib-cat">Sequences</button>
+                    <div class="my-2 border-t border-white/5"></div>
+                    <button data-lib-cat="favorites"  class="sd-lib-cat">★ Favorites</button>
+                    <button data-lib-cat="recent"     class="sd-lib-cat">◷ Recent</button>
+                </aside>
+
+                <!-- Center: filters + grid (fills full width — preview pane removed) -->
+                <main class="flex-1 flex flex-col min-w-0">
+                    <div class="h-12 px-5 flex items-center gap-3 border-b border-white/5 shrink-0">
+                        <label class="sd-lib-filter">
+                            <span>Bars</span>
+                            <select id="sd-lib-bars" class="sd-lib-select">
+                                <option value="auto">Auto</option>
+                                <option value="all">All</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="4">4</option>
+                                <option value="8">8</option>
+                                <option value="16">16</option>
+                            </select>
+                        </label>
+                        <label class="sd-lib-filter">
+                            <span>Style</span>
+                            <select id="sd-lib-style" class="sd-lib-select">
+                                <option value="">Any</option>
+                            </select>
+                        </label>
+                        <label class="sd-lib-filter">
+                            <span>Root</span>
+                            <select id="sd-lib-root" class="sd-lib-select">
+                                <option value="">Any</option>
+                                <option value="A">A</option>
+                                <option value="C">C</option>
+                                <option value="D">D</option>
+                                <option value="E">E</option>
+                                <option value="F">F</option>
+                                <option value="G">G</option>
+                            </select>
+                        </label>
+                        <label class="sd-lib-filter">
+                            <span>Scale</span>
+                            <select id="sd-lib-scale" class="sd-lib-select">
+                                <option value="">Any</option>
+                                <option value="maj">Maj</option>
+                                <option value="min">Min</option>
+                                <option value="phr">Phr</option>
+                            </select>
+                        </label>
+                        <label class="sd-lib-filter">
+                            <span>Energy</span>
+                            <select id="sd-lib-energy" class="sd-lib-select">
+                                <option value="">Any</option>
+                                <option value="2">Low</option>
+                                <option value="3">Mid</option>
+                                <option value="4">High</option>
+                            </select>
+                        </label>
+                        <input id="sd-lib-search" type="text" placeholder="Search…" class="sd-lib-search" />
+                        <div class="flex-1"></div>
+                        <span id="sd-lib-count" class="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">0 patterns</span>
+                    </div>
+                    <div id="sd-lib-grid" class="flex-1 overflow-y-auto p-4 grid grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 content-start">
+                        <!-- Cards rendered by pattern-library.js -->
+                    </div>
+                </main>
+            </div>
+        </div>
+        <div id="sd-pattern-library-peek" title="Click to go back to the canvas (or press ESC)">
+            <span class="sd-peek-arrow">←</span>
+            <span class="sd-peek-label">Back to Canvas</span>
+        </div>
+    </div>
+
+    <!-- (Compact mode is the real canvas reflowed via body.qp-compact + the
+         .sd-compact-only chrome above — no separate overlay/renderer.) -->
+
+    <!-- ws-client.js / cloud-client.js replaced by shim.js (the JUCE bridge) -->
+
+    <script src="midi-parser.js"></script>
+    <script src="audition.js"></script>
+    <script src="pattern-loader.js"></script>
+    <script src="pattern-library.js"></script>
+    <script>
+        // Bootstrap pattern library data — load the bundled manifest via
+        // IPC (renderer's CSP blocks fetch() for file:// assets, so we
+        // can't use fetch here). Failures are non-fatal: the PATTERNS
+        // button still works but the body shows an empty state.
+        (async () => {
+            try {
+                if (!window.stride || !window.stride.loadPatternManifest) {
+                    throw new Error('IPC bridge missing loadPatternManifest');
+                }
+                const res = await window.stride.loadPatternManifest();
+                if (!res || !res.success) throw new Error(res && res.error || 'manifest load failed');
+                const manifest = res.manifest;
+                if (window.strideLibraryModule) {
+                    window.strideLibraryModule.bootstrap(manifest);
+                    console.log('[Stride] Pattern library loaded:', manifest.patterns.length, 'patterns');
+                    if (window.strideLibraryUI && window.strideLibraryUI.isOpen()) {
+                        window.strideLibraryUI.refresh();
+                    }
+                }
+            } catch (e) {
+                console.warn('[Stride] Pattern library bootstrap failed:', e.message);
+                window.strideLibrary = window.strideLibrary || { patterns: [], byId: {}, filter: () => [] };
+            }
+        })();
+    </script>
+    <script src="canvas.js"></script>
+    <!-- Compact mode updates the compact slider strip's % readouts (the real
+         edit fns write the hidden sidebar spans). No mirror renderer. -->
+    <script>window.qpcVal = function (id, v) { var e = document.getElementById(id); if (e) e.textContent = v + '%'; };</script>
+</body>
+</html>

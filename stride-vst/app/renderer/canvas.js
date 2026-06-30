@@ -244,6 +244,8 @@
     //   'focus' = one active lane fills the full canvas height. Better
     //             for precise per-lane editing. One click away.
     let sdViewMode = 'multi';
+    let _sdFocusBackRect = null;              // hit rect for the focus-view "← All lanes" pill (null in multi)
+    let sdDeviceFilter = null;                // multi view: show only this device's lanes (null = all) — set by clicking a chain device
     let sdMultiScrollOffset = 0;              // # of lanes scrolled off the top
     const SD_MULTI_LANE_HEIGHT = 64;          // px per lane in multi view
     const SD_MULTI_LABEL_WIDTH = 120;         // px reserved on the left for the param name
@@ -369,6 +371,12 @@
             _persistLastUsedBars(val);
         }
     };
+
+    // Exposed for the VST wrapper: read the current bar count (so the live-curve
+    // push can tell the host its loop length) + a one-shot "set bars AND push" so
+    // a bar-length change updates the hosted synth's loop immediately.
+    window.sdGetBars = sdGetBars;
+    window.sdSetBarsAndPush = function(n) { window.sdSetBars(n, true); try { saveCanvasState(); } catch (e) {} };
 
     // Resolve which bar count to use when the system (scan / clip_changed)
     // wants to set bars. The user's sticky preference always wins; the
@@ -622,6 +630,11 @@
         Promise.resolve(saveCanvasState()).then(() => _sdAutoScan());
     }
     window.addEventListener('focus', _sdAutoScanOnFocus);
+    // Also flush the latest curves the instant Stride loses focus, so switching to
+    // the hosted synth / DAW immediately reflects your last edit — no need to click
+    // back on Stride. Cheap (a save + curve push); harmless in the desktop app, and
+    // the key to "draw → it modulates as it plays" in the VST wrapper.
+    window.addEventListener('blur', function () { try { Promise.resolve(saveCanvasState()); } catch (e) {} });
     sdInitAutoRescan();   // restore the persisted Auto-rescan toggle state + paint the on-screen button
 
     // Manual re-sync (the small refresh icon) — silent curve-preserving merge,
@@ -692,6 +705,7 @@
             .map(p => ({
                 envelopeId: String(p.id),
                 name: p.name,
+                device: p.device || '',
                 min: p.min,
                 max: p.max,
                 id: p.id,
@@ -751,6 +765,7 @@
         sdCanvasParams = params.map(p => ({
             envelopeId: String(p.id),
             name: p.name,
+            device: p.device || '',
             min: p.min,
             max: p.max,
             id: p.id,
@@ -2685,9 +2700,12 @@
         // lanes. Otherwise fall back to active lane only (legacy behavior).
         // Locked lanes are always skipped regardless of selection — lock is
         // an absolute "don't touch" contract.
-        const selected = sdCanvasParams.filter(p => p.selected && !p.locked);
+        // When a chain device is focused (sdDeviceFilter), the pool is just that
+        // device's lanes, so tools/generators act only on what's on screen.
+        const pool = sdVisibleParams();
+        const selected = pool.filter(p => p.selected && !p.locked);
         if (selected.length > 0) return selected;
-        const p = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
+        const p = pool.find(p => p.envelopeId === sdActiveParamId);
         return (p && !p.locked) ? [p] : [];
     }
 
@@ -2702,10 +2720,11 @@
     // lanes if there's a selection, else all unlocked. Locked are always
     // filtered out.
     function sdGetUnlockedParams() {
-        if (sdHasSelection()) {
-            return sdCanvasParams.filter(p => p.selected && !p.locked);
-        }
-        return sdCanvasParams.filter(p => !p.locked);
+        // Focused device only when one is selected (sdDeviceFilter), else all lanes.
+        const pool = sdVisibleParams();
+        const sel = pool.filter(p => p.selected && !p.locked);
+        if (sel.length > 0) return sel;
+        return pool.filter(p => !p.locked);
     }
     function sdLockSkipMessage(processedCount) {
         const total = sdCanvasParams.length;
@@ -2718,6 +2737,24 @@
 
     // ─── MULTI-VIEW HELPERS ──────────────────────────────
     // How many lanes fit visually in the current canvas height.
+    // Lanes shown in multi view: all, or just one device's when a chain device is
+    // selected. PURE view filter — sdCanvasParams stays whole, so curves keep
+    // driving every device regardless of what's on screen.
+    function sdVisibleParams() {
+        if (!sdDeviceFilter) return sdCanvasParams;
+        return sdCanvasParams.filter(p => (p.device || '') === sdDeviceFilter);
+    }
+    window.sdSetDeviceFilter = function(dev) {
+        sdDeviceFilter = (dev && dev !== sdDeviceFilter) ? dev : null;   // click a device to focus it; click it again (or pass null) to show all
+        const vis = sdVisibleParams();
+        if (sdDeviceFilter && !vis.some(p => p.envelopeId === sdActiveParamId))
+            sdActiveParamId = vis.length ? vis[0].envelopeId : sdActiveParamId;
+        sdMultiScrollOffset = 0;
+        sdMultiClampScroll();
+        sdDrawCanvasGrid();
+        return sdDeviceFilter;
+    };
+
     function sdMultiVisibleLaneCount() {
         if (!sdCanvasEl) return 0;
         const h = sdCanvasEl.getBoundingClientRect().height;
@@ -2727,7 +2764,7 @@
     // Clamp scroll offset to legal range whenever lane count changes.
     function sdMultiClampScroll() {
         const visible = sdMultiVisibleLaneCount();
-        const maxOffset = Math.max(0, sdCanvasParams.length - visible);
+        const maxOffset = Math.max(0, sdVisibleParams().length - visible);
         if (sdMultiScrollOffset > maxOffset) sdMultiScrollOffset = maxOffset;
         if (sdMultiScrollOffset < 0) sdMultiScrollOffset = 0;
     }
@@ -2749,9 +2786,10 @@
         const visible = sdMultiVisibleLaneCount();
         if (rowIdx < 0 || rowIdx >= visible) return null;
         const paramIdx = rowIdx + sdMultiScrollOffset;
-        if (paramIdx >= sdCanvasParams.length) return null;
+        const vis = sdVisibleParams();
+        if (paramIdx >= vis.length) return null;
         return {
-            param: sdCanvasParams[paramIdx],
+            param: vis[paramIdx],
             rect: sdMultiGetVisibleRowRect(rowIdx),
             rowIdx,
         };
@@ -2912,6 +2950,7 @@
 
         // Multi-lane view branches to its own renderer
         if (sdViewMode === 'multi') {
+            _sdFocusBackRect = null;     // no back pill in multi view
             sdDrawMultiView(lw, lh);
             _sdRenderCables();
             return;
@@ -2979,9 +3018,9 @@
         }
 
         // Points
-        if (!sdActiveParamId) return;
+        if (!sdActiveParamId) { _sdFocusBackRect = _sdDrawFocusBackBtn(lw, lh); return; }
         const param = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
-        if (!param || !param.points.length) return;
+        if (!param || !param.points.length) { _sdFocusBackRect = _sdDrawFocusBackBtn(lw, lh); return; }
         param.points.sort((a, b) => a.time - b.time);
 
         // Draw curve line
@@ -3033,6 +3072,9 @@
                 }
             }
         });
+
+        // "← All lanes" pill (focus view only) — one click back to the multi-lane view.
+        _sdFocusBackRect = _sdDrawFocusBackBtn(lw, lh);
     }
 
     // ─── MULTI-LANE RENDERER ──────────────────────────────
@@ -3042,6 +3084,7 @@
     // and the mousedown hit-test (what counts as a lock click). Keep in
     // sync if the visual layout changes.
     const SD_MULTI_LOCK_HIT_W = 22;
+    const SD_MULTI_FOCUS_HIT_W = 20;   // clickable zone for the focus icon, just left of the lock zone
 
     // Tiny canvas-rendered lock icon used in the multi-lane label column.
     // Two parts: a half-circle shackle + a rectangular body. When locked,
@@ -3076,6 +3119,56 @@
         if (locked) ctx.fill();
         else ctx.stroke();
         ctx.restore();
+    }
+
+    // Tiny "expand to full canvas" icon (four corner brackets) drawn next to
+    // each lane's lock glyph. Click it to blow that one lane up to the whole
+    // canvas (single-lane focus view).
+    function _drawFocusIcon(ctx, x, y, size, color) {
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.4;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        const a = size * 0.34;            // corner arm length
+        const L = x, T = y, R = x + size, B = y + size;
+        ctx.beginPath(); ctx.moveTo(L, T + a); ctx.lineTo(L, T); ctx.lineTo(L + a, T); ctx.stroke();   // top-left
+        ctx.beginPath(); ctx.moveTo(R - a, T); ctx.lineTo(R, T); ctx.lineTo(R, T + a); ctx.stroke();   // top-right
+        ctx.beginPath(); ctx.moveTo(R, B - a); ctx.lineTo(R, B); ctx.lineTo(R - a, B); ctx.stroke();   // bottom-right
+        ctx.beginPath(); ctx.moveTo(L + a, B); ctx.lineTo(L, B); ctx.lineTo(L, B - a); ctx.stroke();   // bottom-left
+        ctx.restore();
+    }
+
+    // The "← All lanes" pill shown in focus view (top-right). Returns its hit
+    // rect so the mousedown handler can route a click back to multi-lane view.
+    function _sdDrawFocusBackBtn(lw, lh) {
+        const w = 92, h = 22, pad = 8;
+        const x = Math.max(pad, lw - w - pad), y = pad;
+        sdCtx.save();
+        sdCtx.fillStyle = 'rgba(24,24,27,0.92)';
+        sdCtx.strokeStyle = 'rgba(255,255,255,0.18)';
+        sdCtx.lineWidth = 1;
+        const r = 7;
+        sdCtx.beginPath();
+        sdCtx.moveTo(x + r, y);
+        sdCtx.lineTo(x + w - r, y);
+        sdCtx.quadraticCurveTo(x + w, y, x + w, y + r);
+        sdCtx.lineTo(x + w, y + h - r);
+        sdCtx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        sdCtx.lineTo(x + r, y + h);
+        sdCtx.quadraticCurveTo(x, y + h, x, y + h - r);
+        sdCtx.lineTo(x, y + r);
+        sdCtx.quadraticCurveTo(x, y, x + r, y);
+        sdCtx.closePath();
+        sdCtx.fill();
+        sdCtx.stroke();
+        sdCtx.fillStyle = 'rgba(244,244,245,0.95)';
+        sdCtx.font = 'bold 11px Outfit';
+        sdCtx.textAlign = 'left';
+        sdCtx.textBaseline = 'middle';
+        sdCtx.fillText('← All lanes', x + 11, y + h / 2 + 0.5);
+        sdCtx.restore();
+        return { x: x, y: y, w: w, h: h };
     }
 
     // pixels tall. The left SD_MULTI_LABEL_WIDTH pixels of each row show the
@@ -3131,17 +3224,18 @@
         sdCtx.beginPath(); sdCtx.moveTo(laneDrawLeft, 0); sdCtx.lineTo(laneDrawLeft, lh); sdCtx.stroke();
 
         // Build a name counter so duplicates get a numeric suffix
+        const vis = sdVisibleParams();
         const nameCounts = {};
         const nameIndex = {};
-        sdCanvasParams.forEach(p => { nameCounts[p.name] = (nameCounts[p.name] || 0) + 1; });
+        vis.forEach(p => { nameCounts[p.name] = (nameCounts[p.name] || 0) + 1; });
 
         // Per-lane render
         const visible = sdMultiVisibleLaneCount();
         const sel = sdGetSelection();
         for (let row = 0; row < visible; row++) {
             const paramIdx = row + sdMultiScrollOffset;
-            if (paramIdx >= sdCanvasParams.length) break;
-            const param = sdCanvasParams[paramIdx];
+            if (paramIdx >= vis.length) break;
+            const param = vis[paramIdx];
             nameIndex[param.name] = (nameIndex[param.name] || 0) + 1;
             const displayName = nameCounts[param.name] > 1
                 ? `${param.name} (${nameIndex[param.name]})`
@@ -3183,23 +3277,38 @@
             // name itself dims to amber-ish so the row reads as "frozen"
             // even at a quick scan.
             const isLocked = !!param.locked;
-            sdCtx.fillStyle = isLocked
+            const _labelCol = isLocked
                 ? 'rgba(251,191,36,0.85)'   // amber-400
                 : (isHighlighted ? 'rgba(' + sdSkinColors.labelRGB + ',0.95)' : 'rgba(228,228,231,0.75)');
-            sdCtx.font = isHighlighted ? 'bold 11px Outfit' : '600 10px Outfit';
             sdCtx.textAlign = 'left';
             sdCtx.textBaseline = 'middle';
-            // Always reserve space for the lock glyph (drawn for every
-            // lane below) so name truncation is consistent regardless of
-            // lock state.
-            const maxChars = 15;
-            const labelText = displayName.length > maxChars ? displayName.slice(0, maxChars - 1) + '…' : displayName;
-            sdCtx.fillText(labelText, 8, midY - 5);
+            if (param.device) {
+                // Two-line label: DEVICE in bold on top, parameter name beneath
+                // (smaller) so the full param name stays readable. Used by the VST
+                // wrapper, where each lane carries its hosting device.
+                sdCtx.fillStyle = _labelCol;
+                sdCtx.font = isHighlighted ? 'bold 11px Outfit' : 'bold 10px Outfit';
+                const devMax = 13;
+                const devTxt = param.device.length > devMax ? param.device.slice(0, devMax - 1) + '…' : param.device;
+                sdCtx.fillText(devTxt, 8, midY - 8);
 
-            // Point count + range line
-            sdCtx.font = '10px Outfit';
-            sdCtx.fillStyle = isLocked ? 'rgba(251,191,36,0.55)' : 'rgba(161,161,170,0.7)';
-            sdCtx.fillText(`${param.points.length} pts${isLocked ? ' · locked' : ''}`, 8, midY + 10);
+                sdCtx.fillStyle = isLocked ? 'rgba(251,191,36,0.6)' : 'rgba(212,212,216,0.8)';
+                sdCtx.font = '9px Outfit';
+                const parMax = 17;
+                const parTxt = displayName.length > parMax ? displayName.slice(0, parMax - 1) + '…' : displayName;
+                sdCtx.fillText(parTxt, 8, midY + 6);
+            } else {
+                // Single-line label + point count (desktop app — param names only).
+                sdCtx.fillStyle = _labelCol;
+                sdCtx.font = isHighlighted ? 'bold 11px Outfit' : '600 10px Outfit';
+                const maxChars = 12;   // leaves room at the right edge for the focus + lock icons
+                const labelText = displayName.length > maxChars ? displayName.slice(0, maxChars - 1) + '…' : displayName;
+                sdCtx.fillText(labelText, 8, midY - 5);
+
+                sdCtx.font = '10px Outfit';
+                sdCtx.fillStyle = isLocked ? 'rgba(251,191,36,0.55)' : 'rgba(161,161,170,0.7)';
+                sdCtx.fillText(`${param.points.length} pts${isLocked ? ' · locked' : ''}`, 8, midY + 10);
+            }
 
             // Lock glyph at the right edge of the label column. Always
             // shown so the user can click to LOCK as well as UNLOCK
@@ -3207,6 +3316,10 @@
             // Locked = filled amber; unlocked = subtle zinc outline.
             const lockColor = isLocked ? 'rgba(251,191,36,0.9)' : 'rgba(161,161,170,0.45)';
             _drawLockIcon(sdCtx, laneDrawLeft - 18, midY - 6, 12, lockColor, isLocked);
+
+            // Focus icon just left of the lock — click to blow this lane up full-canvas.
+            const focusColor = isActive ? 'rgba(' + sdLaneRGB(paramIdx) + ',0.95)' : 'rgba(161,161,170,0.5)';
+            _drawFocusIcon(sdCtx, laneDrawLeft - 36, midY - 6, 12, focusColor);
 
             // Selection shade inside this lane's drawing area
             if (sel) {
@@ -3565,6 +3678,15 @@
                     return;
                 }
 
+                // Focus-icon click — the ~20px zone just left of the lock blows
+                // this lane up into full-canvas focus view.
+                const focusHitRight = lockHitLeft;
+                const focusHitLeft = focusHitRight - SD_MULTI_FOCUS_HIT_W;
+                if (mx >= focusHitLeft && mx < focusHitRight) {
+                    if (typeof window.sdFocusLane === 'function') window.sdFocusLane(hit.param.envelopeId);
+                    return;
+                }
+
                 // Ctrl/Cmd + click on any lane → toggle that lane's
                 // selection. Sets up drag-pending so Ctrl + drag multi-
                 // selects every lane the cursor passes over. Ctrl is the
@@ -3599,6 +3721,17 @@
                     sdResetSliderSnapshots();
                     sdRenderSidebar();
                     sdDrawCanvasGrid();
+                    return;
+                }
+            }
+
+            // Focus-view "← All lanes" pill — click returns to the multi-lane view.
+            if (sdViewMode === 'focus' && _sdFocusBackRect) {
+                const _br = sdCanvasEl.getBoundingClientRect();
+                const _fx = e.clientX - _br.left, _fy = e.clientY - _br.top;
+                if (_fx >= _sdFocusBackRect.x && _fx <= _sdFocusBackRect.x + _sdFocusBackRect.w &&
+                    _fy >= _sdFocusBackRect.y && _fy <= _sdFocusBackRect.y + _sdFocusBackRect.h) {
+                    if (typeof window.sdToggleViewMode === 'function') window.sdToggleViewMode();
                     return;
                 }
             }
@@ -4895,6 +5028,23 @@
         sdDrawCanvasGrid();
     };
 
+    // Per-lane focus: jump straight into single-lane view on a specific param
+    // (the [] icon beside each lane's lock). The on-canvas "← All lanes" pill
+    // or the view-mode toggle returns to the stacked multi view.
+    window.sdFocusLane = function(id) {
+        const p = sdCanvasParams.find(x => x.envelopeId === id);
+        if (!p) return;
+        sdCanvasParams.forEach(x => { x.selected = false; });
+        sdActiveParamId = id;
+        if (sdViewMode !== 'focus') {
+            window.sdToggleViewMode();   // multi -> focus (handles pan reset, button state, redraw)
+        } else {
+            sdViewPanX = 0;
+            sdDrawCanvasGrid();
+        }
+        if (typeof sdRenderSidebar === 'function') sdRenderSidebar();
+    };
+
     // ─── TEMPLATES ─────────────────────────────────────────
 
     function _sdGenTemplatePts(type, sB, eB) {
@@ -5492,7 +5642,8 @@
         }
 
         pushUndo();
-        const spread = parseInt(document.getElementById('sd-bloom-spread').value) / 100;
+        const _bloomSpreadEl = document.getElementById('sd-bloom-spread');   // absent in compact mode
+        const spread = (_bloomSpreadEl ? parseInt(_bloomSpreadEl.value) : 50) / 100;   // default 50% spread
         const totalBeats = sdGetBars() * 4;
 
         // Normalize master curve to 0-1 time
@@ -5519,7 +5670,7 @@
         ];
 
         let laneIdx = 0;
-        sdCanvasParams.forEach(param => {
+        sdVisibleParams().forEach(param => {   // when a device is focused, Bloom spreads only across its lanes
             if (param.envelopeId === sdActiveParamId) return; // skip master
             if (param.locked) return; // locked lanes never receive Bloom output
 
@@ -5576,12 +5727,12 @@
             }));
         });
 
-        document.getElementById('sd-bloom-popover').classList.add('hidden');
+        const _bloomPop = document.getElementById('sd-bloom-popover'); if (_bloomPop) _bloomPop.classList.add('hidden');   // absent in compact
         sdResetSliderSnapshots();
         sdRenderSidebar();
         sdDrawCanvasGrid();
-        document.getElementById('sd-canvas-status').textContent =
-            'Bloom applied — ' + (sdCanvasParams.length - 1) + ' lanes from ' + masterParam.name;
+        const _bloomStatus = document.getElementById('sd-canvas-status');
+        if (_bloomStatus) _bloomStatus.textContent = 'Bloom applied — ' + (sdCanvasParams.length - 1) + ' lanes from ' + masterParam.name;
     };
 
     // ─── WEAVE (DORMANT — superseded by Prism, kept for reference) ─
@@ -6155,7 +6306,7 @@
         if (!source || _laneRange(source) <= 0.001) {
             source = null;
             let best = 0.001;
-            sdCanvasParams.forEach(p => { const r = _laneRange(p); if (r > best) { best = r; source = p; } });
+            sdVisibleParams().forEach(p => { const r = _laneRange(p); if (r > best) { best = r; source = p; } });
         }
         if (!source) {
             setStatus('Draw a moving curve on a lane first — Prism spreads it across the rest');
@@ -6174,8 +6325,8 @@
             setStatus('No moving curve in range — Prism needs a curve to spread');
             return;
         }
-        // Recipients = every unlocked lane EXCEPT the chosen source.
-        const targets = sdCanvasParams.filter(p => p !== source && !p.locked);
+        // Recipients = every unlocked lane EXCEPT the chosen source (focused device only when filtered).
+        const targets = sdVisibleParams().filter(p => p !== source && !p.locked);
         if (!targets.length) { setStatus('No unlocked lanes to receive Prism'); return; }
         pushUndo();
         // Local seed + personality map — do NOT touch the live-tool globals.
