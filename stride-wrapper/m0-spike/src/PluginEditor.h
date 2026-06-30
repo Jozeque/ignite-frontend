@@ -45,6 +45,7 @@ private:
     void pushRackScanned();     // mapped lanes -> canvas (as the rack_scanned the UI expects)
     void pushLearnState();      // -> wrapper toolbar Map button
     void pushChainDevices();    // -> wrapper device chips (the deliberate per-device remove)
+    void handleLicense (const juce::var& msg);   // license gate bridge (load/save/validate)
     void scanPluginsToWeb();    // -> Stride-styled plugin browser (the "+ Add" picker)
 
     StrideWrapperProcessor& proc;

@@ -11,8 +11,8 @@
 #   cmake --build build --config Release
 #
 # Artefacts:
-#   build/StrideWrapperM0_artefacts/Release/Standalone/Stride Wrapper M0.exe
-#   build/StrideWrapperM0_artefacts/Release/VST3/Stride Wrapper M0.vst3
+#   build/StrideWrapperM0_artefacts/Release/Standalone/Stride.exe
+#   build/StrideWrapperM0_artefacts/Release/VST3/Stride.vst3
 # ============================================================
 cmake_minimum_required(VERSION 3.22)
 project(StrideWrapperM0 VERSION 0.0.2 LANGUAGES C CXX)
@@ -56,7 +56,7 @@ juce_add_binary_data(StrideWrapperM0Data SOURCES
 )
 
 juce_add_plugin(StrideWrapperM0
-    PRODUCT_NAME                "Stride Wrapper M0"
+    PRODUCT_NAME                "Stride"
     COMPANY_NAME                "Stride"
     BUNDLE_ID                   io.stridehub.wrapper.m0
     PLUGIN_MANUFACTURER_CODE    Strd
@@ -90,6 +90,7 @@ target_link_libraries(StrideWrapperM0
         StrideWrapperM0Data
         juce::juce_audio_utils      # brings in juce_audio_processors (hosting) + gui_basics
         juce::juce_gui_extra        # WebBrowserComponent
+        juce::juce_cryptography     # SHA-256 for the built-in license keys
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_warning_flags

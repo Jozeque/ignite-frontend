@@ -1,0 +1,95 @@
+name: Build Stride VST3 (Win + Mac)
+
+# Builds the cross-DAW Stride VST3 wrapper for BOTH platforms from the same
+# commit, so Windows and Mac always stay 1:1.
+#   - windows: cmake build -> Stride.vst3 -> zip artifact
+#   - mac:     cmake universal build -> Developer ID codesign (hardened +
+#              disable-library-validation) -> notarize (--wait) -> staple -> zip
+#
+# The Mac job reuses the SAME Apple secrets as the desktop build-mac.yml.
+# Single Mac job (not the desktop's 2-job split) because the Apple account is
+# already warmed up by desktop notarizations, so notarytool --wait is minutes.
+#
+# Trigger: manual (Actions -> Run workflow) or push a `vst3-v*` tag (kept
+# separate from the desktop's `v*` so the two release pipelines never collide).
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'vst3-v*'
+
+permissions:
+  contents: read
+
+jobs:
+  # ──────────────────────────────────────────────
+  # Windows VST3
+  # ──────────────────────────────────────────────
+  windows:
+    name: Windows VST3
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure + build VST3
+        working-directory: stride-wrapper/m0-spike
+        shell: bash
+        run: |
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+          cmake --build build --config Release --target StrideWrapperM0_VST3
+
+      - name: Zip VST3
+        working-directory: stride-wrapper/m0-spike
+        shell: bash
+        run: |
+          VST3="$(find build -name 'Stride.vst3' -type d -print -quit)"
+          [ -n "$VST3" ] || { echo "Stride.vst3 not found"; find build -name '*.vst3'; exit 1; }
+          echo "Found: $VST3"
+          cd "$(dirname "$VST3")"
+          7z a -tzip "$GITHUB_WORKSPACE/Stride-VST3-Windows.zip" "Stride.vst3" >/dev/null
+          echo "Zipped Stride-VST3-Windows.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Stride-VST3-Windows
+          path: Stride-VST3-Windows.zip
+          retention-days: 90
+          if-no-files-found: error
+
+  # ──────────────────────────────────────────────
+  # macOS VST3 (universal, signed + notarized)
+  # ──────────────────────────────────────────────
+  mac:
+    name: macOS VST3 (signed + notarized)
+    runs-on: macos-14   # Apple Silicon runner; we build universal anyway
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Import signing certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.APPLE_DEVELOPER_ID_P12_BASE64 }}
+          p12-password: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
+
+      - name: Verify signing identity
+        run: |
+          security find-identity -v -p codesigning
+          security find-identity -v -p codesigning | grep -q "Developer ID Application" || { echo "no Developer ID"; exit 1; }
+
+      - name: Build + sign + notarize + staple
+        working-directory: stride-wrapper/m0-spike
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bash ci/build-mac-vst3.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Stride-VST3-Mac
+          path: stride-wrapper/m0-spike/dist-mac/*.zip
+          retention-days: 90
+          if-no-files-found: error

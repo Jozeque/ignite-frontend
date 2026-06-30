@@ -38,6 +38,20 @@
   function emit(name, payload) { try { if (B) B.emitEvent(name, payload || {}); } catch (e) {} }
   function listen(name, fn) { try { if (B) B.addEventListener(name, fn); } catch (e) {} }
 
+  // ── license gate bridge (request/response to the C++ gate) ───────
+  var _licPending = {}, _licSeq = 0;
+  function _licCall(op, payload) {
+    return new Promise(function (resolve) {
+      var id = ++_licSeq; _licPending[id] = resolve;
+      emit('license', Object.assign({ reqId: id, op: op }, payload || {}));
+      setTimeout(function () { if (_licPending[id]) { delete _licPending[id]; resolve({ success: false, valid: false, error: 'License check timed out' }); } }, 13000);
+    });
+  }
+  listen('licenseReply', function (d) {
+    if (! d) return; var r = _licPending[d.reqId];
+    if (r) { delete _licPending[d.reqId]; r(d.result || {}); }
+  });
+
   // Single-level undo for device removal: Ctrl+Z right after removing (while the toast is up),
   // or click the toast's Undo. Outside that window Ctrl+Z falls through to the canvas curve-undo.
   var _undoArmed = false, _undoToast = null, _undoTimer = 0;
@@ -68,7 +82,9 @@
   // "Inject to Clip" rail and the StrideInject setup modal.
   try {
     var hideCss = document.createElement('style');
-    hideCss.textContent = '#sd-inject-rail{display:none!important} #sd-strideinject-modal{display:none!important} #link-status{display:none!important} #stride-stale-banner{display:none!important} #sd-install-m4l-overlay{display:none!important} #sd-welcome-overlay{display:none!important}';
+    hideCss.textContent = '#sd-inject-rail{display:none!important} #sd-strideinject-modal{display:none!important} #link-status{display:none!important} #stride-stale-banner{display:none!important} #sd-install-m4l-overlay{display:none!important} #sd-welcome-overlay{display:none!important}'
+      + ' @keyframes sdMapPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(167,139,250,0)}50%{transform:scale(1.07);box-shadow:0 0 10px 2px rgba(167,139,250,.5)}}'
+      + ' .sd-map-armed{animation:sdMapPulse 1.15s ease-in-out infinite}';
     (document.head || document.documentElement).appendChild(hideCss);
   } catch (e) {}
 
@@ -80,9 +96,9 @@
 
   window.stride = {
     platform: 'win32',
-    loadLicense: function () { return P({ success: true, license: { valid: true, key: 'WRAPPER', cached_at: Date.now() } }); },
-    validateLicenseKey: function () { return P({ valid: true, builtin: true, tier: 'wrapper' }); },
-    saveLicense: function () { return P({ success: true }); },
+    loadLicense: function () { return _licCall('load'); },
+    validateLicenseKey: function (key) { return _licCall('validate', { key: key }); },
+    saveLicense: function (lic) { return _licCall('save', { license: lic }); },
     saveSettings: function (s) { lsSet('stride_settings', s); return P({ success: true }); },
     loadSettings: function () { return P({ success: true, settings: lsGet('stride_settings', {}) }); },
     saveCanvasState: function (rackId, state) {
@@ -211,8 +227,11 @@
 
     var head = document.createElement('div'); head.className = 'flex items-center justify-between px-4 py-3 border-b border-white/5';
     var title = document.createElement('span'); title.className = 'text-[12px] text-zinc-100 font-black uppercase tracking-[0.15em]'; title.textContent = 'Add a device';
+    var hright = document.createElement('div'); hright.className = 'flex items-center gap-3';
+    var browse = document.createElement('button'); browse.textContent = 'Browse files…'; browse.className = 'text-[10px] uppercase tracking-wider font-bold text-zinc-400 hover:text-orange-400'; browse.title = 'Load any .vst3 from a custom folder'; browse.onclick = function () { closePluginBrowser(); emit('loadSynth'); };
     var cl = document.createElement('button'); cl.textContent = '×'; cl.className = 'text-zinc-500 hover:text-zinc-200 text-xl leading-none'; cl.onclick = closePluginBrowser;
-    head.appendChild(title); head.appendChild(cl); panel.appendChild(head);
+    hright.appendChild(browse); hright.appendChild(cl);
+    head.appendChild(title); head.appendChild(hright); panel.appendChild(head);
 
     var swrap = document.createElement('div'); swrap.className = 'px-4 py-3 border-b border-white/5';
     var search = document.createElement('input'); search.type = 'text'; search.placeholder = 'Search plugins…';
@@ -242,10 +261,8 @@
     render('');
 
     var foot = document.createElement('div'); foot.className = 'flex items-center justify-between px-4 py-3 border-t border-white/5';
-    var hint = document.createElement('span'); hint.className = 'text-[10px] text-zinc-600'; hint.textContent = plugins.length + ' plugins';
-    var browse = document.createElement('button'); browse.textContent = 'Browse files…'; browse.className = 'text-[10px] uppercase tracking-wider font-bold text-zinc-400 hover:text-orange-400';
-    browse.onclick = function () { closePluginBrowser(); emit('loadSynth'); };   // native dialog fallback
-    foot.appendChild(hint); foot.appendChild(browse); panel.appendChild(foot);
+    var hint = document.createElement('span'); hint.className = 'text-[10px] text-zinc-600'; hint.textContent = plugins.length + ' found in the standard VST3 folder';
+    foot.appendChild(hint); panel.appendChild(foot);
 
     ov.appendChild(panel); document.body.appendChild(ov); pluginModal = ov;
     setTimeout(function () { try { search.focus(); } catch (e) {} }, 30);
@@ -260,7 +277,7 @@
   // Map gets its own slightly-bigger, distinct (violet) treatment so the primary
   // "arm to learn" action reads differently from +Add / Clear.
   var BTN_MAP       = 'px-3 py-1 rounded text-[10px] uppercase tracking-wider font-bold transition-colors text-violet-200 bg-violet-500/20 hover:bg-violet-500/30 border border-violet-400/40';
-  var BTN_MAP_ARMED = 'px-3 py-1 rounded text-[10px] uppercase tracking-wider font-bold transition-colors text-white bg-violet-500/60 border border-violet-300';
+  var BTN_MAP_ARMED = 'px-3 py-1 rounded text-[10px] uppercase tracking-wider font-bold transition-colors text-white bg-violet-500/60 border border-violet-300 sd-map-armed';
 
   function buildBar() {
     try {

@@ -1,5 +1,6 @@
 #include "PluginEditor.h"
 #include "BinaryData.h"
+#include "License.h"
 
 #include <optional>
 #include <vector>
@@ -143,6 +144,7 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
         .withEventListener ("clearChain",   [this] (juce::var)     { synthWindows.clear(); proc.clearChain(); pushRackScanned(); pushChainDevices(); })
         .withEventListener ("removeDevice", [this] (juce::var v)   { synthWindows.clear(); proc.removeNode ((int) v.getProperty ("i", -1)); pushRackScanned(); pushChainDevices(); })
         .withEventListener ("setBypass",    [this] (juce::var v)   { proc.setNodeBypassed ((int) v.getProperty ("i", -1), ! (bool) v.getProperty ("on", true)); pushChainDevices(); })
+        .withEventListener ("license",      [this] (juce::var v)   { handleLicense (v); })
         .withEventListener ("undoRemove",   [this] (juce::var)     { synthWindows.clear(); proc.undoRemove(); })
         .withEventListener ("toggleLearn",  [this] (juce::var)     { proc.setLearnMode (! proc.isLearning()); pushLearnState(); });
 
@@ -404,6 +406,33 @@ void StrideWrapperEditor::pushChainDevices()
     o->setProperty ("names", juce::var (names));
     o->setProperty ("bypassed", juce::var (byp));
     web->emitEventIfBrowserIsVisible ("chainDevices", juce::var (o));
+}
+
+// License gate bridge — load/save read+write the SHARED license.json (so an
+// already-activated desktop user is auto-unlocked); validate hits the built-in
+// keys then the Lemon Squeezy proxy. SafePointer guards the async validate reply.
+void StrideWrapperEditor::handleLicense (const juce::var& msg)
+{
+    const int reqId = (int) msg.getProperty ("reqId", -1);
+    const auto op = msg.getProperty ("op", "").toString();
+
+    juce::Component::SafePointer<StrideWrapperEditor> safe (this);
+    auto reply = [safe, reqId] (juce::var result)
+    {
+        if (auto* self = safe.getComponent())
+            if (self->web != nullptr)
+            {
+                auto* o = new juce::DynamicObject();
+                o->setProperty ("reqId", reqId);
+                o->setProperty ("result", result);
+                self->web->emitEventIfBrowserIsVisible ("licenseReply", juce::var (o));
+            }
+    };
+
+    if (op == "load")          reply (stride_license::load());
+    else if (op == "save")     reply (stride_license::save (msg.getProperty ("license", juce::var())));
+    else if (op == "validate") stride_license::validate (msg.getProperty ("key", "").toString(), reply);
+    else                       reply (juce::var());
 }
 
 // Scan the standard VST3 locations (top level + one vendor-folder deep, not into bundles)
