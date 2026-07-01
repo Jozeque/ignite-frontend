@@ -19,6 +19,25 @@ namespace {
         juce::StringArray a; a.addTokens (s, ",", "");
         for (auto& t : a) if (t.isNotEmpty()) out.push_back ((float) t.getDoubleValue());
     }
+
+    // Configure a hosted plugin to MAIN BUS ONLY. enableAllBuses() switches on aux/
+    // sidechain buses (e.g. FabFilter Pro-Q 4 / Saturn 2's sidechain input); JUCE then
+    // expects the process buffer to carry those extra channels too, but Stride passes
+    // only a stereo buffer — so the plugin reads/writes past it and crashes (Mac SIGSEGV
+    // in _platform_memmove; undefined-but-survived on Windows). Keep only bus 0 on each
+    // side so the plugin never expects more channels than we hand it. Call BEFORE
+    // prepareToPlay (bus layout can only change while the plugin is inactive).
+    void configureHostedBuses (juce::AudioProcessor& inst)
+    {
+        for (bool isInput : { true, false })
+        {
+            for (int b = inst.getBusCount (isInput) - 1; b >= 1; --b)
+                if (auto* bus = inst.getBus (isInput, b))
+                    bus->enable (false);
+            if (auto* main = inst.getBus (isInput, 0))
+                main->enable (true);
+        }
+    }
 }
 
 StrideWrapperProcessor::StrideWrapperProcessor()
@@ -160,7 +179,7 @@ void StrideWrapperProcessor::loadPlugin (const juce::File& vst3File)
                 return;
             }
 
-            instance->enableAllBuses();
+            configureHostedBuses (*instance);   // main-stereo only — no sidechain/aux (prevents the FabFilter crash)
             instance->setRateAndBufferSizeDetails (currentSampleRate, currentBlockSize);
             instance->prepareToPlay (currentSampleRate, currentBlockSize);
             instance->addListener (this);     // so Map can learn this device's knob moves
@@ -268,7 +287,7 @@ void StrideWrapperProcessor::restoreNextDevice (std::shared_ptr<std::vector<Remo
         {
             if (inst != nullptr)
             {
-                inst->enableAllBuses();
+                configureHostedBuses (*inst);   // main-stereo only — no sidechain/aux (prevents the FabFilter crash)
                 inst->setRateAndBufferSizeDetails (currentSampleRate, currentBlockSize);
                 if (d.state.getSize() > 0) inst->setStateInformation (d.state.getData(), (int) d.state.getSize());
                 inst->prepareToPlay (currentSampleRate, currentBlockSize);
