@@ -11,6 +11,7 @@ import uuid
 import io
 import hmac
 import hashlib
+import base64
 from datetime import datetime, timedelta
 from mido import Message, MidiFile, MidiTrack
 
@@ -499,6 +500,80 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
         return jsonify({"received": True, "error": str(e)}), 200
 
 
+# ─── Entitlements (product-scoped licensing) ──────────────────
+# Mirrors stride-vst/app/lib/entitlements.js (the reference impl). The server
+# decides which products a key unlocks and SIGNS the decision with Ed25519;
+# clients embed only the public key and verify. See docs/stride-entitlements-spec.md.
+# Canonicalization MUST match the JS module byte-for-byte:
+#   json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+# Product map — keep in lockstep with entitlements.js DEFAULT_CONFIG.
+ENT_PRODUCTS = [
+    {"ents": ["stridelink"],        "ids": ["973706"],  "names": ["stride", "stridelink", "stride link", "stride for ableton"]},
+    {"ents": ["vst"],               "ids": ["1188468"], "names": ["stride vst", "stride vst3"]},
+    {"ents": ["stridelink", "vst"], "ids": [],          "names": ["stride bundle", "stride both", "stride complete"]},
+]
+# A StrideLink purchase created at/before this epoch-ms also unlocks the VST
+# (free upgrade for existing owners). 1783036800000 = 2026-07-03T00:00:00Z.
+ENT_GIVEAWAY_CUTOFF_MS = 1783036800000
+
+
+def _ent_norm_name(s):
+    return re.sub(r"\s+", " ", str(s or "").lower().strip())
+
+
+def _ent_created_at_ms(created_at):
+    """Parse an LS ISO8601 created_at to epoch-ms. None on failure (fail closed)."""
+    if not created_at:
+        return None
+    try:
+        return int(datetime.fromisoformat(str(created_at).strip().replace("Z", "+00:00")).timestamp() * 1000)
+    except Exception:
+        return None
+
+
+def _resolve_entitlements(product_id, product_name, created_at_ms):
+    """Mirror of entitlements.js resolveEntitlements. Unknown product -> [] (fail closed)."""
+    pid = str(product_id) if product_id is not None else None
+    pname = _ent_norm_name(product_name)
+    base = None
+    for p in ENT_PRODUCTS:
+        names = [_ent_norm_name(n) for n in p["names"]]
+        if (pid and pid in p["ids"]) or (pname and pname in names):
+            base = list(p["ents"])
+            break
+    if not base:
+        return []
+    ents = set(base)
+    if "stridelink" in ents and created_at_ms is not None and created_at_ms <= ENT_GIVEAWAY_CUTOFF_MS:
+        ents.add("vst")
+    return sorted(ents)
+
+
+def _ent_canonical(payload):
+    # Must match JS canonicalize(): sorted keys, no spaces, non-ASCII preserved.
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def _sign_entitlements(key, ents, iat_ms):
+    """Return (ent_dict, ent_sig_b64) or (None, None) if signing is unavailable.
+    Failures are non-fatal: the response still returns valid:true (StrideLink
+    grandfathers unsigned; only the VST strictly needs the signature)."""
+    priv_pem = os.environ.get("STRIDE_ENT_PRIVATE_KEY", "")
+    if not priv_pem:
+        print("[Ent] STRIDE_ENT_PRIVATE_KEY not set — returning unsigned entitlements")
+        return None, None
+    try:
+        from cryptography.hazmat.primitives.serialization import load_pem_private_key
+        ent = {"key": key, "ents": sorted(ents), "iat": int(iat_ms)}
+        priv = load_pem_private_key(priv_pem.encode("utf-8"), password=None)
+        sig = priv.sign(_ent_canonical(ent).encode("utf-8"))
+        return ent, base64.b64encode(sig).decode("ascii")
+    except Exception as e:
+        print(f"[Ent] signing failed (non-fatal): {e}")
+        return None, None
+
+
 def _handle_validate_license(data: dict):
     """Proxy a license validation call through to the Lemon Squeezy API.
 
@@ -660,16 +735,30 @@ def _handle_validate_license(data: dict):
     except Exception as fe:
         print(f"[License] Firestore touch failed (non-fatal): {fe}")
 
+    # Product-scoped entitlements: resolve which products this key unlocks, then
+    # Ed25519-sign the decision so clients can trust it offline (tamper-proof).
+    product_id = meta.get("product_id")
+    variant_id = meta.get("variant_id")
+    created_at = lk.get("created_at")
+    ents = _resolve_entitlements(product_id, meta.get("product_name"), _ent_created_at_ms(created_at))
+    ent_obj, ent_sig = _sign_entitlements(key, ents, int(time.time() * 1000))
+
     return jsonify({
         "valid": True,
         "instance_id": inst.get("id"),
         "customer_name": meta.get("customer_name"),
         "customer_email": customer_email,
         "product_name": meta.get("product_name"),
+        "product_id": product_id,
+        "variant_id": variant_id,
+        "created_at": created_at,
         "activation_limit": lk.get("activation_limit"),
         "activation_usage": lk.get("activation_usage"),
         "expires_at": lk.get("expires_at"),
         "status": lk.get("status") or "active",
+        "entitlements": ents,
+        "ent": ent_obj,
+        "ent_sig": ent_sig,
     }), 200
 
 
@@ -690,7 +779,7 @@ def _handle_validate_license(data: dict):
     timeout_sec=540,
     memory=options.MemoryOption.GB_1,
     max_instances=200,
-    secrets=["SUPABASE_SERVICE_KEY", "LEMONSQUEEZY_API_KEY", "LEMONSQUEEZY_WEBHOOK_SECRET", "RESEND_API_KEY", "META_CAPI_ACCESS_TOKEN", "META_ACCESS_TOKEN"]
+    secrets=["SUPABASE_SERVICE_KEY", "LEMONSQUEEZY_API_KEY", "LEMONSQUEEZY_WEBHOOK_SECRET", "RESEND_API_KEY", "META_CAPI_ACCESS_TOKEN", "META_ACCESS_TOKEN", "STRIDE_ENT_PRIVATE_KEY"]
 )
 def generate_midi(req: https_fn.Request) -> https_fn.Response:
     if req.method == 'OPTIONS':

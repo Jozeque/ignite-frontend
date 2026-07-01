@@ -371,6 +371,28 @@ const LICENSE_ENDPOINT = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
 // result for this many days before forcing a fresh online check.
 const LICENSE_OFFLINE_GRACE_DAYS = 14;
 
+// ── Product-scoped entitlements (docs/stride-entitlements-spec.md) ──
+// This build IS the StrideLink product. The VST embeds the same public key but
+// uses APP_PRODUCT='vst'. Decisions run through lib/entitlements.js against the
+// server-signed payload; the public key only ever VERIFIES (never signs).
+const entitlements = require('./lib/entitlements');
+const APP_PRODUCT = entitlements.PRODUCT.STRIDELINK;
+const ENT_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEATydmFO2cEbuNu4gQlsCQmeCSghqT8kBr2VoLoBPbhr0=
+-----END PUBLIC KEY-----
+`;
+// StrideLink grandfathers legacy (pre-split, unsigned) caches so existing users
+// are never locked out. skipGrace=true on fresh online results, false on cached.
+function computeEntitlement(record, { skipGrace = false } = {}) {
+    return entitlements.readEntitlement(record, {
+        product: APP_PRODUCT,
+        publicKey: ENT_PUBLIC_KEY,
+        grandfatherProduct: APP_PRODUCT,
+        graceDays: LICENSE_OFFLINE_GRACE_DAYS,
+        skipGrace,
+    });
+}
+
 // Validate a license key.
 //   1. Fast path: SHA-256 hash check against the built-in ambassador/master keys.
 //      Works offline, zero network, no instance tracking.
@@ -385,7 +407,9 @@ ipcMain.handle('validate-license-key', async (event, key) => {
     const hash = crypto.createHash('sha256').update(upper).digest('hex');
     const entry = BUILTIN_KEY_HASHES[hash];
     if (entry) {
-        return { valid: true, tier: entry.tier, customer_name: entry.label, builtin: true };
+        const e = computeEntitlement({ valid: true, builtin: true, tier: entry.tier }, { skipGrace: true });
+        return { valid: true, tier: entry.tier, customer_name: entry.label, builtin: true,
+                 entitlements: e.entitlements, entitled: e.entitled };
     }
 
     // --- 2. Backend proxy to Lemon Squeezy ---
@@ -424,7 +448,7 @@ ipcMain.handle('validate-license-key', async (event, key) => {
         clearTimeout(timeoutId);
         const result = await res.json().catch(() => ({}));
         if (result && result.valid) {
-            return {
+            const record = {
                 valid: true,
                 tier: 'pro',
                 customer_name: result.customer_name || null,
@@ -436,7 +460,13 @@ ipcMain.handle('validate-license-key', async (event, key) => {
                 instance_id: result.instance_id || cachedInstanceId || null,
                 status: result.status || 'active',
                 builtin: false,
+                // Product-scoping: server-computed entitlements + Ed25519 signature.
+                entitlements: result.entitlements || null,
+                ent: result.ent || null,
+                ent_sig: result.ent_sig || null,
             };
+            const e = computeEntitlement({ ...record, key: upper }, { skipGrace: true });
+            return { ...record, entitled: e.entitled, entitlement_reason: e.reason };
         }
         return {
             valid: false,
@@ -454,10 +484,13 @@ ipcMain.handle('validate-license-key', async (event, key) => {
                     const ageMs = Date.now() - cached.cached_at;
                     const graceMs = LICENSE_OFFLINE_GRACE_DAYS * 24 * 60 * 60 * 1000;
                     if (ageMs < graceMs) {
+                        const e = computeEntitlement(cached);
                         return {
                             ...cached,
                             offline: true,
                             builtin: false,
+                            entitled: e.entitled,
+                            entitlement_reason: e.reason,
                         };
                     }
                 }
@@ -496,7 +529,8 @@ ipcMain.handle('load-license', async () => {
         const filePath = path.join(DATA_DIR, 'license.json');
         if (fs.existsSync(filePath)) {
             const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-            return { success: true, license: data };
+            const e = computeEntitlement(data);
+            return { success: true, license: { ...data, entitled: e.entitled, entitlement_reason: e.reason } };
         }
         return { success: true, license: null };
     } catch (e) {

@@ -11,6 +11,8 @@
 #include <juce_core/juce_core.h>
 #include <juce_cryptography/juce_cryptography.h>
 #include <functional>
+#include <cstdint>
+#include <monocypher-ed25519.h>   // standard Ed25519 (SHA-512) verify — src/third_party/monocypher
 
 namespace stride_license
 {
@@ -66,9 +68,95 @@ namespace stride_license
                 o->setProperty ("tier", i == 0 ? "master" : "ambassador");
                 o->setProperty ("customer_name", i == 0 ? "Master" : ("Ambassador #" + juce::String (i)));
                 o->setProperty ("builtin", true);
+                o->setProperty ("entitled", true);   // built-in keys unlock every product
+                juce::Array<juce::var> allEnts; allEnts.add ("stridelink"); allEnts.add ("vst");
+                o->setProperty ("entitlements", allEnts);
                 return juce::var (o);
             }
         return {};
+    }
+
+    // ── Product-scoped entitlements (docs/stride-entitlements-spec.md) ──
+    // The server signs {key,ents,iat} with Ed25519; we VERIFY with the embedded
+    // PUBLIC key (raw 32 bytes, extracted from the SPKI PEM). This IS the VST, so
+    // we gate on the "vst" entitlement and do NOT grandfather a legacy unsigned
+    // cache (grandfatherProduct=null in the JS mirror) — a v1 cache forces an
+    // online re-scope. Mirrors entitlements.js readEntitlement 1:1.
+    static const uint8_t kEntPublicKey[32] = {
+        0x4f, 0x27, 0x66, 0x14, 0xed, 0x9c, 0x11, 0xbb, 0x8d, 0xbb, 0x88, 0x10, 0x96, 0xc0, 0x90, 0x99,
+        0xe0, 0x92, 0x82, 0x1a, 0x93, 0xf2, 0x40, 0x6b, 0xd9, 0x5a, 0x0b, 0xa0, 0x13, 0xdb, 0x86, 0xbd
+    };
+
+    inline juce::String entJsonEscape (const juce::String& s)
+    {
+        juce::String o;
+        for (auto ch : s)
+        {
+            if (ch == '"')       o << "\\\"";
+            else if (ch == '\\') o << "\\\\";
+            else                 o << juce::String::charToString (ch);
+        }
+        return o;
+    }
+
+    // Reproduce entitlements.js canonicalize({key,ents,iat}) byte-for-byte:
+    //   {"ents":[...],"iat":<int>,"key":"<escaped>"}   sorted keys, no spaces.
+    inline juce::String entCanonical (const juce::var& ent)
+    {
+        juce::String out = "{\"ents\":[";
+        if (auto* arr = ent.getProperty ("ents", juce::var()).getArray())
+            for (int i = 0; i < arr->size(); ++i)
+            {
+                if (i) out << ",";
+                out << "\"" << entJsonEscape ((*arr)[i].toString()) << "\"";
+            }
+        out << "],\"iat\":" << juce::String ((juce::int64) ent.getProperty ("iat", (juce::int64) 0))
+            << ",\"key\":\"" << entJsonEscape (ent.getProperty ("key", "").toString()) << "\"}";
+        return out;
+    }
+
+    inline bool entVerify (const juce::var& ent, const juce::String& sigB64)
+    {
+        juce::MemoryOutputStream sig;
+        if (! juce::Base64::convertFromBase64 (sig, sigB64)) return false;
+        if (sig.getDataSize() != 64) return false;
+        const auto canon = entCanonical (ent);
+        return crypto_ed25519_check ((const uint8_t*) sig.getData(),
+                                     kEntPublicKey,
+                                     (const uint8_t*) canon.toRawUTF8(),
+                                     (size_t) canon.getNumBytesAsUTF8()) == 0;
+    }
+
+    // {entitled:bool, entitlement_reason:string}. product='vst', grandfather=null.
+    // Grace is enforced by the callers (validate offline gate + the JS gate's
+    // age<OFFLINE_GRACE_MS), so this stays time-independent.
+    inline juce::var computeEntitled (const juce::var& lic)
+    {
+        auto mk = [] (bool ok, const char* reason)
+        {
+            auto* o = new juce::DynamicObject();
+            o->setProperty ("entitled", ok);
+            o->setProperty ("entitlement_reason", reason);
+            return juce::var (o);
+        };
+        if (! lic.isObject())                          return mk (false, "no-license");
+        if (! (bool) lic.getProperty ("valid", false)) return mk (false, "not-valid");
+        if ((bool) lic.getProperty ("builtin", false)) return mk (true,  "builtin");
+
+        const auto ent = lic.getProperty ("ent", juce::var());
+        const auto sig = lic.getProperty ("ent_sig", "").toString();
+        if (ent.isObject() && sig.isNotEmpty())
+        {
+            if (! entVerify (ent, sig)) return mk (false, "bad-signature");
+            const auto ka = ent.getProperty ("key", "").toString().trim().toUpperCase();
+            const auto kb = lic.getProperty ("key", "").toString().trim().toUpperCase();
+            if (ka != kb) return mk (false, "key-mismatch");
+            if (auto* arr = ent.getProperty ("ents", juce::var()).getArray())
+                for (auto& e : *arr)
+                    if (e.toString() == "vst") return mk (true, "signed");
+            return mk (false, "wrong-product");
+        }
+        return mk (false, "v1-needs-online");   // VST never grandfathers a legacy cache
     }
 
     // {success:true, license:<obj|null>}
@@ -79,8 +167,15 @@ namespace stride_license
         const auto f = licenseFile();
         if (f.existsAsFile())
         {
-            const auto parsed = juce::JSON::parse (f.loadFileAsString());
-            o->setProperty ("license", parsed.isObject() ? parsed : juce::var());
+            auto parsed = juce::JSON::parse (f.loadFileAsString());
+            if (auto* lo = parsed.getDynamicObject())
+            {
+                const auto e = computeEntitled (parsed);
+                lo->setProperty ("entitled", (bool) e.getProperty ("entitled", false));
+                lo->setProperty ("entitlement_reason", e.getProperty ("entitlement_reason", juce::var()));
+                o->setProperty ("license", parsed);
+            }
+            else o->setProperty ("license", juce::var());
         }
         else o->setProperty ("license", juce::var());
         return juce::var (o);
@@ -164,6 +259,16 @@ namespace stride_license
                 o->setProperty ("status", parsed.getProperty ("status", "active"));
                 o->setProperty ("key", upper);
                 o->setProperty ("builtin", false);
+                // Product-scoping: carry the server's signed entitlements and
+                // verify for THIS product (vst).
+                o->setProperty ("entitlements", parsed.getProperty ("entitlements", juce::var()));
+                o->setProperty ("ent",          parsed.getProperty ("ent", juce::var()));
+                o->setProperty ("ent_sig",      parsed.getProperty ("ent_sig", juce::var()));
+                {
+                    const auto e = computeEntitled (juce::var (o));
+                    o->setProperty ("entitled", (bool) e.getProperty ("entitled", false));
+                    o->setProperty ("entitlement_reason", e.getProperty ("entitlement_reason", juce::var()));
+                }
                 result = juce::var (o);
             }
             else if (networkOk)
@@ -188,6 +293,9 @@ namespace stride_license
                             if (auto* o = c.getDynamicObject())
                             {
                                 o->setProperty ("offline", true);
+                                const auto e = computeEntitled (c);
+                                o->setProperty ("entitled", (bool) e.getProperty ("entitled", false));
+                                o->setProperty ("entitlement_reason", e.getProperty ("entitlement_reason", juce::var()));
                                 result = juce::var (o);
                             }
                         }

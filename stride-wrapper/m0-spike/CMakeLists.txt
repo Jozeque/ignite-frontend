@@ -73,7 +73,10 @@ juce_add_plugin(StrideWrapperM0
 target_sources(StrideWrapperM0 PRIVATE
     src/PluginProcessor.cpp
     src/PluginEditor.cpp
+    src/third_party/monocypher/monocypher.c            # Ed25519 entitlement verify
+    src/third_party/monocypher/monocypher-ed25519.c    # standard (SHA-512) Ed25519
 )
+target_include_directories(StrideWrapperM0 PRIVATE src/third_party/monocypher)
 
 # macOS transport-key forwarding (Objective-C++) — Mac only
 if(APPLE)

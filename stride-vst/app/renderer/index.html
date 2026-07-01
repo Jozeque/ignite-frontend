@@ -1057,15 +1057,15 @@
                 const lic = result.license;
                 if (lic.valid && lic.key) {
                     const age = Date.now() - (lic.cached_at || 0);
-                    if (age < OFFLINE_GRACE_MS) {
-                        // Within grace — unlock immediately, revalidate in background
+                    if (lic.entitled && age < OFFLINE_GRACE_MS) {
+                        // Within grace AND entitled to this product — unlock, revalidate in bg
                         revalidateSilently(lic.key);
                         unlockApp();
                         return;
                     }
-                    // Grace expired — force fresh online validation
+                    // Grace expired, or entitlement needs a fresh check — validate online
                     const online = await validateKeyOnline(lic.key);
-                    if (online && online.valid) {
+                    if (online && online.valid && online.entitled) {
                         await cacheLicense(lic.key, online);
                         unlockApp();
                         return;
@@ -1111,12 +1111,19 @@
 
         try {
             const result = await validateKeyOnline(key);
-            if (result && result.valid) {
+            if (result && result.valid && result.entitled) {
                 await cacheLicense(key, result);
                 unlockApp();
                 // Note: don't reset _activating/btn state on success —
                 // unlockApp removes the overlay, so no further activation calls
                 // can happen from this window.
+            } else if (result && result.valid && !result.entitled) {
+                // Valid key, wrong product (e.g. a VST-only key entered here).
+                // Don't treat as an error — point them to the right key.
+                showActivationError('This license is for a different Stride product. Please use your StrideLink key here.');
+                btn.textContent = 'Activate';
+                btn.disabled = false;
+                _activating = false;
             } else {
                 showActivationError((result && result.error) || 'Invalid license key. Please check and try again.');
                 btn.textContent = 'Activate';
@@ -1162,7 +1169,13 @@
             expires_at: validationResult.expires_at || null,
             status: validationResult.status || 'active',
             builtin: validationResult.builtin || false,
-            validated_at: Date.now()
+            validated_at: Date.now(),
+            // v2 product-scoping (server-signed). Persisted so offline/grace
+            // re-checks verify entitlement without a network call.
+            version: 2,
+            entitlements: validationResult.entitlements || null,
+            ent: validationResult.ent || null,
+            ent_sig: validationResult.ent_sig || null
         });
     }
 
