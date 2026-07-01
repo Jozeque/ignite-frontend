@@ -264,12 +264,16 @@ namespace stride_license
                 o->setProperty ("entitlements", parsed.getProperty ("entitlements", juce::var()));
                 o->setProperty ("ent",          parsed.getProperty ("ent", juce::var()));
                 o->setProperty ("ent_sig",      parsed.getProperty ("ent_sig", juce::var()));
+                // Take ownership in `result` FIRST. Otherwise wrapping the raw `o`
+                // in a temporary var (computeEntitled(juce::var(o))) frees it when
+                // that temp dies — refcount hits 0 — and every line after is a
+                // use-after-free that crashes the host right after validation.
+                result = juce::var (o);
                 {
-                    const auto e = computeEntitled (juce::var (o));
+                    const auto e = computeEntitled (result);
                     o->setProperty ("entitled", (bool) e.getProperty ("entitled", false));
                     o->setProperty ("entitlement_reason", e.getProperty ("entitlement_reason", juce::var()));
                 }
-                result = juce::var (o);
             }
             else if (networkOk)
             {
