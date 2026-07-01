@@ -14,6 +14,11 @@
 (function () {
   'use strict';
 
+  // Mark this as the VST wrapper so the shared canvas.js can enable wrapper-only
+  // behavior (e.g. the live drive-flush on every curve change) without touching
+  // the desktop app.
+  window.__STRIDE_WRAPPER__ = true;
+
   // ── on-screen error readout ──────────────────────────────────────
   var errBox = null;
   function showErr(msg) {
@@ -58,19 +63,12 @@
   var _devFilter = null;   // which chain device the canvas is filtered to (null = all)
   function _hideUndoToast() { _undoArmed = false; if (_undoToast) _undoToast.style.display = 'none'; if (_undoTimer) { clearTimeout(_undoTimer); _undoTimer = 0; } }
   function _doUndoRemove() { if (! _undoArmed) return; _undoArmed = false; emit('undoRemove'); _hideUndoToast(); }
+  // Arm the single-level device-undo window SILENTLY — no toast/popup. Users just
+  // hit Ctrl+Z right after a remove/clear if they want it back; no need to prompt.
   function _armUndo(name, msg) {
     _undoArmed = true;
-    if (! _undoToast) {
-      _undoToast = document.createElement('div');
-      _undoToast.style.cssText = 'position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:99998;background:#18181b;border:1px solid #3f3f46;border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:12px;font:12px Outfit,sans-serif;color:#e4e4e7;box-shadow:0 6px 24px rgba(0,0,0,.5)';
-      var msg = document.createElement('span'); msg.id = '_undoMsg'; _undoToast.appendChild(msg);
-      var u = document.createElement('button'); u.textContent = 'Undo'; u.style.cssText = 'background:#f97316;color:#000;border:0;border-radius:6px;padding:4px 10px;font-weight:700;cursor:pointer'; u.onclick = _doUndoRemove; _undoToast.appendChild(u);
-      (document.body || document.documentElement).appendChild(_undoToast);
-    }
-    var m = document.getElementById('_undoMsg'); if (m) m.textContent = msg || ('Removed ' + (name || 'device') + ' · Ctrl+Z to undo');
-    _undoToast.style.display = 'flex';
     if (_undoTimer) clearTimeout(_undoTimer);
-    _undoTimer = setTimeout(_hideUndoToast, 7000);
+    _undoTimer = setTimeout(_hideUndoToast, 7000);   // Ctrl+Z window (invisible)
   }
   window.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && pluginModal) { e.preventDefault(); e.stopImmediatePropagation(); closePluginBrowser(); return; }
@@ -83,7 +81,7 @@
   try {
     var hideCss = document.createElement('style');
     hideCss.textContent = '#sd-inject-rail{display:none!important} #sd-strideinject-modal{display:none!important} #link-status{display:none!important} #stride-stale-banner{display:none!important} #sd-install-m4l-overlay{display:none!important} #sd-welcome-overlay{display:none!important}'
-      + ' @keyframes sdMapPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(167,139,250,0)}50%{transform:scale(1.07);box-shadow:0 0 10px 2px rgba(167,139,250,.5)}}'
+      + ' @keyframes sdMapPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(250,204,21,0)}50%{transform:scale(1.07);box-shadow:0 0 12px 3px rgba(250,204,21,.6)}}'
       + ' .sd-map-armed{animation:sdMapPulse 1.15s ease-in-out infinite}';
     (document.head || document.documentElement).appendChild(hideCss);
   } catch (e) {}
@@ -277,7 +275,9 @@
   // Map gets its own slightly-bigger, distinct (violet) treatment so the primary
   // "arm to learn" action reads differently from +Add / Clear.
   var BTN_MAP       = 'px-3 py-1 rounded text-[10px] uppercase tracking-wider font-bold transition-colors text-violet-200 bg-violet-500/20 hover:bg-violet-500/30 border border-violet-400/40';
-  var BTN_MAP_ARMED = 'px-3 py-1 rounded text-[10px] uppercase tracking-wider font-bold transition-colors text-white bg-violet-500/60 border border-violet-300 sd-map-armed';
+  // Armed = bright YELLOW + pulse so you can't forget it's on and press it off. (Default
+  // Tailwind yellow, not amber — amber is remapped to orange in the copper skin.)
+  var BTN_MAP_ARMED = 'px-3 py-1 rounded text-[10px] uppercase tracking-wider font-bold transition-colors text-black bg-yellow-400 hover:bg-yellow-300 border border-yellow-300 sd-map-armed';
 
   function buildBar() {
     try {

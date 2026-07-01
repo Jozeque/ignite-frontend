@@ -488,11 +488,47 @@ juce::StringArray StrideWrapperProcessor::getMappedParamNames() const
     return names;
 }
 
+// Drive curves per mapped param (in mapped order), as [{time,value,curve}...]. Empty
+// array for a param with no curve yet. Sent in rack_scanned so reopening Stride shows
+// the drawn curves straight from the engine — the reliable source of truth (persisted
+// in the project state + live in the running instance), independent of localStorage.
+juce::Array<juce::var> StrideWrapperProcessor::getMappedCurves() const
+{
+    juce::Array<juce::var> out;
+    const juce::ScopedLock sl (hostLock);
+    for (const auto& m : mapped)
+    {
+        juce::Array<juce::var> pts;
+        for (const auto& L : driveLanes)
+            if (L.node == m.node && L.param == m.param)
+            {
+                for (size_t i = 0; i < L.times.size(); ++i)
+                {
+                    auto* o = new juce::DynamicObject();
+                    o->setProperty ("time",  (double) L.times[i]);
+                    o->setProperty ("value", (double) (i < L.values.size() ? L.values[i] : 0.0f));
+                    o->setProperty ("curve", (double) (i < L.curves.size() ? L.curves[i] : 0.0f));
+                    pts.add (juce::var (o));
+                }
+                break;
+            }
+        out.add (juce::var (pts));
+    }
+    return out;
+}
+
 void StrideWrapperProcessor::removeMappedAt (int pos)
 {
     const juce::ScopedLock sl (hostLock);
     if (pos >= 0 && pos < (int) mapped.size())
     {
+        // Stop driving the param we're unmapping: driveLanes hold the RESOLVED
+        // node/param, so drop the one that matches — otherwise the freed knob keeps
+        // moving to its last curve after the user removed it from the panel.
+        const int n = mapped[(size_t) pos].node, pr = mapped[(size_t) pos].param;
+        for (int k = (int) driveLanes.size() - 1; k >= 0; --k)
+            if (driveLanes[(size_t) k].node == n && driveLanes[(size_t) k].param == pr)
+                driveLanes.erase (driveLanes.begin() + k);
         mapped.erase (mapped.begin() + pos);
         mapVersion.fetch_add (1);
     }

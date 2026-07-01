@@ -60,6 +60,8 @@ public:
     void setLearnMode (bool shouldLearn);
     bool isLearning() const { return learnMode.load(); }
     juce::StringArray getMappedParamNames() const;    // "Device: Param", in mapped order
+    juce::Array<juce::var> getMappedCurves() const;   // drive curve [{time,value,curve}...] per mapped param — so a reopen SHOWS the curves (not localStorage-dependent)
+    double getClipBeats() const { return driveClipBeats; }   // loop length in beats (bars*4) — for the canvas bar count on load
     void removeMappedAt (int pos);
     void clearMapping();
     int  mappingVersion() const { return mapVersion.load(); }

@@ -26,6 +26,14 @@ static std::optional<Resource> makeResource (const char* data, int size, const c
     return Resource { std::move (bytes), juce::String (mime) };
 }
 
+// Global (cross-project) editor-size memory, stored beside the license so Stride
+// reopens at whatever size the user left it — a big/"fullscreen" window stays big
+// instead of snapping back to the compact default.
+static juce::File strideWrapperWindowFile()
+{
+    return stride_license::dataDir().getChildFile ("wrapper-window.json");
+}
+
 // Serve the bundled UI files by ORIGINAL filename (looked up in BinaryData, so we don't
 // hand-mangle symbol names). The page loads from the resource-provider root, so every
 // <script src="x.js"> resolves to a request we answer here.
@@ -156,7 +164,21 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
 
     setResizable (true, true);
     setResizeLimits (380, 280, 2200, 1400);
-    setSize (680, 480);   // compact-device sized (the wrapper opens in compact mode)
+    // Reopen at the size the user last left Stride (global preference), else the compact
+    // default. Clamped to the resize limits so a stale/garbage file can't break layout.
+    int initW = 680, initH = 480;   // compact-device default
+    {
+        const auto f = strideWrapperWindowFile();
+        if (f.existsAsFile())
+        {
+            const auto v = juce::JSON::parse (f.loadFileAsString());
+            const int w = (int) v.getProperty ("w", 0), h = (int) v.getProperty ("h", 0);
+            if (w >= 380 && w <= 2200 && h >= 280 && h <= 1400) { initW = w; initH = h; }
+        }
+    }
+    setSize (initW, initH);
+    savedW = lastTickW = initW;
+    savedH = lastTickH = initH;
     startTimerHz (10);
    #if JUCE_WINDOWS
     installKeyHook();     // forward Space/Return from hosted synth windows to the DAW transport
@@ -312,6 +334,15 @@ void StrideWrapperEditor::handleStrideLinkSend (const juce::var& msg)
         return;
     }
 
+    // Unmap ONE param (the per-lane × in Stride). Deliberately does NOT re-push:
+    // the canvas re-indexes its own lanes to match the erase, so a positional
+    // re-push here would misroute the other lanes' drawn curves.
+    if (type == "unmapParam")
+    {
+        proc.removeMappedAt ((int) msg.getProperty ("id", -1));
+        return;
+    }
+
     // The drawn curves drive the hosted synth. Three sources, same effect:
     //   "live_curves"     — every canvas edit (saveCanvasState hook): drive AS you draw
     //   "apply_inject"    — the "Inject to Clip" button
@@ -374,6 +405,7 @@ void StrideWrapperEditor::pushRackScanned()
 
     juce::Array<juce::var> params;
     const auto names = proc.getMappedParamNames();
+    const auto curves = proc.getMappedCurves();   // drive curves so a reopen SHOWS them, not just an empty canvas
     for (int i = 0; i < names.size(); ++i)
     {
         auto* o = new juce::DynamicObject();
@@ -386,6 +418,7 @@ void StrideWrapperEditor::pushRackScanned()
         o->setProperty ("max", 1.0);
         o->setProperty ("_path", "wrap:" + juce::String (i));   // stable enough for v1
         o->setProperty ("is_log", false);
+        if (i < curves.size()) o->setProperty ("points", curves[i]);   // restore the drawn curve onto this lane
         params.add (juce::var (o));
     }
 
@@ -395,7 +428,7 @@ void StrideWrapperEditor::pushRackScanned()
     const auto summary = proc.getChainSummary();
     msg->setProperty ("device_name", summary.isNotEmpty() ? summary : juce::String ("No synth"));
     msg->setProperty ("track_name", "Stride");
-    msg->setProperty ("clip_bars", 4);
+    msg->setProperty ("clip_bars", juce::jmax (1, juce::roundToInt (proc.getClipBeats() / 4.0)));   // real loop length so restored curves show at the right scale
     msg->setProperty ("has_clip", true);
     web->emitEventIfBrowserIsVisible ("sl_event", juce::var (msg));
 }
@@ -519,5 +552,19 @@ void StrideWrapperEditor::timerCallback()
     {
         lastLearn = learning;
         pushLearnState();
+    }
+
+    // Persist the editor size once it settles (unchanged for one 10Hz tick), so
+    // launching Stride reopens it where the user left it — big/"fullscreen" stays big.
+    const int cw = getWidth(), ch = getHeight();
+    if (cw != lastTickW || ch != lastTickH) { lastTickW = cw; lastTickH = ch; }   // still resizing — wait for it to settle
+    else if (cw > 0 && ch > 0 && (cw != savedW || ch != savedH))
+    {
+        savedW = cw; savedH = ch;
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("w", cw);
+        o->setProperty ("h", ch);
+        stride_license::dataDir().createDirectory();
+        strideWrapperWindowFile().replaceWithText (juce::JSON::toString (juce::var (o)));
     }
 }

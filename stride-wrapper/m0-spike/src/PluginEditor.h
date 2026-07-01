@@ -59,6 +59,8 @@ private:
     juce::String lastSummary;
     int          lastMapVersion = -1;
     bool         lastLearn      = false;   // so the Map button reflects EVERY learn-mode change (incl. auto-leave)
+    int lastTickW = 0, lastTickH = 0;      // window-size settle detector (persist only once resizing stops)
+    int savedW = 0, savedH = 0;            // last size written to wrapper-window.json
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StrideWrapperEditor)
 };

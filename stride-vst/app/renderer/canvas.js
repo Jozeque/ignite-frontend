@@ -245,6 +245,8 @@
     //             for precise per-lane editing. One click away.
     let sdViewMode = 'multi';
     let _sdFocusBackRect = null;              // hit rect for the focus-view "← All lanes" pill (null in multi)
+    let _sdUnmapRects = [];                    // per-lane unmap-× hit rects (wrapper lanes only), rebuilt each multi-view draw
+    let _sdHoverUnmapId = null;                // envelopeId of the unmap × under the cursor (grey by default, red on hover)
     let sdDeviceFilter = null;                // multi view: show only this device's lanes (null = all) — set by clicking a chain device
     let sdMultiScrollOffset = 0;              // # of lanes scrolled off the top
     const SD_MULTI_LANE_HEIGHT = 64;          // px per lane in multi view
@@ -773,7 +775,7 @@
             is_log: p.is_log || false,
             locked: false,
             selected: false,
-            points: []
+            points: Array.isArray(p.points) ? p.points : []   // wrapper sends the drawn curve from the engine — reliable across reopen (desktop sends none → empty)
         })).sort(_sdSortByName);
 
         if (sdCanvasParams.length > 0) sdActiveParamId = sdCanvasParams[0].envelopeId;
@@ -1067,6 +1069,17 @@
             // (curves + locks intact) WITHOUT a full reload — reloading the whole rack
             // on every (often duplicate) rescan thrashes the main thread and is a big
             // driver of the "stuck" on heavy racks.
+            // EXCEPTION: fold in curve points the scan carries for a lane that's
+            // currently EMPTY — on a project reload the wrapper's engine finishes
+            // restoring its curves a moment after the first (still-empty) scan, and
+            // this is what makes those curves appear. Only fills empties, so it never
+            // clobbers a curve you're editing.
+            (msg.parameters || []).forEach(sp => {
+                if (!sp || !Array.isArray(sp.points) || !sp.points.length) return;
+                const lane = (sp._path && sdCanvasParams.find(p => p._path === sp._path))
+                          || sdCanvasParams.find(p => String(p.id) === String(sp.id));
+                if (lane && (!lane.points || !lane.points.length)) lane.points = sp.points;
+            });
             sdRenderSidebar();
             sdDrawCanvasGrid();
         } else if (hasExistingCurves || hasLocks) {
@@ -2634,6 +2647,36 @@
         if (typeof _sdUpdateSelectionButtons === 'function') _sdUpdateSelectionButtons();
     };
 
+    // Unmap a single lane (the per-lane × — wrapper only). Removes it from the panel
+    // and tells the engine to free that knob, then re-indexes the lanes that sat AFTER
+    // it so their positions stay in lockstep with the engine's re-indexed mapping. No
+    // full rack rebuild → every other lane keeps its exact curve, lock, and identity.
+    window.sdUnmapLane = function(envelopeId) {
+        const idx = sdCanvasParams.findIndex(p => p.envelopeId === envelopeId);
+        if (idx < 0) return;
+        const removed = sdCanvasParams[idx];
+        const pos = removed.id;                                    // engine mapped position
+        const activeObj = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
+        sdCanvasParams.splice(idx, 1);
+        // Positions above the removed one shift down by 1 — mirror that on id/_path/envelopeId.
+        sdCanvasParams.forEach(p => {
+            if (typeof p.id === 'number' && p.id > pos) {
+                p.id -= 1; p.envelopeId = String(p.id); p._path = 'wrap:' + p.id;
+            }
+        });
+        sdActiveParamId = (activeObj && sdCanvasParams.indexOf(activeObj) >= 0)
+            ? activeObj.envelopeId
+            : (sdCanvasParams[0] ? sdCanvasParams[0].envelopeId : null);
+        // Emit BEFORE the re-flush in saveCanvasState so the engine re-indexes its
+        // mapping first (drops the mapped entry + its drive lane).
+        try { if (window.strideLink && window.strideLink.send) window.strideLink.send({ type: 'unmapParam', id: pos }); } catch (e) {}
+        sdRenderSidebar();
+        sdDrawCanvasGrid();
+        try { saveCanvasState(); } catch (e) {}   // persist re-indexed lanes + re-flush remaining curves
+        const st = document.getElementById('sd-canvas-status');
+        if (st) st.textContent = 'Unmapped ' + (removed.device ? removed.device + ' · ' : '') + (removed.name || 'param');
+    };
+
     // Toolbar action: lock or unlock every lane at once. If any lane is
     // currently unlocked, the action LOCKS all. If everything is already
     // locked, the action UNLOCKS all. Single-button toggle.
@@ -2941,8 +2984,26 @@
         setTimeout(function () { try { window.dispatchEvent(new Event('resize')); } catch (e) {} }, 40);
     };
 
+    // Wrapper-only: coalesce curve changes and push them to the engine shortly after
+    // each change, so drawing / generators / sliders modulate the knobs LIVE — no need
+    // to click away (blur) to make it fire. Throttled + idempotent, so incidental
+    // redraws (pan, hover) cost at most one harmless re-push. No-op in the desktop app.
+    let _sdDriveFlushTimer = 0;
+    function _sdScheduleDriveFlush() {
+        if (!window.__STRIDE_WRAPPER__ || _sdDriveFlushTimer) return;
+        _sdDriveFlushTimer = setTimeout(function () {
+            _sdDriveFlushTimer = 0;
+            // NEVER flush an empty canvas. On a project reload the lanes arrive a beat
+            // before their curves; a stray empty flush here would push live_curves:[] and
+            // wipe the engine's just-restored drive lanes — leaving the reload blank.
+            if (!sdCanvasParams.length) return;
+            try { Promise.resolve(saveCanvasState()); } catch (e) {}
+        }, 150);
+    }
+
     function sdDrawCanvasGrid() {
         if (!sdCtx || !sdCanvasEl || !sdCanvasRect) return;
+        _sdScheduleDriveFlush();
         sdDrawRuler();
         const lw = sdCanvasEl.getBoundingClientRect().width;
         const lh = sdCanvasEl.getBoundingClientRect().height;
@@ -3139,6 +3200,21 @@
         ctx.restore();
     }
 
+    // Tiny "×" at the top-left of a wrapper lane's label — click to UNMAP that param
+    // (remove it from the panel + free the knob in the engine). Dim red so it reads as
+    // a remove action, distinct from the neutral lock/focus glyphs.
+    function _drawUnmapIcon(ctx, x, y, size, color) {
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(x, y); ctx.lineTo(x + size, y + size);
+        ctx.moveTo(x + size, y); ctx.lineTo(x, y + size);
+        ctx.stroke();
+        ctx.restore();
+    }
+
     // The "← All lanes" pill shown in focus view (top-right). Returns its hit
     // rect so the mousedown handler can route a click back to multi-lane view.
     function _sdDrawFocusBackBtn(lw, lh) {
@@ -3178,6 +3254,7 @@
     function sdDrawMultiView(lw, lh) {
         sdMultiClampScroll();
         _sdLaneGeom = [];   // rebuilt below for the comet FX overlay
+        _sdUnmapRects = []; // rebuilt below — wrapper lanes get a per-lane unmap ×
         const bars = sdGetBars();
         const totalBeats = bars * 4;
         const laneDrawLeft = SD_MULTI_LABEL_WIDTH;
@@ -3286,17 +3363,23 @@
                 // Two-line label: DEVICE in bold on top, parameter name beneath
                 // (smaller) so the full param name stays readable. Used by the VST
                 // wrapper, where each lane carries its hosting device.
+                // Unmap × at the top-left (wrapper lanes only). The label is shifted
+                // right to clear it; the hit rect is recorded for the mousedown handler.
+                _drawUnmapIcon(sdCtx, 5, midY - 14, 6, param.envelopeId === _sdHoverUnmapId ? 'rgba(248,113,113,0.95)' : 'rgba(161,161,170,0.5)');
+                _sdUnmapRects.push({ envelopeId: param.envelopeId, x: 0, y: midY - 17, w: 16, h: 15 });
+
+                const _tx = 20;   // label start x — clears the × on the left
                 sdCtx.fillStyle = _labelCol;
                 sdCtx.font = isHighlighted ? 'bold 11px Outfit' : 'bold 10px Outfit';
-                const devMax = 13;
+                const devMax = 12;
                 const devTxt = param.device.length > devMax ? param.device.slice(0, devMax - 1) + '…' : param.device;
-                sdCtx.fillText(devTxt, 8, midY - 8);
+                sdCtx.fillText(devTxt, _tx, midY - 8);
 
                 sdCtx.fillStyle = isLocked ? 'rgba(251,191,36,0.6)' : 'rgba(212,212,216,0.8)';
                 sdCtx.font = '9px Outfit';
-                const parMax = 17;
+                const parMax = 15;
                 const parTxt = displayName.length > parMax ? displayName.slice(0, parMax - 1) + '…' : displayName;
-                sdCtx.fillText(parTxt, 8, midY + 6);
+                sdCtx.fillText(parTxt, _tx, midY + 6);
             } else {
                 // Single-line label + point count (desktop app — param names only).
                 sdCtx.fillStyle = _labelCol;
@@ -3662,6 +3745,14 @@
                 const mrect = sdCanvasEl.getBoundingClientRect();
                 const my = e.clientY - mrect.top;
                 const mx = e.clientX - mrect.left;
+                // Unmap-× click (wrapper lanes only) — remove this param from the panel + engine.
+                for (let _ui = 0; _ui < _sdUnmapRects.length; _ui++) {
+                    const _r = _sdUnmapRects[_ui];
+                    if (mx >= _r.x && mx <= _r.x + _r.w && my >= _r.y && my <= _r.y + _r.h) {
+                        if (typeof window.sdUnmapLane === 'function') window.sdUnmapLane(_r.envelopeId);
+                        return;
+                    }
+                }
                 const hit = sdMultiGetParamAtY(my);
                 if (!hit) return;
 
@@ -3801,7 +3892,7 @@
                     sdCanvasEl.style.cursor = onSeg ? 'ns-resize' : 'crosshair';
                 }
             } else if (!sdIsDragging && !sdIsPanning) {
-                sdCanvasEl.style.cursor = 'crosshair';
+                sdCanvasEl.style.cursor = _sdHoverUnmapId ? 'pointer' : 'crosshair';
             }
             if (!sdIsDragging) return;
             const hd = sdGetTimeValue(e); const bars = sdGetBars(); const totalBeats = bars * 4;
@@ -3966,8 +4057,27 @@
             return parseFloat(v.toFixed(3)).toString();
         }
 
+        function _sdSetUnmapHover(id) {
+            if (_sdHoverUnmapId === id) return;
+            _sdHoverUnmapId = id;
+            try { sdDrawCanvasGrid(); } catch (e) {}   // recolor the × (grey <-> red)
+        }
         function _sdMaybeShowLaneTooltip(e) {
             _sdTooltipInit();
+            // Unmap-× hover (wrapper lanes): recolor the × under the cursor grey->red.
+            // Computed up front so it works even when the tooltip is suppressed below.
+            if (sdCanvasEl && sdViewMode === 'multi' && !(sdIsPanning || sdIsDragging || sdIsCurveDragging || _sdDragSelectActive)) {
+                const _ur = sdCanvasEl.getBoundingClientRect();
+                const _umx = e.clientX - _ur.left, _umy = e.clientY - _ur.top;
+                let _over = null;
+                for (let _i = 0; _i < _sdUnmapRects.length; _i++) {
+                    const _u = _sdUnmapRects[_i];
+                    if (_umx >= _u.x && _umx <= _u.x + _u.w && _umy >= _u.y && _umy <= _u.y + _u.h) { _over = _u.envelopeId; break; }
+                }
+                _sdSetUnmapHover(_over);
+            } else {
+                _sdSetUnmapHover(null);
+            }
             if (!_sdTooltipEl || !sdCanvasEl) return;
             // Suppress during any active gesture — tooltip would just
             // hover distractingly.
@@ -4045,6 +4155,7 @@
                 if (sdCanvasEl) sdCanvasEl.style.cursor = 'crosshair';
                 sdDrawCanvasGrid();
                 if (_sdActiveTool === 'prism') _sdPrismLiveTick();
+                try { Promise.resolve(saveCanvasState()); } catch (e) {}   // flush the edit live so the modulation fires on release — no focus switch needed
             }
             if (sdIsDragging) {
                 pushUndo();
@@ -4056,6 +4167,7 @@
                 // match the final source curve, not the last rAF tick
                 // (which may have skipped the very last mousemove).
                 if (_sdActiveTool === 'prism') _sdPrismLiveTick();
+                try { Promise.resolve(saveCanvasState()); } catch (e) {}   // flush the edit live so the modulation fires on release — no focus switch needed
             }
             // Drag-select cleanup. Fires whether or not the drag ever
             // crossed the threshold — covers the click-only path too.
