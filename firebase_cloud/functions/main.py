@@ -356,12 +356,24 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
                     amount_str = ""
                     if attrs.get("total") is not None:
                         amount_str = f"${(attrs.get('total', 0) or 0) / 100:.2f} {attrs.get('currency', '')}"
+                    # Label the order so you can tell a demo download from a real
+                    # purchase from a free/comped upgrade at a glance.
+                    _foi = attrs.get("first_order_item") or {}
+                    _pname = _foi.get("product_name") or "?"
+                    if str(_foi.get("product_id") or "") == "1190710":   # "Stride - Free Demo"
+                        _otype = "🎁 Free Demo"
+                    elif (attrs.get("total", 0) or 0) > 0:
+                        _otype = "💰 Purchase"
+                    else:
+                        _otype = "🎟️ Free / comped"
                     msg = {
                         "username": "Stride Engine",
                         "content": (
                             f"🔑 **NEW CUSTOMER**\n"
                             f"**Name:** `{name or '?'}`\n"
                             f"**Email:** `{email}`\n"
+                            f"**Product:** `{_pname}`\n"
+                            f"**Type:** {_otype}\n"
                             f"**Amount:** `{amount_str or '?'}`\n"
                             f"**Source:** {'🎯 Meta ad' if from_meta else 'Direct / organic'}\n"
                             f"**Order:** `{attrs.get('identifier') or '?'}`"
