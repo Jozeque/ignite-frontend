@@ -681,6 +681,23 @@ def _handle_validate_license(data: dict):
             form = {"license_key": key, "instance_name": instance_name}
             result, err_body, status = _call_ls(url, form)
 
+    # Activation-limit self-heal (free VST upgrade). Existing StrideLink customers
+    # ARE entitled to the VST, but their key's 2 slots are already used by StrideLink,
+    # so the VST's /activate is rejected — blocking an upgrade they've earned.
+    # Entitlement = product scoping, NOT device count, so the VST needs no slot of its
+    # own: fall back to a SLOT-FREE key validation. Only fires on the limit error;
+    # invalid/refunded/expired keys still fail, and _resolve_entitlements still gates
+    # which products actually unlock.
+    def _is_activation_limit(res, body):
+        blob = (str((res or {}).get("error") or "") + " " + (body or "")).lower()
+        return "activation limit" in blob or "activation_limit" in blob
+    if _is_activation_limit(result, err_body):
+        print("[License] activation limit reached — slot-free /validate fallback")
+        result, err_body, status = _call_ls(
+            "https://api.lemonsqueezy.com/v1/licenses/validate",
+            {"license_key": key},   # no instance_id -> validates the KEY, consumes no slot
+        )
+
     # Handle network/HTTP failure (result is None = never got parseable JSON back)
     if result is None:
         msg = ""
