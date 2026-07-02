@@ -156,7 +156,14 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
         .withEventListener ("license",      [this] (juce::var v)   { handleLicense (v); })
         .withEventListener ("undoRemove",   [this] (juce::var)     { synthWindows.clear(); proc.undoRemove(); })
         .withEventListener ("toggleLearn",  [this] (juce::var)     { proc.setLearnMode (! proc.isLearning()); pushLearnState(); })
-        .withEventListener ("setDemoMode",  [this] (juce::var v)   { proc.setDemoMode ((bool) v.getProperty ("demo", true)); })
+        .withEventListener ("setDemoMode",  [this] (juce::var)     {
+            // SECURITY: never trust the WebView's flag to LIFT the demo — devtools or a bridge
+            // call could send demo=false to force full mode. Recompute entitlement NATIVELY
+            // from the signed/hashed cache (cachedEntitled). Live activation still unlocks
+            // instantly because the JS gate writes license.json BEFORE emitting this, and it
+            // uses the SAME computeEntitled, so a truly-entitled user always resolves to full.
+            proc.setDemoMode (! stride_license::cachedEntitled());
+        })
         .withEventListener ("openExternal", [this] (juce::var v)   { const auto u = v.getProperty ("url", "").toString(); if (u.isNotEmpty()) juce::URL (u).launchInDefaultBrowser(); });
 
     web = std::make_unique<juce::WebBrowserComponent> (options);

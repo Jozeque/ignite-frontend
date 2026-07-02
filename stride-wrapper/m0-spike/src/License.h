@@ -141,7 +141,17 @@ namespace stride_license
         };
         if (! lic.isObject())                          return mk (false, "no-license");
         if (! (bool) lic.getProperty ("valid", false)) return mk (false, "not-valid");
-        if ((bool) lic.getProperty ("builtin", false)) return mk (true,  "builtin");
+        // SECURITY: a stored "builtin":true is NOT trusted on its own — license.json is a
+        // plaintext, user-writable file, so anyone could forge that flag for a free unlock.
+        // Re-derive it: the stored key must actually hash to one of the built-in key hashes.
+        // A legitimate built-in key re-hashes correctly (no behaviour change); a forged flag
+        // with any other/absent key falls through to the signature path and is rejected.
+        if ((bool) lic.getProperty ("builtin", false))
+        {
+            if (builtinCheck (lic.getProperty ("key", "").toString()).isObject())
+                return mk (true, "builtin");
+            return mk (false, "forged-builtin");
+        }
 
         const auto ent = lic.getProperty ("ent", juce::var());
         const auto sig = lic.getProperty ("ent_sig", "").toString();

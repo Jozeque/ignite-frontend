@@ -78,7 +78,7 @@ ok('editor persists the cycle from the message thread (timer)', /saveDemoCycleSt
 // ─────────────────────────────────────────────────────────────
 // 5. Editor <-> UI bridge for demo (flag in, countdown out)
 // ─────────────────────────────────────────────────────────────
-ok('editor listens for setDemoMode -> proc.setDemoMode', /withEventListener\s*\("setDemoMode"[\s\S]{0,120}setDemoMode/.test(editor));
+ok('editor listens for setDemoMode -> proc.setDemoMode', /withEventListener\s*\("setDemoMode"[\s\S]{0,700}setDemoMode/.test(editor));
 ok('editor pushes demo_freeze (frozen + secs) to the badge', /emitEventIfBrowserIsVisible\s*\("demo_freeze"/.test(editor) && /isDemoFrozen/.test(editor) && /demoSecsUntilResume/.test(editor));
 ok('shim relays demo flag to engine (strideSetDemoMode -> setDemoMode)', /strideSetDemoMode\s*=\s*function/.test(shim) && /emit\('setDemoMode'/.test(shim));
 ok('shim renders the freeze countdown into #sd-demo-status', /listen\('demo_freeze'/.test(shim) && /sd-demo-status/.test(shim));
@@ -122,6 +122,54 @@ ok('timer only auto-opens windows on ADD (n > size), not on remove', /n\s*>\s*\(
 ok('bus fix present: configureHostedBuses (main-bus only)', /configureHostedBuses/.test(procC));
 ok('bus fix applied in BOTH load + restore (>=3 refs: def+2 calls)', (procC.match(/configureHostedBuses/g) || []).length >= 3);
 ok('no enableAllBuses() CALL remains (crash source)', !/[^\/]\benableAllBuses\s*\(\s*\)\s*;/.test(procC));
+
+// ─────────────────────────────────────────────────────────────
+// 11. SECURITY hardening — close the two no-debugger cracks
+// ─────────────────────────────────────────────────────────────
+const crypto = require('crypto');
+
+// (A) A stored "builtin":true must be RE-VERIFIED by re-hashing the key — not trusted.
+ok('computeEntitled re-verifies builtin via builtinCheck (not blind trust)',
+   /builtin[^\n]*\n[\s\S]{0,400}builtinCheck\s*\(\s*lic\.getProperty\s*\(\s*"key"/.test(license));
+ok('computeEntitled rejects a forged builtin flag (forged-builtin reason)',
+   /"forged-builtin"/.test(license));
+ok('no blind "return mk (true, \\"builtin\\")" without a key re-hash before it',
+   !/getProperty\s*\(\s*"builtin"[^\)]*\)\)\s*return\s+mk\s*\(\s*true/.test(license));
+
+// (B) Native setDemoMode must recompute entitlement itself, not trust the WebView flag.
+ok('setDemoMode handler recomputes natively (cachedEntitled), ignores JS flag',
+   /withEventListener\s*\("setDemoMode"[\s\S]{0,700}setDemoMode\s*\(\s*!\s*stride_license::cachedEntitled\s*\(\)/.test(editor));
+ok('setDemoMode no longer trusts v.getProperty("demo") to lift the demo',
+   !/withEventListener\s*\("setDemoMode"[\s\S]{0,200}setDemoMode\s*\(\s*\(bool\)\s*v\.getProperty\s*\(\s*"demo"/.test(editor));
+
+// Behavioural replica — prove the fix logic: re-hashing rejects a forged builtin but
+// accepts a real one. Mirrors License.h builtinCheck (sha256 of trim+upper == a table hash).
+(function () {
+    const MASTER = '074ac7dc594a379be6e5bdfbaab4d16d5400a19cc2f2af9f8c83e88612efdb62';
+    const table = new Set([MASTER]);   // (only the master hash is needed to prove the gate)
+    const sha = (k) => crypto.createHash('sha256').update(String(k).trim().toUpperCase()).digest('hex');
+    // the HARDENED gate: honour builtin ONLY if the stored key actually hashes into the table
+    const entitledBuiltin = (lic) => !!lic && lic.valid === true && lic.builtin === true && table.has(sha(lic.key || ''));
+    ok('forged {builtin:true, key:"FAKE"} is REJECTED by the re-hash gate',
+       entitledBuiltin({ valid: true, builtin: true, entitled: true, key: 'FAKE-CRACK-KEY' }) === false);
+    ok('forged builtin with NO key is rejected',
+       entitledBuiltin({ valid: true, builtin: true, entitled: true }) === false);
+    // and a real builtin key (its hash IS in the table) still unlocks — no legit-user regression
+    const fakePlain = 'X'; const tableWithFake = new Set([sha(fakePlain)]);
+    const gate2 = (lic) => !!lic && lic.valid === true && lic.builtin === true && tableWithFake.has(sha(lic.key || ''));
+    ok('a key whose hash IS in the table still unlocks (no legit regression)',
+       gate2({ valid: true, builtin: true, key: fakePlain }) === true);
+    // the OLD blind-trust gate would have accepted the forgery — proves the hole was real
+    const oldGate = (lic) => !!lic && lic.valid === true && lic.builtin === true;
+    ok('the OLD blind-trust gate WOULD have accepted the forgery (hole confirmed closed)',
+       oldGate({ valid: true, builtin: true, key: 'FAKE-CRACK-KEY' }) === true);
+})();
+
+// The unforgeable path is untouched: Ed25519 verify + key-binding still gate the signed route.
+ok('signed-entitlement path still Ed25519-verified (entVerify unchanged)',
+   /crypto_ed25519_check/.test(license) && /if\s*\(\s*!\s*entVerify\s*\(/.test(license));
+ok('signed path still binds ent.key == lic.key (no ent transplant)',
+   /"key-mismatch"/.test(license));
 
 console.log('  ' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);
