@@ -192,8 +192,18 @@
                 <p class="text-[10px] text-zinc-600 font-medium">
                     Don't have a key? <a href="#" class="text-orange-500 hover:text-orange-400 underline" onclick="window.stride.openExternal('https://stridehub.io'); return false;">Get Stride</a>
                 </p>
+                <button type="button" onclick="document.getElementById('activation-overlay').style.display='none'" class="text-[10px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors mt-1">Continue in demo →</button>
             </div>
         </div>
+    </div>
+
+    <!-- DEMO badge — shown when running without a VST entitlement (demo mode). Non-blocking;
+         re-opens the activation form or links to checkout. -->
+    <div id="sd-demo-badge" class="hidden fixed bottom-3 left-1/2 -translate-x-1/2 z-[9990] flex items-center gap-2.5 bg-zinc-900/95 border border-orange-500/40 rounded-full pl-4 pr-1.5 py-1.5 shadow-2xl" style="font-family:'Outfit',sans-serif; backdrop-filter:blur(8px)">
+        <span class="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400">Demo</span>
+        <span id="sd-demo-status" class="text-[10px] text-zinc-400 font-bold"></span>
+        <button onclick="showActivationOverlay()" class="text-[10px] font-black uppercase tracking-wider text-zinc-200 hover:text-white bg-white/10 hover:bg-white/20 border border-white/15 rounded-full px-2.5 py-1 transition-colors">Activate</button>
+        <button onclick="if(window.stride&&window.stride.openExternal)window.stride.openExternal('https://strideengine.lemonsqueezy.com/checkout/buy/cd9e5114-080a-48f2-ae27-7c99169f438d')" class="text-[10px] font-black uppercase tracking-wider text-white bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 rounded-full px-3 py-1 transition-all">Get Stride VST</button>
     </div>
 
     <!-- Title Bar (draggable for Electron).
@@ -1071,14 +1081,14 @@
                     if (lic.entitled && age < OFFLINE_GRACE_MS) {
                         // Within grace AND entitled to this product — unlock, revalidate in bg
                         revalidateSilently(lic.key);
-                        unlockApp();
+                        unlockApp(false);
                         return;
                     }
                     // Grace expired, or entitlement needs a fresh check — validate online
                     const online = await validateKeyOnline(lic.key);
                     if (online && online.valid && online.entitled) {
                         await cacheLicense(lic.key, online);
-                        unlockApp();
+                        unlockApp(false);
                         return;
                     }
                 }
@@ -1087,9 +1097,9 @@
             console.error('License check error:', e);
         }
 
-        // No valid license — show activation form
-        document.getElementById('activation-checking').classList.add('hidden');
-        document.getElementById('activation-form').classList.remove('hidden');
+        // No VST entitlement → run in DEMO (capped), don't block. The DEMO badge's
+        // Activate button re-opens the form; "Get Stride VST" opens the checkout.
+        unlockApp(true);
     }
 
     // Module-level re-entrancy lock. Without this, a user pressing Enter AND
@@ -1124,9 +1134,9 @@
             const result = await validateKeyOnline(key);
             if (result && result.valid && result.entitled) {
                 await cacheLicense(key, result);
-                unlockApp();
+                unlockApp(false);
                 // Note: don't reset _activating/btn state on success —
-                // unlockApp removes the overlay, so no further activation calls
+                // unlockApp hides the overlay, so no further activation calls
                 // can happen from this window.
             } else if (result && result.valid && !result.entitled) {
                 // Valid key, but it doesn't include Stride VST (e.g. a StrideLink
@@ -1190,14 +1200,32 @@
         });
     }
 
-    function unlockApp() {
+    function unlockApp(demo) {
+        window.__strideDemo = !!demo;
+        try { if (window.strideSetDemoMode) window.strideSetDemoMode(!!demo); } catch (e) {}
         const overlay = document.getElementById('activation-overlay');
         overlay.style.transition = 'opacity 0.3s ease';
         overlay.style.opacity = '0';
         setTimeout(() => {
-            overlay.remove();
+            overlay.style.display = 'none';   // hide (re-showable from the DEMO badge), not remove
+            _sdUpdateDemoBadge();
             if (window.sdCheckFirstRun) window.sdCheckFirstRun();
         }, 300);
+    }
+
+    // Re-open the activation form from the DEMO badge's Activate button.
+    function showActivationOverlay() {
+        const o = document.getElementById('activation-overlay');
+        o.style.display = 'flex'; o.style.opacity = '1';
+        document.getElementById('activation-checking').classList.add('hidden');
+        document.getElementById('activation-form').classList.remove('hidden');
+        const err = document.getElementById('activation-error'); if (err) err.classList.add('hidden');
+    }
+    window.showActivationOverlay = showActivationOverlay;
+
+    function _sdUpdateDemoBadge() {
+        const b = document.getElementById('sd-demo-badge');
+        if (b) b.classList.toggle('hidden', !window.__strideDemo);
     }
 
     function showActivationError(msg) {

@@ -151,11 +151,13 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
         .withEventListener ("openSynth",    [this] (juce::var)     { toggleSynthWindow(); })
         .withEventListener ("openSynthOne", [this] (juce::var v)   { openOneSynthWindow ((int) v.getProperty ("i", -1)); })
         .withEventListener ("clearChain",   [this] (juce::var)     { synthWindows.clear(); proc.clearChain(); pushRackScanned(); pushChainDevices(); })
-        .withEventListener ("removeDevice", [this] (juce::var v)   { synthWindows.clear(); proc.removeNode ((int) v.getProperty ("i", -1)); pushRackScanned(); pushChainDevices(); })
+        .withEventListener ("removeDevice", [this] (juce::var v)   { const int i = (int) v.getProperty ("i", -1); if (i >= 0 && i < (int) synthWindows.size()) synthWindows.erase (synthWindows.begin() + i); proc.removeNode (i); pushRackScanned(); pushChainDevices(); })   // close ONLY the removed device's window; keep the rest as-is (was: clear all -> timer reopened them all)
         .withEventListener ("setBypass",    [this] (juce::var v)   { proc.setNodeBypassed ((int) v.getProperty ("i", -1), ! (bool) v.getProperty ("on", true)); pushChainDevices(); })
         .withEventListener ("license",      [this] (juce::var v)   { handleLicense (v); })
         .withEventListener ("undoRemove",   [this] (juce::var)     { synthWindows.clear(); proc.undoRemove(); })
-        .withEventListener ("toggleLearn",  [this] (juce::var)     { proc.setLearnMode (! proc.isLearning()); pushLearnState(); });
+        .withEventListener ("toggleLearn",  [this] (juce::var)     { proc.setLearnMode (! proc.isLearning()); pushLearnState(); })
+        .withEventListener ("setDemoMode",  [this] (juce::var v)   { proc.setDemoMode ((bool) v.getProperty ("demo", true)); })
+        .withEventListener ("openExternal", [this] (juce::var v)   { const auto u = v.getProperty ("url", "").toString(); if (u.isNotEmpty()) juce::URL (u).launchInDefaultBrowser(); });
 
     web = std::make_unique<juce::WebBrowserComponent> (options);
     addAndMakeVisible (*web);
@@ -530,9 +532,10 @@ void StrideWrapperEditor::timerCallback()
     {
         lastSummary = summary;
         const int n = proc.numHosted();
-        if (n == 0) synthWindows.clear();                                                              // chain cleared
-        else if (n < (int) synthWindows.size()) { synthWindows.clear(); openMissingSynthWindows(); }  // device removed -> rebuild remaining
-        else openMissingSynthWindows();                                                                // device added -> keep existing
+        if (n == 0) synthWindows.clear();                                                    // chain cleared
+        else if (n > (int) synthWindows.size()) openMissingSynthWindows();                   // device ADDED -> auto-open the new one(s)
+        else if (n < (int) synthWindows.size()) { while ((int) synthWindows.size() > n) synthWindows.pop_back(); }   // shrank (safety) -> trim, don't reopen
+        // n == size: a removal was already handled by the targeted erase in removeDevice — do NOT reopen (that was the "delete pops up all windows" bug)
         pushRackScanned();
         pushChainDevices();
     }
@@ -553,6 +556,25 @@ void StrideWrapperEditor::timerCallback()
         lastLearn = learning;
         pushLearnState();
     }
+
+    // Push the demo move/freeze state to the badge (live countdown during the freeze).
+    if (web != nullptr)
+    {
+        const bool df = proc.isDemoFrozen();
+        const int  ds = proc.demoSecsUntilResume();
+        if (df != lastDemoFrozen || ds != lastDemoSecs)
+        {
+            lastDemoFrozen = df; lastDemoSecs = ds;
+            auto* o = new juce::DynamicObject();
+            o->setProperty ("frozen", df);
+            o->setProperty ("secs", ds);
+            web->emitEventIfBrowserIsVisible ("demo_freeze", juce::var (o));
+            if (proc.isDemo()) proc.saveDemoCycleState();   // persist on freeze enter/exit
+        }
+    }
+    // Persist the move budget periodically too — it changes silently during the move window
+    // (where the freeze state doesn't), so a reload can't rewind more than ~2s of it.
+    if (proc.isDemo() && ++demoSaveTick >= 20) { demoSaveTick = 0; proc.saveDemoCycleState(); }
 
     // Persist the editor size once it settles (unchanged for one 10Hz tick), so
     // launching Stride reopens it where the user left it — big/"fullscreen" stays big.

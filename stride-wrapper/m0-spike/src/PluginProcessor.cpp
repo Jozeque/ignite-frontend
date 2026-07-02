@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "License.h"          // cachedEntitled() — seeds demo mode at construction
 
 #include <algorithm>
 #include <cmath>
@@ -38,6 +39,7 @@ namespace {
                 main->enable (true);
         }
     }
+
 }
 
 StrideWrapperProcessor::StrideWrapperProcessor()
@@ -45,6 +47,26 @@ StrideWrapperProcessor::StrideWrapperProcessor()
         .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
 {
     formatManager.addFormat (std::make_unique<juce::VST3PluginFormat>());
+    demoMode.store (! stride_license::cachedEntitled());   // start limited unless a cached VST entitlement is present; UI confirms live
+    loadDemoCycleState();                                   // restore the demo move/freeze cycle (reload-proof)
+}
+
+void StrideWrapperProcessor::loadDemoCycleState()
+{
+    auto f = stride_license::dataDir().getChildFile ("stride-demo.json");
+    if (! f.existsAsFile()) return;
+    const auto v = juce::JSON::parse (f.loadFileAsString());
+    demoMoveUsedMs.store    ((double) v.getProperty ("moveUsedMs", 0.0));
+    demoFreezeUntilMs.store ((double) (juce::int64) v.getProperty ("freezeUntilMs", (juce::int64) 0));
+}
+
+void StrideWrapperProcessor::saveDemoCycleState() const
+{
+    stride_license::dataDir().createDirectory();
+    auto* o = new juce::DynamicObject();
+    o->setProperty ("moveUsedMs",    demoMoveUsedMs.load());
+    o->setProperty ("freezeUntilMs", (juce::int64) demoFreezeUntilMs.load());
+    stride_license::dataDir().getChildFile ("stride-demo.json").replaceWithText (juce::JSON::toString (juce::var (o)));
 }
 
 StrideWrapperProcessor::~StrideWrapperProcessor()
@@ -100,6 +122,7 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     // and HOLD when stopped/paused.
     double beats = freeRunPhase;
     bool freeRun = (wrapperType == wrapperType_Standalone);
+    bool transportPlaying = false;
     if (! freeRun)
     {
         if (auto* ph = getPlayHead())
@@ -107,6 +130,7 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
             if (auto pos = ph->getPosition())
             {
                 const bool playing = pos->getIsPlaying();
+                transportPlaying = playing;
                 if (auto ppq = pos->getPpqPosition()) { beats = *ppq; freeRunPhase = *ppq; }
                 else if (playing) freeRun = true;
                 // else: stopped with no position -> hold
@@ -119,12 +143,47 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     {
         freeRunPhase += (double) buffer.getNumSamples() / currentSampleRate * 2.0;   // 120 BPM
         beats = freeRunPhase;
+        transportPlaying = true;   // standalone / no-transport: treat as playing so the demo cycle advances
     }
 
     const juce::ScopedTryLock sl (hostLock);
     if (sl.isLocked() && ! chain.empty())
     {
-        if (! driveLanes.empty())   // drive ALWAYS runs (even while mapping); mapped params move via the silent setValue, so nothing auto-maps and Map mode is never interrupted
+        // Demo work/freeze cycle: MOVE for kDemoMoveSecs, then FREEZE (skip the drive so the
+        // hosted knobs HOLD their last value) for kDemoFreezeSecs, on the persisted wall-clock
+        // (reload can't grant a fresh move window).
+        bool demoFreezeNow = false;
+        if (demoMode.load())
+        {
+            const double now = (double) juce::Time::getCurrentTime().toMilliseconds();
+            const double freezeUntil = demoFreezeUntilMs.load();
+            if (freezeUntil > now)                                    // in the real-time freeze
+            {
+                demoFreezeNow = true;
+                demoResumeSecs.store ((int) std::ceil ((freezeUntil - now) / 1000.0));
+            }
+            else
+            {
+                if (freezeUntil > 0.0) { demoFreezeUntilMs.store (0.0); demoMoveUsedMs.store (0.0); }   // freeze ended -> reset move budget
+                demoResumeSecs.store (0);
+                if (transportPlaying)                                 // move budget accrues ONLY while playing (setup time is free)
+                {
+                    const double used = demoMoveUsedMs.load() + 1000.0 * (double) buffer.getNumSamples() / currentSampleRate;
+                    if (used >= kDemoMoveSecs * 1000.0)               // 10s of PLAYBACK used -> begin the freeze
+                    {
+                        demoMoveUsedMs.store (kDemoMoveSecs * 1000.0);
+                        demoFreezeUntilMs.store (now + kDemoFreezeSecs * 1000.0);
+                        demoFreezeNow = true;
+                        demoResumeSecs.store ((int) kDemoFreezeSecs);
+                    }
+                    else demoMoveUsedMs.store (used);
+                }
+            }
+            demoFrozen.store (demoFreezeNow);
+        }
+        else { demoFrozen.store (false); demoResumeSecs.store (0); }
+
+        if (! driveLanes.empty() && ! demoFreezeNow)   // FREEZE skips the drive -> hosted knobs hold their last value
         {
             const double cb = driveClipBeats > 0.0 ? driveClipBeats : 16.0;
             double ph = std::fmod (beats, cb);
@@ -147,6 +206,16 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         for (size_t i = 0; i < chain.size(); ++i)
             if (chain[i].inst && ! chain[i].bypassed)
                 chain[i].inst->processBlock (buffer, i == 0 ? midi : noMidi);   // bypassed = skipped (audio passes through)
+
+        // DEMO: no clean bounces. During OFFLINE render (export/freeze) overwrite the
+        // output with low-level noise; real-time playback (evaluation) is untouched.
+        if (demoMode.load() && isNonRealtime())
+            for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+            {
+                auto* wr = buffer.getWritePointer (ch);
+                for (int i = 0; i < buffer.getNumSamples(); ++i)
+                    wr[i] = (demoRng.nextFloat() * 2.0f - 1.0f) * 0.06f;
+            }
     }
     else
     {
@@ -367,6 +436,7 @@ bool StrideWrapperProcessor::hasHostedPlugin() const
 // and restored. (Standalone never reloads mid-session, so this is DAW-only.)
 void StrideWrapperProcessor::getStateInformation (juce::MemoryBlock& dest)
 {
+    if (demoMode.load()) return;   // DEMO: persist nothing — a project can't be built on the demo (blank state on reload)
     juce::XmlElement root ("STRIDE_WRAP");
     const juce::ScopedLock sl (hostLock);
     root.setAttribute ("clipBeats", driveClipBeats);

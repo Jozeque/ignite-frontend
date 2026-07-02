@@ -43,6 +43,26 @@
   function emit(name, payload) { try { if (B) B.emitEvent(name, payload || {}); } catch (e) {} }
   function listen(name, fn) { try { if (B) B.addEventListener(name, fn); } catch (e) {} }
 
+  // Demo mode: the license gate (index.html) tells the engine whether to run capped
+  // (no VST entitlement) or full. Native code enforces the caps; this just relays the flag.
+  window.strideSetDemoMode = function (d) { emit('setDemoMode', { demo: !!d }); };
+
+  // Demo move/freeze countdown -> the badge status text (engine pushes it every ~second).
+  listen('demo_freeze', function (d) {
+    var s = document.getElementById('sd-demo-status');
+    var b = document.getElementById('sd-demo-badge');
+    if (! s) return;
+    if (d && d.frozen) {
+      s.textContent = '⏸ resumes in ' + (d.secs || 0) + 's';          // big + orange so it can't be missed
+      s.style.cssText = 'font-size:16px;font-weight:800;color:#fb923c;letter-spacing:.01em';
+      if (b) b.style.borderColor = 'rgba(251,146,60,.9)';
+    } else {
+      s.textContent = 'live';                                          // subtle green "it's working" during the move
+      s.style.cssText = 'font-size:11px;font-weight:700;color:#4ade80';
+      if (b) b.style.borderColor = 'rgba(249,115,22,.4)';
+    }
+  });
+
   // ── license gate bridge (request/response to the C++ gate) ───────
   var _licPending = {}, _licSeq = 0;
   function _licCall(op, payload) {
@@ -137,7 +157,7 @@
     onQuickPanelCommand: function () {},
     focusWindow: function () {}, openQuickPanel: function () {}, quickPanelPush: function () {},
     setCompactMode: function () {}, setCompactPin: function () {},
-    openExternal: function () {}, openStrideFolder: function () {}, openGuideFolder: function () {},
+    openExternal: function (url) { try { emit('openExternal', { url: url }); } catch (e) {} }, openStrideFolder: function () {}, openGuideFolder: function () {},
     revealInFolder: function () {}, startDrag: function () {}
   };
 
@@ -267,6 +287,71 @@
   }
   listen('pluginList', function (d) { showPluginBrowser((d && d.plugins) || []); });
 
+  // ── Favorites manager (organize: reorder / delete / add) — for users with lots of
+  // favorites the single dropdown gets unwieldy; this modal keeps them tidy. Same look
+  // as the plugin browser. Changes persist to favSet() + refresh the dropdown live. ──
+  var favModal = null;
+  function closeFavManager() { if (favModal) { favModal.remove(); favModal = null; } }
+  function showFavManager() {
+    closeFavManager();
+    var ov = document.createElement('div');
+    ov.className = 'fixed inset-0 z-[10050] flex items-center justify-center p-4';
+    ov.style.background = 'rgba(0,0,0,.7)'; ov.style.backdropFilter = 'blur(6px)';
+    ov.onclick = function (e) { if (e.target === ov) closeFavManager(); };
+
+    var panel = document.createElement('div');
+    panel.className = 'bg-zinc-950 border border-white/10 rounded-xl shadow-2xl w-[460px] max-h-[72vh] flex flex-col overflow-hidden';
+
+    var head = document.createElement('div'); head.className = 'flex items-center justify-between px-4 py-3 border-b border-white/5';
+    var title = document.createElement('span'); title.className = 'text-[12px] text-zinc-100 font-black uppercase tracking-[0.15em]'; title.textContent = 'Manage favorites';
+    var hright = document.createElement('div'); hright.className = 'flex items-center gap-3';
+    var addBtn = document.createElement('button'); addBtn.textContent = '+ Add'; addBtn.className = 'text-[10px] uppercase tracking-wider font-bold text-orange-400 hover:text-orange-300'; addBtn.title = 'Add a plugin to favorites'; addBtn.onclick = function () { closeFavManager(); emit('browsePlugins'); };
+    var cl = document.createElement('button'); cl.textContent = '×'; cl.className = 'text-zinc-500 hover:text-zinc-200 text-xl leading-none'; cl.onclick = closeFavManager;
+    hright.appendChild(addBtn); hright.appendChild(cl);
+    head.appendChild(title); head.appendChild(hright); panel.appendChild(head);
+
+    var listEl = document.createElement('div'); listEl.className = 'flex-1 overflow-auto px-2 py-2 custom-scroll'; panel.appendChild(listEl);
+
+    var dragFrom = null;
+    function render() {
+      listEl.innerHTML = '';
+      var favs = favGet();
+      if (! favs.length) {
+        var e = document.createElement('div'); e.className = 'text-[11px] text-zinc-600 px-3 py-8 text-center'; e.textContent = 'No favorites yet. Use + Add to add plugins.'; listEl.appendChild(e); return;
+      }
+      favs.forEach(function (f, i) {
+        var row = document.createElement('div');
+        row.className = 'flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-white/5 group cursor-grab select-none';
+        row.draggable = true;
+        var grip = document.createElement('span'); grip.textContent = '⠿'; grip.className = 'text-zinc-600 group-hover:text-zinc-400 text-[13px] shrink-0'; grip.title = 'Drag to reorder';
+        var nm = document.createElement('span'); nm.className = 'flex-1 min-w-0 text-[12px] text-zinc-200 truncate pointer-events-none'; nm.textContent = f.name; nm.title = f.path;
+        var load = document.createElement('button'); load.textContent = 'Load'; load.className = 'text-[9px] uppercase tracking-wider font-bold text-zinc-500 hover:text-fuchsia-400 opacity-0 group-hover:opacity-100 shrink-0'; load.title = 'Load this device now'; load.onclick = function () { emit('loadSynthPath', { path: f.path }); };
+        var del = document.createElement('button'); del.textContent = '✕'; del.className = 'text-zinc-600 hover:text-orange-400 text-[11px] font-bold w-5 shrink-0'; del.title = 'Remove from favorites'; del.onclick = function () { var a = favGet(); a.splice(i, 1); favSet(a); populateFav(); render(); };
+        row.appendChild(grip); row.appendChild(nm); row.appendChild(load); row.appendChild(del);
+
+        // Drag to reorder (HTML5 DnD). Drop onto a row = move there; persists + refreshes the dropdown.
+        row.addEventListener('dragstart', function (e) { dragFrom = i; try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(i)); } catch (x) {} row.classList.add('opacity-40'); });
+        row.addEventListener('dragend',   function ()  { row.classList.remove('opacity-40'); dragFrom = null; });
+        row.addEventListener('dragover',  function (e) { e.preventDefault(); try { e.dataTransfer.dropEffect = 'move'; } catch (x) {} row.classList.add('ring-1', 'ring-fuchsia-400/60'); });
+        row.addEventListener('dragleave', function ()  { row.classList.remove('ring-1', 'ring-fuchsia-400/60'); });
+        row.addEventListener('drop',      function (e) {
+          e.preventDefault(); row.classList.remove('ring-1', 'ring-fuchsia-400/60');
+          var from = dragFrom; if (from == null || from === i) return;
+          var a = favGet(); var moved = a.splice(from, 1)[0]; a.splice(i, 0, moved);
+          favSet(a); populateFav(); render();
+        });
+        listEl.appendChild(row);
+      });
+    }
+    render();
+
+    var foot = document.createElement('div'); foot.className = 'px-4 py-3 border-t border-white/5';
+    var hint = document.createElement('span'); hint.className = 'text-[10px] text-zinc-600'; hint.textContent = 'Reorder with ↑ ↓ · ✕ removes · changes save automatically';
+    foot.appendChild(hint); panel.appendChild(foot);
+
+    ov.appendChild(panel); document.body.appendChild(ov); favModal = ov;
+  }
+
   // Stride button styling (Tailwind classes -> skinned colors + Outfit, 1:1 with the app).
   var BTN_BASE = 'px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold transition-colors ';
   var BTN_GHOST = BTN_BASE + 'text-zinc-400 hover:text-zinc-100 border border-white/10';
@@ -292,6 +377,15 @@
       favSelect.onchange = function () { if (favSelect.value) emit('loadSynthPath', { path: favSelect.value }); };
       populateFav();
       host.appendChild(favSelect);
+
+      // Small "manage favorites" button — opens the organizer modal (reorder/delete/add).
+      // Keeps the dropdown usable even with 50+ favorites.
+      var favMgrBtn = document.createElement('button');
+      favMgrBtn.textContent = '☰';
+      favMgrBtn.title = 'Manage favorites (reorder, delete, add)';
+      favMgrBtn.className = 'text-[12px] text-zinc-400 hover:text-orange-400 border border-white/10 rounded px-1.5 py-0.5 transition-colors';
+      favMgrBtn.onclick = function () { showFavManager(); };
+      host.appendChild(favMgrBtn);
 
       function sbtn(label, ev, cls) {
         var b = document.createElement('button');

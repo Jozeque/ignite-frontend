@@ -181,6 +181,26 @@ namespace stride_license
         return juce::var (o);
     }
 
+    // Best-effort "is this machine entitled to the VST right now?" for the NATIVE demo
+    // gates (offline bounce / save) that must be correct even with the UI closed. Reads
+    // the cached license.json, enforces the offline grace, and reuses computeEntitled.
+    // Fail-safe: false (= demo) on any doubt. The UI's checkLicense() is the authority and
+    // pushes the live value via setDemoMode; this is only the construction-time seed.
+    inline bool cachedEntitled()
+    {
+        const auto f = licenseFile();
+        if (! f.existsAsFile()) return false;
+        const auto c = juce::JSON::parse (f.loadFileAsString());
+        if (! c.isObject() || ! (bool) c.getProperty ("valid", false)) return false;
+        if (! (bool) c.getProperty ("builtin", false))   // builtin keys have no grace clock
+        {
+            const auto cachedAt = (juce::int64) c.getProperty ("cached_at", (juce::int64) 0);
+            const auto ageMs = juce::Time::getCurrentTime().toMilliseconds() - cachedAt;
+            if (! (cachedAt > 0 && ageMs < (juce::int64) kOfflineGraceDays * 24 * 60 * 60 * 1000)) return false;
+        }
+        return (bool) computeEntitled (c).getProperty ("entitled", false);
+    }
+
     inline juce::var save (const juce::var& lic)
     {
         dataDir().createDirectory();

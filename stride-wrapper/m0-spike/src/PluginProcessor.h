@@ -59,6 +59,17 @@ public:
     // ── Map (learn by touch — across the whole chain) ──
     void setLearnMode (bool shouldLearn);
     bool isLearning() const { return learnMode.load(); }
+
+    // Demo mode (no VST entitlement): runs but capped (3 params, no save, offline=noise).
+    // Set live from the license gate; seeded at construction from the cached entitlement so
+    // offline bounces are correct with the UI closed. See docs/stride-demo-mode-spec.md.
+    void setDemoMode (bool d) { demoMode.store (d); }
+    bool isDemo() const { return demoMode.load(); }
+    bool isDemoFrozen() const { return demoFrozen.load(); }        // in the "freeze" half of the demo cycle
+    int  demoSecsUntilResume() const { return demoResumeSecs.load(); }
+    void saveDemoCycleState() const;   // persist move-used + freeze-until (call from the MESSAGE thread, e.g. editor timer)
+    static constexpr double kDemoMoveSecs   = 10.0;   // demo cycle: modulation MOVES for this much PLAYBACK time,
+    static constexpr double kDemoFreezeSecs = 60.0;   // then FREEZES (knobs hold) for this long (real-time), repeating
     juce::StringArray getMappedParamNames() const;    // "Device: Param", in mapped order
     juce::Array<juce::var> getMappedCurves() const;   // drive curve [{time,value,curve}...] per mapped param — so a reopen SHOWS the curves (not localStorage-dependent)
     double getClipBeats() const { return driveClipBeats; }   // loop length in beats (bars*4) — for the canvas bar count on load
@@ -92,6 +103,16 @@ private:
     std::vector<MapRef> mapped;               // user-mapped params across the chain
     std::atomic<bool> learnMode  { false };
     std::atomic<int>  mapVersion { 0 };
+    std::atomic<bool> demoMode   { true };   // fail-safe default: limited until proven entitled
+    juce::Random demoRng;                    // offline-render noise in demo
+    // Demo move/freeze cycle, TIED TO TRANSPORT: move budget accrues only while playing
+    // (setup time doesn't burn it); the freeze runs on real-time. Both persisted -> a reload
+    // can't grant a fresh move window. See docs/stride-demo-mode-spec.md.
+    std::atomic<double> demoMoveUsedMs    { 0.0 };   // playback ms used in the current move window (0..kDemoMoveSecs*1000)
+    std::atomic<double> demoFreezeUntilMs { 0.0 };   // absolute real-time ms until which we're frozen (0 = not frozen)
+    std::atomic<bool>   demoFrozen        { false };
+    std::atomic<int>    demoResumeSecs    { 0 };
+    void loadDemoCycleState();               // read the persisted cycle at construction
 
     struct StoredLane { int node; int param; std::vector<float> times, values, curves; };
     std::vector<StoredLane> driveLanes;
