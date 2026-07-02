@@ -169,18 +169,17 @@ test('resolveEntitlements tolerates junk input without throwing', () => {
 // Locks the real Lemon Squeezy ids + giveaway cutoff so a stray edit can't
 // silently break scoping. Update these literals if the products/cutoff change.
 
-test('DEFAULT_CONFIG wired: real LS product ids + cutoff resolve correctly', () => {
+test('DEFAULT_CONFIG wired: 973706 + 1188468 both unlock the full bundle', () => {
     const D = ent.DEFAULT_CONFIG;
-    assertEq(D.freeVstForStridelinkBeforeMs, 1783036800000, 'giveaway cutoff wired (2026-07-03T00:00:00Z)');
-    // StrideLink — LS product id 973706, LS name "Stride"
-    assertDeepEq(ent.resolveEntitlements({ productId: 973706, createdAtMs: D.freeVstForStridelinkBeforeMs + 1 }, D), ['stridelink'], 'post-cutoff StrideLink id → stridelink only');
-    assertDeepEq(ent.resolveEntitlements({ productId: 973706, createdAtMs: D.freeVstForStridelinkBeforeMs - 1 }, D), ['stridelink', 'vst'], 'pre-cutoff StrideLink id → giveaway');
-    assertDeepEq(ent.resolveEntitlements({ productName: 'Stride', createdAtMs: D.freeVstForStridelinkBeforeMs + 1 }, D), ['stridelink'], 'StrideLink LS name "Stride"');
-    // Stride VST — LS product id 1188468, LS name "Stride VST"
-    assertDeepEq(ent.resolveEntitlements({ productId: 1188468 }, D), ['vst'], 'VST id → vst');
-    assertDeepEq(ent.resolveEntitlements({ productName: 'Stride VST' }, D), ['vst'], 'VST name → vst');
-    // "Stride VST" must NOT collide with the "Stride" StrideLink name.
-    assert(!ent.resolveEntitlements({ productName: 'Stride VST' }, D).includes('stridelink'), 'VST name must not match StrideLink "Stride"');
+    // 973706 is the $99 bundle (all variants) — every key unlocks BOTH apps,
+    // regardless of purchase date (the old giveaway cutoff no longer matters).
+    assertDeepEq(ent.resolveEntitlements({ productId: 973706 }, D), ['stridelink', 'vst'], '973706 -> both');
+    assertDeepEq(ent.resolveEntitlements({ productName: 'Stride' }, D), ['stridelink', 'vst'], 'name "Stride" -> both');
+    // 1188468 (standalone VST) also grants both so early VST buyers get StrideLink too.
+    assertDeepEq(ent.resolveEntitlements({ productId: 1188468 }, D), ['stridelink', 'vst'], '1188468 -> both');
+    assertDeepEq(ent.resolveEntitlements({ productName: 'Stride VST' }, D), ['stridelink', 'vst'], 'name "Stride VST" -> both');
+    // Unknown product still grants nothing (fail closed).
+    assertDeepEq(ent.resolveEntitlements({ productId: 999999 }, D), [], 'unknown -> [] (fail closed)');
 });
 
 // ─── Built-in tiers ──────────────────────────────────────────

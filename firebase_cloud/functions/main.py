@@ -509,9 +509,12 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
 
 # Product map — keep in lockstep with entitlements.js DEFAULT_CONFIG.
 ENT_PRODUCTS = [
-    {"ents": ["stridelink"],        "ids": ["973706"],  "names": ["stride", "stridelink", "stride link", "stride for ableton"]},
-    {"ents": ["vst"],               "ids": ["1188468"], "names": ["stride vst", "stride vst3"]},
-    {"ents": ["stridelink", "vst"], "ids": [],          "names": ["stride bundle", "stride both", "stride complete"]},
+    # 973706 is now the $99 BUNDLE (all its variants). Every key unlocks BOTH apps
+    # — which also auto-upgrades existing $39/$59 customers to the VST (no coupon
+    # campaign needed). 1188468 (standalone VST) also grants both so early VST
+    # buyers get StrideLink too. Licensing is per-PRODUCT: variants don't matter.
+    {"ents": ["stridelink", "vst"], "ids": ["973706"],  "names": ["stride", "stridelink", "stride link", "stride for ableton", "stride bundle", "stride complete"]},
+    {"ents": ["stridelink", "vst"], "ids": ["1188468"], "names": ["stride vst", "stride vst3"]},
 ]
 # A StrideLink purchase created at/before this epoch-ms also unlocks the VST
 # (free upgrade for existing owners). 1783036800000 = 2026-07-03T00:00:00Z.

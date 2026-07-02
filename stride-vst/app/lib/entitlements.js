@@ -60,14 +60,12 @@ const ALL_PRODUCTS = Object.freeze([PRODUCT.STRIDELINK, PRODUCT.VST]);
 // null = giveaway OFF (StrideLink never grants VST).
 const DEFAULT_CONFIG = Object.freeze({
     products: [
-        // Real Lemon Squeezy product IDs (primary match) + name fallbacks. The
-        // StrideLink product is named "Stride" in LS; the VST is "Stride VST".
-        { entitlement: PRODUCT.STRIDELINK, productIds: [973706],  productNames: ['stride', 'stridelink', 'stride link', 'stride for ableton'] },
-        { entitlement: PRODUCT.VST,        productIds: [1188468], productNames: ['stride vst', 'stride vst3'] },
-        // The "Both" bundle ($129) grants MULTIPLE entitlements. A product may
-        // use `entitlements: [...]` (plural) instead of `entitlement` (single).
-        // Fill in the bundle's LS product id here once it exists.
-        { entitlements: [PRODUCT.STRIDELINK, PRODUCT.VST], productIds: [], productNames: ['stride bundle', 'stride both', 'stride complete'] },
+        // 973706 is the $99 BUNDLE (all variants) and 1188468 the standalone VST;
+        // BOTH now grant BOTH apps (a single key unlocks StrideLink + VST). This
+        // also auto-upgrades existing $39/$59 StrideLink customers to the VST.
+        // Licensing is per-PRODUCT — variants/price don't affect entitlements.
+        { entitlements: [PRODUCT.STRIDELINK, PRODUCT.VST], productIds: [973706],  productNames: ['stride', 'stridelink', 'stride link', 'stride for ableton', 'stride bundle', 'stride complete'] },
+        { entitlements: [PRODUCT.STRIDELINK, PRODUCT.VST], productIds: [1188468], productNames: ['stride vst', 'stride vst3'] },
     ],
     // Giveaway cutoff: a StrideLink purchase created at/before this epoch-ms also
     // unlocks the VST. 1783036800000 = 2026-07-03T00:00:00Z (through end of
