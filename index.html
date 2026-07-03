@@ -383,79 +383,14 @@
     </div>
   </section>
 
-  <!-- ───────────────── HOW IT WORKS — the flow (compact 4-up) ───────────────── -->
+  <!-- ───────────────── HOW IT WORKS — interactive Stride VST explainer ───────────────── -->
+  <!-- The 1:1 Stride VST window. Embeds docs/how-it-works-vst.html (single source of
+       truth, self-contained header). Auto-sizes via the shared postMessage handler. -->
   <section id="how" class="mb-28 scroll-mt-8">
-    <div class="text-center mb-10">
-      <p class="silk mb-3" style="color:var(--copper-lt)">How it works</p>
-      <h2 class="text-4xl md:text-6xl mb-4">Load, map, draw, <span class="brand">play</span></h2>
-      <p class="text-base max-w-2xl mx-auto leading-relaxed ink2">Draw modulation curves on a visual canvas and every mapped knob follows — live, in time. No MIDI routing, no automation lanes to wire.</p>
-    </div>
-    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-
-      <!-- 1 LOAD -->
-      <div class="panel rounded-2xl p-5 flex flex-col">
-        <div class="flex items-center gap-2.5 mb-4">
-          <span class="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-black shrink-0" style="background:rgba(198,113,43,.14);border:1px solid rgba(198,113,43,.35);color:var(--copper-lt)">1</span>
-          <h3 class="text-lg">Load</h3>
-        </div>
-        <div class="rounded-lg overflow-hidden mb-4" style="border:1px solid var(--line);background:#141310">
-          <div class="fav-row on" style="padding:6px 10px;font-size:11px">Serum 2 <span>✓</span></div>
-          <div class="fav-row on" style="padding:6px 10px;font-size:11px">OTT <span>✓</span></div>
-          <div class="fav-row" style="padding:6px 10px;font-size:11px">Vital</div>
-          <div class="fav-row" style="padding:6px 10px;font-size:11px">Pigments</div>
-        </div>
-        <p class="text-[13px] leading-relaxed ink2 mt-auto">Pick your synths and effects from favorites. Build a whole chain inside Stride.</p>
-      </div>
-
-      <!-- 2 MAP -->
-      <div class="panel rounded-2xl p-5 flex flex-col">
-        <div class="flex items-center gap-2.5 mb-4">
-          <span class="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-black shrink-0" style="background:rgba(84,75,109,.2);border:1px solid rgba(84,75,109,.45);color:var(--violet-lt)">2</span>
-          <h3 class="text-lg">Map</h3>
-        </div>
-        <div class="rounded-lg mb-4 p-4" style="border:1px solid var(--line);background:#141310">
-          <div class="mb-3"><span class="vbtn vbtn-map">◉ Map</span></div>
-          <div class="grid grid-cols-4 gap-3 justify-items-center">
-            <div class="knob-sim mapped" style="--rot:-42deg"></div>
-            <div class="knob-sim" style="--rot:20deg"></div>
-            <div class="knob-sim mapped" style="--rot:64deg"></div>
-            <div class="knob-sim" style="--rot:-18deg"></div>
-          </div>
-        </div>
-        <p class="text-[13px] leading-relaxed ink2 mt-auto">Hit Map, then click any knob on the synth. It drops onto the canvas as a lane.</p>
-      </div>
-
-      <!-- 3 DRAW -->
-      <div class="panel rounded-2xl p-5 flex flex-col">
-        <div class="flex items-center gap-2.5 mb-4">
-          <span class="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-black shrink-0" style="background:rgba(47,116,142,.16);border:1px solid rgba(47,116,142,.4);color:var(--teal-lt)">3</span>
-          <h3 class="text-lg">Draw</h3>
-        </div>
-        <div class="rounded-lg overflow-hidden mb-4" style="border:1px solid var(--line);background:#0c0b09">
-          <div class="sim-lane" style="height:36px"><span class="sim-lbl" style="color:var(--copper-lt);font-size:9px">Cutoff</span><svg viewBox="0 0 240 30" class="w-full block" preserveAspectRatio="none"><path fill="none" stroke="#dd9a52" stroke-width="1.4" d="M0,24 L12,8 L12,24 L24,8 L24,24 C60,4 100,4 130,20 C165,30 200,12 240,8"/></svg></div>
-          <div class="sim-lane" style="height:36px"><span class="sim-lbl" style="color:var(--teal-lt);font-size:9px">Warp</span><svg viewBox="0 0 240 30" class="w-full block" preserveAspectRatio="none"><path fill="none" stroke="#5e9aad" stroke-width="1.4" d="M0,22 C6,6 6,6 12,20 C18,6 18,6 24,20 L90,20 L90,9 L150,9 L150,22 C190,6 220,26 240,12"/></svg></div>
-          <div class="sim-lane" style="height:36px;border-bottom:0"><span class="sim-lbl" style="color:var(--sage-lt);font-size:9px">Drive</span><svg viewBox="0 0 240 30" class="w-full block" preserveAspectRatio="none"><path fill="none" stroke="#86a87f" stroke-width="1.4" d="M0,22 L60,22 L60,9 L110,9 L110,20 L130,20 L134,8 L138,20 L142,8 L146,20 L240,18"/></svg></div>
-        </div>
-        <p class="text-[13px] leading-relaxed ink2 mt-auto">Shape curves on the canvas — all at once or one by one. Refine any time.</p>
-      </div>
-
-      <!-- 4 PLAY -->
-      <div class="panel rounded-2xl p-5 flex flex-col">
-        <div class="flex items-center gap-2.5 mb-4">
-          <span class="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-black shrink-0" style="background:rgba(91,123,85,.18);border:1px solid rgba(91,123,85,.4);color:var(--sage-lt)">4</span>
-          <h3 class="text-lg">Play</h3>
-        </div>
-        <div class="rounded-lg mb-4 p-3" style="border:1px solid var(--line);background:#0c0b09">
-          <div class="flex items-center gap-1 flex-wrap mb-2">
-            <span class="tb-on" style="font-size:9px">Chaos</span><span class="tb-on" style="font-size:9px">Neuro</span><span class="tb-on" style="font-size:9px">S&amp;H</span>
-            <span class="flex-1"></span><span class="chip" style="background:rgba(163,78,82,.2);color:var(--rose-lt);border:1px solid rgba(163,78,82,.45);font-size:8px">● REC</span>
-          </div>
-          <svg viewBox="0 0 240 40" class="w-full block" preserveAspectRatio="none"><path fill="none" stroke="#dd9a52" stroke-width="1.3" d="M0,30 C30,8 60,34 90,18 S150,6 180,26 220,30 240,16"/><path fill="none" stroke="#5e9aad" stroke-width="1.3" d="M0,16 L15,30 L15,10 L33,26 L33,10 L51,26 L90,26 L90,14 L150,14 L150,30 L240,20"/></svg>
-        </div>
-        <p class="text-[13px] leading-relaxed ink2 mt-auto">Press play — your sound follows the curves in time. Roll a generator for endless variations.</p>
-      </div>
-
-    </div>
+    <iframe id="hiw-vst-frame" src="docs/how-it-works-vst.html"
+            title="How Stride VST works — click any control to see what it does"
+            loading="lazy" scrolling="no"
+            style="width:100%;border:0;display:block;height:1600px;overflow:hidden"></iframe>
   </section>
 
   <!-- ───────────────── SHARED ENGINE / GENERATORS ───────────────── -->
@@ -649,12 +584,19 @@
     </div>
   </section>
   <script>
-    // Size the interactive How-It-Works iframe to its content height (responsive, no inner scroll).
+    // Size the interactive How-It-Works iframes to their content height (responsive,
+    // no inner scroll). Two frames post 'hiw-height' (StrideLink #hiw-frame + Stride
+    // VST #hiw-vst-frame), so size whichever one the message came from (match by source).
     (function () {
       window.addEventListener('message', function (e) {
-        if (e && e.data && e.data.type === 'hiw-height') {
+        if (e && e.data && e.data.type === 'hiw-height' && e.data.h) {
+          var frames = document.querySelectorAll('#hiw-frame, #hiw-vst-frame');
+          for (var i = 0; i < frames.length; i++) {
+            if (frames[i].contentWindow === e.source) { frames[i].style.height = e.data.h + 'px'; return; }
+          }
+          // fallback: if source didn't match (older browsers), size the first frame
           var f = document.getElementById('hiw-frame');
-          if (f && e.data.h) f.style.height = e.data.h + 'px';
+          if (f) f.style.height = e.data.h + 'px';
         }
       });
     })();
