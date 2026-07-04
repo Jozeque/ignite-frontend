@@ -110,24 +110,31 @@ RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
 
 # Plain-text welcome email sent once per customer after license_key_created.
 # Personal tone + plain text + no tracking maximises Gmail Primary tab landing.
-WELCOME_EMAIL_TEMPLATE = """\
-Hey{name_part},
+WELCOME_EMAIL_TEMPLATE = r"""Hey{name_part},
 
 Joe here, welcome aboard.
 
-Start here, a 3-minute video walkthrough. Covers the exact setup so you're rolling on the first try.
+You just picked up Stride. The flagship is the Stride VST, a plugin that runs in every DAW and hosts a full chain of your own instruments and effects. It also comes with StrideLink for Ableton. One key unlocks both, and it's waiting in your Lemon Squeezy receipt.
 
-stridehub.io/welcome
+Get the VST running in two minutes:
 
-Stuck on anything? That same page has a Book a Call button. Pick a slot, I'll get you moving.
+1. Download and unzip the Stride VST from your receipt.
+2. Put Stride.vst3 into your VST3 folder.
+   Windows: C:\Program Files\Common Files\VST3\
+   Mac: /Library/Audio/Plug-Ins/VST3/
+3. Fully quit and reopen your DAW so it rescans plugins.
+4. Add Stride and paste your key.
 
-Stride turns your existing racks into sound design playgrounds. Same rack, infinite variations. You're about to discover sounds in your own instruments you didn't know were there.
+A nerd for Ableton racks? That's exactly what StrideLink is for. Open it and follow the setup guide built into the app, it walks you through the whole thing.
 
-A quick note on workflow: Stride is a creative tool, not a mixing tool. You draw curves first, then hear them after — that loop is built for exploration, not for tight mixing feedback. Lean into it for variation, motion, and "what does this preset do that I haven't tried yet."
+Here's the fun part: load a synth, or a whole chain of instruments and effects, then apply curves to all of them at once. Your instruments start moving in ways you've never heard before. Same gear, sounds you didn't know were in there.
 
-Your license key is in the Lemon Squeezy receipt that came separately. Paste it on first launch.
+A couple of things worth doing:
 
-Reply to this email anytime.
+- Subscribe to the Stride YouTube channel and work through the tutorials: youtube.com/@stride_engine
+- Made something you love? Share it on Instagram and tag @stride_engine. I feature the ones that catch my ear.
+
+Stuck on anything? Reply to this email, or book a call at stridehub.io/welcome, and I'll get you moving.
 
 Best regards,
 Joe
