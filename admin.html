@@ -44,6 +44,9 @@
            complete. Derived from last_action === 'buyer_lead' && !purchased.
            Distinct burnt-orange so they jump out in the table. */
         .status-abandoned_cart { background: rgba(251,146,60,0.18);  color: #fb923c; }
+        /* Demo download: grabbed the free demo, not a sale. Violet so it reads
+           as its own funnel stage, clearly distinct from purchased (yellow). */
+        .status-demo           { background: rgba(139,92,246,0.18);  color: #a78bfa; }
 
         .src-badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
         .src-waitlist_signup { background: rgba(168,85,247,0.15); color: #c084fc; }
@@ -167,6 +170,10 @@
                         <span class="status-badge status-abandoned_cart">Abandoned cart</span>
                     </label>
                     <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 cursor-pointer">
+                        <input type="checkbox" data-status="demo" class="status-checkbox accent-fuchsia-500 w-3 h-3">
+                        <span class="status-badge status-demo">Demo</span>
+                    </label>
+                    <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 cursor-pointer">
                         <input type="checkbox" data-status="purchased" class="status-checkbox accent-fuchsia-500 w-3 h-3">
                         <span class="status-badge status-purchased">Purchased</span>
                     </label>
@@ -204,6 +211,7 @@
             </select>
 
             <div class="flex-1"></div>
+            <div id="demo-kpi" class="text-[9px] uppercase tracking-widest font-bold text-violet-300/80" title="Free-demo downloads, and how many later became paying customers"></div>
             <div class="text-[9px] text-zinc-600 uppercase tracking-widest">click to edit • live</div>
         </div>
 
@@ -314,7 +322,7 @@
             search: '',
             // Array of selected status values. Default = all 6 checked
             // (same behavior as the previous "All statuses" default).
-            statusFilter: ['new','contacted','abandoned_cart','purchased','active','churned'],
+            statusFilter: ['new','contacted','abandoned_cart','demo','purchased','active','churned'],
             sourceFilter: '',
             sort: 'status_priority',
             unsubWaitlist: null,
@@ -324,7 +332,7 @@
         // Canonical list of all status values. Order matches the filter
         // dropdown. Used by the checkbox filter to detect "all checked"
         // (= no filter) vs "all but one" (= "Except X" label) vs partial.
-        const ALL_STATUSES = ['new','contacted','abandoned_cart','purchased','active','churned'];
+        const ALL_STATUSES = ['new','contacted','abandoned_cart','demo','purchased','active','churned'];
 
         // ─── Auth flow ─────────────────────────────────────────
         auth.onAuthStateChanged((user) => {
@@ -374,6 +382,7 @@
                                 ...data,
                                 created_at: toDate(data.created_at),
                                 purchased_at: toDate(data.purchased_at),
+                                demo_at: toDate(data.demo_at),
                                 last_contacted_at: toDate(data.last_contacted_at),
                                 updated_at: toDate(data.updated_at),
                             };
@@ -498,9 +507,10 @@
                     active: 0,
                     purchased: 1,
                     abandoned_cart: 2,
-                    contacted: 3,
-                    new: 4,
-                    churned: 5,
+                    demo: 3,
+                    contacted: 4,
+                    new: 5,
+                    churned: 6,
                 };
                 rows.sort((a, b) => {
                     const sa = order[getStatus(a)] ?? 99;
@@ -536,6 +546,19 @@
             const empty = document.getElementById('empty');
             document.getElementById('count-shown').textContent = state.filtered.length;
             document.getElementById('count-total').textContent = state.rows.length;
+
+            // Demo funnel KPI — computed across ALL rows (not the current filter)
+            // so it stays a stable business metric. A demo downloader is anyone
+            // with a demo_at (or the demo status); a conversion is a demo
+            // downloader whose status is now purchased.
+            const isDemoDl = r => !!r.demo_at || getStatus(r) === 'demo';
+            const demoDownloads = state.rows.filter(isDemoDl).length;
+            const demoConverted = state.rows.filter(r => isDemoDl(r) && getStatus(r) === 'purchased').length;
+            const demoRate = demoDownloads ? Math.round(demoConverted / demoDownloads * 100) : 0;
+            const demoKpiEl = document.getElementById('demo-kpi');
+            if (demoKpiEl) demoKpiEl.textContent = demoDownloads
+                ? `Demo ${demoDownloads} · Converted ${demoConverted} (${demoRate}%)`
+                : '';
 
             if (state.filtered.length === 0) {
                 tbody.innerHTML = '';
@@ -614,6 +637,7 @@
                         <option value="new"             ${status==='new'?'selected':''}>New lead</option>
                         <option value="contacted"       ${status==='contacted'?'selected':''}>Contacted</option>
                         <option value="abandoned_cart"  ${status==='abandoned_cart'?'selected':''}>Abandoned cart</option>
+                        <option value="demo"            ${status==='demo'?'selected':''}>Demo</option>
                         <option value="purchased"       ${status==='purchased'?'selected':''}>Purchased</option>
                         <option value="active"          ${status==='active'?'selected':''}>Active</option>
                         <option value="churned"         ${status==='churned'?'selected':''}>Churned</option>
