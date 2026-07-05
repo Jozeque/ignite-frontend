@@ -401,6 +401,83 @@
       var clearBtn = sbtn('Clear', 'clearChain', BTN_GHOST);
       clearBtn.onclick = function () { emit('clearChain'); _armUndo(null, 'Chain cleared · Ctrl+Z to undo'); };
 
+      // Host automation — folded under ONE automation icon (only needed when routing to the
+      // DAW, so it stays out of the way). Click it for a popover with the Live/DAW drive
+      // toggle + "Send to Ableton" (exposes the mapped knobs to the DAW's Configure list).
+      var _driveMode = 0, _exposedMacros = 0, _macroPool = 32;
+      var autoWrap = document.createElement('div'); autoWrap.className = 'relative'; host.appendChild(autoWrap);
+
+      var autoBtn = document.createElement('button');
+      autoBtn.title = 'DAW automation — expose the mapped knobs to your DAW and switch Live / DAW drive';
+      autoBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16 H8 L14 8 H21"/><circle cx="8" cy="16" r="1.7" fill="currentColor" stroke="none"/><circle cx="14" cy="8" r="1.7" fill="currentColor" stroke="none"/></svg><span style="font-size:9px;line-height:1">▾</span>';
+      autoWrap.appendChild(autoBtn);
+
+      var pop = document.createElement('div');
+      pop.className = 'hidden absolute left-0 top-full mt-1 z-[10060] bg-zinc-950 border border-white/10 rounded-lg shadow-2xl p-2 w-[220px]';
+      pop.style.fontFamily = "'Outfit',sans-serif";
+      pop.innerHTML =
+        '<div class="flex items-center justify-between mb-1.5">'
+        + '<span class="text-[9px] font-black uppercase tracking-[0.15em] text-zinc-300">DAW Automation</span>'
+        + '<span id="sd-auto-count" class="text-[9px] font-bold text-zinc-500"></span>'
+        + '</div>'
+        + '<div class="flex items-center gap-1 mb-2">'
+        + '<button id="sd-auto-live" class="flex-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded transition-colors" title="Stride’s curves drive the knobs (params follow in the DAW).">▶ Stride</button>'
+        + '<button id="sd-auto-daw" class="flex-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded transition-colors" title="The DAW’s automation drives the knobs; Stride steps back.">◆ DAW</button>'
+        + '</div>'
+        + '<button id="sd-auto-send" class="w-full text-[10px] font-black uppercase tracking-wider text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-400/30 rounded px-2 py-1 transition-colors mb-1.5">↱ Send to DAW</button>'
+        + '<p class="text-[9px] text-zinc-500 leading-snug">In Ableton: click <b class="text-zinc-400">Configure</b> on the Stride device, then <b class="text-zinc-400">Send</b> — your mapped knobs appear. Other DAWs list them automatically.</p>';
+      autoWrap.appendChild(pop);
+
+      var liveSeg = pop.querySelector('#sd-auto-live');
+      var dawSeg  = pop.querySelector('#sd-auto-daw');
+      var sendSeg = pop.querySelector('#sd-auto-send');
+      var countEl = pop.querySelector('#sd-auto-count');
+
+      // DAW-mode signal: in ◆ DAW the DAW's automation drives the knobs and Stride's curve
+      // engine is OFF — so dim the canvas + show a banner. It's Stride-drives OR DAW-drives.
+      if (! document.getElementById('sd-daw-style')) {
+        var st = document.createElement('style'); st.id = 'sd-daw-style';
+        st.textContent = '#sd-canvas-container > canvas{transition:opacity .2s} body.sd-daw-mode #sd-canvas-container > canvas{opacity:.22}';
+        document.head.appendChild(st);
+      }
+      var dawBanner = null;
+      (function () {
+        var cc = document.getElementById('sd-canvas-container');
+        if (! cc) return;
+        dawBanner = document.createElement('div');
+        dawBanner.className = 'hidden absolute top-2 left-1/2 -translate-x-1/2 z-[45] flex items-center gap-2 bg-cyan-950/90 border border-cyan-400/40 rounded-full px-3.5 py-1.5 shadow-xl';
+        dawBanner.style.backdropFilter = 'blur(6px)';
+        dawBanner.innerHTML = '<span class="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-300">◆ DAW driving</span>'
+          + '<span class="text-[10px] text-cyan-100/70 font-medium">Stride curves paused — switch to ▶ Stride to edit</span>';
+        cc.appendChild(dawBanner);
+      })();
+
+      function paintAuto() {
+        var daw = (_driveMode === 1);
+        autoBtn.className = BTN_BASE + 'flex items-center gap-0.5 ' + (daw
+          ? 'text-cyan-300 bg-cyan-500/15 border border-cyan-400/40'
+          : 'text-zinc-400 hover:text-cyan-300 border border-white/10');
+        liveSeg.className = 'flex-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded transition-colors ' + (!daw ? 'text-white bg-white/15 border border-white/20' : 'text-zinc-500 hover:text-zinc-300 border border-transparent');
+        dawSeg.className  = 'flex-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded transition-colors ' + (daw ? 'text-cyan-200 bg-cyan-500/20 border border-cyan-400/40' : 'text-zinc-500 hover:text-zinc-300 border border-transparent');
+        if (countEl) countEl.textContent = _exposedMacros ? (_exposedMacros + '/' + _macroPool + ' exposed') : 'none exposed';
+        document.body.classList.toggle('sd-daw-mode', daw);           // dims the canvas
+        if (dawBanner) dawBanner.classList.toggle('hidden', ! daw);   // shows the "DAW driving" banner
+      }
+      liveSeg.onclick = function () { if (_driveMode !== 0) emit('setDriveMode', { mode: 0 }); };
+      dawSeg.onclick  = function () { if (_driveMode !== 1) emit('setDriveMode', { mode: 1 }); };
+      sendSeg.onclick = function () { emit('announceMacros'); var t = sendSeg.textContent; sendSeg.textContent = '✓ Sent ' + (_exposedMacros || 0); setTimeout(function () { sendSeg.textContent = t; }, 1500); };
+      autoBtn.onclick = function (e) { e.stopPropagation(); pop.classList.toggle('hidden'); };
+      document.addEventListener('click', function (e) { if (! autoWrap.contains(e.target)) pop.classList.add('hidden'); });
+      paintAuto();
+
+      listen('sl_event', function (msg) {
+        if (! msg || msg.type !== 'rack_scanned') return;
+        if (typeof msg.drive_mode     !== 'undefined') _driveMode     = msg.drive_mode | 0;
+        if (typeof msg.exposed_macros !== 'undefined') _exposedMacros = msg.exposed_macros | 0;
+        if (typeof msg.macro_pool     !== 'undefined') _macroPool     = msg.macro_pool | 0;
+        paintAuto();
+      });
+
       var divider = document.createElement('span'); divider.className = 'w-px h-4 bg-white/10'; host.appendChild(divider);
 
       // Device list — every loaded device, each with a ✕ that is the ONLY way to remove it.

@@ -5256,6 +5256,161 @@
         sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
     };
 
+    // ─── NEURO v2 VARIANTS ────────────────────────────────────
+    // Per-param "less robotic, more alive" generators ported from
+    // docs/neuro-variants-mockup.html. Each returns points over [sB, eB],
+    // generalized from the mockup's fixed 8 bars to the actual loop length,
+    // Math.random in place of the mockup's seeded rng. Applied to the
+    // SELECTED/active lane(s) (like the other shapes) via sdApplyNeuroVariant.
+
+    // Curve-aware shape inject (the 8 base neuro shapes + an optional bezier
+    // curve per chunk). Distinct from sdInjectShape, which is linear-only.
+    function _sdNeuroInject(out, shape, cB, chunk, curveVal) {
+        const c = curveVal || 0;
+        const add = (t, v, cv) => out.push({ time: Math.round(t * 10000) / 10000, value: Math.max(0, Math.min(1, v)), curve: (cv === undefined ? 0 : cv) });
+        if (shape === 'ramp') { const pk = 0.4 + Math.random() * 0.6; add(cB, 0); add(cB + chunk * 0.75, pk, c); add(cB + chunk * 0.75 + 0.01, 0); add(cB + chunk, 0); }
+        else if (shape === 'hold') { const mv = 0.15 + Math.random() * 0.35, pk = 0.7 + Math.random() * 0.3; add(cB, 0); add(cB + 0.01, pk); add(cB + chunk * 0.25, pk, c); add(cB + chunk * 0.25 + 0.01, mv); add(cB + chunk * 0.75, mv, c); add(cB + chunk * 0.75 + 0.01, pk); add(cB + chunk - 0.01, pk); add(cB + chunk, 0); }
+        else if (shape === 'sawDrop') { const pk = 0.5 + Math.random() * 0.5, og = [0.216, 0.414, 0.618, 0.88][Math.floor(Math.random() * 4)]; add(cB, 0); add(cB + 0.01, pk); add(cB + chunk * og, 0, c); add(cB + chunk, 0); }
+        else if (shape === 'chop') { const sub = chunk / 4; for (let i = 0; i < 4; i++) { const val = Math.random() > 0.5 ? (Math.random() > 0.5 ? 1 : 0.3 + Math.random() * 0.5) : 0; if (val > 0) { const t = cB + i * sub; add(t, 0); add(t + 0.01, val); add(t + sub * 0.85, 0, c); } } add(cB + chunk, 0); }
+        else if (shape === 'build') { add(cB, 0); add(cB + chunk * 0.5, 0.2, c); add(cB + chunk * 0.8, 0.5, c); add(cB + chunk - 0.01, 1, c); add(cB + chunk, 0); }
+        else if (shape === 'stutter') { const ss = Math.random() > 0.5 ? 0.125 : 0.0625, steps = Math.floor(chunk / ss); for (let i = 0; i < steps; i++) { if (i % 2 === 0) { const t = cB + i * ss; add(t, 0); add(t + 0.001, 0.6 + Math.random() * 0.4); add(t + ss * 0.9, 0); } } add(cB + chunk, 0); }
+        else if (shape === 'gate') { const step = [0.125, 0.25, 0.5][Math.floor(Math.random() * 3)], steps = Math.floor(chunk / step), sv = 0.7 + Math.random() * 0.3, ev = Math.random() * 0.3, up = Math.random() > 0.5; for (let i = 0; i < steps; i++) { const t = cB + i * step, pr = i / Math.max(1, steps - 1), cp = up ? ev + (sv - ev) * pr : sv + (ev - sv) * pr; add(t, 0); add(t + 0.001, cp); add(t + step * 0.85, 0); } add(cB + chunk, 0); }
+        else if (shape === 'syncDrop') { const step = 0.25, steps = Math.floor(chunk / step); for (let i = 0; i < steps; i++) { if (Math.random() > 0.3) { const t = cB + i * step, pk = 0.3 + Math.random() * 0.7; add(t, 0); add(t + 0.001, pk); add(t + step * 0.8, pk * 0.8, c); add(t + step * 0.81, 0); } } add(cB + chunk, 0); }
+    }
+
+    // V2 Chaos Build — one contrasting segment emitter (9 types).
+    function _sdNeuroEmitSegment(out, type, start, len) {
+        if (type === 'denseChop') { for (let i = 0; i < 16; i++) { if (Math.random() > 0.25) { const t = start + i * 0.25, v = 0.65 + Math.random() * 0.35; out.push({ time: t, value: 0.08, curve: 0 }); out.push({ time: t + 0.005, value: v, curve: 0 }); out.push({ time: t + 0.17, value: 0.08, curve: -0.4 }); } } }
+        else if (type === 'invertedChop') { out.push({ time: start, value: 0.88, curve: 0 }); for (let i = 0; i < 16; i++) { if (Math.random() > 0.4) { const t = start + i * 0.25; out.push({ time: t, value: 0.88, curve: 0 }); out.push({ time: t + 0.005, value: 0.08, curve: 0 }); out.push({ time: t + 0.17, value: 0.88, curve: 0.4 }); } } out.push({ time: start + len - 0.01, value: 0.88, curve: 0.2 }); }
+        else if (type === 'tripletFlurry') { for (let i = 0; i < 12; i++) { const t = start + i * (4 / 12), v = 0.5 + Math.random() * 0.5; out.push({ time: t, value: 0.1, curve: 0 }); out.push({ time: t + 0.005, value: v, curve: 0 }); out.push({ time: t + (4 / 12) * 0.7, value: 0.1, curve: -0.3 }); } }
+        else if (type === 'suddenGap') { out.push({ time: start, value: 0, curve: 0 }); out.push({ time: start + 0.04, value: 0.95, curve: 0 }); out.push({ time: start + 0.4, value: 0, curve: -0.4 }); out.push({ time: start + 0.8, value: 0.8, curve: 0 }); out.push({ time: start + 1.1, value: 0, curve: -0.4 }); out.push({ time: start + 3.5, value: 0, curve: 0 }); out.push({ time: start + 3.55, value: 1.0, curve: 0 }); out.push({ time: start + 3.95, value: 0.2, curve: -0.5 }); }
+        else if (type === 'glitchStorm') { for (let i = 0; i < 32; i++) { if (Math.random() > 0.35) { const t = start + i * 0.125, v = Math.random() > 0.3 ? (0.55 + Math.random() * 0.45) : 0.25; out.push({ time: t, value: 0.04, curve: 0 }); out.push({ time: t + 0.002, value: v, curve: 0 }); out.push({ time: t + 0.07, value: 0.04, curve: -0.3 }); } } }
+        else if (type === 'dropEcho') { out.push({ time: start, value: 0, curve: 0 }); out.push({ time: start + 0.04, value: 1.0, curve: 0 }); out.push({ time: start + 0.4, value: 0.35, curve: -0.55 }); out.push({ time: start + 0.9, value: 0.75, curve: 0.45 }); out.push({ time: start + 1.4, value: 0.18, curve: -0.5 }); out.push({ time: start + 1.9, value: 0.5, curve: 0.4 }); out.push({ time: start + 2.4, value: 0.1, curve: -0.5 }); out.push({ time: start + 2.9, value: 0.3, curve: 0.4 }); out.push({ time: start + 3.4, value: 0.05, curve: -0.5 }); out.push({ time: start + len - 0.01, value: 0.02, curve: -0.4 }); }
+        else if (type === 'reverseRamp') { const peaks = [0.95, 0.75, 0.5, 0.2, 0.45, 0.7, 0.95], step = len / peaks.length; for (let i = 0; i < peaks.length; i++) { const t = start + i * step; out.push({ time: t, value: 0.08, curve: 0 }); out.push({ time: t + 0.005, value: peaks[i], curve: 0 }); out.push({ time: t + step * 0.7, value: 0.08, curve: -0.4 }); } }
+        else if (type === 'offGridStutter') { const positions = [], numHits = 8 + Math.floor(Math.random() * 5); for (let i = 0; i < numHits; i++) positions.push(Math.random() * (len - 0.2)); positions.sort((a, b) => a - b); let lastT = -1; for (const p of positions) { const t = start + p; if (t - lastT < 0.12) continue; const v = 0.5 + Math.random() * 0.5; out.push({ time: t, value: 0.05, curve: 0 }); out.push({ time: t + 0.005, value: v, curve: 0 }); out.push({ time: t + 0.1, value: 0.05, curve: -0.4 }); lastT = t; } }
+        else if (type === 'octaveSlam') { for (let i = 0; i < 16; i++) { const t = start + i * 0.25, v = i % 2 === 0 ? 1.0 : 0.04; out.push({ time: t, value: v, curve: 0 }); out.push({ time: t + 0.23, value: v, curve: 0 }); } }
+    }
+
+    function _sdNeuroV1(sB, eB) {   // Smooth — base shapes + random bezier per chunk
+        const out = [], pool = ['ramp','hold','sawDrop','chop','build','stutter','gate','syncDrop'];
+        let t = sB;
+        while (t < eB - 0.001) { let chunk = [0.5, 1, 1.5, 2, 4][Math.floor(Math.random() * 5)]; if (t + chunk > eB) chunk = eB - t; _sdNeuroInject(out, pool[Math.floor(Math.random() * pool.length)], t, chunk, (Math.random() * 1.4) - 0.7); t = Math.round((t + chunk) * 10000) / 10000; }
+        return out;
+    }
+    function _sdNeuroV2(sB, eB) {   // Storm — chained contrasting segments + release
+        const out = [], bars = Math.max(1, Math.round((eB - sB) / 4));
+        const types = ['denseChop','invertedChop','tripletFlurry','suddenGap','glitchStorm','dropEcho','reverseRamp','offGridStutter','octaveSlam'];
+        const n = bars - 1; let last = null;
+        for (let bar = 0; bar < n; bar++) { let c; do { c = types[Math.floor(Math.random() * types.length)]; } while (c === last && types.length > 1); _sdNeuroEmitSegment(out, c, sB + bar * 4, 4); last = c; }
+        const rs = sB + n * 4;
+        out.push({ time: rs, value: 0.05, curve: 0 }); out.push({ time: rs + 0.04, value: 1.0, curve: 0 }); out.push({ time: rs + 0.6, value: 0.35, curve: -0.55 }); out.push({ time: rs + 1.4, value: 0.75, curve: 0.45 }); out.push({ time: rs + 2.2, value: 0.2, curve: -0.5 }); out.push({ time: rs + 3.0, value: 0.45, curve: 0.35 }); out.push({ time: eB, value: 0, curve: -0.7 });
+        out.sort((a, b) => a.time - b.time); return out;
+    }
+    function _sdNeuroV3(sB, eB) {   // Poly — 3-against-4 with bar anchors
+        const out = [], bars = Math.max(1, Math.round((eB - sB) / 4)), HI = 0.62, LO = 0.32, AN = 0.10;
+        for (let bar = 0; bar < bars; bar++) { const start = sB + bar * 4; out.push({ time: start, value: AN, curve: 0 }); const hits = []; for (let i = 0; i < 3; i++) hits.push({ t: i * (4 / 3), level: 'high' }); for (let i = 0; i < 4; i++) hits.push({ t: 0.5 + i, level: 'low' }); hits.sort((a, b) => a.t - b.t); for (const h of hits) { const t = start + h.t, target = h.level === 'high' ? HI + Math.random() * 0.25 : LO + Math.random() * 0.12; out.push({ time: Math.max(start + 0.001, t - 0.05), value: AN, curve: 0.4 }); out.push({ time: t, value: target, curve: 0 }); out.push({ time: t + 0.16, value: AN + 0.04, curve: -0.5 }); } out.push({ time: start + 3.92, value: AN, curve: 0.25 }); }
+        out.push({ time: eB, value: AN, curve: 0 }); out.sort((a, b) => a.time - b.time); return out;
+    }
+    // Versatile smooth "response" bar for Call & Response — a DIFFERENT musical swell every time
+    // (shape, peak height, peak position, ease amount + base value all vary), always bezier-eased
+    // (never choppy) and returning home at the bar end so the phrase stays loopable.
+    function _sdNeuroResponseBar(out, start, len) {
+        const pk = 0.6 + Math.random() * 0.4;              // peak height 0.6..1.0
+        const lo = 0.04 + Math.random() * 0.12;            // rest / base
+        const j  = () => (Math.random() - 0.5) * 0.35;     // small timing jitter
+        const cU = () => 0.25 + Math.random() * 0.5;       // ease up
+        const cD = () => -(0.25 + Math.random() * 0.5);    // ease down
+        const clamp = (t) => Math.max(start + 0.03, Math.min(start + len - 0.03, t));
+        out.push({ time: start, value: lo, curve: 0 });
+        switch (Math.floor(Math.random() * 5)) {
+            case 0:   // single swell — peak wanders across the bar
+                out.push({ time: clamp(start + 1.2 + Math.random() * 1.6), value: pk, curve: cU() });
+                out.push({ time: clamp(start + len - 0.4 + j()), value: lo + (pk - lo) * (0.15 + Math.random() * 0.3), curve: cD() });
+                break;
+            case 1:   // double hump
+                out.push({ time: clamp(start + 0.9 + j()), value: pk * (0.6 + Math.random() * 0.35), curve: cU() });
+                out.push({ time: clamp(start + 2.0 + j()), value: lo + 0.04, curve: cD() });
+                out.push({ time: clamp(start + 3.0 + j()), value: pk * (0.7 + Math.random() * 0.3), curve: cU() });
+                break;
+            case 2:   // rising build
+                out.push({ time: clamp(start + 1.5 + j()), value: lo + (pk - lo) * 0.4, curve: cU() });
+                out.push({ time: clamp(start + 3.2 + j()), value: pk, curve: cU() });
+                break;
+            case 3:   // early peak, long decay
+                out.push({ time: clamp(start + 0.35), value: pk, curve: cU() });
+                out.push({ time: clamp(start + 2.6 + j()), value: lo + (pk - lo) * 0.35, curve: cD() });
+                break;
+            default: { // valley / dip (inverse hill)
+                const mid = lo + (pk - lo) * (0.5 + Math.random() * 0.3);
+                out[out.length - 1].value = mid;           // start from mid, not the floor
+                out.push({ time: clamp(start + 1.6 + j()), value: lo, curve: cD() });
+                out.push({ time: clamp(start + 3.2 + j()), value: mid, curve: cU() });
+            }
+        }
+        out.push({ time: start + len, value: lo, curve: 0.2 });   // home at the bar line
+    }
+    function _sdNeuroV4(sB, eB) {   // Call & Response — aggressive chop / versatile smooth response
+        const out = [], bars = Math.max(1, Math.round((eB - sB) / 4)), pool = ['chop','stutter','syncDrop'];
+        for (let bar = 0; bar < bars; bar++) {
+            const start = sB + bar * 4;
+            if (bar % 2 === 0) _sdNeuroInject(out, pool[Math.floor(Math.random() * pool.length)], start, 4, 0);   // aggressive (unchanged)
+            else               _sdNeuroResponseBar(out, start, 4);                                                // versatile smooth swell
+        }
+        return out;
+    }
+    function _sdNeuroV5(sB, eB) {   // Acid — 16th grid, 4-tone scale, bezier slides
+        const out = [], range = eB - sB, tones = [0.25, 0.45, 0.65, 0.85], stepBeats = 0.25, totalSteps = Math.floor(range / stepBeats), events = [];
+        for (let s = 0; s < totalSteps; s++) { const isDown = s % 4 === 0, prob = isDown ? 0.96 : 0.55; if (Math.random() < prob) events.push({ step: s, tone: tones[Math.floor(Math.random() * tones.length)], slidesToNext: false }); }
+        for (let i = 0; i < events.length - 1; i++) if (events[i + 1].step - events[i].step === 1 && Math.random() < 0.35) events[i].slidesToNext = true;
+        let inSlide = false;
+        for (let i = 0; i < events.length; i++) { const e = events[i], t = sB + e.step * stepBeats; if (!inSlide) { out.push({ time: Math.max(sB, t - 0.001), value: 0, curve: 0 }); out.push({ time: t, value: e.tone, curve: 0 }); } else { out.push({ time: t, value: e.tone, curve: 0.7 }); } if (e.slidesToNext) { out.push({ time: sB + events[i + 1].step * stepBeats - 0.001, value: e.tone, curve: 0 }); inSlide = true; } else { out.push({ time: t + stepBeats * 0.7, value: e.tone, curve: 0 }); out.push({ time: t + stepBeats * 0.88, value: 0, curve: -0.5 }); inSlide = false; } }
+        out.push({ time: eB, value: 0, curve: 0 }); out.sort((a, b) => a.time - b.time); return out;
+    }
+    function _sdNeuroV6(sB, eB) {   // Anchor & Excursion — phrased bars, always return home
+        const out = [], bars = Math.max(1, Math.round((eB - sB) / 4)), HOME = 0.5;
+        const pool = ['peakUp','valleyDown','doublePeak','stutterBurst','stutterBurst','sineSwell','octaveJump','octaveJump','glitchSpray','glitchSpray','glitchSpray','asymStab','asymStab','chopGate','chopGate'];
+        for (let bar = 0; bar < bars; bar++) {
+            const start = sB + bar * 4; out.push({ time: start, value: HOME, curve: 0 }); const ex = pool[Math.floor(Math.random() * pool.length)];
+            if (ex === 'peakUp') { out.push({ time: start + 1, value: 0.93, curve: 0.45 }); out.push({ time: start + 2.5, value: 0.7, curve: 0.2 }); out.push({ time: start + 3.5, value: HOME, curve: 0.35 }); }
+            else if (ex === 'valleyDown') { out.push({ time: start + 1, value: 0.07, curve: -0.45 }); out.push({ time: start + 2.5, value: 0.28, curve: -0.2 }); out.push({ time: start + 3.5, value: HOME, curve: -0.35 }); }
+            else if (ex === 'doublePeak') { out.push({ time: start + 0.5, value: 0.88, curve: 0.5 }); out.push({ time: start + 1.5, value: HOME, curve: -0.4 }); out.push({ time: start + 2.5, value: 0.95, curve: 0.5 }); out.push({ time: start + 3.5, value: HOME, curve: -0.4 }); }
+            else if (ex === 'stutterBurst') { for (let i = 0; i < 6; i++) { const t = start + 0.4 + i * 0.45, v = i % 2 === 0 ? 0.85 + Math.random() * 0.1 : 0.18; out.push({ time: t, value: v, curve: 0 }); } out.push({ time: start + 3.7, value: HOME, curve: 0.3 }); }
+            else if (ex === 'sineSwell') { for (let i = 1; i < 8; i++) { const t = start + i * 0.5, v = HOME + Math.sin((i / 8) * Math.PI * 2) * 0.38; out.push({ time: t, value: v, curve: 0.55 }); } }
+            else if (ex === 'octaveJump') { out.push({ time: start + 0.8, value: 0.04, curve: -0.65 }); out.push({ time: start + 1.5, value: 0.98, curve: 0.65 }); out.push({ time: start + 2.3, value: 0.04, curve: -0.65 }); out.push({ time: start + 3.0, value: 0.94, curve: 0.65 }); out.push({ time: start + 3.7, value: HOME, curve: -0.3 }); }
+            else if (ex === 'glitchSpray') { const numHits = 8 + Math.floor(Math.random() * 7), hitTimes = []; for (let i = 0; i < numHits; i++) hitTimes.push(0.3 + Math.random() * 3.2); hitTimes.sort((a, b) => a - b); let lastT = -1; for (const ht of hitTimes) { const t = start + ht; if (t - lastT < 0.1) continue; const v = Math.random() > 0.4 ? (0.75 + Math.random() * 0.25) : 0.1; out.push({ time: t - 0.015, value: HOME, curve: 0 }); out.push({ time: t, value: v, curve: 0 }); out.push({ time: t + 0.05, value: HOME, curve: -0.4 }); lastT = t + 0.05; } }
+            else if (ex === 'asymStab') { out.push({ time: start + 0.6, value: HOME, curve: 0 }); out.push({ time: start + 0.62, value: 1.0, curve: 0 }); out.push({ time: start + 3.7, value: HOME, curve: -0.75 }); }
+            else if (ex === 'chopGate') { for (let i = 0; i < 8; i++) { const t = start + i * 0.5, v = i % 2 === 0 ? 0.92 : 0.08; out.push({ time: t, value: v, curve: 0 }); out.push({ time: t + 0.47, value: v, curve: 0 }); } }
+            if (Math.random() < 0.35) { const numG = 1 + Math.floor(Math.random() * 3); for (let g = 0; g < numG; g++) { const gt = start + 0.4 + Math.random() * 3.2, up = Math.random() > 0.5, gv = up ? (0.92 + Math.random() * 0.08) : (0.02 + Math.random() * 0.1); out.push({ time: gt - 0.015, value: HOME, curve: 0 }); out.push({ time: gt, value: gv, curve: 0 }); out.push({ time: gt + 0.03, value: HOME, curve: 0 }); } }
+            const endT = (bar < bars - 1) ? (start + 4) : eB; out.push({ time: endT, value: HOME, curve: 0.25 });
+        }
+        out.sort((a, b) => a.time - b.time); return out;
+    }
+
+    function _sdGenNeuroVariant(variant, sB, eB) {
+        switch (variant) {
+            case 'smooth': return _sdNeuroV1(sB, eB);
+            case 'storm':  return _sdNeuroV2(sB, eB);
+            case 'poly':   return _sdNeuroV3(sB, eB);
+            case 'call':   return _sdNeuroV4(sB, eB);
+            case 'acid':   return _sdNeuroV5(sB, eB);
+            case 'anchor': return _sdNeuroV6(sB, eB);
+            default:       return [];
+        }
+    }
+    // Apply a neuro variant to the SELECTED/active lane(s) — mirrors sdApplyTemplate
+    // (selection-aware, per-param) so it slots into the SHAPES/SEL row.
+    window.sdApplyNeuroVariant = function(variant) {
+        if (!sdActiveParamId) return;
+        pushUndo();
+        const sel = sdGetSelection(); const allBeats = sdGetBars() * 4;
+        const sB = sel ? sel.startBeat : 0; const eB = sel ? sel.endBeat : allBeats;
+        sdGetTargetParams().forEach(param => {
+            if (sel) param.points = param.points.filter(pt => pt.time < sB || pt.time > eB); else param.points = [];
+            param.points = param.points.concat(_sdGenNeuroVariant(variant, sB, eB)).sort((a, b) => a.time - b.time);
+        });
+        sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
+    };
+
     // ─── MUTATE ──────────────────────────────────────────────
     // Takes existing curves and produces dramatic variations:
     // cuts segments, relocates them, flips sections, scales amplitude

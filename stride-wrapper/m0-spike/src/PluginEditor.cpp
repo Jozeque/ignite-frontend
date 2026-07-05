@@ -156,6 +156,8 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
         .withEventListener ("license",      [this] (juce::var v)   { handleLicense (v); })
         .withEventListener ("undoRemove",   [this] (juce::var)     { synthWindows.clear(); proc.undoRemove(); })
         .withEventListener ("toggleLearn",  [this] (juce::var)     { proc.setLearnMode (! proc.isLearning()); pushLearnState(); })
+        .withEventListener ("setDriveMode", [this] (juce::var v)   { proc.setDriveMode ((int) v.getProperty ("mode", 0) == 1 ? StrideWrapperProcessor::DriveMode::Automation : StrideWrapperProcessor::DriveMode::Live); pushRackScanned(); })
+        .withEventListener ("announceMacros", [this] (juce::var)    { proc.announceMacrosToHost(); })
         .withEventListener ("setDemoMode",  [this] (juce::var)     {
             // SECURITY: never trust the WebView's flag to LIFT the demo — devtools or a bridge
             // call could send demo=false to force full mode. Recompute entitlement NATIVELY
@@ -188,7 +190,7 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
     setSize (initW, initH);
     savedW = lastTickW = initW;
     savedH = lastTickH = initH;
-    startTimerHz (10);
+    startTimerHz (30);   // 30Hz: smooth enough for the exposed macros to follow the modulation in Ableton
    #if JUCE_WINDOWS
     installKeyHook();     // forward Space/Return from hosted synth windows to the DAW transport
    #endif
@@ -439,6 +441,10 @@ void StrideWrapperEditor::pushRackScanned()
     msg->setProperty ("track_name", "Stride");
     msg->setProperty ("clip_bars", juce::jmax (1, juce::roundToInt (proc.getClipBeats() / 4.0)));   // real loop length so restored curves show at the right scale
     msg->setProperty ("has_clip", true);
+    // Host automation: current global mode + how many params are exposed to the DAW.
+    msg->setProperty ("drive_mode", (int) proc.getDriveMode());           // 0=Live (Stride drives), 1=Automation (DAW drives)
+    msg->setProperty ("exposed_macros", proc.exposedMacroCount());        // N of kMacroCount exposed
+    msg->setProperty ("macro_pool", StrideWrapperProcessor::kMacroCount);
     web->emitEventIfBrowserIsVisible ("sl_event", juce::var (msg));
 }
 
@@ -532,6 +538,8 @@ void StrideWrapperEditor::scanPluginsToWeb()
 
 void StrideWrapperEditor::timerCallback()
 {
+    proc.pushMacroValuesToHost();   // Live mode: Ableton's exposed params follow the modulation (+ record when armed)
+
     if (web == nullptr) return;
 
     const auto summary = proc.getChainSummary();
@@ -581,7 +589,7 @@ void StrideWrapperEditor::timerCallback()
     }
     // Persist the move budget periodically too — it changes silently during the move window
     // (where the freeze state doesn't), so a reload can't rewind more than ~2s of it.
-    if (proc.isDemo() && ++demoSaveTick >= 20) { demoSaveTick = 0; proc.saveDemoCycleState(); }
+    if (proc.isDemo() && ++demoSaveTick >= 60) { demoSaveTick = 0; proc.saveDemoCycleState(); }   // ~2s at 30Hz
 
     // Persist the editor size once it settles (unchanged for one 10Hz tick), so
     // launching Stride reopens it where the user left it — big/"fullscreen" stays big.

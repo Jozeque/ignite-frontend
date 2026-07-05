@@ -47,6 +47,17 @@ StrideWrapperProcessor::StrideWrapperProcessor()
         .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
 {
     formatManager.addFormat (std::make_unique<juce::VST3PluginFormat>());
+
+    // Publish the fixed macro-parameter pool so the DAW can automate/record the hosted
+    // knobs. addParameter takes ownership; we keep raw pointers for the drive loop. This is
+    // additive (fixed count, stable order) and does NOT change the plugin identity.
+    for (int i = 0; i < kMacroCount; ++i)
+    {
+        auto* mp = new MacroParameter (i);
+        macroParams[(size_t) i] = mp;
+        addParameter (mp);
+    }
+
     demoMode.store (! stride_license::cachedEntitled());   // start limited unless a cached VST entitlement is present; UI confirms live
     loadDemoCycleState();                                   // restore the demo move/freeze cycle (reload-proof)
 }
@@ -71,6 +82,7 @@ void StrideWrapperProcessor::saveDemoCycleState() const
 
 StrideWrapperProcessor::~StrideWrapperProcessor()
 {
+    cancelPendingUpdate();   // no relabel callback can fire into a half-destroyed processor
     const juce::ScopedLock sl (hostLock);
     for (auto& n : chain) if (n.inst) n.inst->removeListener (this);
     chain.clear();
@@ -183,20 +195,46 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         }
         else { demoFrozen.store (false); demoResumeSecs.store (0); }
 
-        if (! driveLanes.empty() && ! demoFreezeNow)   // FREEZE skips the drive -> hosted knobs hold their last value
+        // FREEZE (demo) skips all driving -> hosted knobs hold their last value.
+        if (! demoFreezeNow)
         {
-            const double cb = driveClipBeats > 0.0 ? driveClipBeats : 16.0;
-            double ph = std::fmod (beats, cb);
-            if (ph < 0.0) ph += cb;
-            lastModValue.store ((float) (ph / cb));
-
-            for (const auto& lane : driveLanes)
+            if (driveMode.load() == DriveMode::Automation)
             {
-                if (lane.node < 0 || lane.node >= (int) chain.size() || ! chain[(size_t) lane.node].inst) continue;
-                auto& ps = chain[(size_t) lane.node].inst->getParameters();
-                if (lane.param >= 0 && lane.param < ps.size())
-                    if (auto* p = ps[lane.param])
-                        p->setValue (interp (lane.times, lane.values, lane.curves, (float) ph));
+                // AUTOMATION: the DAW drives. Read each exposed macro's value (set by Ableton
+                // automation / manual) and forward it to its hosted param. Curves are ignored.
+                for (const auto& m : mapped)
+                {
+                    if (m.macroSlot < 0 || m.macroSlot >= kMacroCount) continue;
+                    if (m.node < 0 || m.node >= (int) chain.size() || ! chain[(size_t) m.node].inst) continue;
+                    auto& ps = chain[(size_t) m.node].inst->getParameters();
+                    if (m.param >= 0 && m.param < ps.size())
+                        if (auto* p = ps[m.param])
+                            p->setValue (macroParams[(size_t) m.macroSlot]->getValue());
+                }
+            }
+            else if (! driveLanes.empty())
+            {
+                // LIVE (default, unchanged): Stride curves drive the hosted params, and we MIRROR
+                // the value onto the macro (plain setValue, no host-notify) so the DAW's display
+                // follows the modulation without recording it.
+                const double cb = driveClipBeats > 0.0 ? driveClipBeats : 16.0;
+                double ph = std::fmod (beats, cb);
+                if (ph < 0.0) ph += cb;
+                lastModValue.store ((float) (ph / cb));
+
+                for (const auto& lane : driveLanes)
+                {
+                    if (lane.node < 0 || lane.node >= (int) chain.size() || ! chain[(size_t) lane.node].inst) continue;
+                    auto& ps = chain[(size_t) lane.node].inst->getParameters();
+                    if (lane.param >= 0 && lane.param < ps.size())
+                        if (auto* p = ps[lane.param])
+                        {
+                            const float v = interp (lane.times, lane.values, lane.curves, (float) ph);
+                            p->setValue (v);
+                            const int slot = macroSlotFor (lane.node, lane.param);
+                            if (slot >= 0) macroParams[(size_t) slot]->setValue (v);   // mirror for the DAW display
+                        }
+                }
             }
         }
 
@@ -273,7 +311,7 @@ void StrideWrapperProcessor::clearChain()
         d.path = chain[(size_t) i].path;
         d.position = i;
         if (chain[(size_t) i].inst) chain[(size_t) i].inst->getStateInformation (d.state);
-        for (const auto& m : mapped)     if (m.node == i) d.params.push_back (m.param);
+        for (const auto& m : mapped)     if (m.node == i) { d.params.push_back (m.param); d.slots.push_back (m.macroSlot); }
         for (const auto& l : driveLanes) if (l.node == i) d.lanes.push_back (l);
         lastRemoved.devices.push_back (std::move (d));
     }
@@ -283,7 +321,9 @@ void StrideWrapperProcessor::clearChain()
     chain.clear();
     mapped.clear();
     driveLanes.clear();
+    reassignMacros();
     mapVersion.fetch_add (1);
+    triggerAsyncUpdate();
 }
 
 void StrideWrapperProcessor::removeNode (int index)
@@ -298,7 +338,7 @@ void StrideWrapperProcessor::removeNode (int index)
         d.path = chain[(size_t) index].path;
         d.position = index;
         if (chain[(size_t) index].inst) chain[(size_t) index].inst->getStateInformation (d.state);
-        for (const auto& m : mapped)     if (m.node == index) d.params.push_back (m.param);
+        for (const auto& m : mapped)     if (m.node == index) { d.params.push_back (m.param); d.slots.push_back (m.macroSlot); }
         for (const auto& l : driveLanes) if (l.node == index) d.lanes.push_back (l);
         lastRemoved.devices.push_back (std::move (d));
     }
@@ -316,7 +356,9 @@ void StrideWrapperProcessor::removeNode (int index)
     for (const auto& l : driveLanes) { if (l.node == index) continue; StoredLane x = l; if (x.node > index) --x.node; nd.push_back (x); }
     driveLanes.swap (nd);
 
+    reassignMacros();          // remaining params keep their slots (stable); the removed node's slots free up
     mapVersion.fetch_add (1);
+    triggerAsyncUpdate();
 }
 
 void StrideWrapperProcessor::undoRemove()
@@ -368,10 +410,13 @@ void StrideWrapperProcessor::restoreNextDevice (std::shared_ptr<std::vector<Remo
                     for (auto& m : mapped)     if (m.node >= p) ++m.node;   // make room at p
                     for (auto& l : driveLanes) if (l.node >= p) ++l.node;
                     chain.insert (chain.begin() + p, Node { std::move (inst), name, d.path, d.bypassed });
-                    for (int pr : d.params) mapped.push_back ({ p, pr });             // restore this device's lanes
+                    for (size_t k = 0; k < d.params.size(); ++k)                      // restore this device's lanes
+                        mapped.push_back ({ p, d.params[k], k < d.slots.size() ? d.slots[k] : -1 });
                     for (auto l : d.lanes) { l.node = p; driveLanes.push_back (l); }  // and their curves
+                    reassignMacros();      // keep restored slots where valid; fill any gaps (old saves had none)
                 }
                 mapVersion.fetch_add (1);
+                triggerAsyncUpdate();
             }
             else juce::ignoreUnused (err);
 
@@ -439,7 +484,9 @@ void StrideWrapperProcessor::getStateInformation (juce::MemoryBlock& dest)
     if (demoMode.load()) return;   // DEMO: persist nothing — a project can't be built on the demo (blank state on reload)
     juce::XmlElement root ("STRIDE_WRAP");
     const juce::ScopedLock sl (hostLock);
+    root.setAttribute ("version", 2);                                   // state schema version (for future migration)
     root.setAttribute ("clipBeats", driveClipBeats);
+    root.setAttribute ("driveMode", (int) driveMode.load());            // 0=Live, 1=Automation
 
     auto* chainXml = root.createNewChildElement ("CHAIN");
     for (int i = 0; i < (int) chain.size(); ++i)
@@ -459,6 +506,7 @@ void StrideWrapperProcessor::getStateInformation (juce::MemoryBlock& dest)
     {
         auto* e = mapXml->createNewChildElement ("M");
         e->setAttribute ("n", m.node); e->setAttribute ("p", m.param);
+        e->setAttribute ("s", m.macroSlot);   // stable DAW-facing slot -> Ableton automation stays on the right knob across reload
     }
     auto* laneXml = root.createNewChildElement ("LANES");
     for (const auto& l : driveLanes)
@@ -483,6 +531,7 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
         for (auto& n : chain) if (n.inst) n.inst->removeListener (this);
         chain.clear(); mapped.clear(); driveLanes.clear();
         driveClipBeats = xml->getDoubleAttribute ("clipBeats", 16.0);
+        driveMode.store ((DriveMode) xml->getIntAttribute ("driveMode", 0));   // default Live (0) for old projects
     }
     mapVersion.fetch_add (1);
 
@@ -509,7 +558,11 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
         for (auto* e : mapXml->getChildIterator())
         {
             const int n = e->getIntAttribute ("n", -1);
-            if (n >= 0 && n < (int) devs->size()) (*devs)[(size_t) n].params.push_back (e->getIntAttribute ("p"));
+            if (n >= 0 && n < (int) devs->size())
+            {
+                (*devs)[(size_t) n].params.push_back (e->getIntAttribute ("p"));
+                (*devs)[(size_t) n].slots.push_back (e->getIntAttribute ("s", -1));   // -1 for pre-macro projects -> reassigned on restore
+            }
         }
     if (auto* laneXml = xml->getChildByName ("LANES"))
         for (auto* e : laneXml->getChildIterator())
@@ -538,8 +591,10 @@ void StrideWrapperProcessor::mapParam (juce::AudioProcessor* proc, int parameter
     if (node < 0) return;
     for (const auto& m : mapped)
         if (m.node == node && m.param == parameterIndex) return;   // already mapped
-    mapped.push_back ({ node, parameterIndex });
+    mapped.push_back ({ node, parameterIndex, -1 });
+    reassignMacros();          // claim a free macro slot for the DAW
     mapVersion.fetch_add (1);
+    triggerAsyncUpdate();      // relabel the macro on the message thread
 }
 
 void StrideWrapperProcessor::audioProcessorParameterChanged (juce::AudioProcessor* proc, int parameterIndex, float)
@@ -619,7 +674,9 @@ void StrideWrapperProcessor::removeMappedAt (int pos)
             if (driveLanes[(size_t) k].node == n && driveLanes[(size_t) k].param == pr)
                 driveLanes.erase (driveLanes.begin() + k);
         mapped.erase (mapped.begin() + pos);
+        reassignMacros();      // frees this param's macro slot; other slots keep theirs (Ableton automation stays put)
         mapVersion.fetch_add (1);
+        triggerAsyncUpdate();
     }
 }
 
@@ -627,7 +684,135 @@ void StrideWrapperProcessor::clearMapping()
 {
     const juce::ScopedLock sl (hostLock);
     mapped.clear();
+    reassignMacros();
     mapVersion.fetch_add (1);
+    triggerAsyncUpdate();
+}
+
+// ── Host-automation macro layer ────────────────────────────────────
+// Stable (re)assignment: KEEP every valid, unique slot; (re)assign only entries that are
+// free (-1), out of range, or duplicated. So unmapping/removing a param frees its slot WITHOUT
+// shuffling the others — the DAW's automation stays bound to the same knob. Caller holds hostLock.
+void StrideWrapperProcessor::reassignMacros()
+{
+    std::array<bool, kMacroCount> used {};
+    for (auto& m : mapped)
+    {
+        if (m.macroSlot < 0 || m.macroSlot >= kMacroCount || used[(size_t) m.macroSlot])
+            m.macroSlot = -1;
+        else
+            used[(size_t) m.macroSlot] = true;
+    }
+    for (auto& m : mapped)
+        if (m.macroSlot < 0)
+            for (int s = 0; s < kMacroCount; ++s)
+                if (! used[(size_t) s]) { m.macroSlot = s; used[(size_t) s] = true; break; }
+    // entries left at -1 = pool full -> still driven in Stride, just not exposed to the DAW
+}
+
+int StrideWrapperProcessor::macroSlotFor (int node, int param) const
+{
+    for (const auto& m : mapped)
+        if (m.node == node && m.param == param) return m.macroSlot;
+    return -1;
+}
+
+int StrideWrapperProcessor::exposedMacroCount() const
+{
+    const juce::ScopedLock sl (hostLock);
+    int n = 0;
+    for (const auto& m : mapped) if (m.macroSlot >= 0) ++n;
+    return n;
+}
+
+void StrideWrapperProcessor::setDriveMode (DriveMode m)
+{
+    driveMode.store (m);   // persisted in getStateInformation; takes effect next processBlock
+}
+
+// Ableton's "Configure" mode adds a VST3 param to the device only when that param fires a
+// host-visible gesture. Wiggling a hosted synth knob fires ITS gesture to us (we're its host),
+// never to Ableton — so the macros stay invisible. This fires a real begin/setValueNotifyingHost/
+// end gesture on every EXPOSED macro so, while Ableton is in Configure, they all pop into the
+// list. A tiny nudge-then-restore guarantees a detectable delta without a lasting audio change
+// (in Live mode the macro is a display mirror; it doesn't drive the hosted param). MESSAGE THREAD.
+void StrideWrapperProcessor::announceMacrosToHost()
+{
+    std::vector<int> slots;
+    {
+        const juce::ScopedLock sl (hostLock);
+        for (const auto& m : mapped)
+            if (m.macroSlot >= 0 && m.macroSlot < kMacroCount) slots.push_back (m.macroSlot);
+    }
+    for (int slot : slots)
+        if (auto* mp = macroParams[(size_t) slot])
+        {
+            const float v = mp->getValue();
+            const float nudged = (v <= 0.5f) ? juce::jmin (1.0f, v + 0.02f) : juce::jmax (0.0f, v - 0.02f);
+            mp->beginChangeGesture();
+            mp->setValueNotifyingHost (nudged);
+            mp->setValueNotifyingHost (v);        // restore
+            mp->endChangeGesture();
+        }
+}
+
+// In LIVE mode the macro is normally a silent display mirror. To make Ableton's exposed params
+// actually MOVE with the drawn curve (0..1 Y over the loop's X) — and record into an automation
+// lane when armed — report the live value to the host via setValueNotifyingHost. Change-detected
+// so a static lane doesn't spam the host. NOT in Automation mode (there the host drives us).
+// Message thread (driven by the editor timer).
+void StrideWrapperProcessor::pushMacroValuesToHost()
+{
+    if (driveMode.load() != DriveMode::Live) return;
+    std::vector<int> slots;
+    {
+        const juce::ScopedLock sl (hostLock);
+        for (const auto& m : mapped)
+            if (m.macroSlot >= 0 && m.macroSlot < kMacroCount) slots.push_back (m.macroSlot);
+    }
+    for (int slot : slots)
+        if (auto* mp = macroParams[(size_t) slot])
+        {
+            const float v = mp->getValue();
+            if (std::abs (v - mp->lastPushed) > 0.0005f)
+            {
+                mp->setValueNotifyingHost (v);   // Ableton's param follows the modulation
+                mp->lastPushed = v;
+            }
+        }
+}
+
+// MESSAGE THREAD: give each macro the real name of the param it drives ("Serum: Cutoff"), or
+// clear it (a free slot then reads "Stride N"), then ask the host to re-read the param titles.
+void StrideWrapperProcessor::refreshMacroLabels()
+{
+    std::array<juce::String, kMacroCount> labels;
+    {
+        const juce::ScopedLock sl (hostLock);
+        for (const auto& m : mapped)
+        {
+            if (m.macroSlot < 0 || m.macroSlot >= kMacroCount) continue;
+            juce::String nm = "Stride";
+            if (m.node >= 0 && m.node < (int) chain.size() && chain[(size_t) m.node].inst)
+            {
+                auto& ps = chain[(size_t) m.node].inst->getParameters();
+                const juce::String pn = (m.param >= 0 && m.param < ps.size()) ? ps[m.param]->getName (32) : juce::String ("?");
+                nm = chain[(size_t) m.node].name + ": " + pn;
+            }
+            labels[(size_t) m.macroSlot] = nm;
+        }
+    }
+    for (int i = 0; i < kMacroCount; ++i)
+        if (macroParams[(size_t) i] != nullptr)
+            macroParams[(size_t) i]->label = labels[(size_t) i];   // "" -> the param falls back to "Stride i+1"
+
+    // VST3 kParamTitlesChanged — tells the host to re-read parameter names live.
+    updateHostDisplay (juce::AudioProcessorListener::ChangeDetails{}.withParameterInfoChanged (true));
+}
+
+void StrideWrapperProcessor::handleAsyncUpdate()
+{
+    refreshMacroLabels();
 }
 
 // ── live curve drive ───────────────────────────────────────────────

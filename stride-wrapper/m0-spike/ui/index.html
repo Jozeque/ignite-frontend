@@ -821,7 +821,7 @@
             <!-- COMPACT toolbar — slim tweak tools wired DIRECTLY to the real
                  canvas functions (no mirror renderer). Shown only in compact mode;
                  the big ROW 1/ROW 2 toolbars are .sd-full-only and hide. -->
-            <div class="sd-compact-only bg-zinc-950 border-b border-white/5 px-2.5 py-1.5 items-center gap-2 flex-wrap shrink-0">
+            <div class="sd-compact-only bg-zinc-950 border-b border-white/5 px-2.5 py-1 items-center gap-1.5 flex-wrap shrink-0">
                 <div class="flex items-center gap-1">
                     <button id="qpc-tool-point" onclick="sdSetTool('select')" class="tool-btn bg-fuchsia-500/20 text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Point</button>
                     <button id="qpc-tool-free" onclick="sdSetTool('freehand')" class="tool-btn text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Free</button>
@@ -840,23 +840,34 @@
                 <button onclick="sdMutate()" class="tool-btn text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Mutate</button>
                 <button onclick="sdShuffleLanes()" title="Shuffle curves between lanes" class="tool-btn text-violet-400 hover:text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 hover:border-violet-500/40 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Shuffle</button>
                 <span class="w-px h-4 bg-white/10"></span>
-                <!-- Shapes — per-lane curve templates -->
-                <div class="flex items-center gap-1">
-                    <button onclick="sdApplyTemplate('sine')" class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Sine</button>
-                    <button onclick="sdApplyTemplate('pump')" class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Pump</button>
-                    <button onclick="sdApplyTemplate('glitch')" class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Glitch</button>
-                    <button onclick="sdApplyTemplate('groove_build')" class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Groove</button>
+                <!-- SEL SHAPES — per-lane generators applied to the SELECTED / active lane(s).
+                     Fuchsia = "selected" (vs the orange Motion row = every lane). Basic shapes +
+                     generative (Chaos/Neuro/S&H) + the Neuro v2 variants (docs/neuro-variants-mockup). -->
+                <div class="flex items-center gap-0.5 flex-wrap">
+                    <span class="text-[8px] text-fuchsia-400/80 uppercase tracking-[0.16em] font-black mr-0.5" title="These apply to the SELECTED lane(s) — select lanes on the canvas first (else the active lane)">◉ Sel</span>
+                    <button onclick="sdApplyTemplate('sine')" class="text-[9px] text-fuchsia-300/80 hover:text-fuchsia-200 bg-fuchsia-500/5 hover:bg-fuchsia-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Sine</button>
+                    <button onclick="sdApplyTemplate('pump')" class="text-[9px] text-fuchsia-300/80 hover:text-fuchsia-200 bg-fuchsia-500/5 hover:bg-fuchsia-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Pump</button>
+                    <button onclick="sdApplyTemplate('chaos_lfo')" title="Chaos — multi-layer wave noise on the selected lane(s)" class="text-[9px] text-fuchsia-300/80 hover:text-fuchsia-200 bg-fuchsia-500/5 hover:bg-fuchsia-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Chaos</button>
+                    <button onclick="sdApplyComplexTemplate('neuro')" title="Neuro — gnarly random shapes on the selected lane(s)" class="text-[9px] text-fuchsia-300/80 hover:text-fuchsia-200 bg-fuchsia-500/5 hover:bg-fuchsia-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Neuro</button>
+                    <button onclick="sdApplySampleHoldLane()" title="Sample &amp; Hold — stepped random on the selected lane(s). Click again to reroll." class="text-[9px] text-fuchsia-300/80 hover:text-fuchsia-200 bg-fuchsia-500/5 hover:bg-fuchsia-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">S&amp;H</button>
+                    <span class="w-px h-3 bg-fuchsia-500/25 mx-0.5"></span>
+                    <button onclick="sdApplyNeuroVariant('smooth')" title="Smooth — Neuro shapes with bezier ease (less robotic)" class="text-[9px] text-fuchsia-300/80 hover:text-fuchsia-200 bg-fuchsia-500/5 hover:bg-fuchsia-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Smooth</button>
+                    <button onclick="sdApplyNeuroVariant('storm')" title="Storm — chained contrasting segments building to a release" class="text-[9px] text-fuchsia-300/80 hover:text-fuchsia-200 bg-fuchsia-500/5 hover:bg-fuchsia-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Storm</button>
+                    <button onclick="sdApplyNeuroVariant('call')" title="Call — aggressive bar / smooth response alternation" class="text-[9px] text-fuchsia-300/80 hover:text-fuchsia-200 bg-fuchsia-500/5 hover:bg-fuchsia-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Call</button>
+                    <button onclick="sdApplyNeuroVariant('acid')" title="Acid — 303-style 16th-note slides on a 4-tone scale" class="text-[9px] text-fuchsia-300/80 hover:text-fuchsia-200 bg-fuchsia-500/5 hover:bg-fuchsia-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Acid</button>
+                    <button onclick="sdApplyNeuroVariant('anchor')" title="Anchor — phrased bars that always return home, with glitch bites" class="text-[9px] text-fuchsia-300/80 hover:text-fuchsia-200 bg-fuchsia-500/5 hover:bg-fuchsia-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Anchor</button>
                 </div>
-                <span class="w-px h-4 bg-white/10"></span>
-                <!-- MOTION TOOLS — generative, applied to ALL mapped params in one click (1:1 with the full window's global generators) -->
+                <!-- line break — MOTION sits on its OWN row, separate from the SEL patterns above -->
+                <div class="basis-full h-0"></div>
+                <!-- MOTION TOOLS — applied to ALL mapped lanes in one click -->
                 <div class="flex items-center gap-1.5">
-                    <span class="text-[8px] text-zinc-500 uppercase tracking-[0.18em] font-bold">Motion</span>
-                    <button onclick="sdApplyGlobalChaos()" title="Chaos — generative motion across every mapped param" class="text-[10px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-2.5 py-1 rounded uppercase tracking-wider font-bold transition-colors">Chaos</button>
-                    <button onclick="sdApplyGlobalNeuro()" title="Neuro — generative motion across every mapped param" class="text-[10px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-2.5 py-1 rounded uppercase tracking-wider font-bold transition-colors">Neuro</button>
-                    <button onclick="sdApplyGlobalReflector()" title="Reflector — generative motion across every mapped param" class="text-[10px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-2.5 py-1 rounded uppercase tracking-wider font-bold transition-colors">Reflector</button>
-                    <button onclick="sdApplyGlobalSampleHold()" title="Sample &amp; Hold — generative motion across every mapped param" class="text-[10px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-2.5 py-1 rounded uppercase tracking-wider font-bold transition-colors">S&amp;H</button>
-                    <button onclick="sdApplyGlobalPrism()" title="Prism — generative motion across every mapped param" class="text-[10px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-2.5 py-1 rounded uppercase tracking-wider font-bold transition-colors">Prism</button>
-                    <button onclick="sdApplyBloom()" title="Bloom — generative motion across every mapped param" class="text-[10px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-2.5 py-1 rounded uppercase tracking-wider font-bold transition-colors">Bloom</button>
+                    <span class="text-[8px] text-orange-400/70 uppercase tracking-[0.18em] font-black">Motion</span>
+                    <button onclick="sdApplyGlobalChaos()" class="text-[10px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-2.5 py-1 rounded uppercase tracking-wider font-bold transition-colors">Chaos</button>
+                    <button onclick="sdApplyGlobalNeuro()" class="text-[10px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-2.5 py-1 rounded uppercase tracking-wider font-bold transition-colors">Neuro</button>
+                    <button onclick="sdApplyGlobalReflector()" class="text-[10px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-2.5 py-1 rounded uppercase tracking-wider font-bold transition-colors">Reflector</button>
+                    <button onclick="sdApplyGlobalSampleHold()" class="text-[10px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-2.5 py-1 rounded uppercase tracking-wider font-bold transition-colors">S&amp;H</button>
+                    <button onclick="sdApplyGlobalPrism()" class="text-[10px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-2.5 py-1 rounded uppercase tracking-wider font-bold transition-colors">Prism</button>
+                    <button onclick="sdApplyBloom()" class="text-[10px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-2.5 py-1 rounded uppercase tracking-wider font-bold transition-colors">Bloom</button>
                 </div>
                 <span class="w-px h-4 bg-white/10"></span>
                 <!-- BARS — loop length (drives the host modulation loop too) -->

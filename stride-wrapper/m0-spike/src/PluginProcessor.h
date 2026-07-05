@@ -14,9 +14,11 @@
 
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <vector>
+#include <array>
 
 class StrideWrapperProcessor : public juce::AudioProcessor,
-                               private juce::AudioProcessorListener
+                               private juce::AudioProcessorListener,
+                               private juce::AsyncUpdater
 {
 public:
     StrideWrapperProcessor();
@@ -77,6 +79,17 @@ public:
     void clearMapping();
     int  mappingVersion() const { return mapVersion.load(); }
 
+    // ── Host automation: a fixed pool of VST3 macro params so the DAW can automate /
+    //    record the hosted knobs (docs/stride-wrapper-host-automation-spec.md). Additive —
+    //    does NOT change the plugin identity, so existing projects still load. ──
+    static constexpr int kMacroCount = 32;
+    enum class DriveMode { Live, Automation };   // global: Stride curves drive vs the DAW drives
+    void setDriveMode (DriveMode m);
+    DriveMode getDriveMode() const { return driveMode.load(); }
+    int  exposedMacroCount() const;              // assigned macro slots (for the panel note)
+    void announceMacrosToHost();                 // fire a host gesture on each exposed macro so Ableton's Configure catches them (message thread)
+    void pushMacroValuesToHost();                // Live mode: report the live modulation value to the host so Ableton's params FOLLOW it (and record if armed). Message thread.
+
     // ── live curve drive ──
     struct DriveLane { int position; std::vector<float> times, values, curves; };
     void setDriveCurves (const std::vector<DriveLane>& lanes, double clipBeats);
@@ -93,14 +106,42 @@ private:
     int  nodeIndexOf (juce::AudioProcessor*) const;   // which chain slot a processor is (under lock)
     void mapParam (juce::AudioProcessor*, int parameterIndex);   // map a param if in learn mode (shared by value-change + touch)
 
+    // Host-automation macro layer (all caller-holds-hostLock unless noted).
+    void reassignMacros();                        // stable (re)assign of macro slots to mapped params — keeps valid slots, fills -1/dup
+    int  macroSlotFor (int node, int param) const;// the macro slot driving this hosted param, or -1
+    void refreshMacroLabels();                    // MESSAGE THREAD: relabel macros from mapped names + updateHostDisplay
+    void handleAsyncUpdate() override;            // coalesced relabel trigger (message thread)
+
     juce::AudioPluginFormatManager formatManager;
     juce::CriticalSection hostLock;           // guards chain + mapped + driveLanes
 
     struct Node { std::unique_ptr<juce::AudioPluginInstance> inst; juce::String name; juce::String path; bool bypassed = false; };
     std::vector<Node> chain;                  // [0] = instrument, [1..] = effects, in series
 
-    struct MapRef { int node; int param; };
+    struct MapRef { int node; int param; int macroSlot = -1; };   // macroSlot = DAW-facing param slot (-1 = not exposed)
     std::vector<MapRef> mapped;               // user-mapped params across the chain
+
+    // A relabelable VST3 parameter. A free slot reads "Stride N"; an assigned slot takes the
+    // hosted param's real name ("Serum: Cutoff"). These are what the DAW automates/records.
+    class MacroParameter : public juce::AudioProcessorParameter
+    {
+    public:
+        explicit MacroParameter (int slotIndex) : slot (slotIndex) {}
+        float getValue() const override                    { return value.load(); }
+        void  setValue (float v) override                  { value.store (juce::jlimit (0.0f, 1.0f, v)); }
+        float getDefaultValue() const override             { return 0.0f; }
+        juce::String getName (int maxLen) const override   { const juce::String l = label; return (l.isNotEmpty() ? l : ("Stride " + juce::String (slot + 1))).substring (0, maxLen); }
+        juce::String getLabel() const override             { return {}; }
+        float getValueForText (const juce::String& t) const override { return t.getFloatValue(); }
+        juce::String getText (float v, int) const override { return juce::String (v, 3); }
+        bool isAutomatable() const override                { return true; }
+        juce::String label;                    // "" = free (message-thread writes; host reads names on the message thread)
+        std::atomic<float> value { 0.0f };     // audio-thread safe
+        float lastPushed = -1.0f;              // last value host-notified (message thread only; change-detect for the drive push)
+        const int slot;
+    };
+    std::array<MacroParameter*, kMacroCount> macroParams {};   // owned by the AudioProcessor (addParameter)
+    std::atomic<DriveMode> driveMode { DriveMode::Live };
     std::atomic<bool> learnMode  { false };
     std::atomic<int>  mapVersion { 0 };
     std::atomic<bool> demoMode   { true };   // fail-safe default: limited until proven entitled
@@ -123,7 +164,7 @@ private:
     {
         bool valid = false;
         struct Dev { juce::String path; juce::MemoryBlock state; int position = 0;
-                     std::vector<int> params; std::vector<StoredLane> lanes; bool bypassed = false; };
+                     std::vector<int> params; std::vector<int> slots; std::vector<StoredLane> lanes; bool bypassed = false; };
         std::vector<Dev> devices;          // 1 for a single ✕, the whole chain for Clear
     };
     RemovedSnapshot lastRemoved;

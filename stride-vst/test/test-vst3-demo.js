@@ -57,7 +57,7 @@ ok('freeze end is real-time (demoFreezeUntilMs)', /demoFreezeUntilMs/.test(procH
 ok('move budget accrues only while transport is playing', /if\s*\(\s*transportPlaying\s*\)/.test(procC) && /demoMoveUsedMs\.store/.test(procC));
 ok('processBlock reads the transport play state', /transportPlaying/.test(procC) && /getIsPlaying/.test(procC));
 ok('freeze begins after 10s of playback used', /used\s*>=\s*kDemoMoveSecs\s*\*\s*1000/.test(procC) && /demoFreezeUntilMs\.store\s*\(\s*now/.test(procC));
-ok('FREEZE skips the drive so knobs HOLD (drive gated on !demoFreezeNow)', /!\s*driveLanes\.empty\(\)\s*&&\s*!\s*demoFreezeNow/.test(procC));
+ok('FREEZE skips the drive so knobs HOLD (drive gated by !demoFreezeNow)', /if\s*\(\s*!\s*demoFreezeNow\s*\)/.test(procC));
 ok('freeze exposes a live countdown (demoResumeSecs)', /demoResumeSecs/.test(procH) && /demoResumeSecs\.store/.test(procC));
 
 // ─────────────────────────────────────────────────────────────
