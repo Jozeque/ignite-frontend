@@ -186,7 +186,6 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
             else
             {
                 if (freezeUntil > 0.0) { demoFreezeUntilMs.store (0.0); demoMoveUsedMs.store (0.0); }   // freeze ended -> reset move budget
-                demoResumeSecs.store (0);
                 if (transportPlaying)                                 // move budget accrues ONLY while playing (setup time is free)
                 {
                     const double used = demoMoveUsedMs.load() + 1000.0 * (double) buffer.getNumSamples() / currentSampleRate;
@@ -197,12 +196,18 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
                         demoFreezeNow = true;
                         demoResumeSecs.store ((int) kDemoFreezeSecs);
                     }
-                    else demoMoveUsedMs.store (used);
+                    else
+                    {
+                        demoMoveUsedMs.store (used);
+                        demoResumeSecs.store ((int) std::ceil ((kDemoMoveSecs * 1000.0 - used) / 1000.0));   // "live" countdown 10 -> 1 before the freeze
+                    }
                 }
+                else demoResumeSecs.store ((int) std::ceil ((kDemoMoveSecs * 1000.0 - demoMoveUsedMs.load()) / 1000.0));   // not playing -> hold the remaining move budget
             }
             demoFrozen.store (demoFreezeNow);
+            demoPlaying.store (transportPlaying && ! demoFreezeNow);   // actively modulating -> badge "live"
         }
-        else { demoFrozen.store (false); demoResumeSecs.store (0); }
+        else { demoFrozen.store (false); demoPlaying.store (false); demoResumeSecs.store (0); }
 
         // FREEZE (demo) skips all driving -> hosted knobs hold their last value.
         if (! demoFreezeNow)
@@ -392,6 +397,34 @@ void StrideWrapperProcessor::removeNode (int index)
     driveLanes.swap (nd);
 
     reassignMacros();          // remaining params keep their slots (stable); the removed node's slots free up
+    mapVersion.fetch_add (1);
+    triggerAsyncUpdate();
+}
+
+// Reorder the chain (drag). Moving a device shifts node indices, so every mapped param and
+// drive lane is reindexed to keep pointing at the SAME device — curves/locks/bypass/macro
+// assignments all follow their device. Under the lock, so processBlock never sees a torn chain.
+void StrideWrapperProcessor::moveNode (int from, int to)
+{
+    const juce::ScopedLock sl (hostLock);
+    const int n = (int) chain.size();
+    if (from < 0 || from >= n || to < 0 || to >= n || from == to) return;
+
+    Node node = std::move (chain[(size_t) from]);
+    chain.erase (chain.begin() + from);
+    chain.insert (chain.begin() + to, std::move (node));
+
+    // New index for any node index after moving element `from` to `to`.
+    auto remap = [from, to] (int idx) -> int
+    {
+        if (idx == from) return to;
+        if (from < to)  return (idx > from && idx <= to) ? idx - 1 : idx;   // moved right: those it passed shift left
+        return              (idx >= to && idx < from) ? idx + 1 : idx;      // moved left:  those it passed shift right
+    };
+    for (auto& m : mapped)     m.node = remap (m.node);
+    for (auto& l : driveLanes) l.node = remap (l.node);
+
+    reassignMacros();          // slots are keyed to the entry (unchanged); refresh labels for the new order
     mapVersion.fetch_add (1);
     triggerAsyncUpdate();
 }

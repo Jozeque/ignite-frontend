@@ -152,6 +152,19 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
         .withEventListener ("openSynthOne", [this] (juce::var v)   { openOneSynthWindow ((int) v.getProperty ("i", -1)); })
         .withEventListener ("clearChain",   [this] (juce::var)     { synthWindows.clear(); proc.clearChain(); pushRackScanned(); pushChainDevices(); })
         .withEventListener ("removeDevice", [this] (juce::var v)   { const int i = (int) v.getProperty ("i", -1); if (i >= 0 && i < (int) synthWindows.size()) synthWindows.erase (synthWindows.begin() + i); proc.removeNode (i); pushRackScanned(); pushChainDevices(); })   // close ONLY the removed device's window; keep the rest as-is (was: clear all -> timer reopened them all)
+        .withEventListener ("moveDevice",   [this] (juce::var v)   {
+            const int from = (int) v.getProperty ("from", -1), to = (int) v.getProperty ("to", -1);
+            if (from >= 0 && to >= 0 && from != to)
+            {
+                const int need = juce::jmax (from, to) + 1;   // pad so both indices are valid, then move the window with its device
+                while ((int) synthWindows.size() < need) synthWindows.push_back (nullptr);
+                auto w = std::move (synthWindows[(size_t) from]);
+                synthWindows.erase (synthWindows.begin() + from);
+                synthWindows.insert (synthWindows.begin() + to, std::move (w));
+                proc.moveNode (from, to);
+                pushRackScanned(); pushChainDevices();
+            }
+        })
         .withEventListener ("setBypass",    [this] (juce::var v)   { proc.setNodeBypassed ((int) v.getProperty ("i", -1), ! (bool) v.getProperty ("on", true)); pushChainDevices(); })
         .withEventListener ("license",      [this] (juce::var v)   { handleLicense (v); })
         .withEventListener ("undoRemove",   [this] (juce::var)     { synthWindows.clear(); proc.undoRemove(); })
@@ -577,14 +590,17 @@ void StrideWrapperEditor::timerCallback()
     {
         const bool df = proc.isDemoFrozen();
         const int  ds = proc.demoSecsUntilResume();
-        if (df != lastDemoFrozen || ds != lastDemoSecs)
+        const bool dp = proc.isDemoPlaying();
+        if (df != lastDemoFrozen || ds != lastDemoSecs || dp != lastDemoPlaying)
         {
-            lastDemoFrozen = df; lastDemoSecs = ds;
+            const bool freezeEdge = (df != lastDemoFrozen);
+            lastDemoFrozen = df; lastDemoSecs = ds; lastDemoPlaying = dp;
             auto* o = new juce::DynamicObject();
             o->setProperty ("frozen", df);
             o->setProperty ("secs", ds);
+            o->setProperty ("playing", dp);
             web->emitEventIfBrowserIsVisible ("demo_freeze", juce::var (o));
-            if (proc.isDemo()) proc.saveDemoCycleState();   // persist on freeze enter/exit
+            if (proc.isDemo() && freezeEdge) proc.saveDemoCycleState();   // persist on freeze enter/exit only (not every play/stop)
         }
     }
     // Persist the move budget periodically too — it changes silently during the move window

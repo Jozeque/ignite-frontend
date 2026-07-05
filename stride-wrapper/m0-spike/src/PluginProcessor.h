@@ -49,6 +49,7 @@ public:
     void loadPlugin (const juce::File& vst3File);     // APPENDS to the chain
     void clearChain();
     void removeNode (int index);                      // revoke ONE device (deliberate, from Stride's UI)
+    void moveNode (int from, int to);                 // reorder the chain (drag) — reindexes mapped params/lanes so curves stay on their knobs
     void undoRemove();                                // restore the last-removed device (Ctrl+Z)
     int  numHosted() const;
     juce::AudioProcessorEditor* getHostedEditor (int node);
@@ -68,6 +69,7 @@ public:
     void setDemoMode (bool d) { demoMode.store (d); }
     bool isDemo() const { return demoMode.load(); }
     bool isDemoFrozen() const { return demoFrozen.load(); }        // in the "freeze" half of the demo cycle
+    bool isDemoPlaying() const { return demoPlaying.load(); }      // demo + transport playing + not frozen (= actively modulating)
     int  demoSecsUntilResume() const { return demoResumeSecs.load(); }
     void saveDemoCycleState() const;   // persist move-used + freeze-until (call from the MESSAGE thread, e.g. editor timer)
     static constexpr double kDemoMoveSecs   = 10.0;   // demo cycle: modulation MOVES for this much PLAYBACK time,
@@ -152,6 +154,7 @@ private:
     std::atomic<double> demoMoveUsedMs    { 0.0 };   // playback ms used in the current move window (0..kDemoMoveSecs*1000)
     std::atomic<double> demoFreezeUntilMs { 0.0 };   // absolute real-time ms until which we're frozen (0 = not frozen)
     std::atomic<bool>   demoFrozen        { false };
+    std::atomic<bool>   demoPlaying       { false };   // demo + playing + not frozen -> badge shows "live"
     std::atomic<int>    demoResumeSecs    { 0 };
     void loadDemoCycleState();               // read the persisted cycle at construction
 

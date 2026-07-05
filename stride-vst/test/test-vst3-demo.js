@@ -82,6 +82,11 @@ ok('editor listens for setDemoMode -> proc.setDemoMode', /withEventListener\s*\(
 ok('editor pushes demo_freeze (frozen + secs) to the badge', /emitEventIfBrowserIsVisible\s*\("demo_freeze"/.test(editor) && /isDemoFrozen/.test(editor) && /demoSecsUntilResume/.test(editor));
 ok('shim relays demo flag to engine (strideSetDemoMode -> setDemoMode)', /strideSetDemoMode\s*=\s*function/.test(shim) && /emit\('setDemoMode'/.test(shim));
 ok('shim renders the freeze countdown into #sd-demo-status', /listen\('demo_freeze'/.test(shim) && /sd-demo-status/.test(shim));
+ok('engine tracks demoPlaying (playing + not frozen)', /std::atomic<bool>\s+demoPlaying/.test(procH) && /bool\s+isDemoPlaying/.test(procH) && /demoPlaying\.store\s*\(transportPlaying && ! demoFreezeNow\)/.test(procC));
+ok('editor sends the playing flag in demo_freeze', /setProperty\s*\(\s*"playing",\s*dp\)/.test(editor) && /isDemoPlaying\(\)/.test(editor));
+ok('badge shows green "live" while playing, timer when frozen, idle otherwise', /● live/.test(shim) && /d\.playing/.test(shim) && /resumes in/.test(shim) && /press play/.test(shim));
+ok('live state shows a countdown (move secs)', /● live '\s*\+\s*\(d\.secs/.test(shim));
+ok('engine counts the remaining move seconds during the move phase', /demoResumeSecs\.store\s*\(\(int\)\s*std::ceil\s*\(\(kDemoMoveSecs \* 1000\.0 - used\)/.test(procC));
 
 // ─────────────────────────────────────────────────────────────
 // 6. License GATE flips to run-in-demo (index.html)  + PAID PATH SAFE

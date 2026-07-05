@@ -52,13 +52,17 @@
     var s = document.getElementById('sd-demo-status');
     var b = document.getElementById('sd-demo-badge');
     if (! s) return;
-    if (d && d.frozen) {
-      s.textContent = '⏸ resumes in ' + (d.secs || 0) + 's';          // big + orange so it can't be missed
+    if (d && d.frozen) {                                               // FROZEN — the countdown replaces "live"
+      s.textContent = '⏸ resumes in ' + (d.secs || 0) + 's';
       s.style.cssText = 'font-size:16px;font-weight:800;color:#fb923c;letter-spacing:.01em';
       if (b) b.style.borderColor = 'rgba(251,146,60,.9)';
-    } else {
-      s.textContent = 'live';                                          // subtle green "it's working" during the move
-      s.style.cssText = 'font-size:11px;font-weight:700;color:#4ade80';
+    } else if (d && d.playing) {                                       // PLAYING — actively modulating (counts 10s -> 0 to the freeze)
+      s.textContent = '● live ' + (d.secs || 0) + 's';
+      s.style.cssText = 'font-size:12px;font-weight:800;color:#4ade80;letter-spacing:.05em';
+      if (b) b.style.borderColor = 'rgba(74,222,128,.6)';
+    } else {                                                          // IDLE — nothing moving yet
+      s.textContent = 'press play';
+      s.style.cssText = 'font-size:10px;font-weight:600;color:#71717a;letter-spacing:.04em';
       if (b) b.style.borderColor = 'rgba(249,115,22,.4)';
     }
   });
@@ -489,9 +493,13 @@
         var names = (d && d.names) || [];
         if (! names.length) { var e = document.createElement('span'); e.className = 'text-[10px] text-zinc-600 uppercase tracking-wider'; e.textContent = 'no devices'; c.appendChild(e); return; }
         var byp = (d && d.bypassed) || [];
+        var dragFrom = null;   // shared across chips — the device being dragged
         names.forEach(function (nm, i) {
           var off = !!byp[i];   // true = bypassed
-          var chip = document.createElement('div'); chip.className = 'flex items-center gap-1.5 bg-zinc-900 border border-white/10 rounded px-2 py-0.5' + (off ? ' opacity-60' : '');
+          var chip = document.createElement('div'); chip.className = 'flex items-center gap-1.5 bg-zinc-900 border border-white/10 rounded px-2 py-0.5 cursor-grab' + (off ? ' opacity-60' : '');
+          chip.draggable = true;   // drag to reorder the chain
+          var grip = document.createElement('span'); grip.textContent = '⠿'; grip.title = 'Drag to reorder'; grip.className = 'text-zinc-600 text-[11px] shrink-0 -ml-0.5 select-none';
+          chip.appendChild(grip);
           var dot = document.createElement('button');
           dot.title = off ? 'Bypassed, click to enable' : 'Active, click to bypass';
           dot.className = 'w-2.5 h-2.5 rounded-full shrink-0 transition-colors ' + (off ? 'bg-zinc-600 hover:bg-zinc-500' : 'bg-emerald-400 hover:bg-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.7)]');
@@ -515,7 +523,15 @@
           chip.appendChild(op);
           var x = document.createElement('button'); x.textContent = '✕'; x.title = 'Remove this device from Stride'; x.className = 'text-zinc-500 hover:text-orange-400 text-[10px] font-bold';
           x.onclick = function () { emit('removeDevice', { i: i }); _armUndo(nm); };
-          chip.appendChild(x); c.appendChild(chip);
+          chip.appendChild(x);
+          // Drag to reorder the chain (reverb before OTT, etc.). Outline (not ring) for the drop
+          // hover so it never clashes with the fuchsia device-filter ring.
+          chip.addEventListener('dragstart', function (e) { dragFrom = i; try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(i)); } catch (x2) {} chip.style.opacity = '0.4'; });
+          chip.addEventListener('dragend',   function () { chip.style.opacity = ''; chip.style.outline = ''; dragFrom = null; });
+          chip.addEventListener('dragover',  function (e) { if (dragFrom == null || dragFrom === i) return; e.preventDefault(); try { e.dataTransfer.dropEffect = 'move'; } catch (x2) {} chip.style.outline = '2px solid rgba(34,211,238,0.7)'; chip.style.outlineOffset = '1px'; });
+          chip.addEventListener('dragleave', function () { chip.style.outline = ''; });
+          chip.addEventListener('drop',      function (e) { e.preventDefault(); chip.style.outline = ''; var from = dragFrom; dragFrom = null; if (from == null || from === i) return; emit('moveDevice', { from: from, to: i }); });
+          c.appendChild(chip);
         });
       });
 

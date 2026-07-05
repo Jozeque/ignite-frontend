@@ -61,7 +61,7 @@ private:
     bool         lastLearn      = false;   // so the Map button reflects EVERY learn-mode change (incl. auto-leave)
     int lastTickW = 0, lastTickH = 0;      // window-size settle detector (persist only once resizing stops)
     int savedW = 0, savedH = 0;            // last size written to wrapper-window.json
-    bool lastDemoFrozen = false; int lastDemoSecs = -1;   // throttle for pushing the demo freeze/countdown to the badge
+    bool lastDemoFrozen = false; int lastDemoSecs = -1; bool lastDemoPlaying = false;   // throttle for pushing the demo freeze/live state to the badge
     int  demoSaveTick = 0;                                // persist the demo cycle every ~2s (move budget changes silently)
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StrideWrapperEditor)
