@@ -108,16 +108,23 @@ def main():
         demo_dt = parse_iso(v["demo_at"])
         found = list(db.collection("waitlist").where("email", "==", email).limit(1).stream())
         if found:
-            cur = found[0].to_dict()
-            # Never downgrade a real buyer to demo (defensive; has_purchase already covers it).
-            final_status = "purchased" if (cur.get("status") == "purchased" or cur.get("purchased_at")) else status
-            print(f"  {'WRITE ' if args.send else 'DRY   '} {email:<38} -> {final_status:<10} demo_at={v['demo_at']}")
+            # status comes from LS (has_purchase), NOT the existing row. The old
+            # webhook wrongly stamped BOTH status=purchased AND purchased_at on
+            # the $0 demo order, so the current row can't be trusted -- that is
+            # exactly the bug we are fixing. LS is authoritative for "did they
+            # ever actually buy something".
+            update = {
+                "demo_at": demo_dt,
+                "status": status,
+                "updated_at": firestore.SERVER_TIMESTAMP,
+            }
+            if status == "demo":
+                # Remove the bogus purchased_at the old webhook set on the demo,
+                # so a demo-only lead is never shown as a dated purchase.
+                update["purchased_at"] = firestore.DELETE_FIELD
+            print(f"  {'WRITE ' if args.send else 'DRY   '} {email:<38} -> {status:<10} demo_at={v['demo_at']}")
             if args.send:
-                found[0].reference.update({
-                    "demo_at": demo_dt,
-                    "status": final_status,
-                    "updated_at": firestore.SERVER_TIMESTAMP,
-                })
+                found[0].reference.update(update)
             updated += 1
         else:
             print(f"  {'CREATE' if args.send else 'DRY-C '} {email:<38} -> {status:<10} (no CRM row yet)")
