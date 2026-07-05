@@ -131,7 +131,7 @@ Here's the fun part: load a synth, or a whole chain of instruments and effects, 
 
 A couple of things worth doing:
 
-- Subscribe to the Stride YouTube channel and work through the tutorials: youtube.com/@stride_engine
+- Subscribe to the Stride YouTube channel and work through the tutorials: youtube.com/@StrideEngine
 - Made something you love? Share it on Instagram and tag @stride_engine. I feature the ones that catch my ear.
 
 Stuck on anything? Reply to this email, or book a call at stridehub.io/welcome, and I'll get you moving.
