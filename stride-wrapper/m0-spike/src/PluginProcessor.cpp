@@ -36,7 +36,15 @@ namespace {
                 if (auto* bus = inst.getBus (isInput, b))
                     bus->enable (false);
             if (auto* main = inst.getBus (isInput, 0))
+            {
                 main->enable (true);
+                // Constrain a WIDER-than-stereo main bus to stereo where the plugin allows it
+                // (surround / multi-out orchestral instruments) so it doesn't expect more
+                // channels than our stereo host buffer carries. Best effort — processBlock's
+                // work buffer is the guaranteed backstop if the plugin refuses a stereo layout.
+                if (main->getNumberOfChannels() > 2)
+                    main->setCurrentLayout (juce::AudioChannelSet::stereo());
+            }
         }
     }
 
@@ -94,6 +102,7 @@ void StrideWrapperProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     currentSampleRate = sampleRate;
     currentBlockSize  = samplesPerBlock;
     const juce::ScopedLock sl (hostLock);
+    hostWorkBuffer.setSize (16, juce::jmax (1, samplesPerBlock), false, false, true);   // pre-size so >2ch instruments don't realloc on the audio thread
     for (int i = 0; i < (int) chain.size(); ++i) prepareNode (i);
 }
 
@@ -241,9 +250,35 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         // Run the chain in series: node 0 is the instrument (gets the MIDI), the rest
         // process the audio in place. MIDI only goes to the instrument.
         juce::MidiBuffer noMidi;
-        for (size_t i = 0; i < chain.size(); ++i)
-            if (chain[i].inst && ! chain[i].bypassed)
-                chain[i].inst->processBlock (buffer, i == 0 ? midi : noMidi);   // bypassed = skipped (audio passes through)
+
+        // A hosted instrument's main bus can be WIDER than our stereo host buffer (surround /
+        // multi-out orchestral patches). Passing our 2-ch buffer would make JUCE hand the plugin
+        // null channel pointers past ch 2 -> memset(null) -> SIGSEGV (reported on load). If any
+        // node needs more channels, run the whole chain in a wider scratch buffer and fold the
+        // main stereo pair back. Stereo chains take the unchanged fast path.
+        int needCh = buffer.getNumChannels();
+        for (const auto& n : chain)
+            if (n.inst) needCh = juce::jmax (needCh, n.inst->getTotalNumInputChannels(), n.inst->getTotalNumOutputChannels());
+
+        if (needCh <= buffer.getNumChannels())
+        {
+            for (size_t i = 0; i < chain.size(); ++i)
+                if (chain[i].inst && ! chain[i].bypassed)
+                    chain[i].inst->processBlock (buffer, i == 0 ? midi : noMidi);   // bypassed = skipped (audio passes through)
+        }
+        else
+        {
+            const int ns = buffer.getNumSamples();
+            hostWorkBuffer.setSize (needCh, ns, false, false, true);   // grows once for an unusually wide plugin, then reused
+            hostWorkBuffer.clear();
+            for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+                hostWorkBuffer.copyFrom (ch, 0, buffer, ch, 0, ns);
+            for (size_t i = 0; i < chain.size(); ++i)
+                if (chain[i].inst && ! chain[i].bypassed)
+                    chain[i].inst->processBlock (hostWorkBuffer, i == 0 ? midi : noMidi);
+            for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+                buffer.copyFrom (ch, 0, hostWorkBuffer, ch, 0, ns);   // main L/R back to the host output
+        }
 
         // DEMO: no clean bounces. During OFFLINE render (export/freeze) overwrite the
         // output with low-level noise; real-time playback (evaluation) is untouched.

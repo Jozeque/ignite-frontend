@@ -174,6 +174,7 @@ private:
     double currentSampleRate = 44100.0;
     int    currentBlockSize  = 512;
     double freeRunPhase = 0.0;
+    juce::AudioBuffer<float> hostWorkBuffer;   // wide scratch for hosted plugins whose main bus is >2ch (prevents the null-channel memset crash)
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StrideWrapperProcessor)
 };

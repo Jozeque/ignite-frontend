@@ -164,5 +164,18 @@ function reassign(mapped, N) {
        dup[0].slot === 3 && dup[1].slot >= 0 && dup[1].slot !== 3);
 })();
 
+// ─────────────────────────────────────────────────────────────
+// 9. Wide-main-bus crash fix (SIGSEGV: memset null on load of a >2ch instrument)
+// ─────────────────────────────────────────────────────────────
+ok('wide (>2ch) main bus constrained to stereo where allowed',
+   /getNumberOfChannels\(\) > 2[\s\S]{0,140}setCurrentLayout\s*\(\s*juce::AudioChannelSet::stereo/.test(procC));
+ok('processBlock work buffer backstops a >2ch instrument (no null-channel memset)',
+   /needCh[\s\S]{0,500}hostWorkBuffer\.setSize/.test(procC) && /hostWorkBuffer\.copyFrom/.test(procC) && /buffer\.copyFrom\s*\(ch, 0, hostWorkBuffer/.test(procC));
+ok('needCh spans the whole chain (in + out channels of every node)',
+   /needCh = juce::jmax \(needCh, n\.inst->getTotalNumInputChannels\(\), n\.inst->getTotalNumOutputChannels\(\)\)/.test(procC));
+ok('stereo chains keep the in-place fast path (no copy overhead)', /needCh <= buffer\.getNumChannels\(\)/.test(procC));
+ok('work buffer is pre-sized in prepareToPlay (no audio-thread realloc for common widths)',
+   /prepareToPlay[\s\S]{0,300}hostWorkBuffer\.setSize \(16,/.test(procC));
+
 console.log('  ' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);
