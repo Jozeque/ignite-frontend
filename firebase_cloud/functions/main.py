@@ -282,6 +282,13 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
     try:
         if event_name == "order_created":
             order_item = attrs.get("first_order_item") or {}
+            # The "Stride - Free Demo" product (LS id 1190710) is a $0 order, not
+            # a sale. Tag it as its own `demo` status with a persistent `demo_at`
+            # so the CRM can measure demo -> paid conversion. A later real
+            # purchase overwrites `status` but leaves `demo_at` intact (that IS a
+            # conversion), and the merge guard below stops a demo download from
+            # ever downgrading an existing buyer.
+            is_demo = str(order_item.get("product_id") or "") == "1190710"
             doc_data = {
                 "name": name,
                 "email": email,
@@ -295,7 +302,7 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
                 # so leaving `source` untouched preserves the heard-from answer on
                 # the existing lead row. Orphan orders (no prior lead) simply have
                 # no `source`; the CRM falls back to `acquisition_source`.
-                "status": "purchased",
+                "status": "demo" if is_demo else "purchased",
                 "ls_order_id": str(data_obj.get("id") or ""),
                 "ls_customer_id": attrs.get("customer_id"),
                 "ls_product_id": order_item.get("product_id"),
@@ -303,12 +310,15 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
                 "order_identifier": attrs.get("identifier"),
                 "total_cents": attrs.get("total"),
                 "currency": attrs.get("currency"),
-                "purchased_at": admin_firestore.SERVER_TIMESTAMP,
                 "updated_at": admin_firestore.SERVER_TIMESTAMP,
                 # Acquisition attribution (see fbc note above).
                 "acquisition_source": acquisition_source,
                 "fbclid": fbclid,
             }
+            # Demo downloads stamp demo_at; real purchases stamp purchased_at.
+            # Keeping them separate is what lets one row say "grabbed the demo on
+            # X, then bought on Y" — the conversion signal.
+            doc_data["demo_at" if is_demo else "purchased_at"] = admin_firestore.SERVER_TIMESTAMP
 
             # Find existing row to merge into. Check BOTH email and ls_order_id:
             # - email match catches prior waitlist signups / buy-modal leads
@@ -348,14 +358,25 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
                 print(f"[LS Webhook] recovered Meta attribution from lead row for {email}")
 
             if match is not None:
-                match.reference.update(doc_data)
-                print(f"[LS Webhook] upgraded lead {match.id} → customer")
+                prev_status = (prev.get("status") or "").strip()
+                if is_demo and (prev_status == "purchased" or prev.get("purchased_at")):
+                    # An existing paying customer grabbed a demo. That's noise,
+                    # not a downgrade: keep their purchase and status untouched,
+                    # only record demo_at (first one wins) for completeness.
+                    match.reference.update({
+                        "demo_at": prev.get("demo_at") or admin_firestore.SERVER_TIMESTAMP,
+                        "updated_at": admin_firestore.SERVER_TIMESTAMP,
+                    })
+                    print(f"[LS Webhook] demo by existing buyer {match.id} — kept purchased")
+                else:
+                    match.reference.update(doc_data)
+                    print(f"[LS Webhook] {'demo' if is_demo else 'purchase'} for {match.id}")
             else:
                 _db.collection("waitlist").add({
                     **doc_data,
                     "created_at": admin_firestore.SERVER_TIMESTAMP,
                 })
-                print(f"[LS Webhook] new customer record for {email}")
+                print(f"[LS Webhook] new {'demo' if is_demo else 'customer'} record for {email}")
 
             # Discord alert
             if ADMIN_WEBHOOK_URL and email:
