@@ -108,37 +108,149 @@ API_KEY = os.environ.get("GEMINI_API_KEY")
 ADMIN_WEBHOOK_URL = os.environ.get("ADMIN_WEBHOOK_URL")
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
 
-# Plain-text welcome email sent once per customer after license_key_created.
-# Personal tone + plain text + no tracking maximises Gmail Primary tab landing.
-WELCOME_EMAIL_TEMPLATE = r"""Hey{name_part},
+# Welcome email sent once per customer after license_key_created. Branded HTML
+# (WELCOME_EMAIL_HTML, matching stridehub.io) plus the plain-text fallback below
+# for non-HTML clients and deliverability. {name_part} -> " First" (or "").
+WELCOME_EMAIL_TEMPLATE = r"""Hey{name_part}, Joe here. Welcome aboard.
 
-Joe here, welcome aboard.
+Discover what your instruments are truly capable of.
 
-You just picked up Stride. The flagship is the Stride VST, a plugin that runs in every DAW and hosts a full chain of your own instruments and effects. It also comes with StrideLink for Ableton. One key unlocks both, and it's waiting in your Lemon Squeezy receipt.
+You already own incredible instruments.
+Stride isn't here to replace them.
+It's here to help you hear them differently.
+
+Open a synth you already know.
+Map a handful of parameters.
+Press play.
+
+The best sounds are rarely planned.
+They're discovered.
+Follow what surprises you.
+
+Watch the 2-minute Stride VST walkthrough:
+https://youtu.be/lQ0QUJ1ISjo
+
+You picked up both editions. The flagship Stride VST runs in every DAW and hosts a full chain of your own instruments and effects. StrideLink does the same inside Ableton. One key unlocks both, and it is waiting in your Lemon Squeezy receipt.
 
 Get the VST running in two minutes:
-
 1. Download and unzip the Stride VST from your receipt.
-2. Put Stride.vst3 into your VST3 folder.
+2. Drop Stride.vst3 into your VST3 folder.
    Windows: C:\Program Files\Common Files\VST3\
    Mac: /Library/Audio/Plug-Ins/VST3/
 3. Fully quit and reopen your DAW so it rescans plugins.
 4. Add Stride and paste your key.
 
-A nerd for Ableton racks? That's exactly what StrideLink is for. Open it and follow the setup guide built into the app, it walks you through the whole thing.
-
-Here's the fun part: load a synth, or a whole chain of instruments and effects, then apply curves to all of them at once. Your instruments start moving in ways you've never heard before. Same gear, sounds you didn't know were in there.
+Live in Ableton racks? That is exactly what StrideLink is for. Open it and follow the setup guide built into the app.
 
 A couple of things worth doing:
+- Subscribe on YouTube and work through the tutorials: youtube.com/@StrideEngine
+- Made something you love? Post it and tag @stride_engine on Instagram.
 
-- Subscribe to the Stride YouTube channel and work through the tutorials: youtube.com/@StrideEngine
-- Made something you love? Share it on Instagram and tag @stride_engine. I feature the ones that catch my ear.
+Stuck on anything? Just reply and I will get you moving.
 
-Stuck on anything? Reply to this email, or book a call at stridehub.io/welcome, and I'll get you moving.
-
-Best regards,
 Joe
+Stride
 """
+
+# Branded HTML version — warm-dark, copper accents, Outfit, same identity as
+# stridehub.io. Sent multipart alongside the text above. Rendered with
+# .replace() for {name_part} (never .format) so the inline CSS passes through.
+WELCOME_EMAIL_HTML = r'''<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Welcome to Stride</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style type="text/css">
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&family=Space+Mono:wght@400;700&display=swap');
+</style>
+</head>
+<body style="margin:0;padding:0;background:#100f0c;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">Discover what your instruments are truly capable of. Your 2-minute walkthrough and setup are inside.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#100f0c;">
+<tr><td align="center" style="padding:30px 14px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#171410;border:1px solid rgba(216,201,176,0.11);border-radius:16px;overflow:hidden;font-family:'Outfit','Helvetica Neue',Arial,sans-serif;">
+
+<tr><td style="padding:28px 34px 22px;border-bottom:1px solid rgba(216,201,176,0.09);">
+  <span style="font-size:19px;font-weight:900;letter-spacing:0.16em;color:#dd9a52;">STRIDE</span>
+  <span style="font-size:9.5px;font-weight:800;letter-spacing:0.22em;text-transform:uppercase;color:#857c6e;margin-left:12px;padding-left:12px;border-left:1px solid rgba(216,201,176,0.14);">Sound Design Engine</span>
+</td></tr>
+
+<tr><td style="padding:34px 34px 0;">
+  <h1 style="margin:0;font-size:31px;line-height:1.12;font-weight:800;color:#ece4d6;letter-spacing:-0.01em;">Discover what your instruments are <span style="color:#dd9a52;">truly capable of.</span></h1>
+  <p style="margin:20px 0 0;font-size:16px;line-height:1.8;color:#b8ad9b;">
+    You already own incredible instruments.<br>
+    Stride isn't here to replace them.<br>
+    It's here to help you hear them <span style="color:#dd9a52;">differently.</span>
+  </p>
+  <p style="margin:18px 0 0;font-size:16px;line-height:1.8;color:#b8ad9b;">
+    Open a synth you already know.<br>
+    Map a handful of parameters.<br>
+    Press play.
+  </p>
+  <p style="margin:18px 0 0;font-size:16px;line-height:1.8;color:#ece4d6;">
+    The best sounds are rarely planned.<br>
+    They're <span style="color:#dd9a52;">discovered.</span><br>
+    Follow what surprises you.
+  </p>
+</td></tr>
+
+<tr><td style="padding:26px 34px 0;">
+  <p style="margin:0;font-size:15px;line-height:1.65;color:#ece4d6;">Hey{name_part}, Joe here. Welcome aboard, and thanks for grabbing Stride.</p>
+</td></tr>
+
+<tr><td style="padding:24px 34px 0;">
+  <a href="https://youtu.be/lQ0QUJ1ISjo" target="_blank" style="display:block;text-decoration:none;">
+    <img src="https://img.youtube.com/vi/lQ0QUJ1ISjo/maxresdefault.jpg" width="532" alt="Watch the Stride VST walkthrough" style="display:block;width:100%;max-width:532px;border-radius:12px;border:1px solid rgba(216,201,176,0.14);">
+  </a>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding-top:16px;">
+    <table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:13px;background:#c6712b;background:linear-gradient(180deg,#e58a2e,#c6712b);">
+      <a href="https://youtu.be/lQ0QUJ1ISjo" target="_blank" style="display:inline-block;padding:13px 26px;font-size:14px;font-weight:900;letter-spacing:0.03em;color:#1c1206;text-decoration:none;">&#9654;&nbsp;&nbsp;Watch the 2-minute walkthrough</a>
+    </td></tr></table>
+  </td></tr></table>
+</td></tr>
+
+<tr><td style="padding:30px 34px 0;">
+  <p style="margin:0;font-size:15px;line-height:1.65;color:#b8ad9b;">You picked up both editions. The flagship <b style="color:#ece4d6;">Stride VST</b> runs in every DAW and hosts a full chain of your own instruments and effects. <b style="color:#ece4d6;">StrideLink</b> does the same inside Ableton. <b style="color:#ece4d6;">One key unlocks both</b>, and it is waiting in your Lemon Squeezy receipt.</p>
+</td></tr>
+
+<tr><td style="padding:28px 34px 0;">
+  <p style="margin:0 0 16px;font-size:10.5px;font-weight:900;letter-spacing:0.18em;text-transform:uppercase;color:#857c6e;">Get the VST running in two minutes</p>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14.5px;line-height:1.5;color:#b8ad9b;">
+    <tr><td width="26" valign="top" style="color:#dd9a52;font-weight:900;padding:0 0 13px;">1</td><td valign="top" style="padding:0 0 13px;">Download and unzip the Stride VST from your receipt.</td></tr>
+    <tr><td width="26" valign="top" style="color:#dd9a52;font-weight:900;padding:0 0 13px;">2</td><td valign="top" style="padding:0 0 13px;">Drop <b style="color:#ece4d6;">Stride.vst3</b> into your VST3 folder.<br><span style="font-family:'Space Mono',ui-monospace,monospace;font-size:12.5px;color:#857c6e;">Windows: C:\Program Files\Common Files\VST3\<br>Mac: /Library/Audio/Plug-Ins/VST3/</span></td></tr>
+    <tr><td width="26" valign="top" style="color:#dd9a52;font-weight:900;padding:0 0 13px;">3</td><td valign="top" style="padding:0 0 13px;">Fully quit and reopen your DAW so it rescans plugins.</td></tr>
+    <tr><td width="26" valign="top" style="color:#dd9a52;font-weight:900;">4</td><td valign="top">Add Stride and paste your key.</td></tr>
+  </table>
+</td></tr>
+
+<tr><td style="padding:24px 34px 0;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:rgba(47,116,142,0.10);border:1px solid rgba(94,154,173,0.22);border-radius:12px;"><tr><td style="padding:16px 18px;">
+    <p style="margin:0;font-size:14px;line-height:1.6;color:#b8ad9b;"><b style="color:#5e9aad;">Live in Ableton racks?</b> That is exactly what StrideLink is for. Open it and follow the setup guide built into the app, it walks you through the whole thing.</p>
+  </td></tr></table>
+</td></tr>
+
+<tr><td style="padding:30px 34px 4px;">
+  <div style="height:1px;background:rgba(216,201,176,0.10);margin-bottom:22px;"></div>
+  <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#b8ad9b;">A couple of things worth doing:</p>
+  <p style="margin:0 0 9px;font-size:14px;line-height:1.6;color:#b8ad9b;">&#9654;&nbsp; <a href="https://youtube.com/@StrideEngine" target="_blank" style="color:#dd9a52;text-decoration:none;font-weight:700;">Subscribe on YouTube</a> and work through the tutorials.</p>
+  <p style="margin:0;font-size:14px;line-height:1.6;color:#b8ad9b;">&#9835;&nbsp; Made something you love? Post it and tag <a href="https://instagram.com/stride_engine" target="_blank" style="color:#dd9a52;text-decoration:none;font-weight:700;">@stride_engine</a> on Instagram. I feature the ones that catch my ear.</p>
+</td></tr>
+
+<tr><td style="padding:22px 34px 34px;">
+  <p style="margin:0;font-size:14px;line-height:1.65;color:#857c6e;">Stuck on anything? Just reply to this email and I will get you moving.</p>
+  <p style="margin:18px 0 0;font-size:15px;line-height:1.5;color:#ece4d6;font-weight:700;">Joe<br><span style="color:#857c6e;font-size:13px;font-weight:400;">Stride</span></p>
+</td></tr>
+
+</table>
+</td></tr></table>
+</body>
+</html>
+'''
 
 # Where contact-form messages get mirrored — admin handles every customer
 # inquiry from one Gmail inbox. Two recipients for redundancy in case the
@@ -165,7 +277,8 @@ def _send_welcome_email(email: str, full_name: str) -> bool:
 
     first_name = (full_name or "").strip().split(" ")[0] if full_name else ""
     name_part = f" {first_name}" if first_name else ""
-    body = WELCOME_EMAIL_TEMPLATE.format(name_part=name_part)
+    body_text = WELCOME_EMAIL_TEMPLATE.replace("{name_part}", name_part)
+    body_html = WELCOME_EMAIL_HTML.replace("{name_part}", name_part)
 
     try:
         import resend
@@ -175,7 +288,8 @@ def _send_welcome_email(email: str, full_name: str) -> bool:
             "to": [email],
             "reply_to": "home@stridehub.io",
             "subject": "Welcome to Stride",
-            "text": body,
+            "html": body_html,
+            "text": body_text,
         })
         print(f"[Welcome Email] sent to {email} id={result.get('id') if isinstance(result, dict) else result}")
         return True
@@ -224,7 +338,7 @@ def safe_int(val, default=0):
 # Meta Conversions API (Phase 3 of docs/meta-pixel-integration-spec.md).
 # Pure helpers live in meta_capi.py for testability — they don't need
 # firebase_admin or the Flask request context.
-from meta_capi import _fire_meta_purchase_capi, _fire_meta_pageview_capi, _fire_meta_initiatecheckout_capi
+from meta_capi import _fire_meta_purchase_capi, _fire_meta_pageview_capi, _fire_meta_initiatecheckout_capi, _fire_meta_lead_capi
 
 
 def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
@@ -430,28 +544,39 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
                 custom = (payload.get("meta") or {}).get("custom_data") or {}
                 capi_event_id = custom.get("event_id") or (prev.get("event_id") if prev else "") or ""
                 _np = (name or "").split()
-                _fire_meta_purchase_capi(
-                    {
-                        "email": email,
-                        "order_id": data_obj.get("id"),
-                        "order_identifier": attrs.get("identifier"),
-                        "total_cents": attrs.get("total"),
-                        "currency": attrs.get("currency"),
-                        # Meta attribution. Primary source is the LS checkout
-                        # custom data; if LS dropped it we fall back to the
-                        # values the landing page stored on the buyer_lead
-                        # (joined by email above). fbc/fbp/UA NOT hashed.
-                        "fbc": fbc or "",
-                        "fbp": custom.get("fbp") or (prev.get("fbp") if prev else "") or "",
-                        "client_user_agent": custom.get("ua") or (prev.get("ua") if prev else "") or "",
-                        # IP recovered from the buyer_lead (captured server-side at
-                        # checkout-intent) + name from LS — raise Purchase match quality.
-                        "client_ip_address": (prev.get("ip") if prev else "") or "",
-                        "first_name": _np[0] if _np else "",
-                        "last_name": " ".join(_np[1:]) if len(_np) > 1 else "",
-                    },
-                    capi_event_id,
-                )
+                # Shared Meta match data (fbc/fbp/UA/IP are NOT hashed). Primary
+                # source is the LS checkout custom data; if LS dropped it we fall
+                # back to the values the landing page stored on the buyer_lead
+                # (joined by email above).
+                capi_user = {
+                    "email": email,
+                    "fbc": fbc or "",
+                    "fbp": custom.get("fbp") or (prev.get("fbp") if prev else "") or "",
+                    "client_user_agent": custom.get("ua") or (prev.get("ua") if prev else "") or "",
+                    "client_ip_address": (prev.get("ip") if prev else "") or "",
+                    "first_name": _np[0] if _np else "",
+                    "last_name": " ".join(_np[1:]) if len(_np) > 1 else "",
+                }
+                if is_demo:
+                    # A $0 free-demo download is NOT a purchase. Firing Purchase +
+                    # 'welcome' for it (with _build_capi_payload's $59 list-price
+                    # fallback) inflated the pixel purchase count and trained the
+                    # conversion campaign's 'welcome' optimizer to chase demo
+                    # grabbers who rarely buy. Send a distinct $0 Lead event
+                    # instead — keeps the demo signal for audience building /
+                    # exclusion, never touches Purchase, revenue, or 'welcome'.
+                    _fire_meta_lead_capi(capi_user, capi_event_id)
+                else:
+                    _fire_meta_purchase_capi(
+                        {
+                            **capi_user,
+                            "order_id": data_obj.get("id"),
+                            "order_identifier": attrs.get("identifier"),
+                            "total_cents": attrs.get("total"),
+                            "currency": attrs.get("currency"),
+                        },
+                        capi_event_id,
+                    )
             except Exception as ce:
                 print(f"[Meta CAPI] integration error: {ce}")
 
