@@ -307,7 +307,8 @@ def main():
 
     p = argparse.ArgumentParser(description="Segment-aware Stride campaign mailer via Resend.")
     p.add_argument("--segment", choices=["purchased", "abandoned", "waitlist", "sample_pack"], help="Audience to pull from Firestore.")
-    p.add_argument("--template", required=True, help="Template file (Subject:/Video: headers, blank line, body).")
+    p.add_argument("--template", required=True, help="Template file (Subject:/Video: headers, blank line, body). Used for the text part and, without --html-template, the HTML frame.")
+    p.add_argument("--html-template", dest="html_template", help="Full branded HTML file used verbatim as the HTML part ({name_part} filled in). Overrides the generic frame; the --template above still supplies the subject + text fallback.")
     mode = p.add_mutually_exclusive_group(required=True)
     mode.add_argument("--dry-run", action="store_true", help="Preview audience + sample, send nothing.")
     mode.add_argument("--send", action="store_true", help="Actually send.")
@@ -337,6 +338,12 @@ def main():
     vid = parse_youtube_id(video_url)
     if video_url and not vid:
         print(f"WARNING: couldn't parse a YouTube id from '{video_url}' — HTML thumbnail will be skipped (text link still included).")
+    # Optional full branded HTML body. Used verbatim as the HTML part with
+    # {name_part} filled per recipient, instead of the generic frame.
+    html_template = None
+    if args.html_template:
+        html_template = open(args.html_template, encoding="utf-8").read()
+        print(f"HTML template: {args.html_template} ({len(html_template)} chars)")
 
     # ── Build the recipient list ──
     if args.only:
@@ -406,7 +413,8 @@ def main():
         print(render_text(body, s["name"], video_url))
         print("-------------------------------------")
         if not args.text_only:
-            html = render_html(body, s["name"], video_url, vid)
+            html = (html_template.replace("{name_part}", _name_part(s["name"])[1])
+                    if html_template else render_html(body, s["name"], video_url, vid))
             with open("campaign-preview.html", "w", encoding="utf-8") as f:
                 f.write(html)
             print("HTML preview written to campaign-preview.html (open it in a browser to eyeball the thumbnail).")
@@ -431,7 +439,9 @@ def main():
     for i, r in enumerate(recipients, 1):
         subj = render_subject(subject, r["name"])
         text = render_text(body, r["name"], video_url)
-        html = None if args.text_only else render_html(body, r["name"], video_url, vid)
+        html = None if args.text_only else (
+            html_template.replace("{name_part}", _name_part(r["name"])[1])
+            if html_template else render_html(body, r["name"], video_url, vid))
         ok, info = send_one(resend, r["email"], subj, text, html)
         log_sent(log_path, r["email"], "sent" if ok else "FAILED", info)
         if ok:
