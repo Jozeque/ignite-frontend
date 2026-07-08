@@ -47,7 +47,8 @@ ok('startPass caches key = device hash (matches the signed ent.key)', /startPass
 const ed = rd(path.join(W, 'src', 'PluginEditor.cpp'));
 ok('editor routes op start_pass -> stride_license::startPass', /op == "start_pass"[\s\S]{0,70}startPass\s*\(msg\.getProperty\s*\("email"/.test(ed));
 const shim = rd(path.join(W, 'ui', 'shim.js'));
-ok('shim exposes startPass(email) -> start_pass (device stays native)', /startPass:\s*function\s*\(email\)[\s\S]{0,90}_licCall\('start_pass',\s*\{\s*email:\s*email\s*\}\)/.test(shim));
+ok('shim exposes startPass -> start_pass (device stays native)', /startPass:\s*function\s*\(email\)[\s\S]{0,120}_licCall\('start_pass'/.test(shim));
+ok('startPass is device-first: email sent only if provided (no email gate)', /startPass[\s\S]{0,700}if\s*\(em\.isNotEmpty\(\)\)\s*body->setProperty\s*\("email"/.test(lic) && !/Enter a valid email to start/.test(lic));
 
 // ── D: soft lock (native editLocked; edits blocked, audio kept) ──
 const procH = rd(path.join(W, 'src', 'PluginProcessor.h'));

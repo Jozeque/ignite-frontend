@@ -422,15 +422,14 @@ namespace stride_license
     // anti-rollback clock from the unforgeable server time. Mirrors validate().
     inline void startPass (const juce::String& email, std::function<void (juce::var)> reply)
     {
-        const auto em = email.trim().toLowerCase();
-        if (em.isEmpty() || ! em.containsChar ('@')) { reply (invalid ("Enter a valid email to start your pass.")); return; }
+        const auto em = email.trim().toLowerCase();   // OPTIONAL — the device hash is the credential + the one-pass guard
 
         juce::Thread::launch ([em, reply]
         {
             const auto device = deviceHash();
             juce::DynamicObject::Ptr body = new juce::DynamicObject();
             body->setProperty ("action", "start_pass");
-            body->setProperty ("email", em);
+            if (em.isNotEmpty()) body->setProperty ("email", em);   // only if the UI supplied one (lead capture)
             body->setProperty ("device", device);
             body->setProperty ("instance_name", "Stride on " + juce::SystemStats::getComputerName());
 

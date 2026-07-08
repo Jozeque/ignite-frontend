@@ -961,20 +961,21 @@ def _handle_validate_license(data: dict):
 
 
 def _handle_start_pass(data: dict):
-    """Start (or resume) a 24-hour Discovery Pass. PUBLIC — the email + device hash ARE the
-    credential (like the license key for validate_license). Non-renewable: one email OR one
-    device gets one pass. Uses its OWN Firestore collection (vst_passes) and never touches the
-    license path or the waitlist shape; lead capture is best-effort + non-blocking.
+    """Start (or resume) a 24-hour Discovery Pass. PUBLIC. The DEVICE HASH is the credential
+    and the guard: one machine = one pass, non-renewable (survives reinstall/file-delete, and
+    can't be faked by typing an email). Email is OPTIONAL and only used for lead capture (the
+    demo download already captured it at checkout). Uses its OWN Firestore collection
+    (vst_passes); never touches the license path or the waitlist shape.
 
-    Request:  { action:'start_pass', email, device }   (device = a SHA-256 hash computed
+    Request:  { action:'start_pass', device[, email] }   (device = a SHA-256 hash computed
               natively in the client — the raw machine id never leaves the device)
     Response: { valid, pass, ent, ent_sig, exp, server_now_ms }  or a reason on refusal."""
-    email = (data.get("email") or "").strip().lower()
+    email = (data.get("email") or "").strip().lower()   # OPTIONAL — lead capture only
     device = (data.get("device") or "").strip()
     now_ms = int(time.time() * 1000)
-    if not email or "@" not in email or "." not in email.split("@")[-1] or not device:
+    if not device:
         return jsonify({"valid": False, "pass": False, "reason": "bad_request",
-                        "message": "Enter a valid email to start your pass."}), 200
+                        "message": "Could not start your pass. Please try again."}), 200
 
     try:
         _db = admin_firestore.client()
@@ -995,14 +996,9 @@ def _handle_start_pass(data: dict):
                             "message": "Your Discovery Pass has already been used on this machine.",
                             "server_now_ms": now_ms}), 200
 
-        # 2. This EMAIL already spent a pass on another machine? (one-device binding)
-        if list(passes.where("email", "==", email).limit(1).stream()):
-            return jsonify({"valid": False, "pass": False, "reason": "email_used",
-                            "message": "This email has already used its Discovery Pass.",
-                            "server_now_ms": now_ms}), 200
-
-        # 3. MINT a fresh 24h pass. The ent key IS the device hash, so the client's key-match
-        #    gate passes and the pass is bound to the machine it was issued to.
+        # 2. MINT a fresh 24h pass. The ent key IS the device hash, so the client's key-match
+        #    gate passes and the pass is bound to the machine it was issued to. Device is the
+        #    only guard — one machine, one pass — so faking an email can't earn another.
         started_at = now_ms
         exp = started_at + PASS_DURATION_MS
         ent_obj, ent_sig = _sign_entitlements(device, ["vst"], started_at, exp_ms=exp)
@@ -1017,8 +1013,10 @@ def _handle_start_pass(data: dict):
             "status": "active", "created_at": admin_firestore.SERVER_TIMESTAMP,
         })
 
-        # Best-effort lead capture (NEVER fails the pass; NEVER downgrades a buyer).
+        # Best-effort lead capture ONLY if an email came through (NEVER fails the pass; NEVER
+        # downgrades a buyer). Normally the demo checkout already captured the email.
         try:
+          if email:
             hit = list(_db.collection("waitlist").where("email", "==", email).limit(1).stream())
             if hit:
                 if (hit[0].to_dict() or {}).get("status") != "purchased":

@@ -134,9 +134,10 @@
     loadLicense: function () { return _licCall('load'); },
     validateLicenseKey: function (key) { return _licCall('validate', { key: key }); },
     saveLicense: function (lic) { return _licCall('save', { license: lic }); },
-    // 24h Discovery Pass: email in, signed pass ent back. The device hash is computed
-    // natively in C++ (never enters JS). The UI caches the result like a validate reply.
-    startPass: function (email) { return _licCall('start_pass', { email: email }); },
+    // 24h Discovery Pass: one click, signed pass ent back. The DEVICE hash (computed natively
+    // in C++, never in JS) is the credential + guard — no email needed. The UI caches the
+    // result like a validate reply. (email is optional lead-capture; normally omitted.)
+    startPass: function (email) { return _licCall('start_pass', { email: email || '' }); },
     saveSettings: function (s) { lsSet('stride_settings', s); return P({ success: true }); },
     loadSettings: function () { return P({ success: true, settings: lsGet('stride_settings', {}) }); },
     saveCanvasState: function (rackId, state) {

@@ -26,38 +26,37 @@ def check(name, cond):
 PASS_DURATION_MS = 24 * 60 * 60 * 1000
 
 
-def decide(device_doc, email_hit, now_ms):
-    """Replica of _handle_start_pass's dedup: returns (outcome, exp_or_None)."""
+def decide(device_doc, now_ms):
+    """Replica of _handle_start_pass's dedup — the DEVICE is the ONLY guard (email is optional
+    lead-capture, never a gate). Returns (outcome, exp_or_None)."""
     if device_doc is not None:
         exp = int(device_doc.get("exp") or 0)
         if now_ms < exp and device_doc.get("ent") and device_doc.get("ent_sig"):
             return ("resume", exp)
         return ("pass_ended", None)
-    if email_hit:
-        return ("email_used", None)
-    started = now_ms
-    return ("mint", started + PASS_DURATION_MS)
+    return ("mint", now_ms + PASS_DURATION_MS)
 
 
 NOW = 1751328000000
 
-# 1. MINT — neither device nor email seen.
-check("fresh device + email -> mint (24h)", decide(None, False, NOW) == ("mint", NOW + PASS_DURATION_MS))
+# 1. MINT — this device hasn't passed before.
+check("fresh device -> mint (24h)", decide(None, NOW) == ("mint", NOW + PASS_DURATION_MS))
 
-# 2. RESUME — same device, still valid (mid-pass reinstall).
+# 2. RESUME — same device, still valid (mid-pass reinstall just resumes).
 active = {"exp": NOW + 3600000, "ent": {"x": 1}, "ent_sig": "sig"}
-check("same device, still valid -> resume (same exp)", decide(active, False, NOW) == ("resume", NOW + 3600000))
+check("same device, still valid -> resume (same exp)", decide(active, NOW) == ("resume", NOW + 3600000))
 
-# 3. PASS_ENDED — same device, expired (non-renewable).
+# 3. PASS_ENDED — same device, expired (non-renewable, survives reinstall).
 expired = {"exp": NOW - 1, "ent": {"x": 1}, "ent_sig": "sig"}
-check("same device, expired -> pass_ended (no new pass)", decide(expired, False, NOW) == ("pass_ended", None))
-check("same device, expired, even if email absent -> still pass_ended", decide(expired, False, NOW)[0] == "pass_ended")
+check("same device, expired -> pass_ended (no new pass)", decide(expired, NOW) == ("pass_ended", None))
 
-# 4. EMAIL_USED — new device but the email already spent a pass elsewhere (one-device).
-check("new device, email already used -> email_used", decide(None, True, NOW) == ("email_used", None))
+# 4. Device is the guard: a NEW/fake email on the SAME device can't earn a second pass —
+#    the outcome is decided by the device record, not the email.
+check("same expired device, any email -> still pass_ended (fake emails don't help)", decide(expired, NOW)[0] == "pass_ended")
+check("same active device, any email -> resume (not a new mint)", decide(active, NOW)[0] == "resume")
 
 # 5. Device record exists but is corrupt (missing ent) -> treated as ended, never mints a dup.
-check("device record missing ent -> pass_ended (fail closed)", decide({"exp": NOW + 9999, "ent": None, "ent_sig": None}, False, NOW)[0] == "pass_ended")
+check("device record missing ent -> pass_ended (fail closed)", decide({"exp": NOW + 9999, "ent": None, "ent_sig": None}, NOW)[0] == "pass_ended")
 
 # ── source: main.py wires start_pass correctly ────────────────
 here = os.path.dirname(os.path.abspath(__file__))
@@ -67,9 +66,12 @@ check("PASS_COLLECTION = vst_passes (own collection)", 'PASS_COLLECTION = "vst_p
 check("_handle_start_pass defined", "def _handle_start_pass(data: dict):" in src)
 check("start_pass routed", re.search(r'action"\)\s*==\s*"start_pass"[\s\S]{0,80}_handle_start_pass', src) is not None)
 check("pass ent signed WITH exp", re.search(r'_sign_entitlements\(device,\s*\["vst"\],\s*started_at,\s*exp_ms=exp\)', src) is not None)
-check("device is the doc id (no raw machine id stored server-side beyond the hash)", re.search(r'passes\.document\(device\)', src) is not None)
-check("email dedup query (one-device binding)", re.search(r'passes\.where\("email",\s*"==",\s*email\)', src) is not None)
-check("lead capture never downgrades a buyer", re.search(r'!=\s*"purchased"', src) is not None)
+check("device is the doc id + the sole dedup guard", re.search(r'passes\.document\(device\)', src) is not None)
+_sp = src[src.find("def _handle_start_pass"):]
+_sp = _sp[:_sp.find("@https_fn")]   # just the start_pass handler body
+check("start_pass REQUIRES device, is NOT gated on email", "if not device:" in _sp and "if not email" not in _sp)
+check("no email-based refusal (fake emails can't earn a second pass)", "email_used" not in src)
+check("lead capture is guarded on email presence + never downgrades a buyer", "if email:" in src and re.search(r'!=\s*"purchased"', src) is not None)
 check("validate returns server_now_ms (anti-rollback source)", '"server_now_ms": int(time.time() * 1000)' in src)
 
 print("\n%d passed, %d failed\n" % (passed, failed))
