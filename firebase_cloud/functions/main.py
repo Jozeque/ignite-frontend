@@ -462,6 +462,13 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
             # page stored fbc/fbclid/fbp/ua/event_id on the buyer_lead, keyed by
             # email — join it here so a Meta sale is never mislabeled "direct".
             prev = match.to_dict() if match is not None else {}
+            # A returning demo user re-downloading the demo: the email already has
+            # a row (matched above) carrying a demo_at, so no duplicate is created.
+            # Keep the FIRST demo_at rather than resetting it to now, and flag it
+            # as a re-download for the alert below (not a brand-new record).
+            is_redownload = is_demo and match is not None and bool(prev.get("demo_at"))
+            if is_redownload:
+                doc_data["demo_at"] = prev.get("demo_at")
             if not fbc and (prev.get("fbc") or "").strip():
                 fbc = (prev.get("fbc") or "").strip()
                 from_meta = True
@@ -502,16 +509,19 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
                     # purchase from a free/comped upgrade at a glance.
                     _foi = attrs.get("first_order_item") or {}
                     _pname = _foi.get("product_name") or "?"
-                    if str(_foi.get("product_id") or "") == "1190710":   # "Stride - Free Demo"
+                    if is_redownload:
+                        _otype = "🔁 Demo re-download (returning user)"
+                    elif str(_foi.get("product_id") or "") == "1190710":   # "Stride - Free Demo"
                         _otype = "🎁 Free Demo"
                     elif (attrs.get("total", 0) or 0) > 0:
                         _otype = "💰 Purchase"
                     else:
                         _otype = "🎟️ Free / comped"
+                    _header = "🔁 **DEMO RE-DOWNLOAD**" if is_redownload else "🔑 **NEW CUSTOMER**"
                     msg = {
                         "username": "Stride Engine",
                         "content": (
-                            f"🔑 **NEW CUSTOMER**\n"
+                            f"{_header}\n"
                             f"**Name:** `{name or '?'}`\n"
                             f"**Email:** `{email}`\n"
                             f"**Product:** `{_pname}`\n"
