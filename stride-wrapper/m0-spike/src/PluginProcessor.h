@@ -62,6 +62,8 @@ public:
     // ── Map (learn by touch — across the whole chain) ──
     void setLearnMode (bool shouldLearn);
     bool isLearning() const { return learnMode.load(); }
+    void setUnlearnMode (bool shouldUnlearn);            // arm "unmap by touch" — touching a mapped knob removes it from the canvas
+    bool isUnlearning() const { return unlearnMode.load(); }
 
     // Demo mode (no VST entitlement): runs but capped (3 params, no save, offline=noise).
     // Set live from the license gate; seeded at construction from the cached entitlement so
@@ -107,6 +109,7 @@ private:
     void prepareNode (int i);                 // (re)prepare one chain node (under lock)
     int  nodeIndexOf (juce::AudioProcessor*) const;   // which chain slot a processor is (under lock)
     void mapParam (juce::AudioProcessor*, int parameterIndex);   // map a param if in learn mode (shared by value-change + touch)
+    void unmapParamByTouch (juce::AudioProcessor*, int parameterIndex);   // remove a param if in unlearn mode (touch-to-unmap)
 
     // Host-automation macro layer (all caller-holds-hostLock unless noted).
     void reassignMacros();                        // stable (re)assign of macro slots to mapped params — keeps valid slots, fills -1/dup
@@ -145,6 +148,7 @@ private:
     std::array<MacroParameter*, kMacroCount> macroParams {};   // owned by the AudioProcessor (addParameter)
     std::atomic<DriveMode> driveMode { DriveMode::Live };
     std::atomic<bool> learnMode  { false };
+    std::atomic<bool> unlearnMode { false };   // Map (add-by-touch) and Unmap (remove-by-touch) are mutually exclusive
     std::atomic<int>  mapVersion { 0 };
     std::atomic<bool> demoMode   { true };   // fail-safe default: limited until proven entitled
     juce::Random demoRng;                    // offline-render noise in demo

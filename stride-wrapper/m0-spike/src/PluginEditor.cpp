@@ -169,8 +169,30 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
         .withEventListener ("license",      [this] (juce::var v)   { handleLicense (v); })
         .withEventListener ("undoRemove",   [this] (juce::var)     { synthWindows.clear(); proc.undoRemove(); })
         .withEventListener ("toggleLearn",  [this] (juce::var)     { proc.setLearnMode (! proc.isLearning()); pushLearnState(); })
+        .withEventListener ("toggleUnlearn",[this] (juce::var)     { proc.setUnlearnMode (! proc.isUnlearning()); pushLearnState(); })
         .withEventListener ("setDriveMode", [this] (juce::var v)   { proc.setDriveMode ((int) v.getProperty ("mode", 0) == 1 ? StrideWrapperProcessor::DriveMode::Automation : StrideWrapperProcessor::DriveMode::Live); pushRackScanned(); })
         .withEventListener ("announceMacros", [this] (juce::var)    { proc.announceMacrosToHost(); })
+        .withEventListener ("toggleFullscreen", [this] (juce::var)  {
+            if (! sdFullscreen)
+            {
+                preFsW = getWidth(); preFsH = getHeight();     // remember the working size
+                auto* disp = juce::Desktop::getInstance().getDisplays().getDisplayForRect (getScreenBounds());
+                if (disp == nullptr) disp = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay();
+                const auto ua = (disp != nullptr) ? disp->userArea : juce::Rectangle<int> (0, 0, 1600, 1000);
+                sdFullscreen = true;
+                setSize (ua.getWidth(), ua.getHeight());       // clamped to the resize limits by JUCE
+            }
+            else
+            {
+                sdFullscreen = false;
+                setSize (preFsW > 0 ? preFsW : 940, preFsH > 0 ? preFsH : 620);   // restore
+            }
+            if (web != nullptr)
+            {
+                auto* o = new juce::DynamicObject(); o->setProperty ("on", sdFullscreen);
+                web->emitEventIfBrowserIsVisible ("fullscreenState", juce::var (o));   // update the button icon
+            }
+        })
         .withEventListener ("setDemoMode",  [this] (juce::var)     {
             // SECURITY: never trust the WebView's flag to LIFT the demo — devtools or a bridge
             // call could send demo=false to force full mode. Recompute entitlement NATIVELY
@@ -187,7 +209,7 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
                   + "index.html?v=" + juce::String (juce::Time::currentTimeMillis()));
 
     setResizable (true, true);
-    setResizeLimits (380, 280, 2200, 1400);
+    setResizeLimits (380, 280, 5120, 2880);   // upper bound raised so the Fullscreen toggle can fill large monitors
     // Reopen at the size the user last left Stride (global preference), else the compact
     // default. Clamped to the resize limits so a stale/garbage file can't break layout.
     int initW = 680, initH = 480;   // compact-device default
@@ -466,6 +488,7 @@ void StrideWrapperEditor::pushLearnState()
     if (web == nullptr) return;
     auto* o = new juce::DynamicObject();
     o->setProperty ("on", proc.isLearning());
+    o->setProperty ("unmap", proc.isUnlearning());   // reflect BOTH the Map and Unmap buttons
     web->emitEventIfBrowserIsVisible ("learnState", juce::var (o));
 }
 
@@ -579,9 +602,10 @@ void StrideWrapperEditor::timerCallback()
     // Reflect EVERY learn-mode change on the Map button — including the auto-leave
     // that fires when a moving curve is applied (which doesn't bump mapVersion).
     const bool learning = proc.isLearning();
-    if (learning != lastLearn)
+    const bool unlearning = proc.isUnlearning();
+    if (learning != lastLearn || unlearning != lastUnlearn)
     {
-        lastLearn = learning;
+        lastLearn = learning; lastUnlearn = unlearning;
         pushLearnState();
     }
 
@@ -611,7 +635,7 @@ void StrideWrapperEditor::timerCallback()
     // launching Stride reopens it where the user left it — big/"fullscreen" stays big.
     const int cw = getWidth(), ch = getHeight();
     if (cw != lastTickW || ch != lastTickH) { lastTickW = cw; lastTickH = ch; }   // still resizing — wait for it to settle
-    else if (cw > 0 && ch > 0 && (cw != savedW || ch != savedH))
+    else if (! sdFullscreen && cw > 0 && ch > 0 && (cw != savedW || ch != savedH))   // don't persist the fullscreen size — keep the working size
     {
         savedW = cw; savedH = ch;
         auto* o = new juce::DynamicObject();

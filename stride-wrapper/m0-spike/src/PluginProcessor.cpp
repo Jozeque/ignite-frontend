@@ -667,19 +667,53 @@ void StrideWrapperProcessor::mapParam (juce::AudioProcessor* proc, int parameter
 
 void StrideWrapperProcessor::audioProcessorParameterChanged (juce::AudioProcessor* proc, int parameterIndex, float)
 {
-    mapParam (proc, parameterIndex);
+    mapParam (proc, parameterIndex);            // each guards its own mode; the modes are mutually exclusive
+    unmapParamByTouch (proc, parameterIndex);
 }
 
-// Touching a control (gesture begin) maps it too — so a single CLICK on a knob
-// maps it without having to move it.
+// Touching a control (gesture begin) maps/unmaps it too — so a single CLICK on a knob
+// works without having to move it.
 void StrideWrapperProcessor::audioProcessorParameterChangeGestureBegin (juce::AudioProcessor* proc, int parameterIndex)
 {
     mapParam (proc, parameterIndex);
+    unmapParamByTouch (proc, parameterIndex);
+}
+
+// Inverse of mapParam: while UNLEARN mode is armed, touching a mapped knob removes it from the
+// canvas (drops its lanes, frees its macro slot). Same learn-by-touch flow, opposite result.
+void StrideWrapperProcessor::unmapParamByTouch (juce::AudioProcessor* proc, int parameterIndex)
+{
+    if (! unlearnMode.load()) return;
+
+    const juce::ScopedLock sl (hostLock);
+    const int node = nodeIndexOf (proc);
+    if (node < 0) return;
+    for (int pos = 0; pos < (int) mapped.size(); ++pos)
+        if (mapped[(size_t) pos].node == node && mapped[(size_t) pos].param == parameterIndex)
+        {
+            for (int k = (int) driveLanes.size() - 1; k >= 0; --k)   // stop driving the freed knob
+                if (driveLanes[(size_t) k].node == node && driveLanes[(size_t) k].param == parameterIndex)
+                    driveLanes.erase (driveLanes.begin() + k);
+            mapped.erase (mapped.begin() + (size_t) pos);
+            reassignMacros();          // free the macro slot; others keep theirs
+            mapVersion.fetch_add (1);
+            triggerAsyncUpdate();
+            return;
+        }
+    // touched knob wasn't mapped -> nothing to remove
 }
 
 void StrideWrapperProcessor::setLearnMode (bool shouldLearn)
 {
     learnMode.store (shouldLearn);
+    if (shouldLearn) unlearnMode.store (false);   // Map and Unmap are mutually exclusive
+    mapVersion.fetch_add (1);
+}
+
+void StrideWrapperProcessor::setUnlearnMode (bool shouldUnlearn)
+{
+    unlearnMode.store (shouldUnlearn);
+    if (shouldUnlearn) learnMode.store (false);
     mapVersion.fetch_add (1);
 }
 

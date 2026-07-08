@@ -47,6 +47,17 @@
   // (no VST entitlement) or full. Native code enforces the caps; this just relays the flag.
   window.strideSetDemoMode = function (d) { emit('setDemoMode', { demo: !!d }); };
 
+  // Fullscreen (maximize) toggle -> the C++ editor resizes the window; the icon reflects state.
+  window.sdToggleFullscreen = function () { emit('toggleFullscreen'); };
+  listen('fullscreenState', function (d) {
+    var ic = document.getElementById('sd-fs-icon'), btn = document.getElementById('sd-fullscreen-btn');
+    if (! ic) return;
+    var on = !!(d && d.on);
+    ic.setAttribute('d', on ? 'M9 4v5H4 M15 4v5h5 M9 20v-5H4 M15 20v-5h5'      // restore (corners in)
+                            : 'M4 9V4h5 M20 9V4h-5 M4 15v5h5 M20 15v5h-5');    // maximize (corners out)
+    if (btn) btn.title = on ? 'Exit fullscreen (restore size)' : 'Fullscreen (maximize)';
+  });
+
   // Demo move/freeze countdown -> the badge status text (engine pushes it every ~second).
   listen('demo_freeze', function (d) {
     var s = document.getElementById('sd-demo-status');
@@ -106,7 +117,9 @@
     var hideCss = document.createElement('style');
     hideCss.textContent = '#sd-inject-rail{display:none!important} #sd-strideinject-modal{display:none!important} #link-status{display:none!important} #stride-stale-banner{display:none!important} #sd-install-m4l-overlay{display:none!important} #sd-welcome-overlay{display:none!important}'
       + ' @keyframes sdMapPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(250,204,21,0)}50%{transform:scale(1.07);box-shadow:0 0 12px 3px rgba(250,204,21,.6)}}'
-      + ' .sd-map-armed{animation:sdMapPulse 1.15s ease-in-out infinite}';
+      + ' .sd-map-armed{animation:sdMapPulse 1.15s ease-in-out infinite}'
+      + ' @keyframes sdUnmapPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(244,63,94,0)}50%{transform:scale(1.07);box-shadow:0 0 12px 3px rgba(244,63,94,.6)}}'
+      + ' .sd-unmap-armed{animation:sdUnmapPulse 1.15s ease-in-out infinite}';
     (document.head || document.documentElement).appendChild(hideCss);
   } catch (e) {}
 
@@ -367,6 +380,9 @@
   // Armed = bright YELLOW + pulse so you can't forget it's on and press it off. (Default
   // Tailwind yellow, not amber — amber is remapped to orange in the copper skin.)
   var BTN_MAP_ARMED = 'px-3 py-1 rounded text-[10px] uppercase tracking-wider font-bold transition-colors text-black bg-yellow-400 hover:bg-yellow-300 border border-yellow-300 sd-map-armed';
+  // Unmap = the inverse of Map (touch a mapped knob to remove it). Rose/red so it reads as "remove".
+  var BTN_UNMAP       = 'px-3 py-1 rounded text-[10px] uppercase tracking-wider font-bold transition-colors text-rose-300/90 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-400/40';
+  var BTN_UNMAP_ARMED = 'px-3 py-1 rounded text-[10px] uppercase tracking-wider font-bold transition-colors text-white bg-rose-500 hover:bg-rose-400 border border-rose-300 sd-unmap-armed';
 
   function buildBar() {
     try {
@@ -401,6 +417,7 @@
       }
       sbtn('+ Add', 'browsePlugins', BTN_PRIMARY);      // opens the Stride-styled plugin browser
       var mapBtn = sbtn('◉ Map', 'toggleLearn', BTN_MAP);
+      var unmapBtn = sbtn('⊘ Unmap', 'toggleUnlearn', BTN_UNMAP); unmapBtn.title = 'Arm Unmap, then touch a mapped knob in the synth to remove it from the canvas';
       var openBtn = sbtn('⛶', 'openSynth', BTN_GHOST); openBtn.title = 'Open device windows'; openBtn.classList.add('text-[12px]');
       var clearBtn = sbtn('Clear', 'clearChain', BTN_GHOST);
       clearBtn.onclick = function () { emit('clearChain'); _armUndo(null, 'Chain cleared · Ctrl+Z to undo'); };
@@ -542,9 +559,11 @@
         favSet(favs); populateFav();
       });
       listen('learnState', function (d) {
-        var on = !!(d && d.on);
+        var on = !!(d && d.on), unmap = !!(d && d.unmap);
         mapBtn.className = on ? BTN_MAP_ARMED : BTN_MAP;
         mapBtn.textContent = on ? '◉ Mapping…' : '◉ Map';
+        unmapBtn.className = unmap ? BTN_UNMAP_ARMED : BTN_UNMAP;
+        unmapBtn.textContent = unmap ? '⊘ Unmapping…' : '⊘ Unmap';
       });
     } catch (e) { showErr('bar: ' + e.message); }
   }
