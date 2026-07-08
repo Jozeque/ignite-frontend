@@ -689,10 +689,12 @@ ENT_GIVEAWAY_CUTOFF_MS = 1783036800000
 # abandoners. Server-set duration so it's A/B-able without a client rebuild.
 PASS_DURATION_MS = 24 * 60 * 60 * 1000
 PASS_COLLECTION = "vst_passes"
-# Max NEW passes minted per IP per rolling 24h. Defense-in-depth against mass minting /
-# Firestore spam — the client's device-binding already makes a curl'd pass useless in the
-# real plugin, this stops someone hammering the endpoint to fill the collection.
-PASS_IP_DAILY_CAP = 5
+# Anti-farm velocity caps per source IP (device-binding already blocks curl'd/copied passes
+# in the real plugin; these bound the ONE residual — someone rotating device ids to re-trial).
+# Generous thresholds so normal shared IPs (home/small studio) never hit them; only sustained
+# single-IP farming does. A VPN-rotating farmer isn't catchable here — that's the DRM floor.
+PASS_IP_DAILY_CAP = 5     # rolling 24h
+PASS_IP_WEEKLY_CAP = 12   # rolling 7d backstop for slow (≈1/day) single-IP farming
 
 
 def _ent_norm_name(s):
@@ -964,7 +966,7 @@ def _handle_validate_license(data: dict):
     }), 200
 
 
-def _handle_start_pass(data: dict, ip: str = ""):
+def _handle_start_pass(data: dict, ip: str = "", ua: str = ""):
     """Start (or resume) a 24-hour Discovery Pass. PUBLIC. The DEVICE HASH is the credential
     and the guard: one machine = one pass, non-renewable (survives reinstall/file-delete, and
     can't be faked by typing an email). Email is OPTIONAL and only used for lead capture (the
@@ -1005,9 +1007,12 @@ def _handle_start_pass(data: dict, ip: str = ""):
         # a legit mint if the query fails).
         if ip:
             try:
-                recent = [d for d in passes.where("mint_ip", "==", ip).limit(50).stream()
-                          if int((d.to_dict() or {}).get("started_at") or 0) > now_ms - PASS_DURATION_MS]
-                if len(recent) >= PASS_IP_DAILY_CAP:
+                stamps = [int((d.to_dict() or {}).get("started_at") or 0)
+                          for d in passes.where("mint_ip", "==", ip).limit(60).stream()]
+                day = sum(1 for s in stamps if s > now_ms - PASS_DURATION_MS)
+                week = sum(1 for s in stamps if s > now_ms - 7 * PASS_DURATION_MS)
+                if day >= PASS_IP_DAILY_CAP or week >= PASS_IP_WEEKLY_CAP:
+                    print(f"[Pass] velocity cap hit ip={ip} day={day} week={week} ua={ua[:80]}")   # forensic trail
                     return jsonify({"valid": False, "pass": False, "reason": "rate_limited",
                                     "message": "Too many passes from this network recently. Please try again later.",
                                     "server_now_ms": now_ms}), 200
@@ -1025,7 +1030,7 @@ def _handle_start_pass(data: dict, ip: str = ""):
                             "message": "Could not start your pass. Please try again."}), 200
 
         dev_ref.set({
-            "device": device, "email": email, "mint_ip": ip,
+            "device": device, "email": email, "mint_ip": ip, "mint_ua": ua[:200],
             "started_at": started_at, "exp": exp,
             "ent": ent_obj, "ent_sig": ent_sig,
             "status": "active", "created_at": admin_firestore.SERVER_TIMESTAMP,
@@ -1354,7 +1359,7 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
     # Start/resume a 24-hour Discovery Pass. Public — the device hash is the credential/guard.
     if isinstance(data_pre, dict) and data_pre.get("action") == "start_pass":
         _pass_ip = (req.headers.get("X-Forwarded-For", req.remote_addr or "") or "").split(",")[0].strip()
-        return _handle_start_pass(data_pre, _pass_ip)
+        return _handle_start_pass(data_pre, _pass_ip, req.headers.get("User-Agent", ""))
 
     if not GEMINI_READY or not API_KEY:
         return jsonify({"error": "CRITICAL: Gemini API Key missing or library not installed."}), 500

@@ -73,9 +73,10 @@ check("start_pass REQUIRES device, is NOT gated on email", "if not device:" in _
 check("no email-based refusal (fake emails can't earn a second pass)", "email_used" not in src)
 check("lead capture is guarded on email presence + never downgrades a buyer", "if email:" in src and re.search(r'!=\s*"purchased"', src) is not None)
 check("validate returns server_now_ms (anti-rollback source)", '"server_now_ms": int(time.time() * 1000)' in src)
-check("per-IP velocity cap constant", "PASS_IP_DAILY_CAP" in src)
-check("start_pass takes the client IP + caps mints per IP", "def _handle_start_pass(data: dict, ip: str" in src and 'where("mint_ip", "==", ip)' in src and '"mint_ip": ip' in src)
-check("dispatch passes the client IP (X-Forwarded-For) to start_pass", "_handle_start_pass(data_pre, _pass_ip)" in src)
+check("per-IP velocity caps: daily + weekly backstop", "PASS_IP_DAILY_CAP" in src and "PASS_IP_WEEKLY_CAP" in src)
+check("start_pass takes IP + UA, caps per IP, stores forensics", "def _handle_start_pass(data: dict, ip: str" in src and 'where("mint_ip", "==", ip)' in src and '"mint_ip": ip' in src and '"mint_ua"' in src)
+check("velocity check counts both day + week windows", "now_ms - PASS_DURATION_MS" in src and "now_ms - 7 * PASS_DURATION_MS" in src)
+check("dispatch passes IP + User-Agent to start_pass", "_handle_start_pass(data_pre, _pass_ip" in src)
 
 print("\n%d passed, %d failed\n" % (passed, failed))
 sys.exit(1 if failed else 0)
