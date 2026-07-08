@@ -142,8 +142,8 @@ ok('no blind "return mk (true, \\"builtin\\")" without a key re-hash before it',
    !/getProperty\s*\(\s*"builtin"[^\)]*\)\)\s*return\s+mk\s*\(\s*true/.test(license));
 
 // (B) Native setDemoMode must recompute entitlement itself, not trust the WebView flag.
-ok('setDemoMode handler recomputes natively (cachedEntitled), ignores JS flag',
-   /withEventListener\s*\("setDemoMode"[\s\S]{0,700}setDemoMode\s*\(\s*!\s*stride_license::cachedEntitled\s*\(\)/.test(editor));
+ok('setDemoMode handler recomputes the lock NATIVELY (cachedEntitled), ignores the JS flag',
+   /withEventListener\s*\("setDemoMode"[\s\S]{0,800}setEditLocked\s*\(\s*!\s*stride_license::cachedEntitled\s*\(\)/.test(editor));
 ok('setDemoMode no longer trusts v.getProperty("demo") to lift the demo',
    !/withEventListener\s*\("setDemoMode"[\s\S]{0,200}setDemoMode\s*\(\s*\(bool\)\s*v\.getProperty\s*\(\s*"demo"/.test(editor));
 

@@ -70,6 +70,12 @@ public:
     // offline bounces are correct with the UI closed. See docs/stride-demo-mode-spec.md.
     void setDemoMode (bool d) { demoMode.store (d); }
     bool isDemo() const { return demoMode.load(); }
+    // Soft lock: after a Discovery Pass expires the EDITOR is locked (no new maps/curves/
+    // devices) but the processor KEEPS driving the curves already in the project, so existing
+    // work sounds identical. Recomputed NATIVELY from the cached entitlement (can't be lifted
+    // by editing the WebView) — the security boundary, not the JS overlay.
+    void setEditLocked (bool b) { editLocked.store (b); }
+    bool isEditLocked() const { return editLocked.load(); }
     bool isDemoFrozen() const { return demoFrozen.load(); }        // in the "freeze" half of the demo cycle
     bool isDemoPlaying() const { return demoPlaying.load(); }      // demo + transport playing + not frozen (= actively modulating)
     int  demoSecsUntilResume() const { return demoResumeSecs.load(); }
@@ -151,6 +157,7 @@ private:
     std::atomic<bool> unlearnMode { false };   // Map (add-by-touch) and Unmap (remove-by-touch) are mutually exclusive
     std::atomic<int>  mapVersion { 0 };
     std::atomic<bool> demoMode   { true };   // fail-safe default: limited until proven entitled
+    std::atomic<bool> editLocked { false };  // Discovery Pass expired -> block edits, keep audio (soft lock)
     juce::Random demoRng;                    // offline-render noise in demo
     // Demo move/freeze cycle, TIED TO TRANSPORT: move budget accrues only while playing
     // (setup time doesn't burn it); the freeze runs on real-time. Both persisted -> a reload

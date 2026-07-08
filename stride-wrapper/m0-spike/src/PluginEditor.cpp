@@ -145,14 +145,15 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
         .withResourceProvider ([] (const juce::String& url) { return serveAsset (url); })
         .withEventListener ("wrapperReady", [this] (juce::var)     { web->emitEventIfBrowserIsVisible ("sl_event", []{ auto* o = new juce::DynamicObject(); o->setProperty ("type", "connected"); return juce::var (o); }()); pushRackScanned(); pushLearnState(); pushChainDevices(); })
         .withEventListener ("sl_send",      [this] (juce::var v)   { handleStrideLinkSend (v); })
-        .withEventListener ("loadSynth",    [this] (juce::var)     { chooseAndLoad(); })
-        .withEventListener ("loadSynthPath",[this] (juce::var v)   { proc.loadPlugin (juce::File (v.getProperty ("path", "").toString())); })
-        .withEventListener ("browsePlugins",[this] (juce::var)     { scanPluginsToWeb(); })
+        .withEventListener ("loadSynth",    [this] (juce::var)     { if (proc.isEditLocked()) return; chooseAndLoad(); })
+        .withEventListener ("loadSynthPath",[this] (juce::var v)   { if (proc.isEditLocked()) return; proc.loadPlugin (juce::File (v.getProperty ("path", "").toString())); })
+        .withEventListener ("browsePlugins",[this] (juce::var)     { if (proc.isEditLocked()) return; scanPluginsToWeb(); })
         .withEventListener ("openSynth",    [this] (juce::var)     { toggleSynthWindow(); })
         .withEventListener ("openSynthOne", [this] (juce::var v)   { openOneSynthWindow ((int) v.getProperty ("i", -1)); })
-        .withEventListener ("clearChain",   [this] (juce::var)     { synthWindows.clear(); proc.clearChain(); pushRackScanned(); pushChainDevices(); })
-        .withEventListener ("removeDevice", [this] (juce::var v)   { const int i = (int) v.getProperty ("i", -1); if (i >= 0 && i < (int) synthWindows.size()) synthWindows.erase (synthWindows.begin() + i); proc.removeNode (i); pushRackScanned(); pushChainDevices(); })   // close ONLY the removed device's window; keep the rest as-is (was: clear all -> timer reopened them all)
+        .withEventListener ("clearChain",   [this] (juce::var)     { if (proc.isEditLocked()) return; synthWindows.clear(); proc.clearChain(); pushRackScanned(); pushChainDevices(); })
+        .withEventListener ("removeDevice", [this] (juce::var v)   { if (proc.isEditLocked()) return; const int i = (int) v.getProperty ("i", -1); if (i >= 0 && i < (int) synthWindows.size()) synthWindows.erase (synthWindows.begin() + i); proc.removeNode (i); pushRackScanned(); pushChainDevices(); })   // close ONLY the removed device's window; keep the rest as-is (was: clear all -> timer reopened them all)
         .withEventListener ("moveDevice",   [this] (juce::var v)   {
+            if (proc.isEditLocked()) return;
             const int from = (int) v.getProperty ("from", -1), to = (int) v.getProperty ("to", -1);
             if (from >= 0 && to >= 0 && from != to)
             {
@@ -165,13 +166,13 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
                 pushRackScanned(); pushChainDevices();
             }
         })
-        .withEventListener ("setBypass",    [this] (juce::var v)   { proc.setNodeBypassed ((int) v.getProperty ("i", -1), ! (bool) v.getProperty ("on", true)); pushChainDevices(); })
+        .withEventListener ("setBypass",    [this] (juce::var v)   { if (proc.isEditLocked()) return; proc.setNodeBypassed ((int) v.getProperty ("i", -1), ! (bool) v.getProperty ("on", true)); pushChainDevices(); })
         .withEventListener ("license",      [this] (juce::var v)   { handleLicense (v); })
-        .withEventListener ("undoRemove",   [this] (juce::var)     { synthWindows.clear(); proc.undoRemove(); })
-        .withEventListener ("toggleLearn",  [this] (juce::var)     { proc.setLearnMode (! proc.isLearning()); pushLearnState(); })
-        .withEventListener ("toggleUnlearn",[this] (juce::var)     { proc.setUnlearnMode (! proc.isUnlearning()); pushLearnState(); })
-        .withEventListener ("setDriveMode", [this] (juce::var v)   { proc.setDriveMode ((int) v.getProperty ("mode", 0) == 1 ? StrideWrapperProcessor::DriveMode::Automation : StrideWrapperProcessor::DriveMode::Live); pushRackScanned(); })
-        .withEventListener ("announceMacros", [this] (juce::var)    { proc.announceMacrosToHost(); })
+        .withEventListener ("undoRemove",   [this] (juce::var)     { if (proc.isEditLocked()) return; synthWindows.clear(); proc.undoRemove(); })
+        .withEventListener ("toggleLearn",  [this] (juce::var)     { if (proc.isEditLocked()) return; proc.setLearnMode (! proc.isLearning()); pushLearnState(); })
+        .withEventListener ("toggleUnlearn",[this] (juce::var)     { if (proc.isEditLocked()) return; proc.setUnlearnMode (! proc.isUnlearning()); pushLearnState(); })
+        .withEventListener ("setDriveMode", [this] (juce::var v)   { if (proc.isEditLocked()) return; proc.setDriveMode ((int) v.getProperty ("mode", 0) == 1 ? StrideWrapperProcessor::DriveMode::Automation : StrideWrapperProcessor::DriveMode::Live); pushRackScanned(); })
+        .withEventListener ("announceMacros", [this] (juce::var)    { if (proc.isEditLocked()) return; proc.announceMacrosToHost(); })
         .withEventListener ("toggleFullscreen", [this] (juce::var)  {
             if (! sdFullscreen)
             {
@@ -194,12 +195,14 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
             }
         })
         .withEventListener ("setDemoMode",  [this] (juce::var)     {
-            // SECURITY: never trust the WebView's flag to LIFT the demo — devtools or a bridge
-            // call could send demo=false to force full mode. Recompute entitlement NATIVELY
-            // from the signed/hashed cache (cachedEntitled). Live activation still unlocks
-            // instantly because the JS gate writes license.json BEFORE emitting this, and it
-            // uses the SAME computeEntitled, so a truly-entitled user always resolves to full.
-            proc.setDemoMode (! stride_license::cachedEntitled());
+            // SECURITY: recompute NATIVELY — never trust the WebView flag to LIFT the gate
+            // (devtools / a bridge call could send it). Entitled (paid or an ACTIVE Discovery
+            // Pass) -> full. Otherwise (no pass yet, or an EXPIRED pass) -> the editor is locked;
+            // the processor keeps driving the curves already in the project so audio is untouched.
+            // Live activation/pass-start unlocks instantly because the JS writes license.json
+            // BEFORE emitting this and it uses the SAME computeEntitled.
+            proc.setEditLocked (! stride_license::cachedEntitled());
+            proc.setDemoMode (false);   // the 24h Discovery Pass replaces the old freeze demo
         })
         .withEventListener ("openExternal", [this] (juce::var v)   { const auto u = v.getProperty ("url", "").toString(); if (u.isNotEmpty()) juce::URL (u).launchInDefaultBrowser(); });
 
@@ -397,6 +400,10 @@ void StrideWrapperEditor::handleStrideLinkSend (const juce::var& msg)
     const bool isLive  = (type == "live_curves");
     if (isApply || isLive)
     {
+        // SOFT LOCK: an expired pass (or no pass) can't push NEW curves — even a bypassed
+        // WebView firing live_curves is refused here, so the modulation can't be changed.
+        // Existing driveLanes are untouched, so the project keeps sounding the same.
+        if (proc.isEditLocked()) return;
         std::vector<StrideWrapperProcessor::DriveLane> lanes;
         if (auto* arr = msg.getProperty ("parameters", juce::var()).getArray())
             for (const auto& pv : *arr)

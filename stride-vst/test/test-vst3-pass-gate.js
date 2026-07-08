@@ -49,6 +49,14 @@ ok('editor routes op start_pass -> stride_license::startPass', /op == "start_pas
 const shim = rd(path.join(W, 'ui', 'shim.js'));
 ok('shim exposes startPass(email) -> start_pass (device stays native)', /startPass:\s*function\s*\(email\)[\s\S]{0,90}_licCall\('start_pass',\s*\{\s*email:\s*email\s*\}\)/.test(shim));
 
+// ── D: soft lock (native editLocked; edits blocked, audio kept) ──
+const procH = rd(path.join(W, 'src', 'PluginProcessor.h'));
+ok('processor has a native editLocked flag', /std::atomic<bool>\s+editLocked/.test(procH) && /setEditLocked\s*\(bool/.test(procH) && /isEditLocked\(\)/.test(procH));
+ok('cachedExpiredPass: signature-verified VST ent, exp>0, now past -> true', /cachedExpiredPass\(\)[\s\S]{0,900}entVerify[\s\S]{0,600}exp\s*<=\s*0[\s\S]{0,200}passClockMaxSeen\(\)\)\s*>=\s*exp/.test(lic));
+ok('recompute: native editLocked = !cachedEntitled; freeze demo retired', /setEditLocked\s*\(\s*!\s*stride_license::cachedEntitled\(\)\)[\s\S]{0,140}setDemoMode\s*\(false\)/.test(ed));
+ok('SECURITY: a locked WebView cannot push new curves (sl_send apply/live guarded)', /if\s*\(isApply\s*\|\|\s*isLive\)[\s\S]{0,320}if\s*\(proc\.isEditLocked\(\)\)\s*return;/.test(ed));
+ok('all edit ops are guarded (map/load/clear/reorder/bypass blocked when locked)', (ed.match(/if\s*\(proc\.isEditLocked\(\)\)\s*return;/g) || []).length >= 12);
+
 // ── behavioural replica of the gate math ────────────────────
 (function () {
     // Mirror: exp absent → permanent; exp>0 → deny once max(now,maxSeen) >= exp.

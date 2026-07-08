@@ -263,6 +263,30 @@ namespace stride_license
         return (bool) computeEntitled (c).getProperty ("entitled", false);
     }
 
+    // True ONLY for a genuinely-signed VST pass whose exp has passed (soft-lock trigger).
+    // Paid keys (no exp), builtin keys, forged flags, and active passes all return false —
+    // so the lock can't be faked, and a perpetual license never trips it.
+    inline bool cachedExpiredPass()
+    {
+        const auto f = licenseFile();
+        if (! f.existsAsFile()) return false;
+        const auto c = juce::JSON::parse (f.loadFileAsString());
+        if (! c.isObject() || ! (bool) c.getProperty ("valid", false)) return false;
+        if ((bool) c.getProperty ("builtin", false)) return false;
+        const auto ent = c.getProperty ("ent", juce::var());
+        const auto sig = c.getProperty ("ent_sig", "").toString();
+        if (! ent.isObject() || sig.isEmpty() || ! entVerify (ent, sig)) return false;
+        if (ent.getProperty ("key", "").toString().trim().toUpperCase()
+              != c.getProperty ("key", "").toString().trim().toUpperCase()) return false;
+        bool hasVst = false;
+        if (auto* arr = ent.getProperty ("ents", juce::var()).getArray())
+            for (auto& e : *arr) if (e.toString() == "vst") { hasVst = true; break; }
+        if (! hasVst) return false;
+        const juce::int64 exp = (juce::int64) ent.getProperty ("exp", (juce::int64) 0);
+        if (exp <= 0) return false;   // perpetual — never "expired"
+        return juce::jmax (juce::Time::getCurrentTime().toMilliseconds(), passClockMaxSeen()) >= exp;
+    }
+
     inline juce::var save (const juce::var& lic)
     {
         dataDir().createDirectory();
