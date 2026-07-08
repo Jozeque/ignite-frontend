@@ -665,7 +665,7 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
 // ── Map: learn by touch across the chain ───────────────────────────
 void StrideWrapperProcessor::mapParam (juce::AudioProcessor* proc, int parameterIndex)
 {
-    if (! learnMode.load()) return;
+    if (editLocked.load() || ! learnMode.load()) return;   // soft lock: no new mapping even if a mode was latched before expiry
 
     const juce::ScopedLock sl (hostLock);
     const int node = nodeIndexOf (proc);
@@ -696,7 +696,7 @@ void StrideWrapperProcessor::audioProcessorParameterChangeGestureBegin (juce::Au
 // canvas (drops its lanes, frees its macro slot). Same learn-by-touch flow, opposite result.
 void StrideWrapperProcessor::unmapParamByTouch (juce::AudioProcessor* proc, int parameterIndex)
 {
-    if (! unlearnMode.load()) return;
+    if (editLocked.load() || ! unlearnMode.load()) return;   // soft lock: no unmap-by-touch even if a mode was latched before expiry
 
     const juce::ScopedLock sl (hostLock);
     const int node = nodeIndexOf (proc);
