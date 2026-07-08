@@ -265,6 +265,14 @@ function readEntitlement(license, opts) {
         if (normalizeKey(license.ent.key) !== normalizeKey(license.key)) return deny('key-mismatch');
         const ents = Array.isArray(license.ent.ents) ? license.ent.ents : [];
         if (!ents.includes(product)) return deny('wrong-product', ents);
+        // Time-limited Discovery Pass: an `exp` inside the signed ent expires the pass. The
+        // effective clock is max(now, maxSeen) so rolling the system clock back can't revive it.
+        // A perpetual key has no exp → skipped entirely (unchanged behavior).
+        const exp = Number(license.ent.exp);
+        if (Number.isFinite(exp) && exp > 0) {
+            const maxSeen = Number.isFinite(o.maxSeenMs) ? o.maxSeenMs : 0;
+            if (Math.max(nowMs, maxSeen) >= exp) return deny('exp-expired', ents);
+        }
         if (!o.skipGrace && (nowMs - _graceStamp(license) >= graceMs)) return deny('grace-expired', ents);
         return allow('signed', ents);
     }

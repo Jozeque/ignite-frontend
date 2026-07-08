@@ -66,6 +66,9 @@ StrideWrapperProcessor::StrideWrapperProcessor()
         addParameter (mp);
     }
 
+    // Anti-rollback: stamp this launch into the pass clock BEFORE the entitlement seed, so a
+    // rolled-back clock can't revive an expired Discovery Pass (no-op for perpetual/demo users).
+    stride_license::raisePassClock (juce::Time::getCurrentTime().toMilliseconds());
     demoMode.store (! stride_license::cachedEntitled());   // start limited unless a cached VST entitlement is present; UI confirms live
     loadDemoCycleState();                                   // restore the demo move/freeze cycle (reload-proof)
 }

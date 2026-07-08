@@ -27,6 +27,29 @@ namespace stride_license
     }
     inline juce::File licenseFile() { return dataDir().getChildFile ("license.json"); }
 
+    // Anti-rollback clock for the time-limited Discovery Pass. A SEPARATE file (not
+    // license.json, which is rewritten wholesale on every revalidation and would clobber
+    // this). Holds the highest real-time the machine has ever observed; the pass expiry is
+    // checked against max(now, maxSeen) so setting the system clock back can't revive it.
+    // Only ever consulted for exp-bearing passes — perpetual keys never read it.
+    inline juce::File passClockFile() { return dataDir().getChildFile ("pass-clock.json"); }
+    inline juce::int64 passClockMaxSeen()
+    {
+        const auto f = passClockFile();
+        if (! f.existsAsFile()) return 0;
+        return (juce::int64) juce::JSON::parse (f.loadFileAsString()).getProperty ("maxSeen", (juce::int64) 0);
+    }
+    // Monotonic raise (never lowers). Sources: app launch (now) + the unforgeable server
+    // time from a successful validate/start_pass.
+    inline void raisePassClock (juce::int64 ms)
+    {
+        if (ms <= 0 || ms <= passClockMaxSeen()) return;
+        dataDir().createDirectory();
+        juce::DynamicObject::Ptr o = new juce::DynamicObject();
+        o->setProperty ("maxSeen", ms);
+        passClockFile().replaceWithText (juce::JSON::toString (juce::var (o.get())));
+    }
+
     inline juce::String shaUpper (const juce::String& key)
     {
         const auto u = key.trim().toUpperCase();
@@ -168,10 +191,21 @@ namespace stride_license
             const auto ka = ent.getProperty ("key", "").toString().trim().toUpperCase();
             const auto kb = lic.getProperty ("key", "").toString().trim().toUpperCase();
             if (ka != kb) return mk (false, "key-mismatch");
+            bool hasVst = false;
             if (auto* arr = ent.getProperty ("ents", juce::var()).getArray())
                 for (auto& e : *arr)
-                    if (e.toString() == "vst") return mk (true, "signed");
-            return mk (false, "wrong-product");
+                    if (e.toString() == "vst") { hasVst = true; break; }
+            if (! hasVst) return mk (false, "wrong-product");
+            // Time-limited Discovery Pass: exp>0 means deny once we're past it. The effective
+            // clock is max(now, maxSeen) so rolling the system clock back can't revive an
+            // expired pass. A perpetual key has NO exp -> skipped entirely (unchanged).
+            const juce::int64 exp = (juce::int64) ent.getProperty ("exp", (juce::int64) 0);
+            if (exp > 0)
+            {
+                const juce::int64 eff = juce::jmax (juce::Time::getCurrentTime().toMilliseconds(), passClockMaxSeen());
+                if (eff >= exp) return mk (false, "exp-expired");
+            }
+            return mk (true, "signed");
         }
         return mk (false, "v1-needs-online");   // VST never grandfathers a legacy cache
     }

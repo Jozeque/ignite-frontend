@@ -256,6 +256,35 @@ test('buildSignedEntitlement carries exp into the signed payload; sig covers it'
     assert(ent.verify(perp.ent, perp.ent_sig, kp.publicKeyPem), 'perpetual still verifies');
 });
 
+// ─── Discovery Pass: exp ENFORCEMENT + clock-rollback guard ──
+const PASS_KP = ent.generateKeypair();
+const _mkPass = (expMs) => {
+    const b = ent.buildSignedEntitlement('DEVICEHASH', ['vst'], NOW, PASS_KP.privateKeyPem, expMs);
+    return { valid: true, key: 'DEVICEHASH', ent: b.ent, ent_sig: b.ent_sig, cached_at: NOW };
+};
+const _rdPass = (lic, over) => ent.readEntitlement(lic, Object.assign({ product: 'vst', publicKey: PASS_KP.publicKeyPem, nowMs: NOW }, over));
+
+test('pass active (exp in the future) → entitled/signed', () => {
+    const r = _rdPass(_mkPass(NOW + 3600000));
+    assert(r.entitled && r.reason === 'signed', 'active pass entitled');
+});
+test('pass expired (now ≥ exp) → exp-expired', () => {
+    const r = _rdPass(_mkPass(NOW - 1));
+    assert(!r.entitled && r.reason === 'exp-expired', 'expired denied');
+});
+test('pass clock-rollback caught: now rolled back below exp but maxSeen ≥ exp → exp-expired', () => {
+    const exp = NOW + 3600000;
+    assertEq(_rdPass(_mkPass(exp), { nowMs: NOW - 9e8, maxSeenMs: exp + 1 }).reason, 'exp-expired');
+});
+test('pass within window, no maxSeen → entitled (the guard only tightens, never loosens)', () => {
+    assertEq(_rdPass(_mkPass(NOW + 3600000), { maxSeenMs: 0 }).reason, 'signed');
+});
+test('perpetual key (no exp) ignores maxSeen entirely → still entitled', () => {
+    const b = ent.buildSignedEntitlement('AAAA-BBBB', ['stridelink', 'vst'], NOW, PASS_KP.privateKeyPem);
+    const lic = { valid: true, key: 'AAAA-BBBB', ent: b.ent, ent_sig: b.ent_sig, cached_at: NOW };
+    assertEq(_rdPass(lic, { maxSeenMs: NOW + 9e11 }).reason, 'signed');
+});
+
 // ─── Sign / verify (Ed25519) ─────────────────────────────────
 
 test('sign + verify round-trip succeeds', () => {
