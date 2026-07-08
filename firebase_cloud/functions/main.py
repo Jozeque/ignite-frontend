@@ -685,6 +685,11 @@ ENT_PRODUCTS = [
 # (free upgrade for existing owners). 1783036800000 = 2026-07-03T00:00:00Z.
 ENT_GIVEAWAY_CUTOFF_MS = 1783036800000
 
+# 24-hour Discovery Pass: a time-limited FULL unlock for demo downloaders / cart
+# abandoners. Server-set duration so it's A/B-able without a client rebuild.
+PASS_DURATION_MS = 24 * 60 * 60 * 1000
+PASS_COLLECTION = "vst_passes"
+
 
 def _ent_norm_name(s):
     return re.sub(r"\s+", " ", str(s or "").lower().strip())
@@ -951,7 +956,91 @@ def _handle_validate_license(data: dict):
         "entitlements": ents,
         "ent": ent_obj,
         "ent_sig": ent_sig,
+        "server_now_ms": int(time.time() * 1000),   # unforgeable clock source (anti-rollback for passes)
     }), 200
+
+
+def _handle_start_pass(data: dict):
+    """Start (or resume) a 24-hour Discovery Pass. PUBLIC — the email + device hash ARE the
+    credential (like the license key for validate_license). Non-renewable: one email OR one
+    device gets one pass. Uses its OWN Firestore collection (vst_passes) and never touches the
+    license path or the waitlist shape; lead capture is best-effort + non-blocking.
+
+    Request:  { action:'start_pass', email, device }   (device = a SHA-256 hash computed
+              natively in the client — the raw machine id never leaves the device)
+    Response: { valid, pass, ent, ent_sig, exp, server_now_ms }  or a reason on refusal."""
+    email = (data.get("email") or "").strip().lower()
+    device = (data.get("device") or "").strip()
+    now_ms = int(time.time() * 1000)
+    if not email or "@" not in email or "." not in email.split("@")[-1] or not device:
+        return jsonify({"valid": False, "pass": False, "reason": "bad_request",
+                        "message": "Enter a valid email to start your pass."}), 200
+
+    try:
+        _db = admin_firestore.client()
+        passes = _db.collection(PASS_COLLECTION)
+
+        # 1. This DEVICE already has a pass? (device is already a hash — safe as a doc id)
+        dev_ref = passes.document(device)
+        dev = dev_ref.get()
+        if dev.exists:
+            d = dev.to_dict() or {}
+            exp = int(d.get("exp") or 0)
+            if now_ms < exp and d.get("ent") and d.get("ent_sig"):
+                # RESUME — same signed ent + same exp (a mid-pass reinstall just resumes).
+                return jsonify({"valid": True, "pass": True, "resumed": True,
+                                "ent": d.get("ent"), "ent_sig": d.get("ent_sig"),
+                                "exp": exp, "server_now_ms": now_ms}), 200
+            return jsonify({"valid": False, "pass": False, "reason": "pass_ended",
+                            "message": "Your Discovery Pass has already been used on this machine.",
+                            "server_now_ms": now_ms}), 200
+
+        # 2. This EMAIL already spent a pass on another machine? (one-device binding)
+        if list(passes.where("email", "==", email).limit(1).stream()):
+            return jsonify({"valid": False, "pass": False, "reason": "email_used",
+                            "message": "This email has already used its Discovery Pass.",
+                            "server_now_ms": now_ms}), 200
+
+        # 3. MINT a fresh 24h pass. The ent key IS the device hash, so the client's key-match
+        #    gate passes and the pass is bound to the machine it was issued to.
+        started_at = now_ms
+        exp = started_at + PASS_DURATION_MS
+        ent_obj, ent_sig = _sign_entitlements(device, ["vst"], started_at, exp_ms=exp)
+        if not ent_obj or not ent_sig:
+            return jsonify({"valid": False, "pass": False, "reason": "sign_unavailable",
+                            "message": "Could not start your pass. Please try again."}), 200
+
+        dev_ref.set({
+            "device": device, "email": email,
+            "started_at": started_at, "exp": exp,
+            "ent": ent_obj, "ent_sig": ent_sig,
+            "status": "active", "created_at": admin_firestore.SERVER_TIMESTAMP,
+        })
+
+        # Best-effort lead capture (NEVER fails the pass; NEVER downgrades a buyer).
+        try:
+            hit = list(_db.collection("waitlist").where("email", "==", email).limit(1).stream())
+            if hit:
+                if (hit[0].to_dict() or {}).get("status") != "purchased":
+                    hit[0].reference.update({"status": "demo",
+                                             "pass_started_at": admin_firestore.SERVER_TIMESTAMP,
+                                             "updated_at": admin_firestore.SERVER_TIMESTAMP})
+            else:
+                _db.collection("waitlist").add({
+                    "email": email, "status": "demo", "source": "discovery_pass",
+                    "pass_started_at": admin_firestore.SERVER_TIMESTAMP,
+                    "created_at": admin_firestore.SERVER_TIMESTAMP,
+                    "updated_at": admin_firestore.SERVER_TIMESTAMP,
+                })
+        except Exception as le:
+            print(f"[Pass] lead capture failed (non-fatal): {le}")
+
+        return jsonify({"valid": True, "pass": True, "resumed": False,
+                        "ent": ent_obj, "ent_sig": ent_sig, "exp": exp, "server_now_ms": now_ms}), 200
+    except Exception as e:
+        print(f"[Pass] start_pass failed: {e}")
+        return jsonify({"valid": False, "pass": False, "reason": "error",
+                        "message": "Could not start your pass. Please try again."}), 200
 
 
 @https_fn.on_request(
@@ -1245,6 +1334,10 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
     # No Firebase auth — the license key itself IS the credential.
     if isinstance(data_pre, dict) and data_pre.get("action") == "validate_license":
         return _handle_validate_license(data_pre)
+
+    # Start/resume a 24-hour Discovery Pass. Public — email + device hash are the credential.
+    if isinstance(data_pre, dict) and data_pre.get("action") == "start_pass":
+        return _handle_start_pass(data_pre)
 
     if not GEMINI_READY or not API_KEY:
         return jsonify({"error": "CRITICAL: Gemini API Key missing or library not installed."}), 500

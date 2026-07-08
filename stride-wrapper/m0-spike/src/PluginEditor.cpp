@@ -526,10 +526,11 @@ void StrideWrapperEditor::handleLicense (const juce::var& msg)
             }
     };
 
-    if (op == "load")          reply (stride_license::load());
-    else if (op == "save")     reply (stride_license::save (msg.getProperty ("license", juce::var())));
-    else if (op == "validate") stride_license::validate (msg.getProperty ("key", "").toString(), reply);
-    else                       reply (juce::var());
+    if (op == "load")           reply (stride_license::load());
+    else if (op == "save")      reply (stride_license::save (msg.getProperty ("license", juce::var())));
+    else if (op == "validate")  stride_license::validate (msg.getProperty ("key", "").toString(), reply);
+    else if (op == "start_pass") stride_license::startPass (msg.getProperty ("email", "").toString(), reply);
+    else                        reply (juce::var());
 }
 
 // Scan the standard VST3 locations (top level + one vendor-folder deep, not into bundles)

@@ -39,6 +39,16 @@ ok('plugin construction stamps the pass clock BEFORE the entitlement seed', /rai
 const ent = rd(path.join(root, 'stride-vst', 'app', 'lib', 'entitlements.js'));
 ok('JS readEntitlement enforces exp with max(now, maxSeen)', /const\s+exp\s*=\s*Number\(license\.ent\.exp\)[\s\S]{0,220}Math\.max\(nowMs,\s*maxSeen\)\s*>=\s*exp[\s\S]{0,60}return\s+deny\('exp-expired'/.test(ent));
 
+// ── C2: client device-id + startPass plumbing ───────────────
+ok('deviceHash salts getUniqueDeviceID and hashes it natively (raw id never sent)', /deviceHash\(\)[\s\S]{0,260}getUniqueDeviceID\(\)[\s\S]{0,200}shaUpper\s*\(juce::String\s*\("stride-pass-v1\|"\)/.test(lic));
+ok('startPass POSTs action=start_pass with the device hash', /startPass[\s\S]{0,500}"action",\s*"start_pass"[\s\S]{0,160}"device",\s*device/.test(lic));
+ok('startPass raises the anti-rollback clock from the server time', /startPass[\s\S]{0,2200}raisePassClock\s*\(\(juce::int64\)\s*parsed\.getProperty\s*\("server_now_ms"/.test(lic));
+ok('startPass caches key = device hash (matches the signed ent.key)', /startPass[\s\S]{0,2600}setProperty\s*\("key",\s*device\)/.test(lic));
+const ed = rd(path.join(W, 'src', 'PluginEditor.cpp'));
+ok('editor routes op start_pass -> stride_license::startPass', /op == "start_pass"[\s\S]{0,70}startPass\s*\(msg\.getProperty\s*\("email"/.test(ed));
+const shim = rd(path.join(W, 'ui', 'shim.js'));
+ok('shim exposes startPass(email) -> start_pass (device stays native)', /startPass:\s*function\s*\(email\)[\s\S]{0,90}_licCall\('start_pass',\s*\{\s*email:\s*email\s*\}\)/.test(shim));
+
 // ── behavioural replica of the gate math ────────────────────
 (function () {
     // Mirror: exp absent → permanent; exp>0 → deny once max(now,maxSeen) >= exp.

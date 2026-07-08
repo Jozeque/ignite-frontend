@@ -56,6 +56,17 @@ namespace stride_license
         return juce::SHA256 (u.toRawUTF8(), (size_t) u.getNumBytesAsUTF8()).toHexString();
     }
 
+    // Stable, privacy-safe per-machine id for the Discovery Pass one-device gate. The OS
+    // unique id is salted + SHA-256'd IN THE CLIENT, so the raw machine id never leaves the
+    // device — only this opaque hash is sent. Falls back to computer+user name if the OS id
+    // is unavailable. Used as both the sent `device` and the cached pass key.
+    inline juce::String deviceHash()
+    {
+        auto id = juce::SystemStats::getUniqueDeviceID().trim();
+        if (id.isEmpty()) id = juce::SystemStats::getComputerName() + "|" + juce::SystemStats::getLogonName();
+        return shaUpper (juce::String ("stride-pass-v1|") + id);
+    }
+
     // SHA-256 of the built-in keys (originals never shipped) — copied from main.js.
     inline juce::var builtinCheck (const juce::String& key)
     {
@@ -376,6 +387,74 @@ namespace stride_license
                         }
                     }
                 }
+            }
+
+            juce::MessageManager::callAsync ([reply, result] { reply (result); });
+        });
+    }
+
+    // Start (or resume) a 24-hour Discovery Pass. POSTs the email + the device hash; on success
+    // returns a signed pass ent (cached by the UI so it runs offline for 24h) and raises the
+    // anti-rollback clock from the unforgeable server time. Mirrors validate().
+    inline void startPass (const juce::String& email, std::function<void (juce::var)> reply)
+    {
+        const auto em = email.trim().toLowerCase();
+        if (em.isEmpty() || ! em.containsChar ('@')) { reply (invalid ("Enter a valid email to start your pass.")); return; }
+
+        juce::Thread::launch ([em, reply]
+        {
+            const auto device = deviceHash();
+            juce::DynamicObject::Ptr body = new juce::DynamicObject();
+            body->setProperty ("action", "start_pass");
+            body->setProperty ("email", em);
+            body->setProperty ("device", device);
+            body->setProperty ("instance_name", "Stride on " + juce::SystemStats::getComputerName());
+
+            int status = 0;
+            juce::var parsed;
+            bool networkOk = false;
+            juce::URL url (kEndpoint);
+            url = url.withPOSTData (juce::JSON::toString (juce::var (body.get())));
+            auto opts = juce::URL::InputStreamOptions (juce::URL::ParameterHandling::inPostData)
+                          .withExtraHeaders ("Content-Type: application/json")
+                          .withConnectionTimeoutMs (10000)
+                          .withStatusCode (&status);
+            if (auto stream = url.createInputStream (opts))
+            {
+                parsed = juce::JSON::parse (stream->readEntireStreamAsString());
+                networkOk = true;
+            }
+
+            juce::var result;
+            if (networkOk && parsed.isObject() && (bool) parsed.getProperty ("valid", false))
+            {
+                raisePassClock ((juce::int64) parsed.getProperty ("server_now_ms", (juce::int64) 0));   // unforgeable clock
+
+                auto* o = new juce::DynamicObject();
+                o->setProperty ("valid", true);
+                o->setProperty ("tier", "pass");
+                o->setProperty ("key", device);            // = the signed ent.key, so computeEntitled's key-match passes
+                o->setProperty ("builtin", false);
+                o->setProperty ("pass", true);
+                o->setProperty ("exp",     parsed.getProperty ("exp", juce::var()));
+                o->setProperty ("ent",     parsed.getProperty ("ent", juce::var()));
+                o->setProperty ("ent_sig", parsed.getProperty ("ent_sig", juce::var()));
+                result = juce::var (o);   // OWN FIRST (avoid the use-after-free noted in validate)
+                {
+                    const auto e = computeEntitled (result);
+                    o->setProperty ("entitled", (bool) e.getProperty ("entitled", false));
+                    o->setProperty ("entitlement_reason", e.getProperty ("entitlement_reason", juce::var()));
+                }
+            }
+            else if (networkOk)
+            {
+                result = invalid (parsed.isObject()
+                    ? parsed.getProperty ("message", parsed.getProperty ("reason", "Could not start your pass.")).toString()
+                    : juce::String ("Could not start your pass."));
+            }
+            else
+            {
+                result = invalid ("Couldn't reach the pass server. Check your internet connection and try again.");
             }
 
             juce::MessageManager::callAsync ([reply, result] { reply (result); });
