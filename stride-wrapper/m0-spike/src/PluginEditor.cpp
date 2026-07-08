@@ -592,8 +592,15 @@ void StrideWrapperEditor::timerCallback()
     {
         licTick = 0;
         const bool ent = stride_license::cachedEntitled();
+        const bool expd = stride_license::cachedExpiredPass();
         proc.setEditLocked (! ent);
-        proc.setDriveAllowed (ent || stride_license::cachedExpiredPass());
+        proc.setDriveAllowed (ent || expd);
+        // Mid-session Discovery Pass expiry: if it lapsed while Stride stayed open, pop the
+        // "ended" overlay IMMEDIATELY (don't wait for a reload) so editing never freezes
+        // without the explanation showing.
+        if (lastLicEntitled && ! ent && expd && web != nullptr)
+            web->emitEventIfBrowserIsVisible ("passExpired", juce::var (new juce::DynamicObject()));
+        lastLicEntitled = ent;
     }
 
     if (web == nullptr) return;

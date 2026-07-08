@@ -66,6 +66,8 @@ ok('editLocked + driveAllowed seeded natively in the processor ctor', /editLocke
 ok('gates re-derived natively on the editor timer (mid-session expiry locks)', /licTick\s*>=\s*60[\s\S]{0,220}setEditLocked[\s\S]{0,160}setDriveAllowed/.test(ed));
 ok('processor mutators refuse when locked (setDriveCurves + removeMappedAt)', /setDriveCurves[\s\S]{0,140}if\s*\(editLocked\.load\(\)\)\s*return;/.test(proc) && /removeMappedAt[\s\S]{0,140}if\s*\(editLocked\.load\(\)\)\s*return;/.test(proc));
 ok('learn-by-touch is editLocked-gated too (a latched mode cannot mutate after expiry)', /mapParam[\s\S]{0,140}if\s*\(editLocked\.load\(\)\s*\|\|\s*!\s*learnMode\.load\(\)\)\s*return/.test(proc) && /unmapParamByTouch[\s\S]{0,140}if\s*\(editLocked\.load\(\)\s*\|\|\s*!\s*unlearnMode\.load\(\)\)\s*return/.test(proc));
+ok('mid-session expiry: editor emits passExpired on the entitled->expired transition', /lastLicEntitled && ! ent && expd[\s\S]{0,160}emitEventIfBrowserIsVisible\s*\("passExpired"/.test(ed));
+ok('shim relays passExpired -> the ended overlay', /listen\('passExpired'[\s\S]{0,90}window\.sdPassExpired/.test(shim));
 ok('anti-brick clock: bootstrap only from a trusted server value + clamp absurd jumps', /raisePassClock\s*\(juce::int64 ms,\s*bool trusted\)[\s\S]{0,320}cur <= 0 && ! trusted[\s\S]{0,220}kMaxJumpMs/.test(lic) && /server_now_ms",\s*\(juce::int64\)\s*0\),\s*true\)/.test(lic));
 
 // ── behavioural replica of the gate math ────────────────────

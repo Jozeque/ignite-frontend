@@ -34,6 +34,13 @@
     </style>
 
     <style>
+        /* Website CTA — the EXACT "GET STRIDE $99" button (frontend .btn-copper): copper
+           gradient, dark ink, gold hairline. Used for the pass Start / Get Stride CTAs. */
+        .sd-btn-copper{background:linear-gradient(180deg,#e58a2e,#c6712b)!important;color:#1c1206!important;
+            border:1px solid rgba(255,210,150,.25)!important;
+            box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 12px 24px -14px rgba(198,113,43,.8)!important;
+            transition:transform .15s,filter .15s}
+        .sd-btn-copper:hover{transform:translateY(-2px);filter:brightness(1.06)!important}
         /* ── SKINS: palette variables as RGB channels. :root = Midnight (the
               original look); [data-skin] swaps to a vintage palette. Generated
               from anchor colors — see docs/mockup-stride2-vintage.html. ── */
@@ -186,7 +193,7 @@
                     <p class="text-sm text-zinc-300 leading-relaxed">Welcome to your <span class="text-orange-400 font-bold">24-hour Discovery Pass</span>.</p>
                     <p class="text-lg text-zinc-100 font-bold mt-1">Explore without limits.</p>
                 </div>
-                <button onclick="startDiscoveryPass()" id="pass-start-btn" class="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black py-3.5 rounded-xl text-xs uppercase tracking-widest transition-all shadow-[0_0_24px_rgba(255,94,0,0.25)]">
+                <button onclick="startDiscoveryPass()" id="pass-start-btn" class="w-full sd-btn-copper text-white font-black py-3.5 rounded-xl text-xs uppercase tracking-widest transition-all shadow-[0_0_24px_rgba(255,94,0,0.25)]">
                     Start My 24-Hour Pass
                 </button>
                 <p id="pass-start-error" class="text-[10px] text-red-400 font-medium hidden"></p>
@@ -200,7 +207,7 @@
                     <p class="text-lg text-zinc-100 font-bold">Your Discovery Pass has ended.</p>
                     <p class="text-sm text-zinc-400 leading-relaxed mt-1">Your projects are safe. When you're ready, a license picks up right where you left off.</p>
                 </div>
-                <button onclick="window.stride.openExternal('https://stridehub.io')" class="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black py-3.5 rounded-xl text-xs uppercase tracking-widest transition-all shadow-[0_0_24px_rgba(255,94,0,0.25)]">
+                <button onclick="window.stride.openExternal('https://stridehub.io')" class="w-full sd-btn-copper text-white font-black py-3.5 rounded-xl text-xs uppercase tracking-widest transition-all shadow-[0_0_24px_rgba(255,94,0,0.25)]">
                     Get Stride VST
                 </button>
                 <button type="button" onclick="showActivationForm()" class="text-[10px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors">Have a license? Activate →</button>
@@ -211,7 +218,7 @@
                 <div>
                     <input id="serial-input" type="text" placeholder="Enter your license key" class="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors text-center tracking-wider font-medium" spellcheck="false" autocomplete="off">
                 </div>
-                <button onclick="activateLicense()" id="activate-btn" class="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(255,94,0,0.2)]">
+                <button onclick="activateLicense()" id="activate-btn" class="w-full sd-btn-copper text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(255,94,0,0.2)]">
                     Activate
                 </button>
                 <p id="activation-error" class="text-[10px] text-red-400 font-medium hidden"></p>
@@ -229,14 +236,14 @@
         <span class="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400">Demo</span>
         <span id="sd-demo-status" class="text-[10px] text-zinc-400 font-bold"></span>
         <button onclick="showActivationOverlay()" class="text-[10px] font-black uppercase tracking-wider text-zinc-200 hover:text-white bg-white/10 hover:bg-white/20 border border-white/15 rounded-full px-2.5 py-1 transition-colors">Activate</button>
-        <button onclick="if(window.stride&&window.stride.openExternal)window.stride.openExternal('https://strideengine.lemonsqueezy.com/checkout/buy/cd9e5114-080a-48f2-ae27-7c99169f438d')" class="text-[10px] font-black uppercase tracking-wider text-white bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 rounded-full px-3 py-1 transition-all">Get Stride VST</button>
+        <button onclick="if(window.stride&&window.stride.openExternal)window.stride.openExternal('https://strideengine.lemonsqueezy.com/checkout/buy/cd9e5114-080a-48f2-ae27-7c99169f438d')" class="text-[10px] font-black uppercase tracking-wider text-white sd-btn-copper rounded-full px-3 py-1 transition-all">Get Stride VST</button>
     </div>
 
     <!-- Discovery Pass countdown — shown while a 24h pass is ACTIVE (turns fuchsia at 2h left). -->
     <div id="pass-banner" class="hidden fixed bottom-3 left-1/2 -translate-x-1/2 z-[9990] flex items-center gap-2.5 bg-zinc-900/95 border border-orange-500/40 rounded-full pl-4 pr-1.5 py-1.5 shadow-2xl" style="font-family:'Outfit',sans-serif; backdrop-filter:blur(8px)">
         <span id="pass-banner-tag" class="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400">Discovery Pass</span>
         <span id="pass-banner-text" class="text-[10px] text-zinc-300 font-bold"></span>
-        <button onclick="if(window.stride&&window.stride.openExternal)window.stride.openExternal('https://strideengine.lemonsqueezy.com/checkout/buy/cd9e5114-080a-48f2-ae27-7c99169f438d')" class="text-[10px] font-black uppercase tracking-wider text-white bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 rounded-full px-3 py-1 transition-all">Get Stride VST</button>
+        <button onclick="if(window.stride&&window.stride.openExternal)window.stride.openExternal('https://strideengine.lemonsqueezy.com/checkout/buy/cd9e5114-080a-48f2-ae27-7c99169f438d')" class="text-[10px] font-black uppercase tracking-wider text-white sd-btn-copper rounded-full px-3 py-1 transition-all">Get Stride VST</button>
     </div>
 
     <!-- Title Bar (draggable for Electron).
@@ -1361,6 +1368,15 @@
 
     function sdPassWelcome() { sdPassInit(window.__passExp); }
     window.sdPassWelcome = sdPassWelcome;
+
+    // Native timer detected the pass lapsed while Stride stayed OPEN. Editing already froze
+    // natively; pop the "ended" overlay immediately + stop the countdown so it's never silent.
+    window.sdPassExpired = function () {
+        if (_passTimer) { clearInterval(_passTimer); _passTimer = null; }
+        const banner = document.getElementById('pass-banner');
+        if (banner) banner.classList.add('hidden');
+        showPassGate('ended');
+    };
 
     function _sdUpdateDemoBadge() {
         const b = document.getElementById('sd-demo-badge');

@@ -36,6 +36,11 @@ ok('sdPassInit starts the countdown from exp', /function sdPassInit\(expMs\)[\s\
 ok('countdown resumes on reopen for an active pass', /lic\.entitled && age < OFFLINE_GRACE_MS[\s\S]{0,400}sdPassInit\(Number\(lic\.ent\.exp\)\)/.test(H));
 ok('2-hours-left nudge fires once (fuchsia)', /ms <= 2 \* 3600000 && !_passNudged[\s\S]{0,260}border-fuchsia/.test(H));
 
+// ── mid-session expiry overlay + copper CTA ─────────────────
+ok('mid-session expiry pops the ended overlay + stops the countdown (sdPassExpired)', /window\.sdPassExpired = function \(\)[\s\S]{0,260}showPassGate\('ended'\)/.test(H));
+ok('CTA uses the website copper (btn-copper), not the orange→red gradient', /\.sd-btn-copper\{background:linear-gradient\(180deg,#e58a2e,#c6712b\)/.test(H) && !/from-orange-500 to-red-600/.test(H));
+ok('the Start + Get Stride CTAs carry sd-btn-copper', /id="pass-start-btn"[\s\S]{0,40}sd-btn-copper/.test(H) && (H.match(/sd-btn-copper/g) || []).length >= 4);
+
 // ── the copy (Yossi's, verbatim tone) ───────────────────────
 ok('welcome copy', /Welcome to your[\s\S]{0,80}24-hour Discovery Pass[\s\S]{0,140}Explore without limits/.test(H));
 ok('projects-remain-untouched copy', /projects remain untouched/.test(H));

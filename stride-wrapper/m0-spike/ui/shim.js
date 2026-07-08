@@ -58,6 +58,9 @@
     if (btn) btn.title = on ? 'Exit fullscreen (restore size)' : 'Fullscreen (maximize)';
   });
 
+  // Discovery Pass expired mid-session (Stride stayed open) -> pop the "ended" overlay live.
+  listen('passExpired', function () { if (window.sdPassExpired) window.sdPassExpired(); });
+
   // Demo move/freeze countdown -> the badge status text (engine pushes it every ~second).
   listen('demo_freeze', function (d) {
     var s = document.getElementById('sd-demo-status');
