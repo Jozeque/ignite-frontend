@@ -723,10 +723,15 @@ def _ent_canonical(payload):
     return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
-def _sign_entitlements(key, ents, iat_ms):
+def _sign_entitlements(key, ents, iat_ms, exp_ms=None):
     """Return (ent_dict, ent_sig_b64) or (None, None) if signing is unavailable.
     Failures are non-fatal: the response still returns valid:true (StrideLink
-    grandfathers unsigned; only the VST strictly needs the signature)."""
+    grandfathers unsigned; only the VST strictly needs the signature).
+
+    exp_ms is OPTIONAL — only the time-limited Discovery Pass passes it. When set,
+    it is added to the signed payload; json.dumps(sort_keys=True) auto-orders it
+    alphabetically between "ents" and "iat", so a payload WITHOUT exp is byte-identical
+    to what shipped (every perpetual key's signature keeps verifying)."""
     priv_pem = os.environ.get("STRIDE_ENT_PRIVATE_KEY", "")
     if not priv_pem:
         print("[Ent] STRIDE_ENT_PRIVATE_KEY not set — returning unsigned entitlements")
@@ -734,6 +739,8 @@ def _sign_entitlements(key, ents, iat_ms):
     try:
         from cryptography.hazmat.primitives.serialization import load_pem_private_key
         ent = {"key": key, "ents": sorted(ents), "iat": int(iat_ms)}
+        if exp_ms is not None:
+            ent["exp"] = int(exp_ms)
         priv = load_pem_private_key(priv_pem.encode("utf-8"), password=None)
         sig = priv.sign(_ent_canonical(ent).encode("utf-8"))
         return ent, base64.b64encode(sig).decode("ascii")

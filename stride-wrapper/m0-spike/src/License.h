@@ -99,8 +99,12 @@ namespace stride_license
         return o;
     }
 
-    // Reproduce entitlements.js canonicalize({key,ents,iat}) byte-for-byte:
-    //   {"ents":[...],"iat":<int>,"key":"<escaped>"}   sorted keys, no spaces.
+    // Reproduce entitlements.js canonicalize({key,ents,iat[,exp]}) byte-for-byte:
+    //   {"ents":[...],"exp":<int>?,"iat":<int>,"key":"<escaped>"}   sorted keys, no spaces.
+    // exp is OPTIONAL (only the time-limited Discovery Pass carries it). It sorts
+    // alphabetically between "ents" and "iat" and is emitted ONLY when present, so a
+    // perpetual key (no exp) produces the SAME bytes it was signed over — its Ed25519
+    // signature keeps verifying. Emitting exp unconditionally would break every key.
     inline juce::String entCanonical (const juce::var& ent)
     {
         juce::String out = "{\"ents\":[";
@@ -110,7 +114,10 @@ namespace stride_license
                 if (i) out << ",";
                 out << "\"" << entJsonEscape ((*arr)[i].toString()) << "\"";
             }
-        out << "],\"iat\":" << juce::String ((juce::int64) ent.getProperty ("iat", (juce::int64) 0))
+        out << "]";
+        if (ent.hasProperty ("exp"))
+            out << ",\"exp\":" << juce::String ((juce::int64) ent.getProperty ("exp", (juce::int64) 0));
+        out << ",\"iat\":" << juce::String ((juce::int64) ent.getProperty ("iat", (juce::int64) 0))
             << ",\"key\":\"" << entJsonEscape (ent.getProperty ("key", "").toString()) << "\"}";
         return out;
     }

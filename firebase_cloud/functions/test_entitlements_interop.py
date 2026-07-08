@@ -67,6 +67,18 @@ check("canonical matches JS golden byte-for-byte",
 check("canonical is key-order independent",
       _ent_canonical({"iat": 1, "key": "K", "ents": ["a"]}) == _ent_canonical({"ents": ["a"], "key": "K", "iat": 1}))
 
+# ── 1b. exp golden (the 24h Discovery Pass) ───────────────────
+# exp sorts alphabetically between ents and iat (e-n-t-s < e-x-p < i-a-t < k-e-y).
+# CRITICAL: the no-exp golden (line 64) MUST stay byte-identical so every perpetual
+# key's existing Ed25519 signature keeps verifying — that is the "don't break keys" proof.
+JS_GOLDEN_EXP = '{"ents":["vst"],"exp":1785628800000,"iat":1783036800000,"key":"AAAA-BBBB"}'
+check("exp canonical matches JS golden byte-for-byte (exp between ents and iat)",
+      _ent_canonical({"key": "AAAA-BBBB", "ents": ["vst"], "iat": 1783036800000, "exp": 1785628800000}) == JS_GOLDEN_EXP)
+check("no-exp golden UNCHANGED by adding exp support (perpetual keys still verify)",
+      _ent_canonical({"key": "AAAA-BBBB", "ents": ["stridelink", "vst"], "iat": 1783036800000}) == JS_GOLDEN)
+check("exp sorts strictly between ents and iat",
+      _ent_canonical({"exp": 2, "iat": 3, "key": "K", "ents": ["a"]}) == '{"ents":["a"],"exp":2,"iat":3,"key":"K"}')
+
 # ── 2. resolve decision table (mirror of the spec) ────────────
 check("StrideLink id pre-cutoff -> both",        _resolve_entitlements(973706, "Stride", ENT_GIVEAWAY_CUTOFF_MS - 1) == ["stridelink", "vst"])
 check("StrideLink id post-cutoff -> stridelink", _resolve_entitlements(973706, "Stride", ENT_GIVEAWAY_CUTOFF_MS + 1) == ["stridelink"])
@@ -84,6 +96,9 @@ try:
     msg = _ent_canonical({"key": "K", "ents": ["vst"], "iat": 1}).encode("utf-8")
     pub.verify(priv.sign(msg), msg)   # raises on failure
     check("Ed25519 sign/verify round-trip", True)
+    msge = _ent_canonical({"key": "K", "ents": ["vst"], "iat": 1, "exp": 2}).encode("utf-8")   # the pass path
+    pub.verify(priv.sign(msge), msge)
+    check("Ed25519 sign/verify round-trip WITH exp", True)
     try:
         pub.verify(priv.sign(msg), _ent_canonical({"key": "K", "ents": ["vst", "x"], "iat": 1}).encode("utf-8"))
         check("tampered payload rejected", False)

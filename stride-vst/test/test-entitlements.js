@@ -211,6 +211,51 @@ test('canonicalize sorts nested objects too', () => {
     assertEq(ent.canonicalize({ z: { d: 1, c: 2 } }), ent.canonicalize({ z: { c: 2, d: 1 } }));
 });
 
+// ─── Discovery Pass: optional signed `exp` (24h pass expiry) ──
+// exp sorts alphabetically between ents and iat. The no-exp form MUST stay byte-identical
+// so every perpetual key's existing Ed25519 signature keeps verifying (don't-break-keys).
+test('canonicalize places optional exp between ents and iat (Discovery Pass)', () => {
+    assertEq(
+        ent.canonicalize({ key: 'AAAA-BBBB', ents: ['vst'], iat: 1783036800000, exp: 1785628800000 }),
+        '{"ents":["vst"],"exp":1785628800000,"iat":1783036800000,"key":"AAAA-BBBB"}'
+    );
+});
+test('canonicalize WITHOUT exp is byte-identical to the shipped golden (existing keys safe)', () => {
+    assertEq(
+        ent.canonicalize({ key: 'AAAA-BBBB', ents: ['stridelink', 'vst'], iat: 1783036800000 }),
+        '{"ents":["stridelink","vst"],"iat":1783036800000,"key":"AAAA-BBBB"}'
+    );
+});
+// The C++ entCanonical (License.h) hardcodes field order; replicate its EXACT logic and prove
+// it emits identical bytes to JS/Python for both the exp and no-exp cases (the parity the
+// cross-language Ed25519 verify depends on).
+test('C++ entCanonical replica matches JS byte-for-byte (exp + no-exp)', () => {
+    const esc = (s) => String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    const cppCanon = (e) => {
+        let out = '{"ents":[' + (e.ents || []).map((s) => '"' + esc(s) + '"').join(',') + ']';
+        if (Object.prototype.hasOwnProperty.call(e, 'exp')) out += ',"exp":' + e.exp;   // only when present
+        out += ',"iat":' + (e.iat || 0) + ',"key":"' + esc(e.key || '') + '"}';
+        return out;
+    };
+    const withExp = { key: 'AAAA-BBBB', ents: ['vst'], iat: 1783036800000, exp: 1785628800000 };
+    const noExp = { key: 'AAAA-BBBB', ents: ['stridelink', 'vst'], iat: 1783036800000 };
+    assertEq(cppCanon(withExp), ent.canonicalize(withExp));
+    assertEq(cppCanon(noExp), ent.canonicalize(noExp));
+});
+test('buildSignedEntitlement carries exp into the signed payload; sig covers it', () => {
+    const kp = ent.generateKeypair();
+    const built = ent.buildSignedEntitlement('DEVICEHASH', ['vst'], NOW, kp.privateKeyPem, NOW + 86400000);
+    assertEq(built.ent.exp, NOW + 86400000);
+    assert(ent.verify(built.ent, built.ent_sig, kp.publicKeyPem), 'signature verifies with exp');
+    // Tampering exp must break the signature (expiry is unforgeable).
+    assert(!ent.verify(Object.assign({}, built.ent, { exp: built.ent.exp + 1 }), built.ent_sig, kp.publicKeyPem),
+        'tampered exp rejected');
+    // A perpetual build (no exp) still verifies and has no exp field.
+    const perp = ent.buildSignedEntitlement('AAAA-BBBB', ['stridelink', 'vst'], NOW, kp.privateKeyPem);
+    assert(!('exp' in perp.ent), 'no exp when not requested');
+    assert(ent.verify(perp.ent, perp.ent_sig, kp.publicKeyPem), 'perpetual still verifies');
+});
+
 // ─── Sign / verify (Ed25519) ─────────────────────────────────
 
 test('sign + verify round-trip succeeds', () => {

@@ -180,14 +180,18 @@ function generateKeypair() {
 
 // Build the signed entitlement payload for a license. `ents` is sorted so the
 // canonical bytes are stable. Returns { ent, ent_sig } or null on failure.
-//   ent     = { key, ents, iat }   (the object that gets signed)
+//   ent     = { key, ents, iat[, exp] }   (the object that gets signed)
 //   ent_sig = base64 Ed25519 signature over canonicalize(ent)
-function buildSignedEntitlement(key, ents, issuedAtMs, privateKeyPem) {
+// expiresAtMs is OPTIONAL (only the time-limited Discovery Pass sets it); when present
+// it is added to the payload and canonicalize() auto-sorts it between ents and iat, so
+// an ent WITHOUT exp is byte-identical to what shipped.
+function buildSignedEntitlement(key, ents, issuedAtMs, privateKeyPem, expiresAtMs) {
     const ent = {
         key: normalizeKey(key),
         ents: Array.isArray(ents) ? [...ents].sort() : [],
         iat: Number.isFinite(issuedAtMs) ? issuedAtMs : 0,
     };
+    if (Number.isFinite(expiresAtMs) && expiresAtMs > 0) ent.exp = expiresAtMs;
     const ent_sig = sign(ent, privateKeyPem);
     if (!ent_sig) return null;
     return { ent, ent_sig };
