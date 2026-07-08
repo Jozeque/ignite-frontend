@@ -25,15 +25,15 @@ const proc = rd(path.join(W, 'src', 'PluginProcessor.cpp'));
 // ── clock guard infrastructure ──────────────────────────────
 ok('pass-clock is a SEPARATE file (not license.json)', /passClockFile\(\)[\s\S]{0,80}getChildFile\s*\(\s*"pass-clock\.json"\s*\)/.test(lic) && !/license\.json[\s\S]{0,40}maxSeen/.test(lic));
 ok('passClockMaxSeen reads maxSeen (0 when absent)', /passClockMaxSeen\(\)[\s\S]{0,200}getProperty\s*\(\s*"maxSeen"/.test(lic));
-ok('raisePassClock is monotonic (never lowers)', /raisePassClock[\s\S]{0,140}if\s*\(ms\s*<=\s*0\s*\|\|\s*ms\s*<=\s*passClockMaxSeen\(\)\)\s*return/.test(lic));
+ok('raisePassClock is monotonic (never lowers) + trusted-only bootstrap', /raisePassClock\s*\(juce::int64 ms,\s*bool trusted\)[\s\S]{0,300}if\s*\(ms\s*<=\s*0\)\s*return[\s\S]{0,450}if\s*\(ms\s*<=\s*cur\)\s*return/.test(lic));
 
 // ── the exp gate in computeEntitled ─────────────────────────
 ok('vst membership restructured to a flag (so the exp check runs after)', /bool\s+hasVst\s*=\s*false;[\s\S]{0,200}hasVst\s*=\s*true;\s*break;[\s\S]{0,120}if\s*\(!\s*hasVst\)\s*return\s+mk\s*\(false,\s*"wrong-product"\)/.test(lic));
-ok('exp enforced against max(now, maxSeen) → exp-expired', /juce::int64\s+exp\s*=[\s\S]{0,120}if\s*\(exp\s*>\s*0\)[\s\S]{0,220}juce::jmax\s*\(juce::Time::getCurrentTime\(\)\.toMilliseconds\(\),\s*passClockMaxSeen\(\)\)[\s\S]{0,120}if\s*\(eff\s*>=\s*exp\)\s*return\s+mk\s*\(false,\s*"exp-expired"\)/.test(lic));
+ok('exp enforced against max(now, maxSeen) → exp-expired', /juce::int64\s+exp\s*=[\s\S]{0,120}if\s*\(exp\s*>\s*0\)[\s\S]{0,900}juce::jmax\s*\(juce::Time::getCurrentTime\(\)\.toMilliseconds\(\),\s*passClockMaxSeen\(\)\)[\s\S]{0,120}if\s*\(eff\s*>=\s*exp\)\s*return\s+mk\s*\(false,\s*"exp-expired"\)/.test(lic));
 ok('perpetual key (no exp) is unaffected — exp check is guarded by exp>0', /exp\s*>\s*0/.test(lic) && /return\s+mk\s*\(true,\s*"signed"\)/.test(lic));
 
 // ── the launch stamp ────────────────────────────────────────
-ok('plugin construction stamps the pass clock BEFORE the entitlement seed', /raisePassClock\s*\(juce::Time::getCurrentTime\(\)\.toMilliseconds\(\)\)[\s\S]{0,160}cachedEntitled\(\)/.test(proc));
+ok('plugin construction stamps the pass clock (untrusted) BEFORE the entitlement seed', /raisePassClock\s*\(juce::Time::getCurrentTime\(\)\.toMilliseconds\(\),\s*false\)[\s\S]{0,450}cachedEntitled\(\)/.test(proc));
 
 // ── JS gate mirrors it ──────────────────────────────────────
 const ent = rd(path.join(root, 'stride-vst', 'app', 'lib', 'entitlements.js'));
@@ -53,10 +53,19 @@ ok('startPass is device-first: email sent only if provided (no email gate)', /st
 // ── D: soft lock (native editLocked; edits blocked, audio kept) ──
 const procH = rd(path.join(W, 'src', 'PluginProcessor.h'));
 ok('processor has a native editLocked flag', /std::atomic<bool>\s+editLocked/.test(procH) && /setEditLocked\s*\(bool/.test(procH) && /isEditLocked\(\)/.test(procH));
-ok('cachedExpiredPass: signature-verified VST ent, exp>0, now past -> true', /cachedExpiredPass\(\)[\s\S]{0,900}entVerify[\s\S]{0,600}exp\s*<=\s*0[\s\S]{0,200}passClockMaxSeen\(\)\)\s*>=\s*exp/.test(lic));
-ok('recompute: native editLocked = !cachedEntitled; freeze demo retired', /setEditLocked\s*\(\s*!\s*stride_license::cachedEntitled\(\)\)[\s\S]{0,140}setDemoMode\s*\(false\)/.test(ed));
+ok('cachedExpiredPass: signature-verified VST ent, exp>0, now past -> true', /cachedExpiredPass\(\)[\s\S]{0,900}entVerify[\s\S]{0,900}exp\s*<=\s*0[\s\S]{0,200}passClockMaxSeen\(\)\)\s*>=\s*exp/.test(lic));
+ok('recompute: native editLocked = !cachedEntitled; freeze demo retired', /const bool ent = stride_license::cachedEntitled\(\)[\s\S]{0,220}setEditLocked\s*\(\s*!\s*ent\s*\)[\s\S]{0,200}setDemoMode\s*\(false\)/.test(ed));
 ok('SECURITY: a locked WebView cannot push new curves (sl_send apply/live guarded)', /if\s*\(isApply\s*\|\|\s*isLive\)[\s\S]{0,320}if\s*\(proc\.isEditLocked\(\)\)\s*return;/.test(ed));
 ok('all edit ops are guarded (map/load/clear/reorder/bypass blocked when locked)', (ed.match(/if\s*\(proc\.isEditLocked\(\)\)\s*return;/g) || []).length >= 12);
+
+// ── security hardening (adversarial-review fixes) ───────────
+ok('CRITICAL: pass bound to THIS device at verify (ent.key == deviceHash → wrong-device)', /exp > 0[\s\S]{0,700}ka != deviceHash\(\)\.toUpperCase\(\)\)\s*return\s+mk\s*\(false,\s*"wrong-device"\)/.test(lic));
+ok('cachedExpiredPass is device-bound too (a copied expired pass grants nothing here)', /cachedExpiredPass\(\)[\s\S]{0,1000}ka != deviceHash\(\)\.toUpperCase\(\)\)\s*return false/.test(lic));
+ok('drive gated on driveAllowed (a never-passed machine gets no modulation)', /std::atomic<bool>\s+driveAllowed/.test(procH) && /!\s*demoFreezeNow\s*&&\s*driveAllowed\.load\(\)/.test(proc));
+ok('editLocked + driveAllowed seeded natively in the processor ctor', /editLocked\.store\s*\(\s*!\s*ent\s*\)[\s\S]{0,160}driveAllowed\.store\s*\(ent\s*\|\|\s*stride_license::cachedExpiredPass\(\)\)/.test(proc));
+ok('gates re-derived natively on the editor timer (mid-session expiry locks)', /licTick\s*>=\s*60[\s\S]{0,220}setEditLocked[\s\S]{0,160}setDriveAllowed/.test(ed));
+ok('processor mutators refuse when locked (setDriveCurves + removeMappedAt)', /setDriveCurves[\s\S]{0,140}if\s*\(editLocked\.load\(\)\)\s*return;/.test(proc) && /removeMappedAt[\s\S]{0,140}if\s*\(editLocked\.load\(\)\)\s*return;/.test(proc));
+ok('anti-brick clock: bootstrap only from a trusted server value + clamp absurd jumps', /raisePassClock\s*\(juce::int64 ms,\s*bool trusted\)[\s\S]{0,320}cur <= 0 && ! trusted[\s\S]{0,220}kMaxJumpMs/.test(lic) && /server_now_ms",\s*\(juce::int64\)\s*0\),\s*true\)/.test(lic));
 
 // ── behavioural replica of the gate math ────────────────────
 (function () {

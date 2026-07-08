@@ -66,11 +66,18 @@ StrideWrapperProcessor::StrideWrapperProcessor()
         addParameter (mp);
     }
 
-    // Anti-rollback: stamp this launch into the pass clock BEFORE the entitlement seed, so a
-    // rolled-back clock can't revive an expired Discovery Pass (no-op for perpetual/demo users).
-    stride_license::raisePassClock (juce::Time::getCurrentTime().toMilliseconds());
-    demoMode.store (! stride_license::cachedEntitled());   // start limited unless a cached VST entitlement is present; UI confirms live
-    loadDemoCycleState();                                   // restore the demo move/freeze cycle (reload-proof)
+    // Anti-rollback: stamp this launch into the pass clock (untrusted local clock; no-op until a
+    // trusted server value bootstraps it) so a rolled-back clock can't revive an expired pass.
+    stride_license::raisePassClock (juce::Time::getCurrentTime().toMilliseconds(), false);
+    // Native, device-bound entitlement seed (the editor timer keeps these live). editLocked blocks
+    // editing unless actively entitled; driveAllowed lets EXISTING curves keep playing only if this
+    // machine is/was entitled (paid, active pass, or an expired pass minted for THIS device) —
+    // a shared project on a never-passed machine gets no free modulation.
+    const bool ent = stride_license::cachedEntitled();
+    editLocked.store (! ent);
+    driveAllowed.store (ent || stride_license::cachedExpiredPass());
+    demoMode.store (false);                                 // the 24h Discovery Pass replaces the freeze demo
+    loadDemoCycleState();                                   // (kept; the freeze cycle is dormant with demoMode=false)
 }
 
 void StrideWrapperProcessor::loadDemoCycleState()
@@ -212,8 +219,11 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         }
         else { demoFrozen.store (false); demoPlaying.store (false); demoResumeSecs.store (0); }
 
-        // FREEZE (demo) skips all driving -> hosted knobs hold their last value.
-        if (! demoFreezeNow)
+        // Drive existing curves ONLY when this machine is entitled (paid, active pass, or an
+        // expired pass minted for THIS device = soft lock). A shared project on a never-passed
+        // machine -> driveAllowed false -> the hosted synth plays dry (no free modulation).
+        // (demo freeze retired; demoFreezeNow is always false now.)
+        if (! demoFreezeNow && driveAllowed.load())
         {
             if (driveMode.load() == DriveMode::Automation)
             {
@@ -768,6 +778,7 @@ juce::Array<juce::var> StrideWrapperProcessor::getMappedCurves() const
 
 void StrideWrapperProcessor::removeMappedAt (int pos)
 {
+    if (editLocked.load()) return;   // soft lock: no unmapping/editing while locked
     const juce::ScopedLock sl (hostLock);
     if (pos >= 0 && pos < (int) mapped.size())
     {
@@ -923,6 +934,8 @@ void StrideWrapperProcessor::handleAsyncUpdate()
 // ── live curve drive ───────────────────────────────────────────────
 void StrideWrapperProcessor::setDriveCurves (const std::vector<DriveLane>& lanes, double clipBeats)
 {
+    if (editLocked.load()) return;   // SOFT LOCK (defense-in-depth): no NEW curves — even a bypassed
+                                     // WebView can't reach here; existing driveLanes keep playing.
     const juce::ScopedLock sl (hostLock);
     if (clipBeats > 0.0) driveClipBeats = clipBeats;   // <=0 = keep last
     driveLanes.clear();

@@ -39,11 +39,20 @@ namespace stride_license
         if (! f.existsAsFile()) return 0;
         return (juce::int64) juce::JSON::parse (f.loadFileAsString()).getProperty ("maxSeen", (juce::int64) 0);
     }
-    // Monotonic raise (never lowers). Sources: app launch (now) + the unforgeable server
-    // time from a successful validate/start_pass.
-    inline void raisePassClock (juce::int64 ms)
+    // Monotonic raise (never lowers). `trusted` = the unforgeable server time (validate/start_pass);
+    // untrusted = the local launch clock. To avoid BRICKING a machine whose clock is wildly wrong
+    // (dead CMOS -> year 2099) or a MITM'd server time, we (a) bootstrap the clock ONLY from a
+    // trusted source, and (b) clamp any single raise to +5 days, so an absurd clock can never
+    // poison maxSeen far into the future (which would pre-expire every current/future credential).
+    // The live expiry check uses jmax(realNow, maxSeen), so a clamped floor never wrongly extends.
+    inline void raisePassClock (juce::int64 ms, bool trusted)
     {
-        if (ms <= 0 || ms <= passClockMaxSeen()) return;
+        if (ms <= 0) return;
+        const auto cur = passClockMaxSeen();
+        if (cur <= 0 && ! trusted) return;                                  // don't bootstrap off the local clock
+        const juce::int64 kMaxJumpMs = (juce::int64) 5 * 24 * 60 * 60 * 1000;
+        if (cur > 0 && ms > cur + kMaxJumpMs) ms = cur + kMaxJumpMs;        // clamp absurd forward jumps
+        if (ms <= cur) return;
         dataDir().createDirectory();
         juce::DynamicObject::Ptr o = new juce::DynamicObject();
         o->setProperty ("maxSeen", ms);
@@ -213,6 +222,12 @@ namespace stride_license
             const juce::int64 exp = (juce::int64) ent.getProperty ("exp", (juce::int64) 0);
             if (exp > 0)
             {
+                // DEVICE BINDING: a pass's signed ent.key IS the machine's device hash. A pass
+                // minted for another device (a curl'd token, or a license.json copied off another
+                // machine) won't match THIS device -> denied. This is what makes "one machine, one
+                // pass" real on the client, even though the mint endpoint trusts a client string.
+                // (Perpetual keys skip this — their key is the LS license key, not a device hash.)
+                if (ka != deviceHash().toUpperCase()) return mk (false, "wrong-device");
                 const juce::int64 eff = juce::jmax (juce::Time::getCurrentTime().toMilliseconds(), passClockMaxSeen());
                 if (eff >= exp) return mk (false, "exp-expired");
             }
@@ -276,8 +291,9 @@ namespace stride_license
         const auto ent = c.getProperty ("ent", juce::var());
         const auto sig = c.getProperty ("ent_sig", "").toString();
         if (! ent.isObject() || sig.isEmpty() || ! entVerify (ent, sig)) return false;
-        if (ent.getProperty ("key", "").toString().trim().toUpperCase()
-              != c.getProperty ("key", "").toString().trim().toUpperCase()) return false;
+        const auto ka = ent.getProperty ("key", "").toString().trim().toUpperCase();
+        if (ka != c.getProperty ("key", "").toString().trim().toUpperCase()) return false;
+        if (ka != deviceHash().toUpperCase()) return false;   // device-bound: a copied expired pass gives no soft-lock/drive here
         bool hasVst = false;
         if (auto* arr = ent.getProperty ("ents", juce::var()).getArray())
             for (auto& e : *arr) if (e.toString() == "vst") { hasVst = true; break; }
@@ -451,7 +467,7 @@ namespace stride_license
             juce::var result;
             if (networkOk && parsed.isObject() && (bool) parsed.getProperty ("valid", false))
             {
-                raisePassClock ((juce::int64) parsed.getProperty ("server_now_ms", (juce::int64) 0));   // unforgeable clock
+                raisePassClock ((juce::int64) parsed.getProperty ("server_now_ms", (juce::int64) 0), true);   // trusted server clock
 
                 auto* o = new juce::DynamicObject();
                 o->setProperty ("valid", true);

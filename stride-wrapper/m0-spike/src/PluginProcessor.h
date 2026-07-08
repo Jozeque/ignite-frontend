@@ -76,6 +76,12 @@ public:
     // by editing the WebView) — the security boundary, not the JS overlay.
     void setEditLocked (bool b) { editLocked.store (b); }
     bool isEditLocked() const { return editLocked.load(); }
+    // Whether the processor may DRIVE existing curves. True only if this machine is entitled
+    // (paid / active pass) OR holds an EXPIRED pass minted for THIS device (soft lock keeps your
+    // own work playing). A shared project opened on a never-passed machine -> false -> no free
+    // modulation. Recomputed natively on the editor timer; read on the audio thread (atomic).
+    void setDriveAllowed (bool b) { driveAllowed.store (b); }
+    bool isDriveAllowed() const { return driveAllowed.load(); }
     bool isDemoFrozen() const { return demoFrozen.load(); }        // in the "freeze" half of the demo cycle
     bool isDemoPlaying() const { return demoPlaying.load(); }      // demo + transport playing + not frozen (= actively modulating)
     int  demoSecsUntilResume() const { return demoResumeSecs.load(); }
@@ -157,7 +163,8 @@ private:
     std::atomic<bool> unlearnMode { false };   // Map (add-by-touch) and Unmap (remove-by-touch) are mutually exclusive
     std::atomic<int>  mapVersion { 0 };
     std::atomic<bool> demoMode   { true };   // fail-safe default: limited until proven entitled
-    std::atomic<bool> editLocked { false };  // Discovery Pass expired -> block edits, keep audio (soft lock)
+    std::atomic<bool> editLocked   { false };  // Discovery Pass expired -> block edits, keep audio (soft lock)
+    std::atomic<bool> driveAllowed { false };  // fail-safe: no curve drive until entitlement is confirmed (this device)
     juce::Random demoRng;                    // offline-render noise in demo
     // Demo move/freeze cycle, TIED TO TRANSPORT: move budget accrues only while playing
     // (setup time doesn't burn it); the freeze runs on real-time. Both persisted -> a reload

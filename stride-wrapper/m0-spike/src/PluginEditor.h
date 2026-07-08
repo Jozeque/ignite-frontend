@@ -65,6 +65,7 @@ private:
     bool lastDemoFrozen = false; int lastDemoSecs = -1; bool lastDemoPlaying = false;   // throttle for pushing the demo freeze/live state to the badge
     bool sdFullscreen = false; int preFsW = 0, preFsH = 0;   // fullscreen (maximize) toggle — remembers the pre-fullscreen size to restore
     int  demoSaveTick = 0;                                // persist the demo cycle every ~2s (move budget changes silently)
+    int  licTick = 0;                                     // re-derive editLocked/driveAllowed natively ~every 2s (mid-session expiry)
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StrideWrapperEditor)
 };

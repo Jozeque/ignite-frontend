@@ -44,7 +44,7 @@ ok('processor exposes isDemo', /bool\s+isDemo\s*\(\)\s*const/.test(procH));
 ok('License.h has cachedEntitled() for the construction-time seed', /bool\s+cachedEntitled\s*\(\)/.test(license));
 ok('cachedEntitled reuses computeEntitled (no second gate)', /inline bool cachedEntitled[\s\S]{0,800}computeEntitled/.test(license));
 ok('cachedEntitled enforces the offline grace', /inline bool cachedEntitled[\s\S]{0,800}kOfflineGraceDays/.test(license));
-ok('processor seeds demoMode from cachedEntitled at construction', /demoMode\.store\s*\(\s*!\s*stride_license::cachedEntitled/.test(procC));
+ok('processor seeds the native gates from the entitlement at construction', /editLocked\.store\s*\(\s*!\s*ent\s*\)[\s\S]{0,160}driveAllowed\.store/.test(procC));
 ok('processor includes License.h', /#include\s+"License\.h"/.test(procC));
 
 // ─────────────────────────────────────────────────────────────
@@ -57,7 +57,7 @@ ok('freeze end is real-time (demoFreezeUntilMs)', /demoFreezeUntilMs/.test(procH
 ok('move budget accrues only while transport is playing', /if\s*\(\s*transportPlaying\s*\)/.test(procC) && /demoMoveUsedMs\.store/.test(procC));
 ok('processBlock reads the transport play state', /transportPlaying/.test(procC) && /getIsPlaying/.test(procC));
 ok('freeze begins after 10s of playback used', /used\s*>=\s*kDemoMoveSecs\s*\*\s*1000/.test(procC) && /demoFreezeUntilMs\.store\s*\(\s*now/.test(procC));
-ok('FREEZE skips the drive so knobs HOLD (drive gated by !demoFreezeNow)', /if\s*\(\s*!\s*demoFreezeNow\s*\)/.test(procC));
+ok('drive gated by !demoFreezeNow AND driveAllowed (entitlement)', /if\s*\(\s*!\s*demoFreezeNow\s*&&\s*driveAllowed\.load\(\)\s*\)/.test(procC));
 ok('freeze exposes a live countdown (demoResumeSecs)', /demoResumeSecs/.test(procH) && /demoResumeSecs\.store/.test(procC));
 
 // ─────────────────────────────────────────────────────────────
@@ -78,7 +78,7 @@ ok('editor persists the cycle from the message thread (timer)', /saveDemoCycleSt
 // ─────────────────────────────────────────────────────────────
 // 5. Editor <-> UI bridge for demo (flag in, countdown out)
 // ─────────────────────────────────────────────────────────────
-ok('editor listens for setDemoMode -> proc.setDemoMode', /withEventListener\s*\("setDemoMode"[\s\S]{0,700}setDemoMode/.test(editor));
+ok('setDemoMode listener recomputes editLocked + driveAllowed natively', /withEventListener\s*\("setDemoMode"[\s\S]{0,700}setEditLocked[\s\S]{0,180}setDriveAllowed/.test(editor));
 ok('editor pushes demo_freeze (frozen + secs) to the badge', /emitEventIfBrowserIsVisible\s*\("demo_freeze"/.test(editor) && /isDemoFrozen/.test(editor) && /demoSecsUntilResume/.test(editor));
 ok('shim relays demo flag to engine (strideSetDemoMode -> setDemoMode)', /strideSetDemoMode\s*=\s*function/.test(shim) && /emit\('setDemoMode'/.test(shim));
 ok('shim renders the freeze countdown into #sd-demo-status', /listen\('demo_freeze'/.test(shim) && /sd-demo-status/.test(shim));
@@ -143,7 +143,7 @@ ok('no blind "return mk (true, \\"builtin\\")" without a key re-hash before it',
 
 // (B) Native setDemoMode must recompute entitlement itself, not trust the WebView flag.
 ok('setDemoMode handler recomputes the lock NATIVELY (cachedEntitled), ignores the JS flag',
-   /withEventListener\s*\("setDemoMode"[\s\S]{0,800}setEditLocked\s*\(\s*!\s*stride_license::cachedEntitled\s*\(\)/.test(editor));
+   /withEventListener\s*\("setDemoMode"[\s\S]{0,700}const bool ent = stride_license::cachedEntitled\(\)[\s\S]{0,140}setEditLocked\s*\(\s*!\s*ent\s*\)/.test(editor));
 ok('setDemoMode no longer trusts v.getProperty("demo") to lift the demo',
    !/withEventListener\s*\("setDemoMode"[\s\S]{0,200}setDemoMode\s*\(\s*\(bool\)\s*v\.getProperty\s*\(\s*"demo"/.test(editor));
 

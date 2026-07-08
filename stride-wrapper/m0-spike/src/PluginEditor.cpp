@@ -201,7 +201,9 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
             // the processor keeps driving the curves already in the project so audio is untouched.
             // Live activation/pass-start unlocks instantly because the JS writes license.json
             // BEFORE emitting this and it uses the SAME computeEntitled.
-            proc.setEditLocked (! stride_license::cachedEntitled());
+            const bool ent = stride_license::cachedEntitled();
+            proc.setEditLocked (! ent);
+            proc.setDriveAllowed (ent || stride_license::cachedExpiredPass());
             proc.setDemoMode (false);   // the 24h Discovery Pass replaces the old freeze demo
         })
         .withEventListener ("openExternal", [this] (juce::var v)   { const auto u = v.getProperty ("url", "").toString(); if (u.isNotEmpty()) juce::URL (u).launchInDefaultBrowser(); });
@@ -583,6 +585,16 @@ void StrideWrapperEditor::scanPluginsToWeb()
 void StrideWrapperEditor::timerCallback()
 {
     proc.pushMacroValuesToHost();   // Live mode: Ableton's exposed params follow the modulation (+ record when armed)
+
+    // Re-derive the native entitlement gates (~every 2s) so a Discovery Pass expiring MID-SESSION
+    // locks the editor + stops the drive WITHOUT waiting on the JS gate. Both are device-bound.
+    if (++licTick >= 60)
+    {
+        licTick = 0;
+        const bool ent = stride_license::cachedEntitled();
+        proc.setEditLocked (! ent);
+        proc.setDriveAllowed (ent || stride_license::cachedExpiredPass());
+    }
 
     if (web == nullptr) return;
 
