@@ -92,7 +92,7 @@ ok('engine counts the remaining move seconds during the move phase', /demoResume
 // 6. License GATE flips to run-in-demo (index.html)  + PAID PATH SAFE
 // ─────────────────────────────────────────────────────────────
 ok('unlockApp takes a demo flag', /function\s+unlockApp\s*\(demo\)/.test(indexH));
-ok('no-entitlement path enters demo (unlockApp(true))', /unlockApp\(true\)/.test(indexH));
+ok('no-entitlement path now shows the Discovery Pass gate (freeze demo retired)', /showPassGate\s*\(\s*reason === 'exp-expired'/.test(indexH) && !/unlockApp\(true\)/.test(indexH));
 ok('PAID: entitled paths unlock FULL (unlockApp(false))', /unlockApp\(false\)/.test(indexH));
 // paid safety: the demo flag is relayed, and full mode explicitly turns caps off
 ok('PAID: full unlock relays demo=false to the engine', /strideSetDemoMode/.test(indexH) || /strideSetDemoMode/.test(shim));

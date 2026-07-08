@@ -180,6 +180,32 @@
                 <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Checking license...</p>
             </div>
 
+            <!-- Discovery Pass — start (no pass on this machine yet) -->
+            <div id="pass-start" class="hidden flex flex-col gap-5">
+                <div>
+                    <p class="text-sm text-zinc-300 leading-relaxed">Welcome to your <span class="text-orange-400 font-bold">24-hour Discovery Pass</span>.</p>
+                    <p class="text-lg text-zinc-100 font-bold mt-1">Explore without limits.</p>
+                </div>
+                <button onclick="startDiscoveryPass()" id="pass-start-btn" class="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black py-3.5 rounded-xl text-xs uppercase tracking-widest transition-all shadow-[0_0_24px_rgba(255,94,0,0.25)]">
+                    Start My 24-Hour Pass
+                </button>
+                <p id="pass-start-error" class="text-[10px] text-red-400 font-medium hidden"></p>
+                <p class="text-[10px] text-zinc-600 font-medium leading-relaxed">When your pass ends, your projects remain untouched — you'll just need a license to keep exploring.</p>
+                <button type="button" onclick="showActivationForm()" class="text-[10px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors">Have a license? Activate →</button>
+            </div>
+
+            <!-- Discovery Pass — ended (locked: audio still plays, editing is locked) -->
+            <div id="pass-ended" class="hidden flex flex-col gap-5">
+                <div>
+                    <p class="text-lg text-zinc-100 font-bold">Your Discovery Pass has ended.</p>
+                    <p class="text-sm text-zinc-400 leading-relaxed mt-1">Your projects are safe. When you're ready, a license picks up right where you left off.</p>
+                </div>
+                <button onclick="window.stride.openExternal('https://stridehub.io')" class="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black py-3.5 rounded-xl text-xs uppercase tracking-widest transition-all shadow-[0_0_24px_rgba(255,94,0,0.25)]">
+                    Get Stride VST
+                </button>
+                <button type="button" onclick="showActivationForm()" class="text-[10px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors">Have a license? Activate →</button>
+            </div>
+
             <!-- Activation form (hidden until needed) -->
             <div id="activation-form" class="hidden flex flex-col gap-4">
                 <div>
@@ -192,7 +218,7 @@
                 <p class="text-[10px] text-zinc-600 font-medium">
                     Don't have a key? <a href="#" class="text-orange-500 hover:text-orange-400 underline" onclick="window.stride.openExternal('https://stridehub.io'); return false;">Get Stride</a>
                 </p>
-                <button type="button" onclick="document.getElementById('activation-overlay').style.display='none'" class="text-[10px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors mt-1">Continue in demo →</button>
+                <button type="button" onclick="showPassGateBack()" class="text-[10px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors mt-1">← Back</button>
             </div>
         </div>
     </div>
@@ -203,6 +229,13 @@
         <span class="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400">Demo</span>
         <span id="sd-demo-status" class="text-[10px] text-zinc-400 font-bold"></span>
         <button onclick="showActivationOverlay()" class="text-[10px] font-black uppercase tracking-wider text-zinc-200 hover:text-white bg-white/10 hover:bg-white/20 border border-white/15 rounded-full px-2.5 py-1 transition-colors">Activate</button>
+        <button onclick="if(window.stride&&window.stride.openExternal)window.stride.openExternal('https://strideengine.lemonsqueezy.com/checkout/buy/cd9e5114-080a-48f2-ae27-7c99169f438d')" class="text-[10px] font-black uppercase tracking-wider text-white bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 rounded-full px-3 py-1 transition-all">Get Stride VST</button>
+    </div>
+
+    <!-- Discovery Pass countdown — shown while a 24h pass is ACTIVE (turns fuchsia at 2h left). -->
+    <div id="pass-banner" class="hidden fixed bottom-3 left-1/2 -translate-x-1/2 z-[9990] flex items-center gap-2.5 bg-zinc-900/95 border border-orange-500/40 rounded-full pl-4 pr-1.5 py-1.5 shadow-2xl" style="font-family:'Outfit',sans-serif; backdrop-filter:blur(8px)">
+        <span id="pass-banner-tag" class="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400">Discovery Pass</span>
+        <span id="pass-banner-text" class="text-[10px] text-zinc-300 font-bold"></span>
         <button onclick="if(window.stride&&window.stride.openExternal)window.stride.openExternal('https://strideengine.lemonsqueezy.com/checkout/buy/cd9e5114-080a-48f2-ae27-7c99169f438d')" class="text-[10px] font-black uppercase tracking-wider text-white bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 rounded-full px-3 py-1 transition-all">Get Stride VST</button>
     </div>
 
@@ -1089,6 +1122,7 @@
                         // Within grace AND entitled to this product — unlock, revalidate in bg
                         revalidateSilently(lic.key);
                         unlockApp(false);
+                        if (lic.ent && lic.ent.exp) sdPassInit(Number(lic.ent.exp));   // active pass -> resume the countdown
                         return;
                     }
                     // Grace expired, or entitlement needs a fresh check — validate online
@@ -1104,9 +1138,11 @@
             console.error('License check error:', e);
         }
 
-        // No VST entitlement → run in DEMO (capped), don't block. The DEMO badge's
-        // Activate button re-opens the form; "Get Stride VST" opens the checkout.
-        unlockApp(true);
+        // Not entitled → the 24-hour Discovery Pass gate (no freeze demo). An EXPIRED pass
+        // shows the "ended" (purchase) screen; anything else shows "start your pass".
+        let reason = '';
+        try { const r = await window.stride.loadLicense(); reason = (r && r.license && r.license.entitlement_reason) || ''; } catch (e) {}
+        showPassGate(reason === 'exp-expired' ? 'ended' : 'start');
     }
 
     // Module-level re-entrancy lock. Without this, a user pressing Enter AND
@@ -1229,6 +1265,102 @@
         const err = document.getElementById('activation-error'); if (err) err.classList.add('hidden');
     }
     window.showActivationOverlay = showActivationOverlay;
+
+    // ── 24-hour Discovery Pass gate ──────────────────────────────
+    // showPassGate('start'|'ended') swaps the overlay to the pass screens; the license-key
+    // form stays reachable via "Have a license?". startDiscoveryPass() is one click — the
+    // device hash (computed natively) is the credential + the one-pass-per-machine guard.
+    function showPassGate(state) {
+        const o = document.getElementById('activation-overlay');
+        o.style.display = 'flex'; o.style.opacity = '1';
+        document.getElementById('activation-checking').classList.add('hidden');
+        document.getElementById('activation-form').classList.add('hidden');
+        document.getElementById('pass-start').classList.toggle('hidden', state !== 'start');
+        document.getElementById('pass-ended').classList.toggle('hidden', state !== 'ended');
+        window.__passGateState = (state === 'ended') ? 'ended' : 'start';
+    }
+    window.showPassGate = showPassGate;
+
+    function showActivationForm() {
+        document.getElementById('pass-start').classList.add('hidden');
+        document.getElementById('pass-ended').classList.add('hidden');
+        document.getElementById('activation-checking').classList.add('hidden');
+        document.getElementById('activation-form').classList.remove('hidden');
+        const err = document.getElementById('activation-error'); if (err) err.classList.add('hidden');
+    }
+    window.showActivationForm = showActivationForm;
+
+    function showPassGateBack() { showPassGate(window.__passGateState || 'start'); }
+    window.showPassGateBack = showPassGateBack;
+
+    async function startDiscoveryPass() {
+        const btn = document.getElementById('pass-start-btn');
+        const err = document.getElementById('pass-start-error');
+        if (!btn || btn.disabled) return;
+        btn.textContent = 'Starting…'; btn.disabled = true; if (err) err.classList.add('hidden');
+        try {
+            const r = await window.stride.startPass();   // device-bound, no email
+            if (r && r.valid && r.entitled) {
+                await cachePass(r);
+                if (r.exp) window.__passExp = Number(r.exp);
+                unlockApp(false);            // native recompute -> full (active pass)
+                if (window.sdPassWelcome) window.sdPassWelcome();
+                return;
+            }
+            // Refused (this machine already used its pass) or an error.
+            if (err) { err.textContent = (r && r.error) || 'Could not start your pass.'; err.classList.remove('hidden'); }
+            btn.textContent = 'Start My 24-Hour Pass'; btn.disabled = false;
+        } catch (e) {
+            if (err) { err.textContent = 'Could not reach the pass server. Check your connection.'; err.classList.remove('hidden'); }
+            btn.textContent = 'Start My 24-Hour Pass'; btn.disabled = false;
+        }
+    }
+    window.startDiscoveryPass = startDiscoveryPass;
+
+    // Persist the signed pass exactly like a validated license, so it runs offline for 24h.
+    async function cachePass(r) {
+        await window.stride.saveLicense({
+            key: r.key, valid: true, tier: 'pass', pass: true, builtin: false,
+            version: 2, exp: r.exp || null,
+            ent: r.ent || null, ent_sig: r.ent_sig || null,
+            validated_at: Date.now(),
+        });
+    }
+
+    // ── Discovery Pass countdown + 2-hour nudge ──────────────────
+    let _passTimer = null, _passNudged = false;
+    function sdPassInit(expMs) {
+        expMs = Number(expMs) || 0;
+        if (!expMs) return;
+        window.__passExp = expMs;
+        if (_passTimer) clearInterval(_passTimer);
+        sdPassTick();
+        _passTimer = setInterval(sdPassTick, 20000);   // minute-granularity display
+    }
+    window.sdPassInit = sdPassInit;
+
+    function sdPassTick() {
+        const exp = Number(window.__passExp) || 0;
+        const banner = document.getElementById('pass-banner');
+        const text = document.getElementById('pass-banner-text');
+        const tag = document.getElementById('pass-banner-tag');
+        if (!exp || !banner) return;
+        const ms = exp - Date.now();
+        if (ms <= 0) { banner.classList.add('hidden'); if (_passTimer) { clearInterval(_passTimer); _passTimer = null; } return; }
+        const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000);
+        if (text) text.textContent = (h > 0 ? h + 'h ' : '') + m + 'm left';
+        banner.classList.remove('hidden');
+        // 2-hours-left nudge, once — the banner turns fuchsia and the copy shifts to the soft CTA.
+        if (ms <= 2 * 3600000 && !_passNudged) {
+            _passNudged = true;
+            banner.classList.remove('border-orange-500/40'); banner.classList.add('border-fuchsia-500/60');
+            if (tag) { tag.textContent = '2 hours left'; tag.classList.remove('text-orange-400'); tag.classList.add('text-fuchsia-400'); }
+            if (text) text.textContent = 'Found something you love?';
+        }
+    }
+
+    function sdPassWelcome() { sdPassInit(window.__passExp); }
+    window.sdPassWelcome = sdPassWelcome;
 
     function _sdUpdateDemoBadge() {
         const b = document.getElementById('sd-demo-badge');
