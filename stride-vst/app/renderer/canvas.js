@@ -204,6 +204,8 @@
     const _sdAutoReadAttempted = {};   // clipKey -> true: auto-read an empty clip's automation only once
     let _sdReadFillOnly = false;       // true while an AUTO-read is in flight: clip_curves_read then fills ONLY empty lanes, so a late read can't clobber curves you just applied (the duplicate-clip "reverts to previous curves" bug). A manual "Pull curves" sets it false → it overwrites.
     let _sdCurveEpoch = 0;             // bumped on every curve edit (pushUndo); lets an in-flight async restoreCanvasState detect that you applied curves mid-load and NOT overwrite them.
+    let _sdRangeDrag = null;           // active per-param range boundary drag: {param, edge:'rangeMin'|'rangeMax', rect}
+    let _sdRangeIconClick = null;      // {id, t} — for double-click-to-reset on the range icon
     function _sdClipKey(rackId, slot) {
         return (slot && slot > 0) ? (rackId + '_s' + slot) : rackId;
     }
@@ -715,6 +717,7 @@
                 is_log: p.is_log || false,
                 locked: false,
                 selected: false,
+                rangeOn: false, rangeMin: 0, rangeMax: 1,   // per-param output range clamp (null-default = full 0..1)
                 points: []
             }))
             .sort(_sdSortByName);
@@ -775,6 +778,7 @@
             is_log: p.is_log || false,
             locked: false,
             selected: false,
+            rangeOn: !!p.rangeOn, rangeMin: (typeof p.rangeMin === 'number' ? p.rangeMin : 0), rangeMax: (typeof p.rangeMax === 'number' ? p.rangeMax : 1),   // carry the range if the engine sent it
             points: Array.isArray(p.points) ? p.points : []   // wrapper sends the drawn curve from the engine — reliable across reopen (desktop sends none → empty)
         })).sort(_sdSortByName);
 
@@ -1003,13 +1007,14 @@
             const carried = {};
             if (sameTrack && _slotSame) {
                 sdCanvasParams.forEach(p => {
-                    if ((p.points && p.points.length) || p.locked) {
+                    if ((p.points && p.points.length) || p.locked || p.rangeOn) {
                         // Key by the stable _path; fall back to NAME for lanes that
                         // have no _path yet (e.g. a just-loaded session) so their
                         // curves/locks survive the first rescan-merge instead of
                         // being dropped. Never the positional envelopeId.
                         const k = p._path || ('n:' + p.name);
-                        carried[k] = { points: (p.points && p.points.length) ? p.points : null, locked: !!p.locked };
+                        carried[k] = { points: (p.points && p.points.length) ? p.points : null, locked: !!p.locked,
+                                       rangeOn: !!p.rangeOn, rangeMin: p.rangeMin, rangeMax: p.rangeMax };
                     }
                 });
             }
@@ -1022,6 +1027,7 @@
                     if (c) {
                         if (c.points) p.points = c.points;
                         if (c.locked) p.locked = true;
+                        if (c.rangeOn) { p.rangeOn = true; p.rangeMin = c.rangeMin; p.rangeMax = c.rangeMax; }
                         kept++;
                     }
                 });
@@ -1157,7 +1163,7 @@
             const legacyRackId = ((_sdCurrentTrackName || '') + '_' + (currentDeviceName || '')).replace(/[^a-zA-Z0-9]/g, '_');
             currentLegacyKey = _sdClipKey(legacyRackId, currentClipSlot);
             _sdContextDirty = false;   // same params, just re-keyed to this clip
-            sdCanvasParams.forEach(p => { p.points = []; p.locked = false; p.selected = false; });
+            sdCanvasParams.forEach(p => { p.points = []; p.locked = false; p.selected = false; p.rangeOn = false; p.rangeMin = 0; p.rangeMax = 1; });
             Promise.resolve(restoreCanvasState()).then(() => {
                 if (bars && bars > 0) sdSetBars(_sdResolveSystemBars(bars), false);
                 try { sdRenderSidebar(); sdDrawCanvasGrid(); _sdSendQuickState(); } catch (e) {}
@@ -2144,7 +2150,7 @@
                 min: p.min,
                 max: p.max,
                 is_log: p.is_log || false,
-                points: p.points,
+                points: _sdRangeApply(p),   // host-bound: 0..1 shape scaled into [rangeMin,rangeMax] when the lane is ranged
             }));
         // Armed Pattern Library notes ride the same inject — curves AND notes.
         const notes = _resolveArmedNotesForBars(sdGetBars()) || [];
@@ -2366,20 +2372,37 @@
         document.body.appendChild(modal);
     }
 
+    // Host-bound OUTPUT scale: map the lane's 0..1 shape into [rangeMin,rangeMax] when the lane
+    // is ranged (used at inject + live-drive). The stored/edited shape stays 0..1 — this only
+    // transforms what the HOST receives, so changing the range instantly rescales the output.
+    function _sdRangeApply(p) {
+        if (!p || !p.rangeOn) return p.points;
+        const lo = p.rangeMin, span = (p.rangeMax - p.rangeMin);
+        return p.points.map(pt => ({ time: pt.time, value: Math.max(0, Math.min(1, lo + pt.value * span)), curve: pt.curve || 0 }));
+    }
+    // Inverse of _sdRangeApply: a click's screen value (0..1) -> the stored 0..1 shape, so
+    // drawing/hit-testing on a ranged lane works within the band (clicking the ceiling = 1.0).
+    function _sdRangeInv(p, v) {
+        if (!p || !p.rangeOn) return v;
+        const span = p.rangeMax - p.rangeMin;
+        return span > 0 ? Math.max(0, Math.min(1, (v - p.rangeMin) / span)) : v;
+    }
+
     // ─── LOCAL STATE PERSISTENCE ──────────────────────────
 
     async function saveCanvasState() {
         const key = currentClipKey || currentRackId;
         if (!key || !window.stride) return;
-        // Save lanes that either have points OR are explicitly locked.
-        // A locked-but-empty lane is still meaningful intent (the user
-        // marked it "don't touch") so we preserve that across reloads.
+        // Save lanes that either have points OR are explicitly locked OR carry a custom range.
+        // A locked-but-empty (or ranged-but-empty) lane is still meaningful intent, preserved
+        // across reloads. Points/range are stored as the raw 0..1 shape (non-destructive).
         const state = sdCanvasParams
-            .filter(p => p.points.length > 0 || p.locked)
+            .filter(p => p.points.length > 0 || p.locked || p.rangeOn)
             .map(p => ({
                 envelopeId: p.envelopeId,   // legacy / back-compat key
                 _path: p._path || null,     // STABLE key — match on this; positional envelopeId renumbers when params are added
                 locked: !!p.locked,
+                rangeOn: !!p.rangeOn, rangeMin: p.rangeMin, rangeMax: p.rangeMax,   // per-param output range
                 points: p.points.map(pt => ({ time: pt.time, value: pt.value, curve: pt.curve || 0 }))
             }));
         await window.stride.saveCanvasState(key, state);
@@ -2413,6 +2436,12 @@
                     ? sdCanvasParams.find(p => p._path && p._path === sp._path)
                     : sdCanvasParams.find(p => p.envelopeId === sp.envelopeId);
                 if (!param) return;
+                // Range is independent of lock/curve — always restore it.
+                if (typeof sp.rangeOn === 'boolean') {
+                    param.rangeOn = sp.rangeOn;
+                    if (typeof sp.rangeMin === 'number') param.rangeMin = sp.rangeMin;
+                    if (typeof sp.rangeMax === 'number') param.rangeMax = sp.rangeMax;
+                }
                 // A LOCKED saved lane is ALWAYS restored (curve + lock) — even right
                 // after a generator press. loadParamsDirectly rebuilds every lane
                 // UNLOCKED, so without this a rescan-before-generate unlocks the lanes
@@ -3200,6 +3229,25 @@
         ctx.restore();
     }
 
+    // Tiny "range" glyph (ceiling + floor bars with a vertical span between them) next to the
+    // focus/lock icons. Click to toggle the per-param output range; filled tint when active.
+    function _drawRangeIcon(ctx, x, y, size, color, on) {
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.4;
+        ctx.lineCap = 'round';
+        const cx = x + size / 2;
+        ctx.beginPath(); ctx.moveTo(x + 1, y + 1.5); ctx.lineTo(x + size - 1, y + 1.5); ctx.stroke();               // ceiling
+        ctx.beginPath(); ctx.moveTo(x + 1, y + size - 1.5); ctx.lineTo(x + size - 1, y + size - 1.5); ctx.stroke(); // floor
+        ctx.beginPath();
+        ctx.moveTo(cx, y + 3); ctx.lineTo(cx, y + size - 3);                                                        // span
+        ctx.moveTo(cx - 2, y + 5); ctx.lineTo(cx, y + 3); ctx.lineTo(cx + 2, y + 5);                                // up arrowhead
+        ctx.moveTo(cx - 2, y + size - 5); ctx.lineTo(cx, y + size - 3); ctx.lineTo(cx + 2, y + size - 5);           // down arrowhead
+        ctx.stroke();
+        if (on) { ctx.globalAlpha = 0.16; ctx.fillStyle = color; ctx.fillRect(x + 1, y + 2.5, size - 2, size - 5); }
+        ctx.restore();
+    }
+
     // Tiny "×" at the top-left of a wrapper lane's label — click to UNMAP that param
     // (remove it from the panel + free the knob in the engine). Dim red so it reads as
     // a remove action, distinct from the neutral lock/focus glyphs.
@@ -3377,14 +3425,14 @@
 
                 sdCtx.fillStyle = isLocked ? 'rgba(251,191,36,0.6)' : 'rgba(212,212,216,0.8)';
                 sdCtx.font = '9px Outfit';
-                const parMax = 15;
+                const parMax = 12;   // room for the range + focus + lock icons at the right
                 const parTxt = displayName.length > parMax ? displayName.slice(0, parMax - 1) + '…' : displayName;
                 sdCtx.fillText(parTxt, _tx, midY + 6);
             } else {
                 // Single-line label + point count (desktop app — param names only).
                 sdCtx.fillStyle = _labelCol;
                 sdCtx.font = isHighlighted ? 'bold 11px Outfit' : '600 10px Outfit';
-                const maxChars = 12;   // leaves room at the right edge for the focus + lock icons
+                const maxChars = 10;   // leaves room at the right edge for the range + focus + lock icons
                 const labelText = displayName.length > maxChars ? displayName.slice(0, maxChars - 1) + '…' : displayName;
                 sdCtx.fillText(labelText, 8, midY - 5);
 
@@ -3404,6 +3452,11 @@
             const focusColor = isActive ? 'rgba(' + sdLaneRGB(paramIdx) + ',0.95)' : 'rgba(161,161,170,0.5)';
             _drawFocusIcon(sdCtx, laneDrawLeft - 36, midY - 6, 12, focusColor);
 
+            // Range toggle just left of the focus icon — click to give this param its own min/max
+            // band; drag the boundaries to set it. Lit in the lane colour when on.
+            const rangeColor = param.rangeOn ? 'rgba(' + sdLaneRGB(paramIdx) + ',0.95)' : 'rgba(161,161,170,0.5)';
+            _drawRangeIcon(sdCtx, laneDrawLeft - 54, midY - 6, 12, rangeColor, param.rangeOn);
+
             // Selection shade inside this lane's drawing area
             if (sel) {
                 const sx = laneDrawLeft + ((sel.startBeat / totalBeats) * laneDrawWidth * sdViewZoomX) - sdViewPanX;
@@ -3422,6 +3475,29 @@
                 sdCtx.restore();
             }
 
+            // Per-param RANGE: shaded dead zone + boundary lines + a "min–max%" tag. Drawn for
+            // ANY ranged lane (even empty ones) so the band is always visible; the curve itself
+            // is confined into the band via the range-aware valueToY below.
+            if (param.rangeOn) {
+                const _ry = (v) => rect.bottom - v * rect.height;   // actual 0..1 param value -> screen Y
+                const _yMax = _ry(param.rangeMax), _yMin = _ry(param.rangeMin);
+                const _rgb = sdLaneRGB(paramIdx);
+                sdCtx.save();
+                sdCtx.beginPath(); sdCtx.rect(laneDrawLeft, rect.top, laneDrawWidth, rect.height); sdCtx.clip();
+                sdCtx.fillStyle = 'rgba(0,0,0,0.30)';   // dead zone (outside the band)
+                if (_yMax > rect.top)    sdCtx.fillRect(laneDrawLeft, rect.top, laneDrawWidth, _yMax - rect.top);
+                if (_yMin < rect.bottom) sdCtx.fillRect(laneDrawLeft, _yMin, laneDrawWidth, rect.bottom - _yMin);
+                sdCtx.strokeStyle = 'rgba(' + _rgb + ',0.6)';   // boundary lines
+                sdCtx.lineWidth = 1; sdCtx.setLineDash([3, 3]);
+                sdCtx.beginPath(); sdCtx.moveTo(laneDrawLeft, _yMax); sdCtx.lineTo(laneDrawLeft + laneDrawWidth, _yMax); sdCtx.stroke();
+                sdCtx.beginPath(); sdCtx.moveTo(laneDrawLeft, _yMin); sdCtx.lineTo(laneDrawLeft + laneDrawWidth, _yMin); sdCtx.stroke();
+                sdCtx.setLineDash([]);
+                sdCtx.fillStyle = 'rgba(' + _rgb + ',0.9)';   // "0–40%" tag near the ceiling
+                sdCtx.font = '8px Outfit';
+                sdCtx.fillText(Math.round(param.rangeMin * 100) + '–' + Math.round(param.rangeMax * 100) + '%', laneDrawLeft + 4, _yMax + 9);
+                sdCtx.restore();
+            }
+
             // Draw this lane's curve. Locked lanes render at reduced
             // alpha so the row reads as "frozen" at a quick scan, while
             // still being clearly visible as context. Setting globalAlpha
@@ -3431,7 +3507,9 @@
             sdCtx.save();
             if (isLocked) sdCtx.globalAlpha = 0.4;
             const sortedPts = param.points.slice().sort((a, b) => a.time - b.time);
-            const valueToY = (v) => rect.bottom - v * rect.height;
+            // Ranged lanes display their 0..1 shape scaled into [rangeMin,rangeMax] (confined to the band).
+            const _rangeMap = (v) => param.rangeOn ? (param.rangeMin + v * (param.rangeMax - param.rangeMin)) : v;
+            const valueToY = (v) => rect.bottom - _rangeMap(v) * rect.height;
             const timeToX = (t) => laneDrawLeft + ((t / totalBeats) * laneDrawWidth * sdViewZoomX) - sdViewPanX;
             _sdLaneGeom.push({ cy: rect.top + rect.height / 2, rgb: sdLaneRGB(paramIdx), poly: (param.points.length >= 2 ? _sdSampleLanePixels(sortedPts, timeToX, valueToY) : null) });
 
@@ -3639,12 +3717,13 @@
                 return { time, value: 0 };
             }
             const laneRect = sdMultiGetVisibleRowRect(rowIdx);
-            const value = Math.max(0, Math.min(1, 1 - ((pos.y - laneRect.top) / laneRect.height)));
+            const value = _sdRangeInv(sdCanvasParams[activeIdx], Math.max(0, Math.min(1, 1 - ((pos.y - laneRect.top) / laneRect.height))));
             return { time, value };
         }
 
         // Focus mode (original behavior)
-        return { time: ((pos.x + sdViewPanX) / (rect.width * sdViewZoomX)) * totalBeats, value: 1 - (pos.y / rect.height) };
+        const _fp = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
+        return { time: ((pos.x + sdViewPanX) / (rect.width * sdViewZoomX)) * totalBeats, value: _sdRangeInv(_fp, 1 - (pos.y / rect.height)) };
     }
 
     function setupSdCanvasInteractions() {
@@ -3778,6 +3857,40 @@
                     return;
                 }
 
+                // Range-icon click — just left of the focus icon. Single click toggles the
+                // per-param output range (default full 0..1; drag the boundaries to narrow it);
+                // double click resets it to full.
+                const rangeHitRight = focusHitLeft;
+                const rangeHitLeft = rangeHitRight - SD_MULTI_FOCUS_HIT_W;
+                if (mx >= rangeHitLeft && mx < rangeHitRight) {
+                    const p = hit.param;
+                    const now = (window.performance && performance.now) ? performance.now() : Date.now();
+                    if (_sdRangeIconClick && _sdRangeIconClick.id === p.envelopeId && (now - _sdRangeIconClick.t) < 400) {
+                        p.rangeOn = false; p.rangeMin = 0; p.rangeMax = 1;   // double-click = reset to full
+                        _sdRangeIconClick = null;
+                    } else {
+                        p.rangeOn = !p.rangeOn;
+                        if (p.rangeOn && !(p.rangeMax > p.rangeMin)) { p.rangeMin = 0; p.rangeMax = 1; }
+                        _sdRangeIconClick = { id: p.envelopeId, t: now };
+                    }
+                    sdDrawCanvasGrid();
+                    Promise.resolve(saveCanvasState());
+                    return;
+                }
+
+                // Boundary drag — grabbing a range line (ceiling/floor) on a ranged lane inside
+                // the draw area. Applies to every selected lane too, so you can set a group at once.
+                if (hit.param.rangeOn && mx > SD_MULTI_LABEL_WIDTH) {
+                    const rb = hit.rect.bottom, rh = hit.rect.height;
+                    const yMin = rb - hit.param.rangeMin * rh, yMax = rb - hit.param.rangeMax * rh;
+                    const edge = (Math.abs(my - yMax) <= 6) ? 'rangeMax' : (Math.abs(my - yMin) <= 6) ? 'rangeMin' : null;
+                    if (edge) {
+                        _sdRangeDrag = { param: hit.param, edge: edge, rect: hit.rect };
+                        sdCanvasEl.style.cursor = 'ns-resize';
+                        return;
+                    }
+                }
+
                 // Ctrl/Cmd + click on any lane → toggle that lane's
                 // selection. Sets up drag-pending so Ctrl + drag multi-
                 // selects every lane the cursor passes over. Ctrl is the
@@ -3869,6 +3982,15 @@
         });
         sdCanvasEl.addEventListener('mousemove', e => {
             _sdMaybeShowLaneTooltip(e);
+            if (_sdRangeDrag) {   // dragging a per-param range boundary — the lane's "min–max%" tag updates live
+                const mr = sdCanvasEl.getBoundingClientRect();
+                const my = e.clientY - mr.top;
+                const rd = _sdRangeDrag, v = Math.max(0, Math.min(1, (rd.rect.bottom - my) / rd.rect.height));
+                if (rd.edge === 'rangeMax') rd.param.rangeMax = Math.max(v, rd.param.rangeMin + 0.02);
+                else                        rd.param.rangeMin = Math.min(v, rd.param.rangeMax - 0.02);
+                sdDrawCanvasGrid();
+                return;
+            }
             if (sdIsPanning) {
                 sdViewPanX += sdLastMouseX - e.clientX; sdLastMouseX = e.clientX;
                 const rect = sdCanvasEl.getBoundingClientRect(); const lw = rect.width;
@@ -4142,6 +4264,13 @@
         });
 
         window.addEventListener('mouseup', e => {
+            if (_sdRangeDrag) {   // finished dragging a range boundary — persist + re-drive with the new band
+                _sdRangeDrag = null;
+                if (sdCanvasEl) sdCanvasEl.style.cursor = 'crosshair';
+                try { Promise.resolve(saveCanvasState()); } catch (err) {}
+                sdDrawCanvasGrid();
+                return;
+            }
             // Only the middle button ends a pan — guards against a stray
             // left/right mouseup interrupting a mid-pan drag.
             if (sdIsPanning && e.button === 1) {

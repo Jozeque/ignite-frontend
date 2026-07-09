@@ -144,12 +144,16 @@
     saveSettings: function (s) { lsSet('stride_settings', s); return P({ success: true }); },
     loadSettings: function () { return P({ success: true, settings: lsGet('stride_settings', {}) }); },
     saveCanvasState: function (rackId, state) {
-      lsSet('stride_canvas_' + rackId, state);
-      // LIVE drive: the canvas calls this after every edit. state = [{_path, points:[{time,value,curve}]}].
+      lsSet('stride_canvas_' + rackId, state);   // persist the 0..1 shape + per-param range (authority on reopen)
+      // LIVE drive: the canvas calls this after every edit. state = [{_path, rangeOn, rangeMin, rangeMax, points}].
+      // A ranged lane sends its 0..1 shape SCALED into [rangeMin,rangeMax] so the live-drive matches the inject.
       try {
         emit('sl_send', { type: 'live_curves', clip_bars: (window.sdGetBars ? window.sdGetBars() : 0), parameters: (state || []).map(function (l) {
           var pos = parseInt(String(l._path || '').split(':')[1], 10);
-          return { id: isNaN(pos) ? -1 : pos, _path: l._path || null, points: l.points || [] };
+          var pts = (l.rangeOn && (l.points || []).length)
+            ? l.points.map(function (pt) { return { time: pt.time, value: Math.max(0, Math.min(1, l.rangeMin + pt.value * (l.rangeMax - l.rangeMin))), curve: pt.curve || 0 }; })
+            : (l.points || []);
+          return { id: isNaN(pos) ? -1 : pos, _path: l._path || null, points: pts };
         }) });
       } catch (e) {}
       return P({ success: true });
