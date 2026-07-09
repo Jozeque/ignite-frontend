@@ -1,0 +1,36 @@
+/* parallel multiband crush + 3 parallel band-OTTs.  in1=audio, out1=mono.
+   CRUSH = bit+sample-rate reduction, heaviest on the LOW band.
+   GRIND = depth of the 3 parallel per-band OTTs. */
+Param crush(0);
+Param grind(0);
+History xlo(0); History xhi(0);
+History phlo(0); History phmid(0); History phhi(0);
+History shlo(0); History shmid(0); History shhi(0);
+History elo(0); History emid(0); History ehi(0);
+History s_cr(0); History s_gr(0);
+sr = samplerate; sc = 0.0022;
+cr = s_cr + sc*(crush - s_cr); s_cr = cr;
+gr = s_gr + sc*(grind - s_gr); s_gr = gr;
+loc = 1 - exp(-2*pi*200/sr);
+hic = 1 - exp(-2*pi*2000/sr);
+atk = 0.01; rel = 0.0009; tgt = 0.2;
+xlo = xlo + loc*(in1 - xlo); blo = xlo;
+xhi = xhi + hic*(in1 - xhi); bml = xhi;
+bhi = in1 - bml; bmid = bml - blo;
+srl = 1 - cr*0.92;
+phlo = phlo + srl; tlo = (phlo >= 1); phlo = phlo - (tlo ? floor(phlo) : 0);
+levlo = pow(2, 12 - cr*10); shlo = tlo ? (round(blo*levlo)/levlo) : shlo;
+srm = 1 - cr*0.7;
+phmid = phmid + srm; tmid = (phmid >= 1); phmid = phmid - (tmid ? floor(phmid) : 0);
+levmid = pow(2, 12 - cr*7); shmid = tmid ? (round(bmid*levmid)/levmid) : shmid;
+srh = 1 - cr*0.4;
+phhi = phhi + srh; thi = (phhi >= 1); phhi = phhi - (thi ? floor(phhi) : 0);
+levhi = pow(2, 12 - cr*4); shhi = thi ? (round(bhi*levhi)/levhi) : shhi;
+ael = abs(shlo);  elo  = (ael > elo)  ? elo  + atk*(ael-elo)  : elo  + rel*(ael-elo);
+aem = abs(shmid); emid = (aem > emid) ? emid + atk*(aem-emid) : emid + rel*(aem-emid);
+aeh = abs(shhi);  ehi  = (aeh > ehi)  ? ehi  + atk*(aeh-ehi)  : ehi  + rel*(aeh-ehi);
+glo  = clamp(pow((tgt+0.0001)/(elo+0.0001),  gr*0.7), 0.3, 6);
+gmid = clamp(pow((tgt+0.0001)/(emid+0.0001), gr*0.7), 0.3, 6);
+ghi  = clamp(pow((tgt+0.0001)/(ehi+0.0001),  gr*0.7), 0.3, 6);
+sig = shlo*glo + shmid*gmid + shhi*ghi;
+out1 = tanh(sig*0.9);

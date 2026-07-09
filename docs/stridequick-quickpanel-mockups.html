@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>StrideQuick · QuickPanel — 3 mockups (Patch skin)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&display=swap" rel="stylesheet" />
+<style>
+  /* ===== PATCH (Patchbay) SKIN — values lifted 1:1 from the app's
+     [data-skin="patch"] CSS vars + SD_SKIN_COLORS.patch in canvas.js ===== */
+  :root{
+    /* warm zinc ramp */
+    --z50:#eef0f0; --z100:#e1e3e3; --z200:#d1d5d5; --z300:#bcc0c0; --z400:#9a9d9e;
+    --z500:#717676; --z600:#5a5f5f; --z700:#444747; --z800:#363939; --z900:#2b2d2d; --z950:#161616;
+    /* copper orange (the single accent — fuchsia/emerald/amber all map here) */
+    --o300:#d79c6b; --o400:#c6712b; --o500:#ae6326; --o600:#8f511f;
+    --brand1:#c6712b; --brand2:#d9904a;
+    /* hardcoded-in-canvas semantics that survive the skin */
+    --amber:#fbbf24;      /* locks */
+    --green:#4ade80;      /* connected dot (literal green) */
+    --label-act:#a99fc2;  /* highlighted-lane label (labelRGB 169,159,194) */
+    --app-bg:#161616;
+  }
+  /* patch cable colors, by lane index % 5 */
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:'Outfit',system-ui,sans-serif; font-weight:400;
+    background:
+      radial-gradient(1100px 700px at 72% -12%, rgba(198,113,43,0.06), transparent 60%),
+      #0d0d0d;
+    color:var(--z200); min-height:100vh; -webkit-font-smoothing:antialiased;
+  }
+  /* faint Ableton workspace behind the panel */
+  .ableton-bg{position:fixed; inset:0; z-index:0; opacity:0.15; pointer-events:none;
+    background-image:
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.10) 0 1px, transparent 1px 132px),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.06) 0 1px, transparent 1px 30px);
+    -webkit-mask-image:linear-gradient(180deg, transparent, #000 18%, #000 82%, transparent);
+            mask-image:linear-gradient(180deg, transparent, #000 18%, #000 82%, transparent);
+  }
+  .ableton-tag{position:fixed; right:18px; bottom:14px; z-index:1; font-size:10px; letter-spacing:.18em;
+    text-transform:uppercase; color:var(--z700); font-weight:700}
+
+  /* ---------- top switcher ---------- */
+  .head{position:relative; z-index:5; max-width:1080px; margin:0 auto; padding:22px 20px 6px}
+  .brandline{display:flex; align-items:center; gap:10px; margin-bottom:3px}
+  .logo{font-weight:900; letter-spacing:.34em; font-size:13px; color:var(--z100)}
+  .logo b{background:linear-gradient(90deg,var(--brand1),var(--brand2)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent}
+  .sub{color:var(--z500); font-size:12px; font-weight:500}
+  .recap{color:var(--z400); font-size:12px; line-height:1.55; max-width:800px; margin:8px 0 14px}
+  .recap b{color:var(--z200)}
+  .recap .sk{color:var(--o400); font-weight:700}
+  .tabs{display:flex; gap:8px; flex-wrap:wrap}
+  .tab{cursor:pointer; border:1px solid var(--z800); background:var(--z950); color:var(--z400);
+    border-radius:10px; padding:9px 13px; font-weight:700; font-size:12px; transition:.15s;
+    display:flex; flex-direction:column; gap:2px; min-width:172px}
+  .tab .t-k{font-size:9px; letter-spacing:.22em; text-transform:uppercase; color:var(--z600)}
+  .tab .t-n{font-size:13px; color:var(--z200); font-weight:700}
+  .tab .t-d{font-size:10.5px; color:var(--z500); font-weight:500}
+  .tab:hover{border-color:var(--z700)}
+  .tab.on{border-color:rgba(198,113,43,0.55); background:linear-gradient(180deg, rgba(198,113,43,0.16), rgba(198,113,43,0.04))}
+  .tab.on .t-k{color:var(--o400)}
+
+  /* ---------- stage ---------- */
+  .stage{position:relative; z-index:4; display:flex; justify-content:center; padding:18px 16px 60px}
+  .view{display:none}
+  .view.on{display:block}
+
+  /* ---------- window frame (frameless Electron panel) ---------- */
+  .win{position:relative; background:var(--app-bg); border:1px solid var(--z800); border-radius:12px; overflow:hidden;
+    box-shadow:0 30px 80px -20px rgba(0,0,0,0.9), 0 0 0 1px rgba(0,0,0,0.5)}
+  .titlebar{height:36px; display:flex; align-items:center; gap:10px; padding:0 12px;
+    background:var(--z950); border-bottom:1px solid rgba(255,255,255,0.05)}
+  .titlebar .mark{font-weight:900; letter-spacing:.3em; font-size:11px; text-transform:uppercase;
+    background:linear-gradient(90deg,var(--brand1),var(--brand2)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent}
+  .titlebar .qp{font-size:9px; letter-spacing:.2em; text-transform:uppercase; color:var(--z500); font-weight:700; margin-left:-4px}
+  .titlebar .link{display:flex; align-items:center; gap:7px; margin-left:auto; padding:3px 8px; border-radius:6px}
+  .titlebar .link .dot{width:8px;height:8px;border-radius:50%;background:var(--green); box-shadow:0 0 6px rgba(74,222,128,0.6)}
+  .titlebar .link span{font-size:9.5px;text-transform:uppercase;font-weight:700;letter-spacing:.14em;color:var(--z400)}
+  .titlebar .swatch{display:flex;align-items:center;gap:6px;margin-left:8px;padding:3px 8px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:rgba(255,255,255,0.04)}
+  .titlebar .swatch i{width:11px;height:11px;border-radius:50%;background:var(--brand1);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.18)}
+  .titlebar .swatch span{font-size:9px;text-transform:uppercase;font-weight:700;letter-spacing:.16em;color:var(--z400)}
+  .titlebar .size{margin-left:10px; font-size:10px; color:var(--z600); font-family:ui-monospace,monospace}
+
+  /* generic controls */
+  .btn{cursor:pointer; border:1px solid transparent; background:none; color:var(--z500);
+    font-family:inherit; font-weight:700; font-size:9px; letter-spacing:.1em; text-transform:uppercase;
+    padding:4px 7px; border-radius:6px; transition:.12s; white-space:nowrap}
+  .btn:hover{color:var(--z200)}
+  .seg{display:inline-flex; background:#0e0e0e; border:1px solid var(--z800); border-radius:7px; padding:2px}
+  .seg .btn{border-radius:5px}
+  .seg .btn.on{background:rgba(174,99,38,0.22); color:var(--o400)}            /* fuchsia→copper */
+  .grp{display:flex; align-items:center; gap:2px; padding:2px 6px; border-radius:7px}
+  /* sky & violet groups map to GREY in patch */
+  .grp.grey .btn{color:var(--z400)} .grp.grey .btn:hover,.grp.grey .btn.on{color:var(--z100); background:rgba(255,255,255,0.06)}
+  /* amber & emerald groups map to COPPER in patch */
+  .grp.cop .btn{color:rgba(198,113,43,.9)} .grp.cop .btn:hover,.grp.cop .btn.on{color:var(--o300); background:rgba(198,113,43,.14)}
+  .sep{width:1px; height:16px; background:var(--z800); margin:0 4px}
+  .zoom{display:inline-flex; align-items:center; gap:4px; color:var(--z500); font-size:10px; font-family:ui-monospace,monospace}
+  .zoom .zb{width:18px;height:18px;border:1px solid var(--z800);border-radius:5px;display:grid;place-items:center;cursor:pointer;color:var(--z400)}
+  .zoom .zb:hover{border-color:var(--z600);color:var(--z200)}
+  .pill{font-size:9px;border:1px solid var(--z800);border-radius:6px;padding:3px 7px;color:var(--z400);cursor:pointer;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+  .pill:hover{border-color:var(--z600);color:var(--z200)}
+
+  /* sliders tray — accent-zinc-300 thumbs, h-1 track */
+  .tray{display:flex; align-items:center; gap:14px; padding:8px 12px; background:var(--z950); border-top:1px solid var(--z900); flex-wrap:wrap}
+  .tray .trk{font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--z600);margin-right:2px}
+  .sld{display:flex; align-items:center; gap:7px; min-width:150px}
+  .sld label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--z500);width:48px;flex-shrink:0}
+  .sld input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:3px;border-radius:3px;background:var(--z800);outline:none;cursor:pointer}
+  .sld input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;border-radius:50%;background:var(--z300);border:2px solid var(--z950);box-shadow:0 0 0 1px var(--z700)}
+  .sld .v{font-size:9px;color:var(--z400);font-family:ui-monospace,monospace;width:36px;text-align:right}
+
+  .statusbar{height:24px;display:flex;align-items:center;gap:14px;padding:0 12px;background:#101010;border-top:1px solid var(--z900);
+    font-size:9.5px;color:var(--z600);font-family:ui-monospace,monospace;letter-spacing:.04em}
+  .statusbar .ok{color:var(--green)}
+  .statusbar .mv{color:var(--o400)}
+
+  .lockglyph{cursor:pointer; line-height:0}
+  canvas{display:block}
+
+  /* caption under each window */
+  .cap{max-width:900px;margin:16px auto 0;color:var(--z400);font-size:12.5px;line-height:1.6}
+  .cap h3{margin:0 0 4px;color:var(--z100);font-size:13px;font-weight:700}
+  .cap .best{color:var(--o300);font-weight:700}
+  .cap .trade{color:var(--amber);font-weight:700}
+  .cap code{background:var(--z900);border:1px solid var(--z800);border-radius:4px;padding:1px 5px;font-size:11px;color:var(--z200)}
+
+  /* ===== Mockup A: Lane Stack ===== */
+  .A-toolbar{display:flex;align-items:center;gap:6px;padding:7px 10px;background:#101010;border-bottom:1px solid var(--z900);flex-wrap:wrap}
+  .A-lanes{max-height:330px;overflow-y:auto;background:var(--app-bg)}
+  .lane{display:flex;align-items:stretch;height:46px;border-bottom:1px solid #1d1f1f;position:relative}
+  .lane.active::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--lc)}
+  .lane .lbl{width:168px;flex-shrink:0;padding:6px 8px 6px 8px;display:flex;align-items:center;gap:8px;border-right:1px solid #1d1f1f;cursor:pointer}
+  .lane .jackwrap{width:18px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+  .lane .nmcol{min-width:0;flex:1}
+  .lane .nm{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--z200);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px}
+  .lane.active .nm{color:var(--label-act)}
+  .lane.locked .nm{color:rgba(251,191,36,0.88)}
+  .lane .meta{font-size:8.5px;color:var(--z600);font-family:ui-monospace,monospace;display:flex;align-items:center;gap:6px;margin-top:2px}
+  .chk{width:11px;height:11px;border-radius:3px;border:1px solid var(--z600);flex-shrink:0;display:grid;place-items:center}
+  .chk.on{background:var(--o500);border-color:var(--o500)}
+  .chk.on::after{content:"";width:5px;height:5px;border-radius:1px;background:var(--z950)}
+  .lane .plot{flex:1;position:relative}
+  .lane .val{width:52px;flex-shrink:0;border-left:1px solid #1d1f1f;display:flex;align-items:center;justify-content:center;font-size:9.5px;color:var(--z400);font-family:ui-monospace,monospace}
+  .lane.active{background:var(--lc-bg)}
+
+  /* ===== Mockup B: Spotlight ===== */
+  .B-body{display:flex;height:430px}
+  .B-rail{width:184px;flex-shrink:0;background:var(--app-bg);border-right:1px solid var(--z900);display:flex;flex-direction:column}
+  .B-rail .rh{padding:8px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--z900)}
+  .B-rail .rh span{font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--z600)}
+  .B-strip{overflow-y:auto;flex:1}
+  .thumb{display:flex;align-items:center;gap:7px;padding:7px 8px;border-bottom:1px solid #1d1f1f;cursor:pointer}
+  .thumb.active{background:var(--lc-bg)}
+  .thumb .tnm{flex:1;min-width:0}
+  .thumb .tnm .n{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--z200);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .thumb.active .tnm .n{color:var(--label-act)}
+  .thumb.locked .tnm .n{color:rgba(251,191,36,0.88)}
+  .thumb .tnm .m{font-size:8px;color:var(--z600);font-family:ui-monospace,monospace}
+  .thumb .spark{width:52px;height:24px;flex-shrink:0;border:1px solid var(--z800);border-radius:4px;background:#101010}
+  .B-main{flex:1;display:flex;flex-direction:column;min-width:0}
+  .B-tools{display:flex;align-items:center;gap:6px;padding:7px 10px;background:#101010;border-bottom:1px solid var(--z900);flex-wrap:wrap}
+  .B-edit{flex:1;position:relative;background:#121212}
+  .B-editlabel{position:absolute;top:8px;left:14px;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--label-act);z-index:2}
+  .B-editlabel small{color:var(--z600);font-weight:500;letter-spacing:.05em}
+  .B-motion{display:flex;align-items:center;gap:5px;padding:6px 10px;background:var(--z950);border-top:1px solid var(--z900);flex-wrap:wrap}
+
+  /* ===== Mockup C: Overlay Scope ===== */
+  .C-chiprail{display:flex;align-items:center;gap:6px;padding:8px 10px;background:#101010;border-bottom:1px solid var(--z900);flex-wrap:wrap}
+  .chip{display:flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid var(--z800);border-radius:20px;cursor:pointer;font-size:9.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--z400);transition:.12s;background:var(--z950)}
+  .chip .cd{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .chip.armed{border-color:rgba(198,113,43,0.55);background:rgba(198,113,43,0.14);color:var(--z100)}
+  .chip.locked{color:rgba(251,191,36,0.85);border-color:rgba(251,191,36,0.3)}
+  .chip .lk{font-size:9px}
+  .C-stagewrap{display:flex;background:#121212}
+  .C-dock{width:44px;flex-shrink:0;background:var(--z950);border-right:1px solid var(--z900);display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 0}
+  .C-dock .tb{width:30px;height:28px;border-radius:7px;border:1px solid transparent;display:grid;place-items:center;cursor:pointer;color:var(--z500);font-size:13px}
+  .C-dock .tb:hover{color:var(--z200);background:var(--z900)}
+  .C-dock .tb.on{background:rgba(174,99,38,0.2);color:var(--o400);border-color:rgba(198,113,43,0.35)}
+  .C-dock .dsep{width:18px;height:1px;background:var(--z800);margin:3px 0}
+  .C-scope{flex:1;position:relative}
+  .C-legend{position:absolute;top:8px;right:10px;display:flex;flex-direction:column;gap:3px;z-index:2}
+  .C-legend .lg{display:flex;align-items:center;gap:5px;font-size:8.5px;font-family:ui-monospace,monospace;color:var(--z500)}
+  .C-legend .lg i{width:9px;height:2px;border-radius:2px}
+</style>
+</head>
+<body>
+<div class="ableton-bg"></div>
+<div class="ableton-tag">Ableton Live · behind</div>
+
+<div class="head">
+  <div class="brandline">
+    <div class="logo"><b>STRIDE</b> · QUICKPANEL</div>
+    <div class="sub">compact adjustment window — three layouts, all on the <span style="color:var(--o400);font-weight:700">Patch</span> skin</div>
+  </div>
+  <div class="recap">
+    A small, always-on-top window that floats beside Ableton. Themed <span class="sk">1:1 to the Patch (Patchbay) skin</span> —
+    warm grey <code>#161616</code>, copper accent <code>#c6712b</code>, grey metallic jacks, amber locks, and each lane on its own
+    <b>patch-cable color</b>. All three keep <b>the param list + per-lane lock + select all/few</b>, <b>the 5 sliders</b>
+    (Smooth · Depth · Curve · Floor · Ceiling), <b>the draw tools</b>, and <b>zoom / grid</b>. Everything is clickable.
+  </div>
+  <div class="tabs" id="tabs">
+    <div class="tab on" data-v="A" onclick="showView('A')">
+      <span class="t-k">Mockup A</span><span class="t-n">Lane Stack</span>
+      <span class="t-d">All lanes editable inline · mixer feel</span>
+    </div>
+    <div class="tab" data-v="B" onclick="showView('B')">
+      <span class="t-k">Mockup B</span><span class="t-n">Spotlight</span>
+      <span class="t-d">Big precise editor + lane filmstrip</span>
+    </div>
+    <div class="tab" data-v="C" onclick="showView('C')">
+      <span class="t-k">Mockup C</span><span class="t-n">Overlay Patchbay</span>
+      <span class="t-d">All cables overlaid · arm-to-paint</span>
+    </div>
+  </div>
+</div>
+
+<div class="stage">
+
+  <!-- ============ VIEW A ============ -->
+  <div class="view on" id="view-A">
+    <div class="win" style="width:880px">
+      <div class="titlebar">
+        <span class="mark">Stride</span><span class="qp">QuickPanel</span>
+        <span class="link"><i class="dot"></i><span>Connected</span></span>
+        <span class="swatch"><i></i><span>Patch</span></span>
+        <span class="size">880 × 520</span>
+      </div>
+      <div>
+        <div class="A-toolbar">
+          <div class="seg" id="A-draw">
+            <button class="btn on" onclick="segPick(this)">Point</button>
+            <button class="btn" onclick="segPick(this)">Free</button>
+            <button class="btn" onclick="segPick(this)">Bezier</button>
+          </div>
+          <div class="sep"></div>
+          <div class="grp grey"><button class="btn">Mirror</button><button class="btn">Flip</button></div>
+          <div class="grp grey"><button class="btn">Copy</button><button class="btn">Paste</button><button class="btn">Inv</button><button class="btn">Paste To</button></div>
+          <div class="grp cop"><button class="btn">Swing</button><button class="btn">Quantize</button></div>
+          <div class="sep"></div>
+          <div class="grp cop"><button class="btn">Mutate</button></div>
+          <span style="flex:1"></span>
+          <button class="pill" onclick="selectAll('A')">Select All</button>
+          <button class="pill" onclick="lockAll('A')">Lock All</button>
+          <div class="sep"></div>
+          <div class="zoom"><div class="zb">−</div><span>1/16</span><div class="zb">+</div></div>
+        </div>
+        <div class="A-lanes" id="A-lanes"></div>
+        <div class="tray" id="A-tray">
+          <span class="trk">Adjust selected <b id="A-selcount" style="color:var(--o400)">3</b></span>
+          <div class="sld"><label>Smooth</label><input type="range" min="0" max="100" value="0" oninput="onSlider('A','smooth',this)"><span class="v">0%</span></div>
+          <div class="sld"><label>Depth</label><input type="range" min="0" max="200" value="100" oninput="onSlider('A','depth',this)"><span class="v">100%</span></div>
+          <div class="sld"><label>Curve</label><input type="range" min="0" max="100" value="0" oninput="onSlider('A','curve',this)"><span class="v">0%</span></div>
+          <div class="sld"><label>Floor</label><input type="range" min="0" max="100" value="0" oninput="onSlider('A','floor',this)"><span class="v">0%</span></div>
+          <div class="sld"><label>Ceiling</label><input type="range" min="0" max="100" value="100" oninput="onSlider('A','ceil',this)"><span class="v">100%</span></div>
+        </div>
+        <div class="statusbar">
+          <span><span class="ok">●</span> M4L connected</span>
+          <span class="mv">moving 4 / 8</span>
+          <span>Ctrl+Wheel zoom · Space+Drag pan · click a lane to edit</span>
+        </div>
+      </div>
+    </div>
+    <div class="cap">
+      <h3>A · Lane Stack</h3>
+      Every param is a full-width strip you draw on directly, stacked like a mixer, each ending in its own
+      <b>patch jack + cable-colored curve</b>. Label column carries the <b>select checkbox + name + lock</b>; live value on the right.
+      The slider tray applies to whatever's checked. <span class="best">Best for:</span> seeing and editing all lanes at once,
+      closest to today's multi-lane canvas. <span class="trade">Trade-off:</span> each lane is short, so very fine point work is tighter.
+    </div>
+  </div>
+
+  <!-- ============ VIEW B ============ -->
+  <div class="view" id="view-B">
+    <div class="win" style="width:900px">
+      <div class="titlebar">
+        <span class="mark">Stride</span><span class="qp">QuickPanel</span>
+        <span class="link"><i class="dot"></i><span>Connected</span></span>
+        <span class="swatch"><i></i><span>Patch</span></span>
+        <span class="size">900 × 500</span>
+      </div>
+      <div class="B-body">
+        <div class="B-rail">
+          <div class="rh"><span>Lanes · 8</span>
+            <span style="display:flex;gap:6px">
+              <button class="pill" onclick="selectAll('B')">All</button>
+              <button class="pill" onclick="lockAll('B')">Lock</button>
+            </span>
+          </div>
+          <div class="B-strip" id="B-strip"></div>
+        </div>
+        <div class="B-main">
+          <div class="B-tools">
+            <div class="seg" id="B-draw">
+              <button class="btn on" onclick="segPick(this)">Point</button>
+              <button class="btn" onclick="segPick(this)">Free</button>
+              <button class="btn" onclick="segPick(this)">Bezier</button>
+            </div>
+            <div class="sep"></div>
+            <div class="grp grey"><button class="btn">Mirror</button><button class="btn">Flip</button></div>
+            <div class="grp grey"><button class="btn">Copy</button><button class="btn">Paste</button><button class="btn">Inv</button><button class="btn">Paste To</button></div>
+            <span style="flex:1"></span>
+            <div class="zoom"><div class="zb">−</div><span>1/16</span><div class="zb">+</div></div>
+          </div>
+          <div class="B-edit">
+            <div class="B-editlabel" id="B-editlabel">Filter Cutoff <small>— 12 pts · active</small></div>
+            <canvas id="B-canvas"></canvas>
+          </div>
+          <div class="tray" style="border-top:1px solid var(--z900)">
+            <span class="trk">Adjust active</span>
+            <div class="sld"><label>Smooth</label><input type="range" min="0" max="100" value="0" oninput="onSlider('B','smooth',this)"><span class="v">0%</span></div>
+            <div class="sld"><label>Depth</label><input type="range" min="0" max="200" value="100" oninput="onSlider('B','depth',this)"><span class="v">100%</span></div>
+            <div class="sld"><label>Curve</label><input type="range" min="0" max="100" value="0" oninput="onSlider('B','curve',this)"><span class="v">0%</span></div>
+            <div class="sld"><label>Floor</label><input type="range" min="0" max="100" value="0" oninput="onSlider('B','floor',this)"><span class="v">0%</span></div>
+            <div class="sld"><label>Ceiling</label><input type="range" min="0" max="100" value="100" oninput="onSlider('B','ceil',this)"><span class="v">100%</span></div>
+          </div>
+          <div class="B-motion">
+            <span class="trk">Motion</span>
+            <button class="btn">Sine</button><button class="btn">Pump</button><button class="btn">Glitch</button><button class="btn">Groove</button>
+            <div class="sep"></div>
+            <button class="btn" style="color:var(--o400)">Chaos</button>
+            <button class="btn" style="color:var(--o400)">Neuro</button>
+            <button class="btn" style="color:var(--o400)">S&amp;H</button>
+            <span style="flex:1"></span>
+            <span class="mv" style="font-family:ui-monospace,monospace;font-size:9.5px">moving 4 / 8</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cap">
+      <h3>B · Spotlight</h3>
+      One big editor for the <b>active</b> lane (room for precise point + bezier work and free painting), with every lane visible as a
+      live cable-colored sparkline in the left filmstrip. Click a thumbnail to bring it into the editor; multi-select to apply across.
+      <span class="best">Best for:</span> precision and fine detail. <span class="trade">Trade-off:</span> you edit one lane at a time.
+    </div>
+  </div>
+
+  <!-- ============ VIEW C ============ -->
+  <div class="view" id="view-C">
+    <div class="win" style="width:880px">
+      <div class="titlebar">
+        <span class="mark">Stride</span><span class="qp">QuickPanel</span>
+        <span class="link"><i class="dot"></i><span>Connected</span></span>
+        <span class="swatch"><i></i><span>Patch</span></span>
+        <span class="size">880 × 520</span>
+      </div>
+      <div>
+        <div class="C-chiprail" id="C-chiprail"></div>
+        <div class="C-stagewrap">
+          <div class="C-dock" id="C-dock">
+            <div class="tb on" title="Point" onclick="dockPick(this)">✎</div>
+            <div class="tb" title="Free" onclick="dockPick(this)">〜</div>
+            <div class="tb" title="Bezier" onclick="dockPick(this)">⌢</div>
+            <div class="dsep"></div>
+            <div class="tb" title="Mirror" onclick="dockPick(this)">⇄</div>
+            <div class="tb" title="Flip" onclick="dockPick(this)">⇅</div>
+            <div class="tb" title="Smooth" onclick="dockPick(this)">∿</div>
+            <div class="dsep"></div>
+            <div class="tb" title="Select all" onclick="selectAll('C')">▦</div>
+            <div class="tb" title="Lock all" onclick="lockAll('C')">🔒</div>
+          </div>
+          <div class="C-scope">
+            <canvas id="C-canvas"></canvas>
+            <div class="C-legend" id="C-legend"></div>
+          </div>
+        </div>
+        <div class="tray" id="C-tray">
+          <span class="trk">Adjust armed <b id="C-armcount" style="color:var(--o400)">2</b></span>
+          <div class="sld"><label>Smooth</label><input type="range" min="0" max="100" value="0" oninput="onSlider('C','smooth',this)"><span class="v">0%</span></div>
+          <div class="sld"><label>Depth</label><input type="range" min="0" max="200" value="100" oninput="onSlider('C','depth',this)"><span class="v">100%</span></div>
+          <div class="sld"><label>Curve</label><input type="range" min="0" max="100" value="0" oninput="onSlider('C','curve',this)"><span class="v">0%</span></div>
+          <div class="sld"><label>Floor</label><input type="range" min="0" max="100" value="0" oninput="onSlider('C','floor',this)"><span class="v">0%</span></div>
+          <div class="sld"><label>Ceiling</label><input type="range" min="0" max="100" value="100" oninput="onSlider('C','ceil',this)"><span class="v">100%</span></div>
+        </div>
+        <div class="statusbar">
+          <span><span class="ok">●</span> M4L connected</span>
+          <span class="mv">moving 4 / 8</span>
+          <span>click a chip to arm · armed cable is bold · others stay patched for reference</span>
+        </div>
+      </div>
+    </div>
+    <div class="cap">
+      <h3>C · Overlay Patchbay</h3>
+      The most on-brand for this skin: every lane is a colored <b>patch cable</b> leaving a jack in the left bay and routing across one
+      shared scope, so you see how params relate. The chip rail is the param list: click to <b>arm</b> a cable for drawing (multi-arm to
+      paint several), lock to freeze. Armed cables draw bold with handles; the rest stay dim. <span class="best">Best for:</span> shaping
+      curves in relation to each other. <span class="trade">Trade-off:</span> busy with many lanes (mitigated by dimming + arm).
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ---------- patch cable colors (SD_SKIN_COLORS.patch, by index % 5) ----------
+const CABLE = ['198,113,43','47,116,142','91,123,85','163,78,82','84,75,109'];
+const rgb = c => 'rgb('+c+')';
+const rgba = (c,a) => 'rgba('+c+','+a+')';
+
+// ---------- shared state ----------
+const LANES = [
+  {name:'Filter Cutoff',  type:'sine',     locked:false, selected:true,  pts:'12 pts'},
+  {name:'Resonance',      type:'ramp',     locked:false, selected:false, pts:'6 pts'},
+  {name:'Drive',          type:'pump',     locked:false, selected:true,  pts:'16 pts'},
+  {name:'Reverb Wet',     type:'exp',      locked:false, selected:true,  pts:'8 pts'},
+  {name:'Delay Feedback', type:'sh',       locked:true,  selected:false, pts:'24 pts'},
+  {name:'Osc Morph',      type:'glitch',   locked:false, selected:false, pts:'31 pts'},
+  {name:'Pan',            type:'sineslow', locked:false, selected:false, pts:'4 pts'},
+  {name:'Volume',         type:'groove',   locked:false, selected:false, pts:'18 pts'},
+];
+LANES.forEach((l,i)=>l.cable=CABLE[i%CABLE.length]);
+let active = 0;
+const armed = new Set([0,2]);
+const fx = {A:base(), B:base(), C:base()};
+function base(){return {smooth:0,depth:100,curve:0,floor:0,ceil:100};}
+
+// ---------- curve generators ----------
+function lcg(seed){let s=seed>>>0;return()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296;};}
+function gen(type){
+  const n=256, a=new Array(n);
+  const r=lcg(({sine:7,ramp:11,pump:23,exp:31,sh:53,glitch:71,sineslow:97,groove:131})[type]||5);
+  let hold=0.5, seg=-1;
+  for(let i=0;i<n;i++){
+    const t=i/(n-1); let v=0.5;
+    switch(type){
+      case 'sine':     v=0.5+0.42*Math.sin(t*Math.PI*4); break;
+      case 'sineslow': v=0.5+0.36*Math.sin(t*Math.PI*2+0.7); break;
+      case 'ramp':     v=0.12+0.80*Math.pow(t,0.85); break;
+      case 'pump':   { const p=(t*4)%1; v=0.14+0.80*Math.pow(p,0.5); break; }
+      case 'exp':      v=0.10+0.86*Math.pow(t,2.1); break;
+      case 'sh':     { const s2=Math.floor(t*16); if(s2!==seg){seg=s2;hold=0.18+0.64*r();} v=hold; break; }
+      case 'glitch': { v=0.30+0.06*(r()-0.5); if(r()>0.86) v=0.9; if(r()>0.92) v=0.08; break; }
+      case 'groove': { const env=0.5+0.3*Math.sin(t*Math.PI*2); v=env*(0.5+0.5*Math.sin(t*Math.PI*16))*0.6+0.2; break; }
+    }
+    a[i]=Math.max(0,Math.min(1,v));
+  }
+  return a;
+}
+const CURVES = LANES.map(l=>gen(l.type));
+
+function applyFx(arr,f){
+  let out=arr.slice();
+  const k=Math.round(f.smooth/100*12);
+  if(k>0){const tmp=out.slice();for(let i=0;i<out.length;i++){let s=0,c=0;for(let j=-k;j<=k;j++){const idx=i+j;if(idx>=0&&idx<out.length){s+=tmp[idx];c++;}}out[i]=s/c;}}
+  const d=f.depth/100; out=out.map(v=>0.5+(v-0.5)*d);
+  if(f.curve>0){const g=1+f.curve/100*1.6;out=out.map(v=>v<0.5?0.5*Math.pow(v/0.5,g):1-0.5*Math.pow((1-v)/0.5,g));}
+  const lo=f.floor/100, hi=f.ceil/100;
+  out=out.map(v=>lo+v*(hi-lo));
+  return out.map(v=>Math.max(0,Math.min(1,v)));
+}
+
+// ---------- drawing ----------
+function dpiCanvas(cv,w,h){const dpr=window.devicePixelRatio||1;cv.width=w*dpr;cv.height=h*dpr;cv.style.width=w+'px';cv.style.height=h+'px';const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);return c;}
+// grid uses the app's exact white-alpha line values
+function grid(c,w,h,x0){
+  x0=x0||0;
+  c.clearRect(0,0,w,h);
+  for(let i=0;i<=16;i++){const x=x0+i/16*(w-x0);
+    c.strokeStyle=(i%4===0)?'rgba(255,255,255,0.2)':'rgba(255,255,255,0.05)';c.lineWidth=(i%4===0)?2:1;
+    c.beginPath();c.moveTo(x+0.5,0);c.lineTo(x+0.5,h);c.stroke();}
+  for(let v=0;v<=1;v+=0.25){const y=h-v*h;c.strokeStyle=(v===0||v===1)?'rgba(255,255,255,0.15)':'rgba(255,255,255,0.05)';c.lineWidth=1;c.beginPath();c.moveTo(x0,y);c.lineTo(w,y);c.stroke();}
+}
+function stroke(c,arr,w,h,col,opts={}){
+  const {fill=false,lw=1.6,glow=false,handles=false,alpha=1,x0=0}=opts;
+  const plot=w-x0;
+  c.save();c.globalAlpha=alpha;
+  if(fill){c.beginPath();for(let i=0;i<arr.length;i++){const x=x0+i/(arr.length-1)*plot;const y=(1-arr[i])*h;i?c.lineTo(x,y):c.moveTo(x,y);}
+    c.lineTo(w,h);c.lineTo(x0,h);c.closePath();const g=c.createLinearGradient(0,0,0,h);g.addColorStop(0,rgba(col,0.20));g.addColorStop(1,rgba(col,0));c.fillStyle=g;c.fill();}
+  c.beginPath();for(let i=0;i<arr.length;i++){const x=x0+i/(arr.length-1)*plot;const y=(1-arr[i])*h;i?c.lineTo(x,y):c.moveTo(x,y);}
+  if(glow){c.shadowColor=rgb(col);c.shadowBlur=7;}
+  c.strokeStyle=rgb(col);c.lineWidth=lw;c.lineJoin='round';c.stroke();c.shadowBlur=0;
+  if(handles){const step=Math.max(1,Math.floor(arr.length/14));for(let i=0;i<arr.length;i+=step){const x=x0+i/(arr.length-1)*plot;const y=(1-arr[i])*h;c.beginPath();c.arc(x,y,2.6,0,7);c.fillStyle='#161616';c.fill();c.strokeStyle=rgb(col);c.lineWidth=1.4;c.stroke();}}
+  c.restore();
+}
+// neutral metallic jack — exact recipe from _sdRenderCables (grey in every skin)
+function jack(c,x,y,r){
+  c.beginPath();c.arc(x,y,r,0,7);c.fillStyle='#363939';c.fill();c.lineWidth=1.5;c.strokeStyle='#717676';c.stroke();      // socket z800 / collar z500
+  c.beginPath();c.arc(x,y,r*0.42,0,7);c.fillStyle='#161616';c.fill();                                                    // hole z950
+  c.beginPath();c.arc(x,y,r*0.16,0,7);c.fillStyle='#bcc0c0';c.fill();                                                    // pin z300
+}
+// colored cable: dark casing under a colored core
+function cable(c,x1,y1,x2,y2,col){
+  const k=Math.max(20,(x2-x1)*0.5);
+  c.beginPath();c.moveTo(x1,y1);c.bezierCurveTo(x1+k,y1,x2-k,y2,x2,y2);
+  c.lineCap='round';c.strokeStyle='rgba(0,0,0,0.4)';c.lineWidth=5;c.stroke();
+  c.beginPath();c.moveTo(x1,y1);c.bezierCurveTo(x1+k,y1,x2-k,y2,x2,y2);
+  c.strokeStyle=rgba(col,0.85);c.lineWidth=3;c.stroke();
+}
+
+// ---------- view switching ----------
+function showView(v){
+  document.querySelectorAll('.view').forEach(e=>e.classList.toggle('on',e.id==='view-'+v));
+  document.querySelectorAll('.tab').forEach(e=>e.classList.toggle('on',e.dataset.v===v));
+  if(v==='A')renderA(); if(v==='B')renderB(); if(v==='C')renderC();
+}
+function segPick(b){[...b.parentNode.children].forEach(x=>x.classList.remove('on'));b.classList.add('on');}
+function dockPick(b){[...b.parentNode.querySelectorAll('.tb')].forEach(x=>x.classList.remove('on'));b.classList.add('on');}
+
+function lockSvg(on){return `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" style="vertical-align:-1px">
+  <rect x="5" y="11" width="14" height="9" rx="2" stroke="${on?'#fbbf24':'#717676'}" stroke-width="2" ${on?'fill="rgba(251,191,36,0.15)"':''}/>
+  <path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="${on?'#fbbf24':'#717676'}" stroke-width="2"/></svg>`;}
+function jackSvg(){return `<svg width="16" height="16" viewBox="0 0 16 16">
+  <circle cx="8" cy="8" r="6.5" fill="#363939" stroke="#717676" stroke-width="1.5"/>
+  <circle cx="8" cy="8" r="2.7" fill="#161616"/><circle cx="8" cy="8" r="1.05" fill="#bcc0c0"/></svg>`;}
+
+// =========== MOCKUP A ===========
+function renderA(){
+  const host=document.getElementById('A-lanes');host.innerHTML='';
+  LANES.forEach((l,i)=>{
+    const row=document.createElement('div');
+    row.className='lane'+(i===active?' active':'')+(l.locked?' locked':'');
+    row.style.setProperty('--lc',rgb(l.cable));
+    row.style.setProperty('--lc-bg',rgba(l.cable,0.08));
+    row.innerHTML=`
+      <div class="lbl" onclick="setActive(${i},'A')">
+        <span class="chk ${l.selected?'on':''}" onclick="event.stopPropagation();toggleSel(${i},'A')"></span>
+        <div class="jackwrap">${jackSvg()}</div>
+        <div class="nmcol">
+          <div class="nm">${l.name}</div>
+          <div class="meta"><span class="lockglyph" onclick="event.stopPropagation();toggleLock(${i},'A')">${lockSvg(l.locked)}</span>${l.pts}${l.locked?' · locked':''}</div>
+        </div>
+      </div>
+      <div class="plot"><canvas id="A-cv-${i}"></canvas></div>
+      <div class="val">${Math.round(CURVES[i][0]*100)}%</div>`;
+    host.appendChild(row);
+  });
+  LANES.forEach((l,i)=>{
+    const wrap=document.querySelector(`#A-cv-${i}`).parentNode;
+    const w=wrap.clientWidth,h=46;
+    const c=dpiCanvas(document.getElementById('A-cv-'+i),w,h);
+    grid(c,w,h,8);
+    const arr=(i===active||l.selected)?applyFx(CURVES[i],fx.A):CURVES[i];
+    stroke(c,arr,w,h,l.cable,{fill:i===active,lw:i===active?2:1.5,glow:i===active,alpha:l.locked?0.55:1,x0:8});
+    jack(c,7,h/2,5.5);   // patch point at the lane's left edge
+  });
+  document.getElementById('A-selcount').textContent=LANES.filter(l=>l.selected).length;
+}
+
+// =========== MOCKUP B ===========
+function renderB(){
+  const strip=document.getElementById('B-strip');strip.innerHTML='';
+  LANES.forEach((l,i)=>{
+    const t=document.createElement('div');
+    t.className='thumb'+(i===active?' active':'')+(l.locked?' locked':'');
+    t.style.setProperty('--lc-bg',rgba(l.cable,0.08));
+    t.onclick=()=>setActive(i,'B');
+    t.innerHTML=`<span class="chk ${l.selected?'on':''}" onclick="event.stopPropagation();toggleSel(${i},'B')"></span>
+      <div class="jackwrap">${jackSvg()}</div>
+      <div class="tnm"><div class="n">${l.name}</div><div class="m">${l.pts}${l.locked?' · lock':''}</div></div>
+      <canvas class="spark" id="B-sp-${i}"></canvas>
+      <span class="lockglyph" onclick="event.stopPropagation();toggleLock(${i},'B')">${lockSvg(l.locked)}</span>`;
+    strip.appendChild(t);
+  });
+  LANES.forEach((l,i)=>{const c=dpiCanvas(document.getElementById('B-sp-'+i),52,24);c.fillStyle='#101010';c.fillRect(0,0,52,24);stroke(c,CURVES[i],52,24,l.cable,{lw:1.3,alpha:l.locked?0.55:0.95});});
+  const wrap=document.querySelector('.B-edit');const w=wrap.clientWidth,h=wrap.clientHeight;
+  const c=dpiCanvas(document.getElementById('B-canvas'),w,h);
+  grid(c,w,h,0);
+  const l=LANES[active];
+  stroke(c,applyFx(CURVES[active],fx.B),w,h,l.cable,{fill:true,lw:2.4,glow:true,handles:true});
+  jack(c,10,(1-CURVES[active][0])*h,6.5);
+  document.getElementById('B-editlabel').innerHTML=`${l.name} <small>— ${l.pts} · active${l.locked?' · LOCKED':''}</small>`;
+}
+
+// =========== MOCKUP C ===========
+function renderC(){
+  const rail=document.getElementById('C-chiprail');rail.innerHTML='';
+  LANES.forEach((l,i)=>{
+    const chip=document.createElement('div');
+    chip.className='chip'+(armed.has(i)?' armed':'')+(l.locked?' locked':'');
+    chip.onclick=()=>toggleArm(i);
+    chip.innerHTML=`<span class="cd" style="background:${l.locked?'#fbbf24':rgb(l.cable)}"></span>${l.name}
+      <span class="lk lockglyph" onclick="event.stopPropagation();toggleLock(${i},'C')">${l.locked?'🔒':''}</span>`;
+    rail.appendChild(chip);
+  });
+  rail.insertAdjacentHTML('beforeend',`<span style="flex:1"></span>
+    <button class="pill" onclick="selectAll('C')">Arm All</button>
+    <button class="pill" onclick="lockAll('C')">Lock All</button>`);
+  const wrap=document.querySelector('.C-scope');const w=wrap.clientWidth,h=wrap.clientHeight;
+  const c=dpiCanvas(document.getElementById('C-canvas'),w,h);
+  const BAY=40;                                   // left jack-bay gutter
+  grid(c,w,h,BAY);
+  // each lane: a cable from its bay jack to its curve start, then the curve across
+  const bayY=i=>14+i*((h-20)/(LANES.length-1));
+  LANES.forEach((l,i)=>{
+    const a=armed.has(i), arr=a?applyFx(CURVES[i],fx.C):CURVES[i];
+    const startY=(1-arr[0])*h;
+    cable(c,16,bayY(i),BAY,startY,l.cable);       // patch cable into the scope
+    stroke(c,arr,w,h,l.cable,{lw:a?2.4:1.3,glow:a,handles:a,alpha:a?1:(l.locked?0.28:0.34),x0:BAY});
+  });
+  LANES.forEach((l,i)=>jack(c,16,bayY(i),5.5));    // jacks on top
+  const leg=document.getElementById('C-legend');leg.innerHTML='';
+  LANES.forEach((l,i)=>{const d=document.createElement('div');d.className='lg';d.style.opacity=armed.has(i)?1:0.5;d.innerHTML=`<i style="background:${l.locked?'#fbbf24':rgb(l.cable)}"></i>${l.name}`;leg.appendChild(d);});
+  document.getElementById('C-armcount').textContent=armed.size;
+}
+
+// ---------- interactions ----------
+function setActive(i,v){active=i;if(v==='A')renderA();if(v==='B')renderB();}
+function toggleSel(i,v){LANES[i].selected=!LANES[i].selected;if(v==='A')renderA();if(v==='B')renderB();}
+function toggleLock(i,v){LANES[i].locked=!LANES[i].locked;if(LANES[i].locked)armed.delete(i);if(v==='A')renderA();if(v==='B')renderB();if(v==='C')renderC();}
+function toggleArm(i){if(LANES[i].locked)return;armed.has(i)?armed.delete(i):armed.add(i);renderC();}
+function selectAll(v){if(v==='C'){LANES.forEach((l,i)=>{if(!l.locked)armed.add(i);});renderC();return;}const all=LANES.every(l=>l.selected);LANES.forEach(l=>l.selected=!all);if(v==='A')renderA();if(v==='B')renderB();}
+function lockAll(v){const all=LANES.every(l=>l.locked);LANES.forEach(l=>l.locked=!all);if(v==='C')armed.clear();if(v==='A')renderA();if(v==='B')renderB();if(v==='C')renderC();}
+function onSlider(v,key,el){
+  fx[v][key]=+el.value;
+  el.parentNode.querySelector('.v').textContent=el.value+'%';
+  if(v==='A')renderA();if(v==='B')renderB();if(v==='C')renderC();
+}
+
+// ---------- boot ----------
+window.addEventListener('resize',()=>{const on=document.querySelector('.view.on').id.split('-')[1];showView(on);});
+renderA();
+</script>
+</body>
+</html>

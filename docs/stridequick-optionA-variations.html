@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StrideQuick — Option A variations</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#141310; --panel:#1d1b16; --raise:#252119; --line:rgba(216,201,176,.11);
+    --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
+    --copper:#c6712b; --copper-lt:#dd9a52; --ember:#e58a2e; --gold:#c9a24b;
+    --teal:#5e9aad; --sage:#86a87f; --violet:#9a8cbb;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Outfit',sans-serif;color:var(--ink2);background:var(--bg);
+    background-image:radial-gradient(120% 80% at 50% -10%, rgba(198,113,43,.07), transparent 60%),
+                     radial-gradient(100% 60% at 50% 110%, rgba(47,116,142,.05), transparent 60%);
+    -webkit-font-smoothing:antialiased;min-height:100vh}
+  .mono{font-family:'Space Mono',ui-monospace,monospace}
+  .wrap{max-width:720px;margin:0 auto;padding:48px 24px 100px}
+  .brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .kick{font-family:'Space Mono';font-size:12px;letter-spacing:.26em;text-transform:uppercase;color:var(--copper-lt)}
+  h1{font-family:'Outfit';font-weight:800;font-size:32px;color:var(--ink);margin:6px 0 6px}
+  .sub{color:var(--ink3);font-size:15px;max-width:600px;margin:0}
+
+  .opt{margin-top:44px}
+  .opttag{display:flex;align-items:baseline;gap:11px;margin-bottom:4px}
+  .optnum{font-family:'Outfit';font-weight:800;font-size:19px;color:var(--ink)}
+  .optname{font-family:'Outfit';font-weight:700;font-size:15px;color:var(--copper-lt)}
+  .optdesc{color:var(--ink3);font-size:13.5px;margin:0 0 15px;max-width:580px}
+  .shelf{background:linear-gradient(180deg,#0e0d0a,#100f0c);border:1px solid rgba(0,0,0,.5);border-radius:12px;
+    padding:20px;box-shadow:0 24px 50px -30px rgba(0,0,0,.9);display:inline-block}
+  .meta{font-family:'Space Mono';font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin:11px 2px 0}
+
+  .device{width:440px;border-radius:8px;overflow:hidden;background:linear-gradient(180deg,rgba(255,255,255,.026),rgba(0,0,0,.14)),var(--panel);
+    border:1px solid var(--line);box-shadow:0 1px 0 rgba(255,255,255,.05) inset}
+  .titlebar{display:flex;align-items:center;gap:9px;height:24px;padding:0 10px;background:var(--raise);border-bottom:1px solid var(--line)}
+  .pwr{width:8px;height:8px;border-radius:50%;background:radial-gradient(circle at 35% 30%,var(--sage),#4a6342)}
+  .tribar{width:0;height:0;border-left:5px solid var(--ink3);border-top:4px solid transparent;border-bottom:4px solid transparent}
+  .tname{font-family:'Space Mono';font-size:11px;color:var(--ink2)}
+  .maxbadge{margin-left:auto;font-family:'Space Mono';font-size:9px;letter-spacing:.16em;color:var(--copper-lt);border:1px solid rgba(198,113,43,.3);border-radius:4px;padding:2px 6px;background:rgba(198,113,43,.08)}
+
+  .body{padding:9px 11px;display:flex;flex-direction:column;gap:8px}
+  .strip{display:flex;align-items:center;gap:8px}
+  .word{font-family:'Outfit';font-weight:900;font-size:16px;letter-spacing:.02em;line-height:1}
+  .conn{display:inline-flex;align-items:center;gap:5px;font-family:'Space Mono';font-size:9px;color:var(--sage)}
+  .conn .led{width:6px;height:6px;border-radius:50%;background:var(--sage);box-shadow:0 0 6px rgba(134,168,127,.6)}
+  .cnum{font-family:'Space Mono';font-weight:700;font-size:14px;color:var(--ink)}
+  .cslash{font-family:'Space Mono';font-size:12px;color:var(--ink3)}
+  .sp{flex:1}
+
+  .genrow{display:flex;align-items:center;gap:6px}
+  .lab{width:40px;flex:none;font-family:'Space Mono';font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
+  .gbtns{display:flex;gap:5px;flex:1}
+  .gbtns>*{flex:1}
+  .btn{text-align:center;border-radius:6px;font-size:11px;font-weight:600;white-space:nowrap;line-height:1;padding:7px 4px}
+  .warm{background:#2e2418;color:var(--copper-lt);border:1px solid #50351c}
+  .sage{background:#26281f;color:var(--sage);border:1px solid #3a4d35}
+  .violet{background:#282527;color:var(--violet);border:1px solid #443c54}
+  .teal{background:#1f2726;color:var(--teal);border:1px solid #2c4d57}
+  .loopb{text-align:center;border-radius:6px;font-family:'Space Mono';font-size:11px;font-weight:700;padding:7px 0;
+    background:var(--raise);color:var(--ink3);border:1px solid rgba(216,201,176,.1)}
+  .loopb.on{background:#3f3621;color:var(--gold);border-color:#6b561f}
+
+  .cta{display:flex;align-items:center;justify-content:center;gap:5px;border-radius:6px;font-weight:700;font-size:11px;white-space:nowrap;padding:7px 11px;
+    background:var(--copper);color:#1c1206;border:1px solid var(--copper-lt)}
+  .util{display:flex;align-items:center;justify-content:center;gap:5px;border-radius:6px;font-weight:600;font-size:11px;white-space:nowrap;padding:7px 10px;
+    background:var(--raise);color:var(--ink);border:1px solid rgba(216,201,176,.13)}
+  .util .ic{color:var(--teal)}
+  .footer{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:8px;margin-top:1px}
+  .clab{font-family:'Space Mono';font-size:7px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="kick">StrideQuick · Option A, three ways</div>
+  <h1>Same pro layout, <span class="brand">smaller</span>, three Injects</h1>
+  <p class="sub">All ~440 px wide (down from 600), no wrapped text, no floating Inject. The only difference is where Inject lives. Pick the one that feels right.</p>
+
+  <!-- A1 -->
+  <div class="opt">
+    <div class="opttag"><span class="optnum">A1</span><span class="optname">Inject in the action group</span></div>
+    <p class="optdesc">Open Canvas, Rescan and Inject sit together as three small buttons on the top strip. No footer at all, so the device is the shortest of the three. Inject is right there but compact.</p>
+    <div class="shelf">
+      <div class="device">
+        <div class="titlebar"><span class="pwr"></span><span class="tribar"></span><span class="tname">StrideLink</span><span class="maxbadge">MAX</span></div>
+        <div class="body">
+          <div class="strip">
+            <div class="word"><span class="brand">STRIDE</span></div>
+            <span class="conn"><span class="led"></span></span>
+            <span class="cnum">12<span class="cslash"> / </span>12</span>
+            <div class="sp"></div>
+            <div class="cta">◧ Open</div>
+            <div class="util"><span class="ic">↻</span></div>
+            <div class="cta">▼ Inject</div>
+          </div>
+          <div class="genrow"><span class="lab">Motion</span><div class="gbtns">
+            <div class="btn warm">Chaos</div><div class="btn warm">Neuro</div><div class="btn warm">Reflector</div><div class="btn warm">S&amp;H</div><div class="btn warm">Prism</div>
+          </div></div>
+          <div class="genrow"><span class="lab">Shape</span><div class="gbtns">
+            <div class="btn sage">Mutate</div><div class="btn violet">Shuffle</div><div class="btn teal">2&times;</div><div class="btn teal">&frac12;&times;</div>
+            <div class="loopb">4</div><div class="loopb on">8</div><div class="loopb">16</div><div class="loopb">32</div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+    <div class="meta">~440 × 120 · shortest, no footer</div>
+  </div>
+
+  <!-- A2 -->
+  <div class="opt">
+    <div class="opttag"><span class="optnum">A2</span><span class="optname">Filled footer: counter + Inject</span></div>
+    <p class="optdesc">Top strip carries Open Canvas + Rescan. The bottom is a real footer, but filled, the counter on the left and Inject on the right, so nothing floats in the middle. Inject reads clearly without being a giant bar.</p>
+    <div class="shelf">
+      <div class="device">
+        <div class="titlebar"><span class="pwr"></span><span class="tribar"></span><span class="tname">StrideLink</span><span class="maxbadge">MAX</span></div>
+        <div class="body">
+          <div class="strip">
+            <div class="word"><span class="brand">STRIDE</span></div>
+            <span class="conn"><span class="led"></span>Connected</span>
+            <div class="sp"></div>
+            <div class="cta">◧ Open Canvas</div>
+            <div class="util"><span class="ic">↻</span> Rescan</div>
+          </div>
+          <div class="genrow"><span class="lab">Motion</span><div class="gbtns">
+            <div class="btn warm">Chaos</div><div class="btn warm">Neuro</div><div class="btn warm">Reflector</div><div class="btn warm">S&amp;H</div><div class="btn warm">Prism</div>
+          </div></div>
+          <div class="genrow"><span class="lab">Shape</span><div class="gbtns">
+            <div class="btn sage">Mutate</div><div class="btn violet">Shuffle</div><div class="btn teal">2&times;</div><div class="btn teal">&frac12;&times;</div>
+            <div class="loopb">4</div><div class="loopb on">8</div><div class="loopb">16</div><div class="loopb">32</div>
+          </div></div>
+          <div class="footer">
+            <div><span class="cnum" style="font-size:16px">12</span><span class="cslash" style="font-size:13px"> / </span><span class="cnum" style="font-size:16px">12</span>
+              <span class="clab">&nbsp;&nbsp;chain / stride</span></div>
+            <div class="cta">▼ Inject to Clip</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="meta">~440 × 150 · footer earns its space</div>
+  </div>
+
+  <!-- A3 -->
+  <div class="opt">
+    <div class="opttag"><span class="optnum">A3</span><span class="optname">Inject shares the loop row</span></div>
+    <p class="optdesc">Three tidy rows: Motion, Shape, then Loop with Inject taking the open right side of that same row. No extra band, Inject is sized to the leftover space so it's substantial but never the full width.</p>
+    <div class="shelf">
+      <div class="device">
+        <div class="titlebar"><span class="pwr"></span><span class="tribar"></span><span class="tname">StrideLink</span><span class="maxbadge">MAX</span></div>
+        <div class="body">
+          <div class="strip">
+            <div class="word"><span class="brand">STRIDE</span></div>
+            <span class="conn"><span class="led"></span></span>
+            <span class="cnum">12<span class="cslash"> / </span>12</span>
+            <div class="sp"></div>
+            <div class="cta">◧ Open Canvas</div>
+            <div class="util"><span class="ic">↻</span> Rescan</div>
+          </div>
+          <div class="genrow"><span class="lab">Motion</span><div class="gbtns">
+            <div class="btn warm">Chaos</div><div class="btn warm">Neuro</div><div class="btn warm">Reflector</div><div class="btn warm">S&amp;H</div><div class="btn warm">Prism</div>
+          </div></div>
+          <div class="genrow"><span class="lab">Shape</span><div class="gbtns">
+            <div class="btn sage">Mutate</div><div class="btn violet">Shuffle</div><div class="btn teal">2&times;</div><div class="btn teal">&frac12;&times;</div>
+          </div></div>
+          <div class="genrow"><span class="lab">Loop</span><div class="gbtns">
+            <div class="loopb">4</div><div class="loopb on">8</div><div class="loopb">16</div><div class="loopb">32</div>
+            <div class="cta" style="flex:2.4">▼ Inject to Clip</div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+    <div class="meta">~440 × 150 · Inject anchors the bottom row</div>
+  </div>
+
+</div>
+</body>
+</html>

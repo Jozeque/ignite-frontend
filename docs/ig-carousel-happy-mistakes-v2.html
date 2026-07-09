@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>STRIDE · Carousel · Happy Mistakes v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root{
+    --bg:#141310; --bg2:#191611; --panel:#1d1b16; --raise:#252119; --line:rgba(216,201,176,.11);
+    --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
+    --copper:#c6712b; --ember:#e58a2e; --copper-lt:#dd9a52;
+    --teal:#5e9aad; --sage:#86a87f; --violet:#9a8cbb;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(120% 80% at 50% -10%, rgba(198,113,43,.07), transparent 60%),radial-gradient(100% 60% at 50% 110%, rgba(47,116,142,.05), transparent 60%),var(--bg);
+       color:var(--ink2);font-family:'Outfit',sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1240px;margin:0 auto;padding:30px 22px 90px}
+  h1{color:var(--ink);font-weight:900;letter-spacing:-.02em;margin:0;font-size:24px}
+  .silk{font:700 10px 'Space Mono';letter-spacing:.26em;text-transform:uppercase;color:var(--ink3)}
+  .brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px}
+  .pill{font:700 9px 'Space Mono';letter-spacing:.16em;text-transform:uppercase;border:1px solid var(--line);border-radius:999px;padding:5px 12px;color:var(--copper-lt)}
+  .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0 24px}
+  .btn{cursor:pointer;border:none;border-radius:10px;font:800 12px 'Outfit';letter-spacing:.04em;text-transform:uppercase;padding:11px 16px}
+  .btn-copper{background:linear-gradient(180deg,var(--ember),var(--copper));color:#1c1206}
+  .btn-ghost{background:rgba(255,255,255,.05);color:var(--ink2);border:1px solid var(--line)}
+  .hint{font-size:12px;color:var(--ink3)}
+
+  .board{display:flex;gap:26px;flex-wrap:wrap;justify-content:center}
+  .col{width:340px}
+  .stage{width:340px;height:425px;border-radius:18px;overflow:hidden;background:var(--bg);border:1px solid var(--line);box-shadow:0 30px 60px -30px #000}
+  .slidewrap{width:1080px;height:1350px;transform:scale(.31481);transform-origin:top left}
+  .colbtns{display:flex;gap:8px;margin-top:12px;justify-content:center}
+
+  /* ── the actual 1080×1350 slide ── */
+  .slide{position:relative;width:1080px;height:1350px;background:var(--bg);overflow:hidden}
+  .slide .glow{position:absolute;inset:0;background:radial-gradient(120% 55% at 50% -8%, rgba(198,113,43,.07), transparent 60%),radial-gradient(100% 50% at 50% 108%, rgba(47,116,142,.05), transparent 60%)}
+  .slide .stripe{position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
+  .pad{position:absolute;inset:0;padding:88px 84px 140px;display:flex;flex-direction:column;justify-content:center}
+  .txt{font-weight:400;font-size:44px;line-height:1.46;letter-spacing:-.011em;color:var(--ink)}
+  .txt p{margin:0 0 .62em}
+  .txt p:last-child{margin-bottom:0}
+  .cu{color:var(--copper-lt);font-weight:600}
+  .b{color:var(--ink);font-weight:800}
+  .arrow{position:absolute;right:84px;bottom:72px;font:300 56px 'Outfit';line-height:1;color:var(--copper-lt)}
+  .site{position:absolute;right:84px;bottom:80px;font:700 28px 'Space Mono';letter-spacing:.02em;color:var(--copper-lt)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div style="display:flex;align-items:center;gap:14px">
+      <span style="font:900 28px 'Outfit';letter-spacing:-.03em" class="brand">STRIDE</span>
+      <span class="silk" style="border-left:1px solid var(--line);padding-left:14px">Carousel · Happy Mistakes v2</span>
+    </div>
+    <span class="pill">3 slides · 1080 × 1350 · text carousel</span>
+  </header>
+
+  <div class="bar">
+    <button class="btn btn-copper" onclick="dlAll()">⤓ Download all 3 (PNG)</button>
+    <span class="hint">…or grab one slide below. Offline / export looks off? Just screenshot the slide — it's pixel-built at full size.</span>
+  </div>
+
+  <div class="board">
+
+    <!-- SLIDE 1 -->
+    <div class="col">
+      <div class="stage"><div class="slidewrap"><div class="slide" id="s1">
+        <div class="glow"></div><div class="stripe"></div>
+        <div class="pad">
+          <div class="txt">
+            <p>Sometimes, honestly most of the time, the most inspiring moments come from <span class="cu">happy mistakes</span>.<br>The things you don't plan. The things you stumble into.</p>
+            <p>We usually spend hours tweaking, adjusting, and chasing a specific sound.<br>Trying to recreate something we already heard in our head.</p>
+            <p>But your real <span class="b">signature sound</span> rarely comes from control.<br>It comes from what happens when you <span class="cu">let go a little</span>.</p>
+          </div>
+        </div>
+        <div class="arrow">→</div>
+      </div></div></div>
+      <div class="colbtns"><button class="btn btn-ghost" onclick="dl('s1','stride-happy-mistakes-1.png')">⤓ Slide 1</button></div>
+    </div>
+
+    <!-- SLIDE 2 -->
+    <div class="col">
+      <div class="stage"><div class="slidewrap"><div class="slide" id="s2">
+        <div class="glow"></div><div class="stripe"></div>
+        <div class="pad">
+          <div class="txt">
+            <p>That's why you can sit in the studio for days feeling stuck, like nothing is clicking,<br>and then suddenly, a <span class="cu">single moment</span> opens everything up.</p>
+            <p>You stop thinking. You just follow it.</p>
+            <p>And that's where music starts to <span class="cu">move again</span>.</p>
+            <p><span class="b">Stride was built for <span class="cu">exactly</span> that.</span></p>
+          </div>
+        </div>
+        <div class="arrow">→</div>
+      </div></div></div>
+      <div class="colbtns"><button class="btn btn-ghost" onclick="dl('s2','stride-happy-mistakes-2.png')">⤓ Slide 2</button></div>
+    </div>
+
+    <!-- SLIDE 3 -->
+    <div class="col">
+      <div class="stage"><div class="slidewrap"><div class="slide" id="s3">
+        <div class="glow"></div><div class="stripe"></div>
+        <div class="pad">
+          <div class="txt">
+            <p>Instead of digging through menus or building automation from scratch, Stride works directly on your instruments<br>and turns them into <span class="cu">something alive</span>.</p>
+            <p>Simple ideas become <span class="cu">endless variations in motion</span>.</p>
+            <p>You're not drawing complexity. You're <span class="b">uncovering</span> it.</p>
+            <p>And with a single change, everything shifts again: new patterns, new movement, new directions you wouldn't have planned.</p>
+          </div>
+        </div>
+        <div class="site">stridehub.io</div>
+      </div></div></div>
+      <div class="colbtns"><button class="btn btn-ghost" onclick="dl('s3','stride-happy-mistakes-3.png')">⤓ Slide 3</button></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // text-only slides — size each slide's copy up to fill the frame
+  function fitSlide(id){
+    const slide=document.getElementById(id);
+    const pad=slide.querySelector('.pad'), txt=slide.querySelector('.txt');
+    const cs=getComputedStyle(pad);
+    const avail=pad.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    let size=40; txt.style.fontSize=size+'px';
+    while(size<80 && txt.scrollHeight<=avail){ size++; txt.style.fontSize=size+'px'; }
+    while(size>22 && txt.scrollHeight>avail){ size--; txt.style.fontSize=size+'px'; }
+  }
+  function fitAll(){ ['s1','s2','s3'].forEach(fitSlide); }
+  if(document.fonts && document.fonts.ready){ document.fonts.ready.then(fitAll); }
+  window.addEventListener('load', fitAll);
+
+  // export: render the untransformed 1080x1350 node at full res
+  async function dl(id,name){
+    const el=document.getElementById(id);
+    if(typeof html2canvas==='undefined'){alert('Export needs internet (html2canvas didn\'t load). Just screenshot the slide instead.');return;}
+    const wrap=el.parentElement, prev=wrap.style.transform; wrap.style.transform='none';
+    try{
+      const canvas=await html2canvas(el,{backgroundColor:'#141310',scale:1,width:1080,height:1350,windowWidth:1080,windowHeight:1350,useCORS:true});
+      const a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download=name;a.click();
+    }finally{ wrap.style.transform=prev; }
+  }
+  async function dlAll(){ await dl('s1','stride-happy-mistakes-1.png'); await dl('s2','stride-happy-mistakes-2.png'); await dl('s3','stride-happy-mistakes-3.png'); }
+</script>
+</body>
+</html>

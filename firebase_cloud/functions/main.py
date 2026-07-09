@@ -376,9 +376,15 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
     # false-positive everyone. fbc shape: fb.{subdomain}.{ts}.{fbclid}.
     custom = (payload.get("meta") or {}).get("custom_data") or {}
     fbc = (custom.get("fbc") or "").strip()
-    from_meta = bool(fbc)
+    # fbclid is the Meta ad-click id. Like fbc it ONLY exists after an ad click
+    # (unlike fbp, which the pixel sets for everyone), so it flags meta-origin
+    # with no false positives — but we read it from the checkout custom data
+    # DIRECTLY, decoupled from fbc, because IG/FB in-app browsers strip the _fbc
+    # cookie while the fbclid marker (persisted in localStorage on landing and
+    # forwarded here) survives. Fall back to parsing it out of fbc.
+    fbclid = (custom.get("fbclid") or "").strip() or (fbc.split(".")[-1] if fbc else "")
+    from_meta = bool(fbc or fbclid)
     acquisition_source = "meta_ad" if from_meta else "direct"
-    fbclid = fbc.split(".")[-1] if fbc else ""
     src_note = ""
     if event_name == "order_created":
         src_note = f" source={'META_AD' if from_meta else 'direct'}"
@@ -469,13 +475,22 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
             is_redownload = is_demo and match is not None and bool(prev.get("demo_at"))
             if is_redownload:
                 doc_data["demo_at"] = prev.get("demo_at")
-            if not fbc and (prev.get("fbc") or "").strip():
-                fbc = (prev.get("fbc") or "").strip()
+            _prev_fbc = (prev.get("fbc") or "").strip()
+            _prev_fbclid = (prev.get("fbclid") or "").strip()
+            _prev_meta = (prev.get("acquisition_source") or "") == "meta_ad"
+            if not from_meta and (_prev_fbc or _prev_fbclid or _prev_meta):
+                # Checkout carried no meta signal, but the buyer_lead row (joined
+                # by email above) did. fbclid ALONE is enough — it survives the
+                # in-app-browser cookie loss that kills fbc, so this is what
+                # rescues IG-driven sales from being mislabelled "direct".
+                fbc = fbc or _prev_fbc
+                fbclid = fbclid or _prev_fbclid or (fbc.split(".")[-1] if fbc else "")
                 from_meta = True
                 acquisition_source = "meta_ad"
-                fbclid = (prev.get("fbclid") or "").strip() or (fbc.split(".")[-1] if fbc else "")
                 doc_data["acquisition_source"] = acquisition_source
                 doc_data["fbclid"] = fbclid
+                if fbc:
+                    doc_data["fbc"] = fbc
                 print(f"[LS Webhook] recovered Meta attribution from lead row for {email}")
 
             if match is not None:
@@ -1249,7 +1264,7 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
                 # Show Meta attribution on the buyer lead too (the landing page
                 # now sends fbc) so we can confirm a checkout came from an ad
                 # immediately, without waiting for the purchase alert.
-                from_meta_lead = bool((data_pre.get("fbc") or "").strip())
+                from_meta_lead = bool((data_pre.get("fbc") or "").strip() or (data_pre.get("fbclid") or "").strip())
                 source_line = (f"\n**Source:** {'🎯 Meta ad' if from_meta_lead else 'Direct / organic'}") if is_buyer else ""
                 webhook_msg = {
                     "username": "Stride Engine",

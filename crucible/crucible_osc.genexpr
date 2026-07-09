@@ -1,0 +1,217 @@
+/* two additive spectral-morph oscillators. 8 positions, 16 harmonics.
+   MORPH interpolates harmonic bin amplitudes (tent basis = exact linear
+   spectral interp), all bins same phase. bin1=1 + weights sum to 1 ->
+   fundamental is constant (bass never thins). Two oscs summed. */
+Param morph(0);    Param morph2(0.35);  Param rips(0);  Param ripshape(0.3);
+Param pulsar(0);   Param formant(0.5);
+History mph(0);    History fsm(55);     History dph(0);
+History s_m1(0);   History s_m2(0.35);  History s_rp(0);  History s_rp2(0.3);
+History s_pu(0);   History s_fo(0.5);
+sr = samplerate; isr = 1/sr; nyq = sr*0.5; sc = 0.0022;
+f0in = fsm + 0.0016*(in1 - fsm); fsm = f0in; f0 = clamp(f0in, 8, nyq);
+m1 = s_m1 + sc*(morph  - s_m1); s_m1 = m1;
+m2 = s_m2 + sc*(morph2 - s_m2); s_m2 = m2;
+rps = s_rp + sc*(rips  - s_rp); s_rp = rps;
+shp = s_rp2 + sc*(ripshape - s_rp2); s_rp2 = shp;
+pu  = s_pu + sc*(pulsar - s_pu); s_pu = pu;
+fo  = s_fo + sc*(formant - s_fo); s_fo = fo;
+p1 = m1*7; p2 = m2*7;
+u0 = clamp(1 - abs(p1 - 0), 0, 1);
+u1 = clamp(1 - abs(p1 - 1), 0, 1);
+u2 = clamp(1 - abs(p1 - 2), 0, 1);
+u3 = clamp(1 - abs(p1 - 3), 0, 1);
+u4 = clamp(1 - abs(p1 - 4), 0, 1);
+u5 = clamp(1 - abs(p1 - 5), 0, 1);
+u6 = clamp(1 - abs(p1 - 6), 0, 1);
+u7 = clamp(1 - abs(p1 - 7), 0, 1);
+v0 = clamp(1 - abs(p2 - 0), 0, 1);
+v1 = clamp(1 - abs(p2 - 1), 0, 1);
+v2 = clamp(1 - abs(p2 - 2), 0, 1);
+v3 = clamp(1 - abs(p2 - 3), 0, 1);
+v4 = clamp(1 - abs(p2 - 4), 0, 1);
+v5 = clamp(1 - abs(p2 - 5), 0, 1);
+v6 = clamp(1 - abs(p2 - 6), 0, 1);
+v7 = clamp(1 - abs(p2 - 7), 0, 1);
+aaf = 1/2200;
+mph = mph + f0*isr; mph = mph - floor(mph);
+dph = dph + 1/512; dph = dph - floor(dph);
+acc = 0; dacc = 0; nrm = 0.0001;
+/* h1 */
+akA = u0 + u1 + u2 + u3 + u4 + u5 + u6 + u7;
+akB = v0 + v1 + v2 + v3 + v4 + v5 + v6 + v7;
+fk = f0*1; aa = clamp((nyq - fk)*aaf, 0, 1);
+ak = (akA + akB)*aa;
+pp = 1*mph; pp = pp - floor(pp);
+acc = acc + sin(pp*2*pi)*ak;
+dp = 1*dph; dp = dp - floor(dp);
+dacc = dacc + sin(dp*2*pi)*ak;
+nrm = nrm + ak*ak;
+/* h2 */
+akA = 0.5*u1 + 0.1*u2 + 0.65*u3 + 0.3*u4 + 0.707107*u6 + 0.5*u7;
+akB = 0.5*v1 + 0.1*v2 + 0.65*v3 + 0.3*v4 + 0.707107*v6 + 0.5*v7;
+fk = f0*2; aa = clamp((nyq - fk)*aaf, 0, 1);
+ak = (akA + akB)*aa;
+pp = 2*mph; pp = pp - floor(pp);
+acc = acc + sin(pp*2*pi)*ak;
+dp = 2*dph; dp = dp - floor(dp);
+dacc = dacc + sin(dp*2*pi)*ak;
+nrm = nrm + ak*ak;
+/* h3 */
+akA = u1 + 0.333*u2 + 0.4225*u3 + 0.85*u4 + 0.333333*u5 + 0.333333*u6 + 0.333333*u7;
+akB = v1 + 0.333*v2 + 0.4225*v3 + 0.85*v4 + 0.333333*v5 + 0.333333*v6 + 0.333333*v7;
+fk = f0*3; aa = clamp((nyq - fk)*aaf, 0, 1);
+ak = (akA + akB)*aa;
+pp = 3*mph; pp = pp - floor(pp);
+acc = acc + sin(pp*2*pi)*ak;
+dp = 3*dph; dp = dp - floor(dp);
+dacc = dacc + sin(dp*2*pi)*ak;
+nrm = nrm + ak*ak;
+/* h4 */
+akA = 0.75*u2 + 0.274625*u3 + 0.6*u4 + 4.32978e-17*u6 + 0.25*u7;
+akB = 0.75*v2 + 0.274625*v3 + 0.6*v4 + 4.32978e-17*v6 + 0.25*v7;
+fk = f0*4; aa = clamp((nyq - fk)*aaf, 0, 1);
+ak = (akA + akB)*aa;
+pp = 4*mph; pp = pp - floor(pp);
+acc = acc + sin(pp*2*pi)*ak;
+dp = 4*dph; dp = dp - floor(dp);
+dacc = dacc + sin(dp*2*pi)*ak;
+nrm = nrm + ak*ak;
+/* h5 */
+akA = 0.178506*u3 + 0.3*u4 + 0.2*u5 + 0.2*u6 + 0.2*u7;
+akB = 0.178506*v3 + 0.3*v4 + 0.2*v5 + 0.2*v6 + 0.2*v7;
+fk = f0*5; aa = clamp((nyq - fk)*aaf, 0, 1);
+ak = (akA + akB)*aa;
+pp = 5*mph; pp = pp - floor(pp);
+acc = acc + sin(pp*2*pi)*ak;
+dp = 5*dph; dp = dp - floor(dp);
+dacc = dacc + sin(dp*2*pi)*ak;
+nrm = nrm + ak*ak;
+/* h6 */
+akA = 0.116029*u3 + 0.45*u4 + 0.235702*u6 + 0.166667*u7;
+akB = 0.116029*v3 + 0.45*v4 + 0.235702*v6 + 0.166667*v7;
+fk = f0*6; aa = clamp((nyq - fk)*aaf, 0, 1);
+ak = (akA + akB)*aa;
+pp = 6*mph; pp = pp - floor(pp);
+acc = acc + sin(pp*2*pi)*ak;
+dp = 6*dph; dp = dp - floor(dp);
+dacc = dacc + sin(dp*2*pi)*ak;
+nrm = nrm + ak*ak;
+/* h7 */
+akA = 0.0754189*u3 + 0.55*u4 + 0.142857*u5 + 0.142857*u6 + 0.142857*u7;
+akB = 0.0754189*v3 + 0.55*v4 + 0.142857*v5 + 0.142857*v6 + 0.142857*v7;
+fk = f0*7; aa = clamp((nyq - fk)*aaf, 0, 1);
+ak = (akA + akB)*aa;
+pp = 7*mph; pp = pp - floor(pp);
+acc = acc + sin(pp*2*pi)*ak;
+dp = 7*dph; dp = dp - floor(dp);
+dacc = dacc + sin(dp*2*pi)*ak;
+nrm = nrm + ak*ak;
+/* h8 */
+akA = 0.0490223*u3 + 0.3*u4 + 4.32978e-17*u6 + 0.125*u7;
+akB = 0.0490223*v3 + 0.3*v4 + 4.32978e-17*v6 + 0.125*v7;
+fk = f0*8; aa = clamp((nyq - fk)*aaf, 0, 1);
+ak = (akA + akB)*aa;
+pp = 8*mph; pp = pp - floor(pp);
+acc = acc + sin(pp*2*pi)*ak;
+dp = 8*dph; dp = dp - floor(dp);
+dacc = dacc + sin(dp*2*pi)*ak;
+nrm = nrm + ak*ak;
+/* h9 */
+akA = 0.0318645*u3 + 0.12*u4 + 0.111111*u5 + 0.111111*u6 + 0.111111*u7;
+akB = 0.0318645*v3 + 0.12*v4 + 0.111111*v5 + 0.111111*v6 + 0.111111*v7;
+fk = f0*9; aa = clamp((nyq - fk)*aaf, 0, 1);
+ak = (akA + akB)*aa;
+pp = 9*mph; pp = pp - floor(pp);
+acc = acc + sin(pp*2*pi)*ak;
+dp = 9*dph; dp = dp - floor(dp);
+dacc = dacc + sin(dp*2*pi)*ak;
+nrm = nrm + ak*ak;
+/* h10 */
+akA = 0.0207119*u3 + 0.08*u4 + 0.141421*u6 + 0.1*u7;
+akB = 0.0207119*v3 + 0.08*v4 + 0.141421*v6 + 0.1*v7;
+fk = f0*10; aa = clamp((nyq - fk)*aaf, 0, 1);
+ak = (akA + akB)*aa;
+pp = 10*mph; pp = pp - floor(pp);
+acc = acc + sin(pp*2*pi)*ak;
+dp = 10*dph; dp = dp - floor(dp);
+dacc = dacc + sin(dp*2*pi)*ak;
+nrm = nrm + ak*ak;
+/* h11 */
+akA = 0.0134627*u3 + 0.0909091*u5 + 0.0909091*u6 + 0.0909091*u7;
+akB = 0.0134627*v3 + 0.0909091*v5 + 0.0909091*v6 + 0.0909091*v7;
+fk = f0*11; aa = clamp((nyq - fk)*aaf, 0, 1);
+ak = (akA + akB)*aa;
+pp = 11*mph; pp = pp - floor(pp);
+acc = acc + sin(pp*2*pi)*ak;
+dp = 11*dph; dp = dp - floor(dp);
+dacc = dacc + sin(dp*2*pi)*ak;
+nrm = nrm + ak*ak;
+/* h12 */
+akA = 0.00875078*u3 + 4.32978e-17*u6 + 0.0833333*u7;
+akB = 0.00875078*v3 + 4.32978e-17*v6 + 0.0833333*v7;
+fk = f0*12; aa = clamp((nyq - fk)*aaf, 0, 1);
+ak = (akA + akB)*aa;
+pp = 12*mph; pp = pp - floor(pp);
+acc = acc + sin(pp*2*pi)*ak;
+dp = 12*dph; dp = dp - floor(dp);
+dacc = dacc + sin(dp*2*pi)*ak;
+nrm = nrm + ak*ak;
+/* h13 */
+akA = 0.00568801*u3 + 0.0769231*u5 + 0.0769231*u6 + 0.0769231*u7;
+akB = 0.00568801*v3 + 0.0769231*v5 + 0.0769231*v6 + 0.0769231*v7;
+fk = f0*13; aa = clamp((nyq - fk)*aaf, 0, 1);
+ak = (akA + akB)*aa;
+pp = 13*mph; pp = pp - floor(pp);
+acc = acc + sin(pp*2*pi)*ak;
+dp = 13*dph; dp = dp - floor(dp);
+dacc = dacc + sin(dp*2*pi)*ak;
+nrm = nrm + ak*ak;
+/* h14 */
+akA = 0.00369721*u3 + 0.101015*u6 + 0.0714286*u7;
+akB = 0.00369721*v3 + 0.101015*v6 + 0.0714286*v7;
+fk = f0*14; aa = clamp((nyq - fk)*aaf, 0, 1);
+ak = (akA + akB)*aa;
+pp = 14*mph; pp = pp - floor(pp);
+acc = acc + sin(pp*2*pi)*ak;
+dp = 14*dph; dp = dp - floor(dp);
+dacc = dacc + sin(dp*2*pi)*ak;
+nrm = nrm + ak*ak;
+/* h15 */
+akA = 0.00240318*u3 + 0.0666667*u5 + 0.0666667*u6 + 0.0666667*u7;
+akB = 0.00240318*v3 + 0.0666667*v5 + 0.0666667*v6 + 0.0666667*v7;
+fk = f0*15; aa = clamp((nyq - fk)*aaf, 0, 1);
+ak = (akA + akB)*aa;
+pp = 15*mph; pp = pp - floor(pp);
+acc = acc + sin(pp*2*pi)*ak;
+dp = 15*dph; dp = dp - floor(dp);
+dacc = dacc + sin(dp*2*pi)*ak;
+nrm = nrm + ak*ak;
+/* h16 */
+akA = 0.00156207*u3 + 4.32978e-17*u6 + 0.0625*u7;
+akB = 0.00156207*v3 + 4.32978e-17*v6 + 0.0625*v7;
+fk = f0*16; aa = clamp((nyq - fk)*aaf, 0, 1);
+ak = (akA + akB)*aa;
+pp = 16*mph; pp = pp - floor(pp);
+acc = acc + sin(pp*2*pi)*ak;
+dp = 16*dph; dp = dp - floor(dp);
+dacc = dacc + sin(dp*2*pi)*ak;
+nrm = nrm + ak*ak;
+/* each path: morph sum -> DRIVE (sat->fold) -> RIPS (tear only the non-peak regions) */
+sig  = acc * 0.25;
+disp = dacc / (sqrt(nrm) + 0.5);
+duty = 0.08 + (1 - fo)*0.9; pg = 1/sqrt(duty + 0.05);
+wpa = (mph < duty) ? sin((mph/duty)*pi) : 0;
+sig = sig + (sig*wpa*pg - sig)*pu;
+wpd = (dph < duty) ? sin((dph/duty)*pi) : 0;
+disp = disp + (disp*wpd*pg - disp)*pu;
+cnt = 1 + floor(shp*3.99);
+wa = clamp(1 - abs(sig)*3.5, 0, 1);
+cpa = mph*cnt; cpa = cpa - floor(cpa);
+ga = pow(clamp(1 - abs(2*cpa - 1), 0, 1), 1 + shp*6);
+rpa = tanh(sig*(1.5 + rps*35));
+out1 = sig + (rpa - sig)*wa*ga*rps;
+wd = clamp(1 - abs(disp)*3.5, 0, 1);
+cpd = dph*cnt; cpd = cpd - floor(cpd);
+gd = pow(clamp(1 - abs(2*cpd - 1), 0, 1), 1 + shp*6);
+rpd = tanh(disp*(1.5 + rps*35));
+out2 = disp + (rpd - disp)*wd*gd*rps;

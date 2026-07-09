@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" class="dark" data-skin="copper">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stride — Fold Panel (Option A)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = { darkMode:'class', theme:{ extend:{ colors:{
+    zinc:{50:'rgb(var(--z50)/<alpha-value>)',100:'rgb(var(--z100)/<alpha-value>)',200:'rgb(var(--z200)/<alpha-value>)',300:'rgb(var(--z300)/<alpha-value>)',400:'rgb(var(--z400)/<alpha-value>)',500:'rgb(var(--z500)/<alpha-value>)',600:'rgb(var(--z600)/<alpha-value>)',700:'rgb(var(--z700)/<alpha-value>)',800:'rgb(var(--z800)/<alpha-value>)',900:'rgb(var(--z900)/<alpha-value>)',950:'rgb(var(--z950)/<alpha-value>)'},
+    orange:{50:'rgb(var(--o50)/<alpha-value>)',100:'rgb(var(--o100)/<alpha-value>)',200:'rgb(var(--o200)/<alpha-value>)',300:'rgb(var(--o300)/<alpha-value>)',400:'rgb(var(--o400)/<alpha-value>)',500:'rgb(var(--o500)/<alpha-value>)',600:'rgb(var(--o600)/<alpha-value>)',700:'rgb(var(--o700)/<alpha-value>)',800:'rgb(var(--o800)/<alpha-value>)',900:'rgb(var(--o900)/<alpha-value>)',950:'rgb(var(--o950)/<alpha-value>)'},
+    fuchsia:{50:'rgb(var(--f50)/<alpha-value>)',100:'rgb(var(--f100)/<alpha-value>)',200:'rgb(var(--f200)/<alpha-value>)',300:'rgb(var(--f300)/<alpha-value>)',400:'rgb(var(--f400)/<alpha-value>)',500:'rgb(var(--f500)/<alpha-value>)',600:'rgb(var(--f600)/<alpha-value>)',700:'rgb(var(--f700)/<alpha-value>)',800:'rgb(var(--f800)/<alpha-value>)',900:'rgb(var(--f900)/<alpha-value>)',950:'rgb(var(--f950)/<alpha-value>)'},
+    emerald:{400:'rgb(var(--em400)/<alpha-value>)',500:'rgb(var(--em500)/<alpha-value>)'},
+    amber:{400:'rgb(var(--am400)/<alpha-value>)',500:'rgb(var(--am500)/<alpha-value>)'},
+    sky:{300:'rgb(var(--sk300)/<alpha-value>)',400:'rgb(var(--sk400)/<alpha-value>)',500:'rgb(var(--sk500)/<alpha-value>)'},
+    violet:{200:'rgb(var(--vi200)/<alpha-value>)',400:'rgb(var(--vi400)/<alpha-value>)',500:'rgb(var(--vi500)/<alpha-value>)'},
+  }}}};
+</script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+  :root{--app-bg:9 9 11}
+  [data-skin="copper"]{--z50:238 240 240;--z100:225 227 227;--z200:209 213 213;--z300:188 192 192;--z400:154 157 158;--z500:113 118 118;--z600:90 95 95;--z700:68 71 71;--z800:54 57 57;--z900:43 45 45;--z950:22 22 22;--o50:249 241 234;--o100:244 227 213;--o200:232 198 170;--o300:215 156 107;--o400:198 113 43;--o500:174 99 38;--o600:143 81 31;--o700:109 62 24;--o800:79 45 17;--o900:55 32 12;--o950:30 17 6;--f400:232 121 249;--f500:217 70 239;--em400:52 211 153;--em500:16 185 129;--am400:251 191 36;--am500:245 158 11;--sk300:125 211 252;--sk400:56 189 248;--sk500:14 165 233;--vi200:221 214 254;--vi400:167 139 250;--vi500:139 92 246;--app-bg:22 22 22;--brand1:198 113 43;--brand2:217 144 74}
+  body{font-family:'Outfit',sans-serif;background:rgb(var(--app-bg));color:rgb(var(--z200));margin:0}
+  .text-gradient{background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-image:linear-gradient(to right,rgb(var(--brand1)),rgb(var(--brand2)))}
+  .divider{width:1px;height:1rem;background:rgba(255,255,255,.10);flex:none}
+  .chev{transition:transform .3s cubic-bezier(.4,0,.2,1)}
+  [data-fold="on"] .chev{transform:rotate(-90deg)}
+  /* animated vertical collapse via grid-rows 1fr <-> 0fr */
+  .exp-wrap,.fold-wrap{display:grid;transition:grid-template-rows .3s ease}
+  [data-fold="off"] .exp-wrap{grid-template-rows:1fr}
+  [data-fold="off"] .fold-wrap{grid-template-rows:0fr}
+  [data-fold="on"]  .exp-wrap{grid-template-rows:0fr}
+  [data-fold="on"]  .fold-wrap{grid-template-rows:1fr}
+  .collapse-inner{min-height:0;overflow:hidden}
+  @keyframes grew{0%{box-shadow:inset 0 0 70px 0 rgba(198,113,43,.20)}100%{box-shadow:inset 0 0 70px 0 rgba(198,113,43,0)}}
+  .grew{animation:grew .8s ease-out}
+  .lane{border-bottom:1px solid rgba(255,255,255,.05)}
+  .scroll-x{scrollbar-width:thin}
+  .scroll-x::-webkit-scrollbar{height:6px}
+  .scroll-x::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:6px}
+</style>
+</head>
+<body class="min-h-screen">
+<div class="max-w-[1100px] mx-auto px-6 py-8">
+
+  <div class="mb-5">
+    <h1 class="text-2xl font-black text-gradient tracking-tight">Fold the top panel — Option A</h1>
+    <p class="text-[13px] text-zinc-400 mt-1 leading-relaxed max-w-2xl">
+      Click the <span class="text-orange-400 font-bold">chevron (top-left)</span> to fold. The whole toolbar block
+      <span class="text-zinc-200 font-bold">collapses to one slim row</span> and the lanes take the reclaimed height.
+      Devices stay <span class="text-zinc-200 font-bold">pinned + visible</span>; the tool cluster scrolls sideways only if the window is very narrow.
+    </p>
+    <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
+      <span class="text-zinc-500 font-bold uppercase tracking-wider">Kept when folded:</span>
+      <span class="text-fuchsia-400 font-bold">Point/Free</span><span class="text-sky-300 font-bold">2x · 1/2x</span>
+      <span class="text-emerald-400 font-bold">Mutate</span><span class="text-violet-400 font-bold">Shuffle</span>
+      <span class="text-orange-400 font-bold">Motion ×6</span><span class="text-fuchsia-400 font-bold">Bars</span>
+      <span class="text-zinc-300 font-bold">Devices</span>
+    </div>
+    <p class="text-[11px] text-zinc-600 mt-2">Tip: drag the window's right edge (↔) to test the fold at different widths.</p>
+  </div>
+
+  <div id="frame"></div>
+  <p id="cap" class="text-[12px] text-zinc-500 mt-3"></p>
+</div>
+
+<script>
+const LANES=[{dev:'Serum',par:'Cutoff',k:'sine'},{dev:'Serum',par:'Reso',k:'ramp'},{dev:'Serum',par:'WT Pos',k:'steps'},{dev:'OTT',par:'Depth',k:'pump'},{dev:'Valhalla',par:'Mix',k:'sine2'},{dev:'Valhalla',par:'Size',k:'ramp2'},{dev:'FabFilter',par:'Freq',k:'sine'}];
+const DEVS=['Serum','OTT','Valhalla','FabFilter'];
+function curve(k,w,h){const n=64,p=[];for(let i=0;i<=n;i++){const x=i/n,t=x*Math.PI*2;let v;if(k==='sine')v=.5+.42*Math.sin(t*2);else if(k==='sine2')v=.5+.36*Math.sin(t*3+1);else if(k==='ramp')v=(x*4)%1;else if(k==='ramp2')v=1-((x*2)%1);else if(k==='pump')v=Math.pow(1-((x*4)%1),2.2);else if(k==='steps')v=[.2,.7,.35,.9,.5,.15,.8,.45][Math.floor(x*8)%8];else v=.5+.3*Math.sin(t);v=Math.max(.04,Math.min(.96,v));p.push([(x*w).toFixed(1),((1-v)*h).toFixed(1)]);}return'M'+p.map(q=>q.join(',')).join(' L');}
+const lock='<svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 10V7a4 4 0 00-8 0v3m-1 0h10a1 1 0 011 1v7a1 1 0 01-1 1H7a1 1 0 01-1-1v-7a1 1 0 011-1z"/></svg>';
+const focus='<svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"/></svg>';
+const CH='M19 9l-7 7-7-7';
+
+function canvasHTML(){return `<div class="sd-canvas flex-1 min-h-0 bg-black/20 overflow-hidden flex flex-col">
+  <div class="h-4 bg-black/50 border-b border-white/10 shrink-0"></div>
+  <div class="flex-1 min-h-0 flex flex-col">${LANES.map(l=>`
+    <div class="lane flex-1 min-h-0 flex items-stretch">
+      <div class="w-24 shrink-0 border-r border-white/5 px-2 py-1 flex flex-col justify-center gap-0.5">
+        <div class="flex items-center gap-1"><span class="text-fuchsia-400/60">${lock}</span><span class="text-zinc-600">${focus}</span><span class="text-[10px] font-black text-zinc-200 leading-none truncate">${l.dev}</span></div>
+        <span class="text-[9px] text-zinc-500 leading-none truncate pl-4">${l.par}</span>
+      </div>
+      <div class="flex-1 min-w-0 relative"><svg class="absolute inset-0 w-full h-full" viewBox="0 0 300 40" preserveAspectRatio="none"><path d="${curve(l.k,300,40)}" fill="none" stroke="rgb(var(--o400))" stroke-width="1.6" vector-effect="non-scaling-stroke" opacity="0.9"/></svg></div>
+    </div>`).join('')}</div></div>`;}
+
+const favSel=`<div class="bg-zinc-900 border border-white/10 text-zinc-400 text-[11px] rounded px-2 py-1 max-w-[150px] flex items-center gap-1 shrink-0"><span class="text-zinc-500">★</span>Favorites…<span class="ml-1 text-zinc-600">▾</span></div>`;
+const addBtn=`<button class="text-orange-400 bg-orange-500/10 border border-orange-500/20 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold shrink-0">+ Add</button>`;
+const mapBtn=`<button class="text-violet-200 bg-violet-500/20 border border-violet-400/40 px-3 py-1 rounded text-[10px] uppercase tracking-wider font-bold shrink-0">◉ Map</button>`;
+const openBtn=`<button class="text-zinc-400 border border-white/10 px-2 py-0.5 rounded text-[12px] font-bold shrink-0">⛶</button>`;
+const clearBtn=`<button class="text-zinc-400 border border-white/10 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold shrink-0">Clear</button>`;
+function chipsRow(){return `<div class="flex items-center gap-1.5 flex-nowrap w-max">${DEVS.map((n,i)=>`
+  <div class="flex items-center gap-1.5 bg-zinc-900 border border-white/10 rounded px-2 py-0.5${i===0?' ring-1 ring-fuchsia-400/70':''}">
+    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0" style="box-shadow:0 0 6px rgba(52,211,153,.7)"></span>
+    <span class="text-[11px] text-zinc-300 max-w-[110px] truncate">${n}</span>
+    <span class="text-zinc-500 text-[11px] font-bold">⛶</span><span class="text-zinc-500 text-[10px] font-bold">✕</span>
+  </div>`).join('')}</div>`;}
+
+const ptFree=`<div class="flex items-center gap-1 shrink-0"><button class="bg-fuchsia-500/20 text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Point</button><button class="text-zinc-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Free</button></div>`;
+const stretch=`<div class="flex items-center gap-1 shrink-0"><button class="text-sky-300 bg-sky-500/15 border border-sky-400/30 px-1.5 py-0.5 rounded text-[9px] font-bold">2x</button><button class="text-sky-300 bg-sky-500/15 border border-sky-400/30 px-1.5 py-0.5 rounded text-[9px] font-bold">1/2x</button></div>`;
+const mutShuf=`<div class="flex items-center gap-1 shrink-0"><button class="text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Mutate</button><button class="text-violet-400 bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 rounded text-[9px] uppercase font-bold">Shuffle</button></div>`;
+const mirFlip=`<div class="flex items-center gap-1 shrink-0"><button class="text-sky-400/80 bg-sky-500/5 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Mirror</button><button class="text-sky-400/80 bg-sky-500/5 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Flip</button></div>`;
+const swing=`<button class="text-amber-400/80 bg-amber-500/5 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold shrink-0">Swing</button>`;
+const shapes=`<div class="flex items-center gap-1 shrink-0">${['Sine','Pump','Glitch','Groove'].map(s=>`<button class="text-[9px] text-zinc-400 bg-white/5 px-1.5 py-0.5 rounded uppercase font-bold">${s}</button>`).join('')}</div>`;
+function motion(label){return `<div class="flex items-center gap-1 shrink-0">${label?'<span class="text-[8px] text-zinc-500 uppercase tracking-[0.18em] font-bold">Motion</span>':''}${['Chaos','Neuro','Reflector','S&H','Prism','Bloom'].map(s=>`<button class="text-[10px] text-orange-400/80 bg-orange-500/5 border border-orange-500/10 px-2 py-0.5 rounded uppercase tracking-wider font-bold">${s}</button>`).join('')}</div>`;}
+function bars(label){return `<div class="flex items-center gap-1 shrink-0">${label?'<span class="text-[8px] text-zinc-500 uppercase tracking-[0.18em] font-bold">Bars</span>':''}${[4,8,16,32].map(b=>`<button class="text-[11px] text-zinc-400 px-2 py-0.5 rounded font-bold${b===8?' text-fuchsia-400 bg-fuchsia-500/10':''}">${b}</button>`).join('')}</div>`;}
+const selLockUnlock=`<div class="flex items-center gap-1 shrink-0">${['Select All','Lock All','Unlock All'].map(s=>`<button class="text-zinc-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold border border-white/10">${s}</button>`).join('')}</div>`;
+function chevBtn(){return `<button class="fold-toggle text-zinc-500 hover:text-orange-400 p-0.5 shrink-0" title="Fold / unfold"><svg class="chev w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="${CH}"/></svg></button>`;}
+
+// EXPANDED = today's two real bars (Row A management + chips, Row B full toolbar)
+const expandedPanel=`<div class="exp-wrap"><div class="collapse-inner">
+  <div class="bg-zinc-950 border-b border-white/5 px-3 py-1.5 flex items-center gap-2 flex-wrap">
+    ${chevBtn()}${favSel}${addBtn}${mapBtn}${openBtn}${clearBtn}<span class="divider"></span>
+    <div class="flex items-center gap-1.5 flex-wrap">${chipsRow()}</div>
+  </div>
+  <div class="bg-zinc-950 border-b border-white/5 px-2.5 py-1.5 flex items-center gap-2 flex-wrap">
+    ${ptFree}<span class="divider"></span>${mirFlip}${swing}<span class="divider"></span>${stretch}<span class="divider"></span>${mutShuf}<span class="divider"></span>${shapes}<span class="divider"></span>${motion(true)}<span class="divider"></span>${bars(true)}<div class="flex-1"></div>${selLockUnlock}
+  </div>
+</div></div>`;
+
+// FOLDED = one slim row. Tools scroll in the flex zone; DEVICES pinned + always visible on the right.
+const foldedPanel=`<div class="fold-wrap"><div class="collapse-inner">
+  <div class="bg-zinc-950 border-b border-white/5 px-2.5 py-1.5 flex items-center gap-2">
+    ${chevBtn()}
+    <div class="flex items-center gap-2 flex-1 min-w-0 overflow-x-auto scroll-x">
+      ${ptFree}<span class="divider"></span>${stretch}<span class="divider"></span>${mutShuf}<span class="divider"></span>${motion(false)}<span class="divider"></span>${bars(false)}
+    </div>
+    <span class="divider"></span>
+    <div class="shrink-0 max-w-[42%] overflow-x-auto scroll-x">${chipsRow()}</div>
+  </div>
+</div></div>`;
+
+document.getElementById('frame').innerHTML=`
+  <div class="rounded-lg overflow-hidden border border-white/10 shadow-2xl" data-fold="off" style="height:440px;width:900px;max-width:100%;resize:horizontal">
+    <div class="h-full flex flex-col" style="background:rgb(var(--app-bg))">
+      <div class="h-8 bg-zinc-950 border-b border-white/5 flex items-center px-3 shrink-0">
+        <span class="text-[11px] font-black tracking-[0.3em] uppercase text-gradient">STRIDE</span>
+        <span class="ml-4 text-[9px] text-zinc-600 uppercase font-bold tracking-widest">Serum · Track 3</span>
+        <div class="flex-1"></div>
+        <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-emerald-400"></span><span class="text-[9px] text-zinc-400 uppercase font-bold tracking-widest">Connected</span></div>
+      </div>
+      ${expandedPanel}
+      ${foldedPanel}
+      ${canvasHTML()}
+    </div>
+  </div>`;
+
+const root=document.querySelector('[data-fold]'),cap=document.getElementById('cap');
+function setCap(){cap.textContent=root.getAttribute('data-fold')==='on'?'Folded — one row. The lanes just gained ~3 rows of height.':'Expanded — full controls (Row A + wrapping Row B). Click ⌄ to fold.';}
+setCap();
+document.querySelectorAll('.fold-toggle').forEach(b=>b.addEventListener('click',()=>{
+  const on=root.getAttribute('data-fold')==='on';
+  root.setAttribute('data-fold',on?'off':'on');
+  if(!on){const c=root.querySelector('.sd-canvas');if(c){c.classList.remove('grew');void c.offsetWidth;c.classList.add('grew');}}
+  setCap();
+}));
+</script>
+</body>
+</html>

@@ -37,6 +37,15 @@
             const params = new URLSearchParams(window.location.search);
             const order = (params.get('order') || '').trim();
 
+            // A $0 free-demo download must NOT fire Purchase/welcome — it's a
+            // Lead, not a sale. The demo product's LS "redirect after purchase"
+            // points here with ?demo=1, so demo users still get the onboarding
+            // video without inflating the pixel's purchase count or feeding the
+            // 'welcome' conversion optimizer demo-grabbers. (The server CAPI in
+            // meta_capi.py enforces the same rule: demos fire a $0 Lead event,
+            // real orders fire Purchase.)
+            if (params.get('demo') === '1') return;
+
             // event_id resolution order:
             //   1. URL param  (LS link variable {checkout.custom.event_id})
             //   2. sessionStorage (set on landing page at GET STRIDE click)

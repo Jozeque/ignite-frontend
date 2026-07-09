@@ -207,6 +207,76 @@ def _fire_meta_purchase_capi(order_data, event_id):
         return False
 
 
+def _fire_meta_lead_capi(user_data, event_id):
+    """Server-side Lead event → Meta CAPI, fired for FREE demo downloads only.
+
+    A demo (LS product 1190710) is a $0 download, NOT a purchase. Until
+    2026-07-06 this backend fired Purchase + 'welcome' for it anyway (and the
+    $0 total got bumped to the $59 list-price fallback in _build_capi_payload),
+    which (a) inflated purchase count + ROAS and (b) trained the conversion
+    campaign's 'welcome' optimization target to chase demo-grabbers who rarely
+    buy. This distinct $0 Lead event keeps the demo signal — so you can build a
+    'demo downloaders' Custom Audience to retarget OR exclude from prospecting —
+    without ever touching Purchase, revenue, or 'welcome'. Best-effort; never
+    raises. Carries the same match keys so the audience is usable."""
+    token = os.environ.get("META_CAPI_ACCESS_TOKEN") or ""
+    if not token:
+        return False
+    try:
+        ud = {}
+        email = (user_data.get("email") or "").strip().lower()
+        if email:
+            ud["em"] = [_hash_pii(email)]
+        fn = user_data.get("first_name")
+        if fn:
+            ud["fn"] = [_hash_pii(fn)]
+        ln = user_data.get("last_name")
+        if ln:
+            ud["ln"] = [_hash_pii(ln)]
+        for k in ("fbc", "fbp", "client_ip_address", "client_user_agent"):
+            v = (user_data.get(k) or "").strip()
+            if v:
+                ud[k] = v
+        payload = {
+            "data": [
+                {
+                    "event_name": "Lead",
+                    "event_time": int(time.time()),
+                    "event_id": event_id or str(uuid.uuid4()),
+                    "event_source_url": "https://stridehub.io/",
+                    "action_source": "website",
+                    "user_data": ud,
+                    # value 0 — a demo is worth nothing in revenue terms. Never
+                    # fall back to list price here (that was the original bug).
+                    "custom_data": {
+                        "value": 0.0,
+                        "currency": "USD",
+                        "content_name": "Stride Free Demo",
+                        "content_type": "product",
+                    },
+                }
+            ]
+        }
+        url = (
+            f"https://graph.facebook.com/{META_CAPI_VERSION}/"
+            f"{META_PIXEL_ID}/events?access_token={urllib.parse.quote(token, safe='')}"
+        )
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json", "User-Agent": "Stride-Backend/1.0"},
+        )
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            status = resp.getcode()
+        keys = ",".join(k for k in ("em", "fbc", "fbp", "client_ip_address") if ud.get(k)) or "NONE"
+        ok = 200 <= status < 300
+        print(f"[Meta CAPI] Lead (free demo) status={status} match_keys=[{keys}]")
+        return ok
+    except Exception as e:
+        print(f"[Meta CAPI Lead] POST failed: {e}")
+        return False
+
+
 def _build_pageview_payload(user_data, event_id, event_source_url):
     """Build a server-side PageView event for the Conversions API. Used to grow
     the website Custom Audiences (retargeting pools): the browser pixel's

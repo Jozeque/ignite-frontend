@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StrideLink — Device UI Mockup (landscape)</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  /* Palette lifted verbatim from frontend/index.html (Patchbay vintage skin) */
+  :root{
+    --bg:#141310; --bg2:#191611; --panel:#1d1b16; --raise:#252119; --line:rgba(216,201,176,.11);
+    --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
+    --copper:#c6712b; --copper-lt:#dd9a52; --amber:#d9822b; --ember:#e58a2e;
+    --teal:#2f748e;  --teal-lt:#5e9aad;
+    --sage:#5b7b55;  --sage-lt:#86a87f;
+    --rose:#a34e52;  --rose-lt:#c5807f;
+    --violet:#544b6d;--violet-lt:#9a8cbb;
+    --gold:#c9a24b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Outfit',sans-serif;color:var(--ink2);background:var(--bg);
+    background-image:radial-gradient(120% 80% at 50% -10%, rgba(198,113,43,.07), transparent 60%),
+                     radial-gradient(100% 60% at 50% 110%, rgba(47,116,142,.05), transparent 60%);
+    -webkit-font-smoothing:antialiased;min-height:100vh}
+  .mono{font-family:'Space Mono',ui-monospace,monospace}
+  .wrap{max-width:920px;margin:0 auto;padding:50px 24px 110px}
+  .brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  h1{font-family:'Outfit';font-weight:800;font-size:32px;letter-spacing:-.01em;color:var(--ink);margin:0 0 6px}
+  .sub{color:var(--ink3);font-size:15px;max-width:660px;margin:0}
+  .kick{font-family:'Space Mono';font-size:12px;letter-spacing:.26em;text-transform:uppercase;color:var(--copper-lt)}
+
+  .swatches{display:flex;flex-wrap:wrap;gap:9px;margin:24px 0 34px}
+  .sw{display:flex;align-items:center;gap:8px;font-size:11px;font-family:'Space Mono';color:var(--ink3);
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 10px 6px 7px}
+  .swd{width:15px;height:15px;border-radius:5px;box-shadow:0 0 0 1px rgba(0,0,0,.4) inset}
+
+  .shelf{background:linear-gradient(180deg,#0e0d0a,#100f0c);border:1px solid rgba(0,0,0,.5);
+    border-radius:12px;padding:16px;box-shadow:0 30px 60px -30px rgba(0,0,0,.9);overflow-x:auto}
+  .cap{font-family:'Space Mono';font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);margin:13px 2px 30px}
+
+  /* ── the M4L device, landscape ───────────────────────────── */
+  .device{width:852px;border-radius:8px;overflow:hidden;
+    background:linear-gradient(180deg,rgba(255,255,255,.026),rgba(0,0,0,.14)),var(--panel);
+    border:1px solid var(--line);
+    box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 24px 50px -32px rgba(0,0,0,.95)}
+
+  .titlebar{display:flex;align-items:center;gap:9px;height:25px;padding:0 10px;
+    background:var(--raise);border-bottom:1px solid var(--line)}
+  .pwr{width:8px;height:8px;border-radius:50%;background:radial-gradient(circle at 35% 30%,var(--sage-lt),var(--sage));box-shadow:0 0 6px rgba(134,168,127,.5)}
+  .tribar{width:0;height:0;border-left:5px solid var(--ink3);border-top:4px solid transparent;border-bottom:4px solid transparent}
+  .tname{font-family:'Space Mono';font-size:11px;color:var(--ink2);letter-spacing:.04em}
+  .maxbadge{margin-left:auto;font-family:'Space Mono';font-size:9px;letter-spacing:.16em;color:var(--copper-lt);
+    border:1px solid rgba(198,113,43,.3);border-radius:4px;padding:2px 6px;background:rgba(198,113,43,.08)}
+
+  .body{display:flex;height:150px}
+  .col{display:flex;flex-direction:column;padding:11px 13px}
+  .vline{width:1px;background:linear-gradient(180deg,transparent,var(--line) 18%,var(--line) 82%,transparent);margin:9px 0}
+  .col-h{font-family:'Space Mono';font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px}
+
+  /* identity column */
+  .col-id{width:150px;justify-content:space-between}
+  .word{font-family:'Outfit';font-weight:900;font-size:19px;letter-spacing:.02em;line-height:1}
+  .tagline{font-family:'Space Mono';font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);margin-top:5px}
+  .conn{display:inline-flex;align-items:center;gap:6px;font-family:'Space Mono';font-size:9px;color:var(--sage-lt);
+    background:rgba(91,123,85,.12);border:1px solid rgba(91,123,85,.3);border-radius:999px;padding:3px 8px;align-self:flex-start;margin-top:9px}
+  .conn .led{width:6px;height:6px;border-radius:50%;background:var(--sage-lt);box-shadow:0 0 6px rgba(134,168,127,.7)}
+  .idbtns{display:flex;flex-direction:column;gap:7px}
+  .ocanvas{display:flex;align-items:center;justify-content:center;gap:7px;border-radius:10px;padding:9px;font-weight:700;font-size:12px;cursor:default;
+    background:linear-gradient(180deg,var(--ember),var(--copper));color:#1c1206;border:1px solid rgba(255,210,150,.25);
+    box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 10px 20px -14px rgba(198,113,43,.8)}
+  .qtoggle{display:flex;align-items:center;justify-content:center;gap:6px;border-radius:10px;padding:8px;font-size:11px;font-weight:600;cursor:default;
+    background:rgba(198,113,43,.10);border:1px solid rgba(198,113,43,.30);color:var(--copper-lt)}
+
+  /* button zones */
+  .col-motion{width:236px;justify-content:center}
+  .col-shape{width:156px;justify-content:center}
+  .col-loop{width:122px;justify-content:center}
+  .stack{display:flex;flex-direction:column;gap:7px}
+  .row{display:flex;gap:6px}
+  .btn{flex:1;text-align:center;border-radius:8px;padding:8px 4px;font-size:11px;font-weight:600;letter-spacing:.01em;cursor:default;
+    box-shadow:0 1px 0 rgba(255,255,255,.04) inset;transition:transform .12s;white-space:nowrap}
+  .btn:hover{transform:translateY(-1px)}
+  .b-warm{background:rgba(198,113,43,.10);border:1px solid rgba(198,113,43,.30);color:var(--copper-lt)}
+  .b-sage{background:rgba(91,123,85,.14);border:1px solid rgba(91,123,85,.36);color:var(--sage-lt)}
+  .b-violet{background:rgba(84,75,109,.20);border:1px solid rgba(84,75,109,.42);color:var(--violet-lt)}
+  .b-teal{background:rgba(47,116,142,.13);border:1px solid rgba(47,116,142,.34);color:var(--teal-lt)}
+  .loop{flex:1;text-align:center;border-radius:7px;padding:8px 4px;font-family:'Space Mono';font-size:12px;font-weight:700;cursor:default;
+    background:linear-gradient(180deg,rgba(255,255,255,.025),rgba(0,0,0,.12)),var(--raise);border:1px solid var(--line);color:var(--ink3)}
+  .loop.on{background:rgba(201,162,75,.16);border-color:rgba(201,162,75,.55);color:var(--gold);box-shadow:0 0 12px -4px rgba(201,162,75,.5),0 1px 0 rgba(255,255,255,.06) inset}
+
+  /* sync + inject column */
+  .col-inject{flex:1;min-width:172px;justify-content:space-between}
+  .syncline{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .util{display:inline-flex;align-items:center;gap:6px;border-radius:8px;padding:7px 11px;font-size:11px;font-weight:600;cursor:default;
+    background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.12)),var(--raise);border:1px solid var(--line);color:var(--ink)}
+  .util .ic{color:var(--teal-lt);font-size:12px}
+  .counter{display:flex;align-items:flex-end;gap:7px}
+  .cnum{font-family:'Space Mono';font-weight:700;font-size:19px;color:var(--ink);line-height:1}
+  .cslash{font-family:'Space Mono';font-size:15px;color:var(--ink3)}
+  .clabels{display:flex;justify-content:space-between;font-family:'Space Mono';font-size:7.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-top:3px}
+  .inject{display:flex;align-items:center;justify-content:center;gap:9px;border-radius:11px;padding:13px;font-weight:900;font-size:13px;letter-spacing:.05em;text-transform:uppercase;cursor:default;
+    background:linear-gradient(180deg,var(--ember),var(--copper));color:#1c1206;border:1px solid rgba(255,210,150,.3);
+    box-shadow:0 1px 0 rgba(255,255,255,.28) inset,0 14px 26px -16px rgba(198,113,43,.85)}
+
+  /* folded device */
+  .device.folded{width:262px}
+  .folded-note{font-family:'Space Mono';font-size:9px;color:var(--ink3);letter-spacing:.08em;margin-top:4px;text-align:center}
+
+  .legend{margin-top:10px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 24px;box-shadow:0 1px 0 rgba(255,255,255,.04) inset}
+  .legend h3{font-family:'Space Mono';font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3);margin:0 0 14px}
+  .legend ul{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:11px 30px}
+  .legend li{display:flex;align-items:center;gap:11px;font-size:13px;color:var(--ink2)}
+  .legend .chip{width:30px;height:18px;border-radius:6px;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.4) inset}
+  @media(max-width:560px){.legend ul{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="kick">StrideLink · Device UI</div>
+  <h1>The <span class="brand">Quick</span> panel, sized for Ableton</h1>
+  <p class="sub">Reflowed into a landscape channel strip that fits Ableton's fixed device height (~168px), so it docks like a real M4L device. Same stridehub.io palette, same color logic: warm = create, cool = transform, gold = loop, copper = the one CTA.</p>
+
+  <div class="swatches">
+    <div class="sw"><span class="swd" style="background:#141310"></span>bg #141310</div>
+    <div class="sw"><span class="swd" style="background:#1d1b16"></span>panel #1d1b16</div>
+    <div class="sw"><span class="swd" style="background:#252119"></span>raise #252119</div>
+    <div class="sw"><span class="swd" style="background:#ece4d6"></span>ink #ece4d6</div>
+    <div class="sw"><span class="swd" style="background:#c6712b"></span>copper #c6712b</div>
+    <div class="sw"><span class="swd" style="background:#e58a2e"></span>ember #e58a2e</div>
+    <div class="sw"><span class="swd" style="background:#c9a24b"></span>gold #c9a24b</div>
+    <div class="sw"><span class="swd" style="background:#5e9aad"></span>teal #5e9aad</div>
+    <div class="sw"><span class="swd" style="background:#86a87f"></span>sage #86a87f</div>
+    <div class="sw"><span class="swd" style="background:#9a8cbb"></span>violet #9a8cbb</div>
+  </div>
+
+  <!-- EXPANDED -->
+  <div class="shelf">
+    <div class="device">
+      <div class="titlebar">
+        <span class="pwr"></span><span class="tribar"></span>
+        <span class="tname">StrideLink</span><span class="maxbadge">MAX</span>
+      </div>
+      <div class="body">
+
+        <!-- identity -->
+        <div class="col col-id">
+          <div>
+            <div class="word"><span class="brand">STRIDE</span></div>
+            <div class="tagline">Sound Design Engine</div>
+            <div class="conn"><span class="led"></span>Connected</div>
+          </div>
+          <div class="idbtns">
+            <div class="ocanvas">◧ Open Canvas</div>
+            <div class="qtoggle">Quick ⌄</div>
+          </div>
+        </div>
+        <div class="vline"></div>
+
+        <!-- motion -->
+        <div class="col col-motion">
+          <div class="col-h">Motion</div>
+          <div class="stack">
+            <div class="row">
+              <div class="btn b-warm">Chaos</div>
+              <div class="btn b-warm">Neuro</div>
+              <div class="btn b-warm">Reflector</div>
+            </div>
+            <div class="row">
+              <div class="btn b-warm">S&amp;H</div>
+              <div class="btn b-warm">Prism</div>
+            </div>
+          </div>
+        </div>
+        <div class="vline"></div>
+
+        <!-- shape -->
+        <div class="col col-shape">
+          <div class="col-h">Shape</div>
+          <div class="stack">
+            <div class="row">
+              <div class="btn b-sage">Mutate</div>
+              <div class="btn b-violet">Shuffle</div>
+            </div>
+            <div class="row">
+              <div class="btn b-teal">2&times;</div>
+              <div class="btn b-teal">&frac12;&times;</div>
+            </div>
+          </div>
+        </div>
+        <div class="vline"></div>
+
+        <!-- loop -->
+        <div class="col col-loop">
+          <div class="col-h">Loop</div>
+          <div class="stack">
+            <div class="row"><div class="loop">4</div><div class="loop on">8</div></div>
+            <div class="row"><div class="loop">16</div><div class="loop">32</div></div>
+          </div>
+        </div>
+        <div class="vline"></div>
+
+        <!-- sync + inject -->
+        <div class="col col-inject">
+          <div>
+            <div class="col-h">Sync &middot; Inject</div>
+            <div class="syncline">
+              <div class="util"><span class="ic">↻</span>Rescan</div>
+              <div>
+                <div class="counter"><span class="cnum">12</span><span class="cslash">/</span><span class="cnum">12</span></div>
+                <div class="clabels"><span>chain</span><span>stride</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="inject">▼ Inject to Clip</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+  <div class="cap">Expanded — docks as a wide device, fits the ~168px device height</div>
+
+  <!-- FOLDED -->
+  <div class="shelf" style="display:inline-block">
+    <div class="device folded">
+      <div class="titlebar">
+        <span class="pwr"></span><span class="tribar"></span>
+        <span class="tname">StrideLink</span><span class="maxbadge">MAX</span>
+      </div>
+      <div class="body" style="height:auto">
+        <div class="col col-id" style="width:100%;justify-content:flex-start;gap:11px">
+          <div>
+            <div class="word"><span class="brand">STRIDE</span></div>
+            <div class="tagline">Sound Design Engine</div>
+            <div class="conn"><span class="led"></span>Connected</div>
+          </div>
+          <div class="idbtns">
+            <div class="ocanvas">◧ Open Canvas</div>
+            <div class="qtoggle">Quick &rsaquo;</div>
+          </div>
+          <div class="folded-note">— panel folded —</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="cap">Folded — collapses to a compact device</div>
+
+  <div class="legend">
+    <h3>Color logic</h3>
+    <ul>
+      <li><span class="chip" style="background:rgba(198,113,43,.10);border:1px solid rgba(198,113,43,.30)"></span><b style="color:var(--copper-lt)">Motion</b>&nbsp;— warm copper. The tools that create.</li>
+      <li><span class="chip" style="background:rgba(91,123,85,.14);border:1px solid rgba(91,123,85,.36)"></span><b style="color:var(--sage-lt)">Shape</b>&nbsp;— cool patch-cable hues. The tools that transform.</li>
+      <li><span class="chip" style="background:rgba(201,162,75,.16);border:1px solid rgba(201,162,75,.55)"></span><b style="color:var(--gold)">Loop</b>&nbsp;— gold, lit when active.</li>
+      <li><span class="chip" style="background:linear-gradient(180deg,var(--ember),var(--copper))"></span><b style="color:var(--copper-lt)">Inject</b>&nbsp;— the solid copper hero. The one true CTA.</li>
+      <li><span class="chip" style="background:var(--raise);border:1px solid var(--line)"></span><b style="color:var(--ink2)">Rescan</b>&nbsp;— neutral utility, teal glyph.</li>
+      <li><span class="chip" style="background:rgba(91,123,85,.12);border:1px solid rgba(91,123,85,.3)"></span><b style="color:var(--sage-lt)">Connected</b>&nbsp;— sage LED, the "available now" green.</li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>

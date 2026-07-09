@@ -57,10 +57,34 @@ function patChaos(seed,x){return clamp(0.5+0.27*Math.sin(x*17+seed*9)+0.18*Math.
 function patFn(p){return p==='sh'?patSH:patChaos;}
 // REFLECTOR = lanes mirror each other. Each pair: even lane = source, odd lane = its vertical mirror (1-src).
 function reflectSource(x,pair){return clamp(0.5+0.30*Math.sin(x*6.283+pair*1.3)+0.16*Math.sin(x*12.5+pair*2.1)+0.08*Math.sin(x*20+pair),0,1);}
-function basePat(act,k,x){
-  if(act.pat==='reflector'){const pair=Math.floor(k/2),src=reflectSource(x,pair);return clamp(k%2===0?src:1-src,0,1);}
-  return patFn(act.pat)(LANES[k].seed,x);
+// ── REAL generators ported from canvas.js — the lanes now show the app's exact output ──
+const BEATS=8;
+const clamp01=v=>v<0?0:v>1?1:v;
+const _trueRandom=Math.random;
+function _seededRng(seed){let a=(seed>>>0)||1;return function(){a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};}
+function withSeed(seed,fn){Math.random=_seededRng(seed);try{return fn();}finally{Math.random=_trueRandom;}}
+function injectShape(pts,shape,cB,chunk){
+  const addPt=(t,v)=>pts.push({time:Math.round(t*10000)/10000,value:clamp01(v),curve:0});
+  if(shape==='dotted_ramp'){let pk=0.4+Math.random()*0.6;addPt(cB,0);addPt(cB+chunk*0.75,pk);addPt(cB+chunk*0.75+0.01,0);addPt(cB+chunk,0);}
+  else if(shape==='mid_value_hold'){let mv=0.15+Math.random()*0.35,pk=0.7+Math.random()*0.3;addPt(cB,0);addPt(cB+0.01,pk);addPt(cB+chunk*0.25,pk);addPt(cB+chunk*0.25+0.01,mv);addPt(cB+chunk*0.75,mv);addPt(cB+chunk*0.75+0.01,pk);addPt(cB+chunk-0.01,pk);addPt(cB+chunk,0);}
+  else if(shape==='offgrid_saw'){let pk=0.5+Math.random()*0.5,og=[0.216,0.414,0.618,0.88][Math.floor(Math.random()*4)];addPt(cB,0);addPt(cB+0.01,pk);addPt(cB+chunk*og,0);addPt(cB+chunk,0);}
+  else if(shape==='hard_chop'){let sub=chunk/4;for(let i=0;i<4;i++){let val=Math.random()>0.5?(Math.random()>0.5?1:0.3+Math.random()*0.5):0;if(val>0){let t=cB+i*sub;addPt(t,0);addPt(t+0.01,val);addPt(t+sub*0.85,0);}}addPt(cB+chunk,0);}
+  else if(shape==='exponential_build'){addPt(cB,0);addPt(cB+chunk*0.5,0.2);addPt(cB+chunk*0.8,0.5);addPt(cB+chunk-0.01,1);addPt(cB+chunk,0);}
+  else if(shape==='hyper_stutter'){let ss=Math.random()>0.5?0.125:0.0625,steps=Math.floor(chunk/ss);for(let i=0;i<steps;i++){if(i%2===0){let t=cB+i*ss;addPt(t,0);addPt(t+0.001,0.6+Math.random()*0.4);addPt(t+ss*0.9,0);}}addPt(cB+chunk,0);}
+  else if(shape==='rhythmic_gate_build'){let step=[0.125,0.25,0.5][Math.floor(Math.random()*3)],steps=Math.floor(chunk/step),sv=0.7+Math.random()*0.3,ev=Math.random()*0.3,up=Math.random()>0.5;for(let i=0;i<steps;i++){let t=cB+i*step,pr=i/Math.max(1,steps-1),cp=up?ev+(sv-ev)*pr:sv+(ev-sv)*pr;addPt(t,0);addPt(t+0.001,cp);addPt(t+step*0.85,0);}addPt(cB+chunk,0);}
+  else if(shape==='syncopated_drops'){let step=0.25,steps=Math.floor(chunk/step);for(let i=0;i<steps;i++){if(Math.random()>0.3){let t=cB+i*step,pk=0.3+Math.random()*0.7;addPt(t,0);addPt(t+0.001,pk);addPt(t+step*0.8,pk*0.8);addPt(t+step*0.81,0);}}addPt(cB+chunk,0);}
 }
+const NEURO_POOL=['dotted_ramp','mid_value_hold','offgrid_saw','hard_chop','exponential_build','hyper_stutter','rhythmic_gate_build','syncopated_drops'];
+function genNeuro(sB,eB){const pts=[];let cB=sB;while(cB<eB-0.001){let chunk=[0.5,1,1.5,2,4][Math.floor(Math.random()*5)];if(cB+chunk>eB)chunk=eB-cB;injectShape(pts,NEURO_POOL[Math.floor(Math.random()*NEURO_POOL.length)],cB,chunk);cB=Math.round((cB+chunk)*10000)/10000;}return pts;}
+function genChaos(sB,eB){const dur=eB-sB,numLayers=2+Math.floor(Math.random()*3),waves=[];for(let i=0;i<numLayers;i++)waves.push({freq:0.3+Math.random()*2.2,amp:0.15+Math.random()*0.35,phase:Math.random()*Math.PI*2,useCos:Math.random()>0.5});const noiseAmt=0.1+Math.random()*0.25,spikeProb=0.08+Math.random()*0.15,raw=[];for(let b=0;b<=dur;b+=0.25){let v=0.5;for(const w of waves)v+=(w.useCos?Math.cos(b*w.freq+w.phase):Math.sin(b*w.freq+w.phase))*w.amp;if(Math.random()<spikeProb)v=Math.random();else v+=(Math.random()*2-1)*noiseAmt;raw.push({time:sB+b,value:v});}const rMin=Math.min.apply(null,raw.map(p=>p.value)),rMax=Math.max.apply(null,raw.map(p=>p.value)),rRange=rMax-rMin||1;return raw.map(p=>({time:p.time,value:clamp01((p.value-rMin)/rRange),curve:0}));}
+function genSH(sB,eB){const RATES=[2,1,0.5,0.25,0.125,4/6,2/6,1/6],EPS=0.005,MIN_DELTA=0.15,r4=t=>Math.round(t*10000)/10000,pts=[];let lastV=null,prevRate=null,secStart=sB;while(secStart<eB-1e-4){const secEnd=Math.min((Math.floor(secStart/4)+1)*4,eB);const rate=(prevRate!==null&&Math.random()<0.5)?prevRate:RATES[Math.floor(Math.random()*RATES.length)];prevRate=rate;let t=secStart;while(t<secEnd-1e-4){const stepEnd=Math.min(t+rate,secEnd);let v,tries=0;do{v=Math.random();tries++;}while(lastV!==null&&Math.abs(v-lastV)<MIN_DELTA&&tries<12);lastV=v;const cv=clamp01(v),tA=r4(t);pts.push({time:tA,value:cv,curve:0});const tB=r4(stepEnd-EPS);if(tB>tA)pts.push({time:tB,value:cv,curve:0});t=stepEnd;}secStart=secEnd;}return pts;}
+function genReflector(sB,eB,N){const pairs=Math.floor(N/2),flip=Math.random()<0.5,neuroPairs=flip?Math.ceil(pairs/2):Math.floor(pairs/2),chaosPairs=pairs-neuroPairs,mirror=p=>p.map(pt=>({time:pt.time,value:clamp01(1-pt.value),curve:pt.curve?-pt.curve:0})),out=[];for(let i=0;i<neuroPairs;i++){const b=genNeuro(sB,eB);out.push(b);out.push(mirror(b));}for(let i=0;i<chaosPairs;i++){const b=genChaos(sB,eB);out.push(b);out.push(mirror(b));}while(out.length<N)out.push(genNeuro(sB,eB));return out.slice(0,N);}
+function mutate(points,beats){const sB=0,eB=beats,dur=eB-sB;let pts=points.filter(pt=>pt.time>=sB&&pt.time<=eB);if(pts.length<2)return points.slice();let norm=pts.map(pt=>({t:(pt.time-sB)/dur,v:pt.value,curve:pt.curve||0}));const numChunks=3+Math.floor(Math.random()*4),chunkSize=1/numChunks;let chunks=[];for(let i=0;i<numChunks;i++){const cS=i*chunkSize,cE=(i+1)*chunkSize;chunks.push(norm.filter(p=>p.t>=cS&&p.t<cE).map(p=>({t:(p.t-cS)/chunkSize,v:p.v,curve:p.curve})));}for(let i=chunks.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)),tmp=chunks[i];chunks[i]=chunks[j];chunks[j]=tmp;}chunks=chunks.map(chunk=>{if(chunk.length<2)return chunk;if(Math.random()<0.4){chunk=chunk.map(p=>({t:1-p.t,v:p.v,curve:p.curve?-p.curve:0}));chunk.sort((a,b)=>a.t-b.t);}if(Math.random()<0.3)chunk=chunk.map(p=>({t:p.t,v:1-p.v,curve:p.curve?-p.curve:0}));const ampShift=(Math.random()-0.5)*0.6,ampScale=0.6+Math.random()*0.8;chunk=chunk.map(p=>({t:p.t,v:clamp01((p.v-0.5)*ampScale+0.5+ampShift),curve:p.curve}));const timeScale=0.8+Math.random()*0.4,timeOffset=(1-timeScale)*Math.random();return chunk.map(p=>({t:clamp01(p.t*timeScale+timeOffset),v:p.v,curve:p.curve}));});let result=[];chunks.forEach((chunk,i)=>{const cS=i*chunkSize;chunk.forEach(p=>result.push({time:sB+(cS+p.t*chunkSize)*dur,value:p.v,curve:p.curve}));});const newCount=Math.max(1,Math.floor(pts.length*(0.1+Math.random()*0.1)));for(let i=0;i<newCount;i++){const t=sB+Math.random()*dur,nearby=result.reduce((best,p)=>Math.abs(p.time-t)<Math.abs(best.time-t)?p:best,result[0]);result.push({time:t,value:clamp01(nearby.value+(Math.random()-0.5)*0.4),curve:0});}const rm=Math.floor(result.length*(0.1+Math.random()*0.05));for(let i=0;i<rm&&result.length>3;i++){const idx=1+Math.floor(Math.random()*(result.length-2));result.splice(idx,1);}result.sort((a,b)=>a.time-b.time);return result.map(p=>({time:Math.round(Math.max(sB,Math.min(eB,p.time))*10000)/10000,value:clamp01(p.value),curve:p.curve||0}));}
+function valueAt(pts,beat){if(!pts||!pts.length)return 0.5;if(beat<=pts[0].time)return pts[0].value;const last=pts[pts.length-1];if(beat>=last.time)return last.value;for(let i=1;i<pts.length;i++){if(pts[i].time>=beat){const a=pts[i-1],b=pts[i],t=(beat-a.time)/((b.time-a.time)||1);return a.value+(b.value-a.value)*t;}}return last.value;}
+const GEN_INJECT=withSeed(0x5710DE,()=>{const sB=0,eB=BEATS,sh=[],chaos=[];for(let k=0;k<6;k++){sh.push(genSH(sB,eB));chaos.push(genChaos(sB,eB));}const reflector=genReflector(sB,eB,6),shMut=sh.map(b=>mutate(b,BEATS)),chaosMut=chaos.map(b=>mutate(b,BEATS));return{sh,chaos,reflector,shMut,chaosMut};});
+function _injBase(act,k){return act.pat==='reflector'?GEN_INJECT.reflector[k]:act.pat==='chaos'?GEN_INJECT.chaos[k]:GEN_INJECT.sh[k];}
+function _injMut(act,k){return act.pat==='chaos'?GEN_INJECT.chaosMut[k]:GEN_INJECT.shMut[k];}
+function basePat(act,k,x){return valueAt(_injBase(act,k),clamp(x,0,1)*BEATS);}
 // ── real Mutate (mirrors sdMutate): chop into 3-6 chunks, shuffle them, then per-chunk
 //    flip (reverse time) / mirror (invert value) / amplitude-scale / time-warp. Deterministic per (act,lane). ──
 function rng32(seed){let s=seed>>>0;return function(){s=(s+0x6D2B79F5)>>>0;let t=s;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};}
@@ -69,11 +93,7 @@ function buildMutatePlan(seed){const r=rng32(seed),N=3+Math.floor(r()*4),perm=[.
   const tf=perm.map(()=>({flip:r()<0.4,mirror:r()<0.3,ampScale:0.6+r()*0.8,ampShift:(r()-0.5)*0.6,timeScale:0.8+r()*0.4,timeOffset:0}));
   tf.forEach(o=>o.timeOffset=(1-o.timeScale)*r());return{N,perm,tf};}
 const PLAN={};
-function mutatedVal(act,k,x){const plan=PLAN[act._ai+'_'+k];if(!plan)return basePat(act,k,x);
-  const N=plan.N;let s=Math.floor(clamp(x,0,0.9999)*N);const u=x*N-s,src=plan.perm[s],tr=plan.tf[s];
-  let lu=clamp((u-tr.timeOffset)/tr.timeScale,0,1);if(tr.flip)lu=1-lu;
-  let bv=basePat(act,k,clamp((src+lu)/N,0,1));if(tr.mirror)bv=1-bv;
-  return clamp((bv-0.5)*tr.ampScale+0.5+tr.ampShift,0,1);}
+function mutatedVal(act,k,x){return valueAt(_injMut(act,k),clamp(x,0,1)*BEATS);}
 // mut acts as a left→right "wipe": the curve gets rewritten into its mutated form as the tool processes it.
 function laneVal(act,k,x,mut){
   if(act.type!=='double'||mut<=0) return basePat(act,k,x);

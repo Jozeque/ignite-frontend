@@ -20,6 +20,7 @@ from meta_capi import (
     META_PIXEL_ID,
     _build_capi_payload,
     _fire_meta_purchase_capi,
+    _fire_meta_lead_capi,
     _hash_pii,
 )
 
@@ -409,6 +410,75 @@ class FireMetaPurchaseCapiTests(unittest.TestCase):
                 args, _ = urlopen.call_args
                 req = args[0]
                 self.assertEqual(req.get_header("Content-type"), "application/json")
+
+
+# ─── _fire_meta_lead_capi (free-demo path) ───────────────────────────
+
+
+class FireMetaLeadCapiTests(unittest.TestCase):
+    """A $0 free-demo download must fire a distinct Lead event — NEVER
+    Purchase/welcome — so it can't inflate purchase count/revenue or train
+    the conversion optimizer on demo grabbers who rarely buy."""
+
+    def _user(self):
+        return {
+            "email": "Demo-Grabber@Example.com ",
+            "fbc": "fb.1.123.abc",
+            "first_name": "Dee",
+            "last_name": "Mo",
+        }
+
+    def _mock_response(self, status):
+        resp = MagicMock()
+        resp.getcode.return_value = status
+        resp.__enter__ = MagicMock(return_value=resp)
+        resp.__exit__ = MagicMock(return_value=False)
+        return resp
+
+    def test_no_token_returns_false_and_does_not_post(self):
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("META_CAPI_ACCESS_TOKEN", None)
+            with patch("meta_capi.urllib.request.urlopen") as urlopen:
+                self.assertFalse(_fire_meta_lead_capi(self._user(), "evt-1"))
+                urlopen.assert_not_called()
+
+    def test_success_200_returns_true_and_posts_once(self):
+        with patch.dict(os.environ, {"META_CAPI_ACCESS_TOKEN": "tok-123"}):
+            with patch("meta_capi.urllib.request.urlopen", return_value=self._mock_response(200)) as urlopen:
+                self.assertTrue(_fire_meta_lead_capi(self._user(), "evt-1"))
+                urlopen.assert_called_once()
+
+    def test_fires_lead_event_only_never_purchase_or_welcome(self):
+        with patch.dict(os.environ, {"META_CAPI_ACCESS_TOKEN": "tok-123"}):
+            with patch("meta_capi.urllib.request.urlopen", return_value=self._mock_response(200)) as urlopen:
+                _fire_meta_lead_capi(self._user(), "evt-1")
+                body = json.loads(urlopen.call_args[0][0].data.decode("utf-8"))
+                names = [ev["event_name"] for ev in body["data"]]
+                self.assertEqual(names, ["Lead"])
+                self.assertNotIn("Purchase", names)
+                self.assertNotIn("welcome", names)
+
+    def test_value_is_zero_never_falls_back_to_list_price(self):
+        # The entire point of the fix: a demo is worth $0 and must NOT hit
+        # the $59 list-price fallback that _build_capi_payload applies.
+        with patch.dict(os.environ, {"META_CAPI_ACCESS_TOKEN": "tok-123"}):
+            with patch("meta_capi.urllib.request.urlopen", return_value=self._mock_response(200)) as urlopen:
+                _fire_meta_lead_capi(self._user(), "evt-1")
+                body = json.loads(urlopen.call_args[0][0].data.decode("utf-8"))
+                self.assertEqual(body["data"][0]["custom_data"]["value"], 0.0)
+
+    def test_hashes_email_normalized_for_audience_matching(self):
+        with patch.dict(os.environ, {"META_CAPI_ACCESS_TOKEN": "tok-123"}):
+            with patch("meta_capi.urllib.request.urlopen", return_value=self._mock_response(200)) as urlopen:
+                _fire_meta_lead_capi(self._user(), "evt-1")
+                body = json.loads(urlopen.call_args[0][0].data.decode("utf-8"))
+                em = body["data"][0]["user_data"]["em"][0]
+                self.assertEqual(em, hashlib.sha256(b"demo-grabber@example.com").hexdigest())
+
+    def test_network_exception_returns_false_and_does_not_raise(self):
+        with patch.dict(os.environ, {"META_CAPI_ACCESS_TOKEN": "tok-123"}):
+            with patch("meta_capi.urllib.request.urlopen", side_effect=ConnectionError("boom")):
+                self.assertFalse(_fire_meta_lead_capi(self._user(), "evt-1"))
 
 
 # ─── Integration: shape verification of common LS-driven scenarios ──

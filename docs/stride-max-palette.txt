@@ -1,0 +1,44 @@
+STRIDE — Max for Live brand palette
+Patchbay vintage skin (matches stridehub.io)
+
+HOW TO LOAD INTO MAX
+  Max's Inspector has no "import palette file" button — the reusable palette is
+  the Swatches strip inside the color picker. You fill it once and it is then
+  available on every object, in every device:
+
+    1. Select an object, click a color attribute in the Inspector → the color
+       picker opens.
+    2. Paste a HEX from below into the picker's hex (HTML) field, press Enter.
+    3. Click the "+" on the Swatches row to pin it.
+    4. Repeat for all 10. Done — they now show up for every object you color.
+
+  If you set colors in patch text / JSON instead, use the RGBA floats (0–1).
+
+NAME      HEX        RGBA (0–1)
+--------  ---------  ----------------------
+bg        #141310    0.078 0.075 0.063 1.
+panel     #1d1b16    0.114 0.106 0.086 1.
+raise     #252119    0.145 0.129 0.098 1.
+ink       #ece4d6    0.925 0.894 0.839 1.
+copper    #c6712b    0.776 0.443 0.169 1.
+ember     #e58a2e    0.898 0.541 0.180 1.
+gold      #c9a24b    0.788 0.635 0.294 1.
+teal      #5e9aad    0.369 0.604 0.678 1.
+sage      #86a87f    0.525 0.659 0.498 1.
+violet    #9a8cbb    0.604 0.549 0.733 1.
+
+WHERE EACH COLOR GOES (live.text Inspector)
+  Motion buttons (Chaos/Neuro/Reflector/S&H/Prism)
+      Text/Border = copper #c6712b   Background = bg #141310 (or a faint copper)
+  Shape buttons
+      Mutate   Text/Border = sage   #86a87f
+      Shuffle  Text/Border = violet #9a8cbb
+      2x / ½x  Text/Border = teal   #5e9aad
+  Loop toggles (4/8/16/32)
+      Off: Text = raise/ink3 on panel.   On (active): Text/Border = gold #c9a24b
+  Inject to Clip  Background = ember #e58a2e → copper #c6712b,  Text = #1c1206
+  Open Canvas     same copper fill as Inject (the two warm CTAs)
+  Rescan          neutral: Text = ink #ece4d6 on raise #252119, glyph = teal
+  Connected LED   sage #86a87f
+  Panel/body bg   panel #1d1b16    Device frame / dividers = raise #252119
+  All text        ink #ece4d6 (primary) / dimmer mixes of it for labels

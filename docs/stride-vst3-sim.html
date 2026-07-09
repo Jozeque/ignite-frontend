@@ -1,0 +1,426 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Stride VST3 sim</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;600;700;800;900&display=swap');
+  html,body{margin:0;background:#000;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;font-family:Outfit}
+  #c{height:100vh;aspect-ratio:9/16;box-shadow:0 20px 80px rgba(0,0,0,.6)}
+  #hud{position:fixed;top:8px;left:8px;color:#666;font:600 12px Outfit;background:#111;padding:3px 7px;border-radius:5px;z-index:9}
+  button{position:fixed;top:6px;font:600 12px Outfit;background:#222;color:#ccc;border:1px solid #333;border-radius:5px;padding:3px 8px;cursor:pointer;z-index:9}
+  #pp{right:70px}#rs{right:8px}
+</style></head>
+<body><canvas id="c" width="1080" height="1920"></canvas>
+<div id="hud">0</div><button id="pp">Pause</button><button id="rs">Restart</button>
+<script>
+// ════════════════════════════════════════════════════════════════════════
+//  STRIDE VST3-HOST simulation. A mock synth (NOVA) up top with live modulation rings
+//  on its real knobs; Stride canvas below. Flow: MAP -> cursor clicks each knob
+//  (adds a lane) -> one MOTION click fills the WHOLE canvas at once & everything
+//  modulates live -> switch algorithms -> Mutate -> focus-mode edit on a lane.
+//  No inject to clip. ~58s; 0-5 + 50-58 blank for hook + CTA.
+// ════════════════════════════════════════════════════════════════════════
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+let W=0,H=0,DPR=1,Sv=1; const VW=1080, VH=1920;
+function resize(){const r=cv.getBoundingClientRect();DPR=Math.min(window.devicePixelRatio||1,2);W=r.width;H=r.height;Sv=W/VW;cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);}
+new ResizeObserver(resize).observe(cv);resize();
+const SW=1185, SH=740;   // mock-synth panel aspect (drawn in-canvas, not a screenshot)
+const SYNACC='#5aa9c9';  // the mock synth's own accent (cyan), distinct from Stride copper
+const endcard=new Image();let ecOK=false;endcard.onload=()=>ecOK=true;endcard.src='stride-endcard.png';
+
+const INK='#edeef0', SUB='#8a8a92';
+const COP='#c6712b', AMB='#dd9a52', TEAL='#2f748e', GRN='#5b7b55', RED='#a34e52', VIO='#6f6494';
+const LANEC=[COP,AMB,TEAL,GRN,RED,VIO,'#c98a4e','#9a8cbb','#5e9aad','#86a87f','#c47a86','#7fb0a8'];
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function lerp(a,b,t){return a+(b-a)*t;}
+function hexA(h,a){const n=parseInt(h.slice(1),16);return`rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
+const E={io:t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2,out:t=>1-Math.pow(1-t,3),in:t=>t*t*t,smooth:t=>t*t*(3-2*t),back:t=>{const c=1.7,c3=c+1;return 1+c3*Math.pow(t-1,3)+c*Math.pow(t-1,2);}};
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+let grain=document.createElement('canvas');(function(){grain.width=grain.height=150;const g=grain.getContext('2d'),id=g.createImageData(150,150);let s=98765;const rnd=()=>{s=(s*1103515245+12345)&0x7fffffff;return s/0x7fffffff;};for(let i=0;i<id.data.length;i+=4){const n=rnd()*255;id.data[i]=id.data[i+1]=id.data[i+2]=n;id.data[i+3]=10;}g.putImageData(id,0,0);})();
+
+// ── generators (ported from canvas.js), built once ──────────────────────
+const NLANE=16; const BEATS=8; const _tr=Math.random;
+function _seed(s){let a=(s>>>0)||1;return function(){a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};}
+function withSeed(s,fn){Math.random=_seed(s);try{return fn();}finally{Math.random=_tr;}}
+const cl1=v=>v<0?0:v>1?1:v;
+function injectShape(p,sh,cB,ch){const add=(t,v)=>p.push({time:Math.round(t*10000)/10000,value:cl1(v),curve:0});
+  if(sh==='dotted_ramp'){let pk=0.4+Math.random()*0.6;add(cB,0);add(cB+ch*0.75,pk);add(cB+ch*0.75+0.01,0);add(cB+ch,0);}
+  else if(sh==='mid_value_hold'){let mv=0.15+Math.random()*0.35,pk=0.7+Math.random()*0.3;add(cB,0);add(cB+0.01,pk);add(cB+ch*0.25,pk);add(cB+ch*0.25+0.01,mv);add(cB+ch*0.75,mv);add(cB+ch*0.75+0.01,pk);add(cB+ch-0.01,pk);add(cB+ch,0);}
+  else if(sh==='offgrid_saw'){let pk=0.5+Math.random()*0.5,og=[0.216,0.414,0.618,0.88][Math.floor(Math.random()*4)];add(cB,0);add(cB+0.01,pk);add(cB+ch*og,0);add(cB+ch,0);}
+  else if(sh==='hard_chop'){let sub=ch/4;for(let i=0;i<4;i++){let val=Math.random()>0.5?(Math.random()>0.5?1:0.3+Math.random()*0.5):0;if(val>0){let t=cB+i*sub;add(t,0);add(t+0.01,val);add(t+sub*0.85,0);}}add(cB+ch,0);}
+  else if(sh==='exponential_build'){add(cB,0);add(cB+ch*0.5,0.2);add(cB+ch*0.8,0.5);add(cB+ch-0.01,1);add(cB+ch,0);}
+  else if(sh==='hyper_stutter'){let ss=Math.random()>0.5?0.125:0.0625,st=Math.floor(ch/ss);for(let i=0;i<st;i++){if(i%2===0){let t=cB+i*ss;add(t,0);add(t+0.001,0.6+Math.random()*0.4);add(t+ss*0.9,0);}}add(cB+ch,0);}
+  else if(sh==='rhythmic_gate_build'){let step=[0.125,0.25,0.5][Math.floor(Math.random()*3)],st=Math.floor(ch/step),sv=0.7+Math.random()*0.3,ev=Math.random()*0.3,up=Math.random()>0.5;for(let i=0;i<st;i++){let t=cB+i*step,pr=i/Math.max(1,st-1),cp=up?ev+(sv-ev)*pr:sv+(ev-sv)*pr;add(t,0);add(t+0.001,cp);add(t+step*0.85,0);}add(cB+ch,0);}
+  else if(sh==='syncopated_drops'){let step=0.25,st=Math.floor(ch/step);for(let i=0;i<st;i++){if(Math.random()>0.3){let t=cB+i*step,pk=0.3+Math.random()*0.7;add(t,0);add(t+0.001,pk);add(t+step*0.8,pk*0.8);add(t+step*0.81,0);}}add(cB+ch,0);}}
+const NPOOL=['dotted_ramp','mid_value_hold','offgrid_saw','hard_chop','exponential_build','hyper_stutter','rhythmic_gate_build','syncopated_drops'];
+function genNeuro(sB,eB){const p=[];let cB=sB;while(cB<eB-0.001){let ch=[0.5,1,1.5,2,4][Math.floor(Math.random()*5)];if(cB+ch>eB)ch=eB-cB;injectShape(p,NPOOL[Math.floor(Math.random()*NPOOL.length)],cB,ch);cB=Math.round((cB+ch)*10000)/10000;}return p;}
+function genChaos(sB,eB){const dur=eB-sB,nl=2+Math.floor(Math.random()*3),w=[];for(let i=0;i<nl;i++)w.push({f:0.3+Math.random()*2.2,a:0.15+Math.random()*0.35,ph:Math.random()*Math.PI*2,c:Math.random()>0.5});const na=0.1+Math.random()*0.25,sp=0.08+Math.random()*0.15,raw=[];for(let b=0;b<=dur;b+=0.25){let v=0.5;for(const o of w)v+=(o.c?Math.cos(b*o.f+o.ph):Math.sin(b*o.f+o.ph))*o.a;if(Math.random()<sp)v=Math.random();else v+=(Math.random()*2-1)*na;raw.push({time:sB+b,value:v});}const mn=Math.min.apply(null,raw.map(p=>p.value)),mx=Math.max.apply(null,raw.map(p=>p.value)),rg=mx-mn||1;return raw.map(p=>({time:p.time,value:cl1((p.value-mn)/rg),curve:0}));}
+function genSH(sB,eB){const R=[2,1,0.5,0.25,0.125,4/6,2/6,1/6],EPS=0.005,MD=0.15,r4=t=>Math.round(t*10000)/10000,p=[];let lv=null,pr=null,ss=sB;while(ss<eB-1e-4){const se=Math.min((Math.floor(ss/4)+1)*4,eB);const rt=(pr!==null&&Math.random()<0.5)?pr:R[Math.floor(Math.random()*R.length)];pr=rt;let t=ss;while(t<se-1e-4){const en=Math.min(t+rt,se);let v,tr=0;do{v=Math.random();tr++;}while(lv!==null&&Math.abs(v-lv)<MD&&tr<12);lv=v;const cv2=cl1(v),tA=r4(t);p.push({time:tA,value:cv2,curve:0});const tB=r4(en-EPS);if(tB>tA)p.push({time:tB,value:cv2,curve:0});t=en;}ss=se;}return p;}
+function genReflector(sB,eB,N){const pr=Math.floor(N/2),fl=Math.random()<0.5,np=fl?Math.ceil(pr/2):Math.floor(pr/2),cp=pr-np,mir=p=>p.map(pt=>({time:pt.time,value:cl1(1-pt.value),curve:pt.curve?-pt.curve:0})),o=[];for(let i=0;i<np;i++){const b=genNeuro(sB,eB);o.push(b);o.push(mir(b));}for(let i=0;i<cp;i++){const b=genChaos(sB,eB);o.push(b);o.push(mir(b));}while(o.length<N)o.push(genNeuro(sB,eB));return o.slice(0,N);}
+function mutate(points,beats){const sB=0,eB=beats,dur=eB-sB;let pts=points.filter(pt=>pt.time>=sB&&pt.time<=eB);if(pts.length<2)return points.slice();let nm=pts.map(pt=>({t:(pt.time-sB)/dur,v:pt.value,curve:pt.curve||0}));const nc=3+Math.floor(Math.random()*4),cs=1/nc;let ck=[];for(let i=0;i<nc;i++){const a=i*cs,b=(i+1)*cs;ck.push(nm.filter(p=>p.t>=a&&p.t<b).map(p=>({t:(p.t-a)/cs,v:p.v,curve:p.curve})));}for(let i=ck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)),tm=ck[i];ck[i]=ck[j];ck[j]=tm;}ck=ck.map(c=>{if(c.length<2)return c;if(Math.random()<0.4){c=c.map(p=>({t:1-p.t,v:p.v,curve:p.curve?-p.curve:0}));c.sort((a,b)=>a.t-b.t);}if(Math.random()<0.3)c=c.map(p=>({t:p.t,v:1-p.v,curve:p.curve?-p.curve:0}));const as=(Math.random()-0.5)*0.6,asc=0.6+Math.random()*0.8;c=c.map(p=>({t:p.t,v:cl1((p.v-0.5)*asc+0.5+as),curve:p.curve}));const tsc=0.8+Math.random()*0.4,tof=(1-tsc)*Math.random();return c.map(p=>({t:cl1(p.t*tsc+tof),v:p.v,curve:p.curve}));});let res=[];ck.forEach((c,i)=>{const a=i*cs;c.forEach(p=>res.push({time:sB+(a+p.t*cs)*dur,value:p.v,curve:p.curve}));});res.sort((a,b)=>a.time-b.time);return res.map(p=>({time:Math.round(Math.max(sB,Math.min(eB,p.time))*10000)/10000,value:cl1(p.value),curve:p.curve||0}));}
+const GEN=withSeed(0xF12ED,()=>{
+  const sB=0,eB=BEATS,chaos=[],neuro=[],sh=[];
+  for(let k=0;k<NLANE;k++){chaos.push(genChaos(sB,eB));neuro.push(genNeuro(sB,eB));sh.push(genSH(sB,eB));}
+  const reflector=genReflector(sB,eB,NLANE);
+  const mut=arr=>arr.map(c=>mutate(c,BEATS));
+  return {chaos,neuro,sh,reflector,mutated:{chaos:mut(chaos),neuro:mut(neuro),sh:mut(sh),reflector:mut(reflector)}};
+});
+function drawPointsLane(pts,gx,top,gw,bh,a,b,color,lw,glow){if(!pts||pts.length<2)return;
+  ctx.save();ctx.beginPath();ctx.rect(gx+gw*clamp(a,0,1)-0.5,top-3,gw*(clamp(b,0,1)-clamp(a,0,1))+1,bh+6);ctx.clip();
+  if(glow){ctx.shadowColor=hexA(color,.7);ctx.shadowBlur=glow;}
+  ctx.strokeStyle=color;ctx.lineWidth=lw||2.4;ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();
+  for(let i=0;i<pts.length;i++){const p=pts[i],x=gx+gw*(p.time/BEATS),y=top+bh-clamp(p.value,0,1)*bh;
+    if(i===0){ctx.moveTo(x,y);}else{const pr=pts[i-1],cv2=pr.curve||0;if(cv2===0){ctx.lineTo(x,y);}else{const px=gx+gw*(pr.time/BEATS),py=top+bh-clamp(pr.value,0,1)*bh,mx=(px+x)/2,my=(py+y)/2,cy=my-cv2*Math.abs(y-py)*1.2;ctx.quadraticCurveTo(mx,cy,x,y);}}}
+  ctx.stroke();ctx.restore();}
+function valueAt(pts,t){if(!pts||!pts.length)return 0.5;if(t<=pts[0].time)return pts[0].value;const L=pts[pts.length-1];if(t>=L.time)return L.value;for(let i=0;i<pts.length-1;i++){const a=pts[i],b=pts[i+1];if(t>=a.time&&t<=b.time){const u=(t-a.time)/((b.time-a.time)||1);return a.value+(b.value-a.value)*u;}}return L.value;}
+
+// ── loaded devices + their mapped params ──────────────────────────────────
+// dev 0 = NOVA (the shown synth, params have knobs); 1-3 = FX (lane-only).
+const DEV=[{n:'Serum'},{n:'VALHALLA'},{n:'OTT'},{n:'PRO-Q'}];
+const LANES=[
+  // Serum (dev 0) — 10 mapped knobs
+  {n:'CUTOFF', dev:0, kx:820, ky:300, kr:22, base:0.62},
+  {n:'RES',    dev:0, kx:876, ky:300, kr:22, base:0.35},
+  {n:'DRIVE',  dev:0, kx:932, ky:300, kr:22, base:0.48},
+  {n:'MORPH',  dev:0, kx:988, ky:300, kr:22, base:0.55},
+  {n:'WARP',   dev:0, kx:100, ky:566, kr:24, base:0.40},
+  {n:'GRIT',   dev:0, kx:254, ky:566, kr:24, base:0.30},
+  {n:'MOTION', dev:0, kx:408, ky:566, kr:24, base:0.58},
+  {n:'SHIMMER',dev:0, kx:562, ky:566, kr:24, base:0.66},
+  {n:'WIDTH',  dev:0, kx:716, ky:566, kr:24, base:0.50},
+  {n:'AIR',    dev:0, kx:870, ky:566, kr:24, base:0.70},
+  // FX (lane-only)
+  {n:'SIZE',   dev:1, base:0.55},
+  {n:'DECAY',  dev:1, base:0.62},
+  {n:'DEPTH',  dev:2, base:0.48},
+  {n:'TIME',   dev:2, base:0.52},
+  {n:'TILT',   dev:3, base:0.50},
+  {n:'GAIN',   dev:3, base:0.44},
+];
+function laneVisible(i,tab){return tab<0||LANES[i].dev===tab;}   // tab -1 = ALL
+
+// ── layout ────────────────────────────────────────────────────────────────
+const SY=44, SSC=VW/SW, SERH=SH*SSC;
+const CV={x:28, y:SY+SERH+30, w:1024, h:VH-(SY+SERH+30)-140};
+const HH=52, TBY=HH+6, TBH=34;                              // header + toolbar
+const TABY=TBY+TBH+8, TABH=28;                              // device-tab row
+const TABS=[{n:'ALL',tab:-1},{n:'Serum',tab:0},{n:'VALHALLA',tab:1},{n:'OTT',tab:2},{n:'PRO-Q',tab:3}];
+const TABW=[56,72,106,58,76];
+function tabRect(k){let x=CV.x+16;for(let j=0;j<k;j++)x+=TABW[j]+8;return {x,y:CV.y+TABY,w:TABW[k],h:TABH};}
+const MAPB={x:16,w:78}, MOT=[{k:'chaos',l:'Chaos',x:206,w:92},{k:'neuro',l:'Neuro',x:302,w:92},{k:'reflector',l:'Reflector',x:398,w:104},{k:'sh',l:'S&H',x:506,w:74},{k:'prism',l:'Prism',x:584,w:88}];
+const MUT={x:690,w:104}, SHF={x:798,w:108};
+function botn(b){return {x:CV.x+b.x,y:CV.y+TBY,w:b.w,h:TBH};}     // toolbar btn rect
+const LA={x:CV.x+14, y:CV.y+TABY+TABH+8, get w(){return CV.w-28}, get h(){return CV.h-(TABY+TABH+8)-14}};
+function laneRow(i){const lh=LA.h/NLANE;return {ly:LA.y+lh*i, lh, top:LA.y+lh*i+7, bh:lh-14, gx:LA.x+LA.w*0.135, gw:LA.w-LA.w*0.135-14};}
+function knobPos(L){return {x:L.kx, y:L.ky, r:L.kr};}
+// chain-builder layout
+const FAVR={x:74,y:300,w:466}, CHR={x:600,y:300,w:406}, ROWH=118, ROWY=66;
+function favRect(fi){return {x:FAVR.x,y:FAVR.y+ROWY+fi*ROWH,w:FAVR.w,h:ROWH-18};}
+function chainSlot(si){return {x:CHR.x,y:CHR.y+ROWY+si*ROWH,w:CHR.w,h:ROWH-18};}
+
+// ── flow timeline (mapped to the VO beat sheet) ───────────────────────────
+const LOOP=57, HOOK=[0,4], CHAIN=[4.3,9.5], ESTAB=9.6, MAPT=11.2;
+const CARD=[53,57];
+// load: pick devices from favorites -> build the chain (continuous, no idle freeze), then dive in
+const FAV=[{n:'Serum',tag:'SYNTH'},{n:'Valhalla VintageVerb',tag:'REVERB'},{n:'OTT',tag:'COMP'},{n:'FabFilter Pro-Q 3',tag:'EQ'},{n:'Portal',tag:'FX'},{n:'Soothe2',tag:'DYNAMICS'}];
+const PICKS=[{fi:0,t:4.9},{fi:1,t:6.1},{fi:2,t:7.3},{fi:3,t:8.5}];   // continuous — a pick every ~1.2s
+const CHAINSTR=PICKS.map(p=>FAV[p.fi].n);
+function picksBy(t){let n=0;for(const p of PICKS)if(t>=p.t)n++;return n;}
+const MAPALL=14.5;                                           // FX params flood in after the knob-clicks
+const KC=LANES.map((L,i)=> L.dev===0 ? 11.6+i*0.3 : MAPALL);// 10 Serum knobs clicked one by one; FX auto
+// all-at-once vs per-device tab tour ("countless ways they interact")
+const TABEV=[{t:15.5,tab:0},{t:16.4,tab:1},{t:17.2,tab:-1}];
+function activeTab(t){let tb=-1;for(const e of TABEV)if(t>=e.t)tb=e.tab;return tb;}
+const PLAY=14.8, PP=4.0;                                     // first fill + playhead period
+const SPERM=[3,10,1,8,15,6,13,4,11,2,9,0,7,14,5,12];
+const ACTIONS=[
+  {t:14.8, kind:'motion', algo:'reflector'},                 // first fill ("countless ways they interact")
+  {t:22.9, kind:'motion', algo:'neuro'},                     // "every motion style explores differently"
+  {t:23.9, kind:'motion', algo:'sh'},
+  {t:24.9, kind:'motion', algo:'chaos'},
+  {t:29.5, kind:'mutate'},                                   // "keep exploring"
+  {t:30.7, kind:'shuffle'},
+];
+const FOCUS={lane:0, in:25.3, edit0:26.1, editEnd:28.3, out:28.9};       // "make it yours"
+function curAction(t){let a=null;for(const x of ACTIONS)if(t>=x.t)a=x;return a;}
+function actCurves(a){if(!a)return null;const idx=ACTIONS.indexOf(a);
+  if(a.kind==='motion')return GEN[a.algo];
+  if(a.kind==='mutate'){let prev='reflector';for(let k=idx-1;k>=0;k--)if(ACTIONS[k].kind==='motion'){prev=ACTIONS[k].algo;break;}return GEN.mutated[prev];}
+  if(a.kind==='shuffle'){const pc=actCurves(ACTIONS[idx-1]);return SPERM.map(j=>pc[j]);}
+  return null;}
+function phase(t){return t<PLAY?0:((t-PLAY)/PP)%1;}
+function mapped(i,t){return t>=KC[i];}
+
+// focus edit: drag one point of the focus lane up/down
+const EPT=6;   // point index dragged
+function focusCurve(t,base){ if(!base)return base; const inF=t>=FOCUS.in&&t<FOCUS.out; if(!inF)return base;
+  const c=base.map(p=>({time:p.time,value:p.value,curve:p.curve})); const i=Math.min(EPT,c.length-1);
+  const e=clamp((t-FOCUS.edit0)/(FOCUS.editEnd-FOCUS.edit0),0,1);
+  const drag=0.5+0.42*Math.sin(e*Math.PI*2.5);   // a couple of up/down drags
+  if(t>=FOCUS.edit0&&t<FOCUS.editEnd)c[i]={time:c[i].time,value:drag,curve:c[i].curve};
+  return c;}
+function effCurve(i,t){const a=curAction(t);if(!a)return null;const cs=actCurves(a);let base=cs?cs[i]:null;if(i===FOCUS.lane)return focusCurve(t,base);return base;}
+
+// ── cursor ────────────────────────────────────────────────────────────────
+function cursorTargets(){const K=[];
+  PICKS.forEach(p=>{const r=favRect(p.fi);K.push({t:p.t,p:{x:r.x+r.w*0.62,y:r.y+r.h/2}});});
+  K.push({t:MAPT,p:{x:CV.x+MAPB.x+MAPB.w/2,y:CV.y+HH/2}});
+  for(let i=0;i<NLANE;i++){if(LANES[i].dev!==0)continue;const k=knobPos(LANES[i]);K.push({t:KC[i],p:{x:k.x,y:k.y}});}
+  ACTIONS.forEach(a=>{let b;if(a.kind==='mutate')b=MUT;else if(a.kind==='shuffle')b=SHF;else b=MOT.find(m=>m.k===a.algo);const r=botn(b);K.push({t:a.t,p:{x:r.x+r.w/2,y:r.y+r.h/2}});});
+  TABEV.forEach(e=>{const k=TABS.findIndex(tb=>tb.tab===e.tab);const r=tabRect(k);K.push({t:e.t,p:{x:r.x+r.w/2,y:r.y+r.h/2}});});
+  const R=laneRow(FOCUS.lane);K.push({t:FOCUS.in,p:{x:R.gx+R.gw*0.5,y:R.top+R.bh*0.5}});
+  K.sort((a,b)=>a.t-b.t);return K;}
+const CKF=cursorTargets();
+const CURSOR_END=ACTIONS[ACTIONS.length-1].t+0.7;   // cursor leaves after the last click, into the wow
+function cursorPos(t){
+  if(t<PICKS[0].t-0.6||t>=CURSOR_END)return null;
+  if(t>=FOCUS.edit0&&t<FOCUS.editEnd){ // follow the dragged point in the big focused lane
+    const c=effCurve(FOCUS.lane,t),i=Math.min(EPT,c.length-1);
+    return {x:FA.gx+FA.gw*(c[i].time/BEATS), y:FA.top+FA.bh-clamp(c[i].value,0,1)*FA.bh};}
+  let p=CKF[CKF.length-1].p;
+  if(t<=CKF[0].t)p=CKF[0].p;
+  else for(let i=0;i<CKF.length-1;i++){if(t>=CKF[i].t&&t<CKF[i+1].t){const u=E.io(clamp((t-CKF[i].t)/((CKF[i+1].t-CKF[i].t)*0.72),0,1));p={x:lerp(CKF[i].p.x,CKF[i+1].p.x,u),y:lerp(CKF[i].p.y,CKF[i+1].p.y,u)};break;}}
+  return p;}
+function clickT(t){ // nearest click event -> ripple/press strength
+  let best=9;const evs=[...PICKS.map(p=>p.t),MAPT,...KC,...ACTIONS.map(a=>a.t),...TABEV.map(e=>e.t)];for(const e of evs)best=Math.min(best,Math.abs(t-e));return best;}
+function drawCursor(t){const p=cursorPos(t);if(!p)return;const ct=clickT(t);
+  if(ct<0.42){const cp=clamp(ct/0.42,0,1);ctx.save();ctx.globalAlpha=(1-cp)*0.8;ctx.strokeStyle=AMB;ctx.lineWidth=3;ctx.shadowColor=AMB;ctx.shadowBlur=10;ctx.beginPath();ctx.arc(p.x,p.y,6+cp*30,0,7);ctx.stroke();ctx.restore();}
+  const press=ct<0.12?1-ct/0.12:0;
+  ctx.save();ctx.translate(p.x,p.y);ctx.scale(1.5-press*0.28,1.5-press*0.28);ctx.shadowColor='rgba(0,0,0,.6)';ctx.shadowBlur=7;ctx.shadowOffsetX=1;ctx.shadowOffsetY=2;
+  ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(0,18);ctx.lineTo(4.6,13.6);ctx.lineTo(7.3,20.6);ctx.lineTo(10,19.4);ctx.lineTo(7.2,12.9);ctx.lineTo(12.8,12.9);ctx.closePath();
+  ctx.fillStyle=press>0.3?'#d8d8dc':'#fff';ctx.fill();ctx.shadowColor='transparent';ctx.lineWidth=1.3;ctx.strokeStyle='#0c0c0e';ctx.stroke();ctx.restore();}
+
+// ── background ──────────────────────────────────────────────────────────
+function drawBG(t){const g=ctx.createLinearGradient(0,0,0,VH);g.addColorStop(0,'#0f0f12');g.addColorStop(.55,'#0b0b0e');g.addColorStop(1,'#08080a');ctx.fillStyle=g;ctx.fillRect(0,0,VW,VH);
+  ctx.globalCompositeOperation='lighter';[[300,520,COP,.05],[820,1500,AMB,.04],[760,300,VIO,.03]].forEach((b,i)=>{const cx=b[0]+Math.sin(t*0.25+i)*22,cy=b[1]+Math.cos(t*0.2+i)*18,rg=ctx.createRadialGradient(cx,cy,0,cx,cy,600);rg.addColorStop(0,hexA(b[2],b[3]));rg.addColorStop(1,hexA(b[2],0));ctx.fillStyle=rg;ctx.fillRect(0,0,VW,VH);});ctx.globalCompositeOperation='source-over';}
+
+// ── chain-builder scene: pick VST3s from favorites -> build a chain ───────
+function drawChainBuilder(t){
+  const PX=40,PY=104,PW=1000,PH=1712;
+  ctx.save();ctx.shadowColor='rgba(0,0,0,.5)';ctx.shadowBlur=40;ctx.shadowOffsetY=16;ctx.fillStyle='#141416';rr(PX,PY,PW,PH,20);ctx.fill();ctx.restore();
+  ctx.strokeStyle='rgba(255,255,255,.07)';ctx.lineWidth=1;rr(PX,PY,PW,PH,20);ctx.stroke();
+  ctx.save();rr(PX,PY,PW,PH,20);ctx.clip();ctx.fillStyle=hexA(COP,.5);ctx.fillRect(PX,PY,PW,3);
+  // header
+  ctx.textAlign='left';ctx.textBaseline='alphabetic';ctx.fillStyle=INK;ctx.font='900 42px Outfit';ctx.fillText('STRIDE',72,188);
+  ctx.fillStyle=COP;ctx.font='800 18px Outfit';ctx.fillText('VST3 HOST',292,188);
+  ctx.fillStyle=SUB;ctx.font='700 23px Outfit';ctx.fillText('Build your chain from your favorites.',72,232);
+  const np=picksBy(t);
+  ctx.fillStyle=hexA('#46c46a',.95);ctx.font='800 18px Outfit';ctx.textAlign='right';ctx.fillText(np+' IN CHAIN',PX+PW-30,232);ctx.textAlign='left';
+  // FAVORITES
+  ctx.fillStyle=SUB;ctx.font='800 16px Outfit';ctx.fillText('FAVORITES',FAVR.x,FAVR.y+44);
+  for(let fi=0;fi<FAV.length;fi++){const r=favRect(fi),f=FAV[fi],pk=PICKS.find(p=>p.fi===fi),picked=pk&&t>=pk.t,hot=pk?clamp(1-Math.abs(t-pk.t)/0.5,0,1):0;
+    ctx.fillStyle=picked?hexA(COP,.14):(hot>0?hexA(COP,.08):'#1b1b1e');rr(r.x,r.y,r.w,r.h,13);ctx.fill();
+    ctx.strokeStyle=picked?hexA(COP,.6):(hot>0?hexA(COP,.4):'rgba(255,255,255,.08)');ctx.lineWidth=1.5;rr(r.x,r.y,r.w,r.h,13);ctx.stroke();
+    ctx.fillStyle=picked?COP:AMB;ctx.font='800 26px Outfit';ctx.textBaseline='middle';ctx.fillText('★',r.x+22,r.y+r.h/2);
+    ctx.fillStyle=INK;ctx.font='800 25px Outfit';ctx.fillText(f.n,r.x+62,r.y+r.h/2-11);
+    ctx.fillStyle=SUB;ctx.font='700 14px Outfit';ctx.fillText(f.tag,r.x+62,r.y+r.h/2+16);
+    if(picked){ctx.fillStyle=hexA('#46c46a',.9);ctx.font='800 15px Outfit';ctx.textAlign='right';ctx.fillText('ADDED',r.x+r.w-18,r.y+r.h/2);ctx.textAlign='left';}
+    ctx.textBaseline='alphabetic';}
+  // YOUR CHAIN
+  ctx.fillStyle=SUB;ctx.font='800 16px Outfit';ctx.fillText('YOUR CHAIN',CHR.x,CHR.y+44);
+  for(let si=0;si<PICKS.length;si++){const s=chainSlot(si),filled=si<np,f=FAV[PICKS[si].fi],col=LANEC[si];
+    ctx.save();ctx.setLineDash(filled?[]:[9,8]);ctx.lineWidth=filled?2.5:2;ctx.strokeStyle=filled?hexA(col,.7):'rgba(255,255,255,.13)';
+    ctx.fillStyle=filled?hexA(col,.13):'rgba(255,255,255,.02)';rr(s.x,s.y,s.w,s.h,13);ctx.fill();rr(s.x,s.y,s.w,s.h,13);ctx.stroke();ctx.restore();
+    if(filled){const ap=clamp((t-PICKS[si].t)/0.32,0,1);ctx.save();ctx.globalAlpha=ap;
+      ctx.fillStyle=hexA(col,.95);ctx.beginPath();ctx.arc(s.x+28,s.y+s.h/2,8,0,7);ctx.fill();
+      ctx.fillStyle='#0c0c0e';ctx.font='800 14px Outfit';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(si+1),s.x+28,s.y+s.h/2+1);
+      ctx.fillStyle=INK;ctx.font='800 24px Outfit';ctx.textAlign='left';ctx.fillText(f.n,s.x+52,s.y+s.h/2);ctx.textBaseline='alphabetic';ctx.restore();
+      if(si<np-1||true){ctx.fillStyle=hexA(col,filled?.5:.2);ctx.font='800 20px Outfit';ctx.textAlign='center';if(si<PICKS.length-1&&si<np-1)ctx.fillText('▼',s.x+s.w/2,s.y+s.h+18);ctx.textAlign='left';}
+    } else {ctx.fillStyle='rgba(255,255,255,.16)';ctx.font='700 30px Outfit';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('+',s.x+s.w/2,s.y+s.h/2);ctx.textAlign='left';ctx.textBaseline='alphabetic';}}
+  ctx.restore();
+}
+
+// ── mock synth (drawn in-canvas, no real plugin UI) ───────────────────────
+function drawKnob(x,y,r,val,label){const a0=135*Math.PI/180,a1=405*Math.PI/180,ang=(135+val*270)*Math.PI/180;
+  ctx.strokeStyle='rgba(0,0,0,.5)';ctx.lineWidth=r*0.4;ctx.lineCap='butt';ctx.beginPath();ctx.arc(x,y,r*0.98,a0,a1,false);ctx.stroke();
+  ctx.strokeStyle=hexA(SYNACC,.5);ctx.beginPath();ctx.arc(x,y,r*0.98,a0,ang,false);ctx.stroke();
+  const g=ctx.createLinearGradient(x,y-r,x,y+r);g.addColorStop(0,'#3b414d');g.addColorStop(1,'#232830');ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r*0.7,0,7);ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.1)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(x,y,r*0.7,0,7);ctx.stroke();
+  ctx.strokeStyle='#e9ecf1';ctx.lineWidth=2.3;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(x+Math.cos(ang)*r*0.26,y+Math.sin(ang)*r*0.26);ctx.lineTo(x+Math.cos(ang)*r*0.6,y+Math.sin(ang)*r*0.6);ctx.stroke();
+  if(label){ctx.fillStyle=SUB;ctx.font='700 12px Outfit';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,x,y+r+11);}}
+function subP(x,y,w,h,title,tag){ctx.fillStyle='#181b22';rr(x,y,w,h,10);ctx.fill();ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=1;rr(x,y,w,h,10);ctx.stroke();
+  ctx.textBaseline='middle';if(title){ctx.fillStyle=SUB;ctx.font='800 12px Outfit';ctx.textAlign='left';ctx.fillText(title,x+12,y+15);}
+  if(tag){ctx.fillStyle=hexA(SYNACC,.8);ctx.font='700 11px Outfit';ctx.textAlign='right';ctx.fillText(tag,x+w-12,y+15);}}
+function synWave(x,y,w,h,t,sd){ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();
+  ctx.strokeStyle=hexA(SYNACC,.92);ctx.lineWidth=2;ctx.shadowColor=SYNACC;ctx.shadowBlur=8;ctx.beginPath();
+  for(let i=0;i<=w;i+=3){const u=i/w,m=0.5+0.32*Math.sin(t*0.5+sd);
+    const v=Math.sin(u*6.283*(1+sd))*0.5*m+Math.sin(u*6.283*(3+sd*2)+t)*0.22*(1-m)+Math.sin(u*18.85)*0.09;
+    const py=y+h/2-v*h*0.42;i?ctx.lineTo(x+i,py):ctx.moveTo(x+i,py);}
+  ctx.stroke();ctx.restore();}
+function synFilter(x,y,w,h){ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();
+  ctx.strokeStyle=hexA(SYNACC,.25);ctx.lineWidth=1;for(let gx=1;gx<4;gx++){const lx=x+w*gx/4;ctx.beginPath();ctx.moveTo(lx,y);ctx.lineTo(lx,y+h);ctx.stroke();}
+  ctx.strokeStyle=hexA(SYNACC,.95);ctx.lineWidth=2;ctx.shadowColor=SYNACC;ctx.shadowBlur=8;ctx.beginPath();const fc=0.5,q=0.9;
+  for(let i=0;i<=w;i+=2){const u=i/w;let g=1/Math.sqrt(1+Math.pow(u/fc,8));if(u<fc*1.4)g+=q*Math.exp(-Math.pow((u-fc)/0.05,2));g=clamp(g,0,1.35);const py=y+h-(g/1.35)*h*0.9-3;i?ctx.lineTo(x+i,py):ctx.moveTo(x+i,py);}
+  ctx.stroke();ctx.restore();}
+function synEnv(x,y,w,h){ctx.save();ctx.strokeStyle=hexA(SYNACC,.9);ctx.lineWidth=2;ctx.shadowColor=SYNACC;ctx.shadowBlur=6;ctx.beginPath();
+  ctx.moveTo(x,y+h);ctx.lineTo(x+w*0.1,y+3);ctx.lineTo(x+w*0.3,y+h*0.46);ctx.lineTo(x+w*0.68,y+h*0.5);ctx.lineTo(x+w,y+h);ctx.stroke();ctx.restore();}
+function synKeys(x,y,w,h){const n=28,kw=w/n;for(let i=0;i<n;i++){ctx.fillStyle=i%12===5?'#c5c9d0':'#dadde2';rr(x+i*kw+1,y,kw-2,h,3);ctx.fill();}
+  const bp=[0,1,3,4,5];for(let o=0;o<4;o++)for(const b of bp){const idx=o*7+b,bx=x+(idx+1)*kw-kw*0.32;ctx.fillStyle='#15171c';rr(bx,y,kw*0.64,h*0.6,2);ctx.fill();}}
+function drawMockSynth(t){const py=SY,ph=SERH;
+  const g=ctx.createLinearGradient(0,py,0,py+ph);g.addColorStop(0,'#212632');g.addColorStop(1,'#161a21');ctx.fillStyle=g;ctx.fillRect(0,py,VW,ph);
+  ctx.fillStyle='#11131a';ctx.fillRect(0,py,VW,50);
+  ctx.textAlign='left';ctx.textBaseline='middle';
+  ctx.fillStyle=hexA(SYNACC,.85);rr(22,py+14,24,24,6);ctx.fill();               // generic mark, no brand name
+  ctx.fillStyle='#141821';ctx.fillRect(28,py+22,3,8);ctx.fillRect(33,py+18,3,12);ctx.fillRect(38,py+24,3,6);
+  ctx.fillStyle=SUB;ctx.font='700 14px Outfit';ctx.textAlign='center';ctx.fillText('Crisp Pluck',VW/2,py+26);
+  const tabs=['OSC','FILTER','FX','MOD','MATRIX'];let tx=VW-368;ctx.textAlign='left';
+  tabs.forEach((tb,i)=>{ctx.fillStyle=i===0?hexA(SYNACC,.9):'#868b95';ctx.font='800 13px Outfit';ctx.fillText(tb,tx,py+27);tx+=ctx.measureText(tb).width+22;});
+  subP(14,py+60,374,238,'OSC A','SAW');synWave(28,py+90,346,118,t,0);
+  drawKnob(64,py+250,20,0.45,'WT');drawKnob(150,py+250,20,0.6,'UNI');drawKnob(236,py+250,20,0.7,'SUB');drawKnob(322,py+250,20,0.5,'VOL');
+  subP(396,py+60,374,238,'OSC B','TABLE');synWave(410,py+90,346,118,t,1);
+  drawKnob(446,py+250,20,0.55,'WT');drawKnob(532,py+250,20,0.4,'UNI');drawKnob(618,py+250,20,0.66,'FINE');drawKnob(704,py+250,20,0.6,'VOL');
+  subP(778,py+60,288,238,'FILTER','LP24');synFilter(792,py+88,260,118);
+  subP(14,py+306,526,114,'LFO 1','SINE');synWave(28,py+334,498,74,t*1.5,2);
+  subP(548,py+306,518,114,'ENV 1','ADSR');synEnv(572,py+334,470,74);
+  subP(14,py+428,1052,184,'MACROS','');
+  drawKnob(1000,py+522,24,0.52,'');   // one decorative filler at the right of the 6 mapped macros
+  synKeys(14,py+ph-50,VW-28,42);
+  for(const L of LANES)if(L.dev===0)drawKnob(L.kx,L.ky,L.kr,L.base,L.n);
+}
+// ── mock synth panel + live modulation rings ──────────────────────────────
+function drawSynth(t){
+  ctx.save();ctx.shadowColor='rgba(0,0,0,.6)';ctx.shadowBlur=40;ctx.shadowOffsetY=14;ctx.fillStyle='#111';rr(0,SY,VW,SERH,14);ctx.fill();ctx.restore();
+  ctx.save();rr(0,SY,VW,SERH,14);ctx.clip();
+  drawMockSynth(t);
+  const ph=phase(t);
+  const atab=activeTab(t), tabDim=(atab>=0&&atab!==0)?0.26:1;
+  for(let i=0;i<LANES.length;i++){if(!mapped(i,t)||LANES[i].dev!==0)continue;const L=LANES[i],col=LANEC[i%LANEC.length];
+    const k=knobPos(L),R=k.r+6*SSC+3, appear=clamp((t-KC[i])/0.3,0,1);
+    ctx.save();ctx.globalAlpha=tabDim*appear*(effCurve(i,t)?0.55:0.32);ctx.strokeStyle=hexA(col,1);ctx.lineWidth=2.4;ctx.beginPath();ctx.arc(k.x,k.y,R,135*Math.PI/180,405*Math.PI/180,false);ctx.stroke();ctx.restore();
+    const c=effCurve(i,t);if(!c)continue;
+    const v=valueAt(c,ph*BEATS), ang=(135+v*270)*Math.PI/180;
+    ctx.save();ctx.globalAlpha=0.9*tabDim;ctx.strokeStyle=hexA(col,1);ctx.lineWidth=5;ctx.lineCap='round';ctx.shadowColor=col;ctx.shadowBlur=12;ctx.beginPath();ctx.arc(k.x,k.y,R,ang-0.75,ang,false);ctx.stroke();ctx.restore();
+    const dx=k.x+R*Math.cos(ang),dy=k.y+R*Math.sin(ang);
+    ctx.save();ctx.globalAlpha=tabDim;ctx.shadowColor=col;ctx.shadowBlur=18;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(dx,dy,6,0,7);ctx.fill();ctx.fillStyle=hexA(col,.95);ctx.beginPath();ctx.arc(dx,dy,3.4,0,7);ctx.fill();ctx.restore();
+  }
+  ctx.restore();
+}
+
+// ── Stride canvas ─────────────────────────────────────────────────────────
+let FA={gx:0,top:0,gw:0,bh:0}; // focused-lane geometry (for cursor)
+function tbtn(rect,label,hot,active,accent){ctx.fillStyle=active?hexA(accent,.9):(hot>0?hexA(accent,.3+hot*.5):'#20211d');rr(rect.x,rect.y,rect.w,rect.h,8);ctx.fill();
+  ctx.strokeStyle=hexA(accent,active?.9:.45+hot*.4);ctx.lineWidth=1.5;rr(rect.x,rect.y,rect.w,rect.h,8);ctx.stroke();
+  ctx.fillStyle=active?'#1a1206':(hot>.3?'#fff':hexA(accent,.95));ctx.font='800 15px Outfit';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,rect.x+rect.w/2,rect.y+rect.h/2+1);}
+function drawCanvas(t){
+  const C=CV, atab=activeTab(t);
+  ctx.save();ctx.shadowColor='rgba(0,0,0,.5)';ctx.shadowBlur=40;ctx.shadowOffsetY=16;ctx.fillStyle='#141416';rr(C.x,C.y,C.w,C.h,16);ctx.fill();ctx.restore();
+  ctx.strokeStyle='rgba(255,255,255,.07)';ctx.lineWidth=1;rr(C.x,C.y,C.w,C.h,16);ctx.stroke();
+  ctx.save();rr(C.x,C.y,C.w,C.h,16);ctx.clip();ctx.fillStyle=hexA(COP,.5);ctx.fillRect(C.x,C.y,C.w,3);
+  // header
+  ctx.textBaseline='middle';ctx.textAlign='left';ctx.fillStyle=INK;ctx.font='900 26px Outfit';ctx.fillText('STRIDE',C.x+22,C.y+HH/2);
+  ctx.fillStyle=SUB;ctx.font='700 13px Outfit';ctx.fillText('VST3 HOST',C.x+128,C.y+HH/2+1);
+  const nMap=LANES.filter((_,i)=>mapped(i,t)).length;
+  if(t>=MAPT){ctx.textAlign='right';ctx.save();const pl=0.4+0.6*(0.5+0.5*Math.sin(t*4));ctx.fillStyle=hexA('#46c46a',pl);ctx.beginPath();ctx.arc(C.x+C.w-236,C.y+HH/2,5,0,7);ctx.fill();ctx.restore();
+    ctx.fillStyle='#46c46a';ctx.font='800 15px Outfit';ctx.fillText((curAction(t)?'MODULATING '+nMap+' PARAMS':'MAPPING '+nMap)+' · LIVE',C.x+C.w-22,C.y+HH/2+1);ctx.textAlign='left';}
+  // toolbar: MAP + MOTION buttons + Mutate + Shuffle (no inject)
+  const mapHot=clamp(1-Math.abs(t-MAPT)/0.9,0,1);
+  tbtn(botn(MAPB),'MAP',mapHot,t>=MAPT&&t<PLAY,COP);
+  ctx.fillStyle=SUB;ctx.font='800 12px Outfit';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText('MOTION',C.x+112,C.y+TBY+TBH/2);
+  const act=curAction(t);
+  MOT.forEach(m=>{const hot=0;let h=0;ACTIONS.forEach(a=>{if(a.algo===m.k)h=Math.max(h,clamp(1-Math.abs(t-a.t)/0.8,0,1));});tbtn(botn(m),m.l,h,act&&act.kind==='motion'&&act.algo===m.k,COP);});
+  let mh=0,sh2=0;ACTIONS.forEach(a=>{if(a.kind==='mutate')mh=Math.max(mh,clamp(1-Math.abs(t-a.t)/0.8,0,1));if(a.kind==='shuffle')sh2=Math.max(sh2,clamp(1-Math.abs(t-a.t)/0.8,0,1));});
+  tbtn(botn(MUT),'Mutate',mh,act&&act.kind==='mutate',VIO);
+  tbtn(botn(SHF),'Shuffle',sh2,act&&act.kind==='shuffle',TEAL);
+  // device tabs: ALL / NOVA / VALHALLA / OTT / PRO-Q (all-at-once vs per-device)
+  if(t>=MAPT-0.2){ctx.fillStyle=SUB;ctx.font='800 11px Outfit';ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillText('VIEW',C.x+C.w-16,C.y+TABY+TABH/2);
+    TABS.forEach((tb,k)=>{const r=tabRect(k),on=atab===tb.tab,tabHot=TABEV.some(e=>e.tab===tb.tab&&Math.abs(t-e.t)<0.5);
+      ctx.fillStyle=on?hexA(AMB,.9):'#1a1b1e';rr(r.x,r.y,r.w,r.h,7);ctx.fill();
+      ctx.strokeStyle=on?hexA(AMB,1):(tabHot?hexA(AMB,.6):'rgba(255,255,255,.1)');ctx.lineWidth=1.4;rr(r.x,r.y,r.w,r.h,7);ctx.stroke();
+      ctx.fillStyle=on?'#1a1206':(tb.tab===-1?INK:SUB);ctx.font='800 13px Outfit';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(tb.n,r.x+r.w/2,r.y+r.h/2+1);});}
+  // lanes area
+  ctx.save();rr(LA.x,LA.y,LA.w,LA.h,10);ctx.clip();ctx.fillStyle='#0c0c0e';rr(LA.x,LA.y,LA.w,LA.h,10);ctx.fill();
+  const ph=phase(t), foc=t>=FOCUS.in&&t<FOCUS.out, focP=foc?E.io(clamp(Math.min((t-FOCUS.in)/0.5,(FOCUS.out-t)/0.5),0,1)):0;
+  for(let i=0;i<NLANE;i++){if(!mapped(i,t))continue;const L=LANES[i],col=LANEC[i%LANEC.length],R=laneRow(i);
+    const appear=clamp((t-KC[i])/0.3,0,1);
+    // focus: fade non-focused lanes, expand focused one
+    let ly=R.ly,lh=R.lh,top=R.top,bh=R.bh,gx=R.gx,gw=R.gw,la=appear*((atab>=0&&L.dev!==atab)?0.14:1);
+    if(foc){if(i===FOCUS.lane){const t0=LA.y+10,h0=LA.h-20;ly=lerp(R.ly,t0,focP);lh=lerp(R.lh,h0,focP);top=ly+lerp(7,18,focP);bh=lh-lerp(14,36,focP);gx=lerp(R.gx,LA.x+90,focP);gw=lerp(R.gw,LA.w-104,focP);}else la=appear*(1-focP);}
+    if(i===FOCUS.lane){FA={gx,top,gw,bh};}
+    if(la<=0.02)continue;ctx.save();ctx.globalAlpha=la;
+    ctx.fillStyle=hexA(col,effCurve(i,t)?.95:.55);ctx.font='800 '+(i===FOCUS.lane&&foc?18:15)+'px Outfit';ctx.textBaseline='middle';ctx.textAlign='left';ctx.fillText(L.n,LA.x+9,ly+lh/2*(i===FOCUS.lane&&foc?0.12:1)+ (i===FOCUS.lane&&foc?14:0));
+    ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=1;for(let b=1;b<8;b++){const bx=gx+gw*b/8;ctx.beginPath();ctx.moveTo(bx,ly+3);ctx.lineTo(bx,ly+lh-3);ctx.stroke();}
+    const c=effCurve(i,t);
+    if(!c){ctx.strokeStyle=hexA(col,.28);ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(gx,top+bh*0.5);ctx.lineTo(gx+gw,top+bh*0.5);ctx.stroke();}
+    else{const a=curAction(t),dp=clamp((t-(a?a.t:0))/0.4,0,1);drawPointsLane(c,gx,top,gw,bh,0,dp,col,i===FOCUS.lane&&foc?3.4:2.6,12);
+      if(dp>=0.999){const v=valueAt(c,ph*BEATS),px=gx+gw*ph,py=top+bh-v*bh;ctx.fillStyle='#fff';ctx.shadowColor=col;ctx.shadowBlur=12;ctx.beginPath();ctx.arc(px,py,i===FOCUS.lane&&foc?4.5:3.4,0,7);ctx.fill();ctx.shadowBlur=0;}
+      // focus: show editable points + the dragged one
+      if(i===FOCUS.lane&&foc&&focP>0.6){for(let j=0;j<c.length;j++){const p=c[j],x=gx+gw*(p.time/BEATS),y=top+bh-clamp(p.value,0,1)*bh,ed=(j===Math.min(EPT,c.length-1));
+        ctx.fillStyle=ed?'#fff':hexA(col,.9);ctx.strokeStyle=hexA(col,1);ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x,y,ed?6:3.4,0,7);ctx.fill();if(ed){ctx.shadowColor=col;ctx.shadowBlur=14;ctx.stroke();ctx.shadowBlur=0;}}
+        ctx.fillStyle=hexA(AMB,.9);ctx.font='800 13px Outfit';ctx.textAlign='left';ctx.fillText('EDIT',gx+4,top+14);}
+    }
+    ctx.restore();
+  }
+  // playhead
+  if(t>=PLAY&&!foc){const px=LA.x+LA.w*0.135+(LA.w-LA.w*0.135-14)*ph;ctx.strokeStyle=hexA(AMB,.9);ctx.lineWidth=2;ctx.shadowColor=AMB;ctx.shadowBlur=14;ctx.beginPath();ctx.moveTo(px,LA.y+2);ctx.lineTo(px,LA.y+LA.h-2);ctx.stroke();ctx.shadowBlur=0;}
+  else if(foc){const px=FA.gx+FA.gw*ph;ctx.strokeStyle=hexA(AMB,.9);ctx.lineWidth=2;ctx.shadowColor=AMB;ctx.shadowBlur=14;ctx.beginPath();ctx.moveTo(px,FA.top-6);ctx.lineTo(px,FA.top+FA.bh+6);ctx.stroke();ctx.shadowBlur=0;}
+  ctx.restore();ctx.restore();
+}
+
+function drawBlank(t){if(t>=HOOK[1])return;const a=1-E.in(clamp((t-(HOOK[1]-1.2))/1.2,0,1));if(a<=0)return;
+  ctx.save();ctx.globalAlpha=a;ctx.fillStyle='#050506';ctx.fillRect(0,0,VW,VH);
+  ctx.globalAlpha=a*0.5;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#444';ctx.font='800 34px Outfit';ctx.fillText('[ HOOK ]',540,952);
+  ctx.fillStyle='#333';ctx.font='700 18px Outfit';ctx.fillText('talking-head hook goes here',540,1002);ctx.restore();}
+// ── end card — the winner's exact brand card ──────────────────────────────
+function drawCard(t){
+  ctx.fillStyle='#0a0a0c';ctx.fillRect(0,0,VW,VH);
+  if(ecOK)ctx.drawImage(endcard,0,0,VW,VH);
+  else{ctx.fillStyle=COP;ctx.textAlign='center';ctx.font='900 82px Outfit';ctx.fillText('STRIDE',540,900);}
+}
+
+// ── CTA text over the wow (baked graphic, winner-style) ──────────────────
+function drawCTAtext(t){const s=48.0,e=52.8;if(t<s||t>=e)return;
+  const app=E.out(clamp((t-s)/0.7,0,1)),out=clamp((e-t)/0.5,0,1),a=app*out;
+  ctx.save();ctx.globalAlpha=a*0.62;ctx.fillStyle='#05060a';ctx.fillRect(0,0,VW,VH);ctx.restore();
+  ctx.save();ctx.globalAlpha=a;ctx.textAlign='center';ctx.textBaseline='middle';const rise=(1-app)*24;
+  ctx.fillStyle=hexA(INK,.92);ctx.font='800 50px Outfit';ctx.fillText('Imagine the possibilities.',540,900-rise);
+  ctx.fillStyle=COP;ctx.font='900 100px Outfit';ctx.shadowColor=hexA(COP,.6);ctx.shadowBlur=30;ctx.fillText("It's endless.",540,1008-rise);
+  ctx.restore();}
+
+// ── temp on-screen script (FIT-CHECK overlay; real captions get styled last) ─
+const CAPS=[
+  {s:0.3,  e:3.9,  t:'This might completely change the way you design sounds.'},
+  {s:4.3,  e:5.2,  t:'This is Stride.'},
+  {s:5.3,  e:7.4,  t:'You already own incredible instruments.'},
+  {s:7.5,  e:9.6,  t:"Stride helps you discover what they're truly capable of."},
+  {s:9.7,  e:11.3, t:'Bring your favorite synths and effects together in one place.'},
+  {s:11.4, e:14.4, t:'Choose the parameters that define your sound.'},
+  {s:14.5, e:17.3, t:'Discover the countless ways they can interact.'},
+  {s:17.4, e:22.1, t:"Sometimes, that's all it takes to uncover a sound you never would have found otherwise."},
+  {s:22.2, e:25.0, t:'Every motion style explores your sound differently.'},
+  {s:25.2, e:27.3, t:'And when something makes you smile...'},
+  {s:27.4, e:29.1, t:'make it yours.'},
+  {s:29.3, e:31.2, t:'Keep exploring.'},
+  {s:31.4, e:34.2, t:"I've been producing music for over ten years..."},
+  {s:34.3, e:37.6, t:'and Stride completely changed the way I design sounds.'},
+  {s:37.8, e:39.5, t:'Take a listen.'},
+];
+function drawCaps(t){const cap=CAPS.find(c=>t>=c.s&&t<c.e);if(!cap)return;
+  const app=clamp((t-cap.s)/0.16,0,1)*clamp((cap.e-t)/0.16,0,1);
+  ctx.save();ctx.globalAlpha=app;ctx.font='800 35px Outfit';
+  const words=cap.t.split(' ');let lines=[],cur='';
+  for(const w of words){const tt=cur?cur+' '+w:w;if(ctx.measureText(tt).width>948&&cur){lines.push(cur);cur=w;}else cur=tt;}if(cur)lines.push(cur);
+  const lh=44,H=lines.length*lh,cy=1842-H/2;
+  ctx.fillStyle='rgba(6,6,8,.66)';ctx.fillRect(0,cy-24,VW,H+40);ctx.fillStyle=hexA(COP,.85);ctx.fillRect(0,cy-24,VW,3);
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff';ctx.shadowColor='rgba(0,0,0,.85)';ctx.shadowBlur=5;
+  lines.forEach((ln,i)=>ctx.fillText(ln,VW/2,cy+i*lh+lh/2));ctx.restore();}
+
+let start=performance.now(),paused=false,pausedAt=0;
+function frame(now){let t=((now-start)/1000)%LOOP;
+  ctx.setTransform(Sv*DPR,0,0,Sv*DPR,0,0);
+  drawBG(t);
+  // scene 1: chain builder / load (fades out into the modulation scene)
+  if(t>=CHAIN[0]&&t<ESTAB+0.9){const a=clamp((t-CHAIN[0])/0.5,0,1)*clamp((ESTAB+0.9-t)/0.9,0,1);
+    ctx.save();ctx.globalAlpha=a;drawChainBuilder(t);if(t<ESTAB)drawCursor(t);ctx.restore();}
+  // scene 2: synth + Stride canvas (the demo + the long wow, fades out into the card)
+  if(t>=ESTAB-0.2&&t<CARD[0]+0.6){const a=clamp((t-(ESTAB-0.2))/0.9,0,1)*clamp((CARD[0]+0.6-t)/0.6,0,1);
+    ctx.save();ctx.globalAlpha=a;drawSynth(t);drawCanvas(t);drawCursor(t);ctx.restore();}
+  drawCTAtext(t);
+  // scene 3: end card
+  if(t>=CARD[0]-0.2){const a=clamp((t-(CARD[0]-0.2))/0.7,0,1);ctx.save();ctx.globalAlpha=a;drawCard(t);ctx.restore();}
+  drawBlank(t);
+  drawCaps(t);
+  ctx.setTransform(DPR,0,0,DPR,0,0);ctx.globalAlpha=.5;ctx.fillStyle=ctx.createPattern(grain,'repeat');ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;
+  document.getElementById('hud').textContent=t.toFixed(1)+' / '+LOOP+'s';
+  if(!paused)requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+document.getElementById('pp').onclick=function(){paused=!paused;this.textContent=paused?'Play':'Pause';if(!paused){start=performance.now()-pausedAt*1000;requestAnimationFrame(frame);}else{pausedAt=((performance.now()-start)/1000)%LOOP;}};
+document.getElementById('rs').onclick=function(){start=performance.now();pausedAt=0;paused=false;document.getElementById('pp').textContent='Pause';requestAnimationFrame(frame);};
+window.__seek=function(tt){start=performance.now()-tt*1000;pausedAt=tt;paused=true;document.getElementById('pp').textContent='Play';requestAnimationFrame(frame);};
+</script></body></html>

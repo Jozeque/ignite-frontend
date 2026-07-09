@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StrideLink · Walkthrough (9:16)</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;background:#0d0c0a;overflow:hidden}
+  body{font-family:'Outfit',system-ui,sans-serif;display:grid;place-items:center}
+  #wrap{position:relative;height:100vh;width:auto;aspect-ratio:9/16;max-width:100vw;margin:auto}
+  @supports not (aspect-ratio:1){ #wrap{width:56.25vh;height:100vh} }
+  canvas{display:block;width:100%;height:100%}
+  #hud{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:10;display:flex;gap:8px;align-items:center;opacity:0;transition:opacity .3s}
+  #wrap:hover #hud{opacity:1}
+  #hud button{font-family:inherit;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#dcdce0;background:rgba(28,24,18,.85);border:1px solid rgba(216,201,176,.18);border-radius:999px;padding:5px 12px;cursor:pointer}
+  #hud button:hover{border-color:rgba(221,154,82,.6);color:#dd9a52}
+  #hud .t{font-size:10px;font-weight:600;color:#857c6e;min-width:64px;text-align:center}
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c"></canvas>
+  <div id="hud"><button id="pp">Pause</button><span class="t" id="tt">0.0s</span><button id="rs">Restart</button></div>
+</div>
+<script>
+// ════════════════════════════════════════════════════════════════════════
+//  StrideLink walkthrough reel — 1080x1920, matte Patchbay brand (no glow).
+//  Engine is capture-ready (id="c" canvas + id="rs" restart) for capture_any.js.
+//  Data-driven: edit SEGMENTS[] (timing + VO), BTN[] (button rects on the
+//  device image), or drop a PNG into a segment's `img` to swap the mock preview.
+// ════════════════════════════════════════════════════════════════════════
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+let W=0,H=0,DPR=1,Sv=1; const VW=1080, VH=1920;
+function resize(){const r=cv.getBoundingClientRect();DPR=Math.min(window.devicePixelRatio||1,2);W=r.width;H=r.height;Sv=W/VW;cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);}
+new ResizeObserver(resize).observe(cv);resize();
+const DEBUG = location.search.includes('debug');
+
+// ── assets ───────────────────────────────────────────────────────────────
+const device=new Image();let deviceOK=false;device.onload=()=>deviceOK=true;device.src='stridequick-device.png';
+const logo=new Image();let logoOK=false;logo.onload=()=>logoOK=true;logo.src='stride-logo.png';
+const DEVW=453, DEVH=199;   // native device-image px (button rects are in this space)
+// faint real Ableton layout in the background (familiarity). Reuses the real screenshot
+// Real light-mode Ableton screenshot, blurred out of focus, as the background.
+// Swap docs/ableton-light.png for any session screenshot you prefer.
+let ablOK=false;const ablBg=document.createElement('canvas');
+const ablImg=new Image();const ABL_BLUR=14;     // out-of-focus amount — tune here
+function buildAblBlur(){const c=ablBg;c.width=VW;c.height=VH;const g=c.getContext('2d');
+  g.fillStyle='#e7e3da';g.fillRect(0,0,VW,VH);
+  const iw=ablImg.naturalWidth,ih=ablImg.naturalHeight,sc=Math.max(VW/iw,VH/ih),dw=iw*sc,dh=ih*sc;
+  g.filter='blur('+ABL_BLUR+'px)';g.drawImage(ablImg,(VW-dw)/2,(VH-dh)/2,dw,dh);g.filter='none';ablOK=true;}
+ablImg.onload=buildAblBlur;ablImg.src='ableton-light.png';
+
+// ── Patchbay palette (from stridehub.io) ──────────────────────────────────
+const BG='#141310', BG2='#191611', PANEL='#1d1b16', RAISE='#252119', LINE='rgba(216,201,176,.11)';
+const INK='#ece4d6', INK2='#d8c9b0', INK3='#857c6e';
+const COP='#c6712b', COPL='#dd9a52', EMBER='#e58a2e', AMBER='#d9822b';
+const TEAL='#5e9aad', SAGE='#86a87f', VIOLET='#9a8cbb', RUST='#b46a52', GOLD='#c9a24b';
+// per-lane cable colors for the preview (muted, brand)
+const LANEC=[COP, AMBER, TEAL, SAGE, RUST, VIOLET];
+const LSEED=[0.13,0.61,0.34,0.78,0.47,0.92];
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function lerp(a,b,t){return a+(b-a)*t;}
+function hexA(h,a){const n=parseInt(h.slice(1),16);return`rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
+const E={io:t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2,out:t=>1-Math.pow(1-t,3),in:t=>t*t*t,
+  back:t=>{const c=1.6,c3=c+1;return 1+c3*Math.pow(t-1,3)+c*Math.pow(t-1,2);},smooth:t=>t*t*(3-2*t)};
+
+// ── curve generators (mirror the real Stride tools, used in the preview) ───
+function hash(i,s){let h=Math.sin((i+1)*43758.5453+s*91.7);return h-Math.floor(h);}
+function patSine(seed,x){return clamp(0.5+0.33*Math.sin(x*6.283*(1+seed*0.3)+seed*6),0,1);}
+function patSH(seed,x){const steps=8;const i=Math.floor(clamp(x,0,0.999)*steps);return clamp(0.14+0.72*hash(i,seed),0,1);}
+function patChaos(seed,x){return clamp(0.5+0.27*Math.sin(x*17+seed*9)+0.18*Math.sin(x*43+seed*3)+0.13*Math.sin(x*88-seed*5)+0.09*Math.sin(x*150+seed*2),0,1);}
+function patNeuro(seed,x){const env=0.5+0.5*Math.sin(x*2.0+seed*3);const fast=Math.sin(x*70+seed*7);const tear=Math.sign(Math.sin(x*9+seed))*0.18;return clamp(0.5+0.30*fast*env+tear+0.10*Math.sin(x*220),0,1);}
+function reflectSrc(x,pair){return clamp(0.5+0.30*Math.sin(x*6.283+pair*1.3)+0.16*Math.sin(x*12.5+pair*2.1)+0.08*Math.sin(x*20+pair),0,1);}
+function cReflect(k,x){const pair=Math.floor(k/2),s=reflectSrc(x,pair);return k%2===0?s:1-s;}
+// real Mutate: chop into chunks, shuffle, per-chunk flip/mirror/scale/warp
+function rng32(seed){let s=seed>>>0;return function(){s=(s+0x6D2B79F5)>>>0;let t=s;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};}
+function buildMutatePlan(seed){const r=rng32(seed),N=3+Math.floor(r()*4),perm=[...Array(N).keys()];
+  for(let i=N-1;i>0;i--){const j=Math.floor(r()*(i+1)),tmp=perm[i];perm[i]=perm[j];perm[j]=tmp;}
+  const tf=perm.map(()=>({flip:r()<0.4,mirror:r()<0.3,ampScale:0.6+r()*0.8,ampShift:(r()-0.5)*0.5,timeScale:0.8+r()*0.4,timeOffset:0}));
+  tf.forEach(o=>o.timeOffset=(1-o.timeScale)*r());return{N,perm,tf};}
+const MPLAN=LSEED.map((_,k)=>buildMutatePlan((k*131+7)>>>0));
+function mutated(base,k,x){const plan=MPLAN[k];const N=plan.N;let s=Math.floor(clamp(x,0,0.9999)*N);const u=x*N-s,src=plan.perm[s],tr=plan.tf[s];
+  let lu=clamp((u-tr.timeOffset)/tr.timeScale,0,1);if(tr.flip)lu=1-lu;
+  let bv=base(k,clamp((src+lu)/N,0,1));if(tr.mirror)bv=1-bv;
+  return clamp((bv-0.5)*tr.ampScale+0.5+tr.ampShift,0,1);}
+
+// ════════════════════════════════════════════════════════════════════════
+//  REAL GENERATORS — ported from stride-vst/app/renderer/canvas.js so preview
+//  curves are EXACTLY what the app produces. Built ONCE under a fixed seed
+//  (stable across the loop); rendered by drawPointsLane() the same way the
+//  canvas draws (lineTo for curve==0, quadraticCurveTo otherwise).
+// ════════════════════════════════════════════════════════════════════════
+const BEATS=8;                       // 2 bars shown in the preview
+const PARAMS=['CUTOFF','DRIVE','MORPH','PITCH','DELAY','BITCRUSH','REVERB','WIDTH'];   // lane labels (left gutter); last 2 = the "new params" in the Lock beat
+const NAMEW=86;
+function paramName(li,x,ly,lh,col){ctx.fillStyle=hexA(col||LANEC[li%6],.9);ctx.font='800 11px Outfit';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(PARAMS[li%PARAMS.length],x+8,ly+lh/2);ctx.textAlign='left';}
+const _trueRandom=Math.random;
+function _seededRng(seed){let a=(seed>>>0)||1;return function(){a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};}
+function withSeed(seed,fn){Math.random=_seededRng(seed);try{return fn();}finally{Math.random=_trueRandom;}}
+const clamp01=v=>v<0?0:v>1?1:v;
+// sdInjectShape — the 8 Neuro pool shapes (verbatim)
+function injectShape(pts,shape,cB,chunk){
+  const addPt=(t,v)=>pts.push({time:Math.round(t*10000)/10000,value:clamp01(v),curve:0});
+  if(shape==='dotted_ramp'){let pk=0.4+Math.random()*0.6;addPt(cB,0);addPt(cB+chunk*0.75,pk);addPt(cB+chunk*0.75+0.01,0);addPt(cB+chunk,0);}
+  else if(shape==='mid_value_hold'){let mv=0.15+Math.random()*0.35,pk=0.7+Math.random()*0.3;addPt(cB,0);addPt(cB+0.01,pk);addPt(cB+chunk*0.25,pk);addPt(cB+chunk*0.25+0.01,mv);addPt(cB+chunk*0.75,mv);addPt(cB+chunk*0.75+0.01,pk);addPt(cB+chunk-0.01,pk);addPt(cB+chunk,0);}
+  else if(shape==='offgrid_saw'){let pk=0.5+Math.random()*0.5,og=[0.216,0.414,0.618,0.88][Math.floor(Math.random()*4)];addPt(cB,0);addPt(cB+0.01,pk);addPt(cB+chunk*og,0);addPt(cB+chunk,0);}
+  else if(shape==='hard_chop'){let sub=chunk/4;for(let i=0;i<4;i++){let val=Math.random()>0.5?(Math.random()>0.5?1:0.3+Math.random()*0.5):0;if(val>0){let t=cB+i*sub;addPt(t,0);addPt(t+0.01,val);addPt(t+sub*0.85,0);}}addPt(cB+chunk,0);}
+  else if(shape==='exponential_build'){addPt(cB,0);addPt(cB+chunk*0.5,0.2);addPt(cB+chunk*0.8,0.5);addPt(cB+chunk-0.01,1);addPt(cB+chunk,0);}
+  else if(shape==='hyper_stutter'){let ss=Math.random()>0.5?0.125:0.0625,steps=Math.floor(chunk/ss);for(let i=0;i<steps;i++){if(i%2===0){let t=cB+i*ss;addPt(t,0);addPt(t+0.001,0.6+Math.random()*0.4);addPt(t+ss*0.9,0);}}addPt(cB+chunk,0);}
+  else if(shape==='rhythmic_gate_build'){let step=[0.125,0.25,0.5][Math.floor(Math.random()*3)],steps=Math.floor(chunk/step),sv=0.7+Math.random()*0.3,ev=Math.random()*0.3,up=Math.random()>0.5;for(let i=0;i<steps;i++){let t=cB+i*step,pr=i/Math.max(1,steps-1),cp=up?ev+(sv-ev)*pr:sv+(ev-sv)*pr;addPt(t,0);addPt(t+0.001,cp);addPt(t+step*0.85,0);}addPt(cB+chunk,0);}
+  else if(shape==='syncopated_drops'){let step=0.25,steps=Math.floor(chunk/step);for(let i=0;i<steps;i++){if(Math.random()>0.3){let t=cB+i*step,pk=0.3+Math.random()*0.7;addPt(t,0);addPt(t+0.001,pk);addPt(t+step*0.8,pk*0.8);addPt(t+step*0.81,0);}}addPt(cB+chunk,0);}
+}
+const NEURO_POOL=['dotted_ramp','mid_value_hold','offgrid_saw','hard_chop','exponential_build','hyper_stutter','rhythmic_gate_build','syncopated_drops'];
+function genNeuro(sB,eB){const pts=[];let cB=sB;while(cB<eB-0.001){let chunk=[0.5,1,1.5,2,4][Math.floor(Math.random()*5)];if(cB+chunk>eB)chunk=eB-cB;injectShape(pts,NEURO_POOL[Math.floor(Math.random()*NEURO_POOL.length)],cB,chunk);cB=Math.round((cB+chunk)*10000)/10000;}return pts;}
+// _sdGenTemplatePts('chaos_lfo') (verbatim)
+function genChaos(sB,eB){const dur=eB-sB,numLayers=2+Math.floor(Math.random()*3),waves=[];for(let i=0;i<numLayers;i++)waves.push({freq:0.3+Math.random()*2.2,amp:0.15+Math.random()*0.35,phase:Math.random()*Math.PI*2,useCos:Math.random()>0.5});const noiseAmt=0.1+Math.random()*0.25,spikeProb=0.08+Math.random()*0.15,raw=[];for(let b=0;b<=dur;b+=0.25){let v=0.5;for(const w of waves)v+=(w.useCos?Math.cos(b*w.freq+w.phase):Math.sin(b*w.freq+w.phase))*w.amp;if(Math.random()<spikeProb)v=Math.random();else v+=(Math.random()*2-1)*noiseAmt;raw.push({time:sB+b,value:v});}const rMin=Math.min.apply(null,raw.map(p=>p.value)),rMax=Math.max.apply(null,raw.map(p=>p.value)),rRange=rMax-rMin||1;return raw.map(p=>({time:p.time,value:clamp01((p.value-rMin)/rRange),curve:0}));}
+// sdApplyGlobalSampleHold stepper (verbatim core)
+function genSH(sB,eB){const RATES=[2,1,0.5,0.25,0.125,4/6,2/6,1/6],EPS=0.005,MIN_DELTA=0.15,r4=t=>Math.round(t*10000)/10000,pts=[];let lastV=null,prevRate=null,secStart=sB;while(secStart<eB-1e-4){const secEnd=Math.min((Math.floor(secStart/4)+1)*4,eB);const rate=(prevRate!==null&&Math.random()<0.5)?prevRate:RATES[Math.floor(Math.random()*RATES.length)];prevRate=rate;let t=secStart;while(t<secEnd-1e-4){const stepEnd=Math.min(t+rate,secEnd);let v,tries=0;do{v=Math.random();tries++;}while(lastV!==null&&Math.abs(v-lastV)<MIN_DELTA&&tries<12);lastV=v;const cv=clamp01(v),tA=r4(t);pts.push({time:tA,value:cv,curve:0});const tB=r4(stepEnd-EPS);if(tB>tA)pts.push({time:tB,value:cv,curve:0});t=stepEnd;}secStart=secEnd;}return pts;}
+// sdApplyGlobalReflector — tight base+mirror pairs (verbatim layout)
+function genReflector(sB,eB,N){const pairs=Math.floor(N/2),flip=Math.random()<0.5,neuroPairs=flip?Math.ceil(pairs/2):Math.floor(pairs/2),chaosPairs=pairs-neuroPairs,mirror=p=>p.map(pt=>({time:pt.time,value:clamp01(1-pt.value),curve:pt.curve?-pt.curve:0})),out=[];for(let i=0;i<neuroPairs;i++){const b=genNeuro(sB,eB);out.push(b);out.push(mirror(b));}for(let i=0;i<chaosPairs;i++){const b=genChaos(sB,eB);out.push(b);out.push(mirror(b));}while(out.length<N)out.push(genNeuro(sB,eB));return out.slice(0,N);}
+// sdMutate (verbatim core) — whole-lane point array over [0,beats]
+function mutate(points,beats){const sB=0,eB=beats,dur=eB-sB;let pts=points.filter(pt=>pt.time>=sB&&pt.time<=eB);if(pts.length<2)return points.slice();let norm=pts.map(pt=>({t:(pt.time-sB)/dur,v:pt.value,curve:pt.curve||0}));const numChunks=3+Math.floor(Math.random()*4),chunkSize=1/numChunks;let chunks=[];for(let i=0;i<numChunks;i++){const cS=i*chunkSize,cE=(i+1)*chunkSize;chunks.push(norm.filter(p=>p.t>=cS&&p.t<cE).map(p=>({t:(p.t-cS)/chunkSize,v:p.v,curve:p.curve})));}for(let i=chunks.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)),tmp=chunks[i];chunks[i]=chunks[j];chunks[j]=tmp;}chunks=chunks.map(chunk=>{if(chunk.length<2)return chunk;if(Math.random()<0.4){chunk=chunk.map(p=>({t:1-p.t,v:p.v,curve:p.curve?-p.curve:0}));chunk.sort((a,b)=>a.t-b.t);}if(Math.random()<0.3)chunk=chunk.map(p=>({t:p.t,v:1-p.v,curve:p.curve?-p.curve:0}));const ampShift=(Math.random()-0.5)*0.6,ampScale=0.6+Math.random()*0.8;chunk=chunk.map(p=>({t:p.t,v:clamp01((p.v-0.5)*ampScale+0.5+ampShift),curve:p.curve}));const timeScale=0.8+Math.random()*0.4,timeOffset=(1-timeScale)*Math.random();return chunk.map(p=>({t:clamp01(p.t*timeScale+timeOffset),v:p.v,curve:p.curve}));});let result=[];chunks.forEach((chunk,i)=>{const cS=i*chunkSize;chunk.forEach(p=>result.push({time:sB+(cS+p.t*chunkSize)*dur,value:p.v,curve:p.curve}));});const newCount=Math.max(1,Math.floor(pts.length*(0.1+Math.random()*0.1)));for(let i=0;i<newCount;i++){const t=sB+Math.random()*dur,nearby=result.reduce((best,p)=>Math.abs(p.time-t)<Math.abs(best.time-t)?p:best,result[0]);result.push({time:t,value:clamp01(nearby.value+(Math.random()-0.5)*0.4),curve:0});}const rm=Math.floor(result.length*(0.1+Math.random()*0.05));for(let i=0;i<rm&&result.length>3;i++){const idx=1+Math.floor(Math.random()*(result.length-2));result.splice(idx,1);}result.sort((a,b)=>a.time-b.time);return result.map(p=>({time:Math.round(Math.max(sB,Math.min(eB,p.time))*10000)/10000,value:clamp01(p.value),curve:p.curve||0}));}
+// sdTimeStretch whole-lane (verbatim core)
+function timeStretch(points,factor,beats){let pts=points.map(pt=>({time:Math.round(pt.time*factor*10000)/10000,value:pt.value,curve:pt.curve||0}));if(factor<1){const segLen=beats*factor,compressed=pts.map(pt=>({time:pt.time,value:pt.value,curve:pt.curve||0})),tiles=Math.ceil(1/factor);for(let t=1;t<tiles;t++)compressed.forEach(pt=>{const nt=Math.round((pt.time+segLen*t)*10000)/10000;if(nt<=beats)pts.push({time:nt,value:pt.value,curve:pt.curve||0});});}pts=pts.filter(pt=>pt.time>=0&&pt.time<=beats);pts.sort((a,b)=>a.time-b.time);return pts;}
+// sdApplyGlobalPrism helpers + 8 personalities (verbatim)
+function pRng(seed){let a=(seed>>>0)||1;return function(){a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};}
+function pHash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+function pAnchors(points,beats){if(!points.length)return[];const sorted=points.slice().sort((a,b)=>a.time-b.time),bars=Math.max(1,Math.round(beats/4)),anchors=[];for(let b=0;b<bars;b++){const bs=b*4,be=(b+1)*4,inBar=sorted.filter(p=>p.time>=bs&&p.time<be);if(!inBar.length)continue;if(inBar.length===1){anchors.push({time:inBar[0].time,value:inBar[0].value});continue;}let peak=inBar[0],valley=inBar[0];for(const p of inBar){if(p.value>peak.value)peak=p;if(p.value<valley.value)valley=p;}if(peak===valley)anchors.push({time:peak.time,value:peak.value});else if(peak.time<valley.time){anchors.push({time:peak.time,value:peak.value});anchors.push({time:valley.time,value:valley.value});}else{anchors.push({time:valley.time,value:valley.value});anchors.push({time:peak.time,value:peak.value});}}const first=sorted[0],last=sorted[sorted.length-1];if(!anchors.length||anchors[0].time>first.time+1e-4)anchors.unshift({time:first.time,value:first.value});if(anchors[anchors.length-1].time<last.time-1e-4)anchors.push({time:last.time,value:last.value});const o=[];for(const a of anchors)if(!o.length||a.time>o[o.length-1].time+1e-4)o.push(a);return o;}
+const _PFN={
+  mirror:(a,b,d)=>{const lv=(a.value+b.value)/2;return[{time:(a.time+b.time)/2,value:clamp01(lv+((1-lv)-lv)*d),curve:0}];},
+  mutate:(a,b,d,rng)=>{const n=3+Math.floor(rng()*5),dy=b.value-a.value,dx=b.time-a.time,o=[];for(let i=1;i<n;i++){const t=i/n;o.push({time:a.time+dx*t,value:clamp01(a.value+dy*t+(rng()-0.5)*d*0.6),curve:(rng()-0.5)*d*0.4});}return o;},
+  stutter:(a,b,d,rng)=>{const n=4+Math.floor(rng()*6),dy=b.value-a.value,dx=b.time-a.time,o=[];for(let i=1;i<n;i++){const t=i/n,sw=(i%2===0?1:-1)*d*0.4;o.push({time:a.time+dx*t,value:clamp01(a.value+dy*t+sw),curve:0});}return o;},
+  smooth:(a,b,d,rng)=>[{time:(a.time+b.time)/2,value:(a.value+b.value)/2,curve:(rng()<0.5?-1:1)*d*0.85}],
+  step:(a,b)=>[{time:a.time+(b.time-a.time)*0.95,value:a.value,curve:0}],
+  drift:(a,b,d,rng)=>{const n=6,dy=b.value-a.value,dx=b.time-a.time,o=[];for(let i=1;i<n;i++){const t=i/n;o.push({time:a.time+dx*t,value:clamp01(a.value+dy*t+(rng()-0.5)*d*0.3),curve:0});}return o;},
+  chase:(a,b,d,rng)=>{const dx=b.time-a.time,off=(rng()<0.5?-1:1)*0.25*d,mt=a.time+dx*(0.5+off),mv=(a.value+b.value)/2,st=Math.max(a.time+dx*0.05,Math.min(b.time-dx*0.05,mt));return[{time:st,value:mv,curve:0}];},
+};
+_PFN.mutateMirror=(a,b,d,rng)=>_PFN.mutate(a,b,d,rng).map(p=>({time:p.time,value:clamp01(1-p.value),curve:-p.curve}));
+const PRISM_PERS=['mirror','mutate','mutateMirror','stutter','smooth','step','drift','chase'];
+function pVariant(anchors,personality,d,rng){if(!anchors.length)return[];if(anchors.length===1)return[{time:anchors[0].time,value:anchors[0].value,curve:0}];const fn=_PFN[personality]||_PFN.mirror,out=[{time:anchors[0].time,value:anchors[0].value,curve:0}];for(let i=0;i<anchors.length-1;i++){const mids=fn(anchors[i],anchors[i+1],d,rng);for(const m of mids)if(m.time>out[out.length-1].time+1e-4&&m.time<anchors[i+1].time-1e-4)out.push(m);out.push({time:anchors[i+1].time,value:anchors[i+1].value,curve:0});}return out;}
+function pAssign(ids,seed){const rng=pRng(seed),order=PRISM_PERS.slice();for(let i=order.length-1;i>0;i--){const j=Math.floor(rng()*(i+1)),t=order[i];order[i]=order[j];order[j]=t;}const m={};ids.forEach((id,i)=>m[id]=order[i%order.length]);return m;}
+// Build every preview's curves ONCE, deterministically.
+const GEN=withSeed(0x57A1DE,()=>{
+  const sB=0,eB=BEATS,chaos=[],neuro=[],sh=[];
+  for(let k=0;k<6;k++){chaos.push(genChaos(sB,eB));neuro.push(genNeuro(sB,eB));sh.push(genSH(sB,eB));}
+  const reflector=genReflector(sB,eB,6),base=[];for(let k=0;k<6;k++)base.push(genChaos(sB,eB));
+  const mutated=base.map(b=>mutate(b,BEATS)),stretch2x=base.map(b=>timeStretch(b,2,BEATS)),stretchHalf=base.map(b=>timeStretch(b,0.5,BEATS));
+  const prismSrc=genChaos(sB,eB),anchors=pAnchors(prismSrc,BEATS),pseed=0x9E3779B1>>>0,ids=['p1','p2','p3','p4','p5'],per=pAssign(ids,pseed),prism=[prismSrc];
+  ids.forEach(id=>prism.push(pVariant(anchors,per[id],0.8,pRng((pseed^pHash(id))>>>0))));
+  return {chaos,neuro,sh,reflector,base,mutated,stretch2x,stretchHalf,prism};
+});
+// Render a point array into a lane rect EXACTLY like the canvas (lineTo for
+// curve==0, else quadraticCurveTo). [a,b] = visible x-fraction (left→right reveal).
+function drawPointsLane(pts,gx,top,gw,bh,beats,a,b,color,lineW){
+  if(!pts||pts.length<2)return;
+  ctx.save();ctx.beginPath();ctx.rect(gx+gw*clamp(a,0,1)-0.5,top-3,gw*(clamp(b,0,1)-clamp(a,0,1))+1,bh+6);ctx.clip();
+  ctx.strokeStyle=color;ctx.lineWidth=lineW||2.4;ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();
+  for(let i=0;i<pts.length;i++){const p=pts[i],x=gx+gw*(p.time/beats),y=top+bh-clamp(p.value,0,1)*bh;
+    if(i===0){ctx.moveTo(x,y);}else{const pr=pts[i-1],cv=pr.curve||0;if(cv===0){ctx.lineTo(x,y);}else{const px=gx+gw*(pr.time/beats),py=top+bh-clamp(pr.value,0,1)*bh,mx=(px+x)/2,my=(py+y)/2,cpY=my-cv*Math.abs(y-py)*1.2;ctx.quadraticCurveTo(mx,cpY,x,y);}}}
+  ctx.stroke();ctx.restore();
+}
+// 6-lane frame rendering real point arrays (sibling of lanes())
+function lanesPts(arrays,x,y,w,h,reveal,opt){opt=opt||{};const N=arrays.length,lh=h/N,beats=opt.beats||BEATS;
+  for(let li=0;li<N;li++){const ly=y+lh*li,top=ly+8,bh=lh-16,gx=x+NAMEW,gw=w-NAMEW-12,col=opt.col?opt.col(li):LANEC[li%6];
+    if(opt.names!==false)paramName(li,x,ly,lh,col);
+    ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=1;for(let b=1;b<8;b++){const bx=gx+gw*b/8;ctx.beginPath();ctx.moveTo(bx,ly+2);ctx.lineTo(bx,ly+lh-2);ctx.stroke();}
+    const rv=clamp((reveal-li*(opt.stagger??0.05))/0.5,0,1);if(rv<=0)continue;
+    ctx.save();ctx.globalAlpha=opt.dim?opt.dim(li):1;drawPointsLane(arrays[li],gx,top,gw,bh,beats,0,rv,col,opt.lineW||2.4);ctx.restore();
+    if(opt.locked&&opt.locked(li)){ctx.fillStyle=hexA(INK3,.9);ctx.font='800 12px Outfit';ctx.textBaseline='middle';ctx.fillText('LOCKED',gx+4,ly+12);}
+  }
+}
+
+// ── button rects on the device image (device-px, 453x199). Tune with ?debug ─
+const BTN={
+  // calibrated from the device pixels (per-row luminance scan), not eyeballed
+  // top row  (y ~27-53)
+  opencanvas:{x:250,y:26,w:112,h:28},
+  rescan:{x:362,y:26,w:72,h:28},
+  lock:{x:186,y:26,w:58,h:28},                 // both padlocks (lock + unlock)
+  // MOTION row  (y ~63-92)
+  chaos:{x:61,y:63,w:67,h:29}, neuro:{x:138,y:63,w:67,h:29}, reflector:{x:215,y:63,w:72,h:29},
+  sh:{x:297,y:63,w:54,h:29}, prism:{x:361,y:63,w:73,h:29},
+  motionrow:{x:52,y:61,w:386,h:33},            // whole MOTION row (section-intro emphasis)
+  // SHAPE row  (y ~99-128)
+  mutate:{x:58,y:99,w:52,h:30}, shuffle:{x:114,y:99,w:52,h:30}, x2:{x:170,y:99,w:38,h:30}, half:{x:212,y:99,w:38,h:30},
+  bars:{x:254,y:99,w:182,h:30},                // 4 / 8 / 16 / 32 group
+  // bottom row  (y ~150-182)
+  counter:{x:7,y:150,w:54,h:40}, inject:{x:296,y:151,w:141,h:31},
+};
+
+// ── SEGMENTS — order is top-left → bottom-right. vo = the on-screen subtitle.
+//    lead = the copper-accented opening term. btn = key in BTN. preview = type.
+//    dur = seconds. Drop img:'file.png' to override the mock preview later.
+const SEGMENTS=[
+  {id:'intro', lead:'Stride', btn:null, preview:'intro', dur:7.0,
+    vo:'This is Stride. Shape your whole sound design session from one panel, right inside Ableton.'},
+  {id:'opencanvas', lead:'Open Canvas', btn:'opencanvas', preview:'opencanvas', dur:7.0,
+    vo:'Open Canvas brings up the full Stride window where you draw and shape every lane. One press and the engine is ready to go.'},
+  {id:'rescan', lead:'Rescan', btn:'rescan', preview:'rescan', dur:7.5,
+    vo:'Rescan reads your rack and pulls in every parameter you can move. Add a device, hit Rescan, and the new controls land on the lanes.'},
+  {id:'lock', lead:'Lock', btn:'lock', preview:'lock', dur:8.0,
+    vo:'Lock freezes the lanes that are already moving, so your next move only touches the empty ones. Unlock opens them all back up to modulate everything again.'},
+  {id:'motion', lead:'The Motion Row', btn:'motionrow', preview:'motion', dur:7.0,
+    vo:'Every button in the Motion row scans your rack first, then applies its pattern, all in one press. Rescan is optional here, so you never end up with parameters left sitting still.'},
+  {id:'chaos', lead:'Chaos', btn:'chaos', preview:'chaos', dur:7.0,
+    vo:'Chaos spreads organic, unpredictable motion across every lane at once. Perfect for evolving textures that never sit still.'},
+  {id:'neuro', lead:'Neuro', btn:'neuro', preview:'neuro', dur:7.0,
+    vo:'Neuro lays down fast, aggressive movement made for bass and modern sound design. One press and the whole rack starts to move.'},
+  {id:'reflector', lead:'Reflector', btn:'reflector', preview:'reflector', dur:7.0,
+    vo:'Reflector mirrors your lanes against each other so they move in symmetry. Pairs rise and fall as reflections for a tight, composed feel.'},
+  {id:'sh', lead:'Sample and Hold', btn:'sh', preview:'sh', dur:7.0,
+    vo:'Sample and Hold steps each lane to a new value on the grid. Instant rhythmic, stuttered motion locked to your bars.'},
+  {id:'prism', lead:'Prism', btn:'prism', preview:'prism', dur:7.5,
+    vo:'Prism takes one moving lane and spreads variations of it across all the others. Every parameter follows the same gesture, reshaped.'},
+  {id:'mutate', lead:'Mutate', btn:'mutate', preview:'mutate', dur:7.0,
+    vo:'Mutate reshapes the curves you already have, chopping them into chunks then shuffling and flipping. It only works on existing motion, so generate or draw a pattern first.'},
+  {id:'shuffle', lead:'Shuffle', btn:'shuffle', preview:'shuffle', dur:7.0,
+    vo:'Shuffle trades the motion between lanes so the curves swap places. A fast way to stumble onto a happy accident.'},
+  {id:'stretch', lead:'2x and Half', btn:'x2', btn2:'half', preview:'stretch', dur:8.0,
+    vo:'2x stretches your motion out, slower and sparser across the bars. Half x compresses it, faster and denser, for double time energy.'},
+  {id:'bars', lead:'Bars', btn:'bars', preview:'bars', dur:7.5,
+    vo:'Set how many bars your modulation runs for, from 4 up to 32.'},
+  {id:'counter', lead:'Moving / Total', btn:'counter', preview:'counter', dur:7.0,
+    vo:'This counter shows how many lanes are actually moving out of everything loaded. At a glance you know what still needs a curve.'},
+  {id:'inject', lead:'Inject to Clip', btn:'inject', preview:'inject', dur:8.0,
+    vo:"When you're ready to fire your modulation, click Inject to Clip. Every lane writes straight into your Ableton clip, dozens of automation lanes in a single press."},
+  {id:'outro', lead:'Stride', btn:null, preview:'outro', dur:7.0,
+    vo:'That is Stride. Pick your parameters, shape the motion, inject. stridehub.io'},
+];
+let acc=0; SEGMENTS.forEach(s=>{s.t0=acc;acc+=s.dur;}); const LOOP=acc;   // ~117s
+function segAt(t){for(let i=0;i<SEGMENTS.length;i++){const s=SEGMENTS[i];if(t>=s.t0&&t<s.t0+s.dur)return {s,i,lt:(t-s.t0)/s.dur};}const s=SEGMENTS[SEGMENTS.length-1];return {s,i:SEGMENTS.length-1,lt:1};}
+
+// ── helpers ────────────────────────────────────────────────────────────────
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+const grain=document.createElement('canvas');(function(){grain.width=grain.height=150;const g=grain.getContext('2d'),id=g.createImageData(150,150);let s=98765;const rnd=()=>{s=(s*1103515245+12345)&0x7fffffff;return s/0x7fffffff;};for(let i=0;i<id.data.length;i+=4){const n=rnd()*255;id.data[i]=id.data[i+1]=id.data[i+2]=n;id.data[i+3]=10;}g.putImageData(id,0,0);})();
+
+// ── low-opacity animated audio waveforms (the ambient background motion) ────
+function drawWaveforms(t){
+  const bands=[
+    {cy:240,  amp:78,  col:COPL,  a:.060, sp:0.55, seed:0.3, fill:.016},
+    {cy:700,  amp:120, col:TEAL,  a:.032, sp:-0.42,seed:1.1, fill:.009},
+    {cy:1300, amp:150, col:AMBER, a:.024, sp:0.50, seed:2.0, fill:.007},
+    {cy:1545, amp:62,  col:COPL,  a:.050, sp:-0.60,seed:2.7, fill:.014},
+    {cy:1872, amp:56,  col:COP,   a:.055, sp:0.50, seed:3.4, fill:.014},
+  ];
+  const N=180;
+  bands.forEach(b=>{
+    const ph=t*b.sp;
+    const env=(x)=>{const u=x*14;let v=Math.sin(u*0.6+ph)*0.55+Math.sin(u*1.7-ph*0.9)*0.28+Math.sin(u*3.3+ph*1.5)*0.16;v=Math.abs(v);const swell=0.45+0.55*(0.5+0.5*Math.sin(x*6.283*1.3+t*0.35+b.seed));return clamp(v*swell,0,1);};
+    const top=[],bot=[];
+    for(let s=0;s<=N;s++){const x=s/N,a=env(x)*b.amp;top.push([x*VW,b.cy-a]);bot.push([x*VW,b.cy+a]);}
+    if(b.fill){ctx.beginPath();top.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));for(let i=bot.length-1;i>=0;i--)ctx.lineTo(bot[i][0],bot[i][1]);ctx.closePath();ctx.fillStyle=hexA(b.col,b.fill);ctx.fill();}
+    ctx.strokeStyle=hexA(b.col,b.a);ctx.lineWidth=1.6;ctx.lineJoin='round';
+    ctx.beginPath();top.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();
+    ctx.beginPath();bot.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();
+    ctx.strokeStyle=hexA(b.col,b.a*0.45);ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,b.cy);ctx.lineTo(VW,b.cy);ctx.stroke();
+  });
+}
+// ── background: matte charcoal + soft brand washes + waveforms + faint cables ─
+function drawBG(t){
+  // light Ableton session as the base — gives the dark device + panels contrast
+  if(ablOK)ctx.drawImage(ablBg,0,0,VW,VH);else{ctx.fillStyle='#e7e3da';ctx.fillRect(0,0,VW,VH);}
+  ctx.save();ctx.globalAlpha=0.10;ctx.fillStyle=COP;ctx.fillRect(0,0,VW,VH);ctx.restore();          // warm brand tint over the neutral grey
+  ctx.save();ctx.globalCompositeOperation='multiply';drawWaveforms(t);ctx.restore();                 // ambient waveforms, readable on the light bg
+  // dark scrims top + bottom so the light wordmark + subtitles stay legible
+  const tS=ctx.createLinearGradient(0,0,0,360);tS.addColorStop(0,'rgba(15,14,11,.94)');tS.addColorStop(1,'rgba(15,14,11,0)');ctx.fillStyle=tS;ctx.fillRect(0,0,VW,360);
+  const bS=ctx.createLinearGradient(0,1440,0,VH);bS.addColorStop(0,'rgba(15,14,11,0)');bS.addColorStop(.375,'rgba(15,14,11,.86)');bS.addColorStop(1,'rgba(15,14,11,.97)');ctx.fillStyle=bS;ctx.fillRect(0,1440,VW,VH-1440);
+}
+
+// ── the preview frame above the device (the swappable mock illustration) ────
+const PV={x:120, y:330, w:840, h:720};   // preview-frame rect in 1080x1920 space
+function previewPanel(seg, lt){
+  const p=PV;
+  // frame
+  ctx.save();ctx.shadowColor='rgba(0,0,0,.55)';ctx.shadowBlur=40;ctx.shadowOffsetY=20;ctx.fillStyle=PANEL;rr(p.x,p.y,p.w,p.h,22);ctx.fill();ctx.restore();
+  const pg=ctx.createLinearGradient(p.x,p.y,p.x,p.y+p.h);pg.addColorStop(0,'rgba(255,255,255,.03)');pg.addColorStop(1,'rgba(0,0,0,.14)');ctx.fillStyle=pg;rr(p.x,p.y,p.w,p.h,22);ctx.fill();
+  ctx.lineWidth=1;ctx.strokeStyle=LINE;ctx.stroke();
+  ctx.save();rr(p.x,p.y,p.w,p.h,22);ctx.clip();ctx.fillStyle=hexA(COP,.5);ctx.fillRect(p.x,p.y,p.w,2);   // copper top hairline
+  // header chip
+  ctx.fillStyle=INK3;ctx.font='800 17px Outfit';ctx.textBaseline='middle';ctx.textAlign='left';ctx.fillText('PREVIEW',p.x+26,p.y+30);
+  ctx.fillStyle=hexA(INK3,.5);ctx.font='700 13px Outfit';ctx.textAlign='right';ctx.fillText('MOCK — replace with footage',p.x+p.w-22,p.y+30);ctx.textAlign='left';
+  // body inset (where lanes / illustrations live)
+  const ix=p.x+26, iy=p.y+52, iw=p.w-52, ih=p.h-78;
+  if(seg.img && seg._img && seg._img.complete){ctx.drawImage(seg._img,ix,iy,iw,ih);ctx.restore();return;}
+  ctx.fillStyle='#0e0e10';rr(ix,iy,iw,ih,12);ctx.fill();
+  ctx.save();rr(ix,iy,iw,ih,12);ctx.clip();
+  drawPreviewBody(seg,lt,ix,iy,iw,ih);
+  ctx.restore();
+  ctx.restore();
+}
+// draw N lanes with a curve fn into (x,y,w,h). reveal 0..1 sweeps left→right.
+function lanes(curve,x,y,w,h,reveal,opt){opt=opt||{};const N=opt.n||6,lh=h/N;
+  for(let li=0;li<N;li++){const _nm=opt.names!==false,ly=y+lh*li, top=ly+8, bh=lh-16, gx=x+(_nm?NAMEW:12), gw=w-(_nm?NAMEW:12)-12, col=opt.col?opt.col(li):LANEC[li%6];
+    if(_nm)paramName(li,x,ly,lh,col);
+    // lane baseline grid
+    ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=1;for(let b=1;b<(opt.grid||8);b++){const bx=gx+gw*b/(opt.grid||8);ctx.beginPath();ctx.moveTo(bx,ly+2);ctx.lineTo(bx,ly+lh-2);ctx.stroke();}
+    const rv=clamp((reveal-li*(opt.stagger??0.05))/0.5,0,1);if(rv<=0)continue;
+    const dim=opt.dim?opt.dim(li):1;
+    ctx.save();ctx.globalAlpha=dim;ctx.strokeStyle=col;ctx.lineWidth=2.4;ctx.lineJoin='round';ctx.lineCap='round';
+    ctx.beginPath();const M=opt.step?undefined:140;
+    if(opt.step){ // stepped (sample & hold) render
+      const steps=opt.grid||8;let prevY=null;
+      for(let s=0;s<=steps;s++){const xx=s/steps;if(xx>rv)break;const X=gx+gw*xx,Y=top+bh-clamp(curve(li,Math.min(xx,0.999)),0,1)*bh;
+        if(s===0){ctx.moveTo(X,Y);}else{ctx.lineTo(X,prevY);ctx.lineTo(X,Y);}prevY=Y;}
+    } else {
+      for(let s=0;s<=M;s++){const xx=s/M;if(xx>rv)break;const X=gx+gw*xx,Y=top+bh-clamp(curve(li,xx),0,1)*bh;s===0?ctx.moveTo(X,Y):ctx.lineTo(X,Y);}
+    }
+    ctx.stroke();ctx.restore();
+    if(opt.locked&&opt.locked(li)){ctx.fillStyle=hexA(INK3,.9);ctx.font='800 12px Outfit';ctx.textBaseline='middle';ctx.fillText('LOCKED',gx+4,ly+12);}
+  }
+}
+function caption(txt,x,y,w,col){ctx.fillStyle=col||INK2;ctx.font='800 20px Outfit';ctx.textAlign='center';ctx.textBaseline='alphabetic';ctx.fillText(txt,x+w/2,y);ctx.textAlign='left';}
+
+function drawPreviewBody(seg,lt,x,y,w,h){
+  const rv=E.out(clamp(lt/0.5,0,1));   // generic reveal across first half
+  switch(seg.preview){
+    case 'intro':{lanes((k,xx)=>patSine(LSEED[k],xx+lt*0.15),x,y,w,h,1,{stagger:0.08});break;}
+    case 'opencanvas':{ // a window "opens" then fills with empty lanes
+      const o=E.back(clamp(lt/0.6,0,1));const ww=w*lerp(0.4,0.92,o),hh=h*lerp(0.4,0.9,o),cx=x+w/2-ww/2,cy=y+h/2-hh/2;
+      ctx.fillStyle='#121214';rr(cx,cy,ww,hh,10);ctx.fill();ctx.strokeStyle=hexA(COP,.4);ctx.lineWidth=1.5;ctx.stroke();
+      ctx.fillStyle=hexA(COP,.5);ctx.fillRect(cx,cy,ww,3);
+      if(o>0.7){lanes((k,xx)=>0.5+0.02*Math.sin(xx*6),cx+10,cy+16,ww-20,hh-26,1,{n:4,col:()=>hexA(INK3,.4),names:false});}
+      caption('OPEN CANVAS',x,y+h-6,w,COPL);break;}
+    case 'rescan':{ // params appear FAST (it is a quick tool) + a ticking count
+      const n=6, shown=Math.floor(clamp(lt/0.28,0,1)*n+0.001);
+      lanes((k,xx)=>patSine(LSEED[k],xx),x,y,w,h-30,1,{stagger:0,dim:(li)=>li<shown?1:0.0});
+      ctx.fillStyle=COPL;ctx.font='900 26px Outfit';ctx.textAlign='center';ctx.fillText((shown*4)+' PARAMETERS FOUND',x+w/2,y+h-6);ctx.textAlign='left';break;}
+    case 'lock':{ // lock ALL moving lanes at once, then 2 NEW params arrive unlocked
+      const locked=lt>0.42, newP=E.out(clamp((lt-0.6)/0.32,0,1));
+      const N=8, lh=(h-32)/(6+2*newP);          // existing 6 compress to make room for the 2 new
+      for(let li=0;li<N;li++){const isNew=li>=6;if(isNew&&newP<=0.001)continue;
+        const ly=y+lh*li,top=ly+8,bh=lh-16,gx=x+NAMEW,gw=w-NAMEW-12,col=LANEC[li%6];
+        ctx.save();if(isNew)ctx.globalAlpha=newP;
+        paramName(li,x,ly,lh,isNew?SAGE:col);
+        ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=1;for(let b=1;b<8;b++){const bx=gx+gw*b/8;ctx.beginPath();ctx.moveTo(bx,ly+2);ctx.lineTo(bx,ly+lh-2);ctx.stroke();}
+        if(isNew){ctx.strokeStyle=hexA(SAGE,.6);ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(gx,top+bh*0.5);ctx.lineTo(gx+gw,top+bh*0.5);ctx.stroke();ctx.fillStyle=hexA(SAGE,.95);ctx.font='800 10px Outfit';ctx.textBaseline='middle';ctx.fillText('NEW',gx+gw-32,ly+11);}
+        else{ctx.globalAlpha=locked?0.3:1;drawPointsLane(GEN.chaos[li],gx,top,gw,bh,BEATS,0,1,col,2.3);ctx.globalAlpha=1;if(locked){ctx.fillStyle=hexA(INK3,.95);ctx.font='800 11px Outfit';ctx.textBaseline='middle';ctx.fillText('LOCKED',gx+6,ly+11);}}
+        ctx.restore();
+      }
+      const lab=!locked?'6 LANES MOVING':(newP<0.5?'ALL LOCKED · FROZEN':'2 NEW PARAMS · UNLOCKED');
+      ctx.fillStyle=(locked&&newP>=0.5)?SAGE:GOLD;ctx.font='900 22px Outfit';ctx.textAlign='center';ctx.fillText(lab,x+w/2,y+h-6);ctx.textAlign='left';break;}
+    case 'motion':{ // one press = scan the rack, THEN apply the real Chaos pattern (no manual Rescan)
+      const scanP=E.out(clamp(lt/0.40,0,1)), applyP=clamp((lt-0.46)/0.42,0,1);
+      const shown=Math.floor(scanP*6+0.001), N=6, lh=(h-36)/N;
+      for(let li=0;li<N;li++){const ly=y+lh*li,top=ly+8,bh=lh-16,gx=x+NAMEW,gw=w-NAMEW-12,col=LANEC[li%6];
+        paramName(li,x,ly,lh,col);
+        ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=1;for(let b=1;b<8;b++){const bx=gx+gw*b/8;ctx.beginPath();ctx.moveTo(bx,ly+2);ctx.lineTo(bx,ly+lh-2);ctx.stroke();}
+        if(li>=shown&&applyP<=0)continue;
+        if(applyP<=0){ctx.strokeStyle=hexA(col,.5);ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(gx,top+bh*0.5);ctx.lineTo(gx+gw,top+bh*0.5);ctx.stroke();}
+        else{const ap=E.out(applyP);ctx.strokeStyle=hexA(col,.5);ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(gx+gw*ap,top+bh*0.5);ctx.lineTo(gx+gw,top+bh*0.5);ctx.stroke();drawPointsLane(GEN.chaos[li],gx,top,gw,bh,BEATS,0,ap,col,2.4);}
+      }
+      const lab=applyP<=0.02?'SCANNING RACK':(applyP<0.98?'APPLYING PATTERN':'DONE · NO RESCAN NEEDED');
+      ctx.fillStyle=applyP>=0.98?SAGE:COPL;ctx.font='900 24px Outfit';ctx.textAlign='center';ctx.fillText(lab,x+w/2,y+h-8);ctx.textAlign='left';break;}
+    case 'chaos':{lanesPts(GEN.chaos,x,y,w,h,rv,{stagger:0.05});break;}
+    case 'neuro':{lanesPts(GEN.neuro,x,y,w,h,rv,{stagger:0.05});break;}
+    case 'reflector':{lanesPts(GEN.reflector,x,y,w,h,rv,{stagger:0.05,col:(li)=>li%2?hexA(LANEC[li%6],.85):LANEC[li%6]});break;}
+    case 'sh':{lanesPts(GEN.sh,x,y,w,h,rv,{stagger:0.04});break;}
+    case 'prism':{ const N=GEN.prism.length,lh=h/N;
+      for(let li=0;li<N;li++){const ly=y+lh*li,top=ly+8,bh=lh-16,gx=x+NAMEW,gw=w-NAMEW-12,col=li===0?COPL:LANEC[li%6];
+        paramName(li,x,ly,lh,col);
+        ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=1;for(let b=1;b<8;b++){const bx=gx+gw*b/8;ctx.beginPath();ctx.moveTo(bx,ly+2);ctx.lineTo(bx,ly+lh-2);ctx.stroke();}
+        const rev=li===0?1:clamp((lt-0.12-li*0.07)/0.4,0,1);if(rev>0)drawPointsLane(GEN.prism[li],gx,top,gw,bh,BEATS,0,E.out(rev),col,li===0?2.9:2.3);}
+      ctx.fillStyle=hexA(COPL,.9);ctx.font='800 13px Outfit';ctx.textBaseline='middle';ctx.fillText('SOURCE',x+14,y+15);break;}
+    case 'mutate':{ const m=E.io(clamp(lt/0.7,0,1)),N=6,lh=h/N;   // wipe base → real Mutate output
+      for(let li=0;li<N;li++){const ly=y+lh*li,top=ly+8,bh=lh-16,gx=x+NAMEW,gw=w-NAMEW-12,col=LANEC[li%6];
+        paramName(li,x,ly,lh,col);
+        ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=1;for(let b=1;b<8;b++){const bx=gx+gw*b/8;ctx.beginPath();ctx.moveTo(bx,ly+2);ctx.lineTo(bx,ly+lh-2);ctx.stroke();}
+        drawPointsLane(GEN.mutated[li],gx,top,gw,bh,BEATS,0,m,col,2.4);
+        drawPointsLane(GEN.base[li],gx,top,gw,bh,BEATS,m,1,col,2.4);}
+      if(m>0.01&&m<0.99){const sx=x+NAMEW+(w-NAMEW-12)*m;ctx.strokeStyle=hexA(COPL,.9);ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(sx,y+2);ctx.lineTo(sx,y+h-2);ctx.stroke();}break;}
+    case 'shuffle':{ // a few successive shuffles so the swap reads clearly
+      const perms=[[0,1,2,3,4,5],[3,5,0,4,1,2],[4,2,5,1,0,3],[1,4,0,5,3,2]];
+      const steps=perms.length, prog=clamp(lt/0.94,0,1)*(steps-1);
+      const idx=Math.min(steps-1,Math.round(prog)), frac=Math.abs(prog-Math.round(prog))*2, dip=1-frac*0.72;
+      const perm=perms[idx], N=6, lh=h/N;
+      for(let li=0;li<N;li++){const ly=y+lh*li,top=ly+8,bh=lh-16,gx=x+NAMEW,gw=w-NAMEW-12,col=LANEC[li%6];
+        paramName(li,x,ly,lh,col);
+        ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=1;for(let b=1;b<8;b++){const bx=gx+gw*b/8;ctx.beginPath();ctx.moveTo(bx,ly+2);ctx.lineTo(bx,ly+lh-2);ctx.stroke();}
+        ctx.save();ctx.globalAlpha=dip;drawPointsLane(GEN.base[perm[li]],gx,top,gw,bh,BEATS,0,1,col,2.4);ctx.restore();}
+      ctx.globalAlpha=frac;ctx.fillStyle=hexA(INK,.6);ctx.font='900 22px Outfit';ctx.textAlign='center';ctx.fillText('⇅',x+w/2,y+h/2);ctx.textAlign='left';ctx.globalAlpha=1;break;}
+    case 'stretch':{ const two=lt<0.5;lanesPts(two?GEN.stretch2x:GEN.stretchHalf,x,y,w,h-30,1,{stagger:0});
+      ctx.fillStyle=two?TEAL:COPL;ctx.font='900 26px Outfit';ctx.textAlign='center';ctx.fillText(two?'2x · SLOWER, SPARSER':'½x · FASTER, DENSER',x+w/2,y+h-6);ctx.textAlign='left';break;}
+    case 'bars':{ const opts=[4,8,16,32];const idx=Math.min(3,Math.floor(clamp(lt/0.9,0,1)*4));const g=opts[idx];
+      lanesPts(GEN.sh,x,y,w,h-60,1,{stagger:0});                      // SAME modulation throughout — only the span changes
+      const ry=y+h-44,rx=x+NAMEW,rw=w-NAMEW-12;                        // a bar ruler that GROWS 4 -> 32
+      ctx.strokeStyle=hexA(INK3,.55);ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(rx,ry);ctx.lineTo(rx+rw,ry);ctx.stroke();
+      for(let b=0;b<=g;b++){const bx=rx+rw*b/g,big=b%4===0;ctx.strokeStyle=hexA(COPL,big?.7:.28);ctx.lineWidth=big?1.6:1;ctx.beginPath();ctx.moveTo(bx,ry-(big?7:4));ctx.lineTo(bx,ry+(big?7:4));ctx.stroke();}
+      ctx.textAlign='center';ctx.fillStyle=COPL;ctx.font='900 24px Outfit';ctx.fillText(g+' BARS',x+w/2,y+h-18);
+      ctx.fillStyle=hexA(INK3,.9);ctx.font='700 12px Outfit';ctx.fillText('same modulation, longer clip',x+w/2,y+h-4);ctx.textAlign='left';break;}
+    case 'counter':{ const total=6,moving=Math.floor(clamp(lt/0.7,0,1)*4+0.001),N=6,lh=h/N,gw0=w*0.52;
+      for(let li=0;li<N;li++){const ly=y+lh*li,top=ly+8,bh=lh-16,gx=x+NAMEW,gw=gw0-NAMEW-12,col=LANEC[li%6];
+        paramName(li,x,ly,lh,col);
+        ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=1;for(let b=1;b<6;b++){const bx=gx+gw*b/6;ctx.beginPath();ctx.moveTo(bx,ly+2);ctx.lineTo(bx,ly+lh-2);ctx.stroke();}
+        if(li<moving)drawPointsLane(GEN.chaos[li],gx,top,gw,bh,BEATS,0,1,col,2.2);
+        else{ctx.strokeStyle=hexA(col,.35);ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(gx,top+bh*0.5);ctx.lineTo(gx+gw,top+bh*0.5);ctx.stroke();}}
+      ctx.textAlign='center';ctx.fillStyle=INK;ctx.font='900 96px Outfit';ctx.fillText(moving+' / '+total,x+w*0.76,y+h*0.5);
+      ctx.fillStyle=INK3;ctx.font='800 20px Outfit';ctx.fillText('MOVING / TOTAL',x+w*0.76,y+h*0.5+44);ctx.textAlign='left';break;}
+    case 'inject':{ lanesPts(GEN.chaos,x,y,w,h*0.52,1,{stagger:0});   // real curves flow into the clip
+      const drop=E.io(clamp((lt-0.2)/0.5,0,1));const done=lt>0.78;
+      const cy=y+h*0.72,cw=w*0.5,cx=x+w/2-cw/2;
+      ctx.fillStyle=done?hexA(SAGE,.9):'#2a2a2c';rr(cx,cy,cw,46,8);ctx.fill();ctx.strokeStyle=done?SAGE:hexA(COP,.6);ctx.lineWidth=2;ctx.stroke();
+      ctx.fillStyle=done?'#10210f':INK2;ctx.font='800 19px Outfit';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(done?'✓  INJECTED · 24 LANES':'CLIP',x+w/2,cy+23);ctx.textAlign='left';
+      if(!done){for(let k=0;k<6;k++){const px=x+w*(0.2+k*0.12),py=lerp(y+h*0.5,cy,clamp(drop-k*0.05,0,1));ctx.fillStyle=LANEC[k];ctx.beginPath();ctx.arc(px,py,4,0,7);ctx.fill();}}break;}
+    case 'outro':{ const ca=E.out(clamp(lt/0.5,0,1));ctx.globalAlpha=ca;
+      if(logoOK){const tw=200,th=tw*1812/2048;ctx.drawImage(logo,x+w/2-tw/2,y+h/2-th/2-20,tw,th);}
+      ctx.fillStyle=COPL;ctx.font='800 22px Outfit';ctx.textAlign='center';ctx.fillText('stridehub.io',x+w/2,y+h-30);ctx.textAlign='left';ctx.globalAlpha=1;break;}
+  }
+}
+
+// ── the device (FIXED in place) + active-button highlight ──────────────────
+let devXf=null;   // device transform {dx,dy,scale} for connector mapping
+function drawDevice(t,seg,lt){
+  const scale=2.06;const dw=DEVW*scale, dh=DEVH*scale;
+  const cx=540, baseY=1300;
+  const dx=cx-dw/2, dy=baseY-dh/2;             // FIXED — the device does not move
+  // soft matte contact shadow (no glow)
+  ctx.save();ctx.fillStyle='rgba(0,0,0,.45)';ctx.filter='blur(24px)';rr(dx+20,dy+dh-22,dw-40,56,30);ctx.fill();ctx.restore();
+  if(deviceOK){ctx.drawImage(device,dx,dy,dw,dh);}
+  else{ctx.fillStyle=PANEL;rr(dx,dy,dw,dh,16);ctx.fill();ctx.fillStyle=INK3;ctx.font='700 22px Outfit';ctx.fillText('StrideLink device',dx+30,dy+40);}
+  devXf={dx,dy,scale};
+  // highlight active button(s)
+  const keys=[seg.btn,seg.btn2].filter(Boolean);
+  keys.forEach(k=>{const b=BTN[k];if(!b)return;const bx=dx+b.x*scale, by=dy+b.y*scale, bw=b.w*scale, bh=b.h*scale;
+    const pulse=0.5+0.5*Math.sin(t*3.2);
+    ctx.save();ctx.fillStyle=hexA(COPL,0.10+0.06*pulse);rr(bx-4,by-4,bw+8,bh+8,8);ctx.fill();
+    ctx.strokeStyle=hexA(COPL,0.85);ctx.lineWidth=2.5;rr(bx-4,by-4,bw+8,bh+8,8);ctx.stroke();ctx.restore();
+  });
+  // DEBUG: show all rects to calibrate
+  if(DEBUG){Object.entries(BTN).forEach(([k,b])=>{const bx=dx+b.x*scale,by=dy+b.y*scale;ctx.strokeStyle='rgba(0,255,180,.8)';ctx.lineWidth=1;ctx.strokeRect(bx,by,b.w*scale,b.h*scale);ctx.fillStyle='rgba(0,255,180,.9)';ctx.font='10px monospace';ctx.fillText(k,bx,by-2);});}
+  return keys.length?keys[0]:null;
+}
+function connector(t,seg){ // thin line from active button up to the preview frame
+  if(!seg.btn||!devXf)return;const b=BTN[seg.btn];if(!b)return;
+  const sx=devXf.dx+(b.x+b.w/2)*devXf.scale, sy=devXf.dy+(b.y)*devXf.scale-6;
+  const ex=540, ey=PV.y+PV.h;
+  ctx.save();ctx.strokeStyle=hexA(COP,.45);ctx.lineWidth=1.6;ctx.setLineDash([5,6]);ctx.lineDashOffset=-t*18;
+  ctx.beginPath();ctx.moveTo(sx,sy);ctx.bezierCurveTo(sx,sy-60,ex,ey+80,ex,ey);ctx.stroke();ctx.restore();
+}
+
+// ── top brand bar + bottom subtitles ───────────────────────────────────────
+function topBar(seg,i){
+  ctx.textBaseline='alphabetic';
+  ctx.fillStyle=INK;ctx.font='900 30px Outfit';ctx.textAlign='left';ctx.fillText('STRIDE',70,150);
+  const sw=ctx.measureText('STRIDE').width;ctx.fillStyle=INK3;ctx.font='700 15px Outfit';ctx.fillText('LINK',70+sw+10,150);
+  ctx.fillStyle=INK3;ctx.font='800 15px Outfit';ctx.textAlign='right';ctx.fillText('WALKTHROUGH',VW-70,138);
+  // progress dots
+  const n=SEGMENTS.length, dotW=Math.min(20,(VW-140)/n), y=170;
+  for(let k=0;k<n;k++){const x=70+k*((VW-140)/n);ctx.fillStyle=k===i?COPL:hexA(INK3,.35);ctx.beginPath();ctx.arc(x+ (VW-140)/n/2,y,k===i?5:3,0,7);ctx.fill();}
+  ctx.textAlign='left';
+}
+function wrapText(txt,maxW,font){ctx.font=font;const words=txt.split(' ');const lines=[];let cur='';
+  for(const w of words){const test=cur?cur+' '+w:w;if(ctx.measureText(test).width>maxW&&cur){lines.push(cur);cur=w;}else cur=test;}
+  if(cur)lines.push(cur);return lines;}
+function subtitles(seg,lt){
+  const a=E.out(clamp(lt/0.12,0,1))*(1-E.in(clamp((lt-0.9)/0.1,0,1)));
+  if(a<=0)return;
+  ctx.save();ctx.globalAlpha=a;
+  // lead chip (the button name) in copper
+  ctx.textAlign='center';ctx.fillStyle=COPL;ctx.font='900 26px Outfit';ctx.textBaseline='alphabetic';
+  ctx.fillText(seg.lead.toUpperCase(),540,1620);
+  // body — 2 sentences, wrapped, ink
+  const font='700 34px Outfit';const lines=wrapText(seg.vo,860,font);
+  ctx.fillStyle=INK;ctx.font=font;let y=1672;
+  lines.forEach(l=>{ctx.fillText(l,540,y);y+=46;});
+  ctx.textAlign='left';ctx.restore();
+}
+
+// ── frame loop ──────────────────────────────────────────────────────────────
+let start=performance.now(),paused=false,pausedAt=0;
+SEGMENTS.forEach(s=>{if(s.img){s._img=new Image();s._img.src=s.img;}});
+function setT(t){ctx.setTransform(Sv*DPR,0,0,Sv*DPR,0,0);}
+function frame(now){
+  let t=((now-start)/1000)%LOOP;
+  const {s:seg,i,lt}=segAt(t);
+  setT(t);
+  drawBG(t);
+  previewPanel(seg,lt);
+  drawDevice(t,seg,lt);
+  connector(t,seg);
+  topBar(seg,i);
+  subtitles(seg,lt);
+  // no intro fade (starts at full); only a short outro fade to black
+  let fade=0;if(t>LOOP-0.5)fade=clamp((t-(LOOP-0.5))/0.5,0,1);
+  if(fade>0){ctx.fillStyle='rgba(13,12,10,'+E.out(fade)+')';ctx.fillRect(0,0,VW,VH);}
+  // grain + vignette (matte finish)
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  const vg=ctx.createRadialGradient(W/2,H*0.5,H*0.34,W/2,H*0.5,H*0.78);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.20)');ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
+  ctx.globalAlpha=.5;ctx.fillStyle=ctx.createPattern(grain,'repeat');ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;
+  document.getElementById('tt').textContent=t.toFixed(1)+' / '+LOOP.toFixed(0)+'s';
+  if(!paused)requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+document.getElementById('pp').onclick=function(){paused=!paused;this.textContent=paused?'Play':'Pause';if(!paused){start=performance.now()-pausedAt*1000;requestAnimationFrame(frame);}else{pausedAt=((performance.now()-start)/1000)%LOOP;}};
+document.getElementById('rs').onclick=function(){start=performance.now();pausedAt=0;paused=false;document.getElementById('pp').textContent='Pause';requestAnimationFrame(frame);};
+// tooling hook: jump to an exact time (used by the frame-grab script; harmless in playback)
+window.__seek=function(tt){start=performance.now()-tt*1000;pausedAt=tt;paused=true;document.getElementById('pp').textContent='Play';requestAnimationFrame(frame);};
+</script>
+</body>
+</html>

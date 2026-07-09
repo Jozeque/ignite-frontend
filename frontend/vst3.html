@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STRIDE VST | Sound Design Engine for every DAW</title>
+
+    <!-- SEO -->
+    <meta name="description" content="Stride VST is a sound design engine for every DAW. Host your instruments and effects inside Stride, draw modulation curves across all of them, and hear your sound move live. Cubase, Studio One, FL, Reaper, Bitwig, Ableton.">
+    <meta name="keywords" content="VST3, sound design, modulation, automation, Cubase, Studio One, FL Studio, Reaper, Bitwig, music production">
+    <meta name="author" content="Stride">
+    <link rel="canonical" href="https://stridehub.io/vst3.html">
+
+    <!-- Open Graph / Social cards -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://stridehub.io/vst3.html">
+    <meta property="og:title" content="STRIDE VST | Sound Design Engine for every DAW">
+    <meta property="og:description" content="Host your instruments inside Stride, draw modulation curves, hear them move live. In every VST3 DAW.">
+    <meta property="og:image" content="https://stridehub.io/og-image.png">
+    <meta property="og:site_name" content="Stride">
+
+    <meta name="theme-color" content="#141310">
+
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+
+    <!-- NOTE (mockup): the Meta Pixel + server CAPI blocks from index.html are
+         intentionally omitted here so this preview fires no tracking. They get
+         pasted back in verbatim when this page ships. -->
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // VINTAGE (Patchbay) skin: remap Tailwind palettes -> CSS vars so the
+      // store modals/forms re-theme with the page. Identical to index.html.
+      (function(){
+        function r(p){var o={},s=[50,100,200,300,400,500,600,700,800,900,950];for(var i=0;i<s.length;i++){o[s[i]]='rgb(var(--'+p+s[i]+') / <alpha-value>)';}return o;}
+        tailwind.config={darkMode:'class',theme:{extend:{colors:{
+          zinc:r('z'), orange:r('o'), red:r('rd'), amber:r('am'), emerald:r('em'),
+          cyan:r('cy'), sky:r('z'), lime:r('em'), fuchsia:r('o'),
+          violet:r('vi'), purple:r('vi'), rose:r('ro'), pink:r('ro')
+        }}}};
+      })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  /* ── PATCHBAY (vintage modular) brand palette - warm matte charcoal, copper +
+        amber accents, ivory-silver text, muted patch-cable colors. Low-glow.
+        Copied verbatim from index.html so both editions share one skin. ── */
+  :root{
+    --bg:#141310; --bg2:#191611; --panel:#1d1b16; --raise:#252119; --line:rgba(216,201,176,.11);
+    --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
+    --copper:#c6712b; --copper-lt:#dd9a52; --amber:#d9822b; --ember:#e58a2e;
+    --teal:#2f748e;  --teal-lt:#5e9aad;
+    --sage:#5b7b55;  --sage-lt:#86a87f;
+    --rose:#a34e52;  --rose-lt:#c5807f;
+    --violet:#544b6d;--violet-lt:#9a8cbb;
+    --gold:#c9a24b;
+    --z50:241 236 226;--z100:228 221 208;--z200:215 207 192;--z300:195 187 171;--z400:163 154 138;--z500:118 111 99;--z600:88 82 73;--z700:66 61 52;--z800:37 33 25;--z900:29 27 22;--z950:20 19 16;
+    --o50:249 241 234;--o100:244 227 213;--o200:232 198 170;--o300:222 154 82;--o400:198 113 43;--o500:174 99 38;--o600:143 81 31;--o700:109 62 24;--o800:79 45 17;--o900:55 32 12;--o950:30 17 6;
+    --rd50:250 238 232;--rd100:246 220 209;--rd200:235 186 167;--rd300:216 132 104;--rd400:199 100 66;--rd500:176 80 49;--rd600:150 66 40;--rd700:117 51 32;--rd800:84 37 24;--rd900:56 25 17;--rd950:31 14 10;
+    --am50:250 246 237;--am100:244 236 219;--am200:233 218 183;--am300:217 190 129;--am400:201 162 75;--am500:177 143 66;--am600:145 117 54;--am700:111 89 41;--am800:80 65 30;--am900:56 45 21;--am950:30 24 11;
+    --em50:235 240 233;--em100:214 224 210;--em200:181 198 175;--em300:134 168 127;--em400:110 146 102;--em500:91 123 85;--em600:73 99 67;--em700:56 77 52;--em800:40 56 38;--em900:27 38 25;--em950:15 22 13;
+    --cy50:233 240 243;--cy100:208 226 232;--cy200:171 200 211;--cy300:126 176 192;--cy400:94 154 173;--cy500:47 116 142;--cy600:38 96 117;--cy700:30 75 91;--cy800:22 54 66;--cy900:15 36 44;--cy950:9 20 25;
+    --vi50:240 237 246;--vi100:226 221 238;--vi200:202 193 221;--vi300:172 159 199;--vi400:154 140 187;--vi500:125 111 158;--vi600:100 88 127;--vi700:78 68 99;--vi800:56 49 71;--vi900:38 33 48;--vi950:22 19 28;
+    --ro50:250 238 238;--ro100:245 221 221;--ro200:235 191 192;--ro300:213 145 147;--ro400:197 128 127;--ro500:163 78 82;--ro600:138 62 66;--ro700:108 47 50;--ro800:79 34 36;--ro900:53 23 24;--ro950:30 13 14;
+    --brand1:222 154 82;--brand2:229 138 46;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Outfit',sans-serif;background:var(--bg);color:var(--ink2);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  ::selection{background:rgba(198,113,43,.3)}
+  ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:#2a2620;border-radius:10px}
+  body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(120% 80% at 50% -10%, rgba(198,113,43,.07), transparent 60%),
+               radial-gradient(100% 60% at 50% 110%, rgba(47,116,142,.05), transparent 60%);}
+  .wrap{position:relative;z-index:1}
+  .mono{font-family:'Space Mono',ui-monospace,monospace}
+  .silk{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--ink3)}
+  .brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .ink{color:var(--ink)} .ink2{color:var(--ink2)} .ink3{color:var(--ink3)}
+  h1,h2,h3,h4{color:var(--ink);font-weight:900;letter-spacing:-.01em}
+  .panel{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(0,0,0,.14)),var(--panel);
+    border:1px solid var(--line);border-radius:18px;
+    box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 24px 50px -30px rgba(0,0,0,.9)}
+  .glass-panel{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.16)),var(--panel);
+    backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid var(--line);
+    box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 30px 60px -28px rgba(0,0,0,.95)}
+  .screws::before,.screws::after,.screws>.s{content:'';position:absolute;width:7px;height:7px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#6a6253,#272218);box-shadow:0 0 0 1px rgba(0,0,0,.5),0 1px 1px rgba(255,255,255,.04)}
+  .screws::before{top:10px;left:10px}.screws::after{top:10px;right:10px}
+  .screws>.s1{bottom:10px;left:10px}.screws>.s2{bottom:10px;right:10px}
+  .btn-copper{display:inline-flex;align-items:center;gap:.6rem;background:linear-gradient(180deg,var(--ember),var(--copper));
+    color:#1c1206;font-weight:900;letter-spacing:.04em;border:1px solid rgba(255,210,150,.25);border-radius:14px;
+    box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 12px 24px -14px rgba(198,113,43,.8);transition:transform .15s,filter .15s;cursor:pointer}
+  .btn-copper:hover{transform:translateY(-2px);filter:brightness(1.06)}
+  .pill{border:1px solid var(--line);background:var(--raise);border-radius:999px;color:var(--ink2);font-weight:700}
+  .pill-warm{border-color:rgba(198,113,43,.4);background:rgba(198,113,43,.12);color:var(--copper-lt)}
+  .pill-teal{border-color:rgba(47,116,142,.4);background:rgba(47,116,142,.12);color:var(--teal-lt)}
+  .chip{font-size:9px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;border-radius:999px;padding:3px 9px}
+  .divider{height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
+  .lane{fill:none;stroke-width:2}
+  details>summary{list-style:none}details>summary::-webkit-details-marker{display:none}
+  .gen-card{transition:transform .15s,border-color .15s}.gen-card:hover{transform:translateY(-3px)}
+  @keyframes heroLaneA{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+  @keyframes heroLaneB{0%,100%{transform:translateY(0)}50%{transform:translateY(8px)}}
+  @keyframes heroLaneC{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+  .hero-lanes path{will-change:transform}
+  .hero-lanes path:nth-of-type(1){animation:heroLaneA 9s ease-in-out infinite}
+  .hero-lanes path:nth-of-type(2){animation:heroLaneB 11s ease-in-out -2s infinite}
+  .hero-lanes path:nth-of-type(3){animation:heroLaneC 8s ease-in-out -4s infinite}
+  .hero-lanes path:nth-of-type(4){animation:heroLaneA 12s ease-in-out -1s infinite}
+  .hero-lanes path:nth-of-type(5){animation:heroLaneB 10s ease-in-out -3s infinite}
+  @media (prefers-reduced-motion:reduce){.hero-lanes path{animation:none}}
+  /* ── VST3 window mockup (hero visual). Renders the plugin as a small,
+        believable window so we do not depend on an M4L-branded screenshot. ── */
+  .vwin{background:#151310;border:1px solid var(--line);border-radius:14px;overflow:hidden;
+    box-shadow:0 30px 60px -28px rgba(0,0,0,.95),0 1px 0 rgba(255,255,255,.05) inset}
+  .vwin-bar{display:flex;align-items:center;gap:.5rem;padding:8px 12px;background:linear-gradient(180deg,#211d17,#191510);border-bottom:1px solid var(--line)}
+  .vwin-dot{width:9px;height:9px;border-radius:50%}
+  .vwin-ctrl{display:flex;align-items:center;gap:6px;padding:7px 10px;background:#0f0e0b;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .vbtn{font-size:10px;font-weight:800;letter-spacing:.04em;padding:4px 9px;border-radius:8px;border:1px solid var(--line);color:var(--ink2);background:var(--raise)}
+  .vbtn-map{color:#c9b8ee;border-color:rgba(125,111,158,.5);background:rgba(84,75,109,.28);animation:mapPulse 1.4s ease-in-out infinite}
+  @keyframes mapPulse{0%,100%{box-shadow:0 0 0 0 rgba(125,111,158,0)}50%{box-shadow:0 0 0 4px rgba(125,111,158,.18)}}
+  .vchip{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:800;padding:3px 8px;border-radius:999px;border:1px solid var(--line);background:#17140f;color:var(--ink2)}
+  .vchip .dot{width:6px;height:6px;border-radius:50%;background:var(--sage-lt);box-shadow:0 0 6px var(--sage-lt)}
+  .vlane{display:grid;grid-template-columns:96px 1fr;align-items:center;border-bottom:1px solid rgba(216,201,176,.06)}
+  .vlane .nm{font-size:10px;font-weight:700;color:var(--ink2);padding:0 10px;line-height:1.1}
+  .vlane .nm small{display:block;color:var(--ink3);font-weight:600;font-size:8.5px;letter-spacing:.02em}
+  @media (max-width:420px){.vlane{grid-template-columns:80px 1fr}}
+</style>
+</head>
+<body>
+
+<div class="wrap max-w-[1400px] mx-auto px-6" style="padding-top:8px">
+
+  <!-- ───────────────── NAV ───────────────── -->
+  <nav class="flex justify-between items-center py-6">
+    <div class="flex items-center gap-3">
+      <span class="text-3xl font-black brand tracking-tighter leading-none">STRIDE</span>
+      <span class="chip pill-teal">VST</span>
+      <span class="silk hidden sm:block border-l pl-3" style="border-color:var(--line)">Sound Design Engine</span>
+    </div>
+    <div class="flex items-center gap-5">
+      <a class="silk hover:text-[var(--copper-lt)] transition-colors" href="index.html">StrideLink (Ableton)</a>
+      <a class="silk hover:text-[var(--copper-lt)] transition-colors" href="blog.html">Blog</a>
+      <a class="silk hover:text-[var(--copper-lt)] transition-colors" href="samples.html">Sample Packs</a>
+      <a href="https://www.instagram.com/stride_engine/" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[var(--copper-lt)] transition-colors" title="Follow us on Instagram">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+      </a>
+      <button onclick="toggleContactModal()" class="ink3 hover:text-[var(--copper-lt)] transition-colors" title="Contact Us">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+      </button>
+      <span class="w-px h-6 mx-1 hidden sm:block" style="background:var(--line)"></span>
+      <a href="#pricing" class="btn-copper text-[11px] uppercase tracking-widest px-5 py-2.5 rounded-full">Get Stride VST</a>
+    </div>
+  </nav>
+
+  <!-- ───────────────── HERO ───────────────── -->
+  <section class="relative overflow-hidden pt-12 pb-14">
+    <svg class="hero-lanes absolute inset-0 w-full h-full pointer-events-none" style="opacity:.10" viewBox="0 0 1400 520" preserveAspectRatio="none" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M0,80 L90,30 L90,80 L180,30 L180,80 L360,30 L360,80 L540,30 L540,80 L720,30 L720,80 L900,30 L900,80 L1080,30 L1080,80 L1260,30 L1260,80 L1400,50" stroke="#c6712b" stroke-width="1.5"/>
+      <path d="M0,170 L40,120 L80,170 L120,150 L160,170 L240,110 L320,170 L400,150 L480,170 L560,110 L640,170 L720,150 L800,170 L900,115 L1000,170 L1120,150 L1240,170 L1340,115 L1400,170" stroke="#5e9aad" stroke-width="1.5"/>
+      <path d="M0,270 L80,270 L80,220 L200,220 L200,270 L320,270 L320,235 L440,235 L440,270 L560,270 L560,210 L700,210 L700,270 L840,270 L840,230 L980,230 L980,270 L1120,270 L1120,215 L1280,215 L1280,270 L1400,270" stroke="#86a87f" stroke-width="1.5"/>
+      <path d="M0,360 C120,310 260,310 380,360 C500,410 640,410 760,360 C880,310 1020,310 1140,360 C1260,410 1400,410 1400,360" stroke="#c5807f" stroke-width="1.5"/>
+      <path d="M0,450 L0,490 Q90,470 180,440 L180,490 Q270,470 360,440 L360,490 Q450,470 540,440 L540,490 Q630,470 720,440 L720,490 Q810,470 900,440 L900,490 Q990,470 1080,440 L1080,490 Q1170,470 1260,440 L1260,490 Q1330,475 1400,450" stroke="#9a8cbb" stroke-width="1.5"/>
+    </svg>
+
+    <div class="relative flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
+      <div class="flex-1 min-w-0">
+        <div class="silk mb-5">Sound Design Engine · VST · every DAW</div>
+        <h1 class="text-5xl md:text-6xl xl:text-7xl mb-6 leading-[1.04]">
+          Sound Design Engine.<br><span class="brand">Now in every DAW.</span>
+        </h1>
+        <p class="text-lg md:text-xl max-w-xl mb-8 leading-relaxed font-light ink2">
+          Load your instruments and effects inside Stride, then draw modulation across all of them at once. Map any knob with a touch. Your sound follows the curve, live and in time. <strong class="ink">Cubase, Studio One, FL, Reaper, Bitwig, Ableton. One plugin.</strong>
+        </p>
+        <div class="flex flex-col items-start gap-3">
+          <a href="#pricing" class="btn-copper text-lg py-4 px-10 rounded-2xl">GET STRIDE VST - $79 <span>→</span></a>
+          <span class="chip" style="background:rgba(91,123,85,.18);color:var(--sage-lt);border:1px solid rgba(91,123,85,.35)">● Available now</span>
+        </div>
+        <div class="mt-5 text-[10px] leading-tight max-w-md">
+          <span class="font-black uppercase tracking-[0.18em]" style="color:var(--copper-lt)">Windows &amp; macOS · any VST3 host</span>
+          <span class="ink3"> · not Logic (AU) or Pro Tools (AAX)</span>
+        </div>
+      </div>
+
+      <!-- hero visual: the Stride VST window, hand-built so it matches the plugin -->
+      <div class="flex-1 min-w-0 w-full">
+        <div class="panel screws p-3 pt-7"><span class="s s1"></span><span class="s s2"></span>
+          <div class="vwin">
+            <!-- titlebar -->
+            <div class="vwin-bar">
+              <span class="text-lg font-black brand tracking-tighter leading-none">STRIDE</span>
+              <span class="chip pill-teal" style="transform:scale(.85)">VST</span>
+              <span class="flex-1"></span>
+              <span class="vwin-dot" style="background:#3a352b"></span>
+              <span class="vwin-dot" style="background:#3a352b"></span>
+              <span class="vwin-dot" style="background:#6a5238"></span>
+            </div>
+            <!-- control bar: favorites / add / map / open / clear + hosted chain chips -->
+            <div class="vwin-ctrl">
+              <span class="vbtn">★ Favorites ▾</span>
+              <span class="vbtn">+ Add</span>
+              <span class="vbtn vbtn-map">◉ Map</span>
+              <span class="vbtn">⛶</span>
+              <span class="vbtn">Clear</span>
+              <span class="w-px h-4 mx-1" style="background:var(--line)"></span>
+              <span class="vchip"><span class="dot"></span>Serum</span>
+              <span class="vchip"><span class="dot"></span>Saturator</span>
+            </div>
+            <!-- canvas lanes -->
+            <div style="background:#100f0c">
+              <div class="vlane">
+                <div class="nm">Serum<small>Cutoff</small></div>
+                <svg viewBox="0 0 520 52" class="w-full block" preserveAspectRatio="none"><path class="lane" stroke="#5e9aad" stroke-width="1.8" d="M0,40 C60,10 120,44 180,26 S300,8 360,36 480,44 520,20"/></svg>
+              </div>
+              <div class="vlane">
+                <div class="nm">Serum<small>Warp</small></div>
+                <svg viewBox="0 0 520 52" class="w-full block" preserveAspectRatio="none"><path class="lane" stroke="#dd9a52" stroke-width="1.6" d="M0,44 L30,14 L30,44 L70,24 L70,44 L120,10 L120,44 L170,30 L170,44 L220,16 L220,44 L270,8 L270,44 L330,28 L330,44 L390,14 L390,44 L450,32 L450,44 L500,18 L520,44"/></svg>
+              </div>
+              <div class="vlane">
+                <div class="nm">Saturator<small>Drive</small></div>
+                <svg viewBox="0 0 520 52" class="w-full block" preserveAspectRatio="none"><path class="lane" stroke="#86a87f" stroke-width="1.8" d="M0,38 L52,38 L52,14 L110,14 L110,32 L160,32 L160,10 L220,10 L220,26 L280,26 L280,40 L340,40 L340,18 L400,18 L400,34 L460,34 L460,12 L520,12"/></svg>
+              </div>
+              <div class="vlane">
+                <div class="nm">Serum<small>Reso</small></div>
+                <svg viewBox="0 0 520 52" class="w-full block" preserveAspectRatio="none"><path class="lane" stroke="#c5807f" stroke-width="1.6" d="M0,26 C70,6 120,42 190,24 S320,8 380,30 480,40 520,22"/></svg>
+              </div>
+              <div class="vlane" style="border-bottom:0">
+                <div class="nm">Serum<small>Noise</small></div>
+                <svg viewBox="0 0 520 52" class="w-full block" preserveAspectRatio="none"><path class="lane" stroke="#9a8cbb" stroke-width="1.6" d="M0,20 Q60,44 120,22 T240,22 T360,22 T480,22 L520,30"/></svg>
+              </div>
+            </div>
+            <!-- footer strip: bars + transport hint -->
+            <div class="flex items-center gap-3 px-3 py-2" style="background:#0f0e0b;border-top:1px solid var(--line)">
+              <span class="silk" style="color:var(--copper-lt)">Bars</span>
+              <span class="mono text-[10px] ink3">4</span><span class="mono text-[10px] ink">8</span><span class="mono text-[10px] ink3">16</span><span class="mono text-[10px] ink3">32</span>
+              <span class="flex-1"></span>
+              <span class="mono text-[10px]" style="color:var(--sage-lt)">▶ follows host transport</span>
+            </div>
+          </div>
+        </div>
+        <p class="text-center mono text-[10px] ink3 mt-4">The whole engine, running inside your DAW.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────── VST3-ONLY EMPHASIS ───────────────── -->
+  <section class="mb-20">
+    <div class="panel rounded-2xl p-6 md:p-7 flex items-start gap-4 max-w-3xl mx-auto" style="border-color:rgba(47,116,142,.4)">
+      <span class="shrink-0 w-11 h-11 rounded-xl flex items-center justify-center text-sm font-black" style="background:rgba(47,116,142,.16);border:1px solid rgba(47,116,142,.45);color:var(--teal-lt)">VST3</span>
+      <div>
+        <h3 class="text-lg mb-1.5">VST3 only. By design.</h3>
+        <p class="text-sm leading-relaxed ink2">Stride VST modulates the <b class="ink">VST3 instruments and effects you load inside it</b>, and nothing else. It can't reach your DAW's native devices, VST2, AU, or plugins sitting next to it on the track. That's the plug-in format's rule, not ours. Need to modulate Ableton's own devices in place? That's <a href="index.html" class="underline" style="color:var(--copper-lt)">StrideLink</a>.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────── FEATURE TICKER ───────────────── -->
+  <section class="mb-24">
+    <div class="panel rounded-2xl py-4 overflow-hidden">
+      <div class="flex items-center gap-4 px-5 flex-wrap justify-center">
+        <span class="chip pill-warm">Host a chain</span><span class="ink3">/</span>
+        <span class="silk">Map by touch</span><span class="ink3">/</span><span class="silk">Draw curves</span><span class="ink3">/</span>
+        <span class="silk">Chaos</span><span class="ink3">/</span><span class="silk">Neuro</span><span class="ink3">/</span>
+        <span class="silk">Reflector</span><span class="ink3">/</span><span class="silk">Sample &amp; Hold</span><span class="ink3">/</span>
+        <span class="silk">Mutate</span><span class="ink3">/</span><span class="silk">Bezier Curves</span><span class="ink3">/</span>
+        <span class="silk">Per-device Bypass</span><span class="ink3">/</span><span class="silk">Transport-synced</span><span class="ink3">/</span>
+        <span class="chip pill-teal">Any VST3 DAW</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────── HOW IT WORKS (VST3 flow) ───────────────── -->
+  <section class="mb-28">
+    <div class="text-center mb-14">
+      <p class="silk mb-3" style="color:var(--copper-lt)">Everything runs inside Stride</p>
+      <h2 class="text-4xl md:text-6xl mb-4">Four steps. Any DAW.</h2>
+      <p class="text-base max-w-2xl mx-auto leading-relaxed ink2">No MIDI routing. No automation lanes to wire. Load your sound, map it, draw the motion, press play.</p>
+    </div>
+
+    <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div class="panel rounded-2xl p-6" style="border-color:rgba(198,113,43,.3)">
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-4 text-lg font-black" style="background:rgba(198,113,43,.14);border:1px solid rgba(198,113,43,.35);color:var(--copper-lt)">1</div>
+        <h4 class="text-lg mb-2">Load your instruments</h4>
+        <p class="text-sm leading-relaxed ink2">Drop a synth into Stride. Add effects after it. Build a whole chain, synth into FX into FX, all inside one plugin.</p>
+      </div>
+      <div class="panel rounded-2xl p-6" style="border-color:rgba(84,75,109,.35)">
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-4 text-lg font-black" style="background:rgba(84,75,109,.2);border:1px solid rgba(84,75,109,.45);color:var(--violet-lt)">2</div>
+        <h4 class="text-lg mb-2">Map by touch</h4>
+        <p class="text-sm leading-relaxed ink2">Arm Map, then wiggle any knob on your synth. Stride grabs it as a lane. Map as many as you want, across every device in the chain.</p>
+      </div>
+      <div class="panel rounded-2xl p-6" style="border-color:rgba(47,116,142,.3)">
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-4 text-lg font-black" style="background:rgba(47,116,142,.16);border:1px solid rgba(47,116,142,.4);color:var(--teal-lt)">3</div>
+        <h4 class="text-lg mb-2">Draw the motion</h4>
+        <p class="text-sm leading-relaxed ink2">Draw curves on the canvas, or hit one generator button to fill every lane at once. Chaos, Neuro, Reflector, Sample &amp; Hold.</p>
+      </div>
+      <div class="panel rounded-2xl p-6" style="border-color:rgba(91,123,85,.3)">
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-4 text-lg font-black" style="background:rgba(91,123,85,.18);border:1px solid rgba(91,123,85,.4);color:var(--sage-lt)">4</div>
+        <h4 class="text-lg mb-2">Press play</h4>
+        <p class="text-sm leading-relaxed ink2">Your sound follows the curves live, locked to your DAW's transport and tempo. Change a curve, it moves the instant you draw.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────── ONE CLICK / GENERATORS ───────────────── -->
+  <section class="mb-28">
+    <div class="text-center mb-14">
+      <p class="silk mb-3" style="color:var(--copper-lt)">Press one button</p>
+      <h2 class="text-4xl md:text-6xl mb-4">One click to rule them all</h2>
+      <p class="text-base max-w-2xl mx-auto leading-relaxed ink2">Push your instruments to the edge. One click writes dozens of unique curves across every knob you mapped. Click again. And again. Fresh motion across the whole chain in seconds.</p>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <!-- CHAOS · teal -->
+      <div class="gen-card panel rounded-2xl p-6" style="border-color:rgba(47,116,142,.3)">
+        <div class="rounded-xl overflow-hidden mb-5" style="background:#100f0c;border:1px solid var(--line)">
+          <svg viewBox="0 0 520 150" class="w-full block">
+            <path class="lane" stroke="#5e9aad" stroke-width="2" d="M0,80 C35,18 65,130 100,72 S160,20 205,86 S275,132 315,52 S375,18 420,94 S475,128 520,60"/>
+          </svg>
+        </div>
+        <h3 class="text-4xl md:text-5xl leading-none mb-3" style="color:var(--teal-lt)">Chaos</h3>
+        <p class="text-lg font-black ink mb-3">One click. Every lane filled.</p>
+        <p class="text-sm leading-relaxed ink2 mb-3">Stamps multi-layer wave noise onto every mapped knob in your chain. Smooth, organic, never the same twice.</p>
+        <p class="text-[13px] ink3 leading-relaxed"><span class="silk" style="color:var(--teal-lt)">Good for</span> · dense evolving textures, ambient pads, slow-motion sound design - everything moving with zero drawing.</p>
+      </div>
+
+      <!-- NEURO · copper -->
+      <div class="gen-card panel rounded-2xl p-6" style="border-color:rgba(198,113,43,.3)">
+        <div class="rounded-xl overflow-hidden mb-5" style="background:#100f0c;border:1px solid var(--line)">
+          <svg viewBox="0 0 520 150" class="w-full block">
+            <path class="lane" stroke="#dd9a52" stroke-width="1.6" d="M0,120 L30,40 L30,120 L70,70 L70,120 L120,30 L120,120 L160,90 L160,120 L210,50 L210,120 L250,20 L250,120 L300,80 L300,120 L350,45 L350,120 L400,95 L400,120 L450,35 L450,120 L500,70 L520,120"/>
+          </svg>
+        </div>
+        <h3 class="text-4xl md:text-5xl leading-none mb-3" style="color:var(--copper-lt)">Neuro</h3>
+        <p class="text-lg font-black ink mb-3">Gnarly. Random. Musical.</p>
+        <p class="text-sm leading-relaxed ink2 mb-3">Random shape chunks - dotted ramps, hard chops, hyper-stutters, syncopated drops - across every mapped lane. Wildly varied, never static.</p>
+        <p class="text-[13px] ink3 leading-relaxed"><span class="silk" style="color:var(--copper-lt)">Good for</span> · neuro &amp; DnB bass, dubstep wobbles, aggressive design where chaos still locks to the grid.</p>
+      </div>
+
+      <!-- REFLECTOR · steel/silver -->
+      <div class="gen-card panel rounded-2xl p-6">
+        <div class="rounded-xl overflow-hidden mb-5" style="background:#100f0c;border:1px solid var(--line)">
+          <svg viewBox="0 0 520 150" class="w-full block">
+            <path class="lane" stroke="#dd9a52" stroke-width="1.6" d="M0,45 C70,15 120,60 190,38 S320,16 380,46 480,62 520,40"/>
+            <path class="lane" stroke="#5e9aad" stroke-width="1.6" d="M0,105 C70,135 120,90 190,112 S320,134 380,104 480,88 520,110"/>
+            <line x1="0" y1="75" x2="520" y2="75" stroke="rgba(216,201,176,.15)" stroke-dasharray="3 4"/>
+          </svg>
+        </div>
+        <h3 class="text-4xl md:text-5xl leading-none mb-3 ink">Reflector</h3>
+        <p class="text-lg font-black ink mb-3">Mirrored motion. Coherent chain.</p>
+        <p class="text-sm leading-relaxed ink2 mb-3">Pairs every two lanes - base plus a value-flipped mirror - so the chain folds in on itself. Half Neuro pairs, half Chaos pairs, one click.</p>
+        <p class="text-[13px] ink3 leading-relaxed"><span class="silk ink2">Good for</span> · macro modulation in opposition: filter opens / resonance drops, drive up / volume down. Instant coherence.</p>
+      </div>
+
+      <!-- S&H · sage -->
+      <div class="gen-card panel rounded-2xl p-6" style="border-color:rgba(91,123,85,.3)">
+        <div class="rounded-xl overflow-hidden mb-5" style="background:#100f0c;border:1px solid var(--line)">
+          <svg viewBox="0 0 520 150" class="w-full block">
+            <path class="lane" stroke="#86a87f" stroke-width="1.6" d="M0,110 L50,110 L50,40 L110,40 L110,90 L160,90 L160,25 L220,25 L220,70 L280,70 L280,115 L340,115 L340,50 L400,50 L400,95 L460,95 L460,35 L520,35"/>
+          </svg>
+        </div>
+        <h3 class="text-4xl md:text-5xl leading-none mb-3" style="color:var(--sage-lt)">Sample &amp; Hold</h3>
+        <p class="text-lg font-black ink mb-3">Polyrhythmic stepped motion.</p>
+        <p class="text-sm leading-relaxed ink2 mb-3">Per-lane stepped-random staircase. Each lane rolls its own rate - straight and triplet, down to 1/32 - so 1/4 against 1/8T locks into 4-against-3.</p>
+        <p class="text-[13px] ink3 leading-relaxed"><span class="silk" style="color:var(--sage-lt)">Good for</span> · glitchy stepped textures, sequenced modulation, rhythmic motion without drawing a step.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────── HOST A CHAIN (unique to VST3) ───────────────── -->
+  <section class="mb-28">
+    <div class="text-center mb-10">
+      <p class="silk mb-3" style="color:var(--teal-lt)">Not one synth. A whole chain.</p>
+      <h2 class="text-4xl md:text-6xl mb-4">One plugin. <span class="brand">Your whole rig.</span></h2>
+      <p class="text-base max-w-2xl mx-auto leading-relaxed ink2">Stride hosts your instruments and effects in series, inside itself. Map knobs from every device and modulate them together, as one instrument.</p>
+    </div>
+
+    <!-- signal-flow strip -->
+    <div class="panel screws rounded-3xl p-6 md:p-8 mb-10"><span class="s s1"></span><span class="s s2"></span>
+      <div class="flex items-center justify-center gap-3 md:gap-4 flex-wrap">
+        <span class="vchip" style="font-size:12px;padding:6px 12px"><span class="dot"></span>Serum</span>
+        <span class="ink3 text-xl">→</span>
+        <span class="vchip" style="font-size:12px;padding:6px 12px"><span class="dot" style="background:var(--copper-lt);box-shadow:0 0 6px var(--copper-lt)"></span>Saturator</span>
+        <span class="ink3 text-xl">→</span>
+        <span class="vchip" style="font-size:12px;padding:6px 12px"><span class="dot" style="background:var(--teal-lt);box-shadow:0 0 6px var(--teal-lt)"></span>Valhalla Delay</span>
+        <span class="ink3 text-xl">→</span>
+        <span class="pill-warm pill px-4 py-1.5 text-sm font-black">out</span>
+      </div>
+      <p class="text-center text-[13px] ink3 mt-5 max-w-xl mx-auto leading-relaxed">Every knob on every device is fair game. Draw one curve on the filter, another on the delay feedback, another on the drive - all moving together, in time.</p>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-6">
+      <div class="panel rounded-2xl p-6">
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-4" style="background:rgba(47,116,142,.16);border:1px solid rgba(47,116,142,.4);color:var(--teal-lt)">⛓</div>
+        <h4 class="text-lg mb-2">Instruments and effects</h4>
+        <p class="text-sm leading-relaxed ink2">Any VST3 instrument, any VST3 effect. Load them in the order you want and Stride runs them as one voice.</p>
+      </div>
+      <div class="panel rounded-2xl p-6">
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-4" style="background:rgba(198,113,43,.14);border:1px solid rgba(198,113,43,.35);color:var(--copper-lt)">◉</div>
+        <h4 class="text-lg mb-2">Map across the whole chain</h4>
+        <p class="text-sm leading-relaxed ink2">Touch a knob on any device to grab it. Lanes are labelled by device, so Serum: Cutoff and Delay: Feedback live side by side.</p>
+      </div>
+      <div class="panel rounded-2xl p-6">
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-4" style="background:rgba(91,123,85,.18);border:1px solid rgba(91,123,85,.4);color:var(--sage-lt)">◑</div>
+        <h4 class="text-lg mb-2">Bypass, reorder, open each UI</h4>
+        <p class="text-sm leading-relaxed ink2">Mute any device without losing its mapping, open its own interface any time, and pull the whole chain back with the project.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────── THE DIFFERENCE (two editions) ───────────────── -->
+  <section class="max-w-5xl mx-auto mb-28">
+    <div class="text-center mb-10">
+      <p class="silk mb-3" style="color:var(--copper-lt)">Two ways to run Stride</p>
+      <h2 class="text-3xl md:text-5xl mb-3">Same canvas. Different reach.</h2>
+      <p class="text-base max-w-2xl mx-auto leading-relaxed ink2">Same drawing engine, same generators, same feel. The difference is where the motion goes.</p>
+    </div>
+    <div class="grid md:grid-cols-2 gap-5">
+      <!-- Ableton / M4L edition -->
+      <div class="panel rounded-2xl p-7" style="border-color:rgba(201,162,75,.28)">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-xl">StrideLink</h3>
+          <span class="chip pill" style="color:var(--gold)">Max for Live</span>
+        </div>
+        <ul class="space-y-2.5 text-[14px] ink2 mb-5">
+          <li class="flex gap-2.5"><span style="color:var(--gold)" class="font-black">✓</span><span>Lives inside Ableton Live 11+</span></li>
+          <li class="flex gap-2.5"><span style="color:var(--gold)" class="font-black">✓</span><span>Modulates instrument racks <b class="ink">and</b> native Ableton devices, anywhere in the set</span></li>
+          <li class="flex gap-2.5"><span style="color:var(--gold)" class="font-black">✓</span><span>Injects automation straight into the clip, so the motion lives with the song</span></li>
+          <li class="flex gap-2.5"><span class="ink3 font-black">·</span><span class="ink3">Ableton only</span></li>
+        </ul>
+        <a href="index.html" class="inline-flex items-center gap-1.5 text-sm font-bold" style="color:var(--gold)">Get StrideLink <span>→</span></a>
+      </div>
+      <!-- VST3 edition -->
+      <div class="panel rounded-2xl p-7" style="border-color:rgba(47,116,142,.4);box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 24px 50px -30px rgba(0,0,0,.9),0 0 0 1px rgba(47,116,142,.15)">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-xl brand">Stride VST</h3>
+          <span class="chip pill-teal">This page</span>
+        </div>
+        <ul class="space-y-2.5 text-[14px] ink2 mb-5">
+          <li class="flex gap-2.5"><span style="color:var(--teal-lt)" class="font-black">✓</span><span>Runs in every VST3 DAW - Cubase, Studio One, FL, Reaper, Bitwig, Ableton</span></li>
+          <li class="flex gap-2.5"><span style="color:var(--teal-lt)" class="font-black">✓</span><span>Hosts your instruments and effects <b class="ink">inside itself</b> and modulates them live</span></li>
+          <li class="flex gap-2.5"><span style="color:var(--teal-lt)" class="font-black">✓</span><span>Curves follow the DAW transport and tempo, like a modulator you drew by hand</span></li>
+          <li class="flex gap-2.5"><span class="ink3 font-black">·</span><span class="ink3">Modulates what you load into Stride, not devices sitting next to it</span></li>
+        </ul>
+        <span class="inline-flex items-center gap-1.5 text-sm font-bold" style="color:var(--teal-lt)">You're looking at it.</span>
+      </div>
+    </div>
+    <p class="text-center text-[13px] ink3 mt-7 max-w-2xl mx-auto leading-relaxed">On Ableton the motion goes into the clip. Everywhere else, it drives the plugins you host inside Stride. Pick the one that fits how you work, or run both.</p>
+  </section>
+
+  <!-- ───────────────── RUNS IN / HOSTS ───────────────── -->
+  <section class="mb-28 text-center">
+    <p class="silk mb-7">Runs in any VST3 host</p>
+    <div class="flex flex-wrap items-center justify-center gap-3 mb-12">
+      <span class="pill px-5 py-2 text-base">Ableton Live</span><span class="pill px-5 py-2 text-base">Cubase</span>
+      <span class="pill px-5 py-2 text-base">Nuendo</span><span class="pill px-5 py-2 text-base">Studio One</span>
+      <span class="pill px-5 py-2 text-base">FL Studio</span><span class="pill px-5 py-2 text-base">Reaper</span>
+      <span class="pill px-5 py-2 text-base">Bitwig</span><span class="pill px-5 py-2 text-base">Cakewalk</span>
+      <span class="pill-teal pill px-5 py-2 text-base">any VST3 DAW</span>
+    </div>
+    <p class="silk mb-7">Hosts any VST3 instrument or effect</p>
+    <div class="flex flex-wrap items-center justify-center gap-3">
+      <span class="pill px-5 py-2 text-base">Serum</span><span class="pill px-5 py-2 text-base">Vital</span>
+      <span class="pill px-5 py-2 text-base">Pigments</span><span class="pill px-5 py-2 text-base">Phase Plant</span>
+      <span class="pill px-5 py-2 text-base">Massive X</span><span class="pill px-5 py-2 text-base">Diva</span>
+      <span class="pill px-5 py-2 text-base">Omnisphere</span>
+      <span class="pill-warm pill px-5 py-2 text-base">any VST3 plugin</span>
+    </div>
+  </section>
+
+  <!-- ───────────────── FIT: made for / not made for ───────────────── -->
+  <section class="max-w-4xl mx-auto mb-28">
+    <div class="text-center mb-10">
+      <h2 class="text-3xl md:text-5xl mb-2">Where Stride VST shines</h2>
+      <p class="silk">Be honest about what you need</p>
+    </div>
+    <div class="grid md:grid-cols-2 gap-5">
+      <div class="panel rounded-2xl p-6" style="border-color:rgba(198,113,43,.28)">
+        <div class="flex items-center gap-2 mb-5"><span class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(198,113,43,.15);border:1px solid rgba(198,113,43,.35);color:var(--copper-lt)">✓</span><h3 class="text-base uppercase tracking-widest" style="color:var(--copper-lt)">Made for</h3></div>
+        <ul class="space-y-2.5 text-[15px] ink2">
+          <li class="flex gap-2.5"><span style="color:var(--copper-lt)" class="font-black">✓</span><span>Producers on Cubase, Studio One, FL, Reaper or Bitwig who want drawn modulation</span></li>
+          <li class="flex gap-2.5"><span style="color:var(--copper-lt)" class="font-black">✓</span><span>Hosting your synths and effects in one plugin and automating them together</span></li>
+          <li class="flex gap-2.5"><span style="color:var(--copper-lt)" class="font-black">✓</span><span>Bass, leads, pads, FX - motion you'd never draw by hand</span></li>
+          <li class="flex gap-2.5"><span style="color:var(--copper-lt)" class="font-black">✓</span><span>Taking the same sound design across every project and every DAW</span></li>
+        </ul>
+      </div>
+      <div class="panel rounded-2xl p-6" style="border-color:rgba(201,162,75,.28)">
+        <div class="flex items-center gap-2 mb-5"><span class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(201,162,75,.15);border:1px solid rgba(201,162,75,.35);color:var(--gold)">!</span><h3 class="text-base uppercase tracking-widest" style="color:var(--gold)">Not made for</h3></div>
+        <ul class="space-y-2.5 text-[15px] ink2">
+          <li class="flex gap-2.5"><span style="color:var(--gold)" class="font-black">!</span><span>Grabbing devices that sit next to Stride on the track <span class="ink3">(load them into Stride instead)</span></span></li>
+          <li class="flex gap-2.5"><span style="color:var(--gold)" class="font-black">!</span><span>Hosting VST2, AU, or your DAW's built-in devices <span class="ink3">(VST3 plugins only)</span></span></li>
+          <li class="flex gap-2.5"><span style="color:var(--gold)" class="font-black">!</span><span>Logic or Pro Tools <span class="ink3">(no VST3 host)</span></span></li>
+          <li class="flex gap-2.5"><span style="color:var(--gold)" class="font-black">!</span><span>Writing automation into the DAW timeline <span class="ink3">(Stride modulates live, like an LFO tool)</span></span></li>
+        </ul>
+      </div>
+    </div>
+    <p class="text-center text-[13px] ink3 mt-7 max-w-2xl mx-auto leading-relaxed">A VST3 plugin can only reach what you load inside it - that's the format, not a Stride limit. So Stride becomes the host: drop your rig in, and draw motion across all of it.</p>
+  </section>
+
+  <!-- ───────────────── PRICING ───────────────── -->
+  <section id="pricing" class="max-w-2xl mx-auto mb-28">
+    <div class="panel screws rounded-3xl p-10 md:p-14 text-center relative overflow-hidden">
+      <span class="s s1"></span><span class="s s2"></span>
+      <div class="absolute -top-24 left-1/2 -translate-x-1/2 w-80 h-80 rounded-full pointer-events-none" style="background:rgba(198,113,43,.1);filter:blur(90px)"></div>
+      <div class="relative">
+        <span class="chip mb-6 inline-block" style="background:rgba(91,123,85,.18);color:var(--sage-lt);border:1px solid rgba(91,123,85,.35)">● Available now</span>
+        <h3 class="text-5xl md:text-6xl mb-3">Yours forever.</h3>
+        <p class="text-base ink2 mb-10">One-time purchase. Windows + Mac. No subscription, ever.</p>
+        <div class="flex flex-col gap-3 text-left max-w-xs mx-auto mb-10 text-base ink2">
+          <div class="flex items-center gap-3"><span style="color:var(--copper-lt)">✓</span> VST3 plugin, Windows &amp; macOS</div>
+          <div class="flex items-center gap-3"><span style="color:var(--copper-lt)">✓</span> Host instruments + effects inside Stride</div>
+          <div class="flex items-center gap-3"><span style="color:var(--copper-lt)">✓</span> Visual canvas + all generators</div>
+          <div class="flex items-center gap-3"><span style="color:var(--copper-lt)">✓</span> One-time purchase. No subscription.</div>
+          <div class="flex items-center gap-3"><span style="color:var(--copper-lt)">✓</span> Free updates through v1.x</div>
+        </div>
+        <div class="rounded-2xl p-5 max-w-md mx-auto mb-6 text-left" style="background:linear-gradient(90deg,rgba(198,113,43,.12),rgba(201,162,75,.08));border:1px solid rgba(198,113,43,.3)">
+          <div class="flex items-baseline gap-3 mb-1"><span class="text-3xl font-black ink">$79</span><span class="chip pill-warm">One-time</span></div>
+          <p class="text-[11px] ink3 leading-relaxed">Use on up to 2 machines. Instant download. Free updates through v1.x.</p>
+        </div>
+        <!-- Cross-sell to the Ableton edition (StrideLink). Separate product, separate license. -->
+        <div class="flex items-start gap-2.5 mb-5 max-w-sm mx-auto text-left rounded-xl px-4 py-3" style="background:rgba(47,116,142,.08);border:1px solid rgba(47,116,142,.3)">
+          <span style="color:var(--teal-lt)">◆</span>
+          <p class="text-[11px] leading-relaxed" style="color:rgba(94,154,173,.95)"><b>Also produce in Ableton?</b> <a href="index.html" class="underline">StrideLink</a> is the Max for Live edition - it modulates native Ableton devices and injects motion straight into your clips.</p>
+        </div>
+        <a onclick="toggleBuyModal()" class="btn-copper text-lg py-4 px-12 rounded-2xl">GET STRIDE VST - $79</a>
+        <p class="text-[13px] ink3 mt-4">Windows &amp; macOS. Any VST3 host. Not Logic or Pro Tools.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────── FAQ ───────────────── -->
+  <section class="max-w-3xl mx-auto mb-24">
+    <div class="text-center mb-10"><h2 class="text-3xl md:text-5xl mb-2">FAQ</h2><p class="silk">The questions everyone asks</p></div>
+    <div class="space-y-3">
+      <details class="panel rounded-2xl" open><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Which DAWs does it work in?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Any VST3 host: Ableton Live, Cubase, Nuendo, Studio One, FL Studio, Reaper, Bitwig, Cakewalk and more. <b style="color:var(--rose-lt)">Not Logic (AU only) or Pro Tools (AAX only).</b></div></details>
+      <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Can it modulate my other plugins or native devices?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">It modulates any instrument or effect you load <b class="ink">inside</b> Stride. It can't reach devices sitting next to it on the track - that's a VST3 rule, not a Stride limit. Load them into Stride and it drives the whole chain. If you're on Ableton and want to modulate native devices in place, that's <a href="index.html" class="underline" style="color:var(--copper-lt)">StrideLink</a>.</div></details>
+      <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">What can it host?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Any VST3 instrument and any VST3 effect - Serum, Vital, Pigments, Phase Plant, Massive X, and so on, plus VST3 FX after them. Not VST2 or AU.</div></details>
+      <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Does it write automation into my project?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Stride modulates live, following your DAW's transport and tempo, like an LFO tool with curves you drew. Your chain, mapping and curves save with the project, so everything comes back exactly when you reopen.</div></details>
+      <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">I already use StrideLink in Ableton - do I need this?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">StrideLink (the Ableton edition) and Stride VST are separate products with separate licenses. Stride VST runs in every VST3 DAW, Ableton included; StrideLink adds native-device modulation and clip injection inside Ableton. Buy whichever fits how you work, or both.</div></details>
+      <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Mac and Windows?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Both. Windows 10/11 and macOS 11+ (universal, Apple Silicon and Intel), signed and notarized.</div></details>
+    </div>
+  </section>
+
+  <!-- ───────────────── BOTTOM CTA ───────────────── -->
+  <section class="mb-20">
+    <div class="panel screws rounded-3xl px-6 py-20 text-center relative overflow-hidden">
+      <span class="s s1"></span><span class="s s2"></span>
+      <div class="absolute inset-x-0 bottom-0 h-40 pointer-events-none" style="background:linear-gradient(0deg,rgba(198,113,43,.08),transparent)"></div>
+      <div class="relative max-w-3xl mx-auto">
+        <h2 class="text-5xl md:text-6xl mb-6 leading-tight">Your instruments.<br>Drawn modulation.<br>Every DAW.</h2>
+        <p class="text-base ink2 mb-10 max-w-lg mx-auto">Drop Stride on a track. Load your sound. Draw the motion. Press play. That's the loop.</p>
+        <a onclick="toggleBuyModal()" class="btn-copper text-sm uppercase tracking-widest py-4 px-12 rounded-full">Get Stride VST - $79</a>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ───────────────── FOOTER ───────────────── -->
+<footer class="w-full border-t py-8 text-center relative z-[1]" style="border-color:var(--line);background:#100f0c">
+    <div class="flex items-center justify-center gap-6 mb-3">
+        <a href="privacy.html" class="text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors">Privacy Policy</a>
+        <span class="ink3">|</span>
+        <a href="terms.html" class="text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors">Terms of Service</a>
+    </div>
+    <p class="text-[13px] text-zinc-500 font-bold uppercase tracking-widest">&copy; 2026 STRIDE ENGINE. BUILT FOR PRODUCERS. BUILT FOR EVERY DAW.</p>
+</footer>
+
+<!-- ── Mobile sticky CTA ── -->
+<div class="md:hidden fixed z-[1000] flex flex-col items-end gap-2.5"
+     style="right:1rem;bottom:calc(1rem + env(safe-area-inset-bottom, 0px))">
+    <button onclick="toggleBuyModal()" aria-label="Get Stride VST for $79"
+            class="btn-copper text-[13px] font-black tracking-wide px-4 py-2.5 rounded-full">
+        $79 <span aria-hidden="true">&rarr;</span>
+    </button>
+</div>
+
+<!-- Contact Modal -->
+<div id="contact-modal" class="fixed inset-0 z-[1001] hidden flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
+    <div class="glass-panel w-full max-w-md p-8 rounded-3xl relative">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-2xl font-black text-orange-400 uppercase tracking-tight">Contact Us</h3>
+            <button onclick="toggleContactModal()" class="text-zinc-500 hover:text-white transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <p class="text-sm text-zinc-400 mb-6 font-medium">Have a question or feedback? Drop us a line. We reply within 48 hours.</p>
+        <div class="space-y-4 mb-4">
+            <div>
+                <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">Email *</label>
+                <input id="contact-email" type="email" placeholder="you@example.com" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors">
+            </div>
+            <div>
+                <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">Message *</label>
+                <textarea id="contact-message" rows="5" class="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-base text-zinc-200 resize-none focus:outline-none focus:border-orange-500/50 transition-colors" placeholder="What's on your mind?"></textarea>
+            </div>
+        </div>
+        <div id="contact-error" class="hidden text-red-400 text-xs font-medium mb-3"></div>
+        <div id="contact-success" class="hidden text-emerald-400 text-xs font-medium mb-3">Got it. We'll reply within 48 hours.</div>
+        <button id="contact-submit-btn" onclick="sendContactMessage()" class="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+            Send Message
+        </button>
+    </div>
+</div>
+
+<!-- ===================== BUY MODAL ===================== -->
+<div id="buy-modal" class="fixed inset-0 z-[1002] hidden flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
+    <div class="glass-panel w-full max-w-md p-8 rounded-3xl relative">
+        <div class="flex justify-between items-center mb-2">
+            <h3 class="text-2xl font-black text-orange-400 uppercase tracking-tight">Get Stride VST</h3>
+            <button onclick="toggleBuyModal()" class="text-zinc-500 hover:text-white transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <p class="text-sm text-zinc-400 mb-6 font-medium">One-time purchase. Windows + Mac. Instant download and license key emailed to you.</p>
+        <div class="space-y-4 mb-6">
+            <div>
+                <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">Producer Name *</label>
+                <input id="buy-name" type="text" placeholder="Your artist / producer name" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors">
+            </div>
+            <div>
+                <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">Email *</label>
+                <input id="buy-email" type="email" placeholder="you@example.com" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors">
+            </div>
+        </div>
+        <label class="flex items-start gap-2.5 mb-4 cursor-pointer select-none group">
+            <input id="buy-terms" type="checkbox" class="mt-0.5 shrink-0 w-4 h-4 accent-orange-500 cursor-pointer">
+            <span class="text-[11px] text-zinc-400 leading-snug group-hover:text-zinc-300 transition-colors">
+                I've read the <a href="terms.html#requirements" target="_blank" class="text-orange-400 hover:text-orange-300 underline">system requirements</a>,
+                the <a href="terms.html#refund" target="_blank" class="text-orange-400 hover:text-orange-300 underline">refund policy</a>,
+                and the <a href="terms.html" target="_blank" class="text-orange-400 hover:text-orange-300 underline">Terms of Service</a>.
+                I understand Stride is a digital product delivered immediately.
+            </span>
+        </label>
+        <p id="buy-error" class="text-xs text-red-400 mb-3 hidden font-medium"></p>
+        <button onclick="submitBuyForm()" class="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black py-3.5 rounded-xl text-xs uppercase tracking-widest transition-all shadow-[0_10px_30px_rgba(255,50,0,0.3)] hover:shadow-[0_10px_40px_rgba(255,50,0,0.5)]">
+            Continue to checkout
+        </button>
+        <p class="text-[11px] text-zinc-600 mt-3 text-center font-medium">Secure checkout via Lemon Squeezy. Cards, Apple Pay, Google Pay accepted.</p>
+    </div>
+</div>
+
+<script>
+    // ─── Buy Modal ──────────────────────────────────────
+    function toggleBuyModal() {
+        const modal = document.getElementById('buy-modal');
+        modal.classList.toggle('hidden');
+        document.body.style.overflow = modal.classList.contains('hidden') ? '' : 'hidden';
+    }
+
+    // ── Lemon Squeezy checkout URL ──
+    // PLACEHOLDER for the mockup. The VST3 product needs its own LS variant (or
+    // a shared product with a VST3 variant) — that's the licensing discussion.
+    // Leave '' so the mockup shows the "coming soon" fallback instead of sending
+    // buyers to the Ableton-edition checkout by mistake.
+    const LS_CHECKOUT_URL = '';
+
+    function submitBuyForm() {
+        const name = document.getElementById('buy-name').value.trim();
+        const email = document.getElementById('buy-email').value.trim();
+        const termsChecked = document.getElementById('buy-terms').checked;
+        if (!name) { showBuyError('Please enter your producer name'); return; }
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showBuyError('Please enter a valid email'); return; }
+        if (!termsChecked) { showBuyError('Please read and accept the terms to continue'); return; }
+        document.getElementById('buy-error').classList.add('hidden');
+
+        if (LS_CHECKOUT_URL) {
+            const sep = LS_CHECKOUT_URL.includes('?') ? '&' : '?';
+            window.location.href = LS_CHECKOUT_URL + sep
+                + 'checkout[email]=' + encodeURIComponent(email)
+                + '&checkout[name]=' + encodeURIComponent(name);
+        } else {
+            showBuyError('Checkout for the VST3 edition is being set up. Leave your email above and we will send the link.');
+        }
+    }
+
+    function showBuyError(msg) {
+        const el = document.getElementById('buy-error');
+        el.textContent = msg;
+        el.classList.remove('hidden');
+    }
+
+    // ─── Contact Modal ──────────────────────────────────
+    function toggleContactModal() {
+        document.getElementById('contact-modal').classList.toggle('hidden');
+    }
+    function sendContactMessage() {
+        const email = (document.getElementById('contact-email').value || '').trim();
+        const message = (document.getElementById('contact-message').value || '').trim();
+        const errorEl = document.getElementById('contact-error');
+        const successEl = document.getElementById('contact-success');
+        const btn = document.getElementById('contact-submit-btn');
+        errorEl.classList.add('hidden'); successEl.classList.add('hidden');
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errorEl.textContent = 'Please enter a valid email so we can reply.'; errorEl.classList.remove('hidden'); return; }
+        if (!message) { errorEl.textContent = 'Please write a message.'; errorEl.classList.remove('hidden'); return; }
+        btn.disabled = true; btn.textContent = 'Sending...';
+        fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
+            method: 'POST', keepalive: true,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'contact_message', email, name: '', message })
+        })
+        .then(res => { if (!res.ok) throw new Error('server ' + res.status); return res.json().catch(() => ({})); })
+        .then(() => {
+            successEl.classList.remove('hidden');
+            document.getElementById('contact-email').value = '';
+            document.getElementById('contact-message').value = '';
+            btn.textContent = 'Sent';
+            setTimeout(() => { toggleContactModal(); btn.disabled = false; btn.textContent = 'Send Message'; successEl.classList.add('hidden'); }, 2000);
+        })
+        .catch(() => { errorEl.textContent = 'Could not send. Try again in a moment, or email home@stridehub.io directly.'; errorEl.classList.remove('hidden'); btn.disabled = false; btn.textContent = 'Send Message'; });
+    }
+</script>
+
+</body>
+</html>

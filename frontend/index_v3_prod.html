@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STRIDE | Sound Design Engine for every DAW</title>
+
+    <meta name="description" content="Stride is a sound design engine. Draw modulation curves on a canvas and pull sounds you've never heard from instruments you own. Two editions: Stride VST for every DAW, StrideLink for Ableton Live.">
+    <meta name="author" content="Stride">
+    <link rel="canonical" href="https://stridehub.io/">
+
+    <!-- Open Graph / Social cards -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://stridehub.io/">
+    <meta property="og:title" content="STRIDE | Sound Design Engine for every DAW">
+    <meta property="og:description" content="Sound Design Engine - modulate every parameter, in any DAW. Draw modulation curves on a canvas and pull sounds you've never heard from instruments you own.">
+    <meta property="og:image" content="https://stridehub.io/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:site_name" content="Stride">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="STRIDE | Sound Design Engine for every DAW">
+    <meta name="twitter:description" content="Sound Design Engine - modulate every parameter, in any DAW. Draw modulation curves on a canvas, pull sounds you've never heard from instruments you own.">
+    <meta name="twitter:image" content="https://stridehub.io/og-image.png">
+
+    <!-- Theme color for mobile browsers -->
+    <meta name="theme-color" content="#141310">
+
+    <!-- Meta Pixel — landing PageView tracking (Phase 1 of
+         docs/meta-pixel-integration-spec.md). Fires fbq('init') +
+         fbq('track', 'PageView') as early as possible in <head> so it
+         catches the visit before any other resource blocks. The Phase 2
+         Purchase event lives on welcome.html; Phase 3 server-side CAPI
+         lives in the Lemon Squeezy webhook handler. -->
+    <script>
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t,s)}(window, document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    // First-party visitor id for Advanced Matching — a stable, deterministic
+    // match key sent on EVERY event (browser pixel + the server CAPI below).
+    // Cold visitors have no email, so external_id is the main lever that lifts
+    // the pixel's Event Match Quality. Persisted 180d; not PII (random id).
+    var _strideXid = (function () {
+        try {
+            var m = document.cookie.match(/(?:^|; )stride_xid=([^;]*)/);
+            if (m) return decodeURIComponent(m[1]);
+            var id = (self.crypto && crypto.randomUUID) ? crypto.randomUUID()
+                : (Date.now().toString(36) + Math.random().toString(36).slice(2, 12));
+            document.cookie = 'stride_xid=' + encodeURIComponent(id) +
+                '; max-age=' + (180 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+            return id;
+        } catch (e) { return ''; }
+    })();
+    fbq('init', '952457524222772', _strideXid ? { external_id: _strideXid } : {});
+    fbq('track', 'PageView');
+
+    // Capture fbclid from the URL on landing → format into Meta's _fbc
+    // shape (`fb.{subdomain_index}.{ts}.{fbclid}`) and persist for 90 days
+    // so it rides along to LS checkout even if the buyer navigates around
+    // first. Without _fbc, server-side CAPI Purchase events can't be
+    // matched to ad clicks → campaign optimizer flies blind on those
+    // conversions. See docs/meta-pixel-integration-spec.md (attribution
+    // wiring). Pixel sets _fbp itself on first PageView for free.
+    (function captureFbclid() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const fbclid = params.get('fbclid');
+            if (!fbclid) return;
+            const fbc = 'fb.1.' + Date.now() + '.' + fbclid;
+            const maxAge = 90 * 24 * 60 * 60;
+            document.cookie = '_fbc=' + encodeURIComponent(fbc) +
+                '; max-age=' + maxAge +
+                '; path=/; SameSite=Lax; Secure';
+            try { sessionStorage.setItem('stride_fbc', fbc); } catch (e) {}
+        } catch (e) {}
+    })();
+
+    // Server-side PageView → our backend → Meta CAPI. The browser PageView
+    // above is dropped/unmatched for most iOS/Safari/ad-blocker visitors, so
+    // Meta can't build a retargetable "site visitors" audience from it alone.
+    // This ping lets the backend forward a PageView carrying the visitor's
+    // SERVER IP (+ fbp/fbc/UA) — the signal Meta can match — which fills the
+    // retargeting pool. Fire-and-forget, delayed so _fbp (set by the pixel
+    // above) is available. Wrapped so it can never affect the page or checkout.
+    (function serverPageView() {
+        try {
+            setTimeout(function () {
+                try {
+                    var ck = function (n) { var m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : ''; };
+                    var fbp = ck('_fbp');
+                    var fbc = ck('_fbc') || (function () { try { return sessionStorage.getItem('stride_fbc') || ''; } catch (e) { return ''; } })();
+                    var xid = ck('stride_xid');
+                    var eid = 'pv.' + Date.now() + '.' + Math.random().toString(36).slice(2, 10);
+                    fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
+                        method: 'POST', keepalive: true,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'track_pageview', fbp: fbp, fbc: fbc, external_id: xid, event_id: eid, url: location.href })
+                    }).catch(function () {});
+                } catch (e) {}
+            }, 1500);
+        } catch (e) {}
+    })();
+    </script>
+    <noscript><img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=952457524222772&ev=PageView&noscript=1"
+    /></noscript>
+
+    <!-- Favicon — real crawlable files so Google can show the Stride mark
+         next to the search result (data-URI icons are ignored by Google). -->
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192x192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+
+    <!-- Organization structured data — helps Google associate the Stride
+         logo with the brand (knowledge/brand panel on a "Stride" search). -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Stride",
+      "url": "https://stridehub.io/",
+      "logo": "https://stridehub.io/favicon-192x192.png"
+    }
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      (function(){
+        function r(p){var o={},s=[50,100,200,300,400,500,600,700,800,900,950];for(var i=0;i<s.length;i++){o[s[i]]='rgb(var(--'+p+s[i]+') / <alpha-value>)';}return o;}
+        tailwind.config={darkMode:'class',theme:{extend:{colors:{
+          zinc:r('z'), orange:r('o'), red:r('rd'), amber:r('am'), emerald:r('em'),
+          cyan:r('cy'), sky:r('z'), lime:r('em'), fuchsia:r('o'),
+          violet:r('vi'), purple:r('vi'), rose:r('ro'), pink:r('ro')
+        }}}};
+      })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  /* ── PATCHBAY (vintage modular) brand palette - copied verbatim from index.html ── */
+  :root{
+    --bg:#141310; --bg2:#191611; --panel:#1d1b16; --raise:#252119; --line:rgba(216,201,176,.11);
+    --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
+    --copper:#c6712b; --copper-lt:#dd9a52; --amber:#d9822b; --ember:#e58a2e;
+    --teal:#2f748e;  --teal-lt:#5e9aad;
+    --sage:#5b7b55;  --sage-lt:#86a87f;
+    --rose:#a34e52;  --rose-lt:#c5807f;
+    --violet:#544b6d;--violet-lt:#9a8cbb;
+    --gold:#c9a24b;
+    --z50:241 236 226;--z100:228 221 208;--z200:215 207 192;--z300:195 187 171;--z400:163 154 138;--z500:118 111 99;--z600:88 82 73;--z700:66 61 52;--z800:37 33 25;--z900:29 27 22;--z950:20 19 16;
+    --o50:249 241 234;--o100:244 227 213;--o200:232 198 170;--o300:222 154 82;--o400:198 113 43;--o500:174 99 38;--o600:143 81 31;--o700:109 62 24;--o800:79 45 17;--o900:55 32 12;--o950:30 17 6;
+    --rd50:250 238 232;--rd100:246 220 209;--rd200:235 186 167;--rd300:216 132 104;--rd400:199 100 66;--rd500:176 80 49;--rd600:150 66 40;--rd700:117 51 32;--rd800:84 37 24;--rd900:56 25 17;--rd950:31 14 10;
+    --am50:250 246 237;--am100:244 236 219;--am200:233 218 183;--am300:217 190 129;--am400:201 162 75;--am500:177 143 66;--am600:145 117 54;--am700:111 89 41;--am800:80 65 30;--am900:56 45 21;--am950:30 24 11;
+    --em50:235 240 233;--em100:214 224 210;--em200:181 198 175;--em300:134 168 127;--em400:110 146 102;--em500:91 123 85;--em600:73 99 67;--em700:56 77 52;--em800:40 56 38;--em900:27 38 25;--em950:15 22 13;
+    --cy50:233 240 243;--cy100:208 226 232;--cy200:171 200 211;--cy300:126 176 192;--cy400:94 154 173;--cy500:47 116 142;--cy600:38 96 117;--cy700:30 75 91;--cy800:22 54 66;--cy900:15 36 44;--cy950:9 20 25;
+    --vi50:240 237 246;--vi100:226 221 238;--vi200:202 193 221;--vi300:172 159 199;--vi400:154 140 187;--vi500:125 111 158;--vi600:100 88 127;--vi700:78 68 99;--vi800:56 49 71;--vi900:38 33 48;--vi950:22 19 28;
+    --ro50:250 238 238;--ro100:245 221 221;--ro200:235 191 192;--ro300:213 145 147;--ro400:197 128 127;--ro500:163 78 82;--ro600:138 62 66;--ro700:108 47 50;--ro800:79 34 36;--ro900:53 23 24;--ro950:30 13 14;
+    --brand1:222 154 82;--brand2:229 138 46;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Outfit',sans-serif;background:var(--bg);color:var(--ink2);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  ::selection{background:rgba(198,113,43,.3)}
+  ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:#2a2620;border-radius:10px}
+  body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(120% 80% at 50% -10%, rgba(198,113,43,.07), transparent 60%),
+               radial-gradient(100% 60% at 50% 110%, rgba(47,116,142,.05), transparent 60%);}
+  .wrap{position:relative;z-index:1}
+  .mono{font-family:'Space Mono',ui-monospace,monospace}
+  .silk{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--ink3)}
+  .brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .brand-teal{background:linear-gradient(90deg,var(--teal-lt),#8fc0d0);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .ink{color:var(--ink)} .ink2{color:var(--ink2)} .ink3{color:var(--ink3)}
+  h1,h2,h3,h4{color:var(--ink);font-weight:900;letter-spacing:-.01em}
+  .panel{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(0,0,0,.14)),var(--panel);
+    border:1px solid var(--line);border-radius:18px;
+    box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 24px 50px -30px rgba(0,0,0,.9)}
+  .glass-panel{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.16)),var(--panel);
+    backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid var(--line);
+    box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 30px 60px -28px rgba(0,0,0,.95)}
+  .screws::before,.screws::after,.screws>.s{content:'';position:absolute;width:7px;height:7px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#6a6253,#272218);box-shadow:0 0 0 1px rgba(0,0,0,.5),0 1px 1px rgba(255,255,255,.04)}
+  .screws::before{top:10px;left:10px}.screws::after{top:10px;right:10px}
+  .screws>.s1{bottom:10px;left:10px}.screws>.s2{bottom:10px;right:10px}
+  .btn-copper{display:inline-flex;align-items:center;gap:.6rem;background:linear-gradient(180deg,var(--ember),var(--copper));
+    color:#1c1206;font-weight:900;letter-spacing:.04em;border:1px solid rgba(255,210,150,.25);border-radius:14px;
+    box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 12px 24px -14px rgba(198,113,43,.8);transition:transform .15s,filter .15s;cursor:pointer}
+  .btn-copper:hover{transform:translateY(-2px);filter:brightness(1.06)}
+  .btn-teal{display:inline-flex;align-items:center;gap:.6rem;background:linear-gradient(180deg,#4f93aa,var(--teal));
+    color:#08171d;font-weight:900;letter-spacing:.04em;border:1px solid rgba(150,210,230,.25);border-radius:14px;
+    box-shadow:0 1px 0 rgba(255,255,255,.22) inset,0 12px 24px -14px rgba(47,116,142,.85);transition:transform .15s,filter .15s;cursor:pointer}
+  .btn-teal:hover{transform:translateY(-2px);filter:brightness(1.08)}
+  .btn-ghost{display:inline-flex;align-items:center;gap:.5rem;border:1px solid var(--line);background:var(--raise);color:var(--ink2);
+    font-weight:800;border-radius:14px;transition:transform .15s,border-color .15s,color .15s;cursor:pointer}
+  .btn-ghost:hover{transform:translateY(-2px);border-color:rgba(216,201,176,.28);color:var(--ink)}
+  .pill{border:1px solid var(--line);background:var(--raise);border-radius:999px;color:var(--ink2);font-weight:700}
+  .pill-warm{border-color:rgba(198,113,43,.4);background:rgba(198,113,43,.12);color:var(--copper-lt)}
+  .pill-teal{border-color:rgba(47,116,142,.4);background:rgba(47,116,142,.12);color:var(--teal-lt)}
+  .chip{font-size:9px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;border-radius:999px;padding:3px 9px}
+  .divider{height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
+  .lane{fill:none;stroke-width:2}
+  details>summary{list-style:none}details>summary::-webkit-details-marker{display:none}
+  .gen-card{transition:transform .15s,border-color .15s}.gen-card:hover{transform:translateY(-3px)}
+  @keyframes heroLaneA{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+  @keyframes heroLaneB{0%,100%{transform:translateY(0)}50%{transform:translateY(8px)}}
+  @keyframes heroLaneC{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+  .hero-lanes path{will-change:transform}
+  .hero-lanes path:nth-of-type(1){animation:heroLaneA 9s ease-in-out infinite}
+  .hero-lanes path:nth-of-type(2){animation:heroLaneB 11s ease-in-out -2s infinite}
+  .hero-lanes path:nth-of-type(3){animation:heroLaneC 8s ease-in-out -4s infinite}
+  .hero-lanes path:nth-of-type(4){animation:heroLaneA 12s ease-in-out -1s infinite}
+  .hero-lanes path:nth-of-type(5){animation:heroLaneB 10s ease-in-out -3s infinite}
+  @media (prefers-reduced-motion:reduce){.hero-lanes path{animation:none}}
+  /* ── VST3 window mockup (used as the flagship visual) ── */
+  .vwin{background:#151310;border:1px solid var(--line);border-radius:14px;overflow:hidden;
+    box-shadow:0 30px 60px -28px rgba(0,0,0,.95),0 1px 0 rgba(255,255,255,.05) inset}
+  .vwin-bar{display:flex;align-items:center;gap:.5rem;padding:8px 12px;background:linear-gradient(180deg,#211d17,#191510);border-bottom:1px solid var(--line)}
+  .vwin-dot{width:9px;height:9px;border-radius:50%}
+  .vwin-ctrl{display:flex;align-items:center;gap:6px;padding:7px 10px;background:#0f0e0b;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .vbtn{font-size:10px;font-weight:800;letter-spacing:.04em;padding:4px 9px;border-radius:8px;border:1px solid var(--line);color:var(--ink2);background:var(--raise)}
+  .vbtn-map{color:#c9b8ee;border-color:rgba(125,111,158,.5);background:rgba(84,75,109,.28);animation:mapPulse 1.4s ease-in-out infinite}
+  @keyframes mapPulse{0%,100%{box-shadow:0 0 0 0 rgba(125,111,158,0)}50%{box-shadow:0 0 0 4px rgba(125,111,158,.18)}}
+  .vchip{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:800;padding:3px 8px;border-radius:999px;border:1px solid var(--line);background:#17140f;color:var(--ink2)}
+  .vchip .dot{width:6px;height:6px;border-radius:50%;background:var(--sage-lt);box-shadow:0 0 6px var(--sage-lt)}
+  .vlane{display:grid;grid-template-columns:96px 1fr;align-items:center;border-bottom:1px solid rgba(216,201,176,.06)}
+  .vlane .nm{font-size:10px;font-weight:700;color:var(--ink2);padding:0 10px;line-height:1.1}
+  .vlane .nm small{display:block;color:var(--ink3);font-weight:600;font-size:8.5px;letter-spacing:.02em}
+  @media (max-width:420px){.vlane{grid-template-columns:80px 1fr}}
+  /* dense-window toolbar + sliders */
+  .tb{font-size:10px;font-weight:800;letter-spacing:.02em;padding:3px 7px;border-radius:6px;border:1px solid var(--line);color:var(--ink3);background:transparent;white-space:nowrap;line-height:1}
+  .tb-on{font-size:10px;font-weight:800;letter-spacing:.02em;padding:3px 7px;border-radius:6px;border:1px solid rgba(198,113,43,.5);color:#f0b062;background:rgba(198,113,43,.15);white-space:nowrap;line-height:1}
+  .tb-plain{font-size:10px;font-weight:800;letter-spacing:.02em;padding:3px 6px;color:var(--ink3);white-space:nowrap;line-height:1}
+  .tb-lbl{font-size:8.5px;font-weight:900;letter-spacing:.14em;color:#6a6255;text-transform:uppercase;padding:0 3px;white-space:nowrap}
+  .sld{display:flex;align-items:center;gap:6px}
+  .sld-l{font-size:8.5px;font-weight:900;letter-spacing:.1em;color:#6a6255;text-transform:uppercase;white-space:nowrap}
+  .sld .track{width:52px;height:3px;border-radius:3px;background:#2a2620;position:relative}
+  .sld .knob{position:absolute;top:50%;width:8px;height:8px;border-radius:50%;background:#b8ad9b;transform:translate(-50%,-50%);box-shadow:0 0 0 2px #0d0c0a}
+  /* how-it-works step simulations */
+  .sim-panel{background:#0f0e0b;border:1px solid var(--line);border-radius:14px;padding:16px}
+  .fav-row{padding:7px 12px;font-size:12px;font-weight:700;color:var(--ink2);display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(216,201,176,.06)}
+  .fav-row:last-child{border-bottom:0}
+  .fav-row.on{color:var(--ink)}
+  .fav-row.on span{color:var(--copper-lt);font-size:10px;font-weight:800}
+  .knob-sim{width:34px;height:34px;border-radius:50%;background:radial-gradient(circle at 38% 32%,#3a352b,#16130e);border:1px solid var(--line);position:relative;box-shadow:0 2px 4px rgba(0,0,0,.45)}
+  .knob-sim::after{content:'';position:absolute;left:50%;top:4px;width:2px;height:13px;background:var(--ink2);transform-origin:50% 100%;transform:translateX(-50%) rotate(var(--rot,0deg));border-radius:2px}
+  .knob-sim.mapped{border-color:rgba(198,113,43,.6);box-shadow:0 0 0 2px rgba(198,113,43,.22),0 2px 4px rgba(0,0,0,.45)}
+  .knob-sim.mapped::before{content:'';position:absolute;right:-3px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--ember);box-shadow:0 0 6px var(--ember);z-index:1}
+  .sim-lane{display:grid;grid-template-columns:66px 1fr;align-items:center;border-bottom:1px solid rgba(216,201,176,.06);height:44px}
+  .sim-lane:last-child{border-bottom:0}
+  .sim-lbl{font-size:10px;font-weight:800;padding-left:12px}
+  /* ── compare table ── */
+  .cmp{width:100%;border-collapse:separate;border-spacing:0}
+  .cmp th,.cmp td{padding:14px 16px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line);font-size:14px}
+  .cmp thead th{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--ink3)}
+  .cmp tbody td:first-child{color:var(--ink2);font-weight:700}
+  .cmp .col-vst{background:rgba(198,113,43,.06);border-left:1px solid rgba(198,113,43,.25);border-right:1px solid rgba(198,113,43,.25)}
+  .cmp thead .col-vst{border-top:1px solid rgba(198,113,43,.25);border-top-left-radius:12px;border-top-right-radius:12px}
+  .cmp tbody tr:last-child .col-vst{border-bottom:1px solid rgba(198,113,43,.25);border-bottom-left-radius:12px;border-bottom-right-radius:12px}
+  .yes{color:var(--sage-lt);font-weight:900}
+  .no{color:var(--rose-lt);font-weight:900}
+</style>
+</head>
+<body>
+
+<div class="wrap max-w-[1400px] mx-auto px-6" style="padding-top:8px">
+
+  <!-- ───────────────── NAV ───────────────── -->
+  <nav class="flex justify-between items-center py-6">
+    <div class="flex items-center gap-3">
+      <span class="text-3xl font-black brand tracking-tighter leading-none">STRIDE</span>
+      <span class="silk hidden sm:block border-l pl-3" style="border-color:var(--line)">Sound Design Engine</span>
+    </div>
+    <div class="flex items-center gap-5">
+      <a class="silk hover:text-[var(--copper-lt)] transition-colors" href="#how">How it works</a>
+      <a class="silk hover:text-[var(--copper-lt)] transition-colors" href="blog.html">Blog</a>
+      <a class="silk hover:text-[var(--copper-lt)] transition-colors" href="samples.html">Sample Packs</a>
+      <a href="https://www.instagram.com/stride_engine/" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[var(--copper-lt)] transition-colors" title="Follow us on Instagram">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+      </a>
+      <a href="https://www.youtube.com/@strideengine" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[var(--copper-lt)] transition-colors" title="Subscribe on YouTube">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+      </a>
+      <button onclick="toggleContactModal()" class="ink3 hover:text-[var(--copper-lt)] transition-colors" title="Contact Us">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+      </button>
+      <span class="w-px h-6 mx-1 hidden sm:block" style="background:var(--line)"></span>
+      <a href="#pricing" class="btn-copper text-[11px] uppercase tracking-widest px-5 py-2.5 rounded-full">Get Stride</a>
+    </div>
+  </nav>
+
+  <!-- ───────────────── HERO (flagship = Stride VST) ───────────────── -->
+  <section class="relative overflow-hidden pt-12 pb-14">
+    <svg class="hero-lanes absolute inset-0 w-full h-full pointer-events-none" style="opacity:.10" viewBox="0 0 1400 520" preserveAspectRatio="none" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M0,80 L90,30 L90,80 L180,30 L180,80 L360,30 L360,80 L540,30 L540,80 L720,30 L720,80 L900,30 L900,80 L1080,30 L1080,80 L1260,30 L1260,80 L1400,50" stroke="#c6712b" stroke-width="1.5"/>
+      <path d="M0,170 L40,120 L80,170 L120,150 L160,170 L240,110 L320,170 L400,150 L480,170 L560,110 L640,170 L720,150 L800,170 L900,115 L1000,170 L1120,150 L1240,170 L1340,115 L1400,170" stroke="#5e9aad" stroke-width="1.5"/>
+      <path d="M0,270 L80,270 L80,220 L200,220 L200,270 L320,270 L320,235 L440,235 L440,270 L560,270 L560,210 L700,210 L700,270 L840,270 L840,230 L980,230 L980,270 L1120,270 L1120,215 L1280,215 L1280,270 L1400,270" stroke="#86a87f" stroke-width="1.5"/>
+      <path d="M0,360 C120,310 260,310 380,360 C500,410 640,410 760,360 C880,310 1020,310 1140,360 C1260,410 1400,410 1400,360" stroke="#c5807f" stroke-width="1.5"/>
+      <path d="M0,450 L0,490 Q90,470 180,440 L180,490 Q270,470 360,440 L360,490 Q450,470 540,440 L540,490 Q630,470 720,440 L720,490 Q810,470 900,440 L900,490 Q990,470 1080,440 L1080,490 Q1170,470 1260,440 L1260,490 Q1330,475 1400,450" stroke="#9a8cbb" stroke-width="1.5"/>
+    </svg>
+
+    <div class="relative flex flex-col lg:flex-row lg:items-center gap-10 lg:gap-12">
+      <div class="lg:flex-[6] min-w-0">
+        <div class="silk mb-5">Sound Design Engine</div>
+        <h1 class="text-5xl md:text-6xl xl:text-7xl mb-6 leading-[1.04]">
+          Sound Design Engine.<br><span class="brand">Modulate everything.</span>
+        </h1>
+        <p class="text-lg md:text-xl max-w-2xl mb-8 leading-relaxed font-light ink2">
+          A visual canvas to modulate every parameter of your instruments at once. Load your synths and effects into Stride, shape the movement, and hear your sound come alive - <strong class="ink">live, in any DAW.</strong>
+        </p>
+        <div class="flex flex-col items-start gap-3">
+          <div class="flex flex-wrap items-center gap-3">
+            <a onclick="openBuy()" class="btn-copper text-lg py-4 px-9 rounded-2xl">GET STRIDE - <span style="text-decoration:line-through;opacity:.55;font-weight:800">$129</span> $99 <span>→</span></a>
+            <a onclick="tryDemo()" class="btn-ghost text-sm py-4 px-7 rounded-2xl">Try the free demo</a>
+          </div>
+          <span class="chip" style="background:rgba(91,123,85,.18);color:var(--sage-lt);border:1px solid rgba(91,123,85,.35)">● Both editions · one price</span>
+        </div>
+        <div class="mt-5 text-[10px] leading-tight max-w-md">
+          <span class="font-black uppercase tracking-[0.18em]" style="color:var(--copper-lt)">Stride VST</span>
+          <span class="ink3"> runs in any VST3 DAW (Win + Mac). </span>
+          <span class="font-black uppercase tracking-[0.18em]" style="color:var(--teal-lt)">StrideLink</span>
+          <span class="ink3"> lives inside Ableton Live 11+.</span>
+        </div>
+      </div>
+
+      <!-- flagship visual: the Stride VST window — dense, live-rendered canvas -->
+      <div class="lg:flex-[5] w-full min-w-0">
+        <div class="panel screws p-2 md:p-3 pt-7" style="border-color:rgba(198,113,43,.28)"><span class="s s1"></span><span class="s s2"></span>
+          <div class="vwin">
+            <!-- titlebar -->
+            <div class="vwin-bar">
+              <span class="text-base font-black brand tracking-tighter leading-none">STRIDE</span>
+              <span class="tb-plain ml-1">≡ Compact</span>
+              <span class="flex-1"></span>
+              <span class="tb-on">◉ Patch</span>
+              <span class="tb-plain">≡ Guide</span>
+              <span class="tb-plain" title="Files"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg></span>
+            </div>
+            <!-- control bar -->
+            <div class="vwin-ctrl">
+              <span class="vbtn" style="min-width:52px">OTT ▾</span>
+              <span class="tb-on">+ Add</span>
+              <span class="vbtn">◉ Map</span>
+              <span class="vbtn">⛶</span>
+              <span class="vbtn">Clear</span>
+              <span class="w-px h-4 mx-0.5" style="background:var(--line)"></span>
+              <span class="vchip"><span class="dot" style="background:#ec9433;box-shadow:0 0 6px #ec9433"></span>Serum 2 <span class="ink3 ml-1">⛶ ✕</span></span>
+              <span class="vchip"><span class="dot" style="background:#ec9433;box-shadow:0 0 6px #ec9433"></span>OTT <span class="ink3 ml-1">⛶ ✕</span></span>
+            </div>
+            <!-- toolbar (trimmed for the hero column: the Motion generators + Bars) -->
+            <div class="flex items-center gap-1.5 flex-wrap px-2.5 py-2.5" style="background:#0d0c0a;border-bottom:1px solid var(--line)">
+              <span class="tb-lbl">Motion</span>
+              <span class="tb-on">Chaos</span><span class="tb-on">Neuro</span><span class="tb-on">Reflector</span><span class="tb-on">S&amp;H</span><span class="tb-on">Prism</span><span class="tb-on">Bloom</span>
+              <span class="flex-1"></span>
+              <span class="tb-lbl">Bars</span>
+              <span class="tb-on">4</span><span class="tb">8</span><span class="tb">16</span><span class="tb">32</span>
+            </div>
+            <!-- dense automation canvas -->
+            <canvas id="sdHeroCv" style="display:block;width:100%;height:auto;background:#0a0a09"></canvas>
+            <!-- bottom slider strip (trimmed) -->
+            <div class="flex items-center gap-4 px-3 py-2.5 flex-wrap" style="background:#0d0c0a;border-top:1px solid var(--line)">
+              <span class="sld"><span class="sld-l">Smooth</span><span class="track"><span class="knob" style="left:8%"></span></span></span>
+              <span class="sld"><span class="sld-l">Depth</span><span class="track"><span class="knob" style="left:96%"></span></span></span>
+              <span class="sld"><span class="sld-l">Curve</span><span class="track"><span class="knob" style="left:96%"></span></span></span>
+              <span class="flex-1"></span>
+              <span class="mono text-[10px]" style="color:var(--sage-lt)">Editor ready — 6 curves</span>
+            </div>
+          </div>
+        </div>
+        <p class="text-center mono text-[10px] ink3 mt-4">Stride VST — your mapped params moving at once, live inside your DAW.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────── HOW IT WORKS — the flow (compact 4-up) ───────────────── -->
+  <section id="how" class="mb-28 scroll-mt-8">
+    <div class="text-center mb-10">
+      <p class="silk mb-3" style="color:var(--copper-lt)">How it works</p>
+      <h2 class="text-4xl md:text-6xl mb-4">Load, map, draw, <span class="brand">play</span></h2>
+      <p class="text-base max-w-2xl mx-auto leading-relaxed ink2">Draw modulation curves on a visual canvas and every mapped knob follows — live, in time. No MIDI routing, no automation lanes to wire.</p>
+    </div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+
+      <!-- 1 LOAD -->
+      <div class="panel rounded-2xl p-5 flex flex-col">
+        <div class="flex items-center gap-2.5 mb-4">
+          <span class="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-black shrink-0" style="background:rgba(198,113,43,.14);border:1px solid rgba(198,113,43,.35);color:var(--copper-lt)">1</span>
+          <h3 class="text-lg">Load</h3>
+        </div>
+        <div class="rounded-lg overflow-hidden mb-4" style="border:1px solid var(--line);background:#141310">
+          <div class="fav-row on" style="padding:6px 10px;font-size:11px">Serum 2 <span>✓</span></div>
+          <div class="fav-row on" style="padding:6px 10px;font-size:11px">OTT <span>✓</span></div>
+          <div class="fav-row" style="padding:6px 10px;font-size:11px">Vital</div>
+          <div class="fav-row" style="padding:6px 10px;font-size:11px">Pigments</div>
+        </div>
+        <p class="text-[13px] leading-relaxed ink2 mt-auto">Pick your synths and effects from favorites. Build a whole chain inside Stride.</p>
+      </div>
+
+      <!-- 2 MAP -->
+      <div class="panel rounded-2xl p-5 flex flex-col">
+        <div class="flex items-center gap-2.5 mb-4">
+          <span class="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-black shrink-0" style="background:rgba(84,75,109,.2);border:1px solid rgba(84,75,109,.45);color:var(--violet-lt)">2</span>
+          <h3 class="text-lg">Map</h3>
+        </div>
+        <div class="rounded-lg mb-4 p-4" style="border:1px solid var(--line);background:#141310">
+          <div class="mb-3"><span class="vbtn vbtn-map">◉ Map</span></div>
+          <div class="grid grid-cols-4 gap-3 justify-items-center">
+            <div class="knob-sim mapped" style="--rot:-42deg"></div>
+            <div class="knob-sim" style="--rot:20deg"></div>
+            <div class="knob-sim mapped" style="--rot:64deg"></div>
+            <div class="knob-sim" style="--rot:-18deg"></div>
+          </div>
+        </div>
+        <p class="text-[13px] leading-relaxed ink2 mt-auto">Hit Map, then click any knob on the synth. It drops onto the canvas as a lane.</p>
+      </div>
+
+      <!-- 3 DRAW -->
+      <div class="panel rounded-2xl p-5 flex flex-col">
+        <div class="flex items-center gap-2.5 mb-4">
+          <span class="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-black shrink-0" style="background:rgba(47,116,142,.16);border:1px solid rgba(47,116,142,.4);color:var(--teal-lt)">3</span>
+          <h3 class="text-lg">Draw</h3>
+        </div>
+        <div class="rounded-lg overflow-hidden mb-4" style="border:1px solid var(--line);background:#0c0b09">
+          <div class="sim-lane" style="height:36px"><span class="sim-lbl" style="color:var(--copper-lt);font-size:9px">Cutoff</span><svg viewBox="0 0 240 30" class="w-full block" preserveAspectRatio="none"><path fill="none" stroke="#dd9a52" stroke-width="1.4" d="M0,24 L12,8 L12,24 L24,8 L24,24 C60,4 100,4 130,20 C165,30 200,12 240,8"/></svg></div>
+          <div class="sim-lane" style="height:36px"><span class="sim-lbl" style="color:var(--teal-lt);font-size:9px">Warp</span><svg viewBox="0 0 240 30" class="w-full block" preserveAspectRatio="none"><path fill="none" stroke="#5e9aad" stroke-width="1.4" d="M0,22 C6,6 6,6 12,20 C18,6 18,6 24,20 L90,20 L90,9 L150,9 L150,22 C190,6 220,26 240,12"/></svg></div>
+          <div class="sim-lane" style="height:36px;border-bottom:0"><span class="sim-lbl" style="color:var(--sage-lt);font-size:9px">Drive</span><svg viewBox="0 0 240 30" class="w-full block" preserveAspectRatio="none"><path fill="none" stroke="#86a87f" stroke-width="1.4" d="M0,22 L60,22 L60,9 L110,9 L110,20 L130,20 L134,8 L138,20 L142,8 L146,20 L240,18"/></svg></div>
+        </div>
+        <p class="text-[13px] leading-relaxed ink2 mt-auto">Shape curves on the canvas — all at once or one by one. Refine any time.</p>
+      </div>
+
+      <!-- 4 PLAY -->
+      <div class="panel rounded-2xl p-5 flex flex-col">
+        <div class="flex items-center gap-2.5 mb-4">
+          <span class="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-black shrink-0" style="background:rgba(91,123,85,.18);border:1px solid rgba(91,123,85,.4);color:var(--sage-lt)">4</span>
+          <h3 class="text-lg">Play</h3>
+        </div>
+        <div class="rounded-lg mb-4 p-3" style="border:1px solid var(--line);background:#0c0b09">
+          <div class="flex items-center gap-1 flex-wrap mb-2">
+            <span class="tb-on" style="font-size:9px">Chaos</span><span class="tb-on" style="font-size:9px">Neuro</span><span class="tb-on" style="font-size:9px">S&amp;H</span>
+            <span class="flex-1"></span><span class="chip" style="background:rgba(163,78,82,.2);color:var(--rose-lt);border:1px solid rgba(163,78,82,.45);font-size:8px">● REC</span>
+          </div>
+          <svg viewBox="0 0 240 40" class="w-full block" preserveAspectRatio="none"><path fill="none" stroke="#dd9a52" stroke-width="1.3" d="M0,30 C30,8 60,34 90,18 S150,6 180,26 220,30 240,16"/><path fill="none" stroke="#5e9aad" stroke-width="1.3" d="M0,16 L15,30 L15,10 L33,26 L33,10 L51,26 L90,26 L90,14 L150,14 L150,30 L240,20"/></svg>
+        </div>
+        <p class="text-[13px] leading-relaxed ink2 mt-auto">Press play — your sound follows the curves in time. Roll a generator for endless variations.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ───────────────── SHARED ENGINE / GENERATORS ───────────────── -->
+  <section class="mb-28">
+    <div class="text-center mb-14">
+      <p class="silk mb-3" style="color:var(--copper-lt)">In both editions</p>
+      <h2 class="text-4xl md:text-6xl mb-4">Modulate every parameter in <span class="brand">one click</span></h2>
+      <p class="text-base max-w-2xl mx-auto leading-relaxed ink2">The same drawing engine powers both. One click writes dozens of unique automation curves across every parameter. Click again. And again. In under a minute you've got 32 bars of pure chaos.</p>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div class="gen-card panel rounded-2xl p-6" style="border-color:rgba(47,116,142,.3)">
+        <div class="rounded-xl overflow-hidden mb-5" style="background:#100f0c;border:1px solid var(--line)">
+          <svg viewBox="0 0 520 150" class="w-full block"><path class="lane" stroke="#5e9aad" stroke-width="2" d="M0,80 C35,18 65,130 100,72 S160,20 205,86 S275,132 315,52 S375,18 420,94 S475,128 520,60"/></svg>
+        </div>
+        <h3 class="text-4xl md:text-5xl leading-none mb-3" style="color:var(--teal-lt)">Chaos</h3>
+        <p class="text-lg font-black ink mb-3">One click. Every lane filled.</p>
+        <p class="text-sm leading-relaxed ink2 mb-3">Stamps multi-layer wave noise onto every unlocked parameter. Smooth, organic, never the same twice.</p>
+        <p class="text-[13px] ink3 leading-relaxed"><span class="silk" style="color:var(--teal-lt)">Good for</span> · dense evolving textures, ambient pads, slow-motion sound design.</p>
+      </div>
+      <div class="gen-card panel rounded-2xl p-6" style="border-color:rgba(198,113,43,.3)">
+        <div class="rounded-xl overflow-hidden mb-5" style="background:#100f0c;border:1px solid var(--line)">
+          <svg viewBox="0 0 520 150" class="w-full block"><path class="lane" stroke="#dd9a52" stroke-width="1.6" d="M0,120 L30,40 L30,120 L70,70 L70,120 L120,30 L120,120 L160,90 L160,120 L210,50 L210,120 L250,20 L250,120 L300,80 L300,120 L350,45 L350,120 L400,95 L400,120 L450,35 L450,120 L500,70 L520,120"/></svg>
+        </div>
+        <h3 class="text-4xl md:text-5xl leading-none mb-3" style="color:var(--copper-lt)">Neuro</h3>
+        <p class="text-lg font-black ink mb-3">Gnarly. Random. Musical.</p>
+        <p class="text-sm leading-relaxed ink2 mb-3">Random shape chunks - dotted ramps, hard chops, hyper-stutters, syncopated drops - across every unlocked lane.</p>
+        <p class="text-[13px] ink3 leading-relaxed"><span class="silk" style="color:var(--copper-lt)">Good for</span> · neuro &amp; DnB bass, dubstep wobbles, aggressive design that locks to the grid.</p>
+      </div>
+      <div class="gen-card panel rounded-2xl p-6">
+        <div class="rounded-xl overflow-hidden mb-5" style="background:#100f0c;border:1px solid var(--line)">
+          <svg viewBox="0 0 520 150" class="w-full block">
+            <path class="lane" stroke="#dd9a52" stroke-width="1.6" d="M0,45 C70,15 120,60 190,38 S320,16 380,46 480,62 520,40"/>
+            <path class="lane" stroke="#5e9aad" stroke-width="1.6" d="M0,105 C70,135 120,90 190,112 S320,134 380,104 480,88 520,110"/>
+            <line x1="0" y1="75" x2="520" y2="75" stroke="rgba(216,201,176,.15)" stroke-dasharray="3 4"/>
+          </svg>
+        </div>
+        <h3 class="text-4xl md:text-5xl leading-none mb-3 ink">Reflector</h3>
+        <p class="text-lg font-black ink mb-3">Mirrored motion. Coherent set.</p>
+        <p class="text-sm leading-relaxed ink2 mb-3">Pairs every two lanes - base plus a value-flipped mirror - so the sound folds in on itself. One click.</p>
+        <p class="text-[13px] ink3 leading-relaxed"><span class="silk ink2">Good for</span> · modulation in opposition: filter opens / resonance drops, drive up / volume down.</p>
+      </div>
+      <div class="gen-card panel rounded-2xl p-6" style="border-color:rgba(91,123,85,.3)">
+        <div class="rounded-xl overflow-hidden mb-5" style="background:#100f0c;border:1px solid var(--line)">
+          <svg viewBox="0 0 520 150" class="w-full block"><path class="lane" stroke="#86a87f" stroke-width="1.6" d="M0,110 L50,110 L50,40 L110,40 L110,90 L160,90 L160,25 L220,25 L220,70 L280,70 L280,115 L340,115 L340,50 L400,50 L400,95 L460,95 L460,35 L520,35"/></svg>
+        </div>
+        <h3 class="text-4xl md:text-5xl leading-none mb-3" style="color:var(--sage-lt)">Sample &amp; Hold</h3>
+        <p class="text-lg font-black ink mb-3">Polyrhythmic stepped motion.</p>
+        <p class="text-sm leading-relaxed ink2 mb-3">Per-lane stepped-random staircase. Each lane rolls its own rate - straight and triplet, down to 1/32.</p>
+        <p class="text-[13px] ink3 leading-relaxed"><span class="silk" style="color:var(--sage-lt)">Good for</span> · glitchy stepped textures, sequenced modulation, rhythmic motion without drawing a step.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────── EVERY BUTTON IS A VARIATION (kept from original — footage) ───────────────── -->
+  <section class="mb-28">
+    <div class="text-center mb-10">
+      <p class="silk mb-3" style="color:var(--violet-lt)">Variations on demand</p>
+      <h2 class="text-4xl md:text-6xl mb-4">Every button is a <span class="brand">variation</span>.</h2>
+      <p class="text-base max-w-2xl mx-auto leading-relaxed ink2">Roll through the generators, mutate, reshape. A whole new set of curves on every click, all unique and evolving.</p>
+    </div>
+    <div class="panel screws rounded-3xl p-3 pt-7 mb-10"><span class="s s1"></span><span class="s s2"></span>
+      <div class="rounded-2xl overflow-hidden" style="background:#100f0c;border:1px solid var(--line)">
+        <video class="w-full block" autoplay muted loop playsinline preload="metadata" aria-label="Stride - one sound, many variations">
+          <source src="assets/every%20lane%20is%20a%20variation.mp4" type="video/mp4">
+        </video>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-3 gap-6">
+      <div class="panel rounded-2xl p-6">
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-4" style="background:rgba(84,75,109,.18);border:1px solid rgba(84,75,109,.4);color:var(--violet-lt)">△</div>
+        <h4 class="text-lg mb-2">Every generator is a fresh take</h4>
+        <p class="text-sm leading-relaxed ink2">Chaos, Neuro, Reflector, S&amp;H - same sound, four totally different directions. Roll through them in seconds.</p>
+      </div>
+      <div class="panel rounded-2xl p-6">
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-4" style="background:rgba(198,113,43,.14);border:1px solid rgba(198,113,43,.35);color:var(--copper-lt)">↻</div>
+        <h4 class="text-lg mb-2">Apply, reshape, repeat</h4>
+        <p class="text-sm leading-relaxed ink2">Hit a generator, hear it, roll again. Every pass writes fresh motion across the whole chain, no two the same.</p>
+      </div>
+      <div class="panel rounded-2xl p-6">
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-4" style="background:rgba(91,123,85,.18);border:1px solid rgba(91,123,85,.4);color:var(--sage-lt)">✦</div>
+        <h4 class="text-lg mb-2">Mutate &amp; Prism for finer takes</h4>
+        <p class="text-sm leading-relaxed ink2">Found a curve you love? Hit <strong style="color:var(--sage-lt)">Mutate</strong> to reroll it, or <strong style="color:var(--violet-lt)">Prism</strong> to spin siblings across every other lane, anchors locked.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────── STRIDE VST IN DEPTH (flagship) ───────────────── -->
+  <section class="mb-28">
+    <div class="text-center mb-10">
+      <span class="chip pill-warm mb-4 inline-block">Stride VST · every DAW</span>
+      <h2 class="text-4xl md:text-6xl mb-4">One plugin. <span class="brand">Your whole rig.</span></h2>
+      <p class="text-base max-w-2xl mx-auto leading-relaxed ink2">Stride VST hosts your instruments and effects in series, inside itself. Map knobs from every device and modulate them together, in any DAW.</p>
+    </div>
+
+    <div class="panel screws rounded-3xl p-6 md:p-8 mb-8"><span class="s s1"></span><span class="s s2"></span>
+      <div class="flex items-center justify-center gap-3 md:gap-4 flex-wrap">
+        <span class="vchip" style="font-size:12px;padding:6px 12px"><span class="dot"></span>Serum</span>
+        <span class="ink3 text-xl">→</span>
+        <span class="vchip" style="font-size:12px;padding:6px 12px"><span class="dot" style="background:var(--copper-lt);box-shadow:0 0 6px var(--copper-lt)"></span>Saturator</span>
+        <span class="ink3 text-xl">→</span>
+        <span class="vchip" style="font-size:12px;padding:6px 12px"><span class="dot" style="background:var(--teal-lt);box-shadow:0 0 6px var(--teal-lt)"></span>Valhalla Delay</span>
+        <span class="ink3 text-xl">→</span>
+        <span class="pill-warm pill px-4 py-1.5 text-sm font-black">out</span>
+      </div>
+      <p class="text-center text-[13px] ink3 mt-5 max-w-xl mx-auto leading-relaxed">Every knob on every device is fair game. Draw one curve on the filter, another on the delay feedback, another on the drive - all moving together, in time.</p>
+    </div>
+
+    <!-- VST3-only emphasis -->
+    <div class="panel rounded-2xl p-6 md:p-7 flex items-start gap-4 max-w-3xl mx-auto" style="border-color:rgba(198,113,43,.4)">
+      <span class="shrink-0 w-11 h-11 rounded-xl flex items-center justify-center text-sm font-black" style="background:rgba(198,113,43,.16);border:1px solid rgba(198,113,43,.45);color:var(--copper-lt)">VST3</span>
+      <div>
+        <h3 class="text-lg mb-1.5">VST3 only. By design.</h3>
+        <p class="text-sm leading-relaxed ink2">Stride VST modulates the <b class="ink">VST3 instruments and effects you load inside it</b>, and nothing else. It can't reach your DAW's native devices, VST2, AU, or plugins sitting next to it on the track. That's the plug-in format's rule, not ours. Need to modulate Ableton's own devices in place? That's <b class="ink">StrideLink</b>, below.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────── PRICING (offer moved here, after the value) ───────────────── -->
+  <section id="pricing" class="mb-28 scroll-mt-8">
+    <div class="text-center mb-10">
+      <p class="silk mb-3" style="color:var(--copper-lt)">One price · both editions</p>
+      <h2 class="text-4xl md:text-6xl mb-4">Get <span class="brand">everything</span> for $99</h2>
+    </div>
+
+    <div class="panel rounded-3xl p-7 md:p-9 max-w-4xl mx-auto" style="border-color:rgba(198,113,43,.45);box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 24px 50px -30px rgba(0,0,0,.9),0 0 0 1px rgba(198,113,43,.18)">
+      <div class="grid md:grid-cols-[1.4fr_1fr] gap-8 md:items-center">
+        <div>
+          <div class="flex items-center gap-2.5 mb-4">
+            <h3 class="text-2xl">Stride <span class="brand">VST</span> <span class="ink3">+</span> Stride<span class="brand-teal">Link</span></h3>
+          </div>
+          <ul class="space-y-2.5 text-[15px] ink2">
+            <li class="flex gap-2.5"><span style="color:var(--copper-lt)" class="font-black">✓</span><span><b class="ink">Stride VST</b> — modulate your instruments in any VST3 DAW (Cubase, Studio One, FL, Reaper, Bitwig, Ableton)</span></li>
+            <li class="flex gap-2.5"><span style="color:var(--teal-lt)" class="font-black">✓</span><span><b class="ink">StrideLink</b> — modulate Ableton racks + native devices, inject into the clip</span></li>
+            <li class="flex gap-2.5"><span style="color:var(--copper-lt)" class="font-black">✓</span><span>The full canvas, all generators, on Windows &amp; macOS</span></li>
+            <li class="flex gap-2.5"><span style="color:var(--copper-lt)" class="font-black">✓</span><span>One-time purchase, free updates through v1.x</span></li>
+          </ul>
+        </div>
+        <div class="md:border-l md:pl-8" style="border-color:var(--line)">
+          <div class="flex items-baseline gap-2.5 mb-1">
+            <div class="text-6xl font-black ink leading-none">$99</div>
+            <div class="text-2xl font-black ink3" style="text-decoration:line-through">$129</div>
+          </div>
+          <p class="text-[12px] font-bold mb-5" style="color:var(--sage-lt)">Both editions · one purchase</p>
+          <a onclick="openBuy()" class="btn-copper w-full justify-center text-base py-3.5 rounded-2xl">Get Stride - $99</a>
+          <a onclick="tryDemo()" class="btn-ghost w-full justify-center text-sm py-3 rounded-2xl mt-2.5">Try the free demo</a>
+          <p class="text-[11px] ink3 mt-3">VST3 + Max for Live · not Logic (AU) or Pro Tools (AAX)</p>
+        </div>
+      </div>
+    </div>
+    <p class="text-center text-[13px] ink3 mt-6 max-w-2xl mx-auto leading-relaxed">Separate licenses per edition, one price. Not Logic (AU) or Pro Tools (AAX).</p>
+  </section>
+
+  <!-- ───────────────── STRIDELINK IN DEPTH (Ableton) — exact interactive How-It-Works ───────────────── -->
+  <section class="mb-28">
+    <div class="text-center mb-10">
+      <span class="chip pill-teal mb-4 inline-block">StrideLink · Ableton Live · how it works</span>
+      <h2 class="text-4xl md:text-6xl mb-4">In Ableton, it goes <span class="brand-teal">into the clip.</span></h2>
+      <p class="text-base max-w-2xl mx-auto leading-relaxed ink2">StrideLink talks straight to Ableton through Max for Live, so it reaches your racks and native devices, and writes the motion right into your clip. <b class="ink">Click any button on the device to see exactly what it does.</b></p>
+    </div>
+
+    <!-- The 1:1 StrideLink device. Embeds docs/how-it-works-device.html (single source of
+         truth, same as the live site); the iframe auto-sizes to its content via the
+         postMessage handler below. -->
+    <iframe id="hiw-frame" src="docs/how-it-works-device.html"
+            title="How StrideLink works — click any button on the device to see what it does"
+            loading="lazy" scrolling="no"
+            style="width:100%;border:0;display:block;height:1180px;overflow:hidden"></iframe>
+
+    <div class="grid md:grid-cols-3 gap-6 mt-10">
+      <div class="panel rounded-2xl p-6">
+        <div class="w-9 h-9 rounded-lg flex items-center justify-center mb-4 font-black" style="background:rgba(47,116,142,.14);border:1px solid rgba(47,116,142,.35);color:var(--teal-lt)">✓</div>
+        <h4 class="text-lg mb-1.5">Reaches native Ableton devices</h4>
+        <p class="text-sm leading-relaxed ink2">Not just your instrument racks - StrideLink modulates Ableton's own devices anywhere in the set, in place. No hosting required.</p>
+      </div>
+      <div class="panel rounded-2xl p-6">
+        <div class="w-9 h-9 rounded-lg flex items-center justify-center mb-4 font-black" style="background:rgba(47,116,142,.14);border:1px solid rgba(47,116,142,.35);color:var(--teal-lt)">⤓</div>
+        <h4 class="text-lg mb-1.5">Injects straight into the clip</h4>
+        <p class="text-sm leading-relaxed ink2">The motion is written into your clip's automation, so it lives with the song. Duplicate a clip, inject a fresh curve set, repeat - six variations in a minute.</p>
+      </div>
+      <div class="panel rounded-2xl p-6">
+        <div class="w-9 h-9 rounded-lg flex items-center justify-center mb-4 font-black" style="background:rgba(47,116,142,.14);border:1px solid rgba(47,116,142,.35);color:var(--teal-lt)">◆</div>
+        <h4 class="text-lg mb-1.5">Made for Ableton, only Ableton</h4>
+        <p class="text-sm leading-relaxed ink2">StrideLink is a Max for Live device. It needs Ableton Live 11+ (Suite, or Standard with the Max for Live add-on) and doesn't run anywhere else.</p>
+      </div>
+    </div>
+
+    <div class="text-center mt-9">
+      <a onclick="openBuy()" class="btn-copper text-sm uppercase tracking-widest py-3.5 px-9 rounded-full">Get Stride - $99</a>
+      <p class="text-[12px] ink3 mt-3">StrideLink is included with Stride — $99 for both editions.</p>
+    </div>
+  </section>
+  <script>
+    // Size the interactive How-It-Works iframe to its content height (responsive, no inner scroll).
+    (function () {
+      window.addEventListener('message', function (e) {
+        if (e && e.data && e.data.type === 'hiw-height') {
+          var f = document.getElementById('hiw-frame');
+          if (f && e.data.h) f.style.height = e.data.h + 'px';
+        }
+      });
+    })();
+  </script>
+
+  <!-- ───────────────── WORKS WITH ───────────────── -->
+  <section class="mb-28 text-center">
+    <p class="silk mb-7">Works with the instruments you already own</p>
+    <div class="flex flex-wrap items-center justify-center gap-3">
+      <span class="pill px-5 py-2 text-base">Serum</span><span class="pill px-5 py-2 text-base">Vital</span>
+      <span class="pill px-5 py-2 text-base">Operator</span><span class="pill px-5 py-2 text-base">Wavetable</span>
+      <span class="pill px-5 py-2 text-base">Pigments</span><span class="pill px-5 py-2 text-base">Phase Plant</span>
+      <span class="pill px-5 py-2 text-base">Diva</span><span class="pill px-5 py-2 text-base">Massive X</span>
+      <span class="pill px-5 py-2 text-base">Omnisphere</span>
+      <span class="pill-warm pill px-5 py-2 text-base">any plugin</span>
+    </div>
+    <p class="text-[13px] ink3 mt-6 max-w-xl mx-auto leading-relaxed">Stride VST hosts VST3 instruments and effects. StrideLink modulates any device on your Ableton rack.</p>
+  </section>
+
+  <!-- ───────────────── FAQ ───────────────── -->
+  <section class="max-w-3xl mx-auto mb-24">
+    <div class="text-center mb-10"><h2 class="text-3xl md:text-5xl mb-2">FAQ</h2><p class="silk">The questions everyone asks</p></div>
+    <div class="space-y-3">
+      <details class="panel rounded-2xl" open><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">What do I get for $99?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Everything - both editions in one purchase. <b class="ink">Stride VST</b> for every DAW (host your synths + effects and modulate them), and <b class="ink">StrideLink</b> for Ableton (modulate your racks and native devices, inject motion into clips). One price, no add-ons.</div></details>
+      <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Which DAWs does Stride VST work in?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Any VST3 host: Ableton Live, Cubase, Nuendo, Studio One, FL Studio, Reaper, Bitwig, Cakewalk and more. <b style="color:var(--rose-lt)">Not Logic (AU only) or Pro Tools (AAX only).</b></div></details>
+      <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Can Stride VST modulate my other plugins or native devices?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">It modulates any VST3 instrument or effect you load <b class="ink">inside</b> Stride VST. It can't reach devices sitting next to it on the track - that's a VST3 rule, not a Stride limit. If you're on Ableton and want to modulate native devices in place, that's <b class="ink">StrideLink</b>.</div></details>
+      <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Is there a free demo?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Yes. Download Stride and it runs in demo mode with no time limit, so you can try it on your own tracks before you buy. When you're ready, one purchase unlocks both editions for $99 — you just activate.</div></details>
+      <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Mac and Windows?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Both editions run on Windows 10/11 and macOS 11+ (Intel and Apple Silicon).</div></details>
+      <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Can I get a refund?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Try the free demo first — it's the best way to know Stride fits your setup, and it runs with no time limit. Once you activate your license, all sales are final. Haven't activated yet? Email us within 14 days for a full refund. And if Stride won't run and we can't fix it together, we'll refund you. <a href="terms.html#refund" target="_blank" class="underline" style="color:var(--copper-lt)">Full policy</a>.</div></details>
+    </div>
+  </section>
+
+  <!-- ───────────────── BOTTOM CTA ───────────────── -->
+  <section class="mb-20">
+    <div class="panel screws rounded-3xl px-6 py-20 text-center relative overflow-hidden">
+      <span class="s s1"></span><span class="s s2"></span>
+      <div class="absolute inset-x-0 bottom-0 h-40 pointer-events-none" style="background:linear-gradient(0deg,rgba(198,113,43,.08),transparent)"></div>
+      <div class="relative max-w-3xl mx-auto">
+        <h2 class="text-5xl md:text-6xl mb-6 leading-tight">Modulate your instruments<br><span class="brand">in Ableton and every DAW.</span></h2>
+        <p class="text-base ink2 mb-10 max-w-lg mx-auto">Draw the motion. Hear your sound move. In every DAW, or deep in Ableton.</p>
+        <div class="flex flex-wrap items-center justify-center gap-3">
+          <a onclick="openBuy()" class="btn-copper text-sm uppercase tracking-widest py-4 px-10 rounded-full">Get Stride - $99</a>
+          <a onclick="tryDemo()" class="btn-ghost text-sm uppercase tracking-widest py-4 px-10 rounded-full">Try the free demo</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ───────────────── FOOTER ───────────────── -->
+<footer class="w-full border-t py-8 text-center relative z-[1]" style="border-color:var(--line);background:#100f0c">
+    <div class="flex items-center justify-center gap-6 mb-3">
+        <a href="privacy.html" class="text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors">Privacy Policy</a>
+        <span class="ink3">|</span>
+        <a href="terms.html" class="text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors">Terms of Service</a>
+    </div>
+    <p class="text-[13px] text-zinc-500 font-bold uppercase tracking-widest">&copy; 2026 STRIDE ENGINE. BUILT FOR PRODUCERS. BUILT FOR EVERY DAW.</p>
+</footer>
+
+<!-- ── Mobile sticky CTA ── -->
+<div class="md:hidden fixed z-[1000] flex flex-col items-end gap-2.5"
+     style="right:1rem;bottom:calc(1rem + env(safe-area-inset-bottom, 0px))">
+    <a href="#pricing" aria-label="Get Stride"
+            class="btn-copper text-[13px] font-black tracking-wide px-4 py-2.5 rounded-full">
+        Get Stride <span aria-hidden="true">&rarr;</span>
+    </a>
+</div>
+
+<!-- Contact Modal -->
+<div id="contact-modal" class="fixed inset-0 z-[1001] hidden flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
+    <div class="glass-panel w-full max-w-md p-8 rounded-3xl relative">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-2xl font-black text-orange-400 uppercase tracking-tight">Contact Us</h3>
+            <button onclick="toggleContactModal()" class="text-zinc-500 hover:text-white transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <p class="text-sm text-zinc-400 mb-6 font-medium">Have a question or feedback? Drop us a line. We reply within 48 hours.</p>
+        <div class="space-y-4 mb-4">
+            <div>
+                <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">Email *</label>
+                <input id="contact-email" type="email" placeholder="you@example.com" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors">
+            </div>
+            <div>
+                <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">Message *</label>
+                <textarea id="contact-message" rows="5" class="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-base text-zinc-200 resize-none focus:outline-none focus:border-orange-500/50 transition-colors" placeholder="What's on your mind?"></textarea>
+            </div>
+        </div>
+        <div id="contact-error" class="hidden text-red-400 text-xs font-medium mb-3"></div>
+        <div id="contact-success" class="hidden text-emerald-400 text-xs font-medium mb-3">Got it. We'll reply within 48 hours.</div>
+        <button id="contact-submit-btn" onclick="sendContactMessage()" class="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+            Send Message
+        </button>
+    </div>
+</div>
+
+<!-- ===================== BUY STRIDE FORM MODAL ===================== -->
+<div id="buy-modal" class="fixed inset-0 z-[1002] hidden flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
+    <div class="glass-panel w-full max-w-md p-8 rounded-3xl relative">
+        <div class="flex justify-between items-center mb-2">
+            <h3 class="text-2xl font-black text-orange-400 uppercase tracking-tight">Get Stride</h3>
+            <button onclick="toggleBuyModal()" class="text-zinc-500 hover:text-white transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <p class="text-sm text-zinc-400 mb-6 font-medium">One-time purchase. Windows + Mac. Instant download and license key emailed to you.</p>
+
+        <div class="space-y-4 mb-6">
+            <div>
+                <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">Producer Name *</label>
+                <input id="buy-name" type="text" placeholder="Your artist / producer name" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors">
+            </div>
+            <div>
+                <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">Email *</label>
+                <input id="buy-email" type="email" placeholder="you@example.com" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors">
+            </div>
+            <div>
+                <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">Country *</label>
+                <select id="buy-country" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-orange-500/50 transition-colors appearance-none" style="background-image: url('data:image/svg+xml;utf8,<svg fill=\"%2371717a\" viewBox=\"0 0 20 20\" xmlns=\"http://www.w3.org/2000/svg\"><path fill-rule=\"evenodd\" d=\"M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z\" clip-rule=\"evenodd\"/></svg>'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
+                    <option value="" class="bg-zinc-900">Select your country</option>
+                    <option value="US" class="bg-zinc-900">United States</option>
+                    <option value="GB" class="bg-zinc-900">United Kingdom</option>
+                    <option value="DE" class="bg-zinc-900">Germany</option>
+                    <option value="FR" class="bg-zinc-900">France</option>
+                    <option value="NL" class="bg-zinc-900">Netherlands</option>
+                    <option value="SE" class="bg-zinc-900">Sweden</option>
+                    <option value="NO" class="bg-zinc-900">Norway</option>
+                    <option value="CA" class="bg-zinc-900">Canada</option>
+                    <option value="AU" class="bg-zinc-900">Australia</option>
+                    <option value="JP" class="bg-zinc-900">Japan</option>
+                    <option value="BR" class="bg-zinc-900">Brazil</option>
+                    <option value="MX" class="bg-zinc-900">Mexico</option>
+                    <option value="IL" class="bg-zinc-900">Israel</option>
+                    <option value="IN" class="bg-zinc-900">India</option>
+                    <option value="KR" class="bg-zinc-900">South Korea</option>
+                    <option value="ES" class="bg-zinc-900">Spain</option>
+                    <option value="IT" class="bg-zinc-900">Italy</option>
+                    <option value="PL" class="bg-zinc-900">Poland</option>
+                    <option value="BE" class="bg-zinc-900">Belgium</option>
+                    <option value="AT" class="bg-zinc-900">Austria</option>
+                    <option value="CH" class="bg-zinc-900">Switzerland</option>
+                    <option value="DK" class="bg-zinc-900">Denmark</option>
+                    <option value="FI" class="bg-zinc-900">Finland</option>
+                    <option value="OTHER" class="bg-zinc-900">Other</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">How did you hear about Stride?</label>
+                <select id="buy-source" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-orange-500/50 transition-colors appearance-none" style="background-image: url('data:image/svg+xml;utf8,<svg fill=\"%2371717a\" viewBox=\"0 0 20 20\" xmlns=\"http://www.w3.org/2000/svg\"><path fill-rule=\"evenodd\" d=\"M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z\" clip-rule=\"evenodd\"/></svg>'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
+                    <option value="" class="bg-zinc-900">Select (optional)</option>
+                    <option value="reddit" class="bg-zinc-900">Reddit</option>
+                    <option value="youtube" class="bg-zinc-900">YouTube</option>
+                    <option value="ableton-forum" class="bg-zinc-900">Ableton Forum</option>
+                    <option value="friend" class="bg-zinc-900">Friend / Word of mouth</option>
+                    <option value="kvr" class="bg-zinc-900">KVR Audio</option>
+                    <option value="google" class="bg-zinc-900">Google Search</option>
+                    <option value="other" class="bg-zinc-900">Other</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Terms acknowledgment — creates a defensible record per email so that when we flip
+             to real purchase mode, the same checkbox already serves as the Article 16(m)
+             express-consent waiver under EU Directive 2011/83/EU. -->
+        <label class="flex items-start gap-2.5 mb-4 cursor-pointer select-none group">
+            <input id="buy-terms" type="checkbox" class="mt-0.5 shrink-0 w-4 h-4 accent-orange-500 cursor-pointer">
+            <span class="text-[11px] text-zinc-400 leading-snug group-hover:text-zinc-300 transition-colors">
+                I've read the <a href="terms.html#requirements" target="_blank" class="text-orange-400 hover:text-orange-300 underline">system requirements</a>,
+                the <a href="terms.html#refund" target="_blank" class="text-orange-400 hover:text-orange-300 underline">refund policy</a>,
+                and the <a href="terms.html" target="_blank" class="text-orange-400 hover:text-orange-300 underline">Terms of Service</a>.
+                I understand Stride is delivered instantly, and that <strong class="text-zinc-300">once I activate my license the sale is final</strong> — I consent to immediate access and waive my 14-day right of withdrawal for the delivered software.
+            </span>
+        </label>
+
+        <p id="buy-error" class="text-xs text-red-400 mb-3 hidden font-medium"></p>
+
+        <button onclick="submitBuyForm()" class="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black py-3.5 rounded-xl text-xs uppercase tracking-widest transition-all shadow-[0_10px_30px_rgba(255,50,0,0.3)] hover:shadow-[0_10px_40px_rgba(255,50,0,0.5)]">
+            Continue to checkout
+        </button>
+        <p class="text-[11px] text-zinc-600 mt-3 text-center font-medium">Secure checkout via Lemon Squeezy. Cards, Apple Pay, Google Pay accepted.</p>
+    </div>
+</div>
+
+<!-- ===================== WAITLIST THANK-YOU OVERLAY ===================== -->
+<div id="thankyou-overlay" class="fixed inset-0 z-[2000] hidden flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+    <div class="glass-panel w-full max-w-lg p-10 rounded-3xl relative text-center">
+        <div class="w-16 h-16 mx-auto mb-6 rounded-2xl bg-orange-500/10 border border-orange-500/30 flex items-center justify-center">
+            <svg class="w-8 h-8 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"></path></svg>
+        </div>
+        <h3 class="text-3xl font-black text-white mb-3">You're on the list.</h3>
+        <p class="text-zinc-400 text-base mb-4">Stride is almost ready.</p>
+        <p class="text-zinc-500 text-sm mb-8 leading-relaxed max-w-sm mx-auto">When the Max for Live device drops, you'll be the first to know. Early access pricing included. Keep making noise.</p>
+
+        <div class="bg-black/50 border border-white/10 rounded-xl p-4 mb-6">
+            <div class="flex items-center justify-center gap-3">
+                <span class="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+                <span class="text-sm text-orange-400 font-bold uppercase tracking-widest">Launch incoming</span>
+                <span class="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+            </div>
+        </div>
+
+        <a href="https://www.instagram.com/stride_engine/" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-zinc-400 hover:text-orange-400 transition-colors text-sm font-medium">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+            Follow @stride_engine for updates
+        </a>
+
+        <p class="mt-6 text-[10px] text-zinc-600 leading-relaxed max-w-xs mx-auto">
+            Want off the list? Email <a href="mailto:home@stridehub.io?subject=Unsubscribe" class="text-zinc-500 hover:text-orange-400 underline">home@stridehub.io</a> and we'll remove you within 30 days.
+        </p>
+
+        <button onclick="closeThankYou()" class="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+    </div>
+</div>
+
+<script>
+    // ── Free demo (Lemon Squeezy) ──
+    // DEMO_URL: the free Lemon Squeezy demo product — delivers the Stride VST3, which
+    // runs in demo mode until the user activates a paid license. $0, email-gated.
+    const DEMO_URL = 'https://strideengine.lemonsqueezy.com/checkout/buy/939153dc-5a09-4fdf-b57f-bd40d2bf6575';
+
+    function tryDemo() {
+        if (DEMO_URL) { window.open(DEMO_URL, '_blank', 'noopener'); }
+        else { alert('Demo download link is being finalized — check back shortly.'); }
+    }
+
+    // ─── Buy Modal ───
+    function toggleBuyModal() {
+        const modal = document.getElementById('buy-modal');
+        modal.classList.toggle('hidden');
+        if (!modal.classList.contains('hidden')) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+    }
+    // New-design CTAs call openBuy(); route it to the buy modal.
+    function openBuy() { toggleBuyModal(); }
+
+    // Bumping TERMS_VERSION invalidates previous acknowledgments.
+    const TERMS_VERSION = '2026-04-16-v2';
+
+    // ── Lemon Squeezy checkout URL ──
+    // PLACEHOLDER — a human fills this with the live $99 (Stride VST + StrideLink)
+    // bundle checkout URL before launch. A non-empty URL activates purchase mode.
+    const LS_CHECKOUT_URL = 'https://strideengine.lemonsqueezy.com/checkout/buy/9099d993-aa75-42d5-800f-299445b9350a';
+
+    function submitBuyForm() {
+        const name = document.getElementById('buy-name').value.trim();
+        const email = document.getElementById('buy-email').value.trim();
+        const country = document.getElementById('buy-country').value;
+        const source = document.getElementById('buy-source').value;
+        const termsChecked = document.getElementById('buy-terms').checked;
+        const errorEl = document.getElementById('buy-error');
+
+        // Validate
+        if (!name) { showBuyError('Please enter your producer name'); return; }
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showBuyError('Please enter a valid email'); return; }
+        if (!country) { showBuyError('Please select your country'); return; }
+        if (!termsChecked) { showBuyError('Please read and accept the terms to continue'); return; }
+
+        errorEl.classList.add('hidden');
+
+        const termsAccepted = {
+            accepted: true,
+            version: TERMS_VERSION,
+            accepted_at: new Date().toISOString(),
+            scope: 'waitlist_signup',
+            user_agent: navigator.userAgent || null,
+            tz_offset_min: new Date().getTimezoneOffset(),
+            page_url: location.href,
+        };
+
+        // Meta attribution — captured ONCE here and reused for: (a) the
+        // buyer_lead beacon below (so the backend can recover it by email at
+        // purchase time even if Lemon Squeezy drops the checkout custom data),
+        // (b) the LS checkout params, (c) welcome.html's Pixel event (shared
+        // event_id for dedup).
+        const eventId = (window.crypto && window.crypto.randomUUID)
+            ? window.crypto.randomUUID()
+            : 'evt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+        try { sessionStorage.setItem('stride_pixel_event_id', eventId); } catch (e) {}
+        const fbc = (function () {
+            const m = document.cookie.match(/(?:^|; )_fbc=([^;]*)/);
+            if (m) return decodeURIComponent(m[1]);
+            try { return sessionStorage.getItem('stride_fbc') || ''; } catch (e) { return ''; }
+        })();
+        const fbp = (function () {
+            const m = document.cookie.match(/(?:^|; )_fbp=([^;]*)/);
+            return m ? decodeURIComponent(m[1]) : '';
+        })();
+        const xid = (function () {
+            const m = document.cookie.match(/(?:^|; )stride_xid=([^;]*)/);
+            return m ? decodeURIComponent(m[1]) : '';
+        })();
+        const ua = (navigator.userAgent || '').slice(0, 512);
+        const fbclid = fbc ? fbc.split('.').pop() : '';
+
+        // Save lead + terms acceptance to Firestore (non-blocking). Attribution
+        // (fbc/fbclid/fbp/ua/event_id) rides along so the backend can join it to
+        // the order by email even if LS doesn't forward the checkout custom data.
+        const leadAction = LS_CHECKOUT_URL ? 'buyer_lead' : 'waitlist_signup';
+        // keepalive: true is critical — without it, mobile browsers cancel
+        // this request when window.location.href redirects to LS below.
+        fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
+            method: 'POST',
+            keepalive: true,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: leadAction,
+                name, email, country, source,
+                fbc, fbclid, fbp, ua, event_id: eventId, external_id: xid,
+                terms_accepted: termsAccepted,
+            })
+        }).catch(() => {});
+
+        // Browser-side InitiateCheckout (deduped with the server-side event in
+        // the buyer_lead handler via the shared eventId). Builds the
+        // "started checkout" / cart-abandoner audience for retargeting. Wrapped
+        // + best-effort so it can never block the redirect to checkout below.
+        try { if (window.fbq) fbq('track', 'InitiateCheckout', { value: 99, currency: 'USD' }, { eventID: eventId }); } catch (e) {}
+
+        // Store locally
+        localStorage.setItem('stride_purchase', JSON.stringify({
+            name, email, country, source,
+            terms_accepted: termsAccepted,
+            timestamp: new Date().toISOString()
+        }));
+
+        // eventId, fbc, fbp, ua were computed above (before the buyer_lead
+        // beacon) — reuse the same values here so the LS checkout params and the
+        // server-side fallback always carry identical attribution.
+        if (LS_CHECKOUT_URL) {
+            const sep = LS_CHECKOUT_URL.includes('?') ? '&' : '?';
+            let url = LS_CHECKOUT_URL + sep
+                + 'checkout[email]=' + encodeURIComponent(email)
+                + '&checkout[name]=' + encodeURIComponent(name)
+                + '&checkout[custom][event_id]=' + encodeURIComponent(eventId);
+            if (fbc) url += '&checkout[custom][fbc]=' + encodeURIComponent(fbc);
+            if (fbp) url += '&checkout[custom][fbp]=' + encodeURIComponent(fbp);
+            if (ua)  url += '&checkout[custom][ua]='  + encodeURIComponent(ua);
+            window.location.href = url;
+        } else {
+            // Fallback: LS URL not configured yet — show thank-you for now
+            toggleBuyModal();
+            showThankYou();
+        }
+    }
+
+    function showBuyError(msg) {
+        const el = document.getElementById('buy-error');
+        el.textContent = msg;
+        el.classList.remove('hidden');
+    }
+
+    function showThankYou() {
+        document.getElementById('thankyou-overlay').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeThankYou() {
+        document.getElementById('thankyou-overlay').classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+
+    // ─── Contact Modal ───
+    function toggleContactModal() {
+        document.getElementById('contact-modal').classList.toggle('hidden');
+    }
+    function sendContactMessage() {
+        const email = (document.getElementById('contact-email').value || '').trim();
+        const message = (document.getElementById('contact-message').value || '').trim();
+        const errorEl = document.getElementById('contact-error');
+        const successEl = document.getElementById('contact-success');
+        const btn = document.getElementById('contact-submit-btn');
+        errorEl.classList.add('hidden'); successEl.classList.add('hidden');
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errorEl.textContent = 'Please enter a valid email so we can reply.'; errorEl.classList.remove('hidden'); return; }
+        if (!message) { errorEl.textContent = 'Please write a message.'; errorEl.classList.remove('hidden'); return; }
+        btn.disabled = true; btn.textContent = 'Sending...';
+        fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
+            method: 'POST', keepalive: true,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'contact_message', email, name: '', message })
+        })
+        .then(res => { if (!res.ok) throw new Error('server ' + res.status); return res.json().catch(() => ({})); })
+        .then(() => {
+            successEl.classList.remove('hidden');
+            document.getElementById('contact-email').value = '';
+            document.getElementById('contact-message').value = '';
+            btn.textContent = 'Sent';
+            setTimeout(() => { toggleContactModal(); btn.disabled = false; btn.textContent = 'Send Message'; successEl.classList.add('hidden'); }, 2000);
+        })
+        .catch(() => { errorEl.textContent = 'Could not send. Try again in a moment, or email home@stridehub.io directly.'; errorEl.classList.remove('hidden'); btn.disabled = false; btn.textContent = 'Send Message'; });
+    }
+</script>
+
+<script>
+    // ── Hero canvas: 6 lanes of dense, filled automation curves in the muted
+    // PATCHBAY palette. Sized to the container in true CSS px so the PARAM name
+    // labels stay crisp + readable; seeded so it renders the same each load. ──
+    (function () {
+        var cv = document.getElementById('sdHeroCv');
+        if (!cv || !cv.getContext) return;
+        var ctx = cv.getContext('2d');
+        var GUT = 120, TOP = 16, LANE = 48;
+        var lanes = [
+            ['A Warp', '#dd9a52'], ['A WT Pos', '#5e9aad'], ['B Warp', '#86a87f'],
+            ['B WT Pos', '#c5807f'], ['C Warp', '#9a8cbb'], ['C WT Pos', '#c9a24b']
+        ];
+        var H = TOP + lanes.length * LANE;
+        function seed(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+        function clamp(v) { return v < 0.05 ? 0.05 : v > 0.95 ? 0.95 : v; }
+        // Shape vocabulary matched to the reference editor: saw-fins, exp pluck-fins,
+        // exp decays, ramps, step plateaus, comb spikes, smooth domes.
+        function gen(r) {
+            var N = 840, p = new Array(N), i = 0, last = 0.18 + r() * 0.3, j, m;
+            while (i < N) {
+                var t = (r() * 7) | 0, len = (10 + r() * 95) | 0, e = (i + len) > N ? N : (i + len), seg = e - i, a = last, b = 0.1 + r() * 0.82;
+                if (t === 0) { // ascending saw-fins  /|/|/|
+                    var k0 = Math.max(1, (seg / (2 + r() * 6)) | 0), bs = 0.06 + r() * 0.12, pk = 0.45 + r() * 0.5, ph0;
+                    for (j = i; j < e; j++) { ph0 = (((j - i) / seg) * k0) % 1; p[j] = bs + ph0 * (pk - bs); }
+                } else if (t === 1) { // exp pluck-fins  |\_|\_
+                    var k1 = Math.max(1, (seg / (3 + r() * 7)) | 0), b1 = 0.05 + r() * 0.1, p1 = 0.5 + r() * 0.45, dk = 2.5 + r() * 3, lo1;
+                    for (j = i; j < e; j++) { lo1 = (((j - i) / seg) * k1) % 1; p[j] = b1 + (p1 - b1) * Math.exp(-dk * lo1); }
+                } else if (t === 2) { // exp decay
+                    for (j = i; j < e; j++) { p[j] = b + (a - b) * Math.pow(1 - (j - i) / seg, 2.6); }
+                } else if (t === 3) { // ramp
+                    for (j = i; j < e; j++) { p[j] = a + (b - a) * ((j - i) / seg); }
+                } else if (t === 4) { // step plateau
+                    for (j = i; j < e; j++) { p[j] = a; } b = a;
+                } else if (t === 5) { // comb spikes
+                    var hi = 0.55 + r() * 0.4, lw = 0.06 + r() * 0.12, sp = 2 + (r() * 2 | 0);
+                    for (j = i; j < e; j++) { p[j] = (((j - i) % sp) === 0) ? hi * (0.72 + r() * 0.28) : lw; }
+                } else { // smooth dome
+                    for (j = i; j < e; j++) { p[j] = a + (b - a) * Math.sin(((j - i) / seg) * Math.PI); }
+                }
+                last = p[e - 1]; i = e;
+            }
+            for (m = 0; m < N; m++) p[m] = clamp(p[m]);
+            return p;
+        }
+        var curves = []; for (var ci = 0; ci < lanes.length; ci++) curves.push(gen(seed(1000 + ci * 131)));
+        function draw() {
+            var W = Math.max(360, Math.round(cv.clientWidth || (cv.parentNode && cv.parentNode.clientWidth) || 760));
+            var dpr = Math.min(window.devicePixelRatio || 1, 2), PX = GUT, PW = W - GUT - 2;
+            cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.height = H + 'px';
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.fillStyle = '#0c0b09'; ctx.fillRect(0, 0, W, H);
+            for (var b = 0; b <= 4; b++) {
+                var bx = PX + PW * b / 4;
+                ctx.strokeStyle = 'rgba(216,201,176,.07)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(bx + 0.5, TOP); ctx.lineTo(bx + 0.5, H); ctx.stroke();
+                if (b < 4) { ctx.fillStyle = 'rgba(180,170,150,.4)'; ctx.font = '700 10px "Space Mono",monospace'; ctx.textBaseline = 'alphabetic'; ctx.fillText(String(b + 1), bx + 5, TOP - 4); }
+            }
+            for (var idx = 0; idx < lanes.length; idx++) {
+                var y0 = TOP + idx * LANE, y1 = y0 + LANE, top = y0 + 6, bot = y1 - 5, hh = bot - top;
+                ctx.strokeStyle = 'rgba(216,201,176,.05)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, y1 + 0.5); ctx.lineTo(W, y1 + 0.5); ctx.stroke();
+                var col = lanes[idx][1], v = curves[idx], x, y, j2;
+                ctx.beginPath();
+                for (j2 = 0; j2 < v.length; j2++) { x = PX + (j2 / (v.length - 1)) * PW; y = bot - v[j2] * hh; if (j2 === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+                ctx.lineTo(PX + PW, bot); ctx.lineTo(PX, bot); ctx.closePath();
+                var g = ctx.createLinearGradient(0, top, 0, bot); g.addColorStop(0, col + '2e'); g.addColorStop(1, col + '06');
+                ctx.fillStyle = g; ctx.fill();
+                ctx.beginPath();
+                for (j2 = 0; j2 < v.length; j2++) { x = PX + (j2 / (v.length - 1)) * PW; y = bot - v[j2] * hh; if (j2 === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+                ctx.strokeStyle = col; ctx.lineWidth = 1.4; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.globalAlpha = .82; ctx.stroke(); ctx.globalAlpha = 1;
+                // label gutter: PARAM name is the prominent label
+                ctx.fillStyle = col; ctx.globalAlpha = .8; ctx.fillRect(0, y0 + 2, 3, LANE - 4); ctx.globalAlpha = 1;
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#5a5348'; ctx.font = '700 11px Outfit,sans-serif'; ctx.fillText('✕', 13, y0 + LANE / 2);
+                ctx.fillStyle = '#7d7466'; ctx.font = '700 9px Outfit,sans-serif'; ctx.fillText('Serum 2', 30, y0 + LANE / 2 - 8);
+                ctx.fillStyle = '#e8decb'; ctx.font = '800 13px Outfit,sans-serif'; ctx.fillText(lanes[idx][0], 30, y0 + LANE / 2 + 7);
+                var lx = GUT - 16, ly = y0 + LANE / 2; ctx.strokeStyle = '#48423a'; ctx.lineWidth = 1.2;
+                ctx.strokeRect(lx - 3.5, ly - 1, 8, 6); ctx.beginPath(); ctx.arc(lx + 0.5, ly - 1, 2.6, Math.PI, 0); ctx.stroke();
+                ctx.textBaseline = 'alphabetic';
+            }
+        }
+        draw();
+        window.addEventListener('load', draw);
+        setTimeout(draw, 250); setTimeout(draw, 900);
+        var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(draw, 150); });
+    })();
+</script>
+
+</body>
+</html>

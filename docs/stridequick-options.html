@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StrideQuick — design options</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#141310; --panel:#1d1b16; --raise:#252119; --line:rgba(216,201,176,.11);
+    --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
+    --copper:#c6712b; --copper-lt:#dd9a52; --ember:#e58a2e; --gold:#c9a24b;
+    --teal:#5e9aad; --sage:#86a87f; --violet:#9a8cbb;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Outfit',sans-serif;color:var(--ink2);background:var(--bg);
+    background-image:radial-gradient(120% 80% at 50% -10%, rgba(198,113,43,.07), transparent 60%),
+                     radial-gradient(100% 60% at 50% 110%, rgba(47,116,142,.05), transparent 60%);
+    -webkit-font-smoothing:antialiased;min-height:100vh}
+  .mono{font-family:'Space Mono',ui-monospace,monospace}
+  .wrap{max-width:760px;margin:0 auto;padding:48px 24px 100px}
+  .brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .kick{font-family:'Space Mono';font-size:12px;letter-spacing:.26em;text-transform:uppercase;color:var(--copper-lt)}
+  h1{font-family:'Outfit';font-weight:800;font-size:32px;color:var(--ink);margin:6px 0 6px}
+  .sub{color:var(--ink3);font-size:15px;max-width:600px;margin:0 0 8px}
+
+  .opt{margin-top:46px}
+  .opttag{display:flex;align-items:baseline;gap:12px;margin-bottom:4px}
+  .optnum{font-family:'Outfit';font-weight:800;font-size:20px;color:var(--ink)}
+  .optname{font-family:'Outfit';font-weight:700;font-size:16px;color:var(--copper-lt)}
+  .optdesc{color:var(--ink3);font-size:13.5px;margin:0 0 16px;max-width:600px}
+  .shelf{background:linear-gradient(180deg,#0e0d0a,#100f0c);border:1px solid rgba(0,0,0,.5);border-radius:12px;
+    padding:20px;box-shadow:0 24px 50px -30px rgba(0,0,0,.9);display:inline-block;overflow-x:auto}
+  .meta{font-family:'Space Mono';font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin:11px 2px 0}
+
+  /* device shell */
+  .device{border-radius:8px;overflow:hidden;background:linear-gradient(180deg,rgba(255,255,255,.026),rgba(0,0,0,.14)),var(--panel);
+    border:1px solid var(--line);box-shadow:0 1px 0 rgba(255,255,255,.05) inset}
+  .titlebar{display:flex;align-items:center;gap:9px;height:24px;padding:0 10px;background:var(--raise);border-bottom:1px solid var(--line)}
+  .pwr{width:8px;height:8px;border-radius:50%;background:radial-gradient(circle at 35% 30%,var(--sage),#4a6342)}
+  .tribar{width:0;height:0;border-left:5px solid var(--ink3);border-top:4px solid transparent;border-bottom:4px solid transparent}
+  .tname{font-family:'Space Mono';font-size:11px;color:var(--ink2)}
+  .maxbadge{margin-left:auto;font-family:'Space Mono';font-size:9px;letter-spacing:.16em;color:var(--copper-lt);border:1px solid rgba(198,113,43,.3);border-radius:4px;padding:2px 6px;background:rgba(198,113,43,.08)}
+
+  .word{font-family:'Outfit';font-weight:900;letter-spacing:.02em;line-height:1}
+  .conn{display:inline-flex;align-items:center;gap:5px;font-family:'Space Mono';font-size:9px;color:var(--sage)}
+  .conn .led{width:6px;height:6px;border-radius:50%;background:var(--sage);box-shadow:0 0 6px rgba(134,168,127,.6)}
+  .cnum{font-family:'Space Mono';font-weight:700;color:var(--ink)}
+  .cslash{font-family:'Space Mono';color:var(--ink3)}
+  .seclab{font-family:'Space Mono';font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3)}
+
+  .btn{text-align:center;border-radius:7px;font-size:11px;font-weight:600;white-space:nowrap;line-height:1;padding:7px 6px}
+  .warm{background:#2e2418;color:var(--copper-lt);border:1px solid #50351c}
+  .sage{background:#26281f;color:var(--sage);border:1px solid #3a4d35}
+  .violet{background:#282527;color:var(--violet);border:1px solid #443c54}
+  .teal{background:#1f2726;color:var(--teal);border:1px solid #2c4d57}
+  .loopb{text-align:center;border-radius:6px;font-family:'Space Mono';font-size:12px;font-weight:700;padding:7px 0;
+    background:var(--raise);color:var(--ink3);border:1px solid rgba(216,201,176,.1)}
+  .loopb.on{background:#3f3621;color:var(--gold);border-color:#6b561f}
+  .cta{display:flex;align-items:center;justify-content:center;gap:6px;border-radius:7px;font-weight:700;font-size:11.5px;white-space:nowrap;padding:7px 12px;
+    background:var(--copper);color:#1c1206;border:1px solid var(--copper-lt)}
+  .util{display:flex;align-items:center;justify-content:center;gap:5px;border-radius:7px;font-weight:600;font-size:11px;white-space:nowrap;padding:7px 11px;
+    background:var(--raise);color:var(--ink);border:1px solid rgba(216,201,176,.13)}
+  .util .ic{color:var(--teal)}
+  .vline{width:1px;background:linear-gradient(180deg,transparent,var(--line) 18%,var(--line) 82%,transparent)}
+
+  /* ── Option A : three bands ─────────────────────────── */
+  .devA{width:600px}
+  .devA .body{padding:10px 12px;display:flex;flex-direction:column;gap:9px;height:150px}
+  .bandTop{display:flex;align-items:center;gap:12px}
+  .bandTop .word{font-size:18px}
+  .bandTop .sp{flex:1}
+  .genrow{display:flex;gap:6px;align-items:center}
+  .genrow .lab{width:42px;flex:none}
+  .gbtns{display:flex;gap:6px;flex:1}
+  .gbtns .btn{flex:1}
+  .gbtns .loopb{flex:1}
+  .injbar{display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;font-weight:800;font-size:12px;letter-spacing:.05em;text-transform:uppercase;padding:9px;
+    background:var(--copper);color:#1c1206;border:1px solid var(--copper-lt)}
+
+  /* ── Option B : columns with room ───────────────────── */
+  .devB{width:620px}
+  .devB .body{display:flex;height:150px}
+  .devB .col{display:flex;flex-direction:column;padding:11px 12px}
+  .devB .col-id{width:120px;justify-content:space-between}
+  .devB .word{font-size:18px}
+  .devB .idb{display:flex;flex-direction:column;gap:5px}
+  .devB .col-m{width:188px;justify-content:center}
+  .devB .col-s{width:120px;justify-content:center}
+  .devB .col-l{width:96px;justify-content:center}
+  .devB .col-i{flex:1;justify-content:space-between;align-items:center;text-align:center}
+  .devB .ch{margin-bottom:8px}
+  .devB .stack{display:flex;flex-direction:column;gap:6px}
+  .devB .row{display:flex;gap:6px}
+  .devB .row>*{flex:1}
+
+  /* ── Option C : rail + grid + right inject ──────────── */
+  .devC{width:600px}
+  .devC .body{display:flex;height:150px}
+  .devC .rail{width:122px;padding:11px 12px;display:flex;flex-direction:column;justify-content:space-between}
+  .devC .rail .word{font-size:18px}
+  .devC .railb{display:flex;flex-direction:column;gap:5px}
+  .devC .grid{flex:1;padding:11px 12px;display:flex;flex-direction:column;justify-content:center;gap:8px}
+  .devC .row{display:flex;gap:6px}
+  .devC .row>*{flex:1}
+  .devC .injcol{width:140px;padding:11px 12px;display:flex;flex-direction:column;justify-content:space-between;align-items:center;text-align:center}
+  .devC .injbig{width:100%;flex:1;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:9px;font-weight:800;font-size:12px;letter-spacing:.04em;text-transform:uppercase;
+    background:var(--copper);color:#1c1206;border:1px solid var(--copper-lt);margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="kick">StrideQuick · pick a direction</div>
+  <h1>Three <span class="brand">clean</span> takes</h1>
+  <p class="sub">All horizontal, brand palette, no Quick, no wrapped text. Same colour logic: copper = create, cool = transform, gold = loop, copper-filled = the actions. Tell me a letter and I build it.</p>
+
+  <!-- OPTION A -->
+  <div class="opt">
+    <div class="opttag"><span class="optnum">A</span><span class="optname">Control bar + Inject bar</span></div>
+    <p class="optdesc">Status and small actions ride a top strip; generators fill the middle; Inject is a full-width bar at the bottom, so "Inject to Clip" always reads on one line and stays the obvious primary action.</p>
+    <div class="shelf">
+      <div class="device devA">
+        <div class="titlebar"><span class="pwr"></span><span class="tribar"></span><span class="tname">StrideLink</span><span class="maxbadge">MAX</span></div>
+        <div class="body">
+          <div class="bandTop">
+            <div class="word"><span class="brand">STRIDE</span></div>
+            <span class="conn"><span class="led"></span>Connected</span>
+            <span class="cnum" style="font-size:15px">12<span class="cslash"> / </span>12</span>
+            <div class="sp"></div>
+            <div class="cta">◧ Open Canvas</div>
+            <div class="util"><span class="ic">↻</span> Rescan</div>
+          </div>
+          <div class="genrow"><span class="seclab lab">Motion</span><div class="gbtns">
+            <div class="btn warm">Chaos</div><div class="btn warm">Neuro</div><div class="btn warm">Reflector</div><div class="btn warm">S&amp;H</div><div class="btn warm">Prism</div>
+          </div></div>
+          <div class="genrow"><span class="seclab lab">Shape</span><div class="gbtns">
+            <div class="btn sage">Mutate</div><div class="btn violet">Shuffle</div><div class="btn teal">2&times;</div><div class="btn teal">&frac12;&times;</div>
+            <div class="loopb">4</div><div class="loopb on">8</div><div class="loopb">16</div><div class="loopb">32</div>
+          </div></div>
+          <div class="injbar">▼ Inject to Clip</div>
+        </div>
+      </div>
+    </div>
+    <div class="meta">~600 × 150 · 3 horizontal bands</div>
+  </div>
+
+  <!-- OPTION B -->
+  <div class="opt">
+    <div class="opttag"><span class="optnum">B</span><span class="optname">Five labeled columns</span></div>
+    <p class="optdesc">The version you liked, but widened so nothing squashes. Identity column holds Open Canvas + Rescan at readable size; Inject gets its own end column with the counter above it.</p>
+    <div class="shelf">
+      <div class="device devB">
+        <div class="titlebar"><span class="pwr"></span><span class="tribar"></span><span class="tname">StrideLink</span><span class="maxbadge">MAX</span></div>
+        <div class="body">
+          <div class="col col-id">
+            <div>
+              <div class="word"><span class="brand">STRIDE</span></div>
+              <div class="conn" style="margin-top:7px"><span class="led"></span>Connected</div>
+            </div>
+            <div class="idb">
+              <div class="cta">◧ Open Canvas</div>
+              <div class="util"><span class="ic">↻</span> Rescan</div>
+            </div>
+          </div>
+          <div class="vline"></div>
+          <div class="col col-m">
+            <span class="seclab ch">Motion</span>
+            <div class="stack">
+              <div class="row"><div class="btn warm">Chaos</div><div class="btn warm">Neuro</div><div class="btn warm">Reflector</div></div>
+              <div class="row"><div class="btn warm">S&amp;H</div><div class="btn warm">Prism</div></div>
+            </div>
+          </div>
+          <div class="vline"></div>
+          <div class="col col-s">
+            <span class="seclab ch">Shape</span>
+            <div class="stack">
+              <div class="row"><div class="btn sage">Mutate</div><div class="btn violet">Shuffle</div></div>
+              <div class="row"><div class="btn teal">2&times;</div><div class="btn teal">&frac12;&times;</div></div>
+            </div>
+          </div>
+          <div class="vline"></div>
+          <div class="col col-l">
+            <span class="seclab ch">Loop</span>
+            <div class="stack">
+              <div class="row"><div class="loopb">4</div><div class="loopb on">8</div></div>
+              <div class="row"><div class="loopb">16</div><div class="loopb">32</div></div>
+            </div>
+          </div>
+          <div class="vline"></div>
+          <div class="col col-i">
+            <div><span class="cnum" style="font-size:18px">12</span><span class="cslash" style="font-size:14px"> / </span><span class="cnum" style="font-size:18px">12</span>
+              <div class="seclab" style="font-size:7px;margin-top:2px">chain / stride</div></div>
+            <div class="cta" style="width:100%">▼ Inject</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="meta">~620 × 150 · roomy columns, short Inject label</div>
+  </div>
+
+  <!-- OPTION C -->
+  <div class="opt">
+    <div class="opttag"><span class="optnum">C</span><span class="optname">Left rail · grid · Inject anchor</span></div>
+    <p class="optdesc">Generators are the hero in a clean two-row grid in the middle. Identity and small actions sit on a left rail; Inject is a tall copper anchor on the right edge, the strongest target on the panel.</p>
+    <div class="shelf">
+      <div class="device devC">
+        <div class="titlebar"><span class="pwr"></span><span class="tribar"></span><span class="tname">StrideLink</span><span class="maxbadge">MAX</span></div>
+        <div class="body">
+          <div class="rail">
+            <div>
+              <div class="word"><span class="brand">STRIDE</span></div>
+              <div class="conn" style="margin-top:7px"><span class="led"></span>Connected</div>
+              <div style="margin-top:8px"><span class="cnum" style="font-size:16px">12</span><span class="cslash"> / </span><span class="cnum" style="font-size:16px">12</span></div>
+            </div>
+            <div class="railb">
+              <div class="cta">◧ Open Canvas</div>
+              <div class="util"><span class="ic">↻</span> Rescan</div>
+            </div>
+          </div>
+          <div class="vline"></div>
+          <div class="grid">
+            <div class="row">
+              <div class="btn warm">Chaos</div><div class="btn warm">Neuro</div><div class="btn warm">Reflector</div><div class="btn warm">S&amp;H</div><div class="btn warm">Prism</div>
+            </div>
+            <div class="row">
+              <div class="btn sage">Mutate</div><div class="btn violet">Shuffle</div><div class="btn teal">2&times;</div><div class="btn teal">&frac12;&times;</div>
+              <div class="loopb">4</div><div class="loopb on">8</div><div class="loopb">16</div><div class="loopb">32</div>
+            </div>
+          </div>
+          <div class="vline"></div>
+          <div class="injcol">
+            <div class="injbig">▼ Inject to Clip</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="meta">~600 × 150 · generators-first, Inject anchored right</div>
+  </div>
+
+</div>
+</body>
+</html>

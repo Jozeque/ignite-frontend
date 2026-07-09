@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StrideQuick — Build the Device Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#09090b; --panel:#121216; --panel2:#17171c; --line:#27272a;
+    --ink:#e4e4e7; --dim:#a1a1aa; --faint:#71717a;
+    --orange:#f97316; --amber:#f5a524; --fuchsia:#d946ef; --copper:#c2703a;
+    --green:#22c55e; --mono:'JetBrains Mono',monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Outfit',sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:880px;margin:0 auto;padding:0 24px 120px}
+  header.hero{padding:64px 24px 40px;max-width:880px;margin:0 auto}
+  .kicker{font-size:12px;letter-spacing:.28em;text-transform:uppercase;color:var(--orange);font-weight:700}
+  h1{font-size:44px;line-height:1.05;font-weight:800;margin:14px 0 10px;letter-spacing:-.02em}
+  h1 span{background:linear-gradient(90deg,var(--orange),var(--fuchsia));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lede{font-size:18px;color:var(--dim);max-width:640px}
+  h2{font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:var(--faint);font-weight:700;margin:0 0 4px}
+  .step-title{font-size:26px;font-weight:700;letter-spacing:-.01em;margin:6px 0 14px}
+  section{margin-top:56px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:26px 28px;margin-top:18px}
+  .stepnum{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;
+    background:linear-gradient(135deg,var(--orange),var(--fuchsia));color:#fff;font-weight:800;font-size:16px;margin-right:12px;vertical-align:middle}
+  p{margin:0 0 14px}
+  .dim{color:var(--dim)}
+  ul{margin:0 0 14px;padding-left:20px}
+  li{margin:6px 0}
+  code,.mono{font-family:var(--mono);font-size:13px}
+  .pill{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:2px 8px;font-family:var(--mono);font-size:12.5px;color:var(--amber)}
+  .msg{display:inline-block;background:#1a1410;border:1px solid #5a3d1e;border-radius:6px;padding:3px 10px;font-family:var(--mono);font-size:13px;color:#f6b06b;font-weight:600}
+  .callout{border-left:3px solid var(--orange);background:rgba(249,115,22,.06);border-radius:0 10px 10px 0;padding:14px 18px;margin:16px 0;font-size:15px}
+  .callout.warn{border-color:#eab308;background:rgba(234,179,8,.07)}
+  .callout.ok{border-color:var(--green);background:rgba(34,197,94,.07)}
+  .callout b{color:var(--ink)}
+  figure{margin:22px 0;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:20px;overflow-x:auto}
+  figcaption{color:var(--faint);font-size:13px;margin-top:12px;text-align:center}
+  table{width:100%;border-collapse:collapse;margin:8px 0 4px;font-size:14px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line)}
+  th{color:var(--faint);font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:700}
+  td .msg{font-size:12.5px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px 26px}
+  @media(max-width:640px){.grid2{grid-template-columns:1fr}h1{font-size:34px}}
+  .toc{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+  .toc a{font-size:13px;color:var(--dim);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:6px 14px;transition:.15s}
+  .toc a:hover{border-color:var(--orange);color:var(--ink)}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;color:var(--dim);margin-top:4px}
+  .legend span{display:inline-flex;align-items:center;gap:7px}
+  .sw{width:22px;height:10px;border-radius:2px;display:inline-block}
+  /* SVG Max-object visual language */
+  svg text{font-family:var(--mono);fill:var(--ink)}
+  .obj{fill:#1c1c22;stroke:#3f3f46;stroke-width:1.4}
+  .obj-live{fill:#15171d;stroke:#3b4658;stroke-width:1.4}
+  .obj-node{fill:#1d1a14;stroke:#6b4a23;stroke-width:1.6}
+  .obj-app{fill:none;stroke:#52525b;stroke-width:1.4;stroke-dasharray:5 4}
+  .nub{fill:#8a8a93}
+  .cable{fill:none;stroke:var(--copper);stroke-width:2.2}
+  .cable2{fill:none;stroke:#5b8fb0;stroke-width:2.2}
+  .olabel{fill:#a1a1aa;font-size:11px}
+  .otitle{fill:#e4e4e7;font-size:13px;font-weight:600}
+  .ocode{fill:#f6b06b;font-size:12.5px}
+  .footer{margin-top:80px;border-top:1px solid var(--line);padding-top:26px;color:var(--faint);font-size:13px}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="kicker">StrideQuick · Device Build Guide</div>
+  <h1>Build the <span>Quick panel</span> inside StrideLink</h1>
+  <p class="lede">A folding panel of one-click shortcuts that drive the Stride canvas without leaving Ableton. The whole brain is already built. You are wiring buttons to one object you already have: <span class="pill">node.script</span>.</p>
+  <div class="toc">
+    <a href="#how">How it works</a>
+    <a href="#add">What you'll add</a>
+    <a href="#s1">1 · First button</a>
+    <a href="#s2">2 · All buttons</a>
+    <a href="#s3">3 · The readout</a>
+    <a href="#s4">4 · Make it native</a>
+    <a href="#s5">5 · Fold / unfold</a>
+    <a href="#test">Test it</a>
+    <a href="#ref">Reference card</a>
+  </div>
+</header>
+
+<div class="wrap">
+
+<!-- ─────────────────────────────── HOW IT WORKS ─────────────────────────── -->
+<section id="how">
+  <h2>The idea</h2>
+  <div class="step-title">Two wires, one object</div>
+  <p>Your StrideLink device already contains a <span class="pill">node.script server.js</span> object. It runs the connection to the Stride app. You do not touch any code. You only add Max objects <b>around</b> it:</p>
+  <ul>
+    <li><b style="color:var(--copper)">Buttons out:</b> each button sends a tiny text message like <span class="msg">quick chaos</span> <i>into</i> node.script. node.script forwards it to the app, which runs the matching canvas action instantly.</li>
+    <li><b style="color:#5b8fb0">Numbers in:</b> node.script sends back <span class="msg">quick_state 12 12 8 1</span> for your counter and connection light.</li>
+  </ul>
+
+  <figure>
+    <svg viewBox="0 0 820 270" width="100%" role="img" aria-label="Data flow diagram">
+      <!-- Row 1: buttons -> node.script -> app -->
+      <rect class="obj-live" x="20" y="34" width="150" height="54" rx="7"/>
+      <text class="otitle" x="95" y="58" text-anchor="middle">Your buttons</text>
+      <text class="ocode" x="95" y="76" text-anchor="middle">quick chaos</text>
+      <!-- nub out -->
+      <rect class="nub" x="160" y="86" width="9" height="4"/>
+      <path class="cable" d="M168 100 C 250 130, 250 70, 330 70"/>
+      <!-- node.script -->
+      <rect class="obj-node" x="332" y="40" width="156" height="92" rx="7"/>
+      <rect class="nub" x="338" y="38" width="9" height="4"/>
+      <rect class="nub" x="338" y="130" width="9" height="4"/>
+      <text class="otitle" x="410" y="78" text-anchor="middle">node.script</text>
+      <text class="ocode" x="410" y="98" text-anchor="middle">server.js</text>
+      <text class="olabel" x="410" y="118" text-anchor="middle">(already in your device)</text>
+      <!-- to app -->
+      <path class="cable" d="M488 70 C 560 70, 560 70, 632 70"/>
+      <text class="olabel" x="560" y="58" text-anchor="middle">WebSocket :9100</text>
+      <rect class="obj-app" x="634" y="40" width="166" height="92" rx="9"/>
+      <text class="otitle" x="717" y="74" text-anchor="middle">Stride canvas</text>
+      <text class="olabel" x="717" y="94" text-anchor="middle">runs the action,</text>
+      <text class="olabel" x="717" y="110" text-anchor="middle">redraws instantly</text>
+
+      <!-- Row 2: app -> node.script -> numbers (return) -->
+      <path class="cable2" d="M634 176 C 560 176, 560 176, 490 176"/>
+      <text class="olabel" x="560" y="164" text-anchor="middle">quick_state 12 12 8 1</text>
+      <rect class="obj-node" x="332" y="150" width="156" height="54" rx="7"/>
+      <text class="otitle" x="410" y="182" text-anchor="middle">node.script</text>
+      <rect class="obj-app" x="634" y="150" width="166" height="54" rx="9"/>
+      <text class="otitle" x="717" y="182" text-anchor="middle">Stride canvas</text>
+      <path class="cable2" d="M332 177 C 250 177, 250 200, 170 200"/>
+      <rect class="obj-live" x="20" y="176" width="150" height="54" rx="7"/>
+      <text class="otitle" x="95" y="200" text-anchor="middle">Counter + LED</text>
+      <text class="olabel" x="95" y="218" text-anchor="middle">12 / 12 · ●</text>
+    </svg>
+    <figcaption>Top wire = commands going out. Bottom wire = the readout coming back. node.script is the hinge.</figcaption>
+  </figure>
+
+  <div class="callout ok"><b>You never edit code.</b> server.js already understands every <span class="msg">quick …</span> message and already sends <span class="msg">quick_state</span> back. This guide is 100% Max patching.</div>
+</section>
+
+<!-- ─────────────────────────────── WHAT YOU'LL ADD ──────────────────────── -->
+<section id="add">
+  <h2>The shopping list</h2>
+  <div class="step-title">Everything you'll place</div>
+  <div class="card">
+    <div class="grid2">
+      <div>
+        <p style="margin-bottom:8px"><b style="color:var(--copper)">Out (commands)</b></p>
+        <ul class="dim" style="font-size:14px">
+          <li>14 <b>message boxes</b> (one per action)</li>
+          <li>14 <b>live.text</b> buttons to trigger them <span class="dim">(optional, for looks)</span></li>
+        </ul>
+      </div>
+      <div>
+        <p style="margin-bottom:8px"><b style="color:#5b8fb0">In (readout)</b></p>
+        <ul class="dim" style="font-size:14px">
+          <li>1 <span class="pill">route quick_state</span></li>
+          <li>1 <span class="pill">unpack 0 0 0 0</span></li>
+          <li>2 number boxes + 1 toggle (LED)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout" style="margin-bottom:0"><b>Legend for the diagrams below</b>
+      <div class="legend" style="margin-top:8px">
+        <span><span class="sw" style="background:#1c1c22;border:1px solid #3f3f46"></span> standard object</span>
+        <span><span class="sw" style="background:#15171d;border:1px solid #3b4658"></span> live.* UI object</span>
+        <span><span class="sw" style="background:#1d1a14;border:1px solid #6b4a23"></span> node.script (yours)</span>
+        <span><span class="sw" style="background:var(--copper)"></span> patch cord</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────── STEP 1 ───────────────────────────────── -->
+<section id="s1">
+  <h2><span class="stepnum">1</span>Prove it with one button</h2>
+  <div class="step-title">A single message into node.script</div>
+  <p>Before building the whole panel, prove the pipe works. In your StrideLink patch (Edit mode), make <b>one message box</b> and connect it to node.script's <b>left inlet</b>.</p>
+  <ul>
+    <li>Double-click empty patch space, type <span class="pill">m</span>, press enter → a message box appears.</li>
+    <li>Type inside it: <span class="msg">quick chaos</span></li>
+    <li>Drag a cord from the message box's <b>bottom-left outlet</b> to node.script's <b>top-left inlet</b>.</li>
+  </ul>
+
+  <figure>
+    <svg viewBox="0 0 560 210" width="100%" role="img" aria-label="One message box wired to node.script">
+      <rect class="obj" x="60" y="40" width="160" height="40" rx="5"/>
+      <text class="ocode" x="78" y="65">quick chaos</text>
+      <!-- message flag notch -->
+      <path d="M220 40 L232 60 L220 80 Z" class="obj"/>
+      <rect class="nub" x="66" y="78" width="9" height="4"/>
+      <path class="cable" d="M70 92 C 120 150, 240 150, 300 132"/>
+      <rect class="obj-node" x="300" y="116" width="170" height="74" rx="7"/>
+      <rect class="nub" x="306" y="114" width="9" height="4"/>
+      <text class="otitle" x="385" y="148" text-anchor="middle">node.script</text>
+      <text class="ocode" x="385" y="168" text-anchor="middle">server.js</text>
+      <text class="olabel" x="150" y="28" text-anchor="middle">message box (type «m»)</text>
+    </svg>
+    <figcaption>One cord, message box → node.script left inlet. That's the whole command path.</figcaption>
+  </figure>
+
+  <p><b>Test now:</b> open the Stride canvas (the existing Open Canvas button), draw a curve on a couple of lanes, then click your <span class="msg">quick chaos</span> message box. Every lane should fill with Chaos instantly.</p>
+  <div class="callout ok">If that worked, you are done with the hard part. Every other button is the exact same move with different text.</div>
+</section>
+
+<!-- ─────────────────────────────── STEP 2 ───────────────────────────────── -->
+<section id="s2">
+  <h2><span class="stepnum">2</span>Add the rest of the buttons</h2>
+  <div class="step-title">14 messages, all into the same inlet</div>
+  <p>Make one message box per action below and wire each to node.script's left inlet (many cords into one inlet is fine and normal).</p>
+
+  <table>
+    <thead><tr><th>Button</th><th>Message box text</th><th>Button</th><th>Message box text</th></tr></thead>
+    <tbody>
+      <tr><td>Rescan</td><td><span class="msg">quick rescan</span></td><td>Mutate</td><td><span class="msg">quick mutate</span></td></tr>
+      <tr><td>Chaos</td><td><span class="msg">quick chaos</span></td><td>Shuffle</td><td><span class="msg">quick shuffle</span></td></tr>
+      <tr><td>Neuro</td><td><span class="msg">quick neuro</span></td><td>2x</td><td><span class="msg">quick double</span></td></tr>
+      <tr><td>Reflector</td><td><span class="msg">quick reflector</span></td><td>1/2x</td><td><span class="msg">quick half</span></td></tr>
+      <tr><td>S&amp;H</td><td><span class="msg">quick sh</span></td><td>Inject to Clip</td><td><span class="msg">quick inject</span></td></tr>
+      <tr><td>Prism</td><td><span class="msg">quick prism</span></td><td>Loop 4 / 8 / 16 / 32</td><td><span class="msg">quick bars 4</span> … <span class="msg">quick bars 32</span></td></tr>
+    </tbody>
+  </table>
+
+  <p style="margin-top:18px">For a device that looks native, put a <b>live.text</b> button in front of each message box (set its Inspector <i>Mode</i> to <b>Button</b>, and type the label like “Chaos”). Wire the live.text outlet into the message box. Clicking the button bangs the message, which fires the text.</p>
+
+  <figure>
+    <svg viewBox="0 0 720 250" width="100%" role="img" aria-label="live.text buttons into message boxes into node.script">
+      <!-- three sample columns -->
+      <g>
+        <rect class="obj-live" x="30" y="24" width="92" height="34" rx="5"/><text class="otitle" x="76" y="46" text-anchor="middle">Chaos</text>
+        <rect class="nub" x="34" y="56" width="9" height="4"/>
+        <path class="cable" d="M38 64 L38 84"/>
+        <rect class="obj" x="20" y="86" width="112" height="34" rx="5"/><text class="ocode" x="30" y="108">quick chaos</text>
+        <rect class="nub" x="24" y="118" width="9" height="4"/>
+      </g>
+      <g>
+        <rect class="obj-live" x="150" y="24" width="92" height="34" rx="5"/><text class="otitle" x="196" y="46" text-anchor="middle">Neuro</text>
+        <rect class="nub" x="154" y="56" width="9" height="4"/>
+        <path class="cable" d="M158 64 L158 84"/>
+        <rect class="obj" x="140" y="86" width="112" height="34" rx="5"/><text class="ocode" x="150" y="108">quick neuro</text>
+        <rect class="nub" x="144" y="118" width="9" height="4"/>
+      </g>
+      <g>
+        <rect class="obj-live" x="270" y="24" width="92" height="34" rx="5"/><text class="otitle" x="316" y="46" text-anchor="middle">Mutate</text>
+        <rect class="nub" x="274" y="56" width="9" height="4"/>
+        <path class="cable" d="M278 64 L278 84"/>
+        <rect class="obj" x="260" y="86" width="112" height="34" rx="5"/><text class="ocode" x="270" y="108">quick mutate</text>
+        <rect class="nub" x="264" y="118" width="9" height="4"/>
+      </g>
+      <text class="olabel" x="470" y="104">…11 more, same pattern</text>
+
+      <!-- converge into node.script inlet -->
+      <path class="cable" d="M28 122 C 60 190, 360 175, 470 168"/>
+      <path class="cable" d="M148 122 C 200 185, 380 172, 470 166"/>
+      <path class="cable" d="M268 122 C 320 175, 400 170, 470 164"/>
+      <rect class="obj-node" x="470" y="150" width="180" height="70" rx="7"/>
+      <rect class="nub" x="476" y="148" width="9" height="4"/>
+      <text class="otitle" x="560" y="182" text-anchor="middle">node.script</text>
+      <text class="ocode" x="560" y="202" text-anchor="middle">server.js</text>
+    </svg>
+    <figcaption>live.text (Button mode) → message box → node.script left inlet. All buttons share that one inlet.</figcaption>
+  </figure>
+
+  <div class="callout warn"><b>The 4 loop buttons</b> each carry the bar count in the message: <span class="msg">quick bars 4</span>, <span class="msg">quick bars 8</span>, <span class="msg">quick bars 16</span>, <span class="msg">quick bars 32</span>. Same wiring, different number.</div>
+</section>
+
+<!-- ─────────────────────────────── STEP 3 ───────────────────────────────── -->
+<section id="s3">
+  <h2><span class="stepnum">3</span>Wire the readout</h2>
+  <div class="step-title">Counter and connection light</div>
+  <p>node.script sends back one message: <span class="msg">quick_state &lt;on_chain&gt; &lt;on_canvas&gt; &lt;bars&gt; &lt;connected&gt;</span>. Catch it and split it into four numbers.</p>
+  <ul>
+    <li>From node.script's <b>left outlet</b> (the same one feeding your existing objects), branch a new <span class="pill">route quick_state</span>.</li>
+    <li>Connect <span class="pill">route quick_state</span> → <span class="pill">unpack 0 0 0 0</span>.</li>
+    <li><span class="pill">unpack</span> has 4 outlets, left to right: <b>on chain</b>, <b>on canvas</b>, <b>bars</b>, <b>connected</b>.</li>
+  </ul>
+
+  <figure>
+    <svg viewBox="0 0 720 300" width="100%" role="img" aria-label="route and unpack to displays">
+      <rect class="obj-node" x="280" y="20" width="170" height="58" rx="7"/>
+      <text class="otitle" x="365" y="46" text-anchor="middle">node.script</text>
+      <text class="ocode" x="365" y="64" text-anchor="middle">server.js</text>
+      <rect class="nub" x="286" y="76" width="9" height="4"/>
+      <path class="cable2" d="M290 90 L290 118"/>
+      <rect class="obj" x="230" y="120" width="190" height="38" rx="5"/>
+      <text class="ocode" x="244" y="144">route quick_state</text>
+      <rect class="nub" x="236" y="156" width="9" height="4"/>
+      <path class="cable2" d="M240 162 L240 188"/>
+      <rect class="obj" x="200" y="190" width="170" height="38" rx="5"/>
+      <text class="ocode" x="214" y="214">unpack 0 0 0 0</text>
+      <!-- 4 outlets -->
+      <rect class="nub" x="206" y="226" width="9" height="4"/>
+      <rect class="nub" x="252" y="226" width="9" height="4"/>
+      <rect class="nub" x="305" y="226" width="9" height="4"/>
+      <rect class="nub" x="356" y="226" width="9" height="4"/>
+      <!-- destinations -->
+      <path class="cable2" d="M210 230 C 150 250, 90 250, 60 262"/>
+      <rect class="obj-live" x="20" y="262" width="92" height="34" rx="5"/><text class="otitle" x="66" y="284" text-anchor="middle">12  chain</text>
+      <path class="cable2" d="M256 230 C 200 252, 170 252, 150 262"/>
+      <rect class="obj-live" x="128" y="262" width="92" height="34" rx="5"/><text class="otitle" x="174" y="284" text-anchor="middle">12  canvas</text>
+      <path class="cable2" d="M309 230 L309 262"/>
+      <rect class="obj-live" x="262" y="262" width="100" height="34" rx="5"/><text class="otitle" x="312" y="284" text-anchor="middle">bars → 8</text>
+      <path class="cable2" d="M360 230 C 420 250, 470 250, 500 262"/>
+      <rect class="obj-live" x="478" y="262" width="120" height="34" rx="5"/><text class="otitle" x="538" y="284" text-anchor="middle">● connected</text>
+      <text class="olabel" x="540" y="240" text-anchor="middle">1 = lit, 0 = off</text>
+    </svg>
+    <figcaption>route strips the word "quick_state"; unpack splits the four numbers into four outlets.</figcaption>
+  </figure>
+
+  <ul>
+    <li><b>on chain / on canvas</b> → two <b>number</b> boxes (or live.numbox). Shows “params the device sees / lanes loaded on canvas”.</li>
+    <li><b>bars</b> → use it later to light the active loop button (optional polish).</li>
+    <li><b>connected</b> → a <b>live.toggle</b> or a colored panel as a connection LED (1 = app open, 0 = grayed out).</li>
+  </ul>
+  <div class="callout"><b>Can't find the right node.script outlet?</b> Any of your existing objects (like the route that already handles <span class="mono">status</span> / <span class="mono">command</span>) hangs off it. Branch your new <span class="pill">route quick_state</span> from that same outlet. Adding a second route in parallel changes nothing about the existing routing.</div>
+</section>
+
+<!-- ─────────────────────────────── STEP 4 ───────────────────────────────── -->
+<section id="s4">
+  <h2><span class="stepnum">4</span>Make it look native</h2>
+  <div class="step-title">Lay it out in Presentation</div>
+  <p>Select your buttons and readout, right-click → <b>Add to Presentation</b>. Switch to Presentation mode (the icon at the bottom of the patcher) and arrange them. Match Stride's look: dark charcoal background, copper/amber buttons, grouped rows.</p>
+
+  <figure>
+    <svg viewBox="0 0 560 340" width="100%" role="img" aria-label="Finished panel layout mockup">
+      <rect x="20" y="16" width="520" height="308" rx="14" fill="#161616" stroke="#2a2a2a"/>
+      <!-- header -->
+      <text x="44" y="50" style="fill:#f5a524;font-family:'Outfit';font-weight:800;font-size:16px">STRIDE</text>
+      <text x="120" y="50" style="fill:#71717a;font-family:'Outfit';font-size:13px">· Quick</text>
+      <rect x="356" y="32" width="98" height="26" rx="6" fill="#1f1a12" stroke="#5a3d1e"/><text x="405" y="49" text-anchor="middle" style="fill:#f6b06b;font-family:'Outfit';font-size:12px">Open Canvas</text>
+      <rect x="462" y="32" width="58" height="26" rx="6" fill="#201712" stroke="#5a3d1e"/><text x="491" y="49" text-anchor="middle" style="fill:#f6b06b;font-family:'Outfit';font-size:12px">Quick ⌄</text>
+      <line x1="44" y1="70" x2="516" y2="70" stroke="#2a2a2a"/>
+      <!-- row: rescan + counter -->
+      <rect x="44" y="84" width="86" height="26" rx="6" fill="#1c1c22" stroke="#3f3f46"/><text x="87" y="101" text-anchor="middle" style="fill:#e4e4e7;font-family:'Outfit';font-size:12px">Rescan</text>
+      <text x="360" y="101" text-anchor="end" style="fill:#71717a;font-family:'JetBrains Mono';font-size:12px">on chain</text>
+      <rect x="368" y="84" width="40" height="26" rx="6" fill="#15171d" stroke="#3b4658"/><text x="388" y="101" text-anchor="middle" style="fill:#9bd0ff;font-family:'JetBrains Mono';font-size:12px">12</text>
+      <text x="420" y="101" style="fill:#71717a;font-family:'JetBrains Mono';font-size:12px">/</text>
+      <rect x="432" y="84" width="40" height="26" rx="6" fill="#15171d" stroke="#3b4658"/><text x="452" y="101" text-anchor="middle" style="fill:#9bd0ff;font-family:'JetBrains Mono';font-size:12px">12</text>
+      <circle cx="500" cy="97" r="7" fill="#22c55e"/>
+      <!-- Motion row -->
+      <text x="44" y="138" style="fill:#71717a;font-family:'Outfit';font-size:10px;letter-spacing:.16em">MOTION</text>
+      <g style="font-family:'Outfit';font-size:12px">
+        <rect x="44" y="146" width="86" height="30" rx="6" fill="#201712" stroke="#5a3d1e"/><text x="87" y="166" text-anchor="middle" style="fill:#f6b06b">Chaos</text>
+        <rect x="138" y="146" width="86" height="30" rx="6" fill="#201712" stroke="#5a3d1e"/><text x="181" y="166" text-anchor="middle" style="fill:#f6b06b">Neuro</text>
+        <rect x="232" y="146" width="96" height="30" rx="6" fill="#201712" stroke="#5a3d1e"/><text x="280" y="166" text-anchor="middle" style="fill:#f6b06b">Reflector</text>
+        <rect x="336" y="146" width="74" height="30" rx="6" fill="#201712" stroke="#5a3d1e"/><text x="373" y="166" text-anchor="middle" style="fill:#f6b06b">S&amp;H</text>
+        <rect x="418" y="146" width="98" height="30" rx="6" fill="#201712" stroke="#5a3d1e"/><text x="467" y="166" text-anchor="middle" style="fill:#f6b06b">Prism</text>
+      </g>
+      <!-- Transform row -->
+      <text x="44" y="200" style="fill:#71717a;font-family:'Outfit';font-size:10px;letter-spacing:.16em">SHAPE</text>
+      <g style="font-family:'Outfit';font-size:12px">
+        <rect x="44" y="208" width="100" height="30" rx="6" fill="#101a14" stroke="#1f4d33"/><text x="94" y="228" text-anchor="middle" style="fill:#86efac">Mutate</text>
+        <rect x="152" y="208" width="100" height="30" rx="6" fill="#161021" stroke="#3d2a5e"/><text x="202" y="228" text-anchor="middle" style="fill:#c9a6ff">Shuffle</text>
+        <rect x="260" y="208" width="74" height="30" rx="6" fill="#1c1c22" stroke="#3f3f46"/><text x="297" y="228" text-anchor="middle" style="fill:#e4e4e7">2x</text>
+        <rect x="342" y="208" width="74" height="30" rx="6" fill="#1c1c22" stroke="#3f3f46"/><text x="379" y="228" text-anchor="middle" style="fill:#e4e4e7">1/2x</text>
+      </g>
+      <!-- Loop row -->
+      <text x="44" y="262" style="fill:#71717a;font-family:'Outfit';font-size:10px;letter-spacing:.16em">LOOP</text>
+      <g style="font-family:'JetBrains Mono';font-size:12px">
+        <rect x="44" y="270" width="48" height="28" rx="6" fill="#1c1c22" stroke="#3f3f46"/><text x="68" y="289" text-anchor="middle" style="fill:#a1a1aa">4</text>
+        <rect x="100" y="270" width="48" height="28" rx="6" fill="#2a1d10" stroke="#f5a524"/><text x="124" y="289" text-anchor="middle" style="fill:#f5a524">8</text>
+        <rect x="156" y="270" width="48" height="28" rx="6" fill="#1c1c22" stroke="#3f3f46"/><text x="180" y="289" text-anchor="middle" style="fill:#a1a1aa">16</text>
+        <rect x="212" y="270" width="48" height="28" rx="6" fill="#1c1c22" stroke="#3f3f46"/><text x="236" y="289" text-anchor="middle" style="fill:#a1a1aa">32</text>
+      </g>
+      <!-- Inject -->
+      <rect x="300" y="268" width="216" height="34" rx="8" fill="url(#g1)"/>
+      <defs><linearGradient id="g1" x1="0" x2="1"><stop offset="0" stop-color="#f97316"/><stop offset="1" stop-color="#d946ef"/></linearGradient></defs>
+      <text x="408" y="290" text-anchor="middle" style="fill:#fff;font-family:'Outfit';font-weight:700;font-size:13px">Inject to Clip</text>
+    </svg>
+    <figcaption>A suggested layout. Group by Motion / Shape / Loop, keep Inject as the bold final call to action.</figcaption>
+  </figure>
+  <div class="callout"><b>Colors:</b> Stride's device palette is charcoal <span class="mono">#161616</span> with copper/amber buttons <span class="mono">#f5a524</span>, green for the connection LED, and the orange→fuchsia gradient reserved for Inject. live.text colors are set per object in the Inspector.</div>
+</section>
+
+<!-- ─────────────────────────────── STEP 5 ───────────────────────────────── -->
+<section id="s5">
+  <h2><span class="stepnum">5</span>Make it fold</h2>
+  <div class="step-title">One toggle hides the whole cluster</div>
+  <p>Build everything <b>always-visible first</b> and get it working. Then add folding last. The clean way: put all the Quick buttons inside one <span class="pill">bpatcher</span> (a sub-patch that displays inside the device), give that bpatcher a <b>Scripting Name</b> like <span class="mono">quickPanel</span>, and show/hide just that one object.</p>
+  <ul>
+    <li>Add a <b>live.text</b> in <i>Toggle</i> mode, label “Quick ⌄”. It outputs <b>1</b> (open) or <b>0</b> (folded).</li>
+    <li>Wire it to <span class="pill">sel 1 0</span>. The left outlet bangs on 1, the next on 0.</li>
+    <li><b>1</b> → message <span class="msg">script show quickPanel</span> → <span class="pill">thispatcher</span></li>
+    <li><b>0</b> → message <span class="msg">script hide quickPanel</span> → <span class="pill">thispatcher</span></li>
+  </ul>
+
+  <figure>
+    <svg viewBox="0 0 640 250" width="100%" role="img" aria-label="Fold toggle wiring">
+      <rect class="obj-live" x="40" y="24" width="120" height="34" rx="6"/><text class="otitle" x="100" y="46" text-anchor="middle">Quick ⌄ (toggle)</text>
+      <rect class="nub" x="44" y="56" width="9" height="4"/>
+      <path class="cable" d="M48 64 L48 92"/>
+      <rect class="obj" x="40" y="94" width="80" height="34" rx="5"/><text class="ocode" x="54" y="116">sel 1 0</text>
+      <rect class="nub" x="44" y="126" width="9" height="4"/>
+      <rect class="nub" x="86" y="126" width="9" height="4"/>
+      <path class="cable" d="M48 132 C 60 170, 120 170, 160 178"/>
+      <path class="cable" d="M90 132 C 120 200, 320 200, 360 188"/>
+      <rect class="obj" x="160" y="160" width="190" height="34" rx="5"/><text class="ocode" x="172" y="182">script show quickPanel</text>
+      <rect class="obj" x="360" y="170" width="186" height="34" rx="5"/><text class="ocode" x="372" y="192">script hide quickPanel</text>
+      <rect class="nub" x="166" y="192" width="9" height="4"/>
+      <rect class="nub" x="366" y="202" width="9" height="4"/>
+      <path class="cable" d="M170 198 C 300 240, 470 240, 520 218"/>
+      <path class="cable" d="M370 206 C 460 230, 500 230, 522 218"/>
+      <rect class="obj" x="500" y="184" width="120" height="34" rx="5"/><text class="ocode" x="514" y="206">thispatcher</text>
+      <rect class="obj-app" x="430" y="20" width="180" height="70" rx="9"/>
+      <text class="otitle" x="520" y="50" text-anchor="middle">bpatcher</text>
+      <text class="olabel" x="520" y="70" text-anchor="middle">name: quickPanel</text>
+      <text class="olabel" x="520" y="86" text-anchor="middle">(all buttons live here)</text>
+    </svg>
+    <figcaption>The toggle shows or hides one named bpatcher that contains the entire Quick panel.</figcaption>
+  </figure>
+
+  <div class="callout warn"><b>Don't want a bpatcher?</b> You can hide objects individually by giving each a Scripting Name and sending <span class="mono">script hide name1, script hide name2 …</span> to thispatcher. The bpatcher is cleaner because it's a single name to toggle. Either way, the device window stays one size; folding just clears the button area.</div>
+</section>
+
+<!-- ─────────────────────────────── TEST ─────────────────────────────────── -->
+<section id="test">
+  <h2>Test checklist</h2>
+  <div class="step-title">Five checks before you call it done</div>
+  <div class="card">
+    <ul style="margin:0">
+      <li><b>Connection:</b> open the canvas. The connection LED should go green (<span class="mono">connected = 1</span>).</li>
+      <li><b>Counter:</b> scan a rack. Both numbers should fill in (chain / canvas).</li>
+      <li><b>A generator:</b> click <span class="msg">quick chaos</span>. Every lane fills with Chaos on the canvas, even if its window is behind Ableton.</li>
+      <li><b>Loop:</b> click the 16 button. The canvas loop length jumps to 16 bars.</li>
+      <li><b>Inject:</b> click Inject to Clip. The curves write into the selected Session clip.</li>
+    </ul>
+  </div>
+  <div class="callout"><b>If a button does nothing:</b> check the Max window (right-click the device → Max Window). server.js prints <span class="mono">Stride quick: chaos</span> when it receives a press. No line = your message box isn't reaching node.script's inlet. A line but no canvas change = the canvas app isn't open.</div>
+</section>
+
+<!-- ─────────────────────────────── REFERENCE ────────────────────────────── -->
+<section id="ref">
+  <h2>Reference card</h2>
+  <div class="step-title">Copy-paste everything</div>
+  <div class="card">
+    <p style="margin-bottom:8px"><b style="color:var(--copper)">Command message boxes (into node.script inlet)</b></p>
+    <p class="mono" style="color:#f6b06b;font-size:13px;line-height:2">
+      quick rescan&nbsp;·&nbsp; quick chaos&nbsp;·&nbsp; quick neuro&nbsp;·&nbsp; quick reflector&nbsp;·&nbsp; quick sh&nbsp;·&nbsp; quick prism&nbsp;·&nbsp; quick mutate&nbsp;·&nbsp; quick shuffle&nbsp;·&nbsp; quick double&nbsp;·&nbsp; quick half&nbsp;·&nbsp; quick bars 4&nbsp;·&nbsp; quick bars 8&nbsp;·&nbsp; quick bars 16&nbsp;·&nbsp; quick bars 32&nbsp;·&nbsp; quick inject
+    </p>
+    <p style="margin:18px 0 8px"><b style="color:#5b8fb0">Readout objects (off node.script outlet)</b></p>
+    <p class="mono" style="color:#9bd0ff;font-size:13px;line-height:2">route quick_state&nbsp;&nbsp;→&nbsp;&nbsp;unpack 0 0 0 0&nbsp;&nbsp;→&nbsp;&nbsp;[on chain] [on canvas] [bars] [connected]</p>
+    <p style="margin:18px 0 8px"><b style="color:#86efac">Fold (optional)</b></p>
+    <p class="mono" style="color:#a1a1aa;font-size:13px;line-height:2">live.text (Toggle) → sel 1 0 → «script show quickPanel» / «script hide quickPanel» → thispatcher</p>
+  </div>
+  <div class="callout ok" style="margin-top:18px"><b>That's the entire device.</b> Buttons send <span class="mono">quick …</span>, the readout reads <span class="mono">quick_state …</span>, and one toggle folds it. No code, no LOM, no math. The canvas does all the work and stays the single source of truth.</div>
+</section>
+
+<div class="footer">
+  StrideQuick · M4L build guide · backend already shipped in server.js + canvas.js. Questions while patching: check the Max Window log first, then the test checklist above.
+</div>
+
+</div>
+</body>
+</html>

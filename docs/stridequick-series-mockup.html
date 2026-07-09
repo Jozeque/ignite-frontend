@@ -1,0 +1,86 @@
+<!doctype html><html><head><meta charset="utf-8">
+<title>Stride Series — positioning mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&display=swap');
+  html,body{margin:0;background:#0a0908;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;font-family:Outfit}
+  #c{height:97vh;aspect-ratio:9/16;box-shadow:0 24px 90px rgba(0,0,0,.65);border-radius:6px}
+</style></head>
+<body><canvas id="c" width="1080" height="1920"></canvas>
+<script>
+// ════════════════════════════════════════════════════════════════════════
+//  STRIDE SERIES — positioning mockup (same layout as the StrideQuick overview)
+//  TOP  = your recorded device/rack footage, cut out + floated (same spot as
+//         the old PREVIEW panel: PV).  BOTTOM-CENTER = StrideLink, fixed.
+//  Background = light Ableton theme, blurred (ableton-light.png).
+// ════════════════════════════════════════════════════════════════════════
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');const VW=1080,VH=1920;
+const COP='#c6712b',AMB='#dd9a52',INK='#f2ede4',INK3='#a99f8d',PANEL='#1d1b16';
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function hexA(h,a){const n=parseInt(h.slice(1),16);return`rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
+// ── assets (same as the overview) ──────────────────────────────────────────
+const device=new Image();let deviceOK=false;device.onload=()=>deviceOK=true;device.src='stridequick-device.png';
+const DEVW=453,DEVH=199;
+const ablImg=new Image();let ablOK=false;const ablBg=document.createElement('canvas');ablBg.width=VW;ablBg.height=VH;const ABL_BLUR=14;
+ablImg.onload=()=>{const g=ablBg.getContext('2d'),ar=ablImg.width/ablImg.height,vr=VW/VH;let dw,dh;if(ar>vr){dh=VH;dw=VH*ar;}else{dw=VW;dh=VW/ar;}g.fillStyle='#e7e3da';g.fillRect(0,0,VW,VH);g.filter='blur('+ABL_BLUR+'px)';g.drawImage(ablImg,(VW-dw)/2,(VH-dh)/2,dw,dh);g.filter='none';ablOK=true;};ablImg.src='ableton-light.png';
+// ── layout (identical coordinates to the overview) ─────────────────────────
+// floating-footage FLOAT ZONE — the slot auto-fits ANY aspect, centered here, never overlaps the device
+const FZ={cx:540, cy:655, maxW:910, maxH:770};
+const PRESETS=[
+  {label:'ABLETON RACK',  sub:'wide + short', aspect:4.2},
+  {label:'SERUM / VST',   sub:'large window', aspect:1.65},
+  {label:'SINGLE DEVICE', sub:'compact',      aspect:2.6},
+  {label:'TALL RACK',     sub:'narrow + tall',aspect:0.65},
+];
+function fitFootage(aspect){let w=FZ.maxW,h=w/aspect;if(h>FZ.maxH){h=FZ.maxH;w=h*aspect;}return{x:FZ.cx-w/2,y:FZ.cy-h/2,w,h};}
+const DEVSC=2.06, DCX=540, DBY=1300;              // StrideLink fixed: center 540,1300 scale 2.06
+// ── background: blurred light Ableton + warm tint + dark scrims ─────────────
+function drawBG(){
+  if(ablOK)ctx.drawImage(ablBg,0,0,VW,VH);else{ctx.fillStyle='#e7e3da';ctx.fillRect(0,0,VW,VH);}
+  ctx.save();ctx.globalAlpha=.10;ctx.fillStyle=COP;ctx.fillRect(0,0,VW,VH);ctx.restore();
+  const tS=ctx.createLinearGradient(0,0,0,360);tS.addColorStop(0,'rgba(15,14,11,.94)');tS.addColorStop(1,'rgba(15,14,11,0)');ctx.fillStyle=tS;ctx.fillRect(0,0,VW,360);
+  const bS=ctx.createLinearGradient(0,1440,0,VH);bS.addColorStop(0,'rgba(15,14,11,0)');bS.addColorStop(.375,'rgba(15,14,11,.86)');bS.addColorStop(1,'rgba(15,14,11,.97)');ctx.fillStyle=bS;ctx.fillRect(0,1440,VW,VH-1440);
+}
+function drawWordmark(){
+  ctx.textBaseline='alphabetic';ctx.textAlign='left';
+  ctx.fillStyle=INK;ctx.font='900 30px Outfit';ctx.fillText('STRIDE',70,148);
+  ctx.fillStyle=COP;ctx.font='800 17px Outfit';ctx.fillText('Link',196,148);
+  ctx.textAlign='right';ctx.fillStyle=INK3;ctx.font='800 15px Outfit';ctx.fillText('SERIES  ·  POSITIONING MOCKUP',VW-70,148);ctx.textAlign='left';
+}
+function cropMark(x,y,fx,fy){ctx.beginPath();ctx.moveTo(x+fx*30,y);ctx.lineTo(x,y);ctx.lineTo(x,y+fy*30);ctx.stroke();}
+function drawFootage(t){
+  // faint FLOAT ZONE boundary — the modular area the footage fits inside
+  const zx=FZ.cx-FZ.maxW/2,zy=FZ.cy-FZ.maxH/2;
+  ctx.save();ctx.strokeStyle=hexA(INK3,.22);ctx.lineWidth=1.5;ctx.setLineDash([3,9]);rr(zx,zy,FZ.maxW,FZ.maxH,18);ctx.stroke();ctx.restore();
+  ctx.textAlign='left';ctx.fillStyle=hexA(INK3,.55);ctx.font='800 14px Outfit';ctx.fillText('FLOAT ZONE  ·  auto-fits any aspect',zx,zy-12);
+  // cycle the aspect presets so the modular slot is visible
+  const PER=2.7,idx=Math.floor(t/PER)%PRESETS.length,pr=PRESETS[idx];
+  const fl=Math.sin(t*1.05)*7;
+  const b=fitFootage(pr.aspect),x=b.x,y=b.y+fl,w=b.w,h=b.h,ccy=y+h/2;
+  ctx.save();ctx.fillStyle='rgba(0,0,0,.42)';ctx.filter='blur(34px)';rr(x+30,y+h-20,w-60,60,38);ctx.fill();ctx.restore();
+  ctx.fillStyle=hexA('#0e0d0b',.46);rr(x,y,w,h,18);ctx.fill();
+  ctx.save();ctx.strokeStyle=hexA(AMB,.78);ctx.lineWidth=3;ctx.setLineDash([15,11]);rr(x,y,w,h,18);ctx.stroke();ctx.restore();
+  ctx.save();ctx.strokeStyle=hexA(AMB,.92);ctx.lineWidth=4;ctx.lineCap='round';
+  cropMark(x+18,y+18,1,1);cropMark(x+w-18,y+18,-1,1);cropMark(x+18,y+h-18,1,-1);cropMark(x+w-18,y+h-18,-1,-1);ctx.restore();
+  ctx.textAlign='left';ctx.fillStyle=AMB;ctx.font='800 16px Outfit';ctx.fillText(pr.label+'  ·  '+pr.sub,x+30,y+34);
+  ctx.textAlign='center';
+  ctx.fillStyle=INK;ctx.font='900 '+Math.round(Math.max(24,Math.min(40,h*0.12)))+'px Outfit';ctx.fillText('YOUR FOOTAGE',540,ccy+(h>240?-2:6));
+  if(h>210){ctx.fillStyle=INK3;ctx.font='600 19px Outfit';ctx.fillText('cut-out, dropped in here',540,ccy+34);}
+  ctx.textAlign='left';
+}
+function drawDevice(){
+  const dw=DEVW*DEVSC,dh=DEVH*DEVSC,dx=DCX-dw/2,dy=DBY-dh/2;
+  ctx.save();ctx.fillStyle='rgba(0,0,0,.45)';ctx.filter='blur(24px)';rr(dx+20,dy+dh-22,dw-40,56,30);ctx.fill();ctx.restore();
+  if(deviceOK)ctx.drawImage(device,dx,dy,dw,dh);else{ctx.fillStyle=PANEL;rr(dx,dy,dw,dh,16);ctx.fill();ctx.fillStyle=INK3;ctx.font='700 22px Outfit';ctx.fillText('StrideLink',dx+30,dy+40);}
+  ctx.textAlign='center';ctx.fillStyle=INK3;ctx.font='800 16px Outfit';ctx.fillText('STRIDELINK  ·  FIXED POSITION (identical in every video)',540,dy-20);ctx.textAlign='left';
+}
+function drawCaption(){
+  ctx.textAlign='center';
+  ctx.fillStyle=COP;ctx.font='900 27px Outfit';ctx.fillText('DEVICE NAME',540,1630);
+  ctx.fillStyle=INK;ctx.font='700 24px Outfit';ctx.fillText('one line on what Stride is doing to it',540,1668);
+  ctx.fillStyle=INK3;ctx.font='700 15px Outfit';ctx.fillText('caption  ·  same lower-third every video',540,1704);ctx.textAlign='left';
+}
+function draw(t){ctx.clearRect(0,0,VW,VH);drawBG();drawWordmark();drawFootage(t);drawDevice();drawCaption();}
+let start=performance.now();function loop(now){draw((now-start)/1000);requestAnimationFrame(loop);}requestAnimationFrame(loop);
+window.__seek=function(tt){draw(tt);};
+</script></body></html>

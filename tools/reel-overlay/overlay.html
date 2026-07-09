@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  :root{
+    --dim:.62;                 /* darkness outside the frame */
+    --copper:#e58a2e; --copper-lt:#dd9a52; --ink:#ece4d6; --ink2:#b8ad9b;
+    --panel:#16130f; --line:rgba(216,201,176,.14);
+    --guide:rgba(255,255,255,.28);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{width:100%;height:100%;overflow:hidden;background:transparent;
+    font-family:'Outfit',system-ui,-apple-system,'Segoe UI',sans-serif;-webkit-user-select:none;user-select:none;cursor:default;}
+
+  /* ---- dim mask (4 panels around the frame). visual only ---- */
+  .mask{position:fixed;background:rgba(6,5,4,var(--dim));pointer-events:none;transition:background .12s;}
+  #mTop,#mBot,#mLeft,#mRight{}
+
+  /* ---- the 9:16 frame ---- */
+  #frame{position:fixed;pointer-events:none;
+    box-shadow:0 0 0 1px rgba(0,0,0,.55), 0 0 0 2px var(--copper), 0 0 0 3px rgba(0,0,0,.4),
+               0 0 22px rgba(229,138,46,.28);}
+  /* corner ticks */
+  #frame .tick{position:absolute;width:22px;height:22px;border:2px solid var(--copper);pointer-events:none;}
+  #frame .tick.tl{left:-2px;top:-2px;border-right:none;border-bottom:none;}
+  #frame .tick.tr{right:-2px;top:-2px;border-left:none;border-bottom:none;}
+  #frame .tick.bl{left:-2px;bottom:-2px;border-right:none;border-top:none;}
+  #frame .tick.br{right:-2px;bottom:-2px;border-left:none;border-top:none;}
+
+  /* guide lines (thirds + center). toggled */
+  .gl{position:absolute;background:var(--guide);pointer-events:none;display:none;}
+  body.thirds .gl.third{display:block;}
+  body.center .gl.center{display:block;}
+  .gl.v{width:1px;top:0;bottom:0;} .gl.h{height:1px;left:0;right:0;}
+  .gl.third.v1{left:33.333%;} .gl.third.v2{left:66.666%;}
+  .gl.third.h1{top:33.333%;}  .gl.third.h2{top:66.666%;}
+  .gl.center.cv{left:50%;background:rgba(229,138,46,.5);}
+  .gl.center.ch{top:50%;background:rgba(229,138,46,.5);}
+
+  /* safe zone (Reels / TikTok UI). toggled */
+  #safe{position:absolute;inset:0;pointer-events:none;display:none;}
+  body.safe #safe{display:block;}
+  #safe .sbox{position:absolute;border:1.5px dashed rgba(229,138,46,.85);border-radius:2px;}
+  #safe .shade{position:absolute;background:rgba(229,138,46,.10);}
+  #safe .slab{position:absolute;font-size:11px;font-weight:700;letter-spacing:.12em;
+    color:rgba(255,220,180,.9);text-transform:uppercase;text-shadow:0 1px 3px #000;}
+
+  /* dimension readout above frame */
+  #readout{position:fixed;pointer-events:none;font-weight:700;font-size:13px;letter-spacing:.04em;
+    color:var(--ink);background:rgba(8,6,4,.62);border:1px solid var(--line);
+    padding:4px 10px;border-radius:7px;white-space:nowrap;text-shadow:0 1px 2px #000;}
+  #readout b{color:var(--copper);}
+
+  /* move grip (top center of frame) + resize handles — interactive */
+  #grip{position:fixed;pointer-events:auto;cursor:move;display:flex;align-items:center;gap:6px;
+    padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;letter-spacing:.14em;
+    color:#20180f;background:linear-gradient(180deg,var(--copper-lt),var(--copper));
+    box-shadow:0 4px 14px rgba(0,0,0,.5);text-transform:uppercase;}
+  .handle{position:fixed;pointer-events:auto;width:16px;height:16px;border-radius:50%;
+    background:var(--copper);box-shadow:0 0 0 2px rgba(0,0,0,.5);cursor:nwse-resize;}
+
+  /* ---- control toolbar (interactive) ---- */
+  #bar{position:fixed;top:18px;left:18px;width:266px;pointer-events:auto;
+    background:linear-gradient(180deg,rgba(38,33,25,.96),rgba(18,15,11,.97));
+    border:1px solid var(--line);border-radius:14px;color:var(--ink);
+    box-shadow:0 22px 60px rgba(0,0,0,.6);backdrop-filter:blur(6px);overflow:hidden;}
+  #head{display:flex;align-items:center;gap:8px;padding:11px 13px;cursor:move;
+    background:linear-gradient(180deg,rgba(255,240,220,.05),transparent);border-bottom:1px solid var(--line);}
+  #head .dot{width:15px;height:15px;border-radius:4px;background:linear-gradient(150deg,#e8a659,#c6712b);flex:0 0 auto;}
+  #head .t{font-weight:800;font-size:12.5px;letter-spacing:.03em;}
+  #head .t span{color:var(--copper);}
+  #head .x{margin-left:auto;width:22px;height:22px;border-radius:6px;border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink2);font-size:13px;background:rgba(0,0,0,.2);}
+  #head .x:hover{color:#fff;border-color:var(--copper);}
+  .body{padding:12px 13px 14px;display:flex;flex-direction:column;gap:11px;}
+  .row{display:flex;align-items:center;gap:8px;}
+  .row .lbl{font-size:10.5px;font-weight:700;letter-spacing:.11em;color:var(--ink2);text-transform:uppercase;width:44px;flex:0 0 auto;}
+  .val{margin-left:auto;font-size:11px;font-weight:700;color:var(--copper-lt);font-variant-numeric:tabular-nums;}
+  input[type=range]{-webkit-appearance:none;flex:1;height:4px;border-radius:3px;
+    background:rgba(216,201,176,.18);outline:none;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;
+    background:var(--copper);box-shadow:0 1px 4px rgba(0,0,0,.5);cursor:pointer;}
+  .btns{display:flex;gap:6px;flex-wrap:wrap;}
+  .btn{flex:1;min-width:0;padding:7px 4px;border-radius:8px;border:1px solid var(--line);
+    background:rgba(0,0,0,.22);color:var(--ink);font-size:10.5px;font-weight:700;letter-spacing:.04em;
+    cursor:pointer;text-align:center;white-space:nowrap;}
+  .btn:hover{border-color:var(--copper);color:#fff;}
+  .btn.on{background:linear-gradient(180deg,var(--copper-lt),var(--copper));color:#20180f;border-color:transparent;}
+  .btn.wide{flex:1 1 100%;}
+  .sep{height:1px;background:var(--line);margin:1px 0;}
+  .hint{font-size:10px;line-height:1.5;color:var(--ink2);letter-spacing:.02em;}
+  .hint b{color:var(--copper-lt);}
+  kbd{font:inherit;font-size:9.5px;background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--ink);}
+
+  /* FILM mode: hide EVERYTHING except the frame border, so OBS captures a clean frame.
+     (the border is drawn OUTSIDE the frame's interior, so it isn't in the capture either) */
+  body.record #bar, body.record #grip, body.record .handle, body.record #readout,
+  body.record .mask, body.record #frame .tick, body.record .gl, body.record #safe{
+    opacity:0 !important; pointer-events:none !important; }
+  body.record #frame{box-shadow:0 0 0 1px rgba(229,138,46,.55);}
+  body.record.noframe #frame{box-shadow:none;}
+  #chip{position:fixed;top:10px;left:10px;pointer-events:auto;display:none;cursor:pointer;
+    padding:6px 11px;border-radius:8px;font-size:10.5px;font-weight:800;letter-spacing:.1em;
+    color:#20180f;background:linear-gradient(180deg,var(--copper-lt),var(--copper));box-shadow:0 4px 14px rgba(0,0,0,.5);}
+  body.record #chip{display:block;}
+  body.noframe #frame > .tick{display:none;}
+</style>
+</head>
+<body>
+  <!-- dim panels -->
+  <div class="mask" id="mTop"></div>
+  <div class="mask" id="mBot"></div>
+  <div class="mask" id="mLeft"></div>
+  <div class="mask" id="mRight"></div>
+
+  <!-- the frame -->
+  <div id="frame">
+    <span class="tick tl"></span><span class="tick tr"></span>
+    <span class="tick bl"></span><span class="tick br"></span>
+    <div class="gl v third v1"></div><div class="gl v third v2"></div>
+    <div class="gl h third h1"></div><div class="gl h third h2"></div>
+    <div class="gl v center cv"></div><div class="gl h center ch"></div>
+    <div id="safe">
+      <div class="shade" id="shTop"></div>
+      <div class="shade" id="shBot"></div>
+      <div class="shade" id="shRight"></div>
+      <div class="sbox" id="sbox"></div>
+      <div class="slab" id="slabTop">Username / top UI</div>
+      <div class="slab" id="slabBot">Caption · audio</div>
+      <div class="slab" id="slabRight">Buttons</div>
+    </div>
+  </div>
+
+  <div id="readout"></div>
+  <div id="grip">⠿ MOVE</div>
+  <div class="handle" id="hTL"></div><div class="handle" id="hTR"></div>
+  <div class="handle" id="hBL"></div><div class="handle" id="hBR"></div>
+  <div id="chip">◱ SHOW CONTROLS</div>
+
+  <!-- control toolbar -->
+  <div id="bar">
+    <div id="head">
+      <div class="dot"></div>
+      <div class="t"><span>STRIDE</span> · 9:16 STORY</div>
+      <div class="x" id="btnQuit" title="Quit (Ctrl+Shift+X)">✕</div>
+    </div>
+    <div class="body">
+      <div class="row"><div class="lbl">Size</div>
+        <input type="range" id="rSize" min="20" max="100" value="100"><div class="val" id="vSize">100%</div></div>
+      <div class="btns">
+        <div class="btn" data-size="100">Fit H</div>
+        <div class="btn" data-size="90">90%</div>
+        <div class="btn" data-size="75">75%</div>
+        <div class="btn" data-size="50">50%</div>
+      </div>
+      <div class="row"><div class="lbl">Dim</div>
+        <input type="range" id="rDim" min="0" max="90" value="62"><div class="val" id="vDim">62%</div></div>
+      <div class="sep"></div>
+      <div class="btns">
+        <div class="btn" id="tThirds">Thirds</div>
+        <div class="btn" id="tCenter">Center</div>
+        <div class="btn" id="tSafe">Safe zone</div>
+      </div>
+      <div class="btns">
+        <div class="btn" id="btnCenter">◎ Center</div>
+        <div class="btn" id="btnDisplay">🖵 Display</div>
+      </div>
+      <div class="btns">
+        <div class="btn wide" id="btnRecord">● FILM MODE — clean border only</div>
+      </div>
+      <div class="sep"></div>
+      <div class="hint"><b>Click-through</b> — Ableton stays usable. Drag <b>⠿ MOVE</b> / corner dots to place the frame, then hit <b>FILM MODE</b> before recording — it hides the bar, dots &amp; labels so OBS captures only what's inside the frame.<br>
+        <kbd>↑↓←→</kbd> nudge · <kbd>Shift</kbd>+<kbd>↑↓</kbd> size · <kbd>C</kbd> center · <kbd>R</kbd> film · <kbd>Ctrl+Shift+X</kbd> quit</div>
+    </div>
+  </div>
+
+<script>
+  // ---- optional electron bridge (works standalone in a browser too) ----
+  let ipc=null;
+  try { ipc = require('electron').ipcRenderer; } catch(e){ /* running in a plain browser */ }
+  const sendIgnore = (v)=>{ if(ipc) ipc.send('set-ignore', v); };
+
+  const RATIO = 9/16;                 // width / height
+  const S = { pct:1.0, cx:0, cy:0, dim:.62 };
+  const $ = id=>document.getElementById(id);
+
+  function screenW(){ return window.innerWidth; }
+  function screenH(){ return window.innerHeight; }
+
+  function clampCenter(){
+    const H=screenH(), W=screenW();
+    const fH=Math.min(S.pct*H, H), fW=fH*RATIO;
+    S.cx=Math.max(fW/2, Math.min(W-fW/2, S.cx));
+    S.cy=Math.max(fH/2, Math.min(H-fH/2, S.cy));
+  }
+  function layout(){
+    const H=screenH(), W=screenW();
+    let fH=Math.max(160, Math.min(S.pct*H, H));
+    let fW=fH*RATIO;
+    if(fW>W){ fW=W; fH=fW/RATIO; }               // never wider than screen
+    clampCenter();
+    const L=Math.round(S.cx-fW/2), T=Math.round(S.cy-fH/2), R=L+Math.round(fW), B=T+Math.round(fH);
+    const wf=Math.round(fW), hf=Math.round(fH);
+
+    // mask panels
+    Object.assign($('mTop').style ,{left:'0px',top:'0px',width:W+'px',height:T+'px'});
+    Object.assign($('mBot').style ,{left:'0px',top:B+'px',width:W+'px',height:(H-B)+'px'});
+    Object.assign($('mLeft').style ,{left:'0px',top:T+'px',width:L+'px',height:hf+'px'});
+    Object.assign($('mRight').style,{left:R+'px',top:T+'px',width:(W-R)+'px',height:hf+'px'});
+
+    // frame
+    Object.assign($('frame').style,{left:L+'px',top:T+'px',width:wf+'px',height:hf+'px'});
+
+    // readout
+    const ro=$('readout');
+    ro.innerHTML = `${wf} × ${hf} px&nbsp;&nbsp;·&nbsp;&nbsp;<b>1080 × 1920</b>`;
+    ro.style.left = L+'px';
+    ro.style.top  = Math.max(4, T-30)+'px';
+
+    // grip (top-center, just above frame or inside if no room)
+    const g=$('grip');
+    g.style.left = (S.cx - g.offsetWidth/2)+'px';
+    g.style.top  = (T<40 ? T+8 : T-32)+'px';
+
+    // resize handles at corners
+    place($('hTL'),L,T); place($('hTR'),R,T); place($('hBL'),L,B); place($('hBR'),R,B);
+
+    // safe zones (approx Reels/TikTok UI insets, % of frame)
+    const si={top:.055,bot:.20,right:.13,left:.045};
+    $('shTop').style.cssText   =`left:0;top:0;width:100%;height:${si.top*100}%`;
+    $('shBot').style.cssText   =`left:0;bottom:0;width:100%;height:${si.bot*100}%`;
+    $('shRight').style.cssText =`right:0;top:${si.top*100}%;width:${si.right*100}%;height:${(1-si.top-si.bot)*100}%`;
+    $('sbox').style.cssText    =`left:${si.left*100}%;top:${si.top*100}%;right:${si.right*100}%;bottom:${si.bot*100}%`;
+    $('slabTop').style.cssText  =`left:8px;top:5px`;
+    $('slabBot').style.cssText  =`left:8px;bottom:5px`;
+    $('slabRight').style.cssText=`right:6px;top:50%;transform:translateY(-50%) rotate(90deg);transform-origin:right center`;
+  }
+  function place(el,x,y){ el.style.left=(x-el.offsetWidth/2)+'px'; el.style.top=(y-el.offsetHeight/2)+'px'; }
+
+  // ---- interaction: drag frame / resize / click-through hit-test ----
+  let mode=null, sx=0, sy=0, sCx=0, sCy=0, curIgnore=true;
+  function startDrag(e){ mode='drag'; sx=e.clientX; sy=e.clientY; sCx=S.cx; sCy=S.cy; curIgnore=false; sendIgnore(false); e.preventDefault(); }
+  function startResize(e){ mode='resize'; curIgnore=false; sendIgnore(false); e.preventDefault(); }
+  $('grip').addEventListener('mousedown', startDrag);
+  ['hTL','hTR','hBL','hBR'].forEach(id=>$(id).addEventListener('mousedown', startResize));
+
+  window.addEventListener('mousemove',(e)=>{
+    if(mode==='drag'){ S.cx=sCx+(e.clientX-sx); S.cy=sCy+(e.clientY-sy); layout(); return; }
+    if(mode==='resize'){
+      const halfH=Math.abs(e.clientY-S.cy), halfW=Math.abs(e.clientX-S.cx)/RATIO;
+      const fH=Math.max(halfH,halfW)*2;
+      S.pct=Math.max(.2, Math.min(1, fH/screenH()));
+      $('rSize').value=Math.round(S.pct*100); $('vSize').textContent=Math.round(S.pct*100)+'%';
+      layout(); return;
+    }
+    // click-through hit test (only signal main on state change)
+    const el=document.elementFromPoint(e.clientX,e.clientY);
+    const want=!(el && el.closest('#bar, #grip, #chip, .handle')); // ignore-mouse when NOT over a control
+    if(want!==curIgnore){ curIgnore=want; sendIgnore(want); }
+  });
+  window.addEventListener('mouseup', ()=>{ if(mode){ mode=null; } });
+
+  // ---- toolbar wiring ----
+  $('rSize').addEventListener('input',e=>{ S.pct=+e.target.value/100; $('vSize').textContent=e.target.value+'%'; layout(); });
+  $('rDim').addEventListener('input',e=>{ document.documentElement.style.setProperty('--dim', (+e.target.value/100)); $('vDim').textContent=e.target.value+'%'; });
+  document.querySelectorAll('.btn[data-size]').forEach(b=>b.addEventListener('click',()=>{
+    S.pct=+b.dataset.size/100; $('rSize').value=b.dataset.size; $('vSize').textContent=b.dataset.size+'%'; layout(); }));
+  $('btnCenter').addEventListener('click',()=>{ S.cx=screenW()/2; S.cy=screenH()/2; layout(); });
+  const toggle=(id,cls)=>{ $(id).addEventListener('click',()=>{ document.body.classList.toggle(cls); $(id).classList.toggle('on'); }); };
+  toggle('tThirds','thirds'); toggle('tCenter','center'); toggle('tSafe','safe');
+  $('btnDisplay').addEventListener('click',()=>{ if(ipc) ipc.send('cycle-display'); });
+  $('btnRecord').addEventListener('click',()=>{ document.body.classList.add('record'); });
+  $('chip').addEventListener('click',()=>{ document.body.classList.remove('record'); });
+  $('btnQuit').addEventListener('click',()=>{ if(ipc) ipc.send('quit'); else window.close(); });
+
+  // draggable toolbar
+  (function(){ const bar=$('bar'), head=$('head'); let d=false,ox=0,oy=0;
+    head.addEventListener('mousedown',e=>{ if(e.target===$('btnQuit'))return; d=true; ox=e.clientX-bar.offsetLeft; oy=e.clientY-bar.offsetTop; curIgnore=false; sendIgnore(false); e.preventDefault(); });
+    window.addEventListener('mousemove',e=>{ if(!d)return; bar.style.left=(e.clientX-ox)+'px'; bar.style.top=(e.clientY-oy)+'px'; bar.style.right='auto'; });
+    window.addEventListener('mouseup',()=>{ d=false; });
+  })();
+
+  // keyboard (works when overlay has focus)
+  window.addEventListener('keydown',(e)=>{
+    const step=e.shiftKey?12:2;
+    if(e.key==='ArrowLeft'){ S.cx-=step; layout(); e.preventDefault(); }
+    else if(e.key==='ArrowRight'){ S.cx+=step; layout(); e.preventDefault(); }
+    else if(e.key==='ArrowUp'){ if(e.shiftKey){ S.pct=Math.min(1,S.pct+.01);$('rSize').value=Math.round(S.pct*100);$('vSize').textContent=Math.round(S.pct*100)+'%'; } else S.cy-=step; layout(); e.preventDefault(); }
+    else if(e.key==='ArrowDown'){ if(e.shiftKey){ S.pct=Math.max(.2,S.pct-.01);$('rSize').value=Math.round(S.pct*100);$('vSize').textContent=Math.round(S.pct*100)+'%'; } else S.cy+=step; layout(); e.preventDefault(); }
+    else if(e.key==='c'||e.key==='C'){ S.cx=screenW()/2; S.cy=screenH()/2; layout(); }
+    else if(e.key==='r'||e.key==='R'){ document.body.classList.toggle('record'); }
+  });
+
+  window.addEventListener('resize', ()=>{ S.cx=screenW()/2; S.cy=screenH()/2; layout(); });
+
+  // init
+  S.cx=screenW()/2; S.cy=screenH()/2;
+  layout();
+  if(/\bfilm\b/.test(location.search)) document.body.classList.add('record'); // QA / launch straight into film
+</script>
+</body>
+</html>
