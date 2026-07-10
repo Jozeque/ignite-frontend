@@ -47,5 +47,11 @@ ok('projects-remain-untouched copy', /projects remain untouched/.test(H));
 ok('2-hours-left copy', /Found something you love/.test(H));
 ok('no "BUY NOW" hard-sell', !/BUY NOW/i.test(H));
 
+// ── bought-during-pass: activation must be reachable (P0 fix) ──
+ok('active-pass banner has an Activate button (a buyer can enter their key)', /id="pass-banner"[\s\S]{0,700}showActivationForm\(\)[\s\S]{0,240}Activate/.test(H));
+ok('paid activation supersedes the pass (stops countdown + hides banner)', /await cacheLicense\(key, result\);\s*_sdHidePassBanner\(\)/.test(H) && /function _sdHidePassBanner\(\)[\s\S]{0,220}clearInterval\(_passTimer\)[\s\S]{0,140}pass-banner[\s\S]{0,60}add\('hidden'\)/.test(H));
+ok('showActivationForm reveals the overlay (works from the banner while unlocked)', /function showActivationForm\(\)[\s\S]{0,340}o\.style\.display\s*=\s*'flex'/.test(H));
+ok('Back from banner-activate returns to full, not the start screen', /_sdActivateOverBanner[\s\S]{0,240}o\.style\.display\s*=\s*'none'/.test(H));
+
 console.log('  ' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);

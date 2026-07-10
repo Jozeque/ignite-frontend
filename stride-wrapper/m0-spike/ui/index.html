@@ -243,6 +243,7 @@
     <div id="pass-banner" class="hidden fixed bottom-3 left-1/2 -translate-x-1/2 z-[9990] flex items-center gap-2.5 bg-zinc-900/95 border border-orange-500/40 rounded-full pl-4 pr-1.5 py-1.5 shadow-2xl" style="font-family:'Outfit',sans-serif; backdrop-filter:blur(8px)">
         <span id="pass-banner-tag" class="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400">Discovery Pass</span>
         <span id="pass-banner-text" class="text-[10px] text-zinc-300 font-bold"></span>
+        <button onclick="showActivationForm()" title="Already bought? Enter your license key" class="text-[10px] font-black uppercase tracking-wider text-zinc-200 hover:text-white bg-white/10 hover:bg-white/20 border border-white/15 rounded-full px-2.5 py-1 transition-colors">Activate</button>
         <button onclick="if(window.stride&&window.stride.openExternal)window.stride.openExternal('https://strideengine.lemonsqueezy.com/checkout/buy/cd9e5114-080a-48f2-ae27-7c99169f438d')" class="text-[10px] font-black uppercase tracking-wider text-white sd-btn-copper rounded-full px-3 py-1 transition-all">Get Stride VST</button>
     </div>
 
@@ -1184,6 +1185,7 @@
             const result = await validateKeyOnline(key);
             if (result && result.valid && result.entitled) {
                 await cacheLicense(key, result);
+                _sdHidePassBanner();   // a paid license supersedes any active Discovery Pass — kill the countdown + banner
                 unlockApp(false);
                 // Note: don't reset _activating/btn state on success —
                 // unlockApp hides the overlay, so no further activation calls
@@ -1288,7 +1290,13 @@
     }
     window.showPassGate = showPassGate;
 
+    let _sdActivateOverBanner = false;   // Activate opened from the pass banner (app already unlocked) -> Back just closes
     function showActivationForm() {
+        const o = document.getElementById('activation-overlay');
+        if (o) {
+            _sdActivateOverBanner = (o.style.display === 'none');   // opened over an unlocked app (e.g. the pass banner)
+            o.style.display = 'flex'; o.style.opacity = '1';        // ensure the overlay is visible
+        }
         document.getElementById('pass-start').classList.add('hidden');
         document.getElementById('pass-ended').classList.add('hidden');
         document.getElementById('activation-checking').classList.add('hidden');
@@ -1297,7 +1305,15 @@
     }
     window.showActivationForm = showActivationForm;
 
-    function showPassGateBack() { showPassGate(window.__passGateState || 'start'); }
+    function showPassGateBack() {
+        if (_sdActivateOverBanner) {   // came from the pass banner (still entitled) -> return to the full app
+            _sdActivateOverBanner = false;
+            const o = document.getElementById('activation-overlay');
+            if (o) { o.style.opacity = '0'; setTimeout(() => { o.style.display = 'none'; }, 200); }
+            return;
+        }
+        showPassGate(window.__passGateState || 'start');
+    }
     window.showPassGateBack = showPassGateBack;
 
     async function startDiscoveryPass() {
@@ -1336,6 +1352,13 @@
 
     // ── Discovery Pass countdown + 2-hour nudge ──────────────────
     let _passTimer = null, _passNudged = false;
+    // Kill the pass countdown + banner (used when a paid license activates and supersedes the pass).
+    function _sdHidePassBanner() {
+        window.__passExp = 0;
+        if (_passTimer) { clearInterval(_passTimer); _passTimer = null; }
+        const pb = document.getElementById('pass-banner'); if (pb) pb.classList.add('hidden');
+    }
+    window._sdHidePassBanner = _sdHidePassBanner;
     function sdPassInit(expMs) {
         expMs = Number(expMs) || 0;
         if (!expMs) return;
