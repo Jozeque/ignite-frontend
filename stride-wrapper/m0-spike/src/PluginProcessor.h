@@ -64,6 +64,11 @@ public:
     bool isLearning() const { return learnMode.load(); }
     void setUnlearnMode (bool shouldUnlearn);            // arm "unmap by touch" — touching a mapped knob removes it from the canvas
     bool isUnlearning() const { return unlearnMode.load(); }
+    // Touch-unmap drains its removed POSITION here (not a positional rack re-push): the canvas
+    // splices that one lane and re-indexes the rest, so every surviving lane keeps its own
+    // curve/lock/RANGE. A full re-push keys lanes by the positional _path ("wrap:<i>"), which
+    // renumbers on erase and would carry the removed lane's range onto its neighbour. -1 = none.
+    int consumeUnmapByTouchPos() { return pendingUnmapPos.exchange (-1); }
 
     // Demo mode (no VST entitlement): runs but capped (3 params, no save, offline=noise).
     // Set live from the license gate; seeded at construction from the cached entitlement so
@@ -162,6 +167,7 @@ private:
     std::atomic<bool> learnMode  { false };
     std::atomic<bool> unlearnMode { false };   // Map (add-by-touch) and Unmap (remove-by-touch) are mutually exclusive
     std::atomic<int>  mapVersion { 0 };
+    std::atomic<int>  pendingUnmapPos { -1 };   // touch-unmap: removed position, drained by the editor (see consumeUnmapByTouchPos)
     std::atomic<bool> demoMode   { true };   // fail-safe default: limited until proven entitled
     std::atomic<bool> editLocked   { false };  // Discovery Pass expired -> block edits, keep audio (soft lock)
     std::atomic<bool> driveAllowed { false };  // fail-safe: no curve drive until entitlement is confirmed (this device)

@@ -503,7 +503,8 @@
       paintAuto();
 
       listen('sl_event', function (msg) {
-        if (! msg || msg.type !== 'rack_scanned') return;
+        // rack_scanned (full) AND unmapped_at (one-lane splice) both carry the macro counts.
+        if (! msg || (msg.type !== 'rack_scanned' && msg.type !== 'unmapped_at')) return;
         if (typeof msg.drive_mode     !== 'undefined') _driveMode     = msg.drive_mode | 0;
         if (typeof msg.exposed_macros !== 'undefined') _exposedMacros = msg.exposed_macros | 0;
         if (typeof msg.macro_pool     !== 'undefined') _macroPool     = msg.macro_pool | 0;

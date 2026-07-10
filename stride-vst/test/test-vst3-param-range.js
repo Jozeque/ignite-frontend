@@ -53,5 +53,40 @@ ok('drawing inverse-maps into the band (sdGetTimeValue)', /function _sdRangeInv/
     ok('inverse: click the ceiling (0.4) in a 0–0.4 band -> shape 1.0', Math.abs(rangeInv(0.4, true, 0, 0.4) - 1.0) < 1e-9);
 })();
 
+// ── unmap keeps each surviving lane's OWN range (no positional-_path carry) ──
+// Bug: touch-unmapping a ranged lane re-pushed the whole rack; the carry keyed lanes by the
+// positional "wrap:<i>" _path, which renumbers on erase, so the removed lane's range landed
+// on its neighbour. Fix: splice that ONE lane by position (like the × button), never re-push.
+const proc_h = rd(path.join(root, 'stride-wrapper', 'm0-spike', 'src', 'PluginProcessor.h'));
+const proc_c = rd(path.join(root, 'stride-wrapper', 'm0-spike', 'src', 'PluginProcessor.cpp'));
+const ed_c   = rd(path.join(root, 'stride-wrapper', 'm0-spike', 'src', 'PluginEditor.cpp'));
+
+ok('canvas: _sdRemoveLaneByPos splices by position (no rack re-push)', /function _sdRemoveLaneByPos\(pos, notifyEngine\)[\s\S]{0,300}sdCanvasParams\.splice\(idx, 1\)/.test(cv));
+ok('canvas: × button delegates with notifyEngine=true', /window\.sdUnmapLane = function[\s\S]{0,140}_sdRemoveLaneByPos\(p\.id, true\)/.test(cv));
+ok('canvas: touch-unmap handler splices by position (engine already removed -> false)', /strideLink\.on\('unmapped_at'[\s\S]{0,140}_sdRemoveLaneByPos\(msg\.position, false\)/.test(cv));
+ok('native: touch-unmap records the removed position', /pendingUnmapPos\.store \(pos\)/.test(proc_c) && /consumeUnmapByTouchPos\(\)\s*\{\s*return pendingUnmapPos\.exchange \(-1\)/.test(proc_h));
+ok('native: editor splices one lane when a touch-unmap is pending, else full re-push', /consumeUnmapByTouchPos\(\)[\s\S]{0,140}pushUnmappedAt \(unmappedPos\)[\s\S]{0,60}else\s+pushRackScanned\(\)/.test(ed_c));
+ok('native: unmapped_at carries the position + fresh macro counts', /"unmapped_at"[\s\S]{0,120}"position", pos[\s\S]{0,200}exposed_macros/.test(ed_c));
+ok('shim: macro readout also refreshes on unmapped_at', /msg\.type !== 'rack_scanned' && msg\.type !== 'unmapped_at'/.test(shim));
+
+(function () {
+    // lanes 0..3; lane 1 (the one unmapped) has range 0–0.4, lane 2 has its OWN 0.2–0.8.
+    var lanes = [
+        { id: 0, name: 'A', rangeOn: false, rangeMin: 0,   rangeMax: 1   },
+        { id: 1, name: 'B', rangeOn: true,  rangeMin: 0,   rangeMax: 0.4 },
+        { id: 2, name: 'C', rangeOn: true,  rangeMin: 0.2, rangeMax: 0.8 },
+        { id: 3, name: 'D', rangeOn: false, rangeMin: 0,   rangeMax: 1   }
+    ];
+    var pos = 1, idx = lanes.findIndex(function (p) { return p.id === pos; });
+    lanes.splice(idx, 1);
+    lanes.forEach(function (p) { if (p.id > pos) p.id -= 1; });
+    var A = lanes.find(function (p) { return p.name === 'A'; });
+    var C = lanes.find(function (p) { return p.name === 'C'; });
+    ok('unmap: removed lane B is gone', !lanes.some(function (p) { return p.name === 'B'; }));
+    ok('unmap: lane C keeps ITS OWN range 0.2–0.8 (not B’s 0–0.4)', C.rangeOn && C.rangeMin === 0.2 && C.rangeMax === 0.8);
+    ok('unmap: lane A below the cut is untouched (no range leaked in)', A.rangeOn === false && A.id === 0);
+    ok('unmap: C re-indexed down to position 1 (lockstep with the engine)', C.id === 1);
+})();
+
 console.log('  ' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);

@@ -43,6 +43,7 @@ private:
     void openMissingSynthWindows();   // auto-open a window for each newly-added chain node
     void handleStrideLinkSend (const juce::var& msg);
     void pushRackScanned();     // mapped lanes -> canvas (as the rack_scanned the UI expects)
+    void pushUnmappedAt (int pos);   // touch-unmap: splice ONE lane on the canvas (no positional re-push -> lanes keep their ranges)
     void pushLearnState();      // -> wrapper toolbar Map button
     void pushChainDevices();    // -> wrapper device chips (the deliberate per-device remove)
     void handleLicense (const juce::var& msg);   // license gate bridge (load/save/validate)

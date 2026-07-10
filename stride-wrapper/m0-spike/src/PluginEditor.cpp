@@ -492,6 +492,21 @@ void StrideWrapperEditor::pushRackScanned()
     web->emitEventIfBrowserIsVisible ("sl_event", juce::var (msg));
 }
 
+// Touch-unmap: tell the canvas to splice exactly ONE lane (by its engine position) and
+// re-index the rest — the same leak-free path as the per-lane × button. Carries the fresh
+// macro counts so the "Automation" readout stays correct without a full rack re-push.
+void StrideWrapperEditor::pushUnmappedAt (int pos)
+{
+    if (web == nullptr) return;
+    auto* o = new juce::DynamicObject();
+    o->setProperty ("type", "unmapped_at");
+    o->setProperty ("position", pos);
+    o->setProperty ("drive_mode", (int) proc.getDriveMode());
+    o->setProperty ("exposed_macros", proc.exposedMacroCount());
+    o->setProperty ("macro_pool", StrideWrapperProcessor::kMacroCount);
+    web->emitEventIfBrowserIsVisible ("sl_event", juce::var (o));
+}
+
 void StrideWrapperEditor::pushLearnState()
 {
     if (web == nullptr) return;
@@ -622,7 +637,12 @@ void StrideWrapperEditor::timerCallback()
     if (v != lastMapVersion)
     {
         lastMapVersion = v;
-        pushRackScanned();
+        // A touch-unmap removed ONE lane: splice it on the canvas by position instead of a
+        // full rack re-push. The re-push keys lanes by the positional _path ("wrap:<i>"),
+        // which renumbers on erase and would carry the removed lane's RANGE onto its neighbour.
+        const int unmappedPos = proc.consumeUnmapByTouchPos();
+        if (unmappedPos >= 0) pushUnmappedAt (unmappedPos);
+        else                  pushRackScanned();
         pushLearnState();
     }
 

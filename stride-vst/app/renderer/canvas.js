@@ -2676,15 +2676,17 @@
         if (typeof _sdUpdateSelectionButtons === 'function') _sdUpdateSelectionButtons();
     };
 
-    // Unmap a single lane (the per-lane × — wrapper only). Removes it from the panel
-    // and tells the engine to free that knob, then re-indexes the lanes that sat AFTER
-    // it so their positions stay in lockstep with the engine's re-indexed mapping. No
-    // full rack rebuild → every other lane keeps its exact curve, lock, and identity.
-    window.sdUnmapLane = function(envelopeId) {
-        const idx = sdCanvasParams.findIndex(p => p.envelopeId === envelopeId);
-        if (idx < 0) return;
+    // Remove a single lane BY its engine position and re-index the lanes that sat AFTER it,
+    // so their positions stay in lockstep with the engine's re-indexed mapping. No full rack
+    // rebuild → every surviving lane keeps its exact curve, lock, and RANGE on its own object
+    // (a positional rack re-push would key lanes by the "wrap:<i>" _path, which renumbers on
+    // erase and carries the removed lane's range onto its neighbour — the unmap-range bug).
+    // notifyEngine=true: the × button (engine hasn't dropped it yet). false: touch-unmap (the
+    // engine already erased it and told us the position via `unmapped_at`).
+    function _sdRemoveLaneByPos(pos, notifyEngine) {
+        const idx = sdCanvasParams.findIndex(p => p.id === pos);
+        if (idx < 0) return false;
         const removed = sdCanvasParams[idx];
-        const pos = removed.id;                                    // engine mapped position
         const activeObj = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
         sdCanvasParams.splice(idx, 1);
         // Positions above the removed one shift down by 1 — mirror that on id/_path/envelopeId.
@@ -2698,13 +2700,28 @@
             : (sdCanvasParams[0] ? sdCanvasParams[0].envelopeId : null);
         // Emit BEFORE the re-flush in saveCanvasState so the engine re-indexes its
         // mapping first (drops the mapped entry + its drive lane).
-        try { if (window.strideLink && window.strideLink.send) window.strideLink.send({ type: 'unmapParam', id: pos }); } catch (e) {}
+        if (notifyEngine) {
+            try { if (window.strideLink && window.strideLink.send) window.strideLink.send({ type: 'unmapParam', id: pos }); } catch (e) {}
+        }
         sdRenderSidebar();
         sdDrawCanvasGrid();
         try { saveCanvasState(); } catch (e) {}   // persist re-indexed lanes + re-flush remaining curves
         const st = document.getElementById('sd-canvas-status');
         if (st) st.textContent = 'Unmapped ' + (removed.device ? removed.device + ' · ' : '') + (removed.name || 'param');
+        return true;
+    }
+
+    // Unmap a single lane (the per-lane × — wrapper only).
+    window.sdUnmapLane = function(envelopeId) {
+        const p = sdCanvasParams.find(x => x.envelopeId === envelopeId);
+        if (p) _sdRemoveLaneByPos(p.id, true);
     };
+
+    // Touch-unmap (armed Unmap + touch a knob): the ENGINE removed the mapping and sent us the
+    // exact position. Splice that lane the same leak-free way — never a positional re-push.
+    strideLink.on('unmapped_at', function(msg) {
+        if (msg && typeof msg.position === 'number') _sdRemoveLaneByPos(msg.position, false);
+    });
 
     // Toolbar action: lock or unlock every lane at once. If any lane is
     // currently unlocked, the action LOCKS all. If everything is already

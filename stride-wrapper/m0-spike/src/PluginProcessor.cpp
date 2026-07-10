@@ -709,6 +709,7 @@ void StrideWrapperProcessor::unmapParamByTouch (juce::AudioProcessor* proc, int 
                     driveLanes.erase (driveLanes.begin() + k);
             mapped.erase (mapped.begin() + (size_t) pos);
             reassignMacros();          // free the macro slot; others keep theirs
+            pendingUnmapPos.store (pos);   // editor splices THIS lane instead of a positional re-push (keeps each lane's range)
             mapVersion.fetch_add (1);
             triggerAsyncUpdate();
             return;
