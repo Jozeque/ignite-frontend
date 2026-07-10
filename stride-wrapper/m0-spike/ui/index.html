@@ -188,7 +188,7 @@
             </div>
 
             <!-- Discovery Pass — start (no pass on this machine yet) -->
-            <div id="pass-start" class="hidden flex flex-col gap-5">
+            <div id="pass-start" class="hidden flex flex-col gap-4">
                 <div>
                     <p class="text-sm text-zinc-300 leading-relaxed">Welcome to your <span class="text-orange-400 font-bold">24-hour Discovery Pass</span>.</p>
                     <p class="text-lg text-zinc-100 font-bold mt-1">Explore without limits.</p>
@@ -198,11 +198,19 @@
                 </button>
                 <p id="pass-start-error" class="text-[10px] text-red-400 font-medium hidden"></p>
                 <p class="text-[10px] text-zinc-600 font-medium leading-relaxed">When your pass ends, your projects remain untouched — you'll just need a license to keep exploring.</p>
-                <button type="button" onclick="showActivationForm()" class="text-[10px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors">Have a license? Activate →</button>
+                <!-- Already bought? A visible second path, not a buried link. -->
+                <div class="flex items-center gap-3 mt-1">
+                    <div class="h-px flex-1 bg-white/10"></div>
+                    <span class="text-[9px] text-zinc-500 uppercase tracking-[0.15em] font-bold">Already purchased?</span>
+                    <div class="h-px flex-1 bg-white/10"></div>
+                </div>
+                <button type="button" onclick="showActivationForm()" class="w-full border border-white/15 bg-white/5 hover:bg-white/10 text-zinc-200 hover:text-white font-bold py-3 rounded-xl text-xs uppercase tracking-widest transition-colors">
+                    Activate Your License
+                </button>
             </div>
 
             <!-- Discovery Pass — ended (locked: audio still plays, editing is locked) -->
-            <div id="pass-ended" class="hidden flex flex-col gap-5">
+            <div id="pass-ended" class="hidden flex flex-col gap-4">
                 <div>
                     <p class="text-lg text-zinc-100 font-bold">Your Discovery Pass has ended.</p>
                     <p class="text-sm text-zinc-400 leading-relaxed mt-1">Your projects are safe. When you're ready, a license picks up right where you left off.</p>
@@ -210,7 +218,15 @@
                 <button onclick="window.stride.openExternal('https://stridehub.io')" class="w-full sd-btn-copper text-white font-black py-3.5 rounded-xl text-xs uppercase tracking-widest transition-all shadow-[0_0_24px_rgba(255,94,0,0.25)]">
                     Get Stride VST
                 </button>
-                <button type="button" onclick="showActivationForm()" class="text-[10px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors">Have a license? Activate →</button>
+                <!-- Already bought? A visible second path, not a buried link. -->
+                <div class="flex items-center gap-3 mt-1">
+                    <div class="h-px flex-1 bg-white/10"></div>
+                    <span class="text-[9px] text-zinc-500 uppercase tracking-[0.15em] font-bold">Already purchased?</span>
+                    <div class="h-px flex-1 bg-white/10"></div>
+                </div>
+                <button type="button" onclick="showActivationForm()" class="w-full border border-white/15 bg-white/5 hover:bg-white/10 text-zinc-200 hover:text-white font-bold py-3 rounded-xl text-xs uppercase tracking-widest transition-colors">
+                    Activate Your License
+                </button>
             </div>
 
             <!-- Activation form (hidden until needed) -->

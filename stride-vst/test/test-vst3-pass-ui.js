@@ -53,5 +53,11 @@ ok('paid activation supersedes the pass (stops countdown + hides banner)', /awai
 ok('showActivationForm reveals the overlay (works from the banner while unlocked)', /function showActivationForm\(\)[\s\S]{0,340}o\.style\.display\s*=\s*'flex'/.test(H));
 ok('Back from banner-activate returns to full, not the start screen', /_sdActivateOverBanner[\s\S]{0,240}o\.style\.display\s*=\s*'none'/.test(H));
 
+// ── activation is a visible second path, not a buried 10px link ──
+ok('pass-start: Activate promoted to an outlined button under an "Already purchased?" divider', /id="pass-start"[\s\S]{0,1500}Already purchased\?[\s\S]{0,320}onclick="showActivationForm\(\)"[\s\S]{0,240}Activate Your License/.test(H));
+ok('pass-ended: Activate promoted the same way', /id="pass-ended"[\s\S]{0,1300}Already purchased\?[\s\S]{0,320}onclick="showActivationForm\(\)"[\s\S]{0,240}Activate Your License/.test(H));
+ok('the buried "Have a license? Activate →" text-link is gone', !/Have a license\? Activate →/.test(H));
+ok('both pass screens carry the visible Activate button', (H.match(/Activate Your License/g) || []).length >= 2);
+
 console.log('  ' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);
