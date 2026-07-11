@@ -88,5 +88,33 @@ ok('shim: macro readout also refreshes on unmapped_at', /msg\.type !== 'rack_sca
     ok('unmap: C re-indexed down to position 1 (lockstep with the engine)', C.id === 1);
 })();
 
+// ── numeric min/max fields: scrub (drag) + type (double-click) ──
+ok('render: min/max fields drawn under the name when range on (wrapper 3rd line + desktop swap)', /_sdDrawRangeFields\(sdCtx, param, _tx, midY \+ 13, paramIdx\)/.test(cv) && /if \(param\.rangeOn\) \{\s*_sdDrawRangeFields\(sdCtx, param, 8, midY \+ 3, paramIdx\)/.test(cv));
+ok('fields are MIN + MAX chips recorded as hit rects', /cap: 'MIN'[\s\S]{0,90}cap: 'MAX'/.test(cv) && /_sdRangeFieldRects\.push\(\{ param: param, edge: f\.edge/.test(cv));
+ok('field rects reset each render', /_sdRangeFieldRects = \[\]; \/\/ rebuilt below/.test(cv));
+ok('mousedown: press a field → scrub; double-click → type input', /_sdRangeFieldRects\[_fi\][\s\S]{0,600}_sdOpenRangeFieldInput\(_f\)[\s\S]{0,220}_sdRangeNumDrag = \{ param: _f\.param, edge: _f\.edge/.test(cv));
+ok('mousemove: scrub adjusts ~1% per 2px', /_sdRangeNumDrag\)[\s\S]{0,240}_sdRangeSetPercent\(nd\.param, nd\.edge, \(nd\.startVal \+ \(nd\.startY - my\) \/ 200\)/.test(cv));
+ok('mouseup: scrub persists + re-drives', /_sdRangeNumDrag\) \{[\s\S]{0,140}_sdRangeNumDrag = null[\s\S]{0,140}saveCanvasState/.test(cv));
+ok('cursor: a field OR a boundary line shows ns-resize (two arrows)', /let _rangeCur = false[\s\S]{0,1300}_rangeCur \? 'ns-resize'/.test(cv));
+ok('type input: parse %, apply via _sdRangeSetPercent, persist', /function _sdOpenRangeFieldInput\(field\)[\s\S]{0,1300}_sdRangeSetPercent\(field\.param, field\.edge, n\)[\s\S]{0,80}saveCanvasState/.test(cv));
+ok('_sdRangeSetPercent keeps a 2% floor between min and max', /function _sdRangeSetPercent\(param, edge, pct\)[\s\S]{0,240}rangeMax = Math\.max\(v, \(param\.rangeMin \|\| 0\) \+ 0\.02\)[\s\S]{0,140}rangeMin = Math\.min\(v, \(param\.rangeMax \|\| 1\) - 0\.02\)/.test(cv));
+
+(function () {
+    const setPct = (param, edge, pct) => {
+        const v = Math.max(0, Math.min(1, pct / 100));
+        if (edge === 'rangeMax') param.rangeMax = Math.max(v, (param.rangeMin || 0) + 0.02);
+        else                     param.rangeMin = Math.min(v, (param.rangeMax || 1) - 0.02);
+    };
+    const p = { rangeMin: 0, rangeMax: 1 };
+    setPct(p, 'rangeMax', (1.0 + (0 - 100) / 200) * 100);   // drag max down 100px -> 50%
+    ok('scrub: drag max down 100px → 50%', Math.abs(p.rangeMax - 0.5) < 1e-9);
+    setPct(p, 'rangeMin', 40);   // type 40 into min (max is 0.5) -> 0.4
+    ok('type: set min 40% → 0.4', Math.abs(p.rangeMin - 0.4) < 1e-9);
+    setPct(p, 'rangeMin', 90);   // type 90 into min, but max 0.5 -> clamp to 0.48
+    ok('type: min can’t cross max (clamped to max−2%)', Math.abs(p.rangeMin - 0.48) < 1e-9);
+    setPct(p, 'rangeMax', 150);  // over 100 -> 100
+    ok('type: over 100% clamps to 100%', p.rangeMax === 1);
+})();
+
 console.log('  ' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);

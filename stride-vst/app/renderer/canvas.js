@@ -206,6 +206,10 @@
     let _sdCurveEpoch = 0;             // bumped on every curve edit (pushUndo); lets an in-flight async restoreCanvasState detect that you applied curves mid-load and NOT overwrite them.
     let _sdRangeDrag = null;           // active per-param range boundary drag: {param, edge:'rangeMin'|'rangeMax', rect}
     let _sdRangeIconClick = null;      // {id, t} — for double-click-to-reset on the range icon
+    let _sdRangeNumDrag = null;        // scrubbing a numeric min/max field: {param, edge, startY, startVal}
+    let _sdRangeFieldRects = [];       // per-render hit rects for the min/max fields: {param, edge, x, y, w, h}
+    let _sdRangeFieldClick = null;     // {id, edge, t} — double-click-to-type detection on a field
+    let _sdRangeNumInput = null;       // {id, edge, el} — the transient <input> shown while typing a value
     function _sdClipKey(rackId, slot) {
         return (slot && slot > 0) ? (rackId + '_s' + slot) : rackId;
     }
@@ -2723,6 +2727,90 @@
         if (msg && typeof msg.position === 'number') _sdRemoveLaneByPos(msg.position, false);
     });
 
+    // ── Per-param RANGE: numeric min/max fields ──────────────────────────────
+    // Drawn in the label column beneath the param name when Range is on. Each is a
+    // little chip you can (a) press + drag up/down to scrub, or (b) double-click to
+    // type an exact %. Both write rangeMin/rangeMax — same effect as dragging the
+    // dashed boundary on the lane. Hit rects are recorded into _sdRangeFieldRects for
+    // the mousedown/hover handlers; the whole thing is additive/null-default (Range off
+    // → not drawn → StrideLink desktop is unchanged).
+    const _SD_RANGE_FIELD_W = 47, _SD_RANGE_FIELD_H = 15, _SD_RANGE_FIELD_GAP = 4;
+    function _sdDrawRangeFields(ctx, param, x, yTop, paramIdx) {
+        const rgb = sdLaneRGB(paramIdx);
+        const fields = [
+            { edge: 'rangeMin', cap: 'MIN', val: Math.round((param.rangeMin || 0) * 100) },
+            { edge: 'rangeMax', cap: 'MAX', val: Math.round((param.rangeMax || 0) * 100) }
+        ];
+        for (let i = 0; i < fields.length; i++) {
+            const f = fields[i];
+            const fx = x + i * (_SD_RANGE_FIELD_W + _SD_RANGE_FIELD_GAP);
+            const editing = _sdRangeNumInput && _sdRangeNumInput.id === param.envelopeId && _sdRangeNumInput.edge === f.edge;
+            ctx.save();
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(fx, yTop, _SD_RANGE_FIELD_W, _SD_RANGE_FIELD_H, 3);
+            else ctx.rect(fx, yTop, _SD_RANGE_FIELD_W, _SD_RANGE_FIELD_H);
+            ctx.fillStyle = editing ? 'rgba(' + rgb + ',0.22)' : 'rgba(255,255,255,0.05)';
+            ctx.fill();
+            ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(' + rgb + ',0.40)'; ctx.stroke();
+            ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+            ctx.font = '600 6px Outfit'; ctx.fillStyle = 'rgba(161,161,170,0.85)';
+            ctx.fillText(f.cap, fx + 4, yTop + _SD_RANGE_FIELD_H / 2 + 0.5);
+            ctx.font = 'bold 9px Outfit'; ctx.fillStyle = 'rgba(' + rgb + ',0.95)';
+            ctx.fillText(f.val + '%', fx + 18, yTop + _SD_RANGE_FIELD_H / 2 + 0.5);
+            ctx.restore();
+            _sdRangeFieldRects.push({ param: param, edge: f.edge, x: fx, y: yTop, w: _SD_RANGE_FIELD_W, h: _SD_RANGE_FIELD_H });
+        }
+    }
+
+    // Apply a 0..100 % to a lane boundary, keeping min below max (2% floor between).
+    function _sdRangeSetPercent(param, edge, pct) {
+        let v = Math.max(0, Math.min(1, pct / 100));
+        if (edge === 'rangeMax') param.rangeMax = Math.max(v, (param.rangeMin || 0) + 0.02);
+        else                     param.rangeMin = Math.min(v, (param.rangeMax || 1) - 0.02);
+    }
+
+    // Double-click a field → a tiny <input> in place to type an exact %.
+    function _sdOpenRangeFieldInput(field) {
+        _sdCloseRangeFieldInput();
+        if (!sdCanvasEl) return;
+        const cr = sdCanvasEl.getBoundingClientRect();
+        const inp = document.createElement('input');
+        inp.type = 'text'; inp.inputMode = 'numeric';
+        inp.value = String(Math.round((field.param[field.edge] || 0) * 100));
+        inp.style.cssText = 'position:fixed;z-index:100000;box-sizing:border-box;'
+            + 'width:' + field.w + 'px;height:' + (field.h + 2) + 'px;'
+            + 'left:' + (cr.left + field.x) + 'px;top:' + (cr.top + field.y - 1) + 'px;'
+            + 'background:#18181b;border:1px solid rgba(255,255,255,0.35);border-radius:3px;'
+            + 'color:#fafafa;font:bold 10px Outfit;text-align:center;outline:none;padding:0;';
+        document.body.appendChild(inp);
+        _sdRangeNumInput = { id: field.param.envelopeId, edge: field.edge, el: inp };
+        inp.focus(); inp.select();
+        sdDrawCanvasGrid();   // reflect the "editing" chip highlight
+        let done = false;
+        const commit = (apply) => {
+            if (done) return; done = true;
+            if (apply) {
+                const n = parseInt(inp.value, 10);
+                if (!isNaN(n)) { _sdRangeSetPercent(field.param, field.edge, n); Promise.resolve(saveCanvasState()); }
+            }
+            if (inp.parentNode) inp.parentNode.removeChild(inp);
+            _sdRangeNumInput = null;
+            sdDrawCanvasGrid();
+        };
+        inp.addEventListener('keydown', (ev) => {
+            ev.stopPropagation();   // don't trigger canvas shortcuts (undo, tool keys) while typing
+            if (ev.key === 'Enter') { ev.preventDefault(); commit(true); }
+            else if (ev.key === 'Escape') { ev.preventDefault(); commit(false); }
+        });
+        inp.addEventListener('blur', () => commit(true));
+    }
+    function _sdCloseRangeFieldInput() {
+        if (_sdRangeNumInput && _sdRangeNumInput.el && _sdRangeNumInput.el.parentNode) {
+            _sdRangeNumInput.el.parentNode.removeChild(_sdRangeNumInput.el);
+        }
+        _sdRangeNumInput = null;
+    }
+
     // Toolbar action: lock or unlock every lane at once. If any lane is
     // currently unlocked, the action LOCKS all. If everything is already
     // locked, the action UNLOCKS all. Single-button toggle.
@@ -3320,6 +3408,7 @@
         sdMultiClampScroll();
         _sdLaneGeom = [];   // rebuilt below for the comet FX overlay
         _sdUnmapRects = []; // rebuilt below — wrapper lanes get a per-lane unmap ×
+        _sdRangeFieldRects = []; // rebuilt below — ranged lanes get draggable/typable min/max fields
         const bars = sdGetBars();
         const totalBeats = bars * 4;
         const laneDrawLeft = SD_MULTI_LABEL_WIDTH;
@@ -3445,6 +3534,8 @@
                 const parMax = 12;   // room for the range + focus + lock icons at the right
                 const parTxt = displayName.length > parMax ? displayName.slice(0, parMax - 1) + '…' : displayName;
                 sdCtx.fillText(parTxt, _tx, midY + 6);
+                // Range on → min/max fields on a third line beneath the param name.
+                if (param.rangeOn) _sdDrawRangeFields(sdCtx, param, _tx, midY + 13, paramIdx);
             } else {
                 // Single-line label + point count (desktop app — param names only).
                 sdCtx.fillStyle = _labelCol;
@@ -3453,9 +3544,14 @@
                 const labelText = displayName.length > maxChars ? displayName.slice(0, maxChars - 1) + '…' : displayName;
                 sdCtx.fillText(labelText, 8, midY - 5);
 
-                sdCtx.font = '10px Outfit';
-                sdCtx.fillStyle = isLocked ? 'rgba(251,191,36,0.55)' : 'rgba(161,161,170,0.7)';
-                sdCtx.fillText(`${param.points.length} pts${isLocked ? ' · locked' : ''}`, 8, midY + 10);
+                // Range on → min/max fields replace the point-count subtext (tight column).
+                if (param.rangeOn) {
+                    _sdDrawRangeFields(sdCtx, param, 8, midY + 3, paramIdx);
+                } else {
+                    sdCtx.font = '10px Outfit';
+                    sdCtx.fillStyle = isLocked ? 'rgba(251,191,36,0.55)' : 'rgba(161,161,170,0.7)';
+                    sdCtx.fillText(`${param.points.length} pts${isLocked ? ' · locked' : ''}`, 8, midY + 10);
+                }
             }
 
             // Lock glyph at the right edge of the label column. Always
@@ -3849,6 +3945,24 @@
                         return;
                     }
                 }
+                // Range min/max numeric field — press+drag to scrub, double-click to type.
+                for (let _fi = 0; _fi < _sdRangeFieldRects.length; _fi++) {
+                    const _f = _sdRangeFieldRects[_fi];
+                    if (mx >= _f.x && mx <= _f.x + _f.w && my >= _f.y && my <= _f.y + _f.h) {
+                        const now = (window.performance && performance.now) ? performance.now() : Date.now();
+                        if (_sdRangeFieldClick && _sdRangeFieldClick.id === _f.param.envelopeId
+                            && _sdRangeFieldClick.edge === _f.edge && (now - _sdRangeFieldClick.t) < 400) {
+                            _sdRangeFieldClick = null;
+                            _sdOpenRangeFieldInput(_f);            // double-click → type an exact %
+                        } else {
+                            _sdRangeFieldClick = { id: _f.param.envelopeId, edge: _f.edge, t: now };
+                            _sdRangeNumDrag = { param: _f.param, edge: _f.edge, startY: my, startVal: _f.param[_f.edge] || 0 };
+                            sdCanvasEl.style.cursor = 'ns-resize';
+                        }
+                        return;
+                    }
+                }
+
                 const hit = sdMultiGetParamAtY(my);
                 if (!hit) return;
 
@@ -3999,6 +4113,15 @@
         });
         sdCanvasEl.addEventListener('mousemove', e => {
             _sdMaybeShowLaneTooltip(e);
+            if (_sdRangeNumDrag) {   // scrubbing a numeric min/max field — ~1% per 2px
+                const mr = sdCanvasEl.getBoundingClientRect();
+                const my = e.clientY - mr.top;
+                const nd = _sdRangeNumDrag;
+                _sdRangeSetPercent(nd.param, nd.edge, (nd.startVal + (nd.startY - my) / 200) * 100);
+                sdCanvasEl.style.cursor = 'ns-resize';
+                sdDrawCanvasGrid();
+                return;
+            }
             if (_sdRangeDrag) {   // dragging a per-param range boundary — the lane's "min–max%" tag updates live
                 const mr = sdCanvasEl.getBoundingClientRect();
                 const my = e.clientY - mr.top;
@@ -4031,7 +4154,26 @@
                     sdCanvasEl.style.cursor = onSeg ? 'ns-resize' : 'crosshair';
                 }
             } else if (!sdIsDragging && !sdIsPanning) {
-                sdCanvasEl.style.cursor = _sdHoverUnmapId ? 'pointer' : 'crosshair';
+                // Range affordance: hovering a min/max field OR a dashed boundary line on a
+                // ranged lane shows the two-arrow (ns-resize) cursor so it reads as grabbable.
+                let _rangeCur = false;
+                if (sdViewMode === 'multi') {
+                    const _mr = sdCanvasEl.getBoundingClientRect();
+                    const _mx = e.clientX - _mr.left, _my = e.clientY - _mr.top;
+                    for (let _fi = 0; _fi < _sdRangeFieldRects.length; _fi++) {
+                        const _f = _sdRangeFieldRects[_fi];
+                        if (_mx >= _f.x && _mx <= _f.x + _f.w && _my >= _f.y && _my <= _f.y + _f.h) { _rangeCur = true; break; }
+                    }
+                    if (!_rangeCur && _mx > SD_MULTI_LABEL_WIDTH) {
+                        const _h = sdMultiGetParamAtY(_my);
+                        if (_h && _h.param.rangeOn) {
+                            const _yMin = _h.rect.bottom - (_h.param.rangeMin || 0) * _h.rect.height;
+                            const _yMax = _h.rect.bottom - (_h.param.rangeMax || 0) * _h.rect.height;
+                            if (Math.abs(_my - _yMax) <= 6 || Math.abs(_my - _yMin) <= 6) _rangeCur = true;
+                        }
+                    }
+                }
+                sdCanvasEl.style.cursor = _rangeCur ? 'ns-resize' : (_sdHoverUnmapId ? 'pointer' : 'crosshair');
             }
             if (!sdIsDragging) return;
             const hd = sdGetTimeValue(e); const bars = sdGetBars(); const totalBeats = bars * 4;
@@ -4281,6 +4423,13 @@
         });
 
         window.addEventListener('mouseup', e => {
+            if (_sdRangeNumDrag) {   // finished scrubbing a numeric min/max field — persist + re-drive
+                _sdRangeNumDrag = null;
+                if (sdCanvasEl) sdCanvasEl.style.cursor = 'crosshair';
+                try { Promise.resolve(saveCanvasState()); } catch (err) {}
+                sdDrawCanvasGrid();
+                return;
+            }
             if (_sdRangeDrag) {   // finished dragging a range boundary — persist + re-drive with the new band
                 _sdRangeDrag = null;
                 if (sdCanvasEl) sdCanvasEl.style.cursor = 'crosshair';
