@@ -297,6 +297,97 @@ def _send_welcome_email(email: str, full_name: str) -> bool:
         print(f"[Welcome Email] send failed for {email}: {e}")
         return False
 
+
+# Demo welcome — sent from order_created on the FIRST demo download. Demos never
+# generate an LS license key, so this is the only place a demo user would hear
+# from us. Branded like the purchase welcome; leads with the walkthrough video
+# and a soft "keep it" nudge. {name_part} -> " First" (or "") if no name.
+WELCOME_DEMO_TEXT = r"""Hey{name_part}, Joe here. Thanks for grabbing Stride.
+
+Your 24-hour Discovery Pass is running now, everything unlocked.
+
+Start with this quick walkthrough, it gets you going in two minutes:
+https://youtu.be/lQ0QUJ1ISjo
+
+Open a synth you know and build an FX chain. Map a handful of parameters. Apply endless curves and variation across all of them at once. Press play.
+
+The best sounds are rarely planned. They're discovered.
+
+If Stride earns a place in your workflow, keep it anytime:
+https://stridehub.io
+
+Any questions, just reply.
+
+Joe
+"""
+
+WELCOME_DEMO_HTML = r'''<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Your 24-hour Discovery Pass is live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style type="text/css">@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&display=swap');</style>
+</head>
+<body style="margin:0;padding:0;background:#100f0c;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">Your 24-hour Discovery Pass is running. Here's the walkthrough to get started.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#100f0c;">
+<tr><td align="center" style="padding:30px 14px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#171410;border:1px solid rgba(216,201,176,0.11);border-radius:16px;overflow:hidden;font-family:'Outfit','Helvetica Neue',Arial,sans-serif;">
+<tr><td style="padding:26px 34px 22px;border-bottom:1px solid rgba(216,201,176,0.09);">
+  <span style="font-size:18px;font-weight:900;letter-spacing:0.16em;color:#dd9a52;">STRIDE</span>
+  <span style="font-size:9px;font-weight:800;letter-spacing:0.22em;text-transform:uppercase;color:#857c6e;margin-left:12px;padding-left:12px;border-left:1px solid rgba(216,201,176,0.14);">Sound Design Engine</span>
+</td></tr>
+<tr><td style="padding:32px 34px 4px;"><h1 style="margin:0;font-size:28px;line-height:1.15;font-weight:800;color:#ece4d6;letter-spacing:-0.01em;">Your 24-hour Discovery Pass is <span style="color:#dd9a52;">live.</span></h1></td></tr>
+<tr><td style="padding:24px 34px 0;"><p style="margin:0;font-size:15px;line-height:1.6;color:#ece4d6;">Hey{name_part}, Joe here. Thanks for grabbing Stride.</p></td></tr>
+<tr><td style="padding:13px 34px 0;"><p style="margin:0;font-size:15px;line-height:1.6;color:#b8ad9b;">Your 24-hour Discovery Pass is running now, everything unlocked.</p></td></tr>
+<tr><td style="padding:24px 34px 0;"><a href="https://youtu.be/lQ0QUJ1ISjo" target="_blank" style="display:block;text-decoration:none;"><img src="https://img.youtube.com/vi/lQ0QUJ1ISjo/maxresdefault.jpg" width="532" alt="Watch the Stride walkthrough" style="display:block;width:100%;max-width:532px;border-radius:12px;border:1px solid rgba(216,201,176,0.14);"></a><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding-top:16px;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:13px;background:#c6712b;background:linear-gradient(180deg,#e58a2e,#c6712b);"><a href="https://youtu.be/lQ0QUJ1ISjo" target="_blank" style="display:inline-block;padding:13px 26px;font-size:14px;font-weight:900;letter-spacing:0.03em;color:#1c1206;text-decoration:none;">&#9654;&nbsp;&nbsp;Watch the 2-minute walkthrough</a></td></tr></table></td></tr></table></td></tr>
+<tr><td style="padding:18px 34px 0;"><p style="margin:0;font-size:15px;line-height:1.6;color:#b8ad9b;">Start with this quick walkthrough. It gets you going in two minutes.</p></td></tr>
+<tr><td style="padding:22px 34px 0;"><p style="margin:0;font-size:15px;line-height:1.6;color:#b8ad9b;">Open a synth you know and build an FX chain.</p></td></tr>
+<tr><td style="padding:22px 34px 0;"><p style="margin:0;font-size:15px;line-height:1.6;color:#b8ad9b;">Map a handful of parameters.</p></td></tr>
+<tr><td style="padding:22px 34px 0;"><p style="margin:0;font-size:15px;line-height:1.6;color:#ece4d6;">Apply endless curves and variation across all of them at once.</p></td></tr>
+<tr><td style="padding:22px 34px 0;"><p style="margin:0;font-size:15px;line-height:1.6;color:#b8ad9b;">Press play.</p></td></tr>
+<tr><td style="padding:16px 34px 0;"><p style="margin:0;font-size:15px;line-height:1.6;color:#b8ad9b;">The best sounds are rarely planned.</p></td></tr>
+<tr><td style="padding:16px 34px 0;"><p style="margin:0;font-size:15px;line-height:1.6;color:#b8ad9b;">They're <span style="color:#dd9a52;">discovered.</span></p></td></tr>
+<tr><td style="padding:22px 34px 0;"><p style="margin:0;font-size:15px;line-height:1.6;color:#ece4d6;">If Stride earns a place in your workflow, keep it anytime.</p></td></tr>
+<tr><td align="center" style="padding:28px 34px 4px;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:13px;background:#c6712b;background:linear-gradient(180deg,#e58a2e,#c6712b);"><a href="https://stridehub.io" target="_blank" style="display:inline-block;padding:14px 30px;font-size:15px;font-weight:900;letter-spacing:0.02em;color:#1c1206;text-decoration:none;">Keep Stride</a></td></tr></table></td></tr>
+<tr><td style="padding:20px 34px 0;"><p style="margin:0;font-size:15px;line-height:1.6;color:#857c6e;">Any questions, just reply to this email.</p></td></tr>
+<tr><td style="padding:18px 34px 34px;"><p style="margin:0;font-size:15px;font-weight:700;color:#ece4d6;">Joe</p></td></tr>
+</table>
+</td></tr></table>
+</body>
+</html>
+'''
+
+
+def _send_demo_welcome_email(email: str, full_name: str) -> bool:
+    """Welcome for demo downloaders (24-hour Discovery Pass). Same pattern as
+    _send_welcome_email — never raises, skipped if RESEND_API_KEY is unset."""
+    if not RESEND_API_KEY or not email:
+        return False
+    first_name = (full_name or "").strip().split(" ")[0] if full_name else ""
+    name_part = f" {first_name}" if first_name else ""
+    try:
+        import resend
+        resend.api_key = RESEND_API_KEY
+        result = resend.Emails.send({
+            "from": "Joe <home@stridehub.io>",
+            "to": [email],
+            "reply_to": "home@stridehub.io",
+            "subject": "Your 24-hour Discovery Pass is live",
+            "html": WELCOME_DEMO_HTML.replace("{name_part}", name_part),
+            "text": WELCOME_DEMO_TEXT.replace("{name_part}", name_part),
+        })
+        print(f"[Demo Welcome] sent to {email} id={result.get('id') if isinstance(result, dict) else result}")
+        return True
+    except Exception as e:
+        print(f"[Demo Welcome] send failed for {email}: {e}")
+        return False
+
 def parse_midi_to_json(midi_bytes):
     """Parses a raw MIDI byte stream into a simplified JSON note array for Gemini."""
     mid = MidiFile(file=io.BytesIO(midi_bytes))
@@ -513,6 +604,13 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
                     "created_at": admin_firestore.SERVER_TIMESTAMP,
                 })
                 print(f"[LS Webhook] new {'demo' if is_demo else 'customer'} record for {email}")
+
+            # Demo welcome email — fire only on the FIRST demo download. The
+            # is_redownload guard skips re-downloads and webhook retries (both
+            # already carry a demo_at). Demos never fire license_key_created, so
+            # this is the only path to a demo welcome.
+            if is_demo and not is_redownload and email:
+                _send_demo_welcome_email(email, name)
 
             # Discord alert
             if ADMIN_WEBHOOK_URL and email:
