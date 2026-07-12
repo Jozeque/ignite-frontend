@@ -3605,9 +3605,7 @@
                 sdCtx.beginPath(); sdCtx.moveTo(laneDrawLeft, _yMax); sdCtx.lineTo(laneDrawLeft + laneDrawWidth, _yMax); sdCtx.stroke();
                 sdCtx.beginPath(); sdCtx.moveTo(laneDrawLeft, _yMin); sdCtx.lineTo(laneDrawLeft + laneDrawWidth, _yMin); sdCtx.stroke();
                 sdCtx.setLineDash([]);
-                sdCtx.fillStyle = 'rgba(' + _rgb + ',0.9)';   // "0–40%" tag near the ceiling
-                sdCtx.font = '8px Outfit';
-                sdCtx.fillText(Math.round(param.rangeMin * 100) + '–' + Math.round(param.rangeMax * 100) + '%', laneDrawLeft + 4, _yMax + 9);
+                // (The min–max% readout lives in the MIN/MAX fields under the param name — no on-lane tag.)
                 sdCtx.restore();
             }
 

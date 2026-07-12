@@ -32,7 +32,7 @@ ok('shim scales the VST live-drive when ranged', /l\.rangeOn[\s\S]{0,180}l\.rang
 
 // ── render (confine + band) ─────────────────────────────────
 ok('curve confined to the band via a range-aware valueToY', /_rangeMap\s*=\s*\(v\)\s*=>\s*param\.rangeOn[\s\S]{0,140}valueToY\s*=\s*\(v\)\s*=>\s*rect\.bottom\s*-\s*_rangeMap\(v\)/.test(cv));
-ok('band drawn: dead-zone shade + dashed boundary lines + % tag', /if\s*\(param\.rangeOn\)/.test(cv) && /setLineDash\(\[3, 3\]\)/.test(cv) && /Math\.round\(param\.rangeMin\s*\*\s*100\)\s*\+\s*'–'/.test(cv));
+ok('band drawn: dead-zone shade + dashed boundary lines, NO on-lane % tag (readout is in the fields)', /if\s*\(param\.rangeOn\)/.test(cv) && /setLineDash\(\[3, 3\]\)/.test(cv) && !/Math\.round\(param\.rangeMin\s*\*\s*100\)\s*\+\s*'–'/.test(cv));
 ok('range icon defined + drawn next to focus/lock', /function _drawRangeIcon/.test(cv) && /_drawRangeIcon\(sdCtx, laneDrawLeft - 54/.test(cv));
 
 // ── interaction ─────────────────────────────────────────────
