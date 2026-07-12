@@ -112,6 +112,15 @@
     if (e.key === 'Escape' && pluginModal) { e.preventDefault(); e.stopImmediatePropagation(); closePluginBrowser(); return; }
     var z = (e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && ! e.shiftKey;
     if (z && _undoArmed) { e.preventDefault(); e.stopImmediatePropagation(); _doUndoRemove(); }
+    // Space = host transport (play/stop). Once you draw or inject, Stride's WebView holds
+    // keyboard focus, and WebView2 keys never reach the DAW on their own — so Space would
+    // die here instead of toggling transport. Forward it to native (which posts it to the
+    // host window). Skipped while typing so license/search/range fields keep the key.
+    if (e.code === 'Space' || e.key === ' ') {
+      var ae = document.activeElement;
+      var typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable);
+      if (! typing) emit('transportKey', { key: 'space' });
+    }
   }, true);
 
   // No clips in the wrapper — drawing modulates the synth live. Hide the Ableton-only

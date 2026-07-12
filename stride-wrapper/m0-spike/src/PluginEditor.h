@@ -29,6 +29,7 @@ public:
    #if JUCE_WINDOWS
     bool  ownsNativeWindow (void* hwnd) const;   // is hwnd inside a hosted synth window? (transport-key hook)
     void* hostMainWindow() const;                // the DAW's top-level window (key-forward target)
+    void  forwardTransportKey (const juce::String& key);   // WebView Space/Return -> post to the host (play/stop)
    #endif
 
 private:

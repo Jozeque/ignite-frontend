@@ -150,6 +150,7 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
         .withEventListener ("browsePlugins",[this] (juce::var)     { if (proc.isEditLocked()) return; scanPluginsToWeb(); })
         .withEventListener ("openSynth",    [this] (juce::var)     { toggleSynthWindow(); })
         .withEventListener ("openSynthOne", [this] (juce::var v)   { openOneSynthWindow ((int) v.getProperty ("i", -1)); })
+        .withEventListener ("transportKey", [this] (juce::var v)   { forwardTransportKey (v.getProperty ("key", "space").toString()); })
         .withEventListener ("clearChain",   [this] (juce::var)     { if (proc.isEditLocked()) return; synthWindows.clear(); proc.clearChain(); pushRackScanned(); pushChainDevices(); })
         .withEventListener ("removeDevice", [this] (juce::var v)   { if (proc.isEditLocked()) return; const int i = (int) v.getProperty ("i", -1); if (i >= 0 && i < (int) synthWindows.size()) synthWindows.erase (synthWindows.begin() + i); proc.removeNode (i); pushRackScanned(); pushChainDevices(); })   // close ONLY the removed device's window; keep the rest as-is (was: clear all -> timer reopened them all)
         .withEventListener ("moveDevice",   [this] (juce::var v)   {
@@ -278,6 +279,23 @@ void* StrideWrapperEditor::hostMainWindow() const
         return (void*) ::GetAncestor (me, GA_ROOT);
     }
     return nullptr;
+}
+
+// Space/Return pressed while Stride's WebView has focus. The synth-window key hook can't
+// see WebView2's keys (they don't surface on our GUI thread's queue), so the JS forwards
+// them here and we post them straight to the DAW's top window — same target as the hook.
+void StrideWrapperEditor::forwardTransportKey (const juce::String& key)
+{
+   #if JUCE_WINDOWS
+    const WPARAM vk = (key == "enter") ? VK_RETURN : VK_SPACE;
+    if (auto* host = (HWND) hostMainWindow())
+    {
+        ::PostMessage (host, WM_KEYDOWN, vk, (LPARAM) 0x00000001);
+        ::PostMessage (host, WM_KEYUP,   vk, (LPARAM) 0xC0000001);
+    }
+   #else
+    juce::ignoreUnused (key);   // macOS transport-from-WebView is a separate follow-up
+   #endif
 }
 
 void StrideWrapperEditor::installKeyHook()
