@@ -116,7 +116,7 @@
     // keyboard focus, and WebView2 keys never reach the DAW on their own — so Space would
     // die here instead of toggling transport. Forward it to native (which posts it to the
     // host window). Skipped while typing so license/search/range fields keep the key.
-    if (e.code === 'Space' || e.key === ' ') {
+    if ((e.code === 'Space' || e.key === ' ') && ! e.repeat) {   // !repeat: one toggle per press, not while held
       var ae = document.activeElement;
       var typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable);
       if (! typing) emit('transportKey', { key: 'space' });

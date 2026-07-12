@@ -27,6 +27,7 @@ const shim    = rd(path.join(W, 'ui', 'shim.js'));
 // ── JS forward (wrapper only) ───────────────────────────────
 ok('shim forwards Space to native as transportKey', /e\.code === 'Space' \|\| e\.key === ' '[\s\S]{0,260}emit\('transportKey', \{ key: 'space' \}\)/.test(shim));
 ok('forward is skipped while typing in a field (license/search/range keep the key)', /Space[\s\S]{0,240}tagName === 'INPUT'[\s\S]{0,120}if \(! typing\) emit\('transportKey'/.test(shim));
+ok('auto-repeat ignored — one toggle per press, not while held', /'Space' \|\| e\.key === ' '\) && ! e\.repeat/.test(shim));
 
 // ── native handler ──────────────────────────────────────────
 ok('editor declares forwardTransportKey', /void\s+forwardTransportKey\s*\(const juce::String&/.test(editorH));
