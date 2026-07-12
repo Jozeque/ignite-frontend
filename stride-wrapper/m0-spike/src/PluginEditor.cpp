@@ -247,6 +247,7 @@ StrideWrapperEditor::~StrideWrapperEditor()
    #endif
    #if JUCE_MAC
     strideMacKeyForward_remove();
+    strideMacKeyForward_clearEditorView();   // never leave a dangling NSView* in the forwarder
    #endif
     stopTimer();
     synthWindows.clear();
@@ -281,23 +282,6 @@ void* StrideWrapperEditor::hostMainWindow() const
     return nullptr;
 }
 
-// Space/Return pressed while Stride's WebView has focus. The synth-window key hook can't
-// see WebView2's keys (they don't surface on our GUI thread's queue), so the JS forwards
-// them here and we post them straight to the DAW's top window — same target as the hook.
-void StrideWrapperEditor::forwardTransportKey (const juce::String& key)
-{
-   #if JUCE_WINDOWS
-    const WPARAM vk = (key == "enter") ? VK_RETURN : VK_SPACE;
-    if (auto* host = (HWND) hostMainWindow())
-    {
-        ::PostMessage (host, WM_KEYDOWN, vk, (LPARAM) 0x00000001);
-        ::PostMessage (host, WM_KEYUP,   vk, (LPARAM) 0xC0000001);
-    }
-   #else
-    juce::ignoreUnused (key);   // macOS transport-from-WebView is a separate follow-up
-   #endif
-}
-
 void StrideWrapperEditor::installKeyHook()
 {
     g_strideKeyOwners.push_back (this);
@@ -316,6 +300,34 @@ void StrideWrapperEditor::removeKeyHook()
     }
 }
 #endif
+
+// Space/Return pressed while Stride's WebView has focus. WebView keys never reach the
+// DAW on their own (WebView2/WKWebView consume them), so the page JS forwards them here
+// and we hand them to the host natively — PostMessage on Windows, NSEvent re-post on
+// macOS (MacKeyForward.mm). Compiled on ALL platforms: the WebView "transportKey"
+// listener references it unconditionally, so it must exist outside any platform guard.
+void StrideWrapperEditor::forwardTransportKey (const juce::String& key)
+{
+    // One toggle per press: swallows key auto-repeat from any path and breaks any
+    // conceivable synthetic-event bounce (posted key -> our own WebView -> re-forward)
+    // after a single cycle.
+    const auto nowMs = juce::Time::getMillisecondCounter();
+    if (nowMs - lastTransportKeyMs < 150) return;
+    lastTransportKeyMs = nowMs;
+
+   #if JUCE_WINDOWS
+    const WPARAM vk = (key == "enter") ? VK_RETURN : VK_SPACE;
+    if (auto* host = (HWND) hostMainWindow())
+    {
+        ::PostMessage (host, WM_KEYDOWN, vk, (LPARAM) 0x00000001);
+        ::PostMessage (host, WM_KEYUP,   vk, (LPARAM) 0xC0000001);
+    }
+   #elif JUCE_MAC
+    strideMacKeyForward_post (key == "enter");
+   #else
+    juce::ignoreUnused (key);
+   #endif
+}
 
 void StrideWrapperEditor::paint (juce::Graphics& g) { g.fillAll (juce::Colour (0xff09090b)); }
 
@@ -618,6 +630,13 @@ void StrideWrapperEditor::scanPluginsToWeb()
 void StrideWrapperEditor::timerCallback()
 {
     proc.pushMacroValuesToHost();   // Live mode: Ableton's exposed params follow the modulation (+ record when armed)
+
+   #if JUCE_MAC
+    // Keep the .mm's idea of "Stride's editor view" fresh — key forwarding uses it to tell
+    // the DAW's plugin frame window (ours, don't sendEvent into it) from the DAW's real
+    // windows. 30Hz store of one pointer; cleared in the destructor.
+    strideMacKeyForward_setEditorView (getPeer() != nullptr ? getPeer()->getNativeHandle() : nullptr);
+   #endif
 
     // Re-derive the native entitlement gates (~every 2s) so a Discovery Pass expiring MID-SESSION
     // locks the editor + stops the drive WITHOUT waiting on the JS gate. Both are device-bound.
