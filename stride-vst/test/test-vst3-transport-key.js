@@ -36,11 +36,21 @@ ok('Windows: posts the key to the HOST window (not the plugin)', /forwardTranspo
 ok('Space maps to VK_SPACE (Enter -> VK_RETURN)', /vk\s*=\s*\(key == "enter"\) \? VK_RETURN : VK_SPACE/.test(editor));
 ok('debounced: one transport toggle per press (any path)', /lastTransportKeyMs < 150\) return;\s*lastTransportKeyMs = nowMs/.test(editor) && /juce::uint32 lastTransportKeyMs = 0/.test(editorH));
 
-// REGRESSION GUARD: forwardTransportKey must live OUTSIDE the #if JUCE_WINDOWS region
-// (the WebView listener references it unconditionally — inside the region, the Mac build
-// compiles the reference but not the function -> LINK ERROR on the Mac CI).
-ok('forwardTransportKey compiled on ALL platforms (defined after the Windows-only region)',
-   editor.indexOf('void StrideWrapperEditor::forwardTransportKey') > editor.indexOf('UnhookWindowsHookEx'));
+// REGRESSION GUARD: forwardTransportKey must live OUTSIDE every #if JUCE_WINDOWS span —
+// in the HEADER (decl) and the CPP (definition). The WebView listener references it
+// unconditionally; a Windows-guarded decl/def = "undeclared identifier" on the Mac CI
+// (the exact v1.0.4 first-tag failure).
+function inWindowsSpan(src, needle) {
+    const at = src.indexOf(needle);
+    if (at < 0) return true;   // missing entirely counts as broken
+    const re = /#if JUCE_WINDOWS[\s\S]*?#endif/g; let m;
+    while ((m = re.exec(src)) !== null)
+        if (at > m.index && at < m.index + m[0].length) return true;
+    return false;
+}
+ok('header: forwardTransportKey declared for ALL platforms (not Windows-guarded)', !inWindowsSpan(editorH, 'forwardTransportKey'));
+ok('cpp: forwardTransportKey defined for ALL platforms (not Windows-guarded)', !inWindowsSpan(editor, 'void StrideWrapperEditor::forwardTransportKey'));
+ok('header: the debounce member is unguarded too', !inWindowsSpan(editorH, 'lastTransportKeyMs'));
 
 // the synth-window hook stays (it covers focus-on-hosted-synth); the JS path covers focus-on-WebView
 ok('the hosted-synth key hook is untouched (still forwards Space/Return from synth windows)', /VK_SPACE \|\| msg->wParam == VK_RETURN/.test(editor) && /ownsNativeWindow/.test(editor));
