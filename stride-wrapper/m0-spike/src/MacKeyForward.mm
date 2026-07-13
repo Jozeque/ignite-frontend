@@ -26,6 +26,9 @@
 static id     g_strideKeyMonitor = nil;
 static void*  g_strideEditorView = nullptr;   // NSView* of Stride's editor (raw; refreshed by the editor timer, cleared in its dtor)
 static double g_strideLastPost   = 0.0;
+static bool   g_strideSuppressed = false;     // Logic/GarageBand (out-of-process AU): never post synthetic keys
+
+void strideMacKeyForward_setSuppressed (bool s) { g_strideSuppressed = s; }
 
 void strideMacKeyForward_tagWindow (void* nsview)
 {
@@ -72,6 +75,8 @@ static NSEvent* strideMakeKeyEvent (NSEventType type, bool isReturn, NSInteger w
 // Deliver Space/Return to the DAW. Returns true when something plausibly received it.
 static bool stridePostTransport (bool isReturn, NSWindow* avoid)
 {
+    if (g_strideSuppressed) return false;   // Logic/GarageBand: no DAW window in this process — don't synthesize keys
+
     const double now = [[NSProcessInfo processInfo] systemUptime];
     if (now - g_strideLastPost < 0.15) return false;   // debounce: one toggle per press, kills any bounce
 

@@ -21,6 +21,9 @@ If Serum's cutoff knob wiggles in time in Ableton, the wrapper thesis holds and 
 - **M1:** the real UI — reuse `canvas.js` in a JUCE WebView. (M0 uses a crude native panel.)
 - **M2:** out-of-process plugin scanner, project state save/restore, the fixed macro bank for "bake to DAW automation", smoothing + block-splitting.
 - **M3:** AUv2 (Logic), macOS signing/notarization, cross-DAW/synth QA.
+  > **M3 landed in 1.1.0** — `FORMATS AU` (aumu SwM0 Strd) + AU hosting on macOS + a CI
+  > `auval -strict` gate. Research, decisions and the Logic QA checklist:
+  > `docs/stride-au-logic-spec.md`.
 
 ## Prerequisites
 - Windows + **Visual Studio 2022** ("Desktop development with C++" workload).

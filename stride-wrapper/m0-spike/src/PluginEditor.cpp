@@ -232,16 +232,33 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
     savedW = lastTickW = initW;
     savedH = lastTickH = initH;
     startTimerHz (30);   // 30Hz: smooth enough for the exposed macros to follow the modulation in Ableton
+
+    // Surface interactive load failures as a UI toast (the silent-DBG version was a support
+    // ticket: on Mac the usual cause is an Intel-only bundle inside an arm64 host process).
+    proc.onLoadFailed = [this] (const juce::String& name, const juce::String& error)
+    {
+        if (web == nullptr) return;
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("name", name);
+        o->setProperty ("error", error);
+        web->emitEventIfBrowserIsVisible ("loadFailed", juce::var (o));
+    };
+
    #if JUCE_WINDOWS
     installKeyHook();     // forward Space/Return from hosted synth windows to the DAW transport
    #endif
    #if JUCE_MAC
     strideMacKeyForward_install();   // same, via an NSEvent monitor
+    // Logic/GarageBand host AUs OUT-OF-PROCESS (AUHostingService): no DAW window exists in
+    // this process to re-post into, and Logic's own key handling already sees unconsumed
+    // keys — a synthetic re-post could only misfire or double-toggle the transport.
+    strideMacKeyForward_setSuppressed (juce::PluginHostType().isLogic() || juce::PluginHostType().isGarageBand());
    #endif
 }
 
 StrideWrapperEditor::~StrideWrapperEditor()
 {
+    proc.onLoadFailed = nullptr;   // the processor outlives us — never leave a dangling capture
    #if JUCE_WINDOWS
     removeKeyHook();
    #endif
@@ -335,7 +352,12 @@ void StrideWrapperEditor::resized() { if (web) web->setBounds (getLocalBounds())
 
 void StrideWrapperEditor::chooseAndLoad()
 {
+   #if JUCE_MAC
+    // macOS also hosts AU: .component bundles live in /Library/Audio/Plug-Ins/Components.
+    chooser = std::make_unique<juce::FileChooser> ("Select synth(s) - VST3 or AU, pick one or many", juce::File(), "*.vst3;*.component");
+   #else
     chooser = std::make_unique<juce::FileChooser> ("Select VST3 synth(s) - pick one or many", juce::File(), "*.vst3");
+   #endif
     const auto chooserFlags = juce::FileBrowserComponent::openMode
                             | juce::FileBrowserComponent::canSelectFiles
                             | juce::FileBrowserComponent::canSelectDirectories
@@ -587,40 +609,74 @@ void StrideWrapperEditor::handleLicense (const juce::var& msg)
     else                        reply (juce::var());
 }
 
-// Scan the standard VST3 locations (top level + one vendor-folder deep, not into bundles)
-// and hand the list to the WebView's Stride-styled plugin browser.
+// Scan the standard plugin locations and hand the list to the WebView's Stride-styled
+// plugin browser. VST3 (all platforms): top level + one vendor-folder deep, not into
+// bundles. AU (macOS): the two Components folders. Names come from the bundle filename —
+// nothing is instantiated, so the scan stays fast and can't crash on a broken plugin.
 void StrideWrapperEditor::scanPluginsToWeb()
 {
     if (web == nullptr) return;
 
-    juce::VST3PluginFormat fmt;
-    auto search = fmt.getDefaultLocationsToSearch();
-
-    juce::Array<juce::File> hits;
-    for (int i = 0; i < search.getNumPaths(); ++i)
-    {
-        auto root = search[i];
-        if (! root.isDirectory()) continue;
-        root.findChildFiles (hits, juce::File::findFilesAndDirectories, false, "*.vst3");   // top-level plugins
-        juce::Array<juce::File> subs;
-        root.findChildFiles (subs, juce::File::findDirectories, false, "*");                 // vendor sub-folders
-        for (const auto& s : subs)
-            if (! s.getFileName().endsWithIgnoreCase (".vst3"))
-                s.findChildFiles (hits, juce::File::findFilesAndDirectories, false, "*.vst3");
-    }
-
     juce::Array<juce::var> list;
-    juce::StringArray seen;
-    for (const auto& f : hits)
+
+    // One browser entry per (format, name); dedup inside a format (system vs per-user
+    // folder). "fmt" drives the little format chip — the shim only shows chips when a
+    // list actually mixes formats, so Windows (VST3-only) renders exactly as before.
+    auto addHits = [&list] (const juce::Array<juce::File>& hits, const char* fmt)
     {
-        const auto name = f.getFileNameWithoutExtension();
-        if (seen.contains (name)) continue;   // dedup (system vs per-user folder)
-        seen.add (name);
-        auto* o = new juce::DynamicObject();
-        o->setProperty ("name", name);
-        o->setProperty ("path", f.getFullPathName());
-        list.add (juce::var (o));
+        juce::StringArray seen;
+        for (const auto& f : hits)
+        {
+            const auto name = f.getFileNameWithoutExtension();
+            if (seen.contains (name)) continue;
+            seen.add (name);
+            auto* o = new juce::DynamicObject();
+            o->setProperty ("name", name);
+            o->setProperty ("path", f.getFullPathName());
+            o->setProperty ("fmt",  fmt);
+            list.add (juce::var (o));
+        }
+    };
+
+    {
+        juce::VST3PluginFormat fmt;
+        auto search = fmt.getDefaultLocationsToSearch();
+       #if JUCE_MAC
+        // A sandboxed host (Logic/GarageBand) expands "~" into its container, which hides
+        // the user's real per-user VST3 folder — put the real one back in the search set.
+        if (stride_license::hostIsSandboxed())
+            search.addIfNotAlreadyThere (stride_license::realUserHome().getChildFile ("Library/Audio/Plug-Ins/VST3"));
+       #endif
+
+        juce::Array<juce::File> hits;
+        for (int i = 0; i < search.getNumPaths(); ++i)
+        {
+            auto root = search[i];
+            if (! root.isDirectory()) continue;
+            root.findChildFiles (hits, juce::File::findFilesAndDirectories, false, "*.vst3");   // top-level plugins
+            juce::Array<juce::File> subs;
+            root.findChildFiles (subs, juce::File::findDirectories, false, "*");                 // vendor sub-folders
+            for (const auto& s : subs)
+                if (! s.getFileName().endsWithIgnoreCase (".vst3"))
+                    s.findChildFiles (hits, juce::File::findFilesAndDirectories, false, "*.vst3");
+        }
+        addHits (hits, "VST3");
     }
+
+   #if JUCE_PLUGINHOST_AU && JUCE_MAC
+    {
+        juce::Array<juce::File> auRoots { juce::File ("/Library/Audio/Plug-Ins/Components"),
+                                          juce::File ("~/Library/Audio/Plug-Ins/Components") };
+        if (stride_license::hostIsSandboxed())
+            auRoots.addIfNotAlreadyThere (stride_license::realUserHome().getChildFile ("Library/Audio/Plug-Ins/Components"));
+
+        juce::Array<juce::File> hits;
+        for (const auto& root : auRoots)
+            if (root.isDirectory())
+                root.findChildFiles (hits, juce::File::findFilesAndDirectories, false, "*.component");   // AUs never nest in vendor folders
+        addHits (hits, "AU");
+    }
+   #endif
 
     auto* msg = new juce::DynamicObject();
     msg->setProperty ("plugins", juce::var (list));

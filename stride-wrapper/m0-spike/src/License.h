@@ -13,17 +13,61 @@
 #include <functional>
 #include <cstdint>
 #include <monocypher-ed25519.h>   // standard Ed25519 (SHA-512) verify — src/third_party/monocypher
+#if JUCE_MAC
+ #include <pwd.h>                 // getpwuid — the REAL home dir inside a sandboxed host
+ #include <unistd.h>
+#endif
 
 namespace stride_license
 {
     inline constexpr const char* kEndpoint = "https://generate-midi-z3spyrafvq-uc.a.run.app";
     inline constexpr int kOfflineGraceDays = 14;
 
+   #if JUCE_MAC
+    // Sandboxed hosts (Logic Pro / GarageBand are App-Sandboxed) resolve "~" to the
+    // host's CONTAINER (~/Library/Containers/<host>/Data), not the user's real home.
+    inline bool hostIsSandboxed()
+    {
+        return juce::File::getSpecialLocation (juce::File::userHomeDirectory)
+                 .getFullPathName().contains ("/Library/Containers/");
+    }
+    // The real per-user home even inside a sandboxed host — from the passwd db, which
+    // the sandbox does not rewrite (unlike $HOME / NSHomeDirectory).
+    inline juce::File realUserHome()
+    {
+        if (const auto* pw = getpwuid (getuid()))
+            if (pw->pw_dir != nullptr && pw->pw_dir[0] == '/')
+                return juce::File (juce::String (juce::CharPointer_UTF8 (pw->pw_dir)));
+        return juce::File::getSpecialLocation (juce::File::userHomeDirectory);
+    }
+   #endif
+
     // Shared with the desktop Electron app (userData = .../stride-canvas).
     inline juce::File dataDir()
     {
-        return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                 .getChildFile ("stride-canvas").getChildFile ("stride-data");
+        auto fallback = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                          .getChildFile ("stride-canvas").getChildFile ("stride-data");
+       #if JUCE_MAC
+        // In Logic/GarageBand the fallback would land INSIDE the host's container, hiding a
+        // license activated in Live/Bitwig (and burning a second activation seat). Logic's
+        // sandbox ships file exceptions broad enough for plugin data, so prefer the REAL
+        // per-user folder whenever it's actually usable; if the sandbox denies it, the
+        // container path still works — activation is then just per-host, like today.
+        static const juce::File resolved = [fallback]
+        {
+            if (! hostIsSandboxed()) return fallback;
+            const auto real = realUserHome().getChildFile ("Library")
+                                .getChildFile ("stride-canvas").getChildFile ("stride-data");
+            if (real == fallback) return fallback;
+            if (real.getChildFile ("license.json").existsAsFile()) return real;   // shared license already there
+            real.createDirectory();
+            if (real.isDirectory() && real.hasWriteAccess()) return real;
+            return fallback;
+        }();
+        return resolved;
+       #else
+        return fallback;
+       #endif
     }
     inline juce::File licenseFile() { return dataDir().getChildFile ("license.json"); }
 

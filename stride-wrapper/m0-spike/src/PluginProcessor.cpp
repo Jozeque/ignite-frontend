@@ -21,6 +21,21 @@ namespace {
         for (auto& t : a) if (t.isNotEmpty()) out.push_back ((float) t.getDoubleValue());
     }
 
+    // Resolve which registered hosting format owns this file/bundle (VST3 everywhere,
+    // AU .components on macOS) and list the plugins inside it. The saved chain stores
+    // plain paths, so project restore resolves the format the exact same way — an old
+    // VST3-only save and a Logic-side .component both round-trip through here.
+    void findPluginTypesForFile (juce::AudioPluginFormatManager& fm, const juce::String& path,
+                                 juce::OwnedArray<juce::PluginDescription>& out)
+    {
+        for (auto* f : fm.getFormats())
+            if (f != nullptr && f->fileMightContainThisPluginType (path))
+            {
+                f->findAllTypesForFile (out, path);
+                if (! out.isEmpty()) return;
+            }
+    }
+
     // Configure a hosted plugin to MAIN BUS ONLY. enableAllBuses() switches on aux/
     // sidechain buses (e.g. FabFilter Pro-Q 4 / Saturn 2's sidechain input); JUCE then
     // expects the process buffer to carry those extra channels too, but Stride passes
@@ -55,6 +70,11 @@ StrideWrapperProcessor::StrideWrapperProcessor()
         .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
 {
     formatManager.addFormat (std::make_unique<juce::VST3PluginFormat>());
+   #if JUCE_PLUGINHOST_AU && JUCE_MAC
+    // Logic users' libraries are often AU-first (some plugins are installed AU-only),
+    // so on macOS Stride hosts both formats. Windows stays VST3-only (AU doesn't exist there).
+    formatManager.addFormat (std::make_unique<juce::AudioUnitPluginFormat>());
+   #endif
 
     // Publish the fixed macro-parameter pool so the DAW can automate/record the hosted
     // knobs. addParameter takes ownership; we keep raw pointers for the drive loop. This is
@@ -315,19 +335,19 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
 }
 
 // ── hosted chain (message thread) ──────────────────────────────────
-void StrideWrapperProcessor::loadPlugin (const juce::File& vst3File)
+void StrideWrapperProcessor::loadPlugin (const juce::File& pluginFile)
 {
-    juce::VST3PluginFormat fmt;
     juce::OwnedArray<juce::PluginDescription> found;
-    fmt.findAllTypesForFile (found, vst3File.getFullPathName());
+    findPluginTypesForFile (formatManager, pluginFile.getFullPathName(), found);
 
     if (found.isEmpty())
     {
-        DBG ("Stride M0: no VST3 plugin found at " << vst3File.getFullPathName());
+        DBG ("Stride M0: no plugin found at " << pluginFile.getFullPathName());
+        if (onLoadFailed) onLoadFailed (pluginFile.getFileNameWithoutExtension(), "no loadable plugin at this path");
         return;
     }
 
-    const auto pathStr = vst3File.getFullPathName();
+    const auto pathStr = pluginFile.getFullPathName();
     formatManager.createPluginInstanceAsync (
         *found[0], currentSampleRate, currentBlockSize,
         [this, pathStr] (std::unique_ptr<juce::AudioPluginInstance> instance, const juce::String& error)
@@ -335,7 +355,7 @@ void StrideWrapperProcessor::loadPlugin (const juce::File& vst3File)
             if (instance == nullptr)
             {
                 DBG ("Stride M0: load failed - " << error);
-                juce::ignoreUnused (error);
+                if (onLoadFailed) onLoadFailed (juce::File (pathStr).getFileNameWithoutExtension(), error);
                 return;
             }
 
@@ -468,9 +488,8 @@ void StrideWrapperProcessor::restoreNextDevice (std::shared_ptr<std::vector<Remo
 
     if (d.path.isEmpty()) { restoreNextDevice (devs, i + 1); return; }
 
-    juce::VST3PluginFormat fmt;
     juce::OwnedArray<juce::PluginDescription> found;
-    fmt.findAllTypesForFile (found, d.path);
+    findPluginTypesForFile (formatManager, d.path, found);
     if (found.isEmpty()) { restoreNextDevice (devs, i + 1); return; }   // skip a missing plugin, keep going
 
     formatManager.createPluginInstanceAsync (

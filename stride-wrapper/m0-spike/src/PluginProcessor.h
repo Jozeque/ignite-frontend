@@ -15,6 +15,7 @@
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <vector>
 #include <array>
+#include <functional>
 
 class StrideWrapperProcessor : public juce::AudioProcessor,
                                private juce::AudioProcessorListener,
@@ -46,7 +47,7 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     // ── hosted chain (instrument + effects, all inside Stride) ──
-    void loadPlugin (const juce::File& vst3File);     // APPENDS to the chain
+    void loadPlugin (const juce::File& pluginFile);   // APPENDS to the chain (.vst3 everywhere; .component AU on macOS)
     void clearChain();
     void removeNode (int index);                      // revoke ONE device (deliberate, from Stride's UI)
     void moveNode (int from, int to);                 // reorder the chain (drag) — reindexes mapped params/lanes so curves stay on their knobs
@@ -117,6 +118,11 @@ public:
 
     std::atomic<bool>  modEnabled   { true };
     std::atomic<float> lastModValue { 0.0f };
+
+    // Interactive load failures surface in the UI instead of a silent DBG — on Mac the
+    // #1 real-world cause is an Intel-only bundle inside an arm64 host process (Logic).
+    // Message thread only; owned by the editor (set in its ctor, reset in its dtor).
+    std::function<void (const juce::String& name, const juce::String& error)> onLoadFailed;
 
 private:
     void audioProcessorParameterChanged (juce::AudioProcessor*, int parameterIndex, float newValue) override;

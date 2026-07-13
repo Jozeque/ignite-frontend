@@ -13,9 +13,10 @@
 # Artefacts:
 #   build/StrideWrapperM0_artefacts/Release/Standalone/Stride.exe
 #   build/StrideWrapperM0_artefacts/Release/VST3/Stride.vst3
+#   build-mac/StrideWrapperM0_artefacts/Release/AU/Stride.component   (macOS only — Logic/GarageBand)
 # ============================================================
 cmake_minimum_required(VERSION 3.22)
-project(StrideWrapperM0 VERSION 1.0.4 LANGUAGES C CXX)
+project(StrideWrapperM0 VERSION 1.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -61,12 +62,17 @@ juce_add_plugin(StrideWrapperM0
     BUNDLE_ID                   io.stridehub.wrapper.m0
     PLUGIN_MANUFACTURER_CODE    Strd
     PLUGIN_CODE                 SwM0
-    FORMATS                     VST3 Standalone
+    # AU is macOS-only and silently skipped elsewhere by JUCE. The AU identity triple
+    # (aumu / SwM0 / Strd) is derived from the codes above and is FROZEN the moment the
+    # first .component ships — changing any of them would orphan every Logic project.
+    FORMATS                     AU VST3 Standalone
+    AU_MAIN_TYPE                kAudioUnitType_MusicDevice   # instrument ("aumu") — Logic lists it in the Instrument slot
     IS_SYNTH                    TRUE      # MIDI in, audio out (it wraps an instrument)
     NEEDS_MIDI_INPUT            TRUE
     NEEDS_WEB_BROWSER           TRUE      # M1: the UI is now a JUCE WebView
     NEEDS_WEBVIEW2              TRUE
     EDITOR_WANTS_KEYBOARD_FOCUS TRUE
+    PLUGINHOST_AU               TRUE      # macOS: host the user's AU plugins inside Stride (links AudioUnit + CoreAudioKit; no-op on Windows)
     COPY_PLUGIN_AFTER_BUILD     FALSE     # a DAW holding the loaded .vst3 must not fail the build
 )
 
@@ -85,7 +91,8 @@ endif()
 
 target_compile_definitions(StrideWrapperM0 PUBLIC
     JUCE_PLUGINHOST_VST3=1                          # the whole point — host VST3s
-    JUCE_PLUGINHOST_AU=0                            # AU hosting is a later macOS milestone
+    # JUCE_PLUGINHOST_AU=1 comes from PLUGINHOST_AU above (JUCE also links the frameworks);
+    # the AU-hosting code itself is additionally guarded JUCE_MAC (the class only exists there)
     JUCE_WEB_BROWSER=1                              # M1: WebView UI
     JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1     # no WebView2Loader.dll to ship
     JUCE_USE_CURL=0

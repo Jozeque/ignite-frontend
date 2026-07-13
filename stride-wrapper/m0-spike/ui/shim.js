@@ -242,6 +242,32 @@
     try { window.strideLink._emit(msg && msg.type, msg); } catch (e) { showErr('sl_event: ' + e.message); }
   });
 
+  // A device failed to load (bad path, wrong format, or — the common Mac case — an
+  // Intel-only bundle inside an arm64 host process). Silent DBG was a support ticket;
+  // show a small toast with the actionable cause instead.
+  var _loadFailToast = null, _loadFailTimer = 0;
+  listen('loadFailed', function (d) {
+    try {
+      var nm = (d && d.name) || 'That plugin';
+      var isMac = /Mac/i.test(navigator.platform || '');
+      var hint = isMac ? 'It may be Intel-only (this host runs Apple Silicon-native), a broken install, or an unsupported format.'
+                       : 'The file may be missing, 32-bit, or not a VST3.';
+      if (!_loadFailToast) {
+        _loadFailToast = document.createElement('div');
+        _loadFailToast.className = 'fixed bottom-6 right-6 bg-zinc-900 border border-orange-500/40 rounded-xl shadow-2xl z-[9999] max-w-sm p-4';
+        _loadFailToast.style.fontFamily = "'Outfit',sans-serif";
+        document.body.appendChild(_loadFailToast);
+      }
+      _loadFailToast.innerHTML = '';
+      var t1 = document.createElement('div'); t1.className = 'text-[11px] text-orange-400 font-black uppercase tracking-wider'; t1.textContent = 'Couldn’t load ' + nm;
+      var t2 = document.createElement('div'); t2.className = 'text-[10px] text-zinc-400 mt-1 leading-snug'; t2.textContent = hint;
+      _loadFailToast.appendChild(t1); _loadFailToast.appendChild(t2);
+      _loadFailToast.style.display = '';
+      if (_loadFailTimer) clearTimeout(_loadFailTimer);
+      _loadFailTimer = setTimeout(function () { if (_loadFailToast) _loadFailToast.style.display = 'none'; }, 8000);
+    } catch (e) { showErr('loadFailed: ' + e.message); }
+  });
+
   // ── window.strideCloud (cloud generation) — offline stub ─────────
   window.strideCloud = {
     isOnline: false, credits: 0,
@@ -254,7 +280,10 @@
   // Favorite synths — stored client-side so the user picks them ONCE.
   function favGet() { return lsGet('stride_fav_synths', []); }                 // [{name, path}]
   function favSet(v) { lsSet('stride_fav_synths', v); }
-  function favName(path) { var p = String(path).replace(/\\/g, '/'); var f = p.split('/').pop() || path; return f.replace(/\.vst3$/i, ''); }
+  function favName(path) { var p = String(path).replace(/\\/g, '/'); var f = p.split('/').pop() || path; return f.replace(/\.(vst3|component)$/i, ''); }
+  // Display label for a favorite: AU devices (.component, macOS) carry an "(AU)" suffix so
+  // the same synth installed in both formats stays tellable-apart in the dropdown.
+  function favLabel(path) { return /\.component$/i.test(String(path)) ? favName(path) + ' (AU)' : favName(path); }
 
   var favSelect = null;
   function populateFav() {
@@ -283,7 +312,7 @@
     var head = document.createElement('div'); head.className = 'flex items-center justify-between px-4 py-3 border-b border-white/5';
     var title = document.createElement('span'); title.className = 'text-[12px] text-zinc-100 font-black uppercase tracking-[0.15em]'; title.textContent = 'Add a device';
     var hright = document.createElement('div'); hright.className = 'flex items-center gap-3';
-    var browse = document.createElement('button'); browse.textContent = 'Browse files…'; browse.className = 'text-[10px] uppercase tracking-wider font-bold text-zinc-400 hover:text-orange-400'; browse.title = 'Load any .vst3 from a custom folder'; browse.onclick = function () { closePluginBrowser(); emit('loadSynth'); };
+    var browse = document.createElement('button'); browse.textContent = 'Browse files…'; browse.className = 'text-[10px] uppercase tracking-wider font-bold text-zinc-400 hover:text-orange-400'; browse.title = (/Mac/i.test(navigator.platform || '') ? 'Load any .vst3 / .component from a custom folder' : 'Load any .vst3 from a custom folder'); browse.onclick = function () { closePluginBrowser(); emit('loadSynth'); };
     var cl = document.createElement('button'); cl.textContent = '×'; cl.className = 'text-zinc-500 hover:text-zinc-200 text-xl leading-none'; cl.onclick = closePluginBrowser;
     hright.appendChild(browse); hright.appendChild(cl);
     head.appendChild(title); head.appendChild(hright); panel.appendChild(head);
@@ -294,29 +323,40 @@
     swrap.appendChild(search); panel.appendChild(swrap);
 
     var listEl = document.createElement('div'); listEl.className = 'flex-1 overflow-auto px-2 py-2'; panel.appendChild(listEl);
+    // Format chips only when the list actually mixes formats (VST3 + AU on Mac) — a
+    // VST3-only list (Windows, or a Mac with no AUs) renders exactly like before.
+    var multiFmt = plugins.some(function (x) { return x.fmt && x.fmt !== 'VST3'; });
     function render(filter) {
       listEl.innerHTML = ''; var f = (filter || '').toLowerCase(); var shown = 0;
       plugins.forEach(function (p) {
         if (f && (p.name || '').toLowerCase().indexOf(f) < 0) return; shown++;
         var row = document.createElement('button');
         row.className = 'w-full text-left flex items-center justify-between gap-3 px-3 py-2 rounded-lg hover:bg-white/5 transition-colors group';
+        var left = document.createElement('span'); left.className = 'flex items-center gap-2 min-w-0';
         var nm = document.createElement('span'); nm.className = 'text-[12px] text-zinc-200 group-hover:text-white truncate'; nm.textContent = p.name;
-        var add = document.createElement('span'); add.className = 'text-[9px] uppercase tracking-wider font-bold text-zinc-600 group-hover:text-orange-400'; add.textContent = 'Add';
-        row.appendChild(nm); row.appendChild(add);
+        left.appendChild(nm);
+        if (multiFmt && p.fmt) {
+          var fc = document.createElement('span');
+          fc.className = 'text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded border shrink-0 ' + (p.fmt === 'AU' ? 'text-sky-400/90 border-sky-400/25' : 'text-zinc-500 border-white/10');
+          fc.textContent = p.fmt;
+          left.appendChild(fc);
+        }
+        var add = document.createElement('span'); add.className = 'text-[9px] uppercase tracking-wider font-bold text-zinc-600 group-hover:text-orange-400 shrink-0'; add.textContent = 'Add';
+        row.appendChild(left); row.appendChild(add);
         row.onclick = function () {
           emit('loadSynthPath', { path: p.path });
-          var favs = favGet(); if (! favs.some(function (x) { return x.path === p.path; })) { favs.push({ name: p.name, path: p.path }); favSet(favs); populateFav(); }
-          nm.className = 'text-[12px] text-emerald-400 truncate'; add.textContent = '✓ added'; add.className = 'text-[9px] uppercase tracking-wider font-bold text-emerald-400';
+          var favs = favGet(); if (! favs.some(function (x) { return x.path === p.path; })) { favs.push({ name: (p.fmt === 'AU' ? p.name + ' (AU)' : p.name), path: p.path }); favSet(favs); populateFav(); }
+          nm.className = 'text-[12px] text-emerald-400 truncate'; add.textContent = '✓ added'; add.className = 'text-[9px] uppercase tracking-wider font-bold text-emerald-400 shrink-0';
         };
         listEl.appendChild(row);
       });
-      if (! shown) { var e = document.createElement('div'); e.className = 'text-[11px] text-zinc-600 px-3 py-6 text-center'; e.textContent = plugins.length ? 'No matches' : 'No VST3 plugins found in the standard folders.'; listEl.appendChild(e); }
+      if (! shown) { var e = document.createElement('div'); e.className = 'text-[11px] text-zinc-600 px-3 py-6 text-center'; e.textContent = plugins.length ? 'No matches' : 'No plugins found in the standard folders.'; listEl.appendChild(e); }
     }
     search.oninput = function () { render(search.value); };
     render('');
 
     var foot = document.createElement('div'); foot.className = 'flex items-center justify-between px-4 py-3 border-t border-white/5';
-    var hint = document.createElement('span'); hint.className = 'text-[10px] text-zinc-600'; hint.textContent = plugins.length + ' found in the standard VST3 folder';
+    var hint = document.createElement('span'); hint.className = 'text-[10px] text-zinc-600'; hint.textContent = plugins.length + ' found in the standard plugin folders';
     foot.appendChild(hint); panel.appendChild(foot);
 
     ov.appendChild(panel); document.body.appendChild(ov); pluginModal = ov;
@@ -576,7 +616,7 @@
       listen('favoritesPicked', function (d) {
         var favs = favGet(); var have = {};
         favs.forEach(function (f) { have[f.path] = 1; });
-        ((d && d.paths) || []).forEach(function (p) { if (! have[p]) { favs.push({ name: favName(p), path: p }); have[p] = 1; } });
+        ((d && d.paths) || []).forEach(function (p) { if (! have[p]) { favs.push({ name: favLabel(p), path: p }); have[p] = 1; } });
         favSet(favs); populateFav();
       });
       listen('learnState', function (d) {
