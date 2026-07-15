@@ -22,11 +22,14 @@
 // A 150ms debounce means any misdelivery bounce terminates after a single cycle.
 #import <Cocoa/Cocoa.h>
 #include "MacKeyForward.h"
+#include <vector>
 
-static id     g_strideKeyMonitor = nil;
-static void*  g_strideEditorView = nullptr;   // NSView* of Stride's editor (raw; refreshed by the editor timer, cleared in its dtor)
+static id     g_strideKeyMonitor  = nil;
+static int    g_strideMonitorRefs = 0;         // one monitor shared by every open editor — dies with the LAST one (multi-instance)
+static std::vector<void*> g_strideEditorViews; // every live Stride editor's NSView* — so ALL instances' frame windows count as "ours"
+static void*  g_strideLastEditorView = nullptr;// most recently refreshed view — the frame-fallback delivery target
 static double g_strideLastPost   = 0.0;
-static bool   g_strideSuppressed = false;     // Logic/GarageBand (out-of-process AU): never post synthetic keys
+static bool   g_strideSuppressed = false;      // Logic/GarageBand (out-of-process AU): never post synthetic keys
 
 void strideMacKeyForward_setSuppressed (bool s) { g_strideSuppressed = s; }
 
@@ -38,23 +41,40 @@ void strideMacKeyForward_tagWindow (void* nsview)
     if (w != nil) w.identifier = @"StrideHostedSynth";
 }
 
-void strideMacKeyForward_setEditorView (void* nsview)  { g_strideEditorView = nsview; }
-void strideMacKeyForward_clearEditorView (void)        { g_strideEditorView = nullptr; }
+void strideMacKeyForward_registerEditorView (void* nsview)
+{
+    if (nsview == nullptr) return;
+    g_strideLastEditorView = nsview;           // refreshed at 30Hz by each editor's timer — last-focused wins the fallback
+    for (void* v : g_strideEditorViews) if (v == nsview) return;   // idempotent
+    g_strideEditorViews.push_back (nsview);
+}
 
-// The DAW-owned window that embeds Stride's editor view (nil when the editor is closed).
+void strideMacKeyForward_unregisterEditorView (void* nsview)
+{
+    if (nsview == nullptr) return;
+    for (size_t i = 0; i < g_strideEditorViews.size(); ++i)
+        if (g_strideEditorViews[i] == nsview) { g_strideEditorViews.erase (g_strideEditorViews.begin() + (long) i); break; }
+    if (g_strideLastEditorView == nsview)
+        g_strideLastEditorView = g_strideEditorViews.empty() ? nullptr : g_strideEditorViews.back();
+}
+
+// The DAW-owned window that embeds the most recently active Stride editor (nil when none).
 static NSWindow* strideEditorFrameWindow (void)
 {
-    if (g_strideEditorView == nullptr) return nil;
-    NSView* v = (__bridge NSView*) g_strideEditorView;
+    if (g_strideLastEditorView == nullptr) return nil;
+    NSView* v = (__bridge NSView*) g_strideLastEditorView;
     return [v window];
 }
 
-// Tagged hosted-synth window, or the plugin frame that embeds Stride's editor.
+// Tagged hosted-synth window, or ANY instance's plugin frame — a re-post must never land in
+// another Stride's frame (its WebView would just swallow the key).
 static bool strideIsOurWindow (NSWindow* w)
 {
     if (w == nil) return true;
     if ([[w identifier] isEqualToString: @"StrideHostedSynth"]) return true;
-    return w == strideEditorFrameWindow();
+    for (void* view : g_strideEditorViews)
+        if (view != nullptr && [(__bridge NSView*) view window] == w) return true;
+    return false;
 }
 
 static NSEvent* strideMakeKeyEvent (NSEventType type, bool isReturn, NSInteger windowNumber)
@@ -124,6 +144,7 @@ void strideMacKeyForward_post (bool isReturn)
 
 void strideMacKeyForward_install (void)
 {
+    ++g_strideMonitorRefs;
     if (g_strideKeyMonitor != nil) return;
     g_strideKeyMonitor = [NSEvent addLocalMonitorForEventsMatchingMask: NSEventMaskKeyDown
         handler: ^NSEvent* (NSEvent* e)
@@ -143,6 +164,8 @@ void strideMacKeyForward_install (void)
 
 void strideMacKeyForward_remove (void)
 {
+    if (--g_strideMonitorRefs > 0) return;   // other Stride instances still need the monitor
+    g_strideMonitorRefs = 0;                 // floor (a stray extra remove can't go negative)
     if (g_strideKeyMonitor != nil)
     {
         [NSEvent removeMonitor: g_strideKeyMonitor];

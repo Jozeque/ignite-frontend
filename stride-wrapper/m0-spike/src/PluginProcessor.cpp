@@ -892,14 +892,42 @@ void StrideWrapperProcessor::announceMacrosToHost()
         }
 }
 
+// Live-mode mirror pacing (message thread). 66ms ≈ 15Hz — half the editor tick: a watched
+// knob still reads as continuous, the host-event load halves (and it multiplies per open
+// instance). 400ms of stillness ends a slot's host gesture (touch semantics).
+static constexpr juce::uint32 kMirrorIntervalMs = 66;
+static constexpr juce::uint32 kGestureQuietMs   = 400;
+
 // In LIVE mode the macro is normally a silent display mirror. To make Ableton's exposed params
 // actually MOVE with the drawn curve (0..1 Y over the loop's X) — and record into an automation
-// lane when armed — report the live value to the host via setValueNotifyingHost. Change-detected
-// so a static lane doesn't spam the host. NOT in Automation mode (there the host drives us).
+// lane when armed — report the live value to the host via setValueNotifyingHost. Change-detected,
+// capped to ~15Hz, and each moving stretch is WRAPPED IN A HOST GESTURE (begin on first move,
+// end after 400ms of stillness): an un-gestured edit stream reads as thousands of one-off
+// automation writes — the expensive path in every host. NOT in Automation mode (there the host
+// drives us).
+// NI EXCEPTION: Maschine 2 (Mac report 2026-07, 4-5 instances) never drains a sustained edit
+// stream — its UI thread backlogs until the whole app hangs mid-playback. Maschine's browser
+// doesn't surface these params usefully anyway, so under Maschine the mirror is OFF entirely;
+// Automation mode (Maschine driving our macros) still works.
 // Message thread (driven by the editor timer).
 void StrideWrapperProcessor::pushMacroValuesToHost()
 {
+    static const bool niHost = juce::PluginHostType().isMaschine();
+    if (niHost) return;
+
+    const auto now = juce::Time::getMillisecondCounter();
+
+    for (auto* mp : macroParams)                    // end gestures on slots that went still
+        if (mp != nullptr && mp->gestureOpen && now - mp->lastEditMs > kGestureQuietMs)
+        {
+            mp->endChangeGesture();
+            mp->gestureOpen = false;
+        }
+
     if (driveMode.load() != DriveMode::Live) return;
+    if (now - lastMirrorPushMs < kMirrorIntervalMs) return;
+    lastMirrorPushMs = now;
+
     std::vector<int> slots;
     {
         const juce::ScopedLock sl (hostLock);
@@ -912,9 +940,28 @@ void StrideWrapperProcessor::pushMacroValuesToHost()
             const float v = mp->getValue();
             if (std::abs (v - mp->lastPushed) > 0.0005f)
             {
-                mp->setValueNotifyingHost (v);   // Ableton's param follows the modulation
+                if (! mp->gestureOpen)
+                {
+                    mp->beginChangeGesture();       // opens the touch — the host coalesces edits inside it
+                    mp->gestureOpen = true;
+                }
+                mp->setValueNotifyingHost (v);      // Ableton's param follows the modulation
                 mp->lastPushed = v;
+                mp->lastEditMs = now;
             }
+        }
+}
+
+// End any still-open macro gestures. The editor timer is the only thing that closes them on
+// stillness, so the editor DESTRUCTOR calls this — otherwise closing Stride's window mid-play
+// leaves the host thinking those params are still touched (Live would latch them while recording).
+void StrideWrapperProcessor::closeMacroGestures()
+{
+    for (auto* mp : macroParams)
+        if (mp != nullptr && mp->gestureOpen)
+        {
+            mp->endChangeGesture();
+            mp->gestureOpen = false;
         }
 }
 

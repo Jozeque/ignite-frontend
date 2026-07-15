@@ -259,12 +259,14 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
 StrideWrapperEditor::~StrideWrapperEditor()
 {
     proc.onLoadFailed = nullptr;   // the processor outlives us — never leave a dangling capture
+    proc.closeMacroGestures();     // our timer was the only gesture-closer — a window closed mid-play must not leave params "touched"
    #if JUCE_WINDOWS
     removeKeyHook();
    #endif
    #if JUCE_MAC
-    strideMacKeyForward_remove();
-    strideMacKeyForward_clearEditorView();   // never leave a dangling NSView* in the forwarder
+    strideMacKeyForward_remove();                          // refcounted — the monitor survives for other open Stride instances
+    strideMacKeyForward_unregisterEditorView (lastForwardView);   // drop only OUR view (never another instance's)
+    lastForwardView = nullptr;
    #endif
     stopTimer();
     synthWindows.clear();
@@ -688,10 +690,14 @@ void StrideWrapperEditor::timerCallback()
     proc.pushMacroValuesToHost();   // Live mode: Ableton's exposed params follow the modulation (+ record when armed)
 
    #if JUCE_MAC
-    // Keep the .mm's idea of "Stride's editor view" fresh — key forwarding uses it to tell
-    // the DAW's plugin frame window (ours, don't sendEvent into it) from the DAW's real
-    // windows. 30Hz store of one pointer; cleared in the destructor.
-    strideMacKeyForward_setEditorView (getPeer() != nullptr ? getPeer()->getNativeHandle() : nullptr);
+    // Keep OUR entry in the forwarder's editor-view REGISTRY fresh — key forwarding uses it
+    // to tell every Stride instance's plugin frame window (ours, don't sendEvent into those)
+    // from the DAW's real windows. Idempotent 30Hz refresh; the dtor unregisters exactly this.
+    if (auto* peer = getPeer())
+    {
+        lastForwardView = peer->getNativeHandle();
+        strideMacKeyForward_registerEditorView (lastForwardView);
+    }
    #endif
 
     // Re-derive the native entitlement gates (~every 2s) so a Discovery Pass expiring MID-SESSION

@@ -60,13 +60,13 @@ const mac  = rd(path.join(W, 'src', 'MacKeyForward.mm'));
 const macH = rd(path.join(W, 'src', 'MacKeyForward.h'));
 const cmake = rd(path.join(W, 'CMakeLists.txt'));
 ok('Mac branch: forwardTransportKey -> strideMacKeyForward_post', /#elif JUCE_MAC\s*\n\s*strideMacKeyForward_post \(key == "enter"\)/.test(editor));
-ok('mm: discovery skips OUR windows (tagged synths + the editor frame)', /strideIsOurWindow[\s\S]{0,220}StrideHostedSynth[\s\S]{0,120}strideEditorFrameWindow\(\)/.test(mac));
+ok('mm: discovery skips OUR windows (tagged synths + EVERY instance\'s editor frame)', /strideIsOurWindow[\s\S]{0,260}StrideHostedSynth[\s\S]{0,320}g_strideEditorViews/.test(mac));
 ok('mm: mainWindow alone is not trusted — falls back to the frontmost non-ours window', /\[NSApp mainWindow\][\s\S]{0,320}strideIsOurWindow \(target\)[\s\S]{0,320}orderedWindows/.test(mac));
 ok('mm: sandboxed-host fallback hands the key to the frame window OBJECT (skips our WebView, no loop)', /strideEditorFrameWindow\(\);[\s\S]{0,340}\[frame keyDown:[\s\S]{0,120}\[frame keyUp:/.test(mac));
 ok('mm: fresh down+up NSEvents with the target\'s window number (Space 49 / Return 36)', /keyEventWithType[\s\S]{0,460}isReturn \? 36 : 49/.test(mac) && /sendEvent: strideMakeKeyEvent \(NSEventTypeKeyDown[\s\S]{0,140}sendEvent: strideMakeKeyEvent \(NSEventTypeKeyUp/.test(mac));
 ok('mm: monitor ignores key auto-repeat (a synthesized pair per repeat would rapid-toggle)', /! \[e isARepeat\]/.test(mac));
 ok('mm: its own 150ms debounce breaks any misdelivery bounce', /g_strideLastPost < 0\.15\) return false/.test(mac));
-ok('editor registers its NSView with the forwarder (timer) + clears it on destruction', /strideMacKeyForward_setEditorView \(getPeer\(\) != nullptr/.test(editor) && /strideMacKeyForward_clearEditorView\(\)/.test(editor) && /strideMacKeyForward_clearEditorView \(void\)/.test(macH));
+ok('editor registers its NSView with the forwarder (timer) + unregisters ONLY ITS OWN on destruction (multi-instance)', /strideMacKeyForward_registerEditorView \(lastForwardView\)/.test(editor) && /strideMacKeyForward_unregisterEditorView \(lastForwardView\)/.test(editor) && /strideMacKeyForward_unregisterEditorView \(void\* nsview\)/.test(macH));
 ok('mm compiled on Apple only (CMake)', /if\(APPLE\)[\s\S]{0,120}MacKeyForward\.mm/.test(cmake));
 
 console.log('  ' + passed + ' passed, ' + failed + ' failed');

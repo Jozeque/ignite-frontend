@@ -110,7 +110,8 @@ public:
     DriveMode getDriveMode() const { return driveMode.load(); }
     int  exposedMacroCount() const;              // assigned macro slots (for the panel note)
     void announceMacrosToHost();                 // fire a host gesture on each exposed macro so Ableton's Configure catches them (message thread)
-    void pushMacroValuesToHost();                // Live mode: report the live modulation value to the host so Ableton's params FOLLOW it (and record if armed). Message thread.
+    void pushMacroValuesToHost();                // Live mode: report the live modulation value to the host so Ableton's params FOLLOW it (and record if armed). ~15Hz, gesture-wrapped, OFF under Maschine. Message thread.
+    void closeMacroGestures();                   // end any open macro gestures — the editor timer is their only closer, so the editor DTOR must call this (message thread)
 
     // ── live curve drive ──
     struct DriveLane { int position; std::vector<float> times, values, curves; };
@@ -166,9 +167,12 @@ private:
         juce::String label;                    // "" = free (message-thread writes; host reads names on the message thread)
         std::atomic<float> value { 0.0f };     // audio-thread safe
         float lastPushed = -1.0f;              // last value host-notified (message thread only; change-detect for the drive push)
+        bool  gestureOpen = false;             // an OPEN host gesture spans each moving stretch (message thread only)
+        juce::uint32 lastEditMs = 0;           // last host-notify time — stillness ends the gesture (message thread only)
         const int slot;
     };
     std::array<MacroParameter*, kMacroCount> macroParams {};   // owned by the AudioProcessor (addParameter)
+    juce::uint32 lastMirrorPushMs = 0;                          // Live-mode mirror pacing (~15Hz cap; message thread only)
     std::atomic<DriveMode> driveMode { DriveMode::Live };
     std::atomic<bool> learnMode  { false };
     std::atomic<bool> unlearnMode { false };   // Map (add-by-touch) and Unmap (remove-by-touch) are mutually exclusive
