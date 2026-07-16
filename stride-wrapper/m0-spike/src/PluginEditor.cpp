@@ -471,6 +471,18 @@ void StrideWrapperEditor::handleStrideLinkSend (const juce::var& msg)
         return;
     }
 
+    // Range band edit (icon toggle / boundary drag / MIN-MAX fields). ENGINE-OWNED: persists
+    // in the project and rack_scanned echoes it back — so re-pushes/reopens can't wipe it.
+    if (type == "set_range")
+    {
+        if (proc.isEditLocked()) return;
+        proc.setMappedRange ((int) msg.getProperty ("id", -1),
+                             (bool) msg.getProperty ("on", false),
+                             (float) (double) msg.getProperty ("min", 0.0),
+                             (float) (double) msg.getProperty ("max", 1.0));
+        return;
+    }
+
     // Unmap ONE param (the per-lane × in Stride). Deliberately does NOT re-push:
     // the canvas re-indexes its own lanes to match the erase, so a positional
     // re-push here would misroute the other lanes' drawn curves.
@@ -547,6 +559,7 @@ void StrideWrapperEditor::pushRackScanned()
     juce::Array<juce::var> params;
     const auto names = proc.getMappedParamNames();
     const auto curves = proc.getMappedCurves();   // drive curves so a reopen SHOWS them, not just an empty canvas
+    const auto ranges = proc.getMappedRanges();   // range bands too — engine-owned, so a re-push/reopen can't wipe them
     for (int i = 0; i < names.size(); ++i)
     {
         auto* o = new juce::DynamicObject();
@@ -560,6 +573,12 @@ void StrideWrapperEditor::pushRackScanned()
         o->setProperty ("_path", "wrap:" + juce::String (i));   // stable enough for v1
         o->setProperty ("is_log", false);
         if (i < curves.size()) o->setProperty ("points", curves[i]);   // restore the drawn curve onto this lane
+        if (i < ranges.size() && (bool) ranges[i].getProperty ("on", false))
+        {
+            o->setProperty ("rangeOn",  true);                          // canvas rebuilds the band from these
+            o->setProperty ("rangeMin", ranges[i].getProperty ("lo", 0.0));
+            o->setProperty ("rangeMax", ranges[i].getProperty ("hi", 1.0));
+        }
         params.add (juce::var (o));
     }
 

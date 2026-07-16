@@ -20,7 +20,7 @@ const shim = rd(path.join(root, 'stride-wrapper', 'm0-spike', 'ui', 'shim.js'));
 
 // ── data model + persistence ────────────────────────────────
 ok('range fields default null (rangeOn:false, min:0, max:1) at init sites', (cv.match(/rangeOn:\s*false,\s*rangeMin:\s*0,\s*rangeMax:\s*1/g) || []).length >= 1);
-ok('range carried across rescan + restored', /carried\[k\]\s*=\s*\{[\s\S]{0,160}rangeOn/.test(cv) && /if\s*\(c\.rangeOn\)\s*\{\s*p\.rangeOn\s*=\s*true/.test(cv));
+ok('range carried across rescan + restored (engine payload wins when it speaks)', /carried\[k\]\s*=\s*\{[\s\S]{0,160}rangeOn/.test(cv) && /if\s*\(c\.rangeOn\s*&&\s*!p\.rangeOn\)\s*\{\s*p\.rangeOn\s*=\s*true/.test(cv));
 ok('range reset on clip switch', /p\.rangeOn\s*=\s*false;\s*p\.rangeMin\s*=\s*0;\s*p\.rangeMax\s*=\s*1/.test(cv));
 ok('save stores 0..1 shape + range metadata (non-destructive)', /rangeOn:\s*!!p\.rangeOn,\s*rangeMin:\s*p\.rangeMin,\s*rangeMax:\s*p\.rangeMax/.test(cv));
 ok('restore loads the range independent of lock/curve', /param\.rangeOn\s*=\s*sp\.rangeOn/.test(cv));
@@ -37,7 +37,7 @@ ok('range icon defined + drawn next to focus/lock', /function _drawRangeIcon/.te
 
 // ── interaction ─────────────────────────────────────────────
 ok('range icon: single click toggles, double click resets', /p\.rangeOn\s*=\s*!p\.rangeOn/.test(cv) && /_sdRangeIconClick[\s\S]{0,180}p\.rangeOn\s*=\s*false;\s*p\.rangeMin\s*=\s*0;\s*p\.rangeMax\s*=\s*1/.test(cv));
-ok('boundary drag: grab -> mousemove update -> mouseup persist', /_sdRangeDrag\s*=\s*\{\s*param:[\s\S]{0,40}edge:/.test(cv) && /if\s*\(_sdRangeDrag\)\s*\{[\s\S]{0,450}rangeMax\s*=\s*Math\.max/.test(cv) && /if\s*\(_sdRangeDrag\)\s*\{[\s\S]{0,160}_sdRangeDrag\s*=\s*null[\s\S]{0,140}saveCanvasState/.test(cv));
+ok('boundary drag: grab -> mousemove update -> mouseup persist', /_sdRangeDrag\s*=\s*\{\s*param:[\s\S]{0,40}edge:/.test(cv) && /if\s*\(_sdRangeDrag\)\s*\{[\s\S]{0,450}rangeMax\s*=\s*Math\.max/.test(cv) && /if\s*\(_sdRangeDrag\)\s*\{[\s\S]{0,260}_sdRangeDrag\s*=\s*null[\s\S]{0,320}saveCanvasState/.test(cv));   // windows widened: mouseup now also reports the band to the engine (1.1.5)
 ok('drawing inverse-maps into the band (sdGetTimeValue)', /function _sdRangeInv/.test(cv) && /_sdRangeInv\(sdCanvasParams\[activeIdx\]/.test(cv));
 
 // ── behavioural: scale + inverse (the math the user described) ──

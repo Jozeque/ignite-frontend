@@ -96,6 +96,12 @@ public:
     static constexpr double kDemoFreezeSecs = 60.0;   // then FREEZES (knobs hold) for this long (real-time), repeating
     juce::StringArray getMappedParamNames() const;    // "Device: Param", in mapped order
     juce::Array<juce::var> getMappedCurves() const;   // drive curve [{time,value,curve}...] per mapped param — so a reopen SHOWS the curves (not localStorage-dependent)
+    // Range bands are ENGINE-OWNED (project-persistent) like the curves: client-only ranges
+    // were wiped/misrouted by positional rack re-pushes (field report 2026-07-16). The canvas
+    // reports every committed edit via set_range; rack_scanned echoes them back so every
+    // rebuild — re-push OR project reopen — restores the bands from the source of truth.
+    void setMappedRange (int pos, bool on, float lo, float hi);   // message thread (editor bridge)
+    juce::Array<juce::var> getMappedRanges() const;               // {on,lo,hi} per mapped param, mapped order
     double getClipBeats() const { return driveClipBeats; }   // loop length in beats (bars*4) — for the canvas bar count on load
     void removeMappedAt (int pos);
     void clearMapping();
@@ -161,7 +167,8 @@ private:
     struct Node { std::unique_ptr<juce::AudioPluginInstance> inst; juce::String name; juce::String path; bool bypassed = false; };
     std::vector<Node> chain;                  // [0] = instrument, [1..] = effects, in series
 
-    struct MapRef { int node; int param; int macroSlot = -1; };   // macroSlot = DAW-facing param slot (-1 = not exposed)
+    struct MapRef { int node; int param; int macroSlot = -1;      // macroSlot = DAW-facing param slot (-1 = not exposed)
+                    bool rangeOn = false; float rangeLo = 0.0f, rangeHi = 1.0f; };   // per-param output band (engine-owned, project-persistent)
     std::vector<MapRef> mapped;               // user-mapped params across the chain
 
     // A relabelable VST3 parameter. A free slot reads "Stride N"; an assigned slot takes the
@@ -216,7 +223,8 @@ private:
     {
         bool valid = false;
         struct Dev { juce::String path; juce::MemoryBlock state; int position = 0;
-                     std::vector<int> params; std::vector<int> slots; std::vector<StoredLane> lanes; bool bypassed = false; };
+                     std::vector<int> params; std::vector<int> slots; std::vector<StoredLane> lanes; bool bypassed = false;
+                     std::vector<char> ron; std::vector<float> rlo, rhi; };   // per-param range bands (parallel to params; char ≠ vector<bool>)
         std::vector<Dev> devices;          // 1 for a single ✕, the whole chain for Clear
     };
     RemovedSnapshot lastRemoved;

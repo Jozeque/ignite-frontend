@@ -390,7 +390,8 @@ void StrideWrapperProcessor::clearChain()
         d.path = chain[(size_t) i].path;
         d.position = i;
         if (chain[(size_t) i].inst) chain[(size_t) i].inst->getStateInformation (d.state);
-        for (const auto& m : mapped)     if (m.node == i) { d.params.push_back (m.param); d.slots.push_back (m.macroSlot); }
+        for (const auto& m : mapped)     if (m.node == i) { d.params.push_back (m.param); d.slots.push_back (m.macroSlot);
+                                                            d.ron.push_back (m.rangeOn ? 1 : 0); d.rlo.push_back (m.rangeLo); d.rhi.push_back (m.rangeHi); }
         for (const auto& l : driveLanes) if (l.node == i) d.lanes.push_back (l);
         lastRemoved.devices.push_back (std::move (d));
     }
@@ -418,7 +419,8 @@ void StrideWrapperProcessor::removeNode (int index)
         d.path = chain[(size_t) index].path;
         d.position = index;
         if (chain[(size_t) index].inst) chain[(size_t) index].inst->getStateInformation (d.state);
-        for (const auto& m : mapped)     if (m.node == index) { d.params.push_back (m.param); d.slots.push_back (m.macroSlot); }
+        for (const auto& m : mapped)     if (m.node == index) { d.params.push_back (m.param); d.slots.push_back (m.macroSlot);
+                                                                d.ron.push_back (m.rangeOn ? 1 : 0); d.rlo.push_back (m.rangeLo); d.rhi.push_back (m.rangeHi); }
         for (const auto& l : driveLanes) if (l.node == index) d.lanes.push_back (l);
         lastRemoved.devices.push_back (std::move (d));
     }
@@ -520,8 +522,11 @@ void StrideWrapperProcessor::restoreNextDevice (std::shared_ptr<std::vector<Remo
                     for (auto& m : mapped)     if (m.node >= p) ++m.node;   // make room at p
                     for (auto& l : driveLanes) if (l.node >= p) ++l.node;
                     chain.insert (chain.begin() + p, Node { std::move (inst), name, d.path, d.bypassed });
-                    for (size_t k = 0; k < d.params.size(); ++k)                      // restore this device's lanes
-                        mapped.push_back ({ p, d.params[k], k < d.slots.size() ? d.slots[k] : -1 });
+                    for (size_t k = 0; k < d.params.size(); ++k)                      // restore this device's lanes (+ their range bands)
+                        mapped.push_back ({ p, d.params[k], k < d.slots.size() ? d.slots[k] : -1,
+                                            k < d.ron.size() && d.ron[k] != 0,
+                                            k < d.rlo.size() ? d.rlo[k] : 0.0f,
+                                            k < d.rhi.size() ? d.rhi[k] : 1.0f });
                     for (auto l : d.lanes) { l.node = p; driveLanes.push_back (l); }  // and their curves
                     reassignMacros();      // keep restored slots where valid; fill any gaps (old saves had none)
                 }
@@ -621,6 +626,12 @@ void StrideWrapperProcessor::getStateInformation (juce::MemoryBlock& dest)
         auto* e = mapXml->createNewChildElement ("M");
         e->setAttribute ("n", m.node); e->setAttribute ("p", m.param);
         e->setAttribute ("s", m.macroSlot);   // stable DAW-facing slot -> Ableton automation stays on the right knob across reload
+        if (m.rangeOn)                        // range band: absent = full 0..1 (old projects load unchanged; old builds ignore the attrs)
+        {
+            e->setAttribute ("ro", 1);
+            e->setAttribute ("rl", (double) m.rangeLo);
+            e->setAttribute ("rh", (double) m.rangeHi);
+        }
     }
     auto* laneXml = root.createNewChildElement ("LANES");
     for (const auto& l : driveLanes)
@@ -676,6 +687,9 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
             {
                 (*devs)[(size_t) n].params.push_back (e->getIntAttribute ("p"));
                 (*devs)[(size_t) n].slots.push_back (e->getIntAttribute ("s", -1));   // -1 for pre-macro projects -> reassigned on restore
+                (*devs)[(size_t) n].ron.push_back ((char) (e->getIntAttribute ("ro", 0) != 0 ? 1 : 0));
+                (*devs)[(size_t) n].rlo.push_back ((float) e->getDoubleAttribute ("rl", 0.0));
+                (*devs)[(size_t) n].rhi.push_back ((float) e->getDoubleAttribute ("rh", 1.0));
             }
         }
     if (auto* laneXml = xml->getChildByName ("LANES"))
@@ -788,6 +802,10 @@ juce::StringArray StrideWrapperProcessor::getMappedParamNames() const
 // array for a param with no curve yet. Sent in rack_scanned so reopening Stride shows
 // the drawn curves straight from the engine — the reliable source of truth (persisted
 // in the project state + live in the running instance), independent of localStorage.
+// RANGED lanes: the stored drive values are HOST-BOUND (the canvas/shim scale the 0..1
+// shape into [lo,hi] before pushing — that's what actually drives the knob). The canvas
+// wants the RAW shape back (it re-applies the band for display and on the next push), so
+// the echo inverse-maps by the lane's band. Bands off = byte-identical to before.
 juce::Array<juce::var> StrideWrapperProcessor::getMappedCurves() const
 {
     juce::Array<juce::var> out;
@@ -795,20 +813,57 @@ juce::Array<juce::var> StrideWrapperProcessor::getMappedCurves() const
     for (const auto& m : mapped)
     {
         juce::Array<juce::var> pts;
+        const float span    = m.rangeHi - m.rangeLo;
+        const bool  unscale = m.rangeOn && span > 0.0001f;
         for (const auto& L : driveLanes)
             if (L.node == m.node && L.param == m.param)
             {
                 for (size_t i = 0; i < L.times.size(); ++i)
                 {
+                    float v = i < L.values.size() ? L.values[i] : 0.0f;
+                    if (unscale) v = juce::jlimit (0.0f, 1.0f, (v - m.rangeLo) / span);
                     auto* o = new juce::DynamicObject();
                     o->setProperty ("time",  (double) L.times[i]);
-                    o->setProperty ("value", (double) (i < L.values.size() ? L.values[i] : 0.0f));
+                    o->setProperty ("value", (double) v);
                     o->setProperty ("curve", (double) (i < L.curves.size() ? L.curves[i] : 0.0f));
                     pts.add (juce::var (o));
                 }
                 break;
             }
         out.add (juce::var (pts));
+    }
+    return out;
+}
+
+// Record a lane's output band on its mapped entry — ENGINE-OWNED so it persists in the
+// project and every rack re-push rebuilds the canvas bands from the source of truth
+// (client-only ranges were wiped/misrouted by positional re-pushes; report 2026-07-16).
+// No mapVersion bump: the canvas already shows the edit — a re-push here would fight the
+// very drag that produced it. Message thread (editor bridge).
+void StrideWrapperProcessor::setMappedRange (int pos, bool on, float lo, float hi)
+{
+    const juce::ScopedLock sl (hostLock);
+    if (pos < 0 || pos >= (int) mapped.size()) return;
+    auto& m = mapped[(size_t) pos];
+    m.rangeOn = on;
+    m.rangeLo = juce::jlimit (0.0f, 1.0f, lo);
+    m.rangeHi = juce::jlimit (0.0f, 1.0f, juce::jmax (hi, m.rangeLo));
+    hostDirtyPending.store (true);
+}
+
+// {on,lo,hi} per mapped param, mapped order — pushRackScanned sends these so every canvas
+// rebuild (re-push or project reopen) restores the bands.
+juce::Array<juce::var> StrideWrapperProcessor::getMappedRanges() const
+{
+    juce::Array<juce::var> out;
+    const juce::ScopedLock sl (hostLock);
+    for (const auto& m : mapped)
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("on", m.rangeOn);
+        o->setProperty ("lo", (double) m.rangeLo);
+        o->setProperty ("hi", (double) m.rangeHi);
+        out.add (juce::var (o));
     }
     return out;
 }

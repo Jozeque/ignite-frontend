@@ -211,6 +211,7 @@
   var slHandlers = {};
   window.strideLink = {
     connected: true,
+    _wrapper: true,   // canvas.js gates wrapper-only messages (e.g. set_range) on this — the desktop's WS strideLink doesn't have it
     connect: function () {},
     disconnect: function () {},
     on: function (ev, fn) { (slHandlers[ev] = slHandlers[ev] || []).push(fn); return this; },

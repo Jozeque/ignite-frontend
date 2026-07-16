@@ -78,7 +78,7 @@ ok('driveMode persisted', /setAttribute\s*\(\s*"driveMode",\s*\(int\)\s*driveMod
 ok('macroSlot persisted per mapped param ("s")', /setAttribute\s*\(\s*"s",\s*m\.macroSlot\s*\)/.test(procC));
 ok('driveMode restored (default 0=Live for old projects)', /driveMode\.store\s*\(\s*\(DriveMode\)\s*xml->getIntAttribute\s*\(\s*"driveMode",\s*0\s*\)/.test(procC));
 ok('macroSlot restored via Dev.slots (default -1 for pre-macro projects)', /\.slots\.push_back\s*\(e->getIntAttribute\s*\(\s*"s",\s*-1\s*\)/.test(procC));
-ok('restoreNextDevice carries the persisted slot onto the mapped entry', /mapped\.push_back\s*\(\{\s*p,\s*d\.params\[k\],\s*k < d\.slots\.size\(\)\s*\?\s*d\.slots\[k\]\s*:\s*-1\s*\}\)/.test(procC));
+ok('restoreNextDevice carries the persisted slot onto the mapped entry', /mapped\.push_back\s*\(\{\s*p,\s*d\.params\[k\],\s*k < d\.slots\.size\(\)\s*\?\s*d\.slots\[k\]\s*:\s*-1,/.test(procC));   // trailing comma: the entry now also carries the range band (1.1.5)
 ok('demo still persists nothing (save-off preserved)', /getStateInformation[\s\S]{0,120}if\s*\(demoMode\.load\(\)\)\s*return;/.test(procC));
 
 // ─────────────────────────────────────────────────────────────

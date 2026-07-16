@@ -1029,9 +1029,13 @@
                 sdCanvasParams.forEach(p => {
                     const c = (p._path && carried[p._path]) || carried['n:' + p.name];
                     if (c) {
-                        if (c.points) p.points = c.points;
+                        // The ENGINE payload wins where it speaks (wrapper: points + ranges come
+                        // from the engine, correctly re-indexed) — the positional carry only fills
+                        // lanes the payload left empty. Desktop payloads carry neither, so the
+                        // carry behaves exactly as before there.
+                        if (c.points && !(p.points && p.points.length)) p.points = c.points;
                         if (c.locked) p.locked = true;
-                        if (c.rangeOn) { p.rangeOn = true; p.rangeMin = c.rangeMin; p.rangeMax = c.rangeMax; }
+                        if (c.rangeOn && !p.rangeOn) { p.rangeOn = true; p.rangeMin = c.rangeMin; p.rangeMax = c.rangeMax; }
                         kept++;
                     }
                 });
@@ -2376,6 +2380,21 @@
         document.body.appendChild(modal);
     }
 
+    // ENGINE-OWNED ranges (VST wrapper only): report every committed band edit to the engine,
+    // which persists it in the PROJECT and echoes it back in rack_scanned — so re-pushes and
+    // project reloads rebuild the bands from the engine instead of wiping them (client-only
+    // ranges were reset by positional re-pushes; field report 2026-07-16). Desktop/M4L has no
+    // engine ranges — the flag gates it off there.
+    function _sdPushRangeToEngine(p) {
+        try {
+            if (!p || !window.strideLink || !window.strideLink._wrapper) return;
+            window.strideLink.send({ type: 'set_range', id: parseInt(p.envelopeId, 10),
+                                     on: !!p.rangeOn,
+                                     min: (typeof p.rangeMin === 'number' ? p.rangeMin : 0),
+                                     max: (typeof p.rangeMax === 'number' ? p.rangeMax : 1) });
+        } catch (e) {}
+    }
+
     // Host-bound OUTPUT scale: map the lane's 0..1 shape into [rangeMin,rangeMax] when the lane
     // is ranged (used at inject + live-drive). The stored/edited shape stays 0..1 — this only
     // transforms what the HOST receives, so changing the range instantly rescales the output.
@@ -2767,6 +2786,7 @@
         let v = Math.max(0, Math.min(1, pct / 100));
         if (edge === 'rangeMax') param.rangeMax = Math.max(v, (param.rangeMin || 0) + 0.02);
         else                     param.rangeMin = Math.min(v, (param.rangeMax || 1) - 0.02);
+        _sdPushRangeToEngine(param);   // engine owns ranges in the wrapper (scrub + typed field; brief bursts only)
     }
 
     // Double-click a field → a tiny <input> in place to type an exact %.
@@ -4039,6 +4059,7 @@
                         if (p.rangeOn && !(p.rangeMax > p.rangeMin)) { p.rangeMin = 0; p.rangeMax = 1; }
                         _sdRangeIconClick = { id: p.envelopeId, t: now };
                     }
+                    _sdPushRangeToEngine(p);   // engine owns ranges in the wrapper (toggle + double-click reset)
                     sdDrawCanvasGrid();
                     Promise.resolve(saveCanvasState());
                     return;
@@ -4466,8 +4487,10 @@
                 return;
             }
             if (_sdRangeDrag) {   // finished dragging a range boundary — persist + re-drive with the new band
+                const _rdParam = _sdRangeDrag.param;
                 _sdRangeDrag = null;
                 if (sdCanvasEl) sdCanvasEl.style.cursor = 'crosshair';
+                _sdPushRangeToEngine(_rdParam);   // engine owns ranges in the wrapper (committed drag)
                 try { Promise.resolve(saveCanvasState()); } catch (err) {}
                 sdDrawCanvasGrid();
                 return;
