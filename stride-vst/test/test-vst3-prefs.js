@@ -63,12 +63,20 @@ const cmake  = rd(path.join(W, 'CMakeLists.txt'));
     ok('deleting the last favorite persists the empty list too', ls.length === 0 && native.favorites.length === 0);
 })();
 
-// profile migration (mirrors the ctor): copy legacy temp profile ONCE
+// profile migration (mirrors the ctor): copy legacy temp profile ONCE; a partial
+// copy is discarded and the session falls back to the legacy profile (retry later)
 (function () {
-    const decide = (newExists, legacyExists) => (!newExists && legacyExists) ? 'copy' : 'skip';
-    ok('fresh machine, old temp profile present -> migrate', decide(false, true) === 'copy');
-    ok('already migrated -> never copy again (no clobber)', decide(true, true) === 'skip');
-    ok('fresh machine, no legacy -> plain create', decide(false, false) === 'skip');
+    const migrate = (newExists, legacyExists, copyOk) => {
+        if (newExists || !legacyExists) return { action: 'skip', profile: newExists ? 'new' : 'fresh' };
+        if (copyOk) return { action: 'copy', profile: 'new' };
+        return { action: 'discard+fallback', profile: 'legacy' };   // half a profile reads as corruption
+    };
+    ok('fresh machine, old temp profile present -> migrate', migrate(false, true, true).action === 'copy');
+    ok('already migrated -> never copy again (no clobber)', migrate(true, true, true).action === 'skip');
+    ok('fresh machine, no legacy -> plain create', migrate(false, false, true).action === 'skip');
+    const fail = migrate(false, true, false);
+    ok('partial copy -> discarded, session runs on the LEGACY profile (old behavior, favorites intact)', fail.action === 'discard+fallback' && fail.profile === 'legacy');
+    ok('failed migration retries next open (target stays absent)', migrate(false, true, true).action === 'copy');
 })();
 
 // ─────────────────────────────────────────────────────────────
@@ -83,6 +91,7 @@ ok('header declares the prefs pair', /void pushPrefs\(\);/.test(edH) && /void sa
 
 ok('WebView2 profile moved OUT of %TEMP% into stride-data', /stride_license::dataDir\(\)\.getChildFile \("webview2"\)/.test(editor));
 ok('one-time legacy profile migration (no clobber)', /! userData\.exists\(\) && legacy\.isDirectory\(\)[\s\S]{0,120}copyDirectoryTo \(userData\)/.test(editor));
+ok('partial migration discarded + legacy fallback (half a profile reads as corruption)', /userData\.deleteRecursively\(\);[\s\S]{0,80}userData = legacy;/.test(editor));
 ok('legacy path still named for the migration source', /StrideWrapperWebView2/.test(editor));
 
 ok('shim: favSet writes through to the native file', /function favSet\(v\) \{ lsSet\('stride_fav_synths', v\); emit\('prefsSave', \{ prefs: \{ favorites: v \} \}\); \}/.test(shim));

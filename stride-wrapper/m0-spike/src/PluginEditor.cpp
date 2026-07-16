@@ -151,7 +151,15 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
         const auto legacy = juce::File::getSpecialLocation (juce::File::tempDirectory)
                                 .getChildFile ("StrideWrapperWebView2");
         if (! userData.exists() && legacy.isDirectory())
-            legacy.copyDirectoryTo (userData);   // one-time best-effort migration (no instance is running here, so the old profile is unlocked)
+            if (! legacy.copyDirectoryTo (userData))   // one-time migration — usually clean (no instance running = profile unlocked)
+            {
+                // Partial copy (another instance still holds a lock?): HALF a Chromium profile
+                // is worse than none — it reads as corruption and gets reset, which is exactly
+                // the data loss this update exists to end. Discard it, run THIS session on the
+                // legacy profile (byte-identical to the old behavior), retry next open.
+                userData.deleteRecursively();
+                userData = legacy;
+            }
     }
     userData.createDirectory();
 
