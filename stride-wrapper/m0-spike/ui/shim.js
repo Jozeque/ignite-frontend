@@ -112,6 +112,15 @@
     if (e.key === 'Escape' && pluginModal) { e.preventDefault(); e.stopImmediatePropagation(); closePluginBrowser(); return; }
     var z = (e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && ! e.shiftKey;
     if (z && _undoArmed) { e.preventDefault(); e.stopImmediatePropagation(); _doUndoRemove(); }
+    // Ctrl/Cmd+S = SAVE THE PROJECT. Muscle memory fires it over Stride constantly, but the
+    // WebView eats it (WebView2 would even pop a browser "save page" dialog) — the DAW never
+    // saves, and an unsaved chain died in a crash exactly this way (2026-07-16). Forward it
+    // natively. Works even while typing — Ctrl+S never inserts text.
+    if ((e.key === 's' || e.key === 'S') && (e.ctrlKey || e.metaKey) && ! e.shiftKey && ! e.altKey) {
+      e.preventDefault(); e.stopImmediatePropagation();
+      if (! e.repeat) emit('transportKey', { key: 'save' });
+      return;
+    }
     // Space = host transport (play/stop). Once you draw or inject, Stride's WebView holds
     // keyboard focus, and WebView2 keys never reach the DAW on their own — so Space would
     // die here instead of toggling transport. Forward it to native (which posts it to the

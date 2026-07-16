@@ -20,6 +20,7 @@ void strideMacKeyForward_registerEditorView (void* nsview);   // Stride editor N
                                                               // so a re-post never lands in another Stride's frame.
 void strideMacKeyForward_unregisterEditorView (void* nsview); // editor going away — drops ONLY its own view (never another instance's)
 void strideMacKeyForward_post (bool isReturn);                // WebView Space/Return (JS-forwarded) -> the DAW's transport
+void strideMacKeyForward_postSave (void);                     // WebView Cmd+S -> the DAW (project save); same discovery/debounce/suppression policy
 
 #ifdef __cplusplus
 }

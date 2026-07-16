@@ -142,6 +142,53 @@ void strideMacKeyForward_post (bool isReturn)
     stridePostTransport (isReturn, nil);
 }
 
+// Cmd+S -> the DAW (project save). Same discovery + debounce + Logic/GB suppression as the
+// transport keys; its own event builder because Save carries the Command flag + "s"
+// (kVK_ANSI_S = 1). Cmd combos dispatch through the window's key-equivalent chain, which is
+// exactly what [target sendEvent:] feeds.
+void strideMacKeyForward_postSave (void)
+{
+    if (g_strideSuppressed) return;
+    const double now = [[NSProcessInfo processInfo] systemUptime];
+    if (now - g_strideLastPost < 0.15) return;
+
+    NSWindow* target = [NSApp mainWindow];
+    if (target == nil || strideIsOurWindow (target) || ! [target isVisible])
+    {
+        target = nil;
+        for (NSWindow* w in [NSApp orderedWindows])
+            if (w != nil && ! strideIsOurWindow (w) && [w isVisible] && [w canBecomeMainWindow]) { target = w; break; }
+    }
+    const bool viaFrame = (target == nil);
+    if (viaFrame) target = strideEditorFrameWindow();   // per-plugin-process host: the frame forwards or drops it
+    if (target == nil) return;
+
+    g_strideLastPost = now;
+    NSString* s = @"s";
+    NSEvent* down = [NSEvent keyEventWithType: NSEventTypeKeyDown
+                                     location: NSZeroPoint
+                                modifierFlags: NSEventModifierFlagCommand
+                                    timestamp: [[NSProcessInfo processInfo] systemUptime]
+                                 windowNumber: [target windowNumber]
+                                      context: nil
+                                   characters: s
+                  charactersIgnoringModifiers: s
+                                    isARepeat: NO
+                                      keyCode: (unsigned short) 1];
+    NSEvent* up = [NSEvent keyEventWithType: NSEventTypeKeyUp
+                                   location: NSZeroPoint
+                              modifierFlags: NSEventModifierFlagCommand
+                                  timestamp: [[NSProcessInfo processInfo] systemUptime]
+                               windowNumber: [target windowNumber]
+                                    context: nil
+                                 characters: s
+                charactersIgnoringModifiers: s
+                                  isARepeat: NO
+                                    keyCode: (unsigned short) 1];
+    if (viaFrame) { [target keyDown: down]; [target keyUp: up]; }
+    else          { [target sendEvent: down]; [target sendEvent: up]; }
+}
+
 void strideMacKeyForward_install (void)
 {
     ++g_strideMonitorRefs;

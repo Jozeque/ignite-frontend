@@ -33,7 +33,7 @@ ok('auto-repeat ignored — one toggle per press, not while held', /'Space' \|\|
 ok('editor declares forwardTransportKey', /void\s+forwardTransportKey\s*\(const juce::String&/.test(editorH));
 ok('editor registers a transportKey listener', /withEventListener\s*\("transportKey"[\s\S]{0,120}forwardTransportKey\s*\(v\.getProperty\s*\("key"/.test(editor));
 ok('Windows: posts the key to the HOST window (not the plugin)', /forwardTransportKey\s*\(const juce::String& key\)[\s\S]{0,700}hostMainWindow\(\)[\s\S]{0,160}PostMessage\s*\(host, WM_KEYDOWN, vk[\s\S]{0,120}PostMessage\s*\(host, WM_KEYUP/.test(editor));
-ok('Space maps to VK_SPACE (Enter -> VK_RETURN)', /vk\s*=\s*\(key == "enter"\) \? VK_RETURN : VK_SPACE/.test(editor));
+ok('Space maps to VK_SPACE (Enter -> VK_RETURN, save -> S)', /vk\s*=\s*\(key == "enter"\) \? VK_RETURN : \(key == "save"\) \? \(WPARAM\) 'S' : VK_SPACE/.test(editor));
 ok('debounced: one transport toggle per press (any path)', /lastTransportKeyMs < 150\) return;\s*lastTransportKeyMs = nowMs/.test(editor) && /juce::uint32 lastTransportKeyMs = 0/.test(editorH));
 
 // REGRESSION GUARD: forwardTransportKey must live OUTSIDE every #if JUCE_WINDOWS span —
@@ -59,7 +59,15 @@ ok('the hosted-synth key hook is untouched (still forwards Space/Return from syn
 const mac  = rd(path.join(W, 'src', 'MacKeyForward.mm'));
 const macH = rd(path.join(W, 'src', 'MacKeyForward.h'));
 const cmake = rd(path.join(W, 'CMakeLists.txt'));
-ok('Mac branch: forwardTransportKey -> strideMacKeyForward_post', /#elif JUCE_MAC\s*\n\s*strideMacKeyForward_post \(key == "enter"\)/.test(editor));
+ok('Mac branch: forwardTransportKey -> strideMacKeyForward_post', /#elif JUCE_MAC[\s\S]{0,260}strideMacKeyForward_post \(key == "enter"\)/.test(editor));
+
+// ── Ctrl/Cmd+S = save the PROJECT (an unsaved chain died in a crash, 2026-07-16) ──
+ok('shim intercepts Ctrl/Cmd+S (kills the WebView save-page dialog) and forwards it',
+   /e\.key === 's' \|\| e\.key === 'S'\) && \(e\.ctrlKey \|\| e\.metaKey\)/.test(shim) && /emit\('transportKey', \{ key: 'save' \}\)/.test(shim));
+ok('Windows: "save" posts a bare S while the user physically holds Ctrl', /\(key == "save"\) \? \(WPARAM\) 'S' : VK_SPACE/.test(editor));
+ok('Mac: "save" routes to the dedicated Cmd+S post', /if \(key == "save"\)\s*\n\s*strideMacKeyForward_postSave\(\)/.test(editor));
+ok('mm: Cmd+S event carries the Command flag + kVK_ANSI_S', /strideMacKeyForward_postSave[\s\S]{0,1600}NSEventModifierFlagCommand[\s\S]{0,900}keyCode: \(unsigned short\) 1/.test(mac));
+ok('mm: save respects the Logic/GB suppression + debounce', /strideMacKeyForward_postSave[\s\S]{0,300}g_strideSuppressed\) return;[\s\S]{0,200}g_strideLastPost < 0\.15\) return;/.test(mac));
 ok('mm: discovery skips OUR windows (tagged synths + EVERY instance\'s editor frame)', /strideIsOurWindow[\s\S]{0,260}StrideHostedSynth[\s\S]{0,320}g_strideEditorViews/.test(mac));
 ok('mm: mainWindow alone is not trusted — falls back to the frontmost non-ours window', /\[NSApp mainWindow\][\s\S]{0,320}strideIsOurWindow \(target\)[\s\S]{0,320}orderedWindows/.test(mac));
 ok('mm: sandboxed-host fallback hands the key to the frame window OBJECT (skips our WebView, no loop)', /strideEditorFrameWindow\(\);[\s\S]{0,340}\[frame keyDown:[\s\S]{0,120}\[frame keyUp:/.test(mac));

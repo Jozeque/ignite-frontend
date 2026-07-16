@@ -362,14 +362,19 @@ void StrideWrapperEditor::forwardTransportKey (const juce::String& key)
     lastTransportKeyMs = nowMs;
 
    #if JUCE_WINDOWS
-    const WPARAM vk = (key == "enter") ? VK_RETURN : VK_SPACE;
+    // "save" posts a bare 'S' keydown — the user is PHYSICALLY holding Ctrl right now, so the
+    // host's accelerator table (GetKeyState) reads it as Ctrl+S and saves the project.
+    const WPARAM vk = (key == "enter") ? VK_RETURN : (key == "save") ? (WPARAM) 'S' : VK_SPACE;
     if (auto* host = (HWND) hostMainWindow())
     {
         ::PostMessage (host, WM_KEYDOWN, vk, (LPARAM) 0x00000001);
         ::PostMessage (host, WM_KEYUP,   vk, (LPARAM) 0xC0000001);
     }
    #elif JUCE_MAC
-    strideMacKeyForward_post (key == "enter");
+    if (key == "save")
+        strideMacKeyForward_postSave();          // synthesized Cmd+S (flags carried in the event)
+    else
+        strideMacKeyForward_post (key == "enter");
    #else
     juce::ignoreUnused (key);
    #endif
@@ -765,6 +770,20 @@ void StrideWrapperEditor::timerCallback()
         if (lastLicEntitled && ! ent && expd && web != nullptr)
             web->emitEventIfBrowserIsVisible ("passExpired", juce::var (new juce::DynamicObject()));
         lastLicEntitled = ent;
+    }
+
+    // Host dirty-flag: edits inside Stride (chain/mapping/curves/hosted-knob tweaks) are
+    // invisible to the DAW — its chunk of us only changes when IT saves. Consume the pending
+    // flag (set by the mutation sites, any thread) and tell the host on the MESSAGE thread
+    // (VST3 setDirty via nonParameterStateChanged): "unsaved changes" turns honest and crash
+    // recovery gets every chance to re-capture fresh state. Throttled to one notify per 3s.
+    {
+        const auto nowMs = juce::Time::getMillisecondCounter();
+        if (nowMs - lastDirtyNotifyMs > 3000 && proc.consumeHostDirty())
+        {
+            lastDirtyNotifyMs = nowMs;
+            proc.updateHostDisplay (juce::AudioProcessorListener::ChangeDetails{}.withNonParameterStateChanged (true));
+        }
     }
 
     if (web == nullptr) return;

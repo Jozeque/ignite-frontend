@@ -126,10 +126,23 @@ public:
     // Message thread only; owned by the editor (set in its ctor, reset in its dtor).
     std::function<void (const juce::String& name, const juce::String& error)> onLoadFailed;
 
+    // Host dirty-flag: edits INSIDE Stride (chain, mapping, curves, hosted-knob tweaks)
+    // live in OUR chunk and are invisible to the DAW — without this the set never shows
+    // "unsaved changes" and crash recovery has no reason to re-capture Stride's state
+    // (a user lost an unsaved chain to a Live crash, 2026-07-16). Mutation sites set the
+    // flag (any thread); the editor timer consumes it and fires the actual host notify
+    // on the message thread, throttled. Restore-from-project paths deliberately DON'T set it.
+    bool consumeHostDirty() { return hostDirtyPending.exchange (false); }
+
 private:
     void audioProcessorParameterChanged (juce::AudioProcessor*, int parameterIndex, float newValue) override;
     void audioProcessorParameterChangeGestureBegin (juce::AudioProcessor*, int parameterIndex) override;   // click-to-map (touch w/o moving)
-    void audioProcessorChanged (juce::AudioProcessor*, const juce::AudioProcessorListener::ChangeDetails&) override {}
+    void audioProcessorChanged (juce::AudioProcessor*, const juce::AudioProcessorListener::ChangeDetails& d) override
+    {
+        // A hosted plugin loaded a preset / rewrote its own state — that state lives in OUR
+        // chunk, so the DAW's project just became dirty too.
+        if (d.programChanged || d.nonParameterStateChanged) hostDirtyPending.store (true);
+    }
 
     void prepareNode (int i);                 // (re)prepare one chain node (under lock)
     int  nodeIndexOf (juce::AudioProcessor*) const;   // which chain slot a processor is (under lock)
@@ -175,6 +188,7 @@ private:
     std::array<MacroParameter*, kMacroCount> macroParams {};   // owned by the AudioProcessor (addParameter)
     juce::uint32 lastMirrorPushMs = 0;                          // Live-mode mirror pacing (~15Hz cap; message thread only)
     std::atomic<DriveMode> driveMode { DriveMode::Live };
+    std::atomic<bool> hostDirtyPending { false };   // see consumeHostDirty()
     std::atomic<bool> learnMode  { false };
     std::atomic<bool> unlearnMode { false };   // Map (add-by-touch) and Unmap (remove-by-touch) are mutually exclusive
     std::atomic<int>  mapVersion { 0 };

@@ -374,6 +374,7 @@ void StrideWrapperProcessor::loadPlugin (const juce::File& pluginFile)
                 chain.push_back ({ std::move (instance), name, pathStr });   // append to the chain
             }
             mapVersion.fetch_add (1);
+            hostDirtyPending.store (true);   // chain changed -> the DAW's project is dirty
         });
 }
 
@@ -401,6 +402,7 @@ void StrideWrapperProcessor::clearChain()
     driveLanes.clear();
     reassignMacros();
     mapVersion.fetch_add (1);
+    hostDirtyPending.store (true);
     triggerAsyncUpdate();
 }
 
@@ -436,6 +438,7 @@ void StrideWrapperProcessor::removeNode (int index)
 
     reassignMacros();          // remaining params keep their slots (stable); the removed node's slots free up
     mapVersion.fetch_add (1);
+    hostDirtyPending.store (true);
     triggerAsyncUpdate();
 }
 
@@ -464,6 +467,7 @@ void StrideWrapperProcessor::moveNode (int from, int to)
 
     reassignMacros();          // slots are keyed to the entry (unchanged); refresh labels for the new order
     mapVersion.fetch_add (1);
+    hostDirtyPending.store (true);
     triggerAsyncUpdate();
 }
 
@@ -477,6 +481,7 @@ void StrideWrapperProcessor::undoRemove()
         lastRemoved.valid = false;       // consume (single level)
     }
     if (devs->empty()) return;
+    hostDirtyPending.store (true);   // user-initiated restore (Ctrl+Z) — unlike project load, this IS an edit
 
     // Restore front-to-back so each device lands back at its captured position.
     std::sort (devs->begin(), devs->end(),
@@ -546,7 +551,11 @@ juce::StringArray StrideWrapperProcessor::getChainNames() const
 void StrideWrapperProcessor::setNodeBypassed (int index, bool shouldBypass)
 {
     const juce::ScopedLock sl (hostLock);
-    if (index >= 0 && index < (int) chain.size()) chain[(size_t) index].bypassed = shouldBypass;
+    if (index >= 0 && index < (int) chain.size())
+    {
+        chain[(size_t) index].bypassed = shouldBypass;
+        hostDirtyPending.store (true);
+    }
 }
 
 juce::Array<bool> StrideWrapperProcessor::getChainBypassed() const
@@ -699,6 +708,7 @@ void StrideWrapperProcessor::mapParam (juce::AudioProcessor* proc, int parameter
     mapped.push_back ({ node, parameterIndex, -1 });
     reassignMacros();          // claim a free macro slot for the DAW
     mapVersion.fetch_add (1);
+    hostDirtyPending.store (true);
     triggerAsyncUpdate();      // relabel the macro on the message thread
 }
 
@@ -712,6 +722,7 @@ void StrideWrapperProcessor::audioProcessorParameterChanged (juce::AudioProcesso
 // works without having to move it.
 void StrideWrapperProcessor::audioProcessorParameterChangeGestureBegin (juce::AudioProcessor* proc, int parameterIndex)
 {
+    hostDirtyPending.store (true);   // a HUMAN touched a hosted knob (the drive uses plain setValue — no gestures)
     mapParam (proc, parameterIndex);
     unmapParamByTouch (proc, parameterIndex);
 }
@@ -735,6 +746,7 @@ void StrideWrapperProcessor::unmapParamByTouch (juce::AudioProcessor* proc, int 
             reassignMacros();          // free the macro slot; others keep theirs
             pendingUnmapPos.store (pos);   // editor splices THIS lane instead of a positional re-push (keeps each lane's range)
             mapVersion.fetch_add (1);
+            hostDirtyPending.store (true);
             triggerAsyncUpdate();
             return;
         }
@@ -817,6 +829,7 @@ void StrideWrapperProcessor::removeMappedAt (int pos)
         mapped.erase (mapped.begin() + pos);
         reassignMacros();      // frees this param's macro slot; other slots keep theirs (Ableton automation stays put)
         mapVersion.fetch_add (1);
+        hostDirtyPending.store (true);
         triggerAsyncUpdate();
     }
 }
@@ -827,6 +840,7 @@ void StrideWrapperProcessor::clearMapping()
     mapped.clear();
     reassignMacros();
     mapVersion.fetch_add (1);
+    hostDirtyPending.store (true);
     triggerAsyncUpdate();
 }
 
@@ -1014,6 +1028,7 @@ void StrideWrapperProcessor::setDriveCurves (const std::vector<DriveLane>& lanes
     for (const auto& L : lanes)
         if (L.position >= 0 && L.position < (int) mapped.size())
             driveLanes.push_back ({ mapped[(size_t) L.position].node, mapped[(size_t) L.position].param, L.times, L.values, L.curves });
+    hostDirtyPending.store (true);   // drawn curves are project state too
 }
 
 // Quadratic-bezier-per-segment matching the canvas render (cp = midV + curve*|dv|*1.2 at

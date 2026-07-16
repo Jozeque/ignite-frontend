@@ -72,6 +72,7 @@ private:
     int savedW = 0, savedH = 0;            // last size written to wrapper-window.json
     bool lastDemoFrozen = false; int lastDemoSecs = -1; bool lastDemoPlaying = false;   // throttle for pushing the demo freeze/live state to the badge
     float lastPhSent = -1.0f; bool lastPhOn = false;   // playhead push change-detect (stopped transport = zero bridge traffic)
+    juce::uint32 lastDirtyNotifyMs = 0;                // host setDirty throttle (one notify per 3s max)
     bool sdFullscreen = false; int preFsW = 0, preFsH = 0;   // fullscreen (maximize) toggle — remembers the pre-fullscreen size to restore
    #if JUCE_MAC
     void* lastForwardView = nullptr;       // the NSView WE registered with the key forwarder — the dtor unregisters exactly this (multi-instance safe)
