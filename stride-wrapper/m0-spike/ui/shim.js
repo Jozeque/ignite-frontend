@@ -284,9 +284,24 @@
   };
 
   // ── wrapper control bar (built into the in-flow #stride-wrap-controls strip) ─────
-  // Favorite synths — stored client-side so the user picks them ONCE.
+  // Favorite synths — USER DATA. localStorage is only a CACHE: a Chromium profile reset
+  // wiped it for real (2026-07-16), so every change writes through to the native
+  // stride-data/wrapper-prefs.json via the engine ('prefsSave'), and boot adopts
+  // whichever side still has the data ('prefsState' below).
   function favGet() { return lsGet('stride_fav_synths', []); }                 // [{name, path}]
-  function favSet(v) { lsSet('stride_fav_synths', v); }
+  function favSet(v) { lsSet('stride_fav_synths', v); emit('prefsSave', { prefs: { favorites: v } }); }
+
+  // Boot sync with the native prefs file (sent by C++ right before 'connected'):
+  //   native has favorites -> adopt them (they survive profile resets / temp cleanup)
+  //   native empty but the local cache has favorites -> seed the native file from the
+  //   cache (first run after this update — the one-time rescue direction)
+  listen('prefsState', function (d) {
+    try {
+      var nat = (d && d.prefs && d.prefs.favorites) || [];
+      if (nat.length) { lsSet('stride_fav_synths', nat); populateFav(); }
+      else { var loc = lsGet('stride_fav_synths', []); if (loc.length) emit('prefsSave', { prefs: { favorites: loc } }); }
+    } catch (e) { showErr('prefsState: ' + e.message); }
+  });
   function favName(path) { var p = String(path).replace(/\\/g, '/'); var f = p.split('/').pop() || path; return f.replace(/\.(vst3|component)$/i, ''); }
   // Display label for a favorite: AU devices (.component, macOS) carry an "(AU)" suffix so
   // the same synth installed in both formats stays tellable-apart in the dropdown.

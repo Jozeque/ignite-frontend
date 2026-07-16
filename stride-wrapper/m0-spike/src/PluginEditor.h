@@ -48,6 +48,8 @@ private:
     void handleStrideLinkSend (const juce::var& msg);
     void pushRackScanned();     // mapped lanes -> canvas (as the rack_scanned the UI expects)
     void pushUnmappedAt (int pos);   // touch-unmap: splice ONE lane on the canvas (no positional re-push -> lanes keep their ranges)
+    void pushPrefs();           // native wrapper-prefs.json (favorites…) -> page on boot (localStorage is only a cache)
+    void savePrefs (const juce::var& prefs);   // page -> write-through to wrapper-prefs.json (survives profile resets)
     void pushLearnState();      // -> wrapper toolbar Map button
     void pushChainDevices();    // -> wrapper device chips (the deliberate per-device remove)
     void handleLicense (const juce::var& msg);   // license gate bridge (load/save/validate)

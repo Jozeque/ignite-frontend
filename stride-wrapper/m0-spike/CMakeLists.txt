@@ -16,7 +16,7 @@
 #   build-mac/StrideWrapperM0_artefacts/Release/AU/Stride.component   (macOS only — Logic/GarageBand)
 # ============================================================
 cmake_minimum_required(VERSION 3.22)
-project(StrideWrapperM0 VERSION 1.1.2 LANGUAGES C CXX)
+project(StrideWrapperM0 VERSION 1.1.3 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

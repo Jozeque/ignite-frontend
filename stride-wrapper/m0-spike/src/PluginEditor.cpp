@@ -35,6 +35,15 @@ static juce::File strideWrapperWindowFile()
     return stride_license::dataDir().getChildFile ("wrapper-window.json");
 }
 
+// USER DATA (favorites, future prefs) — the native SOURCE OF TRUTH, beside the license.
+// The WebView's localStorage is only a cache: a Chromium profile reset ate a user's
+// favorites for real (2026-07-16), so every change writes through to this file and boot
+// re-seeds whichever side still has the data. Shared across DAWs (and Mac hosts).
+static juce::File strideWrapperPrefsFile()
+{
+    return stride_license::dataDir().getChildFile ("wrapper-prefs.json");
+}
+
 // Serve the bundled UI files by ORIGINAL filename (looked up in BinaryData, so we don't
 // hand-mangle symbol names). The page loads from the resource-provider root, so every
 // <script src="x.js"> resolves to a request we answer here.
@@ -134,8 +143,16 @@ struct StrideWrapperEditor::HostedWindow : public juce::DocumentWindow
 StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
     : juce::AudioProcessorEditor (&p), proc (p)
 {
-    auto userData = juce::File::getSpecialLocation (juce::File::tempDirectory)
-                        .getChildFile ("StrideWrapperWebView2");
+    // The WebView profile holds UI state in its localStorage, so it must NOT live in
+    // %TEMP% where OS cleanup or a browser-profile reset can eat it (it did, 2026-07-16 —
+    // wrapper-prefs.json is the real safety net for favorites; this keeps the rest stable).
+    auto userData = stride_license::dataDir().getChildFile ("webview2");
+    {
+        const auto legacy = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                .getChildFile ("StrideWrapperWebView2");
+        if (! userData.exists() && legacy.isDirectory())
+            legacy.copyDirectoryTo (userData);   // one-time best-effort migration (no instance is running here, so the old profile is unlocked)
+    }
     userData.createDirectory();
 
     auto options = juce::WebBrowserComponent::Options{}
@@ -144,7 +161,8 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
                                      .withUserDataFolder (userData))
         .withNativeIntegrationEnabled()
         .withResourceProvider ([] (const juce::String& url) { return serveAsset (url); })
-        .withEventListener ("wrapperReady", [this] (juce::var)     { web->emitEventIfBrowserIsVisible ("sl_event", []{ auto* o = new juce::DynamicObject(); o->setProperty ("type", "connected"); return juce::var (o); }()); pushRackScanned(); pushLearnState(); pushChainDevices(); })
+        .withEventListener ("wrapperReady", [this] (juce::var)     { pushPrefs(); web->emitEventIfBrowserIsVisible ("sl_event", []{ auto* o = new juce::DynamicObject(); o->setProperty ("type", "connected"); return juce::var (o); }()); pushRackScanned(); pushLearnState(); pushChainDevices(); })
+        .withEventListener ("prefsSave",    [this] (juce::var v)   { savePrefs (v.getProperty ("prefs", juce::var())); })
         .withEventListener ("sl_send",      [this] (juce::var v)   { handleStrideLinkSend (v); })
         .withEventListener ("loadSynth",    [this] (juce::var)     { if (proc.isEditLocked()) return; chooseAndLoad(); })
         .withEventListener ("loadSynthPath",[this] (juce::var v)   { if (proc.isEditLocked()) return; proc.loadPlugin (juce::File (v.getProperty ("path", "").toString())); })
@@ -560,6 +578,29 @@ void StrideWrapperEditor::pushUnmappedAt (int pos)
     o->setProperty ("exposed_macros", proc.exposedMacroCount());
     o->setProperty ("macro_pool", StrideWrapperProcessor::kMacroCount);
     web->emitEventIfBrowserIsVisible ("sl_event", juce::var (o));
+}
+
+// Send the native prefs (favorites…) to the page on boot. The shim adopts them when
+// non-empty (they survive profile resets); when the file doesn't exist yet but the
+// page's localStorage cache has favorites, the shim seeds this file right back.
+void StrideWrapperEditor::pushPrefs()
+{
+    if (web == nullptr) return;
+    juce::var prefs;
+    const auto f = strideWrapperPrefsFile();
+    if (f.existsAsFile()) prefs = juce::JSON::parse (f.loadFileAsString());
+    auto* o = new juce::DynamicObject();
+    o->setProperty ("prefs", prefs);
+    web->emitEventIfBrowserIsVisible ("prefsState", juce::var (o));
+}
+
+// Write-through from the page (every favorites change). Whole-object replace — prefs
+// are small and this keeps the file debuggable.
+void StrideWrapperEditor::savePrefs (const juce::var& prefs)
+{
+    if (! prefs.isObject()) return;
+    stride_license::dataDir().createDirectory();
+    strideWrapperPrefsFile().replaceWithText (juce::JSON::toString (prefs));
 }
 
 void StrideWrapperEditor::pushLearnState()
