@@ -3018,12 +3018,14 @@
         return out;
     }
 
-    function _sdFxFrame(ts) {
-        _sdFxRAF = requestAnimationFrame(_sdFxFrame);
+    // One overlay paint at a given loop phase (0..1). Shared by BOTH drivers: the
+    // ambient wall-clock loop (desktop/M4L — no transport feed exists there) and the
+    // wrapper's engine-synced playhead. The trail reads as motion, so a parked
+    // (stopped-transport) paint draws the head only.
+    function _sdFxDraw(phase, withTrail) {
         if (!sdFxCtx || !sdCanvasFx) return;
         sdFxCtx.clearRect(0, 0, sdCanvasFx.width, sdCanvasFx.height);
         if (sdViewMode !== 'multi' || !_sdLaneGeom.length) return;
-        const phase = (ts % SD_FX_LOOP) / SD_FX_LOOP;
         sdFxCtx.lineCap = 'round';
         for (let li = 0; li < _sdLaneGeom.length; li++) {
             const g = _sdLaneGeom[li], poly = g.poly;
@@ -3033,7 +3035,7 @@
             // though curved segments carry more samples than straight ones.
             const tx = poly[0].x + phase * (poly[n - 1].x - poly[0].x);
             let idx = 0; while (idx < n - 1 && poly[idx + 1].x <= tx) idx++;
-            for (let k = 0; k < SD_FX_TRAIL; k++) {        // fading trail behind the head
+            if (withTrail) for (let k = 0; k < SD_FX_TRAIL; k++) {   // fading trail behind the head
                 const i1 = idx - k, i0 = i1 - 1;
                 if (i0 < 0) break;
                 const a = poly[i0], b = poly[i1];
@@ -3052,9 +3054,43 @@
             sdFxCtx.restore();
         }
     }
+
+    function _sdFxFrame(ts) {
+        _sdFxRAF = requestAnimationFrame(_sdFxFrame);
+        _sdFxDraw((ts % SD_FX_LOOP) / SD_FX_LOOP, true);   // ambient drift — decorative, wall-clock
+    }
+
+    // ── ENGINE-SYNCED PLAYHEAD (VST wrapper) ─────────────────────────────
+    // The wrapper feeds the REAL transport loop phase from its audio engine (shim
+    // 'playhead' events: 0..1 + playing flag, change-detected, ≤30Hz). The FIRST
+    // tick retires the ambient wall-clock loop for good — from then on the comet
+    // rides the true automation position and repaints ONLY when a fresh phase
+    // arrives: no free-running RAF, zero paints while the transport is stopped
+    // (the head stays PARKED at the real position; the trail shows only in motion).
+    // Desktop/M4L never call this, so nothing changes outside the wrapper.
+    let _sdEngMode = false, _sdEngPhase = 0, _sdEngOn = false, _sdEngPend = 0;
+    let _sdEngDrawnPhase = -1, _sdEngDrawnOn = null;
+    function _sdEngKick() {
+        if (_sdEngPend) return;                             // coalesce bursts into one painted frame
+        _sdEngPend = requestAnimationFrame(() => {
+            _sdEngPend = 0;
+            _sdEngDrawnPhase = _sdEngPhase; _sdEngDrawnOn = _sdEngOn;
+            _sdFxDraw(_sdEngPhase, _sdEngOn);
+        });
+    }
+    window.sdSetEnginePlayhead = function (phase, on) {
+        if (!_sdEngMode) { _sdEngMode = true; sdStopFx(); } // the fake drift never comes back
+        _sdEngPhase = Math.min(1, Math.max(0, +phase || 0));
+        _sdEngOn = !!on;
+        // Sub-pixel phase moves don't repaint (a 64-bar loop crawls — painting it at 30Hz
+        // would be pure waste; it repaints as soon as the head has actually moved).
+        if (_sdEngOn !== _sdEngDrawnOn || Math.abs(_sdEngPhase - _sdEngDrawnPhase) > 0.0015) _sdEngKick();
+    };
+
     // Start/stop the FX loop. Paused when Stride is unfocused or hidden so it
-    // costs zero CPU while you're working in Ableton (the common case).
-    function sdStartFx() { if (_sdFxRAF) return; _sdFxRAF = requestAnimationFrame(_sdFxFrame); }
+    // costs zero CPU while you're working in Ableton (the common case). Inert in
+    // engine-playhead mode (focus/visibility must not resurrect the fake drift).
+    function sdStartFx() { if (_sdEngMode || _sdFxRAF) return; _sdFxRAF = requestAnimationFrame(_sdFxFrame); }
     function sdStopFx() {
         if (_sdFxRAF) { cancelAnimationFrame(_sdFxRAF); _sdFxRAF = 0; }
         if (sdFxCtx && sdCanvasFx) sdFxCtx.clearRect(0, 0, sdCanvasFx.width, sdCanvasFx.height);
@@ -3623,6 +3659,7 @@
             const valueToY = (v) => rect.bottom - _rangeMap(v) * rect.height;
             const timeToX = (t) => laneDrawLeft + ((t / totalBeats) * laneDrawWidth * sdViewZoomX) - sdViewPanX;
             _sdLaneGeom.push({ cy: rect.top + rect.height / 2, rgb: sdLaneRGB(paramIdx), poly: (param.points.length >= 2 ? _sdSampleLanePixels(sortedPts, timeToX, valueToY) : null) });
+            if (_sdEngMode) _sdEngKick();   // engine playhead: fresh geometry (zoom/pan/edit) repaints the parked head (coalesced — one frame per redraw)
 
             sdCtx.save();
             sdCtx.beginPath();

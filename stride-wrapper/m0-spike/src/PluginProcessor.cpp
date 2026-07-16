@@ -239,6 +239,16 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         }
         else { demoFrozen.store (false); demoPlaying.store (false); demoResumeSecs.store (0); }
 
+        // Publish the TRUE loop position + transport state EVERY block (drive or not) — the
+        // editor forwards them (≤30Hz, change-detected) so the canvas playhead rides the REAL
+        // automation position instead of a wall-clock drift. Stopped = the phase holds and
+        // the UI parks the head exactly where the DAW playhead is.
+        const double cb = driveClipBeats > 0.0 ? driveClipBeats : 16.0;
+        double ph = std::fmod (beats, cb);
+        if (ph < 0.0) ph += cb;
+        lastModValue.store ((float) (ph / cb));
+        transportActive.store (transportPlaying);
+
         // Drive existing curves ONLY when this machine is entitled (paid, active pass, or an
         // expired pass minted for THIS device = soft lock). A shared project on a never-passed
         // machine -> driveAllowed false -> the hosted synth plays dry (no free modulation).
@@ -263,12 +273,7 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
             {
                 // LIVE (default, unchanged): Stride curves drive the hosted params, and we MIRROR
                 // the value onto the macro (plain setValue, no host-notify) so the DAW's display
-                // follows the modulation without recording it.
-                const double cb = driveClipBeats > 0.0 ? driveClipBeats : 16.0;
-                double ph = std::fmod (beats, cb);
-                if (ph < 0.0) ph += cb;
-                lastModValue.store ((float) (ph / cb));
-
+                // follows the modulation without recording it. (cb/ph = the phase published above.)
                 for (const auto& lane : driveLanes)
                 {
                     if (lane.node < 0 || lane.node >= (int) chain.size() || ! chain[(size_t) lane.node].inst) continue;

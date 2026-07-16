@@ -3,6 +3,7 @@
 #include "License.h"
 #include "MacKeyForward.h"
 
+#include <cmath>
 #include <optional>
 #include <vector>
 #include <cstring>
@@ -718,6 +719,25 @@ void StrideWrapperEditor::timerCallback()
     }
 
     if (web == nullptr) return;
+
+    // TRUE playhead → canvas. The comet rides the REAL loop position (the ambient wall-clock
+    // drift retires on the first tick). Change-detected: a stopped transport sends ONE parking
+    // event and then goes silent — zero bridge traffic, zero paints. Live mode only (in
+    // Automation mode the DAW drives arbitrary values; a loop-phase head would lie).
+    {
+        const bool on = proc.transportActive.load()
+                          && proc.getDriveMode() == StrideWrapperProcessor::DriveMode::Live
+                          && proc.hasHostedPlugin();
+        const float ph = proc.lastModValue.load();
+        if (on != lastPhOn || (on && std::abs (ph - lastPhSent) > 0.0005f))
+        {
+            lastPhOn = on; lastPhSent = ph;
+            auto* o = new juce::DynamicObject();
+            o->setProperty ("p", (double) ph);
+            o->setProperty ("on", on);
+            web->emitEventIfBrowserIsVisible ("playhead", juce::var (o));
+        }
+    }
 
     const auto summary = proc.getChainSummary();
     if (summary != lastSummary)

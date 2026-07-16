@@ -118,7 +118,8 @@ public:
     void setDriveCurves (const std::vector<DriveLane>& lanes, double clipBeats);
 
     std::atomic<bool>  modEnabled   { true };
-    std::atomic<float> lastModValue { 0.0f };
+    std::atomic<float> lastModValue { 0.0f };       // TRUE loop phase 0..1 (every block, playing or not) — the UI playhead position
+    std::atomic<bool>  transportActive { false };   // host transport running (standalone free-run counts) — playhead on/off + trail
 
     // Interactive load failures surface in the UI instead of a silent DBG — on Mac the
     // #1 real-world cause is an Intel-only bundle inside an arm64 host process (Logic).

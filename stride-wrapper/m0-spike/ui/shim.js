@@ -242,6 +242,13 @@
     try { window.strideLink._emit(msg && msg.type, msg); } catch (e) { showErr('sl_event: ' + e.message); }
   });
 
+  // TRUE playhead: the engine's real loop phase (0..1 + playing flag) drives the lane
+  // comets — canvas.js retires its ambient wall-clock drift on the first tick and then
+  // repaints only when the phase actually moves (zero cost while stopped).
+  listen('playhead', function (d) {
+    try { if (window.sdSetEnginePlayhead) window.sdSetEnginePlayhead((d && d.p) || 0, !!(d && d.on)); } catch (e) { showErr('playhead: ' + e.message); }
+  });
+
   // A device failed to load (bad path, wrong format, or — the common Mac case — an
   // Intel-only bundle inside an arm64 host process). Silent DBG was a support ticket;
   // show a small toast with the actionable cause instead.
