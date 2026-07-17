@@ -49,6 +49,7 @@ const cmake  = rd(path.join(W, 'CMakeLists.txt'));
 function makeMirror(opts) {
     const st = {
         ni: !!opts.ni, mode: opts.mode || 'live', lastMirror: 0,
+        rec: opts.rec !== false,               // host transport recording (mirror = RECORD-FOLLOW ONLY since the undo-flood fix)
         slots: {},                             // slot -> {v, lastPushed, gestureOpen, lastEdit}
         begins: 0, ends: 0, pushes: 0,
     };
@@ -58,6 +59,7 @@ function makeMirror(opts) {
         for (const s of Object.values(st.slots))
             if (s.gestureOpen && now - s.lastEdit > 400) { s.gestureOpen = false; st.ends++; }
         if (st.mode !== 'live') return;
+        if (!st.rec) return;                   // not recording -> silent (every notify is a DAW undo entry)
         if (now - st.lastMirror < 66) return;
         st.lastMirror = now;
         for (const s of Object.values(st.slots))
@@ -122,6 +124,21 @@ function makeMirror(opts) {
     ok('automation mode: no mirror pushes', m.pushes === 1);   // only the original live-mode push
 })();
 
+// UNDO-FLOOD FIX: the mirror notifies ONLY while the host records — plain playback
+// used to bury the user's timeline edits under invisible param-change undo entries
+(function () {
+    const m = makeMirror({ rec: false });
+    for (let t = 1000; t < 3000; t += 33) { m.slot(0, Math.random()); m.tick(t); }
+    ok('plain playback (not recording): ZERO host notifications', m.pushes === 0 && m.begins === 0);
+    const r = makeMirror({ rec: true });
+    r.slot(0, 0.1); r.tick(1000);
+    ok('recording: the mirror follows/writes as before', r.pushes === 1 && r.begins === 1);
+    // recording stops mid-gesture -> the open gesture still closes on stillness
+    r.rec = false;
+    r.tick(1500);
+    ok('recording stops mid-gesture: gesture closes cleanly', r.slots[0].gestureOpen === false && r.ends === 1);
+})();
+
 // editor close: closeMacroGestures ends whatever is open
 (function () {
     const m = makeMirror({});
@@ -169,6 +186,8 @@ function makeMirror(opts) {
 // ─────────────────────────────────────────────────────────────
 ok('mirror is OFF under Maschine (the hang report)', /pushMacroValuesToHost[\s\S]{0,900}isMaschine\(\)/.test(procC));
 ok('mirror capped to ~15Hz (66ms)', /kMirrorIntervalMs = 66/.test(procC) && /lastMirrorPushMs < kMirrorIntervalMs\) return/.test(procC));
+ok('mirror is RECORD-FOLLOW only (undo-flood fix)', /if \(! transportRecording\.load\(\)\) return;/.test(procC) && /std::atomic<bool>\s+transportRecording \{ false \}/.test(procH));
+ok('recording state read from the playhead every block', /transportRec = pos->getIsRecording\(\)/.test(procC) && /transportRecording\.store \(transportRec\)/.test(procC));
 ok('gestures end after 400ms of stillness', /kGestureQuietMs\s+= 400/.test(procC) && /lastEditMs > kGestureQuietMs/.test(procC));
 ok('pushes are gesture-wrapped (begin on first move)', /pushMacroValuesToHost[\s\S]{0,2600}beginChangeGesture[\s\S]{0,300}setValueNotifyingHost/.test(procC));
 ok('closeMacroGestures implemented + ends open gestures', /void StrideWrapperProcessor::closeMacroGestures\(\)[\s\S]{0,400}endChangeGesture/.test(procC));

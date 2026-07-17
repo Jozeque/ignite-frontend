@@ -1187,6 +1187,107 @@ def _handle_start_pass(data: dict, ip: str = "", ua: str = ""):
                         "message": "Could not start your pass. Please try again."}), 200
 
 
+LS_MY_ORDERS_URL = "https://app.lemonsqueezy.com/my-orders"
+
+def _handle_get_update(data: dict):
+    """One-click update download for entitled users. PUBLIC but license-gated: validates
+    the key against LS SLOT-FREE (consumes no activation), then returns a SIGNED direct
+    download URL for the caller's platform from the product's CURRENT files — so the
+    plugin's "Check for updates" opens a download immediately: no email hunt, no login.
+    Because it reads whatever files are uploaded on LS right now, shipping a release
+    updates this path automatically. Every failure degrades to the My Orders portal.
+    Request:  { action:'get_update', key, platform:'windows'|'mac' }
+    Response: { ok, url?, filename?, portal }   (always HTTP 200; portal = fallback)"""
+    raw_key = data.get("key") or ""
+    key = re.sub(r"[\s\u00A0\u200B\u200C\u200D\uFEFF]", "", raw_key).upper()
+    platform = (data.get("platform") or "").strip().lower()
+    fallback = {"ok": False, "portal": LS_MY_ORDERS_URL}
+    if not key:
+        return jsonify({**fallback, "error": "missing key"}), 200
+    api_key = os.environ.get("LEMONSQUEEZY_API_KEY", "")
+    if not api_key:
+        print("[Update] LEMONSQUEEZY_API_KEY not set")
+        return jsonify({**fallback, "error": "not configured"}), 200
+
+    ls_headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Accept": "application/json",
+        "User-Agent": "Stride-Backend/1.0",
+    }
+
+    # 1. Slot-free key validation — the key IS the credential; no activation consumed.
+    try:
+        vreq = urllib.request.Request(
+            "https://api.lemonsqueezy.com/v1/licenses/validate",
+            data=urllib.parse.urlencode({"license_key": key}).encode("utf-8"),
+            headers={**ls_headers, "Content-Type": "application/x-www-form-urlencoded"},
+        )
+        with urllib.request.urlopen(vreq, timeout=15) as resp:
+            vres = json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        print(f"[Update] validate failed: {e}")
+        return jsonify({**fallback, "error": "validate failed"}), 200
+    if not vres.get("valid"):
+        return jsonify({**fallback, "error": "invalid key"}), 200
+    lk_status = ((vres.get("license_key") or {}).get("status") or "").lower()
+    if lk_status in ("disabled", "expired"):   # refunded/killed keys get the portal, not files
+        return jsonify({**fallback, "error": "inactive key"}), 200
+
+    # 2. ENTITLEMENT-DRIVEN file source: the button lives in the VST, and desktop-era
+    #    buyers are vst-ENTITLED without ever having a VST order (the free upgrade) —
+    #    so "the product you bought" would serve them the wrong zips or none (verified
+    #    live 2026-07-17: the owner's desktop key -> product "Stride", zero files on its
+    #    variant). Any vst-entitled key gets the VST PRODUCT's current files.
+    meta = vres.get("meta") or {}
+    lk = vres.get("license_key") or {}
+    ents = _resolve_entitlements(meta.get("product_id"), meta.get("product_name"),
+                                 _ent_created_at_ms(lk.get("created_at")))
+    print(f"[Update] key product={meta.get('product_name')} ents={ents}")
+    if "vst" not in ents:
+        return jsonify({**fallback, "error": "not entitled"}), 200
+
+    def _ls_list(path_and_query: str):
+        try:
+            lreq = urllib.request.Request(
+                "https://api.lemonsqueezy.com/v1/" + path_and_query,
+                headers={**ls_headers, "Accept": "application/vnd.api+json"},
+            )
+            with urllib.request.urlopen(lreq, timeout=15) as resp:
+                return (json.loads(resp.read().decode("utf-8")) or {}).get("data") or []
+        except Exception as e:
+            print(f"[Update] LS list failed ({path_and_query}): {e}")
+            return []
+
+    # Serve the NEWEST *VST3* build for the platform, wherever it lives in the store.
+    # Verified live 2026-07-17: the store's real distribution point is the demo
+    # product's variant (each release re-upload stacks a new file entry there), the
+    # paid bundle's variants carry stale DESKTOP builds, and archived variants list
+    # nothing — so product-scoping lies. This rule survives any future re-shuffle:
+    # walk products -> variants -> files (per-variant filtered queries only; the
+    # store-wide /v1/files list times out), keep names containing "vst3" + the
+    # platform token, take the highest file id (= newest upload). No non-VST3
+    # fallback — the button lives in the VST; wrong-product zips are worse than
+    # the portal.
+    files = []
+    for prod in _ls_list("products?" + urllib.parse.urlencode({"page[size]": "50"})):
+        for v in _ls_list("variants?" + urllib.parse.urlencode({"filter[product_id]": prod.get("id")})):
+            files += _ls_list("files?" + urllib.parse.urlencode({"filter[variant_id]": v.get("id")}))
+
+    want = "mac" if platform.startswith("mac") else "windows"
+    def _fname(f):
+        return (((f.get("attributes") or {}).get("name")) or "").lower()
+    cands = [f for f in files if "vst3" in _fname(f) and want in _fname(f)]
+    cands.sort(key=lambda f: int(f.get("id") or 0), reverse=True)
+    pick = cands[0] if cands else None
+    print(f"[Update] store files={len(files)} vst3-{want} candidates={len(cands)} pick=" +
+          (f"{pick.get('id')}:{_fname(pick)}" if pick else "(none)"))
+    url = ((pick or {}).get("attributes") or {}).get("download_url") or ""
+    if not url:
+        return jsonify({**fallback, "error": "no file"}), 200
+    filename = ((pick.get("attributes") or {}).get("name")) or "Stride.zip"
+    return jsonify({"ok": True, "url": url, "filename": filename, "portal": LS_MY_ORDERS_URL}), 200
+
+
 @https_fn.on_request(
     cors=options.CorsOptions(
         cors_origins=[
@@ -1483,6 +1584,10 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
     if isinstance(data_pre, dict) and data_pre.get("action") == "start_pass":
         _pass_ip = (req.headers.get("X-Forwarded-For", req.remote_addr or "") or "").split(",")[0].strip()
         return _handle_start_pass(data_pre, _pass_ip, req.headers.get("User-Agent", ""))
+
+    # One-click update download. Public — the license key is the credential (slot-free).
+    if isinstance(data_pre, dict) and data_pre.get("action") == "get_update":
+        return _handle_get_update(data_pre)
 
     if not GEMINI_READY or not API_KEY:
         return jsonify({"error": "CRITICAL: Gemini API Key missing or library not installed."}), 500

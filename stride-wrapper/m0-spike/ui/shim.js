@@ -583,6 +583,102 @@
       document.addEventListener('click', function (e) { if (! autoWrap.contains(e.target)) pop.classList.add('hidden'); });
       paintAuto();
 
+      // ── Tempo — ON the bar, no popup. An on/off toggle: SYNC (default, follows the
+      // project exactly) ↔ MANUAL (Stride's own BPM: 70 on a 140 set = half-time
+      // everything, any 5–999 value). In manual, the number sits right next to the
+      // toggle and SCRUBS like the range MIN/MAX fields (press + drag up/down, ~1 BPM
+      // per 2px); double-click it to type an exact value. Engine-owned + project-saved.
+      var _tempoMode = 0, _manualBpm = 120;   // 0=sync 1=manual
+      var tempoBtn = document.createElement('button');
+      tempoBtn.title = 'Stride tempo — SYNC follows the project; MANUAL runs all motion at your own BPM';
+      host.appendChild(tempoBtn);
+
+      var bpmEl = document.createElement('div');
+      bpmEl.title = 'Drag up/down to set the BPM · double-click to type';
+      bpmEl.style.cursor = 'ns-resize';
+      bpmEl.style.userSelect = 'none';
+      host.appendChild(bpmEl);
+
+      var _bpmDrag = null;   // { startY, startVal } while scrubbing
+      var _bpmTyping = false;
+
+      function paintTempo() {
+        var synced = (_tempoMode === 0);
+        tempoBtn.className = BTN_BASE + (synced
+          ? 'text-zinc-400 hover:text-orange-300 border border-white/10'
+          : 'text-orange-300 bg-orange-500/15 border border-orange-400/40');
+        tempoBtn.textContent = synced ? '♪ sync' : '♪ manual';
+        bpmEl.className = 'text-[11px] font-bold rounded px-2 py-1 border transition-colors '
+          + (synced ? 'hidden' : 'text-orange-200 bg-zinc-900 border-orange-400/40 hover:border-orange-300/70');
+        if (! _bpmTyping) bpmEl.textContent = Math.round(_manualBpm) + ' bpm';
+      }
+      function pushTempo() { try { window.strideLink.send({ type: 'set_tempo_mode', mode: _tempoMode, bpm: _manualBpm }); } catch (e) {} }
+      function clampBpm(v) { v = parseFloat(v); return isNaN(v) ? _manualBpm : Math.max(5, Math.min(999, v)); }
+
+      tempoBtn.onclick = function () { _tempoMode = (_tempoMode === 0 ? 1 : 0); paintTempo(); pushTempo(); };
+
+      // Scrub: press + drag up/down, ~1 BPM per 2px (the range-field feel). Commit rides
+      // along live so the motion re-times under your finger.
+      bpmEl.addEventListener('mousedown', function (e) {
+        if (_bpmTyping) return;
+        _bpmDrag = { startY: e.clientY, startVal: _manualBpm };
+        e.preventDefault();
+      });
+      window.addEventListener('mousemove', function (e) {
+        if (! _bpmDrag) return;
+        _manualBpm = clampBpm(Math.round(_bpmDrag.startVal + (_bpmDrag.startY - e.clientY) * 0.5));
+        paintTempo(); pushTempo();
+      });
+      window.addEventListener('mouseup', function () { _bpmDrag = null; });
+
+      // Double-click = type an exact value (keeps the writing path). Enter/blur commits,
+      // Escape cancels.
+      bpmEl.addEventListener('dblclick', function () {
+        if (_bpmTyping) return;
+        _bpmTyping = true;
+        var prev = Math.round(_manualBpm);
+        bpmEl.textContent = '';
+        var inp = document.createElement('input');
+        inp.type = 'text'; inp.inputMode = 'numeric'; inp.value = String(prev);
+        inp.className = 'w-[44px] bg-transparent text-[11px] font-bold text-orange-200 focus:outline-none';
+        bpmEl.appendChild(inp);
+        inp.focus(); inp.select();
+        function done(commit) {
+          if (! _bpmTyping) return;
+          _bpmTyping = false;
+          if (commit) { _manualBpm = clampBpm(inp.value); pushTempo(); }
+          paintTempo();
+        }
+        inp.onkeydown = function (ev) {
+          if (ev.key === 'Enter') { ev.preventDefault(); done(true); }
+          else if (ev.key === 'Escape') { ev.preventDefault(); done(false); }
+          ev.stopPropagation();
+        };
+        inp.onblur = function () { done(true); };
+      });
+      paintTempo();
+
+      listen('sl_event', function (msg) {
+        if (! msg || msg.type !== 'rack_scanned') return;
+        if (typeof msg.tempo_mode !== 'undefined') _tempoMode = msg.tempo_mode | 0;
+        if (typeof msg.manual_bpm !== 'undefined' && msg.manual_bpm > 0) _manualBpm = msg.manual_bpm;
+        paintTempo();
+      });
+
+      // ── Check for updates — the TITLEBAR button next to Guide (static markup in
+      // index.html, wired here). One click: the engine asks the backend for a SIGNED
+      // direct download (license-gated, per-platform, always the files currently on
+      // Lemon Squeezy); any failure lands on the My Orders portal instead. Either way
+      // the browser opens — no email hunt, no login.
+      var updBtn = document.getElementById('sd-update-btn');
+      if (updBtn) {
+        updBtn.onclick = function () { updBtn.textContent = '…'; emit('checkUpdate'); };
+        listen('updateReply', function (d) {
+          updBtn.textContent = (d && d.ok) ? '✓ downloading' : '↗ opened';
+          setTimeout(function () { updBtn.textContent = 'Update'; }, 2500);
+        });
+      }
+
       listen('sl_event', function (msg) {
         // rack_scanned (full) AND unmapped_at (one-lane splice) both carry the macro counts.
         if (! msg || (msg.type !== 'rack_scanned' && msg.type !== 'unmapped_at')) return;

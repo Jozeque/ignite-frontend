@@ -171,30 +171,47 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     // Transport in BEATS. In the STANDALONE there's no transport, so always free-run at
     // 120 BPM (so curves animate without a Play button). In a DAW: follow the playhead
     // and HOLD when stopped/paused.
+    const int tMode = tempoMode.load();   // 0=Project sync / 1=Manual (own BPM, transport-mapped)
     double beats = freeRunPhase;
-    bool freeRun = (wrapperType == wrapperType_Standalone);
+    bool clockFree = (wrapperType == wrapperType_Standalone);
     bool transportPlaying = false;
-    if (! freeRun)
+    bool transportRec = false;
+    double hostBpm = 120.0;
+    // Read the playhead whenever the host offers one — recording (the mirror gate) and
+    // play-state stay host-truth in every mode.
+    if (auto* ph = getPlayHead())
     {
-        if (auto* ph = getPlayHead())
+        if (auto pos = ph->getPosition())
         {
-            if (auto pos = ph->getPosition())
+            transportPlaying = pos->getIsPlaying();
+            transportRec = pos->getIsRecording();
+            if (auto bpm = pos->getBpm()) hostBpm = *bpm;
+            if (! clockFree)
             {
-                const bool playing = pos->getIsPlaying();
-                transportPlaying = playing;
                 if (auto ppq = pos->getPpqPosition()) { beats = *ppq; freeRunPhase = *ppq; }
-                else if (playing) freeRun = true;
+                else if (transportPlaying) clockFree = true;
                 // else: stopped with no position -> hold
             }
-            else freeRun = true;
         }
-        else freeRun = true;
+        else clockFree = true;
     }
-    if (freeRun)
+    else clockFree = true;
+
+    if (clockFree)
     {
-        freeRunPhase += (double) buffer.getNumSamples() / currentSampleRate * 2.0;   // 120 BPM
+        // Standalone / no-transport free-run: classic 120, or the user's BPM in Manual.
+        const double frBpm = (tMode == (int) TempoMode::Manual) ? (double) manualBpm.load() : 120.0;
+        freeRunPhase += (double) buffer.getNumSamples() / currentSampleRate * (frBpm / 60.0);
         beats = freeRunPhase;
         transportPlaying = true;   // standalone / no-transport: treat as playing so the demo cycle advances
+    }
+    else if (tMode == (int) TempoMode::Manual)
+    {
+        // Manual Stride tempo: scale the beat clock (host 140, manual 70 → every lane
+        // half-time). A position MAPPING (× ratio), not an integrated clock —
+        // deterministic across loops, scrubs and offline renders. Sync (default)
+        // never reaches this line: byte-identical to the old behavior.
+        beats *= (double) manualBpm.load() / juce::jmax (1.0, hostBpm);
     }
 
     const juce::ScopedTryLock sl (hostLock);
@@ -248,6 +265,7 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         if (ph < 0.0) ph += cb;
         lastModValue.store ((float) (ph / cb));
         transportActive.store (transportPlaying);
+        transportRecording.store (transportRec);
 
         // Drive existing curves ONLY when this machine is entitled (paid, active pass, or an
         // expired pass minted for THIS device = soft lock). A shared project on a never-passed
@@ -606,6 +624,8 @@ void StrideWrapperProcessor::getStateInformation (juce::MemoryBlock& dest)
     root.setAttribute ("version", 2);                                   // state schema version (for future migration)
     root.setAttribute ("clipBeats", driveClipBeats);
     root.setAttribute ("driveMode", (int) driveMode.load());            // 0=Live, 1=Automation
+    root.setAttribute ("tempoMode", tempoMode.load());                  // 0=Project sync (default) / 1=Manual
+    root.setAttribute ("manualBpm", (double) manualBpm.load());
 
     auto* chainXml = root.createNewChildElement ("CHAIN");
     for (int i = 0; i < (int) chain.size(); ++i)
@@ -657,6 +677,8 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
         chain.clear(); mapped.clear(); driveLanes.clear();
         driveClipBeats = xml->getDoubleAttribute ("clipBeats", 16.0);
         driveMode.store ((DriveMode) xml->getIntAttribute ("driveMode", 0));   // default Live (0) for old projects
+        tempoMode.store (juce::jlimit (0, 1, xml->getIntAttribute ("tempoMode", 0)));   // old projects: sync (byte-identical)
+        manualBpm.store ((float) juce::jlimit (5.0, 999.0, xml->getDoubleAttribute ("manualBpm", 120.0)));
     }
     mapVersion.fetch_add (1);
 
@@ -851,6 +873,23 @@ void StrideWrapperProcessor::setMappedRange (int pos, bool on, float lo, float h
     hostDirtyPending.store (true);
 }
 
+// Range-for-Group: apply a batch of {id,on,min,max} band edits atomically — one lock pass,
+// one dirty mark. Same semantics per item as setMappedRange (clamped, no mapVersion bump).
+void StrideWrapperProcessor::setMappedRanges (const juce::Array<juce::var>& items)
+{
+    const juce::ScopedLock sl (hostLock);
+    for (const auto& it : items)
+    {
+        const int pos = (int) it.getProperty ("id", -1);
+        if (pos < 0 || pos >= (int) mapped.size()) continue;
+        auto& m = mapped[(size_t) pos];
+        m.rangeOn = (bool) it.getProperty ("on", false);
+        m.rangeLo = juce::jlimit (0.0f, 1.0f, (float) (double) it.getProperty ("min", 0.0));
+        m.rangeHi = juce::jlimit (0.0f, 1.0f, juce::jmax ((float) (double) it.getProperty ("max", 1.0), m.rangeLo));
+    }
+    hostDirtyPending.store (true);
+}
+
 // {on,lo,hi} per mapped param, mapped order — pushRackScanned sends these so every canvas
 // rebuild (re-push or project reopen) restores the bands.
 juce::Array<juce::var> StrideWrapperProcessor::getMappedRanges() const
@@ -940,6 +979,15 @@ void StrideWrapperProcessor::setDriveMode (DriveMode m)
     driveMode.store (m);   // persisted in getStateInformation; takes effect next processBlock
 }
 
+// Tempo mode (bridge). Clamped at the door so the audio thread never divides by nonsense;
+// bpm <= 0 = "keep the stored value" (a mode switch alone doesn't carry a number).
+void StrideWrapperProcessor::setTempoMode (int mode, float bpm)
+{
+    tempoMode.store (juce::jlimit (0, 1, mode));
+    if (bpm > 0.0f) manualBpm.store (juce::jlimit (5.0f, 999.0f, bpm));
+    hostDirtyPending.store (true);
+}
+
 // Ableton's "Configure" mode adds a VST3 param to the device only when that param fires a
 // host-visible gesture. Wiggling a hosted synth knob fires ITS gesture to us (we're its host),
 // never to Ableton — so the macros stay invisible. This fires a real begin/setValueNotifyingHost/
@@ -999,6 +1047,15 @@ void StrideWrapperProcessor::pushMacroValuesToHost()
         }
 
     if (driveMode.load() != DriveMode::Live) return;
+
+    // RECORD-FOLLOW ONLY: every notified edit lands in the DAW's UNDO HISTORY. A plain
+    // playback stretch used to bury the user's own edits under invisible "param change"
+    // entries — Ctrl+Z after a timeline edit undid Stride noise instead (field report
+    // 2026-07-16). While the host RECORDS, following/writing automation is the point;
+    // otherwise stay silent (the canvas playhead shows the motion, and the macros still
+    // track via plain setValue so a save captures current values).
+    if (! transportRecording.load()) return;
+
     if (now - lastMirrorPushMs < kMirrorIntervalMs) return;
     lastMirrorPushMs = now;
 

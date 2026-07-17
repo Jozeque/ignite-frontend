@@ -50,18 +50,20 @@
 
     // ─── Drag-select state (multi-view + Ctrl/Cmd) ─────────
     // Click-drag with Ctrl held picks up every lane the cursor passes over.
-    // The click-only behavior (toggle) is preserved if the mouse never moves
-    // more than SD_DRAG_SELECT_THRESHOLD_PX before mouseup. Drag is always
-    // additive — to remove a lane, Ctrl+click it individually. Wired in the
-    // multi-view mousedown branch + the global mousemove handler near the
-    // wheel/mouseup section.
-    let _sdDragSelectPending = null;     // { startX, startY, laneId } at mousedown
-    let _sdDragSelectActive = false;     // promoted true once movement passes threshold
+    // The gesture is decided by WHERE the cursor goes, not by pixels: reaching a
+    // DIFFERENT lane promotes to a drag-sweep (additive — the start lane joins and
+    // STAYS selected); releasing while still on the start lane is a click (toggle,
+    // fired on mouseup, so any amount of in-lane wobble still deselects reliably).
+    // Was a 3px promotion threshold — that let a Ctrl+drag that STARTED on a selected
+    // lane silently kick it out of the group ("drag is additive" violated for lane #1;
+    // field report 2026-07-16). Wired in the multi-view mousedown branch + the global
+    // mousemove handler near the wheel/mouseup section.
+    let _sdDragSelectPending = null;     // { laneId, startWasSelected } at Ctrl+mousedown (no toggle yet)
+    let _sdDragSelectActive = false;     // promoted true once the cursor reaches another lane
     let _sdDragSelectVisited = new Set();
     let _sdEdgeScrollRaf = 0;
     let _sdEdgeScrollLastTickAt = 0;
     let _sdLastMouseClientY = 0;
-    const SD_DRAG_SELECT_THRESHOLD_PX = 3;
     const SD_EDGE_SCROLL_ZONE_PX = 40;
 
     let sdViewZoomX = 1;
@@ -2395,6 +2397,57 @@
         } catch (e) {}
     }
 
+    // ── RANGE FOR GROUP ── the SELECTION is the group: editing the band of a lane that is
+    // SELECTED applies the same absolute band to every selected lane. Locked lanes are
+    // skipped (locks mean hands-off — the same contract the generators honor), except the
+    // lane you physically edited, which always applies. Editing an unselected lane stays
+    // single-lane, exactly as before.
+    function _sdRangeGroupTargets(edited) {
+        if (!edited) return [edited];
+        // The ACTIVE lane is part of the group BOTH WAYS: a plain click "chooses" a lane
+        // without setting p.selected (it even clears the selection), so users read it as
+        // part of their set. Member: group edits pull it in (2026-07-16: "only changes the
+        // other 3"). TRIGGER: editing the active lane itself, while a selection exists,
+        // must drive the whole group too (2026-07-17: tweaking the first/active lane moved
+        // only itself while B/C edits moved all three). Editing an unselected, non-active
+        // lane stays single-lane — the deliberate escape hatch.
+        const anySelected = sdCanvasParams.some(p => p && p.selected);
+        const isActive = edited.envelopeId === sdActiveParamId;
+        if (!(edited.selected || (isActive && anySelected))) return [edited];
+        const targets = sdCanvasParams.filter(p => p && p.selected && (p === edited || !p.locked));
+        const active = sdCanvasParams.find(p => p && p.envelopeId === sdActiveParamId);
+        if (active && !active.locked && targets.indexOf(active) < 0) targets.push(active);
+        if (targets.indexOf(edited) < 0) targets.push(edited);   // the physically edited lane always applies (even locked — a direct act)
+        return targets.length ? targets : [edited];
+    }
+
+    // Copy the edited lane's WHOLE band onto every target, then one batched engine push.
+    function _sdRangeApplyGroup(edited) {
+        const targets = _sdRangeGroupTargets(edited);
+        for (const t of targets) {
+            if (t === edited) continue;
+            t.rangeOn = edited.rangeOn; t.rangeMin = edited.rangeMin; t.rangeMax = edited.rangeMax;
+        }
+        _sdPushRangesToEngine(targets);
+        return targets;
+    }
+
+    // Batched wrapper push: one engine lock pass, one dirty mark (set_ranges). A single
+    // lane keeps the 1.1.5 set_range path unchanged.
+    function _sdPushRangesToEngine(params) {
+        try {
+            if (!window.strideLink || !window.strideLink._wrapper) return;
+            const items = (params || []).map(function (p) {
+                return { id: parseInt(p.envelopeId, 10), on: !!p.rangeOn,
+                         min: (typeof p.rangeMin === 'number' ? p.rangeMin : 0),
+                         max: (typeof p.rangeMax === 'number' ? p.rangeMax : 1) };
+            }).filter(function (it) { return !isNaN(it.id); });
+            if (!items.length) return;
+            if (items.length === 1) { _sdPushRangeToEngine(params[0]); return; }
+            window.strideLink.send({ type: 'set_ranges', items: items });
+        } catch (e) {}
+    }
+
     // Host-bound OUTPUT scale: map the lane's 0..1 shape into [rangeMin,rangeMax] when the lane
     // is ranged (used at inject + live-drive). The stored/edited shape stays 0..1 — this only
     // transforms what the HOST receives, so changing the range instantly rescales the output.
@@ -2786,7 +2839,7 @@
         let v = Math.max(0, Math.min(1, pct / 100));
         if (edge === 'rangeMax') param.rangeMax = Math.max(v, (param.rangeMin || 0) + 0.02);
         else                     param.rangeMin = Math.min(v, (param.rangeMax || 1) - 0.02);
-        _sdPushRangeToEngine(param);   // engine owns ranges in the wrapper (scrub + typed field; brief bursts only)
+        _sdRangeApplyGroup(param);   // engine owns ranges (scrub + typed field); selected lanes edit as a GROUP
     }
 
     // Double-click a field → a tiny <input> in place to type an exact %.
@@ -4059,7 +4112,7 @@
                         if (p.rangeOn && !(p.rangeMax > p.rangeMin)) { p.rangeMin = 0; p.rangeMax = 1; }
                         _sdRangeIconClick = { id: p.envelopeId, t: now };
                     }
-                    _sdPushRangeToEngine(p);   // engine owns ranges in the wrapper (toggle + double-click reset)
+                    _sdRangeApplyGroup(p);   // engine owns ranges (toggle + double-click reset); selected lanes edit as a GROUP
                     sdDrawCanvasGrid();
                     Promise.resolve(saveCanvasState());
                     return;
@@ -4072,7 +4125,8 @@
                     const yMin = rb - hit.param.rangeMin * rh, yMax = rb - hit.param.rangeMax * rh;
                     const edge = (Math.abs(my - yMax) <= 6) ? 'rangeMax' : (Math.abs(my - yMin) <= 6) ? 'rangeMin' : null;
                     if (edge) {
-                        _sdRangeDrag = { param: hit.param, edge: edge, rect: hit.rect };
+                        // Capture the group at GRAB time (selection changes mid-drag don't retarget).
+                        _sdRangeDrag = { param: hit.param, edge: edge, rect: hit.rect, group: _sdRangeGroupTargets(hit.param) };
                         sdCanvasEl.style.cursor = 'ns-resize';
                         return;
                     }
@@ -4084,9 +4138,9 @@
                 // only modifier that enters selection-without-activating;
                 // the Select All toolbar button is the other entry point.
                 if (e.ctrlKey || e.metaKey) {
-                    if (typeof window.sdToggleLaneSelection === 'function') {
-                        window.sdToggleLaneSelection(hit.param.envelopeId);
-                    }
+                    // No toggle here — the gesture decides on its own: reaching another lane
+                    // = drag-sweep (start lane joins + STAYS selected); releasing on the
+                    // start lane = click (toggle fires on mouseup, wobble-proof).
                     _sdDragSelectArm(e, hit.param.envelopeId);
                     return;
                 }
@@ -4184,6 +4238,11 @@
                 const rd = _sdRangeDrag, v = Math.max(0, Math.min(1, (rd.rect.bottom - my) / rd.rect.height));
                 if (rd.edge === 'rangeMax') rd.param.rangeMax = Math.max(v, rd.param.rangeMin + 0.02);
                 else                        rd.param.rangeMin = Math.min(v, rd.param.rangeMax - 0.02);
+                if (rd.group && rd.group.length > 1)   // group drag: every selected band follows live
+                    for (const t of rd.group) {
+                        if (t === rd.param) continue;
+                        t.rangeOn = rd.param.rangeOn; t.rangeMin = rd.param.rangeMin; t.rangeMax = rd.param.rangeMax;
+                    }
                 sdDrawCanvasGrid();
                 return;
             }
@@ -4257,16 +4316,25 @@
             if (!_sdDragSelectPending && !_sdDragSelectActive) return;
             _sdLastMouseClientY = e.clientY;
 
-            // Promote pending → active once movement crosses the threshold.
-            // Drag NEVER modifies the start lane's selection — that was set
-            // by the mousedown toggle. Critical for Ctrl+click-to-deselect:
-            // even a small hand wobble after the click would otherwise force
-            // the lane back to selected. Drag only adds subsequent lanes.
-            if (_sdDragSelectPending && !_sdDragSelectActive) {
-                const dx = e.clientX - _sdDragSelectPending.startX;
-                const dy = e.clientY - _sdDragSelectPending.startY;
-                if (Math.hypot(dx, dy) >= SD_DRAG_SELECT_THRESHOLD_PX) {
+            // Promote pending → active only when the cursor REACHES A DIFFERENT LANE —
+            // the unambiguous "this is a sweep" signal. In-lane wobble (any distance)
+            // never promotes, so the mouseup click-toggle stays reliable for deselect.
+            // On promotion the START lane joins the sweep: selected and STAYING selected
+            // (drag is additive — the old mousedown-toggle used to kick a selected start
+            // lane OUT of the group; field report 2026-07-16).
+            if (_sdDragSelectPending && !_sdDragSelectActive && sdCanvasEl) {
+                const _pr = sdCanvasEl.getBoundingClientRect();
+                const _py = e.clientY - _pr.top;
+                const _phit = (_py >= 0 && _py <= _pr.height) ? sdMultiGetParamAtY(_py) : null;
+                if (_phit && _phit.param.envelopeId !== _sdDragSelectPending.laneId) {
                     _sdDragSelectActive = true;
+                    const _start = sdCanvasParams.find(p => p.envelopeId === _sdDragSelectPending.laneId);
+                    if (_start && !_start.locked && !_start.selected) {
+                        _start.selected = true;
+                        if (typeof _sdUpdateSelectionButtons === 'function') _sdUpdateSelectionButtons();
+                        sdRenderSidebar();
+                        sdDrawCanvasGrid();
+                    }
                     _sdEdgeScrollSchedule();
                 }
             }
@@ -4277,17 +4345,13 @@
             }
         });
 
-        // Arm a fresh drag-select gesture from a mousedown. Captures the
-        // start position + lane so the global mousemove handler can promote
-        // pending → active once the cursor moves past the threshold. The
-        // starting lane is added to the visited set so it isn't re-toggled
-        // when the drag pass crosses back over it.
+        // Arm a fresh drag-select gesture from a Ctrl+mousedown. NO toggle happens
+        // here — the mousemove handler promotes to a sweep when the cursor reaches a
+        // different lane, and the mouseup handler fires the click-toggle when it never
+        // did. The starting lane is pre-visited so the sweep can't re-add it when the
+        // pass crosses back over it.
         function _sdDragSelectArm(e, laneId) {
-            _sdDragSelectPending = {
-                startX: e.clientX,
-                startY: e.clientY,
-                laneId,
-            };
+            _sdDragSelectPending = { laneId };
             _sdDragSelectActive = false;
             _sdDragSelectVisited = new Set([laneId]);
         }
@@ -4487,10 +4551,10 @@
                 return;
             }
             if (_sdRangeDrag) {   // finished dragging a range boundary — persist + re-drive with the new band
-                const _rdParam = _sdRangeDrag.param;
+                const _rdGroup = _sdRangeDrag.group || [_sdRangeDrag.param];
                 _sdRangeDrag = null;
                 if (sdCanvasEl) sdCanvasEl.style.cursor = 'crosshair';
-                _sdPushRangeToEngine(_rdParam);   // engine owns ranges in the wrapper (committed drag)
+                _sdPushRangesToEngine(_rdGroup);   // engine owns ranges (committed drag; batched when it's a group)
                 try { Promise.resolve(saveCanvasState()); } catch (err) {}
                 sdDrawCanvasGrid();
                 return;
@@ -4522,9 +4586,13 @@
                 if (_sdActiveTool === 'prism') _sdPrismLiveTick();
                 try { Promise.resolve(saveCanvasState()); } catch (e) {}   // flush the edit live so the modulation fires on release — no focus switch needed
             }
-            // Drag-select cleanup. Fires whether or not the drag ever
-            // crossed the threshold — covers the click-only path too.
+            // Drag-select release. Never promoted = a CLICK: the toggle fires HERE
+            // (deferred from mousedown, so a sweep that starts on a selected lane can't
+            // kick it out of the group — and in-lane wobble still deselects reliably).
             if (_sdDragSelectPending || _sdDragSelectActive) {
+                if (_sdDragSelectPending && !_sdDragSelectActive
+                     && typeof window.sdToggleLaneSelection === 'function')
+                    window.sdToggleLaneSelection(_sdDragSelectPending.laneId);
                 _sdDragSelectPending = null;
                 _sdDragSelectActive = false;
                 _sdDragSelectVisited = new Set();

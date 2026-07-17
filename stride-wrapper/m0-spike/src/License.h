@@ -477,6 +477,42 @@ namespace stride_license
         });
     }
 
+    // "Check for updates": ask the backend for a SIGNED direct-download link for THIS
+    // platform. License-gated server-side (slot-free — consumes no activation) and always
+    // degradable: the reply carries a My Orders portal URL for every failure path, so the
+    // button opens SOMETHING useful no matter what. Worker-thread network, message-thread
+    // reply (mirrors validate()).
+    inline void fetchUpdateLink (std::function<void (juce::var)> reply)
+    {
+        juce::Thread::launch ([reply]
+        {
+            juce::String key;
+            const auto f = licenseFile();
+            if (f.existsAsFile())
+                key = juce::JSON::parse (f.loadFileAsString()).getProperty ("key", "").toString();
+
+            juce::DynamicObject::Ptr body = new juce::DynamicObject();
+            body->setProperty ("action", "get_update");
+            body->setProperty ("key", key);
+           #if JUCE_WINDOWS
+            body->setProperty ("platform", "windows");
+           #else
+            body->setProperty ("platform", "mac");
+           #endif
+
+            juce::var parsed;
+            juce::URL url (kEndpoint);
+            url = url.withPOSTData (juce::JSON::toString (juce::var (body.get())));
+            auto opts = juce::URL::InputStreamOptions (juce::URL::ParameterHandling::inPostData)
+                          .withExtraHeaders ("Content-Type: application/json")
+                          .withConnectionTimeoutMs (10000);
+            if (auto stream = url.createInputStream (opts))
+                parsed = juce::JSON::parse (stream->readEntireStreamAsString());
+
+            juce::MessageManager::callAsync ([reply, parsed] { reply (parsed); });
+        });
+    }
+
     // Start (or resume) a 24-hour Discovery Pass. POSTs the email + the device hash; on success
     // returns a signed pass ent (cached by the UI so it runs offline for 24h) and raises the
     // anti-rollback clock from the unforgeable server time. Mirrors validate().

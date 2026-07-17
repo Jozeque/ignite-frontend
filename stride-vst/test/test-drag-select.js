@@ -2,18 +2,23 @@
  * Behavior tests for the multi-view drag-select gesture
  * (canvas.js, multi-view + Select Mode).
  *
- * Spec rules under test:
- *   - Drag activates once cursor movement passes SD_DRAG_SELECT_THRESHOLD_PX (3px)
- *   - Sub-threshold mousedown+up stays a click — original toggle is preserved
+ * Spec rules under test (REVISED 2026-07-16 — gesture decided by WHERE the
+ * cursor goes, not by pixels; field report: a Ctrl+drag that STARTED on a
+ * selected lane kicked it out of the group):
+ *   - Promotion: pending → drag once the cursor REACHES A DIFFERENT LANE.
+ *     In-lane wobble (any distance) never promotes.
+ *   - Click: released while still on the start lane → the toggle fires on
+ *     MOUSEUP (deferred from mousedown), so wobbly Ctrl+clicks still
+ *     deselect reliably.
+ *   - Promotion makes the start lane part of the sweep: selected and
+ *     STAYING selected (drag is additive — including the lane it started on).
+ *     Locked start lanes stay untouched.
  *   - Visited set: every lane the cursor passes is marked once per drag, no
  *     repeat work on re-entry (prevents flicker)
  *   - Drag is ADDITIVE ONLY — never deselects, even if the cursor passes
  *     over an already-selected lane (user removes by clicking, not dragging)
  *   - Locked lanes: marked visited so they don't get re-considered, but
  *     selection is never touched
- *   - First-lane revert: when drag activates, the starting lane is forced
- *     back to selected — the toggle from the mousedown click is overridden,
- *     because the user's intent was clearly drag, not toggle
  *   - Edge-scroll cadence: three-tier ramp by distance from edge
  *     (<10px → 30ms, <20px → 50ms, <40px → 80ms, ≥40px → 0 [out of zone])
  *
@@ -36,11 +41,13 @@ function assertEq(a, b, msg) { if (a !== b) throw new Error((msg || 'not equal')
 // ─── Spec mirror of canvas.js drag-select rules ──────────────────
 // Must stay identical to the constants + decision logic in canvas.js.
 
-const SD_DRAG_SELECT_THRESHOLD_PX = 3;
 const SD_EDGE_SCROLL_ZONE_PX = 40;
 
-function thresholdReached(dx, dy) {
-    return Math.hypot(dx, dy) >= SD_DRAG_SELECT_THRESHOLD_PX;
+// Promotion rule: the gesture becomes a drag-sweep only when the cursor is
+// over a DIFFERENT lane than the one it started on. Off-canvas / no lane
+// under the cursor never promotes.
+function promotesToDrag(startLaneId, cursorLaneId) {
+    return cursorLaneId != null && cursorLaneId !== startLaneId;
 }
 
 // Decision rule applied per lane the cursor passes during an active drag.
@@ -56,13 +63,19 @@ function dragSelectDecision({ lane, visited }) {
     return { add: true, markVisited: true };
 }
 
-// Drag promotion never modifies the start lane's selection — that was set
-// by the mousedown toggle (Ctrl+click). Critical so Ctrl+click-to-deselect
-// works reliably: any tiny mouse wobble between click and release would
-// otherwise force the lane back to selected. Kept as an explicit no-op
-// function so the spec is visible in writing.
+// Promotion makes the START lane part of the sweep: it becomes selected and
+// STAYS selected (drag is additive, including the lane it started on). A
+// locked start lane stays untouched — same contract as the sweep itself.
 function startLaneAfterDragPromotion(start) {
-    return { ...start };
+    if (start.locked) return { ...start };
+    return { ...start, selected: true };
+}
+
+// Click rule (released while still on the start lane): the toggle fires on
+// mouseup. sdToggleLaneSelection skips locked lanes.
+function clickToggle(lane) {
+    if (lane.locked) return { ...lane };
+    return { ...lane, selected: !lane.selected };
 }
 
 // Edge-scroll cadence (ms between auto-scroll ticks) given distance from
@@ -84,23 +97,17 @@ function makeLanes(n) {
     }));
 }
 
-// Simulate a Ctrl+click+drag from lane index `fromIdx` to `toIdx` (inclusive),
-// mirroring canvas.js end-to-end:
-//   1. Mousedown toggle (Ctrl+click): start lane's selected flag flips.
-//      Locked lanes no-op (sdToggleLaneSelection skips them).
-//   2. Drag promotion: NO-OP for selection state (no force-revert).
+// Simulate a Ctrl+SWEEP from lane index `fromIdx` to a DIFFERENT `toIdx`
+// (inclusive), mirroring canvas.js end-to-end:
+//   1. Mousedown arms only — NO toggle.
+//   2. Promotion (cursor reached another lane): start lane joins the sweep
+//      (selected unless locked).
 //   3. Drag through subsequent lanes: standard additive decision rule.
-function simulateDrag(lanes, fromIdx, toIdx) {
-    // 1. Mousedown toggle
-    if (!lanes[fromIdx].locked) {
-        lanes[fromIdx].selected = !lanes[fromIdx].selected;
-    }
-    // 2. Drag promotion is a no-op for selection state — explicit call so
-    //    the spec mirror documents the rule even though it does nothing.
+function simulateSweep(lanes, fromIdx, toIdx) {
+    if (fromIdx === toIdx) throw new Error('a sweep requires reaching a different lane — use simulateClick');
     const after = startLaneAfterDragPromotion(lanes[fromIdx]);
     lanes[fromIdx].selected = after.selected;
 
-    // 3. Subsequent lanes — decision rule applies
     const visited = new Set([lanes[fromIdx].envelopeId]);
     const step = fromIdx <= toIdx ? 1 : -1;
     for (let i = fromIdx + step; i !== toIdx + step; i += step) {
@@ -112,27 +119,29 @@ function simulateDrag(lanes, fromIdx, toIdx) {
     return { lanes, visited };
 }
 
-// ─── 1. Threshold detection ────────────────────────────────────
-console.log('\n[threshold detection]');
+// Simulate a Ctrl+CLICK on lane `idx` (any amount of in-lane wobble): never
+// promotes, so the mouseup toggle fires.
+function simulateClick(lanes, idx) {
+    const after = clickToggle(lanes[idx]);
+    lanes[idx].selected = after.selected;
+    return { lanes };
+}
 
-test('exactly 3px movement promotes to drag', () => {
-    assert(thresholdReached(3, 0), 'horizontal 3px should promote');
-    assert(thresholdReached(0, 3), 'vertical 3px should promote');
+// ─── 1. Promotion detection ────────────────────────────────────
+console.log('\n[promotion detection]');
+
+test('reaching a DIFFERENT lane promotes to drag', () => {
+    assert(promotesToDrag('lane-0', 'lane-1'), 'adjacent lane should promote');
+    assert(promotesToDrag('lane-0', 'lane-7'), 'any other lane should promote');
 });
 
-test('2px movement stays a click (sub-threshold)', () => {
-    assert(!thresholdReached(2, 0));
-    assert(!thresholdReached(0, 2));
-    assert(!thresholdReached(2, 2), '2.82 magnitude still below 3');
+test('in-lane wobble never promotes (any distance)', () => {
+    assert(!promotesToDrag('lane-0', 'lane-0'), 'same lane = still a click');
 });
 
-test('diagonal 3+px promotes', () => {
-    assert(thresholdReached(3, 4));    // 5.0
-    assert(thresholdReached(2.5, 2.5)); // 3.54
-});
-
-test('zero movement never promotes (click-only)', () => {
-    assert(!thresholdReached(0, 0));
+test('no lane under the cursor never promotes (left the canvas)', () => {
+    assert(!promotesToDrag('lane-0', null));
+    assert(!promotesToDrag('lane-0', undefined));
 });
 
 // ─── 2. Visited set semantics ──────────────────────────────────
@@ -148,8 +157,8 @@ test('same lane not re-added once visited', () => {
 
 test('re-entering a lane during the same drag is a no-op', () => {
     const lanes = makeLanes(4);
-    // First pass: drag through 0..2
-    simulateDrag(lanes, 0, 2);
+    // First pass: sweep through 0..2
+    simulateSweep(lanes, 0, 2);
     const snapshot = lanes.map(l => l.selected);
     // Simulate re-entry on lane 1 (already visited from first pass)
     const visited = new Set(lanes.map(l => l.envelopeId).slice(0, 3));
@@ -161,32 +170,29 @@ test('re-entering a lane during the same drag is a no-op', () => {
 // ─── 3. Drag is additive only ───────────────────────────────────
 console.log('\n[drag is additive only]');
 
-test('drag through unselected lanes selects all', () => {
+test('sweep through unselected lanes selects all (start included)', () => {
     const lanes = makeLanes(5);
-    simulateDrag(lanes, 0, 4);
+    simulateSweep(lanes, 0, 4);
     lanes.forEach((l, i) => assertEq(l.selected, true, `lane ${i} should be selected`));
 });
 
-test('drag over already-selected lane does not deselect it', () => {
+test('sweep over already-selected lane does not deselect it', () => {
     const lanes = makeLanes(3);
     lanes[1].selected = true;
-    simulateDrag(lanes, 0, 2);
+    simulateSweep(lanes, 0, 2);
     assertEq(lanes[1].selected, true, 'pre-selected lane stays selected');
     assertEq(lanes[0].selected, true);
     assertEq(lanes[2].selected, true);
 });
 
-test('drag through entirely-selected range: start gets toggled off by mousedown, rest untouched', () => {
+test('sweep through entirely-selected range: EVERY lane stays selected (start included)', () => {
+    // THE field-reported bug (2026-07-16): the old mousedown-toggle kicked the
+    // start lane OUT of an all-selected group when the user swept from it.
+    // Additive means additive — nothing deselects during a sweep.
     const lanes = makeLanes(4);
     lanes.forEach(l => { l.selected = true; });
-    simulateDrag(lanes, 0, 3);
-    // Lane 0: mousedown toggle flipped selected → unselected. Drag does
-    // not revert. The user's Ctrl+click intent is respected.
-    assertEq(lanes[0].selected, false, 'start lane gets toggled off by Ctrl+click');
-    // Lanes 1..3: already selected when drag passed through → no-op.
-    assertEq(lanes[1].selected, true);
-    assertEq(lanes[2].selected, true);
-    assertEq(lanes[3].selected, true);
+    simulateSweep(lanes, 0, 3);
+    lanes.forEach((l, i) => assertEq(l.selected, true, `lane ${i} must stay selected`));
 });
 
 // ─── 4. Lock skip ───────────────────────────────────────────────
@@ -199,10 +205,10 @@ test('locked lane: marked visited but selection untouched', () => {
     assertEq(dec.markVisited, true, 'mark visited so we do not re-check on re-enter');
 });
 
-test('drag through 5 lanes with middle locked: locked stays, others selected', () => {
+test('sweep through 5 lanes with middle locked: locked stays, others selected', () => {
     const lanes = makeLanes(5);
     lanes[2].locked = true;
-    simulateDrag(lanes, 0, 4);
+    simulateSweep(lanes, 0, 4);
     assertEq(lanes[0].selected, true);
     assertEq(lanes[1].selected, true);
     assertEq(lanes[2].selected, false, 'locked lane never gets selected');
@@ -210,26 +216,23 @@ test('drag through 5 lanes with middle locked: locked stays, others selected', (
     assertEq(lanes[4].selected, true);
 });
 
-// ─── 5. Drag promotion never modifies start lane ──────────────
-// CRITICAL: this is what makes Ctrl+click-to-deselect reliable. Without
-// this rule, any tiny hand wobble after Ctrl+click would re-select the
-// lane the user just clicked to deselect.
-console.log('\n[drag promotion never modifies start lane]');
+// ─── 5. Promotion makes the start lane part of the sweep ──────
+// The old design toggled on mousedown and never touched the start lane on
+// promotion — which silently deselected a selected start lane. Now the
+// toggle is DEFERRED to mouseup (click case), and promotion pulls the start
+// lane INTO the sweep.
+console.log('\n[promotion pulls the start lane into the sweep]');
 
-test('start lane unselected by mousedown toggle → stays unselected after promotion', () => {
-    // Lane was selected. Mousedown toggle made it unselected (user
-    // Ctrl+clicked to deselect). Drag promotion must NOT revert it.
+test('unselected start lane → selected on promotion (joins its own sweep)', () => {
     const start = { envelopeId: 'A', locked: false, selected: false };
     const after = startLaneAfterDragPromotion(start);
-    assertEq(after.selected, false, 'drag never overrides — Ctrl+click-deselect must stick');
+    assertEq(after.selected, true, 'the sweep includes the lane it started on');
 });
 
-test('start lane selected by mousedown toggle → stays selected after promotion', () => {
-    // Lane was unselected. Mousedown toggle made it selected. Promotion
-    // is a no-op; lane stays as the toggle left it.
+test('selected start lane → STAYS selected on promotion (the reported bug)', () => {
     const start = { envelopeId: 'A', locked: false, selected: true };
     const after = startLaneAfterDragPromotion(start);
-    assertEq(after.selected, true);
+    assertEq(after.selected, true, 'sweeping from a selected lane must not kick it out');
 });
 
 test('locked start lane: promotion is a no-op (matches locked-skip rule)', () => {
@@ -274,15 +277,15 @@ test('negative distance (cursor past edge) → 0', () => {
 // ─── 7. End-to-end scenarios ───────────────────────────────────
 console.log('\n[end-to-end scenarios]');
 
-test('scenario: select 10 lanes by dragging through them', () => {
+test('scenario: select 10 lanes by sweeping through them', () => {
     const lanes = makeLanes(10);
-    simulateDrag(lanes, 0, 9);
+    simulateSweep(lanes, 0, 9);
     assertEq(lanes.filter(l => l.selected).length, 10);
 });
 
-test('scenario: drag downwards then upwards over same range — no flicker', () => {
+test('scenario: sweep downwards then upwards over same range — no flicker', () => {
     const lanes = makeLanes(5);
-    simulateDrag(lanes, 0, 4);    // down
+    simulateSweep(lanes, 0, 4);    // down
     // After down pass, all visited. Re-walking up should change nothing.
     const visited = new Set(lanes.map(l => l.envelopeId));
     for (let i = 4; i >= 0; i--) {
@@ -293,22 +296,30 @@ test('scenario: drag downwards then upwards over same range — no flicker', () 
 });
 
 test('scenario: Ctrl+click on selected lane with hand wobble reliably deselects', () => {
-    // Regression test for the user-reported bug: Ctrl+click on a selected
-    // lane was failing to deselect because hand wobble triggered drag
-    // promotion, which used to force the lane back to selected. The fix
-    // is that drag promotion never touches the start lane's state.
+    // The wobble can be any size — as long as the cursor stays on the same
+    // lane it never promotes, and the mouseup toggle deselects. (Old design
+    // achieved this with a mousedown toggle; the deferral keeps the guarantee
+    // while also fixing sweep-from-selected.)
     const lanes = makeLanes(3);
     lanes[1].selected = true;
-    // Ctrl+click on lane 1 (the target deselect) — simulateDrag from 1 to 1
-    // models a click with a tiny wobble that crosses the 3px threshold.
-    simulateDrag(lanes, 1, 1);
+    simulateClick(lanes, 1);
     assertEq(lanes[1].selected, false, 'lane 1 must be deselected after Ctrl+click');
+});
+
+test('scenario: select lane 1, sweep 3 more FROM it — all four selected (the field report)', () => {
+    // "when 1 is selected and selecting 3 more, it only changes the other 3" —
+    // the sweep started on the selected lane and used to kick it out.
+    const lanes = makeLanes(4);
+    simulateClick(lanes, 0);                 // Ctrl+click lane 0 → selected
+    assertEq(lanes[0].selected, true);
+    simulateSweep(lanes, 0, 3);              // Ctrl+drag from lane 0 down through 3
+    lanes.forEach((l, i) => assertEq(l.selected, true, `lane ${i} must be selected`));
 });
 
 test('scenario: half the lanes locked → only unlocked join the selection', () => {
     const lanes = makeLanes(10);
     for (let i = 0; i < 10; i += 2) lanes[i].locked = true;  // even lanes locked
-    simulateDrag(lanes, 0, 9);
+    simulateSweep(lanes, 0, 9);
     lanes.forEach((l, i) => {
         if (i % 2 === 0) assertEq(l.selected, false, `even lane ${i} (locked) stays unselected`);
         else assertEq(l.selected, true, `odd lane ${i} (unlocked) selected`);
@@ -317,15 +328,14 @@ test('scenario: half the lanes locked → only unlocked join the selection', () 
 
 // ─── 8. Gesture classification matrix ──────────────────────────
 // Mirrors the priority order in canvas.js multi-view mousedown branch.
-// Ctrl/Cmd is the ONLY modifier that enters selection-without-activating
-// (besides the Select All toolbar button, which is its own action). Plain
-// click/drag in non-Ctrl cases either activates a lane or draws on it —
-// exactly as before drag-select existed.
+// Ctrl/Cmd is the ONLY modifier that enters selection (besides the Select
+// All toolbar button, which is its own action). The mousedown ARMS the
+// gesture only — the toggle happens on mouseup (click) or promotion (sweep).
 console.log('\n[gesture classification matrix]');
 
 function classifyMousedown({ inLockZone, ctrlOrMeta, activeIsThisLane, onLabelCol }) {
     if (inLockZone) return 'lock-toggle';
-    if (ctrlOrMeta) return 'select-toggle+arm';
+    if (ctrlOrMeta) return 'select-arm';
     if (!activeIsThisLane) return 'activate-only';
     // Already-active lane: label column is a no-op; curve area falls through to draw.
     if (onLabelCol) return 'noop';
@@ -337,12 +347,12 @@ test('lock zone always wins, even with Ctrl', () => {
     assertEq(classifyMousedown({ inLockZone: true, ctrlOrMeta: true,  activeIsThisLane: false, onLabelCol: true }), 'lock-toggle');
 });
 
-test('Ctrl+click on curve area → select-toggle+arm (no draw)', () => {
-    assertEq(classifyMousedown({ inLockZone: false, ctrlOrMeta: true, activeIsThisLane: true, onLabelCol: false }), 'select-toggle+arm');
+test('Ctrl+click on curve area → select-arm (no draw, toggle deferred)', () => {
+    assertEq(classifyMousedown({ inLockZone: false, ctrlOrMeta: true, activeIsThisLane: true, onLabelCol: false }), 'select-arm');
 });
 
-test('Ctrl+click on label column → select-toggle+arm', () => {
-    assertEq(classifyMousedown({ inLockZone: false, ctrlOrMeta: true, activeIsThisLane: false, onLabelCol: true }), 'select-toggle+arm');
+test('Ctrl+click on label column → select-arm', () => {
+    assertEq(classifyMousedown({ inLockZone: false, ctrlOrMeta: true, activeIsThisLane: false, onLabelCol: true }), 'select-arm');
 });
 
 test('Plain click on non-active lane (anywhere) → activate-only', () => {
@@ -359,7 +369,7 @@ test('Plain click on active lane, curve area → draw (editing flow untouched)',
     assertEq(classifyMousedown({ inLockZone: false, ctrlOrMeta: false, activeIsThisLane: true, onLabelCol: false }), 'draw');
 });
 
-test('No non-Ctrl path produces a select-toggle or arm — Ctrl is the only selection modifier', () => {
+test('No non-Ctrl path produces a select-arm — Ctrl is the only selection modifier', () => {
     const nonCtrlCombos = [
         { activeIsThisLane: false, onLabelCol: false },
         { activeIsThisLane: false, onLabelCol: true  },
@@ -368,14 +378,14 @@ test('No non-Ctrl path produces a select-toggle or arm — Ctrl is the only sele
     ];
     for (const combo of nonCtrlCombos) {
         const result = classifyMousedown({ inLockZone: false, ctrlOrMeta: false, ...combo });
-        assert(result !== 'select-toggle+arm',
-            `non-Ctrl combo should never select-toggle+arm: ${JSON.stringify(combo)} → ${result}`);
+        assert(result !== 'select-arm',
+            `non-Ctrl combo should never select-arm: ${JSON.stringify(combo)} → ${result}`);
     }
 });
 
 // ─── Summary ───────────────────────────────────────────────────
 console.log(`\n────────────────────────────────────────`);
-console.log(`  ${passed} passed   ${failed} failed`);
+console.log(`  ${passed} passed, ${failed} failed`);
 console.log(`────────────────────────────────────────`);
 
-process.exit(failed);
+process.exit(failed ? 1 : 0);

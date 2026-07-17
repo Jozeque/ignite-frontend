@@ -101,6 +101,7 @@ public:
     // reports every committed edit via set_range; rack_scanned echoes them back so every
     // rebuild — re-push OR project reopen — restores the bands from the source of truth.
     void setMappedRange (int pos, bool on, float lo, float hi);   // message thread (editor bridge)
+    void setMappedRanges (const juce::Array<juce::var>& items);   // Range-for-Group: batch of {id,on,min,max} — ONE lock pass, ONE dirty mark
     juce::Array<juce::var> getMappedRanges() const;               // {on,lo,hi} per mapped param, mapped order
     double getClipBeats() const { return driveClipBeats; }   // loop length in beats (bars*4) — for the canvas bar count on load
     void removeMappedAt (int pos);
@@ -119,6 +120,16 @@ public:
     void pushMacroValuesToHost();                // Live mode: report the live modulation value to the host so Ableton's params FOLLOW it (and record if armed). ~15Hz, gesture-wrapped, OFF under Maschine. Message thread.
     void closeMacroGestures();                   // end any open macro gestures — the editor timer is their only closer, so the editor DTOR must call this (message thread)
 
+    // ── Tempo: Sync-to-project (default) / Manual BPM ──
+    // Sync   = follow the host exactly (byte-identical to the old behavior).
+    // Manual = the motion clock runs at ITS OWN tempo but stays TRANSPORT-MAPPED
+    //          (beats × manual/host — one multiply, deterministic: loops/scrubs/renders
+    //          stay aligned; 70 on a 140 set = every lane half-time, any 5–999 value).
+    enum class TempoMode { Project = 0, Manual = 1 };
+    void setTempoMode (int mode, float bpm);             // bridge (message thread); persisted; host-dirty
+    int   getTempoMode() const { return tempoMode.load(); }
+    float getManualBpm() const { return manualBpm.load(); }
+
     // ── live curve drive ──
     struct DriveLane { int position; std::vector<float> times, values, curves; };
     void setDriveCurves (const std::vector<DriveLane>& lanes, double clipBeats);
@@ -126,6 +137,7 @@ public:
     std::atomic<bool>  modEnabled   { true };
     std::atomic<float> lastModValue { 0.0f };       // TRUE loop phase 0..1 (every block, playing or not) — the UI playhead position
     std::atomic<bool>  transportActive { false };   // host transport running (standalone free-run counts) — playhead on/off + trail
+    std::atomic<bool>  transportRecording { false }; // host RECORDING — gates the macro mirror (every notified edit is a DAW undo entry)
 
     // Interactive load failures surface in the UI instead of a silent DBG — on Mac the
     // #1 real-world cause is an Intel-only bundle inside an arm64 host process (Logic).
@@ -195,6 +207,8 @@ private:
     std::array<MacroParameter*, kMacroCount> macroParams {};   // owned by the AudioProcessor (addParameter)
     juce::uint32 lastMirrorPushMs = 0;                          // Live-mode mirror pacing (~15Hz cap; message thread only)
     std::atomic<DriveMode> driveMode { DriveMode::Live };
+    std::atomic<int>   tempoMode { 0 };             // 0=Project sync (default, byte-identical) / 1=Manual (own bpm, transport-mapped)
+    std::atomic<float> manualBpm { 120.0f };        // Stride's own motion tempo in Manual (clamped 5..999)
     std::atomic<bool> hostDirtyPending { false };   // see consumeHostDirty()
     std::atomic<bool> learnMode  { false };
     std::atomic<bool> unlearnMode { false };   // Map (add-by-touch) and Unmap (remove-by-touch) are mutually exclusive

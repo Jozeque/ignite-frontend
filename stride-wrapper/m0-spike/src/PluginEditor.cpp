@@ -234,6 +234,26 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
             proc.setDriveAllowed (ent || stride_license::cachedExpiredPass());
             proc.setDemoMode (false);   // the 24h Discovery Pass replaces the old freeze demo
         })
+        .withEventListener ("checkUpdate",  [this] (juce::var)     {
+            // One-click update: a signed LS download when the backend can mint one, the
+            // My Orders portal for every failure path. Either way the browser opens —
+            // no email hunt, no login.
+            juce::Component::SafePointer<StrideWrapperEditor> safe (this);
+            stride_license::fetchUpdateLink ([safe] (juce::var r)
+            {
+                const bool ok = r.isObject() && (bool) r.getProperty ("ok", false);
+                const auto url = ok ? r.getProperty ("url", "").toString()
+                                    : r.getProperty ("portal", "https://app.lemonsqueezy.com/my-orders").toString();
+                if (url.isNotEmpty()) juce::URL (url).launchInDefaultBrowser();
+                if (auto* self = safe.getComponent())
+                    if (self->web != nullptr)
+                    {
+                        auto* o = new juce::DynamicObject();
+                        o->setProperty ("ok", ok);
+                        self->web->emitEventIfBrowserIsVisible ("updateReply", juce::var (o));
+                    }
+            });
+        })
         .withEventListener ("openExternal", [this] (juce::var v)   { const auto u = v.getProperty ("url", "").toString(); if (u.isNotEmpty()) juce::URL (u).launchInDefaultBrowser(); });
 
     web = std::make_unique<juce::WebBrowserComponent> (options);
@@ -471,6 +491,24 @@ void StrideWrapperEditor::handleStrideLinkSend (const juce::var& msg)
         return;
     }
 
+    // Stride tempo: Project / Manual BPM / Free (engine-owned + project-persistent).
+    if (type == "set_tempo_mode")
+    {
+        if (proc.isEditLocked()) return;
+        proc.setTempoMode ((int) msg.getProperty ("mode", 0),
+                           (float) (double) msg.getProperty ("bpm", 0.0));
+        return;
+    }
+
+    // Range-for-Group: one batched band edit for every selected lane (one lock pass, atomic).
+    if (type == "set_ranges")
+    {
+        if (proc.isEditLocked()) return;
+        if (auto* arr = msg.getProperty ("items", juce::var()).getArray())
+            proc.setMappedRanges (*arr);
+        return;
+    }
+
     // Range band edit (icon toggle / boundary drag / MIN-MAX fields). ENGINE-OWNED: persists
     // in the project and rack_scanned echoes it back — so re-pushes/reopens can't wipe it.
     if (type == "set_range")
@@ -594,6 +632,8 @@ void StrideWrapperEditor::pushRackScanned()
     msg->setProperty ("drive_mode", (int) proc.getDriveMode());           // 0=Live (Stride drives), 1=Automation (DAW drives)
     msg->setProperty ("exposed_macros", proc.exposedMacroCount());        // N of kMacroCount exposed
     msg->setProperty ("macro_pool", StrideWrapperProcessor::kMacroCount);
+    msg->setProperty ("tempo_mode", proc.getTempoMode());                 // 0=Project / 1=Manual / 2=Free (bar UI rebuilds from here)
+    msg->setProperty ("manual_bpm", (double) proc.getManualBpm());
     web->emitEventIfBrowserIsVisible ("sl_event", juce::var (msg));
 }
 
