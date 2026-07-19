@@ -54,6 +54,14 @@
             document.cookie = '_fbc=' + encodeURIComponent(fbc) +
                 '; max-age=' + maxAge + '; path=/; SameSite=Lax; Secure';
             try { sessionStorage.setItem('stride_fbc', fbc); } catch (e) {}
+            // Durable raw-fbclid marker (localStorage + 180-day cookie), same as
+            // index.html: IG/FB in-app browsers strip the _fbc cookie, this
+            // survives — so a later signup/purchase can still be tied to the ad.
+            try { localStorage.setItem('stride_fbclid', fbclid); } catch (e) {}
+            try {
+                document.cookie = 'stride_fbclid=' + encodeURIComponent(fbclid) +
+                    '; max-age=' + (180 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+            } catch (e) {}
         } catch (e) {}
     })();
     </script>
@@ -335,6 +343,23 @@
             page_url: location.href,
         };
 
+        // Meta attribution — same reads as index.html's buy flow. Sent with the
+        // lead so the backend stores fbc/fbclid/fbp/ua on the row: when this
+        // person later BUYS (via any path — demo, plugin button, email link),
+        // the order_created webhook recovers it by email and the sale is
+        // correctly labelled meta_ad instead of direct.
+        const eventId = (window.crypto && window.crypto.randomUUID)
+            ? window.crypto.randomUUID()
+            : 'evt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+        const ck = function (n) { var m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : ''; };
+        const fbc = ck('_fbc') || (function () { try { return sessionStorage.getItem('stride_fbc') || ''; } catch (e) { return ''; } })();
+        const fbclid = (function () {
+            try { var v = localStorage.getItem('stride_fbclid'); if (v) return v; } catch (e) {}
+            return ck('stride_fbclid') || (fbc ? fbc.split('.').pop() : '');
+        })();
+        const fbp = ck('_fbp');
+        const ua = (navigator.userAgent || '').slice(0, 512);
+
         // Fire the lead to the backend (non-blocking, keepalive so it survives
         // the instant the success state swaps in).
         fetch(STRIDE_BACKEND, {
@@ -344,14 +369,12 @@
             body: JSON.stringify({
                 action: 'sample_pack_signup',
                 name, email, country, source,
+                fbc, fbclid, fbp, ua, event_id: eventId,
                 terms_accepted: termsAccepted,
             })
         }).catch(() => {});
 
         // Meta Lead event — dedup-able via event_id, attributed via _fbc/_fbp.
-        const eventId = (window.crypto && window.crypto.randomUUID)
-            ? window.crypto.randomUUID()
-            : 'evt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
         try { if (window.fbq) fbq('track', 'Lead', { content_name: 'sample_pack' }, { eventID: eventId }); } catch (e) {}
 
         localStorage.setItem('stride_sample_pack', JSON.stringify({

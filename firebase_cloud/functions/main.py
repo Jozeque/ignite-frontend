@@ -526,6 +526,17 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
                 "acquisition_source": acquisition_source,
                 "fbclid": fbclid,
             }
+            # Persist the FULL attribution set from checkout custom data (not
+            # just fbclid) so a LATER order by the same email — the plugin's
+            # buy button, a campaign email straight to LS — can recover it,
+            # and the Purchase CAPI can send full match keys. Gated on
+            # non-empty so this never wipes values already on the row.
+            if fbc:
+                doc_data["fbc"] = fbc
+            for _ck in ("fbp", "ua"):
+                _cv = (custom.get(_ck) or "").strip()
+                if _cv:
+                    doc_data[_ck] = _cv
             # Demo downloads stamp demo_at; real purchases stamp purchased_at.
             # Keeping them separate is what lets one row say "grabbed the demo on
             # X, then bought on Y" — the conversion signal.
@@ -1430,6 +1441,13 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
                 _v = (data_pre.get(_k) or "").strip()
                 if _v:
                     payload[_k] = _v
+            # Visitor IP, top-level. The order_created Purchase-CAPI recovery
+            # reads prev.get("ip") for client_ip_address (Meta's top match key)
+            # — until now it was only stored nested inside terms_accepted, so
+            # that read was always empty. Store it where the reader looks.
+            _lead_ip = (req.headers.get("X-Forwarded-For", req.remote_addr or "") or "").split(",")[0].strip()
+            if _lead_ip:
+                payload["ip"] = _lead_ip
             if existing:
                 existing[0].reference.update(payload)
                 was_existing = True
@@ -1734,7 +1752,14 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
                 _tr = json.dumps({"since": _since.isoformat(), "until": _today.isoformat()})
                 _q = urllib.parse.urlencode({
                     "access_token": meta_token,
-                    "fields": "spend",
+                    # actions/action_values expose Meta's OWN claimed purchases +
+                    # revenue per day; action_attribution_windows splits the claim
+                    # into 7d_click (buyer clicked an ad) vs 1d_view (buyer merely
+                    # SAW one). Client renders claimed-vs-verified: verified
+                    # (fbclid-tagged) revenue comes from the CRM rows, this
+                    # supplies Meta's side of the story.
+                    "fields": "spend,actions,action_values",
+                    "action_attribution_windows": json.dumps(["1d_click", "7d_click", "1d_view"]),
                     "time_increment": "1",
                     "time_range": _tr,
                     "limit": "200",
@@ -1746,7 +1771,19 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
                     spend_error = _body["error"].get("message", "Meta API error")
                 else:
                     for d in _body.get("data", []):
-                        days.append({"date": d.get("date_start"), "spend_ils": float(d.get("spend") or 0)})
+                        _pa = next((a for a in (d.get("actions") or []) if a.get("action_type") in ("omni_purchase", "purchase")), {})
+                        _pv = next((a for a in (d.get("action_values") or []) if a.get("action_type") in ("omni_purchase", "purchase")), {})
+                        days.append({
+                            "date": d.get("date_start"),
+                            "spend_ils": float(d.get("spend") or 0),
+                            # Meta's headline claim (account attribution setting)
+                            "meta_purchases": float(_pa.get("value") or 0),
+                            "meta_purchases_click": float(_pa.get("7d_click") or 0),
+                            "meta_purchases_view": float(_pa.get("1d_view") or 0),
+                            # Conversion values arrive converted to the ad
+                            # account's currency (ILS) — same as spend.
+                            "meta_claimed_rev_ils": float(_pv.get("value") or 0),
+                        })
             except Exception as me:
                 _msg = str(me)
                 try:

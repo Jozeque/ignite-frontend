@@ -849,8 +849,26 @@
     const DEMO_URL = 'https://strideengine.lemonsqueezy.com/checkout/buy/939153dc-5a09-4fdf-b57f-bd40d2bf6575';
 
     function tryDemo() {
-        if (DEMO_URL) { window.open(DEMO_URL, '_blank', 'noopener'); }
-        else { alert('Demo download link is being finalized — check back shortly.'); }
+        if (!DEMO_URL) { alert('Demo download link is being finalized — check back shortly.'); return; }
+        // Carry Meta attribution onto the demo checkout so a demo download that
+        // came from an ad shows as "🎯 Meta ad" in the webhook. It still fires a
+        // $0 Lead (never a Purchase) — this only sets the SOURCE label. Same
+        // fbc/fbclid read as the paid buy flow (submitBuyForm).
+        var url = DEMO_URL;
+        try {
+            var ck = function (n) { var m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : ''; };
+            var fbc = ck('_fbc') || (function () { try { return sessionStorage.getItem('stride_fbc') || ''; } catch (e) { return ''; } })();
+            var fbclid = (function () { try { var v = localStorage.getItem('stride_fbclid'); if (v) return v; } catch (e) {} return ck('stride_fbclid') || (fbc ? fbc.split('.').pop() : ''); })();
+            var fbp = ck('_fbp');
+            var ua = (navigator.userAgent || '').slice(0, 512);
+            var extra = [];
+            if (fbc) extra.push('checkout[custom][fbc]=' + encodeURIComponent(fbc));
+            if (fbclid) extra.push('checkout[custom][fbclid]=' + encodeURIComponent(fbclid));
+            if (fbp) extra.push('checkout[custom][fbp]=' + encodeURIComponent(fbp));
+            if (ua) extra.push('checkout[custom][ua]=' + encodeURIComponent(ua));
+            if (extra.length) url += (DEMO_URL.indexOf('?') >= 0 ? '&' : '?') + extra.join('&');
+        } catch (e) {}
+        window.open(url, '_blank', 'noopener');
     }
 
     // ─── Buy Modal ───
