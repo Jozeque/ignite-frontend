@@ -79,6 +79,16 @@
                 '; max-age=' + maxAge +
                 '; path=/; SameSite=Lax; Secure';
             try { sessionStorage.setItem('stride_fbc', fbc); } catch (e) {}
+            // Persist the raw fbclid separately (localStorage + a 180-day cookie,
+            // same lifetime as external_id). The _fbc cookie is stripped by IG/FB
+            // in-app browsers; this decoupled marker survives, so a sale can still
+            // be labelled meta_ad at checkout even when _fbc is gone.
+            try { localStorage.setItem('stride_fbclid', fbclid); } catch (e) {}
+            try {
+                document.cookie = 'stride_fbclid=' + encodeURIComponent(fbclid) +
+                    '; max-age=' + (180 * 24 * 60 * 60) +
+                    '; path=/; SameSite=Lax; Secure';
+            } catch (e) {}
         } catch (e) {}
     })();
 
@@ -839,8 +849,26 @@
     const DEMO_URL = 'https://strideengine.lemonsqueezy.com/checkout/buy/939153dc-5a09-4fdf-b57f-bd40d2bf6575';
 
     function tryDemo() {
-        if (DEMO_URL) { window.open(DEMO_URL, '_blank', 'noopener'); }
-        else { alert('Demo download link is being finalized — check back shortly.'); }
+        if (!DEMO_URL) { alert('Demo download link is being finalized — check back shortly.'); return; }
+        // Carry Meta attribution onto the demo checkout so a demo download that
+        // came from an ad shows as "🎯 Meta ad" in the webhook. It still fires a
+        // $0 Lead (never a Purchase) — this only sets the SOURCE label. Same
+        // fbc/fbclid read as the paid buy flow (submitBuyForm).
+        var url = DEMO_URL;
+        try {
+            var ck = function (n) { var m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : ''; };
+            var fbc = ck('_fbc') || (function () { try { return sessionStorage.getItem('stride_fbc') || ''; } catch (e) { return ''; } })();
+            var fbclid = (function () { try { var v = localStorage.getItem('stride_fbclid'); if (v) return v; } catch (e) {} return ck('stride_fbclid') || (fbc ? fbc.split('.').pop() : ''); })();
+            var fbp = ck('_fbp');
+            var ua = (navigator.userAgent || '').slice(0, 512);
+            var extra = [];
+            if (fbc) extra.push('checkout[custom][fbc]=' + encodeURIComponent(fbc));
+            if (fbclid) extra.push('checkout[custom][fbclid]=' + encodeURIComponent(fbclid));
+            if (fbp) extra.push('checkout[custom][fbp]=' + encodeURIComponent(fbp));
+            if (ua) extra.push('checkout[custom][ua]=' + encodeURIComponent(ua));
+            if (extra.length) url += (DEMO_URL.indexOf('?') >= 0 ? '&' : '?') + extra.join('&');
+        } catch (e) {}
+        window.open(url, '_blank', 'noopener');
     }
 
     // ─── Buy Modal ───
@@ -913,7 +941,15 @@
             return m ? decodeURIComponent(m[1]) : '';
         })();
         const ua = (navigator.userAgent || '').slice(0, 512);
-        const fbclid = fbc ? fbc.split('.').pop() : '';
+        // fbclid: read the decoupled durable marker first (localStorage / 180-day
+        // cookie set on landing) so it survives when the _fbc cookie was stripped
+        // by an in-app browser; fall back to parsing it out of fbc.
+        const fbclid = (function () {
+            try { var v = localStorage.getItem('stride_fbclid'); if (v) return v; } catch (e) {}
+            var m = document.cookie.match(/(?:^|; )stride_fbclid=([^;]*)/);
+            if (m) return decodeURIComponent(m[1]);
+            return fbc ? fbc.split('.').pop() : '';
+        })();
 
         // Save lead + terms acceptance to Firestore (non-blocking). Attribution
         // (fbc/fbclid/fbp/ua/event_id) rides along so the backend can join it to
@@ -956,6 +992,7 @@
                 + '&checkout[name]=' + encodeURIComponent(name)
                 + '&checkout[custom][event_id]=' + encodeURIComponent(eventId);
             if (fbc) url += '&checkout[custom][fbc]=' + encodeURIComponent(fbc);
+            if (fbclid) url += '&checkout[custom][fbclid]=' + encodeURIComponent(fbclid);
             if (fbp) url += '&checkout[custom][fbp]=' + encodeURIComponent(fbp);
             if (ua)  url += '&checkout[custom][ua]='  + encodeURIComponent(ua);
             window.location.href = url;

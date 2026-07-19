@@ -258,6 +258,8 @@
                     <thead class="bg-black/50"><tr class="text-left">
                         <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black">Day</th>
                         <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Spend (out)</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right" title="Meta's own attributed purchases: click = clicked an ad (7d), view = only saw an ad (1d)">Claimed</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right" title="Sales carrying a real ad-click id (fbclid) — deterministic">Verified</th>
                         <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Meta rev</th>
                         <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Organic rev</th>
                         <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Total in</th>
@@ -274,6 +276,8 @@
                     <thead class="bg-black/50"><tr class="text-left">
                         <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black">Week of</th>
                         <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Spend (out)</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right" title="Meta's own attributed purchases: click = clicked an ad (7d), view = only saw an ad (1d)">Claimed</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right" title="Sales carrying a real ad-click id (fbclid) — deterministic">Verified</th>
                         <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Meta rev</th>
                         <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Organic rev</th>
                         <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Total in</th>
@@ -966,7 +970,23 @@
         function renderDashboard(data) {
             const rate = Number(data.rate_ils_per_usd) || 3.0;
             const spendByDay = {};
-            (data.days || []).forEach(d => { if (d && d.date) spendByDay[d.date] = (Number(d.spend_ils) || 0) / rate; });
+            // Meta's OWN attributed purchases per day, split by claim type:
+            // click (7d after clicking an ad) vs view (1d after merely SEEING
+            // one). Rendered next to our fbclid-verified count so claimed-vs-
+            // verified is visible per day — the gap is Meta's identity-matched
+            // + view-through claims that no click id can confirm.
+            const claimedByDay = {};
+            (data.days || []).forEach(d => {
+                if (!d || !d.date) return;
+                spendByDay[d.date] = (Number(d.spend_ils) || 0) / rate;
+                claimedByDay[d.date] = {
+                    p: Number(d.meta_purchases) || 0,
+                    c: Number(d.meta_purchases_click) || 0,
+                    v: Number(d.meta_purchases_view) || 0,
+                    rev: (Number(d.meta_claimed_rev_ils) || 0) / rate,
+                };
+            });
+            const claimedStr = (cl) => cl.p ? `${cl.p} <span class="text-zinc-600">(${cl.c}c·${cl.v}v)</span>` : '—';
             const revByDay = dashRevenueByDay(rate);
             const today = new Date(); today.setHours(0, 0, 0, 0);
             const cell = (txt, cls) => `<td class="px-3 py-1.5 text-right tabular-nums ${cls || ''}">${txt}</td>`;
@@ -978,12 +998,13 @@
                 const dt = new Date(today); dt.setDate(today.getDate() - i);
                 const k = ymd(dt);
                 const spend = spendByDay[k] || 0;
-                const r = revByDay[k] || { meta: 0, organic: 0 };
+                const cl = claimedByDay[k] || { p: 0, c: 0, v: 0, rev: 0 };
+                const r = revByDay[k] || { meta: 0, organic: 0, mc: 0 };
                 const total = r.meta + r.organic, net = total - spend;
                 const lbl = i === 0 ? 'Today' : (i === 1 ? 'Yesterday' : dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
                 dailyHtml += `<tr class="border-t border-white/5 ${i === 0 ? 'bg-white/[0.02]' : ''}">
                     <td class="px-3 py-1.5 text-zinc-300 whitespace-nowrap">${lbl}</td>
-                    ${cell(usd0(spend), 'text-zinc-400')}${cell(usd0(r.meta), 'text-blue-300')}${cell(usd0(r.organic), 'text-zinc-400')}${cell(usd0(total), 'text-zinc-100 font-semibold')}
+                    ${cell(usd0(spend), 'text-zinc-400')}${cell(claimedStr(cl), 'text-amber-300/80')}${cell(r.mc || 0, 'text-emerald-300')}${cell(usd0(r.meta), 'text-blue-300')}${cell(usd0(r.organic), 'text-zinc-400')}${cell(usd0(total), 'text-zinc-100 font-semibold')}
                     ${cell(roasStr(r.meta, spend), 'text-zinc-300')}${cell(roasStr(total, spend), 'text-zinc-300')}${cell(usd0(net), netCls(net) + ' font-semibold')}
                 </tr>`;
             }
@@ -995,9 +1016,10 @@
             for (let i = 0; i < 63; i++) {
                 const dt = new Date(today); dt.setDate(today.getDate() - i);
                 const k = ymd(dt), wkey = ymd(weekStart(dt));
-                (wk[wkey] = wk[wkey] || { spend: 0, meta: 0, organic: 0 });
+                (wk[wkey] = wk[wkey] || { spend: 0, meta: 0, organic: 0, clp: 0, clc: 0, clv: 0, clrev: 0, vc: 0 });
                 wk[wkey].spend += spendByDay[k] || 0;
-                const r = revByDay[k]; if (r) { wk[wkey].meta += r.meta; wk[wkey].organic += r.organic; }
+                const c = claimedByDay[k]; if (c) { wk[wkey].clp += c.p; wk[wkey].clc += c.c; wk[wkey].clv += c.v; wk[wkey].clrev += c.rev; }
+                const r = revByDay[k]; if (r) { wk[wkey].meta += r.meta; wk[wkey].organic += r.organic; wk[wkey].vc += r.mc || 0; }
             }
             let weekHtml = '';
             Object.keys(wk).sort().reverse().slice(0, 8).forEach((wkey, idx) => {
@@ -1006,18 +1028,19 @@
                 const lbl = (idx === 0 ? 'This week · ' : '') + d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
                 weekHtml += `<tr class="border-t border-white/5 ${idx === 0 ? 'bg-white/[0.02]' : ''}">
                     <td class="px-3 py-1.5 text-zinc-300 whitespace-nowrap">${lbl}</td>
-                    ${cell(usd0(a.spend), 'text-zinc-400')}${cell(usd0(a.meta), 'text-blue-300')}${cell(usd0(a.organic), 'text-zinc-400')}${cell(usd0(total), 'text-zinc-100 font-semibold')}
+                    ${cell(usd0(a.spend), 'text-zinc-400')}${cell(claimedStr({ p: a.clp, c: a.clc, v: a.clv }), 'text-amber-300/80')}${cell(a.vc, 'text-emerald-300')}${cell(usd0(a.meta), 'text-blue-300')}${cell(usd0(a.organic), 'text-zinc-400')}${cell(usd0(total), 'text-zinc-100 font-semibold')}
                     ${cell(roasStr(a.meta, a.spend), 'text-zinc-300')}${cell(roasStr(total, a.spend), 'text-zinc-300')}${cell(usd0(net), netCls(net) + ' font-semibold')}
                 </tr>`;
             });
             document.getElementById('dash-weekly').innerHTML = weekHtml;
 
             // KPI strip — last 30 days
-            let s30 = 0, m30 = 0, o30 = 0, mc30 = 0, oc30 = 0;
+            let s30 = 0, m30 = 0, o30 = 0, mc30 = 0, oc30 = 0, cl30 = 0, cc30 = 0, cv30 = 0, clRev30 = 0;
             for (let i = 0; i < 30; i++) {
                 const dt = new Date(today); dt.setDate(today.getDate() - i);
                 const k = ymd(dt);
                 s30 += spendByDay[k] || 0;
+                const c = claimedByDay[k]; if (c) { cl30 += c.p; cc30 += c.c; cv30 += c.v; clRev30 += c.rev; }
                 const r = revByDay[k]; if (r) { m30 += r.meta; o30 += r.organic; mc30 += r.mc || 0; oc30 += r.oc || 0; }
             }
             const tot30 = m30 + o30, net30 = tot30 - s30, sales30 = mc30 + oc30;
@@ -1030,9 +1053,11 @@
                 kpi('Spent', usd0(s30)) +
                 kpi('Revenue', usd0(tot30), 'AOV ' + (sales30 ? usd0(tot30 / sales30) : '—')) +
                 kpi('Net profit', usd0(net30), null, net30 >= 0 ? 'text-emerald-400' : 'text-red-400') +
-                kpi('Meta ROAS', roasStr(m30, s30)) +
+                kpi('Verified ROAS', roasStr(m30, s30), 'fbclid-tagged only') +
+                kpi('Claimed ROAS', roasStr(clRev30, s30), "Meta's own number", 'text-amber-300') +
                 kpi('Overall ROAS', roasStr(tot30, s30)) +
-                kpi('Meta sales', mc30, 'CPA ' + (mc30 ? usd0(s30 / mc30) : '—')) +
+                kpi('Verified sales', mc30, 'CPA ' + (mc30 ? usd0(s30 / mc30) : '—'), 'text-emerald-300') +
+                kpi('Meta claimed', cl30, cc30 + ' click · ' + cv30 + ' view', 'text-amber-300') +
                 kpi('Organic sales', oc30) +
                 kpi('Total sales', sales30);
 
@@ -1042,7 +1067,7 @@
             if (data.spend_error) {
                 st.innerHTML = `<span class="text-amber-400">Meta spend unavailable: ${escapeHtml(String(data.spend_error))}.</span> Revenue is still accurate; ROAS needs spend. If the token expired, refresh the <code class="text-fuchsia-400">META_ACCESS_TOKEN</code> secret and redeploy.`;
             } else {
-                st.textContent = `Spend = all Meta campaigns, converted to USD at ${rate.toFixed(2)} ₪/$. Revenue from your CRM, split by attribution (Meta = fbc/meta_ad, Organic = everything else). Updated ${fetched}.`;
+                st.textContent = `Spend = all Meta campaigns, converted to USD at ${rate.toFixed(2)} ₪/$. Claimed = Meta's own attributed purchases (click = clicked an ad within 7 days; view = only SAW an ad within 1 day — no click ever happened). Verified = sales that arrived carrying a real ad-click id (fbclid) — the deterministic floor. The truth sits between Verified and Claimed-click; view-through is Meta grading its own homework. Updated ${fetched}.`;
             }
         }
 
