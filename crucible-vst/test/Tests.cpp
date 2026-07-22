@@ -53,16 +53,44 @@ static void testDriveBypass()
     for (int t = 0; t < cru::DriveStage::NT; ++t)
     {
         cru::DriveStage d;
+        d.prepare(48000);
         d.sAm.snap(0); d.sMx.snap(1); d.snapPos((float) t, 0);
         bool ok = true;
         for (int i = 0; i < 1000; ++i)
         {
             float x = std::sin(0.1f * (float) i) * 0.5f;
-            float y = d.process(x, 0, (float) t, 0, 1, 0);
+            float y = d.process(x, 0, (float) t, 0, 1, 0.5f, 0.1f, 0);
             if (std::fabs(y - x) > 1e-5f) { ok = false; break; }
         }
         EXPECT(ok, "DRIVE at amount=0 is transparent for every type");
     }
+}
+
+static void testDriveFocus()
+{
+    // driving only the lows must differ from driving everything, and stay sane
+    auto run = [](int focusType)
+    {
+        cru::DriveStage d;
+        d.prepare(48000);
+        d.sAm.snap(1); d.sMx.snap(1); d.snapPos(0, 0);
+        d.sFc.snap(0.35f); d.sFq.snap(0.1f);
+        d.control(focusType);
+        double acc = 0;
+        for (int i = 0; i < 24000; ++i)
+        {
+            float x = std::sin(cru::kTwoPi * 55.0f * i / 48000.0f) * 0.4f
+                    + std::sin(cru::kTwoPi * 2200.0f * i / 48000.0f) * 0.3f;
+            float y = d.process(x, 1, 0, 0, 1, 0.35f, 0.1f, 0);
+            if (!std::isfinite(y)) return -1.0;
+            if (i > 4000) acc += (double) y * y;
+        }
+        return std::sqrt(acc / 20000.0);
+    };
+    double all = run(0), low = run(1), high = run(3);
+    EXPECT(all > 0 && low > 0 && high > 0, "drive focus modes finite");
+    EXPECT(std::fabs(all - low) > 1e-4, "focused-low drive differs from full drive");
+    EXPECT(std::fabs(low - high) > 1e-4, "low vs high focus differ");
 }
 
 static void testDriveTypesDistinct()
@@ -71,13 +99,14 @@ static void testDriveTypesDistinct()
     for (int t = 0; t < cru::DriveStage::NT; ++t)
     {
         cru::DriveStage d;
+        d.prepare(48000);
         d.sAm.snap(1); d.sMx.snap(1); d.snapPos((float) t, 0);
         double acc = 0;
         bool finite = true;
         for (int i = 0; i < 24000; ++i)
         {
             float x = std::sin(cru::kTwoPi * 55.0f * (float) i / 48000.0f) * 0.6f;
-            float y = d.process(x, 1, (float) t, 0, 1, 0);
+            float y = d.process(x, 1, (float) t, 0, 1, 0.5f, 0.1f, 0);
             if (!std::isfinite(y)) { finite = false; break; }
             if (i > 4000) acc += (double) y * y;
         }
@@ -284,6 +313,83 @@ static void testSwarmFilters()
     }
 }
 
+static void testSyncDelay()
+{
+    cru::SyncDelay d;
+    d.prepare(48000);
+    d.sMix.snap(1); d.sTim.snap(0.5f); d.sFb.snap(0.5f);
+    // free mode: 0.001 * 1000^0.5 s = ~31.6 ms
+    d.control(0.0f, 120.0f, false);
+    EXPECT(std::fabs(d.tTgt - 0.0316228f * 48000.0f) < 4.0f, "free-mode ms mapping");
+    // sync: 1/4 @ 120 BPM = 0.5 s
+    d.control(1.0f, 120.0f, false);
+    EXPECT(std::fabs(d.tTgt - 24000.0f) < 2.0f, "1/4 @ 120 BPM = 0.5 s");
+    // dotted 1/8 = 0.375 beats @ 100 BPM = 0.225 s
+    d.control(0.75f, 100.0f, false);
+    EXPECT(std::fabs(d.tTgt - 0.45f * 48000.0f) < 2.0f, "dotted/beat math lands");
+
+    // ping-pong: impulse into L only must come back in R
+    cru::SyncDelay p2;
+    p2.prepare(48000);
+    p2.sMix.snap(1); p2.sTim.snap(0.2f); p2.sFb.snap(0.6f);
+    p2.control(0.0f, 120.0f, true);
+    double rEnergy = 0; bool finite = true;
+    for (int i = 0; i < 96000; ++i)
+    {
+        if (i % 32 == 0) p2.control(0.0f, 120.0f, true);
+        float L = (i == 0) ? 1.0f : 0.0f, R = 0.0f;
+        p2.process(L, R, 1, 0.2f, 0.6f);
+        if (!std::isfinite(L) || !std::isfinite(R)) { finite = false; break; }
+        rEnergy += std::fabs(R);
+    }
+    EXPECT(finite, "delay finite at high feedback");
+    EXPECT(rEnergy > 0.1, "ping-pong bounces into the right channel");
+}
+
+static void testMasterFilter()
+{
+    // LP with low cutoff kills a 2.2 kHz tone; HP passes it; mix 0 = transparent
+    auto rms = [](int type, float cut, float mix)
+    {
+        cru::FilterStage f;
+        f.prepare(48000);
+        f.sCut.snap(cut); f.sRes.snap(0.15f); f.sMix.snap(mix);
+        f.control(type);
+        double acc = 0;
+        for (int i = 0; i < 24000; ++i)
+        {
+            if (i % 32 == 0) f.control(type);
+            float x = std::sin(cru::kTwoPi * 2200.0f * i / 48000.0f) * 0.5f;
+            float y = f.process(x, cut, 0.15f, mix, 1.0f);
+            if (!std::isfinite(y)) return -1.0;
+            if (i > 4000) acc += (double) y * y;
+        }
+        return std::sqrt(acc / 20000.0);
+    };
+    double open = rms(0, 1.0f, 1.0f);
+    double lp   = rms(0, 0.33f, 1.0f);   // ~200 Hz cutoff vs 2.2 kHz tone
+    double hp   = rms(3, 0.33f, 1.0f);
+    double off  = rms(0, 0.33f, 0.0f);
+    EXPECT(open > 0.3, "open LP passes");
+    EXPECT(lp < open * 0.12, "low LP kills a high tone (12 dB+)");
+    EXPECT(hp > open * 0.7, "HP passes the high tone");
+    EXPECT(std::fabs(off - 0.353553) < 0.02, "mix 0 is transparent");
+
+    // high resonance stays finite
+    cru::FilterStage f;
+    f.prepare(48000);
+    f.sCut.snap(0.5f); f.sRes.snap(1.0f); f.sMix.snap(1.0f);
+    f.control(0);
+    bool finite = true;
+    for (int i = 0; i < 48000; ++i)
+    {
+        if (i % 32 == 0) f.control(0);
+        float y = f.process(std::sin(0.05f * (float) i) * 0.5f, 0.5f, 1.0f, 1.0f, 1.0f);
+        if (!std::isfinite(y)) { finite = false; break; }
+    }
+    EXPECT(finite, "max resonance finite");
+}
+
 static void testVerbDecays()
 {
     cru::ShimmerVerb v;
@@ -342,6 +448,20 @@ static void testDriftStretchWired()
     float fc = renderNoteRms("fractal", 1.0f);
     float wd = renderNoteRms("width", 1.0f);
     float fm = renderNoteRms("flt_mix", 1.0f);
+    float bv = renderNoteRms("oscb_vol", 0.0f);
+    float aw = renderNoteRms("osca_wave", 1.0f);   // saw base
+    float xm = renderNoteRms("fm", 1.0f);          // full A→B
+    float dm = renderNoteRms("dly_mix", 1.0f);
+    float fq = renderNoteRms("filt_cutoff", 0.3f);
+    EXPECT(std::isfinite(bv) && std::fabs(bv - base) > 1e-6f, "OSC B volume is wired");
+    EXPECT(std::isfinite(aw) && std::fabs(aw - base) > 1e-6f, "OSC A base wave is wired");
+    EXPECT(std::isfinite(xm) && std::fabs(xm - base) > 1e-6f, "FM is wired");
+    EXPECT(std::isfinite(dm) && std::fabs(dm - base) > 1e-6f, "sync delay is wired");
+    EXPECT(std::isfinite(fq) && std::fabs(fq - base) > 1e-6f, "master filter is wired");
+    float cb = renderNoteRms("curve", 1.0f);        // exponential A-env
+    float ab = renderNoteRms("attack_b", 1.0f);     // 3 s attack on B only
+    EXPECT(std::isfinite(cb) && std::fabs(cb - base) > 1e-6f, "env CURVE is wired");
+    EXPECT(std::isfinite(ab) && std::fabs(ab - base) > 1e-6f, "per-osc AMP B env is wired");
     EXPECT(std::isfinite(st) && st > 1e-4f, "stretch=max still sounds, finite");
     EXPECT(std::isfinite(dr) && dr > 1e-4f, "drift=max still sounds, finite");
     EXPECT(std::isfinite(fc) && fc > 1e-4f, "fractal=max still sounds, finite");
@@ -356,11 +476,11 @@ static void testDriftStretchWired()
 // ─────────────────────────── processor-level tests ───────────────────────────
 static void testRegistry(CrucibleProcessor& p)
 {
-    EXPECT((int) cru::paramDefs().size() == 40, "40 character params defined");
+    EXPECT((int) cru::paramDefs().size() == 57, "57 character params defined");
     int count = 0;
     for (auto* ap : p.getParameters())
         if (dynamic_cast<juce::AudioProcessorParameterWithID*>(ap)) ++count;
-    EXPECT(count == 51, "51 params registered (40 + drive_type + 7 toggles + mono + legato + gain)");
+    EXPECT(count == 80, "80 params registered (57 floats + 8 choices + 9 toggles + 5 bools + gain)");
     EXPECT(p.apvts.getRawParameterValue(cru::kDriveTypeID) != nullptr, "drive_type registered");
     for (const auto& t : cru::toggleDefs())
     {
@@ -410,6 +530,10 @@ static void testMaxSoak(CrucibleProcessor& p)
     for (const auto& d : cru::paramDefs()) setNorm(p, d.id, 1.0f);
     setNorm(p, cru::kDriveTypeID, 1.0f);   // HardClip
     setNorm(p, cru::kGainID, 1.0f);
+    // exception: 3s exponential attacks are silent within the soak's short note
+    // holds — keep attacks short so the "makes sound" assertion stays meaningful
+    setNorm(p, "attack", 0.05f);
+    setNorm(p, "attack_b", 0.05f);
     juce::AudioBuffer<float> buf(2, 512);
     juce::MidiBuffer midi;
     float peak = 0; bool finite = true;
@@ -487,6 +611,44 @@ static void testMonoLegato()
     EXPECT(finite && pk2 > 0.003f, "legato overlap keeps sounding");
 }
 
+static void testOctaveBend()
+{
+    float base = renderNoteRms(nullptr, 0);
+    float oc = renderNoteRms("osca_oct", 0.0f);   // -2 octaves on osc A
+    EXPECT(std::isfinite(oc) && oc > 1e-4f && std::fabs(oc - base) > 1e-6f, "OSC A octave is wired");
+
+    // pitch wheel mid-note changes the rendered blocks
+    CrucibleProcessor a, b;
+    a.prepareToPlay(48000, 512);
+    b.prepareToPlay(48000, 512);
+    juce::AudioBuffer<float> bufA(2, 512), bufB(2, 512);
+    juce::MidiBuffer mA, mB;
+    mA.addEvent(juce::MidiMessage::noteOn(1, 36, (juce::uint8) 100), 0);
+    mB.addEvent(juce::MidiMessage::noteOn(1, 36, (juce::uint8) 100), 0);
+    double diff = 0;
+    bool finite = true;
+    for (int blk = 0; blk < 30; ++blk)
+    {
+        if (blk == 10) mB.addEvent(juce::MidiMessage::pitchWheel(1, 16383), 0);
+        bufA.clear(); bufB.clear();
+        a.processBlock(bufA, mA);
+        b.processBlock(bufB, mB);
+        mA.clear(); mB.clear();
+        if (blk >= 12)
+        {
+            const float* xa = bufA.getReadPointer(0);
+            const float* xb = bufB.getReadPointer(0);
+            for (int i = 0; i < 512; ++i)
+            {
+                if (!std::isfinite(xb[i])) { finite = false; break; }
+                diff += std::fabs(xa[i] - xb[i]);
+            }
+        }
+    }
+    EXPECT(finite, "bend render finite");
+    EXPECT(diff > 1.0, "pitch wheel bends the sound");
+}
+
 static void testTogglesBypass()
 {
     // all stages powered off -> the dry voice still speaks (wet-path kill is safe)
@@ -550,13 +712,85 @@ static void testDisplayRing(CrucibleProcessor& p)
     renderBlocks(p, buf, midi, 4, peak, finite);
 }
 
+// held/tail RMS of a played+released note under a given setup — the
+// audibility harness (born from the "filter/space/loop do nothing" reports:
+// per-module wiring tests pass on 1e-6 differences; these assert AUDIBLE ones)
+static void heldTail(std::function<void(CrucibleProcessor&)> setup, double& held, double& tail)
+{
+    CrucibleProcessor p;
+    p.prepareToPlay(48000, 512);
+    setup(p);
+    juce::AudioBuffer<float> buf(2, 512);
+    juce::MidiBuffer midi;
+    midi.addEvent(juce::MidiMessage::noteOn(1, 36, (juce::uint8) 100), 0);
+    double h = 0, t = 0;
+    for (int b = 0; b < 240; ++b)
+    {
+        if (b == 40) midi.addEvent(juce::MidiMessage::noteOff(1, 36), 0);
+        buf.clear();
+        p.processBlock(buf, midi);
+        midi.clear();
+        const float* d = buf.getReadPointer(0);
+        for (int i = 0; i < 512; ++i)
+        {
+            if (b >= 15 && b < 40)  h += (double) d[i] * d[i];
+            if (b >= 90)            t += (double) d[i] * d[i];
+        }
+    }
+    held = std::sqrt(h / (25.0 * 512));
+    tail = std::sqrt(t / (150.0 * 512));
+}
+
+static void testChainAudibility()
+{
+    double bh, bt;
+    heldTail([](CrucibleProcessor&) {}, bh, bt);
+
+    double fh, ft;   // LP24 at ~56 Hz must clearly darken the held note
+    heldTail([](CrucibleProcessor& p) { setNorm(p, "filt_cutoff", 0.15f); setNorm(p, "filt_type", 0.25f); }, fh, ft);
+    EXPECT(fh < bh * 0.55, "master filter audibly filters (LP24 low)");
+
+    double sh, st;   // big space must grow the tail well past the release
+    heldTail([](CrucibleProcessor& p) { setNorm(p, "verb_space", 0.9f); }, sh, st);
+    EXPECT(st > bt * 1.6, "SPACE audibly adds a reverb tail");
+
+    double lh, lt;   // full feedback sustains after release, incl. the LP tone zone
+    heldTail([](CrucibleProcessor& p) { setNorm(p, "fb_amt", 1.0f); }, lh, lt);
+    EXPECT(lt > 0.15, "LOOP self-sustains at max feedback");
+    heldTail([](CrucibleProcessor& p) { setNorm(p, "fb_amt", 1.0f); setNorm(p, "fb_tone", 0.3f); }, lh, lt);
+    EXPECT(lt > 0.05, "LOOP sustains in the LP tone zone too");
+
+    // verb unit level: a bass burst must produce a substantial wet signal
+    {
+        cru::ShimmerVerb v;
+        v.prepare(48000);
+        v.sSpace.snap(0.9f); v.sShim.snap(0.0f);
+        v.control(0, 0);
+        double burst = 0;
+        for (int i = 0; i < 24000; ++i)
+        {
+            if (i % 32 == 0) v.control(0, 0);
+            float x = i < 14400 ? std::sin(cru::kTwoPi * 65.4f * i / 48000.0f) * 0.4f : 0.0f;
+            float l, r;
+            v.process(x, x, l, r, 0.9f, 0.0f);
+            float wetOnly = l - x;
+            if (i < 14400) burst += (double) wetOnly * wetOnly;
+        }
+        EXPECT(std::sqrt(burst / 14400) > 0.04, "verb wet level is audible (bass not tap-cancelled)");
+    }
+}
+
 int main()
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
+    testChainAudibility();
 
     testMorphTable();
     testDriveBypass();
     testDriveTypesDistinct();
+    testDriveFocus();
+    testSyncDelay();
+    testMasterFilter();
     testWidthStage();
     testGrindBounded();
     testOttPassthrough();
@@ -586,6 +820,7 @@ int main()
         testFuzz(p);
     }
     testMonoLegato();
+    testOctaveBend();
     testTogglesBypass();
     testStateRoundtrip();
 

@@ -22,15 +22,21 @@ constexpr int kCtrlInterval = 32;   // control-rate tick (expensive coefficient 
 struct FxParams   // raw per-block targets (0..1), written by the processor
 {
     float driveAmt = 0, driveType = 0 /*0..5*/, driveMorph = 0, driveMix = 1;
+    float drvFltCut = 0.5f, drvFltRes = 0.1f; int drvFltType = 0;   // drive focus filter
     float crush = 0, grind = 0;
     float width = 0;
     float metal = 0, material = 0.35f;
     float fltMix = 0, fltFreq = 0.5f, fltRate = 0.3f, fltDepth = 0.4f, fltShape = 0;
+    float filtCutoff = 1.0f, filtRes = 0.15f, filtMix = 1.0f; int filtType = 0;   // master filter
+    float dlyMix = 0, dlyTime = 0.4f, dlyFb = 0.35f;                 // sync delay
+    float dlySyncBeats = 0;   // 0 = free, else beat multiplier
+    float dlyPP = 0, bpm = 120.0f;
     float space = 0, shimmer = 0;
     float fbAmt = 0, fbTone = 0.5f, fbTime = 0.25f, fbShift = 0.5f;
     float ott = 0, move = 0, tilt = 0.5f, outDrive = 0.35f, mix = 1.0f;
     // per-stage power switches (0/1, crossfaded in the chain)
     float driveOn = 1, grindOn = 1, metalOn = 1, fltOn = 1, verbOn = 1, fbOn = 1, ottOn = 1;
+    float dlyOn = 1, filtOn = 1;
 };
 
 // ════════════════════════════════ DRIVE v2 ════════════════════════════════
@@ -48,7 +54,27 @@ struct DriveStage
     float dsPh = 0, dsHold = 0;    // downsample state (always runs: warm morph entry)
     DCBlock dc;
 
-    void reset() { dc.reset(); dsPh = 0; dsHold = 0; }
+    // focus filter: choose WHAT gets driven (All/Low/Band/High); the clean
+    // residual recombines after the shaper — drive only the lows, mids, etc.
+    int   fType = 0;
+    float fic1 = 0, fic2 = 0, fa1 = 0, fa2 = 0, fa3 = 0, fkq = 1;
+    Smooth sFc, sFq;
+    float srD = 48000;
+
+    void prepare(float s) { srD = s; control(fType); }
+    void control(int typ)
+    {
+        fType = typ;
+        float fc = 30.0f * std::pow(600.0f, sFc.y);       // 30 Hz → 18 kHz
+        float q  = 0.6f + sFq.y * sFq.y * 8.0f;
+        fkq = 1.0f / q;
+        float g = std::tan(kPi * clampf(fc, 20.0f, 0.45f * srD) / srD);
+        fa1 = 1.0f / (1.0f + g * (g + fkq));
+        fa2 = g * fa1;
+        fa3 = g * fa2;
+    }
+
+    void reset() { dc.reset(); dsPh = 0; dsHold = 0; fic1 = fic2 = 0; }
     void snapPos(float typeIdx, float morph) { pos = typeIdx + clampf(morph, 0, 1); }
 
     // Each type has its own internal gain so real program levels actually hit
@@ -69,10 +95,12 @@ struct DriveStage
         }
     }
 
-    float process(float in, float amT, float typeIdx, float morphT, float mixT, float transient)
+    float process(float in, float amT, float typeIdx, float morphT, float mixT,
+                  float fcT, float fqT, float transient)
     {
         float am = sAm.step(amT);
         float mx = sMx.step(mixT);
+        sFc.step(fcT); sFq.step(fqT);
 
         // glide the position toward type+morph along the shortest path on the circle
         float tgt = typeIdx + clampf(morphT, 0, 1);
@@ -81,9 +109,21 @@ struct DriveStage
         pos += 0.0022f * dd;
         pos -= 6.0f * std::floor(pos / 6.0f);
 
+        // focus split (state always runs so type switches are warm)
+        float v3 = in - fic2;
+        float v1 = fa1 * fic1 + fa2 * v3;
+        float v2 = fic2 + fa2 * fic1 + fa3 * v3;
+        fic1 = 2.0f * v1 - fic1;
+        fic2 = 2.0f * v2 - fic2;
+        float sel = (fType == 1) ? v2
+                  : (fType == 2) ? v1
+                  : (fType == 3) ? (in - fkq * v1 - v2)
+                                 : in;
+        float resid = (fType == 0) ? 0.0f : in - sel;
+
         float drv = 1.0f + am * am * 6.0f;
         drv *= 1.0f + transient * 0.8f * am;
-        float x = in * drv;
+        float x = sel * drv;
 
         // downsample: rate curve that actually bites mid-knob (48k→~1k) + bit crush
         dsPh += 0.02f + std::pow(1.0f - am, 2.5f) * 0.9f;
@@ -101,7 +141,7 @@ struct DriveStage
         sh += (shape(i1, x) - sh) * frv;
         sh = dc.step(sh);
 
-        float wet = sh * (0.7f + 0.3f / drv);
+        float wet = sh * (0.7f + 0.3f / drv) + resid;   // driven band + clean remainder
         return in + (wet - in) * clampf(am * 2.5f, 0, 1) * mx;   // full wet by 40% — no dead zone
     }
 };
@@ -452,6 +492,139 @@ struct SwarmFilters
     }
 };
 
+// ═══════════════════════════════ SYNC DELAY ═══════════════════════════════
+// The industry delay: FREE 1..1000 ms (log) or tempo divisions from the host
+// BPM (1/1..1/32 incl. dotted + triplet). Damped, DC-safe, tanh-bounded
+// feedback; ping-pong crossfeed; slewed time = tape-style repitch on changes.
+struct SyncDelay
+{
+    DelayLine dl[2];
+    OnePoleLP damp[2];
+    OnePoleHP hpf[2];
+    Smooth sMix, sTim, sFb;
+    float sr = 48000;
+    float tCur[2] = { 4800, 4800 }, tTgt = 4800;
+    float gFb = 0;
+    bool  pp = false;
+    float meterTap = 0;
+
+    void prepare(float s)
+    {
+        sr = s;
+        for (int c = 0; c < 2; ++c)
+        {
+            dl[c].prepare((int)(2.2f * s));
+            damp[c].setHz(9000.0f, s);
+            hpf[c].setHz(60.0f, s);
+        }
+    }
+    void reset()
+    {
+        for (int c = 0; c < 2; ++c) { dl[c].reset(); damp[c].reset(); hpf[c].reset(); }
+    }
+
+    void control(float syncBeats, float bpm, bool pingpong)
+    {
+        pp = pingpong;
+        float sec = (syncBeats <= 0.0f)
+            ? 0.001f * std::pow(1000.0f, sTim.y)                       // 1 ms → 1 s
+            : (60.0f / clampf(bpm, 20.0f, 999.0f)) * syncBeats;
+        tTgt = clampf(sec * sr, 32.0f, (float) dl[0].size - 8.0f);
+        gFb = clampf(sFb.y, 0.0f, 1.0f) * 0.92f;
+    }
+
+    void process(float& L, float& R, float mixT, float timT, float fbT)
+    {
+        float mixv = sMix.step(mixT);
+        sTim.step(timT); sFb.step(fbT);
+        float wet[2];
+        for (int c = 0; c < 2; ++c)
+        {
+            tCur[c] += 0.0008f * (tTgt - tCur[c]);
+            float v = dl[c].readCubic(tCur[c]);
+            v = damp[c].step(v);
+            v = hpf[c].step(v);
+            wet[c] = std::tanh(v * 1.1f) * (1.0f / 1.1f);
+        }
+        if (pp)
+        {
+            // true ping-pong: mono input feeds ONLY the left line; its echo
+            // crosses to the right line, and back — L, R, L, R...
+            // (cross-feeding identical L/R inputs is inaudible — the old bug)
+            dl[0].write((L + R) * 0.5f + wet[1] * gFb);
+            dl[1].write(wet[0] * gFb);
+        }
+        else
+        {
+            dl[0].write(L + wet[0] * gFb);
+            dl[1].write(R + wet[1] * gFb);
+        }
+        L += wet[0] * mixv;
+        R += wet[1] * mixv;
+        meterTap = (std::fabs(wet[0]) + std::fabs(wet[1])) * 0.5f * mixv;
+    }
+};
+
+// ═══════════════════════════════ FILTER ═══════════════════════════════
+// The master filter (Serum-style): TPT SVF — LP12 / LP24 / BP / HP / Notch,
+// cutoff 20 Hz..20 kHz, resonance to the edge of self-oscillation, mix.
+// Sits between the voice sum and DRIVE (classic subtractive order).
+struct FilterStage
+{
+    float ic1a = 0, ic2a = 0, ic1b = 0, ic2b = 0;
+    float a1 = 0, a2 = 0, a3 = 0, kq = 1;
+    int   type = 0;
+    Smooth sCut, sRes, sMix;
+    float sr = 48000;
+    float meterTap = 0;
+
+    void prepare(float s) { sr = s; control(0); }
+    void reset() { ic1a = ic2a = ic1b = ic2b = 0; }
+
+    void control(int typ)
+    {
+        type = typ;
+        float fc = 20.0f * std::pow(1000.0f, sCut.y);          // 20 Hz → 20 kHz
+        float q  = 0.5f + sRes.y * sRes.y * 11.5f;             // fine at the bottom
+        kq = 1.0f / q;
+        float g = std::tan(kPi * clampf(fc, 20.0f, 0.47f * sr) / sr);
+        a1 = 1.0f / (1.0f + g * (g + kq));
+        a2 = g * a1;
+        a3 = g * a2;
+    }
+
+    void svf(float x, float& ic1, float& ic2, float& lo, float& bp, float& hi)
+    {
+        float v3 = x - ic2;
+        float v1 = a1 * ic1 + a2 * v3;
+        float v2 = ic2 + a2 * ic1 + a3 * v3;
+        ic1 = 2.0f * v1 - ic1;
+        ic2 = 2.0f * v2 - ic2;
+        lo = v2; bp = v1; hi = x - kq * v1 - v2;
+    }
+
+    float process(float x, float cutT, float resT, float mixT, float engage)
+    {
+        sCut.step(cutT); sRes.step(resT);
+        float mixv = sMix.step(mixT);
+        float lo, bp, hi;
+        svf(x, ic1a, ic2a, lo, bp, hi);
+        float y;
+        switch (type)
+        {
+            default:
+            case 0: y = lo; break;                                   // LP 12
+            case 1: { float l2, b2, h2; svf(lo, ic1b, ic2b, l2, b2, h2); y = l2; } break;   // LP 24
+            case 2: y = bp * (1.0f / (1.0f + (1.0f / kq - 0.5f) * 0.06f)); break;           // BP (comped)
+            case 3: y = hi; break;                                   // HP
+            case 4: y = x - kq * bp; break;                          // Notch
+        }
+        float out = x + (y - x) * mixv * engage;
+        meterTap = std::fabs(out);
+        return out;
+    }
+};
+
 // ══════════════════════════════ SHIMMER VERB ══════════════════════════════
 // 8-line Householder FDN, two modulated lines, Dattorro 2-tap +1-octave
 // shimmer injected into the feedback (LP in the loop = structural decay
@@ -508,7 +681,7 @@ struct ShimmerVerb
             g[i] = std::pow(10.0f, -3.0f * len[i] / (t60 * sr));
             damp[i].setHz(cut, sr);
         }
-        wet = std::min(space * 1.5f, 1.0f) * 0.55f;
+        wet = std::min(space * 1.5f, 1.0f) * 0.7f;
         gShim = shim * shim * 0.55f * (1.0f + bloom * 0.4f);
         modDepth = (6.0f + shim * 10.0f + moveExtra * 8.0f) * (sr / 48000.0f);
     }
@@ -550,13 +723,16 @@ struct ShimmerVerb
         sh = shimLP.step(shimHP.step(sh));
         sh = std::tanh(sh * 1.2f) * (1.0f / 1.2f) * gShim;
 
-        static constexpr float insgn[NL]  = { 1, -1, 1, -1, 1, -1, 1, -1 };
+        // all-positive input + grouped all-positive taps: alternating signs
+        // pair-cancelled correlated LOW content (bass reverb vanished, -26 dB —
+        // caught by the level diagnostic). Diversity of delay lengths still
+        // decorrelates mids/highs; bass now sums constructively like a real hall.
         static constexpr float shsgn[NL]  = { 1, 1, -1, 1, -1, -1, 1, -1 };
         for (int i = 0; i < NL; ++i)
-            line[i].write(xin * 0.35f * insgn[i] + (y[i] - s) + sh * 0.25f * shsgn[i]);
+            line[i].write(xin * 0.6f + (y[i] - s) + sh * 0.25f * shsgn[i]);
 
-        float wetL = (y[0] - y[2] + y[4] - y[6]) * 0.35f;
-        float wetR = (y[1] - y[3] + y[5] - y[7]) * 0.35f;
+        float wetL = (y[0] + y[2] + y[4] + y[6]) * 0.3f;
+        float wetR = (y[1] + y[3] + y[5] + y[7]) * 0.3f;
         outL = inL + wetL * wet;
         outR = inR + wetR * wet;
         tailEF.step(std::fabs(wetL) + std::fabs(wetR));
@@ -722,8 +898,9 @@ struct FeedbackLoop
         float sh = 2.0f * (sShf.y - 0.5f);
         hz = sh * sh * sh * 12.0f;
         // reaches slightly PAST unity loop gain at max — the tanh bound turns
-        // that into the spec'd musical scream instead of runaway
-        gAmt = std::pow(clampf(sAmt.y, 0, 1), 1.2f) * 1.1f;
+        // that into the spec'd musical scream instead of runaway; hot enough
+        // to ignite from ~0.8 instead of only at the very top
+        gAmt = std::pow(clampf(sAmt.y, 0, 1), 1.1f) * 1.18f;
         tTgt = clampf(0.002f * std::pow(125.0f, sTim.y) * sr, 24.0f, (float) dl.size - 8.0f);
     }
 
@@ -835,10 +1012,12 @@ struct Couplings
 // ═══════════════════════════════ BUS CHAIN ═══════════════════════════════
 struct BusChain
 {
+    FilterStage  filt;
     DriveStage   drive;
     GrindStage   grind;
     MetalBank    metal;
     SwarmFilters swarm;
+    SyncDelay    dly;
     ShimmerVerb  verb;
     OttChain     ott;
     FeedbackLoop fbloop;
@@ -847,13 +1026,14 @@ struct BusChain
     ChaosMod     chaos;
     Couplings    couple;
     Smooth       sMix, sDuck;
-    Smooth sOnDrive, sOnGrind, sOnMetal, sOnFlt, sOnVerb, sOnFb, sOnOtt;   // power switches
+    Smooth sOnDrive, sOnGrind, sOnMetal, sOnFlt, sOnVerb, sOnFb, sOnOtt,   // power switches
+           sOnDly, sOnFilt;
     float loopPrev = 0;
     int   ctrlCnt = 0;
     float sr = 48000;
 
     // meter followers (audio side) + atomics (UI side)
-    static constexpr int kNumMeters = 9; // voice drive grind metal delay verb ott loop out
+    static constexpr int kNumMeters = 11; // in filt drive grind metal swarm dly verb ott loop out
     EnvFollow mf[kNumMeters];
     std::atomic<float> meters[kNumMeters] = {};
     std::atomic<float> accent { 0 };     // loop-bus energy → UI accent
@@ -861,14 +1041,16 @@ struct BusChain
     void prepare(float s)
     {
         sr = s;
-        grind.prepare(s); metal.prepare(s); swarm.prepare(s); verb.prepare(s);
+        filt.prepare(s); drive.prepare(s);
+        grind.prepare(s); metal.prepare(s); swarm.prepare(s); dly.prepare(s); verb.prepare(s);
         ott.prepare(s); fbloop.prepare(s); widthFx.prepare(s); tiltclip.prepare(s); couple.prepare(s);
         for (auto& f : mf) f.setCoeffs(0.01f, 0.0005f);
         loopPrev = 0; ctrlCnt = 0;
     }
     void reset()
     {
-        drive.reset(); grind.reset(); metal.reset(); swarm.reset(); verb.reset();
+        filt.reset(); drive.reset(); grind.reset(); metal.reset(); swarm.reset();
+        dly.reset(); verb.reset();
         ott.reset(); fbloop.resetState(); widthFx.reset(); tiltclip.reset(); couple.reset();
         loopPrev = 0;
     }
@@ -880,6 +1062,9 @@ struct BusChain
     {
         drive.sAm.snap(p.driveAmt); drive.sMx.snap(p.driveMix);
         drive.snapPos(p.driveType, p.driveMorph);
+        drive.sFc.snap(p.drvFltCut); drive.sFq.snap(p.drvFltRes);
+        filt.sCut.snap(p.filtCutoff); filt.sRes.snap(p.filtRes); filt.sMix.snap(p.filtMix);
+        dly.sMix.snap(p.dlyMix); dly.sTim.snap(p.dlyTime); dly.sFb.snap(p.dlyFb);
         widthFx.sW.snap(p.width);
         grind.sCr.snap(p.crush); grind.sGr.snap(p.grind);
         metal.sMet.snap(p.metal); metal.sMat.snap(p.material);
@@ -894,7 +1079,10 @@ struct BusChain
         sMix.snap(p.mix); sDuck.snap(p.fbAmt);
         sOnDrive.snap(p.driveOn); sOnGrind.snap(p.grindOn); sOnMetal.snap(p.metalOn);
         sOnFlt.snap(p.fltOn); sOnVerb.snap(p.verbOn); sOnFb.snap(p.fbOn); sOnOtt.snap(p.ottOn);
+        sOnDly.snap(p.dlyOn); sOnFilt.snap(p.filtOn);
         metal.control(); swarm.control(1.0f); verb.control(0.0f, 0.0f);
+        filt.control(p.filtType); drive.control(p.drvFltType);
+        dly.control(p.dlySyncBeats, p.bpm, p.dlyPP > 0.5f);
         fbloop.control(0.0f); tiltclip.control(0.0f);
     }
 
@@ -906,6 +1094,9 @@ struct BusChain
             chaos.control(p.move);
             metal.control();
             swarm.control(chaos.fltDrift());
+            filt.control(p.filtType);
+            drive.control(p.drvFltType);
+            dly.control(p.dlySyncBeats, p.bpm, p.dlyPP > 0.5f);
             verb.control(couple.gap, chaos.verbExtra());
             fbloop.control(chaos.toneDrift());
             tiltclip.control(norm01(couple.ottAct.e) * 0.15f);   // density audibly "works" the clip
@@ -914,20 +1105,31 @@ struct BusChain
         couple.trackInput(mono);
         // every stage keeps processing while bypassed (tails stay warm); the
         // power switches crossfade the chain around it, click-free
-        float d  = drive.process(mono, p.driveAmt, p.driveType, p.driveMorph, p.driveMix, couple.transient());
+        float d  = drive.process(mono, p.driveAmt, p.driveType, p.driveMorph, p.driveMix,
+                                 p.drvFltCut, p.drvFltRes, couple.transient());
         d = lerpf(mono, d, sOnDrive.step(p.driveOn));
         float g  = grind.process(d, p.crush, p.grind);
         g = lerpf(d, g, sOnGrind.step(p.grindOn));
         float mt = metal.process(g, p.metal, p.material);
         mt = lerpf(g, mt, sOnMetal.step(p.metalOn));
+        // master filter AFTER the dirt: the always-on grind/drive saturation
+        // regenerates harmonics, so a pre-dirt filter was barely audible
+        float fl = filt.process(mt, p.filtCutoff, p.filtRes, p.filtMix, sOnFilt.step(p.filtOn));
 
         float duck = sDuck.step(p.fbAmt) * 0.12f;
-        float inj  = mt * (1.0f - duck) + loopPrev;
+        float inj  = fl * (1.0f - duck) + loopPrev;
         (void) lastF0;
 
         float dl, dr;
         swarm.process(inj, dl, dr, p.fltMix, p.fltFreq, p.fltRate, p.fltDepth, p.fltShape,
                       sOnFlt.step(p.fltOn));
+        // sync delay in the loop circle (post-swarm) — wet gated by its power
+        {
+            float preL = dl, preR = dr;
+            dly.process(dl, dr, p.dlyMix, p.dlyTime, p.dlyFb);
+            const float onDly = sOnDly.step(p.dlyOn);
+            dl = lerpf(preL, dl, onDly); dr = lerpf(preR, dr, onDly);
+        }
         float vl, vr;
         verb.process(dl, dr, vl, vr, p.space, p.shimmer);
         const float onVerb = sOnVerb.step(p.verbOn);
@@ -955,10 +1157,12 @@ struct BusChain
         R = dryA * (1.0f - mixv) + tr * mixv;
 
         // meters (post-switch, so the rail shows what's actually in the chain)
-        mf[0].step(mono); mf[1].step(d); mf[2].step(g); mf[3].step(mt);
-        mf[4].step(swarm.meterTap); mf[5].step(verb.meterTap * onVerb);
-        mf[6].step(ott.meterTap * onOtt);
-        mf[7].step(loopPrev); mf[8].step((L + R) * 0.5f);
+        mf[0].step(mono); mf[1].step(d); mf[2].step(g); mf[3].step(mt); mf[4].step(fl);
+        mf[5].step(swarm.meterTap);
+        mf[6].step(dly.meterTap * sOnDly.y);
+        mf[7].step(verb.meterTap * onVerb);
+        mf[8].step(ott.meterTap * onOtt);
+        mf[9].step(loopPrev); mf[10].step((L + R) * 0.5f);
     }
 
     void publishMeters()

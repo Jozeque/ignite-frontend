@@ -58,6 +58,10 @@ CrucibleEditor::CrucibleEditor(CrucibleProcessor& p)
             const bool on = (bool) v.getProperty("on", false);
             if (on) proc.synth.noteOn(1, juce::jlimit(0, 127, n), 0.9f);
             else    proc.synth.noteOff(1, juce::jlimit(0, 127, n), 0.7f, true);
+        })
+        .withEventListener("bend",         [this](juce::var v)  // on-screen pitch wheel
+        {
+            proc.synth.handlePitchWheel(1, juce::jlimit(0, 16383, (int) v.getProperty("v", 8192)));
         });
 
     web = std::make_unique<juce::WebBrowserComponent>(options);
@@ -153,7 +157,7 @@ void CrucibleEditor::pushFrame()
     }
     const double sr = proc.getSampleRate() > 0 ? proc.getSampleRate() : 48000.0;
     const float f0  = proc.lastF0.load(std::memory_order_relaxed);
-    const int   win = juce::jlimit(256, 4096, (int) (2.0 * sr / juce::jmax(20.0f, f0)));
+    const int   win = juce::jlimit(256, 4096, (int) (1.0 * sr / juce::jmax(20.0f, f0)));   // ONE cycle
     int start = N - win;
     {
         const int span = juce::jmin(2048, start - 1);
@@ -186,6 +190,7 @@ void CrucibleEditor::pushFrame()
     fr->setProperty("acc", (double) proc.bus.accent.load(std::memory_order_relaxed));
     fr->setProperty("f0",  (double) f0);
     fr->setProperty("pk",  (double) proc.outPeak.exchange(0.0f));
+    fr->setProperty("bend", ((double) proc.lastBend.load(std::memory_order_relaxed) - 8192.0) / 8191.0);
     web->emitEventIfBrowserIsVisible("frame", juce::var(fr));
 }
 

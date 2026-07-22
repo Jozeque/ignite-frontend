@@ -22,7 +22,7 @@ public:
     bool canPlaySound(juce::SynthesiserSound*) override { return true; }
     void startNote(int midiNoteNumber, float velocity, juce::SynthesiserSound*, int) override;
     void stopNote(float velocity, bool allowTailOff) override;
-    void pitchWheelMoved(int) override {}
+    void pitchWheelMoved(int newPitchWheelValue) override;
     void controllerMoved(int, int) override {}
     void setCurrentPlaybackSampleRate(double newRate) override;
     void renderNextBlock(juce::AudioBuffer<float>&, int startSample, int numSamples) override;
@@ -97,6 +97,7 @@ public:
     float outRing[kOutRing] = {};
     std::atomic<int> outWi { 0 };
     std::atomic<float> outPeak { 0.0f };   // true peak since the UI last read (clip meter)
+    std::atomic<int>   lastBend { 8192 };  // last MIDI pitch-wheel value (UI wheel mirror)
 
     CrucibleSynth synth;
 
@@ -114,6 +115,17 @@ private:
     std::atomic<float>* prmDriveType = nullptr;
     std::atomic<float>* prmMono = nullptr;
     std::atomic<float>* prmLegato = nullptr;
+    std::atomic<float>* prmOscAWave = nullptr;
+    std::atomic<float>* prmOscBWave = nullptr;
+    std::atomic<float>* prmOscAOn = nullptr;
+    std::atomic<float>* prmOscBOn = nullptr;
+    std::atomic<float>* prmDlySync = nullptr;
+    std::atomic<float>* prmDlyPP = nullptr;
+    std::atomic<float>* prmFiltType = nullptr;
+    std::atomic<float>* prmDrvFltType = nullptr;
+    std::atomic<float>* prmOscAOct = nullptr;
+    std::atomic<float>* prmOscBOct = nullptr;
+    float bpmNow = 120.0f;   // audio thread only (host playhead)
     float masterLin = 0.501187f;           // smoothed master gain (-6 dB)
     double currentSR = 48000.0;
 

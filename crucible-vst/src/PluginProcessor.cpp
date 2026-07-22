@@ -4,8 +4,21 @@
 #endif
 
 // ═══════════════════════════════ voice ═══════════════════════════════
-void CrucibleVoice::startNote(int midiNoteNumber, float, juce::SynthesiserSound*, int)
+static float wheelToBend(int wheel)   // ±2 semitones, standard
 {
+    float semis = ((float) wheel - 8192.0f) / 8192.0f * 2.0f;
+    return std::pow(2.0f, semis / 12.0f);
+}
+
+void CrucibleVoice::pitchWheelMoved(int newPitchWheelValue)
+{
+    core.bend = wheelToBend(newPitchWheelValue);
+    proc.lastBend.store(newPitchWheelValue, std::memory_order_relaxed);
+}
+
+void CrucibleVoice::startNote(int midiNoteNumber, float, juce::SynthesiserSound*, int currentPitchWheelPosition)
+{
+    core.bend = wheelToBend(currentPitchWheelPosition);
     monoNote = midiNoteNumber;
     const float f0 = (float) juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber);
     const bool wasSilent = !core.active();
@@ -44,7 +57,10 @@ void CrucibleVoice::monoChange(int newNote, bool legato)
     const float f0 = (float) juce::MidiMessage::getMidiNoteInHertz(newNote);
     core.noteF0 = f0;                       // osc target: fsm glides there (built-in porta)
     if (!legato && core.gate)
-        core.env.stg = 1;                   // re-attack from the current level (click-free)
+    {
+        core.envA.retrigger();              // re-attack from the current level (click-free)
+        core.envB.retrigger();
+    }
     core.gate = true;                       // off→on transitions retrigger via the env's own edge
     proc.glideF0 = f0;
     proc.lastF0.store(f0, std::memory_order_relaxed);
@@ -128,6 +144,16 @@ CrucibleProcessor::CrucibleProcessor()
     prmDriveType = apvts.getRawParameterValue(cru::kDriveTypeID);   // raw value = index 0..5
     prmMono = apvts.getRawParameterValue("mono");
     prmLegato = apvts.getRawParameterValue("legato");
+    prmOscAWave = apvts.getRawParameterValue("osca_wave");
+    prmOscBWave = apvts.getRawParameterValue("oscb_wave");
+    prmOscAOn = apvts.getRawParameterValue("osca_on");
+    prmOscBOn = apvts.getRawParameterValue("oscb_on");
+    prmDlySync = apvts.getRawParameterValue("dly_sync");
+    prmDlyPP = apvts.getRawParameterValue("dly_pp");
+    prmFiltType = apvts.getRawParameterValue("filt_type");
+    prmDrvFltType = apvts.getRawParameterValue("drv_flt_type");
+    prmOscAOct = apvts.getRawParameterValue("osca_oct");
+    prmOscBOct = apvts.getRawParameterValue("oscb_oct");
 
     for (int i = 0; i < 8; ++i) synth.addVoice(new CrucibleVoice(*this));
     synth.addSound(new CrucibleSound());
@@ -175,14 +201,43 @@ namespace
         iSpace, iShimmer,
         iFbAmt, iFbTone, iFbTime, iFbShift,
         iOtt, iMove, iWidth, iTilt, iOutDrive, iMix,
+        // appended floats (order matches Params.h)
+        iOscAVol, iOscBVol, iFm,
+        iDlyMix, iDlyTime, iDlyFb,
+        iFiltCutoff, iFiltRes, iFiltMix,
+        iDrvFltCut, iDrvFltRes,
+        iCurveA, iAttackB, iDecayB, iSustainB, iReleaseB, iCurveB,
         // toggles (appended after the float defs in prm)
-        iDriveOn, iGrindOn, iMetalOn, iFltOn, iVerbOn, iFbOn, iOttOn
+        iDriveOn, iGrindOn, iMetalOn, iFltOn, iVerbOn, iFbOn, iOttOn, iDlyOn, iFiltOn
+    };
+
+    struct Extras   // non-float-knob inputs pulled by the processor
+    {
+        float driveType = 0, oscAWave = 0, oscBWave = 0, oscAOn = 1, oscBOn = 1;
+        float oscAOct = 2, oscBOct = 2;
+        float dlySyncBeats = 0, dlyPP = 0, filtType = 0, drvFltType = 0, bpm = 120;
     };
 }
 
+#define CRU_MAKE_EXTRAS(e)                                                          \
+    Extras e;                                                                       \
+    e.driveType = prmDriveType->load(std::memory_order_relaxed);                    \
+    e.oscAWave = prmOscAWave->load(std::memory_order_relaxed);                      \
+    e.oscBWave = prmOscBWave->load(std::memory_order_relaxed);                      \
+    e.oscAOn = prmOscAOn->load(std::memory_order_relaxed);                          \
+    e.oscBOn = prmOscBOn->load(std::memory_order_relaxed);                          \
+    e.oscAOct = prmOscAOct->load(std::memory_order_relaxed);                        \
+    e.oscBOct = prmOscBOct->load(std::memory_order_relaxed);                        \
+    e.dlySyncBeats = cru::syncBeats()[juce::jlimit(0, 14,                           \
+        (int) prmDlySync->load(std::memory_order_relaxed))];                        \
+    e.dlyPP = prmDlyPP->load(std::memory_order_relaxed);                            \
+    e.filtType = prmFiltType->load(std::memory_order_relaxed);                      \
+    e.drvFltType = prmDrvFltType->load(std::memory_order_relaxed);                  \
+    e.bpm = bpmNow;
+
 static void pullParams(const std::vector<std::atomic<float>*>& prm,
                        cru::VoiceParams& vp, cru::FxParams& fx, const cru::BusChain& bus,
-                       float driveTypeIdx)
+                       const Extras& e)
 {
     auto v = [&prm](int i) { return prm[(size_t) i]->load(std::memory_order_relaxed); };
 
@@ -193,14 +248,29 @@ static void pullParams(const std::vector<std::atomic<float>*>& prm,
     vp.rips      = v(iRips);     vp.ripshape = v(iRipshape);
     vp.drift     = v(iDrift);    vp.fractal  = v(iFractal);
     vp.stretch   = cru::clampf(v(iStretch) + bus.chaos.stretchDrift(), 0.0f, 1.0f);
+    vp.volA = v(iOscAVol); vp.volB = v(iOscBVol); vp.fm = v(iFm);
+    vp.onA = e.oscAOn; vp.onB = e.oscBOn;
+    vp.waveA = (int) e.oscAWave; vp.waveB = (int) e.oscBWave;
+    vp.octA = juce::jlimit(0, 4, (int) e.oscAOct);
+    vp.octB = juce::jlimit(0, 4, (int) e.oscBOct);
     vp.attack    = v(iAttack);   vp.decay    = v(iDecay);
     vp.sustain   = v(iSustain);  vp.release  = v(iRelease);
+    vp.curveA    = v(iCurveA);
+    vp.attackB   = v(iAttackB);  vp.decayB   = v(iDecayB);
+    vp.sustainB  = v(iSustainB); vp.releaseB = v(iReleaseB);
+    vp.curveB    = v(iCurveB);
     vp.modalRes  = v(iModalRes); vp.modalTune = v(iModalTune); vp.modalRing = v(iModalRing);
 
     fx.driveAmt = v(iDriveAmt); fx.driveMorph = v(iDriveMorph); fx.driveMix = v(iDriveMix);
-    fx.driveType = driveTypeIdx;
+    fx.driveType = e.driveType;
+    fx.drvFltCut = v(iDrvFltCut); fx.drvFltRes = v(iDrvFltRes);
+    fx.drvFltType = (int) e.drvFltType;
     fx.crush = v(iCrush); fx.grind = v(iGrind);
     fx.width = v(iWidth);
+    fx.filtCutoff = v(iFiltCutoff); fx.filtRes = v(iFiltRes); fx.filtMix = v(iFiltMix);
+    fx.filtType = (int) e.filtType;
+    fx.dlyMix = v(iDlyMix); fx.dlyTime = v(iDlyTime); fx.dlyFb = v(iDlyFb);
+    fx.dlySyncBeats = e.dlySyncBeats; fx.dlyPP = e.dlyPP; fx.bpm = e.bpm;
     fx.metal = v(iMetal); fx.material = v(iMaterial);
     fx.fltMix = v(iFltMix); fx.fltFreq = v(iFltFreq); fx.fltRate = v(iFltRate);
     fx.fltDepth = v(iFltDepth); fx.fltShape = v(iFltShape);
@@ -210,6 +280,7 @@ static void pullParams(const std::vector<std::atomic<float>*>& prm,
     fx.outDrive = v(iOutDrive); fx.mix = v(iMix);
     fx.driveOn = v(iDriveOn); fx.grindOn = v(iGrindOn); fx.metalOn = v(iMetalOn);
     fx.fltOn = v(iFltOn); fx.verbOn = v(iVerbOn); fx.fbOn = v(iFbOn); fx.ottOn = v(iOttOn);
+    fx.dlyOn = v(iDlyOn); fx.filtOn = v(iFiltOn);
 }
 
 void CrucibleProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
@@ -224,7 +295,8 @@ void CrucibleProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
     display.prepare((float) sampleRate);
 
     cru::FxParams fx;
-    pullParams(prm, voiceParams, fx, bus, prmDriveType->load());
+    CRU_MAKE_EXTRAS(ex)
+    pullParams(prm, voiceParams, fx, bus, ex);
     bus.snapParams(fx);
     display.snapParams(voiceParams);
     for (int i = 0; i < synth.getNumVoices(); ++i)
@@ -251,8 +323,14 @@ void CrucibleProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mid
     if (wrapperType == juce::AudioProcessor::wrapperType_Standalone)
         midiCollector.removeNextBlockOfMessages(midi, n);   // hardware keyboards
 
+    if (auto* ph = getPlayHead())
+        if (auto pos = ph->getPosition())
+            if (pos->getBpm().hasValue())
+                bpmNow = (float) *pos->getBpm();
+
     cru::FxParams fx;
-    pullParams(prm, voiceParams, fx, bus, prmDriveType->load(std::memory_order_relaxed));
+    CRU_MAKE_EXTRAS(ex)
+    pullParams(prm, voiceParams, fx, bus, ex);
     synth.setModes(prmMono->load(std::memory_order_relaxed) > 0.5f,
                    prmLegato->load(std::memory_order_relaxed) > 0.5f);
 
@@ -263,7 +341,7 @@ void CrucibleProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mid
     float envMax = 0.0f;
     for (int i = 0; i < synth.getNumVoices(); ++i)
         if (auto* cv = dynamic_cast<CrucibleVoice*>(synth.getVoice(i)))
-            envMax = std::max(envMax, cv->core.env.env);
+            envMax = std::max(envMax, cv->core.lastEnv);
     envNow.store(envMax, std::memory_order_relaxed);
 
     const bool  ui = editorOpen.load(std::memory_order_relaxed);

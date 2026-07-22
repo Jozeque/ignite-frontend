@@ -8,13 +8,20 @@ curves) so the sound is the M4L device — then the forge was built around it.
 ## Signal architecture
 
 ```
-8 voices (spectral-morph osc → ADSR → modal bank)  ── per voice
+8 voices: OSC A + OSC B (base wave sine/tri/square/saw as a
+   harmonic bed under each anchored morph vector; per-osc vol +
+   power; bipolar FM A↔B as per-partial phase modulation)
+   → ADSR → modal bank                                       ── per voice
    └→ sum ── dry tap (MIX anchor, soft-bounded)
-       → DRIVE v2 (6 shaper types + morph + mix)            [reworked]
+       → FILTER (Serum-style TPT SVF: LP12/LP24/BP/HP/Notch,
+           visual + draggable response curve)               [new]
+       → DRIVE v2 (6 shaper types + morph + mix; FOCUS
+           filter drives only Low/Band/High, visual)        [reworked]
        → GRIND (3-band crush + band-OTTs)                   [M4L port]
        → METAL (keytracked comb bank, string↔bell)          [new]
-       → [+ loop inject] → SWARM (parallel moving filter
-           bank: 4 panned SVFs, band↔notch, per-filter LFO) [new]
+       → [+ loop inject] → SWARM (parallel moving filters)  [new]
+       → DELAY (sync: free ms or 1/1..1/32 dotted/triplet
+           from host BPM, ping-pong, damped feedback)       [new]
        → SHIMMER VERB (8-line FDN, +octave in feedback)     [new]
        → OTT ×6 series chain (density)                      [M4L port]
        → loop tap → COLOR SVF (LP→BP→HP) → FREQ SHIFTER
@@ -39,8 +46,8 @@ reverb tail ducks delay feedback; loop energy darkens repeats; silence blooms
 the shimmer; density leans on the output clip). Every loop is bounded:
 saturator + damping + DC block + 120 Hz bass anchor (sub never loops).
 
-49 host-automatable params (40 knobs + drive type + 7 stage toggles + gain) —
-knobs are all 0..1 like the M4L live.dials, ready to be driven by Stride. The OSC section adds two bin-domain manipulations beyond the
+72 host-automatable params (51 knobs + 6 choices + 9 stage toggles + 5 mode
+bools + gain) — knobs are all 0..1 like the M4L live.dials, Stride-drivable. The OSC section adds two bin-domain manipulations beyond the
 M4L: **DRIFT** (per-harmonic amplitude breathing — the spectrum evolves on its
 own, fundamental exempt) and **STRETCH** (bipolar partial stretch, organ
 cluster ↔ bell inharmonicity, exact harmonic lock at center).

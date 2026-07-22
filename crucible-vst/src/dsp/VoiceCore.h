@@ -15,9 +15,36 @@ struct VoiceParams
 {
     float morph = 0, morph2 = 0.35f, pulsar = 0, formant = 0.5f, rips = 0, ripshape = 0.3f;
     float drift = 0, stretch = 0.5f, fractal = 0;
-    float attack = 0.02f, decay = 0.25f, sustain = 0.7f, release = 0.3f;
+    float volA = 1, volB = 1, onA = 1, onB = 1, fm = 0.5f;   // A/B mixer + bipolar FM
+    int   waveA = 0, waveB = 0;                              // 0 sine 1 tri 2 square 3 saw
+    int   octA = 2, octB = 2;                                // index into {-2,-1,0,+1,+2}
+    float attack = 0.02f, decay = 0.25f, sustain = 0.7f, release = 0.3f, curveA = 0.5f;
+    float attackB = 0.02f, decayB = 0.25f, sustainB = 0.7f, releaseB = 0.3f, curveB = 0.5f;
     float modalRes = 0, modalTune = 0, modalRing = 0.5f;
 };
+
+// Base-wave harmonic beds, ADDED under each osc's morph vector (bins 2..16
+// only — bin 1 stays owned by the morph vector, so the fundamental anchor is
+// untouched). SINE adds nothing = exact legacy behavior; SAW at morph 0 IS a
+// saw. The morph then layers its timbre on top of the chosen bed.
+struct BaseWaves
+{
+    float w[4][MorphTable::NH];
+    float comp[4] = { 1.0f, 1.10f, 1.05f, 0.95f };   // loudness compensation
+    BaseWaves()
+    {
+        for (int k = 1; k <= MorphTable::NH; ++k)
+        {
+            w[0][k - 1] = 0.0f;                                                       // sine (bed empty)
+            w[1][k - 1] = (k >= 3 && k % 2 == 1) ? 1.0f / (float) (k * k) : 0.0f;      // triangle
+            w[2][k - 1] = (k >= 3 && k % 2 == 1) ? 1.0f / (float) k : 0.0f;            // square
+            w[3][k - 1] = (k >= 2) ? 1.0f / (float) k : 0.0f;                          // saw
+        }
+    }
+};
+inline const BaseWaves& baseWaves() { static BaseWaves b; return b; }
+
+constexpr float kOctMult[5] = { 0.25f, 0.5f, 1.0f, 2.0f, 4.0f };
 
 // phase-locked rip operator (the RIPS math, factored): tear only the non-peak
 // regions, in `cnt` windows locked to the cycle phase — precise and morph-safe
@@ -94,8 +121,10 @@ struct MorphOsc
 {
     float sr = 48000, isr = 1.0f / 48000, nyq = 24000;
     float fsm = 55.0f;      // History fsm(55) — smoothed f0 (the built-in glide)
-    float mph = 0.0f;       // audio phasor
-    Smooth sM1, sM2, sRp, sRp2, sPu, sFo, sFr;
+    float mph = 0.0f;       // reference phasor (base f0): pulsar/rips window lock
+    float mphA = 0.0f, mphB = 0.0f;   // per-osc phasors (octave multipliers, click-free)
+    float prevA = 0, prevB = 0;   // last raw osc outputs (FM modulator taps)
+    Smooth sM1, sM2, sRp, sRp2, sPu, sFo, sFr, sVa, sVb, sFm;
     BinFx bfx;
 
     void prepare(float s) { sr = s; isr = 1.0f / s; nyq = 0.5f * s; }
@@ -104,10 +133,11 @@ struct MorphOsc
         sM1.snap(p.morph); sM2.snap(p.morph2); sRp.snap(p.rips);
         sRp2.snap(p.ripshape); sPu.snap(p.pulsar); sFo.snap(p.formant);
         sFr.snap(p.fractal);
+        sVa.snap(p.volA * p.onA); sVb.snap(p.volB * p.onB); sFm.snap(p.fm);
         bfx.snap(p);
     }
 
-    float process(float f0target, const VoiceParams& p)
+    float process(float f0target, const VoiceParams& p, float eA, float eB)
     {
         const auto& T = MorphTable::get();
         float f0in = fsm + 0.0016f * (f0target - fsm); fsm = f0in;
@@ -124,21 +154,42 @@ struct MorphOsc
         float p1 = m1 * (float) (MorphTable::KP - 1);
         float p2 = m2 * (float) (MorphTable::KP - 1);
 
-        mph += f0 * isr; mph -= std::floor(mph);
+        const float multA = kOctMult[p.octA];
+        const float multB = kOctMult[p.octB];
+        mph  += f0 * isr;          mph  -= std::floor(mph);
+        mphA += f0 * multA * isr;  mphA -= std::floor(mphA);
+        mphB += f0 * multB * isr;  mphB -= std::floor(mphB);
+
+        // A/B mixer + bipolar FM (true phase modulation of the additive stack:
+        // partial k of the carrier gets a k-scaled phase offset from the other
+        // osc's previous raw sample — DX-style, one-sample feedback)
+        const auto& BW = baseWaves();
+        const float* bwA = BW.w[p.waveA & 3];
+        const float* bwB = BW.w[p.waveB & 3];
+        float gA = sVa.step(p.volA * p.onA) * BW.comp[p.waveA & 3];
+        float gB = sVb.step(p.volB * p.onB) * BW.comp[p.waveB & 3];
+        float fmv = (sFm.step(p.fm) - 0.5f) * 2.0f;
+        float phA = (fmv < 0.0f) ? fmv * fmv * 0.35f * prevB : 0.0f;   // B → A
+        float phB = (fmv > 0.0f) ? fmv * fmv * 0.35f * prevA : 0.0f;   // A → B
 
         const float aaf = 1.0f / 2200.0f;
-        float acc = 0.0f;
+        float accA = 0.0f, accB = 0.0f;
         for (int k = 1; k <= MorphTable::NH; ++k)
         {
-            float aa = clampf((nyq - f0 * bfx.rk[k - 1]) * aaf, 0.0f, 1.0f);
-            if (aa <= 0.0f) break;                       // ratios rise with k: all above clamp too
-            float ak = (T.bin(p1, k - 1) + T.bin(p2, k - 1)) * aa;
-            ak *= bfx.driftMod(k, isr);
+            float aaA = clampf((nyq - f0 * multA * bfx.rk[k - 1]) * aaf, 0.0f, 1.0f);
+            float aaB = clampf((nyq - f0 * multB * bfx.rk[k - 1]) * aaf, 0.0f, 1.0f);
+            if (aaA <= 0.0f && aaB <= 0.0f) break;       // ratios rise with k: all above clamp too
+            float dm = bfx.driftMod(k, isr);
             float dp = bfx.stretchPhase(k, f0 * isr);
-            if (ak > 1e-6f)
-                acc += sinTurns((float) k * mph + dp) * ak;
+            float akA = (T.bin(p1, k - 1) + bwA[k - 1]) * dm * aaA;
+            float akB = (T.bin(p2, k - 1) + bwB[k - 1]) * dm * aaB;
+            if (akA > 1e-6f) accA += sinTurns((float) k * mphA + dp + (float) k * phA) * akA;
+            if (akB > 1e-6f) accB += sinTurns((float) k * mphB + dp + (float) k * phB) * akB;
         }
-        float sig = acc * 0.25f;
+        // FM taps are post-envelope: a decaying modulator fades its modulation (DX-style)
+        prevA = clampf(accA * eA * 0.25f, -2.0f, 2.0f);
+        prevB = clampf(accB * eB * 0.25f, -2.0f, 2.0f);
+        float sig = (accA * gA * eA + accB * gB * eB) * 0.25f;
 
         // PULSAR: FORMANT -> duty + level-comp so it sweeps audibly
         float duty = 0.08f + (1.0f - fo) * 0.9f;
@@ -158,33 +209,74 @@ struct MorphOsc
     }
 };
 
-// ---- ENV: linear ADSR (gen~ semantics: retrigger continues from current level,
-//      decay clamps at sustain, release full-scale-normalised) ----
+// ---- ENV: ADSR (gen~ semantics: retrigger continues from current level,
+//      decay clamps at sustain, release full-scale-normalised) + CURVE.
+//      The linear state machine is unchanged (parity anchor); CURVE reshapes
+//      each segment with sustain/edges anchored: 0.5 = exactly linear (gen~),
+//      < 0.5 log (fast start), > 0.5 exponential (punchy analog tails). ----
 struct ADSREnv
 {
     float sr = 48000;
     float env = 0.0f;
     int   stg = 0;          // 1=attack, 2=decay/sustain, 0=release
     bool  pg  = false;      // previous gate
+    float aStart = 0.0f;    // level when the attack began (retrigger-safe)
+    float rStart = 0.0f;    // level when the release began
+    float lastOut = 0.0f;   // last SHAPED output (segment handoffs stay continuous)
 
     void prepare(float s) { sr = s; }
-    void hardReset() { env = 0; stg = 0; pg = false; }
+    void hardReset() { env = 0; stg = 0; pg = false; aStart = 0; rStart = 0; lastOut = 0; }
     bool idle() const { return stg == 0 && env <= 0.0f; }
 
-    float process(bool gate, const VoiceParams& p)
+    static float curveFn(float u, float curve)   // u in 0..1, curve knob 0..1
     {
-        float asec = 0.002f + p.attack  * 3.0f;
-        float dsec = 0.002f + p.decay   * 3.0f;
-        float rsec = 0.002f + p.release * 4.0f;
-        bool rising = gate && !pg; pg = gate;
+        float e = std::pow(2.0f, (curve - 0.5f) * 4.0f);   // exp 0.25 .. 4, 1 at center
+        return std::pow(clampf(u, 0.0f, 1.0f), e);
+    }
+
+    float process(bool gate, float attack, float decay, float sustain, float release, float curve)
+    {
+        float asec = 0.002f + attack  * 3.0f;
+        float dsec = 0.002f + decay   * 3.0f;
+        float rsec = 0.002f + release * 4.0f;
+        bool rising  = gate && !pg;
+        bool falling = !gate && pg;
+        pg = gate;
+        if (rising)  { env = lastOut; aStart = env; }   // resume from the audible level
+        if (falling) { env = lastOut; rStart = env; }
         stg = rising ? 1 : (!gate ? 0 : stg);
+        float sus = clampf(sustain, 0.0f, 1.0f);
         float ainc = 1.0f / (asec * sr), dinc = 1.0f / (dsec * sr), rinc = 1.0f / (rsec * sr);
         env = (stg == 1) ? clampf(env + ainc, 0.0f, 1.0f)
-            : (stg == 2) ? clampf(env - dinc, clampf(p.sustain, 0.0f, 1.0f), 1.0f)
+            : (stg == 2) ? clampf(env - dinc, sus, 1.0f)
                          : clampf(env - rinc, 0.0f, 1.0f);
         if (stg == 1 && env >= 1.0f) stg = 2;
-        return env;
+
+        // segment-local curving (linear position -> shaped level, endpoints anchored)
+        float out;
+        if (stg == 1)
+        {
+            float span = 1.0f - aStart;
+            float u = span > 1e-4f ? (env - aStart) / span : 1.0f;
+            out = aStart + span * curveFn(u, curve);
+        }
+        else if (stg == 2)
+        {
+            float span = 1.0f - sus;
+            float u = span > 1e-4f ? (1.0f - env) / span : 0.0f;
+            out = 1.0f - span * curveFn(u, curve);
+        }
+        else
+        {
+            float rs = std::max(rStart, 1e-4f);
+            float u = 1.0f - env / rs;
+            out = env <= 0.0f ? 0.0f : rs * (1.0f - curveFn(u, curve));
+        }
+        lastOut = out;
+        return out;
     }
+
+    void retrigger() { env = lastOut; aStart = env; stg = 1; }
 };
 
 // ---- MODAL: 6 two-pole resonators tuned to f0*ratio (Fors Tela/Mass concept) ----
@@ -228,12 +320,14 @@ struct ModalBank
 struct VoiceCore
 {
     MorphOsc  osc;
-    ADSREnv   env;
+    ADSREnv   envA, envB;   // per-osc amplitude envelopes
     ModalBank modal;
     float noteF0 = 55.0f;
+    float bend   = 1.0f;    // pitch-wheel multiplier (±2 semitones), glide-smoothed downstream
+    float lastEnv = 0.0f;   // loudest shaped env (UI)
     bool  gate   = false;
 
-    void prepare(float s) { osc.prepare(s); env.prepare(s); modal.prepare(s); }
+    void prepare(float s) { osc.prepare(s); envA.prepare(s); envB.prepare(s); modal.prepare(s); }
     void snapParams(const VoiceParams& p) { osc.snapParams(p); modal.snapParams(p); }
 
     // glideFrom reproduces the mono device's glide: a silent voice starts its
@@ -245,14 +339,17 @@ struct VoiceCore
         gate = true;
     }
     void noteOff() { gate = false; }
-    void kill()    { gate = false; env.hardReset(); modal.reset(); }
-    bool active() const { return gate || !env.idle() || modal.ringing(); }
+    void kill()    { gate = false; envA.hardReset(); envB.hardReset(); modal.reset(); }
+    bool active() const { return gate || !envA.idle() || !envB.idle() || modal.ringing(); }
 
     float render(const VoiceParams& p)
     {
-        float e = env.process(gate, p);
-        float s = osc.process(noteF0, p) * e;
-        return modal.process(s, noteF0, p);
+        float eA = envA.process(gate, p.attack,  p.decay,  p.sustain,  p.release,  p.curveA);
+        float eB = envB.process(gate, p.attackB, p.decayB, p.sustainB, p.releaseB, p.curveB);
+        lastEnv = std::max(eA, eB);
+        float f0 = noteF0 * bend;
+        float s = osc.process(f0, p, eA, eB);
+        return modal.process(s, f0, p);
     }
 };
 
@@ -262,7 +359,8 @@ struct DisplayOsc
 {
     float sr = 48000, nyq = 24000;
     float dph = 0.0f;
-    Smooth sM1, sM2, sRp, sRp2, sPu, sFo, sFr;
+    float prevA = 0, prevB = 0;
+    Smooth sM1, sM2, sRp, sRp2, sPu, sFo, sFr, sVa, sVb, sFm;
     BinFx bfx;
     float ring[512] = {};
     int   wi = 0;
@@ -274,6 +372,7 @@ struct DisplayOsc
         sM1.snap(p.morph); sM2.snap(p.morph2); sRp.snap(p.rips);
         sRp2.snap(p.ripshape); sPu.snap(p.pulsar); sFo.snap(p.formant);
         sFr.snap(p.fractal);
+        sVa.snap(p.volA * p.onA); sVb.snap(p.volB * p.onB); sFm.snap(p.fm);
         bfx.snap(p);
     }
 
@@ -294,18 +393,35 @@ struct DisplayOsc
         if (dph >= 1.0f) { dph -= std::floor(dph); phase0.store(wi, std::memory_order_relaxed); }
 
         float f0 = clampf(f0ForAA, 8.0f, nyq);
+        const auto& BW = baseWaves();
+        const float* bwA = BW.w[p.waveA & 3];
+        const float* bwB = BW.w[p.waveB & 3];
+        float gA = sVa.step(p.volA * p.onA) * BW.comp[p.waveA & 3];
+        float gB = sVb.step(p.volB * p.onB) * BW.comp[p.waveB & 3];
+        float fmv = (sFm.step(p.fm) - 0.5f) * 2.0f;
+        float phA = (fmv < 0.0f) ? fmv * fmv * 0.35f * prevB : 0.0f;
+        float phB = (fmv > 0.0f) ? fmv * fmv * 0.35f * prevA : 0.0f;
+
+        const float multA = kOctMult[p.octA];
+        const float multB = kOctMult[p.octB];
         const float aaf = 1.0f / 2200.0f;
-        float dacc = 0.0f, nrm = 0.0001f;
+        float dacc = 0.0f, daccA = 0.0f, daccB = 0.0f, nrm = 0.0001f;
         for (int k = 1; k <= MorphTable::NH; ++k)
         {
-            float aa = clampf((nyq - f0 * bfx.rk[k - 1]) * aaf, 0.0f, 1.0f);
-            float ak = (T.bin(p1, k - 1) + T.bin(p2, k - 1)) * aa;
-            ak *= bfx.driftMod(k, 1.0f / sr);
+            float aaA = clampf((nyq - f0 * multA * bfx.rk[k - 1]) * aaf, 0.0f, 1.0f);
+            float aaB = clampf((nyq - f0 * multB * bfx.rk[k - 1]) * aaf, 0.0f, 1.0f);
+            float dm = bfx.driftMod(k, 1.0f / sr);
             float dp = bfx.stretchPhase(k, 1.0f / 512.0f);
-            if (ak > 1e-6f)
-                dacc += sinTurns((float) k * dph + dp) * ak;
+            float akA = (T.bin(p1, k - 1) + bwA[k - 1]) * dm * aaA;
+            float akB = (T.bin(p2, k - 1) + bwB[k - 1]) * dm * aaB;
+            if (akA > 1e-6f) daccA += sinTurns((float) k * multA * dph + dp + (float) k * phA) * akA;
+            if (akB > 1e-6f) daccB += sinTurns((float) k * multB * dph + dp + (float) k * phB) * akB;
+            float ak = akA * gA + akB * gB;
             nrm += ak * ak;
         }
+        prevA = clampf(daccA * 0.25f, -2.0f, 2.0f);
+        prevB = clampf(daccB * 0.25f, -2.0f, 2.0f);
+        dacc = daccA * gA + daccB * gB;
         float disp = dacc / (std::sqrt(nrm) + 0.5f);
 
         float duty = 0.08f + (1.0f - fo) * 0.9f;
