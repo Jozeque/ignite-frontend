@@ -108,6 +108,24 @@
     if (_undoTimer) clearTimeout(_undoTimer);
     _undoTimer = setTimeout(_hideUndoToast, 7000);   // Ctrl+Z window (invisible)
   }
+  // ── Ableton computer-MIDI-keyboard forward ───────────────────────
+  // With Live's keyboard mode ON, the QWERTY note keys (A W S E D F T G Y H U J K L +
+  // Z/X octave, C/V velocity) die in the WebView exactly like Space did — Stride focused
+  // means the typing piano goes silent. Forward the note-set keys to native, which
+  // re-posts them to the DAW (Ableton only — gated in C++). Unlike the transport toggle
+  // these need REAL down/up pairs (a note has a release) and no debounce (chords).
+  var NOTE_KEYS = { a:1, w:1, s:1, e:1, d:1, f:1, t:1, g:1, y:1, h:1, u:1, j:1, k:1, l:1, z:1, x:1, c:1, v:1 };
+  var _notesDown = {};   // keys we sent a DOWN for — their UP always forwards, whatever is held by then (else: stuck note)
+  function _noteKeyOf(e) {
+    // Live's piano is POSITIONAL (scan codes — AZERTY/Hebrew get the same piano shape),
+    // so filter by the PHYSICAL key; native converts it to the real scancode. The typed
+    // character is only a fallback for events that don't carry a code.
+    var c = e.code || '';
+    if (c.indexOf('Key') === 0 && c.length === 4) { var p = c.charAt(3).toLowerCase(); return NOTE_KEYS[p] ? p : ''; }
+    var k = e.key || '';
+    if (/^[a-zA-Z]$/.test(k)) { k = k.toLowerCase(); return NOTE_KEYS[k] ? k : ''; }
+    return '';
+  }
   window.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && pluginModal) { e.preventDefault(); e.stopImmediatePropagation(); closePluginBrowser(); return; }
     var z = (e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && ! e.shiftKey;
@@ -130,7 +148,34 @@
       var typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable);
       if (! typing) emit('transportKey', { key: 'space' });
     }
+    // Keyboard-mode notes (NOTE_KEYS above). Plain presses only: Live reads the PHYSICAL
+    // modifier state when our re-post arrives, so forwarding 'a' under a held Ctrl would
+    // land as Ctrl+A — any modifier means a shortcut, ours or the DAW's. Repeats skipped
+    // (Live retriggers nothing on repeats; the UP is what ends the note). While typing
+    // the keys stay in the field — no beeping while naming a range.
+    var nk = _noteKeyOf(e);
+    if (nk && ! e.ctrlKey && ! e.metaKey && ! e.altKey && ! e.shiftKey && ! e.repeat) {
+      var nae = document.activeElement;
+      var ntyping = nae && (nae.tagName === 'INPUT' || nae.tagName === 'TEXTAREA' || nae.tagName === 'SELECT' || nae.isContentEditable);
+      if (! ntyping) {
+        _notesDown[nk] = true;
+        emit('musicKey', { key: nk, down: true });
+      }
+    }
   }, true);
+  window.addEventListener('keyup', function (e) {
+    var nk = _noteKeyOf(e);
+    if (nk && _notesDown[nk]) {   // only keys WE pressed down — and those unconditionally (a skipped UP = a stuck note in Live)
+      delete _notesDown[nk];
+      emit('musicKey', { key: nk, down: false });
+    }
+  }, true);
+  // Focus leaving Stride mid-hold (click into the DAW / another app) strands the UP —
+  // release everything still down so Live never keeps a phantom note ringing.
+  window.addEventListener('blur', function () {
+    for (var nk in _notesDown) emit('musicKey', { key: nk, down: false });
+    _notesDown = {};
+  });
 
   // No clips in the wrapper — drawing modulates the synth live. Hide the Ableton-only
   // "Inject to Clip" rail and the StrideInject setup modal.

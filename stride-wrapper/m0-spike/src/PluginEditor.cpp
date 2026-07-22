@@ -72,16 +72,41 @@ static std::optional<Resource> serveAsset (const juce::String& url)
     return std::nullopt;   // favicon / anything unbundled -> 404 (harmless)
 }
 
-// ── Transport-key forwarding (Windows) ──────────────────────────────────────
+// ── Transport + note-key forwarding (Windows) ───────────────────────────────
 // A hosted synth lives in OUR window, outside Ableton's keyboard handling, so
-// Space / Return never reach the transport (you'd have to click the DAW first).
-// A thread-local WH_GETMESSAGE hook on the GUI thread catches those keys when
-// they target one of our synth windows and forwards them to the DAW's main
-// window — so a hosted synth plays / stops like a native plugin window.
+// Space / Return never reach the transport — and with keyboard mode ON, the
+// computer-MIDI note keys go equally dead. A thread-local WH_GETMESSAGE hook on
+// the GUI thread catches those keys when they target one of our synth windows
+// and forwards them to the DAW's main window, so a hosted synth plays / stops /
+// notes like a native plugin window. Transport keys are swallowed after the
+// forward (the synth must not double-handle them); note keys pass through
+// (Ableton only) so the synth's own UI — preset search boxes — keeps them too.
 #if JUCE_WINDOWS
 namespace {
     HHOOK g_strideKeyHook = nullptr;
     std::vector<StrideWrapperEditor*> g_strideKeyOwners;
+
+    // Ableton only: posting bare letters into other DAWs would fire their single-key
+    // ACTIONS (Reaper/FL bind half the alphabet) with no keyboard mode to serve.
+    bool strideHostIsAbletonLive()
+    {
+        static const bool isLive = juce::PluginHostType().isAbletonLive();
+        return isLive;
+    }
+
+    // The VKs of Live's computer-MIDI keyboard: A-row notes + Z/X octave + C/V velocity.
+    bool strideIsNoteVk (WPARAM vk)
+    {
+        switch (vk)
+        {
+            case 'A': case 'W': case 'S': case 'E': case 'D': case 'F': case 'T': case 'G':
+            case 'Y': case 'H': case 'U': case 'J': case 'K': case 'L':
+            case 'Z': case 'X': case 'C': case 'V': return true;
+            default:                                return false;
+        }
+    }
+
+    juce::uint32 g_strideNoteVksDown = 0;   // bit per letter we forwarded a DOWN for — its UP always forwards (else: stuck note in Live)
 
     LRESULT CALLBACK strideKeyHookProc (int code, WPARAM wParam, LPARAM lParam)
     {
@@ -90,20 +115,52 @@ namespace {
             auto* msg = reinterpret_cast<MSG*> (lParam);
             if (msg != nullptr
                  && (msg->message == WM_KEYDOWN || msg->message == WM_KEYUP
-                      || msg->message == WM_SYSKEYDOWN || msg->message == WM_SYSKEYUP)
-                 && (msg->wParam == VK_SPACE || msg->wParam == VK_RETURN))
+                      || msg->message == WM_SYSKEYDOWN || msg->message == WM_SYSKEYUP))
             {
-                for (auto* ed : g_strideKeyOwners)
+                const bool isDown      = (msg->message == WM_KEYDOWN || msg->message == WM_SYSKEYDOWN);
+                const bool isTransport = (msg->wParam == VK_SPACE || msg->wParam == VK_RETURN);
+
+                // Keyboard-mode notes from a hosted synth window. A DOWN forwards only
+                // unmodified — Live reads the PHYSICAL modifier state when the re-post
+                // arrives, so forwarding 'A' under a held Ctrl would land as Ctrl+A
+                // (select-all). An UP we owe forwards regardless of what's held by then.
+                bool isNote = false;
+                if (! isTransport && strideIsNoteVk (msg->wParam) && strideHostIsAbletonLive())
                 {
-                    if (ed != nullptr && ed->ownsNativeWindow ((void*) msg->hwnd))
+                    if (isDown)
+                        isNote = ::GetKeyState (VK_CONTROL) >= 0 && ::GetKeyState (VK_MENU) >= 0
+                              && ::GetKeyState (VK_SHIFT)   >= 0
+                              && ::GetKeyState (VK_LWIN)    >= 0 && ::GetKeyState (VK_RWIN) >= 0;
+                    else
+                        isNote = (g_strideNoteVksDown & (1u << (msg->wParam - 'A'))) != 0;
+                }
+
+                if (isTransport || isNote)
+                {
+                    for (auto* ed : g_strideKeyOwners)
                     {
-                        if (auto* host = (HWND) ed->hostMainWindow())
+                        if (ed != nullptr && ed->ownsNativeWindow ((void*) msg->hwnd))
                         {
-                            ::PostMessage (host, msg->message, msg->wParam, msg->lParam);
-                            msg->message = WM_NULL;   // swallow so the synth doesn't double-handle the key
-                            msg->hwnd = nullptr;
+                            if (auto* host = (HWND) ed->hostMainWindow())
+                            {
+                                ::PostMessage (host, msg->message, msg->wParam, msg->lParam);
+                                if (isTransport)
+                                {
+                                    msg->message = WM_NULL;   // swallow so the synth doesn't double-handle the key
+                                    msg->hwnd = nullptr;
+                                }
+                                else
+                                {
+                                    // Note keys are NOT swallowed (the synth keeps its own
+                                    // keys) — lParam went through verbatim, so Live filters
+                                    // auto-repeats off the previous-state bit as usual.
+                                    const auto bit = 1u << (msg->wParam - 'A');
+                                    if (isDown) g_strideNoteVksDown |= bit;
+                                    else        g_strideNoteVksDown &= ~bit;
+                                }
+                            }
+                            break;
                         }
-                        break;
                     }
                 }
             }
@@ -178,6 +235,7 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
         .withEventListener ("openSynth",    [this] (juce::var)     { toggleSynthWindow(); })
         .withEventListener ("openSynthOne", [this] (juce::var v)   { openOneSynthWindow ((int) v.getProperty ("i", -1)); })
         .withEventListener ("transportKey", [this] (juce::var v)   { forwardTransportKey (v.getProperty ("key", "space").toString()); })
+        .withEventListener ("musicKey",     [this] (juce::var v)   { forwardMusicKey (v.getProperty ("key", "").toString(), (bool) v.getProperty ("down", false)); })
         .withEventListener ("clearChain",   [this] (juce::var)     { if (proc.isEditLocked()) return; synthWindows.clear(); proc.clearChain(); pushRackScanned(); pushChainDevices(); })
         .withEventListener ("removeDevice", [this] (juce::var v)   { if (proc.isEditLocked()) return; const int i = (int) v.getProperty ("i", -1); if (i >= 0 && i < (int) synthWindows.size()) synthWindows.erase (synthWindows.begin() + i); proc.removeNode (i); pushRackScanned(); pushChainDevices(); })   // close ONLY the removed device's window; keep the rest as-is (was: clear all -> timer reopened them all)
         .withEventListener ("moveDevice",   [this] (juce::var v)   {
@@ -300,6 +358,7 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
     // this process to re-post into, and Logic's own key handling already sees unconsumed
     // keys — a synthetic re-post could only misfire or double-toggle the transport.
     strideMacKeyForward_setSuppressed (juce::PluginHostType().isLogic() || juce::PluginHostType().isGarageBand());
+    strideMacKeyForward_setNoteForwardEnabled (juce::PluginHostType().isAbletonLive());   // keyboard-mode notes: Live only — other DAWs treat bare letters as commands
    #endif
 }
 
@@ -397,6 +456,47 @@ void StrideWrapperEditor::forwardTransportKey (const juce::String& key)
         strideMacKeyForward_post (key == "enter");
    #else
     juce::ignoreUnused (key);
+   #endif
+}
+
+// A note key (Ableton's computer-MIDI keyboard) pressed/released while Stride's WebView
+// has focus — same delivery as forwardTransportKey, but a REAL down/up pair (a note has
+// a release) and NO debounce (chords / fast playing). The JS filters to Live's note set,
+// unmodified and outside text fields; the letter check here is the native backstop.
+void StrideWrapperEditor::forwardMusicKey (const juce::String& key, bool down)
+{
+    if (key.length() != 1) return;
+
+   #if JUCE_WINDOWS
+    if (! strideHostIsAbletonLive()) return;   // other DAWs treat bare letters as commands, not notes
+    const auto letter = (char) key.toLowerCase()[0];
+    if (letter < 'a' || letter > 'z') return;
+
+    // Live's computer-MIDI piano maps notes by SCAN CODE (it's positional — AZERTY players
+    // get the same piano shape), so the bare-VK/scancode-0 post the transport keys get away
+    // with plays NOTHING here (proven live: the hook path, which relays the real lParam,
+    // played; this path with scancode 0 stayed silent). Post a replica of the real press:
+    // the physical key's scancode + the layout's VK for it.
+    static const juce::uint8 kUsScan[26] = {
+        0x1E, 0x30, 0x2E, 0x20, 0x12, 0x21, 0x22, 0x23, 0x17, 0x24,   // a b c d e f g h i j
+        0x25, 0x26, 0x32, 0x31, 0x18, 0x19, 0x10, 0x13, 0x1F, 0x14,   // k l m n o p q r s t
+        0x16, 0x2F, 0x11, 0x2D, 0x15, 0x2C };                         // u v w x y z
+    const UINT scan = kUsScan[letter - 'a'];
+    UINT vk = ::MapVirtualKeyW (scan, MAPVK_VSC_TO_VK);   // layout-correct VK for that physical key
+    if (vk == 0) vk = (UINT) (letter - 'a') + 'A';
+
+    if (auto* host = (HWND) hostMainWindow())
+    {
+        const auto lp = (LPARAM) ((scan << 16) | 1u);   // repeat count 1 + scancode, like a real press
+        if (down) ::PostMessage (host, WM_KEYDOWN, (WPARAM) vk, lp);
+        else      ::PostMessage (host, WM_KEYUP,   (WPARAM) vk, lp | (LPARAM) 0xC0000000);   // + previous-state/transition bits
+    }
+   #elif JUCE_MAC
+    const auto c = (char) key.toLowerCase()[0];
+    if (c < 'a' || c > 'z') return;
+    strideMacKeyForward_postNoteKey (c, down);   // Ableton gate + Logic/GB suppression live in the forwarder
+   #else
+    juce::ignoreUnused (down);
    #endif
 }
 

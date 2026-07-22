@@ -34,6 +34,10 @@ public:
     // "transportKey" listener references it unconditionally (Windows: PostMessage;
     // macOS: MacKeyForward.mm; others: no-op).
     void forwardTransportKey (const juce::String& key);
+    // WebView note keys (Ableton's computer-MIDI keyboard) -> re-posted to the host as
+    // REAL down/up pairs. ALL platforms for the same reason as forwardTransportKey;
+    // inside it's Ableton-only — other DAWs treat bare letters as single-key commands.
+    void forwardMusicKey (const juce::String& key, bool down);
 
 private:
     void timerCallback() override;

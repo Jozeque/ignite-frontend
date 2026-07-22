@@ -1,11 +1,13 @@
-// macOS transport-key forwarding — Mac counterpart of BOTH Windows paths in
-// PluginEditor.cpp (the WH_GETMESSAGE hook + the JS "transportKey" forward).
+// macOS transport + note-key forwarding — Mac counterpart of BOTH Windows paths in
+// PluginEditor.cpp (the WH_GETMESSAGE hook + the JS "transportKey"/"musicKey" forwards).
 //
 // Two broken-by-default cases, one shared delivery:
-//   1. A hosted synth lives in OUR NSWindow, so Space/Return go to it, not the DAW.
-//      A local NSEvent monitor catches those keys on tagged windows (install/tag).
+//   1. A hosted synth lives in OUR NSWindow, so Space/Return — and Live's computer-MIDI
+//      note keys — go to it, not the DAW. A local NSEvent monitor catches those keys on
+//      tagged windows (install/tag).
 //   2. Stride's own WebView holds keyboard focus after drawing — WKWebView consumes
-//      keys outright, so the page JS forwards Space and native re-posts it (_post).
+//      keys outright, so the page JS forwards Space and native re-posts it (_post);
+//      note keys ride the same route as real down/up pairs (_postNoteKey).
 //
 // Both funnel into stridePostTransport(): find a DAW window that is NOT ours and
 // re-dispatch a fresh Space/Return there. "Ours" = tagged hosted-synth windows + the
@@ -30,8 +32,40 @@ static std::vector<void*> g_strideEditorViews; // every live Stride editor's NSV
 static void*  g_strideLastEditorView = nullptr;// most recently refreshed view — the frame-fallback delivery target
 static double g_strideLastPost   = 0.0;
 static bool   g_strideSuppressed = false;      // Logic/GarageBand (out-of-process AU): never post synthetic keys
+static bool   g_strideNoteForward = false;     // keyboard-mode notes: Ableton only (set from the editor) — other DAWs treat bare letters as commands
+static unsigned g_strideMacNotesDown = 0;      // hosted-synth monitor: bit per letter we forwarded a DOWN for — its UP always forwards (else: stuck note)
 
 void strideMacKeyForward_setSuppressed (bool s) { g_strideSuppressed = s; }
+void strideMacKeyForward_setNoteForwardEnabled (bool on) { g_strideNoteForward = on; }
+
+// Live's computer-MIDI keyboard note set (A-row notes + Z/X octave + C/V velocity), as
+// kVK_ANSI_* keycodes — hardcoded like Space/Return below (no Carbon import). Live maps
+// notes by the PHYSICAL key, which is exactly what these keycodes are — so this stays
+// correct on non-Latin layouts too.
+static char strideNoteCharForKeyCode (unsigned short kc)
+{
+    switch (kc)
+    {
+        case 0:  return 'a';  case 1:  return 's';  case 2:  return 'd';  case 3:  return 'f';
+        case 4:  return 'h';  case 5:  return 'g';  case 6:  return 'z';  case 7:  return 'x';
+        case 8:  return 'c';  case 9:  return 'v';  case 13: return 'w';  case 14: return 'e';
+        case 16: return 'y';  case 17: return 't';  case 32: return 'u';  case 37: return 'l';
+        case 38: return 'j';  case 40: return 'k';
+        default: return 0;
+    }
+}
+static short strideNoteKeyCodeForChar (char c)
+{
+    switch (c)
+    {
+        case 'a': return 0;  case 's': return 1;  case 'd': return 2;  case 'f': return 3;
+        case 'h': return 4;  case 'g': return 5;  case 'z': return 6;  case 'x': return 7;
+        case 'c': return 8;  case 'v': return 9;  case 'w': return 13; case 'e': return 14;
+        case 'y': return 16; case 't': return 17; case 'u': return 32; case 'l': return 37;
+        case 'j': return 38; case 'k': return 40;
+        default:  return -1;
+    }
+}
 
 void strideMacKeyForward_tagWindow (void* nsview)
 {
@@ -189,21 +223,86 @@ void strideMacKeyForward_postSave (void)
     else          { [target sendEvent: down]; [target sendEvent: up]; }
 }
 
+// A note key (Ableton's computer-MIDI keyboard) -> Live. ONE event per call: real
+// down/up pairs, because a note has a release — and NO debounce, because chords and
+// fast playing are the whole point (the transport's g_strideLastPost stays untouched
+// so notes can't starve the Space toggle either). No frame fallback: Ableton hosts
+// in-process, so "no DAW window found" means there is nothing that could play anyway.
+void strideMacKeyForward_postNoteKey (char c, bool isDown)
+{
+    if (g_strideSuppressed || ! g_strideNoteForward) return;
+    const short kc = strideNoteKeyCodeForChar (c);
+    if (kc < 0) return;
+
+    NSWindow* target = [NSApp mainWindow];
+    if (target == nil || strideIsOurWindow (target) || ! [target isVisible])
+    {
+        target = nil;
+        for (NSWindow* w in [NSApp orderedWindows])
+            if (w != nil && ! strideIsOurWindow (w) && [w isVisible] && [w canBecomeMainWindow]) { target = w; break; }
+    }
+    if (target == nil) return;
+
+    NSString* s = [NSString stringWithFormat: @"%c", c];
+    [target sendEvent: [NSEvent keyEventWithType: isDown ? NSEventTypeKeyDown : NSEventTypeKeyUp
+                                        location: NSZeroPoint
+                                   modifierFlags: 0
+                                       timestamp: [[NSProcessInfo processInfo] systemUptime]
+                                    windowNumber: [target windowNumber]
+                                         context: nil
+                                      characters: s
+                     charactersIgnoringModifiers: s
+                                       isARepeat: NO
+                                         keyCode: (unsigned short) kc]];
+}
+
 void strideMacKeyForward_install (void)
 {
     ++g_strideMonitorRefs;
     if (g_strideKeyMonitor != nil) return;
-    g_strideKeyMonitor = [NSEvent addLocalMonitorForEventsMatchingMask: NSEventMaskKeyDown
+    g_strideKeyMonitor = [NSEvent addLocalMonitorForEventsMatchingMask: (NSEventMaskKeyDown | NSEventMaskKeyUp)
         handler: ^NSEvent* (NSEvent* e)
         {
+            NSWindow* w = [e window];
+            if (w == nil || ! [[w identifier] isEqualToString: @"StrideHostedSynth"])
+                return e;   // only hosted synth windows are ours to forward from
+
+            const bool down = ([e type] == NSEventTypeKeyDown);
             const unsigned short kc = [e keyCode];   // 49 = Space, 36 = Return
-            if ((kc == 49 || kc == 36)
-                 && ! [e isARepeat]                  // one toggle per press — a synthesized down+up per repeat would rapid-toggle
-                 && [e window] != nil
-                 && [[[e window] identifier] isEqualToString: @"StrideHostedSynth"])
+
+            if (kc == 49 || kc == 36)
             {
-                if (stridePostTransport (kc == 36, [e window]))
+                if (down && ! [e isARepeat]          // one toggle per press — a synthesized down+up per repeat would rapid-toggle
+                     && stridePostTransport (kc == 36, w))
                     return nil;   // consumed: the hosted synth shouldn't also act on it
+                return e;
+            }
+
+            // Keyboard-mode notes (Live only): REAL down/up pairs, NOT consumed — the synth
+            // keeps its own keys (preset search boxes still type). A DOWN forwards only
+            // unmodified (a forwarded letter under a held Cmd would land as a command); an
+            // UP we owe forwards regardless of what's held by then, or the note sticks.
+            // Repeats never forward — each would re-post as a fresh retriggering down.
+            const char nc = strideNoteCharForKeyCode (kc);
+            if (nc != 0 && g_strideNoteForward && ! g_strideSuppressed)
+            {
+                const unsigned bit = 1u << (nc - 'a');
+                const NSUInteger mods = [e modifierFlags]
+                    & (NSEventModifierFlagCommand | NSEventModifierFlagControl
+                        | NSEventModifierFlagOption | NSEventModifierFlagShift);
+                if (down)
+                {
+                    if (mods == 0 && ! [e isARepeat])
+                    {
+                        g_strideMacNotesDown |= bit;
+                        strideMacKeyForward_postNoteKey (nc, true);
+                    }
+                }
+                else if ((g_strideMacNotesDown & bit) != 0)
+                {
+                    g_strideMacNotesDown &= ~bit;
+                    strideMacKeyForward_postNoteKey (nc, false);
+                }
             }
             return e;
         }];

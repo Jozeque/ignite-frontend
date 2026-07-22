@@ -21,6 +21,10 @@ void strideMacKeyForward_registerEditorView (void* nsview);   // Stride editor N
 void strideMacKeyForward_unregisterEditorView (void* nsview); // editor going away — drops ONLY its own view (never another instance's)
 void strideMacKeyForward_post (bool isReturn);                // WebView Space/Return (JS-forwarded) -> the DAW's transport
 void strideMacKeyForward_postSave (void);                     // WebView Cmd+S -> the DAW (project save); same discovery/debounce/suppression policy
+void strideMacKeyForward_setNoteForwardEnabled (bool on);     // Ableton only — other DAWs treat bare letters as single-key COMMANDS, not notes
+void strideMacKeyForward_postNoteKey (char c, bool isDown);   // note key ('a'..'z', JS-forwarded or monitor-caught) -> Live's computer-MIDI
+                                                              // keyboard. REAL down/up pairs and NO debounce (chords / fast playing) — unlike
+                                                              // the transport toggle, where one press must mean exactly one toggle
 
 #ifdef __cplusplus
 }
