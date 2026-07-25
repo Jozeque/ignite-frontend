@@ -26,8 +26,8 @@
 //      Live's single-key SHORTCUTS (draw mode, deactivate clip…) with the keyboard button
 //      still lit. And because a plugin panel cannot take main back, clicking Stride again
 //      did NOT fix it — only clicking Live's own window did. Native plugin windows are
-//      utility panels that never take main; strideMakeWindowNonMain makes ours behave the
-//      same. The check isn't overridable from outside JUCE, hence the ISA subclass.
+//      utility panels that never take main; a become-main observer hands main straight
+//      back to the DAW so ours can never keep it (see strideInstallMainWindowGuard).
 //
 //   3. NOTE KEYS THROUGH THE WEBVIEW  (the "latency + random note length" bug)
 //      With Stride's canvas focused, WKWebView forwards each key to the WEB process and
@@ -42,10 +42,8 @@
 //      through the same [NSApp sendEvent:] dispatch the bounce-back used, which is the one
 //      path we have PROOF reaches Live's typing keyboard.
 #import <Cocoa/Cocoa.h>
-#import <objc/runtime.h>
 #include "MacKeyForward.h"
 #include <vector>
-#include <cstdio>
 
 static id     g_strideKeyMonitor  = nil;
 static id     g_strideResignObs   = nil;       // app-deactivate observer — releases notes held when focus leaves the app entirely
@@ -95,32 +93,43 @@ static short strideNoteKeyCodeForChar (char c)
 }
 
 // ── main-window hygiene ─────────────────────────────────────────────────────
-static BOOL strideNeverMain (id, SEL) { return NO; }
+// A hosted synth window must not KEEP [NSApp mainWindow]: Live gates its computer-MIDI
+// keyboard on main-window status, so while ours holds main the typing piano goes dead and
+// the letters fall through to Live's single-key shortcuts — and since a plugin panel can't
+// take main back, it stays broken until the user clicks Live's own window.
+//
+// This was first done by ISA-swizzling canBecomeMainWindow to NO. Do not go back to that:
+// AppKit KVO-subclasses windows behind your back, so object_getClass can already be an
+// NSKVONotifying_* class, and re-classing a window AppKit is actively displaying is
+// exactly the kind of thing that ends in a black window and a dead host. It shipped in
+// 1.1.8 and crashed Live (2026-07-25).
+//
+// Public API instead: watch for one of our tagged windows becoming main and immediately
+// hand main back to the DAW. Our window still becomes main for an instant — harmless, no
+// one can type in that gap — and it can never STAY main, which is the whole bug. Loop-safe
+// by construction: the DAW window that takes main isn't tagged, so its own notification is
+// ignored. Installed once alongside the key monitor.
+static id g_strideMainObs = nil;
 
-// Reassign this window's class to a subclass that refuses main-window status (case 2 in
-// the header comment). Per-baseclass and cached — objc_allocateClassPair fails on a
-// duplicate name — and idempotent, so the editor tick can call it forever for free.
-// No ivars are added, so re-classing a live window is safe.
-static void strideMakeWindowNonMain (NSWindow* w)
+static void strideInstallMainWindowGuard (void)
 {
-    if (w == nil) return;
+    if (g_strideMainObs != nil) return;
+    g_strideMainObs = [[[NSNotificationCenter defaultCenter]
+        addObserverForName: NSWindowDidBecomeMainNotification
+                    object: nil
+                     queue: [NSOperationQueue mainQueue]
+                usingBlock: ^(NSNotification* n)
+        {
+            // Logic/GarageBand host AUs out-of-process, where our window may be the only
+            // main-capable one in the service process — leave main alone there.
+            if (g_strideSuppressed) return;
 
-    Class base = object_getClass (w);
-    NSString* baseName = NSStringFromClass (base);
-    if ([baseName hasPrefix: @"StrideNonMain_"]) return;   // already done
+            NSWindow* w = (NSWindow*) [n object];
+            if (w == nil || ! [[w identifier] isEqualToString: @"StrideHostedSynth"]) return;
 
-    NSString* subName = [@"StrideNonMain_" stringByAppendingString: baseName];
-    Class sub = NSClassFromString (subName);
-    if (sub == Nil)
-    {
-        sub = objc_allocateClassPair (base, [subName UTF8String], 0);
-        if (sub == Nil) return;                            // lost a race, or the name is taken: leave the window as it was
-        char sig[8];
-        std::snprintf (sig, sizeof (sig), "%s@:", @encode (BOOL));   // BOOL is 'c' on x86_64 and 'B' on arm64 — resolve it per slice
-        class_addMethod (sub, @selector (canBecomeMainWindow), (IMP) strideNeverMain, sig);
-        objc_registerClassPair (sub);
-    }
-    object_setClass (w, sub);
+            if (NSWindow* daw = strideFindHostWindow (w))
+                [daw makeMainWindow];
+        }] retain];   // non-ARC target: removeObserver: on a dead token would crash
 }
 
 void strideMacKeyForward_tagWindow (void* nsview)
@@ -130,20 +139,16 @@ void strideMacKeyForward_tagWindow (void* nsview)
     NSWindow* w = [v window];
     if (w == nil) return;
 
+    // The tag does two jobs: transport keys forward from a window carrying it, and the
+    // guard above hands main back whenever a window carrying it takes main.
     if (! [[w identifier] isEqualToString: @"StrideHostedSynth"])
-        w.identifier = @"StrideHostedSynth";               // transport keys forward from here
+        w.identifier = @"StrideHostedSynth";
 
-    // Logic/GarageBand host AUs out-of-process, where our window may be the only
-    // main-capable one in the service process — leave main alone there.
-    if (! g_strideSuppressed)
-    {
-        strideMakeWindowNonMain (w);
-        // Lost the race — it was shown and took main before we got here? Hand main
-        // straight back, or the DAW stays gated until the user clicks it.
-        if ([w isMainWindow])
-            if (NSWindow* daw = strideFindHostWindow (w))
-                [daw makeMainWindow];
-    }
+    // Shown before we get here, so it may ALREADY hold main — the notification for that
+    // has been and gone. One catch-up, on the tagging call only (never on a timer).
+    if (! g_strideSuppressed && [w isMainWindow])
+        if (NSWindow* daw = strideFindHostWindow (w))
+            [daw makeMainWindow];
 }
 
 void strideMacKeyForward_setTextFocus (bool on) { g_strideTextFocus = on; }
@@ -370,6 +375,8 @@ void strideMacKeyForward_install (void)
     ++g_strideMonitorRefs;
     if (g_strideKeyMonitor != nil) return;
 
+    strideInstallMainWindowGuard();   // hosted synth windows must never KEEP main-window status
+
     // Cmd-Tab away mid-hold and the key-UP is delivered to the OTHER app — our local
     // monitor never sees it and the note rings forever. Releasing on deactivate closes
     // the only hole the owed-UP rule below can't.
@@ -425,7 +432,7 @@ void strideMacKeyForward_install (void)
                     return nil;
                 }
                 // Note keys need NOTHING here: with main-window status left where it
-                // belongs (strideMakeWindowNonMain), Live's typing keyboard claims the
+                // belongs (strideInstallMainWindowGuard), Live's typing keyboard claims the
                 // letter itself. Forwarding as well would play every note twice.
                 return e;
             }
@@ -465,6 +472,12 @@ void strideMacKeyForward_remove (void)
         [[NSNotificationCenter defaultCenter] removeObserver: g_strideResignObs];
         [g_strideResignObs release];
         g_strideResignObs = nil;
+    }
+    if (g_strideMainObs != nil)
+    {
+        [[NSNotificationCenter defaultCenter] removeObserver: g_strideMainObs];
+        [g_strideMainObs release];
+        g_strideMainObs = nil;
     }
     if (g_strideKeyMonitor != nil)
     {

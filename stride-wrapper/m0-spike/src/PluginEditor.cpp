@@ -963,15 +963,12 @@ void StrideWrapperEditor::timerCallback()
         lastForwardView = peer->getNativeHandle();
         strideMacKeyForward_registerEditorView (lastForwardView);
     }
-    // Re-tag the hosted synth windows too. Tagging is what makes them forward transport
-    // keys AND refuse main-window status, and it was applied exactly once at creation —
-    // any future peer recreation (JUCE rebuilds the NSWindow when style flags change)
-    // would have dropped both, silently. The call early-outs on an already-tagged window,
-    // so this is free.
-    for (auto& w : synthWindows)
-        if (w != nullptr)
-            if (auto* pr = w->getPeer())
-                strideMacKeyForward_tagWindow (pr->getNativeHandle());
+    // NOTE: hosted synth windows are tagged ONCE, where they are created — never from
+    // here. A previous revision re-tagged them every tick as "cheap insurance" against a
+    // peer recreation that this code path never actually performs, and tagging carries a
+    // hand-main-window-back step: any tick where our window held main fired makeMainWindow
+    // at 30Hz, storming the host with resign/become-main notifications. It crashed Live
+    // (2026-07-25). Speculative hardening on a hot path is not free.
    #endif
 
     // Re-derive the native entitlement gates (~every 2s) so a Discovery Pass expiring MID-SESSION

@@ -25,8 +25,9 @@ void strideMacKeyForward_remove  (void);            // drop one ref; the monitor
 void strideMacKeyForward_setSuppressed (bool s);    // Logic/GarageBand: AUs run OUT-OF-PROCESS (AUHostingService) — no DAW window
                                                     // exists in this process and Logic sees unconsumed keys itself, so a synthetic
                                                     // re-post could only misfire/double-toggle. Suppresses EVERY path below.
-void strideMacKeyForward_tagWindow (void* nsview);  // mark a hosted synth window: Space/Return forward to the DAW, AND the window is
-                                                    // made incapable of becoming main. IDEMPOTENT — safe to call every editor tick.
+void strideMacKeyForward_tagWindow (void* nsview);  // mark a hosted synth window: Space/Return forward to the DAW, and the become-main
+                                                    // guard hands main-window status back to the DAW if this window ever takes it.
+                                                    // Call at window CREATION only — it performs a one-off main-window catch-up.
 void strideMacKeyForward_registerEditorView (void* nsview);   // Stride editor NSView (idempotent; refreshed by each editor's timer).
                                                               // The REGISTRY does double duty: it identifies every instance's plugin
                                                               // frame as "ours" (never re-post into one) and marks the windows whose

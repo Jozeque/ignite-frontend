@@ -126,6 +126,12 @@
   // them no note behavior there, so swallowing 20 keys would be pure loss.
   var _noteKeysReserved = false;
   listen('hostInfo', function (d) { _noteKeysReserved = !!(d && d.ableton); });
+  // macOS NEVER swallows a note key in the page. Native takes them ahead of the WebView,
+  // so if one still reaches us it means native deliberately stood down — and swallowing it
+  // then is fatal: preventDefault tells WebKit the page handled the key, which suppresses
+  // the re-injection that is the ONLY way it would otherwise reach Live. The key would
+  // simply vanish. Getting out of the way costs a late note; swallowing costs the note.
+  var _macNoSwallow = /Mac/i.test(navigator.platform || '');
   function _noteTyping() {
     var el = document.activeElement;
     return !!(el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable));
@@ -183,7 +189,7 @@
       // A note letter must never do anything else in Stride. This is what retired the
       // L = pattern-library hotkey: L is a D in Live's layout, so the library opened
       // every time you played that note. The library still has its button.
-      if (_noteKeysReserved || nk === 'l') { e.preventDefault(); e.stopImmediatePropagation(); }
+      if (! _macNoSwallow && (_noteKeysReserved || nk === 'l')) { e.preventDefault(); e.stopImmediatePropagation(); }
       // Repeats retrigger nothing (the UP is what ends the note), but they stay swallowed.
       if (_noteKeysReserved && ! e.repeat) {
         _notesDown[nk] = true;
@@ -194,7 +200,7 @@
   window.addEventListener('keyup', function (e) {
     var nk = _noteKeyOf(e);
     if (! nk) return;
-    if ((_noteKeysReserved || nk === 'l') && ! _noteTyping()) { e.preventDefault(); e.stopImmediatePropagation(); }
+    if (! _macNoSwallow && (_noteKeysReserved || nk === 'l') && ! _noteTyping()) { e.preventDefault(); e.stopImmediatePropagation(); }
     if (_notesDown[nk]) {   // only keys WE pressed down — and those unconditionally (a skipped UP = a stuck note in Live)
       delete _notesDown[nk];
       emit('musicKey', { key: nk, down: false });
