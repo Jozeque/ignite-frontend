@@ -86,6 +86,30 @@ namespace {
     HHOOK g_strideKeyHook = nullptr;
     std::vector<StrideWrapperEditor*> g_strideKeyOwners;
 
+    // Windows note forwarding. ON: PostMessage'ing the letters to the DAW's main window
+    // DOES play — confirmed in the field, from a hosted synth window and from Stride's
+    // own WebView.
+    //
+    // KNOWN OPEN BUG (2026-07-25): after certain focus transitions between the hosted
+    // synth window, Stride and Live, the very same forward starts landing on Live's
+    // single-key SHORTCUTS instead (the control bar visibly lights up) and STAYS there.
+    // Sticky, like the macOS main-window theft this file's Mac counterpart fixes — so the
+    // suspect is the same shape: a host-side "which of my windows is active" gate that our
+    // unowned, always-on-top hosted synth window disturbs. Root cause not yet identified;
+    // needs a minimal repro before anything is changed here.
+    //
+    // Do NOT "fix" this by switching the flag off. That was tried (and reverted the same
+    // day): it removes working functionality and leaves note keys inert everywhere on
+    // Windows, which is worse than a bug that only appears after a focus dance.
+    //
+    // macOS never uses this path — the NSEvent monitor intercepts note keys natively,
+    // ahead of the WebView (see MacKeyForward.mm).
+    //
+    // Deliberately NOT constexpr: it reads as the runtime switch it is, can be flipped in
+    // a debugger while chasing the repro, and keeps MSVC from warning about a constant
+    // condition (C4127) at both use sites.
+    bool g_strideWinNoteForward = true;
+
     // Ableton only: posting bare letters into other DAWs would fire their single-key
     // ACTIONS (Reaper/FL bind half the alphabet) with no keyboard mode to serve.
     bool strideHostIsAbletonLive()
@@ -125,7 +149,8 @@ namespace {
                 // arrives, so forwarding 'A' under a held Ctrl would land as Ctrl+A
                 // (select-all). An UP we owe forwards regardless of what's held by then.
                 bool isNote = false;
-                if (! isTransport && strideIsNoteVk (msg->wParam) && strideHostIsAbletonLive())
+                if (g_strideWinNoteForward
+                     && ! isTransport && strideIsNoteVk (msg->wParam) && strideHostIsAbletonLive())
                 {
                     if (isDown)
                         isNote = ::GetKeyState (VK_CONTROL) >= 0 && ::GetKeyState (VK_MENU) >= 0
@@ -226,7 +251,7 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
                                      .withUserDataFolder (userData))
         .withNativeIntegrationEnabled()
         .withResourceProvider ([] (const juce::String& url) { return serveAsset (url); })
-        .withEventListener ("wrapperReady", [this] (juce::var)     { pushPrefs(); web->emitEventIfBrowserIsVisible ("sl_event", []{ auto* o = new juce::DynamicObject(); o->setProperty ("type", "connected"); return juce::var (o); }()); pushRackScanned(); pushLearnState(); pushChainDevices(); })
+        .withEventListener ("wrapperReady", [this] (juce::var)     { pushHostInfo(); pushPrefs(); web->emitEventIfBrowserIsVisible ("sl_event", []{ auto* o = new juce::DynamicObject(); o->setProperty ("type", "connected"); return juce::var (o); }()); pushRackScanned(); pushLearnState(); pushChainDevices(); })
         .withEventListener ("prefsSave",    [this] (juce::var v)   { savePrefs (v.getProperty ("prefs", juce::var())); })
         .withEventListener ("sl_send",      [this] (juce::var v)   { handleStrideLinkSend (v); })
         .withEventListener ("loadSynth",    [this] (juce::var)     { if (proc.isEditLocked()) return; chooseAndLoad(); })
@@ -236,6 +261,16 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
         .withEventListener ("openSynthOne", [this] (juce::var v)   { openOneSynthWindow ((int) v.getProperty ("i", -1)); })
         .withEventListener ("transportKey", [this] (juce::var v)   { forwardTransportKey (v.getProperty ("key", "space").toString()); })
         .withEventListener ("musicKey",     [this] (juce::var v)   { forwardMusicKey (v.getProperty ("key", "").toString(), (bool) v.getProperty ("down", false)); })
+        .withEventListener ("textFocus",    [this] (juce::var v)   {
+            // A text field in the page took/lost focus. macOS intercepts note keys ahead of
+            // the WebView, so it has to stand down while the user is typing a license key,
+            // a plugin search or a BPM — otherwise those letters would play notes instead
+            // of landing in the field.
+            juce::ignoreUnused (v);
+           #if JUCE_MAC
+            strideMacKeyForward_setTextFocus ((bool) v.getProperty ("on", false));
+           #endif
+        })
         .withEventListener ("clearChain",   [this] (juce::var)     { if (proc.isEditLocked()) return; synthWindows.clear(); proc.clearChain(); pushRackScanned(); pushChainDevices(); })
         .withEventListener ("removeDevice", [this] (juce::var v)   { if (proc.isEditLocked()) return; const int i = (int) v.getProperty ("i", -1); if (i >= 0 && i < (int) synthWindows.size()) synthWindows.erase (synthWindows.begin() + i); proc.removeNode (i); pushRackScanned(); pushChainDevices(); })   // close ONLY the removed device's window; keep the rest as-is (was: clear all -> timer reopened them all)
         .withEventListener ("moveDevice",   [this] (juce::var v)   {
@@ -460,15 +495,23 @@ void StrideWrapperEditor::forwardTransportKey (const juce::String& key)
 }
 
 // A note key (Ableton's computer-MIDI keyboard) pressed/released while Stride's WebView
-// has focus — same delivery as forwardTransportKey, but a REAL down/up pair (a note has
-// a release) and NO debounce (chords / fast playing). The JS filters to Live's note set,
-// unmodified and outside text fields; the letter check here is the native backstop.
+// has focus. The JS filters to Live's note set, unmodified and outside text fields; the
+// letter check here is the native backstop.
+//
+// macOS deliberately does NOTHING here. Anything routed through the page is already too
+// late: WKWebView hands the key to the web process and only releases it once that process
+// answers, so keyDown and keyUp arrive with independent, variable delays and a short tap
+// came out as a random mid/long note. macOS intercepts note keys in the NSEvent monitor,
+// BEFORE the WebView ever sees them (MacKeyForward.mm), which is the only way to get the
+// timing the player actually played.
 void StrideWrapperEditor::forwardMusicKey (const juce::String& key, bool down)
 {
     if (key.length() != 1) return;
 
    #if JUCE_WINDOWS
-    if (! strideHostIsAbletonLive()) return;   // other DAWs treat bare letters as commands, not notes
+    // g_strideWinNoteForward: see the flag's comment — this path currently fires Live
+    // SHORTCUTS rather than notes. Other DAWs treat bare letters as commands, not notes.
+    if (! g_strideWinNoteForward || ! strideHostIsAbletonLive()) return;
     const auto letter = (char) key.toLowerCase()[0];
     if (letter < 'a' || letter > 'z') return;
 
@@ -491,12 +534,8 @@ void StrideWrapperEditor::forwardMusicKey (const juce::String& key, bool down)
         if (down) ::PostMessage (host, WM_KEYDOWN, (WPARAM) vk, lp);
         else      ::PostMessage (host, WM_KEYUP,   (WPARAM) vk, lp | (LPARAM) 0xC0000000);   // + previous-state/transition bits
     }
-   #elif JUCE_MAC
-    const auto c = (char) key.toLowerCase()[0];
-    if (c < 'a' || c > 'z') return;
-    strideMacKeyForward_postNoteKey (c, down);   // Ableton gate + Logic/GB suppression live in the forwarder
    #else
-    juce::ignoreUnused (down);
+    juce::ignoreUnused (key, down);   // macOS: handled natively in the monitor (see above)
    #endif
 }
 
@@ -752,6 +791,18 @@ void StrideWrapperEditor::pushUnmappedAt (int pos)
     web->emitEventIfBrowserIsVisible ("sl_event", juce::var (o));
 }
 
+// Which DAW we're in. The page uses this for ONE thing: whether the computer-MIDI note
+// letters are reserved. In Live they are (a note letter must never also trigger something
+// in Stride — the old L = pattern-library hotkey ate a note every time). In every other
+// host we provide no note behavior, so the letters are left completely alone.
+void StrideWrapperEditor::pushHostInfo()
+{
+    if (web == nullptr) return;
+    auto* o = new juce::DynamicObject();
+    o->setProperty ("ableton", juce::PluginHostType().isAbletonLive());
+    web->emitEventIfBrowserIsVisible ("hostInfo", juce::var (o));
+}
+
 // Send the native prefs (favorites…) to the page on boot. The shim adopts them when
 // non-empty (they survive profile resets); when the file doesn't exist yet but the
 // page's localStorage cache has favorites, the shim seeds this file right back.
@@ -912,6 +963,15 @@ void StrideWrapperEditor::timerCallback()
         lastForwardView = peer->getNativeHandle();
         strideMacKeyForward_registerEditorView (lastForwardView);
     }
+    // Re-tag the hosted synth windows too. Tagging is what makes them forward transport
+    // keys AND refuse main-window status, and it was applied exactly once at creation —
+    // any future peer recreation (JUCE rebuilds the NSWindow when style flags change)
+    // would have dropped both, silently. The call early-outs on an already-tagged window,
+    // so this is free.
+    for (auto& w : synthWindows)
+        if (w != nullptr)
+            if (auto* pr = w->getPeer())
+                strideMacKeyForward_tagWindow (pr->getNativeHandle());
    #endif
 
     // Re-derive the native entitlement gates (~every 2s) so a Discovery Pass expiring MID-SESSION

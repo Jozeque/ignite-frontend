@@ -108,14 +108,41 @@
     if (_undoTimer) clearTimeout(_undoTimer);
     _undoTimer = setTimeout(_hideUndoToast, 7000);   // Ctrl+Z window (invisible)
   }
-  // ── Ableton computer-MIDI-keyboard forward ───────────────────────
-  // With Live's keyboard mode ON, the QWERTY note keys (A W S E D F T G Y H U J K L +
-  // Z/X octave, C/V velocity) die in the WebView exactly like Space did — Stride focused
-  // means the typing piano goes silent. Forward the note-set keys to native, which
-  // re-posts them to the DAW (Ableton only — gated in C++). Unlike the transport toggle
-  // these need REAL down/up pairs (a note has a release) and no debounce (chords).
-  var NOTE_KEYS = { a:1, w:1, s:1, e:1, d:1, f:1, t:1, g:1, y:1, h:1, u:1, j:1, k:1, l:1, z:1, x:1, c:1, v:1 };
+  // ── Ableton computer-MIDI-keyboard keys ──────────────────────────
+  // Live's QWERTY note set (A W S E D F T G Y H U J K O L P + Z/X octave, C/V velocity).
+  // What this block does is RESERVE them: with the keyboard mode on, a note letter must
+  // never also trigger something in Stride. Delivery is NOT done here —
+  //   macOS   : the NSEvent monitor takes these keys before the WebView can even see them.
+  //             Anything routed through the page is already too late: WKWebView round-trips
+  //             every unhandled key through the web process, which is what made notes
+  //             arrive late and with random lengths (down and up are delayed separately).
+  //   Windows : delivery is currently OFF (see g_strideWinNoteForward in PluginEditor.cpp) —
+  //             the PostMessage'd letters were reaching Live's SHORTCUT handler, not its
+  //             typing keyboard. The emit below stays so flipping that flag is all it takes.
+  var NOTE_KEYS = { a:1, w:1, s:1, e:1, d:1, f:1, t:1, g:1, y:1, h:1, u:1, j:1, k:1, o:1, l:1, p:1, z:1, x:1, c:1, v:1 };
   var _notesDown = {};   // keys we sent a DOWN for — their UP always forwards, whatever is held by then (else: stuck note)
+  // Are the note letters RESERVED for the DAW's typing keyboard? Ableton only — native
+  // tells us on boot. In any other host we leave the letters completely alone: we give
+  // them no note behavior there, so swallowing 20 keys would be pure loss.
+  var _noteKeysReserved = false;
+  listen('hostInfo', function (d) { _noteKeysReserved = !!(d && d.ableton); });
+  function _noteTyping() {
+    var el = document.activeElement;
+    return !!(el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable));
+  }
+  // Tell native when a text field has focus. macOS takes note keys BEFORE the WebView can
+  // see them, so it has to stand down while the user is typing a license key / plugin
+  // search / BPM — otherwise those letters would play notes instead of landing in the field.
+  var _textFocusOn = false;
+  function _pushTextFocus() {
+    var on = _noteTyping();
+    if (on === _textFocusOn) return;
+    _textFocusOn = on;
+    emit('textFocus', { on: on });
+  }
+  document.addEventListener('focusin', _pushTextFocus, true);
+  // focusout fires BEFORE the next element takes focus — settle first, then read.
+  document.addEventListener('focusout', function () { setTimeout(_pushTextFocus, 0); }, true);
   function _noteKeyOf(e) {
     // Live's piano is POSITIONAL (scan codes — AZERTY/Hebrew get the same piano shape),
     // so filter by the PHYSICAL key; native converts it to the real scancode. The typed
@@ -148,16 +175,17 @@
       var typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable);
       if (! typing) emit('transportKey', { key: 'space' });
     }
-    // Keyboard-mode notes (NOTE_KEYS above). Plain presses only: Live reads the PHYSICAL
-    // modifier state when our re-post arrives, so forwarding 'a' under a held Ctrl would
-    // land as Ctrl+A — any modifier means a shortcut, ours or the DAW's. Repeats skipped
-    // (Live retriggers nothing on repeats; the UP is what ends the note). While typing
-    // the keys stay in the field — no beeping while naming a range.
+    // Keyboard-mode notes (NOTE_KEYS above). Plain presses only: any modifier means a
+    // shortcut, ours or the DAW's. While typing the keys stay in the field — naming a
+    // range must not play a chord.
     var nk = _noteKeyOf(e);
-    if (nk && ! e.ctrlKey && ! e.metaKey && ! e.altKey && ! e.shiftKey && ! e.repeat) {
-      var nae = document.activeElement;
-      var ntyping = nae && (nae.tagName === 'INPUT' || nae.tagName === 'TEXTAREA' || nae.tagName === 'SELECT' || nae.isContentEditable);
-      if (! ntyping) {
+    if (nk && ! e.ctrlKey && ! e.metaKey && ! e.altKey && ! e.shiftKey && ! _noteTyping()) {
+      // A note letter must never do anything else in Stride. This is what retired the
+      // L = pattern-library hotkey: L is a D in Live's layout, so the library opened
+      // every time you played that note. The library still has its button.
+      if (_noteKeysReserved || nk === 'l') { e.preventDefault(); e.stopImmediatePropagation(); }
+      // Repeats retrigger nothing (the UP is what ends the note), but they stay swallowed.
+      if (_noteKeysReserved && ! e.repeat) {
         _notesDown[nk] = true;
         emit('musicKey', { key: nk, down: true });
       }
@@ -165,7 +193,9 @@
   }, true);
   window.addEventListener('keyup', function (e) {
     var nk = _noteKeyOf(e);
-    if (nk && _notesDown[nk]) {   // only keys WE pressed down — and those unconditionally (a skipped UP = a stuck note in Live)
+    if (! nk) return;
+    if ((_noteKeysReserved || nk === 'l') && ! _noteTyping()) { e.preventDefault(); e.stopImmediatePropagation(); }
+    if (_notesDown[nk]) {   // only keys WE pressed down — and those unconditionally (a skipped UP = a stuck note in Live)
       delete _notesDown[nk];
       emit('musicKey', { key: nk, down: false });
     }
@@ -175,6 +205,7 @@
   window.addEventListener('blur', function () {
     for (var nk in _notesDown) emit('musicKey', { key: nk, down: false });
     _notesDown = {};
+    if (_textFocusOn) { _textFocusOn = false; emit('textFocus', { on: false }); }   // don't leave native standing down
   });
 
   // No clips in the wrapper — drawing modulates the synth live. Hide the Ableton-only

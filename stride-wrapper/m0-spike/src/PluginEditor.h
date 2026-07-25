@@ -52,6 +52,8 @@ private:
     void handleStrideLinkSend (const juce::var& msg);
     void pushRackScanned();     // mapped lanes -> canvas (as the rack_scanned the UI expects)
     void pushUnmappedAt (int pos);   // touch-unmap: splice ONE lane on the canvas (no positional re-push -> lanes keep their ranges)
+    void pushHostInfo();        // -> page: which DAW we're in. Gates the note-letter reservation (Ableton only —
+                                //    in any other host we give the letters no note behavior, so swallowing them would be pure loss)
     void pushPrefs();           // native wrapper-prefs.json (favorites…) -> page on boot (localStorage is only a cache)
     void savePrefs (const juce::var& prefs);   // page -> write-through to wrapper-prefs.json (survives profile resets)
     void pushLearnState();      // -> wrapper toolbar Map button
