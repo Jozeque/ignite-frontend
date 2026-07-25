@@ -134,6 +134,20 @@ public:
     struct DriveLane { int position; std::vector<float> times, values, curves; };
     void setDriveCurves (const std::vector<DriveLane>& lanes, double clipBeats);
 
+    // ── typed-note input (the QWERTY piano, macOS) ──
+    // Relaying keystrokes to Live proved unwinnable on macOS: Live's typing piano only
+    // accepts keys when the KEY window is one of Live's own, and AppKit routes keyboard
+    // events to the key window regardless of the event's windowNumber — so any synthetic
+    // key posted while Stride (or a hosted synth) is focused either boomerangs into our
+    // own WebView or dies in the hosted window's responder chain. So we stop relaying:
+    // the NSEvent monitor consumes the note keys and enqueues REAL MIDI here, and
+    // processBlock merges it into the instrument's MidiBuffer at the next block — tight,
+    // deterministic, chord-safe, and independent of Live's window gating entirely.
+    // (While Live is RECORDING the monitor stands down instead, so the notes go through
+    // Live's own piano and land in the clip — recording keeps working.)
+    void queueTypedNote (int midiNote, int velocity, bool isOn);   // message thread (SPSC producer)
+    void flushTypedNotes();                                        // any thread: note-off everything injected (blur/close/teardown)
+
     std::atomic<bool>  modEnabled   { true };
     std::atomic<float> lastModValue { 0.0f };       // TRUE loop phase 0..1 (every block, playing or not) — the UI playhead position
     std::atomic<bool>  transportActive { false };   // host transport running (standalone free-run counts) — playhead on/off + trail
@@ -231,6 +245,15 @@ private:
     struct StoredLane { int node; int param; std::vector<float> times, values, curves; };
     std::vector<StoredLane> driveLanes;
     double driveClipBeats = 16.0;
+
+    // Typed-note queue (see queueTypedNote). Fixed-size lock-free SPSC: message thread
+    // writes, audio thread drains into the instrument's MidiBuffer. typedHeld tracks the
+    // injected notes currently sounding (AUDIO THREAD ONLY) so a flush can end them all.
+    struct TypedEvent { juce::uint8 note, vel; bool on; };
+    juce::AbstractFifo typedFifo { 128 };
+    TypedEvent typedEvents[128] = {};
+    juce::uint64 typedHeld[2] = { 0, 0 };
+    std::atomic<bool> typedFlush { false };
 
     // single-level undo for device removal AND full-chain Clear (restores patches + mapped lanes/curves)
     struct RemovedSnapshot

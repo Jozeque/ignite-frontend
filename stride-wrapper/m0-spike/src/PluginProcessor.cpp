@@ -308,6 +308,40 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
             }
         }
 
+        // Typed QWERTY notes -> the instrument, merged at sample 0 (latency: at most one
+        // block). Drained here, BEFORE the chain runs, so node 0 hears them this block.
+        {
+            if (typedFlush.exchange (false))
+                for (int n = 0; n < 128; ++n)
+                    if ((typedHeld[n >> 6] & (1ULL << (n & 63))) != 0)
+                    {
+                        midi.addEvent (juce::MidiMessage::noteOff (1, n), 0);
+                        typedHeld[n >> 6] &= ~(1ULL << (n & 63));
+                    }
+            int s1, n1, s2, n2;
+            typedFifo.prepareToRead (typedFifo.getNumReady(), s1, n1, s2, n2);
+            auto emitTyped = [&] (int start, int num)
+            {
+                for (int i = 0; i < num; ++i)
+                {
+                    const auto& ev = typedEvents[start + i];
+                    if (ev.on)
+                    {
+                        midi.addEvent (juce::MidiMessage::noteOn (1, (int) ev.note, (juce::uint8) ev.vel), 0);
+                        typedHeld[ev.note >> 6] |= (1ULL << (ev.note & 63));
+                    }
+                    else
+                    {
+                        midi.addEvent (juce::MidiMessage::noteOff (1, (int) ev.note), 0);
+                        typedHeld[ev.note >> 6] &= ~(1ULL << (ev.note & 63));
+                    }
+                }
+            };
+            emitTyped (s1, n1);
+            emitTyped (s2, n2);
+            typedFifo.finishedRead (n1 + n2);
+        }
+
         // Run the chain in series: node 0 is the instrument (gets the MIDI), the rest
         // process the audio in place. MIDI only goes to the instrument.
         juce::MidiBuffer noMidi;
@@ -353,8 +387,39 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     }
     else
     {
+        // Locked-but-empty: no instrument to hear typed notes — DROP them (a full queue
+        // replayed onto the next loaded synth as a stale burst would be worse). Lock-miss
+        // keeps the queue: the events land on the very next block.
+        if (sl.isLocked())
+        {
+            int s1, n1, s2, n2;
+            typedFifo.prepareToRead (typedFifo.getNumReady(), s1, n1, s2, n2);
+            typedFifo.finishedRead (n1 + n2);
+            typedFlush.store (false);
+            typedHeld[0] = typedHeld[1] = 0;
+        }
         buffer.clear();
     }
+}
+
+// Message-thread producer for the typed-note queue (see the header). Full queue = drop:
+// 128 pending events means the audio thread is gone anyway.
+void StrideWrapperProcessor::queueTypedNote (int midiNote, int velocity, bool isOn)
+{
+    int s1, n1, s2, n2;
+    typedFifo.prepareToWrite (1, s1, n1, s2, n2);
+    if (n1 > 0)
+    {
+        typedEvents[s1] = { (juce::uint8) juce::jlimit (0, 127, midiNote),
+                            (juce::uint8) juce::jlimit (1, 127, velocity), isOn };
+        typedFifo.finishedWrite (1);
+    }
+    juce::ignoreUnused (s2, n2);
+}
+
+void StrideWrapperProcessor::flushTypedNotes()
+{
+    typedFlush.store (true);   // audio thread ends every injected note next block
 }
 
 // ── hosted chain (message thread) ──────────────────────────────────

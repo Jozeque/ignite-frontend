@@ -149,6 +149,11 @@
   document.addEventListener('focusin', _pushTextFocus, true);
   // focusout fires BEFORE the next element takes focus — settle first, then read.
   document.addEventListener('focusout', function () { setTimeout(_pushTextFocus, 0); }, true);
+  // Self-heal: focus can die WITHOUT any focus event (a focused node removed from the
+  // DOM fires nothing in WebKit). A stale textFocus=true silently kills note keys on
+  // macOS — cheap periodic re-sync (change-detected in _pushTextFocus) makes any such
+  // latch heal within 1.5s instead of lasting until reload.
+  setInterval(_pushTextFocus, 1500);
   function _noteKeyOf(e) {
     // Live's piano is POSITIONAL (scan codes — AZERTY/Hebrew get the same piano shape),
     // so filter by the PHYSICAL key; native converts it to the real scancode. The typed
@@ -410,7 +415,14 @@
 
   // ── Stride-styled plugin browser (the "+ Add" picker) ──
   var pluginModal = null;
-  function closePluginBrowser() { if (pluginModal) { pluginModal.remove(); pluginModal = null; } }
+  function closePluginBrowser() {
+    if (pluginModal) { pluginModal.remove(); pluginModal = null; }
+    // Removing a focused node does NOT reliably fire focusout in WebKit — the search
+    // input's focus dies silently and the textFocus latch would stay stuck ON (native
+    // standing down = note keys dead). Blur whatever is focused and re-sync explicitly.
+    try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch (e) {}
+    setTimeout(_pushTextFocus, 0);
+  }
   function showPluginBrowser(plugins) {
     closePluginBrowser();
     plugins = (plugins || []).slice().sort(function (a, b) { return ((a.name || '').toLowerCase() < (b.name || '').toLowerCase()) ? -1 : 1; });
@@ -482,7 +494,11 @@
   // favorites the single dropdown gets unwieldy; this modal keeps them tidy. Same look
   // as the plugin browser. Changes persist to favSet() + refresh the dropdown live. ──
   var favModal = null;
-  function closeFavManager() { if (favModal) { favModal.remove(); favModal = null; } }
+  function closeFavManager() {
+    if (favModal) { favModal.remove(); favModal = null; }
+    try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch (e) {}
+    setTimeout(_pushTextFocus, 0);   // same silent-focus-death hazard as the plugin browser
+  }
   function showFavManager() {
     closeFavManager();
     var ov = document.createElement('div');
@@ -568,7 +584,16 @@
       favSelect = document.createElement('select');
       favSelect.title = 'Favorite synths';
       favSelect.className = 'bg-zinc-900 border border-white/10 text-zinc-300 text-[11px] rounded px-2 py-1 cursor-pointer max-w-[180px]';
-      favSelect.onchange = function () { if (favSelect.value) emit('loadSynthPath', { path: favSelect.value }); };
+      favSelect.onchange = function () {
+        if (favSelect.value) emit('loadSynthPath', { path: favSelect.value });
+        // BLUR, always. A mac WebKit <select> KEEPS keyboard focus after use (clicking
+        // the canvas doesn't move focus), and a focused select turns every letter into
+        // type-ahead over the plugin list — the field report was literally "letter F is
+        // looking for plugins with letter F" — while the SELECT branch of _noteTyping()
+        // told native to stand down, killing note keys until a reload. One blur ends
+        // the whole failure class; same reason the modals blur on close below.
+        try { favSelect.blur(); } catch (e) {}
+      };
       populateFav();
       host.appendChild(favSelect);
 

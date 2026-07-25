@@ -3,8 +3,7 @@
 //
 // THE ROOT PROBLEM: a plugin that owns windows inside the DAW's process breaks the DAW's
 // own idea of "which of my windows is active", and both Live's transport keys and its
-// computer-MIDI keyboard are gated on exactly that. Three separate consequences, three
-// separate mechanisms below.
+// computer-MIDI keyboard are gated on exactly that. Three separate mechanisms below.
 //
 //   1. TRANSPORT (Space / Return)
 //      A hosted synth lives in OUR NSWindow, so Space goes to it, not the DAW. A local
@@ -18,55 +17,77 @@
 //          which skips the first responder (our WebView would just swallow it again).
 //      A 150ms debounce means any misdelivery bounce terminates after a single cycle.
 //
-//   2. MAIN-WINDOW THEFT  (the "typing keyboard goes dead on a hosted synth" bug)
-//      JUCE's peer returns YES from canBecomeMainWindow for ANY ResizableWindow
-//      (juce_NSViewComponentPeer_mac.mm), and our HostedWindow is a DocumentWindow. So
-//      clicking a hosted synth made it key AND [NSApp mainWindow] — Live's computer-MIDI
-//      keyboard gate reads main-window status, failed, and dropped the letters through to
-//      Live's single-key SHORTCUTS (draw mode, deactivate clip…) with the keyboard button
-//      still lit. And because a plugin panel cannot take main back, clicking Stride again
-//      did NOT fix it — only clicking Live's own window did. Native plugin windows are
-//      utility panels that never take main; a become-main observer hands main straight
-//      back to the DAW so ours can never keep it (see strideInstallMainWindowGuard).
+//   2. MAIN-WINDOW HYGIENE  (the "typing keyboard dead + Live shortcuts fire" bug)
+//      JUCE returns YES from canBecomeMainWindow for any ResizableWindow, so clicking a
+//      hosted synth made it [NSApp mainWindow]; Live's keyboard gate failed and STAYED
+//      failed (a plugin panel can't take main back) until the user clicked Live itself.
+//      Fixed with public API only: a become-main observer hands main straight back to
+//      the DAW. (1.1.8 ISA-swizzled canBecomeMainWindow instead — object_setClass on a
+//      live NSWindow, which AppKit may already have KVO-subclassed. It crashed Live.
+//      Never again.)
 //
-//   3. NOTE KEYS THROUGH THE WEBVIEW  (the "latency + random note length" bug)
-//      With Stride's canvas focused, WKWebView forwards each key to the WEB process and
-//      only re-injects it into [NSApp sendEvent:] once that process reports it unhandled.
-//      Letters aren't handled by the page, so Live received them late — and keyDown and
-//      keyUp are delayed INDEPENDENTLY, so a short tap came out as a random mid/long note.
-//      (Space never showed this because the page consumes it, which is why Space alone
-//      needed an explicit forward.) The monitor now intercepts note keys BEFORE the
-//      WebView sees them and re-posts them itself: no web process in the path, so the
-//      note length is whatever the user actually played. Re-posting via
-//      [NSApp postEvent:] rather than [window sendEvent:] is deliberate — postEvent goes
-//      through the same [NSApp sendEvent:] dispatch the bounce-back used, which is the one
-//      path we have PROOF reaches Live's typing keyboard.
+//   3. NOTE KEYS — CONSUME AND INJECT, NEVER RELAY  (the latency / random-length bug)
+//      Two facts, both learned the hard way, make relaying keystrokes unwinnable here:
+//        - AppKit routes keyboard events to the KEY window no matter what windowNumber
+//          an event carries. While Stride is focused, OUR frame is key — so the 1.1.9
+//          synthetic re-post boomeranged straight back into our own WKWebView, took the
+//          same WebProcess round trip as an organic key (keyDown and keyUp delayed
+//          INDEPENDENTLY — hence random note lengths), and surfaced late. The monitor
+//          "worked"; the delivery could not.
+//        - Live's typing piano only claims keys when the KEY window is one of Live's
+//          own. With a hosted synth window key, the letters dispatch into that window's
+//          responder chain instead — caterpillar's "F made Pro-Q fullscreen".
+//      So notes are no longer relayed AT ALL. The monitor consumes them before the
+//      WebView (or the hosted synth) can see them, and hands them to the editor's sink,
+//      which enqueues REAL MIDI into the wrapper's own processBlock: next-block latency,
+//      exact lengths, chords, zero dependence on Live's window gating. The one deliberate
+//      exception: while Live is RECORDING we stand down completely, so the keys travel
+//      Live's own piano (organic path, WebView latency and all) and land in the clip.
 #import <Cocoa/Cocoa.h>
 #include "MacKeyForward.h"
+#include <array>
 #include <vector>
 
 static id     g_strideKeyMonitor  = nil;
 static id     g_strideResignObs   = nil;       // app-deactivate observer — releases notes held when focus leaves the app entirely
+static id     g_strideMainObs     = nil;       // become-main observer — hands main back to the DAW (see main-window hygiene above)
 static int    g_strideMonitorRefs = 0;         // one monitor shared by every open editor — dies with the LAST one (multi-instance)
 static std::vector<void*> g_strideEditorViews; // every live Stride editor's NSView* — so ALL instances' frame windows count as "ours"
 static void*  g_strideLastEditorView = nullptr;// most recently refreshed view — the frame-fallback delivery target
 static double g_strideLastPost   = 0.0;
-static bool   g_strideSuppressed = false;      // Logic/GarageBand (out-of-process AU): never post synthetic keys
-static bool   g_strideNoteForward = false;     // keyboard-mode notes: Ableton only (set from the editor) — other DAWs treat bare letters as commands
+static bool   g_strideSuppressed = false;      // Logic/GarageBand (out-of-process AU): never post synthetic transport keys
+static bool   g_strideNoteForward = true;      // master enable for note handling (injection is self-contained -> on in every host)
+static bool   g_strideRecording   = false;     // Live rolling in record: stand down, its own piano must take (and record) the keys
 static bool   g_strideTextFocus   = false;     // the page has a text field focused: hands off the note keys (the user is typing)
-static unsigned g_strideNotesDown = 0;         // bit per letter we forwarded a DOWN for — its UP always forwards (else: stuck note)
 
-static NSWindow* strideFindHostWindow (NSWindow* avoid);   // defined below (needs strideIsOurWindow)
-static void      strideReleaseHeldNotes (void);
+// The editor's note sink: consumed note keys become MIDI in the processor's typed-note
+// queue. Last registered editor wins — with several Strides open, typed notes go to the
+// most recently opened one (its editor refreshes last).
+static void* g_strideNoteSinkCtx = nullptr;
+static void (*g_strideNoteSink) (void*, int, int, bool) = nullptr;
+
+// QWERTY piano state, mirroring Live's semantics: A-row plays, Z/X shift the octave,
+// C/V step the velocity. Per-letter HELD NOTE (not just a flag): an octave shift while a
+// key is down must release the pitch that actually started, or it rings forever.
+static int g_strideOctaveBase = 48;    // Live's default: A = C3
+static int g_strideTypedVel   = 100;
+static std::array<int, 26> g_strideHeldNote = [] { std::array<int, 26> a {}; a.fill (-1); return a; }();
 
 void strideMacKeyForward_setSuppressed (bool s) { g_strideSuppressed = s; }
+void strideMacKeyForward_setRecording (bool r)  { g_strideRecording  = r; }
+void strideMacKeyForward_setTextFocus (bool on) { g_strideTextFocus  = on; }
 
-// Live's computer-MIDI keyboard note set (A-row notes + the black-key row + Z/X octave,
-// C/V velocity), as kVK_ANSI_* keycodes — hardcoded like Space/Return below (no Carbon
-// import). Live maps notes by the PHYSICAL key, which is exactly what these keycodes are,
-// so this stays correct on non-Latin layouts too. (';' — the top E of Live's two-octave
-// layout — is deliberately left out: it is the only non-letter in the set and would need
-// special-casing in three places for one note.)
+void strideMacKeyForward_setNoteSink (void* ctx, void (*sink) (void*, int, int, bool))
+{
+    g_strideNoteSinkCtx = ctx;
+    g_strideNoteSink    = sink;
+}
+
+// Live's computer-MIDI keyboard key set as kVK_ANSI_* keycodes — hardcoded like
+// Space/Return below (no Carbon import). Live maps notes by the PHYSICAL key, which is
+// exactly what these keycodes are, so this stays correct on non-Latin layouts too.
+// (';' — the top E of Live's two-octave layout — is deliberately left out: the only
+// non-letter in the set, and it would need special-casing everywhere for one note.)
 static char strideNoteCharForKeyCode (unsigned short kc)
 {
     switch (kc)
@@ -79,79 +100,39 @@ static char strideNoteCharForKeyCode (unsigned short kc)
         default: return 0;
     }
 }
-static short strideNoteKeyCodeForChar (char c)
+
+// Live's piano layout: A=C W=C# S=D E=D# D=E F=F T=F# G=G Y=G# H=A U=A# J=B, then
+// K/O/L/P continue into the next octave. -1 = a control key (z/x octave, c/v velocity).
+static int strideSemitoneForChar (char c)
 {
     switch (c)
     {
-        case 'a': return 0;  case 's': return 1;  case 'd': return 2;  case 'f': return 3;
-        case 'h': return 4;  case 'g': return 5;  case 'z': return 6;  case 'x': return 7;
-        case 'c': return 8;  case 'v': return 9;  case 'w': return 13; case 'e': return 14;
-        case 'y': return 16; case 't': return 17; case 'o': return 31; case 'u': return 32;
-        case 'p': return 35; case 'l': return 37; case 'j': return 38; case 'k': return 40;
+        case 'a': return 0;  case 'w': return 1;  case 's': return 2;  case 'e': return 3;
+        case 'd': return 4;  case 'f': return 5;  case 't': return 6;  case 'g': return 7;
+        case 'y': return 8;  case 'h': return 9;  case 'u': return 10; case 'j': return 11;
+        case 'k': return 12; case 'o': return 13; case 'l': return 14; case 'p': return 15;
         default:  return -1;
     }
 }
 
-// ── main-window hygiene ─────────────────────────────────────────────────────
-// A hosted synth window must not KEEP [NSApp mainWindow]: Live gates its computer-MIDI
-// keyboard on main-window status, so while ours holds main the typing piano goes dead and
-// the letters fall through to Live's single-key shortcuts — and since a plugin panel can't
-// take main back, it stays broken until the user clicks Live's own window.
-//
-// This was first done by ISA-swizzling canBecomeMainWindow to NO. Do not go back to that:
-// AppKit KVO-subclasses windows behind your back, so object_getClass can already be an
-// NSKVONotifying_* class, and re-classing a window AppKit is actively displaying is
-// exactly the kind of thing that ends in a black window and a dead host. It shipped in
-// 1.1.8 and crashed Live (2026-07-25).
-//
-// Public API instead: watch for one of our tagged windows becoming main and immediately
-// hand main back to the DAW. Our window still becomes main for an instant — harmless, no
-// one can type in that gap — and it can never STAY main, which is the whole bug. Loop-safe
-// by construction: the DAW window that takes main isn't tagged, so its own notification is
-// ignored. Installed once alongside the key monitor.
-static id g_strideMainObs = nil;
-
-static void strideInstallMainWindowGuard (void)
+// Release every note we still owe an UP for — focus loss, editor teardown, note-handling
+// getting disabled: nothing may be left ringing.
+static void strideReleaseHeldNotes (void)
 {
-    if (g_strideMainObs != nil) return;
-    g_strideMainObs = [[[NSNotificationCenter defaultCenter]
-        addObserverForName: NSWindowDidBecomeMainNotification
-                    object: nil
-                     queue: [NSOperationQueue mainQueue]
-                usingBlock: ^(NSNotification* n)
+    for (int i = 0; i < 26; ++i)
+        if (g_strideHeldNote[(size_t) i] >= 0)
         {
-            // Logic/GarageBand host AUs out-of-process, where our window may be the only
-            // main-capable one in the service process — leave main alone there.
-            if (g_strideSuppressed) return;
-
-            NSWindow* w = (NSWindow*) [n object];
-            if (w == nil || ! [[w identifier] isEqualToString: @"StrideHostedSynth"]) return;
-
-            if (NSWindow* daw = strideFindHostWindow (w))
-                [daw makeMainWindow];
-        }] retain];   // non-ARC target: removeObserver: on a dead token would crash
+            if (g_strideNoteSink != nullptr)
+                g_strideNoteSink (g_strideNoteSinkCtx, g_strideHeldNote[(size_t) i], 0, false);
+            g_strideHeldNote[(size_t) i] = -1;
+        }
 }
 
-void strideMacKeyForward_tagWindow (void* nsview)
+void strideMacKeyForward_setNoteForwardEnabled (bool on)
 {
-    if (nsview == nullptr) return;
-    NSView* v = (__bridge NSView*) nsview;
-    NSWindow* w = [v window];
-    if (w == nil) return;
-
-    // The tag does two jobs: transport keys forward from a window carrying it, and the
-    // guard above hands main back whenever a window carrying it takes main.
-    if (! [[w identifier] isEqualToString: @"StrideHostedSynth"])
-        w.identifier = @"StrideHostedSynth";
-
-    // Shown before we get here, so it may ALREADY hold main — the notification for that
-    // has been and gone. One catch-up, on the tagging call only (never on a timer).
-    if (! g_strideSuppressed && [w isMainWindow])
-        if (NSWindow* daw = strideFindHostWindow (w))
-            [daw makeMainWindow];
+    if (! on) strideReleaseHeldNotes();
+    g_strideNoteForward = on;
 }
-
-void strideMacKeyForward_setTextFocus (bool on) { g_strideTextFocus = on; }
 
 void strideMacKeyForward_registerEditorView (void* nsview)
 {
@@ -181,29 +162,13 @@ static bool strideIsOurWindow (NSWindow* w)
 }
 
 // A DAW-owned plugin frame that embeds one of OUR editors — i.e. the window whose key
-// events would otherwise disappear into our WebView. These are the windows we intercept
-// note keys from (a tagged hosted-synth window is handled separately and has no WebView).
+// events would otherwise disappear into our WebView.
 static bool strideIsEditorFrameWindow (NSWindow* w)
 {
     if (w == nil) return false;
     for (void* view : g_strideEditorViews)
         if (view != nullptr && [(__bridge NSView*) view window] == w) return true;
     return false;
-}
-
-static NSEvent* strideMakeNoteEvent (char c, short kc, bool isDown, NSInteger windowNumber)
-{
-    NSString* s = [NSString stringWithFormat: @"%c", c];
-    return [NSEvent keyEventWithType: isDown ? NSEventTypeKeyDown : NSEventTypeKeyUp
-                            location: NSZeroPoint
-                       modifierFlags: 0
-                           timestamp: [[NSProcessInfo processInfo] systemUptime]
-                        windowNumber: windowNumber
-                             context: nil
-                          characters: s
-         charactersIgnoringModifiers: s
-                           isARepeat: NO
-                             keyCode: (unsigned short) kc];
 }
 
 // The DAW window to deliver into: the main window when it is really the DAW's, else the
@@ -221,6 +186,63 @@ static NSWindow* strideFindHostWindow (NSWindow* avoid)
     return nil;
 }
 
+// Typing INSIDE a hosted synth's own text field (preset search): the field editor a
+// native text control installs is an NSTextView, so this catches AU/native UIs. (A JUCE
+// synth funnels all keys through one NSView, so its search boxes are invisible to this
+// check — those keys will play notes, same trade Live's own piano makes. Toggle-able
+// later if it bites.)
+static bool strideHostedFirstResponderIsText (NSWindow* w)
+{
+    NSResponder* r = [w firstResponder];
+    return r != nil && [r isKindOfClass: [NSText class]];
+}
+
+// ── main-window hygiene ─────────────────────────────────────────────────────
+// Watch for one of our tagged windows becoming main and immediately hand main back to
+// the DAW. Our window is still main for an instant — harmless, nobody can type in that
+// gap — but it can never STAY main, which is the entire bug. Loop-safe by construction:
+// the DAW window that takes main isn't tagged, so its own notification is ignored.
+static void strideInstallMainWindowGuard (void)
+{
+    if (g_strideMainObs != nil) return;
+    g_strideMainObs = [[[NSNotificationCenter defaultCenter]
+        addObserverForName: NSWindowDidBecomeMainNotification
+                    object: nil
+                     queue: [NSOperationQueue mainQueue]
+                usingBlock: ^(NSNotification* n)
+        {
+            // Logic/GarageBand host AUs out-of-process, where our window may be the only
+            // main-capable one in the service process — leave main alone there.
+            if (g_strideSuppressed) return;
+
+            NSWindow* w = (NSWindow*) [n object];
+            if (w == nil || ! [[w identifier] isEqualToString: @"StrideHostedSynth"]) return;
+
+            if (NSWindow* daw = strideFindHostWindow (w))
+                [daw makeMainWindow];
+        }] retain];   // non-ARC target: removeObserver: on a dead token would crash
+}
+
+void strideMacKeyForward_tagWindow (void* nsview)
+{
+    if (nsview == nullptr) return;
+    NSView* v = (__bridge NSView*) nsview;
+    NSWindow* w = [v window];
+    if (w == nil) return;
+
+    // The tag does three jobs: transport keys forward from a window carrying it, the
+    // guard above hands main back whenever one takes main, and note keys on it are
+    // consumed + injected.
+    if (! [[w identifier] isEqualToString: @"StrideHostedSynth"])
+        w.identifier = @"StrideHostedSynth";
+
+    // Shown before we get here, so it may ALREADY hold main — the notification for that
+    // has been and gone. One catch-up, on the tagging call only (never on a timer).
+    if (! g_strideSuppressed && [w isMainWindow])
+        if (NSWindow* daw = strideFindHostWindow (w))
+            [daw makeMainWindow];
+}
+
 void strideMacKeyForward_unregisterEditorView (void* nsview)
 {
     if (nsview == nullptr) return;
@@ -229,7 +251,7 @@ void strideMacKeyForward_unregisterEditorView (void* nsview)
     if (g_strideLastEditorView == nsview)
         g_strideLastEditorView = g_strideEditorViews.empty() ? nullptr : g_strideEditorViews.back();
     if (g_strideEditorViews.empty())
-        strideReleaseHeldNotes();   // last editor gone mid-hold: don't leave a note ringing in Live
+        strideReleaseHeldNotes();   // last editor gone mid-hold: don't leave a note ringing
 }
 
 static NSEvent* strideMakeKeyEvent (NSEventType type, bool isReturn, NSInteger windowNumber)
@@ -248,8 +270,8 @@ static NSEvent* strideMakeKeyEvent (NSEventType type, bool isReturn, NSInteger w
 }
 
 // Deliver Space/Return to the DAW. Returns true when something plausibly received it.
-// UNCHANGED delivery (sendEvent) — this path is field-proven working on Live/Mac and the
-// note path's problem was never delivery, so there is nothing here to "fix".
+// sendEvent delivery — FIELD-PROVEN for the transport (Live's play/stop handling accepts
+// it); the note path's failure was never about this pair of keys.
 static bool stridePostTransport (bool isReturn, NSWindow* avoid)
 {
     if (g_strideSuppressed) return false;   // Logic/GarageBand: no DAW window in this process — don't synthesize keys
@@ -326,50 +348,6 @@ void strideMacKeyForward_postSave (void)
     else          { [target sendEvent: down]; [target sendEvent: up]; }
 }
 
-// A note key -> Live's computer-MIDI keyboard. ONE event per call: real down/up pairs,
-// because a note has a release — and NO debounce, because chords and fast playing are the
-// whole point (the transport's g_strideLastPost stays untouched so notes can't starve the
-// Space toggle either).
-//
-// postEvent, not sendEvent: sendEvent pokes a window directly and skips [NSApp sendEvent:],
-// which is where Live's typing keyboard actually lives — a letter delivered that way lands
-// on Live's SHORTCUT path instead (draw mode, deactivate clip…). postEvent puts the event in
-// the normal application queue, which is the same route WebKit's unhandled-key re-injection
-// took, and that route is PROVEN to produce notes. atStart:NO so a chord keeps its order.
-static void stridePostNoteKey (char c, bool isDown)
-{
-    if (g_strideSuppressed || ! g_strideNoteForward) return;
-    const short kc = strideNoteKeyCodeForChar (c);
-    if (kc < 0) return;
-
-    NSWindow* target = strideFindHostWindow (nil);
-    if (target == nil) return;   // no DAW window in this process: nothing could play anyway
-
-    [NSApp postEvent: strideMakeNoteEvent (c, kc, isDown, [target windowNumber]) atStart: NO];
-}
-
-// Release every note we still owe an UP for. Called when note forwarding is turned off and
-// when an editor goes away — a focus change or a window closing mid-hold must not leave a
-// note ringing in Live forever.
-static void strideReleaseHeldNotes (void)
-{
-    for (char c = 'a'; c <= 'z'; ++c)
-    {
-        const unsigned bit = 1u << (c - 'a');
-        if ((g_strideNotesDown & bit) != 0)
-        {
-            g_strideNotesDown &= ~bit;
-            stridePostNoteKey (c, false);
-        }
-    }
-}
-
-void strideMacKeyForward_setNoteForwardEnabled (bool on)
-{
-    if (! on) strideReleaseHeldNotes();
-    g_strideNoteForward = on;
-}
-
 void strideMacKeyForward_install (void)
 {
     ++g_strideMonitorRefs;
@@ -393,8 +371,8 @@ void strideMacKeyForward_install (void)
         handler: ^NSEvent* (NSEvent* e)
         {
             // A local monitor runs BEFORE the event is dispatched — returning nil drops it
-            // outright, which is how a note key gets taken away from the WebView (and from
-            // Live's shortcut handler) instead of merely being copied.
+            // outright, which is how a note key is taken away from the WebView (and from a
+            // hosted synth's shortcut handling) instead of merely being observed.
             const bool down = ([e type] == NSEventTypeKeyDown);
             const unsigned short kc = [e keyCode];   // 49 = Space, 36 = Return
             NSWindow* w = [e window];
@@ -402,60 +380,68 @@ void strideMacKeyForward_install (void)
             const bool hosted = (w != nil && [[w identifier] isEqualToString: @"StrideHostedSynth"]);
             const bool frame  = (! hosted && strideIsEditorFrameWindow (w));
 
-            // An UP for a note WE started always forwards, from whatever window it arrives
-            // in — clicking away mid-hold sends the release somewhere else, and a skipped UP
-            // is a note that rings forever.
-            if (! down)
+            // ── notes ──
+            const char nc = strideNoteCharForKeyCode (kc);
+            if (nc != 0 && g_strideNoteForward && g_strideNoteSink != nullptr)
             {
-                const char nc = strideNoteCharForKeyCode (kc);
-                if (nc != 0)
+                int& held = g_strideHeldNote[(size_t) (nc - 'a')];
+
+                // An UP for a note WE started ALWAYS releases, from whatever window it
+                // arrives in — clicking away mid-hold delivers the release elsewhere, and
+                // a skipped UP is a note that rings forever. Consumed only on our windows
+                // (a stray keyUp is harmless to others, and swallowing theirs is not).
+                if (! down)
                 {
-                    const unsigned bit = 1u << (nc - 'a');
-                    if ((g_strideNotesDown & bit) != 0)
+                    if (held >= 0)
                     {
-                        g_strideNotesDown &= ~bit;
-                        stridePostNoteKey (nc, false);
+                        g_strideNoteSink (g_strideNoteSinkCtx, held, 0, false);
+                        held = -1;
                         return (hosted || frame) ? nil : e;
                     }
+                    return e;
                 }
-            }
 
-            if (hosted)
-            {
-                // Transport: forward once per press and ALWAYS consume. Consuming even the
-                // repeats and the UP matters now that our window no longer takes main —
-                // an un-consumed Space would ALSO reach Live on its own and double-toggle,
-                // and holding Space would rapid-toggle.
-                if (kc == 49 || kc == 36)
+                if (hosted || frame)
                 {
-                    if (down && ! [e isARepeat]) stridePostTransport (kc == 36, w);
-                    return nil;
-                }
-                // Note keys need NOTHING here: with main-window status left where it
-                // belongs (strideInstallMainWindowGuard), Live's typing keyboard claims the
-                // letter itself. Forwarding as well would play every note twice.
-                return e;
-            }
+                    if (g_strideRecording) return e;                    // Live records: its piano must take (and record) the keys
+                    if (frame  && g_strideTextFocus) return e;          // typing in a Stride field
+                    if (hosted && strideHostedFirstResponderIsText (w)) return e;   // typing in the synth's preset search
 
-            // Stride's own WebView: take the note keys before WKWebView can send them on a
-            // round trip through the web process (see case 3 in the header comment).
-            if (frame && down && g_strideNoteForward && ! g_strideSuppressed && ! g_strideTextFocus)
-            {
-                const char nc = strideNoteCharForKeyCode (kc);
-                const NSUInteger mods = [e modifierFlags]
-                    & (NSEventModifierFlagCommand | NSEventModifierFlagControl
-                        | NSEventModifierFlagOption | NSEventModifierFlagShift);
-                if (nc != 0 && mods == 0)
-                {
-                    // Repeats are consumed but not re-sent: Live retriggers nothing on a
-                    // repeat, and re-posting each one would restart the note.
-                    if (! [e isARepeat])
+                    const NSUInteger mods = [e modifierFlags]
+                        & (NSEventModifierFlagCommand | NSEventModifierFlagControl
+                            | NSEventModifierFlagOption | NSEventModifierFlagShift);
+                    if (mods != 0) return e;                            // any modifier = a shortcut, ours or the DAW's
+
+                    if ([e isARepeat]) return nil;                      // repeats retrigger nothing; still consumed
+
+                    const int semi = strideSemitoneForChar (nc);
+                    if (semi >= 0)
                     {
-                        g_strideNotesDown |= (1u << (nc - 'a'));
-                        stridePostNoteKey (nc, true);
+                        if (held >= 0) g_strideNoteSink (g_strideNoteSinkCtx, held, 0, false);   // same key re-down without an up (edge): end the old one
+                        const int note = g_strideOctaveBase + semi;
+                        if (note >= 0 && note <= 127)
+                        {
+                            held = note;
+                            g_strideNoteSink (g_strideNoteSinkCtx, note, g_strideTypedVel, true);
+                        }
                     }
-                    return nil;
+                    else if (nc == 'z') g_strideOctaveBase = g_strideOctaveBase >= 12 ? g_strideOctaveBase - 12 : g_strideOctaveBase;
+                    else if (nc == 'x') g_strideOctaveBase = g_strideOctaveBase <= 96 ? g_strideOctaveBase + 12 : g_strideOctaveBase;
+                    else if (nc == 'c') g_strideTypedVel   = g_strideTypedVel > 21   ? g_strideTypedVel - 20   : 1;
+                    else if (nc == 'v') g_strideTypedVel   = g_strideTypedVel < 108  ? g_strideTypedVel + 20   : 127;
+
+                    return nil;   // consumed: the WebView never round-trips it, the synth never sees a stray letter
                 }
+            }
+
+            // ── transport (hosted synth windows only — the WebView case arrives via JS) ──
+            if (hosted && (kc == 49 || kc == 36))
+            {
+                // Forward once per press and ALWAYS consume: an un-consumed Space would
+                // ALSO reach Live on its own and double-toggle, and holding Space would
+                // rapid-toggle.
+                if (down && ! [e isARepeat]) stridePostTransport (kc == 36, w);
+                return nil;
             }
 
             return e;

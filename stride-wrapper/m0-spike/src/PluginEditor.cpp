@@ -393,7 +393,15 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
     // this process to re-post into, and Logic's own key handling already sees unconsumed
     // keys — a synthetic re-post could only misfire or double-toggle the transport.
     strideMacKeyForward_setSuppressed (juce::PluginHostType().isLogic() || juce::PluginHostType().isGarageBand());
-    strideMacKeyForward_setNoteForwardEnabled (juce::PluginHostType().isAbletonLive());   // keyboard-mode notes: Live only — other DAWs treat bare letters as commands
+    // Typed notes are INJECTED into our own processBlock (no synthetic events into the
+    // host — see MacKeyForward.mm case 3), so unlike the old relay this is safe in every
+    // host: consumed letters can't leak into anyone's shortcut table, and the wrapped
+    // instrument simply becomes playable wherever Stride is focused.
+    strideMacKeyForward_setNoteForwardEnabled (true);
+    strideMacKeyForward_setNoteSink (this, [] (void* ctx, int note, int vel, bool isDown)
+    {
+        static_cast<StrideWrapperEditor*> (ctx)->proc.queueTypedNote (note, vel, isDown);
+    });
    #endif
 }
 
@@ -407,6 +415,8 @@ StrideWrapperEditor::~StrideWrapperEditor()
    #if JUCE_MAC
     strideMacKeyForward_remove();                          // refcounted — the monitor survives for other open Stride instances
     strideMacKeyForward_unregisterEditorView (lastForwardView);   // drop only OUR view (never another instance's)
+    strideMacKeyForward_setNoteSink (nullptr, nullptr);    // we may be mid-teardown — no more injections into a dying editor
+    proc.flushTypedNotes();                                // and end every note we injected (the processor outlives us)
     lastForwardView = nullptr;
    #endif
     stopTimer();
@@ -962,6 +972,20 @@ void StrideWrapperEditor::timerCallback()
     {
         lastForwardView = peer->getNativeHandle();
         strideMacKeyForward_registerEditorView (lastForwardView);
+    }
+    // Re-assert the typed-note sink too (pointer writes, no AppKit calls — safe at 30Hz):
+    // a closing instance clears it in its dtor, so the surviving editor must reclaim it
+    // or typed notes die with the closed window. Last ticking editor wins.
+    strideMacKeyForward_setNoteSink (this, [] (void* ctx, int note, int vel, bool isDown)
+    {
+        static_cast<StrideWrapperEditor*> (ctx)->proc.queueTypedNote (note, vel, isDown);
+    });
+    // Live rolling in record: the monitor stands down so the keys travel Live's own
+    // piano and RECORD into the clip (organic path, WebView latency and all). Gated on
+    // Ableton — no other host has a typing piano to yield to.
+    {
+        static const bool sdHostIsLive = juce::PluginHostType().isAbletonLive();
+        strideMacKeyForward_setRecording (sdHostIsLive && proc.transportRecording.load());
     }
     // NOTE: hosted synth windows are tagged ONCE, where they are created — never from
     // here. A previous revision re-tagged them every tick as "cheap insurance" against a
