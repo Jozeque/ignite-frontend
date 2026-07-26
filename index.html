@@ -273,6 +273,30 @@
   .cmp tbody tr:last-child .col-vst{border-bottom:1px solid rgba(198,113,43,.25);border-bottom-left-radius:12px;border-bottom-right-radius:12px}
   .yes{color:var(--sage-lt);font-weight:900}
   .no{color:var(--rose-lt);font-weight:900}
+  /* ── summer sale price plate (hero + pricing card) ── */
+  .plate{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(0,0,0,.17)),var(--panel);
+    border:1px solid rgba(198,113,43,.38);border-radius:16px;overflow:hidden;
+    box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 22px 46px -30px rgba(0,0,0,.95)}
+  .tape2{display:flex;align-items:center;gap:9px;padding:6px 14px;font-size:9px;font-weight:900;
+    letter-spacing:.22em;text-transform:uppercase;color:#e7b382;border-bottom:1px solid rgba(198,113,43,.2);
+    background:linear-gradient(90deg,rgba(198,113,43,.15),rgba(198,113,43,.04) 58%,rgba(198,113,43,0));
+    box-shadow:0 1px 0 rgba(255,255,255,.035) inset}
+  .tape2 .ends{color:#8e8474;letter-spacing:.18em}
+  .pulse{width:5px;height:5px;border-radius:50%;background:var(--ember);box-shadow:0 0 7px var(--ember);
+    animation:emberPulse 2.6s ease-in-out infinite;flex:none}
+  @keyframes emberPulse{0%,100%{opacity:.4}50%{opacity:1}}
+  @media (prefers-reduced-motion:reduce){.pulse{animation:none;opacity:.8}}
+  .seal2{display:inline-block;transform:rotate(-4deg);font-size:9px;font-weight:900;letter-spacing:.13em;
+    text-transform:uppercase;color:#1c1206;background:linear-gradient(180deg,var(--ember),var(--copper));
+    border-radius:6px;padding:4px 8px;border:1px solid rgba(255,210,150,.28);
+    box-shadow:0 1px 0 rgba(255,255,255,.26) inset,0 8px 16px -11px rgba(198,113,43,.9)}
+  .vlist{list-style:none;margin:11px 0 15px;padding:0;display:grid;gap:3px}
+  .vlist li{display:flex;gap:8px;align-items:baseline;font-size:12.5px;font-weight:600;color:var(--ink2);line-height:1.35}
+  .vlist li b{color:var(--ink);font-weight:800}
+  .vlist .d{color:var(--sage-lt);font-size:10px;line-height:1.5;flex:none}
+  .vlist-2{grid-template-columns:auto auto;grid-template-rows:repeat(2,auto);grid-auto-flow:column;
+    justify-content:start;column-gap:22px;margin:8px 0 12px}
+  @media (max-width:520px){.vlist-2{grid-template-columns:1fr;grid-auto-flow:row;grid-template-rows:none}}
 </style>
 </head>
 <body>
@@ -316,18 +340,32 @@
     <div class="relative flex flex-col lg:flex-row lg:items-center gap-10 lg:gap-12">
       <div class="lg:flex-[6] min-w-0">
         <div class="silk mb-5">Sound Design Engine</div>
-        <h1 class="text-5xl md:text-6xl xl:text-7xl mb-6 leading-[1.04]">
+        <h1 class="text-5xl md:text-6xl xl:text-7xl mb-5 leading-[1.04]">
           Discover what your instruments are <span class="brand">truly capable of.</span>
         </h1>
-        <p class="text-lg md:text-xl max-w-2xl mb-8 leading-relaxed font-light ink2">
+        <p class="text-lg max-w-xl mb-6 leading-relaxed font-light ink2">
           Explore endless possibilities hidden inside your setup.
         </p>
-        <div class="flex flex-col items-start gap-3">
-          <div class="flex flex-wrap items-center gap-3">
-            <a onclick="openBuy()" class="btn-copper text-lg py-4 px-9 rounded-2xl">GET STRIDE - <span style="text-decoration:line-through;opacity:.55;font-weight:800">$129</span> $99 <span>→</span></a>
-            <a onclick="tryDemo()" class="btn-ghost text-sm py-4 px-7 rounded-2xl">Try it free</a>
+        <div class="plate max-w-lg">
+          <div class="tape2">
+            <span class="pulse"></span><span>Summer Sale</span><span class="flex-1"></span><span class="ends">Ends Aug 31</span>
           </div>
-          <span class="chip" style="background:rgba(91,123,85,.18);color:var(--sage-lt);border:1px solid rgba(91,123,85,.35)">● Both editions · one price</span>
+          <div class="px-5 py-3.5 md:px-6 md:py-4">
+            <div class="flex items-center gap-3 flex-wrap">
+              <div class="text-6xl font-black ink leading-none tracking-tight">$79</div>
+              <div class="text-lg font-bold ink3 leading-none" style="text-decoration:line-through;opacity:.75">$129</div>
+              <span class="seal2">Save $50</span>
+            </div>
+            <ul class="vlist vlist-2">
+              <li><span class="d">●</span><span><b>Both editions</b> included</span></li>
+              <li><span class="d">●</span><span>One-time purchase</span></li>
+              <li><span class="d">●</span><span>Free updates through v1.x</span></li>
+            </ul>
+            <div class="flex flex-wrap items-center gap-2.5">
+              <a onclick="openBuy()" class="btn-copper text-[15px] py-3 px-6 rounded-xl">GET STRIDE — $79 <span>→</span></a>
+              <a onclick="tryDemo()" class="btn-ghost text-[11px] uppercase tracking-[0.1em] py-3 px-5 rounded-xl">Try free for 24h</a>
+            </div>
+          </div>
         </div>
         <div class="mt-5 text-[10px] leading-tight max-w-md">
           <span class="font-black uppercase tracking-[0.18em]" style="color:var(--copper-lt)">Stride VST</span>
@@ -553,7 +591,8 @@
   <section id="pricing" class="mb-28 scroll-mt-8">
     <div class="text-center mb-10">
       <p class="silk mb-3" style="color:var(--copper-lt)">One price · both editions</p>
-      <h2 class="text-4xl md:text-6xl mb-4">Get <span class="brand">everything</span> for $99</h2>
+      <h2 class="text-4xl md:text-6xl mb-4">Get <span class="brand">everything</span> for $79</h2>
+      <span class="chip" style="background:rgba(198,113,43,.15);color:var(--copper-lt);border:1px solid rgba(198,113,43,.45)">Summer sale · ends Aug 31</span>
     </div>
 
     <div class="panel rounded-3xl p-7 md:p-9 max-w-4xl mx-auto" style="border-color:rgba(198,113,43,.45);box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 24px 50px -30px rgba(0,0,0,.9),0 0 0 1px rgba(198,113,43,.18)">
@@ -570,13 +609,14 @@
           </ul>
         </div>
         <div class="md:border-l md:pl-8" style="border-color:var(--line)">
-          <div class="flex items-baseline gap-2.5 mb-1">
-            <div class="text-6xl font-black ink leading-none">$99</div>
-            <div class="text-2xl font-black ink3" style="text-decoration:line-through">$129</div>
+          <div class="flex items-center gap-3 flex-wrap mb-1">
+            <div class="text-6xl font-black ink leading-none tracking-tight">$79</div>
+            <div class="text-lg font-bold ink3 leading-none" style="text-decoration:line-through;opacity:.75">$129</div>
+            <span class="seal2">Save $50</span>
           </div>
-          <p class="text-[12px] font-bold mb-5" style="color:var(--sage-lt)">Both editions · one purchase</p>
-          <a onclick="openBuy()" class="btn-copper w-full justify-center text-base py-3.5 rounded-2xl">Get Stride - $99</a>
-          <a onclick="tryDemo()" class="btn-ghost w-full justify-center text-sm py-3 rounded-2xl mt-2.5">Try it free</a>
+          <p class="text-[12px] font-bold mb-5 mt-2.5" style="color:var(--sage-lt)">Both editions · one purchase</p>
+          <a onclick="openBuy()" class="btn-copper w-full justify-center text-base py-3.5 rounded-2xl">Get Stride - $79</a>
+          <a onclick="tryDemo()" class="btn-ghost w-full justify-center text-sm py-3 rounded-2xl mt-2.5">Try free for 24h</a>
           <p class="text-[11px] ink3 mt-3">VST3 + Max for Live · not Logic (AU) or Pro Tools (AAX)</p>
         </div>
       </div>
@@ -619,8 +659,8 @@
     </div>
 
     <div class="text-center mt-9">
-      <a onclick="openBuy()" class="btn-copper text-sm uppercase tracking-widest py-3.5 px-9 rounded-full">Get Stride - $99</a>
-      <p class="text-[12px] ink3 mt-3">StrideLink is included with Stride — $99 for both editions.</p>
+      <a onclick="openBuy()" class="btn-copper text-sm uppercase tracking-widest py-3.5 px-9 rounded-full">Get Stride - $79</a>
+      <p class="text-[12px] ink3 mt-3">StrideLink is included with Stride — $79 for both editions.</p>
     </div>
   </section>
   <script>
@@ -646,10 +686,10 @@
   <section class="max-w-3xl mx-auto mb-24">
     <div class="text-center mb-10"><h2 class="text-3xl md:text-5xl mb-2">FAQ</h2><p class="silk">The questions everyone asks</p></div>
     <div class="space-y-3">
-      <details class="panel rounded-2xl" open><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">What do I get for $99?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Everything - both editions in one purchase. <b class="ink">Stride VST</b> for every DAW (host your synths + effects and modulate them), and <b class="ink">StrideLink</b> for Ableton (modulate your racks and native devices, inject motion into clips). One price, no add-ons.</div></details>
+      <details class="panel rounded-2xl" open><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">What do I get for $79?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Everything - both editions in one purchase. <b class="ink">Stride VST</b> for every DAW (host your synths + effects and modulate them), and <b class="ink">StrideLink</b> for Ableton (modulate your racks and native devices, inject motion into clips). One price, no add-ons.</div></details>
       <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Which DAWs does Stride VST work in?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Any VST3 host: Ableton Live, Cubase, Nuendo, Studio One, FL Studio, Reaper, Bitwig, Cakewalk and more. <b style="color:var(--rose-lt)">Not Logic (AU only) or Pro Tools (AAX only).</b></div></details>
       <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Can Stride VST modulate my other plugins or native devices?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">It modulates any VST3 instrument or effect you load <b class="ink">inside</b> Stride VST. It can't reach devices sitting next to it on the track - that's a VST3 rule, not a Stride limit. If you're on Ableton and want to modulate native devices in place, that's <b class="ink">StrideLink</b>.</div></details>
-      <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Is there a free trial?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Yes — a 24-hour Discovery Pass. Download Stride and you get the complete product, fully unlocked with no limitations, for 24 hours — every tool and generator, working on your own tracks — so you can decide if it's the right fit. When the pass ends your projects stay intact; one purchase then unlocks both editions for $99, for good.</div></details>
+      <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Is there a free trial?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Yes — a 24-hour Discovery Pass. Download Stride and you get the complete product, fully unlocked with no limitations, for 24 hours — every tool and generator, working on your own tracks — so you can decide if it's the right fit. When the pass ends your projects stay intact; one purchase then unlocks both editions for $79, for good.</div></details>
       <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Mac and Windows?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Both editions run on Windows 10/11 and macOS 11+ (Intel and Apple Silicon).</div></details>
       <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Can I get a refund?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Try it free first — it's the best way to know Stride fits your setup: the complete product, unlocked for 24 hours with no limitations. Once you activate your license, all sales are final. Haven't activated yet? Email us within 14 days for a full refund. And if Stride won't run and we can't fix it together, we'll refund you. <a href="terms.html#refund" target="_blank" class="underline" style="color:var(--copper-lt)">Full policy</a>.</div></details>
     </div>
@@ -664,8 +704,8 @@
         <h2 class="text-5xl md:text-6xl mb-6 leading-tight">Modulate your instruments<br><span class="brand">in Ableton and every DAW.</span></h2>
         <p class="text-base ink2 mb-10 max-w-lg mx-auto">Draw the motion. Hear your sound move. In every DAW, or deep in Ableton.</p>
         <div class="flex flex-wrap items-center justify-center gap-3">
-          <a onclick="openBuy()" class="btn-copper text-sm uppercase tracking-widest py-4 px-10 rounded-full">Get Stride - $99</a>
-          <a onclick="tryDemo()" class="btn-ghost text-sm uppercase tracking-widest py-4 px-10 rounded-full">Try it free</a>
+          <a onclick="openBuy()" class="btn-copper text-sm uppercase tracking-widest py-4 px-10 rounded-full">Get Stride - $79</a>
+          <a onclick="tryDemo()" class="btn-ghost text-sm uppercase tracking-widest py-4 px-10 rounded-full">Try free for 24h</a>
         </div>
       </div>
     </div>
