@@ -474,7 +474,7 @@ void StrideWrapperProcessor::clearChain()
         d.position = i;
         if (chain[(size_t) i].inst) chain[(size_t) i].inst->getStateInformation (d.state);
         for (const auto& m : mapped)     if (m.node == i) { d.params.push_back (m.param); d.slots.push_back (m.macroSlot);
-                                                            d.ron.push_back (m.rangeOn ? 1 : 0); d.rlo.push_back (m.rangeLo); d.rhi.push_back (m.rangeHi); }
+                                                            d.ron.push_back (m.rangeOn ? 1 : 0); d.rlo.push_back (m.rangeLo); d.rhi.push_back (m.rangeHi); d.col.push_back (m.colorIdx); }
         for (const auto& l : driveLanes) if (l.node == i) d.lanes.push_back (l);
         lastRemoved.devices.push_back (std::move (d));
     }
@@ -503,7 +503,7 @@ void StrideWrapperProcessor::removeNode (int index)
         d.position = index;
         if (chain[(size_t) index].inst) chain[(size_t) index].inst->getStateInformation (d.state);
         for (const auto& m : mapped)     if (m.node == index) { d.params.push_back (m.param); d.slots.push_back (m.macroSlot);
-                                                                d.ron.push_back (m.rangeOn ? 1 : 0); d.rlo.push_back (m.rangeLo); d.rhi.push_back (m.rangeHi); }
+                                                                d.ron.push_back (m.rangeOn ? 1 : 0); d.rlo.push_back (m.rangeLo); d.rhi.push_back (m.rangeHi); d.col.push_back (m.colorIdx); }
         for (const auto& l : driveLanes) if (l.node == index) d.lanes.push_back (l);
         lastRemoved.devices.push_back (std::move (d));
     }
@@ -609,7 +609,8 @@ void StrideWrapperProcessor::restoreNextDevice (std::shared_ptr<std::vector<Remo
                         mapped.push_back ({ p, d.params[k], k < d.slots.size() ? d.slots[k] : -1,
                                             k < d.ron.size() && d.ron[k] != 0,
                                             k < d.rlo.size() ? d.rlo[k] : 0.0f,
-                                            k < d.rhi.size() ? d.rhi[k] : 1.0f });
+                                            k < d.rhi.size() ? d.rhi[k] : 1.0f,
+                                            k < d.col.size() ? d.col[k] : -1 });
                     for (auto l : d.lanes) { l.node = p; driveLanes.push_back (l); }  // and their curves
                     reassignMacros();      // keep restored slots where valid; fill any gaps (old saves had none)
                 }
@@ -686,7 +687,7 @@ void StrideWrapperProcessor::getStateInformation (juce::MemoryBlock& dest)
     if (demoMode.load()) return;   // DEMO: persist nothing — a project can't be built on the demo (blank state on reload)
     juce::XmlElement root ("STRIDE_WRAP");
     const juce::ScopedLock sl (hostLock);
-    root.setAttribute ("version", 2);                                   // state schema version (for future migration)
+    root.setAttribute ("version", 3);                                   // v3: + per-param lane color ("cl"); attr-based, so v2 projects load unchanged
     root.setAttribute ("clipBeats", driveClipBeats);
     root.setAttribute ("driveMode", (int) driveMode.load());            // 0=Live, 1=Automation
     root.setAttribute ("tempoMode", tempoMode.load());                  // 0=Project sync (default) / 1=Manual
@@ -717,6 +718,7 @@ void StrideWrapperProcessor::getStateInformation (juce::MemoryBlock& dest)
             e->setAttribute ("rl", (double) m.rangeLo);
             e->setAttribute ("rh", (double) m.rangeHi);
         }
+        if (m.colorIdx >= 0) e->setAttribute ("cl", m.colorIdx);   // lane color: absent = AUTO (same back-compat story as the range attrs)
     }
     auto* laneXml = root.createNewChildElement ("LANES");
     for (const auto& l : driveLanes)
@@ -777,6 +779,7 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
                 (*devs)[(size_t) n].ron.push_back ((char) (e->getIntAttribute ("ro", 0) != 0 ? 1 : 0));
                 (*devs)[(size_t) n].rlo.push_back ((float) e->getDoubleAttribute ("rl", 0.0));
                 (*devs)[(size_t) n].rhi.push_back ((float) e->getDoubleAttribute ("rh", 1.0));
+                (*devs)[(size_t) n].col.push_back (e->getIntAttribute ("cl", -1));
             }
         }
     if (auto* laneXml = xml->getChildByName ("LANES"))
@@ -969,6 +972,25 @@ juce::Array<juce::var> StrideWrapperProcessor::getMappedRanges() const
         o->setProperty ("hi", (double) m.rangeHi);
         out.add (juce::var (o));
     }
+    return out;
+}
+
+// Lane color (1.1.11) - the range pattern verbatim: engine-owned so a positional
+// re-push can never wipe or misroute a chosen color. No mapVersion bump (the canvas
+// already painted itself; the echo exists for REBUILDS, not for this edit).
+void StrideWrapperProcessor::setMappedColor (int pos, int idx)
+{
+    const juce::ScopedLock sl (hostLock);
+    if (pos < 0 || pos >= (int) mapped.size()) return;
+    mapped[(size_t) pos].colorIdx = juce::jlimit (-1, 11, idx);
+    hostDirtyPending.store (true);
+}
+
+juce::Array<int> StrideWrapperProcessor::getMappedColors() const
+{
+    juce::Array<int> out;
+    const juce::ScopedLock sl (hostLock);
+    for (const auto& m : mapped) out.add (m.colorIdx);
     return out;
 }
 

@@ -103,6 +103,10 @@ public:
     void setMappedRange (int pos, bool on, float lo, float hi);   // message thread (editor bridge)
     void setMappedRanges (const juce::Array<juce::var>& items);   // Range-for-Group: batch of {id,on,min,max} — ONE lock pass, ONE dirty mark
     juce::Array<juce::var> getMappedRanges() const;               // {on,lo,hi} per mapped param, mapped order
+    // Lane colors - same ownership story as ranges (1.1.11): the canvas reports each
+    // pick via set_color; rack_scanned echoes them back so every rebuild restores them.
+    void setMappedColor (int pos, int idx);                       // message thread (editor bridge); -1 = back to AUTO
+    juce::Array<int> getMappedColors() const;                     // colorIdx per mapped param, mapped order
     double getClipBeats() const { return driveClipBeats; }   // loop length in beats (bars*4) — for the canvas bar count on load
     void removeMappedAt (int pos);
     void clearMapping();
@@ -194,7 +198,9 @@ private:
     std::vector<Node> chain;                  // [0] = instrument, [1..] = effects, in series
 
     struct MapRef { int node; int param; int macroSlot = -1;      // macroSlot = DAW-facing param slot (-1 = not exposed)
-                    bool rangeOn = false; float rangeLo = 0.0f, rangeHi = 1.0f; };   // per-param output band (engine-owned, project-persistent)
+                    bool rangeOn = false; float rangeLo = 0.0f, rangeHi = 1.0f;      // per-param output band (engine-owned, project-persistent)
+                    int colorIdx = -1; };                                            // lane color (-1 = AUTO; 0..11 = canvas palette). ENGINE-OWNED like
+                                                                                    // the range: positional re-pushes must never wipe or misroute it
     std::vector<MapRef> mapped;               // user-mapped params across the chain
 
     // A relabelable VST3 parameter. A free slot reads "Stride N"; an assigned slot takes the
@@ -261,7 +267,8 @@ private:
         bool valid = false;
         struct Dev { juce::String path; juce::MemoryBlock state; int position = 0;
                      std::vector<int> params; std::vector<int> slots; std::vector<StoredLane> lanes; bool bypassed = false;
-                     std::vector<char> ron; std::vector<float> rlo, rhi; };   // per-param range bands (parallel to params; char ≠ vector<bool>)
+                     std::vector<char> ron; std::vector<float> rlo, rhi;
+                     std::vector<int> col; };                                 // per-param lane colors (parallel to params; -1 = AUTO)   // per-param range bands (parallel to params; char ≠ vector<bool>)
         std::vector<Dev> devices;          // 1 for a single ✕, the whole chain for Clear
     };
     RemovedSnapshot lastRemoved;

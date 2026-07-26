@@ -879,6 +879,9 @@
                  the big ROW 1/ROW 2 toolbars are .sd-full-only and hide. -->
             <div class="sd-compact-only bg-zinc-950 border-b border-white/5 px-2.5 py-1 items-center gap-1.5 flex-wrap shrink-0">
                 <div class="flex items-center gap-1">
+                    <button onclick="sdUndo()" title="Undo (Ctrl+Z)" class="text-[13px] leading-none text-zinc-400 hover:text-zinc-100 border border-white/10 hover:border-white/25 px-2 py-0.5 rounded font-bold transition-colors">↶</button>
+                    <button onclick="sdRedo()" title="Redo (Ctrl+Y)" class="text-[13px] leading-none text-zinc-400 hover:text-zinc-100 border border-white/10 hover:border-white/25 px-2 py-0.5 rounded font-bold transition-colors">↷</button>
+                    <span class="w-px h-4 bg-white/10"></span>
                     <button id="qpc-tool-point" onclick="sdSetTool('select')" class="tool-btn bg-fuchsia-500/20 text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Point</button>
                     <button id="qpc-tool-free" onclick="sdSetTool('freehand')" class="tool-btn text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Free</button>
                 </div>
@@ -933,6 +936,7 @@
                     <button onclick="sdSetBarsAndPush(8)"  class="sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold transition-colors">8</button>
                     <button onclick="sdSetBarsAndPush(16)" class="sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold transition-colors">16</button>
                     <button onclick="sdSetBarsAndPush(32)" class="sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold transition-colors">32</button>
+                    <button onclick="sdToggleTripletLock()" title="Triplet grid lock — the grid AND every motion tool run on 1/2T · 1/4T · 1/8T · 1/16T (Ctrl+3)" class="sd-trip-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 border border-white/10 px-2 py-0.5 rounded font-black transition-colors">T</button>
                 </div>
                 <div class="flex-1"></div>
                 <button onclick="sdSelectAll()" class="tool-btn text-zinc-400 hover:text-zinc-100 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold border border-white/10">Select All</button>

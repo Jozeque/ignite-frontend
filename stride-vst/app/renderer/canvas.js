@@ -182,9 +182,60 @@
         } else {
             sdGridIndex = null;
             sdGridTriplet = false;
+            _sdPaintTripletUI();          // adaptive clears the lock — the T pill must follow
+            _sdSaveTriplet();
         }
         sdGridChanged();
     }
+
+    // ── Triplet grid LOCK (1.1.11) ──────────────────────────────────
+    // The triplet grid itself shipped long ago (Ctrl+3, ×2/3 spacing at every ladder
+    // rung — drawing/snapping/visual grid all honor it). What was missing: a VISIBLE
+    // toggle, persistence, and the motion tools following it. sdMotionStep is the one
+    // funnel every generator's hardcoded straight step goes through — 1/16 becomes
+    // 1/16T (= 1/24 bar) under the lock, so Sine/Pump/Glitch/S&H/Acid pulse in triplets.
+    function sdMotionStep(s) { return sdGridTriplet ? s * SD_GRID_TRIPLET : s; }
+    window.sdTripletLocked = function() { return sdGridTriplet; };
+    function _sdPaintTripletUI() {
+        document.querySelectorAll('.sd-trip-btn').forEach(b => {
+            if (sdGridTriplet) { b.style.background = '#e879f9'; b.style.color = '#0a0a0a'; b.style.borderColor = '#e879f9'; }
+            else { b.style.background = ''; b.style.color = ''; b.style.borderColor = ''; }
+        });
+        // Swing is a straight-grid feel — shifting straight subdivisions TOWARD triplets.
+        // On a triplet grid it is musically undefined, so the buttons stand down.
+        document.querySelectorAll('button[onclick="sdApplySwing()"]').forEach(b => {
+            b.style.opacity = sdGridTriplet ? '0.35' : '';
+            b.title = sdGridTriplet ? 'Swing is a straight-grid feel — disabled on the triplet grid' : '';
+        });
+    }
+    async function _sdSaveTriplet() {
+        try {
+            if (!window.stride || !window.stride.saveSettings) return;
+            const r = await window.stride.loadSettings();
+            const s = (r && r.success && r.settings) || {};
+            s.gridTriplet = sdGridTriplet;
+            await window.stride.saveSettings(s);
+        } catch (e) { /* non-critical */ }
+    }
+    window.sdToggleTripletLock = function() {
+        sdGridToggleTriplet();     // seeds a fixed grid from adaptive + flips the flag + status toast
+        _sdPaintTripletUI();
+        _sdSaveTriplet();
+    };
+    // Boot restore — the lock is a workflow mode, so it survives reopen.
+    setTimeout(async function() {
+        try {
+            if (window.stride && window.stride.loadSettings) {
+                const r = await window.stride.loadSettings();
+                if (r && r.success && r.settings && r.settings.gridTriplet && !sdGridTriplet) {
+                    sdGridSeedFromAdaptive();
+                    sdGridTriplet = true;
+                    sdGridChanged();
+                }
+            }
+        } catch (e) {}
+        _sdPaintTripletUI();
+    }, 400);
 
     let _sdSmoothSnapshot = null;
     let _sdSmoothParamId = null;
@@ -254,11 +305,12 @@
     let sdViewMode = 'multi';
     let _sdFocusBackRect = null;              // hit rect for the focus-view "← All lanes" pill (null in multi)
     let _sdUnmapRects = [];                    // per-lane unmap-× hit rects (wrapper lanes only), rebuilt each multi-view draw
+    let _sdColorRects = [];                    // per-lane color-bar hit rects (the 1.1.11 palette popup), rebuilt each multi-view draw
     let _sdHoverUnmapId = null;                // envelopeId of the unmap × under the cursor (grey by default, red on hover)
     let sdDeviceFilter = null;                // multi view: show only this device's lanes (null = all) — set by clicking a chain device
     let sdMultiScrollOffset = 0;              // # of lanes scrolled off the top
     const SD_MULTI_LANE_HEIGHT = 64;          // px per lane in multi view
-    const SD_MULTI_LABEL_WIDTH = 120;         // px reserved on the left for the param name
+    const SD_MULTI_LABEL_WIDTH = 148;         // px reserved on the left for the param name (widened for the 1.1.11 big-name header; every icon hit zone derives from this constant, so clicks stay aligned)
 
     // Case-insensitive name comparator. Used to sort the param list right
     // after a scan so identically-named macros (e.g. multiple "Filter Cutoff"
@@ -428,6 +480,32 @@
     function sdLaneRGB(paramIdx) {
         if (sdSkinColors.patch) return sdSkinColors.patch[paramIdx % sdSkinColors.patch.length];
         return sdSkinColors.rgb;
+    }
+    // ── per-lane colors (1.1.11) ──────────────────────────────────────
+    // 12 fixed swatches: the 5 Patch-skin hues first (so an AUTO color is "pinnable"
+    // as-is), then 7 new hues curated for distinctness on the dark canvas. A lane's
+    // colorIdx (-1 / absent = AUTO) overrides the positional skin rotation. Engine-owned
+    // on the wrapper (set_color / rack_scanned echo) exactly like ranges — positional
+    // re-pushes must never wipe or misroute a chosen color.
+    const SD_LANE_PALETTE = [
+        '198,113,43', '47,116,142', '91,123,85', '163,78,82', '84,75,109',   // = Patch skin
+        '227,169,64', '196,90,172', '72,182,164', '126,166,232', '164,196,84', '214,120,96', '226,226,232'
+    ];
+    function sdLaneColor(param, paramIdx) {
+        if (param && typeof param.colorIdx === 'number' && param.colorIdx >= 0 && param.colorIdx < SD_LANE_PALETTE.length)
+            return SD_LANE_PALETTE[param.colorIdx];
+        return sdLaneRGB(paramIdx);
+    }
+    // Measured ellipsis truncation for the big lane labels (char counting lies at 17px).
+    function _sdFitText(ctx, txt, maxW) {
+        if (maxW <= 0) return '';
+        if (ctx.measureText(txt).width <= maxW) return txt;
+        let lo = 0, hi = txt.length;
+        while (lo < hi) {
+            const mid = (lo + hi + 1) >> 1;
+            if (ctx.measureText(txt.slice(0, mid) + '…').width <= maxW) lo = mid; else hi = mid - 1;
+        }
+        return lo > 0 ? txt.slice(0, lo) + '…' : '…';
     }
     function sdApplySkin(name, persist) {
         if (!SD_SKIN_COLORS[name]) name = 'copper';
@@ -724,6 +802,7 @@
                 locked: false,
                 selected: false,
                 rangeOn: false, rangeMin: 0, rangeMax: 1,   // per-param output range clamp (null-default = full 0..1)
+                colorIdx: -1,                               // lane color override (-1 = AUTO skin rotation; 0..11 = SD_LANE_PALETTE)
                 points: []
             }))
             .sort(_sdSortByName);
@@ -785,6 +864,7 @@
             locked: false,
             selected: false,
             rangeOn: !!p.rangeOn, rangeMin: (typeof p.rangeMin === 'number' ? p.rangeMin : 0), rangeMax: (typeof p.rangeMax === 'number' ? p.rangeMax : 1),   // carry the range if the engine sent it
+            colorIdx: (typeof p.colorIdx === 'number' ? p.colorIdx : -1),   // engine-owned lane color echo (wrapper) — AUTO when absent
             points: Array.isArray(p.points) ? p.points : []   // wrapper sends the drawn curve from the engine — reliable across reopen (desktop sends none → empty)
         })).sort(_sdSortByName);
 
@@ -1013,14 +1093,15 @@
             const carried = {};
             if (sameTrack && _slotSame) {
                 sdCanvasParams.forEach(p => {
-                    if ((p.points && p.points.length) || p.locked || p.rangeOn) {
+                    if ((p.points && p.points.length) || p.locked || p.rangeOn || (typeof p.colorIdx === 'number' && p.colorIdx >= 0)) {
                         // Key by the stable _path; fall back to NAME for lanes that
                         // have no _path yet (e.g. a just-loaded session) so their
                         // curves/locks survive the first rescan-merge instead of
                         // being dropped. Never the positional envelopeId.
                         const k = p._path || ('n:' + p.name);
                         carried[k] = { points: (p.points && p.points.length) ? p.points : null, locked: !!p.locked,
-                                       rangeOn: !!p.rangeOn, rangeMin: p.rangeMin, rangeMax: p.rangeMax };
+                                       rangeOn: !!p.rangeOn, rangeMin: p.rangeMin, rangeMax: p.rangeMax,
+                                       colorIdx: (typeof p.colorIdx === 'number' ? p.colorIdx : -1) };
                     }
                 });
             }
@@ -1038,6 +1119,7 @@
                         if (c.points && !(p.points && p.points.length)) p.points = c.points;
                         if (c.locked) p.locked = true;
                         if (c.rangeOn && !p.rangeOn) { p.rangeOn = true; p.rangeMin = c.rangeMin; p.rangeMax = c.rangeMax; }
+                        if (typeof c.colorIdx === 'number' && c.colorIdx >= 0 && !(p.colorIdx >= 0)) p.colorIdx = c.colorIdx;   // payload (engine echo) wins; carry only fills AUTO
                         kept++;
                     }
                 });
@@ -2432,6 +2514,83 @@
         return targets;
     }
 
+    // ── lane color popup (1.1.11) ───────────────────────────────────
+    // Left-click on a lane's color bar → 12 swatches + AUTO. Paints the whole selection
+    // when the clicked lane is part of it, else just that lane. Wrapper: every change is
+    // pushed to the engine (set_color) so re-pushes/reopens echo it back — the ranges
+    // pattern. Motion tools never touch colorIdx (it lives outside `points`).
+    function _sdPushColorToEngine(param) {
+        try {
+            if (!window.strideLink || !window.strideLink._wrapper) return;
+            const id = parseInt(param.envelopeId, 10);
+            if (isNaN(id)) return;
+            window.strideLink.send({ type: 'set_color', id: id, c: (typeof param.colorIdx === 'number' ? param.colorIdx : -1) });
+        } catch (e) {}
+    }
+    let _sdColorPopEl = null, _sdColorPopParam = null;
+    function _sdCloseColorPopup() { if (_sdColorPopEl) { _sdColorPopEl.remove(); _sdColorPopEl = null; _sdColorPopParam = null; } }
+    function _sdColorTargets(param) {
+        // The ACTIVE lane renders exactly as highlighted as the selected ones, so users
+        // count it in the group ("select a few" usually starts with a plain click that
+        // ACTIVATES lane 1, then Ctrl+clicks that SELECT lanes 2..n — field report
+        // 2026-07-26: the first lane wasn't painted). Paint what the highlight shows.
+        const act = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
+        const sel = sdCanvasParams.filter(p => (p.selected || (act && p === act)) && !p.locked);
+        if (sel.length > 1 && sel.indexOf(param) >= 0) return sel;
+        return [param];
+    }
+    function _sdOpenColorPopup(param, clientX, clientY) {
+        _sdCloseColorPopup();
+        _sdColorPopParam = param;
+        const targets = _sdColorTargets(param);
+        const pop = document.createElement('div');
+        pop.id = 'sd-color-popup';
+        pop.style.cssText = 'position:fixed;z-index:10070;background:#09090b;border:1px solid rgba(255,255,255,0.12);'
+            + 'border-radius:10px;box-shadow:0 18px 50px rgba(0,0,0,0.8);padding:10px;width:168px;'
+            + "font-family:'Outfit',sans-serif";
+        const title = document.createElement('div');
+        title.style.cssText = 'font-size:9px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;color:#a1a1aa;margin-bottom:8px';
+        title.textContent = targets.length > 1 ? ('Paint ' + targets.length + ' lanes') : 'Lane color';
+        pop.appendChild(title);
+        const grid = document.createElement('div');
+        grid.style.cssText = 'display:grid;grid-template-columns:repeat(6,1fr);gap:6px';
+        const apply = (idx) => {
+            pushUndo();
+            targets.forEach(p => { p.colorIdx = idx; _sdPushColorToEngine(p); });
+            _sdCloseColorPopup();
+            sdDrawCanvasGrid();
+            if (typeof sdRenderSidebar === 'function') sdRenderSidebar();
+            Promise.resolve(saveCanvasState());
+            const st = document.getElementById('sd-canvas-status');
+            if (st) st.textContent = idx < 0 ? 'Lane color: auto' : ('Painted ' + targets.length + ' lane' + (targets.length > 1 ? 's' : ''));
+        };
+        SD_LANE_PALETTE.forEach((rgb, idx) => {
+            const b = document.createElement('button');
+            b.style.cssText = 'width:21px;height:21px;border-radius:5px;cursor:pointer;border:1px solid rgba(255,255,255,0.15);background:rgb(' + rgb + ')'
+                + (param.colorIdx === idx ? ';box-shadow:0 0 0 2px #09090b,0 0 0 3.5px #e879f9' : '');
+            b.title = idx < 5 ? ('Patch ' + (idx + 1)) : ('Color ' + (idx + 1));
+            b.addEventListener('click', (e) => { e.stopPropagation(); apply(idx); });
+            grid.appendChild(b);
+        });
+        pop.appendChild(grid);
+        const auto = document.createElement('button');
+        auto.textContent = 'Auto (skin)';
+        auto.style.cssText = 'margin-top:8px;width:100%;font-size:9px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;'
+            + 'color:#a1a1aa;background:none;border:1px dashed rgba(255,255,255,0.2);border-radius:5px;padding:4px 0;cursor:pointer';
+        auto.addEventListener('click', (e) => { e.stopPropagation(); apply(-1); });
+        pop.appendChild(auto);
+        document.body.appendChild(pop);
+        // Clamp inside the viewport (fixed positioning).
+        const r = pop.getBoundingClientRect();
+        pop.style.left = Math.max(6, Math.min(clientX + 8, window.innerWidth - r.width - 6)) + 'px';
+        pop.style.top = Math.max(6, Math.min(clientY - 20, window.innerHeight - r.height - 6)) + 'px';
+        setTimeout(() => {
+            const closer = (ev) => { if (_sdColorPopEl && !_sdColorPopEl.contains(ev.target)) { _sdCloseColorPopup(); document.removeEventListener('mousedown', closer, true); } };
+            document.addEventListener('mousedown', closer, true);
+        }, 0);
+        _sdColorPopEl = pop;
+    }
+
     // Batched wrapper push: one engine lock pass, one dirty mark (set_ranges). A single
     // lane keeps the 1.1.5 set_range path unchanged.
     function _sdPushRangesToEngine(params) {
@@ -2473,12 +2632,13 @@
         // A locked-but-empty (or ranged-but-empty) lane is still meaningful intent, preserved
         // across reloads. Points/range are stored as the raw 0..1 shape (non-destructive).
         const state = sdCanvasParams
-            .filter(p => p.points.length > 0 || p.locked || p.rangeOn)
+            .filter(p => p.points.length > 0 || p.locked || p.rangeOn || (typeof p.colorIdx === 'number' && p.colorIdx >= 0))
             .map(p => ({
                 envelopeId: p.envelopeId,   // legacy / back-compat key
                 _path: p._path || null,     // STABLE key — match on this; positional envelopeId renumbers when params are added
                 locked: !!p.locked,
                 rangeOn: !!p.rangeOn, rangeMin: p.rangeMin, rangeMax: p.rangeMax,   // per-param output range
+                colorIdx: (typeof p.colorIdx === 'number' ? p.colorIdx : -1),       // lane color override (-1 = AUTO)
                 points: p.points.map(pt => ({ time: pt.time, value: pt.value, curve: pt.curve || 0 }))
             }));
         await window.stride.saveCanvasState(key, state);
@@ -2518,6 +2678,10 @@
                     if (typeof sp.rangeMin === 'number') param.rangeMin = sp.rangeMin;
                     if (typeof sp.rangeMax === 'number') param.rangeMax = sp.rangeMax;
                 }
+                // Lane color: independent like range. Engine echo (wrapper) wins where it
+                // spoke — the saved value only fills lanes still on AUTO.
+                if (typeof sp.colorIdx === 'number' && sp.colorIdx >= 0 && !(param.colorIdx >= 0))
+                    param.colorIdx = sp.colorIdx;
                 // A LOCKED saved lane is ALWAYS restored (curve + lock) — even right
                 // after a generator press. loadParamsDirectly rebuilds every lane
                 // UNLOCKED, so without this a rescan-before-generate unlocks the lanes
@@ -2808,7 +2972,7 @@
     // → not drawn → StrideLink desktop is unchanged).
     const _SD_RANGE_FIELD_W = 47, _SD_RANGE_FIELD_H = 15, _SD_RANGE_FIELD_GAP = 4;
     function _sdDrawRangeFields(ctx, param, x, yTop, paramIdx) {
-        const rgb = sdLaneRGB(paramIdx);
+        const rgb = sdLaneColor(param, paramIdx);
         const fields = [
             { edge: 'rangeMin', cap: 'MIN', val: Math.round((param.rangeMin || 0) * 100) },
             { edge: 'rangeMax', cap: 'MAX', val: Math.round((param.rangeMax || 0) * 100) }
@@ -3517,6 +3681,7 @@
         sdMultiClampScroll();
         _sdLaneGeom = [];   // rebuilt below for the comet FX overlay
         _sdUnmapRects = []; // rebuilt below — wrapper lanes get a per-lane unmap ×
+        _sdColorRects = []; // rebuilt below — every lane gets a color-bar click zone at the left edge
         _sdRangeFieldRects = []; // rebuilt below — ranged lanes get draggable/typable min/max fields
         const bars = sdGetBars();
         const totalBeats = bars * 4;
@@ -3595,9 +3760,9 @@
             // Active lane gets a stronger border; selected-only lanes get
             // a softer accent so the focus distinction is preserved.
             if (isHighlighted) {
-                sdCtx.fillStyle = 'rgba(' + sdLaneRGB(paramIdx) + ',0.08)';
+                sdCtx.fillStyle = 'rgba(' + sdLaneColor(param, paramIdx) + ',0.08)';
                 sdCtx.fillRect(0, rect.top, lw, rect.height);
-                sdCtx.strokeStyle = isActive ? 'rgba(' + sdLaneRGB(paramIdx) + ',0.55)' : 'rgba(' + sdLaneRGB(paramIdx) + ',0.30)';
+                sdCtx.strokeStyle = isActive ? 'rgba(' + sdLaneColor(param, paramIdx) + ',0.55)' : 'rgba(' + sdLaneColor(param, paramIdx) + ',0.30)';
                 sdCtx.lineWidth = isActive ? 1.5 : 1;
                 sdCtx.strokeRect(0.75, rect.top + 0.75, lw - 1.5, rect.height - 1.5);
             }
@@ -3622,45 +3787,70 @@
                 : (isHighlighted ? 'rgba(' + sdSkinColors.labelRGB + ',0.95)' : 'rgba(228,228,231,0.75)');
             sdCtx.textAlign = 'left';
             sdCtx.textBaseline = 'middle';
-            if (param.device) {
-                // Two-line label: DEVICE in bold on top, parameter name beneath
-                // (smaller) so the full param name stays readable. Used by the VST
-                // wrapper, where each lane carries its hosting device.
-                // Unmap × at the top-left (wrapper lanes only). The label is shifted
-                // right to clear it; the hit rect is recorded for the mousedown handler.
-                _drawUnmapIcon(sdCtx, 5, midY - 14, 6, param.envelopeId === _sdHoverUnmapId ? 'rgba(248,113,113,0.95)' : 'rgba(161,161,170,0.5)');
-                _sdUnmapRects.push({ envelopeId: param.envelopeId, x: 0, y: midY - 17, w: 16, h: 15 });
-
-                const _tx = 20;   // label start x — clears the × on the left
-                sdCtx.fillStyle = _labelCol;
-                sdCtx.font = isHighlighted ? 'bold 11px Outfit' : 'bold 10px Outfit';
-                const devMax = 12;
-                const devTxt = param.device.length > devMax ? param.device.slice(0, devMax - 1) + '…' : param.device;
-                sdCtx.fillText(devTxt, _tx, midY - 8);
-
-                sdCtx.fillStyle = isLocked ? 'rgba(251,191,36,0.6)' : 'rgba(212,212,216,0.8)';
-                sdCtx.font = '9px Outfit';
-                const parMax = 12;   // room for the range + focus + lock icons at the right
-                const parTxt = displayName.length > parMax ? displayName.slice(0, parMax - 1) + '…' : displayName;
-                sdCtx.fillText(parTxt, _tx, midY + 6);
-                // Range on → min/max fields on a third line beneath the param name.
-                if (param.rangeOn) _sdDrawRangeFields(sdCtx, param, _tx, midY + 13, paramIdx);
-            } else {
-                // Single-line label + point count (desktop app — param names only).
-                sdCtx.fillStyle = _labelCol;
-                sdCtx.font = isHighlighted ? 'bold 11px Outfit' : '600 10px Outfit';
-                const maxChars = 10;   // leaves room at the right edge for the range + focus + lock icons
-                const labelText = displayName.length > maxChars ? displayName.slice(0, maxChars - 1) + '…' : displayName;
-                sdCtx.fillText(labelText, 8, midY - 5);
-
-                // Range on → min/max fields replace the point-count subtext (tight column).
-                if (param.rangeOn) {
-                    _sdDrawRangeFields(sdCtx, param, 8, midY + 3, paramIdx);
-                } else {
-                    sdCtx.font = '10px Outfit';
-                    sdCtx.fillStyle = isLocked ? 'rgba(251,191,36,0.55)' : 'rgba(161,161,170,0.7)';
-                    sdCtx.fillText(`${param.points.length} pts${isLocked ? ' · locked' : ''}`, 8, midY + 10);
+            // ── 1.1.11 header (mockup M3, approved): PARAM NAME first and big, device
+            // demoted to a small meta line, a full-height COLOR BAR at the left edge
+            // (always visible lane identity + the click target for the palette popup).
+            // The big line sits at the TOP of the row and the meta/fields at the BOTTOM,
+            // so neither collides with the range/focus/lock icons at mid-height on the
+            // right — those keep their exact positions and hit zones.
+            const _laneRGB = sdLaneColor(param, paramIdx);
+            sdCtx.fillStyle = 'rgba(' + _laneRGB + ',' + (param.colorIdx >= 0 ? '0.95' : '0.55') + ')';
+            sdCtx.fillRect(0, rect.top, 4, rect.height);
+            _sdColorRects.push({ param: param, x: 0, y: rect.top, w: 10, h: rect.height });
+            const _iconLeft = laneDrawLeft - 56;               // left edge of the range/focus/lock zone
+            const _short = rect.height < 40;                    // collapsed layout for dense lane stacks
+            // The DEVICE NAME IS ALWAYS VISIBLE (field correction 2026-07-26: v1 let the
+            // range fields replace the meta line, which erased the device on every ranged
+            // lane). Layout by row height:
+            //   tall (≥52px): param big on top · meta line under it · range fields at the bottom
+            //   mid/short:    param on top · meta under-or-inline · fields where they fit
+            // The meta always truncates at the icon zone; the param line takes the full
+            // column only when the row is tall enough that it clears the mid-height icons.
+            {
+                const _isWrap = !!param.device;
+                const _tx = _isWrap ? 25 : 10;   // wrapper rows clear the color bar + unmap ×
+                if (_isWrap) {
+                    _drawUnmapIcon(sdCtx, 12, _short ? midY - 5 : rect.top + 10, 6, param.envelopeId === _sdHoverUnmapId ? 'rgba(248,113,113,0.95)' : 'rgba(161,161,170,0.5)');
+                    _sdUnmapRects.push({ envelopeId: param.envelopeId, x: 7, y: _short ? midY - 12 : rect.top + 3, w: 15, h: 15 });
                 }
+                const _big = rect.height >= 52;
+                const _mid = !_big && rect.height >= 34;
+                // Meta = the DEVICE NAME, nothing else (pts count dropped 2026-07-26 —
+                // noise; locked already reads via the amber name + lock glyph).
+                const _meta = _isWrap ? param.device : '';
+
+                // Param name line
+                sdCtx.fillStyle = _labelCol;
+                const _pxBig = _isWrap ? (isHighlighted ? 18 : 17) : (isHighlighted ? 16 : 15);
+                const _px = _big ? _pxBig : (_mid ? (isHighlighted ? 15 : 14) : (isHighlighted ? 13 : 12));
+                sdCtx.font = 'bold ' + _px + 'px Outfit';
+                const _pY = _big ? rect.top + 13 : (_mid ? rect.top + 11 : midY - 6);
+                let _pMaxW = ((_big && rect.height >= 58) ? laneDrawLeft - 6 : _iconLeft - 4) - _tx;
+                // Ranged mid/short rows have no free line for the meta — it rides INLINE
+                // after the param name, so the device NEVER disappears.
+                const _inlineMeta = param.rangeOn && !_big && _meta !== '';
+                if (_inlineMeta) _pMaxW = Math.max(34, _pMaxW - 52);
+                const _pTxt = _sdFitText(sdCtx, displayName, _pMaxW);
+                sdCtx.fillText(_pTxt, _tx, _pY);
+                if (_inlineMeta) {
+                    const _pEnd = _tx + sdCtx.measureText(_pTxt).width + 6;
+                    sdCtx.font = 'bold 10px Outfit';
+                    sdCtx.fillStyle = isLocked ? 'rgba(251,191,36,0.7)' : 'rgba(161,161,170,0.9)';
+                    sdCtx.fillText(_sdFitText(sdCtx, _meta, _iconLeft - 4 - _pEnd), _pEnd, _pY + 1);
+                }
+
+                // DEVICE line — under the param name, bold and readable (field request:
+                // "a lil bit bigger or with bold").
+                if (!_inlineMeta && _meta !== '') {
+                    sdCtx.font = 'bold 11px Outfit';
+                    sdCtx.fillStyle = isLocked ? 'rgba(251,191,36,0.7)' : 'rgba(161,161,170,0.9)';
+                    const _mY = _big ? rect.top + 30 : (_mid ? rect.bottom - 9 : midY + 8);
+                    sdCtx.fillText(_sdFitText(sdCtx, _meta, _iconLeft - 4 - _tx), _tx, _mY);
+                }
+
+                // Range fields — bottom of the row (tall), or the remaining slot (mid/short)
+                if (param.rangeOn)
+                    _sdDrawRangeFields(sdCtx, param, _tx, _big ? rect.bottom - 19 : (_mid ? rect.bottom - 17 : midY + 5), paramIdx);
             }
 
             // Lock glyph at the right edge of the label column. Always
@@ -3671,12 +3861,12 @@
             _drawLockIcon(sdCtx, laneDrawLeft - 18, midY - 6, 12, lockColor, isLocked);
 
             // Focus icon just left of the lock — click to blow this lane up full-canvas.
-            const focusColor = isActive ? 'rgba(' + sdLaneRGB(paramIdx) + ',0.95)' : 'rgba(161,161,170,0.5)';
+            const focusColor = isActive ? 'rgba(' + sdLaneColor(param, paramIdx) + ',0.95)' : 'rgba(161,161,170,0.5)';
             _drawFocusIcon(sdCtx, laneDrawLeft - 36, midY - 6, 12, focusColor);
 
             // Range toggle just left of the focus icon — click to give this param its own min/max
             // band; drag the boundaries to set it. Lit in the lane colour when on.
-            const rangeColor = param.rangeOn ? 'rgba(' + sdLaneRGB(paramIdx) + ',0.95)' : 'rgba(161,161,170,0.5)';
+            const rangeColor = param.rangeOn ? 'rgba(' + sdLaneColor(param, paramIdx) + ',0.95)' : 'rgba(161,161,170,0.5)';
             _drawRangeIcon(sdCtx, laneDrawLeft - 54, midY - 6, 12, rangeColor, param.rangeOn);
 
             // Selection shade inside this lane's drawing area
@@ -3690,7 +3880,7 @@
                 sdCtx.fillStyle = 'rgba(0,0,0,0.35)';
                 if (sx > laneDrawLeft) sdCtx.fillRect(laneDrawLeft, rect.top, sx - laneDrawLeft, rect.height);
                 if (ex < lw) sdCtx.fillRect(ex, rect.top, lw - ex, rect.height);
-                sdCtx.strokeStyle = 'rgba(' + sdLaneRGB(paramIdx) + ',0.5)';
+                sdCtx.strokeStyle = 'rgba(' + sdLaneColor(param, paramIdx) + ',0.5)';
                 sdCtx.lineWidth = 1.5;
                 sdCtx.beginPath(); sdCtx.moveTo(sx, rect.top); sdCtx.lineTo(sx, rect.bottom); sdCtx.stroke();
                 sdCtx.beginPath(); sdCtx.moveTo(ex, rect.top); sdCtx.lineTo(ex, rect.bottom); sdCtx.stroke();
@@ -3703,7 +3893,7 @@
             if (param.rangeOn) {
                 const _ry = (v) => rect.bottom - v * rect.height;   // actual 0..1 param value -> screen Y
                 const _yMax = _ry(param.rangeMax), _yMin = _ry(param.rangeMin);
-                const _rgb = sdLaneRGB(paramIdx);
+                const _rgb = sdLaneColor(param, paramIdx);
                 sdCtx.save();
                 sdCtx.beginPath(); sdCtx.rect(laneDrawLeft, rect.top, laneDrawWidth, rect.height); sdCtx.clip();
                 sdCtx.fillStyle = 'rgba(0,0,0,0.30)';   // dead zone (outside the band)
@@ -3731,7 +3921,7 @@
             const _rangeMap = (v) => param.rangeOn ? (param.rangeMin + v * (param.rangeMax - param.rangeMin)) : v;
             const valueToY = (v) => rect.bottom - _rangeMap(v) * rect.height;
             const timeToX = (t) => laneDrawLeft + ((t / totalBeats) * laneDrawWidth * sdViewZoomX) - sdViewPanX;
-            _sdLaneGeom.push({ cy: rect.top + rect.height / 2, rgb: sdLaneRGB(paramIdx), poly: (param.points.length >= 2 ? _sdSampleLanePixels(sortedPts, timeToX, valueToY) : null) });
+            _sdLaneGeom.push({ cy: rect.top + rect.height / 2, rgb: sdLaneColor(param, paramIdx), poly: (param.points.length >= 2 ? _sdSampleLanePixels(sortedPts, timeToX, valueToY) : null) });
             if (_sdEngMode) _sdEngKick();   // engine playhead: fresh geometry (zoom/pan/edit) repaints the parked head (coalesced — one frame per redraw)
 
             sdCtx.save();
@@ -3741,7 +3931,7 @@
 
             // Fill under curve (subtle)
             sdCtx.beginPath();
-            sdCtx.fillStyle = isHighlighted ? 'rgba(' + sdLaneRGB(paramIdx) + ',0.12)' : 'rgba(' + sdLaneRGB(paramIdx) + ',0.06)';
+            sdCtx.fillStyle = isHighlighted ? 'rgba(' + sdLaneColor(param, paramIdx) + ',0.12)' : 'rgba(' + sdLaneColor(param, paramIdx) + ',0.06)';
             sdCtx.moveTo(timeToX(sortedPts[0].time), rect.bottom);
             for (let i = 0; i < sortedPts.length; i++) {
                 const pt = sortedPts[i];
@@ -3768,7 +3958,7 @@
 
             // Curve stroke
             sdCtx.beginPath();
-            sdCtx.strokeStyle = isHighlighted ? (sdSkinColors.patch ? 'rgb(' + sdLaneRGB(paramIdx) + ')' : sdSkinColors.hi) : 'rgba(' + sdLaneRGB(paramIdx) + ',0.6)';
+            sdCtx.strokeStyle = isHighlighted ? (sdSkinColors.patch ? 'rgb(' + sdLaneColor(param, paramIdx) + ')' : sdSkinColors.hi) : 'rgba(' + sdLaneColor(param, paramIdx) + ',0.6)';
             sdCtx.lineWidth = isHighlighted ? 2 : 1.5;
             for (let i = 0; i < sortedPts.length; i++) {
                 const pt = sortedPts[i];
@@ -3793,7 +3983,7 @@
 
             // Point dots (only on active lane to reduce clutter)
             if (isActive) {
-                sdCtx.fillStyle = sdSkinColors.patch ? 'rgb(' + sdLaneRGB(paramIdx) + ')' : sdSkinColors.curve;
+                sdCtx.fillStyle = sdSkinColors.patch ? 'rgb(' + sdLaneColor(param, paramIdx) + ')' : sdSkinColors.curve;
                 sortedPts.forEach(pt => {
                     const x = timeToX(pt.time);
                     const y = valueToY(pt.value);
@@ -3968,6 +4158,9 @@
                 const _typing = _ae && (_ae.tagName === 'INPUT' || _ae.tagName === 'TEXTAREA' || _ae.isContentEditable);
                 if (!_typing && (e.ctrlKey || e.metaKey) && e.code === 'KeyC') { e.preventDefault(); if (window.sdCopyLane) sdCopyLane(); return; }
                 if (!_typing && (e.ctrlKey || e.metaKey) && e.code === 'KeyV') { e.preventDefault(); if (window.sdPasteLane) sdPasteLane(false); return; }
+                // Ctrl/Cmd+A = Select All lanes (same toggle as the toolbar button).
+                // preventDefault keeps the WebView from text-selecting the page.
+                if (!_typing && (e.ctrlKey || e.metaKey) && e.code === 'KeyA') { e.preventDefault(); if (window.sdSelectAll) sdSelectAll(); return; }
             }
             // Grid resolution (Ableton-style). Ctrl/Cmd + the physical number
             // row, so it works on any keyboard layout. Skipped while typing so
@@ -3979,7 +4172,7 @@
                 if (!_typing2 && (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
                     if (e.code === 'Digit1') { e.preventDefault(); sdGridNarrow(); return; }
                     if (e.code === 'Digit2') { e.preventDefault(); sdGridWiden(); return; }
-                    if (e.code === 'Digit3') { e.preventDefault(); sdGridToggleTriplet(); return; }
+                    if (e.code === 'Digit3') { e.preventDefault(); window.sdToggleTripletLock(); return; }
                     if (e.code === 'Digit5') { e.preventDefault(); sdGridToggleAdaptive(); return; }
                 }
             }
@@ -4045,6 +4238,15 @@
                 const mrect = sdCanvasEl.getBoundingClientRect();
                 const my = e.clientY - mrect.top;
                 const mx = e.clientX - mrect.left;
+                // RIGHT-CLICK in the label column → color popup (selection-aware: select
+                // lanes, right-click one of them, paint the whole group). Checked before
+                // every other label-column hit so right-click can't unmap/scrub anything.
+                // Right-click in the CURVE area keeps its shipped meaning (delete point).
+                if (e.button === 2 && mx < SD_MULTI_LABEL_WIDTH) {
+                    const _rcHit = sdMultiGetParamAtY(my);
+                    if (_rcHit) _sdOpenColorPopup(_rcHit.param, e.clientX, e.clientY);
+                    return;
+                }
                 // Unmap-× click (wrapper lanes only) — remove this param from the panel + engine.
                 for (let _ui = 0; _ui < _sdUnmapRects.length; _ui++) {
                     const _r = _sdUnmapRects[_ui];
@@ -4073,6 +4275,14 @@
 
                 const hit = sdMultiGetParamAtY(my);
                 if (!hit) return;
+
+                // Color-bar left-click (the ≤10px strip at the lane's left edge) → palette
+                // popup. The right-click path is handled at the top of the multi branch.
+                if (mx <= 10) {
+                    const _cr = sdCanvasEl.getBoundingClientRect();
+                    _sdOpenColorPopup(hit.param, _cr.left + mx, _cr.top + my);
+                    return;
+                }
 
                 // Lock-icon click — anywhere in the right ~22px of the
                 // label column toggles the lane's lock state. Works from
@@ -4593,6 +4803,7 @@
                 if (_sdDragSelectPending && !_sdDragSelectActive
                      && typeof window.sdToggleLaneSelection === 'function')
                     window.sdToggleLaneSelection(_sdDragSelectPending.laneId);
+                _sdFcSyncSliders();   // selection settled (click-toggle or sweep) → floor/ceiling dial rebases (F5)
                 _sdDragSelectPending = null;
                 _sdDragSelectActive = false;
                 _sdDragSelectVisited = new Set();
@@ -4626,8 +4837,8 @@
         else if (shape === 'hard_chop') { let sub = chunk / 4; for (let i = 0; i < 4; i++) { let val = Math.random() > 0.5 ? (Math.random() > 0.5 ? 1 : 0.3 + Math.random() * 0.5) : 0; if (val > 0) { let t = cB + i * sub; addPt(t, 0); addPt(t + 0.01, val); addPt(t + sub * 0.85, 0); } } addPt(cB + chunk, 0); }
         else if (shape === 'exponential_build') { addPt(cB, 0); addPt(cB + chunk * 0.5, 0.2); addPt(cB + chunk * 0.8, 0.5); addPt(cB + chunk - 0.01, 1); addPt(cB + chunk, 0); }
         else if (shape === 'hyper_stutter') { let ss = Math.random() > 0.5 ? 0.125 : 0.0625, steps = Math.floor(chunk / ss); for (let i = 0; i < steps; i++) { if (i % 2 === 0) { let t = cB + i * ss; addPt(t, 0); addPt(t + 0.001, 0.6 + Math.random() * 0.4); addPt(t + ss * 0.9, 0); } } addPt(cB + chunk, 0); }
-        else if (shape === 'rhythmic_gate_build') { let step = [0.125, 0.25, 0.5][Math.floor(Math.random() * 3)], steps = Math.floor(chunk / step), sv = 0.7 + Math.random() * 0.3, ev = Math.random() * 0.3, up = Math.random() > 0.5; for (let i = 0; i < steps; i++) { let t = cB + i * step, pr = i / Math.max(1, steps - 1), cp = up ? ev + (sv - ev) * pr : sv + (ev - sv) * pr; addPt(t, 0); addPt(t + 0.001, cp); addPt(t + step * 0.85, 0); } addPt(cB + chunk, 0); }
-        else if (shape === 'syncopated_drops') { let step = 0.25, steps = Math.floor(chunk / step); for (let i = 0; i < steps; i++) { if (Math.random() > 0.3) { let t = cB + i * step, pk = 0.3 + Math.random() * 0.7; addPt(t, 0); addPt(t + 0.001, pk); addPt(t + step * 0.8, pk * 0.8); addPt(t + step * 0.81, 0); } } addPt(cB + chunk, 0); }
+        else if (shape === 'rhythmic_gate_build') { let step = sdMotionStep([0.125, 0.25, 0.5][Math.floor(Math.random() * 3)]), steps = Math.floor(chunk / step), sv = 0.7 + Math.random() * 0.3, ev = Math.random() * 0.3, up = Math.random() > 0.5; for (let i = 0; i < steps; i++) { let t = cB + i * step, pr = i / Math.max(1, steps - 1), cp = up ? ev + (sv - ev) * pr : sv + (ev - sv) * pr; addPt(t, 0); addPt(t + 0.001, cp); addPt(t + step * 0.85, 0); } addPt(cB + chunk, 0); }
+        else if (shape === 'syncopated_drops') { let step = sdMotionStep(0.25), steps = Math.floor(chunk / step); for (let i = 0; i < steps; i++) { if (Math.random() > 0.3) { let t = cB + i * step, pk = 0.3 + Math.random() * 0.7; addPt(t, 0); addPt(t + 0.001, pk); addPt(t + step * 0.8, pk * 0.8); addPt(t + step * 0.81, 0); } } addPt(cB + chunk, 0); }
     }
 
     // ─── TOOLS ─────────────────────────────────────────────
@@ -4757,7 +4968,7 @@
         // Rate pool in beats (4/4: 1 bar = 4 beats). Every entry tiles a bar
         // evenly — straight 1/2…1/32 plus triplets 1/4T (6/bar), 1/8T (12),
         // 1/16T (24). Smallest = 1/32 (0.125) per the "max 1/32" cap.
-        const RATES = [2, 1, 0.5, 0.25, 0.125, 4 / 6, 2 / 6, 1 / 6];
+        const RATES = sdGridTriplet ? [2, 1, 4 / 6, 2 / 6, 1 / 6] : [2, 1, 0.5, 0.25, 0.125, 4 / 6, 2 / 6, 1 / 6];   // triplet lock: only rates that land on the triplet grid
         // Full-range: every lane spans the ENTIRE 0–1 axis. We deliberately do
         // NOT confine any lane to a sub-band — the user dials individual lanes
         // back afterward with the Intensity edit tool. minDelta only keeps
@@ -4837,7 +5048,7 @@
         const eB = sel ? sel.endBeat : allBeats;
         if (eB <= sB) return;
 
-        const RATES = [2, 1, 0.5, 0.25, 0.125, 4 / 6, 2 / 6, 1 / 6];
+        const RATES = sdGridTriplet ? [2, 1, 4 / 6, 2 / 6, 1 / 6] : [2, 1, 0.5, 0.25, 0.125, 4 / 6, 2 / 6, 1 / 6];   // triplet lock: only rates that land on the triplet grid
         const EPS = 0.005;
         const MIN_DELTA = 0.15;
         const round4 = t => Math.round(t * 10000) / 10000;
@@ -5153,6 +5364,11 @@
         sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
     };
     window.sdApplySwing = function() {
+        if (sdGridTriplet) {   // swing shifts STRAIGHT subdivisions toward a triplet feel — undefined on a triplet grid
+            const st = document.getElementById('sd-canvas-status');
+            if (st) st.textContent = 'Swing is a straight-grid feel — disabled on the triplet grid';
+            return;
+        }
         if (!sdActiveParamId) return; pushUndo(); const totalBeats = sdGetBars() * 4; const sw = 0.15;
         sdGetTargetParams().forEach(param => {
             if (!param.points.length) return;
@@ -5288,6 +5504,16 @@
     };
 
     // ─── FLOOR / CEILING ────────────────────────────────────
+    // 1.1.11 REBASE MECHANICS. The old model was a stateful dial with baseline amnesia:
+    // on a target change the snapshot was discarded and the sliders force-reset to 0/100
+    // while the points kept their compression — Select All → floor to 30% → select one
+    // lane → its slider read 0% and "down" was impossible (field report 2026-07-26).
+    // The transform v' = floor + v·(ceil−floor) is linear and invertible (output can't
+    // leave 0..1), so the dial can always PICK UP WHERE THE LANES ACTUALLY ARE:
+    //   · on target change the sliders initialize from the targets' REAL bounds
+    //   · the snapshot stores points NORMALIZED through those bounds
+    //   · dragging maps the normalized baseline through the current slider values —
+    //     floor goes below an inherited 30% just as easily as above it, losslessly.
     let _sdFloorCeilSnapshot = null;
     let _sdFloorCeilKey = null;
 
@@ -5297,18 +5523,48 @@
         return sdGetTargetParams().filter(p => p.points.length > 0);
     }
 
-    function _ensureFloorCeilSnapshot() {
+    // The current targets' true value bounds (multi-select: min-of-mins / max-of-maxes,
+    // preserving relative offsets between lanes). Flat-lane guard: a 1% span keeps the
+    // normalize invertible and lets the dial move a flatline around.
+    function _sdFcDetectBounds() {
         const targets = _getFloorCeilTargets();
-        if (!targets.length) return null;
-        const key = targets.map(p => p.envelopeId).join(',');
+        let mn = 1, mx = 0;
+        targets.forEach(p => p.points.forEach(pt => { mn = Math.min(mn, pt.value); mx = Math.max(mx, pt.value); }));
+        if (!targets.length || mx < mn) { mn = 0; mx = 1; }
+        if (mx - mn < 0.01) { mn = Math.max(0, Math.min(mn, 0.99)); mx = Math.min(1, mn + 0.01); }
+        return { targets, mn, mx };
+    }
+
+    function _sdFcSetSliders(mnPct, mxPct) {
+        [['sd-', 'floor', mnPct], ['sd-', 'ceil', mxPct], ['qpc-', 'floor', mnPct], ['qpc-', 'ceil', mxPct]].forEach(([pre, which, v]) => {
+            const s = document.getElementById(pre + which + '-slider');
+            if (s) s.value = v;
+            const o = document.getElementById(pre + which + '-val');
+            if (o) o.textContent = v + '%';
+        });
+    }
+
+    // Target set changed (lane switch / selection change) → the sliders show the truth.
+    // NEVER a dead 0/100 reset.
+    function _sdFcSyncSliders() {
+        _sdFloorCeilSnapshot = null; _sdFloorCeilKey = null;
+        const d = _sdFcDetectBounds();
+        _sdFcSetSliders(Math.round(d.mn * 100), Math.round(d.mx * 100));
+    }
+
+    function _ensureFloorCeilSnapshot() {
+        const d = _sdFcDetectBounds();
+        if (!d.targets.length) return null;
+        const key = d.targets.map(p => p.envelopeId).join(',');
         if (_sdFloorCeilKey !== key || !_sdFloorCeilSnapshot) {
             _sdFloorCeilSnapshot = {};
-            targets.forEach(p => {
-                _sdFloorCeilSnapshot[p.envelopeId] = p.points.map(pt => ({ ...pt }));
+            const rg = Math.max(0.0001, d.mx - d.mn);
+            d.targets.forEach(p => {
+                _sdFloorCeilSnapshot[p.envelopeId] = p.points.map(pt => ({ time: pt.time, value: (pt.value - d.mn) / rg, curve: pt.curve || 0 }));
             });
             _sdFloorCeilKey = key;
         }
-        return targets;
+        return d.targets;
     }
 
     // Floor/Ceiling read+write their slider DOM directly (unlike Smooth/Depth/Curve,
@@ -5369,18 +5625,17 @@
         if (ss) { ss.value = 0; document.getElementById('sd-smooth-val').textContent = '0%'; }
         if (is2) { is2.value = 100; document.getElementById('sd-intensity-val').textContent = '100%'; }
         if (cs) { cs.value = 0; document.getElementById('sd-curve-val').textContent = '0%'; }
-        const fs2 = document.getElementById('sd-floor-slider'), cls = document.getElementById('sd-ceil-slider');
-        if (fs2) { fs2.value = 0; document.getElementById('sd-floor-val').textContent = '0%'; }
-        if (cls) { cls.value = 100; document.getElementById('sd-ceil-val').textContent = '100%'; }
-        // Mirror the reset to the compact-mode slider strip (same controls, own ids)
-        // so switching the active lane returns them to neutral too.
+        // Floor/Ceiling do NOT reset to 0/100 — they REBASE to the new target's real
+        // bounds (see the F5 block above). The dead-reset was the "can't bring the
+        // floor back down" bug.
         _sdResetCompactSliders();
+        _sdFcSyncSliders();
     }
     // Reset the compact slider strip (#qpc-*) to neutral. Separate from the sidebar
     // sliders (different ids); kept in sync via sdResetSliderSnapshots so the compact
     // and full edit strips never drift. No-op if the compact strip isn't in the DOM.
     function _sdResetCompactSliders() {
-        const defs = { 'qpc-smooth': 0, 'qpc-intensity': 100, 'qpc-curve': 0, 'qpc-floor': 0, 'qpc-ceil': 100 };
+        const defs = { 'qpc-smooth': 0, 'qpc-intensity': 100, 'qpc-curve': 0 };   // floor/ceil rebase via _sdFcSyncSliders — never a dead 0/100 reset
         Object.keys(defs).forEach(function (k) {
             const sl = document.getElementById(k + '-slider');
             if (sl) sl.value = defs[k];
@@ -5494,6 +5749,7 @@
         _sdUpdateSelectionButtons();
         sdRenderSidebar();
         sdDrawCanvasGrid();
+        _sdFcSyncSliders();   // floor/ceiling dial rebases to the new target set (F5)
     };
 
     // Toggle a single lane's selected state. Called from the multi-view
@@ -5582,9 +5838,9 @@
 
     function _sdGenTemplatePts(type, sB, eB) {
         const dur = eB - sB; const pts = [];
-        if (type === 'sine') { for (let b = 0; b <= dur; b += 0.25) pts.push({ time: sB + b, value: (Math.sin((b / dur) * Math.PI * 2 * Math.max(1, Math.round(dur / 4))) + 1) / 2 }); }
-        else if (type === 'pump') { for (let b = 0; b < dur; b++) { pts.push({ time: sB + b, value: 0 }); pts.push({ time: sB + b + 0.5, value: 1 }); pts.push({ time: sB + b + 0.99, value: 0 }); } }
-        else if (type === 'glitch') { for (let b = 0; b < dur; b += 0.25) { if (Math.random() > 0.4) { const v = Math.random() > 0.5 ? 1 : 0; pts.push({ time: sB + b, value: v }); pts.push({ time: sB + b + 0.125, value: v }); } } pts.push({ time: eB, value: 0 }); }
+        if (type === 'sine') { const _st = sdMotionStep(0.25); for (let b = 0; b <= dur; b += _st) pts.push({ time: sB + b, value: (Math.sin((b / dur) * Math.PI * 2 * Math.max(1, Math.round(dur / 4))) + 1) / 2 }); }
+        else if (type === 'pump') { const _st = sdMotionStep(1); for (let b = 0; b < dur - 1e-6; b += _st) { pts.push({ time: sB + b, value: 0 }); pts.push({ time: sB + b + _st * 0.5, value: 1 }); pts.push({ time: sB + b + _st * 0.99, value: 0 }); } }
+        else if (type === 'glitch') { const _st = sdMotionStep(0.25); for (let b = 0; b < dur; b += _st) { if (Math.random() > 0.4) { const v = Math.random() > 0.5 ? 1 : 0; pts.push({ time: sB + b, value: v }); pts.push({ time: sB + b + _st * 0.5, value: v }); } } pts.push({ time: eB, value: 0 }); }
         else if (type === 'groove_build') {
             // Sparse → building density → drop → resolve high. Every press re-rolls
             // the specifics (zone boundaries, hit positions, heights, resolve level)
@@ -5602,7 +5858,7 @@
                 pts.push({ time: sB + t + 0.25, value: 0 });
             }
             // Zone 2: rising density — probability of a hit grows with progress
-            for (let b = zone1End; b < zone2End; b += 0.25) {
+            for (let b = zone1End; b < zone2End; b += sdMotionStep(0.25)) {
                 const progress = (b - zone1End) / (zone2End - zone1End);
                 if (Math.random() < 0.4 + progress * 0.5) {
                     const h = 0.7 + Math.random() * 0.3;
@@ -5634,7 +5890,7 @@
             const noiseAmt  = 0.1 + Math.random() * 0.25;            // 0.1-0.35
             const spikeProb = 0.08 + Math.random() * 0.15;           // 8-23% per sample
             const raw = [];
-            for (let b = 0; b <= dur; b += 0.25) {
+            for (let b = 0; b <= dur; b += sdMotionStep(0.25)) {
                 let v = 0.5;
                 for (const w of waves) {
                     v += (w.useCos ? Math.cos(b * w.freq + w.phase) : Math.sin(b * w.freq + w.phase)) * w.amp;
@@ -5780,7 +6036,7 @@
         return out;
     }
     function _sdNeuroV5(sB, eB) {   // Acid — 16th grid, 4-tone scale, bezier slides
-        const out = [], range = eB - sB, tones = [0.25, 0.45, 0.65, 0.85], stepBeats = 0.25, totalSteps = Math.floor(range / stepBeats), events = [];
+        const out = [], range = eB - sB, tones = [0.25, 0.45, 0.65, 0.85], stepBeats = sdMotionStep(0.25), totalSteps = Math.floor(range / stepBeats), events = [];
         for (let s = 0; s < totalSteps; s++) { const isDown = s % 4 === 0, prob = isDown ? 0.96 : 0.55; if (Math.random() < prob) events.push({ step: s, tone: tones[Math.floor(Math.random() * tones.length)], slidesToNext: false }); }
         for (let i = 0; i < events.length - 1; i++) if (events[i + 1].step - events[i].step === 1 && Math.random() < 0.35) events[i].slidesToNext = true;
         let inSlide = false;

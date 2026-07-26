@@ -784,7 +784,10 @@
                 <!-- Group A: Mirror/Flip + Copy/Paste -->
                 <div class="flex items-center gap-1 shrink-0">
                     <div class="flex items-center gap-0.5 bg-black/50 p-0.5 rounded border border-white/5">
-                        <button onclick="sdMirrorLane()" title="Flip Y-axis" class="text-[9px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Mirror</button>
+                        <button onclick="sdUndo()" title="Undo (Ctrl+Z)" class="text-[13px] leading-none text-zinc-400 hover:text-zinc-100 border border-white/10 hover:border-white/25 px-2 py-0.5 rounded font-bold transition-colors">↶</button>
+                    <button onclick="sdRedo()" title="Redo (Ctrl+Y)" class="text-[13px] leading-none text-zinc-400 hover:text-zinc-100 border border-white/10 hover:border-white/25 px-2 py-0.5 rounded font-bold transition-colors">↷</button>
+                    <span class="w-px h-4 bg-white/10"></span>
+                    <button onclick="sdMirrorLane()" title="Flip Y-axis" class="text-[9px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Mirror</button>
                         <button onclick="sdFlipLane()" title="Reverse time" class="text-[9px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Flip</button>
                     </div>
                     <div class="w-px h-4 bg-white/10"></div>
@@ -804,6 +807,7 @@
                 <div class="flex items-center gap-1 shrink-0">
                     <div class="w-px h-4 bg-white/10"></div>
                     <button onclick="sdApplySwing()" class="text-[9px] text-amber-400/80 hover:text-amber-300 bg-amber-500/5 hover:bg-amber-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Swing</button>
+                    <button onclick="sdToggleTripletLock()" title="Triplet grid lock — the grid AND every motion tool run on 1/2T · 1/4T · 1/8T · 1/16T (Ctrl+3)" class="sd-trip-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 border border-white/10 px-2 py-0.5 rounded font-black transition-colors">T</button>
                 </div>
                 <!-- Group D: Actions (Mutate, Shuffle, Stretch, Select All, Select, Lock All) — sliders moved to sidebar EDIT section -->
                 <div class="flex items-center gap-1 shrink-0">
@@ -836,10 +840,14 @@
                 </div>
                 <span class="w-px h-4 bg-white/10"></span>
                 <div class="flex items-center gap-1">
+                    <button onclick="sdUndo()" title="Undo (Ctrl+Z)" class="text-[13px] leading-none text-zinc-400 hover:text-zinc-100 border border-white/10 hover:border-white/25 px-2 py-0.5 rounded font-bold transition-colors">↶</button>
+                    <button onclick="sdRedo()" title="Redo (Ctrl+Y)" class="text-[13px] leading-none text-zinc-400 hover:text-zinc-100 border border-white/10 hover:border-white/25 px-2 py-0.5 rounded font-bold transition-colors">↷</button>
+                    <span class="w-px h-4 bg-white/10"></span>
                     <button onclick="sdMirrorLane()" title="Flip Y-axis" class="tool-btn text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Mirror</button>
                     <button onclick="sdFlipLane()" title="Reverse time" class="tool-btn text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Flip</button>
                 </div>
                 <button onclick="sdApplySwing()" class="tool-btn text-amber-400/80 hover:text-amber-300 bg-amber-500/5 hover:bg-amber-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Swing</button>
+                <button onclick="sdToggleTripletLock()" title="Triplet grid lock — the grid AND every motion tool run on 1/2T · 1/4T · 1/8T · 1/16T (Ctrl+3)" class="sd-trip-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 border border-white/10 px-2 py-0.5 rounded font-black transition-colors">T</button>
                 <div class="flex items-center gap-1">
                     <button onclick="sdTimeStretch(2)" title="Stretch 2x — spread the curve over twice the time" class="tool-btn text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/30 px-1.5 py-0.5 rounded text-[9px] font-bold">2x</button>
                     <button onclick="sdTimeStretch(0.5)" title="Compress 1/2x — pack the curve into half the time" class="tool-btn text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/30 px-1.5 py-0.5 rounded text-[9px] font-bold">1/2x</button>

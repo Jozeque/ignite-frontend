@@ -673,6 +673,15 @@ void StrideWrapperEditor::handleStrideLinkSend (const juce::var& msg)
     // Unmap ONE param (the per-lane × in Stride). Deliberately does NOT re-push:
     // the canvas re-indexes its own lanes to match the erase, so a positional
     // re-push here would misroute the other lanes' drawn curves.
+    // Lane color pick (1.1.11) - engine-owned like set_range, same locking policy.
+    if (type == "set_color")
+    {
+        if (proc.isEditLocked()) return;
+        proc.setMappedColor ((int) msg.getProperty ("id", -1),
+                             (int) msg.getProperty ("c", -1));
+        return;
+    }
+
     if (type == "unmapParam")
     {
         proc.removeMappedAt ((int) msg.getProperty ("id", -1));
@@ -747,6 +756,7 @@ void StrideWrapperEditor::pushRackScanned()
     const auto names = proc.getMappedParamNames();
     const auto curves = proc.getMappedCurves();   // drive curves so a reopen SHOWS them, not just an empty canvas
     const auto ranges = proc.getMappedRanges();   // range bands too — engine-owned, so a re-push/reopen can't wipe them
+    const auto colors = proc.getMappedColors();   // lane colors - engine-owned for exactly the same reason (1.1.11)
     for (int i = 0; i < names.size(); ++i)
     {
         auto* o = new juce::DynamicObject();
@@ -766,6 +776,8 @@ void StrideWrapperEditor::pushRackScanned()
             o->setProperty ("rangeMin", ranges[i].getProperty ("lo", 0.0));
             o->setProperty ("rangeMax", ranges[i].getProperty ("hi", 1.0));
         }
+        if (i < colors.size() && colors[i] >= 0)
+            o->setProperty ("colorIdx", colors[i]);                     // lane color echo - canvas repaints the pick on every rebuild
         params.add (juce::var (o));
     }
 
