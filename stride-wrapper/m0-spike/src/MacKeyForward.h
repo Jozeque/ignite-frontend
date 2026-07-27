@@ -50,6 +50,11 @@ void strideMacKeyForward_setRecording (bool recording);       // Live rolling in
 void strideMacKeyForward_setTextFocus (bool on);              // the page has a text field focused: stop consuming note keys so the
                                                               // user can type a license key / plugin search / BPM without playing notes
 
+// ── window-pin helpers (the half-screen pin modes) ──────────────────────────
+int  strideMacHostWindowFrameOverhead (void* nsview);         // host window frame height minus content height (title bar, in points)
+void strideMacMoveHostWindow (void* nsview, int juceX, int juceY);   // move the HOST window so its frame's top-left lands on the given
+                                                                     // JUCE global coords (top-left origin; AppKit Y-flip handled inside)
+
 #ifdef __cplusplus
 }
 #endif

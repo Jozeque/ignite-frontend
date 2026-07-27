@@ -65,9 +65,24 @@ namespace {
 
 }
 
+// Stride's own buses. 1.2.0 adds a stereo AUDIO INPUT so a guitar/vocal/anything can be
+// routed INTO the chain (build an FX-only chain and Stride is a modulated pedalboard;
+// with an instrument first, the input is simply overwritten — synth behavior unchanged).
+// Bitwig/Reaper feed it natively from the track chain; Live routes via "Audio To ▸
+// Stride"; the standalone takes the mic/line in (JUCE auto-mutes it against feedback
+// until the user enables it). The AU is EXCLUDED: the aumu identity (aumu/SwM0/Strd)
+// is frozen for shipped Logic projects and its validated surface must not change —
+// audio-in on Logic waits for its own auval-gated pass.
+juce::AudioProcessor::BusesProperties StrideWrapperProcessor::strideBuses()
+{
+    BusesProperties b;
+    if (juce::PluginHostType::getPluginLoadedAs() != wrapperType_AudioUnit)
+        b = b.withInput ("Audio In", juce::AudioChannelSet::stereo(), true);
+    return b.withOutput ("Output", juce::AudioChannelSet::stereo(), true);
+}
+
 StrideWrapperProcessor::StrideWrapperProcessor()
-    : juce::AudioProcessor (BusesProperties()
-        .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
+    : juce::AudioProcessor (strideBuses())
 {
     formatManager.addFormat (std::make_unique<juce::VST3PluginFormat>());
    #if JUCE_PLUGINHOST_AU && JUCE_MAC
@@ -153,7 +168,12 @@ void StrideWrapperProcessor::prepareNode (int i)
 
 bool StrideWrapperProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
-    return layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo();
+    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo()) return false;
+    // Input (where the bus exists — see strideBuses): stereo or off. Hosts that route mono
+    // sources upmix into a stereo destination themselves; keeping two shapes keeps the
+    // in-place processBlock trivial (input arrives in the same 2 channels the chain writes).
+    const auto in = layouts.getMainInputChannelSet();
+    return in == juce::AudioChannelSet::disabled() || in == juce::AudioChannelSet::stereo();
 }
 
 int StrideWrapperProcessor::nodeIndexOf (juce::AudioProcessor* p) const
@@ -246,6 +266,40 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     const juce::ScopedTryLock sl (hostLock);
     if (sl.isLocked() && ! chain.empty())
     {
+        // ── MIDI keyswitches (the "playful" octave) ──────────────────
+        // While ON, the whole switch octave (notes 0..11, C-2..B-2 in Live's labeling) is
+        // CONSUMED before the instrument sees the buffer — Kontakt semantics — and note-ons
+        // 0..7 latch action bits the editor drains at 30Hz into the same one-click tools the
+        // toolbar fires (Chaos/Neuro/Reflector/S&H/Prism/Bloom/Mutate/Shuffle). Typed QWERTY
+        // notes can't collide: their octave base floors at 12.
+        if (ksEnabled.load())
+        {
+            const int kb = ksBase.load();   // bottom of the switch octave (0 / 12 / 24)
+            bool hasSwitch = false;
+            for (const auto meta : midi)
+            {
+                const auto m = meta.getMessage();
+                if (m.isNoteOnOrOff() && m.getNoteNumber() >= kb && m.getNoteNumber() < kb + 12) { hasSwitch = true; break; }
+            }
+            if (hasSwitch)
+            {
+                ksScratch.clear();
+                for (const auto meta : midi)
+                {
+                    const auto m = meta.getMessage();
+                    const int  n = m.getNoteNumber();
+                    if (m.isNoteOnOrOff() && n >= kb && n < kb + 12)
+                    {
+                        if (m.isNoteOn() && n - kb < 8)
+                            ksPendingMask.fetch_or (1u << (n - kb));
+                        continue;   // consumed — the instrument never hears the switch octave
+                    }
+                    ksScratch.addEvent (m, meta.samplePosition);
+                }
+                midi.swapWith (ksScratch);
+            }
+        }
+
         // Demo work/freeze cycle: MOVE for kDemoMoveSecs, then FREEZE (skip the drive so the
         // hosted knobs HOLD their last value) for kDemoFreezeSecs, on the persisted wall-clock
         // (reload can't grant a fresh move window).
@@ -427,7 +481,13 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
             typedFlush.store (false);
             typedHeld[0] = typedHeld[1] = 0;
         }
-        buffer.clear();
+        // Audio-in pass-through (1.2.0): with the input bus live, an EMPTY Stride behaves as
+        // unity gain — a routed guitar stays audible while the user builds the FX chain.
+        // Synth-only users are byte-identical: nothing routed in = the input is silence,
+        // and the AU (which has no input bus) still clears. Lock-miss passes the dry block
+        // too — a dry blip beats a dropout.
+        if (getTotalNumInputChannels() == 0)
+            buffer.clear();
     }
 }
 
@@ -732,6 +792,8 @@ void StrideWrapperProcessor::getStateInformation (juce::MemoryBlock& dest)
     root.setAttribute ("driveMode", (int) driveMode.load());            // 0=Live, 1=Automation
     root.setAttribute ("tempoMode", tempoMode.load());                  // 0=Project sync (default) / 1=Manual
     root.setAttribute ("manualBpm", (double) manualBpm.load());
+    root.setAttribute ("keysOn", ksEnabled.load() ? 1 : 0);             // MIDI keyswitches (attr-based: old builds/projects ignore it)
+    root.setAttribute ("keysBase", ksBase.load());                      // switch-octave bottom note (0=C-2 / 12=C-1 / 24=C0)
 
     auto* chainXml = root.createNewChildElement ("CHAIN");
     for (int i = 0; i < (int) chain.size(); ++i)
@@ -785,6 +847,8 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
     const int    newDriveMode = xml->getIntAttribute ("driveMode", 0);   // default Live (0) for old projects
     const int    newTempoMode = juce::jlimit (0, 1, xml->getIntAttribute ("tempoMode", 0));   // old projects: sync (byte-identical)
     const double newManualBpm = juce::jlimit (5.0, 999.0, xml->getDoubleAttribute ("manualBpm", 120.0));
+    const bool   newKeysOn    = xml->getIntAttribute ("keysOn", 0) != 0; // old projects: keyswitches off
+    const int    newKeysBase  = xml->getIntAttribute ("keysBase", 0);    // old projects: bottom octave (setter clamps)
 
     // Rebuild the restore list in the SAME shape the undo path consumes, then
     // re-instantiate sequentially (keeps chain order + restores patch/curves).
@@ -841,7 +905,7 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
     // instead of interleaving their async restores into a duplicated chain.
     const int gen = restoreGeneration.fetch_add (1) + 1;
     auto apply = [wr = juce::WeakReference<StrideWrapperProcessor> (this), devs, gen,
-                  clipBeats, newDriveMode, newTempoMode, newManualBpm]
+                  clipBeats, newDriveMode, newTempoMode, newManualBpm, newKeysOn, newKeysBase]
     {
         auto* self = wr.get();
         if (self == nullptr) return;                        // processor deleted before the hop landed
@@ -857,6 +921,8 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
             self->driveMode.store ((DriveMode) newDriveMode);
             self->tempoMode.store (newTempoMode);
             self->manualBpm.store ((float) newManualBpm);
+            self->ksEnabled.store (newKeysOn);
+            self->ksBase.store (newKeysBase == 12 || newKeysBase == 24 ? newKeysBase : 0);
         }
         self->mapVersion.fetch_add (1);
 

@@ -476,3 +476,28 @@ void strideMacKeyForward_remove (void)
         g_strideKeyMonitor = nil;
     }
 }
+
+// ── window-pin helpers (the half-screen pin modes) ──────────────────────────
+// The editor sizes its CONTENT via setSize and the host re-frames around it; these
+// two give the editor what it can't reach through JUCE — the HOST window's chrome
+// height and a way to MOVE that window. Coordinates arriving here are JUCE global
+// (top-left origin at the primary screen's top-left); AppKit wants bottom-left, so
+// Y flips against the primary screen height.
+int strideMacHostWindowFrameOverhead (void* nsview)
+{
+    NSView* v = (NSView*) nsview; if (v == nil) return 0;
+    NSWindow* w = [v window];     if (w == nil) return 0;
+    const NSRect f = [w frame];
+    const NSRect c = [w contentRectForFrameRect: f];
+    return (int) llround (f.size.height - c.size.height);   // title bar, in points (no side borders on modern macOS)
+}
+
+void strideMacMoveHostWindow (void* nsview, int juceX, int juceY)
+{
+    NSView* v = (NSView*) nsview; if (v == nil) return;
+    NSWindow* w = [v window];     if (w == nil) return;
+    if ([[NSScreen screens] count] == 0) return;
+    const CGFloat primaryH = [[NSScreen screens] objectAtIndex: 0].frame.size.height;
+    const NSRect f = [w frame];
+    [w setFrameOrigin: NSMakePoint ((CGFloat) juceX, primaryH - (CGFloat) juceY - f.size.height)];
+}

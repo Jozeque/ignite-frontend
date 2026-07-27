@@ -315,6 +315,19 @@
         <button onclick="document.getElementById('guide-modal').classList.remove('hidden')" class="titlebar-no-drag text-[9px] text-zinc-500 hover:text-orange-400 uppercase font-bold tracking-widest transition-colors mr-3">Guide</button>
         <!-- Account (online mode) -->
         <button id="account-btn" onclick="toggleAccountPanel()" class="titlebar-no-drag text-[9px] text-zinc-500 hover:text-zinc-300 uppercase font-bold tracking-widest transition-colors hidden">Account</button>
+        <!-- Collapse toolbar — hides both toolbar rows for a full-height canvas; the
+             device/control bar (chain + Add/Map/Keys) stays. Click again to restore. -->
+        <button id="sd-collapse-btn" onclick="window.sdToggleTopCollapse && window.sdToggleTopCollapse()" class="titlebar-no-drag text-zinc-500 hover:text-orange-400 transition-colors mr-3" title="Hide the toolbar — full-height canvas (the device bar stays)">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path id="sd-collapse-icon" stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-5 7 5"/></svg>
+        </button>
+        <!-- Pin modes (VST) — snap the Stride window to EXACTLY half the screen:
+             bottom half (full width) or right half (full height), Live stays visible in the other half. -->
+        <button id="sd-pin-bottom-btn" onclick="window.sdSetPin && window.sdSetPin('bottom')" class="titlebar-no-drag text-zinc-500 hover:text-orange-400 transition-colors mr-2" title="Pin to bottom half of the screen">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 12h16" /><rect x="5.5" y="13" width="13" height="5.5" rx="1" fill="currentColor" stroke="none"/></svg>
+        </button>
+        <button id="sd-pin-side-btn" onclick="window.sdSetPin && window.sdSetPin('side')" class="titlebar-no-drag text-zinc-500 hover:text-orange-400 transition-colors mr-2" title="Pin to right half of the screen">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M12 4v16" /><rect x="13" y="5.5" width="5.5" height="13" rx="1" fill="currentColor" stroke="none"/></svg>
+        </button>
         <!-- Fullscreen toggle (VST) — maximize the Stride window to the screen, click again to restore -->
         <button id="sd-fullscreen-btn" onclick="window.sdToggleFullscreen && window.sdToggleFullscreen()" class="titlebar-no-drag text-zinc-500 hover:text-orange-400 transition-colors" title="Fullscreen (maximize)">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path id="sd-fs-icon" stroke-linecap="round" stroke-linejoin="round" d="M4 9V4h5 M20 9V4h-5 M4 15v5h5 M20 15v5h-5"/></svg>
@@ -800,7 +813,7 @@
                  when those tools are active. -->
 
             <!-- ROW 1: Draw Tools & Templates -->
-            <div class="sd-full-only min-h-[36px] border-b border-white/5 flex flex-wrap items-center px-2 gap-x-1.5 gap-y-0.5 py-0.5 shrink-0 bg-black/40">
+            <div id="sd-toolbar-row1" class="sd-full-only min-h-[36px] border-b border-white/5 flex flex-wrap items-center px-2 gap-x-1.5 gap-y-0.5 py-0.5 shrink-0 bg-black/40">
                 <div class="flex items-center gap-1 bg-black/50 p-0.5 rounded border border-white/5 shrink-0">
                     <button id="sd-tool-select" onclick="sdSetTool('select')" class="tool-btn bg-fuchsia-500/20 text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold transition-colors">Point</button>
                     <button id="sd-tool-freehand" onclick="sdSetTool('freehand')" class="tool-btn text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold transition-colors">Free</button>
@@ -830,7 +843,7 @@
             </div>
 
             <!-- ROW 2: Shape Tools & Refinement — 4 groups that wrap as blocks -->
-            <div class="sd-full-only border-b border-white/5 flex flex-wrap items-center px-2 gap-x-1 gap-y-0.5 py-0.5 shrink-0 bg-black/30">
+            <div id="sd-toolbar-row2" class="sd-full-only border-b border-white/5 flex flex-wrap items-center px-2 gap-x-1 gap-y-0.5 py-0.5 shrink-0 bg-black/30">
                 <!-- Group A: Mirror/Flip + Copy/Paste -->
                 <div class="flex items-center gap-1 shrink-0">
                     <div class="flex items-center gap-0.5 bg-black/50 p-0.5 rounded border border-white/5">
@@ -859,7 +872,7 @@
                 <div class="flex items-center gap-1 shrink-0">
                     <div class="w-px h-4 bg-white/10"></div>
                     <button id="sd-mutate-btn" onclick="sdMutate()" title="Mutate: reshape active" class="text-[9px] text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors">Mutate</button>
-                    <button onclick="sdShuffleLanes()" title="Shuffle curves between lanes" class="text-[9px] text-violet-400 hover:text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 hover:border-violet-500/40 px-2 py-0.5 rounded uppercase font-bold transition-colors">Shuffle</button>
+                    <button id="sd-shuffle-btn" onclick="sdShuffleLanes()" title="Shuffle curves between lanes" class="text-[9px] text-violet-400 hover:text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 hover:border-violet-500/40 px-2 py-0.5 rounded uppercase font-bold transition-colors">Shuffle</button>
                     <div class="w-px h-4 bg-white/10"></div>
                     <div class="flex items-center gap-1 bg-sky-500/5 border border-sky-500/20 rounded px-1.5 py-0.5">
                         <span class="text-[9px] text-sky-300/70 font-black uppercase tracking-wider">Stretch</span>
@@ -877,10 +890,14 @@
             <!-- COMPACT toolbar — slim tweak tools wired DIRECTLY to the real
                  canvas functions (no mirror renderer). Shown only in compact mode;
                  the big ROW 1/ROW 2 toolbars are .sd-full-only and hide. -->
-            <div class="sd-compact-only bg-zinc-950 border-b border-white/5 px-2.5 py-1 items-center gap-1.5 flex-wrap shrink-0">
+            <div id="sd-compact-toolbar" class="sd-compact-only bg-zinc-950 border-b border-white/5 px-2.5 py-1 items-center gap-1.5 flex-wrap shrink-0">
                 <div class="flex items-center gap-1">
-                    <button onclick="sdUndo()" title="Undo (Ctrl+Z)" class="text-[13px] leading-none text-zinc-400 hover:text-zinc-100 border border-white/10 hover:border-white/25 px-2 py-0.5 rounded font-bold transition-colors">↶</button>
-                    <button onclick="sdRedo()" title="Redo (Ctrl+Y)" class="text-[13px] leading-none text-zinc-400 hover:text-zinc-100 border border-white/10 hover:border-white/25 px-2 py-0.5 rounded font-bold transition-colors">↷</button>
+                    <!-- Bigger hit targets + a visible press state: 24×20 glyph pills on a Mac
+                         trackpad read as flaky ("works but not every time", Bitwig field
+                         report 2026-07-27) — misses land in the gaps and registered clicks
+                         gave no visual acknowledgement. -->
+                    <button onclick="sdUndo()" title="Undo (Ctrl+Z)" class="text-[14px] leading-none text-zinc-400 hover:text-zinc-100 active:text-white active:bg-white/20 border border-white/10 hover:border-white/25 px-3 py-1.5 rounded font-bold transition-colors">↶</button>
+                    <button onclick="sdRedo()" title="Redo (Ctrl+Y)" class="text-[14px] leading-none text-zinc-400 hover:text-zinc-100 active:text-white active:bg-white/20 border border-white/10 hover:border-white/25 px-3 py-1.5 rounded font-bold transition-colors">↷</button>
                     <span class="w-px h-4 bg-white/10"></span>
                     <button id="qpc-tool-point" onclick="sdSetTool('select')" class="tool-btn bg-fuchsia-500/20 text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Point</button>
                     <button id="qpc-tool-free" onclick="sdSetTool('freehand')" class="tool-btn text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Free</button>
@@ -919,7 +936,7 @@
                 <!-- line break — MOTION sits on its OWN row, separate from the SEL patterns above -->
                 <div class="basis-full h-0"></div>
                 <!-- MOTION TOOLS — applied to ALL mapped lanes in one click -->
-                <div class="flex items-center gap-1.5">
+                <div id="sd-motion-row" class="flex items-center gap-1.5">
                     <span class="text-[8px] text-orange-400/70 uppercase tracking-[0.18em] font-black">Motion</span>
                     <button onclick="sdApplyGlobalChaos()" class="text-[10px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-2.5 py-1 rounded uppercase tracking-wider font-bold transition-colors">Chaos</button>
                     <button onclick="sdApplyGlobalNeuro()" class="text-[10px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-2.5 py-1 rounded uppercase tracking-wider font-bold transition-colors">Neuro</button>

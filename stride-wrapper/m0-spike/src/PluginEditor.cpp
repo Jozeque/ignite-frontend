@@ -251,7 +251,7 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
                                      .withUserDataFolder (userData))
         .withNativeIntegrationEnabled()
         .withResourceProvider ([] (const juce::String& url) { return serveAsset (url); })
-        .withEventListener ("wrapperReady", [this] (juce::var)     { pushHostInfo(); pushPrefs(); web->emitEventIfBrowserIsVisible ("sl_event", []{ auto* o = new juce::DynamicObject(); o->setProperty ("type", "connected"); return juce::var (o); }()); pushRackScanned(); pushLearnState(); pushChainDevices(); })
+        .withEventListener ("wrapperReady", [this] (juce::var)     { pushHostInfo(); pushPrefs(); web->emitEventIfBrowserIsVisible ("sl_event", []{ auto* o = new juce::DynamicObject(); o->setProperty ("type", "connected"); return juce::var (o); }()); pushRackScanned(); pushLearnState(); pushKeysState(); pushPinState(); pushChainDevices(); })
         .withEventListener ("prefsSave",    [this] (juce::var v)   { savePrefs (v.getProperty ("prefs", juce::var())); })
         .withEventListener ("sl_send",      [this] (juce::var v)   { handleStrideLinkSend (v); })
         .withEventListener ("loadSynth",    [this] (juce::var)     { if (proc.isEditLocked()) return; chooseAndLoad(); })
@@ -290,11 +290,18 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
         .withEventListener ("setBypass",    [this] (juce::var v)   { if (proc.isEditLocked()) return; proc.setNodeBypassed ((int) v.getProperty ("i", -1), ! (bool) v.getProperty ("on", true)); pushChainDevices(); })
         .withEventListener ("license",      [this] (juce::var v)   { handleLicense (v); })
         .withEventListener ("undoRemove",   [this] (juce::var)     { if (proc.isEditLocked()) return; synthWindows.clear(); proc.undoRemove(); })
+        .withEventListener ("setKeys",      [this] (juce::var v)   {
+            proc.setKeyswitchEnabled ((bool) v.getProperty ("on", proc.isKeyswitchEnabled()));
+            if (v.hasProperty ("base")) proc.setKeyswitchBase ((int) v.getProperty ("base", 0));   // setter clamps to {0,12,24}
+            pushKeysState();
+        })
         .withEventListener ("toggleLearn",  [this] (juce::var)     { if (proc.isEditLocked()) return; proc.setLearnMode (! proc.isLearning()); pushLearnState(); })
         .withEventListener ("toggleUnlearn",[this] (juce::var)     { if (proc.isEditLocked()) return; proc.setUnlearnMode (! proc.isUnlearning()); pushLearnState(); })
         .withEventListener ("setDriveMode", [this] (juce::var v)   { if (proc.isEditLocked()) return; proc.setDriveMode ((int) v.getProperty ("mode", 0) == 1 ? StrideWrapperProcessor::DriveMode::Automation : StrideWrapperProcessor::DriveMode::Live); pushRackScanned(); })
         .withEventListener ("announceMacros", [this] (juce::var)    { if (proc.isEditLocked()) return; proc.announceMacrosToHost(); })
+        .withEventListener ("setPin",       [this] (juce::var v)   { applyPinMode (v.getProperty ("mode", "").toString()); })
         .withEventListener ("toggleFullscreen", [this] (juce::var)  {
+            pinMode.clear(); pushPinState();                   // fullscreen replaces any pin
             if (! sdFullscreen)
             {
                 preFsW = getWidth(); preFsH = getHeight();     // remember the working size
@@ -372,6 +379,7 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
     savedW = lastTickW = initW;
     savedH = lastTickH = initH;
     startTimerHz (30);   // 30Hz: smooth enough for the exposed macros to follow the modulation in Ableton
+    proc.consumeKeyswitchMask();   // drop switch notes that piled up while no editor was open — stale triggers must not fire on open
 
     // Surface interactive load failures as a UI toast (the silent-DBG version was a support
     // ticket: on Mac the usual cause is an Intel-only bundle inside an arm64 host process).
@@ -867,6 +875,105 @@ void StrideWrapperEditor::pushLearnState()
     web->emitEventIfBrowserIsVisible ("learnState", juce::var (o));
 }
 
+void StrideWrapperEditor::pushKeysState()
+{
+    if (web == nullptr) return;
+    auto* o = new juce::DynamicObject();
+    o->setProperty ("on", proc.isKeyswitchEnabled());
+    o->setProperty ("base", proc.getKeyswitchBase());   // switch-octave bottom note (0/12/24) — the legend renders from it
+    web->emitEventIfBrowserIsVisible ("keysState", juce::var (o));
+}
+
+void StrideWrapperEditor::pushPinState()
+{
+    if (web == nullptr) return;
+    auto* o = new juce::DynamicObject();
+    o->setProperty ("mode", pinMode);
+    web->emitEventIfBrowserIsVisible ("pinState", juce::var (o));
+}
+
+// ── Pin modes: snap the HOST's plugin window to exactly half the screen ─────
+// The editor's setSize drives the host's frame SIZE (every host re-frames around its
+// plugin's content); the frame POSITION is ours to move natively. Frame overhead
+// (host title bar + borders) is measured and subtracted so content + host chrome
+// together land exactly on the half-screen rectangle from the mock (pin bottom =
+// full width × half height at the bottom; pin side = half width × full height on
+// the right — Live stays visible in the other half).
+void StrideWrapperEditor::applyPinMode (const juce::String& mode)
+{
+    if (mode != "bottom" && mode != "side")
+    {
+        if (pinMode.isNotEmpty() && prePinW > 0 && prePinH > 0) setSize (prePinW, prePinH);
+        pinMode.clear();
+        pushPinState();
+        return;
+    }
+
+    auto& displays = juce::Desktop::getInstance().getDisplays();
+    auto* disp = displays.getDisplayForRect (getScreenBounds());
+    if (disp == nullptr) disp = displays.getPrimaryDisplay();
+    if (disp == nullptr) return;
+    const auto ua = disp->userArea;
+
+    if (pinMode.isEmpty()) { prePinW = getWidth(); prePinH = getHeight(); }   // pin->pin switches keep the ORIGINAL restore size
+    sdFullscreen = false;                                                     // pin replaces fullscreen
+
+    const auto target = (mode == "bottom")
+        ? juce::Rectangle<int> (ua.getX(), ua.getY() + ua.getHeight() / 2, ua.getWidth(),      ua.getHeight() - ua.getHeight() / 2)
+        : juce::Rectangle<int> (ua.getX() + ua.getWidth() / 2, ua.getY(),  ua.getWidth() - ua.getWidth() / 2, ua.getHeight());
+
+    // Host-frame overhead in LOGICAL units (Windows measures in physical px — divide by
+    // the display scale so the setSize math stays in JUCE's coordinate space).
+    int ovW = 0, ovH = 0;
+   #if JUCE_WINDOWS
+    if (auto* peer = getPeer())
+    {
+        HWND root = GetAncestor ((HWND) peer->getNativeHandle(), GA_ROOT);
+        RECT rr, cr;
+        if (root != nullptr && GetWindowRect (root, &rr) && GetWindowRect ((HWND) peer->getNativeHandle(), &cr))
+        {
+            const double sc = disp->scale > 0 ? disp->scale : 1.0;
+            ovW = juce::roundToInt (((rr.right - rr.left) - (cr.right - cr.left)) / sc);
+            ovH = juce::roundToInt (((rr.bottom - rr.top) - (cr.bottom - cr.top)) / sc);
+        }
+    }
+   #elif JUCE_MAC
+    if (auto* peer = getPeer())
+        ovH = strideMacHostWindowFrameOverhead (peer->getNativeHandle());   // title-bar points; modern macOS has no side borders
+   #endif
+
+    setSize (juce::jmax (380, target.getWidth() - ovW), juce::jmax (280, target.getHeight() - ovH));
+
+    // Move the host frame AFTER it re-framed around the new content size (one tick later —
+    // moving first would let the resize shift it again).
+    juce::Component::SafePointer<StrideWrapperEditor> safe (this);
+    const int tx = target.getX(), ty = target.getY();
+    juce::Timer::callAfterDelay (60, [safe, tx, ty]
+    {
+        if (safe == nullptr) return;
+       #if JUCE_WINDOWS
+        if (auto* peer = safe->getPeer())
+        {
+            HWND root = GetAncestor ((HWND) peer->getNativeHandle(), GA_ROOT);
+            if (root != nullptr)
+            {
+                const auto phys = juce::Desktop::getInstance().getDisplays()
+                                      .logicalToPhysical (juce::Point<int> (tx, ty));
+                SetWindowPos (root, nullptr, phys.getX(), phys.getY(), 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+            }
+        }
+       #elif JUCE_MAC
+        if (auto* peer = safe->getPeer())
+            strideMacMoveHostWindow (peer->getNativeHandle(), tx, ty);
+       #else
+        juce::ignoreUnused (tx, ty);
+       #endif
+    });
+
+    pinMode = mode;
+    pushPinState();
+}
+
 void StrideWrapperEditor::pushChainDevices()
 {
     if (web == nullptr) return;
@@ -1049,6 +1156,20 @@ void StrideWrapperEditor::timerCallback()
     }
 
     if (web == nullptr) return;
+
+    // MIDI keyswitches → the one-click tools. The audio thread latches note-on bits (0..7);
+    // this drains them at 30Hz and the shim fires the SAME functions the toolbar buttons
+    // call. Bits collapse within a tick (two C-2 hits in 33ms = one Chaos — a feature, not
+    // a loss). Gated on the soft lock: an expired pass must not keep generating curves.
+    {
+        const juce::uint32 ksm = proc.consumeKeyswitchMask();
+        if (ksm != 0 && web != nullptr && ! proc.isEditLocked())
+        {
+            auto* o = new juce::DynamicObject();
+            o->setProperty ("mask", (int) ksm);
+            web->emitEventIfBrowserIsVisible ("keyswitch", juce::var (o));
+        }
+    }
 
     // TRUE playhead → canvas. The comet rides the REAL loop position (the ambient wall-clock
     // drift retires on the first tick). Change-detected: a stopped transport sends ONE parking

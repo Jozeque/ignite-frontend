@@ -58,6 +58,49 @@
     if (btn) btn.title = on ? 'Exit fullscreen (restore size)' : 'Fullscreen (maximize)';
   });
 
+  // Pin modes: snap the host window to EXACTLY half the screen (bottom half / right half),
+  // the C++ editor does the geometry. Clicking the active pin again unpins (restores size).
+  var _pinMode = '';
+  window.sdSetPin = function (mode) { emit('setPin', { mode: _pinMode === mode ? 'off' : mode }); };
+  listen('pinState', function (d) {
+    _pinMode = (d && d.mode) || '';
+    var b = document.getElementById('sd-pin-bottom-btn'), s = document.getElementById('sd-pin-side-btn');
+    if (b) b.className = 'titlebar-no-drag transition-colors mr-2 ' + (_pinMode === 'bottom' ? 'text-orange-400' : 'text-zinc-500 hover:text-orange-400');
+    if (s) s.className = 'titlebar-no-drag transition-colors mr-2 ' + (_pinMode === 'side'   ? 'text-orange-400' : 'text-zinc-500 hover:text-orange-400');
+  });
+
+  // ── Collapse the top bar → MORE CANVAS ──────────────────────────
+  // Hides both toolbar rows outright; the device/control bar (chain chips + Add/Map/
+  // Keys/Unmap/Clear) stays whole so mapping keeps working. Nothing moves, nothing is
+  // added — every freed pixel goes to the lanes. KEYS keyswitches keep firing the tools
+  // while collapsed (they call the functions, not the hidden buttons). Persisted.
+  var _tcOn = false;
+  window.sdSetTopCollapsed = function (on) {
+    _tcOn = !! on;
+    // THREE toolbars, because the wrapper BOOTS INTO COMPACT (setupCompact below): the
+    // visible top bar in the wrapper's default state is #sd-compact-toolbar, not the
+    // full-mode rows — hiding only rows 1+2 read as "does nothing" (field report
+    // 2026-07-27). All three get the inline treatment so collapse holds in BOTH modes.
+    var r1 = document.getElementById('sd-toolbar-row1'), r2 = document.getElementById('sd-toolbar-row2');
+    var ct = document.getElementById('sd-compact-toolbar');
+    var ic = document.getElementById('sd-collapse-icon'), btn = document.getElementById('sd-collapse-btn');
+    // INLINE display, not the `hidden` class: the rows carry Tailwind's `flex` utility and
+    // the CDN runtime can order `.flex` after `.hidden`, which silently wins — the class
+    // toggle did nothing (field report 2026-07-27). Inline style outranks any utility.
+    // '' on expand falls back to the stylesheet, so each bar returns only in its own mode.
+    if (r1) r1.style.display = _tcOn ? 'none' : '';
+    if (r2) r2.style.display = _tcOn ? 'none' : '';
+    if (ct) ct.style.display = _tcOn ? 'none' : '';
+    if (ic) ic.setAttribute('d', _tcOn ? 'M5 9l7 5 7-5' : 'M5 15l7-5 7 5');   // chevron flips
+    if (btn) btn.title = _tcOn ? 'Show the toolbar' : 'Hide the toolbar — full-height canvas (the device bar stays)';
+    try { window.dispatchEvent(new Event('resize')); } catch (e) {}            // canvas re-measures its container
+    if (window.sdDrawCanvasGrid) try { window.sdDrawCanvasGrid(); } catch (e) {}   // lanes reflow into the freed space
+    try { localStorage.setItem('sd_top_collapsed', _tcOn ? '1' : '0'); } catch (e) {}
+  };
+  window.sdToggleTopCollapse = function () { window.sdSetTopCollapsed(! _tcOn); };
+  // Boot: restore the persisted state once the DOM is up (shim loads at end of body).
+  try { if (localStorage.getItem('sd_top_collapsed') === '1') window.sdSetTopCollapsed(true); } catch (e) {}
+
   // Discovery Pass expired mid-session (Stride stayed open) -> pop the "ended" overlay live.
   listen('passExpired', function () { if (window.sdPassExpired) window.sdPassExpired(); });
 
@@ -616,6 +659,92 @@
       }
       sbtn('+ Add', 'browsePlugins', BTN_PRIMARY);      // opens the Stride-styled plugin browser
       var mapBtn = sbtn('◉ Map', 'toggleLearn', BTN_MAP);
+
+      // ── KEYS: MIDI keyswitches (the "playful" octave) ──────────────
+      // An opt-in performance MODE, never a default: the pill toggles it, the ▾ picks which
+      // octave is the switch zone. State is ENGINE-owned (persists with the project); the
+      // pill just mirrors keysState {on, base}.
+      var _keysOn = false, _keysBase = 0;
+      var KS_NAMES = ['Chaos', 'Neuro', 'Reflector', 'S&H', 'Prism', 'Bloom', 'Mutate', 'Shuffle'];
+      var KS_SEMIS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G'];
+      function _ksOct(base) { return base === 24 ? '0' : (base === 12 ? '-1' : '-2'); }  // Live labeling (C3 = middle C)
+      function _keysLegend() {
+        var o = _ksOct(_keysBase), parts = [];
+        for (var i = 0; i < 8; i++) parts.push(KS_SEMIS[i] + o + ' ' + KS_NAMES[i]);
+        return 'MIDI keyswitches - play the tools from the ' + KS_SEMIS[0] + o + ' octave:\n'
+          + parts.join(' · ') + '\n'
+          + 'While ON, that whole octave is consumed - your instrument never hears it. Works live or from notes in a clip.';
+      }
+      var keysWrap = document.createElement('div'); keysWrap.className = 'relative flex items-center'; host.appendChild(keysWrap);
+      var keysBtn = document.createElement('button');
+      keysBtn.textContent = '🎹 Keys';
+      keysBtn.className = BTN_GHOST;
+      function _paintKeysBtn() {
+        keysBtn.className = _keysOn
+          ? 'text-[11px] font-bold uppercase tracking-wider text-fuchsia-300 bg-fuchsia-500/20 border border-fuchsia-400/50 rounded px-2 py-0.5 transition-colors'
+          : BTN_GHOST;
+        keysBtn.title = _keysLegend();
+      }
+      keysBtn.onclick = function () { emit('setKeys', { on: !_keysOn }); };
+      keysWrap.appendChild(keysBtn);
+
+      // Octave picker (the ▾): which octave IS the switch zone. C-2 = below any keyboard's
+      // last key (pads/clips only, can never sit on real notes); C0 = hand-reachable on any
+      // keyboard but overlaps real bass range - the user's informed trade.
+      var keysOctBtn = document.createElement('button');
+      keysOctBtn.innerHTML = '<span style="font-size:9px;line-height:1">▾</span>';
+      keysOctBtn.title = 'Choose the keyswitch octave';
+      keysOctBtn.className = 'text-[11px] text-zinc-500 hover:text-fuchsia-300 border border-white/10 rounded px-1 py-0.5 ml-0.5 transition-colors';
+      keysWrap.appendChild(keysOctBtn);
+      var keysPop = document.createElement('div');
+      keysPop.className = 'hidden absolute left-0 top-full mt-1 z-[10060] bg-zinc-950 border border-white/10 rounded-lg shadow-2xl p-2 w-[230px]';
+      keysPop.style.fontFamily = "'Outfit',sans-serif";
+      keysWrap.appendChild(keysPop);
+      function _renderKeysPop() {
+        var rows = [
+          [0,  'C-2 octave', 'Pads & clip notes - below every keyboard, never collides'],
+          [12, 'C-1 octave', 'One octave up - reachable with one octave-shift'],
+          [24, 'C0 octave',  'On any keyboard - careful: real bass notes live here']
+        ];
+        var h = '<div class="text-[9px] font-black uppercase tracking-[0.15em] text-zinc-300 mb-1.5">Keyswitch octave</div>';
+        for (var i = 0; i < rows.length; i++) {
+          var on = _keysBase === rows[i][0];
+          h += '<button data-ksbase="' + rows[i][0] + '" class="w-full text-left rounded px-1.5 py-1 mb-0.5 border '
+            + (on ? 'border-fuchsia-400/50 bg-fuchsia-500/15 text-fuchsia-200' : 'border-white/5 text-zinc-400 hover:text-zinc-200 hover:border-white/15')
+            + '"><span class="text-[10px] font-bold uppercase tracking-wider">' + rows[i][1] + '</span>'
+            + '<span class="block text-[9px] text-zinc-500 leading-tight">' + rows[i][2] + '</span></button>';
+        }
+        keysPop.innerHTML = h;
+        var btns = keysPop.querySelectorAll('button[data-ksbase]');
+        for (var j = 0; j < btns.length; j++) (function (b) {
+          b.onclick = function () { emit('setKeys', { on: _keysOn, base: parseInt(b.getAttribute('data-ksbase'), 10) }); keysPop.classList.add('hidden'); };
+        })(btns[j]);
+      }
+      keysOctBtn.onclick = function (e) { e.stopPropagation(); _renderKeysPop(); keysPop.classList.toggle('hidden'); };
+      document.addEventListener('click', function (e) { if (!keysWrap.contains(e.target)) keysPop.classList.add('hidden'); });
+      listen('keysState', function (d) { _keysOn = !!(d && d.on); _keysBase = (d && (d.base === 12 || d.base === 24)) ? d.base : 0; _paintKeysBtn(); });
+
+      // Keyswitch triggers -> the SAME one-click tools the toolbar fires. Bit n = MIDI note n.
+      var KS_ACTIONS = [
+        ['Chaos',     function () { window.sdApplyGlobalChaos      && window.sdApplyGlobalChaos(); }],
+        ['Neuro',     function () { window.sdApplyGlobalNeuro      && window.sdApplyGlobalNeuro(); }],
+        ['Reflector', function () { window.sdApplyGlobalReflector  && window.sdApplyGlobalReflector(); }],
+        ['S&H',       function () { window.sdApplyGlobalSampleHold && window.sdApplyGlobalSampleHold(); }],
+        ['Prism',     function () { window.sdApplyGlobalPrism      && window.sdApplyGlobalPrism(); }],
+        ['Bloom',     function () { window.sdApplyBloom            && window.sdApplyBloom(); }],
+        ['Mutate',    function () { window.sdMutate                && window.sdMutate(); }],
+        ['Shuffle',   function () { window.sdShuffleLanes          && window.sdShuffleLanes(); }]
+      ];
+      listen('keyswitch', function (d) {
+        var mask = (d && d.mask) | 0;
+        var fired = [];
+        for (var i = 0; i < KS_ACTIONS.length; i++)
+          if (mask & (1 << i)) { try { KS_ACTIONS[i][1](); fired.push(KS_ACTIONS[i][0]); } catch (e) {} }
+        if (fired.length) {
+          var st = document.getElementById('sd-canvas-status');
+          if (st) st.textContent = '🎹 ' + fired.join(' + ');
+        }
+      });
       var unmapBtn = sbtn('⊘ Unmap', 'toggleUnlearn', BTN_UNMAP); unmapBtn.title = 'Arm Unmap, then touch a mapped knob in the synth to remove it from the canvas';
       var openBtn = sbtn('⛶', 'openSynth', BTN_GHOST); openBtn.title = 'Open device windows'; openBtn.classList.add('text-[12px]');
       var clearBtn = sbtn('Clear', 'clearChain', BTN_GHOST);

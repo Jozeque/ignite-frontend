@@ -138,6 +138,22 @@ public:
     struct DriveLane { int position; std::vector<float> times, values, curves; };
     void setDriveCurves (const std::vector<DriveLane>& lanes, double clipBeats);
 
+    // ── MIDI keyswitches (the "playful" octave) ─────────────────────
+    // Kontakt-style: while ON, MIDI notes 0..11 (C-2..B-2 in Live's labeling) are CONSUMED —
+    // the instrument never hears them — and note-ons 0..7 fire the one-click tools (the six
+    // Motion generators + Mutate + Shuffle, same functions as the toolbar). Playable from a
+    // pad row, recordable into a clip, automatable like any performance. OFF by default and
+    // per-project persisted, so an existing bassline in the switch octave can't fire tools
+    // until the user opts in. Notes 8..11 are reserved (consumed, no action yet).
+    void setKeyswitchEnabled (bool on)  { ksEnabled.store (on); hostDirtyPending.store (true); }
+    bool isKeyswitchEnabled() const     { return ksEnabled.load(); }
+    // The switch octave's bottom note: 0 (C-2, unreachable by hands — pads/clips, zero
+    // collision risk), 12 (C-1) or 24 (C0, on every keyboard — may sit on real bass notes;
+    // the user's informed choice, since the whole mode is opt-in). Anything else clamps to 0.
+    void setKeyswitchBase (int base)    { ksBase.store (base == 12 || base == 24 ? base : 0); hostDirtyPending.store (true); }
+    int  getKeyswitchBase() const       { return ksBase.load(); }
+    juce::uint32 consumeKeyswitchMask() { return ksPendingMask.exchange (0); }   // editor timer drains (bit n = note base+n)
+
     // ── typed-note input (the QWERTY piano, macOS) ──
     // Relaying keystrokes to Live proved unwinnable on macOS: Live's typing piano only
     // accepts keys when the KEY window is one of Live's own, and AppKit routes keyboard
@@ -180,6 +196,7 @@ private:
         if (d.programChanged || d.nonParameterStateChanged) hostDirtyPending.store (true);
     }
 
+    static BusesProperties strideBuses();     // stereo out everywhere; stereo AUDIO IN except the AU (frozen aumu surface)
     void prepareNode (int i);                 // (re)prepare one chain node (under lock)
     int  nodeIndexOf (juce::AudioProcessor*) const;   // which chain slot a processor is (under lock)
     void mapParam (juce::AudioProcessor*, int parameterIndex);   // map a param if in learn mode (shared by value-change + touch)
@@ -275,6 +292,14 @@ private:
     struct StoredLane { int node; int param; std::vector<float> times, values, curves; };
     std::vector<StoredLane> driveLanes;
     double driveClipBeats = 16.0;
+
+    // Keyswitch state (see setKeyswitchEnabled). ksScratch is AUDIO THREAD ONLY — the
+    // filtered MidiBuffer swapped in when a block actually contains switch-octave events
+    // (clear() keeps its heap, so steady-state filtering allocates nothing).
+    std::atomic<bool>         ksEnabled { false };
+    std::atomic<int>          ksBase { 0 };        // bottom note of the switch octave (0 / 12 / 24)
+    std::atomic<juce::uint32> ksPendingMask { 0 };
+    juce::MidiBuffer          ksScratch;
 
     // Typed-note queue (see queueTypedNote). Fixed-size lock-free SPSC: message thread
     // writes, audio thread drains into the instrument's MidiBuffer. typedHeld tracks the

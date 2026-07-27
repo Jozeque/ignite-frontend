@@ -369,18 +369,22 @@
         sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
     }
 
+    // Empty-stack clicks ANSWER instead of silently returning — a no-op that looks
+    // identical to a dead button reads as "undo is buggy" (field report, Bitwig 2026-07-27).
     window.sdUndo = function() {
-        if (!undoStack.length) return;
+        const st = document.getElementById('sd-canvas-status');
+        if (!undoStack.length) { if (st) st.textContent = 'Nothing to undo'; return; }
         redoStack.push(_sdUndoSnapshot());   // save current state to redo
         applySnapshot(undoStack.pop());
-        document.getElementById('sd-canvas-status').textContent = 'Undo';
+        if (st) st.textContent = 'Undo';
     };
 
     window.sdRedo = function() {
-        if (!redoStack.length) return;
+        const st = document.getElementById('sd-canvas-status');
+        if (!redoStack.length) { if (st) st.textContent = 'Nothing to redo'; return; }
         undoStack.push(_sdUndoSnapshot());   // save current state to undo
         applySnapshot(redoStack.pop());
-        document.getElementById('sd-canvas-status').textContent = 'Redo';
+        if (st) st.textContent = 'Redo';
     };
 
     // ─── BARS ─────────────────────────────────────────────
@@ -3828,10 +3832,12 @@
                 // noise; locked already reads via the amber name + lock glyph).
                 const _meta = _isWrap ? param.device : '';
 
-                // Param name line
+                // Param name line — sized down ~23% from the 1.1.11 M3 headers (17/18px read
+                // too loud in the field, 2026-07-27); short rows floor at 10px so dense
+                // stacks stay legible.
                 sdCtx.fillStyle = _labelCol;
-                const _pxBig = _isWrap ? (isHighlighted ? 18 : 17) : (isHighlighted ? 16 : 15);
-                const _px = _big ? _pxBig : (_mid ? (isHighlighted ? 15 : 14) : (isHighlighted ? 13 : 12));
+                const _pxBig = _isWrap ? (isHighlighted ? 14 : 13) : (isHighlighted ? 12 : 11);
+                const _px = _big ? _pxBig : (_mid ? (isHighlighted ? 12 : 11) : (isHighlighted ? 11 : 10));
                 sdCtx.font = 'bold ' + _px + 'px Outfit';
                 const _pY = _big ? rect.top + 13 : (_mid ? rect.top + 11 : midY - 6);
                 let _pMaxW = ((_big && rect.height >= 58) ? laneDrawLeft - 6 : _iconLeft - 4) - _tx;

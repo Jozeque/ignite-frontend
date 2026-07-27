@@ -42,6 +42,10 @@ public:
     // processor calls this right before tearing the chain down (host setState) — a hosted
     // editor must never outlive its instance, and the 30Hz reconcile is a tick too late.
     void closeAllSynthWindows();
+    // Pin modes: snap the HOST's plugin window to exactly half the screen — "bottom"
+    // (full width × half height, anchored bottom) or "side" (half width × full height,
+    // anchored right). Anything else unpins and restores the pre-pin size.
+    void applyPinMode (const juce::String& mode);
 
 private:
     void timerCallback() override;
@@ -61,6 +65,8 @@ private:
     void pushPrefs();           // native wrapper-prefs.json (favorites…) -> page on boot (localStorage is only a cache)
     void savePrefs (const juce::var& prefs);   // page -> write-through to wrapper-prefs.json (survives profile resets)
     void pushLearnState();      // -> wrapper toolbar Map button
+    void pushKeysState();       // -> wrapper toolbar KEYS pill (MIDI keyswitch on/off)
+    void pushPinState();        // -> title-bar pin buttons (which half-screen mode is active)
     void pushChainDevices();    // -> wrapper device chips (the deliberate per-device remove)
     void handleLicense (const juce::var& msg);   // license gate bridge (load/save/validate)
     void scanPluginsToWeb();    // -> Stride-styled plugin browser (the "+ Add" picker)
@@ -84,6 +90,8 @@ private:
     float lastPhSent = -1.0f; bool lastPhOn = false;   // playhead push change-detect (stopped transport = zero bridge traffic)
     juce::uint32 lastDirtyNotifyMs = 0;                // host setDirty throttle (one notify per 3s max)
     bool sdFullscreen = false; int preFsW = 0, preFsH = 0;   // fullscreen (maximize) toggle — remembers the pre-fullscreen size to restore
+    juce::String pinMode;      // "" = unpinned / "bottom" / "side" (session-only, like fullscreen)
+    int prePinW = 0, prePinH = 0;   // restore size for unpin (kept across pin->pin switches)
    #if JUCE_MAC
     void* lastForwardView = nullptr;       // the NSView WE registered with the key forwarder — the dtor unregisters exactly this (multi-instance safe)
    #endif
