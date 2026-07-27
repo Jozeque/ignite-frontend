@@ -69,7 +69,12 @@ static void (*g_strideNoteSink) (void*, int, int, bool) = nullptr;
 // QWERTY piano state, mirroring Live's semantics: A-row plays, Z/X shift the octave,
 // C/V step the velocity. Per-letter HELD NOTE (not just a flag): an octave shift while a
 // key is down must release the pitch that actually started, or it rings forever.
-static int g_strideOctaveBase = 48;    // Live's default: A = C3
+static int g_strideOctaveBase = 60;    // Live's default: A = C3 — and in LIVE'S labeling C3 IS middle C
+                                       // (MIDI 60). 48 was C3 in the Yamaha convention and played one
+                                       // octave below Live's own piano (field report 2026-07-27). The
+                                       // octave itself stays independent of Live's — Live doesn't expose
+                                       // it, and key-relay is unwinnable (see the header comment) — but
+                                       // matching defaults means both start in unison; Z/X shift ours.
 static int g_strideTypedVel   = 100;
 static std::array<int, 26> g_strideHeldNote = [] { std::array<int, 26> a {}; a.fill (-1); return a; }();
 
