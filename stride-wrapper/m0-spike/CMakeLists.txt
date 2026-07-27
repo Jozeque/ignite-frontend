@@ -47,6 +47,19 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(JUCE)
 
+# Trust, then verify: apply-juce-patch.cmake hard-fails if `git apply` fails, but if the
+# PATCH_COMMAND were ever skipped outright (FetchContent cache quirk, CMake behavior change)
+# the build would silently ship STOCK JUCE — i.e. the Reaktor null-bus crash back in the wild
+# with nothing in the logs. So every configure asserts the marker is present in the populated
+# tree; a missing patch is a hard configure error, never a quiet regression.
+file(READ "${juce_SOURCE_DIR}/modules/juce_audio_processors_headless/format_types/juce_VST3Common.h" _stride_vst3common_src)
+string(FIND "${_stride_vst3common_src}" "STRIDE PATCH" _stride_patch_pos)
+if(_stride_patch_pos EQUAL -1)
+    message(FATAL_ERROR "Stride: the JUCE inactive-bus patch is MISSING from the populated JUCE tree "
+                        "(${juce_SOURCE_DIR}) — refusing to build a binary that would crash on Reaktor-class plugins")
+endif()
+unset(_stride_vst3common_src)
+
 # ---- WebView (M1): reuse Tendril's already-vendored Microsoft WebView2 SDK ----
 set(JUCE_WEBVIEW2_PACKAGE_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/../../tendril/3rdparty/webview2"
     CACHE PATH "Folder containing the Microsoft.Web.WebView2 NuGet package" FORCE)
