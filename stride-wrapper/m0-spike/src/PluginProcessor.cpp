@@ -122,7 +122,7 @@ StrideWrapperProcessor::~StrideWrapperProcessor()
 {
     cancelPendingUpdate();   // no relabel callback can fire into a half-destroyed processor
     const juce::ScopedLock sl (hostLock);
-    for (auto& n : chain) if (n.inst) n.inst->removeListener (this);
+    for (auto& n : chain) if (n.inst) { n.inst->setPlayHead (nullptr); n.inst->removeListener (this); }
     chain.clear();
 }
 
@@ -177,12 +177,14 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     bool transportPlaying = false;
     bool transportRec = false;
     double hostBpm = 120.0;
+    juce::Optional<juce::AudioPlayHead::PositionInfo> hostPos;   // kept whole — forwarded to hosted devices below
     // Read the playhead whenever the host offers one — recording (the mirror gate) and
     // play-state stay host-truth in every mode.
     if (auto* ph = getPlayHead())
     {
         if (auto pos = ph->getPosition())
         {
+            hostPos = pos;
             transportPlaying = pos->getIsPlaying();
             transportRec = pos->getIsRecording();
             if (auto bpm = pos->getBpm()) hostBpm = *bpm;
@@ -212,6 +214,33 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         // deterministic across loops, scrubs and offline renders. Sync (default)
         // never reaches this line: byte-identical to the old behavior.
         beats *= (double) manualBpm.load() / juce::jmax (1.0, hostBpm);
+    }
+
+    // Publish the clock the HOSTED devices see (see ChildPlayHead in the header). Project
+    // sync with a live host position = that position verbatim, so a hosted arp locks to the
+    // DAW exactly. Manual / free-run = the same scaled clock the curves ride, with bpm and
+    // bar-start scaled consistently so beat-synced devices stay musical.
+    {
+        juce::AudioPlayHead::PositionInfo ci;
+        if (hostPos) ci = *hostPos;
+        const bool manual = (tMode == (int) TempoMode::Manual);
+        if (! hostPos || manual || clockFree)
+        {
+            ci.setBpm (manual ? (double) manualBpm.load() : (hostPos ? hostBpm : 120.0));
+            ci.setPpqPosition (beats);
+            if (manual && hostPos && ! clockFree)
+            {
+                if (auto bs = hostPos->getPpqPositionOfLastBarStart())
+                    ci.setPpqPositionOfLastBarStart (*bs * ((double) manualBpm.load() / juce::jmax (1.0, hostBpm)));
+            }
+            else if (! hostPos)
+            {
+                ci.setIsPlaying (transportPlaying);
+                ci.setTimeSignature (juce::AudioPlayHead::TimeSignature{});      // 4/4
+                ci.setPpqPositionOfLastBarStart (std::floor (beats / 4.0) * 4.0);
+            }
+        }
+        childPlayHead.publish (ci);
     }
 
     const juce::ScopedTryLock sl (hostLock);
@@ -438,26 +467,30 @@ void StrideWrapperProcessor::loadPlugin (const juce::File& pluginFile)
     const auto pathStr = pluginFile.getFullPathName();
     formatManager.createPluginInstanceAsync (
         *found[0], currentSampleRate, currentBlockSize,
-        [this, pathStr] (std::unique_ptr<juce::AudioPluginInstance> instance, const juce::String& error)
+        [wr = juce::WeakReference<StrideWrapperProcessor> (this), pathStr]
+        (std::unique_ptr<juce::AudioPluginInstance> instance, const juce::String& error)
         {
+            auto* self = wr.get();
+            if (self == nullptr) return;   // processor deleted while the instance was building
             if (instance == nullptr)
             {
                 DBG ("Stride M0: load failed - " << error);
-                if (onLoadFailed) onLoadFailed (juce::File (pathStr).getFileNameWithoutExtension(), error);
+                if (self->onLoadFailed) self->onLoadFailed (juce::File (pathStr).getFileNameWithoutExtension(), error);
                 return;
             }
 
             configureHostedBuses (*instance);   // main-stereo only — no sidechain/aux (prevents the FabFilter crash)
-            instance->setRateAndBufferSizeDetails (currentSampleRate, currentBlockSize);
-            instance->prepareToPlay (currentSampleRate, currentBlockSize);
-            instance->addListener (this);     // so Map can learn this device's knob moves
+            instance->setPlayHead (&self->childPlayHead);   // hosted arps/sequencers/synced FX follow the project clock
+            instance->setRateAndBufferSizeDetails (self->currentSampleRate, self->currentBlockSize);
+            instance->prepareToPlay (self->currentSampleRate, self->currentBlockSize);
+            instance->addListener (self);     // so Map can learn this device's knob moves
             const auto name = instance->getName();
             {
-                const juce::ScopedLock sl (hostLock);
-                chain.push_back ({ std::move (instance), name, pathStr });   // append to the chain
+                const juce::ScopedLock sl (self->hostLock);
+                self->chain.push_back ({ std::move (instance), name, pathStr });   // append to the chain
             }
-            mapVersion.fetch_add (1);
-            hostDirtyPending.store (true);   // chain changed -> the DAW's project is dirty
+            self->mapVersion.fetch_add (1);
+            self->hostDirtyPending.store (true);   // chain changed -> the DAW's project is dirty
         });
 }
 
@@ -480,7 +513,7 @@ void StrideWrapperProcessor::clearChain()
     }
     lastRemoved.valid = ! lastRemoved.devices.empty();
 
-    for (auto& n : chain) if (n.inst) n.inst->removeListener (this);
+    for (auto& n : chain) if (n.inst) { n.inst->setPlayHead (nullptr); n.inst->removeListener (this); }
     chain.clear();
     mapped.clear();
     driveLanes.clear();
@@ -509,7 +542,7 @@ void StrideWrapperProcessor::removeNode (int index)
     }
     lastRemoved.valid = true;
 
-    if (chain[(size_t) index].inst) chain[(size_t) index].inst->removeListener (this);
+    if (chain[(size_t) index].inst) { chain[(size_t) index].inst->setPlayHead (nullptr); chain[(size_t) index].inst->removeListener (this); }
     chain.erase (chain.begin() + index);
 
     // Drop mapped params on the removed node; shift indices above it down.
@@ -568,58 +601,65 @@ void StrideWrapperProcessor::undoRemove()
     if (devs->empty()) return;
     hostDirtyPending.store (true);   // user-initiated restore (Ctrl+Z) — unlike project load, this IS an edit
 
-    // Restore front-to-back so each device lands back at its captured position.
+    // Restore front-to-back so each device lands back at its captured position. A fresh
+    // generation supersedes any restore still in flight (e.g. a project load racing the undo).
     std::sort (devs->begin(), devs->end(),
                [] (const RemovedSnapshot::Dev& a, const RemovedSnapshot::Dev& b) { return a.position < b.position; });
-    restoreNextDevice (devs, 0);
+    restoreNextDevice (devs, 0, restoreGeneration.fetch_add (1) + 1);
 }
 
 // Re-instantiate one snapshot device, then chain to the next (async completes on the message
 // thread, so restoring sequentially is what keeps the chain order intact).
-void StrideWrapperProcessor::restoreNextDevice (std::shared_ptr<std::vector<RemovedSnapshot::Dev>> devs, size_t i)
+void StrideWrapperProcessor::restoreNextDevice (std::shared_ptr<std::vector<RemovedSnapshot::Dev>> devs, size_t i, int gen)
 {
     if (devs == nullptr || i >= devs->size()) return;
+    if (gen != restoreGeneration.load()) return;   // superseded by a newer setState/undo wave — abandon
     const auto d = (*devs)[i];
 
-    if (d.path.isEmpty()) { restoreNextDevice (devs, i + 1); return; }
+    if (d.path.isEmpty()) { restoreNextDevice (devs, i + 1, gen); return; }
 
     juce::OwnedArray<juce::PluginDescription> found;
     findPluginTypesForFile (formatManager, d.path, found);
-    if (found.isEmpty()) { restoreNextDevice (devs, i + 1); return; }   // skip a missing plugin, keep going
+    if (found.isEmpty()) { restoreNextDevice (devs, i + 1, gen); return; }   // skip a missing plugin, keep going
 
     formatManager.createPluginInstanceAsync (
         *found[0], currentSampleRate, currentBlockSize,
-        [this, devs, i, d] (std::unique_ptr<juce::AudioPluginInstance> inst, const juce::String& err)
+        [wr = juce::WeakReference<StrideWrapperProcessor> (this), devs, i, d, gen]
+        (std::unique_ptr<juce::AudioPluginInstance> inst, const juce::String& err)
         {
+            auto* self = wr.get();
+            if (self == nullptr) return;                          // processor deleted mid-restore (project closed)
+            if (gen != self->restoreGeneration.load()) return;    // superseded — must not insert a stale device
             if (inst != nullptr)
             {
                 configureHostedBuses (*inst);   // main-stereo only — no sidechain/aux (prevents the FabFilter crash)
-                inst->setRateAndBufferSizeDetails (currentSampleRate, currentBlockSize);
+                inst->setPlayHead (&self->childPlayHead);   // hosted arps/sequencers/synced FX follow the project clock
+                inst->setRateAndBufferSizeDetails (self->currentSampleRate, self->currentBlockSize);
                 if (d.state.getSize() > 0) inst->setStateInformation (d.state.getData(), (int) d.state.getSize());
-                inst->prepareToPlay (currentSampleRate, currentBlockSize);
-                inst->addListener (this);
+                inst->prepareToPlay (self->currentSampleRate, self->currentBlockSize);
+                inst->addListener (self);
                 const auto name = inst->getName();
                 {
-                    const juce::ScopedLock sl (hostLock);
-                    const int p = juce::jlimit (0, (int) chain.size(), d.position);
-                    for (auto& m : mapped)     if (m.node >= p) ++m.node;   // make room at p
-                    for (auto& l : driveLanes) if (l.node >= p) ++l.node;
-                    chain.insert (chain.begin() + p, Node { std::move (inst), name, d.path, d.bypassed });
+                    const juce::ScopedLock sl (self->hostLock);
+                    const int p = juce::jlimit (0, (int) self->chain.size(), d.position);
+                    for (auto& m : self->mapped)     if (m.node >= p) ++m.node;   // make room at p
+                    for (auto& l : self->driveLanes) if (l.node >= p) ++l.node;
+                    self->chain.insert (self->chain.begin() + p, Node { std::move (inst), name, d.path, d.bypassed });
                     for (size_t k = 0; k < d.params.size(); ++k)                      // restore this device's lanes (+ their range bands)
-                        mapped.push_back ({ p, d.params[k], k < d.slots.size() ? d.slots[k] : -1,
-                                            k < d.ron.size() && d.ron[k] != 0,
-                                            k < d.rlo.size() ? d.rlo[k] : 0.0f,
-                                            k < d.rhi.size() ? d.rhi[k] : 1.0f,
-                                            k < d.col.size() ? d.col[k] : -1 });
-                    for (auto l : d.lanes) { l.node = p; driveLanes.push_back (l); }  // and their curves
-                    reassignMacros();      // keep restored slots where valid; fill any gaps (old saves had none)
+                        self->mapped.push_back ({ p, d.params[k], k < d.slots.size() ? d.slots[k] : -1,
+                                                  k < d.ron.size() && d.ron[k] != 0,
+                                                  k < d.rlo.size() ? d.rlo[k] : 0.0f,
+                                                  k < d.rhi.size() ? d.rhi[k] : 1.0f,
+                                                  k < d.col.size() ? d.col[k] : -1 });
+                    for (auto l : d.lanes) { l.node = p; self->driveLanes.push_back (l); }  // and their curves
+                    self->reassignMacros();      // keep restored slots where valid; fill any gaps (old saves had none)
                 }
-                mapVersion.fetch_add (1);
-                triggerAsyncUpdate();
+                self->mapVersion.fetch_add (1);
+                self->triggerAsyncUpdate();
             }
             else juce::ignoreUnused (err);
 
-            restoreNextDevice (devs, i + 1);   // next device, in order
+            self->restoreNextDevice (devs, i + 1, gen);   // next device, in order
         });
 }
 
@@ -737,17 +777,14 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
     auto xml = getXmlFromBinary (data, sizeInBytes);
     if (xml == nullptr || ! xml->hasTagName ("STRIDE_WRAP")) return;
 
-    // Tear down whatever is hosted now (this is a load, not an undoable removal).
-    {
-        const juce::ScopedLock sl (hostLock);
-        for (auto& n : chain) if (n.inst) n.inst->removeListener (this);
-        chain.clear(); mapped.clear(); driveLanes.clear();
-        driveClipBeats = xml->getDoubleAttribute ("clipBeats", 16.0);
-        driveMode.store ((DriveMode) xml->getIntAttribute ("driveMode", 0));   // default Live (0) for old projects
-        tempoMode.store (juce::jlimit (0, 1, xml->getIntAttribute ("tempoMode", 0)));   // old projects: sync (byte-identical)
-        manualBpm.store ((float) juce::jlimit (5.0, 999.0, xml->getDoubleAttribute ("manualBpm", 120.0)));
-    }
-    mapVersion.fetch_add (1);
+    // Everything below is parse-only (pure XML, safe on any thread). The actual teardown +
+    // rebuild is marshalled onto the MESSAGE THREAD at the bottom — hosts may call setState
+    // from anywhere (Bitwig restores DAW-undo state off the message thread), and hosted
+    // instances/editors may only be touched on the message thread.
+    const double clipBeats = xml->getDoubleAttribute ("clipBeats", 16.0);
+    const int    newDriveMode = xml->getIntAttribute ("driveMode", 0);   // default Live (0) for old projects
+    const int    newTempoMode = juce::jlimit (0, 1, xml->getIntAttribute ("tempoMode", 0));   // old projects: sync (byte-identical)
+    const double newManualBpm = juce::jlimit (5.0, 999.0, xml->getDoubleAttribute ("manualBpm", 120.0));
 
     // Rebuild the restore list in the SAME shape the undo path consumes, then
     // re-instantiate sequentially (keeps chain order + restores patch/curves).
@@ -766,7 +803,6 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
             devs->push_back (std::move (d));
         }
     }
-    if (devs->empty()) return;
 
     if (auto* mapXml = xml->getChildByName ("MAPPED"))
         for (auto* e : mapXml->getChildIterator())
@@ -794,9 +830,49 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
             (*devs)[(size_t) n].lanes.push_back (l);
         }
 
-    // createPluginInstanceAsync must run on the message thread; hop there in case
-    // a host restores state from a loader thread.
-    juce::MessageManager::callAsync ([this, devs] { restoreNextDevice (devs, 0); });
+    // Teardown + rebuild, exclusively on the MESSAGE THREAD. Order inside `apply` is the
+    // whole fix for the Bitwig Cmd+Z crash (field report 2026-07-26, Serum + Diva):
+    //   1) close the hosted-device windows FIRST — an AudioProcessorEditor (and its GUI
+    //      timers) must never outlive its processor. The old code chain.clear()'d with the
+    //      windows open, and the synth's own CFRunLoop timer fired into the freed instance
+    //      on the very next runloop turn (SIGSEGV inside Serum/Diva, zero Stride frames).
+    //   2) only then delete the instances, on the thread they were built on.
+    // A generation stamp makes rapid setStates (undo-scrubbing) supersede each other
+    // instead of interleaving their async restores into a duplicated chain.
+    const int gen = restoreGeneration.fetch_add (1) + 1;
+    auto apply = [wr = juce::WeakReference<StrideWrapperProcessor> (this), devs, gen,
+                  clipBeats, newDriveMode, newTempoMode, newManualBpm]
+    {
+        auto* self = wr.get();
+        if (self == nullptr) return;                        // processor deleted before the hop landed
+        if (gen != self->restoreGeneration.load()) return;  // a newer state superseded this one
+
+        self->closeHostedEditorsForTeardown();              // editors die BEFORE their instances
+
+        {
+            const juce::ScopedLock sl (self->hostLock);
+            for (auto& n : self->chain) if (n.inst) { n.inst->setPlayHead (nullptr); n.inst->removeListener (self); }
+            self->chain.clear(); self->mapped.clear(); self->driveLanes.clear();
+            self->driveClipBeats = clipBeats;
+            self->driveMode.store ((DriveMode) newDriveMode);
+            self->tempoMode.store (newTempoMode);
+            self->manualBpm.store ((float) newManualBpm);
+        }
+        self->mapVersion.fetch_add (1);
+
+        if (! devs->empty())
+            self->restoreNextDevice (devs, 0, gen);
+    };
+    if (juce::MessageManager::getInstance()->isThisTheMessageThread()) apply();   // Live loads on the message thread — same-timing behavior as before
+    else juce::MessageManager::callAsync (std::move (apply));
+}
+
+// MESSAGE THREAD. Close every hosted-device window before a chain teardown — the active
+// editor owns them (and their AudioProcessorEditors); no editor open = nothing to do.
+void StrideWrapperProcessor::closeHostedEditorsForTeardown()
+{
+    if (auto* ed = dynamic_cast<StrideWrapperEditor*> (getActiveEditor()))
+        ed->closeAllSynthWindows();
 }
 
 // ── Map: learn by touch across the chain ───────────────────────────

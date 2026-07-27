@@ -194,6 +194,30 @@ private:
     juce::AudioPluginFormatManager formatManager;
     juce::CriticalSection hostLock;           // guards chain + mapped + driveLanes
 
+    // The clock HOSTED devices see. JUCE gives a hosted instance NO playhead unless its host
+    // sets one — so every arp/sequencer/synced-LFO/delay inside Stride free-ran at the plugin's
+    // own default tempo, deaf to the project (field report: Bitwig, 2026-07-26). processBlock
+    // publishes the block-accurate clock the engine itself runs on (host-verbatim in Project
+    // sync, the scaled clock in Manual, the free-run clock standalone) and every instance is
+    // wired to it at creation (setPlayHead). Declared BEFORE `chain` so it outlives every
+    // hosted instance during destruction.
+    struct ChildPlayHead : juce::AudioPlayHead
+    {
+        juce::Optional<PositionInfo> getPosition() const override
+        {
+            const juce::SpinLock::ScopedLockType g (lock);
+            return info;
+        }
+        void publish (const PositionInfo& p)
+        {
+            const juce::SpinLock::ScopedLockType g (lock);
+            info = p;
+        }
+        mutable juce::SpinLock lock;              // audio thread writes, plugin GUI threads may read — tiny copy, uncontended
+        juce::Optional<PositionInfo> info;
+    };
+    ChildPlayHead childPlayHead;
+
     struct Node { std::unique_ptr<juce::AudioPluginInstance> inst; juce::String name; juce::String path; bool bypassed = false; };
     std::vector<Node> chain;                  // [0] = instrument, [1..] = effects, in series
 
@@ -272,7 +296,15 @@ private:
         std::vector<Dev> devices;          // 1 for a single ✕, the whole chain for Clear
     };
     RemovedSnapshot lastRemoved;
-    void restoreNextDevice (std::shared_ptr<std::vector<RemovedSnapshot::Dev>> devs, size_t i);  // sequential async restore (keeps order)
+    // Sequential async restore (keeps order). `gen` stamps which restore wave a step belongs
+    // to: any newer setState/undo bumps restoreGeneration, and stale steps see the mismatch
+    // and abandon instead of interleaving their inserts with the new wave's (undo-scrubbing
+    // in Bitwig queues several full restores back-to-back).
+    void restoreNextDevice (std::shared_ptr<std::vector<RemovedSnapshot::Dev>> devs, size_t i, int gen);
+    std::atomic<int> restoreGeneration { 0 };
+    // MESSAGE THREAD. Closes every hosted-device window (destroying their editors) via the
+    // active editor — hosted editors must die BEFORE their instances (see setStateInformation).
+    void closeHostedEditorsForTeardown();
     static float interp (const std::vector<float>& xs, const std::vector<float>& ys, const std::vector<float>& cs, float x);
 
     double currentSampleRate = 44100.0;
@@ -280,5 +312,8 @@ private:
     double freeRunPhase = 0.0;
     juce::AudioBuffer<float> hostWorkBuffer;   // wide scratch for hosted plugins whose main bus is >2ch (prevents the null-channel memset crash)
 
+    // Async work (setState marshal, instance-restore callbacks) holds WeakReferences, never a
+    // raw `this` — a host can delete the processor while a restore is still in flight.
+    JUCE_DECLARE_WEAK_REFERENCEABLE (StrideWrapperProcessor)
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StrideWrapperProcessor)
 };

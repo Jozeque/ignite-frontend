@@ -581,6 +581,16 @@ void StrideWrapperEditor::chooseAndLoad()
     });
 }
 
+// Teardown hook (see PluginEditor.h): hosted editors must die BEFORE their instances.
+// The 30Hz timer's own `n == 0 -> synthWindows.clear()` runs up to a tick (~33ms) AFTER
+// a chain teardown — a hosted GUI timer firing inside that gap reads a freed instance
+// (the Bitwig Cmd+Z crash). This closes them synchronously, ahead of the teardown; the
+// timer's `n > size` branch lazily reopens windows as restored devices land.
+void StrideWrapperEditor::closeAllSynthWindows()
+{
+    synthWindows.clear();
+}
+
 // Open a window for any chain node that doesn't have one yet (keeps existing windows).
 void StrideWrapperEditor::openMissingSynthWindows()
 {

@@ -16,7 +16,7 @@
 #   build-mac/StrideWrapperM0_artefacts/Release/AU/Stride.component   (macOS only — Logic/GarageBand)
 # ============================================================
 cmake_minimum_required(VERSION 3.22)
-project(StrideWrapperM0 VERSION 1.1.11 LANGUAGES C CXX)
+project(StrideWrapperM0 VERSION 1.1.12 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -29,11 +29,21 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(STRIDE_JUCE_TAG "8.0.13" CACHE STRING "JUCE git tag (must be >= the Oct-2025 VST3-host-VST3 fix)")
 
 include(FetchContent)
+# PATCH_COMMAND backs JUCE's inactive-VST3-bus channel pointers with real scratch memory
+# instead of nullptr — NI Reaktor 6 memsets every bus it declares regardless of host-side
+# activation, so the stock nullptrs crash the DAW on the first block after loading it
+# inside Stride (field crash reports, Live/mac, 2026-07-26). The script is idempotent
+# (re-configures are no-ops); it hard-fails the configure if the patch stops applying —
+# re-diff it when bumping STRIDE_JUCE_TAG.
 FetchContent_Declare(
     JUCE
     GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
     GIT_TAG        ${STRIDE_JUCE_TAG}
     GIT_SHALLOW    TRUE
+    PATCH_COMMAND  ${CMAKE_COMMAND}
+                   -DJUCE_SOURCE_DIR=<SOURCE_DIR>
+                   -DPATCH_FILE=${CMAKE_CURRENT_SOURCE_DIR}/ci/juce-vst3-inactive-bus-scratch.patch
+                   -P ${CMAKE_CURRENT_SOURCE_DIR}/ci/apply-juce-patch.cmake
 )
 FetchContent_MakeAvailable(JUCE)
 

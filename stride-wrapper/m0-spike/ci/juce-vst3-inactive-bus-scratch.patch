@@ -1,0 +1,94 @@
+diff --git a/modules/juce_audio_processors_headless/format_types/juce_VST3Common.h b/modules/juce_audio_processors_headless/format_types/juce_VST3Common.h
+index f6d23b6ed..4d77b2f21 100644
+--- a/modules/juce_audio_processors_headless/format_types/juce_VST3Common.h
++++ b/modules/juce_audio_processors_headless/format_types/juce_VST3Common.h
+@@ -1013,18 +1013,36 @@ public:
+             floatBusMap [index].reserve (numChannels);
+             doubleBusMap[index].reserve (numChannels);
+         }
++
++        // STRIDE PATCH (inactive-bus scratch): some plugins — NI Reaktor 6 among them — write
++        // or memset every bus they declare without honouring host-side bus activation and
++        // without null-checking channel pointers, so the stock nullptr handed to inactive
++        // buses is a guaranteed crash (memset(null) on the first block; field reports
++        // 2026-07-26, Reaktor 6.5.0 inside a JUCE host under Live/mac). Point inactive buses
++        // at REAL scratch memory instead: silenceFlags still say "inactive + silent", reads
++        // see silence, and anything written there is simply discarded.
++        maxBusChannels = 0;
++        for (const auto& m : mappings)
++            maxBusChannels = jmax (maxBusChannels, (int) m.size());
++        ensureScratchSize (detail::Tag<float>{},  1024);
++        ensureScratchSize (detail::Tag<double>{}, 1024);
+     }
+ 
+     /*  Applies the mapping to an AudioBuffer using JUCE channel layout. */
+     template <typename FloatType>
+     Steinberg::Vst::AudioBusBuffers* getVst3LayoutForJuceBuffer (AudioBuffer<FloatType>& source)
+     {
++        // STRIDE PATCH: grow the inactive-bus scratch if the host runs bigger blocks than the
++        // prepared default (one allocation, then reused — far better than a null deref).
++        ensureScratchSize (detail::Tag<FloatType>{}, source.getNumSamples());
++
+         int channelIndexOffset = 0;
+ 
+         for (size_t i = 0; i < mappings.size(); ++i)
+         {
+             const auto& mapping = mappings[i];
+-            associateBufferTo (busBuffers[i], get (detail::Tag<FloatType>{})[i], source, mapping, channelIndexOffset);
++            associateBufferTo (busBuffers[i], get (detail::Tag<FloatType>{})[i], source, mapping, channelIndexOffset,
++                               scratch (detail::Tag<FloatType>{}).getArrayOfWritePointers());
+             channelIndexOffset += mapping.isActive() ? (int) mapping.size() : 0;
+         }
+ 
+@@ -1046,7 +1064,8 @@ private:
+                             Bus<FloatType>& bus,
+                             AudioBuffer<FloatType>& buffer,
+                             const ChannelMapping& busMap,
+-                            int channelStartOffset) const
++                            int channelStartOffset,
++                            FloatType* const* inactiveScratch) const
+     {
+         // If this is hit, we may be about to allocate memory. Ideally, this should have been
+         // allocated in prepare().
+@@ -1056,8 +1075,9 @@ private:
+ 
+         for (size_t i = 0; i < busMap.size(); ++i)
+         {
++            // STRIDE PATCH: inactive buses get real scratch channels, never nullptr (see prepare()).
+             bus.push_back (busMap.isActive() ? buffer.getWritePointer (channelStartOffset + busMap.getJuceChannelForVst3Channel ((int) i))
+-                                             : nullptr);
++                                             : inactiveScratch[i]);
+         }
+ 
+         assignRawPointer (vstBuffers, bus.data());
+@@ -1068,9 +1088,30 @@ private:
+     auto& get (detail::Tag<float>)    { return floatBusMap; }
+     auto& get (detail::Tag<double>)   { return doubleBusMap; }
+ 
++    // STRIDE PATCH state: real backing memory for inactive-bus channel pointers (see prepare()).
++    auto& scratch (detail::Tag<float>)  { return scratchFloat; }
++    auto& scratch (detail::Tag<double>) { return scratchDouble; }
++    void ensureScratchSize (detail::Tag<float>  t, int numSamples) { ensureScratchSizeImpl (scratch (t), numSamples); }
++    void ensureScratchSize (detail::Tag<double> t, int numSamples) { ensureScratchSizeImpl (scratch (t), numSamples); }
++
++    template <typename FloatType>
++    void ensureScratchSizeImpl (AudioBuffer<FloatType>& b, int numSamples)
++    {
++        const auto wantSamples = jmax (16, numSamples);
++        if (maxBusChannels > 0 && (b.getNumChannels() < maxBusChannels || b.getNumSamples() < wantSamples))
++        {
++            b.setSize (maxBusChannels, wantSamples, false, true, true);
++            b.clear();
++        }
++    }
++
+     BusMap<float>  floatBusMap;
+     BusMap<double> doubleBusMap;
+ 
++    AudioBuffer<float>  scratchFloat;    // STRIDE PATCH
++    AudioBuffer<double> scratchDouble;   // STRIDE PATCH
++    int maxBusChannels = 0;              // STRIDE PATCH
++
+     std::vector<Steinberg::Vst::AudioBusBuffers> busBuffers;
+     std::vector<ChannelMapping> mappings;
+ };

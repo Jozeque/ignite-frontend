@@ -38,6 +38,10 @@ public:
     // REAL down/up pairs. ALL platforms for the same reason as forwardTransportKey;
     // inside it's Ableton-only — other DAWs treat bare letters as single-key commands.
     void forwardMusicKey (const juce::String& key, bool down);
+    // MESSAGE THREAD. Close every hosted-device window NOW (destroys their editors). The
+    // processor calls this right before tearing the chain down (host setState) — a hosted
+    // editor must never outlive its instance, and the 30Hz reconcile is a tick too late.
+    void closeAllSynthWindows();
 
 private:
     void timerCallback() override;
