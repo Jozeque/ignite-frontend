@@ -48,6 +48,7 @@ jobs:
           # build, so a tester's download can never be mistaken for another version.
           VER="$(sed -n 's/^project(StrideWrapperM0 VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)"
           [ -n "$VER" ] || { echo "version not found in CMakeLists.txt"; exit 1; }
+          echo "STRIDE_VER=$VER" >> "$GITHUB_ENV"
           VST3="$(find build -name 'Stride.vst3' -type d | head -1)"
           [ -n "$VST3" ] || { echo "Stride.vst3 not found"; find build -name '*.vst3'; exit 1; }
           echo "Found: $VST3 (v$VER)"
@@ -56,9 +57,12 @@ jobs:
           7z a -tzip "$GITHUB_WORKSPACE/Stride-VST3-Windows-v$VER.zip" "Stride.vst3" "README.txt" >/dev/null
           echo "Zipped Stride-VST3-Windows-v$VER.zip"
 
+      # The ARTIFACT name carries the version too — GitHub's browser download wraps the
+      # artifact in a zip named after it, so an unversioned artifact name would hand the
+      # user an unversioned file no matter what the zip inside is called.
       - uses: actions/upload-artifact@v4
         with:
-          name: Stride-VST3-Windows
+          name: Stride-VST3-Windows-v${{ env.STRIDE_VER }}
           path: Stride-VST3-Windows-v*.zip
           retention-days: 90
           if-no-files-found: error
@@ -92,9 +96,19 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: bash ci/build-mac-vst3.sh
 
+      - name: Read version for the artifact name
+        working-directory: stride-wrapper/m0-spike
+        shell: bash
+        run: |
+          VER="$(sed -n 's/^project(StrideWrapperM0 VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)"
+          [ -n "$VER" ] || { echo "version not found in CMakeLists.txt"; exit 1; }
+          echo "STRIDE_VER=$VER" >> "$GITHUB_ENV"
+
+      # Versioned artifact name — see the Windows job's note (browser downloads are
+      # named after the ARTIFACT, not the zip inside it).
       - uses: actions/upload-artifact@v4
         with:
-          name: Stride-VST3-Mac
+          name: Stride-VST3-Mac-v${{ env.STRIDE_VER }}
           path: stride-wrapper/m0-spike/dist-mac/*.zip
           retention-days: 90
           if-no-files-found: error
