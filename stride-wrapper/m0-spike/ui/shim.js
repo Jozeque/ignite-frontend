@@ -894,11 +894,46 @@
       });
       paintTempo();
 
+      // ── Run — what makes the motion clock RUN, a 3-state cycle:
+      // TRANSPORT (default): the DAW playhead, as always.
+      // NOTES · RETRIG: MIDI-gated — every note from silence restarts the phrase at bar 1,
+      //   motion moves while notes are held, letting go freezes it. The performance mode.
+      // NOTES · FREE: the first note just STARTS the clock — from then on it keeps running
+      //   at Stride's tempo (project sync or your manual BPM), deaf to further notes.
+      //   Re-select the mode to re-arm it from bar 1. No Play button needed in either.
+      // Engine-owned + project-saved, echoed via rack_scanned like the tempo mode.
+      var _runMode = 0;
+      var runBtn = document.createElement('button');
+      runBtn.title = 'Run mode (click to cycle) — TRANSPORT: follows the DAW playhead. '
+        + 'NOTES RETRIG: every note from silence restarts the phrase; motion runs while notes are held. '
+        + 'NOTES FREE: the first note starts the clock and it keeps running at Stride’s tempo (re-select to restart). No Play needed.';
+      host.appendChild(runBtn);
+      function paintRun() {
+        if (_runMode === 0) {
+          runBtn.className = BTN_BASE + 'text-zinc-400 hover:text-emerald-300 border border-white/10';
+          runBtn.textContent = '▸ transport';
+        } else if (_runMode === 1) {
+          runBtn.className = BTN_BASE + 'text-emerald-300 bg-emerald-500/15 border border-emerald-400/40';
+          runBtn.textContent = '▸ notes retrig';
+        } else {
+          runBtn.className = BTN_BASE + 'text-cyan-300 bg-cyan-500/15 border border-cyan-400/40';
+          runBtn.textContent = '▸ notes free';
+        }
+      }
+      runBtn.onclick = function () {
+        _runMode = (_runMode + 1) % 3;
+        paintRun();
+        try { window.strideLink.send({ type: 'set_run_mode', mode: _runMode }); } catch (e) {}
+      };
+      paintRun();
+
       listen('sl_event', function (msg) {
         if (! msg || msg.type !== 'rack_scanned') return;
         if (typeof msg.tempo_mode !== 'undefined') _tempoMode = msg.tempo_mode | 0;
         if (typeof msg.manual_bpm !== 'undefined' && msg.manual_bpm > 0) _manualBpm = msg.manual_bpm;
+        if (typeof msg.run_mode !== 'undefined') _runMode = msg.run_mode | 0;
         paintTempo();
+        paintRun();
       });
 
       // ── Check for updates — the TITLEBAR button next to Guide (static markup in

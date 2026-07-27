@@ -134,6 +134,22 @@ public:
     int   getTempoMode() const { return tempoMode.load(); }
     float getManualBpm() const { return manualBpm.load(); }
 
+    // ── Run mode: what makes the motion clock RUN ──
+    // Transport (default, byte-identical): the host playhead, exactly as always.
+    // NotesRetrig: MIDI notes GATE the clock — the first note-on from silence retriggers
+    //   the phrase at bar 1, motion runs while any note is held, releasing everything
+    //   freezes the knobs (stopped-transport hold). Every separated stab restarts the
+    //   phrase — the performance instrument.
+    // NotesFree: the first note only STARTS the clock; from then on it free-runs at the
+    //   tempo-mode BPM regardless of notes — no retrigger, no stop (field request
+    //   2026-07-27: "just starting and keep running"). Switching run modes resets the
+    //   clock, so re-selecting the mode is the way to re-arm it.
+    // No Play button needed in either. Keyswitch-octave notes are consumed before the gate
+    // scan, so KEYS composes with both. Tempo always follows the tempo mode.
+    enum class RunMode { Transport = 0, NotesRetrig = 1, NotesFree = 2 };
+    void setRunMode (int mode)  { runMode.store (juce::jlimit (0, 2, mode)); hostDirtyPending.store (true); }
+    int  getRunMode() const     { return runMode.load(); }
+
     // ── live curve drive ──
     struct DriveLane { int position; std::vector<float> times, values, curves; };
     void setDriveCurves (const std::vector<DriveLane>& lanes, double clipBeats);
@@ -300,6 +316,17 @@ private:
     std::atomic<int>          ksBase { 0 };        // bottom note of the switch octave (0 / 12 / 24)
     std::atomic<juce::uint32> ksPendingMask { 0 };
     juce::MidiBuffer          ksScratch;
+
+    // Run-mode state (see RunMode). gateHeld/noteGatePhase are AUDIO THREAD ONLY (the
+    // per-note held set makes double note-ons/orphan note-offs harmless); the two atomics
+    // republish last block's clock to the message thread + the hosted playhead.
+    std::atomic<int>    runMode { 0 };             // 0=Transport (default) / 1=NotesRetrig / 2=NotesFree
+    juce::uint64        gateHeld[2] = { 0, 0 };
+    double              noteGatePhase = 0.0;
+    bool                noteGateLatched = false;   // NotesFree: clock started (audio thread only)
+    int                 lastRunModeSeen = 0;       // audio thread: a mode switch resets the gate state cleanly
+    std::atomic<double> noteGatePhasePub { 0.0 };
+    std::atomic<bool>   noteGateOpenPub { false };
 
     // Typed-note queue (see queueTypedNote). Fixed-size lock-free SPSC: message thread
     // writes, audio thread drains into the instrument's MidiBuffer. typedHeld tracks the

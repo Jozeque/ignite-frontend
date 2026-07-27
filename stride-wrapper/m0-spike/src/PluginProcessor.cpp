@@ -242,6 +242,19 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     // bar-start scaled consistently so beat-synced devices stay musical.
     {
         juce::AudioPlayHead::PositionInfo ci;
+        if (runMode.load() != (int) RunMode::Transport)
+        {
+            // Notes-run (both flavors): hosted devices ride the GATE clock (previous block's
+            // values — one block of latency, inaudible), so their arps run WITH the motion.
+            const double gp = noteGatePhasePub.load();
+            ci.setBpm ((tMode == (int) TempoMode::Manual) ? (double) manualBpm.load() : (hostPos ? hostBpm : 120.0));
+            ci.setPpqPosition (gp);
+            ci.setIsPlaying (noteGateOpenPub.load());
+            ci.setTimeSignature (juce::AudioPlayHead::TimeSignature{});          // 4/4
+            ci.setPpqPositionOfLastBarStart (std::floor (gp / 4.0) * 4.0);
+        }
+        else
+        {
         if (hostPos) ci = *hostPos;
         const bool manual = (tMode == (int) TempoMode::Manual);
         if (! hostPos || manual || clockFree)
@@ -259,6 +272,7 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
                 ci.setTimeSignature (juce::AudioPlayHead::TimeSignature{});      // 4/4
                 ci.setPpqPositionOfLastBarStart (std::floor (beats / 4.0) * 4.0);
             }
+        }
         }
         childPlayHead.publish (ci);
     }
@@ -297,6 +311,96 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
                     ksScratch.addEvent (m, meta.samplePosition);
                 }
                 midi.swapWith (ksScratch);
+            }
+        }
+
+        // Typed QWERTY notes -> the instrument, merged at sample 0 (latency: at most one
+        // block). Drained BEFORE the gate scan below (typed jamming must run the Notes
+        // clock too) and before the chain, so node 0 hears them this block. Moved up from
+        // just-before-the-chain in 1.2.0 — nothing between the old and new spot reads midi.
+        {
+            if (typedFlush.exchange (false))
+                for (int n = 0; n < 128; ++n)
+                    if ((typedHeld[n >> 6] & (1ULL << (n & 63))) != 0)
+                    {
+                        midi.addEvent (juce::MidiMessage::noteOff (1, n), 0);
+                        typedHeld[n >> 6] &= ~(1ULL << (n & 63));
+                    }
+            int s1, n1, s2, n2;
+            typedFifo.prepareToRead (typedFifo.getNumReady(), s1, n1, s2, n2);
+            auto emitTyped = [&] (int start, int num)
+            {
+                for (int i = 0; i < num; ++i)
+                {
+                    const auto& ev = typedEvents[start + i];
+                    if (ev.on)
+                    {
+                        midi.addEvent (juce::MidiMessage::noteOn (1, (int) ev.note, (juce::uint8) ev.vel), 0);
+                        typedHeld[ev.note >> 6] |= (1ULL << (ev.note & 63));
+                    }
+                    else
+                    {
+                        midi.addEvent (juce::MidiMessage::noteOff (1, (int) ev.note), 0);
+                        typedHeld[ev.note >> 6] &= ~(1ULL << (ev.note & 63));
+                    }
+                }
+            };
+            emitTyped (s1, n1);
+            emitTyped (s2, n2);
+            typedFifo.finishedRead (n1 + n2);
+        }
+
+        // ── Notes-run gate (RunMode::NotesRetrig / NotesFree) ────────
+        // Scanned AFTER the keyswitch filter (switch notes must not gate) and AFTER the
+        // typed-note merge (QWERTY jamming gates too).
+        //   RETRIG: first note-on from silence restarts the phrase at 0; any held note runs
+        //           the clock; releasing everything freezes the knobs (transport-hold feel).
+        //   FREE:   the first note only STARTS the clock — from then on it free-runs at the
+        //           tempo-mode BPM, deaf to further notes. Switching run modes re-arms it.
+        {
+            const int rm = runMode.load();
+            if (rm != lastRunModeSeen)   // clean slate on every mode switch (also re-arms FREE)
+            {
+                gateHeld[0] = gateHeld[1] = 0;
+                noteGateLatched = false;
+                noteGatePhase = 0.0;
+                lastRunModeSeen = rm;
+            }
+            if (rm == (int) RunMode::NotesRetrig || rm == (int) RunMode::NotesFree)
+            {
+                for (const auto meta : midi)
+                {
+                    const auto m = meta.getMessage();
+                    if (m.isNoteOn())
+                    {
+                        // RETRIG restarts on EVERY note-from-silence; FREE resets only on the
+                        // very first start (later notes are ignored by the running clock).
+                        const bool fromSilence = (gateHeld[0] | gateHeld[1]) == 0;
+                        if (rm == (int) RunMode::NotesRetrig ? fromSilence : ! noteGateLatched)
+                            noteGatePhase = 0.0;
+                        noteGateLatched = true;
+                        const int n = m.getNoteNumber();
+                        gateHeld[n >> 6] |= (1ULL << (n & 63));
+                    }
+                    else if (m.isNoteOff())
+                    {
+                        const int n = m.getNoteNumber();
+                        gateHeld[n >> 6] &= ~(1ULL << (n & 63));
+                    }
+                    else if (m.isController() && (m.getControllerNumber() == 120 || m.getControllerNumber() == 123))
+                        gateHeld[0] = gateHeld[1] = 0;   // host all-sound/all-notes-off = silence (FREE stays latched)
+                }
+                const bool gateOpen = (rm == (int) RunMode::NotesFree)
+                                        ? noteGateLatched                        // FREE: started once = runs forever
+                                        : (gateHeld[0] | gateHeld[1]) != 0;      // RETRIG: runs while held
+                const double gateBpm = (tMode == (int) TempoMode::Manual) ? (double) manualBpm.load()
+                                                                          : (hostPos ? hostBpm : 120.0);
+                if (gateOpen)
+                    noteGatePhase += (double) buffer.getNumSamples() / currentSampleRate * (gateBpm / 60.0);
+                beats = noteGatePhase;         // the motion clock IS the gate clock now
+                transportPlaying = gateOpen;   // comet runs / demo budget accrues while the clock runs
+                noteGatePhasePub.store (noteGatePhase);
+                noteGateOpenPub.store (gateOpen);
             }
         }
 
@@ -389,40 +493,6 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
                         }
                 }
             }
-        }
-
-        // Typed QWERTY notes -> the instrument, merged at sample 0 (latency: at most one
-        // block). Drained here, BEFORE the chain runs, so node 0 hears them this block.
-        {
-            if (typedFlush.exchange (false))
-                for (int n = 0; n < 128; ++n)
-                    if ((typedHeld[n >> 6] & (1ULL << (n & 63))) != 0)
-                    {
-                        midi.addEvent (juce::MidiMessage::noteOff (1, n), 0);
-                        typedHeld[n >> 6] &= ~(1ULL << (n & 63));
-                    }
-            int s1, n1, s2, n2;
-            typedFifo.prepareToRead (typedFifo.getNumReady(), s1, n1, s2, n2);
-            auto emitTyped = [&] (int start, int num)
-            {
-                for (int i = 0; i < num; ++i)
-                {
-                    const auto& ev = typedEvents[start + i];
-                    if (ev.on)
-                    {
-                        midi.addEvent (juce::MidiMessage::noteOn (1, (int) ev.note, (juce::uint8) ev.vel), 0);
-                        typedHeld[ev.note >> 6] |= (1ULL << (ev.note & 63));
-                    }
-                    else
-                    {
-                        midi.addEvent (juce::MidiMessage::noteOff (1, (int) ev.note), 0);
-                        typedHeld[ev.note >> 6] &= ~(1ULL << (ev.note & 63));
-                    }
-                }
-            };
-            emitTyped (s1, n1);
-            emitTyped (s2, n2);
-            typedFifo.finishedRead (n1 + n2);
         }
 
         // Run the chain in series: node 0 is the instrument (gets the MIDI), the rest
@@ -794,6 +864,7 @@ void StrideWrapperProcessor::getStateInformation (juce::MemoryBlock& dest)
     root.setAttribute ("manualBpm", (double) manualBpm.load());
     root.setAttribute ("keysOn", ksEnabled.load() ? 1 : 0);             // MIDI keyswitches (attr-based: old builds/projects ignore it)
     root.setAttribute ("keysBase", ksBase.load());                      // switch-octave bottom note (0=C-2 / 12=C-1 / 24=C0)
+    root.setAttribute ("runMode", runMode.load());                      // 0=Transport (default) / 1=Notes (MIDI-gated clock)
 
     auto* chainXml = root.createNewChildElement ("CHAIN");
     for (int i = 0; i < (int) chain.size(); ++i)
@@ -849,6 +920,7 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
     const double newManualBpm = juce::jlimit (5.0, 999.0, xml->getDoubleAttribute ("manualBpm", 120.0));
     const bool   newKeysOn    = xml->getIntAttribute ("keysOn", 0) != 0; // old projects: keyswitches off
     const int    newKeysBase  = xml->getIntAttribute ("keysBase", 0);    // old projects: bottom octave (setter clamps)
+    const int    newRunMode   = xml->getIntAttribute ("runMode", 0);     // old projects: transport-run (byte-identical)
 
     // Rebuild the restore list in the SAME shape the undo path consumes, then
     // re-instantiate sequentially (keeps chain order + restores patch/curves).
@@ -905,7 +977,7 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
     // instead of interleaving their async restores into a duplicated chain.
     const int gen = restoreGeneration.fetch_add (1) + 1;
     auto apply = [wr = juce::WeakReference<StrideWrapperProcessor> (this), devs, gen,
-                  clipBeats, newDriveMode, newTempoMode, newManualBpm, newKeysOn, newKeysBase]
+                  clipBeats, newDriveMode, newTempoMode, newManualBpm, newKeysOn, newKeysBase, newRunMode]
     {
         auto* self = wr.get();
         if (self == nullptr) return;                        // processor deleted before the hop landed
@@ -923,6 +995,7 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
             self->manualBpm.store ((float) newManualBpm);
             self->ksEnabled.store (newKeysOn);
             self->ksBase.store (newKeysBase == 12 || newKeysBase == 24 ? newKeysBase : 0);
+            self->runMode.store (juce::jlimit (0, 2, newRunMode));
         }
         self->mapVersion.fetch_add (1);
 

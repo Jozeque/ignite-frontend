@@ -667,6 +667,15 @@ void StrideWrapperEditor::handleStrideLinkSend (const juce::var& msg)
         return;
     }
 
+    // Run mode: Transport (default) / Notes — MIDI input gates the motion clock
+    // (engine-owned + project-persistent, same story as the tempo mode).
+    if (type == "set_run_mode")
+    {
+        if (proc.isEditLocked()) return;
+        proc.setRunMode ((int) msg.getProperty ("mode", 0));
+        return;
+    }
+
     // Range-for-Group: one batched band edit for every selected lane (one lock pass, atomic).
     if (type == "set_ranges")
     {
@@ -813,6 +822,7 @@ void StrideWrapperEditor::pushRackScanned()
     msg->setProperty ("macro_pool", StrideWrapperProcessor::kMacroCount);
     msg->setProperty ("tempo_mode", proc.getTempoMode());                 // 0=Project / 1=Manual / 2=Free (bar UI rebuilds from here)
     msg->setProperty ("manual_bpm", (double) proc.getManualBpm());
+    msg->setProperty ("run_mode", proc.getRunMode());                     // 0=Transport / 1=Notes (the run pill rebuilds from here)
     web->emitEventIfBrowserIsVisible ("sl_event", juce::var (msg));
 }
 
