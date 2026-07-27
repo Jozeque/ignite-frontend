@@ -454,10 +454,18 @@
     window.sdSetBarsAndPush = function(n) { window.sdSetBars(n, true); try { saveCanvasState(); } catch (e) {} };
 
     // Resolve which bar count to use when the system (scan / clip_changed)
-    // wants to set bars. The user's sticky preference always wins; the
-    // Ableton-clip value is only a fallback for first-time users who never
-    // picked a bar pill.
+    // wants to set bars.
+    // WRAPPER: the ENGINE is the single source of truth for the loop length —
+    // its clip_bars echo ALWAYS wins, exactly like ranges and colors. A sticky
+    // localStorage preference overriding the engine is a split-brain generator:
+    // stale/reset WebView storage snaps the canvas to old bars while the engine
+    // keeps playing the real loop (field report 2026-07-27: 32-bar lanes
+    // "became 4 bars" after adding a device — 4 is both this resolver's fallback
+    // and the engine default, so every desync lands there).
+    // DESKTOP: unchanged — "system" is the Ableton clip value, and the user's
+    // sticky pill choice keeps winning over it as designed.
     function _sdResolveSystemBars(systemVal) {
+        if (window.strideLink && window.strideLink._wrapper) return systemVal;   // engine-owned in the wrapper
         if (_sdStickyBars && SD_VALID_BARS.includes(_sdStickyBars)) return _sdStickyBars;
         return systemVal;
     }
