@@ -168,7 +168,14 @@
   // tells us on boot. In any other host we leave the letters completely alone: we give
   // them no note behavior there, so swallowing 20 keys would be pure loss.
   var _noteKeysReserved = false;
-  listen('hostInfo', function (d) { _noteKeysReserved = !!(d && d.ableton); });
+  listen('hostInfo', function (d) {
+    _noteKeysReserved = !!(d && d.ableton);
+    // Show the COMPILED-IN version in the title bar — the running build identifies itself.
+    try {
+      var vEl = document.getElementById('sd-version');
+      if (vEl && d && d.ver) vEl.textContent = 'v' + String(d.ver);
+    } catch (e) {}
+  });
   // macOS NEVER swallows a note key in the page. Native takes them ahead of the WebView,
   // so if one still reaches us it means native deliberately stood down — and swallowing it
   // then is fatal: preventDefault tells WebKit the page handled the key, which suppresses

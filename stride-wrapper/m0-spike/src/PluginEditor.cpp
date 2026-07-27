@@ -850,6 +850,12 @@ void StrideWrapperEditor::pushHostInfo()
     if (web == nullptr) return;
     auto* o = new juce::DynamicObject();
     o->setProperty ("ableton", juce::PluginHostType().isAbletonLive());
+    // The COMPILED-IN version, shown in the title bar — testers/support read the running
+    // build off the UI instead of guessing from zip names (version mismatches cost a full
+    // debugging round twice: Matt on 1.0.4, the mac Audio-In confusion).
+   #ifdef JucePlugin_VersionString
+    o->setProperty ("ver", JucePlugin_VersionString);
+   #endif
     web->emitEventIfBrowserIsVisible ("hostInfo", juce::var (o));
 }
 

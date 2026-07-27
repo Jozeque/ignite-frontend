@@ -44,18 +44,22 @@ jobs:
         working-directory: stride-wrapper/m0-spike
         shell: bash
         run: |
+          # Bake the CMake project version into the zip name — the file identifies its
+          # build, so a tester's download can never be mistaken for another version.
+          VER="$(sed -n 's/^project(StrideWrapperM0 VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)"
+          [ -n "$VER" ] || { echo "version not found in CMakeLists.txt"; exit 1; }
           VST3="$(find build -name 'Stride.vst3' -type d | head -1)"
           [ -n "$VST3" ] || { echo "Stride.vst3 not found"; find build -name '*.vst3'; exit 1; }
-          echo "Found: $VST3"
+          echo "Found: $VST3 (v$VER)"
           cd "$(dirname "$VST3")"
           cp "$GITHUB_WORKSPACE/stride-wrapper/m0-spike/ci/README.txt" .
-          7z a -tzip "$GITHUB_WORKSPACE/Stride-VST3-Windows.zip" "Stride.vst3" "README.txt" >/dev/null
-          echo "Zipped Stride-VST3-Windows.zip"
+          7z a -tzip "$GITHUB_WORKSPACE/Stride-VST3-Windows-v$VER.zip" "Stride.vst3" "README.txt" >/dev/null
+          echo "Zipped Stride-VST3-Windows-v$VER.zip"
 
       - uses: actions/upload-artifact@v4
         with:
           name: Stride-VST3-Windows
-          path: Stride-VST3-Windows.zip
+          path: Stride-VST3-Windows-v*.zip
           retention-days: 90
           if-no-files-found: error
 

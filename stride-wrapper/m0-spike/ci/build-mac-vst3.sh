@@ -129,9 +129,13 @@ ditto "$AU"   "$DIST/Stride/Stride.component"
 cp "$CI_DIR/README.txt" "$DIST/Stride/README.txt"
 xcrun stapler validate "$DIST/Stride/Stride.vst3"      || { echo "❌ staple lost after copy (vst3)"; exit 1; }
 xcrun stapler validate "$DIST/Stride/Stride.component" || { echo "❌ staple lost after copy (component)"; exit 1; }
-ditto -c -k --keepParent "$DIST/Stride" "$DIST/Stride-VST3-Mac.zip"
+# Bake the CMake project version into the zip name — the file identifies its build,
+# so a tester's download can never be mistaken for another version.
+VER="$(sed -n 's/^project(StrideWrapperM0 VERSION \([0-9.]*\).*/\1/p' "$SCRIPT_DIR/CMakeLists.txt")"
+[ -n "$VER" ] || { echo "❌ version not found in CMakeLists.txt"; exit 1; }
+ditto -c -k --keepParent "$DIST/Stride" "$DIST/Stride-VST3-Mac-v$VER.zip"
 echo ""
-echo "✅ DONE: $DIST/Stride-VST3-Mac.zip ($(du -h "$DIST/Stride-VST3-Mac.zip" | cut -f1))"
+echo "✅ DONE: $DIST/Stride-VST3-Mac-v$VER.zip ($(du -h "$DIST/Stride-VST3-Mac-v$VER.zip" | cut -f1))"
 echo "   Universal, Developer ID signed, notarized + stapled, auval-validated."
 echo "   Install: unzip → Stride.vst3 to /Library/Audio/Plug-Ins/VST3"
 echo "            unzip → Stride.component to /Library/Audio/Plug-Ins/Components (Logic/GarageBand)"
