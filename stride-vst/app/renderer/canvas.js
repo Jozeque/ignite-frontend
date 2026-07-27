@@ -330,14 +330,21 @@
     const MAX_UNDO = 50;
 
     let _sdDirty = false;   // un-injected curve changes exist; drives the "INJECT TO CLIP" shout in the StrideQuick device status
+    // One undo entry = points + lane color per lane. colorIdx lives OUTSIDE `points`
+    // (motion tools never touch it), so it must be snapshotted explicitly — painting a
+    // group then Ctrl+Z restored nothing before 1.1.12 (field report 2026-07-27).
+    function _sdUndoSnapshot() {
+        return sdCanvasParams.map(p => ({
+            envelopeId: p.envelopeId,
+            points: p.points.map(pt => ({ time: pt.time, value: pt.value, curve: pt.curve || 0 })),
+            colorIdx: (typeof p.colorIdx === 'number' ? p.colorIdx : -1)
+        }));
+    }
+
     function pushUndo() {
         _sdDirty = true;    // any curve edit makes the clip stale until the next inject
         _sdCurveEpoch++;    // mark a fresh edit so an in-flight restoreCanvasState won't clobber it
-        const snapshot = sdCanvasParams.map(p => ({
-            envelopeId: p.envelopeId,
-            points: p.points.map(pt => ({ time: pt.time, value: pt.value, curve: pt.curve || 0 }))
-        }));
-        undoStack.push(snapshot);
+        undoStack.push(_sdUndoSnapshot());
         if (undoStack.length > MAX_UNDO) undoStack.shift();
         redoStack = []; // clear redo on new action
     }
@@ -345,31 +352,33 @@
     function applySnapshot(snapshot) {
         snapshot.forEach(sp => {
             const param = sdCanvasParams.find(p => p.envelopeId === sp.envelopeId);
-            if (param) param.points = sp.points.map(pt => ({ ...pt }));
+            if (!param) return;
+            param.points = sp.points.map(pt => ({ ...pt }));
+            // Restore the lane color too — and TELL THE ENGINE. Colors are engine-owned on
+            // the wrapper (like ranges): a canvas-only restore would be re-painted by the
+            // next rack_scanned echo and persisted wrong into the project. Old snapshots
+            // (pre-color builds) carry no colorIdx — leave those lanes untouched.
+            if (typeof sp.colorIdx === 'number') {
+                const cur = (typeof param.colorIdx === 'number' ? param.colorIdx : -1);
+                if (cur !== sp.colorIdx) {
+                    param.colorIdx = sp.colorIdx;
+                    _sdPushColorToEngine(param);
+                }
+            }
         });
         sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
     }
 
     window.sdUndo = function() {
         if (!undoStack.length) return;
-        // Save current state to redo
-        const current = sdCanvasParams.map(p => ({
-            envelopeId: p.envelopeId,
-            points: p.points.map(pt => ({ time: pt.time, value: pt.value, curve: pt.curve || 0 }))
-        }));
-        redoStack.push(current);
+        redoStack.push(_sdUndoSnapshot());   // save current state to redo
         applySnapshot(undoStack.pop());
         document.getElementById('sd-canvas-status').textContent = 'Undo';
     };
 
     window.sdRedo = function() {
         if (!redoStack.length) return;
-        // Save current state to undo
-        const current = sdCanvasParams.map(p => ({
-            envelopeId: p.envelopeId,
-            points: p.points.map(pt => ({ time: pt.time, value: pt.value, curve: pt.curve || 0 }))
-        }));
-        undoStack.push(current);
+        undoStack.push(_sdUndoSnapshot());   // save current state to undo
         applySnapshot(redoStack.pop());
         document.getElementById('sd-canvas-status').textContent = 'Redo';
     };
