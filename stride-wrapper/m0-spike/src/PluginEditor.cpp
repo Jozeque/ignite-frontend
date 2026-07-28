@@ -624,7 +624,13 @@ void StrideWrapperEditor::toggleSynthWindow()
     // got minimized or buried). We never auto-hide — devices stay stacked.
     openMissingSynthWindows();
     for (auto& w : synthWindows)
-        if (w) { w->setVisible (true); w->setMinimised (false); w->toFront (false); }
+        if (w)
+        {
+           #if JUCE_MAC
+            if (auto* pr = w->getPeer()) strideMacKeyForward_tagWindow (pr->getNativeHandle());   // idempotent; rescues native-fullscreen strays
+           #endif
+            w->setVisible (true); w->setMinimised (false); w->toFront (false);
+        }
 }
 
 // Open / raise JUST ONE device's window (the per-chip ⛶) — for picking a single
@@ -645,7 +651,15 @@ void StrideWrapperEditor::openOneSynthWindow (int i)
             if (auto* pr = synthWindows[(size_t) i]->getPeer()) strideMacKeyForward_tagWindow (pr->getNativeHandle());
            #endif
         }
-    if (synthWindows[(size_t) i]) { synthWindows[(size_t) i]->setVisible (true); synthWindows[(size_t) i]->setMinimised (false); synthWindows[(size_t) i]->toFront (true); }
+    if (synthWindows[(size_t) i])
+    {
+       #if JUCE_MAC
+        // Idempotent re-tag: also rescues a window a previous session stranded in native
+        // fullscreen (its own Space = "opens fullscreen behind Stride", mac 2026-07-28).
+        if (auto* pr = synthWindows[(size_t) i]->getPeer()) strideMacKeyForward_tagWindow (pr->getNativeHandle());
+       #endif
+        synthWindows[(size_t) i]->setVisible (true); synthWindows[(size_t) i]->setMinimised (false); synthWindows[(size_t) i]->toFront (true);
+    }
 }
 
 void StrideWrapperEditor::handleStrideLinkSend (const juce::var& msg)

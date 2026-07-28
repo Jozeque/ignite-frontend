@@ -241,6 +241,19 @@ void strideMacKeyForward_tagWindow (void* nsview)
     if (! [[w identifier] isEqualToString: @"StrideHostedSynth"])
         w.identifier = @"StrideHostedSynth";
 
+    // NEVER native macOS fullscreen. A hosted window uses the native title bar, so its
+    // green button would enter Space-fullscreen — the window moves to ITS OWN Space,
+    // where alwaysOnTop can't float it over the DAW, and from then on every reopen
+    // brings it back "fullscreen behind Stride" (field report, mac 2026-07-28). With
+    // FullScreenNone the green button ZOOMS on the same Space instead — big, visible,
+    // still floating, still closable.
+    w.collectionBehavior = (w.collectionBehavior & ~(NSWindowCollectionBehaviorFullScreenPrimary))
+                           | NSWindowCollectionBehaviorFullScreenNone;
+    // If this window is ALREADY stranded in native fullscreen (a session that entered it
+    // before this build), pull it back out so it rejoins the DAW's Space.
+    if (([w styleMask] & NSWindowStyleMaskFullScreen) != 0)
+        [w toggleFullScreen: nil];
+
     // Shown before we get here, so it may ALREADY hold main — the notification for that
     // has been and gone. One catch-up, on the tagging call only (never on a timer).
     if (! g_strideSuppressed && [w isMainWindow])
