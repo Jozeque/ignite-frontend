@@ -666,11 +666,13 @@
       }
       sbtn('+ Add', 'browsePlugins', BTN_PRIMARY);      // opens the Stride-styled plugin browser
       var mapBtn = sbtn('◉ Map', 'toggleLearn', BTN_MAP);
+      var unmapBtn = sbtn('⊘ Unmap', 'toggleUnlearn', BTN_UNMAP); unmapBtn.title = 'Arm Unmap, then touch a mapped knob in the synth to remove it from the canvas';
 
-      // ── KEYS: MIDI keyswitches (the "playful" octave) ──────────────
+      // ── KEYSWITCH MODE: MIDI keyswitches (the "playful" octave) ────
       // An opt-in performance MODE, never a default: the pill toggles it, the ▾ picks which
-      // octave is the switch zone. State is ENGINE-owned (persists with the project); the
-      // pill just mirrors keysState {on, base}.
+      // octave is the switch zone. Sits AFTER the Map/Unmap pair (field request 2026-07-28:
+      // the mapping pair stays adjacent). State is ENGINE-owned (persists with the project);
+      // the pill just mirrors keysState {on, base}.
       var _keysOn = false, _keysBase = 0;
       var KS_NAMES = ['Chaos', 'Neuro', 'Reflector', 'S&H', 'Prism', 'Bloom', 'Mutate', 'Shuffle'];
       var KS_SEMIS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G'];
@@ -684,7 +686,7 @@
       }
       var keysWrap = document.createElement('div'); keysWrap.className = 'relative flex items-center'; host.appendChild(keysWrap);
       var keysBtn = document.createElement('button');
-      keysBtn.textContent = '🎹 Keys';
+      keysBtn.textContent = 'Keyswitch Mode';
       keysBtn.className = BTN_GHOST;
       function _paintKeysBtn() {
         keysBtn.className = _keysOn
@@ -752,7 +754,6 @@
           if (st) st.textContent = '🎹 ' + fired.join(' + ');
         }
       });
-      var unmapBtn = sbtn('⊘ Unmap', 'toggleUnlearn', BTN_UNMAP); unmapBtn.title = 'Arm Unmap, then touch a mapped knob in the synth to remove it from the canvas';
       var openBtn = sbtn('⛶', 'openSynth', BTN_GHOST); openBtn.title = 'Open device windows'; openBtn.classList.add('text-[12px]');
       var clearBtn = sbtn('Clear', 'clearChain', BTN_GHOST);
       clearBtn.onclick = function () { emit('clearChain'); _armUndo(null, 'Chain cleared · Ctrl+Z to undo'); };
