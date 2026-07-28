@@ -175,6 +175,15 @@
       var vEl = document.getElementById('sd-version');
       if (vEl && d && d.ver) vEl.textContent = 'v' + String(d.ver);
     } catch (e) {}
+    // Pins are hidden on mac until the window-move math is mac-tester-validated
+    // (untested Y-flip; prime suspect in the 2026-07-28 window-chaos report).
+    try {
+      if (d && d.mac) {
+        var pb = document.getElementById('sd-pin-bottom-btn'), ps = document.getElementById('sd-pin-side-btn');
+        if (pb) pb.style.display = 'none';
+        if (ps) ps.style.display = 'none';
+      }
+    } catch (e) {}
   });
   // macOS NEVER swallows a note key in the page. Native takes them ahead of the WebView,
   // so if one still reaches us it means native deliberately stood down — and swallowing it

@@ -238,21 +238,12 @@ void strideMacKeyForward_tagWindow (void* nsview)
     // The tag does three jobs: transport keys forward from a window carrying it, the
     // guard above hands main back whenever one takes main, and note keys on it are
     // consumed + injected.
+    // NOTE (2026-07-28): this hook is deliberately 1:1 with the 1.1.10 behavior the mac
+    // testers validated. A collectionBehavior/toggleFullScreen "fix" briefly lived here
+    // (1.2.3) and made things WORSE (oversized windows with the title bar off-screen =
+    // undraggable). Do not add window-management side effects to the tag.
     if (! [[w identifier] isEqualToString: @"StrideHostedSynth"])
         w.identifier = @"StrideHostedSynth";
-
-    // NEVER native macOS fullscreen. A hosted window uses the native title bar, so its
-    // green button would enter Space-fullscreen — the window moves to ITS OWN Space,
-    // where alwaysOnTop can't float it over the DAW, and from then on every reopen
-    // brings it back "fullscreen behind Stride" (field report, mac 2026-07-28). With
-    // FullScreenNone the green button ZOOMS on the same Space instead — big, visible,
-    // still floating, still closable.
-    w.collectionBehavior = (w.collectionBehavior & ~(NSWindowCollectionBehaviorFullScreenPrimary))
-                           | NSWindowCollectionBehaviorFullScreenNone;
-    // If this window is ALREADY stranded in native fullscreen (a session that entered it
-    // before this build), pull it back out so it rejoins the DAW's Space.
-    if (([w styleMask] & NSWindowStyleMaskFullScreen) != 0)
-        [w toggleFullScreen: nil];
 
     // Shown before we get here, so it may ALREADY hold main — the notification for that
     // has been and gone. One catch-up, on the tagging call only (never on a timer).
