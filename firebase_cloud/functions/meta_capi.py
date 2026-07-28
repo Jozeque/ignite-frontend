@@ -28,6 +28,13 @@ import uuid
 META_PIXEL_ID = "952457524222772"
 META_CAPI_VERSION = "v18.0"
 
+# "Stride - Purchasers (CRM)" customer-list audience. Every paid order adds the
+# buyer's hashed email here from the webhook, so ad sets excluding this list
+# stop showing ads to customers automatically — no more manual re-uploads
+# (the list had gone 3 weeks stale before the 2026-07-28 refresh, which meant
+# summer-sale ads would have been shown to people who just paid full price).
+META_BUYERS_AUDIENCE_ID = "120252721670600440"
+
 
 def _hash_pii(value):
     """SHA256 of trimmed + lowercased value. Meta requires PII fields
@@ -274,6 +281,51 @@ def _fire_meta_lead_capi(user_data, event_id):
         return ok
     except Exception as e:
         print(f"[Meta CAPI Lead] POST failed: {e}")
+        return False
+
+
+def _add_buyer_to_meta_exclusion(email):
+    """Add a buyer's hashed email to the 'Stride - Purchasers (CRM)' customer
+    list (META_BUYERS_AUDIENCE_ID) so purchaser-excluding ad sets stop serving
+    them ads. Fired from the LS order_created webhook for every PAID order
+    (never demos — demo users are prime retargeting prospects, not customers).
+
+    Uses META_ACCESS_TOKEN (the Marketing-API token the ad_dashboard action
+    already holds as a secret) — audience writes need ads_management, which the
+    CAPI token doesn't carry. Additive only; the email is SHA256-hashed locally
+    and users stay on the list indefinitely. Best-effort: never raises, the
+    webhook must 200 for LS regardless."""
+    token = os.environ.get("META_ACCESS_TOKEN") or ""
+    hashed = _hash_pii(email)
+    if not token or not hashed:
+        if not token:
+            print("[Meta Audience] META_ACCESS_TOKEN not set — skipping buyer exclusion add")
+        return False
+    try:
+        body = urllib.parse.urlencode({
+            "payload": json.dumps({"schema": ["EMAIL"], "data": [[hashed]]}),
+            "access_token": token,
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            f"https://graph.facebook.com/{META_CAPI_VERSION}/{META_BUYERS_AUDIENCE_ID}/users",
+            data=body,
+            headers={"Content-Type": "application/x-www-form-urlencoded", "User-Agent": "Stride-Backend/1.0"},
+        )
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            status = resp.getcode()
+            rbody = resp.read().decode("utf-8", "replace")
+        ok = 200 <= status < 300
+        recvd = "?"
+        try:
+            recvd = json.loads(rbody).get("num_received", "?")
+        except Exception:
+            pass
+        print(f"[Meta Audience] buyer exclusion add status={status} num_received={recvd}")
+        return ok
+    except Exception as e:
+        # A permission error here means META_ACCESS_TOKEN lacks ads_management —
+        # refresh the secret with the Marketing-API token and redeploy.
+        print(f"[Meta Audience] buyer exclusion add failed: {e}")
         return False
 
 

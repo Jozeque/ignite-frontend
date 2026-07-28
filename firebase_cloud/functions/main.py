@@ -429,7 +429,7 @@ def safe_int(val, default=0):
 # Meta Conversions API (Phase 3 of docs/meta-pixel-integration-spec.md).
 # Pure helpers live in meta_capi.py for testability — they don't need
 # firebase_admin or the Flask request context.
-from meta_capi import _fire_meta_purchase_capi, _fire_meta_pageview_capi, _fire_meta_initiatecheckout_capi, _fire_meta_lead_capi
+from meta_capi import _fire_meta_purchase_capi, _fire_meta_pageview_capi, _fire_meta_initiatecheckout_capi, _fire_meta_lead_capi, _add_buyer_to_meta_exclusion
 
 
 def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
@@ -711,6 +711,11 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
                         },
                         capi_event_id,
                     )
+                    # Every paid buyer joins the 'Stride - Purchasers (CRM)'
+                    # exclusion audience automatically — purchaser-excluding ad
+                    # sets stop serving them without manual list re-uploads.
+                    # Demos deliberately stay OUT (they're retargeting targets).
+                    _add_buyer_to_meta_exclusion(email)
             except Exception as ce:
                 print(f"[Meta CAPI] integration error: {ce}")
 
