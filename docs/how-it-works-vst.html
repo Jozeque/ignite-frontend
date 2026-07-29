@@ -279,7 +279,8 @@
   <!-- ── header ─────────────────────────────────────────────────────── -->
   <div class="head">
     <h2>How <span class="brand">Stride VST</span> Works</h2>
-    <p><b>Click anything on the plugin</b> and see exactly what it does. It's fully interactive.</p>
+    <p style="color:var(--ink);font-weight:600;max-width:36em;margin:0 auto 10px">Build your dream chain in one place, modulate everything you map at once, and get endless unique variations in a few clicks.</p>
+    <p style="font-size:clamp(14px,2vw,18px)"><b>Click anything on the plugin</b> and see exactly what it does. Fully interactive, exactly like the real window.</p>
   </div>
 
   <!-- ── prerequisite note: add your devices, then map by touch ─────────── -->
@@ -294,11 +295,15 @@
       <ol class="prereq-steps">
         <li>
           <span class="ps-ico ps-add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg></span>
-          <div><b>Add your devices.</b> Pick a synth and effects from your favorites — Stride hosts the whole chain inside itself.</div>
+          <div><b>Add your devices.</b> Pick a synth and effects from your favorites: Stride hosts the whole chain inside itself.</div>
         </li>
         <li>
           <span class="ps-ico ps-map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/></svg></span>
           <div><b>Map by touch.</b> Arm Map, then click the knobs on the synth you want to move. Each one drops onto the canvas as a lane.</div>
+        </li>
+        <li>
+          <span class="ps-ico ps-add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12c2-5 4-5 6 0s4 5 6 0 4-5 6 0"/></svg></span>
+          <div><b>Or route audio in.</b> New in 1.2: send a guitar, vocal, or hardware track into Stride, build an FX chain, and everything you map moves while you play.</div>
         </li>
       </ol>
       <span class="prereq-foot">Do this once, then press any button below.</span>
@@ -316,6 +321,7 @@
         <div class="dv-title">
           <span class="dv-logo">STRIDE</span>
           <span class="vst-chip">VST</span>
+          <span class="vst-chip" style="opacity:.75">1.2</span>
           <span class="tb-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>Compact</span>
           <span class="spacer"></span>
           <span class="tb-item tb-item--active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg>Patch</span>
@@ -337,6 +343,9 @@
             </button>
             <button class="cb-btn cb-violet ctl" data-tool="map">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/></svg>Map
+            </button>
+            <button class="cb-btn ctl" data-tool="unmap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M8.5 12h7"/></svg>Unmap
             </button>
             <button class="cb-btn cb-btn--ico ctl" data-tool="opensynth" aria-label="Open the synth">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
@@ -366,6 +375,8 @@
             <button class="tb tb-teal ctl" data-tool="half">½x</button>
             <button class="tb tb-sage ctl" data-tool="mutate">Mutate</button>
             <button class="tb tb-violet ctl" data-tool="shuffle">Shuffle</button>
+            <button class="tb tb-gold ctl" data-tool="keys">Keys ▾</button>
+            <button class="tb tb-sage ctl" data-tool="runmode">▸ Notes</button>
             <span class="tb-div"></span>
             <button class="tb ctl" data-tool="shapes" data-shape="sine">Sine</button>
             <button class="tb ctl" data-tool="shapes" data-shape="pump">Pump</button>
@@ -458,7 +469,7 @@
             <button class="vsl ctl" data-tool="ceiling"><span class="vsl-n">Ceiling</span><span class="vsl-t"><span class="vsl-k" style="left:88%;background:var(--gold)"></span></span></button>
             <span class="cb-spacer"></span>
             <button class="vst-transport ctl" data-tool="live" aria-label="Plays live, in time"><span class="tp-play">▶</span><span class="tp-bar"><span class="tp-head"></span></span></button>
-            <span class="strip-status">Editor ready — 6 curves</span>
+            <span class="strip-status">Editor ready · 6 curves</span>
           </div>
 
         </div>
@@ -873,7 +884,7 @@ const TOOLS={
       'Arm Map, then click knobs to grab them',
       'Every knob becomes its own lane',
       'Map as many controls as you like',
-      'No menus — just touch what you want to move']},
+      'No menus: just touch what you want to move']},
   opensynth:{name:'Open the synth',accent:COPL,group:'Devices',tag:'Tweak the sound',preview:'opensynth',
     desc:"Pop open the hosted instrument's own interface to dial in the sound or pick a fresh patch. Your mapped lanes keep moving it while you work.",
     bullets:[
@@ -887,7 +898,7 @@ const TOOLS={
       'Clears their lanes with them',
       'A clean slate in one click']},
   device:{name:'Your devices',accent:COPL,group:'Devices',tag:'In the chain',preview:'add',
-    desc:'Each device you host shows up here in the chain. Click to focus it, open its window, or drop it from the rack — Serum 2, OTT and anything else, all in one place.',
+    desc:'Each device you host shows up here in the chain. Click to focus it, open its window, or drop it from the rack: Serum 2, OTT and anything else, all in one place.',
     bullets:[
       'Your hosted synths and effects, listed',
       'Open or remove any device',
@@ -916,6 +927,25 @@ const TOOLS={
   shuffle:{name:'Shuffle',accent:VIOLET,group:'Shape',tag:'Swap the lanes',preview:'shuffle',
     desc:'Trades the motion between lanes so the curves swap places. A fast way to stumble onto a happy accident.',
     bullets:['Swaps curves between lanes','Instant rearrange','Happy accidents on tap']},
+  unmap:{name:'Unmap',accent:VIOLET,group:'Devices',tag:'Drop a lane',preview:'map',
+    desc:'Arm Unmap and click a mapped knob to take it off the canvas. Keep the lanes to the knobs that matter, without clearing the rest.',
+    bullets:[
+      'Click a mapped knob to release it',
+      'Its lane leaves the canvas',
+      'Everything else keeps moving']},
+  keys:{name:'Keyswitch Mode',accent:GOLD,group:'Play',tag:'New in 1.2 · play the tools',preview:'mutate',
+    desc:'One octave of your MIDI keyboard fires the tools: Chaos on C, Neuro on C#, Mutate on F#, Shuffle on G. The notes stay silent, the tools fire. Play them live, or record the triggers into a clip and every pass rolls a fresh take.',
+    bullets:[
+      'Chaos on C, Mutate on F#, Shuffle on G',
+      'The notes stay silent, the tools fire',
+      'Record the triggers: fresh motion every pass',
+      'Pick the octave that fits your setup']},
+  runmode:{name:'Note-triggered motion',accent:SAGE,group:'Play',tag:'New in 1.2 · notes drive it',preview:'live',
+    desc:'Choose what runs the motion: your DAW transport, or the notes you play. In notes mode the canvas starts when you play and holds when you release. Retrig restarts on every note, Free keeps it flowing.',
+    bullets:[
+      'Transport, Retrig, or Free',
+      'Play a chord, the canvas comes alive',
+      'No Play button needed']},
   x2:{name:'2x',accent:TEAL,group:'Shape',tag:'Stretch it out',preview:'stretch2x',
     desc:'2x stretches your motion out, slower and sparser across the bars. The same shape, with twice the room to breathe.',
     bullets:['Slower, sparser movement','Same shape, more space','Made for long evolving sections']},
@@ -923,10 +953,10 @@ const TOOLS={
     desc:'½x compresses your motion, faster and denser. Twice the movement packed into the same bars, for double-time energy.',
     bullets:['Faster, denser movement','Twice the motion, same span','Double-time energy']},
   shapes:{name:'Preset shapes',accent:COPL,group:'Shapes',tag:'Ready-made curves',preview:'shapes',
-    desc:'Drop a ready shape straight onto the lanes — Sine, Pump, Glitch or Groove. An instant starting point you can bend from there.',
+    desc:'Drop a ready shape straight onto the lanes: Sine, Pump, Glitch or Groove. An instant starting point you can bend from there.',
     bullets:['Sine, Pump, Glitch, Groove','Instant, musical starting points','Bend and reshape from there']},
   draw:{name:'Draw it yourself',accent:COPL,group:'Draw',tag:'By hand',preview:'draw',
-    desc:'Draw the motion yourself — drop points, sketch freehand or bend with the pen. Snap to the grid or go free, then Mirror, Flip and Swing.',
+    desc:'Draw the motion yourself: drop points, sketch freehand or bend with the pen. Snap to the grid or go free, then Mirror, Flip and Swing.',
     bullets:['Point, freehand or pen','Snap to the grid or draw free','Mirror, Flip and Swing to reshape']},
   bars:{name:'Bars',accent:COPL,group:'Shape',tag:'Set the length',preview:'bars',
     desc:'Set how many bars your modulation runs for, from 4 up to 32. The same motion, stretched to match your section.',
@@ -953,7 +983,7 @@ const TOOLS={
     desc:'Freezes the lanes that are already moving, so your next generator only fills the ones still sitting still. Lock a curve you love and keep building around it.',
     bullets:['Keep a curve you already love','Fill only the still lanes next','Unlock to modulate it all again']},
   live:{name:'Plays live, in time',accent:SAGE,group:'Output',tag:'The payoff',preview:'live',
-    desc:"This is the payoff. Press play and your sound follows the curves in real time, locked to your DAW's transport and tempo — a modulator you drew by hand, moving live in any VST3 host.",
+    desc:"This is the payoff. Press play and your sound follows the curves in real time, locked to your DAW's transport and tempo. Or skip the transport: in notes mode, the motion runs from the keys you play. A modulator you drew by hand, performing live in any VST3 host.",
     bullets:[
       'Follows your DAW transport and tempo',
       'Modulates in real time as it plays',
