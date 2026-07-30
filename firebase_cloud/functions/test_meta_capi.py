@@ -137,21 +137,44 @@ class BuildCapiPayloadTests(unittest.TestCase):
 
     def test_zero_value_falls_back_to_list_price(self):
         # Meta penalizes zero-value Purchase events — never send 0.
-        # Fallback bumped from 39 → 59 when founding-member era ended
-        # (2026-05-24). Bump again here if base price changes.
+        # Fallback: 39 → 59 when the founding-member era ended (2026-05-24),
+        # → 79 for the summer sale (2026-07-26). Bump when the price flips.
         payload = _build_capi_payload({"total_cents": 0, "currency": "USD"}, "evt-1")
         for ev in payload["data"]:
-            self.assertEqual(ev["custom_data"]["value"], 59.0)
+            self.assertEqual(ev["custom_data"]["value"], 79.0)
 
     def test_missing_total_falls_back_to_list_price(self):
         payload = _build_capi_payload({"currency": "USD"}, "evt-1")
         for ev in payload["data"]:
-            self.assertEqual(ev["custom_data"]["value"], 59.0)
+            self.assertEqual(ev["custom_data"]["value"], 79.0)
 
     def test_non_numeric_total_falls_back_to_list_price(self):
         payload = _build_capi_payload({"total_cents": "garbage"}, "evt-1")
         for ev in payload["data"]:
-            self.assertEqual(ev["custom_data"]["value"], 59.0)
+            self.assertEqual(ev["custom_data"]["value"], 79.0)
+
+    def test_tax_is_netted_off_the_reported_value(self):
+        # LS `total` is gross. A $79 product bought in a 20%-VAT country
+        # totals 9480 cents; Meta must see 79.00, not 94.80, or the EU buyer
+        # looks 20% more valuable than the US buyer of the same product.
+        payload = _build_capi_payload(
+            {"total_cents": 9480, "tax_cents": 1580, "currency": "USD"}, "evt-1")
+        for ev in payload["data"]:
+            self.assertEqual(ev["custom_data"]["value"], 79.0)
+
+    def test_no_tax_field_reports_full_total(self):
+        # US orders carry no tax — value is the total unchanged.
+        payload = _build_capi_payload({"total_cents": 7900, "currency": "USD"}, "evt-1")
+        for ev in payload["data"]:
+            self.assertEqual(ev["custom_data"]["value"], 79.0)
+
+    def test_discounted_order_reports_what_was_actually_earned(self):
+        # 50%-off order: total 3950, tax 0. Must report 39.50 — NOT the LS
+        # `subtotal` (7900), which is pre-discount and would double-count.
+        payload = _build_capi_payload(
+            {"total_cents": 3950, "tax_cents": 0, "currency": "USD"}, "evt-1")
+        for ev in payload["data"]:
+            self.assertEqual(ev["custom_data"]["value"], 39.5)
 
     def test_currency_uppercased(self):
         payload = _build_capi_payload({"total_cents": 3900, "currency": "usd"}, "evt-1")

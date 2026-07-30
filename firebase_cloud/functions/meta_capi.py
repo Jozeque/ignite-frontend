@@ -26,7 +26,10 @@ import uuid
 
 
 META_PIXEL_ID = "952457524222772"
-META_CAPI_VERSION = "v18.0"
+# Graph API version for CAPI POSTs. v18.0 (Oct 2023) still answers but is far
+# past Meta's ~2-year version window and can be dropped without much notice;
+# the insights code in main.py already calls v23.0. Keep these in step.
+META_CAPI_VERSION = "v23.0"
 
 # "Stride - Purchasers (CRM)" customer-list audience. Every paid order adds the
 # buyer's hashed email here from the webhook, so ad sets excluding this list
@@ -76,16 +79,26 @@ def _build_capi_payload(order_data, event_id):
         lands (no client dedup in that case, slight over-count)."""
     email = (order_data.get("email") or "").strip().lower()
     total_cents = order_data.get("total_cents")
+    tax_cents = order_data.get("tax_cents")
     try:
         value = float(total_cents or 0) / 100.0
     except (TypeError, ValueError):
         value = 0.0
+    # Net the tax off. LS `total` is gross (product + VAT), and reporting gross
+    # made an EU buyer of a $79 product look like a $94.80 conversion while a US
+    # buyer of the SAME product looked like $79 — inflating ROAS by up to ~20%
+    # and biasing the optimizer toward high-VAT countries. `total - tax` is the
+    # revenue actually earned. Note LS `subtotal` is PRE-discount, so it is the
+    # wrong field here: a 50%-off order has subtotal 79.00 but earns 39.50.
+    try:
+        value = round(value - (float(tax_cents or 0) / 100.0), 2)
+    except (TypeError, ValueError):
+        pass
     # Meta penalizes 0-value Purchase events in campaign optimization,
     # so fall back to the current list price rather than send zero.
-    # Bump this if the base price flips again (founding $39 era ended
-    # 2026-05-24 → flat $59).
+    # Summer sale $79 until 2026-08-31, then back to $129 — bump on flip.
     if value <= 0:
-        value = 59.0
+        value = 79.0
     currency = (order_data.get("currency") or "USD").upper()
     order_id = str(
         order_data.get("order_id")
@@ -422,7 +435,9 @@ def _fire_meta_initiatecheckout_capi(user_data, event_id):
                     "event_source_url": "https://stridehub.io/",
                     "action_source": "website",
                     "user_data": ud,
-                    "custom_data": {"value": 59.0, "currency": "USD", "content_name": "Stride Sound Design Engine"},
+                    # Matches the browser InitiateCheckout in index.html. Keep the
+                    # two in step: summer sale $79 until 2026-08-31, then $129.
+                    "custom_data": {"value": 79.0, "currency": "USD", "content_name": "Stride Sound Design Engine"},
                 }
             ]
         }

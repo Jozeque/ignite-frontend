@@ -474,6 +474,14 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
     # cookie while the fbclid marker (persisted in localStorage on landing and
     # forwarded here) survives. Fall back to parsing it out of fbc.
     fbclid = (custom.get("fbclid") or "").strip() or (fbc.split(".")[-1] if fbc else "")
+    # ad_id is the DETERMINISTIC paid-click marker (set by url_tags on the ad
+    # and carried through checkout). fbclid is NOT: Instagram and Facebook
+    # append it to organic outbound link clicks too, so a bio-link tap is
+    # indistinguishable from an ad click by fbclid alone. `acquisition_source`
+    # deliberately keeps the old fbclid rule so historical rows stay
+    # comparable; ad_id rides alongside as the verified paid signal and names
+    # the exact ad that earned the sale.
+    ad_id = (custom.get("ad_id") or "").strip()
     from_meta = bool(fbc or fbclid)
     acquisition_source = "meta_ad" if from_meta else "direct"
     src_note = ""
@@ -481,6 +489,8 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
         src_note = f" source={'META_AD' if from_meta else 'direct'}"
         if fbclid:
             src_note += f" fbclid={fbclid}"
+        if ad_id:
+            src_note += f" PAID_AD_ID={ad_id}"
     print(f"[LS Webhook] event={event_name} id={data_obj.get('id')} email={email}{src_note}")
 
     try:
@@ -533,6 +543,10 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
             # non-empty so this never wipes values already on the row.
             if fbc:
                 doc_data["fbc"] = fbc
+            # Paid-ad marker. Gated on non-empty so a later organic re-order by
+            # the same email can never erase which ad originally won them.
+            if ad_id:
+                doc_data["ad_id"] = ad_id
             for _ck in ("fbp", "ua"):
                 _cv = (custom.get(_ck) or "").strip()
                 if _cv:
@@ -577,6 +591,19 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
             is_redownload = is_demo and match is not None and bool(prev.get("demo_at"))
             if is_redownload:
                 doc_data["demo_at"] = prev.get("demo_at")
+            # Recover the paid ad_id from the lead row when checkout didn't
+            # forward it (LS drops custom data, or the buyer returned later via
+            # a campaign email straight to LS). Deliberately INDEPENDENT of the
+            # fbclid recovery below: a row can already carry a Meta click id and
+            # still be missing the ad_id that says WHICH ad earned the sale.
+            # This is also what closes the ad → demo → buy loop, since the demo
+            # checkout stamps ad_id on the row days before the purchase.
+            if not ad_id:
+                _prev_ad_id = (prev.get("ad_id") or "").strip()
+                if _prev_ad_id:
+                    ad_id = _prev_ad_id
+                    doc_data["ad_id"] = ad_id
+                    print(f"[LS Webhook] recovered paid ad_id={ad_id} from lead row for {email}")
             _prev_fbc = (prev.get("fbc") or "").strip()
             _prev_fbclid = (prev.get("fbclid") or "").strip()
             _prev_meta = (prev.get("acquisition_source") or "") == "meta_ad"
@@ -707,6 +734,12 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
                             "order_id": data_obj.get("id"),
                             "order_identifier": attrs.get("identifier"),
                             "total_cents": attrs.get("total"),
+                            # Tax is not revenue — it belongs to the tax
+                            # authority. Sending the gross total made every
+                            # VAT-paying buyer look ~20% more valuable than a US
+                            # buyer of the same product and inflated ROAS
+                            # accordingly. _build_capi_payload nets it off.
+                            "tax_cents": attrs.get("tax"),
                             "currency": attrs.get("currency"),
                         },
                         capi_event_id,
@@ -1442,7 +1475,15 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
             # LS order_created webhook can recover it by email even if Lemon
             # Squeezy doesn't forward the checkout custom data. Only write
             # non-empty values so a later organic re-submit can't wipe a real fbc.
-            for _k in ("fbc", "fbclid", "fbp", "ua", "event_id"):
+            # ad_id/adset_id/campaign_id arrive from url_tags on the ad itself and
+            # are the only PAID-click proof in the stack: fbclid is ALSO set on
+            # organic Instagram/Facebook link clicks, so it cannot separate an ad
+            # click from a bio-link tap. Storing both gives the CRM a verified
+            # paid tier (ad_id, names the exact ad) and a weaker "touched Meta"
+            # tier (fbclid only).
+            for _k in ("fbc", "fbclid", "fbp", "ua", "event_id",
+                       "ad_id", "adset_id", "campaign_id",
+                       "utm_source", "utm_campaign", "utm_content"):
                 _v = (data_pre.get(_k) or "").strip()
                 if _v:
                     payload[_k] = _v
@@ -1486,8 +1527,17 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
                 # Show Meta attribution on the buyer lead too (the landing page
                 # now sends fbc) so we can confirm a checkout came from an ad
                 # immediately, without waiting for the purchase alert.
+                # Three tiers, not two. A bare fbclid used to print "🎯 Meta ad",
+                # which over-credited ads: organic IG/FB link clicks carry one too.
+                _lead_ad_id = (data_pre.get("ad_id") or "").strip()
                 from_meta_lead = bool((data_pre.get("fbc") or "").strip() or (data_pre.get("fbclid") or "").strip())
-                source_line = (f"\n**Source:** {'🎯 Meta ad' if from_meta_lead else 'Direct / organic'}") if is_buyer else ""
+                if _lead_ad_id:
+                    _lead_src = f"🎯 Meta AD — paid click (ad_id `{_lead_ad_id}`)"
+                elif from_meta_lead:
+                    _lead_src = "📱 Meta click — organic or paid, unverified"
+                else:
+                    _lead_src = "Direct / organic"
+                source_line = (f"\n**Source:** {_lead_src}") if is_buyer else ""
                 webhook_msg = {
                     "username": "Stride Engine",
                     "content": f"{heading}\n**Producer:** `{name}`\n**Email:** `{email}`\n**Country:** `{country}`" + source_line + (f"\n**Heard from:** `{source}`" if source else "") + status
