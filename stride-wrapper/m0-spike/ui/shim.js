@@ -991,8 +991,8 @@
         names.forEach(function (nm, i) {
           var off = !!byp[i];   // true = bypassed
           var chip = document.createElement('div'); chip.className = 'flex items-center gap-1.5 bg-zinc-900 border border-white/10 rounded px-2 py-0.5 cursor-grab' + (off ? ' opacity-60' : '');
-          chip.draggable = true;   // drag to reorder the chain
-          var grip = document.createElement('span'); grip.textContent = '⠿'; grip.title = 'Drag to reorder'; grip.className = 'text-zinc-600 text-[11px] shrink-0 -ml-0.5 select-none';
+          chip.draggable = true;   // drag to reorder the chain; Alt+drag to duplicate
+          var grip = document.createElement('span'); grip.textContent = '⠿'; grip.title = 'Drag to reorder · Alt+drag to duplicate this device'; grip.className = 'text-zinc-600 text-[11px] shrink-0 -ml-0.5 select-none';
           chip.appendChild(grip);
           var dot = document.createElement('button');
           dot.title = off ? 'Bypassed, click to enable' : 'Active, click to bypass';
@@ -1020,11 +1020,28 @@
           chip.appendChild(x);
           // Drag to reorder the chain (reverb before OTT, etc.). Outline (not ring) for the drop
           // hover so it never clashes with the fuchsia device-filter ring.
-          chip.addEventListener('dragstart', function (e) { dragFrom = i; try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(i)); } catch (x2) {} chip.style.opacity = '0.4'; });
+          // ALT+drag = DUPLICATE: drop with Alt held clones the dragged device (same patch,
+          // same mapped params, EMPTY lanes) right after the chip it lands on — so Alt+drop
+          // on the device itself is the classic "duplicate next to it". Modifier read at
+          // hover/drop time, so pressing/releasing Alt mid-drag switches the action live.
+          chip.addEventListener('dragstart', function (e) { dragFrom = i; try { e.dataTransfer.effectAllowed = 'copyMove'; e.dataTransfer.setData('text/plain', String(i)); } catch (x2) {} chip.style.opacity = '0.4'; });
           chip.addEventListener('dragend',   function () { chip.style.opacity = ''; chip.style.outline = ''; dragFrom = null; });
-          chip.addEventListener('dragover',  function (e) { if (dragFrom == null || dragFrom === i) return; e.preventDefault(); try { e.dataTransfer.dropEffect = 'move'; } catch (x2) {} chip.style.outline = '2px solid rgba(34,211,238,0.7)'; chip.style.outlineOffset = '1px'; });
+          chip.addEventListener('dragover',  function (e) {
+            if (dragFrom == null || (dragFrom === i && ! e.altKey)) return;   // same-chip drop only means something with Alt (duplicate-in-place)
+            e.preventDefault();
+            try { e.dataTransfer.dropEffect = e.altKey ? 'copy' : 'move'; } catch (x2) {}
+            chip.style.outline = e.altKey ? '2px solid rgba(52,211,153,0.8)' : '2px solid rgba(34,211,238,0.7)';   // emerald = copy, cyan = move
+            chip.style.outlineOffset = '1px';
+          });
           chip.addEventListener('dragleave', function () { chip.style.outline = ''; });
-          chip.addEventListener('drop',      function (e) { e.preventDefault(); chip.style.outline = ''; var from = dragFrom; dragFrom = null; if (from == null || from === i) return; emit('moveDevice', { from: from, to: i }); });
+          chip.addEventListener('drop',      function (e) {
+            e.preventDefault(); chip.style.outline = '';
+            var from = dragFrom; dragFrom = null;
+            if (from == null) return;
+            if (e.altKey) { emit('duplicateDevice', { from: from, to: i + 1 }); return; }   // copy lands right AFTER the chip it dropped on
+            if (from === i) return;
+            emit('moveDevice', { from: from, to: i });
+          });
           c.appendChild(chip);
         });
       });

@@ -81,6 +81,13 @@ private:
 
     juce::String lastSummary;
     int          lastMapVersion = -1;
+    // Alt+drag duplicate: where the copy will land in the chain. The insert happens ASYNC
+    // (restoreNextDevice), so the timer's summary-change branch consumes this to insert a
+    // nullptr window slot at the same position — keeping synthWindows aligned to the chain
+    // without closing every open device window (the undoRemove clear-all approach would).
+    // Deadline-stamped: a failed duplicate must not misalign the NEXT unrelated device add.
+    int          pendingDupInsertAt = -1;
+    juce::uint32 pendingDupSetMs = 0;
     bool         lastLearn      = false;   // so the Map button reflects EVERY learn-mode change (incl. auto-leave)
     bool         lastUnlearn    = false;   // same, for the Unmap button
     juce::uint32 lastTransportKeyMs = 0;   // forwardTransportKey debounce — one transport toggle per press
@@ -94,6 +101,16 @@ private:
     int prePinW = 0, prePinH = 0;   // restore size for unpin (kept across pin->pin switches)
    #if JUCE_MAC
     void* lastForwardView = nullptr;       // the NSView WE registered with the key forwarder — the dtor unregisters exactly this (multi-instance safe)
+   #endif
+   #if JUCE_WINDOWS
+    // First-open DPI nudge (1.3.0). Mixed-DPI setups (field: Shawn 2026-07-30; in-house
+    // repro: the HP second screen 2026-08-03) open with the frame sized for one scale and
+    // the first layout run at another — UI at exactly 80% with an L-shaped margin until
+    // ANY resize replays the host scale handshake. So replay it ourselves once, ~200ms
+    // after open: grow 1px for one tick, restore the next. phase 0 = waiting, 1 = grown,
+    // 2 = done. Invisible; the size persistence is untouched (its settle detector waits
+    // for stillness and the final size equals the original).
+    int dpiNudgeTick = 0, dpiNudgePhase = 0, dpiNudgeH = 0;
    #endif
     int  demoSaveTick = 0;                                // persist the demo cycle every ~2s (move budget changes silently)
     int  licTick = 0;                                     // re-derive editLocked/driveAllowed natively ~every 2s (mid-session expiry)

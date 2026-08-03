@@ -107,6 +107,22 @@ public:
     // pick via set_color; rack_scanned echoes them back so every rebuild restores them.
     void setMappedColor (int pos, int idx);                       // message thread (editor bridge); -1 = back to AUTO
     juce::Array<int> getMappedColors() const;                     // colorIdx per mapped param, mapped order
+    // Per-lane LOOP boundary + GRID QUANTIZE (1.3.0) - the range/color ownership story again:
+    // engine-owned so re-pushes/reopens rebuild them from the source of truth.
+    //   loop:  the lane's curve wraps every `beats` beats (0 = off, ride the full clip)
+    //   quant: the lane's eval position snaps to `step`-beat steps (S&H groove; 0 = off)
+    void setMappedLoop (int pos, float beats);                    // message thread (editor bridge)
+    void setMappedQuant (int pos, float step);                    // message thread (editor bridge)
+    juce::Array<juce::var> getMappedLoops() const;                // loopBeats per mapped param, mapped order (0 = off)
+    juce::Array<juce::var> getMappedQuants() const;               // quantStep per mapped param, mapped order (0 = off)
+    // Duplicate ONE device in place (Alt+drag a chip): same plugin, same patch, same mapped
+    // params (fresh macro slots so the source keeps its DAW automation binding), same
+    // ranges/colors/loop/quant - but EMPTY lanes; the copy starts with no modulation.
+    // Rides the same async restore machinery as undo, inserting at `insertAt`.
+    void duplicateNode (int index, int insertAt);
+    // Param-touch glow: a hosted-GUI touch on a MAPPED param latches its position here;
+    // the editor drains it at 30Hz and the canvas flashes that lane. -1 = none pending.
+    int consumeGlowPos() { return pendingGlowPos.exchange (-1); }
     double getClipBeats() const { return driveClipBeats; }   // loop length in beats (bars*4) — for the canvas bar count on load
     void removeMappedAt (int pos);
     void clearMapping();
@@ -256,8 +272,10 @@ private:
 
     struct MapRef { int node; int param; int macroSlot = -1;      // macroSlot = DAW-facing param slot (-1 = not exposed)
                     bool rangeOn = false; float rangeLo = 0.0f, rangeHi = 1.0f;      // per-param output band (engine-owned, project-persistent)
-                    int colorIdx = -1; };                                            // lane color (-1 = AUTO; 0..11 = canvas palette). ENGINE-OWNED like
+                    int colorIdx = -1;                                               // lane color (-1 = AUTO; 0..11 = canvas palette). ENGINE-OWNED like
                                                                                     // the range: positional re-pushes must never wipe or misroute it
+                    float loopBeats = 0.0f;                                          // per-lane loop boundary in beats (0 = off = full clip) - 1.3.0
+                    float quantStep = 0.0f; };                                       // per-lane S&H grid step in beats (0 = off; 0.25 = 1/16) - 1.3.0
     std::vector<MapRef> mapped;               // user-mapped params across the chain
 
     // A relabelable VST3 parameter. A free slot reads "Stride N"; an assigned slot takes the
@@ -291,6 +309,8 @@ private:
     std::atomic<bool> unlearnMode { false };   // Map (add-by-touch) and Unmap (remove-by-touch) are mutually exclusive
     std::atomic<int>  mapVersion { 0 };
     std::atomic<int>  pendingUnmapPos { -1 };   // touch-unmap: removed position, drained by the editor (see consumeUnmapByTouchPos)
+    std::atomic<int>  pendingGlowPos { -1 };    // param-touch glow: last touched MAPPED position, drained by the editor (see consumeGlowPos)
+    void noteParamTouched (juce::AudioProcessor*, int parameterIndex);   // latch a hosted-GUI touch for the glow (no-op while Map/Unmap armed)
     std::atomic<bool> demoMode   { true };   // fail-safe default: limited until proven entitled
     std::atomic<bool> editLocked   { false };  // Discovery Pass expired -> block edits, keep audio (soft lock)
     std::atomic<bool> driveAllowed { false };  // fail-safe: no curve drive until entitlement is confirmed (this device)
@@ -344,7 +364,8 @@ private:
         struct Dev { juce::String path; juce::MemoryBlock state; int position = 0;
                      std::vector<int> params; std::vector<int> slots; std::vector<StoredLane> lanes; bool bypassed = false;
                      std::vector<char> ron; std::vector<float> rlo, rhi;
-                     std::vector<int> col; };                                 // per-param lane colors (parallel to params; -1 = AUTO)   // per-param range bands (parallel to params; char ≠ vector<bool>)
+                     std::vector<int> col;                                    // per-param lane colors (parallel to params; -1 = AUTO)   // per-param range bands (parallel to params; char ≠ vector<bool>)
+                     std::vector<float> lpb, qst; };                          // per-param loop boundary + quant step (parallel to params; 0 = off) - 1.3.0
         std::vector<Dev> devices;          // 1 for a single ✕, the whole chain for Clear
     };
     RemovedSnapshot lastRemoved;

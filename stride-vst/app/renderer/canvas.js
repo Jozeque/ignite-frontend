@@ -263,6 +263,10 @@
     let _sdRangeFieldRects = [];       // per-render hit rects for the min/max fields: {param, edge, x, y, w, h}
     let _sdRangeFieldClick = null;     // {id, edge, t} — double-click-to-type detection on a field
     let _sdRangeNumInput = null;       // {id, edge, el} — the transient <input> shown while typing a value
+    let _sdLoopDrag = null;            // active per-lane loop-boundary drag (wrapper): {param}
+    let _sdGlowRAF = 0;                // param-touch glow: RAF handle for the 1s fade repaint loop (wrapper)
+    let _sdGlowLast = 0;               //   ... last repaint timestamp (throttles the loop to ~30fps)
+    let _sdGlowPaint = false;          //   ... true during glow-driven repaints, so the drive-flush stays silent
     function _sdClipKey(rackId, slot) {
         return (slot && slot > 0) ? (rackId + '_s' + slot) : rackId;
     }
@@ -824,6 +828,7 @@
                 selected: false,
                 rangeOn: false, rangeMin: 0, rangeMax: 1,   // per-param output range clamp (null-default = full 0..1)
                 colorIdx: -1,                               // lane color override (-1 = AUTO skin rotation; 0..11 = SD_LANE_PALETTE)
+                loopBeats: 0, quantStep: 0,                 // per-lane loop boundary + groove grid (wrapper; 0 = off)
                 points: []
             }))
             .sort(_sdSortByName);
@@ -886,6 +891,8 @@
             selected: false,
             rangeOn: !!p.rangeOn, rangeMin: (typeof p.rangeMin === 'number' ? p.rangeMin : 0), rangeMax: (typeof p.rangeMax === 'number' ? p.rangeMax : 1),   // carry the range if the engine sent it
             colorIdx: (typeof p.colorIdx === 'number' ? p.colorIdx : -1),   // engine-owned lane color echo (wrapper) — AUTO when absent
+            loopBeats: (typeof p.loopBeats === 'number' && p.loopBeats > 0 ? p.loopBeats : 0),   // engine-owned loop/quant echo (wrapper) — off when absent
+            quantStep: (typeof p.quantStep === 'number' && p.quantStep > 0 ? p.quantStep : 0),
             points: Array.isArray(p.points) ? p.points : []   // wrapper sends the drawn curve from the engine — reliable across reopen (desktop sends none → empty)
         })).sort(_sdSortByName);
 
@@ -1114,7 +1121,8 @@
             const carried = {};
             if (sameTrack && _slotSame) {
                 sdCanvasParams.forEach(p => {
-                    if ((p.points && p.points.length) || p.locked || p.rangeOn || (typeof p.colorIdx === 'number' && p.colorIdx >= 0)) {
+                    if ((p.points && p.points.length) || p.locked || p.rangeOn || (typeof p.colorIdx === 'number' && p.colorIdx >= 0)
+                        || (typeof p.loopBeats === 'number' && p.loopBeats > 0) || (typeof p.quantStep === 'number' && p.quantStep > 0)) {
                         // Key by the stable _path; fall back to NAME for lanes that
                         // have no _path yet (e.g. a just-loaded session) so their
                         // curves/locks survive the first rescan-merge instead of
@@ -1122,7 +1130,9 @@
                         const k = p._path || ('n:' + p.name);
                         carried[k] = { points: (p.points && p.points.length) ? p.points : null, locked: !!p.locked,
                                        rangeOn: !!p.rangeOn, rangeMin: p.rangeMin, rangeMax: p.rangeMax,
-                                       colorIdx: (typeof p.colorIdx === 'number' ? p.colorIdx : -1) };
+                                       colorIdx: (typeof p.colorIdx === 'number' ? p.colorIdx : -1),
+                                       loopBeats: (typeof p.loopBeats === 'number' ? p.loopBeats : 0),
+                                       quantStep: (typeof p.quantStep === 'number' ? p.quantStep : 0) };
                     }
                 });
             }
@@ -1141,6 +1151,8 @@
                         if (c.locked) p.locked = true;
                         if (c.rangeOn && !p.rangeOn) { p.rangeOn = true; p.rangeMin = c.rangeMin; p.rangeMax = c.rangeMax; }
                         if (typeof c.colorIdx === 'number' && c.colorIdx >= 0 && !(p.colorIdx >= 0)) p.colorIdx = c.colorIdx;   // payload (engine echo) wins; carry only fills AUTO
+                        if (typeof c.loopBeats === 'number' && c.loopBeats > 0 && !(p.loopBeats > 0)) p.loopBeats = c.loopBeats;   // loop/quant: same payload-wins story
+                        if (typeof c.quantStep === 'number' && c.quantStep > 0 && !(p.quantStep > 0)) p.quantStep = c.quantStep;
                         kept++;
                     }
                 });
@@ -1634,6 +1646,46 @@
         if (_sdGenAfterScanTimer) { clearTimeout(_sdGenAfterScanTimer); _sdGenAfterScanTimer = null; }
         const q = _sdGenAfterScan; _sdGenAfterScan = null;
         _sdApplyQuickAction(q.action, q.arg);
+    });
+
+    // ── param-touch glow (wrapper 1.3.0) ─────────────────────────────
+    // Touch a MAPPED knob in a hosted plugin's own GUI → its lane flashes for ~1s (and
+    // scrolls into view) so you find it without reading names. The engine discriminates
+    // user touches from its own drive writes, so playback never triggers this.
+    function _sdGlowKick() {
+        if (_sdGlowRAF) return;
+        const step = (ts) => {
+            _sdGlowRAF = 0;
+            const now = Date.now();
+            const active = sdCanvasParams.some(p => p._glowUntil && p._glowUntil > now);
+            if (ts - _sdGlowLast > 28) {   // ~30fps repaint while the glow fades
+                _sdGlowLast = ts;
+                _sdGlowPaint = true;
+                try { sdDrawCanvasGrid(); } finally { _sdGlowPaint = false; }
+            }
+            if (active) _sdGlowRAF = requestAnimationFrame(step);
+            else { _sdGlowPaint = true; try { sdDrawCanvasGrid(); } finally { _sdGlowPaint = false; } }   // one clean final frame
+        };
+        _sdGlowRAF = requestAnimationFrame(step);
+    }
+    strideLink.on('param_glow', function (msg) {
+        if (!window.strideLink || !window.strideLink._wrapper) return;
+        const id = (msg && typeof msg.id === 'number') ? msg.id : -1;
+        if (id < 0) return;
+        const lane = sdCanvasParams.find(p => p._path === ('wrap:' + id));
+        if (!lane) return;
+        lane._glowUntil = Date.now() + 1000;
+        // Bring the lane on-screen (multi view): the point is finding it fast.
+        if (sdViewMode === 'multi') {
+            const vis = sdVisibleParams();
+            const idx = vis.indexOf(lane);
+            if (idx >= 0) {
+                const visCount = sdMultiVisibleLaneCount();
+                if (idx < sdMultiScrollOffset) sdMultiScrollOffset = idx;
+                else if (idx >= sdMultiScrollOffset + visCount) sdMultiScrollOffset = Math.max(0, idx - visCount + 1);
+            }
+        }
+        _sdGlowKick();
     });
 
     // "Lock current lanes": lock every lane that's actually moving, so the next
@@ -2548,6 +2600,80 @@
             window.strideLink.send({ type: 'set_color', id: id, c: (typeof param.colorIdx === 'number' ? param.colorIdx : -1) });
         } catch (e) {}
     }
+    // Per-lane LOOP + GROOVE GRID (wrapper 1.3.0) — engine-owned via set_loop/set_quant,
+    // echoed back in rack_scanned: the exact ranges/colors ownership pattern.
+    function _sdPushLoopToEngine(p) {
+        try {
+            if (!p || !window.strideLink || !window.strideLink._wrapper) return;
+            const id = parseInt(p.envelopeId, 10);
+            if (isNaN(id)) return;
+            window.strideLink.send({ type: 'set_loop', id: id, beats: (typeof p.loopBeats === 'number' ? p.loopBeats : 0) });
+        } catch (e) {}
+    }
+    function _sdPushQuantToEngine(p) {
+        try {
+            if (!p || !window.strideLink || !window.strideLink._wrapper) return;
+            const id = parseInt(p.envelopeId, 10);
+            if (isNaN(id)) return;
+            window.strideLink.send({ type: 'set_quant', id: id, step: (typeof p.quantStep === 'number' ? p.quantStep : 0) });
+        } catch (e) {}
+    }
+    // The groove-grid choices. Beat values chosen so the engine's floor() lands exactly on
+    // musical steps: 1/4=1 beat, 1/8=0.5, 1/8T=1/3, 1/16=0.25, 1/16T=1/6, 1/32=0.125.
+    const SD_QUANT_CHOICES = [['Off', 0], ['1/4', 1], ['1/8', 0.5], ['1/8T', 1 / 3], ['1/16', 0.25], ['1/16T', 1 / 6], ['1/32', 0.125]];
+    function _sdQuantLabel(step) {
+        let best = 'Off', bd = 1e9;
+        for (const [lbl, v] of SD_QUANT_CHOICES) {
+            if (v <= 0) continue;
+            const d = Math.abs(v - step);
+            if (d < bd) { bd = d; best = lbl; }
+        }
+        return step > 0 ? best : 'Off';
+    }
+    let _sdQuantPopEl = null;
+    function _sdCloseQuantPopup() { if (_sdQuantPopEl) { _sdQuantPopEl.remove(); _sdQuantPopEl = null; } }
+    function _sdOpenQuantPopup(param, clientX, clientY) {
+        _sdCloseQuantPopup();
+        const pop = document.createElement('div');
+        pop.id = 'sd-quant-popup';
+        pop.style.cssText = 'position:fixed;z-index:10070;background:#09090b;border:1px solid rgba(255,255,255,0.12);'
+            + 'border-radius:10px;box-shadow:0 18px 50px rgba(0,0,0,0.8);padding:10px;width:132px;'
+            + "font-family:'Outfit',sans-serif";
+        const title = document.createElement('div');
+        title.style.cssText = 'font-size:9px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;color:#a1a1aa;margin-bottom:8px';
+        title.textContent = 'Groove grid';
+        pop.appendChild(title);
+        const cur = (typeof param.quantStep === 'number' ? param.quantStep : 0);
+        const apply = (v) => {
+            param.quantStep = v;
+            _sdPushQuantToEngine(param);
+            _sdCloseQuantPopup();
+            sdDrawCanvasGrid();
+            Promise.resolve(saveCanvasState());
+            const st = document.getElementById('sd-canvas-status');
+            if (st) st.textContent = v > 0 ? ('Groove grid: ' + _sdQuantLabel(v) + ' — the curve steps to that grid') : 'Groove grid off — smooth curve';
+        };
+        SD_QUANT_CHOICES.forEach(([lbl, v]) => {
+            const on = Math.abs(cur - v) < 1e-4;
+            const b = document.createElement('button');
+            b.textContent = lbl;
+            b.style.cssText = 'display:block;width:100%;text-align:left;font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;'
+                + 'padding:4px 8px;margin-bottom:2px;border-radius:5px;cursor:pointer;border:1px solid '
+                + (on ? 'rgba(232,121,249,0.6);color:#f0abfc;background:rgba(232,121,249,0.12)' : 'rgba(255,255,255,0.06);color:#a1a1aa;background:none');
+            b.addEventListener('click', (e) => { e.stopPropagation(); apply(v); });
+            pop.appendChild(b);
+        });
+        document.body.appendChild(pop);
+        const r = pop.getBoundingClientRect();
+        pop.style.left = Math.max(6, Math.min(clientX + 8, window.innerWidth - r.width - 6)) + 'px';
+        pop.style.top = Math.max(6, Math.min(clientY - 20, window.innerHeight - r.height - 6)) + 'px';
+        setTimeout(() => {
+            const closer = (ev) => { if (_sdQuantPopEl && !_sdQuantPopEl.contains(ev.target)) { _sdCloseQuantPopup(); document.removeEventListener('mousedown', closer, true); } };
+            document.addEventListener('mousedown', closer, true);
+        }, 0);
+        _sdQuantPopEl = pop;
+    }
+
     let _sdColorPopEl = null, _sdColorPopParam = null;
     function _sdCloseColorPopup() { if (_sdColorPopEl) { _sdColorPopEl.remove(); _sdColorPopEl = null; _sdColorPopParam = null; } }
     function _sdColorTargets(param) {
@@ -2653,13 +2779,16 @@
         // A locked-but-empty (or ranged-but-empty) lane is still meaningful intent, preserved
         // across reloads. Points/range are stored as the raw 0..1 shape (non-destructive).
         const state = sdCanvasParams
-            .filter(p => p.points.length > 0 || p.locked || p.rangeOn || (typeof p.colorIdx === 'number' && p.colorIdx >= 0))
+            .filter(p => p.points.length > 0 || p.locked || p.rangeOn || (typeof p.colorIdx === 'number' && p.colorIdx >= 0)
+                      || (typeof p.loopBeats === 'number' && p.loopBeats > 0) || (typeof p.quantStep === 'number' && p.quantStep > 0))
             .map(p => ({
                 envelopeId: p.envelopeId,   // legacy / back-compat key
                 _path: p._path || null,     // STABLE key — match on this; positional envelopeId renumbers when params are added
                 locked: !!p.locked,
                 rangeOn: !!p.rangeOn, rangeMin: p.rangeMin, rangeMax: p.rangeMax,   // per-param output range
                 colorIdx: (typeof p.colorIdx === 'number' ? p.colorIdx : -1),       // lane color override (-1 = AUTO)
+                loopBeats: (typeof p.loopBeats === 'number' ? p.loopBeats : 0),     // per-lane loop boundary (wrapper; 0 = off)
+                quantStep: (typeof p.quantStep === 'number' ? p.quantStep : 0),     // per-lane groove grid (wrapper; 0 = off)
                 points: p.points.map(pt => ({ time: pt.time, value: pt.value, curve: pt.curve || 0 }))
             }));
         await window.stride.saveCanvasState(key, state);
@@ -2703,6 +2832,12 @@
                 // spoke — the saved value only fills lanes still on AUTO.
                 if (typeof sp.colorIdx === 'number' && sp.colorIdx >= 0 && !(param.colorIdx >= 0))
                     param.colorIdx = sp.colorIdx;
+                // Loop boundary + groove grid (wrapper): same fill-the-default story — the
+                // engine echo already landed via loadParamsDirectly and must win.
+                if (typeof sp.loopBeats === 'number' && sp.loopBeats > 0 && !(param.loopBeats > 0))
+                    param.loopBeats = sp.loopBeats;
+                if (typeof sp.quantStep === 'number' && sp.quantStep > 0 && !(param.quantStep > 0))
+                    param.quantStep = sp.quantStep;
                 // A LOCKED saved lane is ALWAYS restored (curve + lock) — even right
                 // after a generator press. loadParamsDirectly rebuilds every lane
                 // UNLOCKED, so without this a rescan-before-generate unlocks the lanes
@@ -3291,7 +3426,16 @@
             const n = poly.length;
             // Position the head by x (time) so the comet keeps an even pace even
             // though curved segments carry more samples than straight ones.
-            const tx = poly[0].x + phase * (poly[n - 1].x - poly[0].x);
+            // LOOPED lanes (wrapper) wrap the phase at their own boundary — the comet
+            // restarts exactly on the drawn loop line, in step with the engine's wrap
+            // (field report 2026-08-03: "the animation keeps passing it").
+            let tx;
+            if (g.loopFrac && g.loopFrac > 0) {
+                const wrapped = phase - Math.floor(phase / g.loopFrac) * g.loopFrac;
+                tx = g.tx0 + wrapped * g.txSpan;
+            } else {
+                tx = poly[0].x + phase * (poly[n - 1].x - poly[0].x);
+            }
             let idx = 0; while (idx < n - 1 && poly[idx + 1].x <= tx) idx++;
             if (withTrail) for (let k = 0; k < SD_FX_TRAIL; k++) {   // fading trail behind the head
                 const i1 = idx - k, i0 = i1 - 1;
@@ -3418,7 +3562,7 @@
     // redraws (pan, hover) cost at most one harmless re-push. No-op in the desktop app.
     let _sdDriveFlushTimer = 0;
     function _sdScheduleDriveFlush() {
-        if (!window.__STRIDE_WRAPPER__ || _sdDriveFlushTimer) return;
+        if (!window.__STRIDE_WRAPPER__ || _sdDriveFlushTimer || _sdGlowPaint) return;   // glow repaints are pure cosmetics — no engine traffic
         _sdDriveFlushTimer = setTimeout(function () {
             _sdDriveFlushTimer = 0;
             // NEVER flush an empty canvas. On a project reload the lanes arrive a beat
@@ -3647,6 +3791,49 @@
         ctx.restore();
     }
 
+    // Tiny "groove grid" glyph (a staircase — the S&H shape) left of the range icon on
+    // wrapper lanes. Click for the grid picker (Off/1/4/1/8/…); filled tint when active.
+    function _drawQuantIcon(ctx, x, y, size, color, on) {
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.4;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(x, y + size - 1);
+        ctx.lineTo(x, y + size * 0.62); ctx.lineTo(x + size * 0.33, y + size * 0.62);
+        ctx.lineTo(x + size * 0.33, y + size * 0.30); ctx.lineTo(x + size * 0.66, y + size * 0.30);
+        ctx.lineTo(x + size * 0.66, y + 1); ctx.lineTo(x + size, y + 1);
+        ctx.stroke();
+        if (on) { ctx.globalAlpha = 0.16; ctx.fillStyle = color; ctx.fillRect(x, y, size, size); }
+        ctx.restore();
+    }
+
+    // The loop-boundary grip: a small vertical pill riding the boundary line at lane
+    // mid-height. Low-alpha at the lane's end when no loop is set (the affordance),
+    // bright on the boundary when one is.
+    function _sdDrawLoopGrip(ctx, x, cy, rgb, alpha) {
+        ctx.save();
+        const w = 7, h = 20, r = 3;
+        const L = x - w / 2, T = cy - h / 2;
+        ctx.fillStyle = 'rgba(24,24,27,' + (0.9 * alpha).toFixed(3) + ')';
+        ctx.strokeStyle = 'rgba(' + rgb + ',' + alpha.toFixed(3) + ')';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(L + r, T); ctx.lineTo(L + w - r, T); ctx.quadraticCurveTo(L + w, T, L + w, T + r);
+        ctx.lineTo(L + w, T + h - r); ctx.quadraticCurveTo(L + w, T + h, L + w - r, T + h);
+        ctx.lineTo(L + r, T + h); ctx.quadraticCurveTo(L, T + h, L, T + h - r);
+        ctx.lineTo(L, T + r); ctx.quadraticCurveTo(L, T, L + r, T);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.strokeStyle = 'rgba(' + rgb + ',' + (0.8 * alpha).toFixed(3) + ')';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x - 1.2, cy - 4); ctx.lineTo(x - 1.2, cy + 4);
+        ctx.moveTo(x + 1.2, cy - 4); ctx.lineTo(x + 1.2, cy + 4);
+        ctx.stroke();
+        ctx.restore();
+    }
+
     // Tiny "×" at the top-left of a wrapper lane's label — click to UNMAP that param
     // (remove it from the panel + free the knob in the engine). Dim red so it reads as
     // a remove action, distinct from the neutral lock/focus glyphs.
@@ -3754,6 +3941,10 @@
         const nameCounts = {};
         const nameIndex = {};
         vis.forEach(p => { nameCounts[p.name] = (nameCounts[p.name] || 0) + 1; });
+        // Wrapper-only lane chrome (quant icon, loop boundary, glow) — the desktop app
+        // renders byte-identically without this flag.
+        const _isWrapUI = !!(window.strideLink && window.strideLink._wrapper);
+        const _glowNow = Date.now();
 
         // Per-lane render
         const visible = sdMultiVisibleLaneCount();
@@ -3788,6 +3979,21 @@
                 sdCtx.strokeRect(0.75, rect.top + 0.75, lw - 1.5, rect.height - 1.5);
             }
 
+            // Param-touch glow (wrapper): the touched lane flashes in its own color and
+            // fades over ~1s — the "here I am" cue for a knob clicked in the plugin GUI.
+            if (_isWrapUI && param._glowUntil) {
+                const _gRem = param._glowUntil - _glowNow;
+                if (_gRem > 0) {
+                    const _gA = Math.max(0, Math.min(1, _gRem / 1000));
+                    const _gRGB = sdLaneColor(param, paramIdx);
+                    sdCtx.fillStyle = 'rgba(' + _gRGB + ',' + (0.10 * _gA).toFixed(3) + ')';
+                    sdCtx.fillRect(0, rect.top, lw, rect.height);
+                    sdCtx.strokeStyle = 'rgba(' + _gRGB + ',' + (0.9 * _gA).toFixed(3) + ')';
+                    sdCtx.lineWidth = 2.5;
+                    sdCtx.strokeRect(1.25, rect.top + 1.25, lw - 2.5, rect.height - 2.5);
+                } else param._glowUntil = 0;
+            }
+
             // Horizontal lane divider below
             sdCtx.strokeStyle = 'rgba(255,255,255,0.06)';
             sdCtx.lineWidth = 1;
@@ -3818,7 +4024,7 @@
             sdCtx.fillStyle = 'rgba(' + _laneRGB + ',' + (param.colorIdx >= 0 ? '0.95' : '0.55') + ')';
             sdCtx.fillRect(0, rect.top, 4, rect.height);
             _sdColorRects.push({ param: param, x: 0, y: rect.top, w: 10, h: rect.height });
-            const _iconLeft = laneDrawLeft - 56;               // left edge of the range/focus/lock zone
+            const _iconLeft = _isWrapUI ? laneDrawLeft - 74 : laneDrawLeft - 56;   // left edge of the icon zone (wrapper adds the groove-grid glyph)
             const _short = rect.height < 40;                    // collapsed layout for dense lane stacks
             // The DEVICE NAME IS ALWAYS VISIBLE (field correction 2026-07-26: v1 let the
             // range fields replace the meta line, which erased the device on every ranged
@@ -3892,6 +4098,21 @@
             const rangeColor = param.rangeOn ? 'rgba(' + sdLaneColor(param, paramIdx) + ',0.95)' : 'rgba(161,161,170,0.5)';
             _drawRangeIcon(sdCtx, laneDrawLeft - 54, midY - 6, 12, rangeColor, param.rangeOn);
 
+            // Groove-grid glyph left of the range icon (wrapper): click for the picker.
+            // Active = lit + the chosen division under it (when the row has the height).
+            if (_isWrapUI) {
+                const _qOn = (typeof param.quantStep === 'number') && param.quantStep > 0;
+                const quantColor = _qOn ? 'rgba(' + sdLaneColor(param, paramIdx) + ',0.95)' : 'rgba(161,161,170,0.5)';
+                _drawQuantIcon(sdCtx, laneDrawLeft - 72, midY - 6, 12, quantColor, _qOn);
+                if (_qOn && rect.height >= 46) {
+                    sdCtx.font = 'bold 7px Outfit';
+                    sdCtx.textAlign = 'center';
+                    sdCtx.fillStyle = quantColor;
+                    sdCtx.fillText(_sdQuantLabel(param.quantStep), laneDrawLeft - 66, midY + 12);
+                    sdCtx.textAlign = 'left';
+                }
+            }
+
             // Selection shade inside this lane's drawing area
             if (sel) {
                 const sx = laneDrawLeft + ((sel.startBeat / totalBeats) * laneDrawWidth * sdViewZoomX) - sdViewPanX;
@@ -3931,6 +4152,39 @@
                 sdCtx.restore();
             }
 
+            // Per-lane LOOP boundary (wrapper): drag the grip at the lane's right end to make
+            // this lane wrap early (e.g. 1 bar of a 4-bar canvas). Beyond the boundary the lane
+            // is shaded out, faint ghost ticks mark every repeat, and the grip rides the line.
+            if (_isWrapUI) {
+                const _lbRaw = (typeof param.loopBeats === 'number') ? param.loopBeats : 0;
+                const _lb = (_lbRaw > 0 && _lbRaw < totalBeats - 1e-6) ? _lbRaw : 0;
+                const _lxAt = (b) => laneDrawLeft + ((b / totalBeats) * laneDrawWidth * sdViewZoomX) - sdViewPanX;
+                const _rgbL = sdLaneColor(param, paramIdx);
+                sdCtx.save();
+                sdCtx.beginPath(); sdCtx.rect(laneDrawLeft, rect.top, laneDrawWidth, rect.height); sdCtx.clip();
+                if (_lb) {
+                    const _bx = _lxAt(_lb);
+                    if (_bx < lw) { sdCtx.fillStyle = 'rgba(0,0,0,0.42)'; sdCtx.fillRect(_bx, rect.top, lw - _bx, rect.height); }
+                    sdCtx.strokeStyle = 'rgba(' + _rgbL + ',0.22)';
+                    sdCtx.lineWidth = 1;
+                    sdCtx.setLineDash([2, 4]);
+                    for (let _k = 2; _k * _lb < totalBeats - 1e-6; _k++) {
+                        const _gxk = _lxAt(_k * _lb);
+                        if (_gxk > laneDrawLeft && _gxk < lw) { sdCtx.beginPath(); sdCtx.moveTo(_gxk, rect.top); sdCtx.lineTo(_gxk, rect.bottom); sdCtx.stroke(); }
+                    }
+                    sdCtx.setLineDash([]);
+                    sdCtx.strokeStyle = 'rgba(' + _rgbL + ',0.85)';
+                    sdCtx.lineWidth = 2;
+                    sdCtx.beginPath(); sdCtx.moveTo(_bx, rect.top); sdCtx.lineTo(_bx, rect.bottom); sdCtx.stroke();
+                    _sdDrawLoopGrip(sdCtx, _bx, rect.top + rect.height / 2, _rgbL, 0.95);
+                } else {
+                    const _ex = _lxAt(totalBeats);
+                    if (_ex > laneDrawLeft && _ex < lw + 8)
+                        _sdDrawLoopGrip(sdCtx, Math.min(_ex, lw - 3), rect.top + rect.height / 2, _rgbL, 0.35);
+                }
+                sdCtx.restore();
+            }
+
             // Draw this lane's curve. Locked lanes render at reduced
             // alpha so the row reads as "frozen" at a quick scan, while
             // still being clearly visible as context. Setting globalAlpha
@@ -3944,7 +4198,13 @@
             const _rangeMap = (v) => param.rangeOn ? (param.rangeMin + v * (param.rangeMax - param.rangeMin)) : v;
             const valueToY = (v) => rect.bottom - _rangeMap(v) * rect.height;
             const timeToX = (t) => laneDrawLeft + ((t / totalBeats) * laneDrawWidth * sdViewZoomX) - sdViewPanX;
-            _sdLaneGeom.push({ cy: rect.top + rect.height / 2, rgb: sdLaneColor(param, paramIdx), poly: (param.points.length >= 2 ? _sdSampleLanePixels(sortedPts, timeToX, valueToY) : null) });
+            _sdLaneGeom.push({ cy: rect.top + rect.height / 2, rgb: sdLaneColor(param, paramIdx), poly: (param.points.length >= 2 ? _sdSampleLanePixels(sortedPts, timeToX, valueToY) : null),
+                               // Looped lanes (wrapper): the comet must wrap where the ENGINE wraps —
+                               // beat-precise mapping (tx0/txSpan) + the lane's loop fraction. 0 = ride
+                               // the whole curve exactly as before (desktop + unlooped lanes unchanged).
+                               tx0: timeToX(0), txSpan: timeToX(totalBeats) - timeToX(0),
+                               loopFrac: (_isWrapUI && typeof param.loopBeats === 'number' && param.loopBeats > 0 && param.loopBeats < totalBeats - 1e-6)
+                                   ? param.loopBeats / totalBeats : 0 });
             if (_sdEngMode) _sdEngKick();   // engine playhead: fresh geometry (zoom/pan/edit) repaints the parked head (coalesced — one frame per redraw)
 
             sdCtx.save();
@@ -4351,6 +4611,32 @@
                     return;
                 }
 
+                // Wrapper-only lane chrome: the groove-grid glyph + the loop-boundary grip.
+                if (window.strideLink && window.strideLink._wrapper) {
+                    // Groove-grid glyph — the ~20px zone left of the range icon opens the picker.
+                    const quantHitRight = rangeHitLeft;
+                    const quantHitLeft = quantHitRight - SD_MULTI_FOCUS_HIT_W;
+                    if (mx >= quantHitLeft && mx < quantHitRight) {
+                        const _qr = sdCanvasEl.getBoundingClientRect();
+                        _sdOpenQuantPopup(hit.param, _qr.left + mx, _qr.top + my);
+                        return;
+                    }
+                    // Loop-boundary grip — ±6px around the lane's boundary line (or the lane's
+                    // end when no loop is set yet). Vertical target, so it wins over the range
+                    // lines near a crossing; checked before the range boundary drag on purpose.
+                    const _lw2 = sdCanvasEl.getBoundingClientRect().width;
+                    const _ldw = Math.max(1, _lw2 - SD_MULTI_LABEL_WIDTH);
+                    const _tb = sdGetBars() * 4;
+                    const _lbCur = (typeof hit.param.loopBeats === 'number' && hit.param.loopBeats > 0 && hit.param.loopBeats < _tb - 1e-6)
+                        ? hit.param.loopBeats : _tb;
+                    const _lxCur = SD_MULTI_LABEL_WIDTH + ((_lbCur / _tb) * _ldw * sdViewZoomX) - sdViewPanX;
+                    if (mx > SD_MULTI_LABEL_WIDTH && Math.abs(mx - Math.min(_lxCur, _lw2 - 3)) <= 6) {
+                        _sdLoopDrag = { param: hit.param };
+                        sdCanvasEl.style.cursor = 'ew-resize';
+                        return;
+                    }
+                }
+
                 // Boundary drag — grabbing a range line (ceiling/floor) on a ranged lane inside
                 // the draw area. Applies to every selected lane too, so you can set a group at once.
                 if (hit.param.rangeOn && mx > SD_MULTI_LABEL_WIDTH) {
@@ -4462,6 +4748,26 @@
                 const nd = _sdRangeNumDrag;
                 _sdRangeSetPercent(nd.param, nd.edge, (nd.startVal + (nd.startY - my) / 200) * 100);
                 sdCanvasEl.style.cursor = 'ns-resize';
+                sdDrawCanvasGrid();
+                return;
+            }
+            if (_sdLoopDrag) {   // dragging a lane's loop boundary — snaps to the visible grid, live redraw
+                const mr = sdCanvasEl.getBoundingClientRect();
+                const mx = e.clientX - mr.left;
+                const tb = sdGetBars() * 4;
+                const ldw = Math.max(1, mr.width - SD_MULTI_LABEL_WIDTH);
+                let b = ((mx - SD_MULTI_LABEL_WIDTH + sdViewPanX) / (ldw * sdViewZoomX)) * tb;
+                const st = sdVisualGridBeats();
+                b = Math.round(b / st) * st;
+                b = Math.max(st, Math.min(tb, b));
+                _sdLoopDrag.param.loopBeats = (b >= tb - 1e-6) ? 0 : b;
+                sdCanvasEl.style.cursor = 'ew-resize';
+                const stEl = document.getElementById('sd-canvas-status');
+                if (stEl) {
+                    if (!(_sdLoopDrag.param.loopBeats > 0)) stEl.textContent = 'Loop: full length';
+                    else if (b >= 4 && Math.abs(b / 4 - Math.round(b / 4)) < 1e-6) stEl.textContent = 'Loop: ' + (b / 4) + ' bar' + (b / 4 === 1 ? '' : 's');
+                    else stEl.textContent = 'Loop: ' + (Math.round(b * 100) / 100) + ' beats';
+                }
                 sdDrawCanvasGrid();
                 return;
             }
@@ -4779,6 +5085,15 @@
             if (_sdRangeNumDrag) {   // finished scrubbing a numeric min/max field — persist + re-drive
                 _sdRangeNumDrag = null;
                 if (sdCanvasEl) sdCanvasEl.style.cursor = 'crosshair';
+                try { Promise.resolve(saveCanvasState()); } catch (err) {}
+                sdDrawCanvasGrid();
+                return;
+            }
+            if (_sdLoopDrag) {   // finished dragging a loop boundary — the engine owns it from here
+                const _lp = _sdLoopDrag.param;
+                _sdLoopDrag = null;
+                if (sdCanvasEl) sdCanvasEl.style.cursor = 'crosshair';
+                _sdPushLoopToEngine(_lp);
                 try { Promise.resolve(saveCanvasState()); } catch (err) {}
                 sdDrawCanvasGrid();
                 return;

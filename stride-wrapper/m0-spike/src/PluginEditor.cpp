@@ -288,6 +288,17 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
             }
         })
         .withEventListener ("setBypass",    [this] (juce::var v)   { if (proc.isEditLocked()) return; proc.setNodeBypassed ((int) v.getProperty ("i", -1), ! (bool) v.getProperty ("on", true)); pushChainDevices(); })
+        .withEventListener ("duplicateDevice", [this] (juce::var v) {
+            // Alt+drag a chip = duplicate that device (same patch + mapped params, EMPTY
+            // lanes) at the drop position. The engine inserts asynchronously; the timer's
+            // summary-change branch aligns synthWindows via pendingDupInsertAt (see .h).
+            if (proc.isEditLocked()) return;
+            const int from = (int) v.getProperty ("from", -1), to = (int) v.getProperty ("to", -1);
+            if (from < 0) return;
+            pendingDupInsertAt = juce::jmax (0, to);
+            pendingDupSetMs    = juce::Time::getMillisecondCounter();
+            proc.duplicateNode (from, pendingDupInsertAt);
+        })
         .withEventListener ("license",      [this] (juce::var v)   { handleLicense (v); })
         .withEventListener ("undoRemove",   [this] (juce::var)     { if (proc.isEditLocked()) return; synthWindows.clear(); proc.undoRemove(); })
         .withEventListener ("setKeys",      [this] (juce::var v)   {
@@ -709,6 +720,24 @@ void StrideWrapperEditor::handleStrideLinkSend (const juce::var& msg)
         return;
     }
 
+    // Per-lane loop boundary (1.3.0) - engine-owned like set_range, same locking policy.
+    if (type == "set_loop")
+    {
+        if (proc.isEditLocked()) return;
+        proc.setMappedLoop ((int) msg.getProperty ("id", -1),
+                            (float) (double) msg.getProperty ("beats", 0.0));
+        return;
+    }
+
+    // Per-lane grid-quantize step (1.3.0) - same story.
+    if (type == "set_quant")
+    {
+        if (proc.isEditLocked()) return;
+        proc.setMappedQuant ((int) msg.getProperty ("id", -1),
+                             (float) (double) msg.getProperty ("step", 0.0));
+        return;
+    }
+
     if (type == "unmapParam")
     {
         proc.removeMappedAt ((int) msg.getProperty ("id", -1));
@@ -784,6 +813,8 @@ void StrideWrapperEditor::pushRackScanned()
     const auto curves = proc.getMappedCurves();   // drive curves so a reopen SHOWS them, not just an empty canvas
     const auto ranges = proc.getMappedRanges();   // range bands too — engine-owned, so a re-push/reopen can't wipe them
     const auto colors = proc.getMappedColors();   // lane colors - engine-owned for exactly the same reason (1.1.11)
+    const auto loops  = proc.getMappedLoops();    // per-lane loop boundaries + quant steps (1.3.0) - same ownership story
+    const auto quants = proc.getMappedQuants();
     for (int i = 0; i < names.size(); ++i)
     {
         auto* o = new juce::DynamicObject();
@@ -805,6 +836,10 @@ void StrideWrapperEditor::pushRackScanned()
         }
         if (i < colors.size() && colors[i] >= 0)
             o->setProperty ("colorIdx", colors[i]);                     // lane color echo - canvas repaints the pick on every rebuild
+        if (i < loops.size() && (double) loops[i] > 0.0)
+            o->setProperty ("loopBeats", loops[i]);                     // loop boundary echo (1.3.0) - absent = full clip
+        if (i < quants.size() && (double) quants[i] > 0.0)
+            o->setProperty ("quantStep", quants[i]);                    // quant step echo (1.3.0) - absent = off
         params.add (juce::var (o));
     }
 
@@ -1145,6 +1180,30 @@ void StrideWrapperEditor::timerCallback()
     // (2026-07-25). Speculative hardening on a hot path is not free.
    #endif
 
+   #if JUCE_WINDOWS
+    // First-open DPI nudge (see the .h note): one programmatic 1px grow-and-restore ~200ms
+    // after open replays the same host scale handshake a manual corner-drag does, so a
+    // mixed-DPI first open never sits at 80% with the L-shaped margin. Hosted-window
+    // handshake only — the standalone owns its window and has nothing to reconcile.
+    if (dpiNudgePhase < 2 && proc.wrapperType != juce::AudioProcessor::wrapperType_Standalone)
+    {
+        if (dpiNudgePhase == 0)
+        {
+            if (++dpiNudgeTick >= 6 && getPeer() != nullptr && pinMode.isEmpty() && ! sdFullscreen)
+            {
+                dpiNudgePhase = 1;
+                dpiNudgeH = getHeight();
+                setSize (getWidth(), dpiNudgeH + 1);
+            }
+        }
+        else   // phase 1: restore on the very next tick
+        {
+            dpiNudgePhase = 2;
+            setSize (getWidth(), dpiNudgeH);
+        }
+    }
+   #endif
+
     // Re-derive the native entitlement gates (~every 2s) so a Discovery Pass expiring MID-SESSION
     // locks the editor + stops the drive WITHOUT waiting on the JS gate. Both are device-bound.
     if (++licTick >= 60)
@@ -1216,6 +1275,17 @@ void StrideWrapperEditor::timerCallback()
     {
         lastSummary = summary;
         const int n = proc.numHosted();
+        // Alt+drag duplicate landed: insert the window slot at the SAME position the device
+        // went in, so every open device window stays aligned to its chain index (the
+        // clear-all alternative would slam every window shut and reopen the lot). The
+        // deadline keeps a failed duplicate from misaligning a later unrelated add.
+        if (pendingDupInsertAt >= 0)
+        {
+            const bool fresh = juce::Time::getMillisecondCounter() - pendingDupSetMs < 5000;
+            if (fresh && n == (int) synthWindows.size() + 1)
+                synthWindows.insert (synthWindows.begin() + juce::jmin ((size_t) pendingDupInsertAt, synthWindows.size()), nullptr);
+            pendingDupInsertAt = -1;
+        }
         if (n == 0) synthWindows.clear();                                                    // chain cleared
         else if (n > (int) synthWindows.size()) openMissingSynthWindows();                   // device ADDED -> auto-open the new one(s)
         else if (n < (int) synthWindows.size()) { while ((int) synthWindows.size() > n) synthWindows.pop_back(); }   // shrank (safety) -> trim, don't reopen
@@ -1235,6 +1305,19 @@ void StrideWrapperEditor::timerCallback()
         if (unmappedPos >= 0) pushUnmappedAt (unmappedPos);
         else                  pushRackScanned();
         pushLearnState();
+    }
+
+    // Param-touch glow: a hosted-GUI touch on a mapped knob -> flash that lane on the
+    // canvas (drained here like the keyswitch mask; last touch wins within a tick).
+    {
+        const int gp = proc.consumeGlowPos();
+        if (gp >= 0 && web != nullptr)
+        {
+            auto* o = new juce::DynamicObject();
+            o->setProperty ("type", "param_glow");
+            o->setProperty ("id", gp);
+            web->emitEventIfBrowserIsVisible ("sl_event", juce::var (o));
+        }
     }
 
     // Reflect EVERY learn-mode change on the Map button — including the auto-leave

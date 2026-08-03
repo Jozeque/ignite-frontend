@@ -49,7 +49,7 @@ ok('reassignMacros exists', /void\s+StrideWrapperProcessor::reassignMacros\s*\(\
 ok('reassignMacros keeps valid unique slots (only clears -1/oob/dup)', /if\s*\(m\.macroSlot < 0 \|\| m\.macroSlot >= kMacroCount \|\| used\[[^\]]*m\.macroSlot\]\)/.test(procC));
 ok('mapParam claims a slot + relabels', /mapped\.push_back\s*\(\{\s*node,\s*parameterIndex,\s*-1\s*\}\)[\s\S]{0,120}reassignMacros\(\)[\s\S]{0,220}triggerAsyncUpdate/.test(procC));
 ok('unmap frees the slot (reassignMacros in removeMappedAt)', /removeMappedAt[\s\S]{0,900}reassignMacros\(\)/.test(procC));
-ok('removeNode reassigns (remaining params keep slots)', /removeNode[\s\S]{0,1700}reassignMacros\(\)/.test(procC));
+ok('removeNode reassigns (remaining params keep slots)', /removeNode[\s\S]{0,2400}reassignMacros\(\)/.test(procC));   // window widened for the 1.3.0 loop/quant snapshot lines
 ok('macroSlotFor looks up the slot by (node,param)', /int\s+StrideWrapperProcessor::macroSlotFor\s*\(int node, int param\)/.test(procC));
 
 // ─────────────────────────────────────────────────────────────

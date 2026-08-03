@@ -41,7 +41,7 @@ ok('editor has a moveDevice listener -> proc.moveNode', /withEventListener\s*\("
 ok('editor reorders the synth windows with the device', /withEventListener\s*\("moveDevice"[\s\S]{0,700}synthWindows\.erase[\s\S]{0,140}synthWindows\.insert/.test(editor));
 ok('chips are draggable', /chip\.draggable = true/.test(shim));
 ok('chip drop emits moveDevice{from,to}', /emit\('moveDevice',\s*\{\s*from:\s*from,\s*to:\s*i\s*\}\)/.test(shim));
-ok('drag hover uses an outline (not the ring — no filter clash)', /chip\.style\.outline = '2px solid/.test(shim));
+ok('drag hover uses an outline (not the ring — no filter clash)', /chip\.style\.outline = [^;\n]*'2px solid/.test(shim));   // 1.3.0: the outline is conditional (Alt+drag duplicate = emerald, move = cyan)
 ok('chips have a drag grip affordance', /Drag to reorder/.test(shim));
 
 // ─────────────────────────────────────────────────────────────

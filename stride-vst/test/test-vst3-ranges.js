@@ -92,7 +92,7 @@ ok('getMappedRanges exposes {on,lo,hi} in mapped order', /getMappedRanges\(\) co
 ok('curve echo inverse-maps ranged lanes back to the RAW shape', /unscale = m\.rangeOn && span > 0\.0001f/.test(procC) && /if \(unscale\) v = juce::jlimit \(0\.0f, 1\.0f, \(v - m\.rangeLo\) \/ span\)/.test(procC));
 ok('project state SAVES the band (ro/rl/rh; absent = full)', /if \(m\.rangeOn\)[\s\S]{0,300}setAttribute \("ro", 1\)[\s\S]{0,120}"rl"[\s\S]{0,80}"rh"/.test(procC));
 ok('project state LOADS the band (old projects default off)', /getIntAttribute \("ro", 0\)[\s\S]{0,120}getDoubleAttribute \("rl", 0\.0\)[\s\S]{0,120}getDoubleAttribute \("rh", 1\.0\)/.test(procC));
-ok('undo snapshots carry the bands (clearChain + removeNode)', (procC.match(/d\.ron\.push_back \(m\.rangeOn \? 1 : 0\)/g) || []).length === 2);
+ok('undo snapshots carry the bands (clearChain + removeNode + duplicateNode)', (procC.match(/d\.ron\.push_back \(m\.rangeOn \? 1 : 0\)/g) || []).length >= 2);   // 1.3.0 added a third capture site (duplicate)
 ok('restore rebuilds mapped entries WITH their bands', /restore this device's lanes \(\+ their range bands\)[\s\S]{0,400}d\.ron\[k\] != 0/.test(procC));
 ok('snapshot Dev struct carries parallel range vectors', /std::vector<char> ron; std::vector<float> rlo, rhi;/.test(procH));
 

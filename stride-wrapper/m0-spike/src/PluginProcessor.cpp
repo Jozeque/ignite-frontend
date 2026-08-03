@@ -486,9 +486,29 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
                     if (lane.param >= 0 && lane.param < ps.size())
                         if (auto* p = ps[lane.param])
                         {
-                            const float v = interp (lane.times, lane.values, lane.curves, (float) ph);
+                            // One lookup for slot + loop + quant (replaces the old macroSlotFor scan — same cost).
+                            const MapRef* mr = nullptr;
+                            for (const auto& m : mapped)
+                                if (m.node == lane.node && m.param == lane.param) { mr = &m; break; }
+
+                            // Per-lane LOOP: wrap the CLIP PHASE at the lane's own boundary, anchored to
+                            // the canvas origin — the lane restarts the INSTANT the playhead crosses the
+                            // drawn boundary (mid-bar included), exactly where the ghost ticks sit. An
+                            // earlier build wrapped the absolute host clock instead: inside a Live loop
+                            // brace the wrap points landed at fmod(brace-start, L) offsets, so a mid-bar
+                            // boundary only ever "restarted" at the brace end (field report 2026-08-02,
+                            // "waits till the bar end"). Anchoring to ph makes the wrap ride the same
+                            // clip anchor the whole canvas rides. Default (0) = global phase, unchanged.
+                            double lx = ph;
+                            if (mr != nullptr && mr->loopBeats > 0.01f)
+                                lx = std::fmod (ph, (double) mr->loopBeats);   // ph is already wrapped >= 0
+                            // Per-lane GRID QUANTIZE: hold the value across each step (S&H groove).
+                            if (mr != nullptr && mr->quantStep > 0.001f)
+                                lx = std::floor (lx / (double) mr->quantStep) * (double) mr->quantStep;
+
+                            const float v = interp (lane.times, lane.values, lane.curves, (float) lx);
                             p->setValue (v);
-                            const int slot = macroSlotFor (lane.node, lane.param);
+                            const int slot = (mr != nullptr) ? mr->macroSlot : -1;
                             if (slot >= 0) macroParams[(size_t) slot]->setValue (v);   // mirror for the DAW display
                         }
                 }
@@ -637,7 +657,8 @@ void StrideWrapperProcessor::clearChain()
         d.position = i;
         if (chain[(size_t) i].inst) chain[(size_t) i].inst->getStateInformation (d.state);
         for (const auto& m : mapped)     if (m.node == i) { d.params.push_back (m.param); d.slots.push_back (m.macroSlot);
-                                                            d.ron.push_back (m.rangeOn ? 1 : 0); d.rlo.push_back (m.rangeLo); d.rhi.push_back (m.rangeHi); d.col.push_back (m.colorIdx); }
+                                                            d.ron.push_back (m.rangeOn ? 1 : 0); d.rlo.push_back (m.rangeLo); d.rhi.push_back (m.rangeHi); d.col.push_back (m.colorIdx);
+                                                            d.lpb.push_back (m.loopBeats); d.qst.push_back (m.quantStep); }
         for (const auto& l : driveLanes) if (l.node == i) d.lanes.push_back (l);
         lastRemoved.devices.push_back (std::move (d));
     }
@@ -666,7 +687,8 @@ void StrideWrapperProcessor::removeNode (int index)
         d.position = index;
         if (chain[(size_t) index].inst) chain[(size_t) index].inst->getStateInformation (d.state);
         for (const auto& m : mapped)     if (m.node == index) { d.params.push_back (m.param); d.slots.push_back (m.macroSlot);
-                                                                d.ron.push_back (m.rangeOn ? 1 : 0); d.rlo.push_back (m.rangeLo); d.rhi.push_back (m.rangeHi); d.col.push_back (m.colorIdx); }
+                                                                d.ron.push_back (m.rangeOn ? 1 : 0); d.rlo.push_back (m.rangeLo); d.rhi.push_back (m.rangeHi); d.col.push_back (m.colorIdx);
+                                                                d.lpb.push_back (m.loopBeats); d.qst.push_back (m.quantStep); }
         for (const auto& l : driveLanes) if (l.node == index) d.lanes.push_back (l);
         lastRemoved.devices.push_back (std::move (d));
     }
@@ -780,7 +802,9 @@ void StrideWrapperProcessor::restoreNextDevice (std::shared_ptr<std::vector<Remo
                                                   k < d.ron.size() && d.ron[k] != 0,
                                                   k < d.rlo.size() ? d.rlo[k] : 0.0f,
                                                   k < d.rhi.size() ? d.rhi[k] : 1.0f,
-                                                  k < d.col.size() ? d.col[k] : -1 });
+                                                  k < d.col.size() ? d.col[k] : -1,
+                                                  k < d.lpb.size() ? d.lpb[k] : 0.0f,
+                                                  k < d.qst.size() ? d.qst[k] : 0.0f });
                     for (auto l : d.lanes) { l.node = p; self->driveLanes.push_back (l); }  // and their curves
                     self->reassignMacros();      // keep restored slots where valid; fill any gaps (old saves had none)
                 }
@@ -857,7 +881,7 @@ void StrideWrapperProcessor::getStateInformation (juce::MemoryBlock& dest)
     if (demoMode.load()) return;   // DEMO: persist nothing — a project can't be built on the demo (blank state on reload)
     juce::XmlElement root ("STRIDE_WRAP");
     const juce::ScopedLock sl (hostLock);
-    root.setAttribute ("version", 3);                                   // v3: + per-param lane color ("cl"); attr-based, so v2 projects load unchanged
+    root.setAttribute ("version", 4);                                   // v4: + per-param loop ("lb") / quant ("qs"); attr-based, so v3 and older projects load unchanged
     root.setAttribute ("clipBeats", driveClipBeats);
     root.setAttribute ("driveMode", (int) driveMode.load());            // 0=Live, 1=Automation
     root.setAttribute ("tempoMode", tempoMode.load());                  // 0=Project sync (default) / 1=Manual
@@ -892,6 +916,8 @@ void StrideWrapperProcessor::getStateInformation (juce::MemoryBlock& dest)
             e->setAttribute ("rh", (double) m.rangeHi);
         }
         if (m.colorIdx >= 0) e->setAttribute ("cl", m.colorIdx);   // lane color: absent = AUTO (same back-compat story as the range attrs)
+        if (m.loopBeats > 0.0f) e->setAttribute ("lb", (double) m.loopBeats);   // loop boundary: absent = full clip (v4; older builds ignore it)
+        if (m.quantStep > 0.0f) e->setAttribute ("qs", (double) m.quantStep);   // quant step: absent = off
     }
     auto* laneXml = root.createNewChildElement ("LANES");
     for (const auto& l : driveLanes)
@@ -952,6 +978,8 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
                 (*devs)[(size_t) n].rlo.push_back ((float) e->getDoubleAttribute ("rl", 0.0));
                 (*devs)[(size_t) n].rhi.push_back ((float) e->getDoubleAttribute ("rh", 1.0));
                 (*devs)[(size_t) n].col.push_back (e->getIntAttribute ("cl", -1));
+                (*devs)[(size_t) n].lpb.push_back ((float) e->getDoubleAttribute ("lb", 0.0));
+                (*devs)[(size_t) n].qst.push_back ((float) e->getDoubleAttribute ("qs", 0.0));
             }
         }
     if (auto* laneXml = xml->getChildByName ("LANES"))
@@ -1035,6 +1063,7 @@ void StrideWrapperProcessor::audioProcessorParameterChanged (juce::AudioProcesso
 {
     mapParam (proc, parameterIndex);            // each guards its own mode; the modes are mutually exclusive
     unmapParamByTouch (proc, parameterIndex);
+    noteParamTouched (proc, parameterIndex);    // glow fallback for plugins that never emit gestures (fires on the first value move)
 }
 
 // Touching a control (gesture begin) maps/unmaps it too — so a single CLICK on a knob
@@ -1044,6 +1073,7 @@ void StrideWrapperProcessor::audioProcessorParameterChangeGestureBegin (juce::Au
     hostDirtyPending.store (true);   // a HUMAN touched a hosted knob (the drive uses plain setValue — no gestures)
     mapParam (proc, parameterIndex);
     unmapParamByTouch (proc, parameterIndex);
+    noteParamTouched (proc, parameterIndex);    // glow: clicking a mapped knob lights its lane on the canvas
 }
 
 // Inverse of mapParam: while UNLEARN mode is armed, touching a mapped knob removes it from the
@@ -1207,6 +1237,91 @@ juce::Array<int> StrideWrapperProcessor::getMappedColors() const
     const juce::ScopedLock sl (hostLock);
     for (const auto& m : mapped) out.add (m.colorIdx);
     return out;
+}
+
+// Per-lane loop boundary (1.3.0) - the range/color pattern verbatim: engine-owned, no
+// mapVersion bump (the canvas already shows the edit; the echo exists for REBUILDS).
+void StrideWrapperProcessor::setMappedLoop (int pos, float beats)
+{
+    const juce::ScopedLock sl (hostLock);
+    if (pos < 0 || pos >= (int) mapped.size()) return;
+    mapped[(size_t) pos].loopBeats = juce::jlimit (0.0f, 1024.0f, beats);
+    hostDirtyPending.store (true);
+}
+
+// Per-lane grid-quantize step (1.3.0) - same story. Clamped to a bar (4 beats) max.
+void StrideWrapperProcessor::setMappedQuant (int pos, float step)
+{
+    const juce::ScopedLock sl (hostLock);
+    if (pos < 0 || pos >= (int) mapped.size()) return;
+    mapped[(size_t) pos].quantStep = juce::jlimit (0.0f, 4.0f, step);
+    hostDirtyPending.store (true);
+}
+
+juce::Array<juce::var> StrideWrapperProcessor::getMappedLoops() const
+{
+    juce::Array<juce::var> out;
+    const juce::ScopedLock sl (hostLock);
+    for (const auto& m : mapped) out.add ((double) m.loopBeats);
+    return out;
+}
+
+juce::Array<juce::var> StrideWrapperProcessor::getMappedQuants() const
+{
+    juce::Array<juce::var> out;
+    const juce::ScopedLock sl (hostLock);
+    for (const auto& m : mapped) out.add ((double) m.quantStep);
+    return out;
+}
+
+// Duplicate ONE device (Alt+drag a chip). Captures the source's patch + mapped params +
+// lane meta (ranges/colors/loop/quant) but NO curves — the copy starts with clean lanes.
+// Fresh macro slots (-1 -> reassign): the SOURCE keeps its DAW automation binding.
+// Rides restoreNextDevice, the same async instantiate->setState->insert machinery as
+// undo/project-load, so index shifting and re-preparation follow the proven path.
+void StrideWrapperProcessor::duplicateNode (int index, int insertAt)
+{
+    auto devs = std::make_shared<std::vector<RemovedSnapshot::Dev>>();
+    {
+        const juce::ScopedLock sl (hostLock);
+        if (index < 0 || index >= (int) chain.size()) return;
+        RemovedSnapshot::Dev d;
+        d.path     = chain[(size_t) index].path;
+        d.bypassed = chain[(size_t) index].bypassed;
+        d.position = juce::jlimit (0, (int) chain.size(), insertAt);
+        if (chain[(size_t) index].inst) chain[(size_t) index].inst->getStateInformation (d.state);
+        for (const auto& m : mapped)
+            if (m.node == index)
+            {
+                d.params.push_back (m.param);
+                d.slots.push_back (-1);
+                d.ron.push_back (m.rangeOn ? 1 : 0); d.rlo.push_back (m.rangeLo); d.rhi.push_back (m.rangeHi);
+                d.col.push_back (m.colorIdx);
+                d.lpb.push_back (m.loopBeats); d.qst.push_back (m.quantStep);
+            }
+        // d.lanes stays empty on purpose: "everything except the modulation itself".
+        devs->push_back (std::move (d));
+    }
+    if (devs->empty() || (*devs)[0].path.isEmpty()) return;
+    hostDirtyPending.store (true);   // user edit — unlike a project load, this IS a change
+    restoreNextDevice (devs, 0, restoreGeneration.fetch_add (1) + 1);
+}
+
+// Param-touch glow: a hosted-GUI touch on a MAPPED param latches its position for the
+// editor to drain. Skipped while Map/Unmap are armed (those modes own the touch), and
+// our own drive writes can never land here (they use plain setValue — no listener fires).
+void StrideWrapperProcessor::noteParamTouched (juce::AudioProcessor* proc, int parameterIndex)
+{
+    if (learnMode.load() || unlearnMode.load()) return;
+    const juce::ScopedLock sl (hostLock);
+    const int node = nodeIndexOf (proc);
+    if (node < 0) return;
+    for (int pos = 0; pos < (int) mapped.size(); ++pos)
+        if (mapped[(size_t) pos].node == node && mapped[(size_t) pos].param == parameterIndex)
+        {
+            pendingGlowPos.store (pos);
+            return;
+        }
 }
 
 void StrideWrapperProcessor::removeMappedAt (int pos)
