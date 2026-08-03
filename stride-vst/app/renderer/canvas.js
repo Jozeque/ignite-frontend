@@ -824,7 +824,7 @@
                 id: p.id,
                 _path: p._path,
                 is_log: p.is_log || false,
-                locked: false,
+                locked: !!p.locked,   // engine-owned padlock echo (wrapper) — desktop payloads carry none
                 selected: false,
                 rangeOn: false, rangeMin: 0, rangeMax: 1,   // per-param output range clamp (null-default = full 0..1)
                 colorIdx: -1,                               // lane color override (-1 = AUTO skin rotation; 0..11 = SD_LANE_PALETTE)
@@ -887,7 +887,7 @@
             id: p.id,
             _path: p._path,
             is_log: p.is_log || false,
-            locked: false,
+            locked: !!p.locked,   // engine-owned padlock echo (wrapper) — desktop payloads carry none, so lanes rebuild unlocked exactly as before
             selected: false,
             rangeOn: !!p.rangeOn, rangeMin: (typeof p.rangeMin === 'number' ? p.rangeMin : 0), rangeMax: (typeof p.rangeMax === 'number' ? p.rangeMax : 1),   // carry the range if the engine sent it
             colorIdx: (typeof p.colorIdx === 'number' ? p.colorIdx : -1),   // engine-owned lane color echo (wrapper) — AUTO when absent
@@ -1697,6 +1697,7 @@
         sdCanvasParams.forEach(function (p) {
             if (_sdLaneMoving(p)) { moving++; if (!p.locked) n++; p.locked = true; }
         });
+        _sdPushLocksToEngine(sdCanvasParams);   // one batched engine pass (wrapper; desktop no-op)
         sdRenderSidebar();
         sdDrawCanvasGrid();
         const el = document.getElementById('sd-canvas-status');
@@ -1718,6 +1719,7 @@
         sdCanvasParams.forEach(function (p) {
             if (p.locked) { n++; p.locked = false; }
         });
+        _sdPushLocksToEngine(sdCanvasParams);   // one batched engine pass (wrapper; desktop no-op)
         sdRenderSidebar();
         sdDrawCanvasGrid();
         const el = document.getElementById('sd-canvas-status');
@@ -2600,6 +2602,33 @@
             window.strideLink.send({ type: 'set_color', id: id, c: (typeof param.colorIdx === 'number' ? param.colorIdx : -1) });
         } catch (e) {}
     }
+    // Per-lane LOCK (wrapper) — engine-owned via set_lock/set_locks, echoed back in
+    // rack_scanned: the ranges/colors ownership pattern, closing the LAST client-only
+    // lane attribute. Locks lived only in localStorage, and the wrapper's localStorage
+    // is ONE shared profile for every instance in the DAW, keyed only by chain summary —
+    // so locking lanes in one instance force-loaded its lanes into every other instance
+    // hosting the same chain on their next open (field report 2026-08-03).
+    function _sdPushLockToEngine(p) {
+        try {
+            if (!p || !window.strideLink || !window.strideLink._wrapper) return;
+            const id = parseInt(p.envelopeId, 10);
+            if (isNaN(id)) return;
+            window.strideLink.send({ type: 'set_lock', id: id, on: !!p.locked });
+        } catch (e) {}
+    }
+    // Batched wrapper push: one engine lock pass (set_locks) for Lock All / Unlock All /
+    // "Lock current lanes" — mirrors _sdPushRangesToEngine; a single lane keeps set_lock.
+    function _sdPushLocksToEngine(params) {
+        try {
+            if (!window.strideLink || !window.strideLink._wrapper) return;
+            const items = (params || []).map(function (p) {
+                return { id: p ? parseInt(p.envelopeId, 10) : NaN, on: !!(p && p.locked) };
+            }).filter(function (it) { return !isNaN(it.id); });
+            if (!items.length) return;
+            if (items.length === 1) { window.strideLink.send({ type: 'set_lock', id: items[0].id, on: items[0].on }); return; }
+            window.strideLink.send({ type: 'set_locks', items: items });
+        } catch (e) {}
+    }
     // Per-lane LOOP + GROOVE GRID (wrapper 1.3.0) — engine-owned via set_loop/set_quant,
     // echoed back in rack_scanned: the exact ranges/colors ownership pattern.
     function _sdPushLoopToEngine(p) {
@@ -2795,6 +2824,16 @@
     }
 
     async function restoreCanvasState() {
+        // WRAPPER: never apply the saved-state overlay. The engine echo (rack_scanned)
+        // already rebuilt every lane per-instance from the PROJECT — curves, ranges,
+        // colors, loop, quant AND locks. The wrapper's window.stride store is
+        // localStorage: ONE shared profile for every instance in the DAW, keyed only by
+        // chain summary — so two instances hosting the same chain shared one slot, and
+        // opening one painted the other's saved lanes (and force-restored its LOCKS)
+        // over its own echo; the next autosave then pushed that into the engine for
+        // real (field report 2026-08-03). The desktop app keeps the full restore below:
+        // its keys are per-track (real LOM paths) and it has no engine echo to lean on.
+        if (window.strideLink && window.strideLink._wrapper) { _renderTemplateStatus(); return; }
         const key = currentClipKey || currentRackId;
         if (!key || !window.stride) return;
         const _epoch = _sdCurveEpoch;   // detect a curve edit that lands DURING the async load below
@@ -3066,6 +3105,7 @@
         // Locking a lane clears its selection — locked = "off limits", which
         // is incompatible with "in the active selection set".
         if (p.locked) p.selected = false;
+        _sdPushLockToEngine(p);   // engine-owned on the wrapper: per-instance + project-persistent (desktop no-op)
         sdRenderSidebar();
         sdDrawCanvasGrid();
         saveCanvasState(); // persist the lock state immediately
@@ -3214,6 +3254,7 @@
             p.locked = anyUnlocked;
             if (p.locked) p.selected = false;
         });
+        _sdPushLocksToEngine(sdCanvasParams);   // one batched engine pass (wrapper; desktop no-op)
         sdRenderSidebar();
         sdDrawCanvasGrid();
         saveCanvasState();

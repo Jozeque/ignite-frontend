@@ -115,6 +115,13 @@ public:
     void setMappedQuant (int pos, float step);                    // message thread (editor bridge)
     juce::Array<juce::var> getMappedLoops() const;                // loopBeats per mapped param, mapped order (0 = off)
     juce::Array<juce::var> getMappedQuants() const;               // quantStep per mapped param, mapped order (0 = off)
+    // Per-lane LOCK - the same engine-ownership story, closing the LAST client-only lane
+    // attribute: the WebView's localStorage is one SHARED profile for every instance in the
+    // DAW, keyed only by chain summary - so client-only locks force-loaded one instance's
+    // lanes into every other instance hosting the same chain (field report 2026-08-03).
+    void setMappedLock (int pos, bool on);                        // message thread (editor bridge)
+    void setMappedLocks (const juce::Array<juce::var>& items);    // batch of {id,on} - ONE lock pass (Lock All / Unlock All / Lock current)
+    juce::Array<int> getMappedLocks() const;                      // 1/0 per mapped param, mapped order
     // Duplicate ONE device in place (Alt+drag a chip): same plugin, same patch, same mapped
     // params (fresh macro slots so the source keeps its DAW automation binding), same
     // ranges/colors/loop/quant - but EMPTY lanes; the copy starts with no modulation.
@@ -275,7 +282,11 @@ private:
                     int colorIdx = -1;                                               // lane color (-1 = AUTO; 0..11 = canvas palette). ENGINE-OWNED like
                                                                                     // the range: positional re-pushes must never wipe or misroute it
                     float loopBeats = 0.0f;                                          // per-lane loop boundary in beats (0 = off = full clip) - 1.3.0
-                    float quantStep = 0.0f; };                                       // per-lane S&H grid step in beats (0 = off; 0.25 = 1/16) - 1.3.0
+                    float quantStep = 0.0f;                                          // per-lane S&H grid step in beats (0 = off; 0.25 = 1/16) - 1.3.0
+                    bool locked = false; };                                          // per-lane padlock (generators/tools skip it). ENGINE-OWNED: it was the
+                                                                                     // last client-only lane attribute, living in the WebView's ONE shared
+                                                                                     // localStorage profile - so locks (and the lanes saved with them) leaked
+                                                                                     // between instances hosting the same chain (field report 2026-08-03)
     std::vector<MapRef> mapped;               // user-mapped params across the chain
 
     // A relabelable VST3 parameter. A free slot reads "Stride N"; an assigned slot takes the
@@ -365,7 +376,8 @@ private:
                      std::vector<int> params; std::vector<int> slots; std::vector<StoredLane> lanes; bool bypassed = false;
                      std::vector<char> ron; std::vector<float> rlo, rhi;
                      std::vector<int> col;                                    // per-param lane colors (parallel to params; -1 = AUTO)   // per-param range bands (parallel to params; char ≠ vector<bool>)
-                     std::vector<float> lpb, qst; };                          // per-param loop boundary + quant step (parallel to params; 0 = off) - 1.3.0
+                     std::vector<float> lpb, qst;                             // per-param loop boundary + quant step (parallel to params; 0 = off) - 1.3.0
+                     std::vector<char> lkd; };                                // per-param lane locks (parallel to params; char ≠ vector<bool>)
         std::vector<Dev> devices;          // 1 for a single ✕, the whole chain for Clear
     };
     RemovedSnapshot lastRemoved;

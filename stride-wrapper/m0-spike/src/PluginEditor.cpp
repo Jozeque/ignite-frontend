@@ -738,6 +738,27 @@ void StrideWrapperEditor::handleStrideLinkSend (const juce::var& msg)
         return;
     }
 
+    // Per-lane padlock - engine-owned like set_range, same locking policy. Locks were the
+    // last client-only lane attribute: they lived in the WebView's ONE shared localStorage
+    // profile, so locking lanes in one instance leaked them into every other instance
+    // hosting the same chain (field report 2026-08-03).
+    if (type == "set_lock")
+    {
+        if (proc.isEditLocked()) return;
+        proc.setMappedLock ((int) msg.getProperty ("id", -1),
+                            (bool) msg.getProperty ("on", false));
+        return;
+    }
+
+    // Lock All / Unlock All / "Lock current lanes": one batched pass (the set_ranges pattern).
+    if (type == "set_locks")
+    {
+        if (proc.isEditLocked()) return;
+        if (auto* arr = msg.getProperty ("items", juce::var()).getArray())
+            proc.setMappedLocks (*arr);
+        return;
+    }
+
     if (type == "unmapParam")
     {
         proc.removeMappedAt ((int) msg.getProperty ("id", -1));
@@ -815,6 +836,7 @@ void StrideWrapperEditor::pushRackScanned()
     const auto colors = proc.getMappedColors();   // lane colors - engine-owned for exactly the same reason (1.1.11)
     const auto loops  = proc.getMappedLoops();    // per-lane loop boundaries + quant steps (1.3.0) - same ownership story
     const auto quants = proc.getMappedQuants();
+    const auto locks  = proc.getMappedLocks();    // per-lane padlocks - engine-owned so instances can't share them via localStorage
     for (int i = 0; i < names.size(); ++i)
     {
         auto* o = new juce::DynamicObject();
@@ -840,6 +862,8 @@ void StrideWrapperEditor::pushRackScanned()
             o->setProperty ("loopBeats", loops[i]);                     // loop boundary echo (1.3.0) - absent = full clip
         if (i < quants.size() && (double) quants[i] > 0.0)
             o->setProperty ("quantStep", quants[i]);                    // quant step echo (1.3.0) - absent = off
+        if (i < locks.size() && locks[i] != 0)
+            o->setProperty ("locked", true);                            // padlock echo - absent = unlocked (canvas rebuilds from THIS, never from localStorage)
         params.add (juce::var (o));
     }
 

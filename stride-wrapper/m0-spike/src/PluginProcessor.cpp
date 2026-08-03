@@ -658,7 +658,7 @@ void StrideWrapperProcessor::clearChain()
         if (chain[(size_t) i].inst) chain[(size_t) i].inst->getStateInformation (d.state);
         for (const auto& m : mapped)     if (m.node == i) { d.params.push_back (m.param); d.slots.push_back (m.macroSlot);
                                                             d.ron.push_back (m.rangeOn ? 1 : 0); d.rlo.push_back (m.rangeLo); d.rhi.push_back (m.rangeHi); d.col.push_back (m.colorIdx);
-                                                            d.lpb.push_back (m.loopBeats); d.qst.push_back (m.quantStep); }
+                                                            d.lpb.push_back (m.loopBeats); d.qst.push_back (m.quantStep); d.lkd.push_back (m.locked ? 1 : 0); }
         for (const auto& l : driveLanes) if (l.node == i) d.lanes.push_back (l);
         lastRemoved.devices.push_back (std::move (d));
     }
@@ -688,7 +688,7 @@ void StrideWrapperProcessor::removeNode (int index)
         if (chain[(size_t) index].inst) chain[(size_t) index].inst->getStateInformation (d.state);
         for (const auto& m : mapped)     if (m.node == index) { d.params.push_back (m.param); d.slots.push_back (m.macroSlot);
                                                                 d.ron.push_back (m.rangeOn ? 1 : 0); d.rlo.push_back (m.rangeLo); d.rhi.push_back (m.rangeHi); d.col.push_back (m.colorIdx);
-                                                                d.lpb.push_back (m.loopBeats); d.qst.push_back (m.quantStep); }
+                                                                d.lpb.push_back (m.loopBeats); d.qst.push_back (m.quantStep); d.lkd.push_back (m.locked ? 1 : 0); }
         for (const auto& l : driveLanes) if (l.node == index) d.lanes.push_back (l);
         lastRemoved.devices.push_back (std::move (d));
     }
@@ -797,14 +797,15 @@ void StrideWrapperProcessor::restoreNextDevice (std::shared_ptr<std::vector<Remo
                     for (auto& m : self->mapped)     if (m.node >= p) ++m.node;   // make room at p
                     for (auto& l : self->driveLanes) if (l.node >= p) ++l.node;
                     self->chain.insert (self->chain.begin() + p, Node { std::move (inst), name, d.path, d.bypassed });
-                    for (size_t k = 0; k < d.params.size(); ++k)                      // restore this device's lanes (+ their range bands)
+                    for (size_t k = 0; k < d.params.size(); ++k)                      // restore this device's lanes (+ their range bands + locks)
                         self->mapped.push_back ({ p, d.params[k], k < d.slots.size() ? d.slots[k] : -1,
                                                   k < d.ron.size() && d.ron[k] != 0,
                                                   k < d.rlo.size() ? d.rlo[k] : 0.0f,
                                                   k < d.rhi.size() ? d.rhi[k] : 1.0f,
                                                   k < d.col.size() ? d.col[k] : -1,
                                                   k < d.lpb.size() ? d.lpb[k] : 0.0f,
-                                                  k < d.qst.size() ? d.qst[k] : 0.0f });
+                                                  k < d.qst.size() ? d.qst[k] : 0.0f,
+                                                  k < d.lkd.size() && d.lkd[k] != 0 });
                     for (auto l : d.lanes) { l.node = p; self->driveLanes.push_back (l); }  // and their curves
                     self->reassignMacros();      // keep restored slots where valid; fill any gaps (old saves had none)
                 }
@@ -881,7 +882,7 @@ void StrideWrapperProcessor::getStateInformation (juce::MemoryBlock& dest)
     if (demoMode.load()) return;   // DEMO: persist nothing — a project can't be built on the demo (blank state on reload)
     juce::XmlElement root ("STRIDE_WRAP");
     const juce::ScopedLock sl (hostLock);
-    root.setAttribute ("version", 4);                                   // v4: + per-param loop ("lb") / quant ("qs"); attr-based, so v3 and older projects load unchanged
+    root.setAttribute ("version", 5);                                   // v5: + per-param lock ("lk"); attr-based like v4's loop/quant, so v4 and older projects load unchanged
     root.setAttribute ("clipBeats", driveClipBeats);
     root.setAttribute ("driveMode", (int) driveMode.load());            // 0=Live, 1=Automation
     root.setAttribute ("tempoMode", tempoMode.load());                  // 0=Project sync (default) / 1=Manual
@@ -918,6 +919,7 @@ void StrideWrapperProcessor::getStateInformation (juce::MemoryBlock& dest)
         if (m.colorIdx >= 0) e->setAttribute ("cl", m.colorIdx);   // lane color: absent = AUTO (same back-compat story as the range attrs)
         if (m.loopBeats > 0.0f) e->setAttribute ("lb", (double) m.loopBeats);   // loop boundary: absent = full clip (v4; older builds ignore it)
         if (m.quantStep > 0.0f) e->setAttribute ("qs", (double) m.quantStep);   // quant step: absent = off
+        if (m.locked) e->setAttribute ("lk", 1);                                // lane lock: absent = unlocked (v5; older builds ignore it)
     }
     auto* laneXml = root.createNewChildElement ("LANES");
     for (const auto& l : driveLanes)
@@ -980,6 +982,7 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
                 (*devs)[(size_t) n].col.push_back (e->getIntAttribute ("cl", -1));
                 (*devs)[(size_t) n].lpb.push_back ((float) e->getDoubleAttribute ("lb", 0.0));
                 (*devs)[(size_t) n].qst.push_back ((float) e->getDoubleAttribute ("qs", 0.0));
+                (*devs)[(size_t) n].lkd.push_back ((char) (e->getIntAttribute ("lk", 0) != 0 ? 1 : 0));
             }
         }
     if (auto* laneXml = xml->getChildByName ("LANES"))
@@ -1274,8 +1277,45 @@ juce::Array<juce::var> StrideWrapperProcessor::getMappedQuants() const
     return out;
 }
 
+// Per-lane LOCK - the range/color pattern once more, closing the LAST client-only lane
+// attribute. Locks lived ONLY in the WebView's localStorage, which is one SHARED profile
+// for every wrapper instance in the DAW, keyed by chain summary alone - so locking lanes
+// in one instance force-loaded its lanes into every other instance hosting the same chain
+// on their next editor open (field report 2026-08-03). Engine ownership makes locks
+// per-instance and project-persistent like curves/ranges/colors/loop/quant.
+// No mapVersion bump (the canvas already painted the padlock; the echo exists for REBUILDS).
+void StrideWrapperProcessor::setMappedLock (int pos, bool on)
+{
+    const juce::ScopedLock sl (hostLock);
+    if (pos < 0 || pos >= (int) mapped.size()) return;
+    mapped[(size_t) pos].locked = on;
+    hostDirtyPending.store (true);
+}
+
+// Lock All / Unlock All / "Lock current lanes": one batched pass - ONE lock take,
+// ONE dirty mark (the set_ranges pattern).
+void StrideWrapperProcessor::setMappedLocks (const juce::Array<juce::var>& items)
+{
+    const juce::ScopedLock sl (hostLock);
+    for (const auto& it : items)
+    {
+        const int pos = (int) it.getProperty ("id", -1);
+        if (pos < 0 || pos >= (int) mapped.size()) continue;
+        mapped[(size_t) pos].locked = (bool) it.getProperty ("on", false);
+    }
+    hostDirtyPending.store (true);
+}
+
+juce::Array<int> StrideWrapperProcessor::getMappedLocks() const
+{
+    juce::Array<int> out;
+    const juce::ScopedLock sl (hostLock);
+    for (const auto& m : mapped) out.add (m.locked ? 1 : 0);
+    return out;
+}
+
 // Duplicate ONE device (Alt+drag a chip). Captures the source's patch + mapped params +
-// lane meta (ranges/colors/loop/quant) but NO curves — the copy starts with clean lanes.
+// lane meta (ranges/colors/loop/quant/locks) but NO curves — the copy starts with clean lanes.
 // Fresh macro slots (-1 -> reassign): the SOURCE keeps its DAW automation binding.
 // Rides restoreNextDevice, the same async instantiate->setState->insert machinery as
 // undo/project-load, so index shifting and re-preparation follow the proven path.
@@ -1298,6 +1338,7 @@ void StrideWrapperProcessor::duplicateNode (int index, int insertAt)
                 d.ron.push_back (m.rangeOn ? 1 : 0); d.rlo.push_back (m.rangeLo); d.rhi.push_back (m.rangeHi);
                 d.col.push_back (m.colorIdx);
                 d.lpb.push_back (m.loopBeats); d.qst.push_back (m.quantStep);
+                d.lkd.push_back (m.locked ? 1 : 0);
             }
         // d.lanes stays empty on purpose: "everything except the modulation itself".
         devs->push_back (std::move (d));

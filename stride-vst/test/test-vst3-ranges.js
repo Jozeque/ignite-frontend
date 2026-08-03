@@ -56,7 +56,7 @@ const canvas = rd(path.join(root, 'stride-vst', 'app', 'renderer', 'canvas.js'))
                          { rangeOn: true, rangeMin: 0.5, rangeMax: 0.6, points: [{ t: 9 }], locked: true });
     ok('engine payload wins for ranges (stale carry cannot misroute)', engine.rangeMin === 0.2 && engine.rangeMax === 0.8);
     ok('engine payload wins for points', engine.points[0].t === 0);
-    ok('locks still carry (engine does not own locks)', engine.locked === true);
+    ok('locks still carry (belt-and-braces under the engine lock echo)', engine.locked === true);
     const desktop = merge({}, { rangeOn: true, rangeMin: 0.3, rangeMax: 0.7, points: [{ t: 5 }], locked: false });
     ok('desktop (payload silent): carry fills exactly as before', desktop.rangeOn === true && desktop.rangeMin === 0.3 && desktop.points[0].t === 5);
     const fresh = merge({}, null);
@@ -93,7 +93,7 @@ ok('curve echo inverse-maps ranged lanes back to the RAW shape', /unscale = m\.r
 ok('project state SAVES the band (ro/rl/rh; absent = full)', /if \(m\.rangeOn\)[\s\S]{0,300}setAttribute \("ro", 1\)[\s\S]{0,120}"rl"[\s\S]{0,80}"rh"/.test(procC));
 ok('project state LOADS the band (old projects default off)', /getIntAttribute \("ro", 0\)[\s\S]{0,120}getDoubleAttribute \("rl", 0\.0\)[\s\S]{0,120}getDoubleAttribute \("rh", 1\.0\)/.test(procC));
 ok('undo snapshots carry the bands (clearChain + removeNode + duplicateNode)', (procC.match(/d\.ron\.push_back \(m\.rangeOn \? 1 : 0\)/g) || []).length >= 2);   // 1.3.0 added a third capture site (duplicate)
-ok('restore rebuilds mapped entries WITH their bands', /restore this device's lanes \(\+ their range bands\)[\s\S]{0,400}d\.ron\[k\] != 0/.test(procC));
+ok('restore rebuilds mapped entries WITH their bands', /restore this device's lanes \(\+ their range bands \+ locks\)[\s\S]{0,400}d\.ron\[k\] != 0/.test(procC));
 ok('snapshot Dev struct carries parallel range vectors', /std::vector<char> ron; std::vector<float> rlo, rhi;/.test(procH));
 
 // ─────────────────────────────────────────────────────────────
