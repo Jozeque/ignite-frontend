@@ -917,13 +917,15 @@
       //   motion moves while notes are held, letting go freezes it. The performance mode.
       // NOTES · FREE: the first note just STARTS the clock — from then on it keeps running
       //   at Stride's tempo (project sync or your manual BPM), deaf to further notes.
-      //   Re-select the mode to re-arm it from bar 1. No Play button needed in either.
+      //   Stopping the DAW transport re-arms it (parks at bar 1), so every clip you play
+      //   after a stop starts the motion from the beginning; re-selecting the mode still
+      //   re-arms too. No Play button needed in either.
       // Engine-owned + project-saved, echoed via rack_scanned like the tempo mode.
       var _runMode = 0;
       var runBtn = document.createElement('button');
       runBtn.title = 'Run mode (click to cycle) — TRANSPORT: follows the DAW playhead. '
         + 'NOTES RETRIG: every note from silence restarts the phrase; motion runs while notes are held. '
-        + 'NOTES FREE: the first note starts the clock and it keeps running at Stride’s tempo (re-select to restart). No Play needed.';
+        + 'NOTES FREE: the first note starts the motion from the beginning and it keeps running through rests; stopping the DAW restarts it for the next clip. No Play needed.';
       host.appendChild(runBtn);
       function paintRun() {
         if (_runMode === 0) {

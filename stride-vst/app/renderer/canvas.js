@@ -4777,7 +4777,15 @@
                 if (idx !== -1) { sdIsDragging = true; sdDraggedPoint = param.points[idx]; sdDrawCanvasGrid(); }
                 else {
                     const np = { time: sdSnapDrawBeat(hd.time), value: Math.max(0, Math.min(1, hd.value)) };
-                    param.points.push(np); sdIsDragging = true; sdDraggedPoint = np; sdRenderSidebar(); sdDrawCanvasGrid();
+                    // Sort IMMEDIATELY — the array must stay time-ordered. The renderer draws
+                    // from sorted COPIES so an appended point LOOKS right, but every consumer of
+                    // the raw array (live drive, inject, saved state) walks it in order, and the
+                    // engine's interpolator treats the last element as "the end": one mid-time
+                    // point appended here froze the parameter from that time onward (field
+                    // report 2026-08-03). The drag keeps its reference — sort moves the object,
+                    // not its identity.
+                    param.points.push(np); param.points.sort((a, b) => a.time - b.time);
+                    sdIsDragging = true; sdDraggedPoint = np; sdRenderSidebar(); sdDrawCanvasGrid();
                 }
             }
         });
@@ -5165,6 +5173,12 @@
             }
             if (sdIsDragging) {
                 pushUndo();
+                // Re-sort the edited lane BEFORE the flush below: dragging a point's time past
+                // a neighbour (or a freehand stroke that doubled back) leaves the raw array
+                // out of order, and the engine's interpolator freezes past the first
+                // out-of-place time (field report 2026-08-03). Cheap: one lane, on release.
+                const _mp = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
+                if (_mp && _mp.points && _mp.points.length > 1) _mp.points.sort((a, b) => a.time - b.time);
                 sdIsDragging = false;
                 sdDraggedPoint = null;
                 sdRenderSidebar();

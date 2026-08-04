@@ -794,6 +794,9 @@ void StrideWrapperEditor::handleStrideLinkSend (const juce::var& msg)
                         lane.values.push_back ((float) (double) ptv.getProperty ("value", 0.0));
                         lane.curves.push_back ((float) (double) ptv.getProperty ("curve", 0.0));
                     }
+                // interp() needs ascending times; a mid-drag flush (or a state saved by an
+                // older build) can arrive out of order and freeze the lane past that point.
+                StrideWrapperProcessor::sortLaneByTime (lane.times, lane.values, lane.curves);
                 if (! lane.times.empty())
                     lanes.push_back (std::move (lane));
             }

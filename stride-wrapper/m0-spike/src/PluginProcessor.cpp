@@ -366,6 +366,20 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
                 noteGatePhase = 0.0;
                 lastRunModeSeen = rm;
             }
+            // FREE auto-re-arm (field report 2026-08-04): stopping the HOST transport parks the
+            // phrase at zero, so the next clip's first note launches it fresh and it free-runs
+            // from there — "the modulation starts where the MIDI starts". Before this, the only
+            // re-arm was re-selecting the mode (h: "re-selecting the mode is the way to re-arm"),
+            // and the clock kept advancing through the stop, so the next clip started at a
+            // wall-clock-random phase. transportPlaying is still HOST truth at this line — the
+            // gate overwrites it further down. Retrig needs nothing: silence already re-anchors
+            // it. Standalone forces transportPlaying=true, so jam sessions never see an edge.
+            if (rm == (int) RunMode::NotesFree && hostWasPlaying && ! transportPlaying)
+            {
+                noteGateLatched = false;
+                noteGatePhase = 0.0;
+            }
+            hostWasPlaying = transportPlaying;
             if (rm == (int) RunMode::NotesRetrig || rm == (int) RunMode::NotesFree)
             {
                 for (const auto meta : midi)
@@ -994,6 +1008,7 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
             strToFloats (e->getStringAttribute ("t"), l.times);
             strToFloats (e->getStringAttribute ("v"), l.values);
             strToFloats (e->getStringAttribute ("c"), l.curves);
+            sortLaneByTime (l.times, l.values, l.curves);   // heal lanes saved unsorted by older builds (see the helper)
             (*devs)[(size_t) n].lanes.push_back (l);
         }
 
@@ -1603,6 +1618,29 @@ void StrideWrapperProcessor::setDriveCurves (const std::vector<DriveLane>& lanes
 
 // Quadratic-bezier-per-segment matching the canvas render (cp = midV + curve*|dv|*1.2 at
 // the midpoint time; time param stays linear). Linear when curve == 0.
+// See the header note: interp() below treats the LAST element as "the end", so one
+// mid-array time freezes the value from that time onward. Ascending-check first — the
+// overwhelmingly common case pays one linear scan and allocates nothing.
+void StrideWrapperProcessor::sortLaneByTime (std::vector<float>& ts, std::vector<float>& vs, std::vector<float>& cs)
+{
+    const size_t n = ts.size();
+    bool sorted = true;
+    for (size_t i = 1; i < n; ++i) if (ts[i] < ts[i - 1]) { sorted = false; break; }
+    if (sorted) return;
+    std::vector<size_t> idx (n);
+    for (size_t i = 0; i < n; ++i) idx[i] = i;
+    std::stable_sort (idx.begin(), idx.end(), [&ts] (size_t a, size_t b) { return ts[a] < ts[b]; });
+    std::vector<float> t2, v2, c2;
+    t2.reserve (n); v2.reserve (n); c2.reserve (n);
+    for (const size_t i : idx)
+    {
+        t2.push_back (ts[i]);
+        v2.push_back (i < vs.size() ? vs[i] : 0.0f);
+        c2.push_back (i < cs.size() ? cs[i] : 0.0f);
+    }
+    ts = std::move (t2); vs = std::move (v2); cs = std::move (c2);
+}
+
 float StrideWrapperProcessor::interp (const std::vector<float>& xs, const std::vector<float>& ys, const std::vector<float>& cs, float x)
 {
     if (xs.empty()) return 0.0f;

@@ -173,6 +173,14 @@ public:
     void setRunMode (int mode)  { runMode.store (juce::jlimit (0, 2, mode)); hostDirtyPending.store (true); }
     int  getRunMode() const     { return runMode.load(); }
 
+    // Lane times must ASCEND for interp(): a mid-array time makes everything after it read
+    // as "past the end" and the value freezes there (field report 2026-08-03 — an edit in
+    // the canvas' All-Lines view played normally up to the new point, then froze). The
+    // canvas sorts at its mutation sites too; this is the belt at every engine ingress
+    // (live_curves/apply in the editor bridge + LANES on project load), so states saved
+    // by older builds heal on arrival. Message thread only.
+    static void sortLaneByTime (std::vector<float>& ts, std::vector<float>& vs, std::vector<float>& cs);
+
     // ── live curve drive ──
     struct DriveLane { int position; std::vector<float> times, values, curves; };
     void setDriveCurves (const std::vector<DriveLane>& lanes, double clipBeats);
@@ -355,6 +363,7 @@ private:
     juce::uint64        gateHeld[2] = { 0, 0 };
     double              noteGatePhase = 0.0;
     bool                noteGateLatched = false;   // NotesFree: clock started (audio thread only)
+    bool                hostWasPlaying = false;    // last block's HOST transport flag (audio thread only) — FREE re-arms on the true→false edge
     int                 lastRunModeSeen = 0;       // audio thread: a mode switch resets the gate state cleanly
     std::atomic<double> noteGatePhasePub { 0.0 };
     std::atomic<bool>   noteGateOpenPub { false };
