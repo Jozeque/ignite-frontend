@@ -828,7 +828,7 @@
                 selected: false,
                 rangeOn: false, rangeMin: 0, rangeMax: 1,   // per-param output range clamp (null-default = full 0..1)
                 colorIdx: -1,                               // lane color override (-1 = AUTO skin rotation; 0..11 = SD_LANE_PALETTE)
-                loopBeats: 0, quantStep: 0,                 // per-lane loop boundary + groove grid (wrapper; 0 = off)
+                loopBeats: 0, speed: 1,                     // per-lane loop boundary + speed multiplier (wrapper; 0 = off / 1 = normal)
                 points: []
             }))
             .sort(_sdSortByName);
@@ -891,8 +891,8 @@
             selected: false,
             rangeOn: !!p.rangeOn, rangeMin: (typeof p.rangeMin === 'number' ? p.rangeMin : 0), rangeMax: (typeof p.rangeMax === 'number' ? p.rangeMax : 1),   // carry the range if the engine sent it
             colorIdx: (typeof p.colorIdx === 'number' ? p.colorIdx : -1),   // engine-owned lane color echo (wrapper) — AUTO when absent
-            loopBeats: (typeof p.loopBeats === 'number' && p.loopBeats > 0 ? p.loopBeats : 0),   // engine-owned loop/quant echo (wrapper) — off when absent
-            quantStep: (typeof p.quantStep === 'number' && p.quantStep > 0 ? p.quantStep : 0),
+            loopBeats: (typeof p.loopBeats === 'number' && p.loopBeats > 0 ? p.loopBeats : 0),   // engine-owned loop/speed echo (wrapper) — off/1x when absent
+            speed: (typeof p.speedVal === 'number' && p.speedVal > 0 ? p.speedVal : 1),          // per-lane rate multiplier (replaced the groove grid 2026-08-04)
             points: Array.isArray(p.points) ? p.points : []   // wrapper sends the drawn curve from the engine — reliable across reopen (desktop sends none → empty)
         })).sort(_sdSortByName);
 
@@ -1122,7 +1122,7 @@
             if (sameTrack && _slotSame) {
                 sdCanvasParams.forEach(p => {
                     if ((p.points && p.points.length) || p.locked || p.rangeOn || (typeof p.colorIdx === 'number' && p.colorIdx >= 0)
-                        || (typeof p.loopBeats === 'number' && p.loopBeats > 0) || (typeof p.quantStep === 'number' && p.quantStep > 0)) {
+                        || (typeof p.loopBeats === 'number' && p.loopBeats > 0) || (typeof p.speed === 'number' && p.speed !== 1)) {
                         // Key by the stable _path; fall back to NAME for lanes that
                         // have no _path yet (e.g. a just-loaded session) so their
                         // curves/locks survive the first rescan-merge instead of
@@ -1132,7 +1132,7 @@
                                        rangeOn: !!p.rangeOn, rangeMin: p.rangeMin, rangeMax: p.rangeMax,
                                        colorIdx: (typeof p.colorIdx === 'number' ? p.colorIdx : -1),
                                        loopBeats: (typeof p.loopBeats === 'number' ? p.loopBeats : 0),
-                                       quantStep: (typeof p.quantStep === 'number' ? p.quantStep : 0) };
+                                       speed: (typeof p.speed === 'number' ? p.speed : 1) };
                     }
                 });
             }
@@ -1151,8 +1151,8 @@
                         if (c.locked) p.locked = true;
                         if (c.rangeOn && !p.rangeOn) { p.rangeOn = true; p.rangeMin = c.rangeMin; p.rangeMax = c.rangeMax; }
                         if (typeof c.colorIdx === 'number' && c.colorIdx >= 0 && !(p.colorIdx >= 0)) p.colorIdx = c.colorIdx;   // payload (engine echo) wins; carry only fills AUTO
-                        if (typeof c.loopBeats === 'number' && c.loopBeats > 0 && !(p.loopBeats > 0)) p.loopBeats = c.loopBeats;   // loop/quant: same payload-wins story
-                        if (typeof c.quantStep === 'number' && c.quantStep > 0 && !(p.quantStep > 0)) p.quantStep = c.quantStep;
+                        if (typeof c.loopBeats === 'number' && c.loopBeats > 0 && !(p.loopBeats > 0)) p.loopBeats = c.loopBeats;   // loop/speed: same payload-wins story
+                        if (typeof c.speed === 'number' && c.speed !== 1 && !(typeof p.speed === 'number' && p.speed !== 1)) p.speed = c.speed;
                         kept++;
                     }
                 });
@@ -2629,8 +2629,10 @@
             window.strideLink.send({ type: 'set_locks', items: items });
         } catch (e) {}
     }
-    // Per-lane LOOP + GROOVE GRID (wrapper 1.3.0) — engine-owned via set_loop/set_quant,
-    // echoed back in rack_scanned: the exact ranges/colors ownership pattern.
+    // Per-lane LOOP + SPEED (wrapper) — engine-owned via set_loop/set_speed, echoed back
+    // in rack_scanned: the exact ranges/colors ownership pattern. Speed replaced the
+    // groove grid (2026-08-04): same icon slot, but a press-and-drag rate ladder instead
+    // of a picker — "how fast this lane runs compared to the rest".
     function _sdPushLoopToEngine(p) {
         try {
             if (!p || !window.strideLink || !window.strideLink._wrapper) return;
@@ -2639,69 +2641,33 @@
             window.strideLink.send({ type: 'set_loop', id: id, beats: (typeof p.loopBeats === 'number' ? p.loopBeats : 0) });
         } catch (e) {}
     }
-    function _sdPushQuantToEngine(p) {
+    function _sdPushSpeedToEngine(p) {
         try {
             if (!p || !window.strideLink || !window.strideLink._wrapper) return;
             const id = parseInt(p.envelopeId, 10);
             if (isNaN(id)) return;
-            window.strideLink.send({ type: 'set_quant', id: id, step: (typeof p.quantStep === 'number' ? p.quantStep : 0) });
+            window.strideLink.send({ type: 'set_speed', id: id, s: (typeof p.speed === 'number' && p.speed > 0 ? p.speed : 1) });
         } catch (e) {}
     }
-    // The groove-grid choices. Beat values chosen so the engine's floor() lands exactly on
-    // musical steps: 1/4=1 beat, 1/8=0.5, 1/8T=1/3, 1/16=0.25, 1/16T=1/6, 1/32=0.125.
-    const SD_QUANT_CHOICES = [['Off', 0], ['1/4', 1], ['1/8', 0.5], ['1/8T', 1 / 3], ['1/16', 0.25], ['1/16T', 1 / 6], ['1/32', 0.125]];
-    function _sdQuantLabel(step) {
-        let best = 'Off', bd = 1e9;
-        for (const [lbl, v] of SD_QUANT_CHOICES) {
-            if (v <= 0) continue;
-            const d = Math.abs(v - step);
-            if (d < bd) { bd = d; best = lbl; }
+    // The speed ladder: musical rate steps, dragged through vertically (up = faster).
+    // 1x sits mid-ladder so the default is one nudge away from either direction.
+    const SD_SPEED_LADDER = [0.25, 0.5, 1, 2, 4];
+    function _sdSpeedIdx(s) {
+        let best = 2, bd = 1e9;
+        for (let i = 0; i < SD_SPEED_LADDER.length; i++) {
+            const d = Math.abs(SD_SPEED_LADDER[i] - s);
+            if (d < bd) { bd = d; best = i; }
         }
-        return step > 0 ? best : 'Off';
+        return best;
     }
-    let _sdQuantPopEl = null;
-    function _sdCloseQuantPopup() { if (_sdQuantPopEl) { _sdQuantPopEl.remove(); _sdQuantPopEl = null; } }
-    function _sdOpenQuantPopup(param, clientX, clientY) {
-        _sdCloseQuantPopup();
-        const pop = document.createElement('div');
-        pop.id = 'sd-quant-popup';
-        pop.style.cssText = 'position:fixed;z-index:10070;background:#09090b;border:1px solid rgba(255,255,255,0.12);'
-            + 'border-radius:10px;box-shadow:0 18px 50px rgba(0,0,0,0.8);padding:10px;width:132px;'
-            + "font-family:'Outfit',sans-serif";
-        const title = document.createElement('div');
-        title.style.cssText = 'font-size:9px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;color:#a1a1aa;margin-bottom:8px';
-        title.textContent = 'Groove grid';
-        pop.appendChild(title);
-        const cur = (typeof param.quantStep === 'number' ? param.quantStep : 0);
-        const apply = (v) => {
-            param.quantStep = v;
-            _sdPushQuantToEngine(param);
-            _sdCloseQuantPopup();
-            sdDrawCanvasGrid();
-            Promise.resolve(saveCanvasState());
-            const st = document.getElementById('sd-canvas-status');
-            if (st) st.textContent = v > 0 ? ('Groove grid: ' + _sdQuantLabel(v) + ' — the curve steps to that grid') : 'Groove grid off — smooth curve';
-        };
-        SD_QUANT_CHOICES.forEach(([lbl, v]) => {
-            const on = Math.abs(cur - v) < 1e-4;
-            const b = document.createElement('button');
-            b.textContent = lbl;
-            b.style.cssText = 'display:block;width:100%;text-align:left;font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;'
-                + 'padding:4px 8px;margin-bottom:2px;border-radius:5px;cursor:pointer;border:1px solid '
-                + (on ? 'rgba(232,121,249,0.6);color:#f0abfc;background:rgba(232,121,249,0.12)' : 'rgba(255,255,255,0.06);color:#a1a1aa;background:none');
-            b.addEventListener('click', (e) => { e.stopPropagation(); apply(v); });
-            pop.appendChild(b);
-        });
-        document.body.appendChild(pop);
-        const r = pop.getBoundingClientRect();
-        pop.style.left = Math.max(6, Math.min(clientX + 8, window.innerWidth - r.width - 6)) + 'px';
-        pop.style.top = Math.max(6, Math.min(clientY - 20, window.innerHeight - r.height - 6)) + 'px';
-        setTimeout(() => {
-            const closer = (ev) => { if (_sdQuantPopEl && !_sdQuantPopEl.contains(ev.target)) { _sdCloseQuantPopup(); document.removeEventListener('mousedown', closer, true); } };
-            document.addEventListener('mousedown', closer, true);
-        }, 0);
-        _sdQuantPopEl = pop;
+    function _sdSpeedLabel(s) {
+        // Plain "1/2" / "1/4" below 1x — the unicode fraction glyphs vanished at icon
+        // size (field feedback 2026-08-04); above 1x the X reads as "times".
+        const v = SD_SPEED_LADDER[_sdSpeedIdx(s)];
+        return v === 0.25 ? '1/4' : v === 0.5 ? '1/2' : (v + 'X');
     }
+    // Press-and-drag state for the lane speed glyph (no popup — drag up/down, ~24px per step).
+    let _sdSpeedDrag = null;   // { param, startY, startIdx, lastIdx }
 
     let _sdColorPopEl = null, _sdColorPopParam = null;
     function _sdCloseColorPopup() { if (_sdColorPopEl) { _sdColorPopEl.remove(); _sdColorPopEl = null; _sdColorPopParam = null; } }
@@ -2809,7 +2775,7 @@
         // across reloads. Points/range are stored as the raw 0..1 shape (non-destructive).
         const state = sdCanvasParams
             .filter(p => p.points.length > 0 || p.locked || p.rangeOn || (typeof p.colorIdx === 'number' && p.colorIdx >= 0)
-                      || (typeof p.loopBeats === 'number' && p.loopBeats > 0) || (typeof p.quantStep === 'number' && p.quantStep > 0))
+                      || (typeof p.loopBeats === 'number' && p.loopBeats > 0) || (typeof p.speed === 'number' && p.speed !== 1))
             .map(p => ({
                 envelopeId: p.envelopeId,   // legacy / back-compat key
                 _path: p._path || null,     // STABLE key — match on this; positional envelopeId renumbers when params are added
@@ -2817,7 +2783,7 @@
                 rangeOn: !!p.rangeOn, rangeMin: p.rangeMin, rangeMax: p.rangeMax,   // per-param output range
                 colorIdx: (typeof p.colorIdx === 'number' ? p.colorIdx : -1),       // lane color override (-1 = AUTO)
                 loopBeats: (typeof p.loopBeats === 'number' ? p.loopBeats : 0),     // per-lane loop boundary (wrapper; 0 = off)
-                quantStep: (typeof p.quantStep === 'number' ? p.quantStep : 0),     // per-lane groove grid (wrapper; 0 = off)
+                speed: (typeof p.speed === 'number' ? p.speed : 1),                 // per-lane rate multiplier (wrapper; 1 = normal)
                 points: p.points.map(pt => ({ time: pt.time, value: pt.value, curve: pt.curve || 0 }))
             }));
         await window.stride.saveCanvasState(key, state);
@@ -2871,12 +2837,12 @@
                 // spoke — the saved value only fills lanes still on AUTO.
                 if (typeof sp.colorIdx === 'number' && sp.colorIdx >= 0 && !(param.colorIdx >= 0))
                     param.colorIdx = sp.colorIdx;
-                // Loop boundary + groove grid (wrapper): same fill-the-default story — the
+                // Loop boundary + speed (wrapper): same fill-the-default story — the
                 // engine echo already landed via loadParamsDirectly and must win.
                 if (typeof sp.loopBeats === 'number' && sp.loopBeats > 0 && !(param.loopBeats > 0))
                     param.loopBeats = sp.loopBeats;
-                if (typeof sp.quantStep === 'number' && sp.quantStep > 0 && !(param.quantStep > 0))
-                    param.quantStep = sp.quantStep;
+                if (typeof sp.speed === 'number' && sp.speed !== 1 && !(typeof param.speed === 'number' && param.speed !== 1))
+                    param.speed = sp.speed;
                 // A LOCKED saved lane is ALWAYS restored (curve + lock) — even right
                 // after a generator press. loadParamsDirectly rebuilds every lane
                 // UNLOCKED, so without this a rescan-before-generate unlocks the lanes
@@ -3471,9 +3437,17 @@
             // restarts exactly on the drawn loop line, in step with the engine's wrap
             // (field report 2026-08-03: "the animation keeps passing it").
             let tx;
-            if (g.loopFrac && g.loopFrac > 0) {
-                const wrapped = phase - Math.floor(phase / g.loopFrac) * g.loopFrac;
-                tx = g.tx0 + wrapped * g.txSpan;
+            const spd = (g.speed && g.speed > 0) ? g.speed : 1;
+            if ((g.loopFrac && g.loopFrac > 0) || spd !== 1) {
+                // Lane-local clock: engine time × the lane's speed, wrapped at the lane's
+                // own loop fraction (the full canvas when unlooped). In NOTES FREE the
+                // phrase is ENDLESS — wrap the RAW beat clock, not the globally-wrapped
+                // phase, so boundaries that don't divide the bar count stay in step with
+                // the engine (no global reset, field request 2026-08-04).
+                const Lf = (g.loopFrac && g.loopFrac > 0) ? g.loopFrac : 1;
+                const base = (_sdEngFree && g.tb > 0) ? (_sdEngBeats / g.tb) : phase;
+                const lt = ((base * spd) % Lf + Lf) % Lf;
+                tx = g.tx0 + lt * g.txSpan;
             } else {
                 tx = poly[0].x + phase * (poly[n - 1].x - poly[0].x);
             }
@@ -3513,6 +3487,7 @@
     // Desktop/M4L never call this, so nothing changes outside the wrapper.
     let _sdEngMode = false, _sdEngPhase = 0, _sdEngOn = false, _sdEngPend = 0;
     let _sdEngDrawnPhase = -1, _sdEngDrawnOn = null;
+    let _sdEngBeats = 0, _sdEngFree = false;   // raw phrase beats + notes-free flag (endless per-lane wraps)
     function _sdEngKick() {
         if (_sdEngPend) return;                             // coalesce bursts into one painted frame
         _sdEngPend = requestAnimationFrame(() => {
@@ -3521,10 +3496,12 @@
             _sdFxDraw(_sdEngPhase, _sdEngOn);
         });
     }
-    window.sdSetEnginePlayhead = function (phase, on) {
+    window.sdSetEnginePlayhead = function (phase, on, beats, free) {
         if (!_sdEngMode) { _sdEngMode = true; sdStopFx(); } // the fake drift never comes back
         _sdEngPhase = Math.min(1, Math.max(0, +phase || 0));
         _sdEngOn = !!on;
+        _sdEngBeats = +beats || 0;   // raw (unwrapped) phrase beats — notes-free lanes wrap these at their OWN boundary
+        _sdEngFree = !!free;
         // Sub-pixel phase moves don't repaint (a 64-bar loop crawls — painting it at 30Hz
         // would be pure waste; it repaints as soon as the head has actually moved).
         if (_sdEngOn !== _sdEngDrawnOn || Math.abs(_sdEngPhase - _sdEngDrawnPhase) > 0.0015) _sdEngKick();
@@ -3832,21 +3809,29 @@
         ctx.restore();
     }
 
-    // Tiny "groove grid" glyph (a staircase — the S&H shape) left of the range icon on
-    // wrapper lanes. Click for the grid picker (Off/1/4/1/8/…); filled tint when active.
-    function _drawQuantIcon(ctx, x, y, size, color, on) {
+    // Lane-SPEED slot (wrapper), left of the range icon. At 1x it shows a small
+    // METRONOME with the pendulum at rest — "riding the track tempo", the default.
+    // Off 1x the VALUE ITSELF becomes the icon ("2X", "½X") in the lane colour, so the
+    // state reads at a glance (field feedback 2026-08-04: a glyph plus a tiny
+    // under-label collided with the range fields and was hard to parse). Press and
+    // drag the slot up/down to step the rate ladder.
+    function _drawSpeedIcon(ctx, x, y, size, color) {
         ctx.save();
         ctx.strokeStyle = color;
         ctx.lineWidth = 1.4;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        ctx.beginPath();
-        ctx.moveTo(x, y + size - 1);
-        ctx.lineTo(x, y + size * 0.62); ctx.lineTo(x + size * 0.33, y + size * 0.62);
-        ctx.lineTo(x + size * 0.33, y + size * 0.30); ctx.lineTo(x + size * 0.66, y + size * 0.30);
-        ctx.lineTo(x + size * 0.66, y + 1); ctx.lineTo(x + size, y + 1);
+        ctx.beginPath();                                    // metronome body: narrow top, wide base
+        ctx.moveTo(x + size * 0.30, y + 1);
+        ctx.lineTo(x + size * 0.70, y + 1);
+        ctx.lineTo(x + size - 1, y + size - 1);
+        ctx.lineTo(x + 1, y + size - 1);
+        ctx.closePath();
         ctx.stroke();
-        if (on) { ctx.globalAlpha = 0.16; ctx.fillStyle = color; ctx.fillRect(x, y, size, size); }
+        ctx.beginPath();                                    // pendulum at rest = in step with the track
+        ctx.moveTo(x + size / 2, y + size - 3);
+        ctx.lineTo(x + size / 2, y + 2.5);
+        ctx.stroke();
         ctx.restore();
     }
 
@@ -4139,18 +4124,23 @@
             const rangeColor = param.rangeOn ? 'rgba(' + sdLaneColor(param, paramIdx) + ',0.95)' : 'rgba(161,161,170,0.5)';
             _drawRangeIcon(sdCtx, laneDrawLeft - 54, midY - 6, 12, rangeColor, param.rangeOn);
 
-            // Groove-grid glyph left of the range icon (wrapper): click for the picker.
-            // Active = lit + the chosen division under it (when the row has the height).
+            // Lane-speed slot left of the range icon (wrapper): press and DRAG up/down to
+            // step the rate ladder. At 1x = a small metronome ("riding the track tempo");
+            // off 1x the VALUE IS the icon ("2X", "½X") in the lane colour — one glance,
+            // no under-label to collide with the range fields.
             if (_isWrapUI) {
-                const _qOn = (typeof param.quantStep === 'number') && param.quantStep > 0;
-                const quantColor = _qOn ? 'rgba(' + sdLaneColor(param, paramIdx) + ',0.95)' : 'rgba(161,161,170,0.5)';
-                _drawQuantIcon(sdCtx, laneDrawLeft - 72, midY - 6, 12, quantColor, _qOn);
-                if (_qOn && rect.height >= 46) {
-                    sdCtx.font = 'bold 7px Outfit';
+                const _spdVal = (typeof param.speed === 'number' && param.speed > 0) ? param.speed : 1;
+                const _spdOn = Math.abs(_spdVal - 1) > 1e-6;
+                if (_spdOn) {
+                    sdCtx.save();
+                    sdCtx.font = '900 9px Outfit';
                     sdCtx.textAlign = 'center';
-                    sdCtx.fillStyle = quantColor;
-                    sdCtx.fillText(_sdQuantLabel(param.quantStep), laneDrawLeft - 66, midY + 12);
-                    sdCtx.textAlign = 'left';
+                    sdCtx.textBaseline = 'middle';
+                    sdCtx.fillStyle = 'rgba(' + sdLaneColor(param, paramIdx) + ',0.95)';
+                    sdCtx.fillText(_sdSpeedLabel(_spdVal), laneDrawLeft - 66, midY);
+                    sdCtx.restore();
+                } else {
+                    _drawSpeedIcon(sdCtx, laneDrawLeft - 72, midY - 6, 12, 'rgba(161,161,170,0.5)');
                 }
             }
 
@@ -4244,6 +4234,8 @@
                                // beat-precise mapping (tx0/txSpan) + the lane's loop fraction. 0 = ride
                                // the whole curve exactly as before (desktop + unlooped lanes unchanged).
                                tx0: timeToX(0), txSpan: timeToX(totalBeats) - timeToX(0),
+                               tb: totalBeats,   // beats across the canvas — the free-mode comet divides raw beats by this
+                               speed: (_isWrapUI && typeof param.speed === 'number' && param.speed > 0) ? param.speed : 1,
                                loopFrac: (_isWrapUI && typeof param.loopBeats === 'number' && param.loopBeats > 0 && param.loopBeats < totalBeats - 1e-6)
                                    ? param.loopBeats / totalBeats : 0 });
             if (_sdEngMode) _sdEngKick();   // engine playhead: fresh geometry (zoom/pan/edit) repaints the parked head (coalesced — one frame per redraw)
@@ -4315,6 +4307,27 @@
                         sdCtx.beginPath(); sdCtx.arc(x, y, 3, 0, Math.PI * 2); sdCtx.fill();
                     }
                 });
+            }
+            // Grey out the NON-MODULATING region — painted OVER the curve. The pre-curve
+            // shade alone sat UNDER the full-alpha curve, so the dead zone read as live
+            // (field report 2026-08-04: "hard to diagnose where the modulation works").
+            // The curve stays ghosted underneath; the boundary line + grip re-stroke on
+            // top so the grabbable edge stays crisp.
+            if (_isWrapUI) {
+                const _lbRaw2 = (typeof param.loopBeats === 'number') ? param.loopBeats : 0;
+                const _lb2 = (_lbRaw2 > 0 && _lbRaw2 < totalBeats - 1e-6) ? _lbRaw2 : 0;
+                if (_lb2) {
+                    const _bx2 = timeToX(_lb2);
+                    if (_bx2 < lw) {
+                        sdCtx.fillStyle = 'rgba(9,9,11,0.66)';
+                        sdCtx.fillRect(_bx2, rect.top, lw - _bx2, rect.height);
+                        const _rgb2 = sdLaneColor(param, paramIdx);
+                        sdCtx.strokeStyle = 'rgba(' + _rgb2 + ',0.85)';
+                        sdCtx.lineWidth = 2;
+                        sdCtx.beginPath(); sdCtx.moveTo(_bx2, rect.top); sdCtx.lineTo(_bx2, rect.bottom); sdCtx.stroke();
+                        _sdDrawLoopGrip(sdCtx, _bx2, rect.top + rect.height / 2, _rgb2, 0.95);
+                    }
+                }
             }
             sdCtx.restore();   // closes the clip-region save
             sdCtx.restore();   // closes the locked-alpha save
@@ -4652,14 +4665,18 @@
                     return;
                 }
 
-                // Wrapper-only lane chrome: the groove-grid glyph + the loop-boundary grip.
+                // Wrapper-only lane chrome: the lane-speed glyph + the loop-boundary grip.
                 if (window.strideLink && window.strideLink._wrapper) {
-                    // Groove-grid glyph — the ~20px zone left of the range icon opens the picker.
-                    const quantHitRight = rangeHitLeft;
-                    const quantHitLeft = quantHitRight - SD_MULTI_FOCUS_HIT_W;
-                    if (mx >= quantHitLeft && mx < quantHitRight) {
-                        const _qr = sdCanvasEl.getBoundingClientRect();
-                        _sdOpenQuantPopup(hit.param, _qr.left + mx, _qr.top + my);
+                    // Speed glyph — the ~20px zone left of the range icon arms a vertical
+                    // rate-ladder drag (up = faster). No popup; release commits.
+                    const speedHitRight = rangeHitLeft;
+                    const speedHitLeft = speedHitRight - SD_MULTI_FOCUS_HIT_W;
+                    if (mx >= speedHitLeft && mx < speedHitRight) {
+                        const _sp0 = (typeof hit.param.speed === 'number' && hit.param.speed > 0) ? hit.param.speed : 1;
+                        _sdSpeedDrag = { param: hit.param, startY: my, startIdx: _sdSpeedIdx(_sp0), lastIdx: _sdSpeedIdx(_sp0) };
+                        sdCanvasEl.style.cursor = 'ns-resize';
+                        const _stS = document.getElementById('sd-canvas-status');
+                        if (_stS) _stS.textContent = 'Lane speed: ' + _sdSpeedLabel(_sp0) + ' — drag up or down';
                         return;
                     }
                     // Loop-boundary grip — ±6px around the lane's boundary line (or the lane's
@@ -4798,6 +4815,24 @@
                 _sdRangeSetPercent(nd.param, nd.edge, (nd.startVal + (nd.startY - my) / 200) * 100);
                 sdCanvasEl.style.cursor = 'ns-resize';
                 sdDrawCanvasGrid();
+                return;
+            }
+            if (_sdSpeedDrag) {   // dragging the lane-speed ladder — ~24px per step, live apply so you HEAR it
+                const mrS = sdCanvasEl.getBoundingClientRect();
+                const myS = e.clientY - mrS.top;
+                const d = _sdSpeedDrag;
+                const idx = Math.max(0, Math.min(SD_SPEED_LADDER.length - 1,
+                    d.startIdx + Math.round((d.startY - myS) / 24)));   // up = faster
+                if (idx !== d.lastIdx) {
+                    d.lastIdx = idx;
+                    d.param.speed = SD_SPEED_LADDER[idx];
+                    _sdPushSpeedToEngine(d.param);   // engine-owned — live, so the rate change is audible mid-drag
+                    const stS = document.getElementById('sd-canvas-status');
+                    if (stS) stS.textContent = 'Lane speed: ' + _sdSpeedLabel(d.param.speed)
+                        + (d.param.speed === 1 ? ' — riding the track tempo' : (d.param.speed > 1 ? ' — faster than the track' : ' — slower than the track'));
+                    sdDrawCanvasGrid();
+                }
+                sdCanvasEl.style.cursor = 'ns-resize';
                 return;
             }
             if (_sdLoopDrag) {   // dragging a lane's loop boundary — snaps to the visible grid, live redraw
@@ -5134,6 +5169,15 @@
             if (_sdRangeNumDrag) {   // finished scrubbing a numeric min/max field — persist + re-drive
                 _sdRangeNumDrag = null;
                 if (sdCanvasEl) sdCanvasEl.style.cursor = 'crosshair';
+                try { Promise.resolve(saveCanvasState()); } catch (err) {}
+                sdDrawCanvasGrid();
+                return;
+            }
+            if (_sdSpeedDrag) {   // finished the speed-ladder drag — engine already heard every step; persist
+                const _spP = _sdSpeedDrag.param;
+                _sdSpeedDrag = null;
+                if (sdCanvasEl) sdCanvasEl.style.cursor = 'crosshair';
+                _sdPushSpeedToEngine(_spP);   // idempotent re-send: the committed value is the engine value
                 try { Promise.resolve(saveCanvasState()); } catch (err) {}
                 sdDrawCanvasGrid();
                 return;

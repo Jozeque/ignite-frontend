@@ -153,8 +153,8 @@ const count = (src, needle) => src.split(needle).length - 1;
 // ─────────────────────────────────────────────────────────────
 // 3. ENGINE — owned, persisted, snapshotted, echoed
 // ─────────────────────────────────────────────────────────────
-ok('MapRef carries the lock', /bool locked = false; \};/.test(procH));
-ok('RemovedSnapshot::Dev carries the parallel lkd vector', /std::vector<char> lkd; \};/.test(procH));
+ok('MapRef carries the lock', /bool locked = false;/.test(procH));
+ok('RemovedSnapshot::Dev carries the parallel lkd vector', /std::vector<char> lkd;/.test(procH));
 ok('setMappedLock / setMappedLocks / getMappedLocks declared',
    /void setMappedLock \(int pos, bool on\);/.test(procH)
    && /void setMappedLocks \(const juce::Array<juce::var>& items\);/.test(procH)
@@ -170,14 +170,14 @@ ok('getMappedLocks reports 1/0 in mapped order',
    /juce::Array<int> StrideWrapperProcessor::getMappedLocks\(\) const[\s\S]{0,300}m\.locked \? 1 : 0/.test(procC));
 ok('project state: "lk" written only when locked (absent = unlocked; old builds ignore it)',
    /if \(m\.locked\) e->setAttribute \("lk", 1\);/.test(procC));
-ok('project state version bumped to 5 (attr-based, v4 and older load unchanged)',
-   /root\.setAttribute \("version", 5\);/.test(procC));
+ok('project state version >= 5 (lk landed in v5; attr-based, older projects load unchanged)',
+   (() => { const m = procC.match(/root\.setAttribute \("version", (\d+)\);/); return !!m && +m[1] >= 5; })());
 ok('project reopen parses "lk" into the restore list',
    /lkd\.push_back \(\(char\) \(e->getIntAttribute \("lk", 0\) != 0 \? 1 : 0\)\)/.test(procC));
 ok('all three snapshots carry locks (Clear chain, remove device, Alt+drag duplicate)',
    count(procC, 'd.lkd.push_back (m.locked ? 1 : 0)') === 3);
 ok('restore rebuilds mapped entries WITH their locks (missing vector = unlocked, old snapshots safe)',
-   /k < d\.lkd\.size\(\) && d\.lkd\[k\] != 0 \}\);/.test(procC));
+   /k < d\.lkd\.size\(\) && d\.lkd\[k\] != 0,/.test(procC));
 ok('fresh learn-mapped params start unlocked (struct default, partial aggregate init intact)',
    /mapped\.push_back \(\{ node, parameterIndex, -1 \}\);/.test(procC));
 

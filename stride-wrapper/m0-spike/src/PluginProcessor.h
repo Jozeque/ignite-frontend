@@ -112,9 +112,14 @@ public:
     //   loop:  the lane's curve wraps every `beats` beats (0 = off, ride the full clip)
     //   quant: the lane's eval position snaps to `step`-beat steps (S&H groove; 0 = off)
     void setMappedLoop (int pos, float beats);                    // message thread (editor bridge)
-    void setMappedQuant (int pos, float step);                    // message thread (editor bridge)
+    void setMappedQuant (int pos, float step);                    // RETIRED (groove grid, 2026-08-04) — kept for old-project state round-trip only
     juce::Array<juce::var> getMappedLoops() const;                // loopBeats per mapped param, mapped order (0 = off)
-    juce::Array<juce::var> getMappedQuants() const;               // quantStep per mapped param, mapped order (0 = off)
+    juce::Array<juce::var> getMappedQuants() const;               // RETIRED — see setMappedQuant
+    // Per-lane SPEED (the groove grid's replacement, 2026-08-04): a rate multiplier on the
+    // lane's clock — 2 = double-time against the track, 0.5 = half-time. Engine-owned like
+    // loop/color/range/lock: set_speed in, "speedVal" echoed in rack_scanned, "sp" in state.
+    void setMappedSpeed (int pos, float s);                       // message thread (editor bridge)
+    juce::Array<juce::var> getMappedSpeeds() const;               // speed per mapped param, mapped order (1 = normal)
     // Per-lane LOCK - the same engine-ownership story, closing the LAST client-only lane
     // attribute: the WebView's localStorage is one SHARED profile for every instance in the
     // DAW, keyed only by chain summary - so client-only locks force-loaded one instance's
@@ -217,6 +222,7 @@ public:
 
     std::atomic<bool>  modEnabled   { true };
     std::atomic<float> lastModValue { 0.0f };       // TRUE loop phase 0..1 (every block, playing or not) — the UI playhead position
+    std::atomic<double> lastBeatsPub { 0.0 };       // RAW (unwrapped) phrase beats — notes-free lane comets wrap these at their OWN boundary
     std::atomic<bool>  transportActive { false };   // host transport running (standalone free-run counts) — playhead on/off + trail
     std::atomic<bool>  transportRecording { false }; // host RECORDING — gates the macro mirror (every notified edit is a DAW undo entry)
 
@@ -290,11 +296,14 @@ private:
                     int colorIdx = -1;                                               // lane color (-1 = AUTO; 0..11 = canvas palette). ENGINE-OWNED like
                                                                                     // the range: positional re-pushes must never wipe or misroute it
                     float loopBeats = 0.0f;                                          // per-lane loop boundary in beats (0 = off = full clip) - 1.3.0
-                    float quantStep = 0.0f;                                          // per-lane S&H grid step in beats (0 = off; 0.25 = 1/16) - 1.3.0
-                    bool locked = false; };                                          // per-lane padlock (generators/tools skip it). ENGINE-OWNED: it was the
+                    float quantStep = 0.0f;                                          // RETIRED 2026-08-04 (groove grid). Field + state I/O kept so old projects
+                                                                                     // round-trip; the drive no longer applies it and the UI slot went to speed
+                    bool locked = false;                                             // per-lane padlock (generators/tools skip it). ENGINE-OWNED: it was the
                                                                                      // last client-only lane attribute, living in the WebView's ONE shared
                                                                                      // localStorage profile - so locks (and the lanes saved with them) leaked
                                                                                      // between instances hosting the same chain (field report 2026-08-03)
+                    float speed = 1.0f; };                                           // per-lane rate multiplier (1 = ride the track; 2 = double-time) - the
+                                                                                     // groove grid's replacement, same engine-ownership story (2026-08-04)
     std::vector<MapRef> mapped;               // user-mapped params across the chain
 
     // A relabelable VST3 parameter. A free slot reads "Stride N"; an assigned slot takes the
@@ -386,7 +395,8 @@ private:
                      std::vector<char> ron; std::vector<float> rlo, rhi;
                      std::vector<int> col;                                    // per-param lane colors (parallel to params; -1 = AUTO)   // per-param range bands (parallel to params; char ≠ vector<bool>)
                      std::vector<float> lpb, qst;                             // per-param loop boundary + quant step (parallel to params; 0 = off) - 1.3.0
-                     std::vector<char> lkd; };                                // per-param lane locks (parallel to params; char ≠ vector<bool>)
+                     std::vector<char> lkd;                                   // per-param lane locks (parallel to params; char ≠ vector<bool>)
+                     std::vector<float> spd; };                               // per-param lane speed (parallel to params; 1 = normal) - 2026-08-04
         std::vector<Dev> devices;          // 1 for a single ✕, the whole chain for Clear
     };
     RemovedSnapshot lastRemoved;

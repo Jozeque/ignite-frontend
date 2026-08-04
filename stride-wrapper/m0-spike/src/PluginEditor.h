@@ -50,6 +50,9 @@ public:
 private:
     void timerCallback() override;
     void chooseAndLoad();
+    void saveChainToFile();               // chain preset OUT — the project state chunk verbatim (.stridechain)
+    void loadChainFromFile();             // chain preset IN — rides the project-open restore machinery
+    void emitChainNote (const juce::String& title, const juce::String& detail);   // save/load feedback toast
     void toggleSynthWindow();
     void openOneSynthWindow (int node);   // open/raise just one device's window (per-chip ⛶)
    #if JUCE_WINDOWS

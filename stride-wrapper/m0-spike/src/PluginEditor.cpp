@@ -253,6 +253,8 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
         .withResourceProvider ([] (const juce::String& url) { return serveAsset (url); })
         .withEventListener ("wrapperReady", [this] (juce::var)     { pushHostInfo(); pushPrefs(); web->emitEventIfBrowserIsVisible ("sl_event", []{ auto* o = new juce::DynamicObject(); o->setProperty ("type", "connected"); return juce::var (o); }()); pushRackScanned(); pushLearnState(); pushKeysState(); pushPinState(); pushChainDevices(); })
         .withEventListener ("prefsSave",    [this] (juce::var v)   { savePrefs (v.getProperty ("prefs", juce::var())); })
+        .withEventListener ("saveChain",    [this] (juce::var)     { saveChainToFile(); })
+        .withEventListener ("loadChain",    [this] (juce::var)     { loadChainFromFile(); })
         .withEventListener ("sl_send",      [this] (juce::var v)   { handleStrideLinkSend (v); })
         .withEventListener ("loadSynth",    [this] (juce::var)     { if (proc.isEditLocked()) return; chooseAndLoad(); })
         .withEventListener ("loadSynthPath",[this] (juce::var v)   { if (proc.isEditLocked()) return; proc.loadPlugin (juce::File (v.getProperty ("path", "").toString())); })
@@ -572,6 +574,82 @@ void StrideWrapperEditor::paint (juce::Graphics& g) { g.fillAll (juce::Colour (0
 
 void StrideWrapperEditor::resized() { if (web) web->setBounds (getLocalBounds()); }
 
+// ── Chain presets (.stridechain) ─────────────────────────────────────────────
+// Save/load the ENTIRE instance — hosted chain (paths + patches), mapped lanes,
+// curves, ranges/colors/loop/speed/locks — as a file, so a sound-design setup
+// travels between tracks and projects (field request 2026-08-04). The file IS
+// the project state chunk verbatim (getState/setStateInformation), so loading
+// rides the exact teardown/rebuild machinery a DAW project-open uses (restore
+// generations, editors-die-before-instances) and nothing new can drift.
+static juce::File strideChainDir()
+{
+    auto dir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+                   .getChildFile ("Stride").getChildFile ("chains");
+    dir.createDirectory();
+    return dir;
+}
+
+void StrideWrapperEditor::emitChainNote (const juce::String& title, const juce::String& detail)
+{
+    if (web == nullptr) return;
+    auto* o = new juce::DynamicObject();
+    o->setProperty ("t", title);
+    o->setProperty ("d", detail);
+    web->emitEventIfBrowserIsVisible ("chainNote", juce::var (o));
+}
+
+void StrideWrapperEditor::saveChainToFile()
+{
+    // The demo persists NOTHING (getStateInformation returns empty there) — gate with a
+    // note instead of silently writing a husk of a file.
+    if (proc.isEditLocked() || proc.isDemo())
+    {
+        emitChainNote ("Chain save needs a full license", "The demo can't persist a chain. Activate first.");
+        return;
+    }
+    chooser = std::make_unique<juce::FileChooser> ("Save chain",
+                                                   strideChainDir().getChildFile ("MyChain.stridechain"),
+                                                   "*.stridechain");
+    chooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
+                            | juce::FileBrowserComponent::warnAboutOverwriting,
+        [this] (const juce::FileChooser& fc)
+        {
+            auto f = fc.getResult();
+            if (f == juce::File()) return;                                       // cancelled
+            if (! f.hasFileExtension ("stridechain")) f = f.withFileExtension ("stridechain");
+            juce::MemoryBlock mb;
+            proc.getStateInformation (mb);
+            if (mb.getSize() == 0 || ! f.replaceWithData (mb.getData(), mb.getSize()))
+                emitChainNote ("Couldn't save the chain", "Nothing was written. Check the folder is writable.");
+            else
+                emitChainNote ("Chain saved", f.getFileName() + " — load it on any track, in any project.");
+        });
+}
+
+void StrideWrapperEditor::loadChainFromFile()
+{
+    if (proc.isEditLocked() || proc.isDemo())
+    {
+        emitChainNote ("Chain load needs a full license", "The demo can't restore a chain. Activate first.");
+        return;
+    }
+    chooser = std::make_unique<juce::FileChooser> ("Load chain", strideChainDir(), "*.stridechain");
+    chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+        [this] (const juce::FileChooser& fc)
+        {
+            const auto f = fc.getResult();
+            if (! f.existsAsFile()) return;                                      // cancelled
+            juce::MemoryBlock mb;
+            if (! f.loadFileAsData (mb) || mb.getSize() == 0)
+            {
+                emitChainNote ("Couldn't load the chain", "The file was unreadable or empty.");
+                return;
+            }
+            proc.setStateInformation (mb.getData(), (int) mb.getSize());
+            emitChainNote ("Chain loaded", f.getFileNameWithoutExtension() + " — rebuilding the devices…");
+        });
+}
+
 void StrideWrapperEditor::chooseAndLoad()
 {
    #if JUCE_MAC
@@ -729,12 +807,23 @@ void StrideWrapperEditor::handleStrideLinkSend (const juce::var& msg)
         return;
     }
 
-    // Per-lane grid-quantize step (1.3.0) - same story.
+    // Per-lane grid-quantize step - RETIRED 2026-08-04 (route kept so nothing throws;
+    // no shipped canvas sends it anymore). Speed took its slot:
     if (type == "set_quant")
     {
         if (proc.isEditLocked()) return;
         proc.setMappedQuant ((int) msg.getProperty ("id", -1),
                              (float) (double) msg.getProperty ("step", 0.0));
+        return;
+    }
+
+    // Per-lane SPEED (the groove grid's replacement) - engine-owned like set_range,
+    // same locking policy. s = rate multiplier, 1 = ride the track.
+    if (type == "set_speed")
+    {
+        if (proc.isEditLocked()) return;
+        proc.setMappedSpeed ((int) msg.getProperty ("id", -1),
+                             (float) (double) msg.getProperty ("s", 1.0));
         return;
     }
 
@@ -837,8 +926,8 @@ void StrideWrapperEditor::pushRackScanned()
     const auto curves = proc.getMappedCurves();   // drive curves so a reopen SHOWS them, not just an empty canvas
     const auto ranges = proc.getMappedRanges();   // range bands too — engine-owned, so a re-push/reopen can't wipe them
     const auto colors = proc.getMappedColors();   // lane colors - engine-owned for exactly the same reason (1.1.11)
-    const auto loops  = proc.getMappedLoops();    // per-lane loop boundaries + quant steps (1.3.0) - same ownership story
-    const auto quants = proc.getMappedQuants();
+    const auto loops  = proc.getMappedLoops();    // per-lane loop boundaries (1.3.0) - same ownership story
+    const auto speeds = proc.getMappedSpeeds();   // per-lane rate multipliers (the groove grid's replacement, 2026-08-04)
     const auto locks  = proc.getMappedLocks();    // per-lane padlocks - engine-owned so instances can't share them via localStorage
     for (int i = 0; i < names.size(); ++i)
     {
@@ -863,8 +952,8 @@ void StrideWrapperEditor::pushRackScanned()
             o->setProperty ("colorIdx", colors[i]);                     // lane color echo - canvas repaints the pick on every rebuild
         if (i < loops.size() && (double) loops[i] > 0.0)
             o->setProperty ("loopBeats", loops[i]);                     // loop boundary echo (1.3.0) - absent = full clip
-        if (i < quants.size() && (double) quants[i] > 0.0)
-            o->setProperty ("quantStep", quants[i]);                    // quant step echo (1.3.0) - absent = off
+        if (i < speeds.size() && std::abs ((double) speeds[i] - 1.0) > 1.0e-4)
+            o->setProperty ("speedVal", speeds[i]);                     // lane-speed echo - absent = 1x (quantStep echo retired 2026-08-04)
         if (i < locks.size() && locks[i] != 0)
             o->setProperty ("locked", true);                            // padlock echo - absent = unlocked (canvas rebuilds from THIS, never from localStorage)
         params.add (juce::var (o));
@@ -1293,6 +1382,8 @@ void StrideWrapperEditor::timerCallback()
             auto* o = new juce::DynamicObject();
             o->setProperty ("p", (double) ph);
             o->setProperty ("on", on);
+            o->setProperty ("b", proc.lastBeatsPub.load());             // raw phrase beats - notes-free lane comets wrap these at their OWN boundary
+            o->setProperty ("free", proc.getRunMode() == 2);            // endless mode flag (NotesFree)
             web->emitEventIfBrowserIsVisible ("playhead", juce::var (o));
         }
     }

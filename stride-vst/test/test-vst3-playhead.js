@@ -114,7 +114,7 @@ const canvas = rd(path.join(root, 'stride-vst', 'app', 'renderer', 'canvas.js'))
 // ─────────────────────────────────────────────────────────────
 
 // processor: phase + transport published EVERY block, not just while driving
-ok('processor publishes the phase unconditionally (outside the drive branch)', /Publish the TRUE loop position[\s\S]{0,700}lastModValue\.store[\s\S]{0,120}transportActive\.store \(transportPlaying\)/.test(procC));
+ok('processor publishes the phase unconditionally (outside the drive branch)', /Publish the TRUE loop position[\s\S]{0,700}lastModValue\.store[\s\S]{0,300}transportActive\.store \(transportPlaying\)/.test(procC));
 ok('drive branch no longer owns the phase store', !/driveLanes\.empty\(\)\)[\s\S]{0,700}lastModValue\.store/.test(procC));
 ok('transportActive member declared (atomic, playhead on/off)', /std::atomic<bool>\s+transportActive \{ false \}/.test(procH));
 
@@ -125,13 +125,13 @@ ok('playhead only in Live mode (Automation would lie)', /transportActive\.load\(
 ok('editor members for the gate', /lastPhSent = -1\.0f/.test(edH) && /lastPhOn = false/.test(edH));
 
 // shim: engine event -> canvas hook
-ok('shim forwards playhead to canvas.js', /listen\('playhead'/.test(shim) && /sdSetEnginePlayhead\(\(d && d\.p\) \|\| 0, !!\(d && d\.on\)\)/.test(shim));
+ok('shim forwards playhead to canvas.js (with raw beats + the notes-free flag)', /listen\('playhead'/.test(shim) && /sdSetEnginePlayhead\(\(d && d\.p\) \|\| 0, !!\(d && d\.on\), \(d && d\.b\) \|\| 0, !!\(d && d\.free\)\)/.test(shim));
 
 // canvas.js: shared drawer + engine mode + retire + geometry kick
 ok('canvas: shared _sdFxDraw(phase, withTrail) drawer', /function _sdFxDraw\(phase, withTrail\)/.test(canvas));
 ok('canvas: ambient loop is a thin wrapper over the shared drawer', /function _sdFxFrame\(ts\)[\s\S]{0,200}_sdFxDraw\(\(ts % SD_FX_LOOP\) \/ SD_FX_LOOP, true\)/.test(canvas));
 ok('canvas: trail only in motion (parked head draws without trail)', /if \(withTrail\) for \(let k = 0; k < SD_FX_TRAIL/.test(canvas));
-ok('canvas: sdSetEnginePlayhead exposed for the wrapper', /window\.sdSetEnginePlayhead = function \(phase, on\)/.test(canvas));
+ok('canvas: sdSetEnginePlayhead exposed for the wrapper', /window\.sdSetEnginePlayhead = function \(phase, on, beats, free\)/.test(canvas));
 ok('canvas: first engine tick retires the ambient drift', /if \(!_sdEngMode\) \{ _sdEngMode = true; sdStopFx\(\); \}/.test(canvas));
 ok('canvas: sdStartFx inert in engine mode (focus can\'t resurrect the drift)', /function sdStartFx\(\) \{ if \(_sdEngMode \|\| _sdFxRAF\) return;/.test(canvas));
 ok('canvas: paints coalesce through one pending RAF', /if \(_sdEngPend\) return;/.test(canvas));

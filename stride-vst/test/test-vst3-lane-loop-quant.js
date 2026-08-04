@@ -38,29 +38,36 @@ const canvas = rd(path.join(root, 'stride-vst', 'app', 'renderer', 'canvas.js'))
 // ─────────────────────────────────────────────────────────────
 // 1. BEHAVIORAL — replica of the engine's per-lane eval position
 // ─────────────────────────────────────────────────────────────
-// Mirrors processBlock: lx = global phase, unless the lane loops (wrap the
-// ABSOLUTE clock at loopBeats), then quantize floors to the step.
+// Mirrors processBlock (2026-08-04 shape): the lane clock = (clip phase, or the RAW
+// clock in notes-free) × the lane's SPEED, wrapped at the lane's own boundary (the
+// bar length when it has none). The groove-grid floor was RETIRED the same day.
 (function () {
-    // Loop anchor = the CLIP PHASE (canvas origin), NOT the absolute host clock: the lane
-    // must restart the instant the playhead crosses the drawn boundary, mid-bar included.
+    // Loop anchor = the CLIP PHASE (canvas origin) in Transport/Retrig: the lane must
+    // restart the instant the playhead crosses the drawn boundary, mid-bar included.
     // (v1 wrapped the absolute clock; inside a Live loop brace the wraps landed at
     // fmod(brace-start, L) offsets and mid-bar boundaries never audibly restarted.)
-    function laneX(beats, clipBeats, loopBeats, quantStep) {
+    // NOTES-FREE is ENDLESS: wrap the RAW clock per lane, no global reset.
+    function laneX(beats, clipBeats, loopBeats, speed, freeEndless) {
         const ph = ((beats % clipBeats) + clipBeats) % clipBeats;
-        let lx = ph;
-        if (loopBeats > 0.01) lx = ph % loopBeats;
-        if (quantStep > 0.001) lx = Math.floor(lx / quantStep) * quantStep;
+        const spd = speed > 0.001 ? speed : 1;
+        const L = loopBeats > 0.01 ? loopBeats : clipBeats;
+        let lx = ((freeEndless ? beats : ph) * spd) % L;
+        if (lx < 0) lx += L;
         return lx;
     }
-    ok('defaults are byte-identical (no loop, no quant = global phase)', laneX(37.5, 16, 0, 0) === 37.5 % 16);
-    ok('1-bar loop of a 4-bar clip wraps every 4 beats', laneX(37, 16, 4, 0) === 1);
-    ok('MID-BAR boundary restarts AT the boundary, brace-independent', laneX(128 + 2.25, 16, 2.25, 0) === 0);   // brace at ppq 128: crossing the drawn 2.25 line = instant rewrap
-    ok('loop anchor = canvas origin (restart aligns with the ghost ticks)', laneX(16 + 4.5, 16, 2.25, 0) === 0);
-    ok('clip top re-anchors every lane (short last cycle, like a brace)', laneX(16, 16, 3, 0) === 0);
-    ok('groove grid floors to the step (1/16 = 0.25 beats)', laneX(1.37, 16, 0, 0.25) === 1.25);
-    ok('triplet grid floors to 1/6-beat steps (1/16T)', Math.abs(laneX(0.9, 16, 0, 1 / 6) - (5 / 6)) < 1e-9);
-    ok('loop + grid compose (wrap first, then floor)', laneX(9.4, 16, 4, 0.5) === 1.0);   // wrap(9.4->1.4) -> floor to 1.0
-    ok('negative host beats stay in range', laneX(-0.5, 16, 4, 0) >= 0);
+    ok('defaults are byte-identical (no loop, 1x = global phase)', laneX(37.5, 16, 0, 1, false) === 37.5 % 16);
+    ok('1-bar loop of a 4-bar clip wraps every 4 beats', laneX(37, 16, 4, 1, false) === 1);
+    ok('MID-BAR boundary restarts AT the boundary, brace-independent', laneX(128 + 2.25, 16, 2.25, 1, false) === 0);   // brace at ppq 128: crossing the drawn 2.25 line = instant rewrap
+    ok('loop anchor = canvas origin (restart aligns with the ghost ticks)', laneX(16 + 4.5, 16, 2.25, 1, false) === 0);
+    ok('clip top re-anchors every lane in TRANSPORT (short last cycle, like a brace)', laneX(16, 16, 3, 1, false) === 0);
+    ok('NOTES-FREE: the same lane does NOT reset at the bar count (endless, wraps at ITS boundary)',
+       laneX(16, 16, 3, 1, true) === 1);   // fmod(16,3)=1 — the phrase keeps counting past the "bars" setting
+    ok('NOTES-FREE: a lane with no boundary wraps at the bar length (identical to before)',
+       laneX(37.5, 16, 0, 1, true) === 37.5 % 16);
+    ok('SPEED 2x runs double-time (completes its shape twice per pass)', laneX(3, 16, 0, 2, false) === 6);
+    ok('SPEED ½x runs half-time', laneX(8, 16, 0, 0.5, false) === 4);
+    ok('speed composes with the lane loop (scale first, then wrap)', laneX(3, 16, 4, 2, false) === 2);   // 3*2=6 -> fmod 4 = 2
+    ok('negative host beats stay in range', laneX(-0.5, 16, 4, 1, false) >= 0);
 })();
 
 // ─────────────────────────────────────────────────────────────
@@ -69,8 +76,13 @@ const canvas = rd(path.join(root, 'stride-vst', 'app', 'renderer', 'canvas.js'))
 ok('MapRef carries loopBeats + quantStep defaults', /float loopBeats = 0\.0f;[\s\S]{0,200}float quantStep = 0\.0f;/.test(procH));
 ok('setMappedLoop clamps + marks the host dirty', /setMappedLoop[\s\S]{0,300}jlimit \(0\.0f, 1024\.0f, beats\)[\s\S]{0,120}hostDirtyPending/.test(procC));
 ok('setMappedQuant clamps to a bar max', /setMappedQuant[\s\S]{0,300}jlimit \(0\.0f, 4\.0f, step\)/.test(procC));
-ok('drive loop wraps the CLIP PHASE at the lane boundary (canvas-anchored)', /loopBeats > 0\.01f[\s\S]{0,120}std::fmod \(ph, \(double\) mr->loopBeats\)/.test(procC));
-ok('drive loop sample-and-holds at the quant step', /quantStep > 0\.001f[\s\S]{0,120}std::floor \(lx \/ \(double\) mr->quantStep\) \* \(double\) mr->quantStep/.test(procC));
+ok('drive loop wraps the CLIP PHASE at the lane boundary in Transport (canvas-anchored; raw clock only in notes-free)',
+   /mr->loopBeats > 0\.01f\) \? \(double\) mr->loopBeats : cb;/.test(procC) && /std::fmod \(\(freeEndless \? beats : ph\) \* spd, lL\)/.test(procC));
+ok('groove-grid floor is RETIRED from the drive (speed took its slot)', !/std::floor \(lx \/ \(double\) mr->quantStep\)/.test(procC));
+ok('drive scales the lane clock by SPEED and wraps at the lane boundary',
+   /const double spd = \(mr != nullptr && mr->speed > 0\.001f\) \? \(double\) mr->speed : 1\.0;[\s\S]{0,300}std::fmod \(\(freeEndless \? beats : ph\) \* spd, lL\)/.test(procC));
+ok('NOTES-FREE drives the RAW clock (endless — no global reset at the bar count)',
+   /const bool freeEndless = \(runMode\.load\(\) == \(int\) RunMode::NotesFree\);/.test(procC));
 ok('one mapped lookup serves slot + loop + quant (no extra scan)', /const MapRef\* mr = nullptr;[\s\S]{0,220}m\.node == lane\.node && m\.param == lane\.param/.test(procC));
 ok('state writes lb/qs only when set (old builds ignore them)', /m\.loopBeats > 0\.0f\) e->setAttribute \("lb"/.test(procC) && /m\.quantStep > 0\.0f\) e->setAttribute \("qs"/.test(procC));
 ok('state parses lb/qs with off defaults (old projects unchanged)', /getDoubleAttribute \("lb", 0\.0\)/.test(procC) && /getDoubleAttribute \("qs", 0\.0\)/.test(procC));
@@ -94,7 +106,9 @@ ok('consumeGlowPos drains atomically (editor timer)', /consumeGlowPos\(\) \{ ret
 // ─────────────────────────────────────────────────────────────
 ok('set_loop handled (editLocked-gated)', /if \(type == "set_loop"\)[\s\S]{0,200}isEditLocked\(\)\) return;[\s\S]{0,200}setMappedLoop/.test(editor));
 ok('set_quant handled (editLocked-gated)', /if \(type == "set_quant"\)[\s\S]{0,200}isEditLocked\(\)\) return;[\s\S]{0,200}setMappedQuant/.test(editor));
-ok('rack_scanned echoes loopBeats/quantStep per lane', /setProperty \("loopBeats", loops\[i\]\)/.test(editor) && /setProperty \("quantStep", quants\[i\]\)/.test(editor));
+ok('rack_scanned echoes loopBeats + speedVal per lane (quantStep echo retired)',
+   /setProperty \("loopBeats", loops\[i\]\)/.test(editor) && /setProperty \("speedVal", speeds\[i\]\)/.test(editor)
+   && !/setProperty \("quantStep", quants\[i\]\)/.test(editor));
 ok('duplicateDevice listener is editLocked-gated', /"duplicateDevice"[\s\S]{0,500}isEditLocked\(\)\) return;[\s\S]{0,400}duplicateNode/.test(editor));
 ok('window slots stay aligned on duplicate (pending insert, deadline-stamped)', /pendingDupInsertAt/.test(editH) && /pendingDupSetMs < 5000/.test(editor));
 ok('timer drains the glow into a param_glow sl_event', /consumeGlowPos\(\)[\s\S]{0,400}"param_glow"/.test(editor));
@@ -111,21 +125,24 @@ ok('the grip hints at Alt+drag', /Alt\+drag to duplicate/.test(shim));
 // ─────────────────────────────────────────────────────────────
 // 6. CANVAS — wrapper-gated UI (desktop byte-identical)
 // ─────────────────────────────────────────────────────────────
-ok('lane objects default loop/quant off', /loopBeats: 0, quantStep: 0,/.test(canvas));
+ok('lane objects default loop off / speed 1x', /loopBeats: 0, speed: 1,/.test(canvas));
 ok('payload adoption: engine echo wins on rebuild', /loopBeats: \(typeof p\.loopBeats === 'number' && p\.loopBeats > 0 \? p\.loopBeats : 0\)/.test(canvas));
 ok('saved state persists loop/quant per lane', /loopBeats: \(typeof p\.loopBeats === 'number' \? p\.loopBeats : 0\),/.test(canvas));
 ok('restore only fills defaults (engine echo already landed)', /sp\.loopBeats > 0 && !\(param\.loopBeats > 0\)/.test(canvas));
 ok('set_loop push is wrapper-gated', /_sdPushLoopToEngine[\s\S]{0,300}strideLink\._wrapper\) return;[\s\S]{0,200}type: 'set_loop'/.test(canvas));
-ok('set_quant push is wrapper-gated', /_sdPushQuantToEngine[\s\S]{0,300}strideLink\._wrapper\) return;[\s\S]{0,200}type: 'set_quant'/.test(canvas));
+ok('set_speed push is wrapper-gated (set_quant push retired)',
+   /_sdPushSpeedToEngine[\s\S]{0,300}type: 'set_speed'/.test(canvas) && !/_sdPushQuantToEngine/.test(canvas));
 ok('renderer chrome is wrapper-gated', /_isWrapUI = !!\(window\.strideLink && window\.strideLink\._wrapper\)/.test(canvas));
-ok('grid picker offers the triplets (1/8T + 1/16T)', /'1\/8T', 1 \/ 3/.test(canvas) && /'1\/16T', 1 \/ 6/.test(canvas));
+ok('grid picker retired; the speed ladder took the slot (¼x…4x)',
+   !/SD_QUANT_CHOICES/.test(canvas) && /SD_SPEED_LADDER = \[0\.25, 0\.5, 1, 2, 4\]/.test(canvas));
 ok('loop drag snaps to the visible grid, full length = off', /_sdLoopDrag[\s\S]{0,900}sdVisualGridBeats\(\)[\s\S]{0,300}b >= tb - 1e-6\) \? 0 : b/.test(canvas));
-ok('loop handle hit-test is wrapper-gated', /strideLink\._wrapper\) \{[\s\S]{0,600}_sdOpenQuantPopup/.test(canvas));
+ok('speed-drag arm + loop grip are wrapper-gated', /strideLink\._wrapper\) \{[\s\S]{0,900}_sdSpeedDrag = \{ param: hit\.param/.test(canvas));
 ok('glow scrolls the lane into view', /param_glow[\s\S]{0,900}sdMultiScrollOffset = Math\.max\(0, idx - visCount \+ 1\)/.test(canvas));
 ok('glow repaints stay silent on the bridge (no drive-flush spam)', /_sdGlowPaint\) return;/.test(canvas));
 ok('glow fades from the lane color (1s)', /_glowUntil - _glowNow[\s\S]{0,800}strokeRect/.test(canvas));
 ok('comet geometry carries the lane loop fraction (wrapper-gated)', /loopFrac: \(_isWrapUI && typeof param\.loopBeats === 'number'/.test(canvas));
-ok('comet wraps at the lane boundary, in step with the engine', /g\.loopFrac && g\.loopFrac > 0[\s\S]{0,220}phase - Math\.floor\(phase \/ g\.loopFrac\) \* g\.loopFrac/.test(canvas));
+ok('comet rides the lane-local clock (speed × time, wrapped at the lane boundary; raw beats in notes-free)',
+   /const base = \(_sdEngFree && g\.tb > 0\) \? \(_sdEngBeats \/ g\.tb\) : phase;[\s\S]{0,120}\(\(base \* spd\) % Lf \+ Lf\) % Lf/.test(canvas));
 
 // ─────────────────────────────────────────────────────────────
 console.log(`  ${passed} passed, ${failed} failed`);

@@ -402,7 +402,7 @@
   // comets — canvas.js retires its ambient wall-clock drift on the first tick and then
   // repaints only when the phase actually moves (zero cost while stopped).
   listen('playhead', function (d) {
-    try { if (window.sdSetEnginePlayhead) window.sdSetEnginePlayhead((d && d.p) || 0, !!(d && d.on)); } catch (e) { showErr('playhead: ' + e.message); }
+    try { if (window.sdSetEnginePlayhead) window.sdSetEnginePlayhead((d && d.p) || 0, !!(d && d.on), (d && d.b) || 0, !!(d && d.free)); } catch (e) { showErr('playhead: ' + e.message); }
   });
 
   // A device failed to load (bad path, wrong format, or — the common Mac case — an
@@ -429,6 +429,26 @@
       if (_loadFailTimer) clearTimeout(_loadFailTimer);
       _loadFailTimer = setTimeout(function () { if (_loadFailToast) _loadFailToast.style.display = 'none'; }, 8000);
     } catch (e) { showErr('loadFailed: ' + e.message); }
+  });
+
+  // Chain-preset feedback (saved / loaded / demo gate) — the loadFailed toast pattern.
+  var _chainToast = null, _chainToastTimer = 0;
+  listen('chainNote', function (d) {
+    try {
+      if (!_chainToast) {
+        _chainToast = document.createElement('div');
+        _chainToast.className = 'fixed bottom-6 right-6 bg-zinc-900 border border-orange-500/40 rounded-xl shadow-2xl z-[9999] max-w-sm p-4';
+        _chainToast.style.fontFamily = "'Outfit',sans-serif";
+        document.body.appendChild(_chainToast);
+      }
+      _chainToast.innerHTML = '';
+      var c1 = document.createElement('div'); c1.className = 'text-[11px] text-orange-400 font-black uppercase tracking-wider'; c1.textContent = (d && d.t) || 'Chain';
+      var c2 = document.createElement('div'); c2.className = 'text-[10px] text-zinc-400 mt-1 leading-snug'; c2.textContent = (d && d.d) || '';
+      _chainToast.appendChild(c1); _chainToast.appendChild(c2);
+      _chainToast.style.display = '';
+      if (_chainToastTimer) clearTimeout(_chainToastTimer);
+      _chainToastTimer = setTimeout(function () { if (_chainToast) _chainToast.style.display = 'none'; }, 6000);
+    } catch (e) { showErr('chainNote: ' + e.message); }
   });
 
   // ── window.strideCloud (cloud generation) — offline stub ─────────
@@ -664,6 +684,10 @@
       favMgrBtn.className = 'text-[12px] text-zinc-400 hover:text-orange-400 border border-white/10 rounded px-1.5 py-0.5 transition-colors';
       favMgrBtn.onclick = function () { showFavManager(); };
       host.appendChild(favMgrBtn);
+
+      // (Chain preset buttons moved to the TITLEBAR next to Compact — static markup in
+      // index.html, wired below with the Update button. Field feedback 2026-08-04: the
+      // control-bar glyphs read as mystery icons; worded Save/Load in the top row don't.)
 
       function sbtn(label, ev, cls) {
         var b = document.createElement('button');
@@ -960,6 +984,13 @@
       // direct download (license-gated, per-platform, always the files currently on
       // Lemon Squeezy); any failure lands on the My Orders portal instead. Either way
       // the browser opens — no email hunt, no login.
+      // Chain presets (titlebar, next to Compact) — static markup in index.html, wired
+      // here like the Update button. Native side owns the choosers + the demo gate.
+      var svChainBtn = document.getElementById('sd-save-chain-btn');
+      if (svChainBtn) svChainBtn.onclick = function () { emit('saveChain'); };
+      var ldChainBtn = document.getElementById('sd-load-chain-btn');
+      if (ldChainBtn) ldChainBtn.onclick = function () { emit('loadChain'); };
+
       var updBtn = document.getElementById('sd-update-btn');
       if (updBtn) {
         updBtn.onclick = function () { updBtn.textContent = '…'; emit('checkUpdate'); };
