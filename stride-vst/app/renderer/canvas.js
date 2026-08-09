@@ -5386,6 +5386,87 @@
     // NOTE: the pure step-math here is mirrored by stride-vst/test/
     // test-sample-hold.js — if you change the rate pool, bands, or stepping,
     // update that spec too.
+    // ── S&H MODE (2026-08-07): Poly (classic polyrhythmic, the default) or a FIXED grid
+    // division — every step takes a new held value, dead on the chosen division, straight
+    // or triplet. A TOOL preference (sticky across sessions), not lane data; both the
+    // Motion S&H and the Shapes-row lane S&H honor it, and so does the keyswitch.
+    const SD_SH_MODES = [['Poly', 0], ['1/8', 0.5], ['1/8T', 1 / 3], ['1/16', 0.25], ['1/16T', 1 / 6], ['1/32', 0.125], ['1/32T', 1 / 12]];
+    let _sdShMode = 0;
+    try { const _shm = parseFloat(localStorage.getItem('sd_sh_mode')); if (_shm > 0) _sdShMode = _shm; } catch (e) {}
+    let _sdShPopEl = null;
+    window.sdOpenShModePopup = function (ev) {
+        if (ev && ev.stopPropagation) ev.stopPropagation();
+        if (_sdShPopEl) { _sdShPopEl.remove(); _sdShPopEl = null; return; }
+        const pop = document.createElement('div');
+        pop.style.cssText = 'position:fixed;z-index:10070;background:#09090b;border:1px solid rgba(255,255,255,0.12);'
+            + 'border-radius:10px;box-shadow:0 18px 50px rgba(0,0,0,0.8);padding:10px;width:132px;'
+            + "font-family:'Outfit',sans-serif";
+        const title = document.createElement('div');
+        title.style.cssText = 'font-size:9px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;color:#a1a1aa;margin-bottom:8px';
+        title.textContent = 'S&H mode';
+        pop.appendChild(title);
+        SD_SH_MODES.forEach(([lbl, v]) => {
+            const on = Math.abs(_sdShMode - v) < 1e-4;
+            const b = document.createElement('button');
+            b.textContent = lbl;
+            b.style.cssText = 'display:block;width:100%;text-align:left;font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;'
+                + 'padding:4px 8px;margin-bottom:2px;border-radius:5px;cursor:pointer;border:1px solid '
+                + (on ? 'rgba(249,115,22,0.6);color:#fdba74;background:rgba(249,115,22,0.12)' : 'rgba(255,255,255,0.06);color:#a1a1aa;background:none');
+            b.addEventListener('click', (e) => {
+                e.stopPropagation();
+                _sdShMode = v;
+                try { localStorage.setItem('sd_sh_mode', String(v)); } catch (err) {}
+                if (_sdShPopEl) { _sdShPopEl.remove(); _sdShPopEl = null; }
+                _sdShPaintModeBtns();   // every S&H surface shows the picked timing
+                const st = document.getElementById('sd-canvas-status');
+                if (st) st.textContent = v > 0 ? ('S&H grid: ' + lbl + ' — every step takes a new value') : 'S&H: Poly — classic polyrhythmic steps';
+            });
+            pop.appendChild(b);
+        });
+        document.body.appendChild(pop);
+        const cx = (ev && ev.clientX) || 200, cy = (ev && ev.clientY) || 200;
+        const r = pop.getBoundingClientRect();
+        pop.style.left = Math.max(6, Math.min(cx + 8, window.innerWidth - r.width - 6)) + 'px';
+        pop.style.top = Math.max(6, Math.min(cy - 20, window.innerHeight - r.height - 6)) + 'px';
+        setTimeout(() => {
+            const closer = (e2) => { if (_sdShPopEl && !_sdShPopEl.contains(e2.target)) { _sdShPopEl.remove(); _sdShPopEl = null; document.removeEventListener('mousedown', closer, true); } };
+            document.addEventListener('mousedown', closer, true);
+        }, 0);
+        _sdShPopEl = pop;
+    };
+    // The picked timing, readable at a glance (field request 2026-08-07): every ▾ across
+    // every S&H surface (Shapes row, Motion row, compact, sidebar card) shows the current
+    // mode — "1/16T ▾" when a grid is set, a bare "▾" for Poly (the default).
+    function _sdShModeLabel() {
+        let best = 'Poly', bd = 1e9;
+        for (const [l, v] of SD_SH_MODES) { const d0 = Math.abs(v - _sdShMode); if (d0 < bd) { bd = d0; best = l; } }
+        return best;
+    }
+    function _sdShPaintModeBtns() {
+        const lbl = _sdShMode > 0 ? (_sdShModeLabel() + ' ▾') : '▾';
+        try { document.querySelectorAll('.sd-sh-mode-btn').forEach(b => { b.textContent = lbl; }); } catch (e) {}
+    }
+    _sdShPaintModeBtns();   // boot: reflect the sticky choice immediately
+
+    // Fixed-grid step emitter shared by BOTH S&H generators: new value every `d` beats,
+    // flat ε-gap holds, same MIN_DELTA read guarantee as poly.
+    function _sdShGridPts(sB, eB, d, EPS, MIN_DELTA, round4) {
+        const pts = [];
+        let lastV = null;
+        for (let t = sB; t < eB - 1e-4; t += d) {
+            const stepEnd = Math.min(t + d, eB);
+            let v, tries = 0;
+            do { v = Math.random(); tries++; }
+            while (lastV !== null && Math.abs(v - lastV) < MIN_DELTA && tries < 12);
+            lastV = v;
+            const tA = round4(t);
+            pts.push({ time: tA, value: v });
+            const tB = round4(stepEnd - EPS);
+            if (tB > tA) pts.push({ time: tB, value: v });   // flat hold
+        }
+        return pts;
+    }
+
     window.sdApplyGlobalSampleHold = function() {
         const targets = sdGetUnlockedParams();
         if (!targets.length) {
@@ -5413,6 +5494,23 @@
         const EPS = 0.005;
         const MIN_DELTA = 0.15;
         const round4 = t => Math.round(t * 10000) / 10000;
+
+        // GRID mode (2026-08-07): every lane steps on the SAME fixed division — a new
+        // held value every step, dead on the grid. Poly (0, default) keeps the classic
+        // per-bar-rate polyrhythm below.
+        if (_sdShMode > 0) {
+            targets.forEach(param => {
+                const pts = _sdShGridPts(sB, eB, _sdShMode, EPS, MIN_DELTA, round4);
+                if (sel) {
+                    const outside = param.points.filter(pt => pt.time < sB || pt.time > eB);
+                    param.points = outside.concat(pts).sort((a, b) => a.time - b.time);
+                } else {
+                    param.points = pts;
+                }
+            });
+            sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
+            return;
+        }
 
         targets.forEach(param => {
             const pts = [];
@@ -5489,6 +5587,21 @@
         const EPS = 0.005;
         const MIN_DELTA = 0.15;
         const round4 = t => Math.round(t * 10000) / 10000;
+
+        // GRID mode: fixed division, same as the Motion S&H (the sticky ▾ choice).
+        if (_sdShMode > 0) {
+            sdGetTargetParams().forEach(param => {
+                const pts = _sdShGridPts(sB, eB, _sdShMode, EPS, MIN_DELTA, round4);
+                if (sel) {
+                    const outside = param.points.filter(pt => pt.time < sB || pt.time > eB);
+                    param.points = outside.concat(pts).sort((a, b) => a.time - b.time);
+                } else {
+                    param.points = pts;
+                }
+            });
+            sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
+            return;
+        }
 
         sdGetTargetParams().forEach(param => {
             const pts = [];
@@ -5820,6 +5933,7 @@
     };
     window.sdApplySmooth = function(val) {
         document.getElementById('sd-smooth-val').textContent = val + '%';
+        _sdPushCtlParamToEngine('smooth', val);   // the DAW param follows the UI (Configure catches it)
         if (!sdActiveParamId) return;
         // Targets: selected (unlocked) lanes if there's a selection, else
         // active lane only. Smooth needs at least 3 points to do anything.
@@ -5850,6 +5964,7 @@
     };
     window.sdApplyIntensity = function(val) {
         document.getElementById('sd-intensity-val').textContent = val + '%';
+        _sdPushCtlParamToEngine('depth', val);   // 0..200, neutral 100 — the helper normalizes
         if (!sdActiveParamId) return;
         // Targets: selected (unlocked) lanes if there's a selection, else
         // active lane only. Intensity needs at least 1 point.
@@ -5876,6 +5991,7 @@
 
     window.sdApplyCurve = function(val) {
         document.getElementById('sd-curve-val').textContent = val + '%';
+        _sdPushCtlParamToEngine('curve', val);
         const amount = parseInt(val) / 100; // 0 to 1
 
         // Targets: selected (unlocked) lanes if there's a selection, else
@@ -6031,6 +6147,7 @@
 
     window.sdApplyFloor = function(val) {
         const fv = _sdFcEl('floor-val'); if (fv) fv.textContent = val + '%';
+        _sdPushCtlParamToEngine('floor', val);
         if (!_sdFloorCeilSnapshot) pushUndo();
         // Clamp ceiling above floor (on the active strip — sidebar or compact)
         const ceilSlider = _sdFcEl('ceil-slider');
@@ -6043,6 +6160,7 @@
 
     window.sdApplyCeiling = function(val) {
         const cv = _sdFcEl('ceil-val'); if (cv) cv.textContent = val + '%';
+        _sdPushCtlParamToEngine('ceil', val);
         if (!_sdFloorCeilSnapshot) pushUndo();
         // Clamp floor below ceiling (on the active strip — sidebar or compact)
         const floorSlider = _sdFcEl('floor-slider');
@@ -6051,6 +6169,51 @@
             const fv = _sdFcEl('floor-val'); if (fv) fv.textContent = val + '%';
         }
         _applyFloorCeil();
+    };
+
+    // ── HOST-DRIVEN CONTROLS (wrapper, 2026-08-07): "Stride Smooth/Depth/Curve/Floor/
+    // Ceiling" are DAW params a MIDI knob can ride. They drive the SAME snapshot-based
+    // slider functions the strip uses, on the same targets (selection, else the active
+    // lane). One knob ride = ONE gesture: ≥1s of knob silence re-arms the snapshots (and
+    // the undo entry), exactly like releasing a strip slider. BPM never lands here — the
+    // engine takes that one directly.
+    // UI → param sync (wrapper): moving a Stride slider notifies its DAW param, exactly
+    // like a BPM edit does — that's what lets Ableton's CONFIGURE catch the sliders by
+    // touching them in Stride (field report 2026-08-07: BPM configured, sliders didn't),
+    // and it keeps mappings/written automation honest. The editor updates its relay
+    // baseline in the same message, so the change never echoes back as a knob event.
+    function _sdPushCtlParamToEngine(k, uiVal) {
+        try {
+            if (!window.strideLink || !window.strideLink._wrapper) return;
+            const denom = (k === 'depth') ? 200 : 100;
+            const norm = Math.max(0, Math.min(1, (parseFloat(uiVal) || 0) / denom));
+            window.strideLink.send({ type: 'set_ctl_param', k: k, v: norm });
+        } catch (e) {}
+    }
+
+    let _sdHostCtlLastMs = 0;
+    window.sdHostCtl = function (k, v) {
+        try {
+            const now = Date.now();
+            if (now - _sdHostCtlLastMs > 1000) sdResetSliderSnapshots();   // new ride = new gesture + fresh undo entry
+            _sdHostCtlLastMs = now;
+            const n = Math.max(0, Math.min(1, +v || 0));
+            // Depth (intensity) runs 0..200 with NEUTRAL at 100 — the one slider whose
+            // range isn't 0..100 (field catch 2026-08-07). Everything else maps 0..100.
+            const out = (k === 'depth') ? Math.round(n * 200) : Math.round(n * 100);
+            // Move the visible HANDLES too (sidebar + compact strips) — the value applied
+            // but a parked handle read as "out of sync" (field report 2026-08-07). The
+            // apply functions update the % labels; the compact labels ride here.
+            const ids = { smooth: 'smooth-slider', depth: 'intensity-slider', curve: 'curve-slider', floor: 'floor-slider', ceil: 'ceil-slider' }[k];
+            if (ids) ['sd-' + ids, 'qpc-' + ids].forEach(id => { const el = document.getElementById(id); if (el) el.value = out; });
+            const qv = { smooth: 'qpc-smooth-val', depth: 'qpc-intensity-val', curve: 'qpc-curve-val', floor: 'qpc-floor-val', ceil: 'qpc-ceil-val' }[k];
+            if (qv) { const el = document.getElementById(qv); if (el) el.textContent = out + '%'; }
+            if (k === 'smooth')      window.sdApplySmooth(out);
+            else if (k === 'depth')  window.sdApplyIntensity(out);
+            else if (k === 'curve')  window.sdApplyCurve(out);
+            else if (k === 'floor')  window.sdApplyFloor(out);
+            else if (k === 'ceil')   window.sdApplyCeiling(out);
+        } catch (e) {}
     };
 
     function sdResetSliderSnapshots() {
@@ -6735,13 +6898,17 @@
             + btn('sdApplyGlobalChaos()', '', 'Chaos', 'Chaos: apply the Chaos (chaos_lfo) template to every unlocked lane in one click', 'M3 12 Q6 6 9 12 T15 12 T21 12')
             + btn('sdToggleBloom()', 'sd-bloom-btn', 'Bloom', 'Bloom: complementary curves from the active lane', 'M12 3v1m0 16v1m-8-9H3m18 0h-1m-2.636-5.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m11.314 11.314l.707.707')
             + btn('sdTogglePrism()', 'sd-prism-btn', 'Prism', 'Prism: draw on one lane, every other lane responds live with the same anchors and a different path', 'M12 3 L21 21 L3 21 Z')
-            + btn('sdApplyGlobalSampleHold()', '', 'S&amp;H', 'Sample &amp; Hold: per-lane stepped random — values jump on a per-bar rate (straight + triplet), each lane unique so the rack reads polyrhythmic. Click again to reroll.', 'M3 16 H7 V11 H11 V15 H15 V8 H19 V13')
+            + '<div class="flex gap-0.5">'
+            + btn('sdApplyGlobalSampleHold()', '', 'S&amp;H', 'Sample &amp; Hold: stepped random on every unlocked lane. Poly = per-bar rates, each lane unique (polyrhythmic); grid = every step on the ▾ division. Click again to reroll.', 'M3 16 H7 V11 H11 V15 H15 V8 H19 V13').replace('class="flex items-center justify-center gap-1', 'class="flex-1 flex items-center justify-center gap-1')
+            + '<button onclick="window.sdOpenShModePopup(event)" title="S&amp;H mode — Poly (classic) or a fixed grid: 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/32T" class="sd-sh-mode-btn shrink-0 flex items-center text-[8px] text-zinc-400 hover:text-zinc-100 bg-zinc-800 hover:bg-zinc-700 border border-black/10 shadow-sm px-1 rounded font-bold transition-colors">▾</button>'
+            + '</div>'
             + btn('sdApplyGlobalReflector()', '', 'Reflector', 'Reflector: pairs every unlocked lane into base + mirror — half Neuro, half Chaos, each followed by its value-mirrored twin so the rack folds in on itself', 'M5 8 L11 12 L5 16 M19 8 L13 12 L19 16')
             + '</div>';
         // Re-apply the Bloom/Prism dimming — re-rendering these buttons drops
         // the opacity-40 class, so without this Prism looks enabled even with
         // no lanes loaded.
         sdUpdateToolAvailability();
+        _sdShPaintModeBtns();   // the card's ▾ was just re-rendered — repaint its timing label
     }
 
     function _sdRenderBloomPanel() {

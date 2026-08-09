@@ -88,6 +88,37 @@ public:
     // modulation. Recomputed natively on the editor timer; read on the audio thread (atomic).
     void setDriveAllowed (bool b) { driveAllowed.store (b); }
     bool isDriveAllowed() const { return driveAllowed.load(); }
+
+    // HANG GUARD (field incident 2026-08-06, Minimal Audio Wave Shift): the audio thread
+    // holds hostLock across the hosted-chain run, so a hosted plugin that STALLS inside
+    // processBlock parks the lock forever - and every BLOCKING message-thread ScopedLock
+    // then froze Live's whole UI behind it (WER AppHangB1, twice, force-quit needed).
+    // The periodic paths (editor timer, canvas-message funnel, param-listener trio,
+    // macro mirror) now check/try instead of blocking: during a wedge they skip their
+    // tick, Live's main thread keeps pumping, and a plugin that was waiting on the main
+    // thread gets serviced - which un-wedges the lock and dissolves the deadlock.
+    // Residual: getStateInformation still blocks (a host save during a wedge) - a dirty
+    // read there trades a hang for silent data loss, deliberately not taken.
+    //
+    // TWO probes, two failure budgets (regression 2026-08-07: a SINGLE-try probe gating the
+    // whole editor tick skipped ticks at the lock's normal duty cycle - the audio thread
+    // holds hostLock across the entire hosted-chain run, a large slice of real time - so
+    // keyswitch drains fired erratically and double-presses collapsed into one action):
+    //   hostLockFreeNow      - one try. For paths where a skipped beat is INVISIBLE.
+    //   hostLockFreeBounded  - a few 1ms-spaced tries. Normal duty-cycle contention passes
+    //                          almost surely within a retry or two; only a true WEDGE fails
+    //                          them all. For paths that must not misfire under normal load
+    //                          (editor tick tail, canvas clicks, learn touches).
+    bool hostLockFreeNow() const { const juce::ScopedTryLock t (hostLock); return t.isLocked(); }
+    bool hostLockFreeBounded (int tries = 4) const
+    {
+        for (int i = 0; i < tries; ++i)
+        {
+            { const juce::ScopedTryLock t (hostLock); if (t.isLocked()) return true; }
+            juce::Thread::sleep (1);
+        }
+        return false;
+    }
     bool isDemoFrozen() const { return demoFrozen.load(); }        // in the "freeze" half of the demo cycle
     bool isDemoPlaying() const { return demoPlaying.load(); }      // demo + transport playing + not frozen (= actively modulating)
     int  demoSecsUntilResume() const { return demoResumeSecs.load(); }
@@ -151,6 +182,17 @@ public:
     void announceMacrosToHost();                 // fire a host gesture on each exposed macro so Ableton's Configure catches them (message thread)
     void pushMacroValuesToHost();                // Live mode: report the live modulation value to the host so Ableton's params FOLLOW it (and record if armed). ~15Hz, gesture-wrapped, OFF under Maschine. Message thread.
     void closeMacroGestures();                   // end any open macro gestures — the editor timer is their only closer, so the editor DTOR must call this (message thread)
+
+    // ── Stride CONTROL params (2026-08-07): Stride's OWN controls exposed to the DAW so a
+    // MIDI knob can ride them ("map the BPM in stride to my midi knob"). Normalized 0..1;
+    // the editor relays changes into the engine (BPM, log-mapped 5..999) and the canvas
+    // (the Active sliders). APPENDED after the macro pool — indices 0..31 untouched.
+    enum StrideCtl { ctlBpm = 0, ctlSmooth, ctlDepth, ctlCurve, ctlFloor, ctlCeil, kControlCount };
+    float getControlValue (int idx) const;                 // any thread (atomic)
+    void  syncBpmParamFromUI (float bpm);                  // UI tempo edit → the DAW's lane follows (message thread, gesture-wrapped)
+    void  syncControlParamFromUI (int idx, float norm);    // UI slider move → its DAW param follows (Configure catches it; change-guarded)
+    static float ctlNormToBpm (float n)  { return juce::jlimit (5.0f, 999.0f, 5.0f * std::pow (999.0f / 5.0f, juce::jlimit (0.0f, 1.0f, n))); }
+    static float ctlBpmToNorm (float b)  { return juce::jlimit (0.0f, 1.0f, std::log (juce::jlimit (5.0f, 999.0f, b) / 5.0f) / std::log (999.0f / 5.0f)); }
 
     // ── Tempo: Sync-to-project (default) / Manual BPM ──
     // Sync   = follow the host exactly (byte-identical to the old behavior).
@@ -328,6 +370,28 @@ private:
         const int slot;
     };
     std::array<MacroParameter*, kMacroCount> macroParams {};   // owned by the AudioProcessor (addParameter)
+
+    // Stride's own controls as DAW params (2026-08-07). RAW AudioProcessorParameter like
+    // MacroParameter ON PURPOSE: mixing ID-based params into a raw-param list would flip
+    // JUCE's VST3 param-ID scheme and orphan every existing automation lane. Fixed names,
+    // fixed order, appended AFTER the macros — additive exactly like the macro pool was.
+    class ControlParameter : public juce::AudioProcessorParameter
+    {
+    public:
+        ControlParameter (const juce::String& nm, float def) : name (nm), defaultValue (def) { value.store (def); }
+        float getValue() const override                    { return value.load(); }
+        void  setValue (float v) override                  { value.store (juce::jlimit (0.0f, 1.0f, v)); }
+        float getDefaultValue() const override             { return defaultValue; }
+        juce::String getName (int maxLen) const override   { return name.substring (0, maxLen); }
+        juce::String getLabel() const override             { return {}; }
+        float getValueForText (const juce::String& t) const override { return t.getFloatValue(); }
+        juce::String getText (float v, int) const override { return juce::String (v, 3); }
+        bool isAutomatable() const override                { return true; }
+        const juce::String name;
+        std::atomic<float> value { 0.0f };
+        const float defaultValue;
+    };
+    std::array<ControlParameter*, kControlCount> controlParams {};   // owned by the AudioProcessor (addParameter)
     juce::uint32 lastMirrorPushMs = 0;                          // Live-mode mirror pacing (~15Hz cap; message thread only)
     std::atomic<DriveMode> driveMode { DriveMode::Live };
     std::atomic<int>   tempoMode { 0 };             // 0=Project sync (default, byte-identical) / 1=Manual (own bpm, transport-mapped)

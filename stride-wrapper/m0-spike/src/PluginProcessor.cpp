@@ -101,6 +101,28 @@ StrideWrapperProcessor::StrideWrapperProcessor()
         addParameter (mp);
     }
 
+    // Stride's OWN controls, DAW-automatable (2026-08-07): BPM (log-mapped, lives in
+    // Manual tempo mode) + the Active sliders. Appended AFTER the macro pool — additive,
+    // identity and indices 0..31 untouched (the macro-pool precedent). Defaults are the
+    // NEUTRAL slider positions; the editor relays on CHANGE only, so an untouched param
+    // never edits anything.
+    {
+        const struct { const char* name; float def; } ctls[kControlCount] = {
+            { "Stride BPM",     ctlBpmToNorm (120.0f) },
+            { "Stride Smooth",  0.0f },
+            { "Stride Depth",   0.5f },   // Depth (intensity) runs 0..200 with NEUTRAL at 100 — 0.5 normalized
+            { "Stride Curve",   0.0f },
+            { "Stride Floor",   0.0f },
+            { "Stride Ceiling", 1.0f },
+        };
+        for (int i = 0; i < kControlCount; ++i)
+        {
+            auto* cp = new ControlParameter (ctls[i].name, ctls[i].def);
+            controlParams[(size_t) i] = cp;
+            addParameter (cp);
+        }
+    }
+
     // Anti-rollback: stamp this launch into the pass clock (untrusted local clock; no-op until a
     // trusted server value bootstraps it) so a rolled-back clock can't revive an expired pass.
     stride_license::raisePassClock (juce::Time::getCurrentTime().toMilliseconds(), false);
@@ -665,18 +687,32 @@ void StrideWrapperProcessor::loadPlugin (const juce::File& pluginFile)
         });
 }
 
+// TWO-PHASE teardown (field report 2026-08-09: "several lanes open + Clear froze Live",
+// force-quit): the old shape held hostLock on Live's MAIN thread while calling INTO every
+// hosted plugin (getStateInformation for the undo snapshot) and then DESTROYING the
+// instances. A plugin whose getState/destructor waits on its own worker or GUI closes
+// the same freeze cycle as the Wave Shift hang. Now: the cheap half (paths + mapped meta
+// + curves — plain data) is captured under the lock and the chain is SWAPPED OUT, so the
+// audio thread sees an empty chain from its next try-lock on; the plugin calls and the
+// destructors run AFTER the lock is released, free to wait on whatever they like.
 void StrideWrapperProcessor::clearChain()
 {
+    // Wedged audio thread (a hosted plugin stuck in processBlock holding hostLock):
+    // refuse the Clear instead of freezing Live behind it.
+    if (! hostLockFreeBounded (8)) return;
+
+    std::vector<Node> doomed;
+    {
     const juce::ScopedLock sl (hostLock);
 
-    // Capture a FULL-chain undo snapshot so Ctrl+Z brings the whole chain back (patches + curves).
+    // Capture a FULL-chain undo snapshot so Ctrl+Z brings the whole chain back — the
+    // CHEAP half only (no plugin calls under the lock; patches captured below).
     lastRemoved = RemovedSnapshot{};
     for (int i = 0; i < (int) chain.size(); ++i)
     {
         RemovedSnapshot::Dev d;
         d.path = chain[(size_t) i].path;
         d.position = i;
-        if (chain[(size_t) i].inst) chain[(size_t) i].inst->getStateInformation (d.state);
         for (const auto& m : mapped)     if (m.node == i) { d.params.push_back (m.param); d.slots.push_back (m.macroSlot);
                                                             d.ron.push_back (m.rangeOn ? 1 : 0); d.rlo.push_back (m.rangeLo); d.rhi.push_back (m.rangeHi); d.col.push_back (m.colorIdx);
                                                             d.lpb.push_back (m.loopBeats); d.qst.push_back (m.quantStep); d.lkd.push_back (m.locked ? 1 : 0); d.spd.push_back (m.speed); }
@@ -686,27 +722,39 @@ void StrideWrapperProcessor::clearChain()
     lastRemoved.valid = ! lastRemoved.devices.empty();
 
     for (auto& n : chain) if (n.inst) { n.inst->setPlayHead (nullptr); n.inst->removeListener (this); }
-    chain.clear();
+    doomed.swap (chain);   // audio sees an EMPTY chain from its next try-lock on
     mapped.clear();
     driveLanes.clear();
     reassignMacros();
     mapVersion.fetch_add (1);
     hostDirtyPending.store (true);
+    }
+
+    // OUTSIDE the lock: the hosted patch captures for undo + the destructors.
+    for (size_t i = 0; i < doomed.size() && i < lastRemoved.devices.size(); ++i)
+        if (doomed[i].inst) doomed[i].inst->getStateInformation (lastRemoved.devices[i].state);
+    doomed.clear();
     triggerAsyncUpdate();
 }
 
 void StrideWrapperProcessor::removeNode (int index)
 {
+    // Same two-phase teardown as clearChain (the 2026-08-09 freeze class): meta under
+    // the lock, hosted getState + the destructor outside it.
+    if (! hostLockFreeBounded (8)) return;
+
+    Node doomed;
+    {
     const juce::ScopedLock sl (hostLock);
     if (index < 0 || index >= (int) chain.size()) return;
 
-    // Capture a single-level undo snapshot: path + patch + this node's mapped params/curves.
+    // Capture a single-level undo snapshot: path + this node's mapped params/curves
+    // (the PATCH is captured outside the lock, from the detached node).
     lastRemoved = RemovedSnapshot{};
     {
         RemovedSnapshot::Dev d;
         d.path = chain[(size_t) index].path;
         d.position = index;
-        if (chain[(size_t) index].inst) chain[(size_t) index].inst->getStateInformation (d.state);
         for (const auto& m : mapped)     if (m.node == index) { d.params.push_back (m.param); d.slots.push_back (m.macroSlot);
                                                                 d.ron.push_back (m.rangeOn ? 1 : 0); d.rlo.push_back (m.rangeLo); d.rhi.push_back (m.rangeHi); d.col.push_back (m.colorIdx);
                                                                 d.lpb.push_back (m.loopBeats); d.qst.push_back (m.quantStep); d.lkd.push_back (m.locked ? 1 : 0); d.spd.push_back (m.speed); }
@@ -716,6 +764,7 @@ void StrideWrapperProcessor::removeNode (int index)
     lastRemoved.valid = true;
 
     if (chain[(size_t) index].inst) { chain[(size_t) index].inst->setPlayHead (nullptr); chain[(size_t) index].inst->removeListener (this); }
+    doomed = std::move (chain[(size_t) index]);
     chain.erase (chain.begin() + index);
 
     // Drop mapped params on the removed node; shift indices above it down.
@@ -730,6 +779,12 @@ void StrideWrapperProcessor::removeNode (int index)
     reassignMacros();          // remaining params keep their slots (stable); the removed node's slots free up
     mapVersion.fetch_add (1);
     hostDirtyPending.store (true);
+    }
+
+    // OUTSIDE the lock: the hosted patch capture for undo + the destructor (see clearChain).
+    if (doomed.inst != nullptr && ! lastRemoved.devices.empty())
+        doomed.inst->getStateInformation (lastRemoved.devices[0].state);
+    doomed = {};
     triggerAsyncUpdate();
 }
 
@@ -1042,10 +1097,11 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
 
         self->closeHostedEditorsForTeardown();              // editors die BEFORE their instances
 
+        std::vector<Node> doomed;                           // destroyed OUTSIDE the lock (the 2026-08-09 freeze class — see clearChain)
         {
             const juce::ScopedLock sl (self->hostLock);
             for (auto& n : self->chain) if (n.inst) { n.inst->setPlayHead (nullptr); n.inst->removeListener (self); }
-            self->chain.clear(); self->mapped.clear(); self->driveLanes.clear();
+            doomed.swap (self->chain); self->mapped.clear(); self->driveLanes.clear();
             self->driveClipBeats = clipBeats;
             self->driveMode.store ((DriveMode) newDriveMode);
             self->tempoMode.store (newTempoMode);
@@ -1054,6 +1110,7 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
             self->ksBase.store (newKeysBase == 12 || newKeysBase == 24 ? newKeysBase : 0);
             self->runMode.store (juce::jlimit (0, 2, newRunMode));
         }
+        doomed.clear();                                     // hosted destructors run lock-free on the message thread
         self->mapVersion.fetch_add (1);
 
         if (! devs->empty())
@@ -1076,6 +1133,13 @@ void StrideWrapperProcessor::mapParam (juce::AudioProcessor* proc, int parameter
 {
     if (editLocked.load() || ! learnMode.load()) return;   // soft lock: no new mapping even if a mode was latched before expiry
 
+    // BOUNDED probe, then a normal lock: param listeners fire from whatever thread the
+    // hosted plugin notifies on, and blocking behind a WEDGED audio thread froze that
+    // thread too (Wave Shift hang, 2026-08-06). Single-try lost learn touches at the
+    // lock's duty cycle (2026-08-07); the bounded probe rides out normal contention and
+    // only gives up on a true wedge. Same-thread re-entry (a plugin notifying from our
+    // own audio callback) passes instantly - the lock is recursive.
+    if (! hostLockFreeBounded (3)) return;
     const juce::ScopedLock sl (hostLock);
     const int node = nodeIndexOf (proc);
     if (node < 0) return;
@@ -1111,6 +1175,7 @@ void StrideWrapperProcessor::unmapParamByTouch (juce::AudioProcessor* proc, int 
 {
     if (editLocked.load() || ! unlearnMode.load()) return;   // soft lock: no unmap-by-touch even if a mode was latched before expiry
 
+    if (! hostLockFreeBounded (3)) return;     // bounded probe - see mapParam (the hang guard)
     const juce::ScopedLock sl (hostLock);
     const int node = nodeIndexOf (proc);
     if (node < 0) return;
@@ -1368,6 +1433,7 @@ juce::Array<int> StrideWrapperProcessor::getMappedLocks() const
 void StrideWrapperProcessor::duplicateNode (int index, int insertAt)
 {
     auto devs = std::make_shared<std::vector<RemovedSnapshot::Dev>>();
+    juce::AudioPluginInstance* srcInst = nullptr;   // patch captured OUTSIDE the lock (the 2026-08-09 freeze class — see clearChain)
     {
         const juce::ScopedLock sl (hostLock);
         if (index < 0 || index >= (int) chain.size()) return;
@@ -1375,7 +1441,7 @@ void StrideWrapperProcessor::duplicateNode (int index, int insertAt)
         d.path     = chain[(size_t) index].path;
         d.bypassed = chain[(size_t) index].bypassed;
         d.position = juce::jlimit (0, (int) chain.size(), insertAt);
-        if (chain[(size_t) index].inst) chain[(size_t) index].inst->getStateInformation (d.state);
+        srcInst    = chain[(size_t) index].inst.get();
         for (const auto& m : mapped)
             if (m.node == index)
             {
@@ -1391,6 +1457,9 @@ void StrideWrapperProcessor::duplicateNode (int index, int insertAt)
         devs->push_back (std::move (d));
     }
     if (devs->empty() || (*devs)[0].path.isEmpty()) return;
+    // The source instance stays alive and owned; reading its patch lock-free is exactly
+    // what hosts do on every save. Doing it under hostLock built the freeze cycle.
+    if (srcInst != nullptr) srcInst->getStateInformation ((*devs)[0].state);
     hostDirtyPending.store (true);   // user edit — unlike a project load, this IS a change
     restoreNextDevice (devs, 0, restoreGeneration.fetch_add (1) + 1);
 }
@@ -1401,7 +1470,8 @@ void StrideWrapperProcessor::duplicateNode (int index, int insertAt)
 void StrideWrapperProcessor::noteParamTouched (juce::AudioProcessor* proc, int parameterIndex)
 {
     if (learnMode.load() || unlearnMode.load()) return;
-    const juce::ScopedLock sl (hostLock);
+    const juce::ScopedTryLock sl (hostLock);   // TRY, never block - glow is cosmetic; see mapParam (the hang guard)
+    if (! sl.isLocked()) return;
     const int node = nodeIndexOf (proc);
     if (node < 0) return;
     for (int pos = 0; pos < (int) mapped.size(); ++pos)
@@ -1484,6 +1554,43 @@ void StrideWrapperProcessor::setDriveMode (DriveMode m)
     driveMode.store (m);   // persisted in getStateInformation; takes effect next processBlock
 }
 
+// ── Stride control params (2026-08-07) ─────────────────────────────
+float StrideWrapperProcessor::getControlValue (int idx) const
+{
+    if (idx < 0 || idx >= kControlCount || controlParams[(size_t) idx] == nullptr) return 0.0f;
+    return controlParams[(size_t) idx]->getValue();
+}
+
+// A tempo edit in Stride's UI → the DAW's "Stride BPM" lane follows. Gesture-wrapped so
+// hosts treat it as one deliberate move. MESSAGE THREAD (the bridge). The editor's relay
+// change-detects, so the echo applying the same bpm back is a harmless no-op.
+void StrideWrapperProcessor::syncBpmParamFromUI (float bpm)
+{
+    auto* cp = controlParams[(size_t) ctlBpm];
+    if (cp == nullptr || bpm <= 0.0f) return;
+    const float n = ctlBpmToNorm (bpm);
+    if (std::abs (n - cp->getValue()) < 1.0e-4f) return;
+    cp->beginChangeGesture();
+    cp->setValueNotifyingHost (n);
+    cp->endChangeGesture();
+}
+
+// Generalized UI → param sync (the syncBpmParamFromUI story for the sliders): a Stride
+// slider move notifies its DAW param, which is what lets Ableton's Configure catch the
+// sliders by touching them in Stride. Gesture-wrapped; change-guarded so repeated
+// oninput ticks at an unchanged value cost nothing. MESSAGE THREAD (the bridge).
+void StrideWrapperProcessor::syncControlParamFromUI (int idx, float norm)
+{
+    if (idx < 0 || idx >= kControlCount) return;
+    auto* cp = controlParams[(size_t) idx];
+    if (cp == nullptr) return;
+    const float v = juce::jlimit (0.0f, 1.0f, norm);
+    if (std::abs (v - cp->getValue()) < 1.0e-4f) return;
+    cp->beginChangeGesture();
+    cp->setValueNotifyingHost (v);
+    cp->endChangeGesture();
+}
+
 // Tempo mode (bridge). Clamped at the door so the audio thread never divides by nonsense;
 // bpm <= 0 = "keep the stored value" (a mode switch alone doesn't carry a number).
 void StrideWrapperProcessor::setTempoMode (int mode, float bpm)
@@ -1516,6 +1623,21 @@ void StrideWrapperProcessor::announceMacrosToHost()
             mp->setValueNotifyingHost (nudged);
             mp->setValueNotifyingHost (v);        // restore
             mp->endChangeGesture();
+        }
+
+    // The Stride CONTROL params ride the same announce (2026-08-07): they have no UI
+    // inside Stride to "touch", so Ableton's Configure would never catch them otherwise.
+    // The nudge-and-restore happens inside ONE message-thread call — the editor's 30Hz
+    // relay can't observe the transient, so nothing is ever applied to the curves.
+    for (auto* cp : controlParams)
+        if (cp != nullptr)
+        {
+            const float v = cp->getValue();
+            const float nudged = (v <= 0.5f) ? juce::jmin (1.0f, v + 0.02f) : juce::jmax (0.0f, v - 0.02f);
+            cp->beginChangeGesture();
+            cp->setValueNotifyingHost (nudged);
+            cp->setValueNotifyingHost (v);        // restore
+            cp->endChangeGesture();
         }
 }
 
@@ -1566,7 +1688,8 @@ void StrideWrapperProcessor::pushMacroValuesToHost()
 
     std::vector<int> slots;
     {
-        const juce::ScopedLock sl (hostLock);
+        const juce::ScopedTryLock sl (hostLock);   // TRY, never block - a skipped mirror tick is invisible; see the hang guard
+        if (! sl.isLocked()) return;
         for (const auto& m : mapped)
             if (m.macroSlot >= 0 && m.macroSlot < kMacroCount) slots.push_back (m.macroSlot);
     }

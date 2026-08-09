@@ -78,6 +78,11 @@ private:
 
     std::unique_ptr<juce::WebBrowserComponent> web;
     std::unique_ptr<juce::FileChooser> chooser;
+    // Stride control-param relay (2026-08-07): last values SENT into the engine/canvas,
+    // seeded from the params' current values on the first tick so opening an editor
+    // never re-applies parked knob positions. Message thread only.
+    float lastCtlSent[StrideWrapperProcessor::kControlCount] {};
+    bool  ctlSeeded = false;
 
     struct HostedWindow;
     std::vector<std::unique_ptr<HostedWindow>> synthWindows;   // one per hosted chain node

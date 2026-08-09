@@ -405,6 +405,12 @@
     try { if (window.sdSetEnginePlayhead) window.sdSetEnginePlayhead((d && d.p) || 0, !!(d && d.on), (d && d.b) || 0, !!(d && d.free)); } catch (e) { showErr('playhead: ' + e.message); }
   });
 
+  // Stride's own DAW params (Smooth/Depth/Curve/Floor/Ceiling on a MIDI knob) → the
+  // canvas receiver, which drives the SAME snapshot-based slider functions the strip uses.
+  listen('strideCtl', function (d) {
+    try { if (window.sdHostCtl) window.sdHostCtl((d && d.k) || '', (d && d.v) || 0); } catch (e) { showErr('strideCtl: ' + e.message); }
+  });
+
   // A device failed to load (bad path, wrong format, or — the common Mac case — an
   // Intel-only bundle inside an arm64 host process). Silent DBG was a support ticket;
   // show a small toast with the actionable cause instead.
@@ -977,6 +983,11 @@
         if (typeof msg.run_mode !== 'undefined') _runMode = msg.run_mode | 0;
         paintTempo();
         paintRun();
+      });
+      // Host-driven BPM (the "Stride BPM" DAW param on a MIDI knob) — a light live echo
+      // so the tempo pill follows the knob without a heavy rack re-push.
+      listen('bpmEcho', function (d) {
+        if (d && d.bpm > 0) { _manualBpm = Math.round(d.bpm * 10) / 10; paintTempo(); }
       });
 
       // ── Check for updates — the TITLEBAR button next to Guide (static markup in

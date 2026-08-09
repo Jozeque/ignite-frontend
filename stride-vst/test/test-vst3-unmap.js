@@ -28,7 +28,7 @@ const shim   = rd(path.join(W, 'ui', 'shim.js'));
 ok('unlearnMode + setUnlearnMode + isUnlearning exist', /std::atomic<bool>\s+unlearnMode/.test(procH) && /void\s+setUnlearnMode\s*\(bool/.test(procH) && /bool\s+isUnlearning\(\)/.test(procH));
 ok('unmapParamByTouch defined + guards on unlearn mode (+ editLocked soft-lock)', /void\s+StrideWrapperProcessor::unmapParamByTouch[\s\S]{0,120}if\s*\(editLocked\.load\(\)\s*\|\|\s*!\s*unlearnMode\.load\(\)\)\s*return/.test(procC));
 ok('unmap removes the matching mapped entry + its drive lanes + frees the slot',
-   /unmapParamByTouch[\s\S]{0,700}driveLanes\.erase[\s\S]{0,120}mapped\.erase[\s\S]{0,80}reassignMacros\(\)/.test(procC));
+   /unmapParamByTouch[\s\S]{0,900}driveLanes\.erase[\s\S]{0,120}mapped\.erase[\s\S]{0,80}reassignMacros\(\)/.test(procC));
 ok('the touch callbacks route to BOTH map + unmap', /audioProcessorParameterChanged[\s\S]{0,200}mapParam[\s\S]{0,220}unmapParamByTouch/.test(procC) && /GestureBegin[\s\S]{0,200}mapParam[\s\S]{0,220}unmapParamByTouch/.test(procC));
 ok('Map and Unmap are mutually exclusive', /setLearnMode[\s\S]{0,120}if\s*\(shouldLearn\)\s*unlearnMode\.store\s*\(false\)/.test(procC) && /setUnlearnMode[\s\S]{0,120}if\s*\(shouldUnlearn\)\s*learnMode\.store\s*\(false\)/.test(procC));
 

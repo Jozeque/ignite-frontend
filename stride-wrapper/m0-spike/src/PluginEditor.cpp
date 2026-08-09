@@ -739,6 +739,12 @@ void StrideWrapperEditor::openOneSynthWindow (int i)
 
 void StrideWrapperEditor::handleStrideLinkSend (const juce::var& msg)
 {
+    // HANG GUARD (see timerCallback): canvas messages run on Live's main thread and most
+    // take hostLock. BOUNDED probe - a click must never silently drop under the lock's
+    // normal duty-cycle contention (single-try dropped ~duty% of clicks, 2026-08-07);
+    // under a true wedge the message is dropped and Live stays alive.
+    if (! proc.hostLockFreeBounded()) return;
+
     const auto type = msg.getProperty ("type", {}).toString();
 
     if (type == "request_scan" || type == "request_scan_mapped")
@@ -753,6 +759,30 @@ void StrideWrapperEditor::handleStrideLinkSend (const juce::var& msg)
         if (proc.isEditLocked()) return;
         proc.setTempoMode ((int) msg.getProperty ("mode", 0),
                            (float) (double) msg.getProperty ("bpm", 0.0));
+        // A UI tempo edit moves the DAW's "Stride BPM" lane too, so knob mappings and
+        // written automation stay honest (no-op when the message carries no bpm).
+        proc.syncBpmParamFromUI ((float) (double) msg.getProperty ("bpm", 0.0));
+        return;
+    }
+
+    // UI → param sync for the Active sliders (2026-08-07): a slider move in Stride
+    // notifies its DAW param (gesture-wrapped), which is what lets Ableton's CONFIGURE
+    // catch the sliders by touching them in Stride. lastCtlSent is updated HERE, same
+    // message-thread pass as the relay — so the change can never echo back as a knob
+    // event and disturb an in-progress manual slider gesture.
+    if (type == "set_ctl_param")
+    {
+        static const std::map<juce::String, int> kCtlIdx = {
+            { "smooth", StrideWrapperProcessor::ctlSmooth }, { "depth", StrideWrapperProcessor::ctlDepth },
+            { "curve",  StrideWrapperProcessor::ctlCurve  }, { "floor", StrideWrapperProcessor::ctlFloor },
+            { "ceil",   StrideWrapperProcessor::ctlCeil   } };
+        const auto it = kCtlIdx.find (msg.getProperty ("k", "").toString());
+        if (it != kCtlIdx.end())
+        {
+            const float v = juce::jlimit (0.0f, 1.0f, (float) (double) msg.getProperty ("v", 0.0));
+            lastCtlSent[it->second] = v;               // relay baseline first — no echo
+            proc.syncControlParamFromUI (it->second, v);
+        }
         return;
     }
 
@@ -1263,6 +1293,13 @@ void StrideWrapperEditor::scanPluginsToWeb()
 
 void StrideWrapperEditor::timerCallback()
 {
+    // HANG GUARD, take two. Everything from here to the chain-summary read below is
+    // ATOMICS-ONLY (keyswitch drain, playhead push, DPI nudge, license re-derive, dirty
+    // notify, mac key upkeep; the macro mirror try-locks internally) and runs EVERY tick
+    // - gating it behind a lock probe was the 2026-08-07 keyswitch regression: the probe
+    // failed at the lock's normal duty cycle, drains skipped, and double-presses
+    // collapsed into one action. Only the LOCK-TAKING tail is gated, further down, with
+    // the BOUNDED probe (see hostLockFreeNow's header note).
     proc.pushMacroValuesToHost();   // Live mode: Ableton's exposed params follow the modulation (+ record when armed)
 
    #if JUCE_MAC
@@ -1387,6 +1424,50 @@ void StrideWrapperEditor::timerCallback()
             web->emitEventIfBrowserIsVisible ("playhead", juce::var (o));
         }
     }
+
+    // ── Stride control params → engine + canvas (2026-08-07). Atomic reads, change-
+    // detected at 30Hz, SEEDED on the first tick so an editor open never re-applies
+    // parked knob positions. BPM lands in the engine directly (Manual tempo reads it per
+    // block) + a light bpmEcho keeps the tempo pill honest; the sliders ride to the
+    // canvas, which drives the SAME snapshot-based functions the strip uses.
+    {
+        if (! ctlSeeded)
+        {
+            ctlSeeded = true;
+            for (int i = 0; i < StrideWrapperProcessor::kControlCount; ++i)
+                lastCtlSent[i] = proc.getControlValue (i);
+        }
+        const float nb = proc.getControlValue (StrideWrapperProcessor::ctlBpm);
+        if (std::abs (nb - lastCtlSent[StrideWrapperProcessor::ctlBpm]) > 1.0e-4f)
+        {
+            lastCtlSent[StrideWrapperProcessor::ctlBpm] = nb;
+            const float bpm = StrideWrapperProcessor::ctlNormToBpm (nb);
+            proc.setTempoMode (proc.getTempoMode(), bpm);               // stores manualBpm (clamped); the mode itself is untouched
+            auto* o = new juce::DynamicObject();
+            o->setProperty ("bpm", (double) bpm);
+            web->emitEventIfBrowserIsVisible ("bpmEcho", juce::var (o));
+        }
+        static const char* kCtlKeys[] = { "", "smooth", "depth", "curve", "floor", "ceil" };
+        for (int i = StrideWrapperProcessor::ctlSmooth; i < StrideWrapperProcessor::kControlCount; ++i)
+        {
+            const float v = proc.getControlValue (i);
+            if (std::abs (v - lastCtlSent[i]) <= 1.0e-4f) continue;
+            lastCtlSent[i] = v;
+            if (proc.isEditLocked()) continue;                          // soft lock: a knob can't edit curves either
+            auto* o = new juce::DynamicObject();
+            o->setProperty ("k", juce::String (kCtlKeys[i]));
+            o->setProperty ("v", (double) v);
+            web->emitEventIfBrowserIsVisible ("strideCtl", juce::var (o));
+        }
+    }
+
+    // ── LOCK-TAKING TAIL. If the audio thread is WEDGED holding hostLock (a hosted
+    // plugin stalled inside its processBlock - Wave Shift, 2026-08-06), the blocking
+    // getters below would freeze Live's main thread behind it and take the whole DAW
+    // down (WER AppHangB1). The BOUNDED probe shrugs off normal duty-cycle contention
+    // (retries across a few ms) and only skips for a true wedge - Live stays alive, and
+    // a plugin waiting on the main thread gets serviced, which un-wedges the lock.
+    if (! proc.hostLockFreeBounded()) return;
 
     const auto summary = proc.getChainSummary();
     if (summary != lastSummary)
