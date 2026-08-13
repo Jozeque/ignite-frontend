@@ -959,7 +959,7 @@ void StrideWrapperProcessor::getStateInformation (juce::MemoryBlock& dest)
     if (demoMode.load()) return;   // DEMO: persist nothing — a project can't be built on the demo (blank state on reload)
     juce::XmlElement root ("STRIDE_WRAP");
     const juce::ScopedLock sl (hostLock);
-    root.setAttribute ("version", 6);                                   // v6: + per-param speed ("sp"); v5 added lock ("lk") - attr-based, so older projects load unchanged
+    root.setAttribute ("version", 7);                                   // v7: + follow-playback ("fm"); v6 speed, v5 lock - attr-based, so older projects load unchanged
     root.setAttribute ("clipBeats", driveClipBeats);
     root.setAttribute ("driveMode", (int) driveMode.load());            // 0=Live, 1=Automation
     root.setAttribute ("tempoMode", tempoMode.load());                  // 0=Project sync (default) / 1=Manual
@@ -967,6 +967,7 @@ void StrideWrapperProcessor::getStateInformation (juce::MemoryBlock& dest)
     root.setAttribute ("keysOn", ksEnabled.load() ? 1 : 0);             // MIDI keyswitches (attr-based: old builds/projects ignore it)
     root.setAttribute ("keysBase", ksBase.load());                      // switch-octave bottom note (0=C-2 / 12=C-1 / 24=C0)
     root.setAttribute ("runMode", runMode.load());                      // 0=Transport (default) / 1=Notes (MIDI-gated clock)
+    if (followMode.load()) root.setAttribute ("fm", 1);                 // follow-playback: absent = off (v7; older builds ignore it)
 
     auto* chainXml = root.createNewChildElement ("CHAIN");
     for (int i = 0; i < (int) chain.size(); ++i)
@@ -1028,6 +1029,7 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
     const bool   newKeysOn    = xml->getIntAttribute ("keysOn", 0) != 0; // old projects: keyswitches off
     const int    newKeysBase  = xml->getIntAttribute ("keysBase", 0);    // old projects: bottom octave (setter clamps)
     const int    newRunMode   = xml->getIntAttribute ("runMode", 0);     // old projects: transport-run (byte-identical)
+    const bool   newFollow    = xml->getIntAttribute ("fm", 0) != 0;     // old projects: record-only follow (default)
 
     // Rebuild the restore list in the SAME shape the undo path consumes, then
     // re-instantiate sequentially (keeps chain order + restores patch/curves).
@@ -1089,7 +1091,7 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
     // instead of interleaving their async restores into a duplicated chain.
     const int gen = restoreGeneration.fetch_add (1) + 1;
     auto apply = [wr = juce::WeakReference<StrideWrapperProcessor> (this), devs, gen,
-                  clipBeats, newDriveMode, newTempoMode, newManualBpm, newKeysOn, newKeysBase, newRunMode]
+                  clipBeats, newDriveMode, newTempoMode, newManualBpm, newKeysOn, newKeysBase, newRunMode, newFollow]
     {
         auto* self = wr.get();
         if (self == nullptr) return;                        // processor deleted before the hop landed
@@ -1109,6 +1111,7 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
             self->ksEnabled.store (newKeysOn);
             self->ksBase.store (newKeysBase == 12 || newKeysBase == 24 ? newKeysBase : 0);
             self->runMode.store (juce::jlimit (0, 2, newRunMode));
+            self->followMode.store (newFollow);
         }
         doomed.clear();                                     // hosted destructors run lock-free on the message thread
         self->mapVersion.fetch_add (1);
@@ -1675,13 +1678,15 @@ void StrideWrapperProcessor::pushMacroValuesToHost()
 
     if (driveMode.load() != DriveMode::Live) return;
 
-    // RECORD-FOLLOW ONLY: every notified edit lands in the DAW's UNDO HISTORY. A plain
-    // playback stretch used to bury the user's own edits under invisible "param change"
-    // entries — Ctrl+Z after a timeline edit undid Stride noise instead (field report
-    // 2026-07-16). While the host RECORDS, following/writing automation is the point;
-    // otherwise stay silent (the canvas playhead shows the motion, and the macros still
-    // track via plain setValue so a save captures current values).
-    if (! transportRecording.load()) return;
+    // RECORD-FOLLOW by default: every notified edit lands in the DAW's UNDO HISTORY. A
+    // plain playback stretch used to bury the user's own edits under invisible "param
+    // change" entries — Ctrl+Z after a timeline edit undid Stride noise instead (field
+    // report 2026-07-16). While the host RECORDS, following/writing automation is the
+    // point; otherwise stay silent (the canvas playhead shows the motion, and the macros
+    // still track via plain setValue so a save captures current values). FOLLOW mode
+    // (2026-08-11, the other side of the same coin: "the knobs used to move") opts back
+    // into playback-follow per project, undo cost documented on the toggle.
+    if (! transportRecording.load() && ! followMode.load()) return;
 
     if (now - lastMirrorPushMs < kMirrorIntervalMs) return;
     lastMirrorPushMs = now;

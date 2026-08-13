@@ -795,6 +795,15 @@ void StrideWrapperEditor::handleStrideLinkSend (const juce::var& msg)
         return;
     }
 
+    // Follow-playback toggle (2026-08-11): opt back into visible param movement during
+    // plain playback, undo cost documented on the toggle. Engine-owned + project-saved.
+    if (type == "set_follow")
+    {
+        if (proc.isEditLocked()) return;
+        proc.setFollowMode ((bool) msg.getProperty ("on", false));
+        return;
+    }
+
     // Range-for-Group: one batched band edit for every selected lane (one lock pass, atomic).
     if (type == "set_ranges")
     {
@@ -1004,6 +1013,7 @@ void StrideWrapperEditor::pushRackScanned()
     msg->setProperty ("tempo_mode", proc.getTempoMode());                 // 0=Project / 1=Manual / 2=Free (bar UI rebuilds from here)
     msg->setProperty ("manual_bpm", (double) proc.getManualBpm());
     msg->setProperty ("run_mode", proc.getRunMode());                     // 0=Transport / 1=Notes (the run pill rebuilds from here)
+    msg->setProperty ("follow_mode", proc.isFollowMode());                // follow-playback toggle state (the DAW popover repaints from here)
     web->emitEventIfBrowserIsVisible ("sl_event", juce::var (msg));
 }
 

@@ -186,7 +186,7 @@ function makeMirror(opts) {
 // ─────────────────────────────────────────────────────────────
 ok('mirror is OFF under Maschine (the hang report)', /pushMacroValuesToHost[\s\S]{0,900}isMaschine\(\)/.test(procC));
 ok('mirror capped to ~15Hz (66ms)', /kMirrorIntervalMs = 66/.test(procC) && /lastMirrorPushMs < kMirrorIntervalMs\) return/.test(procC));
-ok('mirror is RECORD-FOLLOW only (undo-flood fix)', /if \(! transportRecording\.load\(\)\) return;/.test(procC) && /std::atomic<bool>\s+transportRecording \{ false \}/.test(procH));
+ok('mirror is RECORD-FOLLOW by default (undo-flood fix; follow-playback is the opt-in)', /if \(! transportRecording\.load\(\) && ! followMode\.load\(\)\) return;/.test(procC) && /std::atomic<bool>\s+transportRecording \{ false \}/.test(procH));
 ok('recording state read from the playhead every block', /transportRec = pos->getIsRecording\(\)/.test(procC) && /transportRecording\.store \(transportRec\)/.test(procC));
 ok('gestures end after 400ms of stillness', /kGestureQuietMs\s+= 400/.test(procC) && /lastEditMs > kGestureQuietMs/.test(procC));
 ok('pushes are gesture-wrapped (begin on first move)', /pushMacroValuesToHost[\s\S]{0,2600}beginChangeGesture[\s\S]{0,300}setValueNotifyingHost/.test(procC));

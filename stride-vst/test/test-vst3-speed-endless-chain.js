@@ -91,8 +91,8 @@ ok('quantStep field kept for old-project round-trip, marked retired', /RETIRED 2
 ok('setMappedSpeed clamps + marks dirty, no re-push',
    /void StrideWrapperProcessor::setMappedSpeed \(int pos, float s\)[\s\S]{0,300}jlimit \(0\.1f, 8\.0f, s\);[\s\S]{0,120}hostDirtyPending\.store \(true\)/.test(procC)
    && !/setMappedSpeed[\s\S]{0,400}mapVersion\.fetch_add/.test(procC));
-ok('state v6 writes "sp" only when the lane leaves 1x',
-   /root\.setAttribute \("version", 6\);/.test(procC)
+ok('state writes "sp" only when the lane leaves 1x (landed in v6; version only moves forward)',
+   (() => { const m = procC.match(/root\.setAttribute \("version", (\d+)\);/); return !!m && +m[1] >= 6; })()
    && /std::abs \(m\.speed - 1\.0f\) > 1\.0e-4f/.test(procC));
 ok('project reopen parses "sp" (default 1.0 for older projects)',
    /spd\.push_back \(\(float\) e->getDoubleAttribute \("sp", 1\.0\)\)/.test(procC));

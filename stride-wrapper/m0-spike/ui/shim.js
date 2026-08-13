@@ -800,7 +800,7 @@
       // Host automation — folded under ONE automation icon (only needed when routing to the
       // DAW, so it stays out of the way). Click it for a popover with the Live/DAW drive
       // toggle + "Send to Ableton" (exposes the mapped knobs to the DAW's Configure list).
-      var _driveMode = 0, _exposedMacros = 0, _macroPool = 32;
+      var _driveMode = 0, _exposedMacros = 0, _macroPool = 32, _followMode = false;
       var autoWrap = document.createElement('div'); autoWrap.className = 'relative'; host.appendChild(autoWrap);
 
       var autoBtn = document.createElement('button');
@@ -821,12 +821,14 @@
         + '<button id="sd-auto-daw" class="flex-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded transition-colors" title="The DAW’s automation drives the knobs; Stride steps back.">◆ DAW</button>'
         + '</div>'
         + '<button id="sd-auto-send" class="w-full text-[10px] font-black uppercase tracking-wider text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-400/30 rounded px-2 py-1 transition-colors mb-1.5">↱ Send to DAW</button>'
+        + '<button id="sd-auto-follow" class="w-full text-[10px] font-bold uppercase tracking-wider rounded px-2 py-1 transition-colors mb-1.5 border" title="ON: the exposed params visibly ride the motion during plain playback — and the DAW logs those moves into its UNDO history (the trade). OFF: they follow only while recording; undo stays clean.">Follow playback · off</button>'
         + '<p class="text-[9px] text-zinc-500 leading-snug">In Ableton: click <b class="text-zinc-400">Configure</b> on the Stride device, then <b class="text-zinc-400">Send</b> — your mapped knobs appear. Other DAWs list them automatically.</p>';
       autoWrap.appendChild(pop);
 
       var liveSeg = pop.querySelector('#sd-auto-live');
       var dawSeg  = pop.querySelector('#sd-auto-daw');
       var sendSeg = pop.querySelector('#sd-auto-send');
+      var followSeg = pop.querySelector('#sd-auto-follow');
       var countEl = pop.querySelector('#sd-auto-count');
 
       // DAW-mode signal: in ◆ DAW the DAW's automation drives the knobs and Stride's curve
@@ -856,12 +858,23 @@
         liveSeg.className = 'flex-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded transition-colors ' + (!daw ? 'text-white bg-white/15 border border-white/20' : 'text-zinc-500 hover:text-zinc-300 border border-transparent');
         dawSeg.className  = 'flex-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded transition-colors ' + (daw ? 'text-cyan-200 bg-cyan-500/20 border border-cyan-400/40' : 'text-zinc-500 hover:text-zinc-300 border border-transparent');
         if (countEl) countEl.textContent = _exposedMacros ? (_exposedMacros + '/' + _macroPool + ' exposed') : 'none exposed';
+        if (followSeg) {
+          followSeg.textContent = 'Follow playback · ' + (_followMode ? 'ON' : 'off');
+          followSeg.className = 'w-full text-[10px] font-bold uppercase tracking-wider rounded px-2 py-1 transition-colors mb-1.5 border ' + (_followMode
+            ? 'text-orange-300 bg-orange-500/15 border-orange-400/40'
+            : 'text-zinc-500 hover:text-zinc-300 border-white/10');
+        }
         document.body.classList.toggle('sd-daw-mode', daw);           // dims the canvas
         if (dawBanner) dawBanner.classList.toggle('hidden', ! daw);   // shows the "DAW driving" banner
       }
       liveSeg.onclick = function () { if (_driveMode !== 0) emit('setDriveMode', { mode: 0 }); };
       dawSeg.onclick  = function () { if (_driveMode !== 1) emit('setDriveMode', { mode: 1 }); };
       sendSeg.onclick = function () { emit('announceMacros'); var t = sendSeg.textContent; sendSeg.textContent = '✓ Sent ' + (_exposedMacros || 0); setTimeout(function () { sendSeg.textContent = t; }, 1500); };
+      if (followSeg) followSeg.onclick = function () {
+        _followMode = ! _followMode;   // optimistic — the rack_scanned echo is the reopen truth
+        paintAuto();
+        try { window.strideLink.send({ type: 'set_follow', on: _followMode }); } catch (e) {}
+      };
       autoBtn.onclick = function (e) { e.stopPropagation(); pop.classList.toggle('hidden'); };
       document.addEventListener('click', function (e) { if (! autoWrap.contains(e.target)) pop.classList.add('hidden'); });
       paintAuto();
@@ -1017,6 +1030,7 @@
         if (typeof msg.drive_mode     !== 'undefined') _driveMode     = msg.drive_mode | 0;
         if (typeof msg.exposed_macros !== 'undefined') _exposedMacros = msg.exposed_macros | 0;
         if (typeof msg.macro_pool     !== 'undefined') _macroPool     = msg.macro_pool | 0;
+        if (typeof msg.follow_mode    !== 'undefined') _followMode    = !! msg.follow_mode;
         paintAuto();
       });
 

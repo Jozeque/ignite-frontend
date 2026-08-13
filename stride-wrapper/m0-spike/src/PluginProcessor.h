@@ -178,6 +178,14 @@ public:
     enum class DriveMode { Live, Automation };   // global: Stride curves drive vs the DAW drives
     void setDriveMode (DriveMode m);
     DriveMode getDriveMode() const { return driveMode.load(); }
+
+    // FOLLOW-PLAYBACK (2026-08-11): while ON, the exposed params NOTIFY the host during
+    // plain playback so the DAW's knobs visibly ride the motion — the pre-July behavior
+    // back as an OPT-IN, with its documented cost (the DAW logs those moves into UNDO
+    // history; that flood was the 2026-07-16 report that made record-only the default).
+    // OFF (default) = follow only while recording; undo stays clean. Project-persisted.
+    void setFollowMode (bool f) { followMode.store (f); hostDirtyPending.store (true); }
+    bool isFollowMode() const   { return followMode.load(); }
     int  exposedMacroCount() const;              // assigned macro slots (for the panel note)
     void announceMacrosToHost();                 // fire a host gesture on each exposed macro so Ableton's Configure catches them (message thread)
     void pushMacroValuesToHost();                // Live mode: report the live modulation value to the host so Ableton's params FOLLOW it (and record if armed). ~15Hz, gesture-wrapped, OFF under Maschine. Message thread.
@@ -394,6 +402,7 @@ private:
     std::array<ControlParameter*, kControlCount> controlParams {};   // owned by the AudioProcessor (addParameter)
     juce::uint32 lastMirrorPushMs = 0;                          // Live-mode mirror pacing (~15Hz cap; message thread only)
     std::atomic<DriveMode> driveMode { DriveMode::Live };
+    std::atomic<bool> followMode { false };         // follow-playback opt-in (see setFollowMode)
     std::atomic<int>   tempoMode { 0 };             // 0=Project sync (default, byte-identical) / 1=Manual (own bpm, transport-mapped)
     std::atomic<float> manualBpm { 120.0f };        // Stride's own motion tempo in Manual (clamped 5..999)
     std::atomic<bool> hostDirtyPending { false };   // see consumeHostDirty()

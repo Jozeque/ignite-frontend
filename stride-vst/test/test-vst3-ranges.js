@@ -107,7 +107,7 @@ ok('rack_scanned echoes the band per lane', /getMappedRanges\(\)[\s\S]{0,1800}se
 // ─────────────────────────────────────────────────────────────
 ok('canvas reports committed edits via set_range', /_sdPushRangeToEngine[\s\S]{0,600}type: 'set_range'/.test(canvas));
 ok('wrapper-gated (desktop strideLink lacks the flag)', /window\.strideLink\._wrapper\) return;/.test(canvas) && /_wrapper: true/.test(shim));
-ok('push sites: icon toggle/reset (group-aware)', /_sdRangeApplyGroup\(p\);\s+\/\/ engine owns ranges \(toggle \+ double-click reset\)/.test(canvas));
+ok('push sites: field scrub/typed (group-aware); the icon toggle went single-lane 2026-08-12', /_sdRangeApplyGroup\(param\);\s+\/\/ engine owns ranges \(scrub \+ typed field\)/.test(canvas));
 ok('push sites: committed boundary drag (group-aware, batched)', /_sdPushRangesToEngine\(_rdGroup\)/.test(canvas));
 ok('push sites: scrub + typed MIN/MAX fields (group-aware)', /_sdRangeSetPercent\(param, edge, pct\)[\s\S]{0,400}_sdRangeApplyGroup\(param\)/.test(canvas));
 ok('lane rebuild reads the band from the payload', /rangeOn: !!p\.rangeOn, rangeMin: \(typeof p\.rangeMin === 'number'/.test(canvas));
@@ -174,6 +174,22 @@ ok('carry: payload wins, carry only fills empties', /if \(c\.points && !\(p\.poi
 })();
 
 ok('canvas: group helpers exist', /function _sdRangeGroupTargets\(edited\)/.test(canvas) && /function _sdRangeApplyGroup\(edited\)/.test(canvas) && /function _sdPushRangesToEngine\(params\)/.test(canvas));
+
+// ── The icon TOGGLE is single-lane (field report 2026-08-12: Select All + toggling a
+// third lane's range wiped the other lanes' custom bands via the group path) ──
+ok('range icon toggle/reset never group-applies (single-lane push only)',
+   /icon TOGGLE \(and double-click reset\) is STRICTLY single-lane[\s\S]{0,600}_sdPushRangeToEngine\(p\);/.test(canvas)
+   && !/_sdRangeApplyGroup\(p\);\s+\/\/ engine owns ranges \(toggle/.test(canvas));
+ok('boundary drags and field edits KEEP the deliberate group semantics',
+   /_sdRangeApplyGroup\(param\);\s+\/\/ engine owns ranges \(scrub \+ typed field\)/.test(canvas)
+   && /group: _sdRangeGroupTargets\(hit\.param\)/.test(canvas));
+
+// ── UNDO carries the band (field report 2026-08-11: Ctrl+Z left the range behind) ──
+ok('undo snapshots carry the range band', /rangeOn: !!p\.rangeOn,\s*\n\s*rangeMin: \(typeof p\.rangeMin === 'number' \? p\.rangeMin : 0\),\s*\n\s*rangeMax: \(typeof p\.rangeMax === 'number' \? p\.rangeMax : 1\)/.test(canvas));
+ok('applySnapshot restores the band AND tells the engine (the color precedent); old snapshots stay inert',
+   /typeof sp\.rangeOn === 'boolean'[\s\S]{0,700}_sdPushRangeToEngine\(param\);/.test(canvas));
+ok('every range gesture starts with an undo checkpoint (toggle + boundary drag + field scrub + typed %)',
+   (canvas.match(/pushUndo\(\);\s+\/\/ (ranges are undoable|one range-undo checkpoint)/g) || []).length === 4);
 ok('canvas: the ACTIVE lane rides with the group (locked active respected)', /envelopeId === sdActiveParamId\);\s*\n\s*if \(active && !active\.locked && targets\.indexOf\(active\) < 0\) targets\.push\(active\);/.test(canvas));
 ok('canvas: the ACTIVE lane is also a group TRIGGER (editing it drives the selection)', /if \(!\(edited\.selected \|\| \(isActive && anySelected\)\)\) return \[edited\];/.test(canvas));
 ok('canvas: Ctrl+mousedown arms without toggling (toggle deferred to mouseup)', /window\.sdToggleLaneSelection\(_sdDragSelectPending\.laneId\)/.test(canvas));

@@ -341,7 +341,12 @@
         return sdCanvasParams.map(p => ({
             envelopeId: p.envelopeId,
             points: p.points.map(pt => ({ time: pt.time, value: pt.value, curve: pt.curve || 0 })),
-            colorIdx: (typeof p.colorIdx === 'number' ? p.colorIdx : -1)
+            colorIdx: (typeof p.colorIdx === 'number' ? p.colorIdx : -1),
+            // Ranges ride the undo too (field report 2026-08-11: Ctrl+Z after a band edit
+            // left the range where it was — ranges were never snapshotted).
+            rangeOn: !!p.rangeOn,
+            rangeMin: (typeof p.rangeMin === 'number' ? p.rangeMin : 0),
+            rangeMax: (typeof p.rangeMax === 'number' ? p.rangeMax : 1)
         }));
     }
 
@@ -367,6 +372,20 @@
                 if (cur !== sp.colorIdx) {
                     param.colorIdx = sp.colorIdx;
                     _sdPushColorToEngine(param);
+                }
+            }
+            // Restore the range band too — engine-owned like colors (a canvas-only
+            // restore would be re-painted by the next rack_scanned echo), so TELL THE
+            // ENGINE when it actually changed. Old snapshots (pre-range) carry no
+            // rangeOn — those lanes stay untouched.
+            if (typeof sp.rangeOn === 'boolean') {
+                const curMin = (typeof param.rangeMin === 'number' ? param.rangeMin : 0);
+                const curMax = (typeof param.rangeMax === 'number' ? param.rangeMax : 1);
+                if (!!param.rangeOn !== sp.rangeOn || Math.abs(curMin - sp.rangeMin) > 1e-6 || Math.abs(curMax - sp.rangeMax) > 1e-6) {
+                    param.rangeOn = sp.rangeOn;
+                    param.rangeMin = sp.rangeMin;
+                    param.rangeMax = sp.rangeMax;
+                    _sdPushRangeToEngine(param);
                 }
             }
         });
@@ -2568,11 +2587,15 @@
         // must drive the whole group too (2026-07-17: tweaking the first/active lane moved
         // only itself while B/C edits moved all three). Editing an unselected, non-active
         // lane stays single-lane — the deliberate escape hatch.
-        const anySelected = sdCanvasParams.some(p => p && p.selected);
+        // Pool = VISIBLE lanes only: with a device focused, the group can never
+        // reach lanes the filter hides (belt-and-braces under the selected ⊆
+        // visible invariant — sdSelectAll and sdSetDeviceFilter maintain it).
+        const pool = sdVisibleParams();
+        const anySelected = pool.some(p => p && p.selected);
         const isActive = edited.envelopeId === sdActiveParamId;
         if (!(edited.selected || (isActive && anySelected))) return [edited];
-        const targets = sdCanvasParams.filter(p => p && p.selected && (p === edited || !p.locked));
-        const active = sdCanvasParams.find(p => p && p.envelopeId === sdActiveParamId);
+        const targets = pool.filter(p => p && p.selected && (p === edited || !p.locked));
+        const active = pool.find(p => p && p.envelopeId === sdActiveParamId);
         if (active && !active.locked && targets.indexOf(active) < 0) targets.push(active);
         if (targets.indexOf(edited) < 0) targets.push(edited);   // the physically edited lane always applies (even locked — a direct act)
         return targets.length ? targets : [edited];
@@ -3170,6 +3193,7 @@
 
     // Double-click a field → a tiny <input> in place to type an exact %.
     function _sdOpenRangeFieldInput(field) {
+        pushUndo();   // ranges are undoable — checkpoint before a typed exact-% commit
         _sdCloseRangeFieldInput();
         if (!sdCanvasEl) return;
         const cr = sdCanvasEl.getBoundingClientRect();
@@ -3324,10 +3348,21 @@
     window.sdSetDeviceFilter = function(dev) {
         sdDeviceFilter = (dev && dev !== sdDeviceFilter) ? dev : null;   // click a device to focus it; click it again (or pass null) to show all
         const vis = sdVisibleParams();
+        if (sdDeviceFilter) {
+            // Focusing a device DROPS selection on the lanes it hides. A selection
+            // that isn't on screen would silently ride every group edit (ranges,
+            // colors, floor/ceiling) — the invariant is: selected ⊆ visible.
+            let dropped = false;
+            sdCanvasParams.forEach(p => {
+                if (p.selected && (p.device || '') !== sdDeviceFilter) { p.selected = false; dropped = true; }
+            });
+            if (dropped) sdRenderSidebar();
+        }
         if (sdDeviceFilter && !vis.some(p => p.envelopeId === sdActiveParamId))
             sdActiveParamId = vis.length ? vis[0].envelopeId : sdActiveParamId;
         sdMultiScrollOffset = 0;
         sdMultiClampScroll();
+        _sdUpdateSelectionButtons();   // lit-state follows the pool, which just changed
         sdDrawCanvasGrid();
         return sdDeviceFilter;
     };
@@ -3424,6 +3459,13 @@
     // (stopped-transport) paint draws the head only.
     function _sdFxDraw(phase, withTrail) {
         if (!sdFxCtx || !sdCanvasFx) return;
+        // The LANDING ANIMATION owns the overlay while it runs. Without this gate the
+        // playing-transport comet (engine kicks, ≤30Hz) — or the desktop's ambient
+        // drift (60fps) — clearRects the landing's partial strokes between its frames:
+        // visible flicker exactly while the DAW plays (field report 2026-08-13; when
+        // stopped nothing repaints, which is why it only glitched during playback).
+        // _sdLandEnd hands the overlay back and repaints the freshest phase.
+        if (_sdLandAnim) return;
         sdFxCtx.clearRect(0, 0, sdCanvasFx.width, sdCanvasFx.height);
         if (sdViewMode !== 'multi' || !_sdLaneGeom.length) return;
         sdFxCtx.lineCap = 'round';
@@ -3506,6 +3548,81 @@
         // would be pure waste; it repaints as soon as the head has actually moved).
         if (_sdEngOn !== _sdEngDrawnOn || Math.abs(_sdEngPhase - _sdEngDrawnPhase) > 0.0015) _sdEngKick();
     };
+
+    // ── LANDING ANIMATION (2026-08-12, Yossi-picked mockup B "draw-on") ─────────────
+    // When a motion tool / template prints new curves, each lane's stroke DRAWS ITSELF
+    // bar-1 → end with a comet head (the playhead's visual language), lanes 15ms apart
+    // (stagger capped so big racks stay ≤ ~240ms total). ONE-SHOT rAF: ~12 frames, then
+    // silence — zero idle cost, no timers. The main canvas skips the animating lanes'
+    // static print for the duration; the engine-playhead comet pauses on the shared
+    // overlay and resumes via _sdEngKick when the landing ends. Honors
+    // prefers-reduced-motion (instant print, exactly the pre-animation behavior).
+    let _sdLandAnim = null;   // { t0, ids:Set<envelopeId>, order:[envelopeId], dur, stag, raf }
+    const _SD_LAND_REDUCED = (function () { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } })();
+    function _sdLandKick(params) {
+        try {
+            if (_SD_LAND_REDUCED || sdViewMode !== 'multi') return;   // focus view keeps the instant print
+            const pool = (params && params.length ? params : sdCanvasParams.filter(p => !p.locked))
+                .filter(p => p && p.points && p.points.length > 1);
+            if (!pool.length) return;
+            if (_sdLandAnim && _sdLandAnim.raf) cancelAnimationFrame(_sdLandAnim.raf);
+            const order = pool.map(p => p.envelopeId);
+            _sdLandAnim = { t0: performance.now(), ids: new Set(order), order: order,
+                            dur: 200, stag: Math.min(15, 240 / order.length), raf: 0 };
+            sdDrawCanvasGrid();   // repaint with the animating strokes hidden (geometry rebuilds)
+            _sdLandAnim.raf = requestAnimationFrame(_sdLandFrame);
+        } catch (e) { _sdLandAnim = null; }
+    }
+    function _sdLandFrame(now) {
+        const a = _sdLandAnim;
+        if (!a) return;
+        if (!sdFxCtx || !sdCanvasFx || !_sdLaneGeom.length) { _sdLandEnd(); return; }
+        sdFxCtx.clearRect(0, 0, sdCanvasFx.width, sdCanvasFx.height);
+        sdFxCtx.lineCap = 'round';
+        let alive = false;
+        for (let gi = 0; gi < _sdLaneGeom.length; gi++) {
+            const g = _sdLaneGeom[gi];
+            if (!g.id || !a.ids.has(g.id) || !g.poly || g.poly.length < 2) continue;
+            const idx = a.order.indexOf(g.id);
+            const k = Math.max(0, Math.min(1, (now - a.t0 - idx * a.stag) / a.dur));
+            if (k < 1) alive = true;
+            const ease = 1 - Math.pow(1 - k, 3);
+            const edgeX = g.tx0 + ease * g.txSpan;
+            const poly = g.poly;
+            sdFxCtx.strokeStyle = 'rgba(' + g.rgb + ',1)';
+            sdFxCtx.lineWidth = 1.6;
+            sdFxCtx.beginPath();
+            let head = null;
+            for (let i = 0; i < poly.length; i++) {
+                if (poly[i].x > edgeX) break;
+                head = poly[i];
+                if (i === 0) sdFxCtx.moveTo(poly[i].x, poly[i].y); else sdFxCtx.lineTo(poly[i].x, poly[i].y);
+            }
+            sdFxCtx.stroke();
+            if (k < 1 && head) {   // the writing head — exactly the playhead comet's look
+                sdFxCtx.save();
+                sdFxCtx.shadowBlur = 8;
+                sdFxCtx.shadowColor = 'rgba(' + g.rgb + ',0.9)';
+                sdFxCtx.fillStyle = 'rgba(' + g.rgb + ',0.95)';
+                sdFxCtx.beginPath(); sdFxCtx.arc(head.x, head.y, 2.6, 0, Math.PI * 2); sdFxCtx.fill();
+                sdFxCtx.fillStyle = 'rgba(255,255,255,0.9)';
+                sdFxCtx.beginPath(); sdFxCtx.arc(head.x, head.y, 1.1, 0, Math.PI * 2); sdFxCtx.fill();
+                sdFxCtx.restore();
+            }
+        }
+        if (alive) a.raf = requestAnimationFrame(_sdLandFrame);
+        else _sdLandEnd();
+    }
+    function _sdLandEnd() {
+        const had = !!_sdLandAnim;
+        if (_sdLandAnim && _sdLandAnim.raf) cancelAnimationFrame(_sdLandAnim.raf);
+        _sdLandAnim = null;
+        if (had) {
+            if (sdFxCtx && sdCanvasFx) sdFxCtx.clearRect(0, 0, sdCanvasFx.width, sdCanvasFx.height);
+            sdDrawCanvasGrid();             // the strokes return to the main canvas
+            if (_sdEngMode) _sdEngKick();   // hand the overlay back to the playhead comet
+        }
+    }
 
     // Start/stop the FX loop. Paused when Stride is unfocused or hidden so it
     // costs zero CPU while you're working in Ableton (the common case). Inert in
@@ -4229,7 +4346,8 @@
             const _rangeMap = (v) => param.rangeOn ? (param.rangeMin + v * (param.rangeMax - param.rangeMin)) : v;
             const valueToY = (v) => rect.bottom - _rangeMap(v) * rect.height;
             const timeToX = (t) => laneDrawLeft + ((t / totalBeats) * laneDrawWidth * sdViewZoomX) - sdViewPanX;
-            _sdLaneGeom.push({ cy: rect.top + rect.height / 2, rgb: sdLaneColor(param, paramIdx), poly: (param.points.length >= 2 ? _sdSampleLanePixels(sortedPts, timeToX, valueToY) : null),
+            _sdLaneGeom.push({ id: param.envelopeId,   // the landing animation matches lanes by id
+                               cy: rect.top + rect.height / 2, rgb: sdLaneColor(param, paramIdx), poly: (param.points.length >= 2 ? _sdSampleLanePixels(sortedPts, timeToX, valueToY) : null),
                                // Looped lanes (wrapper): the comet must wrap where the ENGINE wraps —
                                // beat-precise mapping (tx0/txSpan) + the lane's loop fraction. 0 = ride
                                // the whole curve exactly as before (desktop + unlooped lanes unchanged).
@@ -4239,6 +4357,15 @@
                                loopFrac: (_isWrapUI && typeof param.loopBeats === 'number' && param.loopBeats > 0 && param.loopBeats < totalBeats - 1e-6)
                                    ? param.loopBeats / totalBeats : 0 });
             if (_sdEngMode) _sdEngKick();   // engine playhead: fresh geometry (zoom/pan/edit) repaints the parked head (coalesced — one frame per redraw)
+
+            // LANDING ANIMATION owns this lane's stroke for ~200ms (the FX overlay draws
+            // it progressively — Yossi-picked mockup B, 2026-08-12). Geometry above still
+            // built (the overlay needs it); only the static print is skipped, and the
+            // final _sdLandEnd repaint restores it.
+            if (_sdLandAnim && _sdLandAnim.ids.has(param.envelopeId)) {
+                sdCtx.restore();   // balances the locked-alpha save
+                continue;
+            }
 
             sdCtx.save();
             sdCtx.beginPath();
@@ -4603,6 +4730,7 @@
                             _sdOpenRangeFieldInput(_f);            // double-click → type an exact %
                         } else {
                             _sdRangeFieldClick = { id: _f.param.envelopeId, edge: _f.edge, t: now };
+                            pushUndo();   // one range-undo checkpoint per field scrub
                             _sdRangeNumDrag = { param: _f.param, edge: _f.edge, startY: my, startVal: _f.param[_f.edge] || 0 };
                             sdCanvasEl.style.cursor = 'ns-resize';
                         }
@@ -4650,6 +4778,7 @@
                 const rangeHitLeft = rangeHitRight - SD_MULTI_FOCUS_HIT_W;
                 if (mx >= rangeHitLeft && mx < rangeHitRight) {
                     const p = hit.param;
+                    pushUndo();   // ranges are undoable (checkpoint BEFORE the toggle/reset mutates)
                     const now = (window.performance && performance.now) ? performance.now() : Date.now();
                     if (_sdRangeIconClick && _sdRangeIconClick.id === p.envelopeId && (now - _sdRangeIconClick.t) < 400) {
                         p.rangeOn = false; p.rangeMin = 0; p.rangeMax = 1;   // double-click = reset to full
@@ -4659,7 +4788,13 @@
                         if (p.rangeOn && !(p.rangeMax > p.rangeMin)) { p.rangeMin = 0; p.rangeMax = 1; }
                         _sdRangeIconClick = { id: p.envelopeId, t: now };
                     }
-                    _sdRangeApplyGroup(p);   // engine owns ranges (toggle + double-click reset); selected lanes edit as a GROUP
+                    // The icon TOGGLE (and double-click reset) is STRICTLY single-lane —
+                    // never a group edit. It used to ride the Range-for-Group path, so with
+                    // Select All active (e.g. for a Depth pass), toggling one lane's range
+                    // copied its band onto every selected lane and wiped their custom bands
+                    // (field report 2026-08-12). Group semantics stay where they feel
+                    // deliberate: boundary DRAGS and field edits on a selected lane.
+                    _sdPushRangeToEngine(p);
                     sdDrawCanvasGrid();
                     Promise.resolve(saveCanvasState());
                     return;
@@ -4702,6 +4837,7 @@
                     const yMin = rb - hit.param.rangeMin * rh, yMax = rb - hit.param.rangeMax * rh;
                     const edge = (Math.abs(my - yMax) <= 6) ? 'rangeMax' : (Math.abs(my - yMin) <= 6) ? 'rangeMin' : null;
                     if (edge) {
+                        pushUndo();   // one range-undo checkpoint per boundary-drag gesture
                         // Capture the group at GRAB time (selection changes mid-drag don't retarget).
                         _sdRangeDrag = { param: hit.param, edge: edge, rect: hit.rect, group: _sdRangeGroupTargets(hit.param) };
                         sdCanvasEl.style.cursor = 'ns-resize';
@@ -5323,6 +5459,7 @@
             while (cB < eB - 0.001) { let chunk = [0.5, 1, 1.5, 2, 4][Math.floor(Math.random() * 5)]; if (cB + chunk > eB) chunk = eB - cB; sdInjectShape(param, pool[Math.floor(Math.random() * pool.length)], cB, chunk); cB = Math.round((cB + chunk) * 10000) / 10000; }
         });
         sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
+        _sdLandKick(targets);   // landing animation (mockup B): the comet draws the new curves on
         const skipMsg = sdLockSkipMessage(targets.length);
         if (skipMsg) {
             const status = document.getElementById('sd-canvas-status');
@@ -5356,6 +5493,7 @@
             param.points = param.points.concat(_sdGenTemplatePts('chaos_lfo', sB, eB)).sort((a, b) => a.time - b.time);
         });
         sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
+        _sdLandKick(targets);   // landing animation (mockup B): the comet draws the new curves on
         const skipMsg = sdLockSkipMessage(targets.length);
         if (skipMsg) {
             const status = document.getElementById('sd-canvas-status');
@@ -5509,6 +5647,7 @@
                 }
             });
             sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
+            _sdLandKick(targets);   // landing animation (mockup B): the comet draws the new curves on
             return;
         }
 
@@ -5556,6 +5695,7 @@
         });
 
         sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
+        _sdLandKick(targets);   // landing animation (mockup B): the comet draws the new curves on
         const skipMsg = sdLockSkipMessage(targets.length);
         if (skipMsg) {
             const status = document.getElementById('sd-canvas-status');
@@ -5600,6 +5740,7 @@
                 }
             });
             sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
+            _sdLandKick(sdGetTargetParams());   // landing animation (mockup B): the comet draws the new curves on
             return;
         }
 
@@ -5638,6 +5779,7 @@
         });
 
         sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
+        _sdLandKick(sdGetTargetParams());   // landing animation (mockup B): the comet draws the new curves on
     };
 
     // Reflector: pairs up unlocked lanes into tight base+mirror pairs.
@@ -5756,6 +5898,7 @@
         }
 
         sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
+        _sdLandKick(targets);   // landing animation (mockup B): the comet draws the new curves on
         const skipMsg = sdLockSkipMessage(targets.length);
         if (skipMsg) {
             const status = document.getElementById('sd-canvas-status');
@@ -6331,18 +6474,24 @@
     // canvas — see the multi-view mousedown branch.
 
     window.sdSelectAll = function() {
-        const unlocked = sdCanvasParams.filter(p => !p.locked);
+        // "All" means the VISIBLE pool: with a chain device focused (sdDeviceFilter),
+        // Select All grabs that device's lanes only — never lanes the filter hides.
+        // (2026-08-13: filtered Select All was selecting every device's lanes, so
+        // group range edits reached devices that weren't even on screen.)
+        const pool = sdVisibleParams();
+        const unlocked = pool.filter(p => !p.locked);
         if (!unlocked.length) {
             _sdUpdateSelectionButtons();
             return;
         }
         const allSelected = unlocked.every(p => p.selected);
         if (allSelected) {
-            // Already all selected → toggle off (deselect all)
+            // Already all selected → toggle off. Deselect EVERY lane, not just the
+            // pool — deselect is the safe direction and sweeps out stale selection.
             sdCanvasParams.forEach(p => { p.selected = false; });
         } else {
-            // Fill: select every unlocked lane (locked stay alone)
-            sdCanvasParams.forEach(p => {
+            // Fill: select every visible unlocked lane (locked stay alone)
+            pool.forEach(p => {
                 if (!p.locked) p.selected = true;
             });
         }
@@ -6370,7 +6519,9 @@
         const ACTIVE_CLASS = "text-[9px] text-fuchsia-300 bg-fuchsia-500/20 border border-fuchsia-500/40 hover:bg-fuchsia-500/30 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0 shadow-[0_0_8px_rgba(217,70,239,0.2)]";
         const IDLE_CLASS = "text-[9px] text-zinc-500 bg-black/50 border border-white/5 hover:border-fuchsia-500/30 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0";
 
-        const unlocked = sdCanvasParams.filter(p => !p.locked);
+        // Lit when the VISIBLE pool is fully selected — with a device focused,
+        // that's the focused device's lanes (the only ones Select All grabs).
+        const unlocked = sdVisibleParams().filter(p => !p.locked);
         const allSelected = unlocked.length > 0 && unlocked.every(p => p.selected);
 
         const allBtn = document.getElementById('sd-select-all-toggle');
@@ -6519,6 +6670,7 @@
             param.points = param.points.concat(_sdGenTemplatePts(type, sB, eB)).sort((a, b) => a.time - b.time);
         });
         sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
+        _sdLandKick(sdGetTargetParams());   // landing animation (mockup B): the comet draws the new curves on
     };
     window.sdApplyComplexTemplate = function(type) {
         if (!sdActiveParamId) return;
@@ -6531,6 +6683,7 @@
             if (type === 'neuro') { for (let bar = 0; bar < selBars; bar++) { let start = sB + bar * 4; if (start + 4 > eB) break; sdInjectShape(param, 'syncopated_drops', start, 2); sdInjectShape(param, 'hyper_stutter', start + 2, 1); sdInjectShape(param, 'exponential_build', start + 3, 1); } }
         });
         sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
+        _sdLandKick(sdGetTargetParams());   // landing animation (mockup B): the comet draws the new curves on
     };
 
     // ─── NEURO v2 VARIANTS ────────────────────────────────────
@@ -6841,6 +6994,7 @@
         sdResetSliderSnapshots();
         sdRenderSidebar();
         sdDrawCanvasGrid();
+        _sdLandKick(targets);   // landing animation (mockup B): the comet draws the new curves on
         document.getElementById('sd-canvas-status').textContent = 'Mutated';
     };
 
@@ -7279,6 +7433,7 @@
         sdResetSliderSnapshots();
         sdRenderSidebar();
         sdDrawCanvasGrid();
+        _sdLandKick();   // landing animation (mockup B): the comet draws the new curves on
         const _bloomStatus = document.getElementById('sd-canvas-status');
         if (_bloomStatus) _bloomStatus.textContent = 'Bloom applied — ' + (sdCanvasParams.length - 1) + ' lanes from ' + masterParam.name;
     };
@@ -9096,6 +9251,7 @@
         sdResetSliderSnapshots();
         sdRenderSidebar();
         sdDrawCanvasGrid();
+        _sdLandKick();   // landing animation (mockup B): the comet draws the new curves on
         const lockMsg = sdLockSkipMessage(movable.length);
         document.getElementById('sd-canvas-status').textContent = lockMsg
             || 'Shuffled — lanes reassigned randomly';

@@ -179,5 +179,27 @@ ok('Poly stays the default and the choice is sticky',
 ok('the ▾ mode button rides next to the Motion S&H (2-col grid preserved via a flex cell)',
    /<div class="flex gap-0\.5">'[\s\S]{0,700}sdOpenShModePopup\(event\)/.test(canvas));
 
+// ─────────────────────────────────────────────────────────────
+// 5. FOLLOW-PLAYBACK toggle (2026-08-11) — the July record-gate, now opt-out per project
+// ─────────────────────────────────────────────────────────────
+(function () {
+    // The gate truth table: notify the host when recording OR follow is on.
+    const notifies = (rec, follow) => !(!rec && !follow);
+    ok('default (follow off): silent during playback, notifies while recording',
+       notifies(false, false) === false && notifies(true, false) === true);
+    ok('follow on: notifies during plain playback too', notifies(false, true) === true && notifies(true, true) === true);
+})();
+ok('engine: follow gate is (recording OR follow) — the July default preserved',
+   /if \(! transportRecording\.load\(\) && ! followMode\.load\(\)\) return;/.test(procC));
+ok('engine: followMode is project-persisted ("fm", absent = off) and restored on load',
+   /if \(followMode\.load\(\)\) root\.setAttribute \("fm", 1\);/.test(procC)
+   && /getIntAttribute \("fm", 0\) != 0/.test(procC) && /followMode\.store \(newFollow\);/.test(procC));
+ok('bridge: set_follow routed + follow_mode echoed for the popover repaint',
+   /if \(type == "set_follow"\)[\s\S]{0,300}setFollowMode \(\(bool\) msg\.getProperty \("on", false\)\)/.test(editor)
+   && /setProperty \("follow_mode", proc\.isFollowMode\(\)\)/.test(editor));
+ok('shim: Follow toggle lives in the DAW popover, optimistic paint + echo truth, undo cost on the tooltip',
+   /id="sd-auto-follow"/.test(shim) && /type: 'set_follow', on: _followMode/.test(shim)
+   && /msg\.follow_mode/.test(shim) && /UNDO history/.test(shim));
+
 console.log('  ' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);

@@ -92,7 +92,7 @@ ok('shim: macro readout also refreshes on unmapped_at', /msg\.type !== 'rack_sca
 ok('render: min/max fields drawn under the name when range on (wrapper 3rd line + desktop swap)', /_sdDrawRangeFields\(sdCtx, param, _tx, midY \+ 13, paramIdx\)/.test(cv) && /if \(param\.rangeOn\) \{\s*_sdDrawRangeFields\(sdCtx, param, 8, midY \+ 3, paramIdx\)/.test(cv));
 ok('fields are MIN + MAX chips recorded as hit rects', /cap: 'MIN'[\s\S]{0,90}cap: 'MAX'/.test(cv) && /_sdRangeFieldRects\.push\(\{ param: param, edge: f\.edge/.test(cv));
 ok('field rects reset each render', /_sdRangeFieldRects = \[\]; \/\/ rebuilt below/.test(cv));
-ok('mousedown: press a field → scrub; double-click → type input', /_sdRangeFieldRects\[_fi\][\s\S]{0,600}_sdOpenRangeFieldInput\(_f\)[\s\S]{0,220}_sdRangeNumDrag = \{ param: _f\.param, edge: _f\.edge/.test(cv));
+ok('mousedown: press a field → scrub; double-click → type input', /_sdRangeFieldRects\[_fi\][\s\S]{0,600}_sdOpenRangeFieldInput\(_f\)[\s\S]{0,340}_sdRangeNumDrag = \{ param: _f\.param, edge: _f\.edge/.test(cv));
 ok('mousemove: scrub adjusts ~1% per 2px', /_sdRangeNumDrag\)[\s\S]{0,240}_sdRangeSetPercent\(nd\.param, nd\.edge, \(nd\.startVal \+ \(nd\.startY - my\) \/ 200\)/.test(cv));
 ok('mouseup: scrub persists + re-drives', /_sdRangeNumDrag\) \{[\s\S]{0,140}_sdRangeNumDrag = null[\s\S]{0,140}saveCanvasState/.test(cv));
 ok('cursor: a field OR a boundary line shows ns-resize (two arrows)', /let _rangeCur = false[\s\S]{0,1300}_rangeCur \? 'ns-resize'/.test(cv));
