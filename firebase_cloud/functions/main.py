@@ -1295,37 +1295,60 @@ def _handle_get_update(data: dict):
     if "vst" not in ents:
         return jsonify({**fallback, "error": "not entitled"}), 200
 
-    def _ls_list(path_and_query: str):
-        try:
-            lreq = urllib.request.Request(
-                "https://api.lemonsqueezy.com/v1/" + path_and_query,
-                headers={**ls_headers, "Accept": "application/vnd.api+json"},
-            )
-            with urllib.request.urlopen(lreq, timeout=15) as resp:
-                return (json.loads(resp.read().decode("utf-8")) or {}).get("data") or []
-        except Exception as e:
-            print(f"[Update] LS list failed ({path_and_query}): {e}")
-            return []
+    def _ls_list(path: str, params=None):
+        # EVERY page, not just the first. LS lists default to 10-per-page in
+        # ASCENDING id order, so a single request returns the ten OLDEST rows —
+        # which is how the updater served a July draft while the fresh release
+        # sat on a later page (user report 2026-08-14). On a mid-walk failure we
+        # return what we have; the candidate filter below tolerates a short list.
+        out, page = [], 1
+        while True:
+            q = dict(params or {})
+            q["page[size]"] = "100"
+            q["page[number]"] = str(page)
+            try:
+                lreq = urllib.request.Request(
+                    "https://api.lemonsqueezy.com/v1/" + path + "?" + urllib.parse.urlencode(q),
+                    headers={**ls_headers, "Accept": "application/vnd.api+json"},
+                )
+                with urllib.request.urlopen(lreq, timeout=15) as resp:
+                    res = json.loads(resp.read().decode("utf-8")) or {}
+            except Exception as e:
+                print(f"[Update] LS list failed ({path} page {page}): {e}")
+                return out
+            out += res.get("data") or []
+            try:
+                last = int(((res.get("meta") or {}).get("page") or {}).get("lastPage") or 1)
+            except Exception:
+                last = 1
+            if page >= last:
+                return out
+            page += 1
 
-    # Serve the NEWEST *VST3* build for the platform, wherever it lives in the store.
-    # Verified live 2026-07-17: the store's real distribution point is the demo
-    # product's variant (each release re-upload stacks a new file entry there), the
-    # paid bundle's variants carry stale DESKTOP builds, and archived variants list
-    # nothing — so product-scoping lies. This rule survives any future re-shuffle:
-    # walk products -> variants -> files (per-variant filtered queries only; the
-    # store-wide /v1/files list times out), keep names containing "vst3" + the
-    # platform token, take the highest file id (= newest upload). No non-VST3
-    # fallback — the button lives in the VST; wrong-product zips are worse than
-    # the portal.
+    # Serve the NEWEST *PUBLISHED* VST3 build for the platform, wherever it lives
+    # in the store. Walk products -> variants -> files (per-variant filtered
+    # queries only; the store-wide /v1/files list times out) — product-scoping
+    # lies (verified 2026-07-17: desktop-era keys are vst-entitled with no VST
+    # order). Two hard lessons from 2026-08-14 baked in here:
+    #   - every file replaced in the dashboard lives on as status "draft"; only
+    #     "published" files are what the dashboard shows and what buyers get, so
+    #     drafts must never be served (a July draft reached a customer),
+    #   - the walk must PAGINATE (see _ls_list) or it only ever sees the oldest
+    #     ten files of each variant.
+    # Keep names containing "vst3" + the platform token, take the highest file id
+    # (= newest upload). No non-VST3 fallback — the button lives in the VST;
+    # wrong-product zips are worse than the portal.
     files = []
-    for prod in _ls_list("products?" + urllib.parse.urlencode({"page[size]": "50"})):
-        for v in _ls_list("variants?" + urllib.parse.urlencode({"filter[product_id]": prod.get("id")})):
-            files += _ls_list("files?" + urllib.parse.urlencode({"filter[variant_id]": v.get("id")}))
+    for prod in _ls_list("products"):
+        for v in _ls_list("variants", {"filter[product_id]": prod.get("id")}):
+            files += _ls_list("files", {"filter[variant_id]": v.get("id")})
 
     want = "mac" if platform.startswith("mac") else "windows"
     def _fname(f):
         return (((f.get("attributes") or {}).get("name")) or "").lower()
-    cands = [f for f in files if "vst3" in _fname(f) and want in _fname(f)]
+    def _fpub(f):
+        return ((((f.get("attributes") or {}).get("status")) or "")).lower() == "published"
+    cands = [f for f in files if "vst3" in _fname(f) and want in _fname(f) and _fpub(f)]
     cands.sort(key=lambda f: int(f.get("id") or 0), reverse=True)
     pick = cands[0] if cands else None
     print(f"[Update] store files={len(files)} vst3-{want} candidates={len(cands)} pick=" +
