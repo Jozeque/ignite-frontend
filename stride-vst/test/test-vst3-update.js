@@ -73,7 +73,9 @@ ok('public route registered (key is the credential)', /data_pre\.get\("action"\)
 ok('slot-free validation (no instance_id -> consumes no activation)', /_handle_get_update[\s\S]{0,2200}licenses\/validate[\s\S]{0,400}\{"license_key": key\}/.test(backend));
 ok('disabled/expired keys get the portal, not files', /lk_status in \("disabled", "expired"\)/.test(backend));
 ok('ENTITLEMENT-driven: any vst-entitled key (incl. upgraded desktop buyers) gets VST files', /_resolve_entitlements\(meta\.get\("product_id"\), meta\.get\("product_name"\)/.test(backend) && /if "vst" not in ents:/.test(backend));
-ok('files resolved by walking products->variants->files (store-wide list times out; product-scoping lies)', /for prod in _ls_list\("products\?"/.test(backend) && /filter\[variant_id\]": v\.get\("id"\)/.test(backend));
+ok('files resolved by walking products->variants->files (store-wide list times out; product-scoping lies)', /for prod in _ls_list\("products"\)/.test(backend) && /_ls_list\("variants", \{"filter\[product_id\]": prod\.get\("id"\)\}\)/.test(backend) && /_ls_list\("files", \{"filter\[variant_id\]": v\.get\("id"\)\}\)/.test(backend));
+ok('_ls_list walks EVERY page (2026-08-14: unpaginated default = ten OLDEST rows, served a July draft)', /q\["page\[size\]"\] = "100"/.test(backend) && /q\["page\[number\]"\] = str\(page\)/.test(backend) && /"lastPage"/.test(backend));
+ok('only PUBLISHED files are servable (dashboard-replaced files live on as drafts)', /def _fpub\(f\)/.test(backend) && /== "published"/.test(backend) && /and _fpub\(f\)\]/.test(backend));
 ok('NEWEST vst3+platform file wins; desktop builds are never served', /"vst3" in _fname\(f\) and want in _fname\(f\)/.test(backend) && /key=lambda f: int\(f\.get\("id"\) or 0\), reverse=True/.test(backend) && !/pick = files\[0\]/.test(backend));
 ok('signed download_url returned on success', /"download_url"\) or ""/.test(backend) && /"ok": True, "url": url/.test(backend));
 ok('EVERY response carries the My Orders portal + HTTP 200', /LS_MY_ORDERS_URL = "https:\/\/app\.lemonsqueezy\.com\/my-orders"/.test(backend) && /fallback = \{"ok": False, "portal": LS_MY_ORDERS_URL\}/.test(backend));

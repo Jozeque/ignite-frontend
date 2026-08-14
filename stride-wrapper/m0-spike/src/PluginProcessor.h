@@ -299,7 +299,7 @@ private:
         if (d.programChanged || d.nonParameterStateChanged) hostDirtyPending.store (true);
     }
 
-    static BusesProperties strideBuses();     // stereo out everywhere; stereo AUDIO IN except the AU (frozen aumu surface)
+    static BusesProperties strideBuses();     // stereo out + stereo AUDIO IN everywhere (AU included since 1.3.4 = Logic's Side Chain menu)
     void prepareNode (int i);                 // (re)prepare one chain node (under lock)
     int  nodeIndexOf (juce::AudioProcessor*) const;   // which chain slot a processor is (under lock)
     void mapParam (juce::AudioProcessor*, int parameterIndex);   // map a param if in learn mode (shared by value-change + touch)

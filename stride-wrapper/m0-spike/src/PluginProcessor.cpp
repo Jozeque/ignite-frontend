@@ -70,14 +70,16 @@ namespace {
 // with an instrument first, the input is simply overwritten — synth behavior unchanged).
 // Bitwig/Reaper feed it natively from the track chain; Live routes via "Audio To ▸
 // Stride"; the standalone takes the mic/line in (JUCE auto-mutes it against feedback
-// until the user enables it). The AU is EXCLUDED: the aumu identity (aumu/SwM0/Strd)
-// is frozen for shipped Logic projects and its validated surface must not change —
-// audio-in on Logic waits for its own auval-gated pass.
+// until the user enables it). 1.3.4 extends the bus to the AU (the 1.2.0 "own
+// auval-gated pass later"): the aumu identity (aumu/SwM0/Strd) stays FROZEN — an input
+// element on a music device is additive, and it is exactly what makes Logic show its
+// Side Chain menu on Stride (field request 2026-08-14: no way to route audio in).
+// Old Logic projects reopen with the sidechain unassigned = silent input = unchanged
+// sound. CI's strict auval gate (both slices) must pass before any user sees this.
 juce::AudioProcessor::BusesProperties StrideWrapperProcessor::strideBuses()
 {
     BusesProperties b;
-    if (juce::PluginHostType::getPluginLoadedAs() != wrapperType_AudioUnit)
-        b = b.withInput ("Audio In", juce::AudioChannelSet::stereo(), true);
+    b = b.withInput ("Audio In", juce::AudioChannelSet::stereo(), true);
     return b.withOutput ("Output", juce::AudioChannelSet::stereo(), true);
 }
 
@@ -616,9 +618,10 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         }
         // Audio-in pass-through (1.2.0): with the input bus live, an EMPTY Stride behaves as
         // unity gain — a routed guitar stays audible while the user builds the FX chain.
-        // Synth-only users are byte-identical: nothing routed in = the input is silence,
-        // and the AU (which has no input bus) still clears. Lock-miss passes the dry block
-        // too — a dry blip beats a dropout.
+        // Synth-only users are byte-identical: nothing routed in = the input is silence
+        // (in Logic an unassigned Side Chain feeds silence the same way, 1.3.4). The clear
+        // below only fires where a host disabled the input bus outright. Lock-miss passes
+        // the dry block too — a dry blip beats a dropout.
         if (getTotalNumInputChannels() == 0)
             buffer.clear();
     }
