@@ -86,7 +86,7 @@ const count = (src, needle) => src.split(needle).length - 1;
 // ─────────────────────────────────────────────────────────────
 // 2. ENGINE — speed owned/persisted/echoed, endless free, raw-beats publish
 // ─────────────────────────────────────────────────────────────
-ok('MapRef carries speed (default 1x)', /float speed = 1\.0f; \};/.test(procH));
+ok('MapRef carries speed (default 1x)', /float speed = 1\.0f;/.test(procH));   // 1.4.0: linkGroup/linkInv follow it, so speed is no longer the closing member
 ok('quantStep field kept for old-project round-trip, marked retired', /RETIRED 2026-08-04 \(groove grid\)/.test(procH));
 ok('setMappedSpeed clamps + marks dirty, no re-push',
    /void StrideWrapperProcessor::setMappedSpeed \(int pos, float s\)[\s\S]{0,300}jlimit \(0\.1f, 8\.0f, s\);[\s\S]{0,120}hostDirtyPending\.store \(true\)/.test(procC)
@@ -96,11 +96,11 @@ ok('state writes "sp" only when the lane leaves 1x (landed in v6; version only m
    && /std::abs \(m\.speed - 1\.0f\) > 1\.0e-4f/.test(procC));
 ok('project reopen parses "sp" (default 1.0 for older projects)',
    /spd\.push_back \(\(float\) e->getDoubleAttribute \("sp", 1\.0\)\)/.test(procC));
-ok('snapshot Dev struct carries the parallel speed vector', /std::vector<float> spd; \};/.test(procH));
+ok('snapshot Dev struct carries the parallel speed vector', /std::vector<float> spd;/.test(procH));   // 1.4.0: lnk/lin vectors follow it
 ok('all three snapshots capture speed (clear + remove + duplicate)',
    count(procC, 'd.spd.push_back (m.speed);') === 3);
 ok('restore rebuilds mapped entries WITH speed (missing vector = 1x, old snapshots safe)',
-   /k < d\.spd\.size\(\) \? d\.spd\[k\] : 1\.0f \}\);/.test(procC));
+   /k < d\.spd\.size\(\) \? d\.spd\[k\] : 1\.0f,/.test(procC));   // 1.4.0: link fields follow in the same aggregate
 ok('raw phrase beats published every block for the free-mode comet',
    /std::atomic<double> lastBeatsPub \{ 0\.0 \};/.test(procH) && /lastBeatsPub\.store \(beats\);/.test(procC));
 

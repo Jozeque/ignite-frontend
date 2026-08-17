@@ -1,0 +1,770 @@
+<title>Motions & Link</title>
+<style>
+  /* ── Stride copper-skin tokens (from stride-wrapper/m0-spike/ui, data-skin="copper") ── */
+  :root{
+    --ground:#101010; --app:#161616; --panel:#1c1c1c; --well:#0e0e0e;
+    --z900:#2b2d2d; --z800:#363939; --z700:#444747; --z600:#5a5f5f; --z500:#717676;
+    --z400:#9a9d9e; --z300:#bcc0c0; --z200:#d1d5d5; --z100:#e1e3e3;
+    --copper:#c6712b; --copper2:#d9904a; --copper-hi:#d79c6b; --copper-dim:#8f511f;
+    --lane-f:#d946ef; --lane-s:#38bdf8; --lane-e:#34d399; --lane-a:#fbbf24; --lane-v:#a78bfa;
+    --lock:#fbbf24; --unmap:#f87171;
+    --hair:rgba(255,255,255,.07); --hair2:rgba(255,255,255,.12);
+    font-size:16px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  html{background:var(--ground)}
+  body{
+    background:var(--ground); color:var(--z300);
+    font-family:'Outfit','Segoe UI',system-ui,sans-serif;
+    line-height:1.55; -webkit-font-smoothing:antialiased;
+  }
+  button{font-family:inherit; cursor:pointer; background:none; border:none; color:inherit}
+  button:focus-visible, a:focus-visible{outline:2px solid var(--copper2); outline-offset:2px; border-radius:4px}
+  svg{display:block}
+  .micro{font-size:9px; font-weight:800; letter-spacing:.18em; text-transform:uppercase}
+
+  /* ── Page shell ── */
+  .page{max-width:1180px; margin:0 auto; padding:40px 24px 80px}
+  header.top{display:flex; flex-wrap:wrap; align-items:flex-end; gap:18px 32px; margin-bottom:22px}
+  .top .id .eyebrow{font-size:9px; font-weight:900; letter-spacing:.3em; text-transform:uppercase; color:var(--copper2); margin-bottom:6px}
+  .top h1{font-size:27px; font-weight:800; letter-spacing:-.02em; color:var(--z100); text-wrap:balance}
+  .top .sub{font-size:13.5px; color:var(--z500); margin-top:4px; max-width:52ch}
+  .top .sub b{color:var(--z300); font-weight:600}
+
+  /* Scene rail: an honest sequence, the four beats of the flow */
+  .rail-nav{display:flex; gap:6px; margin-left:auto}
+  .scene-btn{
+    display:flex; flex-direction:column; gap:2px; align-items:flex-start;
+    padding:9px 14px 8px; border-radius:10px; border:1px solid var(--hair);
+    background:rgba(255,255,255,.02); transition:border-color .15s, background .15s;
+  }
+  .scene-btn .n{font-size:9px; font-weight:900; letter-spacing:.22em; color:var(--z600)}
+  .scene-btn .t{font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--z400)}
+  .scene-btn:hover{border-color:rgba(217,144,74,.4)}
+  body[data-scene="1"] .scene-btn[data-s="1"], body[data-scene="2"] .scene-btn[data-s="2"],
+  body[data-scene="3"] .scene-btn[data-s="3"], body[data-scene="4"] .scene-btn[data-s="4"]{
+    border-color:var(--copper); background:rgba(198,113,43,.12);
+  }
+  body[data-scene="1"] .scene-btn[data-s="1"] .t, body[data-scene="2"] .scene-btn[data-s="2"] .t,
+  body[data-scene="3"] .scene-btn[data-s="3"] .t, body[data-scene="4"] .scene-btn[data-s="4"] .t{color:var(--copper-hi)}
+
+  /* ── Stage + plugin window ── */
+  .stage{overflow-x:auto; border-radius:16px; padding:2px}
+  .app{
+    min-width:1080px; background:var(--app); border:1px solid var(--z800); border-radius:12px;
+    box-shadow:0 30px 80px -30px rgba(0,0,0,.9), 0 0 0 1px rgba(0,0,0,.6);
+    overflow:hidden; position:relative;
+  }
+
+  /* Titlebar */
+  .tbar{height:36px; background:#121212; border-bottom:1px solid var(--hair); display:flex; align-items:center; padding:0 14px; gap:16px}
+  .tbar .mark{font-size:11px; font-weight:900; letter-spacing:.3em; text-transform:uppercase;
+    background:linear-gradient(90deg,var(--copper),var(--copper2)); -webkit-background-clip:text; background-clip:text; color:transparent}
+  .tbar .ver{font-size:8px; font-weight:700; letter-spacing:.08em; color:var(--z600)}
+  .tbar-btn{font-size:9px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--z500)}
+  .tbar-btn:hover{color:var(--copper2)}
+  .tbar .grow{flex:1}
+  .conn{display:flex; align-items:center; gap:7px}
+  .conn .dot{width:8px; height:8px; border-radius:50%; background:var(--lane-e); box-shadow:0 0 8px rgba(52,211,153,.6)}
+  .conn span{font-size:9px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--z400)}
+  .skin{display:flex; align-items:center; gap:6px; padding:3px 8px; border:1px solid var(--hair2); border-radius:6px; background:rgba(255,255,255,.04)}
+  .skin .sw{width:11px; height:11px; border-radius:50%; background:var(--copper); box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
+  .skin span{font-size:8px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--z400)}
+
+  /* Row 0: loop + view + MOTIONS center */
+  .row0{height:40px; background:rgba(0,0,0,.5); border-bottom:1px solid var(--hair); display:grid; grid-template-columns:1fr auto 1fr; align-items:center; padding:0 10px}
+  .r0-left{display:flex; align-items:center; gap:8px}
+  .looper{display:flex; align-items:center; gap:2px; background:rgba(0,0,0,.5); border:1px solid rgba(198,113,43,.35); border-radius:8px; padding:3px 6px}
+  .looper .lbl{font-size:9px; font-weight:900; letter-spacing:.1em; text-transform:uppercase; color:var(--copper-hi); padding:0 3px}
+  .looper button{font-size:11px; font-weight:700; color:var(--z400); padding:1px 8px; border-radius:4px}
+  .looper button.on{color:var(--copper-hi); background:rgba(198,113,43,.22)}
+  .pill{font-size:9px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; padding:4px 9px; border-radius:6px; border:1px solid rgba(198,113,43,.5); color:var(--copper-hi); background:rgba(198,113,43,.16); display:flex; align-items:center; gap:5px}
+  .motions-btn{
+    justify-self:center; display:flex; align-items:center; gap:7px; position:relative;
+    font-size:10px; font-weight:900; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--copper-hi); border:1px solid rgba(198,113,43,.55); background:rgba(198,113,43,.10);
+    padding:5px 16px; border-radius:8px; transition:background .15s, box-shadow .15s;
+  }
+  .motions-btn:hover{background:rgba(198,113,43,.22); box-shadow:0 0 18px -6px rgba(198,113,43,.7)}
+  body[data-scene="2"] .motions-btn, body[data-scene="3"] .motions-btn{background:rgba(198,113,43,.26); box-shadow:0 0 18px -6px rgba(198,113,43,.8)}
+  .newdot{position:absolute; top:-4px; right:-4px; width:8px; height:8px; border-radius:50%; background:var(--copper2); box-shadow:0 0 8px rgba(217,144,74,.9)}
+
+  /* Row 1: tools + pinned + save */
+  .row1{min-height:38px; background:rgba(0,0,0,.4); border-bottom:1px solid var(--hair); display:flex; align-items:center; gap:8px; padding:4px 10px; flex-wrap:wrap}
+  .tgroup{display:flex; align-items:center; gap:3px; background:rgba(0,0,0,.5); border:1px solid var(--hair); border-radius:6px; padding:2px}
+  .tbtn{font-size:9px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--z400); padding:3px 8px; border-radius:4px}
+  .tbtn:hover{color:var(--copper-hi); background:rgba(198,113,43,.12)}
+  .tbtn.on{color:var(--copper-hi); background:rgba(198,113,43,.2)}
+  .sep{width:1px; height:18px; background:var(--hair2)}
+  .slabel{font-size:8px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--z600)}
+  .chaos-btn{border:1px solid rgba(198,113,43,.25)}
+  body[data-scene="4"] .chaos-btn{border-color:var(--copper); color:var(--copper-hi); background:rgba(198,113,43,.18); box-shadow:0 0 14px -4px rgba(198,113,43,.8)}
+  .pinned{display:flex; align-items:center; gap:5px; flex:1; min-width:0}
+  .pin-chip{display:flex; align-items:center; gap:6px; border:1px solid var(--hair2); background:rgba(255,255,255,.04); border-radius:6px; padding:2px 8px 2px 4px}
+  .pin-chip:hover{border-color:rgba(217,144,74,.5)}
+  .pin-chip svg{border-radius:3px}
+  .pin-chip span{font-size:8.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--z300); white-space:nowrap}
+  .save-btn{display:flex; align-items:center; gap:2px; border-left:1px solid var(--hair2); padding-left:10px}
+  .save-btn .main{font-size:9px; font-weight:900; letter-spacing:.12em; text-transform:uppercase; color:var(--z200); background:rgba(255,255,255,.06); border:1px solid var(--hair2); padding:4px 10px; border-radius:6px 0 0 6px}
+  .save-btn .main:hover{color:var(--copper-hi); border-color:rgba(198,113,43,.5)}
+  .save-btn .caret{font-size:9px; color:var(--z500); background:rgba(255,255,255,.04); border:1px solid var(--hair2); border-left:none; padding:4px 6px; border-radius:0 6px 6px 0}
+
+  /* Editor: ruler + lanes + inject rail */
+  .editor{display:flex; position:relative}
+  .lanes-wrap{flex:1; min-width:0; position:relative; background:rgba(0,0,0,.25)}
+  .ruler{height:20px; background:rgba(0,0,0,.6); border-bottom:1px solid var(--hair2); display:flex; padding-left:148px}
+  .ruler i{flex:1; font-style:normal; font-size:8px; font-weight:800; color:var(--z600); border-left:1px solid rgba(255,255,255,.14); padding:4px 0 0 5px; font-variant-numeric:tabular-nums}
+  .lane{height:68px; display:flex; border-bottom:1px solid rgba(255,255,255,.06); position:relative}
+  .lane.alt{background:rgba(255,255,255,.015)}
+  .lane.hl{background:rgba(217,70,239,.05)}
+  .lane.hl::after{content:""; position:absolute; inset:0; border:1px solid rgba(217,70,239,.45); pointer-events:none}
+  .lane.hl-sky::after{border-color:rgba(56,189,248,.5)}
+  .lane.hl-sky{background:rgba(56,189,248,.05)}
+
+  /* Label column (the param box, 148px like SD_MULTI_LABEL_WIDTH) */
+  .labelcol{width:148px; flex:none; position:relative; background:rgba(0,0,0,.35); border-right:1px solid rgba(255,255,255,.08); padding:8px 6px 6px 25px}
+  .cbar{position:absolute; left:0; top:0; bottom:0; width:4px}
+  .unmap{position:absolute; left:8px; top:7px; font-size:10px; color:rgba(161,161,170,.45); line-height:1}
+  .pname{font-size:13px; font-weight:700; color:rgba(228,228,231,.82); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:78px}
+  .pdev{font-size:10px; font-weight:700; color:rgba(154,157,158,.9); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:88px}
+  .lane.locked .pname{color:rgba(251,191,36,.85)}
+  .lane.locked .pdev{color:rgba(251,191,36,.55)}
+  .icons{position:absolute; right:6px; top:50%; transform:translateY(-50%); display:flex; gap:6px; align-items:center}
+  .icons svg{opacity:.5}
+  .icons svg.lit{opacity:.95}
+  .rangef{position:absolute; left:25px; bottom:5px; display:flex; gap:3px}
+  .rangef span{font-size:8px; font-weight:800; color:var(--z400); background:rgba(255,255,255,.06); border:1px solid var(--hair); border-radius:3px; padding:1px 4px; font-variant-numeric:tabular-nums}
+
+  /* Save bookmark (scene 1) */
+  .bookmark{position:absolute; right:6px; top:5px; opacity:0; transition:opacity .2s; pointer-events:none}
+  body[data-scene="1"] .lane[data-i="0"] .bookmark{opacity:1; pointer-events:auto}
+  body[data-scene="1"] .lane[data-i="0"] .labelcol{background:rgba(198,113,43,.08)}
+  .bookmark svg{filter:drop-shadow(0 0 6px rgba(217,144,74,.7))}
+
+  /* Link port (scene 4) + chip */
+  .port{position:absolute; left:12px; bottom:4px; opacity:0; transition:opacity .25s; pointer-events:none}
+  body[data-scene="4"] .port{opacity:.45; pointer-events:auto}
+  body[data-scene="4"] .lane:hover .port{opacity:1}
+  .chip{position:absolute; left:10px; bottom:3px; display:none; align-items:center; gap:3px;
+    background:rgba(0,0,0,.55); border:1px solid rgba(198,113,43,.6); border-radius:8px; padding:1px 6px 1px 3px; cursor:pointer}
+  .chip b{font-size:8px; font-weight:900; letter-spacing:.06em; color:var(--copper-hi)}
+  .chip .inv{font-size:8px; font-weight:900; color:var(--copper2)}
+  body[data-scene="4"] .lane.linked .chip{display:flex}
+  body[data-scene="4"] .lane.linked .port{display:none}
+
+  /* Curve area */
+  .curve{flex:1; position:relative; min-width:0;
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.10) 0 1px, transparent 1px 12.5%),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 1px, transparent 1px 3.125%);
+  }
+  .curve svg{position:absolute; inset:0; width:100%; height:100%}
+  .curve .mid{position:absolute; left:0; right:0; top:50%; height:1px; background:rgba(255,255,255,.05)}
+  path.crv{fill:none; stroke-width:2.2; stroke-linejoin:round; stroke-linecap:round}
+  path.crv-fill{stroke:none; opacity:.10}
+  path.ghost{fill:none; stroke-width:2; stroke-dasharray:5 5; opacity:0; transition:opacity .15s}
+  path.ghost.show{opacity:.55}
+  .rollflash{animation:rollflash .8s ease-out}
+  @keyframes rollflash{0%{background:rgba(198,113,43,0)} 18%{background:rgba(198,113,43,.16)} 100%{background:rgba(198,113,43,0)}}
+
+  /* Cable overlay across lanes (link) */
+  #linksvg{position:absolute; left:0; right:0; top:20px; bottom:0; width:100%; height:calc(100% - 20px); pointer-events:none; z-index:6; opacity:0; transition:opacity .3s}
+  body[data-scene="4"] #linksvg{opacity:1}
+  .drawin #linkcore{stroke-dasharray:600; stroke-dashoffset:600; animation:cabledraw 1s ease-out forwards}
+  .drawin #linkcase{stroke-dasharray:600; stroke-dashoffset:600; animation:cabledraw 1s ease-out forwards}
+  @keyframes cabledraw{to{stroke-dashoffset:0}}
+
+  /* Inject rail */
+  .irail{width:180px; flex:none; position:relative; background:rgba(0,0,0,.3); border-left:1px solid var(--hair); display:flex; align-items:center; justify-content:center}
+  .irail svg.fan{position:absolute; inset:0; width:100%; height:100%; pointer-events:none}
+  .inject{position:relative; z-index:2; width:88px; height:88px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    font-size:10px; font-weight:900; letter-spacing:.14em; text-transform:uppercase; line-height:1.5;
+    color:var(--copper-hi); background:rgba(198,113,43,.1); border:1px solid rgba(198,113,43,.35);
+    box-shadow:0 8px 30px -10px rgba(0,0,0,.8)}
+  .inject:hover{background:rgba(198,113,43,.2)}
+
+  /* Status bar */
+  .status{height:28px; border-top:1px solid var(--hair); background:rgba(0,0,0,.4); display:flex; align-items:center; justify-content:space-between; padding:0 12px}
+  .status .keys{font-size:9px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--z600)}
+  .status .msg{font-size:9px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--z500)}
+
+  /* Toast */
+  .toast{position:absolute; bottom:40px; left:50%; transform:translate(-50%, 12px); opacity:0; transition:all .25s;
+    display:flex; align-items:center; gap:10px; background:rgba(20,20,20,.97); border:1px solid rgba(198,113,43,.5);
+    border-radius:99px; padding:8px 8px 8px 16px; box-shadow:0 16px 40px -12px rgba(0,0,0,.9); z-index:40; pointer-events:none; white-space:nowrap}
+  .toast.show{opacity:1; transform:translate(-50%,0); pointer-events:auto}
+  .toast .msg{font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--z200)}
+  .toast .msg b{color:var(--copper-hi)}
+  .toast button{font-size:9px; font-weight:900; letter-spacing:.1em; text-transform:uppercase; color:var(--z300); background:rgba(255,255,255,.08); border:1px solid var(--hair2); border-radius:99px; padding:4px 10px}
+  .toast button:hover{color:#fff}
+
+  /* ── Motions drawer ── */
+  .drawer{position:absolute; top:0; bottom:0; right:0; width:340px; z-index:30;
+    background:rgba(18,18,18,.98); border-left:1px solid rgba(198,113,43,.3);
+    box-shadow:-24px 0 60px -20px rgba(0,0,0,.85);
+    transform:translateX(105%); transition:transform .28s cubic-bezier(.2,.8,.2,1);
+    display:flex; flex-direction:column}
+  body[data-scene="2"] .drawer, body[data-scene="3"] .drawer{transform:translateX(0)}
+  .d-head{padding:12px 14px 10px; border-bottom:1px solid var(--hair); display:flex; flex-direction:column; gap:9px}
+  .d-title{display:flex; align-items:baseline; gap:8px}
+  .d-title h3{font-size:12px; font-weight:900; letter-spacing:.22em; text-transform:uppercase; color:var(--copper-hi)}
+  .d-title .count{font-size:9px; font-weight:800; color:var(--z600)}
+  .d-title .x{margin-left:auto; color:var(--z500); font-size:14px; line-height:1}
+  .d-search{background:rgba(0,0,0,.5); border:1px solid var(--hair2); border-radius:8px; padding:6px 10px; font-size:10px; color:var(--z500); letter-spacing:.04em}
+  .d-tabs{display:flex; gap:4px}
+  .d-tab{font-size:9px; font-weight:900; letter-spacing:.12em; text-transform:uppercase; color:var(--z500); padding:4px 10px; border-radius:6px}
+  .d-tab.on{color:var(--copper-hi); background:rgba(198,113,43,.16)}
+  .d-filters{display:flex; gap:4px; flex-wrap:wrap}
+  .fchip{font-size:8px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--z500); border:1px solid var(--hair); border-radius:99px; padding:2px 8px}
+  .fchip.on{color:var(--copper-hi); border-color:rgba(198,113,43,.5); background:rgba(198,113,43,.1)}
+  .d-grid{flex:1; overflow-y:auto; padding:12px; display:grid; grid-template-columns:1fr 1fr; gap:9px; align-content:start}
+  .card{border:1px solid var(--hair); background:rgba(255,255,255,.025); border-radius:10px; padding:7px; display:flex; flex-direction:column; gap:6px; transition:border-color .15s, background .15s; cursor:pointer; text-align:left}
+  .card:hover{border-color:rgba(198,113,43,.55); background:rgba(198,113,43,.06)}
+  .card .thumb{position:relative; height:52px; background:rgba(0,0,0,.5); border-radius:6px; overflow:hidden;
+    background-image:repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 1px, transparent 1px 25%)}
+  .card .thumb svg{position:absolute; inset:0; width:100%; height:100%}
+  .card .nm{display:flex; align-items:center; gap:5px}
+  .card .nm span{font-size:9.5px; font-weight:800; letter-spacing:.04em; color:var(--z200); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .card .heart{margin-left:auto; font-size:10px; color:var(--z600); line-height:1}
+  .card .heart.on{color:var(--copper2)}
+  .card .meta{font-size:8px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--z600); font-variant-numeric:tabular-nums}
+  .card.hero{border-color:rgba(56,189,248,.4)}
+  .card.hero:hover{border-color:rgba(56,189,248,.8); background:rgba(56,189,248,.05)}
+  .card.newcell{border-style:dashed; align-items:center; justify-content:center; min-height:104px; gap:4px}
+  .card.newcell .plus{font-size:18px; color:var(--copper2); font-weight:300; line-height:1}
+  .card.newcell span{font-size:8.5px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--z500); text-align:center}
+  .d-foot{border-top:1px solid var(--hair); padding:9px 12px; display:flex; gap:8px}
+  .d-foot button{flex:1; font-size:9px; font-weight:900; letter-spacing:.12em; text-transform:uppercase; color:var(--z300); border:1px solid var(--hair2); border-radius:8px; padding:7px 0}
+  .d-foot button:first-child{color:var(--copper-hi); border-color:rgba(198,113,43,.45); background:rgba(198,113,43,.08)}
+  .hint-tag{position:absolute; z-index:5; font-size:8px; font-weight:900; letter-spacing:.14em; text-transform:uppercase; color:#0e0803; background:linear-gradient(180deg,#e58a2e,#c6712b); border-radius:4px; padding:2px 7px; box-shadow:0 6px 16px -6px rgba(198,113,43,.9); pointer-events:none}
+
+  /* ── Below the stage: captions + spec ── */
+  .caption{display:none; margin:16px 2px 0; padding:14px 18px; border:1px solid var(--hair); border-left:3px solid var(--copper); border-radius:10px; background:rgba(255,255,255,.02)}
+  body[data-scene="1"] .caption[data-s="1"], body[data-scene="2"] .caption[data-s="2"],
+  body[data-scene="3"] .caption[data-s="3"], body[data-scene="4"] .caption[data-s="4"]{display:flex; flex-wrap:wrap; align-items:center; gap:10px 18px}
+  .caption p{font-size:13.5px; color:var(--z300); max-width:78ch}
+  .caption p b{color:var(--copper-hi); font-weight:700}
+  .caption .try{font-size:10px; font-weight:900; letter-spacing:.14em; text-transform:uppercase; color:#140b04;
+    background:linear-gradient(180deg,#e58a2e,#c6712b); border:1px solid rgba(255,210,150,.3); border-radius:8px; padding:8px 16px;
+    box-shadow:0 10px 22px -12px rgba(198,113,43,.9)}
+  .try:hover{filter:brightness(1.08)}
+  .fineprint{font-size:10px; color:var(--z600); margin:10px 4px 0; letter-spacing:.02em}
+
+  .spec{margin-top:56px}
+  .spec h2{font-size:11px; font-weight:900; letter-spacing:.28em; text-transform:uppercase; color:var(--copper2); margin-bottom:18px}
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px}
+  .scard{border:1px solid var(--hair); border-radius:14px; background:rgba(255,255,255,.018); padding:20px 22px}
+  .scard h3{font-size:13px; font-weight:800; color:var(--z100); letter-spacing:.02em; margin-bottom:10px}
+  .scard h3 em{font-style:normal; color:var(--copper2); font-size:9px; font-weight:900; letter-spacing:.2em; text-transform:uppercase; display:block; margin-bottom:5px}
+  .scard p, .scard li{font-size:12.5px; color:var(--z400); line-height:1.62}
+  .scard p b, .scard li b{color:var(--z200); font-weight:600}
+  .scard ul{list-style:none; display:flex; flex-direction:column; gap:7px}
+  .scard li{padding-left:14px; position:relative}
+  .scard li::before{content:""; position:absolute; left:0; top:.62em; width:5px; height:5px; border-radius:1px; background:var(--copper-dim)}
+  .scard + .scard{margin:0}
+  .rules{width:100%; border-collapse:collapse; margin-top:4px}
+  .rules td{font-size:11.5px; color:var(--z400); padding:6px 8px 6px 0; border-bottom:1px solid var(--hair); vertical-align:top; line-height:1.5}
+  .rules td:first-child{color:var(--z200); font-weight:600; white-space:nowrap; padding-right:16px}
+  .rules tr:last-child td{border-bottom:none}
+
+  /* Param box zoom */
+  .zoom{margin-top:56px}
+  .zoom-stage{overflow-x:auto}
+  .zoom-flex{display:flex; gap:36px; align-items:center; min-width:760px; padding:26px; border:1px solid var(--hair); border-radius:14px; background:rgba(255,255,255,.018)}
+  .zbox{position:relative; width:300px; height:150px; flex:none; background:#141414; border:1px solid var(--z800); border-radius:6px; overflow:visible}
+  .zbox .zbar{position:absolute; left:0; top:0; bottom:0; width:8px; background:var(--lane-f); opacity:.95; border-radius:5px 0 0 5px}
+  .zbox .zunmap{position:absolute; left:17px; top:12px; font-size:15px; color:rgba(161,161,170,.5)}
+  .zbox .zname{position:absolute; left:44px; top:16px; font-size:21px; font-weight:700; color:var(--z100)}
+  .zbox .zdev{position:absolute; left:44px; top:46px; font-size:15px; font-weight:700; color:var(--z400)}
+  .zbox .zicons{position:absolute; right:12px; top:50%; transform:translateY(-50%); display:flex; gap:12px}
+  .zbox .zrange{position:absolute; left:44px; bottom:10px; display:flex; gap:6px}
+  .zbox .zrange span{font-size:12px; font-weight:800; color:var(--z400); background:rgba(255,255,255,.07); border:1px solid var(--hair2); border-radius:4px; padding:2px 8px; font-variant-numeric:tabular-nums}
+  .zbox .zbook{position:absolute; right:10px; top:8px}
+  .zbox .zport{position:absolute; left:20px; bottom:8px}
+  .legend{display:flex; flex-direction:column; gap:8px; min-width:280px}
+  .legend .li{display:flex; gap:10px; align-items:baseline}
+  .legend .k{font-size:9px; font-weight:900; letter-spacing:.14em; text-transform:uppercase; color:var(--z500); width:86px; flex:none}
+  .legend .k.new{color:var(--copper-hi)}
+  .legend .v{font-size:12px; color:var(--z400); line-height:1.5}
+
+  footer{margin-top:64px; padding-top:20px; border-top:1px solid var(--hair); display:flex; flex-wrap:wrap; gap:8px 28px; align-items:baseline}
+  footer .f{font-size:11px; color:var(--z600)}
+  footer .f code{font-family:Consolas,ui-monospace,monospace; font-size:10.5px; color:var(--z400); background:rgba(255,255,255,.05); padding:1px 6px; border-radius:4px}
+
+  @media (prefers-reduced-motion: reduce){
+    *, *::before, *::after{animation:none !important; transition:none !important}
+    #linkcore, #linkcase{stroke-dasharray:none !important; stroke-dashoffset:0 !important}
+  }
+</style>
+
+<div class="page" >
+
+  <header class="top">
+    <div class="id">
+      <div class="eyebrow">Stride · Design Spec · 2026-08-17</div>
+      <h1>Motions &amp; Link</h1>
+      <div class="sub">Save the moves you love, load them anywhere. Wire two params together and every roll lands on both. <b>Walk the four scenes below</b>, the window is live.</div>
+    </div>
+    <nav class="rail-nav" aria-label="Flow scenes">
+      <button class="scene-btn" data-s="1" onclick="setScene(1)"><span class="n">01</span><span class="t">Save</span></button>
+      <button class="scene-btn" data-s="2" onclick="setScene(2)"><span class="n">02</span><span class="t">Browse</span></button>
+      <button class="scene-btn" data-s="3" onclick="setScene(3)"><span class="n">03</span><span class="t">Load</span></button>
+      <button class="scene-btn" data-s="4" onclick="setScene(4)"><span class="n">04</span><span class="t">Link</span></button>
+    </nav>
+  </header>
+
+  <div class="stage">
+    <div class="app" id="app">
+
+      <div class="tbar">
+        <span class="mark">Stride</span><span class="ver">1.4.0</span>
+        <button class="tbar-btn">Compact</button>
+        <button class="tbar-btn">Save</button>
+        <button class="tbar-btn">Load</button>
+        <div class="grow"></div>
+        <div class="conn"><div class="dot"></div><span>Connected</span></div>
+        <div class="skin"><span class="sw"></span><span>Copper</span></div>
+        <button class="tbar-btn">Update</button>
+        <button class="tbar-btn">Guide</button>
+      </div>
+
+      <div class="row0">
+        <div class="r0-left">
+          <div class="looper"><span class="lbl">Loop</span><button>2</button><button>4</button><button class="on">8</button><button>16</button><button>32</button></div>
+          <span class="pill">Multi</span>
+        </div>
+        <button class="motions-btn" onclick="setScene(2)" title="Your saved motions and the factory bank, one browser">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M5 3h14v18l-7-5-7 5z"/></svg>
+          Motions
+          <span class="newdot" title="New"></span>
+        </button>
+        <div></div>
+      </div>
+
+      <div class="row1">
+        <div class="tgroup"><button class="tbtn on">Point</button><button class="tbtn">Free</button></div>
+        <div class="sep"></div>
+        <span class="slabel">Shapes:</span>
+        <button class="tbtn">Sine</button><button class="tbtn">Pump</button><button class="tbtn">Glitch</button><button class="tbtn">Groove</button>
+        <div class="sep"></div>
+        <button class="tbtn chaos-btn" id="chaosBtn" onclick="rollChaos()">Chaos</button>
+        <button class="tbtn">Neuro</button><button class="tbtn">S&amp;H</button>
+        <div class="sep"></div>
+        <span class="slabel">Pinned:</span>
+        <div class="pinned" id="pinned"></div>
+        <div class="save-btn">
+          <button class="main" onclick="setScene(1)">Save</button><button class="caret">▾</button>
+        </div>
+      </div>
+
+      <div class="editor">
+        <div class="lanes-wrap" id="lanesWrap">
+          <div class="ruler"><i>1</i><i>2</i><i>3</i><i>4</i><i>5</i><i>6</i><i>7</i><i>8</i></div>
+          <div id="lanes"></div>
+          <svg id="linksvg" aria-hidden="true"></svg>
+        </div>
+        <div class="irail">
+          <svg class="fan" id="fansvg" aria-hidden="true"></svg>
+          <button class="inject">Inject<br>to Clip</button>
+        </div>
+        <div class="drawer" id="drawer" aria-label="Motions browser">
+          <div class="d-head">
+            <div class="d-title"><h3>Motions</h3><span class="count">14</span><button class="x" onclick="setScene(1)" aria-label="Close">×</button></div>
+            <div class="d-search">Search motions…</div>
+            <div class="d-tabs"><button class="d-tab on">Mine</button><button class="d-tab">Factory</button><button class="d-tab">All</button></div>
+            <div class="d-filters">
+              <button class="fchip">♥</button><button class="fchip">4 bars</button><button class="fchip on">8 bars</button>
+              <button class="fchip">Lane</button><button class="fchip">Multi</button><button class="fchip">Recent ↓</button>
+            </div>
+          </div>
+          <div class="d-grid" id="dgrid"></div>
+          <div class="d-foot"><button>+ Save current</button><button>Import</button></div>
+        </div>
+      </div>
+
+      <div class="status">
+        <span class="keys">Ctrl+Wheel · Space+Drag · Alt+Drag · L shows links</span>
+        <span class="msg" id="statusMsg">Connected · 5 lanes</span>
+      </div>
+
+      <div class="toast" id="toast">
+        <span class="msg" id="toastMsg"></span>
+        <button>Rename</button><button>Undo</button>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="caption" data-s="1">
+    <p><b>Save is one click, on the lane.</b> Hover any lane and a bookmark appears at the top right of the param box. Tap it: saved to Motions instantly, auto-named from the param and device. Rename lives in the toast, not in a modal. The toolbar Save ▾ does the same for the selection or all lanes. The old name-first dialog is gone.</p>
+  </div>
+  <div class="caption" data-s="2">
+    <p><b>One button, where Presets lives today.</b> Motions opens as a drawer, not a modal, because the lanes are the target and they stay visible. Mine and Factory share one browser: search, favorites, bars filter, sparkline previews drawn from the real points. Hearted motions become the Pinned chips in the toolbar.</p>
+  </div>
+  <div class="caption" data-s="3">
+    <p><b>Browsing is auditioning.</b> Hover the highlighted card: the curve ghosts onto the active lane, dashed. Click and it applies, undoable, and the drawer stays open so A/B between two candidates is two clicks. Drag a card onto any other lane to target it directly. <b>Try it: hover, then click the Riser Sweep card.</b></p>
+  </div>
+  <div class="caption" data-s="4">
+    <p><b>Link: one curve, shown twice.</b> Drag a cable from the port at the bottom left of a param box to another lane's port. The target adopts the source's curve, and from then on everything mirrors: drawing, tools, every roll. Each lane still scales through its own range, and an inverted member (±) receives the flipped move. Locked lanes sit out, as always.</p>
+    <button class="try" onclick="rollChaos()">Roll Chaos · watch the linked pair</button>
+  </div>
+  <p class="fineprint">Wrapper window shown without the left sidebar, for focus. Chrome, type and colors are the 1.3.4 copper skin. Keys 1 to 4 switch scenes.</p>
+
+  <section class="spec">
+    <h2>The spec, condensed</h2>
+    <div class="cards">
+      <div class="scard">
+        <h3><em>Part 1 · Motions</em>Three ways to save, zero modals</h3>
+        <ul>
+          <li><b>On the lane:</b> hover reveals the bookmark, click saves. Auto-name <b>Param · Device</b>, toast offers Rename and Undo.</li>
+          <li><b>Toolbar Save ▾:</b> selected lanes if a selection exists, else the active lane. Menu: Active / Selected / All lanes.</li>
+          <li><b>In the browser:</b> first cell of Mine is + Save current motion.</li>
+          <li>Multi-lane saves remember each lane's param + device, so re-apply matches by name first, order second.</li>
+        </ul>
+      </div>
+      <div class="scard">
+        <h3><em>Part 1 · Motions</em>The drawer, not a modal</h3>
+        <ul>
+          <li>Slides from the right over the inject rail; every lane stays visible, which is what makes <b>ghost preview</b> possible.</li>
+          <li>Tabs Mine / Factory / All: the factory Preset Bank folds in as Factory, ending the four-surface fragmentation (Shapes strip, Preset Bank, Saved chips, All Presets).</li>
+          <li>Cards render sparklines from the stored points, no image files.</li>
+          <li>Heart a motion and it becomes a <b>Pinned</b> chip in the toolbar: your go-to moves, one click.</li>
+        </ul>
+      </div>
+      <div class="scard">
+        <h3><em>Part 1 · Motions</em>Apply rules + storage</h3>
+        <ul>
+          <li>Points stored normalized (t, v, curve), so <b>any motion fits any param</b>; the lane's own range does the scaling.</li>
+          <li>Default apply fits the current loop; the card menu offers <b>Apply at native length</b> (sets the lane loop boundary).</li>
+          <li>Locked lanes are never written.</li>
+          <li>Store: <b>stride-data/motions.json</b> via the prefs channel (favorites pattern), never localStorage-only. Existing presets migrate on first boot: nobody loses a save.</li>
+          <li>Export / import one motion as a <b>.stridemotion</b> file. Packs later.</li>
+        </ul>
+      </div>
+      <div class="scard">
+        <h3><em>Part 2 · Link</em>Why it's right for Stride</h3>
+        <p>Paste To is the static version of this feature; Link makes it live. The cable and jack language already exists in the inject rail, lanes are already normalized with engine-owned ranges, so "same pattern, different ranges" is how the engine thinks today. And it unlocks the classic move: cutoff up while reverb ducks, one drawn curve, one member inverted.</p>
+        <p style="margin-top:8px">Honest costs: the 148px param box is dense (placement below is the answer), link groups must be engine-owned state v7 like locks and speed, and the group rules table needs to exist before code. It does now.</p>
+      </div>
+      <div class="scard">
+        <h3><em>Part 2 · Link</em>Group rules</h3>
+        <table class="rules">
+          <tr><td>Link A → B</td><td>Group forms, B adopts A's curve (source wins), one undo step</td></tr>
+          <tr><td>Any edit / tool</td><td>Mirrors to every member; inverted members receive 1 − v</td></tr>
+          <tr><td>Motion tools</td><td>One roll per group, not per lane (S&amp;H reroll included)</td></tr>
+          <tr><td>Locked member</td><td>Frozen, receives nothing; re-syncs on unlock (undoable)</td></tr>
+          <tr><td>Shuffle</td><td>A group occupies one slot; membership never changes</td></tr>
+          <tr><td>Lane speed / loop</td><td>Stay lane-local: both at 1x = identical motion, different = phased echoes of the same move</td></tr>
+          <tr><td>Cables</td><td>On demand only: while dragging, on chip hover, hold L, and ~1.2s after a link lands. Never parked over the curves.</td></tr>
+        </table>
+      </div>
+      <div class="scard">
+        <h3><em>Decisions needed</em>Open questions</h3>
+        <ul>
+          <li>Name: <b>Motions</b> (spec'd) or Moves? "Patterns" and "Shapes" are taken.</li>
+          <li>Factory Preset Bank folds into the browser: Phase 2, or stays separate?</li>
+          <li>Pinned strip cap (6?) and its behavior in collapsed-toolbar mode.</li>
+          <li>Port on rows under 34px: hidden (spec'd) or always shown with the speed glyph yielding?</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="zoom">
+    <h2 style="font-size:11px; font-weight:900; letter-spacing:.28em; text-transform:uppercase; color:var(--copper2); margin-bottom:18px">The param box, up close</h2>
+    <div class="zoom-stage">
+      <div class="zoom-flex">
+        <div class="zbox">
+          <div class="zbar"></div>
+          <div class="zunmap">×</div>
+          <div class="zname">Cutoff</div>
+          <div class="zdev">Serum</div>
+          <div class="zicons">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9a9d9e" stroke-width="2" opacity=".55"><path d="M12 3v10M8 8l4-5 4 5"/><circle cx="12" cy="18" r="3"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9a9d9e" stroke-width="2" opacity=".55"><path d="M4 8h16M4 16h16M8 5v6M16 13v6"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9a9d9e" stroke-width="2" opacity=".55"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+          </div>
+          <div class="zrange"><span>0.20</span><span>0.85</span></div>
+          <div class="zbook">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="rgba(198,113,43,.25)" stroke="#d9904a" stroke-width="2"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>
+          </div>
+          <div class="zport">
+            <svg width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="11" fill="#232525" stroke="#717676" stroke-width="2.5"/><circle cx="15" cy="15" r="5" fill="#0e0e0e"/><circle cx="15" cy="15" r="2" fill="#bcc0c0"/></svg>
+          </div>
+        </div>
+        <div class="legend">
+          <div class="li"><span class="k">Color bar</span><span class="v">Lane identity + palette popup. Click zone narrows to 8px beside the port.</span></div>
+          <div class="li"><span class="k">Mid icons</span><span class="v">Speed · Range · Focus · Lock keep their exact positions and hit zones. Untouched.</span></div>
+          <div class="li"><span class="k">Range fields</span><span class="v">Min / max start at x=25, same bottom line, coexist with the port on their left.</span></div>
+          <div class="li"><span class="k new">Bookmark · new</span><span class="v">Top right, hover-revealed. One click saves this lane to Motions.</span></div>
+          <div class="li"><span class="k new">Port · new</span><span class="v">Bottom left, the inject-rail jack at 12px. Drag a cable to another port to link. Hidden on rows under 34px (the chip takes over once linked).</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span class="f">Full spec: <code>docs/stride-motions-library-spec.md</code></span>
+    <span class="f">This mockup: <code>docs/mockup-motions-library.html</code></span>
+    <span class="f">Spec only · nothing built · Motions ships before Link</span>
+  </footer>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* Seeded RNG so every visit renders the same curves (reroll advances it) */
+  function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+  function genPts(seed, style){
+    var r = mulberry32(seed), pts = [], n, i, v;
+    if(style==='steps'){ n=16; v=r();
+      for(i=0;i<n;i++){ v=r(); pts.push([i/n,v],[(i+1)/n,v]); }
+    } else if(style==='pump'){
+      for(i=0;i<8;i++){ pts.push([i/8,1],[i/8+0.02,0.08+r()*0.1],[(i+0.85)/8,0.92]); }
+      pts.push([1,1]);
+    } else if(style==='ramp'){
+      var base=0.12;
+      for(i=0;i<=24;i++){ var t=i/24; v=base+t*0.75+Math.sin(t*22+seed)*0.06*r(); if(i%7===5)v-=0.3*r(); pts.push([t,Math.max(0.03,Math.min(0.97,v))]); }
+    } else if(style==='sine'){
+      for(i=0;i<=48;i++){ var tt=i/48; pts.push([tt,0.5+0.36*Math.sin(tt*Math.PI*4+seed*0.7)+0.05*Math.sin(tt*Math.PI*16)]); }
+    } else { /* chaos: smooth random walk */
+      n=14; v=0.3+r()*0.4; pts.push([0,v]);
+      for(i=1;i<=n;i++){ v=Math.max(0.05,Math.min(0.95,v+(r()-0.5)*0.65)); pts.push([i/n,v]); }
+    }
+    return pts;
+  }
+  function toPath(pts,w,h,smooth,invert,pad){
+    pad = pad||3;
+    var H=h-pad*2, mapY=function(v){ return pad + (1-(invert?1-v:v))*H; };
+    var d='M'+(pts[0][0]*w).toFixed(1)+','+mapY(pts[0][1]).toFixed(1), i;
+    if(smooth){
+      for(i=1;i<pts.length;i++){
+        var x0=pts[i-1][0]*w, y0=mapY(pts[i-1][1]), x1=pts[i][0]*w, y1=mapY(pts[i][1]);
+        var mx=(x0+x1)/2;
+        d+=' C'+mx.toFixed(1)+','+y0.toFixed(1)+' '+mx.toFixed(1)+','+y1.toFixed(1)+' '+x1.toFixed(1)+','+y1.toFixed(1);
+      }
+    } else {
+      for(i=1;i<pts.length;i++){ d+=' L'+(pts[i][0]*w).toFixed(1)+','+mapY(pts[i][1]).toFixed(1); }
+    }
+    return d;
+  }
+
+  /* ── Lanes ── */
+  var LANES=[
+    {name:'Cutoff',   dev:'Serum',        color:'var(--lane-f)', rgb:'217,70,239',  style:'chaos', seed:11},
+    {name:'Reverb Mix',dev:'ValhallaRoom',color:'var(--lane-s)', rgb:'56,189,248',  style:'sine',  seed:21},
+    {name:'Wt Pos',   dev:'Serum',        color:'var(--lane-e)', rgb:'52,211,153',  style:'steps', seed:31},
+    {name:'OTT Depth',dev:'OTT',          color:'var(--lane-a)', rgb:'251,191,36',  style:'pump',  seed:41, range:true},
+    {name:'Drive',    dev:'Saturn 2',     color:'var(--lane-v)', rgb:'167,139,250', style:'ramp',  seed:51, locked:true}
+  ];
+  var LW=1080-148-180, LH=68;
+
+  var jackSvg='<svg width="13" height="13" viewBox="0 0 30 30"><circle cx="15" cy="15" r="12" fill="#232525" stroke="#717676" stroke-width="3"/><circle cx="15" cy="15" r="5.4" fill="#0e0e0e"/><circle cx="15" cy="15" r="2.2" fill="#bcc0c0"/></svg>';
+  var iconSpeed='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9a9d9e" stroke-width="2"><path d="M12 4v9M9 8l3-4 3 4"/><circle cx="12" cy="17" r="3.5"/></svg>';
+  var iconRange='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9a9d9e" stroke-width="2"><path d="M4 8h16M4 16h16M8 5v6M16 13v6"/></svg>';
+  var iconFocus='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9a9d9e" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>';
+  function iconLock(locked){ return '<svg class="'+(locked?'lit':'')+'" width="12" height="12" viewBox="0 0 24 24" fill="'+(locked?'rgba(251,191,36,.25)':'none')+'" stroke="'+(locked?'#fbbf24':'#9a9d9e')+'" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>'; }
+  var bookSvg='<svg width="15" height="15" viewBox="0 0 24 24" fill="rgba(198,113,43,.3)" stroke="#d9904a" stroke-width="2.2"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>';
+
+  var lanesEl=document.getElementById('lanes');
+  LANES.forEach(function(L,i){
+    var row=document.createElement('div');
+    row.className='lane'+(i%2===0?' alt':'')+(L.locked?' locked':'');
+    row.dataset.i=i;
+    row.innerHTML=
+      '<div class="labelcol">'+
+        '<div class="cbar" style="background:'+L.color+'"></div>'+
+        '<div class="unmap">×</div>'+
+        '<div class="pname">'+L.name+'</div>'+
+        '<div class="pdev">'+L.dev+'</div>'+
+        '<div class="icons">'+iconSpeed+iconRange+iconFocus+iconLock(!!L.locked)+'</div>'+
+        (L.range?'<div class="rangef"><span>0.20</span><span>0.85</span></div>':'')+
+        '<button class="bookmark" title="Save this lane to Motions" onclick="doSave()">'+bookSvg+'</button>'+
+        '<div class="port" title="Drag to another port to link">'+jackSvg+'</div>'+
+        '<div class="chip" title="Linked · hover to see the cable"><span style="display:flex">'+jackSvg+'</span><b>L1</b>'+(i===2?'<span class="inv">±</span>':'')+'</div>'+
+      '</div>'+
+      '<div class="curve"><div class="mid"></div>'+
+        '<svg viewBox="0 0 '+LW+' '+LH+'" preserveAspectRatio="none">'+
+          '<path class="crv-fill" id="fill'+i+'" fill="'+L.color+'"></path>'+
+          '<path class="crv" id="crv'+i+'" stroke="'+L.color+'"></path>'+
+          '<path class="ghost" id="ghost'+i+'" stroke="var(--lane-s)"></path>'+
+        '</svg>'+
+      '</div>';
+    lanesEl.appendChild(row);
+  });
+
+  function paintLane(i, pts, invert){
+    var L=LANES[i], smooth=(L.style!=='steps'&&L.style!=='pump');
+    var d=toPath(pts,LW,LH,smooth,invert);
+    document.getElementById('crv'+i).setAttribute('d',d);
+    document.getElementById('fill'+i).setAttribute('d',d+' L'+LW+','+LH+' L0,'+LH+' Z');
+  }
+  LANES.forEach(function(L,i){ paintLane(i, genPts(L.seed,L.style), false); });
+
+  /* Ghost + riser shape for scene 3 */
+  var riser=genPts(77,'ramp');
+  document.getElementById('ghost1').setAttribute('d',toPath(riser,LW,LH,true,false));
+
+  /* ── Inject-rail cable fan (the existing product visual) ── */
+  function drawFan(){
+    var svg=document.getElementById('fansvg'); if(!svg)return;
+    var w=svg.clientWidth||180, h=svg.clientHeight||(20+LANES.length*LH);
+    var hubX=w/2-44, hubY=h/2, out='';
+    function jack(x,y,r){ return '<circle cx="'+x+'" cy="'+y+'" r="'+r+'" fill="#232525" stroke="#717676" stroke-width="1.5"/><circle cx="'+x+'" cy="'+y+'" r="'+(r*0.42)+'" fill="#0e0e0e"/><circle cx="'+x+'" cy="'+y+'" r="'+(r*0.16)+'" fill="#bcc0c0"/>'; }
+    LANES.forEach(function(L,i){
+      var y=20+i*LH+LH/2, k=Math.max(22,(hubX-6)*0.5);
+      var d='M6,'+y+' C'+(6+k)+','+y+' '+(hubX-k)+','+hubY+' '+hubX+','+hubY;
+      out+='<path d="'+d+'" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="5" stroke-linecap="round"/>';
+      out+='<path d="'+d+'" fill="none" stroke="rgb('+L.rgb+')" stroke-opacity=".8" stroke-width="3" stroke-linecap="round"/>';
+    });
+    LANES.forEach(function(L,i){ out+=jack(6,20+i*LH+LH/2,5.5); });
+    out+=jack(hubX,hubY,7);
+    svg.innerHTML=out;
+  }
+  drawFan();
+  window.addEventListener('resize',drawFan);
+
+  /* ── Link cable (lane 0 → lane 2), drawn on demand ── */
+  function drawLinkCable(){
+    var svg=document.getElementById('linksvg');
+    var x=18, y0=0*LH+LH-10, y2=2*LH+LH-10, bow=64;
+    var d='M'+x+','+y0+' C'+(x+bow)+','+(y0+18)+' '+(x+bow)+','+(y2-18)+' '+x+','+y2;
+    svg.innerHTML=
+      '<path id="linkcase" d="'+d+'" fill="none" stroke="rgba(0,0,0,.5)" stroke-width="6" stroke-linecap="round"/>'+
+      '<path id="linkcore" d="'+d+'" fill="none" stroke="#d9904a" stroke-opacity=".9" stroke-width="3.5" stroke-linecap="round"/>'+
+      '<circle cx="'+x+'" cy="'+y0+'" r="5" fill="#232525" stroke="#d9904a" stroke-width="2"/>'+
+      '<circle cx="'+x+'" cy="'+y2+'" r="5" fill="#232525" stroke="#d9904a" stroke-width="2"/>';
+  }
+  drawLinkCable();
+
+  /* ── Pinned chips ── */
+  function sparkSvg(seed,style,rgb,w,h,smooth){
+    var d=toPath(genPts(seed,style),w,h,smooth,false,2);
+    return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" style="background:rgba(0,0,0,.45)"><path d="'+d+'" fill="none" stroke="rgb('+rgb+')" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+  }
+  document.getElementById('pinned').innerHTML=
+    '<button class="pin-chip" title="Apply to the active lane">'+sparkSvg(11,'chaos','217,70,239',34,16,true)+'<span>Cutoff</span></button>'+
+    '<button class="pin-chip" title="Apply to the active lane">'+sparkSvg(41,'pump','251,191,36',34,16,false)+'<span>Pump 4F</span></button>'+
+    '<button class="pin-chip" title="Apply to the active lane">'+sparkSvg(31,'steps','52,211,153',34,16,false)+'<span>Stutter</span></button>';
+
+  /* ── Drawer cards ── */
+  var CARDS=[
+    {n:'Cutoff · Serum', seed:11, style:'chaos', rgb:'217,70,239', meta:'8 bars · Lane', heart:true},
+    {n:'Riser Sweep',    seed:77, style:'ramp',  rgb:'56,189,248', meta:'8 bars · Lane', hero:true},
+    {n:'Pump 4-Floor',   seed:41, style:'pump',  rgb:'251,191,36', meta:'4 bars · Lane', heart:true},
+    {n:'Acid Wobble',    seed:63, style:'chaos', rgb:'167,139,250',meta:'8 bars · Lane'},
+    {n:'Stutter Steps',  seed:31, style:'steps', rgb:'52,211,153', meta:'8 bars · Lane'},
+    {n:'Full Kit · Serum',seed:88,style:'multi', rgb:'217,70,239', meta:'8 bars · 4 lanes'}
+  ];
+  var grid=document.getElementById('dgrid'), html='';
+  CARDS.forEach(function(c){
+    var thumb;
+    if(c.style==='multi'){
+      thumb='<svg viewBox="0 0 140 52" preserveAspectRatio="none">'+
+        '<path d="'+toPath(genPts(88,'chaos'),140,20,true,false,2)+'" fill="none" stroke="rgb(217,70,239)" stroke-width="1.5" transform="translate(0,0)"/>'+
+        '<path d="'+toPath(genPts(89,'sine'),140,20,true,false,2)+'" fill="none" stroke="rgb(56,189,248)" stroke-width="1.5" transform="translate(0,16)"/>'+
+        '<path d="'+toPath(genPts(90,'steps'),140,20,false,false,2)+'" fill="none" stroke="rgb(52,211,153)" stroke-width="1.5" transform="translate(0,32)"/>'+
+        '<text x="132" y="49" fill="#717676" font-size="8" font-weight="800" text-anchor="end">+1</text></svg>';
+    } else {
+      thumb='<svg viewBox="0 0 140 52" preserveAspectRatio="none"><path d="'+toPath(genPts(c.seed,c.style),140,52,(c.style!=='steps'&&c.style!=='pump'),false,4)+'" fill="none" stroke="rgb('+c.rgb+')" stroke-width="2" stroke-linejoin="round"/></svg>';
+    }
+    html+='<button class="card'+(c.hero?' hero':'')+'"'+(c.hero?' id="heroCard"':'')+'>'+
+      '<span class="thumb">'+thumb+(c.hero?'<span class="hint-tag" style="right:6px; top:6px">Hover me</span>':'')+'</span>'+
+      '<span class="nm"><span>'+c.n+'</span><span class="heart'+(c.heart?' on':'')+'">♥</span></span>'+
+      '<span class="meta">'+c.meta+'</span></button>';
+  });
+  html+='<button class="card newcell"><span class="plus">+</span><span>Save current<br>motion</span></button>';
+  grid.innerHTML=html;
+
+  /* ── Scenes ── */
+  var toast=document.getElementById('toast'), toastMsg=document.getElementById('toastMsg'),
+      statusMsg=document.getElementById('statusMsg'), toastTimer=null;
+  function showToast(msgHtml){
+    toastMsg.innerHTML=msgHtml;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer=setTimeout(function(){ toast.classList.remove('show'); }, 3200);
+  }
+
+  window.setScene=function(n){
+    document.body.dataset.scene=n;
+    toast.classList.remove('show');
+    var lanes=document.querySelectorAll('.lane');
+    lanes.forEach(function(l){ l.classList.remove('hl','hl-sky','linked'); });
+    var svg=document.getElementById('linksvg'); svg.classList.remove('drawin');
+
+    if(n===1){
+      lanes[0].classList.add('hl');
+      statusMsg.textContent='Hover a lane · tap the bookmark';
+      showToast('Saved to Motions · <b>Cutoff · Serum</b>');
+    }
+    if(n===2){ statusMsg.textContent='Motions · 14 saved · 96 factory'; }
+    if(n===3){
+      lanes[1].classList.add('hl','hl-sky');
+      statusMsg.textContent='Active lane: Reverb Mix · hover a card to preview';
+    }
+    if(n===4){
+      lanes[0].classList.add('linked'); lanes[2].classList.add('linked');
+      statusMsg.textContent='Linked · Cutoff → Wt Pos (inverted) · L1';
+      drawLinkCable();
+      requestAnimationFrame(function(){ svg.classList.add('drawin'); });
+    }
+  };
+  window.doSave=function(){ showToast('Saved to Motions · <b>Cutoff · Serum</b>'); };
+
+  /* Scene 3: ghost on hover, apply on click */
+  var hero=document.getElementById('heroCard'), ghost=document.getElementById('ghost1');
+  if(hero){
+    hero.addEventListener('mouseenter',function(){ if(document.body.dataset.scene==='3') ghost.classList.add('show'); });
+    hero.addEventListener('mouseleave',function(){ ghost.classList.remove('show'); });
+    hero.addEventListener('click',function(){
+      if(document.body.dataset.scene!=='3') return;
+      LANES[1].style='ramp';
+      paintLane(1,riser,false);
+      ghost.classList.remove('show');
+      statusMsg.textContent='Loaded: Riser Sweep · undo with Ctrl+Z';
+      showToast('Loaded · <b>Riser Sweep</b> → Reverb Mix');
+    });
+  }
+
+  /* Scene 4: one roll per group */
+  var rollSeed=200;
+  window.rollChaos=function(){
+    if(document.body.dataset.scene!=='4'){ setScene(4); }
+    rollSeed+=7;
+    var groupPts=genPts(rollSeed,'chaos');
+    LANES[0].style='chaos'; LANES[2].style='chaos';
+    paintLane(0,groupPts,false);      /* group roll */
+    paintLane(2,groupPts,true);       /* same roll, inverted */
+    paintLane(1,genPts(rollSeed+101,'sine'),false);   /* independent */
+    paintLane(3,genPts(rollSeed+202,'pump'),false);   /* independent */
+    /* lane 4 is locked: receives nothing */
+    [0,2].forEach(function(i){
+      var c=document.querySelectorAll('.lane')[i].querySelector('.curve');
+      c.classList.remove('rollflash'); void c.offsetWidth; c.classList.add('rollflash');
+    });
+    var svg=document.getElementById('linksvg');
+    svg.classList.remove('drawin'); void svg.offsetWidth; svg.classList.add('drawin');
+    statusMsg.textContent='Chaos rolled · L1 got ONE roll · Drive is locked, skipped';
+  };
+
+  /* Chip hover shows the cable (simulated by a brief redraw pulse) */
+  document.querySelectorAll('.chip').forEach(function(ch){
+    ch.addEventListener('mouseenter',function(){
+      var svg=document.getElementById('linksvg');
+      svg.classList.remove('drawin'); void svg.offsetWidth; svg.classList.add('drawin');
+    });
+  });
+
+  /* Keyboard 1-4 */
+  document.addEventListener('keydown',function(e){
+    if(e.key>='1'&&e.key<='4'&&!e.ctrlKey&&!e.metaKey&&!e.altKey){ setScene(Number(e.key)); }
+  });
+
+  setScene(1);
+})();
+</script>

@@ -471,17 +471,43 @@
   // stride-data/wrapper-prefs.json via the engine ('prefsSave'), and boot adopts
   // whichever side still has the data ('prefsState' below).
   function favGet() { return lsGet('stride_fav_synths', []); }                 // [{name, path}]
-  function favSet(v) { lsSet('stride_fav_synths', v); emit('prefsSave', { prefs: { favorites: v } }); }
+  // savePrefs on the C++ side is a WHOLE-OBJECT replace, so every write must carry every
+  // key — a favorites-only payload would wipe the motions (and vice versa). _natPrefs is
+  // the merged view: seeded from prefsState on boot, updated per-key on every save.
+  var _natPrefs = {};
+  function prefsWrite(key, val) { _natPrefs[key] = val; emit('prefsSave', { prefs: _natPrefs }); }
+  function favSet(v) { lsSet('stride_fav_synths', v); prefsWrite('favorites', v); }
+
+  // Motions (saved lane curves) — STRONGER than the favorites story: the wrapper's
+  // WebView localStorage only flushes to disk on browser-process shutdown, so a plugin
+  // teardown can silently drop cached writes (field bug 2026-08-17: a saved motion was
+  // in wrapper-prefs.json but Mine rendered empty). So the FILE is the source of truth,
+  // the cache is best-effort, and the two writes are try'd SEPARATELY — a cache failure
+  // must never kill the file write that follows it.
+  window.sdMotionsPersist = function (list) {
+    try { lsSet('sd_motions', list || []); } catch (e) {}
+    try { prefsWrite('motions', list || []); } catch (e) {}
+  };
 
   // Boot sync with the native prefs file (sent by C++ right before 'connected'):
-  //   native has favorites -> adopt them (they survive profile resets / temp cleanup)
-  //   native empty but the local cache has favorites -> seed the native file from the
+  //   native has data -> adopt it (it survives profile resets / temp cleanup)
+  //   native empty but the local cache has data -> seed the native file from the
   //   cache (first run after this update — the one-time rescue direction)
   listen('prefsState', function (d) {
     try {
-      var nat = (d && d.prefs && d.prefs.favorites) || [];
+      // typeof null === 'object': a fresh install (no prefs file yet) delivers prefs
+      // as null — it must land as {}, not null, or every prefsWrite after it throws.
+      _natPrefs = (d && d.prefs && typeof d.prefs === 'object' && !Array.isArray(d.prefs)) ? d.prefs : {};
+      var nat = _natPrefs.favorites || [];
       if (nat.length) { lsSet('stride_fav_synths', nat); populateFav(); }
-      else { var loc = lsGet('stride_fav_synths', []); if (loc.length) emit('prefsSave', { prefs: { favorites: loc } }); }
+      else { var loc = lsGet('stride_fav_synths', []); if (loc.length) prefsWrite('favorites', loc); }
+      // Motions: adopt-native, or rescue the cache into the file. The adopted list
+      // rides IN the event detail — canvas.js swaps its in-memory library to it
+      // directly, so a broken/stale localStorage layer can never hide saved motions.
+      var natM = _natPrefs.motions || [];
+      if (natM.length) { try { lsSet('sd_motions', natM); } catch (e3) {} }
+      else { var locM = lsGet('sd_motions', []); if (locM.length) { natM = locM; prefsWrite('motions', locM); } }
+      try { window.dispatchEvent(new CustomEvent('sd-motions-adopted', { detail: { motions: natM } })); } catch (e2) {}
     } catch (e) { showErr('prefsState: ' + e.message); }
   });
   function favName(path) { var p = String(path).replace(/\\/g, '/'); var f = p.split('/').pop() || path; return f.replace(/\.(vst3|component)$/i, ''); }

@@ -887,6 +887,24 @@ void StrideWrapperEditor::handleStrideLinkSend (const juce::var& msg)
         return;
     }
 
+    // Param LINK groups (2026-08-17) - engine-owned like set_lock, same locking policy.
+    // The canvas owns group semantics + point mirroring; this only persists/echoes.
+    if (type == "set_link")
+    {
+        if (proc.isEditLocked()) return;
+        proc.setMappedLink ((int) msg.getProperty ("id", -1),
+                            (int) msg.getProperty ("g", 0),
+                            (bool) msg.getProperty ("inv", false));
+        return;
+    }
+    if (type == "set_links")
+    {
+        if (proc.isEditLocked()) return;
+        if (auto* arr = msg.getProperty ("items", juce::var()).getArray())
+            proc.setMappedLinks (*arr);
+        return;
+    }
+
     if (type == "unmapParam")
     {
         proc.removeMappedAt ((int) msg.getProperty ("id", -1));
@@ -968,6 +986,7 @@ void StrideWrapperEditor::pushRackScanned()
     const auto loops  = proc.getMappedLoops();    // per-lane loop boundaries (1.3.0) - same ownership story
     const auto speeds = proc.getMappedSpeeds();   // per-lane rate multipliers (the groove grid's replacement, 2026-08-04)
     const auto locks  = proc.getMappedLocks();    // per-lane padlocks - engine-owned so instances can't share them via localStorage
+    const auto links  = proc.getMappedLinks();    // param-link groups (2026-08-17) - same ownership story; canvas rebuilds chips + mirroring from THIS
     for (int i = 0; i < names.size(); ++i)
     {
         auto* o = new juce::DynamicObject();
@@ -995,6 +1014,12 @@ void StrideWrapperEditor::pushRackScanned()
             o->setProperty ("speedVal", speeds[i]);                     // lane-speed echo - absent = 1x (quantStep echo retired 2026-08-04)
         if (i < locks.size() && locks[i] != 0)
             o->setProperty ("locked", true);                            // padlock echo - absent = unlocked (canvas rebuilds from THIS, never from localStorage)
+        if (i < links.size() && (int) links[i].getProperty ("g", 0) > 0)
+        {
+            o->setProperty ("linkGroup", links[i].getProperty ("g", 0));    // link-group echo (v8) - absent = unlinked
+            if ((bool) links[i].getProperty ("inv", false))
+                o->setProperty ("linkInv", true);                           // inverted member - absent = normal
+        }
         params.add (juce::var (o));
     }
 

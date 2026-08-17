@@ -346,7 +346,11 @@
             // left the range where it was — ranges were never snapshotted).
             rangeOn: !!p.rangeOn,
             rangeMin: (typeof p.rangeMin === 'number' ? p.rangeMin : 0),
-            rangeMax: (typeof p.rangeMax === 'number' ? p.rangeMax : 1)
+            rangeMax: (typeof p.rangeMax === 'number' ? p.rangeMax : 1),
+            // Link groups ride the undo too — undoing a link-create must actually unlink
+            // (engine-owned like colors/ranges; applySnapshot re-pushes on change).
+            linkGroup: (typeof p.linkGroup === 'number' ? p.linkGroup : 0),
+            linkInv: !!p.linkInv
         }));
     }
 
@@ -388,7 +392,23 @@
                     _sdPushRangeToEngine(param);
                 }
             }
+            // Restore link membership — engine-owned like ranges (a canvas-only restore
+            // would be re-painted by the next rack_scanned echo). Old snapshots (pre-link)
+            // carry no linkGroup — those lanes stay untouched. Batched push below.
+            if (typeof sp.linkGroup === 'number') {
+                const curG = (typeof param.linkGroup === 'number' ? param.linkGroup : 0);
+                if (curG !== sp.linkGroup || !!param.linkInv !== !!sp.linkInv) {
+                    param.linkGroup = sp.linkGroup;
+                    param.linkInv = !!sp.linkInv;
+                    param._linkDirty = true;
+                }
+            }
         });
+        if (sdCanvasParams.some(p => p._linkDirty)) {
+            sdCanvasParams.forEach(p => { delete p._linkDirty; });
+            if (typeof _sdPushLinksToEngine === 'function') _sdPushLinksToEngine();
+        }
+        if (typeof _sdLinkShadowRebase === 'function') _sdLinkShadowRebase();   // restored points are the new mirror baseline, not an edit
         sdResetSliderSnapshots(); sdRenderSidebar(); sdDrawCanvasGrid();
     }
 
@@ -912,8 +932,11 @@
             colorIdx: (typeof p.colorIdx === 'number' ? p.colorIdx : -1),   // engine-owned lane color echo (wrapper) — AUTO when absent
             loopBeats: (typeof p.loopBeats === 'number' && p.loopBeats > 0 ? p.loopBeats : 0),   // engine-owned loop/speed echo (wrapper) — off/1x when absent
             speed: (typeof p.speedVal === 'number' && p.speedVal > 0 ? p.speedVal : 1),          // per-lane rate multiplier (replaced the groove grid 2026-08-04)
+            linkGroup: (typeof p.linkGroup === 'number' && p.linkGroup > 0 ? p.linkGroup : 0),   // engine-owned param-link echo (v8) — 0 = unlinked
+            linkInv: !!p.linkInv,                                                                // inverted member of its link group
             points: Array.isArray(p.points) ? p.points : []   // wrapper sends the drawn curve from the engine — reliable across reopen (desktop sends none → empty)
         })).sort(_sdSortByName);
+        if (typeof _sdLinkAfterRebuild === 'function') _sdLinkAfterRebuild();   // dissolve 1-member groups + rebase the mirror shadows
 
         if (sdCanvasParams.length > 0) sdActiveParamId = sdCanvasParams[0].envelopeId;
 
@@ -2791,6 +2814,11 @@
     // ─── LOCAL STATE PERSISTENCE ──────────────────────────
 
     async function saveCanvasState() {
+        // Linked lanes mirror BEFORE the state is built, so the members' fresh copies
+        // ride the same live_curves flush. saveCanvasState is the one choke point every
+        // curve write already passes through (tools, sliders, drawing, motions) — one
+        // shadow-compare pass here mirrors them all without instrumenting each site.
+        try { _sdLinkSyncPass(); } catch (e) {}
         const key = currentClipKey || currentRackId;
         if (!key || !window.stride) return;
         // Save lanes that either have points OR are explicitly locked OR carry a custom range.
@@ -4034,6 +4062,10 @@
         _sdUnmapRects = []; // rebuilt below — wrapper lanes get a per-lane unmap ×
         _sdColorRects = []; // rebuilt below — every lane gets a color-bar click zone at the left edge
         _sdRangeFieldRects = []; // rebuilt below — ranged lanes get draggable/typable min/max fields
+        _sdMotionLaneRects = []; // rebuilt below — EVERY visible lane's row rect (Motions ghost + link cables need empty lanes too)
+        _sdBookRects = [];  // rebuilt below — hover-revealed save-to-Motions bookmark (top-right of the label column)
+        _sdPortRects = [];  // rebuilt below — link ports (bottom-left of the label column; unlinked lanes)
+        _sdChipRects = [];  // rebuilt below — link chips (same slot, linked lanes)
         const bars = sdGetBars();
         const totalBeats = bars * 4;
         const laneDrawLeft = SD_MULTI_LABEL_WIDTH;
@@ -4261,6 +4293,61 @@
                 }
             }
 
+            // ── Motions + Link lane chrome (wrapper) ─────────────────────
+            // Save bookmark: top-right of the label column, revealed on label-column
+            // hover (zero clutter otherwise). Link port: a small metal jack at the
+            // BOTTOM-LEFT (x 11..25 — clears the ≤10px color-bar zone and the range
+            // fields that start at x=25). A linked lane swaps the port for its group
+            // CHIP. Rows under 34px hide both (dense stacks; the chip still hit-tests
+            // through _sdChipRects when drawn). Rects rebuilt every draw like unmap ×.
+            if (_isWrapUI) {
+                _sdMotionLaneRects.push({ param: param, top: rect.top, bottom: rect.bottom, height: rect.height, idx: paramIdx });
+                if (_sdHoverLabelLaneId === param.envelopeId && rect.height >= 24) {
+                    const _bkx = laneDrawLeft - 15, _bky = rect.top + 4;
+                    const _bkOn = _sdHoverBookLaneId === param.envelopeId;
+                    _sdDrawBookmark(sdCtx, _bkx, _bky, 11, _bkOn);
+                    _sdBookRects.push({ envelopeId: param.envelopeId, x: _bkx - 4, y: _bky - 3, w: 19, h: 19 });
+                }
+                if (rect.height >= 34) {
+                    const _pcx = 18, _pcy = rect.bottom - 10;
+                    if (param.linkGroup > 0) {
+                        const _gRGB = _sdLinkGroupRGB(param.linkGroup);
+                        _sdDrawJack(sdCtx, _pcx, _pcy, 6, 1, _gRGB);
+                        let _chW = 16;
+                        if (!param.rangeOn) {   // ranged lanes keep the label slot for their min/max fields
+                            sdCtx.save();
+                            sdCtx.font = '900 8px Outfit';
+                            sdCtx.textAlign = 'left';
+                            sdCtx.textBaseline = 'middle';
+                            sdCtx.fillStyle = 'rgba(' + _gRGB + ',0.95)';
+                            const _chTxt = 'L' + _sdLinkGroupIndex(param.linkGroup) + (param.linkInv ? '±' : '');
+                            sdCtx.fillText(_chTxt, _pcx + 9, _pcy);
+                            _chW = 16 + sdCtx.measureText(_chTxt).width + 4;
+                            sdCtx.restore();
+                        } else if (param.linkInv) {
+                            sdCtx.save();
+                            sdCtx.font = '900 8px Outfit';
+                            sdCtx.textAlign = 'center'; sdCtx.textBaseline = 'middle';
+                            sdCtx.fillStyle = 'rgba(' + _gRGB + ',0.95)';
+                            sdCtx.fillText('±', _pcx, _pcy - 11);
+                            sdCtx.restore();
+                        }
+                        _sdChipRects.push({ envelopeId: param.envelopeId, x: _pcx - 9, y: _pcy - 9, w: Math.max(18, _chW), h: 18, group: param.linkGroup });
+                    } else {
+                        const _phov = _sdHoverPortLaneId === param.envelopeId
+                            || (_sdLinkDrag && _sdLinkDrag.overId === param.envelopeId);
+                        if (_phov) {   // soft lane-color halo so the target reads as "plug in here"
+                            sdCtx.save();
+                            sdCtx.beginPath(); sdCtx.arc(_pcx, _pcy, 9, 0, Math.PI * 2);
+                            sdCtx.fillStyle = 'rgba(' + sdLaneColor(param, paramIdx) + ',0.25)';
+                            sdCtx.fill(); sdCtx.restore();
+                        }
+                        _sdDrawJack(sdCtx, _pcx, _pcy, 6, (_phov || _sdLinkDrag) ? 1 : 0.4, null);
+                        _sdPortRects.push({ envelopeId: param.envelopeId, x: _pcx - 9, y: _pcy - 9, w: 18, h: 18 });
+                    }
+                }
+            }
+
             // Selection shade inside this lane's drawing area
             if (sel) {
                 const sx = laneDrawLeft + ((sel.startBeat / totalBeats) * laneDrawWidth * sdViewZoomX) - sdViewPanX;
@@ -4459,6 +4546,11 @@
             sdCtx.restore();   // closes the clip-region save
             sdCtx.restore();   // closes the locked-alpha save
         }
+
+        // Motions ghost preview + link cables — drawn OVER the lanes (they're the
+        // transient layer: ghost while a card is hovered, cables while dragging /
+        // on chip hover / ~1.2s after a link lands).
+        _sdDrawLinkOverlays(lw, lh, laneDrawLeft, laneDrawWidth, totalBeats);
 
         // Scroll indicator on the far right (thin track)
         if (sdCanvasParams.length > visible) {
@@ -4707,6 +4799,15 @@
                 // every other label-column hit so right-click can't unmap/scrub anything.
                 // Right-click in the CURVE area keeps its shipped meaning (delete point).
                 if (e.button === 2 && mx < SD_MULTI_LABEL_WIDTH) {
+                    // Link chip right-click → the link menu (Invert / Unlink / Dissolve),
+                    // checked before the color popup so a linked lane's chip stays reachable.
+                    for (let _ci = 0; _ci < _sdChipRects.length; _ci++) {
+                        const _c = _sdChipRects[_ci];
+                        if (mx >= _c.x && mx <= _c.x + _c.w && my >= _c.y && my <= _c.y + _c.h) {
+                            _sdOpenLinkMenu(_c.envelopeId, e.clientX, e.clientY);
+                            return;
+                        }
+                    }
                     const _rcHit = sdMultiGetParamAtY(my);
                     if (_rcHit) _sdOpenColorPopup(_rcHit.param, e.clientX, e.clientY);
                     return;
@@ -4716,6 +4817,35 @@
                     const _r = _sdUnmapRects[_ui];
                     if (mx >= _r.x && mx <= _r.x + _r.w && my >= _r.y && my <= _r.y + _r.h) {
                         if (typeof window.sdUnmapLane === 'function') window.sdUnmapLane(_r.envelopeId);
+                        return;
+                    }
+                }
+                // Save-to-Motions bookmark (hover-revealed, top-right of the label column).
+                // y-bounded, so the mid-height lock zone below keeps its full-height hit.
+                for (let _bi = 0; _bi < _sdBookRects.length; _bi++) {
+                    const _b = _sdBookRects[_bi];
+                    if (mx >= _b.x && mx <= _b.x + _b.w && my >= _b.y && my <= _b.y + _b.h) {
+                        if (typeof window.sdSaveMotionLane === 'function') window.sdSaveMotionLane(_b.envelopeId);
+                        return;
+                    }
+                }
+                // Link PORT press (bottom-left jack) → start dragging a cable. Click-click
+                // also works: the mouseup handler completes on a port, cancels elsewhere.
+                for (let _pi = 0; _pi < _sdPortRects.length; _pi++) {
+                    const _p = _sdPortRects[_pi];
+                    if (mx >= _p.x && mx <= _p.x + _p.w && my >= _p.y && my <= _p.y + _p.h) {
+                        _sdLinkDragStart(_p.envelopeId, mx, my);
+                        return;
+                    }
+                }
+                // Link CHIP click (linked lanes): Alt+click = quick unlink; plain click
+                // flashes the group's cables (right-click opens the menu, handled above).
+                for (let _ci2 = 0; _ci2 < _sdChipRects.length; _ci2++) {
+                    const _c2 = _sdChipRects[_ci2];
+                    if (mx >= _c2.x && mx <= _c2.x + _c2.w && my >= _c2.y && my <= _c2.y + _c2.h) {
+                        if (e.altKey) { _sdUnlinkLane(_c2.envelopeId); }
+                        else if (e.shiftKey) { _sdLinkDragStart(_c2.envelopeId, mx, my); }   // Shift+drag from a chip extends the group
+                        else { _sdFlashLinkCables(_c2.group); }
                         return;
                     }
                 }
@@ -5235,8 +5365,10 @@
                     if (_umx >= _u.x && _umx <= _u.x + _u.w && _umy >= _u.y && _umy <= _u.y + _u.h) { _over = _u.envelopeId; break; }
                 }
                 _sdSetUnmapHover(_over);
+                _sdMotionHoverTrack(_umx, _umy);   // bookmark reveal + port/chip hover (wrapper Motions/Link chrome)
             } else {
                 _sdSetUnmapHover(null);
+                _sdMotionHoverTrack(-1, -1);
             }
             if (!_sdTooltipEl || !sdCanvasEl) return;
             // Suppress during any active gesture — tooltip would just
@@ -9770,6 +9902,1063 @@
         _renderPresetBar();
         _renderPresetModal(); // refresh modal if open
     };
+
+    // ═══════════════════════════════════════════════════════════════════
+    // MOTIONS LIBRARY + PARAM LINK (wrapper) — docs/stride-motions-library-spec.md
+    //
+    // MOTIONS: save lane curves with one click (auto-named, no modal), browse
+    // them in the right-side drawer (hover = ghost preview on the active lane,
+    // click = load), pin favorites into the toolbar. Storage is the favorites
+    // durability pattern: localStorage is only a cache; every change writes
+    // through to stride-data/wrapper-prefs.json via window.sdMotionsPersist
+    // (shim.js), and boot adopts whichever side has data. The old localStorage
+    // presets (PRESET_STORAGE_KEY) migrate in on first run — nobody loses one.
+    //
+    // LINK: lanes wired port-to-port share ONE curve ("linked lanes are one
+    // curve shown twice"). The mirroring lives in _sdLinkSyncPass, called from
+    // saveCanvasState — the single choke point every curve write already passes
+    // through — so tools, sliders, drawing and motion loads all mirror without
+    // per-site instrumentation. Group membership is ENGINE-OWNED (set_link /
+    // set_links in, linkGroup/linkInv echoed in rack_scanned, "lg"/"li" in
+    // project state v8): the lock-leak lesson, never localStorage.
+    // Everything here is wrapper-gated; the desktop app renders byte-identically.
+    // ═══════════════════════════════════════════════════════════════════
+
+    // Shared with sdDrawMultiView + the mouse handlers (var: hoisted, so a draw
+    // can never hit a TDZ hole regardless of load order).
+    var _sdMotionLaneRects = [];    // every visible lane row: {param, top, bottom, height, idx}
+    var _sdBookRects = [];          // save-bookmark hit zones (hover-revealed)
+    var _sdPortRects = [];          // link-port hit zones (unlinked lanes)
+    var _sdChipRects = [];          // link-chip hit zones (linked lanes)
+    var _sdHoverLabelLaneId = null; // lane whose label column is hovered (reveals the bookmark)
+    var _sdHoverBookLaneId = null;  // bookmark under the cursor (brightens)
+    var _sdHoverPortLaneId = null;  // port under the cursor (brightens + halo)
+    var _sdHoverChipGroup = 0;      // chip hover shows its group's cables
+    var _sdLinkDrag = null;         // { fromId, x, y, overId, downAt, sticky } while dragging a cable
+    var _sdGhost = null;            // { envelopeId, points:[{t,v,curve}] } — drawer-hover ghost preview
+    var _sdCableShow = {};          // groupId -> epoch-ms until which its cables stay visible
+
+    function _sdIsWrapMotions() { return !!(window.strideLink && window.strideLink._wrapper); }
+    function _sdEsc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+            { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+    function _sdClonePts(pts) { return (pts || []).map(pt => ({ time: pt.time, value: pt.value, curve: pt.curve || 0 })); }
+    function _sdInvPts(pts) { return (pts || []).map(pt => ({ time: pt.time, value: 1 - pt.value, curve: -(pt.curve || 0) })); }
+    function _sdSerPts(pts) {
+        let s = '';
+        for (let i = 0; i < (pts || []).length; i++) {
+            const pt = pts[i];
+            s += pt.time.toFixed(4) + ',' + pt.value.toFixed(4) + ',' + (pt.curve || 0).toFixed(3) + ';';
+        }
+        return s;
+    }
+
+    // ─── Link visuals ───────────────────────────────────────
+    // The inject-rail jack recipe, canvas-drawn: dark socket + grey collar +
+    // light center pin. A colored collar marks a linked (chip) jack.
+    function _sdDrawJack(ctx, x, y, r, alpha, groupRGB) {
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fillStyle = '#232525'; ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = groupRGB ? 'rgb(' + groupRGB + ')' : 'rgba(150,155,155,0.9)';
+        ctx.stroke();
+        ctx.beginPath(); ctx.arc(x, y, r * 0.42, 0, Math.PI * 2);
+        ctx.fillStyle = '#0c0c0d'; ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y, r * 0.17, 0, Math.PI * 2);
+        ctx.fillStyle = '#c9cccc'; ctx.fill();
+        ctx.restore();
+    }
+    function _sdDrawBookmark(ctx, x, y, h, lit) {
+        const w = h * 0.78;
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(x, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + h);
+        ctx.lineTo(x + w / 2, y + h * 0.68); ctx.lineTo(x, y + h);
+        ctx.closePath();
+        ctx.fillStyle = lit ? 'rgba(217,144,74,0.35)' : 'rgba(217,144,74,0.12)';
+        ctx.fill();
+        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = lit ? 'rgba(232,170,105,1)' : 'rgba(198,140,90,0.75)';
+        ctx.stroke();
+        ctx.restore();
+    }
+    const SD_LINK_PALETTE = ['217,144,74', '56,189,248', '52,211,153', '232,121,249', '251,191,36', '167,139,250'];
+    function _sdLinkGroupOrder() {
+        const order = [];
+        sdCanvasParams.forEach(p => { if (p.linkGroup > 0 && order.indexOf(p.linkGroup) < 0) order.push(p.linkGroup); });
+        return order;
+    }
+    function _sdLinkGroupIndex(g) { const i = _sdLinkGroupOrder().indexOf(g); return i < 0 ? 1 : i + 1; }
+    function _sdLinkGroupRGB(g) { return SD_LINK_PALETTE[(_sdLinkGroupIndex(g) - 1) % SD_LINK_PALETTE.length]; }
+    function _sdLinkMembers(g) { return sdCanvasParams.filter(p => p.linkGroup === g); }
+
+    // ─── Link engine state sync ─────────────────────────────
+    function _sdPushLinksToEngine() {
+        try {
+            if (!_sdIsWrapMotions()) return;
+            const items = sdCanvasParams.map(p => ({
+                id: parseInt(p.envelopeId, 10),
+                g: (p.linkGroup > 0 ? p.linkGroup : 0),
+                inv: !!p.linkInv
+            })).filter(it => !isNaN(it.id));
+            if (!items.length) return;
+            window.strideLink.send({ type: 'set_links', items: items });
+        } catch (e) {}
+    }
+    // Group invariant: a group needs 2+ members. Unmapping / rebuilds can strand a
+    // group of one — clear it (and tell the engine only when something changed).
+    function _sdLinkNormalize() {
+        const counts = {};
+        sdCanvasParams.forEach(p => { if (p.linkGroup > 0) counts[p.linkGroup] = (counts[p.linkGroup] || 0) + 1; });
+        let changed = false;
+        sdCanvasParams.forEach(p => {
+            if (p.linkGroup > 0 && counts[p.linkGroup] < 2) { p.linkGroup = 0; p.linkInv = false; changed = true; }
+        });
+        if (changed) _sdPushLinksToEngine();
+        return changed;
+    }
+    // Mirror shadows: last-synced serialization per lane. The sync pass compares
+    // against these to find WHICH member the user just edited.
+    var _sdLinkShadow = {};
+    function _sdLinkShadowRebase() {
+        _sdLinkShadow = {};
+        sdCanvasParams.forEach(p => { if (p.linkGroup > 0) _sdLinkShadow[p.envelopeId] = _sdSerPts(p.points); });
+    }
+    function _sdLinkAfterRebuild() {   // rack_scanned rebuilt the lanes
+        if (!_sdIsWrapMotions()) return;
+        _sdLinkNormalize();
+        _sdLinkShadowRebase();
+    }
+    // THE mirror. Called at the top of saveCanvasState — the choke point every curve
+    // write passes through. For each group: find the changed member (prefer the
+    // active lane), copy its shape to the others (inverted members get 1-v), skip
+    // locked members (they're frozen, same as motion tools), rebase the shadows.
+    // Idempotent: mirroring an already-consistent group writes nothing.
+    function _sdLinkSyncPass() {
+        if (!_sdIsWrapMotions()) return false;
+        const groups = {};
+        sdCanvasParams.forEach(p => { if (p.linkGroup > 0) (groups[p.linkGroup] = groups[p.linkGroup] || []).push(p); });
+        let changedAny = false;
+        Object.keys(groups).forEach(gk => {
+            const members = groups[gk];
+            if (members.length < 2) return;
+            // First contact with this group: baseline only, never a false mirror.
+            if (members.some(m => !(m.envelopeId in _sdLinkShadow))) {
+                members.forEach(m => { _sdLinkShadow[m.envelopeId] = _sdSerPts(m.points); });
+                return;
+            }
+            const dirty = members.filter(m => _sdSerPts(m.points) !== _sdLinkShadow[m.envelopeId]);
+            if (!dirty.length) return;
+            let src = dirty.find(m => m.envelopeId === sdActiveParamId) || dirty[0];
+            const canonical = src.linkInv ? _sdInvPts(src.points) : _sdClonePts(src.points);
+            members.forEach(m => {
+                if (m === src || m.locked) return;
+                const want = m.linkInv ? _sdInvPts(canonical) : canonical;
+                if (_sdSerPts(m.points) !== _sdSerPts(want)) {
+                    m.points = _sdClonePts(want);
+                    changedAny = true;
+                }
+            });
+            members.forEach(m => { _sdLinkShadow[m.envelopeId] = _sdSerPts(m.points); });
+        });
+        if (changedAny) {
+            // The caller usually redrew BEFORE saving — repaint the mirrored lanes.
+            // rAF: draw only, never re-enters save.
+            requestAnimationFrame(() => { try { sdDrawCanvasGrid(); } catch (e) {} });
+        }
+        return changedAny;
+    }
+    // Write src's shape onto its whole group right now (link-create adoption).
+    function _sdLinkAdoptFrom(src) {
+        const members = _sdLinkMembers(src.linkGroup);
+        const canonical = src.linkInv ? _sdInvPts(src.points) : _sdClonePts(src.points);
+        members.forEach(m => {
+            if (m === src || m.locked) return;
+            m.points = m.linkInv ? _sdInvPts(canonical) : _sdClonePts(canonical);
+        });
+        members.forEach(m => { _sdLinkShadow[m.envelopeId] = _sdSerPts(m.points); });
+    }
+
+    // ─── Link operations ────────────────────────────────────
+    function _sdNextLinkGroupId() {
+        let mx = 0; sdCanvasParams.forEach(p => { if (p.linkGroup > mx) mx = p.linkGroup; });
+        return mx + 1;
+    }
+    function _sdFlashLinkCables(g) {
+        if (!g) return;
+        _sdCableShow[g] = Date.now() + 1200;
+        try { sdDrawCanvasGrid(); } catch (e) {}
+        setTimeout(() => { try { sdDrawCanvasGrid(); } catch (e) {} }, 1280);
+    }
+    function _sdCreateLink(fromId, toId) {
+        const a = sdCanvasParams.find(p => p.envelopeId === fromId);
+        const b = sdCanvasParams.find(p => p.envelopeId === toId);
+        if (!a || !b || a === b) return;
+        pushUndo();
+        let g;
+        if (a.linkGroup > 0 && b.linkGroup > 0) {
+            g = a.linkGroup;
+            if (b.linkGroup !== g) {   // merging two groups: absorb b's whole group
+                const old = b.linkGroup;
+                sdCanvasParams.forEach(p => { if (p.linkGroup === old) p.linkGroup = g; });
+            }
+        } else if (a.linkGroup > 0) g = a.linkGroup;
+        else if (b.linkGroup > 0) g = b.linkGroup;
+        else g = _sdNextLinkGroupId();
+        a.linkGroup = g;
+        if (!(b.linkGroup > 0)) b.linkInv = false;
+        b.linkGroup = g;
+        _sdLinkAdoptFrom(a);   // source wins: you grab the move you love and hand it over
+        _sdPushLinksToEngine();
+        _sdFlashLinkCables(g);
+        sdDrawCanvasGrid();
+        Promise.resolve(saveCanvasState());
+        const st = document.getElementById('sd-canvas-status');
+        if (st) st.textContent = 'Linked: ' + a.name + ' → ' + b.name + ' · one curve, both params (Alt+click the chip to unlink)';
+    }
+    function _sdUnlinkLane(envelopeId) {
+        const p = sdCanvasParams.find(x => x.envelopeId === envelopeId);
+        if (!p || !(p.linkGroup > 0)) return;
+        pushUndo();
+        p.linkGroup = 0; p.linkInv = false;
+        delete _sdLinkShadow[p.envelopeId];
+        _sdLinkNormalize();
+        _sdPushLinksToEngine();
+        sdDrawCanvasGrid();
+        Promise.resolve(saveCanvasState());
+        const st = document.getElementById('sd-canvas-status');
+        if (st) st.textContent = 'Unlinked: ' + p.name + ' (its curve stays as it is)';
+    }
+    function _sdDissolveGroup(g) {
+        const members = _sdLinkMembers(g);
+        if (!members.length) return;
+        pushUndo();
+        members.forEach(p => { p.linkGroup = 0; p.linkInv = false; delete _sdLinkShadow[p.envelopeId]; });
+        _sdPushLinksToEngine();
+        sdDrawCanvasGrid();
+        Promise.resolve(saveCanvasState());
+        const st = document.getElementById('sd-canvas-status');
+        if (st) st.textContent = 'Link dissolved · ' + members.length + ' lanes keep their curves, each its own again';
+    }
+    function _sdToggleLinkInvert(envelopeId) {
+        const p = sdCanvasParams.find(x => x.envelopeId === envelopeId);
+        if (!p || !(p.linkGroup > 0)) return;
+        pushUndo();
+        p.linkInv = !p.linkInv;
+        // Re-derive this member from the group shape (leader = first OTHER member).
+        const leader = _sdLinkMembers(p.linkGroup).find(m => m !== p);
+        if (leader) {
+            const canonical = leader.linkInv ? _sdInvPts(leader.points) : _sdClonePts(leader.points);
+            if (!p.locked) p.points = p.linkInv ? _sdInvPts(canonical) : canonical;
+            _sdLinkShadow[p.envelopeId] = _sdSerPts(p.points);
+        }
+        _sdPushLinksToEngine();
+        _sdFlashLinkCables(p.linkGroup);
+        sdDrawCanvasGrid();
+        Promise.resolve(saveCanvasState());
+    }
+    // Unlock re-sync: a member frozen while its group moved on re-syncs the moment
+    // it unlocks — "linked" must never silently mean "linked, but stale".
+    function _sdLinkResyncAfterUnlock(p) {
+        if (!p || !(p.linkGroup > 0) || p.locked) return;
+        const leader = _sdLinkMembers(p.linkGroup).find(m => m !== p && !m.locked);
+        if (!leader) return;
+        const canonical = leader.linkInv ? _sdInvPts(leader.points) : _sdClonePts(leader.points);
+        const want = p.linkInv ? _sdInvPts(canonical) : canonical;
+        if (_sdSerPts(p.points) !== _sdSerPts(want)) {
+            p.points = _sdClonePts(want);
+            _sdLinkShadow[p.envelopeId] = _sdSerPts(p.points);
+            sdDrawCanvasGrid();
+            Promise.resolve(saveCanvasState());
+        } else {
+            _sdLinkShadow[p.envelopeId] = _sdSerPts(p.points);
+        }
+    }
+
+    // ─── Link menu (right-click a chip) ─────────────────────
+    var _sdLinkMenuEl = null;
+    function _sdCloseLinkMenu() { if (_sdLinkMenuEl) { _sdLinkMenuEl.remove(); _sdLinkMenuEl = null; } }
+    function _sdOpenLinkMenu(envelopeId, clientX, clientY) {
+        _sdCloseLinkMenu();
+        const p = sdCanvasParams.find(x => x.envelopeId === envelopeId);
+        if (!p || !(p.linkGroup > 0)) return;
+        const g = p.linkGroup, n = _sdLinkMembers(g).length;
+        const pop = document.createElement('div');
+        pop.style.cssText = 'position:fixed;z-index:10070;background:#101011;border:1px solid rgba(255,255,255,0.12);'
+            + 'border-radius:10px;box-shadow:0 18px 50px rgba(0,0,0,0.8);padding:6px;width:190px;'
+            + "font-family:'Outfit',sans-serif";
+        function item(label, fn, accent) {
+            const b = document.createElement('button');
+            b.textContent = label;
+            b.style.cssText = 'display:block;width:100%;text-align:left;font-size:10px;font-weight:700;'
+                + 'letter-spacing:0.06em;text-transform:uppercase;padding:6px 8px;border-radius:6px;cursor:pointer;'
+                + 'background:none;border:none;color:' + (accent || '#d4d4d8');
+            b.onmouseenter = () => { b.style.background = 'rgba(255,255,255,0.07)'; };
+            b.onmouseleave = () => { b.style.background = 'none'; };
+            b.onclick = (ev) => { ev.stopPropagation(); _sdCloseLinkMenu(); fn(); };
+            pop.appendChild(b);
+        }
+        const head = document.createElement('div');
+        head.style.cssText = 'font-size:9px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;color:rgb(' + _sdLinkGroupRGB(g) + ');padding:4px 8px 6px';
+        head.textContent = 'Link L' + _sdLinkGroupIndex(g) + ' · ' + n + ' lanes';
+        pop.appendChild(head);
+        item((p.linkInv ? '✓ Inverted' : 'Invert this lane'), () => _sdToggleLinkInvert(envelopeId));
+        item('Unlink this lane', () => _sdUnlinkLane(envelopeId));
+        item('Dissolve the link', () => _sdDissolveGroup(g), '#f87171');
+        document.body.appendChild(pop);
+        const r = pop.getBoundingClientRect();
+        pop.style.left = Math.max(6, Math.min(clientX + 6, window.innerWidth - r.width - 6)) + 'px';
+        pop.style.top = Math.max(6, Math.min(clientY - 10, window.innerHeight - r.height - 6)) + 'px';
+        setTimeout(() => {
+            const closer = (ev) => { if (_sdLinkMenuEl && !_sdLinkMenuEl.contains(ev.target)) { _sdCloseLinkMenu(); document.removeEventListener('mousedown', closer, true); } };
+            document.addEventListener('mousedown', closer, true);
+        }, 0);
+        _sdLinkMenuEl = pop;
+    }
+
+    // ─── Link cable drag ────────────────────────────────────
+    function _sdLinkDragStart(envelopeId, mx, my) {
+        if (_sdLinkDrag) {   // click-click completion: a second port press finishes the link
+            const from = _sdLinkDrag.fromId;
+            _sdLinkDrag = null;
+            if (sdCanvasEl) sdCanvasEl.style.cursor = 'crosshair';
+            if (envelopeId !== from) _sdCreateLink(from, envelopeId);
+            else sdDrawCanvasGrid();
+            return;
+        }
+        _sdLinkDrag = { fromId: envelopeId, x: mx, y: my, overId: null, downAt: Date.now(), sticky: false };
+        if (sdCanvasEl) sdCanvasEl.style.cursor = 'crosshair';
+        const st = document.getElementById('sd-canvas-status');
+        if (st) st.textContent = 'Drag the cable to another lane’s port · Esc cancels';
+        sdDrawCanvasGrid();
+    }
+    function _sdLinkDragCancel() {
+        if (!_sdLinkDrag) return;
+        _sdLinkDrag = null;
+        if (sdCanvasEl) sdCanvasEl.style.cursor = 'crosshair';
+        sdDrawCanvasGrid();
+    }
+    var _sdLinkDragRaf = 0;
+    window.addEventListener('mousemove', e => {
+        if (!_sdLinkDrag || !sdCanvasEl) return;
+        const r = sdCanvasEl.getBoundingClientRect();
+        _sdLinkDrag.x = e.clientX - r.left;
+        _sdLinkDrag.y = e.clientY - r.top;
+        let over = null;
+        for (let i = 0; i < _sdPortRects.length; i++) {
+            const p = _sdPortRects[i];
+            if (_sdLinkDrag.x >= p.x - 5 && _sdLinkDrag.x <= p.x + p.w + 5 && _sdLinkDrag.y >= p.y - 5 && _sdLinkDrag.y <= p.y + p.h + 5
+                && p.envelopeId !== _sdLinkDrag.fromId) { over = p.envelopeId; break; }
+        }
+        if (!over) for (let i = 0; i < _sdChipRects.length; i++) {   // dropping on a chip joins that group
+            const c = _sdChipRects[i];
+            if (_sdLinkDrag.x >= c.x - 5 && _sdLinkDrag.x <= c.x + c.w + 5 && _sdLinkDrag.y >= c.y - 5 && _sdLinkDrag.y <= c.y + c.h + 5
+                && c.envelopeId !== _sdLinkDrag.fromId) { over = c.envelopeId; break; }
+        }
+        _sdLinkDrag.overId = over;
+        if (!_sdLinkDragRaf) _sdLinkDragRaf = requestAnimationFrame(() => { _sdLinkDragRaf = 0; try { sdDrawCanvasGrid(); } catch (err) {} });
+    });
+    window.addEventListener('mouseup', e => {
+        if (!_sdLinkDrag) return;
+        // A quick release still on the source port = click-click mode: the cable
+        // stays armed and the NEXT port press completes it.
+        if (!_sdLinkDrag.sticky && Date.now() - _sdLinkDrag.downAt < 350 && !_sdLinkDrag.overId) {
+            _sdLinkDrag.sticky = true;
+            return;
+        }
+        const from = _sdLinkDrag.fromId, over = _sdLinkDrag.overId;
+        _sdLinkDrag = null;
+        if (sdCanvasEl) sdCanvasEl.style.cursor = 'crosshair';
+        if (over) _sdCreateLink(from, over);
+        else sdDrawCanvasGrid();
+    });
+
+    // ─── Hover tracking (label column) ──────────────────────
+    function _sdMotionHoverTrack(mx, my) {
+        if (!_sdIsWrapMotions()) return;
+        let lane = null, book = null, port = null, chip = 0;
+        if (mx >= 0 && mx < SD_MULTI_LABEL_WIDTH) {
+            for (let i = 0; i < _sdMotionLaneRects.length; i++) {
+                const r = _sdMotionLaneRects[i];
+                if (my >= r.top && my < r.bottom) { lane = r.param.envelopeId; break; }
+            }
+        }
+        for (let i = 0; i < _sdBookRects.length; i++) {
+            const b = _sdBookRects[i];
+            if (mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) { book = b.envelopeId; break; }
+        }
+        for (let i = 0; i < _sdPortRects.length; i++) {
+            const p = _sdPortRects[i];
+            if (mx >= p.x && mx <= p.x + p.w && my >= p.y && my <= p.y + p.h) { port = p.envelopeId; break; }
+        }
+        for (let i = 0; i < _sdChipRects.length; i++) {
+            const c = _sdChipRects[i];
+            if (mx >= c.x && mx <= c.x + c.w && my >= c.y && my <= c.y + c.h) { chip = c.group; break; }
+        }
+        if (lane !== _sdHoverLabelLaneId || book !== _sdHoverBookLaneId || port !== _sdHoverPortLaneId || chip !== _sdHoverChipGroup) {
+            _sdHoverLabelLaneId = lane;
+            _sdHoverBookLaneId = book;
+            _sdHoverPortLaneId = port;
+            _sdHoverChipGroup = chip;
+            try { sdDrawCanvasGrid(); } catch (e) {}
+        }
+    }
+
+    // ─── Overlays: ghost preview + cables (end of every multi draw) ──
+    function _sdDrawLinkOverlays(lw, lh, laneDrawLeft, laneDrawWidth, totalBeats) {
+        if (!_sdIsWrapMotions()) return;
+        // GHOST: the hovered card's curve, dashed on its target lane.
+        if (_sdGhost && _sdGhost.points && _sdGhost.points.length) {
+            const gr = _sdMotionLaneRects.find(r => r.param.envelopeId === _sdGhost.envelopeId);
+            if (gr) {
+                const tp = gr.param;
+                const _rm = (v) => tp.rangeOn ? (tp.rangeMin + v * (tp.rangeMax - tp.rangeMin)) : v;
+                const tX = (t) => laneDrawLeft + (t * laneDrawWidth * sdViewZoomX) - sdViewPanX;
+                const tY = (v) => gr.bottom - _rm(Math.max(0, Math.min(1, v))) * gr.height;
+                sdCtx.save();
+                sdCtx.beginPath(); sdCtx.rect(laneDrawLeft, gr.top, laneDrawWidth, gr.height); sdCtx.clip();
+                sdCtx.beginPath();
+                sdCtx.setLineDash([5, 4]);
+                sdCtx.lineWidth = 2;
+                sdCtx.strokeStyle = 'rgba(' + sdLaneColor(tp, gr.idx) + ',0.85)';
+                const gp = _sdGhost.points;
+                for (let i = 0; i < gp.length; i++) {
+                    const x = tX(gp[i].t), y = tY(gp[i].v);
+                    if (i === 0) sdCtx.moveTo(x, y);
+                    else {
+                        const cv = gp[i - 1].curve || 0;
+                        if (cv === 0) sdCtx.lineTo(x, y);
+                        else {
+                            const px = tX(gp[i - 1].t), py = tY(gp[i - 1].v);
+                            sdCtx.quadraticCurveTo((px + x) / 2, (py + y) / 2 - cv * Math.abs(y - py) * 1.2, x, y);
+                        }
+                    }
+                }
+                sdCtx.stroke();
+                sdCtx.setLineDash([]);
+                sdCtx.restore();
+            }
+        }
+        // CABLES: on demand — while dragging, on chip hover, ~1.2s after a link lands.
+        const now = Date.now();
+        const show = {};
+        if (_sdHoverChipGroup) show[_sdHoverChipGroup] = 1;
+        Object.keys(_sdCableShow).forEach(gk => {
+            if (_sdCableShow[gk] > now) show[gk] = 1; else delete _sdCableShow[gk];
+        });
+        Object.keys(show).forEach(gk => {
+            const g = parseInt(gk, 10);
+            const rgb = _sdLinkGroupRGB(g);
+            const pts = _sdMotionLaneRects
+                .filter(r => r.param.linkGroup === g && r.height >= 34)
+                .map(r => ({ x: 18, y: r.bottom - 10 }));
+            for (let i = 0; i + 1 < pts.length; i++) {
+                const a = pts[i], b = pts[i + 1];
+                const bow = 64;
+                sdCtx.save();
+                sdCtx.lineCap = 'round';
+                sdCtx.beginPath();
+                sdCtx.moveTo(a.x, a.y);
+                sdCtx.bezierCurveTo(a.x + bow, a.y + 16, b.x + bow, b.y - 16, b.x, b.y);
+                sdCtx.strokeStyle = 'rgba(0,0,0,0.5)'; sdCtx.lineWidth = 5; sdCtx.stroke();
+                sdCtx.beginPath();
+                sdCtx.moveTo(a.x, a.y);
+                sdCtx.bezierCurveTo(a.x + bow, a.y + 16, b.x + bow, b.y - 16, b.x, b.y);
+                sdCtx.strokeStyle = 'rgba(' + rgb + ',0.9)'; sdCtx.lineWidth = 3; sdCtx.stroke();
+                sdCtx.restore();
+            }
+            pts.forEach(p => _sdDrawJack(sdCtx, p.x, p.y, 6, 1, rgb));
+        });
+        // DRAG CABLE: source port → cursor, plug drawn at the free end.
+        if (_sdLinkDrag) {
+            const src = _sdMotionLaneRects.find(r => r.param.envelopeId === _sdLinkDrag.fromId);
+            if (src) {
+                const sx = 18, sy = src.bottom - 10, dx = _sdLinkDrag.x, dy = _sdLinkDrag.y;
+                const k = Math.max(24, Math.abs(dy - sy) * 0.4);
+                const srcP = src.param;
+                const rgb = srcP.linkGroup > 0 ? _sdLinkGroupRGB(srcP.linkGroup) : sdLaneColor(srcP, src.idx);
+                sdCtx.save();
+                sdCtx.lineCap = 'round';
+                sdCtx.beginPath();
+                sdCtx.moveTo(sx, sy); sdCtx.bezierCurveTo(sx + k, sy, dx - k * 0.4, dy, dx, dy);
+                sdCtx.strokeStyle = 'rgba(0,0,0,0.5)'; sdCtx.lineWidth = 5; sdCtx.stroke();
+                sdCtx.beginPath();
+                sdCtx.moveTo(sx, sy); sdCtx.bezierCurveTo(sx + k, sy, dx - k * 0.4, dy, dx, dy);
+                sdCtx.strokeStyle = 'rgba(' + rgb + ',0.9)'; sdCtx.lineWidth = 3; sdCtx.stroke();
+                sdCtx.restore();
+                _sdDrawJack(sdCtx, sx, sy, 6, 1, rgb);
+                _sdDrawJack(sdCtx, dx, dy, 5, 1, rgb);
+            }
+        }
+    }
+
+    // ─── Motions store ──────────────────────────────────────
+    // MEMORY-FIRST (field bug 2026-08-17): the wrapper's WebView localStorage only
+    // flushes to disk on browser-process shutdown, so plugin teardowns can silently
+    // drop cached writes — a saved motion sat in wrapper-prefs.json while Mine
+    // rendered empty, because save wrote the cache and the drawer read it back
+    // through the same broken layer. Now _sdMotionsMem is the ONE list every read
+    // and write touches (save → drawer consistency can never depend on storage),
+    // localStorage demotes to a best-effort warm cache, and the native prefs file
+    // wins at every boot via the sd-motions-adopted event (data rides in detail).
+    const SD_MOTIONS_KEY = 'sd_motions';
+    var _sdMotionsMem = null;   // null until first read — seeds from the cache
+    function _sdMotionsList() {
+        if (_sdMotionsMem) return _sdMotionsMem;
+        try { _sdMotionsMem = JSON.parse(localStorage.getItem(SD_MOTIONS_KEY) || '[]'); }
+        catch (e) { _sdMotionsMem = []; }
+        if (!Array.isArray(_sdMotionsMem)) _sdMotionsMem = [];
+        return _sdMotionsMem;
+    }
+    function _sdMotionsCommit(list) {
+        _sdMotionsMem = Array.isArray(list) ? list : [];   // memory FIRST — this can't fail
+        try { localStorage.setItem(SD_MOTIONS_KEY, JSON.stringify(_sdMotionsMem)); } catch (e) {}
+        try { if (window.sdMotionsPersist) window.sdMotionsPersist(_sdMotionsMem); } catch (e) {}   // write-through: wrapper-prefs.json
+        _sdRenderPinnedMotions();
+        if (_sdMotionsOpen()) sdRenderMotionsDrawer();
+    }
+    function _sdMotionId() { return 'm' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36); }
+    // One-time migration: the old localStorage presets become motions on first run.
+    function _sdMotionsMigrate() {
+        try {
+            if (_sdMotionsList().length) return;
+            if (localStorage.getItem(SD_MOTIONS_KEY + '_migrated')) return;
+            const old = JSON.parse(localStorage.getItem(PRESET_STORAGE_KEY) || '[]');
+            if (!old.length) { localStorage.setItem(SD_MOTIONS_KEY + '_migrated', '1'); return; }
+            const list = old.map(p => ({
+                id: _sdMotionId(),
+                name: p.name || 'Motion',
+                bars: p.bars || 8,
+                created: p.created || new Date().toISOString(),
+                fav: false,
+                lanes: (p.lanes || []).map(l => ({
+                    name: l.name || '', device: '', colorIdx: -1,
+                    points: (l.points || []).map(pt => ({ t: pt.t, v: pt.v, curve: pt.curve || 0 }))
+                }))
+            })).filter(m => m.lanes.length);
+            localStorage.setItem(SD_MOTIONS_KEY + '_migrated', '1');
+            if (list.length) _sdMotionsCommit(list);
+        } catch (e) {}
+    }
+
+    // ─── Saving ─────────────────────────────────────────────
+    function _sdMotionFromLanes(lanes) {
+        const totalBeats = sdGetBars() * 4;
+        const src = lanes.filter(p => p.points && p.points.length);
+        if (!src.length) return null;
+        let name;
+        if (src.length === 1) {
+            name = src[0].name + (src[0].device ? ' · ' + src[0].device : '');
+        } else {
+            const dev = src[0].device || '';
+            name = src.length + ' lanes' + (dev ? ' · ' + dev : '');
+        }
+        return {
+            id: _sdMotionId(),
+            name: name,
+            bars: sdGetBars(),
+            created: new Date().toISOString(),
+            fav: false,
+            lanes: src.map(p => ({
+                name: p.name, device: p.device || '',
+                colorIdx: (typeof p.colorIdx === 'number' ? p.colorIdx : -1),
+                points: p.points.map(pt => ({
+                    t: totalBeats > 0 ? pt.time / totalBeats : 0,
+                    v: pt.value,
+                    curve: pt.curve || 0
+                }))
+            }))
+        };
+    }
+    function _sdSaveMotionFrom(lanes, label) {
+        const m = _sdMotionFromLanes(lanes);
+        const st = document.getElementById('sd-canvas-status');
+        if (!m) { if (st) st.textContent = 'Nothing to save yet · draw or roll a motion first'; return; }
+        const list = _sdMotionsList();
+        list.unshift(m);
+        _sdMotionsCommit(list);
+        _sdMotionToast('Saved to Motions · ' + m.name, m.id);
+        // The status carries the LIVE library count — if a save ever goes missing
+        // again, this line is the field evidence of which layer lost it.
+        if (st) st.textContent = 'Saved to Motions: ' + m.name + (label ? ' (' + label + ')' : '') + ' · ' + _sdMotionsList().length + ' in library';
+    }
+    window.sdSaveMotionLane = function(envelopeId) {   // the on-lane bookmark
+        const p = sdCanvasParams.find(x => x.envelopeId === envelopeId);
+        if (p) _sdSaveMotionFrom([p]);
+    };
+    window.sdSaveMotionSmart = function() {   // toolbar Save: selection if any, else the active lane
+        const sel = sdCanvasParams.filter(p => p.selected);
+        if (sel.length) { _sdSaveMotionFrom(sel, sel.length + ' selected'); return; }
+        const act = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId) || sdCanvasParams[0];
+        if (act) _sdSaveMotionFrom([act]);
+        else { const st = document.getElementById('sd-canvas-status'); if (st) st.textContent = 'Map a parameter first'; }
+    };
+    window.sdOpenSaveScopeMenu = function(ev) {
+        if (ev) ev.stopPropagation();
+        _sdCloseLinkMenu();
+        const pop = document.createElement('div');
+        pop.style.cssText = 'position:fixed;z-index:10070;background:#101011;border:1px solid rgba(255,255,255,0.12);'
+            + 'border-radius:10px;box-shadow:0 18px 50px rgba(0,0,0,0.8);padding:6px;width:170px;'
+            + "font-family:'Outfit',sans-serif";
+        function item(label, fn) {
+            const b = document.createElement('button');
+            b.textContent = label;
+            b.style.cssText = 'display:block;width:100%;text-align:left;font-size:10px;font-weight:700;letter-spacing:0.06em;'
+                + 'text-transform:uppercase;padding:6px 8px;border-radius:6px;cursor:pointer;background:none;border:none;color:#d4d4d8';
+            b.onmouseenter = () => { b.style.background = 'rgba(255,255,255,0.07)'; };
+            b.onmouseleave = () => { b.style.background = 'none'; };
+            b.onclick = (e2) => { e2.stopPropagation(); pop.remove(); fn(); };
+            pop.appendChild(b);
+        }
+        item('Active lane', () => {
+            const act = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId) || sdCanvasParams[0];
+            if (act) _sdSaveMotionFrom([act]);
+        });
+        item('Selected lanes', () => {
+            const sel = sdCanvasParams.filter(p => p.selected);
+            if (sel.length) _sdSaveMotionFrom(sel, sel.length + ' selected');
+            else { const st = document.getElementById('sd-canvas-status'); if (st) st.textContent = 'No lanes selected · Ctrl+click lanes first'; }
+        });
+        item('All lanes', () => _sdSaveMotionFrom(sdCanvasParams, 'all lanes'));
+        document.body.appendChild(pop);
+        const r = pop.getBoundingClientRect();
+        const cx = ev ? ev.clientX : window.innerWidth / 2, cy = ev ? ev.clientY : 80;
+        pop.style.left = Math.max(6, Math.min(cx - 20, window.innerWidth - r.width - 6)) + 'px';
+        pop.style.top = Math.min(cy + 12, window.innerHeight - r.height - 6) + 'px';
+        setTimeout(() => {
+            const closer = (e3) => { if (!pop.contains(e3.target)) { pop.remove(); document.removeEventListener('mousedown', closer, true); } };
+            document.addEventListener('mousedown', closer, true);
+        }, 0);
+    };
+
+    // ─── Toast (Rename / Undo, no modal) ────────────────────
+    var _sdMotionToastTimer = 0;
+    function _sdMotionToast(msg, savedId) {
+        const el = document.getElementById('sd-motion-toast');
+        if (!el) return;
+        const msgEl = document.getElementById('sd-motion-toast-msg');
+        const renBtn = document.getElementById('sd-motion-toast-rename');
+        const undoBtn = document.getElementById('sd-motion-toast-undo');
+        if (msgEl) msgEl.textContent = msg;
+        if (renBtn) {
+            renBtn.style.display = savedId ? '' : 'none';
+            renBtn.onclick = () => {
+                el.classList.add('hidden');
+                if (!_sdMotionsOpen()) window.sdToggleMotions();
+                _sdMotionsTab = 'mine';
+                sdRenderMotionsDrawer();
+                _sdMotionRenameInline(savedId);
+            };
+        }
+        if (undoBtn) {
+            undoBtn.style.display = savedId ? '' : 'none';
+            undoBtn.onclick = () => {
+                const list = _sdMotionsList().filter(m => m.id !== savedId);
+                _sdMotionsCommit(list);
+                el.classList.add('hidden');
+                const st = document.getElementById('sd-canvas-status');
+                if (st) st.textContent = 'Save undone';
+            };
+        }
+        el.classList.remove('hidden');
+        clearTimeout(_sdMotionToastTimer);
+        _sdMotionToastTimer = setTimeout(() => el.classList.add('hidden'), 4000);
+    }
+
+    // ─── Applying ───────────────────────────────────────────
+    function _sdMotionApplyPoints(param, normPts, totalBeats) {
+        param.points = (normPts || []).map(pt => ({
+            time: Math.round(pt.t * totalBeats * 10000) / 10000,
+            value: Math.max(0, Math.min(1, pt.v)),
+            curve: pt.curve || 0
+        }));
+    }
+    function sdApplyMotion(id, targetEnvelopeId) {
+        const m = _sdMotionsList().find(x => x.id === id);
+        const st = document.getElementById('sd-canvas-status');
+        if (!m) return;
+        if (!sdCanvasParams.length) { if (st) st.textContent = 'Map a parameter first'; return; }
+        pushUndo();
+        const totalBeats = sdGetBars() * 4;
+        let msg;
+        if (m.lanes.length === 1) {
+            let targets;
+            if (targetEnvelopeId) {
+                const t = sdCanvasParams.find(p => p.envelopeId === targetEnvelopeId);
+                targets = t ? [t] : [];
+            } else {
+                const sel = sdCanvasParams.filter(p => p.selected);
+                if (sel.length) targets = sel;
+                else {
+                    const act = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId) || sdCanvasParams.find(p => !p.locked);
+                    targets = act ? [act] : [];
+                }
+            }
+            let wrote = 0;
+            targets.forEach(t => { if (!t.locked) { _sdMotionApplyPoints(t, m.lanes[0].points, totalBeats); wrote++; } });
+            msg = wrote ? ('Loaded: ' + m.name + (targets.length > 1 ? (' → ' + wrote + ' lanes') : '')) : 'Target lane is locked';
+        } else {
+            // Multi-lane: match by param + device name first, remaining in order.
+            const used = new Set();
+            let wrote = 0;
+            const norm = (s) => String(s || '').toLowerCase();
+            m.lanes.forEach(l => {
+                const t = sdCanvasParams.find(p => !used.has(p.envelopeId) && !p.locked
+                    && norm(p.name) === norm(l.name) && norm(p.device) === norm(l.device));
+                if (t) { used.add(t.envelopeId); _sdMotionApplyPoints(t, l.points, totalBeats); wrote++; l._done = true; }
+            });
+            const rest = sdCanvasParams.filter(p => !used.has(p.envelopeId) && !p.locked);
+            let ri = 0;
+            m.lanes.forEach(l => {
+                if (l._done) { delete l._done; return; }
+                if (ri < rest.length) { _sdMotionApplyPoints(rest[ri], l.points, totalBeats); used.add(rest[ri].envelopeId); ri++; wrote++; }
+            });
+            msg = 'Loaded: ' + m.name + ' · matched ' + wrote + ' of ' + m.lanes.length + ' lanes';
+        }
+        _sdMotionGhostClear();
+        sdResetSliderSnapshots();
+        sdRenderSidebar();
+        sdDrawCanvasGrid();
+        Promise.resolve(saveCanvasState());
+        if (st) st.textContent = msg + ' · Ctrl+Z undoes';
+    }
+
+    // ─── Ghost preview (drawer-hover) ───────────────────────
+    var _sdGhostTimer = 0;
+    function _sdMotionGhostTarget() {
+        return sdCanvasParams.find(p => p.envelopeId === sdActiveParamId) || sdCanvasParams.find(p => !p.locked) || null;
+    }
+    function _sdMotionGhostShow(normPts, targetEnvelopeId) {
+        clearTimeout(_sdGhostTimer);
+        _sdGhostTimer = setTimeout(() => {
+            const t = targetEnvelopeId
+                ? sdCanvasParams.find(p => p.envelopeId === targetEnvelopeId)
+                : _sdMotionGhostTarget();
+            if (!t || sdViewMode !== 'multi') return;
+            _sdGhost = { envelopeId: t.envelopeId, points: normPts };
+            try { sdDrawCanvasGrid(); } catch (e) {}
+        }, 140);
+    }
+    function _sdMotionGhostClear() {
+        clearTimeout(_sdGhostTimer);
+        if (_sdGhost) { _sdGhost = null; try { sdDrawCanvasGrid(); } catch (e) {} }
+    }
+
+    // ─── Sparkline thumbnails (rendered from the stored points) ──
+    function _sdMotionLaneRGB(l) {
+        if (typeof l.colorIdx === 'number' && l.colorIdx >= 0 && typeof SD_LANE_PALETTE !== 'undefined' && SD_LANE_PALETTE[l.colorIdx])
+            return SD_LANE_PALETTE[l.colorIdx];
+        return '217,144,74';
+    }
+    function _sdMotionSpark(m, w, h) {
+        const lanes = (m.lanes || []).slice(0, 3);
+        let paths = '';
+        lanes.forEach((l, li) => {
+            const pts = l.points || [];
+            if (!pts.length) return;
+            let d = '';
+            pts.forEach((pt, i) => {
+                const x = (pt.t * w).toFixed(1);
+                const y = (h - 3 - Math.max(0, Math.min(1, pt.v)) * (h - 6)).toFixed(1);
+                d += (i === 0 ? 'M' : 'L') + x + ',' + y + ' ';
+            });
+            paths += '<path d="' + d + '" fill="none" stroke="rgb(' + _sdMotionLaneRGB(l) + ')" stroke-width="' + (li === 0 ? 1.8 : 1.2) + '" stroke-linejoin="round" opacity="' + (li === 0 ? 1 : 0.55) + '"/>';
+        });
+        const extra = (m.lanes || []).length > 3 ? '<text x="' + (w - 3) + '" y="' + (h - 3) + '" fill="#71767a" font-size="7" font-weight="800" text-anchor="end">+' + ((m.lanes.length) - 3) + '</text>' : '';
+        return '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" style="width:100%;height:100%;display:block">' + paths + extra + '</svg>';
+    }
+
+    // ─── Pinned strip (hearted motions, cap 6) ──────────────
+    function _sdRenderPinnedMotions() {
+        const hosts = [document.getElementById('sd-pinned-motions'), document.getElementById('sd-pinned-motions-c')];
+        if (!hosts[0] && !hosts[1]) return;
+        const favs = _sdMotionsList().filter(m => m.fav).slice(0, 6);
+        hosts.forEach(host => {
+            if (!host) return;
+            if (!favs.length) {
+                host.innerHTML = '<span style="font-size:8px;color:#5a5f5f;font-style:italic" title="Heart a motion in the browser and it lands here">none pinned</span>';
+                return;
+            }
+            host.innerHTML = favs.map(m =>
+                '<button data-pinid="' + m.id + '" title="' + _sdEsc(m.name) + ' · click to load onto the active lane" '
+                + 'style="display:flex;align-items:center;gap:5px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);'
+                + 'border-radius:6px;padding:1px 7px 1px 3px;cursor:pointer;flex:none">'
+                + '<span style="display:block;width:34px;height:14px;background:rgba(0,0,0,0.45);border-radius:3px;overflow:hidden">' + _sdMotionSpark(m, 34, 14) + '</span>'
+                + '<span style="font-size:8.5px;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;color:#c8cccc;white-space:nowrap;max-width:74px;overflow:hidden;text-overflow:ellipsis">' + _sdEsc(m.name) + '</span>'
+                + '</button>').join('');
+            host.querySelectorAll('button[data-pinid]').forEach(b => {
+                b.onclick = () => sdApplyMotion(b.getAttribute('data-pinid'));
+                b.onmouseenter = () => { const m = _sdMotionsList().find(x => x.id === b.getAttribute('data-pinid')); if (m && m.lanes.length === 1) _sdMotionGhostShow(m.lanes[0].points); };
+                b.onmouseleave = _sdMotionGhostClear;
+            });
+        });
+    }
+
+    // ─── The drawer ─────────────────────────────────────────
+    var _sdMotionsTab = 'mine';       // 'mine' | 'factory'
+    var _sdMotionsSearch = '';
+    var _sdMotionsFavOnly = false;
+    function _sdMotionsOpen() {
+        const d = document.getElementById('sd-motions-drawer');
+        return !!(d && !d.classList.contains('translate-x-full'));
+    }
+    window.sdToggleMotions = function() {
+        const d = document.getElementById('sd-motions-drawer');
+        if (!d) return;
+        const opening = d.classList.contains('translate-x-full');
+        d.classList.toggle('translate-x-full');
+        if (opening) sdRenderMotionsDrawer();
+        else _sdMotionGhostClear();
+    };
+    window.sdMotionsSetTab = function(tab) { _sdMotionsTab = tab; sdRenderMotionsDrawer(); };
+    window.sdMotionsSetSearch = function(q) { _sdMotionsSearch = String(q || '').toLowerCase(); sdRenderMotionsDrawer(true); };
+    window.sdMotionsToggleFavFilter = function() { _sdMotionsFavOnly = !_sdMotionsFavOnly; sdRenderMotionsDrawer(); };
+
+    function sdRenderMotionsDrawer(keepSearchFocus) {
+        const grid = document.getElementById('sd-motions-grid');
+        if (!grid) return;
+        const mine = _sdMotionsList();
+        const countEl = document.getElementById('sd-motions-count');
+        if (countEl) countEl.textContent = mine.length + ' saved · ' + (typeof STRIDE_PRESETS !== 'undefined' ? STRIDE_PRESETS.length : 0) + ' factory';
+        const tabM = document.getElementById('sd-motions-tab-mine');
+        const tabF = document.getElementById('sd-motions-tab-factory');
+        if (tabM) tabM.className = 'text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md transition-colors ' + (_sdMotionsTab === 'mine' ? 'text-orange-300 bg-orange-500/15' : 'text-zinc-500 hover:text-zinc-300');
+        if (tabF) tabF.className = 'text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md transition-colors ' + (_sdMotionsTab === 'factory' ? 'text-orange-300 bg-orange-500/15' : 'text-zinc-500 hover:text-zinc-300');
+        const favBtn = document.getElementById('sd-motions-fav-filter');
+        if (favBtn) favBtn.className = 'ml-auto text-[10px] px-2 py-0.5 rounded-full border transition-colors ' + (_sdMotionsFavOnly ? 'border-orange-500/50 text-orange-300 bg-orange-500/10' : 'border-white/10 text-zinc-500 hover:text-orange-300');
+
+        if (_sdMotionsTab === 'factory') {
+            const q = _sdMotionsSearch;
+            const items = (typeof STRIDE_PRESETS !== 'undefined' ? STRIDE_PRESETS : [])
+                .filter(p => !q || (p.name + ' ' + p.cat).toLowerCase().indexOf(q) >= 0);
+            grid.innerHTML = items.map(p =>
+                '<button data-fid="' + p.id + '" class="text-left border border-white/5 hover:border-orange-500/50 bg-white/[.02] hover:bg-orange-500/5 rounded-lg p-1.5 flex flex-col gap-1 transition-colors">'
+                + '<span class="block rounded-md overflow-hidden">' + _presetPreviewSVG(p) + '</span>'
+                + '<span class="text-[9px] font-bold text-zinc-200 truncate px-0.5">' + _sdEsc(p.name) + '</span>'
+                + '<span class="text-[8px] font-bold uppercase tracking-wider text-zinc-600 px-0.5">' + _sdEsc(p.cat) + ' · all lanes</span>'
+                + '</button>').join('')
+                || '<div class="col-span-2 text-[10px] text-zinc-600 text-center py-8">No matches</div>';
+            grid.querySelectorAll('button[data-fid]').forEach(b => {
+                const pid = b.getAttribute('data-fid');
+                b.onclick = () => { sdApplyBankPreset(pid); const st = document.getElementById('sd-canvas-status'); if (st) st.textContent = 'Loaded factory motion · Ctrl+Z undoes'; };
+                b.onmouseenter = () => {
+                    try {
+                        const p = STRIDE_PRESETS.find(x => x.id === pid);
+                        const beats = sdGetBars() * 4;
+                        const lanes = p.gen(Math.max(1, sdCanvasParams.length), beats);
+                        const first = (lanes && lanes[0]) || [];
+                        _sdMotionGhostShow(first.map(pt => ({ t: beats > 0 ? pt.time / beats : 0, v: pt.value, curve: pt.curve || 0 })));
+                    } catch (e) {}
+                };
+                b.onmouseleave = _sdMotionGhostClear;
+            });
+            return;
+        }
+
+        // MINE tab
+        const q = _sdMotionsSearch;
+        let items = mine.filter(m => !q || (m.name || '').toLowerCase().indexOf(q) >= 0);
+        if (_sdMotionsFavOnly) items = items.filter(m => m.fav);
+        if (!items.length) {
+            grid.innerHTML = '<div class="col-span-2 text-[10px] text-zinc-600 text-center py-8 leading-relaxed">'
+                + (mine.length ? 'No matches' : 'Nothing saved yet.<br>Hover a lane and tap the bookmark,<br>or hit Save in the toolbar.') + '</div>';
+            return;
+        }
+        grid.innerHTML = items.map(m => {
+            const meta = (m.bars || 8) + ' bars · ' + (m.lanes.length === 1 ? 'Lane' : m.lanes.length + ' lanes')
+                + (m.lanes.length === 1 && m.lanes[0].device ? ' · ' + _sdEsc(m.lanes[0].device) : '');
+            return '<div data-mid="' + m.id + '" draggable="true" class="sd-motion-card text-left border rounded-lg p-1.5 flex flex-col gap-1 transition-colors cursor-pointer '
+                + 'border-white/5 hover:border-orange-500/50 bg-white/[.02] hover:bg-orange-500/5">'
+                + '<span class="block h-[46px] rounded-md overflow-hidden" style="background:rgba(0,0,0,0.45)">' + _sdMotionSpark(m, 140, 46) + '</span>'
+                + '<span class="flex items-center gap-1 px-0.5 min-w-0">'
+                +   '<span class="sd-motion-name text-[9px] font-bold text-zinc-200 truncate flex-1 min-w-0">' + _sdEsc(m.name) + '</span>'
+                +   '<button data-mact="fav" title="' + (m.fav ? 'Unpin from the toolbar' : 'Pin to the toolbar') + '" class="text-[10px] leading-none ' + (m.fav ? 'text-orange-400' : 'text-zinc-600 hover:text-orange-400') + '">♥</button>'
+                +   '<button data-mact="menu" title="Rename / delete" class="text-[10px] leading-none text-zinc-600 hover:text-zinc-300 px-0.5">⋯</button>'
+                + '</span>'
+                + '<span class="text-[8px] font-bold uppercase tracking-wider text-zinc-600 px-0.5 truncate">' + meta + '</span>'
+                + '</div>';
+        }).join('');
+        grid.querySelectorAll('.sd-motion-card').forEach(card => {
+            const id = card.getAttribute('data-mid');
+            card.addEventListener('click', (e) => {
+                const act = e.target && e.target.getAttribute && e.target.getAttribute('data-mact');
+                if (act === 'fav') {
+                    e.stopPropagation();
+                    const list = _sdMotionsList();
+                    const m = list.find(x => x.id === id);
+                    if (m) { m.fav = !m.fav; _sdMotionsCommit(list); }
+                    return;
+                }
+                if (act === 'menu') { e.stopPropagation(); _sdMotionCardMenu(id, e.clientX, e.clientY); return; }
+                sdApplyMotion(id);
+            });
+            card.addEventListener('mouseenter', () => {
+                const m = _sdMotionsList().find(x => x.id === id);
+                if (m && m.lanes.length) _sdMotionGhostShow(m.lanes[0].points);
+            });
+            card.addEventListener('mouseleave', _sdMotionGhostClear);
+            card.addEventListener('dragstart', (e) => {
+                _sdDragMotionId = id;
+                try { e.dataTransfer.effectAllowed = 'copy'; e.dataTransfer.setData('text/plain', id); } catch (err) {}
+            });
+            card.addEventListener('dragend', () => { _sdDragMotionId = null; _sdMotionGhostClear(); });
+        });
+        if (keepSearchFocus) { const s = document.getElementById('sd-motions-search'); if (s) s.focus(); }
+    }
+
+    function _sdMotionCardMenu(id, clientX, clientY) {
+        const pop = document.createElement('div');
+        pop.style.cssText = 'position:fixed;z-index:10070;background:#101011;border:1px solid rgba(255,255,255,0.12);'
+            + 'border-radius:10px;box-shadow:0 18px 50px rgba(0,0,0,0.8);padding:6px;width:150px;'
+            + "font-family:'Outfit',sans-serif";
+        function item(label, fn, color) {
+            const b = document.createElement('button');
+            b.textContent = label;
+            b.style.cssText = 'display:block;width:100%;text-align:left;font-size:10px;font-weight:700;letter-spacing:0.06em;'
+                + 'text-transform:uppercase;padding:6px 8px;border-radius:6px;cursor:pointer;background:none;border:none;color:' + (color || '#d4d4d8');
+            b.onmouseenter = () => { b.style.background = 'rgba(255,255,255,0.07)'; };
+            b.onmouseleave = () => { b.style.background = 'none'; };
+            b.onclick = (e) => { e.stopPropagation(); pop.remove(); fn(); };
+            pop.appendChild(b);
+        }
+        item('Rename', () => _sdMotionRenameInline(id));
+        item('Delete', () => {
+            const list = _sdMotionsList();
+            const m = list.find(x => x.id === id);
+            _sdMotionsCommit(list.filter(x => x.id !== id));
+            if (m) _sdMotionToast('Deleted · ' + m.name, null);
+        }, '#f87171');
+        document.body.appendChild(pop);
+        const r = pop.getBoundingClientRect();
+        pop.style.left = Math.max(6, Math.min(clientX - 10, window.innerWidth - r.width - 6)) + 'px';
+        pop.style.top = Math.min(clientY + 8, window.innerHeight - r.height - 6) + 'px';
+        setTimeout(() => {
+            const closer = (ev) => { if (!pop.contains(ev.target)) { pop.remove(); document.removeEventListener('mousedown', closer, true); } };
+            document.addEventListener('mousedown', closer, true);
+        }, 0);
+    }
+    function _sdMotionRenameInline(id) {
+        const grid = document.getElementById('sd-motions-grid');
+        const card = grid && grid.querySelector('[data-mid="' + id + '"]');
+        const nameEl = card && card.querySelector('.sd-motion-name');
+        if (!nameEl) return;
+        const m = _sdMotionsList().find(x => x.id === id);
+        if (!m) return;
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        inp.value = m.name;
+        inp.className = 'text-[9px] font-bold text-zinc-100 bg-black/60 border border-orange-500/40 rounded px-1 py-0.5 flex-1 min-w-0 focus:outline-none';
+        nameEl.replaceWith(inp);
+        inp.focus(); inp.select();
+        let done = false;
+        const commit = (save) => {
+            if (done) return; done = true;
+            if (save && inp.value.trim()) {
+                const list = _sdMotionsList();
+                const mm = list.find(x => x.id === id);
+                if (mm) { mm.name = inp.value.trim(); _sdMotionsCommit(list); return; }
+            }
+            sdRenderMotionsDrawer();
+        };
+        inp.onkeydown = (e) => {
+            e.stopPropagation();
+            if (e.key === 'Enter') commit(true);
+            else if (e.key === 'Escape') commit(false);
+        };
+        inp.onblur = () => commit(true);
+        inp.onclick = (e) => e.stopPropagation();
+    }
+
+    // ─── Drag a card onto a specific lane ───────────────────
+    var _sdDragMotionId = null;
+    function _sdWireMotionDnD() {
+        const cont = document.getElementById('sd-canvas-container');
+        if (!cont) return;
+        cont.addEventListener('dragover', (e) => {
+            if (!_sdDragMotionId || sdViewMode !== 'multi' || !sdCanvasEl) return;
+            e.preventDefault();
+            try { e.dataTransfer.dropEffect = 'copy'; } catch (err) {}
+            const r = sdCanvasEl.getBoundingClientRect();
+            const my = e.clientY - r.top;
+            const row = _sdMotionLaneRects.find(x => my >= x.top && my < x.bottom);
+            if (row) {
+                const m = _sdMotionsList().find(x => x.id === _sdDragMotionId);
+                if (m && m.lanes.length && (!_sdGhost || _sdGhost.envelopeId !== row.param.envelopeId)) {
+                    _sdGhost = { envelopeId: row.param.envelopeId, points: m.lanes[0].points };
+                    try { sdDrawCanvasGrid(); } catch (err) {}
+                }
+            }
+        });
+        cont.addEventListener('drop', (e) => {
+            if (!_sdDragMotionId || !sdCanvasEl) return;
+            e.preventDefault();
+            const id = _sdDragMotionId; _sdDragMotionId = null;
+            const r = sdCanvasEl.getBoundingClientRect();
+            const my = e.clientY - r.top;
+            const row = _sdMotionLaneRects.find(x => my >= x.top && my < x.bottom);
+            const m = _sdMotionsList().find(x => x.id === id);
+            if (m && m.lanes.length === 1 && row) sdApplyMotion(id, row.param.envelopeId);
+            else if (m) sdApplyMotion(id);
+            _sdMotionGhostClear();
+        });
+        cont.addEventListener('dragleave', (e) => { if (e.target === cont) _sdMotionGhostClear(); });
+    }
+
+    // ─── Boot (wrapper only; every DOM id is existence-guarded) ──
+    function _sdMotionsInit() {
+        if (!_sdIsWrapMotions()) return;
+        _sdMotionsMigrate();
+        _sdRenderPinnedMotions();
+        _sdWireMotionDnD();
+        // Native prefs adopted after boot: the FILE's list arrives in the event detail
+        // and REPLACES the in-memory library (the file is the source of truth; the
+        // localStorage seed may be stale or lost entirely — see _sdMotionsMem note).
+        window.addEventListener('sd-motions-adopted', (ev) => {
+            const adopted = ev && ev.detail && Array.isArray(ev.detail.motions) ? ev.detail.motions : null;
+            if (adopted && adopted.length) _sdMotionsMem = adopted;
+            _sdRenderPinnedMotions();
+            if (_sdMotionsOpen()) sdRenderMotionsDrawer();
+        });
+        // Esc: cancel a cable drag first, else close the drawer.
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Escape') return;
+            if (_sdLinkDrag) { _sdLinkDragCancel(); return; }
+            if (_sdMotionsOpen()) window.sdToggleMotions();
+        });
+        // Unlock re-sync: wrap the lane-lock toggles so a group member re-adopts the
+        // group curve the moment it unlocks (rule: linked never means "linked but stale").
+        // Deferred to a zero-timer: some of these window functions are assigned further
+        // down the file, after this module has already executed.
+        setTimeout(() => {
+            ['sdToggleLockLane'].forEach(fn => {
+                if (typeof window[fn] !== 'function') return;
+                const orig = window[fn];
+                window[fn] = function(envelopeId) {
+                    const p = sdCanvasParams.find(x => x.envelopeId === envelopeId);
+                    const wasLocked = !!(p && p.locked);
+                    const out = orig.apply(this, arguments);
+                    if (p && wasLocked && !p.locked) _sdLinkResyncAfterUnlock(p);
+                    return out;
+                };
+            });
+            ['sdToggleLockAll', 'sdUnlockAllLanes'].forEach(fn => {
+                if (typeof window[fn] !== 'function') return;
+                const orig = window[fn];
+                window[fn] = function() {
+                    const before = sdCanvasParams.map(p => ({ p: p, locked: !!p.locked }));
+                    const out = orig.apply(this, arguments);
+                    before.forEach(b => { if (b.locked && !b.p.locked) _sdLinkResyncAfterUnlock(b.p); });
+                    return out;
+                };
+            });
+        }, 0);
+    }
+    // shim.js boots the wrapper flags before canvas.js loads, so this is safe to run
+    // now; on the desktop it exits on the first line.
+    try { _sdMotionsInit(); } catch (e) {}
 
     // ─── RECENT GENERATIONS DOCK ───────────────────────────
     // Last 5 .alc files in ~/Desktop/Stride/, always visible at the bottom

@@ -45,7 +45,10 @@ ok('header one-liner matches the new reality', /AU included since 1\.3\.4/.test(
 const cmake = fs.readFileSync(path.join(root, 'CMakeLists.txt'), 'utf8');
 ok('frozen AU identity untouched (SwM0/Strd still the shipped codes)',
    /PLUGIN_MANUFACTURER_CODE\s+Strd/.test(cmake) && /PLUGIN_CODE\s+SwM0/.test(cmake));
-ok('version is 1.3.4', /project\(StrideWrapperM0 VERSION 1\.3\.4/.test(cmake));
+ok('version is 1.3.4+', (function () {   // >= pin: the bus shape ships forward from 1.3.4 (1.4.0 bumped for Motions + Link)
+    const m = cmake.match(/project\(StrideWrapperM0 VERSION (\d+)\.(\d+)\.(\d+)/);
+    return !!m && (+m[1] > 1 || (+m[1] === 1 && (+m[2] > 3 || (+m[2] === 3 && +m[3] >= 4))));
+})());
 
 // ─── BEHAVIORAL — the layout acceptance, replicated ──────────
 (function () {

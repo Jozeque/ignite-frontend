@@ -94,9 +94,25 @@ ok('one-time legacy profile migration (no clobber)', /! userData\.exists\(\) && 
 ok('partial migration discarded + legacy fallback (half a profile reads as corruption)', /userData\.deleteRecursively\(\);[\s\S]{0,80}userData = legacy;/.test(editor));
 ok('legacy path still named for the migration source', /StrideWrapperWebView2/.test(editor));
 
-ok('shim: favSet writes through to the native file', /function favSet\(v\) \{ lsSet\('stride_fav_synths', v\); emit\('prefsSave', \{ prefs: \{ favorites: v \} \}\); \}/.test(shim));
+// 1.4.0: savePrefs on the C++ side is a WHOLE-OBJECT replace, so the shim keeps a
+// merged _natPrefs view (favorites + motions) and every write sends the full object —
+// a favorites-only payload would silently wipe the motions library (and vice versa).
+ok('shim: merged prefs writer sends the FULL object (favorites-only writes would wipe motions)',
+   /function prefsWrite\(key, val\) \{ _natPrefs\[key\] = val; emit\('prefsSave', \{ prefs: _natPrefs \}\); \}/.test(shim));
+ok('shim: favSet writes through to the native file', /function favSet\(v\) \{ lsSet\('stride_fav_synths', v\); prefsWrite\('favorites', v\); \}/.test(shim));
 ok('shim: boot adopts native favorites when present', /listen\('prefsState'[\s\S]{0,400}lsSet\('stride_fav_synths', nat\); populateFav\(\);/.test(shim));
-ok('shim: rescue direction — cache seeds a missing native file', /else \{ var loc = lsGet\('stride_fav_synths', \[\]\); if \(loc\.length\) emit\('prefsSave'/.test(shim));
+ok('shim: rescue direction — cache seeds a missing native file', /else \{ var loc = lsGet\('stride_fav_synths', \[\]\); if \(loc\.length\) prefsWrite\('favorites', loc\); \}/.test(shim));
+ok('shim: motions ride the same durability pattern (adopt native, rescue the cache)',
+   /var natM = _natPrefs\.motions \|\| \[\];/.test(shim) && /window\.sdMotionsPersist = function/.test(shim)
+   && /prefsWrite\('motions', locM\)/.test(shim));
+// 2026-08-17 field bug: the WebView cache can lose flushed writes on plugin teardown,
+// so the cache and file writes are try'd SEPARATELY (a cache throw must never kill the
+// file write), the adopted list rides in the event DETAIL (canvas swaps its in-memory
+// library to it), and a null prefs payload (fresh install) lands as {}.
+ok('shim: cache and file writes are isolated (separate try blocks in sdMotionsPersist)',
+   /try \{ lsSet\('sd_motions', list \|\| \[\]\); \} catch \(e\) \{\}\s*try \{ prefsWrite\('motions', list \|\| \[\]\); \} catch \(e\) \{\}/.test(shim));
+ok('shim: adopt event carries the motions data in detail', /new CustomEvent\('sd-motions-adopted', \{ detail: \{ motions: natM \} \}\)/.test(shim));
+ok('shim: null prefs payload (fresh install) cannot poison _natPrefs', /&& !Array\.isArray\(d\.prefs\)\) \? d\.prefs : \{\};/.test(shim));
 
 // version: ships as 1.1.3+
 (function () {

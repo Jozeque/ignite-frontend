@@ -804,11 +804,13 @@
                         Generate
                     </button>
                 </div>
-                <!-- CENTER: Presets only (Chaos/Bloom/Weave moved to sidebar) -->
+                <!-- CENTER: Motions — your saved moves + the factory bank, one browser.
+                     Replaces the old rose "Presets" button (the bank lives inside as the
+                     Factory tab); same center slot so muscle memory holds. -->
                 <div class="flex items-center justify-center gap-1.5">
-                    <button onclick="sdTogglePresets()" title="Preset bank" class="text-[9px] text-rose-400 hover:text-white bg-transparent hover:bg-rose-500/10 border border-rose-500/50 hover:border-rose-400 px-3 py-1 rounded-lg uppercase tracking-wider font-black transition-all flex items-center gap-1.5 shrink-0">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-                        Presets
+                    <button id="sd-motions-btn" onclick="window.sdToggleMotions && window.sdToggleMotions()" title="Motions — your saved moves and the factory bank. Hover a card to preview it on the active lane; click to load." class="text-[9px] text-orange-400 hover:text-white bg-transparent hover:bg-orange-500/10 border border-orange-500/50 hover:border-orange-400 px-3 py-1 rounded-lg uppercase tracking-wider font-black transition-all flex items-center gap-1.5 shrink-0">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3h14v18l-7-5-7 5z"/></svg>
+                        Motions
                     </button>
                 </div>
                 <!-- RIGHT: empty (grid balance) -->
@@ -837,14 +839,16 @@
                 <button onclick="sdApplySampleHoldLane()" title="Sample &amp; Hold — inject one stepped-random S&amp;H pattern onto the selected lane. Poly = classic rates; grid = every step on the ▾ division. Click again to reroll." class="text-[9px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-2 py-0.5 rounded-l uppercase tracking-wider font-bold transition-colors shrink-0">S&amp;H</button><button onclick="window.sdOpenShModePopup(event)" title="S&amp;H mode — Poly (classic) or a fixed grid: 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/32T" class="sd-sh-mode-btn text-[8px] text-zinc-500 hover:text-orange-400 bg-white/5 hover:bg-orange-500/10 border border-l-0 border-white/10 hover:border-orange-500/30 px-1 py-0.5 rounded-r font-bold transition-colors shrink-0 -ml-px">▾</button>
                 <button id="sd-autorescan-btn" onclick="window.sdToggleAutoRescan()" title="Auto-rescan for the StrideQuick Motion buttons. ON (green) rescans the rack before applying; OFF applies on the loaded params only, to crank the same rack without re-scanning." class="text-[9px] text-emerald-400/90 hover:text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors shrink-0">Rescan: ON</button>
                 <div class="w-px h-5 bg-white/10"></div>
-                <!-- Saved presets — takes remaining space -->
+                <!-- Pinned motions — hearted motions as one-click micro-sparkline chips
+                     (replaced the old "Saved:" preset strip; the browser owns full recall). -->
                 <div class="flex items-center gap-1 flex-1 min-w-0 shrink-0">
-                    <span class="text-[8px] font-bold text-zinc-500 uppercase shrink-0">Saved:</span>
-                    <div id="user-presets-bar" class="flex items-center gap-1 min-w-0 overflow-x-auto custom-scroll"></div>
+                    <span class="text-[8px] font-bold text-zinc-500 uppercase shrink-0">Pinned:</span>
+                    <div id="sd-pinned-motions" class="flex items-center gap-1 min-w-0 overflow-x-auto custom-scroll"></div>
                 </div>
-                <!-- Save/Clear — visually separated -->
+                <!-- Save/Clear — visually separated. Save is instant (auto-named, toast offers
+                     Rename/Undo): selected lanes if any, else the active lane. ▾ picks scope. -->
                 <div class="flex items-center gap-1 shrink-0 pl-1.5 border-l border-white/10">
-                    <button onclick="sdSavePreset()" title="Save active lane as preset" class="text-[9px] text-zinc-400 hover:text-zinc-300 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors">Save Lane</button>
+                    <button onclick="window.sdSaveMotionSmart && sdSaveMotionSmart()" title="Save to Motions — selected lanes if any, else the active lane. Instant, auto-named; rename from the toast." class="text-[9px] text-orange-400/90 hover:text-orange-300 bg-orange-500/5 hover:bg-orange-500/15 border border-orange-500/15 hover:border-orange-500/40 px-2 py-0.5 rounded-l uppercase tracking-wider font-bold transition-colors">Save</button><button onclick="window.sdOpenSaveScopeMenu && sdOpenSaveScopeMenu(event)" title="Save scope — Active lane / Selected lanes / All lanes" class="text-[8px] text-zinc-500 hover:text-orange-400 bg-white/5 hover:bg-orange-500/10 border border-l-0 border-white/10 hover:border-orange-500/30 px-1 py-0.5 rounded-r font-bold transition-colors -ml-px">▾</button>
                     <button onclick="sdClearCurrentCanvas()" class="text-[9px] text-red-400/80 hover:text-red-400 bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 hover:border-red-500/30 px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors">Clear Lane</button>
                 </div>
             </div>
@@ -962,6 +966,15 @@
                     <button onclick="sdSetBarsAndPush(32)" class="sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold transition-colors">32</button>
                     <button onclick="sdToggleTripletLock()" title="Triplet grid lock — the grid AND every motion tool run on 1/2T · 1/4T · 1/8T · 1/16T (Ctrl+3)" class="sd-trip-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 border border-white/10 px-2 py-0.5 rounded font-black transition-colors">T</button>
                 </div>
+                <span class="w-px h-4 bg-white/10"></span>
+                <!-- MOTIONS — save the current move / open the browser (compact is the wrapper's
+                     default mode, so the library entry points must live here too). -->
+                <button onclick="window.sdSaveMotionSmart && sdSaveMotionSmart()" title="Save to Motions — selected lanes if any, else the active lane. Instant, auto-named." class="tool-btn text-orange-400/90 hover:text-orange-300 bg-orange-500/5 hover:bg-orange-500/15 border border-orange-500/15 hover:border-orange-500/40 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold transition-colors">Save</button>
+                <button id="sd-motions-btn-c" onclick="window.sdToggleMotions && window.sdToggleMotions()" title="Motions — your saved moves and the factory bank. Hover a card to preview it on the active lane; click to load." class="tool-btn text-orange-400 hover:text-white bg-transparent hover:bg-orange-500/10 border border-orange-500/50 hover:border-orange-400 px-2.5 py-0.5 rounded text-[9px] uppercase tracking-wider font-black transition-all flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3h14v18l-7-5-7 5z"/></svg>
+                    Motions
+                </button>
+                <div id="sd-pinned-motions-c" class="flex items-center gap-1 min-w-0 overflow-x-auto custom-scroll"></div>
                 <div class="flex-1"></div>
                 <button onclick="sdSelectAll()" class="tool-btn text-zinc-400 hover:text-zinc-100 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold border border-white/10">Select All</button>
                 <button onclick="sdToggleLockAll()" class="tool-btn text-zinc-400 hover:text-zinc-100 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold border border-white/10">Lock All</button>
@@ -1145,6 +1158,39 @@
                 <p class="text-[9px] text-zinc-600">Loading presets...</p>
             </div>
         </div>
+    </div>
+
+    <!-- ===================== MOTIONS DRAWER =====================
+         Save / browse / load lane curves. A right-side DRAWER, not a modal: the
+         lanes are the apply target and must stay visible — hovering a card
+         ghost-previews it on the active lane. Rendered by canvas.js
+         (sdRenderMotionsDrawer); this is only the shell. -->
+    <div id="sd-motions-drawer" class="fixed top-9 bottom-0 right-0 w-[340px] z-[8990] bg-zinc-950/[.98] border-l border-orange-500/25 shadow-2xl flex flex-col transition-transform duration-300 translate-x-full" style="font-family:'Outfit',sans-serif; backdrop-filter:blur(10px)">
+        <div class="px-4 pt-3 pb-2.5 border-b border-white/5 flex flex-col gap-2.5 shrink-0">
+            <div class="flex items-baseline gap-2">
+                <h3 class="text-[12px] font-black uppercase tracking-[0.22em] text-orange-400">Motions</h3>
+                <span id="sd-motions-count" class="text-[9px] font-bold text-zinc-600"></span>
+                <button onclick="window.sdToggleMotions && sdToggleMotions()" class="ml-auto text-zinc-500 hover:text-zinc-200 text-base leading-none px-1" aria-label="Close">×</button>
+            </div>
+            <input id="sd-motions-search" type="text" placeholder="Search motions…" oninput="window.sdMotionsSetSearch && sdMotionsSetSearch(this.value)" class="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/40">
+            <div class="flex items-center gap-1.5">
+                <button id="sd-motions-tab-mine" onclick="window.sdMotionsSetTab && sdMotionsSetTab('mine')" class="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md text-orange-300 bg-orange-500/15 transition-colors">Mine</button>
+                <button id="sd-motions-tab-factory" onclick="window.sdMotionsSetTab && sdMotionsSetTab('factory')" class="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md text-zinc-500 hover:text-zinc-300 transition-colors">Factory</button>
+                <button id="sd-motions-fav-filter" onclick="window.sdMotionsToggleFavFilter && sdMotionsToggleFavFilter()" title="Show favorites only" class="ml-auto text-[10px] px-2 py-0.5 rounded-full border border-white/10 text-zinc-500 hover:text-orange-300 transition-colors">♥</button>
+            </div>
+        </div>
+        <div id="sd-motions-grid" class="flex-1 overflow-y-auto custom-scroll p-3 grid grid-cols-2 gap-2 content-start"></div>
+        <div class="border-t border-white/5 px-3 py-2.5 shrink-0">
+            <button onclick="window.sdSaveMotionSmart && sdSaveMotionSmart()" class="w-full text-[9px] font-black uppercase tracking-widest text-orange-300 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 rounded-lg py-2 transition-colors">+ Save current motion</button>
+        </div>
+    </div>
+
+    <!-- Motions toast — the save/load acknowledgement. Rename edits the name without a
+         modal; Undo removes the just-saved motion. Wired by canvas.js. -->
+    <div id="sd-motion-toast" class="hidden fixed bottom-10 left-1/2 -translate-x-1/2 z-[9200] flex items-center gap-2.5 bg-zinc-900/95 border border-orange-500/40 rounded-full pl-4 pr-1.5 py-1.5 shadow-2xl" style="font-family:'Outfit',sans-serif; backdrop-filter:blur(8px)">
+        <span id="sd-motion-toast-msg" class="text-[10px] font-bold uppercase tracking-wider text-zinc-200 whitespace-nowrap"></span>
+        <button id="sd-motion-toast-rename" class="text-[9px] font-black uppercase tracking-wider text-zinc-300 hover:text-white bg-white/10 hover:bg-white/20 border border-white/15 rounded-full px-2.5 py-1 transition-colors">Rename</button>
+        <button id="sd-motion-toast-undo" class="text-[9px] font-black uppercase tracking-wider text-zinc-300 hover:text-white bg-white/10 hover:bg-white/20 border border-white/15 rounded-full px-2.5 py-1 transition-colors">Undo</button>
     </div>
 
     <!-- Scripts -->

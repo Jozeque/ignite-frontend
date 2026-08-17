@@ -158,6 +158,13 @@ public:
     void setMappedLock (int pos, bool on);                        // message thread (editor bridge)
     void setMappedLocks (const juce::Array<juce::var>& items);    // batch of {id,on} - ONE lock pass (Lock All / Unlock All / Lock current)
     juce::Array<int> getMappedLocks() const;                      // 1/0 per mapped param, mapped order
+    // Param LINK groups (2026-08-17): lanes wired together share one curve. The CANVAS owns
+    // group semantics + the actual point mirroring; the engine stores group id + invert flag
+    // per mapping so links persist with the project / .stridechain and echo on every rebuild
+    // (the lock/speed ownership story - never localStorage).
+    void setMappedLink (int pos, int group, bool inv);            // message thread (editor bridge); group 0 = unlink
+    void setMappedLinks (const juce::Array<juce::var>& items);    // batch of {id,g,inv} - ONE lock pass (link create / dissolve)
+    juce::Array<juce::var> getMappedLinks() const;                // {g,inv} per mapped param, mapped order
     // Duplicate ONE device in place (Alt+drag a chip): same plugin, same patch, same mapped
     // params (fresh macro slots so the source keeps its DAW automation binding), same
     // ranges/colors/loop/quant - but EMPTY lanes; the copy starts with no modulation.
@@ -352,8 +359,11 @@ private:
                                                                                      // last client-only lane attribute, living in the WebView's ONE shared
                                                                                      // localStorage profile - so locks (and the lanes saved with them) leaked
                                                                                      // between instances hosting the same chain (field report 2026-08-03)
-                    float speed = 1.0f; };                                           // per-lane rate multiplier (1 = ride the track; 2 = double-time) - the
+                    float speed = 1.0f;                                              // per-lane rate multiplier (1 = ride the track; 2 = double-time) - the
                                                                                      // groove grid's replacement, same engine-ownership story (2026-08-04)
+                    int  linkGroup = 0;                                              // param-link group id (0 = unlinked; >0 = members share ONE curve) - the
+                                                                                     // canvas owns the mirroring; the engine only persists/echoes (v8, 2026-08-17)
+                    bool linkInv = false; };                                         // inverted member of its link group (receives the flipped shape)
     std::vector<MapRef> mapped;               // user-mapped params across the chain
 
     // A relabelable VST3 parameter. A free slot reads "Stride N"; an assigned slot takes the
@@ -469,7 +479,9 @@ private:
                      std::vector<int> col;                                    // per-param lane colors (parallel to params; -1 = AUTO)   // per-param range bands (parallel to params; char ≠ vector<bool>)
                      std::vector<float> lpb, qst;                             // per-param loop boundary + quant step (parallel to params; 0 = off) - 1.3.0
                      std::vector<char> lkd;                                   // per-param lane locks (parallel to params; char ≠ vector<bool>)
-                     std::vector<float> spd; };                               // per-param lane speed (parallel to params; 1 = normal) - 2026-08-04
+                     std::vector<float> spd;                                  // per-param lane speed (parallel to params; 1 = normal) - 2026-08-04
+                     std::vector<int> lnk;                                    // per-param link group id (parallel to params; 0 = unlinked) - 2026-08-17
+                     std::vector<char> lin; };                                // per-param link invert flag (parallel to params) - 2026-08-17
         std::vector<Dev> devices;          // 1 for a single ✕, the whole chain for Clear
     };
     RemovedSnapshot lastRemoved;
