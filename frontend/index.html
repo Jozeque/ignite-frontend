@@ -260,12 +260,14 @@
   .pill-warm{border-color:rgba(198,113,43,.4);background:rgba(198,113,43,.12);color:var(--copper-lt)}
   .pill-teal{border-color:rgba(47,116,142,.4);background:rgba(47,116,142,.12);color:var(--teal-lt)}
   .chip{font-size:9px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;border-radius:999px;padding:3px 9px}
-  /* Artist credit links under each quote (site, SoundCloud, Spotify, Linktree). */
-  .credit{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;line-height:1;
-    color:var(--ink3);border:1px solid var(--line);background:var(--raise);border-radius:999px;padding:5px 10px;
+  /* Artist credit links under each quote. ICON ONLY on purpose: with text labels a
+     4-link artist wrapped to two rows and pushed that card's photo and name out of
+     line with the others. One row of icons keeps every card's caption aligned. */
+  .credit{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;
+    color:var(--ink3);border:1px solid var(--line);background:var(--raise);border-radius:10px;
     text-decoration:none;transition:color .15s,border-color .15s,transform .15s}
   .credit:hover{color:var(--copper-lt);border-color:rgba(198,113,43,.42);transform:translateY(-1px)}
-  .credit svg{width:13px;height:13px;flex:none}
+  .credit svg{width:15px;height:15px;flex:none}
   .divider{height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
   .lane{fill:none;stroke-width:2}
   details>summary{list-style:none}details>summary::-webkit-details-marker{display:none}
@@ -504,14 +506,14 @@
             </div>
           </div>
           <div class="flex flex-wrap gap-2 mt-4">
-            <a class="credit" href="https://oblium.com" target="_blank" rel="noopener noreferrer">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9.2"/><ellipse cx="12" cy="12" rx="4.1" ry="9.2"/><path d="M2.8 12h18.4"/></svg>oblium.com</a>
-            <a class="credit" href="https://soundcloud.com/oblium" target="_blank" rel="noopener noreferrer">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M2 14.5v4M5.5 12v6.5M9 10v8.5"/><path d="M12.5 8.6v9.9h7.7a3.3 3.3 0 0 0 .3-6.6 5.2 5.2 0 0 0-8-3.3z"/></svg>SoundCloud</a>
-            <a class="credit" href="https://labyrinthine-crew.org" target="_blank" rel="noopener noreferrer">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9.2"/><ellipse cx="12" cy="12" rx="4.1" ry="9.2"/><path d="M2.8 12h18.4"/></svg>labyrinthine-crew.org</a>
-            <a class="credit" href="https://optinervear.com" target="_blank" rel="noopener noreferrer" title="Oblium's studio">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9.2"/><ellipse cx="12" cy="12" rx="4.1" ry="9.2"/><path d="M2.8 12h18.4"/></svg>Studio &middot; optinervear.com</a>
+            <a class="credit" href="https://oblium.com" target="_blank" rel="noopener noreferrer" title="oblium.com" aria-label="Oblium's website">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9.2"/><ellipse cx="12" cy="12" rx="4.1" ry="9.2"/><path d="M2.8 12h18.4"/></svg></a>
+            <a class="credit" href="https://soundcloud.com/oblium" target="_blank" rel="noopener noreferrer" title="SoundCloud" aria-label="Oblium on SoundCloud">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M2 14.5v4M5.5 12v6.5M9 10v8.5"/><path d="M12.5 8.6v9.9h7.7a3.3 3.3 0 0 0 .3-6.6 5.2 5.2 0 0 0-8-3.3z"/></svg></a>
+            <a class="credit" href="https://labyrinthine-crew.org" target="_blank" rel="noopener noreferrer" title="labyrinthine-crew.org" aria-label="Labyrinthine Crew">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.4"/><path d="M2.5 19.5a6.5 6.5 0 0 1 13 0"/><path d="M16.5 5.2a3.4 3.4 0 0 1 0 5.6"/><path d="M18 14.4a6.5 6.5 0 0 1 3.5 5.1"/></svg></a>
+            <a class="credit" href="https://optinervear.com" target="_blank" rel="noopener noreferrer" title="Studio: optinervear.com" aria-label="Optinervear, Oblium's studio">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M5.5 3v5.4M5.5 14v7M12 3v9M12 17.5v3.5M18.5 3v2.4M18.5 11v10"/><circle cx="5.5" cy="11.2" r="2.3"/><circle cx="12" cy="14.7" r="2.3"/><circle cx="18.5" cy="8.2" r="2.3"/></svg></a>
           </div>
         </figcaption>
       </figure>
@@ -530,8 +532,8 @@
             </div>
           </div>
           <div class="flex flex-wrap gap-2 mt-4">
-            <a class="credit" href="https://linktr.ee/andromedacolt" target="_blank" rel="noopener noreferrer">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 22v-7M6 4.5 12 10.4l6-5.9M4.5 10.4h15"/></svg>Linktree</a>
+            <a class="credit" href="https://linktr.ee/andromedacolt" target="_blank" rel="noopener noreferrer" title="Linktree" aria-label="Andromeda Colt on Linktree">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 22v-7M6 4.5 12 10.4l6-5.9M4.5 10.4h15"/></svg></a>
           </div>
         </figcaption>
       </figure>
@@ -550,8 +552,8 @@
             </div>
           </div>
           <div class="flex flex-wrap gap-2 mt-4">
-            <a class="credit" href="https://open.spotify.com/artist/5jQ02Q9ALzCE32GVq2bIW9" target="_blank" rel="noopener noreferrer">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9.6"/><path d="M7 15.2c3-.8 6.2-.5 8.8 1"/><path d="M6.2 11.7c3.7-1 7.7-.6 10.9 1.3"/><path d="M5.7 8.1c4.4-1.2 9.2-.7 13 1.6"/></svg>Spotify</a>
+            <a class="credit" href="https://open.spotify.com/artist/5jQ02Q9ALzCE32GVq2bIW9" target="_blank" rel="noopener noreferrer" title="Spotify" aria-label="Jozeque on Spotify">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9.6"/><path d="M7 15.2c3-.8 6.2-.5 8.8 1"/><path d="M6.2 11.7c3.7-1 7.7-.6 10.9 1.3"/><path d="M5.7 8.1c4.4-1.2 9.2-.7 13 1.6"/></svg></a>
           </div>
         </figcaption>
       </figure>
