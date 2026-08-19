@@ -112,6 +112,9 @@ private:
     // height - the canvas keeps its size instead of paying for the character. preRepH is the
     // height to fall back to on deactivate (session-only, same story as fullscreen/pin).
     int repZoneH = 0, preRepH = 0;
+    // OPT-IN floating character window (see ReptileOverlay.h). Owned here, destroyed with
+    // the editor. Null unless the user turns it on, so the default path is untouched.
+    std::unique_ptr<class ReptileOverlay> repOverlay;
    #if JUCE_MAC
     void* lastForwardView = nullptr;       // the NSView WE registered with the key forwarder — the dtor unregisters exactly this (multi-instance safe)
    #endif

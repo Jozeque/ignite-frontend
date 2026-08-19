@@ -56,6 +56,17 @@
   // restores the original height. If a host refuses the resize the strip still opens,
   // it just costs a little canvas, so the mode degrades rather than breaks.
   window.sdReptileZoneRequest = function (h) { emit('reptileZone', { h: Math.max(0, h | 0) }); };
+  // OPT-IN: float the character over the desktop instead of inside the window. Creates a
+  // second always-on-top window in C++, which is why it is off by default - see the risk
+  // note at the top of ReptileOverlay.h.
+  window.sdReptileFloatRequest = function (on) { emit('reptileFloat', { on: !!on }); };
+
+  // The host answers with the strip it could actually FIT (a tall window near the bottom
+  // of the display gets less than it asked for). The character scales to what it got.
+  listen('reptileZoneState', function (d) {
+    try { if (window.sdReptileZoneGranted) window.sdReptileZoneGranted(Math.max(0, (d && d.h) | 0)); }
+    catch (e) { showErr('reptileZoneState: ' + e.message); }
+  });
   listen('fullscreenState', function (d) {
     var ic = document.getElementById('sd-fs-icon'), btn = document.getElementById('sd-fullscreen-btn');
     if (! ic) return;

@@ -46,7 +46,7 @@
     breath: 0,
     tongue: { ext: 0, phase: 'idle', t: 0, ang: -Math.PI / 2, len: 0, hold: 0, target: null, wob: 0 },
     contact: { at: null, t: 0 },
-    nextIdle: 0, track: { on: false, until: 0 }
+    nextIdle: 0, track: { on: false, until: 0 }, floating: false
   };
   const anim = [];
   let raf = 0, last = performance.now();
@@ -98,19 +98,28 @@
 
   /* ── placement: paws land on the top edge of the Stride chrome ────── */
   let px = 0, py = 0;
-  // Scale is driven by the WINDOW HEIGHT, not its width. The cost of this feature is the
-  // strip it adds at the top, so that strip is what gets budgeted: ~22% of the window,
-  // capped, which lands the creature's width at roughly 16-20% as specified. Width-driven
-  // scaling looked right on a wide window and swallowed a short one.
+  // The creature's size is the size of the STRIP it adds at the top - that strip is the
+  // whole cost of the feature, so it is what gets budgeted. It is deliberately NOT tied to
+  // the window's width or height beyond a gentle nudge: a fixed, readable character that
+  // stays the same whether Stride is small or maximised. Field report 2026-08-19: window-
+  // relative sizing made it a speck on a small window and a poster on a big one.
+  const ZONE_WANT = 152;                           // the strip we ask the host for
+  let zoneGot = ZONE_WANT;                         // what the host could actually fit
   function place() {
-    const w = window.innerWidth || 900, h = window.innerHeight || 620;
-    const wantZone = clamp(h * 0.22, 96, 196);
-    st.scale = clamp(wantZone / REP_ART.EDGE, .10, .42);
+    const w = window.innerWidth || 900;
+    st.scale = clamp(zoneGot / REP_ART.EDGE, .10, .42);
     px = w / 2 - (REP_ART.W / 2) * st.scale;
     py = zoneH() - REP_ART.EDGE * st.scale;        // wrist line sits on the zone's bottom edge
     apply();
   }
   const zoneH = () => (st.on ? Math.round(REP_ART.EDGE * st.scale) + 4 : 0);
+  // The host grants what fits on the display; scale to that rather than to the request.
+  window.sdReptileZoneGranted = function (h) {
+    if (!st.on) return;
+    zoneGot = clamp(h || 0, 0, ZONE_WANT);
+    zone.style.height = zoneGot + 'px';
+    place();
+  };
   const toScreen = (x, y) => [px + x * st.scale, py + y * st.scale];
 
   /* ── tongue ribbon ───────────────────────────────────────────────── */
@@ -184,7 +193,7 @@
     st.on = true; st.phase = 'rising'; st.rise = 1;
     st.face.blink = 0; st.face.blep = 0;
     gRep.setAttribute('opacity', '1');
-    place(); requestZone(zoneH());
+    zoneGot = ZONE_WANT; place(); requestZone(ZONE_WANT);
     document.body.classList.add('sd-reptile-on');
     tween(1420, p => {
       let y;
@@ -207,6 +216,7 @@
       if (p > .70 && p < .88) { const b = (p - .70) / .18; st.face.blink = b < .5 ? b * 2 : 1 - (b - .5) * 2; }
     }, () => {
       st.on = false; st.phase = 'hidden'; st.rise = 1; st.face.blink = 0; st.body.tdy = 0;
+      try { window.sdReptileFloatRequest && window.sdReptileFloatRequest(false); } catch (e) {}
       gRep.setAttribute('opacity', '0');
       requestZone(0);
       document.body.classList.remove('sd-reptile-on');
@@ -215,6 +225,29 @@
     paintTrigger();
   }
   function toggle() { st.on ? deactivate() : activate(); paintTrigger(); }
+
+  /* ── OPT-IN: float the character over the desktop ─────────────────
+     Off by default. When on, the in-window creature and its strip step aside entirely
+     so there is only ever ONE gecko, and a C++ always-on-top window takes over above
+     the plugin. The tongue stays behind with the in-window version for now: the
+     floating window is drawn natively and has no tongue of its own yet. */
+  function setFloating(v) {
+    const want = !!v;
+    if (want === st.floating) return;
+    st.floating = want;
+    try { if (window.sdReptileFloatRequest) window.sdReptileFloatRequest(want && st.on); } catch (e) {}
+    if (want) {
+      retract();
+      gRep.setAttribute('opacity', '0');
+      requestZone(0);                              // give the height back to Stride
+    } else if (st.on) {
+      gRep.setAttribute('opacity', '1');
+      zoneGot = ZONE_WANT; place(); requestZone(ZONE_WANT);
+    }
+    paintTrigger();
+    const stt = document.getElementById('sd-canvas-status');
+    if (stt) stt.textContent = want ? 'Reptile floating above Stride' : 'Reptile back inside Stride';
+  }
 
   /* ── idle scheduler: mostly stillness ────────────────────────────── */
   function idleTick(now) {
@@ -297,6 +330,7 @@
   function paintTrigger() {
     if (!trigger) return;
     trigger.style.opacity = st.on ? '.95' : '.28';
+    trigger.style.outline = st.floating ? '1px solid rgba(198,113,43,.55)' : 'none';
     trigger.style.background = st.on ? 'rgba(198,113,43,.18)' : 'transparent';
   }
   function mountTrigger() {
@@ -315,6 +349,7 @@
     trigger.addEventListener('mouseenter', () => { trigger.style.opacity = '.85'; });
     trigger.addEventListener('mouseleave', paintTrigger);
     trigger.addEventListener('click', toggle);
+    trigger.addEventListener('contextmenu', (e) => { e.preventDefault(); setFloating(!st.floating); });
     const fs = document.getElementById('sd-fullscreen-btn');
     if (fs && fs.parentNode) fs.parentNode.insertBefore(trigger, fs.nextSibling); else bar.appendChild(trigger);
   }
@@ -326,6 +361,7 @@
     strikeEl: (el) => { if (!el) return; const r = el.getBoundingClientRect();
                         strikeAt(r.left + r.width / 2, r.top + r.height / 2); },
     isOn: () => st.on,
+    setFloating, isFloating: () => st.floating,
     setArt: (o) => { Object.assign(REP_ART, o || {});
                      [[imgIdle, REP_ART.idle], [imgBlink, REP_ART.blink], [imgBlep, REP_ART.blep]]
                        .forEach(([el, src]) => { el.setAttribute('href', src);

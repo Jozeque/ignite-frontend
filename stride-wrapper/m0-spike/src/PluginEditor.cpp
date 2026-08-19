@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "ReptileOverlay.h"
 #include "BinaryData.h"
 #include "License.h"
 #include "MacKeyForward.h"
@@ -266,16 +267,48 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
         // HostedWindows kills only the EDITORS — instances keep running and reopen
         // fresh through getHostedEditor, the exact lifecycle removeDevice/clearChain use.
         .withEventListener ("closeSynth",   [this] (juce::var)     { synthWindows.clear(); })
+        // OPT-IN: float the character over the desktop instead of inside the window.
+        // Created on demand so a user who never enables it never gets a second window.
+        .withEventListener ("reptileFloat", [this] (juce::var v)   {
+            const bool wantFloat = (bool) v.getProperty ("on", false);
+            if (wantFloat)
+            {
+                if (repOverlay == nullptr) repOverlay = std::make_unique<ReptileOverlay> (*this);
+                repOverlay->setActive (true);
+            }
+            else if (repOverlay != nullptr)
+            {
+                repOverlay->setActive (false);
+                repOverlay.reset();                                 // no idle window left behind
+            }
+        })
         // Reptile Mode opens/closes its character strip. Presentation only: this resizes
         // the editor and nothing else. Same setSize path fullscreen and the pin modes use.
         .withEventListener ("reptileZone",  [this] (juce::var v)   {
-            const int h = juce::jlimit (0, 400, (int) v.getProperty ("h", 0));
-            if (h == repZoneH) return;
-            if (repZoneH == 0 && h > 0) preRepH = getHeight();      // opening: remember the working height
+            int want = juce::jlimit (0, 400, (int) v.getProperty ("h", 0));
+            if (repZoneH == 0 && want > 0) preRepH = getHeight();   // opening: remember the working height
             const int base = (preRepH > 0 ? preRepH : getHeight());
-            repZoneH = h;
-            setSize (getWidth(), h > 0 ? base + h : base);
-            if (h == 0) preRepH = 0;
+            // NEVER push the window off the display. Field report 2026-08-19: on a tall
+            // window the extra strip shoved Stride past the bottom of the screen. Grow by
+            // what actually FITS and tell the page what it got, so the character scales to
+            // the granted strip instead of assuming it received the full request.
+            if (want > 0)
+            {
+                auto& displays = juce::Desktop::getInstance().getDisplays();
+                auto* disp = displays.getDisplayForRect (getScreenBounds());
+                if (disp == nullptr) disp = displays.getPrimaryDisplay();
+                if (disp != nullptr)
+                    want = juce::jmax (0, juce::jmin (want, disp->userArea.getHeight() - 80 - base));
+            }
+            repZoneH = want;
+            setSize (getWidth(), want > 0 ? base + want : base);
+            if (want == 0) preRepH = 0;
+            if (web != nullptr)
+            {
+                auto* o = new juce::DynamicObject();
+                o->setProperty ("h", want);
+                web->emitEventIfBrowserIsVisible ("reptileZoneState", juce::var (o));
+            }
         })
         .withEventListener ("openSynthOne", [this] (juce::var v)   { openOneSynthWindow ((int) v.getProperty ("i", -1)); })
         .withEventListener ("transportKey", [this] (juce::var v)   { forwardTransportKey (v.getProperty ("key", "space").toString()); })

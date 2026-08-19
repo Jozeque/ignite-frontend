@@ -142,16 +142,22 @@
            Replaces ONLY the lane canvas. Header, toolbars, device bar, global sliders
            and status bar are untouched, so every control stays exactly where the user
            already knows it. Cards deliberately carry no shape/motion tools. */
+        /* Cards are a FIXED readable size. Stretching them to fill the window meant a
+           small window made every parameter unreadable and a big one blew each card up
+           into a poster (field report 2026-08-19). Now the window only decides HOW MANY
+           columns fit; the card itself never changes, and overflow scrolls. */
         #sd-compact{flex:1;min-width:0;overflow-y:auto;overflow-x:hidden;
-            background:rgba(0,0,0,.22);padding:9px;gap:8px;align-content:start;
-            grid-template-columns:repeat(auto-fill,minmax(212px,1fr))}
+            background:rgba(0,0,0,.22);padding:10px;gap:8px;align-content:start;
+            justify-content:center;
+            grid-template-columns:repeat(auto-fill,232px)}
+        @media (max-width:560px){ #sd-compact{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))} }
         #sd-compact::-webkit-scrollbar{width:9px}
         #sd-compact::-webkit-scrollbar-thumb{background:rgb(var(--sb-thumb));border-radius:9px;
             border:2px solid transparent;background-clip:padding-box}
         .sdc-empty{grid-column:1/-1;text-align:center;color:rgb(var(--z500));font-size:11px;
             padding:40px 20px;line-height:1.7}
         .sdc-empty b{color:rgb(var(--o400))}
-        .sdc{position:relative;background:linear-gradient(180deg,#141417,#0b0b0d);
+        .sdc{position:relative;min-width:0;background:linear-gradient(180deg,#141417,#0b0b0d);
             border:1px solid rgba(255,255,255,.07);border-left:2px solid var(--lc);
             border-radius:7px;padding:7px 9px 7px;display:flex;flex-direction:column;gap:5px;
             box-shadow:0 1px 0 rgba(255,255,255,.035) inset,0 8px 18px -12px #000;

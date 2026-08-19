@@ -93,8 +93,20 @@ ok('the character zone never intercepts clicks', /id = 'sd-rep-zone'[\s\S]{0,220
 // ── 7. WINDOW BOUNDS: grow the editor, do not steal canvas ──
 ok('the page asks the host for a character zone', /window\.sdReptileZoneRequest = function \(h\)/.test(shim) &&
    /emit\('reptileZone'/.test(shim));
-ok('the editor grows by exactly the zone height and restores it', /"reptileZone"/.test(editor) &&
-   /setSize \(getWidth\(\), h > 0 \? base \+ h : base\)/.test(editor));
+ok('the editor grows by the granted zone height and restores it', /"reptileZone"/.test(editor) &&
+   /setSize \(getWidth\(\), want > 0 \? base \+ want : base\)/.test(editor));
+// 2026-08-19: a tall window shoved Stride off the bottom of the display. The host now
+// grants only what fits and reports it back, and the character scales to what it got.
+ok('the grant is clamped to the display work area',
+   /jmin \(want, disp->userArea\.getHeight\(\) - 80 - base\)/.test(editor));
+ok('the granted height is reported back to the page', /"reptileZoneState"/.test(editor) &&
+   /window\.sdReptileZoneGranted/.test(shim));
+ok('the character scales to the GRANTED strip, not the request',
+   /window\.sdReptileZoneGranted = function \(h\)/.test(rep) && /zoneGot \/ REP_ART\.EDGE/.test(rep));
+ok('character size is fixed, not window-relative (small window made it a speck)',
+   /const ZONE_WANT = 152;/.test(rep) && !/h \* 0\.22/.test(rep));
+ok('cards are a fixed readable width; the window only decides how many fit',
+   /grid-template-columns:repeat\(auto-fill,232px\)/.test(indexH) && /justify-content:center/.test(indexH));
 ok('the pre-zone height is remembered for restore', /int repZoneH = 0, preRepH = 0;/.test(edH));
 ok('the zone request is clamped (a bad value can never resize the plugin absurdly)',
    /juce::jlimit \(0, 400, \(int\) v\.getProperty \("h", 0\)\)/.test(editor));
@@ -118,6 +130,33 @@ ok('the three states ship as separate resources, not baked into the JS',
    /ui\/reptile_blep\.webp/.test(cmake) && !/data:image\/webp;base64/.test(rep));
 ok('the new layers are registered as binary data', /ui\/reptile\.js/.test(cmake) && /ui\/compact\.js/.test(cmake));
 ok('webp is served with the right mime type', /endsWithIgnoreCase \(".webp"\)  \? "image\/webp"/.test(editor));
+
+// ── 9b. FLOATING OVERLAY (opt-in). This is the risky one: the codebase already has an
+//        open always-on-top focus bug, so the guards matter more than the feature. ──
+const ovl = rd(path.join(W, 'src', 'ReptileOverlay.h'));
+ok('the floating window is OPT-IN and defaults off', /bool  active = false/.test(ovl) &&
+   /getProperty \("on", false\)/.test(editor));
+ok('nothing is created until it is switched on', /if \(repOverlay == nullptr\) repOverlay = std::make_unique<ReptileOverlay>/.test(editor) &&
+   /repOverlay\.reset\(\);/.test(editor));
+// strip comments: the header explains what it deliberately does NOT call, and a naive
+// negative match would fail on the explanation rather than on any real call
+const ovlCode = ovl.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+ok('it can never take focus', /setWantsKeyboardFocus \(false\)/.test(ovlCode)
+   && !/grabKeyboardFocus/.test(ovlCode) && !/toFront/.test(ovlCode));
+ok('it is transparent to the mouse twice over (peer flag + hit test)',
+   /windowIgnoresMouseClicks/.test(ovl) && /bool hitTest \(int, int\) override \{ return false; \}/.test(ovl)
+   && /setInterceptsMouseClicks \(false, false\)/.test(ovl));
+ok('it HIDES whenever our app is not in front (the focus-bug mitigation)',
+   /juce::Process::isForegroundProcess\(\)/.test(ovl));
+ok('it hides when the editor is not showing', /target\.isShowing\(\)/.test(ovl));
+ok('it follows the editor rather than owning a position', /target\.getScreenBounds\(\)/.test(ovl));
+ok('art anchors are named constants, not magic numbers', /kArtEdge = 383/.test(ovl) && /kVisibleH/.test(ovl));
+ok('PNG copies exist for the native overlay (JUCE cannot decode WebP)',
+   /ui\/rep_idle\.png/.test(cmake) && /loadPng \("rep_idle\.png"\)/.test(ovl));
+ok('turning the mode off also tears the floating window down',
+   /sdReptileFloatRequest && window\.sdReptileFloatRequest\(false\)/.test(rep));
+ok('only one creature at a time: floating hides the in-window one and gives the strip back',
+   /gRep\.setAttribute\('opacity', '0'\);[\s\S]{0,120}requestZone\(0\)/.test(rep));
 
 // ── 10. NO PRODUCT BEHAVIOUR TOUCHED ──
 ok('no DSP / mapping / transport / serialization words appear in either layer',
