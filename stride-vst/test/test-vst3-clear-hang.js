@@ -79,9 +79,11 @@ const fnBody = (src, sig) => {
 // 3. removeNode / setState teardown / duplicateNode — same treatment
 // ─────────────────────────────────────────────────────────────
 (function () {
-    const b = fnBody(procC, 'void StrideWrapperProcessor::removeNode (int index)');
+    // returns bool since 2026-08-19: a refusal has to be REPORTED, because the caller has
+    // already closed the device's window and would otherwise claim a removal that never was
+    const b = fnBody(procC, 'bool StrideWrapperProcessor::removeNode (int index)');
     ok('removeNode refuses when wedged + detaches the node under the lock',
-       /hostLockFreeBounded \(8\)\) return;/.test(b) && /doomed = std::move \(chain\[\(size_t\) index\]\);/.test(b));
+       /hostLockFreeBounded \(8\)\) return false;/.test(b) && /doomed = std::move \(chain\[\(size_t\) index\]\);/.test(b));
     ok('removeNode captures the patch + destroys OUTSIDE the lock',
        /\}\s*\n\s*\/\/ OUTSIDE the lock[\s\S]{0,300}doomed\.inst->getStateInformation \(lastRemoved\.devices\[0\]\.state\);[\s\S]{0,100}doomed = \{\};/.test(b));
 })();

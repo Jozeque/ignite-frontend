@@ -36,7 +36,7 @@ public:
     static constexpr float kVisibleH = 132.0f;     // shortest he ever stands above the plugin
     static constexpr float kMaxVisibleH = 232.0f;  // and the tallest, so a big window can't summon a monster
     static constexpr float kSpanOfWindow = 0.23f;  // his arm span, as a fraction of Stride's width
-    static constexpr int   kGrip = 11;             // px of Stride's top edge his fingers curl over
+    static constexpr int   kGripPad = 2;           // a hair more, so the claw tips are never shaved
     static constexpr int   kMouthX = 215, kMouthY = 239;   // where the tongue leaves the face, in art pixels
 
     explicit ReptileOverlay (juce::Component& editorToFollow)
@@ -45,6 +45,7 @@ public:
         idle  = loadPng ("rep_idle.png");
         blink = loadPng ("rep_blink.png");
         blep  = loadPng ("rep_blep.png");
+        open  = loadPng ("rep_open.png");   // mouth open, NO painted tongue - the strike frame
 
         setOpaque (false);
         setInterceptsMouseClicks (false, false);
@@ -79,7 +80,7 @@ public:
             // is the DAW itself.
             juce::Graphics::ScopedSaveState body (g);
             if (! editorLocal.isEmpty())
-                g.excludeClipRegion (editorLocal.withTrimmedTop (kGrip));
+                g.excludeClipRegion (editorLocal.withTrimmedTop (gripPx (s)));
 
             g.setOpacity (1.0f);
             g.drawImage (idle, ax, ay, w, h, 0, 0, idle.getWidth(), idle.getHeight(), false);
@@ -92,6 +93,14 @@ public:
             {
                 g.setOpacity (juce::jlimit (0.0f, 1.0f, blepAmt));
                 g.drawImage (blep, ax, ay, w, h, 0, 0, blep.getWidth(), blep.getHeight(), false);
+            }
+            // The mouth opens for the tongue, and this frame has NO tongue painted into it
+            // (the blep pose does, which is why that one is never used for a strike).
+            const float openAmt = juce::jlimit (0.0f, 1.0f, tongueExt * 2.2f);
+            if (openAmt > 0.001f && open.isValid())
+            {
+                g.setOpacity (openAmt);
+                g.drawImage (open, ax, ay, w, h, 0, 0, open.getWidth(), open.getHeight(), false);
             }
         }
 
@@ -229,6 +238,13 @@ private:
     /** He grows with the window he is holding, between a readable floor and a sane ceiling.
         The art is a creature seen head-on, so scaling him to a wide window's FULL width
         would put his head three times the window's height into the sky - hence the cap. */
+    /** How much of him hangs BELOW the wrist line, in screen pixels: the hand and claws.
+        All of it has to sit in front of Stride, so this is exactly what the clip spares. */
+    int gripPx (float s) const noexcept
+    {
+        return juce::roundToInt ((float) (kArtH - kArtEdge) * s) + kGripPad;
+    }
+
     float scale() const noexcept
     {
         const float w = (float) juce::jmax (320, target.getWidth());
@@ -330,8 +346,10 @@ private:
         const int w = juce::roundToInt (kArtW * s);
         const int h = juce::roundToInt (kArtH * s);
         const int x = b.getCentreX() - w / 2;
-        // wrist line kGrip px INSIDE the window, so the paws overlap the frame
-        const int y = b.getY() + kGrip - juce::roundToInt (kArtEdge * s);
+        // The wrist line sits far enough INSIDE the window that everything the art draws
+        // below it - the whole hand, claws included - lands on Stride rather than being
+        // clipped away with the body. A fixed inset cut his nails off (field report).
+        const int y = b.getY() + gripPx (s) - juce::roundToInt (kArtEdge * s);
         const auto artRect = juce::Rectangle<int> (x, y, w, h);
 
         // Normally the window is just big enough for the creature. While the tongue is out
@@ -360,7 +378,7 @@ private:
     double tongueT = 0.0;
     float tongueExt = 0.0f, scaleMul = 1.0f;
     double animMs = 0.0;                 // clock the tongue's wobble reads in paint()
-    juce::Image idle, blink, blep;
+    juce::Image idle, blink, blep, open;
     bool  active = false, blinking = false, bleping = false;
     float rise = 1.0f, blinkAmt = 0.0f, blepAmt = 0.0f;
     double blinkT = 0.0, blepT = 0.0, lastMs = 0.0, nextIdleMs = 0.0, bob = 0.0, lastBob = 0.0;

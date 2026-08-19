@@ -333,7 +333,24 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
            #endif
         })
         .withEventListener ("clearChain",   [this] (juce::var)     { if (proc.isEditLocked()) return; synthWindows.clear(); proc.clearChain(); pushRackScanned(); pushChainDevices(); })
-        .withEventListener ("removeDevice", [this] (juce::var v)   { if (proc.isEditLocked()) return; const int i = (int) v.getProperty ("i", -1); if (i >= 0 && i < (int) synthWindows.size()) synthWindows.erase (synthWindows.begin() + i); proc.removeNode (i); pushRackScanned(); pushChainDevices(); })   // close ONLY the removed device's window; keep the rest as-is (was: clear all -> timer reopened them all)
+        // Close ONLY the removed device's window; keep the rest as-is (was: clear all ->
+        // the timer reopened them all). The window has to go BEFORE the instance is
+        // destroyed, so if the removal is then REFUSED (a busy audio thread) we say so
+        // rather than leaving a device that looks gone but still owns lanes in the UI.
+        // The chain/window reconciler reopens the window on its next tick.
+        .withEventListener ("removeDevice", [this] (juce::var v)   {
+            if (proc.isEditLocked()) return;
+            const int i = (int) v.getProperty ("i", -1);
+            if (i < 0) return;
+            if (i < (int) synthWindows.size()) synthWindows.erase (synthWindows.begin() + i);
+            const bool removed = proc.removeNode (i);
+            pushRackScanned();
+            pushChainDevices();
+            if (! removed)
+                emitChainNote ("Device not removed",
+                               "The audio engine was busy, so nothing changed - its parameters are still here. "
+                               "Stop playback and try again.");
+        })
         .withEventListener ("moveDevice",   [this] (juce::var v)   {
             if (proc.isEditLocked()) return;
             const int from = (int) v.getProperty ("from", -1), to = (int) v.getProperty ("to", -1);

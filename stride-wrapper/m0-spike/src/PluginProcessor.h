@@ -49,7 +49,7 @@ public:
     // ── hosted chain (instrument + effects, all inside Stride) ──
     void loadPlugin (const juce::File& pluginFile);   // APPENDS to the chain (.vst3 everywhere; .component AU on macOS)
     void clearChain();
-    void removeNode (int index);                      // revoke ONE device (deliberate, from Stride's UI)
+    bool removeNode (int index);                      // revoke ONE device (deliberate, from Stride's UI). FALSE = refused (audio thread never let go), nothing changed
     void moveNode (int from, int to);                 // reorder the chain (drag) — reindexes mapped params/lanes so curves stay on their knobs
     void undoRemove();                                // restore the last-removed device (Ctrl+Z)
     int  numHosted() const;

@@ -176,11 +176,23 @@ ok('only one creature at a time: floating hides the in-window one and gives the 
 // z-order manipulation: one always-on-top window that refuses to paint over Stride's
 // own rectangle, so the plugin occludes him exactly as if he were behind it.
 ok('the overlay clips Stride out of its own painting instead of covering it',
-   /excludeClipRegion \(editorLocal\.withTrimmedTop \(kGrip\)\)/.test(ovl));
+   /excludeClipRegion \(editorLocal\.withTrimmedTop \(gripPx \(s\)\)\)/.test(ovl));
 ok('the clip rect is recomputed from the live editor bounds, never cached stale',
    /editorLocal = local; repaint\(\);/.test(ovl) && /b\.translated \(-want\.getX\(\), -want\.getY\(\)\)/.test(ovl));
-ok('his fingers overlap the frame so he reads as gripping it, not perching on it',
-   /kGrip = 11/.test(ovl) && /b\.getY\(\) \+ kGrip - juce::roundToInt \(kArtEdge \* s\)/.test(ovl));
+// A FIXED inset cut his claws off: everything the art draws below the wrist has to land on
+// Stride, and how much that is depends on his scale (field report 2026-08-19).
+ok('the whole hand lands on Stride - the grip is derived from the art, not a fixed inset',
+   /int gripPx \(float s\) const noexcept/.test(ovl) &&
+   /juce::roundToInt \(\(float\) \(kArtH - kArtEdge\) \* s\) \+ kGripPad/.test(ovl) &&
+   /b\.getY\(\) \+ gripPx \(s\) - juce::roundToInt \(kArtEdge \* s\)/.test(ovl) &&
+   /excludeClipRegion \(editorLocal\.withTrimmedTop \(gripPx \(s\)\)\)/.test(ovl));
+ok('the strike frame is the one with NO painted tongue',
+   /open  = loadPng \("rep_open\.png"\)/.test(ovl) && /tongueExt \* 2\.2f/.test(ovl) &&
+   /ui\/rep_open\.png/.test(cmake) && /ui\/reptile_open\.webp/.test(cmake) &&
+   /open:  'reptile_open\.webp'/.test(rep));
+ok('the in-window creature opens the same tongue-free mouth',
+   /id="sdRepOpen"/.test(rep) && /imgOpen\.setAttribute\('opacity', op\)/.test(rep) &&
+   /st\.tongue\.ext \* 2\.2/.test(rep));
 ok('he scales with the window between a readable floor and a capped ceiling',
    /kSpanOfWindow/.test(ovl) && /juce::jlimit \(kVisibleH \/ \(float\) kArtEdge,/.test(ovl) &&
    /kMaxVisibleH/.test(ovl));

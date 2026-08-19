@@ -44,8 +44,17 @@ ok('Windows only: macOS never closes the bundle in the first place',
 ok('removeNode still tears down in two phases (lock, then plugin calls)',
    /OUTSIDE the lock: the hosted patch capture for undo \+ the destructor/.test(proc) &&
    /doomed\.inst->getStateInformation \(lastRemoved\.devices\[0\]\.state\);\s*\n\s*doomed = \{\};/.test(proc));
+// It always refused rather than freezing behind a wedged audio thread - but it refused
+// SILENTLY, while the editor had already closed the device's window and pushed state as if
+// it had worked, so the device looked gone and kept all its lanes in the UI.
 ok('removeNode still refuses rather than freezing behind a wedged audio thread',
-   /removeNode \(int index\)[\s\S]{0,400}if \(! hostLockFreeBounded \(8\)\) return;/.test(proc));
+   /bool StrideWrapperProcessor::removeNode \(int index\)[\s\S]{0,500}if \(! hostLockFreeBounded \(8\)\) return false;/.test(proc));
+ok('a refusal is REPORTED, not silent',
+   /bool removeNode \(int index\);/.test(rd(path.join(W, 'src', 'PluginProcessor.h'))) &&
+   /const bool removed = proc\.removeNode \(i\);/.test(rd(path.join(W, 'src', 'PluginEditor.cpp'))) &&
+   /if \(! removed\)\s*\n\s*emitChainNote \("Device not removed"/.test(rd(path.join(W, 'src', 'PluginEditor.cpp'))));
+ok('the refusal message says the parameters are still there',
+   /its parameters are still here/.test(rd(path.join(W, 'src', 'PluginEditor.cpp'))));
 
 console.log('  ' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);

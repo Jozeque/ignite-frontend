@@ -362,6 +362,19 @@
         redoStack = []; // clear redo on new action
     }
 
+    // Key for carrying a lane's work across a rescan/reload.
+    // The desktop's _path is a stable LOM path. The WRAPPER's is "wrap:<i>" - POSITIONAL,
+    // and it RENUMBERS when a device is removed, so keying on it hands a removed
+    // neighbour's curve and lock to whichever lane slid into its slot (the exact failure
+    // the positional-id comment below warns about). Device+name is stable across a chain
+    // edit, and the engine payload wins over the carry anyway on the wrapper.
+    function _sdCarryKey(p) {
+        if (!p) return 'n:';
+        if (window.strideLink && window.strideLink._wrapper)
+            return 'd:' + (p.device || '') + '|' + p.name;
+        return p._path || ('n:' + p.name);
+    }
+
     function applySnapshot(snapshot) {
         snapshot.forEach(sp => {
             const param = sdCanvasParams.find(p => p.envelopeId === sp.envelopeId);
@@ -1183,7 +1196,7 @@
                         // have no _path yet (e.g. a just-loaded session) so their
                         // curves/locks survive the first rescan-merge instead of
                         // being dropped. Never the positional envelopeId.
-                        const k = p._path || ('n:' + p.name);
+                        const k = _sdCarryKey(p);
                         carried[k] = { points: (p.points && p.points.length) ? p.points : null, locked: !!p.locked,
                                        rangeOn: !!p.rangeOn, rangeMin: p.rangeMin, rangeMax: p.rangeMax,
                                        colorIdx: (typeof p.colorIdx === 'number' ? p.colorIdx : -1),
@@ -1197,7 +1210,7 @@
             let kept = 0;
             if (sameTrack && _slotSame) {
                 sdCanvasParams.forEach(p => {
-                    const c = (p._path && carried[p._path]) || carried['n:' + p.name];
+                    const c = carried[_sdCarryKey(p)] || (p._path && carried[p._path]) || carried['n:' + p.name];
                     if (c) {
                         // The ENGINE payload wins where it speaks (wrapper: points + ranges come
                         // from the engine, correctly re-indexed) — the positional carry only fills
@@ -1274,7 +1287,7 @@
             const oldCurves = {};
             sdCanvasParams.forEach(p => {
                 if ((p.points && p.points.length > 0) || p.locked) {
-                    const k = p._path || ('n:' + p.name);
+                    const k = _sdCarryKey(p);
                     oldCurves[k] = {
                         points: (p.points && p.points.length > 0) ? JSON.parse(JSON.stringify(p.points)) : null,
                         locked: !!p.locked
@@ -1284,7 +1297,7 @@
             loadParamsDirectly(msg.parameters, rackInfo);
             let restored = 0;
             sdCanvasParams.forEach(p => {
-                const c = (p._path && oldCurves[p._path]) || oldCurves['n:' + p.name];
+                const c = oldCurves[_sdCarryKey(p)] || (p._path && oldCurves[p._path]) || oldCurves['n:' + p.name];
                 if (c) { if (c.points) { p.points = c.points; restored++; } if (c.locked) p.locked = true; }
             });
             sdRenderSidebar();

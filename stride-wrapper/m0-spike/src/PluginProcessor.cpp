@@ -796,16 +796,19 @@ void StrideWrapperProcessor::clearChain()
     triggerAsyncUpdate();
 }
 
-void StrideWrapperProcessor::removeNode (int index)
+// Returns FALSE when the removal was refused and NOTHING changed - the caller has to know,
+// because it has already closed the device's window and would otherwise report a removal
+// that never happened, leaving the device (and all its lanes) still in the UI.
+bool StrideWrapperProcessor::removeNode (int index)
 {
     // Same two-phase teardown as clearChain (the 2026-08-09 freeze class): meta under
     // the lock, hosted getState + the destructor outside it.
-    if (! hostLockFreeBounded (8)) return;
+    if (! hostLockFreeBounded (8)) return false;
 
     Node doomed;
     {
     const juce::ScopedLock sl (hostLock);
-    if (index < 0 || index >= (int) chain.size()) return;
+    if (index < 0 || index >= (int) chain.size()) return false;
 
     // Capture a single-level undo snapshot: path + this node's mapped params/curves
     // (the PATCH is captured outside the lock, from the detached node).
@@ -847,6 +850,7 @@ void StrideWrapperProcessor::removeNode (int index)
         doomed.inst->getStateInformation (lastRemoved.devices[0].state);
     doomed = {};
     triggerAsyncUpdate();
+    return true;
 }
 
 // Reorder the chain (drag). Moving a device shifts node indices, so every mapped param and

@@ -25,7 +25,8 @@
   const REP_ART = {
     idle:  'reptile_idle.webp',
     blink: 'reptile_blink.webp',
-    blep:  'reptile_blep.webp',                    // tongue-out personality pose
+    blep:  'reptile_blep.webp',                    // tongue-out personality pose (tongue is PAINTED IN)
+    open:  'reptile_open.webp',                    // mouth open, NO tongue - the strike frame
     W: 760, H: 746,                                // natural art size
     EDGE: 661,                                     // wrist line: below it the fingers hang in FRONT of the UI
     MOUTH: [371, 413]                              // where the tongue leaves the face
@@ -57,7 +58,7 @@
   function kick() { if (!raf) raf = requestAnimationFrame(frame); }
 
   /* ── DOM ─────────────────────────────────────────────────────────── */
-  let zone, layer, svg, gRep, imgIdle, imgBlink, imgBlep, gTongue, pTongue, gContact;
+  let zone, layer, svg, gRep, imgIdle, imgBlink, imgBlep, imgOpen, gTongue, pTongue, gContact;
 
   function build() {
     zone = document.createElement('div');
@@ -85,15 +86,16 @@
           '<image id="sdRepIdle"  x="0" y="0" preserveAspectRatio="none"/>' +
           '<image id="sdRepBlink" x="0" y="0" preserveAspectRatio="none" opacity="0"/>' +
           '<image id="sdRepBlep"  x="0" y="0" preserveAspectRatio="none" opacity="0"/>' +
+          '<image id="sdRepOpen"  x="0" y="0" preserveAspectRatio="none" opacity="0"/>' +
         '</g>' +
         '<g id="sdRepTongueG" opacity="0"><path id="sdRepTonguePath" fill="url(#sdRepTongue)"/></g>' +
       '</svg>';
     document.body.appendChild(layer);
 
     svg = $('sd-rep-svg'); gRep = $('sdRepChar');
-    imgIdle = $('sdRepIdle'); imgBlink = $('sdRepBlink'); imgBlep = $('sdRepBlep');
+    imgIdle = $('sdRepIdle'); imgBlink = $('sdRepBlink'); imgBlep = $('sdRepBlep'); imgOpen = $('sdRepOpen');
     gTongue = $('sdRepTongueG'); pTongue = $('sdRepTonguePath'); gContact = $('sdRepContact');
-    [[imgIdle, REP_ART.idle], [imgBlink, REP_ART.blink], [imgBlep, REP_ART.blep]].forEach(([el, src]) => {
+    [[imgIdle, REP_ART.idle], [imgBlink, REP_ART.blink], [imgBlep, REP_ART.blep], [imgOpen, REP_ART.open]].forEach(([el, src]) => {
       el.setAttribute('href', src);
       el.setAttribute('width', REP_ART.W); el.setAttribute('height', REP_ART.H);
     });
@@ -286,7 +288,7 @@
   }
 
   /* ── frame ───────────────────────────────────────────────────────── */
-  let lastTx = '', lastBl = -1, lastBp = -1;
+  let lastTx = '', lastBl = -1, lastBp = -1, lastOp = -1;
   function apply() {
     const hide = REP_ART.EDGE - 30;
     const s = st.scale, hs = 1 + st.body.fwd;
@@ -297,6 +299,9 @@
     const bl = +st.face.blink.toFixed(3), bp = +st.face.blep.toFixed(3);
     if (bl !== lastBl) { imgBlink.setAttribute('opacity', bl); lastBl = bl; }
     if (bp !== lastBp) { imgBlep.setAttribute('opacity', bp); lastBp = bp; }
+    // The mouth opens for the DRAWN tongue, using the frame with no tongue painted in.
+    const op = +Math.min(1, st.tongue.ext * 2.2).toFixed(3);
+    if (op !== lastOp) { imgOpen.setAttribute('opacity', op); lastOp = op; }
   }
   function frame(now) {
     raf = 0;
@@ -460,7 +465,7 @@
     setFloating, isFloating: () => st.floating,
     setSize, getSize: () => st.scaleMul, lickAt,
     setArt: (o) => { Object.assign(REP_ART, o || {});
-                     [[imgIdle, REP_ART.idle], [imgBlink, REP_ART.blink], [imgBlep, REP_ART.blep]]
+                     [[imgIdle, REP_ART.idle], [imgBlink, REP_ART.blink], [imgBlep, REP_ART.blep], [imgOpen, REP_ART.open]]
                        .forEach(([el, src]) => { el.setAttribute('href', src);
                          el.setAttribute('width', REP_ART.W); el.setAttribute('height', REP_ART.H); });
                      place(); },
