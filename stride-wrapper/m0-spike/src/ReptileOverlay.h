@@ -186,7 +186,9 @@ public:
         tongueTargetScreen = screenPoint;
         tonguePhase = 1;             // 1 = out, 2 = hold, 3 = back
         tongueT = 0.0;
-        bleping = true; blepT = 0.0; // the mouth has to open for it
+        // NOT the blep frame: that artwork already has a tongue painted into it, so raising
+        // it here gave him TWO tongues at once (field report 2026-08-19). Until there is an
+        // open-mouth frame WITHOUT a tongue, the drawn one is the only one.
         follow();                    // the window must cover the target before we paint there
         repaint();
     }
@@ -312,7 +314,8 @@ private:
         {
             const int r = rng.nextInt (100);
             if (r < 62) { blinking = true; blinkT = 0.0; }
-            else if (r < 78) { bleping = true; blepT = 0.0; }
+            // the idle blep pose carries its own painted tongue, so it waits its turn
+            else if (r < 78 && tonguePhase == 0) { bleping = true; blepT = 0.0; }
             nextIdleMs = now + 2600.0 + rng.nextInt (4200);
         }
         else if (std::abs (bob - lastBob) > 0.25) { lastBob = bob; repaint(); }

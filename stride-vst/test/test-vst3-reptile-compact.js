@@ -319,6 +319,13 @@ ok('it swells into a spade and then FORKS', /base \* 0\.34f \* std::sin/.test(ov
 ok('the fork sits on the spine end tangent, or it twists into a one-sided hook',
    /if \(i == N\) \{ endD = \{ d\.x \/ l, d\.y \/ l \}; endU = u; \}/.test(ovl) &&
    /E \+ endD \* fl \+ endU \* spread/.test(ovl));
+// The open-mouth artwork has a tongue PAINTED INTO IT, so showing it while the drawn
+// tongue is out gave him two tongues at once (field report 2026-08-19).
+ok('a strike never raises the painted-tongue frame',
+   !/tonguePhase = 1;[\s\S]{0,200}bleping = true/.test(ovl));
+ok('the idle blep pose waits until the drawn tongue is back in, in both layers',
+   /r < 78 && tonguePhase == 0/.test(ovl) &&
+   /if \(st\.tongue\.phase !== 'idle' \|\| st\.tongue\.ext > 0\.001\) return;/.test(rep));
 ok('it WHIPS: the body lags while travelling and settles as it lands',
    /const float travel = 1\.0f - tongueExt;/.test(ovl) &&
    /sag = \(24\.0f \+ wob \* 22\.0f\)[\s\S]{0,80}travel\)/.test(ovl));

@@ -160,6 +160,9 @@
   /* ── actions ─────────────────────────────────────────────────────── */
   function blink() { tween(215, p => { st.face.blink = p < .4 ? p / .4 : 1 - (p - .4) / .6; }, () => { st.face.blink = 0; }); }
   function blep() {                                    // tongue-out personality pose
+    // That frame has a tongue PAINTED INTO IT, so it must never sit on top of the drawn
+    // one: together they gave him two tongues (field report 2026-08-19).
+    if (st.tongue.phase !== 'idle' || st.tongue.ext > 0.001) return;
     tween(900, p => { st.face.blep = p < .18 ? p / .18 : (p > .78 ? (1 - p) / .22 : 1); }, () => { st.face.blep = 0; });
   }
   function look(dir) { st.body.ttilt = dir * 2.6; st.body.tdx = dir * 10; kick();
