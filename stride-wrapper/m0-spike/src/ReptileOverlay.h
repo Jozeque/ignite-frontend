@@ -100,20 +100,83 @@ public:
         // touching it rather than as happening behind the glass.
         if (tongueExt > 0.002f)
         {
-            const juce::Point<float> mouth ((float) ax + kMouthX * s, (float) ay + kMouthY * s);
-            const juce::Point<float> tip = mouth + (tongueTargetLocal.toFloat() - mouth) * tongueExt;
-            juce::Path p;
-            p.startNewSubPath (mouth);
-            p.lineTo (tip);
             g.setOpacity (1.0f);
-            g.setColour (juce::Colour (0xffd4546c));
-            g.strokePath (p, juce::PathStrokeType (juce::jmax (2.0f, 4.2f * s),
+            drawTongue (g, { (float) ax + kMouthX * s, (float) ay + kMouthY * s }, s);
+        }
+    }
+
+    /** A tapered RIBBON on a whipping S-curve with a forked tip - the same construction the
+        in-window SVG creature uses, rather than a line with a blob on the end. The body
+        narrows toward the tip, swells once just before it (the spade), then splits. */
+    void drawTongue (juce::Graphics& g, juce::Point<float> mouth, float s) const
+    {
+        const auto tgt = tongueTargetLocal.toFloat();
+        const float full = mouth.getDistanceFrom (tgt);
+        if (full < 2.0f) return;
+
+        const float ang = std::atan2 (tgt.y - mouth.y, tgt.x - mouth.x);
+        const float len = full * tongueExt;
+        const juce::Point<float> D (std::cos (ang), std::sin (ang));
+        const juce::Point<float> U (-D.y, D.x);
+        const juce::Point<float> E = mouth + D * len;
+
+        // The body LAGS the tip: a strong S-bend while it is travelling, flattening as it
+        // lands, with a little wobble left over so it never looks pinned in place.
+        const float travel = 1.0f - tongueExt;
+        const float wob = std::sin ((float) (animMs / 110.0)) * (0.30f + 0.70f * travel);
+        const float sag = (24.0f + wob * 22.0f) * s * 2.2f * (0.30f + 0.70f * travel);
+        const auto c1 = mouth + D * (len * 0.30f) + U * sag;
+        const auto c2 = mouth + D * (len * 0.70f) - U * (sag * 0.55f);
+
+        const int N = 26;
+        const float base = juce::jmax (1.6f, 19.0f * s);
+        juce::Point<float> top[N + 1], bot[N + 1];
+        juce::Point<float> endD = D, endU = U;
+        for (int i = 0; i <= N; ++i)
+        {
+            const float t = (float) i / (float) N, mt = 1.0f - t;
+            const auto p = mouth * (mt * mt * mt) + c1 * (3.0f * mt * mt * t)
+                         + c2 * (3.0f * mt * t * t) + E * (t * t * t);
+            auto d = (c1 - mouth) * (3.0f * mt * mt) + (c2 - c1) * (6.0f * mt * t)
+                   + (E - c2) * (3.0f * t * t);
+            const float l = juce::jmax (1.0e-4f, d.getDistanceFromOrigin());
+            const juce::Point<float> u (-d.y / l, d.x / l);
+            float w = base * (1.0f - 0.72f * t);
+            if (t > 0.78f)
+                w += base * 0.34f * std::sin ((t - 0.78f) / 0.22f * juce::MathConstants<float>::pi);
+            top[i] = p + u * w;
+            bot[i] = p - u * w;
+            if (i == N) { endD = { d.x / l, d.y / l }; endU = u; }
+        }
+
+        // The fork is built on the spine's OWN end tangent, not on the straight
+        // mouth-to-target line: on a whipping curve those disagree, and building it on the
+        // straight line twists the tip into a one-sided hook instead of a fork.
+        const float fl = base * 1.05f, spread = base * 0.62f;
+        const auto tipL  = E + endD * fl + endU * spread;
+        const auto tipR  = E + endD * fl - endU * spread;
+        const auto notch = E + endD * (fl * 0.12f);
+
+        juce::Path path;
+        path.startNewSubPath (top[0]);
+        for (int i = 1; i <= N; ++i) path.lineTo (top[i]);
+        path.lineTo (tipL);
+        path.lineTo (notch);            // the split between the two prongs
+        path.lineTo (tipR);
+        for (int i = N; i >= 0; --i) path.lineTo (bot[i]);
+        path.closeSubPath();
+
+        g.setColour (juce::Colour (0xffc8425f));
+        g.fillPath (path);
+
+        // a wet highlight down the middle, fading out before the fork
+        juce::Path spine;
+        spine.startNewSubPath (mouth);
+        spine.cubicTo (c1, c2, mouth + D * (len * 0.88f));
+        g.setColour (juce::Colours::white.withAlpha (0.15f));
+        g.strokePath (spine, juce::PathStrokeType (juce::jmax (1.0f, base * 0.26f),
                                                    juce::PathStrokeType::curved,
                                                    juce::PathStrokeType::rounded));
-            const float r = juce::jmax (3.0f, 7.0f * s);
-            g.setColour (juce::Colour (0xffe86c84));
-            g.fillEllipse (juce::Rectangle<float> (r, r).withCentre (tip));
-        }
     }
 
     /** Flick the tongue at a point on screen (a knob, a card, a lane). */
@@ -192,6 +255,7 @@ private:
         // ── motion: a slow reveal, then breathing with the occasional blink ──
         const double now = juce::Time::getMillisecondCounterHiRes();
         const double dt  = juce::jlimit (0.0, 100.0, now - lastMs); lastMs = now;
+        animMs = now;
 
         if (rise > 0.0f)
         {
@@ -292,6 +356,7 @@ private:
     int   tonguePhase = 0;               // 0 idle, 1 out, 2 hold, 3 back
     double tongueT = 0.0;
     float tongueExt = 0.0f, scaleMul = 1.0f;
+    double animMs = 0.0;                 // clock the tongue's wobble reads in paint()
     juce::Image idle, blink, blep;
     bool  active = false, blinking = false, bleping = false;
     float rise = 1.0f, blinkAmt = 0.0f, blepAmt = 0.0f;

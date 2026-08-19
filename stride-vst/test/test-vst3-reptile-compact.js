@@ -308,6 +308,20 @@ ok('the host turns page coords into screen coords through the editor origin',
 ok('the tongue is drawn OUTSIDE the clip, so it reaches in front of the window',
    /juce::Graphics::ScopedSaveState body \(g\)/.test(ovl) &&
    /tongueExt > 0\.002f/.test(ovl) && /kMouthX/.test(ovl));
+// It read as "a string coming out of his mouth" when it was a stroked line with a blob on
+// the end. It is now the same tapered-ribbon construction the in-window SVG creature uses.
+ok('the tongue is a tapered RIBBON on a bezier, not a stroked line',
+   /juce::Point<float> top\[N \+ 1\], bot\[N \+ 1\]/.test(ovl) &&
+   /w = base \* \(1\.0f - 0\.72f \* t\)/.test(ovl) && /fillPath \(path\)/.test(ovl));
+ok('it swells into a spade and then FORKS', /base \* 0\.34f \* std::sin/.test(ovl) &&
+   /const auto notch = E \+ endD \* \(fl \* 0\.12f\)/.test(ovl) &&
+   /path\.lineTo \(tipL\);[\s\S]{0,120}path\.lineTo \(notch\);[\s\S]{0,120}path\.lineTo \(tipR\);/.test(ovl));
+ok('the fork sits on the spine end tangent, or it twists into a one-sided hook',
+   /if \(i == N\) \{ endD = \{ d\.x \/ l, d\.y \/ l \}; endU = u; \}/.test(ovl) &&
+   /E \+ endD \* fl \+ endU \* spread/.test(ovl));
+ok('it WHIPS: the body lags while travelling and settles as it lands',
+   /const float travel = 1\.0f - tongueExt;/.test(ovl) &&
+   /sag = \(24\.0f \+ wob \* 22\.0f\)[\s\S]{0,80}travel\)/.test(ovl));
 ok('the window grows to reach the target, and shrinks back after',
    /if \(tonguePhase != 0\)[\s\S]{0,200}getUnion/.test(ovl) &&
    /tonguePhase = 0; tongueExt = 0\.0f; follow\(\);/.test(ovl));
