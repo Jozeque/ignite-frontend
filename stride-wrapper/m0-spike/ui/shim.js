@@ -59,14 +59,16 @@
   // OPT-IN: float the character over the desktop instead of inside the window. Creates a
   // second always-on-top window in C++, which is why it is off by default - see the risk
   // note at the top of ReptileOverlay.h.
-  window.sdReptileFloatRequest = function (on, s) {
-    emit('reptileFloat', { on: !!on, s: (typeof s === 'number' && s > 0 ? s : 1) });
+  window.sdReptileFloatRequest = function (on, s, c) {
+    emit('reptileFloat', { on: !!on, s: (typeof s === 'number' && s > 0 ? s : 1),
+                           c: (typeof c === 'number' ? c : 0) });
   };
   // Flick the tongue at a point in THIS page's coordinates; the host converts to screen.
   window.sdReptileStrike = function (x, y) { emit('reptileStrike', { x: x | 0, y: y | 0 }); };
   // His size is a preference, so it belongs in the prefs FILE, not only in the WebView's
   // localStorage (which is one shared profile across every instance in the session).
   window.sdReptileScaleSave = function (v) { try { prefsWrite('repScale', v); } catch (e) {} };
+  window.sdReptileCharSave  = function (v) { try { prefsWrite('repChar', v); } catch (e) {} };
 
   // The host answers with the strip it could actually FIT (a tall window near the bottom
   // of the display gets less than it asked for). The character scales to what it got.
@@ -537,6 +539,8 @@
       try {
         if (typeof _natPrefs.repScale === 'number' && window.sdReptileScaleAdopt)
           window.sdReptileScaleAdopt(_natPrefs.repScale);
+        if (typeof _natPrefs.repChar === 'number' && window.sdReptileCharAdopt)
+          window.sdReptileCharAdopt(_natPrefs.repChar);
       } catch (e4) {}
     } catch (e) { showErr('prefsState: ' + e.message); }
   });

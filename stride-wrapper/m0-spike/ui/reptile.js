@@ -21,16 +21,26 @@
   'use strict';
   if (!window.__STRIDE_WRAPPER__) return;          // desktop app: do nothing at all
 
-  // ── art descriptor. Swap these and the layout follows automatically. ──
-  const REP_ART = {
-    idle:  'reptile_idle.webp',
-    blink: 'reptile_blink.webp',
-    blep:  'reptile_blep.webp',                    // tongue-out personality pose (tongue is PAINTED IN)
-    open:  'reptile_open.webp',                    // mouth open, NO tongue - the strike frame
-    W: 760, H: 746,                                // natural art size
-    EDGE: 661,                                     // wrist line: below it the fingers hang in FRONT of the UI
-    MOUTH: [371, 413]                              // where the tongue leaves the face
-  };
+  // ── art descriptors. Each CHARACTER carries its own anchors, because the wrist line and
+  //    the mouth sit somewhere else in a different drawing. Adding another is one row here
+  //    plus its files; switching between them is instant, so trying one and going back to
+  //    the other costs a click rather than a rebuild.
+  const REP_SETS = [
+    { name: 'Gecko',
+      idle:  'reptile_idle.webp',
+      blink: 'reptile_blink.webp',
+      blep:  'reptile_blep.webp',                  // tongue-out personality pose (tongue is PAINTED IN)
+      open:  'reptile_open.webp',                  // mouth open, NO tongue - the strike frame
+      W: 760, H: 746, EDGE: 661, MOUTH: [371, 413] },
+    { name: 'Beaded',
+      idle:  'reptile2_idle.webp',
+      blink: 'reptile2_blink.webp',
+      blep:  'reptile2_open.webp',                 // no tongue-out frame of its own; safe, nothing painted in
+      open:  'reptile2_open.webp',
+      W: 760, H: 746, EDGE: 672, MOUTH: [397, 477] }
+  ];
+  const REP_ART = Object.assign({}, REP_SETS[0]);  // the ACTIVE descriptor; layout reads only this
+  let charIdx = 0;
   const ZONE_H = 132;                              // character zone height at default scale
 
   const $ = (id) => document.getElementById(id);
@@ -208,7 +218,7 @@
       st.phase = 'idle'; st.rise = 0;
       gRep.setAttribute('opacity', '0');
       requestZone(0);                              // he costs Stride no height out there
-      try { if (window.sdReptileFloatRequest) window.sdReptileFloatRequest(true, st.scaleMul); } catch (e) {}
+      try { if (window.sdReptileFloatRequest) window.sdReptileFloatRequest(true, st.scaleMul, charIdx); } catch (e) {}
       paintTrigger();
       return;                                      // the native window runs its own climb
     }
@@ -258,7 +268,7 @@
     // While he is OFF this only records the preference - activate() honours it. Firing
     // the host request here instead was the bug that left him standing in the window.
     if (!st.on) { paintTrigger(); return; }
-    try { if (window.sdReptileFloatRequest) window.sdReptileFloatRequest(want, st.scaleMul); } catch (e) {}
+    try { if (window.sdReptileFloatRequest) window.sdReptileFloatRequest(want, st.scaleMul, charIdx); } catch (e) {}
     if (want) {
       retract();
       gRep.setAttribute('opacity', '0');
@@ -367,17 +377,45 @@
     if (v === st.scaleMul) return;
     st.scaleMul = v;
     if (st.on && st.floating) {
-      try { if (window.sdReptileFloatRequest) window.sdReptileFloatRequest(true, v); } catch (e) {}
+      try { if (window.sdReptileFloatRequest) window.sdReptileFloatRequest(true, v, charIdx); } catch (e) {}
     }
     try { if (window.sdReptileScaleSave) window.sdReptileScaleSave(v); } catch (e) {}
     paintTrigger();
   }
+  /* ── which character ─────────────────────────────────────────────────
+     A total swap: frames AND anchors, in both the in-window creature and the floating
+     one. Remembered, so it survives reopening - and going back is the same one click. */
+  function setCharacter(i, persist) {
+    const v = clamp(i | 0, 0, REP_SETS.length - 1);
+    if (v === charIdx) return;
+    charIdx = v;
+    Object.assign(REP_ART, REP_SETS[v]);
+    [[imgIdle, REP_ART.idle], [imgBlink, REP_ART.blink],
+     [imgBlep, REP_ART.blep], [imgOpen, REP_ART.open]].forEach(([el, src]) => {
+      if (!el) return;
+      el.setAttribute('href', src);
+      el.setAttribute('width', REP_ART.W);
+      el.setAttribute('height', REP_ART.H);
+    });
+    retract();                                   // his mouth is somewhere else now
+    place();
+    if (st.on && st.floating) {
+      try { if (window.sdReptileFloatRequest) window.sdReptileFloatRequest(true, st.scaleMul, charIdx); } catch (e) {}
+    }
+    if (persist !== false) { try { if (window.sdReptileCharSave) window.sdReptileCharSave(v); } catch (e) {} }
+    paintTrigger();
+  }
+  window.sdReptileCharAdopt = function (v) {
+    if (typeof v !== 'number') return;
+    setCharacter(v, false);                      // adopted from the file: do NOT write it back
+  };
+
   // Adopted from the prefs file on boot: take the value, do NOT write it back.
   window.sdReptileScaleAdopt = function (v) {
     if (typeof v !== 'number' || !(v > 0)) return;
     st.scaleMul = clamp(Math.round(v * 100) / 100, .55, 1.5);
     if (st.on && st.floating) {
-      try { if (window.sdReptileFloatRequest) window.sdReptileFloatRequest(true, st.scaleMul); } catch (e) {}
+      try { if (window.sdReptileFloatRequest) window.sdReptileFloatRequest(true, st.scaleMul, charIdx); } catch (e) {}
     }
   };
 
@@ -402,21 +440,24 @@
   }
 
   /* ── the hidden trigger ──────────────────────────────────────────── */
-  let trigger = null, sizer = null;
+  let trigger = null, sizer = null, swapBtn = null, sizeBtns = null;
   function paintTrigger() {
     if (!trigger) return;
     trigger.style.opacity = st.on ? '.95' : '.28';
     trigger.style.outline = st.floating ? '1px solid rgba(198,113,43,.55)' : 'none';
     trigger.style.background = st.on ? 'rgba(198,113,43,.18)' : 'transparent';
-    // The resizer only exists while he is actually out there to resize.
-    if (sizer) sizer.style.display = (st.on && st.floating) ? 'flex' : 'none';
+    // The strip only exists while he does. Size is floating-only (in-window he is bounded
+    // by the strip the host granted); the character swap applies either way.
+    if (sizer) sizer.style.display = st.on ? 'flex' : 'none';
+    if (sizeBtns) sizeBtns.forEach(b => { b.style.display = st.floating ? 'block' : 'none'; });
+    if (swapBtn) swapBtn.title = 'Character: ' + REP_SETS[charIdx].name + ' - click to switch';
   }
   function mountSizer(after) {
     sizer = document.createElement('span');
     sizer.id = 'sd-rep-sizer';
     sizer.className = 'titlebar-no-drag';
     sizer.style.cssText = 'display:none;align-items:center;gap:2px;margin-left:4px;flex:none';
-    [['-', -0.12, 'Smaller'], ['+', 0.12, 'Bigger']].forEach(([txt, d, tip]) => {
+    const mk = (txt, tip, onClick) => {
       const b = document.createElement('button');
       b.type = 'button';
       b.textContent = txt;
@@ -427,9 +468,15 @@
         'transition:opacity .2s;flex:none;padding:0';
       b.addEventListener('mouseenter', () => { b.style.opacity = '1'; });
       b.addEventListener('mouseleave', () => { b.style.opacity = '.5'; });
-      b.addEventListener('click', (e) => { e.stopPropagation(); setSize(st.scaleMul + d); });
+      b.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
       sizer.appendChild(b);
-    });
+      return b;
+    };
+    sizeBtns = [mk('-', 'Smaller', () => setSize(st.scaleMul - 0.12)),
+                mk('+', 'Bigger',  () => setSize(st.scaleMul + 0.12))];
+    // Cycle characters. This is the "try it and go back" control: one click each way.
+    swapBtn = mk('↻', 'Switch character',
+                 () => setCharacter((charIdx + 1) % REP_SETS.length));
     if (after && after.parentNode) after.parentNode.insertBefore(sizer, after.nextSibling);
   }
   function mountTrigger() {
@@ -470,6 +517,7 @@
     isOn: () => st.on,
     setFloating, isFloating: () => st.floating,
     setSize, getSize: () => st.scaleMul, lickAt,
+    setCharacter, getCharacter: () => charIdx, characters: () => REP_SETS.map(s => s.name),
     setArt: (o) => { Object.assign(REP_ART, o || {});
                      [[imgIdle, REP_ART.idle], [imgBlink, REP_ART.blink], [imgBlep, REP_ART.blep], [imgOpen, REP_ART.open]]
                        .forEach(([el, src]) => { el.setAttribute('href', src);

@@ -82,12 +82,19 @@ juce_add_binary_data(StrideWrapperM0Data SOURCES
     # mouth open with NO tongue painted in - the strike frame. The blep pose has a tongue
     # in the artwork, so using it for a strike gave him two tongues at once.
     ui/reptile_open.webp
+    ui/reptile2_idle.webp
+    ui/reptile2_blink.webp
+    ui/reptile2_open.webp
     # PNG copies for the FLOATING overlay: that one is drawn in C++ and JUCE cannot
     # decode WebP. Smaller (440px) because the overlay never renders larger than that.
     ui/rep_idle.png
     ui/rep_blink.png
     ui/rep_blep.png
     ui/rep_open.png
+    # SECOND character set - switchable at runtime, so trying one and going back is a click
+    ui/rep2_idle.png
+    ui/rep2_blink.png
+    ui/rep2_open.png
     ${CMAKE_CURRENT_SOURCE_DIR}/../../stride-vst/app/renderer/canvas.js
     ${CMAKE_CURRENT_SOURCE_DIR}/../../stride-vst/app/renderer/midi-parser.js
     ${CMAKE_CURRENT_SOURCE_DIR}/../../stride-vst/app/renderer/audition.js

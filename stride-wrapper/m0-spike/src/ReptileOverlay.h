@@ -30,23 +30,43 @@ class ReptileOverlay : public juce::Component,
                        private juce::Timer
 {
 public:
-    // Art anchors, in the source image's own pixels. Swapping the art = changing these.
+    // Every frame in every set shares this grid; everything else travels PER SET.
     static constexpr int   kArtW = 440, kArtH = 432;
-    static constexpr int   kArtEdge = 383;      // wrist line: the paws grip here
     static constexpr float kVisibleH = 132.0f;     // shortest he ever stands above the plugin
     static constexpr float kMaxVisibleH = 232.0f;  // and the tallest, so a big window can't summon a monster
     static constexpr float kSpanOfWindow = 0.23f;  // his arm span, as a fraction of Stride's width
-    static constexpr int   kArtHand = 422;         // lowest row the art draws: the claw tips
     static constexpr int   kGripPad = 2;           // a hair more, so the claw tips are never shaved
-    static constexpr int   kMouthX = 215, kMouthY = 239;   // where the tongue leaves the face, in art pixels
+
+    /** One character: its frames and its OWN anchors. The wrist line, the claw tips and the
+        mouth sit in different places in a different drawing, so they travel WITH the art
+        instead of being constants - lending one set's numbers to another is exactly how the
+        paws stop gripping and the tongue starts leaving from his chin. Adding a third
+        character is a row here and three files; nothing else moves. */
+    struct CharSet
+    {
+        juce::Image idle, blink, blep, open;
+        int edge = 383;                            // wrist line: the paws grip here
+        int hand = 420;                            // lowest row the art draws: the claw tips
+        int mouthX = 215, mouthY = 239;            // where the tongue leaves the face
+    };
+    static constexpr int kNumChars = 2;
 
     explicit ReptileOverlay (juce::Component& editorToFollow)
         : target (editorToFollow)
     {
-        idle  = loadPng ("rep_idle.png");
-        blink = loadPng ("rep_blink.png");
-        blep  = loadPng ("rep_blep.png");
-        open  = loadPng ("rep_open.png");   // mouth open, NO painted tongue - the strike frame
+        sets[0].idle  = loadPng ("rep_idle.png");
+        sets[0].blink = loadPng ("rep_blink.png");
+        sets[0].blep  = loadPng ("rep_blep.png");
+        sets[0].open  = loadPng ("rep_open.png");   // mouth open, NO painted tongue - the strike frame
+        sets[0].edge = 383; sets[0].hand = 420; sets[0].mouthX = 215; sets[0].mouthY = 239;
+
+        // Second character. No tongue-out frame of its own, so its mouth-open frame doubles
+        // as the personality beat - which is safe precisely because no tongue is painted in.
+        sets[1].idle  = loadPng ("rep2_idle.png");
+        sets[1].blink = loadPng ("rep2_blink.png");
+        sets[1].open  = loadPng ("rep2_open.png");
+        sets[1].blep  = sets[1].open;
+        sets[1].edge = 389; sets[1].hand = 420; sets[1].mouthX = 230; sets[1].mouthY = 276;
 
         setOpaque (false);
         setInterceptsMouseClicks (false, false);
@@ -66,7 +86,7 @@ public:
 
     void paint (juce::Graphics& g) override
     {
-        if (idle.isNull()) return;
+        if (cur().idle.isNull()) return;
 
         const float s = scale();
         const int w = juce::roundToInt (kArtW * s), h = juce::roundToInt (kArtH * s);
@@ -89,23 +109,23 @@ public:
             // its edges. So this is a cross-DISSOLVE - idle leaves as the open mouth arrives.
             const float openAmt = juce::jlimit (0.0f, 1.0f, tongueExt * 2.2f);
             g.setOpacity (1.0f - openAmt);
-            g.drawImage (idle, ax, ay, w, h, 0, 0, idle.getWidth(), idle.getHeight(), false);
-            if (blinkAmt > 0.001f && blink.isValid())
+            g.drawImage (cur().idle, ax, ay, w, h, 0, 0, cur().idle.getWidth(), cur().idle.getHeight(), false);
+            if (blinkAmt > 0.001f && cur().blink.isValid())
             {
                 g.setOpacity (juce::jlimit (0.0f, 1.0f, blinkAmt));
-                g.drawImage (blink, ax, ay, w, h, 0, 0, blink.getWidth(), blink.getHeight(), false);
+                g.drawImage (cur().blink, ax, ay, w, h, 0, 0, cur().blink.getWidth(), cur().blink.getHeight(), false);
             }
-            if (blepAmt > 0.001f && blep.isValid())
+            if (blepAmt > 0.001f && cur().blep.isValid())
             {
                 g.setOpacity (juce::jlimit (0.0f, 1.0f, blepAmt));
-                g.drawImage (blep, ax, ay, w, h, 0, 0, blep.getWidth(), blep.getHeight(), false);
+                g.drawImage (cur().blep, ax, ay, w, h, 0, 0, cur().blep.getWidth(), cur().blep.getHeight(), false);
             }
             // The mouth opens for the tongue, and this frame has NO tongue painted into it
             // (the blep pose does, which is why that one is never used for a strike).
-            if (openAmt > 0.001f && open.isValid())
+            if (openAmt > 0.001f && cur().open.isValid())
             {
                 g.setOpacity (openAmt);
-                g.drawImage (open, ax, ay, w, h, 0, 0, open.getWidth(), open.getHeight(), false);
+                g.drawImage (cur().open, ax, ay, w, h, 0, 0, cur().open.getWidth(), cur().open.getHeight(), false);
             }
         }
 
@@ -115,7 +135,7 @@ public:
         if (tongueExt > 0.002f)
         {
             g.setOpacity (1.0f);
-            drawTongue (g, { (float) ax + kMouthX * s, (float) ay + kMouthY * s }, s);
+            drawTongue (g, { (float) ax + cur().mouthX * s, (float) ay + cur().mouthY * s }, s);
         }
     }
 
@@ -207,6 +227,19 @@ public:
         repaint();
     }
 
+    /** Which character is on screen. Swapping is instant and total - frames AND anchors -
+        so trying one and going back to the other costs a click, not a rebuild. */
+    void setCharacter (int i)
+    {
+        const int v = juce::jlimit (0, kNumChars - 1, i);
+        if (v == charIdx) return;
+        charIdx = v;
+        tonguePhase = 0; tongueExt = 0.0f;   // his mouth is somewhere else now
+        follow();
+        repaint();
+    }
+    int getCharacter() const noexcept { return charIdx; }
+
     /** 0.55 .. 1.5 multiplier on his stature, so he can be sized to taste. */
     void setScaleMul (float m)
     {
@@ -248,17 +281,17 @@ private:
         measured to the lowest row the ART actually draws, not to the frame's full height. */
     int gripPx (float s) const noexcept
     {
-        return juce::roundToInt ((float) (kArtHand - kArtEdge) * s) + kGripPad;
+        return juce::roundToInt ((float) (cur().hand - cur().edge) * s) + kGripPad;
     }
 
     float scale() const noexcept
     {
         const float w = (float) juce::jmax (320, target.getWidth());
-        return scaleMul * juce::jlimit (kVisibleH / (float) kArtEdge,
-                                        kMaxVisibleH / (float) kArtEdge,
+        return scaleMul * juce::jlimit (kVisibleH / (float) cur().edge,
+                                        kMaxVisibleH / (float) cur().edge,
                                         w * kSpanOfWindow / (float) kArtW);
     }
-    float riseOffset() const noexcept { return rise * (kArtEdge * scale()); }
+    float riseOffset() const noexcept { return rise * (cur().edge * scale()); }
 
     void timerCallback() override
     {
@@ -356,7 +389,7 @@ private:
         // so his body is cut there and only the hand carries on downward, in front. Adding
         // the grip here as well pushed the wrist ONTO the clip boundary, which clipped away
         // the entire hand: "still no nails".
-        const int y = b.getY() - juce::roundToInt (kArtEdge * s);
+        const int y = b.getY() - juce::roundToInt (cur().edge * s);
         const auto artRect = juce::Rectangle<int> (x, y, w, h);
 
         // Normally the window is just big enough for the creature. While the tongue is out
@@ -377,6 +410,10 @@ private:
         if (local != editorLocal) { editorLocal = local; repaint(); }
     }
 
+    CharSet sets[kNumChars];
+    int charIdx = 0;
+    const CharSet& cur() const noexcept { return sets[juce::jlimit (0, kNumChars - 1, charIdx)]; }
+
     juce::Component& target;
     juce::Rectangle<int> editorLocal;    // Stride's rect in overlay coords (the clip-out)
     juce::Point<int> artOrigin;          // where the art sits inside the window
@@ -385,7 +422,6 @@ private:
     double tongueT = 0.0;
     float tongueExt = 0.0f, scaleMul = 1.0f;
     double animMs = 0.0;                 // clock the tongue's wobble reads in paint()
-    juce::Image idle, blink, blep, open;
     bool  active = false, blinking = false, bleping = false;
     float rise = 1.0f, blinkAmt = 0.0f, blepAmt = 0.0f;
     double blinkT = 0.0, blepT = 0.0, lastMs = 0.0, nextIdleMs = 0.0, bob = 0.0, lastBob = 0.0;

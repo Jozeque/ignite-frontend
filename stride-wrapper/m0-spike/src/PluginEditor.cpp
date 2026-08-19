@@ -276,6 +276,7 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
                 if (repOverlay == nullptr) repOverlay = std::make_unique<ReptileOverlay> (*this);
                 repOverlay->setActive (true);
                 repOverlay->setScaleMul ((float) (double) v.getProperty ("s", 1.0));
+                repOverlay->setCharacter ((int) v.getProperty ("c", 0));
             }
             else if (repOverlay != nullptr)
             {

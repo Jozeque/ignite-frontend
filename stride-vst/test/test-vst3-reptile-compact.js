@@ -129,7 +129,7 @@ ok('the reptile trigger is unlabelled and low-emphasis (easter egg, not a featur
 
 // ── 9. SWAPPABLE ART, normalized anchors ──
 ok('art is a descriptor with normalized anchors, not hard-coded numbers',
-   /const REP_ART = \{/.test(rep) && /EDGE: 661/.test(rep) && /MOUTH: \[/.test(rep));
+   /const REP_SETS = \[/.test(rep) && /EDGE: 661/.test(rep) && /MOUTH: \[/.test(rep));
 ok('art can be replaced at runtime without touching layout', /setArt: \(o\)/.test(rep));
 ok('the three states ship as separate resources, not baked into the JS',
    /ui\/reptile_idle\.webp/.test(cmake) && /ui\/reptile_blink\.webp/.test(cmake) &&
@@ -156,13 +156,13 @@ ok('it HIDES whenever our app is not in front (the focus-bug mitigation)',
    /juce::Process::isForegroundProcess\(\)/.test(ovl));
 ok('it hides when the editor is not showing', /target\.isShowing\(\)/.test(ovl));
 ok('it follows the editor rather than owning a position', /target\.getScreenBounds\(\)/.test(ovl));
-ok('art anchors are named constants, not magic numbers', /kArtEdge = 383/.test(ovl) && /kVisibleH/.test(ovl));
+ok('art anchors are named per-set fields, not magic numbers', /int edge = 383;/.test(ovl) && /kVisibleH/.test(ovl));
 ok('PNG copies exist for the native overlay (JUCE cannot decode WebP)',
    /ui\/rep_idle\.png/.test(cmake) && /loadPng \("rep_idle\.png"\)/.test(ovl));
 // activate() used to always raise the IN-WINDOW creature, so choosing floating while he
 // was off recorded the preference and then stood him inside Stride anyway.
 ok('turning him on HONOURS where he lives',
-   /if \(st\.floating\) \{[\s\S]{0,360}sdReptileFloatRequest\(true, st\.scaleMul\)/.test(rep) &&
+   /if \(st\.floating\) \{[\s\S]{0,360}sdReptileFloatRequest\(true, st\.scaleMul, charIdx\)/.test(rep) &&
    /floating: true/.test(rep));
 ok('choosing a home while he is off only records it, and activate applies it',
    /if \(!st\.on\) \{ paintTrigger\(\); return; \}/.test(rep));
@@ -185,15 +185,15 @@ ok('the clip rect is recomputed from the live editor bounds, never cached stale'
 // begins - with ONLY the hand carrying on below it. Offsetting the art by the grip as well
 // put the wrist exactly on the clip boundary, which clipped the whole hand away.
 ok('the wrist lands on the window edge, so the body is cut exactly there',
-   /const int y = b\.getY\(\) - juce::roundToInt \(kArtEdge \* s\);/.test(ovl) &&
+   /const int y = b\.getY\(\) - juce::roundToInt \(cur\(\)\.edge \* s\);/.test(ovl) &&
    !/b\.getY\(\) \+ gripPx/.test(ovl));
 ok('the hand below it is spared by the clip, measured to the lowest row the ART draws',
    /int gripPx \(float s\) const noexcept/.test(ovl) &&
-   /kArtHand = 422/.test(ovl) &&
-   /juce::roundToInt \(\(float\) \(kArtHand - kArtEdge\) \* s\) \+ kGripPad/.test(ovl) &&
+   /sets\[1\]\.hand = 420/.test(ovl) &&
+   /juce::roundToInt \(\(float\) \(cur\(\)\.hand - cur\(\)\.edge\) \* s\) \+ kGripPad/.test(ovl) &&
    /excludeClipRegion \(editorLocal\.withTrimmedTop \(gripPx \(s\)\)\)/.test(ovl));
 ok('frames CROSS-DISSOLVE - the open mouth is an alternative frame, not a layer',
-   /g\.setOpacity \(1\.0f - openAmt\);\s*\n\s*g\.drawImage \(idle/.test(ovl) &&
+   /g\.setOpacity \(1\.0f - openAmt\);\s*\n\s*g\.drawImage \(cur\(\)\.idle/.test(ovl) &&
    /imgIdle\.setAttribute\('opacity', \+\(1 - op\)\.toFixed\(3\)\)/.test(rep));
 ok('the strike frame is the one with NO painted tongue',
    /open  = loadPng \("rep_open\.png"\)/.test(ovl) && /tongueExt \* 2\.2f/.test(ovl) &&
@@ -203,7 +203,7 @@ ok('the in-window creature opens the same tongue-free mouth',
    /id="sdRepOpen"/.test(rep) && /imgOpen\.setAttribute\('opacity', op\)/.test(rep) &&
    /st\.tongue\.ext \* 2\.2/.test(rep));
 ok('he scales with the window between a readable floor and a capped ceiling',
-   /kSpanOfWindow/.test(ovl) && /juce::jlimit \(kVisibleH \/ \(float\) kArtEdge,/.test(ovl) &&
+   /kSpanOfWindow/.test(ovl) && /juce::jlimit \(kVisibleH \/ \(float\) cur\(\)\.edge,/.test(ovl) &&
    /kMaxVisibleH/.test(ovl));
 ok('no z-order fighting: the illusion never reorders windows',
    !/SetWindowPos|orderWindow|toBehind/.test(ovlCode));
@@ -328,7 +328,7 @@ ok('the host turns page coords into screen coords through the editor origin',
    /reptileStrike/.test(editor) && /getScreenPosition\(\) \+ juce::Point<int> \(x, y\)/.test(editor));
 ok('the tongue is drawn OUTSIDE the clip, so it reaches in front of the window',
    /juce::Graphics::ScopedSaveState body \(g\)/.test(ovl) &&
-   /tongueExt > 0\.002f/.test(ovl) && /kMouthX/.test(ovl));
+   /tongueExt > 0\.002f/.test(ovl) && /cur\(\)\.mouthX/.test(ovl));
 // It read as "a string coming out of his mouth" when it was a stroked line with a blob on
 // the end. It is now the same tapered-ribbon construction the in-window SVG creature uses.
 ok('the tongue is a tapered RIBBON on a bezier, not a stroked line',
@@ -355,6 +355,37 @@ ok('the window grows to reach the target, and shrinks back after',
    /tonguePhase = 0; tongueExt = 0\.0f; follow\(\);/.test(ovl));
 ok('switching him off cancels a tongue in flight', /tonguePhase = 0; tongueExt = 0\.0f; setVisible \(false\)/.test(ovl));
 
+// ── 9h2. TWO CHARACTERS, SWITCHABLE ──
+// "can it be revertable easily?" - yes: the second set is an ALTERNATIVE, not a
+// replacement, and switching is one click each way.
+ok('anchors travel WITH the art, they are not shared constants',
+   /struct CharSet/.test(ovl) && /int edge = 383;/.test(ovl) && /int mouthX = 215, mouthY = 239;/.test(ovl) &&
+   !/static constexpr int   kArtEdge/.test(ovl));
+ok('both sets are loaded, each with its own anchors',
+   /sets\[0\]\.edge = 383; sets\[0\]\.hand = 420/.test(ovl) &&
+   /sets\[1\]\.edge = 389; sets\[1\]\.hand = 420/.test(ovl) &&
+   /loadPng \("rep2_idle\.png"\)/.test(ovl));
+ok('the second set has no painted-tongue frame, so its open mouth doubles as the pose',
+   /sets\[1\]\.blep  = sets\[1\]\.open;/.test(ovl));
+ok('every draw and every anchor reads the CURRENT set',
+   /cur\(\)\.idle/.test(ovl) && /cur\(\)\.edge/.test(ovl) && /cur\(\)\.mouthX/.test(ovl) &&
+   /const CharSet& cur\(\) const noexcept/.test(ovl));
+ok('switching cancels a tongue in flight (his mouth is somewhere else now)',
+   /void setCharacter \(int i\)[\s\S]{0,300}tonguePhase = 0; tongueExt = 0\.0f;/.test(ovl));
+ok('the page keeps its own switchable sets, and layout reads only the active one',
+   /const REP_SETS = \[/.test(rep) && /const REP_ART = Object\.assign\(\{\}, REP_SETS\[0\]\)/.test(rep) &&
+   /reptile2_idle\.webp/.test(rep) && /EDGE: 672/.test(rep));
+ok('the choice rides the bridge and is remembered',
+   /c: \(typeof c === 'number' \? c : 0\)/.test(shim) && /prefsWrite\('repChar', v\)/.test(shim) &&
+   /repOverlay->setCharacter \(\(int\) v\.getProperty \("c", 0\)\)/.test(editor));
+ok('adopting a saved character does not write it straight back',
+   /setCharacter\(v, false\);/.test(rep));
+ok('there is a one-click switch, and it says which character is on',
+   /Switch character/.test(rep) && /setCharacter\(\(charIdx \+ 1\) % REP_SETS\.length\)/.test(rep) &&
+   /'Character: ' \+ REP_SETS\[charIdx\]\.name/.test(rep));
+ok('both new sets ship as resources', /ui\/rep2_idle\.png/.test(cmake) &&
+   /ui\/rep2_open\.png/.test(cmake) && /ui\/reptile2_idle\.webp/.test(cmake));
+
 // ── 9h. SIZE ──
 ok('he is smaller by default and the stature is still capped',
    /kVisibleH = 132\.0f/.test(ovl) && /kMaxVisibleH = 232\.0f/.test(ovl));
@@ -362,7 +393,7 @@ ok('size is a clamped multiplier the host applies to his scale',
    /void setScaleMul \(float m\)/.test(ovl) && /juce::jlimit \(0\.55f, 1\.5f, m\)/.test(ovl) &&
    /scaleMul \* juce::jlimit/.test(ovl));
 ok('the resizer shows only while he is actually out there',
-   /sizer\.style\.display = \(st\.on && st\.floating\) \? 'flex' : 'none'/.test(rep));
+   /sizeBtns\.forEach\(b => \{ b\.style\.display = st\.floating \? 'block' : 'none'; \}\)/.test(rep));
 ok('size persists through the prefs FILE, not localStorage alone',
    /window\.sdReptileScaleSave = function \(v\) \{ try \{ prefsWrite\('repScale', v\)/.test(shim) &&
    /window\.sdReptileScaleAdopt/.test(shim) && /window\.sdReptileScaleAdopt = function/.test(rep));
