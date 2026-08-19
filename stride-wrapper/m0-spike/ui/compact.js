@@ -442,6 +442,13 @@
     const rail = document.getElementById('sd-inject-rail');
     if (rail) rail.style.display = on ? 'none' : '';
     if (on) { lastRev = ''; sync(true); kick(); }
+    else if (typeof window.sdResizeCanvasNow === 'function') {
+      // The canvas could not measure itself while it was hidden. Re-measure it NOW that it
+      // is back on screen, then once more after layout settles, so leaving compact shows
+      // the lanes immediately instead of a blank canvas waiting for a window resize.
+      window.sdResizeCanvasNow();
+      requestAnimationFrame(() => window.sdResizeCanvasNow());
+    }
     const st = document.getElementById('sd-canvas-status');
     if (st) st.textContent = on ? 'Compact view' : st.textContent;
   }

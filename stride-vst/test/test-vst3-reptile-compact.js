@@ -257,6 +257,15 @@ ok('canvas: a bad id list is REFUSED rather than scrambling the lanes',
 ok('canvas: lanes hidden by a device filter keep the slots they hold',
    /sdCanvasParams\.map\(p => \(visible\.indexOf\(p\) >= 0 \? seq\[k\+\+\] : p\)\)/.test(canvas));
 
+// A hidden canvas measures 0x0, so a resize landing while compact was open left the lane
+// view blank on return until a real window resize nudged it (field report 2026-08-19).
+ok('leaving compact re-measures the canvas immediately, and again after layout settles',
+   /window\.sdResizeCanvasNow = function/.test(canvas) &&
+   /else if \(typeof window\.sdResizeCanvasNow === 'function'\)/.test(comp) &&
+   /requestAnimationFrame\(\(\) => window\.sdResizeCanvasNow\(\)\)/.test(comp));
+ok('the re-measure happens AFTER the container is visible again',
+   /host\.style\.display = on \? 'none' : '';[\s\S]{0,400}sdResizeCanvasNow/.test(comp));
+
 // ── 10. NO PRODUCT BEHAVIOUR TOUCHED ──
 ok('no DSP / mapping / transport / serialization words appear in either layer',
    !/processBlock|setStateInformation|apply_inject|set_range|set_speed|set_lock\b/.test(rep + comp));

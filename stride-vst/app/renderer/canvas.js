@@ -2983,6 +2983,16 @@
         sdDrawCanvasGrid();
     }
 
+    // A canvas cannot measure itself while it is display:none. Compact view hides this
+    // container, so any resize that lands meanwhile sizes the canvas to 0x0 and it comes
+    // back BLANK on return, staying blank until the next real window resize nudges the
+    // handler (field report 2026-08-19: "I first see nothing, and only after I drag the
+    // window a little bit I can see it"). The view switch calls this the moment the
+    // container is on screen again.
+    window.sdResizeCanvasNow = function () {
+        try { if (sdCanvasEl) sdResizeCanvas(); } catch (e) {}
+    }
+
     // ─── EMPTY-CANVAS CTA ─────────────────────────────────
     // Shows a centered "No lanes yet — press Scan Mapped" card inside the
     // canvas area when sdCanvasParams is empty. Called whenever the param
