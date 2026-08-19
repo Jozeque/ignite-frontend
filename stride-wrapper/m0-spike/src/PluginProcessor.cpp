@@ -648,6 +648,57 @@ void StrideWrapperProcessor::flushTypedNotes()
 }
 
 // ── hosted chain (message thread) ──────────────────────────────────
+#if JUCE_WINDOWS
+// ── KEEP HOSTED PLUGIN BINARIES RESIDENT ─────────────────────────────────────────────
+// JUCE reference-counts the VST3 module handle, so removing the LAST instance of a plugin
+// destroys that handle, which calls the plugin's ExitDll and then FreeLibrary - the code is
+// unmapped out from under anything the vendor left running. Slate's VerbSuite took Live
+// down on exactly that path (field report + crash dump 2026-08-19: HEAP_CORRUPTION reported
+// by ntdll, with the plugin's module already absent from the process).
+//
+// We cannot fix another vendor's teardown, so we stop unmapping underneath it: one extra,
+// permanent handle per binary means FreeLibrary never actually unmaps it for the life of
+// the session. This is what the big hosts do as well - plugin binaries stay resident once
+// loaded. The cost is retained address space for a device you removed; the alternative is
+// losing the user's set. macOS is unaffected: its ~DLLHandle never closes the bundle.
+//
+// Deliberately leaked (never closed, not even at exit): unloading these during static
+// teardown would put the same fragile ExitDll back on the process-quit path.
+static void pinPluginBinary (const juce::String& bundlePath)
+{
+    const juce::File f (bundlePath);
+    juce::File bin = f;
+
+    if (f.isDirectory())   // a modern .vst3 BUNDLE: the binary lives inside it
+    {
+        const auto inner = f.getChildFile ("Contents").getChildFile ("x86_64-win");
+        bin = inner.getChildFile (f.getFileNameWithoutExtension() + ".vst3");
+        if (! bin.existsAsFile())   // some vendors do not name it after the bundle
+        {
+            const auto kids = inner.findChildFiles (juce::File::findFiles, false, "*.vst3");
+            if (kids.isEmpty()) return;
+            bin = kids.getFirst();
+        }
+    }
+    if (! bin.existsAsFile()) return;
+
+    static juce::CriticalSection pinLock;
+    static auto* pinnedLibs  = new juce::OwnedArray<juce::DynamicLibrary>();
+    static auto* pinnedPaths = new juce::StringArray();
+
+    const juce::ScopedLock sl (pinLock);
+    const auto path = bin.getFullPathName();
+    if (pinnedPaths->contains (path)) return;
+
+    auto lib = std::make_unique<juce::DynamicLibrary>();
+    if (lib->open (path))
+    {
+        pinnedPaths->add (path);
+        pinnedLibs->add (lib.release());
+    }
+}
+#endif
+
 void StrideWrapperProcessor::loadPlugin (const juce::File& pluginFile)
 {
     juce::OwnedArray<juce::PluginDescription> found;
@@ -675,6 +726,9 @@ void StrideWrapperProcessor::loadPlugin (const juce::File& pluginFile)
                 return;
             }
 
+           #if JUCE_WINDOWS
+            pinPluginBinary (pathStr);   // never unmap this vendor's code again (see above)
+           #endif
             configureHostedBuses (*instance);   // main-stereo only — no sidechain/aux (prevents the FabFilter crash)
             instance->setPlayHead (&self->childPlayHead);   // hosted arps/sequencers/synced FX follow the project clock
             instance->setRateAndBufferSizeDetails (self->currentSampleRate, self->currentBlockSize);
