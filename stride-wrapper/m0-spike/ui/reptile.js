@@ -46,7 +46,10 @@
     breath: 0,
     tongue: { ext: 0, phase: 'idle', t: 0, ang: -Math.PI / 2, len: 0, hold: 0, target: null, wob: 0 },
     contact: { at: null, t: 0 },
-    nextIdle: 0, track: { on: false, until: 0 }, floating: false
+    // floating defaults ON: holding the window from the desktop is the version this was
+    // built for, and it costs Stride no height. Right-click the trigger to bring him
+    // back inside the window instead.
+    nextIdle: 0, track: { on: false, until: 0 }, floating: true
   };
   const anim = [];
   let raf = 0, last = performance.now();
@@ -190,11 +193,23 @@
   }
   function activate() {
     if (st.on) return;
-    st.on = true; st.phase = 'rising'; st.rise = 1;
+    st.on = true;
     st.face.blink = 0; st.face.blep = 0;
+    document.body.classList.add('sd-reptile-on');
+    // Turning him on has to HONOUR where he lives. This used to always raise the
+    // in-window creature, so switching to floating while he was off left the preference
+    // set but the gecko still standing inside Stride (field report 2026-08-19).
+    if (st.floating) {
+      st.phase = 'idle'; st.rise = 0;
+      gRep.setAttribute('opacity', '0');
+      requestZone(0);                              // he costs Stride no height out there
+      try { if (window.sdReptileFloatRequest) window.sdReptileFloatRequest(true); } catch (e) {}
+      paintTrigger();
+      return;                                      // the native window runs its own climb
+    }
+    st.phase = 'rising'; st.rise = 1;
     gRep.setAttribute('opacity', '1');
     zoneGot = ZONE_WANT; place(); requestZone(ZONE_WANT);
-    document.body.classList.add('sd-reptile-on');
     tween(1420, p => {
       let y;
       if (p < .17) { y = 1 - easeOut(clamp((p - .07) / .10, 0, 1)) * .42; }
@@ -235,14 +250,19 @@
     const want = !!v;
     if (want === st.floating) return;
     st.floating = want;
-    try { if (window.sdReptileFloatRequest) window.sdReptileFloatRequest(want && st.on); } catch (e) {}
+    // While he is OFF this only records the preference - activate() honours it. Firing
+    // the host request here instead was the bug that left him standing in the window.
+    if (!st.on) { paintTrigger(); return; }
+    try { if (window.sdReptileFloatRequest) window.sdReptileFloatRequest(want); } catch (e) {}
     if (want) {
       retract();
       gRep.setAttribute('opacity', '0');
       requestZone(0);                              // give the height back to Stride
-    } else if (st.on) {
+    } else {
+      st.phase = 'idle'; st.rise = 0;              // he walks back in already standing
       gRep.setAttribute('opacity', '1');
       zoneGot = ZONE_WANT; place(); requestZone(ZONE_WANT);
+      kick();
     }
     paintTrigger();
     const stt = document.getElementById('sd-canvas-status');

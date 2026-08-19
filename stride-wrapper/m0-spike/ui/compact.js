@@ -242,43 +242,70 @@
     c.el.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
       if (e.target.closest && e.target.closest('button, .sdk')) return;
-      cardDrag = { c, x: e.clientX, y: e.clientY, moved: false };
-      try { c.el.setPointerCapture(e.pointerId); } catch (_) {}
+      const r = c.el.getBoundingClientRect();
+      cardDrag = { c, x: e.clientX, y: e.clientY, moved: false, ph: null,
+                   ox: e.clientX - r.left, oy: e.clientY - r.top, w: r.width, h: r.height };
+      // Listen on the WINDOW, not via pointer capture on the card: the drag moves
+      // elements around inside the grid, and moving the CAPTURED element in the DOM
+      // drops its capture, which killed the drag after the first reorder.
+      window.addEventListener('pointermove', dragMove);
+      window.addEventListener('pointerup', dragEnd);
+      window.addEventListener('pointercancel', dragEnd);
     });
-    c.el.addEventListener('pointermove', (e) => {
-      if (!cardDrag || cardDrag.c !== c) return;
-      if (!cardDrag.moved) {
-        if (Math.abs(e.clientX - cardDrag.x) + Math.abs(e.clientY - cardDrag.y) < 6) return;
-        cardDrag.moved = true;
-        c.el.classList.add('dragging');
-      }
-      const over = cardUnder(e.clientX, e.clientY, c.el);
-      if (over) {
-        const r = over.getBoundingClientRect();
-        wrap.insertBefore(c.el, e.clientX > r.left + r.width / 2 ? over.nextSibling : over);
-      }
-    });
-    const done = (e) => {
-      if (!cardDrag || cardDrag.c !== c) return;
-      try { c.el.releasePointerCapture(e.pointerId); } catch (_) {}
-      const moved = cardDrag.moved;
-      cardDrag = null;
-      c.el.classList.remove('dragging');
-      if (moved) {
-        const ids = [...wrap.querySelectorAll('.sdc')].map(el => el.getAttribute('data-id'));
-        if (typeof window.sdCompactSetOrder === 'function') window.sdCompactSetOrder(ids);
-      } else if (typeof window.sdToggleLaneSelection === 'function') {
-        window.sdToggleLaneSelection(c.p.id);       // locked lanes decline it, exactly as on the canvas
-      }
-      lastRev = ''; sync(true);
-    };
-    c.el.addEventListener('pointerup', done);
-    c.el.addEventListener('pointercancel', done);
   }
-  function cardUnder(x, y, self) {
-    const all = wrap.querySelectorAll('.sdc');
+
+  // The card LIFTS OUT of the grid and follows the cursor, and a placeholder holds the
+  // slot it would drop into. Only the placeholder moves while dragging, so the grid
+  // never reflows under the pointer and the card the cursor is over stays stable.
+  function dragMove(e) {
+    const d = cardDrag;
+    if (!d) return;
+    const el = d.c.el;
+    if (!d.moved) {
+      if (Math.abs(e.clientX - d.x) + Math.abs(e.clientY - d.y) < 6) return;
+      d.moved = true;
+      d.ph = document.createElement('div');
+      d.ph.className = 'sdc-ph';
+      d.ph.style.height = d.h + 'px';
+      wrap.insertBefore(d.ph, el);
+      el.classList.add('dragging');
+      el.style.position = 'fixed';
+      el.style.width = d.w + 'px';
+      el.style.height = d.h + 'px';
+      el.style.pointerEvents = 'none';
+    }
+    el.style.left = (e.clientX - d.ox) + 'px';
+    el.style.top  = (e.clientY - d.oy) + 'px';
+    const over = slotUnder(e.clientX, e.clientY, el, d.ph);
+    if (over) {
+      const r = over.getBoundingClientRect();
+      wrap.insertBefore(d.ph, e.clientX > r.left + r.width / 2 ? over.nextSibling : over);
+    }
+  }
+  function dragEnd() {
+    const d = cardDrag;
+    if (!d) return;
+    window.removeEventListener('pointermove', dragMove);
+    window.removeEventListener('pointerup', dragEnd);
+    window.removeEventListener('pointercancel', dragEnd);
+    cardDrag = null;
+    const el = d.c.el;
+    if (d.moved) {
+      el.classList.remove('dragging');
+      el.style.position = el.style.left = el.style.top = '';
+      el.style.width = el.style.height = el.style.pointerEvents = '';
+      if (d.ph && d.ph.parentNode) { wrap.insertBefore(el, d.ph); d.ph.remove(); }
+      const ids = [].map.call(wrap.querySelectorAll('.sdc'), n => n.getAttribute('data-id'));
+      if (typeof window.sdCompactSetOrder === 'function') window.sdCompactSetOrder(ids);
+    } else if (typeof window.sdToggleLaneSelection === 'function') {
+      window.sdToggleLaneSelection(d.c.p.id);       // locked lanes decline it, exactly as on the canvas
+    }
+    lastRev = ''; sync(true);
+  }
+  function slotUnder(x, y, self, ph) {
+    const all = wrap.children;
     for (let i = 0; i < all.length; i++) {
-      if (all[i] === self) continue;
+      if (all[i] === self || all[i] === ph) continue;
       const r = all[i].getBoundingClientRect();
       if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return all[i];
     }

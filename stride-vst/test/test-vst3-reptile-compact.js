@@ -159,6 +159,13 @@ ok('it follows the editor rather than owning a position', /target\.getScreenBoun
 ok('art anchors are named constants, not magic numbers', /kArtEdge = 383/.test(ovl) && /kVisibleH/.test(ovl));
 ok('PNG copies exist for the native overlay (JUCE cannot decode WebP)',
    /ui\/rep_idle\.png/.test(cmake) && /loadPng \("rep_idle\.png"\)/.test(ovl));
+// activate() used to always raise the IN-WINDOW creature, so choosing floating while he
+// was off recorded the preference and then stood him inside Stride anyway.
+ok('turning him on HONOURS where he lives',
+   /if \(st\.floating\) \{[\s\S]{0,320}sdReptileFloatRequest\(true\)/.test(rep) &&
+   /floating: true/.test(rep));
+ok('choosing a home while he is off only records it, and activate applies it',
+   /if \(!st\.on\) \{ paintTrigger\(\); return; \}/.test(rep));
 ok('turning the mode off also tears the floating window down',
    /sdReptileFloatRequest && window\.sdReptileFloatRequest\(false\)/.test(rep));
 ok('only one creature at a time: floating hides the in-window one and gives the strip back',
@@ -218,17 +225,29 @@ ok('the ✕ removes the lane through the existing unmap path',
 ok('the ✕ stays quiet until the card is hovered (not a grid of delete buttons)',
    /\.sdc-x\{[^}]*opacity:0/.test(indexH) && /\.sdc:hover \.sdc-x\{opacity:1\}/.test(indexH));
 ok('clicking a card SELECTS the lane, so the toolbar motion tools reach it',
-   /window\.sdToggleLaneSelection\(c\.p\.id\)/.test(comp) && /\.sdc\.sel\{/.test(indexH));
+   /window\.sdToggleLaneSelection\(d\.c\.p\.id\)/.test(comp) && /\.sdc\.sel\{/.test(indexH));
 ok('selection state reaches the cards through the snapshot',
    /selected: !!p\.selected/.test(canvas) && /p\.selected \? ' sel' : ''/.test(comp));
 ok('one gesture, split by travel: a few px is a click, past that it is a drag',
-   /if \(Math\.abs\(e\.clientX - cardDrag\.x\) \+ Math\.abs\(e\.clientY - cardDrag\.y\) < 6\) return;/.test(comp) &&
-   /if \(moved\) \{/.test(comp));
+   /if \(Math\.abs\(e\.clientX - d\.x\) \+ Math\.abs\(e\.clientY - d\.y\) < 6\) return;/.test(comp) &&
+   /if \(d\.moved\) \{/.test(comp));
 ok('controls inside the card keep their own gestures',
    /e\.target\.closest\('button, \.sdk'\)/.test(comp));
+// Moving the element that HOLDS a pointer capture drops the capture, which killed the
+// drag after its first reorder (field report 2026-08-19).
+ok('the drag listens on the window, not on a capture the reorder would drop',
+   /window\.addEventListener\('pointermove', dragMove\)/.test(comp) &&
+   !/setPointerCapture[\s\S]{0,200}insertBefore/.test(comp));
+ok('the card lifts out of the grid and rides the cursor',
+   /el\.style\.position = 'fixed'/.test(comp) && /el\.style\.left = \(e\.clientX - d\.ox\)/.test(comp));
+ok('a placeholder holds the slot, so the grid never reflows under the pointer',
+   /d\.ph\.className = 'sdc-ph'/.test(comp) && /wrap\.insertBefore\(d\.ph,/.test(comp) &&
+   /\.sdc-ph\{/.test(indexH));
+ok('the lifted card is transparent to the pointer while it rides',
+   /el\.style\.pointerEvents = 'none'/.test(comp));
 ok('a card drag also freezes the grid rebuild', /if \(drag \|\| cardDrag\) \{/.test(comp));
 ok('the dropped DOM order is what gets committed',
-   /\[\.\.\.wrap\.querySelectorAll\('\.sdc'\)\]\.map\(el => el\.getAttribute\('data-id'\)\)/.test(comp) &&
+   /wrap\.querySelectorAll\('\.sdc'\), n => n\.getAttribute\('data-id'\)/.test(comp) &&
    /window\.sdCompactSetOrder\(ids\)/.test(comp));
 
 // Order is ENGINE-OWNED (localStorage is one shared profile across instances - the
