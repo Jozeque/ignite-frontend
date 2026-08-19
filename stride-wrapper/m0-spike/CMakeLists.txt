@@ -71,6 +71,14 @@ juce_add_binary_data(StrideWrapperM0Data SOURCES
     ui/index.html
     ui/shim.js
     ui/tailwind.js
+    # Reptile Mode + Compact View (wrapper-only presentation layers). The character
+    # art is deliberately separate files, not baked into the JS, so it can be swapped
+    # without touching a line of layout code.
+    ui/reptile.js
+    ui/compact.js
+    ui/reptile_idle.webp
+    ui/reptile_blink.webp
+    ui/reptile_blep.webp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../stride-vst/app/renderer/canvas.js
     ${CMAKE_CURRENT_SOURCE_DIR}/../../stride-vst/app/renderer/midi-parser.js
     ${CMAKE_CURRENT_SOURCE_DIR}/../../stride-vst/app/renderer/audition.js

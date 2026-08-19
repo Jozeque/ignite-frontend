@@ -3577,6 +3577,45 @@
         if (_sdEngOn !== _sdEngDrawnOn || Math.abs(_sdEngPhase - _sdEngDrawnPhase) > 0.0015) _sdEngKick();
     };
 
+    // ── COMPACT VIEW read-only snapshot (wrapper only) ──────────────────────────────
+    // The compact parameter-card grid is a SECOND VIEW of these same lanes, never a
+    // second copy of the state: it renders from whatever this returns and owns nothing.
+    // Strictly read-only — nothing here mutates a lane, and the desktop app simply never
+    // calls it. Card actions (lock) go through the existing window.sdToggleLockLane.
+    window.sdCompactSnapshot = function () {
+        const vis = sdVisibleParams();
+        return {
+            phase: _sdEngPhase,
+            playing: _sdEngOn,
+            epoch: _sdCurveEpoch,
+            bars: sdGetBars(),
+            params: vis.map((p, i) => ({
+                id: p.envelopeId,
+                name: p.name,
+                device: p.device || '',
+                locked: !!p.locked,
+                rgb: sdLaneColor(p, i),
+                rangeOn: !!p.rangeOn,
+                rangeMin: (typeof p.rangeMin === 'number' ? p.rangeMin : 0),
+                rangeMax: (typeof p.rangeMax === 'number' ? p.rangeMax : 1),
+                points: p.points
+            }))
+        };
+    };
+    // Cheap signature of the lane SET (not the curves). The card grid rebuilds only when
+    // this changes — a scan, unmap, rename, colour pick or lock — instead of diffing every
+    // frame. Derived rather than event-hooked on purpose: no mutation site is touched.
+    window.sdCompactRevision = function () {
+        const vis = sdVisibleParams();
+        let s = vis.length + '|';
+        for (let i = 0; i < vis.length; i++) {
+            const p = vis[i];
+            s += p.envelopeId + ',' + p.name + ',' + (p.device || '') + ',' + (p.locked ? 1 : 0)
+               + ',' + (typeof p.colorIdx === 'number' ? p.colorIdx : -1) + ';';
+        }
+        return s;
+    };
+
     // ── LANDING ANIMATION (2026-08-12, Yossi-picked mockup B "draw-on") ─────────────
     // When a motion tool / template prints new curves, each lane's stroke DRAWS ITSELF
     // bar-1 → end with a comet head (the playhead's visual language), lanes 15ms apart

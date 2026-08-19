@@ -107,6 +107,11 @@ private:
     bool sdFullscreen = false; int preFsW = 0, preFsH = 0;   // fullscreen (maximize) toggle — remembers the pre-fullscreen size to restore
     juce::String pinMode;      // "" = unpinned / "bottom" / "side" (session-only, like fullscreen)
     int prePinW = 0, prePinH = 0;   // restore size for unpin (kept across pin->pin switches)
+    // REPTILE MODE character zone: a plugin editor can't paint outside its bounds, so the
+    // creature gets a strip at the TOP of the window and we grow the editor by exactly that
+    // height - the canvas keeps its size instead of paying for the character. preRepH is the
+    // height to fall back to on deactivate (session-only, same story as fullscreen/pin).
+    int repZoneH = 0, preRepH = 0;
    #if JUCE_MAC
     void* lastForwardView = nullptr;       // the NSView WE registered with the key forwarder — the dtor unregisters exactly this (multi-instance safe)
    #endif

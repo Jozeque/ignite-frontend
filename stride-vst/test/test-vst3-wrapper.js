@@ -146,5 +146,13 @@ ok('mac script signs with Developer ID + hardened runtime', /Developer ID Applic
 ok('mac script notarizes + staples', /notarytool submit/.test(macSh) && /stapler staple/.test(macSh));
 ok('mac script applies the entitlements', /--entitlements/.test(macSh));
 
+// ─── open-all / close-all device-window pair (2026-08-18) ───
+ok('control bar: close-all button sits next to open-all (⊟ → closeSynth)',
+   /sbtn\('⊟', 'closeSynth', BTN_GHOST\)/.test(shim) && /Close all device windows/.test(shim)
+   && shim.indexOf("sbtn('⛶', 'openSynth'") < shim.indexOf("sbtn('⊟', 'closeSynth'"));
+ok('editor routes closeSynth → windows cleared (editors die, instances keep running)',
+   /"closeSynth",\s*\[this\] \(juce::var\)\s*\{ synthWindows\.clear\(\); \}/.test(editor));
+ok('guide mentions the close-all', /closes them all/.test(indexH));
+
 console.log('  ' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);

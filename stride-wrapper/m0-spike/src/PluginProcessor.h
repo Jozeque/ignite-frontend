@@ -177,6 +177,17 @@ public:
     void removeMappedAt (int pos);
     void clearMapping();
     int  mappingVersion() const { return mapVersion.load(); }
+    // Drain the missing-device report (see restoreMissingNames below). Returns true
+    // once per completed restore wave that skipped devices; the editor turns it into
+    // a chainNote. MESSAGE THREAD only — called from the timer's ungated section.
+    bool consumeRestoreMissing (juce::StringArray& namesOut, int& loadedOut)
+    {
+        if (! restoreMissingPending) return false;
+        restoreMissingPending = false;
+        namesOut = restoreMissingNames;
+        loadedOut = restoreMissingLoaded;
+        return true;
+    }
 
     // ── Host automation: a fixed pool of VST3 macro params so the DAW can automate /
     //    record the hosted knobs (docs/stride-wrapper-host-automation-spec.md). Additive —
@@ -491,6 +502,16 @@ private:
     // in Bitwig queues several full restores back-to-back).
     void restoreNextDevice (std::shared_ptr<std::vector<RemovedSnapshot::Dev>> devs, size_t i, int gen);
     std::atomic<int> restoreGeneration { 0 };
+    // Missing-device report (2026-08-18): restoreNextDevice used to skip unfindable
+    // plugins SILENTLY — a chain loaded on a machine without the synth came up
+    // half-empty with zero explanation (the chain-sharing killer; same on project
+    // open). Each restore wave tallies its misses; the editor timer drains the
+    // report in its UNGATED section and shows ONE chainNote. Message thread only
+    // on both sides (restore completions + the timer) — no lock involved, and the
+    // drain must never sit behind a lock probe (the 1.3.2 lesson).
+    juce::StringArray restoreMissingNames;   // message thread only
+    int  restoreMissingLoaded = 0;           // devices that DID come back this wave
+    bool restoreMissingPending = false;      // set at wave end when names is non-empty
     // MESSAGE THREAD. Closes every hosted-device window (destroying their editors) via the
     // active editor — hosted editors must die BEFORE their instances (see setStateInformation).
     void closeHostedEditorsForTeardown();

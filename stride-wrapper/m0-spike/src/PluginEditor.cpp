@@ -58,6 +58,8 @@ static std::optional<Resource> serveAsset (const juce::String& url)
                      : file.endsWithIgnoreCase (".css")   ? "text/css"
                      : file.endsWithIgnoreCase (".ttf")   ? "font/ttf"
                      : file.endsWithIgnoreCase (".woff2") ? "font/woff2"
+                     : file.endsWithIgnoreCase (".webp")  ? "image/webp"
+                     : file.endsWithIgnoreCase (".png")   ? "image/png"
                                                           : "application/octet-stream";
 
     for (int i = 0; i < BinaryData::namedResourceListSize; ++i)
@@ -260,6 +262,21 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
         .withEventListener ("loadSynthPath",[this] (juce::var v)   { if (proc.isEditLocked()) return; proc.loadPlugin (juce::File (v.getProperty ("path", "").toString())); })
         .withEventListener ("browsePlugins",[this] (juce::var)     { if (proc.isEditLocked()) return; scanPluginsToWeb(); })
         .withEventListener ("openSynth",    [this] (juce::var)     { toggleSynthWindow(); })
+        // Close-all counterpart to openSynth (field request 2026-08-18): destroying the
+        // HostedWindows kills only the EDITORS — instances keep running and reopen
+        // fresh through getHostedEditor, the exact lifecycle removeDevice/clearChain use.
+        .withEventListener ("closeSynth",   [this] (juce::var)     { synthWindows.clear(); })
+        // Reptile Mode opens/closes its character strip. Presentation only: this resizes
+        // the editor and nothing else. Same setSize path fullscreen and the pin modes use.
+        .withEventListener ("reptileZone",  [this] (juce::var v)   {
+            const int h = juce::jlimit (0, 400, (int) v.getProperty ("h", 0));
+            if (h == repZoneH) return;
+            if (repZoneH == 0 && h > 0) preRepH = getHeight();      // opening: remember the working height
+            const int base = (preRepH > 0 ? preRepH : getHeight());
+            repZoneH = h;
+            setSize (getWidth(), h > 0 ? base + h : base);
+            if (h == 0) preRepH = 0;
+        })
         .withEventListener ("openSynthOne", [this] (juce::var v)   { openOneSynthWindow ((int) v.getProperty ("i", -1)); })
         .withEventListener ("transportKey", [this] (juce::var v)   { forwardTransportKey (v.getProperty ("key", "space").toString()); })
         .withEventListener ("musicKey",     [this] (juce::var v)   { forwardMusicKey (v.getProperty ("key", "").toString(), (bool) v.getProperty ("down", false)); })
@@ -1494,6 +1511,20 @@ void StrideWrapperEditor::timerCallback()
             o->setProperty ("v", (double) v);
             web->emitEventIfBrowserIsVisible ("strideCtl", juce::var (o));
         }
+    }
+
+    // Missing-device report — a restore wave (chain load / project open) finished
+    // with devices it couldn't find or instantiate on this machine. Lock-free
+    // message-thread state, so it lives HERE in the ungated section (never behind
+    // the lock probe — the 1.3.2 lesson: atomic work never gates on the lock).
+    {
+        juce::StringArray missing; int loadedCount = 0;
+        if (proc.consumeRestoreMissing (missing, loadedCount))
+            emitChainNote ("Some devices didn't load",
+                           "Couldn't find: " + missing.joinIntoString (", ")
+                           + (loadedCount > 0 ? ". The rest of the chain loaded fine."
+                                              : ". None of this chain's devices were found on this machine.")
+                           + " Install them, then load the file again.");
     }
 
     // ── LOCK-TAKING TAIL. If the audio thread is WEDGED holding hostLock (a hosted

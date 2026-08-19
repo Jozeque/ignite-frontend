@@ -845,7 +845,21 @@ void StrideWrapperProcessor::undoRemove()
 // thread, so restoring sequentially is what keeps the chain order intact).
 void StrideWrapperProcessor::restoreNextDevice (std::shared_ptr<std::vector<RemovedSnapshot::Dev>> devs, size_t i, int gen)
 {
-    if (devs == nullptr || i >= devs->size()) return;
+    if (devs == nullptr) return;
+    if (i == 0)   // fresh wave = fresh tally (message thread only; a superseded wave's leftovers die here)
+    {
+        restoreMissingNames.clear();
+        restoreMissingLoaded = 0;
+        restoreMissingPending = false;
+    }
+    if (i >= devs->size())
+    {
+        // Wave complete — surface what never came back. A superseded wave stays
+        // silent: the newer wave owns the report.
+        if (gen == restoreGeneration.load() && ! restoreMissingNames.isEmpty())
+            restoreMissingPending = true;
+        return;
+    }
     if (gen != restoreGeneration.load()) return;   // superseded by a newer setState/undo wave — abandon
     const auto d = (*devs)[i];
 
@@ -853,7 +867,12 @@ void StrideWrapperProcessor::restoreNextDevice (std::shared_ptr<std::vector<Remo
 
     juce::OwnedArray<juce::PluginDescription> found;
     findPluginTypesForFile (formatManager, d.path, found);
-    if (found.isEmpty()) { restoreNextDevice (devs, i + 1, gen); return; }   // skip a missing plugin, keep going
+    if (found.isEmpty())   // not installed / moved on THIS machine — skip it, keep going, but SAY so at wave end
+    {
+        restoreMissingNames.add (juce::File (d.path).getFileNameWithoutExtension());
+        restoreNextDevice (devs, i + 1, gen);
+        return;
+    }
 
     formatManager.createPluginInstanceAsync (
         *found[0], currentSampleRate, currentBlockSize,
@@ -895,8 +914,15 @@ void StrideWrapperProcessor::restoreNextDevice (std::shared_ptr<std::vector<Remo
                 }
                 self->mapVersion.fetch_add (1);
                 self->triggerAsyncUpdate();
+                self->restoreMissingLoaded++;   // this wave brought one back (message thread)
             }
-            else juce::ignoreUnused (err);
+            else
+            {
+                // Found on disk but wouldn't instantiate (bad install, wrong arch) —
+                // report it like a missing one instead of vanishing silently.
+                self->restoreMissingNames.add (juce::File (d.path).getFileNameWithoutExtension());
+                juce::ignoreUnused (err);
+            }
 
             self->restoreNextDevice (devs, i + 1, gen);   // next device, in order
         });

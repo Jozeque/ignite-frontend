@@ -49,6 +49,13 @@
 
   // Fullscreen (maximize) toggle -> the C++ editor resizes the window; the icon reflects state.
   window.sdToggleFullscreen = function () { emit('toggleFullscreen'); };
+
+  // REPTILE MODE character zone. A plugin editor cannot paint outside its own bounds,
+  // so the creature gets a strip at the top of the window and the host GROWS by exactly
+  // that height - the canvas keeps its size instead of paying for the character. h=0
+  // restores the original height. If a host refuses the resize the strip still opens,
+  // it just costs a little canvas, so the mode degrades rather than breaks.
+  window.sdReptileZoneRequest = function (h) { emit('reptileZone', { h: Math.max(0, h | 0) }); };
   listen('fullscreenState', function (d) {
     var ic = document.getElementById('sd-fs-icon'), btn = document.getElementById('sd-fullscreen-btn');
     if (! ic) return;
@@ -820,6 +827,7 @@
         }
       });
       var openBtn = sbtn('⛶', 'openSynth', BTN_GHOST); openBtn.title = 'Open device windows'; openBtn.classList.add('text-[12px]');
+      var closeBtn = sbtn('⊟', 'closeSynth', BTN_GHOST); closeBtn.title = 'Close all device windows'; closeBtn.classList.add('text-[12px]');
       var clearBtn = sbtn('Clear', 'clearChain', BTN_GHOST);
       clearBtn.onclick = function () { emit('clearChain'); _armUndo(null, 'Chain cleared · Ctrl+Z to undo'); };
 

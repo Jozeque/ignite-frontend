@@ -137,6 +137,52 @@
         .sd-compact-only { display: none; }
         body.qp-compact .sd-full-only { display: none !important; }
         body.qp-compact .sd-compact-only { display: flex; }
+
+        /* ══════════ COMPACT VIEW (parameter cards) ══════════
+           Replaces ONLY the lane canvas. Header, toolbars, device bar, global sliders
+           and status bar are untouched, so every control stays exactly where the user
+           already knows it. Cards deliberately carry no shape/motion tools. */
+        #sd-compact{flex:1;min-width:0;overflow-y:auto;overflow-x:hidden;
+            background:rgba(0,0,0,.22);padding:9px;gap:8px;align-content:start;
+            grid-template-columns:repeat(auto-fill,minmax(212px,1fr))}
+        #sd-compact::-webkit-scrollbar{width:9px}
+        #sd-compact::-webkit-scrollbar-thumb{background:rgb(var(--sb-thumb));border-radius:9px;
+            border:2px solid transparent;background-clip:padding-box}
+        .sdc-empty{grid-column:1/-1;text-align:center;color:rgb(var(--z500));font-size:11px;
+            padding:40px 20px;line-height:1.7}
+        .sdc-empty b{color:rgb(var(--o400))}
+        .sdc{position:relative;background:linear-gradient(180deg,#141417,#0b0b0d);
+            border:1px solid rgba(255,255,255,.07);border-left:2px solid var(--lc);
+            border-radius:7px;padding:7px 9px 7px;display:flex;flex-direction:column;gap:5px;
+            box-shadow:0 1px 0 rgba(255,255,255,.035) inset,0 8px 18px -12px #000;
+            transition:border-color .15s,background .15s}
+        .sdc:hover{border-color:rgba(255,255,255,.14);background:linear-gradient(180deg,#17171b,#0d0d0f)}
+        .sdc.lk{opacity:.6}
+        .sdc-h{display:flex;align-items:flex-start;gap:5px}
+        .sdc-t{min-width:0;flex:1}
+        .sdc-n{font-size:11px;font-weight:800;color:#f1ede4;letter-spacing:.005em;line-height:1.2;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .sdc-d{font-size:8.5px;font-weight:700;color:#8d8880;letter-spacing:.06em;
+            text-transform:uppercase;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .sdc-m{color:#5f5b55;font-size:13px;line-height:1;padding:0 2px;background:none;border:none;
+            cursor:default;flex:none}
+        .sdc-m:hover{color:#9a958c}
+        .sdc-b{display:flex;align-items:center;gap:7px}
+        .sdc-lk{flex:none;width:16px;height:16px;color:#5f5b55;background:none;border:none;padding:0;cursor:pointer}
+        .sdc-lk svg{width:14px;height:14px;display:block}
+        .sdc-lk:hover{color:#c8c3ba}
+        .sdc.lk .sdc-lk{color:var(--lc)}
+        .sdc .sdk{flex:none}
+        .sdc-v{min-width:0;flex:1}
+        .sdc-v b{font-size:15px;font-weight:800;color:#f1ede4;letter-spacing:-.01em;
+            font-variant-numeric:tabular-nums;display:block;line-height:1}
+        .sdc-w{position:relative;height:30px;border-radius:4px;overflow:hidden;
+            background:#050506;border:1px solid rgba(255,255,255,.05)}
+        .sdc-w svg{position:absolute;inset:0;width:100%;height:100%}
+        .sdc-w::after{content:'';position:absolute;inset:0;pointer-events:none;
+            background:linear-gradient(90deg,#050506 0,transparent 11%,transparent 89%,#050506 100%)}
+        /* the reptile's character zone pushes the whole app down; the host grows to match */
+        body.sd-reptile-on #sd-rep-zone{pointer-events:none}
     </style>
 </head>
 <body class="h-screen flex flex-col">
@@ -320,6 +366,9 @@
         <button id="sd-update-btn" class="titlebar-no-drag text-[9px] text-zinc-500 hover:text-orange-400 uppercase font-bold tracking-widest transition-colors mr-3" title="Get the latest Stride build — opens your download directly">Update</button>
         <!-- Guide -->
         <button onclick="document.getElementById('guide-modal').classList.remove('hidden')" class="titlebar-no-drag text-[9px] text-zinc-500 hover:text-orange-400 uppercase font-bold tracking-widest transition-colors mr-3">Guide</button>
+        <!-- DEV ONLY: compact parameter-card view. Deliberately NOT the existing
+             "Compact" control, which keeps its own meaning untouched. -->
+        <button id="sd-devcompact-btn" onclick="window.strideCompact && window.strideCompact.toggle()" class="titlebar-no-drag text-[9px] text-zinc-700 hover:text-orange-400 uppercase font-bold tracking-widest transition-colors mr-3" title="DEV: parameter-card view (prototype)">CV</button>
         <!-- Account (online mode) -->
         <button id="account-btn" onclick="toggleAccountPanel()" class="titlebar-no-drag text-[9px] text-zinc-500 hover:text-zinc-300 uppercase font-bold tracking-widest transition-colors hidden">Account</button>
         <!-- Collapse toolbar — hides both toolbar rows for a full-height canvas; the
@@ -608,7 +657,7 @@
                                 </div>
                                 <div class="flex-1 min-w-0">
                                     <h3 class="text-base text-zinc-100 font-black uppercase tracking-wider">Long chain? Open one device at a time</h3>
-                                    <p class="text-base text-zinc-300 leading-relaxed mt-2">Every loaded device shows in the bar under the logo. Click the <span class="text-fuchsia-400 font-bold">⛶</span> on a device to open just that plugin's window, or the <span class="text-zinc-300 font-bold">⛶</span> in the control bar to open them all. The <span class="text-zinc-400 font-bold">✕</span> removes one, and Ctrl+Z brings it back.</p>
+                                    <p class="text-base text-zinc-300 leading-relaxed mt-2">Every loaded device shows in the bar under the logo. Click the <span class="text-fuchsia-400 font-bold">⛶</span> on a device to open just that plugin's window, or the <span class="text-zinc-300 font-bold">⛶</span> in the control bar to open them all. The <span class="text-zinc-300 font-bold">⊟</span> next to it closes them all. The <span class="text-zinc-400 font-bold">✕</span> removes one, and Ctrl+Z brings it back.</p>
                                 </div>
                             </div>
                         </div>
@@ -2057,6 +2106,10 @@
         })();
     </script>
     <script src="canvas.js"></script>
+    <!-- Reptile Mode + Compact View. Both are WRAPPER-ONLY presentation layers that
+         load AFTER canvas.js and read from it; neither owns product state. -->
+    <script src="reptile.js"></script>
+    <script src="compact.js"></script>
     <!-- Compact mode updates the compact slider strip's % readouts (the real
          edit fns write the hidden sidebar spans). No mirror renderer. -->
     <script>window.qpcVal = function (id, v) { var e = document.getElementById(id); if (e) e.textContent = v + '%'; };</script>

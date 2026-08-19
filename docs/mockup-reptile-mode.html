@@ -30,7 +30,7 @@
   .daw .rule{position:absolute;left:0;right:0;height:1px;background:rgba(255,255,255,.03)}
 
   /* ── the Stride window (visual mock of the real wrapper chrome) ── */
-  .win{position:absolute;left:190px;top:330px;width:900px;height:470px;
+  .win{position:absolute;left:190px;top:286px;width:var(--winw,900px);height:514px;
     background:var(--winbg);border:1px solid var(--z800);border-radius:10px;overflow:hidden;
     box-shadow:0 40px 90px -30px rgba(0,0,0,.95),0 0 0 1px rgba(0,0,0,.6)}
   .tbar{height:30px;background:#121212;border-bottom:1px solid rgba(255,255,255,.07);
@@ -48,12 +48,25 @@
     border-radius:5px;padding:3px 7px;color:var(--z400)}
   .chip.warm{border-color:rgba(198,113,43,.4);background:rgba(198,113,43,.13);color:var(--copper-lt)}
   .chip.vio{border-color:rgba(84,75,109,.5);background:rgba(84,75,109,.2);color:var(--violet-lt)}
+  .sep{width:1px;height:12px;background:rgba(255,255,255,.1);flex:none}
+  .tool.sel{color:#c5807f}
+  .tool.mo{color:#dd9a52}
+  .globals{height:32px;background:rgba(0,0,0,.3);border-top:1px solid rgba(255,255,255,.05);
+    display:flex;align-items:center;gap:12px;padding:0 10px}
+  .gl{font-size:8px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#6c6862;flex:none}
+  .gs{display:flex;align-items:center;gap:5px;flex:1;min-width:0}
+  .gs i{font-style:normal;font-size:8px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+    color:#8d8880;flex:none}
+  .gs u{position:relative;flex:1;height:2px;background:#26262a;border-radius:2px;text-decoration:none}
+  .gs u::after{content:"";position:absolute;left:0;top:0;bottom:0;width:calc(var(--f,0)*100%);
+    background:#7a7770;border-radius:2px}
+  .gs b{font-size:8px;font-weight:700;color:#8d8880;font-variant-numeric:tabular-nums;flex:none;width:26px;text-align:right}
   .toolrow{height:26px;background:rgba(0,0,0,.35);border-bottom:1px solid rgba(255,255,255,.05);
     display:flex;align-items:center;gap:5px;padding:0 10px}
   .tool{font-size:8px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--z500);
     padding:2px 6px;border-radius:4px}
   .tool.on{color:var(--copper-lt);background:rgba(198,113,43,.18)}
-  .lanes{position:relative;height:314px;background:rgba(0,0,0,.22)}
+  .lanes{position:relative;height:350px;background:rgba(0,0,0,.22)}
   .lane{position:relative;height:44px;border-bottom:1px solid rgba(255,255,255,.05);display:flex}
   .lane:nth-child(odd){background:rgba(255,255,255,.014)}
   .lbl{width:132px;flex:none;border-right:1px solid rgba(255,255,255,.07);
@@ -67,6 +80,44 @@
   .statbar{height:22px;background:rgba(0,0,0,.4);border-top:1px solid rgba(255,255,255,.05);
     display:flex;align-items:center;justify-content:space-between;padding:0 10px}
   .statbar span{font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--z500)}
+
+  /* ══════════ COMPACT VIEW ══════════
+     Replaces ONLY the lane canvas. Same state, different question: full view asks
+     "what is this lane doing across time", compact asks "what do I have mapped,
+     what is moving, what can I grab". Header/tool rows/global strip untouched. */
+  .cards{display:none;position:relative;height:350px;overflow-y:auto;overflow-x:hidden;
+    background:rgba(0,0,0,.22);padding:8px;gap:7px;
+    grid-template-columns:repeat(var(--cols,4),minmax(0,1fr));align-content:start}
+  body.compact .lanes{display:none}
+  body.compact .cards{display:grid}
+  .cards::-webkit-scrollbar{width:7px}
+  .cards::-webkit-scrollbar-thumb{background:#3a3a3a;border-radius:8px}
+
+  .card{position:relative;background:linear-gradient(180deg,#111112,#0a0a0b);
+    border:1px solid rgba(255,255,255,.07);border-left:2px solid var(--lc,#888);
+    border-radius:6px;padding:6px 7px 5px;display:flex;flex-direction:column;gap:4px;
+    box-shadow:0 1px 0 rgba(255,255,255,.03) inset,0 6px 14px -10px #000}
+  .card.locked{opacity:.62}
+  .card .chd{display:flex;align-items:flex-start;gap:4px;min-height:22px}
+  .card .cn{font-size:10px;font-weight:800;color:#f1ede4;line-height:1.15;
+    letter-spacing:.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+  .card .cd{font-size:8px;font-weight:700;color:#8d8880;letter-spacing:.04em;
+    text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .card .cact{display:flex;gap:3px;align-items:center;flex:none;color:#6c6862}
+  .card .cact b{font-size:9px;cursor:default;line-height:1}
+  .card.locked .cact .lk{color:var(--lc)}
+  .card .cmid{display:flex;align-items:center;gap:8px}
+  .card .knob{flex:none}
+  .card .val{font-size:14px;font-weight:800;color:#f1ede4;font-variant-numeric:tabular-nums;
+    letter-spacing:-.01em;line-height:1}
+  .card .vsub{font-size:7.5px;font-weight:700;color:#6c6862;letter-spacing:.14em;
+    text-transform:uppercase;margin-top:2px}
+  /* the mini motion window: a slice of the REAL lane travelling through a clipped port */
+  .mvp{position:relative;height:26px;border-radius:3px;overflow:hidden;
+    background:#050506;border:1px solid rgba(255,255,255,.05)}
+  .mvp svg{position:absolute;inset:0;width:100%;height:100%}
+  .mvp::after{content:'';position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(90deg,#050506 0%,transparent 12%,transparent 88%,#050506 100%)}
 
   /* ── the hidden trigger: tiny, far right of the titlebar, easy to miss ── */
   .secret{width:16px;height:16px;border-radius:4px;display:flex;align-items:center;justify-content:center;
@@ -152,16 +203,48 @@
       <span class="grow"></span>
       <span class="chip">Serum 2 ✕</span><span class="chip">Saturn 2 ✕</span>
     </div>
+    <!-- EDIT / SHAPE TOOL ROW - unchanged in compact, this is where the user already
+         knows these live. Cards deliberately do NOT duplicate any of them. -->
     <div class="toolrow">
       <span class="tool on">Point</span><span class="tool">Free</span>
-      <span style="width:1px;height:12px;background:rgba(255,255,255,.1)"></span>
-      <span class="tool">Sine</span><span class="tool">Pump</span><span class="tool">Glitch</span>
-      <span class="tool">Chaos</span><span class="tool">Neuro</span><span class="tool">S&amp;H</span>
-      <span style="width:1px;height:12px;background:rgba(255,255,255,.1)"></span>
-      <span class="tool">Motions</span><span class="tool">Save</span>
-      <span class="grow"></span><span class="tool">Bars 8</span>
+      <span class="sep"></span>
+      <span class="tool">Mirror</span><span class="tool">Flip</span><span class="tool">Swing</span>
+      <span class="tool">2x</span><span class="tool">1/2x</span>
+      <span class="tool">Mutate</span><span class="tool">Shuffle</span>
+      <span class="sep"></span>
+      <span class="tool sel">◉ Sel</span>
+      <span class="tool">Sine</span><span class="tool">Pump</span><span class="tool">Chaos</span>
+      <span class="tool">Neuro</span><span class="tool">S&amp;H</span><span class="tool">Smooth</span>
+      <span class="tool">Storm</span><span class="tool">Call</span><span class="tool">Acid</span><span class="tool">Anchor</span>
     </div>
+    <!-- MOTION ROW + BARS + global lane actions -->
+    <div class="toolrow">
+      <span class="tool mo">Motion</span>
+      <span class="tool">Chaos</span><span class="tool">Neuro</span><span class="tool">Reflector</span>
+      <span class="tool">S&amp;H</span><span class="tool">Prism</span><span class="tool">Bloom</span>
+      <span class="sep"></span>
+      <span class="tool">Bars</span><span class="tool">4</span><span class="tool on">8</span>
+      <span class="tool">16</span><span class="tool">32</span><span class="tool">T</span>
+      <span class="sep"></span>
+      <span class="tool">Save</span><span class="tool">Motions</span>
+      <span class="tool" style="color:#8d8880">Riser Sweep</span>
+      <span class="grow"></span>
+      <span class="tool">Select All</span><span class="tool">Lock All</span><span class="tool">Unlock All</span>
+    </div>
+
+    <!-- the ONE thing compact swaps: lane canvas <-> parameter cards -->
     <div class="lanes" id="lanes"></div>
+    <div class="cards" id="cards"></div>
+
+    <!-- BOTTOM GLOBAL CONTROLS - same bindings, same place, in both views -->
+    <div class="globals">
+      <span class="gl">Active</span>
+      <span class="gs"><i>Smooth</i><u></u><b>0%</b></span>
+      <span class="gs"><i>Depth</i><u style="--f:.62"></u><b>100%</b></span>
+      <span class="gs"><i>Curve</i><u style="--f:.18"></u><b>0%</b></span>
+      <span class="gs"><i>Floor</i><u style="--f:.05"></u><b>0%</b></span>
+      <span class="gs"><i>Ceiling</i><u style="--f:1"></u><b>100%</b></span>
+    </div>
     <div class="statbar"><span>Ctrl+Wheel · Space+Drag · Alt+Drag</span><span id="stat">Connected · 6 lanes</span></div>
   </div>
 
@@ -311,6 +394,22 @@
   <!-- ═════════ DEV PANEL — temporary, not shipping UI ═════════ -->
   <div class="dev" id="dev">
     <h4>Dev · not shipping</h4>
+    <div class="k">View (dev only)</div>
+    <div class="row">
+      <button data-a="vFull">Full lanes</button><button data-a="vCompact">Compact</button>
+    </div>
+    <div class="k">Mapped params</div>
+    <div class="row">
+      <button data-a="p6">6</button><button data-a="p12">12</button><button data-a="p15">15</button>
+    </div>
+    <div class="k">Window width (columns)</div>
+    <div class="row">
+      <button data-a="w900">900 / 4</button><button data-a="w700">700 / 3</button><button data-a="w520">520 / 2</button>
+    </div>
+    <div class="k">Transport</div>
+    <div class="row">
+      <button data-a="play">Play</button><button data-a="pause">Pause</button>
+    </div>
     <div class="k">State</div>
     <div class="row">
       <button data-a="activate">Activate</button><button data-a="deactivate">Deactivate</button>
@@ -362,36 +461,159 @@
   const easeInOut = t => t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
   const easeBack = t => { const c=1.7; return 1+ (c+1)*Math.pow(t-1,3) + c*Math.pow(t-1,2); };
 
-  /* ── build the mock Stride lanes ───────────────────────────── */
+  /* ── ONE dataset. Full lanes and compact cards both render from THIS, which is the
+     whole point: compact is a second view of the same state, never a second state. ── */
   const LANES = [
-    ['Cutoff','Serum 2','#dd9a52','steps'],
-    ['Resonance','Comet Filter','#5e9aad','sine'],
-    ['Delay Time','Fractal Delay','#7ea9c9','sine2'],
-    ['Feedback','Fractal Delay','#c9a24b','chaos'],
-    ['Reverb Decay','Deep Space','#9a8cbb','chaos2'],
-    ['Dist Drive','Comet Dist','#c5807f','ramp'],
+    ['Cutoff',      'Serum 2',      '#dd9a52','steps' ,0],
+    ['Resonance',   'Comet Filter', '#5e9aad','sine'  ,0],
+    ['Delay Time',  'Fractal Delay','#7ea9c9','sine2' ,0],
+    ['Feedback',    'Fractal Delay','#c9a24b','chaos' ,0],
+    ['Reverb Decay','Deep Space',   '#9a8cbb','chaos2',0],
+    ['Dist Drive',  'Comet Dist',   '#c5807f','ramp'  ,0],
+    ['Band 1 Bass', 'Saturn 2',     '#c6712b','steps' ,1],
+    ['Band 2 Mid',  'Saturn 2',     '#dd9a52','chaos' ,0],
+    ['Wt Position', 'Serum 2',      '#86a87f','ramp'  ,0],
+    ['Noise Level', 'Serum 2',      '#5b7b55','sine'  ,0],
+    ['Filter Env',  'Serum 2',      '#2f748e','chaos2',0],
+    ['Reverb Mix',  'Deep Space',   '#544b6d','sine2' ,1],
+    ['Chorus Rate', 'Comet Filter', '#9a8cbb','sine'  ,0],
+    ['Drive Tone',  'Saturn 2',     '#a34e52','ramp'  ,0],
+    ['Width',       'Deep Space',   '#5e9aad','chaos' ,0],
   ];
+  let PCOUNT = 6;
+  const shown = () => LANES.slice(0, PCOUNT);
+
+  /* the real curve. ONE value function, so the lane, the card knob and the mini
+     motion window can never disagree about what a parameter is doing. */
+  function curveVal(kind,t){
+    // Stand-in shapes for the real generators. Deliberately characterful: at a glance
+    // a stepped S&H, a jagged Chaos and a smooth sweep must look like DIFFERENT
+    // animals, otherwise the whole point of 12 cards side by side collapses.
+    const h = (i)=>{ const x=Math.sin(i*12.9898)*43758.5453; return x-Math.floor(x); };
+    let v;
+    if(kind==='steps'){                     // sample & hold: hard flat steps
+      v = .10 + h(Math.floor(t*16))*.82;
+    } else if(kind==='chaos'){              // jagged multi-rate motion with jumps
+      v = .5 + .26*Math.sin(t*Math.PI*6.2) + .17*Math.sin(t*Math.PI*17.3+1.7)
+            + .12*(h(Math.floor(t*11))-.5)*2;
+    } else if(kind==='chaos2'){             // slower, wandering
+      v = .5 + .27*Math.sin(t*Math.PI*3.1+.6) + .13*Math.sin(t*Math.PI*9.7+2.2)
+            + .07*Math.sin(t*Math.PI*29);
+    } else if(kind==='sine'){               // clean cyclic sweep
+      v = .5 + .38*Math.sin(t*Math.PI*4);
+    } else if(kind==='sine2'){              // slow swell with a light shimmer
+      v = .5 + .33*Math.sin(t*Math.PI*2+1) + .06*Math.sin(t*Math.PI*24);
+    } else {                                // ramp: rises, snaps back, twice a loop
+      const r=(t*2)%1;  v = .08 + Math.pow(r,.8)*.84;
+    }
+    return clamp(v,.04,.96);
+  }
   function curvePath(kind,w,h){
     const pts=[]; const n=64;
-    for(let i=0;i<=n;i++){
-      const t=i/n; let v;
-      if(kind==='steps') v = .5+.34*Math.sin(t*12)*(Math.floor(t*8)%2?1:.4);
-      else if(kind==='sine') v = .5+.32*Math.sin(t*Math.PI*4);
-      else if(kind==='sine2') v = .5+.28*Math.sin(t*Math.PI*3+1)+.08*Math.sin(t*22);
-      else if(kind==='chaos') v = .5+.3*Math.sin(t*9.1)+.14*Math.sin(t*23.7+2);
-      else if(kind==='chaos2') v = .5+.22*Math.sin(t*6.3+1)+.1*Math.sin(t*17.2);
-      else v = .12+.72*t+.06*Math.sin(t*19);
-      pts.push([t*w, h-clamp(v,.04,.96)*h]);
-    }
+    for(let i=0;i<=n;i++){ const t=i/n; pts.push([t*w, h-curveVal(kind,t)*h]); }
     return 'M'+pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' L');
   }
-  $('lanes').innerHTML = LANES.map(([n,d,c,k])=>
-    `<div class="lane"><div class="lbl"><span class="cbar" style="background:${c}"></span>
-      <div class="lname">${n}</div><div class="ldev">${d}</div></div>
-     <div class="curve"><svg viewBox="0 0 600 44" preserveAspectRatio="none">
-       <path d="${curvePath(k,600,44)}" fill="none" stroke="${c}" stroke-width="1.7" stroke-linejoin="round" opacity=".92"/>
-       <path d="${curvePath(k,600,44)} L600,44 L0,44 Z" fill="${c}" opacity=".08"/>
-     </svg></div></div>`).join('');
+
+  /* ── FULL VIEW (unchanged rendering, just fed from the shared data) ── */
+  function renderLanes(){
+    $('lanes').innerHTML = shown().map(([n,d,c,k,lk])=>
+      `<div class="lane"><div class="lbl"><span class="cbar" style="background:${c}"></span>
+        <div class="lname">${n}</div><div class="ldev">${d}</div></div>
+       <div class="curve"><svg viewBox="0 0 600 44" preserveAspectRatio="none">
+         <path d="${curvePath(k,600,44)}" fill="none" stroke="${c}" stroke-width="1.7" stroke-linejoin="round" opacity="${lk?.4:.92}"/>
+         <path d="${curvePath(k,600,44)} L600,44 L0,44 Z" fill="${c}" opacity="${lk?.04:.08}"/>
+       </svg></div></div>`).join('');
+  }
+
+  /* ── COMPACT VIEW ──
+     Card = name + source + knob (value now) + mini motion window (behaviour over time).
+     Deliberately nothing else: every shape/motion tool already lives in the rows above,
+     and duplicating them per card would rebuild the density this mode exists to kill. */
+  const MVP_W = 120, MVP_H = 26, LOOP_W = MVP_W*2;   // half the loop in view: enough zoom to feel the travel, enough span to read the shape
+  function cardHtml([n,d,c,k,lk],i){
+    const pv = curvePath(k, LOOP_W, MVP_H-6);
+    const seg = `<g transform="translate(0,3)">
+        <path d="${pv} L${LOOP_W},${MVP_H-6} L0,${MVP_H-6} Z" fill="${c}" opacity="${lk?.06:.13}"/>
+        <path d="${pv}" fill="none" stroke="${c}" stroke-width="1.6" stroke-linejoin="round"
+              stroke-linecap="round" opacity="${lk?.45:.98}"/></g>`;
+    return `<div class="card${lk?' locked':''}" data-i="${i}" style="--lc:${c}">
+      <div class="chd">
+        <div style="min-width:0;flex:1">
+          <div class="cn">${n}</div><div class="cd">${d}</div>
+        </div>
+        <div class="cact">
+          <b class="lk" title="${lk?'Locked':'Unlocked'}">${lk?'\u{1F512}':'\u{1F513}'}</b>
+          <b title="Lane menu">\u22EF</b>
+        </div>
+      </div>
+      <div class="cmid">
+        <svg class="knob" width="34" height="34" viewBox="0 0 38 38">
+          <circle cx="19" cy="19" r="14.5" fill="#101113" stroke="#26262a" stroke-width="1"/>
+          <path d="${arcPath(19,19,15.5,0,1)}" fill="none" stroke="#232326" stroke-width="2.6" stroke-linecap="round"/>
+          <path class="karc" d="" fill="none" stroke="${c}" stroke-width="2.6"
+                stroke-linecap="round" opacity="${lk?.5:1}"/>
+          <line class="kind" x1="19" y1="19" x2="19" y2="8.5" stroke="#f1ede4"
+                stroke-width="1.9" stroke-linecap="round" opacity="${lk?.5:.9}"/>
+          <circle cx="19" cy="19" r="1.6" fill="#3a3a3e"/>
+        </svg>
+        <div style="min-width:0">
+          <div class="val">0%</div><div class="vsub">value</div>
+        </div>
+      </div>
+      <div class="mvp">
+        <svg viewBox="0 0 ${MVP_W} ${MVP_H}" preserveAspectRatio="none">
+          <g class="msc">${seg}
+            <g transform="translate(${LOOP_W},0)">${seg}</g>
+            <g transform="translate(${-LOOP_W},0)">${seg}</g></g>
+          <line x1="${MVP_W/2}" y1="0" x2="${MVP_W/2}" y2="${MVP_H}"
+                stroke="#f1ede4" stroke-opacity=".22" stroke-width="1"/>
+          <circle class="mdot" cx="${MVP_W/2}" cy="15" r="2" fill="${c}" opacity="${lk?.5:1}"/>
+        </svg>
+      </div>
+    </div>`;
+  }
+  function arcPath(cx,cy,r,v0,v1){
+    const a0=(-135+v0*270)*Math.PI/180, a1=(-135+v1*270)*Math.PI/180;
+    const x0=cx+Math.sin(a0)*r, y0=cy-Math.cos(a0)*r;
+    const x1=cx+Math.sin(a1)*r, y1=cy-Math.cos(a1)*r;
+    return `M${x0.toFixed(2)},${y0.toFixed(2)} A${r},${r} 0 ${(v1-v0)>.5?1:0} 1 ${x1.toFixed(2)},${y1.toFixed(2)}`;
+  }
+  function buildCards(){
+    $('cards').innerHTML = shown().map(cardHtml).join('');
+    _cardEls = [...$('cards').querySelectorAll('.card')].map(el=>({
+      el, arc:el.querySelector('.karc'), ind:el.querySelector('.kind'),
+      val:el.querySelector('.val'), msc:el.querySelector('.msc'), dot:el.querySelector('.mdot')
+    }));
+  }
+  let _cardEls = [];
+
+  /* transport clock: 8 bars at 124 BPM, the real loop length. Both views read it. */
+  const LOOP_MS = 8*4*60000/124;
+  let playing = true, tBase = performance.now(), tPhase = 0, _cardRaf = 0;
+  function cardsTick(now){
+    _cardRaf = 0;
+    if(playing) tPhase = (((now - tBase)/LOOP_MS)%1+1)%1;
+    for(let i=0;i<_cardEls.length;i++){
+      const C=_cardEls[i], k=LANES[i][3];
+      const v=curveVal(k,tPhase);
+      C.arc.setAttribute('d', arcPath(19,19,15.5,0,v));
+      C.ind.setAttribute('transform', `rotate(${(-135+v*270).toFixed(1)},19,19)`);
+      C.val.textContent = Math.round(v*100)+'%';
+      C.msc.setAttribute('transform', `translate(${(MVP_W/2 - tPhase*LOOP_W).toFixed(2)},0)`);
+      C.dot.setAttribute('cy', (3+(1-v)*(MVP_H-6)).toFixed(2));
+    }
+    if(document.body.classList.contains('compact')) _cardRaf = requestAnimationFrame(cardsTick);
+  }
+  function cardsKick(){ if(!_cardRaf && document.body.classList.contains('compact')) _cardRaf=requestAnimationFrame(cardsTick); }
+
+  function setParams(n){ PCOUNT=clamp(n,1,LANES.length); renderLanes(); buildCards(); cardsKick();
+    $('stat').textContent = document.body.classList.contains('compact')
+      ? ('Compact \u00b7 '+PCOUNT+' mapped') : ('Connected \u00b7 '+PCOUNT+' lanes'); }
+  function setCompact(on){
+    document.body.classList.toggle('compact', on);
+    setParams(PCOUNT); cardsKick();
+  }
+  renderLanes(); buildCards();
 
   /* faint DAW backdrop */
   (function(){
@@ -415,7 +637,7 @@
   // it (the splayed fingers) hangs in FRONT of the Stride title bar, which is what sells
   // "it climbed out and is holding on". MOUTH is where the tongue leaves the face.
   const L = { W:820, H:1017, EDGE:906, MOUTH:[396,388], PAW_SPAN:820 };
-  const WIN = { x:190, y:330, w:900, h:470 };
+  const WIN = { x:190, y:286, w:900, h:514 };
   const st = {
     scale: .33,          // → visible width ≈ 22% of the Stride window (spec §8)
     tx:0, ty:0,
@@ -791,9 +1013,19 @@
     t1:()=>strikeAt($('t1')), t2:()=>strikeAt($('t2')), t3:()=>strikeAt($('t3')),
     grip:()=>{ st.grip=.7; setTimeout(()=>{st.grip=1;},280); },
     s22:()=>setScale(.242), s35:()=>setScale(.33), s50:()=>setScale(.46),
+    vFull:()=>setCompact(false), vCompact:()=>setCompact(true),
+    p6:()=>setParams(6), p12:()=>setParams(12), p15:()=>setParams(15),
+    w900:()=>setWinW(900), w700:()=>setWinW(700), w520:()=>setWinW(520),
+    play:()=>{ tBase = performance.now() - tPhase*LOOP_MS; playing=true; cardsKick(); },
+    pause:()=>{ playing=false; },
     copper:()=>$('repLayer').classList.remove('teal'),
     tealp:()=>$('repLayer').classList.add('teal')
   };
+  function setWinW(w){
+    WIN.w=w; $('win').style.setProperty('--winw', w+'px');
+    $('cards').style.setProperty('--cols', w>=820?4:(w>=640?3:2));
+    place();
+  }
   function setScale(s){ st.scale=clamp(s,.30,1.5); $('scaleR').value=Math.round(st.scale*236); place(); }
   $('dev').addEventListener('click', e=>{
     const a = e.target && e.target.getAttribute('data-a');
@@ -810,6 +1042,11 @@
   /* deterministic entry points for screenshot capture */
   const q = new URLSearchParams(location.search);
   place(); buildSpikes(); drawPaws(); st.rise=1;
+  if(q.has('w')) setWinW(parseInt(q.get('w'),10));
+  if(q.has('p')) setParams(parseInt(q.get('p'),10));
+  if(q.get('view')==='compact') setCompact(true);
+  if(q.get('play')==='0') playing=false;
+  if(q.has('ph')){ playing=false; tPhase=parseFloat(q.get('ph')); cardsKick(); }
   if(q.get('skin')==='teal') $('repLayer').classList.add('teal');
   if(q.has('scale')) setScale(parseFloat(q.get('scale')));
   if(q.has('nodev')) $('dev').style.display='none';
@@ -821,7 +1058,17 @@
                        st.rise=0; st.grip=1; st.phase='idle';
                        setTimeout(()=>strikeAt($('t2')), 40); }
   if(shot==='reveal'){ setTimeout(()=>activate(), 60); }
-  // scripted run for frame capture: activate -> settle -> strike -> idle -> leave
+  if(q.get('demo')==='switch'){
+    // full -> compact -> reptile -> tongue -> back to full. Transport runs throughout,
+    // so the cards stay live and the switch is provably view-only.
+    setParams(12); setCompact(false);
+    setTimeout(()=>setCompact(true),  1500);
+    setTimeout(()=>activate(),        2200);
+    setTimeout(()=>strikeAt($('t2')), 4000);
+    setTimeout(()=>blink(),           5600);
+    setTimeout(()=>setCompact(false), 6500);
+    setTimeout(()=>setCompact(true),  7700);
+  }  // scripted run for frame capture: activate -> settle -> strike -> idle -> leave
   if(q.has('film')){
     setTimeout(()=>activate(),          150);
     setTimeout(()=>blink(),            1900);
