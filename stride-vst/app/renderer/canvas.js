@@ -558,7 +558,16 @@
     function sdLaneColor(param, paramIdx) {
         if (param && typeof param.colorIdx === 'number' && param.colorIdx >= 0 && param.colorIdx < SD_LANE_PALETTE.length)
             return SD_LANE_PALETTE[param.colorIdx];
-        return sdLaneRGB(paramIdx);
+        // AUTO colors rotate by POSITION, so dragging a card used to repaint the lane you
+        // moved (field report 2026-08-19). Each lane carries the auto slot it was born
+        // with, so its color belongs to the LANE, not to wherever the user parks it.
+        return sdLaneRGB(param && typeof param.autoIdx === 'number' ? param.autoIdx : paramIdx);
+    }
+    // Freeze the auto-color slots at the natural (name-sorted) order. Deliberately assigned
+    // BEFORE any saved card order is applied, so a reload reproduces the same slots and the
+    // colors survive reopening the project as well as the drag itself.
+    function _sdFreezeAutoColorSlots() {
+        for (let i = 0; i < sdCanvasParams.length; i++) sdCanvasParams[i].autoIdx = i;
     }
     // Measured ellipsis truncation for the big lane labels (char counting lies at 17px).
     function _sdFitText(ctx, txt, maxW) {
@@ -871,6 +880,7 @@
                 points: []
             }))
             .sort(_sdSortByName);
+        _sdFreezeAutoColorSlots();
 
         if (sdCanvasParams.length > 0) sdActiveParamId = sdCanvasParams[0].envelopeId;
         document.getElementById('param-picker').classList.add('hidden');
@@ -937,7 +947,9 @@
             ord: (typeof p.ord === 'number' ? p.ord : -1),                                       // engine-owned card order echo (v9) — -1 = never reordered
             points: Array.isArray(p.points) ? p.points : []   // wrapper sends the drawn curve from the engine — reliable across reopen (desktop sends none → empty)
         })).sort(_sdSortByName);
+        _sdFreezeAutoColorSlots();   // colors belong to the lane, not to its slot in the grid
         _sdApplyOrderEcho();   // an explicit card order, when the user made one, wins over the name sort
+        _sdAnnounceNewLanes();
         if (typeof _sdLinkAfterRebuild === 'function') _sdLinkAfterRebuild();   // dissolve 1-member groups + rebase the mirror shadows
 
         if (sdCanvasParams.length > 0) sdActiveParamId = sdCanvasParams[0].envelopeId;
@@ -3641,6 +3653,38 @@
         ranked.sort((a, b) => a.ord - b.ord);
         sdCanvasParams = ranked.concat(sdCanvasParams.filter(p => !(typeof p.ord === 'number' && p.ord >= 0)));
     }
+    // ── "a param was just mapped" ────────────────────────────────────────────────────
+    // Mapping arrives as a whole rebuilt lane set, so the new lane is found by diffing.
+    // Announced as a DOM event rather than wired to anything: the character listens, and
+    // nothing about lanes depends on whether it does. A BIG jump (a scan, a project load,
+    // picking params) is deliberately silent - only a hand-mapped knob or two is news.
+    let _sdKnownLaneIds = null;
+    function _sdAnnounceNewLanes() {
+        try {
+            const ids = sdCanvasParams.map(p => p.envelopeId);
+            if (_sdKnownLaneIds && _sdKnownLaneIds.length) {
+                const before = {};
+                _sdKnownLaneIds.forEach(id => { before[id] = 1; });
+                const fresh = ids.filter(id => !before[id]);
+                if (fresh.length && fresh.length <= 2)
+                    window.dispatchEvent(new CustomEvent('sd-lane-mapped', { detail: { ids: fresh } }));
+            }
+            _sdKnownLaneIds = ids;
+        } catch (e) {}
+    }
+
+    // Where a lane sits on screen right now, in client coords. Used by presentation layers
+    // that want to point at a lane; returns null when the lane isn't currently drawn.
+    window.sdLaneScreenPoint = function (envelopeId) {
+        try {
+            if (!sdCanvasEl) return null;
+            const g = _sdLaneGeom.find(l => l.id === envelopeId);
+            if (!g) return null;
+            const r = sdCanvasEl.getBoundingClientRect();
+            return { x: r.left + Math.min(r.width * 0.5, 240), y: r.top + g.cy };
+        } catch (e) { return null; }
+    };
+
     function _sdPushOrderToEngine() {
         try {
             if (!window.strideLink || !window.strideLink._wrapper) return;

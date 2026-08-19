@@ -162,7 +162,7 @@ ok('PNG copies exist for the native overlay (JUCE cannot decode WebP)',
 // activate() used to always raise the IN-WINDOW creature, so choosing floating while he
 // was off recorded the preference and then stood him inside Stride anyway.
 ok('turning him on HONOURS where he lives',
-   /if \(st\.floating\) \{[\s\S]{0,320}sdReptileFloatRequest\(true\)/.test(rep) &&
+   /if \(st\.floating\) \{[\s\S]{0,360}sdReptileFloatRequest\(true, st\.scaleMul\)/.test(rep) &&
    /floating: true/.test(rep));
 ok('choosing a home while he is off only records it, and activate applies it',
    /if \(!st\.on\) \{ paintTrigger\(\); return; \}/.test(rep));
@@ -180,7 +180,7 @@ ok('the overlay clips Stride out of its own painting instead of covering it',
 ok('the clip rect is recomputed from the live editor bounds, never cached stale',
    /editorLocal = local; repaint\(\);/.test(ovl) && /b\.translated \(-want\.getX\(\), -want\.getY\(\)\)/.test(ovl));
 ok('his fingers overlap the frame so he reads as gripping it, not perching on it',
-   /kGrip = 13/.test(ovl) && /b\.getY\(\) \+ kGrip - juce::roundToInt \(kArtEdge \* s\)/.test(ovl));
+   /kGrip = 11/.test(ovl) && /b\.getY\(\) \+ kGrip - juce::roundToInt \(kArtEdge \* s\)/.test(ovl));
 ok('he scales with the window between a readable floor and a capped ceiling',
    /kSpanOfWindow/.test(ovl) && /juce::jlimit \(kVisibleH \/ \(float\) kArtEdge,/.test(ovl) &&
    /kMaxVisibleH/.test(ovl));
@@ -284,6 +284,48 @@ ok('leaving compact re-measures the canvas immediately, and again after layout s
    /requestAnimationFrame\(\(\) => window\.sdResizeCanvasNow\(\)\)/.test(comp));
 ok('the re-measure happens AFTER the container is visible again',
    /host\.style\.display = on \? 'none' : '';[\s\S]{0,400}sdResizeCanvasNow/.test(comp));
+
+// ── 9f. A LANE OWNS ITS COLOUR ──
+// AUTO colours rotate by POSITION, so dragging a card repainted the lane you moved.
+ok('auto colour follows the LANE, not its slot in the grid',
+   /return sdLaneRGB\(param && typeof param\.autoIdx === 'number' \? param\.autoIdx : paramIdx\);/.test(canvas) &&
+   /function _sdFreezeAutoColorSlots/.test(canvas));
+ok('the auto slots are frozen BEFORE any saved order is applied, so a reload matches',
+   /_sdFreezeAutoColorSlots\(\);[\s\S]{0,200}_sdApplyOrderEcho\(\)/.test(canvas));
+ok('reordering does not touch the colour fields at all',
+   !/sdCompactSetOrder = function[\s\S]{0,900}(colorIdx|autoIdx)\s*=/.test(canvas));
+
+// ── 9g. A LICK AT WHATEVER JUST GOT MAPPED ──
+ok('a freshly mapped lane is announced, and a big jump stays silent',
+   /sd-lane-mapped/.test(canvas) && /fresh\.length && fresh\.length <= 2/.test(canvas));
+ok('the character points at the new lane in whichever view is showing',
+   /#sd-compact \.sdc\[data-id=/.test(rep) && /window\.sdLaneScreenPoint/.test(rep) &&
+   /window\.sdLaneScreenPoint = function/.test(canvas));
+ok('the floating one licks through the host; the in-window one uses its own tongue',
+   /if \(st\.floating\) \{ try \{ window\.sdReptileStrike/.test(rep) && /else strikeAt\(t\[0\], t\[1\]\)/.test(rep));
+ok('the host turns page coords into screen coords through the editor origin',
+   /reptileStrike/.test(editor) && /getScreenPosition\(\) \+ juce::Point<int> \(x, y\)/.test(editor));
+ok('the tongue is drawn OUTSIDE the clip, so it reaches in front of the window',
+   /juce::Graphics::ScopedSaveState body \(g\)/.test(ovl) &&
+   /tongueExt > 0\.002f/.test(ovl) && /kMouthX/.test(ovl));
+ok('the window grows to reach the target, and shrinks back after',
+   /if \(tonguePhase != 0\)[\s\S]{0,200}getUnion/.test(ovl) &&
+   /tonguePhase = 0; tongueExt = 0\.0f; follow\(\);/.test(ovl));
+ok('switching him off cancels a tongue in flight', /tonguePhase = 0; tongueExt = 0\.0f; setVisible \(false\)/.test(ovl));
+
+// ── 9h. SIZE ──
+ok('he is smaller by default and the stature is still capped',
+   /kVisibleH = 132\.0f/.test(ovl) && /kMaxVisibleH = 232\.0f/.test(ovl));
+ok('size is a clamped multiplier the host applies to his scale',
+   /void setScaleMul \(float m\)/.test(ovl) && /juce::jlimit \(0\.55f, 1\.5f, m\)/.test(ovl) &&
+   /scaleMul \* juce::jlimit/.test(ovl));
+ok('the resizer shows only while he is actually out there',
+   /sizer\.style\.display = \(st\.on && st\.floating\) \? 'flex' : 'none'/.test(rep));
+ok('size persists through the prefs FILE, not localStorage alone',
+   /window\.sdReptileScaleSave = function \(v\) \{ try \{ prefsWrite\('repScale', v\)/.test(shim) &&
+   /window\.sdReptileScaleAdopt/.test(shim) && /window\.sdReptileScaleAdopt = function/.test(rep));
+ok('adopting a saved size does not write it straight back',
+   /Adopted from the prefs file on boot: take the value, do NOT write it back/.test(rep));
 
 // ── 10. NO PRODUCT BEHAVIOUR TOUCHED ──
 ok('no DSP / mapping / transport / serialization words appear in either layer',

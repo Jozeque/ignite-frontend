@@ -49,7 +49,7 @@
     // floating defaults ON: holding the window from the desktop is the version this was
     // built for, and it costs Stride no height. Right-click the trigger to bring him
     // back inside the window instead.
-    nextIdle: 0, track: { on: false, until: 0 }, floating: true
+    nextIdle: 0, track: { on: false, until: 0 }, floating: true, scaleMul: 1
   };
   const anim = [];
   let raf = 0, last = performance.now();
@@ -203,7 +203,7 @@
       st.phase = 'idle'; st.rise = 0;
       gRep.setAttribute('opacity', '0');
       requestZone(0);                              // he costs Stride no height out there
-      try { if (window.sdReptileFloatRequest) window.sdReptileFloatRequest(true); } catch (e) {}
+      try { if (window.sdReptileFloatRequest) window.sdReptileFloatRequest(true, st.scaleMul); } catch (e) {}
       paintTrigger();
       return;                                      // the native window runs its own climb
     }
@@ -253,7 +253,7 @@
     // While he is OFF this only records the preference - activate() honours it. Firing
     // the host request here instead was the bug that left him standing in the window.
     if (!st.on) { paintTrigger(); return; }
-    try { if (window.sdReptileFloatRequest) window.sdReptileFloatRequest(want); } catch (e) {}
+    try { if (window.sdReptileFloatRequest) window.sdReptileFloatRequest(want, st.scaleMul); } catch (e) {}
     if (want) {
       retract();
       gRep.setAttribute('opacity', '0');
@@ -345,13 +345,78 @@
     if (st.on || anim.length || st.tongue.phase !== 'idle' || st.contact.at) kick();
   }
 
+  /* ── size ────────────────────────────────────────────────────────────
+     Only meaningful while he is floating (in-window he is bounded by the strip the host
+     granted). Persisted through the prefs FILE, not localStorage alone. */
+  function setSize(mul) {
+    const v = clamp(Math.round(mul * 100) / 100, .55, 1.5);
+    if (v === st.scaleMul) return;
+    st.scaleMul = v;
+    if (st.on && st.floating) {
+      try { if (window.sdReptileFloatRequest) window.sdReptileFloatRequest(true, v); } catch (e) {}
+    }
+    try { if (window.sdReptileScaleSave) window.sdReptileScaleSave(v); } catch (e) {}
+    paintTrigger();
+  }
+  // Adopted from the prefs file on boot: take the value, do NOT write it back.
+  window.sdReptileScaleAdopt = function (v) {
+    if (typeof v !== 'number' || !(v > 0)) return;
+    st.scaleMul = clamp(Math.round(v * 100) / 100, .55, 1.5);
+    if (st.on && st.floating) {
+      try { if (window.sdReptileFloatRequest) window.sdReptileFloatRequest(true, st.scaleMul); } catch (e) {}
+    }
+  };
+
+  /* ── a lick at whatever just got mapped ──────────────────────────────
+     canvas.js announces a freshly mapped lane; he points at it. The in-window creature
+     owns its tongue in SVG; the floating one is drawn natively, so the host draws that
+     one. Either way this is presentation: nothing about the mapping depends on it. */
+  function laneTarget(id) {
+    const card = document.querySelector('#sd-compact .sdc[data-id="' + String(id).replace(/"/g, '') + '"]');
+    if (card) { const r = card.getBoundingClientRect(); return [r.left + r.width * 0.5, r.top + r.height * 0.42]; }
+    try {
+      const p = window.sdLaneScreenPoint && window.sdLaneScreenPoint(id);
+      if (p) return [p.x, p.y];
+    } catch (e) {}
+    return null;
+  }
+  function lickAt(id) {
+    const t = laneTarget(id);
+    if (!t) return;
+    if (st.floating) { try { window.sdReptileStrike && window.sdReptileStrike(t[0], t[1]); } catch (e) {} }
+    else strikeAt(t[0], t[1]);
+  }
+
   /* ── the hidden trigger ──────────────────────────────────────────── */
-  let trigger = null;
+  let trigger = null, sizer = null;
   function paintTrigger() {
     if (!trigger) return;
     trigger.style.opacity = st.on ? '.95' : '.28';
     trigger.style.outline = st.floating ? '1px solid rgba(198,113,43,.55)' : 'none';
     trigger.style.background = st.on ? 'rgba(198,113,43,.18)' : 'transparent';
+    // The resizer only exists while he is actually out there to resize.
+    if (sizer) sizer.style.display = (st.on && st.floating) ? 'flex' : 'none';
+  }
+  function mountSizer(after) {
+    sizer = document.createElement('span');
+    sizer.id = 'sd-rep-sizer';
+    sizer.className = 'titlebar-no-drag';
+    sizer.style.cssText = 'display:none;align-items:center;gap:2px;margin-left:4px;flex:none';
+    [['-', -0.12, 'Smaller'], ['+', 0.12, 'Bigger']].forEach(([txt, d, tip]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = txt;
+      b.title = tip;
+      b.className = 'titlebar-no-drag';
+      b.style.cssText = 'width:13px;height:13px;line-height:11px;border-radius:3px;font-size:11px;' +
+        'font-weight:800;color:#c8c3ba;background:rgba(255,255,255,.06);opacity:.5;' +
+        'transition:opacity .2s;flex:none;padding:0';
+      b.addEventListener('mouseenter', () => { b.style.opacity = '1'; });
+      b.addEventListener('mouseleave', () => { b.style.opacity = '.5'; });
+      b.addEventListener('click', (e) => { e.stopPropagation(); setSize(st.scaleMul + d); });
+      sizer.appendChild(b);
+    });
+    if (after && after.parentNode) after.parentNode.insertBefore(sizer, after.nextSibling);
   }
   function mountTrigger() {
     const bar = document.querySelector('.titlebar-drag');
@@ -372,6 +437,14 @@
     trigger.addEventListener('contextmenu', (e) => { e.preventDefault(); setFloating(!st.floating); });
     const fs = document.getElementById('sd-fullscreen-btn');
     if (fs && fs.parentNode) fs.parentNode.insertBefore(trigger, fs.nextSibling); else bar.appendChild(trigger);
+    mountSizer(trigger);
+    // A freshly mapped param gets a lick. Late-bound so nothing here loads before canvas.js.
+    window.addEventListener('sd-lane-mapped', (e) => {
+      if (!st.on) return;
+      const id = e && e.detail && e.detail.ids && e.detail.ids[0];
+      if (id == null) return;
+      setTimeout(() => lickAt(id), 110);        // let the new lane paint before pointing at it
+    });
   }
 
   /* ── public surface (dev/test + future wiring) ───────────────────── */
@@ -382,6 +455,7 @@
                         strikeAt(r.left + r.width / 2, r.top + r.height / 2); },
     isOn: () => st.on,
     setFloating, isFloating: () => st.floating,
+    setSize, getSize: () => st.scaleMul, lickAt,
     setArt: (o) => { Object.assign(REP_ART, o || {});
                      [[imgIdle, REP_ART.idle], [imgBlink, REP_ART.blink], [imgBlep, REP_ART.blep]]
                        .forEach(([el, src]) => { el.setAttribute('href', src);

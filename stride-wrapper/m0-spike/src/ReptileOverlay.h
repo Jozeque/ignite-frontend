@@ -33,10 +33,11 @@ public:
     // Art anchors, in the source image's own pixels. Swapping the art = changing these.
     static constexpr int   kArtW = 440, kArtH = 432;
     static constexpr int   kArtEdge = 383;      // wrist line: the paws grip here
-    static constexpr float kVisibleH = 168.0f;     // shortest he ever stands above the plugin
-    static constexpr float kMaxVisibleH = 292.0f;  // and the tallest, so a big window can't summon a monster
-    static constexpr float kSpanOfWindow = 0.29f;  // his arm span, as a fraction of Stride's width
-    static constexpr int   kGrip = 13;             // px of Stride's top edge his fingers curl over
+    static constexpr float kVisibleH = 132.0f;     // shortest he ever stands above the plugin
+    static constexpr float kMaxVisibleH = 232.0f;  // and the tallest, so a big window can't summon a monster
+    static constexpr float kSpanOfWindow = 0.23f;  // his arm span, as a fraction of Stride's width
+    static constexpr int   kGrip = 11;             // px of Stride's top edge his fingers curl over
+    static constexpr int   kMouthX = 215, kMouthY = 239;   // where the tongue leaves the face, in art pixels
 
     explicit ReptileOverlay (juce::Component& editorToFollow)
         : target (editorToFollow)
@@ -65,30 +66,76 @@ public:
     {
         if (idle.isNull()) return;
 
-        // HOLDING THE WINDOW, not sitting on top of it. The creature is drawn so his body
-        // continues DOWN past Stride's top edge, and then everything from kGrip below that
-        // edge is clipped away - so the window occludes him exactly as if he were behind
-        // it, while his fingers stay in front and curl over the frame. Everywhere he is
-        // not drawn the window is transparent, so what shows through is the DAW itself.
-        if (! editorLocal.isEmpty())
-            g.excludeClipRegion (editorLocal.withTrimmedTop (kGrip));
-
         const float s = scale();
         const int w = juce::roundToInt (kArtW * s), h = juce::roundToInt (kArtH * s);
-        const int yOff = juce::roundToInt (riseOffset() + bob);
+        const int ax = artOrigin.x, ay = artOrigin.y + juce::roundToInt (riseOffset() + bob);
 
-        g.setOpacity (1.0f);
-        g.drawImage (idle, 0, yOff, w, h, 0, 0, idle.getWidth(), idle.getHeight(), false);
-        if (blinkAmt > 0.001f && blink.isValid())
         {
-            g.setOpacity (juce::jlimit (0.0f, 1.0f, blinkAmt));
-            g.drawImage (blink, 0, yOff, w, h, 0, 0, blink.getWidth(), blink.getHeight(), false);
+            // HOLDING THE WINDOW, not sitting on top of it. The creature is drawn so his
+            // body continues DOWN past Stride's top edge, and then everything from kGrip
+            // below that edge is clipped away - so the window occludes him exactly as if he
+            // were behind it, while his fingers stay in front and curl over the frame.
+            // Everywhere he is not drawn the window is transparent, so what shows through
+            // is the DAW itself.
+            juce::Graphics::ScopedSaveState body (g);
+            if (! editorLocal.isEmpty())
+                g.excludeClipRegion (editorLocal.withTrimmedTop (kGrip));
+
+            g.setOpacity (1.0f);
+            g.drawImage (idle, ax, ay, w, h, 0, 0, idle.getWidth(), idle.getHeight(), false);
+            if (blinkAmt > 0.001f && blink.isValid())
+            {
+                g.setOpacity (juce::jlimit (0.0f, 1.0f, blinkAmt));
+                g.drawImage (blink, ax, ay, w, h, 0, 0, blink.getWidth(), blink.getHeight(), false);
+            }
+            if (blepAmt > 0.001f && blep.isValid())
+            {
+                g.setOpacity (juce::jlimit (0.0f, 1.0f, blepAmt));
+                g.drawImage (blep, ax, ay, w, h, 0, 0, blep.getWidth(), blep.getHeight(), false);
+            }
         }
-        if (blepAmt > 0.001f && blep.isValid())
+
+        // The tongue is drawn OUTSIDE that clip, on purpose: it is the one part of him that
+        // reaches out IN FRONT of the window, which is what makes a lick at a knob read as
+        // touching it rather than as happening behind the glass.
+        if (tongueExt > 0.002f)
         {
-            g.setOpacity (juce::jlimit (0.0f, 1.0f, blepAmt));
-            g.drawImage (blep, 0, yOff, w, h, 0, 0, blep.getWidth(), blep.getHeight(), false);
+            const juce::Point<float> mouth ((float) ax + kMouthX * s, (float) ay + kMouthY * s);
+            const juce::Point<float> tip = mouth + (tongueTargetLocal.toFloat() - mouth) * tongueExt;
+            juce::Path p;
+            p.startNewSubPath (mouth);
+            p.lineTo (tip);
+            g.setOpacity (1.0f);
+            g.setColour (juce::Colour (0xffd4546c));
+            g.strokePath (p, juce::PathStrokeType (juce::jmax (2.0f, 4.2f * s),
+                                                   juce::PathStrokeType::curved,
+                                                   juce::PathStrokeType::rounded));
+            const float r = juce::jmax (3.0f, 7.0f * s);
+            g.setColour (juce::Colour (0xffe86c84));
+            g.fillEllipse (juce::Rectangle<float> (r, r).withCentre (tip));
         }
+    }
+
+    /** Flick the tongue at a point on screen (a knob, a card, a lane). */
+    void strikeAt (juce::Point<int> screenPoint)
+    {
+        if (! active) return;
+        tongueTargetScreen = screenPoint;
+        tonguePhase = 1;             // 1 = out, 2 = hold, 3 = back
+        tongueT = 0.0;
+        bleping = true; blepT = 0.0; // the mouth has to open for it
+        follow();                    // the window must cover the target before we paint there
+        repaint();
+    }
+
+    /** 0.55 .. 1.5 multiplier on his stature, so he can be sized to taste. */
+    void setScaleMul (float m)
+    {
+        const float v = juce::jlimit (0.55f, 1.5f, m);
+        if (std::abs (v - scaleMul) < 1.0e-3f) return;
+        scaleMul = v;
+        follow();
+        repaint();
     }
 
     /** Opt-in switch. Starts the reveal when turned on. */
@@ -97,7 +144,7 @@ public:
         if (active == shouldBeActive) return;
         active = shouldBeActive;
         rise = active ? 1.0f : rise;             // start fully tucked behind the plugin
-        if (! active) { setVisible (false); }
+        if (! active) { tonguePhase = 0; tongueExt = 0.0f; setVisible (false); }
     }
     bool isActive() const noexcept { return active; }
 
@@ -120,9 +167,9 @@ private:
     float scale() const noexcept
     {
         const float w = (float) juce::jmax (320, target.getWidth());
-        return juce::jlimit (kVisibleH / (float) kArtEdge,
-                             kMaxVisibleH / (float) kArtEdge,
-                             w * kSpanOfWindow / (float) kArtW);
+        return scaleMul * juce::jlimit (kVisibleH / (float) kArtEdge,
+                                        kMaxVisibleH / (float) kArtEdge,
+                                        w * kSpanOfWindow / (float) kArtW);
     }
     float riseOffset() const noexcept { return rise * (kArtEdge * scale()); }
 
@@ -175,6 +222,28 @@ private:
             repaint();
         }
 
+        if (tonguePhase != 0)
+        {
+            tongueT += dt;
+            const double OUT = 165.0, HOLD = 360.0, BACK = 240.0;
+            if (tonguePhase == 1)
+            {
+                tongueExt = (float) juce::jlimit (0.0, 1.0, tongueT / OUT);
+                if (tongueT >= OUT) { tonguePhase = 2; tongueT = 0.0; }
+            }
+            else if (tonguePhase == 2)
+            {
+                tongueExt = 1.0f;
+                if (tongueT >= HOLD) { tonguePhase = 3; tongueT = 0.0; }
+            }
+            else
+            {
+                tongueExt = (float) juce::jlimit (0.0, 1.0, 1.0 - tongueT / BACK);
+                if (tongueT >= BACK) { tonguePhase = 0; tongueExt = 0.0f; follow(); }   // shrink back to the art
+            }
+            repaint();
+        }
+
         if (now > nextIdleMs && rise <= 0.0f)
         {
             const int r = rng.nextInt (100);
@@ -196,8 +265,19 @@ private:
         const int x = b.getCentreX() - w / 2;
         // wrist line kGrip px INSIDE the window, so the paws overlap the frame
         const int y = b.getY() + kGrip - juce::roundToInt (kArtEdge * s);
-        const auto want = juce::Rectangle<int> (x, y, w, h);
+        const auto artRect = juce::Rectangle<int> (x, y, w, h);
+
+        // Normally the window is just big enough for the creature. While the tongue is out
+        // it has to REACH the target, so the window grows to include it - transparent and
+        // click-through, so covering part of the plugin costs nothing.
+        auto want = artRect;
+        if (tonguePhase != 0)
+            want = want.getUnion (juce::Rectangle<int> (tongueTargetScreen.x - 12,
+                                                        tongueTargetScreen.y - 12, 24, 24));
         if (want != getBounds()) setBounds (want);
+
+        artOrigin = { artRect.getX() - want.getX(), artRect.getY() - want.getY() };
+        tongueTargetLocal = tongueTargetScreen - want.getPosition();
 
         // Stride's rectangle in OUR coordinates - what paint() clips out. Recomputed every
         // tick because the plugin window moves, and a stale rect would paint over the UI.
@@ -207,6 +287,11 @@ private:
 
     juce::Component& target;
     juce::Rectangle<int> editorLocal;    // Stride's rect in overlay coords (the clip-out)
+    juce::Point<int> artOrigin;          // where the art sits inside the window
+    juce::Point<int> tongueTargetScreen, tongueTargetLocal;
+    int   tonguePhase = 0;               // 0 idle, 1 out, 2 hold, 3 back
+    double tongueT = 0.0;
+    float tongueExt = 0.0f, scaleMul = 1.0f;
     juce::Image idle, blink, blep;
     bool  active = false, blinking = false, bleping = false;
     float rise = 1.0f, blinkAmt = 0.0f, blepAmt = 0.0f;

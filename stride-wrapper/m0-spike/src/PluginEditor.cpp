@@ -275,12 +275,21 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
             {
                 if (repOverlay == nullptr) repOverlay = std::make_unique<ReptileOverlay> (*this);
                 repOverlay->setActive (true);
+                repOverlay->setScaleMul ((float) (double) v.getProperty ("s", 1.0));
             }
             else if (repOverlay != nullptr)
             {
                 repOverlay->setActive (false);
                 repOverlay.reset();                                 // no idle window left behind
             }
+        })
+        // Flick the tongue at something. The page sends CLIENT coords (its own viewport,
+        // which is the editor), so they become screen coords through the editor's origin.
+        .withEventListener ("reptileStrike", [this] (juce::var v)   {
+            if (repOverlay == nullptr) return;
+            const int x = (int) v.getProperty ("x", -1), y = (int) v.getProperty ("y", -1);
+            if (x < 0 || y < 0) return;
+            repOverlay->strikeAt (getScreenPosition() + juce::Point<int> (x, y));
         })
         // Reptile Mode opens/closes its character strip. Presentation only: this resizes
         // the editor and nothing else. Same setSize path fullscreen and the pin modes use.
