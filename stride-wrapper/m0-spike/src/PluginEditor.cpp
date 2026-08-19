@@ -955,6 +955,14 @@ void StrideWrapperEditor::handleStrideLinkSend (const juce::var& msg)
         return;
     }
 
+    if (type == "set_order")
+    {
+        if (proc.isEditLocked()) return;
+        if (auto* arr = msg.getProperty ("items", juce::var()).getArray())
+            proc.setMappedOrders (*arr);
+        return;
+    }
+
     if (type == "unmapParam")
     {
         proc.removeMappedAt ((int) msg.getProperty ("id", -1));
@@ -1037,6 +1045,7 @@ void StrideWrapperEditor::pushRackScanned()
     const auto speeds = proc.getMappedSpeeds();   // per-lane rate multipliers (the groove grid's replacement, 2026-08-04)
     const auto locks  = proc.getMappedLocks();    // per-lane padlocks - engine-owned so instances can't share them via localStorage
     const auto links  = proc.getMappedLinks();    // param-link groups (2026-08-17) - same ownership story; canvas rebuilds chips + mirroring from THIS
+    const auto orders = proc.getMappedOrders();   // card display order (2026-08-19) - the VIEW is sorted by this; `mapped` itself is never renumbered
     for (int i = 0; i < names.size(); ++i)
     {
         auto* o = new juce::DynamicObject();
@@ -1070,6 +1079,8 @@ void StrideWrapperEditor::pushRackScanned()
             if ((bool) links[i].getProperty ("inv", false))
                 o->setProperty ("linkInv", true);                           // inverted member - absent = normal
         }
+        if (i < orders.size() && (int) orders[i] >= 0)
+            o->setProperty ("ord", orders[i]);                              // display-order echo (v9) - absent = natural mapping order
         params.add (juce::var (o));
     }
 

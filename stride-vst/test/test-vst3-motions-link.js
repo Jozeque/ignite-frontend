@@ -44,22 +44,26 @@ const cmake  = rd(path.join(W, 'CMakeLists.txt'));
 // ─────────────────────────────────────────────────────────────
 // 1. ENGINE — link groups owned/persisted/echoed (the lock pattern)
 // ─────────────────────────────────────────────────────────────
-ok('MapRef carries linkGroup (0 = unlinked) + linkInv', /int  linkGroup = 0;/.test(procH) && /bool linkInv = false; \};/.test(procH));
+ok('MapRef carries linkGroup (0 = unlinked) + linkInv', /int  linkGroup = 0;/.test(procH) && /bool linkInv = false;/.test(procH));
 ok('setMappedLink clamps + marks dirty, no mapVersion bump',
    /void StrideWrapperProcessor::setMappedLink \(int pos, int group, bool inv\)[\s\S]{0,400}jmax \(0, group\);[\s\S]{0,200}hostDirtyPending\.store \(true\)/.test(procC)
    && !/setMappedLink \(int pos[\s\S]{0,500}mapVersion\.fetch_add/.test(procC));
 ok('setMappedLinks batches {id,g,inv} under ONE lock pass', /void StrideWrapperProcessor::setMappedLinks[\s\S]{0,600}getProperty \("g", 0\)[\s\S]{0,200}getProperty \("inv", false\)/.test(procC));
 ok('getMappedLinks returns {g,inv} per mapped param', /juce::Array<juce::var> StrideWrapperProcessor::getMappedLinks\(\) const/.test(procC));
-ok('project state bumps to v8', /root\.setAttribute \("version", 8\)/.test(procC));
+// v9 (card order) landed on top; what this guards is that the LINK attrs still ship and
+// the version kept moving forward, not the specific number.
+ok('project state is past v8 and still writes the link attrs',
+   /root\.setAttribute \("version", (9|[1-9]\d)\)/.test(procC) &&
+   /setAttribute \("lg", m\.linkGroup\)/.test(procC));
 ok('state writes "lg" only when linked, "li" only when inverted (old builds ignore both)',
    /if \(m\.linkGroup > 0\)[\s\S]{0,200}setAttribute \("lg", m\.linkGroup\);[\s\S]{0,200}if \(m\.linkInv\) e->setAttribute \("li", 1\)/.test(procC));
 ok('project reopen parses "lg"/"li" (0/off for older projects)',
    /lnk\.push_back \(e->getIntAttribute \("lg", 0\)\)/.test(procC) && /lin\.push_back \(\(char\) \(e->getIntAttribute \("li", 0\) != 0 \? 1 : 0\)\)/.test(procC));
-ok('snapshot Dev struct carries the parallel link vectors', /std::vector<int> lnk;/.test(procH) && /std::vector<char> lin; \};/.test(procH));
+ok('snapshot Dev struct carries the parallel link vectors', /std::vector<int> lnk;/.test(procH) && /std::vector<char> lin;/.test(procH));
 ok('remove/clear snapshots capture links; DUPLICATE deliberately does not (copies leave the group)',
    (procC.match(/d\.lnk\.push_back \(m\.linkGroup\); d\.lin\.push_back \(m\.linkInv \? 1 : 0\);/g) || []).length === 2);
 ok('restore rebuilds mapped entries WITH links (missing vectors = unlinked, old snapshots safe)',
-   /k < d\.lnk\.size\(\) \? d\.lnk\[k\] : 0,[\s\S]{0,100}k < d\.lin\.size\(\) && d\.lin\[k\] != 0 \}\);/.test(procC));
+   /k < d\.lnk\.size\(\) \? d\.lnk\[k\] : 0,[\s\S]{0,100}k < d\.lin\.size\(\) && d\.lin\[k\] != 0/.test(procC));
 ok('editor routes set_link + set_links, both edit-lock gated',
    /type == "set_link"[\s\S]{0,300}setMappedLink \(/.test(editor) && /type == "set_links"[\s\S]{0,300}setMappedLinks \(/.test(editor)
    && /type == "set_link"[\s\S]{0,80}isEditLocked\(\)/.test(editor));

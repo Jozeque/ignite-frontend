@@ -198,7 +198,7 @@ ok('the card mutates nothing itself - every edit goes through canvas.js',
    /window\.sdCompactToggleRange/.test(comp) &&
    !/\.rangeMin\s*=|\.rangeMax\s*=|\.rangeOn\s*=/.test(comp));
 ok('a drag freezes the grid so the rebuild cannot kill the pointer capture',
-   /if \(drag\) \{/.test(comp) && /paint\(snap\); lastPhase = snap\.phase;/.test(comp));
+   /if \(drag \|\| cardDrag\) \{/.test(comp) && /paint\(snap\); lastPhase = snap\.phase;/.test(comp));
 ok('range toggling is STRICTLY single-lane (the 2026-08-12 group-wipe lesson)',
    /sdCompactToggleRange = function[\s\S]{0,700}_sdPushRangeToEngine\(p\);/.test(canvas) &&
    !/sdCompactToggleRange = function[\s\S]{0,700}_sdRangeApplyGroup/.test(canvas));
@@ -209,6 +209,53 @@ ok('range edits are undoable and persisted, like every other band edit',
    /sdCompactRangeDrag = function[\s\S]{0,900}saveCanvasState\(\)/.test(canvas));
 ok('the card grid re-keys when a band arms, so the button state cannot go stale',
    /\(p\.rangeOn \? 1 : 0\)/.test(canvas));
+
+// ── 9e. CARD ACTIONS: remove, select, reorder ──
+const proc = rd(path.join(W, 'src', 'PluginProcessor.cpp'));
+const procH = rd(path.join(W, 'src', 'PluginProcessor.h'));
+ok('the ✕ removes the lane through the existing unmap path',
+   /class="sdc-x"/.test(comp) && /window\.sdUnmapLane\(c\.p\.id\)/.test(comp));
+ok('the ✕ stays quiet until the card is hovered (not a grid of delete buttons)',
+   /\.sdc-x\{[^}]*opacity:0/.test(indexH) && /\.sdc:hover \.sdc-x\{opacity:1\}/.test(indexH));
+ok('clicking a card SELECTS the lane, so the toolbar motion tools reach it',
+   /window\.sdToggleLaneSelection\(c\.p\.id\)/.test(comp) && /\.sdc\.sel\{/.test(indexH));
+ok('selection state reaches the cards through the snapshot',
+   /selected: !!p\.selected/.test(canvas) && /p\.selected \? ' sel' : ''/.test(comp));
+ok('one gesture, split by travel: a few px is a click, past that it is a drag',
+   /if \(Math\.abs\(e\.clientX - cardDrag\.x\) \+ Math\.abs\(e\.clientY - cardDrag\.y\) < 6\) return;/.test(comp) &&
+   /if \(moved\) \{/.test(comp));
+ok('controls inside the card keep their own gestures',
+   /e\.target\.closest\('button, \.sdk'\)/.test(comp));
+ok('a card drag also freezes the grid rebuild', /if \(drag \|\| cardDrag\) \{/.test(comp));
+ok('the dropped DOM order is what gets committed',
+   /\[\.\.\.wrap\.querySelectorAll\('\.sdc'\)\]\.map\(el => el\.getAttribute\('data-id'\)\)/.test(comp) &&
+   /window\.sdCompactSetOrder\(ids\)/.test(comp));
+
+// Order is ENGINE-OWNED (localStorage is one shared profile across instances - the
+// 2026-08-03 lock-leak lesson), but it must NOT renumber the mapping.
+ok('order rides as a per-lane attribute; `mapped` is never reordered',
+   /int  ord = -1;/.test(procH) && /void StrideWrapperProcessor::setMappedOrders/.test(proc) &&
+   !/std::(rotate|sort|swap) \(mapped/.test(proc) && !/mapped\.insert/.test(proc));
+ok('one batched lock pass + dirty mark, no re-push (the set_ranges pattern)',
+   /setMappedOrders[\s\S]{0,400}hostDirtyPending\.store \(true\)/.test(proc) &&
+   !/setMappedOrders[\s\S]{0,400}mapVersion\.fetch_add/.test(proc));
+ok('bridge: set_order handled and editLocked-gated',
+   /if \(type == "set_order"\)[\s\S]{0,200}isEditLocked\(\)\) return;[\s\S]{0,160}setMappedOrders \(\*arr\)/.test(editor));
+ok('the order is echoed back like every other engine-owned lane attribute',
+   /getMappedOrders\(\)/.test(editor) && /o->setProperty \("ord", orders\[i\]\)/.test(editor));
+ok('project state bumps to v9 and old projects stay inert (absent = natural order)',
+   /root\.setAttribute \("version", 9\)/.test(proc) &&
+   /if \(m\.ord >= 0\) e->setAttribute \("od", m\.ord\)/.test(proc) &&
+   /getIntAttribute \("od", -1\)/.test(proc));
+ok('a removed device carries its lanes\' order back on restore',
+   /std::vector<int> ord;/.test(procH) && /d\.ord\.push_back \(m\.ord\)/.test(proc) &&
+   /k < d\.ord\.size\(\) \? d\.ord\[k\] : -1/.test(proc));
+ok('canvas: an explicit order wins over the name sort, unranked lanes go last',
+   /_sdApplyOrderEcho\(\)/.test(canvas) && /ranked\.concat\(sdCanvasParams\.filter/.test(canvas));
+ok('canvas: a bad id list is REFUSED rather than scrambling the lanes',
+   /if \(seq\.length !== vis\.length\) return;/.test(canvas));
+ok('canvas: lanes hidden by a device filter keep the slots they hold',
+   /sdCanvasParams\.map\(p => \(visible\.indexOf\(p\) >= 0 \? seq\[k\+\+\] : p\)\)/.test(canvas));
 
 // ── 10. NO PRODUCT BEHAVIOUR TOUCHED ──
 ok('no DSP / mapping / transport / serialization words appear in either layer',

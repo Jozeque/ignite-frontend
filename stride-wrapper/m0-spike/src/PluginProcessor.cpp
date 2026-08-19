@@ -719,7 +719,8 @@ void StrideWrapperProcessor::clearChain()
         for (const auto& m : mapped)     if (m.node == i) { d.params.push_back (m.param); d.slots.push_back (m.macroSlot);
                                                             d.ron.push_back (m.rangeOn ? 1 : 0); d.rlo.push_back (m.rangeLo); d.rhi.push_back (m.rangeHi); d.col.push_back (m.colorIdx);
                                                             d.lpb.push_back (m.loopBeats); d.qst.push_back (m.quantStep); d.lkd.push_back (m.locked ? 1 : 0); d.spd.push_back (m.speed);
-                                                            d.lnk.push_back (m.linkGroup); d.lin.push_back (m.linkInv ? 1 : 0); }
+                                                            d.lnk.push_back (m.linkGroup); d.lin.push_back (m.linkInv ? 1 : 0);
+                                                            d.ord.push_back (m.ord); }
         for (const auto& l : driveLanes) if (l.node == i) d.lanes.push_back (l);
         lastRemoved.devices.push_back (std::move (d));
     }
@@ -762,7 +763,8 @@ void StrideWrapperProcessor::removeNode (int index)
         for (const auto& m : mapped)     if (m.node == index) { d.params.push_back (m.param); d.slots.push_back (m.macroSlot);
                                                                 d.ron.push_back (m.rangeOn ? 1 : 0); d.rlo.push_back (m.rangeLo); d.rhi.push_back (m.rangeHi); d.col.push_back (m.colorIdx);
                                                                 d.lpb.push_back (m.loopBeats); d.qst.push_back (m.quantStep); d.lkd.push_back (m.locked ? 1 : 0); d.spd.push_back (m.speed);
-                                                            d.lnk.push_back (m.linkGroup); d.lin.push_back (m.linkInv ? 1 : 0); }
+                                                            d.lnk.push_back (m.linkGroup); d.lin.push_back (m.linkInv ? 1 : 0);
+                                                            d.ord.push_back (m.ord); }
         for (const auto& l : driveLanes) if (l.node == index) d.lanes.push_back (l);
         lastRemoved.devices.push_back (std::move (d));
     }
@@ -908,7 +910,8 @@ void StrideWrapperProcessor::restoreNextDevice (std::shared_ptr<std::vector<Remo
                                                   k < d.lkd.size() && d.lkd[k] != 0,
                                                   k < d.spd.size() ? d.spd[k] : 1.0f,
                                                   k < d.lnk.size() ? d.lnk[k] : 0,
-                                                  k < d.lin.size() && d.lin[k] != 0 });
+                                                  k < d.lin.size() && d.lin[k] != 0,
+                                                  k < d.ord.size() ? d.ord[k] : -1 });
                     for (auto l : d.lanes) { l.node = p; self->driveLanes.push_back (l); }  // and their curves
                     self->reassignMacros();      // keep restored slots where valid; fill any gaps (old saves had none)
                 }
@@ -992,7 +995,7 @@ void StrideWrapperProcessor::getStateInformation (juce::MemoryBlock& dest)
     if (demoMode.load()) return;   // DEMO: persist nothing — a project can't be built on the demo (blank state on reload)
     juce::XmlElement root ("STRIDE_WRAP");
     const juce::ScopedLock sl (hostLock);
-    root.setAttribute ("version", 8);                                   // v8: + link groups ("lg"/"li"); v7 follow, v6 speed, v5 lock - attr-based, so older projects load unchanged
+    root.setAttribute ("version", 9);                                   // v9: + card display order ("od"); v8 link groups, v7 follow, v6 speed, v5 lock - attr-based, so older projects load unchanged
     root.setAttribute ("clipBeats", driveClipBeats);
     root.setAttribute ("driveMode", (int) driveMode.load());            // 0=Live, 1=Automation
     root.setAttribute ("tempoMode", tempoMode.load());                  // 0=Project sync (default) / 1=Manual
@@ -1038,6 +1041,7 @@ void StrideWrapperProcessor::getStateInformation (juce::MemoryBlock& dest)
             e->setAttribute ("lg", m.linkGroup);                                // link group: absent = unlinked (v8; older builds ignore it)
             if (m.linkInv) e->setAttribute ("li", 1);                           // inverted member: absent = normal orientation
         }
+        if (m.ord >= 0) e->setAttribute ("od", m.ord);                          // display order: absent = natural mapping order (v9; older builds ignore it)
     }
     auto* laneXml = root.createNewChildElement ("LANES");
     for (const auto& l : driveLanes)
@@ -1105,6 +1109,7 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
                 (*devs)[(size_t) n].spd.push_back ((float) e->getDoubleAttribute ("sp", 1.0));
                 (*devs)[(size_t) n].lnk.push_back (e->getIntAttribute ("lg", 0));
                 (*devs)[(size_t) n].lin.push_back ((char) (e->getIntAttribute ("li", 0) != 0 ? 1 : 0));
+                (*devs)[(size_t) n].ord.push_back (e->getIntAttribute ("od", -1));
             }
         }
     if (auto* laneXml = xml->getChildByName ("LANES"))
@@ -1507,6 +1512,31 @@ juce::Array<juce::var> StrideWrapperProcessor::getMappedLinks() const
         o->setProperty ("inv", m.linkInv);
         out.add (juce::var (o));
     }
+    return out;
+}
+
+// Card DISPLAY order. Dragging one card rewrites every card's rank, so it is one batched
+// pass like the links above. This deliberately does NOT reorder `mapped`: positions are the
+// identity that lane attributes, "wrap:<i>" paths and the unmap protocol are all keyed by,
+// and renumbering them is the exact mechanism behind the old unmap-range mixup. The view
+// sorts; the mapping never moves.
+void StrideWrapperProcessor::setMappedOrders (const juce::Array<juce::var>& items)
+{
+    const juce::ScopedLock sl (hostLock);
+    for (const auto& it : items)
+    {
+        const int pos = (int) it.getProperty ("id", -1);
+        if (pos < 0 || pos >= (int) mapped.size()) continue;
+        mapped[(size_t) pos].ord = juce::jmax (-1, (int) it.getProperty ("o", -1));
+    }
+    hostDirtyPending.store (true);
+}
+
+juce::Array<juce::var> StrideWrapperProcessor::getMappedOrders() const
+{
+    juce::Array<juce::var> out;
+    const juce::ScopedLock sl (hostLock);
+    for (const auto& m : mapped) out.add (juce::var (m.ord));
     return out;
 }
 

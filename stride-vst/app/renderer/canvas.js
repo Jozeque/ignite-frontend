@@ -934,8 +934,10 @@
             speed: (typeof p.speedVal === 'number' && p.speedVal > 0 ? p.speedVal : 1),          // per-lane rate multiplier (replaced the groove grid 2026-08-04)
             linkGroup: (typeof p.linkGroup === 'number' && p.linkGroup > 0 ? p.linkGroup : 0),   // engine-owned param-link echo (v8) — 0 = unlinked
             linkInv: !!p.linkInv,                                                                // inverted member of its link group
+            ord: (typeof p.ord === 'number' ? p.ord : -1),                                       // engine-owned card order echo (v9) — -1 = never reordered
             points: Array.isArray(p.points) ? p.points : []   // wrapper sends the drawn curve from the engine — reliable across reopen (desktop sends none → empty)
         })).sort(_sdSortByName);
+        _sdApplyOrderEcho();   // an explicit card order, when the user made one, wins over the name sort
         if (typeof _sdLinkAfterRebuild === 'function') _sdLinkAfterRebuild();   // dissolve 1-member groups + rebase the mirror shadows
 
         if (sdCanvasParams.length > 0) sdActiveParamId = sdCanvasParams[0].envelopeId;
@@ -3594,6 +3596,7 @@
                 name: p.name,
                 device: p.device || '',
                 locked: !!p.locked,
+                selected: !!p.selected,
                 rgb: sdLaneColor(p, i),
                 rangeOn: !!p.rangeOn,
                 rangeMin: (typeof p.rangeMin === 'number' ? p.rangeMin : 0),
@@ -3612,10 +3615,31 @@
             const p = vis[i];
             s += p.envelopeId + ',' + p.name + ',' + (p.device || '') + ',' + (p.locked ? 1 : 0)
                + ',' + (typeof p.colorIdx === 'number' ? p.colorIdx : -1)
-               + ',' + (p.rangeOn ? 1 : 0) + ';';
+               + ',' + (p.rangeOn ? 1 : 0) + ',' + (p.selected ? 1 : 0) + ';';
         }
         return s;
     };
+
+    // ── CARD ORDER (engine-owned, v9) ───────────────────────────────────────────────
+    // Lanes normally sort by name. Once the user drags a card, every lane gets an explicit
+    // rank and THAT wins, in both views - one order for Stride, not one per view. Lanes
+    // with no rank (mapped after a reorder) keep their name-sorted run at the end, so a
+    // freshly touched knob lands at the bottom instead of jumping into the middle.
+    function _sdApplyOrderEcho() {
+        const ranked = sdCanvasParams.filter(p => typeof p.ord === 'number' && p.ord >= 0);
+        if (!ranked.length) return;
+        ranked.sort((a, b) => a.ord - b.ord);
+        sdCanvasParams = ranked.concat(sdCanvasParams.filter(p => !(typeof p.ord === 'number' && p.ord >= 0)));
+    }
+    function _sdPushOrderToEngine() {
+        try {
+            if (!window.strideLink || !window.strideLink._wrapper) return;
+            const items = sdCanvasParams
+                .map(p => ({ id: parseInt(p.envelopeId, 10), o: (typeof p.ord === 'number' ? p.ord : -1) }))
+                .filter(it => !isNaN(it.id));
+            if (items.length) window.strideLink.send({ type: 'set_order', items: items });
+        } catch (e) {}
+    }
 
     // ── COMPACT VIEW lane ACTIONS (wrapper only) ────────────────────────────────────
     // Deliberately THIN wrappers over the exact code paths the lane canvas already uses,
@@ -3636,6 +3660,29 @@
             if (p.rangeOn && !(p.rangeMax > p.rangeMin)) { p.rangeMin = 0; p.rangeMax = 1; }
         }
         _sdPushRangeToEngine(p);
+        sdDrawCanvasGrid();
+        Promise.resolve(saveCanvasState());
+    };
+
+    // Commit a new card order. `idsInOrder` = the VISIBLE lanes' envelopeIds, in the order
+    // the user dropped them. Hidden lanes (device filter) keep the slots they already hold,
+    // so reordering inside a focused device can never shuffle the lanes you cannot see.
+    // Not undoable on purpose: this is arrangement, like moving a window, and Ctrl+Z here
+    // should still take back the last CURVE edit rather than a layout tidy-up.
+    window.sdCompactSetOrder = function (idsInOrder) {
+        if (!Array.isArray(idsInOrder)) return;
+        const vis = sdVisibleParams();
+        if (idsInOrder.length !== vis.length) return;
+        const byId = {};
+        vis.forEach(p => { byId[p.envelopeId] = p; });
+        const seq = idsInOrder.map(id => byId[id]).filter(Boolean);
+        if (seq.length !== vis.length) return;               // unknown / duplicate id: refuse rather than scramble
+        const visible = vis.slice();
+        let k = 0;
+        sdCanvasParams = sdCanvasParams.map(p => (visible.indexOf(p) >= 0 ? seq[k++] : p));
+        sdCanvasParams.forEach((p, i) => { p.ord = i; });
+        _sdPushOrderToEngine();
+        sdRenderSidebar();
         sdDrawCanvasGrid();
         Promise.resolve(saveCanvasState());
     };

@@ -37,6 +37,7 @@
   let host = null, wrap = null, on = false, raf = 0;
   let cards = [], lastRev = '', lastPhase = -1, lastEpoch = -1;
   let drag = null;                                     // active band-boundary drag
+  let cardDrag = null;                                 // active card reorder / click-to-select
 
   /* ── curve sampling: value of a lane at loop position t (0..1) ───── */
   function laneValue(p, t) {
@@ -146,13 +147,14 @@
     const seg = `<path class="mfill" d="" fill="rgb(${p.rgb})" opacity="${p.locked ? .05 : .12}"/>
                  <path class="mline" d="" fill="none" stroke="rgb(${p.rgb})" stroke-width="1.5"
                        stroke-linejoin="round" stroke-linecap="round" opacity="${p.locked ? .45 : .95}"/>`;
-    return `<div class="sdc${p.locked ? ' lk' : ''}${p.rangeOn ? ' rng' : ''}" data-id="${p.id}" style="--lc:rgb(${p.rgb})">
+    return `<div class="sdc${p.locked ? ' lk' : ''}${p.rangeOn ? ' rng' : ''}${p.selected ? ' sel' : ''}" data-id="${p.id}" style="--lc:rgb(${p.rgb})">
       <div class="sdc-h">
         <div class="sdc-t">
           <div class="sdc-n" title="${esc(p.name)}">${esc(p.name)}</div>
           <div class="sdc-d" title="${esc(p.device)}">${esc(p.device)}</div>
         </div>
         <button class="sdc-m" title="Lane menu" tabindex="-1">&#8942;</button>
+        <button class="sdc-x" title="Remove this lane">&#215;</button>
       </div>
       <div class="sdc-b">
         <button class="sdc-lk" title="${p.locked ? 'Locked - motion tools skip this lane. Click to unlock.' : 'Lock this lane'}">
@@ -220,9 +222,67 @@
           sync(true);
         });
       }
+      // remove the lane - the same action the lane canvas's ✕ performs
+      const rm = c.el.querySelector('.sdc-x');
+      if (rm) rm.addEventListener('click', () => {
+        if (typeof window.sdUnmapLane === 'function') window.sdUnmapLane(c.p.id);
+        lastRev = ''; sync(true);
+      });
       bindRing(c);
+      bindCard(c);
     });
     drawCurves();
+  }
+
+  /* ── the card itself: click selects, drag reorders ───────────────────
+     One gesture, split by intent: under a few pixels of travel it is a click and the
+     lane joins the SELECTION (so the toolbars' motion tools apply to it); past that it
+     is a drag and the card moves. Controls inside the card keep their own gestures. */
+  function bindCard(c) {
+    c.el.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      if (e.target.closest && e.target.closest('button, .sdk')) return;
+      cardDrag = { c, x: e.clientX, y: e.clientY, moved: false };
+      try { c.el.setPointerCapture(e.pointerId); } catch (_) {}
+    });
+    c.el.addEventListener('pointermove', (e) => {
+      if (!cardDrag || cardDrag.c !== c) return;
+      if (!cardDrag.moved) {
+        if (Math.abs(e.clientX - cardDrag.x) + Math.abs(e.clientY - cardDrag.y) < 6) return;
+        cardDrag.moved = true;
+        c.el.classList.add('dragging');
+      }
+      const over = cardUnder(e.clientX, e.clientY, c.el);
+      if (over) {
+        const r = over.getBoundingClientRect();
+        wrap.insertBefore(c.el, e.clientX > r.left + r.width / 2 ? over.nextSibling : over);
+      }
+    });
+    const done = (e) => {
+      if (!cardDrag || cardDrag.c !== c) return;
+      try { c.el.releasePointerCapture(e.pointerId); } catch (_) {}
+      const moved = cardDrag.moved;
+      cardDrag = null;
+      c.el.classList.remove('dragging');
+      if (moved) {
+        const ids = [...wrap.querySelectorAll('.sdc')].map(el => el.getAttribute('data-id'));
+        if (typeof window.sdCompactSetOrder === 'function') window.sdCompactSetOrder(ids);
+      } else if (typeof window.sdToggleLaneSelection === 'function') {
+        window.sdToggleLaneSelection(c.p.id);       // locked lanes decline it, exactly as on the canvas
+      }
+      lastRev = ''; sync(true);
+    };
+    c.el.addEventListener('pointerup', done);
+    c.el.addEventListener('pointercancel', done);
+  }
+  function cardUnder(x, y, self) {
+    const all = wrap.querySelectorAll('.sdc');
+    for (let i = 0; i < all.length; i++) {
+      if (all[i] === self) continue;
+      const r = all[i].getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return all[i];
+    }
+    return null;
   }
 
   /* ── the knob ring IS the band control (Serum-style) ─────────────────
@@ -332,13 +392,14 @@
     if (!on || typeof window.sdCompactSnapshot !== 'function') return;
     const rev = window.sdCompactRevision();
     const snap = window.sdCompactSnapshot();
-    // A rebuild replaces the DOM, which would kill an in-flight pointer capture, so a
-    // band drag holds the grid still. Arming a band changes the revision on the FIRST
-    // frame of the drag, so without this the grid would tear itself down under the cursor.
-    if (drag) {
+    // A rebuild replaces the DOM, which would kill an in-flight pointer capture, so any
+    // live gesture holds the grid still. Arming a band changes the revision on the FIRST
+    // frame of the drag, and a card drag reorders the DOM by hand - without this the grid
+    // would tear itself down under the cursor in both cases.
+    if (drag || cardDrag) {
       for (let i = 0; i < cards.length; i++) cards[i].p = snap.params[i] || cards[i].p;
       paint(snap); lastPhase = snap.phase;
-      showEdge(drag.c, drag.edge, drag.pct);   // paint owns the label; the drag wins it back
+      if (drag) showEdge(drag.c, drag.edge, drag.pct);   // paint owns the label; the drag wins it back
       return snap;
     }
     if (force || rev !== lastRev) {

@@ -176,6 +176,18 @@
         .sdc-m{color:#5f5b55;font-size:13px;line-height:1;padding:0 2px;background:none;border:none;
             cursor:default;flex:none}
         .sdc-m:hover{color:#9a958c}
+        /* remove the lane. Quiet until the card is hovered, so a grid of these never
+           reads as a row of delete buttons. */
+        .sdc-x{color:#5f5b55;font-size:15px;line-height:1;padding:0 1px;background:none;border:none;
+            cursor:pointer;flex:none;opacity:0;transition:opacity .12s,color .12s}
+        .sdc:hover .sdc-x{opacity:1}
+        .sdc-x:hover{color:#f87171}
+        /* click a card to put the lane in the SELECTION the motion tools act on */
+        .sdc.sel{border-color:var(--lc);background:linear-gradient(180deg,#1a1a1f,#0e0e11);
+            box-shadow:0 0 0 1px rgba(255,255,255,.05) inset,0 0 14px -6px var(--lc)}
+        .sdc{cursor:grab}
+        .sdc.dragging{cursor:grabbing;opacity:.75;transform:scale(.97);
+            box-shadow:0 14px 28px -12px #000;z-index:5}
         .sdc-b{display:flex;align-items:center;gap:6px}
         .sdc-lk,.sdc-rg{flex:none;width:16px;height:16px;color:#5f5b55;background:none;
             border:none;padding:0;cursor:pointer}

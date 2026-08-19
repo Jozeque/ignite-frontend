@@ -165,6 +165,8 @@ public:
     void setMappedLink (int pos, int group, bool inv);            // message thread (editor bridge); group 0 = unlink
     void setMappedLinks (const juce::Array<juce::var>& items);    // batch of {id,g,inv} - ONE lock pass (link create / dissolve)
     juce::Array<juce::var> getMappedLinks() const;                // {g,inv} per mapped param, mapped order
+    void setMappedOrders (const juce::Array<juce::var>& items);   // batch of {id,o} - ONE lock pass (a card drag commits the whole new order)
+    juce::Array<juce::var> getMappedOrders() const;               // display order per mapped param, mapped order (-1 = natural)
     // Duplicate ONE device in place (Alt+drag a chip): same plugin, same patch, same mapped
     // params (fresh macro slots so the source keeps its DAW automation binding), same
     // ranges/colors/loop/quant - but EMPTY lanes; the copy starts with no modulation.
@@ -374,7 +376,10 @@ private:
                                                                                      // groove grid's replacement, same engine-ownership story (2026-08-04)
                     int  linkGroup = 0;                                              // param-link group id (0 = unlinked; >0 = members share ONE curve) - the
                                                                                      // canvas owns the mirroring; the engine only persists/echoes (v8, 2026-08-17)
-                    bool linkInv = false; };                                         // inverted member of its link group (receives the flipped shape)
+                    bool linkInv = false;                                            // inverted member of its link group (receives the flipped shape)
+                    int  ord = -1; };                                                // DISPLAY order (-1 = natural, i.e. mapping order). Reordering the cards
+                                                                                     // sorts the VIEW, it never renumbers `mapped` - positions stay the identity
+                                                                                     // every lane attribute, path and unmap message is keyed by (v9, 2026-08-19)
     std::vector<MapRef> mapped;               // user-mapped params across the chain
 
     // A relabelable VST3 parameter. A free slot reads "Stride N"; an assigned slot takes the
@@ -492,7 +497,8 @@ private:
                      std::vector<char> lkd;                                   // per-param lane locks (parallel to params; char ≠ vector<bool>)
                      std::vector<float> spd;                                  // per-param lane speed (parallel to params; 1 = normal) - 2026-08-04
                      std::vector<int> lnk;                                    // per-param link group id (parallel to params; 0 = unlinked) - 2026-08-17
-                     std::vector<char> lin; };                                // per-param link invert flag (parallel to params) - 2026-08-17
+                     std::vector<char> lin;                                   // per-param link invert flag (parallel to params) - 2026-08-17
+                     std::vector<int> ord; };                                 // per-param display order (parallel to params; -1 = natural) - 2026-08-19
         std::vector<Dev> devices;          // 1 for a single ✕, the whole chain for Clear
     };
     RemovedSnapshot lastRemoved;
