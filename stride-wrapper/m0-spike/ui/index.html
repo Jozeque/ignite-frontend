@@ -142,14 +142,16 @@
            Replaces ONLY the lane canvas. Header, toolbars, device bar, global sliders
            and status bar are untouched, so every control stays exactly where the user
            already knows it. Cards deliberately carry no shape/motion tools. */
-        /* Cards are a FIXED readable size. Stretching them to fill the window meant a
-           small window made every parameter unreadable and a big one blew each card up
-           into a poster (field report 2026-08-19). Now the window only decides HOW MANY
-           columns fit; the card itself never changes, and overflow scrolls. */
+        /* Cards hold a READABLE size band, and the grid FILLS the width. Two field
+           reports shaped this: stretching cards edge-to-edge made a small window
+           unreadable and a big one blew each card into a poster; pinning them to a fixed
+           232px then parked a dead margin down both sides of the grid (2026-08-19).
+           So: tracks share the full width, never narrower than a card can be read at,
+           and a card stops growing at 300px so it can't become a poster again. Leftover
+           lands as even gutters between columns instead of two gaps at the edges. */
         #sd-compact{flex:1;min-width:0;overflow-y:auto;overflow-x:hidden;
             background:rgba(0,0,0,.22);padding:10px;gap:8px;align-content:start;
-            justify-content:center;
-            grid-template-columns:repeat(auto-fill,232px)}
+            grid-template-columns:repeat(auto-fill,minmax(204px,1fr))}
         @media (max-width:560px){ #sd-compact{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))} }
         #sd-compact::-webkit-scrollbar{width:9px}
         #sd-compact::-webkit-scrollbar-thumb{background:rgb(var(--sb-thumb));border-radius:9px;
@@ -157,7 +159,8 @@
         .sdc-empty{grid-column:1/-1;text-align:center;color:rgb(var(--z500));font-size:11px;
             padding:40px 20px;line-height:1.7}
         .sdc-empty b{color:rgb(var(--o400))}
-        .sdc{position:relative;min-width:0;background:linear-gradient(180deg,#141417,#0b0b0d);
+        .sdc{position:relative;min-width:0;width:100%;max-width:300px;justify-self:center;
+            background:linear-gradient(180deg,#141417,#0b0b0d);
             border:1px solid rgba(255,255,255,.07);border-left:2px solid var(--lc);
             border-radius:7px;padding:7px 9px 7px;display:flex;flex-direction:column;gap:5px;
             box-shadow:0 1px 0 rgba(255,255,255,.035) inset,0 8px 18px -12px #000;
@@ -173,15 +176,21 @@
         .sdc-m{color:#5f5b55;font-size:13px;line-height:1;padding:0 2px;background:none;border:none;
             cursor:default;flex:none}
         .sdc-m:hover{color:#9a958c}
-        .sdc-b{display:flex;align-items:center;gap:7px}
-        .sdc-lk{flex:none;width:16px;height:16px;color:#5f5b55;background:none;border:none;padding:0;cursor:pointer}
-        .sdc-lk svg{width:14px;height:14px;display:block}
-        .sdc-lk:hover{color:#c8c3ba}
+        .sdc-b{display:flex;align-items:center;gap:6px}
+        .sdc-lk,.sdc-rg{flex:none;width:16px;height:16px;color:#5f5b55;background:none;
+            border:none;padding:0;cursor:pointer}
+        .sdc-lk svg,.sdc-rg svg{width:14px;height:14px;display:block}
+        .sdc-lk:hover,.sdc-rg:hover{color:#c8c3ba}
         .sdc.lk .sdc-lk{color:var(--lc)}
-        .sdc .sdk{flex:none}
+        .sdc-rg.on{color:var(--lc)}
+        .sdc .sdk{flex:none;touch-action:none}
+        .sdc .khit{cursor:ns-resize}
+        .sdc.drag .krail{stroke-opacity:.16}
+        .sdc.rng .kticks{opacity:.5}   /* the band owns the outside once it is armed */
         .sdc-v{min-width:0;flex:1}
         .sdc-v b{font-size:15px;font-weight:800;color:#f1ede4;letter-spacing:-.01em;
-            font-variant-numeric:tabular-nums;display:block;line-height:1}
+            font-variant-numeric:tabular-nums;display:block;line-height:1;white-space:nowrap}
+        .sdc.drag .sdc-v b{font-size:11.5px;color:var(--lc);letter-spacing:.02em}
         .sdc-w{position:relative;height:30px;border-radius:4px;overflow:hidden;
             background:#050506;border:1px solid rgba(255,255,255,.05)}
         .sdc-w svg{position:absolute;inset:0;width:100%;height:100%}

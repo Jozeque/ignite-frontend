@@ -29,11 +29,14 @@
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
   const MVP_W = 132, MVP_H = 30, LOOP_W = MVP_W * 2;   // half the loop in view
-  const KN = 44, KR = 17.5;                            // knob box / arc radius
+  const KN = 56, KR = 17.5;                            // knob box / value-arc radius
+  const RR = KR + 7.0;                                 // range band ring, clear of the ticks
   const A0 = -138, A1 = 138;                           // knob sweep in degrees
+  const DRAG_FULL = 170;                               // px of vertical travel = 0..100%
 
   let host = null, wrap = null, on = false, raf = 0;
   let cards = [], lastRev = '', lastPhase = -1, lastEpoch = -1;
+  let drag = null;                                     // active band-boundary drag
 
   /* ── curve sampling: value of a lane at loop position t (0..1) ───── */
   function laneValue(p, t) {
@@ -67,12 +70,26 @@
     }
     return 'M' + out.join(' L');
   }
-  function arc(cx, cy, r, v) {
-    const a0 = A0 * Math.PI / 180, a1 = (A0 + (A1 - A0) * clamp(v, 0, 1)) * Math.PI / 180;
+  // Arc between two positions on the sweep, each 0..1. arc(...,v) = "from zero to v".
+  function arcAB(cx, cy, r, v0, v1) {
+    const p0 = clamp(v0, 0, 1), p1 = clamp(v1, 0, 1);
+    const a0 = (A0 + (A1 - A0) * p0) * Math.PI / 180, a1 = (A0 + (A1 - A0) * p1) * Math.PI / 180;
     const x0 = cx + Math.sin(a0) * r, y0 = cy - Math.cos(a0) * r;
     const x1 = cx + Math.sin(a1) * r, y1 = cy - Math.cos(a1) * r;
-    const big = ((A1 - A0) * clamp(v, 0, 1)) > 180 ? 1 : 0;
-    return `M${x0.toFixed(2)},${y0.toFixed(2)} A${r},${r} 0 ${big} 1 ${x1.toFixed(2)},${y1.toFixed(2)}`;
+    const big = ((A1 - A0) * Math.abs(p1 - p0)) > 180 ? 1 : 0;
+    return `M${x0.toFixed(2)},${y0.toFixed(2)} A${r},${r} 0 ${big} ${p1 >= p0 ? 1 : 0} ${x1.toFixed(2)},${y1.toFixed(2)}`;
+  }
+  const arc = (cx, cy, r, v) => arcAB(cx, cy, r, 0, v);
+  // a short radial tick across the band ring, marking exactly where a boundary sits
+  function capAt(v) {
+    const a = (A0 + (A1 - A0) * clamp(v, 0, 1)) * Math.PI / 180, c = KN / 2, T = 2.6;
+    return { x1: (c + Math.sin(a) * (RR - T)).toFixed(2), y1: (c - Math.cos(a) * (RR - T)).toFixed(2),
+             x2: (c + Math.sin(a) * (RR + T)).toFixed(2), y2: (c - Math.cos(a) * (RR + T)).toFixed(2) };
+  }
+  // Where on the sweep a pointer is, 0..1 — used to decide WHICH boundary a grab means.
+  function angleValue(dx, dy) {
+    let deg = Math.atan2(dx, -dy) * 180 / Math.PI;      // 0 at 12 o'clock, + clockwise
+    return clamp((deg - A0) / (A1 - A0), 0, 1);
   }
 
   /* ── the knob. Dark machined body, dotted track, lane-coloured value arc,
@@ -81,7 +98,7 @@
     let ticks = '';
     for (let i = 0; i <= 22; i++) {
       const a = (A0 + (A1 - A0) * (i / 22)) * Math.PI / 180;
-      const r0 = KR + 2.6, r1 = KR + (i % 11 === 0 ? 5.4 : 4.2);
+      const r0 = KR + 1.8, r1 = KR + (i % 11 === 0 ? 4.2 : 3.2);
       ticks += `<line x1="${(KN / 2 + Math.sin(a) * r0).toFixed(2)}" y1="${(KN / 2 - Math.cos(a) * r0).toFixed(2)}"
                       x2="${(KN / 2 + Math.sin(a) * r1).toFixed(2)}" y2="${(KN / 2 - Math.cos(a) * r1).toFixed(2)}"
                       stroke="rgb(${rgb})" stroke-opacity="${i % 11 === 0 ? .42 : .17}" stroke-width="1"
@@ -100,6 +117,16 @@
         </linearGradient>
       </defs>
       <g class="kticks">${ticks}</g>
+      <!-- RANGE BAND: the outer ring is the lane's output band, Serum-style. Grab it and
+           drag to move the nearer boundary. The faint full ring is the grab affordance. -->
+      <path class="krail" d="${arc(KN / 2, KN / 2, RR, 1)}" fill="none" stroke="#ffffff"
+            stroke-opacity=".08" stroke-width="3" stroke-linecap="round"/>
+      <path class="krng" d="" fill="none" stroke="rgb(${rgb})" stroke-opacity=".75"
+            stroke-width="3" stroke-linecap="butt" display="none"/>
+      <g class="kcap" display="none">
+        <line class="kcapa" x1="0" y1="0" x2="0" y2="0" stroke="rgb(${rgb})" stroke-width="1.6" stroke-linecap="round"/>
+        <line class="kcapb" x1="0" y1="0" x2="0" y2="0" stroke="rgb(${rgb})" stroke-width="1.6" stroke-linecap="round"/>
+      </g>
       <path d="${arc(KN / 2, KN / 2, KR, 1)}" fill="none" stroke="#232428" stroke-width="2.2" stroke-linecap="round"/>
       <path class="karc" d="" fill="none" stroke="rgb(${rgb})" stroke-width="2.2" stroke-linecap="round"/>
       <circle cx="${KN / 2}" cy="${KN / 2}" r="${KR - 3}" fill="url(#kr${uid})"/>
@@ -110,6 +137,8 @@
               stroke="#f1ede4" stroke-opacity=".92" stroke-width="1.9" stroke-linecap="round"/>
         <circle cx="${KN / 2}" cy="${KN / 2 - KR + 4.6}" r="1.15" fill="rgb(${rgb})"/>
       </g>
+      <circle class="khit" cx="${KN / 2}" cy="${KN / 2}" r="21.5" fill="none"
+              stroke="rgba(0,0,0,0)" stroke-width="12" pointer-events="stroke"/>
     </svg>`;
   }
 
@@ -117,7 +146,7 @@
     const seg = `<path class="mfill" d="" fill="rgb(${p.rgb})" opacity="${p.locked ? .05 : .12}"/>
                  <path class="mline" d="" fill="none" stroke="rgb(${p.rgb})" stroke-width="1.5"
                        stroke-linejoin="round" stroke-linecap="round" opacity="${p.locked ? .45 : .95}"/>`;
-    return `<div class="sdc${p.locked ? ' lk' : ''}" data-id="${p.id}" style="--lc:rgb(${p.rgb})">
+    return `<div class="sdc${p.locked ? ' lk' : ''}${p.rangeOn ? ' rng' : ''}" data-id="${p.id}" style="--lc:rgb(${p.rgb})">
       <div class="sdc-h">
         <div class="sdc-t">
           <div class="sdc-n" title="${esc(p.name)}">${esc(p.name)}</div>
@@ -129,6 +158,9 @@
         <button class="sdc-lk" title="${p.locked ? 'Locked - motion tools skip this lane. Click to unlock.' : 'Lock this lane'}">
           ${p.locked ? lockOn() : lockOff()}
         </button>
+        <button class="sdc-rg${p.rangeOn ? ' on' : ''}" title="${p.rangeOn
+          ? 'Range on - the lane moves inside its band. Drag the knob ring to set it. Double-click to reset.'
+          : 'Range - hold this lane inside a band. Or just drag the knob ring.'}">${rangeIcon()}</button>
         ${knobSvg(p.rgb, i)}
         <div class="sdc-v"><b>0%</b></div>
       </div>
@@ -149,6 +181,9 @@
     '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
   const lockOff = () => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">' +
     '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>';
+  // two limits with travel between them - the same idea the lane canvas's range icon draws
+  const rangeIcon = () => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+    'stroke-width="2.2" stroke-linecap="round"><path d="M5 6h14M5 18h14M12 9v6"/></svg>';
 
   /* ── build / rebuild ─────────────────────────────────────────────── */
   function rebuild(snap) {
@@ -157,8 +192,10 @@
     cards = [...wrap.querySelectorAll('.sdc')].map((el, i) => ({
       el, p: snap.params[i],
       arc: el.querySelector('.karc'), ind: el.querySelector('.kind'),
+      rng: el.querySelector('.krng'), capg: el.querySelector('.kcap'),
+      capa: el.querySelector('.kcapa'), capb: el.querySelector('.kcapb'),
       val: el.querySelector('.sdc-v b'), msc: el.querySelector('.msc'),
-      dot: el.querySelector('.mdot'), lv: -1
+      dot: el.querySelector('.mdot'), lv: -1, lr: ''
     }));
     cards.forEach(c => {
       c.el.querySelectorAll('.s0,.s1,.s2').forEach(n => n.setAttribute('transform',
@@ -170,8 +207,80 @@
         if (typeof window.sdToggleLockLane === 'function') window.sdToggleLockLane(c.p.id);
         sync(true);
       });
+      // ── RANGE ─────────────────────────────────────────────────────────────
+      // Same two gestures the lane canvas already gives this feature: click the icon to
+      // arm the band, double-click to reset it to full. Single-lane on purpose.
+      const rg = c.el.querySelector('.sdc-rg');
+      if (rg) {
+        let clickT = 0;
+        rg.addEventListener('click', () => {
+          const now = Date.now(), dbl = (now - clickT) < 400; clickT = dbl ? 0 : now;
+          if (typeof window.sdCompactToggleRange === 'function')
+            window.sdCompactToggleRange(c.p.id, dbl);
+          sync(true);
+        });
+      }
+      bindRing(c);
     });
     drawCurves();
+  }
+
+  /* ── the knob ring IS the band control (Serum-style) ─────────────────
+     Grab the outer ring and drag vertically: the boundary you grabbed nearest follows.
+     Grabbing an unbanded lane arms the band first, because reaching for the ring is
+     already the intent. The knob body is deliberately inert - a card shows what a lane
+     is doing, and every shape/motion tool lives in the toolbars above. */
+  function bindRing(c) {
+    const hit = c.el.querySelector('.khit');
+    if (!hit) return;
+    hit.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      const r = hit.getBoundingClientRect();
+      const av = angleValue(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2));
+      const on = !!c.p.rangeOn;
+      const mn = on ? c.p.rangeMin : 0, mx = on ? c.p.rangeMax : 1;
+      const edge = Math.abs(av - mn) <= Math.abs(av - mx) ? 'rangeMin' : 'rangeMax';
+      drag = { c, edge, y0: e.clientY, pct: (edge === 'rangeMin' ? mn : mx) * 100 };
+      try { hit.setPointerCapture(e.pointerId); } catch (_) {}
+      c.el.classList.add('drag');
+      callRange(c, edge, drag.pct, 'start');
+      paintNow();
+      showEdge(c, edge, drag.pct);
+    });
+    hit.addEventListener('pointermove', (e) => {
+      if (!drag || drag.c !== c) return;
+      drag.pct = clamp(drag.pct + (drag.y0 - e.clientY) * (100 / DRAG_FULL), 0, 100);
+      drag.y0 = e.clientY;
+      callRange(c, drag.edge, drag.pct, 'move');
+      paintNow();
+      showEdge(c, drag.edge, drag.pct);   // after paintNow, which owns the value label
+    });
+    const end = (e) => {
+      if (!drag || drag.c !== c) return;
+      try { hit.releasePointerCapture(e.pointerId); } catch (_) {}
+      callRange(c, drag.edge, drag.pct, 'end');
+      c.el.classList.remove('drag');
+      drag = null;
+      c.lv = -1; c.lr = '';        // let the next paint restore the live value readout
+      lastRev = '';                // the band may have armed: let the grid re-key now
+      sync(true);
+    };
+    hit.addEventListener('pointerup', end);
+    hit.addEventListener('pointercancel', end);
+  }
+  function callRange(c, edge, pct, phase) {
+    if (typeof window.sdCompactRangeDrag === 'function')
+      window.sdCompactRangeDrag(c.p.id, edge, pct, phase);
+  }
+  function showEdge(c, edge, pct) {
+    c.val.textContent = (edge === 'rangeMin' ? 'MIN ' : 'MAX ') + Math.round(pct) + '%';
+  }
+  function paintNow() {
+    if (typeof window.sdCompactSnapshot !== 'function') return;
+    const snap = window.sdCompactSnapshot();
+    for (let i = 0; i < cards.length; i++) cards[i].p = snap.params[i] || cards[i].p;
+    paint(snap);
   }
 
   // Curve geometry changes far less often than the playhead, and a curve edit must NOT
@@ -201,6 +310,21 @@
         c.val.textContent = Math.round(v * 100) + '%';
         c.dot.setAttribute('cy', (3 + (1 - v) * (MVP_H - 6)).toFixed(2));
       }
+      // the band ring, redrawn only when the band itself moved
+      if (c.rng) {
+        const sig = c.p.rangeOn ? (Math.round(c.p.rangeMin * 1000) + ':' + Math.round(c.p.rangeMax * 1000)) : '';
+        if (sig !== c.lr) {
+          c.lr = sig;
+          if (sig) {
+            c.rng.setAttribute('d', arcAB(KN / 2, KN / 2, RR, c.p.rangeMin, c.p.rangeMax));
+            c.rng.removeAttribute('display');
+            const a = capAt(c.p.rangeMin), b = capAt(c.p.rangeMax);
+            for (const k in a) c.capa.setAttribute(k, a[k]);
+            for (const k in b) c.capb.setAttribute(k, b[k]);
+            c.capg.removeAttribute('display');
+          } else { c.rng.setAttribute('display', 'none'); c.capg.setAttribute('display', 'none'); }
+        }
+      }
       c.msc.setAttribute('transform', `translate(${(MVP_W / 2 - ph * LOOP_W).toFixed(2)},0)`);
     }
   }
@@ -208,6 +332,15 @@
     if (!on || typeof window.sdCompactSnapshot !== 'function') return;
     const rev = window.sdCompactRevision();
     const snap = window.sdCompactSnapshot();
+    // A rebuild replaces the DOM, which would kill an in-flight pointer capture, so a
+    // band drag holds the grid still. Arming a band changes the revision on the FIRST
+    // frame of the drag, so without this the grid would tear itself down under the cursor.
+    if (drag) {
+      for (let i = 0; i < cards.length; i++) cards[i].p = snap.params[i] || cards[i].p;
+      paint(snap); lastPhase = snap.phase;
+      showEdge(drag.c, drag.edge, drag.pct);   // paint owns the label; the drag wins it back
+      return snap;
+    }
     if (force || rev !== lastRev) {
       lastRev = rev; rebuild(snap); lastPhase = -1; lastEpoch = snap.epoch;
     } else {

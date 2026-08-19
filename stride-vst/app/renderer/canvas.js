@@ -3611,9 +3611,52 @@
         for (let i = 0; i < vis.length; i++) {
             const p = vis[i];
             s += p.envelopeId + ',' + p.name + ',' + (p.device || '') + ',' + (p.locked ? 1 : 0)
-               + ',' + (typeof p.colorIdx === 'number' ? p.colorIdx : -1) + ';';
+               + ',' + (typeof p.colorIdx === 'number' ? p.colorIdx : -1)
+               + ',' + (p.rangeOn ? 1 : 0) + ';';
         }
         return s;
+    };
+
+    // ── COMPACT VIEW lane ACTIONS (wrapper only) ────────────────────────────────────
+    // Deliberately THIN wrappers over the exact code paths the lane canvas already uses,
+    // so the card grid can never grow its own idea of what "range" means. The desktop app
+    // never calls them, and _sdPushRange*ToEngine self-gates on the wrapper flag.
+    //
+    // Toggling is STRICTLY SINGLE-LANE, matching the lane-canvas range icon: riding the
+    // group path here would copy one lane's band onto every selected lane the moment a
+    // Select All was active (field report 2026-08-12). Boundary DRAGS keep the canvas's
+    // group semantics, because there the group edit is what feels deliberate.
+    window.sdCompactToggleRange = function (envelopeId, reset) {
+        const p = sdCanvasParams.find(p => p.envelopeId === envelopeId);
+        if (!p) return;
+        pushUndo();                     // ranges are undoable — checkpoint BEFORE the mutation
+        if (reset) { p.rangeOn = false; p.rangeMin = 0; p.rangeMax = 1; }
+        else {
+            p.rangeOn = !p.rangeOn;
+            if (p.rangeOn && !(p.rangeMax > p.rangeMin)) { p.rangeMin = 0; p.rangeMax = 1; }
+        }
+        _sdPushRangeToEngine(p);
+        sdDrawCanvasGrid();
+        Promise.resolve(saveCanvasState());
+    };
+
+    // Drag a band boundary from the knob ring. edge: 'rangeMin' | 'rangeMax', pct: 0..100.
+    // phase: 'start' (undo checkpoint, arm the band) | 'move' (live) | 'end' (persist).
+    window.sdCompactRangeDrag = function (envelopeId, edge, pct, phase) {
+        const p = sdCanvasParams.find(p => p.envelopeId === envelopeId);
+        if (!p) return;
+        if (phase === 'start') {
+            pushUndo();   // ranges are undoable — ONE checkpoint per drag, not per move
+            if (!p.rangeOn) {           // grabbing the ring IS the intent to band the lane
+                p.rangeOn = true;
+                if (!(p.rangeMax > p.rangeMin)) { p.rangeMin = 0; p.rangeMax = 1; }
+                _sdPushRangeToEngine(p);   // in case the drag ends without a single move
+            }
+            return;
+        }
+        if (phase === 'move') { _sdRangeSetPercent(p, edge, pct); return; }
+        sdDrawCanvasGrid();
+        Promise.resolve(saveCanvasState());
     };
 
     // ── LANDING ANIMATION (2026-08-12, Yossi-picked mockup B "draw-on") ─────────────

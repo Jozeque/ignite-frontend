@@ -188,8 +188,11 @@ ok('boundary drags and field edits KEEP the deliberate group semantics',
 ok('undo snapshots carry the range band', /rangeOn: !!p\.rangeOn,\s*\n\s*rangeMin: \(typeof p\.rangeMin === 'number' \? p\.rangeMin : 0\),\s*\n\s*rangeMax: \(typeof p\.rangeMax === 'number' \? p\.rangeMax : 1\)/.test(canvas));
 ok('applySnapshot restores the band AND tells the engine (the color precedent); old snapshots stay inert',
    /typeof sp\.rangeOn === 'boolean'[\s\S]{0,700}_sdPushRangeToEngine\(param\);/.test(canvas));
-ok('every range gesture starts with an undo checkpoint (toggle + boundary drag + field scrub + typed %)',
-   (canvas.match(/pushUndo\(\);\s+\/\/ (ranges are undoable|one range-undo checkpoint)/g) || []).length === 4);
+// 4 on the lane canvas (toggle + boundary drag + field scrub + typed %), 2 more from the
+// compact cards (band button + knob-ring drag). Every gesture that can move a band, from
+// either view, has to leave Ctrl+Z somewhere to go back to.
+ok('every range gesture starts with an undo checkpoint (canvas 4 + compact cards 2)',
+   (canvas.match(/pushUndo\(\);\s+\/\/ (ranges are undoable|one range-undo checkpoint)/g) || []).length === 6);
 ok('canvas: the ACTIVE lane rides with the group (locked active respected)', /envelopeId === sdActiveParamId\);\s*\n\s*if \(active && !active\.locked && targets\.indexOf\(active\) < 0\) targets\.push\(active\);/.test(canvas));
 ok('canvas: the ACTIVE lane is also a group TRIGGER (editing it drives the selection)', /if \(!\(edited\.selected \|\| \(isActive && anySelected\)\)\) return \[edited\];/.test(canvas));
 ok('canvas: Ctrl+mousedown arms without toggling (toggle deferred to mouseup)', /window\.sdToggleLaneSelection\(_sdDragSelectPending\.laneId\)/.test(canvas));

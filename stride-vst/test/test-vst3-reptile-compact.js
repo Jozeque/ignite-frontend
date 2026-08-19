@@ -105,8 +105,14 @@ ok('the character scales to the GRANTED strip, not the request',
    /window\.sdReptileZoneGranted = function \(h\)/.test(rep) && /zoneGot \/ REP_ART\.EDGE/.test(rep));
 ok('character size is fixed, not window-relative (small window made it a speck)',
    /const ZONE_WANT = 152;/.test(rep) && !/h \* 0\.22/.test(rep));
-ok('cards are a fixed readable width; the window only decides how many fit',
-   /grid-template-columns:repeat\(auto-fill,232px\)/.test(indexH) && /justify-content:center/.test(indexH));
+// The fixed-232px track that replaced the original stretch left a dead margin down both
+// sides of the grid (field report 2026-08-19). Tracks fill the width again, but a card
+// now has BOTH a floor (readable) and a ceiling (never a poster).
+ok('the card grid fills the width instead of parking a margin down each side',
+   /grid-template-columns:repeat\(auto-fill,minmax\(204px,1fr\)\)/.test(indexH) &&
+   !/#sd-compact\{[^}]*justify-content:center/.test(indexH));
+ok('a card still cannot grow into a poster or shrink below readable',
+   /max-width:300px/.test(indexH) && /minmax\(204px/.test(indexH));
 ok('the pre-zone height is remembered for restore', /int repZoneH = 0, preRepH = 0;/.test(edH));
 ok('the zone request is clamped (a bad value can never resize the plugin absurdly)',
    /juce::jlimit \(0, 400, \(int\) v\.getProperty \("h", 0\)\)/.test(editor));
@@ -158,11 +164,58 @@ ok('turning the mode off also tears the floating window down',
 ok('only one creature at a time: floating hides the in-window one and gives the strip back',
    /gRep\.setAttribute\('opacity', '0'\);[\s\S]{0,120}requestZone\(0\)/.test(rep));
 
+// ── 9c. HOLDING THE WINDOW ──
+// "he is holding Stride and you can see Ableton behind him". Achieved WITHOUT any
+// z-order manipulation: one always-on-top window that refuses to paint over Stride's
+// own rectangle, so the plugin occludes him exactly as if he were behind it.
+ok('the overlay clips Stride out of its own painting instead of covering it',
+   /excludeClipRegion \(editorLocal\.withTrimmedTop \(kGrip\)\)/.test(ovl));
+ok('the clip rect is recomputed from the live editor bounds, never cached stale',
+   /editorLocal = local; repaint\(\);/.test(ovl) && /b\.translated \(-want\.getX\(\), -want\.getY\(\)\)/.test(ovl));
+ok('his fingers overlap the frame so he reads as gripping it, not perching on it',
+   /kGrip = 13/.test(ovl) && /b\.getY\(\) \+ kGrip - juce::roundToInt \(kArtEdge \* s\)/.test(ovl));
+ok('he scales with the window between a readable floor and a capped ceiling',
+   /kSpanOfWindow/.test(ovl) && /juce::jlimit \(kVisibleH \/ \(float\) kArtEdge,/.test(ovl) &&
+   /kMaxVisibleH/.test(ovl));
+ok('no z-order fighting: the illusion never reorders windows',
+   !/SetWindowPos|orderWindow|toBehind/.test(ovlCode));
+
+// ── 9d. RANGE ON THE CARD (Serum-style ring) ──
+// The band already exists as a lane feature; the card must REACH it, never re-implement
+// it. Every gesture here lands in canvas.js on the same code path the lane canvas uses.
+ok('the range control sits next to the lock, as asked',
+   /class="sdc-lk"[\s\S]{0,260}class="sdc-rg/.test(comp) && /\.sdc-lk,\.sdc-rg\{/.test(indexH));
+ok('the knob ring is the band control and it is draggable',
+   /class="khit"/.test(comp) && /pointer-events="stroke"/.test(comp) &&
+   /pointerdown/.test(comp) && /cursor:ns-resize/.test(indexH));
+ok('the band is legible as a band: an arc on its own radius with both edges marked',
+   /class="kcapa"/.test(comp) && /class="kcapb"/.test(comp) && /RR = KR \+ 7\.0/.test(comp) &&
+   /\.sdc\.rng \.kticks\{opacity:\.5\}/.test(indexH));
+ok('the grabbed boundary is the one nearest the grab, not always the same one',
+   /Math\.abs\(av - mn\) <= Math\.abs\(av - mx\) \? 'rangeMin' : 'rangeMax'/.test(comp));
+ok('the card mutates nothing itself - every edit goes through canvas.js',
+   /window\.sdCompactRangeDrag\(c\.p\.id, edge, pct, phase\)/.test(comp) &&
+   /window\.sdCompactToggleRange/.test(comp) &&
+   !/\.rangeMin\s*=|\.rangeMax\s*=|\.rangeOn\s*=/.test(comp));
+ok('a drag freezes the grid so the rebuild cannot kill the pointer capture',
+   /if \(drag\) \{/.test(comp) && /paint\(snap\); lastPhase = snap\.phase;/.test(comp));
+ok('range toggling is STRICTLY single-lane (the 2026-08-12 group-wipe lesson)',
+   /sdCompactToggleRange = function[\s\S]{0,700}_sdPushRangeToEngine\(p\);/.test(canvas) &&
+   !/sdCompactToggleRange = function[\s\S]{0,700}_sdRangeApplyGroup/.test(canvas));
+ok('boundary drags keep the canvas group semantics via the existing setter',
+   /sdCompactRangeDrag = function[\s\S]{0,900}_sdRangeSetPercent\(p, edge, pct\)/.test(canvas));
+ok('range edits are undoable and persisted, like every other band edit',
+   /sdCompactToggleRange = function[\s\S]{0,200}pushUndo\(\);/.test(canvas) &&
+   /sdCompactRangeDrag = function[\s\S]{0,900}saveCanvasState\(\)/.test(canvas));
+ok('the card grid re-keys when a band arms, so the button state cannot go stale',
+   /\(p\.rangeOn \? 1 : 0\)/.test(canvas));
+
 // ── 10. NO PRODUCT BEHAVIOUR TOUCHED ──
 ok('no DSP / mapping / transport / serialization words appear in either layer',
    !/processBlock|setStateInformation|apply_inject|set_range|set_speed|set_lock\b/.test(rep + comp));
-ok('canvas.js addition is additive only (accessors, no mutation)',
-   /sdCompactSnapshot[\s\S]{0,900}return \{/.test(canvas));
+ok('the canvas.js additions are a snapshot plus thin wrappers over existing paths',
+   /sdCompactSnapshot[\s\S]{0,900}return \{/.test(canvas) &&
+   /_sdPushRangeToEngine|_sdRangeSetPercent/.test(canvas));
 
 console.log('  ' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);

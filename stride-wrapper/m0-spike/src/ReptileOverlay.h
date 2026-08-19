@@ -33,7 +33,10 @@ public:
     // Art anchors, in the source image's own pixels. Swapping the art = changing these.
     static constexpr int   kArtW = 440, kArtH = 432;
     static constexpr int   kArtEdge = 383;      // wrist line: the paws grip here
-    static constexpr float kVisibleH = 152.0f;  // how tall the creature stands above the plugin
+    static constexpr float kVisibleH = 168.0f;     // shortest he ever stands above the plugin
+    static constexpr float kMaxVisibleH = 292.0f;  // and the tallest, so a big window can't summon a monster
+    static constexpr float kSpanOfWindow = 0.29f;  // his arm span, as a fraction of Stride's width
+    static constexpr int   kGrip = 13;             // px of Stride's top edge his fingers curl over
 
     explicit ReptileOverlay (juce::Component& editorToFollow)
         : target (editorToFollow)
@@ -61,6 +64,15 @@ public:
     void paint (juce::Graphics& g) override
     {
         if (idle.isNull()) return;
+
+        // HOLDING THE WINDOW, not sitting on top of it. The creature is drawn so his body
+        // continues DOWN past Stride's top edge, and then everything from kGrip below that
+        // edge is clipped away - so the window occludes him exactly as if he were behind
+        // it, while his fingers stay in front and curl over the frame. Everywhere he is
+        // not drawn the window is transparent, so what shows through is the DAW itself.
+        if (! editorLocal.isEmpty())
+            g.excludeClipRegion (editorLocal.withTrimmedTop (kGrip));
+
         const float s = scale();
         const int w = juce::roundToInt (kArtW * s), h = juce::roundToInt (kArtH * s);
         const int yOff = juce::roundToInt (riseOffset() + bob);
@@ -102,7 +114,16 @@ private:
         return {};
     }
 
-    float scale() const noexcept { return kVisibleH / (float) kArtEdge; }
+    /** He grows with the window he is holding, between a readable floor and a sane ceiling.
+        The art is a creature seen head-on, so scaling him to a wide window's FULL width
+        would put his head three times the window's height into the sky - hence the cap. */
+    float scale() const noexcept
+    {
+        const float w = (float) juce::jmax (320, target.getWidth());
+        return juce::jlimit (kVisibleH / (float) kArtEdge,
+                             kMaxVisibleH / (float) kArtEdge,
+                             w * kSpanOfWindow / (float) kArtW);
+    }
     float riseOffset() const noexcept { return rise * (kArtEdge * scale()); }
 
     void timerCallback() override
@@ -164,7 +185,7 @@ private:
         else if (std::abs (bob - lastBob) > 0.25) { lastBob = bob; repaint(); }
     }
 
-    /** Park the window so the paws land on the editor's top edge, horizontally centred. */
+    /** Park the window so the paws grip the editor's top edge, horizontally centred. */
     void follow()
     {
         const auto b = target.getScreenBounds();
@@ -173,12 +194,19 @@ private:
         const int w = juce::roundToInt (kArtW * s);
         const int h = juce::roundToInt (kArtH * s);
         const int x = b.getCentreX() - w / 2;
-        const int y = b.getY() - juce::roundToInt (kArtEdge * s);
+        // wrist line kGrip px INSIDE the window, so the paws overlap the frame
+        const int y = b.getY() + kGrip - juce::roundToInt (kArtEdge * s);
         const auto want = juce::Rectangle<int> (x, y, w, h);
         if (want != getBounds()) setBounds (want);
+
+        // Stride's rectangle in OUR coordinates - what paint() clips out. Recomputed every
+        // tick because the plugin window moves, and a stale rect would paint over the UI.
+        const auto local = b.translated (-want.getX(), -want.getY());
+        if (local != editorLocal) { editorLocal = local; repaint(); }
     }
 
     juce::Component& target;
+    juce::Rectangle<int> editorLocal;    // Stride's rect in overlay coords (the clip-out)
     juce::Image idle, blink, blep;
     bool  active = false, blinking = false, bleping = false;
     float rise = 1.0f, blinkAmt = 0.0f, blepAmt = 0.0f;
