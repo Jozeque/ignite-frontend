@@ -36,6 +36,7 @@ public:
     static constexpr float kVisibleH = 132.0f;     // shortest he ever stands above the plugin
     static constexpr float kMaxVisibleH = 232.0f;  // and the tallest, so a big window can't summon a monster
     static constexpr float kSpanOfWindow = 0.23f;  // his arm span, as a fraction of Stride's width
+    static constexpr int   kArtHand = 422;         // lowest row the art draws: the claw tips
     static constexpr int   kGripPad = 2;           // a hair more, so the claw tips are never shaved
     static constexpr int   kMouthX = 215, kMouthY = 239;   // where the tongue leaves the face, in art pixels
 
@@ -82,7 +83,12 @@ public:
             if (! editorLocal.isEmpty())
                 g.excludeClipRegion (editorLocal.withTrimmedTop (gripPx (s)));
 
-            g.setOpacity (1.0f);
+            // The open-mouth frame is an ALTERNATIVE to the idle one, not a layer over it:
+            // it was drawn separately and its silhouette is a hair different, so leaving
+            // idle at full opacity underneath left the closed-mouth frame showing around
+            // its edges. So this is a cross-DISSOLVE - idle leaves as the open mouth arrives.
+            const float openAmt = juce::jlimit (0.0f, 1.0f, tongueExt * 2.2f);
+            g.setOpacity (1.0f - openAmt);
             g.drawImage (idle, ax, ay, w, h, 0, 0, idle.getWidth(), idle.getHeight(), false);
             if (blinkAmt > 0.001f && blink.isValid())
             {
@@ -96,7 +102,6 @@ public:
             }
             // The mouth opens for the tongue, and this frame has NO tongue painted into it
             // (the blep pose does, which is why that one is never used for a strike).
-            const float openAmt = juce::jlimit (0.0f, 1.0f, tongueExt * 2.2f);
             if (openAmt > 0.001f && open.isValid())
             {
                 g.setOpacity (openAmt);
@@ -239,10 +244,11 @@ private:
         The art is a creature seen head-on, so scaling him to a wide window's FULL width
         would put his head three times the window's height into the sky - hence the cap. */
     /** How much of him hangs BELOW the wrist line, in screen pixels: the hand and claws.
-        All of it has to sit in front of Stride, so this is exactly what the clip spares. */
+        All of it has to sit in front of Stride, so this is exactly what the clip spares -
+        measured to the lowest row the ART actually draws, not to the frame's full height. */
     int gripPx (float s) const noexcept
     {
-        return juce::roundToInt ((float) (kArtH - kArtEdge) * s) + kGripPad;
+        return juce::roundToInt ((float) (kArtHand - kArtEdge) * s) + kGripPad;
     }
 
     float scale() const noexcept
@@ -346,10 +352,11 @@ private:
         const int w = juce::roundToInt (kArtW * s);
         const int h = juce::roundToInt (kArtH * s);
         const int x = b.getCentreX() - w / 2;
-        // The wrist line sits far enough INSIDE the window that everything the art draws
-        // below it - the whole hand, claws included - lands on Stride rather than being
-        // clipped away with the body. A fixed inset cut his nails off (field report).
-        const int y = b.getY() + gripPx (s) - juce::roundToInt (kArtEdge * s);
+        // The WRIST lands exactly on the window's top edge - the line where Stride begins -
+        // so his body is cut there and only the hand carries on downward, in front. Adding
+        // the grip here as well pushed the wrist ONTO the clip boundary, which clipped away
+        // the entire hand: "still no nails".
+        const int y = b.getY() - juce::roundToInt (kArtEdge * s);
         const auto artRect = juce::Rectangle<int> (x, y, w, h);
 
         // Normally the window is just big enough for the creature. While the tongue is out

@@ -300,8 +300,14 @@
     if (bl !== lastBl) { imgBlink.setAttribute('opacity', bl); lastBl = bl; }
     if (bp !== lastBp) { imgBlep.setAttribute('opacity', bp); lastBp = bp; }
     // The mouth opens for the DRAWN tongue, using the frame with no tongue painted in.
+    // A cross-DISSOLVE, not a layer: that frame was drawn separately and its silhouette is
+    // a hair different, so leaving the idle one underneath showed a closed mouth around it.
     const op = +Math.min(1, st.tongue.ext * 2.2).toFixed(3);
-    if (op !== lastOp) { imgOpen.setAttribute('opacity', op); lastOp = op; }
+    if (op !== lastOp) {
+      imgOpen.setAttribute('opacity', op);
+      imgIdle.setAttribute('opacity', +(1 - op).toFixed(3));
+      lastOp = op;
+    }
   }
   function frame(now) {
     raf = 0;

@@ -181,11 +181,20 @@ ok('the clip rect is recomputed from the live editor bounds, never cached stale'
    /editorLocal = local; repaint\(\);/.test(ovl) && /b\.translated \(-want\.getX\(\), -want\.getY\(\)\)/.test(ovl));
 // A FIXED inset cut his claws off: everything the art draws below the wrist has to land on
 // Stride, and how much that is depends on his scale (field report 2026-08-19).
-ok('the whole hand lands on Stride - the grip is derived from the art, not a fixed inset',
+// Two goes at this. The wrist has to land ON the window's top edge - the line where Stride
+// begins - with ONLY the hand carrying on below it. Offsetting the art by the grip as well
+// put the wrist exactly on the clip boundary, which clipped the whole hand away.
+ok('the wrist lands on the window edge, so the body is cut exactly there',
+   /const int y = b\.getY\(\) - juce::roundToInt \(kArtEdge \* s\);/.test(ovl) &&
+   !/b\.getY\(\) \+ gripPx/.test(ovl));
+ok('the hand below it is spared by the clip, measured to the lowest row the ART draws',
    /int gripPx \(float s\) const noexcept/.test(ovl) &&
-   /juce::roundToInt \(\(float\) \(kArtH - kArtEdge\) \* s\) \+ kGripPad/.test(ovl) &&
-   /b\.getY\(\) \+ gripPx \(s\) - juce::roundToInt \(kArtEdge \* s\)/.test(ovl) &&
+   /kArtHand = 422/.test(ovl) &&
+   /juce::roundToInt \(\(float\) \(kArtHand - kArtEdge\) \* s\) \+ kGripPad/.test(ovl) &&
    /excludeClipRegion \(editorLocal\.withTrimmedTop \(gripPx \(s\)\)\)/.test(ovl));
+ok('frames CROSS-DISSOLVE - the open mouth is an alternative frame, not a layer',
+   /g\.setOpacity \(1\.0f - openAmt\);\s*\n\s*g\.drawImage \(idle/.test(ovl) &&
+   /imgIdle\.setAttribute\('opacity', \+\(1 - op\)\.toFixed\(3\)\)/.test(rep));
 ok('the strike frame is the one with NO painted tongue',
    /open  = loadPng \("rep_open\.png"\)/.test(ovl) && /tongueExt \* 2\.2f/.test(ovl) &&
    /ui\/rep_open\.png/.test(cmake) && /ui\/reptile_open\.webp/.test(cmake) &&
