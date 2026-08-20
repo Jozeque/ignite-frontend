@@ -332,16 +332,31 @@ ok('lane geometry is refused when the canvas is hidden or the lane is gone',
 ok('a card in a hidden grid is not a target',
    /card && card\.offsetParent !== null/.test(rep));
 ok('he WAITS for the real target instead of pointing at whatever is there',
-   /function lickAt\(id, tries\)/.test(rep) && /setTimeout\(\(\) => lickAt\(id, left\), 90\)/.test(rep));
+   /function lickAt\(id, tries, prev\)/.test(rep) && /setTimeout\(\(\) => lickAt\(id, left\), 90\)/.test(rep));
 ok('and says nothing at all if the target never appears',
    /if \(left > 0\) setTimeout/.test(rep));
+// Mapping a lane INSERTS a card and reflows every card after it, so the first position the
+// new card reports is often already stale - measured at 208px of drift (2026-08-20).
+ok('he waits for the grid to SETTLE: the same position twice before striking',
+   /Math\.abs\(prev\[0\] - t\[0\]\) > 2 \|\| Math\.abs\(prev\[1\] - t\[1\]\) > 2/.test(rep) &&
+   /setTimeout\(\(\) => lickAt\(id, left, t\), 90\)/.test(rep));
+ok('and keeps following the card while the tongue is out',
+   /function trackTarget\(id\)/.test(rep) && /window\.sdReptileAim\(t\[0\], t\[1\]\)/.test(rep) &&
+   /st\.tongue\.target = t; kick\(\)/.test(rep));
+ok('re-aiming moves a tongue in flight and can never start one',
+   /void aimAt \(juce::Point<int> screenPoint\)/.test(ovl) &&
+   /if \(tonguePhase == 0\) return;/.test(ovl) && /"reptileAim"/.test(editor) &&
+   /window\.sdReptileAim    = function/.test(shim));
+ok('page coords become screen coords through the editor, not by adding to its origin',
+   /repOverlay->strikeAt \(localPointToGlobal \(juce::Point<int> \(x, y\)\)\)/.test(editor) &&
+   /repOverlay->aimAt \(localPointToGlobal \(juce::Point<int> \(x, y\)\)\)/.test(editor));
 ok('the character points at the new lane in whichever view is showing',
    /#sd-compact \.sdc\[data-id=/.test(rep) && /window\.sdLaneScreenPoint/.test(rep) &&
    /window\.sdLaneScreenPoint = function/.test(canvas));
 ok('the floating one licks through the host; the in-window one uses its own tongue',
    /if \(st\.floating\) \{ try \{ window\.sdReptileStrike/.test(rep) && /else strikeAt\(t\[0\], t\[1\]\)/.test(rep));
-ok('the host turns page coords into screen coords through the editor origin',
-   /reptileStrike/.test(editor) && /getScreenPosition\(\) \+ juce::Point<int> \(x, y\)/.test(editor));
+ok('the host turns page coords into screen coords through the editor',
+   /reptileStrike/.test(editor) && /localPointToGlobal \(juce::Point<int> \(x, y\)\)/.test(editor));
 ok('the tongue is drawn OUTSIDE the clip, so it reaches in front of the window',
    /juce::Graphics::ScopedSaveState body \(g\)/.test(ovl) &&
    /tongueExt > 0\.002f/.test(ovl) && /cur\(\)\.mouthX/.test(ovl));

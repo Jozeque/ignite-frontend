@@ -290,7 +290,14 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
             if (repOverlay == nullptr) return;
             const int x = (int) v.getProperty ("x", -1), y = (int) v.getProperty ("y", -1);
             if (x < 0 || y < 0) return;
-            repOverlay->strikeAt (getScreenPosition() + juce::Point<int> (x, y));
+            repOverlay->strikeAt (localPointToGlobal (juce::Point<int> (x, y)));
+        })
+        // Re-aim a tongue already in flight (the card grid can still reflow under it).
+        .withEventListener ("reptileAim",    [this] (juce::var v)   {
+            if (repOverlay == nullptr) return;
+            const int x = (int) v.getProperty ("x", -1), y = (int) v.getProperty ("y", -1);
+            if (x < 0 || y < 0) return;
+            repOverlay->aimAt (localPointToGlobal (juce::Point<int> (x, y)));
         })
         // Reptile Mode opens/closes its character strip. Presentation only: this resizes
         // the editor and nothing else. Same setSize path fullscreen and the pin modes use.

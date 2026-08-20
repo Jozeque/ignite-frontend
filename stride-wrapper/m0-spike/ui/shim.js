@@ -65,6 +65,8 @@
   };
   // Flick the tongue at a point in THIS page's coordinates; the host converts to screen.
   window.sdReptileStrike = function (x, y) { emit('reptileStrike', { x: x | 0, y: y | 0 }); };
+  // Move the target of a tongue already in flight, without restarting it.
+  window.sdReptileAim    = function (x, y) { emit('reptileAim',    { x: x | 0, y: y | 0 }); };
   // His size is a preference, so it belongs in the prefs FILE, not only in the WebView's
   // localStorage (which is one shared profile across every instance in the session).
   window.sdReptileScaleSave = function (v) { try { prefsWrite('repScale', v); } catch (e) {} };

@@ -230,6 +230,19 @@ public:
         repaint();
     }
 
+    /** Move the target of a tongue ALREADY in flight, without restarting it. Adding a lane
+        reflows the card grid, and the card can still slide after the strike began - so the
+        page keeps re-aiming and the tongue follows the card rather than the spot it used to
+        occupy. Ignored when no tongue is out, so it can never start one by itself. */
+    void aimAt (juce::Point<int> screenPoint)
+    {
+        if (tonguePhase == 0) return;
+        if (screenPoint == tongueTargetScreen) return;
+        tongueTargetScreen = screenPoint;
+        follow();                    // the window has to keep covering it
+        repaint();
+    }
+
     /** Which character is on screen. Swapping is instant and total - frames AND anchors -
         so trying one and going back to the other costs a click, not a rebuild. */
     void setCharacter (int i)

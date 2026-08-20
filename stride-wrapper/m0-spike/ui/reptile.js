@@ -444,15 +444,35 @@
   // grid's own tick - which, with the transport stopped, is a lazy 200ms poll. Looking once
   // and falling back therefore aimed at whatever was there before. So: wait for the real
   // target to exist, and if it never does, say nothing rather than point at the wrong lane.
-  function lickAt(id, tries) {
+  function lickAt(id, tries, prev) {
     const t = laneTarget(id);
+    const left = (typeof tries === 'number' ? tries : 14) - 1;
     if (!t) {
-      const left = (typeof tries === 'number' ? tries : 10) - 1;
       if (left > 0) setTimeout(() => lickAt(id, left), 90);
+      return;
+    }
+    // Wait for the grid to SETTLE. Mapping a lane inserts a card and reflows every card
+    // after it, so the first position the new card reports is often already stale - which
+    // is what left the tongue landing next to the parameter instead of on it. Two identical
+    // samples in a row means the layout has stopped moving.
+    if (!prev || Math.abs(prev[0] - t[0]) > 2 || Math.abs(prev[1] - t[1]) > 2) {
+      if (left > 0) setTimeout(() => lickAt(id, left, t), 90);
       return;
     }
     if (st.floating) { try { window.sdReptileStrike && window.sdReptileStrike(t[0], t[1]); } catch (e) {} }
     else strikeAt(t[0], t[1]);
+    trackTarget(id);
+  }
+  // ...and keep following it while the tongue is out, in case anything moves after all.
+  function trackTarget(id) {
+    let n = 12;
+    const iv = setInterval(() => {
+      if (--n <= 0 || !st.on) { clearInterval(iv); return; }
+      const t = laneTarget(id);
+      if (!t) return;
+      if (st.floating) { try { window.sdReptileAim && window.sdReptileAim(t[0], t[1]); } catch (e) {} }
+      else if (st.tongue.phase !== 'idle') { st.tongue.target = t; kick(); }
+    }, 90);
   }
 
   /* ── the hidden trigger ──────────────────────────────────────────── */
