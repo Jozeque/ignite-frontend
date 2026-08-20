@@ -429,16 +429,28 @@
      one. Either way this is presentation: nothing about the mapping depends on it. */
   function laneTarget(id) {
     const card = document.querySelector('#sd-compact .sdc[data-id="' + String(id).replace(/"/g, '') + '"]');
-    if (card) { const r = card.getBoundingClientRect(); return [r.left + r.width * 0.5, r.top + r.height * 0.42]; }
+    // offsetParent is null for a card in a hidden grid: its rect would be nonsense.
+    if (card && card.offsetParent !== null) {
+      const r = card.getBoundingClientRect();
+      if (r.width > 2 && r.height > 2) return [r.left + r.width * 0.5, r.top + r.height * 0.42];
+    }
     try {
       const p = window.sdLaneScreenPoint && window.sdLaneScreenPoint(id);
       if (p) return [p.x, p.y];
     } catch (e) {}
     return null;
   }
-  function lickAt(id) {
+  // The lane is announced the moment the data lands, but the CARD for it is built on the
+  // grid's own tick - which, with the transport stopped, is a lazy 200ms poll. Looking once
+  // and falling back therefore aimed at whatever was there before. So: wait for the real
+  // target to exist, and if it never does, say nothing rather than point at the wrong lane.
+  function lickAt(id, tries) {
     const t = laneTarget(id);
-    if (!t) return;
+    if (!t) {
+      const left = (typeof tries === 'number' ? tries : 10) - 1;
+      if (left > 0) setTimeout(() => lickAt(id, left), 90);
+      return;
+    }
     if (st.floating) { try { window.sdReptileStrike && window.sdReptileStrike(t[0], t[1]); } catch (e) {} }
     else strikeAt(t[0], t[1]);
   }

@@ -319,6 +319,22 @@ ok('reordering does not touch the colour fields at all',
 // ── 9g. A LICK AT WHATEVER JUST GOT MAPPED ──
 ok('a freshly mapped lane is announced, and a big jump stays silent',
    /sd-lane-mapped/.test(canvas) && /fresh\.length && fresh\.length <= 2/.test(canvas));
+// He was aiming at the wrong lane: the id-diff called an old lane new whenever the mapping
+// renumbered, and looking for the card ONCE fell back to lane geometry that is stale (and
+// zero-sized) while compact is showing (field report 2026-08-20).
+ok('a new lane is identified by device+name, not by the positional id',
+   /const _sdLaneIdentity = \(p\) => \(p\.device \|\| ''\) \+ '\|' \+ p\.name;/.test(canvas) &&
+   /sdCanvasParams\.filter\(p => !before\[_sdLaneIdentity\(p\)\]\)/.test(canvas) &&
+   !/const fresh = ids\.filter/.test(canvas));
+ok('lane geometry is refused when the canvas is hidden or the lane is gone',
+   /if \(r\.width < 2 \|\| r\.height < 2\) return null;/.test(canvas) &&
+   /if \(!sdCanvasParams\.some\(p => p\.envelopeId === envelopeId\)\) return null;/.test(canvas));
+ok('a card in a hidden grid is not a target',
+   /card && card\.offsetParent !== null/.test(rep));
+ok('he WAITS for the real target instead of pointing at whatever is there',
+   /function lickAt\(id, tries\)/.test(rep) && /setTimeout\(\(\) => lickAt\(id, left\), 90\)/.test(rep));
+ok('and says nothing at all if the target never appears',
+   /if \(left > 0\) setTimeout/.test(rep));
 ok('the character points at the new lane in whichever view is showing',
    /#sd-compact \.sdc\[data-id=/.test(rep) && /window\.sdLaneScreenPoint/.test(rep) &&
    /window\.sdLaneScreenPoint = function/.test(canvas));

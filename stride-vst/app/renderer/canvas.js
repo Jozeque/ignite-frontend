@@ -3671,18 +3671,24 @@
     // Announced as a DOM event rather than wired to anything: the character listens, and
     // nothing about lanes depends on whether it does. A BIG jump (a scan, a project load,
     // picking params) is deliberately silent - only a hand-mapped knob or two is news.
-    let _sdKnownLaneIds = null;
+    // Keyed by device+name, NOT by envelopeId: on the wrapper the id is the engine POSITION
+    // and renumbers whenever the mapping shifts, so an id-diff called an old lane "new" and
+    // sent the character to point at the wrong one (field report 2026-08-20: "it sometimes
+    // sticks on the first param, or the one before").
+    let _sdKnownLaneKeys = null;
+    const _sdLaneIdentity = (p) => (p.device || '') + '|' + p.name;
     function _sdAnnounceNewLanes() {
         try {
-            const ids = sdCanvasParams.map(p => p.envelopeId);
-            if (_sdKnownLaneIds && _sdKnownLaneIds.length) {
+            const keys = sdCanvasParams.map(_sdLaneIdentity);
+            if (_sdKnownLaneKeys && _sdKnownLaneKeys.length) {
                 const before = {};
-                _sdKnownLaneIds.forEach(id => { before[id] = 1; });
-                const fresh = ids.filter(id => !before[id]);
+                _sdKnownLaneKeys.forEach(k => { before[k] = 1; });
+                const fresh = sdCanvasParams.filter(p => !before[_sdLaneIdentity(p)]);
                 if (fresh.length && fresh.length <= 2)
-                    window.dispatchEvent(new CustomEvent('sd-lane-mapped', { detail: { ids: fresh } }));
+                    window.dispatchEvent(new CustomEvent('sd-lane-mapped',
+                        { detail: { ids: fresh.map(p => p.envelopeId) } }));
             }
-            _sdKnownLaneIds = ids;
+            _sdKnownLaneKeys = keys;
         } catch (e) {}
     }
 
@@ -3691,9 +3697,14 @@
     window.sdLaneScreenPoint = function (envelopeId) {
         try {
             if (!sdCanvasEl) return null;
+            // _sdLaneGeom is only rebuilt while the lane canvas DRAWS. In compact view it is
+            // hidden, so the cached geometry is stale and its rect collapses to nothing -
+            // pointing at it aimed the character at wherever some older lane used to be.
+            const r = sdCanvasEl.getBoundingClientRect();
+            if (r.width < 2 || r.height < 2) return null;
+            if (!sdCanvasParams.some(p => p.envelopeId === envelopeId)) return null;   // gone since the geometry was cached
             const g = _sdLaneGeom.find(l => l.id === envelopeId);
             if (!g) return null;
-            const r = sdCanvasEl.getBoundingClientRect();
             return { x: r.left + Math.min(r.width * 0.5, 240), y: r.top + g.cy };
         } catch (e) { return null; }
     };
