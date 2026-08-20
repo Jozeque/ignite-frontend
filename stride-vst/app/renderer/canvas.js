@@ -3665,6 +3665,7 @@
                 // disagree about how a rate is written ("1/2" vs "0.5X")
                 speed: (typeof p.speed === 'number' && p.speed > 0 ? p.speed : 1),
                 speedLabel: _sdSpeedLabel((typeof p.speed === 'number' && p.speed > 0) ? p.speed : 1),
+                loopBeats: (typeof p.loopBeats === 'number' && p.loopBeats > 0 ? p.loopBeats : 0),
                 points: p.points
             }))
         };

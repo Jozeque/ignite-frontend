@@ -64,7 +64,7 @@ ok('ranged lanes are mapped through their band exactly like the drive does',
 
 // ── 3. THE MINI MOTION WINDOW (the point of the mode) ──
 ok('the lane travels through a clipped viewport under a fixed centre playhead',
-   /translate\(\$\{\(MVP_W \/ 2 - ph \* LOOP_W\)/.test(comp));
+   /translate\(\$\{\(MVP_W \/ 2 - lph \* LOOP_W\)/.test(comp));
 ok('three copies make the loop seamless at both edges',
    /class="s0"/.test(comp) && /class="s1"/.test(comp) && /class="s2"/.test(comp));
 ok('the window is clipped and edge-masked, not a floating sparkline',
@@ -233,6 +233,17 @@ ok('the label is formatted ONCE, in canvas.js, so both views word a rate the sam
 ok('a rate other than 1X is visibly lit', /\.sdc-sp\.on\{color:var\(--lc\)\}/.test(indexH) &&
    /\(p\.speed && p\.speed !== 1\) \? ' on' : ''/.test(comp));
 ok('the card re-keys when a speed changes', /\(typeof p\.speed === 'number' \? p\.speed : 1\)/.test(canvas));
+// The knob rode the SHARED playhead, so it moved at 1X whatever rate the lane was set to
+// (field report 2026-08-20). It now mirrors the engine's own drive:
+// fmod(ph * speed, laneLoop) - which also picks up per-lane loop boundaries.
+ok('a card runs on the LANE clock, not the shared playhead',
+   /function lanePhase\(p, ph, bars\)/.test(comp) &&
+   /let lx = \(ph \* cb \* spd\) % lL;/.test(comp) &&
+   /const lph = lanePhase\(c\.p, ph, snap\.bars\)/.test(comp));
+ok('the knob AND the travelling curve both use it, so they agree',
+   /laneValue\(c\.p, lph\)/.test(comp) && /MVP_W \/ 2 - lph \* LOOP_W/.test(comp));
+ok('per-lane loop boundaries reach the card too', /loopBeats: \(typeof p\.loopBeats === 'number'/.test(canvas) &&
+   /p\.loopBeats > 0\.01\) \? p\.loopBeats : cb/.test(comp));
 
 ok('the band is legible as a band: an arc on its own radius with both edges marked',
    /class="kcapa"/.test(comp) && /class="kcapb"/.test(comp) && /RR = KR \+ 7\.0/.test(comp) &&

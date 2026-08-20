@@ -61,6 +61,21 @@
   // a ranged lane outputs inside its band, exactly like the engine drive does
   function raw(p, v) { return p.rangeOn ? (p.rangeMin + v * (p.rangeMax - p.rangeMin)) : v; }
 
+  /* ── where a lane actually IS right now ──────────────────────────────
+     Matches the engine's own drive: it scales the lane's clock by SPEED and wraps that at
+     the lane's loop boundary - fmod(ph * speed, laneLoop) - rather than riding the shared
+     playhead. Sampling the raw phase made every knob move at 1X no matter what rate the
+     lane was set to (field report 2026-08-20), and it ignored per-lane loops the same way.
+     Returns a fraction of the CURVE, because that is what laneValue() takes. */
+  function lanePhase(p, ph, bars) {
+    const cb = Math.max(1, (bars > 0 ? bars : 4) * 4);              // clip length in beats
+    const spd = (typeof p.speed === 'number' && p.speed > 0) ? p.speed : 1;
+    const lL = (typeof p.loopBeats === 'number' && p.loopBeats > 0.01) ? p.loopBeats : cb;
+    let lx = (ph * cb * spd) % lL;
+    if (lx < 0) lx += lL;
+    return lx / cb;
+  }
+
   function lanePath(p, w, h) {
     const pts = p.points;
     if (!pts || pts.length < 2) return 'M0,' + (h / 2).toFixed(1) + ' L' + w + ',' + (h / 2).toFixed(1);
@@ -401,7 +416,8 @@
     const ph = snap.phase;
     for (let i = 0; i < cards.length; i++) {
       const c = cards[i];
-      const v = clamp(laneValue(c.p, ph), 0, 1);
+      const lph = lanePhase(c.p, ph, snap.bars);   // this lane's own clock, not the shared one
+      const v = clamp(laneValue(c.p, lph), 0, 1);
       const q = Math.round(v * 1000);
       if (q !== c.lv) {
         c.lv = q;
@@ -425,7 +441,8 @@
           } else { c.rng.setAttribute('display', 'none'); c.capg.setAttribute('display', 'none'); }
         }
       }
-      c.msc.setAttribute('transform', `translate(${(MVP_W / 2 - ph * LOOP_W).toFixed(2)},0)`);
+      // the curve travels at the LANE's rate too, so the dot and the scroll agree
+      c.msc.setAttribute('transform', `translate(${(MVP_W / 2 - lph * LOOP_W).toFixed(2)},0)`);
     }
   }
   function sync(force) {
