@@ -163,6 +163,9 @@
         <button class="sdc-rg${p.rangeOn ? ' on' : ''}" title="${p.rangeOn
           ? 'Range on - the lane moves inside its band. Drag the knob ring to set it. Double-click to reset.'
           : 'Range - hold this lane inside a band. Or just drag the knob ring.'}">${rangeIcon()}</button>
+        <button class="sdc-sp${(p.speed && p.speed !== 1) ? ' on' : ''}"
+          title="Lane speed: how fast this lane runs compared to the rest. Click to step up, right-click for 1X."
+          >${esc(p.speedLabel || '1X')}</button>
         ${knobSvg(p.rgb, i)}
         <div class="sdc-v"><b>0%</b></div>
       </div>
@@ -221,6 +224,16 @@
             window.sdCompactToggleRange(c.p.id, dbl);
           sync(true);
         });
+      }
+      // lane SPEED - the same ladder and the same engine push the lane canvas uses
+      const sp = c.el.querySelector('.sdc-sp');
+      if (sp) {
+        const step = (dir) => {
+          if (typeof window.sdCompactSetSpeed === 'function') window.sdCompactSetSpeed(c.p.id, dir);
+          lastRev = ''; sync(true);
+        };
+        sp.addEventListener('click', () => step(1));
+        sp.addEventListener('contextmenu', (e) => { e.preventDefault(); step(0); });
       }
       // remove the lane - the same action the lane canvas's ✕ performs
       const rm = c.el.querySelector('.sdc-x');

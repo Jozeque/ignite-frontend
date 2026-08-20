@@ -216,6 +216,24 @@ ok('the range control sits next to the lock, as asked',
 ok('the knob ring is the band control and it is draggable',
    /class="khit"/.test(comp) && /pointer-events="stroke"/.test(comp) &&
    /pointerdown/.test(comp) && /cursor:ns-resize/.test(indexH));
+// ── LANE SPEED ON THE CARD (2026-08-20) ──
+ok('speed sits beside the lock and the range',
+   /class="sdc-lk"[\s\S]{0,600}class="sdc-rg[\s\S]{0,400}class="sdc-sp/.test(comp) && /\.sdc-sp\{/.test(indexH));
+ok('it steps the SAME ladder through the same engine push',
+   /window\.sdCompactSetSpeed = function \(envelopeId, dir\)/.test(canvas) &&
+   /SD_SPEED_LADDER\[i\]/.test(canvas) && /_sdPushSpeedToEngine\(p\)/.test(canvas));
+ok('clicking steps up and wraps, so every rate is reachable; right-click restores 1X',
+   /\(_sdSpeedIdx\(cur\) \+ dir \+ n\) % n/.test(canvas) &&
+   /\(dir === 0\) \? _sdSpeedIdx\(1\)/.test(canvas) &&
+   /sp\.addEventListener\('click', \(\) => step\(1\)\)/.test(comp) &&
+   /contextmenu[\s\S]{0,60}step\(0\)/.test(comp));
+ok('the label is formatted ONCE, in canvas.js, so both views word a rate the same',
+   /speedLabel: _sdSpeedLabel\(/.test(canvas) && /p\.speedLabel \|\| '1X'/.test(comp) &&
+   !/1\/2|SD_SPEED_LADDER/.test(comp));
+ok('a rate other than 1X is visibly lit', /\.sdc-sp\.on\{color:var\(--lc\)\}/.test(indexH) &&
+   /\(p\.speed && p\.speed !== 1\) \? ' on' : ''/.test(comp));
+ok('the card re-keys when a speed changes', /\(typeof p\.speed === 'number' \? p\.speed : 1\)/.test(canvas));
+
 ok('the band is legible as a band: an arc on its own radius with both edges marked',
    /class="kcapa"/.test(comp) && /class="kcapb"/.test(comp) && /RR = KR \+ 7\.0/.test(comp) &&
    /\.sdc\.rng \.kticks\{opacity:\.5\}/.test(indexH));

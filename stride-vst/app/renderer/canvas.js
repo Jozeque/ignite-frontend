@@ -3661,6 +3661,10 @@
                 rangeOn: !!p.rangeOn,
                 rangeMin: (typeof p.rangeMin === 'number' ? p.rangeMin : 0),
                 rangeMax: (typeof p.rangeMax === 'number' ? p.rangeMax : 1),
+                // the LABEL is formatted here, so the cards and the lane canvas can never
+                // disagree about how a rate is written ("1/2" vs "0.5X")
+                speed: (typeof p.speed === 'number' && p.speed > 0 ? p.speed : 1),
+                speedLabel: _sdSpeedLabel((typeof p.speed === 'number' && p.speed > 0) ? p.speed : 1),
                 points: p.points
             }))
         };
@@ -3675,7 +3679,8 @@
             const p = vis[i];
             s += p.envelopeId + ',' + p.name + ',' + (p.device || '') + ',' + (p.locked ? 1 : 0)
                + ',' + (typeof p.colorIdx === 'number' ? p.colorIdx : -1)
-               + ',' + (p.rangeOn ? 1 : 0) + ',' + (p.selected ? 1 : 0) + ';';
+               + ',' + (p.rangeOn ? 1 : 0) + ',' + (p.selected ? 1 : 0)
+               + ',' + (typeof p.speed === 'number' ? p.speed : 1) + ';';
         }
         return s;
     };
@@ -3786,6 +3791,21 @@
         sdCanvasParams.forEach((p, i) => { p.ord = i; });
         _sdPushOrderToEngine();
         sdRenderSidebar();
+        sdDrawCanvasGrid();
+        Promise.resolve(saveCanvasState());
+    };
+
+    // Step a lane's SPEED from its card. dir +1/-1 walks the ladder (wrapping, so every
+    // rate is reachable by clicking); dir 0 puts it back to 1X. Same ladder, same engine
+    // push and same non-undoable behaviour as the lane canvas's speed glyph.
+    window.sdCompactSetSpeed = function (envelopeId, dir) {
+        const p = sdCanvasParams.find(p => p.envelopeId === envelopeId);
+        if (!p) return;
+        const cur = (typeof p.speed === 'number' && p.speed > 0) ? p.speed : 1;
+        const n = SD_SPEED_LADDER.length;
+        const i = (dir === 0) ? _sdSpeedIdx(1) : ((_sdSpeedIdx(cur) + dir + n) % n);
+        p.speed = SD_SPEED_LADDER[i];
+        _sdPushSpeedToEngine(p);
         sdDrawCanvasGrid();
         Promise.resolve(saveCanvasState());
     };
