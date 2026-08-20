@@ -66,7 +66,10 @@ public:
         sets[1].blink = loadPng ("rep2_blink.png");
         sets[1].open  = loadPng ("rep2_open.png");
         sets[1].blep  = sets[1].open;
-        sets[1].edge = 389; sets[1].hand = 420; sets[1].mouthX = 230; sets[1].mouthY = 276;
+        // His mouth sits LOW and slightly left - a long way from the first character's, and
+        // the first pass put this on the bridge of his nose. Read off the art, then checked
+        // by marking it on the frame: a colour search keeps latching onto his orange beads.
+        sets[1].edge = 389; sets[1].hand = 420; sets[1].mouthX = 183; sets[1].mouthY = 356;
 
         setOpaque (false);
         setInterceptsMouseClicks (false, false);

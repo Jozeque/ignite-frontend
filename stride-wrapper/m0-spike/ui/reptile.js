@@ -37,7 +37,8 @@
       blink: 'reptile2_blink.webp',
       blep:  'reptile2_open.webp',                 // no tongue-out frame of its own; safe, nothing painted in
       open:  'reptile2_open.webp',
-      W: 760, H: 746, EDGE: 672, MOUTH: [397, 477] }
+      // his mouth is LOW and slightly left, nowhere near the first character's
+      W: 760, H: 746, EDGE: 672, MOUTH: [316, 615] }
   ];
   const REP_ART = Object.assign({}, REP_SETS[0]);  // the ACTIVE descriptor; layout reads only this
   let charIdx = 0;

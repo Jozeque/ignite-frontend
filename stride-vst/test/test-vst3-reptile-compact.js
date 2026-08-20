@@ -361,6 +361,13 @@ ok('switching him off cancels a tongue in flight', /tonguePhase = 0; tongueExt =
 ok('anchors travel WITH the art, they are not shared constants',
    /struct CharSet/.test(ovl) && /int edge = 383;/.test(ovl) && /int mouthX = 215, mouthY = 239;/.test(ovl) &&
    !/static constexpr int   kArtEdge/.test(ovl));
+// The tongue has to leave from the mouth of whoever is on screen. The second character's
+// mouth sits ~117px lower and ~32px left of the first's, so a shared anchor put his tongue
+// on the bridge of his nose (field report 2026-08-19).
+ok('the second character has its OWN mouth, not the first one\'s',
+   /sets\[1\]\.mouthX = 183; sets\[1\]\.mouthY = 356;/.test(ovl) &&
+   /MOUTH: \[316, 615\]/.test(rep) &&
+   !/sets\[1\][\s\S]{0,40}mouthX = 215/.test(ovl));
 ok('both sets are loaded, each with its own anchors',
    /sets\[0\]\.edge = 383; sets\[0\]\.hand = 420/.test(ovl) &&
    /sets\[1\]\.edge = 389; sets\[1\]\.hand = 420/.test(ovl) &&
