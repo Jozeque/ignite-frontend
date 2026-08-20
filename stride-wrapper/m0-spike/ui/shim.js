@@ -69,6 +69,8 @@
   // localStorage (which is one shared profile across every instance in the session).
   window.sdReptileScaleSave = function (v) { try { prefsWrite('repScale', v); } catch (e) {} };
   window.sdReptileCharSave  = function (v) { try { prefsWrite('repChar', v); } catch (e) {} };
+  // Which VIEW you were last in - the lane canvas or the parameter cards.
+  window.sdCompactSave      = function (v) { try { prefsWrite('compactOn', !!v); } catch (e) {} };
 
   // The host answers with the strip it could actually FIT (a tall window near the bottom
   // of the display gets less than it asked for). The character scales to what it got.
@@ -541,6 +543,8 @@
           window.sdReptileScaleAdopt(_natPrefs.repScale);
         if (typeof _natPrefs.repChar === 'number' && window.sdReptileCharAdopt)
           window.sdReptileCharAdopt(_natPrefs.repChar);
+        if (typeof _natPrefs.compactOn === 'boolean' && window.sdCompactAdopt)
+          window.sdCompactAdopt(_natPrefs.compactOn);
       } catch (e4) {}
     } catch (e) { showErr('prefsState: ' + e.message); }
   });

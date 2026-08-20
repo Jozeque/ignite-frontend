@@ -460,9 +460,12 @@
     host.parentNode.insertBefore(wrap, host.nextSibling);
     return true;
   }
-  function setCompact(v) {
+  function setCompact(v, silent) {
     if (!wrap && !mount()) return;
     on = !!v;
+    // Which view you were in is remembered, so reopening Stride puts you back where you
+    // left off instead of always landing on the lane canvas (field report).
+    if (!silent) { try { if (window.sdCompactSave) window.sdCompactSave(on); } catch (e) {} }
     document.body.classList.toggle('sd-compact-view', on);
     wrap.style.display = on ? 'grid' : 'none';
     if (host) host.style.display = on ? 'none' : '';
@@ -488,8 +491,26 @@
     _cards: () => cards
   };
 
+  // Restoring the remembered view. The prefs file can land either side of DOMContentLoaded,
+  // so whichever arrives second does the work. Adopted silently: reading the preference
+  // must never look like the user just chose it.
+  let pendingOn = null, adopted = false;
+  window.sdCompactAdopt = function (v) {
+    pendingOn = !!v;
+    applyPending();
+  };
+  function applyPending() {
+    if (adopted || pendingOn === null) return;
+    if (!wrap && !mount()) return;             // DOM not ready yet - boot() will retry
+    adopted = true;
+    const want = pendingOn;
+    pendingOn = null;
+    if (want) setCompact(true, true);
+  }
+
   function boot() {
     mount();
+    applyPending();
     // curves change without the lane set changing (draw, motion tool, motion load),
     // so re-read on the same beat the canvas persists. Cheap: a signature compare.
     window.addEventListener('sd-compact-refresh', () => sync(true));

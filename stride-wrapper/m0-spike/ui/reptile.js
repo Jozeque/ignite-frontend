@@ -128,7 +128,10 @@
     py = zoneH() - REP_ART.EDGE * st.scale;        // wrist line sits on the zone's bottom edge
     apply();
   }
-  const zoneH = () => (st.on ? Math.round(REP_ART.EDGE * st.scale) + 4 : 0);
+  // FLOATING costs Stride no height, so the strip is zero then. Without the floating test
+  // this reported a strip he was not standing in, and every window resize re-requested it -
+  // which is what pinned the window to one height while he was on (field report).
+  const zoneH = () => ((st.on && !st.floating) ? Math.round(REP_ART.EDGE * st.scale) + 4 : 0);
   // The host grants what fits on the display; scale to that rather than to the request.
   window.sdReptileZoneGranted = function (h) {
     if (!st.on) return;
@@ -529,7 +532,10 @@
 
   function boot() {
     build(); mountTrigger(); place();
-    window.addEventListener('resize', () => { place(); if (st.on) requestZone(zoneH()); });
+    window.addEventListener('resize', () => {
+      place();
+      if (st.on && !st.floating) requestZone(zoneH());   // only the IN-WINDOW creature owns a strip
+    });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && st.tongue.phase !== 'idle') retract();
     });

@@ -310,9 +310,14 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
                 if (disp != nullptr)
                     want = juce::jmax (0, juce::jmin (want, disp->userArea.getHeight() - 80 - base));
             }
-            repZoneH = want;
-            setSize (getWidth(), want > 0 ? base + want : base);
-            if (want == 0) preRepH = 0;
+            // Already the strip we are showing: report and change NOTHING. Re-applying it
+            // on every request turned an incoming resize into a fight over the height.
+            if (want != repZoneH)
+            {
+                repZoneH = want;
+                setSize (getWidth(), want > 0 ? base + want : base);
+                if (want == 0) preRepH = 0;
+            }
             if (web != nullptr)
             {
                 auto* o = new juce::DynamicObject();
@@ -649,7 +654,17 @@ void StrideWrapperEditor::forwardMusicKey (const juce::String& key, bool down)
 
 void StrideWrapperEditor::paint (juce::Graphics& g) { g.fillAll (juce::Colour (0xff09090b)); }
 
-void StrideWrapperEditor::resized() { if (web) web->setBounds (getLocalBounds()); }
+void StrideWrapperEditor::resized()
+{
+    if (web) web->setBounds (getLocalBounds());
+
+    // Keep the pre-strip height in step with the USER's resizes. It used to be captured once,
+    // when the character's strip opened, and then never move - so every later resize snapped
+    // the window straight back to that height and Stride could not be made smaller while he
+    // was on ("it stucks on the full size"). Reading it back from the current height keeps
+    // base + strip true no matter who did the resizing, us or the user.
+    if (repZoneH > 0) preRepH = juce::jmax (120, getHeight() - repZoneH);
+}
 
 // ── Chain presets (.stridechain) ─────────────────────────────────────────────
 // Save/load the ENTIRE instance — hosted chain (paths + patches), mapped lanes,

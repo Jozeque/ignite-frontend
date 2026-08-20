@@ -407,6 +407,33 @@ ok('size persists through the prefs FILE, not localStorage alone',
 ok('adopting a saved size does not write it straight back',
    /Adopted from the prefs file on boot: take the value, do NOT write it back/.test(rep));
 
+// ── 9i. THE VIEW YOU LEFT IN, AND A WINDOW YOU CAN STILL RESIZE ──
+// Two field reports: reopening Stride always landed on the lane canvas, and while the
+// character was on the window could not be made smaller.
+ok('the view you were in is remembered',
+   /window\.sdCompactSave/.test(comp) && /prefsWrite\('compactOn', !!v\)/.test(shim) &&
+   /window\.sdCompactAdopt\(_natPrefs\.compactOn\)/.test(shim));
+ok('restoring it is SILENT - it must not read as the user choosing it',
+   /function setCompact\(v, silent\)/.test(comp) && /if \(!silent\)/.test(comp) &&
+   /setCompact\(true, true\);/.test(comp));
+ok('the restore lands whichever side of DOMContentLoaded the prefs arrive on',
+   /function applyPending\(\)/.test(comp) && /if \(!wrap && !mount\(\)\) return;/.test(comp) &&
+   /boot\(\) \{\s*\n\s*mount\(\);\s*\n\s*applyPending\(\);/.test(comp));
+ok('it is adopted ONCE, so it can never overrule a later choice of yours',
+   /if \(adopted \|\| pendingOn === null\) return;/.test(comp) && /adopted = true;/.test(comp));
+
+// The strip is what the IN-WINDOW creature stands in. Floating costs Stride no height, so
+// reporting a strip while floating made every resize re-request one - and the host pinned
+// the window to the height captured when it opened.
+ok('the strip is zero while he is floating',
+   /\(st\.on && !st\.floating\) \? Math\.round\(REP_ART\.EDGE \* st\.scale\) \+ 4 : 0/.test(rep));
+ok('a resize only re-requests the strip for the in-window creature',
+   /if \(st\.on && !st\.floating\) requestZone\(zoneH\(\)\)/.test(rep));
+ok('the pre-strip height follows the USER resizing, instead of freezing when it opened',
+   /if \(repZoneH > 0\) preRepH = juce::jmax \(120, getHeight\(\) - repZoneH\);/.test(editor));
+ok('re-requesting the strip already showing changes nothing (no fight over the height)',
+   /if \(want != repZoneH\)\s*\n\s*\{\s*\n\s*repZoneH = want;/.test(editor));
+
 // ── 10. NO PRODUCT BEHAVIOUR TOUCHED ──
 ok('no DSP / mapping / transport / serialization words appear in either layer',
    !/processBlock|setStateInformation|apply_inject|set_range|set_speed|set_lock\b/.test(rep + comp));
