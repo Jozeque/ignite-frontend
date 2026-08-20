@@ -432,20 +432,64 @@
         </div>
       </div>
 
-      <!-- flagship visual: the Stride VST window — dense, live-rendered canvas -->
+      <!-- flagship visual: the Stride VST window. The walkthrough plays right here,
+           in the frame: clicking it never sends anyone off to YouTube. -->
       <div class="lg:flex-[5] w-full min-w-0">
-        <a href="https://www.youtube.com/watch?v=BmdPgmB6208" target="_blank" rel="noopener" class="panel screws p-2 md:p-3 pt-7 block relative group" style="border-color:rgba(198,113,43,.28);cursor:pointer"><span class="s s1"></span><span class="s s2"></span>
-          <img src="assets/hero-walkthrough-thumb.jpg" alt="Stride VST hosting Serum, Vital and a full effects rig, with every lane in motion" class="w-full block" style="border-radius:12px;border:1px solid rgba(198,113,43,.35)">
-          <!-- play overlay: the whole window is a clickable video thumbnail -->
-          <div class="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none" style="border-radius:16px;background:radial-gradient(circle at 50% 46%, rgba(16,15,12,.58), rgba(16,15,12,.24) 72%)">
+        <div class="panel screws p-2 md:p-3 pt-7 block relative group" style="border-color:rgba(198,113,43,.28)"><span class="s s1"></span><span class="s s2"></span>
+          <!-- stage: the thumbnail sets the box size and the player drops in on top of
+               it, so hitting play does not shift a single pixel of the layout -->
+          <div id="heroStage" style="position:relative;border-radius:12px;border:1px solid rgba(198,113,43,.35);overflow:hidden;background:#0a0a09">
+            <img src="assets/hero-walkthrough-thumb.jpg" alt="Stride VST hosting Serum, Vital and a full effects rig, with every lane in motion" class="w-full block">
+          </div>
+          <!-- play overlay: the whole window is a clickable video thumbnail. It stays a
+               real YouTube link so it still works with JS off; the handler cancels the
+               trip and loads the player in place instead. -->
+          <a id="heroPlay" href="https://www.youtube.com/watch?v=BmdPgmB6208" target="_blank" rel="noopener" aria-label="Play the Stride walkthrough" class="absolute inset-0 flex flex-col items-center justify-center gap-3" style="border-radius:16px;cursor:pointer;background:radial-gradient(circle at 50% 46%, rgba(16,15,12,.58), rgba(16,15,12,.24) 72%)">
             <div class="rounded-full flex items-center justify-center transition-transform group-hover:scale-110" style="width:74px;height:74px;background:linear-gradient(180deg,var(--ember),var(--copper));box-shadow:0 16px 36px -12px rgba(198,113,43,.9),0 1px 0 rgba(255,255,255,.28) inset">
               <svg class="w-8 h-8" style="margin-left:4px" viewBox="0 0 24 24" fill="#1c1206"><path d="M8 5v14l11-7z"/></svg>
             </div>
             <span class="silk" style="color:var(--copper-lt)">See it in action</span>
-          </div>
-        </a>
-        <p class="text-center mono text-[10px] ink3 mt-4">▶ Watch a flat patch come alive: the full Stride walkthrough</p>
+          </a>
+        </div>
+        <p id="heroVideoNote" class="text-center mono text-[10px] ink3 mt-4">▶ Watch a flat patch come alive: the full Stride walkthrough</p>
       </div>
+
+      <!-- Click-to-play. The player is only fetched once someone asks for it, so the
+           hero still loads with zero YouTube weight. -->
+      <script>
+        (function () {
+          var VIDEO = 'BmdPgmB6208';
+          var play = document.getElementById('heroPlay'),
+              stage = document.getElementById('heroStage'),
+              note = document.getElementById('heroVideoNote');
+          if (!play || !stage) return;
+
+          // warm the connection on first hover so the player starts faster on click
+          var warmed = false;
+          play.addEventListener('pointerover', function () {
+            if (warmed) return; warmed = true;
+            ['https://www.youtube-nocookie.com', 'https://i.ytimg.com', 'https://www.google.com'].forEach(function (h) {
+              var l = document.createElement('link'); l.rel = 'preconnect'; l.href = h; document.head.appendChild(l);
+            });
+          }, { once: false });
+
+          play.addEventListener('click', function (e) {
+            // ctrl/cmd/middle click still opens YouTube in a tab, as any link would
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            e.preventDefault();
+            if (stage.querySelector('iframe')) return;
+            var f = document.createElement('iframe');
+            f.src = 'https://www.youtube-nocookie.com/embed/' + VIDEO + '?autoplay=1&rel=0&modestbranding=1&playsinline=1';
+            f.title = 'Stride walkthrough';
+            f.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+            f.allowFullscreen = true;
+            f.setAttribute('style', 'position:absolute;inset:0;width:100%;height:100%;border:0;display:block');
+            stage.appendChild(f);
+            play.remove();
+            if (note) note.innerHTML = 'Playing here · <a href="https://www.youtube.com/watch?v=' + VIDEO + '" target="_blank" rel="noopener" class="underline hover:text-[var(--copper-lt)]">open on YouTube</a>';
+          });
+        })();
+      </script>
     </div>
   </section>
 
