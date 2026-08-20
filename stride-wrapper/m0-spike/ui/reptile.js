@@ -427,6 +427,9 @@
      canvas.js announces a freshly mapped lane; he points at it. The in-window creature
      owns its tongue in SVG; the floating one is drawn natively, so the host draws that
      one. Either way this is presentation: nothing about the mapping depends on it. */
+  let tongueBusyUntil = 0, lastPointId = null, lastPointAt = 0;
+  const tongueBusy = () => (performance.now() < tongueBusyUntil || st.tongue.phase !== 'idle');
+
   function laneTarget(id) {
     const card = document.querySelector('#sd-compact .sdc[data-id="' + String(id).replace(/"/g, '') + '"]');
     // offsetParent is null for a card in a hidden grid: its rect would be nonsense.
@@ -461,6 +464,7 @@
     }
     if (st.floating) { try { window.sdReptileStrike && window.sdReptileStrike(t[0], t[1]); } catch (e) {} }
     else strikeAt(t[0], t[1]);
+    tongueBusyUntil = performance.now() + 950;   // the floating tongue's state lives in C++
     trackTarget(id);
   }
   // ...and keep following it while the tongue is out, in case anything moves after all.
@@ -540,7 +544,22 @@
       if (!st.on) return;
       const id = e && e.detail && e.detail.ids && e.detail.ids[0];
       if (id == null) return;
+      lastPointId = String(id); lastPointAt = performance.now();   // don't point at it twice
       setTimeout(() => lickAt(id), 110);        // let the new lane paint before pointing at it
+    });
+
+    // Touch a knob in a hosted plugin and he points at ITS lane, so you can see where it is.
+    // Throttled hard on purpose: a knob DRAG announces this many times a second, and he is
+    // meant to point things out, not chatter. One lane at a time, and never over a tongue
+    // that is already out.
+    window.addEventListener('sd-lane-touched', (e) => {
+      if (!st.on) return;
+      const id = e && e.detail && e.detail.id;
+      if (id == null || tongueBusy()) return;
+      const now = performance.now();
+      if (String(id) === lastPointId && now - lastPointAt < 4000) return;   // same knob, still fiddling
+      lastPointId = String(id); lastPointAt = now;
+      lickAt(id);
     });
   }
 

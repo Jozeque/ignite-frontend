@@ -350,6 +350,22 @@ ok('re-aiming moves a tongue in flight and can never start one',
 ok('page coords become screen coords through the editor, not by adding to its origin',
    /repOverlay->strikeAt \(localPointToGlobal \(juce::Point<int> \(x, y\)\)\)/.test(editor) &&
    /repOverlay->aimAt \(localPointToGlobal \(juce::Point<int> \(x, y\)\)\)/.test(editor));
+// ── TOUCH A KNOB IN A PLUGIN, HE POINTS AT ITS LANE ──
+// Rides the EXISTING param-touch glow (pendingGlowPos -> param_glow), so there is no second
+// notion of "the user touched this knob" to keep in step with the first.
+ok('the touch announcement comes off the existing glow, not a new signal',
+   /param_glow/.test(canvas) && /sd-lane-touched/.test(canvas) &&
+   /dispatchEvent\(new CustomEvent\('sd-lane-touched'/.test(canvas));
+ok('he points at the touched lane', /window\.addEventListener\('sd-lane-touched'/.test(rep));
+ok('a knob DRAG cannot make him chatter: one lane, and not over a tongue already out',
+   /if \(id == null \|\| tongueBusy\(\)\) return;/.test(rep) &&
+   /String\(id\) === lastPointId && now - lastPointAt < 4000/.test(rep) &&
+   /const tongueBusy = \(\) => \(performance\.now\(\) < tongueBusyUntil \|\| st\.tongue\.phase !== 'idle'\)/.test(rep));
+ok('the floating tongue counts as busy too, though its state lives in C++',
+   /tongueBusyUntil = performance\.now\(\) \+ 950;/.test(rep));
+ok('a lane he just pointed at for being MAPPED is not pointed at twice',
+   /lastPointId = String\(id\); lastPointAt = performance\.now\(\);/.test(rep));
+
 ok('the character points at the new lane in whichever view is showing',
    /#sd-compact \.sdc\[data-id=/.test(rep) && /window\.sdLaneScreenPoint/.test(rep) &&
    /window\.sdLaneScreenPoint = function/.test(canvas));

@@ -1755,6 +1755,11 @@
             }
         }
         _sdGlowKick();
+        // Announce it, so a presentation layer can point the lane out too. Same contract as
+        // sd-lane-mapped: fire and forget, and nothing about the glow depends on a listener.
+        try {
+            window.dispatchEvent(new CustomEvent('sd-lane-touched', { detail: { id: lane.envelopeId } }));
+        } catch (e) {}
     });
 
     // "Lock current lanes": lock every lane that's actually moving, so the next
