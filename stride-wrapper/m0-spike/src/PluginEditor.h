@@ -59,7 +59,7 @@ private:
     void installKeyHook();                // forward Space/Return from hosted synth windows to the DAW
     void removeKeyHook();
    #endif
-    void openMissingSynthWindows();   // auto-open a window for each newly-added chain node
+    void openMissingSynthWindows (int firstIndex = 0);   // auto-open a window per empty chain slot FROM firstIndex on (0 = "Synth UI", open everything)
     void handleStrideLinkSend (const juce::var& msg);
     void pushRackScanned();     // mapped lanes -> canvas (as the rack_scanned the UI expects)
     void pushUnmappedAt (int pos);   // touch-unmap: splice ONE lane on the canvas (no positional re-push -> lanes keep their ranges)

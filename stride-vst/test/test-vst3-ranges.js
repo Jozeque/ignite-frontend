@@ -100,7 +100,7 @@ ok('snapshot Dev struct carries parallel range vectors', /std::vector<char> ron;
 // 3. BRIDGE — set_range in, rangeOn/Min/Max out
 // ─────────────────────────────────────────────────────────────
 ok('editor handles set_range (editLocked-gated)', /if \(type == "set_range"\)[\s\S]{0,300}isEditLocked\(\)\) return;[\s\S]{0,300}setMappedRange/.test(editor));
-ok('rack_scanned echoes the band per lane', /getMappedRanges\(\)[\s\S]{0,1800}setProperty \("rangeOn",\s+true\)[\s\S]{0,200}"rangeMin"[\s\S]{0,120}"rangeMax"/.test(editor));
+ok('rack_scanned echoes the band per lane', /getMappedRanges\(\)[\s\S]{0,2400}setProperty \("rangeOn",\s+true\)[\s\S]{0,200}"rangeMin"[\s\S]{0,120}"rangeMax"/.test(editor));
 
 // ─────────────────────────────────────────────────────────────
 // 4. CANVAS — reports edits, trusts the payload, desktop-gated

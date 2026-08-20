@@ -126,6 +126,7 @@ public:
     static constexpr double kDemoMoveSecs   = 10.0;   // demo cycle: modulation MOVES for this much PLAYBACK time,
     static constexpr double kDemoFreezeSecs = 60.0;   // then FREEZES (knobs hold) for this long (real-time), repeating
     juce::StringArray getMappedParamNames() const;    // "Device: Param", in mapped order
+    juce::Array<int>  getMappedNodes() const;         // chain slot per mapped param - the only thing that tells DUPLICATE devices apart (a name cannot)
     juce::Array<juce::var> getMappedCurves() const;   // drive curve [{time,value,curve}...] per mapped param — so a reopen SHOWS the curves (not localStorage-dependent)
     // Range bands are ENGINE-OWNED (project-persistent) like the curves: client-only ranges
     // were wiped/misrouted by positional rack re-pushes (field report 2026-07-16). The canvas

@@ -266,7 +266,11 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
         // Close-all counterpart to openSynth (field request 2026-08-18): destroying the
         // HostedWindows kills only the EDITORS — instances keep running and reopen
         // fresh through getHostedEditor, the exact lifecycle removeDevice/clearChain use.
-        .withEventListener ("closeSynth",   [this] (juce::var)     { synthWindows.clear(); })
+        // Close-all RESETS the slots but keeps the vector the same length as the chain.
+        // Emptying it made the reconciler below read "there are fewer windows than devices"
+        // as "devices were just added", so the next chain change - deleting one - flung every
+        // window back open (field report 2026-08-20). The slots stay, holding nullptr.
+        .withEventListener ("closeSynth",   [this] (juce::var)     { for (auto& w : synthWindows) w.reset(); })
         // OPT-IN: float the character over the desktop instead of inside the window.
         // Created on demand so a user who never enables it never gets a second window.
         .withEventListener ("reptileFloat", [this] (juce::var v)   {
@@ -788,12 +792,16 @@ void StrideWrapperEditor::closeAllSynthWindows()
 }
 
 // Open a window for any chain node that doesn't have one yet (keeps existing windows).
-void StrideWrapperEditor::openMissingSynthWindows()
+// firstIndex: open only from this chain slot on. The reconciler passes the OLD size, so a
+// device being added opens ITS window and not everything that happens to be closed - after
+// a close-all every slot is empty, and opening "all missing" there is opening all of them.
+// "Synth UI" still passes 0, because opening everything is exactly what that button means.
+void StrideWrapperEditor::openMissingSynthWindows (int firstIndex)
 {
     const int n = proc.numHosted();
     const auto names = proc.getChainNames();
     while ((int) synthWindows.size() < n) synthWindows.push_back (nullptr);   // grow, aligned to the chain
-    for (int i = 0; i < n; ++i)
+    for (int i = juce::jmax (0, firstIndex); i < n; ++i)
         if (synthWindows[(size_t) i] == nullptr)
             if (auto* ed = proc.getHostedEditor (i))
             {
@@ -1095,6 +1103,7 @@ void StrideWrapperEditor::pushRackScanned()
     const auto locks  = proc.getMappedLocks();    // per-lane padlocks - engine-owned so instances can't share them via localStorage
     const auto links  = proc.getMappedLinks();    // param-link groups (2026-08-17) - same ownership story; canvas rebuilds chips + mirroring from THIS
     const auto orders = proc.getMappedOrders();   // card display order (2026-08-19) - the VIEW is sorted by this; `mapped` itself is never renumbered
+    const auto nodes  = proc.getMappedNodes();    // which chain slot each lane came from - the ONLY way to tell two copies of one plugin apart
     for (int i = 0; i < names.size(); ++i)
     {
         auto* o = new juce::DynamicObject();
@@ -1130,6 +1139,8 @@ void StrideWrapperEditor::pushRackScanned()
         }
         if (i < orders.size() && (int) orders[i] >= 0)
             o->setProperty ("ord", orders[i]);                              // display-order echo (v9) - absent = natural mapping order
+        if (i < nodes.size())
+            o->setProperty ("node", nodes[i]);                              // chain slot: what the device filter matches on
         params.add (juce::var (o));
     }
 
@@ -1645,7 +1656,7 @@ void StrideWrapperEditor::timerCallback()
             pendingDupInsertAt = -1;
         }
         if (n == 0) synthWindows.clear();                                                    // chain cleared
-        else if (n > (int) synthWindows.size()) openMissingSynthWindows();                   // device ADDED -> auto-open the new one(s)
+        else if (n > (int) synthWindows.size()) openMissingSynthWindows ((int) synthWindows.size());   // device ADDED -> auto-open just the new one(s)
         else if (n < (int) synthWindows.size()) { while ((int) synthWindows.size() > n) synthWindows.pop_back(); }   // shrank (safety) -> trim, don't reopen
         // n == size: a removal was already handled by the targeted erase in removeDevice — do NOT reopen (that was the "delete pops up all windows" bug)
         pushRackScanned();

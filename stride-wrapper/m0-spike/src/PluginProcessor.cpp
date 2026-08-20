@@ -1590,6 +1590,16 @@ void StrideWrapperProcessor::setMappedOrders (const juce::Array<juce::var>& item
     hostDirtyPending.store (true);
 }
 
+// Two instances of the SAME plugin share a name, so the name cannot say which lane belongs
+// to which. The chain slot can, and it is what the device chips are indexed by.
+juce::Array<int> StrideWrapperProcessor::getMappedNodes() const
+{
+    juce::Array<int> out;
+    const juce::ScopedLock sl (hostLock);
+    for (const auto& m : mapped) out.add (m.node);
+    return out;
+}
+
 juce::Array<juce::var> StrideWrapperProcessor::getMappedOrders() const
 {
     juce::Array<juce::var> out;

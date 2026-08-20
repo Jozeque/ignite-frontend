@@ -150,8 +150,11 @@ ok('mac script applies the entitlements', /--entitlements/.test(macSh));
 ok('control bar: close-all button sits next to open-all (⊟ → closeSynth)',
    /sbtn\('⊟', 'closeSynth', BTN_GHOST\)/.test(shim) && /Close all device windows/.test(shim)
    && shim.indexOf("sbtn('⛶', 'openSynth'") < shim.indexOf("sbtn('⊟', 'closeSynth'"));
-ok('editor routes closeSynth → windows cleared (editors die, instances keep running)',
-   /"closeSynth",\s*\[this\] \(juce::var\)\s*\{ synthWindows\.clear\(\); \}/.test(editor));
+// The SLOTS are kept (aligned to the chain) and only the windows dropped: emptying the
+// vector made the reconciler read it as "devices were added" and reopen them all on the
+// next chain change (field report 2026-08-20).
+ok('editor routes closeSynth → windows dropped, slots kept (editors die, instances keep running)',
+   /"closeSynth",\s*\[this\] \(juce::var\)\s*\{ for \(auto& w : synthWindows\) w\.reset\(\); \}/.test(editor));
 ok('guide mentions the close-all', /closes them all/.test(indexH));
 
 console.log('  ' + passed + ' passed, ' + failed + ' failed');

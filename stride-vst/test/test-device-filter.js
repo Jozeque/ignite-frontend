@@ -99,7 +99,9 @@ ok('Bloom spreads via sdVisibleParams', /sdVisibleParams\(\)\.forEach\(param =>/
 ok('Prism recipients via sdVisibleParams', /sdVisibleParams\(\)\.filter\(p => p !== source/.test(canvas));
 
 // shim (wrapper)
-ok('shim chip name calls sdSetDeviceFilter(nm)', /window\.sdSetDeviceFilter\(nm\)/.test(shim));
+// By SLOT since 2026-08-20: two copies of one plugin share a name, so focusing by name
+// showed the lanes of both.
+ok('shim chip focuses by chain slot', /window\.sdSetDeviceFilter\(i\)/.test(shim));
 ok('shim chip has a bypass dot (setBypass)', /emit\('setBypass'/.test(shim));
 ok('shim live_curves carries clip_bars', /clip_bars:\s*\(window\.sdGetBars/.test(shim));
 

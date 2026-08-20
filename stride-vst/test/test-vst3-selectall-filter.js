@@ -125,8 +125,10 @@ ok('the fill branch iterates the visible pool only',
    /pool\.forEach\(p => \{\s+if \(!p\.locked\) p\.selected = true;/.test(canvas));
 ok('the toggle-off branch stays GLOBAL (deselect sweeps every lane)',
    /allSelected\) \{[\s\S]{0,300}sdCanvasParams\.forEach\(p => \{ p\.selected = false; \}\);/.test(canvas));
+// Tested against VISIBILITY rather than the device name since 2026-08-20, so the invariant
+// holds however focus was set - by name (desktop) or by chain slot (wrapper, duplicates).
 ok('sdSetDeviceFilter drops selection on lanes the filter hides',
-   /p\.selected && \(p\.device \|\| ''\) !== sdDeviceFilter\) \{ p\.selected = false;/.test(canvas));
+   /p\.selected && vis\.indexOf\(p\) < 0\) \{ p\.selected = false;/.test(canvas));
 ok('the filter flip repaints the Select All button',
    /_sdUpdateSelectionButtons\(\);\s+\/\/ lit-state follows the pool/.test(canvas));
 ok('_sdRangeGroupTargets pools from sdVisibleParams()',

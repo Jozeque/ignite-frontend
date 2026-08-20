@@ -1124,14 +1124,20 @@
           dot.className = 'w-2.5 h-2.5 rounded-full shrink-0 transition-colors ' + (off ? 'bg-zinc-600 hover:bg-zinc-500' : 'bg-emerald-400 hover:bg-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.7)]');
           dot.onclick = function () { emit('setBypass', { i: i, on: off }); };   // off now? send on=true to enable; active now? send on=false to bypass
           chip.appendChild(dot);
-          chip.dataset.dev = nm || '';
-          if (_devFilter && _devFilter === (nm || '')) chip.classList.add('ring-1', 'ring-fuchsia-400/70');
-          var s = document.createElement('button'); s.className = 'text-[11px] text-zinc-300 hover:text-fuchsia-300 max-w-[140px] truncate text-left'; s.textContent = nm || ('Device ' + (i + 1)); s.title = 'Show only this device’s lanes on the canvas (click again for all)';
+          // Focus by chain SLOT, not by name: the same plugin can sit in the chain twice, and
+          // focusing one used to show the lanes of BOTH (field report 2026-08-20).
+          chip.dataset.slot = String(i);
+          if (_devFilter === i) chip.classList.add('ring-1', 'ring-fuchsia-400/70');
+          // ...and when a name IS repeated, number the copies so they can be told apart.
+          var dupTotal = 0, dupIdx = 0;
+          names.forEach(function (o, k) { if ((o || '') === (nm || '')) { dupTotal++; if (k <= i) dupIdx++; } });
+          var s = document.createElement('button'); s.className = 'text-[11px] text-zinc-300 hover:text-fuchsia-300 max-w-[140px] truncate text-left'; s.textContent = (nm || ('Device ' + (i + 1))) + (dupTotal > 1 ? ' ' + dupIdx : ''); s.title = 'Show only this device’s lanes on the canvas (click again for all)';
           s.onclick = function () {
-            _devFilter = (window.sdSetDeviceFilter ? window.sdSetDeviceFilter(nm) : null);
+            _devFilter = (window.sdSetDeviceFilter ? window.sdSetDeviceFilter(i) : null);
             var kids = c.children;
             for (var k = 0; k < kids.length; k++) {
-              var sel = !!(_devFilter && kids[k].dataset && kids[k].dataset.dev === _devFilter);
+              var sel = (typeof _devFilter === 'number' && kids[k].dataset
+                         && parseInt(kids[k].dataset.slot, 10) === _devFilter);
               kids[k].classList.toggle('ring-1', sel);
               kids[k].classList.toggle('ring-fuchsia-400/70', sel);
             }

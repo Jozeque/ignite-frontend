@@ -958,8 +958,13 @@
             linkGroup: (typeof p.linkGroup === 'number' && p.linkGroup > 0 ? p.linkGroup : 0),   // engine-owned param-link echo (v8) — 0 = unlinked
             linkInv: !!p.linkInv,                                                                // inverted member of its link group
             ord: (typeof p.ord === 'number' ? p.ord : -1),                                       // engine-owned card order echo (v9) — -1 = never reordered
+            nodeIdx: (typeof p.node === 'number' ? p.node : -1),                                 // which chain slot this lane came from (wrapper) — tells duplicate devices apart
             points: Array.isArray(p.points) ? p.points : []   // wrapper sends the drawn curve from the engine — reliable across reopen (desktop sends none → empty)
         })).sort(_sdSortByName);
+        // Removing a device RENUMBERS the chain slots, so a focus on a slot that no longer
+        // has lanes would silently hide everything. Drop it rather than show an empty canvas.
+        if (sdDeviceFilterNode >= 0 && !sdCanvasParams.some(p => p.nodeIdx === sdDeviceFilterNode))
+            sdDeviceFilterNode = -1;
         _sdFreezeAutoColorSlots();   // colors belong to the lane, not to its slot in the grid
         _sdApplyOrderEcho();   // an explicit card order, when the user made one, wins over the name sort
         _sdAnnounceNewLanes();
@@ -3411,30 +3416,45 @@
     // Lanes shown in multi view: all, or just one device's when a chain device is
     // selected. PURE view filter — sdCanvasParams stays whole, so curves keep
     // driving every device regardless of what's on screen.
+    // A chain can hold the SAME plugin twice, and a name cannot tell those two apart — focusing
+    // one showed the lanes of both (field report 2026-08-20). So the wrapper focuses by the
+    // device's CHAIN SLOT, which is unique. A name still works, for the desktop app and for
+    // any lane whose payload carries no slot.
+    let sdDeviceFilterNode = -1;
     function sdVisibleParams() {
+        if (sdDeviceFilterNode >= 0)
+            return sdCanvasParams.filter(p => p.nodeIdx === sdDeviceFilterNode);
         if (!sdDeviceFilter) return sdCanvasParams;
         return sdCanvasParams.filter(p => (p.device || '') === sdDeviceFilter);
     }
     window.sdSetDeviceFilter = function(dev) {
-        sdDeviceFilter = (dev && dev !== sdDeviceFilter) ? dev : null;   // click a device to focus it; click it again (or pass null) to show all
+        // click a device to focus it; click it again (or pass null) to show all
+        if (typeof dev === 'number' && dev >= 0) {
+            sdDeviceFilterNode = (dev === sdDeviceFilterNode) ? -1 : dev;
+            sdDeviceFilter = null;
+        } else {
+            sdDeviceFilter = (dev && dev !== sdDeviceFilter) ? dev : null;
+            sdDeviceFilterNode = -1;
+        }
+        const focused = (sdDeviceFilterNode >= 0) || !!sdDeviceFilter;
         const vis = sdVisibleParams();
-        if (sdDeviceFilter) {
+        if (focused) {
             // Focusing a device DROPS selection on the lanes it hides. A selection
             // that isn't on screen would silently ride every group edit (ranges,
             // colors, floor/ceiling) — the invariant is: selected ⊆ visible.
             let dropped = false;
             sdCanvasParams.forEach(p => {
-                if (p.selected && (p.device || '') !== sdDeviceFilter) { p.selected = false; dropped = true; }
+                if (p.selected && vis.indexOf(p) < 0) { p.selected = false; dropped = true; }
             });
             if (dropped) sdRenderSidebar();
         }
-        if (sdDeviceFilter && !vis.some(p => p.envelopeId === sdActiveParamId))
+        if (focused && !vis.some(p => p.envelopeId === sdActiveParamId))
             sdActiveParamId = vis.length ? vis[0].envelopeId : sdActiveParamId;
         sdMultiScrollOffset = 0;
         sdMultiClampScroll();
         _sdUpdateSelectionButtons();   // lit-state follows the pool, which just changed
         sdDrawCanvasGrid();
-        return sdDeviceFilter;
+        return (sdDeviceFilterNode >= 0) ? sdDeviceFilterNode : sdDeviceFilter;
     };
 
     function sdMultiVisibleLaneCount() {
