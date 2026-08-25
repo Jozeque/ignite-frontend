@@ -43,11 +43,16 @@ header{border-bottom:1px solid var(--line);background:rgba(20,19,16,.9);
 /* hero */
 .hero{padding:64px 0 8px;text-align:center}
 h1{font-size:clamp(30px,6vw,52px);line-height:1.04;text-wrap:balance}
-.sub{margin:20px auto 0;max-width:560px;font-size:17px;color:var(--ink2)}
+.sub{margin:20px auto 0;max-width:600px;font-size:17px;color:var(--ink2)}
 .sub b{color:var(--ink);font-weight:700}
-.reassure{display:inline-flex;align-items:center;gap:.55rem;margin-top:22px;
-  border:1px solid rgba(198,113,43,.4);background:rgba(198,113,43,.12);color:var(--copper-lt);
-  border-radius:999px;padding:8px 16px;font-size:13.5px;font-weight:700}
+/* the one value line: what actually HAPPENS when you use it, said once, said big */
+.val{display:block;color:var(--ink);font-weight:800;font-size:clamp(18px,2.6vw,22px);
+  line-height:1.35;margin-bottom:10px;text-wrap:balance}
+/* the reassurance answers the real objection, so it earns real presence */
+.reassure{display:inline-flex;align-items:center;gap:.6rem;margin-top:24px;
+  border:1px solid rgba(221,154,82,.55);background:rgba(198,113,43,.16);color:var(--copper-lt);
+  border-radius:999px;padding:11px 22px;font-size:15.5px;font-weight:800;
+  box-shadow:0 0 22px -8px rgba(198,113,43,.55)}
 
 /* form */
 .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;
@@ -71,6 +76,15 @@ input[type=email]:focus{outline:none;border-color:rgba(198,113,43,.55);
 .fineprint{margin-top:14px;font-size:12.5px;color:var(--ink3)}
 .err{margin-top:12px;font-size:14px;color:#e6795f;display:none}
 
+/* micro social proof — two lines, not a section */
+.proof{margin:44px auto 0;max-width:760px}
+.quotes{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+.quotes figure{flex:1 1 280px;max-width:360px;margin:0;background:var(--panel);
+  border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+.quotes blockquote{margin:0;color:var(--ink);font-weight:600;font-size:15px;line-height:1.5}
+.quotes figcaption{margin-top:10px;color:var(--ink3);font-size:12px;font-weight:800;
+  letter-spacing:.08em;text-transform:uppercase}
+
 /* video slot — a real 16:9 box now, so dropping the demo film in later changes nothing else */
 .video{margin:44px auto 0;max-width:820px}
 .frame{position:relative;border:1px solid var(--line);border-radius:16px;overflow:hidden;
@@ -92,6 +106,8 @@ input[type=email]:focus{outline:none;border-color:rgba(198,113,43,.55);
   border-radius:50%;background:var(--raise);border:1px solid var(--line);color:var(--copper-lt);
   font:800 12px/26px 'Outfit',sans-serif;text-align:center}
 .steps small{display:block;color:var(--ink3);font-weight:500;font-size:12.5px;margin-top:2px}
+.steps.first li{font-weight:600;color:var(--ink2)}
+.steps.first li::before{color:var(--ink3)}
 .dl{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:24px}
 footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text-align:center}
 @media(max-width:560px){.hero{padding-top:44px}.card{padding:20px}}
@@ -110,10 +126,11 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
   <section id="offer">
     <div class="hero">
       <h1>Try the full version<br><span class="brand">for 24 hours</span></h1>
-      <p class="sub">Use Stride on the synths and effects you already own.<br>
+      <p class="sub"><span class="val">Explore fresh variations across your whole synth&nbsp;+&nbsp;FX chain in a click.</span>
+         Use Stride on the synths and effects you already own.<br>
          <b>Every tool unlocked. No card. Nothing to cancel.</b></p>
       <div class="reassure">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
         Your 24 hours only start when you activate Stride
       </div>
     </div>
@@ -122,10 +139,26 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
       <form id="f" novalidate>
         <input id="email" type="email" name="email" autocomplete="email" required
                placeholder="you@studio.com" aria-label="Your email">
-        <button class="btn-copper" id="go" type="submit">Get the download</button>
+        <button class="btn-copper" id="go" type="submit">GET STRIDE FREE</button>
       </form>
       <p class="fineprint">One email, that's it. We'll send your download link and how to start your 24 hours.</p>
       <p class="err" id="err"></p>
+    </div>
+
+    <!-- micro social proof: two real sentences from the landing page, verbatim. Enough
+         to say "real producers already use this", small enough to stay a demo page. -->
+    <div class="proof">
+      <div class="silk" style="text-align:center;margin-bottom:16px">Already in hundreds of producers' sessions</div>
+      <div class="quotes">
+        <figure>
+          <blockquote>&ldquo;Kind of a controlled random chaos Pandora's box.&rdquo;</blockquote>
+          <figcaption>Brojanowski</figcaption>
+        </figure>
+        <figure>
+          <blockquote>&ldquo;It let you re-discover your entire plugins library in a new way.&rdquo;</blockquote>
+          <figcaption>Oblium</figcaption>
+        </figure>
+      </div>
     </div>
 
     <div class="video">
@@ -167,6 +200,28 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
         Need a hand? <a href="https://www.youtube.com/watch?v=BmdPgmB6208" target="_blank" rel="noopener" style="color:var(--copper-lt)">Watch the walkthrough</a>
       </p>
       <p class="err" id="err2"></p>
+    </div>
+
+    <!-- Getting the download is not the goal - the first GOOD session is. Point them at
+         a setup that pays off fast, so the 24 hours land on a day it can impress. -->
+    <div class="card">
+      <div class="silk" style="margin-bottom:14px">First session</div>
+      <ol class="steps first">
+        <li>Start with a synth you already know</li>
+        <li>Add a couple of effects</li>
+        <li>Pick a few parameters that really change the sound</li>
+        <li>Then start exploring</li>
+      </ol>
+    </div>
+
+    <!-- The interactive explainer, embedded from the same single source of truth the
+         landing page uses. Click any control to see what it does. -->
+    <div class="hiw">
+      <div class="silk" style="text-align:center;margin:44px 0 14px">How Stride VST works</div>
+      <iframe id="hiw-vst-frame" src="/docs/how-it-works-vst.html"
+              title="How Stride VST works — click any control to see what it does"
+              loading="lazy" scrolling="no"
+              style="width:100%;border:0;display:block;height:1600px;overflow:hidden"></iframe>
     </div>
   </section>
 
@@ -214,6 +269,15 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
     document.getElementById('videoFrame').appendChild(f);
   });
 
+  // ── the interactive explainer sizes itself (same postMessage contract as the
+  //    landing page: the embedded doc posts 'hiw-height' with its content height) ──
+  window.addEventListener('message', function (e) {
+    if (e && e.data && e.data.type === 'hiw-height' && e.data.h) {
+      var f = document.getElementById('hiw-vst-frame');
+      if (f) f.style.height = e.data.h + 'px';
+    }
+  });
+
   // ── register ───────────────────────────────────────────────────────────────
   var form = document.getElementById('f'),
       input = document.getElementById('email'),
@@ -258,7 +322,7 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
       try { history.replaceState(null, '', '/try?done=1'); } catch (e2) {}
     })
     .catch(function () {
-      go.disabled = false; go.textContent = 'Get the download';
+      go.disabled = false; go.textContent = 'GET STRIDE FREE';
       fail('Something went wrong. Please try again, or email home@stridehub.io and we will send it over.');
     });
   });
