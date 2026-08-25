@@ -113,10 +113,23 @@ input[type=email]:focus{outline:none;border-color:rgba(198,113,43,.55);
 /* the done-state intro: ONE quiet value line under the clock message, nothing more */
 .intro{margin:16px auto 0;max-width:540px;font-size:15px;line-height:1.6;color:var(--ink3)}
 
-/* founder video: THE central object of the screen. Near full-wrap width, real 16:9.
+/* founder video: THE central object of the screen.
    Swaps for the actual 25-45s film with no reflow. */
 .fvideo{margin:28px auto 0;max-width:860px}
 .vph{aspect-ratio:16/9}
+
+/* ── done-state fold budget ─────────────────────────────────────────────
+   "You're in" + video + both download buttons should fit a normal desktop
+   viewport. Everything above the video gives back height, the container runs
+   a touch wider than tall (2:1, ~12% shorter than 16:9), and the buttons sit
+   tight under it. Scoped to #done so the offer state keeps its own rhythm. */
+#done .hero{padding:36px 0 0}
+#done .sub{margin-top:12px}
+#done .intro{margin-top:10px}
+#done .fvideo{margin-top:16px;max-width:800px}
+#done .fvideo .silk{margin-bottom:8px !important}
+#done .vph{aspect-ratio:2/1}
+#done .dl{margin-top:14px}
 .vph-label{font:700 15px 'Space Mono',ui-monospace,monospace;color:var(--copper-lt);
   letter-spacing:.06em}
 .vph-sub{margin:10px 0 0;font-size:13px;color:var(--ink3)}
