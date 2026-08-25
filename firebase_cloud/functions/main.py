@@ -1405,11 +1405,20 @@ def _demo_download_url(platform: str) -> str:
         return _demo_url_cache[key]
     try:
         bucket = storage.bucket()
-        blob_path = f"{DEMO_STORAGE_PREFIX}/{fname}"
-        blob = bucket.blob(blob_path)
-        if not blob.exists():
-            print(f"[Demo] MISSING build in storage: {blob_path}")
+        # Look under the configured folder first, then the BUCKET ROOT. Uploading straight
+        # to the root is what the Firebase console does by default, and a download that
+        # silently 404s because of a folder convention is not worth failing over.
+        candidates = [p for p in (f"{DEMO_STORAGE_PREFIX}/{fname}" if DEMO_STORAGE_PREFIX else "", fname) if p]
+        blob = None
+        for blob_path in candidates:
+            b = bucket.blob(blob_path)
+            if b.exists():
+                blob = b
+                break
+        if blob is None:
+            print(f"[Demo] MISSING build in storage, looked in: {candidates}")
             return ""
+        blob_path = blob.name
         blob.reload()
         meta = blob.metadata or {}
         token = (meta.get("firebaseStorageDownloadTokens") or "").split(",")[0]
