@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Try Stride free for 24 hours</title>
+<meta name="description" content="Use Stride on the synths and effects you already own. Every tool unlocked for 24 hours. No card, nothing to cancel.">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="https://stridehub.io/try">
+<meta property="og:title" content="Try Stride free for 24 hours">
+<meta property="og:description" content="Every tool unlocked. No card. Your 24 hours only start when you activate Stride.">
+<meta property="og:url" content="https://stridehub.io/try">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* Same tokens as the landing page — this page is deliberately hand-rolled CSS
+   rather than the Tailwind CDN, because it has one job and should load instantly. */
+:root{
+  --bg:#141310; --bg2:#191611; --panel:#1d1b16; --raise:#252119;
+  --line:rgba(216,201,176,.11);
+  --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
+  --copper:#c6712b; --copper-lt:#dd9a52; --amber:#d9822b; --ember:#e58a2e;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Outfit',sans-serif;background:var(--bg);color:var(--ink2);
+     -webkit-font-smoothing:antialiased;overflow-x:hidden;line-height:1.6}
+.mono{font-family:'Space Mono',ui-monospace,monospace}
+h1,h2,h3{color:var(--ink);font-weight:900;letter-spacing:-.01em;margin:0}
+a{color:inherit}
+.wrap{max-width:960px;margin:0 auto;padding:0 22px}
+.silk{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--ink3)}
+.brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+
+/* header */
+header{border-bottom:1px solid var(--line);background:rgba(20,19,16,.9);
+  backdrop-filter:blur(8px);position:sticky;top:0;z-index:20}
+.hrow{display:flex;align-items:center;justify-content:space-between;height:60px}
+.logo{font-weight:900;font-size:17px;color:var(--ink);letter-spacing:-.02em;text-decoration:none}
+
+/* hero */
+.hero{padding:64px 0 8px;text-align:center}
+h1{font-size:clamp(30px,6vw,52px);line-height:1.04;text-wrap:balance}
+.sub{margin:20px auto 0;max-width:560px;font-size:17px;color:var(--ink2)}
+.sub b{color:var(--ink);font-weight:700}
+.reassure{display:inline-flex;align-items:center;gap:.55rem;margin-top:22px;
+  border:1px solid rgba(198,113,43,.4);background:rgba(198,113,43,.12);color:var(--copper-lt);
+  border-radius:999px;padding:8px 16px;font-size:13.5px;font-weight:700}
+
+/* form */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;
+  padding:26px;margin:34px auto 0;max-width:520px}
+form{display:flex;gap:10px;flex-wrap:wrap}
+input[type=email]{flex:1 1 240px;min-width:0;background:var(--bg2);color:var(--ink);
+  border:1px solid var(--line);border-radius:12px;padding:15px 16px;font:inherit;font-size:16px}
+input[type=email]::placeholder{color:var(--ink3)}
+input[type=email]:focus{outline:none;border-color:rgba(198,113,43,.55);
+  box-shadow:0 0 0 3px rgba(198,113,43,.15)}
+.btn-copper{display:inline-flex;align-items:center;justify-content:center;gap:.6rem;
+  background:linear-gradient(180deg,var(--ember),var(--copper));color:#1b1206;border:0;
+  border-radius:12px;padding:15px 26px;font:inherit;font-weight:800;font-size:15px;cursor:pointer;
+  transition:transform .15s,filter .15s;white-space:nowrap;text-decoration:none}
+.btn-copper:hover{transform:translateY(-2px);filter:brightness(1.06)}
+.btn-copper[disabled]{opacity:.6;cursor:default;transform:none}
+.btn-ghost{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;
+  border:1px solid var(--line);background:var(--raise);color:var(--ink2);border-radius:12px;
+  padding:14px 22px;font-weight:700;text-decoration:none;transition:transform .15s,border-color .15s,color .15s}
+.btn-ghost:hover{transform:translateY(-2px);border-color:rgba(216,201,176,.28);color:var(--ink)}
+.fineprint{margin-top:14px;font-size:12.5px;color:var(--ink3)}
+.err{margin-top:12px;font-size:14px;color:#e6795f;display:none}
+
+/* video slot — a real 16:9 box now, so dropping the demo film in later changes nothing else */
+.video{margin:44px auto 0;max-width:820px}
+.frame{position:relative;border:1px solid var(--line);border-radius:16px;overflow:hidden;
+  background:var(--bg2);aspect-ratio:16/9;display:flex;align-items:center;justify-content:center}
+.frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.slot{text-align:center;padding:22px}
+.playbtn{display:inline-flex;align-items:center;gap:.6rem;border:1px solid var(--line);
+  background:var(--raise);color:var(--ink);border-radius:999px;padding:12px 22px;
+  font-weight:800;text-decoration:none;cursor:pointer}
+
+/* success */
+#done{display:none}
+.steps{counter-reset:s;list-style:none;margin:22px 0 0;padding:0;text-align:left;
+  max-width:420px;margin-left:auto;margin-right:auto}
+.steps li{counter-increment:s;position:relative;padding:11px 0 11px 44px;
+  border-bottom:1px solid var(--line);color:var(--ink);font-weight:700}
+.steps li:last-child{border-bottom:0}
+.steps li::before{content:counter(s);position:absolute;left:0;top:9px;width:26px;height:26px;
+  border-radius:50%;background:var(--raise);border:1px solid var(--line);color:var(--copper-lt);
+  font:800 12px/26px 'Outfit',sans-serif;text-align:center}
+.steps small{display:block;color:var(--ink3);font-weight:500;font-size:12.5px;margin-top:2px}
+.dl{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:24px}
+footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text-align:center}
+@media(max-width:560px){.hero{padding-top:44px}.card{padding:20px}}
+</style>
+</head>
+<body>
+
+<header><div class="wrap hrow">
+  <a class="logo" href="/">STRIDE</a>
+  <div class="silk">24-hour discovery pass</div>
+</div></header>
+
+<main class="wrap">
+
+  <!-- ── STEP 1: the offer + email ───────────────────────────────────────── -->
+  <section id="offer">
+    <div class="hero">
+      <h1>Try the full version<br><span class="brand">for 24 hours</span></h1>
+      <p class="sub">Use Stride on the synths and effects you already own.<br>
+         <b>Every tool unlocked. No card. Nothing to cancel.</b></p>
+      <div class="reassure">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        Your 24 hours only start when you activate Stride
+      </div>
+    </div>
+
+    <div class="card">
+      <form id="f" novalidate>
+        <input id="email" type="email" name="email" autocomplete="email" required
+               placeholder="you@studio.com" aria-label="Your email">
+        <button class="btn-copper" id="go" type="submit">Get the download</button>
+      </form>
+      <p class="fineprint">One email, that's it. We'll send your download link and how to start your 24 hours.</p>
+      <p class="err" id="err"></p>
+    </div>
+
+    <div class="video">
+      <div class="frame" id="videoFrame">
+        <!-- The dedicated demo film drops in here later; until then this is the
+             existing walkthrough, click-to-play so nothing loads until asked. -->
+        <div class="slot" id="videoSlot">
+          <div class="silk" style="margin-bottom:12px">See it work</div>
+          <button class="playbtn" id="play" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            Watch the walkthrough
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── STEP 2: you're in ───────────────────────────────────────────────── -->
+  <section id="done">
+    <div class="hero">
+      <h1>You're in.</h1>
+      <p class="sub"><b>Your 24 hours haven't started yet.</b><br>
+         They begin when you start your Discovery Pass inside Stride.</p>
+    </div>
+
+    <div class="card">
+      <ol class="steps">
+        <li>Download Stride<small>Pick your platform below</small></li>
+        <li>Install it<small>Drop the plugin into your VST3 folder</small></li>
+        <li>Open it in your DAW<small>Load Stride on a track</small></li>
+        <li>Start your Discovery Pass<small>This is the moment the 24 hours begin</small></li>
+      </ol>
+      <div class="dl">
+        <a class="btn-copper" id="dlWin" href="#" rel="nofollow">Download for Windows</a>
+        <a class="btn-copper" id="dlMac" href="#" rel="nofollow">Download for macOS</a>
+      </div>
+      <p class="fineprint" style="text-align:center">
+        Need a hand installing? <a href="/setup.html" style="color:var(--copper-lt)">Setup guide</a>
+        &middot; <a href="https://www.youtube.com/watch?v=BmdPgmB6208" target="_blank" rel="noopener" style="color:var(--copper-lt)">Watch the walkthrough</a>
+      </p>
+      <p class="err" id="err2"></p>
+    </div>
+  </section>
+
+</main>
+
+<footer><div class="wrap silk">Stride &middot; Sound design engine</div></footer>
+
+<script>
+(function () {
+  'use strict';
+  var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
+
+  // ── attribution ────────────────────────────────────────────────────────────
+  // Carried, never manufactured. The landing page persists these on arrival; we
+  // read whatever is there so a demo that came from an ad stays attributable to it.
+  function cookie(n) {
+    var m = document.cookie.match('(^|;)\\s*' + n + '\\s*=\\s*([^;]+)');
+    return m ? decodeURIComponent(m.pop()) : '';
+  }
+  function ls(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+  function attribution() {
+    var q = new URLSearchParams(location.search), out = {};
+    ['utm_source', 'utm_campaign', 'utm_content', 'ad_id', 'adset_id', 'campaign_id'].forEach(function (k) {
+      var v = q.get(k) || ls('stride_' + k); if (v) out[k] = v;
+    });
+    var fbclid = q.get('fbclid') || ls('stride_fbclid') || cookie('stride_fbclid');
+    if (fbclid) out.fbclid = fbclid;
+    var fbc = cookie('_fbc') || ls('stride_fbc'); if (fbc) out.fbc = fbc;
+    var fbp = cookie('_fbp'); if (fbp) out.fbp = fbp;
+    return out;
+  }
+
+  // ── click-to-play walkthrough ──────────────────────────────────────────────
+  // Nothing from YouTube loads until asked. NOTE: embeds refuse to play over
+  // file:// ("Error 153") — test this page over http.
+  var play = document.getElementById('play');
+  if (play) play.addEventListener('click', function () {
+    var f = document.createElement('iframe');
+    f.src = 'https://www.youtube-nocookie.com/embed/BmdPgmB6208?autoplay=1&rel=0';
+    f.title = 'Stride walkthrough';
+    f.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture';
+    f.allowFullscreen = true;
+    var slot = document.getElementById('videoSlot');
+    if (slot) slot.remove();
+    document.getElementById('videoFrame').appendChild(f);
+  });
+
+  // ── register ───────────────────────────────────────────────────────────────
+  var form = document.getElementById('f'),
+      input = document.getElementById('email'),
+      go = document.getElementById('go'),
+      err = document.getElementById('err');
+
+  function fail(msg) { err.textContent = msg; err.style.display = 'block'; }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var email = (input.value || '').trim().toLowerCase();
+    err.style.display = 'none';
+    if (!email || email.indexOf('@') < 1 || email.indexOf('.', email.indexOf('@')) < 0) {
+      fail('Please enter a valid email address.'); input.focus(); return;
+    }
+    go.disabled = true; go.textContent = 'One moment…';
+
+    var body = attribution();
+    body.action = 'demo_register';
+    body.email = email;
+
+    fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d || d.ok !== true) throw new Error((d && d.message) || 'register failed');
+      var dl = d.downloads || {};
+      var w = document.getElementById('dlWin'), m = document.getElementById('dlMac');
+      if (dl.windows) { w.href = dl.windows; } else { w.style.display = 'none'; }
+      if (dl.mac)     { m.href = dl.mac; }     else { m.style.display = 'none'; }
+      if (!dl.windows && !dl.mac) {
+        document.getElementById('err2').textContent =
+          'Your download link is being prepared — check your email in a moment.';
+        document.getElementById('err2').style.display = 'block';
+      }
+      document.getElementById('offer').style.display = 'none';
+      document.getElementById('done').style.display = 'block';
+      window.scrollTo(0, 0);
+      try { history.replaceState(null, '', '/try?done=1'); } catch (e2) {}
+    })
+    .catch(function () {
+      go.disabled = false; go.textContent = 'Get the download';
+      fail('Something went wrong. Please try again, or email home@stridehub.io and we will send it over.');
+    });
+  });
+})();
+</script>
+</body>
+</html>
