@@ -1302,10 +1302,14 @@ def _handle_start_pass(data: dict, ip: str = "", ua: str = ""):
                 email = ((claim_doc.to_dict() or {}).get("email") or "").strip().lower()
                 identity = "inferred" if email else "anonymous"
 
-        # EVENT LOG (additive, never blocks). One pass per device by design, so the
-        # device hash IS the dedupe key.
+        # EVENT LOG (additive, never blocks). Keyed on device + THIS MINT, not the device
+        # alone: support re-grants a pass by deleting vst_passes/<device>, which mints a
+        # genuinely new pass on the same machine. A device-only key made that second
+        # activation collide with the first and vanish from the funnel. Real duplicates
+        # cannot reach here anyway - once the device doc exists, start_pass resumes or
+        # refuses above - so this only ever ADDS the activations that were being lost.
         try:
-            _log_event("demo_activated", device, email,
+            _log_event("demo_activated", f"{device}__{started_at}", email,
                        {"device": device, "exp_ms": exp, "started_at_ms": started_at,
                         "identified": bool(email), "identity": identity})
         except Exception as _ee:
@@ -1375,7 +1379,11 @@ DEMO_CLAIMS_COLLECTION = "demo_claims"
 
 # Every timing lives HERE, once. Nothing downstream hardcodes an hour count.
 DEMO_PASS_HOURS       = float(os.environ.get("DEMO_PASS_HOURS", "24"))     # mirrors PASS_DURATION_MS; used for derived expiry only
-DEMO_CLAIM_WINDOW_H   = float(os.environ.get("DEMO_CLAIM_WINDOW_H", "12")) # how long a registration stays matchable by IP
+# How long a registration stays matchable by IP. People download at night and install at
+# the weekend, so a tight window is the single biggest source of LOST identity. Widening it
+# is self-limiting rather than risky: more candidates on one IP means MORE than one, which
+# fails safe to anonymous. On a normal home connection it simply works for longer.
+DEMO_CLAIM_WINDOW_H   = float(os.environ.get("DEMO_CLAIM_WINDOW_H", "72"))
 DEMO_STORAGE_PREFIX   = os.environ.get("DEMO_STORAGE_PREFIX", "downloads/stride")
 DEMO_BUILD            = os.environ.get("DEMO_BUILD", "1.4.2")             # which build /try hands out
 DEMO_FILES = {
@@ -4344,7 +4352,11 @@ def demo_expiry_sweep(event: scheduler_fn.ScheduledEvent) -> None:
         if not exp_ms or now_ms < exp_ms:
             continue
         seen += 1
-        if _log_event("demo_expired", ev.get("device") or d.id, ev.get("email") or "",
+        # Keyed per PASS (device + its start), matching demo_activated — so a re-granted
+        # pass on the same machine gets its own expiry rather than colliding with the old one.
+        if _log_event("demo_expired",
+                      f"{ev.get('device') or d.id}__{ev.get('started_at_ms') or ev.get('ts_ms') or 0}",
+                      ev.get("email") or "",
                       {"device": ev.get("device") or "", "expired_at_ms": exp_ms,
                        "activated_at_ms": ev.get("started_at_ms") or ev.get("ts_ms"),
                        "identity": ev.get("identity") or ""}):

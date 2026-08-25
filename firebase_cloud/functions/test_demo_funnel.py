@@ -183,6 +183,22 @@ ok("old + fresh still resolves to the fresh one",
 ok("no IP -> no match", main._demo_claim_for_ip(claims(fresh), "", NOW) is None)
 
 
+# ── 3b. no activation may be silently dropped ────────────────────────────────
+# Support grants "24 more hours" by DELETING vst_passes/<device>, which mints a genuinely
+# new pass on the same machine. Keyed on the device alone, that second activation collided
+# with the first and vanished from the funnel entirely.
+src_pass = inspect.getsource(main._handle_start_pass) if False else None   # (imported below)
+import inspect as _inspect
+_sp = _inspect.getsource(main._handle_start_pass)
+ok("activation is keyed per PASS, not per device",
+   'f"{device}__{started_at}"' in _sp,
+   "a re-granted pass on the same machine would collide with the first and be lost")
+ok("the activation event is written on EVERY successful mint",
+   _sp.index("dev_ref.set(") < _sp.index('_log_event("demo_activated"'))
+_se = _inspect.getsource(main.demo_expiry_sweep)
+ok("expiry is keyed per pass too, so a re-grant gets its own end",
+   "started_at_ms" in _se and "__" in _se)
+
 # ── 4. the sends are configured, and OFF ─────────────────────────────────────
 ok("lifecycle mail is OFF by default", main.DEMO_LIFECYCLE_MODE == "off")
 ok("expiry sweep is ON by default (it only records, never mails)",
