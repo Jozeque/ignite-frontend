@@ -453,7 +453,7 @@ def safe_int(val, default=0):
 # Meta Conversions API (Phase 3 of docs/meta-pixel-integration-spec.md).
 # Pure helpers live in meta_capi.py for testability — they don't need
 # firebase_admin or the Flask request context.
-from meta_capi import _fire_meta_purchase_capi, _fire_meta_pageview_capi, _fire_meta_initiatecheckout_capi, _fire_meta_lead_capi, _add_buyer_to_meta_exclusion
+from meta_capi import _fire_meta_purchase_capi, _fire_meta_pageview_capi, _fire_meta_initiatecheckout_capi, _fire_meta_lead_capi, _fire_meta_custom_capi, _add_buyer_to_meta_exclusion
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1339,6 +1339,32 @@ def _handle_start_pass(data: dict, ip: str = "", ua: str = ""):
         except Exception as _ee:
             print(f"[Events] start_pass hook failed (non-fatal): {_ee}")
 
+        # META CAPI: DemoActivated. Server-only by necessity — this happens in the
+        # plugin, so there is no browser to fire a pixel and nothing to dedupe
+        # against; action_source is 'app', not 'website'.
+        #
+        # Match keys are thin on purpose. The device hash goes as external_id (it
+        # is stable and already anonymous), plus IP and user-agent, plus the email
+        # ONLY when we actually know it. An anonymous activation still sends, and
+        # is still worth sending: Meta can attribute it by IP/UA where it can, and
+        # where it cannot the event is simply weak rather than wrong. We never
+        # invent an identity to strengthen it — a wrong person is worse than none.
+        try:
+            _fire_meta_custom_capi(
+                "DemoActivated",
+                {"email": email,
+                 "external_id": device,
+                 "client_ip_address": ip,
+                 "client_user_agent": ua},
+                f"{device}__{started_at}",          # same id as the event-log key
+                custom_data={"value": 0.0, "currency": "USD",
+                             "content_name": "Stride Discovery Pass",
+                             "content_type": "product"},
+                action_source="app",
+            )
+        except Exception as _me:
+            print(f"[Pass] CAPI DemoActivated failed (non-fatal): {_me}")
+
         # Burn the claim so one registration can only ever identify ONE activation,
         # and a later pass on the same network does not inherit somebody else's email.
         if claim_doc is not None and email:
@@ -1577,7 +1603,48 @@ def _handle_demo_register(data: dict, ip: str = "", ua: str = ""):
             except Exception as we:
                 print(f"[Demo] welcome mail failed (non-fatal): {we}")
 
-        return jsonify({"ok": True, "downloads": downloads, "build": DEMO_BUILD}), 200
+        # 5. Meta CAPI, FIRST registration only, so Meta's count matches ours.
+        #    The page fires the browser pair with this same event_id (it only
+        #    fires when we return first_time=true), so client+server collapse
+        #    to one event per name. Two names go out on purpose:
+        #      Lead            standard event. The existing "DEMO USERS 60D"
+        #                      website audience is built on Lead, and that
+        #                      audience is an EXCLUSION on live prospecting ad
+        #                      sets. Without this the /try funnel would stop
+        #                      feeding it and we would re-advertise to people
+        #                      who already have the demo.
+        #      DemoRegistered  custom event, for clean reporting and custom
+        #                      conversions without overloading Lead's meaning.
+        #    Dedup is keyed on event_name + event_id, so sharing one id across
+        #    both names still counts them as two distinct events.
+        _capi_eid = (data.get("event_id") or "").strip() or _email_key(email)
+        if first_time:
+            try:
+                _np = (data.get("name") or "").strip().split(" ")
+                _capi_user = {
+                    "email": email,
+                    "first_name": _np[0] if _np and _np[0] else "",
+                    "last_name": " ".join(_np[1:]) if len(_np) > 1 else "",
+                    "fbc": data.get("fbc") or "",
+                    "fbp": data.get("fbp") or "",
+                    "external_id": data.get("external_id") or "",
+                    "client_ip_address": ip,
+                    "client_user_agent": ua,
+                }
+                _demo_cd = {"value": 0.0, "currency": "USD",
+                            "content_name": "Stride Free Demo",
+                            "content_type": "product"}
+                _fire_meta_lead_capi(_capi_user, _capi_eid)
+                _fire_meta_custom_capi("DemoRegistered", _capi_user, _capi_eid,
+                                       custom_data=_demo_cd,
+                                       event_source_url="https://stridehub.io/try/")
+            except Exception as me:
+                print(f"[Demo] CAPI failed (non-fatal): {me}")
+
+        # first_time gates the browser pixel too: the page fires DemoRegistered
+        # only when this is true, which keeps browser and server counts equal.
+        return jsonify({"ok": True, "downloads": downloads, "build": DEMO_BUILD,
+                        "first_time": bool(first_time), "event_id": _capi_eid}), 200
     except Exception as e:
         print(f"[Demo] register failed: {e}")
         # The lead matters more than the bookkeeping: still hand back the download.

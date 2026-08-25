@@ -297,6 +297,83 @@ def _fire_meta_lead_capi(user_data, event_id):
         return False
 
 
+def _fire_meta_custom_capi(event_name, user_data, event_id,
+                           custom_data=None, event_source_url="https://stridehub.io/try/",
+                           action_source="website"):
+    """Generic server-side sender for a NAMED event → Meta CAPI.
+
+    Added 2026-08-25 for the demo-acquisition funnel, which needs DemoRegistered
+    and DemoActivated. Every other function in this module hardcodes one
+    event_name; this one takes it as an argument so new funnel steps do not each
+    need a near-identical copy of the same 60 lines.
+
+    Dedup: Meta keys on event_name + event_id, so the caller can safely reuse a
+    single event_id across several event names in the same request (that is
+    exactly what Purchase + 'welcome' already do). Pass the SAME event_id the
+    browser used and the client/server pair collapses to one event.
+
+    Refuses to send with no match keys at all: Meta rejects a user_data with
+    nothing in it, and a rejected event is worse than a skipped one because it
+    shows up as a delivery error rather than a silent no-op.
+
+    action_source='website' for anything originating in a browser. The plugin's
+    activation is not a browser event, so that call passes 'app'.
+
+    Best-effort, never raises. Returns True only on a 2xx.
+    """
+    token = os.environ.get("META_CAPI_ACCESS_TOKEN") or ""
+    if not token or not event_name:
+        return False
+    try:
+        ud = {}
+        email = (user_data.get("email") or "").strip().lower()
+        if email:
+            ud["em"] = [_hash_pii(email)]
+        for src, dst in (("first_name", "fn"), ("last_name", "ln")):
+            v = user_data.get(src)
+            if v:
+                ud[dst] = [_hash_pii(v)]
+        # external_id is hashed like PII; the rest are opaque tokens sent raw.
+        ext = (user_data.get("external_id") or "").strip()
+        if ext:
+            ud["external_id"] = [_hash_pii(ext)]
+        for k in ("fbc", "fbp", "client_ip_address", "client_user_agent"):
+            v = (user_data.get(k) or "").strip()
+            if v:
+                ud[k] = v
+        if not ud:
+            print(f"[Meta CAPI] {event_name} skipped — no match keys")
+            return False
+
+        event = {
+            "event_name": event_name,
+            "event_time": int(time.time()),
+            "event_id": event_id or str(uuid.uuid4()),
+            "action_source": action_source,
+            "user_data": ud,
+            "custom_data": custom_data or {"value": 0.0, "currency": "USD"},
+        }
+        # Meta rejects event_source_url on non-website events.
+        if action_source == "website" and event_source_url:
+            event["event_source_url"] = event_source_url
+
+        req = urllib.request.Request(
+            f"https://graph.facebook.com/{META_CAPI_VERSION}/"
+            f"{META_PIXEL_ID}/events?access_token={urllib.parse.quote(token, safe='')}",
+            data=json.dumps({"data": [event]}).encode("utf-8"),
+            headers={"Content-Type": "application/json", "User-Agent": "Stride-Backend/1.0"},
+        )
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            status = resp.getcode()
+        keys = ",".join(k for k in ("em", "external_id", "fbc", "fbp", "client_ip_address")
+                        if ud.get(k)) or "NONE"
+        print(f"[Meta CAPI] {event_name} status={status} match_keys=[{keys}]")
+        return 200 <= status < 300
+    except Exception as e:
+        print(f"[Meta CAPI {event_name}] POST failed: {e}")
+        return False
+
+
 def _add_buyer_to_meta_exclusion(email):
     """Add a buyer's hashed email to the 'Stride - Purchasers (CRM)' customer
     list (META_BUYERS_AUDIENCE_ID) so purchaser-excluding ad sets stop serving
