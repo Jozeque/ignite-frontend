@@ -1,4 +1,4 @@
-from firebase_functions import https_fn, options, firestore_fn
+from firebase_functions import https_fn, options, firestore_fn, scheduler_fn
 from flask import send_file, jsonify
 import mido
 import json
@@ -432,6 +432,64 @@ def safe_int(val, default=0):
 from meta_capi import _fire_meta_purchase_capi, _fire_meta_pageview_capi, _fire_meta_initiatecheckout_capi, _fire_meta_lead_capi, _add_buyer_to_meta_exclusion
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  APPEND-ONLY EVENT LOG  (additive; the CRM row remains the source of truth)
+#
+#  Why this exists: the waitlist row holds CURRENT STATE only. `last_action` is a
+#  single string and `updated_at` is rewritten by any later write, so the moment
+#  someone reaches checkout is destroyed by the purchase that follows it. That
+#  makes "how long does checkout -> purchase take" unanswerable, which is exactly
+#  the number the lifecycle timings need.
+#
+#  Design rules:
+#    * NEVER raises. Every caller is wrapped, and this swallows everything too.
+#      A logging failure must not cost a demo, a checkout, a purchase or a licence.
+#    * Deterministic document id => webhook retries and double-fired beacons
+#      collapse into ONE row. `create()` means first write wins and the original
+#      timestamp is never overwritten, which is what "append-only" has to mean.
+#    * Writes to its OWN collection. It reads nothing and mutates no existing doc.
+#    * Killable with one env var, no code change: EVENTS_ENABLED=0.
+# ─────────────────────────────────────────────────────────────────────────────
+EVENTS_COLLECTION = "events"
+EVENTS_ENABLED = os.environ.get("EVENTS_ENABLED", "1").strip() != "0"
+
+# Attribution that already arrives naturally. Carried through when present, never
+# manufactured, never required. Ad-level reconstruction is explicitly out of scope.
+_EVENT_ATTR_KEYS = ("ad_id", "adset_id", "campaign_id",
+                    "utm_source", "utm_campaign", "utm_content",
+                    "fbclid", "fbc", "fbp", "country", "ip", "ua")
+
+
+def _log_event(event_type: str, dedupe_key: str, email: str = "", extra: dict | None = None):
+    """Append one immutable event. Returns True if a NEW row was written, False if
+    it already existed or logging is off/failed. Never raises."""
+    if not EVENTS_ENABLED:
+        return False
+    try:
+        if not dedupe_key:
+            return False
+        doc = {
+            "type": event_type,
+            "email": (email or "").strip().lower(),
+            "ts": admin_firestore.SERVER_TIMESTAMP,
+            "ts_ms": int(time.time() * 1000),   # client-visible ordering that never depends on server clock skew
+        }
+        for k, v in (extra or {}).items():
+            if v not in (None, "", []):
+                doc[k] = v
+        _db = admin_firestore.client()
+        _db.collection(EVENTS_COLLECTION).document(f"{event_type}__{dedupe_key}").create(doc)
+        print(f"[Events] +{event_type} {doc['email']} key={dedupe_key}")
+        return True
+    except Exception as e:
+        # AlreadyExists is the normal, healthy path for a webhook retry.
+        if "already exists" in str(e).lower():
+            print(f"[Events] duplicate suppressed {event_type} key={dedupe_key}")
+        else:
+            print(f"[Events] non-fatal log failure {event_type}: {e}")
+        return False
+
+
 def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
     """Receive a Lemon Squeezy webhook, verify HMAC, upsert customer in Firestore.
 
@@ -642,6 +700,31 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
                     "created_at": admin_firestore.SERVER_TIMESTAMP,
                 })
                 print(f"[LS Webhook] new {'demo' if is_demo else 'customer'} record for {email}")
+
+            # EVENT LOG (additive, never blocks). Keyed on the LS order id, so a
+            # webhook retry writes nothing new and the first timestamp stands.
+            try:
+                _ev_extra = {
+                    "ls_order_id": str(data_obj.get("id") or ""),
+                    "ls_product_id": order_item.get("product_id"),
+                    "ls_variant_id": order_item.get("variant_id"),
+                    "order_identifier": attrs.get("identifier"),
+                    "total_cents": attrs.get("total"),
+                    "currency": attrs.get("currency"),
+                    "is_redownload": bool(is_redownload),
+                }
+                for _ak in _EVENT_ATTR_KEYS:
+                    _av = doc_data.get(_ak) or (custom.get(_ak) if isinstance(custom, dict) else None)
+                    if _av:
+                        _ev_extra[_ak] = _av
+                _log_event(
+                    "demo_downloaded" if is_demo else "purchase_completed",
+                    str(data_obj.get("id") or ""),
+                    email,
+                    _ev_extra,
+                )
+            except Exception as _ee:
+                print(f"[Events] order_created hook failed (non-fatal): {_ee}")
 
             # Demo welcome email — fire only on the FIRST demo download. The
             # is_redownload guard skips re-downloads and webhook retries (both
@@ -1208,6 +1291,36 @@ def _handle_start_pass(data: dict, ip: str = "", ua: str = ""):
             "status": "active", "created_at": admin_firestore.SERVER_TIMESTAMP,
         })
 
+        # IDENTITY. The client normally sends no email, so before logging we try to
+        # match this activation to a /try registration from the same IP (see the demo
+        # funnel block). This runs AFTER the pass is minted and can never fail it.
+        identity = "confirmed" if email else "anonymous"
+        claim_doc = None
+        if not email:
+            claim_doc = _demo_claim_for_ip(_db, ip, now_ms)
+            if claim_doc is not None:
+                email = ((claim_doc.to_dict() or {}).get("email") or "").strip().lower()
+                identity = "inferred" if email else "anonymous"
+
+        # EVENT LOG (additive, never blocks). One pass per device by design, so the
+        # device hash IS the dedupe key.
+        try:
+            _log_event("demo_activated", device, email,
+                       {"device": device, "exp_ms": exp, "started_at_ms": started_at,
+                        "identified": bool(email), "identity": identity})
+        except Exception as _ee:
+            print(f"[Events] start_pass hook failed (non-fatal): {_ee}")
+
+        # Burn the claim so one registration can only ever identify ONE activation,
+        # and a later pass on the same network does not inherit somebody else's email.
+        if claim_doc is not None and email:
+            try:
+                claim_doc.reference.update({"claimed": True, "claimed_by_device": device,
+                                            "claimed_at_ms": now_ms,
+                                            "updated_at": admin_firestore.SERVER_TIMESTAMP})
+            except Exception as _ce:
+                print(f"[Demo] claim burn failed (non-fatal): {_ce}")
+
         # Best-effort lead capture ONLY if an email came through (NEVER fails the pass; NEVER
         # downgrades a buyer). Normally the demo checkout already captured the email.
         try:
@@ -1234,6 +1347,192 @@ def _handle_start_pass(data: dict, ip: str = "", ua: str = ""):
         print(f"[Pass] start_pass failed: {e}")
         return jsonify({"valid": False, "pass": False, "reason": "error",
                         "message": "Could not start your pass. Please try again."}), 200
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  DEMO FUNNEL (2026-08-25) — stridehub.io/try
+#
+#  Replaces the $0 Lemon Squeezy checkout as the demo ENTRY. That order never
+#  granted anything: demos get no licence key, and the 24h pass is minted here by
+#  start_pass against the DEVICE HASH and signed with our own key. LS was only
+#  ever file delivery + email capture + a CRM row, so all of that moves here and
+#  nothing about licensing, entitlement, the updater or paid webhooks is touched.
+#
+#  IDENTIFIED ACTIVATION WITHOUT ASKING TWICE
+#  A VST3 cannot see the browser, and the download is one zip for everybody, so
+#  the email cannot ride the file (baking it into the bundle would invalidate the
+#  Mac notarisation). Instead the registration remembers its IP, and a pass minted
+#  from that same IP shortly after is matched to it. The user types their email
+#  ONCE, on the website. This is INFERENCE, so every event records which it was:
+#      confirmed  - the client actually sent the email
+#      inferred   - matched by IP within the window, exactly one candidate
+#      anonymous  - no match; stays device-only, exactly as before
+#  Only confirmed/inferred may ever drive lifecycle mail. Entitlement is NEVER
+#  affected: the device hash remains the sole guard, so a match cannot mint a
+#  second pass and a mismatch cannot take one away.
+# ─────────────────────────────────────────────────────────────────────────────
+DEMO_CLAIMS_COLLECTION = "demo_claims"
+
+# Every timing lives HERE, once. Nothing downstream hardcodes an hour count.
+DEMO_PASS_HOURS       = float(os.environ.get("DEMO_PASS_HOURS", "24"))     # mirrors PASS_DURATION_MS; used for derived expiry only
+DEMO_CLAIM_WINDOW_H   = float(os.environ.get("DEMO_CLAIM_WINDOW_H", "12")) # how long a registration stays matchable by IP
+DEMO_STORAGE_PREFIX   = os.environ.get("DEMO_STORAGE_PREFIX", "downloads/stride")
+DEMO_BUILD            = os.environ.get("DEMO_BUILD", "1.4.2")             # which build /try hands out
+DEMO_FILES = {
+    "windows": f"Stride-VST3-Windows-v{DEMO_BUILD}.zip",
+    "mac":     f"Stride-VST3-Mac-v{DEMO_BUILD}.zip",
+}
+_demo_url_cache: dict = {}
+
+
+def _demo_download_url(platform: str) -> str:
+    """Tokened Firebase Storage URL for the demo build. The zips are uploaded once,
+    out of band; this only reads (or mints once) the download token. Cached in
+    module memory so a warm instance does no Storage work at all."""
+    key = (platform or "").strip().lower()
+    fname = DEMO_FILES.get(key)
+    if not fname:
+        return ""
+    if key in _demo_url_cache:
+        return _demo_url_cache[key]
+    try:
+        bucket = storage.bucket()
+        blob_path = f"{DEMO_STORAGE_PREFIX}/{fname}"
+        blob = bucket.blob(blob_path)
+        if not blob.exists():
+            print(f"[Demo] MISSING build in storage: {blob_path}")
+            return ""
+        blob.reload()
+        meta = blob.metadata or {}
+        token = (meta.get("firebaseStorageDownloadTokens") or "").split(",")[0]
+        if not token:
+            token = str(uuid.uuid4())
+            meta["firebaseStorageDownloadTokens"] = token
+            blob.metadata = meta
+            blob.patch()
+        encoded = urllib.parse.quote(blob_path, safe="")
+        url = f"https://firebasestorage.googleapis.com/v0/b/{bucket.name}/o/{encoded}?alt=media&token={token}"
+        _demo_url_cache[key] = url
+        return url
+    except Exception as e:
+        print(f"[Demo] download url failed for {key}: {e}")
+        return ""
+
+
+def _handle_demo_register(data: dict, ip: str = "", ua: str = ""):
+    """PUBLIC. Email capture for /try, and the entry point that replaces the $0 LS
+    checkout. Returns the download links. Never grants entitlement — the 24 hours
+    still start in the plugin, at start_pass.
+
+    Request:  { action:'demo_register', email [, attribution...] }
+    Response: { ok, downloads:{windows,mac} }"""
+    email = (data.get("email") or "").strip().lower()
+    now_ms = int(time.time() * 1000)
+    if not email or "@" not in email or "." not in email.split("@")[-1]:
+        return jsonify({"ok": False, "reason": "bad_email",
+                        "message": "Please enter a valid email address."}), 200
+
+    downloads = {"windows": _demo_download_url("windows"), "mac": _demo_download_url("mac")}
+    if not any(downloads.values()):
+        # Never hand back a dead page: say so plainly and keep the lead.
+        print("[Demo] no download available — check the storage upload")
+
+    try:
+        _db = admin_firestore.client()
+
+        # 1. CRM row. Merge, and NEVER downgrade a buyer to "demo".
+        try:
+            hit = list(_db.collection("waitlist").where("email", "==", email).limit(1).stream())
+            row = {
+                "email": email,
+                "demo_at": admin_firestore.SERVER_TIMESTAMP,
+                "demo_source": "try_page",
+                "updated_at": admin_firestore.SERVER_TIMESTAMP,
+            }
+            for _k in _EVENT_ATTR_KEYS:
+                _v = (data.get(_k) or "").strip() if isinstance(data.get(_k), str) else data.get(_k)
+                if _v:
+                    row[_k] = _v
+            if hit:
+                cur = hit[0].to_dict() or {}
+                if cur.get("status") != "purchased":
+                    row["status"] = "demo"
+                if cur.get("demo_at"):
+                    row.pop("demo_at", None)       # keep the FIRST demo timestamp
+                hit[0].reference.update(row)
+            else:
+                row["status"] = "demo"
+                row["source"] = row.get("source") or "try_page"
+                row["created_at"] = admin_firestore.SERVER_TIMESTAMP
+                _db.collection("waitlist").add(row)
+        except Exception as ce:
+            print(f"[Demo] CRM write failed (non-fatal): {ce}")
+
+        # 2. The claim record the IP correlation reads. One per email per window;
+        #    a re-register just refreshes it so the newest download is matchable.
+        try:
+            _db.collection(DEMO_CLAIMS_COLLECTION).document(_email_key(email)).set({
+                "email": email, "ip": ip, "ua": ua[:200],
+                "registered_at_ms": now_ms,
+                "claimed": False, "claimed_by_device": "",
+                "updated_at": admin_firestore.SERVER_TIMESTAMP,
+            })
+        except Exception as cle:
+            print(f"[Demo] claim write failed (non-fatal): {cle}")
+
+        # 3. Append-only event. Keyed on the email, so re-registering is ONE row and
+        #    the original registration time stands (that is the funnel's t0).
+        _extra = {"ip": ip, "ua": ua[:200], "build": DEMO_BUILD}
+        for _k in _EVENT_ATTR_KEYS:
+            _v = data.get(_k)
+            if _v:
+                _extra[_k] = _v
+        first_time = _log_event("demo_registered", _email_key(email), email, _extra)
+
+        # 4. Welcome mail, only on the FIRST registration (the event write is the guard).
+        if first_time:
+            try:
+                _send_demo_welcome_email(email, (data.get("name") or "").strip())
+            except Exception as we:
+                print(f"[Demo] welcome mail failed (non-fatal): {we}")
+
+        return jsonify({"ok": True, "downloads": downloads, "build": DEMO_BUILD}), 200
+    except Exception as e:
+        print(f"[Demo] register failed: {e}")
+        # The lead matters more than the bookkeeping: still hand back the download.
+        return jsonify({"ok": True, "downloads": downloads, "build": DEMO_BUILD,
+                        "warning": "partial"}), 200
+
+
+def _email_key(email: str) -> str:
+    """Firestore-safe deterministic id for an email (no '/' and bounded length)."""
+    return hashlib.sha256((email or "").strip().lower().encode("utf-8")).hexdigest()[:40]
+
+
+def _demo_claim_for_ip(_db, ip: str, now_ms: int):
+    """The registration this pass most likely belongs to, or None.
+
+    Deliberately strict: an UNCLAIMED registration, from the same IP, inside the
+    window, and EXACTLY ONE candidate. Two people behind one studio NAT produce two
+    candidates, so we return nothing and the activation stays anonymous — a wrong
+    identity is far worse than a missing one, because it mails the wrong person."""
+    if not ip:
+        return None
+    try:
+        lo = now_ms - int(DEMO_CLAIM_WINDOW_H * 3600000)
+        rows = [d for d in _db.collection(DEMO_CLAIMS_COLLECTION)
+                              .where("ip", "==", ip).limit(20).stream()]
+        live = [d for d in rows
+                if not (d.to_dict() or {}).get("claimed")
+                and int((d.to_dict() or {}).get("registered_at_ms") or 0) >= lo]
+        if len(live) != 1:
+            if len(live) > 1:
+                print(f"[Demo] {len(live)} candidates for ip={ip} — staying anonymous")
+            return None
+        return live[0]
+    except Exception as e:
+        print(f"[Demo] claim lookup failed (non-fatal): {e}")
+        return None
 
 
 LS_MY_ORDERS_URL = "https://app.lemonsqueezy.com/my-orders"
@@ -1424,6 +1723,12 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
             print(f"[CAPI PageView] handler error: {e}")
         return jsonify({"ok": True}), 200
 
+    # --- DEMO REGISTRATION (public) — the /try email capture that replaces the $0
+    #     Lemon Squeezy checkout. Grants nothing; hands back the download links.
+    if isinstance(data_pre, dict) and data_pre.get("action") == "demo_register":
+        _dr_ip = (req.headers.get("X-Forwarded-For", req.remote_addr or "") or "").split(",")[0].strip()
+        return _handle_demo_register(data_pre, _dr_ip, req.headers.get("User-Agent", ""))
+
     if isinstance(data_pre, dict) and data_pre.get("action") == "founders_count":
         try:
             _db = admin_firestore.client()
@@ -1528,6 +1833,26 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
             db_ok = True
         except Exception as e:
             print(f"[Waitlist] FIRESTORE FAILED: {e} — data logged above")
+        # EVENT LOG (additive, never blocks). Only real checkout intent is logged
+        # here; waitlist and sample-pack signups are NOT checkout and must never
+        # feed a recovery automation. Keyed on the page's own event_id (the same
+        # UUID the CAPI dedup uses) so a double-fired beacon collapses to one row
+        # while a genuine SECOND checkout days later is its own event.
+        if data_pre.get("action") == "buyer_lead":
+            try:
+                _ck_key = (data_pre.get("event_id") or "").strip() or f"{email}_{int(time.time())}"
+                _ck_extra = {"event_id": (data_pre.get("event_id") or "").strip(),
+                             "heard_from": source, "crm_write_ok": db_ok,
+                             "returning_lead": was_existing}
+                for _ak in _EVENT_ATTR_KEYS:
+                    _av = (data_pre.get(_ak) or "").strip() if isinstance(data_pre.get(_ak), str) else data_pre.get(_ak)
+                    if _av:
+                        _ck_extra[_ak] = _av
+                if country:
+                    _ck_extra["country"] = country
+                _log_event("checkout_started", _ck_key, email, _ck_extra)
+            except Exception as _ee:
+                print(f"[Events] buyer_lead hook failed (non-fatal): {_ee}")
         # Discord notification (includes DB failure warning if applicable).
         # Heading reflects the action type AND returning vs first-time:
         #   buyer_lead      -> user is actively in the buy flow (on LS checkout
@@ -3806,3 +4131,388 @@ def notify_new_user(event: firestore_fn.Event[firestore_fn.DocumentSnapshot | No
         urllib.request.urlopen(req, timeout=10)
     except Exception as e:
         pass
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  CHECKOUT RECOVERY V1  (additive; touches no existing flow)
+#
+#  ONE plain-text email from Joe, 24h after a checkout that never became a
+#  purchase. No discount. No urgency. No second follow-up. At-most-once, ever.
+#
+#  Why a scheduled sweep and not a per-user timer: a sweep is stateless, it
+#  self-heals after downtime, and it can be watched in dry-run before it is
+#  allowed to send. A 24h delayed task per checkout cannot be inspected or
+#  recalled once queued.
+#
+#  MODES via RECOVERY_MODE:
+#    off  (default) - the sweep does nothing at all
+#    dry            - evaluates and LOGS exactly who would receive it, writes
+#                     nothing, sends nothing
+#    live           - claims the slot, then sends
+#
+#  AT-MOST-ONCE: the slot is claimed with .create() on a deterministic id BEFORE
+#  the send. A second run, an overlapping run, or a retry all lose the race and
+#  skip. The trade is deliberate: a transient Resend failure means that person is
+#  never mailed, rather than risking a double send.
+# ═════════════════════════════════════════════════════════════════════════════
+RECOVERY_MODE = os.environ.get("RECOVERY_MODE", "off").strip().lower()
+RECOVERY_DELAY_H = float(os.environ.get("RECOVERY_DELAY_H", "24"))
+RECOVERY_MAX_AGE_H = float(os.environ.get("RECOVERY_MAX_AGE_H", "72"))
+# Nothing older than this is ever eligible, so old abandoners are never backfilled.
+RECOVERY_FLOOR_MS = int(os.environ.get("RECOVERY_FLOOR_MS", "1787600000000"))
+LS_BUY_URL = "https://strideengine.lemonsqueezy.com/checkout/buy/9099d993-aa75-42d5-800f-299445b9350a"
+
+RECOVERY_TEXT = """Hey{name_part},
+
+Joe here from Stride.
+
+Saw you were checking out Stride yesterday and just wanted to make sure nothing got in the way.
+
+If there's anything you're unsure about, the workflow, compatibility, or how Stride fits into your setup, just reply. Happy to help.
+
+And if you simply got distracted, you can pick up where you left off here:
+
+{checkout_url}
+
+Joe
+Stride
+
+You're receiving this because you started a Stride checkout. Reply STOP to opt out.
+"""
+
+# Minimal HTML twin. Deliberately NOT a designed template: no logo, no banner, no
+# button, no brand colours. It has to look like a note Joe typed in Gmail, because
+# that is the entire premise of the message. Its only job over the plain text
+# version is that the checkout link can carry a NAME instead of showing a 200
+# character URL. The text part above still ships as the fallback.
+RECOVERY_HTML = """<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#222222;max-width:560px">
+<p style="margin:0 0 14px">Hey{name_part},</p>
+<p style="margin:0 0 14px">Joe here from Stride.</p>
+<p style="margin:0 0 14px">Saw you were checking out Stride yesterday and just wanted to make sure nothing got in the way.</p>
+<p style="margin:0 0 14px">If there's anything you're unsure about, the workflow, compatibility, or how Stride fits into your setup, just reply. Happy to help.</p>
+<p style="margin:0 0 14px">And if you simply got distracted, you can <a href="{checkout_url}" style="color:#c6712b;font-weight:600">pick up where you left off here</a>.</p>
+<p style="margin:0 0 4px">Joe</p>
+<p style="margin:0 0 22px">Stride</p>
+<p style="margin:0;font-size:12px;line-height:1.5;color:#999999">You're receiving this because you started a Stride checkout. Reply STOP to opt out.</p>
+</div>"""
+
+
+def _recovery_checkout_url(ev: dict) -> str:
+    """Rebuild a checkout link, prefilled, mirroring exactly what the landing page
+    builds. The original attribution rides along so a purchase from this email is
+    still stamped with the ad that earned it and CAPI keeps its match keys."""
+    parts = [f"checkout[email]={urllib.parse.quote(ev.get('email') or '')}"]
+    if ev.get("name"):
+        parts.append(f"checkout[name]={urllib.parse.quote(ev.get('name'))}")
+    for src, dest in (("event_id", "event_id"), ("fbc", "fbc"), ("fbclid", "fbclid"),
+                      ("fbp", "fbp"), ("ua", "ua"), ("ad_id", "ad_id")):
+        v = ev.get(src)
+        if v:
+            parts.append(f"checkout[custom][{dest}]={urllib.parse.quote(str(v))}")
+    return LS_BUY_URL + "?" + "&".join(parts)
+
+
+def _recovery_is_suppressed(_db, email: str) -> str:
+    """Return a reason string if this person must NOT be mailed, else ''.
+    Checks every purchase signal in both sources, plus the opt-out list."""
+    if not email:
+        return "no email"
+    try:
+        opt = _db.collection("config").document("email_suppression").get()
+        if opt.exists and email in ((opt.to_dict() or {}).get("emails") or []):
+            return "opted out"
+    except Exception as e:
+        print(f"[Recovery] suppression list unreadable, failing SAFE (skipping): {e}")
+        return "suppression list unreadable"
+    try:
+        for d in _db.collection(EVENTS_COLLECTION).where("email", "==", email).stream():
+            if (d.to_dict() or {}).get("type") == "purchase_completed":
+                return "purchased (event)"
+    except Exception as e:
+        print(f"[Recovery] event purchase check failed, failing SAFE: {e}")
+        return "purchase check failed"
+    try:
+        for d in _db.collection("waitlist").where("email", "==", email).limit(3).stream():
+            r = d.to_dict() or {}
+            if r.get("purchased_at") or r.get("status") == "purchased":
+                return "purchased (CRM)"
+    except Exception as e:
+        print(f"[Recovery] CRM purchase check failed, failing SAFE: {e}")
+        return "purchase check failed"
+    return ""
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  DEMO LIFECYCLE (2026-08-25)
+#
+#  State is DERIVED from the append-only event log, never stored as a mutable
+#  field, so it cannot drift and a replay always produces the same answer.
+#
+#      DEMO_REGISTERED     demo_registered, nothing since
+#      DEMO_NOT_ACTIVATED  registered, and past the grace window with no pass
+#      DEMO_ACTIVE         demo_activated and now < exp_ms
+#      DEMO_EXPIRED        demo_activated and now >= exp_ms
+#      CHECKOUT_STARTED    checkout_started, not purchased  (higher intent -
+#                          leaves demo nurture, hands over to checkout recovery)
+#      PURCHASED           terminal, suppresses everything sales-related
+#
+#  Precedence is strictly PURCHASED > CHECKOUT_STARTED > pass states > registered,
+#  so a person who has moved forward can never fall back into demo nurture.
+# ─────────────────────────────────────────────────────────────────────────────
+DEMO_LIFECYCLE_MODE   = os.environ.get("DEMO_LIFECYCLE_MODE", "off").strip().lower()   # off | dry | live
+DEMO_EXPIRY_SWEEP_MODE = os.environ.get("DEMO_EXPIRY_SWEEP_MODE", "on").strip().lower()  # on | off
+# Send timings, all configurable, all in this one place.
+DEMO_NUDGE_ACTIVATE_H = float(os.environ.get("DEMO_NUDGE_ACTIVATE_H", "24"))   # A: registered, never activated
+DEMO_ONBOARD_H        = float(os.environ.get("DEMO_ONBOARD_H", "2"))          # B: inside the pass
+DEMO_POST_EXPIRY_H    = float(os.environ.get("DEMO_POST_EXPIRY_H", "3"))      # C: after the pass ended
+DEMO_LIFECYCLE_MAX_AGE_H = float(os.environ.get("DEMO_LIFECYCLE_MAX_AGE_H", "336"))   # never backfill older than this
+DEMO_LIFECYCLE_FLOOR_MS  = int(os.environ.get("DEMO_LIFECYCLE_FLOOR_MS", "1787600000000"))
+
+
+def _demo_events_for(_db, email: str) -> dict:
+    """Every lifecycle-relevant event for one person, newest wins per type."""
+    out: dict = {}
+    if not email:
+        return out
+    try:
+        for d in _db.collection(EVENTS_COLLECTION).where("email", "==", email).stream():
+            ev = d.to_dict() or {}
+            t = ev.get("type")
+            if not t:
+                continue
+            if t not in out or int(ev.get("ts_ms") or 0) > int(out[t].get("ts_ms") or 0):
+                out[t] = ev
+    except Exception as e:
+        print(f"[DemoLifecycle] event read failed for {email}: {e}")
+    return out
+
+
+def demo_state(_db, email: str, now_ms: int | None = None) -> dict:
+    """Derive the lifecycle state. Pure read; writes nothing."""
+    now_ms = now_ms or int(time.time() * 1000)
+    ev = _demo_events_for(_db, email)
+    reg = ev.get("demo_registered") or ev.get("demo_downloaded")   # LS demos count as registrations
+    act = ev.get("demo_activated")
+    exp_ms = int((act or {}).get("exp_ms") or 0)
+
+    st = {
+        "email": email,
+        "registered_at_ms": int((reg or {}).get("ts_ms") or 0),
+        "activated_at_ms": int((act or {}).get("started_at_ms") or (act or {}).get("ts_ms") or 0),
+        "expires_at_ms": exp_ms,
+        "identity": (act or {}).get("identity") or ("confirmed" if (act or {}).get("email") else "anonymous"),
+        "state": "UNKNOWN",
+    }
+    if ev.get("purchase_completed"):
+        st["state"] = "PURCHASED"
+    elif ev.get("checkout_started"):
+        st["state"] = "CHECKOUT_STARTED"
+    elif act:
+        st["state"] = "DEMO_ACTIVE" if (exp_ms and now_ms < exp_ms) else "DEMO_EXPIRED"
+    elif reg:
+        age_h = (now_ms - st["registered_at_ms"]) / 3600000.0
+        st["state"] = "DEMO_NOT_ACTIVATED" if age_h >= DEMO_NUDGE_ACTIVATE_H else "DEMO_REGISTERED"
+    return st
+
+
+@scheduler_fn.on_schedule(schedule="every 30 minutes", region="us-central1",
+                          timeout_sec=300, memory=options.MemoryOption.MB_512)
+def demo_expiry_sweep(event: scheduler_fn.ScheduledEvent) -> None:
+    """Record the END of a pass. The plugin is usually shut when 24 hours are up, so
+    nothing client-side can report it — but demo_activated already carries exp_ms, so
+    expiry is derivable and only needs stamping. Writes demo_expired once per device
+    (the event id is the dedupe), which gives the funnel a real timestamp to measure
+    against instead of an inferred one."""
+    if DEMO_EXPIRY_SWEEP_MODE == "off":
+        print("[DemoExpiry] disabled")
+        return
+    now_ms = int(time.time() * 1000)
+    lo = now_ms - int(DEMO_LIFECYCLE_MAX_AGE_H * 3600000)
+    _db = admin_firestore.client()
+    seen = wrote = 0
+    try:
+        q = (_db.collection(EVENTS_COLLECTION)
+             .where("ts_ms", ">=", max(lo, DEMO_LIFECYCLE_FLOOR_MS))
+             .where("ts_ms", "<=", now_ms))
+        rows = [d for d in q.stream() if (d.to_dict() or {}).get("type") == "demo_activated"]
+    except Exception as e:
+        print(f"[DemoExpiry] query failed: {e}")
+        return
+    for d in rows:
+        ev = d.to_dict() or {}
+        exp_ms = int(ev.get("exp_ms") or 0)
+        if not exp_ms or now_ms < exp_ms:
+            continue
+        seen += 1
+        if _log_event("demo_expired", ev.get("device") or d.id, ev.get("email") or "",
+                      {"device": ev.get("device") or "", "expired_at_ms": exp_ms,
+                       "activated_at_ms": ev.get("started_at_ms") or ev.get("ts_ms"),
+                       "identity": ev.get("identity") or ""}):
+            wrote += 1
+    print(f"[DemoExpiry] {seen} ended, {wrote} newly recorded")
+
+
+# The demo lifecycle sends. Built, wired and idempotent — and DELIBERATELY OFF:
+# DEMO_LIFECYCLE_MODE defaults to "off" so no new mail can leave until the copy is
+# reviewed and the env var is flipped to "dry" (log only) and then "live".
+DEMO_SENDS = {
+    # key                 state it serves        delay measured from
+    "activate_nudge":   ("DEMO_NOT_ACTIVATED",  "registered_at_ms", DEMO_NUDGE_ACTIVATE_H),
+    "onboard":          ("DEMO_ACTIVE",         "activated_at_ms",  DEMO_ONBOARD_H),
+    "post_demo":        ("DEMO_EXPIRED",        "expires_at_ms",    DEMO_POST_EXPIRY_H),
+}
+
+
+@scheduler_fn.on_schedule(schedule="every 60 minutes", region="us-central1",
+                          secrets=["RESEND_API_KEY"], timeout_sec=540, memory=options.MemoryOption.MB_512)
+def demo_lifecycle(event: scheduler_fn.ScheduledEvent) -> None:
+    """State-based demo mail. OFF unless DEMO_LIFECYCLE_MODE is dry|live.
+
+    Same safety shape as checkout_recovery: derive the state, check suppression,
+    CLAIM the slot with a create() before sending, then send. Losing the claim race
+    means another run already handled it, so nobody is ever mailed twice."""
+    if DEMO_LIFECYCLE_MODE not in ("dry", "live"):
+        print(f"[DemoLifecycle] mode={DEMO_LIFECYCLE_MODE} - doing nothing")
+        return
+    now_ms = int(time.time() * 1000)
+    lo = now_ms - int(DEMO_LIFECYCLE_MAX_AGE_H * 3600000)
+    _db = admin_firestore.client()
+
+    # Everyone who entered the funnel recently, by email. Anonymous activations are
+    # skipped here by construction: no email, no row.
+    try:
+        q = (_db.collection(EVENTS_COLLECTION)
+             .where("ts_ms", ">=", max(lo, DEMO_LIFECYCLE_FLOOR_MS))
+             .where("ts_ms", "<=", now_ms))
+        emails = sorted({(d.to_dict() or {}).get("email", "").strip().lower()
+                         for d in q.stream()
+                         if (d.to_dict() or {}).get("type") in
+                            ("demo_registered", "demo_downloaded", "demo_activated", "demo_expired")}
+                        - {""})
+    except Exception as e:
+        print(f"[DemoLifecycle] query failed: {e}")
+        return
+
+    considered = sent = skipped = 0
+    for email in emails:
+        considered += 1
+        reason = _recovery_is_suppressed(_db, email)   # opt-out + purchase, fails SAFE
+        if reason:
+            skipped += 1
+            continue
+        st = demo_state(_db, email, now_ms)
+        # Higher intent leaves demo nurture entirely: checkout recovery owns them.
+        if st["state"] in ("PURCHASED", "CHECKOUT_STARTED", "UNKNOWN", "DEMO_REGISTERED"):
+            skipped += 1
+            continue
+        for send_key, (want_state, since_field, delay_h) in DEMO_SENDS.items():
+            if st["state"] != want_state:
+                continue
+            since = int(st.get(since_field) or 0)
+            if not since or (now_ms - since) < delay_h * 3600000:
+                continue
+            if DEMO_LIFECYCLE_MODE == "dry":
+                print(f"[DemoLifecycle][DRY] {send_key} -> {email} (state={st['state']}, identity={st['identity']})")
+                continue
+            claim_id = f"demo_mail_sent__{send_key}__{_email_key(email)}"
+            try:
+                _db.collection(EVENTS_COLLECTION).document(claim_id).create({
+                    "type": "demo_mail_sent", "email": email, "send": send_key,
+                    "state": st["state"], "identity": st["identity"],
+                    "ts": admin_firestore.SERVER_TIMESTAMP, "ts_ms": now_ms,
+                    "status": "claimed",
+                })
+            except Exception:
+                skipped += 1
+                continue
+            # COPY IS NOT WRITTEN YET, ON PURPOSE. Reaching here in live mode without
+            # a body would send nothing and burn the claim, so refuse loudly instead.
+            print(f"[DemoLifecycle] {send_key} for {email}: claimed, NO COPY DEFINED - nothing sent")
+            sent += 0
+    print(f"[DemoLifecycle] mode={DEMO_LIFECYCLE_MODE} considered={considered} sent={sent} skipped={skipped}")
+
+
+@scheduler_fn.on_schedule(schedule="every 60 minutes", region="us-central1",
+                          secrets=["RESEND_API_KEY"], timeout_sec=540, memory=options.MemoryOption.MB_512)
+def checkout_recovery(event: scheduler_fn.ScheduledEvent) -> None:
+    """Hourly sweep. Mails once, 24h after an unconverted checkout."""
+    if RECOVERY_MODE not in ("dry", "live"):
+        print(f"[Recovery] mode={RECOVERY_MODE} - doing nothing")
+        return
+    now_ms = int(time.time() * 1000)
+    lo = now_ms - int(RECOVERY_MAX_AGE_H * 3600000)      # too old, let it go
+    hi = now_ms - int(RECOVERY_DELAY_H * 3600000)        # not yet due
+    _db = admin_firestore.client()
+
+    considered = sent = skipped = 0
+    try:
+        # Range on ONE field only, then filter the type in code. An equality plus a
+        # range on a different field would demand a composite index, and this
+        # project has no index config, so that query would fail on first run for a
+        # handful of rows a day. Not worth an index dependency.
+        q = (_db.collection(EVENTS_COLLECTION)
+             .where("ts_ms", ">=", max(lo, RECOVERY_FLOOR_MS))
+             .where("ts_ms", "<=", hi))
+        rows = [d for d in q.stream()
+                if (d.to_dict() or {}).get("type") == "checkout_started"]
+    except Exception as e:
+        print(f"[Recovery] query failed: {e}")
+        return
+
+    for d in rows:
+        ev = d.to_dict() or {}
+        email = (ev.get("email") or "").strip().lower()
+        considered += 1
+        reason = _recovery_is_suppressed(_db, email)
+        if reason:
+            skipped += 1
+            print(f"[Recovery] SKIP {email}: {reason}")
+            continue
+        age_h = (now_ms - (ev.get("ts_ms") or 0)) / 3600000.0
+        if RECOVERY_MODE == "dry":
+            print(f"[Recovery][DRY] would send to {email} (checkout {age_h:.1f}h ago, event {d.id})")
+            continue
+        # claim the slot FIRST; losing this race means someone already handled it
+        claim_id = f"recovery_email_sent__{d.id}"
+        try:
+            _db.collection(EVENTS_COLLECTION).document(claim_id).create({
+                "type": "recovery_email_sent", "email": email,
+                "ts": admin_firestore.SERVER_TIMESTAMP, "ts_ms": now_ms,
+                "checkout_event": d.id, "checkout_age_hours": round(age_h, 2),
+                "status": "claimed",
+            })
+        except Exception as e:
+            skipped += 1
+            print(f"[Recovery] already handled {email} ({e.__class__.__name__})")
+            continue
+        first = (ev.get("name") or "").strip().split(" ")[0] if ev.get("name") else ""
+        _np = f" {first}" if first else ""
+        _url = _recovery_checkout_url(ev)
+        body = RECOVERY_TEXT.replace("{name_part}", _np).replace("{checkout_url}", _url)
+        body_html = RECOVERY_HTML.replace("{name_part}", _np).replace("{checkout_url}", _url)
+        ok = False
+        try:
+            if not RESEND_API_KEY:
+                raise RuntimeError("RESEND_API_KEY not set")
+            import resend
+            resend.api_key = RESEND_API_KEY
+            res = resend.Emails.send({
+                "from": "Joe <home@stridehub.io>",
+                "to": [email],
+                "reply_to": "home@stridehub.io",
+                "subject": "Any questions about Stride?",
+                "text": body,
+                "html": body_html,
+            })
+            ok = True
+            sent += 1
+            print(f"[Recovery] SENT to {email} id={res.get('id') if isinstance(res, dict) else res}")
+        except Exception as e:
+            print(f"[Recovery] SEND FAILED for {email}: {e} (not retried by design)")
+        try:
+            _db.collection(EVENTS_COLLECTION).document(claim_id).update(
+                {"status": "sent" if ok else "send_failed"})
+        except Exception:
+            pass
+
+    print(f"[Recovery] mode={RECOVERY_MODE} considered={considered} sent={sent} skipped={skipped}")
