@@ -4316,10 +4316,13 @@ DEMO_LIFECYCLE_MODE   = os.environ.get("DEMO_LIFECYCLE_MODE", "off").strip().low
 DEMO_EXPIRY_SWEEP_MODE = os.environ.get("DEMO_EXPIRY_SWEEP_MODE", "on").strip().lower()  # on | off
 # Send timings, all configurable, all in this one place.
 DEMO_NUDGE_ACTIVATE_H = float(os.environ.get("DEMO_NUDGE_ACTIVATE_H", "24"))   # A: registered, never activated
-DEMO_ONBOARD_H        = float(os.environ.get("DEMO_ONBOARD_H", "2"))          # B: inside the pass
+DEMO_ONBOARD_H        = float(os.environ.get("DEMO_ONBOARD_H", "1.25"))       # B: inside the pass — 75 minutes after activation
 DEMO_POST_EXPIRY_H    = float(os.environ.get("DEMO_POST_EXPIRY_H", "3"))      # C: after the pass ended
 DEMO_LIFECYCLE_MAX_AGE_H = float(os.environ.get("DEMO_LIFECYCLE_MAX_AGE_H", "336"))   # never backfill older than this
-DEMO_LIFECYCLE_FLOOR_MS  = int(os.environ.get("DEMO_LIFECYCLE_FLOOR_MS", "1787600000000"))
+# NO BACKFILL: nothing that happened before this moment is ever eligible for a lifecycle
+# send. Set to the onboard mail's ship date (2026-08-25), so every demo user from before
+# the mail existed simply never hears from it.
+DEMO_LIFECYCLE_FLOOR_MS  = int(os.environ.get("DEMO_LIFECYCLE_FLOOR_MS", "1787680000000"))
 
 
 def _demo_events_for(_db, email: str) -> dict:
@@ -4419,11 +4422,88 @@ DEMO_SENDS = {
     "post_demo":        ("DEMO_EXPIRED",        "expires_at_ms",    DEMO_POST_EXPIRY_H),
 }
 
+# ── the ONBOARD mail (send B) — the only send with copy so far ──────────────────────────
+# 75 minutes into an identified pass: they are (or were just) inside Stride, so the mail is
+# session guidance, nothing else. NO purchase CTA, no price, no discount, no links — a note
+# from Joe, in the exact register of the /try first-session block.
+# (A later Starter Sessions version with downloadable templates replaces this; not now.)
+DEMO_ONBOARD_SUBJECT = "Try this with a synth you already know"
 
-@scheduler_fn.on_schedule(schedule="every 60 minutes", region="us-central1",
+DEMO_ONBOARD_TEXT = r"""Hey{name_part},
+
+If you've got Stride open, don't overthink the first session.
+
+Start with a synth you already know well.
+
+Add a couple of effects you normally use with it.
+
+Choose a handful of parameters that can really change the character of the sound.
+
+Then start exploring a few different directions across the whole setup.
+
+When something catches your ear, keep it.
+
+Lock what works. Push the rest somewhere else.
+
+The point isn't to design the perfect modulation first.
+
+Hear more directions, then let your taste decide what stays.
+
+Joe
+
+P.S. If anything isn't clicking, just reply. I read every one.
+
+You're receiving this because you started a Stride Discovery Pass. Reply STOP to opt out.
+"""
+
+# Minimal HTML twin, the recovery-mail pattern: no logo, no banner, no buttons. It has to
+# look like a note Joe typed, because that is what it is.
+DEMO_ONBOARD_HTML = r'''<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="color-scheme" content="light dark"></head>
+<body style="margin:0;padding:0;">
+<div style="max-width:560px;margin:0 auto;padding:24px 18px;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;line-height:1.7;color:#222222;">
+<p style="margin:0 0 16px;">Hey{name_part},</p>
+<p style="margin:0 0 16px;">If you've got Stride open, don't overthink the first session.</p>
+<p style="margin:0 0 16px;">Start with a synth you already know well.</p>
+<p style="margin:0 0 16px;">Add a couple of effects you normally use with it.</p>
+<p style="margin:0 0 16px;">Choose a handful of parameters that can really change the character of the sound.</p>
+<p style="margin:0 0 16px;">Then start exploring a few different directions across the whole setup.</p>
+<p style="margin:0 0 16px;">When something catches your ear, keep it.</p>
+<p style="margin:0 0 16px;">Lock what works. Push the rest somewhere else.</p>
+<p style="margin:0 0 16px;">The point isn't to design the perfect modulation first.</p>
+<p style="margin:0 0 16px;">Hear more directions, then let your taste decide what stays.</p>
+<p style="margin:0 0 16px;">Joe</p>
+<p style="margin:0 0 16px;">P.S. If anything isn't clicking, just reply. I read every one.</p>
+<p style="margin:24px 0 0;font-size:12px;color:#8a8a8a;">You're receiving this because you started a Stride Discovery Pass. Reply STOP to opt out.</p>
+</div>
+</body></html>
+'''
+
+# send_key -> (subject, text, html). A send with NO entry here refuses loudly in live mode
+# instead of mailing something empty — that is the guard the other two sends still rely on.
+DEMO_SEND_COPY = {
+    "onboard": (DEMO_ONBOARD_SUBJECT, DEMO_ONBOARD_TEXT, DEMO_ONBOARD_HTML),
+}
+
+
+def _demo_send_render(send_key: str, first_name: str = ""):
+    """(subject, text, html) for a send, personalised. None if the send has no copy —
+    pure, so the tests can render exactly what a user would receive."""
+    copy = DEMO_SEND_COPY.get(send_key)
+    if not copy:
+        return None
+    name_part = f" {first_name.strip().split(' ')[0]}" if (first_name or "").strip() else ""
+    subject, text, html = copy
+    return subject, text.replace("{name_part}", name_part), html.replace("{name_part}", name_part)
+
+
+@scheduler_fn.on_schedule(schedule="every 30 minutes", region="us-central1",
                           secrets=["RESEND_API_KEY"], timeout_sec=540, memory=options.MemoryOption.MB_512)
 def demo_lifecycle(event: scheduler_fn.ScheduledEvent) -> None:
     """State-based demo mail. OFF unless DEMO_LIFECYCLE_MODE is dry|live.
+
+    Every 30 minutes (not 60) so a 75-minute delay lands at 75-105 minutes after
+    activation instead of drifting toward two hours.
 
     Same safety shape as checkout_recovery: derive the state, check suppression,
     CLAIM the slot with a create() before sending, then send. Losing the claim race
@@ -4458,8 +4538,15 @@ def demo_lifecycle(event: scheduler_fn.ScheduledEvent) -> None:
             skipped += 1
             continue
         st = demo_state(_db, email, now_ms)
-        # Higher intent leaves demo nurture entirely: checkout recovery owns them.
+        # Higher intent leaves demo nurture entirely: checkout recovery owns them. A
+        # checkout or purchase that lands BEFORE the send time changes the state, so
+        # the pending send simply never fires — that is the cancel.
         if st["state"] in ("PURCHASED", "CHECKOUT_STARTED", "UNKNOWN", "DEMO_REGISTERED"):
+            skipped += 1
+            continue
+        # Belt and braces: only identified activations may be mailed. Anonymous ones
+        # carry no email and never reach this loop, but the guard states the rule.
+        if st["identity"] not in ("confirmed", "inferred"):
             skipped += 1
             continue
         for send_key, (want_state, since_field, delay_h) in DEMO_SENDS.items():
@@ -4468,9 +4555,14 @@ def demo_lifecycle(event: scheduler_fn.ScheduledEvent) -> None:
             since = int(st.get(since_field) or 0)
             if not since or (now_ms - since) < delay_h * 3600000:
                 continue
+            rendered_probe = _demo_send_render(send_key)
             if DEMO_LIFECYCLE_MODE == "dry":
-                print(f"[DemoLifecycle][DRY] {send_key} -> {email} (state={st['state']}, identity={st['identity']})")
+                print(f"[DemoLifecycle][DRY] {send_key} -> {email} (state={st['state']}, "
+                      f"identity={st['identity']}, copy={'yes' if rendered_probe else 'NO'})")
                 continue
+            # One send of each kind per person, EVER: the claim id is send+email, and
+            # create() means the first writer wins. A lost race, a scheduler overlap or
+            # a retry all land here as AlreadyExists and walk away.
             claim_id = f"demo_mail_sent__{send_key}__{_email_key(email)}"
             try:
                 _db.collection(EVENTS_COLLECTION).document(claim_id).create({
@@ -4482,10 +4574,44 @@ def demo_lifecycle(event: scheduler_fn.ScheduledEvent) -> None:
             except Exception:
                 skipped += 1
                 continue
-            # COPY IS NOT WRITTEN YET, ON PURPOSE. Reaching here in live mode without
-            # a body would send nothing and burn the claim, so refuse loudly instead.
-            print(f"[DemoLifecycle] {send_key} for {email}: claimed, NO COPY DEFINED - nothing sent")
-            sent += 0
+            # A send with no copy refuses loudly instead of mailing something empty —
+            # the guard the two unwritten sends still rely on.
+            if not rendered_probe:
+                print(f"[DemoLifecycle] {send_key} for {email}: claimed, NO COPY DEFINED - nothing sent")
+                continue
+            # First name, when we have one (LS demos carry it; /try does not ask).
+            first = ""
+            try:
+                hit = list(_db.collection("waitlist").where("email", "==", email).limit(1).stream())
+                if hit:
+                    first = ((hit[0].to_dict() or {}).get("name") or "").strip()
+            except Exception:
+                pass
+            subject, body_text, body_html = _demo_send_render(send_key, first)
+            status = "send_failed"
+            try:
+                if not RESEND_API_KEY:
+                    raise RuntimeError("RESEND_API_KEY not set")
+                import resend
+                resend.api_key = RESEND_API_KEY
+                res = resend.Emails.send({
+                    "from": "Joe <home@stridehub.io>",
+                    "to": [email],
+                    "reply_to": "home@stridehub.io",
+                    "subject": subject,
+                    "text": body_text,
+                    "html": body_html,
+                })
+                status = "sent"
+                sent += 1
+                print(f"[DemoLifecycle] SENT {send_key} to {email} "
+                      f"id={res.get('id') if isinstance(res, dict) else res}")
+            except Exception as se:
+                print(f"[DemoLifecycle] send FAILED {send_key} to {email}: {se}")
+            try:
+                _db.collection(EVENTS_COLLECTION).document(claim_id).update({"status": status})
+            except Exception:
+                pass
     print(f"[DemoLifecycle] mode={DEMO_LIFECYCLE_MODE} considered={considered} sent={sent} skipped={skipped}")
 
 

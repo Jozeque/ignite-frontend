@@ -214,6 +214,57 @@ ok("timings are env-configurable in ONE place",
    main.DEMO_NUDGE_ACTIVATE_H > 0 and main.DEMO_ONBOARD_H > 0 and main.DEMO_POST_EXPIRY_H > 0)
 
 
+# ── 4b. THE ONBOARD MAIL (send B) ────────────────────────────────────────────
+ok("onboard fires 75 minutes after activation, measured from activated_at_ms",
+   abs(main.DEMO_ONBOARD_H - 1.25) < 1e-9 and main.DEMO_SENDS["onboard"][1] == "activated_at_ms")
+ok("only the onboard send has copy; the other two still refuse",
+   set(main.DEMO_SEND_COPY) == {"onboard"} and
+   main._demo_send_render("activate_nudge") is None and
+   main._demo_send_render("post_demo") is None)
+
+subj, txt, html = main._demo_send_render("onboard", "")
+ok("subject is exact", subj == "Try this with a synth you already know")
+ok("no name -> 'Hey,' with no stray space", txt.startswith("Hey,\n"))
+s2, t2, h2 = main._demo_send_render("onboard", "Dana Levi")
+ok("first name only, templated into text AND html",
+   t2.startswith("Hey Dana,\n") and "Hey Dana," in h2 and "{name_part}" not in t2 + h2)
+
+# the mail's contract: session guidance and NOTHING else
+for needle in ["don't overthink the first session",
+               "synth you already know well",
+               "change the character of the sound",
+               "Lock what works. Push the rest somewhere else.",
+               "let your taste decide what stays",
+               "I read every one"]:
+    ok("body carries: " + needle[:40], needle in txt and needle in html)
+ok("NO purchase CTA, price, discount or link",
+   all(b not in (txt + html).lower() for b in
+       ["buy", "purchase", "price", "$", "discount", "% off", "stridehub.io", "http://", "https://"]))
+ok("no em dash anywhere in the mail", chr(8212) not in txt and chr(8212) not in html)
+ok("the opt-out line rides along", "Reply STOP to opt out" in txt and "Reply STOP to opt out" in html)
+
+# suppression is the STATE MACHINE: checkout/purchase before send time changes the state,
+# so the pending onboard simply never fires
+mid_pass_checkout = events(reg, act_live, chk)
+ok("checkout during the pass cancels the onboard (state leaves DEMO_ACTIVE)",
+   main.demo_state(mid_pass_checkout, E, NOW)["state"] == "CHECKOUT_STARTED")
+mid_pass_buy = events(reg, act_live, buy)
+ok("purchase during the pass cancels it too",
+   main.demo_state(mid_pass_buy, E, NOW)["state"] == "PURCHASED")
+
+# the loop's own guards, asserted on the real source
+import inspect as _insp
+_dl = _insp.getsource(main.demo_lifecycle)
+ok("only identified activations may be mailed",
+   'if st["identity"] not in ("confirmed", "inferred"):' in _dl)
+ok("dedupe: one claim per send+email, first writer wins",
+   'claim_id = f"demo_mail_sent__{send_key}__{_email_key(email)}"' in _dl and ".create(" in _dl)
+ok("a send failure never releases the claim (once means once)",
+   "send_failed" in _dl and ".delete(" not in _dl)
+ok("suppression check runs before any send", _dl.index("_recovery_is_suppressed") < _dl.index("claim_id"))
+ok("no backfill: the floor sits at the mail's ship date",
+   main.DEMO_LIFECYCLE_FLOOR_MS >= 1787680000000)
+
 # ── 5. the download stays a pure lookup ──────────────────────────────────────
 ok("both platforms are offered", set(main.DEMO_FILES) == {"windows", "mac"})
 ok("the build handed out is pinned and configurable", main.DEMO_BUILD)
