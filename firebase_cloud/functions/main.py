@@ -298,25 +298,45 @@ def _send_welcome_email(email: str, full_name: str) -> bool:
         return False
 
 
-# Demo welcome — sent from order_created on the FIRST demo download. Demos never
-# generate an LS license key, so this is the only place a demo user would hear
-# from us. Branded like the purchase welcome; leads with the walkthrough video
-# and a soft "keep it" nudge. {name_part} -> " First" (or "") if no name.
-WELCOME_DEMO_TEXT = r"""Hey{name_part}, Joe here. Thanks for grabbing Stride.
+# Demo welcome — fired the moment someone registers on /try (and on a legacy LS $0
+# order). Sent at REGISTRATION on purpose, download click or not: this mail is how
+# they come back for the file later, so it must carry the real download links.
+#
+# Rewritten 2026-08-25 with the /try funnel. The old mail claimed the pass was
+# "running now" (false: the clock starts at activation, inside the plugin), quoted
+# "the best sounds" (a register we dropped), and closed on a "Keep Stride" buy
+# button (selling before they have even activated). This one does exactly one job:
+# download -> activate -> a first session good enough to matter. Founder note, not
+# a newsletter: small wordmark, the download buttons, one walkthrough link, no
+# thumbnails, nothing for sale.
+WELCOME_DEMO_TEXT = r"""Hey{name_part},
 
-Your 24-hour Discovery Pass is running now, everything unlocked.
+Joe here. Thanks for trying Stride.
 
-Start with this quick walkthrough, it gets you going in two minutes:
+You've got the full version for 24 hours, everything unlocked.
+
+Your 24 hours haven't started yet.
+They only begin when you activate Stride inside the plugin.
+
+Download Stride:
+Windows: {win_url}
+macOS:   {mac_url}
+
+Then start with this quick walkthrough:
 https://youtu.be/lQ0QUJ1ISjo
 
-Open a synth you know and build an FX chain. Map a handful of parameters. Apply endless curves and variation across all of them at once. Press play.
+For your first session, keep it simple.
 
-The best sounds are rarely planned. They're discovered.
+Open a synth you already know.
+Add a few effects you already use.
+Choose a handful of parameters that really change the sound.
 
-If Stride earns a place in your workflow, keep it anytime:
-https://stridehub.io
+Then start exploring.
 
-Any questions, just reply.
+Every click reveals another direction.
+Follow whatever catches your ear.
+
+Any questions, just reply to this email.
 
 Joe
 """
@@ -327,36 +347,33 @@ WELCOME_DEMO_HTML = r'''<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
-<title>Your 24-hour Discovery Pass is live</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<style type="text/css">@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&display=swap');</style>
+<title>Your Discovery Pass is ready</title>
 </head>
 <body style="margin:0;padding:0;background:#100f0c;">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0;">Your 24-hour Discovery Pass is running. Here's the walkthrough to get started.</div>
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">Your 24 hours have not started yet. They begin when you activate Stride inside the plugin.</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#100f0c;">
 <tr><td align="center" style="padding:30px 14px;">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#171410;border:1px solid rgba(216,201,176,0.11);border-radius:16px;overflow:hidden;font-family:'Outfit','Helvetica Neue',Arial,sans-serif;">
-<tr><td style="padding:26px 34px 22px;border-bottom:1px solid rgba(216,201,176,0.09);">
-  <span style="font-size:18px;font-weight:900;letter-spacing:0.16em;color:#dd9a52;">STRIDE</span>
-  <span style="font-size:9px;font-weight:800;letter-spacing:0.22em;text-transform:uppercase;color:#857c6e;margin-left:12px;padding-left:12px;border-left:1px solid rgba(216,201,176,0.14);">Sound Design Engine</span>
+<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;font-family:'Helvetica Neue',Arial,sans-serif;">
+<tr><td style="padding:0 6px 18px;"><span style="font-size:14px;font-weight:900;letter-spacing:0.16em;color:#dd9a52;">STRIDE</span></td></tr>
+<tr><td style="padding:0 6px 14px;"><h1 style="margin:0;font-size:22px;line-height:1.2;font-weight:800;color:#ece4d6;">Your Discovery Pass is ready.</h1></td></tr>
+<tr><td style="padding:6px 6px 0;"><p style="margin:0;font-size:15px;line-height:1.65;color:#ece4d6;">Hey{name_part},</p></td></tr>
+<tr><td style="padding:12px 6px 0;"><p style="margin:0;font-size:15px;line-height:1.65;color:#b8ad9b;">Joe here. Thanks for trying Stride.</p></td></tr>
+<tr><td style="padding:12px 6px 0;"><p style="margin:0;font-size:15px;line-height:1.65;color:#b8ad9b;">You've got the full version for 24 hours, everything unlocked.</p></td></tr>
+<tr><td style="padding:12px 6px 0;"><p style="margin:0;font-size:15px;line-height:1.65;color:#ece4d6;"><strong>Your 24 hours haven't started yet.</strong><br>They only begin when you activate Stride inside the plugin.</p></td></tr>
+<tr><td style="padding:22px 6px 0;">
+  <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+    <td style="border-radius:11px;background:#c6712b;background:linear-gradient(180deg,#e58a2e,#c6712b);"><a href="{win_url}" target="_blank" style="display:inline-block;padding:12px 22px;font-size:14px;font-weight:900;color:#1c1206;text-decoration:none;">Download for Windows</a></td>
+    <td style="width:10px;"></td>
+    <td style="border-radius:11px;background:#c6712b;background:linear-gradient(180deg,#e58a2e,#c6712b);"><a href="{mac_url}" target="_blank" style="display:inline-block;padding:12px 22px;font-size:14px;font-weight:900;color:#1c1206;text-decoration:none;">Download for macOS</a></td>
+  </tr></table>
 </td></tr>
-<tr><td style="padding:32px 34px 4px;"><h1 style="margin:0;font-size:28px;line-height:1.15;font-weight:800;color:#ece4d6;letter-spacing:-0.01em;">Your 24-hour Discovery Pass is <span style="color:#dd9a52;">live.</span></h1></td></tr>
-<tr><td style="padding:24px 34px 0;"><p style="margin:0;font-size:15px;line-height:1.6;color:#ece4d6;">Hey{name_part}, Joe here. Thanks for grabbing Stride.</p></td></tr>
-<tr><td style="padding:13px 34px 0;"><p style="margin:0;font-size:15px;line-height:1.6;color:#b8ad9b;">Your 24-hour Discovery Pass is running now, everything unlocked.</p></td></tr>
-<tr><td style="padding:24px 34px 0;"><a href="https://youtu.be/lQ0QUJ1ISjo" target="_blank" style="display:block;text-decoration:none;"><img src="https://img.youtube.com/vi/lQ0QUJ1ISjo/maxresdefault.jpg" width="532" alt="Watch the Stride walkthrough" style="display:block;width:100%;max-width:532px;border-radius:12px;border:1px solid rgba(216,201,176,0.14);"></a><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding-top:16px;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:13px;background:#c6712b;background:linear-gradient(180deg,#e58a2e,#c6712b);"><a href="https://youtu.be/lQ0QUJ1ISjo" target="_blank" style="display:inline-block;padding:13px 26px;font-size:14px;font-weight:900;letter-spacing:0.03em;color:#1c1206;text-decoration:none;">&#9654;&nbsp;&nbsp;Watch the 2-minute walkthrough</a></td></tr></table></td></tr></table></td></tr>
-<tr><td style="padding:18px 34px 0;"><p style="margin:0;font-size:15px;line-height:1.6;color:#b8ad9b;">Start with this quick walkthrough. It gets you going in two minutes.</p></td></tr>
-<tr><td style="padding:22px 34px 0;"><p style="margin:0;font-size:15px;line-height:1.6;color:#b8ad9b;">Open a synth you know and build an FX chain.</p></td></tr>
-<tr><td style="padding:22px 34px 0;"><p style="margin:0;font-size:15px;line-height:1.6;color:#b8ad9b;">Map a handful of parameters.</p></td></tr>
-<tr><td style="padding:22px 34px 0;"><p style="margin:0;font-size:15px;line-height:1.6;color:#ece4d6;">Apply endless curves and variation across all of them at once.</p></td></tr>
-<tr><td style="padding:22px 34px 0;"><p style="margin:0;font-size:15px;line-height:1.6;color:#b8ad9b;">Press play.</p></td></tr>
-<tr><td style="padding:16px 34px 0;"><p style="margin:0;font-size:15px;line-height:1.6;color:#b8ad9b;">The best sounds are rarely planned.</p></td></tr>
-<tr><td style="padding:16px 34px 0;"><p style="margin:0;font-size:15px;line-height:1.6;color:#b8ad9b;">They're <span style="color:#dd9a52;">discovered.</span></p></td></tr>
-<tr><td style="padding:22px 34px 0;"><p style="margin:0;font-size:15px;line-height:1.6;color:#ece4d6;">If Stride earns a place in your workflow, keep it anytime.</p></td></tr>
-<tr><td align="center" style="padding:28px 34px 4px;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:13px;background:#c6712b;background:linear-gradient(180deg,#e58a2e,#c6712b);"><a href="https://stridehub.io" target="_blank" style="display:inline-block;padding:14px 30px;font-size:15px;font-weight:900;letter-spacing:0.02em;color:#1c1206;text-decoration:none;">Keep Stride</a></td></tr></table></td></tr>
-<tr><td style="padding:20px 34px 0;"><p style="margin:0;font-size:15px;line-height:1.6;color:#857c6e;">Any questions, just reply to this email.</p></td></tr>
-<tr><td style="padding:18px 34px 34px;"><p style="margin:0;font-size:15px;font-weight:700;color:#ece4d6;">Joe</p></td></tr>
+<tr><td style="padding:18px 6px 0;"><p style="margin:0;font-size:15px;line-height:1.65;color:#b8ad9b;">Then start with this quick walkthrough:<br>&#9654;&nbsp;<a href="https://youtu.be/lQ0QUJ1ISjo" target="_blank" style="color:#dd9a52;text-decoration:none;font-weight:700;">Watch the 2-minute walkthrough</a></p></td></tr>
+<tr><td style="padding:22px 6px 0;"><p style="margin:0;font-size:15px;line-height:1.65;color:#b8ad9b;">For your first session, keep it simple.</p></td></tr>
+<tr><td style="padding:12px 6px 0;"><p style="margin:0;font-size:15px;line-height:1.65;color:#b8ad9b;">Open a synth you already know.<br>Add a few effects you already use.<br>Choose a handful of parameters that really change the sound.</p></td></tr>
+<tr><td style="padding:12px 6px 0;"><p style="margin:0;font-size:15px;line-height:1.65;color:#b8ad9b;">Then start exploring.</p></td></tr>
+<tr><td style="padding:12px 6px 0;"><p style="margin:0;font-size:15px;line-height:1.65;color:#ece4d6;">Every click reveals another direction.<br>Follow whatever catches your ear.</p></td></tr>
+<tr><td style="padding:22px 6px 0;"><p style="margin:0;font-size:15px;line-height:1.65;color:#857c6e;">Any questions, just reply to this email.</p></td></tr>
+<tr><td style="padding:16px 6px 0;"><p style="margin:0;font-size:15px;font-weight:700;color:#ece4d6;">Joe</p></td></tr>
 </table>
 </td></tr></table>
 </body>
@@ -364,13 +381,18 @@ WELCOME_DEMO_HTML = r'''<!doctype html>
 '''
 
 
-def _send_demo_welcome_email(email: str, full_name: str) -> bool:
-    """Welcome for demo downloaders (24-hour Discovery Pass). Same pattern as
-    _send_welcome_email — never raises, skipped if RESEND_API_KEY is unset."""
+def _send_demo_welcome_email(email: str, full_name: str, downloads: dict | None = None) -> bool:
+    """Welcome for demo registrations. Same pattern as _send_welcome_email — never
+    raises, skipped if RESEND_API_KEY is unset. `downloads` = {windows, mac} URLs from
+    the register handler; recomputed here when absent (the legacy LS demo path), and
+    a platform with no build available falls back to /try so no button is ever dead."""
     if not RESEND_API_KEY or not email:
         return False
     first_name = (full_name or "").strip().split(" ")[0] if full_name else ""
     name_part = f" {first_name}" if first_name else ""
+    dl = downloads or {}
+    win_url = dl.get("windows") or _demo_download_url("windows") or "https://stridehub.io/try"
+    mac_url = dl.get("mac") or _demo_download_url("mac") or "https://stridehub.io/try"
     try:
         import resend
         resend.api_key = RESEND_API_KEY
@@ -378,9 +400,11 @@ def _send_demo_welcome_email(email: str, full_name: str) -> bool:
             "from": "Joe <home@stridehub.io>",
             "to": [email],
             "reply_to": "home@stridehub.io",
-            "subject": "Your 24-hour Discovery Pass is live",
-            "html": WELCOME_DEMO_HTML.replace("{name_part}", name_part),
-            "text": WELCOME_DEMO_TEXT.replace("{name_part}", name_part),
+            "subject": "Your Stride Discovery Pass is ready",
+            "html": WELCOME_DEMO_HTML.replace("{name_part}", name_part)
+                                     .replace("{win_url}", win_url).replace("{mac_url}", mac_url),
+            "text": WELCOME_DEMO_TEXT.replace("{name_part}", name_part)
+                                     .replace("{win_url}", win_url).replace("{mac_url}", mac_url),
         })
         print(f"[Demo Welcome] sent to {email} id={result.get('id') if isinstance(result, dict) else result}")
         return True
@@ -1517,9 +1541,11 @@ def _handle_demo_register(data: dict, ip: str = "", ua: str = ""):
         first_time = _log_event("demo_registered", _email_key(email), email, _extra)
 
         # 4. Welcome mail, only on the FIRST registration (the event write is the guard).
+        #    Fires whether or not they click Download on the page: the mail carries the
+        #    download links, so it IS the way back to the file later.
         if first_time:
             try:
-                _send_demo_welcome_email(email, (data.get("name") or "").strip())
+                _send_demo_welcome_email(email, (data.get("name") or "").strip(), downloads)
             except Exception as we:
                 print(f"[Demo] welcome mail failed (non-fatal): {we}")
 
