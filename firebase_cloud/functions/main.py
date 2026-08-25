@@ -1349,6 +1349,34 @@ def _handle_start_pass(data: dict, ip: str = "", ua: str = ""):
             except Exception as _ce:
                 print(f"[Demo] claim burn failed (non-fatal): {_ce}")
 
+        # Discord alert — the moment a 24h clock actually starts. Fresh mints only
+        # (resumes return earlier and are not new activations). Never blocks the pass.
+        if ADMIN_WEBHOOK_URL:
+            try:
+                _inst = (data.get("instance_name") or "").strip()
+                _who = f"`{email}` ({identity})" if email else "*anonymous (no /try match)*"
+                _msg = {
+                    "username": "Stride Engine",
+                    "content": (
+                        "⏱️ **DEMO ACTIVATED** — the 24 hours start now\n"
+                        f"**Who:** {_who}\n"
+                        + (f"**Machine:** `{_inst}`\n" if _inst else "")
+                        + f"**Ends:** <t:{exp // 1000}:R>\n"
+                        f"**Device:** `{device[:12]}…`"
+                    ),
+                }
+                urllib.request.urlopen(
+                    urllib.request.Request(
+                        ADMIN_WEBHOOK_URL,
+                        data=json.dumps(_msg).encode("utf-8"),
+                        headers={"Content-Type": "application/json",
+                                 "User-Agent": "Stride-Backend/1.0"},
+                    ),
+                    timeout=6,
+                )
+            except Exception as _de:
+                print(f"[Pass] discord alert failed (non-fatal): {_de}")
+
         # Best-effort lead capture ONLY if an email came through (NEVER fails the pass; NEVER
         # downgrades a buyer). Normally the demo checkout already captured the email.
         try:
