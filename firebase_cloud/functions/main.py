@@ -1422,10 +1422,20 @@ def _demo_download_url(platform: str) -> str:
         blob.reload()
         meta = blob.metadata or {}
         token = (meta.get("firebaseStorageDownloadTokens") or "").split(",")[0]
+        needs_patch = False
         if not token:
             token = str(uuid.uuid4())
             meta["firebaseStorageDownloadTokens"] = token
             blob.metadata = meta
+            needs_patch = True
+        # The browser names the file after the URL's last segment, which for a tokened
+        # URL is the ENCODED FULL PATH ("downloads%2Fstride%2F..." -> a file called
+        # downloads_stride_...). Content-Disposition overrides that with the real name,
+        # and setting it here means a future build upload can never regress it.
+        if not (blob.content_disposition or "").strip():
+            blob.content_disposition = f'attachment; filename="{fname}"'
+            needs_patch = True
+        if needs_patch:
             blob.patch()
         encoded = urllib.parse.quote(blob_path, safe="")
         url = f"https://firebasestorage.googleapis.com/v0/b/{bucket.name}/o/{encoded}?alt=media&token={token}"
