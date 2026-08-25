@@ -110,8 +110,24 @@ input[type=email]:focus{outline:none;border-color:rgba(198,113,43,.55);
 .steps small{display:block;color:var(--ink3);font-weight:500;font-size:12.5px;margin-top:2px}
 .steps.first li{font-weight:600;color:var(--ink2)}
 .steps.first li::before{color:var(--ink3)}
-/* the closing line: the philosophy in one sentence, not another step */
-.coda{margin:18px 0 2px;text-align:center;color:var(--copper-lt);font-weight:700;font-size:15px}
+/* the done-state intro: the value in two lines, between the clock message and the video */
+.intro{margin:20px auto 0;max-width:540px;font-size:16px;line-height:1.6;color:var(--ink2)}
+
+/* founder video placeholder: prominent, above the downloads, shallow enough that the
+   download buttons stay in easy reach. Swaps for the real 25-45s film with no reflow. */
+.fvideo{margin:30px auto 0;max-width:640px}
+.vph{aspect-ratio:16/7}
+.vph-label{font:700 15px 'Space Mono',ui-monospace,monospace;color:var(--copper-lt);
+  letter-spacing:.06em}
+.vph-sub{margin:10px 0 0;font-size:13px;color:var(--ink3)}
+
+/* three beats of value, small cards, not a features section */
+.valcards{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;
+  margin:30px auto 0;max-width:760px}
+.vcard{flex:1 1 200px;max-width:240px;background:var(--panel);border:1px solid var(--line);
+  border-radius:14px;padding:18px}
+.vcard h3{font-size:14.5px;line-height:1.35;margin:0}
+.vcard p{margin:8px 0 0;font-size:13px;line-height:1.5;color:var(--ink3)}
 .dl{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:24px}
 footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text-align:center}
 @media(max-width:560px){.hero{padding-top:44px}.card{padding:20px}}
@@ -186,6 +202,21 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
       <h1>You're in.</h1>
       <p class="sub"><b>Your 24 hours haven't started yet.</b><br>
          They begin when you start your Discovery Pass inside Stride.</p>
+      <!-- why this is worth the next ten minutes, in two sentences -->
+      <p class="intro">Stride works with the synths and effects you already own.<br>
+         Every click moves your whole chain and reveals another direction.</p>
+    </div>
+
+    <!-- Joe, to camera, before they touch anything: what Stride is and how to approach
+         the first session. 25 to 45 seconds. Click to play, never autoplay. -->
+    <div class="fvideo">
+      <div class="frame vph">
+        <div class="slot">
+          <div class="silk" style="margin-bottom:10px">Before you start</div>
+          <div class="vph-label">[ FOUNDER VIDEO PLACEHOLDER ]</div>
+          <p class="vph-sub">Joe on what Stride is, and how to approach your first session</p>
+        </div>
+      </div>
     </div>
 
     <div class="card">
@@ -199,10 +230,6 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
         <a class="btn-copper" id="dlWin" href="#" rel="nofollow">Download for Windows</a>
         <a class="btn-copper" id="dlMac" href="#" rel="nofollow">Download for macOS</a>
       </div>
-      <p class="fineprint" style="text-align:center">
-        <!-- setup.html is the M4L/desktop guide, wrong product for this download -->
-        Need a hand? <a href="https://www.youtube.com/watch?v=BmdPgmB6208" target="_blank" rel="noopener" style="color:var(--copper-lt)">Watch the walkthrough</a>
-      </p>
       <p class="err" id="err2"></p>
     </div>
 
@@ -212,12 +239,27 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
       <div class="silk" style="margin-bottom:14px">First session</div>
       <ol class="steps first">
         <li>Start with a synth you already know</li>
-        <li>Add a couple of effects</li>
-        <li>Pick a few parameters that really change the character of the sound</li>
-        <li>Start exploring</li>
+        <li>Add a couple of effects you already use</li>
+        <li>Choose a few parameters that really change the sound</li>
+        <li>Start exploring variations</li>
+        <li>Follow whatever catches your ear</li>
       </ol>
-      <p class="coda">Follow whatever catches your ear.</p>
     </div>
+
+    <!-- three beats of value, placeholder cards until they earn imagery -->
+    <div class="valcards">
+      <div class="vcard"><h3>Explore more directions, faster</h3>
+        <p>Hear ideas you would not have drawn by hand.</p></div>
+      <div class="vcard"><h3>Move your whole chain at once</h3>
+        <p>Synths and effects shift together, as one instrument.</p></div>
+      <div class="vcard"><h3>Keep what hits, explore the rest</h3>
+        <p>Lock the lanes you love. Reroll everything else.</p></div>
+    </div>
+
+    <p class="fineprint" style="text-align:center;margin-top:26px">
+      <!-- setup.html is the M4L/desktop guide, wrong product for this download -->
+      Need a hand? <a href="https://www.youtube.com/watch?v=BmdPgmB6208" target="_blank" rel="noopener" style="color:var(--copper-lt)">Watch the walkthrough</a>
+    </p>
 
     <!-- The interactive explainer, embedded from the same single source of truth the
          landing page uses. Click any control to see what it does. -->
@@ -291,6 +333,30 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
 
   function fail(msg) { err.textContent = msg; err.style.display = 'block'; }
 
+  function showDone(dl) {
+    var w = document.getElementById('dlWin'), m = document.getElementById('dlMac');
+    if (dl.windows) { w.href = dl.windows; } else { w.style.display = 'none'; }
+    if (dl.mac)     { m.href = dl.mac; }     else { m.style.display = 'none'; }
+    if (!dl.windows && !dl.mac) {
+      document.getElementById('err2').textContent =
+        'Your download link is being prepared — check your email in a moment.';
+      document.getElementById('err2').style.display = 'block';
+    }
+    document.getElementById('offer').style.display = 'none';
+    document.getElementById('done').style.display = 'block';
+    window.scrollTo(0, 0);
+  }
+
+  // /try?done=1 is the post-signup page: reloading it (or coming back from the welcome
+  // mail's link) restores the download state from the last registration on this browser,
+  // instead of asking for the email again.
+  try {
+    if (new URLSearchParams(location.search).get('done') === '1') {
+      var cached = JSON.parse(localStorage.getItem('stride_try_dl') || 'null');
+      if (cached && (cached.windows || cached.mac)) showDone(cached);
+    }
+  } catch (e0) {}
+
   form.addEventListener('submit', function (e) {
     e.preventDefault();
     var email = (input.value || '').trim().toLowerCase();
@@ -312,18 +378,8 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
     .then(function (r) { return r.json(); })
     .then(function (d) {
       if (!d || d.ok !== true) throw new Error((d && d.message) || 'register failed');
-      var dl = d.downloads || {};
-      var w = document.getElementById('dlWin'), m = document.getElementById('dlMac');
-      if (dl.windows) { w.href = dl.windows; } else { w.style.display = 'none'; }
-      if (dl.mac)     { m.href = dl.mac; }     else { m.style.display = 'none'; }
-      if (!dl.windows && !dl.mac) {
-        document.getElementById('err2').textContent =
-          'Your download link is being prepared — check your email in a moment.';
-        document.getElementById('err2').style.display = 'block';
-      }
-      document.getElementById('offer').style.display = 'none';
-      document.getElementById('done').style.display = 'block';
-      window.scrollTo(0, 0);
+      try { localStorage.setItem('stride_try_dl', JSON.stringify(d.downloads || {})); } catch (e3) {}
+      showDone(d.downloads || {});
       try { history.replaceState(null, '', '/try?done=1'); } catch (e2) {}
     })
     .catch(function () {
