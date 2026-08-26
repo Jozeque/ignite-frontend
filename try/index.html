@@ -191,7 +191,7 @@ input[type=email]:focus{outline:none;border-color:rgba(198,113,43,.55);
 
 /* real sessions: three small proofs in one row, click-to-play in place — inspiration,
    deliberately compact, never a second tutorial block */
-.sessions{margin:44px auto 0;max-width:960px}
+.sessions{margin:44px auto 0;max-width:960px;scroll-margin-top:28px}
 .shead{text-align:center;font-size:14px;letter-spacing:.22em;text-transform:uppercase;
   font-weight:900;color:var(--ink)}
 .ssub{text-align:center;margin:7px 0 16px;font-size:14px;color:var(--ink3)}
@@ -374,7 +374,7 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
     <!-- Real sessions, not more tutorial: three producers going three directions with
          the same tools. Posters only until clicked; play swaps in a nocookie embed in
          place, so nobody leaves the page. -->
-    <div class="sessions">
+    <div class="sessions" id="sessions">
       <div class="shead">See what happens when you start exploring</div>
       <p class="ssub">Real Stride sessions. Different directions. Same tools.</p>
       <div class="srow">
@@ -494,7 +494,13 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
     if (e && e.data && e.data.type === 'hiw-height' && e.data.h) {
       var f = document.getElementById('hiw-vst-frame');
       if (f) f.style.height = e.data.h + 'px';
+      // the explainer sits above the sessions row, so this resize moves the row: a
+      // deep link re-lands on it once, unless the reader has already started scrolling
+      if (deepTarget) { deepTarget.scrollIntoView(); deepTarget = null; }
     }
+  });
+  ['wheel', 'touchstart', 'keydown'].forEach(function (ev) {
+    window.addEventListener(ev, function () { deepTarget = null; }, { passive: true });
   });
 
   // ── register ───────────────────────────────────────────────────────────────
@@ -505,18 +511,24 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
 
   function fail(msg) { err.textContent = msg; err.style.display = 'block'; }
 
-  function showDone(dl) {
+  var deepTarget = null;   // element a /try?done=1#... deep link should land on
+  function showDone(dl, sessionsOnly) {
     var w = document.getElementById('dlWin'), m = document.getElementById('dlMac');
     if (dl.windows) { w.href = dl.windows; } else { w.style.display = 'none'; }
     if (dl.mac)     { m.href = dl.mac; }     else { m.style.display = 'none'; }
-    if (!dl.windows && !dl.mac) {
+    if (!dl.windows && !dl.mac && !sessionsOnly) {
       document.getElementById('err2').textContent =
         'Your download link is being prepared — check your email in a moment.';
       document.getElementById('err2').style.display = 'block';
     }
     document.getElementById('offer').style.display = 'none';
     document.getElementById('done').style.display = 'block';
-    window.scrollTo(0, 0);
+    // A deep link into this page lands on its target instead of the top: the onboard
+    // mail's "See 3 Stride sessions" is /try?done=1#sessions. Kept in deepTarget so the
+    // explainer above the row can finish sizing itself without losing the spot.
+    var el = /^#[\w-]+$/.test(location.hash) ? document.getElementById(location.hash.slice(1)) : null;
+    deepTarget = (el && document.getElementById('done').contains(el)) ? el : null;
+    if (deepTarget) deepTarget.scrollIntoView(); else window.scrollTo(0, 0);
   }
 
   // /try?done=1 is the post-signup page: reloading it (or coming back from the welcome
@@ -526,6 +538,11 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
     if (new URLSearchParams(location.search).get('done') === '1') {
       var cached = JSON.parse(localStorage.getItem('stride_try_dl') || 'null');
       if (cached && (cached.windows || cached.mac)) showDone(cached);
+      // /try?done=1#sessions is the onboard mail's "See 3 Stride sessions" link. Its
+      // reader already has the plugin, so a browser with no cached registration (the
+      // mail opened on a phone) still gets the post-signup page, minus the download
+      // row, instead of the email form with the sessions hidden behind it.
+      else if (location.hash === '#sessions') showDone({}, true);
     }
   } catch (e0) {}
 
