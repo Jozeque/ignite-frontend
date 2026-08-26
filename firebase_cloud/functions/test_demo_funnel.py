@@ -217,10 +217,9 @@ ok("timings are env-configurable in ONE place",
 # ── 4b. THE ONBOARD MAIL (send B) ────────────────────────────────────────────
 ok("onboard fires 75 minutes after activation, measured from activated_at_ms",
    abs(main.DEMO_ONBOARD_H - 1.25) < 1e-9 and main.DEMO_SENDS["onboard"][1] == "activated_at_ms")
-ok("only the onboard send has copy; the other two still refuse",
-   set(main.DEMO_SEND_COPY) == {"onboard"} and
-   main._demo_send_render("activate_nudge") is None and
-   main._demo_send_render("post_demo") is None)
+ok("onboard and post_demo have copy; activate_nudge still refuses",
+   set(main.DEMO_SEND_COPY) == {"onboard", "post_demo"} and
+   main._demo_send_render("activate_nudge") is None)
 
 subj, txt, html = main._demo_send_render("onboard", "")
 ok("subject is exact", subj == "Try this with a synth you already know")
@@ -264,6 +263,57 @@ ok("a send failure never releases the claim (once means once)",
 ok("suppression check runs before any send", _dl.index("_recovery_is_suppressed") < _dl.index("claim_id"))
 ok("no backfill: the floor sits at the mail's ship date",
    main.DEMO_LIFECYCLE_FLOOR_MS >= 1787680000000)
+
+
+# ── 4c. THE POST-DEMO MAIL (send C) ──────────────────────────────────────────
+ok("post_demo fires ~3h after expiry (configurable), measured from expires_at_ms",
+   abs(main.DEMO_POST_EXPIRY_H - 3.0) < 1e-9 and main.DEMO_SENDS["post_demo"][1] == "expires_at_ms")
+ok("post_demo has its OWN no-backfill floor, wired into the send table",
+   main.DEMO_POST_DEMO_FLOOR_MS >= 1787740000000
+   and main.DEMO_SENDS["post_demo"][3] == main.DEMO_POST_DEMO_FLOOR_MS)
+ok("the loop enforces the per-send floor on the qualifying moment",
+   "if since < floor_ms:" in _dl)
+
+_URL = main.LS_BUY_URL + "?checkout[email]=u%40x.com"
+ps, pt, ph = main._demo_send_render("post_demo", "", _URL)
+ok("subject is exact", ps == "Did Stride take you anywhere interesting?")
+ok("no name -> 'Hey,' with no stray space", pt.startswith("Hey,\n"))
+ps2, pt2, ph2 = main._demo_send_render("post_demo", "Dana Levi", _URL)
+ok("first name only, templated into text AND html",
+   pt2.startswith("Hey Dana,\n") and "Hey Dana," in ph2)
+ok("no unresolved placeholders",
+   "{name_part}" not in pt2 + ph2 and "{checkout_url}" not in pt2 + ph2)
+
+for needle in ["Joe here.",
+               "Your 24 hours with Stride just wrapped up, and I wanted to ask how it went.",
+               "Did Stride take you anywhere interesting?",
+               "Did the workflow click, or was there something that got in the way?",
+               "reply to this email. I read every one",
+               "pick it up here"]:
+    ok("body carries: " + needle[:44], needle in pt and needle in ph)
+ok("exactly ONE purchase link: the LS checkout, prefilled",
+   pt.count(main.LS_BUY_URL) == 1 and ph.count(main.LS_BUY_URL) == 1
+   and f'href="{_URL}"' in ph)
+ok("the link is titled GET STRIDE, not a raw URL in the body",
+   "GET STRIDE: " in pt and ">GET STRIDE</a>" in ph)
+ok("recovery-mail register: no images, no buttons, no styled CTA blocks",
+   all(b not in ph.lower() for b in ["<img", "<button", "display:inline-block",
+                                     "border-radius", "background"]))
+ok("no price, no discount", all(b not in (pt + ph).lower()
+   for b in ["$", "price", "discount", "% off"]))
+ok("no em dash anywhere in the mail", chr(8212) not in pt and chr(8212) not in ph)
+ok("the opt-out line rides along",
+   "Reply STOP to opt out" in pt and "Reply STOP to opt out" in ph)
+
+# suppression is the state machine, same as the onboard: by send time (expiry + 3h) a
+# checkout or purchase has already moved the state out of DEMO_EXPIRED, so the send
+# never exists — checkout recovery owns checkout starters, purchase suppresses all
+ok("checkout after expiry cancels the post-demo mail",
+   main.demo_state(events(reg, act, chk), E, NOW)["state"] == "CHECKOUT_STARTED")
+ok("purchase after expiry cancels it outright",
+   main.demo_state(events(reg, act, buy), E, NOW)["state"] == "PURCHASED")
+ok("an expired identified demo with no forward motion IS the audience",
+   main.demo_state(events(reg, act), E, NOW)["state"] == "DEMO_EXPIRED")
 
 # ── 5. the download stays a pure lookup ──────────────────────────────────────
 ok("both platforms are offered", set(main.DEMO_FILES) == {"windows", "mac"})

@@ -4450,6 +4450,10 @@ DEMO_LIFECYCLE_MAX_AGE_H = float(os.environ.get("DEMO_LIFECYCLE_MAX_AGE_H", "336
 # send. Set to the onboard mail's ship date (2026-08-25), so every demo user from before
 # the mail existed simply never hears from it.
 DEMO_LIFECYCLE_FLOOR_MS  = int(os.environ.get("DEMO_LIFECYCLE_FLOOR_MS", "1787680000000"))
+# The post-demo mail shipped a day later than the rest of the machinery, so it carries its
+# own floor (2026-08-26): a pass whose 24 hours ended before this moment is never mailed,
+# even though on deploy day it would otherwise qualify instantly. Only NEW expiries count.
+DEMO_POST_DEMO_FLOOR_MS  = int(os.environ.get("DEMO_POST_DEMO_FLOOR_MS", "1787744000000"))
 
 
 def _demo_events_for(_db, email: str) -> dict:
@@ -4543,10 +4547,10 @@ def demo_expiry_sweep(event: scheduler_fn.ScheduledEvent) -> None:
 # DEMO_LIFECYCLE_MODE defaults to "off" so no new mail can leave until the copy is
 # reviewed and the env var is flipped to "dry" (log only) and then "live".
 DEMO_SENDS = {
-    # key                 state it serves        delay measured from
-    "activate_nudge":   ("DEMO_NOT_ACTIVATED",  "registered_at_ms", DEMO_NUDGE_ACTIVATE_H),
-    "onboard":          ("DEMO_ACTIVE",         "activated_at_ms",  DEMO_ONBOARD_H),
-    "post_demo":        ("DEMO_EXPIRED",        "expires_at_ms",    DEMO_POST_EXPIRY_H),
+    # key                 state it serves        delay measured from  no-backfill floor on that moment
+    "activate_nudge":   ("DEMO_NOT_ACTIVATED",  "registered_at_ms", DEMO_NUDGE_ACTIVATE_H, DEMO_LIFECYCLE_FLOOR_MS),
+    "onboard":          ("DEMO_ACTIVE",         "activated_at_ms",  DEMO_ONBOARD_H,        DEMO_LIFECYCLE_FLOOR_MS),
+    "post_demo":        ("DEMO_EXPIRED",        "expires_at_ms",    DEMO_POST_EXPIRY_H,    DEMO_POST_DEMO_FLOOR_MS),
 }
 
 # ── the ONBOARD mail (send B) — the only send with copy so far ──────────────────────────
@@ -4606,14 +4610,62 @@ DEMO_ONBOARD_HTML = r'''<!doctype html>
 </body></html>
 '''
 
+# ── the POST-DEMO mail (send C) — after the 24 hours ended ──────────────────────────────
+# ~3 hours after an identified pass expires (DEMO_POST_EXPIRY_H): a personal check-in from
+# Joe, in exactly the recovery-mail register — no logo, no banner, no button, no designed
+# template. It asks how the session went, invites a reply, and carries ONE natural inline
+# purchase link (the same LS checkout the site opens, prefilled with the email). People who
+# reached checkout never see it: their state left DEMO_EXPIRED, and checkout recovery owns
+# them. A purchase suppresses it outright.
+DEMO_POST_DEMO_SUBJECT = "Did Stride take you anywhere interesting?"
+
+DEMO_POST_DEMO_TEXT = r"""Hey{name_part},
+
+Joe here.
+
+Your 24 hours with Stride just wrapped up, and I wanted to ask how it went.
+
+Did Stride take you anywhere interesting?
+
+Did the workflow click, or was there something that got in the way?
+
+I'm genuinely curious, so feel free to just reply to this email. I read every one.
+
+And if Stride felt like something you want to keep exploring, you can pick it up here:
+
+GET STRIDE: {checkout_url}
+
+Joe
+Stride
+
+You're receiving this because you tried Stride with a Discovery Pass. Reply STOP to opt out.
+"""
+
+# Minimal HTML twin, the recovery-mail pattern verbatim: its only job over the text part
+# is that the checkout link can carry a name instead of a raw URL.
+DEMO_POST_DEMO_HTML = r'''<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#222222;max-width:560px">
+<p style="margin:0 0 14px">Hey{name_part},</p>
+<p style="margin:0 0 14px">Joe here.</p>
+<p style="margin:0 0 14px">Your 24 hours with Stride just wrapped up, and I wanted to ask how it went.</p>
+<p style="margin:0 0 14px">Did Stride take you anywhere interesting?</p>
+<p style="margin:0 0 14px">Did the workflow click, or was there something that got in the way?</p>
+<p style="margin:0 0 14px">I'm genuinely curious, so feel free to just reply to this email. I read every one.</p>
+<p style="margin:0 0 14px">And if Stride felt like something you want to keep exploring, you can pick it up here:</p>
+<p style="margin:0 0 14px"><a href="{checkout_url}" style="color:#c6712b;font-weight:600">GET STRIDE</a></p>
+<p style="margin:0 0 4px">Joe</p>
+<p style="margin:0 0 22px">Stride</p>
+<p style="margin:0;font-size:12px;line-height:1.5;color:#999999">You're receiving this because you tried Stride with a Discovery Pass. Reply STOP to opt out.</p>
+</div>'''
+
 # send_key -> (subject, text, html). A send with NO entry here refuses loudly in live mode
-# instead of mailing something empty — that is the guard the other two sends still rely on.
+# instead of mailing something empty — that is the guard the unwritten send still relies on.
 DEMO_SEND_COPY = {
-    "onboard": (DEMO_ONBOARD_SUBJECT, DEMO_ONBOARD_TEXT, DEMO_ONBOARD_HTML),
+    "onboard":   (DEMO_ONBOARD_SUBJECT,   DEMO_ONBOARD_TEXT,   DEMO_ONBOARD_HTML),
+    "post_demo": (DEMO_POST_DEMO_SUBJECT, DEMO_POST_DEMO_TEXT, DEMO_POST_DEMO_HTML),
 }
 
 
-def _demo_send_render(send_key: str, first_name: str = ""):
+def _demo_send_render(send_key: str, first_name: str = "", checkout_url: str = ""):
     """(subject, text, html) for a send, personalised. None if the send has no copy —
     pure, so the tests can render exactly what a user would receive."""
     copy = DEMO_SEND_COPY.get(send_key)
@@ -4621,7 +4673,9 @@ def _demo_send_render(send_key: str, first_name: str = ""):
         return None
     name_part = f" {first_name.strip().split(' ')[0]}" if (first_name or "").strip() else ""
     subject, text, html = copy
-    return subject, text.replace("{name_part}", name_part), html.replace("{name_part}", name_part)
+    return (subject,
+            text.replace("{name_part}", name_part).replace("{checkout_url}", checkout_url),
+            html.replace("{name_part}", name_part).replace("{checkout_url}", checkout_url))
 
 
 @scheduler_fn.on_schedule(schedule="every 30 minutes", region="us-central1",
@@ -4676,11 +4730,16 @@ def demo_lifecycle(event: scheduler_fn.ScheduledEvent) -> None:
         if st["identity"] not in ("confirmed", "inferred"):
             skipped += 1
             continue
-        for send_key, (want_state, since_field, delay_h) in DEMO_SENDS.items():
+        for send_key, (want_state, since_field, delay_h, floor_ms) in DEMO_SENDS.items():
             if st["state"] != want_state:
                 continue
             since = int(st.get(since_field) or 0)
             if not since or (now_ms - since) < delay_h * 3600000:
+                continue
+            # No backfill, per send: a qualifying moment (registration, activation,
+            # expiry) that predates the send's own ship date is never mailed.
+            if since < floor_ms:
+                skipped += 1
                 continue
             rendered_probe = _demo_send_render(send_key)
             if DEMO_LIFECYCLE_MODE == "dry":
@@ -4714,7 +4773,10 @@ def demo_lifecycle(event: scheduler_fn.ScheduledEvent) -> None:
                     first = ((hit[0].to_dict() or {}).get("name") or "").strip()
             except Exception:
                 pass
-            subject, body_text, body_html = _demo_send_render(send_key, first)
+            # The purchase entry point is the SAME LS checkout the site opens, prefilled
+            # with the recipient's email — mirroring the recovery mail's link exactly.
+            _url = f"{LS_BUY_URL}?checkout[email]={urllib.parse.quote(email)}"
+            subject, body_text, body_html = _demo_send_render(send_key, first, _url)
             status = "send_failed"
             try:
                 if not RESEND_API_KEY:
