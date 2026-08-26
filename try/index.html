@@ -459,6 +459,41 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
     }
   } catch (e0) {}
 
+  // /try?react=<token> is the reactivation link from the "I reopened Stride for
+  // you" mail. The token identifies the person, so there is no form to fill in:
+  // we validate it, record the claim, and go straight to the download.
+  //
+  // This does NOT start their 24 hours. The clock begins when Stride itself
+  // consumes the claim, which is why the copy on the mail says so.
+  try {
+    var reactToken = new URLSearchParams(location.search).get('react');
+    if (reactToken) {
+      var offerEl = document.getElementById('offer');
+      if (offerEl) offerEl.style.opacity = '.45';
+      fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reactivation_claim', token: reactToken })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (offerEl) offerEl.style.opacity = '';
+        if (!d || d.ok !== true) {
+          fail(d && d.message ? d.message
+               : 'This link is no longer valid. Email home@stridehub.io and I will sort it out.');
+          return;
+        }
+        try { localStorage.setItem('stride_try_dl', JSON.stringify(d.downloads || {})); } catch (e5) {}
+        showDone(d.downloads || {});
+        try { history.replaceState(null, '', '/try?done=1'); } catch (e6) {}
+      })
+      .catch(function () {
+        if (offerEl) offerEl.style.opacity = '';
+        fail('Something went wrong. Email home@stridehub.io and I will send it over.');
+      });
+    }
+  } catch (e7) {}
+
   form.addEventListener('submit', function (e) {
     e.preventDefault();
     var email = (input.value || '').trim().toLowerCase();
