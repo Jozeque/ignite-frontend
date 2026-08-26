@@ -4923,10 +4923,16 @@ DEMO_SENDS = {
 
 # ── the ONBOARD mail (send B) — the only send with copy so far ──────────────────────────
 # 75 minutes into an identified pass: they are (or were just) inside Stride, so the mail is
-# session guidance, nothing else. NO purchase CTA, no price, no discount, no links — a note
-# from Joe, in the exact register of the /try first-session block.
+# session guidance, nothing else. NO purchase CTA, no price, no discount — a note from Joe,
+# in the exact register of the /try first-session block. Its ONE link is the closing P.S.:
+# three real sessions on the post-signup page (never YouTube itself), for inspiration.
 # (A later Starter Sessions version with downloadable templates replaces this; not now.)
 DEMO_ONBOARD_SUBJECT = "Try this with a synth you already know"
+
+# Where "See 3 Stride sessions" goes: /try?done=1 is the post-signup page (it restores the
+# download state on a browser that registered, and shows the page regardless when the hash
+# names the sessions row) and #sessions is the anchor on the three embedded sessions.
+DEMO_SESSIONS_URL = "https://stridehub.io/try?done=1#sessions"
 
 DEMO_ONBOARD_TEXT = r"""Hey{name_part},
 
@@ -4952,6 +4958,10 @@ Joe
 
 P.S. If anything isn't clicking, just reply. I read every one.
 
+P.S. If you want a little inspiration, I picked 3 real Stride sound design sessions that show very different ways of using it.
+
+See 3 Stride sessions → {sessions_url}
+
 You're receiving this because you started a Stride Discovery Pass. Reply STOP to opt out.
 """
 
@@ -4973,6 +4983,8 @@ DEMO_ONBOARD_HTML = r'''<!doctype html>
 <p style="margin:0 0 16px;">Hear more directions, then let your taste decide what stays.</p>
 <p style="margin:0 0 16px;">Joe</p>
 <p style="margin:0 0 16px;">P.S. If anything isn't clicking, just reply. I read every one.</p>
+<p style="margin:0 0 16px;">P.S. If you want a little inspiration, I picked 3 real Stride sound design sessions that show very different ways of using it.</p>
+<p style="margin:0 0 16px;"><a href="{sessions_url}" style="color:#c6712b;font-weight:600">See 3 Stride sessions &rarr;</a></p>
 <p style="margin:24px 0 0;font-size:12px;color:#8a8a8a;">You're receiving this because you started a Stride Discovery Pass. Reply STOP to opt out.</p>
 </div>
 </body></html>
@@ -5044,8 +5056,10 @@ def _demo_send_render(send_key: str, first_name: str = "", checkout_url: str = "
     name_part = f" {first_name.strip().split(' ')[0]}" if (first_name or "").strip() else ""
     subject, text, html = copy
     return (subject,
-            text.replace("{name_part}", name_part).replace("{checkout_url}", checkout_url),
-            html.replace("{name_part}", name_part).replace("{checkout_url}", checkout_url))
+            text.replace("{name_part}", name_part).replace("{checkout_url}", checkout_url)
+                .replace("{sessions_url}", DEMO_SESSIONS_URL),
+            html.replace("{name_part}", name_part).replace("{checkout_url}", checkout_url)
+                .replace("{sessions_url}", DEMO_SESSIONS_URL))
 
 
 @scheduler_fn.on_schedule(schedule="every 30 minutes", region="us-central1",
@@ -5095,13 +5109,19 @@ def demo_lifecycle(event: scheduler_fn.ScheduledEvent) -> None:
         if st["state"] in ("PURCHASED", "CHECKOUT_STARTED", "UNKNOWN", "DEMO_REGISTERED"):
             skipped += 1
             continue
-        # Belt and braces: only identified activations may be mailed. Anonymous ones
-        # carry no email and never reach this loop, but the guard states the rule.
-        if st["identity"] not in ("confirmed", "inferred"):
-            skipped += 1
-            continue
         for send_key, (want_state, since_field, delay_h, floor_ms) in DEMO_SENDS.items():
             if st["state"] != want_state:
+                continue
+            # Only IDENTIFIED activations may take the activation-timed sends: a pass
+            # without a person has nobody to mail. The registration track is different
+            # by construction: its person is known by email and has NO activation to
+            # identify, and demo_state labels them "anonymous" only because no pass was
+            # ever seen. Until 2026-08-26 this guard sat ABOVE the loop and silently
+            # skipped every never-activated person, so start_nudge/post_reg could not
+            # leave for the exact people they exist for. It now applies per send.
+            if (want_state in ("DEMO_ACTIVE", "DEMO_EXPIRED")
+                    and st["identity"] not in ("confirmed", "inferred")):
+                skipped += 1
                 continue
             since = int(st.get(since_field) or 0)
             if not since or (now_ms - since) < delay_h * 3600000:

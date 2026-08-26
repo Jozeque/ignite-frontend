@@ -217,8 +217,8 @@ ok("timings are env-configurable in ONE place",
 # ── 4b. THE ONBOARD MAIL (send B) ────────────────────────────────────────────
 ok("onboard fires 75 minutes after activation, measured from activated_at_ms",
    abs(main.DEMO_ONBOARD_H - 1.25) < 1e-9 and main.DEMO_SENDS["onboard"][1] == "activated_at_ms")
-ok("onboard and post_demo have copy; activate_nudge still refuses",
-   set(main.DEMO_SEND_COPY) == {"onboard", "post_demo"} and
+ok("all four sends have copy; the copyless activate_nudge still refuses",
+   set(main.DEMO_SEND_COPY) == {"onboard", "post_demo", "start_nudge", "post_reg"} and
    main._demo_send_render("activate_nudge") is None)
 
 subj, txt, html = main._demo_send_render("onboard", "")
@@ -236,9 +236,21 @@ for needle in ["don't overthink the first session",
                "let your taste decide what stays",
                "I read every one"]:
     ok("body carries: " + needle[:40], needle in txt and needle in html)
-ok("NO purchase CTA, price, discount or link",
+ok("NO purchase CTA, price or discount",
    all(b not in (txt + html).lower() for b in
-       ["buy", "purchase", "price", "$", "discount", "% off", "stridehub.io", "http://", "https://"]))
+       ["buy", "purchase", "price", "$", "discount", "% off"]))
+# the closing P.S. carries the mail's ONE link: the post-signup page, straight to the
+# three embedded sessions (the #sessions anchor on /try?done=1) - never YouTube itself
+_SESS = main.DEMO_SESSIONS_URL
+ok("second P.S. offers the 3 sessions, in text AND html",
+   "P.S. If you want a little inspiration, I picked 3 real Stride sound design sessions that show very different ways of using it." in txt
+   and "I picked 3 real Stride sound design sessions" in html)
+ok("its CTA is the ONE link, to the sessions row on the post-signup page",
+   _SESS == "https://stridehub.io/try?done=1#sessions"
+   and ("See 3 Stride sessions → " + _SESS) in txt and txt.count("http") == 1
+   and f'<a href="{_SESS}"' in html and "See 3 Stride sessions &rarr;</a>" in html and html.count("http") == 1
+   and "{sessions_url}" not in txt + html)
+ok("never a direct YouTube link", "youtu" not in (txt + html).lower())
 ok("no em dash anywhere in the mail", chr(8212) not in txt and chr(8212) not in html)
 ok("the opt-out line rides along", "Reply STOP to opt out" in txt and "Reply STOP to opt out" in html)
 
@@ -254,8 +266,11 @@ ok("purchase during the pass cancels it too",
 # the loop's own guards, asserted on the real source
 import inspect as _insp
 _dl = _insp.getsource(main.demo_lifecycle)
-ok("only identified activations may be mailed",
-   'if st["identity"] not in ("confirmed", "inferred"):' in _dl)
+ok("only identified activations may take the activation-timed sends",
+   'and st["identity"] not in ("confirmed", "inferred")' in _dl
+   and 'want_state in ("DEMO_ACTIVE", "DEMO_EXPIRED")' in _dl)
+ok("the identity guard sits INSIDE the send loop, after the state match, never above it",
+   _dl.index("for send_key, (want_state") < _dl.index('st["identity"] not in ("confirmed", "inferred")'))
 ok("dedupe: one claim per send+email, first writer wins",
    'claim_id = f"demo_mail_sent__{send_key}__{_email_key(email)}"' in _dl and ".create(" in _dl)
 ok("a send failure never releases the claim (once means once)",
@@ -263,6 +278,83 @@ ok("a send failure never releases the claim (once means once)",
 ok("suppression check runs before any send", _dl.index("_recovery_is_suppressed") < _dl.index("claim_id"))
 ok("no backfill: the floor sits at the mail's ship date",
    main.DEMO_LIFECYCLE_FLOOR_MS >= 1787680000000)
+
+
+# ── 4b2. THE REGISTRATION TRACK ACTUALLY FIRES (regression, 2026-08-26) ──────
+# A person who registered and was never seen activating is "anonymous" to
+# demo_state. The identity guard used to run BEFORE the send table was consulted,
+# so start_nudge/post_reg could never leave for anyone. This runs the REAL loop,
+# dry, against a filtering in-memory db, and demands the send.
+import io as _io, contextlib as _ctx
+
+class _RtSnap:
+    def __init__(self, id, d): self.id, self._d = id, d
+    @property
+    def exists(self): return self._d is not None
+    def to_dict(self): return dict(self._d) if self._d is not None else None
+
+class _RtQ:
+    def __init__(self, rows): self.rows = rows
+    def where(self, f, op, v):
+        keep = {"==": lambda a: a == v, ">=": lambda a: a is not None and a >= v,
+                "<=": lambda a: a is not None and a <= v}[op]
+        return _RtQ([(i, r) for i, r in self.rows if keep(r.get(f))])
+    def limit(self, n): return _RtQ(self.rows[:n])
+    def stream(self): return iter(_RtSnap(i, r) for i, r in self.rows)
+
+class _RtCol(_RtQ):
+    def __init__(self, rows, docs): super().__init__(rows); self.docs = docs
+    def document(self, id):
+        d = self.docs.get(id)
+        class _Ref:
+            def get(_): return _RtSnap(id, d)
+            def create(_, *a, **k): raise AssertionError("dry run must never claim")
+            update = set = create
+        return _Ref()
+
+class _RtDb:
+    def __init__(self, c): self.c = c
+    def collection(self, n):
+        rows, docs = self.c.get(n, ([], {}))
+        return _RtCol(rows, docs)
+
+def _run_loop_dry(rows, at_ms):
+    db = _RtDb({main.EVENTS_COLLECTION: (rows, {}),
+                "config": ([], {"email_suppression": {"emails": []}}),
+                "waitlist": ([], {})})
+    saved = (main.DEMO_LIFECYCLE_MODE, main.admin_firestore, time.time)
+    main.DEMO_LIFECYCLE_MODE = "dry"
+    main.admin_firestore = types.SimpleNamespace(client=lambda: db, SERVER_TIMESTAMP=None)
+    time.time = lambda: at_ms / 1000.0
+    buf = _io.StringIO()
+    try:
+        with _ctx.redirect_stdout(buf):
+            main.demo_lifecycle(None)
+    finally:
+        main.DEMO_LIFECYCLE_MODE, main.admin_firestore, time.time = saved
+    return buf.getvalue()
+
+_REG = main.DEMO_LIFECYCLE_FLOOR_MS + 1 * H                 # inside the no-backfill window
+_never = [("r1", {"type": "demo_registered", "email": "never@x.com", "ts_ms": _REG})]
+_out = _run_loop_dry(_never, _REG + 30 * H)
+ok("never-activated person, 30h after registering -> start_nudge leaves (real loop, dry)",
+   "[DRY] start_nudge -> never@x.com" in _out, _out.strip()[-160:])
+ok("...and post_reg not yet (72h)", "[DRY] post_reg" not in _out)
+_out2 = _run_loop_dry(_never, _REG + 80 * H)
+ok("same person at 80h -> post_reg leaves", "[DRY] post_reg -> never@x.com" in _out2, _out2.strip()[-160:])
+_out3 = _run_loop_dry(_never, _REG + 10 * H)
+ok("same person at 10h -> nothing (state still DEMO_REGISTERED)", "[DRY]" not in _out3)
+_anon_pass = [("r2", {"type": "demo_registered", "email": "pass@x.com", "ts_ms": _REG}),
+              ("a2", {"type": "demo_activated", "email": "pass@x.com", "ts_ms": _REG + 2 * H,
+                      "started_at_ms": _REG + 2 * H, "exp_ms": _REG + 26 * H, "identity": "anonymous"})]
+_out4 = _run_loop_dry(_anon_pass, _REG + 4 * H)
+ok("a pass that is NOT identified still gets no onboard (guard kept for the activation track)",
+   "[DRY]" not in _out4, _out4.strip()[-160:])
+_ok_pass = [(i, dict(r, identity="inferred") if r["type"] == "demo_activated" else r) for i, r in _anon_pass]
+_out5 = _run_loop_dry(_ok_pass, _REG + 4 * H)
+ok("an identified pass 2h in -> onboard leaves", "[DRY] onboard -> pass@x.com" in _out5, _out5.strip()[-160:])
+ok("the two tracks never overlap: the activated person gets no start_nudge at 30h",
+   "[DRY] start_nudge" not in _run_loop_dry(_ok_pass, _REG + 30 * H))
 
 
 # ── 4c. THE POST-DEMO MAIL (send C) ──────────────────────────────────────────
