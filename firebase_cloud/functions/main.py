@@ -4826,11 +4826,99 @@ def demo_expiry_sweep(event: scheduler_fn.ScheduledEvent) -> None:
 # The demo lifecycle sends. Built, wired and idempotent — and DELIBERATELY OFF:
 # DEMO_LIFECYCLE_MODE defaults to "off" so no new mail can leave until the copy is
 # reviewed and the env var is flipped to "dry" (log only) and then "live".
+# ── REGISTRATION-ANCHORED SENDS (2026-08-26) ────────────────────────────────
+# The onboard and post_demo mails both key off a DETECTED activation. Activation
+# is device-bound and only becomes a person through an IP match, which cannot
+# work at all when someone registers on a phone from a Reels ad and then installs
+# on a desktop. That is the normal path for the demo-acquisition campaign, not an
+# edge case, so for most of that traffic BOTH mails would silently never send.
+#
+# These two are anchored on REGISTRATION, which always carries the email, and
+# they only fire for people whose activation we never saw (state
+# DEMO_NOT_ACTIVATED). Anyone we DID see activate stays on the exact-timing
+# onboard/post_demo track, so nobody gets both.
+#
+# THE COPY CONSTRAINT: because we do not know whether they activated, every
+# sentence has to be true in all three cases — never installed, mid-trial, and
+# already finished. No "you never activated it", no "your trial has ended".
+DEMO_START_NUDGE_H = float(os.environ.get("DEMO_START_NUDGE_H", "26"))
+DEMO_POST_REG_H    = float(os.environ.get("DEMO_POST_REG_H", "72"))
+
+DEMO_START_NUDGE_SUBJECT = "Did you get a chance to open Stride?"
+
+DEMO_START_NUDGE_TEXT = r"""Hey{name_part},
+
+Joe here.
+
+You picked up Stride about a day ago, so I wanted to check in.
+
+If you haven't had a chance to open it yet, nothing has been used up. The 24 hours only start when you activate it inside your DAW.
+
+And if you're already in there, the fastest way to hear what it does: open a synth you know well, add a couple of effects you normally use with it, then pick a handful of parameters that really change the character of the sound. Let it explore across all of them at once. Keep what catches your ear, push the rest somewhere else.
+
+If something isn't clicking, just reply. I read every one.
+
+Joe
+
+You're receiving this because you downloaded Stride. Reply STOP to opt out.
+"""
+
+DEMO_START_NUDGE_HTML = r'''<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#222222;max-width:560px">
+<p>Hey{name_part},</p>
+<p>Joe here.</p>
+<p>You picked up Stride about a day ago, so I wanted to check in.</p>
+<p>If you haven't had a chance to open it yet, nothing has been used up. The 24 hours only start when you activate it inside your DAW.</p>
+<p>And if you're already in there, the fastest way to hear what it does: open a synth you know well, add a couple of effects you normally use with it, then pick a handful of parameters that really change the character of the sound. Let it explore across all of them at once. Keep what catches your ear, push the rest somewhere else.</p>
+<p>If something isn't clicking, just reply. I read every one.</p>
+<p>Joe</p>
+<p style="color:#888888;font-size:12px">You're receiving this because you downloaded Stride. Reply STOP to opt out.</p>
+</div>'''
+
+DEMO_POST_REG_SUBJECT = "How did Stride go?"
+
+DEMO_POST_REG_TEXT = r"""Hey{name_part},
+
+Joe here.
+
+It's been a few days since you picked up Stride, so I wanted to ask how it went.
+
+Did it take you anywhere interesting? Did the workflow click, or was there something that got in the way?
+
+I'm genuinely curious, so feel free to just reply. I read every one.
+
+And if you want to keep going with it:
+
+GET STRIDE: {checkout_url}
+
+Joe
+Stride
+
+You're receiving this because you downloaded Stride. Reply STOP to opt out.
+"""
+
+DEMO_POST_REG_HTML = r'''<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#222222;max-width:560px">
+<p>Hey{name_part},</p>
+<p>Joe here.</p>
+<p>It's been a few days since you picked up Stride, so I wanted to ask how it went.</p>
+<p>Did it take you anywhere interesting? Did the workflow click, or was there something that got in the way?</p>
+<p>I'm genuinely curious, so feel free to just reply. I read every one.</p>
+<p>And if you want to keep going with it, you can <a href="{checkout_url}">pick up Stride here</a>.</p>
+<p>Joe<br>Stride</p>
+<p style="color:#888888;font-size:12px">You're receiving this because you downloaded Stride. Reply STOP to opt out.</p>
+</div>'''
+
+
 DEMO_SENDS = {
     # key                 state it serves        delay measured from  no-backfill floor on that moment
-    "activate_nudge":   ("DEMO_NOT_ACTIVATED",  "registered_at_ms", DEMO_NUDGE_ACTIVATE_H, DEMO_LIFECYCLE_FLOOR_MS),
+    # Exact-timing track, for the minority whose activation we actually saw.
     "onboard":          ("DEMO_ACTIVE",         "activated_at_ms",  DEMO_ONBOARD_H,        DEMO_LIFECYCLE_FLOOR_MS),
     "post_demo":        ("DEMO_EXPIRED",        "expires_at_ms",    DEMO_POST_EXPIRY_H,    DEMO_POST_DEMO_FLOOR_MS),
+    # Registration-anchored track, for everyone whose activation we could not
+    # see. Mutually exclusive with the two above by state, so nobody gets both.
+    # Replaces the old activate_nudge, which had no copy and therefore claimed a
+    # slot and then sent nothing, permanently blocking that person.
+    "start_nudge":      ("DEMO_NOT_ACTIVATED",  "registered_at_ms", DEMO_START_NUDGE_H,    DEMO_LIFECYCLE_FLOOR_MS),
+    "post_reg":         ("DEMO_NOT_ACTIVATED",  "registered_at_ms", DEMO_POST_REG_H,       DEMO_LIFECYCLE_FLOOR_MS),
 }
 
 # ── the ONBOARD mail (send B) — the only send with copy so far ──────────────────────────
@@ -4940,8 +5028,10 @@ DEMO_POST_DEMO_HTML = r'''<div style="font-family:-apple-system,BlinkMacSystemFo
 # send_key -> (subject, text, html). A send with NO entry here refuses loudly in live mode
 # instead of mailing something empty — that is the guard the unwritten send still relies on.
 DEMO_SEND_COPY = {
-    "onboard":   (DEMO_ONBOARD_SUBJECT,   DEMO_ONBOARD_TEXT,   DEMO_ONBOARD_HTML),
-    "post_demo": (DEMO_POST_DEMO_SUBJECT, DEMO_POST_DEMO_TEXT, DEMO_POST_DEMO_HTML),
+    "onboard":     (DEMO_ONBOARD_SUBJECT,     DEMO_ONBOARD_TEXT,     DEMO_ONBOARD_HTML),
+    "post_demo":   (DEMO_POST_DEMO_SUBJECT,   DEMO_POST_DEMO_TEXT,   DEMO_POST_DEMO_HTML),
+    "start_nudge": (DEMO_START_NUDGE_SUBJECT, DEMO_START_NUDGE_TEXT, DEMO_START_NUDGE_HTML),
+    "post_reg":    (DEMO_POST_REG_SUBJECT,    DEMO_POST_REG_TEXT,    DEMO_POST_REG_HTML),
 }
 
 
@@ -5029,6 +5119,19 @@ def demo_lifecycle(event: scheduler_fn.ScheduledEvent) -> None:
             # One send of each kind per person, EVER: the claim id is send+email, and
             # create() means the first writer wins. A lost race, a scheduler overlap or
             # a retry all land here as AlreadyExists and walk away.
+            # A send with no copy refuses loudly instead of mailing something empty.
+            # This check comes BEFORE the claim on purpose: claiming first would
+            # burn the one-per-person slot and then send nothing, permanently
+            # blocking that person from ever receiving this mail once the copy
+            # was written. That is what the old activate_nudge would have done.
+            if not rendered_probe:
+                print(f"[DemoLifecycle] {send_key} for {email}: NO COPY DEFINED - "
+                      f"nothing sent, slot NOT claimed")
+                skipped += 1
+                continue
+            # One send of each kind per person, EVER: the claim id is send+email, and
+            # create() means the first writer wins. A lost race, a scheduler overlap or
+            # a retry all land here as AlreadyExists and walk away.
             claim_id = f"demo_mail_sent__{send_key}__{_email_key(email)}"
             try:
                 _db.collection(EVENTS_COLLECTION).document(claim_id).create({
@@ -5039,11 +5142,6 @@ def demo_lifecycle(event: scheduler_fn.ScheduledEvent) -> None:
                 })
             except Exception:
                 skipped += 1
-                continue
-            # A send with no copy refuses loudly instead of mailing something empty —
-            # the guard the two unwritten sends still rely on.
-            if not rendered_probe:
-                print(f"[DemoLifecycle] {send_key} for {email}: claimed, NO COPY DEFINED - nothing sent")
                 continue
             # First name, when we have one (LS demos carry it; /try does not ask).
             first = ""
