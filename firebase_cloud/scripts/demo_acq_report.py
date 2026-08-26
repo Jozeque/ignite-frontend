@@ -3,6 +3,23 @@
 Measures the COLD | DEMO ACQUISITION | SALES campaign as a COHORT OF PEOPLE,
 not as a row of Meta-reported conversions.
 
+WHAT COUNTS AS SUCCESS (the ranking is deliberate, do not re-order it)
+    PRIMARY, and the only two numbers that judge this campaign:
+        Demo -> Purchase
+        Cost per Demo-Acquired Customer
+    DIAGNOSTIC, useful for explaining a result, never a target:
+        activation rate, cost per activation, cost per registration,
+        activated -> checkout, activated -> purchase
+
+    Activation and checkout rates are on the path, not the point. A cheap
+    registration that never activates is not an acquisition, and a high
+    activation rate among people who were never going to pay is not a win
+    either. Optimising toward either one buys volume at the top of the funnel
+    and quietly costs customers at the bottom. The ad set matches this: it
+    optimises for PURCHASE, not for Leads or demo downloads, which is why it
+    will learn slowly and must not be re-pointed at a cheaper event to make
+    the early numbers look better.
+
 THE RULE THIS SCRIPT ENFORCES
     Meta is the source of truth for SPEND and nothing else.
     Our append-only `events` collection is the source of truth for every
@@ -324,22 +341,19 @@ def main():
     print(f"   reached checkout               {chk:>12,}")
     print(f"   purchased                      {pur:>12,}")
 
-    print("\n PRIMARY KPIs")
-    print(f"   cost per demo registration     {money(s, reg):>18}"
-          f"        = {s:,.2f} / {reg}")
-    print(f"   cost per ACTIVATED demo        {money(s, act):>18}"
-          f"        = {s:,.2f} / {act}")
-    print(f"   activation rate                {pct(act, reg):>18}"
-          f"        activated / registered")
-    print(f"   activated -> checkout          {pct(act_and_chk, act):>18}")
-    print(f"   activated -> purchase          {pct(act_and_pur, act):>18}")
-    print(f"   registered -> purchase         {pct(pur, reg):>18}")
-
-    print("\n THE HEADLINE NUMBER")
-    print(f"   demo-acquired customers        {pur:>12,}"
-          f"        first funnel entry = this campaign")
+    # ── PRIMARY ──────────────────────────────────────────────────────────────
+    # Only two metrics decide whether this campaign works: how many demo users
+    # it turns into buyers, and what each of those buyers cost. Everything in
+    # the DIAGNOSTIC block below explains a result; none of it IS the result.
+    print("\n" + "=" * W)
+    print(" PRIMARY  ·  judge the campaign on these two, and nothing else")
+    print("=" * W)
+    print(f"   DEMO -> PURCHASE               {pct(pur, reg):>18}"
+          f"        buyers / registrations")
     print(f"   COST PER DEMO-ACQUIRED CUSTOMER  {money(s, pur):>16}"
           f"      = {s:,.2f} / {pur}")
+    print(f"\n   demo-acquired customers        {pur:>12,}"
+          f"        first funnel entry = this campaign")
     print(f"   revenue from those customers   USD {revenue_usd:>10,.2f}"
           f"   (ILS {revenue_ils:,.2f})")
     if s > 0:
@@ -347,7 +361,23 @@ def main():
               f"       ILS revenue / ILS spend, break-even 1.00")
     else:
         print(f"   ROAS (cohort)                          n/a       no spend yet")
+
+    # ── DIAGNOSTIC ───────────────────────────────────────────────────────────
+    print("\n" + "-" * W)
+    print(" DIAGNOSTIC  ·  explains the two numbers above. NOT optimization targets.")
+    print("-" * W)
+    print(f"   cost per demo registration     {money(s, reg):>18}"
+          f"        = {s:,.2f} / {reg}")
+    print(f"   activation rate                {pct(act, reg):>18}"
+          f"        activated / registered")
+    print(f"   cost per ACTIVATED demo        {money(s, act):>18}"
+          f"        = {s:,.2f} / {act}")
+    print(f"   activated -> checkout          {pct(act_and_chk, act):>18}")
+    print(f"   activated -> purchase          {pct(act_and_pur, act):>18}")
     print(f"   revenue per registration       USD {revenue_usd / reg if reg else 0:>10,.2f}")
+    print("   Chasing any of these on its own buys the wrong thing. Cheap")
+    print("   registrations that never buy, or a high activation rate on people")
+    print("   who never had budget, both read as success here and are not.")
 
     # ── timing ───────────────────────────────────────────────────────────────
     r2a, a2c, a2p = [], [], []
@@ -382,11 +412,23 @@ def main():
                 ad_spend[row.get("ad_name", "")] = float(row.get("spend") or 0)
         except SystemExit:
             pass
-        print(f"   {'ad':<34}{'ILS':>9}{'reg':>6}{'act':>6}{'buy':>6}{'ILS/buy':>10}")
-        for k, v in sorted(per.items(), key=lambda x: -x[1]["reg"]):
+        # Ranked by BUYERS, then by cost per buyer. Deliberately not by
+        # registration volume: the ad that brings the most demos is routinely
+        # not the ad that brings the most customers, and sorting by reg would
+        # put the loudest creative on top regardless of whether it sells.
+        print(f"   {'ad':<30}{'ILS':>8}{'reg':>5}{'act':>5}{'buy':>5}"
+              f"{'demo->buy':>11}{'ILS/buy':>10}")
+        ranked = sorted(per.items(),
+                        key=lambda x: (-x[1]["pur"],
+                                       (ad_spend.get(x[0], 0.0) / x[1]["pur"]) if x[1]["pur"] else 1e9,
+                                       -x[1]["reg"]))
+        for k, v in ranked:
             sp = ad_spend.get(k, 0.0)
             cpb = f"{sp / v['pur']:,.0f}" if v["pur"] else "-"
-            print(f"   {k[:32]:<34}{sp:>9,.0f}{v['reg']:>6}{v['act']:>6}{v['pur']:>6}{cpb:>10}")
+            d2b = f"{v['pur'] / v['reg'] * 100:.1f}%" if v["reg"] else "-"
+            print(f"   {k[:28]:<30}{sp:>8,.0f}{v['reg']:>5}{v['act']:>5}{v['pur']:>5}"
+                  f"{d2b:>11}{cpb:>10}")
+        print("   Ranked by buyers, then cost per buyer. reg/act are context only.")
 
     # ── integrity ────────────────────────────────────────────────────────────
     print("\n DATA INTEGRITY (read this before trusting the rates above)")
