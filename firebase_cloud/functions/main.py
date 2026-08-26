@@ -1341,7 +1341,11 @@ def _handle_start_pass(data: dict, ip: str = "", ua: str = ""):
 
         # META CAPI: DemoActivated. Server-only by necessity — this happens in the
         # plugin, so there is no browser to fire a pixel and nothing to dedupe
-        # against; action_source is 'app', not 'website'.
+        # against. action_source is 'other', NOT 'app': our dataset is a web pixel,
+        # and Meta 400-rejects app-sourced events there unless app_data/SDK linkage
+        # is wired (field find 2026-08-26 — every activation logged HTTP 400).
+        # 'other' is the honest fit that web datasets accept: not a browser event,
+        # no extra requirements.
         #
         # Match keys are thin on purpose. The device hash goes as external_id (it
         # is stable and already anonymous), plus IP and user-agent, plus the email
@@ -1360,7 +1364,7 @@ def _handle_start_pass(data: dict, ip: str = "", ua: str = ""):
                 custom_data={"value": 0.0, "currency": "USD",
                              "content_name": "Stride Discovery Pass",
                              "content_type": "product"},
-                action_source="app",
+                action_source="other",
             )
         except Exception as _me:
             print(f"[Pass] CAPI DemoActivated failed (non-fatal): {_me}")
