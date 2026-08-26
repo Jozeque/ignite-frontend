@@ -11,6 +11,80 @@
 <meta property="og:description" content="Full version. Everything unlocked. Your 24 hours only start when you activate Stride.">
 <meta property="og:url" content="https://stridehub.io/try">
 <meta property="og:type" content="website">
+
+<!-- Meta Pixel. Added 2026-08-25 for the demo-acquisition campaign, which sends
+     cold paid traffic STRAIGHT here rather than through the landing page.
+     Before this, /try had no pixel at all, and that broke three things at once:
+       1. no PageView, so Meta could build no audience from this traffic;
+       2. no _fbp, because the pixel is what sets it;
+       3. no _fbc, because that is derived from fbclid by the capture block below.
+     The form already read those two cookies and sent them onward, so it looked
+     wired up, but for anyone landing directly they were simply always empty and
+     every downstream CAPI event went out with weak match keys. Same init and
+     same external_id cookie as the landing page, so a visitor who touches both
+     pages is one identity, not two. -->
+<script>
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+// Same first-party visitor id the landing page uses, same cookie name and
+// lifetime, so the two pages share one external_id instead of minting a second.
+var _strideXid = (function () {
+    try {
+        var m = document.cookie.match(/(?:^|; )stride_xid=([^;]*)/);
+        if (m) return decodeURIComponent(m[1]);
+        var id = (self.crypto && crypto.randomUUID) ? crypto.randomUUID()
+            : (Date.now().toString(36) + Math.random().toString(36).slice(2, 12));
+        document.cookie = 'stride_xid=' + encodeURIComponent(id) +
+            '; max-age=' + (180 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+        return id;
+    } catch (e) { return ''; }
+})();
+fbq('init', '952457524222772', _strideXid ? { external_id: _strideXid } : {});
+fbq('track', 'PageView');
+
+// fbclid -> _fbc, identical to the landing page. THIS is the line that was
+// missing: without _fbc the server cannot tie a demo back to the ad click.
+(function captureFbclid() {
+    try {
+        var params = new URLSearchParams(window.location.search);
+        var fbclid = params.get('fbclid');
+        if (!fbclid) return;
+        var fbc = 'fb.1.' + Date.now() + '.' + fbclid;
+        document.cookie = '_fbc=' + encodeURIComponent(fbc) +
+            '; max-age=' + (90 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+        try { sessionStorage.setItem('stride_fbc', fbc); } catch (e) {}
+        try { localStorage.setItem('stride_fbclid', fbclid); } catch (e) {}
+        try {
+            document.cookie = 'stride_fbclid=' + encodeURIComponent(fbclid) +
+                '; max-age=' + (180 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+        } catch (e) {}
+    } catch (e) {}
+})();
+
+// Persist Meta's dynamic ad params so they survive a reload or a bounce out to
+// the walkthrough video and back. ad_id is the only deterministic paid-click
+// marker in the stack; fbclid is not, because Instagram appends it to organic
+// links too. Stored under the same stride_* keys attribution() already reads.
+(function captureAdClick() {
+    try {
+        var params = new URLSearchParams(window.location.search);
+        ['ad_id', 'adset_id', 'campaign_id', 'utm_source', 'utm_campaign', 'utm_content']
+            .forEach(function (k) {
+                var v = (params.get(k) || '').trim();
+                if (v) { try { localStorage.setItem('stride_' + k, v); } catch (e) {} }
+            });
+    } catch (e) {}
+})();
+</script>
+<noscript><img height="1" width="1" style="display:none"
+  src="https://www.facebook.com/tr?id=952457524222772&ev=PageView&noscript=1"></noscript>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -454,6 +528,41 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
     }
   } catch (e0) {}
 
+  // /try?react=<token> is the reactivation link from the "I reopened Stride for
+  // you" mail. The token identifies the person, so there is no form to fill in:
+  // we validate it, record the claim, and go straight to the download.
+  //
+  // This does NOT start their 24 hours. The clock begins when Stride itself
+  // consumes the claim, which is why the copy on the mail says so.
+  try {
+    var reactToken = new URLSearchParams(location.search).get('react');
+    if (reactToken) {
+      var offerEl = document.getElementById('offer');
+      if (offerEl) offerEl.style.opacity = '.45';
+      fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reactivation_claim', token: reactToken })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (offerEl) offerEl.style.opacity = '';
+        if (!d || d.ok !== true) {
+          fail(d && d.message ? d.message
+               : 'This link is no longer valid. Email home@stridehub.io and I will sort it out.');
+          return;
+        }
+        try { localStorage.setItem('stride_try_dl', JSON.stringify(d.downloads || {})); } catch (e5) {}
+        showDone(d.downloads || {});
+        try { history.replaceState(null, '', '/try?done=1'); } catch (e6) {}
+      })
+      .catch(function () {
+        if (offerEl) offerEl.style.opacity = '';
+        fail('Something went wrong. Email home@stridehub.io and I will send it over.');
+      });
+    }
+  } catch (e7) {}
+
   form.addEventListener('submit', function (e) {
     e.preventDefault();
     var email = (input.value || '').trim().toLowerCase();
@@ -463,9 +572,18 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
     }
     go.disabled = true; go.textContent = 'One moment…';
 
+    // One id shared by the browser event and the server's CAPI event. Meta
+    // deduplicates on event_name + event_id, so the pair collapses to a single
+    // event, and if an ad blocker kills the browser half the server half still
+    // lands. Generated here, sent with the POST, reused below.
+    var eid = (self.crypto && crypto.randomUUID) ? crypto.randomUUID()
+        : (Date.now().toString(36) + Math.random().toString(36).slice(2, 12));
+
     var body = attribution();
     body.action = 'demo_register';
     body.email = email;
+    body.event_id = eid;
+    if (typeof _strideXid === 'string' && _strideXid) body.external_id = _strideXid;
 
     fetch(API, {
       method: 'POST',
@@ -476,6 +594,30 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
     .then(function (d) {
       if (!d || d.ok !== true) throw new Error((d && d.message) || 'register failed');
       try { localStorage.setItem('stride_try_dl', JSON.stringify(d.downloads || {})); } catch (e3) {}
+
+      // Fire the browser half ONLY when the backend says this was a first-time
+      // registration. It fires the server half under the same condition, so the
+      // two counts stay equal and a returning visitor re-downloading the build
+      // never inflates the funnel. Two event names on purpose:
+      //   Lead            standard event. The live "DEMO USERS 60D" audience is
+      //                   built on Lead and is used as an EXCLUSION on
+      //                   prospecting ad sets, so this keeps us from paying to
+      //                   re-advertise to people who already took the demo.
+      //   DemoRegistered  custom event, for reporting and custom conversions
+      //                   without overloading what Lead means elsewhere.
+      if (d.first_time === true) {
+        try {
+          if (window.fbq) {
+            fbq('track', 'Lead', {
+              value: 0.00, currency: 'USD', content_name: 'Stride Free Demo'
+            }, { eventID: eid });
+            fbq('trackCustom', 'DemoRegistered', {
+              value: 0.00, currency: 'USD', content_name: 'Stride Free Demo'
+            }, { eventID: eid });
+          }
+        } catch (e4) {}
+      }
+
       showDone(d.downloads || {});
       try { history.replaceState(null, '', '/try?done=1'); } catch (e2) {}
     })
