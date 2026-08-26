@@ -132,6 +132,35 @@ def first_of(events, *types):
     return None
 
 
+def build_cohort(by_email, campaign_id):
+    """THE cohort definition, shared by this report and the live tracker so the
+    KPI can never mean two different things in two places. A person is in the
+    cohort iff their FIRST entry event carries this campaign_id; everything they
+    do afterwards is attributed to it and never reassigned."""
+    cohort = {}
+    for em, evs in by_email.items():
+        entry = first_of(evs, *ENTRY_TYPES)
+        if not entry:
+            continue
+        if str(entry.get("campaign_id") or "") != str(campaign_id):
+            continue
+        acts = [e for e in evs if e.get("type") == "demo_activated"]
+        chks = [e for e in evs if e.get("type") == "checkout_started"]
+        purs = [e for e in evs if e.get("type") == "purchase_completed"]
+        cohort[em] = {
+            "entry": entry,
+            "reg_ms": int(entry.get("ts_ms") or 0),
+            "act": acts[0] if acts else None,
+            "chk": chks[0] if chks else None,
+            "pur": purs[0] if purs else None,
+            "revenue_usd": sum(int(p.get("total_cents") or 0) for p in purs) / 100.0,
+            "ad_id": entry.get("ad_id") or "",
+            "adset_id": entry.get("adset_id") or "",
+            "utm_content": entry.get("utm_content") or "",
+        }
+    return cohort
+
+
 def compute_kpis(cohort, spend_ils, ils_per_usd=ILS_PER_USD):
     """EVERY KPI, in one place, so the formulas are auditable and testable.
 
@@ -284,28 +313,7 @@ def main():
     by_email, anonymous = load_events(db)
     now_ms = int(datetime.datetime.now(IL).timestamp() * 1000)
 
-    # ── build the cohort ─────────────────────────────────────────────────────
-    cohort = {}
-    for em, evs in by_email.items():
-        entry = first_of(evs, *ENTRY_TYPES)
-        if not entry:
-            continue
-        if str(entry.get("campaign_id") or "") != str(campaign_id):
-            continue
-        acts = [e for e in evs if e.get("type") == "demo_activated"]
-        chks = [e for e in evs if e.get("type") == "checkout_started"]
-        purs = [e for e in evs if e.get("type") == "purchase_completed"]
-        cohort[em] = {
-            "entry": entry,
-            "reg_ms": int(entry.get("ts_ms") or 0),
-            "act": acts[0] if acts else None,
-            "chk": chks[0] if chks else None,
-            "pur": purs[0] if purs else None,
-            "revenue_usd": sum(int(p.get("total_cents") or 0) for p in purs) / 100.0,
-            "ad_id": entry.get("ad_id") or "",
-            "adset_id": entry.get("adset_id") or "",
-            "utm_content": entry.get("utm_content") or "",
-        }
+    cohort = build_cohort(by_email, campaign_id)
 
     reg = len(cohort)
     act = sum(1 for c in cohort.values() if c["act"])
