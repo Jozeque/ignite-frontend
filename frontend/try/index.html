@@ -115,6 +115,26 @@ input[type=email]:focus{outline:none;border-color:rgba(198,113,43,.55);
   background:var(--raise);color:var(--ink);border-radius:999px;padding:12px 22px;
   font-weight:800;text-decoration:none;cursor:pointer}
 
+/* real sessions: three small proofs in one row, click-to-play in place — inspiration,
+   deliberately compact, never a second tutorial block */
+.sessions{margin:44px auto 0;max-width:960px}
+.shead{text-align:center;font-size:14px;letter-spacing:.22em;text-transform:uppercase;
+  font-weight:900;color:var(--ink)}
+.ssub{text-align:center;margin:7px 0 16px;font-size:14px;color:var(--ink3)}
+.srow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media (max-width:720px){.srow{grid-template-columns:1fr}}
+.svid{position:relative;border:1px solid var(--line);border-radius:12px;overflow:hidden;
+  aspect-ratio:16/9;background:var(--bg2)}
+.svid img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.svid iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.svid .sp{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  width:100%;border:0;background:transparent;cursor:pointer;padding:0}
+.svid .sp span{display:inline-flex;align-items:center;justify-content:center;
+  width:44px;height:44px;border-radius:50%;background:rgba(20,19,16,.78);
+  border:1px solid rgba(221,154,82,.55);color:var(--copper-lt);
+  transition:transform .15s,background .15s}
+.svid .sp:hover span{transform:scale(1.08);background:rgba(20,19,16,.92)}
+
 /* success */
 #done{display:none}
 .steps{counter-reset:s;list-style:none;margin:22px 0 0;padding:0;text-align:left;
@@ -215,10 +235,15 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
     <div class="video">
       <div class="frame" id="videoFrame">
         <!-- The dedicated demo film drops in here later; until then this is the
-             existing walkthrough, click-to-play so nothing loads until asked. -->
-        <div class="slot" id="videoSlot">
-          <div class="silk" style="margin-bottom:12px">See it work</div>
-          <button class="playbtn" id="play" type="button">
+             existing walkthrough, click-to-play so nothing loads until asked.
+             The thumbnail carries the message, so the play control sits at the
+             bottom edge and stays off the image's own headline. -->
+        <img src="/assets/try-video-thumb.jpg"
+             alt="Stride canvas mapped across a full chain: hear more directions and let your own taste be the guide"
+             style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">
+        <div class="slot" id="videoSlot"
+             style="position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;padding:22px">
+          <button class="playbtn" id="play" type="button" style="background:rgba(20,19,16,.85)">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
             Watch the walkthrough
           </button>
@@ -269,6 +294,34 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
               title="How Stride VST works — click any control to see what it does"
               loading="lazy" scrolling="no"
               style="width:100%;border:0;display:block;height:1600px;overflow:hidden"></iframe>
+    </div>
+
+    <!-- Real sessions, not more tutorial: three producers going three directions with
+         the same tools. Posters only until clicked; play swaps in a nocookie embed in
+         place, so nobody leaves the page. -->
+    <div class="sessions">
+      <div class="shead">See what happens when you start exploring</div>
+      <p class="ssub">Real Stride sessions. Different directions. Same tools.</p>
+      <div class="srow">
+        <div class="svid" data-id="G6ou_x3vcuM" data-start="10">
+          <img src="https://i.ytimg.com/vi/G6ou_x3vcuM/hqdefault.jpg" alt="Stride session" loading="lazy">
+          <button class="sp" type="button" aria-label="Play Stride session 1">
+            <span><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
+          </button>
+        </div>
+        <div class="svid" data-id="z-ZcUJ48Sm8" data-start="537">
+          <img src="https://i.ytimg.com/vi/z-ZcUJ48Sm8/hqdefault.jpg" alt="Stride session" loading="lazy">
+          <button class="sp" type="button" aria-label="Play Stride session 2">
+            <span><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
+          </button>
+        </div>
+        <div class="svid" data-id="3vA1vnMTV_U" data-start="4">
+          <img src="https://i.ytimg.com/vi/3vA1vnMTV_U/hqdefault.jpg" alt="Stride session" loading="lazy">
+          <button class="sp" type="button" aria-label="Play Stride session 3">
+            <span><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Getting the download is not the goal - the first GOOD session is. Point them at
@@ -342,6 +395,22 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
     var slot = document.getElementById('videoSlot');
     if (slot) slot.remove();
     document.getElementById('videoFrame').appendChild(f);
+  });
+
+  // ── session videos: poster until clicked, then a nocookie embed IN PLACE (with its
+  //    start time), so playing never leaves the page ──────────────────────────────
+  Array.prototype.forEach.call(document.querySelectorAll('.svid'), function (v) {
+    v.addEventListener('click', function () {
+      if (v.querySelector('iframe')) return;
+      var f = document.createElement('iframe');
+      f.src = 'https://www.youtube-nocookie.com/embed/' + v.getAttribute('data-id')
+            + '?start=' + (v.getAttribute('data-start') || 0) + '&autoplay=1&rel=0';
+      f.allow = 'autoplay; encrypted-media; picture-in-picture';
+      f.allowFullscreen = true;
+      f.title = 'Stride session';
+      v.innerHTML = '';
+      v.appendChild(f);
+    });
   });
 
   // ── the interactive explainer sizes itself (same postMessage contract as the
