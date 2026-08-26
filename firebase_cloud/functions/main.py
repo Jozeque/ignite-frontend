@@ -747,6 +747,16 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
                     email,
                     _ev_extra,
                 )
+                # PURCHASE ALWAYS WINS. A paid order kills any reactivation still
+                # in play, whether it was merely granted, already emailed, or
+                # claimed but not yet activated. Someone who bought must never be
+                # able to consume the extra pass, and must never hear from the
+                # reactivation nurture again.
+                if not is_demo and (attrs.get("total") or 0) > 0:
+                    _reactivation_suppress(
+                        admin_firestore.client(), email, "purchased",
+                        {"order_id": str(data_obj.get("id") or ""),
+                         "total_cents": attrs.get("total")})
             except Exception as _ee:
                 print(f"[Events] order_created hook failed (non-fatal): {_ee}")
 
@@ -1277,6 +1287,18 @@ def _handle_start_pass(data: dict, ip: str = "", ua: str = ""):
                 return jsonify({"valid": True, "pass": True, "resumed": True,
                                 "ent": d.get("ent"), "ent_sig": d.get("ent_sig"),
                                 "exp": exp, "server_now_ms": now_ms}), 200
+            # REACTIVATION. The device's own pass is spent, which is exactly the
+            # state a legacy demo user is in. If, and only if, this machine can be
+            # matched to a reactivation that was granted to a person AND claimed by
+            # clicking the link in their mail, mint the one extra pass here. The 24
+            # hours start on THIS line, not when the grant or the mail went out.
+            #
+            # With no grants in existence this branch is unreachable, so the
+            # one-device-one-pass rule for new users is untouched: they still fall
+            # straight through to the pass_ended refusal below.
+            react = _reactivation_mint(passes, dev_ref, device, ip, ua, now_ms)
+            if react is not None:
+                return react
             return jsonify({"valid": False, "pass": False, "reason": "pass_ended",
                             "message": "Your Discovery Pass has already been used on this machine.",
                             "server_now_ms": now_ms}), 200
@@ -1458,6 +1480,230 @@ def _handle_start_pass(data: dict, ip: str = "", ua: str = ""):
 #  second pass and a mismatch cannot take one away.
 # ─────────────────────────────────────────────────────────────────────────────
 DEMO_CLAIMS_COLLECTION = "demo_claims"
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  DEMO REACTIVATION (2026-08-26) — one-time second Discovery Pass for legacy
+#  demo users, so they can see the Ableton Bridge.
+#
+#  SEPARATE BY CONSTRUCTION. Its own collection, its own event names, its own
+#  kill switch. It never writes to vst_passes' normal mint path, never touches
+#  demo_at or any original demo event, and adds no branch that a NEW user can
+#  reach: the reactivation mint fires ONLY when a granted-and-claimed token
+#  matches, so with zero grants the pass gate behaves exactly as it does today.
+#
+#  THE CLOCK STARTS AT ACTIVATION, NOT AT GRANT OR SEND. Granting writes a
+#  token. Emailing sends it. Claiming (clicking the link) records the claim and
+#  hands over the download. None of those mint anything. The 24 hours begin only
+#  when the plugin calls start_pass and consumes the claim.
+#
+#  REACTIVATION_MODE is the global kill switch:
+#     off  (default) — claims are refused, no reactivation pass can ever mint
+#     live           — the flow is armed
+# ─────────────────────────────────────────────────────────────────────────────
+REACTIVATIONS_COLLECTION = "demo_reactivations"
+REACTIVATION_MODE = os.environ.get("REACTIVATION_MODE", "off").strip().lower()
+REACTIVATION_PASS_MS = int(float(os.environ.get("REACTIVATION_PASS_H", "24")) * 3600000)
+# How long a claim (the link click) stays consumable by the plugin. Generous,
+# because someone may click on their phone at night and open Stride the next day.
+REACTIVATION_CLAIM_WINDOW_H = float(os.environ.get("REACTIVATION_CLAIM_WINDOW_H", "168"))
+
+
+def _reactivation_grant_for_token(_db, token: str):
+    """The grant this token belongs to, or None. Token is a random 32-hex string
+    minted per person, so it is the credential; the email is never the key."""
+    token = (token or "").strip()
+    if len(token) < 16:
+        return None
+    try:
+        hits = list(_db.collection(REACTIVATIONS_COLLECTION)
+                    .where("token", "==", token).limit(2).stream())
+        return hits[0] if len(hits) == 1 else None
+    except Exception as e:
+        print(f"[Reactivation] token lookup failed: {e}")
+        return None
+
+
+def _reactivation_claim_for_ip(_db, ip: str, now_ms: int):
+    """The claimed-but-not-yet-activated reactivation this machine most likely
+    belongs to, or None.
+
+    Same deliberate strictness as _demo_claim_for_ip: exactly ONE candidate, or we
+    return nothing. Two people behind one studio NAT must not inherit each other's
+    reactivation, because that would mint a pass against the wrong person's grant
+    and then mail the wrong person about it."""
+    if not ip:
+        return None
+    try:
+        lo = now_ms - int(REACTIVATION_CLAIM_WINDOW_H * 3600000)
+        rows = list(_db.collection(REACTIVATIONS_COLLECTION)
+                    .where("claim_ip", "==", ip).limit(20).stream())
+        live = [d for d in rows
+                if (d.to_dict() or {}).get("status") == "claimed"
+                and int((d.to_dict() or {}).get("claimed_at_ms") or 0) >= lo]
+        if len(live) != 1:
+            if len(live) > 1:
+                print(f"[Reactivation] {len(live)} claims for ip={ip} - staying anonymous")
+            return None
+        return live[0]
+    except Exception as e:
+        print(f"[Reactivation] claim lookup failed: {e}")
+        return None
+
+
+def _reactivation_suppress(_db, email: str, why: str, extra: dict | None = None):
+    """Purchase and checkout both end a reactivation. Idempotent, never raises.
+    Only moves a grant that is still in play; an already-activated pass is left
+    alone because the user is legitimately inside their 24 hours."""
+    email = (email or "").strip().lower()
+    if not email:
+        return False
+    try:
+        ref = _db.collection(REACTIVATIONS_COLLECTION).document(_email_key(email))
+        snap = ref.get()
+        if not snap.exists:
+            return False
+        cur = (snap.to_dict() or {}).get("status")
+        if cur in ("granted", "emailed", "claimed"):
+            ref.update({"status": "suppressed", "suppressed_reason": why,
+                        "suppressed_at": admin_firestore.SERVER_TIMESTAMP})
+            print(f"[Reactivation] suppressed {email} ({cur} -> suppressed, {why})")
+        # The cohort event fires regardless of what the grant was doing, because
+        # "this reactivated person reached checkout / bought" is the measurement.
+        _log_event(f"demo_reactivation_{why}", _email_key(email), email, extra or {})
+        return True
+    except Exception as e:
+        print(f"[Reactivation] suppress failed for {email}: {e}")
+        return False
+
+
+def _reactivation_mint(passes, dev_ref, device: str, ip: str, ua: str, now_ms: int):
+    """Mint the ONE extra pass for a device whose own pass is spent, if this
+    machine can be matched to a claimed reactivation. Returns a ready jsonify
+    response, or None to mean "not a reactivation, carry on refusing".
+
+    Never raises: any failure returns None so the caller falls through to the
+    normal pass_ended refusal. A reactivation that quietly does not happen is a
+    support email; a reactivation that crashes start_pass breaks the product.
+
+    DEDUPE. The demo_reactivation_activated event is written with create(), so
+    the FIRST writer wins and every retry, scheduler overlap or double-click
+    lands on AlreadyExists and walks away. The pass is minted only after that
+    write succeeds, which makes the event the lock rather than a side effect.
+    """
+    if REACTIVATION_MODE != "live":
+        return None
+    try:
+        _db = admin_firestore.client()
+        doc = _reactivation_claim_for_ip(_db, ip, now_ms)
+        if doc is None:
+            return None
+        g = doc.to_dict() or {}
+        email = (g.get("email") or "").strip().lower()
+        if not email:
+            return None
+
+        # Purchase always wins, re-checked at the last possible moment rather
+        # than trusting the status written when the link was clicked.
+        if _recovery_is_suppressed(_db, email):
+            doc.reference.update({"status": "suppressed",
+                                  "suppressed_reason": "purchased_or_optout",
+                                  "suppressed_at": admin_firestore.SERVER_TIMESTAMP})
+            print(f"[Reactivation] refused at mint, {email} is suppressed")
+            return None
+
+        exp = now_ms + REACTIVATION_PASS_MS
+        ent_obj, ent_sig = _sign_entitlements(device, ["vst"], now_ms, exp_ms=exp)
+        if not ent_obj or not ent_sig:
+            return None
+
+        # THE LOCK. One activation per grant, ever.
+        if not _log_event("demo_reactivation_activated", _email_key(email), email,
+                          {"device": device, "ip": ip, "ua": ua[:200],
+                           "exp_ms": exp, "started_at_ms": now_ms,
+                           "batch": g.get("batch") or "", "identified": True}):
+            print(f"[Reactivation] {email} already activated - not minting again")
+            return None
+
+        # Preserve the ORIGINAL pass before writing the new one. The first
+        # activation's timestamps stay readable forever, and the original
+        # demo_activated event is append-only so it was never at risk.
+        prev = dev_ref.get().to_dict() or {}
+        dev_ref.set({
+            "original_started_at": prev.get("original_started_at", prev.get("started_at")),
+            "original_exp": prev.get("original_exp", prev.get("exp")),
+            "reactivated": True,
+            "reactivation_email": email,
+            "reactivation_started_at": now_ms,
+            "started_at": now_ms, "exp": exp,
+            "ent": ent_obj, "ent_sig": ent_sig,
+            "status": "reactivated",
+            "updated_at": admin_firestore.SERVER_TIMESTAMP,
+        }, merge=True)
+
+        doc.reference.update({
+            "status": "activated", "device": device,
+            "activated_at_ms": now_ms, "activated_exp_ms": exp,
+            "activated_at": admin_firestore.SERVER_TIMESTAMP,
+        })
+        print(f"[Reactivation] MINTED for {email} device={device[:12]} exp={exp}")
+        return jsonify({"valid": True, "pass": True, "resumed": False,
+                        "reactivated": True, "ent": ent_obj, "ent_sig": ent_sig,
+                        "exp": exp, "server_now_ms": now_ms}), 200
+    except Exception as e:
+        print(f"[Reactivation] mint failed (non-fatal, falling through): {e}")
+        return None
+
+
+def _handle_reactivation_claim(data: dict, ip: str = "", ua: str = ""):
+    """PUBLIC. The reactivation link's landing call. Validates the token, refuses
+    anyone who has moved on, records the claim against this IP, and hands back the
+    download. DOES NOT MINT A PASS and DOES NOT START THE 24 HOURS.
+
+    Request:  { action:'reactivation_claim', token }
+    Response: { ok, downloads:{windows,mac} } or { ok:false, reason }"""
+    downloads = {"windows": _demo_download_url("windows"), "mac": _demo_download_url("mac")}
+    if REACTIVATION_MODE != "live":
+        return jsonify({"ok": False, "reason": "disabled",
+                        "message": "This link is not active."}), 200
+    doc = None
+    try:
+        _db = admin_firestore.client()
+        doc = _reactivation_grant_for_token(_db, data.get("token") or "")
+        if doc is None:
+            return jsonify({"ok": False, "reason": "bad_token",
+                            "message": "This link is not valid."}), 200
+        g = doc.to_dict() or {}
+        email = (g.get("email") or "").strip().lower()
+        status = g.get("status")
+
+        # Purchase always wins, checked live rather than trusting the stored status.
+        if _recovery_is_suppressed(_db, email):
+            doc.reference.update({"status": "suppressed", "suppressed_reason": "purchased_or_optout",
+                                  "suppressed_at": admin_firestore.SERVER_TIMESTAMP})
+            return jsonify({"ok": False, "reason": "not_eligible",
+                            "message": "You already have Stride."}), 200
+        if status in ("suppressed", "expired"):
+            return jsonify({"ok": False, "reason": status,
+                            "message": "This pass is no longer available."}), 200
+        if status == "activated":
+            # Already consumed. Still hand over the file so a returning user is
+            # not stranded, but nothing new is granted.
+            return jsonify({"ok": True, "downloads": downloads, "already": True,
+                            "build": DEMO_BUILD}), 200
+
+        doc.reference.update({
+            "status": "claimed",
+            "claim_ip": ip, "claim_ua": ua[:200],
+            "claimed_at_ms": int(time.time() * 1000),
+            "claimed_at": admin_firestore.SERVER_TIMESTAMP,
+        })
+        print(f"[Reactivation] claimed {email} from ip={ip}")
+        return jsonify({"ok": True, "downloads": downloads, "build": DEMO_BUILD}), 200
+    except Exception as e:
+        print(f"[Reactivation] claim failed: {e}")
+        # Never strand the user over bookkeeping.
+        return jsonify({"ok": True, "downloads": downloads, "build": DEMO_BUILD,
+                        "warning": "partial"}), 200
 
 # Every timing lives HERE, once. Nothing downstream hardcodes an hour count.
 DEMO_PASS_HOURS       = float(os.environ.get("DEMO_PASS_HOURS", "24"))     # mirrors PASS_DURATION_MS; used for derived expiry only
@@ -1909,6 +2155,11 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
         _dr_ip = (req.headers.get("X-Forwarded-For", req.remote_addr or "") or "").split(",")[0].strip()
         return _handle_demo_register(data_pre, _dr_ip, req.headers.get("User-Agent", ""))
 
+    # Reactivation link landing. Public, token-gated, mints nothing.
+    if isinstance(data_pre, dict) and data_pre.get("action") == "reactivation_claim":
+        _rc_ip = (req.headers.get("X-Forwarded-For", req.remote_addr or "") or "").split(",")[0].strip()
+        return _handle_reactivation_claim(data_pre, _rc_ip, req.headers.get("User-Agent", ""))
+
     if isinstance(data_pre, dict) and data_pre.get("action") == "founders_count":
         try:
             _db = admin_firestore.client()
@@ -2031,6 +2282,11 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
                 if country:
                     _ck_extra["country"] = country
                 _log_event("checkout_started", _ck_key, email, _ck_extra)
+                # A reactivated user who reaches checkout leaves reactivation
+                # nurture entirely and is handed to checkout recovery, so the two
+                # can never mail the same person about different things.
+                _reactivation_suppress(admin_firestore.client(), email,
+                                       "checkout_started", {"event_id": _ck_key})
             except Exception as _ee:
                 print(f"[Events] buyer_lead hook failed (non-fatal): {_ee}")
         # Discord notification (includes DB failure warning if applicable).
@@ -4521,10 +4777,34 @@ def demo_expiry_sweep(event: scheduler_fn.ScheduledEvent) -> None:
         q = (_db.collection(EVENTS_COLLECTION)
              .where("ts_ms", ">=", max(lo, DEMO_LIFECYCLE_FLOOR_MS))
              .where("ts_ms", "<=", now_ms))
-        rows = [d for d in q.stream() if (d.to_dict() or {}).get("type") == "demo_activated"]
+        _all = list(q.stream())
+        rows = [d for d in _all if (d.to_dict() or {}).get("type") == "demo_activated"]
+        # Reactivation passes expire the same way and are stamped with their OWN
+        # event name, so the reactivation cohort stays separable from the original
+        # demo cohort all the way through the funnel.
+        react = [d for d in _all
+                 if (d.to_dict() or {}).get("type") == "demo_reactivation_activated"]
     except Exception as e:
         print(f"[DemoExpiry] query failed: {e}")
         return
+    r_wrote = 0
+    for d in react:
+        ev = d.to_dict() or {}
+        exp_ms = int(ev.get("exp_ms") or 0)
+        em = (ev.get("email") or "").strip().lower()
+        if not exp_ms or now_ms < exp_ms or not em:
+            continue
+        if _log_event("demo_reactivation_expired", _email_key(em), em,
+                      {"device": ev.get("device") or "", "expired_at_ms": exp_ms,
+                       "batch": ev.get("batch") or ""}):
+            r_wrote += 1
+            try:
+                admin_firestore.client().collection(REACTIVATIONS_COLLECTION) \
+                    .document(_email_key(em)).update({"status": "expired"})
+            except Exception:
+                pass
+    if r_wrote:
+        print(f"[DemoExpiry] reactivation: {r_wrote} newly expired")
     for d in rows:
         ev = d.to_dict() or {}
         exp_ms = int(ev.get("exp_ms") or 0)
