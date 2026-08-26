@@ -271,6 +271,23 @@ ok("the build handed out is pinned and configurable", main.DEMO_BUILD)
 ok("an unknown platform yields no url", main._demo_download_url("atari") == "")
 
 
+# ── 5b. DISCORD ALERTS: both demo moments ping, and neither can break the flow ─
+import inspect
+src_reg2 = inspect.getsource(main._handle_demo_register)
+ok("registration pings Discord (the LS ping was lost when /try replaced it)",
+   "DEMO REGISTERED" in src_reg2 and "ADMIN_WEBHOOK_URL" in src_reg2)
+ok("registration ping fires on the FIRST registration only",
+   "if first_time and ADMIN_WEBHOOK_URL:" in src_reg2)
+ok("registration ping is non-fatal (wrapped, logged, never raised)",
+   "discord alert failed (non-fatal)" in src_reg2)
+src_sp2 = inspect.getsource(main._handle_start_pass)
+ok("activation pings Discord", "DEMO ACTIVATED" in src_sp2 and "ADMIN_WEBHOOK_URL" in src_sp2)
+ok("activation ping carries identity + a live expiry countdown",
+   "identity" in src_sp2 and "<t:{exp // 1000}:R>" in src_sp2)
+ok("activation ping is non-fatal too", src_sp2.count("non-fatal") >= 3)
+ok("resumed passes stay quiet (the alert sits after the resume return)",
+   src_sp2.index('"resumed": True') < src_sp2.index("DEMO ACTIVATED"))
+
 # ── 6. nothing here can grant entitlement ────────────────────────────────────
 import inspect
 src_reg = inspect.getsource(main._handle_demo_register)

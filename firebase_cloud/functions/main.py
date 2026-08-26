@@ -1603,6 +1603,34 @@ def _handle_demo_register(data: dict, ip: str = "", ua: str = ""):
             except Exception as we:
                 print(f"[Demo] welcome mail failed (non-fatal): {we}")
 
+        # 5. Discord alert. The old $0 LS checkout pinged Discord on every demo download;
+        #    moving the funnel off LS silently lost that, so /try registrations were
+        #    invisible (field catch 2026-08-26). First registration only - a re-register
+        #    for the links again is not news. Never blocks the response.
+        if first_time and ADMIN_WEBHOOK_URL:
+            try:
+                _src = "🎯 Meta ad" if (data.get("ad_id") or data.get("fbclid")) else "Direct / organic"
+                _msg = {
+                    "username": "Stride Engine",
+                    "content": (
+                        "🧪 **DEMO REGISTERED** (stridehub.io/try)\n"
+                        f"**Email:** `{email}`\n"
+                        f"**Build:** `{DEMO_BUILD}`\n"
+                        f"**Source:** {_src}"
+                    ),
+                }
+                urllib.request.urlopen(
+                    urllib.request.Request(
+                        ADMIN_WEBHOOK_URL,
+                        data=json.dumps(_msg).encode("utf-8"),
+                        headers={"Content-Type": "application/json",
+                                 "User-Agent": "Stride-Backend/1.0"},
+                    ),
+                    timeout=6,
+                )
+            except Exception as _de:
+                print(f"[Demo] discord alert failed (non-fatal): {_de}")
+
         # 5. Meta CAPI, FIRST registration only, so Meta's count matches ours.
         #    The page fires the browser pair with this same event_id (it only
         #    fires when we return first_time=true), so client+server collapse
