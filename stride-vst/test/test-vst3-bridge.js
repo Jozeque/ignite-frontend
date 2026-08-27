@@ -52,6 +52,8 @@ function resetState() {
     srv.state.clients = new Set();
     srv.state.mapping = null;
     if (srv.state.mapTimer) { clearTimeout(srv.state.mapTimer); srv.state.mapTimer = null; }
+    if (srv.state.armTimer) { clearTimeout(srv.state.armTimer); srv.state.armTimer = null; }
+    srv.state.bootAt = Date.now();
     srv.state.playing = true;
     srv.state.lastSel = { track: '', device: '', at: 0 };
     srv.state.pending = {};
@@ -143,10 +145,33 @@ test('CONTROL-RATE lane (MIDI effects) rasterizes NATIVE continuous values, unro
     assert(srv.laneMode({ quant: false, devType: 2 }) === 'r' && srv.laneMode({ quant: false }) === 'r', 'audio effects / instruments / mixer -> remote~');
 });
 
-test('NORMALIZED_OUTPUT is on: min/max on the lane must NOT rescale the buffer', () => {
-    assert(srv.NORMALIZED_OUTPUT === true, 'contract flag');
-    const a = srv.rasterizeLane({ bars: 2, points: [{ time: 0, value: 0.25 }], min: 20, max: 20000 });
-    close(a[0], 0.25, 1e-6, 'still 0..1 despite native min/max present');
+test('remote~ lanes render NATIVE ranges: the pitch case that exposed the 0..1 era', () => {
+    // Field 2026-08-27: a formant-mode cutoff is PITCH, -24..24 st, and the knob moved
+    // between 0 and 1 semitone. live.remote~ does not normalize; it wants native values.
+    const pitch = srv.rasterizeLane({ bars: 2, min: -24, max: 24, points: [{ time: 0, value: 0 }, { time: 8, value: 1 }] });
+    close(pitch[0], -24, 1e-4, 'starts at native min');
+    close(pitch[pitch.length - 1], 24, 0.5, 'ends at native max: the full sweep, not one semitone');
+    close(pitch[pitch.length >> 1], 0, 0.5, 'midpoint of the curve = middle of the range');
+});
+
+test('NO-REGRESSION: a native-0..1 param renders byte-identically to the 0..1 era (every field-validated lane)', () => {
+    // Roar's knobs and filter freqs all report native min 0 max 1 (verified in the saved
+    // rack), which is exactly why "normalized" survived so long. min<=0 also disarms the
+    // log flag (shouldUseLog), so Roar's is_log freqs cannot get double-scaled.
+    const pts = [{ time: 0, value: 0.3, curve: 0.4 }, { time: 4, value: 0.9 }, { time: 8, value: 0.1 }];
+    const before = srv.rasterizeLane({ bars: 2, points: pts });                                  // the old behavior (no range known)
+    const after = srv.rasterizeLane({ bars: 2, points: pts, min: 0, max: 1, is_log: 1, name: 'Flt 3 Freq' });
+    for (let i = 0; i < before.length; i++) if (before[i] !== after[i]) throw new Error('diverged at ' + i);
+});
+
+test('a native-Hz range takes the log taper so the drawn curve sweeps musically', () => {
+    const hz = srv.rasterizeLane({ bars: 2, min: 20, max: 20000, is_log: 1, points: [{ time: 0, value: 0.5 }] });
+    close(hz[0], 632.45, 1.0, 'curve midpoint = geometric middle of 20..20k, not the arithmetic 10k');
+});
+
+test('a lane with no range info falls back to 0..1 (old blobs keep working)', () => {
+    const a = srv.rasterizeLane({ bars: 2, points: [{ time: 0, value: 0.25 }] });
+    close(a[0], 0.25, 1e-6, 'identity when min/max are absent');
 });
 
 console.log('\n— unit: WAV writer —');
@@ -379,6 +404,44 @@ test('map arm flow: STAYS armed across hits (map knob after knob), cancel ends i
 });
 
 console.log('\n— unit: lane identity (portable racks) —');
+
+test('a listener that has answered NOTHING since boot yields the port (the old guard needed a pong first)', () => {
+    resetState();
+    const calls = [];
+    srv.listeners.push({ stop: () => calls.push('stop'), start: () => calls.push('start') });
+    const t0 = Date.now();
+    srv.state.bootAt = t0;
+    srv.state.pongSeen = false;
+    srv.tick(t0 + 5000);
+    assert(!srv.state.yielded, 'a young process is given time to answer');
+    srv.tick(t0 + srv.NO_PONG_BOOT_MS + 1000);
+    assert(srv.state.yielded && calls.indexOf('stop') >= 0, 'never answered = never had a patcher: release :9102');
+});
+
+test('a mapped knob NEVER reaches a window that did not arm, and a closing window disarms the probe', () => {
+    // Field 2026-08-27 ("params from an arp I never mapped here"): mapped used to be
+    // BROADCAST when nobody was armed, and a window closing mid-map left the [js] armed,
+    // so the next knob click in Live grew a lane in every other open Stride.
+    resetState();
+    const [armer, bystander] = connect(fakeClient(), fakeClient());
+    srv.handleClientMessage(armer, { type: 'map_live_start' });
+    srv.handleMapped(enc({ name: 'Gate', device: 'Arpeggiator', path: P1, id: 9, min: 1, max: 200, is_quantized: 0, is_log: 0 }));
+    assert(armer.sent.some(m => m.type === 'live_mapped'), 'the armed window gets it');
+    assert(!bystander.sent.some(m => m.type === 'live_mapped'), 'the bystander does not');
+    // the armed window closes: the probe must come down with it
+    outbox = [];
+    srv.handleDisconnect(armer);
+    assert(srv.state.mapping === null, 'server disarmed');
+    assert(probes('map_cancel').length === 1, 'the [js] observer is told to stand down');
+    // a knob click that still slips through reaches NOBODY (it was not a map)
+    bystander.sent.length = 0;
+    outbox = [];
+    srv.handleMapped(enc({ name: 'Steps', device: 'Arpeggiator', path: P2, id: 10, min: 1, max: 16, is_quantized: 0, is_log: 0 }));
+    assert(!bystander.sent.some(m => m.type === 'live_mapped'), 'no ghost lane in an innocent window');
+    assert(probes('map_cancel').length === 1, 'and it disarms again rather than re-arming');
+    assert(!probes('map_start').length, 'never re-arms with nobody listening');
+    if (srv.state.mapTimer) { clearTimeout(srv.state.mapTimer); srv.state.mapTimer = null; }
+});
 
 test('a name MISMATCH at the stored address never binds: it searches by name, a unique hit heals (owner only)', () => {
     resetState();
@@ -836,6 +899,21 @@ test('canvas: live lanes survive every rebuild site', () => {
     assert(/\|\| p\._live\)\s+\/\/ a StrideBridge lane is meaningful/.test(canvas), 'save filter includes empty live lanes');
 });
 
+test('canvas: an engine echo cannot leave the selection holding only the Ableton lanes', () => {
+    // Field 2026-08-27: "fire a motion on all lanes and it fires on the Ableton device
+    // only, the VST lanes stay still even though they are not locked." An echo rebuilt
+    // every hosted lane with selected:false while live lanes were carried verbatim WITH
+    // their selection, so a rescan between Select All and the motion left the tool
+    // targeting live lanes alone. Selection + focus must survive an echo.
+    const i = canvas.indexOf('function loadParamsDirectly');
+    const seg = canvas.slice(i, canvas.indexOf('function ', i + 40));
+    assert(/const _selBefore = \{\};/.test(seg), 'selection snapshotted before the rebuild');
+    assert(/if \(p\.selected && !p\._live && p\._path\) _selBefore\[p\._path\] = 1;/.test(seg), 'keyed by the stable _path, hosted lanes only (live ones are carried whole)');
+    assert(/_selBefore\[p\._path\] && !p\.locked\) p\.selected = true;/.test(seg), 'restored after the rebuild, never onto a locked lane');
+    assert(/const _activeBefore = sdActiveParamId;/.test(seg) && /!sdCanvasParams\.some\(p => p\.envelopeId === _activeBefore\)/.test(seg), 'the focused lane survives an echo too');
+    assert(seg.indexOf('_selBefore = {}') < seg.indexOf('sdCanvasParams = params.map'), 'the snapshot is taken BEFORE the lanes are rebuilt');
+});
+
 test('canvas: unmapping a live lane never renumbers hosted positions', () => {
     const i = canvas.indexOf('window.sdUnmapLane = function');
     const seg = canvas.slice(i, i + 1200);
@@ -893,6 +971,38 @@ test('sync rule: bridge rasterizer copy matches shared/ (canvas parity contract)
     const d = fs.readFileSync(path.join(ROOT, 'shared', 'log-scaling.js'), 'utf8');
     assert(c === d, 'log-scaling.js drifted from shared/ — re-copy');
 });
+
+console.log('\n— unit: the arm must be earned (runs last: it awaits real timers) —');
+
+test('MAP LIVE must be EARNED: no ack from the [js] and the bridge says it is unreachable', async () => {
+    // Field 2026-08-27: "the mapping is just not reacting and I need to remove StrideBridge
+    // and re-drag it." The button lit on a message SENT and the server acked as soon as it
+    // emitted the probe - neither proves a live patcher is behind this process. A leaked
+    // node that still owns :9102 swallowed the arm silently.
+    // NO resetState here: this test awaits real timers, and the other async test is live
+    // at the same time - wiping shared state would pull the rug out from under it.
+    const live = fakeClient();   // deliberately NOT added to state.clients: nothing here needs
+    srv.handleClientMessage(live, { type: 'map_live_start' });   // it, and the other async test counts them
+    assert(live.sent.some(m => m.type === 'map_live_armed'), 'still acks instantly, so the button stays responsive');
+    assert(srv.state.armTimer !== null, 'a proof timer is running until the [js] answers');
+    srv.handleArmed();                                   // a LIVE patcher answers
+    assert(srv.state.armTimer === null, 'ack clears the proof timer');
+    assert(srv.state.pongSeen, 'and counts as liveness, like a pong');
+    assert(srv.state.mapping === live, 'armed at the server');
+
+    // ...and a DEAD patcher: nothing acks. (Only client-visible facts are asserted after
+    // the await - other tests run during it and reset the shared server state.)
+    const dead = fakeClient();
+    srv.handleClientMessage(dead, { type: 'map_live_start' });
+    assert(srv.state.armTimer !== null, 'the proof timer is running');
+    await new Promise(r => setTimeout(r, srv.ARM_ACK_MS + 400));
+    const u = dead.sent.find(m => m.type === 'bridge_unreachable');
+    assert(u && /drag it back in/.test(u.message), 'named AND actionable: ' + (u && u.message));
+    assert(!live.sent.some(m => m.type === 'bridge_unreachable'), 'the window that got an ack is never accused');
+    if (srv.state.mapTimer) { clearTimeout(srv.state.mapTimer); srv.state.mapTimer = null; }
+    if (srv.state.armTimer) { clearTimeout(srv.state.armTimer); srv.state.armTimer = null; }
+});
+
 
 Promise.all(_asyncQueue).then(() => {
     console.log(`\n${passed} passed, ${failed} failed\n`);

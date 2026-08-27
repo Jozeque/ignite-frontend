@@ -334,6 +334,7 @@ function map_start() {
     init();               // belt + braces if the device loaded oddly
     _rearmObserver();     // and always arm a KNOWN-LIVE observer
     _armed = true;
+    outlet(0, "armed", 1);   // proof for the server that a LIVE patcher took the arm
 }
 
 function map_cancel() { _armed = false; }
@@ -381,9 +382,11 @@ function _scanChain(basePath, devName, parName, hits) {
                 } catch (e5) {}
             }
         }
-        // racks nest: instrument/audio/drum racks all expose chains
+        // racks nest: instrument/audio/drum racks all expose chains. ASK FIRST - calling
+        // getcount("chains") on a plain device throws "invalid property name", which Live
+        // logs as a Python error for every device scanned (log noise, 2026-08-27).
         var cc = 0;
-        try { cc = parseInt(d.getcount("chains"), 10) || 0; } catch (e6) {}
+        try { if (parseInt(d.get("can_have_chains"), 10)) cc = parseInt(d.getcount("chains"), 10) || 0; } catch (e6) {}
         for (var c = 0; c < cc; c++) _scanChain(dPath + " chains " + c, devName, parName, hits);
     }
 }

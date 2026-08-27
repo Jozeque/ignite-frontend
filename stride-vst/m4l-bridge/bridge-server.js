@@ -49,8 +49,9 @@
  * that stops answering pings (a leaked node process) yields the port.
  *
  * THREE DRIVE PATHS, chosen per lane once its target is known (laneMode):
- *   'r' live.remote~   audio rate, NORMALIZED 0..1 (Live applies the parameter's own
- *                      scaling). Instruments, audio effects, the mixer. No undo cost.
+ *   'r' live.remote~   audio rate, NATIVE values (remote~ does not normalize; the
+ *                      0..1 era survived only because stock devices mostly report a
+ *                      native 0..1). Instruments, audio effects, the mixer. No undo cost.
  *   'q' live.object    menus/enums: NATIVE option index, rounded, written on step
  *                      transitions only. live.remote~ cannot drive enums (field 08-26).
  *   'c' live.object    MIDI-effect parameters (Arpeggiator, Chord, Scale...): NATIVE
@@ -79,13 +80,14 @@ const NUM_VOICES = 32;      // rack copies double the bank: 16 was one rack
 const SAMPLES_PER_BAR = 2048;          // wave~ interpolates; 2048/bar is dense for modulation
 const MAX_SAMPLES = 262144;            // cap: 128 bars worth
 const TICKS_PER_BAR = 1920;            // 4 beats * 480 ticks
-const NORMALIZED_OUTPUT = true;        // see header — POC-validated default
 const MAP_TIMEOUT_MS = 120000;  // idle window while ARMED - slides on every map and every device
                                 // click. 30s was too tight: dragging a new device in mid-session
                                 // silently disarmed it (field 2026-08-27).
 const HINT_FRESH_MS = 10000;    // a selection this recent says WHERE a connecting Stride lives
 const PING_MS = 5000;           // patcher liveness + repath cadence
 const PONG_TIMEOUT_MS = 20000;  // silent patcher = leaked node process: yield the port
+const NO_PONG_BOOT_MS = 30000;  // never answered at all since boot: same verdict, no first pong required
+const ARM_ACK_MS = 1500;        // MAP LIVE must be ACKED by the [js] or the bridge admits it is unreachable
 const REPATH_MS = PING_MS;      // bound ids -> current paths (heals grouping/reorder in-session)
 // Control-rate lanes (MIDI-effect params) are written through Live's own setter, and
 // EVERY set costs one undo step + one main-thread hop. Two limits keep that safe: the
@@ -114,7 +116,7 @@ const state = {
     pending: {},                       // rid -> probe context (resolve / find / relink / repath)
     nextRid: 1,
     repathRid: 0,
-    pongAt: 0, pongSeen: false, yielded: false,
+    pongAt: 0, pongSeen: false, yielded: false, bootAt: 0, armTimer: null,
     active: false,                     // owns the TCP port
 };
 
@@ -148,37 +150,38 @@ function sampleCountFor(bars) {
     return Math.min(MAX_SAMPLES, Math.max(SAMPLES_PER_BAR, Math.round(b * SAMPLES_PER_BAR)));
 }
 
-// Range baking happens VST-side (shim precedent from the live_curves flow);
-// the server trusts incoming points as final 0..1. This is the single place
-// that would change if NORMALIZED_OUTPUT ever flips.
-// Three render modes, one per drive path:
-//   'r' remote~   normalized 0..1, Live applies the parameter's own scaling (audio rate)
-//   'q' stepped   NATIVE option index, rounded, through live.object (menus / enums)
-//   'c' control   NATIVE continuous value through live.object at snapshot rate: MIDI-effect
-//                 parameters (Arpeggiator, Chord, Scale...) never moved under live.remote~
-//                 on the rig, with no error anywhere, so they take Live's own setter
+// Range baking happens VST-side (shim precedent from the live_curves flow); the
+// server receives final 0..1 points and scales them into the parameter's NATIVE
+// range - min/max/is_log come from the map-time probe and ride every push.
+//
+// EVERY drive path wants native values. live.remote~ included: it does NOT
+// normalize (field 2026-08-27: a pitch param, -24..24 st, moved between 0 and 1
+// semitone). The bridge shipped "normalized" anyway and got away with it because
+// Live's stock devices mostly report min 0 max 1 natively - the two readings
+// coincide there, byte for byte. scaleValue() is the shared scaling: linear, or a
+// log taper for real-Hz ranges (shouldUseLog guards min<=0, so a 0..1 range can
+// never be double-scaled no matter what the probe's is_log said).
+// The modes differ only in what happens AFTER the scale:
+//   'r' remote~     raw native samples, audio rate
+//   'q' stepped     rounded to whole option indices (menus/enums via live.object)
+//   'c' control     snapped to CONTROL_STEPS levels (MIDI effects via live.object,
+//                   every distinct value costs one undo step + one main-thread hop)
 function rasterizeLane(lane) {
     const bars = (typeof lane.bars === 'number' && lane.bars > 0) ? lane.bars : 4;
     const count = sampleCountFor(bars);
     const mode = lane.mode || (lane.is_quantized ? 'q' : 'r');
-    if (mode === 'q' || mode === 'c') {
-        const lo = (typeof lane.min === 'number') ? lane.min : 0;
-        const hi = (typeof lane.max === 'number' && lane.max > lo) ? lane.max : lo + 1;
-        const buf = rasterizeCurve(lane.points || [], bars * 4, count, { min: lo, max: hi, is_log: mode === 'c' && !!lane.is_log });
-        if (mode === 'q') { for (let i = 0; i < buf.length; i++) buf[i] = Math.round(buf[i]); return buf; }
-        // CONTROL: snap to CONTROL_STEPS levels. [change] in the voice only forwards
-        // actual transitions, so coarser levels = fewer live.object sets. This is the
-        // cost control that matters: every set is one Live undo step and one main-thread
-        // hop (field 2026-08-27: unquantized values at 33Hz across 3 lanes FROZE Live).
+    const lo = (typeof lane.min === 'number' && isFinite(lane.min)) ? lane.min : 0;
+    const hi = (typeof lane.max === 'number' && isFinite(lane.max) && lane.max > lo) ? lane.max : lo + 1;
+    const buf = rasterizeCurve(lane.points || [], bars * 4, count,
+                               { min: lo, max: hi, is_log: mode === 'q' ? false : !!lane.is_log, name: lane.name || '' });
+    if (mode === 'q') {
+        for (let i = 0; i < buf.length; i++) buf[i] = Math.round(buf[i]);
+    } else if (mode === 'c') {
         const span = hi - lo;
         for (let i = 0; i < buf.length; i++)
             buf[i] = lo + Math.round(((buf[i] - lo) / span) * CONTROL_STEPS) * (span / CONTROL_STEPS);
-        return buf;
     }
-    if (NORMALIZED_OUTPUT)
-        return rasterizeCurve(lane.points || [], bars * 4, count);   // no paramScale → 0..1
-    const { min, max, is_log } = lane;
-    return rasterizeCurve(lane.points || [], bars * 4, count, { min, max, is_log });
+    return buf;
 }
 
 const MIDI_EFFECT = 4;   // LOM Device.type: 1 instrument, 2 audio effect, 4 MIDI effect
@@ -296,7 +299,7 @@ function lanesFromBlob(blob) {
 // A lane's shape signature — decides whether a push actually re-renders.
 function laneSig(l) {
     const mode = l.mode || (l.is_quantized ? 'q' : 'r');
-    return JSON.stringify([l.bars, l.speed, l.points, mode, mode === 'r' ? 0 : [l.min, l.max, l.is_log ? 1 : 0]]);
+    return JSON.stringify([l.bars, l.speed, l.points, mode, [l.min, l.max, l.is_log ? 1 : 0]]);
 }
 
 // ── client messaging ─────────────────────────────────────────────────────
@@ -482,6 +485,21 @@ function handleClientMessage(client, msg) {
         slideMapTimer();
         _out(['probe', 'map_start']);
         sendTo(client, { type: 'map_live_armed' });
+        // ...and then PROVE it armed. The button used to light on the strength of a
+        // message being SENT: nothing checked that a live patcher was behind this
+        // process. A leaked node.script that still owns :9102 accepts the arm, drops the
+        // probe into a dead end, and clicking knobs in Live does nothing at all, with no
+        // way to tell (field 2026-08-27: "the mapping is just not reacting and I have to
+        // remove StrideBridge and re-drag it"). The [js] now acks; no ack = say so.
+        if (state.armTimer) clearTimeout(state.armTimer);
+        state.armTimer = setTimeout(() => {
+            state.armTimer = null;
+            if (state.mapping !== client) return;
+            state.mapping = null;
+            if (state.mapTimer) { clearTimeout(state.mapTimer); state.mapTimer = null; }
+            sendTo(client, { type: 'bridge_unreachable',
+                             message: 'StrideBridge is not responding: remove the device from the track and drag it back in.' });
+        }, ARM_ACK_MS);
         return;
     }
 
@@ -524,7 +542,7 @@ function handleClientMessage(client, msg) {
             lane.quant = !!l.is_quantized;
 
             const bars = (typeof msg.bars === 'number' && msg.bars > 0) ? msg.bars : (l.bars || 4);
-            lane.norm = { bars, speed: l.speed || 1, points: l.points || [], min: l.min, max: l.max, is_log: l.is_log, is_quantized: l.is_quantized || 0 };
+            lane.norm = { bars, speed: l.speed || 1, points: l.points || [], min: l.min, max: l.max, is_log: l.is_log, name: l.name || '', is_quantized: l.is_quantized || 0 };
             refreshSig(lane);
 
             if (lane.voice && state.voices[lane.voice]) {
@@ -575,7 +593,14 @@ function slideMapTimer() {
 
 function handleDisconnect(client) {
     state.clients.delete(client);
-    if (state.mapping === client) state.mapping = null;
+    // A window that closes while ARMED must take the probe down with it. Leaving the
+    // [js] armed meant the next knob click in Live was still read as a map, with nobody
+    // to give it to (field 2026-08-27, the ghost-lane report).
+    if (state.mapping === client) {
+        state.mapping = null;
+        if (state.mapTimer) { clearTimeout(state.mapTimer); state.mapTimer = null; }
+        _out(['probe', 'map_cancel']);
+    }
     // Deliberately NOT clearing voices — modulation outlives the editor window.
     // Bound lanes become orphans (owner null) and are reclaimed by target on reopen;
     // lanes that never bound die with the socket.
@@ -597,18 +622,25 @@ function handleDisconnect(client) {
 function handleMapped(encoded) {
     let info;
     try { info = JSON.parse(decodeURIComponent(encoded)); } catch (e) { return; }
-    const target = state.mapping || null;
-    const out = { type: 'live_mapped', ...info };
-    if (target) sendTo(target, out); else broadcast(out);
+    // A mapped knob belongs to the window that ARMED. It is never broadcast: with two
+    // Stride windows open, a broadcast grew a lane in the innocent one (field 2026-08-27:
+    // "params from an arp I never mapped here"). No armed window = the click was not a
+    // map at all, so drop it and make sure the probe is disarmed.
+    const target = isConnected(state.mapping) ? state.mapping : null;
+    if (!target) {
+        state.mapping = null;
+        if (state.mapTimer) { clearTimeout(state.mapTimer); state.mapTimer = null; }
+        _out(['probe', 'map_cancel']);
+        return;
+    }
+    sendTo(target, { type: 'live_mapped', ...info });
     if (info && info.path) noteSel(deviceOf(info.path));
 
     // STAY ARMED - the VST-style flow: press Map Live once, click knob after knob,
     // press again to stop. The [js] observer disarms itself after each hit, so
     // re-probe; the NEXT selection change maps the next knob. The idle timeout slides.
-    if (target) {
-        slideMapTimer();
-        _out(['probe', 'map_start']);
-    }
+    slideMapTimer();
+    _out(['probe', 'map_start']);
 }
 
 function handleResolved(encoded) {
@@ -826,10 +858,21 @@ function handlePong() {
     if (state.yielded) resumeFromYield();
 }
 
+// The [js] answering `armed` is the same proof a pong is: a live patcher is behind us.
+function handleArmed() {
+    if (state.armTimer) { clearTimeout(state.armTimer); state.armTimer = null; }
+    handlePong();
+}
+
 function tick(now) {
     const t = now || Date.now();
     _out(['probe', 'ping']);
-    if (state.pongSeen && !state.yielded && t - state.pongAt > PONG_TIMEOUT_MS) yieldPort();
+    // A listener with no live patcher behind it must not keep the port. Two ways to be
+    // that: the patcher went away (pongs stop), or it was never there (a process that has
+    // answered NOTHING since boot - the old guard required a pong first, so exactly that
+    // case held :9102 forever and every Stride talked into a dead end).
+    if (!state.yielded && state.pongSeen && t - state.pongAt > PONG_TIMEOUT_MS) yieldPort();
+    else if (!state.yielded && !state.pongSeen && state.bootAt && t - state.bootAt > NO_PONG_BOOT_MS) yieldPort();
     if (!state.yielded) repathSweep();
 }
 
@@ -993,6 +1036,8 @@ if (Max) {
     Max.addHandler('relinked', handleRelinked);
     Max.addHandler('repathed', handleRepathed);
     Max.addHandler('pong', handlePong);
+    Max.addHandler('armed', handleArmed);
+    state.bootAt = Date.now();
     startTcpServer(require('net'));   // the VST transport — zero dependencies
     try {
         const { WebSocketServer } = require('ws');
@@ -1005,12 +1050,12 @@ if (Max) {
 }
 
 module.exports = {
-    PORT, TCP_PORT, NUM_VOICES, TICKS_PER_BAR, SAMPLES_PER_BAR, NORMALIZED_OUTPUT, TMP_DIR,
-    HINT_FRESH_MS, PING_MS, PONG_TIMEOUT_MS, REPATH_MS,
+    PORT, TCP_PORT, NUM_VOICES, TICKS_PER_BAR, SAMPLES_PER_BAR, TMP_DIR,
+    HINT_FRESH_MS, PING_MS, PONG_TIMEOUT_MS, NO_PONG_BOOT_MS, ARM_ACK_MS, REPATH_MS,
     state, listeners, ticksFor, rateFor, sampleCountFor, rasterizeLane, buildWav, writeVoiceWav,
     allocVoice, freeVoice, voiceByTarget, lanesOf, laneSig, laneMode, lanesFromBlob, MIDI_EFFECT,
     CONTROL_STEPS, SNAPSHOT_MS, trackOf, deviceOf, under, freshHint, noteSel,
     handleClientMessage, handleDisconnect, handleMapped, handleResolved, handleFound, handleRelinked,
-    handleRepathed, handleTouched, handleTouchedDev, handleSel, handleTransport, handlePong, tick,
+    handleRepathed, handleTouched, handleTouchedDev, handleSel, handleTransport, handlePong, handleArmed, tick,
     startServer, startTcpServer, _setIoForTest,
 };

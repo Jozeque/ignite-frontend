@@ -943,6 +943,18 @@
 
     function loadParamsDirectly(params, rackInfo) {
         const _keepLive = sdCanvasParams.filter(p => p._live);   // StrideBridge lanes: engine echoes know nothing about them
+        // SELECTION AND FOCUS BELONG TO THE USER, NOT TO THE ENGINE. Every echo rebuilds
+        // the hosted lanes from scratch (selected:false, focus back to lane 1) while live
+        // lanes are carried verbatim WITH their selection. An echo landing between
+        // "Select All" and firing a motion therefore left ONLY the Ableton lanes selected,
+        // so the motion ran on those and the hosted params sat still, unlocked and
+        // apparently ignored (field report 2026-08-27). Echoes fire on any mapVersion
+        // bump - pressing Map, mapping/unmapping, a chain edit, an undo - none of which
+        // should touch what you have selected. Carry both across, keyed by the stable
+        // _path (a lane the echo dropped simply does not come back).
+        const _selBefore = {};
+        sdCanvasParams.forEach(p => { if (p.selected && !p._live && p._path) _selBefore[p._path] = 1; });
+        const _activeBefore = sdActiveParamId;
         sdCanvasParams = params.map(p => ({
             envelopeId: String(p.id),
             name: p.name,
@@ -969,12 +981,22 @@
         // has lanes would silently hide everything. Drop it rather than show an empty canvas.
         if (sdDeviceFilterNode >= 0 && !sdCanvasParams.some(p => p.nodeIdx === sdDeviceFilterNode))
             sdDeviceFilterNode = -1;
+        // Re-select what the user had selected (locked lanes never take a selection), then
+        // hold the "selected ⊆ visible" invariant a focused device relies on.
+        sdCanvasParams.forEach(p => { if (!p._live && p._path && _selBefore[p._path] && !p.locked) p.selected = true; });
+        if (sdDeviceFilterNode >= 0 || sdDeviceFilter) {
+            const _vis = sdVisibleParams();
+            sdCanvasParams.forEach(p => { if (p.selected && _vis.indexOf(p) < 0) p.selected = false; });
+        }
         _sdFreezeAutoColorSlots();   // colors belong to the lane, not to its slot in the grid
         _sdApplyOrderEcho();   // an explicit card order, when the user made one, wins over the name sort
         _sdAnnounceNewLanes();
         if (typeof _sdLinkAfterRebuild === 'function') _sdLinkAfterRebuild();   // dissolve 1-member groups + rebase the mirror shadows
 
-        if (sdCanvasParams.length > 0) sdActiveParamId = sdCanvasParams[0].envelopeId;
+        // Keep the focused lane when it survived the echo; only a genuinely new lane set
+        // sends focus back to the top (a rescan used to yank it there every time).
+        if (sdCanvasParams.length > 0 && !sdCanvasParams.some(p => p.envelopeId === _activeBefore))
+            sdActiveParamId = sdCanvasParams[0].envelopeId;
 
         document.getElementById('rack-info').classList.remove('hidden');
         document.getElementById('no-rack-msg').classList.add('hidden');

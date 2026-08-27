@@ -500,6 +500,12 @@
     } else if (t === 'live_relinked') {
       // armed device-click in Live re-homed every lane of that device name
       try { if (window.sdBridgeRelinked) window.sdBridgeRelinked(m); } catch (e) {}
+    } else if (t === 'bridge_unreachable') {
+      // The device is in the set and the socket is up, but nothing answered the arm:
+      // a leaked node process is holding the port. Drop the armed look (it would be a
+      // lie) and say what actually fixes it.
+      _sbSetMapUi(false);
+      try { if (window.sdBridgeError) window.sdBridgeError(m.message || 'StrideBridge is not responding'); } catch (e) {}
     } else if (t === 'bridge_error') {
       try { if (window.sdBridgeError) window.sdBridgeError(m.message || 'bridge error'); } catch (e) {}
     }
