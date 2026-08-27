@@ -242,9 +242,10 @@ ok("NO purchase CTA, price or discount",
 # the closing P.S. carries the mail's ONE link: the post-signup page, straight to the
 # three embedded sessions (the #sessions anchor on /try?done=1) - never YouTube itself
 _SESS = main.DEMO_SESSIONS_URL
-ok("second P.S. offers the 3 sessions, in text AND html",
-   "P.S. If you want a little inspiration, I picked 3 real Stride sound design sessions that show very different ways of using it." in txt
-   and "I picked 3 real Stride sound design sessions" in html)
+ok("the closing paragraph offers the 3 sessions (ONE P.S. in the mail), in text AND html",
+   "And if you want a little inspiration, I picked 3 real Stride sound design sessions that show very different ways of using it." in txt
+   and "I picked 3 real Stride sound design sessions" in html
+   and txt.count("P.S.") == 1 and html.count("P.S.") == 1)
 ok("its CTA is the ONE link, to the sessions row on the post-signup page",
    _SESS == "https://stridehub.io/try?done=1#sessions"
    and ("See 3 Stride sessions → " + _SESS) in txt and txt.count("http") == 1

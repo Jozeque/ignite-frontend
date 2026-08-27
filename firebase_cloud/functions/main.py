@@ -4958,7 +4958,7 @@ Joe
 
 P.S. If anything isn't clicking, just reply. I read every one.
 
-P.S. If you want a little inspiration, I picked 3 real Stride sound design sessions that show very different ways of using it.
+And if you want a little inspiration, I picked 3 real Stride sound design sessions that show very different ways of using it.
 
 See 3 Stride sessions → {sessions_url}
 
@@ -4983,8 +4983,8 @@ DEMO_ONBOARD_HTML = r'''<!doctype html>
 <p style="margin:0 0 16px;">Hear more directions, then let your taste decide what stays.</p>
 <p style="margin:0 0 16px;">Joe</p>
 <p style="margin:0 0 16px;">P.S. If anything isn't clicking, just reply. I read every one.</p>
-<p style="margin:0 0 16px;">P.S. If you want a little inspiration, I picked 3 real Stride sound design sessions that show very different ways of using it.</p>
-<p style="margin:0 0 16px;"><a href="{sessions_url}" style="color:#c6712b;font-weight:600">See 3 Stride sessions &rarr;</a></p>
+<p style="margin:0 0 16px;">And if you want a little inspiration, I picked 3 real Stride sound design sessions that show very different ways of using it.</p>
+<p style="margin:0 0 16px;"><a href="{sessions_url}" style="color:#c6712b;font-weight:600;font-size:17px;">See 3 Stride sessions &rarr;</a></p>
 <p style="margin:24px 0 0;font-size:12px;color:#8a8a8a;">You're receiving this because you started a Stride Discovery Pass. Reply STOP to opt out.</p>
 </div>
 </body></html>
