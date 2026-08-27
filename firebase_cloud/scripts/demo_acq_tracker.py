@@ -30,6 +30,7 @@ from firebase_admin import credentials, firestore
 
 from demo_acq_report import (CAMPAIGN_ID, ILS_PER_USD, SERVICE_KEY,
                              build_cohort, compute_kpis, load_events)
+import demo_lifecycle_mirror as lcm
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "demo_acq_tracker.html")
@@ -113,6 +114,155 @@ def n0(v, fmt="{:,.0f}"):
     return fmt.format(v) if v is not None else "–"
 
 
+def tile(value, label, sub="", big=False, accent=False):
+    cls = "tile big" if big else "tile"
+    color = "color:#e58a2e" if accent else ""
+    return (f'<div class="{cls}"><div class="v" style="{color}">{value}</div>'
+            f'<div class="k">{label}</div>'
+            + (f'<div class="s">{sub}</div>' if sub else "") + "</div>")
+
+
+LC_PILL = {"PURCHASED": "#3ec78f", "CHECKOUT_STARTED": "#e5b02e", "DEMO_ACTIVE": "#7db4e8",
+           "DEMO_EXPIRED": "#6f8fb0", "DEMO_NOT_ACTIVATED": "#857c6e", "DEMO_REGISTERED": "#857c6e",
+           "UNKNOWN": "#5c554a"}
+LC_HEAD = {"onboard": "act +75m", "post_demo": "expiry +3h", "start_nudge": "reg +26h", "post_reg": "reg +72h"}
+
+
+def render_lifecycle(lc, lc_err):
+    """(notice_html, section_html). Every verdict comes from demo_lifecycle_mirror,
+    which RUNS the real demo_lifecycle read-only; this only draws it."""
+    e = html.escape
+    if lc is None:
+        msg = e(lc_err or "?")
+        return (f'<div class="notice warn">Lifecycle mirror unavailable this refresh: {msg}</div>',
+                f'<h2 id="mails">Lifecycle mails</h2><div class="tile"><div class="s">mirror unavailable: {msg}</div></div>')
+    rows = lc["rows"]
+    cells = [c for r in rows.values() for c in r["cells"].values()]
+    n = collections.Counter(c["kind"] for c in cells)
+    per_kind = collections.Counter(x.get("send") for x in lc["log"] if x.get("status") == "sent")
+    upcoming = sorted((c["due_ms"], s, r["email"]) for r in rows.values()
+                      for s, c in r["cells"].items() if c["kind"] in ("sched", "warn", "due") and c["due_ms"])
+    nxt = (f"next: {upcoming[0][1]} → {upcoming[0][2].split('@')[0]} {lcm.fmt_ts(upcoming[0][0])}"
+           if upcoming else "nothing scheduled")
+    skip_why = collections.Counter(c["why"] for c in cells
+                                   if c["kind"] == "warn" or (c["kind"] == "bad" and "SKIPPED" in c["text"]))
+    top_why = skip_why.most_common(1)[0][0] if skip_why else ""
+    n_skip = sum(skip_why.values())
+    actions = lc["actions"]
+    backend = ("REAL" if lc["backend_ok"] else "n/a",
+               f"main.py @{lc.get('source', '?')} (working tree) run dry at {lc['probe_count']} due moments" if lc["backend_ok"]
+               else e(str(lc["backend_error"])))
+
+    tiles = "".join([
+        tile(f"{n['ok']}", "lifecycle mails sent",
+             " · ".join(f"{v} {k}" for k, v in per_kind.items()) or "none yet"),
+        tile(f"{n['sched'] + n['warn']}", "scheduled", e(nxt)),
+        tile(f"{n['due']}", "due now", "the next 30-min run sends them" if n["due"] else ""),
+        tile(f"{n_skip}", "backend will skip", e(top_why), accent=n_skip > 0),
+        tile(f"{len(actions)}", "action needed", "send by hand, text below" if actions else "", accent=bool(actions)),
+        tile(backend[0], "backend check", backend[1]),
+        tile(f"{lc['paid_at_risk']}", "queued for a payer",
+             (f"{lc['paid_in_window']} payer(s) in the window · independent check, not the backend's"
+              if not lc["paid_at_risk"] else "a paying customer is about to be mailed"),
+             accent=bool(lc["paid_at_risk"])),
+    ])
+
+    if lc["paid_at_risk"]:
+        notice = (f'<div class="notice bad">STOP · {lc["paid_at_risk"]} lifecycle send'
+                  f'{"s are" if lc["paid_at_risk"] != 1 else " is"} still queued for someone who has '
+                  f'ALREADY PAID · <a href="#mails">see Lifecycle mails</a></div>')
+    elif actions:
+        notice = (f'<div class="notice bad">ACTION NEEDED · {len(actions)} lifecycle mail'
+                  f'{"s" if len(actions) != 1 else ""} will not leave on their own · '
+                  f'<a href="#mails">see Lifecycle mails</a></div>')
+    elif n["warn"]:
+        first = upcoming[0] if upcoming else None
+        notice = (f'<div class="notice warn">{n["warn"]} scheduled lifecycle mail{"s" if n["warn"] != 1 else ""} '
+                  f'will be SKIPPED by the backend: {e(top_why)} · '
+                  + (f'first one {first[1]} at {lcm.fmt_ts(first[0])} · ' if first else "")
+                  + 'fix before then or send by hand · <a href="#mails">details</a></div>')
+    elif not lc["backend_ok"]:
+        notice = f'<div class="notice warn">backend check unavailable: {backend[1]}</div>'
+    else:
+        notice = ""
+
+    act_html = ""
+    for a in actions:
+        r = lc["render"](a["send"], a["email"], a["first"])
+        body = (f'<details><summary>mail text, ready to send as Joe</summary>'
+                f'<pre>To: {e(a["email"])}\nFrom: Joe &lt;home@stridehub.io&gt;\nSubject: {e(r["subject"])}'
+                f'\n\n{e(r["text"])}</pre></details>'
+                if r else '<div class="why">copy unavailable (backend not importable)</div>')
+        act_html += (f'<div class="act"><b>{e(a["send"])}</b> → {e(a["email"])}'
+                     f'{(" (" + e(a["first"]) + ")") if a["first"] else ""} · {e(a["text"])} · {e(a["why"])}{body}</div>')
+    if actions:
+        act_html = '<h2>Action needed · the backend will not send these, send them by hand</h2>' + act_html
+
+    matrix = ""
+    for em, r in sorted(rows.items(), key=lambda x: -x[1]["reg_ms"]):
+        src_tag = "campaign" if r["campaign"] else ("LS demo" if r["source"] == "demo_downloaded" else "organic /try")
+        col = LC_PILL.get(r["state"], "#5c554a")
+        who = (f'<b>{e(em)}</b><span class="sub">{e(r["name"]) + " · " if r["name"] else ""}{src_tag}'
+               f'{" · SUPPRESSED: " + e(r["suppressed"]) if r["suppressed"] else ""}</span>')
+        tds = ""
+        for s in lcm.SEND_ORDER:
+            c = r["cells"][s]
+            tds += (f'<td class="c {c["kind"]}">{e(c["text"])}'
+                    + (f'<div class="why">{e(c["why"])}</div>' if c["why"] else "") + "</td>")
+        matrix += (f'<tr><td>{who}</td><td>{lcm.fmt_ts(r["reg_ms"])}</td>'
+                   f'<td><span class="pill" style="background:{col}22;color:{col};border:1px solid {col}55">'
+                   f'{e(r["state"])}</span></td><td>{e(r["identity"])}</td>{tds}</tr>')
+    if not matrix:
+        matrix = "<tr><td colspan='8'>nobody in the lifecycle window yet</td></tr>"
+    heads = "".join(f"<th>{s}<small>{LC_HEAD[s]}</small></th>" for s in lcm.SEND_ORDER)
+
+    log_rows = "".join(
+        f'<tr><td>{lcm.fmt_ts(int(x.get("ts_ms") or 0))}</td><td>{e(x.get("send") or "")}</td>'
+        f'<td>{e(x.get("email") or "")}</td>'
+        f'<td class="{"hi" if x.get("status") == "sent" else ""}">{e(x.get("status") or "")}</td>'
+        f'<td>{e(x.get("state") or "")} · {e(x.get("identity") or "")}</td></tr>'
+        for x in lc["log"]) or "<tr><td colspan='5'>no lifecycle mail has left yet</td></tr>"
+
+    lib = ""
+    for s in lcm.SEND_ORDER:
+        want, since_f, delay_h, _ = lc["sends"][s]
+        r = lc["render"](s, "EMAIL", "")
+        when = f'{want.lower().replace("_", " ")} · {since_f.replace("_ms", "").replace("_", " ")} + {delay_h:g}h'
+        lib += (f'<details class="lib"><summary><b>{s}</b> · "{e(r["subject"]) if r else "?"}" · {e(when)}</summary>'
+                + (f'<pre>Subject: {e(r["subject"])}\n\n{e(r["text"])}</pre>'
+                   f'<div class="why">"Hey," takes the first name when the CRM has one; EMAIL in the checkout link = the recipient.</div>'
+                   if r else '<div class="why">copy unavailable</div>') + "</details>")
+
+    section = f"""
+<h2 id="mails">Lifecycle mails · who got what, what is due, what the backend will skip</h2>
+<div class="grid g7">{tiles}</div>
+<div class="foot" style="margin:8px 0 0">Purchase check: the backend re-checks every 30 minutes, per person,
+before any send (opt-out list, then a purchase_completed event, then the CRM row) and it fails SAFE, so a
+purchase that lands at any point before the send simply cancels it. The tile above is OUR OWN second
+opinion, matched case-insensitively across both sources, because the backend's CRM lookup is an exact-case
+match and 347 of 350 past buyers exist only in the CRM.</div>
+{act_html}
+<div class="scroll" style="margin-top:14px"><table>
+<tr><th>person</th><th>registered</th><th>state</th><th>identity</th>{heads}</tr>
+{matrix}
+</table></div>
+<div class="foot" style="margin-top:8px">Window: everyone the mailer itself considers (entry event since
+{lcm.fmt_ts(lc["window_lo_ms"])}). Two tracks, never both: a DETECTED activation gets onboard + post_demo;
+activation never seen gets start_nudge + post_reg. A time is when the send becomes due; the scheduler runs
+every 30 minutes, so the mail lands within the following half hour.</div>
+
+<h2>Send log · every lifecycle mail that left, newest first</h2>
+<div class="scroll"><table>
+<tr><th>time</th><th>send</th><th>to</th><th>status</th><th>state · identity at send</th></tr>
+{log_rows}
+</table></div>
+
+<h2>Mail library · the four sends, for a manual send</h2>
+{lib}
+"""
+    return notice, section
+
+
 def main():
     now = datetime.datetime.now(IL)
     now_ms = int(now.timestamp() * 1000)
@@ -130,6 +280,13 @@ def main():
         sent_by_email[em] = {e.get("send") for e in by_email.get(em, [])
                              if e.get("type") == "demo_mail_sent"}
     mails_sent = collections.Counter(k for s in sent_by_email.values() for k in s)
+
+    # lifecycle mails: the REAL demo_lifecycle, run dry against a copy of these events
+    lc, lc_err = None, None
+    try:
+        lc = lcm.build(db, by_email, anonymous, now_ms)
+    except Exception as ex:                          # never let the mirror kill the page
+        lc_err = f"{type(ex).__name__}: {ex}"
 
     launch_ms = int(datetime.datetime.fromisoformat(SINCE + "T00:00:00")
                     .replace(tzinfo=IL).timestamp() * 1000)
@@ -159,13 +316,6 @@ def main():
     e = html.escape
     pill = {"PURCHASED": "#3ec78f", "CHECKOUT": "#e5b02e", "ACTIVATED": "#7db4e8",
             "REGISTERED": "#857c6e"}
-
-    def tile(value, label, sub="", big=False, accent=False):
-        cls = "tile big" if big else "tile"
-        color = "color:#e58a2e" if accent else ""
-        return (f'<div class="{cls}"><div class="v" style="{color}">{value}</div>'
-                f'<div class="k">{label}</div>'
-                + (f'<div class="s">{sub}</div>' if sub else "") + "</div>")
 
     def rate(v, n, d):
         return f"{v * 100:.1f}%" if v is not None else "–", f"{n}/{d}"
@@ -266,10 +416,12 @@ def main():
                    f"<td><span class='pill' style='background:{pill[st]}22;color:{pill[st]};"
                    f"border:1px solid {pill[st]}55'>{st}</span></td>"
                    f"<td>{', '.join(sorted(sent)) or '-'}</td>"
-                   f"<td>{e(next_mail(c, sent, now_ms))}</td>"
+                   f"<td>{e(lc['rows'][em]['next'] if lc and em in lc['rows'] else next_mail(c, sent, now_ms))}</td>"
                    f"<td>{revenue}</td></tr>")
     if not people:
         people = "<tr><td colspan='7'>no cohort members yet</td></tr>"
+
+    notice, lifecycle_html = render_lifecycle(lc, lc_err)
 
     page = f"""<!doctype html>
 <html lang="en"><head>
@@ -291,7 +443,9 @@ h2{{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink
 margin:28px 0 10px;font-weight:800}}
 .grid{{display:grid;gap:10px}}
 .g5{{grid-template-columns:repeat(5,1fr)}}.g6{{grid-template-columns:repeat(6,1fr)}}
-@media(max-width:900px){{.g5,.g6{{grid-template-columns:repeat(2,1fr)}}}}
+.g7{{grid-template-columns:repeat(7,1fr)}}
+@media(max-width:1100px){{.g7{{grid-template-columns:repeat(4,1fr)}}}}
+@media(max-width:900px){{.g5,.g6,.g7{{grid-template-columns:repeat(2,1fr)}}}}
 .tile{{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}}
 .tile.big{{grid-column:span 1;background:var(--raise)}}
 .tile .v{{font:600 26px/1.1 ui-monospace,Consolas,monospace;color:var(--ink);
@@ -313,6 +467,25 @@ tr:last-child td{{border-bottom:0}}
 .pill{{display:inline-block;padding:2px 9px;border-radius:999px;font:700 10px/1.6 system-ui;
 letter-spacing:.08em}}
 .scroll{{overflow-x:auto}}
+.notice{{margin:0 0 18px;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600}}
+.notice.bad{{background:#e0563c22;color:#ff9a86;border:1px solid #e0563c66}}
+.notice.warn{{background:#e5b02e1f;color:#e5b02e;border:1px solid #e5b02e55}}
+.notice a{{color:inherit}}
+td.c{{text-align:left;font-size:12.5px;vertical-align:top}}
+td.c .why{{font:11px/1.35 system-ui,'Segoe UI',sans-serif;color:var(--ink3);white-space:normal;
+max-width:230px;margin-top:2px}}
+td.c.ok{{color:#3ec78f}}td.c.sched{{color:var(--ink2)}}td.c.due{{color:#7db4e8}}
+td.c.warn{{color:#e5b02e}}td.c.bad{{color:#ff7a5c;font-weight:700}}td.c.na{{color:#5c554a}}
+td .sub{{display:block;font:11px system-ui,'Segoe UI',sans-serif;color:var(--ink3)}}
+th small{{display:block;font-weight:400;letter-spacing:0;text-transform:none;color:#5c554a}}
+.act{{background:var(--panel);border:1px solid #e0563c55;border-left:3px solid #e0563c;border-radius:10px;
+padding:10px 14px;margin:8px 0;font-size:13px}}
+.act b{{color:var(--ink)}}
+details{{margin-top:6px}}summary{{cursor:pointer;color:var(--copper);font-size:12px}}
+pre{{white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;
+font:12.5px/1.5 ui-monospace,Consolas,monospace;color:var(--ink2);margin:8px 0 0;user-select:all}}
+.lib{{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 14px;margin:6px 0}}
+.lib summary b{{color:var(--ink)}}
 .foot{{margin-top:26px;font-size:12px;color:var(--ink3);line-height:1.7}}
 .foot b{{color:var(--ink2)}}
 </style></head><body><div class="wrap">
@@ -321,7 +494,7 @@ letter-spacing:.08em}}
   <span class="meta">campaign {CAMPAIGN_ID} · since {SINCE}</span>
   <span class="meta">generated {now.strftime('%Y-%m-%d %H:%M:%S')} IL · page reloads every 5 min</span>
 </header>
-
+{notice}
 <h2>Primary · judge the campaign on these, nothing else</h2>
 <div class="grid g5">{primary}</div>
 
@@ -350,7 +523,7 @@ letter-spacing:.08em}}
 <th>next mail (est)</th><th>revenue</th></tr>
 {people}
 </table></div>
-
+{lifecycle_html}
 <div class="foot">
 <b>How to read this.</b> The cohort is anchored on registration: a person whose first entry
 carried this campaign's id belongs to it forever, and their purchase joins by email from the
@@ -359,6 +532,10 @@ payment webhook. Meta's claimed buys are shown once and used nowhere.
 only becomes a person when the IP correlation succeeds, which cross-device users defeat.
 Anonymous activations since launch are counted beside it. Formulas are imported from
 demo_acq_report.py, so this page and the CLI can never disagree.
+<b>Lifecycle mails are judged by the backend itself:</b> main.py is imported in dry mode and its
+demo_lifecycle is run against a copy of the live events, at the real clock and at every due moment.
+"will skip" means the deployed logic refused that send; nothing on this page models the rules.
+OVERDUE = 45 minutes past due with no claim. Manual send: python demo_lifecycle_mirror.py --mail SEND EMAIL
 </div>
 </div></body></html>"""
 
@@ -368,6 +545,11 @@ demo_acq_report.py, so this page and the CLI can never disagree.
     print(f"[Tracker] cohort={k['registrations']} buyers={k['purchasers']} "
           f"spend={'n/a' if spend is None else f'ILS {spend:,.2f}'} "
           f"meta={'ok' if tot else 'UNAVAILABLE'}")
+    if lc:
+        print(f"[Tracker] lifecycle: people={len(lc['rows'])} actions={len(lc['actions'])} "
+              f"backend={'real' if lc['backend_ok'] else 'UNAVAILABLE ' + str(lc['backend_error'])}")
+    else:
+        print(f"[Tracker] lifecycle mirror FAILED: {lc_err}")
 
 
 if __name__ == "__main__":
