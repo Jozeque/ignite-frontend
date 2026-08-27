@@ -25,7 +25,14 @@ Stride now moves the knobs of Ableton's own devices. Map any parameter of any de
 
 ## Files
 
-- `Stride-VST3-Windows-v2.0.2.zip` and `Stride-VST3-Mac-v2.0.2.zip`: `Stride.vst3` (and `Stride.component` on Mac), `README.txt`, and the `StrideBridge` folder.
+- `Stride-VST3-Windows-v2.0.3.zip` and `Stride-VST3-Mac-v2.0.3.zip`: `Stride.vst3` (and `Stride.component` on Mac), `README.txt`, and the `StrideBridge` folder.
+
+## 2.0.3
+
+- **Every knob sweeps its real range.** Stride reads each parameter's own range from Live at map time and drives it in those units: pitch in semitones, gain in dB, frequency with a musical taper. Knobs that already ran 0 to 1 sound exactly as before.
+- Mapped knobs land only in the Stride window that pressed Map Live. A window closing mid-mapping takes the mapping session down with it, so lanes can no longer appear in a window that never asked for them.
+- Select All plus a Motion now hits every lane it says it will. Mapping, adding a device or an undo no longer quietly drops your selection or moves your focused lane.
+- If StrideBridge ever stops answering, the Map Live button says so and tells you the fix, instead of staying lit over a dead session. A stale bridge process frees the port on its own within half a minute.
 
 ## 2.0.2
 
