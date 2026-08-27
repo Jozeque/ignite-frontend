@@ -2060,12 +2060,29 @@ void StrideWrapperProcessor::setBridgeSinks (std::function<void (const juce::Str
 
 void StrideWrapperProcessor::pushBridgeBlob()
 {
+    if (! driveAllowed.load()) return;   // same rule as the hosted curves: no entitlement on this machine, no modulation
     if (bridgeLink == nullptr || ! bridgeLink->isUp() || bridgeLanesJson.isEmpty()) return;
     auto* o = new juce::DynamicObject();
     o->setProperty ("type", "set_live_blob");
     o->setProperty ("bars", juce::jmax (1, juce::roundToInt (driveClipBeats / 4.0)));   // same bar count the canvas shows (clip_bars)
     o->setProperty ("blob", bridgeLanesJson);
     bridgeLink->send (juce::JSON::toString (juce::var (o), true));
+}
+
+// Entitlement edge for the bridge lanes. Hosted curves read driveAllowed on the audio
+// thread every block; the Ableton lanes play inside the M4L device, so the edge has to
+// reach it: down -> release every knob this instance drives (clear_all is per client),
+// up (activation, a pass starting on this machine) -> the stored lanes go out.
+void StrideWrapperProcessor::setDriveAllowed (bool b)
+{
+    const bool was = driveAllowed.exchange (b);
+    if (was == b) return;
+    if (b)
+    {
+        if (bridgeLanesJson.isNotEmpty()) { ensureBridgeLink(); pushBridgeBlob(); }
+    }
+    else
+        bridgeSend ("{\"type\":\"clear_all\"}");
 }
 
 void StrideWrapperProcessor::onBridgeState (bool on)

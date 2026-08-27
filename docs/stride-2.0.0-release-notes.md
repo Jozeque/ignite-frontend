@@ -25,4 +25,8 @@ Stride now moves the knobs of Ableton's own devices. Map any parameter of any de
 
 ## Files
 
-- `Stride-VST3-Windows-v2.0.0.zip` and `Stride-VST3-Mac-v2.0.0.zip`: `Stride.vst3` (and `Stride.component` on Mac), `README.txt`, and the `StrideBridge` folder.
+- `Stride-VST3-Windows-v2.0.1.zip` and `Stride-VST3-Mac-v2.0.1.zip`: `Stride.vst3` (and `Stride.component` on Mac), `README.txt`, and the `StrideBridge` folder.
+
+## 2.0.1
+
+- The Discovery Pass works the same for StrideBridge lanes as for hosted lanes: full during the pass, your existing lanes keep playing after it ends, no new mapping until you activate. A shared project opened on a machine without a pass plays dry, Ableton lanes included.

@@ -675,6 +675,18 @@ test('C++: BridgeLink is PROCESSOR-owned (:9102): stored lanes reach the bridge 
     assert(/proc\.bridgeIsUp\(\)/.test(editor), 'presence gate reads the processor link');
 });
 
+test('C++: the Discovery Pass lock covers the bridge lanes exactly like hosted lanes (2.0.1)', () => {
+    // expired pass: no new maps / curve pushes from the page (native gate, not the overlay)
+    assert(/type == "bridge_send"\)\s*\{\s*if \(proc\.isEditLocked\(\)\) return;/.test(editor), 'bridge_send gated on editLocked');
+    assert(/type == "set_bridge_lanes"\)\s*\{\s*proc\.bridgeLanesJson =/.test(editor), 'persistence of the blob stays UNgated (lanes are never lost)');
+    // never-passed machine: hosted curves stay silent, so must the Ableton lanes
+    const pb = proc.slice(proc.indexOf('void StrideWrapperProcessor::pushBridgeBlob()'));
+    assert(/^[\s\S]{0,300}if \(! driveAllowed\.load\(\)\) return;/.test(pb), 'headless push follows driveAllowed');
+    const sd = proc.slice(proc.indexOf('void StrideWrapperProcessor::setDriveAllowed (bool b)'));
+    assert(/^[\s\S]{0,700}clear_all/.test(sd) && /^[\s\S]{0,700}pushBridgeBlob\(\)/.test(sd), 'entitlement edge: down releases the knobs, up pushes the lanes');
+    assert(!/void setDriveAllowed \(bool b\) \{ driveAllowed\.store \(b\); \}/.test(procH), 'the inline setter is gone (edge logic lives in the .cpp)');
+});
+
 test('TCP transport: newline framing survives chunked delivery, listening flips the face to ACTIVE', async () => {
     resetState();
     const net = require('net');

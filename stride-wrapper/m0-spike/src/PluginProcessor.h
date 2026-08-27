@@ -88,7 +88,10 @@ public:
     // (paid / active pass) OR holds an EXPIRED pass minted for THIS device (soft lock keeps your
     // own work playing). A shared project opened on a never-passed machine -> false -> no free
     // modulation. Recomputed natively on the editor timer; read on the audio thread (atomic).
-    void setDriveAllowed (bool b) { driveAllowed.store (b); }
+    // The bridge lanes follow the same flag: hosted curves check it on the audio thread every
+    // block, the Ableton lanes live in the M4L device, so an entitlement EDGE is pushed to
+    // it (down = release the knobs, up = the stored lanes go out). Message thread.
+    void setDriveAllowed (bool b);
     bool isDriveAllowed() const { return driveAllowed.load(); }
 
     // HANG GUARD (field incident 2026-08-06, Minimal Audio Wave Shift): the audio thread

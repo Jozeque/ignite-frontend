@@ -929,8 +929,12 @@ void StrideWrapperEditor::handleStrideLinkSend (const juce::var& msg)
     }
 
     // StrideBridge outbound: the shim's strideBridge.send() lands here as one JSON line.
+    // Gated like every other edit: an expired pass must not map new knobs or push new
+    // curves to Live. Existing lanes keep playing through the processor's own blob push,
+    // which follows driveAllowed. Persistence (set_bridge_lanes below) stays ungated.
     if (type == "bridge_send")
     {
+        if (proc.isEditLocked()) return;
         proc.bridgeSend (msg.getProperty ("json", "").toString());
         return;
     }
