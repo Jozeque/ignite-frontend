@@ -127,6 +127,14 @@ rm -rf "$DIST"; mkdir -p "$DIST/Stride"
 ditto "$VST3" "$DIST/Stride/Stride.vst3"
 ditto "$AU"   "$DIST/Stride/Stride.component"
 cp "$CI_DIR/README.txt" "$DIST/Stride/README.txt"
+# StrideBridge rides along (see the Windows job note): self-contained M4L folder.
+BRIDGE_SRC="$SCRIPT_DIR/../../stride-vst/m4l-bridge"
+mkdir -p "$DIST/Stride/StrideBridge"
+for f in StrideBridge.amxd bridge-server.js bridge_max.js rasterizer.js log-scaling.js; do
+  cp "$BRIDGE_SRC/$f" "$DIST/Stride/StrideBridge/"
+done
+cp "$BRIDGE_SRC/README-StrideBridge.txt" "$DIST/Stride/StrideBridge/README.txt"
+cp "$SCRIPT_DIR/../../docs/_fonts/Outfit.ttf" "$DIST/Stride/StrideBridge/"
 xcrun stapler validate "$DIST/Stride/Stride.vst3"      || { echo "❌ staple lost after copy (vst3)"; exit 1; }
 xcrun stapler validate "$DIST/Stride/Stride.component" || { echo "❌ staple lost after copy (component)"; exit 1; }
 # Bake the CMake project version into the zip name — the file identifies its build,

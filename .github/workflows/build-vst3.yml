@@ -54,7 +54,16 @@ jobs:
           echo "Found: $VST3 (v$VER)"
           cd "$(dirname "$VST3")"
           cp "$GITHUB_WORKSPACE/stride-wrapper/m0-spike/ci/README.txt" .
-          7z a -tzip "$GITHUB_WORKSPACE/Stride-VST3-Windows-v$VER.zip" "Stride.vst3" "README.txt" >/dev/null
+          # StrideBridge rides along: the M4L output stage that lets Stride modulate
+          # Ableton's own devices. Self-contained folder - the amxd resolves its js
+          # files next to itself, and the VST link runs on Node built-ins (no npm).
+          mkdir -p StrideBridge
+          for f in StrideBridge.amxd bridge-server.js bridge_max.js rasterizer.js log-scaling.js; do
+            cp "$GITHUB_WORKSPACE/stride-vst/m4l-bridge/$f" StrideBridge/
+          done
+          cp "$GITHUB_WORKSPACE/stride-vst/m4l-bridge/README-StrideBridge.txt" StrideBridge/README.txt
+          cp "$GITHUB_WORKSPACE/docs/_fonts/Outfit.ttf" StrideBridge/
+          7z a -tzip "$GITHUB_WORKSPACE/Stride-VST3-Windows-v$VER.zip" "Stride.vst3" "README.txt" "StrideBridge" >/dev/null
           echo "Zipped Stride-VST3-Windows-v$VER.zip"
 
       # The ARTIFACT name carries the version too — GitHub's browser download wraps the

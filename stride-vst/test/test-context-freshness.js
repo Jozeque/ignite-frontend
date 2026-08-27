@@ -95,8 +95,8 @@ ok('sequence: a second inject (scan already landed) writes directly — no extra
 // clear the lanes. A transient empty on the SAME rack (not dirty) still keeps them.
 ok('canvas: rack_scanned captures _wasContextDirty before clearing the flag',
    /const _wasContextDirty = _sdContextDirty;[\s\S]{0,160}_sdContextDirty = false;/.test(canvasSrc));
-ok('canvas: empty scan after a context switch CLEARS the stale lanes',
-   /if \(params\.length === 0\)[\s\S]{0,1000}if \(_wasContextDirty && sdCanvasParams\.length > 0\) \{[\s\S]{0,160}sdCanvasParams = \[\];/.test(canvasSrc));
+ok('canvas: empty scan after a context switch CLEARS the stale lanes (StrideBridge live lanes exempt by design)',
+   /if \(params\.length === 0\)[\s\S]{0,1000}if \(_wasContextDirty && sdCanvasParams\.length > 0\) \{[\s\S]{0,240}sdCanvasParams = sdCanvasParams\.filter\(p => p\._live\);/.test(canvasSrc));
 ok('canvas: the clear is GATED by _wasContextDirty (transient same-rack empty keeps lanes)',
    /_wasContextDirty && sdCanvasParams\.length > 0/.test(canvasSrc));
 

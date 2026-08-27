@@ -874,6 +874,7 @@
             return;
         }
 
+        const _keepLiveOnPick = sdCanvasParams.filter(p => p._live);   // StrideBridge lanes ride every rebuild
         sdCanvasParams = pendingScanParams
             .filter(p => checkedIds.includes(String(p.id)))
             .map(p => ({
@@ -893,6 +894,7 @@
                 points: []
             }))
             .sort(_sdSortByName);
+        if (_keepLiveOnPick.length) sdCanvasParams = sdCanvasParams.concat(_keepLiveOnPick);
         _sdFreezeAutoColorSlots();
 
         if (sdCanvasParams.length > 0) sdActiveParamId = sdCanvasParams[0].envelopeId;
@@ -940,6 +942,7 @@
     }
 
     function loadParamsDirectly(params, rackInfo) {
+        const _keepLive = sdCanvasParams.filter(p => p._live);   // StrideBridge lanes: engine echoes know nothing about them
         sdCanvasParams = params.map(p => ({
             envelopeId: String(p.id),
             name: p.name,
@@ -961,6 +964,7 @@
             nodeIdx: (typeof p.node === 'number' ? p.node : -1),                                 // which chain slot this lane came from (wrapper) — tells duplicate devices apart
             points: Array.isArray(p.points) ? p.points : []   // wrapper sends the drawn curve from the engine — reliable across reopen (desktop sends none → empty)
         })).sort(_sdSortByName);
+        if (_keepLive.length) sdCanvasParams = sdCanvasParams.concat(_keepLive);   // live lanes always at the tail, ord -1 keeps them stable
         // Removing a device RENUMBERS the chain slots, so a focus on a slot that no longer
         // has lanes would silently hide everything. Drop it rather than show an empty canvas.
         if (sdDeviceFilterNode >= 0 && !sdCanvasParams.some(p => p.nodeIdx === sdDeviceFilterNode))
@@ -1139,7 +1143,7 @@
                 // prior rack's curves were already persisted (saveCanvasState runs before
                 // every context scan), so returning to that rack reloads them.
                 if (_wasContextDirty && sdCanvasParams.length > 0) {
-                    sdCanvasParams = [];
+                    sdCanvasParams = sdCanvasParams.filter(p => p._live);   // a rack switch never clears StrideBridge lanes
                     sdActiveParamId = null;
                     currentRackId = (msg.track_name + '_' + msg.device_name).replace(/[^a-zA-Z0-9]/g, '_');
                     currentClipSlot = (msg.clip_slot != null) ? msg.clip_slot : 0;
@@ -1742,12 +1746,11 @@
         };
         _sdGlowRAF = requestAnimationFrame(step);
     }
-    strideLink.on('param_glow', function (msg) {
-        if (!window.strideLink || !window.strideLink._wrapper) return;
-        const id = (msg && typeof msg.id === 'number') ? msg.id : -1;
-        if (id < 0) return;
-        const lane = sdCanvasParams.find(p => p._path === ('wrap:' + id));
-        if (!lane) return;
+    // One glow doorway for BOTH origins: a hosted-plugin touch (param_glow) and an
+    // Ableton-device touch relayed by StrideBridge (sdBridgeTouched). Flash, scroll
+    // the lane into view, and announce sd-lane-touched so Compact + the character
+    // point at it too - identical behavior in every view.
+    function _sdTouchGlowLane(lane) {
         lane._glowUntil = Date.now() + 1000;
         // Bring the lane on-screen (multi view): the point is finding it fast.
         if (sdViewMode === 'multi') {
@@ -1765,7 +1768,38 @@
         try {
             window.dispatchEvent(new CustomEvent('sd-lane-touched', { detail: { id: lane.envelopeId } }));
         } catch (e) {}
+    }
+
+    strideLink.on('param_glow', function (msg) {
+        if (!window.strideLink || !window.strideLink._wrapper) return;
+        const id = (msg && typeof msg.id === 'number') ? msg.id : -1;
+        if (id < 0) return;
+        const lane = sdCanvasParams.find(p => p._path === ('wrap:' + id));
+        if (lane) _sdTouchGlowLane(lane);
     });
+
+    // StrideBridge lane-finder: the user clicked a param on an Ableton device; if a
+    // live lane drives it, light it up exactly like a hosted-plugin touch.
+    // (Only fires for UNBOUND params - Live swallows clicks on remote-controlled knobs,
+    // which is why the device-level finder below exists.)
+    window.sdBridgeTouched = function (m) {
+        if (!m || !m.path) return;
+        const lane = sdCanvasParams.find(p => p._live && p.livePath === m.path);
+        if (lane) _sdTouchGlowLane(lane);
+    };
+
+    // Device-level finder: clicking an Ableton device's header flashes EVERY lane that
+    // device owns. This is the reliable gesture - bound knobs can't be clicked through.
+    window.sdBridgeTouchedDev = function (m) {
+        if (!m || !m.path) return;
+        const prefix = m.path + ' ';
+        const lanes = sdCanvasParams.filter(p => p._live && p.livePath && p.livePath.indexOf(prefix) === 0);
+        lanes.forEach(l => _sdTouchGlowLane(l));
+        if (lanes.length) {
+            const st = document.getElementById('sd-canvas-status');
+            if (st) st.textContent = (m.name || 'Device') + ': ' + lanes.length + ' Stride lane' + (lanes.length === 1 ? '' : 's');
+        }
+    };
 
     // "Lock current lanes": lock every lane that's actually moving, so the next
     // generator skips them and only modulates the still-empty (newly-added)
@@ -2863,7 +2897,8 @@
         // across reloads. Points/range are stored as the raw 0..1 shape (non-destructive).
         const state = sdCanvasParams
             .filter(p => p.points.length > 0 || p.locked || p.rangeOn || (typeof p.colorIdx === 'number' && p.colorIdx >= 0)
-                      || (typeof p.loopBeats === 'number' && p.loopBeats > 0) || (typeof p.speed === 'number' && p.speed !== 1))
+                      || (typeof p.loopBeats === 'number' && p.loopBeats > 0) || (typeof p.speed === 'number' && p.speed !== 1)
+                      || p._live)   // a StrideBridge lane is meaningful the moment it is mapped, curve or not
             .map(p => ({
                 envelopeId: p.envelopeId,   // legacy / back-compat key
                 _path: p._path || null,     // STABLE key — match on this; positional envelopeId renumbers when params are added
@@ -2872,7 +2907,13 @@
                 colorIdx: (typeof p.colorIdx === 'number' ? p.colorIdx : -1),       // lane color override (-1 = AUTO)
                 loopBeats: (typeof p.loopBeats === 'number' ? p.loopBeats : 0),     // per-lane loop boundary (wrapper; 0 = off)
                 speed: (typeof p.speed === 'number' ? p.speed : 1),                 // per-lane rate multiplier (wrapper; 1 = normal)
-                points: p.points.map(pt => ({ time: pt.time, value: pt.value, curve: pt.curve || 0 }))
+                points: p.points.map(pt => ({ time: pt.time, value: pt.value, curve: pt.curve || 0 })),
+                // StrideBridge live-lane identity: what the shim needs to push the curve
+                // to the bridge AND what sdBridgeAdoptLanes needs to rebuild the lane on
+                // project reload (the whole object rides the engine's v10 "bl" blob).
+                ...(p._live ? { _live: true, livePath: p.livePath || null, liveQuant: !!p.liveQuant,
+                                liveName: p.name || '', liveDevice: p.device || '',
+                                liveMin: p.liveMin, liveMax: p.liveMax, liveLog: !!p.liveLog } : {})
             }));
         await window.stride.saveCanvasState(key, state);
     }
@@ -3214,11 +3255,148 @@
     // Unmap a single lane (the per-lane × — wrapper only).
     window.sdUnmapLane = function(envelopeId) {
         const p = sdCanvasParams.find(x => x.envelopeId === envelopeId);
-        if (p) _sdRemoveLaneByPos(p.id, true);
+        if (!p) return;
+        // StrideBridge lane: pure canvas removal. No engine message (there is no hosted
+        // param behind it) and no positional renumber (its id is -1 by construction).
+        // The next saveCanvasState updates the persistence blob AND the bridge's
+        // full-set diff, which releases the voice and frees the Ableton knob.
+        if (p._live) {
+            sdCanvasParams = sdCanvasParams.filter(x => x !== p);
+            if (sdActiveParamId === p.envelopeId)
+                sdActiveParamId = sdCanvasParams[0] ? sdCanvasParams[0].envelopeId : null;
+            sdRenderSidebar();
+            sdDrawCanvasGrid();
+            try { saveCanvasState(); } catch (e) {}
+            const st = document.getElementById('sd-canvas-status');
+            if (st) st.textContent = 'Unmapped ' + (p.device ? p.device + ' · ' : '') + (p.name || 'param') + ': knob released';
+            return;
+        }
+        _sdRemoveLaneByPos(p.id, true);
+    };
+
+    // ── StrideBridge: Ableton's own devices as lanes ─────────────────────────
+    // The bridge (StrideBridge.amxd, ws://127.0.0.1:9101) does the LiveAPI work; these
+    // are the canvas entry points the shim calls. All inert without window.strideBridge
+    // (desktop) and additive on the wrapper.
+    function _sdBridgeStatus(txt) {
+        const st = document.getElementById('sd-canvas-status');
+        if (st) st.textContent = txt;
+    }
+
+    function _sdBridgeMakeLane(info, saved) {
+        const sv = saved || {};
+        return {
+            envelopeId: 'live:' + info.path,
+            id: -1,                        // NEVER a hosted position: engine per-lane routes bounds-check and no-op on -1
+            _path: null,
+            name: info.name || sv.liveName || 'Param',
+            device: (info.device || sv.liveDevice || 'Live'),
+            min: (typeof info.min === 'number' ? info.min : 0),
+            max: (typeof info.max === 'number' ? info.max : 1),
+            is_log: !!info.is_log,
+            locked: !!sv.locked,
+            selected: false,
+            rangeOn: !!sv.rangeOn,
+            rangeMin: (typeof sv.rangeMin === 'number' ? sv.rangeMin : 0),
+            rangeMax: (typeof sv.rangeMax === 'number' ? sv.rangeMax : 1),
+            colorIdx: (typeof sv.colorIdx === 'number' ? sv.colorIdx : -1),
+            loopBeats: 0,                  // v1 scope cut: live lanes are transport-locked full loops
+            speed: (typeof sv.speed === 'number' && sv.speed > 0 ? sv.speed : 1),
+            linkGroup: 0, linkInv: false,
+            ord: -1, nodeIdx: -1,
+            points: Array.isArray(sv.points) ? sv.points.map(pt => ({ time: pt.time, value: pt.value, curve: pt.curve || 0 })) : [],
+            _live: true,
+            liveQuant: !!(info.is_quantized || (saved && saved.liveQuant)),
+            livePath: info.path,
+            liveMin: (typeof info.min === 'number' ? info.min : 0),
+            liveMax: (typeof info.max === 'number' ? info.max : 1),
+            liveLog: !!info.is_log
+        };
+    }
+
+    // MAP LIVE result: the knob the user clicked in Live becomes a lane.
+    // Quantized/menu params (Roar's Style, filter types) are ALLOWED: live.remote~ is
+    // remote-control, not Live-modulation, and the rig decides whether it steps enums.
+    // The lane keeps liveQuant so the server can switch those to native-range rendering
+    // if normalized 0..1 turns out to only reach the first options.
+    window.sdBridgeMapped = function(info) {
+        if (!info || !info.path) return;
+        if (sdCanvasParams.some(x => x._live && x.livePath === info.path)) {
+            _sdBridgeStatus('Already mapped: ' + (info.name || info.path));
+            return;
+        }
+        const lane = _sdBridgeMakeLane(info);
+        sdCanvasParams.push(lane);
+        try { _sdFreezeAutoColorSlots(); } catch (e) {}
+        sdActiveParamId = lane.envelopeId;
+        try { sdRenderSidebar(); } catch (e) {}
+        try { sdDrawCanvasGrid(); } catch (e) {}
+        try { saveCanvasState(); } catch (e) {}   // persists the blob + pushes/binds via the bridge
+        _sdBridgeStatus(info.is_quantized
+            ? 'Mapped ' + (info.name || 'param') + ', a stepped menu: values snap to its options, S&H curves fit it best'
+            : 'Mapped ' + (info.device ? info.device + ' · ' : '') + (info.name || 'param') + ': draw a curve');
+    };
+
+    // Project reload: rebuild live lanes from the engine's v10 "bl" blob, then let
+    // saveCanvasState re-push curves and re-bind paths (LOM ids are session-scoped).
+    window.sdBridgeAdoptLanes = function(list) {
+        let added = 0;
+        (list || []).forEach(sv => {
+            if (!sv || !sv.livePath) return;
+            if (sdCanvasParams.some(x => x._live && x.livePath === sv.livePath)) return;
+            sdCanvasParams.push(_sdBridgeMakeLane({
+                path: sv.livePath, name: sv.liveName, device: (sv.liveDevice || '').replace(/^⚡ /, ''),
+                min: sv.liveMin, max: sv.liveMax, is_log: sv.liveLog, is_quantized: sv.liveQuant ? 1 : 0
+            }, sv));
+            added++;
+        });
+        if (!added) return;
+        try { _sdFreezeAutoColorSlots(); } catch (e) {}
+        try { sdRenderSidebar(); } catch (e) {}
+        try { sdDrawCanvasGrid(); } catch (e) {}
+        try { saveCanvasState(); } catch (e) {}
+        _sdBridgeStatus(added + ' Live lane' + (added === 1 ? '' : 's') + ' restored');
+    };
+
+    // Bind echo after a reload: a target that no longer resolves gets NAMED, not silent
+    // (the 1.4.1 missing-device-report rule). The bridge composes the line when it
+    // knows more (two of the same device, a knob driven by another Stride window).
+    window.sdBridgeBindResult = function(m) {
+        if (!m || m.ok) return;
+        if (m.message) { _sdBridgeStatus(m.message); return; }
+        const lane = sdCanvasParams.find(x => x._live && x.livePath === m.key);
+        _sdBridgeStatus('Couldn\'t find ' + (lane ? '"' + lane.name + '"' : 'a Live lane target') + ' in the set: was the device removed or the track reordered?');
+    };
+
+    // RELINK: while Map Live is armed, a click on a device's title bar in Live moved
+    // every lane of that device name onto it (the bridge re-homed them; the per-lane
+    // heals arrive separately and rewrite each livePath).
+    window.sdBridgeRelinked = function(m) {
+        if (!m) return;
+        const n = m.count || 0;
+        _sdBridgeStatus(n
+            ? 'Relinked ' + n + ' lane' + (n === 1 ? '' : 's') + ' to ' + (m.device || 'the device')
+            : 'No ' + (m.device || 'device') + ' lanes to relink');
+    };
+
+    window.sdBridgeError = function(message) { _sdBridgeStatus('Bridge: ' + (message || 'error')); };
+
+    // A rack/chain loaded in a new home: the bridge re-found this lane's knob by its
+    // (device, param) NAME and rebound it there. Adopt the new path so the next save
+    // heals the chain/blob for good.
+    window.sdBridgeHealed = function(m) {
+        if (!m || !m.oldPath || !m.newPath) return;
+        const lane = sdCanvasParams.find(p => p._live && p.livePath === m.oldPath);
+        if (!lane) return;
+        lane.livePath = m.newPath;
+        lane.envelopeId = 'live:' + m.newPath;
+        if (sdActiveParamId === 'live:' + m.oldPath) sdActiveParamId = lane.envelopeId;
+        try { saveCanvasState(); } catch (e) {}
+        _sdBridgeStatus('Relinked ' + (lane.name || 'lane') + ' to its new home');
     };
 
     // Touch-unmap (armed Unmap + touch a knob): the ENGINE removed the mapping and sent us the
-    // exact position. Splice that lane the same leak-free way — never a positional re-push.
+    // exact position. Splice that lane the same leak-free way: never a positional re-push.
     strideLink.on('unmapped_at', function(msg) {
         if (msg && typeof msg.position === 'number') _sdRemoveLaneByPos(msg.position, false);
     });

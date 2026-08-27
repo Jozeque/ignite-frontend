@@ -70,6 +70,12 @@ private:
     void pushLearnState();      // -> wrapper toolbar Map button
     void pushKeysState();       // -> wrapper toolbar KEYS pill (MIDI keyswitch on/off)
     void pushPinState();        // -> title-bar pin buttons (which half-screen mode is active)
+    void pushBridgeLanes();     // -> StrideBridge live-lane blob (the shim adopts it once the bridge link is up)
+
+    // StrideBridge TCP link (:9102) is PROCESSOR-owned (BridgeLink.h): the page CANNOT
+    // open the socket itself (WebView2 blocks localhost from the plugin page, verified on
+    // the rig 2026-08-26), and the window must not be what wakes the lanes up. The editor
+    // subscribes via proc.setBridgeSinks() while open and sends via proc.bridgeSend().
     void pushChainDevices();    // -> wrapper device chips (the deliberate per-device remove)
     void handleLicense (const juce::var& msg);   // license gate bridge (load/save/validate)
     void scanPluginsToWeb();    // -> Stride-styled plugin browser (the "+ Add" picker)

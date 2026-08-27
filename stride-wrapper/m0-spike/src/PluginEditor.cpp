@@ -225,6 +225,11 @@ struct StrideWrapperEditor::HostedWindow : public juce::DocumentWindow
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (HostedWindow)
 };
 
+// StrideBridge link: PROCESSOR-owned (BridgeLink.h + StrideWrapperProcessor::ensureBridgeLink).
+// The editor only subscribes while open, so a project load or a rack drop pushes the
+// stored lanes with NO window (field report 2026-08-27: modulation only started after
+// opening Stride once).
+
 StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
     : juce::AudioProcessorEditor (&p), proc (p)
 {
@@ -254,7 +259,7 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
                                      .withUserDataFolder (userData))
         .withNativeIntegrationEnabled()
         .withResourceProvider ([] (const juce::String& url) { return serveAsset (url); })
-        .withEventListener ("wrapperReady", [this] (juce::var)     { pushHostInfo(); pushPrefs(); web->emitEventIfBrowserIsVisible ("sl_event", []{ auto* o = new juce::DynamicObject(); o->setProperty ("type", "connected"); return juce::var (o); }()); pushRackScanned(); pushLearnState(); pushKeysState(); pushPinState(); pushChainDevices(); })
+        .withEventListener ("wrapperReady", [this] (juce::var)     { pushHostInfo(); pushPrefs(); web->emitEventIfBrowserIsVisible ("sl_event", []{ auto* o = new juce::DynamicObject(); o->setProperty ("type", "connected"); return juce::var (o); }()); pushRackScanned(); pushLearnState(); pushKeysState(); pushPinState(); pushChainDevices(); pushBridgeLanes(); if (proc.bridgeIsUp()) { auto* bo = new juce::DynamicObject(); bo->setProperty ("on", true); web->emitEventIfBrowserIsVisible ("bridgeState", juce::var (bo)); } })
         .withEventListener ("prefsSave",    [this] (juce::var v)   { savePrefs (v.getProperty ("prefs", juce::var())); })
         .withEventListener ("saveChain",    [this] (juce::var)     { saveChainToFile(); })
         .withEventListener ("loadChain",    [this] (juce::var)     { loadChainFromFile(); })
@@ -464,6 +469,26 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
 
     web = std::make_unique<juce::WebBrowserComponent> (options);
     addAndMakeVisible (*web);
+    // StrideBridge link: PROCESSOR-owned (it outlives this window, so stored lanes reach
+    // the bridge on project load). We only subscribe: bridgeMsg carries one JSON line
+    // from the bridge; bridgeState flips the MAP LIVE button's presence gate.
+    proc.ensureBridgeLink();
+    proc.setBridgeSinks (
+        [this] (const juce::String& line)
+        {
+            if (web == nullptr) return;
+            auto* o = new juce::DynamicObject();
+            o->setProperty ("json", line);
+            web->emitEventIfBrowserIsVisible ("bridgeMsg", juce::var (o));
+        },
+        [this] (bool on)
+        {
+            if (web == nullptr) return;
+            auto* o = new juce::DynamicObject();
+            o->setProperty ("on", on);
+            web->emitEventIfBrowserIsVisible ("bridgeState", juce::var (o));
+        });
+
     web->goToURL (juce::WebBrowserComponent::getResourceProviderRoot()
                   + "index.html?v=" + juce::String (juce::Time::currentTimeMillis()));
 
@@ -521,6 +546,7 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
 
 StrideWrapperEditor::~StrideWrapperEditor()
 {
+    proc.setBridgeSinks (nullptr, nullptr);   // unhook FIRST - the link outlives us in the processor and marshals into this WebView
     proc.onLoadFailed = nullptr;   // the processor outlives us — never leave a dangling capture
     proc.closeMacroGestures();     // our timer was the only gesture-closer — a window closed mid-play must not leave params "touched"
    #if JUCE_WINDOWS
@@ -902,6 +928,22 @@ void StrideWrapperEditor::handleStrideLinkSend (const juce::var& msg)
         return;
     }
 
+    // StrideBridge outbound: the shim's strideBridge.send() lands here as one JSON line.
+    if (type == "bridge_send")
+    {
+        proc.bridgeSend (msg.getProperty ("json", "").toString());
+        return;
+    }
+
+    // StrideBridge live lanes: store the UI-owned blob so it rides getState into the
+    // project. NOT gated on editLocked — this is persistence of existing state, not an
+    // edit (the adopt-echo after a demo-locked reload must not silently drop lanes).
+    if (type == "set_bridge_lanes")
+    {
+        proc.bridgeLanesJson = msg.getProperty ("json", "").toString();
+        return;
+    }
+
     // Follow-playback toggle (2026-08-11): opt back into visible param movement during
     // plain playback, undo cost documented on the toggle. Engine-owned + project-saved.
     if (type == "set_follow")
@@ -1248,6 +1290,17 @@ void StrideWrapperEditor::pushPinState()
     auto* o = new juce::DynamicObject();
     o->setProperty ("mode", pinMode);
     web->emitEventIfBrowserIsVisible ("pinState", juce::var (o));
+}
+
+// StrideBridge live lanes: hand the project's blob to the shim. The shim holds it until
+// the :9101 socket is up AND canvas is ready, then adopts (recreate lanes, re-push
+// curves, re-bind paths — LOM ids are session-scoped so binding is always fresh).
+void StrideWrapperEditor::pushBridgeLanes()
+{
+    if (web == nullptr) return;
+    auto* o = new juce::DynamicObject();
+    o->setProperty ("json", proc.bridgeLanesJson);
+    web->emitEventIfBrowserIsVisible ("bridgeLanes", juce::var (o));
 }
 
 // ── Pin modes: snap the HOST's plugin window to exactly half the screen ─────

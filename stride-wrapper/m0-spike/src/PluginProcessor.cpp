@@ -1,4 +1,5 @@
 #include "PluginProcessor.h"
+#include "BridgeLink.h"
 #include "PluginEditor.h"
 #include "License.h"          // cachedEntitled() — seeds demo mode at construction
 
@@ -159,6 +160,7 @@ void StrideWrapperProcessor::saveDemoCycleState() const
 
 StrideWrapperProcessor::~StrideWrapperProcessor()
 {
+    bridgeLink.reset();      // socket thread down FIRST - it marshals into us (and an open editor's WebView) on the message thread
     cancelPendingUpdate();   // no relabel callback can fire into a half-destroyed processor
     const juce::ScopedLock sl (hostLock);
     for (auto& n : chain) if (n.inst) { n.inst->setPlayHead (nullptr); n.inst->removeListener (this); }
@@ -1053,7 +1055,7 @@ void StrideWrapperProcessor::getStateInformation (juce::MemoryBlock& dest)
     if (demoMode.load()) return;   // DEMO: persist nothing — a project can't be built on the demo (blank state on reload)
     juce::XmlElement root ("STRIDE_WRAP");
     const juce::ScopedLock sl (hostLock);
-    root.setAttribute ("version", 9);                                   // v9: + card display order ("od"); v8 link groups, v7 follow, v6 speed, v5 lock - attr-based, so older projects load unchanged
+    root.setAttribute ("version", 10);                                  // v10: + StrideBridge live-lane blob ("bl"); v9 card order, v8 link groups, v7 follow, v6 speed, v5 lock - attr-based, so older projects load unchanged
     root.setAttribute ("clipBeats", driveClipBeats);
     root.setAttribute ("driveMode", (int) driveMode.load());            // 0=Live, 1=Automation
     root.setAttribute ("tempoMode", tempoMode.load());                  // 0=Project sync (default) / 1=Manual
@@ -1062,6 +1064,7 @@ void StrideWrapperProcessor::getStateInformation (juce::MemoryBlock& dest)
     root.setAttribute ("keysBase", ksBase.load());                      // switch-octave bottom note (0=C-2 / 12=C-1 / 24=C0)
     root.setAttribute ("runMode", runMode.load());                      // 0=Transport (default) / 1=Notes (MIDI-gated clock)
     if (followMode.load()) root.setAttribute ("fm", 1);                 // follow-playback: absent = off (v7; older builds ignore it)
+    if (bridgeLanesJson.isNotEmpty()) root.setAttribute ("bl", bridgeLanesJson);   // StrideBridge live lanes: absent = none (v10; older builds ignore it)
 
     auto* chainXml = root.createNewChildElement ("CHAIN");
     for (int i = 0; i < (int) chain.size(); ++i)
@@ -1130,6 +1133,7 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
     const int    newKeysBase  = xml->getIntAttribute ("keysBase", 0);    // old projects: bottom octave (setter clamps)
     const int    newRunMode   = xml->getIntAttribute ("runMode", 0);     // old projects: transport-run (byte-identical)
     const bool   newFollow    = xml->getIntAttribute ("fm", 0) != 0;     // old projects: record-only follow (default)
+    const juce::String newBridgeLanes = xml->getStringAttribute ("bl", "");   // old projects: no live lanes
 
     // Rebuild the restore list in the SAME shape the undo path consumes, then
     // re-instantiate sequentially (keeps chain order + restores patch/curves).
@@ -1194,7 +1198,7 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
     // instead of interleaving their async restores into a duplicated chain.
     const int gen = restoreGeneration.fetch_add (1) + 1;
     auto apply = [wr = juce::WeakReference<StrideWrapperProcessor> (this), devs, gen,
-                  clipBeats, newDriveMode, newTempoMode, newManualBpm, newKeysOn, newKeysBase, newRunMode, newFollow]
+                  clipBeats, newDriveMode, newTempoMode, newManualBpm, newKeysOn, newKeysBase, newRunMode, newFollow, newBridgeLanes]
     {
         auto* self = wr.get();
         if (self == nullptr) return;                        // processor deleted before the hop landed
@@ -1215,9 +1219,18 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
             self->ksBase.store (newKeysBase == 12 || newKeysBase == 24 ? newKeysBase : 0);
             self->runMode.store (juce::jlimit (0, 2, newRunMode));
             self->followMode.store (newFollow);
+            self->bridgeLanesJson = newBridgeLanes;
         }
         doomed.clear();                                     // hosted destructors run lock-free on the message thread
         self->mapVersion.fetch_add (1);
+
+        // StrideBridge lanes reach the bridge NOW, window or not (a project load or a rack
+        // drop must start modulating without anyone opening Stride first).
+        if (self->bridgeLanesJson.isNotEmpty())
+        {
+            self->ensureBridgeLink();
+            self->pushBridgeBlob();                         // no-op until the link is up; the link's own up-edge pushes too
+        }
 
         if (! devs->empty())
             self->restoreNextDevice (devs, 0, gen);
@@ -2010,4 +2023,78 @@ juce::AudioProcessorEditor* StrideWrapperProcessor::createEditor()
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new StrideWrapperProcessor();
+}
+
+// ── StrideBridge link (processor-owned, see BridgeLink.h) ───────────────────
+// The editor used to own this thread, which meant a project load or a rack drop
+// modulated nothing until someone opened Stride once. Now the processor connects
+// as soon as it holds live lanes and pushes the stored blob itself; the bridge
+// maps that blob exactly like the shim's push (set_live_blob), so the two paths
+// cannot drift. Heals that arrive with no window open are written straight back
+// into the blob so the next save carries the knob's real address.
+void StrideWrapperProcessor::ensureBridgeLink()
+{
+    if (bridgeLink != nullptr) return;
+    juce::WeakReference<StrideWrapperProcessor> wr (this);
+    bridgeLink = std::make_unique<BridgeLink> (
+        [wr] (const juce::String& line) { if (auto* self = wr.get()) self->onBridgeLine (line); },
+        [wr] (bool on)                  { if (auto* self = wr.get()) self->onBridgeState (on); });
+}
+
+bool StrideWrapperProcessor::bridgeIsUp() const
+{
+    return bridgeLink != nullptr && bridgeLink->isUp();
+}
+
+void StrideWrapperProcessor::bridgeSend (const juce::String& jsonLine)
+{
+    if (bridgeLink != nullptr) bridgeLink->send (jsonLine);
+}
+
+void StrideWrapperProcessor::setBridgeSinks (std::function<void (const juce::String&)> onLine,
+                                             std::function<void (bool)> onState)
+{
+    bridgeLineSink = std::move (onLine);
+    bridgeStateSink = std::move (onState);
+}
+
+void StrideWrapperProcessor::pushBridgeBlob()
+{
+    if (bridgeLink == nullptr || ! bridgeLink->isUp() || bridgeLanesJson.isEmpty()) return;
+    auto* o = new juce::DynamicObject();
+    o->setProperty ("type", "set_live_blob");
+    o->setProperty ("bars", juce::jmax (1, juce::roundToInt (driveClipBeats / 4.0)));   // same bar count the canvas shows (clip_bars)
+    o->setProperty ("blob", bridgeLanesJson);
+    bridgeLink->send (juce::JSON::toString (juce::var (o), true));
+}
+
+void StrideWrapperProcessor::onBridgeState (bool on)
+{
+    if (on) pushBridgeBlob();   // first contact, or a fresh bridge after a takeover/reload: stored lanes go out
+    if (bridgeStateSink != nullptr) bridgeStateSink (on);
+}
+
+void StrideWrapperProcessor::onBridgeLine (const juce::String& line)
+{
+    const auto v = juce::JSON::parse (line);
+    if (v.getProperty ("type", "").toString() == "live_lane_healed")
+        applyBridgeHeal (v.getProperty ("oldPath", "").toString(), v.getProperty ("newPath", "").toString());
+    if (bridgeLineSink != nullptr) bridgeLineSink (line);
+}
+
+void StrideWrapperProcessor::applyBridgeHeal (const juce::String& oldPath, const juce::String& newPath)
+{
+    if (oldPath.isEmpty() || newPath.isEmpty() || oldPath == newPath || bridgeLanesJson.isEmpty()) return;
+    auto blob = juce::JSON::parse (bridgeLanesJson);
+    auto* lanes = blob.getProperty ("lanes", juce::var()).getArray();   // var arrays are shared, edits land in `blob`
+    if (lanes == nullptr) return;
+    bool changed = false;
+    for (auto& l : *lanes)
+        if (auto* lo = l.getDynamicObject())
+            if (lo->getProperty ("livePath").toString() == oldPath)
+            {
+                lo->setProperty ("livePath", newPath);
+                changed = true;
+            }
+    if (changed) bridgeLanesJson = juce::JSON::toString (blob, true);
 }

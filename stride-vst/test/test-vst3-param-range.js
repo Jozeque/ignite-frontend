@@ -62,7 +62,7 @@ const proc_c = rd(path.join(root, 'stride-wrapper', 'm0-spike', 'src', 'PluginPr
 const ed_c   = rd(path.join(root, 'stride-wrapper', 'm0-spike', 'src', 'PluginEditor.cpp'));
 
 ok('canvas: _sdRemoveLaneByPos splices by position (no rack re-push)', /function _sdRemoveLaneByPos\(pos, notifyEngine\)[\s\S]{0,300}sdCanvasParams\.splice\(idx, 1\)/.test(cv));
-ok('canvas: × button delegates with notifyEngine=true', /window\.sdUnmapLane = function[\s\S]{0,140}_sdRemoveLaneByPos\(p\.id, true\)/.test(cv));
+ok('canvas: × button delegates with notifyEngine=true (after the StrideBridge live-lane branch)', /window\.sdUnmapLane = function[\s\S]{0,1400}_sdRemoveLaneByPos\(p\.id, true\)/.test(cv));
 ok('canvas: touch-unmap handler splices by position (engine already removed -> false)', /strideLink\.on\('unmapped_at'[\s\S]{0,140}_sdRemoveLaneByPos\(msg\.position, false\)/.test(cv));
 ok('native: touch-unmap records the removed position', /pendingUnmapPos\.store \(pos\)/.test(proc_c) && /consumeUnmapByTouchPos\(\)\s*\{\s*return pendingUnmapPos\.exchange \(-1\)/.test(proc_h));
 ok('native: editor splices one lane when a touch-unmap is pending, else full re-push', /consumeUnmapByTouchPos\(\)[\s\S]{0,140}pushUnmappedAt \(unmappedPos\)[\s\S]{0,60}else\s+pushRackScanned\(\)/.test(ed_c));

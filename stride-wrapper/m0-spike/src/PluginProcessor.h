@@ -17,6 +17,8 @@
 #include <array>
 #include <functional>
 
+class BridgeLink;   // StrideBridge TCP link (BridgeLink.h), owned here so lanes wake up without a window
+
 class StrideWrapperProcessor : public juce::AudioProcessor,
                                private juce::AudioProcessorListener,
                                private juce::AsyncUpdater
@@ -177,6 +179,28 @@ public:
     // the editor drains it at 30Hz and the canvas flashes that lane. -1 = none pending.
     int consumeGlowPos() { return pendingGlowPos.exchange (-1); }
     double getClipBeats() const { return driveClipBeats; }   // loop length in beats (bars*4) — for the canvas bar count on load
+
+    // StrideBridge live lanes (v10 "bl"): an OPAQUE JSON blob owned by the UI. Lanes
+    // that target Ableton's own devices via the StrideBridge M4L device have no hosted
+    // param behind them, so the engine never ticks them — but they must survive .als
+    // save/reload, and engine state is the only per-instance durable store (the wrapper's
+    // localStorage is shared across instances AND lossy). The engine just carries the
+    // string; the WebView parses it, re-pushes curves to the bridge, and re-binds paths.
+    // Message-thread only (sl_send handler + getState/setState's marshalled apply).
+    juce::String bridgeLanesJson;
+
+    // The StrideBridge link (:9102) lives HERE, not in the editor, so a project load or a
+    // rack drop pushes the stored live lanes to the bridge with the window closed (field
+    // report 2026-08-27: modulation only started after opening Stride once). Lazy: only
+    // instances that carry lanes or opened the window pay the 4s reconnect poll. The
+    // editor subscribes through the sinks while open and sends through bridgeSend().
+    // All message-thread.
+    void ensureBridgeLink();
+    bool bridgeIsUp() const;
+    void bridgeSend (const juce::String& jsonLine);
+    void setBridgeSinks (std::function<void (const juce::String&)> onLine, std::function<void (bool)> onState);
+    void pushBridgeBlob();          // set_live_blob {bars, blob}: the bridge maps it exactly like the shim's push
+    std::unique_ptr<BridgeLink> bridgeLink;   // torn down FIRST in the destructor
     void removeMappedAt (int pos);
     void clearMapping();
     int  mappingVersion() const { return mapVersion.load(); }
@@ -528,6 +552,14 @@ private:
     int    currentBlockSize  = 512;
     double freeRunPhase = 0.0;
     juce::AudioBuffer<float> hostWorkBuffer;   // wide scratch for hosted plugins whose main bus is >2ch (prevents the null-channel memset crash)
+
+    // StrideBridge link plumbing (see ensureBridgeLink): the editor's sinks while it is open,
+    // and the headless handling (heal write-back into bridgeLanesJson) that runs regardless.
+    std::function<void (const juce::String&)> bridgeLineSink;
+    std::function<void (bool)> bridgeStateSink;
+    void onBridgeLine (const juce::String& line);
+    void onBridgeState (bool on);
+    void applyBridgeHeal (const juce::String& oldPath, const juce::String& newPath);
 
     // Async work (setState marshal, instance-restore callbacks) holds WeakReferences, never a
     // raw `this` — a host can delete the processor while a restore is still in flight.

@@ -340,10 +340,15 @@
     loadSettings: function () { return P({ success: true, settings: lsGet('stride_settings', {}) }); },
     saveCanvasState: function (rackId, state) {
       lsSet('stride_canvas_' + rackId, state);   // persist the 0..1 shape + per-param range (authority on reopen)
+      // StrideBridge lanes (_live) target Ableton's own devices - they never ride the
+      // engine's live_curves (no hosted param behind them); they go to the :9101 bridge
+      // instead, and persist through the engine as an opaque blob (set_bridge_lanes -> v10 "bl").
+      var _liveLanes = (state || []).filter(function (l) { return l && l._live; });
+      var _hostedLanes = (state || []).filter(function (l) { return !(l && l._live); });
       // LIVE drive: the canvas calls this after every edit. state = [{_path, rangeOn, rangeMin, rangeMax, points}].
       // A ranged lane sends its 0..1 shape SCALED into [rangeMin,rangeMax] so the live-drive matches the inject.
       try {
-        emit('sl_send', { type: 'live_curves', clip_bars: (window.sdGetBars ? window.sdGetBars() : 0), parameters: (state || []).map(function (l) {
+        emit('sl_send', { type: 'live_curves', clip_bars: (window.sdGetBars ? window.sdGetBars() : 0), parameters: _hostedLanes.map(function (l) {
           var pos = parseInt(String(l._path || '').split(':')[1], 10);
           var pts = (l.rangeOn && (l.points || []).length)
             ? l.points.map(function (pt) { return { time: pt.time, value: Math.max(0, Math.min(1, l.rangeMin + pt.value * (l.rangeMax - l.rangeMin))), curve: pt.curve || 0 }; })
@@ -351,6 +356,7 @@
           return { id: isNaN(pos) ? -1 : pos, _path: l._path || null, points: pts };
         }) });
       } catch (e) {}
+      try { _sbOnSave(_liveLanes); } catch (e) {}
       return P({ success: true });
     },
     loadCanvasState: function (rackId) { return P({ success: true, state: lsGet('stride_canvas_' + rackId, null) }); },
@@ -428,6 +434,155 @@
   listen('sl_event', function (msg) {
     try { window.strideLink._emit(msg && msg.type, msg); } catch (e) { showErr('sl_event: ' + e.message); }
   });
+
+  // == window.strideBridge - StrideBridge.amxd client (Ableton devices as lanes) ==
+  // The page does NOT open the socket: WebView2 blocks localhost connections from
+  // the plugin page (Local Network Access policy - verified on the rig 2026-08-26:
+  // instant CLOSED, no exception, no console line). The editor's native BridgeLink
+  // thread owns a TCP connection to the bridge (:9102) and relays newline-framed
+  // JSON through the same listen/emit pipe everything else already uses:
+  //   C++ -> page : 'bridgeState' {on}   link up/down (drives the MAP LIVE button)
+  //                 'bridgeMsg'   {json} one message from the bridge
+  //   page -> C++ : sl_send {type:'bridge_send', json} one message to the bridge
+  var _sb = {
+    open: false, handlers: {},
+    lastLanes: null, lastSig: '', hadLive: false, pushTimer: null,
+    blobShadow: null, pendingBlob: undefined, adoptDone: false, adoptWait: null,
+    mapArmed: false, mapBtn: null
+  };
+
+  window.strideBridge = {
+    _wrapper: true,
+    get connected() { return _sb.open; },
+    on: function (t, fn) { (_sb.handlers[t] = _sb.handlers[t] || []).push(fn); },
+    send: function (o) {
+      if (!_sb.open) return;
+      try { emit('sl_send', { type: 'bridge_send', json: JSON.stringify(o) }); } catch (e) {}
+    }
+  };
+
+  listen('bridgeState', function (d) {
+    var on = !!(d && d.on);
+    if (on === _sb.open) { if (on) _sbButton(true); return; }
+    _sb.open = on;
+    _sbButton(on);
+    if (on) {
+      window.strideBridge.send({ type: 'bridge_hello', version: 1 });
+      _sbAdopt();
+      _sb.lastSig = '';                       // force a full flush: the bridge may be fresh
+      if (_sb.lastLanes && _sb.lastLanes.length) _sbPush(_sb.lastLanes);
+    } else {
+      _sbSetMapUi(false);
+    }
+  });
+
+  listen('bridgeMsg', function (d) {
+    var m; try { m = JSON.parse((d && d.json) || ''); } catch (e) { return; }
+    _sbRoute(m);
+  });
+
+  function _sbRoute(m) {
+    var t = m && m.type;
+    if (t === 'live_mapped') {
+      // stays ARMED - map knob after knob; the button press (or the 30s idle
+      // timeout) is what ends the session, exactly like the hosted Map flow
+      try { if (window.sdBridgeMapped) window.sdBridgeMapped(m); } catch (e) { showErr('bridge map: ' + e.message); }
+    } else if (t === 'map_live_timeout') {
+      _sbSetMapUi(false);
+    } else if (t === 'live_touched') {
+      try { if (window.sdBridgeTouched) window.sdBridgeTouched(m); } catch (e) {}
+    } else if (t === 'live_touched_dev') {
+      try { if (window.sdBridgeTouchedDev) window.sdBridgeTouchedDev(m); } catch (e) {}
+    } else if (t === 'live_lane_healed') {
+      try { if (window.sdBridgeHealed) window.sdBridgeHealed(m); } catch (e) {}
+    } else if (t === 'live_bind_result') {
+      try { if (window.sdBridgeBindResult) window.sdBridgeBindResult(m); } catch (e) {}
+    } else if (t === 'live_relinked') {
+      // armed device-click in Live re-homed every lane of that device name
+      try { if (window.sdBridgeRelinked) window.sdBridgeRelinked(m); } catch (e) {}
+    } else if (t === 'bridge_error') {
+      try { if (window.sdBridgeError) window.sdBridgeError(m.message || 'bridge error'); } catch (e) {}
+    }
+    var hs = _sb.handlers[t] || [];
+    for (var i = 0; i < hs.length; i++) { try { hs[i](m); } catch (e) {} }
+  }
+
+  // The MAP LIVE button doubles as the presence indicator: visible only while the link is up.
+  function _sbButton(on) {
+    if (_sb.mapBtn) _sb.mapBtn.style.display = on ? '' : 'none';
+  }
+  function _sbSetMapUi(armed) {
+    _sb.mapArmed = armed;
+    if (_sb.mapBtn) {
+      _sb.mapBtn.textContent = armed ? '\u25c9 Click a knob in Live\u2026' : '\u25c9 Map Live';
+      // Same treatment as the hosted Map button: bright yellow + pulse while armed, so
+      // you cannot forget it is on (and press it off). BTN_MAP/BTN_MAP_ARMED are the
+      // shared bar styles (hoisted vars, same scope).
+      _sb.mapBtn.className = armed ? BTN_MAP_ARMED : BTN_MAP;
+      _sb.mapBtn.style.opacity = '';
+    }
+  }
+  window.sdBridgeMapToggle = function () {
+    if (!_sb.open) return;
+    if (_sb.mapArmed) { window.strideBridge.send({ type: 'map_live_cancel' }); _sbSetMapUi(false); }
+    else { window.strideBridge.send({ type: 'map_live_start' }); _sbSetMapUi(true); }
+  };
+
+  // Curve push: debounced, signature-diffed, range baked HERE (same precedent as the
+  // live_curves flush above) - the bridge only ever sees final 0..1 points.
+  function _sbOnSave(liveLanes) {
+    // persistence blob -> engine (v10 "bl"), only when it actually changed
+    var blob = JSON.stringify({ v: 1, lanes: liveLanes || [] });
+    if (blob !== _sb.blobShadow && ((liveLanes && liveLanes.length) || _sb.blobShadow !== null)) {
+      _sb.blobShadow = blob;
+      try { emit('sl_send', { type: 'set_bridge_lanes', json: blob }); } catch (e) {}
+    }
+    if ((liveLanes && liveLanes.length) || _sb.hadLive) {
+      _sb.hadLive = !!(liveLanes && liveLanes.length);
+      _sbPush(liveLanes || []);
+    }
+  }
+  function _sbPush(liveLanes) {
+    _sb.lastLanes = liveLanes;
+    if (_sb.pushTimer) clearTimeout(_sb.pushTimer);
+    _sb.pushTimer = setTimeout(function () {
+      if (!_sb.open) return;                          // reconnect flushes
+      var bars = (window.sdGetBars ? window.sdGetBars() : 4) || 4;
+      var lanes = (_sb.lastLanes || []).map(function (l) {
+        var pts = (l.rangeOn && (l.points || []).length)
+          ? l.points.map(function (pt) { return { time: pt.time, value: Math.max(0, Math.min(1, l.rangeMin + pt.value * (l.rangeMax - l.rangeMin))), curve: pt.curve || 0 }; })
+          : (l.points || []);
+        return { path: l.livePath, points: pts, speed: (typeof l.speed === 'number' && l.speed > 0 ? l.speed : 1),
+                 min: l.liveMin, max: l.liveMax, is_log: l.liveLog ? 1 : 0, is_quantized: l.liveQuant ? 1 : 0,
+                 name: l.liveName || '', device: (l.liveDevice || '').replace(/^\u26a1 /, '') };
+      }).filter(function (x) { return !!x.path; });
+      var sig = JSON.stringify([bars, lanes]);
+      if (sig === _sb.lastSig) return;
+      _sb.lastSig = sig;
+      window.strideBridge.send({ type: 'set_live_lanes', bars: bars, lanes: lanes });
+    }, 120);
+  }
+
+  // Project blob from C++ (v10 "bl") -> adopt once the link AND canvas are both ready.
+  listen('bridgeLanes', function (d) {
+    _sb.pendingBlob = (d && d.json) || '';
+    _sb.blobShadow = _sb.pendingBlob || null;
+    _sbAdopt();
+  });
+  function _sbAdopt() {
+    if (!_sb.open || _sb.adoptDone || _sb.pendingBlob === undefined) return;
+    if (!window.sdBridgeAdoptLanes) {
+      if (!_sb.adoptWait) _sb.adoptWait = setInterval(function () {
+        if (window.sdBridgeAdoptLanes) { clearInterval(_sb.adoptWait); _sb.adoptWait = null; _sbAdopt(); }
+      }, 250);
+      return;
+    }
+    _sb.adoptDone = true;
+    var blob = _sb.pendingBlob; _sb.pendingBlob = undefined;
+    var lanes = [];
+    try { lanes = (JSON.parse(blob || '{}').lanes) || []; } catch (e) {}
+    if (lanes.length) { try { window.sdBridgeAdoptLanes(lanes); } catch (e) { showErr('bridge adopt: ' + e.message); } }
+  }
 
   // TRUE playhead: the engine's real loop phase (0..1 + playing flag) drives the lane
   // comets — canvas.js retires its ambient wall-clock drift on the first tick and then
@@ -772,6 +927,19 @@
       sbtn('+ Add', 'browsePlugins', BTN_PRIMARY);      // opens the Stride-styled plugin browser
       var mapBtn = sbtn('◉ Map', 'toggleLearn', BTN_MAP);
       var unmapBtn = sbtn('⊘ Unmap', 'toggleUnlearn', BTN_UNMAP); unmapBtn.title = 'Arm Unmap, then touch a mapped knob in the synth to remove it from the canvas';
+
+      // == MAP LIVE: StrideBridge - Ableton's own devices as lanes. Hidden until the
+      // :9101 socket answers; the button appearing IS the "bridge detected" indicator.
+      var mapLiveBtn = document.createElement('button');
+      mapLiveBtn.id = 'sd-maplive-btn';
+      mapLiveBtn.textContent = '◉ Map Live';
+      mapLiveBtn.className = BTN_MAP;
+      mapLiveBtn.style.display = 'none';
+      mapLiveBtn.title = 'Map a parameter of any Ableton device: press, then click a knob in Live. If that knob is already selected, click another knob first. Needs the StrideBridge device in the set.';
+      mapLiveBtn.onclick = function () { if (window.sdBridgeMapToggle) window.sdBridgeMapToggle(); };
+      host.appendChild(mapLiveBtn);
+      _sb.mapBtn = mapLiveBtn;
+      if (_sb.open) mapLiveBtn.style.display = '';
 
       // ── KEYSWITCH MODE: MIDI keyswitches (the "playful" octave) ────
       // An opt-in performance MODE, never a default: the pill toggles it, the ▾ picks which
