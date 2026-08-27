@@ -25,7 +25,14 @@ Stride now moves the knobs of Ableton's own devices. Map any parameter of any de
 
 ## Files
 
-- `Stride-VST3-Windows-v2.0.1.zip` and `Stride-VST3-Mac-v2.0.1.zip`: `Stride.vst3` (and `Stride.component` on Mac), `README.txt`, and the `StrideBridge` folder.
+- `Stride-VST3-Windows-v2.0.2.zip` and `Stride-VST3-Mac-v2.0.2.zip`: `Stride.vst3` (and `Stride.component` on Mac), `README.txt`, and the `StrideBridge` folder.
+
+## 2.0.2
+
+- **Live's MIDI effects now modulate.** Arpeggiator, Chord, Scale, Note Length: map their knobs like any other. They run through Live's own control path, so they stay yours to move by hand while the transport is stopped. Each move a MIDI effect knob makes lands in Live's undo history, which is how Live counts it.
+- Map Live stays armed while you go and fetch a device. The window is two minutes now, and adding a device no longer ends the mapping session.
+- Mapping can no longer go quiet mid-session. Pressing Map Live always starts a fresh listener, so knob clicks keep landing without reloading StrideBridge.
+- The StrideBridge device face shows ACTIVE or STANDBY, and nothing else.
 
 ## 2.0.1
 
