@@ -56,16 +56,25 @@ function _trackOf(p) {
     var m = /^live_set (tracks \d+|return_tracks \d+|master_track)/.exec(String(p || ""));
     return m ? m[0] : "";
 }
-function _deviceNameOf(paramPath) {
+// The device a parameter belongs to: its name (identity check) and its LOM type
+// (1 instrument, 2 audio effect, 4 MIDI effect). MIDI-effect parameters are driven
+// through Live's own setter, not live.remote~ (field: the Arpeggiator's knobs never
+// moved under remote~, with no error anywhere), so the server needs the type.
+function _deviceInfoOf(paramPath) {
+    var info = { name: "", type: 0 };
     try {
         var dp = String(paramPath || "").replace(/ parameters \d+$/, "");
         if (dp && dp !== paramPath) {
             var d = new LiveAPI(dp);
-            if (d && parseInt(d.id, 10) !== 0) return String(d.get("name"));
+            if (d && parseInt(d.id, 10) !== 0) {
+                info.name = String(d.get("name"));
+                try { info.type = parseInt(d.get("type"), 10) || 0; } catch (et) {}
+            }
         }
     } catch (e) {}
-    return "";
+    return info;
 }
+function _deviceNameOf(paramPath) { return _deviceInfoOf(paramPath).name; }
 
 function _probeSelected() {
     try {
@@ -87,10 +96,10 @@ function _probeSelected() {
         } catch (el) {}
 
         var upath = _upath(p);
-        var devName = _deviceNameOf(upath);
+        var dev = _deviceInfoOf(upath);
 
         return {
-            name: name, device: devName, path: upath,
+            name: name, device: dev.name, dev_type: dev.type, path: upath,
             id: parseInt(p.id, 10),
             min: isNaN(min) ? 0 : min, max: isNaN(max) ? 1 : max,
             is_quantized: isQuant ? 1 : 0, is_log: isLog ? 1 : 0
@@ -294,14 +303,53 @@ function init() {
     } catch (e4) { _skipTrack = false; }
 }
 
+// Arming ALWAYS rebuilds the selection observer, never trusts the old one.
+// FIELD 2026-08-27: after adding a device mid-session, no further knob click mapped
+// anything, and only removing + re-adding StrideBridge fixed it. Cause: init() returned
+// early whenever _obs was non-null, so an observer that had gone deaf could never heal -
+// arming just set a flag on a dead listener. A fresh observer costs nothing.
+// The new observer echoes whatever is selected RIGHT NOW; that echo is not a click, so
+// it is skipped. A 250ms Task clears the skip in case no echo arrives (nobody can reach
+// a knob in Live that fast), so a missing echo can never eat a real click either.
+var _skipFirstTask = null;
+
+function _rearmObserver() {
+    try { if (_obs) _obs.property = ""; } catch (e) {}
+    _obs = null;
+    _skipFirst = true;
+    try {
+        _obs = new LiveAPI(_onSelChange, "live_set view");
+        _obs.property = "selected_parameter";
+    } catch (e2) {
+        post("StrideBridge observer failed: " + e2.message + "\n");
+    }
+    try { if (_skipFirstTask) _skipFirstTask.cancel(); } catch (e3) {}
+    try {
+        _skipFirstTask = new Task(function () { _skipFirst = false; });
+        _skipFirstTask.schedule(250);
+    } catch (e4) { _skipFirst = false; }
+}
+
 function map_start() {
     init();               // belt + braces if the device loaded oddly
-    _armed = true;        // persistent observer: no attach echo, no skip needed
+    _rearmObserver();     // and always arm a KNOWN-LIVE observer
+    _armed = true;
 }
 
 function map_cancel() { _armed = false; }
 
-function ping() { outlet(0, "pong", 1); }
+// Liveness answer + a cheap watchdog on the observers: if the selection observer went
+// missing, rebuild it so the lane-finder (and the next arm) heal without a device reload.
+function ping() {
+    var lost = false;
+    try { lost = !_obs || String(_obs.path || "").indexOf("live_set view") < 0; } catch (e) { lost = true; }
+    if (lost) {
+        post("StrideBridge: selection observer was lost, rebuilding\n");
+        _obs = null;
+        init();
+    }
+    outlet(0, "pong", 1);
+}
 
 // find <rid> <encDevice> <encParam> - every device named X carrying a param named Y,
 // the WHOLE set (racks and chains included). Names arrive encodeURIComponent'd -
@@ -320,13 +368,14 @@ function _scanChain(basePath, devName, parName, hits) {
         var dn = "";
         try { dn = String(d.get("name")); } catch (e3) {}
         if (dn === devName) {
-            var pc = 0;
+            var pc = 0, dt = 0;
             try { pc = parseInt(d.getcount("parameters"), 10) || 0; } catch (e4) {}
+            try { dt = parseInt(d.get("type"), 10) || 0; } catch (e4b) {}
             for (var j = 0; j < pc; j++) {
                 try {
                     var pp = new LiveAPI(dPath + " parameters " + j);
                     if (pp && parseInt(pp.id, 10) !== 0 && String(pp.get("name")) === parName) {
-                        hits.push({ path: _upath(pp), id: parseInt(pp.id, 10) });
+                        hits.push({ path: _upath(pp), id: parseInt(pp.id, 10), devType: dt });
                         break;
                     }
                 } catch (e5) {}
@@ -364,8 +413,9 @@ function relink(rid, encDevPath, encNames) {
     try {
         var d = new LiveAPI(devPath);
         if (d && parseInt(d.id, 10) !== 0) {
-            var pc = 0;
+            var pc = 0, dt = 0;
             try { pc = parseInt(d.getcount("parameters"), 10) || 0; } catch (e3) {}
+            try { dt = parseInt(d.get("type"), 10) || 0; } catch (e3b) {}
             var byName = {};
             for (var j = 0; j < pc; j++) {
                 try {
@@ -377,7 +427,7 @@ function relink(rid, encDevPath, encNames) {
             }
             for (var k = 0; k < names.length; k++) {
                 var hit = byName[String(names[k])];
-                if (hit) items.push({ name: String(names[k]), id: hit.id, path: hit.path });
+                if (hit) items.push({ name: String(names[k]), id: hit.id, path: hit.path, devType: dt });
             }
         }
     } catch (e5) {}
@@ -417,7 +467,9 @@ function resolve() {
         if (id && String(la.type) === "DeviceParameter") {
             out.ok = 1; out.id = id; out.name = String(la.get("name"));
             out.path = _upath(la) || p;
-            out.device = _deviceNameOf(out.path);
+            var di = _deviceInfoOf(out.path);
+            out.device = di.name;
+            out.devType = di.type;
         } else {
             out.message = "not found";
         }

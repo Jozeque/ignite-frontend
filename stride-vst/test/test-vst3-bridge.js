@@ -123,6 +123,26 @@ test('QUANTIZED lane rasterizes to NATIVE rounded option indices (live.object pa
     assert(opts.size === 6, 'walks through ALL 6 options, got ' + opts.size);
 });
 
+test('CONTROL-RATE lane (MIDI effects) rasterizes NATIVE continuous values, unrounded, log-aware', () => {
+    const lin = srv.rasterizeLane({ bars: 2, mode: 'c', min: 1, max: 16, points: [{ time: 0, value: 0 }, { time: 8, value: 1 }] });
+    close(lin[0], 1, 1e-6, 'starts at native min');
+    close(lin[lin.length - 1], 16, 0.4, 'ends at native max');
+    assert(lin.some(v => v !== Math.round(v)), 'NOT rounded to integers (Live rounds integer params itself)');
+    // THE FREEZE GUARD: every distinct value is one live.object set = one undo step + one
+    // main-thread hop, so a control curve is snapped to CONTROL_STEPS levels and [change]
+    // drops the rest. Unquantized values at 33Hz over 3 lanes froze Live (field 08-27).
+    const levels = new Set(Array.from(lin));
+    assert(levels.size <= srv.CONTROL_STEPS + 1, 'at most CONTROL_STEPS+1 distinct values, got ' + levels.size);
+    assert(levels.size > 8, 'still a real sweep, not a staircase of 3, got ' + levels.size);
+    const step = 15 / srv.CONTROL_STEPS;
+    for (const v of levels) close(Math.round((v - 1) / step) * step + 1, v, 1e-6, 'value sits ON a level');
+    const lg = srv.rasterizeLane({ bars: 2, mode: 'c', min: 1, max: 100, is_log: 1, points: [{ time: 0, value: 0.5 }] });
+    close(lg[0], 10, 2.5, 'log taper: the middle of the curve sits near the geometric middle of the range');
+    assert(srv.laneMode({ quant: false, devType: srv.MIDI_EFFECT }) === 'c', 'MIDI-effect param -> control path');
+    assert(srv.laneMode({ quant: true, devType: srv.MIDI_EFFECT }) === 'q', 'menu on a MIDI effect -> stepped path');
+    assert(srv.laneMode({ quant: false, devType: 2 }) === 'r' && srv.laneMode({ quant: false }) === 'r', 'audio effects / instruments / mixer -> remote~');
+});
+
 test('NORMALIZED_OUTPUT is on: min/max on the lane must NOT rescale the buffer', () => {
     assert(srv.NORMALIZED_OUTPUT === true, 'contract flag');
     const a = srv.rasterizeLane({ bars: 2, points: [{ time: 0, value: 0.25 }], min: 20, max: 20000 });
@@ -215,6 +235,36 @@ test('resolve routes by kind: continuous -> bind (remote~), quantized -> bindq (
     assert(b2 && b2[2] === 'bindq', 'quantized voice got bindq, got ' + JSON.stringify(b2));
 });
 
+test('MIDI-effect parameter (Arpeggiator): the Live setter path, native values, never locks the knob', () => {
+    resetState();
+    const [c] = connect(fakeClient());
+    const ARP = 'live_set tracks 1 devices 0 parameters 5';
+    push(c, [{ path: ARP, points: [{ time: 0, value: 0 }, { time: 16, value: 1 }], speed: 1, min: 1, max: 16, name: 'Steps', device: 'Arpeggiator' }]);
+    srv.handleResolved(enc({ rid: lastProbe('resolve')[2], ok: 1, id: 500, name: 'Steps', device: 'Arpeggiator', devType: 4, path: ARP }));
+    const b = outbox.filter(a => a[0] === 'voice' && (a[2] === 'bind' || a[2] === 'bindq'));
+    assert(b.length === 1 && b[0][2] === 'bindq' && b[0][3] === 500, 'NOT live.remote~: the setter path, got ' + JSON.stringify(b));
+    assert(!outbox.some(a => a[0] === 'probe' && a[1] === 'gesture'), 'no gesture verb: the LOM has NO undo-grouping call (begin_gesture does not exist - field 08-27)');
+    const v = srv.state.voices[voiceOf(500)];
+    assert(v.mode === 'c' && v.lane.norm.mode === 'c', 'voice + lane know the drive path');
+    // the buffer written for it holds NATIVE 1..16 values (not 0..1)
+    const wav = fs.readFileSync(voiceMsgs('replace')[voiceMsgs('replace').length - 1][3]);
+    const n = (wav.length - 44) / 4;
+    const vals = []; for (let i = 0; i < n; i++) vals.push(wav.readFloatLE(44 + i * 4));
+    close(vals[0], 1, 1e-5, 'native min in the WAV'); close(vals[n - 1], 16, 0.4, 'native max in the WAV');
+    assert(new Set(vals).size <= srv.CONTROL_STEPS + 1, 'rate-limited by quantization');
+    outbox = [];
+    srv.handleTransport('0');                      // STOP: stays hand-movable, nothing to release
+    assert(!outbox.some(a => a[0] === 'voice'), 'the setter path never locks the knob, so a transport edge does nothing');
+    srv.handleTransport('1');
+    assert(!outbox.some(a => a[0] === 'voice'), 'and nothing on play either (the phasor is transport-locked already)');
+    // a menu on the same device: stepped path, integers
+    const ARP2 = 'live_set tracks 1 devices 0 parameters 6';
+    push(c, [{ path: ARP, points: [{ time: 0, value: 0 }, { time: 16, value: 1 }], speed: 1, min: 1, max: 16, name: 'Steps', device: 'Arpeggiator' },
+             { path: ARP2, points: [], speed: 1, min: 0, max: 5, is_quantized: 1, name: 'Style', device: 'Arpeggiator' }]);
+    srv.handleResolved(enc({ rid: lastProbe('resolve')[2], ok: 1, id: 501, name: 'Style', device: 'Arpeggiator', devType: 4, path: ARP2 }));
+    assert(srv.state.voices[voiceOf(501)].mode === 'q', 'menu on a MIDI effect stays stepped');
+});
+
 test('failed resolve with no name to search by: named report, never binds', () => {
     resetState();
     const [c] = connect(fakeClient());
@@ -246,6 +296,33 @@ test('PER-CLIENT removal: a second, lane-less instance cannot wipe the first one
     resolveOk(lastProbe('resolve')[2], 77, '', '', P1);
     push(b, [] );
     assert(srv.lanesOf(a)[P1] && voiceOf(77), 'instance A\'s lane + voice survive instance B\'s empty push');
+});
+
+test('clear_all (the Discovery Pass lock-down) releases EVERY drive path, and only that window\'s', () => {
+    // The processor sends this the moment driveAllowed goes false (pass never held on this
+    // machine / entitlement withdrawn). Every knob this instance drives must come back to
+    // Live, whichever path drives it - including the control-rate one added for MIDI effects.
+    resetState();
+    const [a, b] = connect(fakeClient(), fakeClient());
+    push(a, [{ path: P1, points: [], speed: 1, name: 'Cutoff', device: 'Auto Filter' },
+             { path: P2, points: [], speed: 1, is_quantized: 1, min: 0, max: 5, name: 'Style', device: 'Roar' },
+             { path: 'live_set tracks 1 devices 0 parameters 5', points: [], speed: 1, min: 1, max: 16, name: 'Steps', device: 'Arpeggiator' }]);
+    const rs = probes('resolve');
+    srv.handleResolved(enc({ rid: rs[0][2], ok: 1, id: 601, name: 'Cutoff', device: 'Auto Filter', devType: 2, path: P1 }));
+    srv.handleResolved(enc({ rid: rs[1][2], ok: 1, id: 602, name: 'Style', device: 'Roar', devType: 2, path: P2 }));
+    srv.handleResolved(enc({ rid: rs[2][2], ok: 1, id: 603, name: 'Steps', device: 'Arpeggiator', devType: 4, path: 'live_set tracks 1 devices 0 parameters 5' }));
+    const modes = [601, 602, 603].map(id => srv.state.voices[voiceOf(id)].mode);
+    assert(JSON.stringify(modes) === '["r","q","c"]', 'one lane per drive path bound, got ' + JSON.stringify(modes));
+    // a second window keeps its own lane through the first one's lock-down
+    push(b, [{ path: 'live_set tracks 3 devices 0 parameters 1', points: [], speed: 1, name: 'Drive', device: 'Saturator' }]);
+    srv.handleResolved(enc({ rid: lastProbe('resolve')[2], ok: 1, id: 700, name: 'Drive', device: 'Saturator', devType: 2, path: 'live_set tracks 3 devices 0 parameters 1' }));
+    outbox = [];
+    srv.handleClientMessage(a, { type: 'clear_all' });
+    const released = voiceMsgs('unbind').length;
+    assert(released === 3, 'all three knobs released (remote, menu, control), got ' + released);
+    assert(!voiceOf(601) && !voiceOf(602) && !voiceOf(603), 'voices freed');
+    assert(Object.keys(srv.lanesOf(a)).length === 0, 'the locked window holds no lanes');
+    assert(voiceOf(700) && srv.state.voices[voiceOf(700)].owner === b, 'the OTHER window is untouched');
 });
 
 test('33rd lane is refused with a bridge_error naming the cap, first 32 keep working', () => {
@@ -577,16 +654,18 @@ test('StrideBridge.maxpat: 32 INLINE voices, literal buffers, fully wired (no ab
     assert(waves.size === 32, 'each wave~ reads its own buffer');
     bufs.forEach(b => assert(waves.has(b), 'wave~ pairs with ' + b));
     assert(texts.filter(t => t === 'live.object').length === 32, '32 stepped setters (menus)');
-    assert(texts.filter(t => t === 'snapshot~ 30').length === 32, '32 transport-locked samplers');
+    assert(texts.filter(t => t === 'snapshot~ ' + srv.SNAPSHOT_MS).length === 32, '32 transport-locked samplers at the rate the server assumes (the live.object write rate = the freeze guard)');
     assert(texts.filter(t => /route replace rate bind unbind bindq/.test(t)).length === 32, 'six-way voice routes');
-    assert(texts.some(t => t === 'route voice probe status count'), 'top route carries the face readout verbs');
+    assert(texts.some(t => t === 'route voice probe status'), 'top route carries the face readout verb');
     // the branded face: Live shows presentation, and it must be Stride, not Max-grey
     const pres = Object.values(boxes).filter(b => b.presentation === 1);
     assert(pres.some(b => b.maxclass === 'panel'), 'face ground panel');
     assert(pres.some(b => b.fontname === 'Outfit' && b.text === 'STRIDE'), 'STRIDE in Outfit');
-    assert(boxes['obj-face-st'] && boxes['obj-face-st'].presentation === 1 && boxes['obj-face-n'].presentation === 1, 'ACTIVE/STANDBY + lane count on the face');
+    assert(boxes['obj-face-st'] && boxes['obj-face-st'].presentation === 1, 'ACTIVE/STANDBY on the face');
+    assert(!boxes['obj-face-n'], 'NO lane count on the face (removed 2026-08-27)');
     const has = (src, so, dst, di) => lines.some(l => l.source[0] === src && l.source[1] === so && l.destination[0] === dst && l.destination[1] === di);
-    assert(has('obj-6', 2, 'obj-face-st', 0) && has('obj-6', 3, 'obj-face-n', 0), 'readout wired from the route');
+    assert(has('obj-6', 2, 'obj-face-st', 0), 'readout wired from the route');
+    assert(has('obj-6', 3, 'obj-8', 0), 'the unmatched outlet still lands on the debug print');
     // re-click finder: the selection observer is change-driven, so a second click on the
     // same knob needs the mouse itself -> mousestate -> "mdown x y" -> js
     assert(boxes['obj-ms'] && boxes['obj-ms'].text === 'mousestate', 'mousestate present');
@@ -618,6 +697,13 @@ test('bridge_max.js: every verb the server emits has a handler, hints are gestur
         assert(js.indexOf('outlet(0, ' + out) >= 0, 'emits ' + out);
     assert(/_skipTrack/.test(js) && /_hintDevEcho/.test(js), 'init echoes are filtered out of the selection hint');
     assert(/function mdown\(x, y\)/.test(js) && /function _checkReclick\(\)/.test(js), 're-click finder verbs');
+    // the arm must never trust an observer that may have gone deaf (field 2026-08-27:
+    // mapping died mid-session and only a device reload brought it back)
+    assert(/function map_start\(\)[\s\S]{0,200}_rearmObserver\(\)/.test(js), 'arming REBUILDS the selection observer');
+    assert(/_skipFirstTask[\s\S]{0,200}schedule\(250\)/.test(js), 'a missing attach echo cannot eat the next real click');
+    assert(/function ping\(\)[\s\S]{0,400}rebuilding/.test(js), 'ping watchdog rebuilds a lost observer');
+    assert(!/begin_gesture|end_gesture/.test(js), 'NO gesture calls: they do not exist in the LOM and Live logs a Python error per call (field 08-27)');
+    assert(/out\.devType = di\.type/.test(js) && /devType: dt/.test(js) && /dev_type: dev\.type/.test(js), 'device TYPE travels with resolve, find, relink and map (MIDI effects take the setter path)');
     assert(/again: 1/.test(js) && /RECLICK_PX/.test(js), 're-click re-emits touched/touched_dev within a knob width');
     assert(/if \(_armed\) return;\s+\/\/ the mapping flow owns clicks while armed/.test(js), 'no re-click flashes while MAP LIVE is armed');
     assert(/_stampTouch\(_touchP, parseInt\(p\.id, 10\)\)/.test(js) && /_stampTouch\(_touchD, parseInt\(d\.id, 10\)\)/.test(js), 'every flash records where it was clicked');

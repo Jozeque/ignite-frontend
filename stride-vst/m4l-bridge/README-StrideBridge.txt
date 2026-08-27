@@ -27,6 +27,9 @@ USE
 - Menus work too (Roar's distortion style, filter types): values snap to the
   options, S&H curves fit them best. Note: each menu step lands in Live's
   undo history. That is how Live counts them, not something we can skip.
+- Live's MIDI effects work too (Arpeggiator, Chord, Scale, Note Length).
+  Those knobs stay yours to move by hand even while Stride drives them, and
+  like menus, their moves land in Live's undo history.
 
 FINDING A LANE
 - Press Stop, then click the knob in Live. Its lane lights up in Stride.

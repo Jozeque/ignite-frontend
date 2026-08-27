@@ -48,8 +48,17 @@
  * and their face says so. The active one binds any knob in the set. A patcher
  * that stops answering pings (a leaked node process) yields the port.
  *
- * Values are NORMALIZED 0..1 for live.remote~ (Live applies the parameter's own
- * scaling); quantized/menu lanes render NATIVE option indices for live.object.
+ * THREE DRIVE PATHS, chosen per lane once its target is known (laneMode):
+ *   'r' live.remote~   audio rate, NORMALIZED 0..1 (Live applies the parameter's own
+ *                      scaling). Instruments, audio effects, the mixer. No undo cost.
+ *   'q' live.object    menus/enums: NATIVE option index, rounded, written on step
+ *                      transitions only. live.remote~ cannot drive enums (field 08-26).
+ *   'c' live.object    MIDI-effect parameters (Arpeggiator, Chord, Scale...): NATIVE
+ *                      continuous values, log-aware, snapped to CONTROL_STEPS levels and
+ *                      sampled at SNAPSHOT_MS. live.remote~ silently does not take those
+ *                      params (field 08-27: no movement, no error anywhere).
+ * The two live.object paths cost one Live undo step per write, which is why they are
+ * rate-limited: the LOM has no undo-grouping call (no begin_gesture, no begin_undo_step).
  */
 
 'use strict';
@@ -71,11 +80,21 @@ const SAMPLES_PER_BAR = 2048;          // wave~ interpolates; 2048/bar is dense 
 const MAX_SAMPLES = 262144;            // cap: 128 bars worth
 const TICKS_PER_BAR = 1920;            // 4 beats * 480 ticks
 const NORMALIZED_OUTPUT = true;        // see header — POC-validated default
-const MAP_TIMEOUT_MS = 30000;   // idle window while ARMED - it slides on every successful map
+const MAP_TIMEOUT_MS = 120000;  // idle window while ARMED - slides on every map and every device
+                                // click. 30s was too tight: dragging a new device in mid-session
+                                // silently disarmed it (field 2026-08-27).
 const HINT_FRESH_MS = 10000;    // a selection this recent says WHERE a connecting Stride lives
 const PING_MS = 5000;           // patcher liveness + repath cadence
 const PONG_TIMEOUT_MS = 20000;  // silent patcher = leaked node process: yield the port
 const REPATH_MS = PING_MS;      // bound ids -> current paths (heals grouping/reorder in-session)
+// Control-rate lanes (MIDI-effect params) are written through Live's own setter, and
+// EVERY set costs one undo step + one main-thread hop. Two limits keep that safe: the
+// patcher samples those voices at SNAPSHOT_MS, and the curve itself is snapped to
+// CONTROL_STEPS levels so [change] drops everything in between. A MIDI effect reads its
+// parameters per generated note (an arp at 1/16 = 8 notes/s), so this is not coarse in
+// practice. Field 2026-08-27: unquantized values at 33Hz over 3 lanes froze Live.
+const CONTROL_STEPS = 48;
+const SNAPSHOT_MS = 100;        // must match `snapshot~ <ms>` in build_main_patcher.py (a test pins it)
 
 const TMP_DIR = path.join(os.tmpdir(), 'stride_bridge');
 
@@ -132,23 +151,49 @@ function sampleCountFor(bars) {
 // Range baking happens VST-side (shim precedent from the live_curves flow);
 // the server trusts incoming points as final 0..1. This is the single place
 // that would change if NORMALIZED_OUTPUT ever flips.
+// Three render modes, one per drive path:
+//   'r' remote~   normalized 0..1, Live applies the parameter's own scaling (audio rate)
+//   'q' stepped   NATIVE option index, rounded, through live.object (menus / enums)
+//   'c' control   NATIVE continuous value through live.object at snapshot rate: MIDI-effect
+//                 parameters (Arpeggiator, Chord, Scale...) never moved under live.remote~
+//                 on the rig, with no error anywhere, so they take Live's own setter
 function rasterizeLane(lane) {
     const bars = (typeof lane.bars === 'number' && lane.bars > 0) ? lane.bars : 4;
     const count = sampleCountFor(bars);
-    // QUANTIZED (menus/enums): live.remote~ cannot drive them (field-confirmed on Roar's
-    // Style), so these voices go through a stepped live.object setter instead - which
-    // wants NATIVE values (the option index). Render min..max linear and round hard.
-    if (lane.is_quantized) {
+    const mode = lane.mode || (lane.is_quantized ? 'q' : 'r');
+    if (mode === 'q' || mode === 'c') {
         const lo = (typeof lane.min === 'number') ? lane.min : 0;
         const hi = (typeof lane.max === 'number' && lane.max > lo) ? lane.max : lo + 1;
-        const buf = rasterizeCurve(lane.points || [], bars * 4, count, { min: lo, max: hi, is_log: false });
-        for (let i = 0; i < buf.length; i++) buf[i] = Math.round(buf[i]);
+        const buf = rasterizeCurve(lane.points || [], bars * 4, count, { min: lo, max: hi, is_log: mode === 'c' && !!lane.is_log });
+        if (mode === 'q') { for (let i = 0; i < buf.length; i++) buf[i] = Math.round(buf[i]); return buf; }
+        // CONTROL: snap to CONTROL_STEPS levels. [change] in the voice only forwards
+        // actual transitions, so coarser levels = fewer live.object sets. This is the
+        // cost control that matters: every set is one Live undo step and one main-thread
+        // hop (field 2026-08-27: unquantized values at 33Hz across 3 lanes FROZE Live).
+        const span = hi - lo;
+        for (let i = 0; i < buf.length; i++)
+            buf[i] = lo + Math.round(((buf[i] - lo) / span) * CONTROL_STEPS) * (span / CONTROL_STEPS);
         return buf;
     }
     if (NORMALIZED_OUTPUT)
         return rasterizeCurve(lane.points || [], bars * 4, count);   // no paramScale → 0..1
     const { min, max, is_log } = lane;
     return rasterizeCurve(lane.points || [], bars * 4, count, { min, max, is_log });
+}
+
+const MIDI_EFFECT = 4;   // LOM Device.type: 1 instrument, 2 audio effect, 4 MIDI effect
+
+// Which drive path a lane takes (see rasterizeLane). Decided once the target is known.
+function laneMode(lane) {
+    if (lane.quant) return 'q';
+    if (lane.devType === MIDI_EFFECT) return 'c';
+    return 'r';
+}
+
+function refreshSig(lane) {
+    if (!lane.norm) return;
+    lane.norm.mode = laneMode(lane);
+    lane.sig = laneSig(lane.norm);
 }
 
 // ── WAV writer: float32 mono, values written verbatim ────────────────────
@@ -213,22 +258,12 @@ function freeVoice(n) {
     if (n < 1 || n > NUM_VOICES || !state.voices[n]) return;
     _out(['voice', n, 'unbind']);
     state.voices[n] = null;
-    _count();
 }
 
-function boundCount() {
-    let c = 0;
-    for (let n = 1; n <= NUM_VOICES; n++) if (state.voices[n] && state.voices[n].id) c++;
-    return c;
-}
-
-// The device face: ACTIVE (owns :9102) / STANDBY, and how many knobs are bound.
+// The device face: ACTIVE (owns the VST link on :9102) / STANDBY. The lane count that
+// used to sit under it is gone (2026-08-27, Yossi: not worth the space).
 function _status() {
     _out(['status', 'set', (state.active && !state.yielded) ? 'ACTIVE' : 'STANDBY']);
-}
-function _count() {
-    const c = boundCount();
-    _out(['count', 'set', c + (c === 1 ? ' lane' : ' lanes')]);
 }
 
 // The stored "bl" blob (canvas save format) -> push lanes. MIRRORS shim.js _sbPush:
@@ -260,7 +295,8 @@ function lanesFromBlob(blob) {
 
 // A lane's shape signature — decides whether a push actually re-renders.
 function laneSig(l) {
-    return JSON.stringify([l.bars, l.speed, l.points, l.is_quantized ? 1 : 0, l.is_quantized ? [l.min, l.max] : 0]);
+    const mode = l.mode || (l.is_quantized ? 'q' : 'r');
+    return JSON.stringify([l.bars, l.speed, l.points, mode, mode === 'r' ? 0 : [l.min, l.max, l.is_log ? 1 : 0]]);
 }
 
 // ── client messaging ─────────────────────────────────────────────────────
@@ -305,10 +341,17 @@ function renderLane(lane) {
 function bindVoice(n) {
     const v = state.voices[n];
     if (!v || !v.id) return;
-    if (v.quant) { _out(['voice', n, 'bindq', v.id]); v.suspended = false; }
+    const mode = v.mode || (v.quant ? 'q' : 'r');
+    if (mode === 'q' || mode === 'c')
+    {
+        // Live's own setter: never locks the knob (hand-movable while stopped), so it
+        // applies right away. Rate is bounded by the patcher's snapshot~ + the value
+        // quantization below, because every set here costs one Live undo step.
+        _out(['voice', n, 'bindq', v.id]);
+        v.suspended = false;
+    }
     else if (state.playing) { _out(['voice', n, 'bind', v.id]); v.suspended = false; }
     else v.suspended = true;
-    _count();
 }
 
 function migrateLane(lane, newPath) {
@@ -349,9 +392,12 @@ function adopt(lane, target, holderN) {
     }
     if (lane.voice && lane.voice !== n) freeVoice(lane.voice);   // moved onto another voice: release the old knob
     const v = state.voices[n];
+    if (typeof target.devType === 'number') lane.devType = target.devType;
+    refreshSig(lane);                                             // the drive path is known now (remote / stepped / control)
     v.lane = lane;
     v.owner = lane.client;
     v.quant = !!lane.quant;
+    v.mode = laneMode(lane);
     v.id = target.id;
     lane.voice = n;
     lane.taken = false;
@@ -359,7 +405,7 @@ function adopt(lane, target, holderN) {
     if (target.path && target.path !== lane.path) migrateLane(lane, target.path);
     renderLane(lane);
     bindVoice(n);
-    report(lane, true, target.id, 'bound');
+    report(lane, true, target.id, v.mode === 'c' ? 'bound (control-rate)' : 'bound');
     return true;
 }
 
@@ -479,11 +525,12 @@ function handleClientMessage(client, msg) {
 
             const bars = (typeof msg.bars === 'number' && msg.bars > 0) ? msg.bars : (l.bars || 4);
             lane.norm = { bars, speed: l.speed || 1, points: l.points || [], min: l.min, max: l.max, is_log: l.is_log, is_quantized: l.is_quantized || 0 };
-            lane.sig = laneSig(lane.norm);
+            refreshSig(lane);
 
             if (lane.voice && state.voices[lane.voice]) {
                 const v = state.voices[lane.voice];
-                if (v.quant !== lane.quant) { v.quant = lane.quant; v.sig = null; if (v.id) bindVoice(lane.voice); }
+                const mode = laneMode(lane);
+                if (v.mode !== mode) { v.mode = mode; v.quant = lane.quant; v.sig = null; if (v.id) bindVoice(lane.voice); }
                 renderLane(lane);                                  // bound: an edit only re-renders
             } else if (!lane.resolving) {
                 lane.voice = 0;
@@ -583,7 +630,7 @@ function handleResolved(encoded) {
         return;
     }
 
-    const target = { id: r.id, path: r.path || lane.path };
+    const target = { id: r.id, path: r.path || lane.path, devType: (typeof r.devType === 'number') ? r.devType : undefined };
     const holderN = voiceByTarget(r.id);
     const holder = holderN ? state.voices[holderN] : null;
 
@@ -688,7 +735,7 @@ function handleRelinked(encoded) {
         const holderN = voiceByTarget(it.id);
         if (holderN && lane.voice === holderN) { moved++; return; }   // already on that knob
         lane.resolving = false;
-        if (adopt(lane, { id: it.id, path: it.path }, holderN)) moved++;
+        if (adopt(lane, { id: it.id, path: it.path, devType: (typeof it.devType === 'number') ? it.devType : undefined }, holderN)) moved++;
     });
     sendTo(ctx.client, { type: 'live_relinked', device: ctx.devName, count: moved, path: ctx.devPath });
 }
@@ -725,7 +772,6 @@ function handleRepathed(encoded) {
             _out(['voice', n, 'unbind']);
             state.voices[n] = null;
             lane.voice = 0;
-            _count();
             report(lane, false, 0, laneLabel(lane) + ' left the set: the device was removed');
             return;
         }
@@ -743,7 +789,9 @@ function handleTransport(on) {
     state.playing = playing;
     for (let n = 1; n <= NUM_VOICES; n++) {
         const v = state.voices[n];
-        if (!v || v.quant || !v.id) continue;
+        if (!v || !v.id) continue;
+        const mode = v.mode || (v.quant ? 'q' : 'r');
+        if (mode !== 'r') continue;             // the setter paths never lock the knob, so a transport edge is nothing to them
         if (!playing) { _out(['voice', n, 'unbind']); v.suspended = true; }
         else if (v.suspended) { _out(['voice', n, 'bind', v.id]); v.suspended = false; }
     }
@@ -954,14 +1002,14 @@ if (Max) {
     }
     setInterval(() => tick(), PING_MS);
     _status();
-    _count();
 }
 
 module.exports = {
     PORT, TCP_PORT, NUM_VOICES, TICKS_PER_BAR, SAMPLES_PER_BAR, NORMALIZED_OUTPUT, TMP_DIR,
     HINT_FRESH_MS, PING_MS, PONG_TIMEOUT_MS, REPATH_MS,
     state, listeners, ticksFor, rateFor, sampleCountFor, rasterizeLane, buildWav, writeVoiceWav,
-    allocVoice, freeVoice, voiceByTarget, lanesOf, laneSig, lanesFromBlob, trackOf, deviceOf, under, freshHint, noteSel,
+    allocVoice, freeVoice, voiceByTarget, lanesOf, laneSig, laneMode, lanesFromBlob, MIDI_EFFECT,
+    CONTROL_STEPS, SNAPSHOT_MS, trackOf, deviceOf, under, freshHint, noteSel,
     handleClientMessage, handleDisconnect, handleMapped, handleResolved, handleFound, handleRelinked,
     handleRepathed, handleTouched, handleTouchedDev, handleSel, handleTransport, handlePong, tick,
     startServer, startTcpServer, _setIoForTest,

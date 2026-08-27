@@ -65,20 +65,15 @@ box("obj-face-rule", "panel", 100, 52, 60, 2,
     mode=0, rounded=0,
     bgfillcolor_type="color", bgfillcolor_color=[0.976, 0.451, 0.086, 0.55],
     bgfillcolor_angle=270.0, bgfillcolor_proportion=0.39, bgfillcolor_autogradient=0)
-# live readout on the face: ACTIVE (owns the VST link) / STANDBY (another bridge does),
-# and how many knobs are bound. Fed by node via [route ... status count] -> "set <text>".
-# Answers the field question "is it the two bridges?" from inside Live.
+# live readout on the face: ACTIVE (owns the VST link) / STANDBY (another bridge does).
+# Fed by node via [route ... status] -> "set <text>". Answers the field question
+# "is it the two bridges?" from inside Live. (A lane count used to sit under it: removed
+# 2026-08-27, Yossi did not want it.)
 box("obj-face-st", "comment", 100, 56, 84, 16,
     numinlets=1, numoutlets=0,
     presentation=1, presentation_rect=[3.0, 112.0, 84.0, 16.0],
     fontname="Outfit", fontsize=9.0, fontface=1,
     textcolor=ZINC400, textjustification=1, text="STANDBY")
-box("obj-face-n", "comment", 100, 74, 84, 14,
-    numinlets=1, numoutlets=0,
-    presentation=1, presentation_rect=[3.0, 128.0, 84.0, 14.0],
-    fontname="Outfit", fontsize=8.0, fontface=0,
-    textcolor=ZINC400, textjustification=1, text="0 lanes")
-
 box("obj-1", "comment", 20, 12, 900, 20,
     numinlets=1, numoutlets=0,
     text="STRIDE BRIDGE - Stride VST's output stage for Ableton's own devices. One ACTIVE instance per set, extra copies stand by (the face says which). 32 voices.")
@@ -102,12 +97,11 @@ box("obj-thru", "comment", 690, 140, 220, 33,
 obj("obj-3", 20, 70, 260, "node.script bridge-server.js @autostart 1 @watch 0", 1, 2, ["", ""])
 boxes[-1]["box"]["saved_object_attributes"] = {"autostart": 1, "defer": 0, "node_bin_path": "", "npm_bin_path": "", "watch": 0}
 
-# top-level route from node: voice / probe / status / count
-obj("obj-6", 20, 110, 200, "route voice probe status count", 1, 5, ["", "", "", "", ""])
+# top-level route from node: voice / probe / status
+obj("obj-6", 20, 110, 175, "route voice probe status", 1, 4, ["", "", "", ""])
 wire("obj-3", 0, "obj-6", 0)
-# face readout: node sends "status set ACTIVE" / "count set 12 lanes"
+# face readout: node sends "status set ACTIVE"
 wire("obj-6", 2, "obj-face-st", 0)
-wire("obj-6", 3, "obj-face-n", 0)
 
 # probe -> [js bridge_max.js] -> back into node
 obj("obj-7", 480, 110, 110, "js bridge_max.js", 1, 1)
@@ -154,7 +148,7 @@ wire("obj-ms-pre", 0, "obj-7", 0)
 
 # debug tap (the route's unmatched outlet)
 obj("obj-8", 620, 110, 90, "print bridge", 1, 0, [])
-wire("obj-6", 4, "obj-8", 0)
+wire("obj-6", 3, "obj-8", 0)
 
 # voice fan-out
 route_args = " ".join(str(i) for i in range(1, NUM + 1))
@@ -202,7 +196,11 @@ for i in range(1, NUM + 1):
     vqon    = "v%d-qon" % i
     vqoff   = "v%d-qoff" % i
     vunbq   = "v%d-unbq" % i
-    obj(vsnap, x + 200, y + 84, 90, "snapshot~ 30", 2, 1, ["float"])
+    # 100 ms, NOT 30: this is the write rate of the live.object paths, and every write
+    # there is one Live undo step + one main-thread hop. At 33 ms, three continuous
+    # MIDI-effect lanes froze Live (field 2026-08-27). Must match SNAPSHOT_MS in
+    # bridge-server.js; a MIDI effect reads its params per note, so 10 Hz is plenty.
+    obj(vsnap, x + 200, y + 84, 90, "snapshot~ 100", 2, 1, ["float"])
     obj(vchange, x + 200, y + 112, 70, "change -1.", 1, 3, ["", "", ""])
     obj(vgate, x + 200, y + 140, 45, "gate", 2, 1)
     msg(vsetm, x + 200, y + 168, 85, "set value $1")
