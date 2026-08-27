@@ -61,11 +61,23 @@ key you were sent). One purchase covers the desktop app AND the plugin.
   - Spacebar from inside the synth window plays/stops your DAW.
 
 ---------------------------------------------------------------
+ ABLETON LIVE: STRIDEBRIDGE (new in 2.0)
+---------------------------------------------------------------
+Stride can also move the knobs of Live's own devices (Operator,
+Roar, Auto Filter, anything in the set). Needs Live 11+ with
+Max for Live.
+  1. Copy the whole  StrideBridge  folder from this download into
+     your Ableton User Library.
+  2. Drag  StrideBridge.amxd  onto any track. One per set.
+  3. In Stride, press  Map Live  and click knobs in Live.
+Details, tips and the finder gestures: StrideBridge\README.txt
+
+---------------------------------------------------------------
  NOTES
 ---------------------------------------------------------------
   - Stride hosts VST3 instruments + effects on Windows and Mac,
-    plus AU instruments + effects on Mac (not VST2 or your DAW's
-    built-in devices).
+    plus AU instruments + effects on Mac (not VST2). Your DAW's
+    built-in devices: Ableton's via StrideBridge, others not yet.
   - Your rack and curves save with the project.
 
   Please tell us what works and what breaks - especially in Logic.
