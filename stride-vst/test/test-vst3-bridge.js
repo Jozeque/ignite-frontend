@@ -603,7 +603,10 @@ test('RELINK: armed device click moves every lane of that device NAME onto it, f
     if (srv.state.mapTimer) { clearTimeout(srv.state.mapTimer); srv.state.mapTimer = null; }
 });
 
-test('REPATH sweep: a bound id whose address moved heals the owner; an id that left the set releases + tells', () => {
+test('REPATH sweep heals movers and NEVER kills a working bind on a failed lookup', () => {
+    // Field 2026-08-28 (Mac): bound lanes dropped out in waves and re-linked on the next
+    // push. The old sweep RELEASED a voice whenever `id N` failed to resolve - a flaky
+    // probe strangled healthy binds every 5s. A miss now leaves the bind alone.
     resetState();
     const [a] = connect(fakeClient());
     push(a, [LANE(P1), LANE(P2, 'Dry/Wet', 'Reverb')]);
@@ -612,12 +615,31 @@ test('REPATH sweep: a bound id whose address moved heals the owner; an id that l
     srv.tick(Date.now());
     const rp = lastProbe('repath');
     assert(rp && rp.slice(3).indexOf(100) >= 0 && rp.slice(3).indexOf(300) >= 0, 'sweep asks for every bound id');
-    assert(probes('repath').length === 1 && (srv.tick(Date.now()), probes('repath').length === 1), 'one sweep in flight at a time');
+    outbox = [];
     srv.handleRepathed(enc({ rid: rp[2], items: [{ id: 100, ok: 1, path: ROAR1 }, { id: 300, ok: 0, path: '' }] }));
     assert(srv.lanesOf(a)[ROAR1] && !srv.lanesOf(a)[P1], 'grouped in-session: key migrated');
     assert(a.sent.some(m => m.type === 'live_lane_healed' && m.oldPath === P1 && m.newPath === ROAR1), 'owner rewrites its blob');
-    assert(!voiceOf(300), 'deleted device: voice released');
-    assert(a.sent.some(m => m.type === 'live_bind_result' && !m.ok && /left the set/.test(m.message)), 'told');
+    assert(voiceOf(300) && srv.state.voices[voiceOf(300)].id === 300, 'failed lookup: the voice KEEPS its knob');
+    assert(!outbox.some(x => x[0] === 'voice' && x[2] === 'unbind'), 'and nothing is released');
+    for (let k = 0; k < 3; k++) {
+        srv.state.repathRid = 0;
+        srv.tick(Date.now());
+        const rpN = lastProbe('repath');
+        srv.handleRepathed(enc({ rid: rpN[2], items: [{ id: 300, ok: 0, path: '' }] }));
+    }
+    assert(voiceOf(300), 'still bound after repeated misses');
+});
+
+test('LIVENESS: ANY inbound [js] message proves the patcher (pings can starve on a busy Max)', () => {
+    resetState();
+    const calls = [];
+    srv.listeners.push({ stop: () => calls.push('stop'), start: () => calls.push('start') });
+    const t0 = Date.now();
+    srv.state.bootAt = t0 - srv.NO_PONG_BOOT_MS - 5000;   // long past the boot window
+    srv.state.pongSeen = false;                            // no pong ever...
+    srv.handleTouched(enc({ path: P1, name: 'Cutoff' }));  // ...but a knob click flowed
+    srv.tick(Date.now());
+    assert(!srv.state.yielded && calls.indexOf('stop') < 0, 'traffic = alive: the port is kept');
 });
 
 test('LIVENESS: a silent patcher (leaked node process) yields the port; a pong resumes', () => {
@@ -750,6 +772,11 @@ test('StrideBridge.maxpat: 32 INLINE voices, literal buffers, fully wired (no ab
     assert(has('obj-in', 0, 'obj-out', 0) && has('obj-in', 1, 'obj-out', 1), 'stereo passthrough wired');
     const ids = new Set(Object.keys(boxes));
     lines.forEach(l => assert(ids.has(l.source[0]) && ids.has(l.destination[0]), 'no dangling lines'));
+    // Max draws EARLIER boxes ON TOP: the ground panel first in the array covered the
+    // whole face (field 2026-08-28, Mac: "stride bridge is full black"). It must be LAST.
+    const rawDoc = JSON.parse(fs.readFileSync(path.join(BRIDGE, 'StrideBridge.maxpat'), 'utf8'));
+    const lastBox = rawDoc.patcher.boxes[rawDoc.patcher.boxes.length - 1].box;
+    assert(lastBox.id === 'obj-face-bg', 'face ground appended LAST = drawn at the BACK, got ' + lastBox.id);
 });
 
 test('bridge_max.js: every verb the server emits has a handler, hints are gesture-only', () => {

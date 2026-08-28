@@ -43,15 +43,13 @@ def wire(src, so, dst, di):
 # wide"). Branded like the product: zinc-950 ground, orange-500 STRIDE, Outfit
 # (installed per-user by the deploy script; Max needs a SYSTEM font, it cannot
 # read the VST's embedded webfont).
+# Z-ORDER RULE (field 2026-08-28, Mac: the shipped face rendered FULL BLACK): Max
+# draws EARLIER boxes in this array ON TOP. The ground panel therefore must be the
+# LAST box appended (see the end of this file), never the first - Yossi's hand-fixed
+# device proved it (his send-to-back moved obj-face-bg to the array's end).
 ZINC950 = [0.035, 0.035, 0.043, 1.0]
 ORANGE500 = [0.976, 0.451, 0.086, 1.0]
 ZINC400 = [0.631, 0.631, 0.667, 1.0]
-box("obj-face-bg", "panel", 4, 4, 90, 169,
-    presentation=1, presentation_rect=[0.0, 0.0, 90.0, 169.0],
-    mode=0, proportion=0.5, saved_attribute_attributes={"valueof": {}},
-    bgfillcolor_type="color", bgfillcolor_color=ZINC950,
-    bgfillcolor_angle=270.0, bgfillcolor_proportion=0.39, bgfillcolor_autogradient=0,
-    rounded=0)
 box("obj-face-t1", "comment", 100, 4, 84, 24,
     presentation=1, presentation_rect=[3.0, 56.0, 84.0, 24.0],
     fontname="Outfit", fontsize=15.0, fontface=1,
@@ -241,6 +239,14 @@ for i in range(1, NUM + 1):
 box("obj-10", "comment", 20, 200 + (NUM // 4) * 210, 900, 33,
     numinlets=1, numoutlets=0,
     text="Save this patcher as StrideBridge.amxd (Max Audio Effect) in THIS folder so bridge-server.js, bridge_max.js, rasterizer.js, log-scaling.js and node_modules travel with it.")
+
+# the face GROUND, appended last = drawn at the BACK (see the z-order rule above)
+box("obj-face-bg", "panel", 4, 4, 90, 169,
+    presentation=1, presentation_rect=[0.0, 0.0, 90.0, 169.0],
+    mode=0, proportion=0.5, saved_attribute_attributes={"valueof": {}},
+    bgfillcolor_type="color", bgfillcolor_color=ZINC950,
+    bgfillcolor_angle=270.0, bgfillcolor_proportion=0.39, bgfillcolor_autogradient=0,
+    rounded=0)
 
 doc = {"patcher": {
     "fileversion": 1,

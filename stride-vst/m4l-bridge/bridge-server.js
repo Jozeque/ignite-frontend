@@ -620,6 +620,7 @@ function handleDisconnect(client) {
 
 // ── messages arriving FROM the [js] LiveAPI probe ────────────────────────
 function handleMapped(encoded) {
+    _alive();
     let info;
     try { info = JSON.parse(decodeURIComponent(encoded)); } catch (e) { return; }
     // A mapped knob belongs to the window that ARMED. It is never broadcast: with two
@@ -644,6 +645,7 @@ function handleMapped(encoded) {
 }
 
 function handleResolved(encoded) {
+    _alive();
     let r;
     try { r = JSON.parse(decodeURIComponent(encoded)); } catch (e) { return; }
     const ctx = takeCtx(r, 'resolve');
@@ -692,6 +694,7 @@ function handleResolved(encoded) {
 // that no OTHER open window drives. Hint narrows, uniqueness decides, otherwise
 // the user is told and RELINK (armed device click) settles it.
 function handleFound(encoded) {
+    _alive();
     let f;
     try { f = JSON.parse(decodeURIComponent(encoded)); } catch (e) { return; }
     const ctx = takeCtx(f, 'find');
@@ -732,6 +735,7 @@ function handleFound(encoded) {
 // lane of that device NAME (of the armed window) onto THAT device. Forced: an
 // explicit click beats any earlier claim, the displaced window is told.
 function handleTouchedDev(encoded) {
+    _alive();
     let t;
     try { t = JSON.parse(decodeURIComponent(encoded)); } catch (e) { return; }
     if (!t || !t.path) return;
@@ -754,6 +758,7 @@ function handleTouchedDev(encoded) {
 }
 
 function handleRelinked(encoded) {
+    _alive();
     let f;
     try { f = JSON.parse(decodeURIComponent(encoded)); } catch (e) { return; }
     const ctx = takeCtx(f, 'relink');
@@ -787,6 +792,7 @@ function repathSweep() {
 }
 
 function handleRepathed(encoded) {
+    _alive();
     let f;
     try { f = JSON.parse(decodeURIComponent(encoded)); } catch (e) { return; }
     const ctx = takeCtx(f, 'repath');
@@ -800,13 +806,17 @@ function handleRepathed(encoded) {
         const lane = v.lane;
         if (!lane) return;
         if (!it.ok) {
-            // the knob left the set (device deleted): release the voice, tell the window
-            _out(['voice', n, 'unbind']);
-            state.voices[n] = null;
-            lane.voice = 0;
-            report(lane, false, 0, laneLabel(lane) + ' left the set: the device was removed');
+            // A failed lookup is NOT proof the knob is gone - the sweep exists to HEAL
+            // paths, never to kill working binds. Field 2026-08-28 (Mac): bound lanes
+            // dropped out on a ~5s rhythm and re-linked on the next push - a probe that
+            // flakes must leave the bind alone. If the device truly left the set, the
+            // bound remote/setter just goes inert, which costs nothing.
+            if (!v.missCount) v.missCount = 0;
+            v.missCount++;
+            if (v.missCount === 3) report(lane, true, v.id, 'target not answering the path probe (bind kept)');
             return;
         }
+        v.missCount = 0;
         if (it.path && it.path !== lane.path) migrateLane(lane, it.path);
     });
 }
@@ -816,6 +826,7 @@ function handleRepathed(encoded) {
 // stopped transport is clickable (the finder works on the EXACT param) and
 // hand-movable; play snaps it back onto its curve.
 function handleTransport(on) {
+    _alive();
     const playing = !!parseInt(on, 10);
     if (playing === state.playing) return;
     state.playing = playing;
@@ -830,6 +841,7 @@ function handleTransport(on) {
 }
 
 function handleTouched(encoded) {
+    _alive();
     let t;
     try { t = JSON.parse(decodeURIComponent(encoded)); } catch (e) { return; }
     if (!t || !t.path) return;
@@ -841,6 +853,7 @@ function handleTouched(encoded) {
 
 // Selection hint from the [js] (gesture-driven only: init echoes are filtered there).
 function handleSel(encoded) {
+    _alive();
     let s;
     try { s = JSON.parse(decodeURIComponent(encoded)); } catch (e) { return; }
     if (!s) return;
@@ -856,6 +869,15 @@ function handlePong() {
     state.pongAt = Date.now();
     state.pongSeen = true;
     if (state.yielded) resumeFromYield();
+}
+
+// EVERY message from the [js] proves the patcher lives, not just pongs. On a busy Max
+// scheduler pings can starve while resolves/touches still flow - yielding the port then
+// releases every working bind for nothing (field 2026-08-28, Mac: modulation dropping
+// out and re-linking in waves). Liveness = any inbound traffic.
+function _alive() {
+    state.pongAt = Date.now();
+    state.pongSeen = true;
 }
 
 // The [js] answering `armed` is the same proof a pong is: a live patcher is behind us.

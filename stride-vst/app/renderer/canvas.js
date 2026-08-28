@@ -3580,7 +3580,15 @@
         // device's lanes, so tools/generators act only on what's on screen.
         const pool = sdVisibleParams();
         const selected = pool.filter(p => p.selected && !p.locked);
-        if (selected.length > 0) return selected;
+        if (selected.length > 0) {
+            // The ACTIVE lane is part of the group: a plain click "chooses" a lane without
+            // setting p.selected, so users read the highlighted lane as selected. Without
+            // this, "select a range and apply curves" skipped exactly that lane (field
+            // report 2026-08-28, Mac). Same decision ranges made in July (_sdRangeGroupTargets).
+            const act = pool.find(p => p.envelopeId === sdActiveParamId);
+            if (act && !act.locked && !act.selected) selected.unshift(act);
+            return selected;
+        }
         const p = pool.find(p => p.envelopeId === sdActiveParamId);
         return (p && !p.locked) ? [p] : [];
     }
@@ -3599,7 +3607,11 @@
         // Focused device only when one is selected (sdDeviceFilter), else all lanes.
         const pool = sdVisibleParams();
         const sel = pool.filter(p => p.selected && !p.locked);
-        if (sel.length > 0) return sel;
+        if (sel.length > 0) {
+            const act = pool.find(p => p.envelopeId === sdActiveParamId);
+            if (act && !act.locked && !act.selected) sel.unshift(act);   // the active lane rides with its group (2026-08-28)
+            return sel;
+        }
         return pool.filter(p => !p.locked);
     }
     function sdLockSkipMessage(processedCount) {
@@ -5428,6 +5440,25 @@
                     }
                 }
 
+                // Shift + click = RANGE select (the DAW convention; field ask 2026-08-28):
+                // every visible lane between the ACTIVE lane and the clicked one joins the
+                // selection, both ends included, locked lanes skipped. The active lane stays
+                // the anchor, so successive Shift+clicks re-span from the same place.
+                if (e.shiftKey && !(e.ctrlKey || e.metaKey)) {
+                    const vis = sdVisibleParams();
+                    const ai = vis.findIndex(p => p.envelopeId === sdActiveParamId);
+                    const ci = vis.indexOf(hit.param);
+                    if (ci >= 0) {
+                        const lo = ai >= 0 ? Math.min(ai, ci) : ci;
+                        const hiI = ai >= 0 ? Math.max(ai, ci) : ci;
+                        for (let ri = lo; ri <= hiI; ri++) { if (!vis[ri].locked) vis[ri].selected = true; }
+                        if (ai < 0) sdActiveParamId = hit.param.envelopeId;   // no anchor yet: the click becomes it
+                        _sdUpdateSelectionButtons();
+                        sdRenderSidebar();
+                        sdDrawCanvasGrid();
+                    }
+                    return;
+                }
                 // Ctrl/Cmd + click on any lane → toggle that lane's
                 // selection. Sets up drag-pending so Ctrl + drag multi-
                 // selects every lane the cursor passes over. Ctrl is the

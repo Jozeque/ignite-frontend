@@ -27,41 +27,6 @@
   "boxes": [
    {
     "box": {
-     "id": "obj-face-bg",
-     "maxclass": "panel",
-     "patching_rect": [
-      4,
-      4,
-      90,
-      169
-     ],
-     "presentation": 1,
-     "presentation_rect": [
-      0.0,
-      0.0,
-      90.0,
-      169.0
-     ],
-     "mode": 0,
-     "proportion": 0.5,
-     "saved_attribute_attributes": {
-      "valueof": {}
-     },
-     "bgfillcolor_type": "color",
-     "bgfillcolor_color": [
-      0.035,
-      0.035,
-      0.043,
-      1.0
-     ],
-     "bgfillcolor_angle": 270.0,
-     "bgfillcolor_proportion": 0.39,
-     "bgfillcolor_autogradient": 0,
-     "rounded": 0
-    }
-   },
-   {
-    "box": {
      "id": "obj-face-t1",
      "maxclass": "comment",
      "patching_rect": [
@@ -11237,6 +11202,41 @@
      "numinlets": 1,
      "numoutlets": 0,
      "text": "Save this patcher as StrideBridge.amxd (Max Audio Effect) in THIS folder so bridge-server.js, bridge_max.js, rasterizer.js, log-scaling.js and node_modules travel with it."
+    }
+   },
+   {
+    "box": {
+     "id": "obj-face-bg",
+     "maxclass": "panel",
+     "patching_rect": [
+      4,
+      4,
+      90,
+      169
+     ],
+     "presentation": 1,
+     "presentation_rect": [
+      0.0,
+      0.0,
+      90.0,
+      169.0
+     ],
+     "mode": 0,
+     "proportion": 0.5,
+     "saved_attribute_attributes": {
+      "valueof": {}
+     },
+     "bgfillcolor_type": "color",
+     "bgfillcolor_color": [
+      0.035,
+      0.035,
+      0.043,
+      1.0
+     ],
+     "bgfillcolor_angle": 270.0,
+     "bgfillcolor_proportion": 0.39,
+     "bgfillcolor_autogradient": 0,
+     "rounded": 0
     }
    }
   ],
