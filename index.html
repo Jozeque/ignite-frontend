@@ -425,7 +425,7 @@
             </ul>
             <div class="flex flex-wrap items-center gap-2.5">
               <a onclick="openBuy()" class="btn-copper text-[15px] py-3 px-6 rounded-xl">GET STRIDE · $79 <span>→</span></a>
-              <a href="/try" class="btn-ghost text-[11px] uppercase tracking-[0.1em] py-3 px-5 rounded-xl">Explore free for 24h</a>
+              <a href="/try/" class="btn-ghost text-[11px] uppercase tracking-[0.1em] py-3 px-5 rounded-xl">Explore free for 24h</a>
             </div>
             <p class="text-[10.5px] ink3 mt-2.5">The pass is the full version · no limitations · on your own tracks</p>
           </div>
@@ -829,7 +829,7 @@
           </div>
           <p class="text-[12px] font-bold mb-5 mt-2.5" style="color:var(--sage-lt)">Both editions · one purchase</p>
           <a onclick="openBuy()" class="btn-copper w-full justify-center text-base py-3.5 rounded-2xl">Get Stride · $79</a>
-          <a onclick="tryDemo()" class="btn-ghost w-full justify-center text-sm py-3 rounded-2xl mt-2.5">Explore free for 24h</a>
+          <a href="/try/" class="btn-ghost w-full justify-center text-sm py-3 rounded-2xl mt-2.5">Explore free for 24h</a>
           <p class="text-[11px] ink3 mt-3">VST3 + Max for Live · not Logic (AU) or Pro Tools (AAX)</p>
         </div>
       </div>
@@ -921,7 +921,7 @@
         <p class="text-base ink2 mb-10 max-w-lg mx-auto">24 hours, fully unlocked, on your own tracks. Then one purchase, both editions: $79 until Aug 31, $129 after.</p>
         <div class="flex flex-wrap items-center justify-center gap-3">
           <a onclick="openBuy()" class="btn-copper text-sm uppercase tracking-widest py-4 px-10 rounded-full">Get Stride · $79</a>
-          <a onclick="tryDemo()" class="btn-ghost text-sm uppercase tracking-widest py-4 px-10 rounded-full">Explore free for 24h</a>
+          <a href="/try/" class="btn-ghost text-sm uppercase tracking-widest py-4 px-10 rounded-full">Explore free for 24h</a>
         </div>
       </div>
     </div>
@@ -1099,40 +1099,44 @@
 </div>
 
 <script>
-    // ── Free trial (Lemon Squeezy) ──
-    // DEMO_URL: the free Lemon Squeezy download — delivers the Stride VST3. First launch
-    // starts a one-click 24-hour Discovery Pass (the FULL product, no limits); it then
-    // locks until a paid license. $0, email-gated at checkout.
-    const DEMO_URL = 'https://strideengine.lemonsqueezy.com/checkout/buy/939153dc-5a09-4fdf-b57f-bd40d2bf6575';
-
-    function tryDemo() {
-        if (!DEMO_URL) { alert('Demo download link is being finalized — check back shortly.'); return; }
-        // Carry Meta attribution onto the demo checkout so a demo download that
-        // came from an ad shows as "🎯 Meta ad" in the webhook. It still fires a
-        // $0 Lead (never a Purchase) — this only sets the SOURCE label. Same
-        // fbc/fbclid read as the paid buy flow (submitBuyForm).
-        var url = DEMO_URL;
+    // ── Free trial: /try, and only /try ──
+    // The Lemon Squeezy $0 checkout is RETIRED as a demo route and its link is gone
+    // from this page. It fired no Meta CAPI, so those people never entered the DEMO
+    // USERS exclusion audience and we paid to re-advertise the demo to them, and the
+    // files on that variant still topped out at 1.4.1, which has no StrideBridge.
+    // /try always hands out the current DEMO_BUILD.
+    //
+    // /try reads its ad markers from the QUERY STRING, and this page stores them under
+    // different keys (stride_ad / stride_ad_id) than /try looks for (stride_ad_id,
+    // stride_campaign_id, ...). A bare link would therefore drop campaign_id, which the
+    // acquisition cohort anchors on, so carry the markers across explicitly.
+    function strideTryUrl() {
+        var parts = [];
         try {
-            var ck = function (n) { var m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : ''; };
-            var fbc = ck('_fbc') || (function () { try { return sessionStorage.getItem('stride_fbc') || ''; } catch (e) { return ''; } })();
-            var fbclid = (function () { try { var v = localStorage.getItem('stride_fbclid'); if (v) return v; } catch (e) {} return ck('stride_fbclid') || (fbc ? fbc.split('.').pop() : ''); })();
-            var fbp = ck('_fbp');
-            var ua = (navigator.userAgent || '').slice(0, 512);
-            var extra = [];
-            if (fbc) extra.push('checkout[custom][fbc]=' + encodeURIComponent(fbc));
-            if (fbclid) extra.push('checkout[custom][fbclid]=' + encodeURIComponent(fbclid));
-            if (fbp) extra.push('checkout[custom][fbp]=' + encodeURIComponent(fbp));
-            if (ua) extra.push('checkout[custom][ua]=' + encodeURIComponent(ua));
-            // Deterministic paid-ad marker. Carrying it onto the DEMO checkout is
-            // what makes the ad → demo → buy journey attributable to its ad: the
-            // demo order stamps ad_id on the row, and the later paid order
-            // recovers it by email join in the webhook.
-            var admk = (window.strideAdMarkers ? window.strideAdMarkers() : {});
-            if (admk.ad_id) extra.push('checkout[custom][ad_id]=' + encodeURIComponent(admk.ad_id));
-            if (extra.length) url += (DEMO_URL.indexOf('?') >= 0 ? '&' : '?') + extra.join('&');
+            var admk = (window.strideAdMarkers ? window.strideAdMarkers() : {}) || {};
+            var q = new URLSearchParams(location.search);
+            ['ad_id', 'adset_id', 'campaign_id', 'utm_source', 'utm_campaign', 'utm_content']
+                .forEach(function (k) {
+                    var v = admk[k] || q.get(k) || '';
+                    if (v) parts.push(k + '=' + encodeURIComponent(v));
+                });
         } catch (e) {}
-        window.open(url, '_blank', 'noopener');
+        return '/try/' + (parts.length ? '?' + parts.join('&') : '');
     }
+
+    // Kept so any stale caller still lands on /try rather than throwing.
+    function tryDemo() { window.location.href = strideTryUrl(); }
+
+    // Decorate every /try link, so the markers ride along on a normal click, a
+    // middle-click and a copied link alike.
+    document.addEventListener('DOMContentLoaded', function () {
+        try {
+            var u = strideTryUrl();
+            document.querySelectorAll('a[href="/try"], a[href="/try/"]').forEach(function (a) {
+                a.setAttribute('href', u);
+            });
+        } catch (e) {}
+    });
 
     // ─── Buy Modal ───
     function toggleBuyModal() {
