@@ -25,7 +25,14 @@ Stride now moves the knobs of Ableton's own devices. Map any parameter of any de
 
 ## Files
 
-- `Stride-VST3-Windows-v2.0.3.zip` and `Stride-VST3-Mac-v2.0.3.zip`: `Stride.vst3` (and `Stride.component` on Mac), `README.txt`, and the `StrideBridge` folder.
+- `Stride-VST3-Windows-v2.0.4.zip` and `Stride-VST3-Mac-v2.0.4.zip`: `Stride.vst3` (and `Stride.component` on Mac), `README.txt`, and the `StrideBridge` folder.
+
+## 2.0.4
+
+- StrideBridge's device face renders correctly on every machine (it could show as a solid black block).
+- Bridge lanes hold their knobs steadily through long sessions. Two watchdogs that could briefly release working lanes on a busy system now leave them alone.
+- Shift+click selects a range of lanes, from the highlighted lane to the one you click. Cmd/Ctrl+click still toggles one at a time.
+- Applying curves to a selection now includes the highlighted lane. It always looked selected; now it behaves selected.
 
 ## 2.0.3
 
