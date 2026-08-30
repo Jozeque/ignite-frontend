@@ -74,7 +74,7 @@ fbq('track', 'PageView');
 (function captureAdClick() {
     try {
         var params = new URLSearchParams(window.location.search);
-        ['ad_id', 'adset_id', 'campaign_id', 'utm_source', 'utm_campaign', 'utm_content']
+        ['ad_id', 'adset_id', 'campaign_id', 'utm_source', 'utm_campaign', 'utm_content', 'gclid', 'wbraid', 'gbraid']
             .forEach(function (k) {
                 var v = (params.get(k) || '').trim();
                 if (v) { try { localStorage.setItem('stride_' + k, v); } catch (e) {} }
@@ -445,7 +445,7 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
   function ls(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
   function attribution() {
     var q = new URLSearchParams(location.search), out = {};
-    ['utm_source', 'utm_campaign', 'utm_content', 'ad_id', 'adset_id', 'campaign_id'].forEach(function (k) {
+    ['utm_source', 'utm_campaign', 'utm_content', 'ad_id', 'adset_id', 'campaign_id', 'gclid', 'wbraid', 'gbraid'].forEach(function (k) {
       var v = q.get(k) || ls('stride_' + k); if (v) out[k] = v;
     });
     var fbclid = q.get('fbclid') || ls('stride_fbclid') || cookie('stride_fbclid');
