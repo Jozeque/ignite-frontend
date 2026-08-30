@@ -497,11 +497,9 @@
         btn.addEventListener('click', function () {
             tool = btn.dataset.tool;
             document.querySelectorAll('[data-tool]').forEach(function (b) {
-                b.classList.remove('bg-fuchsia-500/20', 'text-fuchsia-400');
-                b.classList.add('text-zinc-400');
+                b.classList.remove('is-on');
             });
-            btn.classList.remove('text-zinc-400');
-            btn.classList.add('bg-fuchsia-500/20', 'text-fuchsia-400');
+            btn.classList.add('is-on');
         });
     });
     // action tools (Mirror/Flip/Copy/Paste/Inv/Paste To/Swing/Quantize/Mutate) →
@@ -549,11 +547,7 @@
         pinned = !pinned;
         if (window.strideQuick && window.strideQuick.setPin) window.strideQuick.setPin(pinned);
         pinBtn.textContent = pinned ? '● Pinned' : '○ Unpinned';
-        pinBtn.classList.toggle('text-orange-400', pinned);
-        pinBtn.classList.toggle('bg-orange-500/10', pinned);
-        pinBtn.classList.toggle('border-orange-500/30', pinned);
-        pinBtn.classList.toggle('text-zinc-500', !pinned);
-        pinBtn.classList.toggle('border-white/10', !pinned);
+        pinBtn.classList.toggle('is-on', pinned);
     });
     document.getElementById('qp-refresh').addEventListener('click', load);
 

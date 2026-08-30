@@ -36,7 +36,7 @@ ok('Map and Unmap are mutually exclusive', /setLearnMode[\s\S]{0,120}if\s*\(shou
 ok('editor has a toggleUnlearn listener -> setUnlearnMode', /withEventListener\s*\("toggleUnlearn"[\s\S]{0,120}setUnlearnMode/.test(editor));
 ok('editor pushes the unmap flag (isUnlearning) in learnState', /setProperty\s*\(\s*"unmap",\s*proc\.isUnlearning\(\)\)/.test(editor));
 ok('shim has an Unmap button emitting toggleUnlearn', /sbtn\('⊘ Unmap',\s*'toggleUnlearn'/.test(shim));
-ok('Unmap button is styled distinctly (rose) + armed pulse', /BTN_UNMAP\s*=\s*'[^']*rose/.test(shim) && /sd-unmap-armed/.test(shim));
+ok('Unmap button is the danger cap + armed pulse (2.0.5 .sbtn surface)', /BTN_UNMAP\s*=\s*'sbtn sbtn--danger'/.test(shim) && /BTN_UNMAP_ARMED\s*=\s*'sbtn sd-unmap-armed'/.test(shim) && /\.sbtn\.sd-unmap-armed\{/.test(shim));
 ok('learnState updates BOTH the Map and Unmap buttons', /learnState[\s\S]{0,260}mapBtn\.className[\s\S]{0,160}unmapBtn\.className/.test(shim));
 
 // ── behavioural: touch-to-remove + mutual exclusion ─────────

@@ -163,7 +163,7 @@ ok('the ▾ rides EVERY S&H surface (desktop Shapes; wrapper Shapes + COMPACT + 
        const wHtml = rd(path.join(W, 'ui', 'index.html'));
        return (dHtml.match(/sd-sh-mode-btn/g) || []).length === 1
            && (wHtml.match(/sd-sh-mode-btn/g) || []).length === 3
-           && /sdApplyGlobalSampleHold\(\)[^>]*>S&amp;H<\/button><button onclick="window\.sdOpenShModePopup/.test(wHtml);
+           && /sdApplyGlobalSampleHold\(\)[^>]*>S&amp;H<\/button>\s*<button onclick="window\.sdOpenShModePopup/.test(wHtml);
    })());
 ok('the picked timing is painted onto every ▾ (boot + pick + card re-render)',
    /function _sdShPaintModeBtns\(\)[\s\S]{0,300}querySelectorAll\('\.sd-sh-mode-btn'\)/.test(canvas)

@@ -126,9 +126,9 @@ ok('CMake links juce_cryptography (SHA-256)', /juce::juce_cryptography/.test(cma
 // 4. SOURCE — UI tweaks + rename
 // ─────────────────────────────────────────────────────────────
 ok('rename: PRODUCT_NAME is "Stride"', /PRODUCT_NAME\s+"Stride"/.test(cmake));
-ok('MOTION buttons use the full-layout soft orange', indexH.includes('text-orange-400/80 hover:text-orange-400 bg-orange-500/5'));
-ok('compact has a Shuffle button (violet, sdShuffleLanes)', /sdShuffleLanes\(\)[^]*?text-violet-400/.test(indexH) || (/sdShuffleLanes/.test(indexH) && /text-violet-400/.test(indexH)));
-ok('compact Mutate is green (emerald)', /sdMutate\(\)[\s\S]{0,160}text-emerald-400/.test(indexH));
+ok('MOTION buttons ride the .sbtn control surface (2.0.5)', /onclick="sdApplyGlobalChaos\(\)" class="sbtn"/.test(indexH));
+ok('compact has a Shuffle button (.sbtn cap, sdShuffleLanes)', /sdShuffleLanes\(\)"[^>]*class="sbtn/.test(indexH));
+ok('compact Mutate is a .sbtn cap', /sdMutate\(\)"[^>]*class="sbtn/.test(indexH));
 ok('Browse files button moved into the header (hright)', /var hright[\s\S]*?Browse files/.test(shim));
 ok('no leftover big orange "Load from a file" button', !/Load from a file/.test(shim));
 

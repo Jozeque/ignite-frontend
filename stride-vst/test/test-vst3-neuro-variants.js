@@ -50,9 +50,10 @@ ok('motion-scope test file was removed', !fs.existsSync(path.join(root, 'stride-
 // ─────────────────────────────────────────────────────────────
 // 3. SEL / shapes row — fuchsia, same-size, per-param, selected
 // ─────────────────────────────────────────────────────────────
-ok('SEL row labelled (◉ Sel)', /◉ Sel/.test(indexH));
-ok('base shapes on the SEL row = Sine + Pump (fuchsia)',
-   /sdApplyTemplate\('sine'\)[^>]*text-fuchsia-300/.test(indexH) && /sdApplyTemplate\('pump'\)[^>]*text-fuchsia-300/.test(indexH));
+// the '◉ Sel' eyebrow label was retired in the 2.0.5 control-surface pass;
+// the row itself stays pinned through its buttons below.
+ok('base shapes on the SEL row = Sine + Pump (.sbtn caps)',
+   /sdApplyTemplate\('sine'\)"[^>]*class="sbtn/.test(indexH) && /sdApplyTemplate\('pump'\)"[^>]*class="sbtn/.test(indexH));
 ok('generative shapes on the SEL row (Chaos/Neuro/S&H, selected-scoped)',
    /sdApplyTemplate\('chaos_lfo'\)/.test(indexH) && /sdApplyComplexTemplate\('neuro'\)/.test(indexH) && /sdApplySampleHoldLane\(\)/.test(indexH));
 ok('SEL variant buttons = smooth/storm/call/acid/anchor (Poly deleted)',
@@ -60,8 +61,8 @@ ok('SEL variant buttons = smooth/storm/call/acid/anchor (Poly deleted)',
 ok('Poly variant button removed from the UI', !indexH.includes("sdApplyNeuroVariant('poly')"));
 ok('Glitch + Groove removed from the SEL row (no fuchsia glitch/groove button)',
    !/sdApplyTemplate\('glitch'\)[^>]*text-fuchsia-300/.test(indexH) && !/sdApplyTemplate\('groove_build'\)[^>]*text-fuchsia-300/.test(indexH));
-ok('SEL buttons use the fuchsia color', /sdApplyNeuroVariant\('smooth'\)[^>]*text-fuchsia-300/.test(indexH));
-ok('SEL buttons keep the shape button size (text-[9px] px-1.5 py-0.5)', /sdApplyNeuroVariant\('acid'\)[^>]*text-\[9px\][^>]*px-1\.5 py-0\.5/.test(indexH));
+ok('SEL buttons ride the .sbtn control surface', /sdApplyNeuroVariant\('smooth'\)"[^>]*class="sbtn/.test(indexH));
+ok('SEL buttons share the cap sizing (owned by .sbtn CSS)', /sdApplyNeuroVariant\('acid'\)"[^>]*class="sbtn/.test(indexH));
 ok('panel tightened (compact toolbar gap reduced to gap-1.5, py-1)', /sd-compact-only[^>]*py-1 items-center gap-1\.5 flex-wrap/.test(indexH));
 ok('Motion sits on its OWN line (basis-full break before Motion)', /basis-full[\s\S]{0,500}>Motion</.test(indexH));
 ok('the "generative ..." tooltips are gone', !/generative motion across every mapped param/.test(indexH));
@@ -85,7 +86,11 @@ ok('existing shapes/templates still intact (sdApplyTemplate/_sdGenTemplatePts)',
     if (s < 0 || e <= s) return;
     let genVariant;
     try {
-        genVariant = new Function(canvas.slice(s, e) + '\n; return _sdGenNeuroVariant;')();
+        // 2.0.5 moved sdMotionStep's def out of this span (it lives near the top of
+        // canvas.js now); the generators still call it. Faithful straight-grid stub.
+        const prelude = 'var sdGridTriplet = false, SD_GRID_TRIPLET = 2/3;\n'
+            + 'function sdMotionStep(s) { return sdGridTriplet ? s * SD_GRID_TRIPLET : s; }\n';
+        genVariant = new Function(prelude + canvas.slice(s, e) + '\n; return _sdGenNeuroVariant;')();
     } catch (err) {
         ok('generator block evaluates', false, err.message);
         return;

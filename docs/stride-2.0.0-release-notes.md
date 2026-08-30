@@ -25,7 +25,14 @@ Stride now moves the knobs of Ableton's own devices. Map any parameter of any de
 
 ## Files
 
-- `Stride-VST3-Windows-v2.0.4.zip` and `Stride-VST3-Mac-v2.0.4.zip`: `Stride.vst3` (and `Stride.component` on Mac), `README.txt`, and the `StrideBridge` folder.
+- `Stride-VST3-Windows-v2.0.5.zip` and `Stride-VST3-Mac-v2.0.5.zip`: `Stride.vst3` (and `Stride.component` on Mac), `README.txt`, and the `StrideBridge` folder.
+
+## 2.0.5
+
+- **A machined control surface.** Every button in Stride is re-cut: lit means on, pressed sinks, danger looks like danger. Same layout, faster to read at a glance.
+- **The Draw deck.** Focus a lane and a deck docks at the bottom of the canvas: starter shapes that stamp on the grid (Sine, Tri, Saws, Square, Steps, S+H, Swell, Fade, Line), a value snap ladder, visible bend handles on every segment, Shift+Free for step drawing, and a Roll generator for instant patterns. Right-click or Esc puts the pen down.
+- The tool you picked always wins: Free draws by hand even while a shape is armed. Shapes stamp with Point.
+- Scaling the interface no longer leaves old curve strokes stuck on the canvas, and motion animations stay inside the lane area at any zoom.
 
 ## 2.0.4
 

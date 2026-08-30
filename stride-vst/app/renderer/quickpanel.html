@@ -37,6 +37,217 @@
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-thumb { background: rgb(var(--z700)); border-radius: 8px; }
         .tool-btn { transition: all .12s; }
+        /* ══════════════════════════════════════════════════════════════════
+           CONTROL SURFACE  ·  .sbtn machined-cap buttons
+           ──────────────────────────────────────────────────────────────────
+           One button system for the whole UI. Replaces the old per-button
+           Tailwind pattern (bg-<hue>-500/10 + border-<hue>-500/20 + text-
+           <hue>-400), which had no material, no press state, and used seven
+           competing hues to sort tools into families instead of showing what
+           was switched on.
+
+           The rule here: STATE IS MATERIAL, NOT HUE.
+             · at rest   every control is the same neutral metal
+             · on press  it sinks and flashes the skin accent, then fades back
+             · when ON   it holds a restrained accent (dark tinted surface,
+                         accent border and label) - never a bright fill
+
+           Skin-safe by construction. Metal comes from the --z* scale and the
+           accent from --o400/--o300, both of which every [data-skin] block
+           redefines, so this follows Midnight / Copper / Steel / Brass / Teal
+           / Patch with no per-skin rules. Deliberately NOT --brand2: that is
+           red in the Midnight skin and would light presses red there.
+
+           !important is load-bearing. Tailwind is injected at runtime and its
+           hover: variants carry the same specificity as these rules, so
+           source order alone cannot be trusted. Matches the existing
+           .sd-btn-copper precedent above.
+           ══════════════════════════════════════════════════════════════════ */
+        .sbtn{
+            /* type, pulled tighter and heavier to sit with the wordmark */
+            font-family:'Outfit',sans-serif !important;
+            font-size:10px !important;
+            font-weight:800 !important;
+            letter-spacing:.03em !important;
+            line-height:1 !important;
+            text-transform:uppercase;
+
+            display:inline-flex !important;
+            align-items:center; justify-content:center; gap:4px;
+            min-height:20px !important;
+            padding:3px 7px !important;
+            border-radius:4px !important;
+            white-space:nowrap;
+            position:relative;
+            cursor:pointer;
+            -webkit-user-select:none; user-select:none;
+
+            /* the cap: raised metal, lit from above, dark seated edge below */
+            color:rgb(var(--z400)) !important;
+            background:linear-gradient(180deg,
+                rgb(var(--z800)) 0%, rgb(var(--z900)) 58%, rgb(var(--z950)) 100%) !important;
+            border:1px solid rgb(var(--z950)) !important;
+            border-top-color:rgb(var(--z700)) !important;
+            box-shadow:inset 0 1px 0 rgba(255,255,255,.07),
+                       0 1px 2px rgba(0,0,0,.55) !important;
+
+            /* THE FLASH. Slow out by default; :active resets duration to 0 so
+               the press reads as instant and the copper decays on release. */
+            transition:color .32s ease-out, background .2s ease-out,
+                       border-color .32s ease-out, box-shadow .32s ease-out,
+                       text-shadow .32s ease-out, transform .09s ease-out !important;
+        }
+        /* the filament along the floor of the cap: dark until lit */
+        .sbtn::after{
+            content:''; position:absolute; left:5px; right:5px; bottom:1px; height:1px;
+            border-radius:1px; background:rgb(var(--o400));
+            opacity:0; pointer-events:none;
+            transition:opacity .32s ease-out;
+        }
+        .sbtn:hover{
+            color:rgb(var(--z200)) !important;
+            background:linear-gradient(180deg,
+                rgb(var(--z700)) 0%, rgb(var(--z800)) 58%, rgb(var(--z900)) 100%) !important;
+        }
+
+        /* ── momentary press: sink + accent flash ────────────────────────── */
+        .sbtn:active{
+            transition-duration:0s !important;
+            transform:translateY(1px);
+            color:rgb(var(--o300)) !important;
+            background:linear-gradient(180deg,
+                rgb(var(--z950)) 0%, rgb(var(--z900)) 100%) !important;
+            border-color:rgb(var(--o400) / .45) !important;
+            border-top-color:rgb(var(--o400) / .3) !important;
+            box-shadow:inset 0 2px 5px rgba(0,0,0,.75),
+                       inset 0 0 11px -2px rgb(var(--o400) / .45),
+                       0 0 0 1px rgb(var(--o400) / .18) !important;
+            text-shadow:0 0 8px rgb(var(--o400) / .55);
+        }
+        .sbtn:active::after{
+            opacity:1; transition-duration:0s;
+            box-shadow:0 0 6px rgb(var(--o400) / .9);
+        }
+
+        /* ── persistent ON: Option C's plate, filled. The whole cap takes the
+              wordmark gradient and the label flips to near-black, the same move
+              as the landing .btn-copper. Ink is --o950 rather than a hardcoded
+              #1c1206 so it stays the RIGHT near-black per skin: warm under
+              copper/brass, cold under teal/steel. ─────────────────────────── */
+        .sbtn.is-on{
+            color:rgb(var(--o950)) !important;
+            background:linear-gradient(180deg, rgb(var(--o300)) 0%, rgb(var(--o400)) 100%) !important;
+            border-color:rgb(var(--o200) / .5) !important;
+            border-top-color:rgb(var(--o100) / .55) !important;
+            text-shadow:0 1px 0 rgb(var(--o100) / .4);
+            box-shadow:inset 0 1px 0 rgba(255,255,255,.34),
+                       0 2px 9px -3px rgb(var(--o400) / .85) !important;
+        }
+        .sbtn.is-on::after{opacity:0}          /* the plate IS the signal now */
+        .sbtn.is-on:hover{
+            background:linear-gradient(180deg, rgb(var(--o200)) 0%, rgb(var(--o300)) 100%) !important;
+            border-color:rgb(var(--o100) / .6) !important;
+        }
+        /* A lit toggle must still sink when you press it off. .sbtn.is-on and
+           .sbtn:active tie on specificity and is-on is declared later, so
+           without this the tactility is lost on exactly the buttons that have
+           state to change. */
+        .sbtn.is-on:active{
+            transition-duration:0s !important;
+            transform:translateY(1px);
+            background:linear-gradient(180deg, rgb(var(--o400)) 0%, rgb(var(--o500)) 100%) !important;
+            box-shadow:inset 0 2px 6px rgb(var(--o950) / .6) !important;
+            text-shadow:none;
+        }
+
+        /* ── primed: the confirm in a morph panel, and the sidebar Motion tools.
+              Stronger than is-on so it still reads as "this is the action", but
+              a tinted cap rather than the solid amber/cyan/orange fills these
+              carried before. ────────────────────────────────────────────────── */
+        .sbtn--go{
+            color:rgb(var(--o200)) !important;
+            background:linear-gradient(180deg, rgb(var(--o400) / .3), rgb(var(--o400) / .14)),
+                       linear-gradient(180deg, rgb(var(--z800)) 0%, rgb(var(--z900)) 100%) !important;
+            border-color:rgb(var(--o400) / .55) !important;
+            border-top-color:rgb(var(--o400) / .4) !important;
+            box-shadow:inset 0 1px 0 rgb(var(--o400) / .22),
+                       0 1px 2px rgba(0,0,0,.55) !important;
+        }
+        /* ── alt state: "something other than Stride is driving" (DAW drive
+              mode, notes-free run mode). Hardcoded teal, not a skin token: the
+              whole point is that it must NOT read as the Stride accent. ─────── */
+        .sbtn.sbtn--alt.is-on{
+            color:rgb(8 20 25) !important;
+            background:linear-gradient(180deg, rgb(126 176 192) 0%, rgb(47 116 142) 100%) !important;
+            border-color:rgb(171 200 211 / .5) !important;
+            border-top-color:rgb(208 226 232 / .55) !important;
+            text-shadow:0 1px 0 rgb(208 226 232 / .4);
+            box-shadow:inset 0 1px 0 rgba(255,255,255,.3),
+                       0 2px 9px -3px rgb(47 116 142 / .85) !important;
+        }
+        .sbtn.sbtn--alt.is-on::after{opacity:0}
+        .sbtn.sbtn--alt.is-on:active{
+            background:linear-gradient(180deg, rgb(47 116 142) 0%, rgb(30 75 91) 100%) !important;
+        }
+        .sbtn--go::after{opacity:.7}
+        .sbtn--go:hover{
+            color:rgb(var(--o100)) !important;
+            border-color:rgb(var(--o400) / .72) !important;
+            background:linear-gradient(180deg, rgb(var(--o400) / .38), rgb(var(--o400) / .18)),
+                       linear-gradient(180deg, rgb(var(--z700)) 0%, rgb(var(--z800)) 100%) !important;
+        }
+
+        /* ── destructive: rose on press, never the accent ────────────────── */
+        /* Hardcoded because the vintage skins alias --ro* onto the grey ramp,
+           so a token would make Clear flash the same colour as Save. */
+        .sbtn--danger:active{
+            color:rgb(206 118 120) !important;
+            border-color:rgb(163 78 82 / .55) !important;
+            border-top-color:rgb(163 78 82 / .35) !important;
+            box-shadow:inset 0 2px 5px rgba(0,0,0,.75),
+                       inset 0 0 11px -2px rgb(163 78 82 / .5),
+                       0 0 0 1px rgb(163 78 82 / .2) !important;
+            text-shadow:0 0 8px rgb(163 78 82 / .6);
+        }
+        .sbtn--danger:active::after{background:rgb(163 78 82);box-shadow:0 0 6px rgb(163 78 82 / .9)}
+
+        /* ── variants ────────────────────────────────────────────────────── */
+        .sbtn--icon{               /* undo/redo, the mode carets, +/- steppers */
+            padding:3px 6px !important;
+            font-size:12px !important;
+            letter-spacing:0 !important;
+            min-width:22px;
+        }
+        .sbtn--chip{               /* focus-deck shape chips: icon over label */
+            flex-direction:column; gap:2px;
+            padding:5px 6px 4px !important;
+            min-height:0 !important;
+            font-size:8px !important;
+            letter-spacing:.06em !important;
+            border-radius:6px !important;
+        }
+        .sbtn--chip::after{left:7px;right:7px;bottom:2px}
+        /* segmented pairs share one seam (S&H + its mode caret) */
+        .sbtn--seg-l{border-top-right-radius:0 !important;border-bottom-right-radius:0 !important}
+        .sbtn--seg-r{
+            border-top-left-radius:0 !important;border-bottom-left-radius:0 !important;
+            margin-left:-1px;
+        }
+
+        /* ── states + accessibility floor ────────────────────────────────── */
+        .sbtn:disabled,.sbtn[disabled]{opacity:.38 !important;cursor:default}
+        .sbtn:disabled:active,.sbtn[disabled]:active{
+            transform:none;color:rgb(var(--z400)) !important;text-shadow:none;
+        }
+        .sbtn:disabled:active::after,.sbtn[disabled]:active::after{opacity:0}
+        .sbtn:focus-visible{
+            outline:2px solid rgb(var(--o400) / .7) !important;
+            outline-offset:1px;
+        }
+        @media (prefers-reduced-motion:reduce){
+            .sbtn,.sbtn::after{transition:none !important}
+            .sbtn:active{transform:none}
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col">
@@ -58,35 +269,35 @@
     <!-- Toolbar (1:1 classes with the main canvas; patch skin auto-remaps the hues) -->
     <div class="bg-zinc-950 border-b border-white/5 px-2.5 py-1.5 flex items-center gap-2 flex-wrap shrink-0">
         <!-- back button — only in single-lane (focus) view -->
-        <button id="qp-back" class="hidden tool-btn text-zinc-400 hover:text-zinc-100 bg-white/5 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">← All lanes</button>
+        <button id="qp-back" class="sbtn hidden tool-btn">← All lanes</button>
         <span id="qp-focus-title" class="hidden text-[10px] font-bold uppercase tracking-widest text-zinc-300"></span>
 
         <div id="qp-toolgroups" class="flex items-center gap-2 flex-wrap">
             <div class="flex items-center gap-1">
-                <button data-tool="point" class="tool-btn bg-fuchsia-500/20 text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Point</button>
-                <button data-tool="freehand" class="tool-btn text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Free</button>
+                <button data-tool="point" class="sbtn is-on tool-btn">Point</button>
+                <button data-tool="freehand" class="sbtn tool-btn">Free</button>
             </div>
             <span class="w-px h-4 bg-white/10"></span>
             <div class="flex items-center gap-1">
-                <button data-act="mirror" class="tool-btn text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Mirror</button>
-                <button data-act="flip" class="tool-btn text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Flip</button>
+                <button data-act="mirror" class="sbtn tool-btn">Mirror</button>
+                <button data-act="flip" class="sbtn tool-btn">Flip</button>
             </div>
             <div class="flex items-center gap-1">
-                <button data-act="copy" class="tool-btn text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Copy</button>
-                <button data-act="paste" class="tool-btn text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Paste</button>
-                <button data-act="invert" class="tool-btn text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Inv</button>
-                <button data-act="pasteTo" class="tool-btn text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Paste To</button>
+                <button data-act="copy" class="sbtn tool-btn">Copy</button>
+                <button data-act="paste" class="sbtn tool-btn">Paste</button>
+                <button data-act="invert" class="sbtn tool-btn">Inv</button>
+                <button data-act="pasteTo" class="sbtn tool-btn">Paste To</button>
             </div>
             <div class="flex items-center gap-1">
-                <button data-act="swing" class="tool-btn text-amber-400/80 hover:text-amber-300 bg-amber-500/5 hover:bg-amber-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Swing</button>
-                <button data-act="quantize" class="tool-btn text-amber-400/80 hover:text-amber-300 bg-amber-500/5 hover:bg-amber-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Quantize</button>
+                <button data-act="swing" class="sbtn tool-btn">Swing</button>
+                <button data-act="quantize" class="sbtn tool-btn">Quantize</button>
             </div>
             <span class="w-px h-4 bg-white/10"></span>
-            <button data-act="mutate" class="tool-btn text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Mutate</button>
+            <button data-act="mutate" class="sbtn tool-btn">Mutate</button>
         </div>
         <div class="flex-1"></div>
-        <button id="qp-select-all" class="tool-btn text-zinc-400 hover:text-zinc-100 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold border border-white/10">Select All</button>
-        <button id="qp-lock-all" class="tool-btn text-zinc-400 hover:text-zinc-100 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold border border-white/10">Lock All</button>
+        <button id="qp-select-all" class="sbtn tool-btn">Select All</button>
+        <button id="qp-lock-all" class="sbtn tool-btn">Lock All</button>
     </div>
 
     <!-- Lane area (single <canvas>, painted 1:1 with canvas.js multi/single view) -->

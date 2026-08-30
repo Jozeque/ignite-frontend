@@ -124,6 +124,217 @@
         .sd-compact-only { display: none; }
         body.qp-compact .sd-full-only { display: none !important; }
         body.qp-compact .sd-compact-only { display: flex; }
+        /* ══════════════════════════════════════════════════════════════════
+           CONTROL SURFACE  ·  .sbtn machined-cap buttons
+           ──────────────────────────────────────────────────────────────────
+           One button system for the whole UI. Replaces the old per-button
+           Tailwind pattern (bg-<hue>-500/10 + border-<hue>-500/20 + text-
+           <hue>-400), which had no material, no press state, and used seven
+           competing hues to sort tools into families instead of showing what
+           was switched on.
+
+           The rule here: STATE IS MATERIAL, NOT HUE.
+             · at rest   every control is the same neutral metal
+             · on press  it sinks and flashes the skin accent, then fades back
+             · when ON   it holds a restrained accent (dark tinted surface,
+                         accent border and label) - never a bright fill
+
+           Skin-safe by construction. Metal comes from the --z* scale and the
+           accent from --o400/--o300, both of which every [data-skin] block
+           redefines, so this follows Midnight / Copper / Steel / Brass / Teal
+           / Patch with no per-skin rules. Deliberately NOT --brand2: that is
+           red in the Midnight skin and would light presses red there.
+
+           !important is load-bearing. Tailwind is injected at runtime and its
+           hover: variants carry the same specificity as these rules, so
+           source order alone cannot be trusted. Matches the existing
+           .sd-btn-copper precedent above.
+           ══════════════════════════════════════════════════════════════════ */
+        .sbtn{
+            /* type, pulled tighter and heavier to sit with the wordmark */
+            font-family:'Outfit',sans-serif !important;
+            font-size:10px !important;
+            font-weight:800 !important;
+            letter-spacing:.03em !important;
+            line-height:1 !important;
+            text-transform:uppercase;
+
+            display:inline-flex !important;
+            align-items:center; justify-content:center; gap:4px;
+            min-height:20px !important;
+            padding:3px 7px !important;
+            border-radius:4px !important;
+            white-space:nowrap;
+            position:relative;
+            cursor:pointer;
+            -webkit-user-select:none; user-select:none;
+
+            /* the cap: raised metal, lit from above, dark seated edge below */
+            color:rgb(var(--z400)) !important;
+            background:linear-gradient(180deg,
+                rgb(var(--z800)) 0%, rgb(var(--z900)) 58%, rgb(var(--z950)) 100%) !important;
+            border:1px solid rgb(var(--z950)) !important;
+            border-top-color:rgb(var(--z700)) !important;
+            box-shadow:inset 0 1px 0 rgba(255,255,255,.07),
+                       0 1px 2px rgba(0,0,0,.55) !important;
+
+            /* THE FLASH. Slow out by default; :active resets duration to 0 so
+               the press reads as instant and the copper decays on release. */
+            transition:color .32s ease-out, background .2s ease-out,
+                       border-color .32s ease-out, box-shadow .32s ease-out,
+                       text-shadow .32s ease-out, transform .09s ease-out !important;
+        }
+        /* the filament along the floor of the cap: dark until lit */
+        .sbtn::after{
+            content:''; position:absolute; left:5px; right:5px; bottom:1px; height:1px;
+            border-radius:1px; background:rgb(var(--o400));
+            opacity:0; pointer-events:none;
+            transition:opacity .32s ease-out;
+        }
+        .sbtn:hover{
+            color:rgb(var(--z200)) !important;
+            background:linear-gradient(180deg,
+                rgb(var(--z700)) 0%, rgb(var(--z800)) 58%, rgb(var(--z900)) 100%) !important;
+        }
+
+        /* ── momentary press: sink + accent flash ────────────────────────── */
+        .sbtn:active{
+            transition-duration:0s !important;
+            transform:translateY(1px);
+            color:rgb(var(--o300)) !important;
+            background:linear-gradient(180deg,
+                rgb(var(--z950)) 0%, rgb(var(--z900)) 100%) !important;
+            border-color:rgb(var(--o400) / .45) !important;
+            border-top-color:rgb(var(--o400) / .3) !important;
+            box-shadow:inset 0 2px 5px rgba(0,0,0,.75),
+                       inset 0 0 11px -2px rgb(var(--o400) / .45),
+                       0 0 0 1px rgb(var(--o400) / .18) !important;
+            text-shadow:0 0 8px rgb(var(--o400) / .55);
+        }
+        .sbtn:active::after{
+            opacity:1; transition-duration:0s;
+            box-shadow:0 0 6px rgb(var(--o400) / .9);
+        }
+
+        /* ── persistent ON: Option C's plate, filled. The whole cap takes the
+              wordmark gradient and the label flips to near-black, the same move
+              as the landing .btn-copper. Ink is --o950 rather than a hardcoded
+              #1c1206 so it stays the RIGHT near-black per skin: warm under
+              copper/brass, cold under teal/steel. ─────────────────────────── */
+        .sbtn.is-on{
+            color:rgb(var(--o950)) !important;
+            background:linear-gradient(180deg, rgb(var(--o300)) 0%, rgb(var(--o400)) 100%) !important;
+            border-color:rgb(var(--o200) / .5) !important;
+            border-top-color:rgb(var(--o100) / .55) !important;
+            text-shadow:0 1px 0 rgb(var(--o100) / .4);
+            box-shadow:inset 0 1px 0 rgba(255,255,255,.34),
+                       0 2px 9px -3px rgb(var(--o400) / .85) !important;
+        }
+        .sbtn.is-on::after{opacity:0}          /* the plate IS the signal now */
+        .sbtn.is-on:hover{
+            background:linear-gradient(180deg, rgb(var(--o200)) 0%, rgb(var(--o300)) 100%) !important;
+            border-color:rgb(var(--o100) / .6) !important;
+        }
+        /* A lit toggle must still sink when you press it off. .sbtn.is-on and
+           .sbtn:active tie on specificity and is-on is declared later, so
+           without this the tactility is lost on exactly the buttons that have
+           state to change. */
+        .sbtn.is-on:active{
+            transition-duration:0s !important;
+            transform:translateY(1px);
+            background:linear-gradient(180deg, rgb(var(--o400)) 0%, rgb(var(--o500)) 100%) !important;
+            box-shadow:inset 0 2px 6px rgb(var(--o950) / .6) !important;
+            text-shadow:none;
+        }
+
+        /* ── primed: the confirm in a morph panel, and the sidebar Motion tools.
+              Stronger than is-on so it still reads as "this is the action", but
+              a tinted cap rather than the solid amber/cyan/orange fills these
+              carried before. ────────────────────────────────────────────────── */
+        .sbtn--go{
+            color:rgb(var(--o200)) !important;
+            background:linear-gradient(180deg, rgb(var(--o400) / .3), rgb(var(--o400) / .14)),
+                       linear-gradient(180deg, rgb(var(--z800)) 0%, rgb(var(--z900)) 100%) !important;
+            border-color:rgb(var(--o400) / .55) !important;
+            border-top-color:rgb(var(--o400) / .4) !important;
+            box-shadow:inset 0 1px 0 rgb(var(--o400) / .22),
+                       0 1px 2px rgba(0,0,0,.55) !important;
+        }
+        /* ── alt state: "something other than Stride is driving" (DAW drive
+              mode, notes-free run mode). Hardcoded teal, not a skin token: the
+              whole point is that it must NOT read as the Stride accent. ─────── */
+        .sbtn.sbtn--alt.is-on{
+            color:rgb(8 20 25) !important;
+            background:linear-gradient(180deg, rgb(126 176 192) 0%, rgb(47 116 142) 100%) !important;
+            border-color:rgb(171 200 211 / .5) !important;
+            border-top-color:rgb(208 226 232 / .55) !important;
+            text-shadow:0 1px 0 rgb(208 226 232 / .4);
+            box-shadow:inset 0 1px 0 rgba(255,255,255,.3),
+                       0 2px 9px -3px rgb(47 116 142 / .85) !important;
+        }
+        .sbtn.sbtn--alt.is-on::after{opacity:0}
+        .sbtn.sbtn--alt.is-on:active{
+            background:linear-gradient(180deg, rgb(47 116 142) 0%, rgb(30 75 91) 100%) !important;
+        }
+        .sbtn--go::after{opacity:.7}
+        .sbtn--go:hover{
+            color:rgb(var(--o100)) !important;
+            border-color:rgb(var(--o400) / .72) !important;
+            background:linear-gradient(180deg, rgb(var(--o400) / .38), rgb(var(--o400) / .18)),
+                       linear-gradient(180deg, rgb(var(--z700)) 0%, rgb(var(--z800)) 100%) !important;
+        }
+
+        /* ── destructive: rose on press, never the accent ────────────────── */
+        /* Hardcoded because the vintage skins alias --ro* onto the grey ramp,
+           so a token would make Clear flash the same colour as Save. */
+        .sbtn--danger:active{
+            color:rgb(206 118 120) !important;
+            border-color:rgb(163 78 82 / .55) !important;
+            border-top-color:rgb(163 78 82 / .35) !important;
+            box-shadow:inset 0 2px 5px rgba(0,0,0,.75),
+                       inset 0 0 11px -2px rgb(163 78 82 / .5),
+                       0 0 0 1px rgb(163 78 82 / .2) !important;
+            text-shadow:0 0 8px rgb(163 78 82 / .6);
+        }
+        .sbtn--danger:active::after{background:rgb(163 78 82);box-shadow:0 0 6px rgb(163 78 82 / .9)}
+
+        /* ── variants ────────────────────────────────────────────────────── */
+        .sbtn--icon{               /* undo/redo, the mode carets, +/- steppers */
+            padding:3px 6px !important;
+            font-size:12px !important;
+            letter-spacing:0 !important;
+            min-width:22px;
+        }
+        .sbtn--chip{               /* focus-deck shape chips: icon over label */
+            flex-direction:column; gap:2px;
+            padding:5px 6px 4px !important;
+            min-height:0 !important;
+            font-size:8px !important;
+            letter-spacing:.06em !important;
+            border-radius:6px !important;
+        }
+        .sbtn--chip::after{left:7px;right:7px;bottom:2px}
+        /* segmented pairs share one seam (S&H + its mode caret) */
+        .sbtn--seg-l{border-top-right-radius:0 !important;border-bottom-right-radius:0 !important}
+        .sbtn--seg-r{
+            border-top-left-radius:0 !important;border-bottom-left-radius:0 !important;
+            margin-left:-1px;
+        }
+
+        /* ── states + accessibility floor ────────────────────────────────── */
+        .sbtn:disabled,.sbtn[disabled]{opacity:.38 !important;cursor:default}
+        .sbtn:disabled:active,.sbtn[disabled]:active{
+            transform:none;color:rgb(var(--z400)) !important;text-shadow:none;
+        }
+        .sbtn:disabled:active::after,.sbtn[disabled]:active::after{opacity:0}
+        .sbtn:focus-visible{
+            outline:2px solid rgb(var(--o400) / .7) !important;
+            outline-offset:1px;
+        }
+        @media (prefers-reduced-motion:reduce){
+            .sbtn,.sbtn::after{transition:none !important}
+            .sbtn:active{transform:none}
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col">
@@ -293,8 +504,8 @@
                 <div class="hidden w-full rounded-lg border border-white/10 bg-black/20 px-2 py-1.5 flex flex-col gap-1.5">
                     <span class="text-[9px] text-zinc-500 font-black uppercase tracking-wider">Mode</span>
                     <div class="flex gap-1">
-                        <button id="sd-mode-a" onclick="window.sdSetWorkMode('A')" title="Default — draw in Stride, autosync params, no reading from Ableton" class="flex-1 py-1 rounded text-[9px] font-black uppercase tracking-wider bg-fuchsia-500 text-black transition-colors">A · Default</button>
-                        <button id="sd-mode-b" onclick="window.sdSetWorkMode('B')" title="Read existing automation from the open clip so you can edit + re-inject" class="flex-1 py-1 rounded text-[9px] font-black uppercase tracking-wider text-zinc-400 hover:text-zinc-200 transition-colors">B · Read</button>
+                        <button id="sd-mode-a" onclick="window.sdSetWorkMode('A')" title="Default — draw in Stride, autosync params, no reading from Ableton" class="sbtn is-on flex-1">A · Default</button>
+                        <button id="sd-mode-b" onclick="window.sdSetWorkMode('B')" title="Read existing automation from the open clip so you can edit + re-inject" class="sbtn flex-1">B · Read</button>
                     </div>
                     <div id="sd-mode-b-controls" class="hidden">
                         <button onclick="window.sdReadCurvesNow()" class="w-full py-1 mb-1 rounded bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 text-[9px] font-black uppercase tracking-wider transition-colors">Pull curves from clip</button>
@@ -363,7 +574,7 @@
                 <div class="text-xs text-zinc-200 font-bold uppercase tracking-widest">Save Session</div>
                 <p class="text-[9px] text-zinc-500">Saves all canvas curves, parameters, and template reference.</p>
                 <input id="session-name-input" type="text" placeholder="Session name..." class="bg-black/50 border border-white/10 rounded px-3 py-2 text-xs text-zinc-200 outline-none focus:border-sky-500/50" />
-                <button onclick="sdConfirmSaveSession()" class="text-[9px] text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 py-2 rounded-lg uppercase font-bold transition-all">Save</button>
+                <button onclick="sdConfirmSaveSession()" class="sbtn">Save</button>
                 <div id="session-save-status" class="text-[9px] text-zinc-500 text-center"></div>
             </div>
         </div>
@@ -384,8 +595,8 @@
                 <div class="text-xs text-zinc-200 font-bold uppercase tracking-widest">Save Preset</div>
                 <input id="preset-name-input" type="text" placeholder="Preset name..." class="bg-black/50 border border-white/10 rounded px-3 py-2 text-xs text-zinc-200 outline-none focus:border-fuchsia-500/50" />
                 <div class="flex gap-2">
-                    <button onclick="sdConfirmSavePreset('lane')" class="flex-1 text-[9px] text-violet-400 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 py-2 rounded-lg uppercase font-bold transition-all">Active Lane</button>
-                    <button onclick="sdConfirmSavePreset('all')" class="flex-1 text-[9px] text-fuchsia-400 bg-fuchsia-500/10 hover:bg-fuchsia-500/20 border border-fuchsia-500/20 py-2 rounded-lg uppercase font-bold transition-all">All Lanes</button>
+                    <button onclick="sdConfirmSavePreset('lane')" class="sbtn flex-1">Active Lane</button>
+                    <button onclick="sdConfirmSavePreset('all')" class="sbtn flex-1">All Lanes</button>
                 </div>
                 <div id="preset-save-status" class="text-[9px] text-zinc-500 text-center"></div>
             </div>
@@ -609,7 +820,7 @@
                     </p>
                 </div>
                 <div class="px-7 py-5 mt-2 border-t border-white/5 shrink-0 flex items-center justify-between gap-3">
-                    <button onclick="if(window.sdOpenGuideFromInstall)window.sdOpenGuideFromInstall()" class="text-[11px] text-orange-300 hover:text-orange-200 font-bold uppercase tracking-widest transition-colors">Open setup guide</button>
+                    <button onclick="if(window.sdOpenGuideFromInstall)window.sdOpenGuideFromInstall()" class="sbtn">Open setup guide</button>
                     <button onclick="if(window.sdDismissStrideInjectSetup)window.sdDismissStrideInjectSetup()" class="text-xs text-zinc-100 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 px-6 py-2.5 rounded-xl font-black uppercase tracking-widest transition-all">Got it</button>
                 </div>
             </div>
@@ -717,26 +928,26 @@
             <div class="sd-full-only min-h-[40px] border-b border-white/5 shrink-0 bg-black/50 px-2 py-1 grid items-center" style="grid-template-columns: auto 1fr auto;">
                 <!-- LEFT: Loop + View toggle -->
                 <div class="flex items-center gap-1.5 shrink-0">
-                    <div class="flex items-center gap-1 bg-black/50 p-1 rounded-lg border border-fuchsia-500/30 shrink-0" title="Loop length (bars)">
+                    <div class="flex items-center gap-1 bg-black/50 p-1 rounded-lg border border-white/10 shrink-0" title="Loop length (bars)">
                         <span class="text-[9px] font-black text-fuchsia-300 uppercase tracking-wider px-0.5">Loop</span>
-                        <button onclick="sdSetBars(2)" class="sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold transition-colors">2</button>
-                        <button onclick="sdSetBars(4)" class="sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold transition-colors">4</button>
-                        <button onclick="sdSetBars(8)" class="sd-bars-btn text-[11px] text-fuchsia-400 bg-fuchsia-500/20 px-2 py-0.5 rounded font-bold transition-colors">8</button>
-                        <button onclick="sdSetBars(16)" class="sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold transition-colors">16</button>
-                        <button onclick="sdSetBars(32)" class="sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded font-bold transition-colors">32</button>
+                        <button onclick="sdSetBars(2)" class="sbtn sbtn--icon sd-bars-btn">2</button>
+                        <button onclick="sdSetBars(4)" class="sbtn sbtn--icon sd-bars-btn">4</button>
+                        <button onclick="sdSetBars(8)" class="sbtn sbtn--icon is-on sd-bars-btn">8</button>
+                        <button onclick="sdSetBars(16)" class="sbtn sbtn--icon sd-bars-btn">16</button>
+                        <button onclick="sdSetBars(32)" class="sbtn sbtn--icon sd-bars-btn">32</button>
                     </div>
-                    <button id="sd-view-mode-toggle" onclick="sdToggleViewMode()" title="Currently in Multi-Lane view — click to return to Focus view" class="text-[9px] text-fuchsia-300 bg-fuchsia-500/20 border border-fuchsia-500/50 hover:border-fuchsia-400 px-2 py-1 rounded uppercase font-bold tracking-wider transition-all shrink-0 flex items-center gap-1">
+                    <button id="sd-view-mode-toggle" onclick="sdToggleViewMode()" title="Currently in Multi-Lane view — click to return to Focus view" class="sbtn is-on shrink-0 flex items-center gap-1">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                         Multi
                     </button>
-                    <button id="generate-btn" onclick="openGeneratePanel()" class="hidden shrink-0 text-[9px] text-orange-400 hover:text-white bg-transparent hover:bg-gradient-to-r hover:from-orange-500 hover:to-red-500 border border-orange-500/50 hover:border-transparent px-3 py-1 rounded-lg uppercase tracking-wider font-black transition-all flex items-center gap-1.5">
+                    <button id="generate-btn" onclick="openGeneratePanel()" class="sbtn hidden shrink-0 flex items-center gap-1.5">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                         Generate
                     </button>
                 </div>
                 <!-- CENTER: Presets only (Chaos/Bloom/Weave moved to sidebar) -->
                 <div class="flex items-center justify-center gap-1.5">
-                    <button onclick="sdTogglePresets()" title="Preset bank" class="text-[9px] text-rose-400 hover:text-white bg-transparent hover:bg-rose-500/10 border border-rose-500/50 hover:border-rose-400 px-3 py-1 rounded-lg uppercase tracking-wider font-black transition-all flex items-center gap-1.5 shrink-0">
+                    <button onclick="sdTogglePresets()" title="Preset bank" class="sbtn flex items-center gap-1.5 shrink-0">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
                         Presets
                     </button>
@@ -752,20 +963,20 @@
             <!-- ROW 1: Draw Tools & Templates -->
             <div class="sd-full-only min-h-[36px] border-b border-white/5 flex flex-wrap items-center px-2 gap-x-1.5 gap-y-0.5 py-0.5 shrink-0 bg-black/40">
                 <div class="flex items-center gap-1 bg-black/50 p-0.5 rounded border border-white/5 shrink-0">
-                    <button id="sd-tool-select" onclick="sdSetTool('select')" class="tool-btn bg-fuchsia-500/20 text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold transition-colors">Point</button>
-                    <button id="sd-tool-freehand" onclick="sdSetTool('freehand')" class="tool-btn text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold transition-colors">Free</button>
+                    <button id="sd-tool-select" onclick="sdSetTool('select')" class="sbtn is-on tool-btn">Point</button>
+                    <button id="sd-tool-freehand" onclick="sdSetTool('freehand')" class="sbtn tool-btn">Free</button>
                 </div>
                 <div class="w-px h-5 bg-white/10"></div>
                 <span class="text-[8px] font-bold text-zinc-500 uppercase shrink-0">Shapes:</span>
-                <button onclick="sdApplyTemplate('sine')" class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">Sine</button>
-                <button onclick="sdApplyTemplate('pump')" class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">Pump</button>
-                <button onclick="sdApplyTemplate('glitch')" class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">Glitch</button>
-                <button onclick="sdApplyTemplate('groove_build')" class="text-[9px] text-zinc-400 hover:text-fuchsia-400 bg-white/5 hover:bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold transition-colors shrink-0">Groove</button>
+                <button onclick="sdApplyTemplate('sine')" class="sbtn shrink-0">Sine</button>
+                <button onclick="sdApplyTemplate('pump')" class="sbtn shrink-0">Pump</button>
+                <button onclick="sdApplyTemplate('glitch')" class="sbtn shrink-0">Glitch</button>
+                <button onclick="sdApplyTemplate('groove_build')" class="sbtn shrink-0">Groove</button>
                 <div class="w-px h-5 bg-white/10"></div>
-                <button onclick="sdApplyTemplate('chaos_lfo')" class="text-[9px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors shrink-0">Chaos</button>
-                <button onclick="sdApplyComplexTemplate('neuro')" class="text-[9px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors shrink-0">Neuro</button>
-                <button onclick="sdApplySampleHoldLane()" title="Sample &amp; Hold — inject one stepped-random S&amp;H pattern onto the selected lane. Poly = classic rates; grid = every step on the ▾ division. Click again to reroll." class="text-[9px] text-orange-400/80 hover:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 hover:border-orange-500/30 px-2 py-0.5 rounded-l uppercase tracking-wider font-bold transition-colors shrink-0">S&amp;H</button><button onclick="window.sdOpenShModePopup(event)" title="S&amp;H mode — Poly (classic) or a fixed grid: 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/32T" class="sd-sh-mode-btn text-[8px] text-zinc-500 hover:text-orange-400 bg-white/5 hover:bg-orange-500/10 border border-l-0 border-white/10 hover:border-orange-500/30 px-1 py-0.5 rounded-r font-bold transition-colors shrink-0 -ml-px">▾</button>
-                <button id="sd-autorescan-btn" onclick="window.sdToggleAutoRescan()" title="Auto-rescan for the StrideQuick Motion buttons. ON (green) rescans the rack before applying; OFF applies on the loaded params only, to crank the same rack without re-scanning." class="text-[9px] text-emerald-400/90 hover:text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors shrink-0">Rescan: ON</button>
+                <button onclick="sdApplyTemplate('chaos_lfo')" class="sbtn shrink-0">Chaos</button>
+                <button onclick="sdApplyComplexTemplate('neuro')" class="sbtn shrink-0">Neuro</button>
+                <button onclick="sdApplySampleHoldLane()" title="Sample &amp; Hold — inject one stepped-random S&amp;H pattern onto the selected lane. Poly = classic rates; grid = every step on the ▾ division. Click again to reroll." class="sbtn sbtn--seg-l shrink-0">S&amp;H</button><button onclick="window.sdOpenShModePopup(event)" title="S&amp;H mode — Poly (classic) or a fixed grid: 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/32T" class="sbtn sbtn--seg-r sbtn--icon sd-sh-mode-btn shrink-0 -ml-px">▾</button>
+                <button id="sd-autorescan-btn" onclick="window.sdToggleAutoRescan()" title="Auto-rescan for the StrideQuick Motion buttons. ON (green) rescans the rack before applying; OFF applies on the loaded params only, to crank the same rack without re-scanning." class="sbtn is-on shrink-0">Rescan: ON</button>
                 <div class="w-px h-5 bg-white/10"></div>
                 <!-- Saved presets — takes remaining space -->
                 <div class="flex items-center gap-1 flex-1 min-w-0 shrink-0">
@@ -774,8 +985,8 @@
                 </div>
                 <!-- Save/Clear — visually separated -->
                 <div class="flex items-center gap-1 shrink-0 pl-1.5 border-l border-white/10">
-                    <button onclick="sdSavePreset()" title="Save active lane as preset" class="text-[9px] text-zinc-400 hover:text-zinc-300 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors">Save Lane</button>
-                    <button onclick="sdClearCurrentCanvas()" class="text-[9px] text-red-400/80 hover:text-red-400 bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 hover:border-red-500/30 px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors">Clear Lane</button>
+                    <button onclick="sdSavePreset()" title="Save active lane as preset" class="sbtn">Save Lane</button>
+                    <button onclick="sdClearCurrentCanvas()" class="sbtn sbtn--danger">Clear Lane</button>
                 </div>
             </div>
 
@@ -784,18 +995,18 @@
                 <!-- Group A: Mirror/Flip + Copy/Paste -->
                 <div class="flex items-center gap-1 shrink-0">
                     <div class="flex items-center gap-0.5 bg-black/50 p-0.5 rounded border border-white/5">
-                        <button onclick="sdUndo()" title="Undo (Ctrl+Z)" class="text-[13px] leading-none text-zinc-400 hover:text-zinc-100 border border-white/10 hover:border-white/25 px-2 py-0.5 rounded font-bold transition-colors">↶</button>
-                    <button onclick="sdRedo()" title="Redo (Ctrl+Y)" class="text-[13px] leading-none text-zinc-400 hover:text-zinc-100 border border-white/10 hover:border-white/25 px-2 py-0.5 rounded font-bold transition-colors">↷</button>
+                        <button onclick="sdUndo()" title="Undo (Ctrl+Z)" class="sbtn sbtn--icon">↶</button>
+                    <button onclick="sdRedo()" title="Redo (Ctrl+Y)" class="sbtn sbtn--icon">↷</button>
                     <span class="w-px h-4 bg-white/10"></span>
-                    <button onclick="sdMirrorLane()" title="Flip Y-axis" class="text-[9px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Mirror</button>
-                        <button onclick="sdFlipLane()" title="Reverse time" class="text-[9px] text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Flip</button>
+                    <button onclick="sdMirrorLane()" title="Flip Y-axis" class="sbtn">Mirror</button>
+                        <button onclick="sdFlipLane()" title="Reverse time" class="sbtn">Flip</button>
                     </div>
                     <div class="w-px h-4 bg-white/10"></div>
                     <div class="flex items-center gap-0.5 bg-black/50 p-0.5 rounded border border-white/5">
-                        <button onclick="sdCopyLane()" class="text-[9px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Copy</button>
-                        <button onclick="sdPasteLane(false)" class="text-[9px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Paste</button>
-                        <button onclick="sdPasteLane(true)" class="text-[9px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Inv</button>
-                        <button id="sd-paste-to-btn" onclick="sdOpenPasteTo()" class="text-[9px] text-violet-400/80 hover:text-violet-300 bg-violet-500/5 hover:bg-violet-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Paste To</button>
+                        <button onclick="sdCopyLane()" class="sbtn">Copy</button>
+                        <button onclick="sdPasteLane(false)" class="sbtn">Paste</button>
+                        <button onclick="sdPasteLane(true)" class="sbtn">Inv</button>
+                        <button id="sd-paste-to-btn" onclick="sdOpenPasteTo()" class="sbtn">Paste To</button>
                     </div>
                 </div>
                 <!-- Group B: Swing
@@ -806,22 +1017,22 @@
                      project_quantize_triplet_spec.md for the future direction). -->
                 <div class="flex items-center gap-1 shrink-0">
                     <div class="w-px h-4 bg-white/10"></div>
-                    <button onclick="sdApplySwing()" class="text-[9px] text-amber-400/80 hover:text-amber-300 bg-amber-500/5 hover:bg-amber-500/15 px-1.5 py-0.5 rounded uppercase font-bold transition-colors">Swing</button>
-                    <button onclick="sdToggleTripletLock()" title="Triplet grid lock — the grid AND every motion tool run on 1/2T · 1/4T · 1/8T · 1/16T (Ctrl+3)" class="sd-trip-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 border border-white/10 px-2 py-0.5 rounded font-black transition-colors">T</button>
+                    <button onclick="sdApplySwing()" class="sbtn">Swing</button>
+                    <button onclick="sdToggleTripletLock()" title="Triplet grid lock — the grid AND every motion tool run on 1/2T · 1/4T · 1/8T · 1/16T (Ctrl+3)" class="sbtn sbtn--icon sd-trip-btn">T</button>
                 </div>
                 <!-- Group D: Actions (Mutate, Shuffle, Stretch, Select All, Select, Lock All) — sliders moved to sidebar EDIT section -->
                 <div class="flex items-center gap-1 shrink-0">
                     <div class="w-px h-4 bg-white/10"></div>
-                    <button id="sd-mutate-btn" onclick="sdMutate()" title="Mutate: reshape active" class="text-[9px] text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors">Mutate</button>
-                    <button onclick="sdShuffleLanes()" title="Shuffle curves between lanes" class="text-[9px] text-violet-400 hover:text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 hover:border-violet-500/40 px-2 py-0.5 rounded uppercase font-bold transition-colors">Shuffle</button>
+                    <button id="sd-mutate-btn" onclick="sdMutate()" title="Mutate: reshape active" class="sbtn">Mutate</button>
+                    <button onclick="sdShuffleLanes()" title="Shuffle curves between lanes" class="sbtn">Shuffle</button>
                     <div class="w-px h-4 bg-white/10"></div>
-                    <div class="flex items-center gap-1 bg-sky-500/5 border border-sky-500/20 rounded px-1.5 py-0.5">
-                        <span class="text-[9px] text-sky-300/70 font-black uppercase tracking-wider">Stretch</span>
-                        <button onclick="sdTimeStretch(2)" title="Stretch 2x — doubles the lane length" class="text-[10px] text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/30 hover:border-sky-400/60 px-2 py-0.5 rounded font-black transition-colors">2x</button>
-                        <button onclick="sdTimeStretch(0.5)" title="Compress 1/2x — halves the lane length" class="text-[10px] text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/30 hover:border-sky-400/60 px-2 py-0.5 rounded font-black transition-colors">1/2x</button>
+                    <div class="flex items-center gap-1 bg-black/50 border border-white/10 rounded px-1.5 py-0.5">
+                        <span class="text-[9px] text-zinc-500 font-black uppercase tracking-wider">Stretch</span>
+                        <button onclick="sdTimeStretch(2)" title="Stretch 2x — doubles the lane length" class="sbtn sbtn--icon">2x</button>
+                        <button onclick="sdTimeStretch(0.5)" title="Compress 1/2x — halves the lane length" class="sbtn">1/2x</button>
                     </div>
-                    <button id="sd-select-all-toggle" onclick="sdSelectAll()" title="Select every unlocked lane, or only the focused device's lanes when one is selected (click again to clear). Tip: Ctrl+click a lane to toggle it individually, or Ctrl+drag through lanes to multi-select. Tools then target the selection." class="text-[9px] text-zinc-500 bg-black/50 border border-white/5 hover:border-fuchsia-500/30 px-2 py-0.5 rounded uppercase font-bold transition-colors">Select All</button>
-                    <button onclick="sdToggleLockAll()" title="Lock or unlock every lane at once. Locked lanes are skipped by all motion tools." class="text-[9px] text-amber-400/80 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 hover:border-amber-500/40 px-2 py-0.5 rounded uppercase font-bold transition-colors flex items-center gap-1">
+                    <button id="sd-select-all-toggle" onclick="sdSelectAll()" title="Select every unlocked lane, or only the focused device's lanes when one is selected (click again to clear). Tip: Ctrl+click a lane to toggle it individually, or Ctrl+drag through lanes to multi-select. Tools then target the selection." class="sbtn">Select All</button>
+                    <button onclick="sdToggleLockAll()" title="Lock or unlock every lane at once. Locked lanes are skipped by all motion tools." class="sbtn flex items-center gap-1">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
                         Lock All
                     </button>
@@ -832,32 +1043,32 @@
                  canvas functions (no mirror renderer). Shown only in compact mode;
                  the big ROW 1/ROW 2 toolbars are .sd-full-only and hide. -->
             <div class="sd-compact-only bg-zinc-950 border-b border-white/5 px-2.5 py-1.5 items-center gap-2 flex-wrap shrink-0">
-                <button onclick="window.toggleCompactMode&&window.toggleCompactMode()" title="Back to the full canvas" class="text-[9px] font-bold uppercase tracking-widest text-zinc-400 hover:text-orange-400 px-1.5 py-1 rounded">← Full</button>
+                <button onclick="window.toggleCompactMode&&window.toggleCompactMode()" title="Back to the full canvas" class="sbtn">← Full</button>
                 <span class="w-px h-4 bg-white/10"></span>
                 <div class="flex items-center gap-1">
-                    <button id="qpc-tool-point" onclick="sdSetTool('select')" class="tool-btn bg-fuchsia-500/20 text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Point</button>
-                    <button id="qpc-tool-free" onclick="sdSetTool('freehand')" class="tool-btn text-zinc-400 hover:text-fuchsia-400 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Free</button>
+                    <button id="qpc-tool-point" onclick="sdSetTool('select')" class="sbtn is-on tool-btn">Point</button>
+                    <button id="qpc-tool-free" onclick="sdSetTool('freehand')" class="sbtn tool-btn">Free</button>
                 </div>
                 <span class="w-px h-4 bg-white/10"></span>
                 <div class="flex items-center gap-1">
-                    <button onclick="sdUndo()" title="Undo (Ctrl+Z)" class="text-[13px] leading-none text-zinc-400 hover:text-zinc-100 border border-white/10 hover:border-white/25 px-2 py-0.5 rounded font-bold transition-colors">↶</button>
-                    <button onclick="sdRedo()" title="Redo (Ctrl+Y)" class="text-[13px] leading-none text-zinc-400 hover:text-zinc-100 border border-white/10 hover:border-white/25 px-2 py-0.5 rounded font-bold transition-colors">↷</button>
+                    <button onclick="sdUndo()" title="Undo (Ctrl+Z)" class="sbtn sbtn--icon">↶</button>
+                    <button onclick="sdRedo()" title="Redo (Ctrl+Y)" class="sbtn sbtn--icon">↷</button>
                     <span class="w-px h-4 bg-white/10"></span>
-                    <button onclick="sdMirrorLane()" title="Flip Y-axis" class="tool-btn text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Mirror</button>
-                    <button onclick="sdFlipLane()" title="Reverse time" class="tool-btn text-sky-400/80 hover:text-sky-300 bg-sky-500/5 hover:bg-sky-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Flip</button>
+                    <button onclick="sdMirrorLane()" title="Flip Y-axis" class="sbtn tool-btn">Mirror</button>
+                    <button onclick="sdFlipLane()" title="Reverse time" class="sbtn tool-btn">Flip</button>
                 </div>
-                <button onclick="sdApplySwing()" class="tool-btn text-amber-400/80 hover:text-amber-300 bg-amber-500/5 hover:bg-amber-500/15 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold">Swing</button>
-                <button onclick="sdToggleTripletLock()" title="Triplet grid lock — the grid AND every motion tool run on 1/2T · 1/4T · 1/8T · 1/16T (Ctrl+3)" class="sd-trip-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 border border-white/10 px-2 py-0.5 rounded font-black transition-colors">T</button>
+                <button onclick="sdApplySwing()" class="sbtn tool-btn">Swing</button>
+                <button onclick="sdToggleTripletLock()" title="Triplet grid lock — the grid AND every motion tool run on 1/2T · 1/4T · 1/8T · 1/16T (Ctrl+3)" class="sbtn sbtn--icon sd-trip-btn">T</button>
                 <div class="flex items-center gap-1">
-                    <button onclick="sdTimeStretch(2)" title="Stretch 2x — spread the curve over twice the time" class="tool-btn text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/30 px-1.5 py-0.5 rounded text-[9px] font-bold">2x</button>
-                    <button onclick="sdTimeStretch(0.5)" title="Compress 1/2x — pack the curve into half the time" class="tool-btn text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/30 px-1.5 py-0.5 rounded text-[9px] font-bold">1/2x</button>
+                    <button onclick="sdTimeStretch(2)" title="Stretch 2x — spread the curve over twice the time" class="sbtn sbtn--icon tool-btn">2x</button>
+                    <button onclick="sdTimeStretch(0.5)" title="Compress 1/2x — pack the curve into half the time" class="sbtn tool-btn">1/2x</button>
                 </div>
                 <span class="w-px h-4 bg-white/10"></span>
-                <button onclick="sdMutate()" class="tool-btn text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold">Mutate</button>
+                <button onclick="sdMutate()" class="sbtn tool-btn">Mutate</button>
                 <div class="flex-1"></div>
-                <button onclick="sdSelectAll()" class="tool-btn text-zinc-400 hover:text-zinc-100 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold border border-white/10">Select All</button>
-                <button onclick="sdToggleLockAll()" class="tool-btn text-zinc-400 hover:text-zinc-100 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold border border-white/10">Lock All</button>
-                <button onclick="window.sdUnlockAllLanes&&window.sdUnlockAllLanes()" class="tool-btn text-zinc-400 hover:text-zinc-100 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold border border-white/10">Unlock All</button>
+                <button onclick="sdSelectAll()" class="sbtn tool-btn">Select All</button>
+                <button onclick="sdToggleLockAll()" class="sbtn tool-btn">Lock All</button>
+                <button onclick="window.sdUnlockAllLanes&&window.sdUnlockAllLanes()" class="sbtn tool-btn">Unlock All</button>
             </div>
 
             <!-- Canvas Area + Inject rail (Option B: CTA on the right of the lanes, cables fan in) -->
@@ -937,8 +1148,8 @@
         </div>
         <div id="sd-paste-to-list" class="overflow-y-auto flex-1 py-1 custom-scroll"></div>
         <div class="flex gap-1 p-2 border-t border-white/10">
-            <button onclick="sdPasteToSelected(false)" class="flex-1 text-[9px] text-violet-300 bg-violet-500/20 hover:bg-violet-500/30 py-1.5 rounded uppercase font-bold transition-colors">Paste</button>
-            <button onclick="sdPasteToSelected(true)" class="flex-1 text-[9px] text-amber-300 bg-amber-500/20 hover:bg-amber-500/30 py-1.5 rounded uppercase font-bold transition-colors">Paste Inv</button>
+            <button onclick="sdPasteToSelected(false)" class="sbtn is-on flex-1">Paste</button>
+            <button onclick="sdPasteToSelected(true)" class="sbtn is-on flex-1">Paste Inv</button>
         </div>
     </div>
 

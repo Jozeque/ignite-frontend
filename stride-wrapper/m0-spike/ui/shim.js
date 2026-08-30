@@ -314,10 +314,28 @@
   try {
     var hideCss = document.createElement('style');
     hideCss.textContent = '#sd-inject-rail{display:none!important} #sd-strideinject-modal{display:none!important} #link-status{display:none!important} #stride-stale-banner{display:none!important} #sd-install-m4l-overlay{display:none!important} #sd-welcome-overlay{display:none!important}'
-      + ' @keyframes sdMapPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(250,204,21,0)}50%{transform:scale(1.07);box-shadow:0 0 12px 3px rgba(250,204,21,.6)}}'
-      + ' .sd-map-armed{animation:sdMapPulse 1.15s ease-in-out infinite}'
-      + ' @keyframes sdUnmapPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(244,63,94,0)}50%{transform:scale(1.07);box-shadow:0 0 12px 3px rgba(244,63,94,.6)}}'
-      + ' .sd-unmap-armed{animation:sdUnmapPulse 1.15s ease-in-out infinite}';
+      // ARMED pulse. Map armed is just .is-on (the copper plate, same as every
+      // other active state) plus this animation, so it belongs to the system
+      // instead of being a yellow one-off.
+      //
+      // It animates FILTER, not box-shadow: .sbtn sets box-shadow !important,
+      // and an author !important beats an animation declaration in the cascade,
+      // so the old keyframes' glow never rendered at all. What survived was the
+      // transform, which is why the button just jumped 7% in size. Nothing sets
+      // filter, so brightness animates cleanly. No scale: a toolbar button that
+      // changes size shoves its neighbours around.
+      + ' @keyframes sdArmPulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.34)}}'
+      + ' .sd-map-armed,.sd-unmap-armed{animation:sdArmPulse 1.15s ease-in-out infinite}'
+      + ' @media (prefers-reduced-motion:reduce){.sd-map-armed,.sd-unmap-armed{animation:none}}'
+      // Unmap armed is the same PLATE geometry as .is-on, in rose, so "armed to
+      // remove" stays distinct from "armed to add" without leaving the system.
+      // Rose is hardcoded because the vintage skins alias --ro* onto the greys.
+      + ' .sbtn.sd-unmap-armed{color:#2a0d10!important;'
+      + '   background:linear-gradient(180deg,#c5807f 0%,#a34e52 100%)!important;'
+      + '   border-color:rgb(235 191 192 / .5)!important;border-top-color:rgb(245 221 221 / .55)!important;'
+      + '   text-shadow:0 1px 0 rgb(245 221 221 / .4)!important;'
+      + '   box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 2px 9px -3px rgb(163 78 82 / .85)!important}'
+      + ' .sbtn.sd-unmap-armed::after{opacity:0}';
     (document.head || document.documentElement).appendChild(hideCss);
   } catch (e) {}
 
@@ -521,8 +539,9 @@
     _sb.mapArmed = armed;
     if (_sb.mapBtn) {
       _sb.mapBtn.textContent = armed ? '\u25c9 Click a knob in Live\u2026' : '\u25c9 Map Live';
-      // Same treatment as the hosted Map button: bright yellow + pulse while armed, so
-      // you cannot forget it is on (and press it off). BTN_MAP/BTN_MAP_ARMED are the
+      // Same treatment as the hosted Map button: plain metal at rest, and the
+      // shared .is-on copper plate + a brightness pulse while armed, so you
+      // cannot forget it is on (and press it off). BTN_MAP/BTN_MAP_ARMED are the
       // shared bar styles (hoisted vars, same scope).
       _sb.mapBtn.className = armed ? BTN_MAP_ARMED : BTN_MAP;
       _sb.mapBtn.style.opacity = '';
@@ -872,19 +891,21 @@
   }
 
   // Stride button styling (Tailwind classes -> skinned colors + Outfit, 1:1 with the app).
-  var BTN_BASE = 'px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold transition-colors ';
-  var BTN_GHOST = BTN_BASE + 'text-zinc-400 hover:text-zinc-100 border border-white/10';
-  var BTN_PRIMARY = BTN_BASE + 'text-orange-400 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/20';
-  var BTN_ARMED = BTN_BASE + 'text-orange-400 bg-orange-500/20 border border-orange-500/40';
+  // Geometry, type and every state now come from .sbtn (see index.html). These
+  // stay as names because 26 call sites use them.
+  var BTN_BASE = 'sbtn ';
+  var BTN_GHOST = BTN_BASE;
+  var BTN_PRIMARY = BTN_BASE;
+  var BTN_ARMED = BTN_BASE + 'is-on';
   // Map gets its own slightly-bigger, distinct (violet) treatment so the primary
   // "arm to learn" action reads differently from +Add / Clear.
-  var BTN_MAP       = 'px-3 py-1 rounded text-[10px] uppercase tracking-wider font-bold transition-colors text-violet-200 bg-violet-500/20 hover:bg-violet-500/30 border border-violet-400/40';
+  var BTN_MAP       = 'sbtn';
   // Armed = bright YELLOW + pulse so you can't forget it's on and press it off. (Default
   // Tailwind yellow, not amber — amber is remapped to orange in the copper skin.)
-  var BTN_MAP_ARMED = 'px-3 py-1 rounded text-[10px] uppercase tracking-wider font-bold transition-colors text-black bg-yellow-400 hover:bg-yellow-300 border border-yellow-300 sd-map-armed';
+  var BTN_MAP_ARMED = 'sbtn is-on sd-map-armed';
   // Unmap = the inverse of Map (touch a mapped knob to remove it). Rose/red so it reads as "remove".
-  var BTN_UNMAP       = 'px-3 py-1 rounded text-[10px] uppercase tracking-wider font-bold transition-colors text-rose-300/90 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-400/40';
-  var BTN_UNMAP_ARMED = 'px-3 py-1 rounded text-[10px] uppercase tracking-wider font-bold transition-colors text-white bg-rose-500 hover:bg-rose-400 border border-rose-300 sd-unmap-armed';
+  var BTN_UNMAP       = 'sbtn sbtn--danger';
+  var BTN_UNMAP_ARMED = 'sbtn sd-unmap-armed';
 
   function buildBar() {
     try {
@@ -906,6 +927,19 @@
         // the whole failure class; same reason the modals blur on close below.
         try { favSelect.blur(); } catch (e) {}
       };
+      // ── group titles for the device bar ─────────────────────────────────
+      // Same inline treatment as the compact toolbar: a tiny title at the head
+      // of each family, and a hairline between families. Zero added height, the
+      // labels sit on the existing row.
+      function _grpLabel(t) {
+        var e = document.createElement('span');
+        e.className = 'sgrp-l'; e.textContent = t; host.appendChild(e); return e;
+      }
+      function _grpDiv() {
+        var e = document.createElement('span');
+        e.className = 'sdiv'; host.appendChild(e); return e;
+      }
+      _grpLabel('Browser');
       populateFav();
       host.appendChild(favSelect);
 
@@ -914,7 +948,7 @@
       var favMgrBtn = document.createElement('button');
       favMgrBtn.textContent = '☰';
       favMgrBtn.title = 'Manage favorites (reorder, delete, add)';
-      favMgrBtn.className = 'text-[12px] text-zinc-400 hover:text-orange-400 border border-white/10 rounded px-1.5 py-0.5 transition-colors';
+      favMgrBtn.className = 'sbtn sbtn--icon';
       favMgrBtn.onclick = function () { showFavManager(); };
       host.appendChild(favMgrBtn);
 
@@ -931,6 +965,7 @@
         return b;
       }
       sbtn('+ Add', 'browsePlugins', BTN_PRIMARY);      // opens the Stride-styled plugin browser
+      _grpDiv(); _grpLabel('Map');
       var mapBtn = sbtn('◉ Map', 'toggleLearn', BTN_MAP);
       var unmapBtn = sbtn('⊘ Unmap', 'toggleUnlearn', BTN_UNMAP); unmapBtn.title = 'Arm Unmap, then touch a mapped knob in the synth to remove it from the canvas';
 
@@ -982,7 +1017,7 @@
       var keysOctBtn = document.createElement('button');
       keysOctBtn.innerHTML = '<span style="font-size:9px;line-height:1">▾</span>';
       keysOctBtn.title = 'Choose the keyswitch octave';
-      keysOctBtn.className = 'text-[11px] text-zinc-500 hover:text-fuchsia-300 border border-white/10 rounded px-1 py-0.5 ml-0.5 transition-colors';
+      keysOctBtn.className = 'sbtn sbtn--icon ml-0.5';
       keysWrap.appendChild(keysOctBtn);
       var keysPop = document.createElement('div');
       keysPop.className = 'hidden absolute left-0 top-full mt-1 z-[10060] bg-zinc-950 border border-white/10 rounded-lg shadow-2xl p-2 w-[230px]';
@@ -1033,6 +1068,7 @@
           if (st) st.textContent = '🎹 ' + fired.join(' + ');
         }
       });
+      _grpDiv(); _grpLabel('Chain');
       var openBtn = sbtn('⛶', 'openSynth', BTN_GHOST); openBtn.title = 'Open device windows'; openBtn.classList.add('text-[12px]');
       var closeBtn = sbtn('⊟', 'closeSynth', BTN_GHOST); closeBtn.title = 'Close all device windows'; closeBtn.classList.add('text-[12px]');
       var clearBtn = sbtn('Clear', 'clearChain', BTN_GHOST);
@@ -1061,7 +1097,7 @@
         + '<button id="sd-auto-live" class="flex-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded transition-colors" title="Stride’s curves drive the knobs (params follow in the DAW).">▶ Stride</button>'
         + '<button id="sd-auto-daw" class="flex-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded transition-colors" title="The DAW’s automation drives the knobs; Stride steps back.">◆ DAW</button>'
         + '</div>'
-        + '<button id="sd-auto-send" class="w-full text-[10px] font-black uppercase tracking-wider text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-400/30 rounded px-2 py-1 transition-colors mb-1.5">↱ Send to DAW</button>'
+        + '<button id="sd-auto-send" class="sbtn sbtn--go w-full mb-1.5">↱ Send to DAW</button>'
         + '<button id="sd-auto-follow" class="w-full text-[10px] font-bold uppercase tracking-wider rounded px-2 py-1 transition-colors mb-1.5 border" title="ON: the exposed params visibly ride the motion during plain playback — and the DAW logs those moves into its UNDO history (the trade). OFF: they follow only while recording; undo stays clean.">Follow playback · off</button>'
         + '<p class="text-[9px] text-zinc-500 leading-snug">In Ableton: click <b class="text-zinc-400">Configure</b> on the Stride device, then <b class="text-zinc-400">Send</b> — your mapped knobs appear. Other DAWs list them automatically.</p>';
       autoWrap.appendChild(pop);
@@ -1093,17 +1129,15 @@
 
       function paintAuto() {
         var daw = (_driveMode === 1);
-        autoBtn.className = BTN_BASE + 'flex items-center gap-0.5 ' + (daw
-          ? 'text-cyan-300 bg-cyan-500/15 border border-cyan-400/40'
-          : 'text-zinc-400 hover:text-cyan-300 border border-white/10');
-        liveSeg.className = 'flex-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded transition-colors ' + (!daw ? 'text-white bg-white/15 border border-white/20' : 'text-zinc-500 hover:text-zinc-300 border border-transparent');
-        dawSeg.className  = 'flex-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded transition-colors ' + (daw ? 'text-cyan-200 bg-cyan-500/20 border border-cyan-400/40' : 'text-zinc-500 hover:text-zinc-300 border border-transparent');
+        autoBtn.className = BTN_BASE + (daw ? 'is-on sbtn--alt' : '');
+        liveSeg.className = 'sbtn flex-1' + (!daw ? ' is-on' : '');
+        dawSeg.className  = 'sbtn flex-1' + (daw ? ' is-on sbtn--alt' : '');
         if (countEl) countEl.textContent = _exposedMacros ? (_exposedMacros + '/' + _macroPool + ' exposed') : 'none exposed';
         if (followSeg) {
           followSeg.textContent = 'Follow playback · ' + (_followMode ? 'ON' : 'off');
-          followSeg.className = 'w-full text-[10px] font-bold uppercase tracking-wider rounded px-2 py-1 transition-colors mb-1.5 border ' + (_followMode
-            ? 'text-orange-300 bg-orange-500/15 border-orange-400/40'
-            : 'text-zinc-500 hover:text-zinc-300 border-white/10');
+          followSeg.className = 'sbtn w-full mb-1.5' + (_followMode
+            ? ' is-on'
+            : '');
         }
         document.body.classList.toggle('sd-daw-mode', daw);           // dims the canvas
         if (dawBanner) dawBanner.classList.toggle('hidden', ! daw);   // shows the "DAW driving" banner
@@ -1128,6 +1162,7 @@
       var _tempoMode = 0, _manualBpm = 120;   // 0=sync 1=manual
       var tempoBtn = document.createElement('button');
       tempoBtn.title = 'Stride tempo — SYNC follows the project; MANUAL runs all motion at your own BPM';
+      _grpDiv(); _grpLabel('Play');
       host.appendChild(tempoBtn);
 
       var bpmEl = document.createElement('div');
@@ -1141,9 +1176,7 @@
 
       function paintTempo() {
         var synced = (_tempoMode === 0);
-        tempoBtn.className = BTN_BASE + (synced
-          ? 'text-zinc-400 hover:text-orange-300 border border-white/10'
-          : 'text-orange-300 bg-orange-500/15 border border-orange-400/40');
+        tempoBtn.className = BTN_BASE + (synced ? '' : 'is-on');
         tempoBtn.textContent = synced ? '♪ sync' : '♪ manual';
         bpmEl.className = 'text-[11px] font-bold rounded px-2 py-1 border transition-colors '
           + (synced ? 'hidden' : 'text-orange-200 bg-zinc-900 border-orange-400/40 hover:border-orange-300/70');
@@ -1213,13 +1246,13 @@
       host.appendChild(runBtn);
       function paintRun() {
         if (_runMode === 0) {
-          runBtn.className = BTN_BASE + 'text-zinc-400 hover:text-emerald-300 border border-white/10';
+          runBtn.className = BTN_BASE;
           runBtn.textContent = '▸ transport';
         } else if (_runMode === 1) {
-          runBtn.className = BTN_BASE + 'text-emerald-300 bg-emerald-500/15 border border-emerald-400/40';
+          runBtn.className = BTN_BASE + 'is-on';
           runBtn.textContent = '▸ notes retrig';
         } else {
-          runBtn.className = BTN_BASE + 'text-cyan-300 bg-cyan-500/15 border border-cyan-400/40';
+          runBtn.className = BTN_BASE + 'is-on sbtn--alt';
           runBtn.textContent = '▸ notes free';
         }
       }
@@ -1275,7 +1308,8 @@
         paintAuto();
       });
 
-      var divider = document.createElement('span'); divider.className = 'w-px h-4 bg-white/10'; host.appendChild(divider);
+      var divider = document.createElement('span'); divider.className = 'sdiv'; host.appendChild(divider);
+      _grpLabel('Devices');
 
       // Device list — every loaded device, each with a ✕ that is the ONLY way to remove it.
       var chips = document.createElement('div'); chips.id = 'stride-dev-chips'; chips.className = 'flex items-center gap-1.5 flex-wrap'; host.appendChild(chips);

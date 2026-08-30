@@ -67,7 +67,7 @@ ok('the main canvas SKIPS animating strokes with a balanced restore (geometry al
    /_sdLandAnim && _sdLandAnim\.ids\.has\(param\.envelopeId\)\) \{[\s\S]{0,120}sdCtx\.restore\(\);[\s\S]{0,80}continue;/.test(canvas));
 ok('one-shot lifecycle: re-fire cancels, completion cleans the overlay and repaints',
    /if \(_sdLandAnim && _sdLandAnim\.raf\) cancelAnimationFrame\(_sdLandAnim\.raf\);/.test(canvas)
-   && /function _sdLandEnd\(\)[\s\S]{0,600}clearRect[\s\S]{0,200}sdDrawCanvasGrid\(\);/.test(canvas));
+   && /function _sdLandEnd\(\)[\s\S]{0,600}_sdFxClearAll\(\);[\s\S]{0,200}sdDrawCanvasGrid\(\);/.test(canvas));
 ok('the overlay is handed back to the playhead comet at the end',
    /_sdLandEnd\(\)[\s\S]{0,700}if \(_sdEngMode\) _sdEngKick\(\);\s+\/\/ hand the overlay back/.test(canvas));
 ok('reduced-motion and focus view keep the instant print',
@@ -92,8 +92,8 @@ ok('stagger cap lives in the kick', /stag: Math\.min\(15, 240 \/ order\.length\)
     landAnim = null; fxDraw();      // landing over → the handback kick repaints
     ok('the handback kick repaints the comet once the landing ends', overlay === 'comet');
 })();
-ok('the comet painter is gated off while the landing runs — BEFORE any clearRect',
-   /function _sdFxDraw\(phase, withTrail\) \{\s+if \(!sdFxCtx \|\| !sdCanvasFx\) return;[\s\S]{0,800}if \(_sdLandAnim\) return;\s+sdFxCtx\.clearRect/.test(canvas));
+ok('the comet painter is gated off while the landing runs — BEFORE any clear',
+   /function _sdFxDraw\(phase, withTrail\) \{\s+if \(!sdFxCtx \|\| !sdCanvasFx\) return;[\s\S]{0,800}if \(_sdLandAnim\) return;\s+_sdFxClearAll\(\);/.test(canvas));
 ok('both comet drivers flow through the gated painter (ambient drift + engine kicks)',
    /_sdFxDraw\(\(ts % SD_FX_LOOP\) \/ SD_FX_LOOP, true\)/.test(canvas)
    && /_sdFxDraw\(_sdEngPhase, _sdEngOn\)/.test(canvas));

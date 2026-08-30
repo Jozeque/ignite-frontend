@@ -95,7 +95,7 @@ ok('field rects reset each render', /_sdRangeFieldRects = \[\]; \/\/ rebuilt bel
 ok('mousedown: press a field → scrub; double-click → type input', /_sdRangeFieldRects\[_fi\][\s\S]{0,600}_sdOpenRangeFieldInput\(_f\)[\s\S]{0,340}_sdRangeNumDrag = \{ param: _f\.param, edge: _f\.edge/.test(cv));
 ok('mousemove: scrub adjusts ~1% per 2px', /_sdRangeNumDrag\)[\s\S]{0,240}_sdRangeSetPercent\(nd\.param, nd\.edge, \(nd\.startVal \+ \(nd\.startY - my\) \/ 200\)/.test(cv));
 ok('mouseup: scrub persists + re-drives', /_sdRangeNumDrag\) \{[\s\S]{0,140}_sdRangeNumDrag = null[\s\S]{0,140}saveCanvasState/.test(cv));
-ok('cursor: a field OR a boundary line shows ns-resize (two arrows)', /let _rangeCur = false[\s\S]{0,1300}_rangeCur \? 'ns-resize'/.test(cv));
+ok('cursor: a field OR a boundary line shows ns-resize (two arrows)', /let _rangeCur = false[\s\S]{0,2600}_rangeCur \? 'ns-resize'/.test(cv));
 ok('type input: parse %, apply via _sdRangeSetPercent, persist', /function _sdOpenRangeFieldInput\(field\)[\s\S]{0,1300}_sdRangeSetPercent\(field\.param, field\.edge, n\)[\s\S]{0,80}saveCanvasState/.test(cv));
 ok('_sdRangeSetPercent keeps a 2% floor between min and max', /function _sdRangeSetPercent\(param, edge, pct\)[\s\S]{0,240}rangeMax = Math\.max\(v, \(param\.rangeMin \|\| 0\) \+ 0\.02\)[\s\S]{0,140}rangeMin = Math\.min\(v, \(param\.rangeMax \|\| 1\) - 0\.02\)/.test(cv));
 

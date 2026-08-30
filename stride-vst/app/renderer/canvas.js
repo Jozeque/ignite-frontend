@@ -261,6 +261,14 @@
     let _sdRangeIconClick = null;      // {id, t} — for double-click-to-reset on the range icon
     let _sdRangeNumDrag = null;        // scrubbing a numeric min/max field: {param, edge, startY, startVal}
     let _sdRangeFieldRects = [];       // per-render hit rects for the min/max fields: {param, edge, x, y, w, h}
+    // Per-render hit rects for the lane-header glyphs (range / focus / lock):
+    // {param, kind, x, y, w, h}. These used to be hit-tested on mx ALONE, so the
+    // whole vertical strip of the lane at that x was live and a click well above
+    // the range glyph silently toggled the range off (field report 2026-08-30).
+    // Recording the real rect at draw time also removes the "keep the hit-test in
+    // sync with the layout by hand" trap the old constants carried.
+    let _sdLaneIconRects = [];
+    const _SD_ICON_PAD = 3;            // glyphs are 12px and sit 18px apart, so pad 3 tiles exactly
     let _sdRangeFieldClick = null;     // {id, edge, t} — double-click-to-type detection on a field
     let _sdRangeNumInput = null;       // {id, edge, el} — the transient <input> shown while typing a value
     let _sdLoopDrag = null;            // active per-lane loop-boundary drag (wrapper): {param}
@@ -490,11 +498,9 @@
         sdBars = val;
         document.querySelectorAll('.sd-bars-btn').forEach(btn => {
             const btnVal = parseInt(btn.textContent);
-            if (btnVal === val) {
-                btn.className = 'sd-bars-btn text-[11px] text-fuchsia-400 bg-fuchsia-500/20 px-3 py-1 rounded font-bold transition-colors';
-            } else {
-                btn.className = 'sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-3 py-1 rounded font-bold transition-colors';
-            }
+            // .sbtn owns the look; state is one class. (Replacing className here
+            // used to wipe .sbtn off the button and re-inflate its padding.)
+            btn.classList.toggle('is-on', btnVal === val);
         });
         sdDrawCanvasGrid();
         if (persist) {
@@ -640,9 +646,7 @@
                 _sdStickyBars = sdBars;
                 document.querySelectorAll('.sd-bars-btn').forEach(btn => {
                     const btnVal = parseInt(btn.textContent);
-                    btn.className = btnVal === sdBars
-                        ? 'sd-bars-btn text-[11px] text-fuchsia-400 bg-fuchsia-500/20 px-3 py-1 rounded font-bold transition-colors'
-                        : 'sd-bars-btn text-[11px] text-zinc-400 hover:text-fuchsia-400 px-3 py-1 rounded font-bold transition-colors';
+                    btn.classList.toggle('is-on', btnVal === sdBars);
                 });
                 sdDrawCanvasGrid();
             }
@@ -661,10 +665,7 @@
         const b = document.getElementById('sd-autorescan-btn');
         if (!b) return;
         b.textContent = 'Rescan: ' + (sdAutoRescan ? 'ON' : 'OFF');
-        b.className = (sdAutoRescan
-            ? 'text-[9px] text-emerald-400/90 hover:text-emerald-300 bg-emerald-500/10 border border-emerald-500/30'
-            : 'text-[9px] text-zinc-500 hover:text-zinc-300 bg-white/5 border border-white/10')
-            + ' px-2 py-0.5 rounded uppercase tracking-wider font-bold transition-colors shrink-0';
+        b.classList.toggle('is-on', !!sdAutoRescan);
         b.title = sdAutoRescan
             ? 'Auto-rescan ON: Motion buttons rescan the rack before applying. Click to turn OFF to crank the same rack without re-scanning.'
             : 'Auto-rescan OFF: Motion buttons apply on the loaded params only. Turn ON to pull in newly-mapped params (it still rescans automatically if you switch rack/clip).';
@@ -3064,18 +3065,22 @@
         if (!sdCanvasEl) return;
         const container = document.getElementById('sd-canvas-container');
         const dpr = window.devicePixelRatio || 1;
+        // The focus draw deck docks at the bottom of the container: the canvas gives
+        // up exactly its height so the lane is never hidden under the panel.
+        const _deckH = (typeof _sdDeckHeight === 'function') ? _sdDeckHeight() : 0;
+        const _cvH = Math.max(40, container.clientHeight - _deckH);
         sdCanvasEl.width = container.clientWidth * dpr;
-        sdCanvasEl.height = container.clientHeight * dpr;
-        sdCtx.scale(dpr, dpr);
+        sdCanvasEl.height = _cvH * dpr;
+        sdCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
         sdCanvasEl.style.width = container.clientWidth + 'px';
-        sdCanvasEl.style.height = container.clientHeight + 'px';
+        sdCanvasEl.style.height = _cvH + 'px';
         if (sdCanvasFx && sdFxCtx) {     // keep the comet overlay pixel-aligned with the main canvas
             sdCanvasFx.width = container.clientWidth * dpr;
-            sdCanvasFx.height = container.clientHeight * dpr;
+            sdCanvasFx.height = _cvH * dpr;
             sdFxCtx.setTransform(1, 0, 0, 1, 0, 0);
             sdFxCtx.scale(dpr, dpr);
             sdCanvasFx.style.width = container.clientWidth + 'px';
-            sdCanvasFx.style.height = container.clientHeight + 'px';
+            sdCanvasFx.style.height = _cvH + 'px';
         }
         sdCanvasRect = sdCanvasEl.getBoundingClientRect();
         sdDrawCanvasGrid();
@@ -3759,6 +3764,17 @@
     // ambient wall-clock loop (desktop/M4L — no transport feed exists there) and the
     // wrapper's engine-synced playhead. The trail reads as motion, so a parked
     // (stopped-transport) paint draws the head only.
+    // Identity-transform clear of the ENTIRE fx store. A clearRect issued in the
+    // dpr-scaled space under-clears whenever devicePixelRatio < 1 (interface zoomed
+    // OUT), so every landing pass left its right edge behind and successive motions
+    // stacked there (field 2026-08-30, round 2).
+    function _sdFxClearAll() {
+        sdFxCtx.save();
+        sdFxCtx.setTransform(1, 0, 0, 1, 0, 0);
+        sdFxCtx.clearRect(0, 0, sdCanvasFx.width, sdCanvasFx.height);
+        sdFxCtx.restore();
+    }
+
     function _sdFxDraw(phase, withTrail) {
         if (!sdFxCtx || !sdCanvasFx) return;
         // The LANDING ANIMATION owns the overlay while it runs. Without this gate the
@@ -3768,8 +3784,15 @@
         // stopped nothing repaints, which is why it only glitched during playback).
         // _sdLandEnd hands the overlay back and repaints the freshest phase.
         if (_sdLandAnim) return;
-        sdFxCtx.clearRect(0, 0, sdCanvasFx.width, sdCanvasFx.height);
+        _sdFxClearAll();
         if (sdViewMode !== 'multi' || !_sdLaneGeom.length) return;
+        // The main renderer clips every lane stroke to the draw area; the overlay must
+        // too. Zoomed + panned, timeToX lands LEFT of the label column and the comet
+        // painted across the parameter names (field report 2026-08-30).
+        sdFxCtx.save();
+        sdFxCtx.beginPath();
+        sdFxCtx.rect(SD_MULTI_LABEL_WIDTH, 0, sdCanvasFx.width, sdCanvasFx.height);
+        sdFxCtx.clip();
         sdFxCtx.lineCap = 'round';
         for (let li = 0; li < _sdLaneGeom.length; li++) {
             const g = _sdLaneGeom[li], poly = g.poly;
@@ -3814,6 +3837,7 @@
             sdFxCtx.beginPath(); sdFxCtx.arc(head.x, head.y, 1.1, 0, Math.PI * 2); sdFxCtx.fill();
             sdFxCtx.restore();
         }
+        sdFxCtx.restore();   // balances the label-column clip
     }
 
     function _sdFxFrame(ts) {
@@ -4070,7 +4094,13 @@
         const a = _sdLandAnim;
         if (!a) return;
         if (!sdFxCtx || !sdCanvasFx || !_sdLaneGeom.length) { _sdLandEnd(); return; }
-        sdFxCtx.clearRect(0, 0, sdCanvasFx.width, sdCanvasFx.height);
+        _sdFxClearAll();
+        // Same clip as the comet: the landing strokes the whole curve, so at zoom it was
+        // the loudest writer across the label column (field report 2026-08-30).
+        sdFxCtx.save();
+        sdFxCtx.beginPath();
+        sdFxCtx.rect(SD_MULTI_LABEL_WIDTH, 0, sdCanvasFx.width, sdCanvasFx.height);
+        sdFxCtx.clip();
         sdFxCtx.lineCap = 'round';
         let alive = false;
         for (let gi = 0; gi < _sdLaneGeom.length; gi++) {
@@ -4103,6 +4133,7 @@
                 sdFxCtx.restore();
             }
         }
+        sdFxCtx.restore();   // balances the label-column clip
         if (alive) a.raf = requestAnimationFrame(_sdLandFrame);
         else _sdLandEnd();
     }
@@ -4111,7 +4142,7 @@
         if (_sdLandAnim && _sdLandAnim.raf) cancelAnimationFrame(_sdLandAnim.raf);
         _sdLandAnim = null;
         if (had) {
-            if (sdFxCtx && sdCanvasFx) sdFxCtx.clearRect(0, 0, sdCanvasFx.width, sdCanvasFx.height);
+            if (sdFxCtx && sdCanvasFx) _sdFxClearAll();
             sdDrawCanvasGrid();             // the strokes return to the main canvas
             if (_sdEngMode) _sdEngKick();   // hand the overlay back to the playhead comet
         }
@@ -4123,7 +4154,7 @@
     function sdStartFx() { if (_sdEngMode || _sdFxRAF) return; _sdFxRAF = requestAnimationFrame(_sdFxFrame); }
     function sdStopFx() {
         if (_sdFxRAF) { cancelAnimationFrame(_sdFxRAF); _sdFxRAF = 0; }
-        if (sdFxCtx && sdCanvasFx) sdFxCtx.clearRect(0, 0, sdCanvasFx.width, sdCanvasFx.height);
+        if (sdFxCtx && sdCanvasFx) _sdFxClearAll();
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -4203,11 +4234,33 @@
 
     function sdDrawCanvasGrid() {
         if (!sdCtx || !sdCanvasEl || !sdCanvasRect) return;
+        // ZOOM/DPI GUARD (field 2026-08-30): interface zoom (WebView2 page zoom) and
+        // monitor DPI moves change devicePixelRatio without a reliable resize event.
+        // When the backing store stops matching container x dpr, a clear computed from
+        // stale numbers misses the right edge and old strokes survive there ("lanes
+        // stuck in the canvas"). Re-sync first; sdResizeCanvas redraws and returns here.
+        {
+            const _cont = document.getElementById('sd-canvas-container');
+            if (_cont && _cont.clientWidth > 0) {
+                const _gdpr = window.devicePixelRatio || 1;
+                const _gdh = (typeof _sdDeckHeight === 'function') ? _sdDeckHeight() : 0;
+                const _wW = Math.trunc(_cont.clientWidth * _gdpr);
+                const _wH = Math.trunc(Math.max(40, _cont.clientHeight - _gdh) * _gdpr);
+                if (sdCanvasEl.width !== _wW || sdCanvasEl.height !== _wH) { sdResizeCanvas(); return; }
+            }
+        }
+        if (typeof _sdDeckSync === 'function') _sdDeckSync();   // the draw deck follows the view (focus only)
         _sdScheduleDriveFlush();
         sdDrawRuler();
-        const lw = sdCanvasEl.getBoundingClientRect().width;
-        const lh = sdCanvasEl.getBoundingClientRect().height;
-        sdCtx.clearRect(0, 0, lw, lh);
+        // Clear the FULL backing store under an identity transform, then re-assert the
+        // dpr scale for this frame. Immune to any stale width or leftover transform no
+        // matter how a zoom/DPI change arrived (same field report as the guard above).
+        const _cdpr = window.devicePixelRatio || 1;
+        sdCtx.setTransform(1, 0, 0, 1, 0, 0);
+        sdCtx.clearRect(0, 0, sdCanvasEl.width, sdCanvasEl.height);
+        sdCtx.setTransform(_cdpr, 0, 0, _cdpr, 0, 0);
+        const lw = sdCanvasEl.width / _cdpr;
+        const lh = sdCanvasEl.height / _cdpr;
 
         // Multi-lane view branches to its own renderer
         if (sdViewMode === 'multi') {
@@ -4281,7 +4334,7 @@
         // Points
         if (!sdActiveParamId) { _sdFocusBackRect = _sdDrawFocusBackBtn(lw, lh); return; }
         const param = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
-        if (!param || !param.points.length) { _sdFocusBackRect = _sdDrawFocusBackBtn(lw, lh); return; }
+        if (!param || !param.points.length) { _sdDrawFocusOverlays(param, lw, lh, totalBeats); _sdFocusBackRect = _sdDrawFocusBackBtn(lw, lh); return; }   // a stamp can start on an EMPTY lane
         param.points.sort((a, b) => a.time - b.time);
 
         // Draw curve line
@@ -4334,6 +4387,9 @@
             }
         });
 
+        // Focus-only overlays: stamp ghost, segment bend handles, snap guides, readout.
+        _sdDrawFocusOverlays(param, lw, lh, totalBeats);
+
         // "← All lanes" pill (focus view only) — one click back to the multi-lane view.
         _sdFocusBackRect = _sdDrawFocusBackBtn(lw, lh);
     }
@@ -4352,6 +4408,23 @@
     // the body is filled. When unlocked, the body is just stroked — so
     // users can tell at a glance which lanes are protected and which
     // are clickable-to-lock.
+    // One place that knows where a lane glyph actually is. Both the click
+    // hit-test and the hover cursor read these, so they cannot disagree.
+    function _sdPushIconRect(kind, param, x, y) {
+        _sdLaneIconRects.push({
+            param: param, kind: kind,
+            x: x - _SD_ICON_PAD, y: y - _SD_ICON_PAD,
+            w: 12 + _SD_ICON_PAD * 2, h: 12 + _SD_ICON_PAD * 2,
+        });
+    }
+    function _sdLaneIconAt(mx, my) {
+        for (let i = 0; i < _sdLaneIconRects.length; i++) {
+            const r = _sdLaneIconRects[i];
+            if (mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h) return r;
+        }
+        return null;
+    }
+
     function _drawLockIcon(ctx, x, y, size, color, locked) {
         ctx.save();
         ctx.strokeStyle = color;
@@ -4527,6 +4600,7 @@
         _sdUnmapRects = []; // rebuilt below — wrapper lanes get a per-lane unmap ×
         _sdColorRects = []; // rebuilt below — every lane gets a color-bar click zone at the left edge
         _sdRangeFieldRects = []; // rebuilt below — ranged lanes get draggable/typable min/max fields
+        _sdLaneIconRects = [];   // ditto for the lane-header glyphs (range / focus / lock)
         _sdMotionLaneRects = []; // rebuilt below — EVERY visible lane's row rect (Motions ghost + link cables need empty lanes too)
         _sdBookRects = [];  // rebuilt below — hover-revealed save-to-Motions bookmark (top-right of the label column)
         _sdPortRects = [];  // rebuilt below — link ports (bottom-left of the label column; unlinked lanes)
@@ -4728,15 +4802,18 @@
             // Locked = filled amber; unlocked = subtle zinc outline.
             const lockColor = isLocked ? 'rgba(251,191,36,0.9)' : 'rgba(161,161,170,0.45)';
             _drawLockIcon(sdCtx, laneDrawLeft - 18, midY - 6, 12, lockColor, isLocked);
+            _sdPushIconRect('lock', param, laneDrawLeft - 18, midY - 6);
 
             // Focus icon just left of the lock — click to blow this lane up full-canvas.
             const focusColor = isActive ? 'rgba(' + sdLaneColor(param, paramIdx) + ',0.95)' : 'rgba(161,161,170,0.5)';
             _drawFocusIcon(sdCtx, laneDrawLeft - 36, midY - 6, 12, focusColor);
+            _sdPushIconRect('focus', param, laneDrawLeft - 36, midY - 6);
 
             // Range toggle just left of the focus icon — click to give this param its own min/max
             // band; drag the boundaries to set it. Lit in the lane colour when on.
             const rangeColor = param.rangeOn ? 'rgba(' + sdLaneColor(param, paramIdx) + ',0.95)' : 'rgba(161,161,170,0.5)';
             _drawRangeIcon(sdCtx, laneDrawLeft - 54, midY - 6, 12, rangeColor, param.rangeOn);
+            _sdPushIconRect('range', param, laneDrawLeft - 54, midY - 6);
 
             // Lane-speed slot left of the range icon (wrapper): press and DRAG up/down to
             // step the rate ladder. At 1x = a small metronome ("riding the track tempo");
@@ -4756,6 +4833,8 @@
                 } else {
                     _drawSpeedIcon(sdCtx, laneDrawLeft - 72, midY - 6, 12, 'rgba(161,161,170,0.5)');
                 }
+                // Same slot either way: the value text is centred on the icon's box.
+                _sdPushIconRect('speed', param, laneDrawLeft - 72, midY - 6);
             }
 
             // ── Motions + Link lane chrome (wrapper) ─────────────────────
@@ -5197,7 +5276,11 @@
                     if (e.code === 'Digit5') { e.preventDefault(); sdGridToggleAdaptive(); return; }
                 }
             }
-            if (e.code === 'Escape') { sdClearSelection(); return; }
+            if (e.code === 'Escape') {
+                if (_sdStampDrag) { _sdStampDrag = null; _sdDragReadout = null; sdDrawCanvasGrid(); return; }   // cancel the in-flight stamp
+                if (_sdStampShape) { _sdStampArm(_sdStampShape); return; }                                      // put the pen down
+                sdClearSelection(); return;
+            }
             // Delete / Backspace: clear the curve on the selected (or active) lane(s).
             // Wipe a lane to redraw it, or empty a duplicated clip's carried-over
             // curve. Skipped while typing in a field. sdClearCurrentCanvas is
@@ -5348,30 +5431,29 @@
                 // label column toggles the lane's lock state. Works from
                 // any lane (active or not), so users don't have to first
                 // activate a lane just to lock it.
-                const lockHitLeft = SD_MULTI_LABEL_WIDTH - SD_MULTI_LOCK_HIT_W;
-                const lockHitRight = SD_MULTI_LABEL_WIDTH;
-                if (mx >= lockHitLeft && mx <= lockHitRight) {
+                // The three lane glyphs are hit-tested against the rects recorded
+                // when they were DRAWN, so a click only counts on the glyph itself.
+                // Previously these compared mx alone, which made the full height of
+                // the lane live: clicking above the range glyph toggled the range.
+                const _icon = _sdLaneIconAt(mx, my);
+
+                if (_icon && _icon.kind === 'lock') {
                     if (typeof window.sdToggleLockLane === 'function') {
                         window.sdToggleLockLane(hit.param.envelopeId);
                     }
                     return;
                 }
 
-                // Focus-icon click — the ~20px zone just left of the lock blows
-                // this lane up into full-canvas focus view.
-                const focusHitRight = lockHitLeft;
-                const focusHitLeft = focusHitRight - SD_MULTI_FOCUS_HIT_W;
-                if (mx >= focusHitLeft && mx < focusHitRight) {
+                // Focus icon — blows this lane up into full-canvas focus view.
+                if (_icon && _icon.kind === 'focus') {
                     if (typeof window.sdFocusLane === 'function') window.sdFocusLane(hit.param.envelopeId);
                     return;
                 }
 
-                // Range-icon click — just left of the focus icon. Single click toggles the
-                // per-param output range (default full 0..1; drag the boundaries to narrow it);
-                // double click resets it to full.
-                const rangeHitRight = focusHitLeft;
-                const rangeHitLeft = rangeHitRight - SD_MULTI_FOCUS_HIT_W;
-                if (mx >= rangeHitLeft && mx < rangeHitRight) {
+                // Range icon. Single click toggles the per-param output range
+                // (default full 0..1; drag the boundaries to narrow it); double
+                // click resets it to full.
+                if (_icon && _icon.kind === 'range') {
                     const p = hit.param;
                     pushUndo();   // ranges are undoable (checkpoint BEFORE the toggle/reset mutates)
                     const now = (window.performance && performance.now) ? performance.now() : Date.now();
@@ -5399,9 +5481,7 @@
                 if (window.strideLink && window.strideLink._wrapper) {
                     // Speed glyph — the ~20px zone left of the range icon arms a vertical
                     // rate-ladder drag (up = faster). No popup; release commits.
-                    const speedHitRight = rangeHitLeft;
-                    const speedHitLeft = speedHitRight - SD_MULTI_FOCUS_HIT_W;
-                    if (mx >= speedHitLeft && mx < speedHitRight) {
+                    if (_icon && _icon.kind === 'speed') {
                         const _sp0 = (typeof hit.param.speed === 'number' && hit.param.speed > 0) ? hit.param.speed : 1;
                         _sdSpeedDrag = { param: hit.param, startY: my, startIdx: _sdSpeedIdx(_sp0), lastIdx: _sdSpeedIdx(_sp0) };
                         sdCanvasEl.style.cursor = 'ns-resize';
@@ -5524,8 +5604,35 @@
                 return;
             }
             const bars = sdGetBars(); const totalBeats = bars * 4;
-            const hitT = (totalBeats * 0.02) / sdViewZoomX; const hitV = 0.05;
+            // STAMP (focus deck): an armed shape owns the gesture. Left drag lays it
+            // down; right-click puts the pen down without drawing.
+            if (sdViewMode === 'focus' && _sdStampShape && sdActiveTool !== 'freehand') {
+                if (e.button === 2) { _sdStampArm(_sdStampShape); return; }
+                if (e.button === 0) {
+                    const t = e.shiftKey ? hd.time : sdSnapDrawBeat(hd.time);
+                    const v = _sdSnapValue(hd.value, e);
+                    _sdStampDrag = { t0: t, v0: v, tCur: t, vCur: v, rand: [] };
+                    _sdDragReadout = null;
+                    sdDrawCanvasGrid();
+                    return;
+                }
+            }
+            const hitT = (totalBeats * 0.025) / sdViewZoomX; const hitV = 0.06;
             let idx = param.points.findIndex(pt => Math.abs(pt.time - hd.time) < hitT && Math.abs(pt.value - hd.value) < hitV);
+            // Segment bend handle (focus view): grab the visible midpoint dot. Same
+            // machinery as Alt+drag — the handle just makes it discoverable.
+            if (sdViewMode === 'focus' && e.button === 0 && idx === -1 && _sdHandleRects.length && sdActiveTool === 'select') {
+                const _hr = sdCanvasEl.getBoundingClientRect();
+                const _hx = e.clientX - _hr.left, _hy = e.clientY - _hr.top;
+                for (const h of _sdHandleRects) {
+                    if (Math.abs(_hx - h.x) <= 8 && Math.abs(_hy - h.y) <= 8) {
+                        sdIsCurveDragging = true;
+                        sdCurveDragSegment = { point: h.point, startY: e.clientY, startCurve: h.point.curve || 0 };
+                        sdCanvasEl.style.cursor = 'ns-resize';
+                        return;
+                    }
+                }
+            }
             if (e.button === 2) { if (idx !== -1) { pushUndo(); param.points.splice(idx, 1); sdRenderSidebar(); sdDrawCanvasGrid(); if (_sdActiveTool === 'prism' && param.envelopeId === sdActiveParamId) _sdPrismLiveTick(); } return; }
             // ALT+click on a segment → curve drag
             if (e.altKey && param.points.length >= 2 && sdActiveTool === 'select') {
@@ -5539,11 +5646,17 @@
                     }
                 }
             }
-            if (sdActiveTool === 'freehand') { sdIsDragging = true; sdPaintFreehand(hd.time, hd.value, param, totalBeats); }
+            if (sdActiveTool === 'freehand') {
+                sdIsDragging = true;
+                // Shift + Free in focus view = STEP DRAW: one flat value per grid cell.
+                if (e.shiftKey && sdViewMode === 'focus') { pushUndo(); _sdPaintStepCell(hd, param, totalBeats); }
+                else sdPaintFreehand(hd.time, hd.value, param, totalBeats);
+            }
             else {
                 if (idx !== -1) { sdIsDragging = true; sdDraggedPoint = param.points[idx]; sdDrawCanvasGrid(); }
                 else {
-                    const np = { time: sdSnapDrawBeat(hd.time), value: Math.max(0, Math.min(1, hd.value)) };
+                    // Shift = place free (no time/value snap); otherwise both snap.
+                    const np = { time: e.shiftKey ? Math.max(0, Math.min(totalBeats, hd.time)) : sdSnapDrawBeat(hd.time), value: _sdSnapValue(hd.value, e) };
                     // Sort IMMEDIATELY — the array must stay time-ordered. The renderer draws
                     // from sorted COPIES so an appended point LOOKS right, but every consumer of
                     // the raw array (live drive, inject, saved state) walks it in order, and the
@@ -5630,6 +5743,15 @@
                 sdCurveDragSegment.point.curve = Math.max(-1, Math.min(1, sdCurveDragSegment.startCurve + delta));
                 sdDrawCanvasGrid(); return;
             }
+            if (_sdStampDrag) {   // stamping: the ghost is the exact commit, live under the cursor
+                const hdS = sdGetTimeValue(e);
+                const tbS = sdGetBars() * 4;
+                _sdStampDrag.tCur = Math.max(0, Math.min(tbS, e.shiftKey ? hdS.time : sdSnapDrawBeat(hdS.time)));
+                _sdStampDrag.vCur = _sdSnapValue(hdS.value, e);
+                const rS = sdCanvasEl.getBoundingClientRect();
+                _sdDragReadout = { x: e.clientX - rS.left, y: e.clientY - rS.top, text: _sdReadoutText(_sdStampDrag.tCur, _sdStampDrag.vCur) };
+                sdDrawCanvasGrid(); return;
+            }
             if (e.altKey && !sdIsDragging && !sdIsPanning && sdActiveParamId && sdActiveTool === 'select') {
                 const hd = sdGetTimeValue(e);
                 const param = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
@@ -5645,6 +5767,7 @@
                 // Range affordance: hovering a min/max field OR a dashed boundary line on a
                 // ranged lane shows the two-arrow (ns-resize) cursor so it reads as grabbable.
                 let _rangeCur = false;
+                let _iconCur = null;
                 if (sdViewMode === 'multi') {
                     const _mr = sdCanvasEl.getBoundingClientRect();
                     const _mx = e.clientX - _mr.left, _my = e.clientY - _mr.top;
@@ -5652,7 +5775,11 @@
                         const _f = _sdRangeFieldRects[_fi];
                         if (_mx >= _f.x && _mx <= _f.x + _f.w && _my >= _f.y && _my <= _f.y + _f.h) { _rangeCur = true; break; }
                     }
-                    if (!_rangeCur && _mx > SD_MULTI_LABEL_WIDTH) {
+                    // Lane glyphs (range / focus / lock / speed). Same rects and the
+                    // same precedence as the mousedown path, so the cursor is an
+                    // honest promise: if it changes, the click WILL act on that glyph.
+                    if (!_rangeCur) _iconCur = _sdLaneIconAt(_mx, _my);
+                    if (!_rangeCur && !_iconCur && _mx > SD_MULTI_LABEL_WIDTH) {
                         const _h = sdMultiGetParamAtY(_my);
                         if (_h && _h.param.rangeOn) {
                             const _yMin = _h.rect.bottom - (_h.param.rangeMin || 0) * _h.rect.height;
@@ -5661,14 +5788,28 @@
                         }
                     }
                 }
-                sdCanvasEl.style.cursor = _rangeCur ? 'ns-resize' : (_sdHoverUnmapId ? 'pointer' : 'crosshair');
+                // pointer = a click acts here. ns-resize = drag me. crosshair = draw.
+                sdCanvasEl.style.cursor = _iconCur
+                    ? (_iconCur.kind === 'speed' ? 'ns-resize' : 'pointer')
+                    : (_rangeCur ? 'ns-resize' : (_sdHoverUnmapId ? 'pointer' : 'crosshair'));
             }
             if (!sdIsDragging) return;
             const hd = sdGetTimeValue(e); const bars = sdGetBars(); const totalBeats = bars * 4;
-            if (sdActiveTool === 'freehand') { const param = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId); sdPaintFreehand(hd.time, hd.value, param, totalBeats); }
+            if (sdActiveTool === 'freehand') {
+                const param = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
+                if (e.shiftKey && sdViewMode === 'focus') _sdPaintStepCell(hd, param, totalBeats);
+                else sdPaintFreehand(hd.time, hd.value, param, totalBeats);
+            }
             else if (sdDraggedPoint) {
-                sdDraggedPoint.time = Math.max(0, Math.min(totalBeats, sdSnapDrawBeat(hd.time)));
-                sdDraggedPoint.value = Math.max(0, Math.min(1, hd.value)); sdDrawCanvasGrid();
+                // Shift frees BOTH axes mid-drag (the Current convention); the readout
+                // chip says exactly where the point sits either way.
+                sdDraggedPoint.time = Math.max(0, Math.min(totalBeats, e.shiftKey ? hd.time : sdSnapDrawBeat(hd.time)));
+                sdDraggedPoint.value = _sdSnapValue(hd.value, e);
+                if (sdViewMode === 'focus') {
+                    const rD = sdCanvasEl.getBoundingClientRect();
+                    _sdDragReadout = { x: e.clientX - rD.left, y: e.clientY - rD.top, text: _sdReadoutText(sdDraggedPoint.time, sdDraggedPoint.value) };
+                }
+                sdDrawCanvasGrid();
             }
             // Prism live-draw: rAF-throttled recompute while user is
             // editing the source lane. The tick restores variants from
@@ -5918,6 +6059,8 @@
         });
 
         window.addEventListener('mouseup', e => {
+            if (_sdStampDrag) { _sdStampCommit(); return; }   // stamp lays down on release, stays armed
+            if (_sdDragReadout) _sdDragReadout = null;
             if (_sdRangeNumDrag) {   // finished scrubbing a numeric min/max field — persist + re-drive
                 _sdRangeNumDrag = null;
                 if (sdCanvasEl) sdCanvasEl.style.cursor = 'crosshair';
@@ -6034,10 +6177,13 @@
 
     window.sdSetTool = function(tool) {
         sdActiveTool = tool;
+        // An armed chip owns select-tool gestures only; picking Free is an explicit
+        // hand-draw intent, so the pen cursor stands down with the stamp (2026-08-30).
+        try { if (sdCanvasEl && sdViewMode === 'focus') sdCanvasEl.style.cursor = (_sdStampShape && tool !== 'freehand') ? 'cell' : 'crosshair'; } catch (e) {}
         const bS = document.getElementById('sd-tool-select');
         const bF = document.getElementById('sd-tool-freehand');
-        if (tool === 'select') { bS.className = "tool-btn bg-fuchsia-500/20 text-fuchsia-400 px-3 py-1 rounded text-[9px] uppercase tracking-wider font-bold transition-colors"; bF.className = "tool-btn text-zinc-400 hover:text-fuchsia-400 px-3 py-1 rounded text-[9px] uppercase tracking-wider font-bold transition-colors"; }
-        else { bF.className = "tool-btn bg-fuchsia-500/20 text-fuchsia-400 px-3 py-1 rounded text-[9px] uppercase tracking-wider font-bold transition-colors"; bS.className = "tool-btn text-zinc-400 hover:text-fuchsia-400 px-3 py-1 rounded text-[9px] uppercase tracking-wider font-bold transition-colors"; }
+        bS.classList.toggle('is-on', tool === 'select');
+        bF.classList.toggle('is-on', tool !== 'select');
         // Compact-mode Point/Free mirror the active tool too (own ids; toggle via
         // classList so their smaller sizing is preserved). Without this, clicking
         // Free in compact switched the tool but the button never lit up ("nothing happens").
@@ -6045,8 +6191,7 @@
         const qF = document.getElementById('qpc-tool-free');
         if (qP && qF) {
             const on = (tool === 'select') ? qP : qF, off = (tool === 'select') ? qF : qP;
-            on.classList.add('bg-fuchsia-500/20', 'text-fuchsia-400'); on.classList.remove('text-zinc-400');
-            off.classList.remove('bg-fuchsia-500/20', 'text-fuchsia-400'); off.classList.add('text-zinc-400');
+            on.classList.add('is-on'); off.classList.remove('is-on');
         }
     };
 
@@ -7153,6 +7298,7 @@
     // offset resets on toggle so the user always sees the active lane.
     window.sdToggleViewMode = function() {
         sdViewMode = sdViewMode === 'multi' ? 'focus' : 'multi';
+        if (typeof _sdDeckSync === 'function') _sdDeckSync();   // deck appears/disappears WITH the view, before the redraw sizes the canvas
         // Reset time pan so multi view starts cleanly — the focus pan math
         // uses full-width whereas multi uses width - label column, so reusing
         // the old pan value can make curves look off-screen at the boundary.
@@ -7171,15 +7317,10 @@
         // Update the button appearance
         const btn = document.getElementById('sd-view-mode-toggle');
         if (btn) {
-            if (sdViewMode === 'multi') {
-                btn.classList.add('bg-fuchsia-500/20', 'border-fuchsia-500/50', 'text-fuchsia-300');
-                btn.classList.remove('text-zinc-500', 'border-white/10');
-                btn.title = 'Currently in Multi-Lane view — click to return to Focus view';
-            } else {
-                btn.classList.remove('bg-fuchsia-500/20', 'border-fuchsia-500/50', 'text-fuchsia-300');
-                btn.classList.add('text-zinc-500', 'border-white/10');
-                btn.title = 'Click to switch to Multi-Lane view — see every parameter at once';
-            }
+            btn.classList.toggle('is-on', sdViewMode === 'multi');
+            btn.title = (sdViewMode === 'multi')
+                ? 'Currently in Multi-Lane view — click to return to Focus view'
+                : 'Click to switch to Multi-Lane view — see every parameter at once';
         }
         sdDrawCanvasGrid();
     };
@@ -7659,7 +7800,7 @@
         // 1×6 vertical stack — every tool gets its own full-width row.
         const btn = (onclick, id, name, title, icon) =>
             '<button onclick="' + onclick + '"' + (id ? ' id="' + id + '"' : '')
-            + ' title="' + title + '" class="flex items-center justify-center gap-1 text-[9px] text-zinc-950 bg-orange-400 hover:bg-orange-300 border border-black/10 shadow-sm px-2 py-2 rounded uppercase tracking-wider font-black transition-colors">'
+            + ' title="' + title + '" class="sbtn sbtn--go">'
             + '<svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="' + icon + '"/></svg>'
             + '<span>' + name + '</span></button>';
         sec.innerHTML = '<div class="text-[8px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-1.5 px-1">Motion</div>'
@@ -7670,7 +7811,7 @@
             + btn('sdTogglePrism()', 'sd-prism-btn', 'Prism', 'Prism: draw on one lane, every other lane responds live with the same anchors and a different path', 'M12 3 L21 21 L3 21 Z')
             + '<div class="flex gap-0.5">'
             + btn('sdApplyGlobalSampleHold()', '', 'S&amp;H', 'Sample &amp; Hold: stepped random on every unlocked lane. Poly = per-bar rates, each lane unique (polyrhythmic); grid = every step on the ▾ division. Click again to reroll.', 'M3 16 H7 V11 H11 V15 H15 V8 H19 V13').replace('class="flex items-center justify-center gap-1', 'class="flex-1 flex items-center justify-center gap-1')
-            + '<button onclick="window.sdOpenShModePopup(event)" title="S&amp;H mode — Poly (classic) or a fixed grid: 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/32T" class="sd-sh-mode-btn shrink-0 flex items-center text-[8px] text-zinc-400 hover:text-zinc-100 bg-zinc-800 hover:bg-zinc-700 border border-black/10 shadow-sm px-1 rounded font-bold transition-colors">▾</button>'
+            + '<button onclick="window.sdOpenShModePopup(event)" title="S&amp;H mode — Poly (classic) or a fixed grid: 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/32T" class="sbtn sbtn--icon sbtn--seg-r sd-sh-mode-btn shrink-0 flex items-center">▾</button>'
             + '</div>'
             + btn('sdApplyGlobalReflector()', '', 'Reflector', 'Reflector: pairs every unlocked lane into base + mirror — half Neuro, half Chaos, each followed by its value-mirrored twin so the rack folds in on itself', 'M5 8 L11 12 L5 16 M19 8 L13 12 L19 16')
             + '</div>';
@@ -7686,7 +7827,7 @@
         if (!sec) return;
         sec.innerHTML = ''
             + '<div class="flex items-center justify-between mb-2 px-1">'
-            + '<button onclick="sdCancelTool()" title="Cancel and revert" class="text-[9px] text-zinc-500 hover:text-zinc-200 transition-colors flex items-center gap-0.5">'
+            + '<button onclick="sdCancelTool()" title="Cancel and revert" class="sbtn">'
             + '<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>Back</button>'
             + '<span class="text-[9px] font-black text-amber-400 uppercase tracking-[0.2em]">Bloom</span>'
             + '<span class="text-[8px] text-amber-400/70 uppercase tracking-widest font-bold">Live</span>'
@@ -7699,8 +7840,8 @@
             + '<span id="sd-bloom-val" class="text-[9px] text-amber-400 font-mono w-9 text-right">50%</span>'
             + '</div>'
             + '<div class="flex gap-1.5 mt-1">'
-            + '<button onclick="sdCommitTool()" class="flex-1 text-[9px] text-black bg-amber-500 hover:bg-amber-400 py-1.5 rounded uppercase tracking-wider font-bold transition-colors">Commit</button>'
-            + '<button onclick="sdCancelTool()" class="flex-1 text-[9px] text-zinc-400 bg-white/5 hover:bg-white/10 border border-white/10 py-1.5 rounded uppercase tracking-wider font-bold transition-colors">Cancel</button>'
+            + '<button onclick="sdCommitTool()" class="sbtn sbtn--go flex-1">Commit</button>'
+            + '<button onclick="sdCancelTool()" class="sbtn flex-1">Cancel</button>'
             + '</div>'
             + '</div>';
     }
@@ -7709,12 +7850,12 @@
         const sec = document.getElementById('sd-generative-section');
         if (!sec) return;
         const isChase = _weaveMode === 'chase';
-        const chaseClass = isChase ? 'text-cyan-400 bg-cyan-500/20 border-cyan-500/40' : 'text-zinc-500 bg-transparent border-white/10 hover:border-white/20';
-        const fillClass  = !isChase ? 'text-cyan-400 bg-cyan-500/20 border-cyan-500/40' : 'text-zinc-500 bg-transparent border-white/10 hover:border-white/20';
+        const chaseClass = isChase ? ' is-on' : '';
+        const fillClass  = !isChase ? ' is-on' : '';
         const desc = isChase ? 'Same shape, phase-shifted — peaks never overlap' : 'Counterpoint — lanes move where the source is still';
         sec.innerHTML = ''
             + '<div class="flex items-center justify-between mb-2 px-1">'
-            + '<button onclick="sdCancelTool()" title="Cancel and revert" class="text-[9px] text-zinc-500 hover:text-zinc-200 transition-colors flex items-center gap-0.5">'
+            + '<button onclick="sdCancelTool()" title="Cancel and revert" class="sbtn">'
             + '<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>Back</button>'
             + '<span class="text-[9px] font-black text-cyan-400 uppercase tracking-[0.2em]">Weave</span>'
             + '<span class="text-[8px] text-cyan-400/70 uppercase tracking-widest font-bold">Live</span>'
@@ -7722,8 +7863,8 @@
             + '<div class="text-[8px] text-zinc-600 leading-relaxed px-1 mb-1">Active lane is the source — other unlocked lanes weave around it.</div>'
             + '<div class="px-1 flex flex-col gap-2">'
             + '<div class="flex gap-1.5">'
-            + '<button id="sd-weave-mode-chase" onclick="sdSetWeaveMode(\'chase\')" class="flex-1 text-[8px] ' + chaseClass + ' border py-1 rounded uppercase tracking-widest font-bold">Chase</button>'
-            + '<button id="sd-weave-mode-fill" onclick="sdSetWeaveMode(\'fill\')" class="flex-1 text-[8px] ' + fillClass + ' border py-1 rounded uppercase tracking-widest font-bold">Fill</button>'
+            + '<button id="sd-weave-mode-chase" onclick="sdSetWeaveMode(\'chase\')" class="sbtn flex-1' + chaseClass + '">Chase</button>'
+            + '<button id="sd-weave-mode-fill" onclick="sdSetWeaveMode(\'fill\')" class="sbtn flex-1' + fillClass + '">Fill</button>'
             + '</div>'
             + '<div id="sd-weave-desc" class="text-[8px] text-zinc-600 leading-relaxed px-0.5">' + desc + '</div>'
             + '<div class="flex items-center gap-2">'
@@ -7732,8 +7873,8 @@
             + '<span id="sd-weave-val" class="text-[9px] text-cyan-400 font-mono w-9 text-right">50%</span>'
             + '</div>'
             + '<div class="flex gap-1.5 mt-1">'
-            + '<button onclick="sdCommitTool()" class="flex-1 text-[9px] text-black bg-cyan-500 hover:bg-cyan-400 py-1.5 rounded uppercase tracking-wider font-bold transition-colors">Commit</button>'
-            + '<button onclick="sdCancelTool()" class="flex-1 text-[9px] text-zinc-400 bg-white/5 hover:bg-white/10 border border-white/10 py-1.5 rounded uppercase tracking-wider font-bold transition-colors">Cancel</button>'
+            + '<button onclick="sdCommitTool()" class="sbtn sbtn--go flex-1">Commit</button>'
+            + '<button onclick="sdCancelTool()" class="sbtn flex-1">Cancel</button>'
             + '</div>'
             + '</div>';
     }
@@ -8732,7 +8873,7 @@
         if (!sec) return;
         sec.innerHTML = ''
             + '<div class="flex items-center justify-between mb-2 px-1">'
-            + '<button onclick="sdCancelTool()" title="Cancel and revert" class="text-[9px] text-zinc-500 hover:text-zinc-200 transition-colors flex items-center gap-0.5">'
+            + '<button onclick="sdCancelTool()" title="Cancel and revert" class="sbtn">'
             + '<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>Back</button>'
             + '<span class="text-[9px] font-black text-amber-400 uppercase tracking-[0.2em]">Prism</span>'
             + '<span class="text-[8px] text-amber-400/70 uppercase tracking-widest font-bold">Live</span>'
@@ -8744,12 +8885,12 @@
             + '<input type="range" id="sd-prism-diversity" min="0" max="100" value="100" class="flex-1 h-1 accent-amber-500 cursor-pointer" oninput="_sdToolMorph(this.value)">'
             + '<span id="sd-prism-val" class="text-[9px] text-amber-400 font-mono w-9 text-right">100%</span>'
             + '</div>'
-            + '<button onclick="sdPrismReroll()" title="Re-roll personality assignments across variant lanes" class="text-[9px] text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-500/50 py-1.5 rounded uppercase tracking-wider font-bold transition-colors flex items-center justify-center gap-1">'
+            + '<button onclick="sdPrismReroll()" title="Re-roll personality assignments across variant lanes" class="sbtn">'
             + '<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>'
             + 'Reroll</button>'
             + '<div class="flex gap-1.5 mt-1">'
-            + '<button onclick="sdCommitTool()" class="flex-1 text-[9px] text-black bg-amber-500 hover:bg-amber-400 py-1.5 rounded uppercase tracking-wider font-bold transition-colors">Commit</button>'
-            + '<button onclick="sdCancelTool()" class="flex-1 text-[9px] text-zinc-400 bg-white/5 hover:bg-white/10 border border-white/10 py-1.5 rounded uppercase tracking-wider font-bold transition-colors">Cancel</button>'
+            + '<button onclick="sdCommitTool()" class="sbtn sbtn--go flex-1">Commit</button>'
+            + '<button onclick="sdCancelTool()" class="sbtn flex-1">Cancel</button>'
             + '</div>'
             + '</div>';
     }
@@ -10103,8 +10244,8 @@
                     '<div class="text-[10px] text-zinc-200 font-bold truncate">' + (s.name || 'Untitled') + '</div>' +
                     '<div class="text-[8px] text-zinc-500">' + (s.device_name || '') + ' \u00b7 ' + s.param_count + ' params \u00b7 ' + s.clip_bars + ' bars \u00b7 ' + date + '</div>' +
                 '</div>' +
-                '<button onclick="sdLoadSession(\'' + s.filename.replace(/'/g, "\\'") + '\')" class="text-[8px] text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 px-2 py-1 rounded uppercase font-bold transition-all shrink-0">Load</button>' +
-                '<button onclick="sdDeleteSession(\'' + s.filename.replace(/'/g, "\\'") + '\')" title="Delete" class="text-[8px] text-red-400/60 hover:text-red-400 px-1.5 py-1 transition-colors shrink-0">\u2715</button>' +
+                '<button onclick="sdLoadSession(\'' + s.filename.replace(/'/g, "\\'") + '\')" class="sbtn shrink-0">Load</button>' +
+                '<button onclick="sdDeleteSession(\'' + s.filename.replace(/'/g, "\\'") + '\')" title="Delete" class="sbtn sbtn--icon sbtn--danger shrink-0">\u2715</button>' +
             '</div>';
         }).join('');
         if (filtered.length > MAX_VISIBLE_SESSIONS) {
@@ -10226,14 +10367,15 @@
         let html = shown.map((p, i) => {
             const isMulti = p.lanes.length > 1;
             const mode = isMulti ? 'all' : 'lane';
-            const color = isMulti ? 'fuchsia' : 'violet';
+            // One-lane vs all-lanes used to be violet vs fuchsia. The count is
+            // already in the tooltip, so the caps stay neutral metal.
             return '<button onclick="sdApplyPreset(' + i + ',\'' + mode + '\')" title="' + p.name + ' (' + p.lanes.length + (p.lanes.length === 1 ? ' lane' : ' lanes') + ')" ' +
-            'class="text-[9px] text-' + color + '-400 hover:text-' + color + '-300 bg-' + color + '-500/10 hover:bg-' + color + '-500/20 px-2 py-1 rounded uppercase font-bold transition-colors shrink-0 max-w-[80px] truncate">' +
+            'class="sbtn shrink-0 max-w-[80px] truncate">' +
             p.name + '</button>';
         }).join('');
 
         if (presets.length > MAX_INLINE_PRESETS) {
-            html += '<button onclick="sdShowAllPresets()" class="text-[9px] text-zinc-400 hover:text-zinc-200 bg-white/5 hover:bg-white/10 px-2 py-1 rounded font-bold transition-colors shrink-0">More\u2026</button>';
+            html += '<button onclick="sdShowAllPresets()" class="sbtn shrink-0">More\u2026</button>';
         }
 
         bar.innerHTML = html;
@@ -10331,9 +10473,9 @@
                     '<div class="text-[10px] text-zinc-200 font-bold truncate">' + p.name + '</div>' +
                     '<div class="text-[8px] text-zinc-500">' + scope + ' \u00b7 ' + p.bars + ' bars \u00b7 ' + date + '</div>' +
                 '</div>' +
-                '<button onclick="sdApplyPreset(' + i + ',\'lane\')" title="Load to active lane" class="text-[8px] text-violet-400 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 px-2 py-1 rounded uppercase font-bold transition-all shrink-0">Lane</button>' +
-                (laneCount > 1 ? '<button onclick="sdApplyPreset(' + i + ',\'all\')" title="Load all lanes" class="text-[8px] text-fuchsia-400 bg-fuchsia-500/10 hover:bg-fuchsia-500/20 border border-fuchsia-500/20 px-2 py-1 rounded uppercase font-bold transition-all shrink-0">All</button>' : '') +
-                '<button onclick="sdDeletePreset(' + i + ')" title="Delete" class="text-[8px] text-red-400/60 hover:text-red-400 px-1.5 py-1 transition-colors shrink-0">\u2715</button>' +
+                '<button onclick="sdApplyPreset(' + i + ',\'lane\')" title="Load to active lane" class="sbtn">Lane</button>' +
+                (laneCount > 1 ? '<button onclick="sdApplyPreset(' + i + ',\'all\')" title="Load all lanes" class="sbtn">All</button>' : '') +
+                '<button onclick="sdDeletePreset(' + i + ')" title="Delete" class="sbtn sbtn--icon sbtn--danger shrink-0">\u2715</button>' +
             '</div>';
         }).join('');
     }
@@ -11167,7 +11309,7 @@
                 return;
             }
             host.innerHTML = favs.map(m =>
-                '<button data-pinid="' + m.id + '" title="' + _sdEsc(m.name) + ' · click to load onto the active lane" '
+                '<button class="sbtn" data-pinid="' + m.id + '" title="' + _sdEsc(m.name) + ' · click to load onto the active lane" '
                 + 'style="display:flex;align-items:center;gap:5px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);'
                 + 'border-radius:6px;padding:1px 7px 1px 3px;cursor:pointer;flex:none">'
                 + '<span style="display:block;width:34px;height:14px;background:rgba(0,0,0,0.45);border-radius:3px;overflow:hidden">' + _sdMotionSpark(m, 34, 14) + '</span>'
@@ -11209,10 +11351,10 @@
         if (countEl) countEl.textContent = mine.length + ' saved · ' + (typeof STRIDE_PRESETS !== 'undefined' ? STRIDE_PRESETS.length : 0) + ' factory';
         const tabM = document.getElementById('sd-motions-tab-mine');
         const tabF = document.getElementById('sd-motions-tab-factory');
-        if (tabM) tabM.className = 'text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md transition-colors ' + (_sdMotionsTab === 'mine' ? 'text-orange-300 bg-orange-500/15' : 'text-zinc-500 hover:text-zinc-300');
-        if (tabF) tabF.className = 'text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md transition-colors ' + (_sdMotionsTab === 'factory' ? 'text-orange-300 bg-orange-500/15' : 'text-zinc-500 hover:text-zinc-300');
+        if (tabM) { tabM.className = 'sbtn'; tabM.classList.toggle('is-on', _sdMotionsTab === 'mine'); }
+        if (tabF) { tabF.className = 'sbtn'; tabF.classList.toggle('is-on', _sdMotionsTab === 'factory'); }
         const favBtn = document.getElementById('sd-motions-fav-filter');
-        if (favBtn) favBtn.className = 'ml-auto text-[10px] px-2 py-0.5 rounded-full border transition-colors ' + (_sdMotionsFavOnly ? 'border-orange-500/50 text-orange-300 bg-orange-500/10' : 'border-white/10 text-zinc-500 hover:text-orange-300');
+        if (favBtn) { favBtn.className = 'sbtn ml-auto'; favBtn.classList.toggle('is-on', !!_sdMotionsFavOnly); }
 
         if (_sdMotionsTab === 'factory') {
             const q = _sdMotionsSearch;
@@ -12210,5 +12352,492 @@
         // restore it via _sdRenderGenerativeDefault.
         _sdRenderGenerativeDefault();
     });
+
+
+    // ─── FOCUS DRAW DECK (2026-08-28) ─────────────────────────────────────────
+    // The drawing overhaul, focus view ONLY (field feedback: "clunky, hard to get
+    // usable shapes; starter shapes that snap to grid like Current / Infiltrator").
+    // A deck docks to the bottom of the canvas container while a lane is focused:
+    //   left   STARTER SHAPES - chips armed by click, stamped by dragging across
+    //          the lane: one cycle per grid step, band = press-to-drag values
+    //   middle SNAP - the time grid (existing ladder) + a NEW value ladder
+    //   right  ROLL - grid-aware pattern generator (steps/gates/ramps/smooth/euclid)
+    // Everything here is inert outside focus view: _sdDeckSync() hides the deck and
+    // every gesture checks sdViewMode === 'focus'. The canvas shrinks by the deck
+    // height through sdResizeCanvas, so the lane never hides under the panel.
+
+    const SD_DECK_H = 168, SD_DECK_H_MIN = 30;
+    let _sdDeckEl = null, _sdDeckShown = false, _sdDeckCollapsed = false, _sdDeckSyncing = false;
+    let _sdStampShape = null;          // armed chip key (null = not stamping)
+    let _sdStampInvert = false;
+    let _sdStampDrag = null;           // { t0, v0, tCur, vCur, rand: [] }
+    let _sdValSnapIdx = 2;             // 0 off · 1 halves · 2 quarters · 3 eighths · 4 five-percent
+    const SD_VAL_SNAP = [null, 0.5, 0.25, 0.125, 0.05];
+    const SD_VAL_SNAP_LABELS = ['Off', '1/2', '1/4', '1/8', '5%'];
+    let _sdRollFlavor = 'steps';
+    let _sdDragReadout = null;         // { x, y, text } drawn by the focus overlay
+    let _sdHandleRects = [];           // segment midpoint handles (focus only)
+
+    function _sdDeckHeight() {
+        if (!_sdDeckShown) return 0;
+        return _sdDeckCollapsed ? SD_DECK_H_MIN : SD_DECK_H;
+    }
+
+    // value snap: the missing half of the grid. Shift bypasses (Current convention).
+    function _sdSnapValue(v, ev) {
+        const c = Math.max(0, Math.min(1, v));
+        const s = SD_VAL_SNAP[_sdValSnapIdx];
+        if (!s || (ev && ev.shiftKey)) return c;
+        return Math.max(0, Math.min(1, Math.round(c / s) * s));
+    }
+
+    // ── starter shapes ──
+    // gen(lo, hi, cyc, rand) returns points of ONE cycle as { f, v, c } with f in
+    // 0..1 of the cycle. span 'drag' shapes cover the whole gesture instead.
+    function _sdShapeSine(lo, hi) {
+        const out = [];
+        for (let k = 0; k < 8; k++) {
+            const ph = k / 8;
+            out.push({ f: ph, v: lo + (hi - lo) * (1 - Math.cos(ph * Math.PI * 2)) / 2, c: 0.3 });
+        }
+        return out;
+    }
+    const SD_STAMP_SHAPES = [
+        { key: 'sine',    label: 'Sine',   span: 'cycle', icon: 'M2 12 Q6.5 1 11 12 T20 12 T29 12 T38 12',
+          gen: (lo, hi) => _sdShapeSine(lo, hi) },
+        { key: 'tri',     label: 'Tri',    span: 'cycle', icon: 'M2 20 L11 3 L20 20 L29 3 L38 20',
+          gen: (lo, hi) => [{ f: 0, v: lo, c: 0 }, { f: 0.5, v: hi, c: 0 }] },
+        { key: 'sawup',   label: 'Saw+',   span: 'cycle', icon: 'M2 20 L18 3 L18 20 L36 3 L36 20',
+          gen: (lo, hi) => [{ f: 0, v: lo, c: 0 }, { f: 0.97, v: hi, c: 0 }, { f: 0.995, v: lo, c: 0 }] },
+        { key: 'sawdn',   label: 'Saw-',   span: 'cycle', icon: 'M2 3 L18 20 L18 3 L36 20 L36 3',
+          gen: (lo, hi) => [{ f: 0, v: hi, c: 0 }, { f: 0.97, v: lo, c: 0 }, { f: 0.995, v: hi, c: 0 }] },
+        { key: 'square',  label: 'Square', span: 'cycle', icon: 'M2 20 L2 3 L20 3 L20 20 L38 20 L38 3',
+          gen: (lo, hi) => [{ f: 0, v: hi, c: 0 }, { f: 0.475, v: hi, c: 0 }, { f: 0.5, v: lo, c: 0 }, { f: 0.975, v: lo, c: 0 }] },
+        { key: 'steps',   label: 'Steps',  span: 'cycle', icon: 'M2 5 L11 5 L11 10 L20 10 L20 15 L29 15 L29 20 L38 20',
+          gen: (lo, hi) => { const out = []; for (let k = 0; k < 4; k++) { const lvl = hi - (hi - lo) * (k / 3); out.push({ f: k / 4, v: lvl, c: 0 }); out.push({ f: (k + 1) / 4 - 0.02, v: lvl, c: 0 }); } return out; } },
+        { key: 'sh',      label: 'S+H',    span: 'cycle', icon: 'M2 14 L11 14 L11 5 L20 5 L20 18 L29 18 L29 9 L38 9',
+          gen: (lo, hi, cyc, rand) => { const r = lo + rand * (hi - lo); return [{ f: 0, v: r, c: 0 }, { f: 0.97, v: r, c: 0 }]; } },
+        { key: 'swell',   label: 'Swell',  span: 'drag',  icon: 'M2 20 Q26 20 38 3',
+          gen: (lo, hi) => [{ f: 0, v: lo, c: 0.55 }, { f: 1, v: hi, c: 0 }] },
+        { key: 'fade',    label: 'Fade',   span: 'drag',  icon: 'M2 3 Q26 3 38 20',
+          gen: (lo, hi) => [{ f: 0, v: hi, c: -0.55 }, { f: 1, v: lo, c: 0 }] },
+        { key: 'line',    label: 'Line',   span: 'drag',  icon: 'M2 18 L38 5', raw: true,
+          gen: (a, b) => [{ f: 0, v: a, c: 0 }, { f: 1, v: b, c: 0 }] },
+    ];
+    function _sdShapeByKey(k) { for (const s of SD_STAMP_SHAPES) if (s.key === k) return s; return null; }
+
+    // Build the point list for a stamp gesture. Cycle shapes repeat once per grid
+    // step; drag shapes span the whole gesture. Returns { pts, t0, t1 } or null.
+    function _sdStampPoints(drag) {
+        const shape = _sdShapeByKey(_sdStampShape);
+        if (!shape) return null;
+        const grid = sdVisualGridBeats();
+        const totalBeats = sdGetBars() * 4;
+        let t0 = Math.min(drag.t0, drag.tCur), t1 = Math.max(drag.t0, drag.tCur);
+        t0 = Math.max(0, t0); t1 = Math.min(totalBeats, t1);
+        if (t1 - t0 < grid * 0.5) t1 = Math.min(totalBeats, t0 + grid);   // a click = one grid cell
+        let lo = Math.min(drag.v0, drag.vCur), hi = Math.max(drag.v0, drag.vCur);
+        if (_sdStampInvert && !shape.raw) { const sw = lo; lo = hi; hi = sw; }   // inverted band flips the shape
+        const pts = [];
+        if (shape.span === 'drag') {
+            const a = shape.raw ? drag.v0 : lo, b = shape.raw ? drag.vCur : hi;
+            shape.gen(a, b).forEach(s => pts.push({ time: t0 + s.f * (t1 - t0), value: s.v, curve: s.c || 0 }));
+        } else {
+            const n = Math.max(1, Math.round((t1 - t0) / grid));
+            t1 = Math.min(totalBeats, t0 + n * grid);
+            for (let cyc = 0; cyc < n; cyc++) {
+                if (drag.rand[cyc] === undefined) drag.rand[cyc] = Math.random();
+                shape.gen(lo, hi, cyc, drag.rand[cyc]).forEach(s => {
+                    const t = t0 + (cyc + s.f) * grid;
+                    if (t <= totalBeats + 1e-6) pts.push({ time: Math.round(t * 10000) / 10000, value: s.v, curve: s.c || 0 });
+                });
+            }
+            const first = pts.length ? pts[0].value : lo;
+            if (t1 <= totalBeats + 1e-6) pts.push({ time: Math.round(t1 * 10000) / 10000, value: first, curve: 0 });   // close the loop cleanly
+        }
+        return { pts, t0, t1 };
+    }
+
+    function _sdStampCommit() {
+        const drag = _sdStampDrag;
+        _sdStampDrag = null; _sdDragReadout = null;
+        const param = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
+        if (!drag || !param || param.locked || sdViewMode !== 'focus') { sdDrawCanvasGrid(); return; }
+        const made = _sdStampPoints(drag);
+        if (!made || !made.pts.length) { sdDrawCanvasGrid(); return; }
+        pushUndo();
+        param.points = param.points.filter(pt => pt.time < made.t0 - 1e-6 || pt.time > made.t1 + 1e-6);
+        made.pts.forEach(pt => param.points.push(pt));
+        param.points.sort((a, b) => a.time - b.time);
+        sdRenderSidebar(); sdDrawCanvasGrid();
+        try { Promise.resolve(saveCanvasState()); } catch (e) {}
+        const sh = _sdShapeByKey(_sdStampShape);
+        const st = document.getElementById('sd-canvas-status');
+        if (st && sh) st.textContent = 'Stamped ' + sh.label + ': drag again, or Esc to put the pen down';
+    }
+
+    function _sdStampArm(key) {
+        _sdStampShape = (_sdStampShape === key) ? null : key;
+        _sdStampDrag = null;
+        if (sdCanvasEl) sdCanvasEl.style.cursor = _sdStampShape ? 'cell' : 'crosshair';
+        _sdDeckPaintArm();
+        const st = document.getElementById('sd-canvas-status');
+        const sh = _sdShapeByKey(_sdStampShape);
+        if (st) st.textContent = sh ? (sh.label + ' armed: drag across the lane, 1 ' + (sh.span === 'cycle' ? 'cycle per grid step' : 'sweep') + ', height = your drag. Esc releases.') : '';
+        sdDrawCanvasGrid();
+    }
+
+    // Shift+click a chip = fill the selection (or the whole lane) in place.
+    function _sdStampFill(key) {
+        const param = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
+        if (!param || param.locked || sdViewMode !== 'focus') return;
+        const totalBeats = sdGetBars() * 4;
+        const sel = sdGetSelection();
+        const keep = _sdStampShape;
+        _sdStampShape = key;
+        const drag = { t0: sel ? sel.startBeat : 0, tCur: sel ? sel.endBeat : totalBeats, v0: 0, vCur: 1, rand: [] };
+        _sdStampDrag = drag;
+        _sdStampCommit();
+        _sdStampShape = keep;
+        _sdDeckPaintArm();
+    }
+
+    // ── ROLL: the grid-aware pattern generator (Current's randomizer, Infiltrator's
+    // Euclid) - new pattern per press, inside the selection or the whole lane. ──
+    const SD_ROLL_FLAVORS = ['steps', 'gates', 'ramps', 'smooth', 'euclid'];
+    function _sdRollLevel() {
+        const s = SD_VAL_SNAP[_sdValSnapIdx];
+        const v = Math.random();
+        if (!s) return v;
+        return Math.max(0, Math.min(1, Math.round(v / s) * s));
+    }
+    window.sdRollPattern = function () {
+        const param = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
+        if (!param || sdViewMode !== 'focus') return;
+        if (param.locked) { const st = document.getElementById('sd-canvas-status'); if (st) st.textContent = 'Lane locked: unlock to roll'; return; }
+        const totalBeats = sdGetBars() * 4;
+        const sel = sdGetSelection();
+        const t0 = sel ? sel.startBeat : 0, t1 = sel ? sel.endBeat : totalBeats;
+        const grid = sdVisualGridBeats();
+        const n = Math.max(1, Math.round((t1 - t0) / grid));
+        const eps = Math.min(0.02, grid * 0.1);
+        const pts = [];
+        if (_sdRollFlavor === 'euclid') {
+            const k = Math.max(1, Math.round(n * (0.25 + Math.random() * 0.35)));
+            const rot = Math.floor(Math.random() * n);
+            for (let i = 0; i < n; i++) {
+                const on = Math.floor(((i + rot) % n) * k / n) !== Math.floor((((i + rot) % n) + 1) * k / n);
+                const v = on ? 1 : 0;
+                pts.push({ time: t0 + i * grid, value: v, curve: 0 });
+                pts.push({ time: t0 + (i + 1) * grid - eps, value: v, curve: 0 });
+            }
+        } else if (_sdRollFlavor === 'gates') {
+            for (let i = 0; i < n; i++) {
+                const v = Math.random() < 0.55 ? 1 : 0;
+                pts.push({ time: t0 + i * grid, value: v, curve: 0 });
+                pts.push({ time: t0 + (i + 1) * grid - eps, value: v, curve: 0 });
+            }
+        } else if (_sdRollFlavor === 'ramps') {
+            for (let i = 0; i < n; i++) {
+                pts.push({ time: t0 + i * grid, value: _sdRollLevel(), curve: 0 });
+                pts.push({ time: t0 + (i + 1) * grid - eps, value: _sdRollLevel(), curve: 0 });
+            }
+        } else if (_sdRollFlavor === 'smooth') {
+            for (let i = 0; i <= n; i++) pts.push({ time: Math.min(t1, t0 + i * grid), value: _sdRollLevel(), curve: 0.35 });
+        } else {   // steps
+            for (let i = 0; i < n; i++) {
+                const v = _sdRollLevel();
+                pts.push({ time: t0 + i * grid, value: v, curve: 0 });
+                pts.push({ time: t0 + (i + 1) * grid - eps, value: v, curve: 0 });
+            }
+        }
+        pushUndo();
+        param.points = param.points.filter(pt => pt.time < t0 - 1e-6 || pt.time > t1 + 1e-6);
+        pts.forEach(p => { if (p.time <= totalBeats + 1e-6) param.points.push(p); });
+        param.points.sort((a, b) => a.time - b.time);
+        sdRenderSidebar(); sdDrawCanvasGrid();
+        try { Promise.resolve(saveCanvasState()); } catch (e) {}
+        const st = document.getElementById('sd-canvas-status');
+        if (st) st.textContent = 'Roll · ' + _sdRollFlavor + ' · ' + n + ' steps on the ' + (document.getElementById('sd-grid-label') ? document.getElementById('sd-grid-label').textContent : 'grid') + ' grid: press again to reroll';
+    };
+
+    // Shift+drag with the Free tool = STEP DRAW: one flat value per grid cell
+    // (the Serum gesture). Values take the value ladder; time takes the grid.
+    function _sdPaintStepCell(hd, param, totalBeats) {
+        const grid = sdVisualGridBeats();
+        const cell = Math.floor(Math.max(0, Math.min(totalBeats - 1e-6, hd.time)) / grid);
+        const cs = cell * grid, ce = Math.min(totalBeats, (cell + 1) * grid);
+        const eps = Math.min(0.02, grid * 0.1);
+        const v = _sdSnapValue(hd.value, null);
+        param.points = param.points.filter(pt => pt.time < cs - 1e-6 || pt.time > ce - eps + 1e-6);
+        param.points.push({ time: cs, value: v, curve: 0 });
+        param.points.push({ time: Math.max(cs, ce - eps), value: v, curve: 0 });
+        param.points.sort((a, b) => a.time - b.time);
+        sdDrawCanvasGrid();
+    }
+
+    // ── focus overlays: ghost preview, segment handles, snap guides, readout ──
+    function _sdDrawFocusOverlays(param, lw, lh, totalBeats) {
+        _sdHandleRects = [];
+        if (sdViewMode !== 'focus') return;
+        const toX = (t) => ((t / totalBeats) * lw * sdViewZoomX) - sdViewPanX;
+        const toY = (v) => lh - (v * lh);
+
+        // value-snap guides while interacting
+        const vs = SD_VAL_SNAP[_sdValSnapIdx];
+        if (vs && (sdIsDragging || _sdStampDrag) && vs >= 0.125) {
+            sdCtx.save(); sdCtx.strokeStyle = 'rgba(255,255,255,0.06)'; sdCtx.lineWidth = 1;
+            for (let v = vs; v < 1 - 1e-6; v += vs) {
+                const y = toY(v);
+                sdCtx.beginPath(); sdCtx.moveTo(0, y); sdCtx.lineTo(lw, y); sdCtx.stroke();
+            }
+            sdCtx.restore();
+        }
+
+        // segment midpoint handles - the bend, finally visible
+        if (param && !param.locked && param.points.length >= 2 && sdActiveTool === 'select' && !_sdStampShape && !_sdStampDrag) {
+            const sorted = [...param.points].sort((a, b) => a.time - b.time);
+            sdCtx.save();
+            for (let i = 0; i < sorted.length - 1; i++) {
+                const x1 = toX(sorted[i].time), x2 = toX(sorted[i + 1].time);
+                if (x2 - x1 < 16 || x2 < -10 || x1 > lw + 10) continue;
+                const y1 = toY(sorted[i].value), y2 = toY(sorted[i + 1].value);
+                const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+                const cv = sorted[i].curve || 0;
+                const cpY = my - cv * Math.abs(y2 - y1) * 1.2;
+                const hy = 0.25 * y1 + 0.5 * cpY + 0.25 * y2;   // the quad curve at its midpoint
+                sdCtx.beginPath();
+                sdCtx.fillStyle = 'rgba(9,9,11,0.9)';
+                sdCtx.strokeStyle = 'rgba(' + sdSkinColors.rgb + ',0.8)';
+                sdCtx.lineWidth = 1.5;
+                sdCtx.arc(mx, hy, 4.5, 0, Math.PI * 2); sdCtx.fill(); sdCtx.stroke();
+                _sdHandleRects.push({ x: mx, y: hy, point: sorted[i] });
+            }
+            sdCtx.restore();
+        }
+
+        // stamp ghost: band + the exact points a release would commit
+        if (_sdStampDrag) {
+            const made = _sdStampPoints(_sdStampDrag);
+            if (made) {
+                const x0 = toX(made.t0), x1 = toX(made.t1);
+                const lo = Math.min(_sdStampDrag.v0, _sdStampDrag.vCur), hi = Math.max(_sdStampDrag.v0, _sdStampDrag.vCur);
+                sdCtx.save();
+                sdCtx.fillStyle = 'rgba(217,70,239,0.08)';
+                sdCtx.fillRect(x0, toY(hi), x1 - x0, Math.max(2, toY(lo) - toY(hi)));
+                sdCtx.strokeStyle = 'rgba(217,70,239,0.9)';
+                sdCtx.lineWidth = 2;
+                sdCtx.setLineDash([5, 4]);
+                sdCtx.beginPath();
+                made.pts.forEach((pt, i) => {
+                    const x = toX(pt.time), y = toY(pt.value);
+                    if (i === 0) sdCtx.moveTo(x, y);
+                    else {
+                        const prev = made.pts[i - 1];
+                        const cvp = prev.curve || 0;
+                        if (cvp === 0) sdCtx.lineTo(x, y);
+                        else {
+                            const px = toX(prev.time), py = toY(prev.value);
+                            sdCtx.quadraticCurveTo((px + x) / 2, (py + y) / 2 - cvp * Math.abs(y - py) * 1.2, x, y);
+                        }
+                    }
+                });
+                sdCtx.stroke();
+                sdCtx.setLineDash([]);
+                sdCtx.restore();
+            }
+        }
+
+        // the readout chip: what you are actually holding
+        if (_sdDragReadout) {
+            sdCtx.save();
+            sdCtx.font = 'bold 10px Outfit';
+            const tw = sdCtx.measureText(_sdDragReadout.text).width;
+            const rx = Math.max(4, Math.min(lw - tw - 18, _sdDragReadout.x + 14));
+            const ry = Math.max(4, Math.min(lh - 22, _sdDragReadout.y - 26));
+            sdCtx.fillStyle = 'rgba(9,9,11,0.92)';
+            sdCtx.strokeStyle = 'rgba(' + sdSkinColors.rgb + ',0.5)';
+            sdCtx.lineWidth = 1;
+            sdCtx.beginPath();
+            if (sdCtx.roundRect) sdCtx.roundRect(rx, ry, tw + 14, 18, 5); else sdCtx.rect(rx, ry, tw + 14, 18);
+            sdCtx.fill(); sdCtx.stroke();
+            sdCtx.fillStyle = 'rgba(244,244,245,0.95)';
+            sdCtx.textAlign = 'left'; sdCtx.textBaseline = 'middle';
+            sdCtx.fillText(_sdDragReadout.text, rx + 7, ry + 9.5);
+            sdCtx.restore();
+        }
+    }
+
+    function _sdReadoutText(t, v) {
+        const bar = Math.floor(t / 4) + 1;
+        const beat = Math.floor(t - (bar - 1) * 4) + 1;
+        return bar + '.' + beat + ' · ' + Math.round(Math.max(0, Math.min(1, v)) * 100) + '%';
+    }
+
+    // ── the deck DOM ──
+    function _sdChipHtml(s) {
+        return '<button data-stamp="' + s.key + '" title="' + s.label + ': click to arm, then drag across the lane (' + (s.span === 'cycle' ? '1 cycle per grid step' : 'spans your drag') + '). Shift+click fills the selection or the whole lane." '
+             + 'class="sbtn sbtn--chip sd-deck-chip shrink-0">'
+             + '<svg width="40" height="22" viewBox="0 0 40 22" fill="none"><path d="' + s.icon + '" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>'
+             + '<span class="text-[8px] uppercase tracking-wider font-bold">' + s.label + '</span></button>';
+    }
+
+    function _sdDeckBuild() {
+        const container = document.getElementById('sd-canvas-container');
+        if (!container || _sdDeckEl) return;
+        const d = document.createElement('div');
+        d.id = 'sd-focus-deck';
+        d.className = 'absolute bottom-0 left-0 right-0 z-20 hidden flex-col bg-zinc-950/95 backdrop-blur-sm border-t border-white/10 select-none';
+        d.style.cssText = 'height:' + SD_DECK_H + 'px;font-family:Outfit,sans-serif;';
+        d.innerHTML =
+          '<div class="flex items-center gap-3 px-3 shrink-0" style="height:' + SD_DECK_H_MIN + 'px">'
+        +   '<span class="text-[9px] font-black uppercase tracking-[0.25em] text-fuchsia-400">Draw</span>'
+        +   '<span class="text-[9px] font-bold uppercase tracking-wider text-zinc-600 truncate flex-1">Shapes stamp on the grid · Shift = free hand · Alt or the dot = bend · Right-click = delete</span>'
+        +   '<button id="sd-deck-collapse" title="Collapse the draw deck" class="sbtn sbtn--icon">▾</button>'
+        + '</div>'
+        + '<div id="sd-deck-body" class="flex-1 min-h-0 flex items-stretch gap-0 px-3 pb-2">'
+        // shapes
+        +   '<div class="flex-1 min-w-0 flex flex-col gap-1.5 pr-3">'
+        +     '<div class="flex items-center gap-2"><span class="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500">Starter shapes</span>'
+        +       '<button id="sd-deck-invert" title="Invert: stamp the shapes upside down" class="sbtn">Invert</button></div>'
+        +     '<div id="sd-deck-chips" class="flex items-start gap-1.5 flex-wrap overflow-y-auto min-h-0 text-zinc-400"></div>'
+        +   '</div>'
+        // snap
+        +   '<div class="shrink-0 flex flex-col gap-1.5 px-3 border-l border-white/5">'
+        +     '<span class="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500">Snap</span>'
+        +     '<div class="flex items-center gap-1"><span class="text-[8px] font-bold uppercase text-zinc-600 w-9">Time</span>'
+        +       '<button id="sd-deck-gridw" title="Coarser grid" class="sbtn sbtn--icon">−</button>'
+        +       '<span id="sd-deck-grid-label" class="text-[9px] font-bold text-zinc-300 w-10 text-center tabular-nums">1/16</span>'
+        +       '<button id="sd-deck-gridn" title="Finer grid" class="sbtn sbtn--icon">+</button>'
+        +       '<button id="sd-deck-trip" title="Triplet grid" class="sbtn sbtn--icon">3</button></div>'
+        +     '<div class="flex items-center gap-1"><span class="text-[8px] font-bold uppercase text-zinc-600 w-9">Value</span><div id="sd-deck-vsnap" class="flex items-center gap-1"></div></div>'
+        +     '<span class="text-[8px] text-zinc-600 font-bold uppercase tracking-wider mt-auto">Hold Shift = no snap</span>'
+        +   '</div>'
+        // roll
+        +   '<div class="shrink-0 w-44 flex flex-col gap-1.5 pl-3 border-l border-white/5">'
+        +     '<span class="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500">Roll</span>'
+        +     '<div id="sd-deck-roll-flavors" class="flex flex-wrap gap-1"></div>'
+        +     '<button onclick="sdRollPattern()" title="Generate a new pattern on the grid, inside the selection (or the whole lane). Press again to reroll." '
+        +       'class="sbtn mt-auto">⚄ Roll</button>'
+        +   '</div>'
+        + '</div>';
+        container.appendChild(d);
+        _sdDeckEl = d;
+
+        const chips = d.querySelector('#sd-deck-chips');
+        chips.innerHTML = SD_STAMP_SHAPES.map(_sdChipHtml).join('');
+        chips.querySelectorAll('[data-stamp]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const key = btn.getAttribute('data-stamp');
+                if (e.shiftKey) _sdStampFill(key);   // fill pushes its own undo via the commit
+                else _sdStampArm(key);
+            });
+        });
+
+        const vs = d.querySelector('#sd-deck-vsnap');
+        vs.innerHTML = SD_VAL_SNAP_LABELS.map((l, i) =>
+            '<button data-vsnap="' + i + '" class="sbtn">' + l + '</button>').join('');
+        vs.querySelectorAll('[data-vsnap]').forEach(btn => {
+            btn.addEventListener('click', () => { _sdValSnapIdx = parseInt(btn.getAttribute('data-vsnap'), 10) || 0; _sdDeckPaintArm(); sdDrawCanvasGrid(); });
+        });
+
+        const rf = d.querySelector('#sd-deck-roll-flavors');
+        rf.innerHTML = SD_ROLL_FLAVORS.map(f =>
+            '<button data-roll="' + f + '" class="sbtn">' + f + '</button>').join('');
+        rf.querySelectorAll('[data-roll]').forEach(btn => {
+            btn.addEventListener('click', () => { _sdRollFlavor = btn.getAttribute('data-roll'); _sdDeckPaintArm(); });
+        });
+
+        d.querySelector('#sd-deck-gridw').addEventListener('click', () => { sdGridWiden(); _sdDeckPaintArm(); });
+        d.querySelector('#sd-deck-gridn').addEventListener('click', () => { sdGridNarrow(); _sdDeckPaintArm(); });
+        d.querySelector('#sd-deck-trip').addEventListener('click', () => { window.sdToggleTripletLock(); _sdDeckPaintArm(); });
+        d.querySelector('#sd-deck-invert').addEventListener('click', () => { _sdStampInvert = !_sdStampInvert; _sdDeckPaintArm(); });
+        d.querySelector('#sd-deck-collapse').addEventListener('click', () => {
+            _sdDeckCollapsed = !_sdDeckCollapsed;
+            d.style.height = _sdDeckHeight() + 'px';
+            d.querySelector('#sd-deck-body').style.display = _sdDeckCollapsed ? 'none' : '';
+            d.querySelector('#sd-deck-collapse').textContent = _sdDeckCollapsed ? '▴' : '▾';
+            sdResizeCanvas();
+        });
+
+        // double-click a segment handle = back to a straight line
+        sdCanvasEl.addEventListener('dblclick', (e) => {
+            if (sdViewMode !== 'focus' || !_sdHandleRects.length) return;
+            const r = sdCanvasEl.getBoundingClientRect();
+            const mx = e.clientX - r.left, my = e.clientY - r.top;
+            for (const h of _sdHandleRects) {
+                if (Math.abs(mx - h.x) <= 8 && Math.abs(my - h.y) <= 8) {
+                    pushUndo(); h.point.curve = 0; sdDrawCanvasGrid();
+                    try { Promise.resolve(saveCanvasState()); } catch (err) {}
+                    return;
+                }
+            }
+        });
+
+        _sdDeckPaintArm();
+    }
+
+    // paint the armed/selected states (chips, invert, value ladder, roll flavor, grid label)
+    function _sdDeckPaintArm() {
+        if (!_sdDeckEl) return;
+        // Every deck control is a .sbtn cap; armed/selected is the one is-on class.
+        _sdDeckEl.querySelectorAll('[data-stamp]').forEach(btn => {
+            btn.classList.toggle('is-on', btn.getAttribute('data-stamp') === _sdStampShape);
+        });
+        const inv = _sdDeckEl.querySelector('#sd-deck-invert');
+        if (inv) inv.classList.toggle('is-on', !!_sdStampInvert);
+        _sdDeckEl.querySelectorAll('[data-vsnap]').forEach(btn => {
+            btn.classList.toggle('is-on', parseInt(btn.getAttribute('data-vsnap'), 10) === _sdValSnapIdx);
+        });
+        _sdDeckEl.querySelectorAll('[data-roll]').forEach(btn => {
+            btn.classList.toggle('is-on', btn.getAttribute('data-roll') === _sdRollFlavor);
+        });
+        _sdDeckPaintGrid();
+    }
+
+    // Grid label + triplet chip only - safe to call every redraw (guarded writes).
+    function _sdDeckPaintGrid() {
+        if (!_sdDeckEl) return;
+        const gl = _sdDeckEl.querySelector('#sd-deck-grid-label');
+        if (gl) {
+            const idx = (sdGridIndex === null) ? sdNearestGridIndex(sdAdaptiveGridBeats()) : sdGridIndex;
+            const txt = SD_GRID_LADDER[idx].label + (sdGridTriplet ? 'T' : '');
+            if (gl.textContent !== txt) {
+                gl.textContent = txt;
+                gl.title = (sdGridIndex === null ? 'Adaptive grid (follows zoom)' : 'Fixed grid') + ': the stamp cycle rate';
+            }
+        }
+        const tr = _sdDeckEl.querySelector('#sd-deck-trip');
+        if (tr) {
+            const cls = 'text-[8px] font-bold px-1.5 py-0.5 rounded border transition-colors '
+                + (sdGridTriplet ? 'border-fuchsia-500/60 text-fuchsia-300 bg-fuchsia-500/15' : 'border-white/10 text-zinc-500 hover:text-zinc-200');
+            if (tr.className !== cls) tr.className = cls;
+        }
+    }
+
+    // Show the deck ONLY in focus view with a real focused lane; the canvas height
+    // follows through sdResizeCanvas. Runs on every redraw - cheap and idempotent.
+    function _sdDeckSync() {
+        const wants = (sdViewMode === 'focus') && !!sdActiveParamId && sdCanvasParams.length > 0;
+        if (!_sdDeckEl) {
+            if (!wants) return;
+            _sdDeckBuild();
+            if (!_sdDeckEl) return;
+        }
+        if (wants === _sdDeckShown) { if (wants) _sdDeckPaintGrid(); return; }   // live label while shown
+        if (_sdDeckSyncing) return;
+        _sdDeckSyncing = true;
+        _sdDeckShown = wants;
+        _sdDeckEl.classList.toggle('hidden', !wants);
+        _sdDeckEl.classList.toggle('flex', wants);
+        if (!wants) {   // leaving focus: put every focus-only mode down
+            _sdStampShape = null; _sdStampDrag = null; _sdDragReadout = null;
+            if (sdCanvasEl) sdCanvasEl.style.cursor = 'crosshair';
+        } else {
+            _sdDeckPaintArm();
+        }
+        try { sdResizeCanvas(); } catch (e) {}
+        _sdDeckSyncing = false;
+    }
 
 })();
