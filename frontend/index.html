@@ -92,6 +92,46 @@
         } catch (e) {}
     })();
 
+    // ── Google Ads click ids ────────────────────────────────────────────────
+    // Google's auto-tagging appends gclid to every ad click; iOS app campaigns
+    // send wbraid/gbraid instead, so all three are captured. Persisted 90 days,
+    // matching Google's default conversion window, and carried into the Lemon
+    // Squeezy checkout so the purchase webhook can upload the conversion back to
+    // Google Ads. A click id that is not captured at arrival is gone for good.
+    (function captureGoogleClick() {
+        try {
+            var p = new URLSearchParams(window.location.search);
+            ['gclid', 'wbraid', 'gbraid'].forEach(function (k) {
+                var v = (p.get(k) || '').trim();
+                if (!v) return;
+                try { localStorage.setItem('stride_' + k, v); } catch (e) {}
+                try {
+                    document.cookie = 'stride_' + k + '=' + encodeURIComponent(v) +
+                        '; max-age=' + (90 * 24 * 60 * 60) +
+                        '; path=/; SameSite=Lax; Secure';
+                } catch (e) {}
+            });
+        } catch (e) {}
+    })();
+
+    // Read back whichever Google click id we hold. Used by the buy flow and by
+    // the /try hand-off, the same way strideAdMarkers serves the Meta side.
+    window.strideGoogleClick = function () {
+        var out = {};
+        ['gclid', 'wbraid', 'gbraid'].forEach(function (k) {
+            var v = '';
+            try { v = localStorage.getItem('stride_' + k) || ''; } catch (e) {}
+            if (!v) {
+                try {
+                    var m = document.cookie.match(new RegExp('(?:^|; )stride_' + k + '=([^;]*)'));
+                    if (m) v = decodeURIComponent(m[1]);
+                } catch (e) {}
+            }
+            if (v) out[k] = v;
+        });
+        return out;
+    };
+
     // Capture Meta's dynamic ad params (ad_id / adset_id / campaign_id),
     // appended to every ad's destination URL by url_tags in Ads Manager.
     // THIS is the only deterministic paid-click marker in the stack. fbclid
@@ -1116,6 +1156,10 @@
         try {
             var admk = (window.strideAdMarkers ? window.strideAdMarkers() : {}) || {};
             var q = new URLSearchParams(location.search);
+            var gm = (window.strideGoogleClick ? window.strideGoogleClick() : {});
+            Object.keys(gm).forEach(function (k) {
+                parts.push(k + '=' + encodeURIComponent(gm[k]));
+            });
             ['ad_id', 'adset_id', 'campaign_id', 'utm_source', 'utm_campaign', 'utm_content']
                 .forEach(function (k) {
                     var v = admk[k] || q.get(k) || '';
@@ -1277,6 +1321,12 @@
             // ad_id rides the checkout so the order webhook can stamp the exact
             // ad on the sale even when the buyer_lead beacon was dropped.
             if (adMk.ad_id) url += '&checkout[custom][ad_id]=' + encodeURIComponent(adMk.ad_id);
+            // Google click id rides the same checkout, so the order webhook
+            // can hand the conversion back to Google Ads with the real value.
+            var gMk = (window.strideGoogleClick ? window.strideGoogleClick() : {});
+            ['gclid', 'wbraid', 'gbraid'].forEach(function (k) {
+                if (gMk[k]) url += '&checkout[custom][' + k + ']=' + encodeURIComponent(gMk[k]);
+            });
             window.location.href = url;
         } else {
             // Fallback: LS URL not configured yet — show thank-you for now
