@@ -127,8 +127,8 @@ The best sounds are rarely planned.
 They're discovered.
 Follow what surprises you.
 
-Watch the 2-minute Stride VST walkthrough:
-https://youtu.be/lQ0QUJ1ISjo
+Watch the Stride VST walkthrough:
+https://youtu.be/-Z4zRIiPg-4
 
 You picked up both editions. The flagship Stride VST runs in every DAW and hosts a full chain of your own instruments and effects. StrideLink does the same inside Ableton. One key unlocks both, and it is waiting in your Lemon Squeezy receipt.
 
@@ -170,7 +170,7 @@ WELCOME_EMAIL_HTML = r'''<!doctype html>
 </style>
 </head>
 <body style="margin:0;padding:0;background:#100f0c;">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0;">Discover what your instruments are truly capable of. Your 2-minute walkthrough and setup are inside.</div>
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">Discover what your instruments are truly capable of. Your walkthrough and setup are inside.</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#100f0c;">
 <tr><td align="center" style="padding:30px 14px;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#171410;border:1px solid rgba(216,201,176,0.11);border-radius:16px;overflow:hidden;font-family:'Outfit','Helvetica Neue',Arial,sans-serif;">
@@ -204,12 +204,12 @@ WELCOME_EMAIL_HTML = r'''<!doctype html>
 </td></tr>
 
 <tr><td style="padding:24px 34px 0;">
-  <a href="https://youtu.be/lQ0QUJ1ISjo" target="_blank" style="display:block;text-decoration:none;">
-    <img src="https://img.youtube.com/vi/lQ0QUJ1ISjo/maxresdefault.jpg" width="532" alt="Watch the Stride VST walkthrough" style="display:block;width:100%;max-width:532px;border-radius:12px;border:1px solid rgba(216,201,176,0.14);">
+  <a href="https://youtu.be/-Z4zRIiPg-4" target="_blank" style="display:block;text-decoration:none;">
+    <img src="https://img.youtube.com/vi/-Z4zRIiPg-4/maxresdefault.jpg" width="532" alt="Watch the Stride VST walkthrough" style="display:block;width:100%;max-width:532px;border-radius:12px;border:1px solid rgba(216,201,176,0.14);">
   </a>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding-top:16px;">
     <table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:13px;background:#c6712b;background:linear-gradient(180deg,#e58a2e,#c6712b);">
-      <a href="https://youtu.be/lQ0QUJ1ISjo" target="_blank" style="display:inline-block;padding:13px 26px;font-size:14px;font-weight:900;letter-spacing:0.03em;color:#1c1206;text-decoration:none;">&#9654;&nbsp;&nbsp;Watch the 2-minute walkthrough</a>
+      <a href="https://youtu.be/-Z4zRIiPg-4" target="_blank" style="display:inline-block;padding:13px 26px;font-size:14px;font-weight:900;letter-spacing:0.03em;color:#1c1206;text-decoration:none;">&#9654;&nbsp;&nbsp;Watch the walkthrough</a>
     </td></tr></table>
   </td></tr></table>
 </td></tr>
@@ -323,7 +323,7 @@ Windows: {win_url}
 macOS:   {mac_url}
 
 Then start with this quick walkthrough:
-https://youtu.be/lQ0QUJ1ISjo
+https://youtu.be/-Z4zRIiPg-4
 
 For your first session, keep it simple.
 
@@ -367,7 +367,7 @@ WELCOME_DEMO_HTML = r'''<!doctype html>
     <td style="border-radius:11px;background:#c6712b;background:linear-gradient(180deg,#e58a2e,#c6712b);"><a href="{mac_url}" target="_blank" style="display:inline-block;padding:12px 22px;font-size:14px;font-weight:900;color:#1c1206;text-decoration:none;">Download for macOS</a></td>
   </tr></table>
 </td></tr>
-<tr><td style="padding:18px 6px 0;"><p style="margin:0;font-size:15px;line-height:1.65;color:#b8ad9b;">Then start with this quick walkthrough:<br>&#9654;&nbsp;<a href="https://youtu.be/lQ0QUJ1ISjo" target="_blank" style="color:#dd9a52;text-decoration:none;font-weight:700;">Watch the 2-minute walkthrough</a></p></td></tr>
+<tr><td style="padding:18px 6px 0;"><p style="margin:0;font-size:15px;line-height:1.65;color:#b8ad9b;">Then start with this quick walkthrough:<br>&#9654;&nbsp;<a href="https://youtu.be/-Z4zRIiPg-4" target="_blank" style="color:#dd9a52;text-decoration:none;font-weight:700;">Watch the walkthrough</a></p></td></tr>
 <tr><td style="padding:22px 6px 0;"><p style="margin:0;font-size:15px;line-height:1.65;color:#b8ad9b;">For your first session, keep it simple.</p></td></tr>
 <tr><td style="padding:12px 6px 0;"><p style="margin:0;font-size:15px;line-height:1.65;color:#b8ad9b;">Open a synth you already know.<br>Add a few effects you already use.<br>Choose a handful of parameters that really change the sound.</p></td></tr>
 <tr><td style="padding:12px 6px 0;"><p style="margin:0;font-size:15px;line-height:1.65;color:#b8ad9b;">Then start exploring.</p></td></tr>
@@ -481,7 +481,12 @@ EVENTS_ENABLED = os.environ.get("EVENTS_ENABLED", "1").strip() != "0"
 # manufactured, never required. Ad-level reconstruction is explicitly out of scope.
 _EVENT_ATTR_KEYS = ("ad_id", "adset_id", "campaign_id",
                     "utm_source", "utm_campaign", "utm_content",
-                    "fbclid", "fbc", "fbp", "country", "ip", "ua")
+                    "fbclid", "fbc", "fbp", "country", "ip", "ua",
+                    # Google Ads click ids. This tuple is a WHITELIST: both the
+                    # Lemon Squeezy webhook and demo_register copy only these keys
+                    # onto the event, so a gclid captured by the landing page was
+                    # silently dropped here until it was added.
+                    "gclid", "wbraid", "gbraid")
 
 
 def _log_event(event_type: str, dedupe_key: str, email: str = "", extra: dict | None = None):
@@ -629,7 +634,7 @@ def _handle_lemon_webhook(raw_body: bytes, event_name: str, received_sig: str):
             # the same email can never erase which ad originally won them.
             if ad_id:
                 doc_data["ad_id"] = ad_id
-            for _ck in ("fbp", "ua"):
+            for _ck in ("fbp", "ua", "gclid", "wbraid", "gbraid"):
                 _cv = (custom.get(_ck) or "").strip()
                 if _cv:
                     doc_data[_ck] = _cv
