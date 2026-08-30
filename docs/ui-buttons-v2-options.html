@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Stride UI, button design options</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════════════════════════════════
+   STRIDE, button design study
+   Palette taken 1:1 from the landing page (main:index.html lines 206-222)
+   and cross-checked against the app's own [data-skin="copper"] tokens
+   (renderer/index.html line 35). They already agree: --o400 in the copper
+   skin IS #c6712b, the landing's --copper.
+   ══════════════════════════════════════════════════════════════════════ */
+:root{
+  /* landing base, warmer than the app's current neutral #161616 */
+  --bg:#141310; --bg2:#191611; --panel:#1d1b16; --raise:#252119;
+  --line:rgba(216,201,176,.11);
+  --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
+  /* landing accents == app lane palette == logo gradient */
+  --copper:#c6712b; --copper-lt:#dd9a52; --ember:#e58a2e; --amber:#d9822b;
+  --teal:#2f748e;   --teal-lt:#5e9aad;
+  --sage:#5b7b55;   --sage-lt:#86a87f;
+  --rose:#a34e52;   --rose-lt:#c5807f;
+  --violet:#544b6d; --violet-lt:#9a8cbb;
+  --gold:#c9a24b;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--ink2);
+  font-family:'Outfit',system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  background-image:
+    radial-gradient(120% 70% at 50% -10%,rgba(198,113,43,.06),transparent 60%),
+    radial-gradient(100% 50% at 50% 110%,rgba(47,116,142,.04),transparent 60%);
+  background-attachment:fixed;
+}
+.mono{font-family:'Space Mono',ui-monospace,monospace}
+.page{max-width:1180px;margin:0 auto;padding:48px 28px 120px}
+
+/* ── page furniture ─────────────────────────────────────────────── */
+.eyebrow{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--ink3);margin:0 0 10px}
+h1{color:var(--ink);font-weight:900;letter-spacing:-.02em;font-size:38px;line-height:1.05;margin:0 0 14px}
+.lede{max-width:70ch;font-size:15px;line-height:1.65;margin:0 0 8px}
+.lede b{color:var(--ink);font-weight:700}
+.rule{height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent);margin:38px 0}
+
+.note{
+  border:1px solid var(--line);border-left:2px solid var(--copper);
+  background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(0,0,0,.14)),var(--panel);
+  border-radius:0 10px 10px 0;padding:14px 18px;margin:22px 0;font-size:13.5px;line-height:1.6;
+}
+.note b{color:var(--ink)}
+
+/* ── option header ──────────────────────────────────────────────── */
+.opt{margin:0 0 14px}
+.opt-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin:0 0 6px}
+.opt-tag{
+  font-family:'Space Mono',monospace;font-size:11px;font-weight:700;
+  padding:3px 9px;border-radius:4px;letter-spacing:.06em;
+  border:1px solid rgba(198,113,43,.4);background:rgba(198,113,43,.12);color:var(--copper-lt);
+}
+.opt-tag.dead{border-color:var(--line);background:var(--raise);color:var(--ink3)}
+.opt-name{color:var(--ink);font-weight:900;font-size:23px;letter-spacing:-.01em}
+.opt-sub{font-size:14px;line-height:1.6;max-width:78ch;margin:0 0 18px}
+.opt-sub b{color:var(--ink)}
+
+/* ══════════════════════════════════════════════════════════════════
+   THE APP FRAME, a faithful rebuild of the real toolbar
+   Markup mirrors renderer/index.html rows 1 and 2 plus the generator row.
+   ══════════════════════════════════════════════════════════════════ */
+.app{
+  border:1px solid var(--line);border-radius:10px;overflow:hidden;
+  box-shadow:0 30px 60px -34px rgba(0,0,0,.95),inset 0 1px 0 rgba(255,255,255,.04);
+  background:var(--bg);
+  user-select:none;
+}
+.titlebar{
+  height:34px;display:flex;align-items:center;gap:18px;padding:0 14px;
+  background:#100f0d;border-bottom:1px solid rgba(255,255,255,.05);
+}
+.mark{
+  font-weight:900;font-size:12px;letter-spacing:.3em;text-transform:uppercase;
+  background:linear-gradient(90deg,var(--copper-lt),var(--ember));
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+}
+.tb-lite{font-size:9px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
+.spacer{flex:1}
+.skin{display:flex;align-items:center;gap:6px;padding:3px 8px;border-radius:6px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.04)}
+.skin i{width:9px;height:9px;border-radius:50%;background:var(--copper);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
+
+.chiprow{display:flex;align-items:center;gap:6px;padding:7px 10px;background:#131110;border-bottom:1px solid rgba(255,255,255,.05);flex-wrap:wrap}
+.dchip{
+  display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;
+  padding:3px 9px;border-radius:999px;border:1px solid var(--line);background:#17140f;color:var(--ink2);
+}
+.dchip i{width:7px;height:7px;border-radius:50%;background:var(--ink3)}
+.dchip.live i{background:var(--copper);box-shadow:0 0 6px rgba(198,113,43,.8)}
+.dchip.live{color:var(--ink);border-color:rgba(198,113,43,.34)}
+
+.row{
+  display:flex;align-items:center;flex-wrap:wrap;gap:5px;
+  padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);
+}
+.row.r1{background:rgba(0,0,0,.40)}
+.row.r2{background:rgba(0,0,0,.30)}
+.row.r3{background:rgba(0,0,0,.22)}
+.lbl{font-size:8.5px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#6a6255;padding:0 3px;white-space:nowrap}
+.sep{width:1px;height:17px;background:rgba(255,255,255,.10);margin:0 3px}
+.grp{display:flex;align-items:center;gap:3px;padding:3px;border-radius:6px;background:rgba(0,0,0,.42);border:1px solid rgba(255,255,255,.05)}
+.grow{flex:1}
+
+/* the lane canvas underneath, so the toolbar is judged in context */
+.canvas{background:var(--bg);padding:0}
+.lane{display:flex;align-items:stretch;border-bottom:1px solid rgba(255,255,255,.045);height:52px}
+.lane-h{width:132px;flex:none;padding:7px 9px;border-right:1px solid rgba(255,255,255,.05);background:rgba(0,0,0,.25)}
+.lane-n{color:var(--ink);font-weight:800;font-size:11px;letter-spacing:-.01em;line-height:1.2}
+.lane-d{color:var(--ink3);font-weight:600;font-size:8.5px;letter-spacing:.02em;margin-top:2px}
+.lane-c{flex:1;position:relative;overflow:hidden}
+.lane-c svg{position:absolute;inset:0;width:100%;height:100%}
+.gridline{stroke:rgba(255,255,255,.05);stroke-width:1}
+
+/* ══════════════════════════════════════════════════════════════════
+   VARIANT 0 — CURRENT (verbatim translation of the Tailwind classes)
+   ══════════════════════════════════════════════════════════════════ */
+[data-v="cur"] .b{
+  font-family:inherit;font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  padding:2px 8px;border-radius:4px;border:1px solid transparent;background:transparent;
+  color:var(--ink3);cursor:pointer;line-height:1.5;transition:color .12s,background .12s,border-color .12s;
+}
+[data-v="cur"] .b.gen   {color:rgba(222,154,82,.8);background:rgba(198,113,43,.05);border-color:rgba(198,113,43,.10)}
+[data-v="cur"] .b.edit  {color:rgba(126,176,192,.8);background:rgba(47,116,142,.05)}
+[data-v="cur"] .b.time  {color:rgba(217,190,129,.8);background:rgba(201,162,75,.05)}
+[data-v="cur"] .b.act   {color:rgba(134,168,127,1);background:rgba(91,123,85,.10);border-color:rgba(91,123,85,.20)}
+[data-v="cur"] .b.map   {color:rgba(172,159,199,.8);background:rgba(84,75,109,.05)}
+[data-v="cur"] .b.danger{color:rgba(213,145,147,.8);background:rgba(163,78,82,.05);border-color:rgba(163,78,82,.10)}
+[data-v="cur"] .b.plain {border-color:rgba(255,255,255,.10)}
+[data-v="cur"] .b.on    {background:rgba(198,113,43,.20);color:var(--copper-lt);border-color:transparent}
+[data-v="cur"] .b:hover {color:var(--ink)}
+
+/* ══════════════════════════════════════════════════════════════════
+   VARIANT A — MACHINED CAP
+   A milled keycap. Off it is raised neutral metal; on it physically
+   sinks and lights from inside. Hue appears ONLY when engaged.
+   ══════════════════════════════════════════════════════════════════ */
+[data-v="a"] .b{
+  font-family:inherit;font-size:10px;font-weight:800;letter-spacing:.045em;text-transform:uppercase;
+  padding:4px 9px;min-height:22px;border-radius:4px;cursor:pointer;line-height:1.4;
+  color:#968d81;
+  background:linear-gradient(180deg,#2e2a23 0%,#211d18 55%,#1b1813 100%);
+  border:1px solid #100e0b;border-top-color:#3b352c;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.085), 0 1px 2px rgba(0,0,0,.65);
+  transition:background .1s,color .1s,box-shadow .1s,transform .06s;
+}
+[data-v="a"] .b:hover{
+  background:linear-gradient(180deg,#38322a 0%,#282219 55%,#211c16 100%);
+  color:#cdc4b6;
+}
+[data-v="a"] .b:active{transform:translateY(1px)}
+[data-v="a"] .b.on{
+  color:var(--acc-lt);
+  background:linear-gradient(180deg,#171410 0%,#1e1a14 100%);
+  border-color:#0c0a08;border-top-color:#0c0a08;
+  box-shadow:inset 0 2px 5px rgba(0,0,0,.75), inset 0 -1px 0 rgba(255,255,255,.05),
+             0 0 0 1px rgba(var(--acc-rgb),.22);
+  text-shadow:0 0 9px rgba(var(--acc-rgb),.55);
+}
+/* the copper filament along the floor of a pressed cap */
+[data-v="a"] .b.on{position:relative}
+[data-v="a"] .b.on::after{
+  content:'';position:absolute;left:5px;right:5px;bottom:1px;height:1px;border-radius:1px;
+  background:var(--acc);box-shadow:0 0 6px rgba(var(--acc-rgb),.9);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   VARIANT B — SIGNAL LAMP
+   The cap never changes material. A lamp under the label does. This is
+   how real gear reads at a glance: black plastic, one lit LED.
+   ══════════════════════════════════════════════════════════════════ */
+[data-v="b"] .b{
+  position:relative;font-family:inherit;font-size:10px;font-weight:800;letter-spacing:.045em;
+  text-transform:uppercase;padding:4px 10px 7px;min-height:23px;border-radius:3px;cursor:pointer;line-height:1.4;
+  color:#8a8175;background:#1c1915;border:1px solid rgba(216,201,176,.09);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.035);
+  transition:color .12s,background .12s;
+}
+[data-v="b"] .b::after{
+  content:'';position:absolute;left:7px;right:7px;bottom:3px;height:2px;border-radius:1px;
+  background:#2c2620;transition:background .12s,box-shadow .12s;
+}
+[data-v="b"] .b:hover{background:#242019;color:#b9b0a2}
+[data-v="b"] .b.on{color:var(--ink);background:#231e18;border-color:rgba(var(--acc-rgb),.30)}
+[data-v="b"] .b.on::after{
+  background:var(--acc-lt);
+  box-shadow:0 0 5px rgba(var(--acc-rgb),1), 0 0 11px rgba(var(--acc-rgb),.62);
+}
+/* faint bleed of the lamp up onto the cap face */
+[data-v="b"] .b.on{
+  background-image:linear-gradient(0deg,rgba(var(--acc-rgb),.16),transparent 62%);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   VARIANT C — ENGRAVED PLATE
+   Off, the label is cut into dark metal. On, the plate fills with the
+   logo's own gradient and the type goes dark. Quotes the landing CTA
+   (.btn-copper) and the wordmark 1:1.
+   ══════════════════════════════════════════════════════════════════ */
+[data-v="c"] .b{
+  font-family:inherit;font-size:10px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;
+  padding:4px 10px;min-height:22px;border-radius:3px;cursor:pointer;line-height:1.4;
+  color:#7d7468;
+  background:linear-gradient(180deg,#232019 0%,#1a1712 100%);
+  border:1px solid rgba(0,0,0,.55);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.055), 0 1px 1px rgba(0,0,0,.45);
+  text-shadow:0 1px 0 rgba(255,255,255,.055);
+  transition:color .12s,background .12s,box-shadow .12s;
+}
+[data-v="c"] .b:hover{color:#b3a999;background:linear-gradient(180deg,#2b271f,#201c16)}
+[data-v="c"] .b.on{
+  color:#180f04;
+  background:linear-gradient(180deg,var(--acc-hi) 0%,var(--acc) 100%);
+  border-color:rgba(255,225,185,.30);
+  text-shadow:0 1px 0 rgba(255,231,197,.42);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.34), 0 2px 9px -3px rgba(var(--acc-rgb),.85);
+}
+
+/* ── per-family accent tokens, shared by A / B / C ───────────────── */
+.b{--acc:var(--copper);--acc-lt:var(--copper-lt);--acc-hi:var(--ember);--acc-rgb:198,113,43}
+.b.edit  {--acc:var(--teal);  --acc-lt:var(--teal-lt);  --acc-hi:#4f93aa;--acc-rgb:47,116,142}
+.b.time  {--acc:var(--gold);  --acc-lt:#dcbe7a;         --acc-hi:#dcbe7a;--acc-rgb:201,162,75}
+.b.act   {--acc:var(--sage);  --acc-lt:var(--sage-lt);  --acc-hi:#86a87f;--acc-rgb:91,123,85}
+.b.map   {--acc:var(--violet);--acc-lt:var(--violet-lt);--acc-hi:#7d6f9e;--acc-rgb:125,111,158}
+.b.danger{--acc:var(--rose);  --acc-lt:var(--rose-lt);  --acc-hi:#c5807f;--acc-rgb:163,78,82}
+
+/* ── spec block ─────────────────────────────────────────────────── */
+.spec{
+  margin:16px 0 0;border:1px solid var(--line);border-radius:10px;background:#111008;
+  background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(0,0,0,.2)),var(--bg2);
+  overflow:hidden;
+}
+.spec summary{
+  cursor:pointer;list-style:none;padding:10px 16px;font-size:10px;font-weight:800;
+  letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);
+  border-bottom:1px solid transparent;
+}
+.spec summary::-webkit-details-marker{display:none}
+.spec summary:hover{color:var(--copper-lt)}
+.spec[open] summary{border-bottom-color:var(--line)}
+.spec pre{
+  margin:0;padding:16px;overflow-x:auto;font-family:'Space Mono',monospace;
+  font-size:11.5px;line-height:1.65;color:#a79c8b;
+}
+.spec pre .k{color:var(--copper-lt)}
+.spec pre .c{color:#6a6255;font-style:italic}
+
+.verdict{
+  display:grid;grid-template-columns:auto 1fr;gap:8px 14px;align-items:baseline;
+  margin:14px 0 0;font-size:13.5px;line-height:1.6;
+}
+.verdict dt{font-size:9px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3);white-space:nowrap;padding-top:3px}
+.verdict dd{margin:0}
+.verdict dd b{color:var(--ink)}
+
+.hint{font-size:11.5px;color:var(--ink3);margin:10px 0 0;font-style:italic}
+@media (max-width:760px){
+  .verdict{grid-template-columns:1fr;gap:2px 0}
+  .verdict dt{padding-top:10px}
+  h1{font-size:29px}
+  .lane-h{width:104px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <p class="eyebrow">Stride, interface study</p>
+  <h1>Buttons that behave like hardware.</h1>
+  <p class="lede">
+    Three directions, each shown sitting in the real toolbar so you can judge them in context rather than on a swatch board.
+    Every colour is lifted from the landing page tokens, which the app's own <span class="mono">copper</span> skin already matches.
+    <b>Click any button below to toggle it</b> and feel the on and off states.
+  </p>
+
+  <div class="note">
+    <b>What is actually wrong today.</b> Every button in <span class="mono">renderer/index.html</span> is the same shape:
+    a <span class="mono">bg-hue-500/5</span> translucent fill, a <span class="mono">border-hue-500/20</span>, and
+    <span class="mono">text-hue-400</span>. That tinted ghost rectangle is the default any code generator reaches for, which is
+    exactly why it reads as a mockup. Three things follow from it: <b>no material</b>, since there is not a single
+    <span class="mono">box-shadow</span> in the toolbar, so nothing can look pressed. <b>No body</b>, since
+    <span class="mono">py-0.5</span> is two pixels of vertical padding. And <b>no hierarchy</b>, since seven hues compete at
+    equal brightness, so colour ends up sorting tools into families instead of telling you what is switched on.
+  </div>
+
+  <div class="note">
+    <b>What the wordmark tells us.</b> The logo is black weight, tight, squared, letters nearly touching, on a copper gradient.
+    The toolbar is <span class="mono">font-bold</span> nine pixels with <span class="mono">tracking-wider</span>. It is loose and
+    thin where the mark is heavy and tight. All three options below move to weight 800 or 900, drop tracking from
+    <span class="mono">.1em</span> to <span class="mono">.045em</span>, and go up to 10px with a 22px minimum height.
+    I stopped at <span class="mono">.045em</span> rather than the wordmark's near-zero: small uppercase type needs a little air
+    or it turns to mush at 10px. That is the one place I did not follow the logo literally.
+  </div>
+
+  <div class="rule"></div>
+
+  <!-- ══ CURRENT ══ -->
+  <section class="opt">
+    <div class="opt-head"><span class="opt-tag dead">Today</span><span class="opt-name">What ships now</span></div>
+    <p class="opt-sub">The baseline, rebuilt faithfully from the live Tailwind classes so the comparison is honest.</p>
+  </section>
+  <div class="app" data-v="cur"></div>
+
+  <div class="rule"></div>
+
+  <!-- ══ A ══ -->
+  <section class="opt">
+    <div class="opt-head"><span class="opt-tag">Option A</span><span class="opt-name">Machined Cap</span></div>
+    <p class="opt-sub">
+      A milled keycap. At rest every button is the <b>same neutral metal</b>, raised, with a lit top edge and a shadow under it.
+      Press it and it physically sinks: the gradient inverts, an inner shadow appears, and only then does the family colour
+      arrive, glowing from inside with a filament along the floor of the cap. Hue stops being decoration and becomes the
+      signal for <b>on</b>. This is the closest to Minimal Audio, and the safest.
+    </p>
+  </section>
+  <div class="app" data-v="a"></div>
+  <dl class="verdict">
+    <dt>Strength</dt><dd>Reads instantly. A dark toolbar with three lit caps tells you the whole state of the instrument at a glance.</dd>
+    <dt>Cost</dt><dd>Loses the at-rest colour coding, so you can no longer tell Copy from Swing by hue alone. Grouping and dividers carry that job instead, which they already do.</dd>
+    <dt>Risk</dt><dd><b>Low.</b> Nothing else in the layout moves.</dd>
+  </dl>
+  <details class="spec"><summary>CSS</summary><pre>
+<span class="c">/* off, raised metal, no hue */</span>
+<span class="k">background</span>: linear-gradient(180deg,#2e2a23 0%,#211d18 55%,#1b1813 100%);
+<span class="k">border</span>: 1px solid #100e0b; <span class="k">border-top-color</span>: #3b352c;
+<span class="k">box-shadow</span>: inset 0 1px 0 rgba(255,255,255,.085), 0 1px 2px rgba(0,0,0,.65);
+<span class="k">color</span>: #968d81;
+
+<span class="c">/* on, sunken and lit from within */</span>
+<span class="k">background</span>: linear-gradient(180deg,#171410,#1e1a14);
+<span class="k">box-shadow</span>: inset 0 2px 5px rgba(0,0,0,.75),
+            inset 0 -1px 0 rgba(255,255,255,.05),
+            0 0 0 1px rgba(var(--acc-rgb),.22);
+<span class="k">color</span>: var(--acc-lt);
+<span class="k">text-shadow</span>: 0 0 9px rgba(var(--acc-rgb),.55);
+</pre></details>
+
+  <div class="rule"></div>
+
+  <!-- ══ B ══ -->
+  <section class="opt">
+    <div class="opt-head"><span class="opt-tag">Option B</span><span class="opt-name">Signal Lamp</span></div>
+    <p class="opt-sub">
+      The cap never changes material at all. A <b>lamp under the label</b> does. Off, it is a dead grey bar; on, it lights in the
+      family colour and bleeds a little of that light up onto the face. This is how a real unit reads across a dark room:
+      black plastic everywhere, and your eye goes straight to the LEDs. The densest of the three, and the quietest.
+    </p>
+  </section>
+  <div class="app" data-v="b"></div>
+  <dl class="verdict">
+    <dt>Strength</dt><dd>Keeps every family colour readable while off, so Copy still reads teal and Clear still reads rose. Scales best as the toolbar grows.</dd>
+    <dt>Cost</dt><dd>Needs 3px more height per row for the lamp. Across three rows that is 9px off the canvas.</dd>
+    <dt>Risk</dt><dd><b>Low to medium.</b> The lamp is small; on a dim laptop panel it carries less far than A's whole-cap shift.</dd>
+  </dl>
+  <details class="spec"><summary>CSS</summary><pre>
+<span class="c">/* the cap is inert, the lamp is the whole story */</span>
+<span class="k">background</span>: #1c1915; <span class="k">border</span>: 1px solid rgba(216,201,176,.09);
+<span class="k">padding</span>: 4px 10px 7px;  <span class="c">/* the extra 3px is the lamp's room */</span>
+
+.b::after {                     <span class="c">/* the lamp itself */</span>
+  <span class="k">position</span>: absolute; <span class="k">left</span>: 7px; <span class="k">right</span>: 7px; <span class="k">bottom</span>: 3px; <span class="k">height</span>: 2px;
+  <span class="k">background</span>: #2c2620;        <span class="c">/* dead */</span>
+}
+.b.on::after {
+  <span class="k">background</span>: var(--acc-lt);
+  <span class="k">box-shadow</span>: 0 0 5px rgba(var(--acc-rgb),1), 0 0 11px rgba(var(--acc-rgb),.62);
+}
+.b.on { <span class="k">background-image</span>: linear-gradient(0deg,rgba(var(--acc-rgb),.16),transparent 62%); }
+</pre></details>
+
+  <div class="rule"></div>
+
+  <!-- ══ C ══ -->
+  <section class="opt">
+    <div class="opt-head"><span class="opt-tag">Option C</span><span class="opt-name">Engraved Plate</span></div>
+    <p class="opt-sub">
+      Off, the label is <b>cut into</b> dark metal: dark type with a one pixel light edge under it, the way engraving catches
+      light. On, the plate fills with the wordmark's own copper gradient and the type flips to near black. It is the landing
+      page's <span class="mono">.btn-copper</span> and the logo, quoted exactly, sitting in the toolbar. At rest the whole bar
+      is quiet engraved brass; the active tool is the only lit thing on screen.
+    </p>
+  </section>
+  <div class="app" data-v="c"></div>
+  <dl class="verdict">
+    <dt>Strength</dt><dd>The only one of the three that could not belong to another product. Ties plugin, site and wordmark into one language.</dd>
+    <dt>Cost</dt><dd>Loudest by far when several tools are on at once. Wants a discipline where few things are active together, which suits Point or Free and the generator row but fights the Stretch cluster.</dd>
+    <dt>Risk</dt><dd><b>Medium.</b> Worth trying restricted to primary actions, with A used for the secondary rows.</dd>
+  </dl>
+  <details class="spec"><summary>CSS</summary><pre>
+<span class="c">/* off, engraved: dark type + a light edge BELOW it */</span>
+<span class="k">background</span>: linear-gradient(180deg,#232019,#1a1712);
+<span class="k">border</span>: 1px solid rgba(0,0,0,.55);
+<span class="k">box-shadow</span>: inset 0 1px 0 rgba(255,255,255,.055), 0 1px 1px rgba(0,0,0,.45);
+<span class="k">text-shadow</span>: 0 1px 0 rgba(255,255,255,.055);
+<span class="k">color</span>: #7d7468;
+
+<span class="c">/* on, the wordmark gradient, verbatim from the landing .btn-copper */</span>
+<span class="k">background</span>: linear-gradient(180deg,#e58a2e,#c6712b);
+<span class="k">color</span>: #180f04;
+<span class="k">text-shadow</span>: 0 1px 0 rgba(255,231,197,.42);
+<span class="k">box-shadow</span>: inset 0 1px 0 rgba(255,255,255,.34), 0 2px 9px -3px rgba(198,113,43,.85);
+</pre></details>
+
+  <div class="rule"></div>
+
+  <div class="note">
+    <b>One change that applies whichever you pick.</b> Today hue sorts tools into seven families of equal brightness. I would
+    cut it to five and make each one mean something: <b>copper</b> for anything that generates motion, <b>teal</b> for
+    transforms that move a curve you already have, <b>gold</b> for time, <b>sage</b> for a persistent on state such as Rescan,
+    and <b>rose</b> for the two destructive actions. Everything else stays neutral metal. That is what the mockups above use,
+    and it is why they look calmer than the current bar even before the material lands.
+  </div>
+
+  <p class="hint">Nothing here is wired into the app yet. Pick a direction and I will implement it against renderer/index.html.</p>
+</div>
+
+<script>
+/* One toolbar definition, injected into every frame, so the four
+   variants are guaranteed to be comparing identical markup. */
+const curve = (c, seed) => {
+  let d = 'M0,40', x = 0;
+  for (let i = 0; i < 26; i++) {
+    x += 20;
+    const y = 8 + (Math.sin(seed + i * 0.9) * 0.5 + 0.5) * 34 + (i % 3 === 0 ? 4 : 0);
+    d += (i % 5 === 0 ? ' L' + x + ',' + y.toFixed(1) : ' L' + x + ',' + y.toFixed(1));
+  }
+  return `<svg viewBox="0 0 520 52" preserveAspectRatio="none">
+    <line class="gridline" x1="130" y1="0" x2="130" y2="52"/>
+    <line class="gridline" x1="260" y1="0" x2="260" y2="52"/>
+    <line class="gridline" x1="390" y1="0" x2="390" y2="52"/>
+    <path d="${d}" fill="none" stroke="${c}" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+  </svg>`;
+};
+
+const TOOLBAR = `
+<div class="titlebar">
+  <span class="mark">Stride</span>
+  <span class="tb-lite">Compact</span>
+  <span class="tb-lite">Save</span>
+  <span class="tb-lite">Load</span>
+  <span class="spacer"></span>
+  <span class="skin"><i></i><span class="tb-lite">Copper</span></span>
+</div>
+
+<div class="chiprow">
+  <span class="dchip live"><i></i>Serum 2</span>
+  <span class="dchip"><i></i>kHs Dual Delay</span>
+  <span class="dchip live"><i></i>Cluster Delay 1</span>
+  <span class="dchip"><i></i>kHs Ring Mod</span>
+  <span class="dchip live"><i></i>OTT</span>
+</div>
+
+<!-- ROW 1 : draw tools, shapes, generators -->
+<div class="row r1">
+  <span class="grp">
+    <button class="b on">Point</button>
+    <button class="b">Free</button>
+  </span>
+  <span class="sep"></span>
+  <span class="lbl">Shapes</span>
+  <button class="b">Sine</button>
+  <button class="b">Pump</button>
+  <button class="b">Glitch</button>
+  <button class="b">Groove</button>
+  <span class="sep"></span>
+  <button class="b gen on">Chaos</button>
+  <button class="b gen">Neuro</button>
+  <button class="b gen">S&amp;H</button>
+  <button class="b act on">Rescan: On</button>
+  <span class="grow"></span>
+  <button class="b">Save Lane</button>
+  <button class="b danger">Clear Lane</button>
+</div>
+
+<!-- ROW 2 : shape tools and refinement -->
+<div class="row r2">
+  <span class="grp">
+    <button class="b">&#8630;</button>
+    <button class="b">&#8631;</button>
+    <span class="sep"></span>
+    <button class="b edit">Mirror</button>
+    <button class="b edit">Flip</button>
+  </span>
+  <span class="grp">
+    <button class="b map">Copy</button>
+    <button class="b map">Paste</button>
+    <button class="b map">Inv</button>
+    <button class="b map">Paste To</button>
+  </span>
+  <span class="sep"></span>
+  <button class="b time">Swing</button>
+  <button class="b time on">T</button>
+  <span class="sep"></span>
+  <button class="b act">Mutate</button>
+  <button class="b map">Shuffle</button>
+  <span class="grp">
+    <span class="lbl">Stretch</span>
+    <button class="b edit">2x</button>
+    <button class="b edit">1/2x</button>
+  </span>
+  <button class="b">Select All</button>
+  <button class="b time">Lock All</button>
+</div>
+
+<!-- ROW 3 : the generator bar -->
+<div class="row r3">
+  <span class="lbl">Motion</span>
+  <button class="b gen on">Chaos</button>
+  <button class="b gen">Neuro</button>
+  <button class="b gen">Reflector</button>
+  <button class="b gen">S&amp;H</button>
+  <button class="b gen">Prism</button>
+  <button class="b gen">Bloom</button>
+  <span class="sep"></span>
+  <span class="lbl">Bars</span>
+  <button class="b on">4</button>
+  <button class="b">8</button>
+  <button class="b">16</button>
+  <button class="b">32</button>
+  <span class="grow"></span>
+  <button class="b">Select All</button>
+  <button class="b time">Lock All</button>
+  <button class="b">Unlock All</button>
+</div>
+
+<div class="canvas">
+  <div class="lane"><div class="lane-h"><div class="lane-n">A Warp</div><div class="lane-d">Serum 2</div></div><div class="lane-c">${curve('#c6712b', 0.4)}</div></div>
+  <div class="lane"><div class="lane-h"><div class="lane-n">Filter 1 Freq</div><div class="lane-d">Serum 2</div></div><div class="lane-c">${curve('#2f748e', 2.1)}</div></div>
+  <div class="lane"><div class="lane-h"><div class="lane-n">FX 2: Conv Wet</div><div class="lane-d">Serum 2</div></div><div class="lane-c">${curve('#5b7b55', 3.7)}</div></div>
+  <div class="lane" style="border-bottom:none"><div class="lane-h"><div class="lane-n">Dly Feedback</div><div class="lane-d">Cluster Delay</div></div><div class="lane-c">${curve('#a34e52', 5.2)}</div></div>
+</div>`;
+
+document.querySelectorAll('.app').forEach(el => { el.innerHTML = TOOLBAR; });
+
+/* Let Yossi feel the states. Toggling is the whole point of the page. */
+document.addEventListener('click', e => {
+  const b = e.target.closest('.b');
+  if (b) b.classList.toggle('on');
+});
+</script>
+</body>
+</html>

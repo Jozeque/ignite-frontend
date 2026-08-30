@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en" class="dark" data-skin="copper">
+<head>
+<meta charset="utf-8">
+<title>Stride toolbar proposal</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+        :root{--z50:250 250 250;--z100:244 244 245;--z200:228 228 231;--z300:212 212 216;--z400:161 161 170;--z500:113 113 122;--z600:82 82 91;--z700:63 63 70;--z800:39 39 42;--z900:24 24 27;--z950:9 9 11;--o50:255 247 237;--o100:255 237 213;--o200:254 215 170;--o300:253 186 116;--o400:251 146 60;--o500:249 115 22;--o600:234 88 12;--o700:194 65 12;--o800:154 52 18;--o900:124 45 18;--o950:67 20 7;--f50:253 244 255;--f100:250 232 255;--f200:245 208 254;--f300:240 171 252;--f400:232 121 249;--f500:217 70 239;--f600:192 38 211;--f700:162 28 175;--f800:134 25 143;--f900:112 26 117;--f950:74 4 78;--em50:236 253 245;--em100:209 250 229;--em200:167 243 208;--em300:110 231 183;--em400:52 211 153;--em500:16 185 129;--em600:5 150 105;--em700:4 120 87;--em800:6 95 70;--em900:6 78 59;--em950:2 44 34;--am50:255 251 235;--am100:254 243 199;--am200:253 230 138;--am300:252 211 77;--am400:251 191 36;--am500:245 158 11;--am600:217 119 6;--am700:180 83 9;--am800:146 64 14;--am900:120 53 15;--am950:69 26 3;--sk50:240 249 255;--sk100:224 242 254;--sk200:186 230 253;--sk300:125 211 252;--sk400:56 189 248;--sk500:14 165 233;--sk600:2 132 199;--sk700:3 105 161;--sk800:7 89 133;--sk900:12 74 110;--sk950:8 47 73;--vi50:245 243 255;--vi100:237 233 254;--vi200:221 214 254;--vi300:196 181 253;--vi400:167 139 250;--vi500:139 92 246;--vi600:124 58 237;--vi700:109 40 217;--vi800:91 33 182;--vi900:76 29 149;--vi950:46 16 101;--ro50:255 241 242;--ro100:255 228 230;--ro200:254 205 211;--ro300:253 164 175;--ro400:251 113 133;--ro500:244 63 94;--ro600:225 29 72;--ro700:190 18 60;--ro800:159 18 57;--ro900:136 19 55;--ro950:76 5 25;--brand1:249 115 22;--brand2:239 68 68;--app-bg:9 9 11;--sb-thumb:63 63 70;--sb-hover:82 82 91}
+        [data-skin="copper"]{--z50:238 240 240;--z100:225 227 227;--z200:209 213 213;--z300:188 192 192;--z400:154 157 158;--z500:113 118 118;--z600:90 95 95;--z700:68 71 71;--z800:54 57 57;--z900:43 45 45;--z950:22 22 22;--o50:249 241 234;--o100:244 227 213;--o200:232 198 170;--o300:215 156 107;--o400:198 113 43;--o500:174 99 38;--o600:143 81 31;--o700:109 62 24;--o800:79 45 17;--o900:55 32 12;--o950:30 17 6;--f50:var(--o50);--f100:var(--o100);--f200:var(--o200);--f300:var(--o300);--f400:var(--o400);--f500:var(--o500);--f600:var(--o600);--f700:var(--o700);--f800:var(--o800);--f900:var(--o900);--f950:var(--o950);--em50:var(--o50);--em100:var(--o100);--em200:var(--o200);--em300:var(--o300);--em400:var(--o400);--em500:var(--o500);--em600:var(--o600);--em700:var(--o700);--em800:var(--o800);--em900:var(--o900);--em950:var(--o950);--am50:var(--o50);--am100:var(--o100);--am200:var(--o200);--am300:var(--o300);--am400:var(--o400);--am500:var(--o500);--am600:var(--o600);--am700:var(--o700);--am800:var(--o800);--am900:var(--o900);--am950:var(--o950);--sk50:var(--z50);--sk100:var(--z100);--sk200:var(--z200);--sk300:var(--z300);--sk400:var(--z400);--sk500:var(--z500);--sk600:var(--z600);--sk700:var(--z700);--sk800:var(--z800);--sk900:var(--z900);--sk950:var(--z950);--vi50:var(--z50);--vi100:var(--z100);--vi200:var(--z200);--vi300:var(--z300);--vi400:var(--z400);--vi500:var(--z500);--vi600:var(--z600);--vi700:var(--z700);--vi800:var(--z800);--vi900:var(--z900);--vi950:var(--z950);--ro50:var(--z50);--ro100:var(--z100);--ro200:var(--z200);--ro300:var(--z300);--ro400:var(--z400);--ro500:var(--z500);--ro600:var(--z600);--ro700:var(--z700);--ro800:var(--z800);--ro900:var(--z900);--ro950:var(--z950);--brand1:198 113 43;--brand2:217 144 74;--app-bg:22 22 22;--sb-thumb:68 71 71;--sb-hover:90 95 95}
+        [data-skin="steel"]{--z50:238 242 246;--z100:221 228 235;--z200:207 216 225;--z300:180 191 202;--z400:147 160 173;--z500:105 116 127;--z600:79 91 102;--z700:59 70 81;--z800:46 54 64;--z900:35 41 49;--z950:20 23 26;--o50:253 243 234;--o100:250 232 213;--o200:245 208 171;--o300:238 173 109;--o400:230 138 46;--o500:202 121 40;--o600:166 99 33;--o700:127 76 25;--o800:92 55 18;--o900:64 39 13;--o950:35 21 7;--f50:var(--o50);--f100:var(--o100);--f200:var(--o200);--f300:var(--o300);--f400:var(--o400);--f500:var(--o500);--f600:var(--o600);--f700:var(--o700);--f800:var(--o800);--f900:var(--o900);--f950:var(--o950);--em50:var(--o50);--em100:var(--o100);--em200:var(--o200);--em300:var(--o300);--em400:var(--o400);--em500:var(--o500);--em600:var(--o600);--em700:var(--o700);--em800:var(--o800);--em900:var(--o900);--em950:var(--o950);--am50:var(--o50);--am100:var(--o100);--am200:var(--o200);--am300:var(--o300);--am400:var(--o400);--am500:var(--o500);--am600:var(--o600);--am700:var(--o700);--am800:var(--o800);--am900:var(--o900);--am950:var(--o950);--sk50:var(--z50);--sk100:var(--z100);--sk200:var(--z200);--sk300:var(--z300);--sk400:var(--z400);--sk500:var(--z500);--sk600:var(--z600);--sk700:var(--z700);--sk800:var(--z800);--sk900:var(--z900);--sk950:var(--z950);--vi50:var(--z50);--vi100:var(--z100);--vi200:var(--z200);--vi300:var(--z300);--vi400:var(--z400);--vi500:var(--z500);--vi600:var(--z600);--vi700:var(--z700);--vi800:var(--z800);--vi900:var(--z900);--vi950:var(--z950);--ro50:var(--z50);--ro100:var(--z100);--ro200:var(--z200);--ro300:var(--z300);--ro400:var(--z400);--ro500:var(--z500);--ro600:var(--z600);--ro700:var(--z700);--ro800:var(--z800);--ro900:var(--z900);--ro950:var(--z950);--brand1:230 138 46;--brand2:240 168 90;--app-bg:20 23 26;--sb-thumb:59 70 81;--sb-hover:79 91 102}
+        [data-skin="brass"]{--z50:241 236 226;--z100:228 221 208;--z200:215 207 192;--z300:195 187 171;--z400:163 154 138;--z500:118 111 99;--z600:88 82 73;--z700:67 62 53;--z800:53 49 41;--z900:42 39 34;--z950:21 19 15;--o50:250 246 237;--o100:244 236 219;--o200:233 218 183;--o300:217 190 129;--o400:201 162 75;--o500:177 143 66;--o600:145 117 54;--o700:111 89 41;--o800:80 65 30;--o900:56 45 21;--o950:30 24 11;--f50:var(--o50);--f100:var(--o100);--f200:var(--o200);--f300:var(--o300);--f400:var(--o400);--f500:var(--o500);--f600:var(--o600);--f700:var(--o700);--f800:var(--o800);--f900:var(--o900);--f950:var(--o950);--em50:var(--o50);--em100:var(--o100);--em200:var(--o200);--em300:var(--o300);--em400:var(--o400);--em500:var(--o500);--em600:var(--o600);--em700:var(--o700);--em800:var(--o800);--em900:var(--o900);--em950:var(--o950);--am50:var(--o50);--am100:var(--o100);--am200:var(--o200);--am300:var(--o300);--am400:var(--o400);--am500:var(--o500);--am600:var(--o600);--am700:var(--o700);--am800:var(--o800);--am900:var(--o900);--am950:var(--o950);--sk50:var(--z50);--sk100:var(--z100);--sk200:var(--z200);--sk300:var(--z300);--sk400:var(--z400);--sk500:var(--z500);--sk600:var(--z600);--sk700:var(--z700);--sk800:var(--z800);--sk900:var(--z900);--sk950:var(--z950);--vi50:var(--z50);--vi100:var(--z100);--vi200:var(--z200);--vi300:var(--z300);--vi400:var(--z400);--vi500:var(--z500);--vi600:var(--z600);--vi700:var(--z700);--vi800:var(--z800);--vi900:var(--z900);--vi950:var(--z950);--ro50:var(--z50);--ro100:var(--z100);--ro200:var(--z200);--ro300:var(--z300);--ro400:var(--z400);--ro500:var(--z500);--ro600:var(--z600);--ro700:var(--z700);--ro800:var(--z800);--ro900:var(--z900);--ro950:var(--z950);--brand1:201 162 75;--brand2:220 186 110;--app-bg:21 19 15;--sb-thumb:67 62 53;--sb-hover:88 82 73}
+        [data-skin="teal"]{--z50:238 240 240;--z100:223 226 226;--z200:208 212 213;--z300:186 191 191;--z400:152 156 157;--z500:111 117 118;--z600:87 92 93;--z700:66 71 71;--z800:52 57 57;--z900:41 45 45;--z950:20 22 23;--o50:234 241 244;--o100:213 227 232;--o200:172 199 210;--o300:109 158 176;--o400:47 116 142;--o500:41 102 125;--o600:34 84 102;--o700:26 64 78;--o800:19 46 57;--o900:13 32 40;--o950:7 17 21;--f50:var(--o50);--f100:var(--o100);--f200:var(--o200);--f300:var(--o300);--f400:var(--o400);--f500:var(--o500);--f600:var(--o600);--f700:var(--o700);--f800:var(--o800);--f900:var(--o900);--f950:var(--o950);--em50:var(--o50);--em100:var(--o100);--em200:var(--o200);--em300:var(--o300);--em400:var(--o400);--em500:var(--o500);--em600:var(--o600);--em700:var(--o700);--em800:var(--o800);--em900:var(--o900);--em950:var(--o950);--am50:var(--o50);--am100:var(--o100);--am200:var(--o200);--am300:var(--o300);--am400:var(--o400);--am500:var(--o500);--am600:var(--o600);--am700:var(--o700);--am800:var(--o800);--am900:var(--o900);--am950:var(--o950);--sk50:var(--z50);--sk100:var(--z100);--sk200:var(--z200);--sk300:var(--z300);--sk400:var(--z400);--sk500:var(--z500);--sk600:var(--z600);--sk700:var(--z700);--sk800:var(--z800);--sk900:var(--z900);--sk950:var(--z950);--vi50:var(--z50);--vi100:var(--z100);--vi200:var(--z200);--vi300:var(--z300);--vi400:var(--z400);--vi500:var(--z500);--vi600:var(--z600);--vi700:var(--z700);--vi800:var(--z800);--vi900:var(--z900);--vi950:var(--z950);--ro50:var(--z50);--ro100:var(--z100);--ro200:var(--z200);--ro300:var(--z300);--ro400:var(--z400);--ro500:var(--z500);--ro600:var(--z600);--ro700:var(--z700);--ro800:var(--z800);--ro900:var(--z900);--ro950:var(--z950);--brand1:47 116 142;--brand2:74 147 173;--app-bg:20 22 23;--sb-thumb:66 71 71;--sb-hover:87 92 93}
+        [data-skin="patch"]{--z50:238 240 240;--z100:225 227 227;--z200:209 213 213;--z300:188 192 192;--z400:154 157 158;--z500:113 118 118;--z600:90 95 95;--z700:68 71 71;--z800:54 57 57;--z900:43 45 45;--z950:22 22 22;--o50:249 241 234;--o100:244 227 213;--o200:232 198 170;--o300:215 156 107;--o400:198 113 43;--o500:174 99 38;--o600:143 81 31;--o700:109 62 24;--o800:79 45 17;--o900:55 32 12;--o950:30 17 6;--f50:var(--o50);--f100:var(--o100);--f200:var(--o200);--f300:var(--o300);--f400:var(--o400);--f500:var(--o500);--f600:var(--o600);--f700:var(--o700);--f800:var(--o800);--f900:var(--o900);--f950:var(--o950);--em50:var(--o50);--em100:var(--o100);--em200:var(--o200);--em300:var(--o300);--em400:var(--o400);--em500:var(--o500);--em600:var(--o600);--em700:var(--o700);--em800:var(--o800);--em900:var(--o900);--em950:var(--o950);--am50:var(--o50);--am100:var(--o100);--am200:var(--o200);--am300:var(--o300);--am400:var(--o400);--am500:var(--o500);--am600:var(--o600);--am700:var(--o700);--am800:var(--o800);--am900:var(--o900);--am950:var(--o950);--sk50:var(--z50);--sk100:var(--z100);--sk200:var(--z200);--sk300:var(--z300);--sk400:var(--z400);--sk500:var(--z500);--sk600:var(--z600);--sk700:var(--z700);--sk800:var(--z800);--sk900:var(--z900);--sk950:var(--z950);--vi50:var(--z50);--vi100:var(--z100);--vi200:var(--z200);--vi300:var(--z300);--vi400:var(--z400);--vi500:var(--z500);--vi600:var(--z600);--vi700:var(--z700);--vi800:var(--z800);--vi900:var(--z900);--vi950:var(--z950);--ro50:var(--z50);--ro100:var(--z100);--ro200:var(--z200);--ro300:var(--z300);--ro400:var(--z400);--ro500:var(--z500);--ro600:var(--z600);--ro700:var(--z700);--ro800:var(--z800);--ro900:var(--z900);--ro950:var(--z950);--brand1:198 113 43;--brand2:217 144 74;--app-bg:22 22 22;--sb-thumb:68 71 71;--sb-hover:90 95 95}
+/* ══════════════════════════════════════════════════════════════════
+           CONTROL SURFACE  ·  .sbtn machined-cap buttons
+           ──────────────────────────────────────────────────────────────────
+           One button system for the whole UI. Replaces the old per-button
+           Tailwind pattern (bg-<hue>-500/10 + border-<hue>-500/20 + text-
+           <hue>-400), which had no material, no press state, and used seven
+           competing hues to sort tools into families instead of showing what
+           was switched on.
+
+           The rule here: STATE IS MATERIAL, NOT HUE.
+             · at rest   every control is the same neutral metal
+             · on press  it sinks and flashes the skin accent, then fades back
+             · when ON   it holds a restrained accent (dark tinted surface,
+                         accent border and label) - never a bright fill
+
+           Skin-safe by construction. Metal comes from the --z* scale and the
+           accent from --o400/--o300, both of which every [data-skin] block
+           redefines, so this follows Midnight / Copper / Steel / Brass / Teal
+           / Patch with no per-skin rules. Deliberately NOT --brand2: that is
+           red in the Midnight skin and would light presses red there.
+
+           !important is load-bearing. Tailwind is injected at runtime and its
+           hover: variants carry the same specificity as these rules, so
+           source order alone cannot be trusted. Matches the existing
+           .sd-btn-copper precedent above.
+           ══════════════════════════════════════════════════════════════════ */
+        .sbtn{
+            /* type, pulled tighter and heavier to sit with the wordmark */
+            font-family:'Outfit',sans-serif !important;
+            font-size:10px !important;
+            font-weight:800 !important;
+            letter-spacing:.03em !important;
+            line-height:1 !important;
+            text-transform:uppercase;
+
+            display:inline-flex !important;
+            align-items:center; justify-content:center; gap:4px;
+            min-height:20px !important;
+            padding:3px 7px !important;
+            border-radius:4px !important;
+            white-space:nowrap;
+            position:relative;
+            cursor:pointer;
+            -webkit-user-select:none; user-select:none;
+
+            /* the cap: raised metal, lit from above, dark seated edge below */
+            color:rgb(var(--z400)) !important;
+            background:linear-gradient(180deg,
+                rgb(var(--z800)) 0%, rgb(var(--z900)) 58%, rgb(var(--z950)) 100%) !important;
+            border:1px solid rgb(var(--z950)) !important;
+            border-top-color:rgb(var(--z700)) !important;
+            box-shadow:inset 0 1px 0 rgba(255,255,255,.07),
+                       0 1px 2px rgba(0,0,0,.55) !important;
+
+            /* THE FLASH. Slow out by default; :active resets duration to 0 so
+               the press reads as instant and the copper decays on release. */
+            transition:color .32s ease-out, background .2s ease-out,
+                       border-color .32s ease-out, box-shadow .32s ease-out,
+                       text-shadow .32s ease-out, transform .09s ease-out !important;
+        }
+        /* the filament along the floor of the cap: dark until lit */
+        .sbtn::after{
+            content:''; position:absolute; left:5px; right:5px; bottom:1px; height:1px;
+            border-radius:1px; background:rgb(var(--o400));
+            opacity:0; pointer-events:none;
+            transition:opacity .32s ease-out;
+        }
+        .sbtn:hover{
+            color:rgb(var(--z200)) !important;
+            background:linear-gradient(180deg,
+                rgb(var(--z700)) 0%, rgb(var(--z800)) 58%, rgb(var(--z900)) 100%) !important;
+        }
+
+        /* ── momentary press: sink + accent flash ────────────────────────── */
+        .sbtn:active{
+            transition-duration:0s !important;
+            transform:translateY(1px);
+            color:rgb(var(--o300)) !important;
+            background:linear-gradient(180deg,
+                rgb(var(--z950)) 0%, rgb(var(--z900)) 100%) !important;
+            border-color:rgb(var(--o400) / .45) !important;
+            border-top-color:rgb(var(--o400) / .3) !important;
+            box-shadow:inset 0 2px 5px rgba(0,0,0,.75),
+                       inset 0 0 11px -2px rgb(var(--o400) / .45),
+                       0 0 0 1px rgb(var(--o400) / .18) !important;
+            text-shadow:0 0 8px rgb(var(--o400) / .55);
+        }
+        .sbtn:active::after{
+            opacity:1; transition-duration:0s;
+            box-shadow:0 0 6px rgb(var(--o400) / .9);
+        }
+
+        /* ── persistent ON: Option C's plate, filled. The whole cap takes the
+              wordmark gradient and the label flips to near-black, the same move
+              as the landing .btn-copper. Ink is --o950 rather than a hardcoded
+              #1c1206 so it stays the RIGHT near-black per skin: warm under
+              copper/brass, cold under teal/steel. ─────────────────────────── */
+        .sbtn.is-on{
+            color:rgb(var(--o950)) !important;
+            background:linear-gradient(180deg, rgb(var(--o300)) 0%, rgb(var(--o400)) 100%) !important;
+            border-color:rgb(var(--o200) / .5) !important;
+            border-top-color:rgb(var(--o100) / .55) !important;
+            text-shadow:0 1px 0 rgb(var(--o100) / .4);
+            box-shadow:inset 0 1px 0 rgba(255,255,255,.34),
+                       0 2px 9px -3px rgb(var(--o400) / .85) !important;
+        }
+        .sbtn.is-on::after{opacity:0}          /* the plate IS the signal now */
+        .sbtn.is-on:hover{
+            background:linear-gradient(180deg, rgb(var(--o200)) 0%, rgb(var(--o300)) 100%) !important;
+            border-color:rgb(var(--o100) / .6) !important;
+        }
+        /* A lit toggle must still sink when you press it off. .sbtn.is-on and
+           .sbtn:active tie on specificity and is-on is declared later, so
+           without this the tactility is lost on exactly the buttons that have
+           state to change. */
+        .sbtn.is-on:active{
+            transition-duration:0s !important;
+            transform:translateY(1px);
+            background:linear-gradient(180deg, rgb(var(--o400)) 0%, rgb(var(--o500)) 100%) !important;
+            box-shadow:inset 0 2px 6px rgb(var(--o950) / .6) !important;
+            text-shadow:none;
+        }
+
+        /* ── primed: the confirm in a morph panel, and the sidebar Motion tools.
+              Stronger than is-on so it still reads as "this is the action", but
+              a tinted cap rather than the solid amber/cyan/orange fills these
+              carried before. ────────────────────────────────────────────────── */
+        .sbtn--go{
+            color:rgb(var(--o200)) !important;
+            background:linear-gradient(180deg, rgb(var(--o400) / .3), rgb(var(--o400) / .14)),
+                       linear-gradient(180deg, rgb(var(--z800)) 0%, rgb(var(--z900)) 100%) !important;
+            border-color:rgb(var(--o400) / .55) !important;
+            border-top-color:rgb(var(--o400) / .4) !important;
+            box-shadow:inset 0 1px 0 rgb(var(--o400) / .22),
+                       0 1px 2px rgba(0,0,0,.55) !important;
+        }
+        /* ── alt state: "something other than Stride is driving" (DAW drive
+              mode, notes-free run mode). Hardcoded teal, not a skin token: the
+              whole point is that it must NOT read as the Stride accent. ─────── */
+        .sbtn.sbtn--alt.is-on{
+            color:rgb(8 20 25) !important;
+            background:linear-gradient(180deg, rgb(126 176 192) 0%, rgb(47 116 142) 100%) !important;
+            border-color:rgb(171 200 211 / .5) !important;
+            border-top-color:rgb(208 226 232 / .55) !important;
+            text-shadow:0 1px 0 rgb(208 226 232 / .4);
+            box-shadow:inset 0 1px 0 rgba(255,255,255,.3),
+                       0 2px 9px -3px rgb(47 116 142 / .85) !important;
+        }
+        .sbtn.sbtn--alt.is-on::after{opacity:0}
+        .sbtn.sbtn--alt.is-on:active{
+            background:linear-gradient(180deg, rgb(47 116 142) 0%, rgb(30 75 91) 100%) !important;
+        }
+        .sbtn--go::after{opacity:.7}
+        .sbtn--go:hover{
+            color:rgb(var(--o100)) !important;
+            border-color:rgb(var(--o400) / .72) !important;
+            background:linear-gradient(180deg, rgb(var(--o400) / .38), rgb(var(--o400) / .18)),
+                       linear-gradient(180deg, rgb(var(--z700)) 0%, rgb(var(--z800)) 100%) !important;
+        }
+
+        /* ── destructive: rose on press, never the accent ────────────────── */
+        /* Hardcoded because the vintage skins alias --ro* onto the grey ramp,
+           so a token would make Clear flash the same colour as Save. */
+        .sbtn--danger:active{
+            color:rgb(206 118 120) !important;
+            border-color:rgb(163 78 82 / .55) !important;
+            border-top-color:rgb(163 78 82 / .35) !important;
+            box-shadow:inset 0 2px 5px rgba(0,0,0,.75),
+                       inset 0 0 11px -2px rgb(163 78 82 / .5),
+                       0 0 0 1px rgb(163 78 82 / .2) !important;
+            text-shadow:0 0 8px rgb(163 78 82 / .6);
+        }
+        .sbtn--danger:active::after{background:rgb(163 78 82);box-shadow:0 0 6px rgb(163 78 82 / .9)}
+
+        /* ── variants ────────────────────────────────────────────────────── */
+        .sbtn--icon{               /* undo/redo, the mode carets, +/- steppers */
+            padding:3px 6px !important;
+            font-size:12px !important;
+            letter-spacing:0 !important;
+            min-width:22px;
+        }
+        .sbtn--chip{               /* focus-deck shape chips: icon over label */
+            flex-direction:column; gap:2px;
+            padding:5px 6px 4px !important;
+            min-height:0 !important;
+            font-size:8px !important;
+            letter-spacing:.06em !important;
+            border-radius:6px !important;
+        }
+        .sbtn--chip::after{left:7px;right:7px;bottom:2px}
+        /* segmented pairs share one seam (S&H + its mode caret) */
+        .sbtn--seg-l{border-top-right-radius:0 !important;border-bottom-right-radius:0 !important}
+        .sbtn--seg-r{
+            border-top-left-radius:0 !important;border-bottom-left-radius:0 !important;
+            margin-left:-1px;
+        }
+
+        /* ── states + accessibility floor ────────────────────────────────── */
+        .sbtn:disabled,.sbtn[disabled]{opacity:.38 !important;cursor:default}
+        .sbtn:disabled:active,.sbtn[disabled]:active{
+            transform:none;color:rgb(var(--z400)) !important;text-shadow:none;
+        }
+        .sbtn:disabled:active::after,.sbtn[disabled]:active::after{opacity:0}
+        .sbtn:focus-visible{
+            outline:2px solid rgb(var(--o400) / .7) !important;
+            outline-offset:1px;
+        }
+        @media (prefers-reduced-motion:reduce){
+            .sbtn,.sbtn::after{transition:none !important}
+            .sbtn:active{transform:none}
+        }
+/* ── page ─────────────────────────────────────────────────────────── */
+*{box-sizing:border-box}
+body{margin:0;background:#0c0c0d;color:#b8ad9b;font-family:'Outfit',sans-serif;
+     padding:34px 24px 100px;-webkit-font-smoothing:antialiased}
+.page{max-width:1500px;margin:0 auto}
+h1{color:#ece4d6;font-weight:900;letter-spacing:-.02em;font-size:30px;margin:0 0 10px}
+.lede{font-size:14px;line-height:1.65;max-width:80ch;margin:0 0 6px}
+.lede b{color:#ece4d6;font-weight:700}
+.mono{font-family:'Space Mono',monospace}
+h2{color:#857c6e;font-size:10px;font-weight:800;letter-spacing:.24em;
+   text-transform:uppercase;margin:30px 0 8px;display:flex;align-items:center;gap:12px}
+h2 em{font-style:normal;color:#c6712b;letter-spacing:.06em;font-size:10px}
+.frame{border:1px solid rgba(216,201,176,.12);border-radius:10px;overflow:hidden;
+       box-shadow:0 24px 46px -30px #000;background:rgb(var(--app-bg))}
+/* ── toolbar rows ─────────────────────────────────────────────────── */
+.row{display:flex;align-items:center;flex-wrap:nowrap;padding:6px 10px;
+     border-bottom:1px solid rgba(255,255,255,.05);overflow:hidden}
+.row.d{background:rgba(0,0,0,.42)}
+.row.t{background:rgba(0,0,0,.32)}
+.row.m{background:rgba(0,0,0,.24)}
+/* TODAY: everything one undifferentiated 4px cadence */
+.today .row > *{margin-right:4px}
+/* PROPOSED: 4px inside a family, 11px between families, divider between scopes */
+.fam{display:inline-flex;align-items:center;gap:4px}
+.gap{width:11px;flex:none}
+.sep{width:1px;height:17px;background:rgba(255,255,255,.11);margin:0 8px;flex:none}
+.prop .row > .fam + .fam{margin-left:11px}
+.sbtn--wide{padding-left:11px !important;padding-right:11px !important}
+.lbl{font-size:8.5px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;
+     color:#6a6255;padding:0 7px 0 3px;white-space:nowrap;flex:none}
+.muted{font-size:9px;font-style:italic;color:#5c554a;padding:0 8px;white-space:nowrap}
+.grow{flex:1 1 auto;min-width:8px}
+.fav{background:#17140f;border:1px solid rgba(216,201,176,.11);color:#b8ad9b;
+     font-family:'Outfit';font-size:10px;font-weight:800;border-radius:4px;
+     padding:3px 6px;min-height:20px;flex:none}
+/* reserved Map Live slot: holds its width when the bridge is absent */
+.slot{display:inline-flex;flex:none}
+.slot.empty{width:82px} .slot.empty button{visibility:hidden}
+/* ── chain ────────────────────────────────────────────────────────── */
+.chainrow{display:flex;align-items:center;gap:5px;min-width:0;flex:1 1 auto;
+          overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;padding:2px 0;
+          -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent);
+          mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent)}
+.chainrow::-webkit-scrollbar{height:4px}
+.chainrow::-webkit-scrollbar-thumb{background:#3a352c;border-radius:3px}
+.today-chain{max-width:250px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;
+      padding:3px 8px;border-radius:999px;border:1px solid rgba(216,201,176,.11);
+      background:#17140f;color:#b8ad9b;white-space:nowrap;flex:none}
+.chip i{width:7px;height:7px;border-radius:50%;background:#5c554a;flex:none}
+.chip.live i{background:rgb(var(--o400));box-shadow:0 0 6px rgb(var(--o400) / .8)}
+.chip.live{color:#ece4d6;border-color:rgb(var(--o400) / .34)}
+.chip-ico{font-size:9px;color:#6a6255;cursor:pointer;opacity:0;width:0;
+          overflow:hidden;transition:opacity .12s,width .12s}
+.chip:hover .chip-ico{opacity:1;width:11px}
+.chip-ico:hover{color:#dd9a52}
+.today .chip-ico{opacity:1;width:11px}   /* today: always shown */
+/* ── canvas ───────────────────────────────────────────────────────── */
+.lane{display:flex;height:44px;border-bottom:1px solid rgba(255,255,255,.045)}
+.lane-h{width:150px;flex:none;padding:5px 9px;display:flex;align-items:center;gap:6px;
+        border-right:1px solid rgba(255,255,255,.05);background:rgba(0,0,0,.25)}
+.lane-n{color:#ece4d6;font-weight:800;font-size:11px;line-height:1.15}
+.lane-d{color:#857c6e;font-weight:600;font-size:8.5px;margin-top:1px}
+.lane-x{color:#6a6255;font-size:10px;cursor:pointer;opacity:0;transition:opacity .12s}
+.lane:hover .lane-x{opacity:1} .lane-x:hover{color:#c5807f}
+.today .lane-x{opacity:1}
+.lane-c{flex:1;position:relative;overflow:hidden}
+.lane-c svg{position:absolute;inset:0;width:100%;height:100%}
+.sliders{display:flex;align-items:center;gap:16px;padding:8px 12px;
+         border-top:1px solid rgba(255,255,255,.06);background:rgba(0,0,0,.2)}
+.sl{display:flex;align-items:center;gap:7px;flex:1}
+.sl span{font-size:8.5px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;
+         color:#6a6255;white-space:nowrap}
+.sl i{flex:1;height:2px;background:#2e2a23;border-radius:2px;position:relative}
+.sl i::after{content:'';position:absolute;top:-3px;left:45%;width:8px;height:8px;
+             border-radius:50%;background:#5c554a}
+.status{display:flex;justify-content:space-between;padding:6px 12px;font-size:9px;
+        letter-spacing:.06em;color:#5c554a;background:#0d0c0a;font-family:'Space Mono',monospace}
+/* ── context menu demo ────────────────────────────────────────────── */
+#ctx{position:fixed;z-index:99;display:none;min-width:150px;padding:5px;
+     background:linear-gradient(180deg,#221e18,#191510);
+     border:1px solid rgba(216,201,176,.14);border-radius:8px;
+     box-shadow:0 20px 40px -16px #000}
+#ctx div{font-size:10px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;
+         color:#968d81;padding:5px 9px;border-radius:4px;cursor:pointer;
+         display:flex;justify-content:space-between;gap:20px}
+#ctx div:hover{background:rgba(255,255,255,.06);color:#ece4d6}
+#ctx div kbd{font-family:'Space Mono',monospace;font-size:9px;color:#5c554a;font-weight:400}
+#ctx hr{border:0;border-top:1px solid rgba(255,255,255,.07);margin:4px 2px}
+.note{border:1px solid rgba(216,201,176,.11);border-left:2px solid #c6712b;
+      background:#1a1712;border-radius:0 9px 9px 0;padding:13px 17px;margin:20px 0;
+      font-size:13.5px;line-height:1.6}
+.note b{color:#ece4d6}
+.tag{display:inline-block;font-family:'Space Mono',monospace;font-size:10px;
+     padding:2px 7px;border-radius:4px;border:1px solid rgba(198,113,43,.4);
+     background:rgba(198,113,43,.12);color:#dd9a52;margin-right:7px}
+.tag.off{border-color:rgba(216,201,176,.14);background:#252119;color:#857c6e}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Toolbar hierarchy, today vs proposed</h1>
+  <p class="lede">
+    Both bars below use the <b>real</b> <span class="mono">.sbtn</span> system and skin tokens read out of
+    the shipping wrapper, so this is a fair comparison of layout, not two drawings.
+    Same three rows, same row heights, <b>zero added height</b>. The hierarchy is bought with
+    spacing, order and dividers only.
+  </p>
+  <p class="lede">
+    Live in this page: the chain scrolls horizontally with ten devices loaded, chip controls
+    appear on hover, the lane remove appears on lane hover, and
+    <b>right-click a lane</b> for the demoted transforms.
+  </p>
+
+  <h2>Today <em>&mdash; one 4px cadence from end to end</em></h2>
+  <div class="frame today">
+    <div class="row d"><select class="fav"><option>&#9733; Favorites&hellip;</option></select><button class="sbtn sbtn--icon">&#9776;</button><button class="sbtn ">+ Add</button><button class="sbtn ">&#9673; Map</button><button class="sbtn ">&#8856; Unmap</button><button class="sbtn ">&#9673; Map Live</button><button class="sbtn ">Keyswitch Mode</button><button class="sbtn sbtn--icon">&#9662;</button><button class="sbtn sbtn--icon">&#9974;</button><button class="sbtn sbtn--icon">&#8863;</button><button class="sbtn ">Clear</button><button class="sbtn sbtn--icon">&#9662;</button><button class="sbtn ">&#9834; Sync</button><button class="sbtn ">&#9656; Transport</button><span class="chainrow today-chain"><span class="chip live"><i></i><b>Serum 2</b><span class="chip-ico" title="Open device window">&#9974;</span><span class="chip-ico" title="Remove from chain">&#10005;</span></span><span class="chip"><i></i><b>kHs Dual Delay</b><span class="chip-ico" title="Open device window">&#9974;</span><span class="chip-ico" title="Remove from chain">&#10005;</span></span><span class="chip live"><i></i><b>Cluster Delay 1</b><span class="chip-ico" title="Open device window">&#9974;</span><span class="chip-ico" title="Remove from chain">&#10005;</span></span><span class="chip"><i></i><b>kHs Ring Mod</b><span class="chip-ico" title="Open device window">&#9974;</span><span class="chip-ico" title="Remove from chain">&#10005;</span></span><span class="chip"><i></i><b>Cluster Delay 2</b><span class="chip-ico" title="Open device window">&#9974;</span><span class="chip-ico" title="Remove from chain">&#10005;</span></span><span class="chip live"><i></i><b>OTT</b><span class="chip-ico" title="Open device window">&#9974;</span><span class="chip-ico" title="Remove from chain">&#10005;</span></span><span class="chip"><i></i><b>Valhalla Delay</b><span class="chip-ico" title="Open device window">&#9974;</span><span class="chip-ico" title="Remove from chain">&#10005;</span></span><span class="chip"><i></i><b>Roar</b><span class="chip-ico" title="Open device window">&#9974;</span><span class="chip-ico" title="Remove from chain">&#10005;</span></span><span class="chip"><i></i><b>Auto Filter</b><span class="chip-ico" title="Open device window">&#9974;</span><span class="chip-ico" title="Remove from chain">&#10005;</span></span><span class="chip"><i></i><b>Echo</b><span class="chip-ico" title="Open device window">&#9974;</span><span class="chip-ico" title="Remove from chain">&#10005;</span></span></span></div>
+    <div class="row t"><button class="sbtn sbtn--icon">&#8630;</button><button class="sbtn sbtn--icon">&#8631;</button><button class="sbtn is-on">Point</button><button class="sbtn ">Free</button><button class="sbtn ">Mirror</button><button class="sbtn ">Flip</button><button class="sbtn ">Swing</button><button class="sbtn ">2x</button><button class="sbtn ">1/2x</button><button class="sbtn ">Mutate</button><button class="sbtn ">Shuffle</button><span class="lbl">&#9673; Sel</span><button class="sbtn ">Sine</button><button class="sbtn ">Pump</button><button class="sbtn ">Chaos</button><button class="sbtn ">Neuro</button><button class="sbtn ">S&amp;H</button><button class="sbtn ">1/16 &#9662;</button><button class="sbtn ">Smooth</button><button class="sbtn ">Storm</button><button class="sbtn ">Call</button><button class="sbtn ">Acid</button><button class="sbtn ">Anchor</button></div>
+    <div class="row m"><span class="lbl">Motion</span><button class="sbtn ">Chaos</button><button class="sbtn ">Neuro</button><button class="sbtn ">Reflector</button><button class="sbtn ">S&amp;H</button><button class="sbtn ">1/16 &#9662;</button><button class="sbtn ">Prism</button><button class="sbtn ">Bloom</button><span class="lbl">Bars</span><button class="sbtn ">4</button><button class="sbtn ">8</button><button class="sbtn ">16</button><button class="sbtn is-on">32</button><button class="sbtn ">T</button><button class="sbtn ">Save</button><button class="sbtn ">Motions</button><span class="muted">none pinned</span><span class="grow"></span><button class="sbtn ">Select All</button><button class="sbtn ">Lock All</button><button class="sbtn ">Unlock All</button></div>
+    <div class="lane"><div class="lane-h"><span class="lane-x" title="Remove lane">&#10005;</span><div><div class="lane-n">A WT Pos</div><div class="lane-d">Serum 2</div></div></div><div class="lane-c"><svg viewBox="0 0 540 44" preserveAspectRatio="none"><path d="M0,34 L18,30.5 L36,33.0 L54,32.7 L72,24.7 L90,18.8 L108,6.7 L126,7.6 L144,16.1 L162,31.9 L180,33.6 L198,32.0 L216,23.1 L234,17.4 L252,6.3 L270,8.5 L288,17.7 L306,33.3 L324,33.9 L342,31.0 L360,21.5 L378,16.1 L396,6.0 L414,9.5 L432,19.3 L450,34.5 L468,34.0 L486,30.0 L504,19.9 L522,14.9 L540,6.0" fill="none" stroke="#c6712b" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg></div></div><div class="lane"><div class="lane-h"><span class="lane-x" title="Remove lane">&#10005;</span><div><div class="lane-n">Filter 1 Freq</div><div class="lane-d">Serum 2</div></div></div><div class="lane-c"><svg viewBox="0 0 540 44" preserveAspectRatio="none"><path d="M0,34 L18,36.3 L36,22.0 L54,11.4 L72,6.1 L90,14.2 L108,18.8 L126,29.2 L144,34.0 L162,35.3 L180,20.3 L198,10.2 L216,6.0 L234,15.3 L252,20.5 L270,30.4 L288,34.0 L306,34.1 L324,18.7 L342,9.1 L360,6.1 L378,16.5 L396,22.1 L414,31.4 L432,33.8 L450,32.8 L468,17.1 L486,8.2 L504,6.4 L522,17.9 L540,23.7" fill="none" stroke="#2f748e" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg></div></div><div class="lane"><div class="lane-h"><span class="lane-x" title="Remove lane">&#10005;</span><div><div class="lane-n">Dly Feedback</div><div class="lane-d">Cluster Delay</div></div></div><div class="lane-c"><svg viewBox="0 0 540 44" preserveAspectRatio="none"><path d="M0,34 L18,15.4 L36,6.0 L54,10.1 L72,20.2 L90,35.2 L108,34.0 L126,29.3 L144,18.9 L162,14.3 L180,6.1 L198,11.3 L216,21.9 L234,36.3 L252,33.8 L270,28.0 L288,17.3 L306,13.3 L324,6.3 L342,12.7 L360,23.5 L378,37.1 L396,33.5 L414,26.6 L432,15.7 L450,12.5 L468,6.8 L486,14.1 L504,25.0 L522,37.9 L540,32.9" fill="none" stroke="#5b7b55" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg></div></div>
+  </div>
+
+  <h2>Proposed <em>&mdash; same height, grouped by scope</em></h2>
+  <div class="frame prop">
+    <div class="row d"><span class="fam"><select class="fav"><option>&#9733; Favorites&hellip;</option></select><button class="sbtn sbtn--icon">&#9776;</button><button class="sbtn sbtn--wide">+ Add</button></span><span class="sep"></span><span class="fam"><button class="sbtn sbtn--wide">&#9673; Map</button><button class="sbtn ">&#8856; Unmap</button><button class="sbtn ">Keyswitch Mode</button><button class="sbtn sbtn--icon">&#9662;</button><span class="slot"><button class="sbtn ">&#9673; Map Live</button></span></span><span class="sep"></span><span class="fam"><button class="sbtn sbtn--icon">&#9662;</button><button class="sbtn ">&#9834; Sync</button><button class="sbtn ">&#9656; Transport</button></span><span class="sep"></span><span class="lbl">Chain</span><span class="chainrow prop-chain" id="chain"><span class="chip live"><i></i><b>Serum 2</b><span class="chip-ico" title="Open device window">&#9974;</span><span class="chip-ico" title="Remove from chain">&#10005;</span></span><span class="chip"><i></i><b>kHs Dual Delay</b><span class="chip-ico" title="Open device window">&#9974;</span><span class="chip-ico" title="Remove from chain">&#10005;</span></span><span class="chip live"><i></i><b>Cluster Delay 1</b><span class="chip-ico" title="Open device window">&#9974;</span><span class="chip-ico" title="Remove from chain">&#10005;</span></span><span class="chip"><i></i><b>kHs Ring Mod</b><span class="chip-ico" title="Open device window">&#9974;</span><span class="chip-ico" title="Remove from chain">&#10005;</span></span><span class="chip"><i></i><b>Cluster Delay 2</b><span class="chip-ico" title="Open device window">&#9974;</span><span class="chip-ico" title="Remove from chain">&#10005;</span></span><span class="chip live"><i></i><b>OTT</b><span class="chip-ico" title="Open device window">&#9974;</span><span class="chip-ico" title="Remove from chain">&#10005;</span></span><span class="chip"><i></i><b>Valhalla Delay</b><span class="chip-ico" title="Open device window">&#9974;</span><span class="chip-ico" title="Remove from chain">&#10005;</span></span><span class="chip"><i></i><b>Roar</b><span class="chip-ico" title="Open device window">&#9974;</span><span class="chip-ico" title="Remove from chain">&#10005;</span></span><span class="chip"><i></i><b>Auto Filter</b><span class="chip-ico" title="Open device window">&#9974;</span><span class="chip-ico" title="Remove from chain">&#10005;</span></span><span class="chip"><i></i><b>Echo</b><span class="chip-ico" title="Open device window">&#9974;</span><span class="chip-ico" title="Remove from chain">&#10005;</span></span></span></div>
+    <div class="row t"><span class="fam"><button class="sbtn is-on sbtn--wide">Point</button><button class="sbtn sbtn--wide">Free</button></span><span class="sep"></span><span class="fam"><button class="sbtn sbtn--wide">Mutate</button><button class="sbtn sbtn--wide">Shuffle</button></span><span class="sep"></span><span class="lbl">Sel</span><span class="fam"><button class="sbtn ">Sine</button><button class="sbtn ">Pump</button><button class="sbtn ">Chaos</button><button class="sbtn ">Neuro</button><button class="sbtn ">S&amp;H</button><button class="sbtn ">1/16 &#9662;</button></span><span class="sep"></span><span class="fam"><button class="sbtn ">Smooth</button><button class="sbtn ">Storm</button><button class="sbtn ">Call</button><button class="sbtn ">Acid</button><button class="sbtn ">Anchor</button></span><span class="sep"></span><span class="fam"><button class="sbtn ">Swing</button></span><span class="grow"></span><span class="fam"><button class="sbtn sbtn--icon">&#8630;</button><button class="sbtn sbtn--icon">&#8631;</button></span></div>
+    <div class="row m"><span class="lbl">Motion</span><span class="fam"><button class="sbtn sbtn--wide">Chaos</button><button class="sbtn sbtn--wide">Neuro</button><button class="sbtn sbtn--wide">Reflector</button><button class="sbtn sbtn--wide">S&amp;H</button><button class="sbtn ">1/16 &#9662;</button><button class="sbtn sbtn--wide">Prism</button><button class="sbtn sbtn--wide">Bloom</button></span><span class="sep"></span><span class="lbl">Bars</span><span class="fam"><button class="sbtn ">4</button><button class="sbtn ">8</button><button class="sbtn ">16</button><button class="sbtn is-on">32</button><button class="sbtn ">T</button></span><span class="sep"></span><span class="fam"><button class="sbtn ">Motions</button></span><span class="grow"></span><span class="fam"><button class="sbtn ">Select All</button><button class="sbtn ">Lock All</button><button class="sbtn ">Unlock All</button></span></div>
+    <div class="lane"><div class="lane-h"><span class="lane-x" title="Remove lane">&#10005;</span><div><div class="lane-n">A WT Pos</div><div class="lane-d">Serum 2</div></div></div><div class="lane-c"><svg viewBox="0 0 540 44" preserveAspectRatio="none"><path d="M0,34 L18,30.5 L36,33.0 L54,32.7 L72,24.7 L90,18.8 L108,6.7 L126,7.6 L144,16.1 L162,31.9 L180,33.6 L198,32.0 L216,23.1 L234,17.4 L252,6.3 L270,8.5 L288,17.7 L306,33.3 L324,33.9 L342,31.0 L360,21.5 L378,16.1 L396,6.0 L414,9.5 L432,19.3 L450,34.5 L468,34.0 L486,30.0 L504,19.9 L522,14.9 L540,6.0" fill="none" stroke="#c6712b" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg></div></div><div class="lane"><div class="lane-h"><span class="lane-x" title="Remove lane">&#10005;</span><div><div class="lane-n">Filter 1 Freq</div><div class="lane-d">Serum 2</div></div></div><div class="lane-c"><svg viewBox="0 0 540 44" preserveAspectRatio="none"><path d="M0,34 L18,36.3 L36,22.0 L54,11.4 L72,6.1 L90,14.2 L108,18.8 L126,29.2 L144,34.0 L162,35.3 L180,20.3 L198,10.2 L216,6.0 L234,15.3 L252,20.5 L270,30.4 L288,34.0 L306,34.1 L324,18.7 L342,9.1 L360,6.1 L378,16.5 L396,22.1 L414,31.4 L432,33.8 L450,32.8 L468,17.1 L486,8.2 L504,6.4 L522,17.9 L540,23.7" fill="none" stroke="#2f748e" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg></div></div><div class="lane"><div class="lane-h"><span class="lane-x" title="Remove lane">&#10005;</span><div><div class="lane-n">Dly Feedback</div><div class="lane-d">Cluster Delay</div></div></div><div class="lane-c"><svg viewBox="0 0 540 44" preserveAspectRatio="none"><path d="M0,34 L18,15.4 L36,6.0 L54,10.1 L72,20.2 L90,35.2 L108,34.0 L126,29.3 L144,18.9 L162,14.3 L180,6.1 L198,11.3 L216,21.9 L234,36.3 L252,33.8 L270,28.0 L288,17.3 L306,13.3 L324,6.3 L342,12.7 L360,23.5 L378,37.1 L396,33.5 L414,26.6 L432,15.7 L450,12.5 L468,6.8 L486,14.1 L504,25.0 L522,37.9 L540,32.9" fill="none" stroke="#5b7b55" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg></div></div>
+    <div class="sliders">
+      <div class="sl"><span>Active</span></div>
+      <div class="sl"><span>Smooth</span><i></i></div>
+      <div class="sl"><span>Depth</span><i></i></div>
+      <div class="sl"><span>Curve</span><i></i></div>
+      <div class="sl"><span>Floor</span><i></i></div>
+      <div class="sl"><span>Ceiling</span><i></i></div>
+    </div>
+    <div class="status"><span>CTRL+WHEEL &middot; SPACE+DRAG &middot; ALT+DRAG</span>
+      <span>Reflector needs at least 2 unlocked lanes, unlock more to pair</span></div>
+  </div>
+
+  <div class="note">
+    <b>What changed, and nothing else.</b>
+    <span class="tag">moved</span>Device row now reads left to right as a workflow:
+    browser, mapping, transport, chain. <span class="mono">+ Add</span> sits with Favorites because it
+    loads a device, it does not map one.<br>
+    <span class="tag">moved</span>Tool row is reordered into edit mode, variation, selected-lane motion,
+    character, then Swing. Undo and Redo lose the prime left edge and sit far right.<br>
+    <span class="tag off">demoted</span><span class="mono">Mirror, Flip, 2x, 1/2x</span> to the lane
+    right-click. <span class="mono">Clear</span> to the chain context menu. Chip open and close, and the
+    lane remove, to hover.<br>
+    <span class="tag off">cut</span><span class="mono">none pinned</span> filler, and the two global
+    synth-window icons. <span class="mono">Save</span> folds into <span class="mono">Motions</span>.<br>
+    <span class="tag">kept</span>Every generator, every character tool, every Bars value. Nothing
+    creative was hidden to make the screenshot tidier.
+  </div>
+
+  <div class="note">
+    <b>The spacing rule doing the work.</b> 4px inside a family, 11px between families,
+    and a 1px divider with 8px either side between different scopes. That is the whole
+    mechanism. Compare the two silhouettes with your eyes half closed: today is one long
+    dashed line, the proposal is five distinct masses per row.
+  </div>
+</div>
+
+<div id="ctx">
+  <div>Mirror <kbd>M</kbd></div>
+  <div>Flip <kbd>F</kbd></div>
+  <hr>
+  <div>Stretch 2x</div>
+  <div>Compress 1/2x</div>
+</div>
+
+<script>
+/* the demoted transforms, on the object that owns them */
+const ctx = document.getElementById('ctx');
+document.querySelectorAll('.lane').forEach(l => l.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  ctx.style.display = 'block';
+  ctx.style.left = Math.min(e.clientX, innerWidth - 170) + 'px';
+  ctx.style.top = Math.min(e.clientY, innerHeight - 130) + 'px';
+}));
+addEventListener('click', () => { ctx.style.display = 'none'; });
+addEventListener('scroll', () => { ctx.style.display = 'none'; }, true);
+/* let the buttons feel real */
+document.querySelectorAll('.sbtn').forEach(b => b.addEventListener('click', e => {
+  if (b.closest('.fam') && /^(4|8|16|32)$/.test(b.textContent.trim())) {
+    b.closest('.fam').querySelectorAll('.sbtn').forEach(x => x.classList.remove('is-on'));
+  }
+  b.classList.toggle('is-on');
+}));
+</script>
+</body>
+</html>

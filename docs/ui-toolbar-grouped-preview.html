@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head><meta charset="utf-8"><title>Grouped toolbar</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script>
+      // SKINS: remap the palettes the UI uses to CSS variables so a single
+      // [data-skin] swap re-skins the whole app. Channels are space-separated
+      // RGB so Tailwind's /opacity modifiers keep working. Status colors
+      // (emerald/amber/red/sky/violet/rose) are intentionally NOT remapped —
+      // they stay semantic across every skin.
+      tailwind.config = {
+        darkMode: 'class',
+        theme: { extend: { colors: {
+          zinc: { 50:'rgb(var(--z50) / <alpha-value>)',100:'rgb(var(--z100) / <alpha-value>)',200:'rgb(var(--z200) / <alpha-value>)',300:'rgb(var(--z300) / <alpha-value>)',400:'rgb(var(--z400) / <alpha-value>)',500:'rgb(var(--z500) / <alpha-value>)',600:'rgb(var(--z600) / <alpha-value>)',700:'rgb(var(--z700) / <alpha-value>)',800:'rgb(var(--z800) / <alpha-value>)',900:'rgb(var(--z900) / <alpha-value>)',950:'rgb(var(--z950) / <alpha-value>)' },
+          orange: { 50:'rgb(var(--o50) / <alpha-value>)',100:'rgb(var(--o100) / <alpha-value>)',200:'rgb(var(--o200) / <alpha-value>)',300:'rgb(var(--o300) / <alpha-value>)',400:'rgb(var(--o400) / <alpha-value>)',500:'rgb(var(--o500) / <alpha-value>)',600:'rgb(var(--o600) / <alpha-value>)',700:'rgb(var(--o700) / <alpha-value>)',800:'rgb(var(--o800) / <alpha-value>)',900:'rgb(var(--o900) / <alpha-value>)',950:'rgb(var(--o950) / <alpha-value>)' },
+          fuchsia: { 50:'rgb(var(--f50) / <alpha-value>)',100:'rgb(var(--f100) / <alpha-value>)',200:'rgb(var(--f200) / <alpha-value>)',300:'rgb(var(--f300) / <alpha-value>)',400:'rgb(var(--f400) / <alpha-value>)',500:'rgb(var(--f500) / <alpha-value>)',600:'rgb(var(--f600) / <alpha-value>)',700:'rgb(var(--f700) / <alpha-value>)',800:'rgb(var(--f800) / <alpha-value>)',900:'rgb(var(--f900) / <alpha-value>)',950:'rgb(var(--f950) / <alpha-value>)' },
+          emerald: { 50:'rgb(var(--em50) / <alpha-value>)',100:'rgb(var(--em100) / <alpha-value>)',200:'rgb(var(--em200) / <alpha-value>)',300:'rgb(var(--em300) / <alpha-value>)',400:'rgb(var(--em400) / <alpha-value>)',500:'rgb(var(--em500) / <alpha-value>)',600:'rgb(var(--em600) / <alpha-value>)',700:'rgb(var(--em700) / <alpha-value>)',800:'rgb(var(--em800) / <alpha-value>)',900:'rgb(var(--em900) / <alpha-value>)',950:'rgb(var(--em950) / <alpha-value>)' },
+          amber: { 50:'rgb(var(--am50) / <alpha-value>)',100:'rgb(var(--am100) / <alpha-value>)',200:'rgb(var(--am200) / <alpha-value>)',300:'rgb(var(--am300) / <alpha-value>)',400:'rgb(var(--am400) / <alpha-value>)',500:'rgb(var(--am500) / <alpha-value>)',600:'rgb(var(--am600) / <alpha-value>)',700:'rgb(var(--am700) / <alpha-value>)',800:'rgb(var(--am800) / <alpha-value>)',900:'rgb(var(--am900) / <alpha-value>)',950:'rgb(var(--am950) / <alpha-value>)' },
+          sky: { 50:'rgb(var(--sk50) / <alpha-value>)',100:'rgb(var(--sk100) / <alpha-value>)',200:'rgb(var(--sk200) / <alpha-value>)',300:'rgb(var(--sk300) / <alpha-value>)',400:'rgb(var(--sk400) / <alpha-value>)',500:'rgb(var(--sk500) / <alpha-value>)',600:'rgb(var(--sk600) / <alpha-value>)',700:'rgb(var(--sk700) / <alpha-value>)',800:'rgb(var(--sk800) / <alpha-value>)',900:'rgb(var(--sk900) / <alpha-value>)',950:'rgb(var(--sk950) / <alpha-value>)' },
+          violet: { 50:'rgb(var(--vi50) / <alpha-value>)',100:'rgb(var(--vi100) / <alpha-value>)',200:'rgb(var(--vi200) / <alpha-value>)',300:'rgb(var(--vi300) / <alpha-value>)',400:'rgb(var(--vi400) / <alpha-value>)',500:'rgb(var(--vi500) / <alpha-value>)',600:'rgb(var(--vi600) / <alpha-value>)',700:'rgb(var(--vi700) / <alpha-value>)',800:'rgb(var(--vi800) / <alpha-value>)',900:'rgb(var(--vi900) / <alpha-value>)',950:'rgb(var(--vi950) / <alpha-value>)' },
+          rose: { 50:'rgb(var(--ro50) / <alpha-value>)',100:'rgb(var(--ro100) / <alpha-value>)',200:'rgb(var(--ro200) / <alpha-value>)',300:'rgb(var(--ro300) / <alpha-value>)',400:'rgb(var(--ro400) / <alpha-value>)',500:'rgb(var(--ro500) / <alpha-value>)',600:'rgb(var(--ro600) / <alpha-value>)',700:'rgb(var(--ro700) / <alpha-value>)',800:'rgb(var(--ro800) / <alpha-value>)',900:'rgb(var(--ro900) / <alpha-value>)',950:'rgb(var(--ro950) / <alpha-value>)' },
+        }}}
+      };
+    </script>
+<script src="../stride-wrapper/m0-spike/ui/tailwind.js"></script>
+<style>
+      /* Outfit, bundled locally (variable) — 1:1 typography with the Ableton version. */
+      @font-face { font-family:'Outfit'; src:url('Outfit.ttf') format('truetype'); font-weight:100 900; font-display:swap; }
+    </style>
+<style>
+        /* Website CTA — the EXACT "GET STRIDE $99" button (frontend .btn-copper): copper
+           gradient, dark ink, gold hairline. Used for the pass Start / Get Stride CTAs. */
+        .sd-btn-copper{background:linear-gradient(180deg,#e58a2e,#c6712b)!important;color:#1c1206!important;
+            border:1px solid rgba(255,210,150,.25)!important;
+            box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 12px 24px -14px rgba(198,113,43,.8)!important;
+            transition:transform .15s,filter .15s}
+        .sd-btn-copper:hover{transform:translateY(-2px);filter:brightness(1.06)!important}
+        /* ── SKINS: palette variables as RGB channels. :root = Midnight (the
+              original look); [data-skin] swaps to a vintage palette. Generated
+              from anchor colors — see docs/mockup-stride2-vintage.html. ── */
+        :root{--z50:250 250 250;--z100:244 244 245;--z200:228 228 231;--z300:212 212 216;--z400:161 161 170;--z500:113 113 122;--z600:82 82 91;--z700:63 63 70;--z800:39 39 42;--z900:24 24 27;--z950:9 9 11;--o50:255 247 237;--o100:255 237 213;--o200:254 215 170;--o300:253 186 116;--o400:251 146 60;--o500:249 115 22;--o600:234 88 12;--o700:194 65 12;--o800:154 52 18;--o900:124 45 18;--o950:67 20 7;--f50:253 244 255;--f100:250 232 255;--f200:245 208 254;--f300:240 171 252;--f400:232 121 249;--f500:217 70 239;--f600:192 38 211;--f700:162 28 175;--f800:134 25 143;--f900:112 26 117;--f950:74 4 78;--em50:236 253 245;--em100:209 250 229;--em200:167 243 208;--em300:110 231 183;--em400:52 211 153;--em500:16 185 129;--em600:5 150 105;--em700:4 120 87;--em800:6 95 70;--em900:6 78 59;--em950:2 44 34;--am50:255 251 235;--am100:254 243 199;--am200:253 230 138;--am300:252 211 77;--am400:251 191 36;--am500:245 158 11;--am600:217 119 6;--am700:180 83 9;--am800:146 64 14;--am900:120 53 15;--am950:69 26 3;--sk50:240 249 255;--sk100:224 242 254;--sk200:186 230 253;--sk300:125 211 252;--sk400:56 189 248;--sk500:14 165 233;--sk600:2 132 199;--sk700:3 105 161;--sk800:7 89 133;--sk900:12 74 110;--sk950:8 47 73;--vi50:245 243 255;--vi100:237 233 254;--vi200:221 214 254;--vi300:196 181 253;--vi400:167 139 250;--vi500:139 92 246;--vi600:124 58 237;--vi700:109 40 217;--vi800:91 33 182;--vi900:76 29 149;--vi950:46 16 101;--ro50:255 241 242;--ro100:255 228 230;--ro200:254 205 211;--ro300:253 164 175;--ro400:251 113 133;--ro500:244 63 94;--ro600:225 29 72;--ro700:190 18 60;--ro800:159 18 57;--ro900:136 19 55;--ro950:76 5 25;--brand1:249 115 22;--brand2:239 68 68;--app-bg:9 9 11;--sb-thumb:63 63 70;--sb-hover:82 82 91}
+        [data-skin="copper"]{--z50:238 240 240;--z100:225 227 227;--z200:209 213 213;--z300:188 192 192;--z400:154 157 158;--z500:113 118 118;--z600:90 95 95;--z700:68 71 71;--z800:54 57 57;--z900:43 45 45;--z950:22 22 22;--o50:249 241 234;--o100:244 227 213;--o200:232 198 170;--o300:215 156 107;--o400:198 113 43;--o500:174 99 38;--o600:143 81 31;--o700:109 62 24;--o800:79 45 17;--o900:55 32 12;--o950:30 17 6;--f50:var(--o50);--f100:var(--o100);--f200:var(--o200);--f300:var(--o300);--f400:var(--o400);--f500:var(--o500);--f600:var(--o600);--f700:var(--o700);--f800:var(--o800);--f900:var(--o900);--f950:var(--o950);--em50:var(--o50);--em100:var(--o100);--em200:var(--o200);--em300:var(--o300);--em400:var(--o400);--em500:var(--o500);--em600:var(--o600);--em700:var(--o700);--em800:var(--o800);--em900:var(--o900);--em950:var(--o950);--am50:var(--o50);--am100:var(--o100);--am200:var(--o200);--am300:var(--o300);--am400:var(--o400);--am500:var(--o500);--am600:var(--o600);--am700:var(--o700);--am800:var(--o800);--am900:var(--o900);--am950:var(--o950);--sk50:var(--z50);--sk100:var(--z100);--sk200:var(--z200);--sk300:var(--z300);--sk400:var(--z400);--sk500:var(--z500);--sk600:var(--z600);--sk700:var(--z700);--sk800:var(--z800);--sk900:var(--z900);--sk950:var(--z950);--vi50:var(--z50);--vi100:var(--z100);--vi200:var(--z200);--vi300:var(--z300);--vi400:var(--z400);--vi500:var(--z500);--vi600:var(--z600);--vi700:var(--z700);--vi800:var(--z800);--vi900:var(--z900);--vi950:var(--z950);--ro50:var(--z50);--ro100:var(--z100);--ro200:var(--z200);--ro300:var(--z300);--ro400:var(--z400);--ro500:var(--z500);--ro600:var(--z600);--ro700:var(--z700);--ro800:var(--z800);--ro900:var(--z900);--ro950:var(--z950);--brand1:198 113 43;--brand2:217 144 74;--app-bg:22 22 22;--sb-thumb:68 71 71;--sb-hover:90 95 95}
+        [data-skin="steel"]{--z50:238 242 246;--z100:221 228 235;--z200:207 216 225;--z300:180 191 202;--z400:147 160 173;--z500:105 116 127;--z600:79 91 102;--z700:59 70 81;--z800:46 54 64;--z900:35 41 49;--z950:20 23 26;--o50:253 243 234;--o100:250 232 213;--o200:245 208 171;--o300:238 173 109;--o400:230 138 46;--o500:202 121 40;--o600:166 99 33;--o700:127 76 25;--o800:92 55 18;--o900:64 39 13;--o950:35 21 7;--f50:var(--o50);--f100:var(--o100);--f200:var(--o200);--f300:var(--o300);--f400:var(--o400);--f500:var(--o500);--f600:var(--o600);--f700:var(--o700);--f800:var(--o800);--f900:var(--o900);--f950:var(--o950);--em50:var(--o50);--em100:var(--o100);--em200:var(--o200);--em300:var(--o300);--em400:var(--o400);--em500:var(--o500);--em600:var(--o600);--em700:var(--o700);--em800:var(--o800);--em900:var(--o900);--em950:var(--o950);--am50:var(--o50);--am100:var(--o100);--am200:var(--o200);--am300:var(--o300);--am400:var(--o400);--am500:var(--o500);--am600:var(--o600);--am700:var(--o700);--am800:var(--o800);--am900:var(--o900);--am950:var(--o950);--sk50:var(--z50);--sk100:var(--z100);--sk200:var(--z200);--sk300:var(--z300);--sk400:var(--z400);--sk500:var(--z500);--sk600:var(--z600);--sk700:var(--z700);--sk800:var(--z800);--sk900:var(--z900);--sk950:var(--z950);--vi50:var(--z50);--vi100:var(--z100);--vi200:var(--z200);--vi300:var(--z300);--vi400:var(--z400);--vi500:var(--z500);--vi600:var(--z600);--vi700:var(--z700);--vi800:var(--z800);--vi900:var(--z900);--vi950:var(--z950);--ro50:var(--z50);--ro100:var(--z100);--ro200:var(--z200);--ro300:var(--z300);--ro400:var(--z400);--ro500:var(--z500);--ro600:var(--z600);--ro700:var(--z700);--ro800:var(--z800);--ro900:var(--z900);--ro950:var(--z950);--brand1:230 138 46;--brand2:240 168 90;--app-bg:20 23 26;--sb-thumb:59 70 81;--sb-hover:79 91 102}
+        [data-skin="brass"]{--z50:241 236 226;--z100:228 221 208;--z200:215 207 192;--z300:195 187 171;--z400:163 154 138;--z500:118 111 99;--z600:88 82 73;--z700:67 62 53;--z800:53 49 41;--z900:42 39 34;--z950:21 19 15;--o50:250 246 237;--o100:244 236 219;--o200:233 218 183;--o300:217 190 129;--o400:201 162 75;--o500:177 143 66;--o600:145 117 54;--o700:111 89 41;--o800:80 65 30;--o900:56 45 21;--o950:30 24 11;--f50:var(--o50);--f100:var(--o100);--f200:var(--o200);--f300:var(--o300);--f400:var(--o400);--f500:var(--o500);--f600:var(--o600);--f700:var(--o700);--f800:var(--o800);--f900:var(--o900);--f950:var(--o950);--em50:var(--o50);--em100:var(--o100);--em200:var(--o200);--em300:var(--o300);--em400:var(--o400);--em500:var(--o500);--em600:var(--o600);--em700:var(--o700);--em800:var(--o800);--em900:var(--o900);--em950:var(--o950);--am50:var(--o50);--am100:var(--o100);--am200:var(--o200);--am300:var(--o300);--am400:var(--o400);--am500:var(--o500);--am600:var(--o600);--am700:var(--o700);--am800:var(--o800);--am900:var(--o900);--am950:var(--o950);--sk50:var(--z50);--sk100:var(--z100);--sk200:var(--z200);--sk300:var(--z300);--sk400:var(--z400);--sk500:var(--z500);--sk600:var(--z600);--sk700:var(--z700);--sk800:var(--z800);--sk900:var(--z900);--sk950:var(--z950);--vi50:var(--z50);--vi100:var(--z100);--vi200:var(--z200);--vi300:var(--z300);--vi400:var(--z400);--vi500:var(--z500);--vi600:var(--z600);--vi700:var(--z700);--vi800:var(--z800);--vi900:var(--z900);--vi950:var(--z950);--ro50:var(--z50);--ro100:var(--z100);--ro200:var(--z200);--ro300:var(--z300);--ro400:var(--z400);--ro500:var(--z500);--ro600:var(--z600);--ro700:var(--z700);--ro800:var(--z800);--ro900:var(--z900);--ro950:var(--z950);--brand1:201 162 75;--brand2:220 186 110;--app-bg:21 19 15;--sb-thumb:67 62 53;--sb-hover:88 82 73}
+        [data-skin="teal"]{--z50:238 240 240;--z100:223 226 226;--z200:208 212 213;--z300:186 191 191;--z400:152 156 157;--z500:111 117 118;--z600:87 92 93;--z700:66 71 71;--z800:52 57 57;--z900:41 45 45;--z950:20 22 23;--o50:234 241 244;--o100:213 227 232;--o200:172 199 210;--o300:109 158 176;--o400:47 116 142;--o500:41 102 125;--o600:34 84 102;--o700:26 64 78;--o800:19 46 57;--o900:13 32 40;--o950:7 17 21;--f50:var(--o50);--f100:var(--o100);--f200:var(--o200);--f300:var(--o300);--f400:var(--o400);--f500:var(--o500);--f600:var(--o600);--f700:var(--o700);--f800:var(--o800);--f900:var(--o900);--f950:var(--o950);--em50:var(--o50);--em100:var(--o100);--em200:var(--o200);--em300:var(--o300);--em400:var(--o400);--em500:var(--o500);--em600:var(--o600);--em700:var(--o700);--em800:var(--o800);--em900:var(--o900);--em950:var(--o950);--am50:var(--o50);--am100:var(--o100);--am200:var(--o200);--am300:var(--o300);--am400:var(--o400);--am500:var(--o500);--am600:var(--o600);--am700:var(--o700);--am800:var(--o800);--am900:var(--o900);--am950:var(--o950);--sk50:var(--z50);--sk100:var(--z100);--sk200:var(--z200);--sk300:var(--z300);--sk400:var(--z400);--sk500:var(--z500);--sk600:var(--z600);--sk700:var(--z700);--sk800:var(--z800);--sk900:var(--z900);--sk950:var(--z950);--vi50:var(--z50);--vi100:var(--z100);--vi200:var(--z200);--vi300:var(--z300);--vi400:var(--z400);--vi500:var(--z500);--vi600:var(--z600);--vi700:var(--z700);--vi800:var(--z800);--vi900:var(--z900);--vi950:var(--z950);--ro50:var(--z50);--ro100:var(--z100);--ro200:var(--z200);--ro300:var(--z300);--ro400:var(--z400);--ro500:var(--z500);--ro600:var(--z600);--ro700:var(--z700);--ro800:var(--z800);--ro900:var(--z900);--ro950:var(--z950);--brand1:47 116 142;--brand2:74 147 173;--app-bg:20 22 23;--sb-thumb:66 71 71;--sb-hover:87 92 93}
+        [data-skin="patch"]{--z50:238 240 240;--z100:225 227 227;--z200:209 213 213;--z300:188 192 192;--z400:154 157 158;--z500:113 118 118;--z600:90 95 95;--z700:68 71 71;--z800:54 57 57;--z900:43 45 45;--z950:22 22 22;--o50:249 241 234;--o100:244 227 213;--o200:232 198 170;--o300:215 156 107;--o400:198 113 43;--o500:174 99 38;--o600:143 81 31;--o700:109 62 24;--o800:79 45 17;--o900:55 32 12;--o950:30 17 6;--f50:var(--o50);--f100:var(--o100);--f200:var(--o200);--f300:var(--o300);--f400:var(--o400);--f500:var(--o500);--f600:var(--o600);--f700:var(--o700);--f800:var(--o800);--f900:var(--o900);--f950:var(--o950);--em50:var(--o50);--em100:var(--o100);--em200:var(--o200);--em300:var(--o300);--em400:var(--o400);--em500:var(--o500);--em600:var(--o600);--em700:var(--o700);--em800:var(--o800);--em900:var(--o900);--em950:var(--o950);--am50:var(--o50);--am100:var(--o100);--am200:var(--o200);--am300:var(--o300);--am400:var(--o400);--am500:var(--o500);--am600:var(--o600);--am700:var(--o700);--am800:var(--o800);--am900:var(--o900);--am950:var(--o950);--sk50:var(--z50);--sk100:var(--z100);--sk200:var(--z200);--sk300:var(--z300);--sk400:var(--z400);--sk500:var(--z500);--sk600:var(--z600);--sk700:var(--z700);--sk800:var(--z800);--sk900:var(--z900);--sk950:var(--z950);--vi50:var(--z50);--vi100:var(--z100);--vi200:var(--z200);--vi300:var(--z300);--vi400:var(--z400);--vi500:var(--z500);--vi600:var(--z600);--vi700:var(--z700);--vi800:var(--z800);--vi900:var(--z900);--vi950:var(--z950);--ro50:var(--z50);--ro100:var(--z100);--ro200:var(--z200);--ro300:var(--z300);--ro400:var(--z400);--ro500:var(--z500);--ro600:var(--z600);--ro700:var(--z700);--ro800:var(--z800);--ro900:var(--z900);--ro950:var(--z950);--brand1:198 113 43;--brand2:217 144 74;--app-bg:22 22 22;--sb-thumb:68 71 71;--sb-hover:90 95 95}
+        body { font-family: 'Outfit', sans-serif; background-color: rgb(var(--app-bg)); color: rgb(var(--z200)); margin: 0; overflow: hidden; }
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgb(var(--sb-thumb)); border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
+        ::-webkit-scrollbar-thumb:hover { background: rgb(var(--sb-hover)); background-clip: padding-box; border: 2px solid transparent; }
+        .custom-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: rgb(var(--sb-thumb)); border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: rgb(var(--sb-hover)); background-clip: padding-box; border: 2px solid transparent; }
+        .text-gradient { background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-image: linear-gradient(to right, rgb(var(--brand1)), rgb(var(--brand2))); }
+        /* Electron title bar drag region */
+        .titlebar-drag { -webkit-app-region: drag; }
+        .titlebar-no-drag { -webkit-app-region: no-drag; }
+        /* Mac: the traffic-light buttons sit top-left, so pad the titlebar so the STRIDE mark clears them (Windows' overlay controls are on the right via pr-36). */
+        html.is-mac .titlebar-drag { padding-left: 78px; }
+
+        /* Animated LED border for the most-recently-generated card in the
+           generations dock. A single bright dot travels clockwise around
+           the card's edge, then trails into a yellow→lime gradient. The
+           drop-shadow filter adds a soft halo so the motion reads even at
+           a glance. Auto-removed after ~15s to keep the dock from staying
+           visually busy. */
+        @property --gen-led-angle {
+            syntax: '<angle>';
+            initial-value: 0deg;
+            inherits: false;
+        }
+        @keyframes gen-led-spin {
+            to { --gen-led-angle: 360deg; }
+        }
+        .gen-card-led {
+            position: relative;
+        }
+        .gen-card-led::before {
+            content: '';
+            position: absolute;
+            inset: -1.5px;
+            border-radius: 0.5rem;
+            padding: 1.5px;
+            background: conic-gradient(
+                from var(--gen-led-angle, 0deg),
+                transparent 270deg,
+                #facc15 320deg,
+                #a3e635 350deg,
+                transparent 360deg
+            );
+            -webkit-mask:
+                linear-gradient(#fff 0 0) content-box,
+                linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+                    mask-composite: exclude;
+            animation: gen-led-spin 2.2s linear infinite;
+            pointer-events: none;
+            filter: drop-shadow(0 0 4px rgba(163, 230, 53, 0.5));
+            z-index: 5;
+        }
+
+        /* Impact flash on the inner dock card the moment the fly-orb lands.
+           Quick punchy ramp to a saturated green wash + a soft scale pulse,
+           then settles back to the card's normal state. The LED ring lives
+           on the wrapper above this so it keeps spinning untouched. */
+        @keyframes gen-card-flash {
+            0% {
+                background-color: rgba(132, 204, 22, 0);
+                box-shadow: 0 0 0 0 rgba(132, 204, 22, 0);
+                transform: scale(1);
+            }
+            12% {
+                background-color: rgba(132, 204, 22, 0.55);
+                box-shadow: 0 0 36px 6px rgba(132, 204, 22, 0.45);
+                transform: scale(1.025);
+            }
+            100% {
+                background-color: rgba(132, 204, 22, 0);
+                box-shadow: 0 0 0 0 rgba(132, 204, 22, 0);
+                transform: scale(1);
+            }
+        }
+        .sd-gen-card.sd-gen-card-flash {
+            animation: gen-card-flash 1s ease-out;
+        }
+        /* Compact mode — the SAME real canvas, reflowed. Full-only chrome
+           (sidebar, big toolbars, inject rail) hides; compact-only chrome
+           (slim toolbar + slider strip) shows. No second renderer. */
+        .sd-compact-only { display: none; }
+        body.qp-compact .sd-full-only { display: none !important; }
+        body.qp-compact .sd-compact-only { display: flex; }
+
+        /* ══════════ COMPACT VIEW (parameter cards) ══════════
+           Replaces ONLY the lane canvas. Header, toolbars, device bar, global sliders
+           and status bar are untouched, so every control stays exactly where the user
+           already knows it. Cards deliberately carry no shape/motion tools. */
+        /* Cards hold a READABLE size band, and the grid FILLS the width. Two field
+           reports shaped this: stretching cards edge-to-edge made a small window
+           unreadable and a big one blew each card into a poster; pinning them to a fixed
+           232px then parked a dead margin down both sides of the grid (2026-08-19).
+           So: tracks share the full width, never narrower than a card can be read at,
+           and a card stops growing at 300px so it can't become a poster again. Leftover
+           lands as even gutters between columns instead of two gaps at the edges. */
+        #sd-compact{flex:1;min-width:0;overflow-y:auto;overflow-x:hidden;
+            background:rgba(0,0,0,.22);padding:10px;gap:8px;align-content:start;
+            grid-template-columns:repeat(auto-fill,minmax(204px,1fr))}
+        @media (max-width:560px){ #sd-compact{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))} }
+        #sd-compact::-webkit-scrollbar{width:9px}
+        #sd-compact::-webkit-scrollbar-thumb{background:rgb(var(--sb-thumb));border-radius:9px;
+            border:2px solid transparent;background-clip:padding-box}
+        .sdc-empty{grid-column:1/-1;text-align:center;color:rgb(var(--z500));font-size:11px;
+            padding:40px 20px;line-height:1.7}
+        .sdc-empty b{color:rgb(var(--o400))}
+        .sdc{position:relative;min-width:0;width:100%;max-width:300px;justify-self:center;
+            background:linear-gradient(180deg,#141417,#0b0b0d);
+            border:1px solid rgba(255,255,255,.07);border-left:2px solid var(--lc);
+            border-radius:7px;padding:7px 9px 7px;display:flex;flex-direction:column;gap:5px;
+            box-shadow:0 1px 0 rgba(255,255,255,.035) inset,0 8px 18px -12px #000;
+            transition:border-color .15s,background .15s}
+        .sdc:hover{border-color:rgba(255,255,255,.14);background:linear-gradient(180deg,#17171b,#0d0d0f)}
+        .sdc.lk{opacity:.6}
+        .sdc-h{display:flex;align-items:flex-start;gap:5px}
+        .sdc-t{min-width:0;flex:1}
+        .sdc-n{font-size:11px;font-weight:800;color:#f1ede4;letter-spacing:.005em;line-height:1.2;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .sdc-d{font-size:8.5px;font-weight:700;color:#8d8880;letter-spacing:.06em;
+            text-transform:uppercase;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .sdc-m{color:#5f5b55;font-size:13px;line-height:1;padding:0 2px;background:none;border:none;
+            cursor:default;flex:none}
+        .sdc-m:hover{color:#9a958c}
+        /* remove the lane. Quiet until the card is hovered, so a grid of these never
+           reads as a row of delete buttons. */
+        .sdc-x{color:#5f5b55;font-size:15px;line-height:1;padding:0 1px;background:none;border:none;
+            cursor:pointer;flex:none;opacity:0;transition:opacity .12s,color .12s}
+        .sdc:hover .sdc-x{opacity:1}
+        .sdc-x:hover{color:#f87171}
+        /* click a card to put the lane in the SELECTION the motion tools act on */
+        .sdc.sel{border-color:var(--lc);background:linear-gradient(180deg,#1a1a1f,#0e0e11);
+            box-shadow:0 0 0 1px rgba(255,255,255,.05) inset,0 0 14px -6px var(--lc)}
+        .sdc{cursor:grab}
+        /* the dragged card leaves the grid and rides the cursor; .sdc-ph holds its slot */
+        .sdc.dragging{cursor:grabbing;opacity:.92;z-index:60;
+            border-color:var(--lc);box-shadow:0 18px 34px -14px #000,0 0 18px -8px var(--lc)}
+        .sdc-ph{border:1px dashed rgba(255,255,255,.16);border-radius:7px;
+            background:rgba(255,255,255,.025)}
+        .sdc-b{display:flex;align-items:center;gap:6px}
+        .sdc-lk,.sdc-rg{flex:none;width:16px;height:16px;color:#5f5b55;background:none;
+            border:none;padding:0;cursor:pointer}
+        .sdc-lk svg,.sdc-rg svg{width:14px;height:14px;display:block}
+        .sdc-lk:hover,.sdc-rg:hover{color:#c8c3ba}
+        .sdc.lk .sdc-lk{color:var(--lc)}
+        .sdc-rg.on{color:var(--lc)}
+        /* lane speed: a text rate rather than a glyph, because "1/2" and "4X" say it
+           outright and there is no icon for a tempo ratio that reads at 14px */
+        .sdc-sp{flex:none;min-width:20px;height:16px;line-height:16px;padding:0 2px;border:none;
+            background:none;color:#5f5b55;font-size:9px;font-weight:800;letter-spacing:.02em;
+            font-variant-numeric:tabular-nums;cursor:pointer}
+        .sdc-sp:hover{color:#c8c3ba}
+        .sdc-sp.on{color:var(--lc)}
+        .sdc .sdk{flex:none;touch-action:none}
+        .sdc .khit{cursor:ns-resize}
+        .sdc.drag .krail{stroke-opacity:.16}
+        .sdc.rng .kticks{opacity:.5}   /* the band owns the outside once it is armed */
+        .sdc-v{min-width:0;flex:1}
+        /* Half the old 15px: at full size the value shouted over the parameter NAME, which
+           is what you actually scan the grid for. */
+        .sdc-v b{font-size:7.5px;font-weight:800;color:#f1ede4;letter-spacing:-.01em;
+            font-variant-numeric:tabular-nums;display:block;line-height:1;white-space:nowrap}
+        /* the boundary readout during a band drag stays a touch larger - it is transient,
+           and it is the thing being changed */
+        .sdc.drag .sdc-v b{font-size:9.5px;color:var(--lc);letter-spacing:.02em}
+        .sdc-w{position:relative;height:30px;border-radius:4px;overflow:hidden;
+            background:#050506;border:1px solid rgba(255,255,255,.05)}
+        .sdc-w svg{position:absolute;inset:0;width:100%;height:100%}
+        .sdc-w::after{content:'';position:absolute;inset:0;pointer-events:none;
+            background:linear-gradient(90deg,#050506 0,transparent 11%,transparent 89%,#050506 100%)}
+        /* the reptile's character zone pushes the whole app down; the host grows to match */
+        body.sd-reptile-on #sd-rep-zone{pointer-events:none}
+        /* ══════════════════════════════════════════════════════════════════
+           CONTROL SURFACE  ·  .sbtn machined-cap buttons
+           ──────────────────────────────────────────────────────────────────
+           One button system for the whole UI. Replaces the old per-button
+           Tailwind pattern (bg-<hue>-500/10 + border-<hue>-500/20 + text-
+           <hue>-400), which had no material, no press state, and used seven
+           competing hues to sort tools into families instead of showing what
+           was switched on.
+
+           The rule here: STATE IS MATERIAL, NOT HUE.
+             · at rest   every control is the same neutral metal
+             · on press  it sinks and flashes the skin accent, then fades back
+             · when ON   it holds a restrained accent (dark tinted surface,
+                         accent border and label) - never a bright fill
+
+           Skin-safe by construction. Metal comes from the --z* scale and the
+           accent from --o400/--o300, both of which every [data-skin] block
+           redefines, so this follows Midnight / Copper / Steel / Brass / Teal
+           / Patch with no per-skin rules. Deliberately NOT --brand2: that is
+           red in the Midnight skin and would light presses red there.
+
+           !important is load-bearing. Tailwind is injected at runtime and its
+           hover: variants carry the same specificity as these rules, so
+           source order alone cannot be trusted. Matches the existing
+           .sd-btn-copper precedent above.
+           ══════════════════════════════════════════════════════════════════ */
+        .sbtn{
+            /* type, pulled tighter and heavier to sit with the wordmark */
+            font-family:'Outfit',sans-serif !important;
+            font-size:10px !important;
+            font-weight:800 !important;
+            letter-spacing:.03em !important;
+            line-height:1 !important;
+            text-transform:uppercase;
+
+            display:inline-flex !important;
+            align-items:center; justify-content:center; gap:4px;
+            min-height:20px !important;
+            padding:3px 7px !important;
+            border-radius:4px !important;
+            white-space:nowrap;
+            position:relative;
+            cursor:pointer;
+            -webkit-user-select:none; user-select:none;
+
+            /* the cap: raised metal, lit from above, dark seated edge below */
+            color:rgb(var(--z400)) !important;
+            background:linear-gradient(180deg,
+                rgb(var(--z800)) 0%, rgb(var(--z900)) 58%, rgb(var(--z950)) 100%) !important;
+            border:1px solid rgb(var(--z950)) !important;
+            border-top-color:rgb(var(--z700)) !important;
+            box-shadow:inset 0 1px 0 rgba(255,255,255,.07),
+                       0 1px 2px rgba(0,0,0,.55) !important;
+
+            /* THE FLASH. Slow out by default; :active resets duration to 0 so
+               the press reads as instant and the copper decays on release. */
+            transition:color .32s ease-out, background .2s ease-out,
+                       border-color .32s ease-out, box-shadow .32s ease-out,
+                       text-shadow .32s ease-out, transform .09s ease-out !important;
+        }
+        /* the filament along the floor of the cap: dark until lit */
+        .sbtn::after{
+            content:''; position:absolute; left:5px; right:5px; bottom:1px; height:1px;
+            border-radius:1px; background:rgb(var(--o400));
+            opacity:0; pointer-events:none;
+            transition:opacity .32s ease-out;
+        }
+        .sbtn:hover{
+            color:rgb(var(--z200)) !important;
+            background:linear-gradient(180deg,
+                rgb(var(--z700)) 0%, rgb(var(--z800)) 58%, rgb(var(--z900)) 100%) !important;
+        }
+
+        /* ── momentary press: sink + accent flash ────────────────────────── */
+        .sbtn:active{
+            transition-duration:0s !important;
+            transform:translateY(1px);
+            color:rgb(var(--o300)) !important;
+            background:linear-gradient(180deg,
+                rgb(var(--z950)) 0%, rgb(var(--z900)) 100%) !important;
+            border-color:rgb(var(--o400) / .45) !important;
+            border-top-color:rgb(var(--o400) / .3) !important;
+            box-shadow:inset 0 2px 5px rgba(0,0,0,.75),
+                       inset 0 0 11px -2px rgb(var(--o400) / .45),
+                       0 0 0 1px rgb(var(--o400) / .18) !important;
+            text-shadow:0 0 8px rgb(var(--o400) / .55);
+        }
+        .sbtn:active::after{
+            opacity:1; transition-duration:0s;
+            box-shadow:0 0 6px rgb(var(--o400) / .9);
+        }
+
+        /* ── persistent ON: Option C's plate, filled. The whole cap takes the
+              wordmark gradient and the label flips to near-black, the same move
+              as the landing .btn-copper. Ink is --o950 rather than a hardcoded
+              #1c1206 so it stays the RIGHT near-black per skin: warm under
+              copper/brass, cold under teal/steel. ─────────────────────────── */
+        .sbtn.is-on{
+            color:rgb(var(--o950)) !important;
+            background:linear-gradient(180deg, rgb(var(--o300)) 0%, rgb(var(--o400)) 100%) !important;
+            border-color:rgb(var(--o200) / .5) !important;
+            border-top-color:rgb(var(--o100) / .55) !important;
+            text-shadow:0 1px 0 rgb(var(--o100) / .4);
+            box-shadow:inset 0 1px 0 rgba(255,255,255,.34),
+                       0 2px 9px -3px rgb(var(--o400) / .85) !important;
+        }
+        .sbtn.is-on::after{opacity:0}          /* the plate IS the signal now */
+        .sbtn.is-on:hover{
+            background:linear-gradient(180deg, rgb(var(--o200)) 0%, rgb(var(--o300)) 100%) !important;
+            border-color:rgb(var(--o100) / .6) !important;
+        }
+        /* A lit toggle must still sink when you press it off. .sbtn.is-on and
+           .sbtn:active tie on specificity and is-on is declared later, so
+           without this the tactility is lost on exactly the buttons that have
+           state to change. */
+        .sbtn.is-on:active{
+            transition-duration:0s !important;
+            transform:translateY(1px);
+            background:linear-gradient(180deg, rgb(var(--o400)) 0%, rgb(var(--o500)) 100%) !important;
+            box-shadow:inset 0 2px 6px rgb(var(--o950) / .6) !important;
+            text-shadow:none;
+        }
+
+        /* ── primed: the confirm in a morph panel, and the sidebar Motion tools.
+              Stronger than is-on so it still reads as "this is the action", but
+              a tinted cap rather than the solid amber/cyan/orange fills these
+              carried before. ────────────────────────────────────────────────── */
+        .sbtn--go{
+            color:rgb(var(--o200)) !important;
+            background:linear-gradient(180deg, rgb(var(--o400) / .3), rgb(var(--o400) / .14)),
+                       linear-gradient(180deg, rgb(var(--z800)) 0%, rgb(var(--z900)) 100%) !important;
+            border-color:rgb(var(--o400) / .55) !important;
+            border-top-color:rgb(var(--o400) / .4) !important;
+            box-shadow:inset 0 1px 0 rgb(var(--o400) / .22),
+                       0 1px 2px rgba(0,0,0,.55) !important;
+        }
+        /* ── alt state: "something other than Stride is driving" (DAW drive
+              mode, notes-free run mode). Hardcoded teal, not a skin token: the
+              whole point is that it must NOT read as the Stride accent. ─────── */
+        .sbtn.sbtn--alt.is-on{
+            color:rgb(8 20 25) !important;
+            background:linear-gradient(180deg, rgb(126 176 192) 0%, rgb(47 116 142) 100%) !important;
+            border-color:rgb(171 200 211 / .5) !important;
+            border-top-color:rgb(208 226 232 / .55) !important;
+            text-shadow:0 1px 0 rgb(208 226 232 / .4);
+            box-shadow:inset 0 1px 0 rgba(255,255,255,.3),
+                       0 2px 9px -3px rgb(47 116 142 / .85) !important;
+        }
+        .sbtn.sbtn--alt.is-on::after{opacity:0}
+        .sbtn.sbtn--alt.is-on:active{
+            background:linear-gradient(180deg, rgb(47 116 142) 0%, rgb(30 75 91) 100%) !important;
+        }
+        .sbtn--go::after{opacity:.7}
+        .sbtn--go:hover{
+            color:rgb(var(--o100)) !important;
+            border-color:rgb(var(--o400) / .72) !important;
+            background:linear-gradient(180deg, rgb(var(--o400) / .38), rgb(var(--o400) / .18)),
+                       linear-gradient(180deg, rgb(var(--z700)) 0%, rgb(var(--z800)) 100%) !important;
+        }
+
+        /* ── destructive: rose on press, never the accent ────────────────── */
+        /* Hardcoded because the vintage skins alias --ro* onto the grey ramp,
+           so a token would make Clear flash the same colour as Save. */
+        .sbtn--danger:active{
+            color:rgb(206 118 120) !important;
+            border-color:rgb(163 78 82 / .55) !important;
+            border-top-color:rgb(163 78 82 / .35) !important;
+            box-shadow:inset 0 2px 5px rgba(0,0,0,.75),
+                       inset 0 0 11px -2px rgb(163 78 82 / .5),
+                       0 0 0 1px rgb(163 78 82 / .2) !important;
+            text-shadow:0 0 8px rgb(163 78 82 / .6);
+        }
+        .sbtn--danger:active::after{background:rgb(163 78 82);box-shadow:0 0 6px rgb(163 78 82 / .9)}
+
+        /* ── variants ────────────────────────────────────────────────────── */
+        /* ── toolbar grouping ─────────────────────────────────────────────
+              Families of controls, separated so the row can be parsed from its
+              silhouette instead of by reading 22 labels. Costs ZERO height: the
+              titles sit inline, at the head of their own group, exactly like the
+              Motion and Bars labels that were already there.
+              Spacing is the whole mechanism. 4px inside a family, and a hairline
+              with 8px either side between families. ──────────────────────────── */
+        .sgrp{display:inline-flex;align-items:center;gap:4px;flex:none}
+        .sgrp.flex-wrap{flex-wrap:wrap;row-gap:3px}
+        .sgrp-l{
+            font-size:8px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;
+            color:rgb(var(--z500));white-space:nowrap;padding-right:3px;flex:none;
+            -webkit-user-select:none;user-select:none;pointer-events:none;
+        }
+        /* Motion is the headline group, so its title alone carries the accent. */
+        #sd-motion-row .sgrp-l,.sgrp.is-motion .sgrp-l{color:rgb(var(--o400) / .8)}
+        .sdiv{
+            width:1px;height:16px;flex:none;margin:0 8px;
+            background:rgba(255,255,255,.09);
+        }
+        .sbtn--icon{               /* undo/redo, the mode carets, +/- steppers */
+            padding:3px 6px !important;
+            font-size:12px !important;
+            letter-spacing:0 !important;
+            min-width:22px;
+        }
+        .sbtn--chip{               /* focus-deck shape chips: icon over label */
+            flex-direction:column; gap:2px;
+            padding:5px 6px 4px !important;
+            min-height:0 !important;
+            font-size:8px !important;
+            letter-spacing:.06em !important;
+            border-radius:6px !important;
+        }
+        .sbtn--chip::after{left:7px;right:7px;bottom:2px}
+        /* segmented pairs share one seam (S&H + its mode caret) */
+        .sbtn--seg-l{border-top-right-radius:0 !important;border-bottom-right-radius:0 !important}
+        .sbtn--seg-r{
+            border-top-left-radius:0 !important;border-bottom-left-radius:0 !important;
+            margin-left:-1px;
+        }
+
+        /* ── states + accessibility floor ────────────────────────────────── */
+        .sbtn:disabled,.sbtn[disabled]{opacity:.38 !important;cursor:default}
+        .sbtn:disabled:active,.sbtn[disabled]:active{
+            transform:none;color:rgb(var(--z400)) !important;text-shadow:none;
+        }
+        .sbtn:disabled:active::after,.sbtn[disabled]:active::after{opacity:0}
+        .sbtn:focus-visible{
+            outline:2px solid rgb(var(--o400) / .7) !important;
+            outline-offset:1px;
+        }
+        @media (prefers-reduced-motion:reduce){
+            .sbtn,.sbtn::after{transition:none !important}
+            .sbtn:active{transform:none}
+        }
+    </style>
+<style>
+        #sd-pattern-library-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 8500;
+            pointer-events: none;
+        }
+        #sd-pattern-library-overlay.hidden { display: none; }
+        #sd-pattern-library-panel {
+            position: absolute;
+            top: 0; bottom: 0; left: 0; right: 80px;
+            background: rgb(var(--app-bg));
+            border-right: 1px solid rgba(255,255,255,0.05);
+            transform: translateX(-100%);
+            transition: transform 200ms ease-out;
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #sd-pattern-library-peek {
+            position: absolute;
+            top: 0; bottom: 0; right: 0;
+            width: 80px;
+            background: rgba(9,9,11,0.75);
+            border-left: 1px solid rgb(var(--o500) / 0.25);
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 200ms ease-out, background 150ms ease-out, border-color 150ms ease-out;
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        #sd-pattern-library-peek:hover {
+            background: rgb(var(--o500) / 0.12);
+            border-left-color: rgb(var(--o500) / 0.55);
+        }
+        #sd-pattern-library-peek .sd-peek-arrow {
+            color: rgb(var(--o400));
+            font-size: 24px;
+            line-height: 1;
+            font-weight: 300;
+            opacity: 0.85;
+            transition: transform 150ms ease-out, opacity 150ms ease-out;
+        }
+        #sd-pattern-library-peek:hover .sd-peek-arrow {
+            opacity: 1;
+            transform: translateX(-4px);
+        }
+        #sd-pattern-library-peek .sd-peek-label {
+            color: rgb(var(--o400));
+            font-family: Outfit, sans-serif;
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+            opacity: 0.85;
+            transition: opacity 150ms ease-out;
+        }
+        #sd-pattern-library-peek:hover .sd-peek-label { opacity: 1; }
+        @keyframes sd-peek-pulse {
+            0%, 100% { box-shadow: inset 4px 0 0 -3px rgb(var(--o500) / 0.3); }
+            50%      { box-shadow: inset 4px 0 0 -3px rgb(var(--o500) / 0.7); }
+        }
+        #sd-pattern-library-overlay.sd-lib-open #sd-pattern-library-peek {
+            animation: sd-peek-pulse 2.4s ease-in-out infinite;
+        }
+        /* ← Back button in the library header (top-left of the overlay).
+           Lives next to the brand crumb so the affordance is in the
+           reading-order spot users scan first. */
+        #sd-lib-back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgb(var(--o500) / 0.08);
+            border: 1px solid rgb(var(--o500) / 0.25);
+            border-radius: 6px;
+            padding: 5px 10px 5px 8px;
+            color: rgb(var(--o400));
+            font-family: Outfit, sans-serif;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 120ms ease-out;
+        }
+        #sd-lib-back-btn:hover {
+            background: rgb(var(--o500) / 0.18);
+            border-color: rgb(var(--o500) / 0.5);
+            color: #fff;
+        }
+        #sd-lib-back-btn svg { width: 14px; height: 14px; }
+        #sd-pattern-library-overlay.sd-lib-open #sd-pattern-library-panel {
+            transform: translateX(0);
+        }
+        #sd-pattern-library-overlay.sd-lib-open #sd-pattern-library-peek {
+            opacity: 1;
+        }
+        .sd-lib-cat {
+            text-align: left;
+            padding: 8px 12px;
+            font-family: Outfit, sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #a8a29e;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 120ms ease-out;
+        }
+        .sd-lib-cat:hover { color: rgb(var(--o500)); background: rgb(var(--o500) / 0.05); }
+        .sd-lib-cat-active { color: rgb(var(--o400)); background: rgb(var(--o500) / 0.12); }
+        .sd-lib-filter {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: Outfit, sans-serif;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: #a8a29e;
+        }
+        .sd-lib-filter span { color: #71717a; }
+        .sd-lib-select {
+            background: rgba(255,255,255,0.04);
+            color: #e7e5e4;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 6px;
+            padding: 4px 6px;
+            font-family: Outfit, sans-serif;
+            font-size: 11px;
+            outline: none;
+            cursor: pointer;
+        }
+        .sd-lib-select:focus { border-color: rgb(var(--o500)); }
+        /* The open <option> list is rendered by the OS / Chromium and does
+           not inherit the translucent background above. Give options an
+           explicit solid dark background + light text so they're readable
+           when the dropdown is expanded. */
+        .sd-lib-select option {
+            background-color: #18181b;   /* zinc-900 */
+            color: #e4e4e7;              /* zinc-200 */
+        }
+        .sd-lib-select option:checked {
+            background-color: #27272a;   /* zinc-800 — currently selected */
+        }
+        .sd-lib-search {
+            background: rgba(255,255,255,0.04);
+            color: #e7e5e4;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 6px;
+            padding: 5px 10px;
+            font-family: Outfit, sans-serif;
+            font-size: 11px;
+            outline: none;
+            min-width: 180px;
+        }
+        .sd-lib-search:focus { border-color: rgb(var(--o500)); }
+        .sd-lib-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 10px;
+            padding: 10px 12px;
+            cursor: pointer;
+            transition: border-color 120ms ease-out, background 120ms ease-out, transform 120ms ease-out;
+            font-family: Outfit, sans-serif;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            user-select: none;
+        }
+        .sd-lib-card:hover {
+            border-color: rgb(var(--o500) / 0.4);
+            background: rgb(var(--o500) / 0.04);
+        }
+        .sd-lib-card.sd-lib-card-selected {
+            border-color: rgb(var(--o500));
+            background: rgb(var(--o500) / 0.08);
+        }
+        .sd-lib-card-title {
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
+            color: #e7e5e4; font-size: 12px; font-weight: 700;
+        }
+        .sd-lib-card-star {
+            color: #52525b; font-size: 14px; line-height: 1;
+            background: transparent; border: none; cursor: pointer; padding: 0 2px;
+            transition: color 120ms ease-out;
+        }
+        .sd-lib-card-star:hover { color: #fbbf24; }
+        .sd-lib-card-star.sd-fav { color: #fbbf24; }
+        .sd-lib-card-meta {
+            color: #71717a; font-size: 10px; letter-spacing: 0.05em;
+            display: flex; gap: 6px; align-items: center;
+        }
+        .sd-lib-card-meta b { color: #a8a29e; font-weight: 600; }
+        .sd-lib-card-thumb { width: 100%; height: 44px; display: block; }
+        .sd-lib-empty {
+            grid-column: 1 / -1;
+            text-align: center;
+            color: #52525b;
+            font-size: 12px;
+            padding: 60px 20px;
+        }
+        .sd-lib-action-btn, .sd-lib-pick-btn {
+            font-family: Outfit, sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 8px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.04);
+            color: #d4d4d8;
+            display: inline-flex; align-items: center; gap: 6px;
+            transition: all 120ms ease-out;
+        }
+        .sd-lib-action-btn:hover:not(:disabled) {
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+        }
+        .sd-lib-pick-btn {
+            flex: 1;
+            justify-content: center;
+            background: linear-gradient(90deg, rgb(var(--o500)), rgb(var(--f500)));
+            color: #fff;
+            border-color: transparent;
+        }
+        .sd-lib-pick-btn:hover:not(:disabled) {
+            filter: brightness(1.1);
+        }
+        .sd-lib-action-btn:disabled, .sd-lib-pick-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .sd-lib-preview-title {
+            font-size: 14px; font-weight: 800; color: #fff;
+            margin-bottom: 4px;
+        }
+        .sd-lib-preview-meta {
+            font-size: 10px; color: #a8a29e; letter-spacing: 0.05em;
+            margin-bottom: 14px;
+        }
+        .sd-lib-preview-tags {
+            display: flex; flex-wrap: wrap; gap: 4px;
+            margin-top: 8px;
+        }
+        .sd-lib-preview-tag {
+            font-size: 9px; padding: 2px 6px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 4px; color: #a8a29e;
+            text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;
+        }
+        .sd-lib-preview-roll {
+            width: 100%;
+            height: 140px;
+            background: rgba(0,0,0,0.25);
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.05);
+            display: block;
+        }
+    </style>
+<style>
+ html,body{overflow:auto !important;height:auto}
+ body{background:#0c0c0d;font-family:'Outfit',sans-serif;margin:0;padding:32px 24px 80px}
+ .page{max-width:1460px;margin:0 auto}
+ h1{color:#ece4d6;font-weight:900;letter-spacing:-.02em;font-size:28px;margin:0 0 8px}
+ p.l{color:#8d857a;font-size:14px;line-height:1.6;max-width:78ch;margin:0 0 4px}
+ p.l b{color:#cdc4b6}
+ h2{color:#857c6e;font-size:10px;font-weight:800;letter-spacing:.24em;
+    text-transform:uppercase;margin:26px 0 8px}
+ .frame{border:1px solid rgba(216,201,176,.12);border-radius:10px;overflow:hidden;
+        box-shadow:0 22px 42px -30px #000}
+ .app{background:rgb(var(--app-bg))}
+ #sd-compact-toolbar{display:flex !important}
+</style></head>
+<body><div class="page">
+<h1>Compact toolbar, grouped</h1>
+<p class="l">The real patched <b>#sd-compact-toolbar</b> from the shipping wrapper, the bar the VST
+actually shows. Group titles sit inline at the head of each family, so this costs
+<b>zero extra height</b>. Nothing was moved, renamed or rewired: 39 buttons in, 39 out.</p>
+<p class="l">Families: Draw, Shape, Vary and <b>Selected lanes</b> on the first row. Motion, Bars and Saved on the
+second, with the bulk lane actions pushed right. <b>Selected lanes</b> is the per-lane generator set,
+named for its scope so it reads against <b>Motion</b>, which hits every mapped lane.</p>
+<section><h2>Midnight</h2><div class="frame"><div class="app"><div id="sd-compact-toolbar" class=" bg-zinc-950 border-b border-white/5 px-2.5 py-1 items-center gap-1.5 flex-wrap shrink-0">
+                <div class="sgrp">
+                    <button onclick="sdUndo()" title="Undo (Ctrl+Z)" class="sbtn sbtn--icon">↶</button>
+                    <button onclick="sdRedo()" title="Redo (Ctrl+Y)" class="sbtn sbtn--icon">↷</button>
+                </div>
+                <span class="sdiv"></span>
+                <div class="sgrp">
+                    <span class="sgrp-l">Draw</span>
+                    <button id="qpc-tool-point" onclick="sdSetTool('select')" class="sbtn is-on tool-btn">Point</button>
+                    <button id="qpc-tool-free" onclick="sdSetTool('freehand')" class="sbtn tool-btn">Free</button>
+                </div>
+                <span class="sdiv"></span>
+                <div class="sgrp">
+                    <span class="sgrp-l">Shape</span>
+                    <button onclick="sdMirrorLane()" title="Flip Y-axis" class="sbtn tool-btn">Mirror</button>
+                    <button onclick="sdFlipLane()" title="Reverse time" class="sbtn tool-btn">Flip</button>
+                    <button onclick="sdApplySwing()" class="sbtn tool-btn">Swing</button>
+                    <button onclick="sdTimeStretch(2)" title="Stretch 2x — spread the curve over twice the time" class="sbtn sbtn--icon tool-btn">2x</button>
+                    <button onclick="sdTimeStretch(0.5)" title="Compress 1/2x — pack the curve into half the time" class="sbtn tool-btn">1/2x</button>
+                </div>
+                <span class="sdiv"></span>
+                <div class="sgrp">
+                    <span class="sgrp-l">Vary</span>
+                    <button onclick="sdMutate()" class="sbtn tool-btn">Mutate</button>
+                    <button onclick="sdShuffleLanes()" title="Shuffle curves between lanes" class="sbtn tool-btn">Shuffle</button>
+                </div>
+                <span class="sdiv"></span>
+                <div class="sgrp flex-wrap">
+                    <span class="sgrp-l">Selected lanes</span>
+                    <button onclick="sdApplyTemplate('sine')" class="sbtn">Sine</button>
+                    <button onclick="sdApplyTemplate('pump')" class="sbtn">Pump</button>
+                    <button onclick="sdApplyTemplate('chaos_lfo')" title="Chaos — multi-layer wave noise on the selected lane(s)" class="sbtn">Chaos</button>
+                    <button onclick="sdApplyComplexTemplate('neuro')" title="Neuro — gnarly random shapes on the selected lane(s)" class="sbtn">Neuro</button>
+                    <button onclick="sdApplySampleHoldLane()" title="Sample &amp; Hold — stepped random on the selected lane(s). Poly = classic rates; grid = every step on the ▾ division. Click again to reroll." class="sbtn sbtn--seg-l">S&amp;H</button>
+                    <button onclick="window.sdOpenShModePopup(event)" title="S&amp;H mode — Poly (classic) or a fixed grid: 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/32T" class="sbtn sbtn--seg-r sbtn--icon sd-sh-mode-btn -ml-px">▾</button>
+                    <button onclick="sdApplyNeuroVariant('smooth')" title="Smooth — Neuro shapes with bezier ease (less robotic)" class="sbtn">Smooth</button>
+                    <button onclick="sdApplyNeuroVariant('storm')" title="Storm — chained contrasting segments building to a release" class="sbtn">Storm</button>
+                    <button onclick="sdApplyNeuroVariant('call')" title="Call — aggressive bar / smooth response alternation" class="sbtn">Call</button>
+                    <button onclick="sdApplyNeuroVariant('acid')" title="Acid — 303-style 16th-note slides on a 4-tone scale" class="sbtn">Acid</button>
+                    <button onclick="sdApplyNeuroVariant('anchor')" title="Anchor — phrased bars that always return home, with glitch bites" class="sbtn">Anchor</button>
+                </div>
+                <!-- line break: MOTION sits on its OWN row, separate from the SEL patterns above -->
+                <div class="basis-full h-0"></div>
+                <div class="sgrp flex-wrap">
+                    <span class="sgrp-l">Motion</span>
+                    <button onclick="sdApplyGlobalChaos()" class="sbtn">Chaos</button>
+                    <button onclick="sdApplyGlobalNeuro()" class="sbtn">Neuro</button>
+                    <button onclick="sdApplyGlobalReflector()" class="sbtn">Reflector</button>
+                    <button onclick="sdApplyGlobalSampleHold()" title="Sample &amp; Hold — stepped random on every unlocked lane. Poly = classic polyrhythmic rates; grid = every step on the ▾ division. Click again to reroll." class="sbtn sbtn--seg-l">S&amp;H</button>
+                    <button onclick="window.sdOpenShModePopup(event)" title="S&amp;H mode — Poly (classic) or a fixed grid: 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/32T" class="sbtn sbtn--seg-r sbtn--icon sd-sh-mode-btn -ml-px">▾</button>
+                    <button onclick="sdApplyGlobalPrism()" class="sbtn">Prism</button>
+                    <button onclick="sdApplyBloom()" class="sbtn">Bloom</button>
+                </div>
+                <span class="sdiv"></span>
+                <div class="sgrp">
+                    <span class="sgrp-l">Bars</span>
+                    <button onclick="sdSetBarsAndPush(4)"  class="sbtn sbtn--icon sd-bars-btn">4</button>
+                    <button onclick="sdSetBarsAndPush(8)"  class="sbtn sbtn--icon sd-bars-btn">8</button>
+                    <button onclick="sdSetBarsAndPush(16)" class="sbtn sbtn--icon sd-bars-btn">16</button>
+                    <button onclick="sdSetBarsAndPush(32)" class="sbtn sbtn--icon sd-bars-btn">32</button>
+                    <button onclick="sdToggleTripletLock()" title="Triplet grid lock — the grid AND every motion tool run on 1/2T · 1/4T · 1/8T · 1/16T (Ctrl+3)" class="sbtn sbtn--icon sd-trip-btn">T</button>
+                </div>
+                <span class="sdiv"></span>
+                <div class="sgrp">
+                    <span class="sgrp-l">Saved</span>
+                    <button onclick="window.sdSaveMotionSmart && sdSaveMotionSmart()" title="Save to Motions — selected lanes if any, else the active lane. Instant, auto-named." class="sbtn tool-btn">Save</button>
+                    <button id="sd-motions-btn-c" onclick="window.sdToggleMotions && window.sdToggleMotions()" title="Motions — your saved moves and the factory bank. Hover a card to preview it on the active lane; click to load." class="sbtn tool-btn flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3h14v18l-7-5-7 5z"/></svg>
+                    Motions
+                </button>
+                </div>
+                <div id="sd-pinned-motions-c" class="flex items-center gap-1 min-w-0 overflow-x-auto custom-scroll"></div>
+                <div class="flex-1"></div>
+                <div class="sgrp">
+                    <button onclick="sdSelectAll()" class="sbtn tool-btn">Select All</button>
+                    <button onclick="sdToggleLockAll()" class="sbtn tool-btn">Lock All</button>
+                    <button onclick="window.sdUnlockAllLanes&&window.sdUnlockAllLanes()" class="sbtn tool-btn">Unlock All</button>
+                </div>
+            </div></div></div></section><section><h2>Copper</h2><div class="frame" data-skin="copper"><div class="app"><div id="sd-compact-toolbar" class=" bg-zinc-950 border-b border-white/5 px-2.5 py-1 items-center gap-1.5 flex-wrap shrink-0">
+                <div class="sgrp">
+                    <button onclick="sdUndo()" title="Undo (Ctrl+Z)" class="sbtn sbtn--icon">↶</button>
+                    <button onclick="sdRedo()" title="Redo (Ctrl+Y)" class="sbtn sbtn--icon">↷</button>
+                </div>
+                <span class="sdiv"></span>
+                <div class="sgrp">
+                    <span class="sgrp-l">Draw</span>
+                    <button id="qpc-tool-point" onclick="sdSetTool('select')" class="sbtn is-on tool-btn">Point</button>
+                    <button id="qpc-tool-free" onclick="sdSetTool('freehand')" class="sbtn tool-btn">Free</button>
+                </div>
+                <span class="sdiv"></span>
+                <div class="sgrp">
+                    <span class="sgrp-l">Shape</span>
+                    <button onclick="sdMirrorLane()" title="Flip Y-axis" class="sbtn tool-btn">Mirror</button>
+                    <button onclick="sdFlipLane()" title="Reverse time" class="sbtn tool-btn">Flip</button>
+                    <button onclick="sdApplySwing()" class="sbtn tool-btn">Swing</button>
+                    <button onclick="sdTimeStretch(2)" title="Stretch 2x — spread the curve over twice the time" class="sbtn sbtn--icon tool-btn">2x</button>
+                    <button onclick="sdTimeStretch(0.5)" title="Compress 1/2x — pack the curve into half the time" class="sbtn tool-btn">1/2x</button>
+                </div>
+                <span class="sdiv"></span>
+                <div class="sgrp">
+                    <span class="sgrp-l">Vary</span>
+                    <button onclick="sdMutate()" class="sbtn tool-btn">Mutate</button>
+                    <button onclick="sdShuffleLanes()" title="Shuffle curves between lanes" class="sbtn tool-btn">Shuffle</button>
+                </div>
+                <span class="sdiv"></span>
+                <div class="sgrp flex-wrap">
+                    <span class="sgrp-l">Selected lanes</span>
+                    <button onclick="sdApplyTemplate('sine')" class="sbtn">Sine</button>
+                    <button onclick="sdApplyTemplate('pump')" class="sbtn">Pump</button>
+                    <button onclick="sdApplyTemplate('chaos_lfo')" title="Chaos — multi-layer wave noise on the selected lane(s)" class="sbtn">Chaos</button>
+                    <button onclick="sdApplyComplexTemplate('neuro')" title="Neuro — gnarly random shapes on the selected lane(s)" class="sbtn">Neuro</button>
+                    <button onclick="sdApplySampleHoldLane()" title="Sample &amp; Hold — stepped random on the selected lane(s). Poly = classic rates; grid = every step on the ▾ division. Click again to reroll." class="sbtn sbtn--seg-l">S&amp;H</button>
+                    <button onclick="window.sdOpenShModePopup(event)" title="S&amp;H mode — Poly (classic) or a fixed grid: 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/32T" class="sbtn sbtn--seg-r sbtn--icon sd-sh-mode-btn -ml-px">▾</button>
+                    <button onclick="sdApplyNeuroVariant('smooth')" title="Smooth — Neuro shapes with bezier ease (less robotic)" class="sbtn">Smooth</button>
+                    <button onclick="sdApplyNeuroVariant('storm')" title="Storm — chained contrasting segments building to a release" class="sbtn">Storm</button>
+                    <button onclick="sdApplyNeuroVariant('call')" title="Call — aggressive bar / smooth response alternation" class="sbtn">Call</button>
+                    <button onclick="sdApplyNeuroVariant('acid')" title="Acid — 303-style 16th-note slides on a 4-tone scale" class="sbtn">Acid</button>
+                    <button onclick="sdApplyNeuroVariant('anchor')" title="Anchor — phrased bars that always return home, with glitch bites" class="sbtn">Anchor</button>
+                </div>
+                <!-- line break: MOTION sits on its OWN row, separate from the SEL patterns above -->
+                <div class="basis-full h-0"></div>
+                <div class="sgrp flex-wrap">
+                    <span class="sgrp-l">Motion</span>
+                    <button onclick="sdApplyGlobalChaos()" class="sbtn">Chaos</button>
+                    <button onclick="sdApplyGlobalNeuro()" class="sbtn">Neuro</button>
+                    <button onclick="sdApplyGlobalReflector()" class="sbtn">Reflector</button>
+                    <button onclick="sdApplyGlobalSampleHold()" title="Sample &amp; Hold — stepped random on every unlocked lane. Poly = classic polyrhythmic rates; grid = every step on the ▾ division. Click again to reroll." class="sbtn sbtn--seg-l">S&amp;H</button>
+                    <button onclick="window.sdOpenShModePopup(event)" title="S&amp;H mode — Poly (classic) or a fixed grid: 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/32T" class="sbtn sbtn--seg-r sbtn--icon sd-sh-mode-btn -ml-px">▾</button>
+                    <button onclick="sdApplyGlobalPrism()" class="sbtn">Prism</button>
+                    <button onclick="sdApplyBloom()" class="sbtn">Bloom</button>
+                </div>
+                <span class="sdiv"></span>
+                <div class="sgrp">
+                    <span class="sgrp-l">Bars</span>
+                    <button onclick="sdSetBarsAndPush(4)"  class="sbtn sbtn--icon sd-bars-btn">4</button>
+                    <button onclick="sdSetBarsAndPush(8)"  class="sbtn sbtn--icon sd-bars-btn">8</button>
+                    <button onclick="sdSetBarsAndPush(16)" class="sbtn sbtn--icon sd-bars-btn">16</button>
+                    <button onclick="sdSetBarsAndPush(32)" class="sbtn sbtn--icon sd-bars-btn">32</button>
+                    <button onclick="sdToggleTripletLock()" title="Triplet grid lock — the grid AND every motion tool run on 1/2T · 1/4T · 1/8T · 1/16T (Ctrl+3)" class="sbtn sbtn--icon sd-trip-btn">T</button>
+                </div>
+                <span class="sdiv"></span>
+                <div class="sgrp">
+                    <span class="sgrp-l">Saved</span>
+                    <button onclick="window.sdSaveMotionSmart && sdSaveMotionSmart()" title="Save to Motions — selected lanes if any, else the active lane. Instant, auto-named." class="sbtn tool-btn">Save</button>
+                    <button id="sd-motions-btn-c" onclick="window.sdToggleMotions && window.sdToggleMotions()" title="Motions — your saved moves and the factory bank. Hover a card to preview it on the active lane; click to load." class="sbtn tool-btn flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3h14v18l-7-5-7 5z"/></svg>
+                    Motions
+                </button>
+                </div>
+                <div id="sd-pinned-motions-c" class="flex items-center gap-1 min-w-0 overflow-x-auto custom-scroll"></div>
+                <div class="flex-1"></div>
+                <div class="sgrp">
+                    <button onclick="sdSelectAll()" class="sbtn tool-btn">Select All</button>
+                    <button onclick="sdToggleLockAll()" class="sbtn tool-btn">Lock All</button>
+                    <button onclick="window.sdUnlockAllLanes&&window.sdUnlockAllLanes()" class="sbtn tool-btn">Unlock All</button>
+                </div>
+            </div></div></div></section><section><h2>Brass</h2><div class="frame" data-skin="brass"><div class="app"><div id="sd-compact-toolbar" class=" bg-zinc-950 border-b border-white/5 px-2.5 py-1 items-center gap-1.5 flex-wrap shrink-0">
+                <div class="sgrp">
+                    <button onclick="sdUndo()" title="Undo (Ctrl+Z)" class="sbtn sbtn--icon">↶</button>
+                    <button onclick="sdRedo()" title="Redo (Ctrl+Y)" class="sbtn sbtn--icon">↷</button>
+                </div>
+                <span class="sdiv"></span>
+                <div class="sgrp">
+                    <span class="sgrp-l">Draw</span>
+                    <button id="qpc-tool-point" onclick="sdSetTool('select')" class="sbtn is-on tool-btn">Point</button>
+                    <button id="qpc-tool-free" onclick="sdSetTool('freehand')" class="sbtn tool-btn">Free</button>
+                </div>
+                <span class="sdiv"></span>
+                <div class="sgrp">
+                    <span class="sgrp-l">Shape</span>
+                    <button onclick="sdMirrorLane()" title="Flip Y-axis" class="sbtn tool-btn">Mirror</button>
+                    <button onclick="sdFlipLane()" title="Reverse time" class="sbtn tool-btn">Flip</button>
+                    <button onclick="sdApplySwing()" class="sbtn tool-btn">Swing</button>
+                    <button onclick="sdTimeStretch(2)" title="Stretch 2x — spread the curve over twice the time" class="sbtn sbtn--icon tool-btn">2x</button>
+                    <button onclick="sdTimeStretch(0.5)" title="Compress 1/2x — pack the curve into half the time" class="sbtn tool-btn">1/2x</button>
+                </div>
+                <span class="sdiv"></span>
+                <div class="sgrp">
+                    <span class="sgrp-l">Vary</span>
+                    <button onclick="sdMutate()" class="sbtn tool-btn">Mutate</button>
+                    <button onclick="sdShuffleLanes()" title="Shuffle curves between lanes" class="sbtn tool-btn">Shuffle</button>
+                </div>
+                <span class="sdiv"></span>
+                <div class="sgrp flex-wrap">
+                    <span class="sgrp-l">Selected lanes</span>
+                    <button onclick="sdApplyTemplate('sine')" class="sbtn">Sine</button>
+                    <button onclick="sdApplyTemplate('pump')" class="sbtn">Pump</button>
+                    <button onclick="sdApplyTemplate('chaos_lfo')" title="Chaos — multi-layer wave noise on the selected lane(s)" class="sbtn">Chaos</button>
+                    <button onclick="sdApplyComplexTemplate('neuro')" title="Neuro — gnarly random shapes on the selected lane(s)" class="sbtn">Neuro</button>
+                    <button onclick="sdApplySampleHoldLane()" title="Sample &amp; Hold — stepped random on the selected lane(s). Poly = classic rates; grid = every step on the ▾ division. Click again to reroll." class="sbtn sbtn--seg-l">S&amp;H</button>
+                    <button onclick="window.sdOpenShModePopup(event)" title="S&amp;H mode — Poly (classic) or a fixed grid: 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/32T" class="sbtn sbtn--seg-r sbtn--icon sd-sh-mode-btn -ml-px">▾</button>
+                    <button onclick="sdApplyNeuroVariant('smooth')" title="Smooth — Neuro shapes with bezier ease (less robotic)" class="sbtn">Smooth</button>
+                    <button onclick="sdApplyNeuroVariant('storm')" title="Storm — chained contrasting segments building to a release" class="sbtn">Storm</button>
+                    <button onclick="sdApplyNeuroVariant('call')" title="Call — aggressive bar / smooth response alternation" class="sbtn">Call</button>
+                    <button onclick="sdApplyNeuroVariant('acid')" title="Acid — 303-style 16th-note slides on a 4-tone scale" class="sbtn">Acid</button>
+                    <button onclick="sdApplyNeuroVariant('anchor')" title="Anchor — phrased bars that always return home, with glitch bites" class="sbtn">Anchor</button>
+                </div>
+                <!-- line break: MOTION sits on its OWN row, separate from the SEL patterns above -->
+                <div class="basis-full h-0"></div>
+                <div class="sgrp flex-wrap">
+                    <span class="sgrp-l">Motion</span>
+                    <button onclick="sdApplyGlobalChaos()" class="sbtn">Chaos</button>
+                    <button onclick="sdApplyGlobalNeuro()" class="sbtn">Neuro</button>
+                    <button onclick="sdApplyGlobalReflector()" class="sbtn">Reflector</button>
+                    <button onclick="sdApplyGlobalSampleHold()" title="Sample &amp; Hold — stepped random on every unlocked lane. Poly = classic polyrhythmic rates; grid = every step on the ▾ division. Click again to reroll." class="sbtn sbtn--seg-l">S&amp;H</button>
+                    <button onclick="window.sdOpenShModePopup(event)" title="S&amp;H mode — Poly (classic) or a fixed grid: 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/32T" class="sbtn sbtn--seg-r sbtn--icon sd-sh-mode-btn -ml-px">▾</button>
+                    <button onclick="sdApplyGlobalPrism()" class="sbtn">Prism</button>
+                    <button onclick="sdApplyBloom()" class="sbtn">Bloom</button>
+                </div>
+                <span class="sdiv"></span>
+                <div class="sgrp">
+                    <span class="sgrp-l">Bars</span>
+                    <button onclick="sdSetBarsAndPush(4)"  class="sbtn sbtn--icon sd-bars-btn">4</button>
+                    <button onclick="sdSetBarsAndPush(8)"  class="sbtn sbtn--icon sd-bars-btn">8</button>
+                    <button onclick="sdSetBarsAndPush(16)" class="sbtn sbtn--icon sd-bars-btn">16</button>
+                    <button onclick="sdSetBarsAndPush(32)" class="sbtn sbtn--icon sd-bars-btn">32</button>
+                    <button onclick="sdToggleTripletLock()" title="Triplet grid lock — the grid AND every motion tool run on 1/2T · 1/4T · 1/8T · 1/16T (Ctrl+3)" class="sbtn sbtn--icon sd-trip-btn">T</button>
+                </div>
+                <span class="sdiv"></span>
+                <div class="sgrp">
+                    <span class="sgrp-l">Saved</span>
+                    <button onclick="window.sdSaveMotionSmart && sdSaveMotionSmart()" title="Save to Motions — selected lanes if any, else the active lane. Instant, auto-named." class="sbtn tool-btn">Save</button>
+                    <button id="sd-motions-btn-c" onclick="window.sdToggleMotions && window.sdToggleMotions()" title="Motions — your saved moves and the factory bank. Hover a card to preview it on the active lane; click to load." class="sbtn tool-btn flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3h14v18l-7-5-7 5z"/></svg>
+                    Motions
+                </button>
+                </div>
+                <div id="sd-pinned-motions-c" class="flex items-center gap-1 min-w-0 overflow-x-auto custom-scroll"></div>
+                <div class="flex-1"></div>
+                <div class="sgrp">
+                    <button onclick="sdSelectAll()" class="sbtn tool-btn">Select All</button>
+                    <button onclick="sdToggleLockAll()" class="sbtn tool-btn">Lock All</button>
+                    <button onclick="window.sdUnlockAllLanes&&window.sdUnlockAllLanes()" class="sbtn tool-btn">Unlock All</button>
+                </div>
+            </div></div></div></section><section><h2>Teal</h2><div class="frame" data-skin="teal"><div class="app"><div id="sd-compact-toolbar" class=" bg-zinc-950 border-b border-white/5 px-2.5 py-1 items-center gap-1.5 flex-wrap shrink-0">
+                <div class="sgrp">
+                    <button onclick="sdUndo()" title="Undo (Ctrl+Z)" class="sbtn sbtn--icon">↶</button>
+                    <button onclick="sdRedo()" title="Redo (Ctrl+Y)" class="sbtn sbtn--icon">↷</button>
+                </div>
+                <span class="sdiv"></span>
+                <div class="sgrp">
+                    <span class="sgrp-l">Draw</span>
+                    <button id="qpc-tool-point" onclick="sdSetTool('select')" class="sbtn is-on tool-btn">Point</button>
+                    <button id="qpc-tool-free" onclick="sdSetTool('freehand')" class="sbtn tool-btn">Free</button>
+                </div>
+                <span class="sdiv"></span>
+                <div class="sgrp">
+                    <span class="sgrp-l">Shape</span>
+                    <button onclick="sdMirrorLane()" title="Flip Y-axis" class="sbtn tool-btn">Mirror</button>
+                    <button onclick="sdFlipLane()" title="Reverse time" class="sbtn tool-btn">Flip</button>
+                    <button onclick="sdApplySwing()" class="sbtn tool-btn">Swing</button>
+                    <button onclick="sdTimeStretch(2)" title="Stretch 2x — spread the curve over twice the time" class="sbtn sbtn--icon tool-btn">2x</button>
+                    <button onclick="sdTimeStretch(0.5)" title="Compress 1/2x — pack the curve into half the time" class="sbtn tool-btn">1/2x</button>
+                </div>
+                <span class="sdiv"></span>
+                <div class="sgrp">
+                    <span class="sgrp-l">Vary</span>
+                    <button onclick="sdMutate()" class="sbtn tool-btn">Mutate</button>
+                    <button onclick="sdShuffleLanes()" title="Shuffle curves between lanes" class="sbtn tool-btn">Shuffle</button>
+                </div>
+                <span class="sdiv"></span>
+                <div class="sgrp flex-wrap">
+                    <span class="sgrp-l">Selected lanes</span>
+                    <button onclick="sdApplyTemplate('sine')" class="sbtn">Sine</button>
+                    <button onclick="sdApplyTemplate('pump')" class="sbtn">Pump</button>
+                    <button onclick="sdApplyTemplate('chaos_lfo')" title="Chaos — multi-layer wave noise on the selected lane(s)" class="sbtn">Chaos</button>
+                    <button onclick="sdApplyComplexTemplate('neuro')" title="Neuro — gnarly random shapes on the selected lane(s)" class="sbtn">Neuro</button>
+                    <button onclick="sdApplySampleHoldLane()" title="Sample &amp; Hold — stepped random on the selected lane(s). Poly = classic rates; grid = every step on the ▾ division. Click again to reroll." class="sbtn sbtn--seg-l">S&amp;H</button>
+                    <button onclick="window.sdOpenShModePopup(event)" title="S&amp;H mode — Poly (classic) or a fixed grid: 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/32T" class="sbtn sbtn--seg-r sbtn--icon sd-sh-mode-btn -ml-px">▾</button>
+                    <button onclick="sdApplyNeuroVariant('smooth')" title="Smooth — Neuro shapes with bezier ease (less robotic)" class="sbtn">Smooth</button>
+                    <button onclick="sdApplyNeuroVariant('storm')" title="Storm — chained contrasting segments building to a release" class="sbtn">Storm</button>
+                    <button onclick="sdApplyNeuroVariant('call')" title="Call — aggressive bar / smooth response alternation" class="sbtn">Call</button>
+                    <button onclick="sdApplyNeuroVariant('acid')" title="Acid — 303-style 16th-note slides on a 4-tone scale" class="sbtn">Acid</button>
+                    <button onclick="sdApplyNeuroVariant('anchor')" title="Anchor — phrased bars that always return home, with glitch bites" class="sbtn">Anchor</button>
+                </div>
+                <!-- line break: MOTION sits on its OWN row, separate from the SEL patterns above -->
+                <div class="basis-full h-0"></div>
+                <div class="sgrp flex-wrap">
+                    <span class="sgrp-l">Motion</span>
+                    <button onclick="sdApplyGlobalChaos()" class="sbtn">Chaos</button>
+                    <button onclick="sdApplyGlobalNeuro()" class="sbtn">Neuro</button>
+                    <button onclick="sdApplyGlobalReflector()" class="sbtn">Reflector</button>
+                    <button onclick="sdApplyGlobalSampleHold()" title="Sample &amp; Hold — stepped random on every unlocked lane. Poly = classic polyrhythmic rates; grid = every step on the ▾ division. Click again to reroll." class="sbtn sbtn--seg-l">S&amp;H</button>
+                    <button onclick="window.sdOpenShModePopup(event)" title="S&amp;H mode — Poly (classic) or a fixed grid: 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/32T" class="sbtn sbtn--seg-r sbtn--icon sd-sh-mode-btn -ml-px">▾</button>
+                    <button onclick="sdApplyGlobalPrism()" class="sbtn">Prism</button>
+                    <button onclick="sdApplyBloom()" class="sbtn">Bloom</button>
+                </div>
+                <span class="sdiv"></span>
+                <div class="sgrp">
+                    <span class="sgrp-l">Bars</span>
+                    <button onclick="sdSetBarsAndPush(4)"  class="sbtn sbtn--icon sd-bars-btn">4</button>
+                    <button onclick="sdSetBarsAndPush(8)"  class="sbtn sbtn--icon sd-bars-btn">8</button>
+                    <button onclick="sdSetBarsAndPush(16)" class="sbtn sbtn--icon sd-bars-btn">16</button>
+                    <button onclick="sdSetBarsAndPush(32)" class="sbtn sbtn--icon sd-bars-btn">32</button>
+                    <button onclick="sdToggleTripletLock()" title="Triplet grid lock — the grid AND every motion tool run on 1/2T · 1/4T · 1/8T · 1/16T (Ctrl+3)" class="sbtn sbtn--icon sd-trip-btn">T</button>
+                </div>
+                <span class="sdiv"></span>
+                <div class="sgrp">
+                    <span class="sgrp-l">Saved</span>
+                    <button onclick="window.sdSaveMotionSmart && sdSaveMotionSmart()" title="Save to Motions — selected lanes if any, else the active lane. Instant, auto-named." class="sbtn tool-btn">Save</button>
+                    <button id="sd-motions-btn-c" onclick="window.sdToggleMotions && window.sdToggleMotions()" title="Motions — your saved moves and the factory bank. Hover a card to preview it on the active lane; click to load." class="sbtn tool-btn flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3h14v18l-7-5-7 5z"/></svg>
+                    Motions
+                </button>
+                </div>
+                <div id="sd-pinned-motions-c" class="flex items-center gap-1 min-w-0 overflow-x-auto custom-scroll"></div>
+                <div class="flex-1"></div>
+                <div class="sgrp">
+                    <button onclick="sdSelectAll()" class="sbtn tool-btn">Select All</button>
+                    <button onclick="sdToggleLockAll()" class="sbtn tool-btn">Lock All</button>
+                    <button onclick="window.sdUnlockAllLanes&&window.sdUnlockAllLanes()" class="sbtn tool-btn">Unlock All</button>
+                </div>
+            </div></div></div></section>
+</div></body></html>
