@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STRIDE | Chains</title>
+
+    <!-- SEO -->
+    <meta name="description" content="Ready-made Stride chains. Load one and the whole rig comes back: the devices, the mappings, the ranges and the curves. Free for Stride owners.">
+    <link rel="canonical" href="https://stridehub.io/chains.html">
+
+    <!-- Open Graph / Social cards -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://stridehub.io/chains.html">
+    <meta property="og:title" content="STRIDE | Chains">
+    <meta property="og:description" content="Load a chain and the whole rig comes back: devices, mappings, ranges, curves.">
+    <meta property="og:site_name" content="Stride">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="STRIDE | Chains">
+    <meta name="twitter:description" content="Load a chain and the whole rig comes back: devices, mappings, ranges, curves.">
+
+    <meta name="theme-color" content="#141310">
+
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cdefs%3E%3ClinearGradient id='strideGradient' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23eaa54e' /%3E%3Cstop offset='100%25' stop-color='%23c6712b' /%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z' stroke='url(%23strideGradient)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // VINTAGE (Patchbay) skin: remap Tailwind palettes -> CSS vars so the page
+      // re-themes with the brand. Same config as index.html and samples.html.
+      (function(){
+        function r(p){var o={},s=[50,100,200,300,400,500,600,700,800,900,950];for(var i=0;i<s.length;i++){o[s[i]]='rgb(var(--'+p+s[i]+') / <alpha-value>)';}return o;}
+        tailwind.config={darkMode:'class',theme:{extend:{colors:{
+          zinc:r('z'), orange:r('o'), red:r('rd'), amber:r('am'), emerald:r('em'),
+          cyan:r('cy'), sky:r('z'), lime:r('em'), fuchsia:r('o'),
+          violet:r('vi'), purple:r('vi'), rose:r('ro'), pink:r('ro')
+        }}}};
+      })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  /* ── PATCHBAY (vintage modular) brand palette — matches index.html ── */
+  :root{
+    --bg:#141310; --bg2:#191611; --panel:#1d1b16; --raise:#252119; --line:rgba(216,201,176,.11);
+    --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
+    --copper:#c6712b; --copper-lt:#dd9a52; --amber:#d9822b; --ember:#e58a2e;
+    --teal:#2f748e;  --teal-lt:#5e9aad;
+    --sage:#5b7b55;  --sage-lt:#86a87f;
+    --o50:249 241 234;--o100:244 227 213;--o200:232 198 170;--o300:222 154 82;--o400:198 113 43;--o500:174 99 38;--o600:143 81 31;--o700:109 62 24;--o800:79 45 17;--o900:55 32 12;--o950:30 17 6;
+    --z50:241 236 226;--z100:228 221 208;--z200:215 207 192;--z300:195 187 171;--z400:163 154 138;--z500:118 111 99;--z600:88 82 73;--z700:66 61 52;--z800:37 33 25;--z900:29 27 22;--z950:20 19 16;
+    --rd50:250 238 232;--rd100:246 220 209;--rd200:235 186 167;--rd300:216 132 104;--rd400:199 100 66;--rd500:176 80 49;--rd600:150 66 40;--rd700:117 51 32;--rd800:84 37 24;--rd900:56 25 17;--rd950:31 14 10;
+    --em50:235 240 233;--em100:214 224 210;--em200:181 198 175;--em300:134 168 127;--em400:110 146 102;--em500:91 123 85;--em600:73 99 67;--em700:56 77 52;--em800:40 56 38;--em900:27 38 25;--em950:15 22 13;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Outfit',sans-serif;background:var(--bg);color:var(--ink2);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  ::selection{background:rgba(198,113,43,.3)}
+  ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:#2a2620;border-radius:10px}
+  body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(120% 80% at 50% -10%, rgba(198,113,43,.07), transparent 60%),
+               radial-gradient(100% 60% at 50% 110%, rgba(47,116,142,.05), transparent 60%);}
+  .wrap{position:relative;z-index:1}
+  .mono{font-family:'Space Mono',ui-monospace,monospace}
+  .silk{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--ink3)}
+  .brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .ink{color:var(--ink)} .ink2{color:var(--ink2)} .ink3{color:var(--ink3)}
+  h1,h2,h3,h4{color:var(--ink);font-weight:900;letter-spacing:-.01em}
+  .panel{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(0,0,0,.14)),var(--panel);
+    border:1px solid var(--line);border-radius:18px;
+    box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 24px 50px -30px rgba(0,0,0,.9)}
+  .btn-copper{display:inline-flex;align-items:center;justify-content:center;gap:.6rem;background:linear-gradient(180deg,var(--ember),var(--copper));
+    color:#1c1206;font-weight:900;letter-spacing:.04em;border:1px solid rgba(255,210,150,.25);border-radius:14px;
+    box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 12px 24px -14px rgba(198,113,43,.8);transition:transform .15s,filter .15s;cursor:pointer}
+  .btn-copper:hover{transform:translateY(-2px);filter:brightness(1.06)}
+  .btn-ghost{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;border:1px solid var(--line);background:var(--raise);color:var(--ink2);
+    font-weight:800;border-radius:14px;transition:transform .15s,border-color .15s,color .15s;cursor:pointer}
+  .btn-ghost:hover{transform:translateY(-2px);border-color:rgba(216,201,176,.28);color:var(--ink)}
+  .pill{border:1px solid var(--line);background:var(--raise);border-radius:999px;color:var(--ink2);font-weight:700}
+  .pill-warm{border-color:rgba(198,113,43,.4);background:rgba(198,113,43,.12);color:var(--copper-lt)}
+  .pill-teal{border-color:rgba(47,116,142,.4);background:rgba(47,116,142,.12);color:var(--teal-lt)}
+  .chip{font-size:9px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;border-radius:999px;padding:3px 9px;display:inline-block}
+  .divider{height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
+  /* screw heads: the same hardware detail the landing panels use */
+  .screws::before,.screws::after{content:'';position:absolute;width:7px;height:7px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#6a6253,#272218);box-shadow:0 0 0 1px rgba(0,0,0,.5)}
+  .screws::before{top:12px;left:12px}.screws::after{top:12px;right:12px}
+  .card{transition:transform .15s,border-color .15s}
+  .card:hover{transform:translateY(-3px);border-color:rgba(216,201,176,.22)}
+  .req{font-size:11px;font-weight:700;letter-spacing:.02em}
+  .lane-svg{display:block;width:100%;height:44px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ===================== NAV ===================== -->
+  <nav class="max-w-5xl mx-auto px-6 py-6 flex items-center justify-between">
+    <a href="index.html" class="flex items-center gap-2.5 group">
+      <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none">
+        <path d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" stroke="#dd9a52" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="font-black text-lg ink tracking-tight">STRIDE</span>
+    </a>
+    <a href="index.html" class="text-sm font-bold ink2 hover:text-[color:var(--copper-lt)] transition-colors">Get Stride &rarr;</a>
+  </nav>
+
+  <!-- ===================== HERO ===================== -->
+  <header class="max-w-5xl mx-auto px-6 pt-8 pb-12">
+    <span class="chip pill-warm mb-5">Free for Stride owners</span>
+    <h1 class="text-5xl md:text-6xl font-black leading-[0.95] mb-5">
+      Someone else's rig,<br><span class="brand">already in motion.</span>
+    </h1>
+    <p class="text-lg leading-relaxed max-w-2xl">
+      A chain is a whole setup saved in one file. Load it and everything comes back: the devices,
+      every mapped knob, the ranges you are allowed to move inside, and the curves already drawn.
+      Hit a generator and it is your sound from there.
+    </p>
+  </header>
+
+  <!-- ===================== THE TWO FORMATS ===================== -->
+  <section class="max-w-5xl mx-auto px-6 pb-16">
+    <p class="silk mb-4">Two kinds of download</p>
+    <div class="grid md:grid-cols-2 gap-5">
+
+      <div class="panel screws p-6 pt-9">
+        <span class="chip pill-warm mb-4">.stridechain</span>
+        <h3 class="text-xl mb-2">The chain file</h3>
+        <p class="text-sm leading-relaxed mb-4">
+          Stride's own format. It carries the mappings, the ranges, the lane speeds, the loop
+          lengths and every curve. Open Stride, hit Load, pick the file.
+        </p>
+        <p class="text-sm leading-relaxed ink3">
+          Smallest download, and the one to grab when you already own the devices it uses and
+          want the motion rather than the patch.
+        </p>
+      </div>
+
+      <div class="panel screws p-6 pt-9">
+        <span class="chip pill-teal mb-4">.adg &middot; Ableton rack</span>
+        <h3 class="text-xl mb-2">The full rack</h3>
+        <p class="text-sm leading-relaxed mb-4">
+          An Ableton Instrument Rack with Stride and the devices inside it, wired up. The routing
+          is done, the ranges are set. Drop it on a track and play.
+        </p>
+        <p class="text-sm leading-relaxed ink3">
+          Bigger, and Ableton only, but nothing to reconnect. This is the one to grab if you want
+          it working in one drag.
+        </p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ===================== THE LIBRARY ===================== -->
+  <section class="max-w-5xl mx-auto px-6 pb-16">
+    <div class="flex items-end justify-between mb-4 gap-4 flex-wrap">
+      <p class="silk">The library</p>
+      <p class="text-xs ink3" id="chain-count"></p>
+    </div>
+    <div id="chain-grid" class="grid md:grid-cols-2 gap-5"></div>
+  </section>
+
+  <!-- ===================== HOW TO LOAD ===================== -->
+  <section class="max-w-5xl mx-auto px-6 pb-16">
+    <p class="silk mb-4">Loading one</p>
+    <div class="grid md:grid-cols-2 gap-5">
+
+      <div class="panel p-6">
+        <span class="chip pill-warm mb-4">.stridechain</span>
+        <ol class="text-sm leading-relaxed space-y-2.5 list-none m-0 p-0">
+          <li><span class="mono ink3 mr-2">01</span>Open Stride on a track.</li>
+          <li><span class="mono ink3 mr-2">02</span>Hit <span class="ink font-bold">Load</span> in the title bar and pick the file.</li>
+          <li><span class="mono ink3 mr-2">03</span>Stride rebuilds the lanes, the ranges and the curves.</li>
+          <li><span class="mono ink3 mr-2">04</span>Press a generator to roll a fresh take on it.</li>
+        </ol>
+      </div>
+
+      <div class="panel p-6">
+        <span class="chip pill-teal mb-4">.adg &middot; Ableton rack</span>
+        <ol class="text-sm leading-relaxed space-y-2.5 list-none m-0 p-0">
+          <li><span class="mono ink3 mr-2">01</span>Drop the file anywhere in your Ableton User Library.</li>
+          <li><span class="mono ink3 mr-2">02</span>Drag it from the browser onto a MIDI track.</li>
+          <li><span class="mono ink3 mr-2">03</span>Everything is already wired. Play.</li>
+        </ol>
+        <p class="text-xs ink3 mt-4 leading-relaxed">
+          A good home for it is
+          <span class="mono">User Library / Presets / Instruments / Instrument Rack</span>.
+        </p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ===================== THE HONEST BIT ===================== -->
+  <section class="max-w-5xl mx-auto px-6 pb-20">
+    <div class="panel p-6 md:p-7" style="border-left:2px solid var(--copper);border-radius:0 18px 18px 0">
+      <h3 class="text-lg mb-3">Before you download</h3>
+      <p class="text-sm leading-relaxed mb-3">
+        A chain points at real devices, so you need the ones it lists. Every card says what it
+        wants. If a plugin is missing, Stride loads the rest of the chain and leaves that lane
+        empty rather than refusing the file.
+      </p>
+      <p class="text-sm leading-relaxed ink3">
+        Chains that drive Ableton's own devices through StrideBridge are tied to where those
+        devices sat when the chain was saved. Open Map Live and click the device header to point
+        a lane at your own. The rack downloads carry their devices with them, so there is nothing
+        to reconnect.
+      </p>
+    </div>
+  </section>
+
+  <!-- ===================== CTA ===================== -->
+  <section class="max-w-5xl mx-auto px-6 pb-20 text-center">
+    <div class="divider mb-10"></div>
+    <h2 class="text-3xl md:text-4xl font-black mb-4">Need Stride first?</h2>
+    <p class="text-base ink2 mb-7 max-w-xl mx-auto">
+      One purchase, both editions. Every chain here opens with it.
+    </p>
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+      <a href="index.html#pricing" class="btn-copper text-sm uppercase tracking-widest py-4 px-9 rounded-full">Get Stride</a>
+      <a href="/try/" class="btn-ghost text-sm uppercase tracking-widest py-4 px-9 rounded-full">Explore free for 24h</a>
+    </div>
+  </section>
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer class="max-w-5xl mx-auto px-6 py-10 border-t" style="border-color:var(--line)">
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm ink3">
+      <span class="mono">&copy; STRIDE &mdash; Sound Design Engine</span>
+      <div class="flex items-center gap-5">
+        <a href="index.html" class="hover:text-[color:var(--copper-lt)] transition-colors">Stride</a>
+        <a href="samples.html" class="hover:text-[color:var(--copper-lt)] transition-colors">Sample Packs</a>
+        <a href="privacy.html" class="hover:text-[color:var(--copper-lt)] transition-colors">Privacy</a>
+        <a href="terms.html" class="hover:text-[color:var(--copper-lt)] transition-colors">Terms</a>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script>
+// ═════════════════════════════════════════════════════════════════════
+//  THE LIBRARY  <-  ADD NEW CHAINS HERE, NOTHING ELSE TO EDIT
+//
+//  Drop the file into  frontend/chains/  (and mirror it to the repo root
+//  chains/ folder, same as the html files), then add one object below.
+//
+//    name    what it is called on the card
+//    format  'chain' for .stridechain, 'rack' for an Ableton .adg
+//    file    path relative to this page
+//    size    shown on the button, keep it honest
+//    blurb   one or two sentences, what it sounds like and what it is for
+//    needs   everything the user must already own for it to open
+//    lanes   how many parameters move
+//    bars    the loop length it was drawn at
+//    tags    two or three short words, shown as chips
+// ═════════════════════════════════════════════════════════════════════
+const CHAINS = [
+  {
+    name: 'Serum Talker',
+    format: 'rack',
+    file: 'chains/Serum-Talker.adg',
+    size: '22 KB',
+    blurb: 'A vowel chain that chews on whatever you play. Formant and filter ride opposite each other, so it reads as a voice rather than a sweep.',
+    needs: ['Ableton Live 11+', 'Stride', 'Serum'],
+    lanes: 4,
+    bars: 4,
+    tags: ['Talkbox', 'Formant', 'Bass']
+  },
+  {
+    name: 'Serum Talker',
+    format: 'chain',
+    file: 'chains/Serum-Talker.stridechain',
+    size: '39 KB',
+    blurb: 'The same motion without the devices. Four lanes, two of them range limited so the vowel never opens all the way, and one running at quarter speed underneath.',
+    needs: ['Stride', 'Ableton Live 11+ for the Bridge lanes'],
+    lanes: 4,
+    bars: 4,
+    tags: ['Talkbox', 'Formant', 'Bridge']
+  }
+];
+
+// ── a small deterministic curve per card, so each one looks like itself ──
+function laneArt(seed, colour) {
+  let d = 'M0,34', x = 0, s = seed;
+  const rnd = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  for (let i = 0; i < 26; i++) {
+    x += 20;
+    d += ' L' + x + ',' + (6 + rnd() * 30).toFixed(1);
+  }
+  return '<svg class="lane-svg" viewBox="0 0 520 44" preserveAspectRatio="none">'
+       + '<path d="' + d + '" fill="none" stroke="' + colour + '" stroke-width="1.5"'
+       + ' vector-effect="non-scaling-stroke" opacity=".85"/></svg>';
+}
+
+const LANE_COLOURS = ['#c6712b', '#2f748e', '#5b7b55', '#a34e52', '#544b6d'];
+
+function card(c, i) {
+  const isRack = c.format === 'rack';
+  const badge = isRack
+    ? '<span class="chip pill-teal">.adg &middot; Ableton rack</span>'
+    : '<span class="chip pill-warm">.stridechain</span>';
+  const needs = c.needs.map(n =>
+    '<span class="pill req px-2.5 py-1 inline-block">' + n + '</span>').join(' ');
+  const tags = (c.tags || []).map(t =>
+    '<span class="ink3 text-xs font-bold">' + t + '</span>').join('<span class="ink3 text-xs"> &middot; </span>');
+  return ''
+    + '<article class="panel card p-0 overflow-hidden flex flex-col">'
+    +   '<div style="background:rgba(0,0,0,.28);border-bottom:1px solid var(--line)">'
+    +     laneArt(i + 7, LANE_COLOURS[i % LANE_COLOURS.length])
+    +   '</div>'
+    +   '<div class="p-6 flex flex-col flex-1">'
+    +     '<div class="flex items-start justify-between gap-3 mb-3">'
+    +       '<h3 class="text-xl leading-tight">' + c.name + '</h3>' + badge
+    +     '</div>'
+    +     '<p class="text-sm leading-relaxed mb-4">' + c.blurb + '</p>'
+    +     '<p class="mb-4">' + tags + '</p>'
+    +     '<p class="silk mb-2" style="font-size:9px">You need</p>'
+    +     '<p class="mb-5 flex flex-wrap gap-1.5">' + needs + '</p>'
+    +     '<div class="mt-auto flex items-center justify-between gap-3 pt-4"'
+    +          ' style="border-top:1px solid var(--line)">'
+    +       '<span class="mono text-xs ink3">' + c.lanes + ' lanes &middot; ' + c.bars + ' bars</span>'
+    +       '<a class="btn-copper text-xs uppercase tracking-widest px-5 py-2.5 rounded-full"'
+    +          ' href="' + c.file + '" download>Download &middot; ' + c.size + '</a>'
+    +     '</div>'
+    +   '</div>'
+    + '</article>';
+}
+
+document.getElementById('chain-grid').innerHTML = CHAINS.map(card).join('');
+document.getElementById('chain-count').textContent =
+  CHAINS.length + (CHAINS.length === 1 ? ' chain' : ' chains') + ', more on the way';
+</script>
+</body>
+</html>
