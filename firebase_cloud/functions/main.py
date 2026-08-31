@@ -130,7 +130,7 @@ Follow what surprises you.
 Watch the Stride VST walkthrough:
 https://youtu.be/-Z4zRIiPg-4
 
-You picked up both editions. The flagship Stride VST runs in every DAW and hosts a full chain of your own instruments and effects. StrideLink does the same inside Ableton. One key unlocks both, and it is waiting in your Lemon Squeezy receipt.
+Your key is waiting in your Lemon Squeezy receipt. Stride runs in every DAW and hosts a full chain of your own instruments and effects, and in Ableton Live it reaches the set's own devices too.
 
 Get the VST running in two minutes:
 1. Download and unzip the Stride VST from your receipt.
@@ -140,7 +140,7 @@ Get the VST running in two minutes:
 3. Fully quit and reopen your DAW so it rescans plugins.
 4. Add Stride and paste your key.
 
-Live in Ableton racks? That is exactly what StrideLink is for. Open it and follow the setup guide built into the app.
+On Ableton Live? Drop StrideBridge on a track and Stride moves your Live devices too, Operator, Roar, Auto Filter, all of them. Setup takes a minute: https://stridehub.io/setup.html
 
 A couple of things worth doing:
 - Subscribe on YouTube and work through the tutorials: youtube.com/@StrideEngine
@@ -215,7 +215,7 @@ WELCOME_EMAIL_HTML = r'''<!doctype html>
 </td></tr>
 
 <tr><td style="padding:30px 34px 0;">
-  <p style="margin:0;font-size:15px;line-height:1.65;color:#b8ad9b;">You picked up both editions. The flagship <b style="color:#ece4d6;">Stride VST</b> runs in every DAW and hosts a full chain of your own instruments and effects. <b style="color:#ece4d6;">StrideLink</b> does the same inside Ableton. <b style="color:#ece4d6;">One key unlocks both</b>, and it is waiting in your Lemon Squeezy receipt.</p>
+  <p style="margin:0;font-size:15px;line-height:1.65;color:#b8ad9b;">Your key is waiting in your Lemon Squeezy receipt. <b style="color:#ece4d6;">Stride</b> runs in every DAW and hosts a full chain of your own instruments and effects, and in Ableton Live it reaches <b style="color:#ece4d6;">the set's own devices</b> too.</p>
 </td></tr>
 
 <tr><td style="padding:28px 34px 0;">
@@ -230,7 +230,7 @@ WELCOME_EMAIL_HTML = r'''<!doctype html>
 
 <tr><td style="padding:24px 34px 0;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:rgba(47,116,142,0.10);border:1px solid rgba(94,154,173,0.22);border-radius:12px;"><tr><td style="padding:16px 18px;">
-    <p style="margin:0;font-size:14px;line-height:1.6;color:#b8ad9b;"><b style="color:#5e9aad;">Live in Ableton racks?</b> That is exactly what StrideLink is for. Open it and follow the setup guide built into the app, it walks you through the whole thing.</p>
+    <p style="margin:0;font-size:14px;line-height:1.6;color:#b8ad9b;"><b style="color:#5e9aad;">On Ableton Live?</b> Drop <b style="color:#ece4d6;">StrideBridge</b> on a track and Stride moves your Live devices too, Operator, Roar, Auto Filter, all of them. Setup takes a minute: <a href="https://stridehub.io/setup.html" style="color:#5e9aad;">stridehub.io/setup.html</a></p>
   </td></tr></table>
 </td></tr>
 
