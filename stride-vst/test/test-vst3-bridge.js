@@ -1919,6 +1919,60 @@ test('the missing lane fades with the SAME treatment as the loop cutoff', () => 
     assert(/lane_missing/.test(shim), 'the shim routes it');
 });
 
+test('StrideBridge places StrideInject itself: the ship has NO installer in it', () => {
+    // The VST3 download is Stride.vst3 + StrideBridge + StrideInject and nothing else:
+    // no Stride.exe, so the desktop app's "Install to Ableton" does not exist for these
+    // users. Hand-copying a Python folder into Remote Scripts as step one is a bad first
+    // run, and getting it wrong just makes INJECT say STRIDEINJECT? with no clue why.
+    const os_ = require('os');
+    const root = fs.mkdtempSync(path.join(os_.tmpdir(), 'sb_ul_'));
+    const bridgeDir = path.join(root, 'StrideBridge');
+    fs.mkdirSync(path.join(bridgeDir, 'StrideInject'), { recursive: true });
+    fs.writeFileSync(path.join(bridgeDir, 'StrideInject', '__init__.py'), 'NEW SCRIPT\n');
+    fs.writeFileSync(path.join(bridgeDir, 'StrideInject', '_curve.py'), 'curve\n');
+
+    const dst = path.join(root, 'Remote Scripts', 'StrideInject');
+
+    // 1. fresh machine: nothing there yet
+    srv.installStrideInject(bridgeDir);
+    assert(fs.readFileSync(path.join(dst, '__init__.py'), 'utf8') === 'NEW SCRIPT\n', 'installed');
+    assert(fs.existsSync(path.join(dst, '_curve.py')), 'every .py comes along, not just __init__');
+
+    // 2. an OLD copy from the desktop app is updated IN PLACE under the same folder
+    //    name, so the user's Control Surface choice keeps pointing at it
+    fs.writeFileSync(path.join(dst, '__init__.py'), 'OLD SCRIPT\n');
+    fs.mkdirSync(path.join(dst, '__pycache__'), { recursive: true });
+    fs.writeFileSync(path.join(dst, '__pycache__', 'stale.pyc'), 'x');
+    srv.installStrideInject(bridgeDir);
+    assert(fs.readFileSync(path.join(dst, '__init__.py'), 'utf8') === 'NEW SCRIPT\n', 'updated in place');
+    assert(!fs.existsSync(path.join(dst, '__pycache__')),
+           'stale bytecode cleared, or Live keeps importing the OLD script after the source is replaced');
+
+    // 3. already current: a no-op, and it must not throw
+    srv.installStrideInject(bridgeDir);
+    assert(fs.readFileSync(path.join(dst, '__init__.py'), 'utf8') === 'NEW SCRIPT\n', 'still current');
+
+    // 4. a dev checkout with nothing bundled beside it does nothing at all
+    const bare = fs.mkdtempSync(path.join(os_.tmpdir(), 'sb_bare_'));
+    srv.installStrideInject(path.join(bare, 'StrideBridge'));
+    assert(!fs.existsSync(path.join(bare, 'Remote Scripts')), 'no bundle, no install, no crash');
+
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(bare, { recursive: true, force: true });
+});
+
+test('both zips carry StrideInject, or there is no way to get it', () => {
+    const wf = fs.readFileSync(path.join(ROOT, '..', '.github', 'workflows', 'build-vst3.yml'), 'utf8');
+    assert(/StrideBridge\/StrideInject/.test(wf) && /remote_script\/StrideInject\/__init__\.py/.test(wf),
+           'windows zip ships the Remote Script');
+    const mac = fs.readFileSync(path.join(ROOT, '..', 'stride-wrapper', 'm0-spike', 'ci', 'build-mac-vst3.sh'), 'utf8');
+    assert(/StrideBridge\/StrideInject/.test(mac) && /remote_script\/StrideInject\/__init__\.py/.test(mac),
+           'mac zip ships it too');
+    const readme = fs.readFileSync(path.join(BRIDGE, 'README-StrideBridge.txt'), 'utf8');
+    assert(/Control Surface > StrideInject/.test(readme), 'README covers the one manual step left');
+    assert(readme.indexOf('—') < 0, 'README: no em dashes');
+});
+
 test('LOCAL BUILD FRESHNESS: a built Stride.vst3 must embed the CURRENT shim.js', () => {
     // shim.js and canvas.js are compiled into the plugin by juce_add_binary_data, so
     // editing them and shipping an older binary fails SILENTLY: the plugin loads, the

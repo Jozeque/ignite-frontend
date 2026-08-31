@@ -61,6 +61,14 @@ jobs:
           for f in StrideBridge.amxd bridge-server.js bridge_max.js rasterizer.js log-scaling.js inject-writer.js; do
             cp "$GITHUB_WORKSPACE/stride-vst/m4l-bridge/$f" StrideBridge/
           done
+          # StrideInject rides along too. It is the Remote Script that actually writes
+          # the clip automation, and until now the ONLY way to get it was the desktop
+          # app's "Install to Ableton" - so a VST + StrideBridge user had no route to it
+          # at all, and a StrideLink user was stuck on an old copy that cannot hand a
+          # knob back or resolve a hosted macro.
+          mkdir -p StrideBridge/StrideInject
+          cp "$GITHUB_WORKSPACE/stride-vst/remote_script/StrideInject/__init__.py" StrideBridge/StrideInject/
+          cp "$GITHUB_WORKSPACE/stride-vst/remote_script/StrideInject/_curve.py" StrideBridge/StrideInject/
           cp "$GITHUB_WORKSPACE/stride-vst/m4l-bridge/README-StrideBridge.txt" StrideBridge/README.txt
           cp "$GITHUB_WORKSPACE/docs/_fonts/Outfit.ttf" StrideBridge/
           7z a -tzip "$GITHUB_WORKSPACE/Stride-VST3-Windows-v$VER.zip" "Stride.vst3" "README.txt" "StrideBridge" >/dev/null

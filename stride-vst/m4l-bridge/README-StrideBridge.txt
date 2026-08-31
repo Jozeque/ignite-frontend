@@ -19,6 +19,18 @@ INSTALL (one time)
    straight through, so it can sit anywhere. Extra copies (say, inside a
    saved rack) stand by: the device face reads ACTIVE or STANDBY.
 
+3. Only needed for INJECT. The first time StrideBridge loads it puts the
+   StrideInject folder into your User Library's Remote Scripts for you, so
+   there is nothing to copy by hand. Then, once:
+   Settings > Link, Tempo & MIDI > Control Surface > StrideInject,
+   and restart Live. Live only loads Remote Scripts when it starts.
+
+   ALREADY HAVE STRIDEINJECT from Stride's desktop app? StrideBridge updates
+   it in place and keeps the folder name, so your Control Surface choice stays
+   selected and there is nothing to re-pick. Restart Live once. The older copy
+   cannot hand a knob back to Live after an inject and cannot reach the synths
+   hosted inside Stride, which is why it is replaced.
+
 USE
 - Open Stride. A MAP LIVE button appears once the bridge is detected.
 - Press MAP LIVE, then click any knob in Live. It becomes a Stride lane.

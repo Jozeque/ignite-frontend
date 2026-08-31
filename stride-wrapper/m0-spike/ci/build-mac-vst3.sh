@@ -133,6 +133,11 @@ mkdir -p "$DIST/Stride/StrideBridge"
 for f in StrideBridge.amxd bridge-server.js bridge_max.js rasterizer.js log-scaling.js inject-writer.js; do
   cp "$BRIDGE_SRC/$f" "$DIST/Stride/StrideBridge/"
 done
+# StrideInject rides along too (see the Windows job note): the Remote Script that
+# writes the clip automation, previously only obtainable from the desktop app.
+mkdir -p "$DIST/Stride/StrideBridge/StrideInject"
+cp "$SCRIPT_DIR/../../../stride-vst/remote_script/StrideInject/__init__.py" "$DIST/Stride/StrideBridge/StrideInject/"
+cp "$SCRIPT_DIR/../../../stride-vst/remote_script/StrideInject/_curve.py" "$DIST/Stride/StrideBridge/StrideInject/"
 cp "$BRIDGE_SRC/README-StrideBridge.txt" "$DIST/Stride/StrideBridge/README.txt"
 cp "$SCRIPT_DIR/../../docs/_fonts/Outfit.ttf" "$DIST/Stride/StrideBridge/"
 xcrun stapler validate "$DIST/Stride/Stride.vst3"      || { echo "❌ staple lost after copy (vst3)"; exit 1; }

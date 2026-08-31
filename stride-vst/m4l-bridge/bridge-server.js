@@ -1093,6 +1093,53 @@ function resumeFromYield() {
     _status();
 }
 
+// ── StrideInject self-install ────────────────────────────────────────────
+// The VST3 download has no installer in it: there is no Stride.exe here, so the
+// desktop app's "Install to Ableton" does not exist for these users. Asking someone
+// to hand-copy a Python folder into Remote Scripts as step one is a bad first run,
+// and getting it wrong just makes INJECT say STRIDEINJECT? with no clue why.
+//
+// StrideBridge already lives at <User Library>/StrideBridge, so Remote Scripts is
+// one folder up. The device ships StrideInject beside itself and places it there on
+// boot. It CANNOT enable the Control Surface (Live exposes no API for that) or
+// restart Live, so the user still does those two things once.
+//
+// Updating in place, under the SAME folder name, is deliberate: an existing user's
+// Control Surface choice keeps pointing at it and there is nothing to re-pick.
+function installStrideInject(hereOverride) {
+    try {
+        const here = hereOverride || __dirname;                   // <User Library>/StrideBridge
+        const src = path.join(here, 'StrideInject');
+        if (!fs.existsSync(path.join(src, '__init__.py'))) return;   // dev checkout: nothing bundled
+
+        const dst = path.join(path.dirname(here), 'Remote Scripts', 'StrideInject');
+        let same = false;
+        try {
+            same = fs.readFileSync(path.join(src, '__init__.py'), 'utf8')
+                === fs.readFileSync(path.join(dst, '__init__.py'), 'utf8');
+        } catch (e) { same = false; }
+        if (same) return;                                          // already current, say nothing
+
+        const existed = fs.existsSync(path.join(dst, '__init__.py'));
+        fs.mkdirSync(dst, { recursive: true });
+        for (const f of fs.readdirSync(src))
+            if (/\.py$/.test(f)) fs.copyFileSync(path.join(src, f), path.join(dst, f));
+
+        // Stale bytecode would keep Live importing the OLD script even after the
+        // source is replaced (field 2026-08-31: a June copy shadowed a fresh one).
+        try { fs.rmSync(path.join(dst, '__pycache__'), { recursive: true, force: true }); } catch (e) {}
+
+        _post(existed
+            ? 'StrideInject UPDATED. Restart Live to load it (your Control Surface choice is unchanged).'
+            : 'StrideInject INSTALLED. In Live: Settings > Link, Tempo & MIDI > Control Surface '
+              + '> StrideInject, then restart Live.');
+    } catch (e) {
+        // Locked by a running Live, or a read-only library. Never fatal: INJECT simply
+        // reports STRIDEINJECT? and the README covers the manual copy.
+        _post('could not place StrideInject automatically (' + e.message + '). See README.txt.');
+    }
+}
+
 // ── INJECT TO CLIP ───────────────────────────────────────────────────────
 // The button on the device face. The user picks a MIDI clip in Live, presses
 // INJECT, and the lanes they drew in the VST land in that clip as automation.
@@ -1562,6 +1609,7 @@ if (Max) {
     Max.addHandler('armed', handleArmed);
     Max.addHandler('inject', handleInject);      // the INJECT TO CLIP button on the device face
     Max.addHandler('takeback', handleTakeBack);  // the TAKE BACK button: Stride drives every printed lane again
+    installStrideInject();          // before anything else can need it
     state.bootAt = Date.now();
     startTcpServer(require('net'));   // the VST transport — zero dependencies
     try {
@@ -1582,7 +1630,7 @@ module.exports = {
     CONTROL_STEPS, SNAPSHOT_MS, trackOf, deviceOf, under, freshHint, noteSel,
     handleClientMessage, handleDisconnect, handleMapped, handleResolved, handleFound, handleRelinked,
     handleRepathed, handleTouched, handleTouchedDev, handleSel, handleTransport, handlePong, handleArmed, tick,
-    handleInject, handleTakeBack, collectInjectParams, tileForSpeed, injectWriter, macrosOf, macroSig,
+    handleInject, handleTakeBack, collectInjectParams, tileForSpeed, injectWriter, macrosOf, macroSig, installStrideInject,
     parkLane, unparkLane,
     startServer, startTcpServer, _setIoForTest,
 };
