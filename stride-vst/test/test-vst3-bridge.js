@@ -1284,7 +1284,28 @@ test('inject: the button, end to end - payload, partial write, failure, no Strid
         await settle(90);
         assert(face() === 'OLD SI?', 'the face names it, got ' + face());
         assert(!c.lanes[P1].printed, 'and nothing was parked on a claim we cannot verify');
+
+        // 9. the SAME stale answer, but we replaced StrideInject ourselves this launch.
+        // The user coming from StrideLink: Control Surface pick right, script on disk right,
+        // Live simply imported the old one at launch. OLD SI? would send them hunting a
+        // ProgramData shadow copy that is not there. Name the fix instead.
+        rmq(TRIG); rmq(RES);
+        srv.state.siPlaced = 'updated';
+        c = withLanes([lane(P1, 'A', pts)]);
+        srv.handleInject(mine);
+        fs.writeFileSync(RES, JSON.stringify({ success: true, params_written: 1, points_written: 2, mode: 'bezier' }));
+        await settle(90);
+        assert(face() === 'RESTART LIVE', 'the face names the actual fix, got ' + face());
+        assert(!c.lanes[P1].printed, 'still nothing parked');
+
+        // and when the old script does not answer at all, same instruction
+        rmq(TRIG); rmq(RES);
+        c = withLanes([lane(P1, 'A', pts)]);
+        srv.handleInject(mine);
+        await settle(500);
+        assert(face() === 'RESTART LIVE', 'same answer when it never replies, got ' + face());
     } finally {
+        srv.state.siPlaced = '';
         rmq(TRIG); rmq(RES);
     }
 });
@@ -1933,10 +1954,14 @@ test('StrideBridge places StrideInject itself: the ship has NO installer in it',
 
     const dst = path.join(root, 'Remote Scripts', 'StrideInject');
 
+    const wasPlaced = srv.state.siPlaced;
+    srv.state.siPlaced = '';
+
     // 1. fresh machine: nothing there yet
     srv.installStrideInject(bridgeDir);
     assert(fs.readFileSync(path.join(dst, '__init__.py'), 'utf8') === 'NEW SCRIPT\n', 'installed');
     assert(fs.existsSync(path.join(dst, '_curve.py')), 'every .py comes along, not just __init__');
+    assert(srv.state.siPlaced === 'new', 'recorded as a first install, got ' + srv.state.siPlaced);
 
     // 2. an OLD copy from the desktop app is updated IN PLACE under the same folder
     //    name, so the user's Control Surface choice keeps pointing at it
@@ -1947,15 +1972,24 @@ test('StrideBridge places StrideInject itself: the ship has NO installer in it',
     assert(fs.readFileSync(path.join(dst, '__init__.py'), 'utf8') === 'NEW SCRIPT\n', 'updated in place');
     assert(!fs.existsSync(path.join(dst, '__pycache__')),
            'stale bytecode cleared, or Live keeps importing the OLD script after the source is replaced');
+    // This is the existing StrideLink user. Live is still running the copy it imported at
+    // launch, so INJECT has to say "restart" rather than send them hunting a shadow copy.
+    assert(srv.state.siPlaced === 'updated', 'recorded as an update, got ' + srv.state.siPlaced);
 
     // 3. already current: a no-op, and it must not throw
+    srv.state.siPlaced = '';
     srv.installStrideInject(bridgeDir);
     assert(fs.readFileSync(path.join(dst, '__init__.py'), 'utf8') === 'NEW SCRIPT\n', 'still current');
+
+    // Every launch AFTER the update runs this path, so a sticky flag here would leave the
+    // face telling the user to restart Live forever.
+    assert(srv.state.siPlaced === '', 'a no-op claims nothing, got ' + srv.state.siPlaced);
 
     // 4. a dev checkout with nothing bundled beside it does nothing at all
     const bare = fs.mkdtempSync(path.join(os_.tmpdir(), 'sb_bare_'));
     srv.installStrideInject(path.join(bare, 'StrideBridge'));
     assert(!fs.existsSync(path.join(bare, 'Remote Scripts')), 'no bundle, no install, no crash');
+    srv.state.siPlaced = wasPlaced;   // the inject test reads it when it resumes
 
     fs.rmSync(root, { recursive: true, force: true });
     fs.rmSync(bare, { recursive: true, force: true });
@@ -1968,6 +2002,18 @@ test('both zips carry StrideInject, or there is no way to get it', () => {
     const mac = fs.readFileSync(path.join(ROOT, '..', 'stride-wrapper', 'm0-spike', 'ci', 'build-mac-vst3.sh'), 'utf8');
     assert(/StrideBridge\/StrideInject/.test(mac) && /remote_script\/StrideInject\/__init__\.py/.test(mac),
            'mac zip ships it too');
+
+    // A substring grep is not enough: v2.0.7 shipped with one ../ too many in exactly
+    // these lines, sailed through build, sign, notarize and staple, then died on the
+    // final copy after three minutes of CI. Resolve every source path the mac script
+    // reads out of the repo, from the SCRIPT_DIR it defines, and check it is there.
+    const macDir = path.join(ROOT, '..', 'stride-wrapper', 'm0-spike');    // = SCRIPT_DIR
+    const srcs = [...mac.matchAll(/cp\s+"\$SCRIPT_DIR(\/[^"]+)"/g)].map(m => m[1]);
+    assert(srcs.length >= 3, 'found the SCRIPT_DIR-relative copies, got ' + srcs.length);
+    srcs.forEach(rel => {
+        assert(fs.existsSync(path.join(macDir, rel)),
+               'build-mac-vst3.sh copies $SCRIPT_DIR' + rel + ' which is not there: check the ../ depth');
+    });
     const readme = fs.readFileSync(path.join(BRIDGE, 'README-StrideBridge.txt'), 'utf8');
     assert(/Control Surface > StrideInject/.test(readme), 'README covers the one manual step left');
     assert(readme.indexOf('—') < 0, 'README: no em dashes');

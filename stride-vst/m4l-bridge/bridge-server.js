@@ -124,6 +124,7 @@ const state = {
     nextRid: 1,
     repathRid: 0,
     pongAt: 0, pongSeen: false, yielded: false, bootAt: 0, armTimer: null,
+    siPlaced: '',                      // '' | 'new' | 'updated': what installStrideInject did THIS launch
     active: false,                     // owns the TCP port
 };
 
@@ -1129,6 +1130,10 @@ function installStrideInject(hereOverride) {
         // source is replaced (field 2026-08-31: a June copy shadowed a fresh one).
         try { fs.rmSync(path.join(dst, '__pycache__'), { recursive: true, force: true }); } catch (e) {}
 
+        // Remote Scripts import at launch ONLY, so what we just wrote is not what Live is
+        // running. Remember which case this was: INJECT is where the user finds out, and
+        // "update, restart" and "enable it first" are different instructions.
+        state.siPlaced = existed ? 'updated' : 'new';
         _post(existed
             ? 'StrideInject UPDATED. Restart Live to load it (your Control Surface choice is unchanged).'
             : 'StrideInject INSTALLED. In Live: Settings > Link, Tempo & MIDI > Control Surface '
@@ -1341,12 +1346,25 @@ function handleInject(clients) {
         // on the face, because "wrote 2, handed over 0" otherwise reads as success.
         const staleSI = ok && written > 0 && (!paths || paths.length === 0);
 
-        const face = ok ? (staleSI ? 'OLD SI?'
+        // We replaced StrideInject on disk this launch, and Live imports Remote Scripts at
+        // launch only, so it is still running the previous one. That is the whole story for
+        // an existing StrideLink user updating to StrideBridge: their Control Surface pick is
+        // fine, the script is fine, the ONE thing missing is a relaunch. OLD SI? sends them
+        // hunting a shadow copy that isn't there, so name the actual fix instead.
+        const stillOld = state.siPlaced === 'updated'
+                         && (staleSI || /not answering/i.test(message || ''));
+
+        const face = stillOld ? 'RESTART LIVE'
+                   : ok ? (staleSI ? 'OLD SI?'
                            : (written === total ? total + ' OF ' + total : written + ' OF ' + total)
                              + (parked ? ' >LIVE' : ''))
                         : (/not answering/i.test(message) ? 'STRIDEINJECT?'
                           : /clip/i.test(message) ? 'NO CLIP' : 'FAILED');
-        if (staleSI)
+        if (stillOld)
+            _post('inject: StrideInject was updated on disk when this device loaded, but Live only '
+                + 'reads Remote Scripts at launch, so it is still running the old one. Restart Live '
+                + 'and INJECT will work. Your Control Surface choice does not need changing.');
+        else if (staleSI)
             _post('inject: StrideInject wrote ' + written + ' params but reported no paths - that is an OLD '
                 + 'StrideInject. Check for a second copy under ProgramData\\Ableton\\...\\MIDI Remote Scripts '
                 + 'shadowing the User Library one, update it, delete its __pycache__ and restart Live.');
