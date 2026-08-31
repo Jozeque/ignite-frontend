@@ -57,8 +57,8 @@
                     : 'evt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
             }
 
-            // Value: current list price (summer sale $79 until 2026-08-31, then
-            // back to $129 — bump this when the price flips). LS link variables
+            // Value: current list price ($99 from 2026-09-01; the $79 summer sale
+            // ended 2026-08-31). Bump this when the price flips. LS link variables
             // don't include order_total, so the client side fires a fixed
             // value. Server-
             // side CAPI carries the REAL order_total from the webhook —
@@ -70,7 +70,7 @@
             // changes again. With REKZ-style coupons in flight, expect
             // CAPI to often correct DOWN ($59 → ~$50 after 15% off).
             const purchaseData = {
-                value: 79,
+                value: 99,
                 currency: 'USD',
                 content_name: 'Stride Sound Design Engine',
                 content_type: 'product',
