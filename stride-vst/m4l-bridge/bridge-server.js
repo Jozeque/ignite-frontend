@@ -69,6 +69,7 @@ const os = require('os');
 const path = require('path');
 
 const { rasterizeCurve } = require('./rasterizer.js');
+const injectWriter = require('./inject-writer.js');
 
 // max-api only exists inside node.script. Unit tests inject a stub.
 let Max = null;
@@ -88,7 +89,9 @@ const PING_MS = 5000;           // patcher liveness + repath cadence
 const PONG_TIMEOUT_MS = 20000;  // silent patcher = leaked node process: yield the port
 const NO_PONG_BOOT_MS = 30000;  // never answered at all since boot: same verdict, no first pong required
 const ARM_ACK_MS = 1500;        // MAP LIVE must be ACKED by the [js] or the bridge admits it is unreachable
-const REPATH_MS = PING_MS;      // bound ids -> current paths (heals grouping/reorder in-session)
+const REPATH_MS = PING_MS;
+const MISS_TO_MISSING = 5;      // consecutive silent/mismatched repath probes before a lane is shown as MISSING
+const FAST_REPATH_MS = 600;     // while CONFIRMING one, probe at this rate instead of the 5s ping      // bound ids -> current paths (heals grouping/reorder in-session)
 // Control-rate lanes (MIDI-effect params) are written through Live's own setter, and
 // EVERY set costs one undo step + one main-thread hop. Two limits keep that safe: the
 // patcher samples those voices at SNAPSHOT_MS, and the curve itself is snapped to
@@ -99,6 +102,10 @@ const CONTROL_STEPS = 48;
 const SNAPSHOT_MS = 100;        // must match `snapshot~ <ms>` in build_main_patcher.py (a test pins it)
 
 const TMP_DIR = path.join(os.tmpdir(), 'stride_bridge');
+
+// Bumped whenever the server's behaviour changes, so a field report can say WHICH
+// build was running. It rides the status probe and the last_inject.json record.
+const SERVER_BUILD = 'inject+takeback-2026-08-31';
 
 // ── state ────────────────────────────────────────────────────────────────
 // voices[n] = { id, owner, lane, gen, sig, quant, suspended } | null   (n = 1..NUM_VOICES)
@@ -291,6 +298,7 @@ function lanesFromBlob(blob) {
             min: l.liveMin, max: l.liveMax,
             is_log: l.liveLog ? 1 : 0, is_quantized: l.liveQuant ? 1 : 0,
             name: l.liveName || '', device: String(l.liveDevice || '').replace(/^⚡ /, ''),
+            printed: !!l.livePrinted,          // handed to Live in a previous session: do not grab the knob back
         });
     }
     return out;
@@ -315,6 +323,17 @@ function broadcast(obj) {
 // the same path text (a rack and its copy), a broadcast would heal the wrong one.
 function tellLane(lane, obj) {
     if (isConnected(lane.client)) sendTo(lane.client, obj);
+}
+
+// MISSING: the lane's target is not in the set any more (device deleted, track
+// removed). MARKED, never deleted: the curve is preserved, so undoing the delete in
+// Ableton - or dragging the device back - rebinds the lane with its motion intact.
+// Auto-deleting would be unrecoverable, and the repath probe is known to flake:
+// see the field note in handleRepathed (Mac, 2026-08-28).
+function tellMissing(lane, missing) {
+    if (!!lane.missing === !!missing) return;
+    lane.missing = !!missing;
+    tellLane(lane, { type: 'lane_missing', path: lane.path, missing: !!missing });
 }
 
 function report(lane, ok, id, message) {
@@ -405,6 +424,7 @@ function adopt(lane, target, holderN) {
     lane.voice = n;
     lane.taken = false;
     lane.ambiguous = false;
+    tellMissing(lane, false);        // bound = present
     if (target.path && target.path !== lane.path) migrateLane(lane, target.path);
     renderLane(lane);
     bindVoice(n);
@@ -416,6 +436,40 @@ function releaseLane(lane) {
     lane.dead = true;
     if (lane.client && lane.client.lanes && lane.client.lanes[lane.path] === lane) delete lane.client.lanes[lane.path];
     if (lane.voice) { freeVoice(lane.voice); lane.voice = 0; }
+}
+
+// ── PRINTED: the lane's curve now lives in a Live clip envelope ──────────
+// Stride hands the knob back and Live's automation owns it. Not a delete: the
+// lane, its curve and its identity all stay, it just stops driving. freeVoice
+// emits `voice n unbind`, which is the same thing a transport stop does to a
+// live.remote~ lane, so this is a proven path rather than a new one.
+//
+// Re-arming is the gesture you would make anyway: draw on a printed lane and its
+// shape signature changes, which means "I want to modulate this again". That is
+// why nothing here needs a new button per lane.
+//
+// The flag has to OUTLIVE the session. Without that, reopening the set re-binds
+// every knob and silently overrides the automation you printed yesterday, with
+// lanes that look correct and do nothing. So the client persists it in its blob
+// and sends it back on the first push; in-session the bridge is the authority.
+function parkLane(lane) {
+    if (lane.voice) freeVoice(lane.voice);
+    lane.voice = 0;                      // always a definite 0, never left undefined
+    lane.resolving = false;
+    lane.printed = true;
+    lane.printedSig = lane.sig;
+}
+
+function unparkLane(lane, hint) {
+    lane.printed = false;
+    lane.printedSig = null;
+    if (!lane.voice && !lane.resolving) startResolve(lane, hint || null);
+}
+
+// Tell every client which of its lanes are printed, so the flag survives a save.
+function tellPrinted(client, paths, printed) {
+    if (!paths.length) return;
+    sendTo(client, { type: 'lane_printed', paths: paths, printed: !!printed });
 }
 
 function laneAlive(lane) {
@@ -526,6 +580,7 @@ function handleClientMessage(client, msg) {
         const incoming = Array.isArray(msg.lanes) ? msg.lanes : [];
         const mine = lanesOf(client);
         const seen = {};
+        const rearmed = [];          // printed lanes the user drew on: Stride takes them back
         // the selection hint answers "which Stride is this?" once, on the first push
         const hint = client.firstPushDone ? null : freshHint();
 
@@ -542,10 +597,19 @@ function handleClientMessage(client, msg) {
             lane.quant = !!l.is_quantized;
 
             const bars = (typeof msg.bars === 'number' && msg.bars > 0) ? msg.bars : (l.bars || 4);
+            const wasPrinted = !!lane.printed;
             lane.norm = { bars, speed: l.speed || 1, points: l.points || [], min: l.min, max: l.max, is_log: l.is_log, name: l.name || '', is_quantized: l.is_quantized || 0 };
             refreshSig(lane);
 
-            if (lane.voice && state.voices[lane.voice]) {
+            // First push after a project reload: the client's persisted flag is the
+            // only record that this knob was handed to Live, so honour it before
+            // anything can resolve and grab the knob back.
+            if (l.printed && !wasPrinted && !lane.voice) { lane.printed = true; lane.printedSig = lane.sig; }
+
+            if (lane.printed) {
+                // Parked. A changed shape is the user drawing on it: take it back.
+                if (lane.sig !== lane.printedSig) { unparkLane(lane, hint); rearmed.push(key); }
+            } else if (lane.voice && state.voices[lane.voice]) {
                 const v = state.voices[lane.voice];
                 const mode = laneMode(lane);
                 if (v.mode !== mode) { v.mode = mode; v.quant = lane.quant; v.sig = null; if (v.id) bindVoice(lane.voice); }
@@ -560,6 +624,7 @@ function handleClientMessage(client, msg) {
         // purpose: a lane-less second instance must never wipe the first one's voices.
         Object.keys(mine).forEach(key => { if (!seen[key]) releaseLane(mine[key]); });
         client.firstPushDone = true;
+        tellPrinted(client, rearmed, false);      // drawn on -> no longer printed, clear the saved flag
 
         sendTo(client, {
             type: 'live_lanes_state',
@@ -568,6 +633,46 @@ function handleClientMessage(client, msg) {
                 bound: !!(mine[k].voice && state.voices[mine[k].voice] && state.voices[mine[k].voice].id),
             })),
         });
+        return;
+    }
+
+    // MACRO lanes: the VST's own hosted knobs (Serum and friends), published to the
+    // DAW as Stride parameters named "<device>: <param>". The bridge never DRIVES these
+    // (the wrapper does, in its own processBlock) - it only carries them so INJECT can
+    // write them into the same clip as the Ableton lanes. Kept off client.lanes so not
+    // one line of the voice/resolve machinery can see them.
+    if (type === 'set_macro_lanes') {
+        const incoming = Array.isArray(msg.lanes) ? msg.lanes : [];
+        const bars = (typeof msg.bars === 'number' && msg.bars > 0) ? msg.bars : 4;
+        if (typeof msg.drive_mode === 'number') client.driveMode = msg.drive_mode;
+        if (typeof msg.host_driven === 'number') client.hostDriven = msg.host_driven;
+        if (typeof msg.drive_lanes === 'number') client.driveLanes = msg.drive_lanes;
+        const prev = client.macros || {};
+        const mine = client.macros = {};
+        const rearmed = [];
+        incoming.forEach(l => {
+            if (!l || typeof l.pos !== 'number' || l.pos < 0 || !l.macro) return;
+            if (!Array.isArray(l.points) || !l.points.length) return;
+            const speed = (typeof l.speed === 'number' && l.speed > 0) ? l.speed : 1;
+            const sig = macroSig(l.macro, bars, speed, l.points);
+            const old = prev[l.pos];
+
+            // The BRIDGE owns `printed` from here on, exactly like a live lane. Taking it
+            // from the client on every push made it circular: the flag only ever changed
+            // when the bridge said so, so drawing on a printed hosted lane never took the
+            // knob back (field report 2026-08-31). The client's value is honoured ONCE, on
+            // the first push after a project reload, where it is the only record there is.
+            let printed = old ? !!old.printed : !!l.printed;
+            const printedSig = old ? old.printedSig : sig;
+            if (printed && sig !== printedSig) { printed = false; rearmed.push(l.pos); }
+
+            mine[l.pos] = { pos: l.pos, macro: l.macro, printed: printed,
+                            printedSig: printed ? printedSig : null,
+                            norm: { bars, speed: speed,
+                                    points: l.points, min: 0, max: 1, is_log: 0, name: l.macro } };
+        });
+        // Drawn on: the engine must put Stride back in charge of those lanes.
+        if (rearmed.length) sendTo(client, { type: 'macro_printed', pos: rearmed, printed: false });
         return;
     }
 
@@ -780,10 +885,35 @@ function handleRelinked(encoded) {
 // REPATH sweep: every bound id -> its CURRENT path. Grouping, reordering or
 // inserting devices moves addresses under a live bind; the stored path heals
 // in-session so the next save (and the next rack) carries a valid address.
-function repathSweep() {
+// Confirming a suspected removal at the ping rate costs MISS_TO_MISSING * 5s = 25s
+// before the row greys, which reads as broken (field 2026-08-31: "it took around 20
+// seconds"). The moment a probe comes back silent or mismatched, sweep FAST until the
+// verdict lands: same number of agreeing probes, about 3 seconds instead of 25, and a
+// single flake still cannot grey a live lane.
+let fastRepathTimer = null;
+function scheduleFastRepath() {
+    if (fastRepathTimer) return;
+    fastRepathTimer = setTimeout(() => {
+        fastRepathTimer = null;
+        if (!state.yielded) repathSweep(true);   // the suspects only
+
+    }, FAST_REPATH_MS);
+}
+
+// `suspectsOnly` narrows the sweep to the lanes actually mid-confirmation. The full
+// sweep exists to HEAL paths across every bound lane and belongs on the slow ping; a
+// confirmation burst has no reason to re-probe 31 healthy knobs at 600ms just because
+// one device was deleted. Each item costs two LiveAPI lookups on Live's MAIN thread,
+// so this is the difference between ~100 LOM reads a second and a handful.
+function repathSweep(suspectsOnly) {
     if (state.repathRid) return;                 // one in flight
     const ids = [];
-    for (let n = 1; n <= NUM_VOICES; n++) if (state.voices[n] && state.voices[n].id) ids.push(state.voices[n].id);
+    for (let n = 1; n <= NUM_VOICES; n++) {
+        const v = state.voices[n];
+        if (!v || !v.id) continue;
+        if (suspectsOnly && !(v.missCount > 0 && v.missCount < MISS_TO_MISSING)) continue;
+        ids.push(v.id);
+    }
     if (!ids.length) return;
     const rid = state.nextRid++;
     state.pending[rid] = { kind: 'repath' };
@@ -798,6 +928,21 @@ function handleRepathed(encoded) {
     const ctx = takeCtx(f, 'repath');
     state.repathRid = 0;
     if (!ctx) return;
+    try {
+        fs.mkdirSync(TMP_DIR, { recursive: true });
+        fs.writeFileSync(path.join(TMP_DIR, 'last_repath.json'), JSON.stringify({
+            at: new Date().toISOString(), serverBuild: SERVER_BUILD,
+            items: (Array.isArray(f.items) ? f.items : []).map(it => {
+                const n = it && it.id ? voiceByTarget(it.id) : 0;
+                const v = n ? state.voices[n] : null;
+                const ln = v && v.lane;
+                return { id: it && it.id, ok: it && it.ok, name: it && it.name, dev: it && it.dev,
+                         expectName: ln ? ln.expectName : null, expectDevice: ln ? ln.expectDevice : null,
+                         missCount: v ? (v.missCount || 0) : null, missing: ln ? !!ln.missing : null };
+            }),
+        }, null, 1));
+    } catch (e) {}
+
     (Array.isArray(f.items) ? f.items : []).forEach(it => {
         if (!it || !it.id) return;
         const n = voiceByTarget(it.id);
@@ -805,7 +950,21 @@ function handleRepathed(encoded) {
         const v = state.voices[n];
         const lane = v.lane;
         if (!lane) return;
-        if (!it.ok) {
+        // A stale id can still RESOLVE after its device is deleted (something in the
+        // patcher still references the object), so "it answered" is not proof the knob
+        // is in the set. Verify identity: if the id now reports a different parameter
+        // or a different device than this lane expects, treat it as gone. Names are
+        // only compared when the probe actually supplied them, so an older [js] that
+        // reports none behaves exactly as before.
+        let identityLost = false;
+        if (it.ok) {
+            const gotName = (it.name || '').trim();
+            const gotDev = (it.dev || '').trim();
+            if (gotName && lane.expectName && gotName !== lane.expectName) identityLost = true;
+            if (gotDev && lane.expectDevice && gotDev !== lane.expectDevice) identityLost = true;
+        }
+
+        if (!it.ok || identityLost) {
             // A failed lookup is NOT proof the knob is gone - the sweep exists to HEAL
             // paths, never to kill working binds. Field 2026-08-28 (Mac): bound lanes
             // dropped out on a ~5s rhythm and re-linked on the next push - a probe that
@@ -814,11 +973,22 @@ function handleRepathed(encoded) {
             if (!v.missCount) v.missCount = 0;
             v.missCount++;
             if (v.missCount === 3) report(lane, true, v.id, 'target not answering the path probe (bind kept)');
+            // MISS_TO_MISSING sweeps of silence (~25s) is a device that really left, not a
+            // probe that stuttered. The bind is still kept: this only changes how the lane
+            // LOOKS, so a false positive costs a grey row and nothing else.
+            if (v.missCount >= MISS_TO_MISSING) tellMissing(lane, true);
             return;
         }
         v.missCount = 0;
+        tellMissing(lane, false);                 // answered again: it is back
         if (it.path && it.path !== lane.path) migrateLane(lane, it.path);
     });
+
+    // Any lane mid-confirmation? Keep probing fast until it is decided either way.
+    for (let n = 1; n <= NUM_VOICES; n++) {
+        const v = state.voices[n];
+        if (v && v.id && v.missCount > 0 && v.missCount < MISS_TO_MISSING) { scheduleFastRepath(); break; }
+    }
 }
 
 // Transport edge from the [js] observer: stopped -> release every continuous bind
@@ -887,6 +1057,7 @@ function handleArmed() {
 }
 
 function tick(now) {
+    _out(['probe', 'transportnow']);   // self-healing: a change-driven observer cannot report a state that never changed
     const t = now || Date.now();
     _out(['probe', 'ping']);
     // A listener with no live patcher behind it must not keep the port. Two ways to be
@@ -920,6 +1091,336 @@ function resumeFromYield() {
     _post('patcher answered again: re-listening');
     listeners.forEach(l => { try { l.start(); } catch (e) {} });
     _status();
+}
+
+// ── INJECT TO CLIP ───────────────────────────────────────────────────────
+// The button on the device face. The user picks a MIDI clip in Live, presses
+// INJECT, and the lanes they drew in the VST land in that clip as automation.
+//
+// Nothing is converted on the way: a live lane and a StrideInject param carry the
+// SAME numbers already. Verified end to end before this was written:
+//   points[].time   beats, spanning bars*4      -> StrideInject target_length = clip_bars*4
+//   points[].value  0..1 normalized (range is   -> _write_bezier clamps 0..1 then
+//                   baked VST-side, shim.js)       scale_value()s into the native range
+//   points[].curve  -> bezier coefficients
+//   lane.path       "live_set tracks N devices M parameters P" -> _resolve_param
+//   min/max/is_log  -> same fields
+// So this handler is a rename, not a translation. Keep it that way: if a unit ever
+// has to be converted here, the bug is upstream.
+//
+// A clip envelope can only automate parameters on ITS OWN track. Lanes pointing
+// elsewhere are not an error and are not filtered here: StrideInject's
+// _get_or_create_envelope returns None for them and skips cleanly, so the count we
+// report back ("4 OF 6") is the truth from Live, not a guess from here.
+
+const INJECT_FACE_HOLD_MS = 4000;   // how long a result sits on the face before ACTIVE/STANDBY returns
+let injectBusy = false;
+let injectFaceTimer = null;
+
+// The face readout under the button. Single atom on purpose: a comment's `set`
+// takes the rest of the message as its text, and one quoted symbol survives that
+// unambiguously whatever the spacing.
+function injectFace(text, hold) {
+    _out(['injected', 'set', text]);
+    if (injectFaceTimer) { clearTimeout(injectFaceTimer); injectFaceTimer = null; }
+    if (hold) injectFaceTimer = setTimeout(() => { injectFaceTimer = null; _status(); }, INJECT_FACE_HOLD_MS);
+}
+
+// A lane at Speed 2 cycles twice inside `bars` when the bridge drives it
+// (rateFor = bars/speed). StrideInject lays a point list across the clip ONCE, so
+// a 1:1 inject has to tile the shape instead. Integer speeds tile exactly and keep
+// every bezier curve; a fractional speed cannot be tiled without resampling (which
+// would throw the curves away), so it injects one cycle and the face says so.
+function tileForSpeed(points, speed, bars) {
+    const pts = Array.isArray(points) ? points : [];
+    const s = (typeof speed === 'number' && speed > 0) ? speed : 1;
+    const n = Math.round(s);
+    if (!pts.length || Math.abs(s - 1) < 1e-6 || n < 2 || Math.abs(s - n) > 1e-6)
+        return pts.map(pt => ({ time: pt.time, value: pt.value, curve: pt.curve || 0 }));
+
+    const beats = ((typeof bars === 'number' && bars > 0) ? bars : 4) * 4;
+    const cycle = beats / n;
+    const out = [];
+    for (let k = 0; k < n; k++)
+        for (const pt of pts)
+            out.push({ time: (pt.time / n) + k * cycle, value: pt.value, curve: pt.curve || 0 });
+
+    // The end of one cycle and the start of the next land on the same beat. Two
+    // events at one time make a zero-length bezier segment, so keep the later one.
+    out.sort((a, b) => a.time - b.time);
+    const dedup = [];
+    for (const pt of out) {
+        if (dedup.length && Math.abs(dedup[dedup.length - 1].time - pt.time) < 1e-6) dedup.pop();
+        dedup.push(pt);
+    }
+    return dedup;
+}
+
+// Every live lane held by every connected Stride, as StrideInject params. Two
+// Strides in one set can hold the same path (a rack and its copy); the clip can
+// only take one envelope per parameter, so first lane wins.
+// `clients` is a test seam: the suite passes an isolated Set so an inject test can
+// run while the TCP and MAP LIVE tests are parked on real timers asserting the size
+// of the real one. Production never passes it (the patcher sends a bare `inject`).
+// A shape signature that survives a round trip through the engine. The raw JSON of
+// the point list does NOT: a curve echoed back by the wrapper can differ in the last
+// float digit, which read as "the user redrew this" and un-printed a lane nobody had
+// touched. Quantising to 1e-4 is far finer than anything audible and immune to that.
+function macroSig(macro, bars, speed, points) {
+    const q = n => Math.round((typeof n === 'number' ? n : 0) * 10000) / 10000;
+    return JSON.stringify([macro, bars, q(speed),
+        (points || []).map(pt => [q(pt.time), q(pt.value), q(pt.curve || 0)])]);
+}
+
+function macrosOf(client) { if (!client.macros) client.macros = {}; return client.macros; }
+
+function collectInjectParams(clients) {
+    const src = (clients instanceof Set) ? clients : state.clients;
+    const params = [];
+    const seen = {};
+    let bars = 0, fractional = 0;
+
+    src.forEach(client => {
+        const mine = lanesOf(client);
+        Object.keys(mine).forEach(key => {
+            const lane = mine[key];
+            const n = lane && lane.norm;
+            if (!n || !Array.isArray(n.points) || !n.points.length) return;
+            if (seen[lane.path]) return;
+            seen[lane.path] = true;
+
+            const laneBars = (typeof n.bars === 'number' && n.bars > 0) ? n.bars : 4;
+            if (laneBars > bars) bars = laneBars;
+            const s = (typeof n.speed === 'number' && n.speed > 0) ? n.speed : 1;
+            if (Math.abs(s - Math.round(s)) > 1e-6) fractional++;
+
+            params.push({
+                id: 0,
+                name: n.name || lane.expectName || '',
+                _path: lane.path,
+                min: (typeof n.min === 'number') ? n.min : 0,
+                max: (typeof n.max === 'number') ? n.max : 1,
+                is_log: !!n.is_log,
+                points: tileForSpeed(n.points, s, laneBars),
+            });
+        });
+    });
+
+    // Hosted (macro) lanes ride the same payload, addressed by NAME rather than a LOM
+    // path. StrideInject resolves the name against the clip's own track, which is both
+    // the only place a clip envelope can reach and the smallest correct search space.
+    src.forEach(client => {
+        const mine = macrosOf(client);
+        Object.keys(mine).forEach(k => {
+            const m = mine[k];
+            if (!m || m.printed) return;                  // already handed to the DAW
+            const key = 'macro:' + m.macro;
+            if (seen[key]) return;
+            seen[key] = true;
+            const laneBars = (typeof m.norm.bars === 'number' && m.norm.bars > 0) ? m.norm.bars : 4;
+            if (laneBars > bars) bars = laneBars;
+            const sp = m.norm.speed || 1;
+            if (Math.abs(sp - Math.round(sp)) > 1e-6) fractional++;
+            params.push({ id: 0, name: m.macro, _path: null, macro_name: m.macro,
+                          min: 0, max: 1, is_log: false,
+                          points: tileForSpeed(m.norm.points, sp, laneBars) });
+        });
+    });
+
+    return { params, bars: bars || 4, fractional };
+}
+
+function handleInject(clients) {
+    if (injectBusy) { _post('inject already running'); return; }
+    const src = (clients instanceof Set) ? clients : state.clients;   // see collectInjectParams
+
+    const { params, bars, fractional } = collectInjectParams(src);
+    if (!params.length) {
+        _post('inject: no live lanes to write');
+        injectFace('NO LANES', true);
+        src.forEach(c => sendTo(c, { type: 'inject_result', ok: false, written: 0, total: 0, message: 'No live lanes to inject' }));
+        return;
+    }
+
+    injectBusy = true;
+    injectFace('WORKING', false);
+    _post('inject: ' + params.length + ' lanes, ' + bars + ' bars'
+          + (fractional ? ' (' + fractional + ' fractional-speed lane(s) injected as one cycle)' : ''));
+
+    // Hand over exactly what Live wrote. Not "all lanes": a knob on another track is
+    // skipped by design, and that lane must keep modulating. StrideInject reports the
+    // paths, so this is Live's answer rather than a guess from here.
+    const park = (paths) => {
+        const byPath = {};
+        paths.forEach(p => { byPath[p] = true; });
+        let n = 0;
+        src.forEach(client => {
+            const mine = lanesOf(client);
+            const done = [];
+            Object.keys(mine).forEach(key => {
+                if (!byPath[key] || mine[key].printed) return;
+                parkLane(mine[key]);
+                done.push(key);
+                n++;
+            });
+            tellPrinted(client, done, true);
+
+            // hosted lanes: matched by macro NAME, and the client is told by `pos` so the
+            // wrapper can flip that exact lane to DAW drive.
+            const mm = macrosOf(client);
+            const mpos = [];
+            Object.keys(mm).forEach(k => {
+                const m = mm[k];
+                if (!m || m.printed || !byPath['macro:' + m.macro]) return;
+                m.printed = true;
+                mpos.push(m.pos);
+                n++;
+            });
+            if (mpos.length) sendTo(client, { type: 'macro_printed', pos: mpos, printed: true });
+        });
+        if (n) _out(['probe', 'reenable']);   // Live still shows the lane as overridden until this
+        return n;
+    };
+
+    const done = (ok, written, message, paths) => {
+        injectBusy = false;
+        const total = params.length;
+        const parked = ok ? park(paths || []) : 0;
+
+        // A StrideInject that wrote envelopes but reported no paths is an OLD build.
+        // It happened in the field (2026-08-31): a June copy under ProgramData\Ableton\
+        // ...\MIDI Remote Scripts shadowed the fresh one in the User Library, so the
+        // automation appeared correctly and the hand-over silently did nothing. Say so
+        // on the face, because "wrote 2, handed over 0" otherwise reads as success.
+        const staleSI = ok && written > 0 && (!paths || paths.length === 0);
+
+        const face = ok ? (staleSI ? 'OLD SI?'
+                           : (written === total ? total + ' OF ' + total : written + ' OF ' + total)
+                             + (parked ? ' >LIVE' : ''))
+                        : (/not answering/i.test(message) ? 'STRIDEINJECT?'
+                          : /clip/i.test(message) ? 'NO CLIP' : 'FAILED');
+        if (staleSI)
+            _post('inject: StrideInject wrote ' + written + ' params but reported no paths - that is an OLD '
+                + 'StrideInject. Check for a second copy under ProgramData\\Ableton\\...\\MIDI Remote Scripts '
+                + 'shadowing the User Library one, update it, delete its __pycache__ and restart Live.');
+        injectFace(face, true);
+        _post('inject: ' + (ok ? 'wrote ' + written + ' of ' + total + ' lanes, handed ' + parked + ' to Live'
+                               : 'failed - ' + message));
+
+        // Max console output does not reach Live's log, so an inject that misbehaves
+        // in the field leaves no trace anywhere. Drop a small record next to the voice
+        // WAVs: what we sent, what Live answered, what got handed over.
+        try {
+            fs.mkdirSync(TMP_DIR, { recursive: true });
+            fs.writeFileSync(path.join(TMP_DIR, 'last_inject.json'), JSON.stringify({
+                at: new Date().toISOString(),
+                serverBuild: SERVER_BUILD,
+                ok: !!ok, message: message || '',
+                sentPaths: params.map(p => p._path),
+                clipBars: bars, fractional: fractional,
+                writtenPaths: paths || [],
+                parked: parked,
+                staleStrideInject: staleSI,
+                playing: state.playing,
+                // How many HOSTED (macro) lanes the VST has pushed. Zero here while the
+                // canvas shows hosted lanes means the push never happened, which splits a
+                // 'Serum did not print' report from a resolve failure in one glance.
+                // 1 = the VST is in GLOBAL 'DAW driving' mode, where every hosted lane
+                // reads its macro and a per-lane take back cannot win.
+                driveMode: (() => { let d = 0; src.forEach(c => { if (c.driveMode) d = c.driveMode; }); return d; })(),
+                // The ENGINE's own count of DAW-driven lanes. If the bridge says a macro is
+                // printed:false while this stays 1, the un-print never reached the wrapper.
+                engineHostDriven: (() => { let d = null; src.forEach(c => { if (typeof c.hostDriven === 'number') d = c.hostDriven; }); return d; })(),
+                // Curves the ENGINE holds. 0 here with a hosted lane on screen means the
+                // wrapper is driving NOTHING, and the knob is free for anything else to move.
+                engineDriveLanes: (() => { let d = null; src.forEach(c => { if (typeof c.driveLanes === 'number') d = c.driveLanes; }); return d; })(),
+                macrosPushed: (() => { let k = 0; src.forEach(c => { k += Object.keys(c.macros || {}).length; }); return k; })(),
+                macros: (() => {
+                    const out = [];
+                    src.forEach(c => { const m = c.macros || {}; Object.keys(m).forEach(k =>
+                        out.push({ pos: m[k].pos, macro: m[k].macro, printed: !!m[k].printed,
+                                   points: (m[k].norm && m[k].norm.points ? m[k].norm.points.length : 0) })); });
+                    return out;
+                })(),
+                lanes: (() => {
+                    const out = [];
+                    src.forEach(c => { const m = lanesOf(c); Object.keys(m).forEach(k =>
+                        out.push({ path: k, printed: !!m[k].printed, voice: m[k].voice || 0,
+                                   mode: laneMode(m[k]), devType: m[k].devType })); });
+                    return out;
+                })(),
+            }, null, 1));
+        } catch (e) {}
+        src.forEach(c => sendTo(c, { type: 'inject_result', ok: !!ok, written: written, total: total,
+                                    parked: parked, bars: bars, fractional: fractional, message: message || '' }));
+    };
+
+    injectWriter.writeInject({ parameters: params, clip_bars: bars }, {
+        onSuccess: (r) => done(true, (r && r.params_written) || 0, (r && r.message) || '',
+                               (r && r.written_paths) || []),
+        onError: (m) => done(false, 0, m || 'inject failed', []),
+    });
+}
+
+// TAKE BACK: Stride resumes driving every printed lane, in one press.
+//
+// The per-lane route back is drawing on it, which covers "I changed my mind about
+// this knob". This covers the other case, and it is the one that actually bites:
+// automation is per CLIP, so the moment you play a different clip on that track the
+// printed lanes sit silent with nothing driving them. Without a global re-arm the
+// only way out is redrawing every lane by hand.
+function handleTakeBack(clients) {
+    const src = (clients instanceof Set) ? clients : state.clients;
+
+    // Refresh the transport BEFORE anything can re-bind. `state.playing` is fed by a
+    // CHANGE-driven observer, so it starts at true and stays stale until an edge: a
+    // bridge that booted while the transport was stopped believes it is playing. That
+    // makes bindVoice take a live.remote~ lock immediately, which re-writes the knob
+    // every block, so a hand tweak snaps back and Ctrl+Z cannot restore it (field
+    // report 2026-08-31, after take back). This probe is emitted first and Max keeps
+    // outlet order, so the answer lands before any resolve reply.
+    _out(['probe', 'transportnow']);
+
+    const hint = freshHint();
+    let n = 0;
+    src.forEach(client => {
+        const mine = lanesOf(client);
+        const back = [];
+        Object.keys(mine).forEach(key => {
+            if (!mine[key].printed) return;
+            unparkLane(mine[key], hint);
+            back.push(key);
+            n++;
+        });
+        tellPrinted(client, back, false);
+
+        const mm = macrosOf(client);
+        Object.keys(mm).forEach(k => { if (mm[k].printed) { mm[k].printed = false; mm[k].printedSig = null; n++; } });
+        // ALWAYS an empty list: "return EVERY hosted lane". TAKE BACK is a whole-instrument
+        // gesture, and an empty list lets the engine clear its own flags without trusting
+        // this side's idea of which indices are printed - including lanes printed in an
+        // earlier session, which this bridge has never seen.
+        sendTo(client, { type: 'macro_printed', pos: [], printed: false });
+    });
+    injectFace(n ? ('BACK ' + n) : 'NONE PRINTED', true);
+    _post('take back: ' + n + ' lane(s) returned to Stride');
+    src.forEach(c => sendTo(c, { type: 'take_back_result', count: n }));
+
+    // The return path needs evidence too. `engineHostDrivenBefore` is what the wrapper
+    // last told us; if a push AFTER this still reports the same number, the un-print
+    // never landed in the engine and the hunt belongs on the C++ side, not here.
+    try {
+        fs.mkdirSync(TMP_DIR, { recursive: true });
+        fs.writeFileSync(path.join(TMP_DIR, 'last_takeback.json'), JSON.stringify({
+            at: new Date().toISOString(),
+            serverBuild: SERVER_BUILD,
+            returned: n,
+            engineHostDrivenBefore: (() => { let d = null; src.forEach(c => { if (typeof c.hostDriven === 'number') d = c.hostDriven; }); return d; })(),
+            driveMode: (() => { let d = 0; src.forEach(c => { if (c.driveMode) d = c.driveMode; }); return d; })(),
+            macros: (() => { const out = []; src.forEach(c => { const m = c.macros || {};
+                Object.keys(m).forEach(k => out.push({ pos: m[k].pos, macro: m[k].macro, printed: !!m[k].printed })); }); return out; })(),
+        }, null, 1));
+    } catch (e) {}
 }
 
 // ── boot (only under Max) ────────────────────────────────────────────────
@@ -1059,6 +1560,8 @@ if (Max) {
     Max.addHandler('repathed', handleRepathed);
     Max.addHandler('pong', handlePong);
     Max.addHandler('armed', handleArmed);
+    Max.addHandler('inject', handleInject);      // the INJECT TO CLIP button on the device face
+    Max.addHandler('takeback', handleTakeBack);  // the TAKE BACK button: Stride drives every printed lane again
     state.bootAt = Date.now();
     startTcpServer(require('net'));   // the VST transport — zero dependencies
     try {
@@ -1079,5 +1582,7 @@ module.exports = {
     CONTROL_STEPS, SNAPSHOT_MS, trackOf, deviceOf, under, freshHint, noteSel,
     handleClientMessage, handleDisconnect, handleMapped, handleResolved, handleFound, handleRelinked,
     handleRepathed, handleTouched, handleTouchedDev, handleSel, handleTransport, handlePong, handleArmed, tick,
+    handleInject, handleTakeBack, collectInjectParams, tileForSpeed, injectWriter, macrosOf, macroSig,
+    parkLane, unparkLane,
     startServer, startTcpServer, _setIoForTest,
 };

@@ -45,7 +45,21 @@ GOOD TO KNOW
 - Two of the same device in the set (a duplicated track, a rack dropped
   next to its original)? Press MAP LIVE and click the title bar of the one
   you mean. All its lanes follow.
-- Nothing is written into clips. This is live modulation, and it renders
-  when you bounce or export.
+- Mapping and drawing write nothing into clips. This is live modulation, and
+  it renders when you bounce or export.
+
+INJECT TO CLIP
+- The INJECT button on the device writes your lanes into a clip as real
+  automation, so they stay after you remove Stride.
+- Select the MIDI clip in Live first, so it shows in the Detail view at the
+  bottom. Then press INJECT. The line under the button reports the result.
+- Only lanes whose knob lives on that clip's own track can be written, which
+  is Live's rule, not ours. "4 OF 6" means four landed and two point at
+  another track. Take those to a clip on their track.
+- Needs StrideInject: Preferences > Link, Tempo & MIDI > Control Surface >
+  StrideInject, then restart Live. The button says STRIDEINJECT? if it is
+  missing.
+- Injecting replaces the automation for those knobs in that clip. Everything
+  else in the clip is untouched, and Ctrl/Cmd-Z undoes it.
 - Optional: double-click Outfit.ttf and press Install so the device shows
   the Stride look inside your set.

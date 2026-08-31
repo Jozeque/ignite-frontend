@@ -1,4 +1,7 @@
 #include "PluginProcessor.h"
+#ifdef STRIDE_BUNDLE
+ #include "../../../crucible-vst/src/PluginProcessor.h"   // CrucibleProcessor (base-swapped to AudioPluginInstance)
+#endif
 #include "BridgeLink.h"
 #include "PluginEditor.h"
 #include "License.h"          // cachedEntitled() — seeds demo mode at construction
@@ -87,6 +90,17 @@ juce::AudioProcessor::BusesProperties StrideWrapperProcessor::strideBuses()
 StrideWrapperProcessor::StrideWrapperProcessor()
     : juce::AudioProcessor (strideBuses())
 {
+    startTimer (60 * 1000);   // rolling crash-recovery autosave: one dirty-checked snapshot a minute
+   #ifdef STRIDE_BUNDLE
+    // The bundle ships with Tendril IN the chain: a fresh insert gets it automatically.
+    // A project/preset load (setStateInformation) owns the chain instead and wins.
+    juce::Timer::callAfterDelay (1500, [wr = juce::WeakReference<StrideWrapperProcessor> (this)]
+    {
+        if (auto* self = wr.get())
+            if (! self->stateArrived.load() && self->numHosted() == 0)
+                self->loadBuiltInTendril();
+    });
+   #endif
     formatManager.addFormat (std::make_unique<juce::VST3PluginFormat>());
    #if JUCE_PLUGINHOST_AU && JUCE_MAC
     // Logic users' libraries are often AU-first (some plugins are installed AU-only),
@@ -160,11 +174,72 @@ void StrideWrapperProcessor::saveDemoCycleState() const
 
 StrideWrapperProcessor::~StrideWrapperProcessor()
 {
+    stopTimer();             // recovery snapshots stop before anything is torn down
     bridgeLink.reset();      // socket thread down FIRST - it marshals into us (and an open editor's WebView) on the message thread
     cancelPendingUpdate();   // no relabel callback can fire into a half-destroyed processor
     const juce::ScopedLock sl (hostLock);
     for (auto& n : chain) if (n.inst) { n.inst->setPlayHead (nullptr); n.inst->removeListener (this); }
     chain.clear();
+}
+
+// ── rolling crash-recovery autosave ────────────────────────────────
+// The .stridechain format IS the state chunk verbatim, so these snapshots load
+// through the existing Load chain browser and ride the same restore machinery
+// a DAW project-open uses. Nothing new can drift.
+static constexpr int kRecoveryKeep = 5;          // newest files kept per instance
+static constexpr int kRecoveryMaxAgeDays = 14;   // anything older is swept
+
+static juce::String strideBlockHash (const juce::MemoryBlock& mb)
+{
+    // FNV-1a - no extra JUCE modules; this only gates duplicate writes.
+    juce::uint64 h = 1469598103934665603ULL;
+    auto* p = static_cast<const juce::uint8*> (mb.getData());
+    for (size_t i = 0; i < mb.getSize(); ++i) { h ^= p[i]; h *= 1099511628211ULL; }
+    return juce::String::toHexString ((juce::int64) h);
+}
+
+void StrideWrapperProcessor::updateTrackProperties (const TrackProperties& properties)
+{
+    if (properties.name.has_value() && properties.name->isNotEmpty()) recoveryTrackName = *properties.name;
+}
+
+void StrideWrapperProcessor::timerCallback() { writeRecoverySnapshot(); }
+
+void StrideWrapperProcessor::writeRecoverySnapshot()
+{
+    juce::MemoryBlock mb;
+    getStateInformation (mb);
+    if (mb.getSize() == 0) return;                                       // demo persists nothing
+    const auto hash = strideBlockHash (mb);
+    if (firstRecoveryHash.isEmpty()) firstRecoveryHash = hash;           // the state we booted with
+    if (hash == lastRecoveryHash || hash == firstRecoveryHash) return;   // nothing new since
+
+    auto dir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+                   .getChildFile ("Stride").getChildFile ("chains").getChildFile ("recovery");
+    dir.createDirectory();
+    if (! dir.isDirectory()) return;
+
+    const auto label = juce::File::createLegalFileName (recoveryTrackName.substring (0, 24)).trim();
+    const auto name = "Recovery " + (label.isNotEmpty() ? label + " " : juce::String())
+                        + juce::Time::getCurrentTime().formatted ("%Y-%m-%d %H%M%S")
+                        + " " + recoveryTag + ".stridechain";
+    juce::TemporaryFile tmp (dir.getChildFile (name));
+    if (! tmp.getFile().replaceWithData (mb.getData(), mb.getSize())) return;
+    if (! tmp.overwriteTargetFileWithTemporary()) return;
+    lastRecoveryHash = hash;
+
+    // Retention: newest kRecoveryKeep of THIS instance; sweep anything old.
+    auto files = dir.findChildFiles (juce::File::findFiles, false, "Recovery *.stridechain");
+    juce::Array<juce::File> mine;
+    const auto now = juce::Time::getCurrentTime();
+    for (auto& f : files)
+    {
+        if ((now - f.getLastModificationTime()).inDays() > (double) kRecoveryMaxAgeDays) { f.deleteFile(); continue; }
+        if (f.getFileName().contains (recoveryTag)) mine.add (f);
+    }
+    std::sort (mine.begin(), mine.end(), [] (const juce::File& a, const juce::File& b)
+               { return a.getLastModificationTime() > b.getLastModificationTime(); });
+    for (int i = kRecoveryKeep; i < mine.size(); ++i) mine.getReference (i).deleteFile();
 }
 
 // ── lifecycle ──────────────────────────────────────────────────────
@@ -512,7 +587,16 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
                     auto& ps = chain[(size_t) m.node].inst->getParameters();
                     if (m.param >= 0 && m.param < ps.size())
                         if (auto* p = ps[m.param])
-                            p->setValue (macroParams[(size_t) m.macroSlot]->getValue());
+                        {
+                            if (chain[(size_t) m.node].path.startsWith ("builtin:"))
+                            {
+                                driveWriting.store (true, std::memory_order_relaxed);
+                                p->setValueNotifyingHost (macroParams[(size_t) m.macroSlot]->getValue());
+                                driveWriting.store (false, std::memory_order_relaxed);
+                            }
+                            else
+                                p->setValue (macroParams[(size_t) m.macroSlot]->getValue());
+                        }
                 }
             }
             else if (! driveLanes.empty())
@@ -538,6 +622,28 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
                             for (const auto& m : mapped)
                                 if (m.node == lane.node && m.param == lane.param) { mr = &m; break; }
 
+                            // PRINTED lane (2026-08-31): an inject wrote this lane's curve into a
+                            // clip envelope, so the DAW now drives this knob through its macro and
+                            // Stride must stay off it. Same read as DriveMode::Automation, but PER
+                            // LANE: printing one knob must never silence the others, which a global
+                            // mode switch would do. The drawn curve is kept, just not applied, so
+                            // TAKE BACK is a flag flip with nothing to restore.
+                            if (mr != nullptr && mr->hostDriven
+                                && mr->macroSlot >= 0 && mr->macroSlot < kMacroCount
+                                && macroParams[(size_t) mr->macroSlot] != nullptr)
+                            {
+                                const float hv = macroParams[(size_t) mr->macroSlot]->getValue();
+                                if (chain[(size_t) lane.node].path.startsWith ("builtin:"))
+                                {
+                                    driveWriting.store (true, std::memory_order_relaxed);
+                                    p->setValueNotifyingHost (hv);
+                                    driveWriting.store (false, std::memory_order_relaxed);
+                                }
+                                else
+                                    p->setValue (hv);
+                                continue;
+                            }
+
                             // Per-lane LOOP + SPEED. Transport/Retrig: wrap the CLIP PHASE at the lane's
                             // own boundary, anchored to the canvas origin — the lane restarts the INSTANT
                             // the playhead crosses the drawn boundary (mid-bar included), exactly where
@@ -553,8 +659,42 @@ void StrideWrapperProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
                             double lx = std::fmod ((freeEndless ? beats : ph) * spd, lL);
                             if (lx < 0.0) lx += lL;
 
+                            // A curve SHORTER than the loop REPEATS, it does not hold its last
+                            // value. Field report 2026-08-31: playing a 4-bar loop, press 16 bars
+                            // mid-playback and the modulation dies on the spot. The phase now
+                            // spans 64 beats while the drawn curve covers 16, so wherever the
+                            // playhead sits it is usually past the end, and interp() holds the
+                            // final value forever. Repeating is what a 4-bar motion in a longer
+                            // loop is expected to do, and it makes extending the loop safe at any
+                            // moment. The wrap length is the smallest STRIDE bar option that
+                            // still contains the curve (2/4/8/16/32 bars), never the raw span:
+                            // a curve whose last point sits at bar 3.5 must still cycle every 4
+                            // bars, not every 3.5.
+                            const double span = lane.times.empty() ? 0.0 : (double) lane.times.back();
+                            if (span > 0.01 && span < lL - 0.01)
+                            {
+                                double wrap = 8.0;                       // 2 bars, the shortest Stride offers
+                                while (wrap < span - 1.0e-6 && wrap < lL) wrap *= 2.0;
+                                if (wrap < lL - 0.01)
+                                {
+                                    lx = std::fmod (lx, wrap);
+                                    if (lx < 0.0) lx += wrap;
+                                }
+                            }
+
                             const float v = interp (lane.times, lane.values, lane.curves, (float) lx);
-                            p->setValue (v);
+                            if (chain[(size_t) lane.node].path.startsWith ("builtin:"))
+                            {
+                                // A RAW built-in processor: plain setValue never fires parameter
+                                // listeners, so the APVTS adapter atomics its engine reads stay
+                                // stale ("mapped but not moving", field 2026-08-30). Notify - the
+                                // driveWriting guard keeps our own touch-listener out of the echo.
+                                driveWriting.store (true, std::memory_order_relaxed);
+                                p->setValueNotifyingHost (v);
+                                driveWriting.store (false, std::memory_order_relaxed);
+                            }
+                            else
+                                p->setValue (v);
                             const int slot = (mr != nullptr) ? mr->macroSlot : -1;
                             if (slot >= 0) macroParams[(size_t) slot]->setValue (v);   // mirror for the DAW display
                         }
@@ -775,7 +915,7 @@ void StrideWrapperProcessor::clearChain()
         for (const auto& m : mapped)     if (m.node == i) { d.params.push_back (m.param); d.slots.push_back (m.macroSlot);
                                                             d.ron.push_back (m.rangeOn ? 1 : 0); d.rlo.push_back (m.rangeLo); d.rhi.push_back (m.rangeHi); d.col.push_back (m.colorIdx);
                                                             d.lpb.push_back (m.loopBeats); d.qst.push_back (m.quantStep); d.lkd.push_back (m.locked ? 1 : 0); d.spd.push_back (m.speed);
-                                                            d.lnk.push_back (m.linkGroup); d.lin.push_back (m.linkInv ? 1 : 0);
+                                                            d.lnk.push_back (m.linkGroup); d.lin.push_back (m.linkInv ? 1 : 0); d.hdr.push_back (m.hostDriven ? 1 : 0);
                                                             d.ord.push_back (m.ord); }
         for (const auto& l : driveLanes) if (l.node == i) d.lanes.push_back (l);
         lastRemoved.devices.push_back (std::move (d));
@@ -822,7 +962,7 @@ bool StrideWrapperProcessor::removeNode (int index)
         for (const auto& m : mapped)     if (m.node == index) { d.params.push_back (m.param); d.slots.push_back (m.macroSlot);
                                                                 d.ron.push_back (m.rangeOn ? 1 : 0); d.rlo.push_back (m.rangeLo); d.rhi.push_back (m.rangeHi); d.col.push_back (m.colorIdx);
                                                                 d.lpb.push_back (m.loopBeats); d.qst.push_back (m.quantStep); d.lkd.push_back (m.locked ? 1 : 0); d.spd.push_back (m.speed);
-                                                            d.lnk.push_back (m.linkGroup); d.lin.push_back (m.linkInv ? 1 : 0);
+                                                            d.lnk.push_back (m.linkGroup); d.lin.push_back (m.linkInv ? 1 : 0); d.hdr.push_back (m.hostDriven ? 1 : 0);
                                                             d.ord.push_back (m.ord); }
         for (const auto& l : driveLanes) if (l.node == index) d.lanes.push_back (l);
         lastRemoved.devices.push_back (std::move (d));
@@ -927,6 +1067,47 @@ void StrideWrapperProcessor::restoreNextDevice (std::shared_ptr<std::vector<Remo
 
     if (d.path.isEmpty()) { restoreNextDevice (devs, i + 1, gen); return; }
 
+   #ifdef STRIDE_BUNDLE
+    if (d.path == "builtin:tendril")   // built-ins skip the format manager: construct in place
+    {
+        auto inst = std::make_unique<CrucibleProcessor>();
+        configureHostedBuses (*inst);
+        inst->setPlayHead (&childPlayHead);
+        inst->setRateAndBufferSizeDetails (currentSampleRate, currentBlockSize);
+        if (d.state.getSize() > 0) inst->setStateInformation (d.state.getData(), (int) d.state.getSize());
+        inst->prepareToPlay (currentSampleRate, currentBlockSize);
+        inst->addListener (this);
+        const auto bname = inst->getName();
+        {
+            const juce::ScopedLock sl (hostLock);
+            const int p = juce::jlimit (0, (int) chain.size(), d.position);
+            for (auto& m : mapped)     if (m.node >= p) ++m.node;
+            for (auto& l : driveLanes) if (l.node >= p) ++l.node;
+            chain.insert (chain.begin() + p, Node { std::move (inst), bname, d.path, d.bypassed });
+            for (size_t k = 0; k < d.params.size(); ++k)
+                mapped.push_back ({ p, d.params[k], k < d.slots.size() ? d.slots[k] : -1,
+                                    k < d.ron.size() && d.ron[k] != 0,
+                                    k < d.rlo.size() ? d.rlo[k] : 0.0f,
+                                    k < d.rhi.size() ? d.rhi[k] : 1.0f,
+                                    k < d.col.size() ? d.col[k] : -1,
+                                    k < d.lpb.size() ? d.lpb[k] : 0.0f,
+                                    k < d.qst.size() ? d.qst[k] : 0.0f,
+                                    k < d.lkd.size() && d.lkd[k] != 0,
+                                    k < d.spd.size() ? d.spd[k] : 1.0f,
+                                    k < d.lnk.size() ? d.lnk[k] : 0,
+                                    k < d.lin.size() && d.lin[k] != 0,
+                                    k < d.ord.size() ? d.ord[k] : -1,
+                                    k < d.hdr.size() && d.hdr[k] != 0 });
+            for (auto l : d.lanes) { l.node = p; driveLanes.push_back (l); }
+            reassignMacros();
+        }
+        mapVersion.fetch_add (1);
+        triggerAsyncUpdate();
+        restoreMissingLoaded++;
+        restoreNextDevice (devs, i + 1, gen);
+        return;
+    }
+   #endif
     juce::OwnedArray<juce::PluginDescription> found;
     findPluginTypesForFile (formatManager, d.path, found);
     if (found.isEmpty())   // not installed / moved on THIS machine — skip it, keep going, but SAY so at wave end
@@ -971,7 +1152,8 @@ void StrideWrapperProcessor::restoreNextDevice (std::shared_ptr<std::vector<Remo
                                                   k < d.spd.size() ? d.spd[k] : 1.0f,
                                                   k < d.lnk.size() ? d.lnk[k] : 0,
                                                   k < d.lin.size() && d.lin[k] != 0,
-                                                  k < d.ord.size() ? d.ord[k] : -1 });
+                                                  k < d.ord.size() ? d.ord[k] : -1,
+                                                  k < d.hdr.size() && d.hdr[k] != 0 });
                     for (auto l : d.lanes) { l.node = p; self->driveLanes.push_back (l); }  // and their curves
                     self->reassignMacros();      // keep restored slots where valid; fill any gaps (old saves had none)
                 }
@@ -991,6 +1173,44 @@ void StrideWrapperProcessor::restoreNextDevice (std::shared_ptr<std::vector<Remo
         });
 }
 
+#ifdef STRIDE_BUNDLE
+// ── Stride Bundle: Tendril as a built-in chain device ──────────────
+void StrideWrapperProcessor::loadBuiltInTendril()
+{
+    {
+        const juce::ScopedLock sl (hostLock);                     // one per chain, ever
+        for (auto& n : chain) if (n.path == "builtin:tendril") return;
+    }
+    auto inst = std::make_unique<CrucibleProcessor>();
+    configureHostedBuses (*inst);
+    inst->setPlayHead (&childPlayHead);
+    inst->setRateAndBufferSizeDetails (currentSampleRate, currentBlockSize);
+    inst->prepareToPlay (currentSampleRate, currentBlockSize);
+    inst->addListener (this);
+    const auto name = inst->getName();
+    {
+        const juce::ScopedLock sl (hostLock);
+        chain.push_back ({ std::move (inst), name, "builtin:tendril" });
+    }
+    mapVersion.fetch_add (1);
+    hostDirtyPending.store (true);
+}
+
+juce::AudioPluginInstance* StrideWrapperProcessor::builtinTendril()
+{
+    const juce::ScopedLock sl (hostLock);
+    for (auto& n : chain) if (n.path == "builtin:tendril") return n.inst.get();
+    return nullptr;
+}
+
+bool StrideWrapperProcessor::ownsChainInstance (const void* p) const
+{
+    const juce::ScopedLock sl (hostLock);
+    for (const auto& n : chain) if ((const void*) n.inst.get() == p) return true;
+    return false;
+}
+#endif
+
 int StrideWrapperProcessor::numHosted() const
 {
     const juce::ScopedLock sl (hostLock);
@@ -1003,6 +1223,14 @@ juce::StringArray StrideWrapperProcessor::getChainNames() const
     const juce::ScopedLock sl (hostLock);
     for (const auto& n : chain) names.add (n.name);
     return names;
+}
+
+juce::StringArray StrideWrapperProcessor::getChainPaths() const
+{
+    juce::StringArray paths;
+    const juce::ScopedLock sl (hostLock);
+    for (const auto& n : chain) paths.add (n.path);
+    return paths;
 }
 
 void StrideWrapperProcessor::setNodeBypassed (int index, bool shouldBypass)
@@ -1102,7 +1330,8 @@ void StrideWrapperProcessor::getStateInformation (juce::MemoryBlock& dest)
             e->setAttribute ("lg", m.linkGroup);                                // link group: absent = unlinked (v8; older builds ignore it)
             if (m.linkInv) e->setAttribute ("li", 1);                           // inverted member: absent = normal orientation
         }
-        if (m.ord >= 0) e->setAttribute ("od", m.ord);                          // display order: absent = natural mapping order (v9; older builds ignore it)
+        if (m.ord >= 0) e->setAttribute ("od", m.ord);
+        if (m.hostDriven) e->setAttribute ("hd", 1);                            // printed lane: the DAW drives it (v10; older builds ignore it)                          // display order: absent = natural mapping order (v9; older builds ignore it)
     }
     auto* laneXml = root.createNewChildElement ("LANES");
     for (const auto& l : driveLanes)
@@ -1118,6 +1347,7 @@ void StrideWrapperProcessor::getStateInformation (juce::MemoryBlock& dest)
 
 void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
+    stateArrived.store (true);   // a host restored SOMETHING - the bundle's virgin auto-add stands down
     auto xml = getXmlFromBinary (data, sizeInBytes);
     if (xml == nullptr || ! xml->hasTagName ("STRIDE_WRAP")) return;
 
@@ -1172,6 +1402,7 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
                 (*devs)[(size_t) n].lnk.push_back (e->getIntAttribute ("lg", 0));
                 (*devs)[(size_t) n].lin.push_back ((char) (e->getIntAttribute ("li", 0) != 0 ? 1 : 0));
                 (*devs)[(size_t) n].ord.push_back (e->getIntAttribute ("od", -1));
+                (*devs)[(size_t) n].hdr.push_back ((char) (e->getIntAttribute ("hd", 0) != 0 ? 1 : 0));
             }
         }
     if (auto* laneXml = xml->getChildByName ("LANES"))
@@ -1273,6 +1504,7 @@ void StrideWrapperProcessor::mapParam (juce::AudioProcessor* proc, int parameter
 
 void StrideWrapperProcessor::audioProcessorParameterChanged (juce::AudioProcessor* proc, int parameterIndex, float)
 {
+    if (driveWriting.load (std::memory_order_relaxed)) return;   // a drive echo from a built-in node, not a touch
     mapParam (proc, parameterIndex);            // each guards its own mode; the modes are mutually exclusive
     unmapParamByTouch (proc, parameterIndex);
     noteParamTouched (proc, parameterIndex);    // glow fallback for plugins that never emit gestures (fires on the first value move)
@@ -1742,6 +1974,59 @@ int StrideWrapperProcessor::exposedMacroCount() const
     const juce::ScopedLock sl (hostLock);
     int n = 0;
     for (const auto& m : mapped) if (m.macroSlot >= 0) ++n;
+    return n;
+}
+
+// ── PRINTED lanes: per-lane DAW drive (2026-08-31) ───────────────────────────
+// After an inject writes a lane's curve into a clip envelope, that lane switches to
+// DAW drive so Ableton's automation reaches the hosted knob and Stride stops fighting
+// it. Per lane, never the global DriveMode: printing one knob must not silence the
+// rest. Message thread; the audio thread only ever READS mr->hostDriven.
+void StrideWrapperProcessor::setLaneHostDrivenAt (int mappedIndex, bool on)
+{
+    bool changed = false;
+    {
+        const juce::ScopedLock sl (hostLock);
+        if (mappedIndex >= 0 && mappedIndex < (int) mapped.size() && mapped[(size_t) mappedIndex].hostDriven != on)
+        {
+            mapped[(size_t) mappedIndex].hostDriven = on;
+            changed = true;
+        }
+    }
+    if (changed) { hostDirtyPending.store (true); triggerAsyncUpdate(); }
+}
+
+void StrideWrapperProcessor::clearAllHostDriven()
+{
+    bool changed = false;
+    {
+        const juce::ScopedLock sl (hostLock);
+        for (auto& m : mapped) if (m.hostDriven) { m.hostDriven = false; changed = true; }
+    }
+    if (changed) { hostDirtyPending.store (true); triggerAsyncUpdate(); }
+}
+
+int StrideWrapperProcessor::driveLaneCount() const
+{
+    const juce::ScopedLock sl (hostLock);
+    return (int) driveLanes.size();
+}
+
+// -1 = the engine holds NO lane for that param, which is a different failure from
+// "holds one with no points". Both look identical from outside: the knob does not move.
+int StrideWrapperProcessor::driveLanePointCount (int node, int param) const
+{
+    const juce::ScopedLock sl (hostLock);
+    for (const auto& l : driveLanes)
+        if (l.node == node && l.param == param) return (int) l.times.size();
+    return -1;
+}
+
+int StrideWrapperProcessor::hostDrivenCount() const
+{
+    const juce::ScopedLock sl (hostLock);
+    int n = 0;
+    for (const auto& m : mapped) if (m.hostDriven) ++n;
     return n;
 }
 

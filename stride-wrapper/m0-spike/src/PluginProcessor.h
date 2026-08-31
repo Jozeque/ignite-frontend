@@ -21,7 +21,8 @@ class BridgeLink;   // StrideBridge TCP link (BridgeLink.h), owned here so lanes
 
 class StrideWrapperProcessor : public juce::AudioProcessor,
                                private juce::AudioProcessorListener,
-                               private juce::AsyncUpdater
+                               private juce::AsyncUpdater,
+                               private juce::Timer
 {
 public:
     StrideWrapperProcessor();
@@ -58,6 +59,7 @@ public:
     juce::AudioProcessorEditor* getHostedEditor (int node);
     juce::String getChainSummary() const;             // "Serum + Reverb + ..."
     juce::StringArray getChainNames() const;          // per-device names (for the Stride device list)
+    juce::StringArray getChainPaths() const;          // per-device paths ("builtin:tendril" marks the built-in)
     void setNodeBypassed (int index, bool shouldBypass);   // bypass a device without removing it
     juce::Array<bool> getChainBypassed() const;            // per-device bypass state (for the device-list dots)
     bool hasHostedPlugin() const;
@@ -234,6 +236,13 @@ public:
     // OFF (default) = follow only while recording; undo stays clean. Project-persisted.
     void setFollowMode (bool f) { followMode.store (f); hostDirtyPending.store (true); }
     bool isFollowMode() const   { return followMode.load(); }
+    // PRINTED lanes (2026-08-31): after an inject writes a lane's curve into a clip
+    // envelope, that ONE lane switches to DAW drive. Message thread.
+    void setLaneHostDrivenAt (int mappedIndex, bool on);        // keyed by POSITION in `mapped` - the same id the canvas uses for every lane message
+    void clearAllHostDriven();                                  // TAKE BACK: every printed lane returns to Stride
+    int  hostDrivenCount() const;
+    int  driveLaneCount() const;                                // curves the engine actually holds
+    int  driveLanePointCount (int node, int param) const;       // points on ONE lane (-1 = the engine has no such lane)
     int  exposedMacroCount() const;              // assigned macro slots (for the panel note)
     void announceMacrosToHost();                 // fire a host gesture on each exposed macro so Ableton's Configure catches them (message thread)
     void pushMacroValuesToHost();                // Live mode: report the live modulation value to the host so Ableton's params FOLLOW it (and record if armed). ~15Hz, gesture-wrapped, OFF under Maschine. Message thread.
@@ -405,9 +414,14 @@ private:
                     int  linkGroup = 0;                                              // param-link group id (0 = unlinked; >0 = members share ONE curve) - the
                                                                                      // canvas owns the mirroring; the engine only persists/echoes (v8, 2026-08-17)
                     bool linkInv = false;                                            // inverted member of its link group (receives the flipped shape)
-                    int  ord = -1; };                                                // DISPLAY order (-1 = natural, i.e. mapping order). Reordering the cards
+                    int  ord = -1;                                                   // DISPLAY order (-1 = natural, i.e. mapping order). Reordering the cards
                                                                                      // sorts the VIEW, it never renumbers `mapped` - positions stay the identity
                                                                                      // every lane attribute, path and unmap message is keyed by (v9, 2026-08-19)
+                    bool hostDriven = false; };                                      // PRINTED: this lane's curve now lives in a DAW clip envelope, so the DAW
+                                                                                     // drives the knob through this lane's macro and Stride stays off it. Per LANE,
+                                                                                     // not the global DriveMode: injecting one knob must never silence the rest
+                                                                                     // (v10, 2026-08-31). Last member on purpose - the aggregate inits in the
+                                                                                     // remove/undo restore path omit it and correctly get `false`.
     std::vector<MapRef> mapped;               // user-mapped params across the chain
 
     // A relabelable VST3 parameter. A free slot reads "Stride N"; an assigned slot takes the
@@ -526,7 +540,8 @@ private:
                      std::vector<float> spd;                                  // per-param lane speed (parallel to params; 1 = normal) - 2026-08-04
                      std::vector<int> lnk;                                    // per-param link group id (parallel to params; 0 = unlinked) - 2026-08-17
                      std::vector<char> lin;                                   // per-param link invert flag (parallel to params) - 2026-08-17
-                     std::vector<int> ord; };                                 // per-param display order (parallel to params; -1 = natural) - 2026-08-19
+                     std::vector<int> ord;                                    // per-param display order (parallel to params; -1 = natural) - 2026-08-19
+                     std::vector<char> hdr; };                                // per-param host-driven flag (parallel to params; char != vector<bool>) - 2026-08-31
         std::vector<Dev> devices;          // 1 for a single ✕, the whole chain for Clear
     };
     RemovedSnapshot lastRemoved;
@@ -563,6 +578,29 @@ private:
     void onBridgeLine (const juce::String& line);
     void onBridgeState (bool on);
     void applyBridgeHeal (const juce::String& oldPath, const juce::String& newPath);
+
+    // Rolling crash-recovery autosave (2026-08-30): a Live crash eats everything
+    // since the last DAW save (the chunk is only captured then). A processor-owned
+    // timer snapshots the SAME chunk to Documents/Stride/chains/recovery whenever
+    // the state hash moves, so the Load chain browser can restore a lost session.
+    void timerCallback() override;
+    void writeRecoverySnapshot();
+    void updateTrackProperties (const TrackProperties& properties) override;
+    juce::String recoveryTag = juce::Uuid().toString().substring (0, 6);
+    juce::String recoveryTrackName, firstRecoveryHash, lastRecoveryHash;
+
+    std::atomic<bool> stateArrived { false };   // any setStateInformation seen (bundle: gates the virgin auto-add)
+    std::atomic<bool> driveWriting { false };   // drive loop mid-write to a BUILT-IN node: its listeners fire
+                                                // synchronously on the audio thread, and the map/unmap/glow
+                                                // handlers must not read those echoes as the user's hand.
+   #ifdef STRIDE_BUNDLE
+public:
+    // Stride Bundle: Tendril (the Crucible engine) as a built-in chain device.
+    void loadBuiltInTendril();
+    juce::AudioPluginInstance* builtinTendril();
+    bool ownsChainInstance (const void* p) const;   // editor safety: still a live chain node?
+private:
+   #endif
 
     // Async work (setState marshal, instance-restore callbacks) holds WeakReferences, never a
     // raw `this` — a host can delete the processor while a restore is still in flight.

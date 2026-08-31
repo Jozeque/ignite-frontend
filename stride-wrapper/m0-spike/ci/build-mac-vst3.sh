@@ -130,7 +130,7 @@ cp "$CI_DIR/README.txt" "$DIST/Stride/README.txt"
 # StrideBridge rides along (see the Windows job note): self-contained M4L folder.
 BRIDGE_SRC="$SCRIPT_DIR/../../stride-vst/m4l-bridge"
 mkdir -p "$DIST/Stride/StrideBridge"
-for f in StrideBridge.amxd bridge-server.js bridge_max.js rasterizer.js log-scaling.js; do
+for f in StrideBridge.amxd bridge-server.js bridge_max.js rasterizer.js log-scaling.js inject-writer.js; do
   cp "$BRIDGE_SRC/$f" "$DIST/Stride/StrideBridge/"
 done
 cp "$BRIDGE_SRC/README-StrideBridge.txt" "$DIST/Stride/StrideBridge/README.txt"

@@ -741,7 +741,7 @@ test('StrideBridge.maxpat: 32 INLINE voices, literal buffers, fully wired (no ab
     assert(texts.filter(t => t === 'live.object').length === 32, '32 stepped setters (menus)');
     assert(texts.filter(t => t === 'snapshot~ ' + srv.SNAPSHOT_MS).length === 32, '32 transport-locked samplers at the rate the server assumes (the live.object write rate = the freeze guard)');
     assert(texts.filter(t => /route replace rate bind unbind bindq/.test(t)).length === 32, 'six-way voice routes');
-    assert(texts.some(t => t === 'route voice probe status'), 'top route carries the face readout verb');
+    assert(texts.some(t => t === 'route voice probe status injected'), 'top route carries the face readout + inject verbs');
     // the branded face: Live shows presentation, and it must be Stride, not Max-grey
     const pres = Object.values(boxes).filter(b => b.presentation === 1);
     assert(pres.some(b => b.maxclass === 'panel'), 'face ground panel');
@@ -750,7 +750,7 @@ test('StrideBridge.maxpat: 32 INLINE voices, literal buffers, fully wired (no ab
     assert(!boxes['obj-face-n'], 'NO lane count on the face (removed 2026-08-27)');
     const has = (src, so, dst, di) => lines.some(l => l.source[0] === src && l.source[1] === so && l.destination[0] === dst && l.destination[1] === di);
     assert(has('obj-6', 2, 'obj-face-st', 0), 'readout wired from the route');
-    assert(has('obj-6', 3, 'obj-8', 0), 'the unmatched outlet still lands on the debug print');
+    assert(has('obj-6', 4, 'obj-8', 0), 'the unmatched outlet (now 4, after `injected`) still lands on the debug print');
     // re-click finder: the selection observer is change-driven, so a second click on the
     // same knob needs the mouse itself -> mousestate -> "mdown x y" -> js
     assert(boxes['obj-ms'] && boxes['obj-ms'].text === 'mousestate', 'mousestate present');
@@ -1030,6 +1030,921 @@ test('MAP LIVE must be EARNED: no ack from the [js] and the bridge says it is un
     if (srv.state.armTimer) { clearTimeout(srv.state.armTimer); srv.state.armTimer = null; }
 });
 
+
+console.log('\n— unit: inject — speed tiling —');
+
+test('tileForSpeed: speed 1 passes the shape through untouched (curves included)', () => {
+    const pts = [{ time: 0, value: 0, curve: 0 }, { time: 8, value: 1, curve: 0.4 }, { time: 16, value: 0.25, curve: -0.2 }];
+    const out = srv.tileForSpeed(pts, 1, 4);
+    assert(out.length === 3, 'same count');
+    out.forEach((p, i) => { close(p.time, pts[i].time); close(p.value, pts[i].value); close(p.curve, pts[i].curve); });
+    assert(out !== pts && out[0] !== pts[0], 'copied, never the caller-owned array');
+});
+
+test('tileForSpeed: speed 2 over 4 bars = two cycles inside 16 beats, boundary de-duped', () => {
+    // the bridge plays this lane at rate bars/speed, so it cycles twice per 4 bars;
+    // a 1:1 clip inject has to lay both cycles down.
+    const pts = [{ time: 0, value: 0, curve: 0 }, { time: 8, value: 1, curve: 0.5 }, { time: 16, value: 0, curve: 0 }];
+    const out = srv.tileForSpeed(pts, 2, 4);
+    const times = out.map(p => p.time);
+    assert(times.length === 5, 'two cycles minus the shared boundary point, got ' + times.length);
+    [0, 4, 8, 12, 16].forEach((t, i) => close(times[i], t, 1e-6, 'tile time ' + i));
+    close(out[1].value, 1, 1e-9, 'peak of cycle 1 survives');
+    close(out[1].curve, 0.5, 1e-9, 'curve rides along');
+    close(out[3].value, 1, 1e-9, 'peak of cycle 2');
+    assert(times.every((t, i) => i === 0 || t > times[i - 1]), 'strictly ascending: no zero-length bezier segment');
+});
+
+test('tileForSpeed: speed 4 over 2 bars = four cycles inside 8 beats', () => {
+    const out = srv.tileForSpeed([{ time: 0, value: 0 }, { time: 8, value: 1 }], 4, 2);
+    assert(out.length === 5, 'four cycles, boundaries shared: ' + out.length);
+    [0, 2, 4, 6, 8].forEach((t, i) => close(out[i].time, t, 1e-6));
+});
+
+test('tileForSpeed: a fractional speed cannot tile without resampling, so it injects one cycle', () => {
+    const pts = [{ time: 0, value: 0, curve: 0 }, { time: 16, value: 1, curve: 0 }];
+    const out = srv.tileForSpeed(pts, 1.5, 4);
+    assert(out.length === 2, 'one cycle, curves intact');
+    close(out[1].time, 16);
+});
+
+test('tileForSpeed: garbage speed falls back to 1x', () => {
+    const pts = [{ time: 0, value: 0.5 }];
+    close(srv.tileForSpeed(pts, 0, 4)[0].time, 0);
+    close(srv.tileForSpeed(pts, undefined, 4).length, 1);
+    assert(srv.tileForSpeed(null, 2, 4).length === 0, 'no points, no crash');
+});
+
+console.log('\n— unit: inject — the lane to param mapping is a rename, not a conversion —');
+
+function injLane(p, name, pts, extra) {
+    return Object.assign({ path: p, name: name, device: 'Roar', points: pts, speed: 1 }, extra || {});
+}
+
+test('collectInjectParams: every field carries over 1:1 (times in beats, values 0..1)', () => {
+    const c = fakeClient(); const mine = new Set([c]);
+    const pts = [{ time: 0, value: 0, curve: 0 }, { time: 4.5, value: 0.75, curve: 0.3 }, { time: 16, value: 1, curve: 0 }];
+    push(c, [injLane(P1, 'Filter Freq', pts, { min: 20, max: 20000, is_log: 1 })], 4);
+
+    const r = srv.collectInjectParams(mine);
+    assert(r.params.length === 1, 'one lane, one param');
+    const p = r.params[0];
+    assert(p._path === P1, '_path is the LOM path verbatim');
+    assert(p.name === 'Filter Freq', 'name');
+    close(p.min, 20, 1e-9, 'min'); close(p.max, 20000, 1e-9, 'max');
+    assert(p.is_log === true, 'is_log');
+    assert(p.points.length === pts.length, 'point count unchanged');
+    p.points.forEach((q, i) => {
+        close(q.time, pts[i].time, 1e-9, 'time ' + i + ' stays in beats');
+        close(q.value, pts[i].value, 1e-9, 'value ' + i + ' stays 0..1');
+        close(q.curve, pts[i].curve, 1e-9, 'curve ' + i);
+    });
+    close(r.bars, 4, 1e-9, 'clip_bars from the push');
+});
+
+test('collectInjectParams: lanes with no drawn points are not injected', () => {
+    const c = fakeClient(); const mine = new Set([c]);
+    push(c, [injLane(P1, 'A', []), injLane(P2, 'B', [{ time: 0, value: 1, curve: 0 }])], 4);
+    const r = srv.collectInjectParams(mine);
+    assert(r.params.length === 1 && r.params[0]._path === P2, 'only the drawn one');
+});
+
+test('collectInjectParams: two Strides holding the same path yield ONE param (a clip has one envelope per knob)', () => {
+    const a = fakeClient(), b = fakeClient(); const mine = new Set([a, b]);
+    const pts = [{ time: 0, value: 0.2, curve: 0 }];
+    push(a, [injLane(P1, 'A', pts)], 4);
+    push(b, [injLane(P1, 'A copy', pts), injLane(P2, 'B', pts)], 4);
+    const r = srv.collectInjectParams(mine);
+    assert(r.params.length === 2, 'deduped by path: ' + r.params.length);
+    assert(r.params.filter(p => p._path === P1).length === 1, 'P1 once');
+});
+
+test('collectInjectParams: bars is the widest lane, fractional speeds are counted for the report', () => {
+    const c = fakeClient(); const mine = new Set([c]);
+    const pts = [{ time: 0, value: 0, curve: 0 }, { time: 8, value: 1, curve: 0 }];
+    push(c, [injLane(P1, 'A', pts, { speed: 1.5 }), injLane(P2, 'B', pts, { speed: 2 })], 8);
+    const r = srv.collectInjectParams(mine);
+    close(r.bars, 8, 1e-9, 'bars');
+    assert(r.fractional === 1, 'one fractional-speed lane flagged');
+});
+
+console.log('\n— integration: the INJECT button end to end (no Ableton) —');
+
+const _os = require('os');
+const TRIG = path.join(_os.tmpdir(), 'sb_test_trigger.json');
+const RES = path.join(_os.tmpdir(), 'sb_test_result.json');
+srv.injectWriter._setIoForTest({ trigger: TRIG, result: RES, first: 5, poll: 5, timeout: 300 });
+const rmq = p => { try { fs.unlinkSync(p); } catch (e) {} };
+const settle = ms => new Promise(r => setTimeout(r, ms));
+
+// A private face log. outbox is rebound by every resetState(), and the other async
+// tests in this file reset it while we are awaiting, so face assertions cannot read
+// it. This array is ours and nothing clears it.
+const injFace = [];
+srv._setIoForTest(atoms => { outbox.push(atoms); if (atoms[0] === 'injected') injFace.push(atoms[2]); }, () => {});
+
+// ONE async test on purpose: the four scenarios share the module-level injectBusy
+// latch and the trigger file, so they must run in sequence. And it never calls
+// resetState() - it swaps state.clients and puts it back - because the TCP and MAP
+// LIVE tests are parked on real timers while this runs.
+test('inject: the button, end to end - payload, partial write, failure, no StrideInject', async () => {
+    const face = () => injFace[injFace.length - 1];
+    const lane = (p, name, pts, extra) => ({
+        path: p, expectName: name, expectDevice: 'Roar',
+        norm: Object.assign({ bars: 4, speed: 1, points: pts, min: 0, max: 1, is_log: 0, name: name }, extra || {}),
+    });
+    // an isolated set, never srv.state.clients: the TCP and MAP LIVE tests are
+    // parked on real timers asserting the size of the real one while this runs.
+    let mine = new Set();
+    const withLanes = ls => {
+        const c = fakeClient();
+        c.lanes = {}; ls.forEach(l => { c.lanes[l.path] = l; });
+        mine = new Set([c]);
+        return c;
+    };
+    const pts = [{ time: 0, value: 0, curve: 0 }, { time: 8, value: 1, curve: 0.25 }, { time: 16, value: 0.5, curve: 0 }];
+
+    try {
+        // ── 1. nothing mapped ────────────────────────────────────────────
+        rmq(TRIG); rmq(RES);
+        let c = withLanes([]);
+        srv.handleInject(mine);
+        assert(face() === 'NO LANES', 'face says NO LANES, got ' + face());
+        let r = c.sent.find(m => m.type === 'inject_result');
+        assert(r && r.ok === false && r.total === 0, 'client told, nothing written');
+        assert(!fs.existsSync(TRIG), 'no trigger file written for an empty set');
+
+        // ── 2. the happy path: the trigger file IS the lanes ─────────────
+        rmq(TRIG); rmq(RES);
+        c = withLanes([
+            lane(P1, 'Filter Freq', pts, { min: 20, max: 20000, is_log: 1 }),
+            lane(P2, 'Drive', pts),
+        ]);
+        srv.handleInject(mine);
+        assert(face() === 'WORKING', 'face shows progress immediately, got ' + face());
+        assert(fs.existsSync(TRIG), 'trigger written synchronously');
+
+        const payload = JSON.parse(fs.readFileSync(TRIG, 'utf8'));
+        // the schema StrideInject documents (remote_script/StrideInject/__init__.py)
+        assert(payload.create_clip === false, 'the bridge never creates clips: the user picked one');
+        close(payload.clip_bars, 4, 1e-9, 'clip_bars');
+        assert(Array.isArray(payload.params) && payload.params.length === 2, 'two params');
+        const fp = payload.params.find(p => p._path === P1);
+        assert(fp, 'P1 present, addressed by its LOM path');
+        assert(fp.name === 'Filter Freq' && fp.is_log === true, 'name + is_log carried');
+        close(fp.min, 20, 1e-9, 'min'); close(fp.max, 20000, 1e-9, 'max');
+        assert(fp.points.length === 3, 'point count 1:1');
+        fp.points.forEach((q, i) => {
+            close(q.time, pts[i].time, 1e-9, 'beat time survives the hop');
+            close(q.value, pts[i].value, 1e-9, 'value stays 0..1 - StrideInject scales it, not us');
+            close(q.curve, pts[i].curve, 1e-9, 'curve survives');
+        });
+
+        fs.writeFileSync(RES, JSON.stringify({ success: true, params_written: 2, points_written: 6, mode: 'bezier',
+                                               message: 'OK', written_paths: [P1, P2] }));
+        await settle(90);
+        assert(face() === '2 OF 2 >LIVE', 'face reports the write and the hand-over, got ' + face());
+        r = c.sent.find(m => m.type === 'inject_result');
+        assert(r && r.ok === true && r.written === 2 && r.total === 2, 'VST told the same numbers');
+
+        // ── 3. a lane on another track: Live skips it, we say so ─────────
+        rmq(TRIG); rmq(RES);
+        c = withLanes([lane(P1, 'A', pts), lane(P2, 'B', pts), lane(ROAR1, 'C', pts)]);
+        srv.handleInject(mine);
+        // StrideInject's _get_or_create_envelope returns None for a foreign-track
+        // param and skips it, so params_written is the truth from Live, not a guess.
+        fs.writeFileSync(RES, JSON.stringify({ success: true, params_written: 2, points_written: 4,
+                                               mode: 'bezier', written_paths: [P1, P2] }));
+        await settle(90);
+        assert(face() === '2 OF 3 >LIVE', 'partial write reported honestly, got ' + face());
+        r = c.sent.find(m => m.type === 'inject_result');
+        assert(r && r.written === 2 && r.total === 3, 'VST gets both numbers');
+
+        // ── 4. Live refuses: the commonest mistake gets its own word ─────
+        rmq(TRIG); rmq(RES);
+        c = withLanes([lane(P1, 'A', pts)]);
+        srv.handleInject(mine);
+        fs.writeFileSync(RES, JSON.stringify({ success: false, message: 'No clip selected. Open or select a clip in Live' }));
+        await settle(90);
+        assert(face() === 'NO CLIP', 'face names it, got ' + face());
+        r = c.sent.find(m => m.type === 'inject_result');
+        assert(r && r.ok === false && /No clip selected/.test(r.message), 'the full sentence reaches the VST');
+
+        // ── 5. no StrideInject at all: a named answer, never a hang ──────
+        rmq(TRIG); rmq(RES);
+        c = withLanes([lane(P1, 'A', pts)]);
+        srv.handleInject(mine);
+        assert(face() === 'WORKING', 'not stuck busy after the previous failure');
+        await settle(500);                               // no result file ever appears
+        assert(face() === 'STRIDEINJECT?', 'face names the missing piece, got ' + face());
+        r = c.sent.find(m => m.type === 'inject_result');
+        assert(r && r.ok === false && /Control Surface/.test(r.message),
+               'the message says where to click: ' + (r && r.message));
+
+        // 6. hand-over: park exactly what Live wrote, nothing else
+        rmq(TRIG); rmq(RES);
+        c = withLanes([lane(P1, 'A', pts), lane(P2, 'B', pts), lane(ROAR1, 'C', pts)]);
+        outbox.length = 0;
+        srv.handleInject(mine);
+        // Live wrote two of three: the third is on another track, which
+        // _get_or_create_envelope skips by design.
+        fs.writeFileSync(RES, JSON.stringify({ success: true, params_written: 2, points_written: 4,
+                                               mode: 'bezier', written_paths: [P1, P2] }));
+        await settle(90);
+        assert(c.lanes[P1].printed === true && c.lanes[P2].printed === true, 'the two Live wrote are handed over');
+        assert(!c.lanes[ROAR1].printed, 'the skipped lane KEEPS modulating - handing it over would silence it for nothing');
+        assert(c.lanes[P1].voice === 0, 'and the knob is released');
+        const lp = c.sent.find(m => m.type === 'lane_printed' && m.printed === true);
+        assert(lp && lp.paths.length === 2, 'client told which two, so the flag persists across a save');
+        assert(face() === '2 OF 3 >LIVE', 'face reports the write AND the hand-over, got ' + face());
+        r = c.sent.find(m => m.type === 'inject_result');
+        assert(r && r.parked === 2, 'inject_result carries the parked count');
+        assert(outbox.some(a => a[0] === 'probe' && a[1] === 'reenable'),
+               'Live is asked to re-enable automation - without it the fresh envelope sits overridden');
+
+        // 7. a failed inject hands nothing over
+        rmq(TRIG); rmq(RES);
+        c = withLanes([lane(P1, 'A', pts)]);
+        outbox.length = 0;
+        srv.handleInject(mine);
+        fs.writeFileSync(RES, JSON.stringify({ success: false, message: 'No clip selected. Open or select a clip in Live' }));
+        await settle(90);
+        assert(!c.lanes[P1].printed, 'still modulating after a failed inject');
+        assert(!outbox.some(a => a[0] === 'probe' && a[1] === 'reenable'), 'and Live was not touched');
+
+        // 8. an OLD StrideInject: writes envelopes, reports no paths.
+        // The field case, 2026-08-31: a June copy under ProgramData\Ableton\...\MIDI
+        // Remote Scripts shadowed the fresh one in the User Library. Automation appeared
+        // correctly, written_paths came back empty, and the hand-over silently did
+        // nothing. "wrote 2, handed over 0" must never read as success.
+        rmq(TRIG); rmq(RES);
+        c = withLanes([lane(P1, 'A', pts)]);
+        srv.handleInject(mine);
+        fs.writeFileSync(RES, JSON.stringify({ success: true, params_written: 1, points_written: 2, mode: 'bezier' }));
+        await settle(90);
+        assert(face() === 'OLD SI?', 'the face names it, got ' + face());
+        assert(!c.lanes[P1].printed, 'and nothing was parked on a claim we cannot verify');
+    } finally {
+        rmq(TRIG); rmq(RES);
+    }
+});
+
+console.log('\n— struct: the INJECT button on the device face —');
+
+test('StrideBridge.maxpat: INJECT button wired to node.script, result routed back to the face', () => {
+    const pat = loadPatcher('StrideBridge.maxpat');
+    const boxes = pat.boxes, lines = pat.lines;
+    const has = (s, so, d, di) => lines.some(l => l.source[0] === s && l.source[1] === so &&
+                                                 l.destination[0] === d && l.destination[1] === di);
+    const btn = boxes['obj-face-inject'];
+    assert(btn && btn.maxclass === 'textbutton', 'a textbutton on the face');
+    assert(btn.text === 'INJECT', 'labelled INJECT');
+    assert(btn.presentation === 1, 'visible in the device face, not just the patching view');
+    assert(btn.parameter_enable === 0, 'a command, never an automatable Live parameter');
+
+    assert(boxes['obj-inject-msg'] && boxes['obj-inject-msg'].text === 'inject', 'the message the node handler is keyed on');
+    assert(has('obj-face-inject', 0, 'obj-inject-msg', 0), 'button -> message');
+    assert(has('obj-inject-msg', 0, 'obj-3', 0), 'message -> node.script');
+
+    assert(/route voice probe status injected/.test(boxes['obj-6'].text), 'route carries the injected result');
+    assert(boxes['obj-6'].numoutlets === 5, 'four matches + reject');
+    assert(has('obj-6', 3, 'obj-face-st', 0), 'injected result shares the ACTIVE/STANDBY line');
+    assert(!boxes['obj-face-msg'], 'no second readout comment: Live caps the device at 169px, the buttons need that space');
+    const tk = boxes['obj-face-take'];
+    assert(tk && tk.maxclass === 'textbutton' && tk.text === 'TAKE BACK', 'TAKE BACK button on the face');
+    assert(tk.parameter_enable === 0, 'a command, not an automatable Live parameter');
+    assert(boxes['obj-take-msg'] && boxes['obj-take-msg'].text === 'takeback', 'the message the handler is keyed on');
+    assert(has('obj-face-take', 0, 'obj-take-msg', 0) && has('obj-take-msg', 0, 'obj-3', 0), 'TAKE BACK -> node.script');
+    assert(has('obj-6', 4, 'obj-8', 0), 'the reject outlet moved 3 -> 4 with it');
+    assert(has('obj-6', 2, 'obj-face-st', 0), 'ACTIVE/STANDBY still on outlet 2');
+    assert(has('obj-6', 1, 'obj-7', 0) && has('obj-6', 0, 'obj-9', 0), 'probe + voices untouched');
+});
+
+test('StrideBridge.maxpat: both buttons fit the 90x169 ground and nothing overlaps', () => {
+    // Live gives a Max device a FIXED ~169px of height and clips the rest, so this is
+    // not a style check: a box past the edge is simply invisible in the device chain.
+    const boxes = loadPatcher('StrideBridge.maxpat').boxes;
+    const bg = boxes['obj-face-bg'].presentation_rect;
+    const inside = r => r[0] >= bg[0] && r[1] >= bg[1] && r[0] + r[2] <= bg[0] + bg[2] && r[1] + r[3] <= bg[1] + bg[3];
+    const st = boxes['obj-face-st'].presentation_rect;
+    const btn = boxes['obj-face-inject'].presentation_rect;
+    const tk = boxes['obj-face-take'].presentation_rect;
+    [['status', st], ['inject', btn], ['take back', tk]].forEach(([n, r]) => assert(inside(r), n + ' inside the ground panel'));
+    const rows = [st, btn, tk].sort((a, b) => a[1] - b[1]);
+    for (let i = 0; i + 1 < rows.length; i++)
+        assert(rows[i][1] + rows[i][3] <= rows[i + 1][1], 'row ' + i + ' does not overlap the next');
+    // the z-order rule the face already depends on
+    const raw = JSON.parse(fs.readFileSync(path.join(BRIDGE, 'StrideBridge.maxpat'), 'utf8'));
+    assert(raw.patcher.boxes[raw.patcher.boxes.length - 1].box.id === 'obj-face-bg',
+           'ground panel still last = drawn at the back');
+});
+
+test('shipping: inject-writer.js exists and both CI stage lists carry it (or the device will not load)', () => {
+    assert(fs.existsSync(path.join(BRIDGE, 'inject-writer.js')), 'inject-writer.js in m4l-bridge/');
+    const wf = fs.readFileSync(path.join(ROOT, '..', '.github', 'workflows', 'build-vst3.yml'), 'utf8');
+    assert(/log-scaling\.js inject-writer\.js/.test(wf), 'windows stage list');
+    const mac = fs.readFileSync(path.join(ROOT, '..', 'stride-wrapper', 'm0-spike', 'ci', 'build-mac-vst3.sh'), 'utf8');
+    assert(/log-scaling\.js inject-writer\.js/.test(mac), 'mac stage list');
+    const readme = fs.readFileSync(path.join(BRIDGE, 'README-StrideBridge.txt'), 'utf8');
+    assert(/INJECT TO CLIP/.test(readme), 'README documents the button');
+    assert(!/^- Nothing is written into clips/m.test(readme), 'the old "never writes clips" line is gone');
+    assert(readme.indexOf('—') < 0, 'README: no em dashes');
+});
+
+test('shipping: build_main_patcher.py writes the .amxd too, so a face change cannot ship stale', () => {
+    const gen = fs.readFileSync(path.join(BRIDGE, 'build_main_patcher.py'), 'utf8');
+    assert(/StrideBridge\.amxd/.test(gen) && /ampf/.test(gen) && /ptch/.test(gen),
+           'the generator packs the ampf container itself');
+});
+
+console.log('\n— unit: printed — Stride hands the knob to Live —');
+
+// These drive the server for real but never touch srv.state.clients: the TCP and
+// MAP LIVE tests are parked on real timers asserting its size while these run.
+function printedRig() {
+    const c = fakeClient();
+    const mine = new Set([c]);
+    const pushMine = (lanes, bars) => srv.handleClientMessage(c, { type: 'set_live_lanes', bars: bars || 4, lanes: lanes });
+    const laneOf = p => srv.lanesOf(c)[p];
+    return { c, mine, pushMine, laneOf };
+}
+const PTS = [{ time: 0, value: 0, curve: 0 }, { time: 16, value: 1, curve: 0 }];
+const PTS2 = [{ time: 0, value: 0, curve: 0 }, { time: 8, value: 0.5, curve: 0.4 }, { time: 16, value: 1, curve: 0 }];
+const lnA = (pts, extra) => Object.assign({ path: P1, points: pts, speed: 1, name: 'A', device: 'Roar' }, extra || {});
+
+test('parkLane: frees the voice and keeps the lane, its curve and its identity', () => {
+    const r = printedRig();
+    r.pushMine([lnA(PTS)]);
+    const lane = r.laneOf(P1);
+    assert(lane, 'lane exists');
+    lane.voice = srv.allocVoice();
+    srv.state.voices[lane.voice].id = 4242;
+    srv.parkLane(lane);
+    assert(lane.printed === true, 'printed');
+    assert(lane.voice === 0, 'voice released - the knob is Live’s again');
+    assert(r.laneOf(P1) === lane, 'the lane itself is NOT deleted');
+    assert(lane.norm && lane.norm.points.length === 2, 'the curve is still there');
+    assert(srv.voiceByTarget(4242) === 0, 'no voice still bound to that target');
+});
+
+test('printed lane ignores a push that did not change the shape', () => {
+    const r = printedRig();
+    r.pushMine([lnA(PTS)]);
+    srv.parkLane(r.laneOf(P1));
+    const before = srv.state.pending && Object.keys(srv.state.pending).length;
+    r.pushMine([lnA(PTS)]);                                  // same curve, e.g. a reconnect flush
+    assert(r.laneOf(P1).printed === true, 'still printed');
+    assert(r.laneOf(P1).voice === 0, 'still not driving');
+    assert((Object.keys(srv.state.pending).length) === before, 'and it did not start a resolve');
+});
+
+test('drawing on a printed lane takes it back, and the client is told so the flag clears', () => {
+    const r = printedRig();
+    r.pushMine([lnA(PTS)]);
+    srv.parkLane(r.laneOf(P1));
+    r.c.sent.length = 0;
+    r.pushMine([lnA(PTS2)]);                                 // the user drew
+    assert(r.laneOf(P1).printed === false, 'back on Stride');
+    const m = r.c.sent.find(x => x.type === 'lane_printed');
+    assert(m && m.printed === false && m.paths.indexOf(P1) >= 0, 'client told to clear its saved flag');
+});
+
+test('a persisted printed flag survives a reload: the first push must NOT grab the knob back', () => {
+    // This is the one that would silently break a project: without it, reopening the
+    // set re-binds every knob and overrides the automation printed yesterday.
+    const r = printedRig();
+    const before = Object.keys(srv.state.pending).length;
+    r.pushMine([lnA(PTS, { printed: true })]);               // fresh client, blob says printed
+    const lane = r.laneOf(P1);
+    assert(lane.printed === true, 'honoured on the first push');
+    assert(lane.voice === 0, 'no voice');
+    assert(Object.keys(srv.state.pending).length === before, 'and no resolve was started');
+});
+
+test('lanesFromBlob carries livePrinted through the v10 blob', () => {
+    const lanes = srv.lanesFromBlob({ lanes: [
+        { livePath: P1, points: PTS, liveMin: 0, liveMax: 1, livePrinted: true },
+        { livePath: P2, points: PTS, liveMin: 0, liveMax: 1 },
+    ] });
+    assert(lanes.length === 2, 'two lanes');
+    assert(lanes.find(l => l.path === P1).printed === true, 'printed rides the blob');
+    assert(lanes.find(l => l.path === P2).printed === false, 'absent = not printed');
+});
+
+test('TAKE BACK re-arms every printed lane in one press, and says how many', () => {
+    const r = printedRig();
+    r.pushMine([lnA(PTS), Object.assign(lnA(PTS), { path: P2, name: 'B' })]);
+    srv.parkLane(r.laneOf(P1));
+    srv.parkLane(r.laneOf(P2));
+    r.c.sent.length = 0;
+    outbox.length = 0;
+    srv.handleTakeBack(r.mine);
+    assert(r.laneOf(P1).printed === false && r.laneOf(P2).printed === false, 'both back on Stride');
+    const m = r.c.sent.find(x => x.type === 'lane_printed');
+    assert(m && m.printed === false && m.paths.length === 2, 'client told about both');
+    const tb = r.c.sent.find(x => x.type === 'take_back_result');
+    assert(tb && tb.count === 2, 'count reported');
+    const face = outbox.filter(a => a[0] === 'injected');
+    assert(face.length && face[face.length - 1][2] === 'BACK 2', 'face says BACK 2, got ' + (face.length && face[face.length - 1][2]));
+});
+
+test('TAKE BACK with nothing printed is a message, not a no-op mystery', () => {
+    const r = printedRig();
+    r.pushMine([lnA(PTS)]);
+    outbox.length = 0;
+    srv.handleTakeBack(r.mine);
+    const face = outbox.filter(a => a[0] === 'injected');
+    assert(face.length && face[face.length - 1][2] === 'NONE PRINTED', 'face says so, got ' + (face.length && face[face.length - 1][2]));
+});
+
+
+console.log('\n— struct: the printed flag survives a save —');
+
+test('StrideInject reports WHICH paths it wrote, on both the session and arrangement paths', () => {
+    const py = fs.readFileSync(path.join(ROOT, 'remote_script', 'StrideInject', '__init__.py'), 'utf8');
+    assert(/"written_paths": written_paths or \[\]/.test(py), 'result payload carries it');
+    assert((py.match(/written_paths\.append\(/g) || []).length === 4,
+           'appended in all four write branches (session bezier/step, arrangement bezier/step)');
+    assert(/written_paths\.append\(pd\.get\("_path"\) or \("macro:"/.test(py),
+           'a hosted lane is reported by the macro key the bridge asked for, not a null path');
+    assert(/return params_written, points_written, written_paths/.test(py), '_apply_curves_sync returns it');
+    assert(!/self\._ok\(params_written, points_written, notes_written\)/.test(py), 'every _ok call passes the paths');
+});
+
+test('bridge_max.js: reenable calls Live re_enable_automation', () => {
+    const js = fs.readFileSync(path.join(BRIDGE, 'bridge_max.js'), 'utf8');
+    assert(/function reenable\(\)/.test(js), 'handler exists');
+    assert(/re_enable_automation/.test(js), 'calls the LOM method');
+});
+
+test('shim + canvas: livePrinted rides the push and the save', () => {
+    const shim = fs.readFileSync(path.join(ROOT, '..', 'stride-wrapper', 'm0-spike', 'ui', 'shim.js'), 'utf8');
+    assert(/printed: !!l\.livePrinted/.test(shim), 'the push carries it, so a reopened set does not re-bind');
+    assert(/lane_printed/.test(shim) && /sdBridgePrinted/.test(shim), 'the bridge notification reaches the canvas');
+    const canvas = fs.readFileSync(path.join(ROOT, 'app', 'renderer', 'canvas.js'), 'utf8');
+    assert(/livePrinted: !!p\.livePrinted/.test(canvas), 'serialized into the v10 blob');
+    assert(/window\.sdBridgePrinted = function/.test(canvas), 'canvas records the bridge decision');
+    assert(/saveCanvasState\(\);/.test(canvas), 'and saves it');
+});
+
+console.log('\n— unit: hosted (macro) lanes reach the inject —');
+
+function macroRig() {
+    const c = fakeClient();
+    return { c, mine: new Set([c]),
+             push: (lanes, bars) => srv.handleClientMessage(c, { type: 'set_macro_lanes', bars: bars || 4, lanes: lanes }) };
+}
+const MPTS = [{ time: 0, value: 0, curve: 0 }, { time: 8, value: 1, curve: 0.3 }, { time: 16, value: 0.5, curve: 0 }];
+
+test('set_macro_lanes: hosted lanes are kept OFF client.lanes, so no voice machinery can see them', () => {
+    const r = macroRig();
+    r.push([{ pos: 0, macro: 'Serum: WT Pos', points: MPTS, speed: 1 }]);
+    assert(Object.keys(srv.lanesOf(r.c)).length === 0, 'not a live lane: it must never take a voice or a knob');
+    assert(r.c.macros && r.c.macros[0] && r.c.macros[0].macro === 'Serum: WT Pos', 'held separately');
+});
+
+test('set_macro_lanes: pathless, pointless and negative-pos entries are dropped', () => {
+    const r = macroRig();
+    r.push([{ pos: 0, macro: '', points: MPTS },
+            { pos: 1, macro: 'Serum: Cutoff', points: [] },
+            { pos: -1, macro: 'Serum: Res', points: MPTS },
+            { pos: 2, macro: 'Serum: Drive', points: MPTS }]);
+    const keys = Object.keys(r.c.macros);
+    assert(keys.length === 1 && r.c.macros[2].macro === 'Serum: Drive', 'only the complete one survives: ' + keys);
+});
+
+test('collectInjectParams: a hosted lane is addressed by macro NAME, never by a LOM path', () => {
+    const r = macroRig();
+    r.push([{ pos: 3, macro: 'Serum: WT Pos', points: MPTS, speed: 1 }], 4);
+    const out = srv.collectInjectParams(r.mine);
+    assert(out.params.length === 1, 'one param');
+    const p = out.params[0];
+    assert(p._path === null, 'no LOM path: Stride is the device, the knob is inside it');
+    assert(p.macro_name === 'Serum: WT Pos', 'resolved by name on the clip track instead');
+    assert(p.points.length === 3, 'points 1:1');
+    p.points.forEach((q, i) => {
+        close(q.time, MPTS[i].time, 1e-9, 'time ' + i);
+        close(q.value, MPTS[i].value, 1e-9, 'value ' + i);
+        close(q.curve, MPTS[i].curve, 1e-9, 'curve ' + i);
+    });
+});
+
+test('collectInjectParams: hosted and Ableton lanes ride ONE payload', () => {
+    const c = fakeClient();
+    const mine = new Set([c]);
+    srv.handleClientMessage(c, { type: 'set_live_lanes', bars: 4, lanes: [
+        { path: P1, points: MPTS, speed: 1, name: 'Roar Drive', device: 'Roar' } ] });
+    srv.handleClientMessage(c, { type: 'set_macro_lanes', bars: 4, lanes: [
+        { pos: 0, macro: 'Serum: WT Pos', points: MPTS, speed: 1 } ] });
+    const out = srv.collectInjectParams(mine);
+    assert(out.params.length === 2, 'both kinds: ' + out.params.length);
+    assert(out.params.some(p => p._path === P1), 'the Ableton knob');
+    assert(out.params.some(p => p.macro_name === 'Serum: WT Pos'), 'the hosted knob');
+});
+
+test('collectInjectParams: an already-printed hosted lane is not injected again', () => {
+    const r = macroRig();
+    r.push([{ pos: 0, macro: 'Serum: WT Pos', points: MPTS, printed: true },
+            { pos: 1, macro: 'Serum: Cutoff', points: MPTS }]);
+    const out = srv.collectInjectParams(r.mine);
+    assert(out.params.length === 1 && out.params[0].macro_name === 'Serum: Cutoff', 'only the unprinted one');
+});
+
+test('collectInjectParams: hosted lanes tile for speed like every other lane', () => {
+    const r = macroRig();
+    r.push([{ pos: 0, macro: 'Serum: WT Pos', speed: 2,
+              points: [{ time: 0, value: 0, curve: 0 }, { time: 16, value: 1, curve: 0 }] }], 4);
+    const p = srv.collectInjectParams(r.mine).params[0];
+    assert(p.points.length === 3, 'two cycles, boundary shared: ' + p.points.length);
+    [0, 8, 16].forEach((t, i) => close(p.points[i].time, t, 1e-6, 'tile ' + i));
+});
+
+console.log('\n— struct: the hosted-lane pipeline end to end —');
+
+test('StrideInject: resolves a macro by name against the CLIP\'S OWN track, and walks racks', () => {
+    const py = fs.readFileSync(path.join(ROOT, 'remote_script', 'StrideInject', '__init__.py'), 'utf8');
+    assert(/def _resolve_macro/.test(py), 'the resolver exists');
+    assert(/self\._resolve_clip_track\(clip\)/.test(py), 'scoped to the clip track: the only place an envelope can reach');
+    assert(/for attr in \("chains", "return_chains"\)/.test(py), 'racks nest, so chains are walked too');
+    assert((py.match(/if param is None and pd\.get\("macro_name"\)/g) || []).length === 2,
+           'wired into BOTH write paths (session + arrangement)');
+    assert(/Send to DAW/.test(py), 'an unresolvable macro says what to do about it');
+});
+
+test('bridge + shim: hosted lanes are pushed, printed, and flipped to DAW drive', () => {
+    const srvJs = fs.readFileSync(path.join(BRIDGE, 'bridge-server.js'), 'utf8');
+    assert(/type === 'set_macro_lanes'/.test(srvJs), 'the bridge accepts them');
+    assert(/macro_printed/.test(srvJs), 'and reports which were printed');
+    const shim = fs.readFileSync(path.join(ROOT, '..', 'stride-wrapper', 'm0-spike', 'ui', 'shim.js'), 'utf8');
+    assert(/set_macro_lanes/.test(shim), 'the shim pushes them');
+    assert(/setLanesPrinted/.test(shim), 'and forwards the result to the ENGINE, not just the canvas');
+    assert(/_sb\.announced/.test(shim), 'announce fires ONCE: the nudge is a real gesture and would litter undo');
+});
+
+test('wrapper: per-lane DAW drive, persisted, and never a global mode switch', () => {
+    const h = fs.readFileSync(path.join(ROOT, '..', 'stride-wrapper', 'm0-spike', 'src', 'PluginProcessor.h'), 'utf8');
+    const cpp = fs.readFileSync(path.join(ROOT, '..', 'stride-wrapper', 'm0-spike', 'src', 'PluginProcessor.cpp'), 'utf8');
+    assert(/bool hostDriven = false; \};/.test(h), 'MapRef carries it, LAST so the restore aggregate-inits still compile');
+    assert(/std::vector<char> hdr; \};/.test(h), 'and the remove/undo snapshot carries it');
+    assert(/setLaneHostDrivenAt \(int mappedIndex, bool on\)/.test(h), 'addressed by the same lane id the canvas uses');
+    assert(/mr->hostDriven/.test(cpp), 'the drive loop reads it per lane');
+    assert(/setAttribute \("hd", 1\)/.test(cpp) && /getIntAttribute \("hd", 0\)/.test(cpp),
+           'persisted both ways: reopening a set must not put Stride back on a printed knob');
+    assert(/clearAllHostDriven/.test(cpp), 'TAKE BACK returns every lane');
+});
+
+test('bug: the transport is re-read before anything re-binds (the Ctrl+Z lock)', () => {
+    const srvJs = fs.readFileSync(path.join(BRIDGE, 'bridge-server.js'), 'utf8');
+    const maxJs = fs.readFileSync(path.join(BRIDGE, 'bridge_max.js'), 'utf8');
+    assert(/function transportnow/.test(maxJs), 'an UNCONDITIONAL report exists');
+    assert(!/if \(on === _lastPlay\) return;[\s\S]{0,120}function transportnow/.test(maxJs),
+           'and it is not gated by the change latch');
+    // handleTakeBack must ask BEFORE it unparks, or a stale "playing" takes a
+    // live.remote~ lock and the knob cannot be moved or undone by hand.
+    const tb = srvJs.slice(srvJs.indexOf('function handleTakeBack'));
+    const probeAt = tb.indexOf("_out(['probe', 'transportnow'])");
+    const unparkAt = tb.indexOf('unparkLane(');
+    assert(probeAt > 0 && probeAt < unparkAt, 'asked before the first unpark');
+    assert(/function tick[\s\S]{0,200}transportnow/.test(srvJs), 'and the ping refreshes it, so staleness cannot outlive one tick');
+});
+
+test('canvas: Stride refuses to map its OWN macro as a second lane', () => {
+    const canvas = fs.readFileSync(path.join(ROOT, 'app', 'renderer', 'canvas.js'), 'utf8');
+    const fn = canvas.slice(canvas.indexOf('window.sdBridgeMapped ='), canvas.indexOf('window.sdBridgeAdoptLanes'));
+    assert(/x\.device \? x\.device \+ ': ' \+ x\.name/.test(fn),
+           'matches the DAW-facing macro name "<device>: <param>"');
+    assert(/press Inject to print it/.test(fn), 'and points at the thing that actually does the job');
+    assert(fn.indexOf('—') < 0, 'no em dashes in the copy');
+});
+
+test('canvas save: a HOSTED lane carries the identity the macro inject needs', () => {
+    // The bug, 2026-08-31: the state handed to saveCanvasState carried name/device only
+    // for _live lanes. For hosted lanes both were undefined, so the shim built an EMPTY
+    // macro name ("<device>: <param>") and its own filter dropped every hosted lane. The
+    // inject then looked like it worked and silently printed only the Ableton knobs.
+    const canvas = fs.readFileSync(path.join(ROOT, 'app', 'renderer', 'canvas.js'), 'utf8');
+    const i = canvas.indexOf('await window.stride.saveCanvasState');
+    assert(i > 0, 'found the save call');
+    const block = canvas.slice(canvas.lastIndexOf('const state = sdCanvasParams', i), i);
+    assert(/\.\.\.\(p\._live \? \{\} : \{ name: p\.name/.test(block),
+           'hosted lanes carry name + device, or the macro name comes out empty');
+    assert(/hostPrinted/.test(block), 'and their printed flag, so it survives a save');
+    // the shim builds the DAW-facing name from exactly those two fields
+    const shim = fs.readFileSync(path.join(ROOT, '..', 'stride-wrapper', 'm0-spike', 'ui', 'shim.js'), 'utf8');
+    assert(/macro: \(l\.device \? l\.device \+ ': ' : ''\) \+ \(l\.name \|\| ''\)/.test(shim),
+           'shim composes "<device>: <param>" from the fields the canvas now sends');
+    assert(/window\.sdMacroPrinted = function/.test(canvas), 'and the canvas records the hosted printed echo');
+});
+
+test('diagnostic: last_inject.json says whether hosted lanes were pushed at all', () => {
+    // Without this the two failure modes look identical from the outside: "the shim never
+    // pushed it" and "Live could not resolve the macro" both end as a short count.
+    const srvJs = fs.readFileSync(path.join(BRIDGE, 'bridge-server.js'), 'utf8');
+    assert(/macrosPushed:/.test(srvJs), 'records how many hosted lanes reached the bridge');
+    assert(/macros: \(\(\) =>/.test(srvJs), 'and names them');
+});
+
+console.log('\n— unit: a hosted lane comes BACK from the DAW —');
+
+test('drawing on a printed hosted lane takes it back (the bridge owns the flag, not the client)', () => {
+    // The bug, 2026-08-31: set_macro_lanes copied `printed` straight from the client on
+    // every push, so the flag only ever changed when the bridge said so. Drawing on a
+    // printed Serum lane left it stuck on the injected automation, while the Ableton
+    // lanes (which DO compare a shape signature) came back correctly.
+    const c = fakeClient(); const mine = new Set([c]);
+    const push = ls => srv.handleClientMessage(c, { type: 'set_macro_lanes', bars: 4, lanes: ls });
+    const A = [{ time: 0, value: 0, curve: 0 }, { time: 16, value: 1, curve: 0 }];
+    const B = [{ time: 0, value: 0, curve: 0 }, { time: 8, value: 0.5, curve: 0 }, { time: 16, value: 1, curve: 0 }];
+
+    push([{ pos: 0, macro: 'Serum: WT Pos', points: A, speed: 1 }]);
+    c.macros[0].printed = true; c.macros[0].printedSig = srv.macroSig('Serum: WT Pos', 4, 1, A);
+    c.sent.length = 0;
+
+    push([{ pos: 0, macro: 'Serum: WT Pos', points: A, speed: 1 }]);        // same shape
+    assert(c.macros[0].printed === true, 'an unchanged push leaves it with the DAW');
+    assert(!c.sent.some(m => m.type === 'macro_printed'), 'and says nothing');
+
+    push([{ pos: 0, macro: 'Serum: WT Pos', points: B, speed: 1 }]);        // the user drew
+    assert(c.macros[0].printed === false, 'a redraw takes the knob back');
+    const m = c.sent.find(x => x.type === 'macro_printed' && x.printed === false);
+    assert(m && m.pos.indexOf(0) >= 0, 'and the ENGINE is told, or Stride never resumes driving it');
+});
+
+test('a persisted hosted printed flag is honoured ONCE, on the first push after a reload', () => {
+    const c = fakeClient();
+    srv.handleClientMessage(c, { type: 'set_macro_lanes', bars: 4, lanes: [
+        { pos: 0, macro: 'Serum: WT Pos', points: [{ time: 0, value: 0, curve: 0 }], printed: true } ] });
+    assert(c.macros[0].printed === true, 'reopening a set must not put Stride back on a printed knob');
+});
+
+test('TAKE BACK returns EVERY hosted lane, including ones printed in an earlier session', () => {
+    const c = fakeClient(); const mine = new Set([c]);
+    srv.handleClientMessage(c, { type: 'set_macro_lanes', bars: 4, lanes: [
+        { pos: 0, macro: 'Serum: WT Pos', points: [{ time: 0, value: 0, curve: 0 }], printed: true },
+        { pos: 1, macro: 'Serum: Cutoff', points: [{ time: 0, value: 1, curve: 0 }], printed: true } ] });
+    c.sent.length = 0;
+    srv.handleTakeBack(mine);
+    assert(!c.macros[0].printed && !c.macros[1].printed, 'both back on Stride');
+    const m = c.sent.find(x => x.type === 'macro_printed');
+    assert(m && m.printed === false, 'told');
+    assert(Array.isArray(m.pos) && m.pos.length === 0,
+           'an EMPTY list on purpose: "return everything", so the engine never has to trust '
+         + 'this side about which indices are printed');
+});
+
+console.log('\n— struct: the inject never destroys MIDI —');
+
+test('arrangement inject: the clip is NEVER shortened, and no note is dropped', () => {
+    // The bug: the replacement was built at exactly the requested bar count, so injecting
+    // a 4-bar curve onto an 8-bar part shortened the clip and discarded every note past
+    // bar 4. Silent MIDI loss.
+    const py = fs.readFileSync(path.join(ROOT, 'remote_script', 'StrideInject', '__init__.py'), 'utf8');
+    assert(/L_clip = max\(L_new, orig_len\)/.test(py), 'the replacement is at least as long as the original');
+    assert(/slot\.create_clip\(_d\(L_clip\)\)/.test(py), 'and is BUILT at that length');
+    assert(/self\._read_clip_notes\(original_clip, L_clip\)/.test(py), 'notes are read across the whole clip');
+    assert(/float\(n\.get\("time", 0\)\) < L_clip - 1e-6/.test(py), 'and filtered against it, never the drawn window');
+    assert(!/< L_new - 1e-6/.test(py), 'the old requested-length cut is gone');
+    // the curves still map across the DRAWN window, not the whole clip
+    assert(/_apply_curves_sync\(temp, data\.get\("params", \[\]\), L_new\)/.test(py),
+           'curves keep mapping across the drawn window, so the shape means what it looked like');
+});
+
+test('take back beats the GLOBAL DAW mode, or a hosted lane can never come home', () => {
+    // DriveMode::Automation makes EVERY hosted lane read its macro, so a lane un-printed
+    // underneath it still follows the DAW: take back and redraw both look like no-ops.
+    // That is the "Serum param has a life of its own" report (2026-08-31).
+    const ed = fs.readFileSync(path.join(ROOT, '..', 'stride-wrapper', 'm0-spike', 'src', 'PluginEditor.cpp'), 'utf8');
+    const fn = ed.slice(ed.indexOf('"setLanesPrinted"'), ed.indexOf('"setPin"'));
+    assert(/if \(! on\) proc\.setDriveMode \(StrideWrapperProcessor::DriveMode::Live\);/.test(fn),
+           'un-printing anything returns the global mode to Live');
+    assert(fn.indexOf('setDriveMode') < fn.indexOf('clearAllHostDriven'),
+           'and does it BEFORE clearing, so no block can run in the wrong mode');
+});
+
+test('diagnostic: last_inject.json reports the global drive mode', () => {
+    // Without it, "stuck hosted lane" and "the whole plugin is in DAW mode" look identical.
+    const srvJs = fs.readFileSync(path.join(BRIDGE, 'bridge-server.js'), 'utf8');
+    assert(/driveMode: \(\(\) =>/.test(srvJs), 'recorded');
+    assert(/client\.driveMode = msg\.drive_mode/.test(srvJs), 'from the VST push');
+    const shim = fs.readFileSync(path.join(ROOT, '..', 'stride-wrapper', 'm0-spike', 'ui', 'shim.js'), 'utf8');
+    assert(/drive_mode: _sb\.driveMode \| 0/.test(shim), 'the shim sends it');
+    assert(/_sb\.driveMode = _driveMode/.test(shim), 'mirrored where every scope can read it');
+});
+
+test('bars pills: EVERY loop-length button tells the engine, not just the compact ones', () => {
+    // Field report via Giorgio, 2026-08-31: "generate lanes for 4 bars, extend to 32, the
+    // modulation stops". The wrapper had TWO bar toolbars: the compact one called
+    // sdSetBarsAndPush (which saves, so the engine's driveClipBeats follows), the main one
+    // called plain sdSetBars, which only redraws the grid. The engine then kept wrapping the
+    // clip phase at the OLD length while the canvas drew the new one, so what played had
+    // nothing to do with what was on screen.
+    const html = fs.readFileSync(path.join(ROOT, '..', 'stride-wrapper', 'm0-spike', 'ui', 'index.html'), 'utf8');
+    const bare = html.match(/onclick="sdSetBars\(\d+\)"/g) || [];
+    assert(bare.length === 0, 'a bars pill that does not push: ' + bare.join(', '));
+    const pushing = html.match(/onclick="sdSetBarsAndPush\(\d+\)"/g) || [];
+    assert(pushing.length >= 9, 'both toolbars still wired: ' + pushing.length);
+});
+
+test('a printed hosted lane does not un-print itself on a float round trip', () => {
+    // THE bug, 2026-08-31: printing a hosted lane called pushRackScanned(), which rebuilds
+    // every canvas lane from the engine's payload. A hosted lane's POINTS are replaced from
+    // the engine's stored curve on that rebuild (live lanes are preserved, which is why the
+    // Ableton half never showed it). The echoed floats differ in the last digit, the next
+    // push looked like a redraw, and the bridge took the lane straight back - so the knob in
+    // Ableton parked while Stride kept modulating the hosted Serum underneath.
+    const c = fakeClient();
+    const push = ls => srv.handleClientMessage(c, { type: 'set_macro_lanes', bars: 4, lanes: ls });
+    const drawn  = [{ time: 0, value: 0.25, curve: 0 }, { time: 16, value: 0.75, curve: 0.5 }];
+    // the same curve after a float round trip through the engine
+    const echoed = [{ time: 0.000000012, value: 0.25000003, curve: 0 }, { time: 16, value: 0.74999997, curve: 0.5 }];
+
+    push([{ pos: 0, macro: 'Serum: WT Pos', points: drawn, speed: 1 }]);
+    c.macros[0].printed = true;
+    c.macros[0].printedSig = srv.macroSig('Serum: WT Pos', 4, 1, drawn);
+    c.sent.length = 0;
+
+    push([{ pos: 0, macro: 'Serum: WT Pos', points: echoed, speed: 1 }]);
+    assert(c.macros[0].printed === true,
+           'a float-identical echo is NOT an edit: the lane stays with the DAW');
+    assert(!c.sent.some(m => m.type === 'macro_printed'), 'and nothing is sent back');
+
+    // a REAL edit still takes it back
+    push([{ pos: 0, macro: 'Serum: WT Pos', points: [{ time: 0, value: 0.9, curve: 0 }, { time: 16, value: 0.1, curve: 0 }], speed: 1 }]);
+    assert(c.macros[0].printed === false, 'a genuine redraw still returns the lane to Stride');
+});
+
+test('printing a lane never triggers a canvas rebuild', () => {
+    const ed = fs.readFileSync(path.join(ROOT, '..', 'stride-wrapper', 'm0-spike', 'src', 'PluginEditor.cpp'), 'utf8');
+    const fn = ed.slice(ed.indexOf('"setLanesPrinted"'), ed.indexOf('"setPin"'));
+    const code = fn.split('\n').filter(l => !l.trim().startsWith('//')).join('\n');
+    assert(!/pushRackScanned\s*\(\)\s*;/.test(code),
+           'pushRackScanned in setLanesPrinted replaces hosted lane points and un-prints the lane');
+});
+
+test('inject never drops a first-bar note on a non-integer-length clip', () => {
+    // Field report 2026-08-31: "inject over a 4 bar loop deleted the 1st bar midi,
+    // sometimes". The clip was at start_time 63.99 with length 16.01, so a note at the
+    // very start reads back a hair BELOW zero, and the validator threw it away as
+    // out of range. Intermittent because it depends on where the rounding lands.
+    const py = fs.readFileSync(path.join(ROOT, 'remote_script', 'StrideInject', '__init__.py'), 'utf8');
+    assert(/if -0\.02 < start < 0\.0:/.test(py), 'a hair-negative start is nudged onto the grid');
+    assert((py.match(/if -0\.02 < start < 0\.0:/g) || []).length === 2,
+           'in BOTH note writers (fresh clip + shared), or one path still eats notes');
+    assert(/dropped an out-of-range note/.test(py), 'and a genuine drop is logged, never silent');
+    assert(/_d\(-0\.25\)/.test(py),
+           'the read starts BEFORE zero: a clip that does not begin on a beat boundary can hold '
+         + 'its first note at a marginally negative content time, invisible to a read from 0.0');
+    assert(/_d\(float\(length\) \+ 0\.50\)/.test(py), 'and runs past the end for the same reason');
+    assert(/arr read %d note\(s\)/.test(py), 'read count is logged next to the written count');
+});
+
+test('the print ack carries counts but never lane data', () => {
+    const ed = fs.readFileSync(path.join(ROOT, '..', 'stride-wrapper', 'm0-spike', 'src', 'PluginEditor.cpp'), 'utf8');
+    const fn = ed.slice(ed.indexOf('"setLanesPrinted"'), ed.indexOf('"setPin"'));
+    const code = fn.split('\n').filter(l => !l.trim().startsWith('//')).join('\n');
+    assert(/lanes_printed_ack/.test(code), 'a light ack exists');
+    assert(!/pushRackScanned\s*\(\)\s*;/.test(code), 'and it is NOT a rack rebuild');
+    assert(!/points/.test(code), 'the ack carries no lane points, so it cannot disturb a curve');
+    const shim = fs.readFileSync(path.join(ROOT, '..', 'stride-wrapper', 'm0-spike', 'ui', 'shim.js'), 'utf8');
+    assert(/lanes_printed_ack/.test(shim), 'the shim consumes it');
+});
+
+test('a curve shorter than the loop REPEATS, it does not freeze', () => {
+    // Field report 2026-08-31, reproduced precisely by Yossi: playing a 4-bar loop with
+    // 4 bars in Stride, press 16 bars mid-playback and the modulation dies instantly.
+    // ph = fmod(beats, clipBeats) now spans 64 beats while the drawn curve covers 16, so
+    // wherever the playhead sits it is usually past the end and interp() holds the final
+    // value forever. It did not degrade after bar 4, it stopped on the spot.
+    const cpp = fs.readFileSync(path.join(ROOT, '..', 'stride-wrapper', 'm0-spike', 'src', 'PluginProcessor.cpp'), 'utf8');
+    const drive = cpp.slice(cpp.indexOf('double lx = std::fmod'), cpp.indexOf('const float v = interp'));
+    assert(/const double span = lane\.times\.empty\(\) \? 0\.0 : \(double\) lane\.times\.back\(\);/.test(drive),
+           'the curve span is measured');
+    assert(/while \(wrap < span - 1\.0e-6 && wrap < lL\) wrap \*= 2\.0;/.test(drive),
+           'the wrap is a Stride BAR option, not the raw span: a curve ending at bar 3.5 must '
+         + 'still cycle every 4 bars, not every 3.5');
+    assert(/if \(wrap < lL - 0\.01\)/.test(drive),
+           'a curve that already fills the loop is untouched, so existing projects are unchanged');
+    assert(/lx = std::fmod \(lx, wrap\);/.test(drive), 'and the phase wraps at it');
+});
+
+test('a lane whose device left the set is MARKED, never deleted', () => {
+    // Deleting the lane would take its drawn curve with it, and the repath probe is
+    // known to flake (see the Mac field note in handleRepathed, 2026-08-28). So a
+    // vanished device greys the row out and keeps everything: undo the delete in
+    // Ableton, or drag the device back, and the lane rebinds with its motion intact.
+    //
+    // Runs fully SYNCHRONOUSLY and puts state.clients back, so the TCP and MAP LIVE
+    // tests parked on real timers never observe this client.
+    const c = fakeClient();
+    const savedClients = srv.state.clients;
+    srv.state.clients = new Set([c]);
+    try {
+        srv.handleClientMessage(c, { type: 'set_live_lanes', bars: 4, lanes: [LANE(P1, 'Drive', 'Roar')] });
+        const lane = srv.lanesOf(c)[P1];
+        lane.voice = srv.allocVoice();
+        const v = srv.state.voices[lane.voice];
+        v.id = 777; v.lane = lane;
+        c.sent.length = 0;
+
+        const sweep = ok => {
+            const rid = srv.state.nextRid++;
+            srv.state.pending[rid] = { kind: 'repath' };
+            srv.state.repathRid = rid;
+            srv.handleRepathed(enc({ rid: rid, items: [{ id: 777, ok: ok, path: ok ? P1 : undefined }] }));
+        };
+
+        sweep(0);
+        assert(!lane.missing, 'a single flake must never mark a lane');
+
+        for (let i = 0; i < 8; i++) sweep(0);
+        assert(lane.missing === true, 'a device that stays gone is marked');
+
+        // and an id that STILL RESOLVES but now reports a different device is gone too:
+        // a stale LOM id can keep answering after its device is deleted, so "it answered"
+        // was never proof the knob is in the set (field 2026-08-31: lanes stayed bright).
+        lane.missing = false; v.missCount = 0;
+        for (let i = 0; i < 8; i++) {
+            const rid = srv.state.nextRid++;
+            srv.state.pending[rid] = { kind: 'repath' };
+            srv.state.repathRid = rid;
+            srv.handleRepathed(enc({ rid: rid, items: [{ id: 777, ok: 1, path: P1,
+                                                         name: 'Flt 3 Freq', dev: 'Some Other Device' }] }));
+        }
+        assert(lane.missing === true, 'resolved, but it is a different device now: still gone');
+        const m = c.sent.find(x => x.type === 'lane_missing' && x.missing === true);
+        assert(m && m.path === P1, 'and the canvas is told which lane');
+        assert(srv.lanesOf(c)[P1] === lane, 'the lane itself is NOT deleted');
+        assert(lane.voice !== 0, 'and the bind is kept, so it heals the moment the device answers');
+
+        c.sent.length = 0;
+        sweep(1);
+        assert(lane.missing === false, 'reconnected');
+        assert(c.sent.some(x => x.type === 'lane_missing' && x.missing === false), 'and the canvas is told');
+    } finally {
+        srv.state.clients = savedClients;
+    }
+});
+
+test('a suspected removal is confirmed FAST, not once per 5s ping', () => {
+    // Confirming at the ping rate cost MISS_TO_MISSING * 5s = 25s before the row greyed,
+    // which reads as broken (field 2026-08-31: "it took around 20 seconds"). The probe
+    // rate goes up the moment something stops answering, so the verdict lands in about
+    // 3 seconds while still needing the same number of agreeing probes.
+    const srvJs = fs.readFileSync(path.join(BRIDGE, 'bridge-server.js'), 'utf8');
+    assert(/const FAST_REPATH_MS = 600;/.test(srvJs), 'a fast confirmation rate exists');
+    assert(/function scheduleFastRepath\(\)/.test(srvJs), 'and a scheduler for it');
+    assert(/v\.missCount > 0 && v\.missCount < MISS_TO_MISSING\) \{ scheduleFastRepath\(\); break; \}/.test(srvJs),
+           'armed only while a lane is mid-confirmation, so an idle set never polls faster');
+    assert(/const MISS_TO_MISSING = 5;/.test(srvJs),
+           'the number of agreeing probes is UNCHANGED: speed must not buy false positives');
+    // and the burst must not re-probe healthy lanes: every item costs two LiveAPI
+    // lookups on Live's MAIN thread, so a 32-voice sweep at 600ms is real UI load.
+    assert(/function repathSweep \(?\(suspectsOnly\)/.test(srvJs.replace('repathSweep(suspectsOnly)', 'repathSweep (suspectsOnly)')),
+           'the sweep can be narrowed');
+    assert(/repathSweep\(true\);\s+\/\/ the suspects only/.test(srvJs),
+           'and the fast path narrows it, so an unrelated lane is never re-probed at 600ms');
+    // 5 probes at 600ms is a few seconds, not half a minute
+    const budget = 5 * 600;
+    assert(budget < 5000, 'confirmation budget is seconds, not tens of seconds');
+});
+
+test('the missing lane fades with the SAME treatment as the loop cutoff', () => {
+    const canvas = fs.readFileSync(path.join(ROOT, 'app', 'renderer', 'canvas.js'), 'utf8');
+    assert(/if \(param\._missing\) \{[\s\S]{0,400}rgba\(0,0,0,0\.42\)/.test(canvas),
+           'same scrim colour/alpha the loop boundary uses past its cutoff');
+    assert(/if \(param\._missing\) sdCtx\.globalAlpha = 0\.22;/.test(canvas),
+           'and the curve itself dims, so the whole row reads as dead');
+    assert(/window\.sdBridgeMissing = function/.test(canvas), 'the canvas records the bridge verdict');
+    const shim = fs.readFileSync(path.join(ROOT, '..', 'stride-wrapper', 'm0-spike', 'ui', 'shim.js'), 'utf8');
+    assert(/lane_missing/.test(shim), 'the shim routes it');
+});
+
+test('LOCAL BUILD FRESHNESS: a built Stride.vst3 must embed the CURRENT shim.js', () => {
+    // shim.js and canvas.js are compiled into the plugin by juce_add_binary_data, so
+    // editing them and shipping an older binary fails SILENTLY: the plugin loads, the
+    // UI looks right, and the new messages are simply never sent. That happened on
+    // 2026-08-31 (macro lanes edited at 12:13, binary built 12:11) and cost a full
+    // test round trip in Live. Skipped when there is no local build, so CI is unaffected.
+    const vst = path.join(ROOT, '..', 'stride-wrapper', 'm0-spike', 'build',
+                          'StrideWrapperM0_artefacts', 'Release', 'VST3', 'Stride.vst3',
+                          'Contents', 'x86_64-win', 'Stride.vst3');
+    if (!fs.existsSync(vst)) return;                       // no local build: nothing to check
+
+    const shim = path.join(ROOT, '..', 'stride-wrapper', 'm0-spike', 'ui', 'shim.js');
+    const canvas = path.join(ROOT, 'app', 'renderer', 'canvas.js');
+    const built = fs.statSync(vst).mtimeMs;
+    [shim, canvas].forEach(f => {
+        assert(fs.statSync(f).mtimeMs <= built,
+               path.basename(f) + ' is NEWER than the built Stride.vst3: rebuild before deploying, '
+             + 'or the plugin ships without those UI changes');
+    });
+
+    // and the binary really does carry the markers, not just a newer timestamp
+    const bin = fs.readFileSync(vst, 'latin1');
+    ['set_macro_lanes', 'setLanesPrinted', 'lane_printed'].forEach(marker => {
+        assert(bin.indexOf(marker) >= 0, 'built binary is missing "' + marker + '" from shim.js');
+    });
+});
 
 Promise.all(_asyncQueue).then(() => {
     console.log(`\n${passed} passed, ${failed} failed\n`);

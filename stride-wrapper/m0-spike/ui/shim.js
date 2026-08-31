@@ -206,6 +206,77 @@
       var vEl = document.getElementById('sd-version');
       if (vEl && d && d.ver) vEl.textContent = 'v' + String(d.ver);
     } catch (e) {}
+    // Stride Bundle: reveal the tab strip. The Tendril tab hands the CANVAS AREA to
+    // the embedded Tendril editor - Stride's titlebar/toolbars stay live above it, so
+    // the strip is always reachable. The page reports the lanes region's rect.
+    try {
+      if (d && d.bundle) {
+        var bt = document.getElementById('sd-bundle-tabs');
+        if (bt) bt.style.display = 'flex';
+        var _rq = function () {
+          var el = document.getElementById('sd-canvas-container');
+          if (!el) return null;
+          var r = el.getBoundingClientRect();
+          return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) };
+        };
+        var _paint = function (t) {
+          var base = 'text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-sm ';
+          var a = document.getElementById('sd-tab-stride'), b = document.getElementById('sd-tab-tendril');
+          if (a) a.className = base + (t === 'stride' ? 'text-orange-400 bg-white/5' : 'text-zinc-500 hover:text-orange-400 transition-colors');
+          if (b) b.className = base + (t === 'tendril' ? 'text-orange-400 bg-white/5' : 'text-zinc-500 hover:text-orange-400 transition-colors');
+        };
+        window._sbTendrilOn = false;
+        window._sbTendrilRect = _rq;
+        // THE WALL (2026-08-30): Tendril's UI lives in THIS page as an iframe over the
+        // canvas area - one webview, no native-window seams. The tab pair swaps views
+        // in pure DOM; C++ only hears the bridge events relayed below.
+        var _twFrame = null;
+        var _twShow = function (on) {
+          try {
+            if (on && !_twFrame) {
+              var host = document.getElementById('sd-canvas-container');
+              if (!host) return;
+              _twFrame = document.createElement('iframe');
+              _twFrame.id = 'sd-tendril-wall';
+              _twFrame.src = 'crucible_webui.html?v=' + Date.now();
+              _twFrame.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0;z-index:70;background:#0d0b09;display:block';
+              host.appendChild(_twFrame);
+              if (!window._twPump) {
+                window._twPump = 1;
+                ['init', 'params', 'frame'].forEach(function (n) {
+                  listen(n, function (d) { try { if (_twFrame && _twFrame.contentWindow) _twFrame.contentWindow.postMessage({ t: n, d: d }, '*'); } catch (e) {} });
+                });
+                window.addEventListener('message', function (ev) {
+                  var m = ev && ev.data;
+                  if (m && m.emit) emit(m.emit, m.payload || {});
+                });
+              }
+            }
+            if (_twFrame) _twFrame.style.display = on ? 'block' : 'none';
+          } catch (e) {}
+        };
+        var _paint = function (t) {
+          var base = 'text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-sm ';
+          var a = document.getElementById('sd-tab-stride'), b = document.getElementById('sd-tab-tendril');
+          if (a) a.className = base + (t === 'stride' ? 'text-orange-400 bg-white/5' : 'text-zinc-500 hover:text-orange-400 transition-colors');
+          if (b) b.className = base + (t === 'tendril' ? 'text-orange-400 bg-white/5' : 'text-zinc-500 hover:text-orange-400 transition-colors');
+        };
+        var tT = document.getElementById('sd-tab-tendril');
+        if (tT && !tT._sbWired) { tT._sbWired = 1; tT.onclick = function () { _paint('tendril'); _twShow(true); }; }
+        var tS = document.getElementById('sd-tab-stride');
+        if (tS && !tS._sbWired) { tS._sbWired = 1; tS.style.display = ''; tS.onclick = function () { _paint('stride'); _twShow(false); }; }
+        window._sbTendrilWall = _twShow;   // the device chip reuses this
+        if (!window._sbTendrilRsz) {
+          window._sbTendrilRsz = 1;
+          var _rt = 0;
+          window.addEventListener('resize', function () {
+            if (!window._sbTendrilOn) return;
+            clearTimeout(_rt);
+            _rt = setTimeout(function () { emit('bundleTab', { tab: 'tendril', rect: _rq() }); }, 120);
+          });
+        }
+      }
+    } catch (e) {}
     // Pins are hidden on mac until the window-move math is mac-tester-validated
     // (untested Y-flip; prime suspect in the 2026-07-28 window-chaos report).
     try {
@@ -375,6 +446,12 @@
         }) });
       } catch (e) {}
       try { _sbOnSave(_liveLanes); } catch (e) {}
+      // MACRO lanes: the hosted knobs (Serum and friends) are ALSO published to the DAW
+      // as Stride's own parameters, named "<device>: <param>". The bridge cannot drive
+      // those, but it can INJECT them: StrideInject resolves the name against the clip's
+      // own track, so a Serum curve lands in the same clip as the Ableton ones. Pushed
+      // on the same edit tick as the live lanes so the two never disagree.
+      try { _sbOnSaveMacros(_hostedLanes); } catch (e) {}
       return P({ success: true });
     },
     loadCanvasState: function (rackId) { return P({ success: true, state: lsGet('stride_canvas_' + rackId, null) }); },
@@ -447,6 +524,13 @@
     requestCreateClip: function () { return false; },
     readClipCurves: function () { return false; }
   };
+
+  // The engine's own counts after a print / take back, with no lane rebuild attached.
+  listen('sl_event', function (msg) {
+    if (!msg || msg.type !== 'lanes_printed_ack') return;
+    if (typeof msg.host_driven !== 'undefined') _sb.hostDriven = msg.host_driven | 0;
+    if (typeof msg.drive_lanes !== 'undefined') _sb.driveLanes = msg.drive_lanes | 0;
+  });
 
   // C++ -> JS : C++ emits 'sl_event' {type, ...}; dispatch to strideLink handlers by type.
   listen('sl_event', function (msg) {
@@ -526,6 +610,20 @@
       try { if (window.sdBridgeError) window.sdBridgeError(m.message || 'StrideBridge is not responding'); } catch (e) {}
     } else if (t === 'bridge_error') {
       try { if (window.sdBridgeError) window.sdBridgeError(m.message || 'bridge error'); } catch (e) {}
+    } else if (t === 'lane_printed') {
+      // INJECT handed these knobs to Live, or a redraw / TAKE BACK returned them.
+      // The canvas records it so the flag rides the save.
+      try { if (window.sdBridgePrinted) window.sdBridgePrinted(m); } catch (e) {}
+    } else if (t === 'lane_missing') {
+      // The lane's device left the set (or came back). Marked, never deleted.
+      try { if (window.sdBridgeMissing) window.sdBridgeMissing(m); } catch (e) {}
+    } else if (t === 'macro_printed') {
+      // Same, for HOSTED lanes. Two receivers on purpose: the canvas records the flag
+      // for the save, and the ENGINE switches that lane to DAW drive so Ableton's
+      // automation on "Serum: WT Pos" actually reaches Serum instead of being
+      // overwritten by the curve every block.
+      try { emit('setLanesPrinted', { pos: m.pos || [], printed: !!m.printed }); } catch (e) {}
+      try { if (window.sdMacroPrinted) window.sdMacroPrinted(m); } catch (e) {}
     }
     var hs = _sb.handlers[t] || [];
     for (var i = 0; i < hs.length; i++) { try { hs[i](m); } catch (e) {} }
@@ -567,6 +665,47 @@
       _sbPush(liveLanes || []);
     }
   }
+  // Hosted lanes -> the bridge, for INJECT only. They are addressed by the DAW-facing
+  // macro NAME ("Serum: WT Pos"), never by a LOM path: a LOM path would point at
+  // Stride's own device slot, which moves the moment the chain is reordered, whereas
+  // the macro name is what Ableton actually shows and what StrideInject can match on
+  // the clip's track. `pos` rides along so the wrapper can flip that exact lane to DAW
+  // drive once Live confirms the write.
+  function _sbOnSaveMacros(hostedLanes) {
+    if (!_sb.open) { _sb.lastMacros = hostedLanes || []; return; }
+    if (_sb.macroTimer) clearTimeout(_sb.macroTimer);
+    _sb.lastMacros = hostedLanes || [];
+    _sb.macroTimer = setTimeout(function () {
+      if (!_sb.open) return;
+      var bars = (window.sdGetBars ? window.sdGetBars() : 4) || 4;
+      var lanes = (_sb.lastMacros || []).map(function (l) {
+        var pos = parseInt(String(l._path || '').split(':')[1], 10);
+        var pts = (l.rangeOn && (l.points || []).length)
+          ? l.points.map(function (pt) { return { time: pt.time, value: Math.max(0, Math.min(1, l.rangeMin + pt.value * (l.rangeMax - l.rangeMin))), curve: pt.curve || 0 }; })
+          : (l.points || []);
+        return { pos: isNaN(pos) ? -1 : pos,
+                 macro: (l.device ? l.device + ': ' : '') + (l.name || ''),
+                 points: pts, speed: (typeof l.speed === 'number' && l.speed > 0 ? l.speed : 1),
+                 min: 0, max: 1, is_log: 0, printed: !!l.hostPrinted };
+      }).filter(function (x) { return x.pos >= 0 && x.macro && x.points.length; });
+      var sig = JSON.stringify([bars, lanes]);
+      if (sig === _sb.lastMacroSig) return;
+      _sb.lastMacroSig = sig;
+      // Ableton does not expose a VST3's parameters to the LOM until the plugin has
+      // announced them (the "Configure, then wiggle the knob" dance). announceMacros
+      // fires that gesture for us, so INJECT can resolve the macro by name without the
+      // user ever visiting Configure. ONCE per session: the nudge is a real parameter
+      // gesture and repeating it on every edit would litter the DAW's undo history.
+      if (lanes.length && !_sb.announced) { _sb.announced = true; try { emit('announceMacros'); } catch (e) {} }
+      // drive_mode rides along purely so last_inject.json can show it: a GLOBAL 'DAW
+      // driving' mode makes every hosted lane read its macro, which no per-lane take
+      // back can override, and from the outside that looks exactly like a stuck lane.
+      window.strideBridge.send({ type: 'set_macro_lanes', bars: bars, lanes: lanes,
+                                 drive_mode: _sb.driveMode | 0, host_driven: _sb.hostDriven | 0,
+                                 drive_lanes: _sb.driveLanes | 0 });
+    }, 120);
+  }
+
   function _sbPush(liveLanes) {
     _sb.lastLanes = liveLanes;
     if (_sb.pushTimer) clearTimeout(_sb.pushTimer);
@@ -579,6 +718,9 @@
           : (l.points || []);
         return { path: l.livePath, points: pts, speed: (typeof l.speed === 'number' && l.speed > 0 ? l.speed : 1),
                  min: l.liveMin, max: l.liveMax, is_log: l.liveLog ? 1 : 0, is_quantized: l.liveQuant ? 1 : 0,
+                 // Handed to Live by an earlier inject. Rides every push so a reopened
+                 // set does not re-bind the knob and override the printed automation.
+                 printed: !!l.livePrinted,
                  name: l.liveName || '', device: (l.liveDevice || '').replace(/^\u26a1 /, '') };
       }).filter(function (x) { return !!x.path; });
       var sig = JSON.stringify([bars, lanes]);
@@ -1301,7 +1443,9 @@
       listen('sl_event', function (msg) {
         // rack_scanned (full) AND unmapped_at (one-lane splice) both carry the macro counts.
         if (! msg || (msg.type !== 'rack_scanned' && msg.type !== 'unmapped_at')) return;
-        if (typeof msg.drive_mode     !== 'undefined') _driveMode     = msg.drive_mode | 0;
+        if (typeof msg.drive_mode     !== 'undefined') { _driveMode = msg.drive_mode | 0; _sb.driveMode = _driveMode; }
+        if (typeof msg.host_driven    !== 'undefined') _sb.hostDriven = msg.host_driven | 0;   // the ENGINE's own count, not ours
+        if (typeof msg.drive_lanes    !== 'undefined') _sb.driveLanes = msg.drive_lanes | 0;   // curves the ENGINE holds
         if (typeof msg.exposed_macros !== 'undefined') _exposedMacros = msg.exposed_macros | 0;
         if (typeof msg.macro_pool     !== 'undefined') _macroPool     = msg.macro_pool | 0;
         if (typeof msg.follow_mode    !== 'undefined') _followMode    = !! msg.follow_mode;
@@ -1352,7 +1496,11 @@
           };
           chip.appendChild(s);
           var op = document.createElement('button'); op.textContent = '⛶'; op.title = 'Open this device’s window'; op.className = 'text-zinc-500 hover:text-fuchsia-400 text-[11px] font-bold';
-          op.onclick = function () { emit('openSynthOne', { i: i }); };
+          op.onclick = function () {
+            // the built-in Tendril lives on the wall - route there instead of a floating window
+            if (d && d.builtin && d.builtin[i]) { var tb = document.getElementById('sd-tab-tendril'); if (tb) { tb.click(); return; } }
+            emit('openSynthOne', { i: i });
+          };
           chip.appendChild(op);
           var x = document.createElement('button'); x.textContent = '✕'; x.title = 'Remove this device from Stride'; x.className = 'text-zinc-500 hover:text-orange-400 text-[10px] font-bold';
           x.onclick = function () { emit('removeDevice', { i: i }); _armUndo(nm); };

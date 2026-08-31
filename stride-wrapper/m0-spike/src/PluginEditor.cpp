@@ -1,4 +1,7 @@
 #include "PluginEditor.h"
+#ifdef STRIDE_BUNDLE
+ #include "TendrilBridge.h"   // the wall: Tendril's UI lives in THIS page; this is its C++ half
+#endif
 #include "ReptileOverlay.h"
 #include "BinaryData.h"
 #include "License.h"
@@ -262,6 +265,11 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
         .withEventListener ("wrapperReady", [this] (juce::var)     { pushHostInfo(); pushPrefs(); web->emitEventIfBrowserIsVisible ("sl_event", []{ auto* o = new juce::DynamicObject(); o->setProperty ("type", "connected"); return juce::var (o); }()); pushRackScanned(); pushLearnState(); pushKeysState(); pushPinState(); pushChainDevices(); pushBridgeLanes(); if (proc.bridgeIsUp()) { auto* bo = new juce::DynamicObject(); bo->setProperty ("on", true); web->emitEventIfBrowserIsVisible ("bridgeState", juce::var (bo)); } })
         .withEventListener ("prefsSave",    [this] (juce::var v)   { savePrefs (v.getProperty ("prefs", juce::var())); })
         .withEventListener ("saveChain",    [this] (juce::var)     { saveChainToFile(); })
+        .withEventListener ("bundleTab",    [this] (juce::var v)   { onBundleTabEvent (v); })
+        .withEventListener ("uiReady",      [this] (juce::var)     { ensureTendrilWall(); })
+        .withEventListener ("paramChanged", [this] (juce::var v)   { tendrilWallParam (v); })
+        .withEventListener ("note",         [this] (juce::var v)   { tendrilWallNote (v); })
+        .withEventListener ("bend",         [this] (juce::var v)   { tendrilWallBend (v); })
         .withEventListener ("loadChain",    [this] (juce::var)     { loadChainFromFile(); })
         .withEventListener ("sl_send",      [this] (juce::var v)   { handleStrideLinkSend (v); })
         .withEventListener ("loadSynth",    [this] (juce::var)     { if (proc.isEditLocked()) return; chooseAndLoad(); })
@@ -354,7 +362,7 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
             strideMacKeyForward_setTextFocus ((bool) v.getProperty ("on", false));
            #endif
         })
-        .withEventListener ("clearChain",   [this] (juce::var)     { if (proc.isEditLocked()) return; synthWindows.clear(); proc.clearChain(); pushRackScanned(); pushChainDevices(); })
+        .withEventListener ("clearChain",   [this] (juce::var)     { if (proc.isEditLocked()) return; tendrilPreRemoval(); synthWindows.clear(); proc.clearChain(); pushRackScanned(); pushChainDevices(); })
         // Close ONLY the removed device's window; keep the rest as-is (was: clear all ->
         // the timer reopened them all). The window has to go BEFORE the instance is
         // destroyed, so if the removal is then REFUSED (a busy audio thread) we say so
@@ -364,6 +372,7 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
             if (proc.isEditLocked()) return;
             const int i = (int) v.getProperty ("i", -1);
             if (i < 0) return;
+            tendrilPreRemoval();
             if (i < (int) synthWindows.size()) synthWindows.erase (synthWindows.begin() + i);
             const bool removed = proc.removeNode (i);
             pushRackScanned();
@@ -410,6 +419,48 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
         .withEventListener ("toggleUnlearn",[this] (juce::var)     { if (proc.isEditLocked()) return; proc.setUnlearnMode (! proc.isUnlearning()); pushLearnState(); })
         .withEventListener ("setDriveMode", [this] (juce::var v)   { if (proc.isEditLocked()) return; proc.setDriveMode ((int) v.getProperty ("mode", 0) == 1 ? StrideWrapperProcessor::DriveMode::Automation : StrideWrapperProcessor::DriveMode::Live); pushRackScanned(); })
         .withEventListener ("announceMacros", [this] (juce::var)    { if (proc.isEditLocked()) return; proc.announceMacrosToHost(); })
+        // PRINTED lanes: an inject handed these hosted knobs to the DAW, or TAKE BACK
+        // returned them. { pos: [i, ...], printed: bool } where i indexes `mapped`, the
+        // same lane id every other canvas message uses. An empty list with printed:false
+        // means "return every lane", which is what the device's TAKE BACK sends.
+        .withEventListener ("setLanesPrinted", [this] (juce::var v) {
+            if (proc.isEditLocked()) return;
+            const bool on = (bool) v.getProperty ("printed", false);
+            auto* arr = v.getProperty ("pos", juce::var()).getArray();
+
+            // Taking a lane back means "Stride drives this knob again", and the per-lane
+            // flag alone cannot deliver that: the GLOBAL DriveMode::Automation branch
+            // makes EVERY hosted lane read its macro, so a lane un-printed underneath it
+            // still follows the DAW. That is the "Serum param has a life of its own"
+            // report (2026-08-31): take back and redraw both looked like no-ops, and only
+            // Send to DAW appeared to help, because its host-notified nudge overrides
+            // Ableton's automation. So un-printing anything also returns the global mode
+            // to Live, which is exactly what the gesture means.
+            if (! on) proc.setDriveMode (StrideWrapperProcessor::DriveMode::Live);
+
+            // NO pushRackScanned() here. It rebuilds every canvas lane from the engine's
+            // payload, and a HOSTED lane's points are replaced from the engine's stored
+            // curve on that rebuild (live lanes are preserved instead, which is why the
+            // Ableton half never showed this). The rebuilt points re-serialise a hair
+            // differently, the next push looks like the user redrew, and the bridge
+            // dutifully takes the lane back - so printing a hosted lane silently
+            // un-printed itself and Stride kept driving the knob. Field report
+            // 2026-08-31: "the param in Ableton isn't moving, but the hosted Serum is
+            // still being modulated". Nothing in the payload changes here anyway.
+            if (! on && (arr == nullptr || arr->isEmpty())) proc.clearAllHostDriven();
+            else if (arr != nullptr)
+                for (const auto& it : *arr)
+                    proc.setLaneHostDrivenAt ((int) it, on);
+
+            // A LIGHT ack, not pushRackScanned(): the shim needs the new counts for the
+            // field diagnostics, and a full rebuild is exactly what used to un-print the
+            // lane. Carries no lane data, so it can never disturb a curve.
+            auto* ack = new juce::DynamicObject();
+            ack->setProperty ("type", "lanes_printed_ack");
+            ack->setProperty ("host_driven", proc.hostDrivenCount());
+            ack->setProperty ("drive_lanes", proc.driveLaneCount());
+            web->emitEventIfBrowserIsVisible ("sl_event", juce::var (ack));
+        })
         .withEventListener ("setPin",       [this] (juce::var v)   { applyPinMode (v.getProperty ("mode", "").toString()); })
         .withEventListener ("toggleFullscreen", [this] (juce::var)  {
             pinMode.clear(); pushPinState();                   // fullscreen replaces any pin
@@ -694,6 +745,7 @@ void StrideWrapperEditor::paint (juce::Graphics& g) { g.fillAll (juce::Colour (0
 void StrideWrapperEditor::resized()
 {
     if (web) web->setBounds (getLocalBounds());
+   // (the wall lives in the page - nothing native to lay out for it)
 
     // Keep the pre-strip height in step with the USER's resizes. It used to be captured once,
     // when the character's strip opened, and then never move - so every later resize snapped
@@ -826,8 +878,11 @@ void StrideWrapperEditor::openMissingSynthWindows (int firstIndex)
 {
     const int n = proc.numHosted();
     const auto names = proc.getChainNames();
+    const auto paths = proc.getChainPaths();
     while ((int) synthWindows.size() < n) synthWindows.push_back (nullptr);   // grow, aligned to the chain
     for (int i = juce::jmax (0, firstIndex); i < n; ++i)
+    {
+        if (i < paths.size() && paths[i].startsWith ("builtin:")) continue;   // built-ins live on the WALL, never a floating window
         if (synthWindows[(size_t) i] == nullptr)
             if (auto* ed = proc.getHostedEditor (i))
             {
@@ -838,6 +893,7 @@ void StrideWrapperEditor::openMissingSynthWindows (int firstIndex)
                 if (auto* pr = synthWindows[(size_t) i]->getPeer()) strideMacKeyForward_tagWindow (pr->getNativeHandle());
                #endif
             }
+    }
 }
 
 void StrideWrapperEditor::toggleSynthWindow()
@@ -855,6 +911,10 @@ void StrideWrapperEditor::openOneSynthWindow (int i)
 {
     const int n = proc.numHosted();
     if (i < 0 || i >= n) return;
+    {
+        const auto paths = proc.getChainPaths();
+        if (i < paths.size() && paths[i].startsWith ("builtin:")) return;   // built-ins live on the WALL (the chip routes there)
+    }
     while ((int) synthWindows.size() < n) synthWindows.push_back (nullptr);   // pad; leave the others as-is
     if (synthWindows[(size_t) i] == nullptr)
         if (auto* ed = proc.getHostedEditor (i))
@@ -1201,6 +1261,8 @@ void StrideWrapperEditor::pushRackScanned()
     // Host automation: current global mode + how many params are exposed to the DAW.
     msg->setProperty ("drive_mode", (int) proc.getDriveMode());           // 0=Live (Stride drives), 1=Automation (DAW drives)
     msg->setProperty ("exposed_macros", proc.exposedMacroCount());        // N of kMacroCount exposed
+    msg->setProperty ("host_driven", proc.hostDrivenCount());   // lanes the ENGINE believes the DAW drives
+    msg->setProperty ("drive_lanes", proc.driveLaneCount());    // curves the ENGINE actually holds
     msg->setProperty ("macro_pool", StrideWrapperProcessor::kMacroCount);
     msg->setProperty ("tempo_mode", proc.getTempoMode());                 // 0=Project / 1=Manual / 2=Free (bar UI rebuilds from here)
     msg->setProperty ("manual_bpm", (double) proc.getManualBpm());
@@ -1220,6 +1282,7 @@ void StrideWrapperEditor::pushUnmappedAt (int pos)
     o->setProperty ("position", pos);
     o->setProperty ("drive_mode", (int) proc.getDriveMode());
     o->setProperty ("exposed_macros", proc.exposedMacroCount());
+    o->setProperty ("host_driven", proc.hostDrivenCount());   // lanes the ENGINE believes the DAW drives
     o->setProperty ("macro_pool", StrideWrapperProcessor::kMacroCount);
     web->emitEventIfBrowserIsVisible ("sl_event", juce::var (o));
 }
@@ -1228,11 +1291,99 @@ void StrideWrapperEditor::pushUnmappedAt (int pos)
 // letters are reserved. In Live they are (a note letter must never also trigger something
 // in Stride — the old L = pattern-library hotkey ate a note every time). In every other
 // host we provide no note behavior, so the letters are left completely alone.
+void StrideWrapperEditor::onBundleTabEvent (const juce::var& v)
+{
+    juce::ignoreUnused (v);   // the wall swaps views in the PAGE; C++ only runs the bridge
+}
+
+void StrideWrapperEditor::ensureTendrilWall()
+{
+   #ifdef STRIDE_BUNDLE
+    ensureTendrilBridge();
+   #endif
+}
+
+void StrideWrapperEditor::tendrilWallParam (const juce::var& v)
+{
+   #ifdef STRIDE_BUNDLE
+    if (tendrilBridge) tendrilBridge->handleParamChanged (v);
+   #else
+    juce::ignoreUnused (v);
+   #endif
+}
+
+void StrideWrapperEditor::tendrilWallNote (const juce::var& v)
+{
+   #ifdef STRIDE_BUNDLE
+    if (tendrilBridge) tendrilBridge->handleNote (v);
+   #else
+    juce::ignoreUnused (v);
+   #endif
+}
+
+void StrideWrapperEditor::tendrilWallBend (const juce::var& v)
+{
+   #ifdef STRIDE_BUNDLE
+    if (tendrilBridge) tendrilBridge->handleBend (v);
+   #else
+    juce::ignoreUnused (v);
+   #endif
+}
+
+void StrideWrapperEditor::tendrilPreRemoval()
+{
+   #ifdef STRIDE_BUNDLE
+    tendrilBridge.reset();
+    tendrilInstance = nullptr;
+   #endif
+}
+
+#ifdef STRIDE_BUNDLE
+// ── THE WALL: Tendril's UI lives inside the Stride page (one webview) ───────
+// The page shows crucible_webui.html in an iframe over the canvas area and relays
+// its events through the ONE juce bridge. C++'s whole job: keep a TendrilBridge
+// alive against the built-in device while the page wants one.
+static void strideWallProbe (const char* what)
+{
+    juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+        .getChildFile ("stride-canvas").getChildFile ("stride-data")
+        .getChildFile ("tendril-editor.log")
+        .appendText (juce::Time::getCurrentTime().formatted ("%H:%M:%S wall: ") + what + "\n");
+}
+
+void StrideWrapperEditor::ensureTendrilBridge()
+{
+    strideWallProbe ("uiReady heard");
+    auto* dev = proc.builtinTendril();
+    if (dev == nullptr) { proc.loadBuiltInTendril(); dev = proc.builtinTendril(); }
+    if (dev == nullptr) { strideWallProbe ("NO DEVICE"); return; }
+    auto* cru = dynamic_cast<CrucibleProcessor*> (dev);
+    if (cru == nullptr) { strideWallProbe ("CAST FAILED"); return; }
+    if (tendrilBridge == nullptr || ! tendrilBridge->isFor ((const void*) cru))
+    {
+        tendrilBridge = std::make_unique<stridebundle::TendrilBridge> (*cru, *web);
+        tendrilInstance = (const void*) dev;
+        strideWallProbe ("bridge created");
+    }
+    tendrilBridge->pushInit();
+    strideWallProbe ("init pushed");
+}
+
+void StrideWrapperEditor::refreshTendrilChild()
+{
+    if (tendrilBridge != nullptr && ! proc.ownsChainInstance (tendrilInstance))
+        { tendrilBridge.reset(); tendrilInstance = nullptr; }
+}
+#endif
+
 void StrideWrapperEditor::pushHostInfo()
 {
     if (web == nullptr) return;
     auto* o = new juce::DynamicObject();
     o->setProperty ("ableton", juce::PluginHostType().isAbletonLive());
+   #ifdef STRIDE_BUNDLE
+    o->setProperty ("bundle", true);   // the page reveals the Stride | Tendril tab strip
+   #endif
     // The COMPILED-IN version, shown in the title bar — testers/support read the running
     // build off the UI instead of guessing from zip names (version mismatches cost a full
     // debugging round twice: Matt on 1.0.4, the mac Audio-In confusion).
@@ -1396,9 +1547,12 @@ void StrideWrapperEditor::pushChainDevices()
     for (const auto& n : proc.getChainNames()) names.add (n);
     juce::Array<juce::var> byp;
     for (bool b : proc.getChainBypassed()) byp.add (b);
+    juce::Array<juce::var> bi;   // built-in flags: the device chip routes these to the Tendril tab
+    for (const auto& p : proc.getChainPaths()) bi.add (p.startsWith ("builtin:"));
     auto* o = new juce::DynamicObject();
     o->setProperty ("names", juce::var (names));
     o->setProperty ("bypassed", juce::var (byp));
+    o->setProperty ("builtin", juce::var (bi));
     web->emitEventIfBrowserIsVisible ("chainDevices", juce::var (o));
 }
 
@@ -1506,6 +1660,9 @@ void StrideWrapperEditor::scanPluginsToWeb()
 
 void StrideWrapperEditor::timerCallback()
 {
+   #ifdef STRIDE_BUNDLE
+    refreshTendrilChild();   // if the Tendril node was removed by ANY path, the child dies here
+   #endif
     // HANG GUARD, take two. Everything from here to the chain-summary read below is
     // ATOMICS-ONLY (keyswitch drain, playhead push, DPI nudge, license re-derive, dirty
     // notify, mac key upkeep; the macro mirror try-locks internally) and runs EVERY tick

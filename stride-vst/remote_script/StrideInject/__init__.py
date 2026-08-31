@@ -163,7 +163,7 @@ class StrideInject(ControlSurface):
 
     # ─── result reporting ─────────────────────────────────────────────────
 
-    def _ok(self, params_written, points_written, notes_written=0):
+    def _ok(self, params_written, points_written, notes_written=0, written_paths=None):
         self._result({
             "success": True,
             "message": "OK",
@@ -171,6 +171,10 @@ class StrideInject(ControlSurface):
             "params_written": params_written,
             "points_written": points_written,
             "notes_written": notes_written,
+            # Which params actually got an envelope. A count alone cannot tell the
+            # caller WHICH lanes to hand over to Live: a param on another track is
+            # skipped by design, and that lane must keep modulating.
+            "written_paths": written_paths or [],
         })
 
     def _fail(self, message, params_written=0):
@@ -271,6 +275,52 @@ class StrideInject(ControlSurface):
         if hasattr(obj, "min") and hasattr(obj, "max") and hasattr(obj, "value"):
             return obj
         self.log_message("StrideInject: resolved object is not a DeviceParameter")
+        return None
+
+    def _resolve_macro(self, clip, macro_name):
+        """Resolve one of Stride's OWN DAW-facing macro parameters by NAME.
+
+        A hosted lane (Serum's WT Pos, say) has no LOM path of its own: the knob lives
+        inside Stride, invisible to Live. What Live DOES see is the macro Stride
+        publishes for it, named "<device>: <param>". So we search the CLIP'S OWN TRACK
+        for a parameter with that exact name.
+
+        The track is both the only place a clip envelope can reach and the smallest
+        correct search space, which also settles the two-Strides-in-one-set case for
+        free: each clip resolves against the Stride on its own track.
+        """
+        if not macro_name:
+            return None
+        track = self._resolve_clip_track(clip)
+        if track is None:
+            return None
+        try:
+            devices = list(track.devices)
+        except Exception:
+            return None
+        # Racks nest, so walk chains too.
+        stack = list(devices)
+        seen = 0
+        while stack and seen < 256:
+            dev = stack.pop(0)
+            seen += 1
+            try:
+                for p in dev.parameters:
+                    try:
+                        if str(p.name) == macro_name:
+                            return p
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+            for attr in ("chains", "return_chains"):
+                try:
+                    for ch in getattr(dev, attr, []):
+                        stack.extend(list(ch.devices))
+                except Exception:
+                    pass
+        self.log_message("StrideInject: no macro named '%s' on the clip's track. Press "
+                         "'Send to DAW' in Stride so Ableton exposes it." % macro_name)
         return None
 
     def _write_json(self, path, obj):
@@ -528,7 +578,16 @@ class StrideInject(ControlSurface):
                 vel = int(n.get("velocity", 100))
             except Exception:
                 continue
+            # A note at the very start of a warped or non-integer-length clip can read
+            # back a hair below zero (field 2026-08-31: a clip at start_time 63.99,
+            # length 16.01, losing its first-bar note on some injects but not others).
+            # Dropping it deletes real MIDI, so nudge it onto the grid instead and only
+            # reject something genuinely out of range.
+            if -0.02 < start < 0.0:
+                start = 0.0
             if pitch < 0 or pitch > 127 or start < 0 or dur <= 0:
+                self.log_message("StrideInject: dropped an out-of-range note "
+                                 "(pitch %s start %s dur %s)" % (pitch, start, dur))
                 continue
             vel = 1 if vel < 1 else (127 if vel > 127 else vel)
             tuples.append((pitch, start, dur, vel, False))
@@ -607,12 +666,15 @@ class StrideInject(ControlSurface):
         queue = []           # (env, time, dur, native_value) for chunked step writes
         params_written = 0
         points_written = 0
+        written_paths = []
         for pd in data.get("params", []):
             points = pd.get("points", [])
             if not points:
                 continue
 
-            param = self._resolve_param(pd.get("_path"))
+            param = self._resolve_param(pd.get("_path")) if pd.get("_path") else None
+            if param is None and pd.get("macro_name"):
+                param = self._resolve_macro(clip, pd.get("macro_name"))
             if param is None:
                 self.log_message("StrideInject: could not resolve param '%s' — skipping" % pd.get("name"))
                 continue
@@ -658,6 +720,7 @@ class StrideInject(ControlSurface):
                     if n > 0:
                         params_written += 1
                         points_written += n
+                        written_paths.append(pd.get("_path") or ("macro:" + str(pd.get("macro_name"))))
                     self.log_message("StrideInject: %s -> %d events (bezier)" % (pd.get("name"), n))
                 else:
                     tuples = self._adaptive_step_tuples(points, target_length, pmin, pmax, use_log)
@@ -666,6 +729,7 @@ class StrideInject(ControlSurface):
                             queue.append((env, t, dur, val))
                         params_written += 1
                         points_written += len(tuples)
+                        written_paths.append(pd.get("_path") or ("macro:" + str(pd.get("macro_name"))))
                     self.log_message("StrideInject: %s -> %d steps queued" % (pd.get("name"), len(tuples)))
             except Exception as e:
                 self.log_message("StrideInject: prepare failed for '%s': %s" % (pd.get("name"), str(e)))
@@ -692,7 +756,7 @@ class StrideInject(ControlSurface):
 
         if not queue:
             # No queued step-writes (all-bezier, or notes-only) — done.
-            self._ok(params_written, points_written, notes_written)
+            self._ok(params_written, points_written, notes_written, written_paths)
             return
 
         # Step mode: every param resolved and its envelope exists, so the inject
@@ -701,7 +765,7 @@ class StrideInject(ControlSurface):
         # timeout, then stream the writes in CHUNK_SIZE batches across the
         # scheduler (responsive, never blocks Ableton). The automation fills into
         # the clip as the queue drains.
-        self._ok(params_written, points_written, notes_written)
+        self._ok(params_written, points_written, notes_written, written_paths)
         self._busy = True
         self._write_queue = queue
         self._write_idx = 0
@@ -777,8 +841,13 @@ class StrideInject(ControlSurface):
         Arrangement clips (the note API is not blind like the envelope API).
         Prefers get_notes_extended (Live 11+), falls back to get_notes."""
         out = []
+        # Read from BEFORE zero. A clip that does not start on a beat boundary (field
+        # 2026-08-31: start_time 63.99, length 16.012) can hold its first note at a
+        # marginally NEGATIVE content time, and a read starting at exactly 0.0 never
+        # sees it. That loss is invisible from the counts: 1 read, 1 written, and the
+        # bar-1 note simply gone. The caller nudges small negatives back onto 0.
         try:
-            vec = clip.get_notes_extended(0, 128, _d(0.0), _d(length))
+            vec = clip.get_notes_extended(0, 128, _d(-0.25), _d(float(length) + 0.50))
             for n in vec:
                 out.append({"pitch": int(n.pitch), "time": float(n.start_time),
                             "duration": float(n.duration), "velocity": int(n.velocity)})
@@ -786,7 +855,7 @@ class StrideInject(ControlSurface):
         except Exception:
             pass
         try:
-            for row in clip.get_notes(_d(0.0), 0, _d(length), 128):
+            for row in clip.get_notes(_d(-0.25), 0, _d(float(length) + 0.50), 128):
                 out.append({"pitch": int(row[0]), "time": float(row[1]),
                             "duration": float(row[2]), "velocity": int(row[3])})
         except Exception as e:
@@ -807,7 +876,16 @@ class StrideInject(ControlSurface):
                 vel = int(n.get("velocity", 100))
             except Exception:
                 continue
+            # A note at the very start of a warped or non-integer-length clip can read
+            # back a hair below zero (field 2026-08-31: a clip at start_time 63.99,
+            # length 16.01, losing its first-bar note on some injects but not others).
+            # Dropping it deletes real MIDI, so nudge it onto the grid instead and only
+            # reject something genuinely out of range.
+            if -0.02 < start < 0.0:
+                start = 0.0
             if pitch < 0 or pitch > 127 or start < 0 or dur <= 0:
+                self.log_message("StrideInject: dropped an out-of-range note "
+                                 "(pitch %s start %s dur %s)" % (pitch, start, dur))
                 continue
             vel = 1 if vel < 1 else (127 if vel > 127 else vel)
             valid.append((pitch, start, dur, vel))
@@ -839,17 +917,20 @@ class StrideInject(ControlSurface):
     def _apply_curves_sync(self, clip, params, target_length):
         """Write each param's curve into `clip`'s envelope SYNCHRONOUSLY (no
         chunk streaming) — the writes must be complete before the clip is
-        duplicated to the timeline. Returns (params_written, points_written).
+        duplicated to the timeline. Returns (params_written, points_written, written_paths).
         Reuses the same param resolution + bezier/step math as the Session
         path; only the (synchronous) emit differs."""
         use_bezier = (self._EnvelopeEvent is not None)
         params_written = 0
         points_written = 0
+        written_paths = []
         for pd in params:
             points = pd.get("points", [])
             if not points:
                 continue
-            param = self._resolve_param(pd.get("_path"))
+            param = self._resolve_param(pd.get("_path")) if pd.get("_path") else None
+            if param is None and pd.get("macro_name"):
+                param = self._resolve_macro(clip, pd.get("macro_name"))
             if param is None:
                 self.log_message("StrideInject: arr could not resolve '%s'" % pd.get("name"))
                 continue
@@ -877,6 +958,7 @@ class StrideInject(ControlSurface):
                     if n > 0:
                         params_written += 1
                         points_written += n
+                        written_paths.append(pd.get("_path") or ("macro:" + str(pd.get("macro_name"))))
                 else:
                     tuples = self._adaptive_step_tuples(points, target_length, pmin, pmax, use_log)
                     for (t, dur, val) in tuples:
@@ -887,18 +969,26 @@ class StrideInject(ControlSurface):
                     if tuples:
                         params_written += 1
                         points_written += len(tuples)
+                        written_paths.append(pd.get("_path") or ("macro:" + str(pd.get("macro_name"))))
             except Exception as e:
                 self.log_message("StrideInject: arr curve write failed for '%s': %s" % (pd.get("name"), str(e)))
-        return params_written, points_written
+        return params_written, points_written, written_paths
 
     def _write_inject_arrangement(self, data, original_clip, clip_bars):
-        """Replace-in-place for an Arrangement clip. The result clip's length is
-        the REQUESTED bar count (clip_bars), placed at the original's start,
-        carrying the original's notes (or the armed pattern's) + the curves."""
+        """Replace-in-place for an Arrangement clip: rebuild it with the curves and
+        put it back at the original's start, carrying the original's notes (or the
+        armed pattern's).
+
+        NON-DESTRUCTIVE LENGTH (2026-08-31). This used to build the replacement at
+        exactly the requested bar count, which SHORTENED a longer clip and silently
+        discarded every note past that point. Injecting a 4-bar curve onto an 8-bar
+        part destroyed half the MIDI. The clip is now never shorter than it was: the
+        curves still map across the drawn window, and the rest of the part survives
+        untouched."""
         if self._busy:
             self._fail("Busy writing a previous inject — try again in a moment")
             return
-        L_new = float(clip_bars * 4)
+        L_new = float(clip_bars * 4)     # the drawn window: what the curves map across
 
         # 1) Capture the original BEFORE any mutation.
         try:
@@ -910,6 +1000,9 @@ class StrideInject(ControlSurface):
             orig_len = float(original_clip.length)
         except Exception:
             orig_len = L_new
+        # Never shrink: the replacement is at least as long as what it replaces, so no
+        # note can fall off the end. Growing is still allowed (a longer drawn window).
+        L_clip = max(L_new, orig_len)
         cap = {}
         for attr in ("name", "color", "looping"):
             try:
@@ -927,8 +1020,14 @@ class StrideInject(ControlSurface):
         #    Drop notes that start past the new (requested) length.
         notes = data.get("notes") or []
         if not notes:
-            notes = self._read_clip_notes(original_clip, orig_len)
-        notes = [n for n in notes if float(n.get("time", 0)) < L_new - 1e-6]
+            notes = self._read_clip_notes(original_clip, L_clip)
+            self.log_message("StrideInject: arr read %d note(s) from the original clip "
+                             "(len %.3f) at %s" % (len(notes), L_clip,
+                             ", ".join("%.4f" % float(n.get("time", 0)) for n in notes[:12])))
+        # Keep every note the clip actually holds. The old filter cut at the REQUESTED
+        # length and was the note-loss bug; L_clip cannot be shorter than the original,
+        # so this only ever drops notes that were already past the clip's own end.
+        notes = [n for n in notes if float(n.get("time", 0)) < L_clip - 1e-6]
 
         # 4) Need a free Session slot to build the temp clip in.
         slot = self._find_empty_slot(track)
@@ -950,7 +1049,7 @@ class StrideInject(ControlSurface):
         notes_written = 0
         try:
             # 6) Build the temp Session clip at the REQUESTED length.
-            slot.create_clip(_d(L_new))
+            slot.create_clip(_d(L_clip))
             temp = slot.clip
             try:
                 temp.looping = True
@@ -965,7 +1064,7 @@ class StrideInject(ControlSurface):
             # 7) Notes (modern API) + 8) curves (synchronous, before the copy).
             if notes:
                 notes_written = self._write_notes_to_fresh_clip(temp, notes)
-            params_written, points_written = self._apply_curves_sync(temp, data.get("params", []), L_new)
+            params_written, points_written, written_paths = self._apply_curves_sync(temp, data.get("params", []), L_new)
 
             if params_written == 0 and notes_written == 0:
                 try:
@@ -1013,9 +1112,10 @@ class StrideInject(ControlSurface):
                 pass
 
         self._mode = "arrangement"
-        self.log_message("StrideInject: arrangement inject OK — %d bars, %d params, %d notes at beat %.2f" % (
-            clip_bars, params_written, notes_written, T))
-        self._ok(params_written, points_written, notes_written)
+        self.log_message("StrideInject: arrangement inject OK — %d bars drawn, clip %.2f beats "
+                         "(was %.2f), %d params, %d notes at beat %.2f" % (
+            clip_bars, L_clip, orig_len, params_written, notes_written, T))
+        self._ok(params_written, points_written, notes_written, written_paths)
 
     def disconnect(self):
         self.log_message("StrideInject: disconnected")

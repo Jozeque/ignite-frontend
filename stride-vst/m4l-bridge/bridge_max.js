@@ -341,6 +341,39 @@ function map_cancel() { _armed = false; }
 
 // Liveness answer + a cheap watchdog on the observers: if the selection observer went
 // missing, rebuild it so the lane-finder (and the next arm) heal without a device reload.
+// reenable - after an inject hands knobs back to Live, the parameters Stride was
+// driving are still flagged OVERRIDDEN, so the freshly written clip automation sits
+// there doing nothing until someone presses Live's "Re-Enable Automation". That was
+// the manual step in the first field run. One LOM call removes it.
+// transportnow - report is_playing UNCONDITIONALLY.
+//
+// _onPlayChange is change-driven and latched by _lastPlay, so it stays silent when
+// the state has not moved. The server's own `state.playing` therefore starts at true
+// and can sit stale for a whole session: a device dragged in while the transport is
+// stopped never hears an edge. A stale "playing" makes bindVoice bind live.remote~ at
+// once, which LOCKS the knob and re-writes it every block, so a hand tweak snaps back
+// and Ctrl+Z cannot restore it. Asked for before any (re)bind, this removes the guess.
+function transportnow() {
+    try {
+        var ls = new LiveAPI("live_set");
+        var on = parseInt(ls.get("is_playing"), 10) ? 1 : 0;
+        _lastPlay = on;
+        outlet(0, "transport", on);
+    } catch (e) {
+        post("StrideBridge: transportnow failed: " + e.message + "\n");
+    }
+}
+
+function reenable() {
+    try {
+        var song = new LiveAPI("live_set");
+        song.call("re_enable_automation");
+        post("StrideBridge: re-enabled automation\n");
+    } catch (e) {
+        post("StrideBridge: re_enable_automation failed: " + e.message + "\n");
+    }
+}
+
 function ping() {
     var lost = false;
     try { lost = !_obs || String(_obs.path || "").indexOf("live_set view") < 0; } catch (e) { lost = true; }
@@ -451,6 +484,12 @@ function repath() {
             if (o && parseInt(o.id, 10) === id && String(o.type) === "DeviceParameter") {
                 it.ok = 1;
                 it.path = _upath(o);
+                // Report WHO this id is now. A stale id can still resolve after its
+                // device is deleted (something in the patcher is still referencing the
+                // object), so "it resolved" is not proof the knob is still in the set.
+                // The server compares these against what the lane expects.
+                try { it.name = String(o.get("name")); } catch (e) {}
+                try { it.dev = _deviceNameOf(it.path); } catch (e) {}
             }
         } catch (e) {}
         items.push(it);

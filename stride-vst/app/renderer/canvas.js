@@ -2931,12 +2931,27 @@
                 loopBeats: (typeof p.loopBeats === 'number' ? p.loopBeats : 0),     // per-lane loop boundary (wrapper; 0 = off)
                 speed: (typeof p.speed === 'number' ? p.speed : 1),                 // per-lane rate multiplier (wrapper; 1 = normal)
                 points: p.points.map(pt => ({ time: pt.time, value: pt.value, curve: pt.curve || 0 })),
+                // HOSTED lane identity. The engine keys these by _path and needs nothing
+                // else, but the wrapper's INJECT does: a hosted knob has no LOM path of
+                // its own, so it is addressed by the DAW-facing macro name Stride
+                // publishes for it, "<device>: <param>". Without these two fields that
+                // name comes out empty and every hosted lane is silently dropped from
+                // the inject (field report 2026-08-31). Harmless on the desktop app,
+                // which ignores unknown keys.
+                ...(p._live ? {} : { name: p.name || '', device: p.device || '',
+                                     hostPrinted: !!p.hostPrinted }),
                 // StrideBridge live-lane identity: what the shim needs to push the curve
                 // to the bridge AND what sdBridgeAdoptLanes needs to rebuild the lane on
                 // project reload (the whole object rides the engine's v10 "bl" blob).
                 ...(p._live ? { _live: true, livePath: p.livePath || null, liveQuant: !!p.liveQuant,
                                 liveName: p.name || '', liveDevice: p.device || '',
-                                liveMin: p.liveMin, liveMax: p.liveMax, liveLog: !!p.liveLog } : {})
+                                liveMin: p.liveMin, liveMax: p.liveMax, liveLog: !!p.liveLog,
+                                // PRINTED: this lane's curve was injected into a Live clip, so
+                                // Stride handed the knob over and stopped driving it. It MUST
+                                // persist: without it, reopening the set re-binds the knob and
+                                // silently overrides the automation that was printed, with a
+                                // lane that looks correct and does nothing.
+                                livePrinted: !!p.livePrinted } : {})
             }));
         await window.stride.saveCanvasState(key, state);
     }
@@ -3352,6 +3367,21 @@
             _sdBridgeStatus('Already mapped: ' + (info.name || info.path));
             return;
         }
+        // SELF-MAP GUARD. Every hosted lane is also published to the DAW as one of
+        // Stride's own macro parameters, named "<device>: <param>" ("Serum: WT Pos").
+        // Clicking that macro in Live would make a SECOND lane for one destination:
+        //   lane 1  Stride -> Serum WT Pos
+        //   lane 2  Stride -> Stride's macro -> Serum WT Pos
+        // Two writers on one knob, with Stride modulating itself through Ableton. They
+        // are not the same lane seen twice and must not be linked: the hosted lane
+        // already IS that parameter, so the proxy is refused (field report 2026-08-31).
+        const self = sdCanvasParams.find(x => !x._live && x.name
+            && ((x.device ? x.device + ': ' + x.name : x.name) === (info.name || '')));
+        if (self) {
+            _sdBridgeStatus('That is Stride\'s own knob for ' + (info.name || 'this parameter')
+                + '. It already has a lane here, press Inject to print it into the clip.');
+            return;
+        }
         const lane = _sdBridgeMakeLane(info);
         sdCanvasParams.push(lane);
         try { _sdFreezeAutoColorSlots(); } catch (e) {}
@@ -3407,6 +3437,72 @@
     };
 
     window.sdBridgeError = function(message) { _sdBridgeStatus('Bridge: ' + (message || 'error')); };
+
+    // MISSING: this lane's Ableton device is no longer in the set. The lane and its
+    // curve are KEPT: undoing the delete in Ableton, or dragging the device back,
+    // rebinds it with the motion intact. Deleting the lane would take the drawing with
+    // it, and the probe that reports this is known to flake, so the row is greyed out
+    // instead and the user decides when to remove it.
+    window.sdBridgeMissing = function(m) {
+        if (!m || !m.path) return;
+        const lane = sdCanvasParams.find(x => x._live && x.livePath === m.path);
+        if (!lane || !!lane._missing === !!m.missing) return;
+        lane._missing = !!m.missing;
+        _sdBridgeStatus(m.missing
+            ? '"' + (lane.name || 'A lane') + '" is not in the set any more: its curve is kept, put the device back to reconnect it'
+            : '"' + (lane.name || 'A lane') + '" reconnected');
+        try { sdRenderSidebar(); } catch (e) {}
+        try { sdDrawCanvasGrid(); } catch (e) {}
+    };
+
+    // PRINTED: the bridge injected these lanes into a Live clip and handed their knobs
+    // to Live (printed=true), or took them back (printed=false, after a redraw or the
+    // device's TAKE BACK button). The bridge owns the decision; the canvas only records
+    // it, because the flag has to survive a save. Marked lanes keep their curve and
+    // their identity, they just stop driving.
+    window.sdBridgePrinted = function(m) {
+        if (!m || !Array.isArray(m.paths) || !m.paths.length) return;
+        const want = !!m.printed;
+        let changed = 0;
+        m.paths.forEach(path => {
+            const lane = sdCanvasParams.find(x => x._live && x.livePath === path);
+            if (!lane || !!lane.livePrinted === want) return;
+            lane.livePrinted = want;
+            changed++;
+        });
+        if (!changed) return;
+        _sdBridgeStatus(want
+            ? changed + ' lane' + (changed === 1 ? '' : 's') + ' handed to Live: edit in the clip, or draw here to take it back'
+            : changed + ' lane' + (changed === 1 ? '' : 's') + ' back on Stride');
+        try { sdRenderSidebar(); } catch (e) {}
+        try { saveCanvasState(); } catch (e) {}
+    };
+
+    // Same, for HOSTED lanes (Serum and friends). Addressed by POSITION in the engine's
+    // `mapped`, which is the id every other lane message already uses. The engine flips
+    // that lane to DAW drive; the canvas only records the flag so it rides the save.
+    window.sdMacroPrinted = function(m) {
+        if (!m || !Array.isArray(m.pos)) return;
+        const want = !!m.printed;
+        let changed = 0;
+        if (!want && !m.pos.length) {                     // "return every lane" (TAKE BACK)
+            sdCanvasParams.forEach(p => { if (!p._live && p.hostPrinted) { p.hostPrinted = false; changed++; } });
+        } else {
+            m.pos.forEach(pos => {
+                const lane = sdCanvasParams.find(x => !x._live && x._path
+                    && parseInt(String(x._path).split(':')[1], 10) === pos);
+                if (!lane || !!lane.hostPrinted === want) return;
+                lane.hostPrinted = want;
+                changed++;
+            });
+        }
+        if (!changed) return;
+        _sdBridgeStatus(want
+            ? changed + ' hosted lane' + (changed === 1 ? '' : 's') + ' handed to the DAW: edit in the clip, or draw here to take it back'
+            : changed + ' hosted lane' + (changed === 1 ? '' : 's') + ' back on Stride');
+        try { sdRenderSidebar(); } catch (e) {}
+        try { saveCanvasState(); } catch (e) {}
+    };
 
     // A rack/chain loaded in a new home: the bridge re-found this lane's knob by its
     // (device, param) NAME and rebound it there. Adopt the new path so the next save
@@ -4232,8 +4328,63 @@
         }, 150);
     }
 
+    // ── LANE HELP (field 2026-08-30: "I didn't even know what those icons were") ──
+    // A quiet "?" chip floating over the canvas; click = a legend card naming every
+    // per-lane icon and the deck gesture. One source for multi AND focus views.
+    let _sdHelpBuilt = false;
+    function _sdEnsureLaneHelp() {
+        if (_sdHelpBuilt) return;
+        const host = document.getElementById('sd-canvas-container');
+        if (!host) return;
+        _sdHelpBuilt = true;
+        const chip = document.createElement('button');
+        chip.id = 'sd-lane-help-chip';
+        chip.textContent = '?';
+        chip.title = 'What do the lane icons do?';
+        chip.className = 'sbtn sbtn--icon';
+        chip.style.cssText = 'position:absolute;top:34px;right:10px;z-index:60;opacity:.75;';
+        const wrap = !!window.__STRIDE_WRAPPER__;
+        const rows = [
+            ['Color bar', 'the strip on the left edge is the lane color. Click it to pick another.'],
+            ['\u00d7', 'remove the lane. The knob keeps its value.'],
+            ['\u00b1', 'Range. Give this param its own min and max, the curve rides inside them. Drag the fields or type.'],
+            ['\u2922', 'Focus. Open this lane full-canvas with the draw deck. The All lanes pill brings you back.'],
+            ['Lock', 'the padlock. Motions, sliders and drawing skip a locked lane.']
+        ];
+        if (wrap) {
+            rows.push(['2X \u00b7 \u00bdX', 'Lane speed. Press the slot left of \u00b1 and drag up or down.']);
+            rows.push(['Bookmark', 'hover the label, top right. Saves this curve to Motions.']);
+            rows.push(['Jack', 'bottom left of the label. Link lanes into a group so they move together.']);
+        }
+        rows.push(['Deck', 'in focus view: shapes stamp on the grid. Press = base, drag = height, down flips. Shift = free hand. Esc puts the pen down.']);
+        const card = document.createElement('div');
+        card.id = 'sd-lane-help';
+        card.style.cssText = 'display:none;position:absolute;top:64px;right:10px;z-index:61;width:300px;max-height:70%;overflow-y:auto;'
+            + 'background:rgba(9,9,11,.97);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:12px 14px;'
+            + "font-family:'Outfit',sans-serif;backdrop-filter:blur(6px);box-shadow:0 12px 40px rgba(0,0,0,.5)";
+        let html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+            + '<span style="font-size:10px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:#fb923c">Lane icons</span>'
+            + '<button id="sd-lane-help-x" class="sbtn sbtn--icon">\u00d7</button></div>';
+        rows.forEach(r => {
+            html += '<div style="display:flex;gap:8px;margin:7px 0;align-items:baseline">'
+                + '<span style="flex:0 0 62px;font-size:10px;font-weight:800;color:#e4e4e7;text-align:right">' + r[0] + '</span>'
+                + '<span style="font-size:10.5px;line-height:1.45;color:#a1a1aa">' + r[1] + '</span></div>';
+        });
+        card.innerHTML = html;
+        host.appendChild(chip);
+        host.appendChild(card);
+        const closeCard = function () { card.style.display = 'none'; };
+        chip.onclick = function (e) { e.stopPropagation(); card.style.display = (card.style.display === 'none') ? 'block' : 'none'; };
+        card.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+        const xb = card.querySelector('#sd-lane-help-x');
+        if (xb) xb.onclick = closeCard;
+        document.addEventListener('mousedown', function (e) { if (!card.contains(e.target) && e.target !== chip) closeCard(); });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeCard(); });
+    }
+
     function sdDrawCanvasGrid() {
         if (!sdCtx || !sdCanvasEl || !sdCanvasRect) return;
+        _sdEnsureLaneHelp();
         // ZOOM/DPI GUARD (field 2026-08-30): interface zoom (WebView2 page zoom) and
         // monitor DPI moves change devicePixelRatio without a reliable resize event.
         // When the backing store stops matching container x dpr, a clear computed from
@@ -4934,6 +5085,19 @@
             // Per-lane LOOP boundary (wrapper): drag the grip at the lane's right end to make
             // this lane wrap early (e.g. 1 bar of a 4-bar canvas). Beyond the boundary the lane
             // is shaded out, faint ghost ticks mark every repeat, and the grip rides the line.
+            // MISSING lane: its Ableton device left the set. Same treatment the loop
+            // cutoff gives the part past the boundary, rgba(0,0,0,0.42), but across the
+            // WHOLE row so the lane reads as dead at a glance. The curve is still drawn
+            // underneath (dimmed below) because it is not lost: put the device back and
+            // the lane rebinds with the motion intact.
+            if (param._missing) {
+                sdCtx.save();
+                sdCtx.beginPath(); sdCtx.rect(laneDrawLeft, rect.top, laneDrawWidth, rect.height); sdCtx.clip();
+                sdCtx.fillStyle = 'rgba(0,0,0,0.42)';
+                sdCtx.fillRect(laneDrawLeft, rect.top, laneDrawWidth, rect.height);
+                sdCtx.restore();
+            }
+
             if (_isWrapUI) {
                 const _lbRaw = (typeof param.loopBeats === 'number') ? param.loopBeats : 0;
                 const _lb = (_lbRaw > 0 && _lbRaw < totalBeats - 1e-6) ? _lbRaw : 0;
@@ -4972,6 +5136,7 @@
             if (!param.points.length) continue;
             sdCtx.save();
             if (isLocked) sdCtx.globalAlpha = 0.4;
+            if (param._missing) sdCtx.globalAlpha = 0.22;   // dead lane: visible as context, clearly not playing
             const sortedPts = param.points.slice().sort((a, b) => a.time - b.time);
             // Ranged lanes display their 0..1 shape scaled into [rangeMin,rangeMax] (confined to the band).
             const _rangeMap = (v) => param.rangeOn ? (param.rangeMin + v * (param.rangeMax - param.rangeMin)) : v;
@@ -5749,7 +5914,7 @@
                 _sdStampDrag.tCur = Math.max(0, Math.min(tbS, e.shiftKey ? hdS.time : sdSnapDrawBeat(hdS.time)));
                 _sdStampDrag.vCur = _sdSnapValue(hdS.value, e);
                 const rS = sdCanvasEl.getBoundingClientRect();
-                _sdDragReadout = { x: e.clientX - rS.left, y: e.clientY - rS.top, text: _sdReadoutText(_sdStampDrag.tCur, _sdStampDrag.vCur) };
+                _sdDragReadout = { x: e.clientX - rS.left, y: e.clientY - rS.top, text: ((_sdStampDrag.vCur < _sdStampDrag.v0) !== !!_sdStampInvert ? '\u25bc ' : '\u25b2 ') + _sdReadoutText(_sdStampDrag.tCur, _sdStampDrag.vCur) };
                 sdDrawCanvasGrid(); return;
             }
             if (e.altKey && !sdIsDragging && !sdIsPanning && sdActiveParamId && sdActiveTool === 'select') {
@@ -12436,12 +12601,29 @@
         let t0 = Math.min(drag.t0, drag.tCur), t1 = Math.max(drag.t0, drag.tCur);
         t0 = Math.max(0, t0); t1 = Math.min(totalBeats, t1);
         if (t1 - t0 < grid * 0.5) t1 = Math.min(totalBeats, t0 + grid);   // a click = one grid cell
+        // Press = BASE, cursor = PEAK (field video 2026-08-30): the drag's direction is
+        // the shape's polarity. Down = the peak faces down. INVERT still flips on top.
+        const goingDown = drag.vCur < drag.v0;
         let lo = Math.min(drag.v0, drag.vCur), hi = Math.max(drag.v0, drag.vCur);
-        if (_sdStampInvert && !shape.raw) { const sw = lo; lo = hi; hi = sw; }   // inverted band flips the shape
+        let flip = false;
+        if (!shape.raw) flip = goingDown !== !!_sdStampInvert;
+        const _mapV = (v) => flip ? (lo + hi) - v : v;
         const pts = [];
         if (shape.span === 'drag') {
             const a = shape.raw ? drag.v0 : lo, b = shape.raw ? drag.vCur : hi;
-            shape.gen(a, b).forEach(s => pts.push({ time: t0 + s.f * (t1 - t0), value: s.v, curve: s.c || 0 }));
+            shape.gen(a, b).forEach(s => pts.push({ time: t0 + s.f * (t1 - t0), value: shape.raw ? s.v : _mapV(s.v), curve: s.c || 0 }));
+        } else if (Math.abs(drag.tCur - drag.t0) < grid * 0.9) {
+            // Single-cell gesture = ONE shape riding the nearest vertical grid line: the
+            // cycle spans a cell either side, so its midpoint (the peak) sits ON the line.
+            const line = Math.max(0, Math.min(totalBeats, Math.round(drag.tCur / grid) * grid));
+            t0 = Math.max(0, line - grid); t1 = Math.min(totalBeats, line + grid);
+            if (drag.rand[0] === undefined) drag.rand[0] = Math.random();
+            shape.gen(lo, hi, 0, drag.rand[0]).forEach(s => {
+                const t = t0 + s.f * (t1 - t0);
+                pts.push({ time: Math.round(t * 10000) / 10000, value: _mapV(s.v), curve: s.c || 0 });
+            });
+            const first = pts.length ? pts[0].value : _mapV(lo);
+            pts.push({ time: Math.round(t1 * 10000) / 10000, value: first, curve: 0 });
         } else {
             const n = Math.max(1, Math.round((t1 - t0) / grid));
             t1 = Math.min(totalBeats, t0 + n * grid);
@@ -12449,10 +12631,10 @@
                 if (drag.rand[cyc] === undefined) drag.rand[cyc] = Math.random();
                 shape.gen(lo, hi, cyc, drag.rand[cyc]).forEach(s => {
                     const t = t0 + (cyc + s.f) * grid;
-                    if (t <= totalBeats + 1e-6) pts.push({ time: Math.round(t * 10000) / 10000, value: s.v, curve: s.c || 0 });
+                    if (t <= totalBeats + 1e-6) pts.push({ time: Math.round(t * 10000) / 10000, value: _mapV(s.v), curve: s.c || 0 });
                 });
             }
-            const first = pts.length ? pts[0].value : lo;
+            const first = pts.length ? pts[0].value : _mapV(lo);
             if (t1 <= totalBeats + 1e-6) pts.push({ time: Math.round(t1 * 10000) / 10000, value: first, curve: 0 });   // close the loop cleanly
         }
         return { pts, t0, t1 };
@@ -12483,7 +12665,7 @@
         _sdDeckPaintArm();
         const st = document.getElementById('sd-canvas-status');
         const sh = _sdShapeByKey(_sdStampShape);
-        if (st) st.textContent = sh ? (sh.label + ' armed: drag across the lane, 1 ' + (sh.span === 'cycle' ? 'cycle per grid step' : 'sweep') + ', height = your drag. Esc releases.') : '';
+        if (st) st.textContent = sh ? (sh.span === 'drag' ? (sh.label + ' armed: press to anchor, drag = the sweep. Esc releases.') : (sh.label + ' armed: press = base, drag = height. Up = peak up, down flips it. One cell rides the nearest grid line, drag wider to tile. Esc releases.')) : '';
         sdDrawCanvasGrid();
     }
 
@@ -12692,7 +12874,7 @@
         d.innerHTML =
           '<div class="flex items-center gap-3 px-3 shrink-0" style="height:' + SD_DECK_H_MIN + 'px">'
         +   '<span class="text-[9px] font-black uppercase tracking-[0.25em] text-fuchsia-400">Draw</span>'
-        +   '<span class="text-[9px] font-bold uppercase tracking-wider text-zinc-600 truncate flex-1">Shapes stamp on the grid · Shift = free hand · Alt or the dot = bend · Right-click = delete</span>'
+        +   '<span class="text-[9px] font-bold uppercase tracking-wider text-zinc-600 truncate flex-1">Shapes stamp on the grid · drag down flips them · Shift = free hand · Alt or the dot = bend · Right-click = delete</span>'
         +   '<button id="sd-deck-collapse" title="Collapse the draw deck" class="sbtn sbtn--icon">▾</button>'
         + '</div>'
         + '<div id="sd-deck-body" class="flex-1 min-h-0 flex items-stretch gap-0 px-3 pb-2">'

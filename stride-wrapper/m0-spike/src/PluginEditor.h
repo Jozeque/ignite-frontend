@@ -16,6 +16,10 @@
                   "sl_event" {type:'connected'}
                   "learnState" {on}             -> wrapper toolbar Map button
 */
+#ifdef STRIDE_BUNDLE
+namespace stridebundle { class TendrilBridge; }   // full type in PluginEditor.cpp (TendrilBridge.h)
+#endif
+
 class StrideWrapperEditor : public juce::AudioProcessorEditor,
                             private juce::Timer
 {
@@ -25,6 +29,19 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+
+    void onBundleTabEvent (const juce::var& v);      // no-op (the page owns the view swap)
+    void ensureTendrilWall();                        // wall bridge lifecycle (no-ops outside the bundle)
+    void tendrilWallParam (const juce::var& v);
+    void tendrilWallNote (const juce::var& v);
+    void tendrilWallBend (const juce::var& v);
+    void tendrilPreRemoval();                        // the bridge dies BEFORE its node
+   #ifdef STRIDE_BUNDLE
+    void ensureTendrilBridge();                      // the wall's uiReady lands here
+    void refreshTendrilChild();                      // 30Hz: drop the bridge if its node died
+    std::unique_ptr<stridebundle::TendrilBridge> tendrilBridge;
+    const void* tendrilInstance = nullptr;           // identity only, never dereferenced
+   #endif
 
    #if JUCE_WINDOWS
     bool  ownsNativeWindow (void* hwnd) const;   // is hwnd inside a hosted synth window? (transport-key hook)

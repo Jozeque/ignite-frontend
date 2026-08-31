@@ -593,6 +593,11 @@
         <!-- Running build version (filled by shim from hostInfo) — always visible so
              "which build are you on?" is answered by a screenshot, never a guess. -->
         <span id="sd-version" class="titlebar-no-drag text-[8px] text-zinc-600 font-bold ml-1.5 tracking-wider"></span>
+        <!-- Stride Bundle tabs (hidden outside the bundle build; shim reveals on hostInfo.bundle) -->
+        <div id="sd-bundle-tabs" class="titlebar-no-drag ml-4 items-center gap-0.5" style="display:none">
+            <button id="sd-tab-stride" type="button" class="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-sm text-orange-400 bg-white/5">Stride</button>
+            <button id="sd-tab-tendril" type="button" class="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-sm text-zinc-500 hover:text-orange-400 transition-colors">Tendril</button>
+        </div>
         <!-- Compact — toggles THIS window into the sticky compact reference layout. -->
         <button id="sd-quickpanel-btn" type="button" onclick="window.toggleCompactMode && window.toggleCompactMode()" class="titlebar-no-drag ml-5 flex items-center gap-1.5 text-[9px] text-zinc-500 hover:text-orange-400 uppercase font-bold tracking-widest transition-colors" title="Toggle the sticky compact reference panel">
             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
@@ -1148,11 +1153,11 @@
                 <div class="flex items-center gap-1.5 shrink-0">
                     <div class="flex items-center gap-1 bg-black/50 p-1 rounded-lg border border-white/10 shrink-0" title="Loop length (bars)">
                         <span class="text-[9px] font-black text-fuchsia-300 uppercase tracking-wider px-0.5">Loop</span>
-                        <button onclick="sdSetBars(2)" class="sbtn sbtn--icon sd-bars-btn">2</button>
-                        <button onclick="sdSetBars(4)" class="sbtn sbtn--icon sd-bars-btn">4</button>
-                        <button onclick="sdSetBars(8)" class="sbtn sbtn--icon is-on sd-bars-btn">8</button>
-                        <button onclick="sdSetBars(16)" class="sbtn sbtn--icon sd-bars-btn">16</button>
-                        <button onclick="sdSetBars(32)" class="sbtn sbtn--icon sd-bars-btn">32</button>
+                        <button onclick="sdSetBarsAndPush(2)" class="sbtn sbtn--icon sd-bars-btn">2</button>
+                        <button onclick="sdSetBarsAndPush(4)" class="sbtn sbtn--icon sd-bars-btn">4</button>
+                        <button onclick="sdSetBarsAndPush(8)" class="sbtn sbtn--icon is-on sd-bars-btn">8</button>
+                        <button onclick="sdSetBarsAndPush(16)" class="sbtn sbtn--icon sd-bars-btn">16</button>
+                        <button onclick="sdSetBarsAndPush(32)" class="sbtn sbtn--icon sd-bars-btn">32</button>
                     </div>
                     <button id="sd-view-mode-toggle" onclick="sdToggleViewMode()" title="Currently in Multi-Lane view — click to return to Focus view" class="sbtn is-on shrink-0 flex items-center gap-1">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
