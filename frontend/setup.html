@@ -3,12 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Setup Guide — Stride</title>
-<meta name="description" content="Get Stride running in Ableton Live in a few minutes. Install the device, enable StrideInject, set two one-time settings, then map, generate, and inject straight into your clip.">
+<title>Setup | Stride</title>
+<meta name="description" content="Install Stride and StrideBridge, then map, draw and press play. Windows and macOS paths, plus the optional step for printing curves into a clip.">
 <link rel="canonical" href="https://stridehub.io/setup.html">
 <meta name="robots" content="index, follow">
 <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://stridehub.io/setup.html">
+<meta property="og:title" content="Setup | Stride">
+<meta property="og:description" content="Install Stride and StrideBridge, then map, draw and press play.">
+<meta property="og:site_name" content="Stride">
+<meta name="theme-color" content="#141310">
 
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
@@ -23,322 +30,223 @@
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
+  /* ── PATCHBAY (vintage modular) brand palette, matches index.html ── */
   :root{
     --bg:#141310; --bg2:#191611; --panel:#1d1b16; --raise:#252119; --line:rgba(216,201,176,.11);
     --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
     --copper:#c6712b; --copper-lt:#dd9a52; --amber:#d9822b; --ember:#e58a2e;
     --teal:#2f748e;  --teal-lt:#5e9aad;
-    --sage:#5b7b55;  --sage-lt:#86a87f;
-    --rose:#a34e52;  --rose-lt:#c5807f;
-    --violet:#544b6d;--violet-lt:#9a8cbb;
-    --gold:#c9a24b;
+    --o50:249 241 234;--o100:244 227 213;--o200:232 198 170;--o300:222 154 82;--o400:198 113 43;--o500:174 99 38;--o600:143 81 31;--o700:109 62 24;--o800:79 45 17;--o900:55 32 12;--o950:30 17 6;
+    --z50:241 236 226;--z100:228 221 208;--z200:215 207 192;--z300:195 187 171;--z400:163 154 138;--z500:118 111 99;--z600:88 82 73;--z700:66 61 52;--z800:37 33 25;--z900:29 27 22;--z950:20 19 16;
+    --rd50:250 238 232;--rd100:246 220 209;--rd200:235 186 167;--rd300:216 132 104;--rd400:199 100 66;--rd500:176 80 49;--rd600:150 66 40;--rd700:117 51 32;--rd800:84 37 24;--rd900:56 25 17;--rd950:31 14 10;
+    --em50:235 240 233;--em100:214 224 210;--em200:181 198 175;--em300:134 168 127;--em400:110 146 102;--em500:91 123 85;--em600:73 99 67;--em700:56 77 52;--em800:40 56 38;--em900:27 38 25;--em950:15 22 13;
   }
   *{box-sizing:border-box}
-  body{margin:0;font-family:'Outfit',sans-serif;background:var(--bg);color:var(--ink2);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  body{margin:0;font-family:'Outfit',sans-serif;background:var(--bg);color:var(--ink2);
+    -webkit-font-smoothing:antialiased;overflow-x:hidden}
   ::selection{background:rgba(198,113,43,.3)}
+  ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:#2a2620;border-radius:10px}
   body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     background:radial-gradient(120% 80% at 50% -10%, rgba(198,113,43,.07), transparent 60%),
                radial-gradient(100% 60% at 50% 110%, rgba(47,116,142,.05), transparent 60%);}
   .wrap{position:relative;z-index:1}
   .mono{font-family:'Space Mono',ui-monospace,monospace}
   .silk{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--ink3)}
-  .brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-  .ink{color:var(--ink)} .ink2{color:var(--ink2)} .ink3{color:var(--ink3)}
-  h1,h2,h3,h4{color:var(--ink);font-weight:900;letter-spacing:-.01em}
-  .panel{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(0,0,0,.14)),var(--panel);
-    border:1px solid var(--line);border-radius:18px;
-    box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 24px 50px -30px rgba(0,0,0,.9)}
-  .btn-copper{display:inline-flex;align-items:center;gap:.6rem;background:linear-gradient(180deg,var(--ember),var(--copper));
-    color:#1c1206;font-weight:900;letter-spacing:.04em;border:1px solid rgba(255,210,150,.25);border-radius:14px;
-    box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 12px 24px -14px rgba(198,113,43,.8);transition:transform .15s,filter .15s;cursor:pointer}
-  .btn-copper:hover{transform:translateY(-2px);filter:brightness(1.06)}
-  .pill{border:1px solid var(--line);background:var(--raise);border-radius:999px;color:var(--ink2);font-weight:700}
-  .pill-warm{border-color:rgba(198,113,43,.4);background:rgba(198,113,43,.12);color:var(--copper-lt)}
-  .chip{font-size:9px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;border-radius:999px;padding:3px 9px}
-  .divider{height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
-  .kbd{font-family:'Space Mono',monospace;font-size:.8em;font-weight:700;color:var(--ink);background:var(--raise);border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:1px 7px}
-  .path{font-family:'Space Mono',monospace;font-size:.86em;color:var(--ink);background:rgba(198,113,43,.10);border:1px solid rgba(198,113,43,.22);border-radius:7px;padding:2px 8px;white-space:nowrap}
-  /* numbered step bubble */
-  .stepnum{flex:none;width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;
-    font-weight:900;font-size:17px;color:var(--copper-lt);background:rgba(198,113,43,.12);border:1px solid rgba(198,113,43,.28)}
-  .guide-img{margin-top:14px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#100f0c}
-  .guide-img img{display:block;width:100%}
-  /* Ableton-style settings row for the recommended-settings callout */
-  .ables{background:#1a1814;border:1px solid var(--line);border-radius:12px;overflow:hidden}
-  .ables-head{display:flex;align-items:center;gap:8px;padding:9px 14px;background:rgba(0,0,0,.25);border-bottom:1px solid var(--line)}
-  .ables-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 14px}
-  .ables-row+.ables-row{border-top:1px solid rgba(216,201,176,.06)}
-  .ables-label{font-size:13.5px;color:var(--ink2)}
-  .ables-val{font-family:'Space Mono',monospace;font-size:12px;font-weight:700;color:#1c1206;
-    background:linear-gradient(180deg,var(--ember),var(--copper));border-radius:6px;padding:4px 12px;
-    box-shadow:0 0 0 2px rgba(221,154,82,.25),0 8px 16px -10px rgba(198,113,43,.8);white-space:nowrap}
+  .brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .ink{color:var(--ink)} .ink3{color:var(--ink3)}
+  h1{color:var(--ink);font-weight:900;letter-spacing:-.02em}
   a.navlink{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--ink3);transition:color .15s}
   a.navlink:hover{color:var(--copper-lt)}
   a.navlink.active{color:var(--copper-lt)}
+  .btn-copper{display:inline-flex;align-items:center;justify-content:center;gap:.6rem;
+    background:linear-gradient(180deg,var(--ember),var(--copper));
+    color:#1c1206;font-weight:900;letter-spacing:.04em;border:1px solid rgba(255,210,150,.25);border-radius:14px;
+    box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 12px 24px -14px rgba(198,113,43,.8);
+    transition:transform .15s,filter .15s}
+  .btn-copper:hover{transform:translateY(-2px);filter:brightness(1.06)}
+
+  /* one step per row, hairline between. No panels, no badges. */
+  .step{display:flex;gap:15px;align-items:flex-start;padding:17px 0;border-top:1px solid var(--line)}
+  .step:first-of-type{border-top:0}
+  .n{flex:none;font-family:'Space Mono',ui-monospace,monospace;font-size:11px;font-weight:700;
+    color:var(--ink3);width:20px;padding-top:3px;user-select:none}
+  .step h2{margin:0 0 4px;font-size:15.5px;font-weight:800;color:var(--ink);line-height:1.3;letter-spacing:-.005em}
+  .step p{margin:0;font-size:13.5px;line-height:1.6}
+  .only{font-family:'Space Mono',ui-monospace,monospace;font-size:9.5px;color:var(--teal-lt);
+    letter-spacing:.1em;text-transform:uppercase;margin-left:8px;white-space:nowrap}
+  .path{display:block;font-family:'Space Mono',ui-monospace,monospace;font-size:11.5px;
+    color:var(--ink);margin-top:10px;line-height:1.85;overflow-wrap:anywhere}
+  .path i{color:var(--ink3);font-style:normal;display:inline-block;width:34px;user-select:none}
+  .lede{font-size:16px;line-height:1.65;margin:0 0 46px;max-width:62ch}
+  .lede b{color:var(--ink);font-weight:700}
+  .opt-lede{font-size:13.5px;line-height:1.6;color:var(--ink3);margin:0 0 4px;max-width:62ch}
+  section{margin:0 0 44px}
+  @media (max-width:560px){h1{font-size:33px}.only{display:block;margin:3px 0 0}}
 </style>
 </head>
 <body>
-<div class="wrap max-w-[1400px] mx-auto px-6" style="padding-top:8px">
+<div class="wrap max-w-3xl mx-auto px-6">
 
   <!-- ───────────────── NAV ───────────────── -->
-  <nav class="flex justify-between items-center py-6">
+  <nav class="flex justify-between items-center py-6 gap-4 flex-wrap">
     <a href="index.html" class="flex items-center gap-3">
       <span class="text-3xl font-black brand tracking-tighter leading-none">STRIDE</span>
       <span class="silk hidden sm:block border-l pl-3" style="border-color:var(--line)">Sound Design Engine</span>
     </a>
     <div class="flex items-center gap-5">
+      <a class="navlink" href="chains.html">Chains</a>
       <a class="navlink" href="blog.html">Blog</a>
       <a class="navlink" href="samples.html">Sample Packs</a>
-      <a class="navlink active" href="setup.html">Setup Guide</a>
-      <a href="https://www.instagram.com/stride_engine/" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[var(--copper-lt)] transition-colors" title="Follow us on Instagram">
-        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
-      </a>
-      <a href="https://www.youtube.com/@strideengine" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[var(--copper-lt)] transition-colors" title="Subscribe on YouTube">
-        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-      </a>
+      <a class="navlink active" href="setup.html">Setup</a>
       <span class="w-px h-6 mx-1 hidden sm:block" style="background:var(--line)"></span>
       <a href="index.html#pricing" class="btn-copper text-[11px] uppercase tracking-widest px-5 py-2.5 rounded-full">Get Stride</a>
     </div>
   </nav>
 
-  <!-- ───────────────── HEADER ───────────────── -->
-  <header class="max-w-3xl mx-auto text-center pt-8 pb-12">
-    <div class="silk mb-4" style="color:var(--copper-lt)">Setup Guide</div>
-    <h1 class="text-4xl md:text-6xl mb-5 leading-[1.05]">Up and running<br><span class="brand">in a few minutes.</span></h1>
-    <p class="text-lg ink2 leading-relaxed max-w-xl mx-auto">Install once, map the knobs you want to move, then generate and inject straight into your clip. Here is the whole flow, start to finish.</p>
-    <div class="mt-6 inline-flex items-center gap-2 text-[11px] px-4 py-2 rounded-full pill">
-      <span class="w-1.5 h-1.5 rounded-full" style="background:var(--copper-lt)"></span>
-      For Ableton Live 11+ (Suite, or Standard with the Max for Live add-on)
-    </div>
-  </header>
+  <main class="pt-6 pb-16">
 
-  <!-- ───────────────── GUIDE ───────────────── -->
-  <div class="max-w-3xl mx-auto flex flex-col gap-6 pb-8">
+    <h1 class="text-4xl md:text-5xl leading-[1.03] mb-4">Setup</h1>
+    <p class="lede">
+      Stride is a VST3 plugin that hosts your instruments and effects and moves their knobs while
+      you play. In Ableton Live, <b>StrideBridge</b> adds the set's own devices to the same canvas.
+    </p>
 
-    <!-- ONE-TIME SETUP -->
-    <div class="panel rounded-2xl p-6 md:p-7" style="border-color:rgba(198,113,43,.32)">
-      <div class="mb-6">
-        <div class="flex items-center gap-2.5 mb-2">
-          <span class="chip pill-warm">Start here</span>
-          <span class="text-[12px] ink3">Do this once. Then you never touch it again.</span>
-        </div>
-        <h2 class="text-4xl md:text-5xl">One-time setup</h2>
-      </div>
+    <!-- ── INSTALL ─────────────────────────────────────────────── -->
+    <section>
+      <p class="silk" style="margin-bottom:6px">Install, once</p>
 
-      <div class="flex flex-col gap-4">
-        <div class="flex gap-4">
-          <span class="stepnum" style="font-size:14px">1</span>
-          <div class="flex-1 min-w-0 pt-1.5">
-            <p class="text-base ink2 leading-relaxed">The first time you open Stride, this window pops up. Click <strong class="ink">Install to Ableton</strong>. It installs both the <strong class="ink">StrideLink</strong> device and the <strong class="ink">StrideInject</strong> engine into your User Library.</p>
-            <!-- recreation of Stride's first-launch install pop-up (same design as the in-app modal) -->
-            <div class="mt-4 flex justify-center">
-              <div style="background:#18181b;border:1px solid rgba(249,115,22,.3);border-radius:16px;padding:20px;max-width:360px;width:100%;box-shadow:0 24px 50px -20px rgba(0,0,0,.9)">
-                <div style="display:flex;align-items:center;gap:13px;margin-bottom:13px">
-                  <div style="flex:none;width:50px;height:50px;border-radius:13px;background:rgba(249,115,22,.16);border:1px solid rgba(249,115,22,.4);display:flex;align-items:center;justify-content:center">
-                    <svg style="width:25px;height:25px;color:#fdba74" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
-                  </div>
-                  <div style="min-width:0">
-                    <div style="font-weight:900;font-size:18px;letter-spacing:-.01em;color:#fb923c">Install to Ableton</div>
-                    <div style="font-size:9px;color:#71717a;text-transform:uppercase;letter-spacing:.2em;font-weight:900;margin-top:3px">One-time setup</div>
-                  </div>
-                </div>
-                <p style="font-size:11.5px;color:#d4d4d8;line-height:1.6;margin:0 0 15px">Stride drops its Max device (<strong style="color:#fb923c">StrideLink</strong>) into your Ableton User Library. It then shows up in Ableton's browser under <strong style="color:#f4f4f5">User Library &rarr; Stride</strong>.</p>
-                <div style="display:flex;flex-direction:column;gap:8px">
-                  <div style="font-size:11px;color:#f4f4f5;background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.45);padding:11px;border-radius:11px;text-transform:uppercase;letter-spacing:.1em;font-weight:900;display:flex;align-items:center;justify-content:center;gap:8px">
-                    <svg style="width:15px;height:15px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                    Install to Ableton
-                  </div>
-                  <div style="text-align:center;font-size:10px;color:#71717a;padding:5px;text-transform:uppercase;letter-spacing:.1em;font-weight:700">Choose folder manually</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="flex gap-4">
-          <span class="stepnum" style="font-size:14px">2</span>
-          <div class="flex-1 min-w-0 pt-1.5">
-            <p class="text-base ink2 leading-relaxed">In Ableton, open <span class="path">Settings → Link, Tempo &amp; MIDI</span>, find <strong class="ink">Control Surface</strong>, and choose <span class="mono ink">StrideInject</span>. This is what lets Stride write automation into your clips.</p>
-            <div class="guide-img"><img src="assets/ss/step1.png" alt="Choose StrideInject as the Control Surface in Ableton's Link, Tempo and MIDI settings" loading="lazy"></div>
-          </div>
+      <div class="step">
+        <span class="n">01</span>
+        <div>
+          <h2>Install the plugin</h2>
+          <p>Put <span class="mono ink">Stride.vst3</span> in your VST3 folder, then rescan in your DAW.
+             On macOS the installer also places the Audio Unit, so Logic finds it in the Instrument slot.</p>
+          <code class="path"><i>Win</i>C:\Program Files\Common Files\VST3<br><i>Mac</i>/Library/Audio/Plug-Ins/VST3</code>
         </div>
       </div>
 
-      <!-- NEW: recommended settings -->
-      <div class="mt-6 rounded-xl p-5" style="background:rgba(198,113,43,.06);border:1px solid rgba(198,113,43,.22)">
-        <div class="flex items-center gap-2.5 mb-1">
-          <span class="stepnum" style="width:34px;height:34px;border-radius:11px;font-size:13px">3</span>
-          <h3 class="text-base ink uppercase tracking-wider">Recommended Ableton settings</h3>
-        </div>
-        <p class="text-[14px] ink2 leading-relaxed mb-4 ml-[46px]">Set these two once so Stride reliably captures the parameters you map and writes automation on every track. Open <span class="path">Settings → Record, Warp &amp; Launch</span> and match these:</p>
-        <img src="assets/ss/settings.png" alt="Ableton Settings, Record Warp and Launch panel: set Record Session automation in to All Tracks, and Start Transport With Record to On" class="ml-[46px] rounded-xl block" style="border:1px solid var(--line);max-width:460px;width:100%" onerror="this.style.display='none';var f=document.getElementById('settings-fallback');if(f)f.style.display='block';">
-        <div id="settings-fallback" class="ables ml-[46px]" style="display:none;max-width:460px">
-          <div class="ables-head">
-            <span class="silk" style="color:var(--copper-lt)">Record, Warp &amp; Launch</span>
-            <span class="mono text-[10px] ink3 ml-auto">Ableton Settings</span>
-          </div>
-          <div class="ables-row">
-            <span class="ables-label">Record Session automation in</span>
-            <span class="ables-val">All Tracks</span>
-          </div>
-          <div class="ables-row">
-            <span class="ables-label">Start Transport With Record</span>
-            <span class="ables-val">On</span>
-          </div>
+      <div class="step">
+        <span class="n">02</span>
+        <div>
+          <h2>Add StrideBridge to your User Library<span class="only">Ableton only</span></h2>
+          <p>Copy the whole StrideBridge folder in, keeping the files together. The device needs them next to it.</p>
+          <code class="path"><i>Win</i>Documents\Ableton\User Library\StrideBridge<br><i>Mac</i>~/Music/Ableton/User Library/StrideBridge</code>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- THE WORKFLOW -->
-    <div class="mt-4">
-      <h2 class="text-4xl md:text-5xl">The Workflow</h2>
-    </div>
+    <!-- ── THE WORKFLOW ────────────────────────────────────────── -->
+    <section>
+      <p class="silk" style="margin-bottom:6px">The workflow</p>
 
-    <!-- STEP 1 -->
-    <div class="panel rounded-2xl p-6 md:p-7">
-      <div class="flex gap-4 md:gap-5">
-        <span class="stepnum">1</span>
-        <div class="flex-1 min-w-0">
-          <h3 class="text-xl ink mb-1.5">Load StrideLink on your track</h3>
-          <p class="text-base ink2 leading-relaxed">Drop the <strong class="ink">StrideLink</strong> device onto the track that holds your instrument rack.</p>
+      <div class="step">
+        <span class="n">01</span>
+        <div>
+          <h2>Drop Stride on a track</h2>
+          <p>Load the instruments and effects you want to move inside it.</p>
         </div>
       </div>
-    </div>
 
-    <!-- STEP 2 -->
-    <div class="panel rounded-2xl p-6 md:p-7">
-      <div class="flex gap-4 md:gap-5">
-        <span class="stepnum">2</span>
-        <div class="flex-1 min-w-0">
-          <h3 class="text-xl ink mb-1.5">Map your parameters</h3>
-          <p class="text-base ink2 leading-relaxed">Click <strong class="ink">Record</strong>, then move the parameters you want to modulate. Stride maps them in as lanes <strong style="color:var(--copper-lt)">automatically</strong>. Either view works: the <strong style="color:#5aa0e0">blue</strong> button is Record for <strong class="ink">Arrangement</strong>, the <strong style="color:var(--rose-lt)">red</strong> is Record for <strong class="ink">Session</strong>. It's the same button you use to add more later.</p>
-          <div class="mt-3 flex justify-center"><img src="assets/ss/record-buttons.png" alt="Click Record to map parameters: the blue button is Record for Arrangement view, the red button is Record for Session view" loading="lazy" style="max-width:300px;border:1px solid var(--line);border-radius:10px;display:block"></div>
+      <div class="step">
+        <span class="n">02</span>
+        <div>
+          <h2>Drag StrideBridge onto any track<span class="only">Ableton only</span></h2>
+          <p>One per set. It passes audio straight through, so it can sit anywhere. Stride shows a
+             <span class="mono ink">MAP LIVE</span> button once it sees the bridge.</p>
         </div>
       </div>
-    </div>
 
-    <!-- STEP 3 — select your clip, right after mapping -->
-    <div class="panel rounded-2xl p-6 md:p-7">
-      <div class="flex gap-4 md:gap-5">
-        <span class="stepnum">3</span>
-        <div class="flex-1 min-w-0">
-          <h3 class="text-xl ink mb-1.5">Select your clip</h3>
-          <p class="text-base ink2 leading-relaxed">In Ableton, double-click the MIDI clip you want so it opens in the <strong class="ink">Detail view</strong>. That is exactly where Stride writes.</p>
-          <div class="guide-img"><img src="assets/ss/step4.png" alt="Double-click the MIDI clip so it opens in Ableton's Detail view" loading="lazy"></div>
+      <div class="step">
+        <span class="n">03</span>
+        <div>
+          <h2>Map the knobs you want moving</h2>
+          <p>Touch a knob inside Stride, or press MAP LIVE and click a knob anywhere in your Live set.
+             Each one becomes a lane. Press the button again to stop mapping.</p>
         </div>
       </div>
-    </div>
 
-    <!-- STEP 4 — pick a motion + Inject to Clip, one move -->
-    <div class="panel rounded-2xl p-6 md:p-7">
-      <div class="flex gap-4 md:gap-5">
-        <span class="stepnum">4</span>
-        <div class="flex-1 min-w-0">
-          <h3 class="text-xl ink mb-1.5">Pick a motion, then Inject to Clip</h3>
-          <p class="text-base ink2 leading-relaxed">Hit a <strong style="color:var(--copper-lt)">motion tool</strong> (Chaos, Neuro, Reflector, S&amp;H, Prism) to lay down modulation across <strong class="ink">every lane at once</strong>. Reshape or <strong class="ink">Mutate</strong> until it feels right, then hit <strong style="color:var(--copper-lt)">Inject to Clip</strong>. Stride writes the curves straight into your selected clip. No file, no drag, no export.</p>
-          <!-- the real Inject to Clip button, same as on the StrideLink device -->
-          <div class="mt-4 flex justify-center">
-            <div style="display:inline-flex;align-items:center;gap:9px;background:linear-gradient(180deg,#eb9540,#cf7a2b);color:#241405;font-weight:800;font-size:15px;letter-spacing:.01em;padding:11px 20px;border-radius:8px;border:1px solid rgba(255,210,150,.3);box-shadow:0 1px 0 rgba(255,255,255,.28) inset,0 10px 22px -14px rgba(198,113,43,.85)">
-              <svg style="width:16px;height:16px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-              Inject to Clip
-            </div>
-          </div>
+      <div class="step">
+        <span class="n">04</span>
+        <div>
+          <h2>Draw the motion, or roll it</h2>
+          <p>Draw a curve by hand, or hit a generator and get a different one on every lane at once.
+             Lock what lands, roll the rest again.</p>
         </div>
       </div>
-    </div>
 
-    <!-- STEP 5 — play & record -->
-    <div class="panel rounded-2xl p-6 md:p-7">
-      <div class="flex gap-4 md:gap-5">
-        <span class="stepnum">5</span>
-        <div class="flex-1 min-w-0">
-          <h3 class="text-xl ink mb-1.5">Play &amp; record</h3>
-          <p class="text-base ink2 leading-relaxed">Hit play and listen. When it sounds right, record the take. The automation lives with the clip, so Stride's job is done.</p>
+      <div class="step">
+        <span class="n">05</span>
+        <div>
+          <h2>Press Play</h2>
+          <p>The knobs ride your transport. Nothing gets written into the clip and nothing needs to be:
+             the motion is live, and it renders when you bounce or export like any other sound.</p>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- ADD MORE -->
-    <div class="panel rounded-2xl p-6 md:p-7" style="border-color:rgba(84,75,109,.4)">
-      <div class="flex gap-4 md:gap-5">
-        <span class="stepnum" style="color:var(--violet-lt);background:rgba(84,75,109,.18);border-color:rgba(84,75,109,.45)">+</span>
-        <div class="flex-1 min-w-0">
-          <h3 class="text-xl ink mb-1.5">Want more params? Just map them.</h3>
-          <p class="text-base ink2 leading-relaxed">Map more params the same way (the button from Step 2), they <strong style="color:var(--violet-lt)">auto-appear</strong> in Stride, draw curves, then <strong style="color:var(--sage-lt)">Inject to Clip</strong> again. The new params join the modulated chain. No re-setup, no re-scan.</p>
+    <!-- ── OPTIONAL: PRINTING ──────────────────────────────────── -->
+    <section>
+      <p class="silk" style="margin-bottom:6px">Optional &middot; printing the curves into a clip</p>
+      <p class="opt-lede">
+        Only if you want the motion as real automation you can edit by hand in Live, or keep in the
+        set after you remove Stride. Most sessions never need this.
+      </p>
+
+      <div class="step">
+        <span class="n">01</span>
+        <div>
+          <h2>Turn on StrideInject, then restart Live<span class="only">Ableton only</span></h2>
+          <p>Without it the button on the device reads <span class="mono ink">STRIDEINJECT?</span></p>
+          <code class="path">Preferences &rsaquo; Link, Tempo &amp; MIDI &rsaquo; Control Surface &rsaquo; StrideInject</code>
         </div>
       </div>
-    </div>
 
-    <!-- ARRANGEMENT VIEW -->
-    <div class="panel rounded-2xl p-6 md:p-7" style="border-color:rgba(198,113,43,.28)">
-      <div class="flex gap-4 md:gap-5">
-        <span class="stepnum" style="color:var(--copper-lt);background:rgba(198,113,43,.14);border-color:rgba(198,113,43,.4)">⇕</span>
-        <div class="flex-1 min-w-0">
-          <h3 class="text-xl ink mb-1.5">Working in Arrangement view</h3>
-          <p class="text-base ink2 leading-relaxed">Stride works on the timeline too. First, turn ON the <strong class="ink">two arrows</strong> at the bottom of the track (circled below) so the rack and the clip's envelopes are reachable. <strong class="ink">Double-click</strong> to create a MIDI clip, or if it already exists, make sure it's the <strong class="ink">selected clip in the Detail view</strong>. Then modulate with Stride and <strong style="color:var(--sage-lt)">Inject to Clip</strong>. The automation appears right on your timeline.</p>
-          <div class="mt-3 flex justify-center"><img src="assets/ss/arrangement.png" alt="In Arrangement view, turn on the track's two unfold arrows so the rack and clip are reachable, then select the MIDI clip in the Detail view" loading="lazy" style="max-width:560px;width:100%;border:1px solid var(--line);border-radius:10px;display:block"></div>
+      <div class="step">
+        <span class="n">02</span>
+        <div>
+          <h2>Select the clip, then press INJECT<span class="only">Ableton only</span></h2>
+          <p>Select the MIDI clip first so it shows in Live's Detail view, then press INJECT on the
+             device. Your lanes become real automation in that clip. Ctrl or Cmd Z undoes it.</p>
         </div>
       </div>
-    </div>
 
-    <!-- STRIDEBRIDGE - Stride VST modulating Ableton's own devices. Teal accents:
-         the Ableton-side colour, same as StrideLink on the landing. -->
-    <div class="panel rounded-2xl p-6 md:p-7" style="border-color:rgba(47,116,142,.45)">
-      <div class="mb-6">
-        <div class="flex items-center gap-2.5 mb-2">
-          <span class="chip" style="border:1px solid rgba(47,116,142,.5);background:rgba(47,116,142,.14);color:var(--teal-lt)">Stride VST + Ableton</span>
-          <span class="text-[12px] ink3">Included in the Stride VST download.</span>
-        </div>
-        <h2 class="text-4xl md:text-5xl">StrideBridge</h2>
-        <p class="text-base ink2 leading-relaxed mt-3">Move the knobs of Ableton's <strong class="ink">own devices</strong> with your Stride lanes. Operator, Roar, Auto Filter, anything in the set. Map a knob, draw a curve, press play. Needs Live 11+ with Max for Live.</p>
-      </div>
-
-      <div class="flex flex-col gap-4">
-        <div class="flex gap-4">
-          <span class="stepnum" style="font-size:14px;color:var(--teal-lt);background:rgba(47,116,142,.14);border-color:rgba(47,116,142,.4)">1</span>
-          <div class="flex-1 min-w-0 pt-1.5">
-            <p class="text-base ink2 leading-relaxed">Copy the <strong class="ink">StrideBridge folder</strong> from your Stride download into Ableton's <strong class="ink">User Library</strong> (keep the files together), then drag <strong style="color:var(--teal-lt)">StrideBridge.amxd</strong> onto any track. One per set is enough, and it passes audio straight through. No extra installs.</p>
-          </div>
-        </div>
-
-        <div class="flex gap-4">
-          <span class="stepnum" style="font-size:14px;color:var(--teal-lt);background:rgba(47,116,142,.14);border-color:rgba(47,116,142,.4)">2</span>
-          <div class="flex-1 min-w-0 pt-1.5">
-            <p class="text-base ink2 leading-relaxed">Open Stride. A <strong style="color:var(--teal-lt)">Map Live</strong> button appears once the bridge is detected. Press it, then click knobs on any Ableton device. Each one lands as a lane, exactly like your hosted plugins. Press it again to stop. Menus work too: values snap to their options, and S&amp;H curves fit them best.</p>
-          </div>
-        </div>
-
-        <div class="flex gap-4">
-          <span class="stepnum" style="font-size:14px;color:var(--teal-lt);background:rgba(47,116,142,.14);border-color:rgba(47,116,142,.4)">3</span>
-          <div class="flex-1 min-w-0 pt-1.5">
-            <p class="text-base ink2 leading-relaxed">Press play. The knobs move, locked to the transport, even with the Stride window closed. While it runs, mapped knobs belong to Stride. <strong class="ink">Press Stop</strong> and they're yours again: move them by hand, or click one and Stride lights up its lane. While playing, click a device's title bar to light up all of its lanes. The ✕ on a lane releases the knob.</p>
-          </div>
+      <div class="step">
+        <span class="n">03</span>
+        <div>
+          <h2>Watch the count under the button</h2>
+          <p>Only lanes whose knob lives on that clip's own track can be written, which is Live's rule,
+             not ours. <span class="mono ink">4 OF 6</span> means four landed and two point at another
+             track. Take those to a clip on their track.</p>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- HELP -->
-    <div class="panel rounded-2xl p-7 md:p-9 text-center" style="border-color:rgba(198,113,43,.28)">
-      <p class="silk mb-3" style="color:var(--copper-lt)">Stuck? Get help.</p>
-      <h3 class="text-2xl md:text-3xl mb-3">We've got you.</h3>
-      <p class="text-base ink2 leading-relaxed mb-6 max-w-md mx-auto">Watch the full walkthrough with voiceover, or book a free 30-minute call and we'll get you rolling. No question is too small.</p>
-      <div class="flex gap-3 justify-center flex-wrap">
-        <a href="https://stridehub.io/welcome" target="_blank" rel="noopener" class="btn-copper text-[12px] uppercase tracking-widest px-6 py-3 rounded-xl">▶ Watch the walkthrough</a>
-        <a href="https://stridehub.io/welcome" target="_blank" rel="noopener" class="pill px-6 py-3 rounded-xl text-[12px] uppercase tracking-widest font-bold hover:text-[var(--copper-lt)] transition-colors">Book a call</a>
+    <!-- ── REQUIREMENTS ────────────────────────────────────────── -->
+    <section>
+      <p class="silk" style="margin-bottom:6px">What you need</p>
+      <div class="step">
+        <span class="n">&nbsp;</span>
+        <div>
+          <p>Stride runs in any VST3 host on Windows 10/11 and macOS 11+, and as an Audio Unit in Logic
+             and GarageBand. StrideBridge needs Ableton Live 11 or newer with Max for Live, which Live
+             Suite has built in. Not Pro Tools (AAX only).</p>
+        </div>
       </div>
-    </div>
+    </section>
 
-  </div>
+  </main>
 
-  <!-- ───────────────── FOOTER ───────────────── -->
-  <footer class="border-t mt-10 py-10 text-center" style="border-color:var(--line)">
-    <div class="flex items-center justify-center gap-5 mb-4">
+  <footer class="border-t py-10 text-center" style="border-color:var(--line)">
+    <div class="flex items-center justify-center gap-5 mb-4 flex-wrap">
       <a class="navlink" href="index.html">Home</a>
+      <a class="navlink" href="chains.html">Chains</a>
       <a class="navlink" href="samples.html">Sample Packs</a>
       <a class="navlink" href="blog.html">Blog</a>
       <a class="navlink" href="terms.html">Terms</a>
       <a class="navlink" href="privacy.html">Privacy</a>
     </div>
-    <p class="mono text-[10px] ink3">Stride · Sound Design Engine for Ableton Live</p>
+    <p class="mono text-[10px] ink3">Stride &middot; Sound Design Engine</p>
   </footer>
 
 </div>
