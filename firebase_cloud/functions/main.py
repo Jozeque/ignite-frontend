@@ -1260,6 +1260,63 @@ def _handle_validate_license(data: dict):
     }), 200
 
 
+def _handle_demo_first_use(data: dict, ip: str = "", ua: str = ""):
+    """PUBLIC. The plugin reports that this pass reached MEANINGFUL USE.
+
+    "Activated" only means the 24h clock started. This is the event that separates
+    someone who opened Stride from someone who actually did the thing Stride is for,
+    and it is what lets the post-expiry mail split between a founder check-in that may
+    ask for the sale and a support mail that must not.
+
+    Keyed per PASS (device + its start), matching demo_activated, so a re-granted pass
+    on the same machine records its own first use instead of colliding with the old one.
+    Grants nothing, changes no entitlement, and never fails the caller: a lost analytics
+    event must never be able to interrupt someone's session.
+
+    Request:  { action:'demo_first_use', device[, signal] }
+    Response: { ok: true }  always, even when nothing was written."""
+    device = (data.get("device") or "").strip()
+    signal = (data.get("signal") or "mapping_created").strip()[:40]
+    if not device:
+        return jsonify({"ok": True}), 200
+    try:
+        _db = admin_firestore.client()
+        snap = _db.collection(PASS_COLLECTION).document(device).get()
+        if not snap.exists:
+            return jsonify({"ok": True}), 200          # no pass, nothing to attach to
+        rec = snap.to_dict() or {}
+        started_at = int(rec.get("started_at") or 0)
+        # The email comes from the PASS, never from the caller: the plugin must not be
+        # able to attach usage to an address of its choosing.
+        email = (rec.get("email") or "").strip().lower()
+        _log_event("demo_first_use", f"{device}__{started_at}", email,
+                   {"device": device, "signal": signal, "ip": ip, "ua": ua[:200]})
+    except Exception as e:
+        print(f"[FirstUse] non-fatal: {e}")
+    return jsonify({"ok": True}), 200
+
+
+def _handle_demo_download(data: dict, ip: str = "", ua: str = ""):
+    """PUBLIC. /try reports that a download link was actually clicked.
+
+    Registration proves intent, this proves they got the file. Without it the funnel
+    jumps from "registered" straight to "activated" and every drop-off in between looks
+    identical, when the two causes (never downloaded vs downloaded and never installed)
+    need completely different emails.
+
+    Once per email, so a second click on the other platform does not double count."""
+    email = (data.get("email") or "").strip().lower()
+    platform = (data.get("platform") or "").strip()[:16]
+    if not email:
+        return jsonify({"ok": True}), 200
+    try:
+        _log_event("demo_download", _email_key(email), email,
+                   {"platform": platform, "ip": ip, "ua": ua[:200], "build": DEMO_BUILD})
+    except Exception as e:
+        print(f"[Download] non-fatal: {e}")
+    return jsonify({"ok": True}), 200
+
+
 def _handle_start_pass(data: dict, ip: str = "", ua: str = ""):
     """Start (or resume) a 24-hour Discovery Pass. PUBLIC. The DEVICE HASH is the credential
     and the guard: one machine = one pass, non-renewable (survives reinstall/file-delete, and
@@ -2493,6 +2550,16 @@ def generate_midi(req: https_fn.Request) -> https_fn.Response:
         return _handle_validate_license(data_pre)
 
     # Start/resume a 24-hour Discovery Pass. Public — the device hash is the credential/guard.
+    if isinstance(data_pre, dict) and data_pre.get("action") == "demo_first_use":
+        return _handle_demo_first_use(
+            data_pre, (req.headers.get("X-Forwarded-For", req.remote_addr or "") or "").split(",")[0].strip(),
+            req.headers.get("User-Agent", ""))
+
+    if isinstance(data_pre, dict) and data_pre.get("action") == "demo_download":
+        return _handle_demo_download(
+            data_pre, (req.headers.get("X-Forwarded-For", req.remote_addr or "") or "").split(",")[0].strip(),
+            req.headers.get("User-Agent", ""))
+
     if isinstance(data_pre, dict) and data_pre.get("action") == "start_pass":
         _pass_ip = (req.headers.get("X-Forwarded-For", req.remote_addr or "") or "").split(",")[0].strip()
         return _handle_start_pass(data_pre, _pass_ip, req.headers.get("User-Agent", ""))
@@ -4799,6 +4866,13 @@ def demo_state(_db, email: str, now_ms: int | None = None) -> dict:
         "activated_at_ms": int((act or {}).get("started_at_ms") or (act or {}).get("ts_ms") or 0),
         "expires_at_ms": exp_ms,
         "identity": (act or {}).get("identity") or ("confirmed" if (act or {}).get("email") else "anonymous"),
+        # Meaningful use, not merely activation. `used` is TRUE only when the plugin has
+        # actually reported it; `use_known` says whether we are in a position to know at
+        # all. While the reporting build is not in the field use_known is False everywhere,
+        # and every send that would branch on usage falls back to today's behaviour rather
+        # than assuming "unused" and quietly withholding the mail people should get.
+        "used": bool(ev.get("demo_first_use")),
+        "use_known": DEMO_FIRST_USE_ENABLED,
         "state": "UNKNOWN",
     }
     if ev.get("purchase_completed"):
@@ -4896,6 +4970,17 @@ def demo_expiry_sweep(event: scheduler_fn.ScheduledEvent) -> None:
 # THE COPY CONSTRAINT: because we do not know whether they activated, every
 # sentence has to be true in all three cases — never installed, mid-trial, and
 # already finished. No "you never activated it", no "your trial has ended".
+# Activation RECOVERY, not sales. Both of these exist to get someone from "downloaded"
+# to "the 24 hours are running", which is where 60% of registrations currently stall.
+# Neither carries a purchase CTA.
+DEMO_ACTIVATE_NUDGE_H  = float(os.environ.get("DEMO_ACTIVATE_NUDGE_H", "8"))
+DEMO_FRICTION_RESCUE_H = float(os.environ.get("DEMO_FRICTION_RESCUE_H", "48"))
+# Meaningful use is reported by the PLUGIN, so it only becomes trustworthy once a build
+# that reports it is in the field. Until this is "1" every usage branch is treated as
+# unknown and behaves exactly as it does today. Flip it only after demo_first_use events
+# are actually arriving.
+DEMO_FIRST_USE_ENABLED = os.environ.get("DEMO_FIRST_USE_ENABLED", "0").strip() == "1"
+# Retired 2026-09-01, kept as constants because their copy is still referenced below.
 DEMO_START_NUDGE_H = float(os.environ.get("DEMO_START_NUDGE_H", "26"))
 DEMO_POST_REG_H    = float(os.environ.get("DEMO_POST_REG_H", "72"))
 
@@ -4963,17 +5048,38 @@ DEMO_POST_REG_HTML = r'''<div style="font-family:-apple-system,BlinkMacSystemFon
 </div>'''
 
 
+# key -> (state it serves, delay measured from, delay hours, no-backfill floor, extra test)
+# The 5th element is an optional predicate on the derived state. It is what lets two
+# sends share a trigger and split on what the person actually did, instead of one vague
+# mail trying to be true for everybody.
+#
+# NEW FLOORS ON 2026-09-01. The four sends below are new keys, so without a fresh floor
+# every person already mailed by the retired start_nudge/post_reg would immediately
+# qualify again and receive the replacement doing the same job. The floor makes these
+# apply to registrations from this deploy onward only.
+DEMO_RESEQUENCE_FLOOR_MS = int(os.environ.get("DEMO_RESEQUENCE_FLOOR_MS", "1788269065969"))
+
+def _use(st):      return bool(st.get("used"))
+def _unused(st):   return st.get("use_known") and not st.get("used")
+def _not_used(st): return not (st.get("use_known") and st.get("used"))
+
 DEMO_SENDS = {
-    # key                 state it serves        delay measured from  no-backfill floor on that moment
-    # Exact-timing track, for the minority whose activation we actually saw.
-    "onboard":          ("DEMO_ACTIVE",         "activated_at_ms",  DEMO_ONBOARD_H,        DEMO_LIFECYCLE_FLOOR_MS),
-    "post_demo":        ("DEMO_EXPIRED",        "expires_at_ms",    DEMO_POST_EXPIRY_H,    DEMO_POST_DEMO_FLOOR_MS),
-    # Registration-anchored track, for everyone whose activation we could not
-    # see. Mutually exclusive with the two above by state, so nobody gets both.
-    # Replaces the old activate_nudge, which had no copy and therefore claimed a
-    # slot and then sent nothing, permanently blocking that person.
-    "start_nudge":      ("DEMO_NOT_ACTIVATED",  "registered_at_ms", DEMO_START_NUDGE_H,    DEMO_LIFECYCLE_FLOOR_MS),
-    "post_reg":         ("DEMO_NOT_ACTIVATED",  "registered_at_ms", DEMO_POST_REG_H,       DEMO_LIFECYCLE_FLOOR_MS),
+    # ── ACTIVATION RECOVERY. Registered, no activation we can see. No purchase CTA. ──
+    # The copy must stay true for someone who HAS activated but whose activation we could
+    # not attach to them (anonymous/unverified), which is why it never asserts they have
+    # not started.
+    "activate_nudge":   ("DEMO_NOT_ACTIVATED",  "registered_at_ms", DEMO_ACTIVATE_NUDGE_H,  DEMO_RESEQUENCE_FLOOR_MS, None),
+    "friction_rescue":  ("DEMO_NOT_ACTIVATED",  "registered_at_ms", DEMO_FRICTION_RESCUE_H, DEMO_RESEQUENCE_FLOOR_MS, None),
+
+    # ── INSIDE THE PASS. Session guidance, suppressed once they are clearly already in. ──
+    "onboard":          ("DEMO_ACTIVE",         "activated_at_ms",  DEMO_ONBOARD_H,         DEMO_LIFECYCLE_FLOOR_MS,  _not_used),
+
+    # ── AFTER THE PASS. Split on whether they got anywhere. ──
+    # used   -> a founder check-in that may ask for the sale
+    # unused -> support and feedback ONLY, no sales push: asking someone who never heard a
+    #           sound to buy is the fastest way to lose them for good.
+    "post_demo":        ("DEMO_EXPIRED",        "expires_at_ms",    DEMO_POST_EXPIRY_H,     DEMO_POST_DEMO_FLOOR_MS,  _not_used),
+    "post_demo_unused": ("DEMO_EXPIRED",        "expires_at_ms",    DEMO_POST_EXPIRY_H,     DEMO_RESEQUENCE_FLOOR_MS, _unused),
 }
 
 # ── the ONBOARD mail (send B) — the only send with copy so far ──────────────────────────
@@ -5094,11 +5200,140 @@ DEMO_POST_DEMO_HTML = r'''<div style="font-family:-apple-system,BlinkMacSystemFo
 
 # send_key -> (subject, text, html). A send with NO entry here refuses loudly in live mode
 # instead of mailing something empty — that is the guard the unwritten send still relies on.
+# ── ACTIVATION RECOVERY (send A, 8h after registration) ─────────────────────────────────
+# The job is ONE thing: get Stride into the DAW. No price, no discount, no checkout link.
+# STATE-SAFE BY CONSTRUCTION: the email field at activation is optional, so a person who
+# HAS activated can still look un-activated to us. Every sentence therefore has to survive
+# being read by someone already inside Stride. "If Stride hasn't made it into your DAW yet"
+# does that; "you haven't activated" would not.
+DEMO_ACTIVATE_NUDGE_SUBJECT = "Your 24 hours haven't started yet"
+
+DEMO_ACTIVATE_NUDGE_TEXT = r"""Hey{name_part},
+
+Joe here.
+
+Quick thing worth knowing, because it catches people out.
+
+Your 24 hours do not start when you download Stride. They start the moment you activate it inside your DAW. Until then nothing is running and nothing is being used up.
+
+If Stride hasn't made it into your DAW yet, the whole setup is: unzip, drop Stride.vst3 into your VST3 folder, rescan plugins in your DAW, then open it on a track.
+
+Windows: C:\Program Files\Common Files\VST3
+macOS: /Library/Audio/Plug-Ins/VST3
+
+If it is already open in front of you, ignore all of that and go make something.
+
+Either way, if anything is in the way, just reply to this. I read every one.
+
+Joe
+
+You're receiving this because you downloaded Stride. Reply STOP to opt out.
+"""
+
+DEMO_ACTIVATE_NUDGE_HTML = r"""<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#222222;max-width:560px">
+<p>Hey{name_part},</p>
+<p>Joe here.</p>
+<p>Quick thing worth knowing, because it catches people out.</p>
+<p>Your 24 hours do not start when you download Stride. They start the moment you activate it inside your DAW. Until then nothing is running and nothing is being used up.</p>
+<p>If Stride hasn't made it into your DAW yet, the whole setup is: unzip, drop Stride.vst3 into your VST3 folder, rescan plugins in your DAW, then open it on a track.</p>
+<p style="font-family:ui-monospace,Consolas,monospace;font-size:13px;color:#555555">Windows: C:\Program Files\Common Files\VST3<br>macOS: /Library/Audio/Plug-Ins/VST3</p>
+<p>If it is already open in front of you, ignore all of that and go make something.</p>
+<p>Either way, if anything is in the way, just reply to this. I read every one.</p>
+<p>Joe</p>
+<p style="color:#888888;font-size:12px">You're receiving this because you downloaded Stride. Reply STOP to opt out.</p>
+</div>"""
+
+# ── FRICTION RESCUE (send B, 48h after registration) ────────────────────────────────────
+# Still no sales. This one names the four places it actually goes wrong and asks which,
+# because "any problems?" gets no replies while a specific list gets answers we can act on.
+DEMO_FRICTION_RESCUE_SUBJECT = "Where did Stride get stuck?"
+
+DEMO_FRICTION_RESCUE_TEXT = r"""Hey{name_part},
+
+Joe again, and this is the last one about getting set up.
+
+As far as I can tell Stride has not been opened on your machine yet, and I would rather find out why than let it sit there.
+
+It is almost always one of four things:
+
+1. The download never finished, or the zip is still sitting in Downloads.
+2. The plug-in went somewhere your DAW does not scan.
+3. Your DAW has not rescanned since you added it.
+4. It loads, but the 24 hours were never started inside it.
+
+If you tell me which one, I will get you past it. One line is enough, even just the number.
+
+And if you already got in and I have this wrong, tell me that too. It means something on my side needs fixing.
+
+Joe
+
+You're receiving this because you downloaded Stride. Reply STOP to opt out.
+"""
+
+DEMO_FRICTION_RESCUE_HTML = r"""<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#222222;max-width:560px">
+<p>Hey{name_part},</p>
+<p>Joe again, and this is the last one about getting set up.</p>
+<p>As far as I can tell Stride has not been opened on your machine yet, and I would rather find out why than let it sit there.</p>
+<p>It is almost always one of four things:</p>
+<ol style="padding-left:20px">
+<li>The download never finished, or the zip is still sitting in Downloads.</li>
+<li>The plug-in went somewhere your DAW does not scan.</li>
+<li>Your DAW has not rescanned since you added it.</li>
+<li>It loads, but the 24 hours were never started inside it.</li>
+</ol>
+<p>If you tell me which one, I will get you past it. One line is enough, even just the number.</p>
+<p>And if you already got in and I have this wrong, tell me that too. It means something on my side needs fixing.</p>
+<p>Joe</p>
+<p style="color:#888888;font-size:12px">You're receiving this because you downloaded Stride. Reply STOP to opt out.</p>
+</div>"""
+
+# ── EXPIRED, NEVER GOT ANYWHERE (send D) ────────────────────────────────────────────────
+# They activated and the 24 hours ran out without a single mapping. Asking this person to
+# buy would be absurd, so this mail has NO price and NO checkout link. It exists to find
+# out what stopped them, which is worth more than the sale we are not going to get.
+DEMO_POST_DEMO_UNUSED_SUBJECT = "Your 24 hours ran out. What happened?"
+
+DEMO_POST_DEMO_UNUSED_TEXT = r"""Hey{name_part},
+
+Joe here.
+
+Your Discovery Pass has ended, and from my side it looks like Stride never really got going for you. No hard feelings, I would just like to know why.
+
+Was it confusing to start? Did it not do what you expected? Did something break, or did the day simply get away from you?
+
+Whatever it is, I would rather hear it than not. Just reply, one line is plenty. I read every one and a lot of them turn into actual changes.
+
+I am not going to pitch you anything here. If you want another look at some point, tell me and I will sort it out.
+
+Joe
+
+You're receiving this because you tried Stride. Reply STOP to opt out.
+"""
+
+DEMO_POST_DEMO_UNUSED_HTML = r"""<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#222222;max-width:560px">
+<p>Hey{name_part},</p>
+<p>Joe here.</p>
+<p>Your Discovery Pass has ended, and from my side it looks like Stride never really got going for you. No hard feelings, I would just like to know why.</p>
+<p>Was it confusing to start? Did it not do what you expected? Did something break, or did the day simply get away from you?</p>
+<p>Whatever it is, I would rather hear it than not. Just reply, one line is plenty. I read every one and a lot of them turn into actual changes.</p>
+<p>I am not going to pitch you anything here. If you want another look at some point, tell me and I will sort it out.</p>
+<p>Joe</p>
+<p style="color:#888888;font-size:12px">You're receiving this because you tried Stride. Reply STOP to opt out.</p>
+</div>"""
+
+
 DEMO_SEND_COPY = {
-    "onboard":     (DEMO_ONBOARD_SUBJECT,     DEMO_ONBOARD_TEXT,     DEMO_ONBOARD_HTML),
-    "post_demo":   (DEMO_POST_DEMO_SUBJECT,   DEMO_POST_DEMO_TEXT,   DEMO_POST_DEMO_HTML),
-    "start_nudge": (DEMO_START_NUDGE_SUBJECT, DEMO_START_NUDGE_TEXT, DEMO_START_NUDGE_HTML),
-    "post_reg":    (DEMO_POST_REG_SUBJECT,    DEMO_POST_REG_TEXT,    DEMO_POST_REG_HTML),
+    # activation recovery: no price, no link, wording safe for someone already inside
+    "activate_nudge":   (DEMO_ACTIVATE_NUDGE_SUBJECT,   DEMO_ACTIVATE_NUDGE_TEXT,   DEMO_ACTIVATE_NUDGE_HTML),
+    "friction_rescue":  (DEMO_FRICTION_RESCUE_SUBJECT,  DEMO_FRICTION_RESCUE_TEXT,  DEMO_FRICTION_RESCUE_HTML),
+    # inside the pass
+    "onboard":          (DEMO_ONBOARD_SUBJECT,          DEMO_ONBOARD_TEXT,          DEMO_ONBOARD_HTML),
+    # after the pass, split on whether they got anywhere
+    "post_demo":        (DEMO_POST_DEMO_SUBJECT,        DEMO_POST_DEMO_TEXT,        DEMO_POST_DEMO_HTML),
+    "post_demo_unused": (DEMO_POST_DEMO_UNUSED_SUBJECT, DEMO_POST_DEMO_UNUSED_TEXT, DEMO_POST_DEMO_UNUSED_HTML),
+    # RETIRED 2026-09-01. Copy kept so any in-flight claim can still render.
+    "start_nudge":      (DEMO_START_NUDGE_SUBJECT,      DEMO_START_NUDGE_TEXT,      DEMO_START_NUDGE_HTML),
+    "post_reg":         (DEMO_POST_REG_SUBJECT,         DEMO_POST_REG_TEXT,         DEMO_POST_REG_HTML),
 }
 
 
@@ -5164,8 +5399,12 @@ def demo_lifecycle(event: scheduler_fn.ScheduledEvent) -> None:
         if st["state"] in ("PURCHASED", "CHECKOUT_STARTED", "UNKNOWN", "DEMO_REGISTERED"):
             skipped += 1
             continue
-        for send_key, (want_state, since_field, delay_h, floor_ms) in DEMO_SENDS.items():
+        for send_key, (want_state, since_field, delay_h, floor_ms, extra) in DEMO_SENDS.items():
             if st["state"] != want_state:
+                continue
+            # The per-send predicate: two sends can share a state and a trigger and still
+            # be mutually exclusive on what the person did.
+            if extra is not None and not extra(st):
                 continue
             # Only IDENTIFIED activations may take the activation-timed sends: a pass
             # without a person has nobody to mail. The registration track is different

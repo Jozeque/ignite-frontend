@@ -217,9 +217,29 @@ ok("timings are env-configurable in ONE place",
 # ── 4b. THE ONBOARD MAIL (send B) ────────────────────────────────────────────
 ok("onboard fires 75 minutes after activation, measured from activated_at_ms",
    abs(main.DEMO_ONBOARD_H - 1.25) < 1e-9 and main.DEMO_SENDS["onboard"][1] == "activated_at_ms")
-ok("all four sends have copy; the copyless activate_nudge still refuses",
-   set(main.DEMO_SEND_COPY) == {"onboard", "post_demo", "start_nudge", "post_reg"} and
-   main._demo_send_render("activate_nudge") is None)
+ok("every send in the table has copy, and an unknown key still refuses",
+   all(k in main.DEMO_SEND_COPY for k in main.DEMO_SENDS)
+   and main._demo_send_render("no_such_send") is None)
+ok("activation recovery carries NO purchase CTA",
+   all(b not in (main._demo_send_render(k)[1] + main._demo_send_render(k)[2]).lower()
+       for k in ("activate_nudge", "friction_rescue")
+       for b in ("$", "checkout", "lemonsqueezy", "buy ", "% off")))
+ok("the unused-trial mail carries no purchase CTA either",
+   all(b not in (main._demo_send_render("post_demo_unused")[1]
+                 + main._demo_send_render("post_demo_unused")[2]).lower()
+       for b in ("$", "checkout", "lemonsqueezy", "% off")))
+ok("activation recovery never ASSERTS the user failed to activate",
+   "you haven't activated" not in main.DEMO_ACTIVATE_NUDGE_TEXT.lower()
+   and "hasn't made it into your DAW yet" in main.DEMO_ACTIVATE_NUDGE_TEXT)
+ok("the post-expiry pair is mutually exclusive on usage",
+   main.DEMO_SENDS["post_demo"][4]({"used": True, "use_known": True}) is False
+   and main.DEMO_SENDS["post_demo_unused"][4]({"used": False, "use_known": True}) is True
+   and main.DEMO_SENDS["post_demo_unused"][4]({"used": False, "use_known": False}) is False)
+ok("with first-use reporting OFF nothing silently withholds the old mail",
+   main.DEMO_SENDS["post_demo"][4]({"used": False, "use_known": False}) is True
+   and main.DEMO_SENDS["onboard"][4]({"used": False, "use_known": False}) is True)
+ok("onboard is suppressed once meaningful use is KNOWN to have happened",
+   main.DEMO_SENDS["onboard"][4]({"used": True, "use_known": True}) is False)
 
 subj, txt, html = main._demo_send_render("onboard", "")
 ok("subject is exact", subj == "Try this with a synth you already know")
@@ -335,16 +355,20 @@ def _run_loop_dry(rows, at_ms):
         main.DEMO_LIFECYCLE_MODE, main.admin_firestore, time.time = saved
     return buf.getvalue()
 
-_REG = main.DEMO_LIFECYCLE_FLOOR_MS + 1 * H                 # inside the no-backfill window
+_REG = max(main.DEMO_LIFECYCLE_FLOOR_MS, main.DEMO_RESEQUENCE_FLOOR_MS) + 1 * H
 _never = [("r1", {"type": "demo_registered", "email": "never@x.com", "ts_ms": _REG})]
 _out = _run_loop_dry(_never, _REG + 30 * H)
-ok("never-activated person, 30h after registering -> start_nudge leaves (real loop, dry)",
-   "[DRY] start_nudge -> never@x.com" in _out, _out.strip()[-160:])
-ok("...and post_reg not yet (72h)", "[DRY] post_reg" not in _out)
-_out2 = _run_loop_dry(_never, _REG + 80 * H)
-ok("same person at 80h -> post_reg leaves", "[DRY] post_reg -> never@x.com" in _out2, _out2.strip()[-160:])
+ok("never-activated person, 30h after registering -> activate_nudge leaves (real loop, dry)",
+   "[DRY] activate_nudge -> never@x.com" in _out, _out.strip()[-200:])
+ok("...and friction_rescue not yet (48h)", "[DRY] friction_rescue" not in _out)
+_out2 = _run_loop_dry(_never, _REG + 60 * H)
+ok("same person at 60h -> friction_rescue leaves",
+   "[DRY] friction_rescue -> never@x.com" in _out2, _out2.strip()[-200:])
+ok("the retired sends never fire again",
+   "[DRY] start_nudge" not in _out + _out2 and "[DRY] post_reg" not in _out + _out2)
 _out3 = _run_loop_dry(_never, _REG + 10 * H)
-ok("same person at 10h -> nothing (state still DEMO_REGISTERED)", "[DRY]" not in _out3)
+ok("at 10h the state is DEMO_REGISTERED, so nothing leaves",
+   "[DRY]" not in _out3)
 _anon_pass = [("r2", {"type": "demo_registered", "email": "pass@x.com", "ts_ms": _REG}),
               ("a2", {"type": "demo_activated", "email": "pass@x.com", "ts_ms": _REG + 2 * H,
                       "started_at_ms": _REG + 2 * H, "exp_ms": _REG + 26 * H, "identity": "anonymous"})]
