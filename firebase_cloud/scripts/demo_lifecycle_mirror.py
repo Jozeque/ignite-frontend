@@ -37,15 +37,18 @@ FUNCTIONS_DIR = os.path.join(os.path.dirname(HERE), "functions")
 IL = datetime.timezone(datetime.timedelta(hours=3))
 
 # Mirrors main.DEMO_SENDS; used only when main.py cannot be imported.
+# Mirrors main.DEMO_SENDS (5-tuples since the 2026-09-01 resequence: the 5th element
+# is a predicate on the derived state). Used only when main.py cannot be imported.
 SENDS_DEFAULT = {
-    "onboard":     ("DEMO_ACTIVE",        "activated_at_ms",  1.25, 1787680000000),
-    "post_demo":   ("DEMO_EXPIRED",       "expires_at_ms",    3.0,  1787744000000),
-    "start_nudge": ("DEMO_NOT_ACTIVATED", "registered_at_ms", 26.0, 1787680000000),
-    "post_reg":    ("DEMO_NOT_ACTIVATED", "registered_at_ms", 72.0, 1787680000000),
+    "activate_nudge":   ("DEMO_NOT_ACTIVATED", "registered_at_ms", 8.0,  1788269065969, None),
+    "friction_rescue":  ("DEMO_NOT_ACTIVATED", "registered_at_ms", 48.0, 1788269065969, None),
+    "onboard":          ("DEMO_ACTIVE",        "activated_at_ms",  1.25, 1787680000000, None),
+    "post_demo":        ("DEMO_EXPIRED",       "expires_at_ms",    3.0,  1787744000000, None),
+    "post_demo_unused": ("DEMO_EXPIRED",       "expires_at_ms",    3.0,  1788269065969, None),
 }
-SEND_ORDER = ("onboard", "post_demo", "start_nudge", "post_reg")
-ACT_TRACK = ("onboard", "post_demo")          # keyed off a DETECTED activation
-REG_TRACK = ("start_nudge", "post_reg")       # keyed off registration, activation never seen
+SEND_ORDER = ("activate_nudge", "friction_rescue", "onboard", "post_demo", "post_demo_unused")
+ACT_TRACK = ("onboard", "post_demo", "post_demo_unused")   # keyed off a DETECTED activation
+REG_TRACK = ("activate_nudge", "friction_rescue")          # activation never seen
 ENTRY_TYPES = ("demo_registered", "demo_downloaded", "demo_activated", "demo_expired")
 FLOOR_DEFAULT = 1787680000000
 MAX_AGE_H_DEFAULT = 336.0
@@ -251,7 +254,15 @@ def hand_state(evs, now_ms, nudge_h=NUDGE_H_DEFAULT):
     return st
 
 
-def skip_reason(st, suppressed, since, floor_ms, has_copy=True):
+# Sends whose refusal is explained by the usage predicate rather than by state or timing.
+USAGE_GATED = {
+    "post_demo_unused": "needs a KNOWN 'never got anywhere' trial; first-use reporting is off",
+    "post_demo":        "suppressed because meaningful use was recorded",
+    "onboard":          "suppressed because meaningful use was recorded",
+}
+
+
+def skip_reason(st, suppressed, since, floor_ms, has_copy=True, send=None):
     """Best-effort label for a backend skip, in the backend's own order of checks."""
     if suppressed:
         return suppressed
@@ -267,6 +278,8 @@ def skip_reason(st, suppressed, since, floor_ms, has_copy=True):
         return "before the no-backfill floor"
     if not has_copy:
         return "no copy defined"
+    if send in USAGE_GATED:
+        return USAGE_GATED[send]
     return "unknown, compare with the function logs"
 
 
@@ -397,7 +410,7 @@ def build(db, by_email, anonymous, now_ms):
                "campaign": bool(entry and entry.get("campaign_id")),
                "source": (entry or {}).get("type", "")}
         for send in SEND_ORDER:
-            want_state, since_field, delay_h, s_floor = sends[send]
+            want_state, since_field, delay_h, s_floor = sends[send][:4]
             on_track = send in (ACT_TRACK if act_seen else REG_TRACK)
             rec = sent.get(send)
             cell = {"kind": "na", "text": "–", "why": "", "due_ms": 0, "action": False}
@@ -476,7 +489,8 @@ def build(db, by_email, anonymous, now_ms):
                     cell.update(kind="sched", text="~" + fmt_ts(due), why="backend confirms")
             else:
                 st_then = state_at(em, at_ms)
-                why = skip_reason(st_then, row["suppressed"], since, s_floor, has_copy=copy_ok)
+                why = skip_reason(st_then, row["suppressed"], since, s_floor,
+                                  has_copy=copy_ok, send=send)
                 if overdue or is_due:
                     cell.update(kind="bad", text="✗ SKIPPED " + fmt_ts(due), why=why, action=True)
                 else:

@@ -125,7 +125,9 @@ def tile(value, label, sub="", big=False, accent=False):
 LC_PILL = {"PURCHASED": "#3ec78f", "CHECKOUT_STARTED": "#e5b02e", "DEMO_ACTIVE": "#7db4e8",
            "DEMO_EXPIRED": "#6f8fb0", "DEMO_NOT_ACTIVATED": "#857c6e", "DEMO_REGISTERED": "#857c6e",
            "UNKNOWN": "#5c554a"}
-LC_HEAD = {"onboard": "act +75m", "post_demo": "expiry +3h", "start_nudge": "reg +26h", "post_reg": "reg +72h"}
+LC_HEAD = {"activate_nudge": "reg +8h", "friction_rescue": "reg +48h",
+           "onboard": "act +75m", "post_demo": "expiry +3h",
+           "post_demo_unused": "expiry +3h, unused"}
 
 
 def render_lifecycle(lc, lc_err):
@@ -225,7 +227,7 @@ def render_lifecycle(lc, lc_err):
 
     lib = ""
     for s in lcm.SEND_ORDER:
-        want, since_f, delay_h, _ = lc["sends"][s]
+        want, since_f, delay_h = lc["sends"][s][:3]
         r = lc["render"](s, "EMAIL", "")
         when = f'{want.lower().replace("_", " ")} · {since_f.replace("_ms", "").replace("_", " ")} + {delay_h:g}h'
         lib += (f'<details class="lib"><summary><b>{s}</b> · "{e(r["subject"]) if r else "?"}" · {e(when)}</summary>'
