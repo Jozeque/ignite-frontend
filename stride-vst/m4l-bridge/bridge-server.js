@@ -88,6 +88,12 @@ const HINT_FRESH_MS = 10000;    // a selection this recent says WHERE a connecti
 const PING_MS = 5000;           // patcher liveness + repath cadence
 const PONG_TIMEOUT_MS = 20000;  // silent patcher = leaked node process: yield the port
 const NO_PONG_BOOT_MS = 30000;  // never answered at all since boot: same verdict, no first pong required
+// ...and after THIS long a patcher is not coming back, so stop existing. Yielding frees the
+// port but leaves ~30MB of node running forever, and they pile up: three were alive at once
+// on the rig (2026-09-01). Deliberately far longer than the yield, which is reversible: a
+// long export or a heavy set load can stall the Max scheduler past 20s, and exiting on that
+// would kill a working bridge with no way back but re-dragging the device.
+const EXIT_SILENT_MS = 120000;
 const ARM_ACK_MS = 1500;        // MAP LIVE must be ACKED by the [js] or the bridge admits it is unreachable
 const REPATH_MS = PING_MS;
 const MISS_TO_MISSING = 5;      // consecutive silent/mismatched repath probes before a lane is shown as MISSING
@@ -147,6 +153,13 @@ function ticksFor(bars, speed) {
 // float to rate~'s right inlet is certain across Max versions where runtime
 // tempo-value messages to phasor~ are not. rate~ scales the ramp PERIOD, so the
 // factor for "the whole curve spans `bars`, played at `speed`" is bars/speed.
+//
+// TRIED AND REVERTED 2026-09-01: plugphasor~ instead, to survive an offline export.
+// It did NOT fix the export and it BROKE realtime alignment, because plugphasor~
+// resets every BEAT and carries no song position, so rate~ had nothing absolute to
+// anchor a multi-bar cycle to and the curve no longer followed the timeline. The
+// @lock phasor is absolutely positioned by the transport, which is what keeps a
+// 4-bar shape sitting where it was drawn.
 function rateFor(bars, speed) {
     const s = (typeof speed === 'number' && speed > 0) ? speed : 1;
     const b = (typeof bars === 'number' && bars > 0) ? bars : 4;
@@ -1067,7 +1080,27 @@ function tick(now) {
     // case held :9102 forever and every Stride talked into a dead end).
     if (!state.yielded && state.pongSeen && t - state.pongAt > PONG_TIMEOUT_MS) yieldPort();
     else if (!state.yielded && !state.pongSeen && state.bootAt && t - state.bootAt > NO_PONG_BOOT_MS) yieldPort();
+    // Yielded AND still silent long past any plausible stall: the device is gone for good.
+    if (state.yielded && t - Math.max(state.pongAt, state.bootAt) > EXIT_SILENT_MS)
+        shutdown('the patcher has been gone for ' + (EXIT_SILENT_MS / 1000) + 's');
     if (!state.yielded) repathSweep();
+}
+
+// Let go of everything and stop the process. node.script leaves us running when a device is
+// deleted, so this is the only thing that ends us: without it the process keeps its port and
+// its sockets and just accumulates.
+let _shuttingDown = false;
+function shutdown(why) {
+    if (_shuttingDown) return;
+    _shuttingDown = true;
+    _post('shutting down: ' + why);
+    try { if (state.tickTimer) clearInterval(state.tickTimer); } catch (e) {}
+    try { state.clients.forEach(c => { try { if (c.close) c.close(); } catch (e) {} }); } catch (e) {}
+    state.clients = new Set();
+    listeners.forEach(l => { try { l.stop(); } catch (e) {} });
+    // A hard exit rather than waiting for the loop to drain: Node for Max keeps handles of
+    // its own, and a process that lingers is the entire bug being fixed here.
+    setTimeout(() => { try { process.exit(0); } catch (e) {} }, 150);
 }
 
 function yieldPort() {
@@ -1555,6 +1588,13 @@ function startTcpServer(netModule, portOverride) {
     let live = null;
     let retryTimer = null;
     let stopped = false;
+    // Every accepted socket, so stop() can DESTROY them. server.close() only stops
+    // ACCEPTING: it waits for open connections before it finishes, and the VST holds its
+    // socket open for the life of the plugin. Field, 2026-09-01: after deleting two
+    // StrideBridge devices, three leaked node processes were still alive and one still had
+    // :9101 and :9102 LISTENING with six ESTABLISHED connections, so every freshly dropped
+    // bridge stood by forever against a holder that could never die.
+    const socks = new Set();
 
     function schedule() {
         if (retryTimer || stopped) return;
@@ -1569,6 +1609,8 @@ function startTcpServer(netModule, portOverride) {
                 close: () => { try { sock.destroy(); } catch (e) {} },
                 lanes: {}, firstPushDone: false,
             };
+            socks.add(sock);
+            sock.on('close', () => socks.delete(sock));
             state.clients.add(client);
             _post('VST connected via TCP (' + state.clients.size + ')');
             let buf = '';
@@ -1603,6 +1645,8 @@ function startTcpServer(netModule, portOverride) {
         stopped = true;
         if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
         if (live) { try { live.close(); } catch (e) {} live = null; }
+        socks.forEach(sk => { try { sk.destroy(); } catch (e) {} });   // or close() never completes
+        socks.clear();
         state.active = false;
     }
     function start() { stopped = false; tryListen(); }
@@ -1636,7 +1680,12 @@ if (Max) {
     } catch (e) {
         _post('ws module missing (dev tooling only — the VST link works without it). ' + e.message);
     }
-    setInterval(() => tick(), PING_MS);
+    state.tickTimer = setInterval(() => tick(), PING_MS);
+    // The clean path, for hosts that do signal the script: Max asking us to stop should end
+    // the process, not just interrupt it.
+    ['SIGTERM', 'SIGINT', 'SIGHUP'].forEach(sig => {
+        try { process.on(sig, () => shutdown(sig)); } catch (e) {}
+    });
     _status();
 }
 
@@ -1648,6 +1697,7 @@ module.exports = {
     CONTROL_STEPS, SNAPSHOT_MS, trackOf, deviceOf, under, freshHint, noteSel,
     handleClientMessage, handleDisconnect, handleMapped, handleResolved, handleFound, handleRelinked,
     handleRepathed, handleTouched, handleTouchedDev, handleSel, handleTransport, handlePong, handleArmed, tick,
+    shutdown, EXIT_SILENT_MS,
     handleInject, handleTakeBack, collectInjectParams, tileForSpeed, injectWriter, macrosOf, macroSig, installStrideInject,
     parkLane, unparkLane,
     startServer, startTcpServer, _setIoForTest,

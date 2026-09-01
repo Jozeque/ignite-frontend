@@ -2026,6 +2026,53 @@ test('both zips carry StrideInject, or there is no way to get it', () => {
     assert(readme.indexOf('—') < 0, 'README: no em dashes');
 });
 
+test('a deleted device must not leave a node process holding the port', () => {
+    // Field, 2026-09-01: Live froze after deleting two StrideBridge devices, and THREE node
+    // processes were still alive afterwards. One still had :9101 and :9102 LISTENING with
+    // six ESTABLISHED connections, so any freshly dropped bridge would stand by forever
+    // against a holder that could never die. node.script does not end the process for us.
+    const src = fs.readFileSync(path.join(BRIDGE, 'bridge-server.js'), 'utf8');
+
+    // 1. server.close() only stops ACCEPTING. The VST holds its socket for the life of the
+    //    plugin, so without destroying them close() never completes and the port stays ours.
+    assert(/const socks = new Set\(\);/.test(src), 'accepted sockets are tracked');
+    assert(/socks\.add\(sock\);/.test(src) && /sock\.on\('close', \(\) => socks\.delete\(sock\)\);/.test(src),
+           'tracked on accept, untracked on close');
+    assert(/socks\.forEach\(sk => \{ try \{ sk\.destroy\(\); \} catch \(e\) \{\} \}\);/.test(src),
+           'stop() DESTROYS them, or the listening socket lingers');
+
+    // 2. Yielding frees the port but leaves the process running forever, and they pile up.
+    assert(/const EXIT_SILENT_MS = 120000;/.test(src), 'a silence long enough to be certain');
+    assert(/state\.yielded && t - Math\.max\(state\.pongAt, state\.bootAt\) > EXIT_SILENT_MS/.test(src),
+           'exit only when ALREADY yielded and still silent');
+    assert(srv.EXIT_SILENT_MS > srv.PONG_TIMEOUT_MS * 4,
+           'far longer than the reversible yield: a long export can stall Max past 20s and '
+         + 'exiting on that would kill a working bridge, got ' + srv.EXIT_SILENT_MS);
+
+    // 3. And the clean path, for when the host does signal us.
+    assert(/\['SIGTERM', 'SIGINT', 'SIGHUP'\]\.forEach/.test(src), 'signals handled');
+    assert(typeof srv.shutdown === 'function', 'shutdown is reachable');
+    assert(/state\.tickTimer = setInterval/.test(src) && /clearInterval\(state\.tickTimer\)/.test(src),
+           'the ping interval is cleared, or it holds the event loop open by itself');
+    assert(/_shuttingDown/.test(src), 'shutdown is idempotent');
+});
+
+test('the voice ramp stays on the TRANSPORT-LOCKED phasor', () => {
+    // plugphasor~ was tried here on 2026-09-01 and reverted the same day. It did not fix the
+    // offline export, and it BROKE realtime: plugphasor~ resets every BEAT and carries no
+    // song position, so rate~ had nothing absolute to anchor a multi-bar cycle to and the
+    // curve stopped following the timeline. `phasor~ @lock 1` is absolutely positioned by the
+    // transport, which is what keeps a 4-bar shape sitting where it was drawn. Anyone
+    // attacking the export again: the ramp source is not the lever, and this pin is the
+    // receipt that it was measured rather than assumed.
+    const pat = loadPatcher('StrideBridge.maxpat');
+    const texts = Object.values(pat.boxes).map(b => (b.text || '').trim());
+    assert(texts.filter(t => t === 'phasor~ 1n @lock 1').length === srv.NUM_VOICES,
+           'every voice is on the transport-locked phasor');
+    assert(!texts.some(t => t === 'plugphasor~'), 'plugphasor~ is not back');
+    assert(texts.filter(t => /^rate~ .*@sync lock/.test(t)).length === srv.NUM_VOICES, 'rate~ unchanged');
+});
+
 test('LOCAL BUILD FRESHNESS: a built Stride.vst3 must embed the CURRENT shim.js', () => {
     // shim.js and canvas.js are compiled into the plugin by juce_add_binary_data, so
     // editing them and shipping an older binary fails SILENTLY: the plugin loads, the

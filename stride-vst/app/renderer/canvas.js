@@ -369,6 +369,16 @@
     let _sdTouchedSinceFocus = false;
     try {
         window.addEventListener('blur',      function () { _sdTouchedSinceFocus = false; });
+        // The POINTER leaving is the signal that actually fires. window.blur is not
+        // dependable in an embedded WebView2: the page can keep DOM focus while the host
+        // window loses OS focus, so the flag stayed true and Stride kept eating Ctrl+Z even
+        // after the user had gone back to the DAW (field, 2026-09-01, still black-holing
+        // after the blur-only version). Going to Live to drag a device takes the mouse out
+        // of Stride, every time, so this covers the reported workflow directly.
+        document.addEventListener('mouseleave', function () { _sdTouchedSinceFocus = false; });
+        document.addEventListener('mouseout', function (e) {
+            if (!e.relatedTarget && !e.toElement) _sdTouchedSinceFocus = false;   // left the window
+        });
         // Any real interaction with the page counts, including a keystroke that edits, but
         // NOT the Ctrl+Z itself: pressing undo must never be what earns Stride the next one.
         ['mousedown', 'wheel'].forEach(function (t) {
@@ -384,7 +394,20 @@
     // window. Defined by shim.js in the wrapper only: in the desktop app there is no host
     // to forward to and this is a no-op.
     function _sdKeyToHost(k) {
-        try { if (typeof window.sdForwardKeyToHost === 'function') window.sdForwardKeyToHost(k); } catch (e) {}
+        let sent = false;
+        try {
+            if (typeof window.sdForwardKeyToHost === 'function') { window.sdForwardKeyToHost(k); sent = true; }
+        } catch (e) {}
+        // Say which way it went. Ctrl+Z failing is invisible by nature: the key vanishes and
+        // there is nothing to look at, which is exactly why this took several rounds to pin
+        // down. Now every press states who took it, so a report can say which half is wrong.
+        _sdUndoSay(sent ? k.toUpperCase() + ': sent to the DAW' : k.toUpperCase() + ': no host to send to');
+    }
+    function _sdUndoSay(text) {
+        try {
+            const st = document.getElementById('sd-canvas-status');
+            if (st) st.textContent = text;
+        } catch (e) {}
     }
 
     let undoStack = [];
@@ -5542,12 +5565,14 @@
             // Same forward-to-host treatment Ctrl+S and Space already get.
             if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ' && !e.shiftKey) {
                 e.preventDefault();
-                if (undoStack.length && _sdTouchedSinceFocus) sdUndo(); else _sdKeyToHost('undo');
+                if (undoStack.length && _sdTouchedSinceFocus) { sdUndo(); _sdUndoSay('UNDO: Stride'); }
+                else _sdKeyToHost('undo');
                 return;
             }
             if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyY' || (e.code === 'KeyZ' && e.shiftKey))) {
                 e.preventDefault();
-                if (redoStack.length && _sdTouchedSinceFocus) sdRedo(); else _sdKeyToHost('redo');
+                if (redoStack.length && _sdTouchedSinceFocus) { sdRedo(); _sdUndoSay('REDO: Stride'); }
+                else _sdKeyToHost('redo');
                 return;
             }
             // Copy / paste the active lane's curve. Skipped while typing in a

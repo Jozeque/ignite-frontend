@@ -42,9 +42,11 @@ const macH = fs.readFileSync(path.join(ROOT, 'stride-wrapper', 'm0-spike', 'src'
 console.log('\n— the key is never black-holed —');
 
 test('Ctrl+Z goes to the DAW unless Stride has BOTH a stack and the focus', () => {
-    assert(canvas.indexOf("if (undoStack.length && _sdTouchedSinceFocus) sdUndo(); else _sdKeyToHost('undo');") > 0,
+    assert(canvas.indexOf("if (undoStack.length && _sdTouchedSinceFocus) { sdUndo(); _sdUndoSay('UNDO: Stride'); }") > 0
+        && canvas.indexOf("else _sdKeyToHost('undo');") > 0,
            'undo is gated on both conditions and forwarded otherwise');
-    assert(canvas.indexOf("if (redoStack.length && _sdTouchedSinceFocus) sdRedo(); else _sdKeyToHost('redo');") > 0,
+    assert(canvas.indexOf("if (redoStack.length && _sdTouchedSinceFocus) { sdRedo(); _sdUndoSay('REDO: Stride'); }") > 0
+        && canvas.indexOf("else _sdKeyToHost('redo');") > 0,
            'redo the same');
     // The old unconditional swallow is what caused this. It must not come back.
     assert(canvas.indexOf("e.code === 'KeyZ' && !e.shiftKey) { e.preventDefault(); sdUndo(); return; }") < 0,
@@ -63,6 +65,32 @@ test('the focus flag starts false and is only earned by real work', () => {
     // would hand every following one to Stride.
     assert(/if \(e\.ctrlKey \|\| e\.metaKey \|\| e\.altKey\) return;   \/\/ shortcuts are not "working in Stride"/.test(canvas),
            'a modified keystroke does not count as working in Stride');
+});
+
+test('the POINTER leaving also drops the flag, because blur is not dependable here', () => {
+    // Second report, after the blur-only version shipped: "still there is this black holes
+    // where i cannot undo". An embedded WebView2 can keep DOM focus while the host window
+    // loses OS focus, so window.blur may never fire and the flag stayed true forever. Going
+    // to Live to drag a device takes the mouse OUT of Stride every time, so the pointer is
+    // the signal that actually fires for the reported workflow.
+    assert(/document\.addEventListener\('mouseleave', function \(\) \{ _sdTouchedSinceFocus = false; \}\);/.test(canvas),
+           'leaving the document drops it');
+    assert(/if \(!e\.relatedTarget && !e\.toElement\) _sdTouchedSinceFocus = false;/.test(canvas),
+           'and the mouseout fallback for engines that do not fire mouseleave on document');
+    assert(/window\.addEventListener\('blur'/.test(canvas), 'blur is kept as well, it just cannot be the only one');
+});
+
+test('every press says who took it, so the next report is not another guess', () => {
+    // Ctrl+Z failing is invisible by nature: the key vanishes and there is nothing to look
+    // at. That is why this took several rounds. The readout distinguishes the two failure
+    // modes: "Stride" when we wrongly kept it, "sent to the DAW" when we forwarded and the
+    // host still did nothing.
+    assert(/sdUndo\(\); _sdUndoSay\('UNDO: Stride'\)/.test(canvas), 'says when Stride took it');
+    assert(/sdRedo\(\); _sdUndoSay\('REDO: Stride'\)/.test(canvas), 'redo too');
+    assert(/_sdUndoSay\(sent \? k\.toUpperCase\(\) \+ ': sent to the DAW'/.test(canvas), 'says when it was forwarded');
+    assert(/': no host to send to'/.test(canvas), 'and names the case where there is no bridge at all');
+    assert(/function _sdUndoSay\(text\)/.test(canvas) && /getElementById\('sd-canvas-status'\)/.test(canvas),
+           'written to the canvas status line the user can actually see');
 });
 
 test('the desktop app is unaffected: there is no host to forward to', () => {
