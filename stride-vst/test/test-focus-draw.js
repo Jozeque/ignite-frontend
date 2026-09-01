@@ -116,9 +116,13 @@ console.log('\n— interaction contracts —');
 
 test('Escape: cancel the stamp in flight, then put the pen down, then clear selection', () => {
     const i = canvas.indexOf("if (e.code === 'Escape') {");
-    const seg = canvas.slice(i, i + 420);
+    const seg = canvas.slice(i, i + 700);
     assert(/_sdStampDrag = null; _sdDragReadout = null; sdDrawCanvasGrid\(\); return;/.test(seg), 'in-flight cancel first');
-    assert(seg.indexOf('_sdStampDrag') < seg.indexOf('_sdStampShape') && seg.indexOf('_sdStampShape') < seg.indexOf('sdClearSelection'), 'priority order');
+    // Point selection sits between the pen and the time selection: Escape should drop
+    // the narrowest thing the user is holding first.
+    assert(seg.indexOf('_sdStampDrag') < seg.indexOf('_sdStampShape')
+        && seg.indexOf('_sdStampShape') < seg.indexOf('_sdPtSelClear')
+        && seg.indexOf('_sdPtSelClear') < seg.indexOf('sdClearSelection'), 'priority order');
 });
 
 test('release commits the stamp and stays armed (map knob-after-knob rhythm)', () => {
@@ -186,6 +190,32 @@ test('the FREE tool wins over an armed chip (field 2026-08-30: FREE looked dead)
     // intent, so stamping stands down (and the cell cursor yields with it).
     assert(/&& _sdStampShape && sdActiveTool !== 'freehand'\) \{/.test(canvas), 'mousedown stamp gate checks the tool');
     assert(/sdSetTool = function[\s\S]{0,900}_sdStampShape && tool !== 'freehand'/.test(canvas), 'sdSetTool refreshes the pen cursor');
+});
+
+test('stamp v2: drag direction is the polarity, INVERT still XORs (field video 2026-08-30)', () => {
+    const seg = canvas.slice(canvas.indexOf('function _sdStampPoints'), canvas.indexOf('function _sdStampCommit'));
+    assert(/const goingDown = drag\.vCur < drag\.v0;/.test(seg), 'direction read from the drag');
+    assert(/flip = goingDown !== !!_sdStampInvert;/.test(seg), 'down flips, INVERT xors on top');
+    assert(/const _mapV = \(v\) => flip \? \(lo \+ hi\) - v : v;/.test(seg), 'flip mirrors inside the band');
+});
+
+test('stamp v2: a single-cell gesture rides the NEAREST grid line (peak on the line)', () => {
+    const seg = canvas.slice(canvas.indexOf('function _sdStampPoints'), canvas.indexOf('function _sdStampCommit'));
+    assert(/Math\.abs\(drag\.tCur - drag\.t0\) < grid \* 0\.9/.test(seg), 'single-cell branch exists');
+    assert(/Math\.round\(drag\.tCur \/ grid\) \* grid/.test(seg), 'nearest vertical grid line');
+    assert(/line - grid/.test(seg) && /line \+ grid/.test(seg), 'one cycle spans a cell either side, apex ON the line');
+});
+
+test('the readout says which way the shape points', () => {
+    assert(/'\\u25bc ' : '\\u25b2 '/.test(canvas) || canvas.indexOf(String.fromCharCode(9660)) >= 0, 'arrow prefix on the stamp readout');
+});
+
+test('the lane-icon legend exists in both views (field: "I didn\'t even know what those were")', () => {
+    assert(canvas.indexOf('sd-lane-help-chip') > 0, 'the ? chip');
+    assert(canvas.indexOf("['Range', 'give this param its own min and max") > 0, 'range row');
+    assert(canvas.indexOf("['Lane speed', 'the slot left of Range.") > 0, 'speed row (wrapper)');
+    assert(canvas.indexOf('_sdEnsureLaneHelp();') > 0, 'wired into the draw entry');
+    assert(canvas.indexOf('drag down flips them') > 0, 'deck hint teaches the flip');
 });
 
 test('both FX passes clip to the lane draw area (comet + landing)', () => {

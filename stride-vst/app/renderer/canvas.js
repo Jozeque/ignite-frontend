@@ -259,7 +259,20 @@
     let _sdCurveEpoch = 0;             // bumped on every curve edit (pushUndo); lets an in-flight async restoreCanvasState detect that you applied curves mid-load and NOT overwrite them.
     let _sdRangeDrag = null;           // active per-param range boundary drag: {param, edge:'rangeMin'|'rangeMax', rect}
     let _sdRangeIconClick = null;      // {id, t} — for double-click-to-reset on the range icon
-    let _sdRangeNumDrag = null;        // scrubbing a numeric min/max field: {param, edge, startY, startVal}
+    let _sdRangeNumDrag = null;        // scrubbing a numeric min/max field: {param, edge, lastY, val}
+
+    // FOCUS point selection (2026-08-31). Field request: "i just want to select a group of
+    // points and just move them around, without adding any point." Plain click in focus is
+    // already the ADD gesture and cannot be taken away, so the marquee is Ctrl+drag, the
+    // same "select without activating" modifier multi view uses for lanes.
+    let _sdPtSel = new Set();          // the selected point OBJECTS of the focused lane
+    let _sdPtMarquee = null;           // {x0,y0,x1,y1} in canvas px while the box is open
+    let _sdPtGroupDrag = null;         // {refs:[{pt,t0,v0}], t0, v0, totalBeats, moved}
+    function _sdPtSelClear() {
+        if (!_sdPtSel.size && !_sdPtMarquee) return false;
+        _sdPtSel = new Set(); _sdPtMarquee = null;
+        return true;
+    }
     let _sdRangeFieldRects = [];       // per-render hit rects for the min/max fields: {param, edge, x, y, w, h}
     // Per-render hit rects for the lane-header glyphs (range / focus / lock):
     // {param, kind, x, y, w, h}. These used to be hit-tested on mx ALONE, so the
@@ -322,6 +335,19 @@
     let sdDeviceFilter = null;                // multi view: show only this device's lanes (null = all) — set by clicking a chain device
     let sdMultiScrollOffset = 0;              // # of lanes scrolled off the top
     const SD_MULTI_LANE_HEIGHT = 64;          // px per lane in multi view
+
+    // FOCUS view plot inset. A point is a dot with a radius, so mapping 0..1 straight onto
+    // 0..lh draws the extremes half outside the canvas: field report 2026-08-31, "when they
+    // are at minimum level in the bottom, they seem to be masked or something, i don't see
+    // them. And for the up points, i only see half of them when they are at maximum." The
+    // canvas already stops above the draw deck, so the bottom row had nowhere to overflow
+    // into. Everything that turns a focus value into a pixel goes through _sdFocusY, and
+    // everything that reads a pixel back goes through _sdFocusV, or the two disagree and
+    // points jump on click.
+    const SD_FOCUS_PAD_Y = 10;
+    const _sdFocusSpan = (lh) => Math.max(1, lh - 2 * SD_FOCUS_PAD_Y);
+    const _sdFocusY = (v, lh) => (lh - SD_FOCUS_PAD_Y) - v * _sdFocusSpan(lh);
+    const _sdFocusV = (y, lh) => Math.max(0, Math.min(1, ((lh - SD_FOCUS_PAD_Y) - y) / _sdFocusSpan(lh)));
     const SD_MULTI_LABEL_WIDTH = 148;         // px reserved on the left for the param name (widened for the 1.1.11 big-name header; every icon hit zone derives from this constant, so clicks stay aligned)
 
     // Case-insensitive name comparator. Used to sort the param list right
@@ -2897,13 +2923,10 @@
         const lo = p.rangeMin, span = (p.rangeMax - p.rangeMin);
         return p.points.map(pt => ({ time: pt.time, value: Math.max(0, Math.min(1, lo + pt.value * span)), curve: pt.curve || 0 }));
     }
-    // Inverse of _sdRangeApply: a click's screen value (0..1) -> the stored 0..1 shape, so
-    // drawing/hit-testing on a ranged lane works within the band (clicking the ceiling = 1.0).
-    function _sdRangeInv(p, v) {
-        if (!p || !p.rangeOn) return v;
-        const span = p.rangeMax - p.rangeMin;
-        return span > 0 ? Math.max(0, Math.min(1, (v - p.rangeMin) / span)) : v;
-    }
+    // (There is no inverse of _sdRangeApply any more. A ranged lane is DRAWN and EDITED in
+    // plain 0..1 and the range is applied only on the way out to the host, so screen space
+    // and shape space are the same space. Re-introducing an inverse would re-break drawing
+    // on a narrow band: see the note at the multi-view hit test.)
 
     // ─── LOCAL STATE PERSISTENCE ──────────────────────────
 
@@ -3632,6 +3655,7 @@
     };
 
     window.sdSetActiveParam = function(id) {
+        if (id !== sdActiveParamId) _sdPtSelClear();   // a point selection belongs to ONE lane
         sdActiveParamId = id;
         sdResetSliderSnapshots();
         // In multi-lane view, scroll the canvas so the clicked param's lane is
@@ -4344,33 +4368,48 @@
         chip.className = 'sbtn sbtn--icon';
         chip.style.cssText = 'position:absolute;top:34px;right:10px;z-index:60;opacity:.75;';
         const wrap = !!window.__STRIDE_WRAPPER__;
+        // Third slot = which REAL drawing function paints that row's icon. Text glyphs
+        // drifted from the lane: the legend said "\u00b1" for Range, which looks nothing like the
+        // ceiling/floor arrow actually drawn, and "2X \u00b7 \u00bdX" for Speed, when at the default 1x
+        // the lane shows a METRONOME the legend never showed at all (field report
+        // 2026-09-01: "i cannot see the range icon and the speed icon is not as the actual
+        // speed icon that lives next to the range icon"). Painting them with the same
+        // functions the lane uses means they cannot drift again, and 18px instead of a 10px
+        // glyph makes them legible.
         const rows = [
-            ['Color bar', 'the strip on the left edge is the lane color. Click it to pick another.'],
-            ['\u00d7', 'remove the lane. The knob keeps its value.'],
-            ['\u00b1', 'Range. Give this param its own min and max, the curve rides inside them. Drag the fields or type.'],
-            ['\u2922', 'Focus. Open this lane full-canvas with the draw deck. The All lanes pill brings you back.'],
-            ['Lock', 'the padlock. Motions, sliders and drawing skip a locked lane.']
+            ['Color bar', 'the strip on the left edge is the lane color. Click it to pick another.', 'color'],
+            ['Remove', 'remove the lane. The knob keeps its value.', 'unmap'],
+            ['Range', 'give this param its own min and max. The curve draws full height and rides inside the band. Drag the fields or type.', 'range'],
+            ['Focus', 'open this lane full-canvas with the draw deck. The All lanes pill brings you back.', 'focus'],
+            ['Lock', 'the padlock. Motions, sliders and drawing skip a locked lane.', 'lock']
         ];
         if (wrap) {
-            rows.push(['2X \u00b7 \u00bdX', 'Lane speed. Press the slot left of \u00b1 and drag up or down.']);
-            rows.push(['Bookmark', 'hover the label, top right. Saves this curve to Motions.']);
-            rows.push(['Jack', 'bottom left of the label. Link lanes into a group so they move together.']);
+            rows.push(['Lane speed', 'the slot left of Range. At 1x it is this metronome, riding the track tempo. Press and drag up or down: off 1x the value itself becomes the icon (2X, \u00bdX).', 'speed']);
+            rows.push(['Bookmark', 'top right of the label column, and it only appears while you hover the label. Saves this curve to Motions.', 'book']);
+            rows.push(['Jack', 'bottom left of the label column. Drag from one lane to another to link them into a group so they move together.', 'jack']);
         }
         rows.push(['Deck', 'in focus view: shapes stamp on the grid. Press = base, drag = height, down flips. Shift = free hand. Esc puts the pen down.']);
+        rows.push(['Ctrl+drag', 'in focus view: box-select points, then drag any selected point to move them all. Esc clears.']);
         const card = document.createElement('div');
         card.id = 'sd-lane-help';
         card.style.cssText = 'display:none;position:absolute;top:64px;right:10px;z-index:61;width:300px;max-height:70%;overflow-y:auto;'
             + 'background:rgba(9,9,11,.97);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:12px 14px;'
             + "font-family:'Outfit',sans-serif;backdrop-filter:blur(6px);box-shadow:0 12px 40px rgba(0,0,0,.5)";
         let html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
-            + '<span style="font-size:10px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:#fb923c">Lane icons</span>'
+            + '<span style="font-size:10px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:#fb923c">Lane icons and gestures</span>'
             + '<button id="sd-lane-help-x" class="sbtn sbtn--icon">\u00d7</button></div>';
         rows.forEach(r => {
-            html += '<div style="display:flex;gap:8px;margin:7px 0;align-items:baseline">'
-                + '<span style="flex:0 0 62px;font-size:10px;font-weight:800;color:#e4e4e7;text-align:right">' + r[0] + '</span>'
-                + '<span style="font-size:10.5px;line-height:1.45;color:#a1a1aa">' + r[1] + '</span></div>';
+            const icon = r[2]
+                ? '<canvas class="sd-help-icon" data-icon="' + r[2] + '" width="24" height="24" '
+                  + 'style="width:24px;height:24px;flex:0 0 24px"></canvas>'
+                : '<span style="flex:0 0 24px"></span>';
+            html += '<div style="display:flex;gap:8px;margin:8px 0;align-items:flex-start">'
+                + icon
+                + '<span style="flex:0 0 56px;font-size:10px;font-weight:800;color:#e4e4e7">' + r[0] + '</span>'
+                + '<span style="flex:1;font-size:10.5px;line-height:1.45;color:#a1a1aa">' + r[1] + '</span></div>';
         });
         card.innerHTML = html;
+        _sdPaintHelpIcons(card);
         host.appendChild(chip);
         host.appendChild(card);
         const closeCard = function () { card.style.display = 'none'; };
@@ -4380,6 +4419,40 @@
         if (xb) xb.onclick = closeCard;
         document.addEventListener('mousedown', function (e) { if (!card.contains(e.target) && e.target !== chip) closeCard(); });
         document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeCard(); });
+    }
+
+    // Paint each legend row's icon with the SAME function the lane uses, so the two can
+    // never say different things again. 18px inside a 24px box: the lane draws at 12, which
+    // is too small to recognise out of context.
+    function _sdPaintHelpIcons(card) {
+        const D = 18, PAD = 3, col = 'rgba(228,228,231,0.92)';
+        const draw = {
+            unmap: (c) => _drawUnmapIcon(c, PAD, PAD, D, col),
+            range: (c) => _drawRangeIcon(c, PAD, PAD, D, col, false),
+            focus: (c) => _drawFocusIcon(c, PAD, PAD, D, col),
+            lock:  (c) => _drawLockIcon(c, PAD, PAD, D, col, false),
+            speed: (c) => _drawSpeedIcon(c, PAD, PAD, D, col),
+            // These two live on the label column rather than the icon row, and both are
+            // revealed on hover, so they are the hardest of the lot to find by accident.
+            // Drawn lit here, which is the state you see when you have found them.
+            book:  (c) => _sdDrawBookmark(c, PAD + 2, PAD, D, true),
+            jack:  (c) => _sdDrawJack(c, PAD + D / 2, PAD + D / 2, 8, 1, null),
+            color: (c) => {
+                c.fillStyle = 'rgb(' + ((sdSkinColors && sdSkinColors.rgb) || '251,146,60') + ')';
+                c.fillRect(PAD + 6, PAD, 5, D);   // the lane's left edge strip, same shape
+            },
+        };
+        const dpr = Math.max(1, window.devicePixelRatio || 1);
+        const list = card.querySelectorAll('canvas.sd-help-icon');
+        for (let i = 0; i < list.length; i++) {
+            const cv = list[i], fn = draw[cv.getAttribute('data-icon')];
+            if (!fn) continue;
+            cv.width = Math.round(24 * dpr); cv.height = Math.round(24 * dpr);
+            const c = cv.getContext('2d');
+            if (!c) continue;
+            c.setTransform(dpr, 0, 0, dpr, 0, 0);
+            try { fn(c); } catch (e) {}
+        }
     }
 
     function sdDrawCanvasGrid() {
@@ -4452,7 +4525,7 @@
 
         // Horizontal grid lines
         for (let v = 0; v <= 1; v += 0.25) {
-            const y = lh - (v * lh);
+            const y = _sdFocusY(v, lh);
             sdCtx.strokeStyle = v === 0 || v === 1 ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)';
             sdCtx.lineWidth = 1; sdCtx.beginPath(); sdCtx.moveTo(0, y); sdCtx.lineTo(lw, y); sdCtx.stroke();
         }
@@ -4463,9 +4536,9 @@
             if (ap && ap.min !== undefined && ap.max !== undefined) {
                 const fv = v => { if (!isFinite(v)) return '?'; if (Math.abs(v) >= 10000) return (v / 1000).toFixed(1) + 'k'; if (Number.isInteger(v) || Math.abs(v) >= 100) return String(Math.round(v)); if (Math.abs(v) >= 10) return v.toFixed(1); return parseFloat(v.toFixed(3)).toString(); };
                 sdCtx.font = 'bold 9px Outfit'; sdCtx.textAlign = 'left';
-                sdCtx.fillStyle = 'rgba(' + sdSkinColors.rgb + ',0.9)'; sdCtx.fillText(fv(ap.max), 4, 13);
-                sdCtx.fillStyle = 'rgba(255,255,255,0.25)'; sdCtx.fillText(fv(ap.min + (ap.max - ap.min) * 0.5), 4, lh / 2 + 4);
-                sdCtx.fillStyle = 'rgba(255,255,255,0.5)'; sdCtx.fillText(fv(ap.min), 4, lh - 3);
+                sdCtx.fillStyle = 'rgba(' + sdSkinColors.rgb + ',0.9)'; sdCtx.fillText(fv(ap.max), 4, _sdFocusY(1, lh) + 10);
+                sdCtx.fillStyle = 'rgba(255,255,255,0.25)'; sdCtx.fillText(fv(ap.min + (ap.max - ap.min) * 0.5), 4, _sdFocusY(0.5, lh) + 4);
+                sdCtx.fillStyle = 'rgba(255,255,255,0.5)'; sdCtx.fillText(fv(ap.min), 4, _sdFocusY(0, lh) - 4);
             }
         }
 
@@ -4493,7 +4566,7 @@
         for (let i = 0; i < param.points.length; i++) {
             const pt = param.points[i];
             const x = ((pt.time / totalBeats) * lw * sdViewZoomX) - sdViewPanX;
-            const y = lh - (pt.value * lh);
+            const y = _sdFocusY(pt.value, lh);
             if (i === 0) { sdCtx.moveTo(x, y); }
             else {
                 const prev = param.points[i - 1];
@@ -4501,7 +4574,7 @@
                 if (cv === 0) { sdCtx.lineTo(x, y); }
                 else {
                     const px = ((prev.time / totalBeats) * lw * sdViewZoomX) - sdViewPanX;
-                    const py = lh - (prev.value * lh);
+                    const py = _sdFocusY(prev.value, lh);
                     const mx = (px + x) / 2;
                     const my = (py + y) / 2;
                     const cpY = my - cv * Math.abs(y - py) * 1.2;
@@ -4515,9 +4588,15 @@
         sdCtx.fillStyle = sdSkinColors.curve;
         param.points.forEach(pt => {
             const x = ((pt.time / totalBeats) * lw * sdViewZoomX) - sdViewPanX;
-            const y = lh - (pt.value * lh);
+            const y = _sdFocusY(pt.value, lh);
             if (x >= -10 && x <= lw + 10) {
                 sdCtx.beginPath(); sdCtx.arc(x, y, 3, 0, Math.PI * 2); sdCtx.fill();
+                if (_sdPtSel.has(pt)) {   // in the marquee selection: a ring, so it reads at a glance
+                    sdCtx.save();
+                    sdCtx.strokeStyle = 'rgba(251,191,36,0.95)'; sdCtx.lineWidth = 1.5;
+                    sdCtx.beginPath(); sdCtx.arc(x, y, 6.5, 0, Math.PI * 2); sdCtx.stroke();
+                    sdCtx.restore();
+                }
                 if (sdDraggedPoint === pt) {
                     sdCtx.beginPath(); sdCtx.fillStyle = 'rgba(' + sdSkinColors.rgb + ',0.4)'; sdCtx.arc(x, y, 10, 0, Math.PI * 2); sdCtx.fill(); sdCtx.fillStyle = sdSkinColors.curve;
                 }
@@ -4526,7 +4605,7 @@
                     if (idx < param.points.length - 1) {
                         const next = param.points[idx + 1];
                         const nx = ((next.time / totalBeats) * lw * sdViewZoomX) - sdViewPanX;
-                        const ny = lh - (next.value * lh);
+                        const ny = _sdFocusY(next.value, lh);
                         const mx = (x + nx) / 2;
                         const my = (y + ny) / 2;
                         const cpY = my - pt.curve * Math.abs(ny - y) * 1.2;
@@ -5061,9 +5140,10 @@
                 sdCtx.restore();
             }
 
-            // Per-param RANGE: shaded dead zone + boundary lines + a "min–max%" tag. Drawn for
-            // ANY ranged lane (even empty ones) so the band is always visible; the curve itself
-            // is confined into the band via the range-aware valueToY below.
+            // Per-param RANGE: shaded dead zone + boundary lines. Drawn for ANY ranged lane
+            // (even empty ones) so the band is always visible. The curve is NOT confined into
+            // it: the shape draws full height and the band shows the slice of the knob that
+            // shape is mapped onto, which is the only way a 3% band stays readable.
             if (param.rangeOn) {
                 const _ry = (v) => rect.bottom - v * rect.height;   // actual 0..1 param value -> screen Y
                 const _yMax = _ry(param.rangeMax), _yMin = _ry(param.rangeMin);
@@ -5138,9 +5218,13 @@
             if (isLocked) sdCtx.globalAlpha = 0.4;
             if (param._missing) sdCtx.globalAlpha = 0.22;   // dead lane: visible as context, clearly not playing
             const sortedPts = param.points.slice().sort((a, b) => a.time - b.time);
-            // Ranged lanes display their 0..1 shape scaled into [rangeMin,rangeMax] (confined to the band).
-            const _rangeMap = (v) => param.rangeOn ? (param.rangeMin + v * (param.rangeMax - param.rangeMin)) : v;
-            const valueToY = (v) => rect.bottom - _rangeMap(v) * rect.height;
+            // A ranged lane draws its 0..1 shape at FULL height, and the band behind it shows
+            // where that shape lands on the knob. Squashing the drawing into the band was the
+            // old behaviour and it made the feature unusable at the ranges people actually
+            // want: field report 2026-08-31, pitch banded to 0-3%, "i no longer see my curves
+            // and i have no idea what shapes i have when i click Neuro or Chaos". The stored
+            // shape was always 0..1 (see _sdRangeApply) so nothing about the OUTPUT changes.
+            const valueToY = (v) => rect.bottom - v * rect.height;
             const timeToX = (t) => laneDrawLeft + ((t / totalBeats) * laneDrawWidth * sdViewZoomX) - sdViewPanX;
             _sdLaneGeom.push({ id: param.envelopeId,   // the landing animation matches lanes by id
                                cy: rect.top + rect.height / 2, rgb: sdLaneColor(param, paramIdx), poly: (param.points.length >= 2 ? _sdSampleLanePixels(sortedPts, timeToX, valueToY) : null),
@@ -5393,13 +5477,16 @@
                 return { time, value: 0 };
             }
             const laneRect = sdMultiGetVisibleRowRect(rowIdx);
-            const value = _sdRangeInv(sdCanvasParams[activeIdx], Math.max(0, Math.min(1, 1 - ((pos.y - laneRect.top) / laneRect.height))));
+            // 1:1 with what is drawn. While ranged lanes were squashed into the band this
+            // went through _sdRangeInv, which meant that on a 3% band every click above the
+            // band floor landed on 1.0 and the lane could not be drawn on at all.
+            const value = Math.max(0, Math.min(1, 1 - ((pos.y - laneRect.top) / laneRect.height)));
             return { time, value };
         }
 
         // Focus mode (original behavior)
-        const _fp = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
-        return { time: ((pos.x + sdViewPanX) / (rect.width * sdViewZoomX)) * totalBeats, value: _sdRangeInv(_fp, 1 - (pos.y / rect.height)) };
+        return { time: ((pos.x + sdViewPanX) / (rect.width * sdViewZoomX)) * totalBeats,
+                 value: _sdFocusV(pos.y, rect.height) };
     }
 
     function setupSdCanvasInteractions() {
@@ -5444,6 +5531,7 @@
             if (e.code === 'Escape') {
                 if (_sdStampDrag) { _sdStampDrag = null; _sdDragReadout = null; sdDrawCanvasGrid(); return; }   // cancel the in-flight stamp
                 if (_sdStampShape) { _sdStampArm(_sdStampShape); return; }                                      // put the pen down
+                if (_sdPtSelClear()) { sdDrawCanvasGrid(); return; }                                            // drop the point selection
                 sdClearSelection(); return;
             }
             // Delete / Backspace: clear the curve on the selected (or active) lane(s).
@@ -5574,7 +5662,8 @@
                         } else {
                             _sdRangeFieldClick = { id: _f.param.envelopeId, edge: _f.edge, t: now };
                             pushUndo();   // one range-undo checkpoint per field scrub
-                            _sdRangeNumDrag = { param: _f.param, edge: _f.edge, startY: my, startVal: _f.param[_f.edge] || 0 };
+                            _sdRangeNumDrag = { param: _f.param, edge: _f.edge,
+                                                lastY: e.clientY, val: _f.param[_f.edge] || 0 };
                             sdCanvasEl.style.cursor = 'ns-resize';
                         }
                         return;
@@ -5769,6 +5858,17 @@
                 return;
             }
             const bars = sdGetBars(); const totalBeats = bars * 4;
+
+            // MARQUEE (focus, Ctrl+drag). Claimed before the stamp branch on purpose: with a
+            // shape armed there would otherwise be no way to reach the selection at all.
+            if (sdViewMode === 'focus' && e.button === 0 && (e.ctrlKey || e.metaKey)) {
+                const _mr = sdCanvasEl.getBoundingClientRect();
+                const _mx = e.clientX - _mr.left, _my = e.clientY - _mr.top;
+                _sdPtMarquee = { x0: _mx, y0: _my, x1: _mx, y1: _my };
+                sdDrawCanvasGrid();
+                return;
+            }
+
             // STAMP (focus deck): an armed shape owns the gesture. Left drag lays it
             // down; right-click puts the pen down without drawing.
             if (sdViewMode === 'focus' && _sdStampShape && sdActiveTool !== 'freehand') {
@@ -5818,6 +5918,18 @@
                 else sdPaintFreehand(hd.time, hd.value, param, totalBeats);
             }
             else {
+                if (idx !== -1 && _sdPtSel.size > 1 && _sdPtSel.has(param.points[idx])) {
+                    // Move the whole selection. One undo checkpoint for the gesture, and the
+                    // offsets are captured up front so the drag stays relative no matter how
+                    // often the array is re-sorted underneath it.
+                    pushUndo();
+                    _sdPtGroupDrag = {
+                        refs: Array.from(_sdPtSel).map(pt => ({ pt: pt, t0: pt.time, v0: pt.value })),
+                        t0: hd.time, v0: hd.value, totalBeats: totalBeats, param: param, moved: false,
+                    };
+                    sdCanvasEl.style.cursor = 'move';
+                    return;
+                }
                 if (idx !== -1) { sdIsDragging = true; sdDraggedPoint = param.points[idx]; sdDrawCanvasGrid(); }
                 else {
                     // Shift = place free (no time/value snap); otherwise both snap.
@@ -5830,21 +5942,13 @@
                     // report 2026-08-03). The drag keeps its reference — sort moves the object,
                     // not its identity.
                     param.points.push(np); param.points.sort((a, b) => a.time - b.time);
+                    _sdPtSelClear();   // drawing a new point is the end of the old selection
                     sdIsDragging = true; sdDraggedPoint = np; sdRenderSidebar(); sdDrawCanvasGrid();
                 }
             }
         });
         sdCanvasEl.addEventListener('mousemove', e => {
             _sdMaybeShowLaneTooltip(e);
-            if (_sdRangeNumDrag) {   // scrubbing a numeric min/max field — ~1% per 2px
-                const mr = sdCanvasEl.getBoundingClientRect();
-                const my = e.clientY - mr.top;
-                const nd = _sdRangeNumDrag;
-                _sdRangeSetPercent(nd.param, nd.edge, (nd.startVal + (nd.startY - my) / 200) * 100);
-                sdCanvasEl.style.cursor = 'ns-resize';
-                sdDrawCanvasGrid();
-                return;
-            }
             if (_sdSpeedDrag) {   // dragging the lane-speed ladder — ~24px per step, live apply so you HEAR it
                 const mrS = sdCanvasEl.getBoundingClientRect();
                 const myS = e.clientY - mrS.top;
@@ -5987,6 +6091,93 @@
                 });
             }
         });
+        // ─── FOCUS point marquee + group move ───────────────────
+        // Global so the box and the move keep tracking past the canvas edge, the same
+        // reason drag-select below is global.
+        window.addEventListener('mousemove', e => {
+            if (_sdPtMarquee) {
+                const r = sdCanvasEl.getBoundingClientRect();
+                _sdPtMarquee.x1 = e.clientX - r.left;
+                _sdPtMarquee.y1 = e.clientY - r.top;
+                sdDrawCanvasGrid();
+                return;
+            }
+            if (_sdPtGroupDrag) {
+                const g = _sdPtGroupDrag, hd = sdGetTimeValue(e);
+                let dt = hd.time - g.t0, dv = hd.value - g.v0;
+                // Clamp the WHOLE group, not each point: clamping individually would
+                // squash the shape against an edge instead of stopping it there.
+                let tMin = Infinity, tMax = -Infinity, vMin = Infinity, vMax = -Infinity;
+                for (const r of g.refs) {
+                    if (r.t0 < tMin) tMin = r.t0;
+                    if (r.t0 > tMax) tMax = r.t0;
+                    if (r.v0 < vMin) vMin = r.v0;
+                    if (r.v0 > vMax) vMax = r.v0;
+                }
+                dt = Math.max(-tMin, Math.min(g.totalBeats - tMax, dt));
+                dv = Math.max(-vMin, Math.min(1 - vMax, dv));
+                for (const r of g.refs) { r.pt.time = r.t0 + dt; r.pt.value = r.v0 + dv; }
+                // The array must stay time-ordered for every consumer (live drive, inject,
+                // saved state). Sorting moves the objects, not their identity, so both the
+                // selection Set and the captured refs survive it.
+                g.param.points.sort((a, b) => a.time - b.time);
+                g.moved = true;
+                sdDrawCanvasGrid();
+            }
+        });
+        window.addEventListener('mouseup', () => {
+            if (_sdPtMarquee) {
+                const m = _sdPtMarquee; _sdPtMarquee = null;
+                const x0 = Math.min(m.x0, m.x1), x1 = Math.max(m.x0, m.x1);
+                const y0 = Math.min(m.y0, m.y1), y1 = Math.max(m.y0, m.y1);
+                const param = sdCanvasParams.find(p => p.envelopeId === sdActiveParamId);
+                // A Ctrl+CLICK (a box with no area) is the clear gesture, since a plain
+                // click in focus is already "add a point" and can never mean "deselect".
+                if (!param || (x1 - x0 < 3 && y1 - y0 < 3)) { _sdPtSel = new Set(); sdDrawCanvasGrid(); return; }
+                const r = sdCanvasEl.getBoundingClientRect();
+                const totalBeats = sdGetBars() * 4;
+                const toX = (t) => ((t / totalBeats) * r.width * sdViewZoomX) - sdViewPanX;
+                _sdPtSel = new Set(param.points.filter(pt => {
+                    const x = toX(pt.time), y = _sdFocusY(pt.value, r.height);
+                    return x >= x0 && x <= x1 && y >= y0 && y <= y1;
+                }));
+                const st = document.getElementById('sd-canvas-status');
+                if (st) st.textContent = _sdPtSel.size
+                    ? _sdPtSel.size + ' point' + (_sdPtSel.size === 1 ? '' : 's') + ' selected: drag any one to move them together'
+                    : 'Nothing in the box';
+                sdDrawCanvasGrid();
+                return;
+            }
+            if (_sdPtGroupDrag) {
+                const moved = _sdPtGroupDrag.moved;
+                _sdPtGroupDrag = null;
+                if (sdCanvasEl) sdCanvasEl.style.cursor = 'crosshair';
+                if (moved) { sdRenderSidebar(); try { Promise.resolve(saveCanvasState()); } catch (err) {} }
+                sdDrawCanvasGrid();
+            }
+        });
+
+        // ─── Numeric MIN/MAX scrub ──────────────────────────────
+        // Global, for the same reason as drag-select below: the gesture has to keep
+        // tracking once the pointer leaves the canvas. Field report 2026-08-31: "when
+        // you put the max range very low let's say at 3%, you have to move the mouse
+        // upward multiple times to get back to 100%". It took ~194px of travel and the
+        // handler was bound to the canvas, so the run ended at the canvas edge.
+        //
+        // Accumulated per move rather than measured from the press point, and CLAMPED
+        // to 0..1 as it goes: an unclamped accumulator would wind up past the end and
+        // then need the same distance unwound before the value moved back.
+        window.addEventListener('mousemove', e => {
+            const nd = _sdRangeNumDrag;
+            if (!nd) return;
+            const gain = e.shiftKey ? 800 : 200;          // Shift = fine, for the last percent
+            nd.val = Math.max(0, Math.min(1, nd.val + (nd.lastY - e.clientY) / gain));
+            nd.lastY = e.clientY;
+            _sdRangeSetPercent(nd.param, nd.edge, nd.val * 100);
+            if (sdCanvasEl) sdCanvasEl.style.cursor = 'ns-resize';
+            sdDrawCanvasGrid();
+        });
+
         // ─── Drag-select (multi-view + Select Mode) ─────────────
         // Global mousemove so the gesture keeps tracking even when the
         // pointer briefly leaves the canvas. Cheap early-return when no
@@ -11106,9 +11297,11 @@
             const gr = _sdMotionLaneRects.find(r => r.param.envelopeId === _sdGhost.envelopeId);
             if (gr) {
                 const tp = gr.param;
-                const _rm = (v) => tp.rangeOn ? (tp.rangeMin + v * (tp.rangeMax - tp.rangeMin)) : v;
+                // Full height, exactly like the lane it is previewing. A ranged lane no
+                // longer squashes its drawing into the band, so a squashed ghost would
+                // promise a different shape than the drop delivers.
                 const tX = (t) => laneDrawLeft + (t * laneDrawWidth * sdViewZoomX) - sdViewPanX;
-                const tY = (v) => gr.bottom - _rm(Math.max(0, Math.min(1, v))) * gr.height;
+                const tY = (v) => gr.bottom - Math.max(0, Math.min(1, v)) * gr.height;
                 sdCtx.save();
                 sdCtx.beginPath(); sdCtx.rect(laneDrawLeft, gr.top, laneDrawWidth, gr.height); sdCtx.clip();
                 sdCtx.beginPath();
@@ -12762,8 +12955,20 @@
     function _sdDrawFocusOverlays(param, lw, lh, totalBeats) {
         _sdHandleRects = [];
         if (sdViewMode !== 'focus') return;
+        if (_sdPtMarquee) {
+            const m = _sdPtMarquee;
+            const x = Math.min(m.x0, m.x1), y = Math.min(m.y0, m.y1);
+            const w = Math.abs(m.x1 - m.x0), h = Math.abs(m.y1 - m.y0);
+            sdCtx.save();
+            sdCtx.fillStyle = 'rgba(251,191,36,0.10)';
+            sdCtx.strokeStyle = 'rgba(251,191,36,0.75)';
+            sdCtx.lineWidth = 1; sdCtx.setLineDash([4, 3]);
+            sdCtx.fillRect(x, y, w, h); sdCtx.strokeRect(x + 0.5, y + 0.5, w, h);
+            sdCtx.setLineDash([]);
+            sdCtx.restore();
+        }
         const toX = (t) => ((t / totalBeats) * lw * sdViewZoomX) - sdViewPanX;
-        const toY = (v) => lh - (v * lh);
+        const toY = (v) => _sdFocusY(v, lh);
 
         // value-snap guides while interacting
         const vs = SD_VAL_SNAP[_sdValSnapIdx];
@@ -12874,7 +13079,7 @@
         d.innerHTML =
           '<div class="flex items-center gap-3 px-3 shrink-0" style="height:' + SD_DECK_H_MIN + 'px">'
         +   '<span class="text-[9px] font-black uppercase tracking-[0.25em] text-fuchsia-400">Draw</span>'
-        +   '<span class="text-[9px] font-bold uppercase tracking-wider text-zinc-600 truncate flex-1">Shapes stamp on the grid · drag down flips them · Shift = free hand · Alt or the dot = bend · Right-click = delete</span>'
+        +   '<span class="text-[9px] font-bold uppercase tracking-wider text-zinc-600 truncate flex-1">Shapes stamp on the grid · drag down flips them · Shift = free hand · Alt or the dot = bend · Ctrl+drag = select points · Right-click = delete</span>'
         +   '<button id="sd-deck-collapse" title="Collapse the draw deck" class="sbtn sbtn--icon">▾</button>'
         + '</div>'
         + '<div id="sd-deck-body" class="flex-1 min-h-0 flex items-stretch gap-0 px-3 pb-2">'
@@ -13014,6 +13219,7 @@
         _sdDeckEl.classList.toggle('flex', wants);
         if (!wants) {   // leaving focus: put every focus-only mode down
             _sdStampShape = null; _sdStampDrag = null; _sdDragReadout = null;
+            _sdPtSelClear(); _sdPtGroupDrag = null;   // the point selection belongs to the focused lane
             if (sdCanvasEl) sdCanvasEl.style.cursor = 'crosshair';
         } else {
             _sdDeckPaintArm();

@@ -4,6 +4,9 @@
 #
 # Builds the JUCE plugin universal (arm64 + x86_64) in BOTH formats:
 #   Stride.vst3       — Live / Bitwig / Cubase / Studio One / Reaper / FL ...
+#   Stride FX.vst3    — the SAME plugin declared as an audio effect, so it can sit on an
+#                       audio track or the master (VST3 only: the AU effect identity is a
+#                       separate frozen triple and gets its own auval gate later)
 #   Stride.component  — AUv2 (aumu SwM0 Strd) for Logic Pro + GarageBand
 # codesigns both with the Developer ID + the disable-library-validation
 # entitlement (so Stride can host other plugins), gates the build on `auval`
@@ -38,25 +41,30 @@ cmake -S "$SCRIPT_DIR" -B "$BUILD_DIR" \
     -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
     -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
 cmake --build "$BUILD_DIR" --config Release -j3 \
-    --target StrideWrapperM0_VST3 --target StrideWrapperM0_AU
+    --target StrideWrapperM0_VST3 --target StrideWrapperM0_AU --target StrideWrapperFx_VST3
 
 VST3="$(find "$BUILD_DIR" -name 'Stride.vst3' -type d | head -1)"
+FX3="$(find "$BUILD_DIR" -name 'Stride FX.vst3' -type d | head -1)"
 AU="$(find "$BUILD_DIR" -name 'Stride.component' -type d | head -1)"
 if [ -z "$VST3" ]; then
     echo "❌ Stride.vst3 not found after build"; find "$BUILD_DIR" -name '*.vst3' 2>/dev/null; exit 1
+fi
+if [ -z "$FX3" ]; then
+    echo "❌ Stride FX.vst3 not found after build"; find "$BUILD_DIR" -name '*.vst3' 2>/dev/null; exit 1
 fi
 if [ -z "$AU" ]; then
     echo "❌ Stride.component not found after build"; find "$BUILD_DIR" -name '*.component' 2>/dev/null; exit 1
 fi
 echo "      built: $VST3"
 echo "      arch:  $(lipo -archs "$VST3/Contents/MacOS/Stride" 2>/dev/null || echo '?')"
+echo "      built: $FX3"
 echo "      built: $AU"
 echo "      arch:  $(lipo -archs "$AU/Contents/MacOS/Stride" 2>/dev/null || echo '?')"
 
 # ─── 2. Codesign both (hardened runtime + disable-library-validation) ───────
 echo "[2/6] codesign (both bundles)..."
 [ -f "$ENT" ] || { echo "❌ entitlements missing: $ENT"; exit 1; }
-for BUNDLE in "$VST3" "$AU"; do
+for BUNDLE in "$VST3" "$FX3" "$AU"; do
     codesign --force --deep --options runtime --timestamp \
         --entitlements "$ENT" --sign "$IDENTITY" "$BUNDLE"
     codesign --verify --deep --strict --verbose=2 "$BUNDLE" || { echo "❌ codesign verify failed: $BUNDLE"; exit 1; }
@@ -98,6 +106,7 @@ SIGNED_ZIP="$SCRIPT_DIR/Stride-mac-signed.zip"
 rm -rf "$STAGE" "$SIGNED_ZIP"
 mkdir -p "$STAGE"
 ditto "$VST3" "$STAGE/Stride.vst3"
+ditto "$FX3"  "$STAGE/Stride FX.vst3"
 ditto "$AU"   "$STAGE/Stride.component"
 ditto -c -k "$STAGE" "$SIGNED_ZIP"
 
@@ -114,17 +123,18 @@ echo "      ✅ notarized"
 
 # ─── 5. Staple + verify both ────────────────────────────────────────────────
 echo "[5/6] staple..."
-for BUNDLE in "$VST3" "$AU"; do
+for BUNDLE in "$VST3" "$FX3" "$AU"; do
     xcrun stapler staple "$BUNDLE"
     xcrun stapler validate "$BUNDLE" || { echo "❌ stapler validate failed: $BUNDLE"; exit 1; }
 done
 echo "      ✅ stapled"
 
 # ─── 6. Package ─────────────────────────────────────────────────────────────
-echo "[6/6] package (Stride.vst3 + Stride.component + README)..."
+echo "[6/6] package (Stride.vst3 + Stride FX.vst3 + Stride.component + README)..."
 DIST="$SCRIPT_DIR/dist-mac"
 rm -rf "$DIST"; mkdir -p "$DIST/Stride"
 ditto "$VST3" "$DIST/Stride/Stride.vst3"
+ditto "$FX3"  "$DIST/Stride/Stride FX.vst3"
 ditto "$AU"   "$DIST/Stride/Stride.component"
 cp "$CI_DIR/README.txt" "$DIST/Stride/README.txt"
 # StrideBridge rides along (see the Windows job note): self-contained M4L folder.
@@ -141,6 +151,7 @@ cp "$SCRIPT_DIR/../../stride-vst/remote_script/StrideInject/_curve.py" "$DIST/St
 cp "$BRIDGE_SRC/README-StrideBridge.txt" "$DIST/Stride/StrideBridge/README.txt"
 cp "$SCRIPT_DIR/../../docs/_fonts/Outfit.ttf" "$DIST/Stride/StrideBridge/"
 xcrun stapler validate "$DIST/Stride/Stride.vst3"      || { echo "❌ staple lost after copy (vst3)"; exit 1; }
+xcrun stapler validate "$DIST/Stride/Stride FX.vst3"   || { echo "❌ staple lost after copy (fx)"; exit 1; }
 xcrun stapler validate "$DIST/Stride/Stride.component" || { echo "❌ staple lost after copy (component)"; exit 1; }
 # Bake the CMake project version into the zip name — the file identifies its build,
 # so a tester's download can never be mistaken for another version.

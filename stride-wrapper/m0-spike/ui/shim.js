@@ -1413,6 +1413,23 @@
         paintTempo();
         paintRun();
       });
+      // Which build am I? Stride and Stride FX share this exact page (one BinaryData for
+      // both targets), so the page has to be told. Once, on the first rack_scanned that
+      // says so: the title bar and the activation card say STRIDE FX, and nothing else
+      // in the UI differs, because nothing else about the plugin does.
+      var _fxNamed = false;
+      listen('sl_event', function (msg) {
+        if (! msg || msg.type !== 'rack_scanned' || _fxNamed || ! msg.is_fx) return;
+        _fxNamed = true;
+        try {
+          document.title = 'STRIDE FX';
+          var brands = document.querySelectorAll('.text-gradient');
+          for (var i = 0; i < brands.length; i++)
+            if ((brands[i].textContent || '').trim().toUpperCase() === 'STRIDE')
+              brands[i].textContent = 'STRIDE FX';
+        } catch (e) {}
+      });
+
       // Host-driven BPM (the "Stride BPM" DAW param on a MIDI knob) — a light live echo
       // so the tempo pill follows the knob without a heavy rack re-push.
       listen('bpmEcho', function (d) {

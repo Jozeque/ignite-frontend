@@ -1,5 +1,5 @@
 ===============================================================
- STRIDE (VST3 + AU)
+ STRIDE (VST3 + AU) + STRIDE FX
  Sound Design Engine. Modulate everything in your session.
 ===============================================================
 
@@ -16,12 +16,20 @@ WHAT YOU NEED
  INSTALL
 ---------------------------------------------------------------
 
+TWO PLUGINS, ONE LICENSE
+  Stride       an INSTRUMENT. Goes in the instrument slot, hosts
+               your synth, modulates it and everything after it.
+  Stride FX    the same Stride, as an AUDIO EFFECT. Goes on an
+               audio track, on the master, or after a synth on a
+               MIDI track. Hosts effects and modulates them.
+  Install both. Your key covers both. Use whichever the track needs.
+
 WINDOWS
-  Move  Stride.vst3  into:
+  Move  Stride.vst3  AND  Stride FX.vst3  into:
      C:\Program Files\Common Files\VST3\
 
 MAC
-  Move  Stride.vst3  into:
+  Move  Stride.vst3  AND  Stride FX.vst3  into:
      /Library/Audio/Plug-Ins/VST3/          (all users)
    or ~/Library/Audio/Plug-Ins/VST3/        (just you, no admin)
 
@@ -33,7 +41,9 @@ MAC
   no right-click "Open" needed.
 
 Then rescan plugins (or restart the DAW) and add "Stride" to a
-track.
+track. Live lists Stride under Instruments and Stride FX under
+Audio Effects. Stride FX is VST3 only for now, so in Logic use
+Stride itself on an instrument track.
 
   In Logic: create a Software Instrument track, click the
   Instrument slot -> AU Instruments -> Stride -> Stride.
@@ -56,6 +66,8 @@ key you were sent). One purchase covers the desktop app AND the plugin.
 
   - Add effects after the synth the same way; Stride modulates the
     whole chain.
+  - No synth involved? Drop Stride FX on an audio track or the
+    master, load effects into it, and modulate those instead.
   - Click a device's name to focus just its lanes.
   - The dot on each device bypasses it (keeps it loaded).
   - Spacebar from inside the synth window plays/stops your DAW.

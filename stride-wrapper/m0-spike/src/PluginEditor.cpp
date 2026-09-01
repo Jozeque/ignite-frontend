@@ -1256,6 +1256,14 @@ void StrideWrapperEditor::pushRackScanned()
     const auto summary = proc.getChainSummary();
     msg->setProperty ("device_name", summary.isNotEmpty() ? summary : juce::String ("No synth"));
     msg->setProperty ("track_name", "Stride");
+    // Which build is the page running in? Stride FX is the SAME plugin declared as an
+    // audio effect (CMakeLists StrideWrapperFx), so the UI is identical except for what
+    // it calls itself and what it tells an empty chain to load. One flag, read once.
+   #ifdef STRIDE_FX
+    msg->setProperty ("is_fx", true);
+   #else
+    msg->setProperty ("is_fx", false);
+   #endif
     msg->setProperty ("clip_bars", juce::jmax (1, juce::roundToInt (proc.getClipBeats() / 4.0)));   // real loop length so restored curves show at the right scale
     msg->setProperty ("has_clip", true);
     // Host automation: current global mode + how many params are exposed to the DAW.

@@ -1213,6 +1213,13 @@ test('inject: the button, end to end - payload, partial write, failure, no Strid
         srv.handleInject(mine);
         // StrideInject's _get_or_create_envelope returns None for a foreign-track
         // param and skips it, so params_written is the truth from Live, not a guess.
+        //
+        // THIS IS THE DESIGN, not a shortfall. Confirmed by Yossi 2026-09-01: "if i want
+        // to inject in a specific param, i dont want it to inject on clips that are in
+        // another track because thats a big bug to fix." Live MODULATION is set-wide (the
+        // bridge scans every track and lanes carry absolute LOM paths); PRINTING is scoped
+        // to the selected clip's own track on purpose. A partial count on the face is the
+        // honest report of that, and must never be "fixed" by writing across tracks.
         fs.writeFileSync(RES, JSON.stringify({ success: true, params_written: 2, points_written: 4,
                                                mode: 'bezier', written_paths: [P1, P2] }));
         await settle(90);

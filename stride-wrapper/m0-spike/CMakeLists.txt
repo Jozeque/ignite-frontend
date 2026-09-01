@@ -16,7 +16,7 @@
 #   build-mac/StrideWrapperM0_artefacts/Release/AU/Stride.component   (macOS only — Logic/GarageBand)
 # ============================================================
 cmake_minimum_required(VERSION 3.22)
-project(StrideWrapperM0 VERSION 2.0.8 LANGUAGES C CXX)
+project(StrideWrapperM0 VERSION 2.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -157,3 +157,88 @@ target_link_libraries(StrideWrapperM0
         juce::juce_recommended_config_flags
         juce::juce_recommended_warning_flags
 )
+
+
+# ═══════════════════════════════════════════════════════════════════
+# STRIDE FX — the SAME plugin, declared as an audio effect.
+#
+# Field request (Malek, 2026-08-31): "i want to put it on the Master channel or on
+# an audio channel and just play with random parameters on an effect". He cannot,
+# because instrument vs effect is a VST3 CATEGORY baked in at build time and read
+# by the host when it scans. No runtime toggle can move a device between Live's
+# Instruments and Audio Effects lists, so it takes a second target.
+#
+# Nothing is stripped or forked, unlike Serum vs Serum FX. Same sources, same
+# embedded UI, same StrideBridge link, same shared license.json, so one purchase
+# covers both and the 24h pass carries across. Three facts make this a build-system
+# change rather than an engineering one (verified 2026-08-26, docs/stride-fx-variant-spec.md):
+#   1. zero isSynth branches in src/
+#   2. strideBuses() has been stereo "Audio In" + "Output" on every format since 1.3.4
+#   3. processBlock already runs the chain IN PLACE, so an empty Stride is unity gain
+# Live disables the input bus on a device it classifies as an instrument, which is
+# what made Malek's Stride "block audio" (PluginProcessor.cpp buffer.clear()). As an
+# Fx the bus is live and the passthrough that was always in there finally reaches him.
+#
+# VST3 ONLY for now. The AU effect identity (aufx / a NEW code / Strd) would be
+# frozen the day it ships and needs its own auval gate on both slices, so it is a
+# deliberate follow-up rather than a rider on this build. Ableton, Bitwig, Reaper and
+# Cubase users are served on both platforms today; Logic FX is the known gap.
+#
+# SwFx is FROZEN the moment this ships, exactly like SwM0. Never reuse or edit it.
+# ═══════════════════════════════════════════════════════════════════
+juce_add_plugin(StrideWrapperFx
+    PRODUCT_NAME                "Stride FX"
+    COMPANY_NAME                "Stride"
+    BUNDLE_ID                   io.stridehub.wrapper.fx
+    PLUGIN_MANUFACTURER_CODE    Strd
+    PLUGIN_CODE                 SwFx      # NEW identity — SwM0 is frozen and untouched
+    FORMATS                     VST3
+    IS_SYNTH                    FALSE     # -> VST3 category "Fx" -> Live lists it under Audio Effects
+    NEEDS_MIDI_INPUT            TRUE      # keyswitches / Notes mode still work via Live's MIDI To routing
+    NEEDS_WEB_BROWSER           TRUE
+    NEEDS_WEBVIEW2              TRUE
+    EDITOR_WANTS_KEYBOARD_FOCUS TRUE
+    PLUGINHOST_AU               TRUE      # macOS: host the user's AU effects inside Stride FX
+    COPY_PLUGIN_AFTER_BUILD     FALSE
+)
+
+target_sources(StrideWrapperFx PRIVATE
+    src/PluginProcessor.cpp
+    src/PluginEditor.cpp
+    src/third_party/monocypher/monocypher.c
+    src/third_party/monocypher/monocypher-ed25519.c
+)
+target_include_directories(StrideWrapperFx PRIVATE src/third_party/monocypher)
+
+if(APPLE)
+    target_sources(StrideWrapperFx PRIVATE src/MacKeyForward.mm)
+endif()
+
+target_compile_definitions(StrideWrapperFx PUBLIC
+    JUCE_PLUGINHOST_VST3=1
+    JUCE_WEB_BROWSER=1
+    JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
+    JUCE_USE_CURL=0
+    JUCE_VST3_CAN_REPLACE_VST2=0
+    JUCE_DISPLAY_SPLASH_SCREEN=0
+    STRIDE_FX=1                 # the ONLY source-level difference: what the UI calls itself
+)
+
+# The SAME embedded UI binary — one copy of canvas.js/index.html/shim.js for both plugins.
+target_link_libraries(StrideWrapperFx
+    PRIVATE
+        StrideWrapperM0Data
+        juce::juce_audio_utils
+        juce::juce_gui_extra
+        juce::juce_cryptography
+    PUBLIC
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_warning_flags
+)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# STRIDE BUNDLE — Stride + Tendril (the Crucible engine) in one plugin.
+# Tendril rides the chain as a BUILT-IN device (Map/curves/motions work on it
+# through the existing hosting machinery) and its full UI lives on a second tab.
+# New identity (SwB1) so it installs beside Stride without touching SwM0.

@@ -30,15 +30,30 @@ ok('_sdRangeApply scales 0..1 -> [min,max]', /function _sdRangeApply\(p\)[\s\S]{
 ok('inject output uses _sdRangeApply', /points:\s*_sdRangeApply\(p\)/.test(cv));
 ok('shim scales the VST live-drive when ranged', /l\.rangeOn[\s\S]{0,180}l\.rangeMin\s*\+\s*pt\.value\s*\*\s*\(l\.rangeMax\s*-\s*l\.rangeMin\)/.test(shim));
 
-// ── render (confine + band) ─────────────────────────────────
-ok('curve confined to the band via a range-aware valueToY', /_rangeMap\s*=\s*\(v\)\s*=>\s*param\.rangeOn[\s\S]{0,140}valueToY\s*=\s*\(v\)\s*=>\s*rect\.bottom\s*-\s*_rangeMap\(v\)/.test(cv));
+// ── render (FULL HEIGHT + band) ─────────────────────────────
+// Reversed 2026-08-31 on field feedback. The curve used to be squashed into the band,
+// which at the ranges people actually want (pitch 0-3%) drew a flat fuzzy line: "i no
+// longer see my curves and i have no idea what shapes i have when i click Neuro". The
+// shape is stored 0..1 and the band is applied on the way OUT (_sdRangeApply), so the
+// lane now draws the shape at full height and the band shows where it lands.
+ok('the curve draws at FULL lane height, never squashed into the band',
+   /valueToY\s*=\s*\(v\)\s*=>\s*rect\.bottom\s*-\s*v\s*\*\s*rect\.height/.test(cv) && !/_rangeMap/.test(cv));
 ok('band drawn: dead-zone shade + dashed boundary lines, NO on-lane % tag (readout is in the fields)', /if\s*\(param\.rangeOn\)/.test(cv) && /setLineDash\(\[3, 3\]\)/.test(cv) && !/Math\.round\(param\.rangeMin\s*\*\s*100\)\s*\+\s*'–'/.test(cv));
 ok('range icon defined + drawn next to focus/lock', /function _drawRangeIcon/.test(cv) && /_drawRangeIcon\(sdCtx, laneDrawLeft - 54/.test(cv));
 
 // ── interaction ─────────────────────────────────────────────
 ok('range icon: single click toggles, double click resets', /p\.rangeOn\s*=\s*!p\.rangeOn/.test(cv) && /_sdRangeIconClick[\s\S]{0,180}p\.rangeOn\s*=\s*false;\s*p\.rangeMin\s*=\s*0;\s*p\.rangeMax\s*=\s*1/.test(cv));
 ok('boundary drag: grab -> mousemove update -> mouseup persist', /_sdRangeDrag\s*=\s*\{\s*param:[\s\S]{0,40}edge:/.test(cv) && /if\s*\(_sdRangeDrag\)\s*\{[\s\S]{0,450}rangeMax\s*=\s*Math\.max/.test(cv) && /if\s*\(_sdRangeDrag\)\s*\{[\s\S]{0,260}_sdRangeDrag\s*=\s*null[\s\S]{0,320}saveCanvasState/.test(cv));   // windows widened: mouseup now also reports the band to the engine (1.1.5)
-ok('drawing inverse-maps into the band (sdGetTimeValue)', /function _sdRangeInv/.test(cv) && /_sdRangeInv\(sdCanvasParams\[activeIdx\]/.test(cv));
+// The inverse is GONE on purpose. With a 3% band it mapped every click above the band
+// floor to 1.0, so a ranged lane could not be drawn on at all: screen space and shape
+// space are the same space now.
+ok('a click maps 1:1 to the shape, in both views',
+   !/function _sdRangeInv/.test(cv)
+   && /const value = Math\.max\(0, Math\.min\(1, 1 - \(\(pos\.y - laneRect\.top\) \/ laneRect\.height\)\)\)/.test(cv)
+   && /value: _sdFocusV\(pos\.y, rect\.height\)/.test(cv));   // focus reads through the inset pair
+ok('the motions ghost previews at full height too, so the drop matches the promise',
+   !/_rm\s*=\s*\(v\)\s*=>\s*tp\.rangeOn/.test(cv)
+   && /tY = \(v\) => gr\.bottom - Math\.max\(0, Math\.min\(1, v\)\) \* gr\.height/.test(cv));
 
 // ── behavioural: scale + inverse (the math the user described) ──
 (function () {
@@ -49,8 +64,14 @@ ok('drawing inverse-maps into the band (sdGetTimeValue)', /function _sdRangeInv/
     ok('scale: mid 0.5 -> 0.2 (relative to 0–40%)', Math.abs(rangeApply(0.5, true, 0, 0.4) - 0.2) < 1e-9);
     ok('scale: band 0.2–0.6, shape 0.5 -> 0.4', Math.abs(rangeApply(0.5, true, 0.2, 0.6) - 0.4) < 1e-9);
     ok('range off = passthrough (additive/null-default)', rangeApply(0.73, false, 0, 0.4) === 0.73);
-    ok('inverse round-trips: inv(apply(x)) === x', Math.abs(rangeInv(rangeApply(0.65, true, 0.1, 0.5), true, 0.1, 0.5) - 0.65) < 1e-9);
-    ok('inverse: click the ceiling (0.4) in a 0–0.4 band -> shape 1.0', Math.abs(rangeInv(0.4, true, 0, 0.4) - 1.0) < 1e-9);
+    // The OUTPUT math is unchanged by the display fix, which is the point: a lane banded
+    // to 0-3% still only ever moves the knob across 0-3%.
+    ok('a full-height shape still lands inside a narrow band', Math.abs(rangeApply(1.0, true, 0, 0.03) - 0.03) < 1e-9);
+    ok('and its trough still lands on the band floor', Math.abs(rangeApply(0, true, 0, 0.03) - 0) < 1e-9);
+    // Kept as documentation of why the inverse had to go: on a 3% band it flattened
+    // everything above 3% of the lane to 1.0, so drawing was impossible.
+    ok('why the inverse was removed: on a 0-3% band a click at half height read as 1.0',
+       Math.abs(rangeInv(0.5, true, 0, 0.03) - 1.0) < 1e-9);
 })();
 
 // ── unmap keeps each surviving lane's OWN range (no positional-_path carry) ──
@@ -89,11 +110,22 @@ ok('shim: macro readout also refreshes on unmapped_at', /msg\.type !== 'rack_sca
 })();
 
 // ── numeric min/max fields: scrub (drag) + type (double-click) ──
-ok('render: min/max fields drawn under the name when range on (wrapper 3rd line + desktop swap)', /_sdDrawRangeFields\(sdCtx, param, _tx, midY \+ 13, paramIdx\)/.test(cv) && /if \(param\.rangeOn\) \{\s*_sdDrawRangeFields\(sdCtx, param, 8, midY \+ 3, paramIdx\)/.test(cv));
+// Stale since the 2.0.5 lane layout: the fields moved to a tall/mid/short ladder off
+// rect.bottom instead of a fixed midY offset. They do render (the field screenshots
+// show MIN 0% MAX 3% on the lane); the pin was pointing at the old geometry.
+ok('render: min/max fields drawn under the name, placed by the lane height ladder',
+   /_sdDrawRangeFields\(sdCtx, param, _tx, _big \? rect\.bottom - 19 : \(_mid \? rect\.bottom - 17 : midY \+ 5\), paramIdx\)/.test(cv)
+   && /if \(param\.rangeOn\)[\s\S]{0,40}_sdDrawRangeFields/.test(cv));
 ok('fields are MIN + MAX chips recorded as hit rects', /cap: 'MIN'[\s\S]{0,90}cap: 'MAX'/.test(cv) && /_sdRangeFieldRects\.push\(\{ param: param, edge: f\.edge/.test(cv));
 ok('field rects reset each render', /_sdRangeFieldRects = \[\]; \/\/ rebuilt below/.test(cv));
 ok('mousedown: press a field → scrub; double-click → type input', /_sdRangeFieldRects\[_fi\][\s\S]{0,600}_sdOpenRangeFieldInput\(_f\)[\s\S]{0,340}_sdRangeNumDrag = \{ param: _f\.param, edge: _f\.edge/.test(cv));
-ok('mousemove: scrub adjusts ~1% per 2px', /_sdRangeNumDrag\)[\s\S]{0,240}_sdRangeSetPercent\(nd\.param, nd\.edge, \(nd\.startVal \+ \(nd\.startY - my\) \/ 200\)/.test(cv));
+// Reworked 2026-08-31: the scrub was bound to the canvas and measured from the press
+// point, so from a 3% band the ~194px run to 100% ended at the canvas edge and had to be
+// repeated. Now global, accumulated, clamped as it goes, Shift for fine.
+ok('mousemove: the scrub is global, accumulates and clamps',
+   /window\.addEventListener\('mousemove', e => \{\s*const nd = _sdRangeNumDrag;/.test(cv)
+   && /nd\.val = Math\.max\(0, Math\.min\(1, nd\.val \+ \(nd\.lastY - e\.clientY\) \/ gain\)\)/.test(cv)
+   && /const gain = e\.shiftKey \? 800 : 200;/.test(cv));
 ok('mouseup: scrub persists + re-drives', /_sdRangeNumDrag\) \{[\s\S]{0,140}_sdRangeNumDrag = null[\s\S]{0,140}saveCanvasState/.test(cv));
 ok('cursor: a field OR a boundary line shows ns-resize (two arrows)', /let _rangeCur = false[\s\S]{0,2600}_rangeCur \? 'ns-resize'/.test(cv));
 ok('type input: parse %, apply via _sdRangeSetPercent, persist', /function _sdOpenRangeFieldInput\(field\)[\s\S]{0,1300}_sdRangeSetPercent\(field\.param, field\.edge, n\)[\s\S]{0,80}saveCanvasState/.test(cv));

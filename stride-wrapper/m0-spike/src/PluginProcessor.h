@@ -36,7 +36,14 @@ public:
 
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
+    // The instrument's string is FROZEN as it shipped: hosts have written it into saved
+    // projects since 1.0, so it stays "StrideWrapperM0" whatever the product is called.
+    // Stride FX is a separate binary with its own VST3 UID, and reports its own name.
+   #ifdef STRIDE_FX
+    const juce::String getName() const override { return "StrideWrapperFx"; }
+   #else
     const juce::String getName() const override { return "StrideWrapperM0"; }
+   #endif
     bool acceptsMidi() const override  { return true; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }

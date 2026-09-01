@@ -39,6 +39,9 @@ jobs:
         run: |
           cmake -S . -B build -G "Visual Studio 17 2022" -A x64
           cmake --build build --config Release --target StrideWrapperM0_VST3
+          # Stride FX: the same sources declared as an audio effect, so it can sit on an
+          # audio track or the master. Ships in the SAME zip at no extra charge.
+          cmake --build build --config Release --target StrideWrapperFx_VST3
 
       - name: Zip VST3
         working-directory: stride-wrapper/m0-spike
@@ -51,8 +54,15 @@ jobs:
           echo "STRIDE_VER=$VER" >> "$GITHUB_ENV"
           VST3="$(find build -name 'Stride.vst3' -type d | head -1)"
           [ -n "$VST3" ] || { echo "Stride.vst3 not found"; find build -name '*.vst3'; exit 1; }
+          FX3="$(find build -name 'Stride FX.vst3' -type d | head -1)"
+          [ -n "$FX3" ] || { echo "Stride FX.vst3 not found"; find build -name '*.vst3'; exit 1; }
           echo "Found: $VST3 (v$VER)"
+          echo "Found: $FX3 (v$VER)"
+          FX3_ABS="$(cd "$FX3/.." && pwd)/Stride FX.vst3"
           cd "$(dirname "$VST3")"
+          # The two plugins build into separate artefact trees, so the FX bundle is staged
+          # next to the instrument for zipping. Both, one download, one license.
+          cp -r "$FX3_ABS" .
           cp "$GITHUB_WORKSPACE/stride-wrapper/m0-spike/ci/README.txt" .
           # StrideBridge rides along: the M4L output stage that lets Stride modulate
           # Ableton's own devices. Self-contained folder - the amxd resolves its js
@@ -71,7 +81,7 @@ jobs:
           cp "$GITHUB_WORKSPACE/stride-vst/remote_script/StrideInject/_curve.py" StrideBridge/StrideInject/
           cp "$GITHUB_WORKSPACE/stride-vst/m4l-bridge/README-StrideBridge.txt" StrideBridge/README.txt
           cp "$GITHUB_WORKSPACE/docs/_fonts/Outfit.ttf" StrideBridge/
-          7z a -tzip "$GITHUB_WORKSPACE/Stride-VST3-Windows-v$VER.zip" "Stride.vst3" "README.txt" "StrideBridge" >/dev/null
+          7z a -tzip "$GITHUB_WORKSPACE/Stride-VST3-Windows-v$VER.zip" "Stride.vst3" "Stride FX.vst3" "README.txt" "StrideBridge" >/dev/null
           echo "Zipped Stride-VST3-Windows-v$VER.zip"
 
       # The ARTIFACT name carries the version too — GitHub's browser download wraps the

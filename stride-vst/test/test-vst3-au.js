@@ -151,7 +151,10 @@ ok('mac-only guard (Windows path byte-identical)', /#if JUCE_MAC\s*\n \#include 
 // ─────────────────────────────────────────────────────────────
 ok('mac script builds the AU target', /--target StrideWrapperM0_AU/.test(macSh));
 ok('mac script locates Stride.component', /Stride\.component/.test(macSh));
-ok('mac script signs BOTH bundles', /for BUNDLE in "\$VST3" "\$AU"/.test(macSh));
+// Three bundles since 2026-08-31: Stride FX joined the VST3 + AU pair. Every one of
+// them must go through sign AND staple, because an unsigned bundle installs fine and
+// then Gatekeeper blocks it on the user's machine.
+ok('mac script signs EVERY bundle, AU included', /for BUNDLE in "\$VST3" "\$FX3" "\$AU"/.test(macSh));
 ok('mac script runs the STRICT auval gate and fails the build on FAIL', /auval -strict -v aumu/.test(macSh) && /auval FAILED/.test(macSh));
 ok('mac script validates the x86_64 slice too (Rosetta; real failures fail the build)', /arch -x86_64 auval/.test(macSh) && /x86_64 slice/.test(macSh));
 ok('mac script resets the component registrar before auval', /killall -9 AudioComponentRegistrar/.test(macSh));
