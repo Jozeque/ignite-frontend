@@ -514,6 +514,24 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
     var w = document.getElementById('dlWin'), m = document.getElementById('dlMac');
     if (dl.windows) { w.href = dl.windows; } else { w.style.display = 'none'; }
     if (dl.mac)     { m.href = dl.mac; }     else { m.style.display = 'none'; }
+    // Registration proves intent; this proves they got the file. Without it the funnel
+    // jumps from "registered" to "activated" and "never downloaded" is indistinguishable
+    // from "downloaded and never installed", which need opposite emails. keepalive so the
+    // beacon survives the navigation the click itself starts, and it never blocks it.
+    [[w, 'windows'], [m, 'mac']].forEach(function (pair) {
+      if (!pair[0] || pair[0].__dlTracked) return;
+      pair[0].__dlTracked = true;
+      pair[0].addEventListener('click', function () {
+        try {
+          var em = (localStorage.getItem('stride_try_email') || '').trim();
+          if (!em) return;
+          fetch(API, { method: 'POST', keepalive: true,
+                       headers: { 'Content-Type': 'application/json' },
+                       body: JSON.stringify({ action: 'demo_download', email: em, platform: pair[1] }) })
+            .catch(function () {});
+        } catch (e) {}
+      });
+    });
     if (!dl.windows && !dl.mac && !sessionsOnly) {
       document.getElementById('err2').textContent =
         'Your download link is being prepared — check your email in a moment.';
@@ -610,6 +628,10 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
     .then(function (d) {
       if (!d || d.ok !== true) throw new Error((d && d.message) || 'register failed');
       try { localStorage.setItem('stride_try_dl', JSON.stringify(d.downloads || {})); } catch (e3) {}
+      // The download beacon needs to know WHO clicked, and the click happens on a page
+      // that may have been reloaded since. Persist the address the same way the links
+      // themselves are persisted, so a returning visitor still reports their download.
+      try { localStorage.setItem('stride_try_email', email); } catch (e6) {}
 
       // Fire the browser half ONLY when the backend says this was a first-time
       // registration. It fires the server half under the same condition, so the
