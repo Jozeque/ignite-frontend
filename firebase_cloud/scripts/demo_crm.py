@@ -319,7 +319,12 @@ def build_people(data, now_ms):
                        "last": ts_ms(w.get("license_last_validated_at"))}
                 break
 
+        # "converted" = paid more than an hour after the first demo touch. Below that the
+        # demo order and the paid order are one Lemon Squeezy session, which is a purchase
+        # that happens to carry a demo row, not a trial that worked.
+        converted = bool(pur["paid"] and pur["at"] and first_ms and pur["at"] > first_ms + 3600000)
         people.append({
+            "converted": converted,
             "email": em, "name": name, "first": name.split(" ")[0] if name else "",
             "stage": stage, "era": era, "identity": identity,
             "first_ms": first_ms, "reg_ms": reg_ms, "demo_at_ms": demo_at,
@@ -584,7 +589,8 @@ const SEG = [
  {id:'unused',   t:'Expired, no use seen',f:p=>p.stage==='EXPIRED'&&!p.use_ms},
  {id:'warm',     t:'Expired, no purchase',f:p=>p.stage==='EXPIRED'&&!p.paid},
  {id:'cart',     t:'Checkout, no buy',    f:p=>p.stage==='CHECKOUT'},
- {id:'won',      t:'Bought after a demo', f:p=>p.paid},
+ {id:'won',      t:'Bought after a demo', f:p=>p.converted},
+ {id:'sameday',  t:'Paid in the same hour',f:p=>p.paid&&!p.converted},
  {id:'tracked',  t:'Fully tracked',       f:p=>p.era==='tracked'},
  {id:'legacy',   t:'Legacy, no journey',  f:p=>p.era==='legacy'},
  {id:'queued',   t:'Mail queued',         f:p=>p.next&&p.next.length>0},
@@ -694,6 +700,9 @@ function drawer(p){
   row('first real use', p.use_ms?ts(p.use_ms):'not reported') +
   row('checkout', ts(p.chk_ms)) +
   row('purchased', p.paid?(ts(p.paid_ms)||'yes')+(p.cents?'  '+(p.cents/100).toFixed(2)+' '+p.currency:''):'') +
+  row('bought after', p.paid?(p.converted?
+    (((p.paid_ms-p.first_ms)/86400000).toFixed(1)+' days of holding a demo'):
+    'the same checkout, so the demo row is an artefact'):'') +
   row('order', p.order) + row('identity', p.identity) +
   row('opted out', p.suppressed?'yes, excluded from every send':'') +
   '</dl></div>';
@@ -856,6 +865,10 @@ def main():
     orphan_act = sum(1 for e in data["anonymous"] if e.get("type") == "demo_activated")
     orphan_act += sum(1 for e in data["by_email"].get("", []) if e.get("type") == "demo_activated")
     paid = sum(1 for p in people if p["paid"])
+    conv = sum(1 for p in people if p["converted"])
+    gaps = sorted((p["paid_ms"] - p["first_ms"]) / 86400000.0
+                  for p in people if p["converted"])
+    med = gaps[len(gaps) // 2] if gaps else 0
     revenue = sum(p["cents"] for p in people if p["paid"]) / 100.0
     in_window = sum(1 for p in people if p["lc"])
     queued = sum(1 for p in people if p["next"])
@@ -873,8 +886,10 @@ def main():
              "demoed before anything was logged"),
         tile(st.get("EXPIRED", 0), "pass ended", "no purchase yet"),
         tile(st.get("CHECKOUT", 0), "at checkout", "started, did not finish"),
-        tile(paid, "became customers",
-             pct(paid, n) + " of all demo users, every era"),
+        tile(conv, "demo then bought",
+             "%s of all demo users, median %.1f days later" % (pct(conv, n), med)),
+        tile(paid - conv, "paid the same hour",
+             "demo row and paid order in one checkout, not a trial"),
         tile("$" + format(revenue, ",.0f"), "from demo users", "gross, every source"),
     ])
 
@@ -968,8 +983,9 @@ def main():
     print("demo CRM written: %s" % OUT)
     print("  %d demo users  |  %s tracked, %s legacy" % (n, tracked, n - tracked))
     print("  stages: " + "  ".join("%s %d" % (k, v) for k, v in st.most_common()))
-    print("  activation %s of the tracked era (%d of %d)   purchase %s of everyone (%d)   revenue $%.2f"
-          % (pct(trk_act, len(trk)), trk_act, len(trk), pct(paid, n), paid, revenue))
+    print("  activation %s of the tracked era (%d of %d)" % (pct(trk_act, len(trk)), trk_act, len(trk)))
+    print("  demo then bought %d (%s, median %.1f days)   same-hour orders %d   revenue $%.2f"
+          % (conv, pct(conv, n), med, paid - conv, revenue))
     print("  reachable by automation %d   queued %d   opted out %d" % (in_window, queued, supp))
     if orphan_act:
         print("  %d further activations belong to no known person (rate up to %s)"
