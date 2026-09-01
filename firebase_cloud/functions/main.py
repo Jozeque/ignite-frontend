@@ -1345,7 +1345,17 @@ def _handle_start_pass(data: dict, ip: str = "", ua: str = ""):
         # IDENTITY. The client normally sends no email, so before logging we try to
         # match this activation to a /try registration from the same IP (see the demo
         # funnel block). This runs AFTER the pass is minted and can never fail it.
-        identity = "confirmed" if email else "anonymous"
+        # A TYPED address is a claim, not proof. Believing it blindly turns a typo into a
+        # deterministic WRONG identity, which is worse than no identity at all: at best the
+        # nurture mail bounces, at worst the typo lands on a different real customer and we
+        # mail them about someone else's trial. So an address only becomes "confirmed" when
+        # it matches a registration we already hold. Anything else is kept as "unverified":
+        # the value is retained for later diagnosis, but nothing joins to it and no mail is
+        # ever sent to it. The pass itself is unaffected either way, because the DEVICE HASH
+        # is the credential.
+        identity = "anonymous"
+        if email:
+            identity = "confirmed" if _demo_registration_exists(_db, email) else "unverified"
         claim_doc = None
         if not email:
             claim_doc = _demo_claim_for_ip(_db, ip, now_ms)
@@ -1359,10 +1369,18 @@ def _handle_start_pass(data: dict, ip: str = "", ua: str = ""):
         # activation collide with the first and vanish from the funnel. Real duplicates
         # cannot reach here anyway - once the device doc exists, start_pass resumes or
         # refuses above - so this only ever ADDS the activations that were being lost.
+        # An UNVERIFIED address never occupies the event's `email` field. That field is the
+        # join key for the whole funnel and for demo_state, so a typo landing there would
+        # attach this activation to whoever really owns that address: it would show them as
+        # mid-trial, and could suppress the nurture they are actually owed. Keep the typed
+        # value beside it as email_claimed, where it is available for diagnosis and joins to
+        # nothing.
         try:
-            _log_event("demo_activated", f"{device}__{started_at}", email,
+            _log_event("demo_activated", f"{device}__{started_at}",
+                       email if identity != "unverified" else "",
                        {"device": device, "exp_ms": exp, "started_at_ms": started_at,
-                        "identified": bool(email), "identity": identity})
+                        "identified": identity == "confirmed", "identity": identity,
+                        "email_claimed": email if identity == "unverified" else ""})
         except Exception as _ee:
             print(f"[Events] start_pass hook failed (non-fatal): {_ee}")
 
@@ -1383,7 +1401,10 @@ def _handle_start_pass(data: dict, ip: str = "", ua: str = ""):
         try:
             _fire_meta_custom_capi(
                 "DemoActivated",
-                {"email": email,
+                # Only a VERIFIED address may be a match key. Hashing an unverified typo
+                # into Meta teaches it the wrong person, and unlike our own records that
+                # cannot be corrected afterwards.
+                {"email": email if identity == "confirmed" else "",
                  "external_id": device,
                  "client_ip_address": ip,
                  "client_user_agent": ua},
@@ -1454,7 +1475,10 @@ def _handle_start_pass(data: dict, ip: str = "", ua: str = ""):
         except Exception as le:
             print(f"[Pass] lead capture failed (non-fatal): {le}")
 
+        # identity_status is ADVISORY and never gates the pass: the client uses it to
+        # offer a single "check that address" correction before it stops asking.
         return jsonify({"valid": True, "pass": True, "resumed": False,
+                        "identity_status": identity,
                         "ent": ent_obj, "ent_sig": ent_sig, "exp": exp, "server_now_ms": now_ms}), 200
     except Exception as e:
         print(f"[Pass] start_pass failed: {e}")
@@ -1938,6 +1962,32 @@ def _handle_demo_register(data: dict, ip: str = "", ua: str = ""):
 def _email_key(email: str) -> str:
     """Firestore-safe deterministic id for an email (no '/' and bounded length)."""
     return hashlib.sha256((email or "").strip().lower().encode("utf-8")).hexdigest()[:40]
+
+
+def _demo_registration_exists(_db, email: str) -> bool:
+    """Has this address actually registered for a Discovery Pass?
+
+    Guards the one failure mode of letting people type their own identity: a typo that
+    happens to be somebody else's real address would otherwise attach this activation to
+    them and mail them about it. Reads the same append-only entry events the lifecycle
+    mailer reads, so "known to us" means exactly one thing across the whole system.
+
+    Fails CLOSED on error (returns False -> "unverified"), because an unverified
+    activation is harmless while a wrongly confirmed one is not."""
+    if not email:
+        return False
+    try:
+        key = _email_key(email)
+        for t in ("demo_registered", "demo_downloaded"):
+            if _db.collection(EVENTS_COLLECTION).document(f"{t}__{key}").get().exists:
+                return True
+        # Legacy rows predate the event log, so fall back to the CRM.
+        for d in (_db.collection("waitlist").where("email", "==", email).limit(1).stream()):
+            if d.exists:
+                return True
+    except Exception as e:
+        print(f"[Pass] registration lookup failed for {email}, staying unverified: {e}")
+    return False
 
 
 def _demo_claim_for_ip(_db, ip: str, now_ms: int):

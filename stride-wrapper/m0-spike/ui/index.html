@@ -511,6 +511,19 @@
                     <p class="text-sm text-zinc-300 leading-relaxed">Welcome to your <span class="text-orange-400 font-bold">24-hour Discovery Pass</span>.</p>
                     <p class="text-lg text-zinc-100 font-bold mt-1">Explore without limits.</p>
                 </div>
+                <!-- The email is NOT a credential: the device hash alone grants the pass, so a
+                     blank or wrong address can never start a trial that would otherwise be
+                     refused. It exists only to join this activation to the registration the
+                     same person already made on the website, which the backend previously had
+                     to guess from an IP address. Optional on purpose: never stand between a
+                     download and the first sound. -->
+                <div>
+                    <label for="pass-email" class="block text-[9px] text-zinc-500 uppercase tracking-[0.15em] font-bold mb-1.5">Discovery Pass email</label>
+                    <input id="pass-email" type="email" autocomplete="email" spellcheck="false"
+                           placeholder="the email you signed up with"
+                           class="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors">
+                    <p id="pass-email-note" class="text-[10px] text-zinc-600 font-medium mt-1.5 leading-relaxed">Optional. It links this machine to your signup so we can help if anything goes wrong.</p>
+                </div>
                 <button onclick="startDiscoveryPass()" id="pass-start-btn" class="w-full sd-btn-copper text-white font-black py-3.5 rounded-xl text-xs uppercase tracking-widest transition-all shadow-[0_0_24px_rgba(255,94,0,0.25)]">
                     Start My 24-Hour Pass
                 </button>
@@ -1779,7 +1792,24 @@
         if (!btn || btn.disabled) return;
         btn.textContent = 'Starting…'; btn.disabled = true; if (err) err.classList.add('hidden');
         try {
-            const r = await window.stride.startPass();   // device-bound, no email
+            const emailEl = document.getElementById('pass-email');
+            const email = emailEl ? (emailEl.value || '').trim() : '';
+            const r = await window.stride.startPass(email);   // device-bound; email only labels it
+            // The pass is granted or refused on the DEVICE HASH alone. identity_status is
+            // advisory: 'confirmed' when the address matched a real registration,
+            // 'unverified' when it did not. A mismatch never blocks the pass, it just
+            // gets one chance to be corrected before we stop asking.
+            if (r && r.valid && r.entitled && r.identity_status === 'unverified'
+                && email && !window.__passEmailRetried) {
+                window.__passEmailRetried = true;
+                const note = document.getElementById('pass-email-note');
+                if (note) {
+                    note.textContent = "We could not match that address to a signup. Check it, or press start again to continue anyway.";
+                    note.className = 'text-[10px] text-amber-400/90 font-medium mt-1.5 leading-relaxed';
+                }
+                btn.textContent = 'Start My 24-Hour Pass'; btn.disabled = false;
+                return;
+            }
             if (r && r.valid && r.entitled) {
                 await cachePass(r);
                 if (r.exp) window.__passExp = Number(r.exp);
