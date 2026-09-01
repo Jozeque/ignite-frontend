@@ -669,17 +669,36 @@ void StrideWrapperEditor::removeKeyHook()
 // listener references it unconditionally, so it must exist outside any platform guard.
 void StrideWrapperEditor::forwardTransportKey (const juce::String& key)
 {
-    // One toggle per press: swallows key auto-repeat from any path and breaks any
-    // conceivable synthetic-event bounce (posted key -> our own WebView -> re-forward)
-    // after a single cycle.
+    // Undo and redo get their own, shorter guard. The 150ms lock below exists to stop a
+    // synthetic-event bounce and to make one press mean one transport toggle, but undo is
+    // a key people deliberately hammer, and throttling it to 6 a second would read as
+    // dropped presses. They also keep a separate timestamp so an undo cannot eat the next
+    // space, or the other way round.
+    const bool isUndo = (key == "undo" || key == "redo");
     const auto nowMs = juce::Time::getMillisecondCounter();
-    if (nowMs - lastTransportKeyMs < 150) return;
-    lastTransportKeyMs = nowMs;
+    if (isUndo)
+    {
+        if (nowMs - lastUndoKeyMs < 60) return;
+        lastUndoKeyMs = nowMs;
+    }
+    else
+    {
+        // One toggle per press: swallows key auto-repeat from any path and breaks any
+        // conceivable synthetic-event bounce (posted key -> our own WebView -> re-forward)
+        // after a single cycle.
+        if (nowMs - lastTransportKeyMs < 150) return;
+        lastTransportKeyMs = nowMs;
+    }
 
    #if JUCE_WINDOWS
     // "save" posts a bare 'S' keydown — the user is PHYSICALLY holding Ctrl right now, so the
-    // host's accelerator table (GetKeyState) reads it as Ctrl+S and saves the project.
-    const WPARAM vk = (key == "enter") ? VK_RETURN : (key == "save") ? (WPARAM) 'S' : VK_SPACE;
+    // host's accelerator table (GetKeyState) reads it as Ctrl+S and saves the project. Undo
+    // and redo ride the same trick with 'Z': Ctrl is down, and for redo so is Shift, so the
+    // host reads Ctrl+Z or Ctrl+Shift+Z without us having to synthesise the modifiers.
+    const WPARAM vk = (key == "enter") ? VK_RETURN
+                    : (key == "save") ? (WPARAM) 'S'
+                    : isUndo          ? (WPARAM) 'Z'
+                                      : VK_SPACE;
     if (auto* host = (HWND) hostMainWindow())
     {
         ::PostMessage (host, WM_KEYDOWN, vk, (LPARAM) 0x00000001);
@@ -688,6 +707,8 @@ void StrideWrapperEditor::forwardTransportKey (const juce::String& key)
    #elif JUCE_MAC
     if (key == "save")
         strideMacKeyForward_postSave();          // synthesized Cmd+S (flags carried in the event)
+    else if (isUndo)
+        strideMacKeyForward_postUndo (key == "redo");   // Cmd+Z / Cmd+Shift+Z
     else
         strideMacKeyForward_post (key == "enter");
    #else

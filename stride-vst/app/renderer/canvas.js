@@ -363,6 +363,30 @@
     }
 
     // ─── UNDO / REDO ─────────────────────────────────────
+    // Has the user touched Stride since this window last took focus? Gates who owns
+    // Ctrl+Z (see the keydown handler). Starts false on purpose: a freshly focused Stride
+    // has not been worked in yet, so the first undo after clicking back belongs to the DAW.
+    let _sdTouchedSinceFocus = false;
+    try {
+        window.addEventListener('blur',      function () { _sdTouchedSinceFocus = false; });
+        // Any real interaction with the page counts, including a keystroke that edits, but
+        // NOT the Ctrl+Z itself: pressing undo must never be what earns Stride the next one.
+        ['mousedown', 'wheel'].forEach(function (t) {
+            window.addEventListener(t, function () { _sdTouchedSinceFocus = true; }, true);
+        });
+        window.addEventListener('keydown', function (e) {
+            if (e.ctrlKey || e.metaKey || e.altKey) return;   // shortcuts are not "working in Stride"
+            _sdTouchedSinceFocus = true;
+        }, true);
+    } catch (e) {}
+
+    // Hand a key the DAW should have had to the native side, which posts it to the host
+    // window. Defined by shim.js in the wrapper only: in the desktop app there is no host
+    // to forward to and this is a no-op.
+    function _sdKeyToHost(k) {
+        try { if (typeof window.sdForwardKeyToHost === 'function') window.sdForwardKeyToHost(k); } catch (e) {}
+    }
+
     let undoStack = [];
     let redoStack = [];
     const MAX_UNDO = 50;
@@ -5500,9 +5524,32 @@
                 const _typingSp = _ae && (_ae.tagName === 'INPUT' || _ae.tagName === 'TEXTAREA' || _ae.isContentEditable);
                 if (!_typingSp) { e.preventDefault(); if (_ae && _ae.blur) _ae.blur(); return; }
             }
-            if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ' && !e.shiftKey) { e.preventDefault(); sdUndo(); return; }
-            if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ' && e.shiftKey) { e.preventDefault(); sdRedo(); return; }
-            if ((e.ctrlKey || e.metaKey) && e.code === 'KeyY') { e.preventDefault(); sdRedo(); return; }
+            // UNDO / REDO. Stride owns the key only while the user is actually working in
+            // Stride. Otherwise it goes to the DAW.
+            //
+            // Reported twice from the field, latest 2026-09-01: "there was a bug with the
+            // ctrl z that took control over the ableton and i couldnt undo a task (moving
+            // devices in the chain)". Stride's WebView keeps keyboard focus after any draw,
+            // WebView2 never passes a key to the host on its own, and this handler called
+            // preventDefault unconditionally. So the DAW's undo simply died here, whether or
+            // not Stride had anything of its own to undo.
+            //
+            // Two conditions, and both have to hold, because either alone gets it wrong:
+            //   - something on OUR stack, or there is nothing to take the key for
+            //   - the user has touched Stride since this window last got focus. Come back
+            //     from the DAW and hit undo and you mean the DAW, even though Stride's stack
+            //     is full of edits from ten minutes ago. That is the actual reported case.
+            // Same forward-to-host treatment Ctrl+S and Space already get.
+            if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ' && !e.shiftKey) {
+                e.preventDefault();
+                if (undoStack.length && _sdTouchedSinceFocus) sdUndo(); else _sdKeyToHost('undo');
+                return;
+            }
+            if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyY' || (e.code === 'KeyZ' && e.shiftKey))) {
+                e.preventDefault();
+                if (redoStack.length && _sdTouchedSinceFocus) sdRedo(); else _sdKeyToHost('redo');
+                return;
+            }
             // Copy / paste the active lane's curve. Skipped while typing in a
             // field so native text copy/paste still works.
             {
@@ -5869,6 +5916,33 @@
                 return;
             }
 
+            const hitT = (totalBeats * 0.025) / sdViewZoomX; const hitV = 0.06;
+            let idx = param.points.findIndex(pt => Math.abs(pt.time - hd.time) < hitT && Math.abs(pt.value - hd.value) < hitV);
+
+            // GROUP MOVE, claimed here and not down in the drawing branches. Pressing a dot
+            // that is already in a multi-selection can only mean "move these", so it has to
+            // outrank both of the things that used to swallow it silently (field report
+            // 2026-09-01: "i selected a few dots in the focus view and tryied to drag but
+            // they didnt drag. in another try an half an hour ago it worked well"):
+            //   - an armed shape chip: the STAMP branch below returns before the hit test
+            //     ever ran, so the press laid a stamp instead
+            //   - the FREE tool: the group drag lived in the ELSE of the freehand branch,
+            //     so with FREE selected the press painted instead
+            // Both explain "worked half an hour ago": nothing about the selection changed,
+            // the pen state did.
+            if (sdViewMode === 'focus' && e.button === 0 && idx !== -1
+                && _sdPtSel.size > 1 && _sdPtSel.has(param.points[idx])) {
+                // One undo checkpoint for the gesture, and the offsets are captured up front
+                // so the drag stays relative no matter how often the array is re-sorted.
+                pushUndo();
+                _sdPtGroupDrag = {
+                    refs: Array.from(_sdPtSel).map(pt => ({ pt: pt, t0: pt.time, v0: pt.value })),
+                    t0: hd.time, v0: hd.value, totalBeats: totalBeats, param: param, moved: false,
+                };
+                sdCanvasEl.style.cursor = 'move';
+                return;
+            }
+
             // STAMP (focus deck): an armed shape owns the gesture. Left drag lays it
             // down; right-click puts the pen down without drawing.
             if (sdViewMode === 'focus' && _sdStampShape && sdActiveTool !== 'freehand') {
@@ -5882,8 +5956,6 @@
                     return;
                 }
             }
-            const hitT = (totalBeats * 0.025) / sdViewZoomX; const hitV = 0.06;
-            let idx = param.points.findIndex(pt => Math.abs(pt.time - hd.time) < hitT && Math.abs(pt.value - hd.value) < hitV);
             // Segment bend handle (focus view): grab the visible midpoint dot. Same
             // machinery as Alt+drag — the handle just makes it discoverable.
             if (sdViewMode === 'focus' && e.button === 0 && idx === -1 && _sdHandleRects.length && sdActiveTool === 'select') {
@@ -5918,18 +5990,6 @@
                 else sdPaintFreehand(hd.time, hd.value, param, totalBeats);
             }
             else {
-                if (idx !== -1 && _sdPtSel.size > 1 && _sdPtSel.has(param.points[idx])) {
-                    // Move the whole selection. One undo checkpoint for the gesture, and the
-                    // offsets are captured up front so the drag stays relative no matter how
-                    // often the array is re-sorted underneath it.
-                    pushUndo();
-                    _sdPtGroupDrag = {
-                        refs: Array.from(_sdPtSel).map(pt => ({ pt: pt, t0: pt.time, v0: pt.value })),
-                        t0: hd.time, v0: hd.value, totalBeats: totalBeats, param: param, moved: false,
-                    };
-                    sdCanvasEl.style.cursor = 'move';
-                    return;
-                }
                 if (idx !== -1) { sdIsDragging = true; sdDraggedPoint = param.points[idx]; sdDrawCanvasGrid(); }
                 else {
                     // Shift = place free (no time/value snap); otherwise both snap.

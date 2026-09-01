@@ -32,8 +32,14 @@ ok('auto-repeat ignored — one toggle per press, not while held', /'Space' \|\|
 // ── native handler ──────────────────────────────────────────
 ok('editor declares forwardTransportKey', /void\s+forwardTransportKey\s*\(const juce::String&/.test(editorH));
 ok('editor registers a transportKey listener', /withEventListener\s*\("transportKey"[\s\S]{0,120}forwardTransportKey\s*\(v\.getProperty\s*\("key"/.test(editor));
-ok('Windows: posts the key to the HOST window (not the plugin)', /forwardTransportKey\s*\(const juce::String& key\)[\s\S]{0,700}hostMainWindow\(\)[\s\S]{0,160}PostMessage\s*\(host, WM_KEYDOWN, vk[\s\S]{0,120}PostMessage\s*\(host, WM_KEYUP/.test(editor));
-ok('Space maps to VK_SPACE (Enter -> VK_RETURN, save -> S)', /vk\s*=\s*\(key == "enter"\) \? VK_RETURN : \(key == "save"\) \? \(WPARAM\) 'S' : VK_SPACE/.test(editor));
+ok('Windows: posts the key to the HOST window (not the plugin)', /forwardTransportKey\s*\(const juce::String& key\)[\s\S]{0,1600}hostMainWindow\(\)[\s\S]{0,160}PostMessage\s*\(host, WM_KEYDOWN, vk[\s\S]{0,120}PostMessage\s*\(host, WM_KEYUP/.test(editor));
+// The ladder gained undo/redo (2026-09-01) and is written across lines now, so each arm is
+// pinned on its own. A wrong VK here is silent: the DAW simply never reacts.
+ok('Space maps to VK_SPACE (Enter -> VK_RETURN, save -> S, undo/redo -> Z)',
+   /\(key == "enter"\)\s*\?\s*VK_RETURN/.test(editor)
+   && /\(key == "save"\)\s*\?\s*\(WPARAM\) 'S'/.test(editor)
+   && /isUndo\s*\?\s*\(WPARAM\) 'Z'/.test(editor)
+   && /:\s*VK_SPACE;/.test(editor));
 ok('debounced: one transport toggle per press (any path)', /lastTransportKeyMs < 150\) return;\s*lastTransportKeyMs = nowMs/.test(editor) && /juce::uint32 lastTransportKeyMs = 0/.test(editorH));
 
 // REGRESSION GUARD: forwardTransportKey must live OUTSIDE every #if JUCE_WINDOWS span —
@@ -64,10 +70,17 @@ ok('Mac branch: forwardTransportKey -> strideMacKeyForward_post', /#elif JUCE_MA
 // ── Ctrl/Cmd+S = save the PROJECT (an unsaved chain died in a crash, 2026-07-16) ──
 ok('shim intercepts Ctrl/Cmd+S (kills the WebView save-page dialog) and forwards it',
    /e\.key === 's' \|\| e\.key === 'S'\) && \(e\.ctrlKey \|\| e\.metaKey\)/.test(shim) && /emit\('transportKey', \{ key: 'save' \}\)/.test(shim));
-ok('Windows: "save" posts a bare S while the user physically holds Ctrl', /\(key == "save"\) \? \(WPARAM\) 'S' : VK_SPACE/.test(editor));
+ok('Windows: "save" posts a bare S while the user physically holds Ctrl', /\(key == "save"\)\s*\?\s*\(WPARAM\) 'S'/.test(editor));
 ok('Mac: "save" routes to the dedicated Cmd+S post', /if \(key == "save"\)\s*\n\s*strideMacKeyForward_postSave\(\)/.test(editor));
-ok('mm: Cmd+S event carries the Command flag + kVK_ANSI_S', /strideMacKeyForward_postSave[\s\S]{0,1600}NSEventModifierFlagCommand[\s\S]{0,900}keyCode: \(unsigned short\) 1/.test(mac));
-ok('mm: save respects the Logic/GB suppression + debounce', /strideMacKeyForward_postSave[\s\S]{0,300}g_strideSuppressed\) return;[\s\S]{0,200}g_strideLastPost < 0\.15\) return;/.test(mac));
+// Refactored 2026-09-01: save and undo share ONE poster (stridePostCmdKey), so the flag and
+// the key code are arguments now instead of inline in the save body. The guarantee is
+// unchanged and still pinned: Cmd plus kVK_ANSI_S, through a poster that builds real events.
+ok('mm: Cmd+S event carries the Command flag + kVK_ANSI_S',
+   /stridePostCmdKey \(@"s", \(unsigned short\) 1, NSEventModifierFlagCommand, 0\.15, &g_strideLastPost\);/.test(mac)
+   && /modifierFlags: flags[\s\S]{0,700}keyCode: keyCode/.test(mac));
+ok('mm: save respects the Logic/GB suppression + debounce',
+   /static void stridePostCmdKey[\s\S]{0,400}g_strideSuppressed\) return;[\s\S]{0,220}now - \*lastPost < guardSecs\) return;/.test(mac)
+   && /0\.15, &g_strideLastPost/.test(mac));   // save keeps the 150ms it always had
 ok('mm: discovery skips OUR windows (tagged synths + EVERY instance\'s editor frame)', /strideIsOurWindow[\s\S]{0,260}StrideHostedSynth[\s\S]{0,320}g_strideEditorViews/.test(mac));
 ok('mm: mainWindow alone is not trusted — falls back to the frontmost non-ours window', /\[NSApp mainWindow\][\s\S]{0,320}strideIsOurWindow \(target\)[\s\S]{0,320}orderedWindows/.test(mac));
 ok('mm: sandboxed-host fallback hands the key to the frame window OBJECT (skips our WebView, no loop)', /strideEditorFrameWindow\(\);[\s\S]{0,340}\[frame keyDown:[\s\S]{0,120}\[frame keyUp:/.test(mac));

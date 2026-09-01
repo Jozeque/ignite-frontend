@@ -316,45 +316,65 @@ void strideMacKeyForward_post (bool isReturn)
     stridePostTransport (isReturn, nil);
 }
 
-// Cmd+S -> the DAW (project save). Same discovery + debounce + Logic/GB suppression as the
-// transport keys; its own event builder because Save carries the Command flag + "s"
-// (kVK_ANSI_S = 1). Cmd combos dispatch through the window's key-equivalent chain, which is
-// exactly what [target sendEvent:] feeds.
-void strideMacKeyForward_postSave (void)
+// Cmd-key forwarding to the DAW: Cmd+S (project save) and Cmd+Z / Cmd+Shift+Z (undo and
+// redo, when the undo belongs to the host and not to Stride). Same discovery + debounce +
+// Logic/GB suppression as the transport keys, but a Cmd combo carries its modifier in the
+// event and dispatches through the window's key-equivalent chain, which is exactly what
+// [target sendEvent:] feeds. kVK_ANSI_S = 1, kVK_ANSI_Z = 6.
+// Post one synthesized Cmd-key to the host window. Shared by save and undo so the window
+// discovery, the suppression check and the two delivery paths stay in ONE place.
+static void stridePostCmdKey (NSString* ch, unsigned short keyCode, NSEventModifierFlags flags,
+                              double guardSecs, double* lastPost)
 {
     if (g_strideSuppressed) return;
     const double now = [[NSProcessInfo processInfo] systemUptime];
-    if (now - g_strideLastPost < 0.15) return;
+    if (now - *lastPost < guardSecs) return;
 
     NSWindow* target = strideFindHostWindow (nil);
     const bool viaFrame = (target == nil);
     if (viaFrame) target = strideEditorFrameWindow();   // per-plugin-process host: the frame forwards or drops it
     if (target == nil) return;
 
-    g_strideLastPost = now;
-    NSString* s = @"s";
+    *lastPost = now;
     NSEvent* down = [NSEvent keyEventWithType: NSEventTypeKeyDown
                                      location: NSZeroPoint
-                                modifierFlags: NSEventModifierFlagCommand
+                                modifierFlags: flags
                                     timestamp: [[NSProcessInfo processInfo] systemUptime]
                                  windowNumber: [target windowNumber]
                                       context: nil
-                                   characters: s
-                  charactersIgnoringModifiers: s
+                                   characters: ch
+                  charactersIgnoringModifiers: ch
                                     isARepeat: NO
-                                      keyCode: (unsigned short) 1];
+                                      keyCode: keyCode];
     NSEvent* up = [NSEvent keyEventWithType: NSEventTypeKeyUp
                                    location: NSZeroPoint
-                              modifierFlags: NSEventModifierFlagCommand
+                              modifierFlags: flags
                                   timestamp: [[NSProcessInfo processInfo] systemUptime]
                                windowNumber: [target windowNumber]
                                     context: nil
-                                 characters: s
-                charactersIgnoringModifiers: s
+                                 characters: ch
+                charactersIgnoringModifiers: ch
                                   isARepeat: NO
-                                    keyCode: (unsigned short) 1];
+                                    keyCode: keyCode];
     if (viaFrame) { [target keyDown: down]; [target keyUp: up]; }
     else          { [target sendEvent: down]; [target sendEvent: up]; }
+}
+
+// Cmd+Z / Cmd+Shift+Z, for when the undo belongs to the DAW rather than to Stride (see
+// canvas.js). Its own timestamp and a shorter guard: undo is a key people hammer, and
+// sharing the transport lock would read as dropped presses.
+static double g_strideLastUndoPost = 0.0;
+void strideMacKeyForward_postUndo (bool redo)
+{
+    stridePostCmdKey (@"z", (unsigned short) 6,
+                      redo ? (NSEventModifierFlagCommand | NSEventModifierFlagShift)
+                           : NSEventModifierFlagCommand,
+                      0.06, &g_strideLastUndoPost);
+}
+
+void strideMacKeyForward_postSave (void)
+{
+    stridePostCmdKey (@"s", (unsigned short) 1, NSEventModifierFlagCommand, 0.15, &g_strideLastPost);
 }
 
 void strideMacKeyForward_install (void)

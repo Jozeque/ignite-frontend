@@ -122,6 +122,7 @@ private:
     bool         lastLearn      = false;   // so the Map button reflects EVERY learn-mode change (incl. auto-leave)
     bool         lastUnlearn    = false;   // same, for the Unmap button
     juce::uint32 lastTransportKeyMs = 0;   // forwardTransportKey debounce — one transport toggle per press
+    juce::uint32 lastUndoKeyMs = 0;        // undo/redo has its OWN, shorter guard: it is a key people hammer
     int lastTickW = 0, lastTickH = 0;      // window-size settle detector (persist only once resizing stops)
     int savedW = 0, savedH = 0;            // last size written to wrapper-window.json
     bool lastDemoFrozen = false; int lastDemoSecs = -1; bool lastDemoPlaying = false;   // throttle for pushing the demo freeze/live state to the badge

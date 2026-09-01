@@ -325,6 +325,13 @@
     if (/^[a-zA-Z]$/.test(k)) { k = k.toLowerCase(); return NOTE_KEYS[k] ? k : ''; }
     return '';
   }
+  // canvas.js calls this when a key belongs to the DAW rather than to Stride: today only
+  // undo and redo, when the user has not been working in Stride. Wrapper-only, so the
+  // desktop app's canvas simply finds nothing to call.
+  window.sdForwardKeyToHost = function (k) {
+    try { emit('transportKey', { key: k }); } catch (e) {}
+  };
+
   window.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && pluginModal) { e.preventDefault(); e.stopImmediatePropagation(); closePluginBrowser(); return; }
     var z = (e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && ! e.shiftKey;

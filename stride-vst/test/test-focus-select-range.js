@@ -126,13 +126,36 @@ test('Ctrl+drag opens the box, and it is claimed before the stamp', () => {
 });
 
 test('dragging a selected point moves the whole selection, and only then', () => {
-    assert(/if \(idx !== -1 && _sdPtSel\.size > 1 && _sdPtSel\.has\(param\.points\[idx\]\)\) \{/.test(canvas),
+    assert(/idx !== -1[\s\S]{0,40}&& _sdPtSel\.size > 1 && _sdPtSel\.has\(param\.points\[idx\]\)\) \{/.test(canvas),
            'group drag needs a multi-selection AND a hit on a member');
     const g = canvas.slice(canvas.indexOf('_sdPtGroupDrag = {'), canvas.indexOf('_sdPtGroupDrag = {') + 400);
     assert(/pushUndo\(\);[\s\S]{0,200}_sdPtGroupDrag = \{/.test(canvas), 'ONE undo checkpoint for the gesture');
     assert(/t0: pt\.time, v0: pt\.value/.test(g), 'offsets captured up front so re-sorting cannot drift the drag');
     assert(/g\.param\.points\.sort\(\(a, b\) => a\.time - b\.time\)/.test(canvas),
            'the array is re-sorted: every consumer walks it in time order');
+});
+
+test('the group move outranks the stamp AND the FREE tool', () => {
+    // Field report 2026-09-01: "i selected a few dots in the focus view and tryied to drag
+    // but they didnt drag. in another try an half an hour ago it worked well." Nothing about
+    // the selection changed between those two tries, the PEN state did. Two branches used to
+    // swallow the press before the point hit test was even reached:
+    //   - an armed shape chip (the STAMP branch returns early)
+    //   - the FREE tool (the group drag sat in the ELSE of the freehand branch)
+    // So the claim is hoisted above both. Pressing a dot that is already in a multi-selection
+    // can only mean "move these".
+    const claim = canvas.indexOf('// GROUP MOVE, claimed here and not down in the drawing branches');
+    const stamp = canvas.indexOf("// STAMP (focus deck): an armed shape owns the gesture");
+    const free  = canvas.indexOf("if (sdActiveTool === 'freehand') {");
+    assert(claim > 0 && stamp > 0 && free > 0, 'all three branches present');
+    assert(claim < stamp, 'claimed BEFORE the stamp, or an armed chip lays a shape instead of dragging');
+    assert(claim < free,  'claimed BEFORE the freehand branch, or FREE paints instead of dragging');
+    // The hit test has to be hoisted with it, or the claim has no idx to test.
+    assert(canvas.indexOf('const hitT = (totalBeats * 0.025) / sdViewZoomX') < stamp,
+           'the point hit test is computed above the stamp too');
+    // ...and it must exist exactly once: two copies would drift.
+    assert(canvas.split('const hitT = (totalBeats * 0.025)').length === 2, 'one hit test, not two');
+    assert(canvas.split('_sdPtGroupDrag = {').length === 2, 'one place starts a group drag, not two');
 });
 
 test('the group is clamped as a group, so the shape survives the edges', () => {

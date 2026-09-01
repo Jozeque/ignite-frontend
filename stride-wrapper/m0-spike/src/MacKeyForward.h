@@ -40,6 +40,7 @@ void strideMacKeyForward_unregisterEditorView (void* nsview); // editor going aw
                                                               // and releases any note it still owes, so nothing sticks on.
 void strideMacKeyForward_post (bool isReturn);                // WebView Space/Return (JS-forwarded) -> the DAW's transport
 void strideMacKeyForward_postSave (void);                     // WebView Cmd+S -> the DAW (project save); same discovery/debounce/suppression policy
+void strideMacKeyForward_postUndo (bool redo);                // WebView Cmd+Z / Cmd+Shift+Z -> the DAW, when the undo belongs to the host and not to Stride
 void strideMacKeyForward_setNoteSink (void* ctx,              // where consumed note keys become MIDI: the editor routes them into the
         void (*sink) (void* ctx, int midiNote,                // processor's typed-note queue. Last registered editor wins (multi-instance:
                       int velocity, bool isDown));            // typed notes go to the most recently opened Stride). nullptr = disable.
