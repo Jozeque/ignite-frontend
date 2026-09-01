@@ -493,6 +493,7 @@ font:12.5px/1.5 ui-monospace,Consolas,monospace;color:var(--ink2);margin:8px 0 0
 </style></head><body><div class="wrap">
 <header>
   <h1><b>DEMO ACQUISITION</b> · live tracker</h1>
+  <a class="meta" href="demo_crm.html" style="color:var(--copper);text-decoration:none">demo CRM &rarr;</a>
   <span class="meta">campaign {CAMPAIGN_ID} · since {SINCE}</span>
   <span class="meta">generated {now.strftime('%Y-%m-%d %H:%M:%S')} IL · page reloads every 5 min</span>
 </header>
