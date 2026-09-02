@@ -399,6 +399,145 @@
   .vlist-2{grid-template-columns:auto auto;grid-template-rows:repeat(2,auto);grid-auto-flow:column;
     justify-content:start;column-gap:22px;margin:8px 0 12px}
   @media (max-width:520px){.vlist-2{grid-template-columns:1fr;grid-auto-flow:row;grid-template-rows:none}}
+  /* ══════════════════════════════════════════════════════════════════════════
+     MOBILE ONLY (<768px). Every rule below lives inside this one media query,
+     so the desktop cascade is untouched by construction rather than by care.
+     Most paid traffic lands here from the Meta in-app browser, whose chrome
+     eats ~130px, so the usable first screen is nearer 540-710px than the
+     device height.
+     ══════════════════════════════════════════════════════════════════════════ */
+  /* Base state for the mobile-only surfaces. These MUST be declared BEFORE the
+     media query: `#m-cta` and `.mob-only` carry the same specificity in both
+     places, so whichever is declared LAST wins. Putting them after the query
+     silently kept the sticky bar hidden on phones. */
+  #m-cta{display:none}
+  .mob-only{display:none}
+  /* Visually hidden but still focusable, so the label works by keyboard too.
+     display:none would make it unfocusable and strand keyboard users. */
+  .m-exp{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+  .m-more{display:none}
+
+  @media (max-width:767.98px){
+
+    /* -- ORDER -------------------------------------------------------------
+       Reordering by CSS instead of duplicating markup keeps ONE page. `order`
+       only means anything inside a flex container, which is why .wrap becomes
+       a column here; at >=768px it reverts to plain block flow and every
+       order below is inert. Sections keep their DOM position, so anchors,
+       IDs and analytics selectors all still resolve. */
+    .wrap{display:flex;flex-direction:column}
+    .wrap > nav{order:0}
+    section[data-ms="hero"]{order:1}
+    section[data-ms="proof"]{order:2}
+    section[data-ms="social"]{order:3}
+    section[data-ms="value"]{order:4}
+    section[data-ms="buy"]{order:5}
+    section[data-ms="compat-logos"]{order:6}
+    section[data-ms="how"]{order:7}
+    section[data-ms="bridge"]{order:8}
+    section[data-ms="audioin"]{order:9}
+    section[data-ms="generators"]{order:10}
+    section[data-ms="compat"]{order:11}
+    section[data-ms="faq"]{order:12}
+    section[data-ms="finalcta"]{order:13}
+
+    /* -- DENSITY -----------------------------------------------------------
+       Sections ship mb-28 (112px). Across 11 of them that is >1200px of dead
+       scroll on a phone, which is the single largest source of mobile length. */
+    .wrap > section{margin-bottom:3.25rem}
+    section[data-ms="hero"]{padding-top:1.5rem;padding-bottom:1.75rem}
+
+    /* -- HERO --------------------------------------------------------------
+       Measured on the live page at 375px: h1 was 250px and the paragraph
+       176px, together roughly half of the 870px sitting above the CTA. */
+    section[data-ms="hero"] h1{
+      font-size:2.15rem;line-height:1.1;margin-bottom:.75rem;letter-spacing:-.01em}
+    section[data-ms="hero"] .hero-sub{
+      font-size:.95rem;line-height:1.5;margin-bottom:1rem}
+    .desk-only{display:none}         /* trailing hero sentence: desktop keeps it */
+    .mob-only{display:inline}        /* the activation-clock fact, mobile only */
+    section[data-ms="hero"] .plate{max-width:none}
+    section[data-ms="hero"] .hero-price{font-size:2.5rem}
+    section[data-ms="hero"] .tape2{padding-top:.3rem;padding-bottom:.3rem}
+
+    /* Both paths stay parallel and equally reachable: Buy keeps the copper
+       primary it has on desktop, the trial keeps the ghost. Full width only so
+       each is a comfortable tap target, NOT to re-rank them. */
+    .hero-cta{gap:.5rem}
+    .hero-cta > a{width:100%;justify-content:center;min-height:48px}
+    .hero-cta > a.btn-ghost{font-size:12px}
+
+    /* -- SOCIAL PROOF ------------------------------------------------------
+       A vertical wall of quotes is the worst possible mobile shape. Swipe
+       cards with scroll-snap keep every quote, but cost one card of height. */
+    /* Targeted in CSS rather than by adding a class, so the markup stays
+       identical for desktop. Cards keep their full text; only ONE is on screen
+       at a time, and 86% width leaves the next card peeking so the swipe is
+       discoverable without a hint label. */
+    section[data-ms="social"] > div.grid{
+      display:flex;gap:.75rem;overflow-x:auto;scroll-snap-type:x mandatory;
+      -webkit-overflow-scrolling:touch;scrollbar-width:none;
+      margin-left:-1.5rem;margin-right:-1.5rem;
+      padding:.25rem 1.5rem 1rem;
+      overscroll-behavior-x:contain}          /* don't hijack the page's back-swipe */
+    section[data-ms="social"] > div.grid::-webkit-scrollbar{display:none}
+    section[data-ms="social"] > div.grid > *{
+      scroll-snap-align:start;flex:0 0 86%;min-width:0;margin:0!important}
+    section[data-ms="social"] .proof-card{padding:1.35rem}
+    section[data-ms="social"] blockquote{font-size:15px;line-height:1.55}
+    section[data-ms="social"] > div:first-child{margin-bottom:1.5rem}
+    section[data-ms="social"] h2{font-size:1.9rem;margin-bottom:.6rem}
+    section[data-ms="social"] > div:first-child > p:last-child{font-size:.95rem}
+
+    /* Section headings ship text-4xl (36px). One notch down keeps the rhythm
+       while returning real estate on every one of the 13 sections. */
+    .wrap > section h2{font-size:1.9rem;line-height:1.12}
+
+    /* -- PROGRESSIVE DISCLOSURE -------------------------------------------
+       The five deep sections are 53% of the mobile page. Collapsing four of
+       them to a peek keeps every word in the DOM (crawlable, linkable) while
+       returning most of that height. :has() picks up the checkbox without any
+       wrapper markup, so the sections' own structure is untouched. */
+    section[data-ms]:has(> .m-exp){position:relative}
+    section[data-ms]:has(> .m-exp:not(:checked)){max-height:430px;overflow:hidden}
+    .m-more{
+      display:flex;align-items:flex-end;justify-content:center;
+      position:absolute;left:0;right:0;bottom:0;height:130px;cursor:pointer;
+      padding-bottom:.35rem;
+      background:linear-gradient(to bottom,rgba(20,19,16,0) 0%,#141310 74%)}
+    .m-more > span{
+      border:1px solid var(--line);background:var(--raise);color:var(--ink2);
+      border-radius:999px;padding:0 1.1rem;font-size:11px;font-weight:800;
+      text-transform:uppercase;letter-spacing:.13em;min-height:44px;
+      display:inline-flex;align-items:center}
+    section[data-ms]:has(> .m-exp:checked) .m-more{display:none}
+    .m-exp:focus-visible + .m-more > span{outline:2px solid var(--copper-lt);outline-offset:2px}
+
+    /* -- BUY MODAL ON SHORT SCREENS ---------------------------------------
+       The panel measures ~691px. On a 375x667 phone that is taller than the
+       whole viewport, and the container is `flex items-center` with no
+       overflow, so the panel centres past both edges and "Continue to
+       checkout" ends up unreachable: there is nothing to scroll. Anchoring to
+       the top and letting the CONTAINER scroll fixes it without touching the
+       panel, the form, or anything about the payment flow. Mobile only, so the
+       desktop modal is untouched. */
+    #buy-modal{
+      overflow-y:auto;
+      align-items:flex-start;
+      padding-top:1rem;
+      padding-bottom:calc(1.25rem + env(safe-area-inset-bottom,0px));
+      -webkit-overflow-scrolling:touch}
+    #buy-modal > *{max-height:none;margin-top:0;margin-bottom:0}
+
+    /* -- STICKY CTA --------------------------------------------------------
+       A bar, not a popup: no overlay, no dismissal, nothing to close. The
+       body reserves exactly its height so it can never cover the footer or
+       the final CTA. */
+    body{padding-bottom:calc(4.6rem + env(safe-area-inset-bottom,0px))}
+    #m-cta{display:flex}
+  }
+
+
 </style>
 </head>
 <body>
@@ -432,7 +571,7 @@
   </nav>
 
   <!-- ───────────────── HERO (flagship = Stride VST) ───────────────── -->
-  <section class="relative overflow-hidden pt-12 pb-14">
+  <section data-ms="hero" class="relative overflow-hidden pt-12 pb-14">
     <svg class="hero-lanes absolute inset-0 w-full h-full pointer-events-none" style="opacity:.10" viewBox="0 0 1400 520" preserveAspectRatio="none" fill="none" stroke-linecap="round" stroke-linejoin="round">
       <path d="M0,80 L90,30 L90,80 L180,30 L180,80 L360,30 L360,80 L540,30 L540,80 L720,30 L720,80 L900,30 L900,80 L1080,30 L1080,80 L1260,30 L1260,80 L1400,50" stroke="#c6712b" stroke-width="1.5"/>
       <path d="M0,170 L40,120 L80,170 L120,150 L160,170 L240,110 L320,170 L400,150 L480,170 L560,110 L640,170 L720,150 L800,170 L900,115 L1000,170 L1120,150 L1240,170 L1340,115 L1400,170" stroke="#5e9aad" stroke-width="1.5"/>
@@ -447,8 +586,8 @@
         <h1 class="text-5xl md:text-6xl xl:text-7xl mb-5 leading-[1.04]">
           Discover what your instruments are <span class="brand">truly capable of.</span>
         </h1>
-        <p class="text-lg max-w-xl mb-6 leading-relaxed font-light ink2">
-          Explore endless possibilities hidden inside your setup. Map the knobs you want in motion, then click for a fresh variation across the whole chain. In Ableton Live, StrideBridge reaches your Ableton devices too.
+        <p class="text-lg max-w-xl mb-6 leading-relaxed font-light ink2 hero-sub">
+          Explore endless possibilities hidden inside your setup. Map the knobs you want in motion, then click for a fresh variation across the whole chain.<span class="desk-only"> In Ableton Live, StrideBridge reaches your Ableton devices too.</span>
         </p>
         <div class="plate max-w-lg">
           <div class="tape2">
@@ -456,7 +595,7 @@
           </div>
           <div class="px-5 py-3.5 md:px-6 md:py-4">
             <div class="flex items-center gap-3 flex-wrap">
-              <div class="text-6xl font-black ink leading-none tracking-tight">$99</div>
+              <div class="text-6xl font-black ink leading-none tracking-tight hero-price">$99</div>
               <div class="text-lg font-bold ink3 leading-none" style="text-decoration:line-through;opacity:.75">$129</div>
               <span class="seal2">Save $30</span>
             </div>
@@ -464,11 +603,11 @@
               <li><span class="d">●</span><span><b>Everything</b> included</span></li>
               <li><span class="d">●</span><span>One-time purchase</span></li>
             </ul>
-            <div class="flex flex-wrap items-center gap-2.5">
-              <a onclick="openBuy()" class="btn-copper text-[15px] py-3 px-6 rounded-xl">GET STRIDE · $99 <span>→</span></a>
+            <div class="flex flex-wrap items-center gap-2.5 hero-cta">
+              <a onclick="openBuy()" class="btn-copper text-[15px] py-3 px-6 rounded-xl">GET STRIDE &middot; $99 <span>&rarr;</span></a>
               <a href="/try/" class="btn-ghost text-[11px] uppercase tracking-[0.1em] py-3 px-5 rounded-xl">Explore free for 24h</a>
             </div>
-            <p class="text-[10.5px] ink3 mt-2.5">The pass is the full version · no limitations · on your own tracks</p>
+            <p class="text-[10.5px] ink3 mt-2.5">The pass is the full version &middot; no limitations &middot; on your own tracks</p>
           </div>
         </div>
         <div class="mt-5 text-[10px] leading-tight max-w-md">
@@ -541,7 +680,7 @@
   </section>
 
   <!-- ───────────────── WORKS WITH (compatibility strip, right under the hero — kept understated) ───────────────── -->
-  <section class="mb-20 text-center">
+  <section data-ms="compat-logos" class="mb-20 text-center">
     <p class="silk mb-5">Works with the instruments you already own</p>
     <div class="flex flex-wrap items-center justify-center gap-2.5">
       <span class="pill px-4 py-1.5 text-sm">Serum</span><span class="pill px-4 py-1.5 text-sm">Vital</span>
@@ -555,7 +694,7 @@
   </section>
 
   <!-- ───────────────── THE PREMISE (you already own it) ───────────────── -->
-  <section class="mb-28">
+  <section data-ms="value" class="mb-28">
     <div class="max-w-3xl mx-auto text-center">
       <h2 class="text-4xl md:text-6xl mb-9 leading-[1.05]">You already have everything you need.</h2>
       <div class="text-2xl md:text-3xl leading-snug ink font-light space-y-1.5 mb-9">
@@ -575,7 +714,7 @@
        Sits right after the manifesto on purpose: the manifesto makes the claim
        ("it reveals more of what's already there"), these three say it back in
        their own words. Real names, real links, real photos - nothing invented. -->
-  <section class="mb-28">
+  <section data-ms="social" class="mb-28">
     <div class="text-center mb-12">
       <p class="silk mb-3" style="color:var(--copper-lt)">In the wild</p>
       <h2 class="text-4xl md:text-6xl mb-4">Already in their <span class="brand">sessions.</span></h2>
@@ -662,7 +801,7 @@
   <!-- ───────────────── HOW IT WORKS — interactive Stride VST explainer ───────────────── -->
   <!-- The 1:1 Stride VST window. Embeds docs/how-it-works-vst.html (single source of
        truth, self-contained header). Auto-sizes via the shared postMessage handler. -->
-  <section id="how" class="mb-28 scroll-mt-8">
+  <section data-ms="how" id="how" class="mb-28 scroll-mt-8">
     <iframe id="hiw-vst-frame" src="docs/how-it-works-vst.html"
             title="How Stride VST works — click any control to see what it does"
             loading="lazy" scrolling="no"
@@ -670,7 +809,7 @@
   </section>
 
   <!-- ───────────────── AUDIO IN (new in 1.2) — guitars, vocals, hardware ───────────────── -->
-  <section class="mb-28">
+  <section data-ms="audioin" class="mb-28">
     <div class="text-center mb-10">
       <span class="chip pill-warm mb-4 inline-block">Audio In · new in 1.2</span>
       <h2 class="text-4xl md:text-6xl mb-4">Route your hardware, guitar, or vocals through your favorite FX chain.<br><span class="brand">Put it in motion.</span></h2>
@@ -710,10 +849,15 @@
       </div>
     </div>
     <p class="text-center text-[12px] ink3 mt-6 max-w-xl mx-auto leading-relaxed">Audio In is part of Stride VST, new in 1.2. You route audio in with standard DAW routing, and the effects chain is hosted inside Stride: VST3 anywhere, AU on macOS. Not Pro Tools (AAX).</p>
+    <!-- Mobile-only progressive disclosure. CSS checkbox + label: no JS, no CLS,
+         nothing hydrated. The content is COLLAPSED, never removed, so it stays in
+         the DOM and crawlable, and desktop renders it in full. -->
+    <input type="checkbox" class="m-exp" id="exp-audioin">
+    <label class="m-more" for="exp-audioin"><span>More on Audio In</span></label>
   </section>
 
   <!-- ───────────────── SHARED ENGINE / GENERATORS ───────────────── -->
-  <section class="mb-28">
+  <section data-ms="generators" class="mb-28">
     <div class="text-center mb-14">
       <p class="silk mb-3" style="color:var(--copper-lt)">In every DAW</p>
       <h2 class="text-4xl md:text-6xl mb-4">One click. <span class="brand">Every lane comes alive.</span></h2>
@@ -762,10 +906,15 @@
         <p class="text-[13px] ink3 leading-relaxed"><span class="silk" style="color:var(--sage-lt)">Good for</span> · glitchy stepped textures, sequenced modulation, rhythmic motion without drawing a step.</p>
       </div>
     </div>
+    <!-- Mobile-only progressive disclosure. CSS checkbox + label: no JS, no CLS,
+         nothing hydrated. The content is COLLAPSED, never removed, so it stays in
+         the DOM and crawlable, and desktop renders it in full. -->
+    <input type="checkbox" class="m-exp" id="exp-generators">
+    <label class="m-more" for="exp-generators"><span>More on generators</span></label>
   </section>
 
   <!-- ───────────────── EVERY BUTTON IS A VARIATION (kept from original — footage) ───────────────── -->
-  <section class="mb-28">
+  <section data-ms="proof" class="mb-28">
     <div class="text-center mb-10">
       <p class="silk mb-3" style="color:var(--violet-lt)">Variations on demand</p>
       <h2 class="text-4xl md:text-6xl mb-4">Every button is a <span class="brand">variation</span>.</h2>
@@ -798,7 +947,7 @@
   </section>
 
   <!-- ───────────────── STRIDE VST IN DEPTH (flagship) ───────────────── -->
-  <section class="mb-28">
+  <section data-ms="compat" class="mb-28">
     <div class="text-center mb-10">
       <span class="chip pill-warm mb-4 inline-block">Stride VST · every DAW</span>
       <h2 class="text-4xl md:text-6xl mb-4">One plugin. <span class="brand">Your whole rig.</span></h2>
@@ -838,10 +987,15 @@
         <p class="text-sm leading-relaxed ink2">Stride VST modulates the <b class="ink">instruments and effects you load inside it</b>, in any DAW: VST3 anywhere, AU on macOS, no VST2. In Ableton Live, <b class="ink">StrideBridge</b> opens the canvas past the hosted chain and maps your Ableton devices too, so both move on the same click. Want it written into the clip itself? Press INJECT on the bridge, below.</p>
       </div>
     </div>
+    <!-- Mobile-only progressive disclosure. CSS checkbox + label: no JS, no CLS,
+         nothing hydrated. The content is COLLAPSED, never removed, so it stays in
+         the DOM and crawlable, and desktop renders it in full. -->
+    <input type="checkbox" class="m-exp" id="exp-compat">
+    <label class="m-more" for="exp-compat"><span>More on compatibility</span></label>
   </section>
 
   <!-- ───────────────── PRICING (offer moved here, after the value) ───────────────── -->
-  <section id="pricing" class="mb-28 scroll-mt-8">
+  <section data-ms="buy" id="pricing" class="mb-28 scroll-mt-8">
     <div class="text-center mb-10">
       <p class="silk mb-3" style="color:var(--copper-lt)">One price · everything included</p>
       <h2 class="text-4xl md:text-6xl mb-4">Get <span class="brand">everything</span> for $99</h2>
@@ -879,7 +1033,7 @@
   </section>
 
   <!-- ───────────────── IN ABLETON (StrideBridge) ───────────────── -->
-  <section class="mb-28">
+  <section data-ms="bridge" class="mb-28">
     <div class="text-center mb-10">
       <span class="chip pill-teal mb-4 inline-block">StrideBridge · Ableton Live · how it works</span>
       <h2 class="text-4xl md:text-6xl mb-4">In Ableton, it reaches <span class="brand-teal">everything.</span></h2>
@@ -938,6 +1092,11 @@
       <a onclick="openBuy()" class="btn-copper text-sm uppercase tracking-widest py-3.5 px-9 rounded-full">Get Stride · $99</a>
       <p class="text-[12px] ink3 mt-3">StrideBridge is included with Stride. One purchase, $99.</p>
     </div>
+    <!-- Mobile-only progressive disclosure. CSS checkbox + label: no JS, no CLS,
+         nothing hydrated. The content is COLLAPSED, never removed, so it stays in
+         the DOM and crawlable, and desktop renders it in full. -->
+    <input type="checkbox" class="m-exp" id="exp-bridge">
+    <label class="m-more" for="exp-bridge"><span>More on StrideBridge</span></label>
   </section>
   <script>
     // Size the interactive How-It-Works iframes to their content height (responsive,
@@ -959,7 +1118,7 @@
   </script>
 
   <!-- ───────────────── FAQ ───────────────── -->
-  <section class="max-w-3xl mx-auto mb-24">
+  <section data-ms="faq" class="max-w-3xl mx-auto mb-24">
     <div class="text-center mb-10"><h2 class="text-3xl md:text-5xl mb-2">FAQ</h2><p class="silk">The questions everyone asks</p></div>
     <div class="space-y-3">
       <details class="panel rounded-2xl" open><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">What do I get for $99?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Everything, in one purchase. <b class="ink">Stride VST</b> for every DAW (host your synths and effects and modulate them), plus <b class="ink">StrideBridge</b> for Ableton (reach the set's own devices, and print the motion into a clip when you want it). One price, no add-ons.</div></details>
@@ -975,7 +1134,7 @@
   </section>
 
   <!-- ───────────────── BOTTOM CTA ───────────────── -->
-  <section class="mb-20">
+  <section data-ms="finalcta" class="mb-20">
     <div class="panel screws rounded-3xl px-6 py-20 text-center relative overflow-hidden">
       <span class="s s1"></span><span class="s s2"></span>
       <div class="absolute inset-x-0 bottom-0 h-40 pointer-events-none" style="background:linear-gradient(0deg,rgba(198,113,43,.08),transparent)"></div>
@@ -1002,12 +1161,24 @@
     <p class="text-[11px] text-zinc-600 mt-3 max-w-2xl mx-auto leading-relaxed">Third-party plugins are sold separately. All product names and trademarks belong to their respective owners. Stride is an independent product and is not affiliated with or endorsed by these companies.</p>
 </footer>
 
-<!-- ── Mobile sticky CTA ── -->
-<div class="md:hidden fixed z-[1000] flex flex-col items-end gap-2.5"
-     style="right:1rem;bottom:calc(1rem + env(safe-area-inset-bottom, 0px))">
-    <a href="#pricing" aria-label="Get Stride"
-            class="btn-copper text-[13px] font-black tracking-wide px-4 py-2.5 rounded-full">
-        Get Stride <span aria-hidden="true">&rarr;</span>
+<!-- ── Mobile sticky CTA ──
+     A bar, not a popup: always present, nothing to dismiss, no overlay. body
+     reserves exactly its height (see the mobile media query) so it can never
+     cover the footer or the final CTA. TRY FREE uses href="/try/" so the
+     existing DOMContentLoaded decorator stamps the ad markers on it, exactly
+     like every other /try link on the page. -->
+<div id="m-cta" role="group" aria-label="Get Stride"
+     style="position:fixed;left:0;right:0;bottom:0;z-index:1000;gap:.6rem;
+            padding:.6rem 1rem calc(.6rem + env(safe-area-inset-bottom,0px));
+            background:rgba(16,15,12,.94);backdrop-filter:blur(10px);
+            border-top:1px solid var(--line)">
+    <a onclick="openBuy()" class="btn-copper"
+       style="flex:1 1 auto;min-height:46px;justify-content:center;font-size:13px;letter-spacing:.05em">
+        GET STRIDE &middot; $99
+    </a>
+    <a href="/try/" class="btn-ghost"
+       style="flex:0 1 auto;min-height:46px;justify-content:center;font-size:12px;letter-spacing:.05em;padding:0 .9rem;white-space:nowrap">
+        Explore free 24h
     </a>
 </div>
 
