@@ -57,7 +57,15 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     // ── hosted chain (instrument + effects, all inside Stride) ──
-    void loadPlugin (const juce::File& pluginFile);   // APPENDS to the chain (.vst3 everywhere; .component AU on macOS)
+    // APPENDS to the chain (.vst3 everywhere; .component AU on macOS).
+    // classId selects WHICH plugin inside the bundle: one .vst3 may declare several
+    // (Serum2.vst3 is both "Serum 2" and "Serum 2 FX"). Empty = the first class, which is
+    // exactly what every pre-v11 saved chain and every older call site means, so they are
+    // unaffected. Value is PluginDescription::createIdentifierString().
+    void loadPlugin (const juce::File& pluginFile, const juce::String& classId = {});
+    // The browser must enumerate classes through the SAME manager the loader resolves
+    // through, or an id it lists could fail to match when the user clicks it.
+    juce::AudioPluginFormatManager& getFormatManagerForScan() { return formatManager; }
     void clearChain();
     bool removeNode (int index);                      // revoke ONE device (deliberate, from Stride's UI). FALSE = refused (audio thread never let go), nothing changed
     void moveNode (int from, int to);                 // reorder the chain (drag) — reindexes mapped params/lanes so curves stay on their knobs
@@ -402,7 +410,10 @@ private:
     };
     ChildPlayHead childPlayHead;
 
-    struct Node { std::unique_ptr<juce::AudioPluginInstance> inst; juce::String name; juce::String path; bool bypassed = false; };
+    // cls = WHICH plugin inside a multi-class bundle (PluginDescription identifier string).
+    // Empty for the overwhelmingly common single-plugin file, and empty is what every
+    // pre-v11 project means, so nothing about those changes.
+    struct Node { std::unique_ptr<juce::AudioPluginInstance> inst; juce::String name; juce::String path; bool bypassed = false; juce::String cls; };
     std::vector<Node> chain;                  // [0] = instrument, [1..] = effects, in series
 
     struct MapRef { int node; int param; int macroSlot = -1;      // macroSlot = DAW-facing param slot (-1 = not exposed)
@@ -538,7 +549,7 @@ private:
     struct RemovedSnapshot
     {
         bool valid = false;
-        struct Dev { juce::String path; juce::MemoryBlock state; int position = 0;
+        struct Dev { juce::String path; juce::String cls; juce::MemoryBlock state; int position = 0;
                      std::vector<int> params; std::vector<int> slots; std::vector<StoredLane> lanes; bool bypassed = false;
                      std::vector<char> ron; std::vector<float> rlo, rhi;
                      std::vector<int> col;                                    // per-param lane colors (parallel to params; -1 = AUTO)   // per-param range bands (parallel to params; char ≠ vector<bool>)

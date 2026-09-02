@@ -198,19 +198,30 @@ function _checkReclick() {
     if (_armed) return;                                // the mapping flow owns clicks while armed
     var down = _lastDown;
     if (_touchP.t >= down.t - 20 || _touchD.t >= down.t - 20) return;   // this down changed the selection: already flashed
-    try {
+
+    // Geometry FIRST. [mousestate] reports every mouse-down anywhere in Live, and this used
+    // to build a LiveAPI and read a name and a path before asking whether the click was even
+    // near the knob we care about - so dragging a device around, or any ordinary clicking,
+    // paid for LOM lookups on Live's main thread that were then thrown away. _near is pure
+    // arithmetic. A click nowhere near the last-touched knob now costs nothing at all, which
+    // is the overwhelming majority of clicks (field 2026-09-02: "ableton is a little bit
+    // laggy and like stuckiness sometimes").
+    var nearP = _near(_touchP), nearD = _near(_touchD);
+    if (!nearP && !nearD) return;
+
+    if (nearP) try {
         var p = new LiveAPI("live_set view selected_parameter");
         var pid = (p && p.id) ? parseInt(p.id, 10) : 0;
-        if (pid && pid === _touchP.id && _near(_touchP)) {
+        if (pid && pid === _touchP.id) {
             _touchP.t = down.t; _touchP.x = down.x; _touchP.y = down.y;
             outlet(0, "touched", _enc({ path: _upath(p), name: String(p.get("name")), again: 1 }));
             return;
         }
     } catch (e) {}
-    try {
+    if (nearD) try {
         var d = new LiveAPI("live_set view selected_track view selected_device");
         var did = (d && d.id) ? parseInt(d.id, 10) : 0;
-        if (did && did === _touchD.id && _near(_touchD)) {
+        if (did && did === _touchD.id) {
             _touchD.t = down.t; _touchD.x = down.x; _touchD.y = down.y;
             outlet(0, "touched_dev", _enc({ path: _upath(d), name: String(d.get("name")), again: 1 }));
         }
@@ -496,6 +507,55 @@ function relink(rid, encDevPath, encNames) {
 }
 
 // repath <rid> <id ...> - bound ids -> current canonical paths (ok:0 = gone)
+// ── device-list watchers ────────────────────────────────────────────────
+// The server sends the tracks it has lanes on; we observe each one's `devices` list and
+// say so the moment it changes. That is the event behind BOTH jobs the repath sweep was
+// polling for every 5 seconds: a device MOVED (the lane's path goes stale, and the path is
+// what INJECT writes through) or a device is GONE (the lane greys out). Watching costs
+// nothing while nothing happens, which polling could never manage.
+var _devObs = {};          // track path -> LiveAPI
+var _devEcho = {};         // track path -> still waiting for the attach echo
+
+function _clearDevWatch() {
+    for (var k in _devObs) {
+        if (!_devObs.hasOwnProperty(k)) continue;
+        try { _devObs[k].property = ""; } catch (e) {}
+    }
+    _devObs = {};
+    _devEcho = {};
+}
+
+// watchtracks <trackPath> ...   (a bare `watchtracks` clears them all)
+function watchtracks() {
+    var a = arrayfromargs(arguments);
+    var want = {};
+    for (var i = 0; i < a.length; i++) {
+        var t = String(a[i]);
+        if (t) want[t] = 1;
+    }
+    // Drop the ones we no longer need, keep the ones we already have. Re-creating an
+    // observer costs an attach echo, so churn would mean a false "something changed"
+    // every time the lane set is pushed.
+    for (var k in _devObs) {
+        if (!_devObs.hasOwnProperty(k)) continue;
+        if (!want[k]) { try { _devObs[k].property = ""; } catch (e) {} delete _devObs[k]; delete _devEcho[k]; }
+    }
+    for (var t2 in want) {
+        if (!want.hasOwnProperty(t2) || _devObs[t2]) continue;
+        (function (path) {
+            try {
+                _devEcho[path] = true;
+                var o = new LiveAPI(function () {
+                    if (_devEcho[path]) { _devEcho[path] = false; return; }   // attach echo, not a change
+                    outlet(0, "devchanged", _enc({ track: path }));
+                }, path);
+                o.property = "devices";
+                _devObs[path] = o;
+            } catch (e) { post("StrideBridge device watch failed on " + path + ": " + e.message + "\n"); }
+        })(t2);
+    }
+}
+
 function repath() {
     var a = arrayfromargs(arguments);
     var rid = a[0];

@@ -247,17 +247,31 @@ test('unchanged push is a no-op (signature diff), changed shape re-renders witho
     assert(voiceMsgs('bind').length === 1, 'still one bind');
 });
 
-test('resolve routes by kind: continuous -> bind (remote~), quantized -> bindq (live.object)', () => {
+test('resolve routes by kind: only live.object where remote~ genuinely cannot go', () => {
+    // Changed 2026-09-02. A menu on an ordinary device now takes the SIGNAL path like any
+    // other knob. It used to take live.object, and every live.object write costs a Live UNDO
+    // STEP, so a curve sweeping Roar's Shaper Type buried the user's own actions under a pile
+    // of "Undo change" entries and Ctrl+Z appeared to do nothing (confirmed in the field by
+    // unmapping exactly those lanes). The note that sent menus down live.object in the first
+    // place is dated 08-26 and predates the native-ranges fix: back then remote~ was fed
+    // 0..1, and 0..1 into a 0..7 menu rounds to option 0, which looks like "it cannot drive
+    // enums". A menu on a MIDI EFFECT still uses live.object, because THAT finding (08-27) is
+    // after the native fix and remote~ really does refuse those.
     resetState();
     const [c] = connect(fakeClient());
-    push(c, [{ path: P1, points: [], speed: 1 }, { path: P2, points: [], speed: 1, is_quantized: 1 }]);
-    const [r1, r2] = probes('resolve');
+    push(c, [{ path: P1, points: [], speed: 1 },
+             { path: P2, points: [], speed: 1, is_quantized: 1 },
+             { path: ROAR1, points: [], speed: 1, is_quantized: 1 }]);
+    const [r1, r2, r3] = probes('resolve');
     resolveOk(r1[2], 111, '', '', P1);
     resolveOk(r2[2], 222, '', '', P2);
-    const b1 = outbox.find(a => a[0] === 'voice' && a[1] === voiceOf(111) && (a[2] === 'bind' || a[2] === 'bindq'));
-    const b2 = outbox.find(a => a[0] === 'voice' && a[1] === voiceOf(222) && (a[2] === 'bind' || a[2] === 'bindq'));
+    // devType comes from the RESOLVE reply (Live reports it), never from the client push.
+    srv.handleResolved(enc({ rid: r3[2], ok: 1, id: 333, name: '', device: '', devType: 4, path: ROAR1 }));
+    const bindOf = (id) => outbox.find(a => a[0] === 'voice' && a[1] === voiceOf(id) && (a[2] === 'bind' || a[2] === 'bindq'));
+    const b1 = bindOf(111), b2 = bindOf(222), b3 = bindOf(333);
     assert(b1 && b1[2] === 'bind', 'continuous voice got bind, got ' + JSON.stringify(b1));
-    assert(b2 && b2[2] === 'bindq', 'quantized voice got bindq, got ' + JSON.stringify(b2));
+    assert(b2 && b2[2] === 'bind', 'a MENU on a normal device rides the signal path (no undo cost), got ' + JSON.stringify(b2));
+    assert(b3 && b3[2] === 'bindq', 'a menu on a MIDI EFFECT still uses live.object, got ' + JSON.stringify(b3));
 });
 
 test('MIDI-effect parameter (Arpeggiator): the Live setter path, native values, never locks the knob', () => {
@@ -336,8 +350,10 @@ test('clear_all (the Discovery Pass lock-down) releases EVERY drive path, and on
     srv.handleResolved(enc({ rid: rs[0][2], ok: 1, id: 601, name: 'Cutoff', device: 'Auto Filter', devType: 2, path: P1 }));
     srv.handleResolved(enc({ rid: rs[1][2], ok: 1, id: 602, name: 'Style', device: 'Roar', devType: 2, path: P2 }));
     srv.handleResolved(enc({ rid: rs[2][2], ok: 1, id: 603, name: 'Steps', device: 'Arpeggiator', devType: 4, path: 'live_set tracks 1 devices 0 parameters 5' }));
+    // Roar's Style is a MENU on an ordinary device, so it rides the signal path now: only
+    // where remote~ genuinely cannot go (MIDI effects) is live.object still used.
     const modes = [601, 602, 603].map(id => srv.state.voices[voiceOf(id)].mode);
-    assert(JSON.stringify(modes) === '["r","q","c"]', 'one lane per drive path bound, got ' + JSON.stringify(modes));
+    assert(JSON.stringify(modes) === '["r","r","c"]', 'one lane per drive path bound, got ' + JSON.stringify(modes));
     // a second window keeps its own lane through the first one's lock-down
     push(b, [{ path: 'live_set tracks 3 devices 0 parameters 1', points: [], speed: 1, name: 'Drive', device: 'Saturator' }]);
     srv.handleResolved(enc({ rid: lastProbe('resolve')[2], ok: 1, id: 700, name: 'Drive', device: 'Saturator', devType: 2, path: 'live_set tracks 3 devices 0 parameters 1' }));
@@ -668,23 +684,38 @@ test('LIVENESS: a silent patcher (leaked node process) yields the port; a pong r
     assert(outbox.some(a2 => a2[0] === 'status' && a2[1] === 'set'), 'face readout updated');
 });
 
-test('stop-to-find: transport stop releases continuous binds, play re-applies; menus untouched', () => {
+test('stop-to-find: transport stop releases the signal binds, play re-applies', () => {
+    // Menus moved onto the signal path (2026-09-02) so they release on stop like any other
+    // knob, which is the POINT of stop-to-find: a stopped transport hands every knob Stride
+    // was driving back to the user. Only a live.object lane (MIDI effect) stays put, because
+    // there is no bind to release - the value was written, not driven.
     resetState();
     const [c] = connect(fakeClient());
-    push(c, [{ path: P1, points: [], speed: 1 }, { path: P2, points: [], speed: 1, is_quantized: 1 }]);
-    const [r1, r2] = probes('resolve');
-    resolveOk(r1[2], 111, '', '', P1); resolveOk(r2[2], 222, '', '', P2);
+    push(c, [{ path: P1, points: [], speed: 1 },
+             { path: P2, points: [], speed: 1, is_quantized: 1 },
+             { path: ROAR1, points: [], speed: 1 }]);
+    const rs = probes('resolve');
+    resolveOk(rs[0][2], 111, '', '', P1); resolveOk(rs[1][2], 222, '', '', P2);
+    srv.handleResolved(enc({ rid: rs[2][2], ok: 1, id: 333, name: '', device: '', devType: 4, path: ROAR1 }));
     outbox = [];
     srv.handleTransport('0');                       // STOP
     const stops = outbox.filter(a => a[0] === 'voice');
-    assert(stops.length === 1 && stops[0][1] === voiceOf(111) && stops[0][2] === 'unbind', 'only the continuous voice released: ' + JSON.stringify(stops));
+    const released = stops.map(a => a[1]).sort();
+    assert(stops.every(a => a[2] === 'unbind'), 'all releases: ' + JSON.stringify(stops));
+    assert(released.indexOf(voiceOf(111)) >= 0 && released.indexOf(voiceOf(222)) >= 0,
+           'both signal voices released (the menu is one of them now): ' + JSON.stringify(stops));
+    assert(released.indexOf(voiceOf(333)) < 0, 'the live.object lane has no bind to release');
     assert(srv.state.voices[voiceOf(111)].id === 111, 'target survives the suspension');
     outbox = [];
     srv.handleTransport('1');                       // PLAY
-    const starts = outbox.filter(a => a[0] === 'voice');
-    assert(starts.length === 1 && starts[0][2] === 'bind' && starts[0][3] === 111, 're-bound with the kept id');
+    const starts = outbox.filter(a => a[0] === 'voice' && a[2] === 'bind');
+    const ids = starts.map(a => a[3]).sort((x, y) => x - y);
+    assert(ids.length === 2 && ids[0] === 111 && ids[1] === 222,
+           'both signal voices re-bound with their KEPT ids, got ' + JSON.stringify(starts));
+    const beforeDup = outbox.filter(a => a[0] === 'voice').length;
     srv.handleTransport('1');                       // duplicate edge: no churn
-    assert(outbox.filter(a => a[0] === 'voice').length === 1, 'edge-triggered, not level-spammed');
+    assert(outbox.filter(a => a[0] === 'voice').length === beforeDup,
+           'edge-triggered, not level-spammed: a repeated play must emit NOTHING new');
 });
 
 test('stop-to-find: a resolve that lands while STOPPED defers its bind to the play edge', () => {
@@ -953,7 +984,8 @@ test('canvas: unmapping a live lane never renumbers hosted positions', () => {
 });
 
 test('C++: v10 "bl" blob rides getState/setState and reaches the shim', () => {
-    assert(/setAttribute \("version", 10\)/.test(proc), 'state v10');
+    assert(/setAttribute \("version", (\d+)\)/.test(proc)
+        && parseInt(RegExp.$1, 10) >= 10, 'state v10 or later (the number moves with each new attr)');
     assert(/setAttribute \("bl", bridgeLanesJson\)/.test(proc), 'save');
     assert(/getStringAttribute \("bl", ""\)/.test(proc), 'load');
     assert(/bridgeLanesJson = newBridgeLanes/.test(proc), 'applied on the message thread');
@@ -2117,6 +2149,90 @@ test('the idle LOM load: discovery sweeps rarely, suspects stay responsive', () 
     assert(srv.FULL_SWEEP_EVERY >= 4 && srv.FULL_SWEEP_EVERY * srv.PING_MS >= 20000,
            'discovery is genuinely rarer, got ' + (srv.FULL_SWEEP_EVERY * srv.PING_MS) + 'ms');
     assert(srv.FAST_REPATH_MS === undefined || srv.FAST_REPATH_MS <= 1000, 'the fast path stays fast');
+});
+
+test('device-list watch: ask Live to TELL us, instead of interrogating it every 5s', () => {
+    // No resetState() and no clearing of outbox: the TCP and MAP LIVE tests are parked on
+    // real timers and assert against both. Snapshot, work in an isolated set, put it back.
+    const savedClients = srv.state.clients, savedVoices = srv.state.voices.slice();
+    const savedSig = srv.state.watchSig, savedTick = srv.state.sweepTick;
+    const mark = outbox.length;
+    try {
+        srv.state.voices.fill(null);
+        srv.state.clients = new Set();
+        srv.state.watchSig = undefined;
+        const c = fakeClient();
+        srv.state.clients.add(c);
+        srv.handleClientMessage(c, { type: 'set_live_lanes', bars: 4, lanes: [LANE(P1), LANE(P2, 'Dry/Wet', 'Reverb')] });
+        const rs = outbox.slice(mark).filter(a => a[0] === 'probe' && a[1] === 'resolve');
+        assert(rs.length >= 2, 'both lanes asked to resolve');
+        resolveOk(rs[0][2], 100, 'Flt 3 Freq', 'Roar', P1);
+        resolveOk(rs[1][2], 300, 'Dry/Wet', 'Reverb', P2);
+
+        let m = outbox.length;
+        srv.tick(Date.now());
+        const w = outbox.slice(m).filter(a => a[0] === 'probe' && a[1] === 'watchtracks').pop();
+        assert(w, 'the tracks we hold lanes on are handed to Max to observe');
+        const tracks = w.slice(2);
+        assert(tracks.length >= 1, 'at least the track those lanes live on, got ' + JSON.stringify(tracks));
+        tracks.forEach(t => assert(/^live_set (tracks \d+|return_tracks \d+|master_track)$/.test(t),
+                                   'a TRACK path, not a device or param path: ' + t));
+
+        // Re-pushing the same lanes must NOT re-send: every rebuild costs an attach echo on
+        // the Max side, which would read as "something changed" and trigger a sweep. Churn
+        // here would reintroduce the polling load by the back door.
+        m = outbox.length;
+        srv.tick(Date.now());
+        assert(!outbox.slice(m).some(a => a[0] === 'probe' && a[1] === 'watchtracks'),
+               'unchanged track set is silent');
+
+        // And the event does what the 5s poll used to: a full sweep, immediately.
+        m = outbox.length;
+        srv.state.repathRid = 0;
+        srv.handleDevChanged(enc({ track: 'live_set tracks 0' }));
+        const rp = outbox.slice(m).filter(a => a[0] === 'probe' && a[1] === 'repath').pop();
+        assert(rp, 'a device-list change sweeps at once, not at the next discovery tick');
+        assert(rp.slice(3).indexOf(100) >= 0 && rp.slice(3).indexOf(300) >= 0,
+               'and it is the FULL sweep: both jobs (moved path, gone device) are due');
+
+        // A yielded bridge has no patcher behind it and must not interrogate a Live it is
+        // no longer attached to.
+        srv.state.yielded = true;
+        srv.state.repathRid = 0;
+        m = outbox.length;
+        srv.handleDevChanged(enc({ track: 'live_set tracks 0' }));
+        assert(!outbox.slice(m).some(a => a[0] === 'probe' && a[1] === 'repath'), 'a yielded bridge stays quiet');
+    } finally {
+        srv.state.yielded = false;
+        srv.state.clients = savedClients;
+        savedVoices.forEach((v, i) => { srv.state.voices[i] = v; });
+        srv.state.watchSig = savedSig;
+        srv.state.sweepTick = savedTick;
+        outbox.length = mark;
+    }
+});
+
+test('a click nowhere near a mapped knob costs Live nothing', () => {
+    // [mousestate] reports EVERY mouse-down anywhere in Live, and the re-click finder used
+    // to build a LiveAPI, read a name and read a path BEFORE asking whether the click was
+    // even near the knob it cares about. So dragging devices around, or any ordinary
+    // clicking, paid for LOM lookups on Live's main thread that were then discarded, which
+    // is exactly when a user would feel it (field 2026-09-02: "ableton is a little bit laggy
+    // and like stuckiness sometimes"). _near is pure arithmetic; it goes first.
+    const mx = fs.readFileSync(path.join(BRIDGE, 'bridge_max.js'), 'utf8');
+    const body = mx.slice(mx.indexOf('function _checkReclick()'),
+                          mx.indexOf('function _checkReclick()') + 1800);
+    const gate = body.indexOf('if (!nearP && !nearD) return;');
+    assert(gate > 0, 'the geometric gate exists');
+    assert(gate < body.indexOf('new LiveAPI'), 'and it comes BEFORE any LOM lookup');
+    assert(/var nearP = _near\(_touchP\), nearD = _near\(_touchD\);/.test(body),
+           'both candidates measured up front, from pure coordinates');
+    // Each branch then only runs if ITS own candidate was near, so a click near the device
+    // header does not also probe the parameter.
+    assert(/if \(nearP\) try \{/.test(body) && /if \(nearD\) try \{/.test(body),
+           'each LOM branch is behind its own proximity test');
+    assert(!/_near\(_touchP\)\)\s*\{[\s\S]{0,40}_touchP\.t = down\.t/.test(body),
+           'the old test-after-lookup ordering is gone');
 });
 
 test('LOCAL BUILD FRESHNESS: a built Stride.vst3 must embed the CURRENT shim.js', () => {

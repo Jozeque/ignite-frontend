@@ -941,6 +941,16 @@
         var left = document.createElement('span'); left.className = 'flex items-center gap-2 min-w-0';
         var nm = document.createElement('span'); nm.className = 'text-[12px] text-zinc-200 group-hover:text-white truncate'; nm.textContent = p.name;
         left.appendChild(nm);
+        // One .vst3 can hold several plugins (Serum2.vst3 is "Serum 2" AND "Serum 2 FX").
+        // Mark the effect ONLY when this bundle contributed more than one row, the same way
+        // the format chip only appears when the list actually mixes formats: a lone effect
+        // needs no disambiguating.
+        if (p.multi && p.isFx) {
+          var xc = document.createElement('span');
+          xc.className = 'text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded border shrink-0 text-fuchsia-400/90 border-fuchsia-400/25';
+          xc.textContent = 'FX';
+          left.appendChild(xc);
+        }
         if (multiFmt && p.fmt) {
           var fc = document.createElement('span');
           fc.className = 'text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded border shrink-0 ' + (p.fmt === 'AU' ? 'text-sky-400/90 border-sky-400/25' : 'text-zinc-500 border-white/10');
@@ -950,8 +960,14 @@
         var add = document.createElement('span'); add.className = 'text-[9px] uppercase tracking-wider font-bold text-zinc-600 group-hover:text-orange-400 shrink-0'; add.textContent = 'Add';
         row.appendChild(left); row.appendChild(add);
         row.onclick = function () {
-          emit('loadSynthPath', { path: p.path });
-          var favs = favGet(); if (! favs.some(function (x) { return x.path === p.path; })) { favs.push({ name: (p.fmt === 'AU' ? p.name + ' (AU)' : p.name), path: p.path }); favSet(favs); populateFav(); }
+          // cls says WHICH plugin in the bundle. Favourites key on path+cls for the same
+          // reason: two entries from one file must not collapse into one favourite.
+          emit('loadSynthPath', { path: p.path, cls: p.cls || '' });
+          var favs = favGet();
+          if (! favs.some(function (x) { return x.path === p.path && (x.cls || '') === (p.cls || ''); })) {
+            favs.push({ name: (p.fmt === 'AU' ? p.name + ' (AU)' : p.name), path: p.path, cls: p.cls || '' });
+            favSet(favs); populateFav();
+          }
           nm.className = 'text-[12px] text-emerald-400 truncate'; add.textContent = '✓ added'; add.className = 'text-[9px] uppercase tracking-wider font-bold text-emerald-400 shrink-0';
         };
         listEl.appendChild(row);
@@ -1012,7 +1028,7 @@
         row.draggable = true;
         var grip = document.createElement('span'); grip.textContent = '⠿'; grip.className = 'text-zinc-600 group-hover:text-zinc-400 text-[13px] shrink-0'; grip.title = 'Drag to reorder';
         var nm = document.createElement('span'); nm.className = 'flex-1 min-w-0 text-[12px] text-zinc-200 truncate pointer-events-none'; nm.textContent = f.name; nm.title = f.path;
-        var load = document.createElement('button'); load.textContent = 'Load'; load.className = 'text-[9px] uppercase tracking-wider font-bold text-zinc-500 hover:text-fuchsia-400 opacity-0 group-hover:opacity-100 shrink-0'; load.title = 'Load this device now'; load.onclick = function () { emit('loadSynthPath', { path: f.path }); };
+        var load = document.createElement('button'); load.textContent = 'Load'; load.className = 'text-[9px] uppercase tracking-wider font-bold text-zinc-500 hover:text-fuchsia-400 opacity-0 group-hover:opacity-100 shrink-0'; load.title = 'Load this device now'; load.onclick = function () { emit('loadSynthPath', { path: f.path, cls: f.cls || '' }); };
         var del = document.createElement('button'); del.textContent = '✕'; del.className = 'text-zinc-600 hover:text-orange-400 text-[11px] font-bold w-5 shrink-0'; del.title = 'Remove from favorites'; del.onclick = function () { var a = favGet(); a.splice(i, 1); favSet(a); populateFav(); render(); };
         row.appendChild(grip); row.appendChild(nm); row.appendChild(load); row.appendChild(del);
 
@@ -1067,7 +1083,11 @@
       favSelect.title = 'Favorite synths';
       favSelect.className = 'bg-zinc-900 border border-white/10 text-zinc-300 text-[11px] rounded px-2 py-1 cursor-pointer max-w-[180px]';
       favSelect.onchange = function () {
-        if (favSelect.value) emit('loadSynthPath', { path: favSelect.value });
+        if (favSelect.value) {
+          // The select carries the path; find the favourite to recover its class too.
+          var fv = favGet().filter(function (x) { return x.path === favSelect.value; })[0];
+          emit('loadSynthPath', { path: favSelect.value, cls: (fv && fv.cls) || '' });
+        }
         // BLUR, always. A mac WebKit <select> KEEPS keyboard focus after use (clicking
         // the canvas doesn't move focus), and a focused select turns every letter into
         // type-ahead over the plugin list — the field report was literally "letter F is

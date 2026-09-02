@@ -191,12 +191,20 @@ function sampleCountFor(bars) {
 function rasterizeLane(lane) {
     const bars = (typeof lane.bars === 'number' && lane.bars > 0) ? lane.bars : 4;
     const count = sampleCountFor(bars);
-    const mode = lane.mode || (lane.is_quantized ? 'q' : 'r');
+    const mode = lane.mode || (lane.is_quantized ? (QUANT_VIA_REMOTE ? 'r' : 'q') : 'r');
     const lo = (typeof lane.min === 'number' && isFinite(lane.min)) ? lane.min : 0;
     const hi = (typeof lane.max === 'number' && isFinite(lane.max) && lane.max > lo) ? lane.max : lo + 1;
+    // A MENU is never logarithmic: its "range" is an option index, so log scaling would
+    // bunch every option at one end. Keyed on the PARAMETER being quantized, not on the
+    // drive mode, because menus ride the signal path now and would otherwise pick up
+    // is_log from a param whose readout happened to look like Hz.
+    const isMenu = !!(lane.quant || lane.is_quantized);
     const buf = rasterizeCurve(lane.points || [], bars * 4, count,
-                               { min: lo, max: hi, is_log: mode === 'q' ? false : !!lane.is_log, name: lane.name || '' });
-    if (mode === 'q') {
+                               { min: lo, max: hi, is_log: isMenu ? false : !!lane.is_log, name: lane.name || '' });
+    if (isMenu) {
+        // Staircase, so the buffer says exactly what you hear. Live would round an
+        // incoming continuous value anyway; doing it here means the rendered WAV and the
+        // audible result agree, and it survives whichever path the lane takes.
         for (let i = 0; i < buf.length; i++) buf[i] = Math.round(buf[i]);
     } else if (mode === 'c') {
         const span = hi - lo;
@@ -209,9 +217,30 @@ function rasterizeLane(lane) {
 const MIDI_EFFECT = 4;   // LOM Device.type: 1 instrument, 2 audio effect, 4 MIDI effect
 
 // Which drive path a lane takes (see rasterizeLane). Decided once the target is known.
+// QUANT_VIA_REMOTE: menus/enums go down the SIGNAL path like everything else.
+//
+// They used to take 'q' (live.object) because of a field note dated 08-26 saying
+// live.remote~ "cannot drive enums". That note predates the native-ranges fix (7690b42,
+// 08-27): at the time remote~ was being fed 0..1, and feeding 0..1 to a menu whose native
+// range is 0..7 rounds everything to option 0, which looks EXACTLY like "it does not work".
+// rasterizeLane has emitted native values for every mode since, so the buffer for a menu
+// lane is already a correct 0..N ramp.
+//
+// Why it matters: 'q' writes through live.object, and every one of those costs a Live UNDO
+// STEP (see the header). A curve sweeping a menu buries the user's own actions under a pile
+// of "Undo change" entries, so Ctrl+Z appears to do nothing until you undo past them all.
+// Field 2026-09-02, confirmed by unmapping the Roar Shaper Type lanes.
+//
+// Flip this to false to put menus back on live.object if remote~ really cannot take them.
+const QUANT_VIA_REMOTE = true;
+
 function laneMode(lane) {
-    if (lane.quant) return 'q';
-    if (lane.devType === MIDI_EFFECT) return 'c';
+    // MIDI-effect params FIRST, and they never reach remote~ whatever they are. That finding
+    // (08-27) is AFTER the native-ranges fix, so unlike the enum one it is not an artifact of
+    // the 0..1 era: remote~ silently does not take them, no movement and no error anywhere.
+    // A menu on a MIDI effect keeps its integer rounding ('q'); everything else there is 'c'.
+    if (lane.devType === MIDI_EFFECT) return lane.quant ? 'q' : 'c';
+    if (lane.quant) return QUANT_VIA_REMOTE ? 'r' : 'q';
     return 'r';
 }
 
@@ -936,6 +965,36 @@ function repathSweep(suspectsOnly) {
     _out(['probe', 'repath', String(rid)].concat(ids));
 }
 
+// ── device-list watch: the EVENT behind both repath jobs ────────────────
+// Ask Max to observe the `devices` list of every track we hold a lane on. A device moving
+// or disappearing is exactly what makes a lane's path stale or its target gone, and it is
+// the only moment either matters. Sent only when the set of tracks actually changes, so
+// re-pushing lanes does not churn observers (each rebuild would cost an attach echo, i.e. a
+// false "something changed").
+function syncTrackWatch() {
+    const seen = {};
+    for (let n = 1; n <= NUM_VOICES; n++) {
+        const v = state.voices[n];
+        if (!v || !v.lane || !v.lane.path) continue;
+        const t = trackOf(v.lane.path);
+        if (t) seen[t] = 1;
+    }
+    const tracks = Object.keys(seen).sort();
+    const sig = tracks.join('|');
+    if (sig === state.watchSig) return;
+    state.watchSig = sig;
+    _out(['probe', 'watchtracks'].concat(tracks));
+}
+
+// A track's device list changed: something was added, removed or reordered. Both repath
+// jobs are due RIGHT NOW rather than at the next discovery tick, which is the whole point
+// of watching instead of polling.
+function handleDevChanged(encoded) {
+    _alive();
+    if (state.yielded) return;
+    repathSweep();
+}
+
 function handleRepathed(encoded) {
     _alive();
     let f;
@@ -1091,6 +1150,7 @@ function tick(now) {
     // to NOTICE a deleted device, which is not a 5-second need: once a param does go missing
     // it becomes a suspect, and the 600ms fast path confirms it from there. So the discovery
     // pass runs a sixth as often and the responsive part is untouched.
+    syncTrackWatch();
     if (!state.yielded) {
         state.sweepTick = (state.sweepTick || 0) + 1;
         if (state.sweepTick % FULL_SWEEP_EVERY === 0) repathSweep();      // discovery
@@ -1679,6 +1739,7 @@ if (Max) {
     Max.addHandler('resolved', handleResolved);
     Max.addHandler('relinked', handleRelinked);
     Max.addHandler('repathed', handleRepathed);
+    Max.addHandler('devchanged', handleDevChanged);
     Max.addHandler('pong', handlePong);
     Max.addHandler('armed', handleArmed);
     Max.addHandler('inject', handleInject);      // the INJECT TO CLIP button on the device face
@@ -1706,9 +1767,10 @@ module.exports = {
     HINT_FRESH_MS, PING_MS, PONG_TIMEOUT_MS, NO_PONG_BOOT_MS, ARM_ACK_MS, REPATH_MS, FULL_SWEEP_EVERY,
     state, listeners, ticksFor, rateFor, sampleCountFor, rasterizeLane, buildWav, writeVoiceWav,
     allocVoice, freeVoice, voiceByTarget, lanesOf, laneSig, laneMode, lanesFromBlob, MIDI_EFFECT,
-    CONTROL_STEPS, SNAPSHOT_MS, trackOf, deviceOf, under, freshHint, noteSel,
+    CONTROL_STEPS, SNAPSHOT_MS, QUANT_VIA_REMOTE, trackOf, deviceOf, under, freshHint, noteSel,
     handleClientMessage, handleDisconnect, handleMapped, handleResolved, handleFound, handleRelinked,
     handleRepathed, handleTouched, handleTouchedDev, handleSel, handleTransport, handlePong, handleArmed, tick,
+    syncTrackWatch, handleDevChanged, repathSweep,
     shutdown, EXIT_SILENT_MS,
     handleInject, handleTakeBack, collectInjectParams, tileForSpeed, injectWriter, macrosOf, macroSig, installStrideInject,
     parkLane, unparkLane,

@@ -313,7 +313,7 @@ ok('bridge: set_order handled and editLocked-gated',
 ok('the order is echoed back like every other engine-owned lane attribute',
    /getMappedOrders\(\)/.test(editor) && /o->setProperty \("ord", orders\[i\]\)/.test(editor));
 ok('project state carries the order attrs and old projects stay inert (v9 od, now v10 with the bridge blob)',
-   /root\.setAttribute \("version", 10\)/.test(proc) &&
+   (/root\.setAttribute \("version", (\d+)\)/.test(proc) && parseInt(RegExp.$1, 10) >= 10) &&
    /if \(m\.ord >= 0\) e->setAttribute \("od", m\.ord\)/.test(proc) &&
    /getIntAttribute \("od", -1\)/.test(proc));
 ok('a removed device carries its lanes\' order back on restore',

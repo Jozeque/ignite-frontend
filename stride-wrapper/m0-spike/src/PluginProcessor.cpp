@@ -841,7 +841,7 @@ static void pinPluginBinary (const juce::String& bundlePath)
 }
 #endif
 
-void StrideWrapperProcessor::loadPlugin (const juce::File& pluginFile)
+void StrideWrapperProcessor::loadPlugin (const juce::File& pluginFile, const juce::String& classId)
 {
     juce::OwnedArray<juce::PluginDescription> found;
     findPluginTypesForFile (formatManager, pluginFile.getFullPathName(), found);
@@ -853,10 +853,52 @@ void StrideWrapperProcessor::loadPlugin (const juce::File& pluginFile)
         return;
     }
 
+    // WHICH plugin in the bundle. A bare path is ambiguous for a multi-class file, and the
+    // old code always took found[0], so Serum 2 FX could never be loaded even once the
+    // browser offered it. Resolution order, and all three arms are needed:
+    //   1. no classId -> found[0]. Every pre-v11 save and every older call site means this.
+    //   2. classId -> matchesIdentifierString, which is deliberately laxer than string
+    //      equality and survives JUCE's deprecatedUid -> uniqueId migration.
+    //   3. no match (the vendor changed the uid in an update) -> match on NAME, and only
+    //      then fall back to found[0] with a warning. Silently loading the wrong plugin
+    //      into someone's project is the worst outcome available here, so it is reported.
+    const juce::PluginDescription* want = found[0];
+    if (classId.isNotEmpty())
+    {
+        const juce::PluginDescription* byName = nullptr;
+        bool matched = false;
+        for (auto* d : found)
+        {
+            if (d == nullptr) continue;
+            if (d->matchesIdentifierString (classId)) { want = d; matched = true; break; }
+            if (byName == nullptr && classId.contains (d->name)) byName = d;
+        }
+        if (! matched)
+        {
+            if (byName != nullptr)
+            {
+                want = byName;
+                DBG ("Stride M0: class id missed, matched by name - " << want->name);
+            }
+            else if (found.size() > 1)
+            {
+                // Only worth saying when the bundle actually HAS alternatives: on a
+                // single-class file found[0] is the right answer anyway.
+                if (onLoadFailed)
+                    onLoadFailed (pluginFile.getFileNameWithoutExtension(),
+                                  "this plugin changed since the project was saved - loaded \"" + found[0]->name
+                                  + "\" instead. Check the device is the one you meant.");
+            }
+        }
+    }
+
     const auto pathStr = pluginFile.getFullPathName();
+    // Remembered on the node ONLY when the bundle holds more than one plugin, so a plain
+    // single-plugin device keeps writing exactly the v10 XML it always did.
+    const juce::String clsStr = (found.size() > 1) ? want->createIdentifierString() : juce::String();
     formatManager.createPluginInstanceAsync (
-        *found[0], currentSampleRate, currentBlockSize,
-        [wr = juce::WeakReference<StrideWrapperProcessor> (this), pathStr]
+        *want, currentSampleRate, currentBlockSize,
+        [wr = juce::WeakReference<StrideWrapperProcessor> (this), pathStr, clsStr]
         (std::unique_ptr<juce::AudioPluginInstance> instance, const juce::String& error)
         {
             auto* self = wr.get();
@@ -879,7 +921,7 @@ void StrideWrapperProcessor::loadPlugin (const juce::File& pluginFile)
             const auto name = instance->getName();
             {
                 const juce::ScopedLock sl (self->hostLock);
-                self->chain.push_back ({ std::move (instance), name, pathStr });   // append to the chain
+                self->chain.push_back ({ std::move (instance), name, pathStr, false, clsStr });   // append to the chain
             }
             self->mapVersion.fetch_add (1);
             self->hostDirtyPending.store (true);   // chain changed -> the DAW's project is dirty
@@ -911,6 +953,7 @@ void StrideWrapperProcessor::clearChain()
     {
         RemovedSnapshot::Dev d;
         d.path = chain[(size_t) i].path;
+        d.cls  = chain[(size_t) i].cls;   // undoing a CLEAR must bring back the same plugins
         d.position = i;
         for (const auto& m : mapped)     if (m.node == i) { d.params.push_back (m.param); d.slots.push_back (m.macroSlot);
                                                             d.ron.push_back (m.rangeOn ? 1 : 0); d.rlo.push_back (m.rangeLo); d.rhi.push_back (m.rangeHi); d.col.push_back (m.colorIdx);
@@ -958,6 +1001,7 @@ bool StrideWrapperProcessor::removeNode (int index)
     {
         RemovedSnapshot::Dev d;
         d.path = chain[(size_t) index].path;
+        d.cls  = chain[(size_t) index].cls;   // undoRemove must bring back the SAME plugin
         d.position = index;
         for (const auto& m : mapped)     if (m.node == index) { d.params.push_back (m.param); d.slots.push_back (m.macroSlot);
                                                                 d.ron.push_back (m.rangeOn ? 1 : 0); d.rlo.push_back (m.rangeLo); d.rhi.push_back (m.rangeHi); d.col.push_back (m.colorIdx);
@@ -1117,8 +1161,16 @@ void StrideWrapperProcessor::restoreNextDevice (std::shared_ptr<std::vector<Remo
         return;
     }
 
+    // Same resolution as loadPlugin: id, then name, then the first class. A project saved
+    // with Serum 2 FX has to come back as the FX, not as the synth.
+    const juce::PluginDescription* want = found[0];
+    if (d.cls.isNotEmpty())
+        for (auto* pd : found)
+            if (pd != nullptr && (pd->matchesIdentifierString (d.cls) || d.cls.contains (pd->name)))
+                { want = pd; break; }
+
     formatManager.createPluginInstanceAsync (
-        *found[0], currentSampleRate, currentBlockSize,
+        *want, currentSampleRate, currentBlockSize,
         [wr = juce::WeakReference<StrideWrapperProcessor> (this), devs, i, d, gen]
         (std::unique_ptr<juce::AudioPluginInstance> inst, const juce::String& err)
         {
@@ -1139,7 +1191,7 @@ void StrideWrapperProcessor::restoreNextDevice (std::shared_ptr<std::vector<Remo
                     const int p = juce::jlimit (0, (int) self->chain.size(), d.position);
                     for (auto& m : self->mapped)     if (m.node >= p) ++m.node;   // make room at p
                     for (auto& l : self->driveLanes) if (l.node >= p) ++l.node;
-                    self->chain.insert (self->chain.begin() + p, Node { std::move (inst), name, d.path, d.bypassed });
+                    self->chain.insert (self->chain.begin() + p, Node { std::move (inst), name, d.path, d.bypassed, d.cls });
                     for (size_t k = 0; k < d.params.size(); ++k)                      // restore this device's lanes (+ their range bands + locks + speed)
                         self->mapped.push_back ({ p, d.params[k], k < d.slots.size() ? d.slots[k] : -1,
                                                   k < d.ron.size() && d.ron[k] != 0,
@@ -1283,7 +1335,7 @@ void StrideWrapperProcessor::getStateInformation (juce::MemoryBlock& dest)
     if (demoMode.load()) return;   // DEMO: persist nothing — a project can't be built on the demo (blank state on reload)
     juce::XmlElement root ("STRIDE_WRAP");
     const juce::ScopedLock sl (hostLock);
-    root.setAttribute ("version", 10);                                  // v10: + StrideBridge live-lane blob ("bl"); v9 card order, v8 link groups, v7 follow, v6 speed, v5 lock - attr-based, so older projects load unchanged
+    root.setAttribute ("version", 11);                                  // v11: + per-device "cls" (WHICH plugin in a multi-class bundle); v10 StrideBridge blob ("bl"), v9 card order, v8 link groups, v7 follow, v6 speed, v5 lock - attr-based, so older projects load unchanged
     root.setAttribute ("clipBeats", driveClipBeats);
     root.setAttribute ("driveMode", (int) driveMode.load());            // 0=Live, 1=Automation
     root.setAttribute ("tempoMode", tempoMode.load());                  // 0=Project sync (default) / 1=Manual
@@ -1299,6 +1351,12 @@ void StrideWrapperProcessor::getStateInformation (juce::MemoryBlock& dest)
     {
         auto* dev = chainXml->createNewChildElement ("DEV");
         dev->setAttribute ("path", chain[(size_t) i].path);
+        // WHICH plugin inside the bundle, written ONLY when it is not the first class, so an
+        // ordinary single-plugin device produces byte-identical XML to v10 and nothing
+        // churns in existing projects. Absent means class 0, which is what every v10 save
+        // meant. An older Stride ignores the unknown attribute and degrades to the first
+        // plugin, the same way "fm" and "bl" were added.
+        if (chain[(size_t) i].cls.isNotEmpty()) dev->setAttribute ("cls", chain[(size_t) i].cls);
         dev->setAttribute ("bypassed", chain[(size_t) i].bypassed ? 1 : 0);
         if (chain[(size_t) i].inst)
         {
@@ -1375,6 +1433,7 @@ void StrideWrapperProcessor::setStateInformation (const void* data, int sizeInBy
         {
             RemovedSnapshot::Dev d;
             d.path = dev->getStringAttribute ("path");
+            d.cls  = dev->getStringAttribute ("cls");     // absent = the first class (every v10 project)
             d.position = idx++;
             d.bypassed = dev->getIntAttribute ("bypassed", 0) != 0;
             const auto b64 = dev->getStringAttribute ("state");

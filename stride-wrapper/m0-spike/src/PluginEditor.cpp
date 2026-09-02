@@ -273,7 +273,11 @@ StrideWrapperEditor::StrideWrapperEditor (StrideWrapperProcessor& p)
         .withEventListener ("loadChain",    [this] (juce::var)     { loadChainFromFile(); })
         .withEventListener ("sl_send",      [this] (juce::var v)   { handleStrideLinkSend (v); })
         .withEventListener ("loadSynth",    [this] (juce::var)     { if (proc.isEditLocked()) return; chooseAndLoad(); })
-        .withEventListener ("loadSynthPath",[this] (juce::var v)   { if (proc.isEditLocked()) return; proc.loadPlugin (juce::File (v.getProperty ("path", "").toString())); })
+        .withEventListener ("loadSynthPath",[this] (juce::var v)   { if (proc.isEditLocked()) return;
+            // "cls" names WHICH plugin inside the bundle; absent = the first, which is what
+            // every older page build sends and what a single-plugin file means anyway.
+            proc.loadPlugin (juce::File (v.getProperty ("path", "").toString()),
+                             v.getProperty ("cls", "").toString()); })
         .withEventListener ("browsePlugins",[this] (juce::var)     { if (proc.isEditLocked()) return; scanPluginsToWeb(); })
         .withEventListener ("openSynth",    [this] (juce::var)     { toggleSynthWindow(); })
         // Close-all counterpart to openSynth (field request 2026-08-18): destroying the
@@ -1617,28 +1621,154 @@ void StrideWrapperEditor::handleLicense (const juce::var& msg)
 // plugin browser. VST3 (all platforms): top level + one vendor-folder deep, not into
 // bundles. AU (macOS): the two Components folders. Names come from the bundle filename —
 // nothing is instantiated, so the scan stays fast and can't crash on a broken plugin.
+// ── plugin-scan cache ───────────────────────────────────────────────────────
+// Opening every bundle to list its classes runs vendor code, so the result is remembered
+// against path+size+mtime. Lives beside the other stride-data blobs.
+static juce::File strideScanCacheFile()
+{
+    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+             .getChildFile ("stride-canvas").getChildFile ("stride-data")
+             .getChildFile ("plugin-scan.json");
+}
+
+static juce::DynamicObject::Ptr loadScanCache()
+{
+    auto f = strideScanCacheFile();
+    if (f.existsAsFile())
+        if (auto v = juce::JSON::parse (f))
+            if (auto* o = v.getDynamicObject())
+                return juce::DynamicObject::Ptr (o);
+    return new juce::DynamicObject();
+}
+
+static void saveScanCache (juce::DynamicObject::Ptr cache)
+{
+    if (cache == nullptr) return;
+    auto f = strideScanCacheFile();
+    f.getParentDirectory().createDirectory();
+    f.replaceWithText (juce::JSON::toString (juce::var (cache.get())));
+}
+
+// findAllTypesForFile through whichever format claims the file. Mirrors the loader's own
+// findPluginTypesForFile so the browser and the loader always agree about what is inside.
+static void fm_findAllTypes (juce::AudioPluginFormatManager& fm, const juce::String& path,
+                             juce::OwnedArray<juce::PluginDescription>& out)
+{
+    for (auto* f : fm.getFormats())
+        if (f != nullptr && f->fileMightContainThisPluginType (path))
+        {
+            f->findAllTypesForFile (out, path);
+            if (! out.isEmpty()) return;
+        }
+}
+
 void StrideWrapperEditor::scanPluginsToWeb()
 {
     if (web == nullptr) return;
 
     juce::Array<juce::var> list;
 
-    // One browser entry per (format, name); dedup inside a format (system vs per-user
-    // folder). "fmt" drives the little format chip — the shim only shows chips when a
-    // list actually mixes formats, so Windows (VST3-only) renders exactly as before.
-    auto addHits = [&list] (const juce::Array<juce::File>& hits, const char* fmt)
+    // One browser entry per PLUGIN CLASS, not per file. A single .vst3 may declare several:
+    // Serum2.vst3 is both "Serum 2" and "Serum 2 FX", and listing files meant the FX simply
+    // did not exist as far as Stride was concerned (field report 2026-09-02, and it also
+    // explains rows reading "Serum2" rather than "Serum 2" - those were FILENAMES).
+    //
+    // The cost of this is real: findAllTypesForFile OPENS each bundle and runs vendor code,
+    // where the old scan only stat'ed the filesystem. Two guards. A bundle is remembered by
+    // path + size + modification time, so a rescan is only slow once. And the marker is
+    // written BEFORE the bundle is opened, so a plugin that takes the host down with it is
+    // skipped on the next launch instead of killing us again.
+    //
+    // If a bundle yields nothing (throws, times out, or is not really a plugin) it falls
+    // back to the old filename row: one bad plugin must never empty the browser.
+    auto& fm = proc.getFormatManagerForScan();
+    auto  cache = loadScanCache();
+    bool  cacheDirty = false;
+
+    auto addHits = [&] (const juce::Array<juce::File>& hits, const char* fmt)
     {
-        juce::StringArray seen;
+        juce::StringArray seen;   // dedup key is path|cls: the same class from the system and
+                                  // the per-user folder is still one row
         for (const auto& f : hits)
         {
-            const auto name = f.getFileNameWithoutExtension();
-            if (seen.contains (name)) continue;
-            seen.add (name);
-            auto* o = new juce::DynamicObject();
-            o->setProperty ("name", name);
-            o->setProperty ("path", f.getFullPathName());
-            o->setProperty ("fmt",  fmt);
-            list.add (juce::var (o));
+            const auto path = f.getFullPathName();
+            const auto stamp = juce::String (f.getSize()) + ":"
+                             + juce::String (f.getLastModificationTime().toMilliseconds());
+            // Hashed: a DynamicObject key is a juce::Identifier, and a raw Windows path is
+            // not a valid one (backslashes, colons, spaces). Path + size + mtime means any
+            // reinstall or update re-opens the bundle instead of trusting a stale answer.
+            const juce::Identifier kid ("b" + juce::String::toHexString ((path + "@" + stamp).hashCode64()));
+            const juce::Identifier kidBusy ("x" + juce::String::toHexString ((path + "@" + stamp).hashCode64()));
+
+            juce::StringArray names, ids;
+            juce::Array<bool> fxFlags;
+
+            const bool crashedLastTime = cache->hasProperty (kidBusy);
+            auto* hit = cache->hasProperty (kid) ? cache->getProperty (kid).getDynamicObject() : nullptr;
+
+            if (hit != nullptr)
+            {
+                // Known bundle, unchanged since we last opened it: believe the cache.
+                if (auto* arr = hit->getProperty ("c").getArray())
+                    for (const auto& e : *arr)
+                    {
+                        names.add (e.getProperty ("n", "").toString());
+                        ids.add   (e.getProperty ("i", "").toString());
+                        fxFlags.add ((bool) e.getProperty ("x", false));
+                    }
+            }
+            else if (! crashedLastTime)
+            {
+                // Mark it BEFORE opening it. If the vendor's code kills the process here,
+                // the next launch sees the marker and skips straight to the filename row.
+                cache->setProperty (kidBusy, true);
+                saveScanCache (cache);
+
+                juce::OwnedArray<juce::PluginDescription> types;
+                try { fm_findAllTypes (fm, path, types); } catch (...) {}
+
+                auto* entry = new juce::DynamicObject();
+                juce::Array<juce::var> arr;
+                for (auto* d : types)
+                {
+                    if (d == nullptr) continue;
+                    names.add (d->name);
+                    ids.add   (d->createIdentifierString());
+                    fxFlags.add (! d->isInstrument);
+                    auto* e = new juce::DynamicObject();
+                    e->setProperty ("n", d->name);
+                    e->setProperty ("i", d->createIdentifierString());
+                    e->setProperty ("x", ! d->isInstrument);
+                    arr.add (juce::var (e));
+                }
+                entry->setProperty ("c", juce::var (arr));
+                cache->setProperty (kid, juce::var (entry));
+                cache->removeProperty (kidBusy);        // survived the open
+                cacheDirty = true;
+            }
+
+            if (names.isEmpty())        // opened badly, or a marker from a previous crash
+            {
+                names.add (f.getFileNameWithoutExtension());
+                ids.add ("");
+                fxFlags.add (false);
+            }
+
+            const bool multi = names.size() > 1;
+            for (int i = 0; i < names.size(); ++i)
+            {
+                const auto dedup = path + "|" + ids[i];
+                if (seen.contains (dedup)) continue;
+                seen.add (dedup);
+                auto* o = new juce::DynamicObject();
+                o->setProperty ("name", names[i]);
+                o->setProperty ("path", path);
+                o->setProperty ("cls",  ids[i]);            // WHICH plugin in the bundle
+                o->setProperty ("isFx", i < fxFlags.size() ? fxFlags[i] : false);
+                o->setProperty ("multi", multi);            // the UI only disambiguates when it must
+                o->setProperty ("fmt",  fmt);
+                list.add (juce::var (o));
+            }
         }
     };
 
@@ -1681,6 +1811,8 @@ void StrideWrapperEditor::scanPluginsToWeb()
         addHits (hits, "AU");
     }
    #endif
+
+    if (cacheDirty) saveScanCache (cache);
 
     auto* msg = new juce::DynamicObject();
     msg->setProperty ("plugins", juce::var (list));
