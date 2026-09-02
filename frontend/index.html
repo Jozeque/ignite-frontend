@@ -410,7 +410,12 @@
      media query: `#m-cta` and `.mob-only` carry the same specificity in both
      places, so whichever is declared LAST wins. Putting them after the query
      silently kept the sticky bar hidden on phones. */
+  /* Every mobile-only surface is display:none HERE, before the media query, so
+     desktop can never render it and the query can legitimately override. */
   #m-cta{display:none}
+  #m-menu{display:none}
+  #m-menu-btn{display:none}
+  #m-help{display:none}
   .mob-only{display:none}
   /* Visually hidden but still focusable, so the label works by keyboard too.
      display:none would make it unfocusable and strand keyboard users. */
@@ -529,12 +534,74 @@
       -webkit-overflow-scrolling:touch}
     #buy-modal > *{max-height:none;margin-top:0;margin-bottom:0}
 
+    /* -- HEADER ------------------------------------------------------------
+       The desktop nav needs 546px of right-hand group in a 360-430px bar, so
+       "Get Stride" was being clipped away by body{overflow-x:hidden}. On mobile
+       the inline links collapse into a menu instead. */
+    /* Tailwind's .flex is injected by the CDN AFTER this stylesheet, and both
+       selectors are one class, so a bare .nav-desktop LOSES the tie and the
+       desktop links stayed on screen. Two extra points of specificity settle
+       it without !important. */
+    nav > div.nav-desktop{display:none}
+    .wrap > nav{padding-top:1rem;padding-bottom:1rem}
+    #m-menu-btn{
+      display:inline-flex;align-items:center;justify-content:center;
+      width:44px;height:44px;margin-right:-.35rem;border-radius:12px;
+      color:var(--ink2);background:transparent;border:1px solid var(--line)}
+    #m-menu-btn svg{width:22px;height:22px}
+
+    /* Full-screen sheet rather than a dropdown: at 360px a dropdown either
+       clips or scrolls awkwardly behind the sticky bar. */
+    #m-menu{
+      display:flex;flex-direction:column;position:fixed;inset:0;z-index:1100;
+      background:var(--bg);padding:1rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom,0px));
+      overflow-y:auto;-webkit-overflow-scrolling:touch}
+    #m-menu[hidden]{display:none}
+    .m-menu-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem}
+    .m-menu-top button{
+      width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;
+      border-radius:12px;color:var(--ink2);background:transparent;border:1px solid var(--line)}
+    .m-menu-top button svg{width:20px;height:20px}
+    .m-menu-links{display:flex;flex-direction:column;flex:1 1 auto}
+    .m-menu-links > a,.m-menu-links > button{
+      display:flex;align-items:center;min-height:52px;padding:.25rem 0;
+      font-size:16px;font-weight:800;color:var(--ink);text-align:left;
+      background:none;border:0;border-bottom:1px solid var(--line);width:100%}
+    .m-menu-cta{display:flex;flex-direction:column;gap:.6rem;margin-top:1.5rem}
+    .m-menu-cta > a{width:100%;justify-content:center;min-height:50px;font-size:14px}
+
     /* -- STICKY CTA --------------------------------------------------------
        A bar, not a popup: no overlay, no dismissal, nothing to close. The
        body reserves exactly its height so it can never cover the footer or
        the final CTA. */
-    body{padding-bottom:calc(4.6rem + env(safe-area-inset-bottom,0px))}
-    #m-cta{display:flex}
+    /* Reserve the bar's height so it can never sit over the footer. */
+    body{padding-bottom:calc(4.25rem + env(safe-area-inset-bottom,0px))}
+
+    /* ~58px tall + safe area. Hidden until the hero CTA leaves the viewport;
+       `.is-on` is added by the IntersectionObserver below. */
+    #m-cta{
+      display:flex;gap:.5rem;position:fixed;left:0;right:0;bottom:0;z-index:1000;
+      padding:.45rem .75rem calc(.45rem + env(safe-area-inset-bottom,0px));
+      background:rgba(16,15,12,.94);backdrop-filter:blur(10px);
+      border-top:1px solid var(--line);
+      transform:translateY(115%);opacity:0;pointer-events:none;
+      transition:transform .22s ease,opacity .22s ease}
+    #m-cta.is-on{transform:none;opacity:1;pointer-events:auto}
+    @media (prefers-reduced-motion:reduce){#m-cta{transition:none}}
+    #m-cta-buy{flex:0 0 68%;justify-content:center;min-height:46px;
+               font-size:13px;letter-spacing:.05em}
+    #m-cta-try{flex:1 1 auto;justify-content:center;min-height:46px;
+               font-size:12px;letter-spacing:.05em;white-space:nowrap;padding:0 .5rem}
+
+    /* Small, quiet, and tied to the bar's visibility. */
+    #m-help{
+      display:inline-flex;align-items:center;justify-content:center;
+      position:fixed;right:.75rem;z-index:999;width:36px;height:36px;border-radius:999px;
+      bottom:calc(4.6rem + env(safe-area-inset-bottom,0px));
+      background:var(--raise);border:1px solid var(--line);color:var(--ink3);
+      font-size:14px;font-weight:900;line-height:1;
+      opacity:0;pointer-events:none;transition:opacity .22s ease}
+    #m-help.is-on{opacity:.9;pointer-events:auto}
   }
 
 
@@ -550,7 +617,12 @@
       <span class="text-3xl font-black brand tracking-tighter leading-none">STRIDE</span>
       <span class="silk hidden sm:block border-l pl-3" style="border-color:var(--line)">Sound Design Engine</span>
     </div>
-    <div class="flex items-center gap-5">
+    <button id="m-menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="m-menu"
+            onclick="strideMenu(true)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <div class="flex items-center gap-5 nav-desktop">
       <a class="silk hover:text-[var(--copper-lt)] transition-colors" href="#how">How it works</a>
       <a class="silk hover:text-[var(--copper-lt)] transition-colors" href="chains.html">Chains</a>
       <a class="silk hover:text-[var(--copper-lt)] transition-colors" href="setup.html">Setup</a>
@@ -569,6 +641,36 @@
       <a href="#pricing" class="btn-copper text-[11px] uppercase tracking-widest px-5 py-2.5 rounded-full">Get Stride</a>
     </div>
   </nav>
+
+  <!-- ── Mobile menu ──────────────────────────────────────────────────────────
+       Mobile-only: `display:none` outside the mobile media query, so desktop is
+       untouched. Every destination here already exists in the desktop nav or
+       footer; nothing new is invented and no URL changes. The two conversion
+       actions sit at the BOTTOM and keep their usual ranking, Buy copper and
+       trial ghost, so the menu never re-ranks the funnel. -->
+  <div id="m-menu" role="dialog" aria-modal="true" aria-label="Menu" hidden>
+    <div class="m-menu-top">
+      <span class="text-2xl font-black brand tracking-tighter leading-none">STRIDE</span>
+      <button type="button" aria-label="Close menu" onclick="strideMenu(false)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <nav class="m-menu-links" aria-label="Mobile">
+      <a href="#how" onclick="strideMenu(false)">How it works</a>
+      <a href="chains.html">Chains</a>
+      <a href="setup.html">Setup</a>
+      <a href="blog.html">Blog</a>
+      <a href="samples.html">Sample Packs</a>
+      <a href="https://www.youtube.com/@strideengine" target="_blank" rel="noopener noreferrer">YouTube</a>
+      <a href="https://www.instagram.com/stride_engine/" target="_blank" rel="noopener noreferrer">Instagram</a>
+      <button type="button" onclick="strideMenu(false); toggleContactModal()">Contact</button>
+    </nav>
+    <div class="m-menu-cta">
+      <a onclick="strideMenu(false); openBuy()" class="btn-copper">GET STRIDE &middot; $99</a>
+      <a href="/try/" class="btn-ghost">Explore free for 24h</a>
+    </div>
+  </div>
 
   <!-- ───────────────── HERO (flagship = Stride VST) ───────────────── -->
   <section data-ms="hero" class="relative overflow-hidden pt-12 pb-14">
@@ -1167,26 +1269,23 @@
     <p class="text-[11px] text-zinc-600 mt-3 max-w-2xl mx-auto leading-relaxed">Third-party plugins are sold separately. All product names and trademarks belong to their respective owners. Stride is an independent product and is not affiliated with or endorsed by these companies.</p>
 </footer>
 
-<!-- ── Mobile sticky CTA ──
-     A bar, not a popup: always present, nothing to dismiss, no overlay. body
-     reserves exactly its height (see the mobile media query) so it can never
-     cover the footer or the final CTA. TRY FREE uses href="/try/" so the
-     existing DOMContentLoaded decorator stamps the ad markers on it, exactly
-     like every other /try link on the page. -->
-<div id="m-cta" role="group" aria-label="Get Stride"
-     style="position:fixed;left:0;right:0;bottom:0;z-index:1000;gap:.6rem;
-            padding:.6rem 1rem calc(.6rem + env(safe-area-inset-bottom,0px));
-            background:rgba(16,15,12,.94);backdrop-filter:blur(10px);
-            border-top:1px solid var(--line)">
-    <a onclick="openBuy()" class="btn-copper"
-       style="flex:1 1 auto;min-height:46px;justify-content:center;font-size:13px;letter-spacing:.05em">
-        GET STRIDE &middot; $99
-    </a>
-    <a href="/try/" class="btn-ghost"
-       style="flex:0 1 auto;min-height:46px;justify-content:center;font-size:12px;letter-spacing:.05em;padding:0 .9rem;white-space:nowrap">
-        Explore free 24h
-    </a>
+<!-- ── Mobile sticky CTA ──────────────────────────────────────────────────
+     Deliberately NOT app navigation: two buttons, no icons, no labels, no bar
+     chrome beyond a hairline. It stays HIDDEN while the hero's own CTA block is
+     on screen, so it never duplicates what the visitor is already looking at,
+     and only appears once that block scrolls away. Buy keeps ~68% of the width
+     and the copper fill; the trial keeps ~32% and the ghost, the same ranking
+     the hero and desktop use. -->
+<div id="m-cta" role="group" aria-label="Get Stride" aria-hidden="true">
+  <a onclick="openBuy()" class="btn-copper" id="m-cta-buy">GET STRIDE &middot; $99</a>
+  <a href="/try/" class="btn-ghost" id="m-cta-try">TRY 24H</a>
 </div>
+
+<!-- Small help shortcut. Reuses the EXISTING contact modal, adds no component
+     and no dependency. It rides the same visibility as the bar so it never
+     floats over the hero, and it is sized well below the Buy button so it
+     cannot compete with it. -->
+<button id="m-help" type="button" aria-label="Contact us" onclick="toggleContactModal()">?</button>
 
 <!-- Contact Modal -->
 <div id="contact-modal" class="fixed inset-0 z-[1001] hidden flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
@@ -1394,7 +1493,56 @@
         }
     }
     // New-design CTAs call openBuy(); route it to the buy modal.
-    function openBuy() { toggleBuyModal(); }
+    /* ── Mobile menu ───────────────────────────────────────────────────────────
+   Plain show/hide with a scroll lock. No dependency, no focus-trap library:
+   the sheet is full-screen and its first control is the close button, so tab
+   order is already sane. Esc closes, matching the other modals on the page. */
+function strideMenu(open) {
+  var m = document.getElementById('m-menu');
+  var btn = document.getElementById('m-menu-btn');
+  if (!m) return;
+  m.hidden = !open;
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  document.body.style.overflow = open ? 'hidden' : '';
+  strideStickySync();                       // never show the bar behind the sheet
+  if (open) { var c = m.querySelector('.m-menu-top button'); if (c) c.focus(); }
+  else if (btn) btn.focus();
+}
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') {
+    var m = document.getElementById('m-menu');
+    if (m && !m.hidden) strideMenu(false);
+  }
+});
+
+/* ── Sticky CTA reveal ─────────────────────────────────────────────────────
+   The bar exists to replace the hero's CTA once it scrolls away, so showing
+   it WHILE the hero block is on screen would just duplicate what the visitor
+   is already looking at. An IntersectionObserver on the hero's own CTA row is
+   the cheap way to know: no scroll handler, no layout reads per frame.
+   Fallback for a browser without IO is to leave the bar visible, since a
+   reachable CTA beats a hidden one. */
+var _stickyHeroVisible = true;
+function strideStickySync() {
+  var bar = document.getElementById('m-cta');
+  var help = document.getElementById('m-help');
+  var menu = document.getElementById('m-menu');
+  var menuOpen = menu && !menu.hidden;
+  var on = !_stickyHeroVisible && !menuOpen;
+  if (bar) { bar.classList.toggle('is-on', on); bar.setAttribute('aria-hidden', on ? 'false' : 'true'); }
+  if (help) help.classList.toggle('is-on', on);
+}
+document.addEventListener('DOMContentLoaded', function () {
+  var anchor = document.querySelector('.hero-cta');
+  if (!anchor) return;
+  if (!('IntersectionObserver' in window)) { _stickyHeroVisible = false; strideStickySync(); return; }
+  new IntersectionObserver(function (entries) {
+    _stickyHeroVisible = entries[0].isIntersecting;
+    strideStickySync();
+  }, { threshold: 0 }).observe(anchor);
+});
+
+function openBuy() { toggleBuyModal(); }
 
     // Bumping TERMS_VERSION invalidates previous acknowledgments.
     const TERMS_VERSION = '2026-04-16-v2';
