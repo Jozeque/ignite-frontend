@@ -1331,58 +1331,13 @@
         <p class="text-sm text-zinc-400 mb-6 font-medium">One-time purchase. Windows + Mac. Instant download and license key emailed to you.</p>
 
         <div class="space-y-4 mb-6">
-            <div>
-                <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">Producer Name *</label>
-                <input id="buy-name" type="text" placeholder="Your artist / producer name" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors">
-            </div>
+            
             <div>
                 <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">Email *</label>
-                <input id="buy-email" type="email" placeholder="you@example.com" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors">
+                <input id="buy-email" type="email" name="email" autocomplete="email" inputmode="email" autocapitalize="off" autocorrect="off" spellcheck="false" required placeholder="you@example.com" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors">
             </div>
-            <div>
-                <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">Country *</label>
-                <select id="buy-country" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-orange-500/50 transition-colors appearance-none" style="background-image: url('data:image/svg+xml;utf8,<svg fill=\"%2371717a\" viewBox=\"0 0 20 20\" xmlns=\"http://www.w3.org/2000/svg\"><path fill-rule=\"evenodd\" d=\"M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z\" clip-rule=\"evenodd\"/></svg>'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
-                    <option value="" class="bg-zinc-900">Select your country</option>
-                    <option value="US" class="bg-zinc-900">United States</option>
-                    <option value="GB" class="bg-zinc-900">United Kingdom</option>
-                    <option value="DE" class="bg-zinc-900">Germany</option>
-                    <option value="FR" class="bg-zinc-900">France</option>
-                    <option value="NL" class="bg-zinc-900">Netherlands</option>
-                    <option value="SE" class="bg-zinc-900">Sweden</option>
-                    <option value="NO" class="bg-zinc-900">Norway</option>
-                    <option value="CA" class="bg-zinc-900">Canada</option>
-                    <option value="AU" class="bg-zinc-900">Australia</option>
-                    <option value="JP" class="bg-zinc-900">Japan</option>
-                    <option value="BR" class="bg-zinc-900">Brazil</option>
-                    <option value="MX" class="bg-zinc-900">Mexico</option>
-                    <option value="IL" class="bg-zinc-900">Israel</option>
-                    <option value="IN" class="bg-zinc-900">India</option>
-                    <option value="KR" class="bg-zinc-900">South Korea</option>
-                    <option value="ES" class="bg-zinc-900">Spain</option>
-                    <option value="IT" class="bg-zinc-900">Italy</option>
-                    <option value="PL" class="bg-zinc-900">Poland</option>
-                    <option value="BE" class="bg-zinc-900">Belgium</option>
-                    <option value="AT" class="bg-zinc-900">Austria</option>
-                    <option value="CH" class="bg-zinc-900">Switzerland</option>
-                    <option value="DK" class="bg-zinc-900">Denmark</option>
-                    <option value="FI" class="bg-zinc-900">Finland</option>
-                    <option value="OTHER" class="bg-zinc-900">Other</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">How did you hear about Stride?</label>
-                <select id="buy-source" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-orange-500/50 transition-colors appearance-none" style="background-image: url('data:image/svg+xml;utf8,<svg fill=\"%2371717a\" viewBox=\"0 0 20 20\" xmlns=\"http://www.w3.org/2000/svg\"><path fill-rule=\"evenodd\" d=\"M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z\" clip-rule=\"evenodd\"/></svg>'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
-                    <option value="" class="bg-zinc-900">Select (optional)</option>
-                    <option value="reddit" class="bg-zinc-900">Reddit</option>
-                    <option value="youtube" class="bg-zinc-900">YouTube</option>
-                    <option value="instagram" class="bg-zinc-900">Instagram</option>
-                    <option value="ableton-forum" class="bg-zinc-900">Ableton Forum</option>
-                    <option value="friend" class="bg-zinc-900">Friend / Word of mouth</option>
-                    <option value="kvr" class="bg-zinc-900">KVR Audio</option>
-                    <option value="google" class="bg-zinc-900">Google Search</option>
-                    <option value="other" class="bg-zinc-900">Other</option>
-                </select>
-            </div>
+            
+            
         </div>
 
         <!-- All-sales-final — plain grey one-liner before the checkbox (Serum-style) -->
@@ -1557,17 +1512,22 @@ function openBuy() { toggleBuyModal(); }
     const LS_CHECKOUT_URL = 'https://strideengine.lemonsqueezy.com/checkout/buy/9099d993-aa75-42d5-800f-299445b9350a';
 
     function submitBuyForm() {
-        const name = document.getElementById('buy-name').value.trim();
+        // EMAIL + TERMS ONLY. Producer name and country were asked here and then
+        // asked AGAIN by Lemon Squeezy, which collects billing name and country for
+        // tax anyway, so the pre-checkout copies were pure duplicate friction.
+        // "How did you hear about us" moved AFTER the purchase (welcome.html), where
+        // it costs a buyer nothing to answer and cannot cost a sale.
         const email = document.getElementById('buy-email').value.trim();
-        const country = document.getElementById('buy-country').value;
-        const source = document.getElementById('buy-source').value;
         const termsChecked = document.getElementById('buy-terms').checked;
         const errorEl = document.getElementById('buy-error');
 
+        // Sent for backwards compatibility with the buyer_lead / CRM record shape:
+        // the backend already treats all three as optional, so empty is a valid value
+        // rather than a missing key. Never re-add them to the form.
+        const name = '', country = '', source = '';
+
         // Validate
-        if (!name) { showBuyError('Please enter your producer name'); return; }
         if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showBuyError('Please enter a valid email'); return; }
-        if (!country) { showBuyError('Please select your country'); return; }
         if (!termsChecked) { showBuyError('Please read and accept the terms to continue'); return; }
 
         errorEl.classList.add('hidden');
@@ -1664,7 +1624,6 @@ function openBuy() { toggleBuyModal(); }
             const sep = LS_CHECKOUT_URL.includes('?') ? '&' : '?';
             let url = LS_CHECKOUT_URL + sep
                 + 'checkout[email]=' + encodeURIComponent(email)
-                + '&checkout[name]=' + encodeURIComponent(name)
                 + '&checkout[custom][event_id]=' + encodeURIComponent(eventId);
             if (fbc) url += '&checkout[custom][fbc]=' + encodeURIComponent(fbc);
             if (fbclid) url += '&checkout[custom][fbclid]=' + encodeURIComponent(fbclid);
