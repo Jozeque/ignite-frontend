@@ -215,6 +215,67 @@
 
     </div>
 
+    <!-- ── How did you hear about us ────────────────────────────────────────
+         Moved here from the pre-checkout form, where it was a required select
+         between a ready buyer and Lemon Squeezy. Asked once, AFTER the purchase,
+         so it cannot cost a sale. Optional by construction: there is no submit
+         button and no skip prompt, and nothing on this page waits on it.
+         One tap, keyed on the event_id this page already holds. -->
+    <div id="hf-card" class="mb-10" hidden>
+      <div class="rounded-2xl p-5" style="border:1px solid var(--line);background:var(--bg2)">
+        <p class="text-[11px] font-black uppercase tracking-[0.18em] mb-3" style="color:var(--copper-lt)">
+          One quick thing</p>
+        <p class="text-sm ink2 font-medium mb-4">How did you hear about Stride?</p>
+        <div id="hf-opts" class="flex flex-wrap gap-2"></div>
+        <p id="hf-done" class="text-sm ink2 font-medium" hidden>Thanks, that genuinely helps.</p>
+      </div>
+    </div>
+
+    <script>
+    (function () {
+      var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
+      var params = new URLSearchParams(location.search);
+      var order = (params.get('order') || '').trim();
+      var eid = (params.get('event_id') || '').trim();
+      if (!eid) { try { eid = sessionStorage.getItem('stride_pixel_event_id') || ''; } catch (e) {} }
+      // Only a real post-purchase landing gets asked. A bookmarked or random
+      // visit has neither marker and sees nothing.
+      if (!order && !eid) return;
+      // Ask once per purchase, never on a refresh.
+      var seen = 'stride_hf_' + (eid || order);
+      try { if (localStorage.getItem(seen)) return; } catch (e) {}
+
+      var card = document.getElementById('hf-card');
+      var opts = document.getElementById('hf-opts');
+      card.hidden = false;
+      ['Instagram', 'YouTube', 'A friend', 'Google', 'Reddit', 'Somewhere else']
+        .forEach(function (label) {
+          var b = document.createElement('button');
+          b.type = 'button'; b.textContent = label;
+          b.className = 'pill';
+          b.style.cssText = 'padding:.55rem 1rem;font-size:13px;min-height:44px;cursor:pointer';
+          b.onclick = function () { send(label); };
+          opts.appendChild(b);
+        });
+
+      function send(answer) {
+        // NOT opts.hidden: the element carries Tailwind's .flex, and a class
+        // display rule beats the UA's [hidden]{display:none}. Set it explicitly.
+        opts.style.display = 'none';
+        document.getElementById('hf-done').hidden = false;
+        try { localStorage.setItem(seen, '1'); } catch (e) {}
+        // keepalive so the answer survives the buyer navigating away immediately.
+        try {
+          fetch(API, { method: 'POST', keepalive: true,
+                       headers: { 'Content-Type': 'application/json' },
+                       body: JSON.stringify({ action: 'heard_from', answer: answer,
+                                              event_id: eid, order: order }) });
+        } catch (e) {}
+      }
+    })();
+    </script>
+
+
     <!-- Expectation-setting note (creative tool, not mixing tool). Sits between
          video and closing tag so producers see it after the walkthrough. -->
     <div class="max-w-2xl mx-auto mb-10 p-5 rounded-2xl panel">
