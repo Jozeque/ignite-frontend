@@ -612,7 +612,11 @@ test('REPATH sweep heals movers and NEVER kills a working bind on a failed looku
     push(a, [LANE(P1), LANE(P2, 'Dry/Wet', 'Reverb')]);
     const [r1, r2] = probes('resolve');
     resolveOk(r1[2], 100, 'Flt 3 Freq', 'Roar', P1); resolveOk(r2[2], 300, 'Dry/Wet', 'Reverb', P2);
-    srv.tick(Date.now());
+    // Only the DISCOVERY sweep asks for every bound id, and that is one tick in
+    // FULL_SWEEP_EVERY now (the other ticks ask about suspects only, which is what stopped
+    // Live being re-interrogated about 12 healthy params every 5 seconds). Tick up to the
+    // discovery one rather than assuming the first tick is it.
+    for (let i = 0; i < srv.FULL_SWEEP_EVERY; i++) srv.tick(Date.now());
     const rp = lastProbe('repath');
     assert(rp && rp.slice(3).indexOf(100) >= 0 && rp.slice(3).indexOf(300) >= 0, 'sweep asks for every bound id');
     outbox = [];
@@ -2071,6 +2075,48 @@ test('the voice ramp stays on the TRANSPORT-LOCKED phasor', () => {
            'every voice is on the transport-locked phasor');
     assert(!texts.some(t => t === 'plugphasor~'), 'plugphasor~ is not back');
     assert(texts.filter(t => /^rate~ .*@sync lock/.test(t)).length === srv.NUM_VOICES, 'rate~ unchanged');
+});
+
+test('MAP LIVE: the attach echo is told apart by IDENTITY, never by a timer', () => {
+    // Field 2026-09-02: "sometimes im trying to map live and it doesnt map the parameter,
+    // only after i press another parameter it detects the new one and then the previous one".
+    // Re-arming attaches a fresh observer that immediately echoes whatever is selected, and
+    // that echo has to be skipped. It used to be skipped by a 250ms window, on the stated
+    // assumption that "nobody can reach a knob in Live that fast" - a guess about human
+    // speed, and the source of both halves of the report: click inside the window and the
+    // click is eaten, let the echo arrive after it and the echo is mapped as if it were a
+    // click, which maps the PREVIOUSLY selected knob.
+    const mx = fs.readFileSync(path.join(BRIDGE, 'bridge_max.js'), 'utf8');
+    assert(/var _armSelId = 0;/.test(mx), 'what we armed on is recorded');
+    assert(/_armSelId = _selId\(\);/.test(mx), 'captured at re-arm, which is when the echo is promised');
+    assert(/if \(_selId\(\) === _armSelId\) return;/.test(mx),
+           'the echo is the one reporting the SAME parameter: anything else is a real click');
+    // The old timer may remain as a backstop, but it must not be what decides.
+    const body = mx.slice(mx.indexOf('function _onSelChange()'), mx.indexOf('function _onSelChange()') + 900);
+    assert(!/Task|schedule\(/.test(body), 'no timing decision inside the callback');
+    assert(/_skipFirst = false;[\s\S]{0,200}_armSelId/.test(body),
+           'the skip is consumed exactly once, then identity decides');
+});
+
+test('the idle LOM load: discovery sweeps rarely, suspects stay responsive', () => {
+    // Field 2026-09-02: "ableton is a little bit laggy and like stuckiness sometimes". The
+    // tick called repathSweep() with NO argument, and suspectsOnly is undefined = falsy, so
+    // every bound param was re-resolved over the LOM every 5 seconds whether or not anything
+    // looked wrong. last_repath.json on the rig: 12 params, every one missCount 0, all
+    // re-resolved anyway, times two bridges in the set. Live answers those on the thread it
+    // draws on.
+    const src = fs.readFileSync(path.join(BRIDGE, 'bridge-server.js'), 'utf8');
+    assert(/state\.sweepTick % FULL_SWEEP_EVERY === 0\) repathSweep\(\);/.test(src),
+           'the FULL sweep is the occasional one');
+    assert(/else\s+repathSweep\(true\);/.test(src), 'every other tick is suspects only');
+    assert(!/if \(!state\.yielded\) repathSweep\(\);/.test(src),
+           'the un-narrowed every-tick sweep is gone: that is the bug');
+    // Detection must not get slower where it is felt. A param that HAS gone missing is a
+    // suspect, and suspects keep the 5s tick plus the 600ms fast path, so the fade the user
+    // asked for is untouched. Only first NOTICE of a deleted device waits for discovery.
+    assert(srv.FULL_SWEEP_EVERY >= 4 && srv.FULL_SWEEP_EVERY * srv.PING_MS >= 20000,
+           'discovery is genuinely rarer, got ' + (srv.FULL_SWEEP_EVERY * srv.PING_MS) + 'ms');
+    assert(srv.FAST_REPATH_MS === undefined || srv.FAST_REPATH_MS <= 1000, 'the fast path stays fast');
 });
 
 test('LOCAL BUILD FRESHNESS: a built Stride.vst3 must embed the CURRENT shim.js', () => {

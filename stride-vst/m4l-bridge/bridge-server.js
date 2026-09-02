@@ -86,6 +86,7 @@ const MAP_TIMEOUT_MS = 120000;  // idle window while ARMED - slides on every map
                                 // silently disarmed it (field 2026-08-27).
 const HINT_FRESH_MS = 10000;    // a selection this recent says WHERE a connecting Stride lives
 const PING_MS = 5000;           // patcher liveness + repath cadence
+const FULL_SWEEP_EVERY = 6;     // ticks between DISCOVERY sweeps (6 x PING_MS = 30s); suspects still sweep every tick
 const PONG_TIMEOUT_MS = 20000;  // silent patcher = leaked node process: yield the port
 const NO_PONG_BOOT_MS = 30000;  // never answered at all since boot: same verdict, no first pong required
 // ...and after THIS long a patcher is not coming back, so stop existing. Yielding frees the
@@ -1083,7 +1084,18 @@ function tick(now) {
     // Yielded AND still silent long past any plausible stall: the device is gone for good.
     if (state.yielded && t - Math.max(state.pongAt, state.bootAt) > EXIT_SILENT_MS)
         shutdown('the patcher has been gone for ' + (EXIT_SILENT_MS / 1000) + 's');
-    if (!state.yielded) repathSweep();
+    // The FULL sweep re-resolves every bound param over the LOM, and Live answers on the
+    // same thread it draws on. Every 5s it was 12 resolutions per bridge with every single
+    // one already healthy (field 2026-09-02: "ableton is a little bit laggy and like
+    // stuckiness sometimes", last_repath.json showing 12 params all missCount 0). It exists
+    // to NOTICE a deleted device, which is not a 5-second need: once a param does go missing
+    // it becomes a suspect, and the 600ms fast path confirms it from there. So the discovery
+    // pass runs a sixth as often and the responsive part is untouched.
+    if (!state.yielded) {
+        state.sweepTick = (state.sweepTick || 0) + 1;
+        if (state.sweepTick % FULL_SWEEP_EVERY === 0) repathSweep();      // discovery
+        else                                          repathSweep(true);  // suspects only
+    }
 }
 
 // Let go of everything and stop the process. node.script leaves us running when a device is
@@ -1691,7 +1703,7 @@ if (Max) {
 
 module.exports = {
     PORT, TCP_PORT, NUM_VOICES, TICKS_PER_BAR, SAMPLES_PER_BAR, TMP_DIR,
-    HINT_FRESH_MS, PING_MS, PONG_TIMEOUT_MS, NO_PONG_BOOT_MS, ARM_ACK_MS, REPATH_MS,
+    HINT_FRESH_MS, PING_MS, PONG_TIMEOUT_MS, NO_PONG_BOOT_MS, ARM_ACK_MS, REPATH_MS, FULL_SWEEP_EVERY,
     state, listeners, ticksFor, rateFor, sampleCountFor, rasterizeLane, buildWav, writeVoiceWav,
     allocVoice, freeVoice, voiceByTarget, lanesOf, laneSig, laneMode, lanesFromBlob, MIDI_EFFECT,
     CONTROL_STEPS, SNAPSHOT_MS, trackOf, deviceOf, under, freshHint, noteSel,

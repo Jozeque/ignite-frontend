@@ -49,6 +49,7 @@ outlets = 1;
 var _obs = null;          // PERSISTENT LiveAPI observer (created by init, lives with the device)
 var _armed = false;       // armed = map flow; idle = touched probe (lane-finder glow)
 var _skipFirst = true;    // the attach echo at init - that's whatever was selected at load
+var _armSelId = 0;        // what WAS selected when we (re)attached: the echo reports exactly this
 
 function _enc(o) { return encodeURIComponent(JSON.stringify(o)); }
 function _upath(o) { return String(o.unquotedpath || o.path || "").replace(/^"|"$/g, ""); }
@@ -110,8 +111,28 @@ function _probeSelected() {
     }
 }
 
+// Read the currently selected parameter's id, or 0. Cheap: no property fetches.
+function _selId() {
+    try {
+        var p = new LiveAPI("live_set view selected_parameter");
+        return (p && p.id) ? parseInt(p.id, 10) : 0;
+    } catch (e) { return 0; }
+}
+
 function _onSelChange() {
-    if (_skipFirst) { _skipFirst = false; return; }   // attach echo at init, not a click
+    // The attach echo is identified by WHAT IT REPORTS, not by when it arrives. It always
+    // reports whatever was selected at attach time, so if the id has changed this is a real
+    // click and must be honoured. This used to be a 250ms timer on the assumption that
+    // "nobody can reach a knob in Live that fast", which is a guess about human speed: click
+    // inside the window and the click was eaten, and a late echo after the window was taken
+    // for a click and mapped the PREVIOUSLY selected knob. Field 2026-09-02: "sometimes im
+    // trying to map live and it doesnt map the parameter, only after i press another
+    // parameter it detects the new one and then the previous one".
+    if (_skipFirst) {
+        _skipFirst = false;
+        if (_selId() === _armSelId) return;   // same thing we armed on: the echo, not a click
+        // different parameter: a real click that happened to land first. Fall through.
+    }
     if (_armed) {
         var info = _probeSelected();
         if (!info) return;                             // clicked something non-automatable - stay armed
@@ -280,6 +301,7 @@ function _onTrackChange() {
 function init() {
     if (_obs) return;
     _skipFirst = true;
+    _armSelId = 0;          // nothing armed on yet: init's echo reports whatever loaded
     _skipTrack = true;
     try {
         _obs = new LiveAPI(_onSelChange, "live_set view");
@@ -308,15 +330,18 @@ function init() {
 // anything, and only removing + re-adding StrideBridge fixed it. Cause: init() returned
 // early whenever _obs was non-null, so an observer that had gone deaf could never heal -
 // arming just set a flag on a dead listener. A fresh observer costs nothing.
-// The new observer echoes whatever is selected RIGHT NOW; that echo is not a click, so
-// it is skipped. A 250ms Task clears the skip in case no echo arrives (nobody can reach
-// a knob in Live that fast), so a missing echo can never eat a real click either.
+// The new observer echoes whatever is selected RIGHT NOW; that echo is not a click, so it
+// is skipped - recognised by REPORTING THE SAME PARAMETER we armed on, never by timing. The
+// 250ms Task stays as a backstop for the case where no echo ever arrives, but it is no
+// longer what decides echo-versus-click, so a fast click cannot be eaten and a slow echo
+// cannot be mapped.
 var _skipFirstTask = null;
 
 function _rearmObserver() {
     try { if (_obs) _obs.property = ""; } catch (e) {}
     _obs = null;
     _skipFirst = true;
+    _armSelId = _selId();   // the echo will report THIS; anything else is a real click
     try {
         _obs = new LiveAPI(_onSelChange, "live_set view");
         _obs.property = "selected_parameter";
