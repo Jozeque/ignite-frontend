@@ -432,10 +432,14 @@
        IDs and analytics selectors all still resolve. */
     .wrap{display:flex;flex-direction:column}
     .wrap > nav{order:0}
-    section[data-ms="hero"]{order:1}
-    section[data-ms="proof"]{order:2}
-    section[data-ms="social"]{order:3}
-    section[data-ms="value"]{order:4}
+    /* hero already ENDS with the walkthrough video, so "hero then video" is the
+       hero block read top to bottom. The manifest states the argument, the
+       testimonials back it, and only then does "Variations on demand" show the
+       product doing it. */
+    section[data-ms="hero"]{order:1}   /* + the See-it-in-action walkthrough */
+    section[data-ms="value"]{order:2}  /* You already have everything you need */
+    section[data-ms="social"]{order:3} /* Already in their sessions */
+    section[data-ms="proof"]{order:4}  /* Variations on demand */
     section[data-ms="buy"]{order:5}
     section[data-ms="compat-logos"]{order:6}
     section[data-ms="how"]{order:7}
