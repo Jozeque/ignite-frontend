@@ -42,6 +42,11 @@ jobs:
     name: Build + sign + submit
     if: ${{ github.event.inputs.resume_submission_id == '' || github.event.inputs.resume_submission_id == null }}
     runs-on: macos-14  # Apple Silicon M1 runner — arm64 native
+    # Apple signing credentials live in the protected `release` environment,
+    # not in repo-level secrets, so a workflow pushed to any other branch
+    # cannot read them. The environment allows only main, stride-vst3-wrapper
+    # and the v*/vst3-v* tags, and requires an owner approval.
+    environment: release
     timeout-minutes: 30
 
     steps:
@@ -103,6 +108,11 @@ jobs:
     # this job still runs when Job 1 was skipped (the resume case).
     if: ${{ always() && (needs.build-and-submit.result == 'success' || needs.build-and-submit.result == 'skipped') }}
     runs-on: macos-14
+    # Apple signing credentials live in the protected `release` environment,
+    # not in repo-level secrets, so a workflow pushed to any other branch
+    # cannot read them. The environment allows only main, stride-vst3-wrapper
+    # and the v*/vst3-v* tags, and requires an owner approval.
+    environment: release
     timeout-minutes: 350  # Max GitHub-hosted runner job timeout is 360
 
     steps:
