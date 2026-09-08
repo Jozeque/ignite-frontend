@@ -428,10 +428,14 @@
   .addon.on .addon-btn{border-color:transparent;color:#1c1206;
     background:linear-gradient(180deg,var(--ember),var(--copper))}
   .addon-btn:focus-visible{outline:2px solid var(--copper-lt);outline-offset:2px}
-  @media (max-width:420px){
-    .addon{flex-wrap:wrap;gap:9px}
-    .addon-body{flex:1 1 100%;order:2}
-    .addon-btn{order:3;width:100%;text-align:center;padding:10px 12px}
+  @media (max-width:430px){
+    .addon{gap:8px;padding:7px 8px}
+    .addon-art{width:34px;height:34px;border-radius:8px}
+    .addon-t{font-size:11px}
+    .addon-s{font-size:9.5px;margin-top:1px}
+    .addon-btn{font-size:9px;padding:7px 9px;letter-spacing:.05em}
+    /* The button already says Add, and Ableton/Stride are obvious in context. */
+    .addon-lead,.addon-full{display:none}
   }
   .vlist{list-style:none;margin:11px 0 15px;padding:0;display:grid;gap:3px}
   .vlist li{display:flex;gap:8px;align-items:baseline;font-size:12.5px;font-weight:600;color:var(--ink2);line-height:1.35}
@@ -756,11 +760,11 @@
             <div id="addon" class="addon" hidden>
               <img class="addon-art" src="assets/packs/pack-drums.jpg" alt="" width="900" height="900" loading="lazy">
               <div class="addon-body">
-                <div class="addon-t">Add the Experimental Collection <span class="addon-p" id="addon-price">+$24.99</span></div>
-                <div class="addon-s">250+ sounds &middot; 15 Ableton Racks &middot; 4 StrideChains</div>
+                <div class="addon-t"><span class="addon-lead">Add the </span>Experimental Collection <span class="addon-p" id="addon-price">+$24.99</span></div>
+                <div class="addon-s">250+ sounds &middot; 15 <span class="addon-full">Ableton </span>Racks &middot; 4 <span class="addon-full">Stride</span>Chains</div>
               </div>
               <button type="button" id="addon-btn" class="addon-btn" aria-pressed="false"
-                      onclick="strideToggleAddon()">+ Add to order</button>
+                      onclick="strideToggleAddon()">+ Add<span class="addon-full"> to order</span></button>
             </div>
             <div class="flex flex-wrap items-center gap-2.5 hero-cta">
               <a onclick="openBuy()" class="btn-copper text-[15px] py-3 px-6 rounded-xl">GET STRIDE &middot; $99 <span>&rarr;</span></a>
@@ -1612,7 +1616,9 @@ function openBuy() { toggleBuyModal(); }
 
         const btn = document.getElementById('addon-btn');
         if (btn) {
-            btn.textContent = on ? ('\u2713 Added \u00b7 +' + strideMoney(COLLECTION_ADDON_PRICE)) : '+ Add to order';
+            btn.innerHTML = on
+                ? '\u2713 Added<span class="addon-full"> \u00b7 +' + strideMoney(COLLECTION_ADDON_PRICE) + '</span>'
+                : '+ Add<span class="addon-full"> to order</span>';
             btn.setAttribute('aria-pressed', on ? 'true' : 'false');
         }
 
