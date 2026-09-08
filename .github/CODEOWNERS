@@ -1,0 +1,44 @@
+# Code owners for stridehub.io
+#
+# Every path here needs Yossi's review before it can merge into main. The branch
+# ruleset has "require code owner review" on, so this file is what decides which
+# changes an outside collaborator can land on their own and which ones stop for a
+# second pair of eyes.
+#
+# The catch-all already covers everything. The entries below it are not redundant:
+# they are the list of things that have broken money, releases or trust before, so
+# they are written out explicitly and should stay explicit even if the default
+# ever changes.
+
+# Default owner for everything in the repo.
+*                           @Jozeque
+
+# ── Revenue. Wrong value here means real orders at the wrong price ──────────
+# index.html holds STRIDE_CHECKOUT_URL, STRIDE_COLLECTION_CHECKOUT_URL,
+# STRIDE_PRICE, COLLECTION_ADDON_PRICE and submitBuyForm(), which carries the
+# attribution parameters into Lemon Squeezy.
+/index.html                 @Jozeque
+/samples.html               @Jozeque
+/frontend/index.html        @Jozeque
+/frontend/samples.html      @Jozeque
+
+# ── Product source. Not marketing territory ────────────────────────────────
+/firebase_cloud/            @Jozeque
+/stride-vst/                @Jozeque
+/stride-wrapper/            @Jozeque
+/tendril/                   @Jozeque
+
+# ── Build, release and signing. Touching these can leak or break a release ──
+/.github/                   @Jozeque
+
+# ── Site identity and hosting ──────────────────────────────────────────────
+/CNAME                      @Jozeque
+/robots.txt                 @Jozeque
+/sitemap.xml                @Jozeque
+
+# ── Internal dashboards, not public pages ──────────────────────────────────
+/admin.html                 @Jozeque
+/growth.html                @Jozeque
+/frontend/admin.html        @Jozeque
+/frontend/growth.html       @Jozeque
+/mail/                      @Jozeque
