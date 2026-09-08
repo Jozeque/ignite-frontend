@@ -167,6 +167,20 @@
 
     // Read back the stored ad markers. Used by BOTH the paid buy flow and the
     // demo flow so an ad → demo → buy journey stays attributable to its ad.
+    // UTM for OWNED placements (the /try purchase link, lifecycle emails). Those
+    // links carry utm_* but no ad_id, so captureAdClick deliberately ignores them:
+    // stride_ad is the deterministic PAID-click marker and must stay that way, or
+    // owned traffic starts looking like an ad click. Read the stored ad marker first
+    // so a real ad click always wins, then fall back to the live query string.
+    // Same-pageload only, which is the land-then-buy path these links are for.
+    window.strideOwnedUtm = function (key) {
+        try {
+            var rec = window.strideAdMarkers ? window.strideAdMarkers() : {};
+            if (rec && rec[key]) return rec[key];
+            return (new URLSearchParams(location.search).get(key) || '').trim();
+        } catch (e) { return ''; }
+    };
+
     window.strideAdMarkers = function () {
         var rec = {};
         try { rec = JSON.parse(localStorage.getItem('stride_ad') || '{}') || {}; } catch (e) { rec = {}; }
@@ -1596,8 +1610,9 @@ function openBuy() { toggleBuyModal(); }
                 fbc, fbclid, fbp, ua, event_id: eventId, external_id: xid,
                 ad_id: adMk.ad_id || '', adset_id: adMk.adset_id || '',
                 campaign_id: adMk.campaign_id || '',
-                utm_source: adMk.utm_source || '', utm_campaign: adMk.utm_campaign || '',
-                utm_content: adMk.utm_content || '',
+                utm_source: window.strideOwnedUtm('utm_source'),
+                utm_campaign: window.strideOwnedUtm('utm_campaign'),
+                utm_content: window.strideOwnedUtm('utm_content'),
                 terms_accepted: termsAccepted,
             })
         }).catch(() => {});
