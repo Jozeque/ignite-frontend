@@ -406,6 +406,33 @@
     text-transform:uppercase;color:#1c1206;background:linear-gradient(180deg,var(--ember),var(--copper));
     border-radius:6px;padding:4px 8px;border:1px solid rgba(255,210,150,.28);
     box-shadow:0 1px 0 rgba(255,255,255,.26) inset,0 8px 16px -11px rgba(198,113,43,.9)}
+  /* ── Experimental Collection add-on ──────────────────────────────────────
+     Sits inside the plate between the bullets and the CTA, so it reads as one
+     small decision before checkout rather than a second product further down.
+     Deliberately quieter than the Stride CTA: no copper fill until selected. */
+  .addon{display:flex;align-items:center;gap:11px;margin:0 0 13px;padding:9px 11px;
+    border:1px solid var(--line);border-radius:14px;background:rgba(0,0,0,.22);
+    transition:border-color .2s,background .2s}
+  .addon.on{border-color:rgba(198,113,43,.55);background:rgba(198,113,43,.09)}
+  .addon-art{width:42px;height:42px;flex:none;border-radius:9px;object-fit:cover;
+    border:1px solid var(--line)}
+  .addon-body{min-width:0;flex:1}
+  .addon-t{font-size:12px;font-weight:800;color:var(--ink);line-height:1.3}
+  .addon-p{color:var(--copper-lt);font-weight:900}
+  .addon-s{font-size:10.5px;color:var(--ink3);font-weight:600;margin-top:2px;line-height:1.35}
+  .addon-btn{flex:none;cursor:pointer;font-size:10px;font-weight:900;letter-spacing:.1em;
+    text-transform:uppercase;padding:8px 12px;border-radius:10px;white-space:nowrap;
+    border:1px solid rgba(216,201,176,.24);background:rgba(255,255,255,.03);
+    color:var(--ink2);transition:background .2s,color .2s,border-color .2s}
+  .addon-btn:hover{border-color:rgba(198,113,43,.5);color:var(--ink)}
+  .addon.on .addon-btn{border-color:transparent;color:#1c1206;
+    background:linear-gradient(180deg,var(--ember),var(--copper))}
+  .addon-btn:focus-visible{outline:2px solid var(--copper-lt);outline-offset:2px}
+  @media (max-width:420px){
+    .addon{flex-wrap:wrap;gap:9px}
+    .addon-body{flex:1 1 100%;order:2}
+    .addon-btn{order:3;width:100%;text-align:center;padding:10px 12px}
+  }
   .vlist{list-style:none;margin:11px 0 15px;padding:0;display:grid;gap:3px}
   .vlist li{display:flex;gap:8px;align-items:baseline;font-size:12.5px;font-weight:600;color:var(--ink2);line-height:1.35}
   .vlist li b{color:var(--ink);font-weight:800}
@@ -726,6 +753,15 @@
               <li><span class="d">●</span><span><b>Everything</b> included</span></li>
               <li><span class="d">●</span><span>One-time purchase</span></li>
             </ul>
+            <div id="addon" class="addon" hidden>
+              <img class="addon-art" src="assets/packs/pack-drums.jpg" alt="" width="900" height="900" loading="lazy">
+              <div class="addon-body">
+                <div class="addon-t">Add the Experimental Collection <span class="addon-p" id="addon-price">+$24.99</span></div>
+                <div class="addon-s">250+ sounds &middot; 15 Ableton Racks &middot; 4 StrideChains</div>
+              </div>
+              <button type="button" id="addon-btn" class="addon-btn" aria-pressed="false"
+                      onclick="strideToggleAddon()">+ Add to order</button>
+            </div>
             <div class="flex flex-wrap items-center gap-2.5 hero-cta">
               <a onclick="openBuy()" class="btn-copper text-[15px] py-3 px-6 rounded-xl">GET STRIDE &middot; $99 <span>&rarr;</span></a>
               <a href="/try/" class="btn-ghost text-[11px] uppercase tracking-[0.1em] py-3 px-5 rounded-xl">Explore free for 24h</a>
@@ -1528,6 +1564,85 @@ function openBuy() { toggleBuyModal(); }
     // bundle checkout URL before launch. A non-empty URL activates purchase mode.
     const LS_CHECKOUT_URL = 'https://strideengine.lemonsqueezy.com/checkout/buy/9099d993-aa75-42d5-800f-299445b9350a';
 
+    // ── Experimental Collection add-on ────────────────────────────────────
+    // A pre-checkout selector, NOT a cart: the choice picks which of two Lemon
+    // Squeezy products the modal redirects to. Nothing about licensing,
+    // fulfilment or the webhooks changes.
+    //
+    // PASTE THE BUNDLE CHECKOUT URL HERE. While it is empty the add-on row stays
+    // hidden and the $99 flow is byte-for-byte what it was, so the control can
+    // never offer something that has no checkout behind it.
+    const STRIDE_CHECKOUT_URL = LS_CHECKOUT_URL;
+    const STRIDE_COLLECTION_CHECKOUT_URL = 'https://strideengine.lemonsqueezy.com/checkout/buy/8a577a45-0ca2-4904-aaf4-a56345269c64';
+
+    // Both prices live here only. Every number the hero prints is derived.
+    const STRIDE_PRICE = 99;
+    const COLLECTION_ADDON_PRICE = 24.99;
+
+    let strideAddonOn = false;
+
+    function strideAddonAvailable() { return !!STRIDE_COLLECTION_CHECKOUT_URL; }
+    function strideAddonActive()    { return strideAddonOn && strideAddonAvailable(); }
+    function strideCheckoutUrl()    { return strideAddonActive() ? STRIDE_COLLECTION_CHECKOUT_URL : STRIDE_CHECKOUT_URL; }
+    function strideOrderTotal()     { return strideAddonActive() ? STRIDE_PRICE + COLLECTION_ADDON_PRICE : STRIDE_PRICE; }
+
+    // $128, not $128.00. A .99 price still prints its cents.
+    function strideMoney(v) {
+        return '$' + (Math.round(v * 100) % 100 === 0 ? v.toFixed(0) : v.toFixed(2));
+    }
+
+    function strideToggleAddon() {
+        if (!strideAddonAvailable()) return;
+        strideAddonOn = !strideAddonOn;
+        strideSyncAddon();
+    }
+
+    // Every price on the page follows the selection. Leaving the CTAs further down
+    // saying $99 while the modal redirected to the bundle would charge people a
+    // number the button never showed them.
+    function strideSyncAddon() {
+        const row = document.getElementById('addon');
+        if (!row) return;
+        const on = strideAddonActive();
+        row.hidden = !strideAddonAvailable();
+        row.classList.toggle('on', on);
+
+        const priceTag = document.getElementById('addon-price');
+        if (priceTag) priceTag.textContent = '+' + strideMoney(COLLECTION_ADDON_PRICE);
+
+        const btn = document.getElementById('addon-btn');
+        if (btn) {
+            btn.textContent = on ? ('\u2713 Added \u00b7 +' + strideMoney(COLLECTION_ADDON_PRICE)) : '+ Add to order';
+            btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        }
+
+        const total = strideMoney(strideOrderTotal());
+        const hero = document.querySelector('.hero-price');
+        if (hero) hero.textContent = total;
+
+        // The struck list price and the "Save $30" seal describe the Stride-only
+        // offer. They say nothing true about a bundle, so they step aside while
+        // one is selected and come back when it is deselected.
+        const plate = hero ? hero.closest('.plate') : null;
+        if (plate) {
+            const struck = plate.querySelector('[style*="line-through"]');
+            const seal = plate.querySelector('.seal2');
+            [struck, seal].forEach(function (el) { if (el) el.style.display = on ? 'none' : ''; });
+        }
+
+        const was = new RegExp('\\$' + STRIDE_PRICE + '(?!\\d)', 'g');
+        document.querySelectorAll('a[onclick*="openBuy"]').forEach(function (el) {
+            if (!el.dataset.baseHtml) el.dataset.baseHtml = el.innerHTML;
+            el.innerHTML = on
+                ? el.dataset.baseHtml.replace(was, total)
+                    .replace(/GET STRIDE/g, 'GET STRIDE + COLLECTION')
+                    .replace(/Get Stride/g, 'Get Stride + Collection')
+                : el.dataset.baseHtml;
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', strideSyncAddon);
+
     function submitBuyForm() {
         // EMAIL + TERMS ONLY. Producer name and country were asked here and then
         // asked AGAIN by Lemon Squeezy, which collects billing name and country for
@@ -1625,8 +1740,9 @@ function openBuy() { toggleBuyModal(); }
         // "started checkout" / cart-abandoner audience for retargeting. Wrapped
         // + best-effort so it can never block the redirect to checkout below.
         // value tracks the CURRENT list price ($99 from 2026-09-01; the $79 summer
-        // sale ended 2026-08-31). A stale value here skews Meta's cost-per-IC maths.
-        try { if (window.fbq) fbq('track', 'InitiateCheckout', { value: 99, currency: 'USD' }, { eventID: eventId }); } catch (e) {}
+        // sale ended 2026-08-31), plus the Experimental Collection when it has been
+        // added. A stale value here skews Meta's cost-per-IC maths.
+        try { if (window.fbq) fbq('track', 'InitiateCheckout', { value: strideOrderTotal(), currency: 'USD' }, { eventID: eventId }); } catch (e) {}
 
         // Store locally
         localStorage.setItem('stride_purchase', JSON.stringify({
@@ -1638,9 +1754,11 @@ function openBuy() { toggleBuyModal(); }
         // eventId, fbc, fbp, ua were computed above (before the buyer_lead
         // beacon) — reuse the same values here so the LS checkout params and the
         // server-side fallback always carry identical attribution.
-        if (LS_CHECKOUT_URL) {
-            const sep = LS_CHECKOUT_URL.includes('?') ? '&' : '?';
-            let url = LS_CHECKOUT_URL + sep
+        // Which of the two products the buyer chose, resolved once.
+        const checkoutBase = strideCheckoutUrl();
+        if (checkoutBase) {
+            const sep = checkoutBase.includes('?') ? '&' : '?';
+            let url = checkoutBase + sep
                 + 'checkout[email]=' + encodeURIComponent(email)
                 + '&checkout[custom][event_id]=' + encodeURIComponent(eventId);
             if (fbc) url += '&checkout[custom][fbc]=' + encodeURIComponent(fbc);
