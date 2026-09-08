@@ -149,6 +149,19 @@
   .rule{height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
   /* Both tool cards stretch to the taller one, so their closing block is pinned to the
      bottom. Without this the Racks card ended halfway up and read as unfinished. */
+  /* Install rows + file list, lifted from chains.html so they read exactly as before. */
+  .pathrow{display:flex;gap:12px;align-items:baseline;padding:7px 0;border-top:1px solid var(--line)}
+  .os{font-family:'Space Mono',ui-monospace,monospace;font-size:9px;font-weight:700;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--ink3);flex:none;width:30px}
+  .pathrow code{font-family:'Space Mono',ui-monospace,monospace;font-size:12px;color:var(--ink);
+    line-height:1.55;overflow-wrap:anywhere}
+  .fmt{font-family:'Space Mono',ui-monospace,monospace;font-size:11px;color:var(--ink3);flex:none}
+  .row{display:flex;align-items:center;gap:14px;padding:14px 2px;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:0}
+  .dl{margin-left:auto;font-size:11px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--copper-lt);white-space:nowrap;transition:color .15s}
+  .dl:hover{color:var(--ink)}
+  @media (max-width:520px){ .row{flex-wrap:wrap;gap:8px} .dl{margin-left:0;width:100%} }
   .toolcard{display:flex;flex-direction:column}
   .toolcard .fill{margin-top:auto}
 </style>
@@ -316,6 +329,51 @@
 
   <div class="max-w-5xl mx-auto px-6"><div class="rule"></div></div>
 
+  <!-- ===================== WHERE THE FILES GO ===================== -->
+  <!-- Moved here from chains.html (2026-09-08). It was the only place on the site
+       documenting where a .stridechain goes, which matters now that the collection
+       ships five of them. -->
+  <section class="max-w-5xl mx-auto px-6 py-14 sm:py-20">
+    <div class="mb-10 sm:mb-14">
+      <div class="silk mb-3">Where they go</div>
+      <h2 class="text-2xl sm:text-3xl uppercase tracking-tight max-w-2xl leading-tight">
+        Drop them in, they are there next time.
+      </h2>
+    </div>
+
+    <div class="grid sm:grid-cols-2 gap-x-10 gap-y-9 mb-16">
+      <div>
+        <h3 class="text-lg mb-1">Chain files</h3>
+        <p class="text-sm ink2 leading-relaxed mb-3">
+          <span class="mono ink3">.stridechain</span> &middot; drop it here, then hit
+          <span class="ink font-bold">Load</span> in Stride.
+        </p>
+        <div class="pathrow"><span class="os">Win</span><code>Documents\Stride\chains</code></div>
+        <div class="pathrow"><span class="os">Mac</span><code>~/Documents/Stride/chains</code></div>
+      </div>
+      <div>
+        <h3 class="text-lg mb-1">Ableton racks</h3>
+        <p class="text-sm ink2 leading-relaxed mb-3">
+          <span class="mono ink3">.adg</span> &middot; drop it here, then drag it onto a track.
+        </p>
+        <div class="pathrow"><span class="os">Win</span><code>Documents\Ableton\User Library\Presets\Instruments\Instrument Rack</code></div>
+        <div class="pathrow"><span class="os">Mac</span><code>~/Music/Ableton/User Library/Presets/Instruments/Instrument Rack</code></div>
+      </div>
+    </div>
+
+    <!-- FREE FILES, also from chains.html. A free taster on the product page is
+         deliberate: it uses the SAME install path the paid chains use, so anyone can
+         prove the workflow before buying. One line per file in the script below. -->
+    <div class="silk mb-2">Free to try</div>
+    <p class="text-sm ink2 leading-relaxed mb-5 max-w-xl">
+      Not part of the collection. Take it, load it, and see how a chain arrives before you
+      decide about the rest.
+    </p>
+    <div id="chain-list"></div>
+  </section>
+
+  <div class="max-w-5xl mx-auto px-6"><div class="rule"></div></div>
+
   <!-- ===================== FINAL CTA ===================== -->
   <section class="max-w-5xl mx-auto px-6 py-16 sm:py-24">
     <div class="glass-panel rounded-[22px] p-8 sm:p-12 text-center">
@@ -350,6 +408,31 @@
     </div>
   </footer>
 </div>
+
+<script>
+// ═════════════════════════════════════════════════════
+//  ADD A FILE  <-  one line each, nothing else to edit.
+//  Drop the file into  frontend/chains/  and mirror it to root chains/.
+//    name    what it is called
+//    format  'chain' (.stridechain)  or  'rack' (.adg)
+//    file    path relative to this page
+//    needs   short, what they must already own. Keep it to a few words.
+// ═════════════════════════════════════════════════════
+const CHAINS = [
+  { name: 'Serum Talker', format: 'rack',  file: 'chains/Serum-Talker.adg',        needs: 'Live, Serum' },
+  { name: 'Serum Talker', format: 'chain', file: 'chains/Serum-Talker.stridechain', needs: 'Live, Serum' }
+];
+
+document.getElementById('chain-list').innerHTML = CHAINS.map(c => {
+  const ext = c.file.slice(c.file.lastIndexOf('.'));
+  return '<div class="row">'
+       +   '<span class="ink font-bold text-base">' + c.name + '</span>'
+       +   '<span class="fmt">' + ext + '</span>'
+       +   (c.needs ? '<span class="text-xs ink3">' + c.needs + '</span>' : '')
+       +   '<a class="dl" href="' + c.file + '" download>Download</a>'
+       + '</div>';
+}).join('');
+</script>
 
 <!-- ─────────────────────────────────────────────────────────────
      The FREE sample-pack lead magnet used to live on this page. Its

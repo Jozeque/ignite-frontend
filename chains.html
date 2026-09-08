@@ -1,172 +1,36 @@
 <!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>STRIDE | Chains</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STRIDE | Chains moved</title>
 
-    <!-- SEO -->
-    <meta name="description" content="Ready-made Stride chains. Load one and the devices, mappings, ranges and curves all come back.">
-    <link rel="canonical" href="https://stridehub.io/chains.html">
+<!-- This page's content moved onto the Experimental Collection page on 2026-09-08:
+     the install paths, and the free files. It is a redirect rather than a deletion
+     because the URL is in the wild (it was linked from the nav and the footer for
+     months) and a 404 would be a worse answer than the right page.
 
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://stridehub.io/chains.html">
-    <meta property="og:title" content="STRIDE | Chains">
-    <meta property="og:description" content="Load one and the devices, mappings, ranges and curves all come back.">
-    <meta property="og:site_name" content="Stride">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="STRIDE | Chains">
-    <meta name="twitter:description" content="Load one and the devices, mappings, ranges and curves all come back.">
+     GitHub Pages serves static files only, so there is no server-side 301 to give.
+     Canonical + meta refresh + a JS replace is the static equivalent: search engines
+     follow the canonical, humans get moved immediately, and the back button still
+     works because replace() does not add a history entry. -->
+<link rel="canonical" href="https://stridehub.io/samples.html">
+<meta name="robots" content="noindex, follow">
+<meta http-equiv="refresh" content="0; url=samples.html">
+<script>location.replace('samples.html' + location.hash);</script>
 
-    <meta name="theme-color" content="#141310">
-
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cdefs%3E%3ClinearGradient id='strideGradient' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23eaa54e' /%3E%3Cstop offset='100%25' stop-color='%23c6712b' /%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z' stroke='url(%23strideGradient)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      (function(){
-        function r(p){var o={},s=[50,100,200,300,400,500,600,700,800,900,950];for(var i=0;i<s.length;i++){o[s[i]]='rgb(var(--'+p+s[i]+') / <alpha-value>)';}return o;}
-        tailwind.config={darkMode:'class',theme:{extend:{colors:{
-          zinc:r('z'), orange:r('o'), red:r('rd'), amber:r('am'), emerald:r('em'),
-          cyan:r('cy'), sky:r('z'), lime:r('em'), fuchsia:r('o'),
-          violet:r('vi'), purple:r('vi'), rose:r('ro'), pink:r('ro')
-        }}}};
-      })();
-    </script>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
-  /* ── PATCHBAY (vintage modular) brand palette — matches index.html ── */
-  :root{
-    --bg:#141310; --bg2:#191611; --panel:#1d1b16; --raise:#252119; --line:rgba(216,201,176,.11);
-    --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
-    --copper:#c6712b; --copper-lt:#dd9a52; --amber:#d9822b; --ember:#e58a2e;
-    --teal:#2f748e;  --teal-lt:#5e9aad;
-    --o50:249 241 234;--o100:244 227 213;--o200:232 198 170;--o300:222 154 82;--o400:198 113 43;--o500:174 99 38;--o600:143 81 31;--o700:109 62 24;--o800:79 45 17;--o900:55 32 12;--o950:30 17 6;
-    --z50:241 236 226;--z100:228 221 208;--z200:215 207 192;--z300:195 187 171;--z400:163 154 138;--z500:118 111 99;--z600:88 82 73;--z700:66 61 52;--z800:37 33 25;--z900:29 27 22;--z950:20 19 16;
-    --rd50:250 238 232;--rd100:246 220 209;--rd200:235 186 167;--rd300:216 132 104;--rd400:199 100 66;--rd500:176 80 49;--rd600:150 66 40;--rd700:117 51 32;--rd800:84 37 24;--rd900:56 25 17;--rd950:31 14 10;
-    --em50:235 240 233;--em100:214 224 210;--em200:181 198 175;--em300:134 168 127;--em400:110 146 102;--em500:91 123 85;--em600:73 99 67;--em700:56 77 52;--em800:40 56 38;--em900:27 38 25;--em950:15 22 13;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;font-family:'Outfit',sans-serif;background:var(--bg);color:var(--ink2);-webkit-font-smoothing:antialiased;overflow-x:hidden}
-  ::selection{background:rgba(198,113,43,.3)}
-  ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:#2a2620;border-radius:10px}
-  body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
-    background:radial-gradient(120% 80% at 50% -10%, rgba(198,113,43,.07), transparent 60%),
-               radial-gradient(100% 60% at 50% 110%, rgba(47,116,142,.05), transparent 60%);}
-  .wrap{position:relative;z-index:1}
-  .mono{font-family:'Space Mono',ui-monospace,monospace}
-  .silk{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--ink3)}
-  .brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-  .ink{color:var(--ink)} .ink3{color:var(--ink3)}
-  h1,h2,h3{color:var(--ink);font-weight:900;letter-spacing:-.01em}
-  /* Paths are typeset, not boxed: an OS tag in the mono face, then the path.
-     No tinted badges anywhere on this page. Copper is kept for the one thing
-     you can actually act on, which is the download. */
-  .pathrow{display:flex;gap:12px;align-items:baseline;padding:7px 0;border-top:1px solid var(--line)}
-  .os{font-family:'Space Mono',ui-monospace,monospace;font-size:9px;font-weight:700;letter-spacing:.16em;
-    text-transform:uppercase;color:var(--ink3);flex:none;width:30px}
-  .pathrow code{font-family:'Space Mono',ui-monospace,monospace;font-size:12px;color:var(--ink);
-    line-height:1.55;overflow-wrap:anywhere}
-  .fmt{font-family:'Space Mono',ui-monospace,monospace;font-size:11px;color:var(--ink3);flex:none}
-  /* the file list: rows, not cards */
-  .row{display:flex;align-items:center;gap:14px;padding:14px 2px;border-bottom:1px solid var(--line)}
-  .row:last-child{border-bottom:0}
-  .dl{margin-left:auto;font-size:11px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;
-    color:var(--copper-lt);white-space:nowrap;transition:color .15s}
-  .dl:hover{color:var(--ink)}
-  @media (max-width:560px){
-    .row{flex-wrap:wrap;gap:8px}
-    .dl{margin-left:0;width:100%}
-  }
+  :root{--bg:#141310;--ink:#ece4d6;--ink3:#857c6e;--copper-lt:#dd9a52}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+       background:var(--bg);color:var(--ink3);font-family:system-ui,-apple-system,sans-serif;
+       text-align:center;padding:2rem;line-height:1.6}
+  a{color:var(--copper-lt)}
 </style>
 </head>
 <body>
-<div class="wrap">
-
-  <nav class="max-w-3xl mx-auto px-6 py-6 flex items-center justify-between">
-    <a href="index.html" class="flex items-center gap-2.5">
-      <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none">
-        <path d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" stroke="#dd9a52" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <span class="font-black text-lg ink tracking-tight">STRIDE</span>
-    </a>
-    <a href="index.html" class="text-sm font-bold hover:text-[color:var(--copper-lt)] transition-colors">Get Stride &rarr;</a>
-  </nav>
-
-  <main class="max-w-3xl mx-auto px-6 pt-6 pb-16">
-
-    <h1 class="text-4xl md:text-5xl font-black leading-[1.02] mb-4">
-      Chains
-    </h1>
-    <p class="text-base leading-relaxed mb-12 max-w-xl">
-      Ready-made rigs. Load one and it all comes back: the devices, the mappings,
-      the ranges and the curves.
-    </p>
-
-    <!-- ── WHERE THE FILES GO ─────────────────────────────────────── -->
-    <p class="silk mb-5">Where they go</p>
-    <div class="grid sm:grid-cols-2 gap-x-10 gap-y-9 mb-14">
-      <div>
-        <h2 class="text-lg mb-1">Chain files</h2>
-        <p class="text-sm leading-relaxed mb-3">
-          <span class="mono ink3">.stridechain</span> &middot; drop it here, then hit
-          <span class="ink font-bold">Load</span> in Stride.
-        </p>
-        <div class="pathrow"><span class="os">Win</span><code>Documents\Stride\chains</code></div>
-        <div class="pathrow"><span class="os">Mac</span><code>~/Documents/Stride/chains</code></div>
-      </div>
-      <div>
-        <h2 class="text-lg mb-1">Ableton racks</h2>
-        <p class="text-sm leading-relaxed mb-3">
-          <span class="mono ink3">.adg</span> &middot; drop it here, then drag it onto a track.
-        </p>
-        <div class="pathrow"><span class="os">Win</span><code>Documents\Ableton\User Library\Presets\Instruments\Instrument Rack</code></div>
-        <div class="pathrow"><span class="os">Mac</span><code>~/Music/Ableton/User Library/Presets/Instruments/Instrument Rack</code></div>
-      </div>
-    </div>
-
-    <!-- ── THE FILES ──────────────────────────────────────────────── -->
-    <p class="silk mb-2">The files</p>
-    <div id="chain-list"></div>
-
-  </main>
-
-  <footer class="max-w-3xl mx-auto px-6 py-10 border-t" style="border-color:var(--line)">
-    <div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm ink3">
-      <span class="mono">&copy; STRIDE &mdash; Sound Design Engine</span>
-      <div class="flex items-center gap-5">
-        <a href="index.html" class="hover:text-[color:var(--copper-lt)] transition-colors">Stride</a>
-        <a href="samples.html" class="hover:text-[color:var(--copper-lt)] transition-colors">Experimental Collection</a>
-        <a href="privacy.html" class="hover:text-[color:var(--copper-lt)] transition-colors">Privacy</a>
-        <a href="terms.html" class="hover:text-[color:var(--copper-lt)] transition-colors">Terms</a>
-      </div>
-    </div>
-  </footer>
-</div>
-
-<script>
-// ═══════════════════════════════════════════════════════════════════
-//  ADD A CHAIN  <-  one line each, nothing else to edit.
-//  Drop the file into  frontend/chains/  and mirror it to root chains/.
-//    name    what it is called
-//    format  'chain' (.stridechain)  or  'rack' (.adg)
-//    file    path relative to this page
-//    needs   short, what they must already own. Keep it to a few words.
-// ═══════════════════════════════════════════════════════════════════
-const CHAINS = [
-  { name: 'Serum Talker', format: 'rack',  file: 'chains/Serum-Talker.adg',        needs: 'Live, Serum' },
-  { name: 'Serum Talker', format: 'chain', file: 'chains/Serum-Talker.stridechain', needs: 'Live, Serum' }
-];
-
-document.getElementById('chain-list').innerHTML = CHAINS.map(c => {
-  const ext = c.file.slice(c.file.lastIndexOf('.'));
-  return '<div class="row">'
-       +   '<span class="ink font-bold text-base">' + c.name + '</span>'
-       +   '<span class="fmt">' + ext + '</span>'
-       +   (c.needs ? '<span class="text-xs ink3">' + c.needs + '</span>' : '')
-       +   '<a class="dl" href="' + c.file + '" download>Download</a>'
-       + '</div>';
-}).join('');
-</script>
+  <p>
+    Chains now live on the <a href="samples.html">Experimental Collection</a> page.<br>
+    Taking you there.
+  </p>
 </body>
 </html>
