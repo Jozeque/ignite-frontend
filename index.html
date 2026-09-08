@@ -417,7 +417,8 @@
   .addon-art{width:42px;height:42px;flex:none;border-radius:9px;object-fit:cover;
     border:1px solid var(--line)}
   .addon-body{min-width:0;flex:1}
-  .addon-t{font-size:12px;font-weight:800;color:var(--ink);line-height:1.3}
+  .addon-t{font-size:12px;font-weight:800;color:var(--ink);line-height:1.3;
+    text-transform:uppercase;letter-spacing:.045em}
   .addon-p{color:var(--copper-lt);font-weight:900}
   .addon-s{font-size:10.5px;color:var(--ink3);font-weight:600;margin-top:2px;line-height:1.35}
   .addon-btn{flex:none;cursor:pointer;font-size:10px;font-weight:900;letter-spacing:.1em;
@@ -435,7 +436,7 @@
     .addon-s{font-size:9.5px;margin-top:1px}
     .addon-btn{font-size:9px;padding:7px 9px;letter-spacing:.05em}
     /* The button already says Add, and Ableton/Stride are obvious in context. */
-    .addon-lead,.addon-full{display:none}
+    .addon-lead,.addon-full,.addon-sep{display:none}
   }
   .vlist{list-style:none;margin:11px 0 15px;padding:0;display:grid;gap:3px}
   .vlist li{display:flex;gap:8px;align-items:baseline;font-size:12.5px;font-weight:600;color:var(--ink2);line-height:1.35}
@@ -745,7 +746,7 @@
         </p>
         <div class="plate max-w-lg">
           <div class="tape2">
-            <span class="pulse"></span><span>New price</span><span class="flex-1"></span><span class="ends">Everything included</span>
+            <span class="pulse"></span><span>New price</span><span class="flex-1"></span><span class="ends">Stride VST + StrideBridge</span>
           </div>
           <div class="px-5 py-3.5 md:px-6 md:py-4">
             <div class="flex items-center gap-3 flex-wrap">
@@ -753,14 +754,17 @@
               <div class="text-lg font-bold ink3 leading-none" style="text-decoration:line-through;opacity:.75">$129</div>
               <span class="seal2">Save $30</span>
             </div>
+            <!-- Names the two things actually included. "Everything included" was true
+                 until the Experimental Collection became a paid add-on, and a shopper
+                 who reads "everything" and then meets a +$29 upsell has been misled. -->
             <ul class="vlist vlist-2">
-              <li><span class="d">●</span><span><b>Everything</b> included</span></li>
-              <li><span class="d">●</span><span>One-time purchase</span></li>
+              <li><span class="d">●</span><span><b>Stride VST + StrideBridge</b> included</span></li>
+              <li><span class="d">●</span><span>One-time purchase &middot; No subscription</span></li>
             </ul>
             <div id="addon" class="addon" hidden>
               <img class="addon-art" src="assets/packs/pack-drums.jpg" alt="" width="900" height="900" loading="lazy">
               <div class="addon-body">
-                <div class="addon-t"><span class="addon-lead">Add the </span>Experimental Collection <span class="addon-p" id="addon-price">+$24.99</span></div>
+                <div class="addon-t" id="addon-title"><span class="addon-lead">Add </span>Experimental Collection <span class="addon-sep">&middot; </span><span class="addon-p" id="addon-price">+$29</span></div>
                 <div class="addon-s">250+ sounds &middot; 15 <span class="addon-full">Ableton </span>Racks &middot; 4 <span class="addon-full">Stride</span>Chains</div>
               </div>
               <button type="button" id="addon-btn" class="addon-btn" aria-pressed="false"
@@ -1166,8 +1170,8 @@
   <!-- ───────────────── PRICING (offer moved here, after the value) ───────────────── -->
   <section data-ms="buy" id="pricing" class="mb-28 scroll-mt-8">
     <div class="text-center mb-10">
-      <p class="silk mb-3" style="color:var(--copper-lt)">One price · everything included</p>
-      <h2 class="text-4xl md:text-6xl mb-4">Get <span class="brand">everything</span> for $99</h2>
+      <p class="silk mb-3" style="color:var(--copper-lt)">Stride VST + StrideBridge · one-time purchase</p>
+      <h2 class="text-4xl md:text-6xl mb-4">Get <span class="brand">Stride</span> for $99</h2>
       <span class="chip" style="background:rgba(198,113,43,.15);color:var(--copper-lt);border:1px solid rgba(198,113,43,.45)">One purchase · yours for good</span>
     </div>
 
@@ -1191,14 +1195,14 @@
             <div class="text-lg font-bold ink3 leading-none" style="text-decoration:line-through;opacity:.75">$129</div>
             <span class="seal2">Save $30</span>
           </div>
-          <p class="text-[12px] font-bold mb-5 mt-2.5" style="color:var(--sage-lt)">Everything · one purchase</p>
+          <p class="text-[12px] font-bold mb-5 mt-2.5" style="color:var(--sage-lt)">Stride VST + StrideBridge</p>
           <a onclick="openBuy()" class="btn-copper w-full justify-center text-base py-3.5 rounded-2xl">Get Stride · $99</a>
           <a href="/try/" class="btn-ghost w-full justify-center text-sm py-3 rounded-2xl mt-2.5">Explore free for 24h</a>
           <p class="text-[11px] ink3 mt-3">VST3 + AU + Max for Live · not Pro Tools (AAX)</p>
         </div>
       </div>
     </div>
-    <p class="text-center text-[13px] ink3 mt-6 max-w-2xl mx-auto leading-relaxed">One licence, one price. Not Pro Tools (AAX). Third-party plugins shown are sold separately.</p>
+    <p class="text-center text-[13px] ink3 mt-6 max-w-2xl mx-auto leading-relaxed">Stride is a one-time purchase. The <a href="samples.html" style="color:var(--copper-lt)">Experimental Collection</a> is an optional add-on. Not Pro Tools (AAX). Third-party plugins shown are sold separately.</p>
   </section>
 
   <!-- ───────────────── IN ABLETON (StrideBridge) ───────────────── -->
@@ -1290,7 +1294,7 @@
   <section data-ms="faq" class="max-w-3xl mx-auto mb-24">
     <div class="text-center mb-10"><h2 class="text-3xl md:text-5xl mb-2">FAQ</h2><p class="silk">The questions everyone asks</p></div>
     <div class="space-y-3">
-      <details class="panel rounded-2xl" open><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">What do I get for $99?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Everything, in one purchase. <b class="ink">Stride VST</b> for every DAW (host your synths and effects and modulate them), plus <b class="ink">StrideBridge</b> for Ableton (reach the set's own devices, and print the motion into a clip when you want it). One price, no add-ons.</div></details>
+      <details class="panel rounded-2xl" open><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">What do I get for $99?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed"><b class="ink">Stride VST</b> for every DAW (host your synths and effects and modulate them), plus <b class="ink">StrideBridge</b> for Ableton (reach the set's own devices, and print the motion into a clip when you want it). One purchase, yours for good, no subscription. The <a href="samples.html" style="color:var(--copper-lt)">Experimental Collection</a> is a separate optional add-on and is not included.</div></details>
       <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Which DAWs does Stride VST work in?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Any VST3 host: Ableton Live, Cubase, Nuendo, Studio One, FL Studio, Reaper, Bitwig, Cakewalk and more. On macOS it also ships as an Audio Unit, so Logic and GarageBand work too. <b style="color:var(--rose-lt)">Not Pro Tools (AAX only).</b></div></details>
       <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Can Stride VST modulate Ableton devices?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Yes. Stride VST hosts and modulates VST3 instruments and effects directly inside Stride, in any DAW. In Ableton Live, <b class="ink">StrideBridge</b> also maps your Ableton devices into the same Stride canvas, so one click moves both. And when you want that motion written into a clip, select the clip and press INJECT on the bridge.</div></details>
       <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Can't I just draw automation by hand?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">You can, and Stride never takes that away: every lane stays editable, point by point, right on the canvas. What changes is scale. By hand, motion across a whole rack means one lane at a time. Stride writes all of them in one click, then hands you a fresh take on the next one. You shape, lock, or redraw whatever you want. Final say is always yours.</div></details>
@@ -1581,7 +1585,7 @@ function openBuy() { toggleBuyModal(); }
 
     // Both prices live here only. Every number the hero prints is derived.
     const STRIDE_PRICE = 99;
-    const COLLECTION_ADDON_PRICE = 24.99;
+    const COLLECTION_ADDON_PRICE = 29;
 
     let strideAddonOn = false;
 
@@ -1611,15 +1615,29 @@ function openBuy() { toggleBuyModal(); }
         row.hidden = !strideAddonAvailable();
         row.classList.toggle('on', on);
 
-        const priceTag = document.getElementById('addon-price');
-        if (priceTag) priceTag.textContent = '+' + strideMoney(COLLECTION_ADDON_PRICE);
+        // The whole row states the selection, not just the button. A shopper glancing
+        // back at the plate should not have to read a small control to know what they
+        // are about to be charged for.
+        const title = document.getElementById('addon-title');
+        if (title) {
+            title.innerHTML = (on
+                ? '✓ Experimental Collection added '
+                : '<span class="addon-lead">Add </span>Experimental Collection ')
+                + '<span class="addon-sep">· </span><span class="addon-p" id="addon-price">+'
+                + strideMoney(COLLECTION_ADDON_PRICE) + '</span>';
+        }
 
+        // "Remove" rather than a second "Added": the row already says it is added, and
+        // this control's job in that state is to be the way back out.
         const btn = document.getElementById('addon-btn');
         if (btn) {
             btn.innerHTML = on
-                ? '\u2713 Added<span class="addon-full"> \u00b7 +' + strideMoney(COLLECTION_ADDON_PRICE) + '</span>'
+                ? 'Remove'
                 : '+ Add<span class="addon-full"> to order</span>';
             btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+            btn.setAttribute('aria-label', on
+                ? 'Remove the Experimental Collection from your order'
+                : 'Add the Experimental Collection to your order for ' + strideMoney(COLLECTION_ADDON_PRICE));
         }
 
         const total = strideMoney(strideOrderTotal());
