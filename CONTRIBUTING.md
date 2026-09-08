@@ -104,3 +104,5 @@ ships. Ask rather than round up.
 
 If something looks broken on the live site and you did not cause it, say so
 rather than pushing a fix. Reverting is one command and production is public.
+
+<!-- protection test, deleted after verification -->
