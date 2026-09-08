@@ -148,6 +148,15 @@
   /* Every count in the offer, wherever it is repeated. The number is the thing being
      sold, so it carries the accent and the words around it stay quiet. */
   .num{color:var(--copper-lt)}
+  /* Reference, not pitch: the install paths fold away and open for whoever needs them. */
+  .disc{border-top:1px solid var(--line);padding-top:16px}
+  .disc>summary{cursor:pointer;list-style:none;display:flex;align-items:center;
+    justify-content:space-between;gap:10px;font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;font-weight:800;color:var(--ink3);transition:color .2s}
+  .disc>summary:hover{color:var(--copper-lt)}
+  .disc>summary::-webkit-details-marker{display:none}
+  .disc>summary::after{content:"+";font-size:15px;font-weight:700;color:var(--copper-lt);line-height:1}
+  .disc[open]>summary::after{content:"\2212"}
   .spec{font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:800;color:var(--ink3)}
   .rule{height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
   /* Both tool cards stretch to the taller one, so their closing block is pinned to the
@@ -288,93 +297,83 @@
 
   <div class="max-w-5xl mx-auto px-6"><div class="rule"></div></div>
 
-  <!-- ===================== THE 20 TOOLS ===================== -->
-  <!-- These are NOT how the samples were made. They are separate additions: more ways to
-       experiment, and worked examples of sound-design workflow. The earlier copy said
-       "the chains these sounds came out of", which claimed exactly the wrong thing. -->
+  <!-- ===================== PLUS ===================== -->
+  <!-- These are NOT how the samples were made. They are extra tools in the collection.
+       The racks carry a real buying requirement: their movement comes from Stride FX, so
+       without Stride they load as static racks. That belongs on the sales page, not in
+       the download folder. -->
   <section class="max-w-5xl mx-auto px-6 py-12 sm:py-16">
-    <div class="silk mb-8">Also included</div>
-    <div class="grid sm:grid-cols-2 gap-6 sm:gap-8">
+    <div class="silk mb-8">Plus</div>
+    <div class="grid sm:grid-cols-2 gap-6 sm:gap-10">
       <div>
         <div class="flex items-baseline gap-3 mb-2">
           <span class="text-2xl price num">15</span>
           <h2 class="text-lg uppercase tracking-tight">Ableton Racks</h2>
         </div>
-        <p class="text-sm ink2 leading-relaxed">Effects and sound-design racks to experiment with.</p>
+        <p class="text-sm ink2 leading-relaxed">Custom racks for processing and sound design.</p>
+        <p class="text-sm ink2 leading-relaxed mt-3">
+          Modulation is mapped to <span class="ink font-bold">Stride FX</span>, not native LFOs.
+          Stride is required for the racks to move.
+        </p>
       </div>
       <div>
         <div class="flex items-baseline gap-3 mb-2">
           <span class="text-2xl price num">4</span>
           <h2 class="text-lg uppercase tracking-tight">StrideChains</h2>
         </div>
-        <p class="text-sm ink2 leading-relaxed">Ready-made Stride setups and examples to explore.</p>
+        <p class="text-sm ink2 leading-relaxed">Ready-made Stride chains to explore and learn from.</p>
       </div>
     </div>
+
+    <!-- FREE FILES: one line and two rows. It earns its place because it proves the
+         workflow before buying, but it is not a section. -->
+    <div class="mt-12 sm:mt-14">
+      <p class="text-sm ink2 mb-4">Try one rack and one StrideChain free.</p>
+      <div id="chain-list"></div>
+    </div>
+
+    <details class="disc mt-12 sm:mt-14">
+      <summary>Where the files go</summary>
+      <div class="grid sm:grid-cols-2 gap-x-10 gap-y-7 pt-6">
+        <div>
+          <h3 class="text-base mb-1">Chain files</h3>
+          <p class="text-sm ink2 leading-relaxed mb-3">
+            <span class="mono ink3">.stridechain</span> &middot; drop it here, then hit
+            <span class="ink font-bold">Load</span> in Stride.
+          </p>
+          <div class="pathrow"><span class="os">Win</span><code>Documents\Stride\chains</code></div>
+          <div class="pathrow"><span class="os">Mac</span><code>~/Documents/Stride/chains</code></div>
+        </div>
+        <div>
+          <h3 class="text-base mb-1">Ableton racks</h3>
+          <p class="text-sm ink2 leading-relaxed mb-3">
+            <span class="mono ink3">.adg</span> &middot; drop it here, then drag it onto a track.
+          </p>
+          <div class="pathrow"><span class="os">Win</span><code>Documents\Ableton\User Library\Presets\Instruments\Instrument Rack</code></div>
+          <div class="pathrow"><span class="os">Mac</span><code>~/Music/Ableton/User Library/Presets/Instruments/Instrument Rack</code></div>
+        </div>
+      </div>
+    </details>
   </section>
 
   <div class="max-w-5xl mx-auto px-6"><div class="rule"></div></div>
 
-
-  <!-- ===================== WHERE THE FILES GO ===================== -->
-  <!-- Moved here from chains.html (2026-09-08). It was the only place on the site
-       documenting where a .stridechain goes, which matters now that the collection
-       ships four of them. -->
+  <!-- ===================== BOTTOM CTA ===================== -->
+  <!-- The offer once more for whoever reached the end, at a size that does not pretend to
+       be a second pitch. The hero already made it. -->
   <section class="max-w-5xl mx-auto px-6 py-12 sm:py-16">
-    <div class="mb-8 sm:mb-10">
-      <div class="silk">Where the files go</div>
-    </div>
-
-    <div class="grid sm:grid-cols-2 gap-x-10 gap-y-9 mb-16">
-      <div>
-        <h3 class="text-lg mb-1">Chain files</h3>
-        <p class="text-sm ink2 leading-relaxed mb-3">
-          <span class="mono ink3">.stridechain</span> &middot; drop it here, then hit
-          <span class="ink font-bold">Load</span> in Stride.
-        </p>
-        <div class="pathrow"><span class="os">Win</span><code>Documents\Stride\chains</code></div>
-        <div class="pathrow"><span class="os">Mac</span><code>~/Documents/Stride/chains</code></div>
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-10">
+      <div class="spec leading-relaxed text-center sm:text-left">
+        <span class="num">250+</span> Sounds <span class="ink3">&middot;</span>
+        <span class="num">15</span> Ableton Racks <span class="ink3">&middot;</span>
+        <span class="num">4</span> StrideChains
       </div>
-      <div>
-        <h3 class="text-lg mb-1">Ableton racks</h3>
-        <p class="text-sm ink2 leading-relaxed mb-3">
-          <span class="mono ink3">.adg</span> &middot; drop it here, then drag it onto a track.
-        </p>
-        <div class="pathrow"><span class="os">Win</span><code>Documents\Ableton\User Library\Presets\Instruments\Instrument Rack</code></div>
-        <div class="pathrow"><span class="os">Mac</span><code>~/Music/Ableton/User Library/Presets/Instruments/Instrument Rack</code></div>
-      </div>
-    </div>
-
-    <!-- FREE FILES, also from chains.html. A free taster on the product page is
-         deliberate: it uses the SAME install path the paid chains use, so anyone can
-         prove the workflow before buying. One line per file in the script below. -->
-    <div class="silk mb-2">Free to try</div>
-    <p class="text-sm ink2 leading-relaxed mb-5 max-w-xl">
-      One rack and one chain from the collection. Free to download.
-    </p>
-    <div id="chain-list"></div>
-  </section>
-
-  <div class="max-w-5xl mx-auto px-6"><div class="rule"></div></div>
-
-  <!-- ===================== FINAL CTA ===================== -->
-  <section class="max-w-5xl mx-auto px-6 py-12 sm:py-16">
-    <div class="glass-panel rounded-[22px] p-8 sm:p-12 text-center">
-      <div class="silk mb-4">The Whole Collection</div>
-      <h2 class="text-2xl sm:text-4xl uppercase tracking-tight mb-5 leading-tight">
-        Stride Experimental Collection
-      </h2>
-      <div class="spec mb-8 leading-relaxed">
-        <span class="num">250+</span> Sounds <span class="ink3">&middot;</span> <span class="num">3</span> Packs <span class="ink3">&middot;</span> <span class="num">15</span> Ableton Racks <span class="ink3">&middot;</span> <span class="num">4</span> StrideChains
-      </div>
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-5 sm:gap-8">
-        <div class="price text-5xl sm:text-6xl">$29</div>
-        <button type="button" class="soon px-8 py-4 text-sm" disabled aria-disabled="true">
+      <div class="flex items-center gap-5 sm:gap-6">
+        <div class="price text-4xl sm:text-5xl">$29</div>
+        <button type="button" class="soon px-7 py-4 text-sm" disabled aria-disabled="true">
           <span class="dot"></span>Available Soon
         </button>
       </div>
-      <p class="text-xs ink3 mt-6">
-        Not on sale yet. <a href="index.html" class="text-[color:var(--copper-lt)] hover:text-[color:var(--ember)] transition-colors">Get Stride</a> in the meantime.
-      </p>
     </div>
   </section>
 
