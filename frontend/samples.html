@@ -6,15 +6,15 @@
     <title>STRIDE | Experimental Collection</title>
 
     <!-- SEO -->
-    <meta name="description" content="Three packs built from one narrow source each: a water drop, broken drums, feedback. 200+ samples, 15 Ableton racks, 5 StrideChains. $29.">
+    <meta name="description" content="Three sound-design studies. 200+ original samples, plus 15 Ableton Racks and 5 StrideChains to take the exploration further. $29.">
     <link rel="canonical" href="https://stridehub.io/samples.html">
 
     <!-- Open Graph / Social cards -->
     <meta property="og:type" content="product">
     <meta property="og:url" content="https://stridehub.io/samples.html">
     <meta property="og:title" content="STRIDE | Experimental Collection">
-    <meta property="og:description" content="One source, pushed until it stopped sounding like itself. 200+ samples, 15 Ableton racks, 5 StrideChains.">
-    <meta property="og:image" content="https://stridehub.io/assets/packs/pack-water.jpg">
+    <meta property="og:description" content="Three sound-design studies. 200+ samples, 15 Ableton Racks and 5 StrideChains. One collection, $29.">
+    <meta property="og:image" content="https://stridehub.io/assets/packs/pack-drums.jpg">
     <meta property="og:image:width" content="900">
     <meta property="og:image:height" content="900">
     <meta property="og:image:alt" content="Stride Experimental Collection">
@@ -23,8 +23,8 @@
     <!-- Twitter / X card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="STRIDE | Experimental Collection">
-    <meta name="twitter:description" content="One source, pushed until it stopped sounding like itself. 200+ samples, 15 Ableton racks, 5 StrideChains.">
-    <meta name="twitter:image" content="https://stridehub.io/assets/packs/pack-water.jpg">
+    <meta name="twitter:description" content="Three sound-design studies. 200+ samples, 15 Ableton Racks and 5 StrideChains. One collection, $29.">
+    <meta name="twitter:image" content="https://stridehub.io/assets/packs/pack-drums.jpg">
 
     <meta name="theme-color" content="#141310">
 
@@ -162,8 +162,28 @@
     color:var(--copper-lt);white-space:nowrap;transition:color .15s}
   .dl:hover{color:var(--ink)}
   @media (max-width:520px){ .row{flex-wrap:wrap;gap:8px} .dl{margin-left:0;width:100%} }
-  .toolcard{display:flex;flex-direction:column}
-  .toolcard .fill{margin-top:auto}
+  /* The three covers as ONE object. Overlapping is what makes them read as a
+     collection rather than three products standing side by side. Unstacks on
+     narrow screens, where overlap just hides artwork. */
+  .stack{display:flex;align-items:flex-start}
+  .sleeve{position:relative;flex:1 1 0;min-width:0;margin:0;border-radius:14px;overflow:hidden;
+    border:1px solid var(--line);background:var(--bg2);
+    box-shadow:0 26px 50px -28px rgba(0,0,0,.95);transition:transform .35s ease}
+  .sleeve + .sleeve{margin-left:-14%}
+  /* LATER sleeves on top: each overlaps the one before, so every volume tag stays on a
+     visible left edge. Stacking the other way buried the Vol. 2 and Vol. 3 tags. */
+  .sleeve:nth-child(1){z-index:1}.sleeve:nth-child(2){z-index:2}.sleeve:nth-child(3){z-index:3}
+  .stack:hover .sleeve{transform:translateY(-4px)}
+  .sleeve img{display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover}
+  .vtag{position:absolute;left:8px;top:8px;font-size:9px;font-weight:900;letter-spacing:.16em;
+    text-transform:uppercase;padding:3px 8px;border-radius:999px;
+    border:1px solid rgba(198,113,43,.4);background:rgba(20,19,16,.82);color:var(--copper-lt)}
+  @media (max-width:520px){ .sleeve + .sleeve{margin-left:6px} .stack{gap:0} }
+  /* Compact tool cards, sitting with the covers so all five components read as one buy. */
+  .minicard{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;
+    border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(0,0,0,.14)),var(--panel)}
+  .mc-n{font-size:26px;font-weight:900;letter-spacing:-.02em;color:var(--ink);line-height:1}
+  .mc-l{font-size:10px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);line-height:1.35}
 </style>
 </head>
 <body>
@@ -180,27 +200,34 @@
     <a href="index.html" class="text-sm font-bold ink2 hover:text-[color:var(--copper-lt)] transition-colors">Get Stride &rarr;</a>
   </nav>
 
-  <!-- ===================== HERO ===================== -->
-  <header class="max-w-5xl mx-auto px-6 pt-6 pb-14 sm:pt-10 sm:pb-20">
-    <div class="grid lg:grid-cols-[1.1fr,.9fr] gap-10 lg:gap-14 items-center">
+  <!-- ===================== HERO = THE WHOLE OFFER =====================
+       One composition, not a stack of sections. Everything in the $29 purchase has to
+       be visible before the first scroll: the three packs, the sample count, the racks,
+       the chains, the price and the CTA. Previously the racks and chains lived two
+       sections down, so the offer read as "three sample packs, keep scrolling". -->
+  <header class="max-w-5xl mx-auto px-6 pt-6 pb-12 sm:pt-8 sm:pb-16">
+    <div class="grid md:grid-cols-[1fr,1fr] gap-10 lg:gap-12 items-center">
 
       <div>
         <div class="flex items-center gap-3 mb-5">
           <span class="chip pill-warm">Add-on for Stride</span>
-          <span class="silk">200+ Sounds</span>
         </div>
 
-        <h1 class="text-4xl sm:text-5xl lg:text-[3.4rem] leading-[1.02] uppercase mb-5">
+        <h1 class="text-4xl sm:text-5xl lg:text-[3.2rem] leading-[1.03] uppercase mb-5">
           Stride<br><span class="brand">Experimental</span><br>Collection
         </h1>
 
-        <p class="text-base sm:text-lg ink2 leading-relaxed max-w-lg mb-7">
-          Three packs, each built from one stubbornly narrow source, pushed until it stopped
-          sounding like itself. Less to start with, further to travel.
+        <p class="text-base sm:text-lg ink leading-snug max-w-md mb-4 font-bold">
+          Three sound-design studies. One collection built around doing more with less.
+        </p>
+        <p class="text-sm sm:text-base ink2 leading-relaxed max-w-md mb-7">
+          200+ original samples across three distinct experiments, plus 15 Ableton Racks
+          and 5 StrideChains to take the exploration further.
         </p>
 
-        <div class="spec mb-8 leading-relaxed">
-          200+ Samples <span class="ink3">&middot;</span> 15 Ableton Racks <span class="ink3">&middot;</span> 5 StrideChains
+        <div class="spec mb-7 leading-relaxed">
+          200+ Samples <span class="ink3">&middot;</span> 3 Packs <span class="ink3">&middot;</span>
+          15 Ableton Racks <span class="ink3">&middot;</span> 5 StrideChains
         </div>
 
         <div class="flex flex-wrap items-center gap-5 sm:gap-7">
@@ -209,14 +236,29 @@
             <span class="dot"></span>Available Soon
           </button>
         </div>
-        <p class="text-xs ink3 mt-4">One purchase, yours to keep. Works with any DAW; the racks and chains want Ableton.</p>
+        <p class="text-xs ink3 mt-4">One purchase, everything above. Yours to keep.</p>
       </div>
 
-      <!-- the three covers, stacked into one object -->
-      <div class="grid grid-cols-3 gap-3 sm:gap-4">
-        <div class="cover"><img src="assets/packs/pack-water.jpg" alt="Water Drop cover" loading="eager" width="900" height="900"></div>
-        <div class="cover"><img src="assets/packs/pack-drums.jpg" alt="Broken Drums cover" loading="eager" width="900" height="900"></div>
-        <div class="cover"><img src="assets/packs/pack-feedback.jpg" alt="Feedback cover" loading="eager" width="900" height="900"></div>
+      <!-- The bundle as one object: three covers that overlap into a single stack, and
+           the two tool cards directly under them. Overlapping is what makes them read as
+           a collection rather than three products sitting next to each other. -->
+      <div>
+        <div class="stack mb-4">
+          <figure class="sleeve"><img src="assets/packs/pack-drums.jpg" alt="Vol. 1 Broken Drums" width="900" height="900" loading="eager"><figcaption class="vtag">Vol. 1</figcaption></figure>
+          <figure class="sleeve"><img src="assets/packs/pack-water.jpg" alt="Vol. 2 One Drop" width="900" height="900" loading="eager"><figcaption class="vtag">Vol. 2</figcaption></figure>
+          <figure class="sleeve"><img src="assets/packs/pack-feedback.jpg" alt="Vol. 3 Feedback" width="900" height="900" loading="eager"><figcaption class="vtag">Vol. 3</figcaption></figure>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div class="minicard">
+            <div class="mc-n">15</div>
+            <div class="mc-l">Ableton<br>Racks</div>
+          </div>
+          <div class="minicard">
+            <div class="mc-n">5</div>
+            <div class="mc-l">Stride<br>Chains</div>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -224,116 +266,64 @@
 
   <div class="max-w-5xl mx-auto px-6"><div class="rule"></div></div>
 
-  <!-- ===================== THE THREE PACKS ===================== -->
-  <section class="max-w-5xl mx-auto px-6 py-14 sm:py-20">
-    <div class="mb-10 sm:mb-14">
-      <div class="silk mb-3">The Packs</div>
-      <h2 class="text-2xl sm:text-3xl uppercase tracking-tight max-w-2xl leading-tight">
-        One source. However far it goes.
-      </h2>
-    </div>
-
-    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-
-      <article class="pack">
-        <div class="cover mb-5">
-          <span class="vol chip pill-warm">Vol. 1</span>
-          <img src="assets/packs/pack-water.jpg" alt="Water Drop cover artwork" loading="lazy" width="900" height="900">
-        </div>
-        <h3 class="text-lg uppercase tracking-tight mb-2">Water Drop</h3>
-        <p class="text-sm ink2 leading-relaxed">
-          Every sound here started as one drop of water. Transients, tails, tuned bodies and
-          noise beds, all of it from that single hit.
-        </p>
-      </article>
-
-      <article class="pack">
-        <div class="cover mb-5">
-          <span class="vol chip pill-warm">Vol. 2</span>
-          <img src="assets/packs/pack-drums.jpg" alt="Broken Drums cover artwork" loading="lazy" width="900" height="900">
-        </div>
-        <h3 class="text-lg uppercase tracking-tight mb-2">Broken Drums</h3>
-        <p class="text-sm ink2 leading-relaxed">
-          Percussion taken apart and reassembled wrong on purpose. Distorted, misaligned,
-          and still holding a groove.
-        </p>
-      </article>
-
-      <article class="pack sm:col-span-2 lg:col-span-1">
-        <div class="cover mb-5">
-          <span class="vol chip pill-warm">Vol. 3</span>
-          <img src="assets/packs/pack-feedback.jpg" alt="Feedback cover artwork" loading="lazy" width="900" height="900">
-        </div>
-        <h3 class="text-lg uppercase tracking-tight mb-2">Feedback</h3>
-        <p class="text-sm ink2 leading-relaxed">
-          Signal fed back into itself until it built something. Long unstable tails, screaming
-          resonances, and the moments just before they collapse.
-        </p>
-      </article>
-
+  <!-- ===================== THE THREE STUDIES ===================== -->
+  <!-- Compact by design: the covers already did the selling upstairs. This is one line
+       each, so the page stops explaining and lets the titles do the work. -->
+  <section class="max-w-5xl mx-auto px-6 py-12 sm:py-16">
+    <div class="silk mb-8">The three studies</div>
+    <div class="grid sm:grid-cols-3 gap-8 sm:gap-10">
+      <div>
+        <div class="chip pill-warm mb-3 inline-block">Vol. 1</div>
+        <h2 class="text-lg uppercase tracking-tight mb-2">Broken Drums</h2>
+        <p class="text-sm ink2 leading-relaxed">Fractured percussion, destroyed drums and unstable rhythmic material.</p>
+      </div>
+      <div>
+        <div class="chip pill-warm mb-3 inline-block">Vol. 2</div>
+        <h2 class="text-lg uppercase tracking-tight mb-2">One Drop</h2>
+        <p class="text-sm ink2 leading-relaxed">An entire palette built from a single water drop.</p>
+      </div>
+      <div>
+        <div class="chip pill-warm mb-3 inline-block">Vol. 3</div>
+        <h2 class="text-lg uppercase tracking-tight mb-2">Feedback</h2>
+        <p class="text-sm ink2 leading-relaxed">Feedback pushed, resampled and processed into new material.</p>
+      </div>
     </div>
   </section>
 
   <div class="max-w-5xl mx-auto px-6"><div class="rule"></div></div>
 
-  <!-- ===================== THE TOOLS ===================== -->
-  <section class="max-w-5xl mx-auto px-6 py-14 sm:py-20">
-    <div class="mb-10 sm:mb-14">
-      <div class="silk mb-3">The Tools</div>
-      <h2 class="text-2xl sm:text-3xl uppercase tracking-tight max-w-2xl leading-tight">
-        Not just the results. What made them.
-      </h2>
-    </div>
-
-    <div class="grid md:grid-cols-2 gap-6 sm:gap-8">
-
-      <div class="panel toolcard p-6 sm:p-8">
-        <div class="flex items-baseline gap-3 mb-4">
-          <span class="text-3xl sm:text-4xl price">15</span>
-          <h3 class="text-lg uppercase tracking-tight">Ableton Racks</h3>
+  <!-- ===================== THE 20 TOOLS ===================== -->
+  <!-- These are NOT how the samples were made. They are separate additions: more ways to
+       experiment, and worked examples of sound-design workflow. The earlier copy said
+       "the chains these sounds came out of", which claimed exactly the wrong thing. -->
+  <section class="max-w-5xl mx-auto px-6 py-12 sm:py-16">
+    <div class="silk mb-8">Plus 20 tools to keep exploring</div>
+    <div class="grid sm:grid-cols-2 gap-6 sm:gap-8">
+      <div>
+        <div class="flex items-baseline gap-3 mb-2">
+          <span class="text-2xl price">15</span>
+          <h2 class="text-lg uppercase tracking-tight">Ableton Racks</h2>
         </div>
-        <p class="text-sm ink2 leading-relaxed mb-6">
-          The chains these sounds came out of, macro mapped and ready to abuse on your own
-          material. Open one, turn everything, keep what breaks well.
-        </p>
-        <div class="fill flex flex-wrap gap-2">
-          <span class="chip pill">Drum Mangling</span>
-          <span class="chip pill">Resonant Bodies</span>
-          <span class="chip pill">Feedback Networks</span>
-          <span class="chip pill">Granular Beds</span>
-        </div>
+        <p class="text-sm ink2 leading-relaxed">Ready-made starting points for processing and experimentation.</p>
       </div>
-
-      <div class="panel toolcard p-6 sm:p-8">
-        <div class="flex items-baseline gap-3 mb-4">
-          <span class="text-3xl sm:text-4xl price">5</span>
-          <h3 class="text-lg uppercase tracking-tight">StrideChains</h3>
+      <div>
+        <div class="flex items-baseline gap-3 mb-2">
+          <span class="text-2xl price">5</span>
+          <h2 class="text-lg uppercase tracking-tight">StrideChains</h2>
         </div>
-        <p class="text-sm ink2 leading-relaxed mb-6">
-          Saved Stride setups: the devices, the mappings and the motion already drawn. Load
-          one and the modulation is running before you touch anything.
-        </p>
-        <!-- ARTWORK PENDING: StrideChains visual. Square, drop it in as
-             assets/packs/pack-chains.jpg and replace this block with a .cover
-             exactly like the three above. -->
-        <div class="fill" style="aspect-ratio:16/7">
-          <div class="slot">
-            <span class="silk">Artwork pending</span>
-            <span class="text-xs ink3">StrideChains visual</span>
-          </div>
-        </div>
+        <p class="text-sm ink2 leading-relaxed">Examples and chains built to explore further inside Stride.</p>
       </div>
-
     </div>
   </section>
 
   <div class="max-w-5xl mx-auto px-6"><div class="rule"></div></div>
+
 
   <!-- ===================== WHERE THE FILES GO ===================== -->
   <!-- Moved here from chains.html (2026-09-08). It was the only place on the site
        documenting where a .stridechain goes, which matters now that the collection
        ships five of them. -->
-  <section class="max-w-5xl mx-auto px-6 py-14 sm:py-20">
+  <section class="max-w-5xl mx-auto px-6 py-12 sm:py-16">
     <div class="mb-10 sm:mb-14">
       <div class="silk mb-3">Where they go</div>
       <h2 class="text-2xl sm:text-3xl uppercase tracking-tight max-w-2xl leading-tight">
@@ -375,14 +365,14 @@
   <div class="max-w-5xl mx-auto px-6"><div class="rule"></div></div>
 
   <!-- ===================== FINAL CTA ===================== -->
-  <section class="max-w-5xl mx-auto px-6 py-16 sm:py-24">
+  <section class="max-w-5xl mx-auto px-6 py-12 sm:py-16">
     <div class="glass-panel rounded-[22px] p-8 sm:p-12 text-center">
       <div class="silk mb-4">The Whole Collection</div>
       <h2 class="text-2xl sm:text-4xl uppercase tracking-tight mb-5 leading-tight">
         Stride Experimental Collection
       </h2>
       <div class="spec mb-8 leading-relaxed">
-        200+ Samples <span class="ink3">&middot;</span> 15 Ableton Racks <span class="ink3">&middot;</span> 5 StrideChains
+        200+ Samples <span class="ink3">&middot;</span> 3 Packs <span class="ink3">&middot;</span> 15 Ableton Racks <span class="ink3">&middot;</span> 5 StrideChains
       </div>
       <div class="flex flex-col sm:flex-row items-center justify-center gap-5 sm:gap-8">
         <div class="price text-5xl sm:text-6xl">$29</div>
@@ -399,7 +389,7 @@
   <!-- ===================== FOOTER ===================== -->
   <footer class="max-w-5xl mx-auto px-6 py-10 border-t" style="border-color:var(--line)">
     <div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm ink3">
-      <span class="mono">&copy; STRIDE &mdash; Sound Design Engine</span>
+      <span class="mono">&copy; STRIDE | Sound Design Engine</span>
       <div class="flex items-center gap-5">
         <a href="index.html" class="hover:text-[color:var(--copper-lt)] transition-colors">Stride</a>
         <a href="privacy.html" class="hover:text-[color:var(--copper-lt)] transition-colors">Privacy</a>
