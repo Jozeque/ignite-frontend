@@ -3,28 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>STRIDE | Free Sample Pack</title>
+    <title>STRIDE | Experimental Collection</title>
 
     <!-- SEO -->
-    <meta name="description" content="100 sounds from my sound design sessions — edgy broken percussion, rekt drums, deep evolving basses. Free. Drop your email and grab the pack.">
+    <meta name="description" content="Three packs built from one narrow source each: a water drop, broken drums, feedback. 200+ samples, 15 Ableton racks, 5 StrideChains. $29.">
     <link rel="canonical" href="https://stridehub.io/samples.html">
 
     <!-- Open Graph / Social cards -->
-    <meta property="og:type" content="website">
+    <meta property="og:type" content="product">
     <meta property="og:url" content="https://stridehub.io/samples.html">
-    <meta property="og:title" content="STRIDE | Free Sample Pack — 100 Sounds">
-    <meta property="og:description" content="Broken perc, rekt drums, deep evolving basses. 100 sounds from my sessions — free.">
-    <meta property="og:image" content="https://stridehub.io/sample-pack-cover.jpg">
-    <meta property="og:image:width" content="1024">
-    <meta property="og:image:height" content="1024">
-    <meta property="og:image:alt" content="Stride Engine Sample Pack Vol. 1">
+    <meta property="og:title" content="STRIDE | Experimental Collection">
+    <meta property="og:description" content="One source, pushed until it stopped sounding like itself. 200+ samples, 15 Ableton racks, 5 StrideChains.">
+    <meta property="og:image" content="https://stridehub.io/assets/packs/pack-water.jpg">
+    <meta property="og:image:width" content="900">
+    <meta property="og:image:height" content="900">
+    <meta property="og:image:alt" content="Stride Experimental Collection">
     <meta property="og:site_name" content="Stride">
 
     <!-- Twitter / X card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="STRIDE | Free Sample Pack — 100 Sounds">
-    <meta name="twitter:description" content="Broken perc, rekt drums, deep evolving basses. 100 sounds from my sessions — free.">
-    <meta name="twitter:image" content="https://stridehub.io/sample-pack-cover.jpg">
+    <meta name="twitter:title" content="STRIDE | Experimental Collection">
+    <meta name="twitter:description" content="One source, pushed until it stopped sounding like itself. 200+ samples, 15 Ableton racks, 5 StrideChains.">
+    <meta name="twitter:image" content="https://stridehub.io/assets/packs/pack-water.jpg">
 
     <meta name="theme-color" content="#141310">
 
@@ -128,6 +128,30 @@
   @keyframes barPulse{0%,100%{transform:scaleY(.5)}50%{transform:scaleY(1)}}
   .wbar{transform-origin:bottom;animation:barPulse 1.6s ease-in-out infinite}
 </style>
+<style>
+  /* Page-local only. Everything above is the site's shared language, untouched. */
+  .cover{position:relative;border-radius:16px;overflow:hidden;border:1px solid var(--line);
+    background:var(--bg2);aspect-ratio:1/1;box-shadow:0 30px 60px -34px rgba(0,0,0,.95)}
+  .cover img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s ease}
+  .pack:hover .cover img{transform:scale(1.035)}
+  .vol{position:absolute;top:12px;left:12px;z-index:2}
+  /* Placeholder for artwork that does not exist yet. Deliberately looks like a slot
+     waiting to be filled, not like a finished thing. */
+  .slot{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6rem;
+    height:100%;border:1px dashed rgba(216,201,176,.22);border-radius:16px;background:
+    repeating-linear-gradient(135deg,rgba(255,255,255,.014) 0 10px,transparent 10px 20px),var(--bg2)}
+  .soon{display:inline-flex;align-items:center;justify-content:center;gap:.55rem;
+    border:1px dashed rgba(216,201,176,.28);background:rgba(255,255,255,.02);color:var(--ink3);
+    font-weight:900;letter-spacing:.14em;text-transform:uppercase;border-radius:14px;cursor:not-allowed}
+  .soon .dot{width:6px;height:6px;border-radius:999px;background:var(--copper);opacity:.9}
+  .price{font-weight:900;letter-spacing:-.02em;color:var(--ink);line-height:1}
+  .spec{font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:800;color:var(--ink3)}
+  .rule{height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
+  /* Both tool cards stretch to the taller one, so their closing block is pinned to the
+     bottom. Without this the Racks card ended halfway up and read as unfinished. */
+  .toolcard{display:flex;flex-direction:column}
+  .toolcard .fill{margin-top:auto}
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -140,149 +164,184 @@
       </svg>
       <span class="font-black text-lg ink tracking-tight">STRIDE</span>
     </a>
-    <a href="index.html" class="text-sm font-bold ink2 hover:text-[color:var(--copper-lt)] transition-colors">Get Stride →</a>
+    <a href="index.html" class="text-sm font-bold ink2 hover:text-[color:var(--copper-lt)] transition-colors">Get Stride &rarr;</a>
   </nav>
 
-  <!-- ===================== HERO + FORM ===================== -->
-  <main class="max-w-5xl mx-auto px-6 pt-8 pb-20 grid md:grid-cols-2 gap-12 items-center">
+  <!-- ===================== HERO ===================== -->
+  <header class="max-w-5xl mx-auto px-6 pt-6 pb-14 sm:pt-10 sm:pb-20">
+    <div class="grid lg:grid-cols-[1.1fr,.9fr] gap-10 lg:gap-14 items-center">
 
-    <!-- Left: pitch -->
-    <div>
-      <!-- Product cover. The box render carries its own dark studio backdrop
-           that matches the page bg, so it floats without a frame. Leads the
-           column on mobile (cover -> pitch -> form). -->
-      <img src="sample-pack-cover.jpg" width="1024" height="1024"
-           alt="Stride Engine Sample Pack Vol. 1 — cover art"
-           class="w-full max-w-[340px] rounded-2xl mb-7 drop-shadow-2xl">
-      <span class="chip pill-warm inline-block mb-5">100 free sounds</span>
-      <h1 class="text-5xl md:text-6xl font-black leading-[0.95] mb-5">
-        Straight from<br><span class="brand">the sessions.</span>
-      </h1>
-      <p class="text-lg ink2 leading-relaxed mb-6 max-w-md">
-        100 cuts I pulled from my sound design sessions over the last few months — edgy broken perc, rekt drums, and deep evolving basses. Drop your email, they're yours.
+      <div>
+        <div class="flex items-center gap-3 mb-5">
+          <span class="chip pill-warm">Add-on for Stride</span>
+          <span class="silk">200+ Sounds</span>
+        </div>
+
+        <h1 class="text-4xl sm:text-5xl lg:text-[3.4rem] leading-[1.02] uppercase mb-5">
+          Stride<br><span class="brand">Experimental</span><br>Collection
+        </h1>
+
+        <p class="text-base sm:text-lg ink2 leading-relaxed max-w-lg mb-7">
+          Three packs, each built from one stubbornly narrow source, pushed until it stopped
+          sounding like itself. Less to start with, further to travel.
+        </p>
+
+        <div class="spec mb-8 leading-relaxed">
+          200+ Samples <span class="ink3">&middot;</span> 15 Ableton Racks <span class="ink3">&middot;</span> 5 StrideChains
+        </div>
+
+        <div class="flex flex-wrap items-center gap-5 sm:gap-7">
+          <div class="price text-4xl sm:text-5xl">$29</div>
+          <button type="button" class="soon px-7 py-4 text-sm" disabled aria-disabled="true">
+            <span class="dot"></span>Available Soon
+          </button>
+        </div>
+        <p class="text-xs ink3 mt-4">One purchase, yours to keep. Works with any DAW; the racks and chains want Ableton.</p>
+      </div>
+
+      <!-- the three covers, stacked into one object -->
+      <div class="grid grid-cols-3 gap-3 sm:gap-4">
+        <div class="cover"><img src="assets/packs/pack-water.jpg" alt="Water Drop cover" loading="eager" width="900" height="900"></div>
+        <div class="cover"><img src="assets/packs/pack-drums.jpg" alt="Broken Drums cover" loading="eager" width="900" height="900"></div>
+        <div class="cover"><img src="assets/packs/pack-feedback.jpg" alt="Feedback cover" loading="eager" width="900" height="900"></div>
+      </div>
+
+    </div>
+  </header>
+
+  <div class="max-w-5xl mx-auto px-6"><div class="rule"></div></div>
+
+  <!-- ===================== THE THREE PACKS ===================== -->
+  <section class="max-w-5xl mx-auto px-6 py-14 sm:py-20">
+    <div class="mb-10 sm:mb-14">
+      <div class="silk mb-3">The Packs</div>
+      <h2 class="text-2xl sm:text-3xl uppercase tracking-tight max-w-2xl leading-tight">
+        One source. However far it goes.
+      </h2>
+    </div>
+
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+
+      <article class="pack">
+        <div class="cover mb-5">
+          <span class="vol chip pill-warm">Vol. 1</span>
+          <img src="assets/packs/pack-water.jpg" alt="Water Drop cover artwork" loading="lazy" width="900" height="900">
+        </div>
+        <h3 class="text-lg uppercase tracking-tight mb-2">Water Drop</h3>
+        <p class="text-sm ink2 leading-relaxed">
+          Every sound here started as one drop of water. Transients, tails, tuned bodies and
+          noise beds, all of it from that single hit.
+        </p>
+      </article>
+
+      <article class="pack">
+        <div class="cover mb-5">
+          <span class="vol chip pill-warm">Vol. 2</span>
+          <img src="assets/packs/pack-drums.jpg" alt="Broken Drums cover artwork" loading="lazy" width="900" height="900">
+        </div>
+        <h3 class="text-lg uppercase tracking-tight mb-2">Broken Drums</h3>
+        <p class="text-sm ink2 leading-relaxed">
+          Percussion taken apart and reassembled wrong on purpose. Distorted, misaligned,
+          and still holding a groove.
+        </p>
+      </article>
+
+      <article class="pack sm:col-span-2 lg:col-span-1">
+        <div class="cover mb-5">
+          <span class="vol chip pill-warm">Vol. 3</span>
+          <img src="assets/packs/pack-feedback.jpg" alt="Feedback cover artwork" loading="lazy" width="900" height="900">
+        </div>
+        <h3 class="text-lg uppercase tracking-tight mb-2">Feedback</h3>
+        <p class="text-sm ink2 leading-relaxed">
+          Signal fed back into itself until it built something. Long unstable tails, screaming
+          resonances, and the moments just before they collapse.
+        </p>
+      </article>
+
+    </div>
+  </section>
+
+  <div class="max-w-5xl mx-auto px-6"><div class="rule"></div></div>
+
+  <!-- ===================== THE TOOLS ===================== -->
+  <section class="max-w-5xl mx-auto px-6 py-14 sm:py-20">
+    <div class="mb-10 sm:mb-14">
+      <div class="silk mb-3">The Tools</div>
+      <h2 class="text-2xl sm:text-3xl uppercase tracking-tight max-w-2xl leading-tight">
+        Not just the results. What made them.
+      </h2>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6 sm:gap-8">
+
+      <div class="panel toolcard p-6 sm:p-8">
+        <div class="flex items-baseline gap-3 mb-4">
+          <span class="text-3xl sm:text-4xl price">15</span>
+          <h3 class="text-lg uppercase tracking-tight">Ableton Racks</h3>
+        </div>
+        <p class="text-sm ink2 leading-relaxed mb-6">
+          The chains these sounds came out of, macro mapped and ready to abuse on your own
+          material. Open one, turn everything, keep what breaks well.
+        </p>
+        <div class="fill flex flex-wrap gap-2">
+          <span class="chip pill">Drum Mangling</span>
+          <span class="chip pill">Resonant Bodies</span>
+          <span class="chip pill">Feedback Networks</span>
+          <span class="chip pill">Granular Beds</span>
+        </div>
+      </div>
+
+      <div class="panel toolcard p-6 sm:p-8">
+        <div class="flex items-baseline gap-3 mb-4">
+          <span class="text-3xl sm:text-4xl price">5</span>
+          <h3 class="text-lg uppercase tracking-tight">StrideChains</h3>
+        </div>
+        <p class="text-sm ink2 leading-relaxed mb-6">
+          Saved Stride setups: the devices, the mappings and the motion already drawn. Load
+          one and the modulation is running before you touch anything.
+        </p>
+        <!-- ARTWORK PENDING: StrideChains visual. Square, drop it in as
+             assets/packs/pack-chains.jpg and replace this block with a .cover
+             exactly like the three above. -->
+        <div class="fill" style="aspect-ratio:16/7">
+          <div class="slot">
+            <span class="silk">Artwork pending</span>
+            <span class="text-xs ink3">StrideChains visual</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="max-w-5xl mx-auto px-6"><div class="rule"></div></div>
+
+  <!-- ===================== FINAL CTA ===================== -->
+  <section class="max-w-5xl mx-auto px-6 py-16 sm:py-24">
+    <div class="glass-panel rounded-[22px] p-8 sm:p-12 text-center">
+      <div class="silk mb-4">The Whole Collection</div>
+      <h2 class="text-2xl sm:text-4xl uppercase tracking-tight mb-5 leading-tight">
+        Stride Experimental Collection
+      </h2>
+      <div class="spec mb-8 leading-relaxed">
+        200+ Samples <span class="ink3">&middot;</span> 15 Ableton Racks <span class="ink3">&middot;</span> 5 StrideChains
+      </div>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-5 sm:gap-8">
+        <div class="price text-5xl sm:text-6xl">$29</div>
+        <button type="button" class="soon px-8 py-4 text-sm" disabled aria-disabled="true">
+          <span class="dot"></span>Available Soon
+        </button>
+      </div>
+      <p class="text-xs ink3 mt-6">
+        Not on sale yet. <a href="index.html" class="text-[color:var(--copper-lt)] hover:text-[color:var(--ember)] transition-colors">Get Stride</a> in the meantime.
       </p>
-
-      <!-- what's inside -->
-      <ul class="space-y-2.5 mb-8">
-        <li class="flex items-center gap-3 text-sm ink2"><span class="w-1.5 h-1.5 rounded-full" style="background:var(--copper)"></span>Edgy broken percussion + rekt drum hits</li>
-        <li class="flex items-center gap-3 text-sm ink2"><span class="w-1.5 h-1.5 rounded-full" style="background:var(--copper)"></span>Deep basses that actually move and evolve</li>
-        <li class="flex items-center gap-3 text-sm ink2"><span class="w-1.5 h-1.5 rounded-full" style="background:var(--copper)"></span>Hand-picked from my own sessions since <a href="index.html" class="text-[color:var(--copper-lt)] underline hover:text-[color:var(--ember)]">Stride</a> dropped — no filler</li>
-      </ul>
-
-      <!-- animated waveform flourish -->
-      <div class="flex items-end gap-1 h-10 opacity-70" aria-hidden="true">
-        <div class="wbar w-1.5 rounded-full" style="height:100%;background:var(--copper);animation-delay:0s"></div>
-        <div class="wbar w-1.5 rounded-full" style="height:100%;background:var(--copper-lt);animation-delay:.15s"></div>
-        <div class="wbar w-1.5 rounded-full" style="height:100%;background:var(--amber);animation-delay:.3s"></div>
-        <div class="wbar w-1.5 rounded-full" style="height:100%;background:var(--ember);animation-delay:.45s"></div>
-        <div class="wbar w-1.5 rounded-full" style="height:100%;background:var(--copper);animation-delay:.6s"></div>
-        <div class="wbar w-1.5 rounded-full" style="height:100%;background:var(--teal-lt);animation-delay:.75s"></div>
-        <div class="wbar w-1.5 rounded-full" style="height:100%;background:var(--copper-lt);animation-delay:.9s"></div>
-      </div>
     </div>
-
-    <!-- Right: the form (same fields as the Stride download form) -->
-    <div id="form-card" class="glass-panel w-full max-w-md p-8 rounded-3xl mx-auto">
-      <h3 class="text-2xl font-black text-[color:var(--copper-lt)] uppercase tracking-tight mb-1">Get the pack</h3>
-      <p class="text-sm ink3 mb-6 font-medium">Drop your details — the download unlocks instantly.</p>
-
-      <div class="space-y-4 mb-5">
-        <div>
-          <label class="block text-[10px] ink3 font-bold uppercase tracking-widest mb-1.5">Producer Name *</label>
-          <input id="sp-name" type="text" placeholder="Your artist / producer name" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors">
-        </div>
-        <div>
-          <label class="block text-[10px] ink3 font-bold uppercase tracking-widest mb-1.5">Email *</label>
-          <input id="sp-email" type="email" placeholder="you@example.com" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors">
-        </div>
-        <div>
-          <label class="block text-[10px] ink3 font-bold uppercase tracking-widest mb-1.5">Country *</label>
-          <select id="sp-country" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-orange-500/50 transition-colors appearance-none" style="background-image: url('data:image/svg+xml;utf8,<svg fill=\"%2371717a\" viewBox=\"0 0 20 20\" xmlns=\"http://www.w3.org/2000/svg\"><path fill-rule=\"evenodd\" d=\"M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z\" clip-rule=\"evenodd\"/></svg>'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
-            <option value="" class="bg-zinc-900">Select your country</option>
-            <option value="US" class="bg-zinc-900">United States</option>
-            <option value="GB" class="bg-zinc-900">United Kingdom</option>
-            <option value="DE" class="bg-zinc-900">Germany</option>
-            <option value="FR" class="bg-zinc-900">France</option>
-            <option value="NL" class="bg-zinc-900">Netherlands</option>
-            <option value="SE" class="bg-zinc-900">Sweden</option>
-            <option value="NO" class="bg-zinc-900">Norway</option>
-            <option value="CA" class="bg-zinc-900">Canada</option>
-            <option value="AU" class="bg-zinc-900">Australia</option>
-            <option value="JP" class="bg-zinc-900">Japan</option>
-            <option value="BR" class="bg-zinc-900">Brazil</option>
-            <option value="MX" class="bg-zinc-900">Mexico</option>
-            <option value="IL" class="bg-zinc-900">Israel</option>
-            <option value="IN" class="bg-zinc-900">India</option>
-            <option value="KR" class="bg-zinc-900">South Korea</option>
-            <option value="ES" class="bg-zinc-900">Spain</option>
-            <option value="IT" class="bg-zinc-900">Italy</option>
-            <option value="PL" class="bg-zinc-900">Poland</option>
-            <option value="BE" class="bg-zinc-900">Belgium</option>
-            <option value="AT" class="bg-zinc-900">Austria</option>
-            <option value="CH" class="bg-zinc-900">Switzerland</option>
-            <option value="DK" class="bg-zinc-900">Denmark</option>
-            <option value="FI" class="bg-zinc-900">Finland</option>
-            <option value="OTHER" class="bg-zinc-900">Other</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-[10px] ink3 font-bold uppercase tracking-widest mb-1.5">How did you hear about us?</label>
-          <select id="sp-source" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-orange-500/50 transition-colors appearance-none" style="background-image: url('data:image/svg+xml;utf8,<svg fill=\"%2371717a\" viewBox=\"0 0 20 20\" xmlns=\"http://www.w3.org/2000/svg\"><path fill-rule=\"evenodd\" d=\"M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z\" clip-rule=\"evenodd\"/></svg>'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
-            <option value="" class="bg-zinc-900">Select (optional)</option>
-            <option value="reddit" class="bg-zinc-900">Reddit</option>
-            <option value="youtube" class="bg-zinc-900">YouTube</option>
-            <option value="instagram" class="bg-zinc-900">Instagram</option>
-            <option value="ableton-forum" class="bg-zinc-900">Ableton Forum</option>
-            <option value="friend" class="bg-zinc-900">Friend / Word of mouth</option>
-            <option value="kvr" class="bg-zinc-900">KVR Audio</option>
-            <option value="google" class="bg-zinc-900">Google Search</option>
-            <option value="other" class="bg-zinc-900">Other</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Marketing consent — this is a FREE pack, not a purchase, so instead of
-           the ToS/refund acknowledgment we collect an explicit opt-in. This is
-           what makes nurturing these leads by email legitimate. -->
-      <label class="flex items-start gap-2.5 mb-4 cursor-pointer select-none group">
-        <input id="sp-consent" type="checkbox" checked class="mt-0.5 shrink-0 w-4 h-4 accent-orange-500 cursor-pointer">
-        <span class="text-[11px] ink3 leading-snug group-hover:text-zinc-300 transition-colors">
-          Email me Stride news, free packs and product updates. Unsubscribe anytime.
-        </span>
-      </label>
-
-      <p id="sp-error" class="text-xs text-red-400 mb-3 hidden font-medium"></p>
-
-      <button id="sp-submit" onclick="submitSamplePackForm()" class="btn-copper w-full py-3.5 text-xs uppercase tracking-widest">
-        Grab the pack
-      </button>
-      <p class="text-[11px] ink3 mt-3 text-center font-medium">Instant download. No card, no catch.</p>
-    </div>
-
-    <!-- Success state (replaces the form card on submit) -->
-    <div id="success-card" class="glass-panel w-full max-w-md p-8 rounded-3xl mx-auto text-center hidden">
-      <div class="w-16 h-16 mx-auto mb-5 rounded-2xl flex items-center justify-center" style="background:rgba(198,113,43,.12);border:1px solid rgba(198,113,43,.3)">
-        <svg class="w-8 h-8" style="color:var(--copper-lt)" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-      </div>
-      <h3 class="text-3xl font-black ink mb-2">You're in.</h3>
-      <p class="ink2 text-base mb-7 leading-relaxed">100 sounds, all yours. Hit the button and go break something.</p>
-
-      <a id="sp-download" href="#" target="_blank" rel="noopener" class="btn-copper w-full py-4 text-sm uppercase tracking-widest mb-4">
-        Grab the pack
-      </a>
-
-      <div class="divider my-6"></div>
-      <p class="text-sm ink3 mb-3">Want to <span class="ink2 font-bold">design</span> your own, not just use mine?</p>
-      <a href="index.html" class="inline-flex items-center gap-2 text-sm font-bold text-[color:var(--copper-lt)] hover:text-[color:var(--ember)] transition-colors">
-        See what Stride does →
-      </a>
-    </div>
-  </main>
+  </section>
 
   <!-- ===================== FOOTER ===================== -->
   <footer class="max-w-5xl mx-auto px-6 py-10 border-t" style="border-color:var(--line)">
     <div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm ink3">
-      <span class="mono">© STRIDE — Sound Design Engine</span>
+      <span class="mono">&copy; STRIDE &mdash; Sound Design Engine</span>
       <div class="flex items-center gap-5">
         <a href="index.html" class="hover:text-[color:var(--copper-lt)] transition-colors">Stride</a>
         <a href="privacy.html" class="hover:text-[color:var(--copper-lt)] transition-colors">Privacy</a>
@@ -292,113 +351,16 @@
   </footer>
 </div>
 
-<script>
-    // ─────────────────────────────────────────────────────────────
-    //  SAMPLE-PACK DOWNLOAD URL  ←←←  SET THIS
-    //  Drop the direct link to the hosted pack ZIP here (Firebase
-    //  Storage, S3, Dropbox direct-dl, etc.). Until it's set, the
-    //  download button links nowhere and a console warning fires.
-    // ─────────────────────────────────────────────────────────────
-    // Firebase Storage download-token URL — public to anyone holding it
-    // (the ?token= bypasses Storage security rules). .zip, ~230 MB. (Replaced
-    // the earlier .rar, whose token got invalidated — it now 403s. .zip also
-    // opens natively everywhere; .rar needs extra software.) Verified
-    // anonymous-readable 200 OK 2026-06-08. DO NOT revoke/rotate the token or
-    // re-upload the file in the console — either action invalidates this URL.
-    const SAMPLE_PACK_DOWNLOAD_URL = 'https://firebasestorage.googleapis.com/v0/b/veero-next.firebasestorage.app/o/Stride%20Engine%20Sample%20Pack.zip?alt=media&token=32dca90b-e849-4b4c-9905-40661c09c859';
+<!-- ─────────────────────────────────────────────────────────────
+     The FREE sample-pack lead magnet used to live on this page. Its
+     signup form fed the `sample_pack_signup` funnel that admin.html
+     still reports on, and the hosted ZIP is still live. Keeping the
+     URL here so it is not lost with the page:
 
-    // Same backend endpoint the Stride forms post to.
-    const STRIDE_BACKEND = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
-    const CONSENT_VERSION = '2026-06-07-samples-v1';
+     https://firebasestorage.googleapis.com/v0/b/veero-next.firebasestorage.app/o/Stride%20Engine%20Sample%20Pack.zip?alt=media&token=32dca90b-e849-4b4c-9905-40661c09c859
 
-    function showSpError(msg) {
-        const el = document.getElementById('sp-error');
-        el.textContent = msg;
-        el.classList.remove('hidden');
-    }
-
-    function submitSamplePackForm() {
-        const name = document.getElementById('sp-name').value.trim();
-        const email = document.getElementById('sp-email').value.trim();
-        const country = document.getElementById('sp-country').value;
-        const source = document.getElementById('sp-source').value;
-        const consent = document.getElementById('sp-consent').checked;
-        const errorEl = document.getElementById('sp-error');
-
-        if (!name) { showSpError('Please enter your producer name'); return; }
-        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showSpError('Please enter a valid email'); return; }
-        if (!country) { showSpError('Please select your country'); return; }
-        errorEl.classList.add('hidden');
-
-        // Mirror the buy form's terms_accepted record so the backend's
-        // existing lead pipeline stores a clean consent audit trail. Scope
-        // marks these as free-pack opt-ins, distinct from purchase ToS.
-        const termsAccepted = {
-            accepted: consent,
-            version: CONSENT_VERSION,
-            accepted_at: new Date().toISOString(),
-            scope: 'sample_pack_signup',
-            user_agent: navigator.userAgent || null,
-            tz_offset_min: new Date().getTimezoneOffset(),
-            page_url: location.href,
-        };
-
-        // Meta attribution — same reads as index.html's buy flow. Sent with the
-        // lead so the backend stores fbc/fbclid/fbp/ua on the row: when this
-        // person later BUYS (via any path — demo, plugin button, email link),
-        // the order_created webhook recovers it by email and the sale is
-        // correctly labelled meta_ad instead of direct.
-        const eventId = (window.crypto && window.crypto.randomUUID)
-            ? window.crypto.randomUUID()
-            : 'evt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
-        const ck = function (n) { var m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : ''; };
-        const fbc = ck('_fbc') || (function () { try { return sessionStorage.getItem('stride_fbc') || ''; } catch (e) { return ''; } })();
-        const fbclid = (function () {
-            try { var v = localStorage.getItem('stride_fbclid'); if (v) return v; } catch (e) {}
-            return ck('stride_fbclid') || (fbc ? fbc.split('.').pop() : '');
-        })();
-        const fbp = ck('_fbp');
-        const ua = (navigator.userAgent || '').slice(0, 512);
-
-        // Fire the lead to the backend (non-blocking, keepalive so it survives
-        // the instant the success state swaps in).
-        fetch(STRIDE_BACKEND, {
-            method: 'POST',
-            keepalive: true,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'sample_pack_signup',
-                name, email, country, source,
-                fbc, fbclid, fbp, ua, event_id: eventId,
-                terms_accepted: termsAccepted,
-            })
-        }).catch(() => {});
-
-        // Meta Lead event — dedup-able via event_id, attributed via _fbc/_fbp.
-        try { if (window.fbq) fbq('track', 'Lead', { content_name: 'sample_pack' }, { eventID: eventId }); } catch (e) {}
-
-        localStorage.setItem('stride_sample_pack', JSON.stringify({
-            name, email, country, source, consent, timestamp: new Date().toISOString()
-        }));
-
-        // Reveal the download.
-        const dl = document.getElementById('sp-download');
-        if (SAMPLE_PACK_DOWNLOAD_URL) {
-            dl.setAttribute('href', SAMPLE_PACK_DOWNLOAD_URL);
-            dl.setAttribute('download', '');
-        } else {
-            console.warn('[Stride] SAMPLE_PACK_DOWNLOAD_URL is not set — download button has no target.');
-            dl.setAttribute('href', '#');
-        }
-        document.getElementById('form-card').classList.add('hidden');
-        document.getElementById('success-card').classList.remove('hidden');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    // Submit on Enter from the email field.
-    document.getElementById('sp-email').addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') submitSamplePackForm();
-    });
-</script>
+     Do NOT revoke or rotate that token, and do not re-upload the file
+     in the console: either invalidates the link.
+     ───────────────────────────────────────────────────────────── -->
 </body>
 </html>
