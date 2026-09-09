@@ -417,8 +417,11 @@
   .addon-art{width:42px;height:42px;flex:none;border-radius:9px;object-fit:cover;
     border:1px solid var(--line)}
   .addon-body{min-width:0;flex:1}
+  /* Uppercase, but NO letter-spacing: tracking pushed the title onto a second line
+     once the price returned to $24.99, which made the row taller in the default state
+     than in the added one and the card visibly jumped between them. */
   .addon-t{font-size:12px;font-weight:800;color:var(--ink);line-height:1.3;
-    text-transform:uppercase;letter-spacing:.045em}
+    text-transform:uppercase}
   .addon-p{color:var(--copper-lt);font-weight:900}
   .addon-s{font-size:10.5px;color:var(--ink3);font-weight:600;margin-top:2px;line-height:1.35}
   .addon-btn{flex:none;cursor:pointer;font-size:10px;font-weight:900;letter-spacing:.1em;
@@ -756,7 +759,7 @@
             </div>
             <!-- Name the two things actually included. The blanket claim that used to
                  sit here was true until the Experimental Collection became a paid
-                 add-on, and a shopper who reads it and then meets a +$29 upsell three
+                 add-on, and a shopper who reads it and then meets a paid upsell three
                  lines below has been misled. Phrased without the old wording on
                  purpose, so grepping this page for stale pricing claims stays honest. -->
             <ul class="vlist vlist-2">
@@ -765,7 +768,7 @@
             <div id="addon" class="addon" hidden>
               <img class="addon-art" src="assets/packs/pack-drums.jpg" alt="" width="900" height="900" loading="lazy">
               <div class="addon-body">
-                <div class="addon-t" id="addon-title"><span class="addon-lead">Add </span>Experimental Collection <span class="addon-p" id="addon-price">+$29</span></div>
+                <div class="addon-t" id="addon-title"><span class="addon-lead">Add </span>Experimental Collection <span class="addon-p" id="addon-price">+$24.99</span></div>
                 <div class="addon-s">250+ sounds &middot; 15 <span class="addon-full">Ableton </span>Racks &middot; 4 <span class="addon-full">Stride</span>Chains</div>
               </div>
               <button type="button" id="addon-btn" class="addon-btn" aria-pressed="false"
@@ -1585,8 +1588,14 @@ function openBuy() { toggleBuyModal(); }
     const STRIDE_COLLECTION_CHECKOUT_URL = 'https://strideengine.lemonsqueezy.com/checkout/buy/8a577a45-0ca2-4904-aaf4-a56345269c64';
 
     // Both prices live here only. Every number the hero prints is derived.
+    //
+    // THESE MUST MATCH LEMON SQUEEZY. Verified 2026-09-09 against the store API:
+    // Stride is product 973706 at $99.00 and "Stride + Bundle", the product the
+    // toggle actually redirects to, is product 1348067 at $123.99. The difference
+    // is the 24.99 below. If either number here drifts, the page advertises a total
+    // the checkout will not charge.
     const STRIDE_PRICE = 99;
-    const COLLECTION_ADDON_PRICE = 29;
+    const COLLECTION_ADDON_PRICE = 24.99;
 
     let strideAddonOn = false;
 
