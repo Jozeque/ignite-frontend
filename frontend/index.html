@@ -1627,6 +1627,11 @@ function openBuy() { toggleBuyModal(); }
     // the checkout will not charge.
     const STRIDE_PRICE = 99;
     const COLLECTION_ADDON_PRICE = 24.99;
+    // Display anchors only, never charged: what each thing is worth at list. The
+    // struck price and the Save seal are built from these so they stay true for
+    // whatever is in the order ($129 alone, $164 with the Collection).
+    const STRIDE_LIST_PRICE = 129;
+    const COLLECTION_VALUE = 35;
 
     let strideAddonOn = false;
 
@@ -1669,7 +1674,7 @@ function openBuy() { toggleBuyModal(); }
                 // display anchor only: COLLECTION_ADDON_PRICE stays 24.99 because that
                 // is what Lemon Squeezy actually charges ($123.99 bundle minus $99).
                 + '<span class="addon-was" style="text-decoration:line-through;opacity:.6;'
-                + 'font-weight:700;margin-left:.35rem">$35</span>';
+                + 'font-weight:700;margin-left:.35rem">$' + COLLECTION_VALUE + '</span>';
         }
 
         // "Remove" rather than a second "Added": the row already says it is added, and
@@ -1689,14 +1694,16 @@ function openBuy() { toggleBuyModal(); }
         const hero = document.querySelector('.hero-price');
         if (hero) hero.textContent = total;
 
-        // The struck list price and the "Save $30" seal describe the Stride-only
-        // offer. They say nothing true about a bundle, so they step aside while
-        // one is selected and come back when it is deselected.
+        // The struck price and the Save seal follow the order too. Stride alone is
+        // $129 struck and Save $30; with the Collection in, the original value is
+        // $129 + $35 = $164 struck against $123.99, Save $40. Both stay visible.
         const plate = hero ? hero.closest('.hero-price-line, .plate') : null;
         if (plate) {
             const struck = plate.querySelector('[style*="line-through"]');
             const seal = plate.querySelector('.seal2');
-            [struck, seal].forEach(function (el) { if (el) el.style.display = on ? 'none' : ''; });
+            const listTotal = on ? STRIDE_LIST_PRICE + COLLECTION_VALUE : STRIDE_LIST_PRICE;
+            if (struck) struck.textContent = strideMoney(listTotal);
+            if (seal) seal.textContent = 'Save ' + strideMoney(Math.round(listTotal - strideOrderTotal()));
         }
 
         const was = new RegExp('\\$' + STRIDE_PRICE + '(?!\\d)', 'g');
