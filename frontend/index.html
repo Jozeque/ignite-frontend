@@ -535,6 +535,13 @@
     .hero-cta > a{width:100%;justify-content:center;min-height:48px}
     .hero-cta > a.btn-ghost{font-size:12px}
 
+    /* Video first on mobile. The container is already flex-column here, so this is
+       pure `order`: the DOM keeps text-then-visual, which is the right reading order
+       for a screen reader and the order desktop still uses. */
+    .hero-cols > div:first-child{order:2}
+    .hero-cols > div:nth-of-type(2){order:1}   /* the visual column; the script tag is the real last child */
+    .hero-cols{gap:1.5rem}
+
     /* -- SOCIAL PROOF ------------------------------------------------------
        A vertical wall of quotes is the worst possible mobile shape. Swipe
        cards with scroll-snap keep every quote, but cost one card of height. */
@@ -748,7 +755,7 @@
       <path d="M0,450 L0,490 Q90,470 180,440 L180,490 Q270,470 360,440 L360,490 Q450,470 540,440 L540,490 Q630,470 720,440 L720,490 Q810,470 900,440 L900,490 Q990,470 1080,440 L1080,490 Q1170,470 1260,440 L1260,490 Q1330,475 1400,450" stroke="#9a8cbb" stroke-width="1.5"/>
     </svg>
 
-    <div class="relative flex flex-col lg:flex-row lg:items-center gap-10 lg:gap-12">
+    <div class="relative flex flex-col lg:flex-row lg:items-center gap-10 lg:gap-12 hero-cols">
       <div class="lg:flex-[6] min-w-0">
         <div class="silk mb-5">Sound Design Engine</div>
         <h1 class="text-5xl md:text-6xl xl:text-7xl mb-5 leading-[1.04]">
