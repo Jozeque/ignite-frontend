@@ -540,6 +540,7 @@
     .hero-cta{gap:.5rem}
     .hero-cta > a{width:100%;justify-content:center;min-height:48px}
     .hero-cta > a.btn-ghost{font-size:12px}
+    .hero-included{margin:8px 0 10px}
 
     /* Video first on mobile. The container is already flex-column here, so this is
        pure `order`: the DOM keeps text-then-visual, which is the right reading order
@@ -763,12 +764,12 @@
     </svg>
 
     <div class="relative flex flex-col lg:flex-row lg:items-center gap-10 lg:gap-12 hero-cols">
-      <div class="lg:flex-[6] min-w-0">
-        <div class="silk mb-5">Sound Design Engine</div>
-        <h1 class="text-5xl md:text-6xl xl:text-7xl mb-5 leading-[1.04]">
+      <div class="lg:flex-[38] min-w-0">
+        <div class="silk mb-4">Sound Design Engine</div>
+        <h1 class="text-5xl md:text-6xl lg:text-[40px] xl:text-[46px] mb-4 leading-[1.06]">
           A smart, musical automation engine that <span class="brand">pushes the limits of sound design.</span>
         </h1>
-        <p class="text-lg max-w-xl mb-4 leading-relaxed font-light ink2 hero-sub">
+        <p class="text-lg lg:text-[16px] lg:leading-[1.55] max-w-xl mb-4 leading-relaxed font-light ink2 hero-sub">
           Stride lets your VSTs and Ableton devices move together in one place, at once. Explore endless variations from the gear you already own. Every click reveals a fresh direction. Lock what works. Reroll the rest.
         </p>
         <!-- Capability line: what it reaches, directly under the claim. Kept small so it
@@ -776,44 +777,37 @@
         <p class="text-[12px] leading-relaxed mb-6 max-w-xl hero-spec">
           <span class="font-black uppercase tracking-[0.14em]" style="color:var(--copper-lt)">VST3 + AU + Ableton Devices</span><span class="hero-spec-b"> &middot; Audio In for guitar, vocals, hardware &amp; recordings</span>
         </p>
-        <div class="plate max-w-lg">
-          <div class="tape2">
-            <span class="pulse"></span><span>New price</span><span class="flex-1"></span><span class="ends">Stride VST + StrideBridge</span>
-          </div>
-          <div class="px-5 py-3.5 md:px-6 md:py-4">
-            <div class="flex items-center gap-3 flex-wrap">
-              <div class="text-6xl font-black ink leading-none tracking-tight hero-price">$99</div>
-              <div class="text-lg font-bold ink3 leading-none" style="text-decoration:line-through;opacity:.75">$129</div>
-              <span class="seal2">Save $30</span>
-            </div>
-            <!-- Name the two things actually included. The blanket claim that used to
-                 sit here was true until the Experimental Collection became a paid
-                 add-on, and a shopper who reads it and then meets a paid upsell three
-                 lines below has been misled. Phrased without the old wording on
-                 purpose, so grepping this page for stale pricing claims stays honest. -->
-            <ul class="vlist vlist-2">
-              <li><span class="d">●</span><span><b>Stride VST + StrideBridge</b> included</span></li>
-            </ul>
-            <div id="addon" class="addon" hidden>
-              <!-- A purpose-built 168px PNG rather than the 900px sleeve JPG: this slot is 42 CSS px,
-                   so 168 is pixel-exact at 4x and the file is a third of the weight. The 900px JPG
-                   stays where it belongs, as the sleeve and the OG image on samples.html. -->
-              <img class="addon-art" src="assets/packs/pack-drums-thumb.png" alt="" width="168" height="168" loading="lazy" decoding="async">
-              <div class="addon-body">
-                <div class="addon-t" id="addon-title"><span class="addon-lead">Add </span>Experimental Collection <span class="addon-p" id="addon-price">+$24.99</span><span class="addon-was" style="text-decoration:line-through;opacity:.6;font-weight:700;margin-left:.35rem">$35</span></div>
-                <div class="addon-s">250+ sounds &middot; 15 <span class="addon-full">Ableton </span>Racks &middot; 4 <span class="addon-full">Stride</span>Chains</div>
-              </div>
-              <button type="button" id="addon-btn" class="addon-btn" aria-pressed="false"
-                      onclick="strideToggleAddon()">+ Add<span class="addon-full"> to order</span></button>
-            </div>
-            <div class="flex flex-wrap items-center gap-2.5 hero-cta">
-              <a onclick="openBuy()" class="btn-copper text-[15px] py-3 px-6 rounded-xl">GET STRIDE &middot; $99 <span>&rarr;</span></a>
-              <a href="/try/" class="btn-ghost text-[11px] uppercase tracking-[0.1em] py-3 px-5 rounded-xl">Explore free for 24h</a>
-            </div>
-            <p class="text-[10.5px] ink3 mt-2.5">The pass is the full version &middot; no limitations &middot; on your own tracks</p>
-          </div>
+        <!-- The price rail. What used to be a bordered plate with a NEW PRICE tape is one
+             line above the buttons, so the copy column is exactly as tall as the video
+             beside it. The two CTA anchors below are untouched. -->
+        <div class="hero-price-line flex items-center gap-3 flex-wrap mt-1 mb-4">
+          <div class="text-5xl lg:text-[44px] font-black ink leading-none tracking-tight hero-price">$99</div>
+          <div class="text-base font-bold ink3 leading-none" style="text-decoration:line-through;opacity:.75">$129</div>
+          <span class="seal2">Save $30</span>
+          <span class="text-[9px] font-black uppercase tracking-[0.22em] ml-1" style="color:#8e8474">Stride VST + StrideBridge</span>
         </div>
-        <div class="mt-5 text-[10px] leading-tight max-w-md">
+        <div class="flex flex-wrap items-center gap-2.5 hero-cta">
+          <a onclick="openBuy()" class="btn-copper text-[15px] py-3 px-6 rounded-xl">GET STRIDE &middot; $99 <span>&rarr;</span></a>
+          <a href="/try/" class="btn-ghost text-[11px] uppercase tracking-[0.1em] py-3 px-5 rounded-xl">Explore free for 24h</a>
+        </div>
+        <p class="text-[10.5px] ink3 mt-2.5 mb-3">The pass is the full version &middot; no limitations &middot; on your own tracks</p>
+        <!-- Name the two things actually included, then the working add-on row. -->
+        <ul class="vlist vlist-2 hero-included">
+          <li><span class="d">&#9679;</span><span><b>Stride VST + StrideBridge</b> included</span></li>
+        </ul>
+        <div id="addon" class="addon" hidden>
+          <!-- A purpose-built 168px PNG rather than the 900px sleeve JPG: this slot is 42 CSS px,
+               so 168 is pixel-exact at 4x and the file is a third of the weight. The 900px JPG
+               stays where it belongs, as the sleeve and the OG image on samples.html. -->
+          <img class="addon-art" src="assets/packs/pack-drums-thumb.png" alt="" width="168" height="168" loading="lazy" decoding="async">
+          <div class="addon-body">
+            <div class="addon-t" id="addon-title"><span class="addon-lead">Add </span>Experimental Collection <span class="addon-p" id="addon-price">+$24.99</span><span class="addon-was" style="text-decoration:line-through;opacity:.6;font-weight:700;margin-left:.35rem">$35</span></div>
+            <div class="addon-s">250+ sounds &middot; 15 <span class="addon-full">Ableton </span>Racks &middot; 4 <span class="addon-full">Stride</span>Chains</div>
+          </div>
+          <button type="button" id="addon-btn" class="addon-btn" aria-pressed="false"
+                  onclick="strideToggleAddon()">+ Add<span class="addon-full"> to order</span></button>
+        </div>
+        <div class="mt-4 text-[10px] leading-tight max-w-md">
           <span class="font-black uppercase tracking-[0.18em]" style="color:var(--copper-lt)">Stride VST</span>
           <span class="ink3"> runs in any VST3 DAW, and in Logic as AU. </span>
           <span class="font-black uppercase tracking-[0.18em]" style="color:var(--teal-lt)">StrideBridge</span>
@@ -823,7 +817,7 @@
 
       <!-- flagship visual: the Stride VST window. The walkthrough plays right here,
            in the frame: clicking it never sends anyone off to YouTube. -->
-      <div class="lg:flex-[5] w-full min-w-0">
+      <div class="lg:flex-[62] w-full min-w-0">
         <div class="panel screws p-2 md:p-3 pt-7 block relative group" style="border-color:rgba(198,113,43,.28)"><span class="s s1"></span><span class="s s2"></span>
           <!-- stage: the loop sets the box size (16:9, same as the old thumbnail) and
                the walkthrough player drops in on top of it, so hitting play does not
@@ -1698,7 +1692,7 @@ function openBuy() { toggleBuyModal(); }
         // The struck list price and the "Save $30" seal describe the Stride-only
         // offer. They say nothing true about a bundle, so they step aside while
         // one is selected and come back when it is deselected.
-        const plate = hero ? hero.closest('.plate') : null;
+        const plate = hero ? hero.closest('.hero-price-line, .plate') : null;
         if (plate) {
             const struck = plate.querySelector('[style*="line-through"]');
             const seal = plate.querySelector('.seal2');
