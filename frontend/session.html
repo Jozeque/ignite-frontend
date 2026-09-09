@@ -295,28 +295,30 @@
   </footer>
 
 <script>
-  /* ONE PLACE TO SWITCH THIS ON.
-     Lemon Squeezy products cannot be created through their API: POST /v1/products
-     returns 405, GET only. So the $99 session product has to be created in the LS
-     dashboard by hand, and the post-purchase redirect to Calendly is a dashboard
-     setting too, not an API field.
+  /* PAYMENT LIVES ON CALENDLY, not Lemon Squeezy.
+     Calendly bills through its own Stripe connection at the moment of booking, which
+     closes the hole in a checkout-then-redirect design: nobody can pay $99 and then
+     never pick a slot, because the payment IS the booking.
 
-     Until that checkout URL is pasted below, this button books through Calendly
-     directly rather than sitting dead. Paste the URL and the page becomes a paid
-     flow with no other edit anywhere. */
-  var SESSION_CHECKOUT_URL = "";                                   // <- LS checkout, once it exists
-  var SESSION_CALENDLY_URL = "https://calendly.com/stride-engine";  // live today
+     ONE THING TO SET. Point this at the PAID event type, not the profile page. The
+     profile also lists the free "Stride Onboarding Call", so anyone landing there is
+     one click from booking the free one instead of this. Until the paid event exists
+     the button falls back to the profile so the page is not dead, and the note below
+     stays honest about what happens. */
+  var SESSION_BOOKING_URL = "";                                    // <- paid Calendly event
+  var SESSION_PROFILE_URL = "https://calendly.com/stride-engine";  // fallback, free events visible
 
   (function () {
     var a = document.getElementById('session-cta');
     var note = document.getElementById('session-note');
     if (!a) return;
-    var paid = !!SESSION_CHECKOUT_URL;
-    a.setAttribute('href', paid ? SESSION_CHECKOUT_URL : SESSION_CALENDLY_URL);
-    if (!paid) { a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener'); }
+    var paid = !!SESSION_BOOKING_URL;
+    a.setAttribute('href', paid ? SESSION_BOOKING_URL : SESSION_PROFILE_URL);
+    a.setAttribute('target', '_blank');
+    a.setAttribute('rel', 'noopener');
     if (note) {
       note.textContent = paid
-        ? 'You pick your slot straight after checkout. One hour, screen share, and you keep every chain we build.'
+        ? 'You pay as you book, so the slot is yours the moment it is confirmed. One hour, screen share, and you keep every chain we build.'
         : 'Pick a slot and we will confirm the details by email.';
     }
   })();
