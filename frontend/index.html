@@ -514,7 +514,7 @@
        Sections ship mb-28 (112px). Across 11 of them that is >1200px of dead
        scroll on a phone, which is the single largest source of mobile length. */
     .wrap > section{margin-bottom:3.25rem}
-    section[data-ms="hero"]{padding-top:1.5rem;padding-bottom:1.75rem}
+    section[data-ms="hero"]{padding-top:.25rem;padding-bottom:1.75rem}
 
     /* -- HERO --------------------------------------------------------------
        Measured on the live page at 375px: h1 was 250px and the paragraph
@@ -547,7 +547,10 @@
        for a screen reader and the order desktop still uses. */
     .hero-cols > div:first-child{order:2}
     .hero-cols > div:nth-of-type(2){order:1}   /* the visual column; the script tag is the real last child */
-    .hero-cols{gap:1.5rem}
+    .hero-cols{gap:.9rem}
+    #heroVideoNote{margin-top:.6rem}
+    .hero-eyebrow{display:none}                /* the phone reads the headline first */
+    .note-long{display:none}                   /* "Watch the full Stride walkthrough" */
 
     /* -- SOCIAL PROOF ------------------------------------------------------
        A vertical wall of quotes is the worst possible mobile shape. Swipe
@@ -625,7 +628,7 @@
        desktop links stayed on screen. Two extra points of specificity settle
        it without !important. */
     nav > div.nav-desktop{display:none}
-    .wrap > nav{padding-top:1rem;padding-bottom:1rem}
+    .wrap > nav{padding-top:.75rem;padding-bottom:.5rem}
     #m-menu-btn{
       display:inline-flex;align-items:center;justify-content:center;
       width:44px;height:44px;margin-right:-.35rem;border-radius:12px;
@@ -765,7 +768,7 @@
 
     <div class="relative flex flex-col lg:flex-row lg:items-center gap-10 lg:gap-12 hero-cols">
       <div class="lg:flex-[38] min-w-0">
-        <div class="silk mb-4">Sound Design Engine</div>
+        <div class="silk mb-4 hero-eyebrow">Sound Design Engine</div>
         <h1 class="text-5xl md:text-6xl lg:text-[40px] xl:text-[46px] mb-4 leading-[1.06]">
           A smart, musical automation engine that <span class="brand">pushes the limits of sound design.</span>
         </h1>
@@ -832,7 +835,7 @@
         <!-- the full walkthrough still plays right here, on top of the loop. The note is
              a real YouTube link so it works with JS off; the handler cancels the trip and
              loads the player in place instead. -->
-        <p id="heroVideoNote" class="text-center mono text-[10px] ink3 mt-4"><a id="heroPlay" href="https://www.youtube.com/watch?v=-Z4zRIiPg-4" target="_blank" rel="noopener" aria-label="Play the Stride walkthrough" class="transition-colors hover:text-[var(--copper-lt)]" style="color:var(--copper-lt)">&#9654; Watch a flat patch come alive: the full Stride walkthrough</a></p>
+        <p id="heroVideoNote" class="text-center mono text-[10px] ink3 mt-4"><a id="heroPlay" href="https://www.youtube.com/watch?v=-Z4zRIiPg-4" target="_blank" rel="noopener" aria-label="Play the Stride walkthrough" class="transition-colors hover:text-[var(--copper-lt)]" style="color:var(--copper-lt)">&#9654; Watch <span class="note-long">a flat patch come alive: </span>the full Stride walkthrough</a></p>
       </div>
 
       <!-- Click-to-play. The player is only fetched once someone asks for it, so the
