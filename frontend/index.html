@@ -811,22 +811,20 @@
            in the frame: clicking it never sends anyone off to YouTube. -->
       <div class="lg:flex-[5] w-full min-w-0">
         <div class="panel screws p-2 md:p-3 pt-7 block relative group" style="border-color:rgba(198,113,43,.28)"><span class="s s1"></span><span class="s s2"></span>
-          <!-- stage: the thumbnail sets the box size and the player drops in on top of
-               it, so hitting play does not shift a single pixel of the layout -->
-          <div id="heroStage" style="position:relative;border-radius:12px;border:1px solid rgba(198,113,43,.35);overflow:hidden;background:#0a0a09">
-            <img src="assets/hero-walkthrough-thumb.jpg" alt="Stride VST hosting Serum, Vital and a full effects rig, with every lane in motion" class="w-full block">
+          <!-- stage: the loop sets the box size (16:9, same as the old thumbnail) and
+               the walkthrough player drops in on top of it, so hitting play does not
+               shift a single pixel of the layout -->
+          <div id="heroStage" style="position:relative;border-radius:12px;border:1px solid rgba(198,113,43,.35);overflow:hidden;background:#0a0a09;box-shadow:0 30px 80px -30px rgba(0,0,0,.9),0 0 64px -14px rgba(198,113,43,.22)">
+            <video id="heroLoop" class="w-full block" autoplay loop muted playsinline preload="auto" poster="assets/stride-hero-poster.jpg" aria-label="Stride mapping a rack, putting a different curve on every lane, locking three lanes and re-rolling the rest">
+              <source src="assets/stride-hero.webm" type="video/webm">
+              <source src="assets/stride-hero.mp4" type="video/mp4">
+            </video>
           </div>
-          <!-- play overlay: the whole window is a clickable video thumbnail. It stays a
-               real YouTube link so it still works with JS off; the handler cancels the
-               trip and loads the player in place instead. -->
-          <a id="heroPlay" href="https://www.youtube.com/watch?v=-Z4zRIiPg-4" target="_blank" rel="noopener" aria-label="Play the Stride walkthrough" class="absolute inset-0 flex flex-col items-center justify-center gap-3" style="border-radius:16px;cursor:pointer;background:radial-gradient(circle at 50% 46%, rgba(16,15,12,.58), rgba(16,15,12,.24) 72%)">
-            <div class="rounded-full flex items-center justify-center transition-transform group-hover:scale-110" style="width:74px;height:74px;background:linear-gradient(180deg,var(--ember),var(--copper));box-shadow:0 16px 36px -12px rgba(198,113,43,.9),0 1px 0 rgba(255,255,255,.28) inset">
-              <svg class="w-8 h-8" style="margin-left:4px" viewBox="0 0 24 24" fill="#1c1206"><path d="M8 5v14l11-7z"/></svg>
-            </div>
-            <span class="silk" style="color:var(--copper-lt)">See it in action</span>
-          </a>
         </div>
-        <p id="heroVideoNote" class="text-center mono text-[10px] ink3 mt-4">▶ Watch a flat patch come alive: the full Stride walkthrough</p>
+        <!-- the full walkthrough still plays right here, on top of the loop. The note is
+             a real YouTube link so it works with JS off; the handler cancels the trip and
+             loads the player in place instead. -->
+        <p id="heroVideoNote" class="text-center mono text-[10px] ink3 mt-4"><a id="heroPlay" href="https://www.youtube.com/watch?v=-Z4zRIiPg-4" target="_blank" rel="noopener" aria-label="Play the Stride walkthrough" class="transition-colors hover:text-[var(--copper-lt)]" style="color:var(--copper-lt)">&#9654; Watch a flat patch come alive: the full Stride walkthrough</a></p>
       </div>
 
       <!-- Click-to-play. The player is only fetched once someone asks for it, so the
@@ -836,7 +834,14 @@
           var VIDEO = '-Z4zRIiPg-4';
           var play = document.getElementById('heroPlay'),
               stage = document.getElementById('heroStage'),
+              loop = document.getElementById('heroLoop'),
               note = document.getElementById('heroVideoNote');
+
+          // the loop holds still for people who asked for less motion
+          if (loop && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            loop.removeAttribute('autoplay');
+            loop.pause();
+          }
           if (!play || !stage) return;
 
           // warm the connection on first hover so the player starts faster on click
@@ -860,8 +865,8 @@
             f.allowFullscreen = true;
             f.setAttribute('style', 'position:absolute;inset:0;width:100%;height:100%;border:0;display:block');
             stage.appendChild(f);
-            play.remove();
-            if (note) note.innerHTML = 'Playing here · <a href="https://www.youtube.com/watch?v=' + VIDEO + '" target="_blank" rel="noopener" class="underline hover:text-[var(--copper-lt)]">open on YouTube</a>';
+            if (loop) loop.pause();
+            if (note) note.innerHTML = 'Playing here &middot; <a href="https://www.youtube.com/watch?v=' + VIDEO + '" target="_blank" rel="noopener" class="underline hover:text-[var(--copper-lt)]">open on YouTube</a>';
           });
         })();
       </script>
