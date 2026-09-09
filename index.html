@@ -771,7 +771,7 @@
                    stays where it belongs, as the sleeve and the OG image on samples.html. -->
               <img class="addon-art" src="assets/packs/pack-drums-thumb.png" alt="" width="168" height="168" loading="lazy" decoding="async">
               <div class="addon-body">
-                <div class="addon-t" id="addon-title"><span class="addon-lead">Add </span>Experimental Collection <span class="addon-p" id="addon-price">+$24.99</span></div>
+                <div class="addon-t" id="addon-title"><span class="addon-lead">Add </span>Experimental Collection <span class="addon-p" id="addon-price">+$24.99</span><span class="addon-was" style="text-decoration:line-through;opacity:.6;font-weight:700;margin-left:.35rem">$35</span></div>
                 <div class="addon-s">250+ sounds &middot; 15 <span class="addon-full">Ableton </span>Racks &middot; 4 <span class="addon-full">Stride</span>Chains</div>
               </div>
               <button type="button" id="addon-btn" class="addon-btn" aria-pressed="false"
@@ -1636,7 +1636,12 @@ function openBuy() { toggleBuyModal(); }
             title.innerHTML = (on
                 ? '✓ Experimental Collection added '
                 : '<span class="addon-lead">Add </span>Experimental Collection ')
-                + '<span class="addon-p" id="addon-price">+' + strideMoney(COLLECTION_ADDON_PRICE) + '</span>';
+                + '<span class="addon-p" id="addon-price">+' + strideMoney(COLLECTION_ADDON_PRICE) + '</span>'
+                // $35 is the stated VALUE of the collection, struck through. It is a
+                // display anchor only: COLLECTION_ADDON_PRICE stays 24.99 because that
+                // is what Lemon Squeezy actually charges ($123.99 bundle minus $99).
+                + '<span class="addon-was" style="text-decoration:line-through;opacity:.6;'
+                + 'font-weight:700;margin-left:.35rem">$35</span>';
         }
 
         // "Remove" rather than a second "Added": the row already says it is added, and
