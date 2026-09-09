@@ -243,6 +243,12 @@
     }
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lemon Squeezy overlay checkout. Opens their checkout in a modal ON this page
+         instead of navigating away, which is what puts Apple Pay and Google Pay one
+         tap from the hero: both are already enabled on the store and Stripe renders
+         them automatically inside that checkout for any device that can offer them.
+         defer + a hard fallback below, because a blocked script must never cost a sale. -->
+    <script src="https://assets.lemonsqueezy.com/lemon.js" defer></script>
     <script>
       (function(){
         function r(p){var o={},s=[50,100,200,300,400,500,600,700,800,900,950];for(var i=0;i<s.length;i++){o[s[i]]='rgb(var(--'+p+s[i]+') / <alpha-value>)';}return o;}
@@ -1712,6 +1718,55 @@ function openBuy() { toggleBuyModal(); }
 
     document.addEventListener('DOMContentLoaded', strideSyncAddon);
 
+    // lemon.js does NOT create window.LemonSqueezy when it loads. Read its tail: it
+    // defines createLemonSqueezy() and binds that to the window "load" event, so the
+    // API simply does not exist until load has fired. A visitor who clicks the CTA on
+    // a slow connection before then would silently get the redirect instead of the
+    // overlay. So build it on demand rather than hoping the race went our way.
+    function strideLemon() {
+        try {
+            if (!window.LemonSqueezy && typeof window.createLemonSqueezy === 'function') {
+                window.createLemonSqueezy();
+            }
+            var LS = window.LemonSqueezy;
+            return (LS && LS.Url && typeof LS.Url.Open === 'function') ? LS : null;
+        } catch (e) { return null; }
+    }
+
+    // Open the Lemon Squeezy checkout as an overlay, falling back to the redirect
+    // this replaced. The fallback is the important half: lemon.js is a third-party
+    // script and ad blockers, network failures and future CSP changes can all remove
+    // it, and none of those may be allowed to cost a sale. Anything unexpected here
+    // navigates instead, which is exactly the behaviour that shipped before.
+    function strideOpenCheckout(url) {
+        var LS = strideLemon();
+        if (LS) {
+            try {
+                // Url.Open appends embed=1 on our behalf, so we only add dark=1. Read
+                // its source: it does `searchParams.get("dark")` and picks between a
+                // rgba(0,0,0,.9) and a rgba(255,255,255,.9) loading backdrop. Without
+                // the flag this dark page flashes a near-white sheet while the
+                // checkout loads.
+                var open_url = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'dark=1';
+                LS.Setup({ eventHandler: strideCheckoutEvent });
+                toggleBuyModal();          // our modal steps aside for theirs
+                LS.Url.Open(open_url);
+                return;
+            } catch (e) { /* fall through to the redirect */ }
+        }
+        window.location.href = url;        // unchanged path, no embed param
+    }
+
+    // lemon.js posts checkout events out of the iframe: ViewCart, ApplyDiscount,
+    // RemoveDiscount, AddPaymentInfo, Purchase. Captured, but deliberately sending
+    // NOTHING onward yet: GA.Purchase would be a second purchase event alongside the
+    // Lemon Squeezy webhook that already reports server-side, and double counting
+    // revenue is worse than missing a signal. AddPaymentInfo is genuinely new and
+    // worth wiring once that dedup is decided.
+    function strideCheckoutEvent(event) {
+        try { window.__strideLastCheckoutEvent = event && event.event; } catch (e) {}
+    }
+
     function submitBuyForm() {
         // EMAIL + TERMS ONLY. Producer name and country were asked here and then
         // asked AGAIN by Lemon Squeezy, which collects billing name and country for
@@ -1843,7 +1898,7 @@ function openBuy() { toggleBuyModal(); }
             ['gclid', 'wbraid', 'gbraid'].forEach(function (k) {
                 if (gMk[k]) url += '&checkout[custom][' + k + ']=' + encodeURIComponent(gMk[k]);
             });
-            window.location.href = url;
+            strideOpenCheckout(url);
         } else {
             // Fallback: LS URL not configured yet — show thank-you for now
             toggleBuyModal();
