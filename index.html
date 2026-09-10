@@ -467,6 +467,31 @@
      silently kept the sticky bar hidden on phones. */
   /* Every mobile-only surface is display:none HERE, before the media query, so
      desktop can never render it and the query can legitimately override. */
+  /* Add-on explainer. .addon is the hover target AND the positioning context, so the
+     panel stays open while the pointer travels into it: a tooltip you cannot reach is
+     a tooltip with a dead button in it. */
+  .addon{position:relative}
+  .addon-tip{
+    position:absolute;left:0;right:0;bottom:calc(100% + 10px);z-index:40;
+    background:var(--bg2);border:1px solid var(--line);border-radius:14px;
+    padding:14px 16px;box-shadow:0 24px 48px -22px rgba(0,0,0,.95);
+    opacity:0;visibility:hidden;transform:translateY(6px);
+    transition:opacity .16s ease,transform .16s ease,visibility .16s}
+  .addon:hover .addon-tip,
+  .addon:focus-within .addon-tip,
+  .addon.tip-open .addon-tip{opacity:1;visibility:visible;transform:none}
+  @media (prefers-reduced-motion:reduce){.addon-tip{transition:none}}
+  .addon-tip-h{font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--copper-lt);margin:0 0 6px}
+  .addon-tip-b{font-size:12px;line-height:1.55;color:var(--ink2);margin:0 0 10px}
+  .addon-play{
+    display:inline-flex;align-items:center;gap:.5rem;min-height:36px;padding:0 .9rem;
+    border-radius:999px;border:1px solid var(--line);background:var(--raise);
+    color:var(--ink);font-size:12px;font-weight:800;cursor:pointer;
+    text-transform:uppercase;letter-spacing:.1em}
+  .addon-play:hover{border-color:rgba(216,201,176,.28)}
+  .addon-play-i{color:var(--copper-lt);font-size:11px;line-height:1}
+
   #m-cta{display:none}
   #m-menu{display:none}
   #m-menu-btn{display:none}
@@ -804,6 +829,23 @@
           </div>
           <button type="button" id="addon-btn" class="addon-btn" aria-pressed="false"
                   onclick="strideToggleAddon()">+ Add<span class="addon-full"> to order</span></button>
+
+          <!-- What am I paying for? The row named the contents but never the sound. This
+               panel says what the three experiments ARE, and the button plays the teaser
+               AUDIO only, since a sample pack is judged by ear. It opens on hover, on
+               keyboard focus, and on tap, so it is not desktop-only. -->
+          <div class="addon-tip" id="addon-tip" role="note">
+            <p class="addon-tip-h">Three sound-design experiments</p>
+            <p class="addon-tip-b">Broken drums destroyed and rebuilt into fractured percussion.
+              A whole palette made from one falling water drop. One simple signal pushed into
+              heavy feedback. Plus 15 Ableton Racks pre-mapped to Stride FX and 4 StrideChains.</p>
+            <button type="button" class="addon-play" id="addon-play"
+                    aria-label="Play a preview of the collection" onclick="strideCollectionAudio(event)">
+              <span class="addon-play-i" id="addon-play-i" aria-hidden="true">&#9654;</span>
+              <span id="addon-play-t">Hear it</span>
+            </button>
+            <audio id="addon-audio" preload="none" src="assets/packs/collection-teaser.mp3"></audio>
+          </div>
         </div>
         <div class="flex flex-wrap items-center gap-2.5 hero-cta">
           <a onclick="openBuy()" class="btn-copper text-[15px] py-3 px-6 rounded-xl">GET STRIDE &middot; $99 <span>&rarr;</span></a>
@@ -1598,6 +1640,47 @@ document.addEventListener('DOMContentLoaded', function () {
     _stickyHeroVisible = entries[0].isIntersecting;
     strideStickySync();
   }, { threshold: 0 }).observe(anchor);
+});
+
+/* The collection teaser, AUDIO only. A sample pack is judged by ear, and the row
+   above the CTA never let anyone hear it. preload="none" so the 645 KB is fetched
+   on the first press and never for the people who do not ask. */
+function strideCollectionAudio(e) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }   // never toggles the add-on itself
+  var a = document.getElementById('addon-audio');
+  var icon = document.getElementById('addon-play-i');
+  var label = document.getElementById('addon-play-t');
+  if (!a) return;
+  if (a.paused) {
+    var p = a.play();
+    if (p && p.catch) p.catch(function () {});
+    if (icon) icon.innerHTML = '&#10074;&#10074;';
+    if (label) label.textContent = 'Stop';
+  } else {
+    a.pause(); a.currentTime = 0;
+    if (icon) icon.innerHTML = '&#9654;';
+    if (label) label.textContent = 'Hear it';
+  }
+  a.onended = function () {
+    if (icon) icon.innerHTML = '&#9654;';
+    if (label) label.textContent = 'Hear it';
+  };
+}
+
+/* Touch has no hover, so the panel would never open on a phone. First tap on the row
+   reveals it, a tap anywhere else closes it, and the Add button keeps working
+   untouched because it stops the event itself. */
+document.addEventListener('DOMContentLoaded', function () {
+  var row = document.getElementById('addon');
+  if (!row || !window.matchMedia || !window.matchMedia('(hover: none)').matches) return;
+  row.addEventListener('click', function (ev) {
+    if (ev.target.closest('#addon-btn') || ev.target.closest('.addon-play')) return;
+    ev.preventDefault();
+    row.classList.toggle('tip-open');
+  });
+  document.addEventListener('click', function (ev) {
+    if (!ev.target.closest('#addon')) row.classList.remove('tip-open');
+  });
 });
 
 function openBuy() { toggleBuyModal(); }
