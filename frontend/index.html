@@ -438,6 +438,13 @@
   .addon.on .addon-btn{border-color:transparent;color:#1c1206;
     background:linear-gradient(180deg,var(--ember),var(--copper))}
   .addon-btn:focus-visible{outline:2px solid var(--copper-lt);outline-offset:2px}
+  .addon-compact{gap:8px;padding:8px 9px}
+  .addon-compact .addon-art{width:34px;height:34px;border-radius:8px}
+  .addon-compact .addon-t{font-size:11px}
+  .addon-compact .addon-s{font-size:9.5px;margin-top:1px}
+  .addon-compact .addon-btn{font-size:9px;padding:7px 9px;letter-spacing:.05em}
+  .addon-compact .addon-lead,.addon-compact .addon-full{display:none}
+
   @media (max-width:430px){
     .addon{gap:8px;padding:7px 8px}
     .addon-art{width:34px;height:34px;border-radius:8px}
@@ -808,8 +815,8 @@
         <!-- The price rail. What used to be a bordered plate with a NEW PRICE tape is one
              line above the buttons, so the copy column is exactly as tall as the video
              beside it. The two CTA anchors below are untouched. -->
-        <div class="hero-price-line flex items-center gap-3 flex-wrap mt-1 mb-4">
-          <div class="text-5xl lg:text-[44px] font-black ink leading-none tracking-tight hero-price">$99</div>
+        <div class="sd-price-box hero-price-line flex items-center gap-3 flex-wrap mt-1 mb-4">
+          <div class="text-5xl lg:text-[44px] font-black ink leading-none tracking-tight hero-price sd-total">$99</div>
           <div class="text-base font-bold ink3 leading-none" style="text-decoration:line-through;opacity:.75">$129</div>
           <span class="seal2">Save $30</span>
           <span class="text-[9px] font-black uppercase tracking-[0.22em] ml-1" style="color:#8e8474">Stride VST + StrideBridge</span>
@@ -1251,7 +1258,7 @@
   <section data-ms="buy" id="pricing" class="mb-28 scroll-mt-8">
     <div class="text-center mb-10">
       <p class="silk mb-3" style="color:var(--copper-lt)">Stride VST + StrideBridge · one-time purchase</p>
-      <h2 class="text-4xl md:text-6xl mb-4">Get <span class="brand">Stride</span> for $99</h2>
+      <h2 class="text-4xl md:text-6xl mb-4 sd-swap">Get <span class="brand">Stride</span> for $99</h2>
       <span class="chip" style="background:rgba(198,113,43,.15);color:var(--copper-lt);border:1px solid rgba(198,113,43,.45)">One purchase · yours for good</span>
     </div>
 
@@ -1270,12 +1277,21 @@
           </ul>
         </div>
         <div class="md:border-l md:pl-8" style="border-color:var(--line)">
-          <div class="flex items-center gap-3 flex-wrap mb-1">
-            <div class="text-6xl font-black ink leading-none tracking-tight">$99</div>
+          <div class="sd-price-box flex items-center gap-3 flex-wrap mb-1">
+            <div class="text-6xl font-black ink leading-none tracking-tight sd-total">$99</div>
             <div class="text-lg font-bold ink3 leading-none" style="text-decoration:line-through;opacity:.75">$129</div>
             <span class="seal2">Save $30</span>
           </div>
-          <p class="text-[12px] font-bold mb-5 mt-2.5" style="color:var(--sage-lt)">Stride VST + StrideBridge</p>
+          <p class="text-[12px] font-bold mb-5 mt-2.5 sd-what" style="color:var(--sage-lt)">Stride VST + StrideBridge</p>
+          <div class="addon addon-compact" style="margin-bottom:13px" hidden>
+            <img class="addon-art" src="assets/packs/pack-drums-thumb.png" alt="" width="168" height="168" loading="lazy" decoding="async">
+            <div class="addon-body">
+              <div class="addon-t"><span class="addon-lead">Add </span>Experimental Collection <span class="addon-p">+$24.99</span><span class="addon-was" style="text-decoration:line-through;opacity:.6;font-weight:700;margin-left:.35rem">$35</span></div>
+              <div class="addon-s">250+ sounds &middot; 15 <span class="addon-full">Ableton </span>Racks &middot; 4 <span class="addon-full">Stride</span>Chains</div>
+            </div>
+            <button type="button" class="addon-btn" aria-pressed="false"
+                    onclick="strideToggleAddon()">+ Add<span class="addon-full"> to order</span></button>
+          </div>
           <a onclick="openBuy()" class="btn-copper w-full justify-center text-base py-3.5 rounded-2xl">Get Stride · $99</a>
           <a href="/try/" class="btn-ghost w-full justify-center text-sm py-3 rounded-2xl mt-2.5">Explore free for 24h</a>
           <p class="text-[11px] ink3 mt-3">VST3 + AU + Max for Live · not Pro Tools (AAX)</p>
@@ -1741,64 +1757,82 @@ function openBuy() { toggleBuyModal(); }
     // saying $99 while the modal redirected to the bundle would charge people a
     // number the button never showed them.
     function strideSyncAddon() {
-        const row = document.getElementById('addon');
-        if (!row) return;
+        const rows = document.querySelectorAll('.addon');
+        if (!rows.length) return;
         const on = strideAddonActive();
-        row.hidden = !strideAddonAvailable();
-        row.classList.toggle('on', on);
+        const money = strideMoney(COLLECTION_ADDON_PRICE);
 
-        // The whole row states the selection, not just the button. A shopper glancing
-        // back at the plate should not have to read a small control to know what they
-        // are about to be charged for.
-        const title = document.getElementById('addon-title');
-        if (title) {
-            title.innerHTML = (on
-                ? '✓ Experimental Collection added '
-                : '<span class="addon-lead">Add </span>Experimental Collection ')
-                + '<span class="addon-p" id="addon-price">+' + strideMoney(COLLECTION_ADDON_PRICE) + '</span>'
-                // $35 is the stated VALUE of the collection, struck through. It is a
-                // display anchor only: COLLECTION_ADDON_PRICE stays 24.99 because that
-                // is what Lemon Squeezy actually charges ($123.99 bundle minus $99).
-                + '<span class="addon-was" style="text-decoration:line-through;opacity:.6;'
-                + 'font-weight:700;margin-left:.35rem">$' + COLLECTION_VALUE + '</span>';
-        }
+        // EVERY bump on the page, not just the hero's. The pricing panel further down
+        // is where a scroller actually decides, and it used to sit there with a static
+        // $99 beside a button that already said $123.99.
+        rows.forEach(function (row) {
+            row.hidden = !strideAddonAvailable();
+            row.classList.toggle('on', on);
 
-        // "Remove" rather than a second "Added": the row already says it is added, and
-        // this control's job in that state is to be the way back out.
-        const btn = document.getElementById('addon-btn');
-        if (btn) {
-            btn.innerHTML = on
-                ? 'Remove'
-                : '+ Add<span class="addon-full"> to order</span>';
-            btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-            btn.setAttribute('aria-label', on
-                ? 'Remove the Experimental Collection from your order'
-                : 'Add the Experimental Collection to your order for ' + strideMoney(COLLECTION_ADDON_PRICE));
-        }
+            // The whole row states the selection, not just the button. A shopper
+            // glancing back at the plate should not have to read a small control to
+            // know what they are about to be charged for.
+            const title = row.querySelector('.addon-t');
+            if (title) {
+                title.innerHTML = (on
+                    ? '✓ Experimental Collection added '
+                    : '<span class="addon-lead">Add </span>Experimental Collection ')
+                    + '<span class="addon-p">+' + money + '</span>'
+                    // $35 is the stated VALUE of the collection, struck through. It is a
+                    // display anchor only: COLLECTION_ADDON_PRICE stays 24.99 because that
+                    // is what Lemon Squeezy actually charges ($123.99 bundle minus $99).
+                    + '<span class="addon-was" style="text-decoration:line-through;opacity:.6;'
+                    + 'font-weight:700;margin-left:.35rem">$' + COLLECTION_VALUE + '</span>';
+            }
+
+            // "Remove" rather than a second "Added": the row already says it is added,
+            // and this control's job in that state is to be the way back out.
+            const btn = row.querySelector('.addon-btn');
+            if (btn) {
+                btn.innerHTML = on ? 'Remove' : '+ Add<span class="addon-full"> to order</span>';
+                btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+                btn.setAttribute('aria-label', on
+                    ? 'Remove the Experimental Collection from your order'
+                    : 'Add the Experimental Collection to your order for ' + money);
+            }
+        });
 
         const total = strideMoney(strideOrderTotal());
-        const hero = document.querySelector('.hero-price');
-        if (hero) hero.textContent = total;
+        document.querySelectorAll('.sd-total').forEach(function (el) { el.textContent = total; });
 
         // The struck price and the Save seal follow the order too. Stride alone is
         // $129 struck and Save $30; with the Collection in, the original value is
         // $129 + $35 = $164 struck against $123.99, Save $40. Both stay visible.
-        const plate = hero ? hero.closest('.hero-price-line, .plate') : null;
-        if (plate) {
-            const struck = plate.querySelector('[style*="line-through"]');
-            const seal = plate.querySelector('.seal2');
-            const listTotal = on ? STRIDE_LIST_PRICE + COLLECTION_VALUE : STRIDE_LIST_PRICE;
+        const listTotal = on ? STRIDE_LIST_PRICE + COLLECTION_VALUE : STRIDE_LIST_PRICE;
+        document.querySelectorAll('.sd-price-box').forEach(function (box) {
+            const struck = box.querySelector('[style*="line-through"]');
+            const seal = box.querySelector('.seal2');
             if (struck) struck.textContent = strideMoney(listTotal);
             if (seal) seal.textContent = 'Save ' + strideMoney(Math.round(listTotal - strideOrderTotal()));
-        }
+        });
 
+        // What the price buys, named rather than implied.
+        document.querySelectorAll('.sd-what').forEach(function (el) {
+            el.textContent = on
+                ? 'Stride VST + StrideBridge + Experimental Collection'
+                : 'Stride VST + StrideBridge';
+        });
+
+        // Every element that states the offer in words rewrites from its own original
+        // markup, so toggling off restores it exactly rather than un-replacing strings.
+        // The escapes must survive into the JS source as \\$ and \\d.
+        // A single \$ is dropped by the string literal and arrives as a bare $, which is
+        // an end-of-string anchor: the regex then matches nothing and every CTA keeps
+        // its old price while the words around it change. That bug shipped once.
         const was = new RegExp('\\$' + STRIDE_PRICE + '(?!\\d)', 'g');
-        document.querySelectorAll('a[onclick*="openBuy"]').forEach(function (el) {
+        document.querySelectorAll('a[onclick*="openBuy"], .sd-swap').forEach(function (el) {
             if (!el.dataset.baseHtml) el.dataset.baseHtml = el.innerHTML;
             el.innerHTML = on
                 ? el.dataset.baseHtml.replace(was, total)
                     .replace(/GET STRIDE/g, 'GET STRIDE + COLLECTION')
                     .replace(/Get Stride/g, 'Get Stride + Collection')
+                    // the section heading brands the word: Get <span>Stride</span> for $99
+                    .replace(/Stride<\/span>/g, 'Stride + Collection<\/span>')
                 : el.dataset.baseHtml;
         });
     }
