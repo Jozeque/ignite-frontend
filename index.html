@@ -484,9 +484,18 @@
     padding:14px 16px;box-shadow:0 24px 48px -22px rgba(0,0,0,.95);
     opacity:0;visibility:hidden;transform:translateY(6px);
     transition:opacity .16s ease,transform .16s ease,visibility .16s}
+  /* :focus-within kept this open after a CLICK, because the Add button holds focus
+     once pressed, so the panel stayed pinned even after the pointer left. :has() with
+     :focus-visible keeps the keyboard path working (tab to the button, panel opens)
+     without a mouse click counting as focus. strideToggleAddon also blurs on pointer
+     activation, which covers browsers with no :has() support. */
   .addon:hover .addon-tip,
-  .addon:focus-within .addon-tip,
   .addon.tip-open .addon-tip{opacity:1;visibility:visible;transform:none}
+  /* Its OWN rule, not a third item in the list above. An unsupported selector
+     invalidates the entire comma-separated rule it sits in, so putting :has() up
+     there would take plain hover down with it on Firefox before 121. Split, the
+     worst case is that keyboard focus stops opening the panel on an old browser. */
+  .addon:has(:focus-visible) .addon-tip{opacity:1;visibility:visible;transform:none}
   @media (prefers-reduced-motion:reduce){.addon-tip{transition:none}}
   .addon-tip-h{font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;
     color:var(--copper-lt);margin:0 0 6px}
@@ -835,7 +844,7 @@
             <div class="addon-s">250+ sounds &middot; 15 <span class="addon-full">Ableton </span>Racks &middot; 4 <span class="addon-full">Stride</span>Chains</div>
           </div>
           <button type="button" id="addon-btn" class="addon-btn" aria-pressed="false"
-                  onclick="strideToggleAddon()">+ Add<span class="addon-full"> to order</span></button>
+                  onclick="strideToggleAddon(event)">+ Add<span class="addon-full"> to order</span></button>
 
           <!-- What am I paying for? The row named the contents but never the sound. This
                panel says what the three experiments ARE, and the button plays the teaser
@@ -1290,7 +1299,7 @@
               <div class="addon-s">250+ sounds &middot; 15 <span class="addon-full">Ableton </span>Racks &middot; 4 <span class="addon-full">Stride</span>Chains</div>
             </div>
             <button type="button" class="addon-btn" aria-pressed="false"
-                    onclick="strideToggleAddon()">+ Add<span class="addon-full"> to order</span></button>
+                    onclick="strideToggleAddon(event)">+ Add<span class="addon-full"> to order</span></button>
           </div>
           <a onclick="openBuy()" class="btn-copper w-full justify-center text-base py-3.5 rounded-2xl">Get Stride · $99</a>
           <a href="/try/" class="btn-ghost w-full justify-center text-sm py-3 rounded-2xl mt-2.5">Explore free for 24h</a>
@@ -1747,10 +1756,23 @@ function openBuy() { toggleBuyModal(); }
         return '$' + (Math.round(v * 100) % 100 === 0 ? v.toFixed(0) : v.toFixed(2));
     }
 
-    function strideToggleAddon() {
+    function strideToggleAddon(ev) {
         if (!strideAddonAvailable()) return;
         strideAddonOn = !strideAddonOn;
         strideSyncAddon();
+
+        // A mouse or touch press leaves focus on the button, which used to hold the
+        // info panel open until you clicked elsewhere. Detail > 0 means a real pointer
+        // press; a keyboard Enter/Space reports 0, and that one keeps its focus ring
+        // and its panel. Also clear the touch latch, so a tap that toggles the add-on
+        // does not leave the panel stuck open behind it.
+        try {
+            if (ev && ev.detail > 0 && ev.currentTarget && ev.currentTarget.blur) {
+                ev.currentTarget.blur();
+                var row = ev.currentTarget.closest('.addon');
+                if (row) row.classList.remove('tip-open');
+            }
+        } catch (e) {}
     }
 
     // Every price on the page follows the selection. Leaving the CTAs further down
