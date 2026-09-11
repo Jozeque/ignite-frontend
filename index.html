@@ -508,6 +508,13 @@
   .addon-play:hover{border-color:rgba(216,201,176,.28)}
   .addon-play-i{color:var(--copper-lt);font-size:11px;line-height:1}
 
+  /* "+VAT" beside every landing-page price (2026-09-11). Lemon Squeezy adds VAT at
+     checkout by buyer country, so shown prices are ex-VAT; this says so up front.
+     Always a SIBLING of .sd-total / the struck price, never inside them: the add-on
+     toggle rewrites those with textContent and would silently eat an inline tag. */
+  .vat-tag{font-size:.58em;font-weight:800;opacity:.65;letter-spacing:.03em;
+           margin-left:.32em;color:inherit;white-space:nowrap}
+
   #m-cta{display:none}
   #m-menu{display:none}
   #m-menu-btn{display:none}
@@ -792,7 +799,7 @@
       <button type="button" onclick="strideMenu(false); toggleContactModal()">Contact</button>
     </nav>
     <div class="m-menu-cta">
-      <a onclick="strideMenu(false); openBuy()" class="btn-copper">GET STRIDE &middot; $99</a>
+      <a onclick="strideMenu(false); openBuy()" class="btn-copper">GET STRIDE &middot; $99 <span class="vat-tag">+VAT</span></a>
       <a href="/try/" class="btn-ghost">Explore free for 24h</a>
     </div>
   </div>
@@ -826,7 +833,7 @@
              beside it. The two CTA anchors below are untouched. -->
         <div class="sd-price-box hero-price-line flex items-center gap-3 flex-wrap mt-1 mb-4">
           <div class="text-5xl lg:text-[44px] font-black ink leading-none tracking-tight hero-price sd-total">$99</div>
-          <div class="text-base font-bold ink3 leading-none" style="text-decoration:line-through;opacity:.75">$129</div>
+          <div class="text-base fold-strike font-bold ink3 leading-none" style="text-decoration:line-through;opacity:.75">$129</div><span class="vat-tag ink3">+ VAT</span>
           <span class="seal2">Save $30</span>
           <span class="text-[9px] font-black uppercase tracking-[0.22em] ml-1" style="color:#8e8474">Stride VST + StrideBridge</span>
         </div>
@@ -840,7 +847,7 @@
                stays where it belongs, as the sleeve and the OG image on samples.html. -->
           <img class="addon-art" src="assets/packs/pack-drums-thumb.png" alt="" width="168" height="168" loading="lazy" decoding="async">
           <div class="addon-body">
-            <div class="addon-t" id="addon-title"><span class="addon-lead">Add </span>Experimental Collection <span class="addon-p" id="addon-price">+$24.99</span><span class="addon-was" style="text-decoration:line-through;opacity:.6;font-weight:700;margin-left:.35rem">$35</span></div>
+            <div class="addon-t" id="addon-title"><span class="addon-lead">Add </span>Experimental Collection <span class="addon-p" id="addon-price">+$24.99</span><span class="addon-was" style="text-decoration:line-through;opacity:.6;font-weight:700;margin-left:.35rem">$35</span><span class="vat-tag">+VAT</span></div>
             <div class="addon-s">250+ sounds &middot; 15 <span class="addon-full">Ableton </span>Racks &middot; 4 <span class="addon-full">Stride</span>Chains</div>
           </div>
           <button type="button" id="addon-btn" class="addon-btn" aria-pressed="false"
@@ -864,7 +871,7 @@
           </div>
         </div>
         <div class="flex flex-wrap items-center gap-2.5 hero-cta">
-          <a onclick="openBuy()" class="btn-copper text-[15px] py-3 px-6 rounded-xl">GET STRIDE &middot; $99 <span>&rarr;</span></a>
+          <a onclick="openBuy()" class="btn-copper text-[15px] py-3 px-6 rounded-xl">GET STRIDE &middot; $99 <span class="vat-tag">+VAT</span> <span>&rarr;</span></a>
           <a href="/try/" class="btn-ghost text-[11px] uppercase tracking-[0.1em] py-3 px-5 rounded-xl">Explore free for 24h</a>
         </div>
         <p class="text-[10.5px] ink3 mt-2.5">The pass is the full version &middot; no limitations &middot; on your own tracks</p>
@@ -1267,7 +1274,7 @@
   <section data-ms="buy" id="pricing" class="mb-28 scroll-mt-8">
     <div class="text-center mb-10">
       <p class="silk mb-3" style="color:var(--copper-lt)">Stride VST + StrideBridge · one-time purchase</p>
-      <h2 class="text-4xl md:text-6xl mb-4 sd-swap">Get <span class="brand">Stride</span> for $99</h2>
+      <h2 class="text-4xl md:text-6xl mb-4 sd-swap">Get <span class="brand">Stride</span> for $99<span class="vat-tag">+ VAT</span></h2>
       <span class="chip" style="background:rgba(198,113,43,.15);color:var(--copper-lt);border:1px solid rgba(198,113,43,.45)">One purchase · yours for good</span>
     </div>
 
@@ -1288,20 +1295,20 @@
         <div class="md:border-l md:pl-8" style="border-color:var(--line)">
           <div class="sd-price-box flex items-center gap-3 flex-wrap mb-1">
             <div class="text-6xl font-black ink leading-none tracking-tight sd-total">$99</div>
-            <div class="text-lg font-bold ink3 leading-none" style="text-decoration:line-through;opacity:.75">$129</div>
+            <div class="text-lg font-bold ink3 leading-none" style="text-decoration:line-through;opacity:.75">$129</div><span class="vat-tag ink3">+ VAT</span>
             <span class="seal2">Save $30</span>
           </div>
           <p class="text-[12px] font-bold mb-5 mt-2.5 sd-what" style="color:var(--sage-lt)">Stride VST + StrideBridge</p>
           <div class="addon addon-compact" style="margin-bottom:13px" hidden>
             <img class="addon-art" src="assets/packs/pack-drums-thumb.png" alt="" width="168" height="168" loading="lazy" decoding="async">
             <div class="addon-body">
-              <div class="addon-t"><span class="addon-lead">Add </span>Experimental Collection <span class="addon-p">+$24.99</span><span class="addon-was" style="text-decoration:line-through;opacity:.6;font-weight:700;margin-left:.35rem">$35</span></div>
+              <div class="addon-t"><span class="addon-lead">Add </span>Experimental Collection <span class="addon-p">+$24.99</span><span class="addon-was" style="text-decoration:line-through;opacity:.6;font-weight:700;margin-left:.35rem">$35</span><span class="vat-tag">+VAT</span></div>
               <div class="addon-s">250+ sounds &middot; 15 <span class="addon-full">Ableton </span>Racks &middot; 4 <span class="addon-full">Stride</span>Chains</div>
             </div>
             <button type="button" class="addon-btn" aria-pressed="false"
                     onclick="strideToggleAddon(event)">+ Add<span class="addon-full"> to order</span></button>
           </div>
-          <a onclick="openBuy()" class="btn-copper w-full justify-center text-base py-3.5 rounded-2xl">Get Stride · $99</a>
+          <a onclick="openBuy()" class="btn-copper w-full justify-center text-base py-3.5 rounded-2xl">Get Stride · $99 <span class="vat-tag">+VAT</span></a>
           <a href="/try/" class="btn-ghost w-full justify-center text-sm py-3 rounded-2xl mt-2.5">Explore free for 24h</a>
           <p class="text-[11px] ink3 mt-3">VST3 + AU + Max for Live · not Pro Tools (AAX)</p>
         </div>
@@ -1367,8 +1374,8 @@
     </div>
 
     <div class="text-center mt-9">
-      <a onclick="openBuy()" class="btn-copper text-sm uppercase tracking-widest py-3.5 px-9 rounded-full">Get Stride · $99</a>
-      <p class="text-[12px] ink3 mt-3">StrideBridge is included with Stride. One purchase, $99.</p>
+      <a onclick="openBuy()" class="btn-copper text-sm uppercase tracking-widest py-3.5 px-9 rounded-full">Get Stride · $99 <span class="vat-tag">+VAT</span></a>
+      <p class="text-[12px] ink3 mt-3">StrideBridge is included with Stride. One purchase, $99 + VAT.</p>
     </div>
     <!-- Mobile-only progressive disclosure. CSS checkbox + label: no JS, no CLS,
          nothing hydrated. The content is COLLAPSED, never removed, so it stays in
@@ -1399,13 +1406,13 @@
   <section data-ms="faq" class="max-w-3xl mx-auto mb-24">
     <div class="text-center mb-10"><h2 class="text-3xl md:text-5xl mb-2">FAQ</h2><p class="silk">The questions everyone asks</p></div>
     <div class="space-y-3">
-      <details class="panel rounded-2xl" open><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">What do I get for $99?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed"><b class="ink">Stride VST</b> for every DAW (host your synths and effects and modulate them), plus <b class="ink">StrideBridge</b> for Ableton (reach the set's own devices, and print the motion into a clip when you want it). One purchase, yours for good, no subscription. The <a href="samples.html" style="color:var(--copper-lt)">Experimental Collection</a> is a separate optional add-on and is not included.</div></details>
+      <details class="panel rounded-2xl" open><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">What do I get for $99 + VAT?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed"><b class="ink">Stride VST</b> for every DAW (host your synths and effects and modulate them), plus <b class="ink">StrideBridge</b> for Ableton (reach the set's own devices, and print the motion into a clip when you want it). One purchase, yours for good, no subscription. The <a href="samples.html" style="color:var(--copper-lt)">Experimental Collection</a> is a separate optional add-on and is not included.</div></details>
       <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Which DAWs does Stride VST work in?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Any VST3 host: Ableton Live, Cubase, Nuendo, Studio One, FL Studio, Reaper, Bitwig, Cakewalk and more. On macOS it also ships as an Audio Unit, so Logic and GarageBand work too. <b style="color:var(--rose-lt)">Not Pro Tools (AAX only).</b></div></details>
       <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Can Stride VST modulate Ableton devices?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Yes. Stride VST hosts and modulates VST3 instruments and effects directly inside Stride, in any DAW. In Ableton Live, <b class="ink">StrideBridge</b> also maps your Ableton devices into the same Stride canvas, so one click moves both. And when you want that motion written into a clip, select the clip and press INJECT on the bridge.</div></details>
       <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Can't I just draw automation by hand?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">You can, and Stride never takes that away: every lane stays editable, point by point, right on the canvas. What changes is scale. By hand, motion across a whole rack means one lane at a time. Stride writes all of them in one click, then hands you a fresh take on the next one. You shape, lock, or redraw whatever you want. Final say is always yours.</div></details>
       <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">How is this different from an LFO tool?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">LFO tools are built around a shape that repeats. Stride writes long-form evolving motion, up to 32 bars of it, across every lane of the chain you host inside it, and rolls a brand-new variation every time you click. Not a cycle you set: a performance you discover.</div></details>
       <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Can I play it live?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Yes. Keyswitch Mode fires the Motion tools from one octave of your keyboard: the notes stay silent, the tools fire. Note-triggered motion runs the canvas from the notes you play, no transport needed. Keys fire the tools, notes drive the motion, and both record into a clip.</div></details>
-      <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Is there a free trial?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Yes: a 24-hour Discovery Pass. Download Stride, then activate the pass inside the plugin when you're ready — your 24 hours only begin at activation, not at download. Every tool, every generator, no limitations, on your own tracks, so you can decide if it's the right fit. When the pass ends your projects stay intact; one purchase then unlocks it for $99, for good.</div></details>
+      <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Is there a free trial?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Yes: a 24-hour Discovery Pass. Download Stride, then activate the pass inside the plugin when you're ready — your 24 hours only begin at activation, not at download. Every tool, every generator, no limitations, on your own tracks, so you can decide if it's the right fit. When the pass ends your projects stay intact; one purchase then unlocks it for $99 + VAT, for good.</div></details>
       <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Mac and Windows?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Stride runs on Windows 10/11 and macOS 11+ (Intel and Apple Silicon).</div></details>
       <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Can I get a refund?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Try it free first, it's the best way to know Stride fits your setup: the complete product, unlocked for 24 hours with no limitations. Once you activate your license, all sales are final. Haven't activated yet? Email us within 14 days for a full refund. And if Stride won't run and we can't fix it together, we'll refund you. <a href="terms.html#refund" target="_blank" class="underline" style="color:var(--copper-lt)">Full policy</a>.</div></details>
     </div>
@@ -1418,9 +1425,9 @@
       <div class="absolute inset-x-0 bottom-0 h-40 pointer-events-none" style="background:linear-gradient(0deg,rgba(198,113,43,.08),transparent)"></div>
       <div class="relative max-w-3xl mx-auto">
         <h2 class="text-5xl md:text-6xl mb-6 leading-tight">Somewhere in your setup<br><span class="brand">is a sound you haven't met.</span></h2>
-        <p class="text-base ink2 mb-10 max-w-lg mx-auto">24 hours, fully unlocked, on your own tracks. Then one purchase: $99.</p>
+        <p class="text-base ink2 mb-10 max-w-lg mx-auto">24 hours, fully unlocked, on your own tracks. Then one purchase: $99 + VAT.</p>
         <div class="flex flex-wrap items-center justify-center gap-3">
-          <a onclick="openBuy()" class="btn-copper text-sm uppercase tracking-widest py-4 px-10 rounded-full">Get Stride · $99</a>
+          <a onclick="openBuy()" class="btn-copper text-sm uppercase tracking-widest py-4 px-10 rounded-full">Get Stride · $99 <span class="vat-tag">+VAT</span></a>
           <a href="/try/" class="btn-ghost text-sm uppercase tracking-widest py-4 px-10 rounded-full">Explore free for 24h</a>
         </div>
       </div>
@@ -1447,7 +1454,7 @@
      and the copper fill; the trial keeps ~32% and the ghost, the same ranking
      the hero and desktop use. -->
 <div id="m-cta" role="group" aria-label="Get Stride" aria-hidden="true">
-  <a onclick="openBuy()" class="btn-copper" id="m-cta-buy">GET STRIDE &middot; $99</a>
+  <a onclick="openBuy()" class="btn-copper" id="m-cta-buy">GET STRIDE &middot; $99 <span class="vat-tag">+VAT</span></a>
   <a href="/try/" class="btn-ghost" id="m-cta-try">TRY 24H</a>
 </div>
 
@@ -1804,7 +1811,11 @@ function openBuy() { toggleBuyModal(); }
                     // display anchor only: COLLECTION_ADDON_PRICE stays 24.99 because that
                     // is what Lemon Squeezy actually charges ($123.99 bundle minus $99).
                     + '<span class="addon-was" style="text-decoration:line-through;opacity:.6;'
-                    + 'font-weight:700;margin-left:.35rem">$' + COLLECTION_VALUE + '</span>';
+                    + 'font-weight:700;margin-left:.35rem">$' + COLLECTION_VALUE + '</span>'
+                    // +VAT must live in THIS template too: the row is rebuilt from here
+                    // at load and on every toggle, so a markup-only tag vanishes exactly
+                    // the way the $35 anchor once did
+                    + '<span class="vat-tag">+VAT</span>';
             }
 
             // "Remove" rather than a second "Added": the row already says it is added,
