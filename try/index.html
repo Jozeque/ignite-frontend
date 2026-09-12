@@ -665,6 +665,18 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
             fbq('track', 'Lead', {
               value: 0.00, currency: 'USD', content_name: 'Stride Free Demo'
             }, { eventID: eid });
+
+        // Remember a HASHED id of this person so future PageView beacons can
+        // carry em: sha256 of the normalized address, never the address itself.
+        try {
+            var _n = (input && input.value || '').trim().toLowerCase();
+            if (window.crypto && crypto.subtle) crypto.subtle.digest('SHA-256',
+                new TextEncoder().encode(_n)).then(function (b) {
+                    var h = Array.from(new Uint8Array(b)).map(function (x) {
+                        return x.toString(16).padStart(2, '0'); }).join('');
+                    try { localStorage.setItem('stride_emh', h); } catch (e) {}
+                }).catch(function () {});
+        } catch (e) {}
             fbq('trackCustom', 'DemoRegistered', {
               value: 0.00, currency: 'USD', content_name: 'Stride Free Demo'
             }, { eventID: eid });

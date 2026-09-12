@@ -213,7 +213,7 @@
                     fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
                         method: 'POST', keepalive: true,
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'track_pageview', fbp: fbp, fbc: fbc, external_id: xid, event_id: eid, url: location.href })
+                        body: JSON.stringify({ action: 'track_pageview', em_hash: (function(){try{return localStorage.getItem('stride_emh')||''}catch(e){return ''}})(), fbp: fbp, fbc: fbc, external_id: xid, event_id: eid, url: location.href })
                     }).catch(function () {});
                 } catch (e) {}
             }, 1500);
@@ -1939,6 +1939,18 @@ function openBuy() { toggleBuyModal(); }
         // Validate
         if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showBuyError('Please enter a valid email'); return; }
         if (!termsChecked) { showBuyError('Please read and accept the terms to continue'); return; }
+        // Remember a HASHED id of this person so future PageView beacons can
+        // carry em: sha256 of the normalized address, never the address itself.
+        try {
+            var _n = email.trim().toLowerCase();
+            if (window.crypto && crypto.subtle) crypto.subtle.digest('SHA-256',
+                new TextEncoder().encode(_n)).then(function (b) {
+                    var h = Array.from(new Uint8Array(b)).map(function (x) {
+                        return x.toString(16).padStart(2, '0'); }).join('');
+                    try { localStorage.setItem('stride_emh', h); } catch (e) {}
+                }).catch(function () {});
+        } catch (e) {}
+
 
         errorEl.classList.add('hidden');
 
