@@ -2043,6 +2043,9 @@ function openBuy() { toggleBuyModal(); }
             if (fbclid) url += '&checkout[custom][fbclid]=' + encodeURIComponent(fbclid);
             if (fbp) url += '&checkout[custom][fbp]=' + encodeURIComponent(fbp);
             if (ua)  url += '&checkout[custom][ua]='  + encodeURIComponent(ua);
+            // the browser's visitor id rides the checkout, so the LS webhook can put
+            // it on the Purchase CAPI event first-hand, no lookup needed
+            if (xid) url += '&checkout[custom][external_id]=' + encodeURIComponent(xid);
             // ad_id rides the checkout so the order webhook can stamp the exact
             // ad on the sale even when the buyer_lead beacon was dropped.
             if (adMk.ad_id) url += '&checkout[custom][ad_id]=' + encodeURIComponent(adMk.ad_id);
