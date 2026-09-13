@@ -9,6 +9,11 @@
     <meta name="author" content="Stride">
     <link rel="canonical" href="https://stridehub.io/">
 
+    <!-- Paddle.js: geo-accurate pricing, checkout, and express Apple Pay. The
+         client-side token is public BY DESIGN (Paddle: "safe to publish and expose in
+         your code"); it can only open checkouts and preview prices. Never an API key. -->
+    <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+
     <!-- Open Graph / Social cards -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://stridehub.io/">
@@ -1303,6 +1308,14 @@
                     onclick="strideToggleAddon(event)">+ Add<span class="addon-full"> to order</span></button>
           </div>
           <a onclick="openBuy()" class="btn-copper w-full justify-center text-base py-3.5 rounded-2xl">Get Stride · $99 </a>
+
+          <!-- Express checkout. Renders only where Apple Pay or Google Pay is actually
+               available, so on everything else this stays empty and the page is
+               unchanged. Paying here skips the form, so the consent line below carries
+               what the modal's checkbox carries. -->
+          <div class="paddle-express-checkout mt-2.5"></div>
+          <p class="text-[10px] ink3 mt-1.5 text-center leading-relaxed">Paying above accepts the <a href="terms.html" target="_blank" class="underline">Terms</a> and the <a href="refund.html" target="_blank" class="underline">Refund Policy</a>.</p>
+
           <a href="/try/" class="btn-ghost w-full justify-center text-sm py-3 rounded-2xl mt-2.5">Explore free for 24h</a>
           <p class="text-[11px] ink3 mt-3">VST3 + AU + Max for Live · not Pro Tools (AAX)</p>
         </div>
@@ -1408,7 +1421,7 @@
       <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Can I play it live?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Yes. Keyswitch Mode fires the Motion tools from one octave of your keyboard: the notes stay silent, the tools fire. Note-triggered motion runs the canvas from the notes you play, no transport needed. Keys fire the tools, notes drive the motion, and both record into a clip.</div></details>
       <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Is there a free trial?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Yes: a 24-hour Discovery Pass. Download Stride, then activate the pass inside the plugin when you're ready — your 24 hours only begin at activation, not at download. Every tool, every generator, no limitations, on your own tracks, so you can decide if it's the right fit. When the pass ends your projects stay intact; one purchase then unlocks it for $99, for good.</div></details>
       <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Mac and Windows?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Stride runs on Windows 10/11 and macOS 11+ (Intel and Apple Silicon).</div></details>
-      <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Can I get a refund?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Try it free first, it's the best way to know Stride fits your setup: the complete product, unlocked for 24 hours with no limitations. Once you activate your license, all sales are final. Haven't activated yet? Email us within 14 days for a full refund. And if Stride won't run and we can't fix it together, we'll refund you. <a href="terms.html#refund" target="_blank" class="underline" style="color:var(--copper-lt)">Full policy</a>.</div></details>
+      <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Can I get a refund?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Try it free first, it's the best way to know Stride fits your setup: the complete product, unlocked for 24 hours with no limitations. Once you activate your license, all sales are final. Haven't activated yet? Email us within 14 days for a full refund. And if Stride won't run and we can't fix it together, we'll refund you. <a href="refund.html" target="_blank" class="underline" style="color:var(--copper-lt)">Full policy</a>.</div></details>
     </div>
   </section>
 
@@ -1516,7 +1529,7 @@
             <input id="buy-terms" type="checkbox" class="mt-0.5 shrink-0 w-4 h-4 accent-orange-500 cursor-pointer">
             <span class="text-[11px] text-zinc-400 leading-snug group-hover:text-zinc-300 transition-colors">
                 I've read the <a href="terms.html#requirements" target="_blank" class="text-orange-400 hover:text-orange-300 underline">system requirements</a>,
-                the <a href="terms.html#refund" target="_blank" class="text-orange-400 hover:text-orange-300 underline">refund policy</a>,
+                the <a href="refund.html" target="_blank" class="text-orange-400 hover:text-orange-300 underline">refund policy</a>,
                 and the <a href="terms.html" target="_blank" class="text-orange-400 hover:text-orange-300 underline">Terms of Service</a>.
                 I understand Stride is delivered instantly, and that <strong class="text-zinc-300">once I activate my license the sale is final</strong> — I consent to immediate access and waive my 14-day right of withdrawal for the delivered software.
             </span>
@@ -1527,7 +1540,7 @@
         <button onclick="submitBuyForm()" class="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black py-3.5 rounded-xl text-xs uppercase tracking-widest transition-all shadow-[0_10px_30px_rgba(255,50,0,0.3)] hover:shadow-[0_10px_40px_rgba(255,50,0,0.5)]">
             Continue to checkout
         </button>
-        <p class="text-[11px] text-zinc-600 mt-3 text-center font-medium">Secure checkout via Lemon Squeezy. Cards, Apple Pay, Google Pay accepted.</p>
+        <p class="text-[11px] text-zinc-600 mt-3 text-center font-medium">Secure checkout via Paddle. Cards, Apple Pay, Google Pay accepted. Tax is included in the price shown.</p>
     </div>
 </div>
 
@@ -1719,6 +1732,58 @@ function openBuy() { toggleBuyModal(); }
     // bundle checkout URL before launch. A non-empty URL activates purchase mode.
     const LS_CHECKOUT_URL = 'https://strideengine.lemonsqueezy.com/checkout/buy/9099d993-aa75-42d5-800f-299445b9350a';
 
+    // ══════════════════════ PADDLE ══════════════════════
+    // Why we moved: Lemon Squeezy bills one currency per store, so every buyer was
+    // charged in dollars. Paddle prices per country, so the EU pays a clean EUR 99 and
+    // the UK GBP 89. Tax is INCLUSIVE (tax_mode: internal), so the price shown is the
+    // price paid and the VAT comes out of it. No price here is ever quoted tax-exclusive.
+    //
+    // ONE SWITCH: set this to 'lemonsqueezy' and every Paddle path below is skipped,
+    // leaving the checkout byte-for-byte what it was.
+    const CHECKOUT_PROVIDER = 'paddle';
+    const PADDLE_EXPRESS = true;          // the Apple Pay button under the pricing CTA
+
+    const PADDLE_TOKEN            = 'live_e0101b87a9e6e7024988534cf7b';
+    const PADDLE_PRICE_STRIDE     = 'pri_01m2dcx05b0z2dcnscp4qjm28d';
+    const PADDLE_PRICE_COLLECTION = 'pri_01m2dghkc4dn53h2hrzw21ba2f';
+    const PADDLE_SUCCESS_URL      = 'https://stridehub.io/welcome.html';
+
+    let stridePaddleInit = false;
+    function stridePaddleReady() {
+        if (CHECKOUT_PROVIDER !== 'paddle') return false;
+        if (!window.Paddle) return false;
+        if (!stridePaddleInit) {
+            try {
+                // NO eventCallback firing InitiateCheckout here. The express button
+                // mounts an inline checkout on page load, so a checkout.loaded hook
+                // would fire IC for every visitor and wreck cost-per-IC. submitBuyForm
+                // already fires it at the real moment of intent.
+                Paddle.Initialize({ token: PADDLE_TOKEN });
+                stridePaddleInit = true;
+            } catch (e) { return false; }
+        }
+        return true;
+    }
+
+    // The attribution bundle for checkouts that never touch the buy form, which is the
+    // express button. Without this an Apple Pay sale arrives with no ad attached.
+    function strideExpressCustomData() {
+        function ck(re) { var m = document.cookie.match(re); return m ? decodeURIComponent(m[1]) : ''; }
+        var fbc = ck(/(?:^|; )_fbc=([^;]*)/);
+        var out = {
+            fbc: fbc,
+            fbp: ck(/(?:^|; )_fbp=([^;]*)/),
+            external_id: ck(/(?:^|; )stride_xid=([^;]*)/),
+            ua: (navigator.userAgent || '').slice(0, 512)
+        };
+        try { out.fbclid = localStorage.getItem('stride_fbclid') || (fbc ? fbc.split('.').pop() : ''); } catch (e) {}
+        var ad = (window.strideAdMarkers ? window.strideAdMarkers() : {});
+        if (ad.ad_id) out.ad_id = ad.ad_id;
+        if (ad.adset_id) out.adset_id = ad.adset_id;
+        if (ad.campaign_id) out.campaign_id = ad.campaign_id;
+        return out;
+    }
+
     // ── Experimental Collection add-on ────────────────────────────────────
     // A pre-checkout selector, NOT a cart: the choice picks which of two Lemon
     // Squeezy products the modal redirects to. Nothing about licensing,
@@ -1752,8 +1817,25 @@ function openBuy() { toggleBuyModal(); }
     function strideCheckoutUrl()    { return strideAddonActive() ? STRIDE_COLLECTION_CHECKOUT_URL : STRIDE_CHECKOUT_URL; }
     function strideOrderTotal()     { return strideAddonActive() ? STRIDE_PRICE + COLLECTION_ADDON_PRICE : STRIDE_PRICE; }
 
-    // $128, not $128.00. A .99 price still prints its cents.
+    // Paddle charges in the visitor's own currency, so the page has to print that
+    // currency rather than dollars. strideFx is filled once from Paddle.PricePreview.
+    // Until it is, and if Paddle.js never loads, every number prints exactly as before.
+    let strideFx = null;          // { rate, currency }
+
     function strideMoney(v) {
+        if (strideFx) {
+            try {
+                var f = new Intl.NumberFormat(undefined, { style: 'currency', currency: strideFx.currency });
+                var digits = f.resolvedOptions().minimumFractionDigits;
+                var n = v * strideFx.rate;
+                var whole = Math.round(n * Math.pow(10, digits)) % Math.pow(10, digits) === 0;
+                return new Intl.NumberFormat(undefined, {
+                    style: 'currency', currency: strideFx.currency,
+                    minimumFractionDigits: whole ? 0 : digits,
+                    maximumFractionDigits: digits
+                }).format(n);
+            } catch (e) { /* fall through to dollars */ }
+        }
         return '$' + (Math.round(v * 100) % 100 === 0 ? v.toFixed(0) : v.toFixed(2));
     }
 
@@ -1856,11 +1938,73 @@ function openBuy() { toggleBuyModal(); }
                     .replace(/Get Stride/g, 'Get Stride + Collection')
                     // the section heading brands the word: Get <span>Stride</span> for $99
                     .replace(/Stride<\/span>/g, 'Stride + Collection<\/span>')
-                : el.dataset.baseHtml;
+                // Off, but still re-priced. Restoring the raw markup here would put a
+                // dollar price back on every CTA while the pricing panel shows the
+                // visitor's own currency. With no Paddle currency loaded, strideMoney
+                // returns the same dollars it always did, so this is a no-op for
+                // Lemon Squeezy.
+                : el.dataset.baseHtml.replace(was, total);
         });
     }
 
     document.addEventListener('DOMContentLoaded', strideSyncAddon);
+
+    // Ask Paddle what THIS visitor is charged, then re-print the page in that currency.
+    // Only the rate and the currency are taken: every number stays derived from
+    // STRIDE_PRICE, so the struck list price and the Save seal scale with it and cannot
+    // contradict the total. A failure here leaves the dollar prices untouched.
+    function strideLocalizePrices() {
+        if (!stridePaddleReady()) return;
+        try {
+            Paddle.PricePreview({ items: [{ priceId: PADDLE_PRICE_STRIDE, quantity: 1 }] })
+                .then(function (res) {
+                    var d = (res && res.data) || {};
+                    var li = (((d.details || {}).lineItems) || [])[0];
+                    if (!li) return;
+                    var cur = d.currencyCode || (li.totals || {}).currencyCode;
+                    var minor = parseInt((li.totals || {}).total, 10);
+                    if (!cur || !isFinite(minor)) return;
+                    var digits = 2;
+                    try {
+                        digits = new Intl.NumberFormat(undefined, { style: 'currency', currency: cur })
+                            .resolvedOptions().minimumFractionDigits;
+                    } catch (e) {}
+                    var major = minor / Math.pow(10, digits);
+                    if (!major) return;
+                    if (cur === 'USD' && Math.abs(major - STRIDE_PRICE) < 0.005) return;
+                    strideFx = { rate: major / STRIDE_PRICE, currency: cur };
+                    strideSyncAddon();
+                }).catch(function () {});
+        } catch (e) {}
+    }
+
+    // Express Apple Pay / Google Pay. On a compatible Apple device this pays straight
+    // from the Wallet with no form. It renders nothing at all when the device or browser
+    // cannot take it, so its absence is never a broken page.
+    function strideMountExpress() {
+        if (!PADDLE_EXPRESS || !stridePaddleReady()) return;
+        if (!document.querySelector('.paddle-express-checkout')) return;
+        try {
+            Paddle.Checkout.open({
+                items: [{ priceId: PADDLE_PRICE_STRIDE, quantity: 1 }],
+                customData: strideExpressCustomData(),
+                settings: {
+                    displayMode: 'inline',
+                    variant: 'express',
+                    frameTarget: 'paddle-express-checkout',
+                    frameInitialHeight: 64,
+                    frameStyle: 'width:100%;min-width:280px;background-color:transparent;border:none;',
+                    theme: 'dark',
+                    successUrl: PADDLE_SUCCESS_URL
+                }
+            });
+        } catch (e) {}
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        strideLocalizePrices();
+        strideMountExpress();
+    });
 
     // lemon.js does NOT create window.LemonSqueezy when it loads. Read its tail: it
     // defines createLemonSqueezy() and binds that to the window "load" event, so the
@@ -1883,6 +2027,49 @@ function openBuy() { toggleBuyModal(); }
     // it, and none of those may be allowed to cost a sale. Anything unexpected here
     // navigates instead, which is exactly the behaviour that shipped before.
     function strideOpenCheckout(url) {
+        // Paddle first. Everything upstream is untouched: the add-on selection, the
+        // buyer_lead beacon and the attribution were all built already, and this reads
+        // them back off the URL that was just constructed. So exactly one function in
+        // this file knows Paddle exists, and CHECKOUT_PROVIDER turns it all off.
+        if (stridePaddleReady()) {
+            try {
+                var custom = {};
+                var email = '';
+                var qs = url.indexOf('?') >= 0 ? url.slice(url.indexOf('?') + 1) : '';
+                qs.split('&').forEach(function (pair) {
+                    if (!pair) return;
+                    var eq = pair.indexOf('=');
+                    var k = decodeURIComponent(eq < 0 ? pair : pair.slice(0, eq));
+                    var v = eq < 0 ? '' : decodeURIComponent(pair.slice(eq + 1).replace(/\+/g, ' '));
+                    var m = k.match(/^checkout\[custom\]\[(.+)\]$/);
+                    if (m) custom[m[1]] = v;
+                    else if (k === 'checkout[email]') email = v;
+                });
+
+                var items = [{ priceId: PADDLE_PRICE_STRIDE, quantity: 1 }];
+                if (strideAddonActive()) items.push({ priceId: PADDLE_PRICE_COLLECTION, quantity: 1 });
+                if (email) custom.email = email;
+
+                // The express button holds an INLINE checkout instance, and Paddle
+                // allows only one at a time. Without this close, every buyer who
+                // scrolled past the pricing card gets a button that does nothing.
+                try { Paddle.Checkout.close(); } catch (e) {}
+
+                Paddle.Checkout.open({
+                    items: items,
+                    customer: email ? { email: email } : undefined,
+                    customData: custom,
+                    settings: {
+                        displayMode: 'overlay',
+                        theme: 'dark',
+                        successUrl: PADDLE_SUCCESS_URL
+                    }
+                });
+                toggleBuyModal();      // only after open() did not throw
+                return;
+            } catch (e) { /* fall through to Lemon Squeezy below */ }
+        }
+
         var LS = strideLemon();
         if (LS) {
             try {

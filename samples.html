@@ -9,6 +9,63 @@
     <meta name="description" content="250+ experimental sounds, built from almost nothing. Destroyed drums. One falling water drop. A simple signal pushed into endless feedback. 15 Ableton Racks, 4 StrideChains. $35.">
     <link rel="canonical" href="https://stridehub.io/samples.html">
 
+    <!-- Paddle.js. The client-side token is public by design. -->
+    <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+    <script>
+    // The Collection sells standalone here. The page ships with the Lemon Squeezy
+    // price and link in the HTML, and Paddle only ever UPGRADES both together, so a
+    // visitor with no JavaScript can never see one price and be charged another.
+    (function () {
+        var TOKEN = 'live_e0101b87a9e6e7024988534cf7b';
+        var PRICE = 'pri_01m2dghkc4dn53h2hrzw21ba2f';
+        var ready = false;
+        function init() {
+            if (ready) return true;
+            if (!window.Paddle) return false;
+            try { Paddle.Initialize({ token: TOKEN }); ready = true; } catch (e) { return false; }
+            return true;
+        }
+        function custom() {
+            function ck(re) { var m = document.cookie.match(re); return m ? decodeURIComponent(m[1]) : ''; }
+            var fbc = ck(/(?:^|; )_fbc=([^;]*)/);
+            var o = { fbc: fbc, fbp: ck(/(?:^|; )_fbp=([^;]*)/),
+                      external_id: ck(/(?:^|; )stride_xid=([^;]*)/),
+                      ua: (navigator.userAgent || '').slice(0, 512) };
+            try { o.fbclid = localStorage.getItem('stride_fbclid') || (fbc ? fbc.split('.').pop() : ''); } catch (e) {}
+            var ad = (window.strideAdMarkers ? window.strideAdMarkers() : {});
+            if (ad.ad_id) o.ad_id = ad.ad_id;
+            return o;
+        }
+        window.strideBuyCollection = function (ev) {
+            if (!init()) return true;                       // let the href do its job
+            try {
+                if (ev && ev.preventDefault) ev.preventDefault();
+                Paddle.Checkout.open({
+                    items: [{ priceId: PRICE, quantity: 1 }],
+                    customData: custom(),
+                    settings: { displayMode: 'overlay', theme: 'dark',
+                                successUrl: 'https://stridehub.io/welcome.html' }
+                });
+                return false;
+            } catch (e) { return true; }
+        };
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!init()) return;
+            try {
+                Paddle.PricePreview({ items: [{ priceId: PRICE, quantity: 1 }] })
+                    .then(function (res) {
+                        var li = ((((res || {}).data || {}).details || {}).lineItems || [])[0];
+                        var t = li && li.formattedTotals && li.formattedTotals.total;
+                        if (!t) return;
+                        document.querySelectorAll('[data-collection-price]').forEach(function (el) {
+                            el.textContent = t;
+                        });
+                    }).catch(function () {});
+            } catch (e) {}
+        });
+    })();
+    </script>
+
     <!-- Open Graph / Social cards -->
     <meta property="og:type" content="product">
     <meta property="og:url" content="https://stridehub.io/samples.html">
@@ -229,9 +286,9 @@
 
         <div class="flex flex-wrap items-center gap-5 sm:gap-7">
           <div class="flex items-baseline gap-3">
-            <div class="price text-4xl sm:text-5xl">$35</div>
+            <div class="price text-4xl sm:text-5xl" data-collection-price>$35</div>
           </div>
-          <a class="btn-copper px-8 py-4 text-sm uppercase" href="https://strideengine.lemonsqueezy.com/checkout/buy/cf85dbc8-819d-40f6-aea3-29b4ac9a4c02">Get the Collection</a>
+          <a class="btn-copper px-8 py-4 text-sm uppercase" href="https://strideengine.lemonsqueezy.com/checkout/buy/cf85dbc8-819d-40f6-aea3-29b4ac9a4c02" onclick="return strideBuyCollection(event)">Get the Collection</a>
         </div>
       </div>
 
@@ -377,8 +434,8 @@
         <span class="num">4</span> StrideChains
       </div>
       <div class="flex items-center gap-5 sm:gap-6">
-        <div class="price text-4xl sm:text-5xl">$35</div>
-        <a class="btn-copper px-8 py-4 text-sm uppercase" href="https://strideengine.lemonsqueezy.com/checkout/buy/cf85dbc8-819d-40f6-aea3-29b4ac9a4c02">Get the Collection</a>
+        <div class="price text-4xl sm:text-5xl" data-collection-price>$35</div>
+        <a class="btn-copper px-8 py-4 text-sm uppercase" href="https://strideengine.lemonsqueezy.com/checkout/buy/cf85dbc8-819d-40f6-aea3-29b4ac9a4c02" onclick="return strideBuyCollection(event)">Get the Collection</a>
       </div>
     </div>
   </section>
