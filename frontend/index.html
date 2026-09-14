@@ -1740,7 +1740,11 @@ function openBuy() { toggleBuyModal(); }
     //
     // ONE SWITCH: set this to 'lemonsqueezy' and every Paddle path below is skipped,
     // leaving the checkout byte-for-byte what it was.
-    const CHECKOUT_PROVIDER = 'paddle';
+    // HOLDING ON LEMON SQUEEZY until Paddle's default payment link is set in the
+    // dashboard. Paddle.js still loads and initialises above, so this page can serve
+    // as that payment link; only OUR buy button stays on the old checkout. Flip to
+    // 'paddle' once a test transaction has completed end to end.
+    const CHECKOUT_PROVIDER = 'lemonsqueezy';
     const PADDLE_EXPRESS = true;          // the Apple Pay button under the pricing CTA
 
     const PADDLE_TOKEN            = 'live_e0101b87a9e6e7024988534cf7b';
@@ -1749,20 +1753,31 @@ function openBuy() { toggleBuyModal(); }
     const PADDLE_SUCCESS_URL      = 'https://stridehub.io/welcome.html';
 
     let stridePaddleInit = false;
+
+    // Initialise ALWAYS, even while the provider below is still Lemon Squeezy.
+    // Paddle's default payment link points at this page, and Paddle.js only auto-opens
+    // a checkout from the ?_ptxn= parameter once Initialize has run. Paddle refuses to
+    // create ANY transaction until a default payment link is set, so if this page
+    // cannot honour that link, nothing about Paddle works at all.
+    function strideInitPaddle() {
+        if (stridePaddleInit) return true;
+        if (!window.Paddle || !PADDLE_TOKEN) return false;
+        try {
+            // NO eventCallback firing InitiateCheckout here. The express button mounts
+            // an inline checkout on page load, so a checkout.loaded hook would fire IC
+            // for every visitor and wreck cost-per-IC. submitBuyForm already fires it
+            // at the real moment of intent.
+            Paddle.Initialize({ token: PADDLE_TOKEN });
+            stridePaddleInit = true;
+        } catch (e) { return false; }
+        return true;
+    }
+
+    // Routing is a SEPARATE question from initialisation: this one gates whether WE
+    // open checkouts through Paddle, and the flag below turns only that off.
     function stridePaddleReady() {
         if (CHECKOUT_PROVIDER !== 'paddle') return false;
-        if (!window.Paddle) return false;
-        if (!stridePaddleInit) {
-            try {
-                // NO eventCallback firing InitiateCheckout here. The express button
-                // mounts an inline checkout on page load, so a checkout.loaded hook
-                // would fire IC for every visitor and wreck cost-per-IC. submitBuyForm
-                // already fires it at the real moment of intent.
-                Paddle.Initialize({ token: PADDLE_TOKEN });
-                stridePaddleInit = true;
-            } catch (e) { return false; }
-        }
-        return true;
+        return strideInitPaddle();
     }
 
     // The attribution bundle for checkouts that never touch the buy form, which is the
@@ -2002,6 +2017,7 @@ function openBuy() { toggleBuyModal(); }
     }
 
     document.addEventListener('DOMContentLoaded', function () {
+        strideInitPaddle();      // must run even when the provider is Lemon Squeezy
         strideLocalizePrices();
         strideMountExpress();
     });
