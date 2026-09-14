@@ -782,7 +782,7 @@
        centring the window on the button suits either wallet. */
     #m-cta-express{display:none}
     #m-cta.has-express #m-cta-express{
-      display:block;flex:0 0 72px;min-width:72px;min-height:46px}
+      display:block;flex:0 0 72px;min-width:72px;min-height:48px}
     #m-cta.has-express #m-cta-buy{flex:1 1 auto;min-width:0}
 
     .express-dock.is-docked{
@@ -799,7 +799,12 @@
        of slack each side while the footer at y=84 stays well clear. */
     .express-dock.is-docked .paddle-express-checkout:has(iframe){
       width:72px;height:48px;overflow:hidden;border-radius:10px;
-      position:relative;background:#000}
+      position:relative;background:#000;
+      /* .express-dock is a flex column whose height strideDockPlace() pins to the
+         reserved box. Without flex:none the window is a flex item and gets shrunk
+         to that height: it rendered 46px, leaving the 44px button flush against the
+         bottom edge with no slack at all. */
+      flex:none}
     .express-dock.is-docked .paddle-express-checkout iframe{
       position:absolute!important;
       width:364px!important;height:130px!important;
