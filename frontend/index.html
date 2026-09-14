@@ -1744,7 +1744,7 @@ function openBuy() { toggleBuyModal(); }
     // dashboard. Paddle.js still loads and initialises above, so this page can serve
     // as that payment link; only OUR buy button stays on the old checkout. Flip to
     // 'paddle' once a test transaction has completed end to end.
-    const CHECKOUT_PROVIDER = 'lemonsqueezy';
+    const CHECKOUT_PROVIDER = 'paddle';
     const PADDLE_EXPRESS = true;          // the Apple Pay button under the pricing CTA
 
     const PADDLE_TOKEN            = 'live_e0101b87a9e6e7024988534cf7b';
@@ -1831,6 +1831,19 @@ function openBuy() { toggleBuyModal(); }
     function strideAddonActive()    { return strideAddonOn && strideAddonAvailable(); }
     function strideCheckoutUrl()    { return strideAddonActive() ? STRIDE_COLLECTION_CHECKOUT_URL : STRIDE_CHECKOUT_URL; }
     function strideOrderTotal()     { return strideAddonActive() ? STRIDE_PRICE + COLLECTION_ADDON_PRICE : STRIDE_PRICE; }
+
+    // What this visitor was actually quoted, in the currency they were quoted it in.
+    // Both Meta events read from here so they can never disagree with each other or
+    // with the price on screen. strideFx is set once Paddle has priced this visitor;
+    // until then the numbers are the dollar list prices, exactly as before.
+    function strideOrderValue() {
+        var v = strideOrderTotal();
+        if (strideFx) {
+            return { value: Math.round(v * strideFx.rate * 100) / 100,
+                     currency: strideFx.currency };
+        }
+        return { value: v, currency: 'USD' };
+    }
 
     // Paddle charges in the visitor's own currency, so the page has to print that
     // currency rather than dollars. strideFx is filled once from Paddle.PricePreview.
@@ -2198,6 +2211,7 @@ function openBuy() { toggleBuyModal(); }
         // Save lead + terms acceptance to Firestore (non-blocking). Attribution
         // (fbc/fbclid/fbp/ua/event_id) rides along so the backend can join it to
         // the order by email even if LS doesn't forward the checkout custom data.
+        const _orderValue = strideOrderValue();
         const leadAction = LS_CHECKOUT_URL ? 'buyer_lead' : 'waitlist_signup';
         // keepalive: true is critical — without it, mobile browsers cancel
         // this request when window.location.href redirects to LS below.
@@ -2214,6 +2228,9 @@ function openBuy() { toggleBuyModal(); }
                 utm_source: window.strideOwnedUtm('utm_source'),
                 utm_campaign: window.strideOwnedUtm('utm_campaign'),
                 utm_content: window.strideOwnedUtm('utm_content'),
+                // So the SERVER-side InitiateCheckout reports the same money as the
+                // browser one below. It used to send a hardcoded amount instead.
+                value: _orderValue.value, currency: _orderValue.currency,
                 terms_accepted: termsAccepted,
             })
         }).catch(() => {});
@@ -2225,7 +2242,10 @@ function openBuy() { toggleBuyModal(); }
         // value tracks the CURRENT list price ($99 from 2026-09-01; the $79 summer
         // sale ended 2026-08-31), plus the Experimental Collection when it has been
         // added. A stale value here skews Meta's cost-per-IC maths.
-        try { if (window.fbq) fbq('track', 'InitiateCheckout', { value: strideOrderTotal(), currency: 'USD' }, { eventID: eventId }); } catch (e) {}
+        // currency was hardcoded 'USD' here. Under Paddle this visitor may be quoted
+        // ILS or GBP, and reporting that number as dollars overstates it several times
+        // over. Value and currency now travel together, from one source.
+        try { if (window.fbq) fbq('track', 'InitiateCheckout', { value: _orderValue.value, currency: _orderValue.currency }, { eventID: eventId }); } catch (e) {}
 
         // Store locally
         localStorage.setItem('stride_purchase', JSON.stringify({
