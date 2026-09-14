@@ -914,7 +914,7 @@
           <div class="express-slot">
             <div class="express-dock">
               <div class="paddle-express-checkout"></div>
-              <p class="paddle-express-terms text-[10px] ink3 mt-0.5 leading-snug opacity-80" hidden>Paying above accepts the <a href="terms.html" target="_blank" class="underline">Terms</a> and the <a href="refund.html" target="_blank" class="underline">Refund Policy</a>.</p>
+              <p class="paddle-express-terms text-[10px] ink3 mt-0.5 leading-snug opacity-80" hidden>Sold by Paddle.com Market Ltd. Paying above accepts the <a href="terms.html" target="_blank" class="underline">Terms</a> and the <a href="refund.html" target="_blank" class="underline">Refund Policy</a>.</p>
             </div>
           </div>
           <a href="/try/" class="btn-ghost text-[11px] uppercase tracking-[0.1em] py-3 px-5 rounded-xl">Explore free for 24h</a>
@@ -2206,10 +2206,31 @@ function openBuy() { toggleBuyModal(); }
                     displayMode: 'inline',
                     variant: 'express',
                     frameTarget: 'paddle-express-checkout',
-                    // Measured, not recommended: the frame renders 120px on desktop and
-                    // Pixel, 157px on iPhone, and Paddle auto-resizes from this initial
-                    // value. 450 reserved three times what it needs; 64 clipped it.
-                    frameInitialHeight: 120,
+                    // Cropped to the button on purpose. Measured inside Paddle's frame
+                    // on Pixel 7, which Playwright can read through CDP:
+                    //
+                    //     document 364x130
+                    //     y= 26  h=44  w=344   the wallet button
+                    //     y= 84  h=18          Sold by / 30 Old Bailey, London / Provided by
+                    //     y=102  h=18          Support  Terms  Privacy
+                    //
+                    // The button sits at the TOP, so a height of 80 shows it whole with
+                    // ~10px of headroom and stops 4px short of the footer. Done through
+                    // Paddle's own sizing rather than a wrapper with overflow:hidden and a
+                    // negative offset: no guess about their internal layout is hardcoded,
+                    // and if they ever reflow, the button stays in view instead of the
+                    // crop silently framing the wrong slice of a checkout.
+                    //
+                    // Correcting an earlier note here: Paddle does NOT auto-resize from
+                    // this value. We set 120 while the content measured 130, and the frame
+                    // stayed 120. It behaves as a fixed height, which is what makes this
+                    // work at all.
+                    //
+                    // The seller is still named: the consent line below the frame carries
+                    // "Sold by Paddle.com Market Ltd." Paddle is the merchant of record and
+                    // the buyer is entitled to know who they are contracting with, so that
+                    // information moves into our own type rather than disappearing.
+                    frameInitialHeight: 80,
                     // min-width:312px was WIDER than this column, which measures
                     // 287-306px, so the frame overflowed its own container.
                     frameStyle: 'width:100%;background-color:transparent;border:none;',
