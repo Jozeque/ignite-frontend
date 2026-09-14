@@ -2052,8 +2052,19 @@ function openBuy() { toggleBuyModal(); }
     function strideExpressEvent(ev) {
         if (!strideExpressLive) return;          // the overlay's events are not ours
         var name = ev && ev.name;
-        if (name === 'checkout.loaded') strideExpressReveal(true);
-        else if (name === 'checkout.payment.error') strideExpressReveal(false);
+        if (name === 'checkout.loaded') { strideExpressReveal(true); return; }
+        // Hide for ONE code only. Captured verbatim from the live event:
+        //   {type:'front-end_error', code:'no_payment_methods_available',
+        //    detail:'No payment methods available'}
+        // That is the state which printed "There are no payment methods available for
+        // this checkout" inside the frame. Hiding on ANY checkout.payment.error was too
+        // broad: it also hides a perfectly good wallet button the moment a real card is
+        // declined, and it could not be told apart from a device that simply has no
+        // wallet. Matching the code leaves a real Apple Pay or Google Pay button alone.
+        if (name === 'checkout.payment.error'
+            && ev && ev.code === 'no_payment_methods_available') {
+            strideExpressReveal(false);
+        }
     }
 
     function strideMountExpress() {
