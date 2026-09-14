@@ -534,7 +534,19 @@
      width, and an off-centre wallet beside two centred labels looks broken. */
   .express-slot{display:flex;justify-content:center}
   .express-dock{width:100%;display:flex;flex-direction:column;align-items:center}
+  /* Belt and braces on the crop. frameInitialHeight: 80 does it at mount, but that
+     was only ever verified on ANDROID: headless WebKit has no Apple Pay wallet, so
+     the frame hides itself there and iOS could not be tested. Yossi reported the
+     full-height button with the footer still showing on a real iPhone, so Paddle
+     evidently sizes the Apple Pay layout differently. Clipping at the container
+     holds regardless of what height Paddle gives the iframe.
+     No negative offset is needed, which is what makes this safe: the button already
+     sits at the TOP of the frame (measured y=26, h=44), so a plain 80px window shows
+     it whole. Nothing here hardcodes a guess about Paddle's internal layout.
+     :has(iframe) so the box reserves no height before Paddle mounts, and none at all
+     on the many devices that never get a wallet. */
   .paddle-express-checkout{width:100%}
+  .paddle-express-checkout:has(iframe){height:80px;overflow:hidden}
   /* Visually hidden but still focusable, so the label works by keyboard too.
      display:none would make it unfocusable and strand keyboard users. */
   .m-exp{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
@@ -763,7 +775,10 @@
       border-top:1px solid var(--line);
       opacity:0;pointer-events:none;transition:opacity .22s ease}
     .express-dock.is-docked.is-on{opacity:1;pointer-events:auto}
-    .express-dock.is-docked .paddle-express-terms{display:none}
+    /* The consent line DOES come to the strip now. It was hidden while the frame
+       showed Paddle's own "Sold by" footer, but the crop removes that, and hiding
+       both would leave nothing in the sticky bar identifying the merchant of record.
+       It is one 10px line and it carries the attribution. */
     @media (prefers-reduced-motion:reduce){.express-dock.is-docked{transition:none}}
   }
 
