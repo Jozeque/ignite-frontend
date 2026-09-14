@@ -2026,19 +2026,29 @@ function openBuy() { toggleBuyModal(); }
     // without this flag the overlay's own events would show and hide this button.
     let strideExpressLive = false;
 
+    // No wallet on this device. LATCHED, because the two events do not arrive in a
+    // fixed order: WebKit fires checkout.payment.error BEFORE checkout.loaded, and
+    // Chromium fires them the other way round. Proven from final DOM state on the
+    // live page, not assumed: on iPhone the container carried `hidden` while the
+    // consent line did not, and only the error-then-loaded order can produce that.
+    let strideExpressDead = false;
+
     function strideExpressReveal(on) {
-        // The CONTAINER is left in the flow either way: an empty one measures 0px tall,
-        // so it shows nothing, and mounting Paddle's iframe into a display:none element
-        // risks a zero-height frame. Only the consent line is toggled up front; the
-        // container is hidden only once we know there is nothing to put in it.
+        // The container and the consent line share ONE visibility. Toggling them
+        // separately left "Paying above accepts the Terms and the Refund Policy"
+        // sitting in the hero with no button above it on every iOS visitor.
+        //
+        // The container still starts WITHOUT `hidden` in the markup: an empty one
+        // measures 0px tall so it shows nothing, and Paddle must mount its iframe
+        // into a laid-out element or the frame comes back zero-height.
+        if (on && strideExpressDead) return;   // a late checkout.loaded cannot undo the error
+        if (!on) strideExpressDead = true;
+        document.querySelectorAll('.paddle-express-checkout').forEach(function (el) {
+            el.hidden = !on;
+        });
         document.querySelectorAll('.paddle-express-terms').forEach(function (el) {
             el.hidden = !on;
         });
-        if (!on) {
-            document.querySelectorAll('.paddle-express-checkout').forEach(function (el) {
-                el.hidden = true;
-            });
-        }
     }
 
     // MEASURED against the live page in Chromium and WebKit, not assumed:
