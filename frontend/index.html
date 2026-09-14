@@ -864,6 +864,19 @@
           <a onclick="openBuy()" class="btn-copper text-[15px] py-3 px-6 rounded-xl">GET STRIDE &middot; $99  <span>&rarr;</span></a>
           <a href="/try/" class="btn-ghost text-[11px] uppercase tracking-[0.1em] py-3 px-5 rounded-xl">Explore free for 24h</a>
         </div>
+
+        <!-- Apple Pay / Google Pay, one tap, no form. THE hero placement is deliberate
+             and it is also the ONLY placement: Paddle allows a single checkout instance
+             per page, and mounting a second inline express frame silently destroys the
+             first. Measured: a second mount left the pricing panel's frame gone with no
+             error raised. So this cannot also live beside the pricing CTA.
+             It sits under the CTA row rather than inside it because the frame renders
+             ~120px tall against ~48px buttons.
+             Paddle renders Apple's and Google's own button inside a cross-origin frame,
+             so it cannot be restyled here, which is also what their brand guidelines
+             require. -->
+        <div class="paddle-express-checkout mt-3" style="max-width:340px"></div>
+        <p class="paddle-express-terms text-[10px] ink3 mt-1.5 leading-relaxed" hidden style="max-width:340px">Paying above accepts the <a href="terms.html" target="_blank" class="underline">Terms</a> and the <a href="refund.html" target="_blank" class="underline">Refund Policy</a>.</p>
         <p class="text-[10.5px] ink3 mt-2.5">The pass is the full version &middot; no limitations &middot; on your own tracks</p>
         <div class="mt-4 text-[10px] leading-tight max-w-md">
           <span class="font-black uppercase tracking-[0.18em]" style="color:var(--copper-lt)">Stride VST</span>
@@ -1300,14 +1313,7 @@
           </div>
           <a onclick="openBuy()" class="btn-copper w-full justify-center text-base py-3.5 rounded-2xl">Get Stride · $99 </a>
 
-          <!-- Express checkout: the Apple Pay / Google Pay button. It is restricted to
-               the wallet only, so where neither is available it stays empty rather than
-               stacking a second full checkout under the card button. Paying here skips
-               the form, so the consent line below carries what the checkbox carries. -->
-          <div class="paddle-express-checkout mt-2.5"></div>
-          <p class="paddle-express-terms text-[10px] ink3 mt-1.5 text-center leading-relaxed" hidden>Paying above accepts the <a href="terms.html" target="_blank" class="underline">Terms</a> and the <a href="refund.html" target="_blank" class="underline">Refund Policy</a>.</p>
-
-          <a href="/try/" class="btn-ghost w-full justify-center text-sm py-3 rounded-2xl mt-2.5">Explore free for 24h</a>
+<a href="/try/" class="btn-ghost w-full justify-center text-sm py-3 rounded-2xl mt-2.5">Explore free for 24h</a>
           <p class="text-[11px] ink3 mt-3">VST3 + AU + Max for Live · not Pro Tools (AAX)</p>
         </div>
       </div>
