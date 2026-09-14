@@ -523,7 +523,12 @@
      4.52 contrast, the AA floor, and simply disappeared next to the 900-weight copper
      label. Colour and weight buy legibility without costing any vertical space, which
      matters because this line sits above the mobile buy CTA. */
-  .hero-spec-b{color:var(--ink2);font-weight:600}
+  \1
+  /* The wallet sits BETWEEN the two buttons, so it must claim a full line of the
+     flex row: the order has to read GET STRIDE, then Apple Pay, then Explore free
+     at every width. 340px keeps it from stretching the full 450px hero column. */
+  .express-slot{flex:0 0 100%;max-width:340px}
+  .express-dock{width:100%}
   /* Visually hidden but still focusable, so the label works by keyboard too.
      display:none would make it unfocusable and strand keyboard users. */
   .m-exp{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
@@ -723,8 +728,27 @@
       bottom:calc(4.6rem + env(safe-area-inset-bottom,0px));
       background:var(--raise);border:1px solid var(--line);color:var(--ink3);
       font-size:14px;font-weight:900;line-height:1;
-      opacity:0;pointer-events:none;transition:opacity .22s ease}
-    #m-help.is-on{opacity:.9;pointer-events:auto}
+      opacity:0;pointer-events:none;transition:opacity .22s ease}\1
+
+    /* -- WALLET IN THE STICKY BAR -----------------------------------------
+       The same single express frame the hero uses, relocated. `position:fixed`
+       moves it WITHOUT re-parenting: re-parenting an iframe reloads it and
+       would discard the checkout Paddle already opened.
+       .express-slot keeps the height it had in the hero (set inline by
+       strideStickySync before this class lands), so taking the inner element
+       out of flow shifts nothing below the hero.
+       It rides the bar's own transition so the two arrive together. */
+    .hero-cta > .express-slot{flex:0 0 100%;max-width:none;width:100%}
+    .express-dock.is-docked{
+      position:fixed;left:0;right:0;z-index:1001;
+      bottom:calc(4.25rem + env(safe-area-inset-bottom,0px));
+      padding:.5rem .75rem;
+      background:rgba(16,15,12,.94);backdrop-filter:blur(10px);
+      border-top:1px solid var(--line);
+      transform:translateY(115%);opacity:0;pointer-events:none;
+      transition:transform .22s ease,opacity .22s ease}
+    .express-dock.is-docked.is-on{transform:none;opacity:1;pointer-events:auto}
+    @media (prefers-reduced-motion:reduce){.express-dock.is-docked{transition:none}}
   }
 
 
@@ -861,21 +885,25 @@
         </div>
         <div class="flex flex-wrap items-center gap-2.5 hero-cta">
           <a onclick="openBuy()" class="btn-copper text-[15px] py-3 px-6 rounded-xl">GET STRIDE &middot; $99  <span>&rarr;</span></a>
+          <!-- Apple Pay / Google Pay, one tap, no form, between the two buttons.
+               This is the page's ONLY express checkout: Paddle allows a single
+               checkout instance, and a second inline mount silently destroys the
+               first (measured: secondFrame true, firstStillThere false, no error
+               raised). On mobile the SAME frame is relocated into the sticky bar by
+               CSS rather than moved in the DOM, because re-parenting an iframe
+               reloads it and would discard the open checkout.
+               Paddle renders Apple's and Google's own button inside a cross-origin
+               frame, so it cannot be restyled from here, which is what their brand
+               guidelines require anyway. -->
+          <div class="express-slot">
+            <div class="express-dock">
+              <div class="paddle-express-checkout"></div>
+              <p class="paddle-express-terms text-[10px] ink3 mt-1.5 leading-relaxed" hidden>Paying above accepts the <a href="terms.html" target="_blank" class="underline">Terms</a> and the <a href="refund.html" target="_blank" class="underline">Refund Policy</a>.</p>
+            </div>
+          </div>
           <a href="/try/" class="btn-ghost text-[11px] uppercase tracking-[0.1em] py-3 px-5 rounded-xl">Explore free for 24h</a>
         </div>
 
-        <!-- Apple Pay / Google Pay, one tap, no form. THE hero placement is deliberate
-             and it is also the ONLY placement: Paddle allows a single checkout instance
-             per page, and mounting a second inline express frame silently destroys the
-             first. Measured: a second mount left the pricing panel's frame gone with no
-             error raised. So this cannot also live beside the pricing CTA.
-             It sits under the CTA row rather than inside it because the frame renders
-             ~120px tall against ~48px buttons.
-             Paddle renders Apple's and Google's own button inside a cross-origin frame,
-             so it cannot be restyled here, which is also what their brand guidelines
-             require. -->
-        <div class="paddle-express-checkout mt-3" style="max-width:340px"></div>
-        <p class="paddle-express-terms text-[10px] ink3 mt-1.5 leading-relaxed" hidden style="max-width:340px">Paying above accepts the <a href="terms.html" target="_blank" class="underline">Terms</a> and the <a href="refund.html" target="_blank" class="underline">Refund Policy</a>.</p>
       </div>
 
       <!-- flagship visual: the Stride VST window. The walkthrough plays right here,
@@ -1659,6 +1687,46 @@ function strideStickySync() {
   var on = !_stickyHeroVisible && !menuOpen;
   if (bar) { bar.classList.toggle('is-on', on); bar.setAttribute('aria-hidden', on ? 'false' : 'true'); }
   if (help) help.classList.toggle('is-on', on);
+
+  // The wallet button rides the bar. It is the SAME frame the hero shows, moved by
+  // CSS only: Paddle allows one checkout instance per page, and re-parenting the
+  // iframe to move it would reload it and discard the checkout already open.
+  var slot = document.querySelector('.express-slot');
+  var dock = document.querySelector('.express-dock');
+  var box  = document.querySelector('.paddle-express-checkout');
+  if (!slot || !dock || !box) return;
+
+  // Dock ONLY when a wallet actually rendered. box.hidden is set by
+  // strideExpressReveal(false) on no_payment_methods_available, and docking an
+  // empty element would still paint its background: a blank strip above the bar
+  // on every device without Apple Pay or Google Pay, which is most of them.
+  var narrow = !window.matchMedia || window.matchMedia('(max-width:899.98px)').matches;
+  var want = on && narrow && !box.hidden;
+
+  if (want && !dock.classList.contains('is-docked')) {
+    // Measure BEFORE it leaves the flow, and hold that height in the hero. Without
+    // this every pixel below the hero jumps up by the slot's height the moment the
+    // bar appears.
+    var h = dock.offsetHeight;
+    if (h) {
+      slot.style.height = h + 'px';
+      // 4.25rem is the bar's own reservation; the wallet adds its height on top so
+      // the pair can never cover the footer.
+      document.body.style.paddingBottom =
+        'calc(' + (68 + h) + 'px + env(safe-area-inset-bottom,0px))';
+    }
+    dock.classList.add('is-docked');
+    // Two frames, so the browser paints the translateY(115%) start state before
+    // is-on animates away from it. One frame is not reliably enough.
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { dock.classList.add('is-on'); });
+    });
+  } else if (!want && dock.classList.contains('is-docked')) {
+    dock.classList.remove('is-docked');
+    dock.classList.remove('is-on');
+    slot.style.height = '';
+    document.body.style.paddingBottom = '';
+  }
 }
 document.addEventListener('DOMContentLoaded', function () {
   var anchor = document.querySelector('.hero-cta');
@@ -2049,6 +2117,10 @@ function openBuy() { toggleBuyModal(); }
         document.querySelectorAll('.paddle-express-terms').forEach(function (el) {
             el.hidden = !on;
         });
+        // The dock only exists while there is a button to dock. A late
+        // no_payment_methods_available would otherwise leave an empty strip
+        // pinned above the sticky bar.
+        if (typeof strideStickySync === 'function') strideStickySync();
     }
 
     // MEASURED against the live page in Chromium and WebKit, not assumed:
