@@ -741,42 +741,32 @@
       opacity:0;pointer-events:none;transition:opacity .22s ease}
     #m-help.is-on{opacity:.9;pointer-events:auto}
 
-    /* -- WALLET IN THE STICKY BAR -----------------------------------------
-       The SAME single express frame the hero shows, pinned over a placeholder
-       inside the bar. Paddle allows one checkout instance per page, and the frame
-       cannot be re-parented into #m-cta without reloading its iframe and discarding
-       the open checkout, so the bar reserves the box and strideDockPlace() puts the
-       real frame exactly on top of it.
-       No background or border here: it sits on the bar's own surface now.
-       132px is as narrow as this can sensibly go. Apple's guidelines put a minimum
-       width on their button, so squeezing it further risks Paddle declining to
-       render, in which case the wallet simply does not appear. */
-    #m-cta-express{display:none}
-    #m-cta.has-express #m-cta-express{
-      display:block;flex:0 1 132px;min-width:96px;min-height:46px}
-    #m-cta.has-express #m-cta-buy{flex:1 1 auto;min-width:0}
+    /* -- WALLET ABOVE THE STICKY BAR --------------------------------------
+       Why this is a full-width strip and NOT a compact button inside the bar row.
+       Measured on Pixel 7 with a real Google Pay wallet rendering:
+
+           in the hero, 364px wide    frame renders 120px tall
+           in the bar,  132px wide    frame renders 166px tall
+
+       Paddle's express frame reflows TALLER as it narrows, and its height is
+       content, not a box we choose. Pinned into a 46px bar row it ran to y=951 on
+       an 839px screen: 112px hanging off the bottom of the phone. No width fixes
+       that, so full width above the bar is the narrowest honest arrangement.
+
+       The consent line still does not come along. Paddle states the terms in its
+       own sheet at the point of payment, and it stays in the hero. */
     .express-dock.is-docked{
-      position:fixed;top:auto;right:auto;z-index:1001;
-      margin:0;padding:0;background:none;border:0;
+      position:fixed;left:0;right:0;z-index:1001;
+      bottom:calc(4.25rem + env(safe-area-inset-bottom,0px));
+      padding:.5rem .75rem;
+      background:rgba(16,15,12,.94);backdrop-filter:blur(10px);
+      border-top:1px solid var(--line);
       opacity:0;pointer-events:none;transition:opacity .22s ease}
     .express-dock.is-docked.is-on{opacity:1;pointer-events:auto}
-    /* The consent line does NOT come to the bar: there is no room for it, and
-       Paddle states the terms in its own sheet at the point of payment. It stays in
-       the hero, where the same button also lives. */
     .express-dock.is-docked .paddle-express-terms{display:none}
     @media (prefers-reduced-motion:reduce){.express-dock.is-docked{transition:none}}
   }
 
-
-  /* Three items in a 320px bar leave GET STRIDE about 92px, and the full
-     label does not fit in that. The price drops, the label stays, and only
-     when the wallet is actually in the bar. */
-  @media (max-width:359.98px){
-    #m-cta.has-express #m-cta-buy .m-cta-price{display:none}
-    /* With the price gone the label still needs ~85px at 13px, and the button
-       measures ~79px once the wallet and the trial take their share. */
-    #m-cta.has-express #m-cta-buy{font-size:12px;letter-spacing:.02em}
-  }
 
 </style>
 </head>
@@ -1505,11 +1495,6 @@
      the hero and desktop use. -->
 <div id="m-cta" role="group" aria-label="Get Stride" aria-hidden="true">
   <a onclick="openBuy()" class="btn-copper" id="m-cta-buy">GET STRIDE<span class="m-cta-price"> &middot; $99</span></a>
-  <!-- Reserves the wallet's box. The express frame CANNOT be a child here:
-       moving it in the DOM re-parents its iframe, which reloads it and discards
-       the checkout Paddle already opened. strideDockPlace() pins the real one
-       over this box instead. -->
-  <div id="m-cta-express" aria-hidden="true"></div>
   <a href="/try/" class="btn-ghost" id="m-cta-try">TRY 24H</a>
 </div>
 
@@ -1735,50 +1720,33 @@ function strideStickySync() {
   var want = on && narrow && !box.hidden;
 
   if (want) {
-    // The bar reserves the box FIRST, so the placeholder has real dimensions to
-    // measure before anything is pinned over it.
-    if (bar) bar.classList.add('has-express');
     if (!dock.classList.contains('is-docked')) {
       // Hold the height the dock had in the hero. Without this, taking it out of
       // flow shifts every pixel below the hero up by that amount.
       var h = dock.offsetHeight;
-      if (h) slot.style.height = h + 'px';
+      if (h) {
+        slot.style.height = h + 'px';
+        // The bar reserves 4.25rem of its own; the wallet adds its MEASURED height
+        // on top so the pair can never cover the footer. Measured rather than
+        // assumed, because the frame's height depends on how wide it ends up:
+        // 120px at 364px wide, 166px at 132px wide.
+        document.body.style.paddingBottom =
+          'calc(' + (68 + h) + 'px + env(safe-area-inset-bottom,0px))';
+      }
       dock.classList.add('is-docked');
     }
-    strideDockPlace();
     // Two frames, so the browser paints opacity:0 before is-on animates from it.
     requestAnimationFrame(function () {
       requestAnimationFrame(function () { dock.classList.add('is-on'); });
     });
-  } else {
-    if (bar) bar.classList.remove('has-express');
-    if (dock.classList.contains('is-docked')) {
-      dock.classList.remove('is-docked');
-      dock.classList.remove('is-on');
-      dock.style.left = dock.style.bottom = dock.style.width = dock.style.height = '';
-      slot.style.height = '';
-    }
+  } else if (dock.classList.contains('is-docked')) {
+    dock.classList.remove('is-docked');
+    dock.classList.remove('is-on');
+    slot.style.height = '';
+    document.body.style.paddingBottom = '';
   }
 }
 
-/* Pin the docked wallet over its reserved box inside the bar.
-   offsetLeft/offsetTop are read against #m-cta, NOT getBoundingClientRect: the bar
-   carries a translateY transition, and a rect read while that runs returns wherever
-   it is mid-flight rather than where it lands.
-   Anchored from the bottom so it never depends on window.innerHeight, which changes
-   as mobile browsers show and hide their chrome. */
-function strideDockPlace() {
-  var bar = document.getElementById('m-cta');
-  var ph = document.getElementById('m-cta-express');
-  var dock = document.querySelector('.express-dock');
-  if (!bar || !ph || !dock || !dock.classList.contains('is-docked')) return;
-  dock.style.left = ph.offsetLeft + 'px';
-  dock.style.bottom = (bar.offsetHeight - ph.offsetTop - ph.offsetHeight) + 'px';
-  dock.style.width = ph.offsetWidth + 'px';
-  dock.style.height = ph.offsetHeight + 'px';
-}
-window.addEventListener('resize', strideDockPlace);
-window.addEventListener('orientationchange', strideDockPlace);
 document.addEventListener('DOMContentLoaded', function () {
   var anchor = document.querySelector('.hero-cta');
   if (!anchor) return;
