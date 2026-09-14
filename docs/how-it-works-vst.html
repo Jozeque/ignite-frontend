@@ -210,6 +210,66 @@
   .clickhint{margin-top:16px;display:inline-flex;align-items:center;gap:.5em;font-size:12px;font-weight:700;
     color:var(--copper-lt);background:rgba(198,113,43,.08);border:1px solid rgba(198,113,43,.25);
     padding:.5em .9em;border-radius:999px;transition:opacity .4s ease;z-index:1}
+
+  /* ── the on-device popover ─────────────────────────────────────────────
+     The answer has to appear where the finger is. Previously it rendered in a
+     panel 289-312px below the control, which on a 568px screen meant tapping
+     changed nothing visible at all.
+     position:fixed and clamped to the viewport, NOT anchored inside the device:
+     the device is wider than the screen and pans, so a tooltip positioned in
+     device space could easily land off-screen, which is the bug being fixed. */
+  .hiw-tip{position:fixed;z-index:60;max-width:min(300px,calc(100vw - 24px));
+    background:rgba(24,21,17,.97);border:1px solid var(--line);
+    border-left:3px solid var(--accent,var(--copper-lt));
+    border-radius:12px;padding:11px 13px 12px;
+    box-shadow:0 18px 40px -12px rgba(0,0,0,.8);
+    font-size:13px;line-height:1.45;color:var(--ink);
+    opacity:0;transform:translateY(4px);transition:opacity .16s ease,transform .16s ease;
+    pointer-events:none}
+  .hiw-tip.on{opacity:1;transform:none}
+  .hiw-tip[hidden]{display:none}
+  .hiw-tip b{display:block;font-size:14px;color:var(--accent,var(--copper-lt));margin-bottom:1px}
+  .hiw-tip .tt{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;
+    color:var(--ink3);margin-bottom:6px}
+  .hiw-tip p{margin:0;color:var(--ink2)}
+  .hiw-tip .cls{position:absolute;top:4px;right:7px;font-size:15px;color:var(--ink3);
+    line-height:1;padding:4px;pointer-events:auto;cursor:pointer}
+
+  /* the affordance, on the device instead of underneath it */
+  .hiw-tap-hint{display:none}
+  /* a phone is tapped, not clicked */
+  .m-word{display:none}
+
+  /* ── MOBILE ───────────────────────────────────────────────────────────── */
+  @media(max-width:740px){
+    /* The replica is drawn for 840px. Squeezed to 96vw it rendered at ~40%:
+       4-6px labels, 27x13 controls. Keep its real scale and pan instead. */
+    .device-pan{width:100vw;margin-left:calc(50% - 50vw);
+      overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
+      padding:2px 14px 12px;
+      -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 14px,#000 calc(100% - 14px),transparent 100%);
+              mask-image:linear-gradient(90deg,transparent 0,#000 14px,#000 calc(100% - 14px),transparent 100%)}
+    .device-pan::-webkit-scrollbar{height:0;display:none}
+    .device-wrap{width:840px;max-width:none;flex:0 0 840px;filter:none}
+
+    /* Real 44px thumb targets WITHOUT changing how anything looks: an invisible
+       overlay centred on each control. The visual design is untouched. */
+    #device [data-tool]{position:relative}
+    #device [data-tool]::after{content:'';position:absolute;left:50%;top:50%;
+      transform:translate(-50%,-50%);width:max(100%,44px);height:max(100%,44px);
+      border-radius:9px}
+
+    /* The explanation panel goes. Its content is now on the device. */
+    .detail{display:none}
+    .clickhint{display:none}
+
+    .d-word{display:none}
+    .m-word{display:inline}
+    .hiw-tap-hint{display:inline-flex;align-items:center;gap:.45em;
+      margin:0 0 9px;font-size:12px;font-weight:700;color:var(--copper-lt);
+      background:rgba(198,113,43,.09);border:1px solid rgba(198,113,43,.28);
+      padding:.42em .85em;border-radius:999px}
+  }
   .clickhint.gone{opacity:0;pointer-events:none}
 
   /* ── detail panel ───────────────────────────────────────────────────── */
@@ -280,7 +340,7 @@
   <div class="head">
     <h2>How <span class="brand">Stride VST</span> Works</h2>
     <p style="color:var(--ink);font-weight:600;max-width:36em;margin:0 auto 10px">Build your dream chain in one place, modulate everything you map at once, and get endless unique variations in a few clicks.</p>
-    <p style="font-size:clamp(14px,2vw,18px)"><b>Click anything on the plugin</b> and see exactly what it does. Fully interactive, exactly like the real window.</p>
+    <p style="font-size:clamp(14px,2vw,18px)"><b><span class="d-word">Click</span><span class="m-word">Tap</span> anything on the plugin</b> and see exactly what it does. Fully interactive, exactly like the real window.</p>
   </div>
 
   <!-- ── prerequisite note: add your devices, then map by touch ─────────── -->
@@ -314,6 +374,8 @@
   <div class="stage">
     <div class="stage-tag"><span class="dotg"></span><span>Stride VST · runs in any VST3 DAW</span></div>
 
+    <div class="hiw-tap-hint" id="hiw-tap-hint">&#128071; Tap any control &middot; swipe for more</div>
+    <div class="device-pan" id="device-pan">
     <div class="device-wrap">
       <div class="device" id="device">
 
@@ -475,6 +537,9 @@
         </div>
       </div>
     </div>
+    </div><!-- /device-pan -->
+
+    <div class="hiw-tip" id="hiw-tip" role="tooltip" hidden></div>
 
     <div class="clickhint" id="clickhint">👆 Click any control on the plugin</div>
   </div>
@@ -1034,7 +1099,68 @@ function selectTool(key,btn){
   document.getElementById('lb-name').textContent=t.name;
   document.getElementById('lb-name').style.color=t.accent;
   document.getElementById('lb-desc').textContent=t.tag;
+  // and the on-device answer, which is the only response a phone ever sees
+  placeTip(btn,t);
 }
+
+/* Only a real tap may open the popover.
+   selectTool('live',first) runs on load to pick a default and passes a real button,
+   so without this the tooltip opened over the device before anyone touched it. That
+   is precisely the defect being fixed: the old panel below was pre-filled the same
+   way, which is why it read as a static section instead of an answer. */
+let hiwUserTap=false;
+
+/* Put the answer where the finger is.
+   Measured problem this solves: the detail panel sits 289-312px below the control,
+   so on a 568px screen tapping changed nothing inside the viewport.
+   Positioned FIXED and clamped to the viewport rather than anchored in device
+   space: the device is 840px wide inside a panning window, so a device-space
+   tooltip could land off-screen, which is the very bug being fixed. */
+function placeTip(btn,t){
+  const tip=document.getElementById('hiw-tip');
+  if(!tip) return;
+  const phone=window.matchMedia('(max-width:740px)').matches;
+  if(!phone||!btn||!hiwUserTap){ hideTip(); return; }
+
+  tip.style.setProperty('--accent',t.accent);
+  tip.innerHTML='<span class="cls" aria-hidden="true">&times;</span>'
+    +'<b>'+t.name+'</b>'
+    +'<span class="tt">'+t.tag+'</span>'
+    +'<p>'+t.desc+'</p>';
+  tip.hidden=false;
+
+  // measure after fill, before showing
+  const br=btn.getBoundingClientRect();
+  const tw=tip.offsetWidth, th=tip.offsetHeight;
+  let left=br.left+br.width/2-tw/2;
+  left=Math.max(8,Math.min(left,window.innerWidth-tw-8));
+  let top=br.bottom+9;
+  // flip above when there is no room below, so it is never off the bottom
+  if(top+th>window.innerHeight-8) top=Math.max(8,br.top-th-9);
+  tip.style.left=Math.round(left)+'px';
+  tip.style.top=Math.round(top)+'px';
+  requestAnimationFrame(()=>tip.classList.add('on'));
+}
+
+function hideTip(){
+  const tip=document.getElementById('hiw-tip');
+  if(!tip) return;
+  tip.classList.remove('on');
+  tip.hidden=true;
+}
+
+// dismiss: tapping the popover's close, tapping away, panning, or resizing
+document.addEventListener('click',e=>{
+  const tip=document.getElementById('hiw-tip');
+  if(!tip||tip.hidden) return;
+  if(e.target.closest('#device [data-tool]')) return;   // another control: it re-places
+  hideTip();
+},true);
+window.addEventListener('resize',hideTip);
+document.addEventListener('DOMContentLoaded',()=>{
+  const pan=document.getElementById('device-pan');
+  if(pan) pan.addEventListener('scroll',hideTip,{passive:true});
+});
 
 function mountMedia(t){
   const m=t.media||{type:'live'};
@@ -1055,6 +1181,7 @@ function makeMedia(m){
 
 document.querySelectorAll('#device .ctl').forEach(btn=>{
   btn.addEventListener('click',()=>{
+    hiwUserTap=true;            // this is a real tap, so an answer is wanted
     selectTool(btn.dataset.tool,btn);
     dismissHint();
   });
