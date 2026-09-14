@@ -1827,7 +1827,14 @@ function openBuy() { toggleBuyModal(); }
 
     let strideAddonOn = false;
 
-    function strideAddonAvailable() { return !!STRIDE_COLLECTION_CHECKOUT_URL; }
+    // Whatever actually charges for the Collection decides whether we offer it. This
+    // read the Lemon Squeezy bundle URL, which is dead config under Paddle: pruning that
+    // constant would have silently removed the add-on from the page while Paddle was
+    // still perfectly able to sell it.
+    function strideAddonAvailable() {
+        if (CHECKOUT_PROVIDER === 'paddle') return !!PADDLE_PRICE_COLLECTION;
+        return !!STRIDE_COLLECTION_CHECKOUT_URL;
+    }
     function strideAddonActive()    { return strideAddonOn && strideAddonAvailable(); }
     function strideCheckoutUrl()    { return strideAddonActive() ? STRIDE_COLLECTION_CHECKOUT_URL : STRIDE_CHECKOUT_URL; }
     function strideOrderTotal()     { return strideAddonActive() ? STRIDE_PRICE + COLLECTION_ADDON_PRICE : STRIDE_PRICE; }
@@ -2219,7 +2226,14 @@ function openBuy() { toggleBuyModal(); }
         // (fbc/fbclid/fbp/ua/event_id) rides along so the backend can join it to
         // the order by email even if LS doesn't forward the checkout custom data.
         const _orderValue = strideOrderValue();
-        const leadAction = LS_CHECKOUT_URL ? 'buyer_lead' : 'waitlist_signup';
+        // Anyone reaching this point entered an email and pressed Buy. That is a buyer
+        // lead regardless of who processes the payment. This hinged on the Lemon Squeezy
+        // URL alone, so pruning that dead constant would have downgraded every checkout
+        // to a waitlist signup, silently killing the BUYER LEAD alert, the server-side
+        // InitiateCheckout and the cart-abandoner audience built from it.
+        const _haveCheckout = (CHECKOUT_PROVIDER === 'paddle' && !!PADDLE_PRICE_STRIDE)
+                              || !!LS_CHECKOUT_URL;
+        const leadAction = _haveCheckout ? 'buyer_lead' : 'waitlist_signup';
         // keepalive: true is critical — without it, mobile browsers cancel
         // this request when window.location.href redirects to LS below.
         fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
