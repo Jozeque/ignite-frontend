@@ -1314,7 +1314,7 @@
                stacking a second full checkout under the card button. Paying here skips
                the form, so the consent line below carries what the checkbox carries. -->
           <div class="paddle-express-checkout mt-2.5"></div>
-          <p class="text-[10px] ink3 mt-1.5 text-center leading-relaxed">Paying above accepts the <a href="terms.html" target="_blank" class="underline">Terms</a> and the <a href="refund.html" target="_blank" class="underline">Refund Policy</a>.</p>
+          <p class="paddle-express-terms text-[10px] ink3 mt-1.5 text-center leading-relaxed" hidden>Paying above accepts the <a href="terms.html" target="_blank" class="underline">Terms</a> and the <a href="refund.html" target="_blank" class="underline">Refund Policy</a>.</p>
 
           <a href="/try/" class="btn-ghost w-full justify-center text-sm py-3 rounded-2xl mt-2.5">Explore free for 24h</a>
           <p class="text-[11px] ink3 mt-3">VST3 + AU + Max for Live · not Pro Tools (AAX)</p>
@@ -2016,9 +2016,28 @@ function openBuy() { toggleBuyModal(); }
     // Express Apple Pay / Google Pay. On a compatible Apple device this pays straight
     // from the Wallet with no form. It renders nothing at all when the device or browser
     // cannot take it, so its absence is never a broken page.
+    // showNonExpressPaymentMethods is false below, so this checkout can ONLY offer a
+    // wallet. On a device without one Paddle has nothing to show and renders "There are
+    // no payment methods available for this checkout" under the buy button, which is
+    // worse than showing nothing. Apple Pay answers this synchronously, so ask it.
+    //
+    // Apple Pay's platforms are iPhone, iPad and Safari on Mac, so this is false on
+    // Windows and most desktops, and those visitors simply use the button above.
+    // Google Pay has no equivalent synchronous check; adding it would need the Google
+    // Pay JS API, and guessing from the user agent would reintroduce the same error on
+    // any Android device without a card set up.
+    function strideWalletAvailable() {
+        try {
+            return !!(window.ApplePaySession
+                      && typeof window.ApplePaySession.canMakePayments === 'function'
+                      && window.ApplePaySession.canMakePayments());
+        } catch (e) { return false; }
+    }
+
     function strideMountExpress() {
         if (!PADDLE_EXPRESS || !stridePaddleReady()) return;
         if (!document.querySelector('.paddle-express-checkout')) return;
+        if (!strideWalletAvailable()) return;
         try {
             Paddle.Checkout.open({
                 items: [{ priceId: PADDLE_PRICE_STRIDE, quantity: 1 }],
@@ -2039,6 +2058,11 @@ function openBuy() { toggleBuyModal(); }
                     theme: 'dark',
                     successUrl: PADDLE_SUCCESS_URL
                 }
+            });
+            // The consent line is hidden by default. It reads "Paying above accepts..."
+            // and pointed at nothing on every device where the button never mounted.
+            document.querySelectorAll('.paddle-express-terms').forEach(function (el) {
+                el.hidden = false;
             });
         } catch (e) {}
     }
