@@ -808,8 +808,12 @@
     .express-dock.is-docked .paddle-express-checkout iframe{
       position:absolute!important;
       width:364px!important;height:130px!important;
-      left:50%!important;top:-24px!important;
-      transform:translateX(-50%)!important}
+      /* calc, NOT translateX(-50%). iOS Safari composites a transformed iframe into
+         its own layer and can rasterise it at the wrong scale, which renders blurry
+         on a 3x screen; Chromium does not, which is why Android measured clean while
+         a real iPhone showed mush. 182 is half the pinned 364px width, so this
+         centres identically with no transform involved. */
+      left:calc(50% - 182px)!important;top:-24px!important}
 
     /* No room for the consent line beside a 72px square. It stays in the hero,
        where it carries the "Sold by Paddle.com Market Ltd." attribution, and the
