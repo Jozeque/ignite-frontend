@@ -839,8 +839,12 @@
       position:static!important;
       width:100%!important;height:130px!important;
       left:auto!important;top:auto!important}
-    /* There IS room on a full width strip, so the seller gets named again. */
-    .express-dock.is-docked.is-strip .paddle-express-terms{display:block}
+    /* The consent line stays OUT of the strip too. The 80px crop is proven to apply
+       in WebKit (tested by injecting an iframe: container snaps to 80px with
+       overflow hidden, same as Chromium), so Paddle's own footer is already cut and
+       the only text left was ours. The hero still carries the "Sold by Paddle.com
+       Market Ltd." attribution, and the wallet sheet names the merchant at the
+       moment of payment. */
 
     /* No room for the consent line beside a 72px square. It stays in the hero,
        where it carries the "Sold by Paddle.com Market Ltd." attribution, and the
