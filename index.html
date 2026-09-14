@@ -1754,11 +1754,12 @@ function openBuy() { toggleBuyModal(); }
         if (stridePaddleInit) return true;
         if (!window.Paddle || !PADDLE_TOKEN) return false;
         try {
-            // NO eventCallback firing InitiateCheckout here. The express button mounts
-            // an inline checkout on page load, so a checkout.loaded hook would fire IC
-            // for every visitor and wreck cost-per-IC. submitBuyForm already fires it
-            // at the real moment of intent.
-            Paddle.Initialize({ token: PADDLE_TOKEN });
+            // The callback manages the express button's VISIBILITY and nothing else.
+            // It must never fire InitiateCheckout: the express checkout mounts on every
+            // page load, so a checkout.loaded hook here would report a checkout start
+            // for every visitor and wreck cost-per-IC. submitBuyForm fires it at the
+            // real moment of intent.
+            Paddle.Initialize({ token: PADDLE_TOKEN, eventCallback: strideExpressEvent });
             stridePaddleInit = true;
         } catch (e) { return false; }
         return true;
@@ -2022,19 +2023,47 @@ function openBuy() { toggleBuyModal(); }
     // Google Pay has no equivalent synchronous check; adding it would need the Google
     // Pay JS API, and guessing from the user agent would reintroduce the same error on
     // any Android device without a card set up.
-    function strideWalletAvailable() {
-        try {
-            return !!(window.ApplePaySession
-                      && typeof window.ApplePaySession.canMakePayments === 'function'
-                      && window.ApplePaySession.canMakePayments());
-        } catch (e) { return false; }
+    // Set while OUR express mount is the live checkout. Paddle.Initialize takes ONE
+    // eventCallback for every checkout on the page, the buy-form overlay included, so
+    // without this flag the overlay's own events would show and hide this button.
+    let strideExpressLive = false;
+
+    function strideExpressReveal(on) {
+        // The CONTAINER is left in the flow either way: an empty one measures 0px tall,
+        // so it shows nothing, and mounting Paddle's iframe into a display:none element
+        // risks a zero-height frame. Only the consent line is toggled up front; the
+        // container is hidden only once we know there is nothing to put in it.
+        document.querySelectorAll('.paddle-express-terms').forEach(function (el) {
+            el.hidden = !on;
+        });
+        if (!on) {
+            document.querySelectorAll('.paddle-express-checkout').forEach(function (el) {
+                el.hidden = true;
+            });
+        }
+    }
+
+    // MEASURED against the live page in Chromium and WebKit, not assumed:
+    //   checkout.loaded        fires for the inline express mount on desktop, iPhone
+    //                          and Pixel, so it is a reliable "it rendered" signal.
+    //   checkout.payment.error fires where there is no wallet to offer, which is the
+    //                          state that printed "There are no payment methods
+    //                          available for this checkout" inside the frame.
+    function strideExpressEvent(ev) {
+        if (!strideExpressLive) return;          // the overlay's events are not ours
+        var name = ev && ev.name;
+        if (name === 'checkout.loaded') strideExpressReveal(true);
+        else if (name === 'checkout.payment.error') strideExpressReveal(false);
     }
 
     function strideMountExpress() {
         if (!PADDLE_EXPRESS || !stridePaddleReady()) return;
         if (!document.querySelector('.paddle-express-checkout')) return;
-        if (!strideWalletAvailable()) return;
+        // No wallet sniffing. Detecting Apple Pay excluded every Android visitor, since
+        // Google Pay's platforms are Android, Chromebook and Chrome, none of which
+        // expose ApplePaySession. Paddle decides; its events tell us what happened.
         try {
+            strideExpressLive = true;
             Paddle.Checkout.open({
                 items: [{ priceId: PADDLE_PRICE_STRIDE, quantity: 1 }],
                 customData: strideExpressCustomData(),
@@ -2042,11 +2071,13 @@ function openBuy() { toggleBuyModal(); }
                     displayMode: 'inline',
                     variant: 'express',
                     frameTarget: 'paddle-express-checkout',
-                    // 450 and 312 are Paddle's own recommended figures. This was 64,
-                    // which left the express checkout nowhere to draw: it mounted and
-                    // created its transaction, but rendered nothing a visitor could see.
-                    frameInitialHeight: 450,
-                    frameStyle: 'width:100%;min-width:312px;background-color:transparent;border:none;',
+                    // Measured, not recommended: the frame renders 120px on desktop and
+                    // Pixel, 157px on iPhone, and Paddle auto-resizes from this initial
+                    // value. 450 reserved three times what it needs; 64 clipped it.
+                    frameInitialHeight: 120,
+                    // min-width:312px was WIDER than this column, which measures
+                    // 287-306px, so the frame overflowed its own container.
+                    frameStyle: 'width:100%;background-color:transparent;border:none;',
                     // Only the wallet button, not a whole inline checkout. The card path
                     // already has its own button above this one, and two full checkouts
                     // stacked on the pricing card would be worse than none.
@@ -2055,12 +2086,10 @@ function openBuy() { toggleBuyModal(); }
                     successUrl: PADDLE_SUCCESS_URL
                 }
             });
-            // The consent line is hidden by default. It reads "Paying above accepts..."
-            // and pointed at nothing on every device where the button never mounted.
-            document.querySelectorAll('.paddle-express-terms').forEach(function (el) {
-                el.hidden = false;
-            });
-        } catch (e) {}
+            // The consent line is revealed by strideExpressEvent on checkout.loaded,
+            // not here. Revealing on the CALL was wrong: open() returning says nothing
+            // about whether anything rendered.
+        } catch (e) { strideExpressLive = false; }
     }
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -2116,6 +2145,9 @@ function openBuy() { toggleBuyModal(); }
                 // The express button holds an INLINE checkout instance, and Paddle
                 // allows only one at a time. Without this close, every buyer who
                 // scrolled past the pricing card gets a button that does nothing.
+                // Clearing the flag first stops the overlay's own loaded/error events
+                // from being read as the express button's.
+                strideExpressLive = false;
                 try { Paddle.Checkout.close(); } catch (e) {}
 
                 Paddle.Checkout.open({
