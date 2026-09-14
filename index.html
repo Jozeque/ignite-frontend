@@ -1918,11 +1918,16 @@ function openBuy() { toggleBuyModal(); }
                     ? '✓ Experimental Collection added '
                     : '<span class="addon-lead">Add </span>Experimental Collection ')
                     + '<span class="addon-p">+' + money + '</span>'
-                    // $35 is the stated VALUE of the collection, struck through. It is a
-                    // display anchor only: COLLECTION_ADDON_PRICE stays 24.99 because that
-                    // is what Lemon Squeezy actually charges ($123.99 bundle minus $99).
+                    // The stated VALUE of the Collection, struck through. A display
+                    // anchor only, never charged: Paddle prices the Collection directly at
+                    // COLLECTION_ADDON_PRICE. (It used to be derived from the Lemon Squeezy
+                    // bundle, 123.99 minus 99, which is why that number is 24.99.)
+                    //
+                    // It has to go through strideMoney like every other number here. This
+                    // was the last price on the page concatenating a literal '$', so an
+                    // Israeli visitor read "+₪76.99  $35" on one line.
                     + '<span class="addon-was" style="text-decoration:line-through;opacity:.6;'
-                    + 'font-weight:700;margin-left:.35rem">$' + COLLECTION_VALUE + '</span>';
+                    + 'font-weight:700;margin-left:.35rem">' + strideMoney(COLLECTION_VALUE) + '</span>';
             }
 
             // "Remove" rather than a second "Added": the row already says it is added,
