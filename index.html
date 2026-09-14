@@ -815,6 +815,33 @@
          centres identically with no transform involved. */
       left:calc(50% - 182px)!important;top:-24px!important}
 
+    /* -- APPLE DEVICES GET A STRIP, NOT THE SQUARE ------------------------
+       A real iPhone showed the reserved gap with NOTHING painted in it. Either
+       Apple Pay's button sits at a different y than Google Pay's, or Safari
+       refuses to render an Apple Pay button that is clipped, which is an
+       anti-clickjacking protection rather than a styling problem. The screenshot
+       cannot tell those apart, because a #000 window against a near black bar
+       looks the same either way.
+       So Apple devices get the arrangement that is known to render there: full
+       width above the bar, cropped to 80px so Paddle's footer is still cut, and
+       crucially with NO vertical offset (frame y 0..80, button at 26..70). That
+       also settles the question: if the button appears here, the offset was the
+       problem; if it does not, clipping Apple Pay is simply not viable. */
+    .express-dock.is-docked.is-strip{
+      left:0;right:0;
+      bottom:calc(4.25rem + env(safe-area-inset-bottom,0px));
+      padding:.5rem .75rem;
+      background:rgba(16,15,12,.94);backdrop-filter:blur(10px);
+      border-top:1px solid var(--line)}
+    .express-dock.is-docked.is-strip .paddle-express-checkout:has(iframe){
+      width:100%;height:80px;border-radius:0;background:none}
+    .express-dock.is-docked.is-strip .paddle-express-checkout iframe{
+      position:static!important;
+      width:100%!important;height:130px!important;
+      left:auto!important;top:auto!important}
+    /* There IS room on a full width strip, so the seller gets named again. */
+    .express-dock.is-docked.is-strip .paddle-express-terms{display:block}
+
     /* No room for the consent line beside a 72px square. It stays in the hero,
        where it carries the "Sold by Paddle.com Market Ltd." attribution, and the
        wallet sheet itself names the merchant at the moment of payment. */
@@ -1784,7 +1811,35 @@ function strideStickySync() {
   var narrow = !window.matchMedia || window.matchMedia('(max-width:899.98px)').matches;
   var want = on && narrow && !box.hidden;
 
+  // Apple devices cannot take the cropped square: a real iPhone rendered the
+  // reserved gap with nothing in it. window.ApplePaySession exists only in Safari
+  // on Apple hardware, and Chrome on iOS is WebKit underneath so it reports true
+  // as well, which is right because it has the same constraint.
+  var strideStrip = false;
+  try { strideStrip = !!window.ApplePaySession; } catch (e) {}
+
+  if (want && strideStrip) {
+    // Strip mode: full width above the bar, no pinning, no reserved gap in the bar.
+    if (bar) bar.classList.remove('has-express');
+    dock.classList.add('is-strip');
+    if (!dock.classList.contains('is-docked')) {
+      var hs = dock.offsetHeight;
+      if (hs) {
+        slot.style.height = hs + 'px';
+        document.body.style.paddingBottom =
+          'calc(' + (68 + hs) + 'px + env(safe-area-inset-bottom,0px))';
+      }
+      dock.classList.add('is-docked');
+    }
+    dock.style.left = dock.style.bottom = dock.style.width = dock.style.height = '';
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { dock.classList.add('is-on'); });
+    });
+    return;
+  }
+
   if (want) {
+    dock.classList.remove('is-strip');
     // The bar reserves the square FIRST, so the placeholder has real dimensions to
     // measure before anything is pinned over it.
     if (bar) bar.classList.add('has-express');
@@ -1805,8 +1860,10 @@ function strideStickySync() {
     if (dock.classList.contains('is-docked')) {
       dock.classList.remove('is-docked');
       dock.classList.remove('is-on');
+      dock.classList.remove('is-strip');
       dock.style.left = dock.style.bottom = dock.style.width = dock.style.height = '';
       slot.style.height = '';
+      document.body.style.paddingBottom = '';
     }
   }
 }
