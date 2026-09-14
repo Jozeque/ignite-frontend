@@ -2236,10 +2236,16 @@ function openBuy() { toggleBuyModal(); }
                     // and if they ever reflow, the button stays in view instead of the
                     // crop silently framing the wrong slice of a checkout.
                     //
-                    // Correcting an earlier note here: Paddle does NOT auto-resize from
-                    // this value. We set 120 while the content measured 130, and the frame
-                    // stayed 120. It behaves as a fixed height, which is what makes this
-                    // work at all.
+                    // Paddle DOES auto-resize the iframe after mount, so this value is a
+                    // starting height and nothing more. Measured on Pixel 7: in the sticky
+                    // strip the iframe came back 130px tall despite this being 80. An
+                    // earlier comment here claimed the opposite, on the strength of a
+                    // single observation where the frame happened to stay put, and that
+                    // wrong claim is why the footer was still showing on a real iPhone.
+                    // The crop is therefore enforced by the CONTAINER
+                    // (.paddle-express-checkout:has(iframe), height 80 + overflow hidden),
+                    // which holds whatever height Paddle picks. This value just avoids a
+                    // tall first paint before the resize lands.
                     //
                     // The seller is still named: the consent line below the frame carries
                     // "Sold by Paddle.com Market Ltd." Paddle is the merchant of record and
