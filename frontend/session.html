@@ -189,6 +189,52 @@
     border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(0,0,0,.14)),var(--panel)}
   .mc-n{font-size:26px;font-weight:900;letter-spacing:-.02em;color:var(--copper-lt);line-height:1}
   .mc-l{font-size:10px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);line-height:1.35}
+  /* ── Session layout: hero, timeline and booking on the left, credentials card on the right ── */
+  .session-grid{display:grid;grid-template-columns:minmax(0,1fr);
+    grid-template-areas:"hero" "card" "timeline" "book";gap:44px}
+  .sg-hero{grid-area:hero}
+  .sg-card{grid-area:card}
+  .sg-timeline{grid-area:timeline}
+  .sg-book{grid-area:book}
+  @media (min-width:900px){
+    .session-grid{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);
+      grid-template-areas:"hero card" "timeline card" "book card";column-gap:56px;row-gap:56px;align-items:start}
+    /* The card spans all three rows and stays in view while the timeline is read. */
+    .sg-card{position:sticky;top:24px}
+  }
+  /* Label marks: one tone, optically balanced by height rather than by width. */
+  .labels{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:22px 18px;align-items:center;justify-items:start}
+  @media (min-width:520px) and (max-width:899px){ .labels{grid-template-columns:repeat(4,minmax(0,1fr))} }
+  .lbl{display:block;width:auto;max-width:100%;object-fit:contain;opacity:.74;transition:opacity .2s}
+  .labels li:hover .lbl{opacity:1}
+  .lbl-artlist{height:19px}
+  .lbl-merkaba{height:30px}
+  .lbl-shanti{height:54px}
+  .lbl-allo{height:21px}
+  /* Timeline: a to-scale bar (10 / 20 / 40 minutes), then the three parts on a rail. */
+  .tl-scale{margin-bottom:36px}
+  .tl-bar{display:flex;gap:3px;height:8px}
+  .tl-seg{border-radius:3px;background:rgba(221,154,82,.26)}
+  .tl-seg-live{background:linear-gradient(90deg,var(--copper),var(--ember))}
+  .tl-ticks{position:relative;height:16px;margin-top:9px;font-size:11px;letter-spacing:.1em;color:var(--ink3)}
+  .tl-ticks span{position:absolute;top:0;transform:translateX(-50%)}
+  .tl-ticks .tl-tick-start{left:0;transform:none}
+  .tl-ticks .tl-tick-end{right:0;transform:none}
+  .tl{list-style:none;margin:0;padding:0}
+  .tl-step{position:relative;padding:0 0 38px 36px}
+  .tl-step:last-child{padding-bottom:0}
+  .tl-step::before{content:"";position:absolute;left:0;top:3px;width:12px;height:12px;border-radius:999px;
+    background:var(--bg);border:2px solid var(--copper-lt)}
+  .tl-step::after{content:"";position:absolute;left:5px;top:19px;bottom:-3px;width:2px;background:var(--line)}
+  .tl-step:last-child::after{display:none}
+  .tl-step-live::before{background:var(--copper-lt);box-shadow:0 0 0 5px rgba(221,154,82,.16)}
+  .tl-time{font-size:12px;font-weight:700;letter-spacing:.14em;color:var(--copper-lt);line-height:1.3;margin:0 0 6px}
+  .tl-title{font-size:1.4rem;line-height:1.2;margin:0 0 12px}
+  .tl-step p{font-size:.97rem;line-height:1.72;color:var(--ink2);margin:0 0 10px;max-width:38rem}
+  .tl-step p:last-child{margin-bottom:0}
+  .tl-leave{margin:38px 0 0;padding-top:24px;border-top:1px solid var(--line);font-size:1.06rem;line-height:1.65;
+    color:var(--ink);font-weight:500;max-width:38rem}
 </style>
 </head>
 <body>
@@ -200,41 +246,24 @@
     <a href="index.html" class="text-sm font-bold ink2 hover:text-[color:var(--copper-lt)] transition-colors">Get Stride &rarr;</a>
   </nav>
 
-  <header class="max-w-5xl mx-auto px-6 pt-6 pb-12 sm:pt-8 sm:pb-14">
-    <div class="grid md:grid-cols-[1.15fr,1fr] gap-10 lg:gap-14 items-center">
+  <main class="max-w-5xl mx-auto px-6 pt-6 pb-16 sm:pt-8 sm:pb-20">
+    <!-- One grid, four areas. Wide screens: the hero, the timeline and the booking read down
+         the left while the credentials card holds its place on the right. Narrow screens:
+         the card follows the hero, so the proof comes before the detail. -->
+    <div class="session-grid">
 
-      <div>
-        <div class="flex items-center gap-3 mb-5">
-          <span class="chip pill-warm">One to one</span>
-        </div>
-
-        <h1 class="text-4xl sm:text-5xl lg:text-[3.1rem] leading-[1.04] uppercase mb-5">
-          Sit down with the<br>person who <span class="brand">built Stride</span>
+      <header class="sg-hero">
+        <h1 class="text-4xl sm:text-5xl lg:text-[3rem] leading-[1.06] mb-6">
+          <span class="brand">70 minutes</span> to change the way you explore sound design.
         </h1>
-
-        <p class="text-xl sm:text-2xl ink leading-[1.3] mb-5 font-bold">
-          70 minutes to change the way you explore sound design.
+        <p class="text-base sm:text-lg ink2 leading-relaxed max-w-xl">
+          Instead of deciding exactly where a sound should go before you start, we create possibilities,
+          listen, react and let the best direction reveal itself.
         </p>
-
-        <p class="text-sm sm:text-base ink2 leading-relaxed max-w-lg mb-3">
-          Bring your session, your favorite instruments and effects, and a sound worth pushing further.
-        </p>
-        <p class="text-sm sm:text-base ink2 leading-relaxed max-w-lg mb-7">
-          We will work inside your setup and build a repeatable exploration workflow around it.
-        </p>
-
-        <div class="flex flex-wrap items-center gap-5 sm:gap-7 mb-4">
-          <div class="flex items-baseline gap-2">
-            <div class="price text-4xl sm:text-5xl">$99</div>
-            <div class="text-base font-bold ink3">/ session</div>
-          </div>
-          <a class="session-cta btn-copper px-8 py-4 text-sm uppercase" href="#">Book a session</a>
-        </div>
-        <p class="text-[11px] ink3 leading-relaxed max-w-md session-note"></p>
-      </div>
+      </header>
 
       <!-- Credibility stated plainly. No superlatives: the record carries it. -->
-      <div>
+      <aside class="sg-card">
         <div class="rounded-2xl p-6 sm:p-7" style="border:1px solid var(--line);background:var(--bg2)">
           <!-- A face on a page selling a session with a person. The photo is a 1:1 crop
                (hands out of frame) shown as a circle, which sits better than a bright
@@ -272,108 +301,88 @@
 
           <!-- Label credits as a strip rather than a fourth list item: there is no
                natural number to put beside them, and a bare bullet would break the
-               10 / 100+ / 1 rhythm the panel is built on. Names carry more weight
-               with producers than another sentence would. -->
+               10 / 100+ / 1 rhythm the panel is built on. The labels' own marks, all
+               in one tone, so no brand colour shouts over the rest of the card. -->
           <div class="mt-6 pt-5" style="border-top:1px solid var(--line)">
-            <p class="text-[10px] font-black uppercase tracking-[0.18em] mb-2.5 ink3">Released with</p>
-            <p class="text-sm leading-relaxed" style="color:var(--ink2);font-weight:600">
-              Artlist Original <span class="ink3">&middot;</span> Merkaba Music
-              <span class="ink3">&middot;</span> Shanti Planti
-              <span class="ink3">&middot;</span> all:lo collective
-            </p>
+            <p class="text-[10px] font-black uppercase tracking-[0.18em] mb-4 ink3">Released with</p>
+            <ul class="labels">
+              <li><img class="lbl lbl-artlist" src="assets/logos/artlist.svg" alt="Artlist Original" width="496" height="129" decoding="async"></li>
+              <li><img class="lbl lbl-merkaba" src="assets/logos/merkaba-music.png" alt="Merkaba Music" width="361" height="96" decoding="async"></li>
+              <li><img class="lbl lbl-shanti" src="assets/logos/shanti-planti.png" alt="Shanti Planti" width="168" height="144" decoding="async"></li>
+              <li><img class="lbl lbl-allo" src="assets/logos/all-lo.png" alt="all:lo collective" width="304" height="96" decoding="async"></li>
+            </ul>
           </div>
         </div>
-      </div>
+      </aside>
 
-    </div>
-  </header>
-
-  <!-- The objection this page has to answer before anything else: "is this just a
-       walkthrough of a plugin I already own?" -->
-  <section class="max-w-5xl mx-auto px-6 pb-14">
-    <div class="rounded-2xl p-6 sm:p-8" style="border:1px solid var(--line);background:var(--bg2)">
-      <h2 class="text-2xl sm:text-3xl uppercase tracking-tight mb-4">This is not a Stride tutorial</h2>
-      <p class="text-sm sm:text-base ink2 leading-relaxed mb-3 max-w-3xl">
-        The goal is not to show you where the buttons are.
-      </p>
-      <p class="text-sm sm:text-base ink2 leading-relaxed mb-5 max-w-3xl">
-        It is to get you into the mindset Stride was built around:
-      </p>
-      <p class="text-lg sm:text-xl ink font-bold leading-snug mb-5 max-w-3xl">
-        Explore more. Commit less. Follow what sounds interesting. Keep what works. Reroll the rest.
-      </p>
-      <p class="text-sm sm:text-base ink2 leading-relaxed max-w-3xl">
-        Instead of deciding exactly where a sound should go before you start, we create possibilities,
-        listen, react and let the best direction reveal itself.
-      </p>
-    </div>
-  </section>
-
-  <section class="max-w-5xl mx-auto px-6 pb-14">
-    <h2 class="text-2xl sm:text-3xl uppercase tracking-tight mb-7">70 minutes. Three parts.</h2>
-    <div class="flex flex-col gap-4">
-
-      <div class="rounded-2xl p-6 sm:p-7" style="border:1px solid var(--line);background:var(--bg2)">
-        <div class="flex flex-col sm:flex-row sm:gap-7">
-          <div class="mono text-sm font-bold shrink-0 mb-2 sm:mb-0 sm:w-28" style="color:var(--copper-lt)">00&ndash;10 MIN</div>
-          <div class="min-w-0">
-            <div class="text-[11px] font-black uppercase tracking-[0.16em] mb-3 ink">Getting to know your work</div>
-            <p class="text-sm ink2 leading-relaxed mb-3">We start with what you're working on, the kind of music you
-              make, the sounds you're drawn to, and what you'd like to get better at.</p>
-            <p class="text-sm ink2 leading-relaxed">I also want to understand how you currently approach sound design,
-              where you tend to spend too much time, and what usually makes you feel stuck.</p>
+      <!-- The session as a timeline. The bar is drawn to scale (10, 20 and 40 minutes), so
+           the shape of the hour shows before a word of it is read. -->
+      <section class="sg-timeline" aria-label="The session, minute by minute">
+        <div class="tl-scale" aria-hidden="true">
+          <div class="tl-bar">
+            <span class="tl-seg" style="flex:10"></span>
+            <span class="tl-seg" style="flex:20"></span>
+            <span class="tl-seg tl-seg-live" style="flex:40"></span>
+          </div>
+          <div class="tl-ticks mono">
+            <span class="tl-tick-start">00</span>
+            <span style="left:14.2857%">10</span>
+            <span style="left:42.8571%">30</span>
+            <span class="tl-tick-end">70</span>
           </div>
         </div>
-      </div>
 
-      <div class="rounded-2xl p-6 sm:p-7" style="border:1px solid var(--line);background:var(--bg2)">
-        <div class="flex flex-col sm:flex-row sm:gap-7">
-          <div class="mono text-sm font-bold shrink-0 mb-2 sm:mb-0 sm:w-28" style="color:var(--copper-lt)">10&ndash;30 MIN</div>
-          <div class="min-w-0">
-            <div class="text-[11px] font-black uppercase tracking-[0.16em] mb-3 ink">How I think about sound design</div>
-            <p class="text-sm ink2 leading-relaxed mb-3">I'll walk you through the ideas and working habits I've built
-              over the last 10 years of doing sound design every day.</p>
-            <p class="text-sm ink2 leading-relaxed mb-3">A big part of it is learning to get much more out of fewer
-              tools, instead of constantly adding new ones.</p>
-            <p class="text-sm ink2 leading-relaxed mb-3">We'll talk about exploration, processing, movement, resampling
-              and how I make decisions while I'm working.</p>
-            <p class="text-sm ink2 leading-relaxed">We'll also get into the relationship between sound design, mixing
-              and arrangement, because for me they are rarely separate things.</p>
-          </div>
-        </div>
-      </div>
+        <ol class="tl">
+          <li class="tl-step">
+            <h2 class="tl-time mono">00&ndash;10 MIN</h2>
+            <h3 class="tl-title">Getting to know your work</h3>
+            <p>We start with what you're working on, the kind of music you make, the sounds you're drawn to,
+              and what you'd like to get better at.</p>
+            <p>I also want to understand how you currently approach sound design, where you tend to spend too
+              much time, and what usually makes you feel stuck.</p>
+          </li>
+          <li class="tl-step">
+            <h2 class="tl-time mono">10&ndash;30 MIN</h2>
+            <h3 class="tl-title">How I think about sound design</h3>
+            <p>I'll walk you through the ideas and working habits I've built over the last 10 years of doing
+              sound design every day.</p>
+            <p>A big part of it is learning to get much more out of fewer tools, instead of constantly adding
+              new ones.</p>
+            <p>We'll talk about exploration, processing, movement, resampling and how I make decisions while
+              I'm working.</p>
+            <p>We'll also get into the relationship between sound design, mixing and arrangement, because for
+              me they are rarely separate things.</p>
+          </li>
+          <li class="tl-step tl-step-live">
+            <h2 class="tl-time mono">30&ndash;70 MIN</h2>
+            <h3 class="tl-title">Live sound design session</h3>
+            <p>Then we open your session and work.</p>
+            <p>We'll build sounds, push them in different directions, process, resample, compare versions and
+              follow whatever starts to feel interesting.</p>
+            <p>I'll show you how I explore without needing to know exactly where the sound is going from the
+              beginning, and how I use taste to decide what is worth keeping and what is worth pushing further.</p>
+            <p>The idea is that by the end of the session you've seen the whole thought process happen in real
+              time, not just the final result.</p>
+          </li>
+        </ol>
 
-      <div class="rounded-2xl p-6 sm:p-7" style="border:1px solid var(--line);background:var(--bg2)">
-        <div class="flex flex-col sm:flex-row sm:gap-7">
-          <div class="mono text-sm font-bold shrink-0 mb-2 sm:mb-0 sm:w-28" style="color:var(--copper-lt)">30&ndash;70 MIN</div>
-          <div class="min-w-0">
-            <div class="text-[11px] font-black uppercase tracking-[0.16em] mb-3 ink">Live sound design session</div>
-            <p class="text-sm ink2 leading-relaxed mb-3">Then we open your session and work.</p>
-            <p class="text-sm ink2 leading-relaxed mb-3">We'll build sounds, push them in different directions, process,
-              resample, compare versions and follow whatever starts to feel interesting.</p>
-            <p class="text-sm ink2 leading-relaxed mb-3">I'll show you how I explore without needing to know exactly
-              where the sound is going from the beginning, and how I use taste to decide what is worth keeping and what
-              is worth pushing further.</p>
-            <p class="text-sm ink2 leading-relaxed">The idea is that by the end of the session you've seen the whole
-              thought process happen in real time, not just the final result.</p>
+        <p class="tl-leave">You'll leave with the sounds and chains we made during the session, but more
+          importantly, with a workflow you can keep using in your own sessions.</p>
+      </section>
+
+      <section class="sg-book">
+        <div class="flex flex-wrap items-center gap-5 sm:gap-7">
+          <div class="flex items-baseline gap-2">
+            <div class="price text-4xl sm:text-5xl">$99</div>
+            <div class="text-base font-bold ink3">/ session</div>
           </div>
+          <a class="session-cta btn-copper px-8 py-4 text-sm uppercase" href="https://calendly.com/stride-engine" target="_blank" rel="noopener">Book a session</a>
         </div>
-      </div>
+        <p class="text-[12px] ink3 leading-relaxed max-w-md mt-3">Pick a slot and we'll confirm the details by email.</p>
+      </section>
 
     </div>
-
-    <p class="text-sm ink2 leading-relaxed max-w-2xl mt-7">You'll leave with the sounds and chains we made during the
-      session, but more importantly, with a workflow you can keep using in your own sessions.</p>
-
-    <div class="flex flex-wrap items-center gap-5 sm:gap-7 mt-9">
-      <div class="flex items-baseline gap-2">
-        <div class="price text-3xl sm:text-4xl">$99</div>
-        <div class="text-sm font-bold ink3">/ session</div>
-      </div>
-      <a class="session-cta btn-copper px-8 py-4 text-sm uppercase" href="#">Book a session</a>
-    </div>
-    <p class="text-[11px] ink3 leading-relaxed max-w-md mt-3 session-note"></p>
-  </section>
+  </main>
 
   <footer class="max-w-5xl mx-auto px-6 py-10 border-t" style="border-color:var(--line)">
     <div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm ink3">
@@ -396,24 +405,16 @@
      the Calendly profile. The profile also lists the free "Stride Onboarding Call",
      so anyone sent there is one click from booking the free one instead of this.
      Until the paid event exists the button falls back to the profile so the page is
-     not dead, and the note stays honest by not claiming a payment step that is not
-     there yet. There are two CTAs on this page and both are driven from here. */
+     not dead. The line under the button makes no payment claim, so it holds either way. */
   var SESSION_BOOKING_URL = "";                                    // <- paid Calendly event
   var SESSION_PROFILE_URL = "https://calendly.com/stride-engine";  // fallback, free events visible
 
   (function () {
-    var paid = !!SESSION_BOOKING_URL;
-    var href = paid ? SESSION_BOOKING_URL : SESSION_PROFILE_URL;
-    var note = paid
-      ? 'Pick a time and send your session ahead so I can come in prepared. You pay as you book, so the slot is yours the moment it is confirmed.'
-      : 'Pick a time and send your session ahead so I can come in prepared.';
+    var href = SESSION_BOOKING_URL || SESSION_PROFILE_URL;
     Array.prototype.forEach.call(document.querySelectorAll('.session-cta'), function (a) {
       a.setAttribute('href', href);
       a.setAttribute('target', '_blank');
       a.setAttribute('rel', 'noopener');
-    });
-    Array.prototype.forEach.call(document.querySelectorAll('.session-note'), function (p) {
-      p.textContent = note;
     });
   })();
 </script>
