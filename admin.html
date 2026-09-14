@@ -600,6 +600,64 @@
             tbody.querySelectorAll('button[data-action="toggle-onboarding"]').forEach(btn => {
                 btn.addEventListener('click', () => toggleOnboarding(btn.dataset.id, btn.dataset.next === 'true'));
             });
+            tbody.querySelectorAll('button[data-action="toggle-license"]').forEach(btn => {
+                btn.addEventListener('click', () => toggleLicense(btn.dataset.id, btn.dataset.key, btn.dataset.next));
+            });
+        }
+
+        // Revoke or restore a licence. Paddle refunds already revoke themselves through
+        // the adjustment webhook; this is the manual route for a bank refund, a
+        // chargeback settled off-platform, abuse, or a mistake.
+        //
+        // A licence with no status is active: that is exactly how the backend reads it,
+        // so the two cannot drift apart.
+        function licenseStateButton(row) {
+            const st = String(row.license_status || 'active').toLowerCase();
+            const dead = st !== 'active';
+            const next = dead ? 'active' : 'refunded';
+            const label = dead ? st.toUpperCase() : 'REVOKE';
+            const cls = dead
+                ? 'text-amber-300/90 bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20'
+                : 'text-rose-300/80 bg-rose-500/5 border-rose-500/20 hover:bg-rose-500/15';
+            return `<button data-action="toggle-license" data-id="${row.id}"
+                      data-key="${escapeHtml(row.license_key || '')}" data-next="${next}"
+                      class="ml-1 text-[8px] ${cls} border px-1.5 py-0.5 rounded uppercase tracking-wider font-bold transition-colors"
+                      title="${dead ? 'Restore this licence' : 'Revoke this licence'}">${label}</button>`;
+        }
+
+        async function toggleLicense(docId, key, next) {
+            if (!key) { toast('No licence key on this row', true); return; }
+            const restoring = next === 'active';
+            if (!confirm(restoring
+                ? 'Restore this licence?\n\nThe customer will be able to activate again.'
+                : 'Revoke this licence?\n\nThe customer is refused on their next validation, and the update download stops working.')) return;
+            const reason = restoring ? '' : (window.prompt('Reason (optional), e.g. refunded by bank transfer') || '');
+            if (!state.user) { toast('Not signed in', true); return; }
+
+            const row = state.rows.find(r => r.id === docId);
+            const before = row ? row.license_status : undefined;
+            if (row) row.license_status = next;     // optimistic; onSnapshot reconciles
+            renderTable();
+            try {
+                const token = await state.user.getIdToken();
+                const res = await fetch(BACKEND_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ action: 'set_license_status', key, status: next, reason })
+                });
+                const out = await res.json().catch(() => ({}));
+                if (out && out.ok) {
+                    toast(restoring ? 'Licence restored' : 'Licence revoked');
+                } else {
+                    if (row) row.license_status = before;   // put it back, it did not take
+                    renderTable();
+                    toast('Failed: ' + ((out && out.error) || 'unknown'), true);
+                }
+            } catch (e) {
+                if (row) row.license_status = before;
+                renderTable();
+                toast('Failed: ' + (e && e.message ? e.message : 'network'), true);
+            }
         }
 
         // Toggle onboarding YES/NO. Manual admin input — judgment call after
@@ -669,6 +727,7 @@
                         ? `<div class="flex items-center gap-1.5 font-mono text-zinc-400 text-[10px]">
                              <span>${escapeHtml(licenseShort)}</span>
                              <button class="copy-btn text-zinc-500" data-action="copy" data-value="${escapeHtml(licenseFull)}" title="Copy full key">⎘</button>
+                             ${licenseStateButton(row)}
                            </div>`
                         : '<span class="text-zinc-700">—</span>'}
                 </td>
