@@ -1916,6 +1916,26 @@ function openBuy() { toggleBuyModal(); }
     function strideCheckoutUrl()    { return strideAddonActive() ? STRIDE_COLLECTION_CHECKOUT_URL : STRIDE_CHECKOUT_URL; }
     function strideOrderTotal()     { return strideAddonActive() ? STRIDE_PRICE + COLLECTION_ADDON_PRICE : STRIDE_PRICE; }
 
+    // ONE cart for every checkout path. The wallet and the overlay used to build
+    // their item lists separately: the overlay added the Collection, the express
+    // mount hardcoded Stride and never resynced. So anyone who added the Collection
+    // and paid with one tap was charged 99 for Stride alone, and the transaction
+    // never carried the Collection, so the webhook could not grant it either.
+    function strideCheckoutItems() {
+        var items = [{ priceId: PADDLE_PRICE_STRIDE, quantity: 1 }];
+        if (strideAddonActive()) items.push({ priceId: PADDLE_PRICE_COLLECTION, quantity: 1 });
+        return items;
+    }
+
+    // Re-price the OPEN express checkout when the cart changes. Guarded on
+    // strideExpressLive because Paddle keeps ONE checkout instance per page: if the
+    // buy overlay is the live one, updating items here would re-price THAT instead.
+    function strideSyncExpressItems() {
+        if (!strideExpressLive) return;
+        if (typeof Paddle === 'undefined' || !Paddle.Checkout) return;
+        try { Paddle.Checkout.updateItems(strideCheckoutItems()); } catch (e) {}
+    }
+
     // What this visitor was actually quoted, in the currency they were quoted it in.
     // Both Meta events read from here so they can never disagree with each other or
     // with the price on screen. strideFx is set once Paddle has priced this visitor;
@@ -1955,6 +1975,11 @@ function openBuy() { toggleBuyModal(); }
         if (!strideAddonAvailable()) return;
         strideAddonOn = !strideAddonOn;
         strideSyncAddon();
+        // The wallet must charge the same cart the page is showing. Called from the
+        // TOGGLE rather than from strideSyncAddon, which also runs on first render
+        // and on currency refresh, where re-pricing would re-render the checkout for
+        // no reason.
+        strideSyncExpressItems();
 
         // A mouse or touch press leaves focus on the button, which used to hold the
         // info panel open until you clicked elsewhere. Detail > 0 means a real pointer
@@ -2175,7 +2200,7 @@ function openBuy() { toggleBuyModal(); }
         try {
             strideExpressLive = true;
             Paddle.Checkout.open({
-                items: [{ priceId: PADDLE_PRICE_STRIDE, quantity: 1 }],
+                items: strideCheckoutItems(),
                 customData: strideExpressCustomData(),
                 settings: {
                     displayMode: 'inline',
@@ -2248,8 +2273,7 @@ function openBuy() { toggleBuyModal(); }
                     else if (k === 'checkout[email]') email = v;
                 });
 
-                var items = [{ priceId: PADDLE_PRICE_STRIDE, quantity: 1 }];
-                if (strideAddonActive()) items.push({ priceId: PADDLE_PRICE_COLLECTION, quantity: 1 });
+                var items = strideCheckoutItems();
                 if (email) custom.email = email;
 
                 // The express button holds an INLINE checkout instance, and Paddle
