@@ -1309,10 +1309,10 @@
           </div>
           <a onclick="openBuy()" class="btn-copper w-full justify-center text-base py-3.5 rounded-2xl">Get Stride · $99 </a>
 
-          <!-- Express checkout. Renders only where Apple Pay or Google Pay is actually
-               available, so on everything else this stays empty and the page is
-               unchanged. Paying here skips the form, so the consent line below carries
-               what the modal's checkbox carries. -->
+          <!-- Express checkout: the Apple Pay / Google Pay button. It is restricted to
+               the wallet only, so where neither is available it stays empty rather than
+               stacking a second full checkout under the card button. Paying here skips
+               the form, so the consent line below carries what the checkbox carries. -->
           <div class="paddle-express-checkout mt-2.5"></div>
           <p class="text-[10px] ink3 mt-1.5 text-center leading-relaxed">Paying above accepts the <a href="terms.html" target="_blank" class="underline">Terms</a> and the <a href="refund.html" target="_blank" class="underline">Refund Policy</a>.</p>
 
@@ -2020,8 +2020,15 @@ function openBuy() { toggleBuyModal(); }
                     displayMode: 'inline',
                     variant: 'express',
                     frameTarget: 'paddle-express-checkout',
-                    frameInitialHeight: 64,
-                    frameStyle: 'width:100%;min-width:280px;background-color:transparent;border:none;',
+                    // 450 and 312 are Paddle's own recommended figures. This was 64,
+                    // which left the express checkout nowhere to draw: it mounted and
+                    // created its transaction, but rendered nothing a visitor could see.
+                    frameInitialHeight: 450,
+                    frameStyle: 'width:100%;min-width:312px;background-color:transparent;border:none;',
+                    // Only the wallet button, not a whole inline checkout. The card path
+                    // already has its own button above this one, and two full checkouts
+                    // stacked on the pricing card would be worse than none.
+                    showNonExpressPaymentMethods: false,
                     theme: 'dark',
                     successUrl: PADDLE_SUCCESS_URL
                 }
