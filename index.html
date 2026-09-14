@@ -532,30 +532,21 @@
   @media (max-width:899.98px){
 
     /* -- ORDER -------------------------------------------------------------
-       Reordering by CSS instead of duplicating markup keeps ONE page. `order`
-       only means anything inside a flex container, which is why .wrap becomes
-       a column here; at >=768px it reverts to plain block flow and every
-       order below is inert. Sections keep their DOM position, so anchors,
-       IDs and analytics selectors all still resolve. */
+       Mobile follows the DESKTOP section order, which is simply DOM order.
+       This block used to reorder all 13 sections here, pulling pricing from
+       tenth to fifth and proof from eighth to fourth on a phone. That was a
+       deliberate conversion choice; it was removed on request so the two
+       layouts read identically.
+       .wrap stays a flex column: other rules below are written against
+       `.wrap > section`, and a flex column whose children all keep the default
+       order renders in DOM order, so this alone changes nothing visually.
+       If the phone ordering is ever wanted back, it is per-section
+       `order:` declarations on section[data-ms="..."] inside this query. */
     .wrap{display:flex;flex-direction:column}
-    .wrap > nav{order:0}
     /* hero already ENDS with the walkthrough video, so "hero then video" is the
        hero block read top to bottom. The manifest states the argument, the
        testimonials back it, and only then does "Variations on demand" show the
        product doing it. */
-    section[data-ms="hero"]{order:1}   /* + the See-it-in-action walkthrough */
-    section[data-ms="value"]{order:2}  /* You already have everything you need */
-    section[data-ms="social"]{order:3} /* Already in their sessions */
-    section[data-ms="proof"]{order:4}  /* Variations on demand */
-    section[data-ms="buy"]{order:5}
-    section[data-ms="compat-logos"]{order:6}
-    section[data-ms="how"]{order:7}
-    section[data-ms="bridge"]{order:8}
-    section[data-ms="audioin"]{order:9}
-    section[data-ms="generators"]{order:10}
-    section[data-ms="compat"]{order:11}
-    section[data-ms="faq"]{order:12}
-    section[data-ms="finalcta"]{order:13}
 
     /* -- DENSITY -----------------------------------------------------------
        Sections ship mb-28 (112px). Across 11 of them that is >1200px of dead
