@@ -587,6 +587,10 @@
        primary it has on desktop, the trial keeps the ghost. Full width only so
        each is a comfortable tap target, NOT to re-rank them. */
     .hero-cta{gap:.5rem}
+    /* Full width on a phone, which is what the two anchors always did. Lifting
+       the cap for ALL children keeps the three identical to each other, while
+       the 340px cap still applies from 900px up. */
+    .hero-cta > *{max-width:none}
     .hero-cta > a{width:100%;justify-content:center;min-height:48px}
     .hero-cta > a.btn-ghost{font-size:12px}
     .hero-included{margin:8px 0 10px}
@@ -769,6 +773,9 @@
      when the wallet is actually in the bar. */
   @media (max-width:359.98px){
     #m-cta.has-express #m-cta-buy .m-cta-price{display:none}
+    /* With the price gone the label still needs ~85px at 13px, and the button
+       measures ~79px once the wallet and the trial take their share. */
+    #m-cta.has-express #m-cta-buy{font-size:12px;letter-spacing:.02em}
   }
 
 </style>
