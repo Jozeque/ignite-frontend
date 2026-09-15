@@ -3,17 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-5R4N7FVP');</script>
+<!-- End Google Tag Manager -->
     <title>STRIDE | 1:1 Sound Design Session</title>
 
     <!-- SEO -->
-    <meta name="description" content="A one to one sound design session with the person who built Stride. Ten years in sound design, over 100 tracks placed with Artlist. $99 a session, about 70 minutes.">
+    <meta name="description" content="A one to one sound design session with the person who built Stride. Ten years in sound design, over 100 tracks placed with Artlist. $199 a session, about 70 minutes.">
     <link rel="canonical" href="https://stridehub.io/session.html">
 
     <!-- Open Graph / Social cards -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://stridehub.io/session.html">
     <meta property="og:title" content="STRIDE | 1:1 Sound Design Session">
-    <meta property="og:description" content="A one to one sound design session with the person who built Stride. Ten years in sound design, over 100 tracks placed with Artlist. $99 a session, about 70 minutes.">
+    <meta property="og:description" content="A one to one sound design session with the person who built Stride. Ten years in sound design, over 100 tracks placed with Artlist. $199 a session, about 70 minutes.">
     <meta property="og:image" content="https://stridehub.io/assets/packs/pack-drums.jpg">
     <meta property="og:image:width" content="900">
     <meta property="og:image:height" content="900">
@@ -23,10 +30,29 @@
     <!-- Twitter / X card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="STRIDE | 1:1 Sound Design Session">
-    <meta name="twitter:description" content="A one to one sound design session with the person who built Stride. Ten years in sound design, over 100 tracks placed with Artlist. $99 a session, about 70 minutes.">
+    <meta name="twitter:description" content="A one to one sound design session with the person who built Stride. Ten years in sound design, over 100 tracks placed with Artlist. $199 a session, about 70 minutes.">
     <meta name="twitter:image" content="https://stridehub.io/assets/packs/pack-drums.jpg">
 
     <meta name="theme-color" content="#141310">
+
+    <script>
+    // The owner link in the Stride welcome mail carries a personal token (?offer=). Read it
+    // before the pixel below reports this address, keep it in this browser, and take it off
+    // the URL so it is never passed on.
+    (function () {
+      try {
+        var u = new URL(window.location.href);
+        if (!u.searchParams.has('offer')) return;
+        var t = (u.searchParams.get('offer') || '').trim().toLowerCase();
+        if (/^[0-9a-f]{32}$/.test(t)) {
+          window.STRIDE_SESSION_OFFER = t;
+          try { localStorage.setItem('stride_session_offer', t); } catch (e) {}
+        }
+        u.searchParams.delete('offer');
+        history.replaceState(null, '', u.pathname + u.search + u.hash);
+      } catch (e) {}
+    })();
+    </script>
 
     <!-- Meta Pixel — same pixel as the landing page so the free-pack funnel
          (ad -> /samples -> Lead) is tracked end to end. Fires PageView early. -->
@@ -71,6 +97,7 @@
 
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cdefs%3E%3ClinearGradient id='strideGradient' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23eaa54e' /%3E%3Cstop offset='100%25' stop-color='%23c6712b' /%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z' stroke='url(%23strideGradient)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 
+    <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       // VINTAGE (Patchbay) skin: remap Tailwind palettes -> CSS vars so forms
@@ -235,9 +262,32 @@
   .tl-step p:last-child{margin-bottom:0}
   .tl-leave{margin:38px 0 0;padding-top:24px;border-top:1px solid var(--line);font-size:1.06rem;line-height:1.65;
     color:var(--ink);font-weight:500;max-width:38rem}
+  /* Booking: the public price, or a Stride owner's private price with the time left on it. */
+  [hidden]{display:none!important}
+  .sg-book.is-loading .book-row{visibility:hidden}
+  .offer-flag{display:inline-flex;align-items:center;gap:8px;margin:0 0 16px;padding:5px 11px 5px 9px;
+    border-radius:999px;border:1px solid rgba(221,154,82,.34);background:rgba(198,113,43,.12);
+    color:var(--copper-lt);font-size:10px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
+  .offer-dot{width:6px;height:6px;border-radius:999px;background:var(--copper-lt);
+    animation:offerPulse 2s ease-out infinite}
+  @keyframes offerPulse{0%{box-shadow:0 0 0 0 rgba(221,154,82,.55)}100%{box-shadow:0 0 0 7px rgba(221,154,82,0)}}
+  @media (prefers-reduced-motion:reduce){ .offer-dot{animation:none} }
+  /* The full price, struck and dimmed: shown, never offered. */
+  .price-was{font-size:1.6rem;font-weight:800;letter-spacing:-.01em;line-height:1;color:var(--ink3);opacity:.75;
+    text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:rgba(221,154,82,.6)}
+  @media (min-width:640px){ .price-was{font-size:2rem} }
+  .offer-clock{margin:14px 0 0;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
+  .offer-clock b{color:var(--copper-lt);font-weight:700;letter-spacing:.06em}
+  .offer-note{margin:12px 0 0;font-size:13px;line-height:1.6;color:var(--ink2);max-width:28rem}
+  .session-cta[aria-busy="true"]{opacity:.7;pointer-events:none}
+  .booked-title{font-size:1.6rem;line-height:1.2;font-weight:900;color:var(--ink);margin:0 0 8px}
 </style>
 </head>
 <body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-5R4N7FVP"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
   <nav class="max-w-5xl mx-auto px-6 py-6 flex items-center justify-between">
     <a href="index.html" class="flex items-center gap-2.5 group">
       <span class="text-3xl font-black brand tracking-tighter leading-none">STRIDE</span>
@@ -370,15 +420,30 @@
           importantly, with a workflow you can keep using in your own sessions.</p>
       </section>
 
-      <section class="sg-book">
-        <div class="flex flex-wrap items-center gap-5 sm:gap-7">
-          <div class="flex items-baseline gap-2">
-            <div class="price text-4xl sm:text-5xl">$99</div>
+      <!-- Booking. Everyone sees the public price in their own currency. A Stride owner who
+           arrives through the link in their welcome mail sees the full price struck, their
+           owner price and the time left on it. The backend holds that price and opens its
+           checkout, so it never appears in this page. -->
+      <section class="sg-book" id="book">
+        <div class="book-offer" hidden>
+          <span class="offer-flag"><span class="offer-dot" aria-hidden="true"></span>Private offer for Stride owners</span>
+        </div>
+        <div class="book-row flex flex-wrap items-center gap-5 sm:gap-7">
+          <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <del class="price-was" hidden><span class="sr-only">Full price </span><span class="price-was-v">$199</span></del>
+            <div class="price text-4xl sm:text-5xl" data-price>$199</div>
             <div class="text-base font-bold ink3">/ session</div>
           </div>
           <a class="session-cta btn-copper px-8 py-4 text-sm uppercase" href="https://calendly.com/stride-engine" target="_blank" rel="noopener">Book a session</a>
         </div>
-        <p class="text-[12px] ink3 leading-relaxed max-w-md mt-3">Pick a slot and we'll confirm the details by email.</p>
+        <p class="offer-clock mono" role="timer" hidden>Ends in <b data-left>72:00:00</b></p>
+        <p class="book-note text-[12px] ink3 leading-relaxed max-w-md mt-3">Pick a slot and we'll confirm the details by email.</p>
+        <p class="offer-note" aria-live="polite" hidden></p>
+        <div class="booked" hidden>
+          <span class="offer-flag">Booked</span>
+          <p class="booked-title">You're booked in.</p>
+          <p class="text-sm ink2 leading-relaxed max-w-md">Check your inbox for the link to pick your time.</p>
+        </div>
       </section>
 
     </div>
@@ -396,25 +461,228 @@
   </footer>
 
 <script>
-  /* PAYMENT LIVES ON CALENDLY, not Lemon Squeezy.
-     Calendly bills through its own Stripe connection at the moment of booking, which
-     closes the hole in a checkout-then-redirect design: nobody can pay $99 and then
-     never pick a slot, because the payment IS the booking.
+  /* PAYMENT LIVES ON PADDLE, and the time is picked afterwards.
+     Book opens a Paddle checkout. Once it is paid, stride-flows mails the link to pick a
+     time (the session_booking mail) and this page says so (?booked=1).
 
-     ONE THING TO SET, and it needs care: point this at the PAID event type, not at
-     the Calendly profile. The profile also lists the free "Stride Onboarding Call",
-     so anyone sent there is one click from booking the free one instead of this.
-     Until the paid event exists the button falls back to the profile so the page is
-     not dead. The line under the button makes no payment claim, so it holds either way. */
-  var SESSION_BOOKING_URL = "";                                    // <- paid Calendly event
-  var SESSION_PROFILE_URL = "https://calendly.com/stride-engine";  // fallback, free events visible
+       everyone        the public price, in the visitor's own currency
+       Stride owners   through ?offer=<token> in the welcome mail, for 72 hours after
+                       buying: the public price struck, the owner price, the time left.
+                       The backend holds that price and opens a one-time checkout for it
+                       (action session_checkout), so it never appears in this page and
+                       stops working once the offer ends or has been used.
+
+     If Paddle cannot load (a blocker, a network failure) Book falls back to the Calendly
+     profile, which is what it did before, so the page is never dead. */
+  var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
+  var PADDLE_TOKEN = 'live_e0101b87a9e6e7024988534cf7b';
+  var PADDLE_PRICE_SESSION = 'pri_01m2gkbkj7epe1m1taz618evk0';    // the public price
+  var SESSION_SUCCESS_URL = 'https://stridehub.io/session.html?booked=1';
+  var SESSION_PROFILE_URL = 'https://calendly.com/stride-engine';  // only when Paddle cannot load
+  var OFFER_KEY = 'stride_session_offer';
 
   (function () {
-    var href = SESSION_BOOKING_URL || SESSION_PROFILE_URL;
-    Array.prototype.forEach.call(document.querySelectorAll('.session-cta'), function (a) {
-      a.setAttribute('href', href);
-      a.setAttribute('target', '_blank');
-      a.setAttribute('rel', 'noopener');
+    var book = document.getElementById('book');
+    if (!book) return;
+    function q(sel) { return book.querySelector(sel); }
+    var cta = q('.session-cta');
+    var offer = null;     // the open owner offer: { token, expires, skew }
+    var clock = null;
+    var paddleOn = false;
+    var ENDED = 'Your owner price has ended.';
+    var USED = 'Your owner price has already been used.';
+    var FAILED = "The checkout didn't open. Please try again in a moment.";
+
+    // Money in the visitor's own currency. Whole amounts drop their decimals and dollars
+    // stay "$", the same rules the homepage prints its prices by.
+    function money(minor, currency) {
+      var m = Number(minor);
+      if (!isFinite(m) || !currency) return '';
+      if (currency === 'USD') return '$' + (m % 100 === 0 ? (m / 100).toFixed(0) : (m / 100).toFixed(2));
+      try {
+        var digits = new Intl.NumberFormat(undefined, { style: 'currency', currency: currency })
+          .resolvedOptions().minimumFractionDigits;
+        var whole = m % Math.pow(10, digits) === 0;
+        return new Intl.NumberFormat(undefined, {
+          style: 'currency', currency: currency,
+          minimumFractionDigits: whole ? 0 : digits, maximumFractionDigits: digits
+        }).format(m / Math.pow(10, digits));
+      } catch (e) { return ''; }
+    }
+
+    function note(text) {
+      var el = q('.offer-note');
+      el.textContent = text || '';
+      el.hidden = !text;
+    }
+
+    function storedToken() {
+      if (window.STRIDE_SESSION_OFFER) return window.STRIDE_SESSION_OFFER;
+      try { return localStorage.getItem(OFFER_KEY) || ''; } catch (e) { return ''; }
+    }
+    function forgetToken() {
+      try { localStorage.removeItem(OFFER_KEY); } catch (e) {}
+    }
+
+    function showStandard() {
+      offer = null;
+      if (clock) { clearInterval(clock); clock = null; }
+      q('.book-offer').hidden = true;
+      q('.price-was').hidden = true;
+      q('.offer-clock').hidden = true;
+      book.classList.remove('is-loading');
+    }
+
+    // The public price in the visitor's currency, straight from Paddle.
+    function localizeStandard() {
+      if (!paddleOn) return;
+      try {
+        Paddle.PricePreview({ items: [{ priceId: PADDLE_PRICE_SESSION, quantity: 1 }] })
+          .then(function (res) {
+            var d = (res && res.data) || {};
+            var li = (((d.details || {}).lineItems) || [])[0];
+            var text = li ? money((li.totals || {}).total, d.currencyCode) : '';
+            if (text && !offer) q('[data-price]').textContent = text;
+          }).catch(function () {});
+      } catch (e) {}
+    }
+
+    function endOffer(message) {
+      forgetToken();
+      showStandard();
+      note(message);
+      localizeStandard();
+    }
+
+    function pad(n) { return (n < 10 ? '0' : '') + n; }
+    function tick() {
+      if (!offer) return;
+      var left = offer.expires - (Date.now() + offer.skew);
+      if (left <= 0) { endOffer(ENDED); return; }
+      var sec = Math.floor(left / 1000);
+      q('[data-left]').textContent =
+        pad(Math.floor(sec / 3600)) + ':' + pad(Math.floor(sec / 60) % 60) + ':' + pad(sec % 60);
+    }
+
+    function showOwner(d, token) {
+      var now = money(d.owner_price.amount, d.owner_price.currency);
+      var was = money(d.standard_price.amount, d.standard_price.currency);
+      if (!now || !was) { showStandard(); localizeStandard(); return; }
+      // The server's clock, not this device's, decides when the price ends.
+      offer = { token: token, expires: Number(d.expires_at_ms), skew: Number(d.server_now_ms) - Date.now() };
+      q('[data-price]').textContent = now;
+      q('.price-was-v').textContent = was;
+      q('.price-was').hidden = false;
+      q('.book-offer').hidden = false;
+      q('.offer-clock').hidden = false;
+      book.classList.remove('is-loading');
+      note('');
+      tick();
+      if (clock) clearInterval(clock);
+      clock = setInterval(tick, 1000);
+    }
+
+    function showBooked() {
+      showStandard();
+      note('');
+      q('.book-row').hidden = true;
+      q('.book-note').hidden = true;
+      q('.booked').hidden = false;
+    }
+
+    function initPaddle() {
+      if (!window.Paddle) return false;
+      try {
+        Paddle.Initialize({
+          token: PADDLE_TOKEN,
+          eventCallback: function (ev) {
+            if (ev && ev.name === 'checkout.completed') { forgetToken(); showBooked(); }
+          }
+        });
+        return true;
+      } catch (e) { return false; }
+    }
+
+    var checkoutSettings = { displayMode: 'overlay', theme: 'dark', successUrl: SESSION_SUCCESS_URL };
+
+    function openOwnerCheckout() {
+      cta.setAttribute('aria-busy', 'true');
+      note('');
+      fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'session_checkout', token: offer.token })
+      }).then(function (r) { return r.json(); }).then(function (d) {
+        cta.removeAttribute('aria-busy');
+        d = d || {};
+        if (d.ok && d.transaction_id) {
+          Paddle.Checkout.open({ transactionId: d.transaction_id, settings: checkoutSettings });
+        } else if (d.status === 'expired' || d.status === 'invalid') {
+          endOffer(ENDED);
+        } else if (d.status === 'used') {
+          endOffer(USED);
+        } else {
+          note(FAILED);
+        }
+      }).catch(function () {
+        cta.removeAttribute('aria-busy');
+        note(FAILED);
+      });
+    }
+
+    paddleOn = initPaddle();
+    cta.setAttribute('href', SESSION_PROFILE_URL);
+    cta.addEventListener('click', function (ev) {
+      if (!paddleOn) return;          // no Paddle: the Calendly profile, as before
+      ev.preventDefault();
+      if (offer) { openOwnerCheckout(); return; }
+      try {
+        Paddle.Checkout.open({
+          items: [{ priceId: PADDLE_PRICE_SESSION, quantity: 1 }],
+          customData: { source: 'session_page' },
+          settings: checkoutSettings
+        });
+      } catch (e) { window.open(SESSION_PROFILE_URL, '_blank', 'noopener'); }
+    });
+
+    var booked = false;
+    try { booked = new URLSearchParams(window.location.search).get('booked') === '1'; } catch (e) {}
+    if (booked) { forgetToken(); showBooked(); return; }
+
+    var token = storedToken();
+    if (!token) { localizeStandard(); return; }
+
+    // Hold the price row until the offer is known, so an owner never sees the full price
+    // flash first. Never for longer than four seconds.
+    book.classList.add('is-loading');
+    var settled = false;
+    var wait = setTimeout(function () {
+      if (settled) return;
+      settled = true;
+      showStandard();
+      localizeStandard();
+    }, 4000);
+    fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'session_offer', token: token })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      d = d || {};
+      clearTimeout(wait);
+      // An open offer always wins, even when it answers after the four seconds.
+      if (d.status === 'open' && d.owner_price && d.standard_price) { settled = true; showOwner(d, token); return; }
+      if (settled) return;
+      settled = true;
+      if (d.status === 'expired' || d.status === 'invalid') { endOffer(d.status === 'expired' ? ENDED : ''); return; }
+      if (d.status === 'used') { endOffer(USED); return; }
+      showStandard();
+      localizeStandard();
+    }).catch(function () {
+      clearTimeout(wait);
+      if (settled) return;
+      settled = true;
+      showStandard();
+      localizeStandard();
     });
   })();
 </script>
