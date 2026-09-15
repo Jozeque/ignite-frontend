@@ -767,95 +767,6 @@
 
        The consent line still does not come along. Paddle states the terms in its
        own sheet at the point of payment, and it stays in the hero. */
-    /* In the bar the wallet is cropped to its MARK: a small rounded box sitting
-       between GET STRIDE and TRY 24H. Measured inside Paddle's frame on Pixel 7:
-
-           button  x 10..354  y 26..70    344 x 44
-           mark    x 156..209 y 39..60     53 x 21
-
-       Crop the BUTTON, not the frame. The frame is 130px and reflows taller as it
-       narrows, which is why a full frame never fitted a 46px bar row; the button
-       inside it is only 44px, which does.
-
-       A 46px square would slice the 53px mark, so the window is 72px. The mark is
-       CENTRED in the button, and Apple Pay centres its own mark the same way, so
-       centring the window on the button suits either wallet. */
-    #m-cta-express{display:none}
-    #m-cta.has-express #m-cta-express{
-      display:block;flex:0 0 72px;min-width:72px;min-height:48px}
-    #m-cta.has-express #m-cta-buy{flex:1 1 auto;min-width:0}
-
-    .express-dock.is-docked{
-      position:fixed;top:auto;right:auto;z-index:1001;
-      margin:0;padding:0;background:none;border:0;
-      opacity:0;pointer-events:none;transition:opacity .22s ease}
-
-    /* The crop window. The iframe is pinned to its known 364px layout with
-       !important, which beats Paddle's inline width:100%: without it the 72px
-       container would make Paddle reflow into the narrow, much taller layout.
-       left:50% + translateX(-50%) centres it rather than hardcoding -146px, so it
-       self-adjusts if the button's width ever changes.
-       top:-24 with a 48px window shows frame y 24..72, giving the 26..70 button 2px
-       of slack each side while the footer at y=84 stays well clear. */
-    .express-dock.is-docked .paddle-express-checkout:has(iframe){
-      width:72px;height:48px;overflow:hidden;border-radius:10px;
-      position:relative;background:#000;
-      /* .express-dock is a flex column whose height strideDockPlace() pins to the
-         reserved box. Without flex:none the window is a flex item and gets shrunk
-         to that height: it rendered 46px, leaving the 44px button flush against the
-         bottom edge with no slack at all. */
-      flex:none}
-    .express-dock.is-docked .paddle-express-checkout iframe{
-      position:absolute!important;
-      width:364px!important;height:130px!important;
-      /* calc, NOT translateX(-50%). iOS Safari composites a transformed iframe into
-         its own layer and can rasterise it at the wrong scale, which renders blurry
-         on a 3x screen; Chromium does not, which is why Android measured clean while
-         a real iPhone showed mush. 182 is half the pinned 364px width, so this
-         centres identically with no transform involved. */
-      left:calc(50% - 182px)!important;top:-24px!important}
-
-    /* -- APPLE DEVICES GET A STRIP, NOT THE SQUARE ------------------------
-       A real iPhone showed the reserved gap with NOTHING painted in it. Either
-       Apple Pay's button sits at a different y than Google Pay's, or Safari
-       refuses to render an Apple Pay button that is clipped, which is an
-       anti-clickjacking protection rather than a styling problem. The screenshot
-       cannot tell those apart, because a #000 window against a near black bar
-       looks the same either way.
-       So Apple devices get the arrangement that is known to render there: full
-       width above the bar, cropped to 80px so Paddle's footer is still cut, and
-       crucially with NO vertical offset (frame y 0..80, button at 26..70). That
-       also settles the question: if the button appears here, the offset was the
-       problem; if it does not, clipping Apple Pay is simply not viable. */
-    .express-dock.is-docked.is-strip{
-      left:0;right:0;
-      bottom:calc(4.25rem + env(safe-area-inset-bottom,0px));
-      padding:.5rem .75rem;
-      background:rgba(16,15,12,.94);backdrop-filter:blur(10px);
-      border-top:1px solid var(--line)}
-    .express-dock.is-docked.is-strip .paddle-express-checkout:has(iframe){
-      width:100%;height:80px;border-radius:0;background:none}
-    .express-dock.is-docked.is-strip .paddle-express-checkout iframe{
-      position:static!important;
-      width:100%!important;height:130px!important;
-      left:auto!important;top:auto!important}
-    /* The consent line stays OUT of the strip too. The 80px crop is proven to apply
-       in WebKit (tested by injecting an iframe: container snaps to 80px with
-       overflow hidden, same as Chromium), so Paddle's own footer is already cut and
-       the only text left was ours. The hero still carries the "Sold by Paddle.com
-       Market Ltd." attribution, and the wallet sheet names the merchant at the
-       moment of payment. */
-
-    /* No room for the consent line beside a 72px square. It stays in the hero,
-       where it carries the "Sold by Paddle.com Market Ltd." attribution, and the
-       wallet sheet itself names the merchant at the moment of payment. */
-    .express-dock.is-docked .paddle-express-terms{display:none}
-    .express-dock.is-docked.is-on{opacity:1;pointer-events:auto}
-    /* The consent line DOES come to the strip now. It was hidden while the frame
-       showed Paddle's own "Sold by" footer, but the crop removes that, and hiding
-       both would leave nothing in the sticky bar identifying the merchant of record.
-       It is one 10px line and it carries the attribution. */
-    @media (prefers-reduced-motion:reduce){.express-dock.is-docked{transition:none}}
   }
 
 
@@ -1586,11 +1497,6 @@
      the hero and desktop use. -->
 <div id="m-cta" role="group" aria-label="Get Stride" aria-hidden="true">
   <a onclick="openBuy()" class="btn-copper" id="m-cta-buy">GET STRIDE<span class="m-cta-price"> &middot; $99</span></a>
-  <!-- Reserves the wallet square between the two buttons. The express frame CANNOT
-       be a child here: moving it in the DOM re-parents its iframe, which reloads it
-       and discards the checkout Paddle already opened. strideDockPlace() pins the
-       real one over this box instead. -->
-  <div id="m-cta-express" aria-hidden="true"></div>
   <a href="/try/" class="btn-ghost" id="m-cta-try">TRY 24H</a>
 </div>
 
@@ -1799,97 +1705,7 @@ function strideStickySync() {
   var on = !_stickyHeroVisible && !menuOpen;
   if (bar) { bar.classList.toggle('is-on', on); bar.setAttribute('aria-hidden', on ? 'false' : 'true'); }
   if (help) help.classList.toggle('is-on', on);
-
-  // The wallet button rides the bar. It is the SAME frame the hero shows, moved by
-  // CSS only: Paddle allows one checkout instance per page, and re-parenting the
-  // iframe to move it would reload it and discard the checkout already open.
-  var slot = document.querySelector('.express-slot');
-  var dock = document.querySelector('.express-dock');
-  var box  = document.querySelector('.paddle-express-checkout');
-  if (!slot || !dock || !box) return;
-
-  // Dock ONLY when a wallet actually rendered. box.hidden is set by
-  // strideExpressReveal(false) on no_payment_methods_available, and docking an
-  // empty element would still paint its background: a blank strip above the bar
-  // on every device without Apple Pay or Google Pay, which is most of them.
-  var narrow = !window.matchMedia || window.matchMedia('(max-width:899.98px)').matches;
-  var want = on && narrow && !box.hidden;
-
-  // Apple devices cannot take the cropped square: a real iPhone rendered the
-  // reserved gap with nothing in it. window.ApplePaySession exists only in Safari
-  // on Apple hardware, and Chrome on iOS is WebKit underneath so it reports true
-  // as well, which is right because it has the same constraint.
-  var strideStrip = false;
-  try { strideStrip = !!window.ApplePaySession; } catch (e) {}
-
-  if (want && strideStrip) {
-    // Strip mode: full width above the bar, no pinning, no reserved gap in the bar.
-    if (bar) bar.classList.remove('has-express');
-    dock.classList.add('is-strip');
-    if (!dock.classList.contains('is-docked')) {
-      var hs = dock.offsetHeight;
-      if (hs) {
-        slot.style.height = hs + 'px';
-        document.body.style.paddingBottom =
-          'calc(' + (68 + hs) + 'px + env(safe-area-inset-bottom,0px))';
-      }
-      dock.classList.add('is-docked');
-    }
-    dock.style.left = dock.style.bottom = dock.style.width = dock.style.height = '';
-    requestAnimationFrame(function () {
-      requestAnimationFrame(function () { dock.classList.add('is-on'); });
-    });
-    return;
-  }
-
-  if (want) {
-    dock.classList.remove('is-strip');
-    // The bar reserves the square FIRST, so the placeholder has real dimensions to
-    // measure before anything is pinned over it.
-    if (bar) bar.classList.add('has-express');
-    if (!dock.classList.contains('is-docked')) {
-      // Hold the height the dock had in the hero. Without this, taking it out of
-      // flow shifts every pixel below the hero up by that amount.
-      var h = dock.offsetHeight;
-      if (h) slot.style.height = h + 'px';
-      dock.classList.add('is-docked');
-    }
-    strideDockPlace();
-    // Two frames, so the browser paints opacity:0 before is-on animates from it.
-    requestAnimationFrame(function () {
-      requestAnimationFrame(function () { dock.classList.add('is-on'); });
-    });
-  } else {
-    if (bar) bar.classList.remove('has-express');
-    if (dock.classList.contains('is-docked')) {
-      dock.classList.remove('is-docked');
-      dock.classList.remove('is-on');
-      dock.classList.remove('is-strip');
-      dock.style.left = dock.style.bottom = dock.style.width = dock.style.height = '';
-      slot.style.height = '';
-      document.body.style.paddingBottom = '';
-    }
-  }
 }
-
-/* Pin the cropped wallet square over its reserved box inside the bar.
-   offsetLeft/offsetTop are read against #m-cta, NOT getBoundingClientRect: the bar
-   carries a translateY transition, and a rect read while that runs returns wherever
-   it is mid-flight rather than where it lands.
-   Anchored from the bottom so it never depends on window.innerHeight, which changes
-   as mobile browsers show and hide their chrome. */
-function strideDockPlace() {
-  var bar = document.getElementById('m-cta');
-  var ph = document.getElementById('m-cta-express');
-  var dock = document.querySelector('.express-dock');
-  if (!bar || !ph || !dock || !dock.classList.contains('is-docked')) return;
-  dock.style.left = ph.offsetLeft + 'px';
-  dock.style.bottom = (bar.offsetHeight - ph.offsetTop - ph.offsetHeight) + 'px';
-  dock.style.width = ph.offsetWidth + 'px';
-  dock.style.height = ph.offsetHeight + 'px';
-}
-window.addEventListener('resize', strideDockPlace);
-window.addEventListener('orientationchange', strideDockPlace);
 
 document.addEventListener('DOMContentLoaded', function () {
   var anchor = document.querySelector('.hero-cta');
