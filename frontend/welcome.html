@@ -101,7 +101,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             if (!isFreshPurchase) {
                 try {
                     var _lt = sessionStorage.getItem('stride_last_txn') || '';
-                    if (_lt && window.StrideTrack) {
+                    // /post is now the FIRST post-purchase page, so it usually fires this
+                    // already. The flag is what stops a second push for the same sale; a
+                    // flag that is only written and never read is not a guard.
+                    var _tracked = '';
+                    try { _tracked = sessionStorage.getItem('stride_purchase_tracked') || ''; } catch (e) {}
+                    if (_lt && _lt !== _tracked && window.StrideTrack) {
                         var _cv = {};
                         try { _cv = JSON.parse(sessionStorage.getItem('stride_checkout_value') || '{}') || {}; } catch (e) {}
                         StrideTrack.push('purchase', {
@@ -109,8 +114,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
                             currency: _cv.currency || 'USD',
                             transaction_id: _lt
                         });
-                        sessionStorage.removeItem('stride_last_txn');
-                        sessionStorage.removeItem('stride_checkout_value');
+                        // Dedup by FLAG, never by deleting the key. /post and the session
+                        // rail below both resolve the buyer's 72h offer from
+                        // stride_last_txn, so removing it here would silently kill the
+                        // offer for anyone who reaches this page.
+                        try { sessionStorage.setItem('stride_purchase_tracked', _lt); } catch (e) {}
                     }
                 } catch (e) {}
                 return;
@@ -162,12 +170,21 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
                 try { _ck = JSON.parse(sessionStorage.getItem('stride_checkout_value') || '{}') || {}; } catch (e) {}
                 var _txn = '';
                 try { _txn = sessionStorage.getItem('stride_last_txn') || ''; } catch (e) {}
-                StrideTrack.push('purchase', {
-                    value: Number(_ck.value) > 0 ? Number(_ck.value) : purchaseData.value,
-                    currency: _ck.currency || purchaseData.currency,
-                    transaction_id: order || _txn || eventId
-                });
-                try { sessionStorage.removeItem('stride_checkout_value'); sessionStorage.removeItem('stride_last_txn'); } catch (e) {}
+                var _id = order || _txn || eventId;
+                var _tracked2 = '';
+                try { _tracked2 = sessionStorage.getItem('stride_purchase_tracked') || ''; } catch (e) {}
+                // Same guard as the wallet branch: /post may already have recorded this
+                // exact sale. Meta above is guarded separately by stride_pixel_purchase_fired.
+                if (_id !== _tracked2) {
+                    StrideTrack.push('purchase', {
+                        value: Number(_ck.value) > 0 ? Number(_ck.value) : purchaseData.value,
+                        currency: _ck.currency || purchaseData.currency,
+                        transaction_id: _id
+                    });
+                    // Flag, not delete: stride_last_txn is what the session rail resolves
+                    // this buyer's offer from, so removing it would kill the offer.
+                    try { sessionStorage.setItem('stride_purchase_tracked', _id); } catch (e) {}
+                }
             } catch (e) {}
 
             // Mark as fired so reloads don't double-count, then clear the
@@ -186,6 +203,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cdefs%3E%3ClinearGradient id='strideGradient' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23eaa54e' /%3E%3Cstop offset='100%25' stop-color='%23c6712b' /%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z' stroke='url(%23strideGradient)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 
+    <!-- Paddle. The session rail opens a checkout for the owner price, which the backend
+         creates server-side, so this page needs Paddle.js. Without it the rail falls back
+         to the public price and a plain link to session.html, which is why its absence
+         degrades rather than breaks. -->
+    <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       (function(){
@@ -237,6 +259,26 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     background:radial-gradient(circle at center, rgba(198,113,43,.10), transparent 70%)}
   .support-card{transition:transform .15s,border-color .15s}
   .support-card:hover{transform:translateY(-2px)}
+  /* The session offer rail. Same language as session.html and /post, so the three read
+     as one offer rather than three designs. */
+  [hidden]{display:none!important}
+  .price{font-weight:900;letter-spacing:-.02em;color:var(--ink);line-height:1}
+  .offer-flag{display:inline-flex;align-items:center;gap:8px;margin:10px 0 10px;padding:5px 11px 5px 9px;
+    border-radius:999px;border:1px solid rgba(221,154,82,.34);background:rgba(198,113,43,.12);
+    color:var(--copper-lt);font-size:10px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
+  .offer-dot{width:6px;height:6px;border-radius:999px;background:var(--copper-lt);
+    animation:offerPulse 2s ease-out infinite}
+  @keyframes offerPulse{0%{box-shadow:0 0 0 0 rgba(221,154,82,.55)}100%{box-shadow:0 0 0 7px rgba(221,154,82,0)}}
+  @media (prefers-reduced-motion:reduce){ .offer-dot{animation:none} }
+  .price-was{font-size:1.25rem;font-weight:800;letter-spacing:-.01em;line-height:1;color:var(--ink3);opacity:.75;
+    text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:rgba(221,154,82,.6)}
+  .offer-clock{margin:10px 0 0;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
+  .offer-clock b{color:var(--copper-lt);font-weight:700;letter-spacing:.04em}
+  .btn-copper{display:inline-flex;align-items:center;justify-content:center;gap:.6rem;background:linear-gradient(180deg,var(--ember),var(--copper));
+    color:#1c1206;font-weight:900;letter-spacing:.04em;border:1px solid rgba(255,210,150,.25);border-radius:14px;
+    box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 12px 24px -14px rgba(198,113,43,.8);transition:transform .15s,filter .15s;cursor:pointer}
+  .btn-copper:hover{transform:translateY(-2px);filter:brightness(1.06)}
+  .btn-copper[aria-busy="true"]{opacity:.7;pointer-events:none}
 </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -284,15 +326,39 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <!-- Paid 1:1. The free onboarding call that used to sit above this was removed
              on purpose: it promised "whatever's in your way, we'll get you past it" on the
              page ~95% of buyers land on, which absorbed most of what this sells. If a free
-             call ever comes back here, word it narrowly or it will eat this again. -->
-        <a href="session.html" class="support-card flex-1 flex flex-col justify-between p-5 rounded-2xl group panel">
+             call ever comes back here, word it narrowly or it will eat this again.
+
+             This is a CONTAINER, not a link, because a Stride owner gets a Book button that
+             opens a checkout. Wrapping the whole card in an <a href="session.html"> would
+             swallow that click. The fallback state, and anyone with no open offer, still
+             gets a plain link out to the page. -->
+        <div class="support-card flex-1 flex flex-col justify-between p-5 rounded-2xl panel" id="session-rail">
           <div>
             <p class="silk mb-2" style="color:var(--copper-lt)">Want to go deeper?</p>
-            <p class="text-xl font-black ink mb-1.5">1:1 session &middot; $99/hr</p>
-            <p class="text-xs ink3 leading-relaxed">An hour on your own track, your chain, your sound, with the person who built Stride.</p>
+            <p class="text-[17px] font-black ink leading-snug mb-1.5">Spend an hour with the person who built Stride.</p>
+            <p class="text-xs ink3 leading-relaxed">Your session. Your plugins. Your sound.</p>
+
+            <!-- Owner state. Hidden until the backend confirms this buyer has an open
+                 offer, on the server's clock: showing a price we might not honour and
+                 then correcting it is worse than showing the public one. -->
+            <div class="rail-offer" hidden>
+              <span class="offer-flag"><span class="offer-dot" aria-hidden="true"></span>New Stride owner price</span>
+              <div class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                <del class="price-was"><span class="sr-only">Full price </span><span data-rail-was>$199</span></del>
+                <span class="price text-3xl" data-rail-now>$99</span>
+              </div>
+              <p class="offer-clock" role="timer">Offer ends in <b data-rail-left>&mdash;</b></p>
+            </div>
+
+            <!-- Public state. Also the fallback for no offer, an expired one, a used one,
+                 a Lemon Squeezy buyer, or any backend failure. -->
+            <p class="rail-public text-xl font-black ink mt-2">1:1 session &middot; $199</p>
           </div>
-          <p class="silk mt-4 group-hover:text-[color:var(--ember)] transition-colors" style="color:var(--copper-lt)">See what it covers &rarr;</p>
-        </a>
+
+          <button type="button" class="rail-book btn-copper w-full mt-4 px-5 py-3 text-xs uppercase" hidden>Book a session</button>
+          <p class="rail-note text-xs ink3 leading-relaxed mt-3" aria-live="polite" hidden></p>
+          <a href="session.html" class="rail-link silk mt-4 hover:text-[color:var(--ember)] transition-colors" style="color:var(--copper-lt)">See what it covers &rarr;</a>
+        </div>
 
         <a href="mailto:home@stridehub.io" class="support-card flex-1 flex flex-col justify-between p-5 rounded-2xl group panel">
           <div>
@@ -332,5 +398,141 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </footer>
 
 </div>
+
+<script>
+// The 1:1 session offer in the support rail.
+//
+// A Stride owner gets the owner price for 72 hours from their purchase. This page shows
+// the PUBLIC price by default and only upgrades to the owner view once the backend has
+// confirmed, on ITS clock, that this buyer has an open offer. Every failure path, no
+// transaction, no offer, expired, used, Lemon Squeezy, backend down, Paddle blocked, ends
+// with the public price and a plain link to session.html: nobody is ever shown a price we
+// cannot honour, and nobody is ever blocked from the page.
+(function () {
+  'use strict';
+
+  var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
+  var PADDLE_TOKEN = 'live_e0101b87a9e6e7024988534cf7b';
+  var BOOKED_URL = 'https://stridehub.io/session.html?booked=1';
+
+  var rail = document.getElementById('session-rail');
+  if (!rail) return;
+  function q(sel) { return rail.querySelector(sel); }
+  function ss(k) { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } }
+
+  // stride_offer_txn is the STRIDE transaction, stashed by /post before a Collection
+  // checkout overwrote stride_last_txn. Prefer it: the offer belongs to the Stride
+  // purchase, not to the add-on bought a minute later.
+  var txn = ss('stride_offer_txn') || ss('stride_last_txn');
+  if (!txn) return;                       // public price stays, link stays
+
+  var offer = null, clock = null, paddleOn = false;
+
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function human(ms) {
+    var s = Math.floor(ms / 1000);
+    var d = Math.floor(s / 86400), h = Math.floor(s / 3600) % 24,
+        m = Math.floor(s / 60) % 60, sec = s % 60;
+    if (d > 0) return d + 'd ' + h + 'h ' + m + 'm';
+    if (h > 0) return h + 'h ' + pad(m) + 'm';
+    return m + 'm ' + pad(sec) + 's';
+  }
+
+  function toPublic() {
+    if (clock) { clearInterval(clock); clock = null; }
+    offer = null;
+    q('.rail-offer').hidden = true;
+    q('.rail-public').hidden = false;
+    q('.rail-book').hidden = true;
+    q('.rail-link').hidden = false;
+  }
+
+  function note(text) {
+    var el = q('.rail-note');
+    el.textContent = text || '';
+    el.hidden = !text;
+  }
+
+  function tick() {
+    if (!offer) return;
+    var left = offer.expires - (Date.now() + offer.skew);
+    if (left <= 0) { toPublic(); return; }
+    q('[data-rail-left]').textContent = human(left);
+  }
+
+  function showOwner(d) {
+    var s = d.session || {};
+    var now = (s.owner_price || {}).formatted, was = (s.standard_price || {}).formatted;
+    if (!now || !was) return;                       // keep the public price
+    offer = { expires: Number(d.expires_at_ms), skew: Number(d.server_now_ms) - Date.now() };
+    q('[data-rail-now]').textContent = now;
+    q('[data-rail-was]').textContent = was;
+    q('.rail-public').hidden = true;
+    q('.rail-offer').hidden = false;
+    q('.rail-book').hidden = false;
+    q('.rail-link').hidden = false;
+    tick();
+    clock = setInterval(tick, 1000);
+  }
+
+  var settled = false;
+  var bail = setTimeout(function () { settled = true; }, 6000);
+  fetch(API, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'post_purchase_offers', txn: txn })
+  })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (settled) return;
+      settled = true; clearTimeout(bail);
+      if (!d || !d.ok) return;
+      if (((d.session || {}).status) !== 'open') return;
+      showOwner(d);
+    })
+    .catch(function () { settled = true; clearTimeout(bail); });
+
+  try {
+    if (window.Paddle) {
+      Paddle.Initialize({
+        token: PADDLE_TOKEN,
+        eventCallback: function (ev) {
+          if (ev && ev.name === 'checkout.completed') { toPublic(); note("You're booked in. Check your inbox for the link to pick your time."); }
+        }
+      });
+      paddleOn = true;
+    }
+  } catch (e) { paddleOn = false; }
+
+  q('.rail-book').addEventListener('click', function () {
+    if (!offer) return;
+    // No Paddle means no checkout to open. Send them to the page rather than fail silently.
+    if (!paddleOn) { window.location.href = 'session.html'; return; }
+    var btn = this;
+    btn.setAttribute('aria-busy', 'true');
+    note('');
+    fetch(API, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'session_checkout', txn: txn })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        btn.removeAttribute('aria-busy');
+        if (d && d.ok && d.transaction_id) {
+          // The owner price is never in this page: the backend made the transaction.
+          Paddle.Checkout.open({ transactionId: d.transaction_id,
+                                 settings: { displayMode: 'overlay', theme: 'dark', successUrl: BOOKED_URL } });
+          return;
+        }
+        if (d && (d.status === 'expired' || d.status === 'invalid')) { toPublic(); note('Your owner price has ended.'); return; }
+        if (d && d.status === 'used') { toPublic(); note('Your owner price has already been used.'); return; }
+        note('That did not open. Try again, or use the link below.');
+      })
+      .catch(function () {
+        btn.removeAttribute('aria-busy');
+        note('That did not open. Try again, or use the link below.');
+      });
+  });
+})();
+</script>
 </body>
 </html>
