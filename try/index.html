@@ -3,6 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<script>
+// The pass-ended mail's "Get 24 more hours" link carries a personal token (?extend=). Read it
+// before ANY analytics on this page (Tag Manager, Google Analytics, the Meta pixel) can report
+// the address, keep it for the handler at the end of the page, and take it off the URL. It must
+// stay the first script in <head>.
+(function () {
+  try {
+    var u = new URL(window.location.href);
+    if (!u.searchParams.has('extend')) return;
+    var t = (u.searchParams.get('extend') || '').trim().toLowerCase();
+    window.STRIDE_EXTEND_TOKEN = /^[0-9a-f]{32}$/.test(t) ? t : 'invalid';
+    u.searchParams.delete('extend');
+    history.replaceState(null, '', u.pathname + u.search + u.hash);
+  } catch (e) {}
+})();
+</script>
 <!-- Google Tag Manager -->
 <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
@@ -180,6 +196,12 @@ input[type=email]:focus{outline:none;border-color:rgba(198,113,43,.55);
 /* the objection the pill used to answer, now a quiet line under the form */
 .activation{margin-top:8px;font-size:12.5px;font-weight:600;color:var(--copper-lt)}
 .err{margin-top:12px;font-size:14px;color:#e6795f;display:none}
+/* The demo extension's link: a notice in place of the email form. */
+.ext-note{text-align:center}
+.ext-note h2{margin:0;font-size:22px;line-height:1.25;color:var(--ink);font-weight:800}
+.ext-note p{margin:10px auto 0;max-width:460px;color:var(--ink2);font-size:16px}
+.ext-note .btn-copper{margin-top:18px;padding:14px 28px;text-decoration:none}
+.ext-note a.mail{color:var(--copper-lt,#dd9a52);font-weight:700;text-decoration:none}
 .buyalt{text-align:center;margin:16px 0 0;font-size:13px;color:var(--ink3)}
 .buyalt a{color:var(--copper-lt);text-decoration:none;border-bottom:1px solid rgba(214,138,74,.35)}
 .buyalt a:hover{border-bottom-color:var(--copper-lt)}
@@ -648,6 +670,98 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       });
     }
   } catch (e7) {}
+
+  // /try?extend=<token> is the "Get 24 more hours" button in the pass-ended mail. The token
+  // (read and taken off the address in <head>) is the credential, so there is no form: the
+  // backend grants the one extra day, and it starts the next time Stride opens.
+  try {
+    var extendToken = window.STRIDE_EXTEND_TOKEN;
+    if (extendToken) {
+      var extOffer = document.getElementById('offer');
+      if (extOffer) extOffer.style.opacity = '.45';
+
+      var extDone = function (state) {
+        var hero = document.querySelector('#done .hero');
+        if (!hero) return;
+        var h1 = hero.querySelector('h1'), sub = hero.querySelector('.sub');
+        if (h1) h1.textContent = state === 'already_active' ? 'Your extra day is running.' : 'Your extra 24 hours are ready.';
+        if (sub) {
+          sub.textContent = '';
+          var b = document.createElement('b');
+          b.textContent = state === 'already_active' ? 'Open Stride to use it.' : 'Open Stride and they start right away.';
+          sub.appendChild(b);
+          if (state !== 'already_active') {
+            sub.appendChild(document.createElement('br'));
+            sub.appendChild(document.createTextNode('Need the latest Stride? Download it below.'));
+          }
+        }
+      };
+
+      var extNotice = function (state) {
+        var card = document.querySelector('#offer .card');
+        if (!card) return;
+        ['#f', '.fineprint', '.activation', '#err'].forEach(function (sel) {
+          var el = card.querySelector(sel);
+          if (el) el.style.display = 'none';
+        });
+        var note = document.createElement('div');
+        note.className = 'ext-note';
+        var h2 = document.createElement('h2'), p = document.createElement('p');
+        note.appendChild(h2);
+        note.appendChild(p);
+        if (state === 'used') {
+          h2.textContent = "You've had your extra day.";
+          p.textContent = 'Stride picks up right where you left off.';
+          var buy = document.createElement('a');
+          buy.className = 'btn-copper';
+          buy.href = 'https://stridehub.io/?utm_source=stride&utm_campaign=demo_funnel&utm_content=extend_used';
+          buy.textContent = 'GET STRIDE';
+          note.appendChild(buy);
+        } else if (state === 'purchased') {
+          h2.textContent = 'You already own Stride.';
+          p.textContent = 'Activate your license inside the plugin.';
+        } else {
+          h2.textContent = state === 'error' ? 'Something went wrong.' : 'This link has closed.';
+          p.appendChild(document.createTextNode('Email '));
+          var mail = document.createElement('a');
+          mail.className = 'mail';
+          mail.href = 'mailto:home@stridehub.io';
+          mail.textContent = 'home@stridehub.io';
+          p.appendChild(mail);
+          p.appendChild(document.createTextNode(" and I'll sort it out."));
+        }
+        card.insertBefore(note, card.firstChild);
+      };
+
+      if (extendToken === 'invalid') {
+        if (extOffer) extOffer.style.opacity = '';
+        extNotice('bad_token');
+      } else {
+        fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'extension_claim', token: extendToken })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (extOffer) extOffer.style.opacity = '';
+          d = d || {};
+          if (d.state === 'ready' || d.state === 'already_active') {
+            try { localStorage.setItem('stride_try_dl', JSON.stringify(d.downloads || {})); } catch (e10) {}
+            showDone(d.downloads || {});
+            extDone(d.state);
+            try { history.replaceState(null, '', '/try?done=1'); } catch (e11) {}
+            return;
+          }
+          extNotice(d.state || 'closed');
+        })
+        .catch(function () {
+          if (extOffer) extOffer.style.opacity = '';
+          extNotice('error');
+        });
+      }
+    }
+  } catch (e9) {}
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
