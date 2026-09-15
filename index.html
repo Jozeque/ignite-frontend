@@ -2232,6 +2232,10 @@ function openBuy() { toggleBuyModal(); }
         try {
             if (ev && ev.name === 'checkout.completed' && ev.data && ev.data.transaction_id) {
                 sessionStorage.setItem('stride_last_txn', String(ev.data.transaction_id));
+                var _paid = Number((ev.data.totals || {}).total);   // Paddle.js: plain major-unit numbers
+                if (_paid > 0 && ev.data.currency_code) {
+                    sessionStorage.setItem('stride_checkout_value', JSON.stringify({ value: _paid, currency: String(ev.data.currency_code) }));
+                }
             }
         } catch (e) {}
         if (!strideExpressLive) return;          // the overlay's events are not ours

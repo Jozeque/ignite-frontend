@@ -94,6 +94,27 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             const isFreshPurchase = !!(order || eventId);
             let alreadyFired = false;
             try { alreadyFired = sessionStorage.getItem('stride_pixel_purchase_fired') === '1'; } catch (e) {}
+            // A Paddle checkout that left no event id (the hero wallet, /samples) still completed:
+            // GA4 records it from its transaction id and what it charged. Meta is deliberately
+            // not fired here: the webhook already sends that sale server-side, and a browser
+            // Purchase with an id the server never used would count it twice.
+            if (!isFreshPurchase) {
+                try {
+                    var _lt = sessionStorage.getItem('stride_last_txn') || '';
+                    if (_lt && window.StrideTrack) {
+                        var _cv = {};
+                        try { _cv = JSON.parse(sessionStorage.getItem('stride_checkout_value') || '{}') || {}; } catch (e) {}
+                        StrideTrack.push('purchase', {
+                            value: Number(_cv.value) > 0 ? Number(_cv.value) : 99,
+                            currency: _cv.currency || 'USD',
+                            transaction_id: _lt
+                        });
+                        sessionStorage.removeItem('stride_last_txn');
+                        sessionStorage.removeItem('stride_checkout_value');
+                    }
+                } catch (e) {}
+                return;
+            }
             if (!isFreshPurchase || alreadyFired) return;
 
             if (!eventId) {

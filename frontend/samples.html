@@ -46,6 +46,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
                     try {
                         if (ev && ev.name === 'checkout.completed' && ev.data && ev.data.transaction_id) {
                             sessionStorage.setItem('stride_last_txn', String(ev.data.transaction_id));
+                            var paid = Number((ev.data.totals || {}).total);   // Paddle.js: plain major-unit numbers
+                            if (paid > 0 && ev.data.currency_code) {
+                                sessionStorage.setItem('stride_checkout_value', JSON.stringify({ value: paid, currency: String(ev.data.currency_code) }));
+                            }
                         }
                     } catch (e2) {}
                 } });
