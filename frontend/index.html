@@ -83,6 +83,21 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     fbq('init', '952457524222772', _strideXid ? { external_id: _strideXid } : {});
     fbq('track', 'PageView');
 
+    // Analytics events for Google Tag Manager (the GA4 event tags from Overtone's container).
+    // A push carries only the anonymous visitor id, never an email or a name: GA4 does not
+    // allow personal data, and every tag in the container can read dataLayer. Keys a push does
+    // not set are cleared, so one event's money can never carry over into the next event.
+    window.StrideTrack = window.StrideTrack || {
+        push: function (event, params) {
+            try {
+                var d = { event: event, external_id: (typeof _strideXid === 'string' && _strideXid) || undefined,
+                          value: undefined, currency: undefined, transaction_id: undefined, item_name: undefined };
+                for (var k in (params || {})) { if (Object.prototype.hasOwnProperty.call(params, k)) d[k] = params[k]; }
+                (window.dataLayer = window.dataLayer || []).push(d);
+            } catch (e) {}
+        }
+    };
+
     // Capture fbclid from the URL on landing → format into Meta's _fbc
     // shape (`fb.{subdomain_index}.{ts}.{fbclid}`) and persist for 90 days
     // so it rides along to LS checkout even if the buyer navigates around
@@ -2009,6 +2024,10 @@ function openBuy() { toggleBuyModal(); }
         if (!strideAddonAvailable()) return;
         strideAddonOn = !strideAddonOn;
         strideSyncAddon();
+        // GA4: the Collection added to the order. On the way in only, never on removal.
+        if (strideAddonOn) {
+            try { if (window.StrideTrack) StrideTrack.push('add_bump', { item_name: 'Experimental Collection', value: COLLECTION_ADDON_PRICE, currency: 'USD' }); } catch (e) {}
+        }
         // The wallet must charge the same cart the page is showing. Called from the
         // TOGGLE rather than from strideSyncAddon, which also runs on first render
         // and on currency refresh, where re-pricing would re-render the checkout for
@@ -2208,6 +2227,13 @@ function openBuy() { toggleBuyModal(); }
     //                          state that printed "There are no payment methods
     //                          available for this checkout" inside the frame.
     function strideExpressEvent(ev) {
+        // Any finished checkout (the overlay or the wallet) leaves its transaction id for
+        // welcome.html, so the GA4 purchase carries the real order id.
+        try {
+            if (ev && ev.name === 'checkout.completed' && ev.data && ev.data.transaction_id) {
+                sessionStorage.setItem('stride_last_txn', String(ev.data.transaction_id));
+            }
+        } catch (e) {}
         if (!strideExpressLive) return;          // the overlay's events are not ours
         var name = ev && ev.name;
         if (name === 'checkout.loaded') { strideExpressReveal(true); return; }
@@ -2514,6 +2540,10 @@ function openBuy() { toggleBuyModal(); }
         // ILS or GBP, and reporting that number as dollars overstates it several times
         // over. Value and currency now travel together, from one source.
         try { if (window.fbq) fbq('track', 'InitiateCheckout', { value: _orderValue.value, currency: _orderValue.currency }, { eventID: eventId }); } catch (e) {}
+        // The same moment for GA4, and the cart's money kept for welcome.html, whose purchase
+        // event would otherwise only know the $99 floor.
+        try { if (window.StrideTrack) StrideTrack.push('begin_checkout', { value: _orderValue.value, currency: _orderValue.currency }); } catch (e) {}
+        try { sessionStorage.setItem('stride_checkout_value', JSON.stringify({ value: _orderValue.value, currency: _orderValue.currency })); } catch (e) {}
 
         // Store locally
         localStorage.setItem('stride_purchase', JSON.stringify({

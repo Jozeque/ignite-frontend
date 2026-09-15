@@ -41,8 +41,36 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     t.src=v;s=b.getElementsByTagName(e)[0];
     s.parentNode.insertBefore(t,s)}(window, document,'script',
     'https://connect.facebook.net/en_US/fbevents.js');
-    fbq('init', '952457524222772');
+    // Same first-party visitor id as the landing page (cookie stride_xid, 180 days), so Meta
+    // matches this page's events to the same visitor instead of an anonymous one.
+    var _strideXid = (function () {
+        try {
+            var m = document.cookie.match(/(?:^|; )stride_xid=([^;]*)/);
+            if (m) return decodeURIComponent(m[1]);
+            var id = (self.crypto && crypto.randomUUID) ? crypto.randomUUID()
+                : (Date.now().toString(36) + Math.random().toString(36).slice(2, 12));
+            document.cookie = 'stride_xid=' + encodeURIComponent(id) +
+                '; max-age=' + (180 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+            return id;
+        } catch (e) { return ''; }
+    })();
+    fbq('init', '952457524222772', _strideXid ? { external_id: _strideXid } : {});
     fbq('track', 'PageView');
+
+    // Analytics events for Google Tag Manager (the GA4 event tags from Overtone's container).
+    // A push carries only the anonymous visitor id, never an email or a name: GA4 does not
+    // allow personal data, and every tag in the container can read dataLayer. Keys a push does
+    // not set are cleared, so one event's money can never carry over into the next event.
+    window.StrideTrack = window.StrideTrack || {
+        push: function (event, params) {
+            try {
+                var d = { event: event, external_id: (typeof _strideXid === 'string' && _strideXid) || undefined,
+                          value: undefined, currency: undefined, transaction_id: undefined, item_name: undefined };
+                for (var k in (params || {})) { if (Object.prototype.hasOwnProperty.call(params, k)) d[k] = params[k]; }
+                (window.dataLayer = window.dataLayer || []).push(d);
+            } catch (e) {}
+        }
+    };
 
     // Fire Purchase ONLY when we have evidence this is a real post-purchase
     // landing — either an order_id in the URL (from the LS confirmation
@@ -104,6 +132,22 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             // CAPI dedup of THIS welcome event against the corresponding
             // CAPI welcome event for the same conversion.
             fbq('track', 'welcome', purchaseData, { eventID: eventId });
+
+            // GA4 purchase, under the same once-per-landing guard as the Meta pair above. The money
+            // and the order id come from what the checkout recorded in this tab (the real cart and
+            // currency, the Paddle transaction id); without them, the same floor Meta gets.
+            try {
+                var _ck = {};
+                try { _ck = JSON.parse(sessionStorage.getItem('stride_checkout_value') || '{}') || {}; } catch (e) {}
+                var _txn = '';
+                try { _txn = sessionStorage.getItem('stride_last_txn') || ''; } catch (e) {}
+                StrideTrack.push('purchase', {
+                    value: Number(_ck.value) > 0 ? Number(_ck.value) : purchaseData.value,
+                    currency: _ck.currency || purchaseData.currency,
+                    transaction_id: order || _txn || eventId
+                });
+                try { sessionStorage.removeItem('stride_checkout_value'); sessionStorage.removeItem('stride_last_txn'); } catch (e) {}
+            } catch (e) {}
 
             // Mark as fired so reloads don't double-count, then clear the
             // event_id so it doesn't accidentally tag a future purchase.

@@ -3,6 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+    // The owner link in the Stride welcome mail carries a personal token (?offer=). Read it
+    // before ANY analytics on this page (Tag Manager, Google Analytics, the Meta pixel) can
+    // report this address, keep it in this browser, and take it off the URL so it is never
+    // passed on. It must stay the first script in <head>.
+    (function () {
+      try {
+        var u = new URL(window.location.href);
+        if (!u.searchParams.has('offer')) return;
+        var t = (u.searchParams.get('offer') || '').trim().toLowerCase();
+        if (/^[0-9a-f]{32}$/.test(t)) {
+          window.STRIDE_SESSION_OFFER = t;
+          try { localStorage.setItem('stride_session_offer', t); } catch (e) {}
+        }
+        u.searchParams.delete('offer');
+        history.replaceState(null, '', u.pathname + u.search + u.hash);
+      } catch (e) {}
+    })();
+    </script>
 <!-- Google Tag Manager -->
 <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
@@ -45,25 +64,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
     <meta name="theme-color" content="#141310">
 
-    <script>
-    // The owner link in the Stride welcome mail carries a personal token (?offer=). Read it
-    // before the pixel below reports this address, keep it in this browser, and take it off
-    // the URL so it is never passed on.
-    (function () {
-      try {
-        var u = new URL(window.location.href);
-        if (!u.searchParams.has('offer')) return;
-        var t = (u.searchParams.get('offer') || '').trim().toLowerCase();
-        if (/^[0-9a-f]{32}$/.test(t)) {
-          window.STRIDE_SESSION_OFFER = t;
-          try { localStorage.setItem('stride_session_offer', t); } catch (e) {}
-        }
-        u.searchParams.delete('offer');
-        history.replaceState(null, '', u.pathname + u.search + u.hash);
-      } catch (e) {}
-    })();
-    </script>
-
     <!-- Meta Pixel — same pixel as the landing page so the free-pack funnel
          (ad -> /samples -> Lead) is tracked end to end. Fires PageView early. -->
     <script>
@@ -75,8 +75,40 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     t.src=v;s=b.getElementsByTagName(e)[0];
     s.parentNode.insertBefore(t,s)}(window, document,'script',
     'https://connect.facebook.net/en_US/fbevents.js');
-    fbq('init', '952457524222772');
+    // Same first-party visitor id as the landing page (cookie stride_xid, 180 days), so Meta
+    // matches this page's events to the same visitor instead of an anonymous one.
+    var _strideXid = (function () {
+        try {
+            var m = document.cookie.match(/(?:^|; )stride_xid=([^;]*)/);
+            if (m) return decodeURIComponent(m[1]);
+            var id = (self.crypto && crypto.randomUUID) ? crypto.randomUUID()
+                : (Date.now().toString(36) + Math.random().toString(36).slice(2, 12));
+            document.cookie = 'stride_xid=' + encodeURIComponent(id) +
+                '; max-age=' + (180 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+            return id;
+        } catch (e) { return ''; }
+    })();
+    fbq('init', '952457524222772', _strideXid ? { external_id: _strideXid } : {});
     fbq('track', 'PageView');
+
+    // Analytics events for Google Tag Manager (the GA4 event tags from Overtone's container).
+    // A push carries only the anonymous visitor id, never an email or a name: GA4 does not
+    // allow personal data, and every tag in the container can read dataLayer. Keys a push does
+    // not set are cleared, so one event's money can never carry over into the next event.
+    window.StrideTrack = window.StrideTrack || {
+        push: function (event, params) {
+            try {
+                var d = { event: event, external_id: (typeof _strideXid === 'string' && _strideXid) || undefined,
+                          value: undefined, currency: undefined, transaction_id: undefined, item_name: undefined };
+                for (var k in (params || {})) { if (Object.prototype.hasOwnProperty.call(params, k)) d[k] = params[k]; }
+                (window.dataLayer = window.dataLayer || []).push(d);
+            } catch (e) {}
+        }
+    };
+
+    // The 1:1 session page, for Meta (a custom event, no Purchase semantics) and for GA4.
+    fbq('trackCustom', 'ViewSession');
+    StrideTrack.push('view_session_page');
 
     // Capture fbclid -> _fbc (90-day cookie) exactly like index.html so the
     // Lead event can be matched back to the ad click that drove the visit.
@@ -496,7 +528,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     if (!book) return;
     function q(sel) { return book.querySelector(sel); }
     var cta = q('.session-cta');
-    var offer = null;     // the open owner offer: { token, expires, skew }
+    var offer = null;     // the open owner offer: { token, expires, skew, amount, currency }
+    var standardMinor = 19900, standardCurrency = 'USD';   // the public price on screen
     var clock = null;
     var paddleOn = false;
     var ENDED = 'Your owner price has ended.';
@@ -518,6 +551,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           minimumFractionDigits: whole ? 0 : digits, maximumFractionDigits: digits
         }).format(m / Math.pow(10, digits));
       } catch (e) { return ''; }
+    }
+
+    // GA4 begin_checkout when a Paddle checkout actually opens, in the money on screen.
+    function trackCheckout(minor, currency) {
+      try {
+        if (!window.StrideTrack || !currency) return;
+        var digits = 2;
+        try { digits = new Intl.NumberFormat(undefined, { style: 'currency', currency: currency }).resolvedOptions().minimumFractionDigits; } catch (e) {}
+        var v = Number(minor) / Math.pow(10, digits);
+        if (isFinite(v) && v > 0) StrideTrack.push('begin_checkout', { value: v, currency: currency });
+      } catch (e) {}
     }
 
     function note(text) {
@@ -552,6 +596,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             var d = (res && res.data) || {};
             var li = (((d.details || {}).lineItems) || [])[0];
             var text = li ? money((li.totals || {}).total, d.currencyCode) : '';
+            if (text) { standardMinor = (li.totals || {}).total; standardCurrency = d.currencyCode; }
             if (text && !offer) q('[data-price]').textContent = text;
           }).catch(function () {});
       } catch (e) {}
@@ -579,7 +624,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       var was = money(d.standard_price.amount, d.standard_price.currency);
       if (!now || !was) { showStandard(); localizeStandard(); return; }
       // The server's clock, not this device's, decides when the price ends.
-      offer = { token: token, expires: Number(d.expires_at_ms), skew: Number(d.server_now_ms) - Date.now() };
+      offer = { token: token, expires: Number(d.expires_at_ms), skew: Number(d.server_now_ms) - Date.now(),
+                amount: d.owner_price.amount, currency: d.owner_price.currency };
       q('[data-price]').textContent = now;
       q('.price-was-v').textContent = was;
       q('.price-was').hidden = false;
@@ -616,6 +662,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     var checkoutSettings = { displayMode: 'overlay', theme: 'dark', successUrl: SESSION_SUCCESS_URL };
 
     function openOwnerCheckout() {
+      var price = { amount: offer.amount, currency: offer.currency };
       cta.setAttribute('aria-busy', 'true');
       note('');
       fetch(API, {
@@ -626,6 +673,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         cta.removeAttribute('aria-busy');
         d = d || {};
         if (d.ok && d.transaction_id) {
+          trackCheckout(price.amount, price.currency);
           Paddle.Checkout.open({ transactionId: d.transaction_id, settings: checkoutSettings });
         } else if (d.status === 'expired' || d.status === 'invalid') {
           endOffer(ENDED);
@@ -647,6 +695,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       ev.preventDefault();
       if (offer) { openOwnerCheckout(); return; }
       try {
+        trackCheckout(standardMinor, standardCurrency);
         Paddle.Checkout.open({
           items: [{ priceId: PADDLE_PRICE_SESSION, quantity: 1 }],
           customData: { source: 'session_page' },

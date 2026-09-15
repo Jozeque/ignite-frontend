@@ -36,10 +36,21 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         var TOKEN = 'live_e0101b87a9e6e7024988534cf7b';
         var PRICE = 'pri_01m2dghkc4dn53h2hrzw21ba2f';
         var ready = false;
+        var collection = { value: 35, currency: 'USD' };   // replaced by Paddle's price for this visitor
         function init() {
             if (ready) return true;
             if (!window.Paddle) return false;
-            try { Paddle.Initialize({ token: TOKEN }); ready = true; } catch (e) { return false; }
+            try {
+                Paddle.Initialize({ token: TOKEN, eventCallback: function (ev) {
+                    // welcome.html reads this, so the GA4 purchase carries the real order id.
+                    try {
+                        if (ev && ev.name === 'checkout.completed' && ev.data && ev.data.transaction_id) {
+                            sessionStorage.setItem('stride_last_txn', String(ev.data.transaction_id));
+                        }
+                    } catch (e2) {}
+                } });
+                ready = true;
+            } catch (e) { return false; }
             return true;
         }
         function custom() {
@@ -57,6 +68,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             if (!init()) return true;                       // let the href do its job
             try {
                 if (ev && ev.preventDefault) ev.preventDefault();
+                // GA4 begin_checkout, and the money kept for welcome.html's purchase event.
+                try { if (window.StrideTrack) StrideTrack.push('begin_checkout', { value: collection.value, currency: collection.currency }); } catch (e2) {}
+                try { sessionStorage.setItem('stride_checkout_value', JSON.stringify(collection)); } catch (e2) {}
                 Paddle.Checkout.open({
                     items: [{ priceId: PRICE, quantity: 1 }],
                     customData: custom(),
@@ -73,6 +87,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
                     .then(function (res) {
                         var li = ((((res || {}).data || {}).details || {}).lineItems || [])[0];
                         var t = li && li.formattedTotals && li.formattedTotals.total;
+                        try {
+                            var cur = res.data.currencyCode, minor = parseInt((li.totals || {}).total, 10), digits = 2;
+                            try { digits = new Intl.NumberFormat(undefined, { style: 'currency', currency: cur }).resolvedOptions().minimumFractionDigits; } catch (e3) {}
+                            if (cur && isFinite(minor) && minor > 0) collection = { value: minor / Math.pow(10, digits), currency: cur };
+                        } catch (e3) {}
                         if (!t) return;
                         document.querySelectorAll('[data-collection-price]').forEach(function (el) {
                             el.textContent = t;
@@ -113,8 +132,36 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     t.src=v;s=b.getElementsByTagName(e)[0];
     s.parentNode.insertBefore(t,s)}(window, document,'script',
     'https://connect.facebook.net/en_US/fbevents.js');
-    fbq('init', '952457524222772');
+    // Same first-party visitor id as the landing page (cookie stride_xid, 180 days), so Meta
+    // matches this page's events to the same visitor instead of an anonymous one.
+    var _strideXid = (function () {
+        try {
+            var m = document.cookie.match(/(?:^|; )stride_xid=([^;]*)/);
+            if (m) return decodeURIComponent(m[1]);
+            var id = (self.crypto && crypto.randomUUID) ? crypto.randomUUID()
+                : (Date.now().toString(36) + Math.random().toString(36).slice(2, 12));
+            document.cookie = 'stride_xid=' + encodeURIComponent(id) +
+                '; max-age=' + (180 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+            return id;
+        } catch (e) { return ''; }
+    })();
+    fbq('init', '952457524222772', _strideXid ? { external_id: _strideXid } : {});
     fbq('track', 'PageView');
+
+    // Analytics events for Google Tag Manager (the GA4 event tags from Overtone's container).
+    // A push carries only the anonymous visitor id, never an email or a name: GA4 does not
+    // allow personal data, and every tag in the container can read dataLayer. Keys a push does
+    // not set are cleared, so one event's money can never carry over into the next event.
+    window.StrideTrack = window.StrideTrack || {
+        push: function (event, params) {
+            try {
+                var d = { event: event, external_id: (typeof _strideXid === 'string' && _strideXid) || undefined,
+                          value: undefined, currency: undefined, transaction_id: undefined, item_name: undefined };
+                for (var k in (params || {})) { if (Object.prototype.hasOwnProperty.call(params, k)) d[k] = params[k]; }
+                (window.dataLayer = window.dataLayer || []).push(d);
+            } catch (e) {}
+        }
+    };
 
     // Capture fbclid -> _fbc (90-day cookie) exactly like index.html so the
     // Lead event can be matched back to the ad click that drove the visit.
