@@ -362,9 +362,13 @@ const TOKEN = '0123456789abcdef0123456789abcdef';   // synthetic, see PTXN
   // The bug this page was built around: a script element is raw text, so &amp; is NOT
   // decoded. samples.html ships &amp;token= and its teaser 403s. Verified against the
   // live URL on 2026-09-16.
-  const src = (html.match(/STRIDE_TEASER_SRC = "([^"]+)"/) || [])[1] || '';
-  ok('the teaser URL carries a real token, not an HTML-escaped one',
-    src.includes('&token=') && !src.includes('&amp;'), src.slice(-60));
+  // /samples shipped exactly this bug until 2026-09-16, so both pages are held to it.
+  for (const page of ['post/index.html', 'samples.html', 'frontend/samples.html']) {
+    const text = fs.readFileSync(path.join(ROOT, page), 'utf8');
+    const src = (text.match(/STRIDE_TEASER_SRC = "([^"]+)"/) || [])[1] || '';
+    ok(`${page}: the teaser URL carries a real token, not an HTML-escaped one`,
+      src.includes('&token=') && !src.includes('&amp;'), src.slice(-60));
+  }
   ok('and the file is fetched only when someone presses play',
     /<video id="teaser-v" controls playsinline preload="none"/.test(html)
     && !/<video[^>]*\bsrc=/.test(html));
