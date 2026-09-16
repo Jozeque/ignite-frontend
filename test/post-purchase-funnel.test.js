@@ -135,7 +135,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 // Synthetic, and it must stay that way: this file ships with the site, so anything real
 // here is a working credential for somebody's owner price, readable at stridehub.io/test/.
 const PTXN = 'txn_01aaaaaaaaaaaaaaaaaaaaaaaa';
-// These five must match _OFFER_STAGES in firebase_cloud/functions/main.py. Anything a page
+// These five must match the stages the backend accepts. Anything a page
 // sends that is not on this list is dropped by the backend and silently never recorded.
 const STAGES = ['post_viewed', 'post_skipped', 'post_checkout', 'welcome_viewed', 'session_viewed'];
 
