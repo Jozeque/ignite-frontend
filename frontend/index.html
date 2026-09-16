@@ -1608,7 +1608,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="space-y-4 mb-4">
             <div>
                 <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">Email *</label>
-                <input id="contact-email" type="email" placeholder="you@example.com" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors">
+                <input id="contact-email" type="email" placeholder="you@example.com" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-base text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors">
             </div>
             <div>
                 <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">Message *</label>
@@ -1638,7 +1638,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             
             <div>
                 <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">Email *</label>
-                <input id="buy-email" type="email" name="email" autocomplete="email" inputmode="email" autocapitalize="off" autocorrect="off" spellcheck="false" required placeholder="you@example.com" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors">
+                <input id="buy-email" type="email" name="email" autocomplete="email" inputmode="email" autocapitalize="off" autocorrect="off" spellcheck="false" required placeholder="you@example.com" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-base text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors">
             </div>
             
             
@@ -2384,6 +2384,11 @@ function openBuy() { toggleBuyModal(); }
                     customData: custom,
                     settings: {
                         displayMode: 'overlay',
+                        // One screen: details and payment together, no Continue step, and
+                        // on a phone it fills the screen instead of floating as a modal.
+                        // Paddle's default (multi-page) stopped every buyer on a details
+                        // page even with the email already filled in.
+                        variant: 'one-page',
                         theme: 'dark',
                         successUrl: PADDLE_SUCCESS_URL
                     }
