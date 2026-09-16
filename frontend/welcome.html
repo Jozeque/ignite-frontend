@@ -465,6 +465,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     el.hidden = !text;
   }
 
+  // Booked already, most often on /post a minute ago. Say so, instead of offering the public
+  // price for the session they have just bought.
+  function showBooked() {
+    toPublic();
+    q('.rail-public').hidden = true;
+    note("You're booked in. Check your inbox for the link to pick your time.");
+  }
+
   function tick() {
     if (!offer) return;
     var left = offer.expires - (Date.now() + offer.skew);
@@ -507,7 +515,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       if (settled) return;
       settled = true; clearTimeout(bail);
       if (!d || !d.ok) return;
-      if (((d.session || {}).status) !== 'open') return;
+      var sessionStatus = (d.session || {}).status;
+      if (sessionStatus === 'used') { showBooked(); return; }
+      if (sessionStatus !== 'open') return;
       showOwner(d);
     })
     .catch(function () { settled = true; clearTimeout(bail); });
@@ -517,7 +527,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       Paddle.Initialize({
         token: PADDLE_TOKEN,
         eventCallback: function (ev) {
-          if (ev && ev.name === 'checkout.completed') { toPublic(); note("You're booked in. Check your inbox for the link to pick your time."); }
+          if (ev && ev.name === 'checkout.completed') showBooked();
         }
       });
       paddleOn = true;

@@ -4,14 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script>
-    // Paddle hands the transaction back in ?_ptxn= on the success URL. Read it BEFORE any
-    // analytics on this page can report it, keep it for the offer below, and take it off
-    // the URL. Two separate reasons to strip it, either one enough on its own:
-    //   Paddle.js auto-opens a checkout from ?_ptxn= once Initialize has run, and this page
-    //   does Initialize, so leaving it there can reopen the Stride checkout the buyer has
-    //   just paid, on top of the offer.
-    //   An id left in the address bar is an id in the history, in the referrer, and in
-    //   every tag on the page.
+    // ?_ptxn= is how a Paddle PAYMENT LINK names the checkout it should open. Paddle does
+    // NOT add it to a success URL, so it is not expected here; but if a link ever lands on
+    // this page, take it off the URL before paddle.js loads. Paddle.js auto-opens a
+    // checkout from ?_ptxn= once Initialize has run, and this page does Initialize, so it
+    // would open that checkout on top of the offer. A well-formed id still names a purchase
+    // as well as sessionStorage does, so it is kept for the offer below.
+    // ?code= is left alone on purpose: it is the offer's name, and it stays in the URL.
     // It must stay the first script in <head>.
     (function () {
       try {
@@ -20,10 +19,7 @@
         var t = (u.searchParams.get('_ptxn') || '').trim().toLowerCase();
         if (/^txn_[0-9a-z]{26}$/.test(t)) {
           window.STRIDE_POST_TXN = t;
-          // Paddle's own word for what was just bought, written where every post-purchase
-          // page already looks. It beats whatever an earlier checkout.completed left, and
-          // it is the only copy when that event never reached the page that opened the
-          // checkout.
+          // Written where every post-purchase page already looks.
           try { sessionStorage.setItem('stride_last_txn', t); } catch (e) {}
         }
         u.searchParams.delete('_ptxn');
@@ -53,10 +49,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     <meta name="description" content="Your Stride setup is ready.">
     <meta name="theme-color" content="#141310">
 
-    <!-- Meta Pixel. Copied verbatim from welcome.html, because this is now the FIRST
-         post-purchase page a buyer reaches and the purchase events moved here with it.
-         Whatever fires must fire exactly once per purchase, on whichever of these two
-         pages the buyer lands on first. -->
+    <!-- Meta Pixel. The FIRST page a Stride buyer reaches, so the purchase events fire here,
+         exactly once per purchase, on whichever post-purchase page the buyer lands on first. -->
     <script>
     !function(f,b,e,v,n,t,s)
     {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -111,6 +105,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
+  /* The site's shared language, as on session.html. */
   :root{
     --bg:#141310; --bg2:#191611; --panel:#1d1b16; --raise:#252119; --line:rgba(216,201,176,.11);
     --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
@@ -133,16 +128,58 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
   .ink{color:var(--ink)} .ink2{color:var(--ink2)} .ink3{color:var(--ink3)}
   h1,h2,h3,h4{color:var(--ink);font-weight:900;letter-spacing:-.01em}
-  .panel{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(0,0,0,.14)),var(--panel);
-    border:1px solid var(--line);border-radius:18px;
-    box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 24px 50px -30px rgba(0,0,0,.9)}
   .btn-copper{display:inline-flex;align-items:center;justify-content:center;gap:.6rem;background:linear-gradient(180deg,var(--ember),var(--copper));
     color:#1c1206;font-weight:900;letter-spacing:.04em;border:1px solid rgba(255,210,150,.25);border-radius:14px;
     box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 12px 24px -14px rgba(198,113,43,.8);transition:transform .15s,filter .15s;cursor:pointer}
   .btn-copper:hover{transform:translateY(-2px);filter:brightness(1.06)}
   [hidden]{display:none!important}
-
-  /* The offer language, identical to session.html so the two offers read as one system. */
+</style>
+<style>
+  /* session.html's page styles, the parts this page shows. */
+  .price{font-weight:900;letter-spacing:-.02em;color:var(--ink);line-height:1}
+  .num{color:var(--copper-lt)}
+  .session-grid{display:grid;grid-template-columns:minmax(0,1fr);
+    grid-template-areas:"hero" "card" "timeline" "book";gap:44px}
+  .sg-hero{grid-area:hero}
+  .sg-card{grid-area:card}
+  .sg-timeline{grid-area:timeline}
+  .sg-book{grid-area:book}
+  @media (min-width:900px){
+    .session-grid{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);
+      grid-template-areas:"hero card" "timeline card" "book card";column-gap:56px;row-gap:56px;align-items:start}
+    .sg-card{position:sticky;top:24px}
+  }
+  .labels{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:22px 18px;align-items:center;justify-items:start}
+  @media (min-width:520px) and (max-width:899px){ .labels{grid-template-columns:repeat(4,minmax(0,1fr))} }
+  .lbl{display:block;width:auto;max-width:100%;object-fit:contain;opacity:.74;transition:opacity .2s}
+  .labels li:hover .lbl{opacity:1}
+  .lbl-artlist{height:19px}
+  .lbl-merkaba{height:30px}
+  .lbl-shanti{height:54px}
+  .lbl-allo{height:21px}
+  .tl-scale{margin-bottom:36px}
+  .tl-bar{display:flex;gap:3px;height:8px}
+  .tl-seg{border-radius:3px;background:rgba(221,154,82,.26)}
+  .tl-seg-live{background:linear-gradient(90deg,var(--copper),var(--ember))}
+  .tl-ticks{position:relative;height:16px;margin-top:9px;font-size:11px;letter-spacing:.1em;color:var(--ink3)}
+  .tl-ticks span{position:absolute;top:0;transform:translateX(-50%)}
+  .tl-ticks .tl-tick-start{left:0;transform:none}
+  .tl-ticks .tl-tick-end{right:0;transform:none}
+  .tl{list-style:none;margin:0;padding:0}
+  .tl-step{position:relative;padding:0 0 38px 36px}
+  .tl-step:last-child{padding-bottom:0}
+  .tl-step::before{content:"";position:absolute;left:0;top:3px;width:12px;height:12px;border-radius:999px;
+    background:var(--bg);border:2px solid var(--copper-lt)}
+  .tl-step::after{content:"";position:absolute;left:5px;top:19px;bottom:-3px;width:2px;background:var(--line)}
+  .tl-step:last-child::after{display:none}
+  .tl-step-live::before{background:var(--copper-lt);box-shadow:0 0 0 5px rgba(221,154,82,.16)}
+  .tl-time{font-size:12px;font-weight:700;letter-spacing:.14em;color:var(--copper-lt);line-height:1.3;margin:0 0 6px}
+  .tl-title{font-size:1.4rem;line-height:1.2;margin:0 0 12px}
+  .tl-step p{font-size:.97rem;line-height:1.72;color:var(--ink2);margin:0 0 10px;max-width:38rem}
+  .tl-step p:last-child{margin-bottom:0}
+  .tl-leave{margin:38px 0 0;padding-top:24px;border-top:1px solid var(--line);font-size:1.06rem;line-height:1.65;
+    color:var(--ink);font-weight:500;max-width:38rem}
   .offer-flag{display:inline-flex;align-items:center;gap:8px;margin:0 0 16px;padding:5px 11px 5px 9px;
     border-radius:999px;border:1px solid rgba(221,154,82,.34);background:rgba(198,113,43,.12);
     color:var(--copper-lt);font-size:10px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
@@ -150,38 +187,21 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     animation:offerPulse 2s ease-out infinite}
   @keyframes offerPulse{0%{box-shadow:0 0 0 0 rgba(221,154,82,.55)}100%{box-shadow:0 0 0 7px rgba(221,154,82,0)}}
   @media (prefers-reduced-motion:reduce){ .offer-dot{animation:none} }
-  .price{font-weight:900;letter-spacing:-.02em;color:var(--ink);line-height:1}
   .price-was{font-size:1.6rem;font-weight:800;letter-spacing:-.01em;line-height:1;color:var(--ink3);opacity:.75;
     text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:rgba(221,154,82,.6)}
   @media (min-width:640px){ .price-was{font-size:2rem} }
   .offer-clock{margin:14px 0 0;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
   .offer-clock b{color:var(--copper-lt);font-weight:700;letter-spacing:.06em}
   .offer-note{margin:12px 0 0;font-size:13px;line-height:1.6;color:var(--ink2);max-width:28rem}
-  .cta[aria-busy="true"]{opacity:.7;pointer-events:none}
+  .session-cta[aria-busy="true"]{opacity:.7;pointer-events:none}
+  .booked-title{font-size:1.6rem;line-height:1.2;font-weight:900;color:var(--ink);margin:0 0 8px}
 
-  /* What is in the Collection. The numbers are the same ones index.html already sells. */
-  .inv{list-style:none;margin:22px 0 0;padding:0;display:grid;gap:12px}
-  .inv li{display:flex;align-items:flex-start;gap:12px;font-size:1.02rem;color:var(--ink);line-height:1.45}
-  .inv .n{font-weight:900;color:var(--copper-lt);min-width:3.2rem;font-variant-numeric:tabular-nums}
+  /* This page's own: the purchase it follows, and the way past the offer. */
   .skip{display:inline-block;margin-top:20px;font-size:14px;font-weight:700;color:var(--ink3);
     text-decoration:none;transition:color .15s}
   .skip:hover{color:var(--copper-lt)}
-  /* The three covers as ONE object, lifted verbatim from samples.html. Overlapping is
-     what makes them read as a collection rather than three products standing side by
-     side, and a buyer who saw the pack on /samples has to recognise it here. */
-  .stack{display:flex;align-items:flex-start}
-  .sleeve{position:relative;flex:1 1 0;min-width:0;margin:0;border-radius:14px;overflow:hidden;
-    border:1px solid var(--line);background:var(--bg2);
-    box-shadow:0 26px 50px -28px rgba(0,0,0,.95);transition:transform .35s ease}
-  .sleeve + .sleeve{margin-left:-14%}
-  /* LATER sleeves on top, so every cover keeps its own left edge and they read left to right. */
-  .sleeve:nth-child(1){z-index:1}.sleeve:nth-child(2){z-index:2}.sleeve:nth-child(3){z-index:3}
-  .stack:hover .sleeve{transform:translateY(-4px)}
-  .sleeve img{display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover}
-  @media (max-width:520px){ .sleeve + .sleeve{margin-left:6px} .stack{gap:0} }
-
-  /* Nothing renders until the offer is resolved: showing a price we may not honour,
-     then correcting it, is worse than a beat of nothing. */
+  /* Nothing of the offer renders until the server has confirmed it: showing a price we may
+     not honour, then correcting it, is worse than a beat of nothing. */
   .gate{visibility:hidden}
   .gate.ready{visibility:visible}
 </style>
@@ -192,160 +212,230 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- End Google Tag Manager (noscript) -->
 <div class="wrap">
-  <nav class="max-w-3xl mx-auto px-6 py-6 flex items-center justify-between">
+  <nav class="max-w-5xl mx-auto px-6 py-6 flex items-center justify-between">
     <a href="/index.html" class="flex items-center gap-2.5 group">
       <span class="text-3xl font-black brand tracking-tighter leading-none">STRIDE</span>
       <span class="silk hidden sm:block border-l pl-3" style="border-color:var(--line)">Sound Design Engine</span>
     </a>
   </nav>
 
-  <main class="max-w-3xl mx-auto px-6 pt-4 pb-16 sm:pt-8 sm:pb-20">
+  <main class="max-w-5xl mx-auto px-6 pt-4 pb-16 sm:pt-8 sm:pb-20">
 
-    <header class="mb-8">
+    <!-- The purchase first. The way to Stride is on screen from the first paint, before the
+         offer has even resolved: this page stands between someone who has just paid and the
+         product they paid for. -->
+    <header class="mb-10 sm:mb-14 max-w-3xl">
       <p class="silk mb-3" style="color:var(--copper-lt)">Payment complete</p>
       <h1 class="text-3xl sm:text-4xl leading-[1.1] mb-3">Your Stride setup is ready.</h1>
       <p class="text-base sm:text-lg ink2 leading-relaxed">Before you jump in, one thing you might want with it.</p>
+      <a class="skip" href="/welcome.html" data-skip>No thanks, take me to Stride &rarr;</a>
     </header>
 
-    <section class="panel p-6 sm:p-8 gate" id="offer">
-      <div class="offer-flag"><span class="offer-dot" aria-hidden="true"></span>New Stride owner price</div>
+    <!-- The offer: session.html's page as it stands, with this buyer's price and the time left
+         on it. The price and the button sit in the hero as well as at the end, because a
+         buyer here should not have to read the whole hour to see what it costs. -->
+    <div class="session-grid gate" id="offer">
 
-      <!-- What it is on the left, what it looks like on the right. The covers are the
-           same object /samples leads with, so a buyer who saw the pack there recognises
-           it here instead of being asked to buy a list. One column on a phone, where the
-           art goes under the words rather than squeezing them. The price, the clock and
-           the button stay full width below: this panel has one action. -->
-      <div class="grid sm:grid-cols-[1fr_minmax(0,17rem)] gap-6 sm:gap-8 items-start">
-        <div>
-          <h2 class="text-2xl sm:text-3xl uppercase tracking-tight leading-tight mb-1">Stride Experimental Collection</h2>
+      <section class="sg-hero">
+        <h2 class="text-4xl sm:text-5xl lg:text-[3rem] leading-[1.06] mb-6">
+          <span class="brand">70 minutes</span> to change the way you explore sound design.
+        </h2>
+        <p class="text-base sm:text-lg ink2 leading-relaxed max-w-xl">
+          Instead of deciding exactly where a sound should go before you start, we create possibilities,
+          listen, react and let the best direction reveal itself.
+        </p>
 
-          <ul class="inv">
-            <li><span class="n">250+</span><span>sounds</span></li>
-            <li><span class="n">15</span><span>Ableton Racks, pre-mapped with Stride FX</span></li>
-            <li><span class="n">4</span><span>StrideChains</span></li>
+        <div class="mt-8">
+          <div class="book-live">
+            <span class="offer-flag"><span class="offer-dot" aria-hidden="true"></span>Private offer for Stride owners</span>
+            <div class="flex flex-wrap items-center gap-5 sm:gap-7">
+              <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <del class="price-was"><span class="sr-only">Full price </span><span data-was>$199</span></del>
+                <div class="price text-4xl sm:text-5xl" data-now>$99</div>
+                <div class="text-base font-bold ink3">/ session</div>
+              </div>
+              <button type="button" class="session-cta btn-copper px-8 py-4 text-sm uppercase" data-buy>Book a session</button>
+            </div>
+            <p class="offer-clock mono" role="timer">Ends in <b data-left>72:00:00</b></p>
+            <p class="offer-note" aria-live="polite" hidden></p>
+          </div>
+          <div class="booked" hidden>
+            <span class="offer-flag">Booked</span>
+            <p class="booked-title">You're booked in.</p>
+            <p class="text-sm ink2 leading-relaxed max-w-md">Check your inbox for the link to pick your time.</p>
+          </div>
+        </div>
+      </section>
+
+      <aside class="sg-card">
+        <div class="rounded-2xl p-6 sm:p-7" style="border:1px solid var(--line);background:var(--bg2)">
+          <div class="flex items-center gap-4 mb-5">
+            <img src="/assets/joe-portrait.jpg" alt="Joe, who runs the session"
+                 width="72" height="72" loading="lazy" decoding="async"
+                 style="width:72px;height:72px;border-radius:999px;object-fit:cover;flex:0 0 auto;
+                        border:1px solid var(--line)">
+            <div class="min-w-0">
+              <p class="text-[11px] font-black uppercase tracking-[0.18em]" style="color:var(--copper-lt)">
+                Who you are booking</p>
+              <p class="text-lg font-black ink leading-tight mt-1">Joe</p>
+            </div>
+          </div>
+          <ul class="flex flex-col gap-5">
+            <li class="flex gap-4 items-start">
+              <span class="num text-3xl leading-none" style="color:var(--copper-lt)">10+</span>
+              <span class="text-sm ink2 leading-relaxed"><b class="ink">years of sonic
+                exploration.</b></span>
+            </li>
+            <li class="flex gap-4 items-start">
+              <span class="num text-3xl leading-none" style="color:var(--copper-lt)">100+</span>
+              <span class="text-sm ink2 leading-relaxed"><b class="ink">tracks placed with Artlist</b>,
+                written and produced end to end.</span>
+            </li>
+            <li class="flex gap-4 items-start">
+              <span class="num text-3xl leading-none" style="color:var(--copper-lt)">1</span>
+              <span class="text-sm ink2 leading-relaxed"><b class="ink">Stride was built out of this exact
+                workflow.</b> Not as a shortcut to sound design, but as a way to explore far more of what is
+                already inside your instruments and effects.</span>
+            </li>
           </ul>
+
+          <div class="mt-6 pt-5" style="border-top:1px solid var(--line)">
+            <p class="text-[10px] font-black uppercase tracking-[0.18em] mb-4 ink3">Released with</p>
+            <ul class="labels">
+              <li><img class="lbl lbl-artlist" src="/assets/logos/artlist.svg" alt="Artlist Original" width="496" height="129" decoding="async"></li>
+              <li><img class="lbl lbl-merkaba" src="/assets/logos/merkaba-music.png" alt="Merkaba Music" width="361" height="96" decoding="async"></li>
+              <li><img class="lbl lbl-shanti" src="/assets/logos/shanti-planti.png" alt="Shanti Planti" width="168" height="144" decoding="async"></li>
+              <li><img class="lbl lbl-allo" src="/assets/logos/all-lo.png" alt="all:lo collective" width="304" height="96" decoding="async"></li>
+            </ul>
+          </div>
+        </div>
+      </aside>
+
+      <section class="sg-timeline" aria-label="The session, minute by minute">
+        <div class="tl-scale" aria-hidden="true">
+          <div class="tl-bar">
+            <span class="tl-seg" style="flex:10"></span>
+            <span class="tl-seg" style="flex:20"></span>
+            <span class="tl-seg tl-seg-live" style="flex:40"></span>
+          </div>
+          <div class="tl-ticks mono">
+            <span class="tl-tick-start">00</span>
+            <span style="left:14.2857%">10</span>
+            <span style="left:42.8571%">30</span>
+            <span class="tl-tick-end">70</span>
+          </div>
         </div>
 
-        <!-- The stack is the play surface, as it is on /samples. The covers are already
-             on this domain, so nothing new ships to serve them. -->
-        <button type="button" class="stack" aria-label="Play the Experimental Collection teaser"
-                onclick="strideTeaser(true)"
-                style="width:100%;padding:0;border:0;background:none;cursor:pointer;position:relative"><!-- no display here on purpose: .stack sets flex, and overriding it stacks the three sleeves vertically -->
-          <figure class="sleeve"><img src="/assets/packs/pack-drums.jpg" alt="Vol. 1 Broken Drums" width="900" height="900" loading="eager"></figure>
-          <figure class="sleeve"><img src="/assets/packs/pack-water.jpg" alt="Vol. 2 One Drop" width="900" height="900" loading="eager"></figure>
-          <figure class="sleeve"><img src="/assets/packs/pack-feedback.jpg" alt="Vol. 3 Feedback" width="900" height="900" loading="eager"></figure>
-          <span aria-hidden="true"
-                style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-                       width:56px;height:56px;border-radius:999px;display:flex;
-                       align-items:center;justify-content:center;z-index:5;
-                       background:rgba(198,113,43,.94);box-shadow:0 10px 30px -8px rgba(0,0,0,.7)">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="#1c1206"
-                 style="margin-left:3px"><path d="M8 5v14l11-7z"/></svg>
-          </span>
-        </button>
-      </div>
+        <ol class="tl">
+          <li class="tl-step">
+            <h3 class="tl-time mono">00&ndash;10 MIN</h3>
+            <h4 class="tl-title">Getting to know your work</h4>
+            <p>We start with what you're working on, the kind of music you make, the sounds you're drawn to,
+              and what you'd like to get better at.</p>
+            <p>I also want to understand how you currently approach sound design, where you tend to spend too
+              much time, and what usually makes you feel stuck.</p>
+          </li>
+          <li class="tl-step">
+            <h3 class="tl-time mono">10&ndash;30 MIN</h3>
+            <h4 class="tl-title">How I think about sound design</h4>
+            <p>I'll walk you through the ideas and working habits I've built over the last 10 years of doing
+              sound design every day.</p>
+            <p>A big part of it is learning to get much more out of fewer tools, instead of constantly adding
+              new ones.</p>
+            <p>We'll talk about exploration, processing, movement, resampling and how I make decisions while
+              I'm working.</p>
+            <p>We'll also get into the relationship between sound design, mixing and arrangement, because for
+              me they are rarely separate things.</p>
+          </li>
+          <li class="tl-step tl-step-live">
+            <h3 class="tl-time mono">30&ndash;70 MIN</h3>
+            <h4 class="tl-title">Live sound design session</h4>
+            <p>Then we open your session and work.</p>
+            <p>We'll build sounds, push them in different directions, process, resample, compare versions and
+              follow whatever starts to feel interesting.</p>
+            <p>I'll show you how I explore without needing to know exactly where the sound is going from the
+              beginning, and how I use taste to decide what is worth keeping and what is worth pushing further.</p>
+            <p>The idea is that by the end of the session you've seen the whole thought process happen in real
+              time, not just the final result.</p>
+          </li>
+        </ol>
 
-      <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 mt-8">
-        <del class="price-was"><span class="sr-only">Full price </span><span data-was>$24.99</span></del>
-        <div class="price text-4xl sm:text-5xl" data-now>$19</div>
-      </div>
-      <p class="offer-clock" role="timer">Available for the next <b data-left>72 hours</b></p>
+        <p class="tl-leave">You'll leave with the sounds and chains we made during the session, but more
+          importantly, with a workflow you can keep using in your own sessions.</p>
+      </section>
 
-      <div class="mt-7">
-        <button type="button" class="cta btn-copper px-8 py-4 text-sm uppercase w-full sm:w-auto" data-buy>Add it for <span data-cta-price>$19</span></button>
-        <p class="offer-note" aria-live="polite" hidden></p>
+      <section class="sg-book" id="book">
+        <div class="book-live">
+          <span class="offer-flag"><span class="offer-dot" aria-hidden="true"></span>Private offer for Stride owners</span>
+          <div class="flex flex-wrap items-center gap-5 sm:gap-7">
+            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <del class="price-was"><span class="sr-only">Full price </span><span data-was>$199</span></del>
+              <div class="price text-4xl sm:text-5xl" data-now>$99</div>
+              <div class="text-base font-bold ink3">/ session</div>
+            </div>
+            <button type="button" class="session-cta btn-copper px-8 py-4 text-sm uppercase" data-buy>Book a session</button>
+          </div>
+          <p class="offer-clock mono">Ends in <b data-left>72:00:00</b></p>
+          <p class="text-[12px] ink3 leading-relaxed max-w-md mt-3">Pick a slot and we'll confirm the details by email.</p>
+          <p class="offer-note" hidden></p>
+        </div>
+        <div class="booked" hidden>
+          <span class="offer-flag">Booked</span>
+          <p class="booked-title">You're booked in.</p>
+          <p class="text-sm ink2 leading-relaxed max-w-md">Check your inbox for the link to pick your time.</p>
+        </div>
         <div>
           <a class="skip" href="/welcome.html" data-skip>No thanks, take me to Stride &rarr;</a>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Without JavaScript the offer above never resolves and stays hidden, so this page
-         would otherwise strand someone who has just paid, with no route to the product.
-         The offer needs a live price and a real clock, so it is not shown here: the way
-         forward is. -->
+    </div>
+
+    <!-- Without JavaScript the offer never resolves and stays hidden. The offer needs a live
+         price and a real clock, so it is not shown here: the way forward is. -->
     <noscript>
-      <div class="panel p-6 sm:p-8">
-        <p class="text-lg ink mb-4">Everything is ready in your account.</p>
-        <a class="btn-copper px-8 py-4 text-sm uppercase" href="/welcome.html">Take me to Stride</a>
-      </div>
+      <p class="mt-2"><a class="btn-copper px-8 py-4 text-sm uppercase" href="/welcome.html">Take me to Stride</a></p>
     </noscript>
 
   </main>
-</div>
 
-<!-- Teaser lightbox, carried over from samples.html: no library, one overlay, one
-     <video>, Esc and backdrop close. The source is attached only when it opens, so the
-     10.6 MB file is never part of the page load for a buyer who does not press play, and
-     this page stays as fast as a page between a payment and a product has to be.
-
-     NOTE the plain & before token. samples.html writes &amp; there, and a script element
-     is raw text in HTML so nothing decodes it: that page asks Firebase for a parameter called
-     "amp;token", gets no token, and the teaser 403s. Verified against the live URL. -->
-<div id="teaser-lb" hidden
-     style="position:fixed;inset:0;z-index:1200;background:rgba(8,7,6,.92);
-            display:none;align-items:center;justify-content:center;padding:1.25rem"
-     onclick="if(event.target===this)strideTeaser(false)">
-  <button type="button" aria-label="Close" onclick="strideTeaser(false)"
-          style="position:absolute;top:1rem;right:1rem;width:44px;height:44px;border-radius:12px;
-                 background:rgba(255,255,255,.08);border:1px solid rgba(216,201,176,.18);
-                 color:#e8e2d6;font-size:20px;line-height:1;cursor:pointer">&times;</button>
-  <video id="teaser-v" controls playsinline preload="none"
-         style="width:100%;max-width:900px;border-radius:12px;outline:none"></video>
+  <footer class="max-w-5xl mx-auto px-6 py-10 border-t" style="border-color:var(--line)">
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm ink3">
+      <span class="mono">&copy; STRIDE | Sound Design Engine</span>
+      <div class="flex items-center gap-5">
+        <a href="/index.html" class="hover:text-[color:var(--copper-lt)] transition-colors">Stride</a>
+        <a href="/privacy.html" class="hover:text-[color:var(--copper-lt)] transition-colors">Privacy</a>
+        <a href="/terms.html" class="hover:text-[color:var(--copper-lt)] transition-colors">Terms</a>
+      </div>
+    </div>
+  </footer>
 </div>
-<script>
-  var STRIDE_TEASER_SRC = "https://firebasestorage.googleapis.com/v0/b/veero-next.firebasestorage.app/o/mail%2Fexperimental-collection-teaser.mp4?alt=media&token=fbea20a2-7d93-4c4e-abb1-6a607edf76f5";
-  function strideTeaser(open) {
-    var lb = document.getElementById('teaser-lb');
-    var v  = document.getElementById('teaser-v');
-    if (!lb || !v) return;
-    // Drive display EXPLICITLY. This page sets [hidden]{display:none!important}, but an
-    // inline display would still beat the UA rule on the way back open.
-    lb.hidden = !open;
-    lb.style.display = open ? 'flex' : 'none';
-    document.body.style.overflow = open ? 'hidden' : '';
-    if (open) {
-      if (!v.src) v.src = STRIDE_TEASER_SRC;   // fetch only on demand
-      var play = v.play(); if (play && play.catch) play.catch(function () {});
-    } else {
-      v.pause();
-    }
-  }
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') strideTeaser(false);
-  });
-</script>
 
 <script>
 (function () {
   'use strict';
 
+  /* THE 1:1 SESSION, OFFERED RIGHT AFTER A STRIDE PURCHASE.
+     /post/?code=sesh1o1. The code is only a name. The backend decides what it is worth for
+     this buyer (the discounted public price where Paddle applies the discount, the owner
+     price everywhere else), holds the 72-hour window, and opens the checkout itself, so no
+     price and no discount id ever live in this page.
+     The Collection offer that used to be here is /post2. */
   var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
   var PADDLE_TOKEN = 'live_e0101b87a9e6e7024988534cf7b';
-  var COLLECTION_PRICE = 'pri_01m2dghkc4dn53h2hrzw21ba2f';
-  // Applied by ID, never by code. The discount does still have a code, and it is still
-  // technically enterable at checkout, but it is a random string that appears nowhere on
-  // this site, in this file, or in any email. It was COLLECTION19, which anyone could
-  // have guessed or shared and then used at /samples forever, permanently undercutting
-  // the Collection by $5.99. Disabling checkout entry outright was considered and NOT
-  // done: it risks blocking this programmatic use too, and breaking the offer is worse
-  // than a code nobody can discover.
-  var COLLECTION_DISCOUNT = 'dsc_01m2kb40yg1qsfs92fxwsxyqyp';
   var NEXT = '/welcome.html';
+  var SESSION_PROFILE_URL = 'https://calendly.com/stride-engine';   // only when Paddle cannot load
+  var FAILED = "The checkout didn't open. Please try again in a moment.";
 
   function q(sel) { return document.querySelector(sel); }
+  function qa(sel) { return Array.prototype.slice.call(document.querySelectorAll(sel)); }
   function ss(k) { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } }
   function ssSet(k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} }
 
-  // ── Purchase tracking ───────────────────────────────────────────────────────
-  // This page is now the first one a buyer reaches, so the events that used to fire
-  // on welcome.html fire here. Two rules carried from that page, both load-bearing:
-  //   Meta fires ONLY when a real event id exists, because the server already sends
-  //   Purchase through CAPI for every Paddle sale. A browser event with an id the
-  //   server never used is a second, undeduplicated purchase in the ad account.
-  //   The GA4 push happens for any evidence, since nothing else reports it.
-  // Dedup is a FLAG, not a delete: stride_last_txn has to survive, because the offer
-  // below is resolved from it.
+  // ── The Stride purchase this page follows ───────────────────────────────────
+  // Meta fires ONLY with a real event id, because the server already reports every Paddle
+  // sale through CAPI. The GA4 push happens for any evidence. Dedup is a FLAG, not a delete:
+  // stride_last_txn has to survive, because the offer below is resolved from it.
   (function firePurchase() {
     try {
       var params = new URLSearchParams(window.location.search);
@@ -357,8 +447,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       var txnId = order || lastTxn || eventId;
       if (ss('stride_purchase_tracked') === txnId) return;
 
-      var money = {};
-      try { money = JSON.parse(ss('stride_checkout_value') || '{}') || {}; } catch (e) {}
+      var paid = {};
+      try { paid = JSON.parse(ss('stride_checkout_value') || '{}') || {}; } catch (e) {}
 
       if (eventId && ss('stride_pixel_purchase_fired') !== '1') {
         var purchaseData = { value: 99, currency: 'USD',
@@ -374,8 +464,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
       if (window.StrideTrack) {
         StrideTrack.push('purchase', {
-          value: Number(money.value) > 0 ? Number(money.value) : 99,
-          currency: money.currency || 'USD',
+          value: Number(paid.value) > 0 ? Number(paid.value) : 99,
+          currency: paid.currency || 'USD',
           transaction_id: txnId
         });
       }
@@ -383,89 +473,110 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     } catch (e) {}
   })();
 
-  // ── The offer ───────────────────────────────────────────────────────────────
-  // The URL first: Paddle's ?_ptxn=, captured and stripped by the head script above. Then
-  // sessionStorage, written by checkout.completed on the page that opened the checkout.
-  // Both paths matter. The event can lose its race with the redirect, a wallet can complete
-  // somewhere the event never reaches, and a browser can refuse the write; any one of those
-  // used to end the funnel silently. Either source alone is now enough.
+  // The purchase this page is about. checkout.completed on the page that opened the
+  // checkout writes it to sessionStorage just before Paddle redirects here; Paddle adds
+  // nothing to the success URL. A ?_ptxn= caught by the head script is honoured too.
   var strideTxn = (typeof window.STRIDE_POST_TXN === 'string' && window.STRIDE_POST_TXN)
                   || ss('stride_last_txn');
+
+  // The code this page was reached with. Letters and digits only, as Paddle codes are.
+  var code = '';
+  try {
+    code = ((new URLSearchParams(window.location.search).get('code') || '')
+              .trim().toLowerCase().match(/^[a-z0-9]{1,32}$/) || [''])[0];
+  } catch (e) {}
+
   var offer = null, clock = null, paddleOn = false;
 
   function leave() { window.location.replace(NEXT); }
 
   // One stage of the funnel, recorded against the purchase that earned the offer. Fire and
-  // forget, and keepalive so the skip click below still reports while the browser is already
-  // leaving. Telemetry is never allowed to reach the buyer, so every failure is swallowed.
+  // forget, and keepalive so the skip click still reports while the browser is leaving.
   function stage(name) {
     try {
       fetch(API, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
-        body: JSON.stringify({ action: 'offer_stage', stage: name, txn: strideTxn })
+        body: JSON.stringify({ action: 'offer_stage', stage: name, txn: strideTxn,
+                               offer: 'session', code: code })
       }).catch(function () {});
     } catch (e) {}
   }
 
-  // No transaction to resolve means we cannot know whether this person has an open
-  // offer, already owns the Collection, or wandered in. Send them to the product.
+  // No purchase to resolve means no way to know whether this person has an open offer.
   if (!strideTxn) { leave(); return; }
 
-  function pad(n) { return (n < 10 ? '0' : '') + n; }
-  // "2d 14h 32m" while there is a day left, then "14h 32m", then "32m 08s" at the end.
-  // The last hour is where seconds actually mean something.
-  function human(ms) {
-    var s = Math.floor(ms / 1000);
-    var d = Math.floor(s / 86400), h = Math.floor(s / 3600) % 24,
-        m = Math.floor(s / 60) % 60, sec = s % 60;
-    if (d > 0) return d + 'd ' + h + 'h ' + m + 'm';
-    if (h > 0) return h + 'h ' + pad(m) + 'm';
-    return m + 'm ' + pad(sec) + 's';
+  // Money the way session.html prints it: whole amounts drop their decimals, dollars stay "$".
+  function money(minor, currency) {
+    var m = Number(minor);
+    if (!isFinite(m) || !currency) return '';
+    if (currency === 'USD') return '$' + (m % 100 === 0 ? (m / 100).toFixed(0) : (m / 100).toFixed(2));
+    try {
+      var digits = new Intl.NumberFormat(undefined, { style: 'currency', currency: currency })
+        .resolvedOptions().minimumFractionDigits;
+      var whole = m % Math.pow(10, digits) === 0;
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency', currency: currency,
+        minimumFractionDigits: whole ? 0 : digits, maximumFractionDigits: digits
+      }).format(m / Math.pow(10, digits));
+    } catch (e) { return ''; }
+  }
+  function shown(p) { return (p && (money(p.amount, p.currency) || p.formatted)) || ''; }
+
+  // GA4 begin_checkout when the checkout actually opens, in the money on screen.
+  function trackCheckout(minor, currency) {
+    try {
+      if (!window.StrideTrack || !currency) return;
+      var digits = 2;
+      try { digits = new Intl.NumberFormat(undefined, { style: 'currency', currency: currency }).resolvedOptions().minimumFractionDigits; } catch (e) {}
+      var v = Number(minor) / Math.pow(10, digits);
+      if (isFinite(v) && v > 0) StrideTrack.push('begin_checkout', { value: v, currency: currency });
+    } catch (e) {}
   }
 
+  function note(text) {
+    qa('.offer-note').forEach(function (el) { el.textContent = text || ''; el.hidden = !text; });
+  }
+
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
   function tick() {
     if (!offer) return;
     var left = offer.expires - (Date.now() + offer.skew);
     if (left <= 0) { if (clock) clearInterval(clock); leave(); return; }
-    q('[data-left]').textContent = human(left);
-  }
-
-  function note(text) {
-    var el = q('.offer-note');
-    el.textContent = text || '';
-    el.hidden = !text;
+    var sec = Math.floor(left / 1000);
+    var text = pad(Math.floor(sec / 3600)) + ':' + pad(Math.floor(sec / 60) % 60) + ':' + pad(sec % 60);
+    qa('[data-left]').forEach(function (el) { el.textContent = text; });
   }
 
   function show(d) {
-    var c = d.collection || {};
-    var was = (c.list_price || {}).formatted, now = (c.offer_price || {}).formatted;
-    if (!was || !now) { leave(); return; }
+    var s = d.session || {};
+    // offer_price is what this code costs this buyer. Without it (no code, or a backend that
+    // predates codes) the owner price is the same offer, so the page never goes blank.
+    var now = s.offer_price || s.owner_price, was = s.standard_price;
+    var nowText = shown(now), wasText = shown(was);
+    if (!nowText || !wasText) { leave(); return; }
     offer = { expires: Number(d.expires_at_ms), skew: Number(d.server_now_ms) - Date.now(),
-              amount: (c.offer_price || {}).amount, currency: (c.offer_price || {}).currency };
-    q('[data-was]').textContent = was;
-    q('[data-now]').textContent = now;
-    q('[data-cta-price]').textContent = now;
+              amount: now.amount, currency: now.currency };
+    qa('[data-was]').forEach(function (el) { el.textContent = wasText; });
+    qa('[data-now]').forEach(function (el) { el.textContent = nowText; });
     tick();
     clock = setInterval(tick, 1000);
     q('#offer').classList.add('ready');
     stage('post_viewed');
   }
 
-  // A buyer must never be stranded here: this page stands between someone who has just
-  // paid and the product they paid for.
-  //
-  // WAIT is the WEBHOOK, not the network. The offer record is made when Paddle tells the
-  // backend the sale completed, and the redirect that brought this buyer here beats that
-  // message: the first live purchase arrived four seconds early, was told the offer did not
-  // exist, and was sent to the product. "The record is not born yet" and "there is no offer"
-  // used to be the same answer. They are not the same thing, so only the first one is asked
-  // again, and every other answer is final and leaves at once.
-  //
-  // The backend now makes the record itself the first time it is asked, so this is the
-  // second line of defence rather than the first, and it costs nothing when the record is
-  // already there. The confirmation above is on screen throughout, so the wait reads as the
-  // page settling rather than a page that is stuck. The bail sits past the deadline and
-  // covers a backend that never answers at all.
+  function showBooked() {
+    if (clock) { clearInterval(clock); clock = null; }
+    offer = null;
+    qa('.book-live').forEach(function (el) { el.hidden = true; });
+    qa('.booked').forEach(function (el) { el.hidden = false; });
+  }
+
+  // ── Resolving the offer ─────────────────────────────────────────────────────
+  // WAIT is the WEBHOOK, not the network: the redirect that brought this buyer here can beat
+  // the message that creates the offer record, and the first live buyer was sent away four
+  // seconds early because "not made yet" read as "no offer". The backend now makes the record
+  // itself when asked, so this is the second line. Only invalid / unavailable are asked
+  // again; every other answer is final. The bail covers a backend that never answers.
   var WAIT = 10000, STEP = 600;
   var deadline = Date.now() + WAIT;
   var settled = false;
@@ -480,19 +591,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   function ask() {
     fetch(API, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'post_purchase_offers', txn: strideTxn })
+      body: JSON.stringify({ action: 'post_purchase_offers', txn: strideTxn, code: code })
     })
       .then(function (r) { return r.json(); })
       .then(function (d) {
         if (settled) return;
-        // invalid: no record yet. unavailable: we could not look. Both mean ask again.
         var pending = d && d.ok && (d.status === 'invalid' || d.status === 'unavailable');
         if (pending && again()) return;
         settled = true; clearTimeout(bail);
-        // Anything other than a live, unclaimed, unowned offer means we do not show it.
-        // Owned, used, expired and every error all land in the same place: the product.
+        // Anything but an open session offer goes to the product: booked, ended, or an error.
         if (!d || !d.ok) { leave(); return; }
-        if (((d.collection || {}).status) !== 'open') { leave(); return; }
+        if (((d.session || {}).status) !== 'open') { leave(); return; }
         show(d);
       })
       .catch(function () {
@@ -503,66 +612,66 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   }
   ask();
 
-  // ── Buying it ───────────────────────────────────────────────────────────────
+  // ── Booking ─────────────────────────────────────────────────────────────────
   try {
     if (window.Paddle) {
       Paddle.Initialize({
         token: PADDLE_TOKEN,
         eventCallback: function (ev) {
-          if (!ev || ev.name !== 'checkout.completed' || !ev.data) return;
-          try {
-            // This OVERWRITES the Stride transaction id with the Collection one, which is
-            // correct: welcome.html then records a second, separate GA4 purchase for it.
-            // The Stride txn was stashed before the checkout opened, so the session rail
-            // on welcome.html can still resolve the original purchase.
-            if (ev.data.transaction_id) ssSet('stride_last_txn', String(ev.data.transaction_id));
-            var paid = Number((ev.data.totals || {}).total);
-            if (paid > 0 && ev.data.currency_code) {
-              ssSet('stride_checkout_value', JSON.stringify({ value: paid, currency: String(ev.data.currency_code) }));
-            }
-          } catch (e) {}
+          // Nothing is written on a paid session, on purpose. session.html records none either,
+          // and welcome.html would count anything left in stride_last_txn as a purchase.
+          if (ev && ev.name === 'checkout.completed') showBooked();
         }
       });
       paddleOn = true;
     }
   } catch (e) { paddleOn = false; }
 
-  q('[data-buy]').addEventListener('click', function () {
-    if (!paddleOn || !offer) { leave(); return; }
-    var btn = this;
+  function book(btn) {
+    if (!offer) return;
+    // No Paddle (a blocker, a network failure): the Calendly profile, as session.html does.
+    if (!paddleOn) { window.open(SESSION_PROFILE_URL, '_blank', 'noopener'); return; }
     btn.setAttribute('aria-busy', 'true');
     note('');
-    try {
-      // The Stride transaction, kept before Paddle overwrites stride_last_txn.
-      ssSet('stride_offer_txn', strideTxn);
-      var digits = 2;
-      try { digits = new Intl.NumberFormat(undefined, { style: 'currency', currency: offer.currency }).resolvedOptions().minimumFractionDigits; } catch (e) {}
-      var major = Number(offer.amount) / Math.pow(10, digits);
-      if (isFinite(major) && major > 0) {
-        if (window.StrideTrack) StrideTrack.push('begin_checkout', { value: major, currency: offer.currency });
-        ssSet('stride_checkout_value', JSON.stringify({ value: major, currency: offer.currency }));
-      }
-      Paddle.Checkout.open({
-        items: [{ priceId: COLLECTION_PRICE, quantity: 1 }],
-        discountId: COLLECTION_DISCOUNT,
-        // offer_txn is how the backend marks THIS buyer's Collection offer as used, so
-        // the owner price cannot be taken twice off one purchase.
-        customData: { offer_txn: strideTxn, source: 'post_purchase_collection',
-                      external_id: (typeof _strideXid === 'string' && _strideXid) || '' },
-        settings: { displayMode: 'overlay', theme: 'dark', successUrl: 'https://stridehub.io' + NEXT }
-      });
-      stage('post_checkout');
-    } catch (e) {
-      note('Checkout could not open. Take me to Stride and I will email you the offer instead.');
-    }
-    btn.removeAttribute('aria-busy');
+    // The Stride purchase, kept where welcome.html's session rail looks first. A completed
+    // session checkout must never be mistaken for it there.
+    ssSet('stride_offer_txn', strideTxn);
+    var price = { amount: offer.amount, currency: offer.currency };
+    fetch(API, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'session_checkout', txn: strideTxn, code: code })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        btn.removeAttribute('aria-busy');
+        d = d || {};
+        if (d.ok && d.transaction_id) {
+          trackCheckout(price.amount, price.currency);
+          stage('post_checkout');
+          try {
+            Paddle.Checkout.open({ transactionId: d.transaction_id,
+                                   settings: { displayMode: 'overlay', theme: 'dark',
+                                               successUrl: 'https://stridehub.io' + NEXT } });
+          } catch (e) { note(FAILED); }
+        } else if (d.status === 'used') {
+          showBooked();
+        } else if (d.status === 'expired' || d.status === 'invalid') {
+          leave();
+        } else {
+          note(FAILED);
+        }
+      })
+      .catch(function () { btn.removeAttribute('aria-busy'); note(FAILED); });
+  }
+
+  qa('[data-buy]').forEach(function (b) {
+    b.addEventListener('click', function (ev) { if (ev && ev.preventDefault) ev.preventDefault(); book(this); });
   });
 
-  // The skip is a real answer, not an absence. How many buyers looked at the offer and said
-  // no is what tells a rejected offer apart from a page nobody ever saw. data-skip has been
-  // in the markup since this page shipped and nothing ever read it.
-  var skip = q('[data-skip]');
-  if (skip) skip.addEventListener('click', function () { stage('post_skipped'); });
+  // The skip is an answer, not an absence: it tells a declined offer from an unseen one.
+  qa('[data-skip]').forEach(function (a) {
+    a.addEventListener('click', function () { stage('post_skipped'); });
+  });
 })();
 </script>
 </body>
