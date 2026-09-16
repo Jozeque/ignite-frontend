@@ -317,16 +317,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
   var PADDLE_TOKEN = 'live_e0101b87a9e6e7024988534cf7b';
-  var COLLECTION_PRICE = 'pri_01m2dghkc4dn53h2hrzw21ba2f';
-  // Applied by ID, never by code. The discount does still have a code, and it is still
-  // technically enterable at checkout, but it is a random string that appears nowhere on
-  // this site, in this file, or in any email. It was COLLECTION19, which anyone could
-  // have guessed or shared and then used at /samples forever, permanently undercutting
-  // the Collection by $5.99. Disabling checkout entry outright was considered and NOT
-  // done: it risks blocking this programmatic use too, and breaking the offer is worse
-  // than a code nobody can discover.
-  var COLLECTION_DISCOUNT = 'dsc_01m2kb40yg1qsfs92fxwsxyqyp';
+  // No price id and no discount id live here any more. The backend opens the Collection
+  // checkout itself (collection_checkout), at the price it quotes this buyer, and only
+  // inside the buyer's 72 hours, so the offer ends when the page says it does.
   var NEXT = '/welcome.html';
+  var FAILED = 'Checkout could not open. Take me to Stride and I will email you the offer instead.';
 
   function q(sel) { return document.querySelector(sel); }
   function ss(k) { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } }
@@ -534,23 +529,40 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       try { digits = new Intl.NumberFormat(undefined, { style: 'currency', currency: offer.currency }).resolvedOptions().minimumFractionDigits; } catch (e) {}
       var major = Number(offer.amount) / Math.pow(10, digits);
       if (isFinite(major) && major > 0) {
-        if (window.StrideTrack) StrideTrack.push('begin_checkout', { value: major, currency: offer.currency });
         ssSet('stride_checkout_value', JSON.stringify({ value: major, currency: offer.currency }));
       }
-      Paddle.Checkout.open({
-        items: [{ priceId: COLLECTION_PRICE, quantity: 1 }],
-        discountId: COLLECTION_DISCOUNT,
-        // offer_txn is how the backend marks THIS buyer's Collection offer as used, so
-        // the owner price cannot be taken twice off one purchase.
-        customData: { offer_txn: strideTxn, source: 'post_purchase_collection',
-                      external_id: (typeof _strideXid === 'string' && _strideXid) || '' },
-        settings: { displayMode: 'overlay', theme: 'dark', successUrl: 'https://stridehub.io' + NEXT }
-      });
-      stage('post2_checkout');
-    } catch (e) {
-      note('Checkout could not open. Take me to Stride and I will email you the offer instead.');
-    }
-    btn.removeAttribute('aria-busy');
+    } catch (e) {}
+    var checkoutValue = { value: Number(offer.amount), currency: offer.currency };
+    try { checkoutValue = JSON.parse(ss('stride_checkout_value') || '{}') || checkoutValue; } catch (e) {}
+    fetch(API, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'collection_checkout', txn: strideTxn,
+                             external_id: (typeof _strideXid === 'string' && _strideXid) || '' })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        btn.removeAttribute('aria-busy');
+        d = d || {};
+        if (d.ok && d.transaction_id) {
+          try {
+            Paddle.Checkout.open({ transactionId: d.transaction_id,
+                                   settings: { displayMode: 'overlay', theme: 'dark',
+                                               successUrl: 'https://stridehub.io' + NEXT } });
+            // begin_checkout only once a checkout has actually opened.
+            if (window.StrideTrack && checkoutValue.value > 0) {
+              StrideTrack.push('begin_checkout', { value: checkoutValue.value, currency: checkoutValue.currency });
+            }
+            stage('post2_checkout');
+          } catch (e) { note(FAILED); }
+          return;
+        }
+        // Ended, already bought, or already owned: the offer is over, so is this page.
+        if (d.status === 'expired' || d.status === 'used' || d.status === 'owned' || d.status === 'invalid') {
+          leave(); return;
+        }
+        note(FAILED);
+      })
+      .catch(function () { btn.removeAttribute('aria-busy'); note(FAILED); });
   });
 
   // The skip is a real answer, not an absence. How many buyers looked at the offer and said

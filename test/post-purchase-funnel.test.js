@@ -136,7 +136,9 @@ const TOKEN = '0123456789abcdef0123456789abcdef';   // synthetic, see PTXN
 // list is dropped by the backend and silently never recorded.
 const STAGES = ['post_viewed', 'post_skipped', 'post_checkout',
                 'post2_viewed', 'post2_skipped', 'post2_checkout',
-                'welcome_viewed', 'session_viewed'];
+                'welcome_viewed', 'welcome_checkout',
+                'welcome_collection_viewed', 'welcome_collection_checkout',
+                'session_viewed'];
 
 const T = Date.now();
 const usd = (a, f) => ({ amount: a, currency: 'USD', formatted: f });
@@ -394,13 +396,62 @@ for (const status of ['owned', 'used', 'expired']) {
   ok('/post2: "No thanks" is recorded as post2_skipped',
     f.stages().some(b => b.stage === 'post2_skipped' && b.offer === 'collection'));
 }
+async function buyPost2(checkoutAnswer) {
+  const ctx = browser('https://stridehub.io/post2/', seeded);
+  const f = fetcher({ post_purchase_offers: [clone(OPEN_USD)], collection_checkout: [checkoutAnswer] });
+  ctx.fetch = f.fetch;
+  paddle(ctx);
+  ctx._strideXid = 'xid-0001';
+  vm.runInContext(POST2_HEAD, ctx);
+  vm.runInContext(POST2, ctx);
+  await wait(60);
+  q(ctx, '[data-buy]').click();
+  await wait(40);
+  return { ctx, f };
+}
+{
+  const { ctx, f } = await buyPost2({ ok: true, transaction_id: 'txn_coll_checkout' });
+  const c = f.of('collection_checkout')[0] || {};
+  ok('/post2: Add asks the backend for the Collection checkout with the purchase, never a price',
+    c.txn === PTXN && c.external_id === 'xid-0001' && !('discountId' in c) && !('priceId' in c));
+  ok('/post2: and opens exactly that transaction, landing on /welcome',
+    ctx._checkout && ctx._checkout.transactionId === 'txn_coll_checkout' && !ctx._checkout.items
+    && !ctx._checkout.discountId && ctx._checkout.settings.successUrl === 'https://stridehub.io/welcome.html');
+  ok('/post2: begin_checkout is sent once the checkout has opened, and the Stride purchase is kept',
+    ctx.StrideTrack.pushes.some(([e]) => e === 'begin_checkout')
+    && ctx.sessionStorage.getItem('stride_offer_txn') === PTXN
+    && f.stages().some(b => b.stage === 'post2_checkout'));
+}
+{
+  const { ctx } = await buyPost2({ ok: false, status: 'used' });
+  ok('/post2: an offer already used sends the buyer on, with no checkout and no begin_checkout',
+    ctx.window.location._replaced === '/welcome.html' && !ctx._checkout
+    && !ctx.StrideTrack.pushes.some(([e]) => e === 'begin_checkout'));
+}
+{
+  const { ctx } = await buyPost2({ ok: false, status: 'unavailable' });
+  ok('/post2: a checkout that cannot be made says so and stays',
+    q(ctx, '.offer-note').hidden === false && ctx.window.location._replaced === null);
+}
+ok('/post2 carries no price id and no discount id any more',
+  !/pri_[0-9a-z]{20,}|dsc_[0-9a-z]{20,}/.test(read('post2/index.html')));
 
 // ══ 4. /welcome ══════════════════════════════════════════════════════════════
 const RAIL = scriptWith('welcome.html', 'session-rail');
-async function runRail(answer) {
-  const ctx = browser('https://stridehub.io/welcome.html', { stride_offer_txn: PTXN });
-  const f = fetcher({ post_purchase_offers: [answer] });
+// The card's parts that the markup ships hidden, read from the markup itself, so every run starts
+// from the page's real first paint rather than from a stub where everything is visible.
+const RAIL_HIDDEN = [...read('welcome.html').matchAll(/<[a-z]+\b[^>]*\bclass="[^"]*?\b(rail-[a-z-]+)[^"]*"[^>]*\shidden(?=[\s>])/g)]
+  .map(m => '.' + m[1]);
+ok('the card ships its offer states hidden', ['.rail-offer', '.rail-coll', '.rail-book', '.rail-coll-buy', '.rail-note']
+  .every(sel => RAIL_HIDDEN.includes(sel)), RAIL_HIDDEN.join(' '));
+async function runRail(answer, o) {
+  o = o || {};
+  const ctx = browser('https://stridehub.io/welcome.html', o.seed || { stride_offer_txn: PTXN });
+  const f = fetcher(Object.assign({ post_purchase_offers: [answer] }, o.routes || {}));
   ctx.fetch = f.fetch;
+  if (o.paddle) paddle(ctx);
+  ctx._strideXid = 'xid-0002';
+  for (const sel of RAIL_HIDDEN) ctx.document.querySelector(sel).hidden = true;
   ctx.document.getElementById = () => {
     const rail = element();
     rail.querySelector = sel => ctx.document.querySelector(sel);
@@ -410,22 +461,111 @@ async function runRail(answer) {
   await wait(80);
   return { ctx, f };
 }
+const booked = coll => Object.assign(withSession(OPEN_USD, { status: 'used' }), { collection: coll });
+const COLL_OPEN = clone(OPEN_USD.collection);
+
 {
   const { ctx, f } = await runRail(clone(OPEN_USD));
-  ok('the rail shows the owner price the server quoted',
-    q(ctx, '[data-rail-now]').textContent === '$99.00' && q(ctx, '[data-rail-was]').textContent === '$199.00');
+  ok('not booked yet: the card is the session offer at the owner price',
+    q(ctx, '[data-rail-now]').textContent === '$99.00' && q(ctx, '[data-rail-was]').textContent === '$199.00'
+    && q(ctx, '.rail-offer').hidden === false && q(ctx, '.rail-coll').hidden === true);
   ok('"See what it covers" carries the purchase, which keeps the owner price on session.html',
     q(ctx, '.rail-link')._href === 'session.html?txn=' + PTXN);
-  ok('reaching the rail is recorded', f.stages().some(b => b.stage === 'welcome_viewed'));
+  ok('reaching it is recorded as the session offer',
+    f.stages().some(b => b.stage === 'welcome_viewed' && b.offer === 'session'));
 }
 {
-  const { ctx } = await runRail(withSession(OPEN_USD, { status: 'used' }));
-  ok('a buyer who just booked on /post is told so, and is not offered the public price again',
-    q(ctx, '.rail-public').hidden === true && q(ctx, '.rail-note').hidden === false
-    && /booked in/.test(q(ctx, '.rail-note').textContent));
+  const { ctx, f } = await runRail(booked(COLL_OPEN));
+  ok('BOOKED: the card turns to the Collection, the booking confirmed at its top',
+    q(ctx, '.rail-coll').hidden === false && q(ctx, '.rail-session').hidden === true
+    && q(ctx, '.rail-book').hidden === true && q(ctx, '.rail-link').hidden === true
+    && q(ctx, '.rail-coll-buy').hidden === false);
+  ok('at the Collection offer price the server quoted, on the button too',
+    q(ctx, '[data-coll-now]').textContent === '₪58.54' && q(ctx, '[data-coll-was]').textContent === '₪76.99'
+    && q(ctx, '[data-coll-cta]').textContent === '₪58.54');
+  ok('with the time left on the same 72 hours', /\d+d \d+h \d+m/.test(q(ctx, '[data-coll-left]').textContent),
+    q(ctx, '[data-coll-left]').textContent);
+  ok('and the view is recorded as the Collection on the welcome card',
+    f.stages().some(b => b.stage === 'welcome_collection_viewed' && b.offer === 'collection')
+    && !f.stages().some(b => b.stage === 'welcome_viewed'));
+}
+for (const [label, coll, expect] of [
+  ['bought the Collection off the offer too', { status: 'used' }, /Collection is yours/],
+  ['already owned the Collection', { status: 'owned' }, /^You're booked in\. Check your inbox/],
+  ['let the Collection offer lapse', { status: 'expired' }, /^You're booked in\. Check your inbox/],
+]) {
+  const { ctx } = await runRail(booked(coll));
+  ok(`booked and ${label}: no offer, just the confirmation`,
+    q(ctx, '.rail-coll').hidden === true && q(ctx, '.rail-public').hidden === true
+    && q(ctx, '.rail-note').hidden === false && expect.test(q(ctx, '.rail-note').textContent),
+    q(ctx, '.rail-note').textContent);
+}
+
+// Buying the Collection from the card
+{
+  // Only the last purchase is stored, as for a buyer who reached /welcome without /post, so the
+  // card itself has to keep the Stride purchase before the Collection checkout can overwrite it.
+  const { ctx, f } = await runRail(booked(COLL_OPEN), {
+    seed: { stride_last_txn: PTXN },
+    paddle: true, routes: { collection_checkout: [{ ok: true, transaction_id: 'txn_rail_coll' }] } });
+  ok('the card starts with no stored Stride purchase of its own', ctx.sessionStorage.getItem('stride_offer_txn') === null);
+  q(ctx, '.rail-coll-buy').click();
+  await wait(40);
+  const c = f.of('collection_checkout')[0] || {};
+  ok('Add asks the backend for the Collection checkout with the purchase and the visitor id only',
+    c.txn === PTXN && c.external_id === 'xid-0002' && Object.keys(c).sort().join() === 'action,external_id,txn');
+  ok('and opens that transaction, coming back to /welcome after',
+    ctx._checkout && ctx._checkout.transactionId === 'txn_rail_coll'
+    && ctx._checkout.settings.successUrl === 'https://stridehub.io/welcome.html');
+  ok('the Stride purchase is kept for the card, and the opening is recorded and reported',
+    ctx.sessionStorage.getItem('stride_offer_txn') === PTXN
+    && f.stages().some(b => b.stage === 'welcome_collection_checkout' && b.offer === 'collection')
+    && ctx.StrideTrack.pushes.some(([e, p]) => e === 'begin_checkout' && p.currency === 'ILS'));
+  ctx._paddleInit.eventCallback({ name: 'checkout.completed',
+    data: { transaction_id: 'txn_rail_coll_paid', currency_code: 'ILS', totals: { total: 58.54 } } });
+  ok('a paid Collection is handed to the page\'s purchase tracking, as /post2 does',
+    ctx.sessionStorage.getItem('stride_last_txn') === 'txn_rail_coll_paid'
+    && JSON.parse(ctx.sessionStorage.getItem('stride_checkout_value')).value === 58.54);
+  ok('and the card says both are done', /Collection is yours/.test(q(ctx, '.rail-note').textContent)
+    && q(ctx, '.rail-coll').hidden === true);
+}
+{
+  const { ctx } = await runRail(booked(COLL_OPEN), {
+    paddle: true, routes: { collection_checkout: [{ ok: false, status: 'used' }] } });
+  q(ctx, '.rail-coll-buy').click();
+  await wait(40);
+  ok('a Collection already bought elsewhere shows as done, with no checkout',
+    !ctx._checkout && /Collection is yours/.test(q(ctx, '.rail-note').textContent));
+}
+// Booking the session from the card
+{
+  const { ctx, f } = await runRail(clone(OPEN_USD), {
+    paddle: true, routes: { session_checkout: [{ ok: true, transaction_id: 'txn_rail_session' }] } });
+  q(ctx, '.rail-book').click();
+  await wait(40);
+  const c = f.of('session_checkout')[0] || {};
+  ok('Book asks for the session checkout with the purchase alone',
+    c.txn === PTXN && Object.keys(c).sort().join() === 'action,txn');
+  ok('opens it, lands on the session page, and is recorded',
+    ctx._checkout && ctx._checkout.transactionId === 'txn_rail_session'
+    && ctx._checkout.settings.successUrl === 'https://stridehub.io/session.html?booked=1'
+    && f.stages().some(b => b.stage === 'welcome_checkout' && b.offer === 'session'));
+  ctx._paddleInit.eventCallback({ name: 'checkout.completed', data: { transaction_id: 'txn_rail_session_paid' } });
+  ok('a paid session shows booked, and writes nothing that would read as a purchase',
+    /^You're booked in\. Check your inbox/.test(q(ctx, '.rail-note').textContent)
+    && ctx.sessionStorage.getItem('stride_last_txn') === null);
 }
 ok('the bare link stays in the markup for anyone with no offer and no JavaScript',
   /<a href="session\.html" class="rail-link/.test(read('welcome.html')));
+{
+  const w = read('welcome.html');
+  const covers = [...w.matchAll(/<div class="rail-stack"[\s\S]*?<\/div>/g)].map(m => m[0]).join('');
+  const srcs = [...covers.matchAll(/src="([^"]+)"/g)].map(m => m[1]);
+  ok('the card carries the three Collection covers, each a real file',
+    srcs.length === 3 && srcs.every(s => fs.existsSync(path.join(ROOT, s))), srcs.join(' '));
+  ok('and they load only if the Collection is ever shown', /rail-stack[\s\S]*?loading="lazy"/.test(w));
+  ok('welcome.html names no price id and no discount id', !/pri_[0-9a-z]{20,}|dsc_[0-9a-z]{20,}/.test(w));
+}
 
 // ══ 5. session.html accepts either name for the same offer ═══════════════════
 const SESSION_HEAD = scriptWith('session.html', "searchParams.has('offer')");
@@ -517,13 +657,14 @@ const SESSION_HEAD = scriptWith('session.html', "searchParams.has('offer')");
   const found = new Set(), actions = new Set();
   for (const p of ['post/index.html', 'post2/index.html', 'welcome.html', 'session.html']) {
     const src = read(p);
-    for (const m of src.matchAll(/stage\('([a-z0-9_]+)'\)|stage:\s*'([a-z0-9_]+)'/g)) found.add(m[1] || m[2]);
+    for (const m of src.matchAll(/stage\('([a-z0-9_]+)'|stage:\s*'([a-z0-9_]+)'|'(welcome_[a-z_]+)'\);/g)) found.add(m[1] || m[2] || m[3]);
     for (const m of src.matchAll(/action:\s*'([a-z_]+)'/g)) actions.add(m[1]);
   }
   ok('every stage a page fires is one the backend accepts',
     found.size >= 7 && [...found].every(s => STAGES.includes(s)), [...found].join(','));
-  ok('the pages call only the four public actions the backend routes',
-    [...actions].every(a => ['offer_stage', 'post_purchase_offers', 'session_offer', 'session_checkout'].includes(a)),
+  ok('the pages call only the five public actions the backend routes',
+    [...actions].every(a => ['offer_stage', 'post_purchase_offers', 'session_offer', 'session_checkout',
+                             'collection_checkout'].includes(a)),
     [...actions].join(','));
 }
 

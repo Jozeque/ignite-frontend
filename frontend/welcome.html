@@ -279,6 +279,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 12px 24px -14px rgba(198,113,43,.8);transition:transform .15s,filter .15s;cursor:pointer}
   .btn-copper:hover{transform:translateY(-2px);filter:brightness(1.06)}
   .btn-copper[aria-busy="true"]{opacity:.7;pointer-events:none}
+  /* The Collection's three covers, as on /samples and /post2, sized for this card. */
+  .rail-stack{display:flex;align-items:flex-start}
+  .rail-stack img{position:relative;flex:1 1 0;min-width:0;width:100%;height:auto;aspect-ratio:1/1;
+    object-fit:cover;border-radius:10px;border:1px solid var(--line);background:var(--bg2);
+    box-shadow:0 18px 32px -20px rgba(0,0,0,.95)}
+  .rail-stack img + img{margin-left:-14%}
+  .rail-stack img:nth-child(1){z-index:1}.rail-stack img:nth-child(2){z-index:2}.rail-stack img:nth-child(3){z-index:3}
 </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -333,7 +340,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              swallow that click. The fallback state, and anyone with no open offer, still
              gets a plain link out to the page. -->
         <div class="support-card flex-1 flex flex-col justify-between p-5 rounded-2xl panel" id="session-rail">
-          <div>
+          <div class="rail-session">
             <p class="silk mb-2" style="color:var(--copper-lt)">Want to go deeper?</p>
             <p class="text-[17px] font-black ink leading-snug mb-1.5">Spend an hour with the person who built Stride.</p>
             <p class="text-xs ink3 leading-relaxed">Your session. Your plugins. Your sound.</p>
@@ -355,7 +362,29 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <p class="rail-public text-xl font-black ink mt-2">1:1 session &middot; $199</p>
           </div>
 
+          <!-- Once the session is booked, the card turns to the Collection: the booking is confirmed
+               first, then the one other offer this purchase earned, in the same 72 hours. Hidden
+               until the backend confirms both, like the owner state above. -->
+          <div class="rail-coll" hidden>
+            <p class="silk mb-1" style="color:var(--copper-lt)">You're booked in</p>
+            <p class="text-xs ink3 leading-relaxed mb-4">Check your inbox for the link to pick your time.</p>
+            <div class="rail-stack" aria-hidden="true">
+              <img src="assets/packs/pack-drums.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
+              <img src="assets/packs/pack-water.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
+              <img src="assets/packs/pack-feedback.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
+            </div>
+            <p class="text-[17px] font-black ink leading-snug mt-4 mb-1">Stride Experimental Collection</p>
+            <p class="text-xs ink3 leading-relaxed">250+ sounds &middot; 15 Ableton Racks &middot; 4 StrideChains</p>
+            <span class="offer-flag"><span class="offer-dot" aria-hidden="true"></span>New Stride owner price</span>
+            <div class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+              <del class="price-was"><span class="sr-only">Full price </span><span data-coll-was>$24.99</span></del>
+              <span class="price text-3xl" data-coll-now>$19</span>
+            </div>
+            <p class="offer-clock" role="timer">Offer ends in <b data-coll-left>72h</b></p>
+          </div>
+
           <button type="button" class="rail-book btn-copper w-full mt-4 px-5 py-3 text-xs uppercase" hidden>Book a session</button>
+          <button type="button" class="rail-coll-buy btn-copper w-full mt-4 px-5 py-3 text-xs uppercase" hidden>Add it for <span data-coll-cta>$19</span></button>
           <p class="rail-note text-xs ink3 leading-relaxed mt-3" aria-live="polite" hidden></p>
           <a href="session.html" class="rail-link silk mt-4 hover:text-[color:var(--ember)] transition-colors" style="color:var(--copper-lt)">See what it covers &rarr;</a>
         </div>
@@ -414,29 +443,34 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
   var PADDLE_TOKEN = 'live_e0101b87a9e6e7024988534cf7b';
   var BOOKED_URL = 'https://stridehub.io/session.html?booked=1';
+  var HERE_URL = 'https://stridehub.io/welcome.html';
+  var FAILED = 'That did not open. Try again, or use the link below.';
 
   var rail = document.getElementById('session-rail');
   if (!rail) return;
   function q(sel) { return rail.querySelector(sel); }
   function ss(k) { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } }
+  function ssSet(k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} }
 
-  // stride_offer_txn is the STRIDE transaction, stashed by /post before a Collection
-  // checkout overwrote stride_last_txn. Prefer it: the offer belongs to the Stride
-  // purchase, not to the add-on bought a minute later.
+  // stride_offer_txn is the STRIDE transaction, stashed by /post, /post2 and this card before a
+  // second checkout overwrote stride_last_txn. Prefer it: the offers belong to the Stride
+  // purchase, not to whatever was bought a minute later.
   var txn = ss('stride_offer_txn') || ss('stride_last_txn');
   if (!txn) return;                       // public price stays, link stays
 
   // One stage of the funnel, against the purchase that earned the offer. Fire and forget.
-  function stage(name) {
+  function stage(name, kind) {
     try {
       fetch(API, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
-        body: JSON.stringify({ action: 'offer_stage', stage: name, txn: txn })
+        body: JSON.stringify({ action: 'offer_stage', stage: name, txn: txn, offer: kind })
       }).catch(function () {});
     } catch (e) {}
   }
 
-  var offer = null, clock = null, paddleOn = false;
+  // offer: what the card is selling right now, { kind: 'session' | 'collection', expires, skew }.
+  // openKind: which checkout is open, so a completed one is read for what it was.
+  var offer = null, clock = null, paddleOn = false, openKind = '';
 
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function human(ms) {
@@ -451,9 +485,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   function toPublic() {
     if (clock) { clearInterval(clock); clock = null; }
     offer = null;
+    q('.rail-session').hidden = false;
     q('.rail-offer').hidden = true;
     q('.rail-public').hidden = false;
     q('.rail-book').hidden = true;
+    q('.rail-coll').hidden = true;
+    q('.rail-coll-buy').hidden = true;
     q('.rail-link').hidden = false;
     // No offer left to carry, so the link goes back to the plain page.
     try { q('.rail-link').setAttribute('href', 'session.html'); } catch (e) {}
@@ -466,25 +503,33 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   }
 
   // Booked already, most often on /post a minute ago. Say so, instead of offering the public
-  // price for the session they have just bought.
-  function showBooked() {
+  // price for the session they have just bought. `collection`: the Collection came off this
+  // purchase's offer too.
+  function showBooked(collection) {
     toPublic();
     q('.rail-public').hidden = true;
-    note("You're booked in. Check your inbox for the link to pick your time.");
+    note(collection
+      ? "You're booked in, and the Collection is yours. Check your inbox for both."
+      : "You're booked in. Check your inbox for the link to pick your time.");
   }
 
   function tick() {
     if (!offer) return;
     var left = offer.expires - (Date.now() + offer.skew);
-    if (left <= 0) { toPublic(); return; }
-    q('[data-rail-left]').textContent = human(left);
+    if (left <= 0) {
+      // The window closed with the card open. The session goes back to its public price; a
+      // Collection offer simply ends, and the booking stays confirmed.
+      if (offer.kind === 'collection') showBooked(false); else toPublic();
+      return;
+    }
+    q(offer.kind === 'collection' ? '[data-coll-left]' : '[data-rail-left]').textContent = human(left);
   }
 
   function showOwner(d) {
     var s = d.session || {};
     var now = (s.owner_price || {}).formatted, was = (s.standard_price || {}).formatted;
     if (!now || !was) return;                       // keep the public price
-    offer = { expires: Number(d.expires_at_ms), skew: Number(d.server_now_ms) - Date.now() };
+    offer = { kind: 'session', expires: Number(d.expires_at_ms), skew: Number(d.server_now_ms) - Date.now() };
     q('[data-rail-now]').textContent = now;
     q('[data-rail-was]').textContent = was;
     q('.rail-public').hidden = true;
@@ -499,11 +544,36 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     // is worth and how long it has, and the markup keeps the bare href for anyone with no
     // offer and no JavaScript.
     try { q('.rail-link').setAttribute('href', 'session.html?txn=' + encodeURIComponent(txn)); } catch (e) {}
+    if (clock) clearInterval(clock);
     tick();
     clock = setInterval(tick, 1000);
-    stage('welcome_viewed');
+    stage('welcome_viewed', 'session');
   }
 
+  // The session is booked and the Collection is still on offer: the card becomes that offer.
+  function showCollection(d) {
+    var c = d.collection || {};
+    var now = (c.offer_price || {}).formatted, was = (c.list_price || {}).formatted;
+    if (!now || !was) { showBooked(false); return; }
+    offer = { kind: 'collection', expires: Number(d.expires_at_ms), skew: Number(d.server_now_ms) - Date.now(),
+              amount: (c.offer_price || {}).amount, currency: (c.offer_price || {}).currency };
+    q('[data-coll-now]').textContent = now;
+    q('[data-coll-was]').textContent = was;
+    q('[data-coll-cta]').textContent = now;
+    q('.rail-session').hidden = true;
+    q('.rail-book').hidden = true;
+    q('.rail-link').hidden = true;
+    q('.rail-coll').hidden = false;
+    q('.rail-coll-buy').hidden = false;
+    note('');
+    if (clock) clearInterval(clock);
+    tick();
+    clock = setInterval(tick, 1000);
+    stage('welcome_collection_viewed', 'collection');
+  }
+
+  // What the backend knows, which now includes a checkout Paddle has already been paid for: a
+  // session booked a moment ago reads booked here even before its webhook lands.
   var settled = false;
   var bail = setTimeout(function () { settled = true; }, 6000);
   fetch(API, {
@@ -515,10 +585,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       if (settled) return;
       settled = true; clearTimeout(bail);
       if (!d || !d.ok) return;
-      var sessionStatus = (d.session || {}).status;
-      if (sessionStatus === 'used') { showBooked(); return; }
-      if (sessionStatus !== 'open') return;
-      showOwner(d);
+      var sessionStatus = (d.session || {}).status, collectionStatus = (d.collection || {}).status;
+      if (sessionStatus === 'open') { showOwner(d); return; }                                // not booked: the session
+      if (sessionStatus === 'used' && collectionStatus === 'open') { showCollection(d); return; }  // booked: the Collection
+      if (sessionStatus === 'used') { showBooked(collectionStatus === 'used'); return; }     // booked, nothing left to offer
+      // Expired or unknown: the public price stays.
     })
     .catch(function () { settled = true; clearTimeout(bail); });
 
@@ -527,41 +598,97 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       Paddle.Initialize({
         token: PADDLE_TOKEN,
         eventCallback: function (ev) {
-          if (ev && ev.name === 'checkout.completed') showBooked();
+          if (!ev || ev.name !== 'checkout.completed') return;
+          if (openKind === 'collection') {
+            // A second, separate purchase. Hand it to this page's own purchase tracking, which
+            // records it on the reload the success URL brings, exactly as /post2 does.
+            try {
+              var data = ev.data || {};
+              if (data.transaction_id) ssSet('stride_last_txn', String(data.transaction_id));
+              var paid = Number((data.totals || {}).total);
+              if (paid > 0 && data.currency_code) {
+                ssSet('stride_checkout_value', JSON.stringify({ value: paid, currency: String(data.currency_code) }));
+              }
+            } catch (e) {}
+            showBooked(true);
+            return;
+          }
+          showBooked(false);
         }
       });
       paddleOn = true;
     }
   } catch (e) { paddleOn = false; }
 
-  q('.rail-book').addEventListener('click', function () {
-    if (!offer) return;
-    // No Paddle means no checkout to open. Send them to the page rather than fail silently.
-    if (!paddleOn) { window.location.href = 'session.html'; return; }
-    var btn = this;
+  // Both buttons open a checkout the backend made, so no price and no discount live in this page.
+  function openCheckout(btn, action, kind, successUrl, stageName) {
     btn.setAttribute('aria-busy', 'true');
     note('');
+    // The Stride purchase, kept where this card looks first, before the checkout can overwrite
+    // stride_last_txn.
+    ssSet('stride_offer_txn', txn);
+    var body = { action: action, txn: txn };
+    if (kind === 'collection') body.external_id = (typeof _strideXid === 'string' && _strideXid) || '';
+    var shown = offer;
     fetch(API, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'session_checkout', txn: txn })
+      body: JSON.stringify(body)
     })
       .then(function (r) { return r.json(); })
       .then(function (d) {
         btn.removeAttribute('aria-busy');
         if (d && d.ok && d.transaction_id) {
-          // The owner price is never in this page: the backend made the transaction.
-          Paddle.Checkout.open({ transactionId: d.transaction_id,
-                                 settings: { displayMode: 'overlay', theme: 'dark', successUrl: BOOKED_URL } });
+          openKind = kind;
+          try {
+            Paddle.Checkout.open({ transactionId: d.transaction_id,
+                                   settings: { displayMode: 'overlay', theme: 'dark', successUrl: successUrl } });
+          } catch (e) { note(FAILED); return; }
+          if (kind === 'collection' && window.StrideTrack && shown && shown.currency) {
+            try {
+              var digits = new Intl.NumberFormat(undefined, { style: 'currency', currency: shown.currency })
+                .resolvedOptions().minimumFractionDigits;
+              var v = Number(shown.amount) / Math.pow(10, digits);
+              if (isFinite(v) && v > 0) StrideTrack.push('begin_checkout', { value: v, currency: shown.currency });
+            } catch (e) {}
+          }
+          stage(stageName, kind);
           return;
         }
-        if (d && (d.status === 'expired' || d.status === 'invalid')) { toPublic(); note('Your owner price has ended.'); return; }
-        if (d && d.status === 'used') { toPublic(); note('Your owner price has already been used.'); return; }
-        note('That did not open. Try again, or use the link below.');
+        var st = d && d.status;
+        if (kind === 'session') {
+          if (st === 'used') { showBooked(false); return; }
+          if (st === 'expired' || st === 'invalid') { toPublic(); note('Your owner price has ended.'); return; }
+        } else {
+          if (st === 'used' || st === 'owned') { showBooked(st === 'used'); return; }
+          if (st === 'expired' || st === 'invalid') { showBooked(false); return; }
+        }
+        note(FAILED);
       })
       .catch(function () {
         btn.removeAttribute('aria-busy');
-        note('That did not open. Try again, or use the link below.');
+        note(FAILED);
       });
+  }
+
+  q('.rail-book').addEventListener('click', function () {
+    if (!offer || offer.kind !== 'session') return;
+    // No Paddle means no checkout to open. Send them to the page rather than fail silently.
+    if (!paddleOn) { window.location.href = 'session.html'; return; }
+    openCheckout(this, 'session_checkout', 'session', BOOKED_URL, 'welcome_checkout');
+  });
+
+  q('.rail-coll-buy').addEventListener('click', function () {
+    if (!offer || offer.kind !== 'collection') return;
+    if (!paddleOn) { note(FAILED); return; }
+    // What this page's purchase tracking reports if the checkout completes before Paddle's own
+    // figure arrives: the money on screen.
+    try {
+      var digits = new Intl.NumberFormat(undefined, { style: 'currency', currency: offer.currency })
+        .resolvedOptions().minimumFractionDigits;
+      var major = Number(offer.amount) / Math.pow(10, digits);
+      if (isFinite(major) && major > 0) ssSet('stride_checkout_value', JSON.stringify({ value: major, currency: offer.currency }));
+    } catch (e) {}
+    openCheckout(this, 'collection_checkout', 'collection', HERE_URL, 'welcome_collection_checkout');
   });
 })();
 </script>
