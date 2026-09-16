@@ -3,6 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+    // Paddle hands the transaction back in ?_ptxn= on the success URL. Read it BEFORE any
+    // analytics on this page can report it, keep it for the offer below, and take it off
+    // the URL. Two separate reasons to strip it, either one enough on its own:
+    //   Paddle.js auto-opens a checkout from ?_ptxn= once Initialize has run, and this page
+    //   does Initialize, so leaving it there can reopen the Stride checkout the buyer has
+    //   just paid, on top of the offer.
+    //   An id left in the address bar is an id in the history, in the referrer, and in
+    //   every tag on the page.
+    // It must stay the first script in <head>.
+    (function () {
+      try {
+        var u = new URL(window.location.href);
+        if (!u.searchParams.has('_ptxn')) return;
+        var t = (u.searchParams.get('_ptxn') || '').trim().toLowerCase();
+        if (/^txn_[0-9a-z]{26}$/.test(t)) {
+          window.STRIDE_POST_TXN = t;
+          // Paddle's own word for what was just bought, written where every post-purchase
+          // page already looks. It beats whatever an earlier checkout.completed left, and
+          // it is the only copy when that event never reached the page that opened the
+          // checkout.
+          try { sessionStorage.setItem('stride_last_txn', t); } catch (e) {}
+        }
+        u.searchParams.delete('_ptxn');
+        history.replaceState(null, '', u.pathname + u.search + u.hash);
+      } catch (e) {}
+    })();
+    </script>
 <!-- Google Tag Manager -->
 <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
@@ -138,6 +166,20 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .skip{display:inline-block;margin-top:20px;font-size:14px;font-weight:700;color:var(--ink3);
     text-decoration:none;transition:color .15s}
   .skip:hover{color:var(--copper-lt)}
+  /* The three covers as ONE object, lifted verbatim from samples.html. Overlapping is
+     what makes them read as a collection rather than three products standing side by
+     side, and a buyer who saw the pack on /samples has to recognise it here. */
+  .stack{display:flex;align-items:flex-start}
+  .sleeve{position:relative;flex:1 1 0;min-width:0;margin:0;border-radius:14px;overflow:hidden;
+    border:1px solid var(--line);background:var(--bg2);
+    box-shadow:0 26px 50px -28px rgba(0,0,0,.95);transition:transform .35s ease}
+  .sleeve + .sleeve{margin-left:-14%}
+  /* LATER sleeves on top, so every cover keeps its own left edge and they read left to right. */
+  .sleeve:nth-child(1){z-index:1}.sleeve:nth-child(2){z-index:2}.sleeve:nth-child(3){z-index:3}
+  .stack:hover .sleeve{transform:translateY(-4px)}
+  .sleeve img{display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover}
+  @media (max-width:520px){ .sleeve + .sleeve{margin-left:6px} .stack{gap:0} }
+
   /* Nothing renders until the offer is resolved: showing a price we may not honour,
      then correcting it, is worse than a beat of nothing. */
   .gate{visibility:hidden}
@@ -168,13 +210,40 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <section class="panel p-6 sm:p-8 gate" id="offer">
       <div class="offer-flag"><span class="offer-dot" aria-hidden="true"></span>New Stride owner price</div>
 
-      <h2 class="text-2xl sm:text-3xl uppercase tracking-tight leading-tight mb-1">Stride Experimental Collection</h2>
+      <!-- What it is on the left, what it looks like on the right. The covers are the
+           same object /samples leads with, so a buyer who saw the pack there recognises
+           it here instead of being asked to buy a list. One column on a phone, where the
+           art goes under the words rather than squeezing them. The price, the clock and
+           the button stay full width below: this panel has one action. -->
+      <div class="grid sm:grid-cols-[1fr_minmax(0,17rem)] gap-6 sm:gap-8 items-start">
+        <div>
+          <h2 class="text-2xl sm:text-3xl uppercase tracking-tight leading-tight mb-1">Stride Experimental Collection</h2>
 
-      <ul class="inv">
-        <li><span class="n">250+</span><span>sounds</span></li>
-        <li><span class="n">15</span><span>Ableton Racks, pre-mapped with Stride FX</span></li>
-        <li><span class="n">4</span><span>StrideChains</span></li>
-      </ul>
+          <ul class="inv">
+            <li><span class="n">250+</span><span>sounds</span></li>
+            <li><span class="n">15</span><span>Ableton Racks, pre-mapped with Stride FX</span></li>
+            <li><span class="n">4</span><span>StrideChains</span></li>
+          </ul>
+        </div>
+
+        <!-- The stack is the play surface, as it is on /samples. The covers are already
+             on this domain, so nothing new ships to serve them. -->
+        <button type="button" class="stack" aria-label="Play the Experimental Collection teaser"
+                onclick="strideTeaser(true)"
+                style="width:100%;padding:0;border:0;background:none;cursor:pointer;position:relative"><!-- no display here on purpose: .stack sets flex, and overriding it stacks the three sleeves vertically -->
+          <figure class="sleeve"><img src="/assets/packs/pack-drums.jpg" alt="Vol. 1 Broken Drums" width="900" height="900" loading="eager"></figure>
+          <figure class="sleeve"><img src="/assets/packs/pack-water.jpg" alt="Vol. 2 One Drop" width="900" height="900" loading="eager"></figure>
+          <figure class="sleeve"><img src="/assets/packs/pack-feedback.jpg" alt="Vol. 3 Feedback" width="900" height="900" loading="eager"></figure>
+          <span aria-hidden="true"
+                style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+                       width:56px;height:56px;border-radius:999px;display:flex;
+                       align-items:center;justify-content:center;z-index:5;
+                       background:rgba(198,113,43,.94);box-shadow:0 10px 30px -8px rgba(0,0,0,.7)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="#1c1206"
+                 style="margin-left:3px"><path d="M8 5v14l11-7z"/></svg>
+          </span>
+        </button>
+      </div>
 
       <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 mt-8">
         <del class="price-was"><span class="sr-only">Full price </span><span data-was>$24.99</span></del>
@@ -204,6 +273,48 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   </main>
 </div>
+
+<!-- Teaser lightbox, carried over from samples.html: no library, one overlay, one
+     <video>, Esc and backdrop close. The source is attached only when it opens, so the
+     10.6 MB file is never part of the page load for a buyer who does not press play, and
+     this page stays as fast as a page between a payment and a product has to be.
+
+     NOTE the plain & before token. samples.html writes &amp; there, and a script element
+     is raw text in HTML so nothing decodes it: that page asks Firebase for a parameter called
+     "amp;token", gets no token, and the teaser 403s. Verified against the live URL. -->
+<div id="teaser-lb" hidden
+     style="position:fixed;inset:0;z-index:1200;background:rgba(8,7,6,.92);
+            display:none;align-items:center;justify-content:center;padding:1.25rem"
+     onclick="if(event.target===this)strideTeaser(false)">
+  <button type="button" aria-label="Close" onclick="strideTeaser(false)"
+          style="position:absolute;top:1rem;right:1rem;width:44px;height:44px;border-radius:12px;
+                 background:rgba(255,255,255,.08);border:1px solid rgba(216,201,176,.18);
+                 color:#e8e2d6;font-size:20px;line-height:1;cursor:pointer">&times;</button>
+  <video id="teaser-v" controls playsinline preload="none"
+         style="width:100%;max-width:900px;border-radius:12px;outline:none"></video>
+</div>
+<script>
+  var STRIDE_TEASER_SRC = "https://firebasestorage.googleapis.com/v0/b/veero-next.firebasestorage.app/o/mail%2Fexperimental-collection-teaser.mp4?alt=media&token=fbea20a2-7d93-4c4e-abb1-6a607edf76f5";
+  function strideTeaser(open) {
+    var lb = document.getElementById('teaser-lb');
+    var v  = document.getElementById('teaser-v');
+    if (!lb || !v) return;
+    // Drive display EXPLICITLY. This page sets [hidden]{display:none!important}, but an
+    // inline display would still beat the UA rule on the way back open.
+    lb.hidden = !open;
+    lb.style.display = open ? 'flex' : 'none';
+    document.body.style.overflow = open ? 'hidden' : '';
+    if (open) {
+      if (!v.src) v.src = STRIDE_TEASER_SRC;   // fetch only on demand
+      var play = v.play(); if (play && play.catch) play.catch(function () {});
+    } else {
+      v.pause();
+    }
+  }
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') strideTeaser(false);
+  });
+</script>
 
 <script>
 (function () {
@@ -273,10 +384,28 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   })();
 
   // ── The offer ───────────────────────────────────────────────────────────────
-  var strideTxn = ss('stride_last_txn');
+  // The URL first: Paddle's ?_ptxn=, captured and stripped by the head script above. Then
+  // sessionStorage, written by checkout.completed on the page that opened the checkout.
+  // Both paths matter. The event can lose its race with the redirect, a wallet can complete
+  // somewhere the event never reaches, and a browser can refuse the write; any one of those
+  // used to end the funnel silently. Either source alone is now enough.
+  var strideTxn = (typeof window.STRIDE_POST_TXN === 'string' && window.STRIDE_POST_TXN)
+                  || ss('stride_last_txn');
   var offer = null, clock = null, paddleOn = false;
 
   function leave() { window.location.replace(NEXT); }
+
+  // One stage of the funnel, recorded against the purchase that earned the offer. Fire and
+  // forget, and keepalive so the skip click below still reports while the browser is already
+  // leaving. Telemetry is never allowed to reach the buyer, so every failure is swallowed.
+  function stage(name) {
+    try {
+      fetch(API, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+        body: JSON.stringify({ action: 'offer_stage', stage: name, txn: strideTxn })
+      }).catch(function () {});
+    } catch (e) {}
+  }
 
   // No transaction to resolve means we cannot know whether this person has an open
   // offer, already owns the Collection, or wandered in. Send them to the product.
@@ -319,30 +448,60 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     tick();
     clock = setInterval(tick, 1000);
     q('#offer').classList.add('ready');
+    stage('post_viewed');
   }
 
-  // A buyer must never be stranded here by a slow or dead backend: this page stands
-  // between someone who has just paid and the product they paid for. If the offer
-  // cannot be resolved in six seconds, it does not exist as far as this page is
-  // concerned, and they go to Stride.
+  // A buyer must never be stranded here: this page stands between someone who has just
+  // paid and the product they paid for.
+  //
+  // WAIT is the WEBHOOK, not the network. The offer record is made when Paddle tells the
+  // backend the sale completed, and the redirect that brought this buyer here beats that
+  // message: the first live purchase arrived four seconds early, was told the offer did not
+  // exist, and was sent to the product. "The record is not born yet" and "there is no offer"
+  // used to be the same answer. They are not the same thing, so only the first one is asked
+  // again, and every other answer is final and leaves at once.
+  //
+  // The backend now makes the record itself the first time it is asked, so this is the
+  // second line of defence rather than the first, and it costs nothing when the record is
+  // already there. The confirmation above is on screen throughout, so the wait reads as the
+  // page settling rather than a page that is stuck. The bail sits past the deadline and
+  // covers a backend that never answers at all.
+  var WAIT = 10000, STEP = 600;
+  var deadline = Date.now() + WAIT;
   var settled = false;
-  var bail = setTimeout(function () { if (!settled) { settled = true; leave(); } }, 6000);
+  var bail = setTimeout(function () { if (!settled) { settled = true; leave(); } }, WAIT + 3000);
 
-  fetch(API, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'post_purchase_offers', txn: strideTxn })
-  })
-    .then(function (r) { return r.json(); })
-    .then(function (d) {
-      if (settled) return;
-      settled = true; clearTimeout(bail);
-      // Anything other than a live, unclaimed, unowned offer means we do not show it.
-      // Owned, used, expired and every error all land in the same place: the product.
-      if (!d || !d.ok) { leave(); return; }
-      if (((d.collection || {}).status) !== 'open') { leave(); return; }
-      show(d);
+  function again() {
+    if (Date.now() >= deadline) return false;
+    setTimeout(ask, STEP);
+    return true;
+  }
+
+  function ask() {
+    fetch(API, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'post_purchase_offers', txn: strideTxn })
     })
-    .catch(function () { if (!settled) { settled = true; clearTimeout(bail); leave(); } });
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (settled) return;
+        // invalid: no record yet. unavailable: we could not look. Both mean ask again.
+        var pending = d && d.ok && (d.status === 'invalid' || d.status === 'unavailable');
+        if (pending && again()) return;
+        settled = true; clearTimeout(bail);
+        // Anything other than a live, unclaimed, unowned offer means we do not show it.
+        // Owned, used, expired and every error all land in the same place: the product.
+        if (!d || !d.ok) { leave(); return; }
+        if (((d.collection || {}).status) !== 'open') { leave(); return; }
+        show(d);
+      })
+      .catch(function () {
+        if (settled) return;
+        if (again()) return;
+        settled = true; clearTimeout(bail); leave();
+      });
+  }
+  ask();
 
   // ── Buying it ───────────────────────────────────────────────────────────────
   try {
@@ -392,11 +551,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                       external_id: (typeof _strideXid === 'string' && _strideXid) || '' },
         settings: { displayMode: 'overlay', theme: 'dark', successUrl: 'https://stridehub.io' + NEXT }
       });
+      stage('post_checkout');
     } catch (e) {
       note('Checkout could not open. Take me to Stride and I will email you the offer instead.');
     }
     btn.removeAttribute('aria-busy');
   });
+
+  // The skip is a real answer, not an absence. How many buyers looked at the offer and said
+  // no is what tells a rejected offer apart from a page nobody ever saw. data-skip has been
+  // in the markup since this page shipped and nothing ever read it.
+  var skip = q('[data-skip]');
+  if (skip) skip.addEventListener('click', function () { stage('post_skipped'); });
 })();
 </script>
 </body>

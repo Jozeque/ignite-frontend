@@ -426,6 +426,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   var txn = ss('stride_offer_txn') || ss('stride_last_txn');
   if (!txn) return;                       // public price stays, link stays
 
+  // One stage of the funnel, against the purchase that earned the offer. Fire and forget.
+  function stage(name) {
+    try {
+      fetch(API, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+        body: JSON.stringify({ action: 'offer_stage', stage: name, txn: txn })
+      }).catch(function () {});
+    } catch (e) {}
+  }
+
   var offer = null, clock = null, paddleOn = false;
 
   function pad(n) { return (n < 10 ? '0' : '') + n; }
@@ -445,6 +455,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     q('.rail-public').hidden = false;
     q('.rail-book').hidden = true;
     q('.rail-link').hidden = false;
+    // No offer left to carry, so the link goes back to the plain page.
+    try { q('.rail-link').setAttribute('href', 'session.html'); } catch (e) {}
   }
 
   function note(text) {
@@ -471,8 +483,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     q('.rail-offer').hidden = false;
     q('.rail-book').hidden = false;
     q('.rail-link').hidden = false;
+    // Carry the purchase through to session.html. Without it, that page can only resolve
+    // the owner price from the token in the welcome MAIL, so a buyer who reads the offer
+    // here and clicks through before the mail lands is quoted the FULL price for the thing
+    // they were just offered at half of it. That is what happened to the first buyer.
+    // The id is identity, never price: session.html still asks the backend what this offer
+    // is worth and how long it has, and the markup keeps the bare href for anyone with no
+    // offer and no JavaScript.
+    try { q('.rail-link').setAttribute('href', 'session.html?txn=' + encodeURIComponent(txn)); } catch (e) {}
     tick();
     clock = setInterval(tick, 1000);
+    stage('welcome_viewed');
   }
 
   var settled = false;
