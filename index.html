@@ -380,6 +380,42 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .proof-card .silk{font-size:11.5px;letter-spacing:.2em}
   .proof-card .credit{width:38px;height:38px;border-radius:11px}
   .proof-card .credit svg{width:16px;height:16px}
+  /* The key phrases in each quote. Outfit ships no 600, so 700 is what semibold renders anyway. */
+  .proof-card blockquote b{color:var(--ink);font-weight:700}
+  /* The testimonials run as ONE row: three cards from 1280px, two below that, one plus a peek
+     on a phone (that rule lives in the max-width:899.98px block). Three at 1024px made 307px
+     cards that the longest quote stretched to 832px tall, most of it empty. The row's own
+     scroll-snap does the moving, so swipe, trackpad and keyboard work with no script at all;
+     the arrows and dots below only drive it. The row stretches every card to one height, so
+     the captions stay on one line. The bottom padding is room for the card shadow, which a
+     scroller would otherwise clip. */
+  .proof-rail{display:flex;gap:1.75rem;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;
+    scrollbar-width:none;overscroll-behavior-x:contain;padding:.25rem 0 1.25rem}
+  .proof-rail::-webkit-scrollbar{display:none}
+  .proof-rail:focus-visible{outline:2px solid var(--copper-lt);outline-offset:4px;border-radius:18px}
+  .proof-rail > .proof-card{flex:0 0 calc((100% - 3.5rem) / 3);min-width:0;scroll-snap-align:start}
+  @media (min-width:900px) and (max-width:1279.98px){
+    .proof-rail > .proof-card{flex-basis:calc((100% - 1.75rem) / 2)}
+  }
+  /* Every caption's top row as tall as a 62px photo, so the AltWire wordmark (a short row)
+     keeps its divider on the same line as the artists' beside it. */
+  .proof-card figcaption > div:first-child{min-height:62px}
+  .proof-nav{display:flex;align-items:center;justify-content:center;gap:.9rem;margin-top:.75rem}
+  .proof-nav[hidden]{display:none}
+  .proof-arrow{display:inline-flex;align-items:center;justify-content:center;width:46px;height:46px;flex:none;
+    border-radius:13px;border:1px solid var(--line);background:var(--raise);color:var(--ink2);cursor:pointer;
+    transition:color .15s,border-color .15s,transform .15s,opacity .15s}
+  .proof-arrow:hover:not(:disabled){color:var(--copper-lt);border-color:rgba(198,113,43,.42);transform:translateY(-1px)}
+  .proof-arrow:focus-visible{outline:2px solid var(--copper-lt);outline-offset:2px}
+  .proof-arrow:disabled{opacity:.35;cursor:default}
+  .proof-arrow svg{width:18px;height:18px}
+  .proof-dots{display:flex;align-items:center}
+  .proof-dot{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;
+    padding:0;border:0;background:none;cursor:pointer}
+  .proof-dot::before{content:'';width:7px;height:7px;border-radius:999px;background:var(--ink3);opacity:.5;
+    transition:width .2s,background-color .2s,opacity .2s}
+  .proof-dot[aria-current="true"]::before{width:18px;background:var(--copper-lt);opacity:1}
+  .proof-dot:focus-visible{outline:2px solid var(--copper-lt);outline-offset:-2px;border-radius:8px}
   .divider{height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
   .lane{fill:none;stroke-width:2}
   details>summary{list-style:none}details>summary::-webkit-details-marker{display:none}
@@ -659,21 +695,18 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .note-long{display:none}                   /* "Watch the full Stride walkthrough" */
 
     /* -- SOCIAL PROOF ------------------------------------------------------
-       A vertical wall of quotes is the worst possible mobile shape. Swipe
-       cards with scroll-snap keep every quote, but cost one card of height. */
-    /* Targeted in CSS rather than by adding a class, so the markup stays
-       identical for desktop. Cards keep their full text; only ONE is on screen
-       at a time, and 86% width leaves the next card peeking so the swipe is
-       discoverable without a hint label. */
-    section[data-ms="social"] > div.grid{
-      display:flex;gap:.75rem;overflow-x:auto;scroll-snap-type:x mandatory;
-      -webkit-overflow-scrolling:touch;scrollbar-width:none;
+       A vertical wall of quotes is the worst possible mobile shape. The same
+       row as desktop, one card at a time: cards keep their full text, and 86%
+       width leaves the next card peeking so the swipe is discoverable. The row
+       bleeds to the screen edges; scroll-padding snaps each card to the page
+       gutter instead of flush against the glass. overscroll-behavior (base
+       rule) keeps a sideways swipe from hijacking the page's back gesture. */
+    section[data-ms="social"] .proof-rail{
+      gap:.75rem;-webkit-overflow-scrolling:touch;
       margin-left:-1.5rem;margin-right:-1.5rem;
-      padding:.25rem 1.5rem 1rem;
-      overscroll-behavior-x:contain}          /* don't hijack the page's back-swipe */
-    section[data-ms="social"] > div.grid::-webkit-scrollbar{display:none}
-    section[data-ms="social"] > div.grid > *{
-      scroll-snap-align:start;flex:0 0 86%;min-width:0;margin:0!important}
+      padding:.25rem 1.5rem 1rem;scroll-padding-inline:1.5rem}
+    section[data-ms="social"] .proof-rail > .proof-card{flex:0 0 86%;margin:0!important}
+    section[data-ms="social"] .proof-nav{margin-top:.35rem}
     section[data-ms="social"] .proof-card{padding:1.35rem}
     section[data-ms="social"] blockquote{font-size:15px;line-height:1.55}
     section[data-ms="social"] > div:first-child{margin-bottom:1.5rem}
@@ -898,7 +931,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           A smart, musical automation engine that <span class="brand">pushes the limits of sound design.</span>
         </h1>
         <p class="text-lg lg:text-[16px] lg:leading-[1.55] max-w-xl mb-4 leading-relaxed font-light ink2 hero-sub">
-          Stride lets your VSTs and Ableton devices move together in one place, at once. Explore endless variations from the gear you already own. Every click reveals a fresh direction. Lock what works. Reroll the rest.
+          Stride lets your VSTs and Ableton devices <b class="ink font-semibold">move together in one place, at once</b>. Explore endless variations from the gear you already own. Every click reveals a fresh direction. <b class="ink font-semibold">Lock</b> what works, <b class="ink font-semibold">reroll</b> the rest, then <b class="ink font-semibold">mutate</b> and <b class="ink font-semibold">edit</b> every automation by hand.
         </p>
         <!-- Capability line: what it reaches, directly under the claim. Kept small so it
              reads as a spec rather than competing with the headline. -->
@@ -1068,8 +1101,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <!-- ───────────────── SOCIAL PROOF (real producers, quoted with permission) ─────────────────
        Sits right after the manifesto on purpose: the manifesto makes the claim
-       ("it reveals more of what's already there"), these three say it back in
-       their own words. Real names, real links, real photos - nothing invented. -->
+       ("it reveals more of what's already there"), these producers say it back in
+       their own words. Real names, real links, real photos - nothing invented.
+       One scrolling row (see .proof-rail); the bold in each quote marks the lines
+       worth catching on a skim. Quotes stay verbatim: bold only, never reworded. -->
   <section data-ms="social" class="mb-28">
     <div class="text-center mb-12">
       <p class="silk mb-3" style="color:var(--copper-lt)">In the wild</p>
@@ -1077,12 +1112,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <p class="text-lg md:text-xl max-w-3xl mx-auto leading-relaxed ink2 font-light"><b class="ink font-semibold">Hundreds of producers</b> are already exploring with Stride.</p>
     </div>
 
-    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-7">
+    <div class="proof-rail" id="proof-rail" tabindex="0" role="region" aria-roledescription="carousel" aria-label="What producers say about Stride">
 
       <!-- Oblium -->
       <figure class="proof-card panel rounded-2xl p-7 md:p-8 flex flex-col">
         <span class="block text-[42px] leading-[.6] mb-4" style="color:var(--violet-lt);opacity:.5" aria-hidden="true">&ldquo;</span>
-        <blockquote class="text-[17px] md:text-[18px] leading-relaxed ink2 flex-1">Stride is your best friend for sound design's happy accidents and complex modulations. It let you re-discover your entire plugins library in a new way, like if they were completely new instruments and tools, again.</blockquote>
+        <blockquote class="text-[17px] md:text-[18px] leading-relaxed ink2 flex-1">Stride is your best friend for sound design's <b>happy accidents</b> and <b>complex modulations</b>. It let you <b>re-discover your entire plugins library in a new way</b>, like if they were completely new instruments and tools, again.</blockquote>
         <figcaption class="mt-6 pt-5 border-t" style="border-color:var(--line)">
           <div class="flex items-center gap-4">
             <img src="assets/artist-oblium.jpg" alt="Oblium" width="62" height="62" loading="lazy"
@@ -1109,8 +1144,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <figure class="proof-card panel rounded-2xl p-7 md:p-8 flex flex-col">
         <span class="block text-[42px] leading-[.6] mb-4" style="color:var(--teal-lt);opacity:.5" aria-hidden="true">&ldquo;</span>
         <blockquote class="text-[17px] md:text-[18px] leading-relaxed ink2 flex-1 space-y-3">
-          <p>Stride really is a fun thing. I love that it has these movements that you easily can switch and adjust to your taste.</p>
-          <p>It makes modulation much fun. Kind of a controlled random chaos Pandora's box.</p>
+          <p>Stride really is a fun thing. I love that it has these movements that <b>you easily can switch and adjust to your taste</b>.</p>
+          <p><b>It makes modulation much fun</b>. Kind of a controlled random chaos Pandora's box.</p>
           <p>I love that it helps you to create some nasty things even if you're kind of uninspired.</p>
         </blockquote>
         <figcaption class="mt-6 pt-5 border-t" style="border-color:var(--line)">
@@ -1131,7 +1166,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <!-- Andromeda Colt -->
       <figure class="proof-card panel rounded-2xl p-7 md:p-8 flex flex-col">
         <span class="block text-[42px] leading-[.6] mb-4" style="color:var(--copper-lt);opacity:.5" aria-hidden="true">&ldquo;</span>
-        <blockquote class="text-[17px] md:text-[18px] leading-relaxed ink2 flex-1">Stride really changes the sound design game for me. It makes it really fast and easy to add insane modulation to all my devices at once. Been getting crazy results playing around with it!</blockquote>
+        <blockquote class="text-[17px] md:text-[18px] leading-relaxed ink2 flex-1">Stride really <b>changes the sound design game</b> for me. It makes it really fast and easy to add <b>insane modulation to all my devices at once</b>. Been getting <b>crazy results</b> playing around with it!</blockquote>
         <figcaption class="mt-6 pt-5 border-t" style="border-color:var(--line)">
           <div class="flex items-center gap-4">
             <img src="assets/artist-andromeda-colt.jpg" alt="Andromeda Colt" width="62" height="62" loading="lazy"
@@ -1150,13 +1185,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
       <!-- Absalon. The descriptor is the artist's own wording from their SoundCloud
            profile ("IDM // Bass music // Glitch // Ambient"), not a genre invented here.
-           It used to carry lg:col-start-2 to centre a lone orphan on row two at 3-up;
-           with five cards row two holds TWO, so that rule would empty column one and
-           shove the pair right. Removed. The positioning goes with the POSITION, not
-           the artist, which is now the third time this has had to move. -->
+           Cards sit in one row now, so no card carries grid placement any more. -->
       <figure class="proof-card panel rounded-2xl p-7 md:p-8 flex flex-col">
         <span class="block text-[42px] leading-[.6] mb-4" style="color:var(--sage-lt);opacity:.5" aria-hidden="true">&ldquo;</span>
-        <blockquote class="text-[17px] md:text-[18px] leading-relaxed ink2 flex-1">As someone who usually couldn't be bothered with sound design sessions, Stride really inspired me to dive back into designing my own sounds. It hits the sweet spot by automating the tedious parts and supporting my creative workflow, freeing me up to create the craziest sounds.</blockquote>
+        <blockquote class="text-[17px] md:text-[18px] leading-relaxed ink2 flex-1">As someone who usually couldn't be bothered with sound design sessions, Stride really inspired me to <b>dive back into designing my own sounds</b>. It hits the sweet spot by <b>automating the tedious parts</b> and supporting my creative workflow, freeing me up to <b>create the craziest sounds</b>.</blockquote>
         <figcaption class="mt-6 pt-5 border-t" style="border-color:var(--line)">
           <div class="flex items-center gap-4">
             <img src="assets/artist-absalon.jpg" alt="Absalon" width="62" height="62" loading="lazy"
@@ -1186,7 +1218,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            anywhere verifiable, and inventing one for a real person is not on. -->
       <figure class="proof-card panel rounded-2xl p-7 md:p-8 flex flex-col">
         <span class="block text-[42px] leading-[.6] mb-4" style="color:var(--gold);opacity:.5" aria-hidden="true">&ldquo;</span>
-        <blockquote class="text-[17px] md:text-[18px] leading-relaxed ink2 flex-1">Stride gives me more chances to stumble into sounds I never would have built on purpose, without losing control of where they go. I can map a huge number of parameters, hear dozens of evolving possibilities incredibly fast, then keep, edit and push the ones that actually work. It turns complex modulation from something time-consuming into a fast, playable creative process. For anyone who loves experimental sound design and constantly asking &ldquo;what happens if I do this?&rdquo;, it's brilliant.</blockquote>
+        <blockquote class="text-[17px] md:text-[18px] leading-relaxed ink2 flex-1">Stride gives me more chances to <b>stumble into sounds I never would have built on purpose</b>, without losing control of where they go. I can map a huge number of parameters, <b>hear dozens of evolving possibilities incredibly fast</b>, then keep, edit and push the ones that actually work. It turns complex modulation from something time-consuming into a <b>fast, playable creative process</b>. For anyone who loves experimental sound design and constantly asking &ldquo;what happens if I do this?&rdquo;, <b>it's brilliant</b>.</blockquote>
         <figcaption class="mt-6 pt-5 border-t" style="border-color:var(--line)">
           <div class="flex items-center gap-4">
             <img src="assets/altwire-logo.png" alt="AltWire" width="118" height="20" loading="lazy"
@@ -1203,8 +1235,85 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </figcaption>
       </figure>
 
-
     </div>
+
+    <!-- Hidden until the script below finds more than one stop, so a page without
+         script shows only the row, which still scrolls on its own. -->
+    <div class="proof-nav" hidden>
+      <button type="button" class="proof-arrow" data-proof-step="-1" aria-controls="proof-rail" aria-label="Previous testimonials">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <div class="proof-dots" role="group" aria-label="Testimonial positions"></div>
+      <button type="button" class="proof-arrow" data-proof-step="1" aria-controls="proof-rail" aria-label="Next testimonials">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
+    <script>
+    // The arrows and dots move the row's own scroll. A "stop" is a scroll position that puts a
+    // card on the left edge, and how many exist depends on how many cards fit (three, two, or
+    // one plus a peek), so the dots are rebuilt whenever the row changes size. `aim` remembers
+    // where a click is heading while the smooth scroll is still moving, so two quick clicks
+    // advance two cards instead of landing twice on the same one.
+    (function () {
+      var rail = document.getElementById('proof-rail');
+      var nav = rail && rail.parentNode.querySelector('.proof-nav');
+      if (!rail || !nav) return;
+      var cards = rail.querySelectorAll('.proof-card');
+      var dots = nav.querySelector('.proof-dots');
+      var prev = nav.querySelector('[data-proof-step="-1"]');
+      var next = nav.querySelector('[data-proof-step="1"]');
+      var reduce = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+      var stops = 0, aim = -1, frame = 0, settle = 0;
+
+      function pitch() { return cards.length > 1 ? cards[1].offsetLeft - cards[0].offsetLeft : rail.clientWidth; }
+      function maxLeft() { return Math.max(0, rail.scrollWidth - rail.clientWidth); }
+      function current() {
+        var p = pitch();
+        return p > 0 ? Math.max(0, Math.min(stops - 1, Math.round(rail.scrollLeft / p))) : 0;
+      }
+      function go(i) {
+        aim = Math.max(0, Math.min(stops - 1, i));
+        rail.scrollTo({ left: Math.min(aim * pitch(), maxLeft()), behavior: reduce ? 'auto' : 'smooth' });
+      }
+      function paint() {
+        frame = 0;
+        var at = current(), left = rail.scrollLeft, max = maxLeft();
+        prev.disabled = left <= 2;
+        next.disabled = left >= max - 2;
+        for (var i = 0; i < dots.children.length; i++) {
+          dots.children[i].setAttribute('aria-current', i === at ? 'true' : 'false');
+        }
+      }
+      function build() {
+        var p = pitch();
+        var n = p > 0 ? Math.round(maxLeft() / p) + 1 : 1;
+        if (n !== stops) {
+          stops = n;
+          aim = -1;
+          dots.textContent = '';
+          for (var i = 0; i < n; i++) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'proof-dot';
+            b.setAttribute('aria-label', 'Show position ' + (i + 1) + ' of ' + n);
+            b.onclick = (function (k) { return function () { go(k); }; })(i);
+            dots.appendChild(b);
+          }
+        }
+        nav.hidden = stops < 2;
+        paint();
+      }
+      prev.addEventListener('click', function () { go((aim >= 0 ? aim : current()) - 1); });
+      next.addEventListener('click', function () { go((aim >= 0 ? aim : current()) + 1); });
+      rail.addEventListener('scroll', function () {
+        if (!frame) frame = requestAnimationFrame(paint);
+        clearTimeout(settle);
+        settle = setTimeout(function () { aim = -1; paint(); }, 180);
+      }, { passive: true });
+      if (window.ResizeObserver) new ResizeObserver(build).observe(rail);
+      else window.addEventListener('resize', build);
+      window.addEventListener('load', build);
+      build();
+    })();
+    </script>
   </section>
 
   <!-- ───────────────── HOW IT WORKS — interactive Stride VST explainer ───────────────── -->
