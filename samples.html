@@ -102,7 +102,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
                         var t = li && li.formattedTotals && li.formattedTotals.total;
                         try {
                             var cur = res.data.currencyCode, minor = parseInt((li.totals || {}).total, 10), digits = 2;
-                            try { digits = new Intl.NumberFormat(undefined, { style: 'currency', currency: cur }).resolvedOptions().minimumFractionDigits; } catch (e3) {}
+                            try { digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: cur }).resolvedOptions().minimumFractionDigits; } catch (e3) {}
                             if (cur && isFinite(minor) && minor > 0) collection = { value: minor / Math.pow(10, digits), currency: cur };
                         } catch (e3) {}
                         if (!t) return;

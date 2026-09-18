@@ -570,10 +570,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       if (!isFinite(m) || !currency) return '';
       if (currency === 'USD') return '$' + (m % 100 === 0 ? (m / 100).toFixed(0) : (m / 100).toFixed(2));
       try {
-        var digits = new Intl.NumberFormat(undefined, { style: 'currency', currency: currency })
+        var digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: currency })
           .resolvedOptions().minimumFractionDigits;
         var whole = m % Math.pow(10, digits) === 0;
-        return new Intl.NumberFormat(undefined, {
+        return new Intl.NumberFormat('en-US', {
           style: 'currency', currency: currency,
           minimumFractionDigits: whole ? 0 : digits, maximumFractionDigits: digits
         }).format(m / Math.pow(10, digits));
@@ -585,7 +585,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       try {
         if (!window.StrideTrack || !currency) return;
         var digits = 2;
-        try { digits = new Intl.NumberFormat(undefined, { style: 'currency', currency: currency }).resolvedOptions().minimumFractionDigits; } catch (e) {}
+        try { digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: currency }).resolvedOptions().minimumFractionDigits; } catch (e) {}
         var v = Number(minor) / Math.pow(10, digits);
         if (isFinite(v) && v > 0) StrideTrack.push('begin_checkout', { value: v, currency: currency });
       } catch (e) {}

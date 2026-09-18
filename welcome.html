@@ -654,7 +654,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           } catch (e) { note(FAILED); return; }
           if (kind === 'collection' && window.StrideTrack && shown && shown.currency) {
             try {
-              var digits = new Intl.NumberFormat(undefined, { style: 'currency', currency: shown.currency })
+              var digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: shown.currency })
                 .resolvedOptions().minimumFractionDigits;
               var v = Number(shown.amount) / Math.pow(10, digits);
               if (isFinite(v) && v > 0) StrideTrack.push('begin_checkout', { value: v, currency: shown.currency });
@@ -692,7 +692,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     // What this page's purchase tracking reports if the checkout completes before Paddle's own
     // figure arrives: the money on screen.
     try {
-      var digits = new Intl.NumberFormat(undefined, { style: 'currency', currency: offer.currency })
+      var digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: offer.currency })
         .resolvedOptions().minimumFractionDigits;
       var major = Number(offer.amount) / Math.pow(10, digits);
       if (isFinite(major) && major > 0) ssSet('stride_checkout_value', JSON.stringify({ value: major, currency: offer.currency }));

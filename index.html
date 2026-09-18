@@ -2084,7 +2084,20 @@ function openBuy() { toggleBuyModal(); }
     }
     function strideAddonActive()    { return strideAddonOn && strideAddonAvailable(); }
     function strideCheckoutUrl()    { return strideAddonActive() ? STRIDE_COLLECTION_CHECKOUT_URL : STRIDE_CHECKOUT_URL; }
-    function strideOrderTotal()     { return strideAddonActive() ? STRIDE_PRICE + COLLECTION_ADDON_PRICE : STRIDE_PRICE; }
+    // What the order costs THIS visitor, in the currency they will be charged in. Paddle's own
+    // per-item amounts when it has priced them, so the page can never print a total the checkout
+    // does not take: the Collection is CA$34.99 in Canada and GBP 18.99 in the UK, not 24.99
+    // scaled by Stride's rate, which is what this used to do (page GBP 111.46, charge 107.99).
+    function strideOrderTotal() {
+        var stride = strideLocal ? strideLocal.stride : STRIDE_PRICE;
+        return stride + (strideAddonActive() ? strideCollectionPrice() : 0);
+    }
+
+    // The Collection's own price in that currency, Paddle's where we have it.
+    function strideCollectionPrice() {
+        if (strideLocal && strideLocal.collection != null) return strideLocal.collection;
+        return strideFx ? COLLECTION_ADDON_PRICE * strideFx.rate : COLLECTION_ADDON_PRICE;
+    }
 
     // ONE cart for every checkout path. The wallet and the overlay used to build
     // their item lists separately: the overlay added the Collection, the express
@@ -2108,37 +2121,43 @@ function openBuy() { toggleBuyModal(); }
 
     // What this visitor was actually quoted, in the currency they were quoted it in.
     // Both Meta events read from here so they can never disagree with each other or
-    // with the price on screen. strideFx is set once Paddle has priced this visitor;
-    // until then the numbers are the dollar list prices, exactly as before.
+    // with the price on screen. Already in the charged currency, so nothing is scaled.
     function strideOrderValue() {
-        var v = strideOrderTotal();
-        if (strideFx) {
-            return { value: Math.round(v * strideFx.rate * 100) / 100,
-                     currency: strideFx.currency };
-        }
-        return { value: v, currency: 'USD' };
+        return { value: Math.round(strideOrderTotal() * 100) / 100,
+                 currency: strideLocal ? strideLocal.currency : 'USD' };
     }
 
-    // Paddle charges in the visitor's own currency, so the page has to print that
-    // currency rather than dollars. strideFx is filled once from Paddle.PricePreview.
-    // Until it is, and if Paddle.js never loads, every number prints exactly as before.
-    let strideFx = null;          // { rate, currency }
+    // Paddle charges in the visitor's own currency, so the page has to print that currency
+    // rather than dollars. Both are filled once from Paddle.PricePreview. Until they are, and
+    // if Paddle.js never loads, every number prints exactly as before.
+    let strideLocal = null;       // { currency, stride, collection } what Paddle charges
+    let strideFx = null;          // { rate, currency } only for OUR list prices, see strideMoney
 
-    function strideMoney(v) {
-        if (strideFx) {
+    // A price in the charged currency, printed as it is. The locale is fixed rather than the
+    // visitor's: en-CA and en-AU print their own dollar as a bare "$", so a Canadian read
+    // "$139" and could not tell it from US dollars, and he-IL printed a bidi-mangled shekel.
+    function strideMoneyExact(v) {
+        var cur = strideLocal ? strideLocal.currency : (strideFx ? strideFx.currency : '');
+        if (cur) {
             try {
-                var f = new Intl.NumberFormat(undefined, { style: 'currency', currency: strideFx.currency });
-                var digits = f.resolvedOptions().minimumFractionDigits;
-                var n = v * strideFx.rate;
-                var whole = Math.round(n * Math.pow(10, digits)) % Math.pow(10, digits) === 0;
-                return new Intl.NumberFormat(undefined, {
-                    style: 'currency', currency: strideFx.currency,
+                var digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: cur })
+                    .resolvedOptions().minimumFractionDigits;
+                var whole = Math.round(v * Math.pow(10, digits)) % Math.pow(10, digits) === 0;
+                return new Intl.NumberFormat('en-US', {
+                    style: 'currency', currency: cur,
                     minimumFractionDigits: whole ? 0 : digits,
                     maximumFractionDigits: digits
-                }).format(n);
+                }).format(v);
             } catch (e) { /* fall through to dollars */ }
         }
         return '$' + (Math.round(v * 100) % 100 === 0 ? v.toFixed(0) : v.toFixed(2));
+    }
+
+    // One of OUR list prices ($129, $35), converted for display. Paddle holds no list price to
+    // ask for, so these scale by the rate, and they are floored to a whole unit: a rounded-up
+    // anchor would claim a bigger discount than the real one.
+    function strideMoney(v) {
+        return strideMoneyExact(strideFx ? Math.floor(v * strideFx.rate) : v);
     }
 
     function strideToggleAddon(ev) {
@@ -2176,7 +2195,7 @@ function openBuy() { toggleBuyModal(); }
         const rows = document.querySelectorAll('.addon');
         if (!rows.length) return;
         const on = strideAddonActive();
-        const money = strideMoney(COLLECTION_ADDON_PRICE);
+        const money = strideMoneyExact(strideCollectionPrice());
 
         // EVERY bump on the page, not just the hero's. The pricing panel further down
         // is where a scroller actually decides, and it used to sit there with a static
@@ -2218,18 +2237,21 @@ function openBuy() { toggleBuyModal(); }
             }
         });
 
-        const total = strideMoney(strideOrderTotal());
+        const total = strideMoneyExact(strideOrderTotal());
         document.querySelectorAll('.sd-total').forEach(function (el) { el.textContent = total; });
 
         // The struck price and the Save seal follow the order too. Stride alone is
         // $129 struck and Save $30; with the Collection in, the original value is
         // $129 + $35 = $164 struck against $123.99, Save $40. Both stay visible.
         const listTotal = on ? STRIDE_LIST_PRICE + COLLECTION_VALUE : STRIDE_LIST_PRICE;
+        // The saving is the anchor on screen minus what is actually charged, so the three
+        // numbers in the price line always add up, whatever currency they are in.
+        const listLocal = strideFx ? Math.floor(listTotal * strideFx.rate) : listTotal;
         document.querySelectorAll('.sd-price-box').forEach(function (box) {
             const struck = box.querySelector('[style*="line-through"]');
             const seal = box.querySelector('.seal2');
-            if (struck) struck.textContent = strideMoney(listTotal);
-            if (seal) seal.textContent = 'Save ' + strideMoney(Math.round(listTotal - strideOrderTotal()));
+            if (struck) struck.textContent = strideMoneyExact(listLocal);
+            if (seal) seal.textContent = 'Save ' + strideMoneyExact(Math.round(listLocal - strideOrderTotal()));
         });
 
         // What the price buys, named rather than implied.
@@ -2265,30 +2287,41 @@ function openBuy() { toggleBuyModal(); }
 
     document.addEventListener('DOMContentLoaded', strideSyncAddon);
 
-    // Ask Paddle what THIS visitor is charged, then re-print the page in that currency.
-    // Only the rate and the currency are taken: every number stays derived from
-    // STRIDE_PRICE, so the struck list price and the Save seal scale with it and cannot
-    // contradict the total. A failure here leaves the dollar prices untouched.
+    // Ask Paddle what THIS visitor is charged for BOTH things the page sells, then re-print the
+    // page with those numbers. It asks for two prices because the Collection has its own
+    // country prices (CA$34.99, GBP 18.99): deriving it from Stride's rate printed 22.47 where
+    // the checkout charged 18.99. This is a price PREVIEW, not a cart, and it opens nothing.
+    // A failure here leaves the dollar prices untouched.
     function strideLocalizePrices() {
         if (!stridePaddleReady()) return;
         try {
-            Paddle.PricePreview({ items: [{ priceId: PADDLE_PRICE_STRIDE, quantity: 1 }] })
+            Paddle.PricePreview({ items: [{ priceId: PADDLE_PRICE_STRIDE, quantity: 1 },
+                                          { priceId: PADDLE_PRICE_COLLECTION, quantity: 1 }] })
                 .then(function (res) {
                     var d = (res && res.data) || {};
-                    var li = (((d.details || {}).lineItems) || [])[0];
-                    if (!li) return;
-                    var cur = d.currencyCode || (li.totals || {}).currencyCode;
-                    var minor = parseInt((li.totals || {}).total, 10);
-                    if (!cur || !isFinite(minor)) return;
+                    var lines = ((d.details || {}).lineItems) || [];
+                    var cur = d.currencyCode || ((lines[0] || {}).totals || {}).currencyCode;
+                    if (!cur) return;
                     var digits = 2;
                     try {
-                        digits = new Intl.NumberFormat(undefined, { style: 'currency', currency: cur })
+                        digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: cur })
                             .resolvedOptions().minimumFractionDigits;
                     } catch (e) {}
-                    var major = minor / Math.pow(10, digits);
-                    if (!major) return;
-                    if (cur === 'USD' && Math.abs(major - STRIDE_PRICE) < 0.005) return;
-                    strideFx = { rate: major / STRIDE_PRICE, currency: cur };
+                    var scale = Math.pow(10, digits);
+                    var amounts = {};
+                    lines.forEach(function (li) {
+                        var id = ((li.price || {}).id) || '';
+                        var minor = parseInt((li.totals || {}).total, 10);
+                        if (id && isFinite(minor)) amounts[id] = minor / scale;
+                    });
+                    var stride = amounts[PADDLE_PRICE_STRIDE];
+                    if (!stride) return;
+                    var coll = amounts[PADDLE_PRICE_COLLECTION];
+                    // Dollars at the list price is what the page already prints.
+                    if (cur === 'USD' && Math.abs(stride - STRIDE_PRICE) < 0.005
+                        && (coll == null || Math.abs(coll - COLLECTION_ADDON_PRICE) < 0.005)) return;
+                    strideLocal = { currency: cur, stride: stride, collection: coll == null ? null : coll };
+                    strideFx = { rate: stride / STRIDE_PRICE, currency: cur };
                     strideSyncAddon();
                 }).catch(function () {});
         } catch (e) {}

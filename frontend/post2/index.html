@@ -535,7 +535,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       // The Stride transaction, kept before Paddle overwrites stride_last_txn.
       ssSet('stride_offer_txn', strideTxn);
       var digits = 2;
-      try { digits = new Intl.NumberFormat(undefined, { style: 'currency', currency: offer.currency }).resolvedOptions().minimumFractionDigits; } catch (e) {}
+      try { digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: offer.currency }).resolvedOptions().minimumFractionDigits; } catch (e) {}
       var major = Number(offer.amount) / Math.pow(10, digits);
       if (isFinite(major) && major > 0) {
         ssSet('stride_checkout_value', JSON.stringify({ value: major, currency: offer.currency }));
