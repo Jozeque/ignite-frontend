@@ -647,6 +647,74 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .m-exp{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
   .m-more{display:none}
 
+  /* ══════════════════════════════════════════════════════════════════════════
+     DESKTOP HERO (1024px up), the 2026-09-17 composition: the copy beside the video,
+     then one buy bar across the page (price, the Collection add-on, the two buttons).
+     Position and layout only: the hero's words and elements are exactly the ones the
+     phone shows. Every rule sits inside min-width:1024px and the wrappers it styles
+     carry nothing below that, so tablet and phone render as they did.
+     Selectors lead with section[data-ms="hero"] because Tailwind's CDN injects its
+     classes after this sheet, and a bare class would lose the tie to .flex or .mb-4.
+     ══════════════════════════════════════════════════════════════════════════ */
+  @media (min-width:1024px){
+    section[data-ms="hero"] .hero-cols{display:grid;
+      grid-template-columns:minmax(0,35fr) minmax(0,65fr);
+      grid-template-areas:"text video" "buy buy";
+      column-gap:2rem;row-gap:2rem;align-items:center}
+    /* The left column's two bands become grid items of their own. */
+    section[data-ms="hero"] .hero-copy{display:contents}
+    section[data-ms="hero"] .hero-text{grid-area:text}
+    section[data-ms="hero"] .hero-visual{grid-area:video}
+    /* Sized to the column, so "automation engine that" holds one line and the copper
+       phrase starts the next, as in the comp (the column is 35% of the container). */
+    section[data-ms="hero"] .hero-text h1{font-size:clamp(36px,calc(3.4vw - 3px),45px);line-height:1.06}
+    section[data-ms="hero"] .hero-text .hero-sub{margin-bottom:1.6rem}
+    section[data-ms="hero"] .hero-spec{margin-bottom:0}
+
+    /* The buy bar. */
+    section[data-ms="hero"] .hero-buy{grid-area:buy;display:grid;position:relative;
+      grid-template-columns:auto minmax(0,1fr) 350px;grid-template-areas:"price addon cta";
+      align-items:center;padding:18px 34px;border:1px solid var(--line);border-radius:20px;
+      background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.16)),var(--panel);
+      box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 26px 54px -34px rgba(0,0,0,.95)}
+    section[data-ms="hero"] .hero-buy-price{grid-area:price;padding:0 30px 0 8px}
+    section[data-ms="hero"] .hero-price-line{margin:0 0 .7rem;gap:.9rem}
+    section[data-ms="hero"] .hero-buy .hero-price{font-size:54px}
+    section[data-ms="hero"] .hero-buy .fold-strike{font-size:17px}
+    section[data-ms="hero"] .hero-buy .seal2{font-size:11px;padding:5px 10px}
+    section[data-ms="hero"] .hero-included{margin:0}
+    section[data-ms="hero"] .hero-included li{font-size:15px}
+    section[data-ms="hero"] .hero-buy-addon{grid-area:addon;align-self:stretch;display:flex;
+      align-items:center;justify-content:center;padding:0 24px;
+      border-left:1px solid var(--line);border-right:1px solid var(--line)}
+    section[data-ms="hero"] .hero-buy-addon:has(> .addon[hidden]){border-color:transparent}
+    section[data-ms="hero"] .hero-buy-addon .addon{margin:0;width:100%;max-width:560px;padding:12px 14px}
+    /* 350px less the 30px gutter leaves the wallet 320px, more than the 306px it once overflowed. */
+    section[data-ms="hero"] .hero-cta{grid-area:cta;padding-left:30px}
+    section[data-ms="hero"] .hero-cta > *{max-width:none}
+    section[data-ms="hero"] .hero-cta > a.btn-copper{min-height:50px;font-size:17px;letter-spacing:.04em}
+    /* The trial button sits about a third shorter than GET STRIDE, as in the comp. */
+    section[data-ms="hero"] .hero-cta > a.btn-ghost{min-height:34px;height:34px;padding-top:0;padding-bottom:0;
+      font-size:11.5px;letter-spacing:.14em;border-radius:10px}
+
+    /* The wallet (Apple Pay / Google Pay) keeps its place between the two buttons. It is the
+       tallest thing in the bar when it renders: 80px of cropped frame (the button sits at
+       frame y 26..70) plus two lines of consent, so the bar stands taller on the devices that
+       get one. Paddle draws the button 10px in from each side of its frame, so the consent
+       line is padded to match it. */
+    section[data-ms="hero"] .hero-cta{gap:.5rem}
+    section[data-ms="hero"] .express-slot .paddle-express-terms{padding:0 10px}
+  }
+  /* 1024 to 1279px has no room for three bar segments in a row: the add-on takes its own
+     row under the price and the buttons. */
+  @media (min-width:1024px) and (max-width:1279.98px){
+    section[data-ms="hero"] .hero-buy{grid-template-columns:minmax(0,1fr) 350px;
+      grid-template-areas:"price cta" "addon addon";row-gap:20px}
+    section[data-ms="hero"] .hero-buy-addon{border-left:0;border-right:0;
+      border-top:1px solid var(--line);padding:20px 0 0}
+    section[data-ms="hero"] .hero-buy-addon .addon{max-width:none}
+  }
+
   @media (max-width:899.98px){
 
     /* -- ORDER -------------------------------------------------------------
@@ -942,8 +1010,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <path d="M0,450 L0,490 Q90,470 180,440 L180,490 Q270,470 360,440 L360,490 Q450,470 540,440 L540,490 Q630,470 720,440 L720,490 Q810,470 900,440 L900,490 Q990,470 1080,440 L1080,490 Q1170,470 1260,440 L1260,490 Q1330,475 1400,450" stroke="#9a8cbb" stroke-width="1.5"/>
     </svg>
 
+    <!-- Desktop (1024px up) reads as two bands: the copy beside the video, then one buy bar
+         across the page. The wrappers below carry no style under 1024px, so the phone renders
+         exactly as before; on desktop .hero-copy dissolves into the .hero-cols grid
+         (display:contents) and .hero-buy becomes the bar. -->
     <div class="relative flex flex-col lg:flex-row lg:items-center gap-10 lg:gap-12 hero-cols">
-      <div class="lg:flex-[38] min-w-0">
+      <div class="lg:flex-[38] min-w-0 hero-copy">
+        <div class="hero-text">
         <div class="silk mb-4 hero-eyebrow">Sound Design Engine</div>
         <h1 class="text-5xl md:text-6xl lg:text-[40px] xl:text-[46px] mb-4 leading-[1.06]">
           A smart, musical automation engine that <span class="brand">pushes the limits of sound design.</span>
@@ -956,6 +1029,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <p class="text-[12px] leading-relaxed mb-6 max-w-xl hero-spec">
           <span class="font-black uppercase tracking-[0.14em]" style="color:var(--copper-lt)">VST3 + AU + Ableton Devices</span><span class="hero-spec-b"> &middot; Audio In for guitar, vocals, hardware &amp; recordings</span>
         </p>
+        </div>
+        <div class="hero-buy">
+        <div class="hero-buy-price">
         <!-- The price rail. What used to be a bordered plate with a NEW PRICE tape is one
              line above the buttons, so the copy column is exactly as tall as the video
              beside it. The two CTA anchors below are untouched. -->
@@ -968,6 +1044,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <ul class="vlist vlist-2 hero-included">
           <li><span class="d">&#9679;</span><span><b>Stride VST + StrideBridge</b> included</span></li>
         </ul>
+        </div>
+        <div class="hero-buy-addon">
         <div id="addon" class="addon" hidden>
           <!-- A purpose-built 168px PNG rather than the 900px sleeve JPG: this slot is 42 CSS px,
                so 168 is pixel-exact at 4x and the file is a third of the weight. The 900px JPG
@@ -997,6 +1075,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <audio id="addon-audio" preload="none" src="assets/packs/collection-teaser.mp3"></audio>
           </div>
         </div>
+        </div>
         <div class="flex flex-wrap items-center gap-2.5 hero-cta">
           <a onclick="openBuy()" class="btn-copper text-[15px] py-3 px-6 rounded-xl">GET STRIDE &middot; $99  <span>&rarr;</span></a>
           <!-- Apple Pay / Google Pay, one tap, no form, between the two buttons.
@@ -1017,12 +1096,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </div>
           <a href="/try/" class="btn-ghost text-[11px] uppercase tracking-[0.1em] py-3 px-5 rounded-xl">Explore free for 24h</a>
         </div>
+        </div>
 
       </div>
 
       <!-- flagship visual: the Stride VST window. The walkthrough plays right here,
            in the frame: clicking it never sends anyone off to YouTube. -->
-      <div class="lg:flex-[62] w-full min-w-0">
+      <div class="lg:flex-[62] w-full min-w-0 hero-visual">
         <div class="panel screws p-2 md:p-3 pt-7 block relative group" style="border-color:rgba(198,113,43,.28)"><span class="s s1"></span><span class="s s2"></span>
           <!-- stage: the loop sets the box size (16:9, same as the old thumbnail) and
                the walkthrough player drops in on top of it, so hitting play does not
