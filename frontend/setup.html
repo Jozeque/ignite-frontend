@@ -42,6 +42,35 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta property="og:description" content="Install Stride and StrideBridge, then map, draw and press play.">
 <meta property="og:site_name" content="Stride">
 <meta name="theme-color" content="#141310">
+<!-- Meta Pixel. The purchase welcome mail sends every new buyer here, so without it the warmest
+     audience there is, people who just bought, never reached Meta (Audit 08, 8.3). PageView
+     only, with the same first-party visitor id as the landing page (cookie stride_xid). -->
+<script>
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+var _strideXid = (function () {
+    try {
+        var m = document.cookie.match(/(?:^|; )stride_xid=([^;]*)/);
+        if (m) return decodeURIComponent(m[1]);
+        var id = (self.crypto && crypto.randomUUID) ? crypto.randomUUID()
+            : (Date.now().toString(36) + Math.random().toString(36).slice(2, 12));
+        document.cookie = 'stride_xid=' + encodeURIComponent(id) +
+            '; max-age=' + (180 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+        return id;
+    } catch (e) { return ''; }
+})();
+fbq('init', '952457524222772', _strideXid ? { external_id: _strideXid } : {});
+fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none"
+src="https://www.facebook.com/tr?id=952457524222772&ev=PageView&noscript=1"
+/></noscript>
 
 <script src="https://cdn.tailwindcss.com"></script>
 <script>

@@ -3,6 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+    // ?gift=<token> is the Discovery Pass gift from the last-hours mail (Audit 08, A6): Stride
+    // with the Experimental Collection included. The token is the only thing that opens that
+    // checkout, so it is kept for the gift script at the end of the page and taken off the URL
+    // BEFORE any tag here reads it (GA4, Clarity, the pixel and the server PageView all record
+    // the address). The rest of the query (utm, fbclid, ad_id) stays for them.
+    // It must stay the first script in <head>.
+    (function () {
+      try {
+        var u = new URL(window.location.href);
+        if (!u.searchParams.has('gift')) return;
+        var t = (u.searchParams.get('gift') || '').trim().toLowerCase();
+        if (/^[0-9a-f]{32}$/.test(t)) window.STRIDE_GIFT = t;
+        u.searchParams.delete('gift');
+        history.replaceState(null, '', u.pathname + u.search + u.hash);
+      } catch (e) {}
+    })();
+    </script>
 <!-- Google Tag Manager -->
 <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
@@ -2794,6 +2812,118 @@ function openBuy() { toggleBuyModal(); }
         })
         .catch(() => { errorEl.textContent = 'Could not send. Try again in a moment, or email home@stridehub.io directly.'; errorEl.classList.remove('hidden'); btn.disabled = false; btn.textContent = 'Send Message'; });
     }
+</script>
+
+<script>
+    // ── The Discovery Pass gift (Audit 08, A6) ─────────────────────────────────
+    // The head script kept ?gift=<token>. The backend checks the gift (whose it is, that it is
+    // still open, that Stride is not already theirs) and creates the checkout: Stride at this
+    // visitor's own price, with the Experimental Collection as a second line at 0. This script
+    // only opens it, once, and keeps a bar at the top so a closed overlay can be reopened.
+    // It never touches the buy form or the regular checkout.
+    const STRIDE_GIFT_COPY = {
+        open: 'Your gift is open{until}: Stride with the Experimental Collection included.',
+        expired: 'Your gift has ended, but Stride is right here.',
+        used: 'This gift is already yours. Your key is in your inbox.',
+        owned: 'Stride is already yours. Your key is in your inbox.',
+        failed: "Your gift didn't open this time. Reload the page to try again, or reply to the email."
+    };
+    let strideGiftTxn = '';
+
+    function strideGiftUntil(ms) {
+        try {
+            if (!ms) return '';
+            // English, like the sentence it sits in; the visitor's own clock.
+            return ' until ' + new Intl.DateTimeFormat('en', {
+                weekday: 'short', hour: 'numeric', minute: '2-digit' }).format(new Date(ms));
+        } catch (e) { return ''; }
+    }
+
+    function strideGiftBar(kind, untilMs) {
+        try {
+            var bar = document.getElementById('stride-gift-bar');
+            if (!bar) {
+                bar = document.createElement('div');
+                bar.id = 'stride-gift-bar';
+                bar.setAttribute('role', 'status');
+                bar.style.cssText = 'position:relative;z-index:40;display:flex;flex-wrap:wrap;align-items:center;'
+                    + 'justify-content:center;gap:10px 16px;padding:12px 16px;background:#1d1b16;'
+                    + 'border-bottom:1px solid rgba(221,154,82,.35);color:#ece4d6;'
+                    + "font:500 14px/1.45 'Outfit',sans-serif;text-align:center";
+                var text = document.createElement('span');
+                text.id = 'stride-gift-text';
+                var btn = document.createElement('button');
+                btn.id = 'stride-gift-open';
+                btn.type = 'button';
+                btn.textContent = 'Open my gift';
+                btn.style.cssText = 'background:linear-gradient(180deg,#e58a2e,#c6712b);color:#1c1206;'
+                    + 'font-family:inherit;font-weight:800;font-size:13px;line-height:1;'
+                    + 'letter-spacing:.03em;border:0;border-radius:10px;'
+                    + 'padding:9px 14px;cursor:pointer';
+                btn.addEventListener('click', function () { strideGiftOpen(); });
+                bar.appendChild(text);
+                bar.appendChild(btn);
+                document.body.insertBefore(bar, document.body.firstChild);
+            }
+            var copy = STRIDE_GIFT_COPY[kind] || STRIDE_GIFT_COPY.failed;
+            document.getElementById('stride-gift-text').textContent = copy.replace('{until}', strideGiftUntil(untilMs));
+            document.getElementById('stride-gift-open').style.display = (kind === 'open') ? '' : 'none';
+        } catch (e) {}
+    }
+
+    function strideGiftOpen() {
+        if (!strideGiftTxn || !stridePaddleReady()) return false;
+        try {
+            // One checkout instance per page: the express button's inline one steps aside,
+            // exactly as it does for the buy form.
+            strideExpressLive = false;
+            try { Paddle.Checkout.close(); } catch (e) {}
+            Paddle.Checkout.open({
+                transactionId: strideGiftTxn,
+                settings: {
+                    displayMode: 'overlay',
+                    variant: 'one-page',
+                    theme: 'dark',
+                    successUrl: PADDLE_SUCCESS_URL
+                }
+            });
+            return true;
+        } catch (e) { return false; }
+    }
+
+    function strideGiftStart() {
+        var token = window.STRIDE_GIFT;
+        if (!token || CHECKOUT_PROVIDER !== 'paddle') return;
+        // The same ad markers the express button hands its checkout, so a gift sale keeps its ad.
+        var body = strideExpressCustomData();
+        body.action = 'gift_checkout';
+        body.token = token;
+        fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        }).then(function (r) { return r.json(); }).then(function (res) {
+            if (!res || !res.ok || !res.transaction_id) {
+                var st = res && res.status;
+                strideGiftBar((st === 'expired' || st === 'used' || st === 'owned') ? st : 'failed');
+                return;
+            }
+            strideGiftTxn = String(res.transaction_id);
+            strideGiftBar('open', res.expires_at_ms);
+            if (!strideGiftOpen()) { strideGiftBar('failed'); return; }
+            // The checkout opened: the same moment of intent the buy form reports. The Collection
+            // is free, so the value is Stride's alone.
+            try {
+                var v = { value: Math.round((strideLocal ? strideLocal.stride : STRIDE_PRICE) * 100) / 100,
+                          currency: strideLocal ? strideLocal.currency : 'USD' };
+                if (window.fbq) fbq('track', 'InitiateCheckout', v);
+                if (window.StrideTrack) StrideTrack.push('begin_checkout', v);
+                sessionStorage.setItem('stride_checkout_value', JSON.stringify(v));
+            } catch (e) {}
+        }).catch(function () { strideGiftBar('failed'); });
+    }
+
+    document.addEventListener('DOMContentLoaded', strideGiftStart);
 </script>
 
 <script>
