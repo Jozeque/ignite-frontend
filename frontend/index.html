@@ -589,7 +589,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      :focus-visible keeps the keyboard path working (tab to the button, panel opens)
      without a mouse click counting as focus. strideToggleAddon also blurs on pointer
      activation, which covers browsers with no :has() support. */
-  .addon:hover .addon-tip,
+  /* Touch emulates hover on the FIRST tap, so this rule threw the panel open over the row
+     at the exact moment a thumb hit Add. The Collection was being added correctly, but the
+     panel covering it made that impossible to see, so it read as "Add opens Hear it".
+     Gated on a device that genuinely hovers. Phones get the panel from the explicit tap
+     handler below, and the teaser from .addon-mini-play. */
+  @media (hover: hover) and (pointer: fine) {
+    .addon:hover .addon-tip{opacity:1;visibility:visible;transform:none}
+  }
   .addon.tip-open .addon-tip{opacity:1;visibility:visible;transform:none}
   /* Its OWN rule, not a third item in the list above. An unsupported selector
      invalidates the entire comma-separated rule it sits in, so putting :has() up
@@ -607,6 +614,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     text-transform:uppercase;letter-spacing:.1em}
   .addon-play:hover{border-color:rgba(216,201,176,.28)}
   .addon-play-i{color:var(--copper-lt);font-size:11px;line-height:1}
+  /* A preview within thumb reach. The hover panel and its Hear it button are a desktop
+     affordance, and on a phone that panel no longer opens by itself, so the teaser needs
+     its own control beside Add. Hidden wherever hover works, so the desktop row keeps the
+     exact geometry it has today. */
+  .addon-mini-play{display:none}
+  @media (hover: none){
+    .addon-mini-play{display:inline-flex;align-items:center;justify-content:center;
+      width:32px;height:32px;flex:none;padding:0;border-radius:999px;
+      border:1px solid var(--line);background:var(--raise);cursor:pointer}
+    .addon-mini-play .addon-play-i{font-size:10px}
+  }
 
 
   #m-cta{display:none}
@@ -1055,6 +1073,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="addon-t" id="addon-title"><span class="addon-lead">Add </span>Experimental Collection <span class="addon-p" id="addon-price">+$24.99</span><span class="addon-was" style="text-decoration:line-through;opacity:.6;font-weight:700;margin-left:.35rem">$35</span></div>
             <div class="addon-s">250+ sounds &middot; 15 <span class="addon-full">Ableton </span>Racks &middot; 4 <span class="addon-full">Stride</span>Chains</div>
           </div>
+          <button type="button" id="addon-mini-play" class="addon-mini-play"
+                  aria-label="Play a preview of the Experimental Collection"
+                  onclick="strideCollectionAudio(event)"><span class="addon-play-i"
+                  id="addon-mini-play-i" aria-hidden="true">&#9654;</span></button>
           <button type="button" id="addon-btn" class="addon-btn" aria-pressed="false"
                   onclick="strideToggleAddon(event)">+ Add<span class="addon-full"> to order</span></button>
 
@@ -2028,23 +2050,26 @@ document.addEventListener('DOMContentLoaded', function () {
 function strideCollectionAudio(e) {
   if (e) { e.preventDefault(); e.stopPropagation(); }   // never toggles the add-on itself
   var a = document.getElementById('addon-audio');
-  var icon = document.getElementById('addon-play-i');
   var label = document.getElementById('addon-play-t');
+  // BOTH play controls: the panel's Hear it and the phone's button beside Add. They drive
+  // one audio element, so whichever was tapped, both have to show the same state or the
+  // other one offers to play something that is already playing.
+  var icons = [document.getElementById('addon-play-i'),
+               document.getElementById('addon-mini-play-i')].filter(Boolean);
   if (!a) return;
+  var set = function (glyph, text) {
+    icons.forEach(function (i) { i.innerHTML = glyph; });
+    if (label) label.textContent = text;
+  };
   if (a.paused) {
     var p = a.play();
     if (p && p.catch) p.catch(function () {});
-    if (icon) icon.innerHTML = '&#10074;&#10074;';
-    if (label) label.textContent = 'Stop';
+    set('&#10074;&#10074;', 'Stop');
   } else {
     a.pause(); a.currentTime = 0;
-    if (icon) icon.innerHTML = '&#9654;';
-    if (label) label.textContent = 'Hear it';
+    set('&#9654;', 'Hear it');
   }
-  a.onended = function () {
-    if (icon) icon.innerHTML = '&#9654;';
-    if (label) label.textContent = 'Hear it';
-  };
+  a.onended = function () { set('&#9654;', 'Hear it'); };
 }
 
 /* Touch has no hover, so the panel would never open on a phone. First tap on the row
@@ -2054,7 +2079,9 @@ document.addEventListener('DOMContentLoaded', function () {
   var row = document.getElementById('addon');
   if (!row || !window.matchMedia || !window.matchMedia('(hover: none)').matches) return;
   row.addEventListener('click', function (ev) {
-    if (ev.target.closest('#addon-btn') || ev.target.closest('.addon-play')) return;
+    // Add and either play control are their own actions, never the panel's toggle.
+    if (ev.target.closest('#addon-btn') || ev.target.closest('.addon-play')
+        || ev.target.closest('.addon-mini-play')) return;
     ev.preventDefault();
     row.classList.toggle('tip-open');
   });
