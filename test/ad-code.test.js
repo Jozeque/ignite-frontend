@@ -117,6 +117,39 @@ for (const file of ['frontend/index.html', 'index.html']) {
   // the 129 anchor, and printing both together makes the page contradict itself.
   ok(where + 'the saving is still printed as Save, not a percentage',
      /'Save ' \+ strideMoneyExact/.test(src) && !/20% OFF/.test(src));
+
+  // ── the badge that names the code ────────────────────────────────────────
+  // Without it the discount is applied in silence and nothing tells the visitor the ad
+  // earned them anything.
+  ok(where + 'the badge is rendered for every price box',
+     /strideCodeBadge\(box\);/.test(src) && /function strideCodeBadge\(box\)/.test(src));
+  // − in the regex matches the literal minus sign the source carries.
+  ok(where + 'it names the code and what it was worth',
+     /strideCodeName\.toUpperCase\(\) \+ ' −' \+ strideCodePct \+ '% APPLIED'/.test(src));
+  ok(where + 'and is removed when no code is active, so the plain page is untouched',
+     /if \(!strideCodeName \|\| !strideCodePct\)/.test(src)
+     && /removeChild\(el\)/.test(src));
+  ok(where + 'it goes first in the box, above the price',
+     /box\.insertBefore\(el, box\.firstChild\)/.test(src));
+  ok(where + 'the badge has its own row and never reflows the price',
+     /\.sd-code-badge\{flex:0 0 100%/.test(src));
+
+  // The percentage is MEASURED, never written down, so it cannot claim a number Paddle
+  // is not charging. REKZ is restricted to the Stride price, so this is deliberately the
+  // Stride ratio and not the whole cart's.
+  ok(where + 'the percentage is measured from the two previews',
+     /var cut = list\.stride > 0 \? 1 - \(charged\.stride \/ list\.stride\) : 0;/.test(src)
+     && /strideCodePct = cut > 0\.005 \? Math\.round\(cut \* 100\) : 0;/.test(src));
+  ok(where + 'a discount Paddle refused prints no badge rather than 0%',
+     /cut > 0\.005/.test(src));
+  ok(where + 'no percentage is hardcoded anywhere near the badge',
+     !/strideCodePct = 20/.test(src));
+
+  // strideCodeName must be declared BEFORE the reader assigns it, or the reader throws
+  // on its own temporal dead zone and no code is ever read.
+  ok(where + 'strideCodeName is declared before the reader runs',
+     src.indexOf('let strideCodeName') < src.indexOf('strideCodeName = name;')
+     && src.indexOf('let strideCodeName') < src.indexOf('(function strideReadCode()'));
 }
 
 console.log('  ' + PASSED + ' passed, ' + FAILED + ' failed');
