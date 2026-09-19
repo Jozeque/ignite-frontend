@@ -508,14 +508,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     animation:emberPulse 2.6s ease-in-out infinite;flex:none}
   @keyframes emberPulse{0%,100%{opacity:.4}50%{opacity:1}}
   @media (prefers-reduced-motion:reduce){.pulse{animation:none;opacity:.8}}
-  /* The ad code, named on the price line. Its own row above the price (flex-basis:100%
-     inside the wrapping .sd-price-box), so it never competes with the number for space
-     and never reflows the struck anchor or the Save seal. Quieter than .seal2 on purpose:
-     it reports what happened, it is not the thing being sold. Hidden unless a code is
-     actually applied, so the plain page is byte-for-byte what it always was. */
-  .sd-code-badge{flex:0 0 100%;display:block;margin:0 0 2px;font-size:9px;font-weight:900;
-    letter-spacing:.13em;text-transform:uppercase;color:var(--ember);
-    text-shadow:0 1px 0 rgba(0,0,0,.35)}
   .seal2{display:inline-block;transform:rotate(-4deg);font-size:9px;font-weight:900;letter-spacing:.13em;
     text-transform:uppercase;color:#1c1206;background:linear-gradient(180deg,var(--ember),var(--copper));
     border-radius:6px;padding:4px 8px;border:1px solid rgba(255,210,150,.28);
@@ -2189,48 +2181,22 @@ function openBuy() { toggleBuyModal(); }
     // 99 -> 79.20 and 24.99 -> 19.99, in every currency, because it is a PERCENTAGE. A flat
     // discount would be refused outside its own currency (see sesh1o1 in the backend).
     const STRIDE_CODES = { rekz: 'dsc_01m2fxadt3hs2myt4k203tpj2t' };
-    const STRIDE_CODE_KEY = 'stride_code';
 
-    // The code for THIS visit. Taken from the URL when the ad brings one, then remembered
-    // for the tab so it survives a click into /how-it-works and back. Deliberately left ON
-    // the URL, unlike ?gift=: a discount code is public, and GA4 and the pixel seeing which
-    // ad code a session carried is worth having.
+    // The code for THIS page load, and ONLY from the URL the ad sent. Nothing is
+    // remembered: a visitor who arrives on a bare stridehub.io is organic traffic and must
+    // see the ordinary price, even if an ad brought them here earlier in the same tab.
+    // Storing it would leak the ad discount to everyone who ever clicked an ad once.
+    // Deliberately left ON the URL, unlike ?gift=: a discount code is public, and GA4
+    // seeing which code a visit carried is worth having.
     let strideCodeId = null;
-    // The name is kept so the price line can say WHICH code landed. The percentage is
-    // MEASURED later from the two previews rather than written down here, so the badge can
-    // never claim a number Paddle is not charging, and a new code needs no edit to say it.
-    let strideCodeName = '';
-    let strideCodePct = 0;
     (function strideReadCode() {
         var name = '';
         try {
             name = (new URL(window.location.href).searchParams.get('code') || '').trim().toLowerCase();
-            if (!name) name = (sessionStorage.getItem(STRIDE_CODE_KEY) || '').trim().toLowerCase();
         } catch (e) {}
         if (!name || !STRIDE_CODES[name]) return;
         strideCodeId = STRIDE_CODES[name];
-        strideCodeName = name;
-        try { sessionStorage.setItem(STRIDE_CODE_KEY, name); } catch (e) {}
     })();
-
-    // Name the code on the price line. Without this the discount is applied in silence:
-    // the price is simply lower and the Save seal bigger, and nothing tells a visitor the
-    // ad earned them anything. Says what the CODE did, and leaves the struck anchor and
-    // the Save total exactly as they were.
-    function strideCodeBadge(box) {
-        if (!box) return;
-        var el = box.querySelector('.sd-code-badge');
-        if (!strideCodeName || !strideCodePct) {
-            if (el && el.parentNode) el.parentNode.removeChild(el);
-            return;
-        }
-        if (!el) {
-            el = document.createElement('span');
-            el.className = 'sd-code-badge';
-            box.insertBefore(el, box.firstChild);
-        }
-        el.textContent = strideCodeName.toUpperCase() + ' −' + strideCodePct + '% APPLIED';
-    }
 
     let strideAddonOn = false;
 
@@ -2423,7 +2389,6 @@ function openBuy() { toggleBuyModal(); }
             const seal = box.querySelector('.seal2');
             if (struck) struck.textContent = strideMoneyExact(listLocal);
             if (seal) seal.textContent = 'Save ' + strideMoneyExact(Math.round(listLocal - strideOrderTotal()));
-            strideCodeBadge(box);
         });
 
         // What the price buys, named rather than implied.
@@ -2519,11 +2484,6 @@ function openBuy() { toggleBuyModal(); }
                             || Math.abs(charged.collection - COLLECTION_ADDON_PRICE) < 0.005)) return;
                     strideLocal = charged;
                     strideFx = { rate: list.stride / STRIDE_PRICE, currency: list.currency };
-                    // What the code was actually worth, read off the two previews. Rounded
-                    // to a whole percent and only kept when it is a real saving, so a code
-                    // Paddle silently refused prints no badge instead of claiming 0% off.
-                    var cut = list.stride > 0 ? 1 - (charged.stride / list.stride) : 0;
-                    strideCodePct = cut > 0.005 ? Math.round(cut * 100) : 0;
                     strideSyncAddon();
                 }).catch(function () {});
         } catch (e) {}

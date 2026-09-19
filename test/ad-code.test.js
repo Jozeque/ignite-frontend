@@ -1,15 +1,22 @@
 /* The ad discount code, /?code=rekz.
  *
- * An ad lands on the homepage with a code and the visitor must see the discounted price
+ * An ad lands on the homepage with a code and the visitor sees the discounted price
  * everywhere the page prints one, with the discount already inside the Paddle checkout so
- * there is nothing to type.
+ * there is nothing to type. ORGANIC traffic must see none of it.
  *
- * The behaviour against real Paddle is proven by the Playwright rigs (hero, add-on toggle
- * and the express mount). What can regress SILENTLY is the wiring, so that is what this
- * pins: the reader's rules, and the four places the discount has to reach. The nastiest of
- * them is strideFx: it converts our list anchors (129, 35) into the visitor's currency, so
- * deriving it from the DISCOUNTED preview makes the struck 129 follow the discount down to
- * 103 and the Save seal collapse. It must come from the undiscounted one.
+ * Two rules this pins, both learned the hard way on 2026-09-19:
+ *
+ *   1. The code comes from the URL and NOWHERE else. It was briefly remembered in
+ *      sessionStorage so it survived navigation; that leaked the ad price to anyone who
+ *      had clicked an ad once in that tab, including on a bare stridehub.io.
+ *   2. Nothing about the code may move the page. A badge announcing it was added above the
+ *      price and pushed the Collection's Add button down 19 to 28px at 390, 768 and 1280,
+ *      so clicking where Add used to be hit "Hear it" instead. The badge is gone. Any
+ *      future one must not occupy layout.
+ *
+ * And the oldest trap: strideFx converts our list anchors (129, 35) into the visitor's
+ * currency, so it MUST come from the UNDISCOUNTED preview. From the discounted one it
+ * reads 0.8 for a US visitor, redrawing the struck 129 as 103 and collapsing the seal.
  *
  *   node test/ad-code.test.js
  */
@@ -42,43 +49,46 @@ for (const file of ['frontend/index.html', 'index.html']) {
   ok(where + 'the reader runs as one self-contained block', !!block);
 
   if (block) {
+    // The stub records every storage call, so a reader that reaches for one fails here.
     const run = (href, stored) => {
+      const touched = [];
       const store = { stride_code: stored || null };
-      const ctx = {
-        window: {
-          location: { href: href },
-          sessionStorage: {
-            getItem: (k) => (k in store ? store[k] : null),
-            setItem: (k, v) => { store[k] = String(v); },
-          },
-        },
-        URL: URL,
-      };
+      const shim = (kind) => ({
+        getItem: (k) => { touched.push(kind + '.getItem:' + k); return (k in store ? store[k] : null); },
+        setItem: (k, v) => { touched.push(kind + '.setItem:' + k); store[k] = String(v); },
+        removeItem: (k) => { touched.push(kind + '.removeItem:' + k); delete store[k]; },
+      });
+      const ctx = { window: { location: { href: href } }, URL: URL, document: { cookie: '' } };
+      ctx.window.sessionStorage = shim('session');
+      ctx.window.localStorage = shim('local');
       ctx.sessionStorage = ctx.window.sessionStorage;
+      ctx.localStorage = ctx.window.localStorage;
       vm.createContext(ctx);
-      // The block declares strideCodeId itself, so it runs as-is.
       vm.runInContext(block[0], ctx);
-      const id = vm.runInContext('strideCodeId', ctx);
-      return { id: id, stored: store.stride_code };
+      return { id: vm.runInContext('strideCodeId', ctx), touched: touched, stored: store.stride_code };
     };
 
-    const hit = run('https://stridehub.io/?code=rekz&utm_source=ig');
+    const hit = run('https://stridehub.io/?code=rekz&utm_source=ig&ad_id=120254172571240440');
     ok(where + 'a rekz landing resolves to the discount', hit.id === REKZ, String(hit.id));
-    ok(where + 'and is remembered for the tab', hit.stored === 'rekz');
-
     ok(where + 'the code is case and space insensitive',
        run('https://stridehub.io/?code=%20REKZ%20').id === REKZ);
-
-    const miss = run('https://stridehub.io/?code=notarealcode');
-    ok(where + 'an unknown code is ignored, never an error', miss.id === null);
-    ok(where + 'and is NOT remembered', miss.stored === null);
-
-    ok(where + 'a plain landing discounts nothing',
+    ok(where + 'an unknown code is ignored, never an error',
+       run('https://stridehub.io/?code=notarealcode').id === null);
+    ok(where + 'a bare stridehub.io discounts nothing',
        run('https://stridehub.io/').id === null);
-    ok(where + 'a remembered code survives a page without the param',
-       run('https://stridehub.io/how-it-works', 'rekz').id === REKZ);
-    ok(where + 'a remembered code that is no longer known is ignored',
-       run('https://stridehub.io/', 'retired').id === null);
+    ok(where + 'nor any other page without the param',
+       run('https://stridehub.io/how-it-works').id === null);
+
+    // RULE 1. Organic traffic must never inherit an earlier ad click.
+    ok(where + 'the reader touches NO browser storage at all',
+       hit.touched.length === 0, hit.touched.join(', '));
+    ok(where + 'a code stored from an earlier visit does NOT discount a bare landing',
+       run('https://stridehub.io/', 'rekz').id === null,
+       'organic traffic would be getting the ad price');
+    ok(where + 'and the reader writes nothing for a later visit to find',
+       run('https://stridehub.io/?code=rekz').stored === null);
+    ok(where + 'no storage key is even defined for it',
+       !/STRIDE_CODE_KEY/.test(src) && !/stride_code'/.test(src));
   }
 
   // ── the four places it has to reach ───────────────────────────────────────
@@ -89,7 +99,6 @@ for (const file of ['frontend/index.html', 'index.html']) {
   ok(where + 'the page previews BOTH the list and the charged price',
      /stridePricePreview\(''\)[\s\S]{0,120}strideCodeId \? stridePricePreview\(strideCodeId\) : null/.test(src));
 
-  // The trap. strideLocal is what the page charges, strideFx is for the anchors.
   ok(where + 'strideFx comes from the UNDISCOUNTED preview, so 129 stays 129',
      /strideFx = \{ rate: list\.stride \/ STRIDE_PRICE, currency: list\.currency \}/.test(src));
   ok(where + 'and strideLocal is what the visitor is actually charged',
@@ -106,50 +115,26 @@ for (const file of ['frontend/index.html', 'index.html']) {
   ok(where + 'a re-priced wallet restates the discount',
      /updateCheckout\(\{ items: strideCheckoutItems\(\),[\s\S]{0,60}discountId: strideCodeId \}\)/.test(src));
 
-  // The gift checkout opens a transaction the backend already built, Stride at this
-  // visitor's price with the Collection at 0. A code must never be layered onto it.
   const giftAt = src.indexOf('transactionId: strideGiftTxn');
   ok(where + 'the gift checkout still opens its own transaction', giftAt > 0);
   ok(where + 'and no discount is layered onto the gift',
      giftAt > 0 && !/discountId/.test(src.slice(giftAt, giftAt + 400)));
 
-  // The seal says Save, never a percentage: 20% off the 99 street price is NOT 20% off
-  // the 129 anchor, and printing both together makes the page contradict itself.
+  // ── RULE 2. the code may not move the page ────────────────────────────────
+  // The badge that did is gone. These keep it gone rather than trusting memory.
+  ok(where + 'no badge element is created in the price box',
+     !/sd-code-badge/.test(src) && !/strideCodeBadge/.test(src));
+  ok(where + 'nothing is inserted at the front of a price box',
+     !/box\.insertBefore/.test(src));
+  ok(where + 'the price box loop only rewrites the two numbers already there',
+     /const struck = box\.querySelector\('\[style\*="line-through"\]'\);[\s\S]{0,400}?\}\);/.test(src)
+     && !/createElement/.test((src.match(/document\.querySelectorAll\('\.sd-price-box'\)[\s\S]{0,400}?\}\);/) || [''])[0]));
+  ok(where + 'the code contributes no CSS of its own',
+     !/\.sd-code-badge\{/.test(src));
   ok(where + 'the saving is still printed as Save, not a percentage',
      /'Save ' \+ strideMoneyExact/.test(src) && !/20% OFF/.test(src));
-
-  // ── the badge that names the code ────────────────────────────────────────
-  // Without it the discount is applied in silence and nothing tells the visitor the ad
-  // earned them anything.
-  ok(where + 'the badge is rendered for every price box',
-     /strideCodeBadge\(box\);/.test(src) && /function strideCodeBadge\(box\)/.test(src));
-  // − in the regex matches the literal minus sign the source carries.
-  ok(where + 'it names the code and what it was worth',
-     /strideCodeName\.toUpperCase\(\) \+ ' −' \+ strideCodePct \+ '% APPLIED'/.test(src));
-  ok(where + 'and is removed when no code is active, so the plain page is untouched',
-     /if \(!strideCodeName \|\| !strideCodePct\)/.test(src)
-     && /removeChild\(el\)/.test(src));
-  ok(where + 'it goes first in the box, above the price',
-     /box\.insertBefore\(el, box\.firstChild\)/.test(src));
-  ok(where + 'the badge has its own row and never reflows the price',
-     /\.sd-code-badge\{flex:0 0 100%/.test(src));
-
-  // The percentage is MEASURED, never written down, so it cannot claim a number Paddle
-  // is not charging. REKZ is restricted to the Stride price, so this is deliberately the
-  // Stride ratio and not the whole cart's.
-  ok(where + 'the percentage is measured from the two previews',
-     /var cut = list\.stride > 0 \? 1 - \(charged\.stride \/ list\.stride\) : 0;/.test(src)
-     && /strideCodePct = cut > 0\.005 \? Math\.round\(cut \* 100\) : 0;/.test(src));
-  ok(where + 'a discount Paddle refused prints no badge rather than 0%',
-     /cut > 0\.005/.test(src));
-  ok(where + 'no percentage is hardcoded anywhere near the badge',
-     !/strideCodePct = 20/.test(src));
-
-  // strideCodeName must be declared BEFORE the reader assigns it, or the reader throws
-  // on its own temporal dead zone and no code is ever read.
-  ok(where + 'strideCodeName is declared before the reader runs',
-     src.indexOf('let strideCodeName') < src.indexOf('strideCodeName = name;')
-     && src.indexOf('let strideCodeName') < src.indexOf('(function strideReadCode()'));
+  ok(where + 'no percentage is computed for display anywhere',
+     !/strideCodePct/.test(src));
 }
 
 console.log('  ' + PASSED + ' passed, ' + FAILED + ' failed');
