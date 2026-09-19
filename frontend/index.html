@@ -2170,6 +2170,35 @@ function openBuy() { toggleBuyModal(); }
     const STRIDE_LIST_PRICE = 129;
     const COLLECTION_VALUE = 35;
 
+    // ── Ad codes ──────────────────────────────────────────────────────────────────
+    // An ad lands on /?code=rekz and the visitor sees the discounted price straight away,
+    // with the discount already in the checkout so there is nothing to type. Same shape as
+    // SESSION_OFFER_CODES in the backend: this file holds what a code MEANS, a code the map
+    // does not know is ignored rather than an error, and Paddle is what actually enforces
+    // it, so nothing here can be tampered into a discount Paddle would not give anyway.
+    //
+    // rekz is 20% off with no restrict_to, so it comes off the Collection as well:
+    // 99 -> 79.20 and 24.99 -> 19.99, in every currency, because it is a PERCENTAGE. A flat
+    // discount would be refused outside its own currency (see sesh1o1 in the backend).
+    const STRIDE_CODES = { rekz: 'dsc_01m2fxadt3hs2myt4k203tpj2t' };
+    const STRIDE_CODE_KEY = 'stride_code';
+
+    // The code for THIS visit. Taken from the URL when the ad brings one, then remembered
+    // for the tab so it survives a click into /how-it-works and back. Deliberately left ON
+    // the URL, unlike ?gift=: a discount code is public, and GA4 and the pixel seeing which
+    // ad code a session carried is worth having.
+    let strideCodeId = null;
+    (function strideReadCode() {
+        var name = '';
+        try {
+            name = (new URL(window.location.href).searchParams.get('code') || '').trim().toLowerCase();
+            if (!name) name = (sessionStorage.getItem(STRIDE_CODE_KEY) || '').trim().toLowerCase();
+        } catch (e) {}
+        if (!name || !STRIDE_CODES[name]) return;
+        strideCodeId = STRIDE_CODES[name];
+        try { sessionStorage.setItem(STRIDE_CODE_KEY, name); } catch (e) {}
+    })();
+
     let strideAddonOn = false;
 
     // Whatever actually charges for the Collection decides whether we offer it. This
@@ -2214,7 +2243,18 @@ function openBuy() { toggleBuyModal(); }
     function strideSyncExpressItems() {
         if (!strideExpressLive) return;
         if (typeof Paddle === 'undefined' || !Paddle.Checkout) return;
-        try { Paddle.Checkout.updateItems(strideCheckoutItems()); } catch (e) {}
+        // With an ad code the discount is restated on every re-price. updateItems alone
+        // only carries the cart, so if Paddle ever rebuilt the checkout around the new
+        // items the code would fall off exactly when someone adds the Collection, and the
+        // wallet would charge more than the page says.
+        try {
+            if (strideCodeId && Paddle.Checkout.updateCheckout) {
+                Paddle.Checkout.updateCheckout({ items: strideCheckoutItems(),
+                                                 discountId: strideCodeId });
+            } else {
+                Paddle.Checkout.updateItems(strideCheckoutItems());
+            }
+        } catch (e) {}
     }
 
     // What this visitor was actually quoted, in the currency they were quoted it in.
@@ -2390,36 +2430,61 @@ function openBuy() { toggleBuyModal(); }
     // country prices (CA$34.99, GBP 18.99): deriving it from Stride's rate printed 22.47 where
     // the checkout charged 18.99. This is a price PREVIEW, not a cart, and it opens nothing.
     // A failure here leaves the dollar prices untouched.
+    // One PricePreview, read into { currency, stride, collection }. Null when Paddle
+    // answered with nothing this page can price from.
+    function strideReadPreview(res) {
+        var d = (res && res.data) || {};
+        var lines = ((d.details || {}).lineItems) || [];
+        var cur = d.currencyCode || ((lines[0] || {}).totals || {}).currencyCode;
+        if (!cur) return null;
+        var digits = 2;
+        try {
+            digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: cur })
+                .resolvedOptions().minimumFractionDigits;
+        } catch (e) {}
+        var scale = Math.pow(10, digits);
+        var amounts = {};
+        lines.forEach(function (li) {
+            var id = ((li.price || {}).id) || '';
+            var minor = parseInt((li.totals || {}).total, 10);
+            if (id && isFinite(minor)) amounts[id] = minor / scale;
+        });
+        var stride = amounts[PADDLE_PRICE_STRIDE];
+        if (!stride) return null;
+        var coll = amounts[PADDLE_PRICE_COLLECTION];
+        return { currency: cur, stride: stride, collection: coll == null ? null : coll };
+    }
+
+    function stridePricePreview(discountId) {
+        var body = { items: [{ priceId: PADDLE_PRICE_STRIDE, quantity: 1 },
+                             { priceId: PADDLE_PRICE_COLLECTION, quantity: 1 }] };
+        if (discountId) body.discountId = discountId;
+        return Paddle.PricePreview(body).then(strideReadPreview);
+    }
+
     function strideLocalizePrices() {
         if (!stridePaddleReady()) return;
         try {
-            Paddle.PricePreview({ items: [{ priceId: PADDLE_PRICE_STRIDE, quantity: 1 },
-                                          { priceId: PADDLE_PRICE_COLLECTION, quantity: 1 }] })
-                .then(function (res) {
-                    var d = (res && res.data) || {};
-                    var lines = ((d.details || {}).lineItems) || [];
-                    var cur = d.currencyCode || ((lines[0] || {}).totals || {}).currencyCode;
-                    if (!cur) return;
-                    var digits = 2;
-                    try {
-                        digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: cur })
-                            .resolvedOptions().minimumFractionDigits;
-                    } catch (e) {}
-                    var scale = Math.pow(10, digits);
-                    var amounts = {};
-                    lines.forEach(function (li) {
-                        var id = ((li.price || {}).id) || '';
-                        var minor = parseInt((li.totals || {}).total, 10);
-                        if (id && isFinite(minor)) amounts[id] = minor / scale;
-                    });
-                    var stride = amounts[PADDLE_PRICE_STRIDE];
-                    if (!stride) return;
-                    var coll = amounts[PADDLE_PRICE_COLLECTION];
+            // TWO previews when an ad code is in play, and the difference between them
+            // matters. strideFx.rate exists to convert OUR list anchors (129, 35) into the
+            // visitor's currency, so it has to come from the UNDISCOUNTED price. Derived
+            // from the discounted one it would read 0.8 for a US visitor and quietly redraw
+            // the struck 129 as 103, making the anchor follow the discount and the Save
+            // seal collapse. list is what Paddle charges without the code, charged is what
+            // it charges with it; the page prints charged and anchors against list.
+            Promise.all([stridePricePreview(''),
+                         strideCodeId ? stridePricePreview(strideCodeId) : null])
+                .then(function (both) {
+                    var list = both[0];
+                    var charged = both[1] || list;
+                    if (!list || !charged) return;
+                    var cur = charged.currency;
                     // Dollars at the list price is what the page already prints.
-                    if (cur === 'USD' && Math.abs(stride - STRIDE_PRICE) < 0.005
-                        && (coll == null || Math.abs(coll - COLLECTION_ADDON_PRICE) < 0.005)) return;
-                    strideLocal = { currency: cur, stride: stride, collection: coll == null ? null : coll };
-                    strideFx = { rate: stride / STRIDE_PRICE, currency: cur };
+                    if (cur === 'USD' && Math.abs(charged.stride - STRIDE_PRICE) < 0.005
+                        && (charged.collection == null
+                            || Math.abs(charged.collection - COLLECTION_ADDON_PRICE) < 0.005)) return;
+                    strideLocal = charged;
+                    strideFx = { rate: list.stride / STRIDE_PRICE, currency: list.currency };
                     strideSyncAddon();
                 }).catch(function () {});
         } catch (e) {}
@@ -2517,6 +2582,11 @@ function openBuy() { toggleBuyModal(); }
             strideExpressLive = true;
             Paddle.Checkout.open({
                 items: strideCheckoutItems(),
+                // The ad code rides into the wallet too, so a one-tap Apple Pay buyer pays
+                // the same price the hero quoted them. Paddle marks only the discount UI
+                // settings (showAddDiscounts, allowDiscountRemoval) as ignored in express,
+                // not the discount itself: the buyer cannot change it, which is the point.
+                discountId: strideCodeId || undefined,
                 customData: strideExpressCustomData(),
                 settings: {
                     displayMode: 'inline',
@@ -2629,6 +2699,7 @@ function openBuy() { toggleBuyModal(); }
 
                 Paddle.Checkout.open({
                     items: items,
+                    discountId: strideCodeId || undefined,
                     customer: email ? { email: email } : undefined,
                     customData: custom,
                     settings: {
