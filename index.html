@@ -636,8 +636,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .dpop{position:fixed;inset:0;z-index:120;display:none;align-items:center;
     justify-content:center;padding:20px;background:rgba(8,7,5,.74)}
   .dpop.on{display:flex}
+  /* Centred throughout, like /try's hero, so the two read as one page. */
   .dpop-card{position:relative;width:100%;max-width:452px;background:var(--panel);
-    border:1px solid var(--line);border-radius:18px;padding:26px 24px;
+    border:1px solid var(--line);border-radius:18px;padding:26px 24px;text-align:center;
     box-shadow:0 30px 70px -30px rgba(0,0,0,.85)}
   .dpop-h{margin:0;font-size:24px;line-height:1.2;font-weight:900;color:var(--ink);
     letter-spacing:-.01em}
@@ -648,7 +649,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     border:1px solid rgba(198,113,43,.3);background:rgba(198,113,43,.09);
     font-size:13.5px;line-height:1.5;color:var(--ink2)}
   .dpop-keep strong{color:var(--copper-lt);font-weight:800}
-  .dpop-f{display:flex;gap:10px;flex-wrap:wrap}
+  .dpop-f{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
   .dpop-f input{flex:1 1 210px;min-width:0;background:var(--bg2);color:var(--ink);
     border:1px solid var(--line);border-radius:12px;padding:14px 15px;font:inherit;
     font-size:16px}
@@ -664,6 +665,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     border:1px solid var(--line);background:var(--raise);color:var(--ink2);
     font-size:17px;line-height:1;cursor:pointer}
   .dpop-x:hover{color:var(--ink);border-color:rgba(216,201,176,.28)}
+  /* On a phone the field already takes the whole row, so the button wrapped underneath it
+     at its own content width and sat off to the left. Give it the same full row. */
+  @media (max-width:560px){
+    .dpop-f input,
+    .dpop-f .btn-copper{flex:1 1 100%;width:100%}
+    .dpop-f .btn-copper{justify-content:center}
+  }
   @media (max-width:420px){.dpop-card{padding:22px 18px}.dpop-h{font-size:21px}}
 
 
@@ -3243,7 +3251,7 @@ function openBuy() { toggleBuyModal(); }
 <div class="dpop" id="dpop" role="dialog" aria-modal="true" aria-labelledby="dpop-h">
   <div class="dpop-card">
     <button type="button" class="dpop-x" id="dpop-x" aria-label="Close">&times;</button>
-    <h2 class="dpop-h" id="dpop-h">Try Stride free for 24h</h2>
+    <h2 class="dpop-h" id="dpop-h">Try Stride free <span class="brand">for 24h</span></h2>
     <p class="dpop-s">Get endless sound design variations in seconds.</p>
     <p class="dpop-keep"><strong>The full version of Stride.</strong> Inject the automation you
       build in these 24 hours straight into your clips, and keep it forever.</p>
@@ -3263,6 +3271,7 @@ function openBuy() { toggleBuyModal(); }
     var SECONDS = 30;
     var SEEN_KEY = 'stride_demo_pop';      // shown once, ever
     var HANDOFF  = 'stride_demo_email';    // the address /try?auto=1 picks up
+    var SECS_KEY = 'stride_demo_secs';     // seconds on the page so far, this visit
 
     var pop = document.getElementById('dpop');
     if (!pop) return;
@@ -3335,26 +3344,38 @@ function openBuy() { toggleBuyModal(); }
         setTimeout(function () { try { input.focus(); } catch (e) {} }, 60);
     }
 
-    // Wall clock, deliberately. Counting only "visible" seconds sounded better and was
-    // worse: Chrome reports a window that is minimised OR fully covered by another window
-    // as hidden, so the timer froze for anyone who opened the page and switched windows.
-    // That is most people, and it was every attempt to test this.
+    // Thirty seconds ON the page, added up, not thirty seconds since it loaded. Someone
+    // who reads for ten seconds, leaves, and comes back has spent ten; they get the panel
+    // after twenty more, never the instant they return.
     //
-    // The panel still must not appear at a tab nobody is looking at, so a fire that lands
-    // while hidden simply waits for the visitor to come back.
-    var elapsed = 0;
+    // The total is carried in sessionStorage, so it survives a click into /how-it-works
+    // and back: that is the same visit and the same attention, and restarting the count
+    // would mean a visitor who browses the site is asked later than one who sits still.
+    //
+    // Written every 5 seconds rather than every 1, and again whenever the page is left,
+    // so a closed tab loses at most a few seconds and storage is not hammered.
+    var active = ls(function () {
+        return parseInt(sessionStorage.getItem(SECS_KEY) || '0', 10) || 0;
+    }, 0);
+    function saveSecs() { ls(function () { sessionStorage.setItem(SECS_KEY, String(active)); }); }
+
     var tick = setInterval(function () {
-        elapsed += 1;
-        if (elapsed < SECONDS) return;
+        // document.hidden covers the tab being switched away from AND the window being
+        // minimised or fully covered, which are all "not on the page" and all correct to
+        // stop counting for. A covered window cannot be read or scrolled either.
+        if (document.hidden) return;
+        active += 1;
+        if (active % 5 === 0) saveSecs();
+        if (active < SECONDS) return;
         clearInterval(tick);
-        if (!document.hidden) return open();
-        document.addEventListener('visibilitychange', function back() {
-            if (document.hidden) return;
-            document.removeEventListener('visibilitychange', back);
-            open();
-        });
+        saveSecs();
+        open();
     }, 1000);
     if (hasCode() || alreadyDone()) clearInterval(tick);
+
+    // Leaving mid-count keeps what was earned, both on a tab switch and on a real exit.
+    document.addEventListener('visibilitychange', function () { if (document.hidden) saveSecs(); });
+    window.addEventListener('pagehide', saveSecs);
 
     document.getElementById('dpop-x').addEventListener('click', function () { close(); });
     pop.addEventListener('click', function (ev) { if (ev.target === pop) close(); });

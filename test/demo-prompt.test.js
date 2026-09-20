@@ -35,9 +35,23 @@ for (const file of ['frontend/index.html', 'index.html']) {
   const where = file + ': ';
 
   ok(where + 'the copy is the copy that was asked for',
-     /<h2 class="dpop-h" id="dpop-h">Try Stride free for 24h<\/h2>/.test(src)
+     /<h2 class="dpop-h" id="dpop-h">Try Stride free <span class="brand">for 24h<\/span><\/h2>/.test(src)
      && /<p class="dpop-s">Get endless sound design variations in seconds\.<\/p>/.test(src)
      && /id="dpop-go" type="submit">Try free<\/button>/.test(src));
+
+  // It has to look like /try, not like a generic modal.
+  ok(where + 'the 24h carries the same copper gradient /try uses',
+     /<span class="brand">for 24h<\/span>/.test(src)
+     && /\.brand\{background:linear-gradient\(90deg,var\(--copper-lt\),var\(--ember\)\)/.test(src));
+  ok(where + 'every line in the panel is centred, as /try\'s hero is',
+     /\.dpop-card\{[^}]*text-align:center/.test(src));
+  ok(where + 'and the form centres with it',
+     /\.dpop-f\{display:flex;gap:10px;flex-wrap:wrap;justify-content:center\}/.test(src));
+  // On a phone the field fills the row, so an inline-width button wrapped under it and
+  // sat off to the left.
+  ok(where + 'on a phone the button is as wide as the field, not left-aligned',
+     /@media \(max-width:560px\)\{\s*\n?\s*\.dpop-f input,\s*\n?\s*\.dpop-f \.btn-copper\{flex:1 1 100%;width:100%\}/.test(src)
+     && /\.dpop-f \.btn-copper\{justify-content:center\}/.test(src));
   ok(where + 'no em dash crept into it',
      !/dpop-[hs]"[^>]*>[^<]*[—–]/.test(src));
 
@@ -48,17 +62,22 @@ for (const file of ['frontend/index.html', 'index.html']) {
      !/drag/i.test((src.match(/class="dpop-keep"[\s\S]{0,260}<\/p>/) || [''])[0])
      && !/\.alc/i.test((src.match(/class="dpop-keep"[\s\S]{0,260}<\/p>/) || [''])[0]));
 
-  ok(where + 'the timer is 30 seconds', /var SECONDS = 30;/.test(src));
-  // Wall clock. Counting only visible seconds froze the timer for anyone who switched
-  // windows, because Chrome calls a minimised or fully covered window hidden. That is
-  // most visitors, and it was every attempt to test the thing.
-  ok(where + 'the timer is NOT gated on visibility, so switching windows cannot freeze it',
-     !/if \(document\.hidden\) return;\s*\n\s*elapsed/.test(src)
-     && /elapsed \+= 1;\s*\n\s*if \(elapsed < SECONDS\) return;/.test(src));
-  ok(where + 'but it still waits for a hidden tab to come back before showing',
-     /if \(!document\.hidden\) return open\(\);/.test(src)
-     && /addEventListener\('visibilitychange', function back\(\)/.test(src)
-     && /removeEventListener\('visibilitychange', back\)/.test(src));
+  ok(where + 'the threshold is 30 seconds', /var SECONDS = 30;/.test(src));
+
+  // 30 seconds ON the page, added up. Someone who reads for ten seconds, leaves and comes
+  // back has spent ten, and must NOT be shown the panel the instant they return.
+  ok(where + 'only time spent on the page is counted',
+     /if \(document\.hidden\) return;\s*\n\s*active \+= 1;/.test(src)
+     && /if \(active < SECONDS\) return;/.test(src));
+  ok(where + 'the total is carried across a navigation, not restarted',
+     /var SECS_KEY = 'stride_demo_secs';/.test(src)
+     && /parseInt\(sessionStorage\.getItem\(SECS_KEY\) \|\| '0', 10\)/.test(src)
+     && /sessionStorage\.setItem\(SECS_KEY, String\(active\)\)/.test(src));
+  ok(where + 'and leaving mid-count keeps what was earned',
+     /visibilitychange', function \(\) \{ if \(document\.hidden\) saveSecs\(\); \}/.test(src)
+     && /addEventListener\('pagehide', saveSecs\)/.test(src));
+  ok(where + 'storage is written every few seconds, not every tick',
+     /if \(active % 5 === 0\) saveSecs\(\);/.test(src));
   // "Cannot check storage" must not become "never show".
   ok(where + 'a browser that refuses storage still gets the prompt',
      /\}, false\);\s*\n\s*\}/.test(src.slice(src.indexOf('function alreadyDone()'),
@@ -152,6 +171,9 @@ ok('/try says it before the form, not after',
    && tryPage.indexOf('class="keepline"') < tryPage.indexOf('<form id="f"'));
 ok('/try uses INJECT, never drag or .alc',
    !/drag/i.test(keep) && !/\.alc/i.test(keep));
+ok('/try gives its button the full row on a phone too',
+   /#f input\[type=email\], #f \.btn-copper\{flex:1 1 100%;width:100%\}/.test(tryPage)
+   && /#f\{justify-content:center\}/.test(tryPage));
 ok('neither page contradicts the other',
    keep.replace(/\s+/g, ' ').indexOf('Inject the automation you build in these 24 hours '
      + 'straight into your clips, and keep it forever.') > 0);
