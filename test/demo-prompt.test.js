@@ -49,8 +49,20 @@ for (const file of ['frontend/index.html', 'index.html']) {
      && !/\.alc/i.test((src.match(/class="dpop-keep"[\s\S]{0,260}<\/p>/) || [''])[0]));
 
   ok(where + 'the timer is 30 seconds', /var SECONDS = 30;/.test(src));
-  ok(where + 'and counts only time the page is actually looked at',
-     /if \(document\.hidden\) return;/.test(src));
+  // Wall clock. Counting only visible seconds froze the timer for anyone who switched
+  // windows, because Chrome calls a minimised or fully covered window hidden. That is
+  // most visitors, and it was every attempt to test the thing.
+  ok(where + 'the timer is NOT gated on visibility, so switching windows cannot freeze it',
+     !/if \(document\.hidden\) return;\s*\n\s*elapsed/.test(src)
+     && /elapsed \+= 1;\s*\n\s*if \(elapsed < SECONDS\) return;/.test(src));
+  ok(where + 'but it still waits for a hidden tab to come back before showing',
+     /if \(!document\.hidden\) return open\(\);/.test(src)
+     && /addEventListener\('visibilitychange', function back\(\)/.test(src)
+     && /removeEventListener\('visibilitychange', back\)/.test(src));
+  // "Cannot check storage" must not become "never show".
+  ok(where + 'a browser that refuses storage still gets the prompt',
+     /\}, false\);\s*\n\s*\}/.test(src.slice(src.indexOf('function alreadyDone()'),
+                                             src.indexOf('function alreadyDone()') + 700)));
 
   // The rule that matters most commercially.
   ok(where + 'a discount code silences it',

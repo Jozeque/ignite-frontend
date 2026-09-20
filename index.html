@@ -3289,11 +3289,14 @@ function openBuy() { toggleBuyModal(); }
     // Nobody is asked twice, and nobody who already has the demo is asked at all.
     // stride_try_email and stride_try_dl are what /try writes on a successful register.
     function alreadyDone() {
+        // Falls back to FALSE, so a browser that refuses storage still gets the prompt.
+        // Defaulting to true meant "cannot check" became "never show", which is a silent
+        // way for the whole thing to do nothing on the strictest privacy settings.
         return ls(function () {
             return !!(localStorage.getItem(SEEN_KEY)
                    || localStorage.getItem('stride_try_email')
                    || localStorage.getItem('stride_try_dl'));
-        }, true);
+        }, false);
     }
     function remember() { ls(function () { localStorage.setItem(SEEN_KEY, '1'); }); }
 
@@ -3332,15 +3335,24 @@ function openBuy() { toggleBuyModal(); }
         setTimeout(function () { try { input.focus(); } catch (e) {} }, 60);
     }
 
-    // 30 seconds of being LOOKED at, not 30 seconds of wall clock: a page left in a
-    // background tab has not held anyone's attention and should not fire at them.
+    // Wall clock, deliberately. Counting only "visible" seconds sounded better and was
+    // worse: Chrome reports a window that is minimised OR fully covered by another window
+    // as hidden, so the timer froze for anyone who opened the page and switched windows.
+    // That is most people, and it was every attempt to test this.
+    //
+    // The panel still must not appear at a tab nobody is looking at, so a fire that lands
+    // while hidden simply waits for the visitor to come back.
     var elapsed = 0;
     var tick = setInterval(function () {
-        if (document.hidden) return;
         elapsed += 1;
         if (elapsed < SECONDS) return;
         clearInterval(tick);
-        open();
+        if (!document.hidden) return open();
+        document.addEventListener('visibilitychange', function back() {
+            if (document.hidden) return;
+            document.removeEventListener('visibilitychange', back);
+            open();
+        });
     }, 1000);
     if (hasCode() || alreadyDone()) clearInterval(tick);
 
