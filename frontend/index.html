@@ -626,6 +626,40 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .addon-mini-play .addon-play-i{font-size:10px}
   }
 
+  /* ── The 30-second demo prompt ─────────────────────────────────────────────
+     A fixed overlay appended at the very end of <body> and hidden until it fires,
+     so it cannot move a single pixel of the page it sits over. The panel, input and
+     focus ring are lifted from /try so it reads as the same product rather than a
+     generic modal. It captures ONLY the address: /try still performs the
+     registration and fires the Lead/DemoRegistered pair, so there stays exactly one
+     demo funnel and one set of events. */
+  .dpop{position:fixed;inset:0;z-index:120;display:none;align-items:center;
+    justify-content:center;padding:20px;background:rgba(8,7,5,.74)}
+  .dpop.on{display:flex}
+  .dpop-card{position:relative;width:100%;max-width:452px;background:var(--panel);
+    border:1px solid var(--line);border-radius:18px;padding:26px 24px;
+    box-shadow:0 30px 70px -30px rgba(0,0,0,.85)}
+  .dpop-h{margin:0;font-size:24px;line-height:1.2;font-weight:900;color:var(--ink);
+    letter-spacing:-.01em}
+  .dpop-s{margin:9px 0 18px;font-size:15px;line-height:1.5;color:var(--ink2)}
+  .dpop-f{display:flex;gap:10px;flex-wrap:wrap}
+  .dpop-f input{flex:1 1 210px;min-width:0;background:var(--bg2);color:var(--ink);
+    border:1px solid var(--line);border-radius:12px;padding:14px 15px;font:inherit;
+    font-size:16px}
+  .dpop-f input::placeholder{color:var(--ink3)}
+  .dpop-f input:focus{outline:none;border-color:rgba(198,113,43,.55);
+    box-shadow:0 0 0 3px rgba(198,113,43,.15)}
+  .dpop-f .btn-copper{padding:14px 22px;font-size:14px;border-radius:12px}
+  .dpop-fine{margin:13px 0 0;font-size:12.5px;color:var(--ink3)}
+  .dpop-act{margin:7px 0 0;font-size:12.5px;font-weight:600;color:var(--copper-lt)}
+  .dpop-err{margin:10px 0 0;font-size:13.5px;color:#e6795f;display:none}
+  .dpop-x{position:absolute;top:10px;right:10px;width:32px;height:32px;padding:0;
+    display:inline-flex;align-items:center;justify-content:center;border-radius:999px;
+    border:1px solid var(--line);background:var(--raise);color:var(--ink2);
+    font-size:17px;line-height:1;cursor:pointer}
+  .dpop-x:hover{color:var(--ink);border-color:rgba(216,201,176,.28)}
+  @media (max-width:420px){.dpop-card{padding:22px 18px}.dpop-h{font-size:21px}}
+
 
   #m-cta{display:none}
   #m-menu{display:none}
@@ -2223,6 +2257,10 @@ function openBuy() { toggleBuyModal(); }
         } catch (e) {}
         if (!name || !STRIDE_CODES[name]) return;
         strideCodeId = STRIDE_CODES[name];
+        // Read by the 30-second demo prompt at the end of the body, which stays shut for
+        // anyone holding a discount: this visitor was brought here to buy at 20% off, and
+        // offering them a free demo instead competes with the click that was paid for.
+        window.STRIDE_CODE_ACTIVE = true;
     })();
 
     let strideAddonOn = false;
@@ -3188,6 +3226,141 @@ function openBuy() { toggleBuyModal(); }
         setTimeout(draw, 250); setTimeout(draw, 900);
         var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(draw, 150); });
     })();
+</script>
+
+<!-- ── The 30-second demo prompt ──────────────────────────────────────────────
+     Last in the body and position:fixed, so it overlays the page without being
+     able to move anything in it. It asks for the address and nothing else: the
+     handoff below sends the visitor to /try, which performs the registration and
+     fires the Lead/DemoRegistered pair with its shared event_id exactly as it
+     always has. One demo funnel, one set of events, nothing duplicated here. -->
+<div class="dpop" id="dpop" role="dialog" aria-modal="true" aria-labelledby="dpop-h">
+  <div class="dpop-card">
+    <button type="button" class="dpop-x" id="dpop-x" aria-label="Close">&times;</button>
+    <h2 class="dpop-h" id="dpop-h">Try Stride free for 24h</h2>
+    <p class="dpop-s">Get endless sound design variations in seconds.</p>
+    <form class="dpop-f" id="dpop-f" novalidate>
+      <input id="dpop-email" type="email" name="email" autocomplete="email" required
+             placeholder="you@studio.com" aria-label="Your email">
+      <button class="btn-copper" id="dpop-go" type="submit">Try free</button>
+    </form>
+    <p class="dpop-fine">One email, that's it. We'll send your download link and how to start your 24 hours.</p>
+    <p class="dpop-act">Your 24 hours only start when you activate Stride.</p>
+    <p class="dpop-err" id="dpop-err"></p>
+  </div>
+</div>
+
+<script>
+(function strideDemoPrompt() {
+    var SECONDS = 30;
+    var SEEN_KEY = 'stride_demo_pop';      // shown once, ever
+    var HANDOFF  = 'stride_demo_email';    // the address /try?auto=1 picks up
+
+    var pop = document.getElementById('dpop');
+    if (!pop) return;
+    var form = document.getElementById('dpop-f');
+    var input = document.getElementById('dpop-email');
+    var go = document.getElementById('dpop-go');
+    var err = document.getElementById('dpop-err');
+    var lastFocus = null;
+
+    function ls(fn, d) { try { return fn(); } catch (e) { return d; } }
+
+    // A visitor holding a discount code is never asked. They arrived on a paid click to
+    // buy Stride at 20% off, and interrupting that with a free demo competes with the
+    // click that was paid for. Deliberately NOT remembered: if the same person comes back
+    // later without the code, they are ordinary traffic and get the prompt like anyone.
+    function hasCode() {
+        if (window.STRIDE_CODE_ACTIVE) return true;
+        // Independent of the pricing script above, so a code still silences the prompt
+        // even if that script never ran.
+        try { return !!(new URL(window.location.href).searchParams.get('code') || '').trim(); }
+        catch (e) { return false; }
+    }
+
+    // Nobody is asked twice, and nobody who already has the demo is asked at all.
+    // stride_try_email and stride_try_dl are what /try writes on a successful register.
+    function alreadyDone() {
+        return ls(function () {
+            return !!(localStorage.getItem(SEEN_KEY)
+                   || localStorage.getItem('stride_try_email')
+                   || localStorage.getItem('stride_try_dl'));
+        }, true);
+    }
+    function remember() { ls(function () { localStorage.setItem(SEEN_KEY, '1'); }); }
+
+    // Never over a checkout. The buy modal and Paddle's own overlay are the path the
+    // ads are paid for; interrupting either to offer a free demo would be absurd.
+    function busy() {
+        var modal = document.getElementById('buy-modal');
+        if (modal && !modal.classList.contains('hidden')) return true;
+        if (typeof strideGiftTxn !== 'undefined' && strideGiftTxn) return true;
+        var frames = document.querySelectorAll('iframe[src*="paddle"]');
+        for (var i = 0; i < frames.length; i++) {
+            var f = frames[i];
+            // The hero's express wallet is always mounted and is not a checkout in
+            // progress; only a full overlay covers the page.
+            if (f.closest && f.closest('.paddle-express-checkout')) continue;
+            if (f.getBoundingClientRect().height > 200) return true;
+        }
+        return false;
+    }
+
+    function close(remembered) {
+        pop.classList.remove('on');
+        document.body.style.overflow = '';
+        if (remembered !== false) remember();
+        if (lastFocus && lastFocus.focus) { try { lastFocus.focus(); } catch (e) {} }
+    }
+
+    function open() {
+        if (hasCode() || alreadyDone()) return;
+        if (busy()) { setTimeout(open, 5000); return; }   // wait for the checkout to end
+        lastFocus = document.activeElement;
+        pop.classList.add('on');
+        document.body.style.overflow = 'hidden';
+        remember();                                        // asked once, however it ends
+        try { if (window.StrideTrack) StrideTrack.push('demo_prompt_shown'); } catch (e) {}
+        setTimeout(function () { try { input.focus(); } catch (e) {} }, 60);
+    }
+
+    // 30 seconds of being LOOKED at, not 30 seconds of wall clock: a page left in a
+    // background tab has not held anyone's attention and should not fire at them.
+    var elapsed = 0;
+    var tick = setInterval(function () {
+        if (document.hidden) return;
+        elapsed += 1;
+        if (elapsed < SECONDS) return;
+        clearInterval(tick);
+        open();
+    }, 1000);
+    if (hasCode() || alreadyDone()) clearInterval(tick);
+
+    document.getElementById('dpop-x').addEventListener('click', function () { close(); });
+    pop.addEventListener('click', function (ev) { if (ev.target === pop) close(); });
+    document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape' && pop.classList.contains('on')) close();
+    });
+
+    form.addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        var email = (input.value || '').trim().toLowerCase();
+        err.style.display = 'none';
+        if (!email || email.indexOf('@') < 1 || email.indexOf('.', email.indexOf('@')) < 0) {
+            err.textContent = 'Please enter a valid email address.';
+            err.style.display = 'block';
+            input.focus();
+            return;
+        }
+        go.disabled = true;
+        go.textContent = 'One moment…';
+        // Handed over in storage rather than the URL: an address in a query string ends
+        // up in GA4's page paths, the pixel's page views and every referrer header.
+        ls(function () { sessionStorage.setItem(HANDOFF, email); });
+        remember();
+        window.location.href = '/try?auto=1';
+    });
+})();
 </script>
 
 </body>

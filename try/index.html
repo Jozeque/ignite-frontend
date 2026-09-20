@@ -854,6 +854,28 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       fail('Something went wrong. Please try again, or email home@stridehub.io and we will send it over.');
     });
   });
+
+  /* /try?auto=1 is the handoff from the homepage's 30-second demo prompt.
+     The address travels in sessionStorage, never in the URL: a query string ends up in
+     GA4's page paths, the pixel's page views and every referrer header, and an email
+     does not belong in any of them.
+     Everything from here down is the ORDINARY registration this page has always done,
+     which is the whole point: the prompt collects an address and nothing else, so there
+     is still one demo funnel and one Lead/DemoRegistered pair with one shared event_id.
+     Arriving with the marker but nothing stashed (a shared link, a cleared tab) simply
+     leaves the normal form on screen. */
+  try {
+    var _auto = new URLSearchParams(location.search).get('auto') === '1';
+    var _handed = _auto ? (sessionStorage.getItem('stride_demo_email') || '').trim() : '';
+    if (_auto) {
+      try { sessionStorage.removeItem('stride_demo_email'); } catch (e12) {}
+      try { history.replaceState(null, '', '/try'); } catch (e13) {}
+    }
+    if (_handed) {
+      input.value = _handed;
+      form.dispatchEvent(new Event('submit', { cancelable: true }));
+    }
+  } catch (e14) {}
 })();
 </script>
 </body>
