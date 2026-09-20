@@ -41,6 +41,13 @@ for (const file of ['frontend/index.html', 'index.html']) {
   ok(where + 'no em dash crept into it',
      !/dpop-[hs]"[^>]*>[^<]*[—–]/.test(src));
 
+  // The objection a 24-hour pass creates: it sounds like a crippled build.
+  ok(where + 'the prompt says it is the full version and the work is kept',
+     /<strong>The full version of Stride\.<\/strong> Inject the automation you\s*\n?\s*build in these 24 hours straight into your clips, and keep it forever\./.test(src));
+  ok(where + 'and says it with INJECT, never the dead drag or .alc wording',
+     !/drag/i.test((src.match(/class="dpop-keep"[\s\S]{0,260}<\/p>/) || [''])[0])
+     && !/\.alc/i.test((src.match(/class="dpop-keep"[\s\S]{0,260}<\/p>/) || [''])[0]));
+
   ok(where + 'the timer is 30 seconds', /var SECONDS = 30;/.test(src));
   ok(where + 'and counts only time the page is actually looked at',
      /if \(document\.hidden\) return;/.test(src));
@@ -122,6 +129,20 @@ ok('/try still owns the registration and both conversion events',
    && /fbq\('trackCustom', 'DemoRegistered'/.test(tryPage));
 ok('/try still shares one event_id between the browser and the server halves',
    /body\.event_id = eid;/.test(tryPage) && /\{ eventID: eid \}/.test(tryPage));
+
+// The same promise as the prompt, so the two pages do not contradict each other.
+const keep = (tryPage.match(/class="keepline"[\s\S]{0,300}?<\/p>/) || [''])[0];
+ok('/try makes the same full-version promise',
+   /<strong>The full version of Stride\.<\/strong>/.test(keep)
+   && /straight into your clips, and keep it forever\./.test(keep));
+ok('/try says it before the form, not after',
+   tryPage.indexOf('class="keepline"') > 0
+   && tryPage.indexOf('class="keepline"') < tryPage.indexOf('<form id="f"'));
+ok('/try uses INJECT, never drag or .alc',
+   !/drag/i.test(keep) && !/\.alc/i.test(keep));
+ok('neither page contradicts the other',
+   keep.replace(/\s+/g, ' ').indexOf('Inject the automation you build in these 24 hours '
+     + 'straight into your clips, and keep it forever.') > 0);
 
 console.log('  ' + PASSED + ' passed, ' + FAILED + ' failed');
 process.exit(FAILED ? 1 : 0);
