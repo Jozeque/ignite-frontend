@@ -334,6 +334,20 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     background:radial-gradient(120% 80% at 50% -10%, rgba(198,113,43,.07), transparent 60%),
                radial-gradient(100% 60% at 50% 110%, rgba(47,116,142,.05), transparent 60%);}
   .wrap{position:relative;z-index:1}
+  /* ── The strip ──────────────────────────────────────────────────────────
+     A band behind the header with a hairline under it, so the top of the page
+     has a floor instead of the wordmark floating on the background. Bled to the
+     viewport edges from inside this centred container: the negative margin takes
+     it out to the window and the matching padding puts the content back where
+     the container had it, so the band is full width while the wordmark still
+     lines up with the hero below it. legacy/partials/header.html carries the
+     identical rule for every other page, which is what header-parity checks. */
+  .wrap > nav{
+    margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw);
+    padding-left:calc(50vw - 50%);padding-right:calc(50vw - 50%);
+    background:rgba(20,19,16,.82);
+    -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+    border-bottom:1px solid var(--line)}
   .mono{font-family:'Space Mono',ui-monospace,monospace}
   .silk{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--ink3)}
   .brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
@@ -1050,7 +1064,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- End Google Tag Manager (noscript) -->
 
-<div class="wrap max-w-[1400px] mx-auto px-6" style="padding-top:8px">
+<div class="wrap max-w-[1400px] mx-auto px-6">
 
   <!-- ───────────────── NAV ───────────────── -->
   <nav class="flex justify-between items-center py-6">

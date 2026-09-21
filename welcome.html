@@ -265,11 +265,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      backend rather than hardcoded, so the page can never offer a build the mail
      does not. It is hidden until the URLs arrive, because two dead buttons on this
      screen would be worse than none. */
-  .dl-block{padding:18px 20px;margin:0 0 22px}
-  .dl-kicker{margin:0 0 12px}
-  .dl-row{display:flex;flex-wrap:wrap;gap:10px}
-  .dl-row .btn-copper{flex:1 1 220px;padding:13px 22px;font-size:14px;border-radius:12px}
-  .dl-note{margin:13px 0 0;font-size:12.5px;line-height:1.6;color:var(--ink3)}
+  /* One tight block rather than three stacked rows: it shares a column with the video and
+     every pixel it takes is a pixel the offers beside it have to match. */
+  .dl-block{padding:12px 14px;margin:0}
+  .dl-kicker{margin:0 0 7px}
+  .dl-row{display:flex;flex-wrap:wrap;gap:8px}
+  .dl-row .btn-copper{flex:1 1 180px;padding:10px 18px;font-size:13px;border-radius:12px}
+  .dl-note{margin:8px 0 0;font-size:11.5px;line-height:1.45;color:var(--ink3)}
   .dl-note a{color:var(--copper-lt)}
   /* The session offer rail. Same language as session.html and /post, so the three read
      as one offer rather than three designs. */
@@ -284,8 +286,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media (prefers-reduced-motion:reduce){ .offer-dot{animation:none} }
   .price-was{font-size:1.25rem;font-weight:800;letter-spacing:-.01em;line-height:1;color:var(--ink3);opacity:.75;
     text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:rgba(221,154,82,.6)}
-  .offer-clock{margin:10px 0 0;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
-  .offer-clock b{color:var(--copper-lt);font-weight:700;letter-spacing:.04em}
+  /* Above the price on both cards, and loud enough to be part of the offer rather than a
+     footnote under it. The window is what makes either of these a decision, so it reads on
+     the way in to the number. */
+  .offer-clock{margin:4px 0 3px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--ink2);font-weight:800}
+  .offer-clock b{color:var(--copper-lt);font-weight:900;letter-spacing:.03em;font-size:17px}
 
   /* ── The two questions ───────────────────────────────────────────────────
      /try's shape: one quiet panel, the options as chips that fill copper when
@@ -293,16 +299,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      the welcome and the video and must read as a question, not as a form. The
      radio itself is invisible and covers its own chip, so the whole chip is the
      hit target and the keyboard still gets a real radio group. */
-  .survey{max-width:760px;margin:0 auto 1.6rem;padding:18px 20px;border:1px solid var(--line);
+  .survey{max-width:760px;margin:0 auto .75rem;padding:11px 14px;border:1px solid var(--line);
     border-radius:18px;background:var(--panel);text-align:left}
   .survey[hidden]{display:none}
   .survey-h{margin:0 0 4px;font-size:14px;font-weight:900;color:var(--ink);letter-spacing:.02em}
-  .survey-lead{margin:0 0 10px;font-size:12.5px;line-height:1.5;color:var(--ink2)}
+  .survey-lead{margin:0 0 8px;font-size:12.5px;line-height:1.45;color:var(--ink2)}
   .survey-lead-2{margin-top:16px}
-  .survey-row{display:flex;flex-wrap:wrap;gap:7px}
+  .survey-row{display:flex;flex-wrap:wrap;gap:6px}
   .survey-opt{position:relative;display:inline-flex}
   .survey-opt input{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;cursor:pointer}
-  .survey-opt span{display:inline-block;padding:7px 13px;border-radius:999px;
+  .survey-opt span{display:inline-block;padding:6px 11px;border-radius:999px;
     border:1px solid var(--line);background:rgba(255,255,255,.03);
     font-size:12px;font-weight:700;color:var(--ink2);
     transition:color .15s,border-color .15s,background .15s}
@@ -324,13 +330,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .btn-copper[aria-busy="true"]{opacity:.7;pointer-events:none}
   /* The Collection's three covers, as on /samples and /post2, sized for this card. */
   .rail-stack{display:flex;align-items:flex-start}
-  .rail-stack img{position:relative;flex:1 1 0;min-width:0;width:100%;height:auto;aspect-ratio:1/1;
+  .rail-stack img{position:relative;flex:1 1 0;min-width:0;width:100%;height:44px;object-fit:cover;
     object-fit:cover;border-radius:10px;border:1px solid var(--line);background:var(--bg2);
     box-shadow:0 18px 32px -20px rgba(0,0,0,.95)}
   .rail-stack img + img{margin-left:-14%}
   .rail-stack img:nth-child(1){z-index:1}.rail-stack img:nth-child(2){z-index:2}.rail-stack img:nth-child(3){z-index:3}
 </style>
-<link rel="stylesheet" href="/_legacy/css/welcome.439350b80d.css">
+<link rel="stylesheet" href="/_legacy/css/welcome.070b2e831a.css">
 </head>
 <body class="min-h-screen flex flex-col">
 <!-- Google Tag Manager (noscript) -->
@@ -351,30 +357,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <main class="flex-1 max-w-6xl mx-auto px-6 py-8 w-full">
 
     <!-- Hero (compact so video + CTAs stay above the fold on desktop) -->
-    <div class="text-center mb-6">
-      <span class="chip pill-warm mb-3">You're in</span>
-      <h1 class="text-3xl md:text-4xl font-black uppercase tracking-tight mb-2 mt-3">
+    <div class="text-center mb-1">
+      <span class="chip pill-warm mb-2">You're in</span>
+      <h1 class="text-2xl md:text-3xl font-black uppercase tracking-tight mb-1 mt-2">
         Welcome to <span class="brand">Stride</span>
       </h1>
       <p class="text-sm ink2 font-medium max-w-lg mx-auto leading-relaxed">
         Watch this before you start.
       </p>
     </div>
-
-    <!-- The software, before anything else on the page asks for attention. Hidden in the
-         markup and revealed only once the backend hands over real URLs, so this block is
-         either useful or absent, never a pair of dead buttons on the screen of somebody
-         who has just paid. Both links stay hidden individually: a release published for
-         one platform and not the other shows one button rather than a broken second. -->
-    <section class="dl-block panel rounded-2xl" id="dl-block" hidden>
-      <p class="silk dl-kicker">Download Stride</p>
-      <div class="dl-row">
-        <a class="btn-copper" id="dl-win" href="#" rel="nofollow" hidden>Download for Windows</a>
-        <a class="btn-copper" id="dl-mac" href="#" rel="nofollow" hidden>Download for Mac</a>
-      </div>
-      <p class="dl-note">Your licence key is in your welcome email. Paste it into Stride the first
-        time you open it. <a href="setup.html">Setup guide &rarr;</a></p>
-    </section>
 
     <!-- Two questions, asked once, of somebody who has just paid and is in a good mood.
          Kept deliberately small: it sits above the video because that is where it will
@@ -385,46 +376,70 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <section class="survey" id="survey" hidden aria-labelledby="survey-h">
       <form id="survey-form" novalidate>
         <p class="survey-h" id="survey-h">Help us make Stride better</p>
-        <p class="survey-lead">We're always working to take Stride further. What almost stopped you from buying today?</p>
-        <div class="survey-row" role="radiogroup" aria-labelledby="survey-h">
-          <label class="survey-opt"><input type="radio" name="blocker" value="price"><span>Price</span></label>
-          <label class="survey-opt"><input type="radio" name="blocker" value="workflow"><span>Not sure it fits my workflow</span></label>
-          <label class="survey-opt"><input type="radio" name="blocker" value="compatibility"><span>Compatibility concerns</span></label>
-          <label class="survey-opt"><input type="radio" name="blocker" value="try_first"><span>Wanted to try it first</span></label>
-          <label class="survey-opt"><input type="radio" name="blocker" value="unclear"><span>Wasn't sure what it does</span></label>
-          <label class="survey-opt"><input type="radio" name="blocker" value="nothing"><span>Nothing</span></label>
-          <label class="survey-opt"><input type="radio" name="blocker" value="other"><span>Other</span></label>
-        </div>
-        <input class="survey-other" type="text" name="blocker_other" maxlength="400" placeholder="Tell us more" hidden>
 
-        <p class="survey-lead survey-lead-2">How did you first hear about Stride?</p>
-        <div class="survey-row" role="radiogroup" aria-label="How did you first hear about Stride?">
-          <label class="survey-opt"><input type="radio" name="heard" value="instagram_facebook"><span>Instagram / Facebook</span></label>
-          <label class="survey-opt"><input type="radio" name="heard" value="youtube"><span>YouTube</span></label>
-          <label class="survey-opt"><input type="radio" name="heard" value="google"><span>Google</span></label>
-          <label class="survey-opt"><input type="radio" name="heard" value="friend"><span>A friend</span></label>
-          <label class="survey-opt"><input type="radio" name="heard" value="review"><span>A review or article</span></label>
-          <label class="survey-opt"><input type="radio" name="heard" value="other"><span>Other</span></label>
+        <!-- One question at a time, and choosing an answer IS sending it. There is no submit
+             button: somebody who has just paid should not have to press a second thing to do
+             us a favour, and an answer that is already recorded cannot be lost by leaving. -->
+        <div class="survey-step" data-step="blocker">
+          <p class="survey-lead">We're always working to take Stride further. What almost stopped you from buying today?</p>
+          <div class="survey-row" role="radiogroup" aria-labelledby="survey-h">
+            <label class="survey-opt"><input type="radio" name="blocker" value="price"><span>Price</span></label>
+            <label class="survey-opt"><input type="radio" name="blocker" value="workflow"><span>Not sure it fits my workflow</span></label>
+            <label class="survey-opt"><input type="radio" name="blocker" value="compatibility"><span>Compatibility concerns</span></label>
+            <label class="survey-opt"><input type="radio" name="blocker" value="try_first"><span>Wanted to try it first</span></label>
+            <label class="survey-opt"><input type="radio" name="blocker" value="unclear"><span>Wasn't sure what it does</span></label>
+            <label class="survey-opt"><input type="radio" name="blocker" value="nothing"><span>Nothing</span></label>
+            <label class="survey-opt"><input type="radio" name="blocker" value="other"><span>Other</span></label>
+          </div>
+          <input class="survey-other" type="text" name="blocker_other" maxlength="400"
+                 placeholder="Tell us more, then press Enter" hidden>
         </div>
-        <input class="survey-other" type="text" name="heard_other" maxlength="400" placeholder="Please specify" hidden>
 
-        <div class="survey-foot">
-          <button type="submit" class="btn-copper px-7 py-3 text-xs uppercase" id="survey-go">Send feedback</button>
-          <p class="survey-note" aria-live="polite" hidden></p>
+        <div class="survey-step" data-step="heard" hidden>
+          <p class="survey-lead">Thank you. And how did you first hear about Stride?</p>
+          <div class="survey-row" role="radiogroup" aria-label="How did you first hear about Stride?">
+            <label class="survey-opt"><input type="radio" name="heard" value="instagram_facebook"><span>Instagram / Facebook</span></label>
+            <label class="survey-opt"><input type="radio" name="heard" value="youtube"><span>YouTube</span></label>
+            <label class="survey-opt"><input type="radio" name="heard" value="google"><span>Google</span></label>
+            <label class="survey-opt"><input type="radio" name="heard" value="friend"><span>A friend</span></label>
+            <label class="survey-opt"><input type="radio" name="heard" value="review"><span>A review or article</span></label>
+            <label class="survey-opt"><input type="radio" name="heard" value="other"><span>Other</span></label>
+          </div>
+          <input class="survey-other" type="text" name="heard_other" maxlength="400"
+                 placeholder="Please specify, then press Enter" hidden>
         </div>
+
+        <p class="survey-note" aria-live="polite" hidden></p>
       </form>
     </section>
 
     <!-- Video (2/3) + Support cards (1/3) side-by-side on desktop -->
-    <div class="grid md:grid-cols-3 gap-4 mb-10">
+    <div class="grid md:grid-cols-4 gap-3 mb-6">
 
-      <!-- Video -->
-      <div class="md:col-span-2 video-frame rounded-2xl overflow-hidden" style="border:1px solid var(--line);box-shadow:0 30px 60px -28px rgba(0,0,0,.9)">
-        <iframe class="w-full aspect-video bg-black" src="https://www.youtube-nocookie.com/embed/-Z4zRIiPg-4?rel=0&amp;modestbranding=1&amp;playsinline=1" title="Stride welcome video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+      <!-- The walkthrough, and the software underneath it. This column is two of the four,
+           and it is deliberately the SHORTER one: the offers beside it set the row height,
+           so anything that lives here is free until it passes them. -->
+      <div class="md:col-span-2 flex flex-col gap-4">
+        <!-- The software. Hidden in the markup and revealed only once the backend hands over
+             real URLs, so this block is either useful or absent, never a pair of dead buttons
+             on the screen of somebody who has just paid. Each link stays hidden on its own: a
+             release published for one platform shows one button, not a broken second. -->
+        <section class="dl-block panel rounded-2xl" id="dl-block" hidden>
+          <p class="silk dl-kicker">Download Stride</p>
+          <div class="dl-row">
+            <a class="btn-copper" id="dl-win" href="#" rel="nofollow" hidden>Download for Windows</a>
+            <a class="btn-copper" id="dl-mac" href="#" rel="nofollow" hidden>Download for Mac</a>
+          </div>
+          <p class="dl-note">Your licence key is in your welcome email. <a href="setup.html">Setup guide &rarr;</a></p>
+        </section>
+
+        <div class="video-frame rounded-2xl overflow-hidden" style="border:1px solid var(--line);box-shadow:0 30px 60px -28px rgba(0,0,0,.9)">
+          <iframe class="w-full aspect-video bg-black" src="https://www.youtube-nocookie.com/embed/-Z4zRIiPg-4?rel=0&amp;modestbranding=1&amp;playsinline=1" title="Stride welcome video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+        </div>
       </div>
 
-      <!-- Support cards column -->
-      <div class="flex flex-col gap-4">
+      <!-- The offers, side by side -->
+      <div class="md:col-span-2 flex flex-wrap items-start gap-4">
 
         <!-- The Experimental Collection, when this purchase still has it on offer.
              Its own card, because the two offers are independent: a buyer can have both
@@ -432,7 +447,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              one. It used to share the card below and only appeared once the session was
              booked, which meant almost nobody saw it. Hidden until the backend confirms
              the offer on its own clock, exactly like the card below. -->
-        <div class="support-card flex flex-col justify-between p-5 rounded-2xl panel" id="coll-rail" hidden>
+        <div class="support-card flex-1 min-w-[240px] flex flex-col p-4 rounded-2xl panel" id="coll-rail" hidden>
           <div>
             <p class="silk mb-2" style="color:var(--copper-lt)">Want more to play with?</p>
             <div class="rail-stack" aria-hidden="true">
@@ -440,16 +455,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <img src="assets/packs/pack-water.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
               <img src="assets/packs/pack-feedback.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
             </div>
-            <p class="text-[17px] font-black ink leading-snug mt-4 mb-1">Stride Experimental Collection</p>
-            <p class="text-xs ink3 leading-relaxed">250+ sounds &middot; 15 Ableton Racks &middot; 4 StrideChains</p>
+            <p class="text-[15px] font-black ink leading-snug mt-2 mb-0.5">Stride Experimental Collection</p>
+            <p class="text-[11px] ink3 leading-snug">250+ sounds &middot; 15 Ableton Racks &middot; 4 StrideChains</p>
             <span class="offer-flag"><span class="offer-dot" aria-hidden="true"></span>New Stride owner price</span>
+            <p class="offer-clock" role="timer">Offer ends in <b data-coll-left>72h</b></p>
             <div class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
               <del class="price-was"><span class="sr-only">Full price </span><span data-coll-was>$24.99</span></del>
               <span class="price text-3xl" data-coll-now>$19</span>
             </div>
-            <p class="offer-clock" role="timer">Offer ends in <b data-coll-left>72h</b></p>
           </div>
-          <button type="button" class="rail-coll-buy btn-copper w-full mt-4 px-5 py-3 text-xs uppercase">Add it for <span data-coll-cta>$19</span></button>
+          <button type="button" class="rail-coll-buy btn-copper w-full mt-3 px-4 py-2.5 text-xs uppercase">Add it for <span data-coll-cta>$19</span></button>
           <p class="coll-note text-xs ink3 leading-relaxed mt-3" aria-live="polite" hidden></p>
         </div>
 
@@ -463,22 +478,22 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              opens a checkout. Wrapping the whole card in an <a href="session.html"> would
              swallow that click. The fallback state, and anyone with no open offer, still
              gets a plain link out to the page. -->
-        <div class="support-card flex-1 flex flex-col justify-between p-5 rounded-2xl panel" id="session-rail">
+        <div class="support-card flex-1 min-w-[240px] flex flex-col p-4 rounded-2xl panel" id="session-rail">
           <div class="rail-session">
             <p class="silk mb-2" style="color:var(--copper-lt)">Want to go deeper?</p>
-            <p class="text-[17px] font-black ink leading-snug mb-1.5">Spend an hour with the person who built Stride.</p>
-            <p class="text-xs ink3 leading-relaxed">Your session. Your plugins. Your sound.</p>
+            <p class="text-[15px] font-black ink leading-snug mb-1">Spend an hour with the person who built Stride.</p>
+            <p class="text-[11px] ink3 leading-snug">Your session. Your plugins. Your sound.</p>
 
             <!-- Owner state. Hidden until the backend confirms this buyer has an open
                  offer, on the server's clock: showing a price we might not honour and
                  then correcting it is worse than showing the public one. -->
             <div class="rail-offer" hidden>
               <span class="offer-flag"><span class="offer-dot" aria-hidden="true"></span>New Stride owner price</span>
+              <p class="offer-clock" role="timer">Offer ends in <b data-rail-left>72h</b></p>
               <div class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
                 <del class="price-was"><span class="sr-only">Full price </span><span data-rail-was>$199</span></del>
                 <span class="price text-3xl" data-rail-now>$99</span>
               </div>
-              <p class="offer-clock" role="timer">Offer ends in <b data-rail-left>72h</b></p>
             </div>
 
             <!-- Public state. Also the fallback for no offer, an expired one, a used one,
@@ -486,23 +501,25 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <p class="rail-public text-xl font-black ink mt-2">1:1 session &middot; $199</p>
           </div>
 
-          <button type="button" class="rail-book btn-copper w-full mt-4 px-5 py-3 text-xs uppercase" hidden>Book a session</button>
+          <button type="button" class="rail-book btn-copper w-full mt-3 px-4 py-2.5 text-xs uppercase" hidden>Book a session</button>
           <p class="rail-note text-xs ink3 leading-relaxed mt-3" aria-live="polite" hidden></p>
           <a href="session.html" class="rail-link silk mt-4 hover:text-[color:var(--ember)] transition-colors" style="color:var(--copper-lt)">See what it covers &rarr;</a>
         </div>
 
-        <a href="mailto:home@stridehub.io" class="support-card flex-1 flex flex-col justify-between p-5 rounded-2xl group panel">
-          <div>
-            <p class="silk mb-2">Quick question?</p>
-            <p class="text-xl font-black ink mb-1.5">Email support</p>
-            <p class="text-xs ink3 leading-relaxed">Reply within 48 hours. Every email reaches me directly.</p>
-          </div>
-          <p class="silk mt-4 group-hover:text-[color:var(--ink)] transition-colors" style="color:var(--ink2)">home@stridehub.io &rarr;</p>
-        </a>
-
       </div>
 
     </div>
+
+    <!-- Help, not an offer, so it is out of the row above: it used to be a third card in
+         that column and it alone made the offers column taller than the screen. -->
+    <a href="mailto:home@stridehub.io" class="support-card flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl group panel mb-6">
+      <span>
+        <span class="silk block mb-1">Quick question?</span>
+        <span class="text-[15px] font-black ink">Email support</span>
+        <span class="text-xs ink3 leading-relaxed"> &middot; reply within 48 hours, every email reaches me directly.</span>
+      </span>
+      <span class="silk group-hover:text-[color:var(--ink)] transition-colors" style="color:var(--ink2)">home@stridehub.io &rarr;</span>
+    </a>
 
     <!-- Expectation-setting note (creative tool, not mixing tool). Sits between
          video and closing tag so producers see it after the walkthrough. -->
@@ -854,48 +871,78 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   box.hidden = false;
 
-  // "Other" is the only answer that asks for words, and it asks only while it is chosen.
-  form.addEventListener('change', function (ev) {
-    var t = ev.target;
-    if (!t || t.type !== 'radio') return;
-    var other = form.querySelector('.survey-other[name="' + t.name + '_other"]');
-    if (!other) return;
-    if (t.value === 'other') { other.hidden = false; try { other.focus(); } catch (e) {} }
-    else { other.hidden = true; other.value = ''; }
-  });
+  var steps = [].slice.call(form.querySelectorAll('.survey-step'));
+  var sent = {};
 
-  var note = form.querySelector('.survey-note');
-  function say(text) { note.textContent = text || ''; note.hidden = !text; }
-
-  function val(name) {
-    var el = form.querySelector('input[name="' + name + '"]:checked');
-    return el ? el.value : '';
-  }
-  function text(name) {
-    var el = form.querySelector('.survey-other[name="' + name + '"]');
-    return el && !el.hidden ? (el.value || '').trim() : '';
-  }
-
-  form.addEventListener('submit', function (ev) {
-    ev.preventDefault();
-    var blocker = val('blocker'), heard = val('heard');
-    if (!blocker && !heard) { say('Pick an answer and we will take it from there.'); return; }
-
-    // An answer is a gift, not a transaction. Whatever the network does with it, this page
-    // says thank you and gets out of the way: somebody who has just paid is never shown a
-    // failure for telling us something.
+  // An answer is a gift, not a transaction. Whatever the network does with it, this page
+  // never shows a failure to somebody who has just paid for telling us something. Each
+  // question is sent on its own the moment it is answered, so leaving after the first one
+  // still leaves us the first one. keepalive, because the next thing they do may be to go.
+  function send(name, value, other) {
+    if (sent[name]) return;
+    sent[name] = true;
+    var body = { action: 'purchase_survey', txn: txn };
+    body[name] = value;
+    body[name + '_other'] = other || '';
     try {
       fetch(API, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
-        body: JSON.stringify({ action: 'purchase_survey', txn: txn,
-                               blocker: blocker, blocker_other: text('blocker_other'),
-                               heard: heard, heard_other: text('heard_other') })
+        body: JSON.stringify(body)
       }).catch(function () {});
     } catch (e) {}
+  }
 
+  function thanks() {
     lsSet(DONE_KEY, txn);
     box.innerHTML = '<p class="survey-h">Thank you.</p>'
       + '<p class="survey-lead" style="margin:0">That goes straight to the person who builds Stride.</p>';
+  }
+
+  // One question at a time. The next one only exists once this one is answered.
+  function advance(i) {
+    if (!steps[i] || steps[i].hidden) return;
+    steps[i].hidden = true;
+    if (steps[i + 1]) { steps[i + 1].hidden = false; return; }
+    thanks();
+  }
+
+  form.addEventListener('submit', function (ev) { ev.preventDefault(); });
+
+  form.addEventListener('change', function (ev) {
+    var t = ev.target;
+    if (!t || t.type !== 'radio') return;
+    var step = null;
+    for (var n = t.parentNode; n && n !== form; n = n.parentNode) {
+      if (steps.indexOf(n) >= 0) { step = n; break; }
+    }
+    var i = steps.indexOf(step);
+    if (i < 0) return;
+    var other = step.querySelector('.survey-other');
+    // "Other" is the only answer that asks for words, so it is the only one that waits.
+    if (t.value === 'other') {
+      if (other) { other.hidden = false; try { other.focus(); } catch (e) {} }
+      return;
+    }
+    if (other) { other.hidden = true; other.value = ''; }
+    send(t.name, t.value, '');
+    advance(i);
+  });
+
+  // The free-text answer goes when they say it is finished, by pressing Enter or by
+  // leaving the field. Empty still counts: they chose Other and that is the answer.
+  steps.forEach(function (step, i) {
+    var other = step.querySelector('.survey-other');
+    if (!other) return;
+    var go = function () {
+      var picked = step.querySelector('input[type="radio"]:checked');
+      if (!picked || picked.value !== 'other' || sent[picked.name]) return;
+      send(picked.name, 'other', (other.value || '').trim());
+      advance(i);
+    };
+    other.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter') { ev.preventDefault(); go(); }
+    });
+    other.addEventListener('blur', go);
   });
 })();
 </script>

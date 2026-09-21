@@ -53,7 +53,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             background-image: linear-gradient(to right, #f97316, #ef4444);
         }
     </style>
-<link rel="stylesheet" href="/_legacy/css/refund.a92570dee6.css">
+<link rel="stylesheet" href="/_legacy/css/refund.439af89355.css">
 </head>
 <body class="min-h-screen flex flex-col">
 <!-- HEADER:START (scripts/sync-header.mjs writes this, do not edit here) -->
@@ -98,8 +98,22 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     font-weight:800;border-radius:14px;transition:transform .15s,border-color .15s,color .15s;cursor:pointer}
   #m-menu .btn-ghost:hover{transform:translateY(-2px);border-color:rgba(216,201,176,.28);color:var(--hdr-ink)}
 
-  .stride-header{position:relative;z-index:1;width:100%;max-width:1400px;margin:0 auto;padding:8px 1.5rem 0}
+  .stride-header{position:relative;z-index:1;width:100%;max-width:1400px;margin:0 auto;padding:0 1.5rem}
   .stride-header > nav{display:flex;justify-content:space-between;align-items:center;padding:1.5rem 0}
+  /* ── The strip ──────────────────────────────────────────────────────────
+     A band behind the header with a hairline under it, so the top of the page
+     has a floor instead of the wordmark floating on the background. Bled to
+     the viewport edges from inside a centred container: the negative margin
+     takes it out to the window and the matching padding puts the content back
+     where the container had it, so the band is full width while the wordmark
+     still lines up with everything below it. The homepage carries the same
+     rule on `.wrap > nav`, which is why header-parity passes. */
+  .stride-header > nav{
+    margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw);
+    padding-left:calc(50vw - 50%);padding-right:calc(50vw - 50%);
+    background:rgba(20,19,16,.82);
+    -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+    border-bottom:1px solid var(--hdr-line)}
   .stride-header .silk{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--hdr-ink3)}
   #m-menu-btn{display:none}
   @media (max-width:899.98px){
