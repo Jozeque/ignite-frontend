@@ -147,8 +147,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .price-was{font-size:1.6rem;font-weight:800;letter-spacing:-.01em;line-height:1;color:var(--ink3);opacity:.75;
     text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:rgba(221,154,82,.6)}
   @media (min-width:640px){ .price-was{font-size:2rem} }
-  .offer-clock{margin:14px 0 0;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
-  .offer-clock b{color:var(--copper-lt);font-weight:700;letter-spacing:.06em}
+  /* Above the price now, and loud enough to be part of the offer rather than a footnote
+     under it: the label holds its small uppercase treatment, the time itself is the size of
+     a heading and at full weight, because the window is what makes this a decision. */
+  .offer-clock{margin:0 0 10px;font-size:13px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--ink2);font-weight:800}
+  .offer-clock b{color:var(--copper-lt);font-weight:900;letter-spacing:.04em;font-size:20px}
   .offer-note{margin:12px 0 0;font-size:13px;line-height:1.6;color:var(--ink2);max-width:28rem}
   .cta[aria-busy="true"]{opacity:.7;pointer-events:none}
 
@@ -245,11 +249,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </button>
       </div>
 
-      <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 mt-8">
+      <!-- The clock reads before the price, not after it. This is the first screen after a
+           purchase and the window is the reason to decide now, so it has to be read on the
+           way IN to the number rather than found underneath it. -->
+      <p class="offer-clock mt-8" role="timer">Available for the next <b data-left>72 hours</b></p>
+      <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <del class="price-was"><span class="sr-only">Full price </span><span data-was>$24.99</span></del>
         <div class="price text-4xl sm:text-5xl" data-now>$19</div>
       </div>
-      <p class="offer-clock" role="timer">Available for the next <b data-left>72 hours</b></p>
 
       <div class="mt-7">
         <button type="button" class="cta btn-copper px-8 py-4 text-sm uppercase w-full sm:w-auto" data-buy>Add it for <span data-cta-price>$19</span></button>
