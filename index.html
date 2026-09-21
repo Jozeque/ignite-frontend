@@ -683,8 +683,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media (max-width:420px){.dpop-card{padding:22px 18px}.dpop-h{font-size:21px}}
 
   /* ── THE FILM ───────────────────────────────────────────────────────────
-     A second press on the hero frame plays the full Stride film here, over
-     the page, so nobody is sent to another tab to watch it. The hero script
+     Pressing the hero frame while its loop is running plays the full Stride
+     film here, over the page, so nobody is sent to another tab. The hero script
      builds this panel the first time it is asked for: none of it exists in
      the page as delivered, so it cannot move a pixel of the hero, and the
      film itself is not fetched until somebody actually asks for it. Above
@@ -1289,8 +1289,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           });
 
           // ── The film ──────────────────────────────────────────────────────
-          // Press the frame a second time and the full Stride film plays over the
-          // page. The panel and the <video> are built on that first press, so the
+          // Press the frame while its loop is running and the full Stride film plays
+          // over the page. The panel and the <video> are built on that press, so the
           // hero ships without them and nothing is downloaded until somebody asks.
           // A phone under 760px gets the 720p pair: at that size it is the same
           // picture for a third of the bytes.
@@ -1377,25 +1377,30 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           // While the walkthrough is playing in the frame, the frame belongs to it.
           function frameBusy() { return !!stage.querySelector('iframe'); }
 
-          stage.addEventListener('dblclick', function (ev) {
-            if (frameBusy()) return;
+          // One press, and what it does depends on whether the loop is already running.
+          //
+          // On a desktop it is: the loop autoplays, so the first press opens the film.
+          // On a phone the loop often will not start by itself (iOS in Low Power Mode,
+          // Android with Data Saver, or anybody who asked for less motion), so the frame
+          // is sitting there on its poster. There, the first press starts the loop, which
+          // is what somebody tapping a still frame is asking for, and the next one opens
+          // the film. Neither has to know about the other: the rule is just "if it is not
+          // running, run it; if it is, show them the film".
+          //
+          // click, not pointerup: a tap sends the click AFTER the overlay would already be
+          // on screen if we opened on pointerup, and that click then lands on the backdrop
+          // and closes what the tap just opened.
+          stage.addEventListener('click', function (ev) {
+            if (frameBusy()) return;              // the walkthrough owns the frame
             ev.preventDefault();
-            openFilm();
-          });
-
-          // Touch never fires dblclick, and on iOS a double tap means zoom, so the
-          // pair is counted by hand: two taps inside 400ms and 30px of each other.
-          var tapAt = 0, tapX = 0, tapY = 0;
-          stage.addEventListener('pointerup', function (ev) {
-            if (ev.pointerType === 'mouse' || frameBusy()) return;
-            var now = Date.now();
-            if (now - tapAt < 400 && Math.abs(ev.clientX - tapX) < 30 && Math.abs(ev.clientY - tapY) < 30) {
-              tapAt = 0;
-              ev.preventDefault();
-              openFilm();
+            if (loop && loop.paused) {
+              var p = loop.play();
+              // If it will not play at all, a press that does nothing is worse than one
+              // that goes straight to the film.
+              if (p && p.catch) p.catch(function () { openFilm(); });
               return;
             }
-            tapAt = now; tapX = ev.clientX; tapY = ev.clientY;
+            openFilm();
           });
 
           document.addEventListener('keydown', function (ev) {
