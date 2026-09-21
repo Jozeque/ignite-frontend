@@ -188,16 +188,28 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .price-was{font-size:1.6rem;font-weight:800;letter-spacing:-.01em;line-height:1;color:var(--ink3);opacity:.75;
     text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:rgba(221,154,82,.6)}
   @media (min-width:640px){ .price-was{font-size:2rem} }
-  .offer-clock{margin:14px 0 0;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
-  .offer-clock b{color:var(--copper-lt);font-weight:700;letter-spacing:.06em}
+  /* The clock sits ABOVE the price, not under it. Under the price it was the last thing
+     on the offer, read after the decision had already been made, and at 12px it read as
+     fine print. Above, it is the frame the price is then seen inside: the window first,
+     the number second. Bumped a step, and the digits a step beyond that, so the part that
+     is actually counting down is the part that carries. */
+  .offer-clock{margin:0 0 14px;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
+  .offer-clock b{color:var(--copper-lt);font-weight:700;letter-spacing:.06em;font-size:15px}
   .offer-note{margin:12px 0 0;font-size:13px;line-height:1.6;color:var(--ink2);max-width:28rem}
   .session-cta[aria-busy="true"]{opacity:.7;pointer-events:none}
   .booked-title{font-size:1.6rem;line-height:1.2;font-weight:900;color:var(--ink);margin:0 0 8px}
 
   /* This page's own: the purchase it follows, and the way past the offer. */
-  .skip{display:inline-block;margin-top:20px;font-size:14px;font-weight:700;color:var(--ink3);
-    text-decoration:none;transition:color .15s}
-  .skip:hover{color:var(--copper-lt)}
+  /* The way out of the offer has to be findable. It was a 14px grey line sitting under a
+     copper button and read as fine print, so someone who had just paid could not see how
+     to reach the thing they bought. It is a real secondary button now, in the same shape
+     the rest of the site uses for "not this, the other one", and still clearly quieter
+     than the offer beside it. */
+  .skip{display:inline-flex;align-items:center;gap:.4rem;margin-top:20px;
+    padding:12px 22px;border-radius:999px;font-size:15px;font-weight:800;
+    color:var(--ink2);background:rgba(255,255,255,.03);border:1px solid var(--line);
+    text-decoration:none;transition:color .15s,border-color .15s,background .15s}
+  .skip:hover{color:var(--ink);border-color:rgba(216,201,176,.28);background:rgba(255,255,255,.06)}
   /* Nothing of the offer renders until the server has confirmed it: showing a price we may
      not honour, then correcting it, is worse than a beat of nothing. */
   .gate{visibility:hidden}
@@ -247,6 +259,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="mt-8">
           <div class="book-live">
             <span class="offer-flag"><span class="offer-dot" aria-hidden="true"></span>Private offer for Stride owners</span>
+            <p class="offer-clock mono" role="timer">Ends in <b data-left>72:00:00</b></p>
             <div class="flex flex-wrap items-center gap-5 sm:gap-7">
               <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 <del class="price-was"><span class="sr-only">Full price </span><span data-was>$199</span></del>
@@ -255,7 +268,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               </div>
               <button type="button" class="session-cta btn-copper px-8 py-4 text-sm uppercase" data-buy>Book a session</button>
             </div>
-            <p class="offer-clock mono" role="timer">Ends in <b data-left>72:00:00</b></p>
             <p class="offer-note" aria-live="polite" hidden></p>
           </div>
           <div class="booked" hidden>
@@ -366,6 +378,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <section class="sg-book" id="book">
         <div class="book-live">
           <span class="offer-flag"><span class="offer-dot" aria-hidden="true"></span>Private offer for Stride owners</span>
+          <p class="offer-clock mono">Ends in <b data-left>72:00:00</b></p>
           <div class="flex flex-wrap items-center gap-5 sm:gap-7">
             <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <del class="price-was"><span class="sr-only">Full price </span><span data-was>$199</span></del>
@@ -374,7 +387,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             </div>
             <button type="button" class="session-cta btn-copper px-8 py-4 text-sm uppercase" data-buy>Book a session</button>
           </div>
-          <p class="offer-clock mono">Ends in <b data-left>72:00:00</b></p>
           <p class="text-[12px] ink3 leading-relaxed max-w-md mt-3">Pick a slot and we'll confirm the details by email.</p>
           <p class="offer-note" hidden></p>
         </div>

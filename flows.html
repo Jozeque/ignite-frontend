@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stride Email Flows</title>
+    <meta name="robots" content="noindex, nofollow">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* Tailwind arrives from a CDN, and everything that decides which of the three
+           screens you see is a .hidden. If that script is slow, blocked or down, an admin
+           would get the sign-in, the denied notice and the dashboard stacked on top of each
+           other. Defining it here costs one line and removes the dependency. */
+        .hidden { display: none; }
+        body { font-family: 'Outfit', sans-serif; background: #09090b; }
+        .mono { font-family: 'Space Mono', monospace; }
+        .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+        /* The three states a mail can be in, said in colour as well as in words so the list
+           reads at a glance: shipped with the repo, edited but not sent to anybody, or live. */
+        .pill { font-size: 8px; letter-spacing: .12em; text-transform: uppercase; font-weight: 900;
+                padding: 2px 6px; border-radius: 999px; border: 1px solid; }
+        .pill-file      { color: #71717a; border-color: #3f3f46; }
+        .pill-draft     { color: #d9a441; border-color: rgba(217,164,65,.35); background: rgba(217,164,65,.08); }
+        .pill-published { color: #6fbf8f; border-color: rgba(111,191,143,.35); background: rgba(111,191,143,.08); }
+        textarea { font-family: 'Space Mono', monospace; }
+        .tab.on { color: #fafafa; border-color: #f97316; }
+    </style>
+</head>
+<body class="text-zinc-300 min-h-screen">
+
+<!-- Sign in -->
+<div id="signin" class="hidden fixed inset-0 flex items-center justify-center z-40">
+    <div class="flex flex-col items-center gap-5 max-w-sm text-center px-6">
+        <h1 class="text-4xl font-black bg-gradient-to-r from-orange-400 via-fuchsia-400 to-orange-400 bg-clip-text text-transparent">EMAIL FLOWS</h1>
+        <p class="text-[10px] text-zinc-500 uppercase tracking-[0.2em] font-bold">Admin access only</p>
+        <button id="signin-btn" class="text-[11px] text-zinc-100 bg-white/10 hover:bg-white/15 border border-white/20 hover:border-white/40 px-6 py-3 rounded-xl uppercase tracking-widest font-black transition-all">Sign in with Google</button>
+    </div>
+</div>
+<div id="denied" class="hidden fixed inset-0 flex items-center justify-center z-40">
+    <p class="text-[11px] text-zinc-500 uppercase tracking-widest font-bold">Not an admin account.</p>
+</div>
+
+<!-- The dashboard -->
+<div id="app" class="hidden flex-col h-screen">
+    <div class="flex items-center gap-4 px-5 py-3 border-b border-white/5">
+        <h1 class="text-sm font-black uppercase tracking-widest text-zinc-100">Email flows</h1>
+        <span id="serving" class="text-[9px] text-zinc-500 uppercase tracking-widest font-bold"></span>
+        <div class="flex-1"></div>
+        <a href="admin.html" class="text-[9px] text-zinc-500 hover:text-zinc-300 uppercase tracking-widest font-bold">CRM &rarr;</a>
+        <span id="who" class="text-[9px] text-zinc-600"></span>
+    </div>
+
+    <div class="flex-1 flex min-h-0">
+        <!-- The mails -->
+        <div class="w-72 border-r border-white/5 overflow-auto custom-scroll shrink-0">
+            <div class="px-4 py-2 text-[8px] text-zinc-600 uppercase tracking-widest font-black">
+                Mail &middot; sent &middot; bought
+            </div>
+            <div id="list"></div>
+        </div>
+
+        <!-- The editor -->
+        <div class="flex-1 flex flex-col min-w-0">
+            <div id="empty" class="flex-1 flex items-center justify-center text-[10px] text-zinc-600 uppercase tracking-widest">
+                Pick a mail
+            </div>
+            <div id="editor" class="hidden flex-1 flex flex-col min-h-0">
+                <div class="flex items-center gap-3 px-5 py-3 border-b border-white/5">
+                    <span id="mail-name" class="text-[11px] font-black uppercase tracking-widest text-zinc-100"></span>
+                    <span id="mail-state" class="pill"></span>
+                    <span id="dirty" class="hidden text-[9px] text-amber-400/80 uppercase tracking-widest font-bold">unsaved</span>
+                    <div class="flex-1"></div>
+                    <button id="btn-save" class="text-[9px] uppercase tracking-widest font-black px-3 py-1.5 rounded-lg border border-white/10 text-zinc-300 hover:bg-white/5">Save draft</button>
+                    <button id="btn-publish" class="text-[9px] uppercase tracking-widest font-black px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25">Publish</button>
+                    <button id="btn-revert" class="text-[9px] uppercase tracking-widest font-black px-3 py-1.5 rounded-lg border border-white/10 text-zinc-500 hover:text-zinc-300" title="Put the copy that ships with the repo back, and stop overriding it">Revert to file</button>
+                </div>
+
+                <div class="px-5 py-3 border-b border-white/5">
+                    <label class="block text-[8px] text-zinc-600 uppercase tracking-widest font-black mb-1">Subject</label>
+                    <input id="f-subject" class="w-full bg-black/40 border border-white/10 focus:border-orange-500/50 outline-none rounded-lg px-3 py-2 text-[12px] text-zinc-200">
+                </div>
+
+                <div class="flex gap-4 px-5 pt-3 border-b border-white/5">
+                    <button class="tab on text-[9px] uppercase tracking-widest font-black pb-2 border-b-2 text-zinc-100" data-tab="text">Text</button>
+                    <button class="tab text-[9px] uppercase tracking-widest font-black pb-2 border-b-2 border-transparent text-zinc-500" data-tab="html">HTML</button>
+                    <button class="tab text-[9px] uppercase tracking-widest font-black pb-2 border-b-2 border-transparent text-zinc-500" data-tab="preview">Preview</button>
+                    <div class="flex-1"></div>
+                    <span id="slots" class="text-[9px] text-zinc-600 mono pb-2"></span>
+                </div>
+
+                <div class="flex-1 min-h-0 p-5">
+                    <textarea id="f-text" class="w-full h-full bg-black/40 border border-white/10 focus:border-orange-500/50 outline-none rounded-lg p-3 text-[11px] leading-relaxed text-zinc-300 resize-none custom-scroll"></textarea>
+                    <textarea id="f-html" class="hidden w-full h-full bg-black/40 border border-white/10 focus:border-orange-500/50 outline-none rounded-lg p-3 text-[11px] leading-relaxed text-zinc-300 resize-none custom-scroll"></textarea>
+                    <iframe id="f-preview" class="hidden w-full h-full bg-white rounded-lg" sandbox=""></iframe>
+                </div>
+            </div>
+        </div>
+
+        <!-- History -->
+        <div class="w-60 border-l border-white/5 overflow-auto custom-scroll shrink-0">
+            <div class="px-4 py-2 text-[8px] text-zinc-600 uppercase tracking-widest font-black">Published versions</div>
+            <div id="history" class="px-2"></div>
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="hidden fixed bottom-6 right-6 bg-zinc-900 border border-white/10 rounded-lg px-4 py-2 text-[10px] text-zinc-300 uppercase tracking-widest font-bold shadow-2xl z-50"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
+    // ── Firebase, the same project and allow-list as the CRM ────────────────
+    const firebaseConfig = {
+        apiKey: "AIzaSyCP6Wt4yAkkphPeUvgbgbLHeUfdijZw7M4",
+        authDomain: "veero-next.firebaseapp.com",
+        projectId: "veero-next",
+        storageBucket: "veero-next.firebasestorage.app",
+        messagingSenderId: "293344511627",
+        appId: "1:293344511627:web:7611f4358284b18422b68e"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    const ADMIN_EMAILS = ['yossi.bozo112@gmail.com'];
+
+    const COPY = 'mail_copy';
+    const VERSIONS = 'mail_copy_versions';
+
+    const state = { user: null, mails: [], current: null, draft: null, tab: 'text', stats: {} };
+
+    const $ = (id) => document.getElementById(id);
+    const show = (id, d) => { $(id).classList.remove('hidden'); $(id).style.display = d || 'block'; };
+    const hide = (id) => { $(id).classList.add('hidden'); $(id).style.display = 'none'; };
+    function toast(msg, bad) {
+        const t = $('toast');
+        t.textContent = msg;
+        t.className = t.className.replace(/ border-\S+/g, '') + (bad ? ' border-red-500/40' : ' border-white/10');
+        t.classList.remove('hidden');
+        clearTimeout(toast._t);
+        toast._t = setTimeout(() => t.classList.add('hidden'), 2600);
+    }
+    const esc = (s) => String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const pretty = (k) => String(k || '').replace(/_/g, ' ');
+
+    // ── Auth ────────────────────────────────────────────────────────────────
+    auth.onAuthStateChanged(async (user) => {
+        if (!user) { show('signin', 'flex'); hide('denied'); hide('app'); return; }
+        if (!ADMIN_EMAILS.includes((user.email || '').toLowerCase())) {
+            show('denied', 'flex'); hide('signin'); hide('app'); return;
+        }
+        state.user = user;
+        $('who').textContent = user.email;
+        hide('signin'); hide('denied'); show('app', 'flex');
+        await Promise.all([loadStats(), watchMails()]);
+    });
+    $('signin-btn').addEventListener('click', () =>
+        auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch((e) => toast(e.message, true)));
+
+    // ── How each mail is doing ──────────────────────────────────────────────
+    // Counted off the CRM rows, not off the send claims: `mails_sent` is on the row, and the
+    // row also says whether that person ended up buying, so one pass answers both. It only
+    // counts mails sent since the lifecycle stamp shipped, which is said on screen rather
+    // than quietly implied.
+    async function loadStats() {
+        const stats = {};
+        try {
+            const snap = await db.collection('waitlist').get();
+            snap.forEach((d) => {
+                const r = d.data() || {};
+                const sent = Array.isArray(r.mails_sent) ? r.mails_sent : [];
+                const bought = r.status === 'purchased' || r.status === 'active';
+                sent.forEach((m) => {
+                    const s = stats[m] || (stats[m] = { sent: 0, bought: 0 });
+                    s.sent += 1;
+                    if (bought) s.bought += 1;
+                });
+            });
+        } catch (e) {
+            toast('Could not read the CRM rows: ' + e.message, true);
+        }
+        state.stats = stats;
+        // The copy listener has almost certainly painted the list already, with no numbers
+        // in hand. Paint it again now that there are some, or every mail reads "0 sent"
+        // for as long as the page is open.
+        if (state.mails.length) renderList();
+    }
+
+    // ── The list ────────────────────────────────────────────────────────────
+    function watchMails() {
+        return new Promise((resolve) => {
+            db.collection(COPY).onSnapshot((snap) => {
+                state.mails = snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }))
+                    .sort((a, b) => a.id.localeCompare(b.id));
+                renderList();
+                const serving = state.mails.filter((m) => m.status === 'published').length;
+                $('serving').textContent = serving
+                    ? `${serving} of ${state.mails.length} served from here`
+                    : `${state.mails.length} mails, all still from the repo`;
+                resolve();
+            }, (e) => { toast('Copy listener: ' + e.message, true); resolve(); });
+        });
+    }
+
+    function renderList() {
+        if (!state.mails.length) {
+            $('list').innerHTML = `<div class="px-4 py-6 text-[10px] text-zinc-600 leading-relaxed">
+                Nothing here yet. Run <span class="mono text-zinc-500">python tools/seed_copy.py</span>
+                in stride-flows to put the repo's copy in, then this fills up.</div>`;
+            return;
+        }
+        $('list').innerHTML = state.mails.map((m) => {
+            const s = state.stats[m.id] || { sent: 0, bought: 0 };
+            const rate = s.sent ? Math.round((s.bought / s.sent) * 100) : null;
+            const on = state.current === m.id;
+            return `<button data-mail="${esc(m.id)}"
+                        class="w-full text-left px-4 py-2.5 border-b border-white/5 hover:bg-white/[.03] ${on ? 'bg-white/[.06]' : ''}">
+                      <div class="flex items-center gap-2">
+                        <span class="text-[11px] font-bold ${on ? 'text-zinc-100' : 'text-zinc-400'}">${esc(pretty(m.id))}</span>
+                        <div class="flex-1"></div>
+                        <span class="pill pill-${esc(m.status || 'file')}">${esc(m.status || 'file')}</span>
+                      </div>
+                      <div class="mono text-[9px] text-zinc-600 mt-1">
+                        ${s.sent} sent${s.sent ? ` &middot; ${s.bought} bought${rate !== null ? ` &middot; ${rate}%` : ''}` : ''}
+                      </div>
+                    </button>`;
+        }).join('');
+        $('list').querySelectorAll('[data-mail]').forEach((b) =>
+            b.addEventListener('click', () => open(b.dataset.mail)));
+    }
+
+    // ── The editor ──────────────────────────────────────────────────────────
+    function current() { return state.mails.find((m) => m.id === state.current) || null; }
+
+    function open(mail) {
+        if (state.draft && dirty() && !confirm('This mail has unsaved changes. Leave them?')) return;
+        state.current = mail;
+        const m = current();
+        if (!m) return;
+        state.draft = { subject: m.subject || '', text: m.text || '', html: m.html || '' };
+        $('mail-name').textContent = pretty(m.id);
+        const st = m.status || 'file';
+        $('mail-state').textContent = st;
+        $('mail-state').className = 'pill pill-' + st;
+        $('f-subject').value = state.draft.subject;
+        $('f-text').value = state.draft.text;
+        $('f-html').value = state.draft.html;
+        hide('empty'); show('editor', 'flex');
+        setTab(state.tab);
+        markDirty();               // a freshly opened mail has nothing unsaved
+        renderList();
+        loadHistory(mail);
+    }
+
+    // The {placeholders} the copy uses. A mail whose text and HTML disagree about them is a
+    // mail that will read as broken for half its recipients, so they are shown side by side.
+    function slotsIn(s) {
+        return [...new Set(String(s || '').match(/\{[a-z0-9_]+\}/gi) || [])].sort();
+    }
+    function renderSlots() {
+        const t = slotsIn(state.draft.text), h = slotsIn(state.draft.html);
+        const same = JSON.stringify(t) === JSON.stringify(h);
+        $('slots').innerHTML = t.length || h.length
+            ? `<span class="${same ? 'text-zinc-600' : 'text-amber-400'}">${esc(t.join(' '))}${same ? '' : ' &ne; ' + esc(h.join(' '))}</span>`
+            : '';
+    }
+
+    function dirty() {
+        const m = current();
+        if (!m || !state.draft) return false;
+        return state.draft.subject !== (m.subject || '')
+            || state.draft.text !== (m.text || '')
+            || state.draft.html !== (m.html || '');
+    }
+    function markDirty() {
+        $('dirty').classList.toggle('hidden', !dirty());
+        renderSlots();
+    }
+
+    $('f-subject').addEventListener('input', (e) => { state.draft.subject = e.target.value; markDirty(); });
+    $('f-text').addEventListener('input', (e) => { state.draft.text = e.target.value; markDirty(); });
+    $('f-html').addEventListener('input', (e) => { state.draft.html = e.target.value; markDirty(); });
+
+    function setTab(tab) {
+        state.tab = tab;
+        document.querySelectorAll('.tab').forEach((b) => {
+            const on = b.dataset.tab === tab;
+            b.classList.toggle('on', on);
+            b.classList.toggle('text-zinc-100', on);
+            b.classList.toggle('text-zinc-500', !on);
+            b.classList.toggle('border-transparent', !on);
+        });
+        $('f-text').classList.toggle('hidden', tab !== 'text');
+        $('f-html').classList.toggle('hidden', tab !== 'html');
+        $('f-preview').classList.toggle('hidden', tab !== 'preview');
+        if (tab === 'preview') {
+            // srcdoc into a sandboxed frame: the copy is ours, but it is still HTML being
+            // rendered inside an admin page, and nothing in it needs to run.
+            $('f-preview').srcdoc = state.draft.html || '<p style="font:14px sans-serif;color:#888">No HTML part.</p>';
+        }
+    }
+    document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
+
+    // ── Saving ──────────────────────────────────────────────────────────────
+    async function write(status) {
+        const m = current();
+        if (!m) return;
+        const d = state.draft;
+        if (status === 'published') {
+            if (!d.subject.trim()) { toast('A published mail needs a subject', true); return; }
+            if (!d.text.trim() && !d.html.trim()) { toast('A published mail needs a body', true); return; }
+            if (!confirm(`Publish "${pretty(m.id)}"?\n\nThe next send uses this instead of the copy in the repo.`)) return;
+        }
+        const version = Number(m.version || 0) + (status === 'published' ? 1 : 0);
+        try {
+            await db.collection(COPY).doc(m.id).set({
+                mail: m.id, status,
+                subject: d.subject, text: d.text, html: d.html,
+                version,
+                updated_at_ms: Date.now(),
+                updated_by: (state.user && state.user.email) || '',
+            }, { merge: true });
+            // Every publish is also a version, so what changed can be read back and put
+            // back. A draft is not: it has not reached anybody.
+            if (status === 'published') {
+                await db.collection(VERSIONS).doc(`${m.id}__${version}`).set({
+                    mail: m.id, version,
+                    subject: d.subject, text: d.text, html: d.html,
+                    published_at_ms: Date.now(),
+                    published_by: (state.user && state.user.email) || '',
+                });
+                await loadHistory(m.id);
+            }
+            toast(status === 'published' ? 'Published' : 'Draft saved');
+            markDirty();
+        } catch (e) {
+            toast('Could not save: ' + e.message, true);
+        }
+    }
+
+    $('btn-save').addEventListener('click', () => write('draft'));
+    $('btn-publish').addEventListener('click', () => write('published'));
+    $('btn-revert').addEventListener('click', async () => {
+        const m = current();
+        if (!m) return;
+        if (!(m.file_subject || m.file_text || m.file_html)) {
+            toast('No file copy stored. Run seed_copy.py first.', true); return;
+        }
+        if (!confirm(`Put the repo's copy back for "${pretty(m.id)}"?\n\nThe next send uses the file again.`)) return;
+        state.draft = { subject: m.file_subject || '', text: m.file_text || '', html: m.file_html || '' };
+        $('f-subject').value = state.draft.subject;
+        $('f-text').value = state.draft.text;
+        $('f-html').value = state.draft.html;
+        await db.collection(COPY).doc(m.id).set({
+            status: 'file',
+            subject: state.draft.subject, text: state.draft.text, html: state.draft.html,
+            updated_at_ms: Date.now(), updated_by: (state.user && state.user.email) || '',
+        }, { merge: true });
+        setTab(state.tab); markDirty();
+        toast('Back on the file');
+    });
+
+    // ── History ─────────────────────────────────────────────────────────────
+    async function loadHistory(mail) {
+        const box = $('history');
+        box.innerHTML = '<div class="px-2 py-3 text-[9px] text-zinc-600">…</div>';
+        try {
+            const snap = await db.collection(VERSIONS).where('mail', '==', mail).get();
+            const rows = snap.docs.map((d) => d.data() || {}).sort((a, b) => (b.version || 0) - (a.version || 0));
+            if (!rows.length) { box.innerHTML = '<div class="px-2 py-3 text-[9px] text-zinc-600">Never published.</div>'; return; }
+            box.innerHTML = rows.map((r) => `
+                <div class="px-2 py-2 border-b border-white/5">
+                  <div class="flex items-center gap-2">
+                    <span class="mono text-[10px] text-zinc-300">v${r.version}</span>
+                    <div class="flex-1"></div>
+                    <button data-restore="${r.version}" class="text-[8px] uppercase tracking-widest font-black text-zinc-500 hover:text-zinc-200">Restore</button>
+                  </div>
+                  <div class="text-[9px] text-zinc-600 mt-0.5">${esc(new Date(r.published_at_ms || 0).toLocaleString())}</div>
+                  <div class="text-[9px] text-zinc-700 truncate" title="${esc(r.subject)}">${esc(r.subject)}</div>
+                </div>`).join('');
+            box.querySelectorAll('[data-restore]').forEach((b) => b.addEventListener('click', () => {
+                const r = rows.find((x) => String(x.version) === b.dataset.restore);
+                if (!r) return;
+                // Restore loads it into the editor rather than publishing it behind your
+                // back: you still press Publish, and that makes a new version.
+                state.draft = { subject: r.subject || '', text: r.text || '', html: r.html || '' };
+                $('f-subject').value = state.draft.subject;
+                $('f-text').value = state.draft.text;
+                $('f-html').value = state.draft.html;
+                setTab(state.tab); markDirty();
+                toast(`v${r.version} loaded, press Publish to send it`);
+            }));
+        } catch (e) {
+            box.innerHTML = `<div class="px-2 py-3 text-[9px] text-red-400">${esc(e.message)}</div>`;
+        }
+    }
+
+    window.addEventListener('beforeunload', (e) => {
+        if (dirty()) { e.preventDefault(); e.returnValue = ''; }
+    });
+</script>
+</body>
+</html>

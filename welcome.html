@@ -257,6 +257,20 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     background:radial-gradient(circle at center, rgba(198,113,43,.10), transparent 70%)}
   .support-card{transition:transform .15s,border-color .15s}
   .support-card:hover{transform:translateY(-2px)}
+  /* ── The download, on the page somebody lands on after paying ──────────────
+     This page had no way to get the software at all: the buttons existed only in
+     the welcome mail, so anyone who closed it, never got it, or simply looked at
+     this tab first had paid and had nothing to install.
+     Same builds, same manifest and the SAME LABELS the mail uses, taken off the
+     backend rather than hardcoded, so the page can never offer a build the mail
+     does not. It is hidden until the URLs arrive, because two dead buttons on this
+     screen would be worse than none. */
+  .dl-block{padding:18px 20px;margin:0 0 22px}
+  .dl-kicker{margin:0 0 12px}
+  .dl-row{display:flex;flex-wrap:wrap;gap:10px}
+  .dl-row .btn-copper{flex:1 1 220px;padding:13px 22px;font-size:14px;border-radius:12px}
+  .dl-note{margin:13px 0 0;font-size:12.5px;line-height:1.6;color:var(--ink3)}
+  .dl-note a{color:var(--copper-lt)}
   /* The session offer rail. Same language as session.html and /post, so the three read
      as one offer rather than three designs. */
   [hidden]{display:none!important}
@@ -272,6 +286,37 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:rgba(221,154,82,.6)}
   .offer-clock{margin:10px 0 0;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
   .offer-clock b{color:var(--copper-lt);font-weight:700;letter-spacing:.04em}
+
+  /* ── The two questions ───────────────────────────────────────────────────
+     /try's shape: one quiet panel, the options as chips that fill copper when
+     chosen, one copper button. Small type throughout, because this sits between
+     the welcome and the video and must read as a question, not as a form. The
+     radio itself is invisible and covers its own chip, so the whole chip is the
+     hit target and the keyboard still gets a real radio group. */
+  .survey{max-width:760px;margin:0 auto 1.6rem;padding:18px 20px;border:1px solid var(--line);
+    border-radius:18px;background:var(--panel);text-align:left}
+  .survey[hidden]{display:none}
+  .survey-h{margin:0 0 4px;font-size:14px;font-weight:900;color:var(--ink);letter-spacing:.02em}
+  .survey-lead{margin:0 0 10px;font-size:12.5px;line-height:1.5;color:var(--ink2)}
+  .survey-lead-2{margin-top:16px}
+  .survey-row{display:flex;flex-wrap:wrap;gap:7px}
+  .survey-opt{position:relative;display:inline-flex}
+  .survey-opt input{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;cursor:pointer}
+  .survey-opt span{display:inline-block;padding:7px 13px;border-radius:999px;
+    border:1px solid var(--line);background:rgba(255,255,255,.03);
+    font-size:12px;font-weight:700;color:var(--ink2);
+    transition:color .15s,border-color .15s,background .15s}
+  .survey-opt:hover span{color:var(--ink);border-color:rgba(216,201,176,.28)}
+  .survey-opt input:focus-visible + span{outline:2px solid var(--copper-lt);outline-offset:2px}
+  .survey-opt input:checked + span{color:#1c1206;font-weight:800;border-color:transparent;
+    background:linear-gradient(180deg,var(--ember),var(--copper))}
+  .survey-other{width:100%;margin-top:9px;background:var(--bg2);color:var(--ink);
+    border:1px solid var(--line);border-radius:12px;padding:10px 12px;font:inherit;font-size:13px}
+  .survey-other::placeholder{color:var(--ink3)}
+  .survey-other:focus{outline:none;border-color:rgba(198,113,43,.55);
+    box-shadow:0 0 0 3px rgba(198,113,43,.15)}
+  .survey-foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px}
+  .survey-note{margin:0;font-size:12px;color:var(--ink2)}
   .btn-copper{display:inline-flex;align-items:center;justify-content:center;gap:.6rem;background:linear-gradient(180deg,var(--ember),var(--copper));
     color:#1c1206;font-weight:900;letter-spacing:.04em;border:1px solid rgba(255,210,150,.25);border-radius:14px;
     box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 12px 24px -14px rgba(198,113,43,.8);transition:transform .15s,filter .15s;cursor:pointer}
@@ -285,7 +330,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .rail-stack img + img{margin-left:-14%}
   .rail-stack img:nth-child(1){z-index:1}.rail-stack img:nth-child(2){z-index:2}.rail-stack img:nth-child(3){z-index:3}
 </style>
-<link rel="stylesheet" href="/_legacy/css/welcome.f7e1321230.css">
+<link rel="stylesheet" href="/_legacy/css/welcome.439350b80d.css">
 </head>
 <body class="min-h-screen flex flex-col">
 <!-- Google Tag Manager (noscript) -->
@@ -316,6 +361,60 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </p>
     </div>
 
+    <!-- The software, before anything else on the page asks for attention. Hidden in the
+         markup and revealed only once the backend hands over real URLs, so this block is
+         either useful or absent, never a pair of dead buttons on the screen of somebody
+         who has just paid. Both links stay hidden individually: a release published for
+         one platform and not the other shows one button rather than a broken second. -->
+    <section class="dl-block panel rounded-2xl" id="dl-block" hidden>
+      <p class="silk dl-kicker">Download Stride</p>
+      <div class="dl-row">
+        <a class="btn-copper" id="dl-win" href="#" rel="nofollow" hidden>Download for Windows</a>
+        <a class="btn-copper" id="dl-mac" href="#" rel="nofollow" hidden>Download for Mac</a>
+      </div>
+      <p class="dl-note">Your licence key is in your welcome email. Paste it into Stride the first
+        time you open it. <a href="setup.html">Setup guide &rarr;</a></p>
+    </section>
+
+    <!-- Two questions, asked once, of somebody who has just paid and is in a good mood.
+         Kept deliberately small: it sits above the video because that is where it will
+         actually be answered, so it has to earn its space in one glance. Nothing is
+         required, nothing blocks the page, and the whole block removes itself when there
+         is no purchase to attach an answer to, when it has already been answered on this
+         device, or if the script below never runs. -->
+    <section class="survey" id="survey" hidden aria-labelledby="survey-h">
+      <form id="survey-form" novalidate>
+        <p class="survey-h" id="survey-h">Help us make Stride better</p>
+        <p class="survey-lead">We're always working to take Stride further. What almost stopped you from buying today?</p>
+        <div class="survey-row" role="radiogroup" aria-labelledby="survey-h">
+          <label class="survey-opt"><input type="radio" name="blocker" value="price"><span>Price</span></label>
+          <label class="survey-opt"><input type="radio" name="blocker" value="workflow"><span>Not sure it fits my workflow</span></label>
+          <label class="survey-opt"><input type="radio" name="blocker" value="compatibility"><span>Compatibility concerns</span></label>
+          <label class="survey-opt"><input type="radio" name="blocker" value="try_first"><span>Wanted to try it first</span></label>
+          <label class="survey-opt"><input type="radio" name="blocker" value="unclear"><span>Wasn't sure what it does</span></label>
+          <label class="survey-opt"><input type="radio" name="blocker" value="nothing"><span>Nothing</span></label>
+          <label class="survey-opt"><input type="radio" name="blocker" value="other"><span>Other</span></label>
+        </div>
+        <input class="survey-other" type="text" name="blocker_other" maxlength="400" placeholder="Tell us more" hidden>
+
+        <p class="survey-lead survey-lead-2">How did you first hear about Stride?</p>
+        <div class="survey-row" role="radiogroup" aria-label="How did you first hear about Stride?">
+          <label class="survey-opt"><input type="radio" name="heard" value="instagram_facebook"><span>Instagram / Facebook</span></label>
+          <label class="survey-opt"><input type="radio" name="heard" value="youtube"><span>YouTube</span></label>
+          <label class="survey-opt"><input type="radio" name="heard" value="google"><span>Google</span></label>
+          <label class="survey-opt"><input type="radio" name="heard" value="friend"><span>A friend</span></label>
+          <label class="survey-opt"><input type="radio" name="heard" value="review"><span>A review or article</span></label>
+          <label class="survey-opt"><input type="radio" name="heard" value="other"><span>Other</span></label>
+        </div>
+        <input class="survey-other" type="text" name="heard_other" maxlength="400" placeholder="Please specify" hidden>
+
+        <div class="survey-foot">
+          <button type="submit" class="btn-copper px-7 py-3 text-xs uppercase" id="survey-go">Send feedback</button>
+          <p class="survey-note" aria-live="polite" hidden></p>
+        </div>
+      </form>
+    </section>
+
     <!-- Video (2/3) + Support cards (1/3) side-by-side on desktop -->
     <div class="grid md:grid-cols-3 gap-4 mb-10">
 
@@ -327,6 +426,32 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <!-- Support cards column -->
       <div class="flex flex-col gap-4">
 
+        <!-- The Experimental Collection, when this purchase still has it on offer.
+             Its own card, because the two offers are independent: a buyer can have both
+             open at once, and the session being unsold was never a reason to hide this
+             one. It used to share the card below and only appeared once the session was
+             booked, which meant almost nobody saw it. Hidden until the backend confirms
+             the offer on its own clock, exactly like the card below. -->
+        <div class="support-card flex flex-col justify-between p-5 rounded-2xl panel" id="coll-rail" hidden>
+          <div>
+            <p class="silk mb-2" style="color:var(--copper-lt)">Want more to play with?</p>
+            <div class="rail-stack" aria-hidden="true">
+              <img src="assets/packs/pack-drums.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
+              <img src="assets/packs/pack-water.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
+              <img src="assets/packs/pack-feedback.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
+            </div>
+            <p class="text-[17px] font-black ink leading-snug mt-4 mb-1">Stride Experimental Collection</p>
+            <p class="text-xs ink3 leading-relaxed">250+ sounds &middot; 15 Ableton Racks &middot; 4 StrideChains</p>
+            <span class="offer-flag"><span class="offer-dot" aria-hidden="true"></span>New Stride owner price</span>
+            <div class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+              <del class="price-was"><span class="sr-only">Full price </span><span data-coll-was>$24.99</span></del>
+              <span class="price text-3xl" data-coll-now>$19</span>
+            </div>
+            <p class="offer-clock" role="timer">Offer ends in <b data-coll-left>72h</b></p>
+          </div>
+          <button type="button" class="rail-coll-buy btn-copper w-full mt-4 px-5 py-3 text-xs uppercase">Add it for <span data-coll-cta>$19</span></button>
+          <p class="coll-note text-xs ink3 leading-relaxed mt-3" aria-live="polite" hidden></p>
+        </div>
 
 
         <!-- Paid 1:1. The free onboarding call that used to sit above this was removed
@@ -361,29 +486,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <p class="rail-public text-xl font-black ink mt-2">1:1 session &middot; $199</p>
           </div>
 
-          <!-- Once the session is booked, the card turns to the Collection: the booking is confirmed
-               first, then the one other offer this purchase earned, in the same 72 hours. Hidden
-               until the backend confirms both, like the owner state above. -->
-          <div class="rail-coll" hidden>
-            <p class="silk mb-1" style="color:var(--copper-lt)">You're booked in</p>
-            <p class="text-xs ink3 leading-relaxed mb-4">Check your inbox for the link to pick your time.</p>
-            <div class="rail-stack" aria-hidden="true">
-              <img src="assets/packs/pack-drums.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
-              <img src="assets/packs/pack-water.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
-              <img src="assets/packs/pack-feedback.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
-            </div>
-            <p class="text-[17px] font-black ink leading-snug mt-4 mb-1">Stride Experimental Collection</p>
-            <p class="text-xs ink3 leading-relaxed">250+ sounds &middot; 15 Ableton Racks &middot; 4 StrideChains</p>
-            <span class="offer-flag"><span class="offer-dot" aria-hidden="true"></span>New Stride owner price</span>
-            <div class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-              <del class="price-was"><span class="sr-only">Full price </span><span data-coll-was>$24.99</span></del>
-              <span class="price text-3xl" data-coll-now>$19</span>
-            </div>
-            <p class="offer-clock" role="timer">Offer ends in <b data-coll-left>72h</b></p>
-          </div>
-
           <button type="button" class="rail-book btn-copper w-full mt-4 px-5 py-3 text-xs uppercase" hidden>Book a session</button>
-          <button type="button" class="rail-coll-buy btn-copper w-full mt-4 px-5 py-3 text-xs uppercase" hidden>Add it for <span data-coll-cta>$19</span></button>
           <p class="rail-note text-xs ink3 leading-relaxed mt-3" aria-live="polite" hidden></p>
           <a href="session.html" class="rail-link silk mt-4 hover:text-[color:var(--ember)] transition-colors" style="color:var(--copper-lt)">See what it covers &rarr;</a>
         </div>
@@ -448,6 +551,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   var rail = document.getElementById('session-rail');
   if (!rail) return;
   function q(sel) { return rail.querySelector(sel); }
+  // The Collection card is a sibling, not part of this one, so it needs its own lookup.
+  // Everything below tolerates it being absent: this page has shipped without it.
+  var collCard = document.getElementById('coll-rail');
+  function qc(sel) { return collCard ? collCard.querySelector(sel) : null; }
   function ss(k) { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } }
   function ssSet(k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} }
 
@@ -467,9 +574,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     } catch (e) {}
   }
 
-  // offer: what the card is selling right now, { kind: 'session' | 'collection', expires, skew }.
+  // One state per card, because the two offers are independent and can both be open. Each is
+  // { expires, skew } plus, for the Collection, the money its button reports.
   // openKind: which checkout is open, so a completed one is read for what it was.
-  var offer = null, clock = null, paddleOn = false, openKind = '';
+  var sOffer = null, sClock = null, cOffer = null, cClock = null, paddleOn = false, openKind = '';
 
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function human(ms) {
@@ -482,17 +590,25 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   }
 
   function toPublic() {
-    if (clock) { clearInterval(clock); clock = null; }
-    offer = null;
+    if (sClock) { clearInterval(sClock); sClock = null; }
+    sOffer = null;
     q('.rail-session').hidden = false;
     q('.rail-offer').hidden = true;
     q('.rail-public').hidden = false;
     q('.rail-book').hidden = true;
-    q('.rail-coll').hidden = true;
-    q('.rail-coll-buy').hidden = true;
     q('.rail-link').hidden = false;
     // No offer left to carry, so the link goes back to the plain page.
     try { q('.rail-link').setAttribute('href', 'session.html'); } catch (e) {}
+  }
+
+  // The Collection card simply leaves when its offer is over: there is no public price to
+  // fall back to here, and /samples is a click away in the footer.
+  function collGone(text) {
+    if (cClock) { clearInterval(cClock); cClock = null; }
+    cOffer = null;
+    if (!collCard) return;
+    if (text) { collNote(text); qc('.rail-coll-buy').hidden = true; return; }
+    collCard.hidden = true;
   }
 
   function note(text) {
@@ -501,34 +617,42 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     el.hidden = !text;
   }
 
+  function collNote(text) {
+    var el = qc('.coll-note');
+    if (!el) return;
+    el.textContent = text || '';
+    el.hidden = !text;
+  }
+
   // Booked already, most often on /post a minute ago. Say so, instead of offering the public
   // price for the session they have just bought. `collection`: the Collection came off this
   // purchase's offer too.
-  function showBooked(collection) {
+  function showBooked() {
     toPublic();
     q('.rail-public').hidden = true;
-    note(collection
-      ? "You're booked in, and the Collection is yours. Check your inbox for both."
-      : "You're booked in. Check your inbox for the link to pick your time.");
+    note("You're booked in. Check your inbox for the link to pick your time.");
   }
 
   function tick() {
-    if (!offer) return;
-    var left = offer.expires - (Date.now() + offer.skew);
-    if (left <= 0) {
-      // The window closed with the card open. The session goes back to its public price; a
-      // Collection offer simply ends, and the booking stays confirmed.
-      if (offer.kind === 'collection') showBooked(false); else toPublic();
-      return;
-    }
-    q(offer.kind === 'collection' ? '[data-coll-left]' : '[data-rail-left]').textContent = human(left);
+    if (!sOffer) return;
+    var left = sOffer.expires - (Date.now() + sOffer.skew);
+    // The window closed with the card open: the session goes back to its public price.
+    if (left <= 0) { toPublic(); return; }
+    q('[data-rail-left]').textContent = human(left);
+  }
+
+  function collTick() {
+    if (!cOffer) return;
+    var left = cOffer.expires - (Date.now() + cOffer.skew);
+    if (left <= 0) { collGone(''); return; }
+    qc('[data-coll-left]').textContent = human(left);
   }
 
   function showOwner(d) {
     var s = d.session || {};
     var now = (s.owner_price || {}).formatted, was = (s.standard_price || {}).formatted;
     if (!now || !was) return;                       // keep the public price
-    offer = { kind: 'session', expires: Number(d.expires_at_ms), skew: Number(d.server_now_ms) - Date.now() };
+    sOffer = { expires: Number(d.expires_at_ms), skew: Number(d.server_now_ms) - Date.now() };
     q('[data-rail-now]').textContent = now;
     q('[data-rail-was]').textContent = was;
     q('.rail-public').hidden = true;
@@ -543,31 +667,30 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     // is worth and how long it has, and the markup keeps the bare href for anyone with no
     // offer and no JavaScript.
     try { q('.rail-link').setAttribute('href', 'session.html?txn=' + encodeURIComponent(txn)); } catch (e) {}
-    if (clock) clearInterval(clock);
+    if (sClock) clearInterval(sClock);
     tick();
-    clock = setInterval(tick, 1000);
+    sClock = setInterval(tick, 1000);
     stage('welcome_viewed', 'session');
   }
 
-  // The session is booked and the Collection is still on offer: the card becomes that offer.
+  // The Collection is still on offer, whatever the session is doing. Its card stands on its
+  // own now, so this shows it and touches nothing else.
   function showCollection(d) {
+    if (!collCard) return;
     var c = d.collection || {};
     var now = (c.offer_price || {}).formatted, was = (c.list_price || {}).formatted;
-    if (!now || !was) { showBooked(false); return; }
-    offer = { kind: 'collection', expires: Number(d.expires_at_ms), skew: Number(d.server_now_ms) - Date.now(),
-              amount: (c.offer_price || {}).amount, currency: (c.offer_price || {}).currency };
-    q('[data-coll-now]').textContent = now;
-    q('[data-coll-was]').textContent = was;
-    q('[data-coll-cta]').textContent = now;
-    q('.rail-session').hidden = true;
-    q('.rail-book').hidden = true;
-    q('.rail-link').hidden = true;
-    q('.rail-coll').hidden = false;
-    q('.rail-coll-buy').hidden = false;
-    note('');
-    if (clock) clearInterval(clock);
-    tick();
-    clock = setInterval(tick, 1000);
+    if (!now || !was) return;                       // no price we can honour: no card
+    cOffer = { expires: Number(d.expires_at_ms), skew: Number(d.server_now_ms) - Date.now(),
+               amount: (c.offer_price || {}).amount, currency: (c.offer_price || {}).currency };
+    qc('[data-coll-now]').textContent = now;
+    qc('[data-coll-was]').textContent = was;
+    qc('[data-coll-cta]').textContent = now;
+    qc('.rail-coll-buy').hidden = false;
+    collNote('');
+    collCard.hidden = false;
+    if (cClock) clearInterval(cClock);
+    collTick();
+    cClock = setInterval(collTick, 1000);
     stage('welcome_collection_viewed', 'collection');
   }
 
@@ -584,11 +707,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       if (settled) return;
       settled = true; clearTimeout(bail);
       if (!d || !d.ok) return;
+      // The download panel rides on this same answer, so the page makes one backend call
+      // rather than two. Defined by the block at the end of the document; the guard is for
+      // a page served without it.
+      if (window.strideShowDownloads) window.strideShowDownloads(d.downloads);
+      // The two offers are read separately: whatever this buyer has not taken yet is what
+      // they are shown. Before, an open session hid an open Collection, so the only people
+      // who ever saw it were the ones who had just booked a session.
       var sessionStatus = (d.session || {}).status, collectionStatus = (d.collection || {}).status;
-      if (sessionStatus === 'open') { showOwner(d); return; }                                // not booked: the session
-      if (sessionStatus === 'used' && collectionStatus === 'open') { showCollection(d); return; }  // booked: the Collection
-      if (sessionStatus === 'used') { showBooked(collectionStatus === 'used'); return; }     // booked, nothing left to offer
-      // Expired or unknown: the public price stays.
+      if (collectionStatus === 'open') showCollection(d);
+      if (sessionStatus === 'open') showOwner(d);
+      else if (sessionStatus === 'used') showBooked();
+      // Expired or unknown: the public price stays, and the Collection card stays hidden.
     })
     .catch(function () { settled = true; clearTimeout(bail); });
 
@@ -609,10 +739,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 ssSet('stride_checkout_value', JSON.stringify({ value: paid, currency: String(data.currency_code) }));
               }
             } catch (e) {}
-            showBooked(true);
+            collGone("The Collection is yours. Check your inbox for the download.");
             return;
           }
-          showBooked(false);
+          showBooked();
         }
       });
       paddleOn = true;
@@ -621,14 +751,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   // Both buttons open a checkout the backend made, so no price and no discount live in this page.
   function openCheckout(btn, action, kind, successUrl, stageName) {
+    // Each card owns its own message line, so a failure is reported under the button that
+    // was pressed rather than on the other offer.
+    var say = kind === 'collection' ? collNote : note;
     btn.setAttribute('aria-busy', 'true');
-    note('');
+    say('');
     // The Stride purchase, kept where this card looks first, before the checkout can overwrite
     // stride_last_txn.
     ssSet('stride_offer_txn', txn);
     var body = { action: action, txn: txn };
     if (kind === 'collection') body.external_id = (typeof _strideXid === 'string' && _strideXid) || '';
-    var shown = offer;
+    var shown = kind === 'collection' ? cOffer : sOffer;
     fetch(API, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
@@ -641,7 +774,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           try {
             Paddle.Checkout.open({ transactionId: d.transaction_id,
                                    settings: { displayMode: 'overlay', variant: 'one-page', theme: 'dark', successUrl: successUrl } });
-          } catch (e) { note(FAILED); return; }
+          } catch (e) { say(FAILED); return; }
           if (kind === 'collection' && window.StrideTrack && shown && shown.currency) {
             try {
               var digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: shown.currency })
@@ -655,40 +788,166 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         }
         var st = d && d.status;
         if (kind === 'session') {
-          if (st === 'used') { showBooked(false); return; }
+          if (st === 'used') { showBooked(); return; }
           if (st === 'expired' || st === 'invalid') { toPublic(); note('Your owner price has ended.'); return; }
         } else {
-          if (st === 'used' || st === 'owned') { showBooked(st === 'used'); return; }
-          if (st === 'expired' || st === 'invalid') { showBooked(false); return; }
+          if (st === 'used' || st === 'owned') { collGone("The Collection is yours. Check your inbox for the download."); return; }
+          if (st === 'expired' || st === 'invalid') { collGone('This offer has ended.'); return; }
         }
-        note(FAILED);
+        say(FAILED);
       })
       .catch(function () {
         btn.removeAttribute('aria-busy');
-        note(FAILED);
+        say(FAILED);
       });
   }
 
   q('.rail-book').addEventListener('click', function () {
-    if (!offer || offer.kind !== 'session') return;
+    if (!sOffer) return;
     // No Paddle means no checkout to open. Send them to the page rather than fail silently.
     if (!paddleOn) { window.location.href = 'session.html'; return; }
     openCheckout(this, 'session_checkout', 'session', BOOKED_URL, 'welcome_checkout');
   });
 
-  q('.rail-coll-buy').addEventListener('click', function () {
-    if (!offer || offer.kind !== 'collection') return;
-    if (!paddleOn) { note(FAILED); return; }
+  var collBuy = qc('.rail-coll-buy');
+  if (collBuy) collBuy.addEventListener('click', function () {
+    if (!cOffer) return;
+    if (!paddleOn) { collNote(FAILED); return; }
     // What this page's purchase tracking reports if the checkout completes before Paddle's own
     // figure arrives: the money on screen.
     try {
-      var digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: offer.currency })
+      var digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: cOffer.currency })
         .resolvedOptions().minimumFractionDigits;
-      var major = Number(offer.amount) / Math.pow(10, digits);
-      if (isFinite(major) && major > 0) ssSet('stride_checkout_value', JSON.stringify({ value: major, currency: offer.currency }));
+      var major = Number(cOffer.amount) / Math.pow(10, digits);
+      if (isFinite(major) && major > 0) ssSet('stride_checkout_value', JSON.stringify({ value: major, currency: cOffer.currency }));
     } catch (e) {}
     openCheckout(this, 'collection_checkout', 'collection', HERE_URL, 'welcome_collection_checkout');
   });
+})();
+</script>
+
+<!-- The two questions under the title. Its own block because it shares nothing with the
+     offer rail: no Paddle, no prices, no clock. -->
+<script>
+(function () {
+  'use strict';
+
+  var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
+  var DONE_KEY = 'stride_survey_done';
+
+  var box = document.getElementById('survey');
+  var form = document.getElementById('survey-form');
+  if (!box || !form) return;
+
+  function ss(k) { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } }
+  function ls(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+  // Same id the offer rail resolves against: the answers belong to the Stride purchase, not
+  // to a Collection bought a minute later. No purchase means nothing to attach an answer to,
+  // so the block never appears.
+  var txn = ss('stride_offer_txn') || ss('stride_last_txn');
+  if (!txn) return;
+  // Answered already on this device. The backend keeps the first answer regardless, this
+  // just stops the page asking a second time.
+  if (ls(DONE_KEY) === txn) return;
+
+  box.hidden = false;
+
+  // "Other" is the only answer that asks for words, and it asks only while it is chosen.
+  form.addEventListener('change', function (ev) {
+    var t = ev.target;
+    if (!t || t.type !== 'radio') return;
+    var other = form.querySelector('.survey-other[name="' + t.name + '_other"]');
+    if (!other) return;
+    if (t.value === 'other') { other.hidden = false; try { other.focus(); } catch (e) {} }
+    else { other.hidden = true; other.value = ''; }
+  });
+
+  var note = form.querySelector('.survey-note');
+  function say(text) { note.textContent = text || ''; note.hidden = !text; }
+
+  function val(name) {
+    var el = form.querySelector('input[name="' + name + '"]:checked');
+    return el ? el.value : '';
+  }
+  function text(name) {
+    var el = form.querySelector('.survey-other[name="' + name + '"]');
+    return el && !el.hidden ? (el.value || '').trim() : '';
+  }
+
+  form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var blocker = val('blocker'), heard = val('heard');
+    if (!blocker && !heard) { say('Pick an answer and we will take it from there.'); return; }
+
+    // An answer is a gift, not a transaction. Whatever the network does with it, this page
+    // says thank you and gets out of the way: somebody who has just paid is never shown a
+    // failure for telling us something.
+    try {
+      fetch(API, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+        body: JSON.stringify({ action: 'purchase_survey', txn: txn,
+                               blocker: blocker, blocker_other: text('blocker_other'),
+                               heard: heard, heard_other: text('heard_other') })
+      }).catch(function () {});
+    } catch (e) {}
+
+    lsSet(DONE_KEY, txn);
+    box.innerHTML = '<p class="survey-h">Thank you.</p>'
+      + '<p class="survey-lead" style="margin:0">That goes straight to the person who builds Stride.</p>';
+  });
+})();
+</script>
+
+<!-- The download buttons. Its own block on purpose: the offer rail above returns early
+     when this tab carries no transaction id, and getting the software is the one thing
+     this page must do for everybody. Nothing below depends on a transaction.
+     It takes the list off the rail's answer when there is one (window.strideShowDownloads,
+     called from that fetch) and only asks for itself when the rail bailed out, so the
+     common path still makes ONE backend call and one Paddle price preview, not two. -->
+<script>
+(function () {
+  'use strict';
+
+  var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
+
+  var box = document.getElementById('dl-block');
+  if (!box) return;
+  // Keyed by the label the backend sends, which is the label the welcome MAIL prints.
+  // A label this page has no button for is ignored rather than guessed at.
+  var els = { Windows: document.getElementById('dl-win'), Mac: document.getElementById('dl-mac') };
+  var done = false;
+
+  function show(list) {
+    if (done) return;
+    var shown = 0;
+    (list || []).forEach(function (item) {
+      var el = item && els[item.label];
+      if (!el || !item.url) return;
+      el.href = item.url;
+      el.textContent = 'Download for ' + item.label;
+      el.hidden = false;
+      shown++;
+    });
+    // Only reveal the panel once something in it works. A release published for one
+    // platform and not the other shows the one button, never a dead second.
+    if (shown) { done = true; box.hidden = false; }
+  }
+  window.strideShowDownloads = show;
+
+  function ss(k) { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } }
+  // With a transaction the rail is already asking and will feed us. Without one it
+  // returned before its fetch, so this is the only call that will be made.
+  if (ss('stride_offer_txn') || ss('stride_last_txn')) return;
+
+  fetch(API, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'post_purchase_offers', txn: '' })
+  })
+    .then(function (r) { return r.json(); })
+    .then(function (d) { show(d && d.downloads); })
+    .catch(function () {});
 })();
 </script>
 </body>

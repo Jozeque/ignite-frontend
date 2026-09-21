@@ -493,6 +493,34 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     text-transform:uppercase;color:#1c1206;background:linear-gradient(180deg,var(--ember),var(--copper));
     border-radius:6px;padding:4px 8px;border:1px solid rgba(255,210,150,.28);
     box-shadow:0 1px 0 rgba(255,255,255,.26) inset,0 8px 16px -11px rgba(198,113,43,.9)}
+  /* ── Tax, said out loud beside the price ─────────────────────────────────
+     Paddle is the merchant of record and prices tax inclusive, so the number on
+     this page is the number charged: nothing is added at the checkout. Saying so
+     answers the question a European buyer otherwise carries all the way into the
+     payment form, and it is true in every state the price line can be in, with or
+     without the Collection.
+     Its own line rather than a fourth chip inside the price box: on desktop that
+     box sits in an `auto` grid column, so anything added inside it takes width off
+     the add-on panel beside it.
+     The :has() rule pulls the price box's own bottom margin in so the note reads as
+     part of the price rather than as the start of the next block. Two classes, so it
+     beats the mb-1 / mb-4 utility on the box: the prebuilt Tailwind sheet is linked
+     AFTER this <style>, and a single-class rule would tie on specificity and lose. */
+  .vat-note{margin:0;font-size:11px;font-weight:800;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--ink3)}
+  .sd-price-box:has(+ .vat-note){margin-bottom:7px}
+  /* ── The hero price group ────────────────────────────────────────────────
+     The old price is 70% of the one being charged, up from a 16px footnote.
+     Big enough to read as a real price, so what comes off the top lands at a
+     glance; small enough that the eye still knows which of the two is being
+     asked for. Matching them exactly was tried and read as two prices rather
+     than a price and what it replaced, and it widened this column enough to
+     wrap the add-on line beside it. Colour and weight carry the rest of the
+     difference: muted ink, 700 against 900, and the rule through it. The seal
+     grows with them. Three rules because three breakpoints already name this
+     size; this one covers 900 to 1023. */
+  section[data-ms="hero"] .hero-price-line .fold-strike{font-size:34px}
+  section[data-ms="hero"] .hero-price-line .seal2{font-size:11px;padding:5px 10px}
   /* ── Experimental Collection add-on ──────────────────────────────────────
      Sits inside the plate between the bullets and the CTA, so it reads as one
      small decision before checkout rather than a second product further down.
@@ -654,6 +682,38 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
   @media (max-width:420px){.dpop-card{padding:22px 18px}.dpop-h{font-size:21px}}
 
+  /* ── THE FILM ───────────────────────────────────────────────────────────
+     A second press on the hero frame plays the full Stride film here, over
+     the page, so nobody is sent to another tab to watch it. The hero script
+     builds this panel the first time it is asked for: none of it exists in
+     the page as delivered, so it cannot move a pixel of the hero, and the
+     film itself is not fetched until somebody actually asks for it. Above
+     the sticky buy bar (1000) and the mobile menu (1100), which is the only
+     thing that could ever cover it. */
+  .vpop{--pad:24px;position:fixed;inset:0;z-index:1200;display:none;
+    align-items:center;justify-content:center;padding:var(--pad);
+    background:rgba(8,7,5,.94)}
+  .vpop.on{display:flex}
+  /* The card is the picture, to the pixel, so the close button always sits on the
+     film's own corner. Width is whichever runs out first: the cap, the screen, or
+     the height the screen has left once the 16:9 is paid for. A landscape phone
+     hits the third one. dvh where it exists, vh where it does not. */
+  .vpop-card{position:relative;line-height:0;max-width:100%;
+    width:min(1120px,100%,calc((100vh - var(--pad) * 2) * 16 / 9));
+    width:min(1120px,100%,calc((100dvh - var(--pad) * 2) * 16 / 9))}
+  .vpop-card video{display:block;width:100%;height:auto;
+    border-radius:14px;border:1px solid rgba(198,113,43,.35);background:#000;
+    box-shadow:0 40px 90px -40px rgba(0,0,0,.95),0 0 70px -16px rgba(198,113,43,.22)}
+  .vpop-x{position:absolute;top:10px;right:10px;width:36px;height:36px;padding:0;
+    display:inline-flex;align-items:center;justify-content:center;border-radius:999px;
+    border:1px solid var(--line);background:rgba(16,15,12,.72);color:var(--ink2);
+    -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+    font-size:19px;line-height:1;cursor:pointer}
+  .vpop-x:hover{color:var(--ink);border-color:rgba(216,201,176,.28)}
+  @media (max-width:640px){.vpop{--pad:14px}}
+  /* The frame answers a double press, so a phone must not read the second tap
+     as a zoom gesture. */
+  #heroStage{touch-action:manipulation}
 
   #m-cta{display:none}
   #m-menu{display:none}
@@ -726,8 +786,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     section[data-ms="hero"] .hero-buy-price{grid-area:price;padding:0 30px 0 8px}
     section[data-ms="hero"] .hero-price-line{margin:0 0 .7rem;gap:.9rem}
     section[data-ms="hero"] .hero-buy .hero-price{font-size:54px}
-    section[data-ms="hero"] .hero-buy .fold-strike{font-size:17px}
-    section[data-ms="hero"] .hero-buy .seal2{font-size:11px;padding:5px 10px}
+    section[data-ms="hero"] .hero-buy .fold-strike{font-size:38px}
+    section[data-ms="hero"] .hero-buy .seal2{font-size:13px;padding:7px 12px}
     section[data-ms="hero"] .hero-included{margin:0}
     section[data-ms="hero"] .hero-included li{font-size:15px}
     section[data-ms="hero"] .hero-buy-addon{grid-area:addon;align-self:stretch;display:flex;
@@ -802,6 +862,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .mob-only{display:inline}        /* the activation-clock fact, mobile only */
     section[data-ms="hero"] .plate{max-width:none}
     section[data-ms="hero"] .hero-price{font-size:2.5rem}
+    section[data-ms="hero"] .hero-price-line .fold-strike{font-size:1.75rem}
     section[data-ms="hero"] .tape2{padding-top:.3rem;padding-bottom:.3rem}
 
     /* Both paths stay parallel and equally reachable: Buy keeps the copper
@@ -821,7 +882,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
        for a screen reader and the order desktop still uses. */
     .hero-cols > div:first-child{order:2}
     .hero-cols > div:nth-of-type(2){order:1}   /* the visual column; the script tag is the real last child */
-    .hero-cols{gap:.9rem}
+    /* The section has to be named here. The utility that sets this gap (gap-10,
+       40px) lives in the Tailwind sheet, which is linked after this block, so a
+       bare .hero-cols rule ties on specificity and loses on order: the phone kept
+       the desktop's 40px between the video note and the headline. */
+    section[data-ms="hero"] .hero-cols{gap:.9rem}
     #heroVideoNote{margin-top:.6rem}
     .hero-eyebrow{display:none}                /* the phone reads the headline first */
     .note-long{display:none}                   /* "Watch the full Stride walkthrough" */
@@ -1014,7 +1079,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
       </button>
       <span class="w-px h-6 mx-1 hidden sm:block" style="background:var(--line)"></span>
-      <a href="#pricing" class="btn-copper text-[11px] uppercase tracking-widest px-5 py-2.5 rounded-full">Get Stride</a>
+      <!-- The nav button opens the buy modal, same as every other Get Stride on the page.
+           It used to be a plain #pricing anchor, so the one CTA that is on screen at every
+           scroll position was the only one that did not start a purchase.
+           href stays as the no-JS and middle-click fallback; the handler returns false so
+           the page does not also jump.
+           data-plain-cta keeps it OUT of the add-on rewrite below: it carries no price, and
+           at 11px in a fixed nav bar "Get Stride + Collection" would not fit. -->
+      <a href="#pricing" onclick="openBuy(); return false" data-plain-cta class="btn-copper text-[11px] uppercase tracking-widest px-5 py-2.5 rounded-full">Get Stride</a>
     </div>
   </nav>
 
@@ -1089,6 +1161,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="text-base fold-strike font-bold ink3 leading-none" style="text-decoration:line-through;opacity:.75">$129</div>
           <span class="seal2">Save $30</span>
         </div>
+        <p class="vat-note">VAT incl.</p>
         <!-- Name the two things actually included, then the order bump above the buttons, as it always was. -->
         <ul class="vlist vlist-2 hero-included">
           <li><span class="d">&#9679;</span><span><b>Stride VST + StrideBridge</b> included</span></li>
@@ -1213,6 +1286,120 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             stage.appendChild(f);
             if (loop) loop.pause();
             if (note) note.innerHTML = 'Playing here &middot; <a href="https://www.youtube.com/watch?v=' + VIDEO + '" target="_blank" rel="noopener" class="underline hover:text-[var(--copper-lt)]">open on YouTube</a>';
+          });
+
+          // ── The film ──────────────────────────────────────────────────────
+          // Press the frame a second time and the full Stride film plays over the
+          // page. The panel and the <video> are built on that first press, so the
+          // hero ships without them and nothing is downloaded until somebody asks.
+          // A phone under 760px gets the 720p pair: at that size it is the same
+          // picture for a third of the bytes.
+          var pop = null, film = null, wasLooping = false, openedAt = 0;
+
+          function buildFilm() {
+            var small = (window.innerWidth || 0) < 760;
+            pop = document.createElement('div');
+            pop.className = 'vpop';
+            pop.setAttribute('role', 'dialog');
+            pop.setAttribute('aria-modal', 'true');
+            pop.setAttribute('aria-label', 'The Stride film');
+            var card = document.createElement('div');
+            card.className = 'vpop-card';
+            film = document.createElement('video');
+            film.setAttribute('controls', '');
+            film.setAttribute('playsinline', '');
+            film.setAttribute('preload', 'none');
+            film.setAttribute('poster', 'assets/stride-promo-poster.jpg');
+            [['webm', 'video/webm'], ['mp4', 'video/mp4']].forEach(function (t) {
+              var s = document.createElement('source');
+              s.src = 'assets/stride-promo-' + (small ? '720' : '1080') + '.' + t[0];
+              s.type = t[1];
+              film.appendChild(s);
+            });
+            var x = document.createElement('button');
+            x.type = 'button';
+            x.className = 'vpop-x';
+            x.setAttribute('aria-label', 'Close');
+            x.innerHTML = '&times;';
+            x.addEventListener('click', closeFilm);
+            card.appendChild(film);
+            card.appendChild(x);
+            pop.appendChild(card);
+            // Only the backdrop closes; a click on the film itself is the controls.
+            // A tap opens this on pointerup, and the browser then sends the click of
+            // that same tap, which now lands on a backdrop covering the screen. Ignore
+            // anything that arrives in the first moments, or a phone would close the
+            // panel with the very tap that opened it.
+            pop.addEventListener('click', function (ev) {
+              if (ev.target === pop && Date.now() - openedAt > 400) closeFilm();
+            });
+            document.body.appendChild(pop);
+          }
+
+          function openFilm() {
+            if (!pop) buildFilm();
+            if (pop.classList.contains('on')) return;
+            // Hiding the page's scroll shortens it by a scrollbar width on desktop,
+            // which would shift everything under the scrim. Give the width back.
+            var root = document.documentElement;
+            var bar = window.innerWidth - root.clientWidth;
+            root.style.overflow = 'hidden';
+            if (bar > 0) root.style.paddingRight = bar + 'px';
+            pop.classList.add('on');
+            openedAt = Date.now();
+            wasLooping = !!(loop && !loop.paused);
+            if (loop) loop.pause();
+            film.currentTime = 0;
+            film.muted = false;
+            // A double press is a user gesture, so sound is allowed. If a browser
+            // still refuses, play it muted rather than not at all: the controls are
+            // right there to turn it up. Closing the panel also rejects this promise,
+            // so check we are still open before forcing anything.
+            var p = film.play();
+            if (p && p.catch) p.catch(function () {
+              if (!pop.classList.contains('on')) return;
+              film.muted = true;
+              film.play().catch(function () {});
+            });
+            setTimeout(function () { film.focus(); }, 0);
+          }
+
+          function closeFilm() {
+            if (!pop || !pop.classList.contains('on')) return;
+            film.pause();
+            pop.classList.remove('on');
+            var root = document.documentElement;
+            root.style.overflow = '';
+            root.style.paddingRight = '';
+            if (wasLooping && loop) loop.play().catch(function () {});
+          }
+
+          // While the walkthrough is playing in the frame, the frame belongs to it.
+          function frameBusy() { return !!stage.querySelector('iframe'); }
+
+          stage.addEventListener('dblclick', function (ev) {
+            if (frameBusy()) return;
+            ev.preventDefault();
+            openFilm();
+          });
+
+          // Touch never fires dblclick, and on iOS a double tap means zoom, so the
+          // pair is counted by hand: two taps inside 400ms and 30px of each other.
+          var tapAt = 0, tapX = 0, tapY = 0;
+          stage.addEventListener('pointerup', function (ev) {
+            if (ev.pointerType === 'mouse' || frameBusy()) return;
+            var now = Date.now();
+            if (now - tapAt < 400 && Math.abs(ev.clientX - tapX) < 30 && Math.abs(ev.clientY - tapY) < 30) {
+              tapAt = 0;
+              ev.preventDefault();
+              openFilm();
+              return;
+            }
+            tapAt = now; tapX = ev.clientX; tapY = ev.clientY;
+          });
+
+          document.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Escape') closeFilm();
           });
         })();
       </script>
@@ -1697,6 +1884,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="text-lg font-bold ink3 leading-none" style="text-decoration:line-through;opacity:.75">$129</div>
             <span class="seal2">Save $30</span>
           </div>
+          <p class="vat-note">VAT incl.</p>
           <p class="text-[12px] font-bold mb-5 mt-2.5 sd-what" style="color:var(--sage-lt)">Stride VST + StrideBridge</p>
           <div class="addon addon-compact" style="margin-bottom:13px" hidden>
             <img class="addon-art" src="assets/packs/pack-drums-thumb.png" alt="" width="168" height="168" loading="lazy" decoding="async">
@@ -1806,7 +1994,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <section data-ms="faq" class="max-w-3xl mx-auto mb-24">
     <div class="text-center mb-10"><h2 class="text-3xl md:text-5xl mb-2">FAQ</h2><p class="silk">The questions everyone asks</p></div>
     <div class="space-y-3">
-      <details class="panel rounded-2xl" open><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">What do I get for <span class="sd-stride">$99</span>?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed"><b class="ink">Stride VST</b> for every DAW (host your synths and effects and modulate them), plus <b class="ink">StrideBridge</b> for Ableton (reach the set's own devices, and print the motion into a clip when you want it). One purchase, yours for good, no subscription. The <a href="samples.html" style="color:var(--copper-lt)">Experimental Collection</a> is a separate optional add-on and is not included.</div></details>
+      <details class="panel rounded-2xl" open><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between"><span>What do I get for <span class="sd-stride">$99</span>?</span><span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed"><b class="ink">Stride VST</b> for every DAW (host your synths and effects and modulate them), plus <b class="ink">StrideBridge</b> for Ableton (reach the set's own devices, and print the motion into a clip when you want it). One purchase, yours for good, no subscription. The <a href="samples.html" style="color:var(--copper-lt)">Experimental Collection</a> is a separate optional add-on and is not included.</div></details>
       <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Which DAWs does Stride VST work in?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Any VST3 host: Ableton Live, Cubase, Nuendo, Studio One, FL Studio, Reaper, Bitwig, Cakewalk and more. On macOS it also ships as an Audio Unit, so Logic and GarageBand work too. <b style="color:var(--rose-lt)">Not Pro Tools (AAX only).</b></div></details>
       <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Can Stride VST modulate Ableton devices?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">Yes. Stride VST hosts and modulates VST3 instruments and effects directly inside Stride, in any DAW. In Ableton Live, <b class="ink">StrideBridge</b> also maps your Ableton devices into the same Stride canvas, so one click moves both. And when you want that motion written into a clip, select the clip and press INJECT on the bridge.</div></details>
       <details class="panel rounded-2xl"><summary class="cursor-pointer p-5 font-bold text-base ink flex items-center justify-between">Can't I just draw automation by hand?<span class="ink3">▾</span></summary><div class="px-5 pb-5 text-sm ink2 leading-relaxed">You can, and Stride never takes that away: every lane stays editable, point by point, right on the canvas. What changes is scale. By hand, motion across a whole rack means one lane at a time. Stride writes all of them in one click, then hands you a fresh take on the next one. You shape, lock, or redraw whatever you want. Final say is always yours.</div></details>
@@ -2154,10 +2342,12 @@ function openBuy() { toggleBuyModal(); }
     const PADDLE_TOKEN            = 'live_e0101b87a9e6e7024988534cf7b';
     const PADDLE_PRICE_STRIDE     = 'pri_01m2dcx05b0z2dcnscp4qjm28d';
     const PADDLE_PRICE_COLLECTION = 'pri_01m2dghkc4dn53h2hrzw21ba2f';
-    // The post-purchase 1:1 session offer, which falls through to welcome.html. The code names
-    // the offer and stays visible; the backend decides what it is worth and until when.
-    // /post2/ holds the Collection offer, kept for testing: point this there to run it.
-    const PADDLE_SUCCESS_URL      = 'https://stridehub.io/post/?code=sesh1o1';
+    // The post-purchase run: /post2/ offers the Experimental Collection to whoever did not
+    // take the order bump, then hands over to /post/ for the 1:1 session, which falls through
+    // to welcome.html. Each page decides for itself whether it has anything to show and skips
+    // straight on if it does not, so someone who already owns both never sees either screen.
+    // The backend decides every price and window; the code in the URL only names the offer.
+    const PADDLE_SUCCESS_URL      = 'https://stridehub.io/post2/';
 
     let stridePaddleInit = false;
 
@@ -2472,19 +2662,50 @@ function openBuy() { toggleBuyModal(); }
         // an end-of-string anchor: the regex then matches nothing and every CTA keeps
         // its old price while the words around it change. That bug shipped once.
         const was = new RegExp('\\$' + STRIDE_PRICE + '(?!\\d)', 'g');
-        document.querySelectorAll('a[onclick*="openBuy"], .sd-swap').forEach(function (el) {
+
+        // The " · $99" clause on a CTA, on its own and inside the sticky bar's wrapper
+        // span. innerHTML hands back the literal · , never the &middot; that is in the
+        // source, so the character is what this matches.
+        const ctaPrice = new RegExp('\\s*\u00b7\\s*\\$' + STRIDE_PRICE + '(?!\\d)', 'g');
+
+        // The buy buttons. With the add-on on they read "GET STRIDE + COLLECTION" and
+        // DROP the price.
+        //
+        // Why the price goes: the desktop hero bar gives the CTA a FIXED 350px column
+        // (320px usable, ~250px of text space at 17px/900). "GET STRIDE · $99" fits;
+        // "GET STRIDE + COLLECTION · €123.99" needs ~330px, so it wrapped onto two rows
+        // and the arrow floated off, which is the button somebody reported as broken.
+        // Nothing is lost: the order total is already set in 54px two columns to its
+        // left. Dropping it here keeps ₪385.99, CA$173 and ¥19,000 on one line too,
+        // which shrinking the type would not have survived.
+        //
+        // data-plain-cta opts an element out. Only the nav bar's button carries it: that
+        // one states no price, and at 11px in a fixed bar the longer word does not fit.
+        document.querySelectorAll('a[onclick*="openBuy"]:not([data-plain-cta])').forEach(function (el) {
             if (!el.dataset.baseHtml) el.dataset.baseHtml = el.innerHTML;
             el.innerHTML = on
-                ? el.dataset.baseHtml.replace(was, total)
+                ? el.dataset.baseHtml
+                    .replace(/<span class="m-cta-price">[\s\S]*?<\/span>/g, '')
+                    .replace(ctaPrice, '')
                     .replace(/GET STRIDE/g, 'GET STRIDE + COLLECTION')
                     .replace(/Get Stride/g, 'Get Stride + Collection')
-                    // the section heading brands the word: Get <span>Stride</span> for $99
-                    .replace(/Stride<\/span>/g, 'Stride + Collection<\/span>')
                 // Off, but still re-priced. Restoring the raw markup here would put a
                 // dollar price back on every CTA while the pricing panel shows the
                 // visitor's own currency. With no Paddle currency loaded, strideMoney
                 // returns the same dollars it always did, so this is a no-op for
                 // Lemon Squeezy.
+                : el.dataset.baseHtml.replace(was, total);
+        });
+
+        // Prose that states the order in words. Unlike the buttons it KEEPS the number:
+        // a sentence reading "One purchase, €123.99." is the only place the order total
+        // appears in words, and it has the whole line to say it in.
+        document.querySelectorAll('.sd-swap').forEach(function (el) {
+            if (!el.dataset.baseHtml) el.dataset.baseHtml = el.innerHTML;
+            el.innerHTML = on
+                ? el.dataset.baseHtml.replace(was, total)
+                    // the section heading brands the word: Get <span>Stride</span> for $99
+                    .replace(/Stride<\/span>/g, 'Stride + Collection<\/span>')
                 : el.dataset.baseHtml.replace(was, total);
         });
 

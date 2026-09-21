@@ -156,9 +156,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .inv{list-style:none;margin:22px 0 0;padding:0;display:grid;gap:12px}
   .inv li{display:flex;align-items:flex-start;gap:12px;font-size:1.02rem;color:var(--ink);line-height:1.45}
   .inv .n{font-weight:900;color:var(--copper-lt);min-width:3.2rem;font-variant-numeric:tabular-nums}
-  .skip{display:inline-block;margin-top:20px;font-size:14px;font-weight:700;color:var(--ink3);
-    text-decoration:none;transition:color .15s}
-  .skip:hover{color:var(--copper-lt)}
+  /* The way out of the offer has to be findable. It was a 14px grey line sitting under a
+     copper button and read as fine print, so someone who had just paid could not see how
+     to move on. It is a real secondary button now, in the same shape the rest of the site
+     uses for "not this, the other one", and still clearly quieter than the offer. */
+  .skip{display:inline-flex;align-items:center;gap:.4rem;margin-top:20px;
+    padding:12px 22px;border-radius:999px;font-size:15px;font-weight:800;
+    color:var(--ink2);background:rgba(255,255,255,.03);border:1px solid var(--line);
+    text-decoration:none;transition:color .15s,border-color .15s,background .15s}
+  .skip:hover{color:var(--ink);border-color:rgba(216,201,176,.28);background:rgba(255,255,255,.06)}
   /* The three covers as ONE object, lifted verbatim from samples.html. Overlapping is
      what makes them read as a collection rather than three products standing side by
      side, and a buyer who saw the pack on /samples has to recognise it here. */
@@ -249,7 +255,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <button type="button" class="cta btn-copper px-8 py-4 text-sm uppercase w-full sm:w-auto" data-buy>Add it for <span data-cta-price>$19</span></button>
         <p class="offer-note" aria-live="polite" hidden></p>
         <div>
-          <a class="skip" href="/welcome.html" data-skip>No thanks, take me to Stride &rarr;</a>
+          <a class="skip" href="/post/?code=sesh1o1" data-skip>No thanks &rarr;</a>
         </div>
       </div>
     </section>
@@ -319,8 +325,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   // No price id and no discount id live here any more. The backend opens the Collection
   // checkout itself (collection_checkout), at the price it quotes this buyer, and only
   // inside the buyer's 72 hours, so the offer ends when the page says it does.
-  var NEXT = '/welcome.html';
-  var FAILED = 'Checkout could not open. Take me to Stride and I will email you the offer instead.';
+  // This is the first screen after a purchase, and the session offer is the second, so
+  // "next" is that page and not the product. Everything that leaves this page goes through
+  // it: the skip link, an offer that is closed, owned or expired, and a finished checkout.
+  var NEXT = '/post/?code=sesh1o1';
+  var FAILED = 'Checkout could not open. Move on and I will email you the offer instead.';
 
   function q(sel) { return document.querySelector(sel); }
   function ss(k) { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } }
@@ -383,8 +392,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   function leave() { window.location.replace(NEXT); }
 
   // One stage of the funnel, recorded against the purchase that earned the offer. This page
-  // is /post2, the Collection offer kept for testing beside the session offer on /post, so
-  // its stages are post2_* and say which offer they were about. Fire and
+  // is /post2, the Collection offer, the first screen after a purchase, so its stages are
+  // post2_* and say which offer they were about. Fire and
   // forget, and keepalive so the skip click below still reports while the browser is already
   // leaving. Telemetry is never allowed to reach the buyer, so every failure is swallowed.
   function stage(name) {
@@ -397,7 +406,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   }
 
   // No transaction to resolve means we cannot know whether this person has an open
-  // offer, already owns the Collection, or wandered in. Send them to the product.
+  // offer, already owns the Collection, or wandered in. Move them along the run.
   if (!strideTxn) { leave(); return; }
 
   function pad(n) { return (n < 10 ? '0' : '') + n; }
@@ -568,7 +577,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   // no is what tells a rejected offer apart from a page nobody ever saw. data-skip has been
   // in the markup since this page shipped and nothing ever read it.
   var skip = q('[data-skip]');
-  if (skip) skip.addEventListener('click', function () { stage('post2_skipped'); });
+  if (skip) {
+    // One source of truth for where this page leads, so the link and every scripted exit
+    // can never point at different screens.
+    skip.setAttribute('href', NEXT);
+    skip.addEventListener('click', function () { stage('post2_skipped'); });
+  }
 })();
 </script>
 </body>
