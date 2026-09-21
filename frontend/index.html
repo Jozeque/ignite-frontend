@@ -3268,7 +3268,8 @@ function openBuy() { toggleBuyModal(); }
 <script>
 (function strideDemoPrompt() {
     var SECONDS = 30;
-    var SEEN_KEY = 'stride_demo_pop';      // shown once, ever
+    var SEEN_KEY = 'stride_demo_pop';      // WHEN it was last shown, in ms
+    var AGAIN_AFTER = 7 * 24 * 60 * 60 * 1000;   // and leave them alone for a week after
     var HANDOFF  = 'stride_demo_email';    // the address /try?auto=1 picks up
     var SECS_KEY = 'stride_demo_secs';     // seconds on the page so far, this visit
 
@@ -3294,19 +3295,35 @@ function openBuy() { toggleBuyModal(); }
         catch (e) { return false; }
     }
 
-    // Nobody is asked twice, and nobody who already has the demo is asked at all.
-    // stride_try_email and stride_try_dl are what /try writes on a successful register.
+    // Nobody who already has the demo is ever asked again, and nobody is nagged.
+    //
+    // This stores WHEN it was last shown, not merely THAT it was. A plain flag meant one
+    // dismissal silenced it permanently, on a browser, forever: someone who waved it away
+    // on a first visit could never be asked again even months later, and it was why the
+    // thing looked dead to us after a single test. A week is long enough not to nag and
+    // short enough that a returning visitor is a fair question again.
+    //
+    // Falls back to FALSE, so a browser that refuses storage still gets the prompt:
+    // "cannot check" must not quietly become "never show".
     function alreadyDone() {
-        // Falls back to FALSE, so a browser that refuses storage still gets the prompt.
-        // Defaulting to true meant "cannot check" became "never show", which is a silent
-        // way for the whole thing to do nothing on the strictest privacy settings.
         return ls(function () {
-            return !!(localStorage.getItem(SEEN_KEY)
-                   || localStorage.getItem('stride_try_email')
-                   || localStorage.getItem('stride_try_dl'));
+            // Registered already: they have Stride, there is nothing to offer.
+            if (localStorage.getItem('stride_try_email')
+                || localStorage.getItem('stride_try_dl')) return true;
+            var last = parseInt(localStorage.getItem(SEEN_KEY) || '0', 10) || 0;
+            // A leftover '1' from the flag version parses as 1970 and so simply expires,
+            // which is the kind thing to do to everyone it silenced.
+            return last > 0 && (Date.now() - last) < AGAIN_AFTER;
         }, false);
     }
-    function remember() { ls(function () { localStorage.setItem(SEEN_KEY, '1'); }); }
+    function remember() { ls(function () { localStorage.setItem(SEEN_KEY, String(Date.now())); }); }
+
+    // /?demopop=1 shows it at once, past the clock and past the week. For looking at the
+    // thing without having to clear storage first, which is how this came up.
+    var FORCE = (function () {
+        try { return new URL(window.location.href).searchParams.get('demopop') === '1'; }
+        catch (e) { return false; }
+    })();
 
     // Never over a checkout. The buy modal and Paddle's own overlay are the path the
     // ads are paid for; interrupting either to offer a free demo would be absurd.
@@ -3333,7 +3350,7 @@ function openBuy() { toggleBuyModal(); }
     }
 
     function open() {
-        if (hasCode() || alreadyDone()) return;
+        if (!FORCE && (hasCode() || alreadyDone())) return;
         if (busy()) { setTimeout(open, 5000); return; }   // wait for the checkout to end
         lastFocus = document.activeElement;
         pop.classList.add('on');
@@ -3370,7 +3387,8 @@ function openBuy() { toggleBuyModal(); }
         saveSecs();
         open();
     }, 1000);
-    if (hasCode() || alreadyDone()) clearInterval(tick);
+    if (FORCE) { clearInterval(tick); setTimeout(open, 400); }
+    else if (hasCode() || alreadyDone()) clearInterval(tick);
 
     // Leaving mid-count keeps what was earned, both on a tab switch and on a real exit.
     document.addEventListener('visibilitychange', function () { if (document.hidden) saveSecs(); });

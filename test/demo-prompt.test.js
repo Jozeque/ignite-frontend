@@ -86,8 +86,27 @@ for (const file of ['frontend/index.html', 'index.html']) {
   // The rule that matters most commercially.
   ok(where + 'a discount code silences it',
      /function hasCode\(\)/.test(src)
-     && /if \(hasCode\(\) \|\| alreadyDone\(\)\) return;/.test(src)
-     && /if \(hasCode\(\) \|\| alreadyDone\(\)\) clearInterval\(tick\);/.test(src));
+     && /if \(!FORCE && \(hasCode\(\) \|\| alreadyDone\(\)\)\) return;/.test(src)
+     && /else if \(hasCode\(\) \|\| alreadyDone\(\)\) clearInterval\(tick\);/.test(src));
+
+  // Being shown ONCE must not silence it forever. A plain flag did exactly that: one
+  // dismissal and that browser could never be asked again, which is how the prompt came
+  // to look completely dead after a single test.
+  ok(where + 'it records WHEN it was shown, not merely that it was',
+     /localStorage\.setItem\(SEEN_KEY, String\(Date\.now\(\)\)\)/.test(src)
+     && !/localStorage\.setItem\(SEEN_KEY, '1'\)/.test(src));
+  ok(where + 'and asks again after a week',
+     /var AGAIN_AFTER = 7 \* 24 \* 60 \* 60 \* 1000;/.test(src)
+     && /return last > 0 && \(Date\.now\(\) - last\) < AGAIN_AFTER;/.test(src));
+  ok(where + 'registering is still permanent, because they have Stride',
+     /if \(localStorage\.getItem\('stride_try_email'\)\s*\n?\s*\|\| localStorage\.getItem\('stride_try_dl'\)\) return true;/.test(src));
+  ok(where + 'a leftover flag from the old version expires instead of silencing forever',
+     /parseInt\(localStorage\.getItem\(SEEN_KEY\) \|\| '0', 10\)/.test(src));
+
+  // A way to look at it without clearing storage first.
+  ok(where + '?demopop=1 forces it, past the clock and the week',
+     /searchParams\.get\('demopop'\) === '1'/.test(src)
+     && /if \(FORCE\) \{ clearInterval\(tick\); setTimeout\(open, 400\); \}/.test(src));
   ok(where + 'and it checks the URL itself, not only the pricing script',
      /window\.STRIDE_CODE_ACTIVE/.test(src)
      && /searchParams\.get\('code'\)[\s\S]{0,40}\}\s*\n\s*catch/.test(src));
