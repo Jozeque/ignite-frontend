@@ -3,6 +3,196 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Google consent mode v2. MUST stay above the Google Tag Manager snippet below.
+     Consent has to be declared before a Google tag loads; after it, the tag has already
+     decided how to behave. Two defaults are declared: deny for the EEA, the UK and
+     Switzerland (Google resolves the visitor's region itself, from the request, so this
+     needs no IP lookup of ours), and grant everywhere else, which is what the privacy
+     policy discloses. Roughly two thirds of paying customers bill from the denied set,
+     so this is the majority path, not an edge case.
+     This governs GOOGLE tags only. The Meta Pixel and Microsoft Clarity are unaffected
+     and keep the behaviour they have always had. That is a deliberate, separate decision.
+     https://developers.google.com/tag-platform/security/guides/consent -->
+<script>
+(function () {
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    // A stable handle. The GA4 block further down declares its own global gtag; this one
+    // is ours and cannot be redefined out from under the banner.
+    window.strideGtag = gtag;
+
+    // Where Google's EU user consent policy applies: the EU 27, the rest of the EEA,
+    // the UK and Switzerland. Kept in step with _CONSENT_REQUIRED_COUNTRIES in
+    // firebase_cloud/functions/google_dm.py, which decides the same question server-side.
+    var CONSENT_REGION = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR',
+                          'HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK',
+                          'SI','ES','SE','IS','LI','NO','GB','CH'];
+    var ALL = ['ad_storage', 'ad_user_data', 'ad_personalization', 'analytics_storage'];
+
+    function state(value, extra) {
+        var o = {};
+        for (var i = 0; i < ALL.length; i++) { o[ALL[i]] = value; }
+        for (var k in (extra || {})) { o[k] = extra[k]; }
+        return o;
+    }
+
+    // Region-scoped default first; Google applies the more specific one.
+    // wait_for_update holds the tags briefly so a stored answer below lands first.
+    gtag('consent', 'default', state('denied', { region: CONSENT_REGION,
+                                                 wait_for_update: 500 }));
+    gtag('consent', 'default', state('granted'));
+
+    var saved = '';
+    try { saved = localStorage.getItem('stride_consent_ads') || ''; } catch (e) {}
+    if (saved !== 'granted' && saved !== 'denied') { saved = ''; }
+    // Replay the answer synchronously, before any tag fires, so a returning visitor is
+    // never measured on a footing they already rejected.
+    if (saved) { gtag('consent', 'update', state(saved)); }
+
+    // Read by the checkout, which sends it to the backend so an order months later can
+    // still report what this person actually agreed to. '' means unanswered, and the
+    // server reads that as UNSPECIFIED rather than as a yes.
+    window.strideConsentAds = function () { return saved; };
+
+    function record(value) {
+        saved = value;
+        try { localStorage.setItem('stride_consent_ads', value); } catch (e) {}
+        // A cookie too: the checkout on a different page of this site reads whichever
+        // survives, and Safari evicts localStorage on long gaps more readily.
+        try {
+            document.cookie = 'stride_consent_ads=' + value + '; max-age=' +
+                (180 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+        } catch (e) {}
+        gtag('consent', 'update', state(value));
+        dataLayer.push({ event: 'stride_consent', consent_ads: value });
+    }
+
+    // Ask only where the answer is legally required. Timezone, not an IP lookup: it costs
+    // no request and identifies nobody. It over-asks a little (Europe/Moscow is not the
+    // EEA) and that is the safe direction. The harm of not asking a German is that their
+    // tags stay denied for good, while the harm of asking a Russian is a dismissed bar.
+    // If the timezone cannot be read at all, ask. Never assume consent.
+    function mustAsk() {
+        if (saved) { return false; }
+        try {
+            var tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+            // An empty timezone is not "not Europe", it is "no idea". Falling through
+            // to the comparison below would read it as no idea -> do not ask -> stay
+            // denied forever, which loses the visitor rather than asking them.
+            if (!tz) { return true; }
+            return tz.indexOf('Europe/') === 0 || tz === 'Atlantic/Reykjavik' ||
+                   tz === 'Atlantic/Canary' || tz === 'Atlantic/Madeira' ||
+                   tz === 'Atlantic/Azores';
+        } catch (e) { return true; }
+    }
+
+    function banner() {
+        if (!mustAsk() || document.getElementById('stride-consent')) { return; }
+        var css = document.createElement('style');
+        // The panel, hairline and copper are the page's own tokens, so this reads as part
+        // of Stride rather than as a bolted-on compliance widget. The three legal pages
+        // are built on Tailwind and define no tokens, hence a literal fallback on every
+        // var(): identical everywhere, and no page-specific stylesheet.
+        css.textContent =
+            '#stride-consent{position:fixed;left:18px;bottom:18px;z-index:2147483000;' +
+            'width:min(372px,calc(100vw - 36px));' +
+            'background:var(--panel,#1d1b16);border:1px solid var(--line,rgba(216,201,176,.11));' +
+            'border-radius:16px;padding:15px 16px;' +
+            'box-shadow:0 30px 70px -30px rgba(0,0,0,.85);' +
+            'font-family:Outfit,system-ui,-apple-system,sans-serif;' +
+            'color:var(--ink2,#b8ad9b);' +
+            // Starts invisible and a little low, then rises once. A panel that is simply
+            // THERE on first paint reads as part of the page still loading.
+            'opacity:0;transform:translateY(12px);' +
+            'transition:opacity .45s ease,transform .45s cubic-bezier(.22,.8,.3,1),' +
+            'bottom .25s ease}' +
+            '#stride-consent.on{opacity:1;transform:none}' +
+            '#stride-consent p{margin:0 0 12px;font-size:13px;line-height:1.55}' +
+            '#stride-consent a{color:var(--copper-lt,#dd9a52);text-decoration:none;' +
+            'border-bottom:1px solid rgba(221,154,82,.28)}' +
+            '#stride-consent a:hover{border-bottom-color:rgba(221,154,82,.75)}' +
+            '#stride-consent div{display:flex;gap:8px}' +
+            // Both buttons are one style. Making "accept" the loud one is the nudge the
+            // consent rules exist to stop, and an equal pair is also simply calmer.
+            '#stride-consent button{flex:1 1 0;font:inherit;font-size:13px;font-weight:700;' +
+            'cursor:pointer;padding:9px 14px;border-radius:10px;' +
+            'border:1px solid var(--line,rgba(216,201,176,.11));' +
+            'background:var(--raise,#252119);color:var(--ink,#ece4d6);' +
+            'transition:border-color .18s ease}' +
+            '#stride-consent button:hover{border-color:rgba(216,201,176,.3)}' +
+            '@media(max-width:560px){#stride-consent{left:12px;right:12px;bottom:12px;width:auto}}' +
+            '@media(prefers-reduced-motion:reduce){#stride-consent{transition:none;' +
+            'opacity:1;transform:none}}';
+        document.head.appendChild(css);
+
+        var el = document.createElement('div');
+        el.id = 'stride-consent';
+        el.setAttribute('role', 'dialog');
+        el.setAttribute('aria-label', 'Cookie choices');
+        // Short, and it says the thing a visitor actually wants to know: saying no costs
+        // them nothing. No "we value your privacy", no scrolling wall of vendor names.
+        el.innerHTML =
+            '<p>We use cookies to see which ads bring people here. ' +
+            'Say no and nothing on the site changes. ' +
+            '<a href="/privacy.html">Privacy&nbsp;Policy</a></p>' +
+            '<div><button type="button" data-consent="denied">Decline</button>' +
+            '<button type="button" data-consent="granted">Accept</button></div>';
+        el.addEventListener('click', function (ev) {
+            var v = ev.target && ev.target.getAttribute('data-consent');
+            if (!v) { return; }
+            record(v);
+            // Leave the way it arrived rather than vanishing mid-click.
+            el.classList.remove('on');
+            setTimeout(function () { el.remove(); }, 260);
+        });
+        document.body.appendChild(el);
+
+        // The homepage pins a buy bar to the bottom of the viewport (#m-cta, "GET STRIDE"),
+        // and it arrives on scroll rather than on load. A panel sitting at bottom:18px
+        // lands straight on top of it and hides the primary buy button behind a cookie
+        // notice, so the panel rides above the bar and keeps following it as it comes and
+        // goes. Every other page has no such bar, where this is a no-op.
+        function clearBottomBar() {
+            var base = window.innerWidth <= 560 ? 12 : 18;
+            var bar = document.getElementById('m-cta');
+            if (bar) {
+                var r = bar.getBoundingClientRect();
+                // Only when it is really parked at the bottom of the viewport right now.
+                // The bar slides in and out, and once it has slid away its rect sits
+                // BELOW the fold, which still satisfies a bottom-edge test on its own.
+                // Requiring the top edge to be on screen too is what tells the two apart.
+                if (r.height > 0 && r.top < window.innerHeight - 4
+                        && r.bottom > window.innerHeight - 4) {
+                    base += r.height + 10;
+                }
+            }
+            el.style.bottom = base + 'px';
+        }
+        clearBottomBar();
+        window.addEventListener('scroll', clearBottomBar, { passive: true });
+        window.addEventListener('resize', clearBottomBar);
+        // The bar is switched on by a CLASS, not by scrolling, so it can appear without
+        // either listener above ever firing. Watch the element itself as well.
+        var _bar = document.getElementById('m-cta');
+        if (_bar && window.MutationObserver) {
+            new MutationObserver(clearBottomBar).observe(_bar, {
+                attributes: true, attributeFilter: ['class', 'style'] });
+        }
+
+        // Hold it back a beat so the page paints first. Nothing waits on this: the tags
+        // already hold the denied default for this visitor, so all the delay changes is
+        // that the page is not interrupted while it is still arriving. Measure once more
+        // on the way in, because the bar may have arrived during that beat.
+        setTimeout(function () { clearBottomBar(); el.classList.add('on'); }, 700);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', banner);
+    } else {
+        banner();
+    }
+})();
+</script>
 <!-- Google Tag Manager -->
 <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
