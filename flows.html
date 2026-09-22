@@ -126,7 +126,10 @@
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
-    const ADMIN_EMAILS = ['yossi.bozo112@gmail.com'];
+    // Both people who work on the mail copy. The CRM's own list is deliberately NOT
+    // widened: Ido stays read-only everywhere except the two mail_copy collections,
+    // which the Firestore rules enforce regardless of what this array says.
+    const ADMIN_EMAILS = ['yossi.bozo112@gmail.com', 'livni.ido@gmail.com'];
 
     const COPY = 'mail_copy';
     const VERSIONS = 'mail_copy_versions';
