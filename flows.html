@@ -58,7 +58,7 @@
         <!-- The mails -->
         <div class="w-72 border-r border-white/5 overflow-auto custom-scroll shrink-0">
             <div class="px-4 py-2 text-[8px] text-zinc-600 uppercase tracking-widest font-black">
-                Mail &middot; sent &middot; bought
+                The flows, in spec order
             </div>
             <div id="list"></div>
         </div>
@@ -134,6 +134,72 @@
     const COPY = 'mail_copy';
     const VERSIONS = 'mail_copy_versions';
 
+
+    // ── The order the flows are specified in ────────────────────────────────
+    // Alphabetical by template name put "collection" next to "collection_nudge" and
+    // "winback_update" before "winback_week", which tells you nothing about when anybody
+    // receives them. These are the codes from the stride-flows README, which is the spec:
+    // A is the demo lifecycle, B is checkout recovery, C is after a purchase, D is winback.
+    //
+    // The README states A2, A5, A6, B1-B3, C2-C6 and D1-D2 outright. Numbering the rest by
+    // the order that README lists them in reproduces every one of those codes exactly, which
+    // is what says the list order IS the spec order; the gaps below are filled that way.
+    // Two mails carry no code on purpose: they are receipts for other products rather than
+    // steps in the Stride journey. Two more are retired and kept only so an old claim can
+    // still render.
+    const FLOW_GROUPS = [
+      { key: 'A', title: 'A · Demo lifecycle' },
+      { key: 'B', title: 'B · Checkout recovery' },
+      { key: 'C', title: 'C · After a purchase' },
+      { key: 'D', title: 'D · Winback' },
+      { key: 'T', title: 'Transactional' },
+      { key: 'R', title: 'Retired' },
+    ];
+    const FLOW_CODES = {
+      demo_welcome:       { group: 'A', code: 'A1',  when: 'on signup' },
+      activate_nudge:     { group: 'A', code: 'A2',  when: '90 min, no activation' },
+      friction_rescue:    { group: 'A', code: 'A3',  when: '48 h, still no activation' },
+      onboard:            { group: 'A', code: 'A4',  when: '~90 min after activation' },
+      day_one_depth:      { group: 'A', code: 'A5',  when: '8 h into the pass' },
+      last_hours:         { group: 'A', code: 'A6',  when: '20 h into the pass' },
+      post_demo:          { group: 'A', code: 'A7',  when: '3 h after the pass ends' },
+      post_demo_unused:   { group: 'A', code: 'A8',  when: 'after a pass with known no use' },
+      ext_post:           { group: 'A', code: 'A9',  when: 'after the extra 24 h' },
+
+      checkout_recovery:  { group: 'B', code: 'B1',  when: '1 h after the buy form' },
+      recovery_questions: { group: 'B', code: 'B2',  when: '24 h, still no purchase' },
+      recovery_try:       { group: 'B', code: 'B3',  when: '72 h, offer the pass' },
+
+      purchase_welcome:   { group: 'C', code: 'C1',  when: 'on a paid order' },
+      session_offer:      { group: 'C', code: 'C2',  when: '20 min after the sale' },
+      first_build:        { group: 'C', code: 'C3',  when: '2 days after' },
+      one_question:       { group: 'C', code: 'C4',  when: '7 days after' },
+      referral_ask:       { group: 'C', code: 'C4b', when: 'the moment a C4 yes lands' },
+      collection_nudge:   { group: 'C', code: 'C5',  when: '14 days, no Collection' },
+      discord:            { group: 'C', code: 'C6',  when: '30 days after' },
+
+      winback_week:       { group: 'D', code: 'D1',  when: '7 days after the pass ended' },
+      winback_update:     { group: 'D', code: 'D2',  when: '30 days, on a new release' },
+
+      collection:         { group: 'T', code: '',    when: 'a cart with the Collection' },
+      session_booking:    { group: 'T', code: '',    when: 'a paid 1:1 session' },
+
+      start_nudge:        { group: 'R', code: '',    when: 'retired 2026-09-01' },
+      post_reg:           { group: 'R', code: '',    when: 'retired 2026-09-01' },
+    };
+    // A mail the spec has not placed yet still has to appear, or the dashboard would hide
+    // copy that exists. It lands at the end under its own heading rather than vanishing.
+    function flowOf(id) {
+      return FLOW_CODES[id] || { group: 'Z', code: '', when: '' };
+    }
+    function flowRank(id) {
+      const f = flowOf(id);
+      const g = FLOW_GROUPS.findIndex((x) => x.key === f.group);
+      const n = parseInt((f.code.match(/\d+/) || ['99'])[0], 10);
+      const sub = /b$/i.test(f.code) ? 1 : 0;
+      return [(g < 0 ? 98 : g), n, sub, id];
+    }
+
     const state = { user: null, mails: [], current: null, draft: null, tab: 'text', stats: {} };
 
     const $ = (id) => document.getElementById(id);
@@ -198,8 +264,17 @@
     function watchMails() {
         return new Promise((resolve) => {
             db.collection(COPY).onSnapshot((snap) => {
+                // Spec order, not alphabetical: see FLOW_CODES.
+                const rank = (x) => flowRank(x.id);
                 state.mails = snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }))
-                    .sort((a, b) => a.id.localeCompare(b.id));
+                    .sort((a, b) => {
+                        const ra = rank(a), rb = rank(b);
+                        for (let i = 0; i < ra.length; i++) {
+                            if (ra[i] < rb[i]) return -1;
+                            if (ra[i] > rb[i]) return 1;
+                        }
+                        return 0;
+                    });
                 renderList();
                 const serving = state.mails.filter((m) => m.status === 'published').length;
                 $('serving').textContent = serving
@@ -217,19 +292,30 @@
                 in stride-flows to put the repo's copy in, then this fills up.</div>`;
             return;
         }
+        // Grouped by series, with the heading printed once when the group changes, so the
+        // list reads as the journey it is rather than as an alphabet.
+        let lastGroup = null;
         $('list').innerHTML = state.mails.map((m) => {
+            const f = flowOf(m.id);
             const s = state.stats[m.id] || { sent: 0, bought: 0 };
             const rate = s.sent ? Math.round((s.bought / s.sent) * 100) : null;
             const on = state.current === m.id;
-            return `<button data-mail="${esc(m.id)}"
-                        class="w-full text-left px-4 py-2.5 border-b border-white/5 hover:bg-white/[.03] ${on ? 'bg-white/[.06]' : ''}">
+            let head = '';
+            if (f.group !== lastGroup) {
+                lastGroup = f.group;
+                const g = FLOW_GROUPS.find((x) => x.key === f.group);
+                head = `<div class="px-4 pt-3 pb-1 text-[8px] text-zinc-600 uppercase tracking-widest font-black border-t border-white/5 first:border-t-0">${esc(g ? g.title : 'Not in the spec yet')}</div>`;
+            }
+            return head + `<button data-mail="${esc(m.id)}"
+                        class="w-full text-left px-4 py-2 border-b border-white/5 hover:bg-white/[.03] ${on ? 'bg-white/[.06]' : ''}">
                       <div class="flex items-center gap-2">
+                        <span class="mono text-[10px] font-bold ${f.code ? 'text-amber-400/90' : 'text-zinc-700'}" style="min-width:26px">${esc(f.code || '--')}</span>
                         <span class="text-[11px] font-bold ${on ? 'text-zinc-100' : 'text-zinc-400'}">${esc(pretty(m.id))}</span>
                         <div class="flex-1"></div>
                         <span class="pill pill-${esc(m.status || 'file')}">${esc(m.status || 'file')}</span>
                       </div>
-                      <div class="mono text-[9px] text-zinc-600 mt-1">
-                        ${s.sent} sent${s.sent ? ` &middot; ${s.bought} bought${rate !== null ? ` &middot; ${rate}%` : ''}` : ''}
+                      <div class="mono text-[9px] text-zinc-600 mt-0.5 pl-[34px]">
+                        ${esc(f.when || '')}${f.when && s.sent ? ' &middot; ' : ''}${s.sent ? `${s.sent} sent &middot; ${s.bought} bought${rate !== null ? ` &middot; ${rate}%` : ''}` : ''}
                       </div>
                     </button>`;
         }).join('');
