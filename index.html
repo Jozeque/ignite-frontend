@@ -523,6 +523,20 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .vat-note{margin:0;font-size:11px;font-weight:800;letter-spacing:.1em;
     text-transform:uppercase;color:var(--ink3)}
   .sd-price-box:has(+ .vat-note){margin-bottom:7px}
+  /* The ad code, said out loud. Somebody who clicked an ad should be able to see that the
+     thing the ad promised actually landed, rather than having to know what the price would
+     have been. Deliberately NOT the copper seal beside it: that one is the saving and has to
+     stay the loudest thing in the line, so this reads as a receipt, outlined and quiet. It
+     never prints a percentage, which keeps [[summer-sale]]'s rule about never showing 20%
+     OFF next to the struck anchor true by construction. */
+  .code-seal{display:inline-flex;align-items:center;gap:5px;
+    font-size:9px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--copper-lt);background:rgba(198,113,43,.10);
+    border:1px solid rgba(198,113,43,.42);border-radius:999px;padding:4px 9px;white-space:nowrap}
+  .code-seal[hidden]{display:none}
+  .code-seal::before{content:'';width:5px;height:5px;border-radius:50%;
+    background:var(--copper-lt);box-shadow:0 0 7px var(--copper-lt);flex:none}
+
   /* ── The hero price group ────────────────────────────────────────────────
      The old price is 70% of the one being charged, up from a 16px footnote.
      Big enough to read as a real price, so what comes off the top lands at a
@@ -1174,6 +1188,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="text-5xl lg:text-[44px] font-black ink leading-none tracking-tight hero-price sd-total">$99</div>
           <div class="text-base fold-strike font-bold ink3 leading-none" style="text-decoration:line-through;opacity:.75">$129</div>
           <span class="seal2">Save $30</span>
+          <!-- Only ever on screen when the URL carried a code we know. Hidden in the markup
+               and unhidden by strideReadCode, so a bare visit reserves no space for it and
+               the ordinary hero is unchanged to the pixel. -->
+          <span class="code-seal" id="codeSeal" hidden></span>
         </div>
         <p class="vat-note">VAT incl.</p>
         <!-- Name the two things actually included, then the order bump above the buttons, as it always was. -->
@@ -2472,6 +2490,13 @@ function openBuy() { toggleBuyModal(); }
         // anyone holding a discount: this visitor was brought here to buy at 20% off, and
         // offering them a free demo instead competes with the click that was paid for.
         window.STRIDE_CODE_ACTIVE = true;
+        // Say so in the hero. The price already moved, but only somebody who knew the
+        // ordinary price could tell, which is no use to the person the ad was aimed at.
+        // The code is printed as they typed it into the ad, uppercased.
+        try {
+            var seal = document.getElementById('codeSeal');
+            if (seal) { seal.textContent = name.toUpperCase() + ' applied'; seal.hidden = false; }
+        } catch (e) {}
     })();
 
     let strideAddonOn = false;
