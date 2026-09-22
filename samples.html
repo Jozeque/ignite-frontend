@@ -325,8 +325,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      renders every page and fails if any header stops matching the homepage's.
 
      The only deliberate differences from the homepage's own copy are the links:
-     "How it works" and the two buy actions are same-page anchors there and have to
-     reach across to index.html from here. -->
+     "How it works" and the two buy actions are same-page anchors on the homepage and have
+     to reach across from here. Every href is root-absolute, because this same block is
+     also rendered on /tv/<slug> and /blog/<slug>, where a relative one would resolve
+     inside that folder. -->
 <style>
   /* The header carries everything it needs to look the same anywhere. setup, samples and
      session already define these tokens and classes; privacy, terms and refund define none
@@ -410,7 +412,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
 <div class="stride-header">
   <nav class="flex justify-between items-center py-6">
-    <a href="index.html" class="flex items-center gap-3">
+    <a href="/" class="flex items-center gap-3">
       <span class="text-3xl font-black brand tracking-tighter leading-none">STRIDE</span>
       <span class="silk hidden sm:block border-l pl-3" style="border-color:var(--hdr-line)">Sound Design Engine</span>
     </a>
@@ -420,11 +422,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         <path d="M4 7h16M4 12h16M4 17h16"/></svg>
     </button>
     <div class="flex items-center gap-5 nav-desktop">
-      <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors" href="index.html#how">How it works</a>
-      <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors" href="setup.html">Setup</a>
-      <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors" href="blog.html">Blog</a>
+      <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors" href="/#how">How it works</a>
+      <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors" href="/setup.html">Setup</a>
+      <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors" href="/blog.html">Blog</a>
       <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors hidden xl:block" href="/tv">Videos</a>
-      <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors" href="samples.html">Experimental Collection</a>
+      <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors" href="/samples.html">Experimental Collection</a>
       <a href="https://www.instagram.com/stride_engine/" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[var(--hdr-copper-lt)] transition-colors" title="Follow us on Instagram">
         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
       </a>
@@ -435,7 +437,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
       </button>
       <span class="w-px h-6 mx-1 hidden sm:block" style="background:var(--hdr-line)"></span>
-      <a href="index.html#pricing" class="btn-copper text-[11px] uppercase tracking-widest px-5 py-2.5 rounded-full">Get Stride</a>
+      <a href="/#pricing" class="btn-copper text-[11px] uppercase tracking-widest px-5 py-2.5 rounded-full">Get Stride</a>
     </div>
   </nav>
 </div>
@@ -449,18 +451,18 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     </button>
   </div>
   <nav class="m-menu-links" aria-label="Mobile">
-    <a href="index.html#how">How it works</a>
-    <a href="setup.html">Setup</a>
-    <a href="blog.html">Blog</a>
+    <a href="/#how">How it works</a>
+    <a href="/setup.html">Setup</a>
+    <a href="/blog.html">Blog</a>
     <a href="/tv">Videos</a>
-    <a href="samples.html">Experimental Collection</a>
-    <a href="session.html">1:1 Session &middot; $199</a>
+    <a href="/samples.html">Experimental Collection</a>
+    <a href="/session.html">1:1 Session &middot; $199</a>
     <a href="https://www.youtube.com/@strideengine" target="_blank" rel="noopener noreferrer">YouTube</a>
     <a href="https://www.instagram.com/stride_engine/" target="_blank" rel="noopener noreferrer">Instagram</a>
     <button type="button" onclick="strideMenu(false); toggleContactModal()">Contact</button>
   </nav>
   <div class="m-menu-cta">
-    <a href="index.html#pricing" class="btn-copper">GET STRIDE</a>
+    <a href="/#pricing" class="btn-copper">GET STRIDE</a>
     <a href="/try/" class="btn-ghost">Explore free for 24h</a>
   </div>
 </div>

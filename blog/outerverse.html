@@ -80,33 +80,248 @@
   .article-body a{color:var(--copper-lt);text-decoration:underline;text-decoration-color:rgba(198,113,43,.4);text-underline-offset:3px;transition:all .2s}
   .article-body a:hover{color:var(--ember);text-decoration-color:rgba(198,113,43,.85)}
 </style>
-<link rel="stylesheet" href="/_legacy/css/blog-outerverse.c75af57c32.css">
+<link rel="stylesheet" href="/_legacy/css/blog-outerverse.027bf5a3be.css">
 </head>
 <body class="min-h-screen flex flex-col">
-<div class="wrap flex-1 flex flex-col w-full">
+<!-- HEADER:START (scripts/sync-header.mjs writes this, do not edit here) -->
+<!-- STRIDE HEADER. One definition, written into every marketing page by
+     scripts/sync-header.mjs between the two markers it puts around this block.
+     Do not hand-edit it inside a page: the next sync overwrites it. Do not write
+     the marker text into this file either, or the sync cannot find its own edges.
 
-  <!-- ===================== NAV ===================== -->
-  <nav class="w-full max-w-[1400px] mx-auto px-6 py-6 flex justify-between items-center">
-    <a href="../index.html" class="flex items-center gap-3">
+     The homepage is NOT synced. It is the original this was lifted from and it
+     is the page that takes money, so it stays untouched; test/header-parity.test.mjs
+     renders every page and fails if any header stops matching the homepage's.
+
+     The only deliberate differences from the homepage's own copy are the links:
+     "How it works" and the two buy actions are same-page anchors on the homepage and have
+     to reach across from here. Every href is root-absolute, because this same block is
+     also rendered on /tv/<slug> and /blog/<slug>, where a relative one would resolve
+     inside that folder. -->
+<style>
+  /* The header carries everything it needs to look the same anywhere. setup, samples and
+     session already define these tokens and classes; privacy, terms and refund define none
+     of them, which is how refund.html ended up with a wordmark at a different size. Rather
+     than ask each page to supply them, the three header containers redefine the handful the
+     header uses, with the homepage's own values. Scoped, so nothing outside the header on
+     any page is touched, and identical to what those pages already have where they have it. */
+  .stride-header,#m-menu,#contact-modal{
+    --hdr-line:rgba(216,201,176,.11); --hdr-ink:#ece4d6; --hdr-ink2:#b8ad9b; --hdr-ink3:#857c6e;
+    --hdr-bg:#141310; --hdr-panel:#1d1b16; --hdr-raise:#252119;
+    --hdr-copper:#c6712b; --hdr-copper-lt:#dd9a52; --hdr-ember:#e58a2e}
+  .stride-header .brand,#m-menu .brand{
+    background:linear-gradient(90deg,var(--hdr-copper-lt),var(--hdr-ember));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .stride-header .ink3,#m-menu .ink3,#contact-modal .ink3{color:var(--hdr-ink3)}
+  .stride-header .ink2,#m-menu .ink2,#contact-modal .ink2{color:var(--hdr-ink2)}
+  .stride-header .btn-copper,#m-menu .btn-copper,#contact-modal .btn-copper{
+    display:inline-flex;align-items:center;justify-content:center;gap:.6rem;
+    background:linear-gradient(180deg,var(--hdr-ember),var(--hdr-copper));
+    color:#1c1206;font-weight:900;border:1px solid rgba(255,210,150,.25);
+    box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 12px 24px -14px rgba(198,113,43,.8);
+    transition:transform .15s,filter .15s;cursor:pointer}
+  .stride-header .btn-copper:hover,#m-menu .btn-copper:hover{transform:translateY(-2px);filter:brightness(1.06)}
+  :where(.btn-copper){border-radius:14px;letter-spacing:.04em}
+  #m-menu .btn-ghost{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;
+    border:1px solid var(--hdr-line);background:var(--hdr-raise);color:var(--hdr-ink2);
+    font-weight:800;border-radius:14px;transition:transform .15s,border-color .15s,color .15s;cursor:pointer}
+  #m-menu .btn-ghost:hover{transform:translateY(-2px);border-color:rgba(216,201,176,.28);color:var(--hdr-ink)}
+
+  .stride-header{position:relative;z-index:1;width:100%;max-width:1400px;margin:0 auto;padding:0 1.5rem}
+  .stride-header > nav{display:flex;justify-content:space-between;align-items:center;padding:1.5rem 0}
+  /* ── The strip ──────────────────────────────────────────────────────────
+     A band behind the header with a hairline under it, so the top of the page
+     has a floor instead of the wordmark floating on the background. Bled to
+     the viewport edges from inside a centred container: the negative margin
+     takes it out to the window and the matching padding puts the content back
+     where the container had it, so the band is full width while the wordmark
+     still lines up with everything below it. The homepage carries the same
+     rule on `.wrap > nav`, which is why header-parity passes. */
+  .stride-header > nav{
+    margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw);
+    padding-left:calc(50vw - 50%);padding-right:calc(50vw - 50%);
+    background:rgba(20,19,16,.82);
+    -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+    border-bottom:1px solid var(--hdr-line)}
+  .stride-header .silk{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--hdr-ink3)}
+  #m-menu-btn{display:none}
+  @media (max-width:899.98px){
+    /* Tailwind's .flex is loaded after the page's own styles and both selectors are
+       one class, so a bare .nav-desktop loses the tie and the desktop links stay on
+       screen. Two extra points of specificity settle it without !important. */
+    nav > div.nav-desktop{display:none}
+    .stride-header > nav{padding-top:.75rem;padding-bottom:.5rem}
+    #m-menu-btn{
+      display:inline-flex;align-items:center;justify-content:center;
+      width:44px;height:44px;margin-right:-.35rem;border-radius:12px;
+      color:var(--hdr-ink2);background:transparent;border:1px solid var(--hdr-line)}
+    #m-menu-btn svg{width:22px;height:22px}
+    #m-menu{
+      display:flex;flex-direction:column;position:fixed;inset:0;z-index:1100;
+      background:var(--hdr-bg);padding:1rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom,0px));
+      overflow-y:auto;-webkit-overflow-scrolling:touch}
+    #m-menu[hidden]{display:none}
+    .m-menu-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem}
+    .m-menu-top button{
+      width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;
+      border-radius:12px;color:var(--hdr-ink2);background:transparent;border:1px solid var(--hdr-line)}
+    .m-menu-top button svg{width:20px;height:20px}
+    .m-menu-links{display:flex;flex-direction:column;flex:1 1 auto}
+    .m-menu-links > a,.m-menu-links > button{
+      display:flex;align-items:center;min-height:52px;padding:.25rem 0;
+      font-size:16px;font-weight:800;color:var(--hdr-ink);text-align:left;
+      background:none;border:0;border-bottom:1px solid var(--hdr-line);width:100%}
+    .m-menu-cta{display:flex;flex-direction:column;gap:.6rem;margin-top:1.5rem}
+    .m-menu-cta > a{width:100%;justify-content:center;min-height:50px;font-size:14px}
+  }
+  /* Outside the mobile query #m-menu has no display rule, exactly as on the homepage:
+     it carries the hidden attribute until the hamburger opens it, and the hamburger
+     itself is display:none above 900px, so it can never be opened there. */
+</style>
+
+<div class="stride-header">
+  <nav class="flex justify-between items-center py-6">
+    <a href="/" class="flex items-center gap-3">
       <span class="text-3xl font-black brand tracking-tighter leading-none">STRIDE</span>
-      <span class="silk hidden sm:block border-l pl-3" style="border-color:var(--line)">Sound Design Engine</span>
+      <span class="silk hidden sm:block border-l pl-3" style="border-color:var(--hdr-line)">Sound Design Engine</span>
     </a>
-    <div class="flex items-center gap-5">
-      <a class="silk transition-colors" style="color:var(--copper-lt)" href="../blog.html">Blog</a>
-      <a class="silk hover:text-[color:var(--copper-lt)] transition-colors hidden lg:block" href="/tv">Videos</a>
-      <a class="silk hover:text-[color:var(--copper-lt)] transition-colors" href="../samples.html">Sample Packs</a>
-      <a href="https://www.instagram.com/stride_engine/" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[color:var(--copper-lt)] transition-colors" title="Follow us on Instagram">
+    <button id="m-menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="m-menu"
+            onclick="strideMenu(true)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <div class="flex items-center gap-5 nav-desktop">
+      <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors" href="/#how">How it works</a>
+      <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors" href="/setup.html">Setup</a>
+      <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors" href="/blog.html">Blog</a>
+      <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors hidden xl:block" href="/tv">Videos</a>
+      <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors" href="/samples.html">Experimental Collection</a>
+      <a href="https://www.instagram.com/stride_engine/" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[var(--hdr-copper-lt)] transition-colors" title="Follow us on Instagram">
         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
       </a>
-      <a href="https://www.youtube.com/@strideengine" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[color:var(--copper-lt)] transition-colors" title="Subscribe on YouTube">
+      <a href="https://www.youtube.com/@strideengine" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[var(--hdr-copper-lt)] transition-colors" title="Subscribe on YouTube">
         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
       </a>
-      <span class="w-px h-6 mx-1 hidden sm:block" style="background:var(--line)"></span>
-      <a href="../index.html#pricing" class="btn-copper text-[11px] uppercase tracking-widest px-5 py-2.5 rounded-full">Get Stride</a>
+      <button onclick="toggleContactModal()" class="ink3 hover:text-[var(--hdr-copper-lt)] transition-colors" title="Contact Us">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+      </button>
+      <span class="w-px h-6 mx-1 hidden sm:block" style="background:var(--hdr-line)"></span>
+      <a href="/#pricing" class="btn-copper text-[11px] uppercase tracking-widest px-5 py-2.5 rounded-full">Get Stride</a>
     </div>
   </nav>
+</div>
 
-  <main class="flex-1 flex flex-col items-center w-full">
+<div id="m-menu" role="dialog" aria-modal="true" aria-label="Menu" hidden>
+  <div class="m-menu-top">
+    <span class="text-2xl font-black brand tracking-tighter leading-none">STRIDE</span>
+    <button type="button" aria-label="Close menu" onclick="strideMenu(false)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <nav class="m-menu-links" aria-label="Mobile">
+    <a href="/#how">How it works</a>
+    <a href="/setup.html">Setup</a>
+    <a href="/blog.html">Blog</a>
+    <a href="/tv">Videos</a>
+    <a href="/samples.html">Experimental Collection</a>
+    <a href="/session.html">1:1 Session &middot; $199</a>
+    <a href="https://www.youtube.com/@strideengine" target="_blank" rel="noopener noreferrer">YouTube</a>
+    <a href="https://www.instagram.com/stride_engine/" target="_blank" rel="noopener noreferrer">Instagram</a>
+    <button type="button" onclick="strideMenu(false); toggleContactModal()">Contact</button>
+  </nav>
+  <div class="m-menu-cta">
+    <a href="/#pricing" class="btn-copper">GET STRIDE</a>
+    <a href="/try/" class="btn-ghost">Explore free for 24h</a>
+  </div>
+</div>
+
+<div id="contact-modal" class="fixed inset-0 z-[1001] hidden flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
+  <div class="w-full max-w-md p-8 rounded-3xl relative" style="background:var(--hdr-panel);border:1px solid var(--hdr-line)">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-2xl font-black uppercase tracking-tight" style="color:var(--hdr-copper-lt)">Contact Us</h3>
+      <button onclick="toggleContactModal()" class="ink3 hover:text-[var(--hdr-ink)] transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+      </button>
+    </div>
+    <p class="text-sm ink2 mb-6 font-medium">Have a question or feedback? Drop us a line. We reply within 48 hours.</p>
+    <div class="space-y-4 mb-4">
+      <div>
+        <label class="block text-[10px] ink3 font-bold uppercase tracking-widest mb-1.5">Email *</label>
+        <input id="contact-email" type="email" placeholder="you@example.com" class="w-full rounded-xl px-4 py-2.5 text-base focus:outline-none transition-colors" style="background:rgba(0,0,0,.4);border:1px solid var(--hdr-line);color:var(--hdr-ink)">
+      </div>
+      <div>
+        <label class="block text-[10px] ink3 font-bold uppercase tracking-widest mb-1.5">Message *</label>
+        <textarea id="contact-message" rows="5" class="w-full rounded-xl p-4 text-base resize-none focus:outline-none transition-colors" style="background:rgba(0,0,0,.4);border:1px solid var(--hdr-line);color:var(--hdr-ink)" placeholder="What's on your mind?"></textarea>
+      </div>
+    </div>
+    <div id="contact-error" class="hidden text-xs font-medium mb-3" style="color:#e6795f"></div>
+    <div id="contact-success" class="hidden text-xs font-medium mb-3" style="color:#6fbf8f">Got it. We'll reply within 48 hours.</div>
+    <button id="contact-submit-btn" onclick="sendContactMessage()" class="btn-copper w-full py-3 rounded-xl text-xs uppercase tracking-widest">Send Message</button>
+  </div>
+</div>
+
+<script>
+  /* The menu sheet. strideStickySync only exists on the homepage, which has a sticky
+     buy bar to hide behind the sheet; everywhere else there is nothing to sync. */
+  function strideMenu(open) {
+    var m = document.getElementById('m-menu');
+    var btn = document.getElementById('m-menu-btn');
+    if (!m) return;
+    m.hidden = !open;
+    if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    document.body.style.overflow = open ? 'hidden' : '';
+    if (typeof strideStickySync === 'function') strideStickySync();
+    if (open) { var c = m.querySelector('.m-menu-top button'); if (c) c.focus(); }
+    else if (btn) btn.focus();
+  }
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    var m = document.getElementById('m-menu');
+    if (m && !m.hidden) strideMenu(false);
+    var c = document.getElementById('contact-modal');
+    if (c && !c.classList.contains('hidden')) c.classList.add('hidden');
+  });
+
+  function toggleContactModal() {
+    var el = document.getElementById('contact-modal');
+    if (el) el.classList.toggle('hidden');
+  }
+  function sendContactMessage() {
+    var email = (document.getElementById('contact-email').value || '').trim();
+    var message = (document.getElementById('contact-message').value || '').trim();
+    var errorEl = document.getElementById('contact-error');
+    var successEl = document.getElementById('contact-success');
+    var btn = document.getElementById('contact-submit-btn');
+    errorEl.classList.add('hidden'); successEl.classList.add('hidden');
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errorEl.textContent = 'Please enter a valid email so we can reply.';
+      errorEl.classList.remove('hidden'); return;
+    }
+    if (!message) { errorEl.textContent = 'Please write a message.'; errorEl.classList.remove('hidden'); return; }
+    btn.disabled = true; btn.textContent = 'Sending...';
+    fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'contact_message', email: email, name: '', message: message })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function () {
+        successEl.classList.remove('hidden');
+        document.getElementById('contact-message').value = '';
+        btn.disabled = false; btn.textContent = 'Send Message';
+      })
+      .catch(function () {
+        errorEl.textContent = 'That did not send. Email hello@stridehub.io instead.';
+        errorEl.classList.remove('hidden');
+        btn.disabled = false; btn.textContent = 'Send Message';
+      });
+  }
+</script>
+<!-- HEADER:END -->
+
+<div class="wrap flex-1 flex flex-col w-full">
+
+<main class="flex-1 flex flex-col items-center w-full">
     <article class="w-full max-w-3xl mx-auto px-6 pt-8 pb-24">
 
       <!-- Back link -->
