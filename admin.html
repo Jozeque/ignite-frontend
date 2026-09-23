@@ -1383,7 +1383,13 @@
                 kpi('Organic sales', oc30) +
                 kpi('Total sales', sales30);
 
-            document.getElementById('dash-meta').textContent = `Last 30 days · USD @ ${rate.toFixed(2)} ₪/$`;
+            // Say where the rate came from. It is the number every dollar figure here is
+            // divided by, and it sat on a hardcoded 3.0 for weeks because the FX host had
+            // moved and nothing on screen said so.
+            const rsrc = data.rate_source || 'unknown';
+            document.getElementById('dash-meta').textContent =
+                `Last 30 days · USD @ ${rate.toFixed(4)} ₪/$` +
+                (rsrc === 'fallback' || rsrc === 'none' ? ' (NO LIVE RATE)' : '');
             const st = document.getElementById('dash-status');
             const fetched = data.fetched_at ? new Date(data.fetched_at * 1000).toLocaleTimeString() : '';
             if (data.spend_error) {
