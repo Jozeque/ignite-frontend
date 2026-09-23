@@ -288,7 +288,34 @@ var _strideXid = (function () {
         return id;
     } catch (e) { return ''; }
 })();
-fbq('init', '952457524222772', _strideXid ? { external_id: _strideXid } : {});
+// Advanced matching, in the BASE CODE where Meta requires it: "place advanced
+// matching parameters in the pixel base code or the values will not be treated as
+// manual advanced matching values". Email is the key Meta says this event is short
+// of (it reads 60% coverage on DemoRegistered), and we hold a SHA-256 of it for
+// anyone who has registered before or arrived through the homepage prompt, which
+// hands the address over in sessionStorage. Never the address itself: the hash is
+// what Meta stores anyway, and it keeps a readable email out of the page.
+// A first-time visitor has no hash yet at this point — theirs is added at submit
+// time below, and the server event carries the address regardless.
+var _strideEm = (function () {
+    try {
+        var h = localStorage.getItem('stride_emh');
+        if (h && /^[0-9a-f]{64}$/.test(h)) return h;
+    } catch (e) {}
+    // The homepage prompt hands the address over in sessionStorage and cannot hash
+    // it first (crypto.subtle is async and the redirect does not wait). Meta accepts
+    // it either way: "we accept both lowercase unhashed and normalized SHA-256
+    // hashed email addresses", and fbevents.js hashes before anything is sent.
+    try {
+        var e = (sessionStorage.getItem('stride_demo_email') || '').trim().toLowerCase();
+        if (e.indexOf('@') > 0) return e;
+    } catch (e2) {}
+    return '';
+})();
+var _strideAm = {};
+if (_strideXid) _strideAm.external_id = _strideXid;
+if (_strideEm) _strideAm.em = _strideEm;
+fbq('init', '952457524222772', _strideAm);
 fbq('track', 'PageView');
 
 // Analytics events for Google Tag Manager (the GA4 event tags from Overtone's container).
@@ -824,9 +851,26 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         try {
           var em = (localStorage.getItem('stride_try_email') || '').trim();
           if (!em) return;
+          // The same attribution the registration sends, because this beacon now
+          // raises a Meta event of its own (DemoDownloaded) and an event with only
+          // an address behind it is a weak one. fbc and fbp live in this browser and
+          // nowhere else, so if they are not handed over here the server has nothing
+          // to match on but the IP.
+          //
+          // Server-side only, deliberately: everything the pixel could contribute is
+          // already in this payload, so a browser half would add no match key and
+          // would double-count the second platform click, which has a different
+          // event id but is the same download.
+          var _dlBody = (typeof attribution === 'function') ? attribution() : {};
+          _dlBody.action = 'demo_download';
+          _dlBody.email = em;
+          _dlBody.platform = pair[1];
+          if (typeof _strideXid === 'string' && _strideXid) _dlBody.external_id = _strideXid;
+          _dlBody.event_id = (self.crypto && crypto.randomUUID) ? crypto.randomUUID()
+              : (Date.now().toString(36) + Math.random().toString(36).slice(2, 12));
           fetch(API, { method: 'POST', keepalive: true,
                        headers: { 'Content-Type': 'application/json' },
-                       body: JSON.stringify({ action: 'demo_download', email: em, platform: pair[1] }) })
+                       body: JSON.stringify(_dlBody) })
             .catch(function () {});
         } catch (e) {}
       });
@@ -1043,6 +1087,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       if (d.first_time === true) {
         try {
           if (window.fbq) {
+            // A first-time visitor had no address to match on when the base code
+            // ran — they had not typed it yet. Re-initialise with it now, BEFORE
+            // the two track calls, so both carry em. Meta's own diagnostic is that
+            // only 60% of DemoRegistered events arrive with an email, and this is
+            // the missing 40%: the server half has always had it, the browser half
+            // never did. Sent lowercase and unhashed, which Meta accepts and
+            // fbevents.js hashes before it leaves the page.
+            try {
+              var _am = { em: email };
+              if (_strideXid) _am.external_id = _strideXid;
+              fbq('init', '952457524222772', _am);
+            } catch (e5) {}
+
             fbq('track', 'Lead', {
               value: 0.00, currency: 'USD', content_name: 'Stride Free Demo'
             }, { eventID: eid });

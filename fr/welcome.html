@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+// The welcome mail links here with ?txn=, so this page works on a phone.
+//
+// Everything below the download depends on knowing which purchase this is: the survey has
+// nothing to attach an answer to without it, and the session offer cannot be resolved. That
+// id only ever lived in sessionStorage, written by the tab that ran the checkout, so opening
+// this page anywhere else, from the mail or a bookmark, gave a page with the offer and the
+// survey silently missing and no way to tell that anything was wrong.
+//
+// It is put where the rest of the page already looks, so nothing else changes. Then it comes
+// straight off the URL, before any analytics can report the address: a transaction id is not
+// a secret but it is not something to hand to Google Analytics, Clarity or a referrer header
+// either. It must stay the FIRST script in <head> for that to be true.
+//
+// `txn_` plus EXACTLY 26 characters, or it is ignored: the backend applies the same rule, and
+// a typed or truncated id resolves to nothing there anyway.
+(function () {
+  try {
+    var u = new URL(window.location.href);
+    if (!u.searchParams.has('txn')) return;
+    var t = (u.searchParams.get('txn') || '').trim().toLowerCase();
+    if (/^txn_[0-9a-z]{26}$/.test(t)) {
+      try { sessionStorage.setItem('stride_last_txn', t); } catch (e) {}
+    }
+    u.searchParams.delete('txn');
+    history.replaceState(null, '', u.pathname + u.search + u.hash);
+  } catch (e) {}
+})();
+</script>
+<!-- Google consent mode v2 -->
+<script>
+// Consent mode v2. This must run BEFORE any Google tag: after one has loaded it has
+// already decided how to behave, and a declaration made later is decoration.
+//
+// Two defaults are declared. Denied for the EEA, the UK and Switzerland, where Google's
+// EU user consent policy wants a real answer, and granted everywhere else, which is what
+// the privacy policy discloses. Google resolves the visitor's region itself from the
+// request, so none of this needs an IP lookup of ours. Roughly two thirds of paying
+// customers bill from the denied set, so it is the majority path, not an edge case.
+//
+// It governs GOOGLE tags only. The Meta Pixel and Microsoft Clarity keep the behaviour
+// they have always had, which is a separate decision rather than an oversight.
+//     https://developers.google.com/tag-platform/security/guides/consent
+(function () {
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    // A stable handle. The GA4 block further down declares its own global gtag; this one
+    // is ours and cannot be redefined out from under the banner.
+    window.strideGtag = gtag;
+
+    // Where Google's EU user consent policy applies: the EU 27, the rest of the EEA,
+    // the UK and Switzerland. Kept in step with _CONSENT_REQUIRED_COUNTRIES in
+    // firebase_cloud/functions/google_dm.py, which decides the same question server-side.
+    var CONSENT_REGION = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR',
+                          'HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK',
+                          'SI','ES','SE','IS','LI','NO','GB','CH'];
+    var ALL = ['ad_storage', 'ad_user_data', 'ad_personalization', 'analytics_storage'];
+
+    function state(value, extra) {
+        var o = {};
+        for (var i = 0; i < ALL.length; i++) { o[ALL[i]] = value; }
+        for (var k in (extra || {})) { o[k] = extra[k]; }
+        return o;
+    }
+
+    // Region-scoped default first; Google applies the more specific one.
+    // wait_for_update holds the tags briefly so a stored answer below lands first.
+    gtag('consent', 'default', state('denied', { region: CONSENT_REGION,
+                                                 wait_for_update: 500 }));
+    gtag('consent', 'default', state('granted'));
+
+    var saved = '';
+    try { saved = localStorage.getItem('stride_consent_ads') || ''; } catch (e) {}
+    if (saved !== 'granted' && saved !== 'denied') { saved = ''; }
+    // Replay the answer synchronously, before any tag fires, so a returning visitor is
+    // never measured on a footing they already rejected.
+    if (saved) { gtag('consent', 'update', state(saved)); }
+
+    // Read by the checkout, which sends it to the backend so an order months later can
+    // still report what this person actually agreed to. '' means unanswered, and the
+    // server reads that as UNSPECIFIED rather than as a yes.
+    window.strideConsentAds = function () { return saved; };
+
+    function record(value) {
+        saved = value;
+        try { localStorage.setItem('stride_consent_ads', value); } catch (e) {}
+        // A cookie too: the checkout on a different page of this site reads whichever
+        // survives, and Safari evicts localStorage on long gaps more readily.
+        try {
+            document.cookie = 'stride_consent_ads=' + value + '; max-age=' +
+                (180 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+        } catch (e) {}
+        gtag('consent', 'update', state(value));
+        dataLayer.push({ event: 'stride_consent', consent_ads: value });
+    }
+
+    // Ask only where the answer is legally required. Timezone, not an IP lookup: it costs
+    // no request and identifies nobody. It over-asks a little (Europe/Moscow is not the
+    // EEA) and that is the safe direction. The harm of not asking a German is that their
+    // tags stay denied for good, while the harm of asking a Russian is a dismissed bar.
+    // If the timezone cannot be read at all, ask. Never assume consent.
+    function mustAsk() {
+        if (saved) { return false; }
+        try {
+            var tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+            // An empty timezone is not "not Europe", it is "no idea". Falling through
+            // to the comparison below would read it as no idea -> do not ask -> stay
+            // denied forever, which loses the visitor rather than asking them.
+            if (!tz) { return true; }
+            return tz.indexOf('Europe/') === 0 || tz === 'Atlantic/Reykjavik' ||
+                   tz === 'Atlantic/Canary' || tz === 'Atlantic/Madeira' ||
+                   tz === 'Atlantic/Azores';
+        } catch (e) { return true; }
+    }
+
+    function banner() {
+        if (!mustAsk() || document.getElementById('stride-consent')) { return; }
+        var css = document.createElement('style');
+        // The panel, hairline and copper are the page's own tokens, so this reads as part
+        // of Stride rather than as a bolted-on compliance widget. The three legal pages
+        // are built on Tailwind and define no tokens, hence a literal fallback on every
+        // var(): identical everywhere, and no page-specific stylesheet.
+        css.textContent =
+            '#stride-consent{position:fixed;left:18px;bottom:18px;z-index:2147483000;' +
+            'width:min(372px,calc(100vw - 36px));' +
+            'background:var(--panel,#1d1b16);border:1px solid var(--line,rgba(216,201,176,.11));' +
+            'border-radius:16px;padding:15px 16px;' +
+            'box-shadow:0 30px 70px -30px rgba(0,0,0,.85);' +
+            'font-family:Outfit,system-ui,-apple-system,sans-serif;' +
+            'color:var(--ink2,#b8ad9b);' +
+            // Starts invisible and a little low, then rises once. A panel that is simply
+            // THERE on first paint reads as part of the page still loading.
+            'opacity:0;transform:translateY(12px);' +
+            'transition:opacity .45s ease,transform .45s cubic-bezier(.22,.8,.3,1),' +
+            'bottom .25s ease}' +
+            '#stride-consent.on{opacity:1;transform:none}' +
+            '#stride-consent p{margin:0 0 12px;font-size:13px;line-height:1.55}' +
+            '#stride-consent a{color:var(--copper-lt,#dd9a52);text-decoration:none;' +
+            'border-bottom:1px solid rgba(221,154,82,.28)}' +
+            '#stride-consent a:hover{border-bottom-color:rgba(221,154,82,.75)}' +
+            '#stride-consent div{display:flex;gap:8px}' +
+            // Both buttons are one style. Making "accept" the loud one is the nudge the
+            // consent rules exist to stop, and an equal pair is also simply calmer.
+            '#stride-consent button{flex:1 1 0;font:inherit;font-size:13px;font-weight:700;' +
+            'cursor:pointer;padding:9px 14px;border-radius:10px;' +
+            'border:1px solid var(--line,rgba(216,201,176,.11));' +
+            'background:var(--raise,#252119);color:var(--ink,#ece4d6);' +
+            'transition:border-color .18s ease}' +
+            '#stride-consent button:hover{border-color:rgba(216,201,176,.3)}' +
+            '@media(max-width:560px){#stride-consent{left:12px;right:12px;bottom:12px;width:auto}}' +
+            '@media(prefers-reduced-motion:reduce){#stride-consent{transition:none;' +
+            'opacity:1;transform:none}}';
+        document.head.appendChild(css);
+
+        var el = document.createElement('div');
+        el.id = 'stride-consent';
+        el.setAttribute('role', 'dialog');
+        el.setAttribute('aria-label', 'Cookie choices');
+        // Short, and it says the thing a visitor actually wants to know: saying no costs
+        // them nothing. No "we value your privacy", no scrolling wall of vendor names.
+        el.innerHTML =
+            '<p>We use cookies to see which ads bring people here. ' +
+            'Say no and nothing on the site changes. ' +
+            '<a href="/privacy.html">Privacy&nbsp;Policy</a></p>' +
+            '<div><button type="button" data-consent="denied">Decline</button>' +
+            '<button type="button" data-consent="granted">Accept</button></div>';
+        el.addEventListener('click', function (ev) {
+            var v = ev.target && ev.target.getAttribute('data-consent');
+            if (!v) { return; }
+            record(v);
+            // Leave the way it arrived rather than vanishing mid-click.
+            el.classList.remove('on');
+            setTimeout(function () { el.remove(); }, 260);
+        });
+        document.body.appendChild(el);
+
+        // The homepage pins a buy bar to the bottom of the viewport (#m-cta, "GET STRIDE"),
+        // and it arrives on scroll rather than on load. A panel sitting at bottom:18px
+        // lands straight on top of it and hides the primary buy button behind a cookie
+        // notice, so the panel rides above the bar and keeps following it as it comes and
+        // goes. Every other page has no such bar, where this is a no-op.
+        function clearBottomBar() {
+            var base = window.innerWidth <= 560 ? 12 : 18;
+            var bar = document.getElementById('m-cta');
+            if (bar) {
+                var r = bar.getBoundingClientRect();
+                // Only when it is really parked at the bottom of the viewport right now.
+                // The bar slides in and out, and once it has slid away its rect sits
+                // BELOW the fold, which still satisfies a bottom-edge test on its own.
+                // Requiring the top edge to be on screen too is what tells the two apart.
+                if (r.height > 0 && r.top < window.innerHeight - 4
+                        && r.bottom > window.innerHeight - 4) {
+                    base += r.height + 10;
+                }
+            }
+            el.style.bottom = base + 'px';
+        }
+        clearBottomBar();
+        window.addEventListener('scroll', clearBottomBar, { passive: true });
+        window.addEventListener('resize', clearBottomBar);
+        // The bar is switched on by a CLASS, not by scrolling, so it can appear without
+        // either listener above ever firing. Watch the element itself as well.
+        var _bar = document.getElementById('m-cta');
+        if (_bar) {
+            if (window.MutationObserver) {
+                new MutationObserver(clearBottomBar).observe(_bar, {
+                    attributes: true, attributeFilter: ['class', 'style'] });
+            }
+            // The class flips first and the bar SLIDES in afterwards, so at the moment the
+            // observer fires it is still below the fold and measures as absent. Waiting for
+            // the slide to finish is what actually catches it in place; without this the
+            // panel stays put and lands on the buy button on a phone.
+            _bar.addEventListener('transitionend', clearBottomBar);
+        }
+
+        // Hold it back a beat so the page paints first. Nothing waits on this: the tags
+        // already hold the denied default for this visitor, so all the delay changes is
+        // that the page is not interrupted while it is still arriving. Measure once more
+        // on the way in, because the bar may have arrived during that beat.
+        setTimeout(function () { clearBottomBar(); el.classList.add('on'); }, 700);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', banner);
+    } else {
+        banner();
+    }
+})();
+</script>
+<!-- End Google consent mode v2 -->
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-5R4N7FVP');</script>
+<!-- End Google Tag Manager -->
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-JCMEXN70CM"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-JCMEXN70CM');
+</script>
+<!-- End Google tag (gtag.js) -->
+<!-- Microsoft Clarity -->
+<script type="text/javascript">
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "yj7cm3a9sz");
+</script>
+<!-- End Microsoft Clarity -->
+    <title>Bienvenue chez STRIDE</title>
+
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Welcome to Stride. Onboarding video for new customers.">
+    <meta name="theme-color" content="#141310">
+
+    <!-- Meta Pixel — Phase 2 of docs/meta-pixel-integration-spec.md.
+         Fires PageView + Purchase when the buyer lands here after a Lemon
+         Squeezy checkout. The Purchase event carries an event_id that's
+         deduplicated against the future server-side Conversions API event
+         (Phase 3) in the LS webhook handler — so the same Purchase isn't
+         counted twice when both sides fire. -->
+    <script>
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t,s)}(window, document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    // Same first-party visitor id as the landing page (cookie stride_xid, 180 days), so Meta
+    // matches this page's events to the same visitor instead of an anonymous one.
+    var _strideXid = (function () {
+        try {
+            var m = document.cookie.match(/(?:^|; )stride_xid=([^;]*)/);
+            if (m) return decodeURIComponent(m[1]);
+            var id = (self.crypto && crypto.randomUUID) ? crypto.randomUUID()
+                : (Date.now().toString(36) + Math.random().toString(36).slice(2, 12));
+            document.cookie = 'stride_xid=' + encodeURIComponent(id) +
+                '; max-age=' + (180 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+            return id;
+        } catch (e) { return ''; }
+    })();
+    fbq('init', '952457524222772', _strideXid ? { external_id: _strideXid } : {});
+    fbq('track', 'PageView');
+
+    // Analytics events for Google Tag Manager (the GA4 event tags from Overtone's container).
+    // A push carries only the anonymous visitor id, never an email or a name: GA4 does not
+    // allow personal data, and every tag in the container can read dataLayer. Keys a push does
+    // not set are cleared, so one event's money can never carry over into the next event.
+    window.StrideTrack = window.StrideTrack || {
+        push: function (event, params) {
+            try {
+                var d = { event: event, external_id: (typeof _strideXid === 'string' && _strideXid) || undefined,
+                          value: undefined, currency: undefined, transaction_id: undefined, item_name: undefined };
+                for (var k in (params || {})) { if (Object.prototype.hasOwnProperty.call(params, k)) d[k] = params[k]; }
+                (window.dataLayer = window.dataLayer || []).push(d);
+            } catch (e) {}
+        }
+    };
+
+    // Fire Purchase ONLY when we have evidence this is a real post-purchase
+    // landing — either an order_id in the URL (from the LS confirmation
+    // modal's Button link variable substitution) OR an event_id we stored
+    // in sessionStorage when the user clicked GET STRIDE on the landing
+    // page. Random/bookmarked visits get PageView only, not Purchase.
+    (function fireStridePurchase() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const order = (params.get('order') || '').trim();
+
+            // event_id resolution order:
+            //   1. URL param  (LS link variable {checkout.custom.event_id})
+            //   2. sessionStorage (set on landing page at GET STRIDE click)
+            //   3. Fresh UUID — last resort; means no dedup with server CAPI
+            let eventId = (params.get('event_id') || '').trim();
+            if (!eventId) {
+                try { eventId = sessionStorage.getItem('stride_pixel_event_id') || ''; } catch (e) {}
+            }
+
+            const isFreshPurchase = !!(order || eventId);
+            let alreadyFired = false;
+            try { alreadyFired = sessionStorage.getItem('stride_pixel_purchase_fired') === '1'; } catch (e) {}
+            // A Paddle checkout that left no event id (the hero wallet, /samples) still completed:
+            // GA4 records it from its transaction id and what it charged. Meta is deliberately
+            // not fired here: the webhook already sends that sale server-side, and a browser
+            // Purchase with an id the server never used would count it twice.
+            if (!isFreshPurchase) {
+                try {
+                    var _lt = sessionStorage.getItem('stride_last_txn') || '';
+                    // /post is now the FIRST post-purchase page, so it usually fires this
+                    // already. The flag is what stops a second push for the same sale; a
+                    // flag that is only written and never read is not a guard.
+                    var _tracked = '';
+                    try { _tracked = sessionStorage.getItem('stride_purchase_tracked') || ''; } catch (e) {}
+                    if (_lt && _lt !== _tracked && window.StrideTrack) {
+                        var _cv = {};
+                        try { _cv = JSON.parse(sessionStorage.getItem('stride_checkout_value') || '{}') || {}; } catch (e) {}
+                        StrideTrack.push('purchase', {
+                            value: Number(_cv.value) > 0 ? Number(_cv.value) : 99,
+                            currency: _cv.currency || 'USD',
+                            transaction_id: _lt
+                        });
+                        // Dedup by FLAG, never by deleting the key. /post and the session
+                        // rail below both resolve the buyer's 72h offer from
+                        // stride_last_txn, so removing it here would silently kill the
+                        // offer for anyone who reaches this page.
+                        try { sessionStorage.setItem('stride_purchase_tracked', _lt); } catch (e) {}
+                    }
+                } catch (e) {}
+                return;
+            }
+            if (!isFreshPurchase || alreadyFired) return;
+
+            if (!eventId) {
+                eventId = (window.crypto && window.crypto.randomUUID)
+                    ? window.crypto.randomUUID()
+                    : 'evt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+            }
+
+            // Value: current list price ($99 from 2026-09-01; the $79 summer sale
+            // ended 2026-08-31). Bump this when the price flips. LS link variables
+            // don't include order_total, so the client side fires a fixed
+            // value. Server-
+            // side CAPI carries the REAL order_total from the webhook —
+            // Meta dedupes via event_id and treats the server value as
+            // authoritative when both events arrive. Meta penalizes
+            // zero-value Purchase events for optimization, so we never
+            // fire 0; this hardcoded value is the optimistic floor that
+            // gets corrected by CAPI seconds later. Bump this if base price
+            // changes again. With REKZ-style coupons in flight, expect
+            // CAPI to often correct DOWN ($59 → ~$50 after 15% off).
+            const purchaseData = {
+                value: 99,
+                currency: 'USD',
+                content_name: 'Stride Sound Design Engine',
+                content_type: 'product',
+            };
+            if (order) purchaseData.content_ids = [order];
+
+            fbq('track', 'Purchase', purchaseData, { eventID: eventId });
+
+            // Custom conversion event 'welcome' — the optimization target
+            // for the conversion campaign. Same event_id as Purchase: Meta
+            // dedupes per (event_name + event_id), so different event names
+            // sharing an event_id are still counted separately (one welcome,
+            // one Purchase) — what the same event_id buys us is server-side
+            // CAPI dedup of THIS welcome event against the corresponding
+            // CAPI welcome event for the same conversion.
+            fbq('track', 'welcome', purchaseData, { eventID: eventId });
+
+            // GA4 purchase, under the same once-per-landing guard as the Meta pair above. The money
+            // and the order id come from what the checkout recorded in this tab (the real cart and
+            // currency, the Paddle transaction id); without them, the same floor Meta gets.
+            try {
+                var _ck = {};
+                try { _ck = JSON.parse(sessionStorage.getItem('stride_checkout_value') || '{}') || {}; } catch (e) {}
+                var _txn = '';
+                try { _txn = sessionStorage.getItem('stride_last_txn') || ''; } catch (e) {}
+                var _id = order || _txn || eventId;
+                var _tracked2 = '';
+                try { _tracked2 = sessionStorage.getItem('stride_purchase_tracked') || ''; } catch (e) {}
+                // Same guard as the wallet branch: /post may already have recorded this
+                // exact sale. Meta above is guarded separately by stride_pixel_purchase_fired.
+                if (_id !== _tracked2) {
+                    StrideTrack.push('purchase', {
+                        value: Number(_ck.value) > 0 ? Number(_ck.value) : purchaseData.value,
+                        currency: _ck.currency || purchaseData.currency,
+                        transaction_id: _id
+                    });
+                    // Flag, not delete: stride_last_txn is what the session rail resolves
+                    // this buyer's offer from, so removing it would kill the offer.
+                    try { sessionStorage.setItem('stride_purchase_tracked', _id); } catch (e) {}
+                }
+            } catch (e) {}
+
+            // Mark as fired so reloads don't double-count, then clear the
+            // event_id so it doesn't accidentally tag a future purchase.
+            try { sessionStorage.setItem('stride_pixel_purchase_fired', '1'); } catch (e) {}
+            try { sessionStorage.removeItem('stride_pixel_event_id'); } catch (e) {}
+        } catch (e) {
+            // Never let tracking break the page
+            if (window.console && console.warn) console.warn('Stride pixel: Purchase event failed', e);
+        }
+    })();
+    </script>
+    <noscript><img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=952457524222772&ev=PageView&noscript=1"
+    /></noscript>
+
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cdefs%3E%3ClinearGradient id='strideGradient' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23eaa54e' /%3E%3Cstop offset='100%25' stop-color='%23c6712b' /%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z' stroke='url(%23strideGradient)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+
+    <!-- Paddle. The session rail opens a checkout for the owner price, which the backend
+         creates server-side, so this page needs Paddle.js. Without it the rail falls back
+         to the public price and a plain link to session.html, which is why its absence
+         degrades rather than breaks. -->
+    <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  /* ── PATCHBAY brand palette — matches index.html ── */
+  :root{
+    --bg:#141310; --bg2:#191611; --panel:#1d1b16; --raise:#252119; --line:rgba(216,201,176,.11);
+    --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
+    --copper:#c6712b; --copper-lt:#dd9a52; --amber:#d9822b; --ember:#e58a2e;
+    --teal:#2f748e;  --teal-lt:#5e9aad;
+    --z50:241 236 226;--z100:228 221 208;--z200:215 207 192;--z300:195 187 171;--z400:163 154 138;--z500:118 111 99;--z600:88 82 73;--z700:66 61 52;--z800:37 33 25;--z900:29 27 22;--z950:20 19 16;
+    --o50:249 241 234;--o100:244 227 213;--o200:232 198 170;--o300:222 154 82;--o400:198 113 43;--o500:174 99 38;--o600:143 81 31;--o700:109 62 24;--o800:79 45 17;--o900:55 32 12;--o950:30 17 6;
+    --rd50:250 238 232;--rd100:246 220 209;--rd200:235 186 167;--rd300:216 132 104;--rd400:199 100 66;--rd500:176 80 49;--rd600:150 66 40;--rd700:117 51 32;--rd800:84 37 24;--rd900:56 25 17;--rd950:31 14 10;
+    --am50:250 246 237;--am100:244 236 219;--am200:233 218 183;--am300:217 190 129;--am400:201 162 75;--am500:177 143 66;--am600:145 117 54;--am700:111 89 41;--am800:80 65 30;--am900:56 45 21;--am950:30 24 11;
+    --em50:235 240 233;--em100:214 224 210;--em200:181 198 175;--em300:134 168 127;--em400:110 146 102;--em500:91 123 85;--em600:73 99 67;--em700:56 77 52;--em800:40 56 38;--em900:27 38 25;--em950:15 22 13;
+    --cy50:233 240 243;--cy100:208 226 232;--cy200:171 200 211;--cy300:126 176 192;--cy400:94 154 173;--cy500:47 116 142;--cy600:38 96 117;--cy700:30 75 91;--cy800:22 54 66;--cy900:15 36 44;--cy950:9 20 25;
+    --vi50:240 237 246;--vi100:226 221 238;--vi200:202 193 221;--vi300:172 159 199;--vi400:154 140 187;--vi500:125 111 158;--vi600:100 88 127;--vi700:78 68 99;--vi800:56 49 71;--vi900:38 33 48;--vi950:22 19 28;
+    --ro50:250 238 238;--ro100:245 221 221;--ro200:235 191 192;--ro300:213 145 147;--ro400:197 128 127;--ro500:163 78 82;--ro600:138 62 66;--ro700:108 47 50;--ro800:79 34 36;--ro900:53 23 24;--ro950:30 13 14;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Outfit',sans-serif;background:var(--bg);color:var(--ink2);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  ::selection{background:rgba(198,113,43,.3)}
+  ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:#2a2620;border-radius:10px}
+  body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(120% 80% at 50% -10%, rgba(198,113,43,.07), transparent 60%),
+               radial-gradient(100% 60% at 50% 110%, rgba(47,116,142,.05), transparent 60%);}
+  .wrap{position:relative;z-index:1}
+  .silk{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--ink3)}
+  .brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+
+  /* ── Language ──────────────────────────────────────────────────────────
+     Same control as the rest of the site, beside the wordmark. This page is
+     post-purchase and Paddle sends every buyer here in English whatever
+     language they bought in, so the switch is how somebody reads it in their
+     own. Hidden until the script has read which languages this page exists
+     in. */
+  .lang-switch{position:relative;display:none}
+  .lang-switch.ready{display:block}
+  .lang-btn{display:inline-flex;align-items:center;gap:.34em;padding:3px 7px;
+    border:1px solid var(--line);border-radius:8px;background:transparent;
+    color:var(--ink3);font:inherit;font-size:10px;font-weight:800;
+    letter-spacing:.14em;text-transform:uppercase;cursor:pointer;
+    transition:color .15s,border-color .15s}
+  .lang-btn:hover,.lang-btn[aria-expanded="true"]{color:var(--ink);border-color:rgba(216,201,176,.28)}
+  .lang-btn::after{content:"";width:0;height:0;border-left:3px solid transparent;
+    border-right:3px solid transparent;border-top:4px solid currentColor;opacity:.7}
+  .lang-menu{position:absolute;top:calc(100% + 8px);left:0;z-index:60;display:none;
+    min-width:150px;padding:6px;background:var(--panel);
+    border:1px solid var(--line);border-radius:12px;
+    box-shadow:0 24px 50px -24px rgba(0,0,0,.9)}
+  .lang-menu.on{display:block}
+  .lang-menu a{display:block;padding:8px 10px;border-radius:8px;font-size:13px;
+    font-weight:600;color:var(--ink2);text-decoration:none;white-space:nowrap}
+  .lang-menu a:hover{background:var(--raise);color:var(--ink)}
+  .lang-menu a[aria-selected="true"]{color:var(--copper-lt)}
+  .lang-menu a.gone{display:none}
+  .ink{color:var(--ink)} .ink2{color:var(--ink2)} .ink3{color:var(--ink3)}
+  h1,h2,h3,h4{color:var(--ink);font-weight:900;letter-spacing:-.01em}
+  .panel{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(0,0,0,.14)),var(--panel);
+    border:1px solid var(--line);border-radius:18px;
+    box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 24px 50px -30px rgba(0,0,0,.9)}
+  .pill-warm{border:1px solid rgba(198,113,43,.4);background:rgba(198,113,43,.12);color:var(--copper-lt)}
+  .chip{font-size:9px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;border-radius:999px;padding:4px 11px;display:inline-block}
+  video{outline:none;display:block}
+  .video-frame{position:relative}
+  .video-frame::before{content:'';position:absolute;inset:-20px;pointer-events:none;z-index:-1;
+    background:radial-gradient(circle at center, rgba(198,113,43,.10), transparent 70%)}
+  .support-card{transition:transform .15s,border-color .15s}
+  .support-card:hover{transform:translateY(-2px)}
+  /* ── The download, on the page somebody lands on after paying ──────────────
+     This page had no way to get the software at all: the buttons existed only in
+     the welcome mail, so anyone who closed it, never got it, or simply looked at
+     this tab first had paid and had nothing to install.
+     Same builds, same manifest and the SAME LABELS the mail uses, taken off the
+     backend rather than hardcoded, so the page can never offer a build the mail
+     does not. It is hidden until the URLs arrive, because two dead buttons on this
+     screen would be worse than none. */
+  /* One tight block rather than three stacked rows: it shares a column with the video and
+     every pixel it takes is a pixel the offers beside it have to match. */
+  .dl-block{padding:12px 14px;margin:0}
+  /* The two cards at the top, and the Explore more row below the survey. Both cards are
+     one column with the content pinned to the bottom, so the buttons and the video sit on
+     the same line however long each heading runs. */
+  .wcard{display:flex;flex-direction:column;padding:16px 18px}
+  .wcard-k{margin:0;color:var(--copper-lt)}
+  .wcard-h{margin:6px 0 2px;font-size:19px;font-weight:900;letter-spacing:-.01em;color:var(--ink);line-height:1.15}
+  .wcard-s{margin:0;font-size:12.5px;line-height:1.5;color:var(--ink2)}
+  /* Centred in whatever room is left rather than pinned to the bottom: the download card
+     holds less than the video beside it, and space-between left a hand's width of nothing
+     under its heading. */
+  .wcard-body{margin:auto 0 0;padding-top:14px;display:flex;flex-direction:column;justify-content:center;flex:1 1 auto}
+  @media (min-width:768px){
+    .wcard{padding:18px 20px}
+    .wcard-body .dl-row .btn-copper{padding:14px 18px;font-size:14px}
+  }
+  .xm-head{margin:0 0 10px}
+  .xm-link{text-decoration:none}
+  /* The stack is three square covers overlapped. Across a half-width card they stretched
+     into a 44px smear, so it is held to the width three of them actually need. */
+  .xm-link .rail-stack{max-width:190px}
+  .xm-link .rail-stack img{height:62px}
+  .wcard-help{margin:0 0 4px;text-align:center;font-size:12.5px;color:var(--ink3)}
+  .wcard-help a{color:var(--copper-lt)}
+  @media (max-width:640px){ .wcard-help-x{display:none} }
+  .dl-kicker{margin:0 0 7px}
+  .dl-row{display:flex;flex-wrap:wrap;gap:8px}
+  .dl-row .btn-copper{flex:1 1 180px;padding:10px 18px;font-size:13px;border-radius:12px}
+  .dl-note{margin:8px 0 0;font-size:11.5px;line-height:1.45;color:var(--ink3)}
+  .dl-note a{color:var(--copper-lt)}
+  /* The session offer rail. Same language as session.html and /post, so the three read
+     as one offer rather than three designs. */
+  [hidden]{display:none!important}
+  .price{font-weight:900;letter-spacing:-.02em;color:var(--ink);line-height:1}
+  .offer-flag{display:inline-flex;align-items:center;gap:8px;margin:10px 0 10px;padding:5px 11px 5px 9px;
+    border-radius:999px;border:1px solid rgba(221,154,82,.34);background:rgba(198,113,43,.12);
+    color:var(--copper-lt);font-size:10px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
+  .offer-dot{width:6px;height:6px;border-radius:999px;background:var(--copper-lt);
+    animation:offerPulse 2s ease-out infinite}
+  @keyframes offerPulse{0%{box-shadow:0 0 0 0 rgba(221,154,82,.55)}100%{box-shadow:0 0 0 7px rgba(221,154,82,0)}}
+  @media (prefers-reduced-motion:reduce){ .offer-dot{animation:none} }
+  .price-was{font-size:1.25rem;font-weight:800;letter-spacing:-.01em;line-height:1;color:var(--ink3);opacity:.75;
+    text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:rgba(221,154,82,.6)}
+  /* Above the price on both cards, and loud enough to be part of the offer rather than a
+     footnote under it. The window is what makes either of these a decision, so it reads on
+     the way in to the number. */
+  .offer-clock{margin:4px 0 3px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--ink2);font-weight:800}
+  .offer-clock b{color:var(--copper-lt);font-weight:900;letter-spacing:.03em;font-size:17px}
+
+  /* ── The two questions ───────────────────────────────────────────────────
+     /try's shape: one quiet panel, the options as chips that fill copper when
+     chosen, one copper button. Small type throughout, because this sits between
+     the welcome and the video and must read as a question, not as a form. The
+     radio itself is invisible and covers its own chip, so the whole chip is the
+     hit target and the keyboard still gets a real radio group. */
+  .survey{margin:0 0 .75rem;padding:11px 14px;border:1px solid var(--line);
+    border-radius:18px;background:var(--panel);text-align:left}
+  .survey[hidden]{display:none}
+  .survey-h{margin:0 0 4px;font-size:14px;font-weight:900;color:var(--ink);letter-spacing:.02em}
+  .survey-lead{margin:0 0 8px;font-size:12.5px;line-height:1.45;color:var(--ink2)}
+  .survey-lead-2{margin-top:16px}
+  .survey-row{display:flex;flex-wrap:wrap;gap:6px}
+  .survey-opt{position:relative;display:inline-flex}
+  .survey-opt input{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;cursor:pointer}
+  .survey-opt span{display:inline-block;padding:6px 11px;border-radius:999px;
+    border:1px solid var(--line);background:rgba(255,255,255,.03);
+    font-size:12px;font-weight:700;color:var(--ink2);
+    transition:color .15s,border-color .15s,background .15s}
+  .survey-opt:hover span{color:var(--ink);border-color:rgba(216,201,176,.28)}
+  .survey-opt input:focus-visible + span{outline:2px solid var(--copper-lt);outline-offset:2px}
+  .survey-opt input:checked + span{color:#1c1206;font-weight:800;border-color:transparent;
+    background:linear-gradient(180deg,var(--ember),var(--copper))}
+  .survey-other{width:100%;margin-top:9px;background:var(--bg2);color:var(--ink);
+    border:1px solid var(--line);border-radius:12px;padding:10px 12px;font:inherit;font-size:13px}
+  .survey-other::placeholder{color:var(--ink3)}
+  .survey-other:focus{outline:none;border-color:rgba(198,113,43,.55);
+    box-shadow:0 0 0 3px rgba(198,113,43,.15)}
+  .survey-foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px}
+  .survey-note{margin:0;font-size:12px;color:var(--ink2)}
+  .btn-copper{display:inline-flex;align-items:center;justify-content:center;gap:.6rem;background:linear-gradient(180deg,var(--ember),var(--copper));
+    color:#1c1206;font-weight:900;letter-spacing:.04em;border:1px solid rgba(255,210,150,.25);border-radius:14px;
+    box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 12px 24px -14px rgba(198,113,43,.8);transition:transform .15s,filter .15s;cursor:pointer}
+  .btn-copper:hover{transform:translateY(-2px);filter:brightness(1.06)}
+  .btn-copper[aria-busy="true"]{opacity:.7;pointer-events:none}
+  /* The Collection's three covers, as on /samples and /post2, sized for this card. */
+  .rail-stack{display:flex;align-items:flex-start}
+  .rail-stack img{position:relative;flex:1 1 0;min-width:0;width:100%;height:44px;object-fit:cover;
+    object-fit:cover;border-radius:10px;border:1px solid var(--line);background:var(--bg2);
+    box-shadow:0 18px 32px -20px rgba(0,0,0,.95)}
+  .rail-stack img + img{margin-left:-14%}
+  .rail-stack img:nth-child(1){z-index:1}.rail-stack img:nth-child(2){z-index:2}.rail-stack img:nth-child(3){z-index:3}
+</style>
+<link rel="stylesheet" href="/_legacy/css/welcome.a05fadcb49.css">
+<script>window.STRIDE_LANGS=["en","de","es","fr","it","ja","zh"]</script>
+</head>
+<body class="min-h-screen flex flex-col">
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-5R4N7FVP"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+<div class="wrap flex-1 flex flex-col w-full">
+
+  <!-- Nav (post-purchase: minimal, no Get-Stride CTA) -->
+  <nav class="w-full border-b sticky top-0 z-50" style="border-color:var(--line);background:rgba(20,19,16,.82);backdrop-filter:blur(18px)">
+    <div class="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="index.html" class="text-3xl font-black brand tracking-tighter leading-none">STRIDE</a>
+        <div class="lang-switch" data-no-translate>
+          <button type="button" class="lang-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Language" onclick="strideLang(this)">EN</button>
+          <div class="lang-menu" role="listbox" aria-label="Language">
+            <a role="option" data-lang="en" href="/">English</a>
+            <a role="option" data-lang="de" href="/de/">Deutsch</a>
+            <a role="option" data-lang="es" href="/es/">Español</a>
+            <a role="option" data-lang="fr" href="/fr/">Français</a>
+            <a role="option" data-lang="it" href="/it/">Italiano</a>
+            <a role="option" data-lang="ja" href="/ja/">日本語</a>
+            <a role="option" data-lang="zh" href="/zh/">简体中文</a>
+          </div>
+        </div>
+      </div>
+      <a href="index.html" class="silk hover:text-[color:var(--copper-lt)] transition-colors">← Accueil</a>
+    </div>
+  </nav>
+
+  <!-- Content -->
+  <main class="flex-1 max-w-6xl mx-auto px-6 py-8 w-full">
+
+    <!-- Hero (compact so video + CTAs stay above the fold on desktop) -->
+    <div class="text-center mb-1">
+      <span class="chip pill-warm mb-2">Tu es dedans</span>
+      <h1 class="text-2xl md:text-3xl font-black uppercase tracking-tight mb-1 mt-2">
+        Bienvenue chez <span class="brand">Stride</span>
+      </h1>
+      <p class="text-sm ink2 font-medium max-w-lg mx-auto leading-relaxed">
+        Regarde ça avant de commencer.
+      </p>
+    </div>
+
+
+
+    <!-- The two things a buyer needs in the first minute, side by side and the same shape.
+         The download used to be a thin strip above a video that dwarfed it; they carry equal
+         weight now. Each card names itself, because a kicker alone did not say what the
+         right-hand one was. -->
+    <div class="grid md:grid-cols-2 gap-3 mb-3 items-stretch">
+
+      <!-- Hidden until the backend hands over real URLs, so this is either useful or absent,
+           never a pair of dead buttons on the screen of somebody who has just paid. Each link
+           stays hidden on its own: one published build shows one button, not a broken second. -->
+      <section class="wcard panel rounded-2xl" id="dl-block" hidden>
+        <p class="silk wcard-k">Commencer</p>
+        <p class="wcard-h">Télécharger Stride</p>
+        <p class="wcard-s">Windows et macOS, la version actuelle.</p>
+        <div class="wcard-body">
+          <div class="dl-row">
+            <a class="btn-copper" id="dl-win" href="#" rel="nofollow" hidden>Télécharger pour Windows</a>
+            <a class="btn-copper" id="dl-mac" href="#" rel="nofollow" hidden>Télécharger pour Mac</a>
+          </div>
+          <p class="dl-note">Ta clé de licence est dans l'email de bienvenue. <a href="setup.html">Guide d'installation →</a></p>
+        </div>
+      </section>
+
+      <section class="wcard panel rounded-2xl">
+        <p class="silk wcard-k">Voir le walkthrough</p>
+        <p class="wcard-h">Walkthrough de Stride 2.0</p>
+        <p class="wcard-s">Le canvas, un rack et un clip fini, du début à la fin.</p>
+        <div class="wcard-body">
+          <div class="video-frame rounded-xl overflow-hidden" style="border:1px solid var(--line)">
+            <iframe class="w-full aspect-video bg-black" src="https://www.youtube-nocookie.com/embed/-Z4zRIiPg-4?rel=0&amp;modestbranding=1&amp;playsinline=1" title="Vidéo de bienvenue de Stride" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Two questions, asked once, of somebody who has just paid and is in a good mood.
+         It sits BELOW the download and the walkthrough, not above them. It used to be the
+         first thing on the page, which put our question ahead of the thing they had just
+         paid for, and it was also the widest block on the screen. Nothing is required,
+         nothing blocks the page, and the whole block removes itself when there is no
+         purchase to attach an answer to, when it has already been answered on this
+         device, or if the script below never runs. -->
+    <section class="survey" id="survey" hidden aria-labelledby="survey-h">
+      <form id="survey-form" novalidate>
+        <p class="survey-h" id="survey-h">Aide-nous à améliorer Stride</p>
+
+        <!-- One question at a time, and choosing an answer IS sending it. There is no submit
+             button: somebody who has just paid should not have to press a second thing to do
+             us a favour, and an answer that is already recorded cannot be lost by leaving. -->
+        <div class="survey-step" data-step="blocker">
+          <p class="survey-lead">On travaille en permanence à pousser Stride plus loin. Qu'est-ce qui a failli t'empêcher d'acheter aujourd'hui ?</p>
+          <div class="survey-row" role="radiogroup" aria-labelledby="survey-h">
+            <label class="survey-opt"><input type="radio" name="blocker" value="price"><span>Le prix</span></label>
+            <label class="survey-opt"><input type="radio" name="blocker" value="workflow"><span>Pas sûr que ça colle à mon workflow</span></label>
+            <label class="survey-opt"><input type="radio" name="blocker" value="compatibility"><span>Des doutes sur la compatibilité</span></label>
+            <label class="survey-opt"><input type="radio" name="blocker" value="try_first"><span>Je voulais l'essayer d'abord</span></label>
+            <label class="survey-opt"><input type="radio" name="blocker" value="unclear"><span>Je ne voyais pas bien ce que ça fait</span></label>
+            <label class="survey-opt"><input type="radio" name="blocker" value="nothing"><span>Rien</span></label>
+            <label class="survey-opt"><input type="radio" name="blocker" value="other"><span>Autre chose</span></label>
+          </div>
+          <input class="survey-other" type="text" name="blocker_other" maxlength="400"
+                 placeholder="Dis-nous en plus, puis appuie sur Entrée" hidden>
+        </div>
+
+        <div class="survey-step" data-step="heard" hidden>
+          <p class="survey-lead">Merci. Et comment as-tu entendu parler de Stride la première fois ?</p>
+          <div class="survey-row" role="radiogroup" aria-label="Comment as-tu entendu parler de Stride la première fois ?">
+            <label class="survey-opt"><input type="radio" name="heard" value="instagram_facebook"><span>Instagram / Facebook</span></label>
+            <label class="survey-opt"><input type="radio" name="heard" value="youtube"><span>YouTube</span></label>
+            <label class="survey-opt"><input type="radio" name="heard" value="google"><span>Google</span></label>
+            <label class="survey-opt"><input type="radio" name="heard" value="friend"><span>Par un ami</span></label>
+            <label class="survey-opt"><input type="radio" name="heard" value="review"><span>Un test ou un article</span></label>
+            <label class="survey-opt"><input type="radio" name="heard" value="other"><span>Autre chose</span></label>
+          </div>
+          <input class="survey-other" type="text" name="heard_other" maxlength="400"
+                 placeholder="Précise, puis appuie sur Entrée" hidden>
+        </div>
+
+        <p class="survey-note" aria-live="polite" hidden></p>
+      </form>
+    </section>
+
+    <!-- EXPLORE MORE. One priced offer and one link, not two offers competing.
+         The session keeps its owner price and its clock, because that is what sells it. The
+         Collection is a LINK ONLY: it has its own screen at /post2/ before this one, and its
+         own page, so putting a second countdown here is what made this page read as a wall of
+         offers in the first place. No price id lives in this markup. -->
+    <p class="silk xm-head">Explorer plus loin</p>
+    <div class="grid md:grid-cols-2 gap-3 mb-6">
+
+      <div class="support-card flex flex-col p-4 rounded-2xl panel" id="session-rail">
+          <div class="rail-session">
+            <p class="silk mb-2" style="color:var(--copper-lt)">Envie d'aller plus loin ?</p>
+            <p class="text-[15px] font-black ink leading-snug mb-1">Passe une heure avec celui qui a fait Stride.</p>
+            <p class="text-[11px] ink3 leading-snug">Ta session. Tes plugins. Ton son.</p>
+
+            <!-- Owner state. Hidden until the backend confirms this buyer has an open
+                 offer, on the server's clock: showing a price we might not honour and
+                 then correcting it is worse than showing the public one. -->
+            <div class="rail-offer" hidden>
+              <span class="offer-flag"><span class="offer-dot" aria-hidden="true"></span>Prix nouveau propriétaire de Stride</span>
+              <p class="offer-clock" role="timer">L'offre se termine dans <b data-rail-left>72h</b></p>
+              <div class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                <del class="price-was"><span class="sr-only">Prix normal </span><span data-rail-was>$199</span></del>
+                <span class="price text-3xl" data-rail-now>$99</span>
+              </div>
+            </div>
+
+            <!-- Public state. Also the fallback for no offer, an expired one, a used one,
+                 a Lemon Squeezy buyer, or any backend failure. -->
+            <p class="rail-public text-xl font-black ink mt-2">Session 1:1 · $199</p>
+          </div>
+
+          <button type="button" class="rail-book btn-copper w-full mt-3 px-4 py-2.5 text-xs uppercase" hidden>Réserver une session</button>
+          <p class="rail-note text-xs ink3 leading-relaxed mt-3" aria-live="polite" hidden></p>
+          <a href="session.html" class="rail-link silk mt-4 hover:text-[color:var(--ember)] transition-colors" style="color:var(--copper-lt)">Voir ce que ça couvre →</a>
+      </div>
+
+      <a href="samples.html" class="support-card xm-link flex flex-col p-4 rounded-2xl panel group">
+        <div class="rail-stack" aria-hidden="true">
+          <img src="assets/packs/pack-drums.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
+          <img src="assets/packs/pack-water.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
+          <img src="assets/packs/pack-feedback.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
+        </div>
+        <p class="text-[15px] font-black ink leading-snug mt-3 mb-1">Experimental Collection</p>
+        <p class="text-[11px] ink3 leading-snug">250+ sons · 15 Ableton Racks · 4 StrideChains</p>
+        <span class="silk mt-auto pt-3 group-hover:text-[color:var(--ember)] transition-colors" style="color:var(--copper-lt)">Voir la Collection →</span>
+      </a>
+
+    </div>
+
+    <!-- Expectation-setting note (creative tool, not mixing tool). Sits between
+         video and closing tag so producers see it after the walkthrough. -->
+    <div class="max-w-2xl mx-auto mb-10 p-5 rounded-2xl panel">
+      <p class="silk mb-2" style="color:var(--copper-lt)">Une note avant de commencer</p>
+      <!-- Cut from five lines to two. It still does the one job it is here for, which is to
+           say what Stride is for BEFORE somebody opens it expecting a mixing tool. What went
+           was the description of the loop itself: the walkthrough directly above this shows
+           that better than a paragraph can. -->
+      <p class="text-sm ink2 leading-relaxed">
+        Stride est un <b class="ink">outil de sound design</b>, pas un outil de mixage. Choisis un rack, scanne ses paramètres et dessine un mouvement que tu ne tracerais jamais à la main. Sers-t'en pour la variation et le mouvement, pas pour du mixage chirurgical.
+      </p>
+    </div>
+
+    <!-- Support, one quiet line. It was a full-width card of its own, then a card in the
+         offers column; it is neither an offer nor a step, so it reads as a footnote now. -->
+    <p class="wcard-help">Besoin d'aide ? <a href="mailto:home@stridehub.io">Écrire au support →</a><span class="wcard-help-x"> · réponse sous 48 heures, chaque email m'arrive directement.</span></p>
+
+    <!-- The closing tagline used to sit here, directly above a footer that prints the same
+         sentence one line lower. Twice in a row read as a mistake, so the footer keeps it. -->
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="w-full border-t py-8 text-center" style="border-color:var(--line)">
+    <div class="flex items-center justify-center gap-5 mb-3">
+      <a href="privacy.html" class="silk hover:text-[color:var(--ink2)] transition-colors">Politique de confidentialité</a>
+      <span style="color:var(--ink3)">·</span>
+      <a href="terms.html" class="silk hover:text-[color:var(--ink2)] transition-colors">Conditions d'utilisation</a>
+    </div>
+    <p class="silk">© 2026 STRIDE ENGINE. Module tout dans ta session.</p>
+  </footer>
+
+</div>
+
+<script>
+// The 1:1 session offer in the support rail.
+//
+// A Stride owner gets the owner price for 72 hours from their purchase. This page shows
+// the PUBLIC price by default and only upgrades to the owner view once the backend has
+// confirmed, on ITS clock, that this buyer has an open offer. Every failure path, no
+// transaction, no offer, expired, used, Lemon Squeezy, backend down, Paddle blocked, ends
+// with the public price and a plain link to session.html: nobody is ever shown a price we
+// cannot honour, and nobody is ever blocked from the page.
+(function () {
+  'use strict';
+
+  var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
+  var PADDLE_TOKEN = 'live_e0101b87a9e6e7024988534cf7b';
+  var BOOKED_URL = 'https://stridehub.io/session.html?booked=1';
+  var HERE_URL = 'https://stridehub.io/welcome.html';
+  var FAILED = 'That did not open. Try again, or use the link below.';
+
+  var rail = document.getElementById('session-rail');
+  if (!rail) return;
+  function q(sel) { return rail.querySelector(sel); }
+  // The Collection card is a sibling, not part of this one, so it needs its own lookup.
+  // Everything below tolerates it being absent: this page has shipped without it.
+  var collCard = document.getElementById('coll-rail');
+  function qc(sel) { return collCard ? collCard.querySelector(sel) : null; }
+  function ss(k) { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } }
+  function ssSet(k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} }
+
+  // stride_offer_txn is the STRIDE transaction, stashed by /post, /post2 and this card before a
+  // second checkout overwrote stride_last_txn. Prefer it: the offers belong to the Stride
+  // purchase, not to whatever was bought a minute later.
+  var txn = ss('stride_offer_txn') || ss('stride_last_txn');
+  if (!txn) return;                       // public price stays, link stays
+
+  // One stage of the funnel, against the purchase that earned the offer. Fire and forget.
+  function stage(name, kind) {
+    try {
+      fetch(API, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+        body: JSON.stringify({ action: 'offer_stage', stage: name, txn: txn, offer: kind })
+      }).catch(function () {});
+    } catch (e) {}
+  }
+
+  // One state per card, because the two offers are independent and can both be open. Each is
+  // { expires, skew } plus, for the Collection, the money its button reports.
+  // openKind: which checkout is open, so a completed one is read for what it was.
+  var sOffer = null, sClock = null, cOffer = null, cClock = null, paddleOn = false, openKind = '';
+
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function human(ms) {
+    var s = Math.floor(ms / 1000);
+    var d = Math.floor(s / 86400), h = Math.floor(s / 3600) % 24,
+        m = Math.floor(s / 60) % 60, sec = s % 60;
+    if (d > 0) return d + 'd ' + h + 'h ' + m + 'm';
+    if (h > 0) return h + 'h ' + pad(m) + 'm';
+    return m + 'm ' + pad(sec) + 's';
+  }
+
+  function toPublic() {
+    if (sClock) { clearInterval(sClock); sClock = null; }
+    sOffer = null;
+    q('.rail-session').hidden = false;
+    q('.rail-offer').hidden = true;
+    q('.rail-public').hidden = false;
+    q('.rail-book').hidden = true;
+    q('.rail-link').hidden = false;
+    // No offer left to carry, so the link goes back to the plain page.
+    try { q('.rail-link').setAttribute('href', 'session.html'); } catch (e) {}
+  }
+
+  // The Collection card simply leaves when its offer is over: there is no public price to
+  // fall back to here, and /samples is a click away in the footer.
+  function collGone(text) {
+    if (cClock) { clearInterval(cClock); cClock = null; }
+    cOffer = null;
+    if (!collCard) return;
+    if (text) { collNote(text); qc('.rail-coll-buy').hidden = true; return; }
+    collCard.hidden = true;
+  }
+
+  function note(text) {
+    var el = q('.rail-note');
+    el.textContent = text || '';
+    el.hidden = !text;
+  }
+
+  function collNote(text) {
+    var el = qc('.coll-note');
+    if (!el) return;
+    el.textContent = text || '';
+    el.hidden = !text;
+  }
+
+  // Booked already, most often on /post a minute ago. Say so, instead of offering the public
+  // price for the session they have just bought. `collection`: the Collection came off this
+  // purchase's offer too.
+  function showBooked() {
+    toPublic();
+    q('.rail-public').hidden = true;
+    note("You're booked in. Check your inbox for the link to pick your time.");
+  }
+
+  function tick() {
+    if (!sOffer) return;
+    var left = sOffer.expires - (Date.now() + sOffer.skew);
+    // The window closed with the card open: the session goes back to its public price.
+    if (left <= 0) { toPublic(); return; }
+    q('[data-rail-left]').textContent = human(left);
+  }
+
+  function collTick() {
+    if (!cOffer) return;
+    var left = cOffer.expires - (Date.now() + cOffer.skew);
+    if (left <= 0) { collGone(''); return; }
+    qc('[data-coll-left]').textContent = human(left);
+  }
+
+  function showOwner(d) {
+    var s = d.session || {};
+    var now = (s.owner_price || {}).formatted, was = (s.standard_price || {}).formatted;
+    if (!now || !was) return;                       // keep the public price
+    sOffer = { expires: Number(d.expires_at_ms), skew: Number(d.server_now_ms) - Date.now() };
+    q('[data-rail-now]').textContent = now;
+    q('[data-rail-was]').textContent = was;
+    q('.rail-public').hidden = true;
+    q('.rail-offer').hidden = false;
+    q('.rail-book').hidden = false;
+    q('.rail-link').hidden = false;
+    // Carry the purchase through to session.html. Without it, that page can only resolve
+    // the owner price from the token in the welcome MAIL, so a buyer who reads the offer
+    // here and clicks through before the mail lands is quoted the FULL price for the thing
+    // they were just offered at half of it. That is what happened to the first buyer.
+    // The id is identity, never price: session.html still asks the backend what this offer
+    // is worth and how long it has, and the markup keeps the bare href for anyone with no
+    // offer and no JavaScript.
+    try { q('.rail-link').setAttribute('href', 'session.html?txn=' + encodeURIComponent(txn)); } catch (e) {}
+    if (sClock) clearInterval(sClock);
+    tick();
+    sClock = setInterval(tick, 1000);
+    stage('welcome_viewed', 'session');
+  }
+
+  // The Collection is still on offer, whatever the session is doing. Its card stands on its
+  // own now, so this shows it and touches nothing else.
+  function showCollection(d) {
+    if (!collCard) return;
+    var c = d.collection || {};
+    var now = (c.offer_price || {}).formatted, was = (c.list_price || {}).formatted;
+    if (!now || !was) return;                       // no price we can honour: no card
+    cOffer = { expires: Number(d.expires_at_ms), skew: Number(d.server_now_ms) - Date.now(),
+               amount: (c.offer_price || {}).amount, currency: (c.offer_price || {}).currency };
+    qc('[data-coll-now]').textContent = now;
+    qc('[data-coll-was]').textContent = was;
+    qc('[data-coll-cta]').textContent = now;
+    qc('.rail-coll-buy').hidden = false;
+    collNote('');
+    collCard.hidden = false;
+    if (cClock) clearInterval(cClock);
+    collTick();
+    cClock = setInterval(collTick, 1000);
+    stage('welcome_collection_viewed', 'collection');
+  }
+
+  // What the backend knows, which now includes a checkout Paddle has already been paid for: a
+  // session booked a moment ago reads booked here even before its webhook lands.
+  var settled = false;
+  var bail = setTimeout(function () { settled = true; }, 6000);
+  fetch(API, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'post_purchase_offers', txn: txn })
+  })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (settled) return;
+      settled = true; clearTimeout(bail);
+      if (!d || !d.ok) return;
+      // The download panel rides on this same answer, so the page makes one backend call
+      // rather than two. Defined by the block at the end of the document; the guard is for
+      // a page served without it.
+      if (window.strideShowDownloads) window.strideShowDownloads(d.downloads);
+      // The two offers are read separately: whatever this buyer has not taken yet is what
+      // they are shown. Before, an open session hid an open Collection, so the only people
+      // who ever saw it were the ones who had just booked a session.
+      var sessionStatus = (d.session || {}).status, collectionStatus = (d.collection || {}).status;
+      // The Collection is NOT offered on this page any more: it gets its own screen at
+      // /post2/, before this one, and only for a buyer who did not take it as the bump.
+      // showCollection returns immediately with no card in the page, so this is the one
+      // line to restore if it ever comes back here.
+      void collectionStatus;
+      if (sessionStatus === 'open') showOwner(d);
+      else if (sessionStatus === 'used') showBooked();
+      // Expired or unknown: the public price stays, and the Collection card stays hidden.
+    })
+    .catch(function () { settled = true; clearTimeout(bail); });
+
+  try {
+    if (window.Paddle) {
+      Paddle.Initialize({
+        token: PADDLE_TOKEN,
+        eventCallback: function (ev) {
+          if (!ev || ev.name !== 'checkout.completed') return;
+          if (openKind === 'collection') {
+            // A second, separate purchase. Hand it to this page's own purchase tracking, which
+            // records it on the reload the success URL brings, exactly as /post2 does.
+            try {
+              var data = ev.data || {};
+              if (data.transaction_id) ssSet('stride_last_txn', String(data.transaction_id));
+              var paid = Number((data.totals || {}).total);
+              if (paid > 0 && data.currency_code) {
+                ssSet('stride_checkout_value', JSON.stringify({ value: paid, currency: String(data.currency_code) }));
+              }
+            } catch (e) {}
+            collGone("The Collection is yours. Check your inbox for the download.");
+            return;
+          }
+          showBooked();
+        }
+      });
+      paddleOn = true;
+    }
+  } catch (e) { paddleOn = false; }
+
+  // Both buttons open a checkout the backend made, so no price and no discount live in this page.
+  function openCheckout(btn, action, kind, successUrl, stageName) {
+    // Each card owns its own message line, so a failure is reported under the button that
+    // was pressed rather than on the other offer.
+    var say = kind === 'collection' ? collNote : note;
+    btn.setAttribute('aria-busy', 'true');
+    say('');
+    // The Stride purchase, kept where this card looks first, before the checkout can overwrite
+    // stride_last_txn.
+    ssSet('stride_offer_txn', txn);
+    var body = { action: action, txn: txn };
+    if (kind === 'collection') body.external_id = (typeof _strideXid === 'string' && _strideXid) || '';
+    var shown = kind === 'collection' ? cOffer : sOffer;
+    fetch(API, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        btn.removeAttribute('aria-busy');
+        if (d && d.ok && d.transaction_id) {
+          openKind = kind;
+          try {
+            Paddle.Checkout.open({ transactionId: d.transaction_id,
+                                   settings: { displayMode: 'overlay', variant: 'one-page', theme: 'dark', successUrl: successUrl } });
+          } catch (e) { say(FAILED); return; }
+          if (kind === 'collection' && window.StrideTrack && shown && shown.currency) {
+            try {
+              var digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: shown.currency })
+                .resolvedOptions().minimumFractionDigits;
+              var v = Number(shown.amount) / Math.pow(10, digits);
+              if (isFinite(v) && v > 0) StrideTrack.push('begin_checkout', { value: v, currency: shown.currency });
+            } catch (e) {}
+          }
+          stage(stageName, kind);
+          return;
+        }
+        var st = d && d.status;
+        if (kind === 'session') {
+          if (st === 'used') { showBooked(); return; }
+          if (st === 'expired' || st === 'invalid') { toPublic(); note('Your owner price has ended.'); return; }
+        } else {
+          if (st === 'used' || st === 'owned') { collGone("The Collection is yours. Check your inbox for the download."); return; }
+          if (st === 'expired' || st === 'invalid') { collGone('This offer has ended.'); return; }
+        }
+        say(FAILED);
+      })
+      .catch(function () {
+        btn.removeAttribute('aria-busy');
+        say(FAILED);
+      });
+  }
+
+  q('.rail-book').addEventListener('click', function () {
+    if (!sOffer) return;
+    // No Paddle means no checkout to open. Send them to the page rather than fail silently.
+    if (!paddleOn) { window.location.href = 'session.html'; return; }
+    openCheckout(this, 'session_checkout', 'session', BOOKED_URL, 'welcome_checkout');
+  });
+
+  var collBuy = qc('.rail-coll-buy');
+  if (collBuy) collBuy.addEventListener('click', function () {
+    if (!cOffer) return;
+    if (!paddleOn) { collNote(FAILED); return; }
+    // What this page's purchase tracking reports if the checkout completes before Paddle's own
+    // figure arrives: the money on screen.
+    try {
+      var digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: cOffer.currency })
+        .resolvedOptions().minimumFractionDigits;
+      var major = Number(cOffer.amount) / Math.pow(10, digits);
+      if (isFinite(major) && major > 0) ssSet('stride_checkout_value', JSON.stringify({ value: major, currency: cOffer.currency }));
+    } catch (e) {}
+    openCheckout(this, 'collection_checkout', 'collection', HERE_URL, 'welcome_collection_checkout');
+  });
+})();
+</script>
+
+<!-- The two questions under the title. Its own block because it shares nothing with the
+     offer rail: no Paddle, no prices, no clock. -->
+<script>
+(function () {
+  'use strict';
+
+  var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
+  var DONE_KEY = 'stride_survey_done';
+
+  var box = document.getElementById('survey');
+  var form = document.getElementById('survey-form');
+  if (!box || !form) return;
+
+  function ss(k) { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } }
+  function ls(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+  // Same id the offer rail resolves against: the answers belong to the Stride purchase, not
+  // to a Collection bought a minute later. No purchase means nothing to attach an answer to,
+  // so the block never appears.
+  var txn = ss('stride_offer_txn') || ss('stride_last_txn');
+  if (!txn) return;
+  // Answered already on this device. The backend keeps the first answer regardless, this
+  // just stops the page asking a second time.
+  if (ls(DONE_KEY) === txn) return;
+
+  box.hidden = false;
+
+  var steps = [].slice.call(form.querySelectorAll('.survey-step'));
+  var sent = {};
+
+  // An answer is a gift, not a transaction. Whatever the network does with it, this page
+  // never shows a failure to somebody who has just paid for telling us something. Each
+  // question is sent on its own the moment it is answered, so leaving after the first one
+  // still leaves us the first one. keepalive, because the next thing they do may be to go.
+  function send(name, value, other) {
+    if (sent[name]) return;
+    sent[name] = true;
+    var body = { action: 'purchase_survey', txn: txn };
+    body[name] = value;
+    body[name + '_other'] = other || '';
+    try {
+      fetch(API, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+        body: JSON.stringify(body)
+      }).catch(function () {});
+    } catch (e) {}
+  }
+
+  function thanks() {
+    lsSet(DONE_KEY, txn);
+    box.innerHTML = '<p class="survey-h">Thank you.</p>'
+      + '<p class="survey-lead" style="margin:0">That goes straight to the person who builds Stride.</p>';
+  }
+
+  // One question at a time. The next one only exists once this one is answered.
+  function advance(i) {
+    if (!steps[i] || steps[i].hidden) return;
+    steps[i].hidden = true;
+    if (steps[i + 1]) { steps[i + 1].hidden = false; return; }
+    thanks();
+  }
+
+  form.addEventListener('submit', function (ev) { ev.preventDefault(); });
+
+  form.addEventListener('change', function (ev) {
+    var t = ev.target;
+    if (!t || t.type !== 'radio') return;
+    var step = null;
+    for (var n = t.parentNode; n && n !== form; n = n.parentNode) {
+      if (steps.indexOf(n) >= 0) { step = n; break; }
+    }
+    var i = steps.indexOf(step);
+    if (i < 0) return;
+    var other = step.querySelector('.survey-other');
+    // "Other" is the only answer that asks for words, so it is the only one that waits.
+    if (t.value === 'other') {
+      if (other) { other.hidden = false; try { other.focus(); } catch (e) {} }
+      return;
+    }
+    if (other) { other.hidden = true; other.value = ''; }
+    send(t.name, t.value, '');
+    advance(i);
+  });
+
+  // The free-text answer goes when they say it is finished, by pressing Enter or by
+  // leaving the field. Empty still counts: they chose Other and that is the answer.
+  steps.forEach(function (step, i) {
+    var other = step.querySelector('.survey-other');
+    if (!other) return;
+    var go = function () {
+      var picked = step.querySelector('input[type="radio"]:checked');
+      if (!picked || picked.value !== 'other' || sent[picked.name]) return;
+      send(picked.name, 'other', (other.value || '').trim());
+      advance(i);
+    };
+    other.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter') { ev.preventDefault(); go(); }
+    });
+    other.addEventListener('blur', go);
+  });
+})();
+</script>
+
+<!-- The download buttons. Its own block on purpose: the offer rail above returns early
+     when this tab carries no transaction id, and getting the software is the one thing
+     this page must do for everybody. Nothing below depends on a transaction.
+     It takes the list off the rail's answer when there is one (window.strideShowDownloads,
+     called from that fetch) and only asks for itself when the rail bailed out, so the
+     common path still makes ONE backend call and one Paddle price preview, not two. -->
+<script>
+(function () {
+  'use strict';
+
+  var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
+
+  var box = document.getElementById('dl-block');
+  if (!box) return;
+  // Keyed by the label the backend sends, which is the label the welcome MAIL prints.
+  // A label this page has no button for is ignored rather than guessed at.
+  var els = { Windows: document.getElementById('dl-win'), Mac: document.getElementById('dl-mac') };
+  var done = false;
+
+  function show(list) {
+    if (done) return;
+    var shown = 0;
+    (list || []).forEach(function (item) {
+      var el = item && els[item.label];
+      if (!el || !item.url) return;
+      el.href = item.url;
+      el.textContent = 'Download for ' + item.label;
+      el.hidden = false;
+      shown++;
+    });
+    // Only reveal the panel once something in it works. A release published for one
+    // platform and not the other shows the one button, never a dead second.
+    if (shown) { done = true; box.hidden = false; }
+  }
+  window.strideShowDownloads = show;
+
+  function ss(k) { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } }
+  // With a transaction the rail is already asking and will feed us. Without one it
+  // returned before its fetch, so this is the only call that will be made.
+  if (ss('stride_offer_txn') || ss('stride_last_txn')) return;
+
+  fetch(API, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'post_purchase_offers', txn: '' })
+  })
+    .then(function (r) { return r.json(); })
+    .then(function (d) { show(d && d.downloads); })
+    .catch(function () {});
+})();
+</script>
+
+<script>
+/* ── Language ────────────────────────────────────────────────────────────
+   The same control as the rest of the site. Its own block, not inside the
+   IIFE above, because the button's onclick needs strideLang to be global.
+   window.STRIDE_LANGS says which languages THIS page exists in, written per
+   page by the build, so the control never offers one that 404s. */
+var STRIDE_LOCALES = ['de', 'es', 'fr', 'it', 'ja', 'zh'];
+
+function strideLangCurrent() {
+  var seg = location.pathname.split('/')[1];
+  return STRIDE_LOCALES.indexOf(seg) >= 0 ? seg : 'en';
+}
+
+/* This page in another language, keeping the query and the hash: a buyer
+   arrives here with Paddle's own parameters on the URL and losing them would
+   lose the order this page is about. */
+function strideLangPath(code) {
+  var p = location.pathname;
+  var cur = strideLangCurrent();
+  if (cur !== 'en') p = p.slice(cur.length + 1) || '/';
+  if (code !== 'en') p = '/' + code + (p === '/' ? '/' : p);
+  return p + location.search + location.hash;
+}
+
+function strideLang(btn) {
+  var menu = btn.parentNode.querySelector('.lang-menu');
+  var open = menu.classList.toggle('on');
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+(function strideLangInit() {
+  var box = document.querySelector('.lang-switch');
+  if (!box) return;
+  var btn = box.querySelector('.lang-btn');
+  var menu = box.querySelector('.lang-menu');
+  var cur = strideLangCurrent();
+  var available = window.STRIDE_LANGS || ['en'];
+
+  btn.textContent = cur.toUpperCase();
+  var links = menu.querySelectorAll('a');
+  for (var i = 0; i < links.length; i++) {
+    var code = links[i].getAttribute('data-lang');
+    if (available.indexOf(code) < 0) { links[i].className = 'gone'; continue; }
+    links[i].href = strideLangPath(code);
+    links[i].setAttribute('aria-selected', code === cur ? 'true' : 'false');
+    links[i].onclick = (function (c) {
+      return function () { try { localStorage.setItem('stride_lang', c); } catch (e) {} };
+    })(code);
+  }
+  if (available.length > 1) box.classList.add('ready');
+
+  function close() { menu.classList.remove('on'); btn.setAttribute('aria-expanded', 'false'); }
+  document.addEventListener('click', function (e) { if (!box.contains(e.target)) close(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+})();
+</script>
+</body>
+</html>

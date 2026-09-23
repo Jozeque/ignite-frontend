@@ -3,6 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+// The welcome mail links here with ?txn=, so this page works on a phone.
+//
+// Everything below the download depends on knowing which purchase this is: the survey has
+// nothing to attach an answer to without it, and the session offer cannot be resolved. That
+// id only ever lived in sessionStorage, written by the tab that ran the checkout, so opening
+// this page anywhere else, from the mail or a bookmark, gave a page with the offer and the
+// survey silently missing and no way to tell that anything was wrong.
+//
+// It is put where the rest of the page already looks, so nothing else changes. Then it comes
+// straight off the URL, before any analytics can report the address: a transaction id is not
+// a secret but it is not something to hand to Google Analytics, Clarity or a referrer header
+// either. It must stay the FIRST script in <head> for that to be true.
+//
+// `txn_` plus EXACTLY 26 characters, or it is ignored: the backend applies the same rule, and
+// a typed or truncated id resolves to nothing there anyway.
+(function () {
+  try {
+    var u = new URL(window.location.href);
+    if (!u.searchParams.has('txn')) return;
+    var t = (u.searchParams.get('txn') || '').trim().toLowerCase();
+    if (/^txn_[0-9a-z]{26}$/.test(t)) {
+      try { sessionStorage.setItem('stride_last_txn', t); } catch (e) {}
+    }
+    u.searchParams.delete('txn');
+    history.replaceState(null, '', u.pathname + u.search + u.hash);
+  } catch (e) {}
+})();
+</script>
 <!-- Google consent mode v2 -->
 <script>
 // Consent mode v2. This must run BEFORE any Google tag: after one has loaded it has
@@ -445,6 +474,33 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .wrap{position:relative;z-index:1}
   .silk{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--ink3)}
   .brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+
+  /* ── Language ──────────────────────────────────────────────────────────
+     Same control as the rest of the site, beside the wordmark. This page is
+     post-purchase and Paddle sends every buyer here in English whatever
+     language they bought in, so the switch is how somebody reads it in their
+     own. Hidden until the script has read which languages this page exists
+     in. */
+  .lang-switch{position:relative;display:none}
+  .lang-switch.ready{display:block}
+  .lang-btn{display:inline-flex;align-items:center;gap:.34em;padding:3px 7px;
+    border:1px solid var(--line);border-radius:8px;background:transparent;
+    color:var(--ink3);font:inherit;font-size:10px;font-weight:800;
+    letter-spacing:.14em;text-transform:uppercase;cursor:pointer;
+    transition:color .15s,border-color .15s}
+  .lang-btn:hover,.lang-btn[aria-expanded="true"]{color:var(--ink);border-color:rgba(216,201,176,.28)}
+  .lang-btn::after{content:"";width:0;height:0;border-left:3px solid transparent;
+    border-right:3px solid transparent;border-top:4px solid currentColor;opacity:.7}
+  .lang-menu{position:absolute;top:calc(100% + 8px);left:0;z-index:60;display:none;
+    min-width:150px;padding:6px;background:var(--panel);
+    border:1px solid var(--line);border-radius:12px;
+    box-shadow:0 24px 50px -24px rgba(0,0,0,.9)}
+  .lang-menu.on{display:block}
+  .lang-menu a{display:block;padding:8px 10px;border-radius:8px;font-size:13px;
+    font-weight:600;color:var(--ink2);text-decoration:none;white-space:nowrap}
+  .lang-menu a:hover{background:var(--raise);color:var(--ink)}
+  .lang-menu a[aria-selected="true"]{color:var(--copper-lt)}
+  .lang-menu a.gone{display:none}
   .ink{color:var(--ink)} .ink2{color:var(--ink2)} .ink3{color:var(--ink3)}
   h1,h2,h3,h4{color:var(--ink);font-weight:900;letter-spacing:-.01em}
   .panel{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(0,0,0,.14)),var(--panel);
@@ -469,6 +525,30 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* One tight block rather than three stacked rows: it shares a column with the video and
      every pixel it takes is a pixel the offers beside it have to match. */
   .dl-block{padding:12px 14px;margin:0}
+  /* The two cards at the top, and the Explore more row below the survey. Both cards are
+     one column with the content pinned to the bottom, so the buttons and the video sit on
+     the same line however long each heading runs. */
+  .wcard{display:flex;flex-direction:column;padding:16px 18px}
+  .wcard-k{margin:0;color:var(--copper-lt)}
+  .wcard-h{margin:6px 0 2px;font-size:19px;font-weight:900;letter-spacing:-.01em;color:var(--ink);line-height:1.15}
+  .wcard-s{margin:0;font-size:12.5px;line-height:1.5;color:var(--ink2)}
+  /* Centred in whatever room is left rather than pinned to the bottom: the download card
+     holds less than the video beside it, and space-between left a hand's width of nothing
+     under its heading. */
+  .wcard-body{margin:auto 0 0;padding-top:14px;display:flex;flex-direction:column;justify-content:center;flex:1 1 auto}
+  @media (min-width:768px){
+    .wcard{padding:18px 20px}
+    .wcard-body .dl-row .btn-copper{padding:14px 18px;font-size:14px}
+  }
+  .xm-head{margin:0 0 10px}
+  .xm-link{text-decoration:none}
+  /* The stack is three square covers overlapped. Across a half-width card they stretched
+     into a 44px smear, so it is held to the width three of them actually need. */
+  .xm-link .rail-stack{max-width:190px}
+  .xm-link .rail-stack img{height:62px}
+  .wcard-help{margin:0 0 4px;text-align:center;font-size:12.5px;color:var(--ink3)}
+  .wcard-help a{color:var(--copper-lt)}
+  @media (max-width:640px){ .wcard-help-x{display:none} }
   .dl-kicker{margin:0 0 7px}
   .dl-row{display:flex;flex-wrap:wrap;gap:8px}
   .dl-row .btn-copper{flex:1 1 180px;padding:10px 18px;font-size:13px;border-radius:12px}
@@ -500,7 +580,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      the welcome and the video and must read as a question, not as a form. The
      radio itself is invisible and covers its own chip, so the whole chip is the
      hit target and the keyboard still gets a real radio group. */
-  .survey{max-width:760px;margin:0 auto .75rem;padding:11px 14px;border:1px solid var(--line);
+  .survey{margin:0 0 .75rem;padding:11px 14px;border:1px solid var(--line);
     border-radius:18px;background:var(--panel);text-align:left}
   .survey[hidden]{display:none}
   .survey-h{margin:0 0 4px;font-size:14px;font-weight:900;color:var(--ink);letter-spacing:.02em}
@@ -537,8 +617,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .rail-stack img + img{margin-left:-14%}
   .rail-stack img:nth-child(1){z-index:1}.rail-stack img:nth-child(2){z-index:2}.rail-stack img:nth-child(3){z-index:3}
 </style>
-<link rel="stylesheet" href="/_legacy/css/welcome.685c70faee.css">
-<script>window.STRIDE_LANGS=["en"]</script>
+<link rel="stylesheet" href="/_legacy/css/welcome.a05fadcb49.css">
+<script>window.STRIDE_LANGS=["en","de","es","fr","it","ja","zh"]</script>
 </head>
 <body class="min-h-screen flex flex-col">
 <!-- Google Tag Manager (noscript) -->
@@ -550,7 +630,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- Nav (post-purchase: minimal, no Get-Stride CTA) -->
   <nav class="w-full border-b sticky top-0 z-50" style="border-color:var(--line);background:rgba(20,19,16,.82);backdrop-filter:blur(18px)">
     <div class="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-      <a href="index.html" class="text-3xl font-black brand tracking-tighter leading-none">STRIDE</a>
+      <div class="flex items-center gap-3">
+        <a href="index.html" class="text-3xl font-black brand tracking-tighter leading-none">STRIDE</a>
+        <div class="lang-switch" data-no-translate>
+          <button type="button" class="lang-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Language" onclick="strideLang(this)">EN</button>
+          <div class="lang-menu" role="listbox" aria-label="Language">
+            <a role="option" data-lang="en" href="/">English</a>
+            <a role="option" data-lang="de" href="/de/">Deutsch</a>
+            <a role="option" data-lang="es" href="/es/">Español</a>
+            <a role="option" data-lang="fr" href="/fr/">Français</a>
+            <a role="option" data-lang="it" href="/it/">Italiano</a>
+            <a role="option" data-lang="ja" href="/ja/">日本語</a>
+            <a role="option" data-lang="zh" href="/zh/">简体中文</a>
+          </div>
+        </div>
+      </div>
       <a href="index.html" class="silk hover:text-[color:var(--copper-lt)] transition-colors">&larr; Home</a>
     </div>
   </nav>
@@ -570,96 +664,39 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
 
 
-    <!-- Download + walkthrough (3/5) beside the one offer and the support line (2/5).
-         It was four columns split evenly while two offer cards sat on the right. With one
-         offer there, an even split left the video small and the right-hand column half
-         empty below the card, so the split follows what is actually in each side now. -->
-    <div class="grid md:grid-cols-5 gap-3 mb-6">
 
-      <!-- The software first, then the walkthrough: get it installed, then learn it. -->
-      <div class="md:col-span-3 flex flex-col gap-4">
-        <!-- The software. Hidden in the markup and revealed only once the backend hands over
-             real URLs, so this block is either useful or absent, never a pair of dead buttons
-             on the screen of somebody who has just paid. Each link stays hidden on its own: a
-             release published for one platform shows one button, not a broken second. -->
-        <section class="dl-block panel rounded-2xl" id="dl-block" hidden>
-          <p class="silk dl-kicker">Download Stride</p>
+    <!-- The two things a buyer needs in the first minute, side by side and the same shape.
+         The download used to be a thin strip above a video that dwarfed it; they carry equal
+         weight now. Each card names itself, because a kicker alone did not say what the
+         right-hand one was. -->
+    <div class="grid md:grid-cols-2 gap-3 mb-3 items-stretch">
+
+      <!-- Hidden until the backend hands over real URLs, so this is either useful or absent,
+           never a pair of dead buttons on the screen of somebody who has just paid. Each link
+           stays hidden on its own: one published build shows one button, not a broken second. -->
+      <section class="wcard panel rounded-2xl" id="dl-block" hidden>
+        <p class="silk wcard-k">Get started</p>
+        <p class="wcard-h">Download Stride</p>
+        <p class="wcard-s">Windows and macOS, the current build.</p>
+        <div class="wcard-body">
           <div class="dl-row">
             <a class="btn-copper" id="dl-win" href="#" rel="nofollow" hidden>Download for Windows</a>
             <a class="btn-copper" id="dl-mac" href="#" rel="nofollow" hidden>Download for Mac</a>
           </div>
           <p class="dl-note">Your licence key is in your welcome email. <a href="setup.html">Setup guide &rarr;</a></p>
-        </section>
-
-        <div class="video-frame rounded-2xl overflow-hidden" style="border:1px solid var(--line);box-shadow:0 30px 60px -28px rgba(0,0,0,.9)">
-          <iframe class="w-full aspect-video bg-black" src="https://www.youtube-nocookie.com/embed/-Z4zRIiPg-4?rel=0&amp;modestbranding=1&amp;playsinline=1" title="Stride welcome video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
         </div>
-      </div>
+      </section>
 
-      <!-- ONE offer, and only one.
-           The Experimental Collection used to have a card here beside this one, and the two
-           were near enough identical, each with its own copper countdown, that the pair read
-           as the same offer printed twice. The run now gives each offer its own screen: the
-           Collection is /post2/, shown only to a buyer who did not take it as the bump at
-           checkout, and the session is here. Nobody is asked to weigh two things at once.
-           (The Collection helpers in the script below stay, because the checkout machinery is
-           shared with this card and they all no-op with no #coll-rail in the page.) -->
-      <div class="md:col-span-2 flex flex-col gap-3">
-
-        <!-- Paid 1:1. The free onboarding call that used to sit above this was removed
-             on purpose: it promised "whatever's in your way, we'll get you past it" on the
-             page ~95% of buyers land on, which absorbed most of what this sells. If a free
-             call ever comes back here, word it narrowly or it will eat this again.
-
-             This is a CONTAINER, not a link, because a Stride owner gets a Book button that
-             opens a checkout. Wrapping the whole card in an <a href="session.html"> would
-             swallow that click. The fallback state, and anyone with no open offer, still
-             gets a plain link out to the page. -->
-        <!-- No flex-1: with two cards in this column it had to stretch to match its
-             neighbour, and with one it stretched to the height of the video instead and
-             left ~100px of empty panel under the button. It sizes to its content now. -->
-        <div class="support-card min-w-[240px] flex flex-col p-4 rounded-2xl panel" id="session-rail">
-          <div class="rail-session">
-            <p class="silk mb-2" style="color:var(--copper-lt)">Want to go deeper?</p>
-            <p class="text-[15px] font-black ink leading-snug mb-1">Spend an hour with the person who built Stride.</p>
-            <p class="text-[11px] ink3 leading-snug">Your session. Your plugins. Your sound.</p>
-
-            <!-- Owner state. Hidden until the backend confirms this buyer has an open
-                 offer, on the server's clock: showing a price we might not honour and
-                 then correcting it is worse than showing the public one. -->
-            <div class="rail-offer" hidden>
-              <span class="offer-flag"><span class="offer-dot" aria-hidden="true"></span>New Stride owner price</span>
-              <p class="offer-clock" role="timer">Offer ends in <b data-rail-left>72h</b></p>
-              <div class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-                <del class="price-was"><span class="sr-only">Full price </span><span data-rail-was>$199</span></del>
-                <span class="price text-3xl" data-rail-now>$99</span>
-              </div>
-            </div>
-
-            <!-- Public state. Also the fallback for no offer, an expired one, a used one,
-                 a Lemon Squeezy buyer, or any backend failure. -->
-            <p class="rail-public text-xl font-black ink mt-2">1:1 session &middot; $199</p>
+      <section class="wcard panel rounded-2xl">
+        <p class="silk wcard-k">Watch the walkthrough</p>
+        <p class="wcard-h">Stride 2.0 walkthrough</p>
+        <p class="wcard-s">The canvas, a rack and a finished clip, start to finish.</p>
+        <div class="wcard-body">
+          <div class="video-frame rounded-xl overflow-hidden" style="border:1px solid var(--line)">
+            <iframe class="w-full aspect-video bg-black" src="https://www.youtube-nocookie.com/embed/-Z4zRIiPg-4?rel=0&amp;modestbranding=1&amp;playsinline=1" title="Stride welcome video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
           </div>
-
-          <button type="button" class="rail-book btn-copper w-full mt-3 px-4 py-2.5 text-xs uppercase" hidden>Book a session</button>
-          <p class="rail-note text-xs ink3 leading-relaxed mt-3" aria-live="polite" hidden></p>
-          <a href="session.html" class="rail-link silk mt-4 hover:text-[color:var(--ember)] transition-colors" style="color:var(--copper-lt)">See what it covers &rarr;</a>
         </div>
-
-        <!-- Help, not an offer. It was a full-width band of its own under the row, which
-             gave one mailto link a whole stripe of the page while the column beside the
-             video sat empty below the offer. Moving it in here spends that gap and takes a
-             block off the page. Same words, same link. -->
-        <a href="mailto:home@stridehub.io" class="support-card flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl group panel">
-          <span>
-            <span class="silk block mb-1">Quick question?</span>
-            <span class="text-[15px] font-black ink">Email support</span>
-            <span class="text-xs ink3 leading-relaxed"> &middot; reply within 48 hours, every email reaches me directly.</span>
-          </span>
-          <span class="silk group-hover:text-[color:var(--ink)] transition-colors" style="color:var(--ink2)">home@stridehub.io &rarr;</span>
-        </a>
-
-      </div>
+      </section>
 
     </div>
 
@@ -710,6 +747,55 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </form>
     </section>
 
+    <!-- EXPLORE MORE. One priced offer and one link, not two offers competing.
+         The session keeps its owner price and its clock, because that is what sells it. The
+         Collection is a LINK ONLY: it has its own screen at /post2/ before this one, and its
+         own page, so putting a second countdown here is what made this page read as a wall of
+         offers in the first place. No price id lives in this markup. -->
+    <p class="silk xm-head">Explore more</p>
+    <div class="grid md:grid-cols-2 gap-3 mb-6">
+
+      <div class="support-card flex flex-col p-4 rounded-2xl panel" id="session-rail">
+          <div class="rail-session">
+            <p class="silk mb-2" style="color:var(--copper-lt)">Want to go deeper?</p>
+            <p class="text-[15px] font-black ink leading-snug mb-1">Spend an hour with the person who built Stride.</p>
+            <p class="text-[11px] ink3 leading-snug">Your session. Your plugins. Your sound.</p>
+
+            <!-- Owner state. Hidden until the backend confirms this buyer has an open
+                 offer, on the server's clock: showing a price we might not honour and
+                 then correcting it is worse than showing the public one. -->
+            <div class="rail-offer" hidden>
+              <span class="offer-flag"><span class="offer-dot" aria-hidden="true"></span>New Stride owner price</span>
+              <p class="offer-clock" role="timer">Offer ends in <b data-rail-left>72h</b></p>
+              <div class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                <del class="price-was"><span class="sr-only">Full price </span><span data-rail-was>$199</span></del>
+                <span class="price text-3xl" data-rail-now>$99</span>
+              </div>
+            </div>
+
+            <!-- Public state. Also the fallback for no offer, an expired one, a used one,
+                 a Lemon Squeezy buyer, or any backend failure. -->
+            <p class="rail-public text-xl font-black ink mt-2">1:1 session &middot; $199</p>
+          </div>
+
+          <button type="button" class="rail-book btn-copper w-full mt-3 px-4 py-2.5 text-xs uppercase" hidden>Book a session</button>
+          <p class="rail-note text-xs ink3 leading-relaxed mt-3" aria-live="polite" hidden></p>
+          <a href="session.html" class="rail-link silk mt-4 hover:text-[color:var(--ember)] transition-colors" style="color:var(--copper-lt)">See what it covers &rarr;</a>
+      </div>
+
+      <a href="samples.html" class="support-card xm-link flex flex-col p-4 rounded-2xl panel group">
+        <div class="rail-stack" aria-hidden="true">
+          <img src="assets/packs/pack-drums.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
+          <img src="assets/packs/pack-water.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
+          <img src="assets/packs/pack-feedback.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
+        </div>
+        <p class="text-[15px] font-black ink leading-snug mt-3 mb-1">Experimental Collection</p>
+        <p class="text-[11px] ink3 leading-snug">250+ sounds &middot; 15 Ableton Racks &middot; 4 StrideChains</p>
+        <span class="silk mt-auto pt-3 group-hover:text-[color:var(--ember)] transition-colors" style="color:var(--copper-lt)">See the Collection &rarr;</span>
+      </a>
+
+    </div>
+
     <!-- Expectation-setting note (creative tool, not mixing tool). Sits between
          video and closing tag so producers see it after the walkthrough. -->
     <div class="max-w-2xl mx-auto mb-10 p-5 rounded-2xl panel">
@@ -722,6 +808,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         Stride is a <b class="ink">sound design tool</b>, not a mixing tool. Pick a rack, scan its parameters, and design motion you'd never draw by hand. Lean into it for variation and movement, not for surgical mix work.
       </p>
     </div>
+
+    <!-- Support, one quiet line. It was a full-width card of its own, then a card in the
+         offers column; it is neither an offer nor a step, so it reads as a footnote now. -->
+    <p class="wcard-help">Need help? <a href="mailto:home@stridehub.io">Email support &rarr;</a><span class="wcard-help-x"> &middot; reply within 48 hours, every email reaches me directly.</span></p>
 
     <!-- The closing tagline used to sit here, directly above a footer that prints the same
          sentence one line lower. Twice in a row read as a mistake, so the footer keeps it. -->
@@ -1192,6 +1282,63 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     .then(function (r) { return r.json(); })
     .then(function (d) { show(d && d.downloads); })
     .catch(function () {});
+})();
+</script>
+
+<script>
+/* ── Language ────────────────────────────────────────────────────────────
+   The same control as the rest of the site. Its own block, not inside the
+   IIFE above, because the button's onclick needs strideLang to be global.
+   window.STRIDE_LANGS says which languages THIS page exists in, written per
+   page by the build, so the control never offers one that 404s. */
+var STRIDE_LOCALES = ['de', 'es', 'fr', 'it', 'ja', 'zh'];
+
+function strideLangCurrent() {
+  var seg = location.pathname.split('/')[1];
+  return STRIDE_LOCALES.indexOf(seg) >= 0 ? seg : 'en';
+}
+
+/* This page in another language, keeping the query and the hash: a buyer
+   arrives here with Paddle's own parameters on the URL and losing them would
+   lose the order this page is about. */
+function strideLangPath(code) {
+  var p = location.pathname;
+  var cur = strideLangCurrent();
+  if (cur !== 'en') p = p.slice(cur.length + 1) || '/';
+  if (code !== 'en') p = '/' + code + (p === '/' ? '/' : p);
+  return p + location.search + location.hash;
+}
+
+function strideLang(btn) {
+  var menu = btn.parentNode.querySelector('.lang-menu');
+  var open = menu.classList.toggle('on');
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+(function strideLangInit() {
+  var box = document.querySelector('.lang-switch');
+  if (!box) return;
+  var btn = box.querySelector('.lang-btn');
+  var menu = box.querySelector('.lang-menu');
+  var cur = strideLangCurrent();
+  var available = window.STRIDE_LANGS || ['en'];
+
+  btn.textContent = cur.toUpperCase();
+  var links = menu.querySelectorAll('a');
+  for (var i = 0; i < links.length; i++) {
+    var code = links[i].getAttribute('data-lang');
+    if (available.indexOf(code) < 0) { links[i].className = 'gone'; continue; }
+    links[i].href = strideLangPath(code);
+    links[i].setAttribute('aria-selected', code === cur ? 'true' : 'false');
+    links[i].onclick = (function (c) {
+      return function () { try { localStorage.setItem('stride_lang', c); } catch (e) {} };
+    })(code);
+  }
+  if (available.length > 1) box.classList.add('ready');
+
+  function close() { menu.classList.remove('on'); btn.setAttribute('aria-expanded', 'false'); }
+  document.addEventListener('click', function (e) { if (!box.contains(e.target)) close(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
 })();
 </script>
 </body>
