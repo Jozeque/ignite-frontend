@@ -740,22 +740,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     text-transform:uppercase;color:#1c1206;background:linear-gradient(180deg,var(--ember),var(--copper));
     border-radius:6px;padding:4px 8px;border:1px solid rgba(255,210,150,.28);
     box-shadow:0 1px 0 rgba(255,255,255,.26) inset,0 8px 16px -11px rgba(198,113,43,.9)}
-  /* ── Tax, said out loud beside the price ─────────────────────────────────
-     Paddle is the merchant of record and prices tax inclusive, so the number on
-     this page is the number charged: nothing is added at the checkout. Saying so
-     answers the question a European buyer otherwise carries all the way into the
-     payment form, and it is true in every state the price line can be in, with or
-     without the Collection.
-     Its own line rather than a fourth chip inside the price box: on desktop that
-     box sits in an `auto` grid column, so anything added inside it takes width off
-     the add-on panel beside it.
-     The :has() rule pulls the price box's own bottom margin in so the note reads as
-     part of the price rather than as the start of the next block. Two classes, so it
-     beats the mb-1 / mb-4 utility on the box: the prebuilt Tailwind sheet is linked
-     AFTER this <style>, and a single-class rule would tie on specificity and lose. */
-  .vat-note{margin:0;font-size:11px;font-weight:800;letter-spacing:.1em;
-    text-transform:uppercase;color:var(--ink3)}
-  .sd-price-box:has(+ .vat-note){margin-bottom:7px}
   /* The ad code, said out loud. Somebody who clicked an ad should be able to see that the
      thing the ad promised actually landed, rather than having to know what the price would
      have been. Deliberately NOT the copper seal beside it: that one is the saving and has to
@@ -1446,7 +1430,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                the ordinary hero is unchanged to the pixel. -->
           <span class="code-seal" id="codeSeal" hidden></span>
         </div>
-        <p class="vat-note">IVA incl.</p>
         <!-- Name the two things actually included, then the order bump above the buttons, as it always was. -->
         <ul class="vlist vlist-2 hero-included">
           <li><span class="d">&#9679;</span><span><b>Stride VST + StrideBridge</b> incluso</span></li>
@@ -2172,7 +2155,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="text-lg font-bold ink3 leading-none" style="text-decoration:line-through;opacity:.75">$129</div>
             <span class="seal2">Risparmi $30</span>
           </div>
-          <p class="vat-note">IVA incl.</p>
           <p class="text-[12px] font-bold mb-5 mt-2.5 sd-what" style="color:var(--sage-lt)">Stride VST + StrideBridge</p>
           <div class="addon addon-compact" style="margin-bottom:13px" hidden>
             <img class="addon-art" src="/assets/packs/pack-drums-thumb.png" alt="" width="168" height="168" loading="lazy" decoding="async">
