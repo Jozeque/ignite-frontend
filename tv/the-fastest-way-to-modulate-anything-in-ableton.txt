@@ -203,7 +203,7 @@ d:I[68027,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default",1]
     }
 })();
 b:X
-0:{"P":null,"c":["","tv","the-fastest-way-to-modulate-anything-in-ableton"],"q":"","i":false,"f":[[["",{"children":["tv",{"children":[["slug","the-fastest-way-to-modulate-anything-in-ableton","d",[]],{"children":["__PAGE__",{},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4624],[["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/1axj_975yblc5.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","script","script-0",{"src":"/_next/static/chunks/1mpnoxox0-4cg.js","async":true,"nonce":"$undefined"}]],["$","html",null,{"lang":"en","className":"dark outfit_c8e75115-module__GXCCoG__variable space_mono_d8eecc30-module__bEIZiG__variable","children":[["$","head",null,{"children":[false,["$","script",null,{"dangerouslySetInnerHTML":{"__html":"$2"}}],"$L3","$L4","$L5","$L6"]}],"$L7"]}]]}],{"children":["$L8",{"children":["$L9",{"children":["$La",{},null,false,null]},null,false,"$b"]},null,false,"$b"]},null,false,null],"$Lc",false]],"m":"$undefined","G":["$d",["$Le"]],"S":true,"h":null,"r":"$undefined","s":"$undefined","a":"$undefined","l":"$undefined","p":"$undefined","d":"$undefined","b":"VVqNYHoa8gcZYVQENHky-"}
+0:{"P":null,"c":["","tv","the-fastest-way-to-modulate-anything-in-ableton"],"q":"","i":false,"f":[[["",{"children":["tv",{"children":[["slug","the-fastest-way-to-modulate-anything-in-ableton","d",[]],{"children":["__PAGE__",{},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4624],[["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/1axj_975yblc5.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","script","script-0",{"src":"/_next/static/chunks/1mpnoxox0-4cg.js","async":true,"nonce":"$undefined"}]],["$","html",null,{"lang":"en","className":"dark outfit_c8e75115-module__GXCCoG__variable space_mono_d8eecc30-module__bEIZiG__variable","children":[["$","head",null,{"children":[false,["$","script",null,{"dangerouslySetInnerHTML":{"__html":"$2"}}],"$L3","$L4","$L5","$L6"]}],"$L7"]}]]}],{"children":["$L8",{"children":["$L9",{"children":["$La",{},null,false,null]},null,false,"$b"]},null,false,"$b"]},null,false,null],"$Lc",false]],"m":"$undefined","G":["$d",["$Le"]],"S":true,"h":null,"r":"$undefined","s":"$undefined","a":"$undefined","l":"$undefined","p":"$undefined","d":"$undefined","b":"0RhFNRygE8iDVWW4K5UbM"}
 13:I[39756,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default"]
 14:I[37457,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default"]
 16:I[97367,["/_next/static/chunks/1mpnoxox0-4cg.js"],"OutletBoundary"]
@@ -215,7 +215,7 @@ b:X
 5:["$","script",null,{"dangerouslySetInnerHTML":{"__html":"\n  window.dataLayer = window.dataLayer || [];\n  function gtag(){dataLayer.push(arguments);}\n  gtag('js', new Date());\n\n  gtag('config', 'G-JCMEXN70CM');\n"}}]
 6:["$","script",null,{"dangerouslySetInnerHTML":{"__html":"\n    (function(c,l,a,r,i,t,y){\n        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};\n        t=l.createElement(r);t.async=1;t.src=\"https://www.clarity.ms/tag/\"+i;\n        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);\n    })(window, document, \"clarity\", \"script\", \"yj7cm3a9sz\");\n"}}]
 f:["$","iframe",null,{"src":"https://www.googletagmanager.com/ns.html?id=GTM-5R4N7FVP","height":"0","width":"0","style":{"display":"none","visibility":"hidden"}}]
-10:T3c8b,<style>
+10:T54c3,<style>
   /* The header carries everything it needs to look the same anywhere. setup, samples and
      session already define these tokens and classes; privacy, terms and refund define none
      of them, which is how refund.html ended up with a wordmark at a different size. Rather
@@ -244,7 +244,12 @@ f:["$","iframe",null,{"src":"https://www.googletagmanager.com/ns.html?id=GTM-5R4
     font-weight:800;border-radius:14px;transition:transform .15s,border-color .15s,color .15s;cursor:pointer}
   #m-menu .btn-ghost:hover{transform:translateY(-2px);border-color:rgba(216,201,176,.28);color:var(--hdr-ink)}
 
-  .stride-header{position:relative;z-index:1;width:100%;max-width:1400px;margin:0 auto;padding:0 1.5rem}
+  /* z-index 60, not 1: the header now owns a dropdown, and at 1 the language menu was trapped
+     in the header's own stacking context and painted UNDER the page (measured: the first row of
+     the page received the click). 60 clears ordinary content and still sits below everything
+     that is meant to cover the header: the demo prompt (120), the sticky buy bar (1000), the
+     mobile sheet (1100) and the film (1200). */
+  .stride-header{position:relative;z-index:60;width:100%;max-width:1400px;margin:0 auto;padding:0 1.5rem}
   .stride-header > nav{display:flex;justify-content:space-between;align-items:center;padding:1.5rem 0}
   /* ── The strip ──────────────────────────────────────────────────────────
      A band behind the header with a hairline under it, so the top of the page
@@ -261,6 +266,34 @@ f:["$","iframe",null,{"src":"https://www.googletagmanager.com/ns.html?id=GTM-5R4
     -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
     border-bottom:1px solid var(--hdr-line)}
   .stride-header .silk{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--hdr-ink3)}
+
+  /* ── Language ──────────────────────────────────────────────────────────
+     A short code beside the wordmark that opens the languages this page is
+     published in. The markup is identical on every page: the script rewrites
+     each href to THIS page in that language and hides the ones the page has
+     not been translated into, so the header stays the same everywhere and the
+     control can never offer a page that does not exist. Hidden until the
+     script has decided, so it cannot flash a list and then shorten it. */
+  .lang-switch{position:relative;display:none}
+  .lang-switch.ready{display:block}
+  .lang-btn{display:inline-flex;align-items:center;gap:.34em;padding:3px 7px;
+    border:1px solid var(--hdr-line);border-radius:8px;background:transparent;
+    color:var(--hdr-ink3);font:inherit;font-size:10px;font-weight:800;
+    letter-spacing:.14em;text-transform:uppercase;cursor:pointer;
+    transition:color .15s,border-color .15s}
+  .lang-btn:hover,.lang-btn[aria-expanded="true"]{color:var(--hdr-ink);border-color:rgba(216,201,176,.28)}
+  .lang-btn::after{content:"";width:0;height:0;border-left:3px solid transparent;
+    border-right:3px solid transparent;border-top:4px solid currentColor;opacity:.7}
+  .lang-menu{position:absolute;top:calc(100% + 8px);left:0;z-index:60;display:none;
+    min-width:150px;padding:6px;background:var(--hdr-panel);
+    border:1px solid var(--hdr-line);border-radius:12px;
+    box-shadow:0 24px 50px -24px rgba(0,0,0,.9)}
+  .lang-menu.on{display:block}
+  .lang-menu a{display:block;padding:8px 10px;border-radius:8px;font-size:13px;
+    font-weight:600;color:var(--hdr-ink2);text-decoration:none;white-space:nowrap}
+  .lang-menu a:hover{background:var(--hdr-raise);color:var(--hdr-ink)}
+  .lang-menu a[aria-selected="true"]{color:var(--hdr-copper-lt)}
+  .lang-menu a.gone{display:none}
   #m-menu-btn{display:none}
   @media (max-width:899.98px){
     /* Tailwind's .flex is loaded after the page's own styles and both selectors are
@@ -298,10 +331,24 @@ f:["$","iframe",null,{"src":"https://www.googletagmanager.com/ns.html?id=GTM-5R4
 
 <div class="stride-header">
   <nav class="flex justify-between items-center py-6">
-    <a href="/" class="flex items-center gap-3">
-      <span class="text-3xl font-black brand tracking-tighter leading-none">STRIDE</span>
-      <span class="silk hidden sm:block border-l pl-3" style="border-color:var(--hdr-line)">Sound Design Engine</span>
-    </a>
+    <div class="flex items-center gap-3">
+      <a href="/" class="flex items-center gap-3">
+        <span class="text-3xl font-black brand tracking-tighter leading-none">STRIDE</span>
+        <span class="silk hidden sm:block border-l pl-3" style="border-color:var(--hdr-line)">Sound Design Engine</span>
+      </a>
+      <div class="lang-switch" data-no-translate>
+        <button type="button" class="lang-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Language" onclick="strideLang(this)">EN</button>
+        <div class="lang-menu" role="listbox" aria-label="Language">
+          <a role="option" data-lang="en" href="/">English</a>
+          <a role="option" data-lang="de" href="/de/">Deutsch</a>
+          <a role="option" data-lang="es" href="/es/">Español</a>
+          <a role="option" data-lang="fr" href="/fr/">Français</a>
+          <a role="option" data-lang="it" href="/it/">Italiano</a>
+          <a role="option" data-lang="ja" href="/ja/">日本語</a>
+          <a role="option" data-lang="zh" href="/zh/">简体中文</a>
+        </div>
+      </div>
+    </div>
     <button id="m-menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="m-menu"
             onclick="strideMenu(true)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -433,20 +480,76 @@ f:["$","iframe",null,{"src":"https://www.googletagmanager.com/ns.html?id=GTM-5R4
         btn.disabled = false; btn.textContent = 'Send Message';
       });
   }
+
+  /* ── Language ──────────────────────────────────────────────────────────
+     The same markup on every page. window.STRIDE_LANGS says which languages
+     THIS page exists in, written per page by the build, so the header itself
+     never has to differ from one page to the next. The control stays hidden
+     until that list has been read: better no control than one that offers a
+     language and lands on a 404. */
+  var STRIDE_LOCALES = ['de', 'es', 'fr', 'it', 'ja', 'zh'];
+
+  function strideLangCurrent() {
+    var seg = location.pathname.split('/')[1];
+    return STRIDE_LOCALES.indexOf(seg) >= 0 ? seg : 'en';
+  }
+
+  /* This page in another language. The query and the hash come along, because
+     ?code= carries a discount and #pricing carries the reader's place. */
+  function strideLangPath(code) {
+    var p = location.pathname;
+    var cur = strideLangCurrent();
+    if (cur !== 'en') p = p.slice(cur.length + 1) || '/';
+    if (code !== 'en') p = '/' + code + (p === '/' ? '/' : p);
+    return p + location.search + location.hash;
+  }
+
+  function strideLang(btn) {
+    var menu = btn.parentNode.querySelector('.lang-menu');
+    var open = menu.classList.toggle('on');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  (function strideLangInit() {
+    var box = document.querySelector('.lang-switch');
+    if (!box) return;
+    var btn = box.querySelector('.lang-btn');
+    var menu = box.querySelector('.lang-menu');
+    var cur = strideLangCurrent();
+    var available = window.STRIDE_LANGS || ['en'];
+
+    btn.textContent = cur.toUpperCase();
+    var links = menu.querySelectorAll('a');
+    for (var i = 0; i < links.length; i++) {
+      var code = links[i].getAttribute('data-lang');
+      if (available.indexOf(code) < 0) { links[i].className = 'gone'; continue; }
+      links[i].href = strideLangPath(code);
+      links[i].setAttribute('aria-selected', code === cur ? 'true' : 'false');
+      links[i].onclick = (function (c) {
+        return function () { try { localStorage.setItem('stride_lang', c); } catch (e) {} };
+      })(code);
+    }
+    /* Nothing to switch to: show nothing rather than a control that does nothing. */
+    if (available.length > 1) box.classList.add('ready');
+
+    function close() { menu.classList.remove('on'); btn.setAttribute('aria-expanded', 'false'); }
+    document.addEventListener('click', function (e) { if (!box.contains(e.target)) close(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+  })();
 </script>
+1d:I[22016,["/_next/static/chunks/1mpnoxox0-4cg.js","/_next/static/chunks/3t6fbhr0bypsk.js"],""]
+26:I[1274,["/_next/static/chunks/1mpnoxox0-4cg.js","/_next/static/chunks/3t6fbhr0bypsk.js"],"YouTubePlayer"]
+27:I[1274,["/_next/static/chunks/1mpnoxox0-4cg.js","/_next/static/chunks/3t6fbhr0bypsk.js"],"Timestamp"]
+2e:I[16857,["/_next/static/chunks/1mpnoxox0-4cg.js","/_next/static/chunks/3t6fbhr0bypsk.js"],"CtaPanelClient"]
+2f:I[27201,["/_next/static/chunks/1mpnoxox0-4cg.js"],"IconMark"]
 7:["$","body",null,{"className":"font-sans min-h-screen flex flex-col","children":[["$","noscript",null,{"children":"$f"}],["$","div",null,{"dangerouslySetInnerHTML":{"__html":"$10"}}],"$L11","$L12"]}]
 8:["$","$1","c",{"children":[null,["$","$L13",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L14",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}]
 9:["$","$1","c",{"children":[null,["$","$L13",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L14",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}]
 a:["$","$1","c",{"children":["$L15",[["$","script","script-0",{"src":"/_next/static/chunks/3t6fbhr0bypsk.js","async":true,"nonce":"$undefined"}]],["$","$L16",null,{"children":["$","$17",null,{"name":"Next.MetadataOutlet","children":"$@18"}]}]]}]
 c:["$","$1","h",{"children":[null,["$","$L19",null,{"children":"$L1a"}],["$","div",null,{"hidden":true,"children":["$","$L1b",null,{"children":["$","$17",null,{"name":"Next.Metadata","children":"$L1c"}]}]}],["$","meta",null,{"name":"next-size-adjust","content":""}]]}]
 e:["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/1axj_975yblc5.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]
-1d:I[22016,["/_next/static/chunks/1mpnoxox0-4cg.js","/_next/static/chunks/3t6fbhr0bypsk.js"],""]
 b:C
 11:["$","main",null,{"className":"wrap flex-1 w-full","children":["$","$L13",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L14",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[["$","div",null,{"className":"max-w-2xl mx-auto px-6 py-24 text-center","children":[["$","p",null,{"className":"silk mb-4","children":"404"}],["$","h1",null,{"className":"text-4xl md:text-6xl tracking-tight","children":["This lane is ",["$","span",null,{"className":"brand","children":"empty."}]]}],["$","p",null,{"className":"ink2 mt-5","children":"The page moved or never existed. Here is where the sound is."}],["$","div",null,{"className":"flex flex-wrap justify-center gap-3 mt-10","children":[["$","a",null,{"href":"/","className":"btn-copper text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Home"}],["$","$L1d",null,{"href":"/tv","className":"btn-ghost text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Videos"}],["$","a",null,{"href":"/blog.html","className":"btn-ghost text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Blog"}],["$","a",null,{"href":"/setup.html","className":"btn-ghost text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Setup"}]]}]]}],[]],"forbidden":"$undefined","unauthorized":"$undefined"}]}]
-26:I[1274,["/_next/static/chunks/1mpnoxox0-4cg.js","/_next/static/chunks/3t6fbhr0bypsk.js"],"YouTubePlayer"]
-27:I[1274,["/_next/static/chunks/1mpnoxox0-4cg.js","/_next/static/chunks/3t6fbhr0bypsk.js"],"Timestamp"]
-2e:I[16857,["/_next/static/chunks/1mpnoxox0-4cg.js","/_next/static/chunks/3t6fbhr0bypsk.js"],"CtaPanelClient"]
-2f:I[27201,["/_next/static/chunks/1mpnoxox0-4cg.js"],"IconMark"]
 12:["$","footer",null,{"className":"wrap w-full border-t py-8 text-center mt-auto","style":{"borderColor":"var(--line)","background":"#100f0c"},"children":[["$","nav",null,{"aria-label":"Explore","className":"flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mb-3 px-6","children":[["$","a",null,{"href":"/blog.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Blog"}],["$","$L1d",null,{"href":"/tv","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Videos"}],false,["$","a",null,{"href":"/setup.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Setup"}],["$","a",null,{"href":"/samples.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Experimental Collection"}]]}],["$","nav",null,{"aria-label":"Legal","className":"flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mb-3 px-6","children":[["$","a",null,{"href":"/privacy.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Privacy Policy"}],["$","a",null,{"href":"/terms.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Terms of Service"}],["$","a",null,{"href":"/refund.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Refund Policy"}]]}],["$","p",null,{"className":"text-[13px] text-zinc-500 font-bold uppercase tracking-widest px-6","children":["© ",2026," STRIDE ENGINE. BUILT FOR PRODUCERS. BUILT FOR EVERY DAW."]}],["$","p",null,{"className":"text-[11px] text-zinc-600 mt-3 max-w-2xl mx-auto leading-relaxed px-6","children":"Third-party plugins are sold separately. All product names and trademarks belong to their respective owners. Stride is an independent product and is not affiliated with or endorsed by these companies."}]]}]
 1e:T1741,{"@context":"https://schema.org","@graph":[{"@type":"VideoObject","@id":"https://stridehub.io/tv/the-fastest-way-to-modulate-anything-in-ableton#video","name":"The Fastest Way to Modulate Anything in Ableton","description":"Hello guys. So I want to show you the sickest way to get modulation in Ableton these days. This is Stride and I'm going to show you how I think is the best way using it and everything here. You'll see also visually and also hear it. And yeah so it both it works both on session view and arrangement…","thumbnailUrl":["https://i.ytimg.com/vi/nE0OEIcvrZI/maxresdefault.jpg","https://i.ytimg.com/vi/nE0OEIcvrZI/hqdefault.jpg"],"uploadDate":"2026-06-29T08:18:39+00:00","duration":"PT7M3S","embedUrl":"https://www.youtube.com/embed/nE0OEIcvrZI","url":"https://stridehub.io/tv/the-fastest-way-to-modulate-anything-in-ableton","inLanguage":"en","publisher":{"@id":"https://stridehub.io/#organization"},"transcript":"Hello guys. So I want to show you the sickest way to get modulation in Ableton these days. This is Stride and I'm going to show you how I think is the best way using it and everything here. You'll see also visually and also hear it. And yeah so it both it works both on session view and arrangement view. And let's say I have this Serum patch right here. All right. So I have here this MIDI clip and here you have the new map button and I can press it and map everything really quick. The map button when you're on session view it auto triggers the record button in session view and when you're in arrangement view it auto triggers the button in arrangement view so you don't have to go to the right button you just click on map and everything is working properly yeah so I'll keep the arp just the same and let's apply some curves as you can see every time I will press on chaos it will apply total different curves like all the time. It's generative and you always get new stuff. And let's just inject this one. Okay. So this is one variation and as long as we go I can just duplicate the MIDI clip few times and Stride knows to inject H to the clip that is in detail view. So in order to inject manipulation to this clip to this clip you need to double click it and then you're then h it's viewed here. Make sure these two arrows are on. So you can see also the device channel and also the detail view. And now let's just apply total different curves on this one. And have a listen New variation. Yeah. And it's basically endless like you can go through all of them and generate bunch of stuff. So if I'm if I'm I'm listening to it And I think that maybe the noise is too much. Then I can go directly to the noise and I can reduce the depth of it and reduce the ceiling of it. And then it's really subtle and I can inject it one more time and then we have all the new curves. Okay. Yes. So when if you want to change evolve even more then I can lock all the if I if I love this let's say this modulation then I can lock all the lanes and now let's say just I want for a bit of touch to add a reverb or saturator and now I want to modulate only the dry wet of this saturator just so it has some more movement. So it and when I'll map it and I will scan let's say with I don't know with a chaos pattern then you can see that all the lanes are locked and only the only the new parameter is available for injection. So as soon as I'm injecting to clip All the previous parameters kept their modulation and only the new parameter get and you can just keep with it. You can lock it again add more parameters and always make your chain evolve. Yeah just LS exploration this button is autoscan. It means that every time I'll press on motion button, it will autoscan the rack itself like it's scanning the parameter that have automation lane which has red dot and it knows where to inject all the modulations. Yeah, so basically you can take all these MIDI clips, you can drag them and drop them straight into straight into your timeline and you will see all the all the automation lanes in here and also what you can do you can work straight from here. So let's say I want this MIDI clip. You always need to again I'm repeating it always need to make sure that the clip is in detail view. This is this how Stride knows where to inject. So sometimes in arrangement view we are on two clips together and this is not good. It will only inject if you're selecting one clip. So say I'm selecting this one clip and now I want to inject to it the reflector algorithm. And as soon as I'm injecting to clip, you will see all the new curves of the reflector on this clip. Also, I can open a new one. So, let's say I have a new MIDI clip and I want eight bars of sample and hold. And I'm injecting. So, it takes two seconds and you will see the new MIDI clip with all the lanes with the same algorithm that you just picked. And yeah, it's basically endless exploration. Make sure if you want to inject to your parameters, make sure that they are not locked because before we lock them and now I unlock them. So I can keep injecting new curves on them. You can see it here how many parameters are locked. Yeah, you can stretch the time, you can reduce the time, you can basically do whatever you want each pattern. H try to mutate it, try to flip it and just keep going and build endless variations from your instruments. And this is mainly for sound design and creative tool. Yeah, that's it. And I hope you guys use it properly. And if you need anything, just hit me in the comments or in Instagram or whatever. And I'm always available. And enjoy."},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://stridehub.io/"},{"@type":"ListItem","position":2,"name":"Videos","item":"https://stridehub.io/tv"},{"@type":"ListItem","position":3,"name":"The Fastest Way to Modulate Anything in Ableton","item":"https://stridehub.io/tv/the-fastest-way-to-modulate-anything-in-ableton"}]}]}15:["$","article",null,{"className":"max-w-4xl mx-auto px-6 pt-4 pb-24","children":[["$","script",null,{"type":"application/ld+json","dangerouslySetInnerHTML":{"__html":"$1e"}}],"$L1f","$L20","$L21","$L22","$undefined","$L23","$L24","$L25"]}]
 1f:["$","nav",null,{"aria-label":"Breadcrumb","className":"silk mb-6 flex items-center gap-2","children":[["$","$L1d",null,{"href":"/tv","className":"hover:text-[color:var(--copper-lt)] transition-colors","children":"Videos"}],["$","span",null,{"aria-hidden":"true","children":"/"}],["$","span",null,{"className":"truncate normal-case tracking-normal text-[12px] font-semibold","children":"The Fastest Way to Modulate Anything in Ableton"}]]}]

@@ -200,7 +200,7 @@ c:I[68027,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default",1]
     }
 })();
 a:X
-0:{"P":null,"c":["","_not-found"],"q":"","i":false,"f":[[["",{"children":["/_not-found",{"children":["__PAGE__",{},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4624],[["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/1axj_975yblc5.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","script","script-0",{"src":"/_next/static/chunks/1mpnoxox0-4cg.js","async":true,"nonce":"$undefined"}]],["$","html",null,{"lang":"en","className":"dark outfit_c8e75115-module__GXCCoG__variable space_mono_d8eecc30-module__bEIZiG__variable","children":[["$","head",null,{"children":[false,["$","script",null,{"dangerouslySetInnerHTML":{"__html":"$2"}}],"$L3","$L4","$L5","$L6"]}],"$L7"]}]]}],{"children":["$L8",{"children":["$L9",{},null,false,null]},null,false,"$a"]},null,false,null],"$Lb",false]],"m":"$undefined","G":["$c",["$Ld"]],"S":true,"h":null,"r":"$undefined","s":"$undefined","a":"$undefined","l":"$undefined","p":"$undefined","d":"$undefined","b":"VVqNYHoa8gcZYVQENHky-"}
+0:{"P":null,"c":["","_not-found"],"q":"","i":false,"f":[[["",{"children":["/_not-found",{"children":["__PAGE__",{},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4624],[["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/1axj_975yblc5.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","script","script-0",{"src":"/_next/static/chunks/1mpnoxox0-4cg.js","async":true,"nonce":"$undefined"}]],["$","html",null,{"lang":"en","className":"dark outfit_c8e75115-module__GXCCoG__variable space_mono_d8eecc30-module__bEIZiG__variable","children":[["$","head",null,{"children":[false,["$","script",null,{"dangerouslySetInnerHTML":{"__html":"$2"}}],"$L3","$L4","$L5","$L6"]}],"$L7"]}]]}],{"children":["$L8",{"children":["$L9",{},null,false,null]},null,false,"$a"]},null,false,null],"$Lb",false]],"m":"$undefined","G":["$c",["$Ld"]],"S":true,"h":null,"r":"$undefined","s":"$undefined","a":"$undefined","l":"$undefined","p":"$undefined","d":"$undefined","b":"0RhFNRygE8iDVWW4K5UbM"}
 12:I[39756,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default"]
 13:I[37457,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default"]
 14:I[22016,["/_next/static/chunks/1mpnoxox0-4cg.js"],""]
@@ -213,7 +213,7 @@ a:X
 5:["$","script",null,{"dangerouslySetInnerHTML":{"__html":"\n  window.dataLayer = window.dataLayer || [];\n  function gtag(){dataLayer.push(arguments);}\n  gtag('js', new Date());\n\n  gtag('config', 'G-JCMEXN70CM');\n"}}]
 6:["$","script",null,{"dangerouslySetInnerHTML":{"__html":"\n    (function(c,l,a,r,i,t,y){\n        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};\n        t=l.createElement(r);t.async=1;t.src=\"https://www.clarity.ms/tag/\"+i;\n        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);\n    })(window, document, \"clarity\", \"script\", \"yj7cm3a9sz\");\n"}}]
 e:["$","iframe",null,{"src":"https://www.googletagmanager.com/ns.html?id=GTM-5R4N7FVP","height":"0","width":"0","style":{"display":"none","visibility":"hidden"}}]
-f:T3c8b,<style>
+f:T54c3,<style>
   /* The header carries everything it needs to look the same anywhere. setup, samples and
      session already define these tokens and classes; privacy, terms and refund define none
      of them, which is how refund.html ended up with a wordmark at a different size. Rather
@@ -242,7 +242,12 @@ f:T3c8b,<style>
     font-weight:800;border-radius:14px;transition:transform .15s,border-color .15s,color .15s;cursor:pointer}
   #m-menu .btn-ghost:hover{transform:translateY(-2px);border-color:rgba(216,201,176,.28);color:var(--hdr-ink)}
 
-  .stride-header{position:relative;z-index:1;width:100%;max-width:1400px;margin:0 auto;padding:0 1.5rem}
+  /* z-index 60, not 1: the header now owns a dropdown, and at 1 the language menu was trapped
+     in the header's own stacking context and painted UNDER the page (measured: the first row of
+     the page received the click). 60 clears ordinary content and still sits below everything
+     that is meant to cover the header: the demo prompt (120), the sticky buy bar (1000), the
+     mobile sheet (1100) and the film (1200). */
+  .stride-header{position:relative;z-index:60;width:100%;max-width:1400px;margin:0 auto;padding:0 1.5rem}
   .stride-header > nav{display:flex;justify-content:space-between;align-items:center;padding:1.5rem 0}
   /* ── The strip ──────────────────────────────────────────────────────────
      A band behind the header with a hairline under it, so the top of the page
@@ -259,6 +264,34 @@ f:T3c8b,<style>
     -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
     border-bottom:1px solid var(--hdr-line)}
   .stride-header .silk{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--hdr-ink3)}
+
+  /* ── Language ──────────────────────────────────────────────────────────
+     A short code beside the wordmark that opens the languages this page is
+     published in. The markup is identical on every page: the script rewrites
+     each href to THIS page in that language and hides the ones the page has
+     not been translated into, so the header stays the same everywhere and the
+     control can never offer a page that does not exist. Hidden until the
+     script has decided, so it cannot flash a list and then shorten it. */
+  .lang-switch{position:relative;display:none}
+  .lang-switch.ready{display:block}
+  .lang-btn{display:inline-flex;align-items:center;gap:.34em;padding:3px 7px;
+    border:1px solid var(--hdr-line);border-radius:8px;background:transparent;
+    color:var(--hdr-ink3);font:inherit;font-size:10px;font-weight:800;
+    letter-spacing:.14em;text-transform:uppercase;cursor:pointer;
+    transition:color .15s,border-color .15s}
+  .lang-btn:hover,.lang-btn[aria-expanded="true"]{color:var(--hdr-ink);border-color:rgba(216,201,176,.28)}
+  .lang-btn::after{content:"";width:0;height:0;border-left:3px solid transparent;
+    border-right:3px solid transparent;border-top:4px solid currentColor;opacity:.7}
+  .lang-menu{position:absolute;top:calc(100% + 8px);left:0;z-index:60;display:none;
+    min-width:150px;padding:6px;background:var(--hdr-panel);
+    border:1px solid var(--hdr-line);border-radius:12px;
+    box-shadow:0 24px 50px -24px rgba(0,0,0,.9)}
+  .lang-menu.on{display:block}
+  .lang-menu a{display:block;padding:8px 10px;border-radius:8px;font-size:13px;
+    font-weight:600;color:var(--hdr-ink2);text-decoration:none;white-space:nowrap}
+  .lang-menu a:hover{background:var(--hdr-raise);color:var(--hdr-ink)}
+  .lang-menu a[aria-selected="true"]{color:var(--hdr-copper-lt)}
+  .lang-menu a.gone{display:none}
   #m-menu-btn{display:none}
   @media (max-width:899.98px){
     /* Tailwind's .flex is loaded after the page's own styles and both selectors are
@@ -296,10 +329,24 @@ f:T3c8b,<style>
 
 <div class="stride-header">
   <nav class="flex justify-between items-center py-6">
-    <a href="/" class="flex items-center gap-3">
-      <span class="text-3xl font-black brand tracking-tighter leading-none">STRIDE</span>
-      <span class="silk hidden sm:block border-l pl-3" style="border-color:var(--hdr-line)">Sound Design Engine</span>
-    </a>
+    <div class="flex items-center gap-3">
+      <a href="/" class="flex items-center gap-3">
+        <span class="text-3xl font-black brand tracking-tighter leading-none">STRIDE</span>
+        <span class="silk hidden sm:block border-l pl-3" style="border-color:var(--hdr-line)">Sound Design Engine</span>
+      </a>
+      <div class="lang-switch" data-no-translate>
+        <button type="button" class="lang-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Language" onclick="strideLang(this)">EN</button>
+        <div class="lang-menu" role="listbox" aria-label="Language">
+          <a role="option" data-lang="en" href="/">English</a>
+          <a role="option" data-lang="de" href="/de/">Deutsch</a>
+          <a role="option" data-lang="es" href="/es/">Español</a>
+          <a role="option" data-lang="fr" href="/fr/">Français</a>
+          <a role="option" data-lang="it" href="/it/">Italiano</a>
+          <a role="option" data-lang="ja" href="/ja/">日本語</a>
+          <a role="option" data-lang="zh" href="/zh/">简体中文</a>
+        </div>
+      </div>
+    </div>
     <button id="m-menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="m-menu"
             onclick="strideMenu(true)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -431,7 +478,64 @@ f:T3c8b,<style>
         btn.disabled = false; btn.textContent = 'Send Message';
       });
   }
+
+  /* ── Language ──────────────────────────────────────────────────────────
+     The same markup on every page. window.STRIDE_LANGS says which languages
+     THIS page exists in, written per page by the build, so the header itself
+     never has to differ from one page to the next. The control stays hidden
+     until that list has been read: better no control than one that offers a
+     language and lands on a 404. */
+  var STRIDE_LOCALES = ['de', 'es', 'fr', 'it', 'ja', 'zh'];
+
+  function strideLangCurrent() {
+    var seg = location.pathname.split('/')[1];
+    return STRIDE_LOCALES.indexOf(seg) >= 0 ? seg : 'en';
+  }
+
+  /* This page in another language. The query and the hash come along, because
+     ?code= carries a discount and #pricing carries the reader's place. */
+  function strideLangPath(code) {
+    var p = location.pathname;
+    var cur = strideLangCurrent();
+    if (cur !== 'en') p = p.slice(cur.length + 1) || '/';
+    if (code !== 'en') p = '/' + code + (p === '/' ? '/' : p);
+    return p + location.search + location.hash;
+  }
+
+  function strideLang(btn) {
+    var menu = btn.parentNode.querySelector('.lang-menu');
+    var open = menu.classList.toggle('on');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  (function strideLangInit() {
+    var box = document.querySelector('.lang-switch');
+    if (!box) return;
+    var btn = box.querySelector('.lang-btn');
+    var menu = box.querySelector('.lang-menu');
+    var cur = strideLangCurrent();
+    var available = window.STRIDE_LANGS || ['en'];
+
+    btn.textContent = cur.toUpperCase();
+    var links = menu.querySelectorAll('a');
+    for (var i = 0; i < links.length; i++) {
+      var code = links[i].getAttribute('data-lang');
+      if (available.indexOf(code) < 0) { links[i].className = 'gone'; continue; }
+      links[i].href = strideLangPath(code);
+      links[i].setAttribute('aria-selected', code === cur ? 'true' : 'false');
+      links[i].onclick = (function (c) {
+        return function () { try { localStorage.setItem('stride_lang', c); } catch (e) {} };
+      })(code);
+    }
+    /* Nothing to switch to: show nothing rather than a control that does nothing. */
+    if (available.length > 1) box.classList.add('ready');
+
+    function close() { menu.classList.remove('on'); btn.setAttribute('aria-expanded', 'false'); }
+    document.addEventListener('click', function (e) { if (!box.contains(e.target)) close(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+  })();
 </script>
+1c:I[27201,["/_next/static/chunks/1mpnoxox0-4cg.js"],"IconMark"]
 7:["$","body",null,{"className":"font-sans min-h-screen flex flex-col","children":[["$","noscript",null,{"children":"$e"}],["$","div",null,{"dangerouslySetInnerHTML":{"__html":"$f"}}],"$L10","$L11"]}]
 8:["$","$1","c",{"children":[null,["$","$L12",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L13",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}]
 9:["$","$1","c",{"children":[["$","div",null,{"className":"max-w-2xl mx-auto px-6 py-24 text-center","children":[["$","p",null,{"className":"silk mb-4","children":"404"}],["$","h1",null,{"className":"text-4xl md:text-6xl tracking-tight","children":["This lane is ",["$","span",null,{"className":"brand","children":"empty."}]]}],["$","p",null,{"className":"ink2 mt-5","children":"The page moved or never existed. Here is where the sound is."}],["$","div",null,{"className":"flex flex-wrap justify-center gap-3 mt-10","children":[["$","a",null,{"href":"/","className":"btn-copper text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Home"}],["$","$L14",null,{"href":"/tv","className":"btn-ghost text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Videos"}],["$","a",null,{"href":"/blog.html","className":"btn-ghost text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Blog"}],["$","a",null,{"href":"/setup.html","className":"btn-ghost text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Setup"}]]}]]}],null,["$","$L15",null,{"children":["$","$16",null,{"name":"Next.MetadataOutlet","children":"$@17"}]}]]}]
@@ -439,7 +543,6 @@ b:["$","$1","h",{"children":[["$","meta",null,{"name":"robots","content":"noinde
 d:["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/1axj_975yblc5.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]
 a:C
 10:["$","main",null,{"className":"wrap flex-1 w-full","children":["$","$L12",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L13",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[["$","div",null,{"className":"max-w-2xl mx-auto px-6 py-24 text-center","children":[["$","p",null,{"className":"silk mb-4","children":"404"}],["$","h1",null,{"className":"text-4xl md:text-6xl tracking-tight","children":["This lane is ",["$","span",null,{"className":"brand","children":"empty."}]]}],["$","p",null,{"className":"ink2 mt-5","children":"The page moved or never existed. Here is where the sound is."}],["$","div",null,{"className":"flex flex-wrap justify-center gap-3 mt-10","children":[["$","a",null,{"href":"/","className":"btn-copper text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Home"}],["$","$L14",null,{"href":"/tv","className":"btn-ghost text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Videos"}],["$","a",null,{"href":"/blog.html","className":"btn-ghost text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Blog"}],["$","a",null,{"href":"/setup.html","className":"btn-ghost text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Setup"}]]}]]}],[]],"forbidden":"$undefined","unauthorized":"$undefined"}]}]
-1c:I[27201,["/_next/static/chunks/1mpnoxox0-4cg.js"],"IconMark"]
 11:["$","footer",null,{"className":"wrap w-full border-t py-8 text-center mt-auto","style":{"borderColor":"var(--line)","background":"#100f0c"},"children":[["$","nav",null,{"aria-label":"Explore","className":"flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mb-3 px-6","children":[["$","a",null,{"href":"/blog.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Blog"}],["$","$L14",null,{"href":"/tv","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Videos"}],false,["$","a",null,{"href":"/setup.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Setup"}],["$","a",null,{"href":"/samples.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Experimental Collection"}]]}],["$","nav",null,{"aria-label":"Legal","className":"flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mb-3 px-6","children":[["$","a",null,{"href":"/privacy.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Privacy Policy"}],["$","a",null,{"href":"/terms.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Terms of Service"}],["$","a",null,{"href":"/refund.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Refund Policy"}]]}],["$","p",null,{"className":"text-[13px] text-zinc-500 font-bold uppercase tracking-widest px-6","children":["© ",2026," STRIDE ENGINE. BUILT FOR PRODUCERS. BUILT FOR EVERY DAW."]}],["$","p",null,{"className":"text-[11px] text-zinc-600 mt-3 max-w-2xl mx-auto leading-relaxed px-6","children":"Third-party plugins are sold separately. All product names and trademarks belong to their respective owners. Stride is an independent product and is not affiliated with or endorsed by these companies."}]]}]
 19:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}],["$","meta","2",{"name":"theme-color","content":"#141310"}]]
 17:null

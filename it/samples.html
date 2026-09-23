@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="it" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Google consent mode v2 -->
+<script>
+// Consent mode v2. This must run BEFORE any Google tag: after one has loaded it has
+// already decided how to behave, and a declaration made later is decoration.
+//
+// Two defaults are declared. Denied for the EEA, the UK and Switzerland, where Google's
+// EU user consent policy wants a real answer, and granted everywhere else, which is what
+// the privacy policy discloses. Google resolves the visitor's region itself from the
+// request, so none of this needs an IP lookup of ours. Roughly two thirds of paying
+// customers bill from the denied set, so it is the majority path, not an edge case.
+//
+// It governs GOOGLE tags only. The Meta Pixel and Microsoft Clarity keep the behaviour
+// they have always had, which is a separate decision rather than an oversight.
+//     https://developers.google.com/tag-platform/security/guides/consent
+(function () {
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    // A stable handle. The GA4 block further down declares its own global gtag; this one
+    // is ours and cannot be redefined out from under the banner.
+    window.strideGtag = gtag;
+
+    // Where Google's EU user consent policy applies: the EU 27, the rest of the EEA,
+    // the UK and Switzerland. Kept in step with _CONSENT_REQUIRED_COUNTRIES in
+    // firebase_cloud/functions/google_dm.py, which decides the same question server-side.
+    var CONSENT_REGION = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR',
+                          'HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK',
+                          'SI','ES','SE','IS','LI','NO','GB','CH'];
+    var ALL = ['ad_storage', 'ad_user_data', 'ad_personalization', 'analytics_storage'];
+
+    function state(value, extra) {
+        var o = {};
+        for (var i = 0; i < ALL.length; i++) { o[ALL[i]] = value; }
+        for (var k in (extra || {})) { o[k] = extra[k]; }
+        return o;
+    }
+
+    // Region-scoped default first; Google applies the more specific one.
+    // wait_for_update holds the tags briefly so a stored answer below lands first.
+    gtag('consent', 'default', state('denied', { region: CONSENT_REGION,
+                                                 wait_for_update: 500 }));
+    gtag('consent', 'default', state('granted'));
+
+    var saved = '';
+    try { saved = localStorage.getItem('stride_consent_ads') || ''; } catch (e) {}
+    if (saved !== 'granted' && saved !== 'denied') { saved = ''; }
+    // Replay the answer synchronously, before any tag fires, so a returning visitor is
+    // never measured on a footing they already rejected.
+    if (saved) { gtag('consent', 'update', state(saved)); }
+
+    // Read by the checkout, which sends it to the backend so an order months later can
+    // still report what this person actually agreed to. '' means unanswered, and the
+    // server reads that as UNSPECIFIED rather than as a yes.
+    window.strideConsentAds = function () { return saved; };
+
+    function record(value) {
+        saved = value;
+        try { localStorage.setItem('stride_consent_ads', value); } catch (e) {}
+        // A cookie too: the checkout on a different page of this site reads whichever
+        // survives, and Safari evicts localStorage on long gaps more readily.
+        try {
+            document.cookie = 'stride_consent_ads=' + value + '; max-age=' +
+                (180 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+        } catch (e) {}
+        gtag('consent', 'update', state(value));
+        dataLayer.push({ event: 'stride_consent', consent_ads: value });
+    }
+
+    // Ask only where the answer is legally required. Timezone, not an IP lookup: it costs
+    // no request and identifies nobody. It over-asks a little (Europe/Moscow is not the
+    // EEA) and that is the safe direction. The harm of not asking a German is that their
+    // tags stay denied for good, while the harm of asking a Russian is a dismissed bar.
+    // If the timezone cannot be read at all, ask. Never assume consent.
+    function mustAsk() {
+        if (saved) { return false; }
+        try {
+            var tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+            // An empty timezone is not "not Europe", it is "no idea". Falling through
+            // to the comparison below would read it as no idea -> do not ask -> stay
+            // denied forever, which loses the visitor rather than asking them.
+            if (!tz) { return true; }
+            return tz.indexOf('Europe/') === 0 || tz === 'Atlantic/Reykjavik' ||
+                   tz === 'Atlantic/Canary' || tz === 'Atlantic/Madeira' ||
+                   tz === 'Atlantic/Azores';
+        } catch (e) { return true; }
+    }
+
+    function banner() {
+        if (!mustAsk() || document.getElementById('stride-consent')) { return; }
+        var css = document.createElement('style');
+        // The panel, hairline and copper are the page's own tokens, so this reads as part
+        // of Stride rather than as a bolted-on compliance widget. The three legal pages
+        // are built on Tailwind and define no tokens, hence a literal fallback on every
+        // var(): identical everywhere, and no page-specific stylesheet.
+        css.textContent =
+            '#stride-consent{position:fixed;left:18px;bottom:18px;z-index:2147483000;' +
+            'width:min(372px,calc(100vw - 36px));' +
+            'background:var(--panel,#1d1b16);border:1px solid var(--line,rgba(216,201,176,.11));' +
+            'border-radius:16px;padding:15px 16px;' +
+            'box-shadow:0 30px 70px -30px rgba(0,0,0,.85);' +
+            'font-family:Outfit,system-ui,-apple-system,sans-serif;' +
+            'color:var(--ink2,#b8ad9b);' +
+            // Starts invisible and a little low, then rises once. A panel that is simply
+            // THERE on first paint reads as part of the page still loading.
+            'opacity:0;transform:translateY(12px);' +
+            'transition:opacity .45s ease,transform .45s cubic-bezier(.22,.8,.3,1),' +
+            'bottom .25s ease}' +
+            '#stride-consent.on{opacity:1;transform:none}' +
+            '#stride-consent p{margin:0 0 12px;font-size:13px;line-height:1.55}' +
+            '#stride-consent a{color:var(--copper-lt,#dd9a52);text-decoration:none;' +
+            'border-bottom:1px solid rgba(221,154,82,.28)}' +
+            '#stride-consent a:hover{border-bottom-color:rgba(221,154,82,.75)}' +
+            '#stride-consent div{display:flex;gap:8px}' +
+            // Both buttons are one style. Making "accept" the loud one is the nudge the
+            // consent rules exist to stop, and an equal pair is also simply calmer.
+            '#stride-consent button{flex:1 1 0;font:inherit;font-size:13px;font-weight:700;' +
+            'cursor:pointer;padding:9px 14px;border-radius:10px;' +
+            'border:1px solid var(--line,rgba(216,201,176,.11));' +
+            'background:var(--raise,#252119);color:var(--ink,#ece4d6);' +
+            'transition:border-color .18s ease}' +
+            '#stride-consent button:hover{border-color:rgba(216,201,176,.3)}' +
+            '@media(max-width:560px){#stride-consent{left:12px;right:12px;bottom:12px;width:auto}}' +
+            '@media(prefers-reduced-motion:reduce){#stride-consent{transition:none;' +
+            'opacity:1;transform:none}}';
+        document.head.appendChild(css);
+
+        var el = document.createElement('div');
+        el.id = 'stride-consent';
+        el.setAttribute('role', 'dialog');
+        el.setAttribute('aria-label', 'Cookie choices');
+        // Short, and it says the thing a visitor actually wants to know: saying no costs
+        // them nothing. No "we value your privacy", no scrolling wall of vendor names.
+        el.innerHTML =
+            '<p>We use cookies to see which ads bring people here. ' +
+            'Say no and nothing on the site changes. ' +
+            '<a href="/privacy.html">Privacy&nbsp;Policy</a></p>' +
+            '<div><button type="button" data-consent="denied">Decline</button>' +
+            '<button type="button" data-consent="granted">Accept</button></div>';
+        el.addEventListener('click', function (ev) {
+            var v = ev.target && ev.target.getAttribute('data-consent');
+            if (!v) { return; }
+            record(v);
+            // Leave the way it arrived rather than vanishing mid-click.
+            el.classList.remove('on');
+            setTimeout(function () { el.remove(); }, 260);
+        });
+        document.body.appendChild(el);
+
+        // The homepage pins a buy bar to the bottom of the viewport (#m-cta, "GET STRIDE"),
+        // and it arrives on scroll rather than on load. A panel sitting at bottom:18px
+        // lands straight on top of it and hides the primary buy button behind a cookie
+        // notice, so the panel rides above the bar and keeps following it as it comes and
+        // goes. Every other page has no such bar, where this is a no-op.
+        function clearBottomBar() {
+            var base = window.innerWidth <= 560 ? 12 : 18;
+            var bar = document.getElementById('m-cta');
+            if (bar) {
+                var r = bar.getBoundingClientRect();
+                // Only when it is really parked at the bottom of the viewport right now.
+                // The bar slides in and out, and once it has slid away its rect sits
+                // BELOW the fold, which still satisfies a bottom-edge test on its own.
+                // Requiring the top edge to be on screen too is what tells the two apart.
+                if (r.height > 0 && r.top < window.innerHeight - 4
+                        && r.bottom > window.innerHeight - 4) {
+                    base += r.height + 10;
+                }
+            }
+            el.style.bottom = base + 'px';
+        }
+        clearBottomBar();
+        window.addEventListener('scroll', clearBottomBar, { passive: true });
+        window.addEventListener('resize', clearBottomBar);
+        // The bar is switched on by a CLASS, not by scrolling, so it can appear without
+        // either listener above ever firing. Watch the element itself as well.
+        var _bar = document.getElementById('m-cta');
+        if (_bar) {
+            if (window.MutationObserver) {
+                new MutationObserver(clearBottomBar).observe(_bar, {
+                    attributes: true, attributeFilter: ['class', 'style'] });
+            }
+            // The class flips first and the bar SLIDES in afterwards, so at the moment the
+            // observer fires it is still below the fold and measures as absent. Waiting for
+            // the slide to finish is what actually catches it in place; without this the
+            // panel stays put and lands on the buy button on a phone.
+            _bar.addEventListener('transitionend', clearBottomBar);
+        }
+
+        // Hold it back a beat so the page paints first. Nothing waits on this: the tags
+        // already hold the denied default for this visitor, so all the delay changes is
+        // that the page is not interrupted while it is still arriving. Measure once more
+        // on the way in, because the bar may have arrived during that beat.
+        setTimeout(function () { clearBottomBar(); el.classList.add('on'); }, 700);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', banner);
+    } else {
+        banner();
+    }
+})();
+</script>
+<!-- End Google consent mode v2 -->
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-5R4N7FVP');</script>
+<!-- End Google Tag Manager -->
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-JCMEXN70CM"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-JCMEXN70CM');
+</script>
+<!-- End Google tag (gtag.js) -->
+<!-- Microsoft Clarity -->
+<script type="text/javascript">
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "yj7cm3a9sz");
+</script>
+<!-- End Microsoft Clarity -->
+    <title>STRIDE | Experimental Collection</title>
+
+    <!-- SEO -->
+    <meta name="description" content="250+ experimental sounds, built from almost nothing. Destroyed drums. One falling water drop. A simple signal pushed into endless feedback. 15 Ableton Racks, 4 StrideChains. $35.">
+    <link rel="canonical" href="https://stridehub.io/it/samples.html">
+
+    <!-- Paddle.js. The client-side token is public by design. -->
+    <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+    <script>
+    // The Collection sells standalone here. The page ships with the Lemon Squeezy
+    // price and link in the HTML, and Paddle only ever UPGRADES both together, so a
+    // visitor with no JavaScript can never see one price and be charged another.
+    //
+    // The Collection product has TWO prices and this page must use the STANDALONE one:
+    //   pri_01m36e37ja1qnk0cdyy80va9eg   $35     bought on its own, which is here
+    //   pri_01m2dghkc4dn53h2hrzw21ba2f   $24.99  the bump, sold beside Stride on the
+    //                                            homepage, and the base the post-purchase
+    //                                            offer discounts to $19.99
+    // This page pointed at the BUMP price until 2026-09-23, so the Collection on its own
+    // page quietly sold for the with-Stride price: the markup said $35 and Paddle then
+    // overwrote it with $24.99, which is what a visitor was actually charged.
+    // Both prices sit on the same product, so entitlement and the Collection download are
+    // unaffected: the webhook keys on price.product_id, never on the price itself.
+    (function () {
+        var TOKEN = 'live_e0101b87a9e6e7024988534cf7b';
+        var PRICE = 'pri_01m36e37ja1qnk0cdyy80va9eg';
+        var ready = false;
+        var collection = { value: 35, currency: 'USD' };   // replaced by Paddle's price for this visitor
+        function init() {
+            if (ready) return true;
+            if (!window.Paddle) return false;
+            try {
+                Paddle.Initialize({ token: TOKEN, eventCallback: function (ev) {
+                    // welcome.html reads this, so the GA4 purchase carries the real order id.
+                    try {
+                        if (ev && ev.name === 'checkout.completed' && ev.data && ev.data.transaction_id) {
+                            sessionStorage.setItem('stride_last_txn', String(ev.data.transaction_id));
+                            var paid = Number((ev.data.totals || {}).total);   // Paddle.js: plain major-unit numbers
+                            if (paid > 0 && ev.data.currency_code) {
+                                sessionStorage.setItem('stride_checkout_value', JSON.stringify({ value: paid, currency: String(ev.data.currency_code) }));
+                            }
+                        }
+                    } catch (e2) {}
+                } });
+                ready = true;
+            } catch (e) { return false; }
+            return true;
+        }
+        function custom() {
+            function ck(re) { var m = document.cookie.match(re); return m ? decodeURIComponent(m[1]) : ''; }
+            var fbc = ck(/(?:^|; )_fbc=([^;]*)/);
+            var o = { fbc: fbc, fbp: ck(/(?:^|; )_fbp=([^;]*)/),
+                      external_id: ck(/(?:^|; )stride_xid=([^;]*)/),
+                      ua: (navigator.userAgent || '').slice(0, 512) };
+            try { o.fbclid = localStorage.getItem('stride_fbclid') || (fbc ? fbc.split('.').pop() : ''); } catch (e) {}
+            var ad = (window.strideAdMarkers ? window.strideAdMarkers() : {});
+            if (ad.ad_id) o.ad_id = ad.ad_id;
+            return o;
+        }
+        window.strideBuyCollection = function (ev) {
+            if (!init()) return true;                       // let the href do its job
+            try {
+                if (ev && ev.preventDefault) ev.preventDefault();
+                // GA4 begin_checkout, and the money kept for welcome.html's purchase event.
+                try { if (window.StrideTrack) StrideTrack.push('begin_checkout', { value: collection.value, currency: collection.currency }); } catch (e2) {}
+                try { sessionStorage.setItem('stride_checkout_value', JSON.stringify(collection)); } catch (e2) {}
+                Paddle.Checkout.open({
+                    items: [{ priceId: PRICE, quantity: 1 }],
+                    customData: custom(),
+                    settings: { displayMode: 'overlay', variant: 'one-page', theme: 'dark',
+                                successUrl: 'https://stridehub.io/welcome.html' }
+                });
+                return false;
+            } catch (e) { return true; }
+        };
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!init()) return;
+            try {
+                Paddle.PricePreview({ items: [{ priceId: PRICE, quantity: 1 }] })
+                    .then(function (res) {
+                        var li = ((((res || {}).data || {}).details || {}).lineItems || [])[0];
+                        var t = li && li.formattedTotals && li.formattedTotals.total;
+                        try {
+                            var cur = res.data.currencyCode, minor = parseInt((li.totals || {}).total, 10), digits = 2;
+                            try { digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: cur }).resolvedOptions().minimumFractionDigits; } catch (e3) {}
+                            if (cur && isFinite(minor) && minor > 0) collection = { value: minor / Math.pow(10, digits), currency: cur };
+                        } catch (e3) {}
+                        if (!t) return;
+                        document.querySelectorAll('[data-collection-price]').forEach(function (el) {
+                            el.textContent = t;
+                        });
+                    }).catch(function () {});
+            } catch (e) {}
+        });
+    })();
+    </script>
+
+    <!-- Open Graph / Social cards -->
+    <meta property="og:type" content="product">
+    <meta property="og:url" content="https://stridehub.io/it/samples.html">
+    <meta property="og:title" content="STRIDE | Experimental Collection">
+    <meta property="og:description" content="250+ experimental sounds, built from almost nothing. Destroyed drums. One falling water drop. A simple signal pushed into endless feedback. 15 Ableton Racks, 4 StrideChains. $35.">
+    <meta property="og:image" content="https://stridehub.io/assets/packs/pack-drums.jpg">
+    <meta property="og:image:width" content="900">
+    <meta property="og:image:height" content="900">
+    <meta property="og:image:alt" content="Stride Experimental Collection">
+    <meta property="og:site_name" content="Stride">
+
+    <!-- Twitter / X card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="STRIDE | Experimental Collection">
+    <meta name="twitter:description" content="250+ experimental sounds, built from almost nothing. Destroyed drums. One falling water drop. A simple signal pushed into endless feedback. 15 Ableton Racks, 4 StrideChains. $35.">
+    <meta name="twitter:image" content="https://stridehub.io/assets/packs/pack-drums.jpg">
+
+    <meta name="theme-color" content="#141310">
+
+    <!-- Meta Pixel — same pixel as the landing page so the free-pack funnel
+         (ad -> /samples -> Lead) is tracked end to end. Fires PageView early. -->
+    <script>
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t,s)}(window, document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    // Same first-party visitor id as the landing page (cookie stride_xid, 180 days), so Meta
+    // matches this page's events to the same visitor instead of an anonymous one.
+    var _strideXid = (function () {
+        try {
+            var m = document.cookie.match(/(?:^|; )stride_xid=([^;]*)/);
+            if (m) return decodeURIComponent(m[1]);
+            var id = (self.crypto && crypto.randomUUID) ? crypto.randomUUID()
+                : (Date.now().toString(36) + Math.random().toString(36).slice(2, 12));
+            document.cookie = 'stride_xid=' + encodeURIComponent(id) +
+                '; max-age=' + (180 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+            return id;
+        } catch (e) { return ''; }
+    })();
+    fbq('init', '952457524222772', _strideXid ? { external_id: _strideXid } : {});
+    fbq('track', 'PageView');
+
+    // Analytics events for Google Tag Manager (the GA4 event tags from Overtone's container).
+    // A push carries only the anonymous visitor id, never an email or a name: GA4 does not
+    // allow personal data, and every tag in the container can read dataLayer. Keys a push does
+    // not set are cleared, so one event's money can never carry over into the next event.
+    window.StrideTrack = window.StrideTrack || {
+        push: function (event, params) {
+            try {
+                var d = { event: event, external_id: (typeof _strideXid === 'string' && _strideXid) || undefined,
+                          value: undefined, currency: undefined, transaction_id: undefined, item_name: undefined };
+                for (var k in (params || {})) { if (Object.prototype.hasOwnProperty.call(params, k)) d[k] = params[k]; }
+                (window.dataLayer = window.dataLayer || []).push(d);
+            } catch (e) {}
+        }
+    };
+
+    // Capture fbclid -> _fbc (90-day cookie) exactly like index.html so the
+    // Lead event can be matched back to the ad click that drove the visit.
+    (function captureFbclid() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const fbclid = params.get('fbclid');
+            if (!fbclid) return;
+            const fbc = 'fb.1.' + Date.now() + '.' + fbclid;
+            const maxAge = 90 * 24 * 60 * 60;
+            document.cookie = '_fbc=' + encodeURIComponent(fbc) +
+                '; max-age=' + maxAge + '; path=/; SameSite=Lax; Secure';
+            try { sessionStorage.setItem('stride_fbc', fbc); } catch (e) {}
+            // Durable raw-fbclid marker (localStorage + 180-day cookie), same as
+            // index.html: IG/FB in-app browsers strip the _fbc cookie, this
+            // survives — so a later signup/purchase can still be tied to the ad.
+            try { localStorage.setItem('stride_fbclid', fbclid); } catch (e) {}
+            try {
+                document.cookie = 'stride_fbclid=' + encodeURIComponent(fbclid) +
+                    '; max-age=' + (180 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+            } catch (e) {}
+        } catch (e) {}
+    })();
+    </script>
+    <noscript><img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=952457524222772&ev=PageView&noscript=1"
+    /></noscript>
+
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cdefs%3E%3ClinearGradient id='strideGradient' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23eaa54e' /%3E%3Cstop offset='100%25' stop-color='%23c6712b' /%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z' stroke='url(%23strideGradient)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  /* ── PATCHBAY (vintage modular) brand palette — matches index.html ── */
+  :root{
+    --bg:#141310; --bg2:#191611; --panel:#1d1b16; --raise:#252119; --line:rgba(216,201,176,.11);
+    --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
+    --copper:#c6712b; --copper-lt:#dd9a52; --amber:#d9822b; --ember:#e58a2e;
+    --teal:#2f748e;  --teal-lt:#5e9aad;
+    --o50:249 241 234;--o100:244 227 213;--o200:232 198 170;--o300:222 154 82;--o400:198 113 43;--o500:174 99 38;--o600:143 81 31;--o700:109 62 24;--o800:79 45 17;--o900:55 32 12;--o950:30 17 6;
+    --z50:241 236 226;--z100:228 221 208;--z200:215 207 192;--z300:195 187 171;--z400:163 154 138;--z500:118 111 99;--z600:88 82 73;--z700:66 61 52;--z800:37 33 25;--z900:29 27 22;--z950:20 19 16;
+    --rd50:250 238 232;--rd100:246 220 209;--rd200:235 186 167;--rd300:216 132 104;--rd400:199 100 66;--rd500:176 80 49;--rd600:150 66 40;--rd700:117 51 32;--rd800:84 37 24;--rd900:56 25 17;--rd950:31 14 10;
+    --em50:235 240 233;--em100:214 224 210;--em200:181 198 175;--em300:134 168 127;--em400:110 146 102;--em500:91 123 85;--em600:73 99 67;--em700:56 77 52;--em800:40 56 38;--em900:27 38 25;--em950:15 22 13;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Outfit',sans-serif;background:var(--bg);color:var(--ink2);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  ::selection{background:rgba(198,113,43,.3)}
+  ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:#2a2620;border-radius:10px}
+  body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(120% 80% at 50% -10%, rgba(198,113,43,.07), transparent 60%),
+               radial-gradient(100% 60% at 50% 110%, rgba(47,116,142,.05), transparent 60%);}
+  .wrap{position:relative;z-index:1}
+  .mono{font-family:'Space Mono',ui-monospace,monospace}
+  .silk{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--ink3)}
+  .brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .ink{color:var(--ink)} .ink2{color:var(--ink2)} .ink3{color:var(--ink3)}
+  h1,h2,h3,h4{color:var(--ink);font-weight:900;letter-spacing:-.01em}
+  .panel{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(0,0,0,.14)),var(--panel);
+    border:1px solid var(--line);border-radius:18px;
+    box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 24px 50px -30px rgba(0,0,0,.9)}
+  .glass-panel{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.16)),var(--panel);
+    border:1px solid var(--line);
+    box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 30px 60px -28px rgba(0,0,0,.95)}
+  .btn-copper{display:inline-flex;align-items:center;justify-content:center;gap:.6rem;background:linear-gradient(180deg,var(--ember),var(--copper));
+    color:#1c1206;font-weight:900;letter-spacing:.04em;border:1px solid rgba(255,210,150,.25);border-radius:14px;
+    box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 12px 24px -14px rgba(198,113,43,.8);transition:transform .15s,filter .15s;cursor:pointer}
+  .btn-copper:hover{transform:translateY(-2px);filter:brightness(1.06)}
+  .pill{border:1px solid var(--line);background:var(--raise);border-radius:999px;color:var(--ink2);font-weight:700}
+  .pill-warm{border-color:rgba(198,113,43,.4);background:rgba(198,113,43,.12);color:var(--copper-lt)}
+  .chip{font-size:9px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;border-radius:999px;padding:3px 9px}
+  .divider{height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
+  /* gentle floating waveform bars in hero */
+  @keyframes barPulse{0%,100%{transform:scaleY(.5)}50%{transform:scaleY(1)}}
+  .wbar{transform-origin:bottom;animation:barPulse 1.6s ease-in-out infinite}
+</style>
+<style>
+  /* Page-local only. Everything above is the site's shared language, untouched. */
+  .cover{position:relative;border-radius:16px;overflow:hidden;border:1px solid var(--line);
+    background:var(--bg2);aspect-ratio:1/1;box-shadow:0 30px 60px -34px rgba(0,0,0,.95)}
+  .cover img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s ease}
+  .pack:hover .cover img{transform:scale(1.035)}
+  .vol{position:absolute;top:12px;left:12px;z-index:2}
+  /* Placeholder for artwork that does not exist yet. Deliberately looks like a slot
+     waiting to be filled, not like a finished thing. */
+  .slot{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6rem;
+    height:100%;border:1px dashed rgba(216,201,176,.22);border-radius:16px;background:
+    repeating-linear-gradient(135deg,rgba(255,255,255,.014) 0 10px,transparent 10px 20px),var(--bg2)}
+  .price{font-weight:900;letter-spacing:-.02em;color:var(--ink);line-height:1}
+  /* Every count in the offer, wherever it is repeated. The number is the thing being
+     sold, so it carries the accent and the words around it stay quiet. */
+  .num{color:var(--copper-lt)}
+  /* Reference, not pitch: the install paths fold away and open for whoever needs them. */
+  .disc{border-top:1px solid var(--line);padding-top:16px}
+  .disc>summary{cursor:pointer;list-style:none;display:flex;align-items:center;
+    justify-content:space-between;gap:10px;font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;font-weight:800;color:var(--ink3);transition:color .2s}
+  .disc>summary:hover{color:var(--copper-lt)}
+  .disc>summary::-webkit-details-marker{display:none}
+  .disc>summary::after{content:"+";font-size:15px;font-weight:700;color:var(--copper-lt);line-height:1}
+  .disc[open]>summary::after{content:"\2212"}
+  .spec{font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:800;color:var(--ink3)}
+  .rule{height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
+  /* Both tool cards stretch to the taller one, so their closing block is pinned to the
+     bottom. Without this the Racks card ended halfway up and read as unfinished. */
+  /* Install rows + file list, lifted from chains.html so they read exactly as before. */
+  .pathrow{display:flex;gap:12px;align-items:baseline;padding:7px 0;border-top:1px solid var(--line)}
+  .os{font-family:'Space Mono',ui-monospace,monospace;font-size:9px;font-weight:700;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--ink3);flex:none;width:30px}
+  .pathrow code{font-family:'Space Mono',ui-monospace,monospace;font-size:12px;color:var(--ink);
+    line-height:1.55;overflow-wrap:anywhere}
+  .fmt{font-family:'Space Mono',ui-monospace,monospace;font-size:11px;color:var(--ink3);flex:none}
+  .row{display:flex;align-items:center;gap:14px;padding:14px 2px;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:0}
+  .dl{margin-left:auto;font-size:11px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--copper-lt);white-space:nowrap;transition:color .15s}
+  .dl:hover{color:var(--ink)}
+  @media (max-width:520px){ .row{flex-wrap:wrap;gap:8px} .dl{margin-left:0;width:100%} }
+  /* The three covers as ONE object. Overlapping is what makes them read as a
+     collection rather than three products standing side by side. Unstacks on
+     narrow screens, where overlap just hides artwork. */
+  .stack{display:flex;align-items:flex-start}
+  .sleeve{position:relative;flex:1 1 0;min-width:0;margin:0;border-radius:14px;overflow:hidden;
+    border:1px solid var(--line);background:var(--bg2);
+    box-shadow:0 26px 50px -28px rgba(0,0,0,.95);transition:transform .35s ease}
+  .sleeve + .sleeve{margin-left:-14%}
+  /* LATER sleeves on top: each overlaps the one before, so every cover keeps its own
+     left edge visible and the three read left to right. */
+  .sleeve:nth-child(1){z-index:1}.sleeve:nth-child(2){z-index:2}.sleeve:nth-child(3){z-index:3}
+  .stack:hover .sleeve{transform:translateY(-4px)}
+  .sleeve img{display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover}
+  @media (max-width:520px){ .sleeve + .sleeve{margin-left:6px} .stack{gap:0} }
+  /* Compact tool cards, sitting with the covers so all five components read as one buy. */
+  .minicard{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;
+    border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(0,0,0,.14)),var(--panel)}
+  .mc-n{font-size:26px;font-weight:900;letter-spacing:-.02em;color:var(--copper-lt);line-height:1}
+  .mc-l{font-size:10px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);line-height:1.35}
+</style>
+<link rel="stylesheet" href="/_legacy/css/samples.0b345fbaa1.css">
+<script>window.STRIDE_LANGS=["en","de","es","fr","it","ja","zh"]</script>
+<link rel="alternate" hreflang="en" href="https://stridehub.io/samples.html">
+<link rel="alternate" hreflang="de" href="https://stridehub.io/de/samples.html">
+<link rel="alternate" hreflang="es" href="https://stridehub.io/es/samples.html">
+<link rel="alternate" hreflang="fr" href="https://stridehub.io/fr/samples.html">
+<link rel="alternate" hreflang="it" href="https://stridehub.io/it/samples.html">
+<link rel="alternate" hreflang="ja" href="https://stridehub.io/ja/samples.html">
+<link rel="alternate" hreflang="zh-Hans" href="https://stridehub.io/zh/samples.html">
+<link rel="alternate" hreflang="x-default" href="https://stridehub.io/samples.html">
+</head>
+<body>
+<!-- HEADER:START (scripts/sync-header.mjs writes this, do not edit here) -->
+<!-- STRIDE HEADER. One definition, written into every marketing page by
+     scripts/sync-header.mjs between the two markers it puts around this block.
+     Do not hand-edit it inside a page: the next sync overwrites it. Do not write
+     the marker text into this file either, or the sync cannot find its own edges.
+
+     The homepage is NOT synced. It is the original this was lifted from and it
+     is the page that takes money, so it stays untouched; test/header-parity.test.mjs
+     renders every page and fails if any header stops matching the homepage's.
+
+     The only deliberate differences from the homepage's own copy are the links:
+     "How it works" and the two buy actions are same-page anchors on the homepage and have
+     to reach across from here. Every href is root-absolute, because this same block is
+     also rendered on /tv/<slug> and /blog/<slug>, where a relative one would resolve
+     inside that folder. -->
+<style>
+  /* The header carries everything it needs to look the same anywhere. setup, samples and
+     session already define these tokens and classes; privacy, terms and refund define none
+     of them, which is how refund.html ended up with a wordmark at a different size. Rather
+     than ask each page to supply them, the three header containers redefine the handful the
+     header uses, with the homepage's own values. Scoped, so nothing outside the header on
+     any page is touched, and identical to what those pages already have where they have it. */
+  .stride-header,#m-menu,#contact-modal{
+    --hdr-line:rgba(216,201,176,.11); --hdr-ink:#ece4d6; --hdr-ink2:#b8ad9b; --hdr-ink3:#857c6e;
+    --hdr-bg:#141310; --hdr-panel:#1d1b16; --hdr-raise:#252119;
+    --hdr-copper:#c6712b; --hdr-copper-lt:#dd9a52; --hdr-ember:#e58a2e}
+  .stride-header .brand,#m-menu .brand{
+    background:linear-gradient(90deg,var(--hdr-copper-lt),var(--hdr-ember));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .stride-header .ink3,#m-menu .ink3,#contact-modal .ink3{color:var(--hdr-ink3)}
+  .stride-header .ink2,#m-menu .ink2,#contact-modal .ink2{color:var(--hdr-ink2)}
+  .stride-header .btn-copper,#m-menu .btn-copper,#contact-modal .btn-copper{
+    display:inline-flex;align-items:center;justify-content:center;gap:.6rem;
+    background:linear-gradient(180deg,var(--hdr-ember),var(--hdr-copper));
+    color:#1c1206;font-weight:900;border:1px solid rgba(255,210,150,.25);
+    box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 12px 24px -14px rgba(198,113,43,.8);
+    transition:transform .15s,filter .15s;cursor:pointer}
+  .stride-header .btn-copper:hover,#m-menu .btn-copper:hover{transform:translateY(-2px);filter:brightness(1.06)}
+  :where(.btn-copper){border-radius:14px;letter-spacing:.04em}
+  #m-menu .btn-ghost{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;
+    border:1px solid var(--hdr-line);background:var(--hdr-raise);color:var(--hdr-ink2);
+    font-weight:800;border-radius:14px;transition:transform .15s,border-color .15s,color .15s;cursor:pointer}
+  #m-menu .btn-ghost:hover{transform:translateY(-2px);border-color:rgba(216,201,176,.28);color:var(--hdr-ink)}
+
+  /* z-index 60, not 1: the header now owns a dropdown, and at 1 the language menu was trapped
+     in the header's own stacking context and painted UNDER the page (measured: the first row of
+     the page received the click). 60 clears ordinary content and still sits below everything
+     that is meant to cover the header: the demo prompt (120), the sticky buy bar (1000), the
+     mobile sheet (1100) and the film (1200). */
+  .stride-header{position:relative;z-index:60;width:100%;max-width:1400px;margin:0 auto;padding:0 1.5rem}
+  .stride-header > nav{display:flex;justify-content:space-between;align-items:center;padding:1.5rem 0}
+  /* ── The strip ──────────────────────────────────────────────────────────
+     A band behind the header with a hairline under it, so the top of the page
+     has a floor instead of the wordmark floating on the background. Bled to
+     the viewport edges from inside a centred container: the negative margin
+     takes it out to the window and the matching padding puts the content back
+     where the container had it, so the band is full width while the wordmark
+     still lines up with everything below it. The homepage carries the same
+     rule on `.wrap > nav`, which is why header-parity passes. */
+  .stride-header > nav{
+    margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw);
+    padding-left:calc(50vw - 50%);padding-right:calc(50vw - 50%);
+    background:rgba(20,19,16,.82);
+    -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+    border-bottom:1px solid var(--hdr-line)}
+  .stride-header .silk{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--hdr-ink3)}
+
+  /* ── Language ──────────────────────────────────────────────────────────
+     A short code beside the wordmark that opens the languages this page is
+     published in. The markup is identical on every page: the script rewrites
+     each href to THIS page in that language and hides the ones the page has
+     not been translated into, so the header stays the same everywhere and the
+     control can never offer a page that does not exist. Hidden until the
+     script has decided, so it cannot flash a list and then shorten it. */
+  .lang-switch{position:relative;display:none}
+  .lang-switch.ready{display:block}
+  .lang-btn{display:inline-flex;align-items:center;gap:.34em;padding:3px 7px;
+    border:1px solid var(--hdr-line);border-radius:8px;background:transparent;
+    color:var(--hdr-ink3);font:inherit;font-size:10px;font-weight:800;
+    letter-spacing:.14em;text-transform:uppercase;cursor:pointer;
+    transition:color .15s,border-color .15s}
+  .lang-btn:hover,.lang-btn[aria-expanded="true"]{color:var(--hdr-ink);border-color:rgba(216,201,176,.28)}
+  .lang-btn::after{content:"";width:0;height:0;border-left:3px solid transparent;
+    border-right:3px solid transparent;border-top:4px solid currentColor;opacity:.7}
+  .lang-menu{position:absolute;top:calc(100% + 8px);left:0;z-index:60;display:none;
+    min-width:150px;padding:6px;background:var(--hdr-panel);
+    border:1px solid var(--hdr-line);border-radius:12px;
+    box-shadow:0 24px 50px -24px rgba(0,0,0,.9)}
+  .lang-menu.on{display:block}
+  .lang-menu a{display:block;padding:8px 10px;border-radius:8px;font-size:13px;
+    font-weight:600;color:var(--hdr-ink2);text-decoration:none;white-space:nowrap}
+  .lang-menu a:hover{background:var(--hdr-raise);color:var(--hdr-ink)}
+  .lang-menu a[aria-selected="true"]{color:var(--hdr-copper-lt)}
+  .lang-menu a.gone{display:none}
+  #m-menu-btn{display:none}
+  @media (max-width:899.98px){
+    /* Tailwind's .flex is loaded after the page's own styles and both selectors are
+       one class, so a bare .nav-desktop loses the tie and the desktop links stay on
+       screen. Two extra points of specificity settle it without !important. */
+    nav > div.nav-desktop{display:none}
+    .stride-header > nav{padding-top:.75rem;padding-bottom:.5rem}
+    #m-menu-btn{
+      display:inline-flex;align-items:center;justify-content:center;
+      width:44px;height:44px;margin-right:-.35rem;border-radius:12px;
+      color:var(--hdr-ink2);background:transparent;border:1px solid var(--hdr-line)}
+    #m-menu-btn svg{width:22px;height:22px}
+    #m-menu{
+      display:flex;flex-direction:column;position:fixed;inset:0;z-index:1100;
+      background:var(--hdr-bg);padding:1rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom,0px));
+      overflow-y:auto;-webkit-overflow-scrolling:touch}
+    #m-menu[hidden]{display:none}
+    .m-menu-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem}
+    .m-menu-top button{
+      width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;
+      border-radius:12px;color:var(--hdr-ink2);background:transparent;border:1px solid var(--hdr-line)}
+    .m-menu-top button svg{width:20px;height:20px}
+    .m-menu-links{display:flex;flex-direction:column;flex:1 1 auto}
+    .m-menu-links > a,.m-menu-links > button{
+      display:flex;align-items:center;min-height:52px;padding:.25rem 0;
+      font-size:16px;font-weight:800;color:var(--hdr-ink);text-align:left;
+      background:none;border:0;border-bottom:1px solid var(--hdr-line);width:100%}
+    .m-menu-cta{display:flex;flex-direction:column;gap:.6rem;margin-top:1.5rem}
+    .m-menu-cta > a{width:100%;justify-content:center;min-height:50px;font-size:14px}
+  }
+  /* Outside the mobile query #m-menu has no display rule, exactly as on the homepage:
+     it carries the hidden attribute until the hamburger opens it, and the hamburger
+     itself is display:none above 900px, so it can never be opened there. */
+</style>
+
+<div class="stride-header">
+  <nav class="flex justify-between items-center py-6">
+    <div class="flex items-center gap-3">
+      <a href="/" class="flex items-center gap-3">
+        <span class="text-3xl font-black brand tracking-tighter leading-none">STRIDE</span>
+        <span class="silk hidden sm:block border-l pl-3" style="border-color:var(--hdr-line)">Sound Design Engine</span>
+      </a>
+      <div class="lang-switch" data-no-translate>
+        <button type="button" class="lang-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Language" onclick="strideLang(this)">EN</button>
+        <div class="lang-menu" role="listbox" aria-label="Language">
+          <a role="option" data-lang="en" href="/">English</a>
+          <a role="option" data-lang="de" href="/de/">Deutsch</a>
+          <a role="option" data-lang="es" href="/es/">Español</a>
+          <a role="option" data-lang="fr" href="/fr/">Français</a>
+          <a role="option" data-lang="it" href="/it/">Italiano</a>
+          <a role="option" data-lang="ja" href="/ja/">日本語</a>
+          <a role="option" data-lang="zh" href="/zh/">简体中文</a>
+        </div>
+      </div>
+    </div>
+    <button id="m-menu-btn" type="button" aria-label="Apri il menu" aria-expanded="false" aria-controls="m-menu"
+            onclick="strideMenu(true)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <div class="flex items-center gap-5 nav-desktop">
+      <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors" href="/#how">Come funziona</a>
+      <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors" href="/setup.html">Installazione</a>
+      <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors" href="/blog.html">Blog</a>
+      <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors hidden xl:block" href="/tv">Video</a>
+      <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors" href="/samples.html">Experimental Collection</a>
+      <a href="https://www.instagram.com/stride_engine/" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[var(--hdr-copper-lt)] transition-colors" title="Seguici su Instagram">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+      </a>
+      <a href="https://www.youtube.com/@strideengine" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[var(--hdr-copper-lt)] transition-colors" title="Iscriviti su YouTube">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+      </a>
+      <button onclick="toggleContactModal()" class="ink3 hover:text-[var(--hdr-copper-lt)] transition-colors" title="Contatti">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+      </button>
+      <span class="w-px h-6 mx-1 hidden sm:block" style="background:var(--hdr-line)"></span>
+      <a href="/#pricing" class="btn-copper text-[11px] uppercase tracking-widest px-5 py-2.5 rounded-full">Acquista Stride</a>
+    </div>
+  </nav>
+</div>
+
+<div id="m-menu" role="dialog" aria-modal="true" aria-label="Menu" hidden>
+  <div class="m-menu-top">
+    <span class="text-2xl font-black brand tracking-tighter leading-none">STRIDE</span>
+    <button type="button" aria-label="Chiudi il menu" onclick="strideMenu(false)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <nav class="m-menu-links" aria-label="Mobile">
+    <a href="/#how">Come funziona</a>
+    <a href="/setup.html">Installazione</a>
+    <a href="/blog.html">Blog</a>
+    <a href="/tv">Video</a>
+    <a href="/samples.html">Experimental Collection</a>
+    <a href="/session.html">1:1 Session · $199</a>
+    <a href="https://www.youtube.com/@strideengine" target="_blank" rel="noopener noreferrer">YouTube</a>
+    <a href="https://www.instagram.com/stride_engine/" target="_blank" rel="noopener noreferrer">Instagram</a>
+    <button type="button" onclick="strideMenu(false); toggleContactModal()">Contatti</button>
+  </nav>
+  <div class="m-menu-cta">
+    <a href="/#pricing" class="btn-copper">ACQUISTA STRIDE</a>
+    <a href="/try/" class="btn-ghost">Esplora gratis per 24 h</a>
+  </div>
+</div>
+
+<div id="contact-modal" class="fixed inset-0 z-[1001] hidden flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
+  <div class="w-full max-w-md p-8 rounded-3xl relative" style="background:var(--hdr-panel);border:1px solid var(--hdr-line)">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-2xl font-black uppercase tracking-tight" style="color:var(--hdr-copper-lt)">Contatti</h3>
+      <button onclick="toggleContactModal()" class="ink3 hover:text-[var(--hdr-ink)] transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+      </button>
+    </div>
+    <p class="text-sm ink2 mb-6 font-medium">Hai una domanda o un feedback? Scrivici. Rispondiamo entro 48 ore.</p>
+    <div class="space-y-4 mb-4">
+      <div>
+        <label class="block text-[10px] ink3 font-bold uppercase tracking-widest mb-1.5">Email *</label>
+        <input id="contact-email" type="email" placeholder="tu@esempio.com" class="w-full rounded-xl px-4 py-2.5 text-base focus:outline-none transition-colors" style="background:rgba(0,0,0,.4);border:1px solid var(--hdr-line);color:var(--hdr-ink)">
+      </div>
+      <div>
+        <label class="block text-[10px] ink3 font-bold uppercase tracking-widest mb-1.5">Messaggio *</label>
+        <textarea id="contact-message" rows="5" class="w-full rounded-xl p-4 text-base resize-none focus:outline-none transition-colors" style="background:rgba(0,0,0,.4);border:1px solid var(--hdr-line);color:var(--hdr-ink)" placeholder="Cosa hai in mente?"></textarea>
+      </div>
+    </div>
+    <div id="contact-error" class="hidden text-xs font-medium mb-3" style="color:#e6795f"></div>
+    <div id="contact-success" class="hidden text-xs font-medium mb-3" style="color:#6fbf8f">Ricevuto. Rispondiamo entro 48 ore.</div>
+    <button id="contact-submit-btn" onclick="sendContactMessage()" class="btn-copper w-full py-3 rounded-xl text-xs uppercase tracking-widest">Invia messaggio</button>
+  </div>
+</div>
+
+<script>
+  /* The menu sheet. strideStickySync only exists on the homepage, which has a sticky
+     buy bar to hide behind the sheet; everywhere else there is nothing to sync. */
+  function strideMenu(open) {
+    var m = document.getElementById('m-menu');
+    var btn = document.getElementById('m-menu-btn');
+    if (!m) return;
+    m.hidden = !open;
+    if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    document.body.style.overflow = open ? 'hidden' : '';
+    if (typeof strideStickySync === 'function') strideStickySync();
+    if (open) { var c = m.querySelector('.m-menu-top button'); if (c) c.focus(); }
+    else if (btn) btn.focus();
+  }
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    var m = document.getElementById('m-menu');
+    if (m && !m.hidden) strideMenu(false);
+    var c = document.getElementById('contact-modal');
+    if (c && !c.classList.contains('hidden')) c.classList.add('hidden');
+  });
+
+  function toggleContactModal() {
+    var el = document.getElementById('contact-modal');
+    if (el) el.classList.toggle('hidden');
+  }
+  function sendContactMessage() {
+    var email = (document.getElementById('contact-email').value || '').trim();
+    var message = (document.getElementById('contact-message').value || '').trim();
+    var errorEl = document.getElementById('contact-error');
+    var successEl = document.getElementById('contact-success');
+    var btn = document.getElementById('contact-submit-btn');
+    errorEl.classList.add('hidden'); successEl.classList.add('hidden');
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errorEl.textContent = 'Please enter a valid email so we can reply.';
+      errorEl.classList.remove('hidden'); return;
+    }
+    if (!message) { errorEl.textContent = 'Please write a message.'; errorEl.classList.remove('hidden'); return; }
+    btn.disabled = true; btn.textContent = 'Sending...';
+    fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'contact_message', email: email, name: '', message: message })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function () {
+        successEl.classList.remove('hidden');
+        document.getElementById('contact-message').value = '';
+        btn.disabled = false; btn.textContent = 'Send Message';
+      })
+      .catch(function () {
+        errorEl.textContent = 'That did not send. Email hello@stridehub.io instead.';
+        errorEl.classList.remove('hidden');
+        btn.disabled = false; btn.textContent = 'Send Message';
+      });
+  }
+
+  /* ── Language ──────────────────────────────────────────────────────────
+     The same markup on every page. window.STRIDE_LANGS says which languages
+     THIS page exists in, written per page by the build, so the header itself
+     never has to differ from one page to the next. The control stays hidden
+     until that list has been read: better no control than one that offers a
+     language and lands on a 404. */
+  var STRIDE_LOCALES = ['de', 'es', 'fr', 'it', 'ja', 'zh'];
+
+  function strideLangCurrent() {
+    var seg = location.pathname.split('/')[1];
+    return STRIDE_LOCALES.indexOf(seg) >= 0 ? seg : 'en';
+  }
+
+  /* This page in another language. The query and the hash come along, because
+     ?code= carries a discount and #pricing carries the reader's place. */
+  function strideLangPath(code) {
+    var p = location.pathname;
+    var cur = strideLangCurrent();
+    if (cur !== 'en') p = p.slice(cur.length + 1) || '/';
+    if (code !== 'en') p = '/' + code + (p === '/' ? '/' : p);
+    return p + location.search + location.hash;
+  }
+
+  function strideLang(btn) {
+    var menu = btn.parentNode.querySelector('.lang-menu');
+    var open = menu.classList.toggle('on');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  (function strideLangInit() {
+    var box = document.querySelector('.lang-switch');
+    if (!box) return;
+    var btn = box.querySelector('.lang-btn');
+    var menu = box.querySelector('.lang-menu');
+    var cur = strideLangCurrent();
+    var available = window.STRIDE_LANGS || ['en'];
+
+    btn.textContent = cur.toUpperCase();
+    var links = menu.querySelectorAll('a');
+    for (var i = 0; i < links.length; i++) {
+      var code = links[i].getAttribute('data-lang');
+      if (available.indexOf(code) < 0) { links[i].className = 'gone'; continue; }
+      links[i].href = strideLangPath(code);
+      links[i].setAttribute('aria-selected', code === cur ? 'true' : 'false');
+      links[i].onclick = (function (c) {
+        return function () { try { localStorage.setItem('stride_lang', c); } catch (e) {} };
+      })(code);
+    }
+    /* Nothing to switch to: show nothing rather than a control that does nothing. */
+    if (available.length > 1) box.classList.add('ready');
+
+    function close() { menu.classList.remove('on'); btn.setAttribute('aria-expanded', 'false'); }
+    document.addEventListener('click', function (e) { if (!box.contains(e.target)) close(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+  })();
+</script>
+<!-- HEADER:END -->
+
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-5R4N7FVP"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+<div class="wrap">
+
+  <!-- ===================== NAV ===================== -->
+<!-- ===================== HERO = THE WHOLE OFFER =====================
+       One composition, not a stack of sections. Everything in the $35 purchase has to
+       be visible before the first scroll: the three packs, the sample count, the racks,
+       the chains, the price and the buy button. Previously the racks and chains lived two
+       sections down, so the offer read as "three sample packs, keep scrolling". -->
+  <header class="max-w-5xl mx-auto px-6 pt-6 pb-12 sm:pt-8 sm:pb-16">
+    <div class="grid md:grid-cols-[1fr,1fr] gap-10 lg:gap-12 items-center">
+
+      <div>
+        <div class="flex items-center gap-3 mb-5">
+          <span class="chip pill-warm">Add-on per Stride</span>
+        </div>
+
+        <h1 class="text-4xl sm:text-5xl lg:text-[3.2rem] leading-[1.03] uppercase mb-5">
+          Stride<br><span class="brand">Experimental</span><br>Collection
+        </h1>
+
+        <p class="text-xl sm:text-2xl ink leading-[1.28] mb-4 font-bold">
+          <span class="num">250+</span> suoni sperimentali, costruiti quasi dal nulla.<br><span class="num">15</span> Ableton Racks.<br><span class="num">4</span> StrideChains.
+        </p>
+        <p class="text-sm sm:text-base ink2 leading-relaxed max-w-md mb-8">
+          Drum distrutte. Una goccia d'acqua che cade. Un segnale semplice spinto in un feedback senza fine.
+        </p>
+
+        <div class="flex flex-wrap items-center gap-5 sm:gap-7">
+          <div class="flex items-baseline gap-3">
+            <div class="price text-4xl sm:text-5xl" data-collection-price>$35</div>
+          </div>
+          <a class="btn-copper px-8 py-4 text-sm uppercase" href="https://strideengine.lemonsqueezy.com/checkout/buy/cf85dbc8-819d-40f6-aea3-29b4ac9a4c02" onclick="return strideBuyCollection(event)">Acquista la Collection</a>
+        </div>
+      </div>
+
+      <!-- The bundle as one object: three covers that overlap into a single stack, and
+           the two tool cards directly under them. Overlapping is what makes them read as
+           a collection rather than three products sitting next to each other. -->
+      <div>
+        <!-- The stack is the play surface. Unlike the email version, a web page CAN
+             embed real video, so this opens the teaser in place instead of dropping
+             the visitor on a bare .mp4 URL. -->
+        <button type="button" class="stack mb-4" id="teaser-open"
+                aria-label="Riproduci il teaser della Experimental Collection"
+                onclick="strideTeaser(true)"
+                style="width:100%;padding:0;border:0;background:none;cursor:pointer;position:relative"><!-- no display here on purpose: .stack sets flex, and overriding it stacked the three sleeves vertically and broke the whole hero -->
+          <figure class="sleeve"><img src="assets/packs/pack-drums.jpg" alt="Vol. 1 Broken Drums" width="900" height="900" loading="eager"></figure>
+          <figure class="sleeve"><img src="assets/packs/pack-water.jpg" alt="Vol. 2 One Drop" width="900" height="900" loading="eager"></figure>
+          <figure class="sleeve"><img src="assets/packs/pack-feedback.jpg" alt="Vol. 3 Feedback" width="900" height="900" loading="eager"></figure>
+          <span aria-hidden="true"
+                style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+                       width:74px;height:74px;border-radius:999px;display:flex;
+                       align-items:center;justify-content:center;z-index:5;
+                       background:rgba(198,113,43,.94);box-shadow:0 10px 30px -8px rgba(0,0,0,.7)">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="#1c1206"
+                 style="margin-left:4px"><path d="M8 5v14l11-7z"/></svg>
+          </span>
+        </button>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div class="minicard">
+            <div class="mc-n">15</div>
+            <div class="mc-l">Ableton<br>Racks</div>
+          </div>
+          <div class="minicard">
+            <div class="mc-n">4</div>
+            <div class="mc-l">Stride<br>Chains</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <div class="max-w-5xl mx-auto px-6"><div class="rule"></div></div>
+
+  <!-- ===================== THE THREE STUDIES ===================== -->
+  <!-- Compact by design: the covers already did the selling upstairs. This is one line
+       each, so the page stops explaining and lets the titles do the work. -->
+  <section class="max-w-5xl mx-auto px-6 py-12 sm:py-16">
+    <div class="silk mb-8">I tre pack</div>
+    <div class="grid sm:grid-cols-3 gap-8 sm:gap-10">
+      <div>
+        <div class="chip pill-warm mb-3 inline-block">Vol. 1</div>
+        <h2 class="text-lg uppercase tracking-tight mb-2">Broken Drums</h2>
+        <p class="text-sm ink leading-snug mb-2"><span class="num">106</span> suoni fatti di drum spinte oltre il punto in cui si comportano come drum.</p>
+        <p class="text-sm ink2 leading-relaxed">Distrutte, ricampionate e stirate in percussioni fratturate, blocchi di basso, glitch e texture.</p>
+      </div>
+      <div>
+        <div class="chip pill-warm mb-3 inline-block">Vol. 2</div>
+        <h2 class="text-lg uppercase tracking-tight mb-2">One Drop</h2>
+        <p class="text-sm ink leading-snug mb-2"><span class="num">74</span> suoni. Una sola sorgente: una goccia d'acqua che cade.</p>
+        <p class="text-sm ink2 leading-relaxed">Processata e rimodellata finché quella minuscola registrazione è diventata un'intera tavolozza sonora.</p>
+      </div>
+      <div>
+        <div class="chip pill-warm mb-3 inline-block">Vol. 3</div>
+        <h2 class="text-lg uppercase tracking-tight mb-2">Feedback</h2>
+        <p class="text-sm ink leading-snug mb-2"><span class="num">76</span> suoni da un segnale semplice spinto in un feedback estremo.</p>
+        <p class="text-sm ink2 leading-relaxed">Ricampionato ancora e ancora mentre il loop si destabilizzava, saturava e si trasformava.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="max-w-5xl mx-auto px-6"><div class="rule"></div></div>
+
+  <!-- ===================== PLUS ===================== -->
+  <!-- These are NOT how the samples were made. They are extra tools in the collection.
+       The racks carry a real buying requirement: their movement comes from Stride FX, so
+       without Stride they load as static racks. That belongs on the sales page, not in
+       the download folder. -->
+  <section class="max-w-5xl mx-auto px-6 py-12 sm:py-16">
+    <div class="silk mb-8">In più</div>
+    <div class="grid sm:grid-cols-2 gap-6 sm:gap-10">
+      <div>
+        <div class="flex items-baseline gap-3 mb-2">
+          <span class="text-2xl price num">15</span>
+          <h2 class="text-lg uppercase tracking-tight">Ableton Racks</h2>
+        </div>
+        <p class="text-sm ink2 leading-relaxed">Rack su misura per processing e sound design.</p>
+        <p class="text-sm ink2 leading-relaxed mt-3">
+          La modulazione è mappata su <span class="ink font-bold">Stride FX</span>, non su LFO nativi. Senza Stride i rack non si muovono.
+        </p>
+      </div>
+      <div>
+        <div class="flex items-baseline gap-3 mb-2">
+          <span class="text-2xl price num">4</span>
+          <h2 class="text-lg uppercase tracking-tight">StrideChains</h2>
+        </div>
+        <p class="text-sm ink2 leading-relaxed">Catene Stride pronte da esplorare e da cui imparare.</p>
+      </div>
+    </div>
+
+    <!-- FREE FILES: one line and two rows. It earns its place because it proves the
+         workflow before buying, but it is not a section. -->
+    <div class="mt-12 sm:mt-14">
+      <p class="text-sm ink2 mb-4">Prova un rack e una StrideChain gratis.</p>
+      <div id="chain-list"></div>
+    </div>
+
+    <details class="disc mt-12 sm:mt-14">
+      <summary>Dove vanno i file</summary>
+      <div class="grid sm:grid-cols-2 gap-x-10 gap-y-7 pt-6">
+        <div>
+          <h3 class="text-base mb-1">File di chain</h3>
+          <p class="text-sm ink2 leading-relaxed mb-3">
+            <span class="mono ink3">.stridechain</span> · lascialo qui, poi premi
+            <span class="ink font-bold">Load</span> in Stride.
+          </p>
+          <div class="pathrow"><span class="os">Win</span><code>Documents\Stride\chains</code></div>
+          <div class="pathrow"><span class="os">Mac</span><code>~/Documents/Stride/chains</code></div>
+        </div>
+        <div>
+          <h3 class="text-base mb-1">Ableton Racks</h3>
+          <p class="text-sm ink2 leading-relaxed mb-3">
+            <span class="mono ink3">.adg</span> · lascialo qui, poi trascinalo su una traccia.
+          </p>
+          <div class="pathrow"><span class="os">Win</span><code>Documents\Ableton\User Library\Presets\Instruments\Instrument Rack</code></div>
+          <div class="pathrow"><span class="os">Mac</span><code>~/Music/Ableton/User Library/Presets/Instruments/Instrument Rack</code></div>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <div class="max-w-5xl mx-auto px-6"><div class="rule"></div></div>
+
+  <!-- ===================== BOTTOM CTA ===================== -->
+  <!-- The offer once more for whoever reached the end, at a size that does not pretend to
+       be a second pitch. The hero already made it. -->
+  <section class="max-w-5xl mx-auto px-6 py-12 sm:py-16">
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-10">
+      <div class="spec leading-relaxed text-center sm:text-left">
+        <span class="num">250+</span> Sounds <span class="ink3">&middot;</span>
+        <span class="num">15</span> Ableton Racks <span class="ink3">&middot;</span>
+        <span class="num">4</span> StrideChains
+      </div>
+      <div class="flex items-center gap-5 sm:gap-6">
+        <div class="price text-4xl sm:text-5xl" data-collection-price>$35</div>
+        <a class="btn-copper px-8 py-4 text-sm uppercase" href="https://strideengine.lemonsqueezy.com/checkout/buy/cf85dbc8-819d-40f6-aea3-29b4ac9a4c02" onclick="return strideBuyCollection(event)">Acquista la Collection</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer class="max-w-5xl mx-auto px-6 py-10 border-t" style="border-color:var(--line)">
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm ink3">
+      <span class="mono">© STRIDE | Sound Design Engine</span>
+      <div class="flex items-center gap-5">
+        <a href="index.html" class="hover:text-[color:var(--copper-lt)] transition-colors">Stride</a>
+        <a href="privacy.html" class="hover:text-[color:var(--copper-lt)] transition-colors">Privacy</a>
+        <a href="terms.html" class="hover:text-[color:var(--copper-lt)] transition-colors">Termini</a>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script>
+// ═════════════════════════════════════════════════════
+//  ADD A FILE  <-  one line each, nothing else to edit.
+//  Drop the file into  frontend/chains/  and mirror it to root chains/.
+//    name    what it is called
+//    format  'chain' (.stridechain)  or  'rack' (.adg)
+//    file    path relative to this page
+//    needs   short, what they must already own. Keep it to a few words.
+// ═════════════════════════════════════════════════════
+const CHAINS = [
+  { name: 'Serum Talker', format: 'rack',  file: 'chains/Serum-Talker.adg',        needs: 'Live, Serum' },
+  { name: 'Serum Talker', format: 'chain', file: 'chains/Serum-Talker.stridechain', needs: 'Live, Serum' }
+];
+
+document.getElementById('chain-list').innerHTML = CHAINS.map(c => {
+  const ext = c.file.slice(c.file.lastIndexOf('.'));
+  return '<div class="row">'
+       +   '<span class="ink font-bold text-base">' + c.name + '</span>'
+       +   '<span class="fmt">' + ext + '</span>'
+       +   (c.needs ? '<span class="text-xs ink3">' + c.needs + '</span>' : '')
+       +   '<a class="dl" href="' + c.file + '" download>Download</a>'
+       + '</div>';
+}).join('');
+</script>
+
+<!-- ─────────────────────────────────────────────────────────────
+     The FREE sample-pack lead magnet used to live on this page. Its
+     signup form fed the `sample_pack_signup` funnel that admin.html
+     still reports on, and the hosted ZIP is still live. Keeping the
+     URL here so it is not lost with the page:
+
+     https://firebasestorage.googleapis.com/v0/b/veero-next.firebasestorage.app/o/Stride%20Engine%20Sample%20Pack.zip?alt=media&token=32dca90b-e849-4b4c-9905-40661c09c859
+
+     Do NOT revoke or rotate that token, and do not re-upload the file
+     in the console: either invalidates the link.
+     ───────────────────────────────────────────────────────────── -->
+
+<!-- Teaser lightbox. No library: one overlay, one <video>, Esc and backdrop close.
+     The source is only attached when it opens, so the 10.6 MB file is never part of
+     the page load for someone who does not press play. -->
+<div id="teaser-lb" hidden
+     style="position:fixed;inset:0;z-index:1200;background:rgba(8,7,6,.92);
+            display:none;align-items:center;justify-content:center;padding:1.25rem"
+     onclick="if(event.target===this)strideTeaser(false)">
+  <button type="button" aria-label="Chiudi" onclick="strideTeaser(false)"
+          style="position:absolute;top:1rem;right:1rem;width:44px;height:44px;border-radius:12px;
+                 background:rgba(255,255,255,.08);border:1px solid rgba(216,201,176,.18);
+                 color:#e8e2d6;font-size:20px;line-height:1;cursor:pointer">&times;</button>
+  <video id="teaser-v" controls playsinline preload="none"
+         style="width:100%;max-width:900px;border-radius:12px;outline:none"></video>
+</div>
+<script>
+  var STRIDE_TEASER_SRC = "https://firebasestorage.googleapis.com/v0/b/veero-next.firebasestorage.app/o/mail%2Fexperimental-collection-teaser.mp4?alt=media&token=fbea20a2-7d93-4c4e-abb1-6a607edf76f5";
+  function strideTeaser(open) {
+    var lb = document.getElementById('teaser-lb');
+    var v  = document.getElementById('teaser-v');
+    if (!lb || !v) return;
+    // Drive display EXPLICITLY. An inline display beats the [hidden] UA rule, so
+    // relying on the attribute alone left the overlay permanently over the page.
+    lb.hidden = !open;
+    lb.style.display = open ? 'flex' : 'none';
+    document.body.style.overflow = open ? 'hidden' : '';
+    if (open) {
+      if (!v.src) v.src = STRIDE_TEASER_SRC;   // fetch only on demand
+      var play = v.play(); if (play && play.catch) play.catch(function () {});
+    } else {
+      v.pause();
+    }
+  }
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') strideTeaser(false);
+  });
+</script>
+</body>
+</html>
