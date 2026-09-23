@@ -307,13 +307,30 @@
                 <button onclick="openDashboard()" class="text-[9px] text-sky-400 hover:text-sky-300 bg-sky-500/10 border border-sky-500/20 px-3 py-1.5 rounded-lg uppercase tracking-widest font-bold transition-all">Refresh</button>
                 <button onclick="closeDashboard()" class="text-[9px] text-zinc-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg uppercase tracking-widest font-bold transition-all">Close ✕</button>
             </div>
+            <!-- Google spend, by hand. The API is the intended source and the backend
+                 already prefers it; this is what fills the gap until its developer token
+                 is approved, and what corrects a day afterwards. -->
+            <div class="flex items-center gap-2 mb-5 flex-wrap">
+                <span id="dash-google-src" class="text-[9px] uppercase tracking-widest font-bold text-zinc-500"></span>
+                <div class="flex-1"></div>
+                <span class="text-[9px] text-zinc-500 uppercase tracking-widest font-bold">Google spend</span>
+                <input id="gs-date" type="date" class="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-[11px] text-zinc-200">
+                <input id="gs-amount" type="number" step="0.01" min="0" placeholder="0.00" class="w-24 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-[11px] text-zinc-200 text-right">
+                <select id="gs-currency" class="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-[11px] text-zinc-200">
+                    <option>ILS</option><option>USD</option><option>EUR</option>
+                </select>
+                <button onclick="saveGoogleSpend()" class="text-[9px] text-violet-300 hover:text-violet-200 bg-violet-500/10 border border-violet-500/20 px-3 py-1.5 rounded-lg uppercase tracking-widest font-bold transition-all">Save</button>
+                <span id="gs-status" class="text-[9px] text-zinc-500"></span>
+            </div>
             <div id="dash-kpis" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 mb-6"></div>
             <div class="mb-1.5 text-[10px] text-zinc-400 uppercase tracking-widest font-bold">Daily · last 14 days</div>
             <div class="mb-6 border border-white/5 rounded-lg overflow-hidden">
                 <table class="w-full text-[11px]">
                     <thead class="bg-black/50"><tr class="text-left">
                         <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black">Day</th>
-                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Spend (out)</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right" title="Meta spend, converted from ILS">Meta out</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right" title="Google Ads spend. From the API once its developer token is approved; until then whatever was entered by hand">Google out</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right" title="Everything spent that day">Spend (out)</th>
                         <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right" title="Meta's own attributed purchases: click = clicked an ad (7d), view = only saw an ad (1d)">Claimed</th>
                         <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right" title="Sales carrying a real ad-click id (fbclid) — deterministic">Verified</th>
                         <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Meta rev</th>
@@ -331,7 +348,9 @@
                 <table class="w-full text-[11px]">
                     <thead class="bg-black/50"><tr class="text-left">
                         <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black">Week of</th>
-                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Spend (out)</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right" title="Meta spend, converted from ILS">Meta out</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right" title="Google Ads spend. From the API once its developer token is approved; until then whatever was entered by hand">Google out</th>
+                        <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right" title="Everything spent that day">Spend (out)</th>
                         <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right" title="Meta's own attributed purchases: click = clicked an ad (7d), view = only saw an ad (1d)">Claimed</th>
                         <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right" title="Sales carrying a real ad-click id (fbclid) — deterministic">Verified</th>
                         <th class="px-3 py-2 text-[8px] text-zinc-500 uppercase tracking-widest font-black text-right">Meta rev</th>
@@ -1223,8 +1242,47 @@
         }
         function closeDashboard() { hide('dashboard-overlay'); }
 
+        // One day at a time, read off the Google Ads UI. Writing the same date again
+        // corrects it, because the backend keys the record on source + date.
+        async function saveGoogleSpend() {
+            const st = document.getElementById('gs-status');
+            const date = document.getElementById('gs-date').value;
+            const amount = document.getElementById('gs-amount').value;
+            if (!date) { st.textContent = 'pick a date'; return; }
+            if (amount === '') { st.textContent = 'enter an amount'; return; }
+            st.textContent = 'saving…';
+            try {
+                const token = await state.user.getIdToken();
+                const res = await fetch(BACKEND_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({
+                        action: 'set_ad_spend', source: 'google', date: date,
+                        amount: Number(amount), currency: document.getElementById('gs-currency').value
+                    })
+                });
+                const j = await res.json();
+                if (!j.ok) { st.textContent = j.error || 'failed'; return; }
+                st.textContent = 'saved';
+                openDashboard();
+            } catch (e) { st.textContent = e.message; }
+        }
+
         function renderDashboard(data) {
             const rate = Number(data.rate_ils_per_usd) || 3.0;
+            // Never let the page imply Google numbers are live when they were typed in.
+            const gsrc = document.getElementById('dash-google-src');
+            if (gsrc) {
+                const src = data.google_spend_source || 'none';
+                const err = data.google_spend_error;
+                gsrc.className = 'text-[9px] uppercase tracking-widest font-bold ' +
+                    (src === 'api' ? 'text-emerald-400' : src === 'manual' ? 'text-amber-400' : 'text-zinc-600');
+                gsrc.textContent = src === 'api' ? 'Google: live from the API'
+                    : src === 'manual' ? 'Google: entered by hand' + (err ? ' — API ' + err.slice(0, 60) : '')
+                    : 'Google: nothing recorded' + (err ? ' — ' + err.slice(0, 60) : '');
+            }
+            const gd = document.getElementById('gs-date');
+            if (gd && !gd.value) gd.value = ymd(new Date());
             const spendByDay = {};
             // Meta's OWN attributed purchases per day, split by claim type:
             // click (7d after clicking an ad) vs view (1d after merely SEEING
@@ -1243,6 +1301,10 @@
                 };
             });
             const claimedStr = (cl) => cl.p ? `${cl.p} <span class="text-zinc-600">(${cl.c}c·${cl.v}v)</span>` : '—';
+            // Already USD: the backend converts, because it is the only side that knows
+            // which currency the Google account bills in.
+            const googleByDay = {};
+            Object.entries(data.google_spend_usd || {}).forEach(([d, v]) => { googleByDay[d] = Number(v) || 0; });
             const revByDay = dashRevenueByDay(rate);
             const today = new Date(); today.setHours(0, 0, 0, 0);
             const cell = (txt, cls) => `<td class="px-3 py-1.5 text-right tabular-nums ${cls || ''}">${txt}</td>`;
@@ -1253,15 +1315,17 @@
             for (let i = 0; i < 14; i++) {
                 const dt = new Date(today); dt.setDate(today.getDate() - i);
                 const k = ymd(dt);
-                const spend = spendByDay[k] || 0;
+                const spendMeta = spendByDay[k] || 0;
+                const spendGoogle = googleByDay[k] || 0;
+                const spend = spendMeta + spendGoogle;
                 const cl = claimedByDay[k] || { p: 0, c: 0, v: 0, rev: 0 };
                 const r = revByDay[k] || { meta: 0, organic: 0, mc: 0 };
                 const total = r.meta + r.organic, net = total - spend;
                 const lbl = i === 0 ? 'Today' : (i === 1 ? 'Yesterday' : dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
                 dailyHtml += `<tr class="border-t border-white/5 ${i === 0 ? 'bg-white/[0.02]' : ''}">
                     <td class="px-3 py-1.5 text-zinc-300 whitespace-nowrap">${lbl}</td>
-                    ${cell(usd0(spend), 'text-zinc-400')}${cell(claimedStr(cl), 'text-amber-300/80')}${cell(r.mc || 0, 'text-emerald-300')}${cell(usd0(r.meta), 'text-blue-300')}${cell(usd0(r.organic), 'text-zinc-400')}${cell(usd0(total), 'text-zinc-100 font-semibold')}
-                    ${cell(roasStr(r.meta, spend), 'text-zinc-300')}${cell(roasStr(total, spend), 'text-zinc-300')}${cell(usd0(net), netCls(net) + ' font-semibold')}
+                    ${cell(usd0(spendMeta), 'text-zinc-400')}${cell(usd0(spendGoogle), spendGoogle ? 'text-violet-300' : 'text-zinc-700')}${cell(usd0(spend), 'text-zinc-300 font-semibold')}${cell(claimedStr(cl), 'text-amber-300/80')}${cell(r.mc || 0, 'text-emerald-300')}${cell(usd0(r.meta), 'text-blue-300')}${cell(usd0(r.organic), 'text-zinc-400')}${cell(usd0(total), 'text-zinc-100 font-semibold')}
+                    ${cell(roasStr(r.meta, spendMeta), 'text-zinc-300')}${cell(roasStr(total, spend), 'text-zinc-300')}${cell(usd0(net), netCls(net) + ' font-semibold')}
                 </tr>`;
             }
             document.getElementById('dash-daily').innerHTML = dailyHtml;
@@ -1272,20 +1336,22 @@
             for (let i = 0; i < 63; i++) {
                 const dt = new Date(today); dt.setDate(today.getDate() - i);
                 const k = ymd(dt), wkey = ymd(weekStart(dt));
-                (wk[wkey] = wk[wkey] || { spend: 0, meta: 0, organic: 0, clp: 0, clc: 0, clv: 0, clrev: 0, vc: 0 });
+                (wk[wkey] = wk[wkey] || { spend: 0, google: 0, meta: 0, organic: 0, clp: 0, clc: 0, clv: 0, clrev: 0, vc: 0 });
                 wk[wkey].spend += spendByDay[k] || 0;
+                wk[wkey].google += googleByDay[k] || 0;
                 const c = claimedByDay[k]; if (c) { wk[wkey].clp += c.p; wk[wkey].clc += c.c; wk[wkey].clv += c.v; wk[wkey].clrev += c.rev; }
                 const r = revByDay[k]; if (r) { wk[wkey].meta += r.meta; wk[wkey].organic += r.organic; wk[wkey].vc += r.mc || 0; }
             }
             let weekHtml = '';
             Object.keys(wk).sort().reverse().slice(0, 8).forEach((wkey, idx) => {
-                const a = wk[wkey], total = a.meta + a.organic, net = total - a.spend;
+                const a = wk[wkey], total = a.meta + a.organic;
+                const outAll = a.spend + a.google, net = total - outAll;
                 const d = new Date(wkey + 'T00:00:00');
                 const lbl = (idx === 0 ? 'This week · ' : '') + d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
                 weekHtml += `<tr class="border-t border-white/5 ${idx === 0 ? 'bg-white/[0.02]' : ''}">
                     <td class="px-3 py-1.5 text-zinc-300 whitespace-nowrap">${lbl}</td>
-                    ${cell(usd0(a.spend), 'text-zinc-400')}${cell(claimedStr({ p: a.clp, c: a.clc, v: a.clv }), 'text-amber-300/80')}${cell(a.vc, 'text-emerald-300')}${cell(usd0(a.meta), 'text-blue-300')}${cell(usd0(a.organic), 'text-zinc-400')}${cell(usd0(total), 'text-zinc-100 font-semibold')}
-                    ${cell(roasStr(a.meta, a.spend), 'text-zinc-300')}${cell(roasStr(total, a.spend), 'text-zinc-300')}${cell(usd0(net), netCls(net) + ' font-semibold')}
+                    ${cell(usd0(a.spend), 'text-zinc-400')}${cell(usd0(a.google), a.google ? 'text-violet-300' : 'text-zinc-700')}${cell(usd0(outAll), 'text-zinc-300 font-semibold')}${cell(claimedStr({ p: a.clp, c: a.clc, v: a.clv }), 'text-amber-300/80')}${cell(a.vc, 'text-emerald-300')}${cell(usd0(a.meta), 'text-blue-300')}${cell(usd0(a.organic), 'text-zinc-400')}${cell(usd0(total), 'text-zinc-100 font-semibold')}
+                    ${cell(roasStr(a.meta, a.spend), 'text-zinc-300')}${cell(roasStr(total, outAll), 'text-zinc-300')}${cell(usd0(net), netCls(net) + ' font-semibold')}
                 </tr>`;
             });
             document.getElementById('dash-weekly').innerHTML = weekHtml;
@@ -1295,7 +1361,7 @@
             for (let i = 0; i < 30; i++) {
                 const dt = new Date(today); dt.setDate(today.getDate() - i);
                 const k = ymd(dt);
-                s30 += spendByDay[k] || 0;
+                s30 += (spendByDay[k] || 0) + (googleByDay[k] || 0);
                 const c = claimedByDay[k]; if (c) { cl30 += c.p; cc30 += c.c; cv30 += c.v; clRev30 += c.rev; }
                 const r = revByDay[k]; if (r) { m30 += r.meta; o30 += r.organic; mc30 += r.mc || 0; oc30 += r.oc || 0; }
             }
