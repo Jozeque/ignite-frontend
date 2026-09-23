@@ -4,7 +4,7 @@ d:I[68027,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default",1]
 :HL["/_next/static/media/1b99372b3eaef0c8-s.p.1gsd1jahc5dg_.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
 :HL["/_next/static/media/8d05cfa5faa8406c-s.p.1s123piy9_v1m.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
 :HL["/_next/static/media/dc0d9adbac686440-s.p.3cik_s2si-ft-.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
-2:T2c90,
+2:T3e18,
 // Consent mode v2. This must run BEFORE any Google tag: after one has loaded it has
 // already decided how to behave, and a declaration made later is decoration.
 //
@@ -97,7 +97,12 @@ d:I[68027,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default",1]
         // are built on Tailwind and define no tokens, hence a literal fallback on every
         // var(): identical everywhere, and no page-specific stylesheet.
         css.textContent =
-            '#stride-consent{position:fixed;left:18px;bottom:18px;z-index:2147483000;' +
+            // Layer 1000: above the page, the buy bar (1000, and this panel comes later in
+            // the DOM) and its help dot (999); BELOW everything the visitor opens on purpose:
+            // the contact modal (1001), the buy modal (1002), the phone menu (1100), the film
+            // (1200) and Paddle's checkout. It used to sit above all of those, which put a
+            // cookie notice on top of the email field and "Continue to checkout".
+            '#stride-consent{position:fixed;left:18px;bottom:18px;z-index:1000;' +
             'width:min(372px,calc(100vw - 36px));' +
             'background:var(--panel,#1d1b16);border:1px solid var(--line,rgba(216,201,176,.11));' +
             'border-radius:16px;padding:15px 16px;' +
@@ -106,10 +111,12 @@ d:I[68027,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default",1]
             'color:var(--ink2,#b8ad9b);' +
             // Starts invisible and a little low, then rises once. A panel that is simply
             // THERE on first paint reads as part of the page still loading.
-            'opacity:0;transform:translateY(12px);' +
+            // While it waits it is also untouchable, so a tap lands on the page beneath.
+            'opacity:0;transform:translateY(12px);visibility:hidden;pointer-events:none;' +
             'transition:opacity .45s ease,transform .45s cubic-bezier(.22,.8,.3,1),' +
-            'bottom .25s ease}' +
-            '#stride-consent.on{opacity:1;transform:none}' +
+            'bottom .25s ease,visibility 0s linear .45s}' +
+            '#stride-consent.on{opacity:1;transform:none;visibility:visible;' +
+            'pointer-events:auto;transition-delay:0s}' +
             '#stride-consent p{margin:0 0 12px;font-size:13px;line-height:1.55}' +
             '#stride-consent a{color:var(--copper-lt,#dd9a52);text-decoration:none;' +
             'border-bottom:1px solid rgba(221,154,82,.28)}' +
@@ -144,6 +151,7 @@ d:I[68027,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default",1]
             var v = ev.target && ev.target.getAttribute('data-consent');
             if (!v) { return; }
             record(v);
+            answered = true;
             // Leave the way it arrived rather than vanishing mid-click.
             el.classList.remove('on');
             setTimeout(function () { el.remove(); }, 260);
@@ -155,6 +163,70 @@ d:I[68027,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default",1]
         // lands straight on top of it and hides the primary buy button behind a cookie
         // notice, so the panel rides above the bar and keeps following it as it comes and
         // goes. Every other page has no such bar, where this is a no-op.
+        //
+        // And it never sits on what the visitor came for: the hero film, a headline, the
+        // hero's price and buy box, the /try form, any copper buy or try button, or the
+        // demo prompt. Riding above the bar was not enough on its own: on a taller phone
+        // the bar has not arrived at load (the hero's own button is still in view) and the
+        // panel sat on that button; on a shorter one it clipped the headline and the price;
+        // on /try it covered GET STRIDE FREE. When the only place it could go is on top of
+        // one of these it waits out of sight, and comes back once the spot is clear, which
+        // on a phone is the first scroll past the hero, right above the bar. Nothing is
+        // lost by waiting: this visitor's tags hold the denied default until they answer.
+        // Selectors, not words, so it holds in every language the site is published in.
+        var KEEP_CLEAR = '#heroStage, h1, .hero-buy, #f, .btn-copper, .dpop, ' +
+                         '#buy-modal, #contact-modal';
+        var ready = false, shown = false, answered = false, showTimer = 0, frame = 0;
+
+        // Would the panel, parked `base` px above the bottom edge, cover any of them?
+        // Measured where it WILL sit, not where it is: while waiting it sits 12px low.
+        function blocked(base) {
+            var box = el.getBoundingClientRect();
+            var bottom = window.innerHeight - base, top = bottom - el.offsetHeight;
+            var keep = document.querySelectorAll(KEEP_CLEAR);
+            for (var i = 0; i < keep.length; i++) {
+                var k = keep[i];
+                if (el.contains(k)) { continue; }
+                var s = window.getComputedStyle(k);
+                if (s.display === 'none' || s.visibility === 'hidden') { continue; }
+                var r = k.getBoundingClientRect();
+                if (!r.width || !r.height) { continue; }
+                if (r.bottom > top && r.top < bottom && r.right > box.left && r.left < box.right) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function show() {
+            shown = true;
+            el.classList.add('on');
+        }
+
+        function place() {
+            frame = 0;
+            if (answered || !el.isConnected) { return; }
+            var base = clearBottomBar();
+            if (!ready) { return; }
+            if (blocked(base)) {
+                clearTimeout(showTimer);
+                showTimer = 0;
+                if (shown) { shown = false; el.classList.remove('on'); }
+            } else if (!shown && !showTimer) {
+                // Come back only once the page has settled in a clear spot, so a scroll
+                // that is passing a button does not make the panel blink on and off.
+                showTimer = setTimeout(function () {
+                    showTimer = 0;
+                    if (answered || blocked(clearBottomBar())) { return; }
+                    show();
+                }, 350);
+            }
+        }
+
+        function schedule() {
+            if (!frame) { frame = window.requestAnimationFrame(place); }
+        }
+
         function clearBottomBar() {
             var base = window.innerWidth <= 560 ? 12 : 18;
             var bar = document.getElementById('m-cta');
@@ -170,30 +242,45 @@ d:I[68027,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default",1]
                 }
             }
             el.style.bottom = base + 'px';
+            return base;
         }
         clearBottomBar();
-        window.addEventListener('scroll', clearBottomBar, { passive: true });
-        window.addEventListener('resize', clearBottomBar);
+        window.addEventListener('scroll', schedule, { passive: true });
+        window.addEventListener('resize', schedule);
         // The bar is switched on by a CLASS, not by scrolling, so it can appear without
         // either listener above ever firing. Watch the element itself as well.
         var _bar = document.getElementById('m-cta');
         if (_bar) {
             if (window.MutationObserver) {
-                new MutationObserver(clearBottomBar).observe(_bar, {
+                new MutationObserver(schedule).observe(_bar, {
                     attributes: true, attributeFilter: ['class', 'style'] });
             }
             // The class flips first and the bar SLIDES in afterwards, so at the moment the
             // observer fires it is still below the fold and measures as absent. Waiting for
             // the slide to finish is what actually catches it in place; without this the
             // panel stays put and lands on the buy button on a phone.
-            _bar.addEventListener('transitionend', clearBottomBar);
+            _bar.addEventListener('transitionend', schedule);
+        }
+        // The demo prompt and the two modals also open by a class, without a scroll.
+        if (window.MutationObserver) {
+            ['dpop', 'buy-modal', 'contact-modal'].forEach(function (id) {
+                var o = document.getElementById(id);
+                if (o) {
+                    new MutationObserver(schedule).observe(o, {
+                        attributes: true, attributeFilter: ['class', 'style'] });
+                }
+            });
         }
 
         // Hold it back a beat so the page paints first. Nothing waits on this: the tags
         // already hold the denied default for this visitor, so all the delay changes is
         // that the page is not interrupted while it is still arriving. Measure once more
-        // on the way in, because the bar may have arrived during that beat.
-        setTimeout(function () { clearBottomBar(); el.classList.add('on'); }, 700);
+        // on the way in, because the bar may have arrived during that beat, and show it
+        // straight away only if that spot is clear.
+        setTimeout(function () {
+            ready = true;
+            if (!answered && !blocked(clearBottomBar())) { show(); } else { place(); }
+        }, 700);
     }
 
     if (document.readyState === 'loading') {
@@ -203,7 +290,7 @@ d:I[68027,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default",1]
     }
 })();
 b:X
-0:{"P":null,"c":["","tv","why-your-drums-are-so-boring"],"q":"","i":false,"f":[[["",{"children":["tv",{"children":[["slug","why-your-drums-are-so-boring","d",[]],{"children":["__PAGE__",{},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4624],[["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/3gyqbviunrrae.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","script","script-0",{"src":"/_next/static/chunks/1mpnoxox0-4cg.js","async":true,"nonce":"$undefined"}]],["$","html",null,{"lang":"en","className":"dark outfit_c8e75115-module__GXCCoG__variable space_mono_d8eecc30-module__bEIZiG__variable","children":[["$","head",null,{"children":[false,["$","script",null,{"dangerouslySetInnerHTML":{"__html":"$2"}}],"$L3","$L4","$L5","$L6"]}],"$L7"]}]]}],{"children":["$L8",{"children":["$L9",{"children":["$La",{},null,false,null]},null,false,"$b"]},null,false,"$b"]},null,false,null],"$Lc",false]],"m":"$undefined","G":["$d",["$Le"]],"S":true,"h":null,"r":"$undefined","s":"$undefined","a":"$undefined","l":"$undefined","p":"$undefined","d":"$undefined","b":"19Lr_y4hmpn0AvO5mFbO0"}
+0:{"P":null,"c":["","tv","why-your-drums-are-so-boring"],"q":"","i":false,"f":[[["",{"children":["tv",{"children":[["slug","why-your-drums-are-so-boring","d",[]],{"children":["__PAGE__",{},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4624],[["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/3gyqbviunrrae.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","script","script-0",{"src":"/_next/static/chunks/1mpnoxox0-4cg.js","async":true,"nonce":"$undefined"}]],["$","html",null,{"lang":"en","className":"dark outfit_c8e75115-module__GXCCoG__variable space_mono_d8eecc30-module__bEIZiG__variable","children":[["$","head",null,{"children":[false,["$","script",null,{"dangerouslySetInnerHTML":{"__html":"$2"}}],"$L3","$L4","$L5","$L6"]}],"$L7"]}]]}],{"children":["$L8",{"children":["$L9",{"children":["$La",{},null,false,null]},null,false,"$b"]},null,false,"$b"]},null,false,null],"$Lc",false]],"m":"$undefined","G":["$d",["$Le"]],"S":true,"h":null,"r":"$undefined","s":"$undefined","a":"$undefined","l":"$undefined","p":"$undefined","d":"$undefined","b":"GCmZqjiBoyxR_z77Ku9Oq"}
 13:I[39756,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default"]
 14:I[37457,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default"]
 16:I[97367,["/_next/static/chunks/1mpnoxox0-4cg.js"],"OutletBoundary"]
