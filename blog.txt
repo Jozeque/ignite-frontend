@@ -1,11 +1,222 @@
 1:"$Sreact.fragment"
-a:I[68027,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default",1]
+c:I[68027,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default",1]
 :HL["/_next/static/chunks/1axj_975yblc5.css","style"]
 :HL["/_next/static/media/1b99372b3eaef0c8-s.p.1gsd1jahc5dg_.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
 :HL["/_next/static/media/8d05cfa5faa8406c-s.p.1s123piy9_v1m.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
 :HL["/_next/static/media/dc0d9adbac686440-s.p.3cik_s2si-ft-.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
-2:["$","iframe",null,{"src":"https://www.googletagmanager.com/ns.html?id=GTM-5R4N7FVP","height":"0","width":"0","style":{"display":"none","visibility":"hidden"}}]
-3:T3d66,<style>
+2:T2c90,
+// Consent mode v2. This must run BEFORE any Google tag: after one has loaded it has
+// already decided how to behave, and a declaration made later is decoration.
+//
+// Two defaults are declared. Denied for the EEA, the UK and Switzerland, where Google's
+// EU user consent policy wants a real answer, and granted everywhere else, which is what
+// the privacy policy discloses. Google resolves the visitor's region itself from the
+// request, so none of this needs an IP lookup of ours. Roughly two thirds of paying
+// customers bill from the denied set, so it is the majority path, not an edge case.
+//
+// It governs GOOGLE tags only. The Meta Pixel and Microsoft Clarity keep the behaviour
+// they have always had, which is a separate decision rather than an oversight.
+//     https://developers.google.com/tag-platform/security/guides/consent
+(function () {
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    // A stable handle. The GA4 block further down declares its own global gtag; this one
+    // is ours and cannot be redefined out from under the banner.
+    window.strideGtag = gtag;
+
+    // Where Google's EU user consent policy applies: the EU 27, the rest of the EEA,
+    // the UK and Switzerland. Kept in step with _CONSENT_REQUIRED_COUNTRIES in
+    // firebase_cloud/functions/google_dm.py, which decides the same question server-side.
+    var CONSENT_REGION = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR',
+                          'HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK',
+                          'SI','ES','SE','IS','LI','NO','GB','CH'];
+    var ALL = ['ad_storage', 'ad_user_data', 'ad_personalization', 'analytics_storage'];
+
+    function state(value, extra) {
+        var o = {};
+        for (var i = 0; i < ALL.length; i++) { o[ALL[i]] = value; }
+        for (var k in (extra || {})) { o[k] = extra[k]; }
+        return o;
+    }
+
+    // Region-scoped default first; Google applies the more specific one.
+    // wait_for_update holds the tags briefly so a stored answer below lands first.
+    gtag('consent', 'default', state('denied', { region: CONSENT_REGION,
+                                                 wait_for_update: 500 }));
+    gtag('consent', 'default', state('granted'));
+
+    var saved = '';
+    try { saved = localStorage.getItem('stride_consent_ads') || ''; } catch (e) {}
+    if (saved !== 'granted' && saved !== 'denied') { saved = ''; }
+    // Replay the answer synchronously, before any tag fires, so a returning visitor is
+    // never measured on a footing they already rejected.
+    if (saved) { gtag('consent', 'update', state(saved)); }
+
+    // Read by the checkout, which sends it to the backend so an order months later can
+    // still report what this person actually agreed to. '' means unanswered, and the
+    // server reads that as UNSPECIFIED rather than as a yes.
+    window.strideConsentAds = function () { return saved; };
+
+    function record(value) {
+        saved = value;
+        try { localStorage.setItem('stride_consent_ads', value); } catch (e) {}
+        // A cookie too: the checkout on a different page of this site reads whichever
+        // survives, and Safari evicts localStorage on long gaps more readily.
+        try {
+            document.cookie = 'stride_consent_ads=' + value + '; max-age=' +
+                (180 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+        } catch (e) {}
+        gtag('consent', 'update', state(value));
+        dataLayer.push({ event: 'stride_consent', consent_ads: value });
+    }
+
+    // Ask only where the answer is legally required. Timezone, not an IP lookup: it costs
+    // no request and identifies nobody. It over-asks a little (Europe/Moscow is not the
+    // EEA) and that is the safe direction. The harm of not asking a German is that their
+    // tags stay denied for good, while the harm of asking a Russian is a dismissed bar.
+    // If the timezone cannot be read at all, ask. Never assume consent.
+    function mustAsk() {
+        if (saved) { return false; }
+        try {
+            var tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+            // An empty timezone is not "not Europe", it is "no idea". Falling through
+            // to the comparison below would read it as no idea -> do not ask -> stay
+            // denied forever, which loses the visitor rather than asking them.
+            if (!tz) { return true; }
+            return tz.indexOf('Europe/') === 0 || tz === 'Atlantic/Reykjavik' ||
+                   tz === 'Atlantic/Canary' || tz === 'Atlantic/Madeira' ||
+                   tz === 'Atlantic/Azores';
+        } catch (e) { return true; }
+    }
+
+    function banner() {
+        if (!mustAsk() || document.getElementById('stride-consent')) { return; }
+        var css = document.createElement('style');
+        // The panel, hairline and copper are the page's own tokens, so this reads as part
+        // of Stride rather than as a bolted-on compliance widget. The three legal pages
+        // are built on Tailwind and define no tokens, hence a literal fallback on every
+        // var(): identical everywhere, and no page-specific stylesheet.
+        css.textContent =
+            '#stride-consent{position:fixed;left:18px;bottom:18px;z-index:2147483000;' +
+            'width:min(372px,calc(100vw - 36px));' +
+            'background:var(--panel,#1d1b16);border:1px solid var(--line,rgba(216,201,176,.11));' +
+            'border-radius:16px;padding:15px 16px;' +
+            'box-shadow:0 30px 70px -30px rgba(0,0,0,.85);' +
+            'font-family:Outfit,system-ui,-apple-system,sans-serif;' +
+            'color:var(--ink2,#b8ad9b);' +
+            // Starts invisible and a little low, then rises once. A panel that is simply
+            // THERE on first paint reads as part of the page still loading.
+            'opacity:0;transform:translateY(12px);' +
+            'transition:opacity .45s ease,transform .45s cubic-bezier(.22,.8,.3,1),' +
+            'bottom .25s ease}' +
+            '#stride-consent.on{opacity:1;transform:none}' +
+            '#stride-consent p{margin:0 0 12px;font-size:13px;line-height:1.55}' +
+            '#stride-consent a{color:var(--copper-lt,#dd9a52);text-decoration:none;' +
+            'border-bottom:1px solid rgba(221,154,82,.28)}' +
+            '#stride-consent a:hover{border-bottom-color:rgba(221,154,82,.75)}' +
+            '#stride-consent div{display:flex;gap:8px}' +
+            // Both buttons are one style. Making "accept" the loud one is the nudge the
+            // consent rules exist to stop, and an equal pair is also simply calmer.
+            '#stride-consent button{flex:1 1 0;font:inherit;font-size:13px;font-weight:700;' +
+            'cursor:pointer;padding:9px 14px;border-radius:10px;' +
+            'border:1px solid var(--line,rgba(216,201,176,.11));' +
+            'background:var(--raise,#252119);color:var(--ink,#ece4d6);' +
+            'transition:border-color .18s ease}' +
+            '#stride-consent button:hover{border-color:rgba(216,201,176,.3)}' +
+            '@media(max-width:560px){#stride-consent{left:12px;right:12px;bottom:12px;width:auto}}' +
+            '@media(prefers-reduced-motion:reduce){#stride-consent{transition:none;' +
+            'opacity:1;transform:none}}';
+        document.head.appendChild(css);
+
+        var el = document.createElement('div');
+        el.id = 'stride-consent';
+        el.setAttribute('role', 'dialog');
+        el.setAttribute('aria-label', 'Cookie choices');
+        // Short, and it says the thing a visitor actually wants to know: saying no costs
+        // them nothing. No "we value your privacy", no scrolling wall of vendor names.
+        el.innerHTML =
+            '<p>We use cookies to see which ads bring people here. ' +
+            'Say no and nothing on the site changes. ' +
+            '<a href="/privacy.html">Privacy&nbsp;Policy</a></p>' +
+            '<div><button type="button" data-consent="denied">Decline</button>' +
+            '<button type="button" data-consent="granted">Accept</button></div>';
+        el.addEventListener('click', function (ev) {
+            var v = ev.target && ev.target.getAttribute('data-consent');
+            if (!v) { return; }
+            record(v);
+            // Leave the way it arrived rather than vanishing mid-click.
+            el.classList.remove('on');
+            setTimeout(function () { el.remove(); }, 260);
+        });
+        document.body.appendChild(el);
+
+        // The homepage pins a buy bar to the bottom of the viewport (#m-cta, "GET STRIDE"),
+        // and it arrives on scroll rather than on load. A panel sitting at bottom:18px
+        // lands straight on top of it and hides the primary buy button behind a cookie
+        // notice, so the panel rides above the bar and keeps following it as it comes and
+        // goes. Every other page has no such bar, where this is a no-op.
+        function clearBottomBar() {
+            var base = window.innerWidth <= 560 ? 12 : 18;
+            var bar = document.getElementById('m-cta');
+            if (bar) {
+                var r = bar.getBoundingClientRect();
+                // Only when it is really parked at the bottom of the viewport right now.
+                // The bar slides in and out, and once it has slid away its rect sits
+                // BELOW the fold, which still satisfies a bottom-edge test on its own.
+                // Requiring the top edge to be on screen too is what tells the two apart.
+                if (r.height > 0 && r.top < window.innerHeight - 4
+                        && r.bottom > window.innerHeight - 4) {
+                    base += r.height + 10;
+                }
+            }
+            el.style.bottom = base + 'px';
+        }
+        clearBottomBar();
+        window.addEventListener('scroll', clearBottomBar, { passive: true });
+        window.addEventListener('resize', clearBottomBar);
+        // The bar is switched on by a CLASS, not by scrolling, so it can appear without
+        // either listener above ever firing. Watch the element itself as well.
+        var _bar = document.getElementById('m-cta');
+        if (_bar) {
+            if (window.MutationObserver) {
+                new MutationObserver(clearBottomBar).observe(_bar, {
+                    attributes: true, attributeFilter: ['class', 'style'] });
+            }
+            // The class flips first and the bar SLIDES in afterwards, so at the moment the
+            // observer fires it is still below the fold and measures as absent. Waiting for
+            // the slide to finish is what actually catches it in place; without this the
+            // panel stays put and lands on the buy button on a phone.
+            _bar.addEventListener('transitionend', clearBottomBar);
+        }
+
+        // Hold it back a beat so the page paints first. Nothing waits on this: the tags
+        // already hold the denied default for this visitor, so all the delay changes is
+        // that the page is not interrupted while it is still arriving. Measure once more
+        // on the way in, because the bar may have arrived during that beat.
+        setTimeout(function () { clearBottomBar(); el.classList.add('on'); }, 700);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', banner);
+    } else {
+        banner();
+    }
+})();
+a:X
+0:{"P":null,"c":["","blog"],"q":"","i":false,"f":[[["",{"children":["blog",{"children":["__PAGE__",{},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4624],[["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/1axj_975yblc5.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","script","script-0",{"src":"/_next/static/chunks/1mpnoxox0-4cg.js","async":true,"nonce":"$undefined"}]],["$","html",null,{"lang":"en","className":"dark outfit_c8e75115-module__GXCCoG__variable space_mono_d8eecc30-module__bEIZiG__variable","children":[["$","head",null,{"children":[false,["$","script",null,{"dangerouslySetInnerHTML":{"__html":"$2"}}],"$L3","$L4","$L5","$L6"]}],"$L7"]}]]}],{"children":["$L8",{"children":["$L9",{},null,false,null]},null,false,"$a"]},null,false,null],"$Lb",false]],"m":"$undefined","G":["$c",["$Ld"]],"S":true,"h":null,"r":"$undefined","s":"$undefined","a":"$undefined","l":"$undefined","p":"$undefined","d":"$undefined","b":"VVqNYHoa8gcZYVQENHky-"}
+12:I[39756,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default"]
+13:I[37457,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default"]
+14:I[22016,["/_next/static/chunks/1mpnoxox0-4cg.js","/_next/static/chunks/21rmub91oxtxn.js"],""]
+1b:I[97367,["/_next/static/chunks/1mpnoxox0-4cg.js"],"ViewportBoundary"]
+1d:I[97367,["/_next/static/chunks/1mpnoxox0-4cg.js"],"MetadataBoundary"]
+1e:"$Sreact.suspense"
+:HL["/assets/altwire-logo.png","image"]
+3:["$","script",null,{"dangerouslySetInnerHTML":{"__html":"(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':\nnew Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],\nj=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=\n'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);\n})(window,document,'script','dataLayer','GTM-5R4N7FVP');"}}]
+4:["$","script",null,{"async":true,"src":"https://www.googletagmanager.com/gtag/js?id=G-JCMEXN70CM"}]
+5:["$","script",null,{"dangerouslySetInnerHTML":{"__html":"\n  window.dataLayer = window.dataLayer || [];\n  function gtag(){dataLayer.push(arguments);}\n  gtag('js', new Date());\n\n  gtag('config', 'G-JCMEXN70CM');\n"}}]
+6:["$","script",null,{"dangerouslySetInnerHTML":{"__html":"\n    (function(c,l,a,r,i,t,y){\n        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};\n        t=l.createElement(r);t.async=1;t.src=\"https://www.clarity.ms/tag/\"+i;\n        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);\n    })(window, document, \"clarity\", \"script\", \"yj7cm3a9sz\");\n"}}]
+e:["$","iframe",null,{"src":"https://www.googletagmanager.com/ns.html?id=GTM-5R4N7FVP","height":"0","width":"0","style":{"display":"none","visibility":"hidden"}}]
+f:T3c8b,<style>
   /* The header carries everything it needs to look the same anywhere. setup, samples and
      session already define these tokens and classes; privacy, terms and refund define none
      of them, which is how refund.html ended up with a wordmark at a different size. Rather
@@ -224,32 +435,24 @@ a:I[68027,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default",1]
       });
   }
 </script>
-8:X
-0:{"P":null,"c":["","blog"],"q":"","i":false,"f":[[["",{"children":["blog",{"children":["__PAGE__",{},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4624],[["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/1axj_975yblc5.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","script","script-0",{"src":"/_next/static/chunks/1mpnoxox0-4cg.js","async":true,"nonce":"$undefined"}]],["$","html",null,{"lang":"en","className":"dark outfit_c8e75115-module__GXCCoG__variable space_mono_d8eecc30-module__bEIZiG__variable","children":[["$","head",null,{"children":[false,["$","script",null,{"dangerouslySetInnerHTML":{"__html":"(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':\nnew Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],\nj=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=\n'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);\n})(window,document,'script','dataLayer','GTM-5R4N7FVP');"}}],["$","script",null,{"async":true,"src":"https://www.googletagmanager.com/gtag/js?id=G-JCMEXN70CM"}],["$","script",null,{"dangerouslySetInnerHTML":{"__html":"\n  window.dataLayer = window.dataLayer || [];\n  function gtag(){dataLayer.push(arguments);}\n  gtag('js', new Date());\n\n  gtag('config', 'G-JCMEXN70CM');\n"}}],["$","script",null,{"dangerouslySetInnerHTML":{"__html":"\n    (function(c,l,a,r,i,t,y){\n        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};\n        t=l.createElement(r);t.async=1;t.src=\"https://www.clarity.ms/tag/\"+i;\n        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);\n    })(window, document, \"clarity\", \"script\", \"yj7cm3a9sz\");\n"}}]]}],["$","body",null,{"className":"font-sans min-h-screen flex flex-col","children":[["$","noscript",null,{"children":"$2"}],["$","div",null,{"dangerouslySetInnerHTML":{"__html":"$3"}}],"$L4","$L5"]}]]}]]}],{"children":["$L6",{"children":["$L7",{},null,false,null]},null,false,"$8"]},null,false,null],"$L9",false]],"m":"$undefined","G":["$a",["$Lb"]],"S":true,"h":null,"r":"$undefined","s":"$undefined","a":"$undefined","l":"$undefined","p":"$undefined","d":"$undefined","b":"fcQEdYn1XOdSLkfOg26-P"}
-c:I[39756,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default"]
-d:I[37457,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default"]
-e:I[22016,["/_next/static/chunks/1mpnoxox0-4cg.js","/_next/static/chunks/21rmub91oxtxn.js"],""]
-15:I[97367,["/_next/static/chunks/1mpnoxox0-4cg.js"],"ViewportBoundary"]
-17:I[97367,["/_next/static/chunks/1mpnoxox0-4cg.js"],"MetadataBoundary"]
-18:"$Sreact.suspense"
-:HL["/assets/altwire-logo.png","image"]
-4:["$","main",null,{"className":"wrap flex-1 w-full","children":["$","$Lc",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$Ld",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[["$","div",null,{"className":"max-w-2xl mx-auto px-6 py-24 text-center","children":[["$","p",null,{"className":"silk mb-4","children":"404"}],["$","h1",null,{"className":"text-4xl md:text-6xl tracking-tight","children":["This lane is ",["$","span",null,{"className":"brand","children":"empty."}]]}],["$","p",null,{"className":"ink2 mt-5","children":"The page moved or never existed. Here is where the sound is."}],["$","div",null,{"className":"flex flex-wrap justify-center gap-3 mt-10","children":[["$","a",null,{"href":"/","className":"btn-copper text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Home"}],["$","$Le",null,{"href":"/tv","className":"btn-ghost text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Videos"}],["$","a",null,{"href":"/blog.html","className":"btn-ghost text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Blog"}],["$","a",null,{"href":"/setup.html","className":"btn-ghost text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Setup"}]]}]]}],[]],"forbidden":"$undefined","unauthorized":"$undefined"}]}]
-5:["$","footer",null,{"className":"wrap w-full border-t py-8 text-center mt-auto","style":{"borderColor":"var(--line)","background":"#100f0c"},"children":[["$","nav",null,{"aria-label":"Explore","className":"flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mb-3 px-6","children":[["$","a",null,{"href":"/blog.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Blog"}],["$","$Le",null,{"href":"/tv","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Videos"}],false,["$","a",null,{"href":"/setup.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Setup"}],["$","a",null,{"href":"/samples.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Experimental Collection"}]]}],["$","nav",null,{"aria-label":"Legal","className":"flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mb-3 px-6","children":[["$","a",null,{"href":"/privacy.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Privacy Policy"}],["$","a",null,{"href":"/terms.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Terms of Service"}],["$","a",null,{"href":"/refund.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Refund Policy"}]]}],["$","p",null,{"className":"text-[13px] text-zinc-500 font-bold uppercase tracking-widest px-6","children":["© ",2026," STRIDE ENGINE. BUILT FOR PRODUCERS. BUILT FOR EVERY DAW."]}],["$","p",null,{"className":"text-[11px] text-zinc-600 mt-3 max-w-2xl mx-auto leading-relaxed px-6","children":"Third-party plugins are sold separately. All product names and trademarks belong to their respective owners. Stride is an independent product and is not affiliated with or endorsed by these companies."}]]}]
-6:["$","$1","c",{"children":[null,["$","$Lc",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$Ld",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}]
-7:["$","$1","c",{"children":[["$","div",null,{"className":"w-full max-w-3xl mx-auto px-6 pt-12 pb-24","children":[["$","script",null,{"type":"application/ld+json","dangerouslySetInnerHTML":{"__html":"{\"@context\":\"https://schema.org\",\"@graph\":[{\"@type\":\"Blog\",\"name\":\"Stride Lab Notes\",\"description\":\"Notes, drops and collabs from the Stride lab, plus guides to automation and modulation for the synths and effects you already own.\",\"url\":\"https://stridehub.io/blog.html\",\"blogPost\":[{\"@type\":\"BlogPosting\",\"headline\":\"A two-hour conversation about happy accidents\",\"url\":\"https://stridehub.io/blog/stride-review-altwire\",\"datePublished\":\"2026-09-20\"},{\"@type\":\"BlogPosting\",\"headline\":\"Stride × Outerverse\",\"url\":\"https://stridehub.io/blog/outerverse.html\",\"datePublished\":\"2026-05-11\"}]},{\"@type\":\"BreadcrumbList\",\"itemListElement\":[{\"@type\":\"ListItem\",\"position\":1,\"name\":\"Home\",\"item\":\"https://stridehub.io/\"},{\"@type\":\"ListItem\",\"position\":2,\"name\":\"Blog\",\"item\":\"https://stridehub.io/blog.html\"}]}]}"}}],["$","header",null,{"className":"text-center mb-14","children":[["$","span",null,{"className":"chip pill-warm mb-5","children":"Lab Notes"}],["$","h1",null,{"className":"text-4xl md:text-6xl font-black tracking-tight mt-5","children":["From the ",["$","span",null,{"className":"brand","children":"lab"}],"."]}],["$","p",null,{"className":"text-sm ink3 mt-3","children":"Drops, collabs, and notes from the bench."}]]}],["$","div",null,{"className":"space-y-6","children":[["$","$Le","stride-review-altwire",{"href":"/blog/stride-review-altwire","className":"gen-card group block panel overflow-hidden","children":[["$","div",null,{"className":"h-40 md:h-48 relative overflow-hidden","style":{"background":"linear-gradient(120deg,#c6712b 0%,#d9822b 42%,#2f748e 100%)"},"children":[[["$","div",null,{"className":"absolute inset-0","style":{"background":"radial-gradient(120% 140% at 50% -20%, rgba(255,255,255,.18), transparent 60%)"}}],["$","div",null,{"className":"absolute inset-0 flex items-center justify-center px-6 gap-3 md:gap-5","children":[["$","span",null,{"className":"brand font-black text-xl md:text-3xl tracking-tighter drop-shadow-lg","children":"STRIDE"}],[["$","span",null,{"className":"text-white/80 font-black text-2xl md:text-4xl drop-shadow-lg","children":"×"}],["$","img",null,{"src":"/assets/altwire-logo.png","alt":"AltWire","className":"h-5 md:h-7 w-auto drop-shadow-lg"}]]]}]],false]}],["$","div",null,{"className":"p-6 md:p-8","children":[["$","div",null,{"className":"flex items-center gap-2 mb-3","children":[["$","span",null,{"className":"silk","children":"September 20, 2026"}],["$","span",null,{"className":"silk","aria-hidden":"true","children":"·"}],["$","span",null,{"className":"silk","children":[1," min read"]}]]}],["$","h2",null,{"className":"text-2xl md:text-3xl font-black mb-3 group-hover:text-[color:var(--copper-lt)] transition-colors","children":"A two-hour conversation about happy accidents"}],["$","p",null,{"className":"text-sm md:text-base ink2 leading-relaxed mb-5","children":"Derek Oswald from AltWire sat with us for two hours on the happy accidents inside a sound design session, then spent real time with Stride and wrote a deep dive."}],["$","span",null,{"className":"silk group-hover:text-[color:var(--copper-lt)] transition-colors inline-flex items-center gap-2","style":{"color":"var(--ink2)"},"children":["Read more",["$","svg",null,{"className":"w-3 h-3 group-hover:translate-x-1 transition-transform","fill":"none","stroke":"currentColor","viewBox":"0 0 24 24","aria-hidden":"true","children":["$","path",null,{"strokeLinecap":"round","strokeLinejoin":"round","strokeWidth":"3","d":"M14 5l7 7m0 0l-7 7m7-7H3"}]}]]}]]}]]}],["$","a","outerverse",{"href":"/blog/outerverse.html","className":"gen-card group block panel overflow-hidden","children":[["$","div",null,{"className":"h-40 md:h-48 relative overflow-hidden","style":{"background":"linear-gradient(120deg,#c6712b 0%,#d9822b 42%,#2f748e 100%)"},"children":["$Lf",false]}],"$L10"]}]]}],"$L11","$L12"]}],["$L13"],"$L14"]}]
-9:["$","$1","h",{"children":[null,["$","$L15",null,{"children":"$L16"}],["$","div",null,{"hidden":true,"children":["$","$L17",null,{"children":["$","$18",null,{"name":"Next.Metadata","children":"$L19"}]}]}],["$","meta",null,{"name":"next-size-adjust","content":""}]]}]
-b:["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/1axj_975yblc5.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]
-1a:I[16857,["/_next/static/chunks/1mpnoxox0-4cg.js","/_next/static/chunks/21rmub91oxtxn.js"],"CtaPanelClient"]
-1b:I[97367,["/_next/static/chunks/1mpnoxox0-4cg.js"],"OutletBoundary"]
+7:["$","body",null,{"className":"font-sans min-h-screen flex flex-col","children":[["$","noscript",null,{"children":"$e"}],["$","div",null,{"dangerouslySetInnerHTML":{"__html":"$f"}}],"$L10","$L11"]}]
+8:["$","$1","c",{"children":[null,["$","$L12",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L13",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}]
+9:["$","$1","c",{"children":[["$","div",null,{"className":"w-full max-w-3xl mx-auto px-6 pt-12 pb-24","children":[["$","script",null,{"type":"application/ld+json","dangerouslySetInnerHTML":{"__html":"{\"@context\":\"https://schema.org\",\"@graph\":[{\"@type\":\"Blog\",\"name\":\"Stride Lab Notes\",\"description\":\"Notes, drops and collabs from the Stride lab, plus guides to automation and modulation for the synths and effects you already own.\",\"url\":\"https://stridehub.io/blog.html\",\"blogPost\":[{\"@type\":\"BlogPosting\",\"headline\":\"A two-hour conversation about happy accidents\",\"url\":\"https://stridehub.io/blog/stride-review-altwire\",\"datePublished\":\"2026-09-20\"},{\"@type\":\"BlogPosting\",\"headline\":\"Stride × Outerverse\",\"url\":\"https://stridehub.io/blog/outerverse.html\",\"datePublished\":\"2026-05-11\"}]},{\"@type\":\"BreadcrumbList\",\"itemListElement\":[{\"@type\":\"ListItem\",\"position\":1,\"name\":\"Home\",\"item\":\"https://stridehub.io/\"},{\"@type\":\"ListItem\",\"position\":2,\"name\":\"Blog\",\"item\":\"https://stridehub.io/blog.html\"}]}]}"}}],["$","header",null,{"className":"text-center mb-14","children":[["$","span",null,{"className":"chip pill-warm mb-5","children":"Lab Notes"}],["$","h1",null,{"className":"text-4xl md:text-6xl font-black tracking-tight mt-5","children":["From the ",["$","span",null,{"className":"brand","children":"lab"}],"."]}],["$","p",null,{"className":"text-sm ink3 mt-3","children":"Drops, collabs, and notes from the bench."}]]}],["$","div",null,{"className":"space-y-6","children":[["$","$L14","stride-review-altwire",{"href":"/blog/stride-review-altwire","className":"gen-card group block panel overflow-hidden","children":[["$","div",null,{"className":"h-40 md:h-48 relative overflow-hidden","style":{"background":"linear-gradient(120deg,#c6712b 0%,#d9822b 42%,#2f748e 100%)"},"children":[[["$","div",null,{"className":"absolute inset-0","style":{"background":"radial-gradient(120% 140% at 50% -20%, rgba(255,255,255,.18), transparent 60%)"}}],["$","div",null,{"className":"absolute inset-0 flex items-center justify-center px-6 gap-3 md:gap-5","children":[["$","span",null,{"className":"brand font-black text-xl md:text-3xl tracking-tighter drop-shadow-lg","children":"STRIDE"}],[["$","span",null,{"className":"text-white/80 font-black text-2xl md:text-4xl drop-shadow-lg","children":"×"}],["$","img",null,{"src":"/assets/altwire-logo.png","alt":"AltWire","className":"h-5 md:h-7 w-auto drop-shadow-lg"}]]]}]],false]}],["$","div",null,{"className":"p-6 md:p-8","children":[["$","div",null,{"className":"flex items-center gap-2 mb-3","children":[["$","span",null,{"className":"silk","children":"September 20, 2026"}],["$","span",null,{"className":"silk","aria-hidden":"true","children":"·"}],["$","span",null,{"className":"silk","children":[1," min read"]}]]}],["$","h2",null,{"className":"text-2xl md:text-3xl font-black mb-3 group-hover:text-[color:var(--copper-lt)] transition-colors","children":"A two-hour conversation about happy accidents"}],["$","p",null,{"className":"text-sm md:text-base ink2 leading-relaxed mb-5","children":"Derek Oswald from AltWire sat with us for two hours on the happy accidents inside a sound design session, then spent real time with Stride and wrote a deep dive."}],["$","span",null,{"className":"silk group-hover:text-[color:var(--copper-lt)] transition-colors inline-flex items-center gap-2","style":{"color":"var(--ink2)"},"children":["Read more",["$","svg",null,{"className":"w-3 h-3 group-hover:translate-x-1 transition-transform","fill":"none","stroke":"currentColor","viewBox":"0 0 24 24","aria-hidden":"true","children":["$","path",null,{"strokeLinecap":"round","strokeLinejoin":"round","strokeWidth":"3","d":"M14 5l7 7m0 0l-7 7m7-7H3"}]}]]}]]}]]}],["$","a","outerverse",{"href":"/blog/outerverse.html","className":"gen-card group block panel overflow-hidden","children":[["$","div",null,{"className":"h-40 md:h-48 relative overflow-hidden","style":{"background":"linear-gradient(120deg,#c6712b 0%,#d9822b 42%,#2f748e 100%)"},"children":["$L15",false]}],"$L16"]}]]}],"$L17","$L18"]}],["$L19"],"$L1a"]}]
+20:I[16857,["/_next/static/chunks/1mpnoxox0-4cg.js","/_next/static/chunks/21rmub91oxtxn.js"],"CtaPanelClient"]
+21:I[97367,["/_next/static/chunks/1mpnoxox0-4cg.js"],"OutletBoundary"]
+23:I[27201,["/_next/static/chunks/1mpnoxox0-4cg.js"],"IconMark"]
 :HL["/assets/outerverse/logo.png","image"]
-8:C
-f:[["$","div",null,{"className":"absolute inset-0","style":{"background":"radial-gradient(120% 140% at 50% -20%, rgba(255,255,255,.18), transparent 60%)"}}],["$","div",null,{"className":"absolute inset-0 flex items-center justify-center px-6 gap-3 md:gap-5","children":[["$","span",null,{"className":"brand font-black text-xl md:text-3xl tracking-tighter drop-shadow-lg","children":"STRIDE"}],[["$","span",null,{"className":"text-white/80 font-black text-2xl md:text-4xl drop-shadow-lg","children":"×"}],["$","img",null,{"src":"/assets/outerverse/logo.png","alt":"Outerverse","className":"h-5 md:h-7 w-auto drop-shadow-lg"}]]]}]]
-10:["$","div",null,{"className":"p-6 md:p-8","children":[["$","div",null,{"className":"flex items-center gap-2 mb-3","children":[["$","span",null,{"className":"silk","children":"May 11, 2026"}],["$","span",null,{"className":"silk","aria-hidden":"true","children":"·"}],["$","span",null,{"className":"silk","children":[2," min read"]}]]}],["$","h2",null,{"className":"text-2xl md:text-3xl font-black mb-3 group-hover:text-[color:var(--copper-lt)] transition-colors","children":"Stride × Outerverse"}],["$","p",null,{"className":"text-sm md:text-base ink2 leading-relaxed mb-5","children":"Outerverse build some of the deepest racks in psy. Stride is the tool to explore them — top-tier engineering meets macro automation at scale."}],["$","span",null,{"className":"silk group-hover:text-[color:var(--copper-lt)] transition-colors inline-flex items-center gap-2","style":{"color":"var(--ink2)"},"children":["Read more",["$","svg",null,{"className":"w-3 h-3 group-hover:translate-x-1 transition-transform","fill":"none","stroke":"currentColor","viewBox":"0 0 24 24","aria-hidden":"true","children":["$","path",null,{"strokeLinecap":"round","strokeLinejoin":"round","strokeWidth":"3","d":"M14 5l7 7m0 0l-7 7m7-7H3"}]}]]}]]}]
-11:["$","section",null,{"aria-labelledby":"watch","className":"mt-16","children":[["$","div",null,{"className":"flex items-baseline justify-between mb-5","children":[["$","h2",null,{"id":"watch","className":"silk","children":"Latest sessions"}],["$","$Le",null,{"href":"/tv","className":"silk hover:text-[color:var(--copper-lt)] transition-colors","children":"All videos"}]]}],["$","div",null,{"className":"grid gap-6 sm:grid-cols-2","children":[["$","$Le","HPZHThJ9DlI",{"href":"/tv/stride-fx-and-stridebridge","className":"gen-card group block panel overflow-hidden","children":[["$","div",null,{"className":"relative overflow-hidden","style":{"aspectRatio":"16 / 9","background":"#0f0e0b"},"children":[["$","img",null,{"src":"https://i.ytimg.com/vi/HPZHThJ9DlI/maxresdefault.jpg","alt":"","width":1280,"height":720,"loading":"lazy","decoding":"async","className":"absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"}],["$","span",null,{"className":"mono absolute right-2 bottom-2 text-[11px] font-bold px-1.5 py-0.5 rounded","style":{"background":"rgba(0,0,0,.78)","color":"#fff"},"children":"6:50"}]]}],["$","div",null,{"className":"p-5","children":[["$","p",null,{"className":"silk mb-2","children":"Sep 1, 2026"}],["$","h3",null,{"className":"text-lg leading-snug group-hover:text-[color:var(--copper-lt)] transition-colors","children":"Stride FX + StrideBridge - Changing the Game for Sound Design?"}],false,["$","p",null,{"className":"silk mt-3","style":{"color":"var(--teal-lt)"},"children":["Transcript · ","913"," words"]}]]}]]}],["$","$Le","-Z4zRIiPg-4",{"href":"/tv/the-ultimate-modulation-plugin-walkthrough","className":"gen-card group block panel overflow-hidden","children":[["$","div",null,{"className":"relative overflow-hidden","style":{"aspectRatio":"16 / 9","background":"#0f0e0b"},"children":[["$","img",null,{"src":"https://i.ytimg.com/vi/-Z4zRIiPg-4/maxresdefault.jpg","alt":"","width":1280,"height":720,"loading":"lazy","decoding":"async","className":"absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"}],["$","span",null,{"className":"mono absolute right-2 bottom-2 text-[11px] font-bold px-1.5 py-0.5 rounded","style":{"background":"rgba(0,0,0,.78)","color":"#fff"},"children":"5:25"}]]}],["$","div",null,{"className":"p-5","children":[["$","p",null,{"className":"silk mb-2","children":"Aug 27, 2026"}],["$","h3",null,{"className":"text-lg leading-snug group-hover:text-[color:var(--copper-lt)] transition-colors","children":"The Ultimate Modulation Plugin - Walkthrough"}],false,["$","p",null,{"className":"silk mt-3","style":{"color":"var(--teal-lt)"},"children":["Transcript · ","817"," words"]}]]}]]}]]}]]}]
-12:["$","div",null,{"className":"mt-16","children":["$","$L1a",null,{"setup":{"token":"live_e0101b87a9e6e7024988534cf7b","priceId":"pri_01m2dcx05b0z2dcnscp4qjm28d","fallback":99,"codes":{"rekz":"dsc_01m2fxadt3hs2myt4k203tpj2t"}},"title":"$undefined","body":"$undefined"}]}]
-13:["$","script","script-0",{"src":"/_next/static/chunks/21rmub91oxtxn.js","async":true,"nonce":"$undefined"}]
-14:["$","$L1b",null,{"children":["$","$18",null,{"name":"Next.MetadataOutlet","children":"$@1c"}]}]
-16:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}],["$","meta","2",{"name":"theme-color","content":"#141310"}]]
-1d:I[27201,["/_next/static/chunks/1mpnoxox0-4cg.js"],"IconMark"]
-19:[["$","title","0",{"children":"Blog | STRIDE"}],["$","meta","1",{"name":"description","content":"Notes, drops and collabs from the Stride lab, plus guides to automation and modulation for the synths and effects you already own."}],["$","meta","2",{"name":"author","content":"Stride"}],["$","link","3",{"rel":"canonical","href":"https://stridehub.io/blog.html"}],["$","meta","4",{"property":"og:title","content":"Blog"}],["$","meta","5",{"property":"og:description","content":"Notes, drops and collabs from the Stride lab, plus guides to automation and modulation for the synths and effects you already own."}],["$","meta","6",{"property":"og:url","content":"https://stridehub.io/blog.html"}],["$","meta","7",{"property":"og:site_name","content":"Stride"}],["$","meta","8",{"property":"og:image","content":"https://stridehub.io/og-image.png"}],["$","meta","9",{"property":"og:type","content":"website"}],["$","meta","10",{"name":"twitter:card","content":"summary_large_image"}],["$","meta","11",{"name":"twitter:title","content":"Blog"}],["$","meta","12",{"name":"twitter:description","content":"Notes, drops and collabs from the Stride lab, plus guides to automation and modulation for the synths and effects you already own."}],["$","meta","13",{"name":"twitter:image","content":"https://stridehub.io/og-image.png"}],["$","link","14",{"rel":"icon","href":"/favicon.ico","sizes":"any"}],["$","link","15",{"rel":"icon","href":"/favicon-96x96.png","type":"image/png","sizes":"96x96"}],["$","link","16",{"rel":"icon","href":"/favicon-192x192.png","type":"image/png","sizes":"192x192"}],["$","link","17",{"rel":"apple-touch-icon","href":"/apple-touch-icon.png","sizes":"180x180"}],["$","$L1d","18",{}]]
-1c:null
+b:["$","$1","h",{"children":[null,["$","$L1b",null,{"children":"$L1c"}],["$","div",null,{"hidden":true,"children":["$","$L1d",null,{"children":["$","$1e",null,{"name":"Next.Metadata","children":"$L1f"}]}]}],["$","meta",null,{"name":"next-size-adjust","content":""}]]}]
+d:["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/1axj_975yblc5.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]
+a:C
+10:["$","main",null,{"className":"wrap flex-1 w-full","children":["$","$L12",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L13",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[["$","div",null,{"className":"max-w-2xl mx-auto px-6 py-24 text-center","children":[["$","p",null,{"className":"silk mb-4","children":"404"}],["$","h1",null,{"className":"text-4xl md:text-6xl tracking-tight","children":["This lane is ",["$","span",null,{"className":"brand","children":"empty."}]]}],["$","p",null,{"className":"ink2 mt-5","children":"The page moved or never existed. Here is where the sound is."}],["$","div",null,{"className":"flex flex-wrap justify-center gap-3 mt-10","children":[["$","a",null,{"href":"/","className":"btn-copper text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Home"}],["$","$L14",null,{"href":"/tv","className":"btn-ghost text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Videos"}],["$","a",null,{"href":"/blog.html","className":"btn-ghost text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Blog"}],["$","a",null,{"href":"/setup.html","className":"btn-ghost text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Setup"}]]}]]}],[]],"forbidden":"$undefined","unauthorized":"$undefined"}]}]
+11:["$","footer",null,{"className":"wrap w-full border-t py-8 text-center mt-auto","style":{"borderColor":"var(--line)","background":"#100f0c"},"children":[["$","nav",null,{"aria-label":"Explore","className":"flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mb-3 px-6","children":[["$","a",null,{"href":"/blog.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Blog"}],["$","$L14",null,{"href":"/tv","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Videos"}],false,["$","a",null,{"href":"/setup.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Setup"}],["$","a",null,{"href":"/samples.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Experimental Collection"}]]}],["$","nav",null,{"aria-label":"Legal","className":"flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mb-3 px-6","children":[["$","a",null,{"href":"/privacy.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Privacy Policy"}],["$","a",null,{"href":"/terms.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Terms of Service"}],["$","a",null,{"href":"/refund.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Refund Policy"}]]}],["$","p",null,{"className":"text-[13px] text-zinc-500 font-bold uppercase tracking-widest px-6","children":["© ",2026," STRIDE ENGINE. BUILT FOR PRODUCERS. BUILT FOR EVERY DAW."]}],["$","p",null,{"className":"text-[11px] text-zinc-600 mt-3 max-w-2xl mx-auto leading-relaxed px-6","children":"Third-party plugins are sold separately. All product names and trademarks belong to their respective owners. Stride is an independent product and is not affiliated with or endorsed by these companies."}]]}]
+15:[["$","div",null,{"className":"absolute inset-0","style":{"background":"radial-gradient(120% 140% at 50% -20%, rgba(255,255,255,.18), transparent 60%)"}}],["$","div",null,{"className":"absolute inset-0 flex items-center justify-center px-6 gap-3 md:gap-5","children":[["$","span",null,{"className":"brand font-black text-xl md:text-3xl tracking-tighter drop-shadow-lg","children":"STRIDE"}],[["$","span",null,{"className":"text-white/80 font-black text-2xl md:text-4xl drop-shadow-lg","children":"×"}],["$","img",null,{"src":"/assets/outerverse/logo.png","alt":"Outerverse","className":"h-5 md:h-7 w-auto drop-shadow-lg"}]]]}]]
+16:["$","div",null,{"className":"p-6 md:p-8","children":[["$","div",null,{"className":"flex items-center gap-2 mb-3","children":[["$","span",null,{"className":"silk","children":"May 11, 2026"}],["$","span",null,{"className":"silk","aria-hidden":"true","children":"·"}],["$","span",null,{"className":"silk","children":[2," min read"]}]]}],["$","h2",null,{"className":"text-2xl md:text-3xl font-black mb-3 group-hover:text-[color:var(--copper-lt)] transition-colors","children":"Stride × Outerverse"}],["$","p",null,{"className":"text-sm md:text-base ink2 leading-relaxed mb-5","children":"Outerverse build some of the deepest racks in psy. Stride is the tool to explore them — top-tier engineering meets macro automation at scale."}],["$","span",null,{"className":"silk group-hover:text-[color:var(--copper-lt)] transition-colors inline-flex items-center gap-2","style":{"color":"var(--ink2)"},"children":["Read more",["$","svg",null,{"className":"w-3 h-3 group-hover:translate-x-1 transition-transform","fill":"none","stroke":"currentColor","viewBox":"0 0 24 24","aria-hidden":"true","children":["$","path",null,{"strokeLinecap":"round","strokeLinejoin":"round","strokeWidth":"3","d":"M14 5l7 7m0 0l-7 7m7-7H3"}]}]]}]]}]
+17:["$","section",null,{"aria-labelledby":"watch","className":"mt-16","children":[["$","div",null,{"className":"flex items-baseline justify-between mb-5","children":[["$","h2",null,{"id":"watch","className":"silk","children":"Latest sessions"}],["$","$L14",null,{"href":"/tv","className":"silk hover:text-[color:var(--copper-lt)] transition-colors","children":"All videos"}]]}],["$","div",null,{"className":"grid gap-6 sm:grid-cols-2","children":[["$","$L14","HPZHThJ9DlI",{"href":"/tv/stride-fx-and-stridebridge","className":"gen-card group block panel overflow-hidden","children":[["$","div",null,{"className":"relative overflow-hidden","style":{"aspectRatio":"16 / 9","background":"#0f0e0b"},"children":[["$","img",null,{"src":"https://i.ytimg.com/vi/HPZHThJ9DlI/maxresdefault.jpg","alt":"","width":1280,"height":720,"loading":"lazy","decoding":"async","className":"absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"}],["$","span",null,{"className":"mono absolute right-2 bottom-2 text-[11px] font-bold px-1.5 py-0.5 rounded","style":{"background":"rgba(0,0,0,.78)","color":"#fff"},"children":"6:50"}]]}],["$","div",null,{"className":"p-5","children":[["$","p",null,{"className":"silk mb-2","children":"Sep 1, 2026"}],["$","h3",null,{"className":"text-lg leading-snug group-hover:text-[color:var(--copper-lt)] transition-colors","children":"Stride FX + StrideBridge - Changing the Game for Sound Design?"}],false,["$","p",null,{"className":"silk mt-3","style":{"color":"var(--teal-lt)"},"children":["Transcript · ","913"," words"]}]]}]]}],["$","$L14","-Z4zRIiPg-4",{"href":"/tv/the-ultimate-modulation-plugin-walkthrough","className":"gen-card group block panel overflow-hidden","children":[["$","div",null,{"className":"relative overflow-hidden","style":{"aspectRatio":"16 / 9","background":"#0f0e0b"},"children":[["$","img",null,{"src":"https://i.ytimg.com/vi/-Z4zRIiPg-4/maxresdefault.jpg","alt":"","width":1280,"height":720,"loading":"lazy","decoding":"async","className":"absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"}],["$","span",null,{"className":"mono absolute right-2 bottom-2 text-[11px] font-bold px-1.5 py-0.5 rounded","style":{"background":"rgba(0,0,0,.78)","color":"#fff"},"children":"5:25"}]]}],["$","div",null,{"className":"p-5","children":[["$","p",null,{"className":"silk mb-2","children":"Aug 27, 2026"}],["$","h3",null,{"className":"text-lg leading-snug group-hover:text-[color:var(--copper-lt)] transition-colors","children":"The Ultimate Modulation Plugin - Walkthrough"}],false,["$","p",null,{"className":"silk mt-3","style":{"color":"var(--teal-lt)"},"children":["Transcript · ","817"," words"]}]]}]]}]]}]]}]
+18:["$","div",null,{"className":"mt-16","children":["$","$L20",null,{"setup":{"token":"live_e0101b87a9e6e7024988534cf7b","priceId":"pri_01m2dcx05b0z2dcnscp4qjm28d","fallback":99,"codes":{"rekz":"dsc_01m2fxadt3hs2myt4k203tpj2t"}},"title":"$undefined","body":"$undefined"}]}]
+19:["$","script","script-0",{"src":"/_next/static/chunks/21rmub91oxtxn.js","async":true,"nonce":"$undefined"}]
+1a:["$","$L21",null,{"children":["$","$1e",null,{"name":"Next.MetadataOutlet","children":"$@22"}]}]
+1c:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}],["$","meta","2",{"name":"theme-color","content":"#141310"}]]
+1f:[["$","title","0",{"children":"Blog | STRIDE"}],["$","meta","1",{"name":"description","content":"Notes, drops and collabs from the Stride lab, plus guides to automation and modulation for the synths and effects you already own."}],["$","meta","2",{"name":"author","content":"Stride"}],["$","link","3",{"rel":"canonical","href":"https://stridehub.io/blog.html"}],["$","meta","4",{"property":"og:title","content":"Blog"}],["$","meta","5",{"property":"og:description","content":"Notes, drops and collabs from the Stride lab, plus guides to automation and modulation for the synths and effects you already own."}],["$","meta","6",{"property":"og:url","content":"https://stridehub.io/blog.html"}],["$","meta","7",{"property":"og:site_name","content":"Stride"}],["$","meta","8",{"property":"og:image","content":"https://stridehub.io/og-image.png"}],["$","meta","9",{"property":"og:type","content":"website"}],["$","meta","10",{"name":"twitter:card","content":"summary_large_image"}],["$","meta","11",{"name":"twitter:title","content":"Blog"}],["$","meta","12",{"name":"twitter:description","content":"Notes, drops and collabs from the Stride lab, plus guides to automation and modulation for the synths and effects you already own."}],["$","meta","13",{"name":"twitter:image","content":"https://stridehub.io/og-image.png"}],["$","link","14",{"rel":"icon","href":"/favicon.ico","sizes":"any"}],["$","link","15",{"rel":"icon","href":"/favicon-96x96.png","type":"image/png","sizes":"96x96"}],["$","link","16",{"rel":"icon","href":"/favicon-192x192.png","type":"image/png","sizes":"192x192"}],["$","link","17",{"rel":"apple-touch-icon","href":"/apple-touch-icon.png","sizes":"180x180"}],["$","$L23","18",{}]]
+22:null

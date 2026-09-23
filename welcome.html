@@ -3,6 +3,207 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Google consent mode v2 -->
+<script>
+// Consent mode v2. This must run BEFORE any Google tag: after one has loaded it has
+// already decided how to behave, and a declaration made later is decoration.
+//
+// Two defaults are declared. Denied for the EEA, the UK and Switzerland, where Google's
+// EU user consent policy wants a real answer, and granted everywhere else, which is what
+// the privacy policy discloses. Google resolves the visitor's region itself from the
+// request, so none of this needs an IP lookup of ours. Roughly two thirds of paying
+// customers bill from the denied set, so it is the majority path, not an edge case.
+//
+// It governs GOOGLE tags only. The Meta Pixel and Microsoft Clarity keep the behaviour
+// they have always had, which is a separate decision rather than an oversight.
+//     https://developers.google.com/tag-platform/security/guides/consent
+(function () {
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    // A stable handle. The GA4 block further down declares its own global gtag; this one
+    // is ours and cannot be redefined out from under the banner.
+    window.strideGtag = gtag;
+
+    // Where Google's EU user consent policy applies: the EU 27, the rest of the EEA,
+    // the UK and Switzerland. Kept in step with _CONSENT_REQUIRED_COUNTRIES in
+    // firebase_cloud/functions/google_dm.py, which decides the same question server-side.
+    var CONSENT_REGION = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR',
+                          'HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK',
+                          'SI','ES','SE','IS','LI','NO','GB','CH'];
+    var ALL = ['ad_storage', 'ad_user_data', 'ad_personalization', 'analytics_storage'];
+
+    function state(value, extra) {
+        var o = {};
+        for (var i = 0; i < ALL.length; i++) { o[ALL[i]] = value; }
+        for (var k in (extra || {})) { o[k] = extra[k]; }
+        return o;
+    }
+
+    // Region-scoped default first; Google applies the more specific one.
+    // wait_for_update holds the tags briefly so a stored answer below lands first.
+    gtag('consent', 'default', state('denied', { region: CONSENT_REGION,
+                                                 wait_for_update: 500 }));
+    gtag('consent', 'default', state('granted'));
+
+    var saved = '';
+    try { saved = localStorage.getItem('stride_consent_ads') || ''; } catch (e) {}
+    if (saved !== 'granted' && saved !== 'denied') { saved = ''; }
+    // Replay the answer synchronously, before any tag fires, so a returning visitor is
+    // never measured on a footing they already rejected.
+    if (saved) { gtag('consent', 'update', state(saved)); }
+
+    // Read by the checkout, which sends it to the backend so an order months later can
+    // still report what this person actually agreed to. '' means unanswered, and the
+    // server reads that as UNSPECIFIED rather than as a yes.
+    window.strideConsentAds = function () { return saved; };
+
+    function record(value) {
+        saved = value;
+        try { localStorage.setItem('stride_consent_ads', value); } catch (e) {}
+        // A cookie too: the checkout on a different page of this site reads whichever
+        // survives, and Safari evicts localStorage on long gaps more readily.
+        try {
+            document.cookie = 'stride_consent_ads=' + value + '; max-age=' +
+                (180 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+        } catch (e) {}
+        gtag('consent', 'update', state(value));
+        dataLayer.push({ event: 'stride_consent', consent_ads: value });
+    }
+
+    // Ask only where the answer is legally required. Timezone, not an IP lookup: it costs
+    // no request and identifies nobody. It over-asks a little (Europe/Moscow is not the
+    // EEA) and that is the safe direction. The harm of not asking a German is that their
+    // tags stay denied for good, while the harm of asking a Russian is a dismissed bar.
+    // If the timezone cannot be read at all, ask. Never assume consent.
+    function mustAsk() {
+        if (saved) { return false; }
+        try {
+            var tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+            // An empty timezone is not "not Europe", it is "no idea". Falling through
+            // to the comparison below would read it as no idea -> do not ask -> stay
+            // denied forever, which loses the visitor rather than asking them.
+            if (!tz) { return true; }
+            return tz.indexOf('Europe/') === 0 || tz === 'Atlantic/Reykjavik' ||
+                   tz === 'Atlantic/Canary' || tz === 'Atlantic/Madeira' ||
+                   tz === 'Atlantic/Azores';
+        } catch (e) { return true; }
+    }
+
+    function banner() {
+        if (!mustAsk() || document.getElementById('stride-consent')) { return; }
+        var css = document.createElement('style');
+        // The panel, hairline and copper are the page's own tokens, so this reads as part
+        // of Stride rather than as a bolted-on compliance widget. The three legal pages
+        // are built on Tailwind and define no tokens, hence a literal fallback on every
+        // var(): identical everywhere, and no page-specific stylesheet.
+        css.textContent =
+            '#stride-consent{position:fixed;left:18px;bottom:18px;z-index:2147483000;' +
+            'width:min(372px,calc(100vw - 36px));' +
+            'background:var(--panel,#1d1b16);border:1px solid var(--line,rgba(216,201,176,.11));' +
+            'border-radius:16px;padding:15px 16px;' +
+            'box-shadow:0 30px 70px -30px rgba(0,0,0,.85);' +
+            'font-family:Outfit,system-ui,-apple-system,sans-serif;' +
+            'color:var(--ink2,#b8ad9b);' +
+            // Starts invisible and a little low, then rises once. A panel that is simply
+            // THERE on first paint reads as part of the page still loading.
+            'opacity:0;transform:translateY(12px);' +
+            'transition:opacity .45s ease,transform .45s cubic-bezier(.22,.8,.3,1),' +
+            'bottom .25s ease}' +
+            '#stride-consent.on{opacity:1;transform:none}' +
+            '#stride-consent p{margin:0 0 12px;font-size:13px;line-height:1.55}' +
+            '#stride-consent a{color:var(--copper-lt,#dd9a52);text-decoration:none;' +
+            'border-bottom:1px solid rgba(221,154,82,.28)}' +
+            '#stride-consent a:hover{border-bottom-color:rgba(221,154,82,.75)}' +
+            '#stride-consent div{display:flex;gap:8px}' +
+            // Both buttons are one style. Making "accept" the loud one is the nudge the
+            // consent rules exist to stop, and an equal pair is also simply calmer.
+            '#stride-consent button{flex:1 1 0;font:inherit;font-size:13px;font-weight:700;' +
+            'cursor:pointer;padding:9px 14px;border-radius:10px;' +
+            'border:1px solid var(--line,rgba(216,201,176,.11));' +
+            'background:var(--raise,#252119);color:var(--ink,#ece4d6);' +
+            'transition:border-color .18s ease}' +
+            '#stride-consent button:hover{border-color:rgba(216,201,176,.3)}' +
+            '@media(max-width:560px){#stride-consent{left:12px;right:12px;bottom:12px;width:auto}}' +
+            '@media(prefers-reduced-motion:reduce){#stride-consent{transition:none;' +
+            'opacity:1;transform:none}}';
+        document.head.appendChild(css);
+
+        var el = document.createElement('div');
+        el.id = 'stride-consent';
+        el.setAttribute('role', 'dialog');
+        el.setAttribute('aria-label', 'Cookie choices');
+        // Short, and it says the thing a visitor actually wants to know: saying no costs
+        // them nothing. No "we value your privacy", no scrolling wall of vendor names.
+        el.innerHTML =
+            '<p>We use cookies to see which ads bring people here. ' +
+            'Say no and nothing on the site changes. ' +
+            '<a href="/privacy.html">Privacy&nbsp;Policy</a></p>' +
+            '<div><button type="button" data-consent="denied">Decline</button>' +
+            '<button type="button" data-consent="granted">Accept</button></div>';
+        el.addEventListener('click', function (ev) {
+            var v = ev.target && ev.target.getAttribute('data-consent');
+            if (!v) { return; }
+            record(v);
+            // Leave the way it arrived rather than vanishing mid-click.
+            el.classList.remove('on');
+            setTimeout(function () { el.remove(); }, 260);
+        });
+        document.body.appendChild(el);
+
+        // The homepage pins a buy bar to the bottom of the viewport (#m-cta, "GET STRIDE"),
+        // and it arrives on scroll rather than on load. A panel sitting at bottom:18px
+        // lands straight on top of it and hides the primary buy button behind a cookie
+        // notice, so the panel rides above the bar and keeps following it as it comes and
+        // goes. Every other page has no such bar, where this is a no-op.
+        function clearBottomBar() {
+            var base = window.innerWidth <= 560 ? 12 : 18;
+            var bar = document.getElementById('m-cta');
+            if (bar) {
+                var r = bar.getBoundingClientRect();
+                // Only when it is really parked at the bottom of the viewport right now.
+                // The bar slides in and out, and once it has slid away its rect sits
+                // BELOW the fold, which still satisfies a bottom-edge test on its own.
+                // Requiring the top edge to be on screen too is what tells the two apart.
+                if (r.height > 0 && r.top < window.innerHeight - 4
+                        && r.bottom > window.innerHeight - 4) {
+                    base += r.height + 10;
+                }
+            }
+            el.style.bottom = base + 'px';
+        }
+        clearBottomBar();
+        window.addEventListener('scroll', clearBottomBar, { passive: true });
+        window.addEventListener('resize', clearBottomBar);
+        // The bar is switched on by a CLASS, not by scrolling, so it can appear without
+        // either listener above ever firing. Watch the element itself as well.
+        var _bar = document.getElementById('m-cta');
+        if (_bar) {
+            if (window.MutationObserver) {
+                new MutationObserver(clearBottomBar).observe(_bar, {
+                    attributes: true, attributeFilter: ['class', 'style'] });
+            }
+            // The class flips first and the bar SLIDES in afterwards, so at the moment the
+            // observer fires it is still below the fold and measures as absent. Waiting for
+            // the slide to finish is what actually catches it in place; without this the
+            // panel stays put and lands on the buy button on a phone.
+            _bar.addEventListener('transitionend', clearBottomBar);
+        }
+
+        // Hold it back a beat so the page paints first. Nothing waits on this: the tags
+        // already hold the denied default for this visitor, so all the delay changes is
+        // that the page is not interrupted while it is still arriving. Measure once more
+        // on the way in, because the bar may have arrived during that beat.
+        setTimeout(function () { clearBottomBar(); el.classList.add('on'); }, 700);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', banner);
+    } else {
+        banner();
+    }
+})();
+</script>
+<!-- End Google consent mode v2 -->
 <!-- Google Tag Manager -->
 <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
@@ -336,7 +537,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .rail-stack img + img{margin-left:-14%}
   .rail-stack img:nth-child(1){z-index:1}.rail-stack img:nth-child(2){z-index:2}.rail-stack img:nth-child(3){z-index:3}
 </style>
-<link rel="stylesheet" href="/_legacy/css/welcome.070b2e831a.css">
+<link rel="stylesheet" href="/_legacy/css/welcome.685c70faee.css">
 </head>
 <body class="min-h-screen flex flex-col">
 <!-- Google Tag Manager (noscript) -->
@@ -367,11 +568,106 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </p>
     </div>
 
+
+    <!-- Download + walkthrough (3/5) beside the one offer and the support line (2/5).
+         It was four columns split evenly while two offer cards sat on the right. With one
+         offer there, an even split left the video small and the right-hand column half
+         empty below the card, so the split follows what is actually in each side now. -->
+    <div class="grid md:grid-cols-5 gap-3 mb-6">
+
+      <!-- The software first, then the walkthrough: get it installed, then learn it. -->
+      <div class="md:col-span-3 flex flex-col gap-4">
+        <!-- The software. Hidden in the markup and revealed only once the backend hands over
+             real URLs, so this block is either useful or absent, never a pair of dead buttons
+             on the screen of somebody who has just paid. Each link stays hidden on its own: a
+             release published for one platform shows one button, not a broken second. -->
+        <section class="dl-block panel rounded-2xl" id="dl-block" hidden>
+          <p class="silk dl-kicker">Download Stride</p>
+          <div class="dl-row">
+            <a class="btn-copper" id="dl-win" href="#" rel="nofollow" hidden>Download for Windows</a>
+            <a class="btn-copper" id="dl-mac" href="#" rel="nofollow" hidden>Download for Mac</a>
+          </div>
+          <p class="dl-note">Your licence key is in your welcome email. <a href="setup.html">Setup guide &rarr;</a></p>
+        </section>
+
+        <div class="video-frame rounded-2xl overflow-hidden" style="border:1px solid var(--line);box-shadow:0 30px 60px -28px rgba(0,0,0,.9)">
+          <iframe class="w-full aspect-video bg-black" src="https://www.youtube-nocookie.com/embed/-Z4zRIiPg-4?rel=0&amp;modestbranding=1&amp;playsinline=1" title="Stride welcome video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+        </div>
+      </div>
+
+      <!-- ONE offer, and only one.
+           The Experimental Collection used to have a card here beside this one, and the two
+           were near enough identical, each with its own copper countdown, that the pair read
+           as the same offer printed twice. The run now gives each offer its own screen: the
+           Collection is /post2/, shown only to a buyer who did not take it as the bump at
+           checkout, and the session is here. Nobody is asked to weigh two things at once.
+           (The Collection helpers in the script below stay, because the checkout machinery is
+           shared with this card and they all no-op with no #coll-rail in the page.) -->
+      <div class="md:col-span-2 flex flex-col gap-3">
+
+        <!-- Paid 1:1. The free onboarding call that used to sit above this was removed
+             on purpose: it promised "whatever's in your way, we'll get you past it" on the
+             page ~95% of buyers land on, which absorbed most of what this sells. If a free
+             call ever comes back here, word it narrowly or it will eat this again.
+
+             This is a CONTAINER, not a link, because a Stride owner gets a Book button that
+             opens a checkout. Wrapping the whole card in an <a href="session.html"> would
+             swallow that click. The fallback state, and anyone with no open offer, still
+             gets a plain link out to the page. -->
+        <!-- No flex-1: with two cards in this column it had to stretch to match its
+             neighbour, and with one it stretched to the height of the video instead and
+             left ~100px of empty panel under the button. It sizes to its content now. -->
+        <div class="support-card min-w-[240px] flex flex-col p-4 rounded-2xl panel" id="session-rail">
+          <div class="rail-session">
+            <p class="silk mb-2" style="color:var(--copper-lt)">Want to go deeper?</p>
+            <p class="text-[15px] font-black ink leading-snug mb-1">Spend an hour with the person who built Stride.</p>
+            <p class="text-[11px] ink3 leading-snug">Your session. Your plugins. Your sound.</p>
+
+            <!-- Owner state. Hidden until the backend confirms this buyer has an open
+                 offer, on the server's clock: showing a price we might not honour and
+                 then correcting it is worse than showing the public one. -->
+            <div class="rail-offer" hidden>
+              <span class="offer-flag"><span class="offer-dot" aria-hidden="true"></span>New Stride owner price</span>
+              <p class="offer-clock" role="timer">Offer ends in <b data-rail-left>72h</b></p>
+              <div class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                <del class="price-was"><span class="sr-only">Full price </span><span data-rail-was>$199</span></del>
+                <span class="price text-3xl" data-rail-now>$99</span>
+              </div>
+            </div>
+
+            <!-- Public state. Also the fallback for no offer, an expired one, a used one,
+                 a Lemon Squeezy buyer, or any backend failure. -->
+            <p class="rail-public text-xl font-black ink mt-2">1:1 session &middot; $199</p>
+          </div>
+
+          <button type="button" class="rail-book btn-copper w-full mt-3 px-4 py-2.5 text-xs uppercase" hidden>Book a session</button>
+          <p class="rail-note text-xs ink3 leading-relaxed mt-3" aria-live="polite" hidden></p>
+          <a href="session.html" class="rail-link silk mt-4 hover:text-[color:var(--ember)] transition-colors" style="color:var(--copper-lt)">See what it covers &rarr;</a>
+        </div>
+
+        <!-- Help, not an offer. It was a full-width band of its own under the row, which
+             gave one mailto link a whole stripe of the page while the column beside the
+             video sat empty below the offer. Moving it in here spends that gap and takes a
+             block off the page. Same words, same link. -->
+        <a href="mailto:home@stridehub.io" class="support-card flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl group panel">
+          <span>
+            <span class="silk block mb-1">Quick question?</span>
+            <span class="text-[15px] font-black ink">Email support</span>
+            <span class="text-xs ink3 leading-relaxed"> &middot; reply within 48 hours, every email reaches me directly.</span>
+          </span>
+          <span class="silk group-hover:text-[color:var(--ink)] transition-colors" style="color:var(--ink2)">home@stridehub.io &rarr;</span>
+        </a>
+
+      </div>
+
+    </div>
+
     <!-- Two questions, asked once, of somebody who has just paid and is in a good mood.
-         Kept deliberately small: it sits above the video because that is where it will
-         actually be answered, so it has to earn its space in one glance. Nothing is
-         required, nothing blocks the page, and the whole block removes itself when there
-         is no purchase to attach an answer to, when it has already been answered on this
+         It sits BELOW the download and the walkthrough, not above them. It used to be the
+         first thing on the page, which put our question ahead of the thing they had just
+         paid for, and it was also the widest block on the screen. Nothing is required,
+         nothing blocks the page, and the whole block removes itself when there is no
+         purchase to attach an answer to, when it has already been answered on this
          device, or if the script below never runs. -->
     <section class="survey" id="survey" hidden aria-labelledby="survey-h">
       <form id="survey-form" novalidate>
@@ -413,125 +709,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </form>
     </section>
 
-    <!-- Video (2/3) + Support cards (1/3) side-by-side on desktop -->
-    <div class="grid md:grid-cols-4 gap-3 mb-6">
-
-      <!-- The walkthrough, and the software underneath it. This column is two of the four,
-           and it is deliberately the SHORTER one: the offers beside it set the row height,
-           so anything that lives here is free until it passes them. -->
-      <div class="md:col-span-2 flex flex-col gap-4">
-        <!-- The software. Hidden in the markup and revealed only once the backend hands over
-             real URLs, so this block is either useful or absent, never a pair of dead buttons
-             on the screen of somebody who has just paid. Each link stays hidden on its own: a
-             release published for one platform shows one button, not a broken second. -->
-        <section class="dl-block panel rounded-2xl" id="dl-block" hidden>
-          <p class="silk dl-kicker">Download Stride</p>
-          <div class="dl-row">
-            <a class="btn-copper" id="dl-win" href="#" rel="nofollow" hidden>Download for Windows</a>
-            <a class="btn-copper" id="dl-mac" href="#" rel="nofollow" hidden>Download for Mac</a>
-          </div>
-          <p class="dl-note">Your licence key is in your welcome email. <a href="setup.html">Setup guide &rarr;</a></p>
-        </section>
-
-        <div class="video-frame rounded-2xl overflow-hidden" style="border:1px solid var(--line);box-shadow:0 30px 60px -28px rgba(0,0,0,.9)">
-          <iframe class="w-full aspect-video bg-black" src="https://www.youtube-nocookie.com/embed/-Z4zRIiPg-4?rel=0&amp;modestbranding=1&amp;playsinline=1" title="Stride welcome video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-        </div>
-      </div>
-
-      <!-- The offers, side by side -->
-      <div class="md:col-span-2 flex flex-wrap items-start gap-4">
-
-        <!-- The Experimental Collection, when this purchase still has it on offer.
-             Its own card, because the two offers are independent: a buyer can have both
-             open at once, and the session being unsold was never a reason to hide this
-             one. It used to share the card below and only appeared once the session was
-             booked, which meant almost nobody saw it. Hidden until the backend confirms
-             the offer on its own clock, exactly like the card below. -->
-        <div class="support-card flex-1 min-w-[240px] flex flex-col p-4 rounded-2xl panel" id="coll-rail" hidden>
-          <div>
-            <p class="silk mb-2" style="color:var(--copper-lt)">Want more to play with?</p>
-            <div class="rail-stack" aria-hidden="true">
-              <img src="assets/packs/pack-drums.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
-              <img src="assets/packs/pack-water.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
-              <img src="assets/packs/pack-feedback.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
-            </div>
-            <p class="text-[15px] font-black ink leading-snug mt-2 mb-0.5">Stride Experimental Collection</p>
-            <p class="text-[11px] ink3 leading-snug">250+ sounds &middot; 15 Ableton Racks &middot; 4 StrideChains</p>
-            <span class="offer-flag"><span class="offer-dot" aria-hidden="true"></span>New Stride owner price</span>
-            <p class="offer-clock" role="timer">Offer ends in <b data-coll-left>72h</b></p>
-            <div class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-              <del class="price-was"><span class="sr-only">Full price </span><span data-coll-was>$24.99</span></del>
-              <span class="price text-3xl" data-coll-now>$19</span>
-            </div>
-          </div>
-          <button type="button" class="rail-coll-buy btn-copper w-full mt-3 px-4 py-2.5 text-xs uppercase">Add it for <span data-coll-cta>$19</span></button>
-          <p class="coll-note text-xs ink3 leading-relaxed mt-3" aria-live="polite" hidden></p>
-        </div>
-
-
-        <!-- Paid 1:1. The free onboarding call that used to sit above this was removed
-             on purpose: it promised "whatever's in your way, we'll get you past it" on the
-             page ~95% of buyers land on, which absorbed most of what this sells. If a free
-             call ever comes back here, word it narrowly or it will eat this again.
-
-             This is a CONTAINER, not a link, because a Stride owner gets a Book button that
-             opens a checkout. Wrapping the whole card in an <a href="session.html"> would
-             swallow that click. The fallback state, and anyone with no open offer, still
-             gets a plain link out to the page. -->
-        <div class="support-card flex-1 min-w-[240px] flex flex-col p-4 rounded-2xl panel" id="session-rail">
-          <div class="rail-session">
-            <p class="silk mb-2" style="color:var(--copper-lt)">Want to go deeper?</p>
-            <p class="text-[15px] font-black ink leading-snug mb-1">Spend an hour with the person who built Stride.</p>
-            <p class="text-[11px] ink3 leading-snug">Your session. Your plugins. Your sound.</p>
-
-            <!-- Owner state. Hidden until the backend confirms this buyer has an open
-                 offer, on the server's clock: showing a price we might not honour and
-                 then correcting it is worse than showing the public one. -->
-            <div class="rail-offer" hidden>
-              <span class="offer-flag"><span class="offer-dot" aria-hidden="true"></span>New Stride owner price</span>
-              <p class="offer-clock" role="timer">Offer ends in <b data-rail-left>72h</b></p>
-              <div class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-                <del class="price-was"><span class="sr-only">Full price </span><span data-rail-was>$199</span></del>
-                <span class="price text-3xl" data-rail-now>$99</span>
-              </div>
-            </div>
-
-            <!-- Public state. Also the fallback for no offer, an expired one, a used one,
-                 a Lemon Squeezy buyer, or any backend failure. -->
-            <p class="rail-public text-xl font-black ink mt-2">1:1 session &middot; $199</p>
-          </div>
-
-          <button type="button" class="rail-book btn-copper w-full mt-3 px-4 py-2.5 text-xs uppercase" hidden>Book a session</button>
-          <p class="rail-note text-xs ink3 leading-relaxed mt-3" aria-live="polite" hidden></p>
-          <a href="session.html" class="rail-link silk mt-4 hover:text-[color:var(--ember)] transition-colors" style="color:var(--copper-lt)">See what it covers &rarr;</a>
-        </div>
-
-      </div>
-
-    </div>
-
-    <!-- Help, not an offer, so it is out of the row above: it used to be a third card in
-         that column and it alone made the offers column taller than the screen. -->
-    <a href="mailto:home@stridehub.io" class="support-card flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl group panel mb-6">
-      <span>
-        <span class="silk block mb-1">Quick question?</span>
-        <span class="text-[15px] font-black ink">Email support</span>
-        <span class="text-xs ink3 leading-relaxed"> &middot; reply within 48 hours, every email reaches me directly.</span>
-      </span>
-      <span class="silk group-hover:text-[color:var(--ink)] transition-colors" style="color:var(--ink2)">home@stridehub.io &rarr;</span>
-    </a>
-
     <!-- Expectation-setting note (creative tool, not mixing tool). Sits between
          video and closing tag so producers see it after the walkthrough. -->
     <div class="max-w-2xl mx-auto mb-10 p-5 rounded-2xl panel">
       <p class="silk mb-2" style="color:var(--copper-lt)">A note before you start</p>
+      <!-- Cut from five lines to two. It still does the one job it is here for, which is to
+           say what Stride is for BEFORE somebody opens it expecting a mixing tool. What went
+           was the description of the loop itself: the walkthrough directly above this shows
+           that better than a paragraph can. -->
       <p class="text-sm ink2 leading-relaxed">
-        Stride is a <b class="ink">sound design tool</b>, not a mixing tool. You draw curves on the canvas, then inject them straight into your Ableton clip. That loop is built for creative exploration: pick a rack (synth + effects), scan its parameters, and design motion you'd never draw by hand. Lean into it for variation, movement, and "what does this rack do that I haven't tried yet", not for surgical mix work.
+        Stride is a <b class="ink">sound design tool</b>, not a mixing tool. Pick a rack, scan its parameters, and design motion you'd never draw by hand. Lean into it for variation and movement, not for surgical mix work.
       </p>
     </div>
 
-    <!-- Closing tag -->
-    <p class="silk text-center">Modulate everything in your session.</p>
+    <!-- The closing tagline used to sit here, directly above a footer that prints the same
+         sentence one line lower. Twice in a row read as a mistake, so the footer keeps it. -->
 
   </main>
 
@@ -732,7 +924,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       // they are shown. Before, an open session hid an open Collection, so the only people
       // who ever saw it were the ones who had just booked a session.
       var sessionStatus = (d.session || {}).status, collectionStatus = (d.collection || {}).status;
-      if (collectionStatus === 'open') showCollection(d);
+      // The Collection is NOT offered on this page any more: it gets its own screen at
+      // /post2/, before this one, and only for a buyer who did not take it as the bump.
+      // showCollection returns immediately with no card in the page, so this is the one
+      // line to restore if it ever comes back here.
+      void collectionStatus;
       if (sessionStatus === 'open') showOwner(d);
       else if (sessionStatus === 'used') showBooked();
       // Expired or unknown: the public price stays, and the Collection card stays hidden.
