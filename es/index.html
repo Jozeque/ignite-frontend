@@ -3540,11 +3540,27 @@ function openBuy() { toggleBuyModal(); }
         strideInitPaddle();      // must run even when the provider is Lemon Squeezy
         strideLocalizePrices();
         // The wallet button mounts Paddle's checkout app, which pulls Stripe and Google Pay
-        // behind it: about 2 MB of script on every visit. It now waits for the page to load
-        // so the first screen does not compete with it. GET STRIDE works throughout, and
-        // strideSyncExpressItems only acts once this mount is live. It never mounts over a
-        // checkout a buyer already has open (strideCheckoutTaken).
-        function mountWhenFree() { if (!strideCheckoutTaken()) strideMountExpress(); }
+        // behind it: about 2 MB of script on every visit. It mounts as soon as the hero's
+        // still is on screen (its image is in and two frames have been drawn), or when the
+        // page has loaded, or on the first tap, whichever comes first: early enough that
+        // Apple Pay shows up about when it did before, late enough that it never competes
+        // with the first screen. Waiting for the full load cost it 0.1-0.7s (measured).
+        // GET STRIDE works throughout, strideSyncExpressItems only acts once this mount is
+        // live, and it never mounts over a checkout a buyer already has open.
+        var walletMounted = false;
+        function mountWhenFree() {
+            if (walletMounted) return;
+            walletMounted = true;
+            if (!strideCheckoutTaken()) strideMountExpress();
+        }
+        var still = document.getElementById('heroLoop');
+        if (still && still.poster) {
+            var shown = new Image();
+            shown.onload = function () {
+                requestAnimationFrame(function () { requestAnimationFrame(mountWhenFree); });
+            };
+            shown.src = still.poster;      // preloaded at high priority: this is the cached copy
+        }
         if (window.strideAfterLoad) strideAfterLoad(mountWhenFree); else mountWhenFree();
     });
 
