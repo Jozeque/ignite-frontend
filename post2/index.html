@@ -444,6 +444,34 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .offer-note{margin:12px 0 0;font-size:13px;line-height:1.6;color:var(--ink2);max-width:28rem}
   .cta[aria-busy="true"]{opacity:.7;pointer-events:none}
 
+  /* The wallet: Apple Pay or Google Pay under the button, the same express checkout the
+     homepage hero carries, opened on this offer's own transaction. The button and the wallet
+     are one column as wide as the button, so they read as two ways to pay for one thing. From
+     640px the button sizes to its words and the column follows it; below that both fill the
+     panel. width:0 + min-width:100% stops the wallet, and the long consent sentence under
+     it, from widening the column past the button. */
+  .buy-col{display:block}
+  @media (min-width:640px){ .buy-col{display:inline-flex;flex-direction:column} }
+  .wallet{width:0;min-width:100%}
+  /* Paddle draws its button 10px in from each side of its frame (measured on the homepage:
+     x 10..354 in a 364px frame), so the frame reaches 10px past the column on each side and
+     the button lands flush with the copper button above it. */
+  .wallet .paddle-express-checkout{margin:0 -10px}
+  /* The homepage's crop, for the homepage's reason: the button sits at the top of the frame
+     (y 26..70) and Paddle's merchant-of-record footer starts at y 84, so 80px shows the button
+     whole and none of the footer, whatever height Paddle resizes its frame to. :has(iframe)
+     so the box takes no room at all before Paddle mounts. */
+  .wallet .paddle-express-checkout:has(iframe){height:80px;overflow:hidden}
+  /* Until Paddle has shown a wallet is really there. Measured in Chromium: checkout.loaded
+     arrives 1-2s BEFORE the "no wallet" error, so a frame shown on loaded opened an empty
+     80px gap under the button on most desktops, then shut it again. 1px, not 0: the frame
+     stays laid out and on screen for Paddle while the buyer sees nothing (its top rows are
+     empty). Never set on Apple devices, which keep the homepage's mount: Apple Pay is the
+     one button proven on a real iPhone, and only that way. */
+  .wallet.is-pending .paddle-express-checkout:has(iframe){height:1px}
+  .wallet-terms{margin:2px 0 0;font-size:10.5px;line-height:1.5;color:var(--ink3)}
+  .wallet-terms a{color:inherit;text-decoration:underline}
+
   /* What is in the Collection. The numbers are the same ones index.html already sells. */
   .inv{list-style:none;margin:22px 0 0;padding:0;display:grid;gap:12px}
   .inv li{display:flex;align-items:flex-start;gap:12px;font-size:1.02rem;color:var(--ink);line-height:1.45}
@@ -476,7 +504,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .gate{visibility:hidden}
   .gate.ready{visibility:visible}
 </style>
-<link rel="stylesheet" href="/_legacy/css/post2-index.20750933b1.css">
+<link rel="stylesheet" href="/_legacy/css/post2-index.146fd9e5b7.css">
 <script>window.STRIDE_LANGS=["en"]</script>
 </head>
 <body>
@@ -547,7 +575,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
 
       <div class="mt-7">
-        <button type="button" class="cta btn-copper px-8 py-4 text-sm uppercase w-full sm:w-auto" data-buy>Add it for <span data-cta-price>$19</span></button>
+        <div class="buy-col">
+          <button type="button" class="cta btn-copper px-8 py-4 text-sm uppercase w-full sm:w-auto" data-buy>Add it for <span data-cta-price>$19</span></button>
+          <!-- Apple Pay / Google Pay, one tap, no form. Paddle renders Apple's and Google's own
+               button in a cross-origin frame, so it cannot be restyled from here, and it shows
+               nothing at all on a device that cannot pay that way. This is the page's only
+               inline checkout: Paddle keeps ONE per page, so the button's overlay closes it.
+               The container starts WITHOUT `hidden`: Paddle must mount its frame into a
+               laid-out element. Empty, it measures 0px and shows nothing. -->
+          <div class="wallet">
+            <div class="paddle-express-checkout"></div>
+            <p class="wallet-terms" hidden>Sold by Paddle.com Market Ltd. Paying above accepts the <a href="/terms.html" target="_blank">Terms</a> and the <a href="/refund.html" target="_blank">Refund Policy</a>.</p>
+          </div>
+        </div>
         <p class="offer-note" aria-live="polite" hidden></p>
         <div>
           <a class="skip" href="/post/?code=sesh1o1" data-skip>No thanks &rarr;</a>
@@ -752,6 +792,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     clock = setInterval(tick, 1000);
     q('#offer').classList.add('ready');
     stage('post2_viewed');
+    mountWallet();
   }
 
   // A buyer must never be stranded here: this page stands between someone who has just
@@ -809,37 +850,33 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   }
   ask();
 
-  // ── Buying it ───────────────────────────────────────────────────────────────
-  try {
-    if (window.Paddle) {
-      Paddle.Initialize({
-        token: PADDLE_TOKEN,
-        eventCallback: function (ev) {
-          if (!ev || ev.name !== 'checkout.completed' || !ev.data) return;
-          try {
-            // This OVERWRITES the Stride transaction id with the Collection one, which is
-            // correct: welcome.html then records a second, separate GA4 purchase for it.
-            // The Stride txn was stashed before the checkout opened, so the session rail
-            // on welcome.html can still resolve the original purchase.
-            if (ev.data.transaction_id) ssSet('stride_last_txn', String(ev.data.transaction_id));
-            var paid = Number((ev.data.totals || {}).total);
-            if (paid > 0 && ev.data.currency_code) {
-              ssSet('stride_checkout_value', JSON.stringify({ value: paid, currency: String(ev.data.currency_code) }));
-            }
-          } catch (e) {}
-        }
-      });
-      paddleOn = true;
-    }
-  } catch (e) { paddleOn = false; }
+  // ── One checkout for this offer ─────────────────────────────────────────────
+  // The wallet and the button pay for the SAME transaction, the one collection_checkout opens
+  // at the price this buyer was quoted. The wallet asks for it as soon as the offer is on
+  // screen, and a press of the button while that answer is still on its way waits for it
+  // rather than opening a second transaction beside it. Only an answer that carries a
+  // transaction is kept; anything else is asked again on the next press.
+  var checkoutCall = null;
+  function offerCheckout() {
+    if (checkoutCall) return checkoutCall;
+    checkoutCall = fetch(API, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'collection_checkout', txn: strideTxn,
+                             external_id: (typeof _strideXid === 'string' && _strideXid) || '' })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        d = d || {};
+        if (!(d.ok && d.transaction_id)) checkoutCall = null;
+        return d;
+      }, function (e) { checkoutCall = null; throw e; });
+    return checkoutCall;
+  }
 
-  q('[data-buy]').addEventListener('click', function () {
-    if (!paddleOn || !offer) { leave(); return; }
-    var btn = this;
-    btn.setAttribute('aria-busy', 'true');
-    note('');
+  // What a checkout on this page leaves for welcome.html, set on the way into it: the Stride
+  // transaction, kept before Paddle overwrites stride_last_txn, and the offer's value.
+  function holdCheckout() {
     try {
-      // The Stride transaction, kept before Paddle overwrites stride_last_txn.
       ssSet('stride_offer_txn', strideTxn);
       var digits = 2;
       try { digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: offer.currency }).resolvedOptions().minimumFractionDigits; } catch (e) {}
@@ -850,17 +887,146 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     } catch (e) {}
     var checkoutValue = { value: Number(offer.amount), currency: offer.currency };
     try { checkoutValue = JSON.parse(ss('stride_checkout_value') || '{}') || checkoutValue; } catch (e) {}
-    fetch(API, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'collection_checkout', txn: strideTxn,
-                             external_id: (typeof _strideXid === 'string' && _strideXid) || '' })
-    })
-      .then(function (r) { return r.json(); })
+    return checkoutValue;
+  }
+
+  // ── The wallet ──────────────────────────────────────────────────────────────
+  // Apple Pay / Google Pay under the button: one tap, no form. It is the homepage hero's
+  // express checkout opened on this offer's own transaction, so it charges what the button
+  // charges and the webhook closes the offer the same way. On a device without a wallet,
+  // which is most desktops, it shows nothing and the page is what it always was.
+  var walletLive = false;   // OUR inline mount is the page's one Paddle checkout
+  var walletDead = false;   // no wallet here, LATCHED: WebKit says so BEFORE checkout.loaded
+  var walletTapped = false;
+  var buyPressed = false;   // the button was pressed, so its overlay owns the checkout
+  // Off Apple devices Paddle says "no wallet" 1-2s AFTER checkout.loaded (measured in
+  // Chromium), so there the wallet shows only once this long has passed without that error.
+  // Apple devices say it first, so they show on loaded, as the homepage does.
+  var WALLET_GRACE = 2500, walletTimer = null;
+
+  function walletShow(on) {
+    // The frame and the consent line share ONE visibility, so the line can never sit on the
+    // page without a button above it.
+    if (on && walletDead) return;
+    if (!on) { walletDead = true; clearTimeout(walletTimer); }
+    var slot = q('.wallet'), box = q('.paddle-express-checkout'), terms = q('.wallet-terms');
+    if (on && slot) slot.classList.remove('is-pending');
+    if (box) box.hidden = !on;
+    if (terms) terms.hidden = !on;
+  }
+
+  function mountWallet() {
+    if (!paddleOn || !q('.paddle-express-checkout')) return;
+    offerCheckout().then(function (d) {
+      // Never over a checkout the buyer already opened: Paddle would replace it.
+      if (!d.ok || !d.transaction_id || buyPressed || !offer) return;
+      // welcome.html's session rail finds the Stride purchase through stride_offer_txn,
+      // because a finished checkout here overwrites stride_last_txn. The button stores it on
+      // its way into the overlay; a wallet payment has no such moment, so it is stored now.
+      ssSet('stride_offer_txn', strideTxn);
+      var slot = q('.wallet');
+      if (slot && !window.ApplePaySession) slot.classList.add('is-pending');
+      try {
+        walletLive = true;
+        Paddle.Checkout.open({
+          transactionId: d.transaction_id,
+          settings: {
+            displayMode: 'inline',
+            variant: 'express',
+            frameTarget: 'paddle-express-checkout',
+            // A starting height only. Paddle resizes its frame after mount and the 80px crop
+            // in the CSS is what holds; this just avoids a tall first paint.
+            frameInitialHeight: 80,
+            frameStyle: 'width:100%;background-color:transparent;border:none;',
+            // Only the wallet. The card path is the button above it.
+            showNonExpressPaymentMethods: false,
+            theme: 'dark',
+            successUrl: 'https://stridehub.io' + NEXT
+          }
+        });
+      } catch (e) { walletLive = false; }
+    }).catch(function () {});
+  }
+
+  // Measured on the homepage's identical mount: checkout.loaded fires once the frame is up, on
+  // every engine; where there is no wallet, checkout.payment.error follows with the code
+  // no_payment_methods_available (about 0.9s AFTER loaded in Chromium, BEFORE it in WebKit).
+  // Only that code hides it: a declined card must not take a working wallet away.
+  function walletEvent(ev) {
+    var name = ev && ev.name;
+    if (name === 'checkout.loaded') {
+      var slot = q('.wallet');
+      if (slot && slot.classList.contains('is-pending')) {
+        clearTimeout(walletTimer);
+        walletTimer = setTimeout(function () { if (walletLive) walletShow(true); }, WALLET_GRACE);
+      } else {
+        walletShow(true);
+      }
+      return;
+    }
+    if (name === 'checkout.payment.error' && ev.code === 'no_payment_methods_available') { walletShow(false); return; }
+    // A tap on the wallet is this page's checkout opening, which the button marks with
+    // begin_checkout and post2_checkout, so the funnel reads the same whichever way they pay.
+    if ((name === 'checkout.payment.selected' || name === 'checkout.payment.initiated') && !walletTapped) {
+      walletTapped = true;
+      var v = holdCheckout();
+      if (window.StrideTrack && v.value > 0) StrideTrack.push('begin_checkout', { value: v.value, currency: v.currency });
+      stage('post2_checkout');
+    }
+  }
+
+  // ── Buying it ───────────────────────────────────────────────────────────────
+  try {
+    if (window.Paddle) {
+      Paddle.Initialize({
+        token: PADDLE_TOKEN,
+        eventCallback: function (ev) {
+          if (!ev) return;
+          if (ev.name === 'checkout.completed' && ev.data) {
+            try {
+              // This OVERWRITES the Stride transaction id with the Collection one, which is
+              // correct: welcome.html then records a second, separate GA4 purchase for it.
+              // The Stride txn was stashed before the checkout opened, so the session rail
+              // on welcome.html can still resolve the original purchase.
+              if (ev.data.transaction_id) ssSet('stride_last_txn', String(ev.data.transaction_id));
+              var paid = Number((ev.data.totals || {}).total);
+              if (paid > 0 && ev.data.currency_code) {
+                ssSet('stride_checkout_value', JSON.stringify({ value: paid, currency: String(ev.data.currency_code) }));
+              }
+            } catch (e) {}
+          }
+          // The rest belongs to the wallet, and only while it is the live checkout: Paddle
+          // hands the overlay's events to this same callback.
+          if (walletLive) walletEvent(ev);
+        }
+      });
+      paddleOn = true;
+    }
+  } catch (e) { paddleOn = false; }
+
+  q('[data-buy]').addEventListener('click', function () {
+    if (!paddleOn || !offer) { leave(); return; }
+    var btn = this;
+    buyPressed = true;
+    btn.setAttribute('aria-busy', 'true');
+    note('');
+    var checkoutValue = holdCheckout();
+    offerCheckout()
       .then(function (d) {
         btn.removeAttribute('aria-busy');
-        d = d || {};
         if (d.ok && d.transaction_id) {
+          // Asked again on a later press, as it always was: the backend reuses the
+          // transaction while it can still be paid and says so when it cannot.
+          checkoutCall = null;
           try {
+            // Paddle keeps ONE checkout per page and the wallet's may be it, so the wallet
+            // steps aside first. walletLive is cleared before the close so the overlay's own
+            // events are never read as the wallet's.
+            if (walletLive) {
+              walletLive = false;
+              try { Paddle.Checkout.close(); } catch (e) {}
+            }
+            walletShow(false);
             Paddle.Checkout.open({ transactionId: d.transaction_id,
                                    settings: { displayMode: 'overlay', variant: 'one-page', theme: 'dark',
                                                successUrl: 'https://stridehub.io' + NEXT } });

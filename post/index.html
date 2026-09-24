@@ -485,6 +485,27 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .offer-clock b{color:var(--copper-lt);font-weight:700;letter-spacing:.06em;font-size:15px}
   .offer-note{margin:12px 0 0;font-size:13px;line-height:1.6;color:var(--ink2);max-width:28rem}
   .session-cta[aria-busy="true"]{opacity:.7;pointer-events:none}
+  /* The wallet: Apple Pay or Google Pay under the price and the button, the same express
+     checkout the homepage hero carries, opened on this offer's own transaction, and as wide
+     as the hero's (340px). Paddle draws its button 10px in from each side of its frame
+     (measured on the homepage: x 10..354 in a 364px frame), so the frame reaches 10px out on
+     each side and the button lines up with the price above it. */
+  .wallet{max-width:340px}
+  .wallet .paddle-express-checkout{margin:0 -10px}
+  /* The homepage's crop, for the homepage's reason: the button sits at the top of the frame
+     (y 26..70) and Paddle's merchant-of-record footer starts at y 84, so 80px shows the button
+     whole and none of the footer, whatever height Paddle resizes its frame to. :has(iframe)
+     so the box takes no room at all before Paddle mounts. */
+  .wallet .paddle-express-checkout:has(iframe){height:80px;overflow:hidden}
+  /* Until Paddle has shown a wallet is really there. Measured in Chromium: checkout.loaded
+     arrives 1-2s BEFORE the "no wallet" error, so a frame shown on loaded opened an empty
+     80px gap under the button on most desktops, then shut it again. 1px, not 0: the frame
+     stays laid out and on screen for Paddle while the buyer sees nothing (its top rows are
+     empty). Never set on Apple devices, which keep the homepage's mount: Apple Pay is the
+     one button proven on a real iPhone, and only that way. */
+  .wallet.is-pending .paddle-express-checkout:has(iframe){height:1px}
+  .wallet-terms{margin:2px 0 0;font-size:10.5px;line-height:1.5;color:var(--ink3)}
+  .wallet-terms a{color:inherit;text-decoration:underline}
   .booked-title{font-size:1.6rem;line-height:1.2;font-weight:900;color:var(--ink);margin:0 0 8px}
 
   /* This page's own: the purchase it follows, and the way past the offer. */
@@ -503,7 +524,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .gate{visibility:hidden}
   .gate.ready{visibility:visible}
 </style>
-<link rel="stylesheet" href="/_legacy/css/post-index.30d5098982.css">
+<link rel="stylesheet" href="/_legacy/css/post-index.383ae61107.css">
 <script>window.STRIDE_LANGS=["en"]</script>
 </head>
 <body>
@@ -555,6 +576,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <div class="text-base font-bold ink3">/ session</div>
               </div>
               <button type="button" class="session-cta btn-copper px-8 py-4 text-sm uppercase" data-buy>Book a session</button>
+            </div>
+            <!-- Apple Pay / Google Pay, one tap, no form, under the FIRST price only: Paddle
+                 keeps ONE checkout per page, and the booking overlay closes it. Paddle renders
+                 Apple's and Google's own button in a cross-origin frame, so it cannot be
+                 restyled from here, and it shows nothing on a device that cannot pay that way.
+                 The container starts WITHOUT `hidden`: Paddle must mount its frame into a
+                 laid-out element. Empty, it measures 0px and shows nothing. -->
+            <div class="wallet">
+              <div class="paddle-express-checkout"></div>
+              <p class="wallet-terms" hidden>Sold by Paddle.com Market Ltd. Paying above accepts the <a href="/terms.html" target="_blank">Terms</a> and the <a href="/refund.html" target="_blank">Refund Policy</a>.</p>
             </div>
             <p class="offer-note" aria-live="polite" hidden></p>
           </div>
@@ -861,6 +892,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     clock = setInterval(tick, 1000);
     q('#offer').classList.add('ready');
     stage('post_viewed');
+    mountWallet();
   }
 
   function showBooked() {
@@ -911,6 +943,111 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   }
   ask();
 
+  // ── One checkout for this offer ─────────────────────────────────────────────
+  // The wallet and the Book buttons pay for the SAME transaction, the one session_checkout
+  // opens for this buyer and this code. The wallet asks for it as soon as the offer is on
+  // screen, and a press of Book while that answer is still on its way waits for it rather
+  // than opening a second transaction beside it. Only an answer that carries a transaction
+  // is kept; anything else is asked again on the next press.
+  var checkoutCall = null;
+  function offerCheckout() {
+    if (checkoutCall) return checkoutCall;
+    checkoutCall = fetch(API, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'session_checkout', txn: strideTxn, code: code })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        d = d || {};
+        if (!(d.ok && d.transaction_id)) checkoutCall = null;
+        return d;
+      }, function (e) { checkoutCall = null; throw e; });
+    return checkoutCall;
+  }
+
+  // ── The wallet ──────────────────────────────────────────────────────────────
+  // Apple Pay / Google Pay under the first price: one tap, no form. It is the homepage hero's
+  // express checkout opened on this offer's own transaction, so it charges what Book charges
+  // and the webhook closes the offer the same way. On a device without a wallet, which is
+  // most desktops, it shows nothing and the page is what it always was.
+  var walletLive = false;   // OUR inline mount is the page's one Paddle checkout
+  var walletDead = false;   // no wallet here, LATCHED: WebKit says so BEFORE checkout.loaded
+  var walletTapped = false;
+  var buyPressed = false;   // Book was pressed, so its overlay owns the checkout
+  // Off Apple devices Paddle says "no wallet" 1-2s AFTER checkout.loaded (measured in
+  // Chromium), so there the wallet shows only once this long has passed without that error.
+  // Apple devices say it first, so they show on loaded, as the homepage does.
+  var WALLET_GRACE = 2500, walletTimer = null;
+
+  function walletShow(on) {
+    // The frame and the consent line share ONE visibility, so the line can never sit on the
+    // page without a button above it.
+    if (on && walletDead) return;
+    if (!on) { walletDead = true; clearTimeout(walletTimer); }
+    var slot = q('.wallet'), box = q('.paddle-express-checkout'), terms = q('.wallet-terms');
+    if (on && slot) slot.classList.remove('is-pending');
+    if (box) box.hidden = !on;
+    if (terms) terms.hidden = !on;
+  }
+
+  function mountWallet() {
+    if (!paddleOn || !q('.paddle-express-checkout')) return;
+    offerCheckout().then(function (d) {
+      // Never over a checkout the buyer already opened: Paddle would replace it.
+      if (!d.ok || !d.transaction_id || buyPressed || !offer) return;
+      // The Stride purchase, kept where welcome.html's session rail looks first, as Book
+      // does on its way into the overlay. A wallet payment has no such moment on this page.
+      ssSet('stride_offer_txn', strideTxn);
+      var slot = q('.wallet');
+      if (slot && !window.ApplePaySession) slot.classList.add('is-pending');
+      try {
+        walletLive = true;
+        Paddle.Checkout.open({
+          transactionId: d.transaction_id,
+          settings: {
+            displayMode: 'inline',
+            variant: 'express',
+            frameTarget: 'paddle-express-checkout',
+            // A starting height only. Paddle resizes its frame after mount and the 80px crop
+            // in the CSS is what holds; this just avoids a tall first paint.
+            frameInitialHeight: 80,
+            frameStyle: 'width:100%;background-color:transparent;border:none;',
+            // Only the wallet. The card path is the Book button above it.
+            showNonExpressPaymentMethods: false,
+            theme: 'dark',
+            successUrl: 'https://stridehub.io' + NEXT
+          }
+        });
+      } catch (e) { walletLive = false; }
+    }).catch(function () {});
+  }
+
+  // Measured on the homepage's identical mount: checkout.loaded fires once the frame is up, on
+  // every engine; where there is no wallet, checkout.payment.error follows with the code
+  // no_payment_methods_available (about 0.9s AFTER loaded in Chromium, BEFORE it in WebKit).
+  // Only that code hides it: a declined card must not take a working wallet away.
+  function walletEvent(ev) {
+    var name = ev && ev.name;
+    if (name === 'checkout.loaded') {
+      var slot = q('.wallet');
+      if (slot && slot.classList.contains('is-pending')) {
+        clearTimeout(walletTimer);
+        walletTimer = setTimeout(function () { if (walletLive) walletShow(true); }, WALLET_GRACE);
+      } else {
+        walletShow(true);
+      }
+      return;
+    }
+    if (name === 'checkout.payment.error' && ev.code === 'no_payment_methods_available') { walletShow(false); return; }
+    // A tap on the wallet is this page's checkout opening, which Book marks with
+    // begin_checkout and post_checkout, so the funnel reads the same whichever way they pay.
+    if ((name === 'checkout.payment.selected' || name === 'checkout.payment.initiated') && !walletTapped && offer) {
+      walletTapped = true;
+      trackCheckout(offer.amount, offer.currency);
+      stage('post_checkout');
+    }
+  }
+
   // ── Booking ─────────────────────────────────────────────────────────────────
   try {
     if (window.Paddle) {
@@ -920,6 +1057,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           // Nothing is written on a paid session, on purpose. session.html records none either,
           // and welcome.html would count anything left in stride_last_txn as a purchase.
           if (ev && ev.name === 'checkout.completed') showBooked();
+          // The rest belongs to the wallet, and only while it is the live checkout: Paddle
+          // hands the overlay's events to this same callback.
+          if (walletLive) walletEvent(ev);
         }
       });
       paddleOn = true;
@@ -930,24 +1070,31 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     if (!offer) return;
     // No Paddle (a blocker, a network failure): the Calendly profile, as session.html does.
     if (!paddleOn) { window.open(SESSION_PROFILE_URL, '_blank', 'noopener'); return; }
+    buyPressed = true;
     btn.setAttribute('aria-busy', 'true');
     note('');
     // The Stride purchase, kept where welcome.html's session rail looks first. A completed
     // session checkout must never be mistaken for it there.
     ssSet('stride_offer_txn', strideTxn);
     var price = { amount: offer.amount, currency: offer.currency };
-    fetch(API, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'session_checkout', txn: strideTxn, code: code })
-    })
-      .then(function (r) { return r.json(); })
+    offerCheckout()
       .then(function (d) {
         btn.removeAttribute('aria-busy');
-        d = d || {};
         if (d.ok && d.transaction_id) {
+          // Asked again on a later press, as it always was: the backend reuses the
+          // transaction while it can still be paid and says so when it cannot.
+          checkoutCall = null;
           trackCheckout(price.amount, price.currency);
           stage('post_checkout');
           try {
+            // Paddle keeps ONE checkout per page and the wallet's may be it, so the wallet
+            // steps aside first. walletLive is cleared before the close so the overlay's own
+            // events are never read as the wallet's.
+            if (walletLive) {
+              walletLive = false;
+              try { Paddle.Checkout.close(); } catch (e) {}
+            }
+            walletShow(false);
             Paddle.Checkout.open({ transactionId: d.transaction_id,
                                    settings: { displayMode: 'overlay', variant: 'one-page', theme: 'dark',
                                                successUrl: 'https://stridehub.io' + NEXT } });
