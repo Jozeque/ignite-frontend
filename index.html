@@ -3,6 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- What the first screen needs before anything else, asked for before any script is
+         parsed: the hero's still (the largest thing painted, which is when a phone counts the
+         page as shown) and the brand face. Both from this origin. -->
+    <link rel="preload" as="image" href="/assets/stride-hero-poster.jpg" fetchpriority="high">
+    <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/outfit-latin.woff2" crossorigin>
     <script>
     // ?gift=<token> is the Discovery Pass gift from the last-hours mail (Audit 08, A6): Stride
     // with the Experimental Collection included. The token is the only thing that opens that
@@ -309,15 +314,46 @@
 })();
 </script>
 <!-- End Google consent mode v2 -->
-<!-- Google Tag Manager -->
-<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+<script>
+// Runs fn once the page itself has loaded, when the browser is idle, and never later than
+// 6s after this line. Only weight the first screen does not need goes through here: the
+// Google tags, the express wallet, the hero's motion. On a phone on a slow connection they
+// were downloading alongside the hero, about 11 MB before the page could settle, and
+// Lighthouse put the hero's first paint past 10s.
+// A first tap or key releases everything at once: it can be the start of a purchase or a
+// sign-up, and the events it produces must have somewhere to go.
+window.strideAfterLoad = (function () {
+    var queue = [], ready = false;
+    function flush() {
+        ready = true;
+        var q = queue; queue = [];
+        for (var i = 0; i < q.length; i++) { try { q[i](); } catch (e) {} }
+    }
+    function soon() {
+        if (ready) { return; }
+        var idle = window.requestIdleCallback || function (f) { return setTimeout(f, 1); };
+        idle(flush, { timeout: 1500 });
+    }
+    if (document.readyState === 'complete') { soon(); } else { window.addEventListener('load', soon); }
+    setTimeout(flush, 6000);
+    ['pointerdown', 'keydown', 'touchstart'].forEach(function (t) {
+        window.addEventListener(t, flush, { once: true, passive: true, capture: true });
+    });
+    var api = function (fn) { if (ready) { try { fn(); } catch (e) {} } else { queue.push(fn); } };
+    api.now = flush;
+    return api;
+})();
+</script>
+<!-- Google Tag Manager, started once the page has loaded. Nothing is lost by waiting:
+     consent is declared above and every dataLayer/gtag call queues until it arrives. -->
+<script>strideAfterLoad(function () {(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
 j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','GTM-5R4N7FVP');</script>
+})(window,document,'script','dataLayer','GTM-5R4N7FVP');});</script>
 <!-- End Google Tag Manager -->
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-JCMEXN70CM"></script>
+<!-- Google tag (gtag.js), fetched once the page has loaded; the calls below queue until then -->
+<script>strideAfterLoad(function () { var t = document.createElement('script'); t.async = true; t.src = 'https://www.googletagmanager.com/gtag/js?id=G-JCMEXN70CM'; document.head.appendChild(t); });</script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
@@ -343,8 +379,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
     <!-- Paddle.js: geo-accurate pricing, checkout, and express Apple Pay. The
          client-side token is public BY DESIGN (Paddle: "safe to publish and expose in
-         your code"); it can only open checkouts and preview prices. Never an API key. -->
-    <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+         your code"); it can only open checkouts and preview prices. Never an API key.
+         defer: it held the first paint back ~1.2s on a phone. Every Paddle call on this page
+         runs at DOMContentLoaded or later, and deferred scripts run before that event. -->
+    <script src="https://cdn.paddle.com/paddle/v2/paddle.js" defer></script>
 
     <!-- Open Graph / Social cards -->
     <meta property="og:type" content="website">
@@ -592,7 +630,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
          them automatically inside that checkout for any device that can offer them.
          defer + a hard fallback below, because a blocked script must never cost a sale. -->
     <script src="https://assets.lemonsqueezy.com/lemon.js" defer></script>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Outfit and Space Mono from this origin: the very files Google Fonts serves (OFL), so
+         nothing looks different, minus a render-blocking stylesheet on a third origin and a
+         second connection for the files behind it (~0.8s before first paint on a phone). -->
+    <style>
+      @font-face{font-family:'Outfit';font-style:normal;font-weight:300 900;font-display:swap;src:url(/assets/fonts/outfit-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+      @font-face{font-family:'Outfit';font-style:normal;font-weight:300 900;font-display:swap;src:url(/assets/fonts/outfit-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+      @font-face{font-family:'Space Mono';font-style:normal;font-weight:400;font-display:swap;src:url(/assets/fonts/space-mono-400-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+      @font-face{font-family:'Space Mono';font-style:normal;font-weight:400;font-display:swap;src:url(/assets/fonts/space-mono-400-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+      @font-face{font-family:'Space Mono';font-style:normal;font-weight:700;font-display:swap;src:url(/assets/fonts/space-mono-700-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+      @font-face{font-family:'Space Mono';font-style:normal;font-weight:700;font-display:swap;src:url(/assets/fonts/space-mono-700-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+    </style>
 <style>
   /* ── PATCHBAY (vintage modular) brand palette - copied verbatim from index.html ── */
   :root{
@@ -1589,7 +1637,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                the walkthrough player drops in on top of it, so hitting play does not
                shift a single pixel of the layout -->
           <div id="heroStage" style="position:relative;border-radius:12px;border:1px solid rgba(198,113,43,.35);overflow:hidden;background:#0a0a09;box-shadow:0 30px 80px -30px rgba(0,0,0,.9),0 0 64px -14px rgba(198,113,43,.22)">
-            <video id="heroLoop" class="w-full block" autoplay loop muted playsinline preload="auto" poster="assets/stride-hero-poster.jpg" aria-label="Stride mapping a rack, putting a different curve on every lane, locking three lanes and re-rolling the rest">
+            <video id="heroLoop" class="w-full block" loop muted playsinline preload="none" width="1920" height="1080" poster="assets/stride-hero-poster.jpg" aria-label="Stride mapping a rack, putting a different curve on every lane, locking three lanes and re-rolling the rest">
               <source src="assets/stride-hero.webm" type="video/webm">
               <source src="assets/stride-hero.mp4" type="video/mp4">
             </video>
@@ -1615,6 +1663,38 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           if (loop && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
             loop.removeAttribute('autoplay');
             loop.pause();
+          } else if (loop && window.strideAfterLoad) {
+            // The poster is the hero's first paint; the loop is its motion. It used to autoplay
+            // with preload="auto", so its 1.8 MB (4.2 MB as MP4) downloaded alongside the poster,
+            // the fonts and the headline on a phone. Now it starts once the page has loaded AND
+            // the browser reports the poster painted: the load event can land before that paint,
+            // and a download started in between competes with it (measured, 2 runs in 3).
+            // Left alone if a press already started it, or the film is open over it.
+            strideAfterLoad(function () {
+              var done = false, po = null;
+              function start() {
+                if (done) return;
+                done = true;
+                if (po) { try { po.disconnect(); } catch (e) {} }
+                if (!loop.paused || document.querySelector('.vpop.on')) return;
+                var p = loop.play();
+                if (p && p.catch) p.catch(function () {});
+              }
+              try {
+                po = new PerformanceObserver(function (list) {
+                  var es = list.getEntries();
+                  for (var i = 0; i < es.length; i++) {
+                    if (es[i].element === loop || /stride-hero-poster/.test(es[i].url || '')) {
+                      requestAnimationFrame(start);
+                      return;
+                    }
+                  }
+                });
+                po.observe({ type: 'largest-contentful-paint', buffered: true });
+              } catch (e) {}
+              // No paint API, or the still was never the largest paint here: go anyway.
+              setTimeout(start, 2500);
+            });
           }
           if (!play || !stage) return;
 
@@ -2018,10 +2098,29 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- The 1:1 Stride VST window. Embeds docs/how-it-works-vst.html (single source of
        truth, self-contained header). Auto-sizes via the shared postMessage handler. -->
   <section data-ms="how" id="how" class="mb-28 scroll-mt-8">
-    <iframe id="hiw-vst-frame" src="docs/how-it-works-vst.html"
+    <iframe id="hiw-vst-frame" data-src="docs/how-it-works-vst.html"
             title="How Stride VST works — click any control to see what it does"
             loading="lazy" scrolling="no"
             style="width:100%;border:0;display:block;height:1600px;overflow:hidden"></iframe>
+    <script>
+    // The explainer is a whole app: 7.5s of main-thread work on a mid-range phone in
+    // Lighthouse, and it sits screens below the hero. loading="lazy" did not hold it back,
+    // because the browser's lazy distance on a slow connection reaches that far. It loads
+    // when the reader is about a screen away, and not before: a visitor who never scrolls
+    // that far never pays for it.
+    (function () {
+      var f = document.getElementById('hiw-vst-frame');
+      if (!f || !f.getAttribute('data-src')) return;
+      function go() { if (!f.getAttribute('src')) f.setAttribute('src', f.getAttribute('data-src')); }
+      if (!('IntersectionObserver' in window)) { go(); return; }
+      var io = new IntersectionObserver(function (entries) {
+        for (var i = 0; i < entries.length; i++) {
+          if (entries[i].isIntersecting) { io.disconnect(); go(); return; }
+        }
+      }, { rootMargin: '900px 0px' });
+      io.observe(f);
+    })();
+    </script>
   </section>
 
   <!-- ───────────────── AUDIO IN (new in 1.2) — guitars, vocals, hardware ───────────────── -->
@@ -2138,9 +2237,26 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
     <div class="panel screws rounded-3xl p-3 pt-7 mb-10"><span class="s s1"></span><span class="s s2"></span>
       <div class="rounded-2xl overflow-hidden" style="background:#100f0c;border:1px solid var(--line)">
-        <video class="w-full block" autoplay muted loop playsinline preload="metadata" aria-label="Stride - one sound, many variations">
+        <video id="variationsFilm" class="w-full block" muted loop playsinline preload="none" width="1496" height="576" aria-label="Stride - one sound, many variations">
           <source src="assets/every%20lane%20is%20a%20variation.mp4" type="video/mp4">
         </video>
+        <script>
+        // 14.8 MB, two screens below the hero. autoplay overrode preload="metadata", so every
+        // visit started pulling it the moment the page opened (5 MB+ before the hero had
+        // painted on a phone). It plays when it comes within reach and rests when it leaves.
+        (function () {
+          var v = document.getElementById('variationsFilm');
+          if (!v) return;
+          function play() { var p = v.play(); if (p && p.catch) p.catch(function () {}); }
+          if (!('IntersectionObserver' in window)) { if (window.strideAfterLoad) strideAfterLoad(play); else play(); return; }
+          new IntersectionObserver(function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) { if (v.paused) play(); }
+              else if (!v.paused) { v.pause(); }
+            });
+          }, { rootMargin: '600px 0px' }).observe(v);
+        })();
+        </script>
       </div>
     </div>
     <div class="grid md:grid-cols-3 gap-6">
@@ -3284,6 +3400,15 @@ function openBuy() { toggleBuyModal(); }
     // without this flag the overlay's own events would show and hide this button.
     let strideExpressLive = false;
 
+    // Set the moment the page hands Paddle's one checkout to an overlay (the buy form, the
+    // ?gift= checkout). The express mount waits for the page to load now, so it could land
+    // AFTER a buyer's overlay opened and replace it; this is what stops it.
+    let strideOverlayOpened = false;
+    function strideCheckoutTaken() {
+        return strideOverlayOpened || !!window.STRIDE_GIFT
+            || /[?&]_ptxn=/.test(window.location.search);   // a Paddle link Paddle opens itself
+    }
+
     // No wallet on this device. LATCHED, because the two events do not arrive in a
     // fixed order: WebKit fires checkout.payment.error BEFORE checkout.loaded, and
     // Chromium fires them the other way round. Proven from final DOM state on the
@@ -3419,7 +3544,13 @@ function openBuy() { toggleBuyModal(); }
     document.addEventListener('DOMContentLoaded', function () {
         strideInitPaddle();      // must run even when the provider is Lemon Squeezy
         strideLocalizePrices();
-        strideMountExpress();
+        // The wallet button mounts Paddle's checkout app, which pulls Stripe and Google Pay
+        // behind it: about 2 MB of script on every visit. It now waits for the page to load
+        // so the first screen does not compete with it. GET STRIDE works throughout, and
+        // strideSyncExpressItems only acts once this mount is live. It never mounts over a
+        // checkout a buyer already has open (strideCheckoutTaken).
+        function mountWhenFree() { if (!strideCheckoutTaken()) strideMountExpress(); }
+        if (window.strideAfterLoad) strideAfterLoad(mountWhenFree); else mountWhenFree();
     });
 
     // lemon.js does NOT create window.LemonSqueezy when it loads. Read its tail: it
@@ -3471,6 +3602,7 @@ function openBuy() { toggleBuyModal(); }
                 // Clearing the flag first stops the overlay's own loaded/error events
                 // from being read as the express button's.
                 strideExpressLive = false;
+                strideOverlayOpened = true;
                 try { Paddle.Checkout.close(); } catch (e) {}
 
                 Paddle.Checkout.open({
@@ -3811,6 +3943,7 @@ function openBuy() { toggleBuyModal(); }
             // One checkout instance per page: the express button's inline one steps aside,
             // exactly as it does for the buy form.
             strideExpressLive = false;
+            strideOverlayOpened = true;
             try { Paddle.Checkout.close(); } catch (e) {}
             Paddle.Checkout.open({
                 transactionId: strideGiftTxn,

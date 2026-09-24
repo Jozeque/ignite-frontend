@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- The brand face, from this origin, asked for before any script is parsed: the headline
+     is the largest thing this page paints, so its font is on the critical path. -->
+<link rel="preload" as="font" type="font/woff2" href="/assets/fonts/outfit-latin.woff2" crossorigin>
 <script>
 // The pass-ended mail's "Get 24 more hours" link carries a personal token (?extend=). Read it
 // before ANY analytics on this page (Tag Manager, Google Analytics, the Meta pixel) can report
@@ -307,15 +310,46 @@
 })();
 </script>
 <!-- End Google consent mode v2 -->
-<!-- Google Tag Manager -->
-<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+<script>
+// Runs fn once the page itself has loaded, when the browser is idle, and never later than
+// 6s after this line. The Google tags go through here: ~0.7 MB of script this page's first
+// screen (the headline and the email field) does not need.
+// A first tap or key releases everything at once (it can be the start of a sign-up, whose
+// events must have somewhere to go), and so does the homepage prompt's ?auto=1 handoff,
+// which registers the visitor straight away with no tap at all.
+window.strideAfterLoad = (function () {
+    var queue = [], ready = false;
+    function flush() {
+        ready = true;
+        var q = queue; queue = [];
+        for (var i = 0; i < q.length; i++) { try { q[i](); } catch (e) {} }
+    }
+    function soon() {
+        if (ready) { return; }
+        var idle = window.requestIdleCallback || function (f) { return setTimeout(f, 1); };
+        idle(flush, { timeout: 1500 });
+    }
+    if (document.readyState === 'complete') { soon(); } else { window.addEventListener('load', soon); }
+    setTimeout(flush, 6000);
+    ['pointerdown', 'keydown', 'touchstart'].forEach(function (t) {
+        window.addEventListener(t, flush, { once: true, passive: true, capture: true });
+    });
+    var api = function (fn) { if (ready) { try { fn(); } catch (e) {} } else { queue.push(fn); } };
+    api.now = flush;
+    if (/[?&]auto=1(&|$)/.test(window.location.search)) { flush(); }
+    return api;
+})();
+</script>
+<!-- Google Tag Manager, started once the page has loaded. Nothing is lost by waiting:
+     consent is declared above and every dataLayer/gtag call queues until it arrives. -->
+<script>strideAfterLoad(function () {(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
 j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','GTM-5R4N7FVP');</script>
+})(window,document,'script','dataLayer','GTM-5R4N7FVP');});</script>
 <!-- End Google Tag Manager -->
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-JCMEXN70CM"></script>
+<!-- Google tag (gtag.js), fetched once the page has loaded; the calls below queue until then -->
+<script>strideAfterLoad(function () { var t = document.createElement('script'); t.async = true; t.src = 'https://www.googletagmanager.com/gtag/js?id=G-JCMEXN70CM'; document.head.appendChild(t); });</script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
@@ -457,9 +491,17 @@ window.StrideTrack = window.StrideTrack || {
 <noscript><img height="1" width="1" style="display:none"
   src="https://www.facebook.com/tr?id=952457524222772&ev=PageView&noscript=1"></noscript>
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<!-- Outfit and Space Mono from this origin: the very files Google Fonts serves (OFL), so
+     nothing looks different, minus a render-blocking stylesheet on a third origin and a
+     second connection for the files behind it (~0.8s before the headline on a phone). -->
+<style>
+  @font-face{font-family:'Outfit';font-style:normal;font-weight:300 900;font-display:swap;src:url(/assets/fonts/outfit-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+  @font-face{font-family:'Outfit';font-style:normal;font-weight:300 900;font-display:swap;src:url(/assets/fonts/outfit-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+  @font-face{font-family:'Space Mono';font-style:normal;font-weight:400;font-display:swap;src:url(/assets/fonts/space-mono-400-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+  @font-face{font-family:'Space Mono';font-style:normal;font-weight:400;font-display:swap;src:url(/assets/fonts/space-mono-400-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+  @font-face{font-family:'Space Mono';font-style:normal;font-weight:700;font-display:swap;src:url(/assets/fonts/space-mono-700-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+  @font-face{font-family:'Space Mono';font-style:normal;font-weight:700;font-display:swap;src:url(/assets/fonts/space-mono-700-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+</style>
 <style>
 /* Same tokens as the landing page — this page is deliberately hand-rolled CSS
    rather than the Tailwind CDN, because it has one job and should load instantly. */
