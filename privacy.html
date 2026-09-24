@@ -14,8 +14,11 @@
 // request, so none of this needs an IP lookup of ours. Roughly two thirds of paying
 // customers bill from the denied set, so it is the majority path, not an edge case.
 //
-// It governs GOOGLE tags only. The Meta Pixel and Microsoft Clarity keep the behaviour
-// they have always had, which is a separate decision rather than an oversight.
+// Consent mode governs GOOGLE tags. Everything with no consent mode of its own (the Meta
+// Pixel, Microsoft Clarity, and our own ad-matching storage: the visitor id, the saved ad
+// click, the ad markers) waits for Accept in the same region instead: see strideWhenAllowed
+// below. Until 2026-09-24 those ran for everyone before any answer and kept running after
+// Decline, which the banner's own words ("say no and nothing changes") did not match.
 //     https://developers.google.com/tag-platform/security/guides/consent
 (function () {
     window.dataLayer = window.dataLayer || [];
@@ -57,6 +60,51 @@
     // server reads that as UNSPECIFIED rather than as a yes.
     window.strideConsentAds = function () { return saved; };
 
+    // Everything that is not a Google tag. Where the banner asks, the Meta Pixel, Clarity and
+    // our own ad-matching storage do not load, read or write anything until the visitor says
+    // yes; after a no they never do. Everywhere else they run as they always have. A page
+    // hands each of them over through strideWhenAllowed, and whatever is waiting here runs
+    // the moment the visitor presses Accept, so the page they are on is still counted.
+    var held = [];
+    function allowed() { return saved === 'granted' || (!saved && !inRegion()); }
+    window.strideAllowed = allowed;
+    window.strideWhenAllowed = function (fn) {
+        if (allowed()) { try { fn(); } catch (e) {} return; }
+        held.push(fn);
+    };
+
+    // Our own ad-matching storage, and what the Pixel and Clarity left on this site, go
+    // whenever they are not allowed: after a no, and on every page while the question is
+    // still open, which also clears what a visit before this banner existed stored. Nothing
+    // that reads them later (the checkout's attribution) can then find any. The Pixel and
+    // Clarity set theirs on the parent domain, so each is cleared host-only and there too.
+    var OURS = ['stride_xid', 'stride_ad_id', 'stride_fbclid', 'stride_gclid', 'stride_wbraid',
+                'stride_gbraid', '_fbc', '_fbp', '_clck', '_clsk'];
+    function forget() {
+        var host = location.hostname.replace(/^www\./, '');
+        var scopes = ['', '; domain=' + host, '; domain=.' + host];
+        for (var i = 0; i < OURS.length; i++) {
+            for (var j = 0; j < scopes.length; j++) {
+                try { document.cookie = OURS[i] + '=; max-age=0; path=/' + scopes[j] + '; SameSite=Lax; Secure'; } catch (e) {}
+            }
+        }
+        ['stride_fbclid', 'stride_fbc', 'stride_ad', 'stride_emh', 'stride_gclid', 'stride_wbraid',
+         'stride_gbraid'].forEach(function (k) {
+            try { localStorage.removeItem(k); } catch (e) {}
+            try { sessionStorage.removeItem(k); } catch (e) {}
+        });
+        // Already running on this page (a changed answer): tell them to stop here too. Called
+        // through a variable: pages without the Pixel read this block too, and the React
+        // build refuses a source page that looks like it sends Pixel events.
+        var pixel = window.fbq, rec = window.clarity;
+        try { if (pixel) { pixel('consent', 'revoke'); } } catch (e) {}
+        try { if (rec) { rec('consent', false); } } catch (e) {}
+    }
+    if (!allowed()) { forget(); }
+    // The buy form used to keep every buyer's name, email and country here for good, and
+    // nothing ever read it. It is no longer written; this clears the copies already out there.
+    try { localStorage.removeItem('stride_purchase'); } catch (e) {}
+
     function record(value) {
         saved = value;
         try { localStorage.setItem('stride_consent_ads', value); } catch (e) {}
@@ -68,29 +116,56 @@
         } catch (e) {}
         gtag('consent', 'update', state(value));
         dataLayer.push({ event: 'stride_consent', consent_ads: value });
+        var run = held;
+        held = [];
+        if (value === 'granted') {
+            for (var i = 0; i < run.length; i++) { try { run[i](); } catch (e) {} }
+            var pixel = window.fbq;
+            try { if (pixel) { pixel('consent', 'grant'); } } catch (e) {}
+        } else {
+            forget();
+        }
     }
+
+    // Withdrawing has to be as easy as agreeing, so the privacy policy carries a control
+    // that asks again, wherever the visitor is.
+    window.strideConsentChange = function () {
+        saved = '';
+        try { localStorage.removeItem('stride_consent_ads'); } catch (e) {}
+        try { document.cookie = 'stride_consent_ads=; max-age=0; path=/; SameSite=Lax; Secure'; } catch (e) {}
+        banner(true);
+    };
 
     // Ask only where the answer is legally required. Timezone, not an IP lookup: it costs
     // no request and identifies nobody. It over-asks a little (Europe/Moscow is not the
     // EEA) and that is the safe direction. The harm of not asking a German is that their
     // tags stay denied for good, while the harm of asking a Russian is a dismissed bar.
     // If the timezone cannot be read at all, ask. Never assume consent.
-    function mustAsk() {
-        if (saved) { return false; }
+    function mustAsk() { return !saved && inRegion(); }
+    function inRegion() {
         try {
             var tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '');
             // An empty timezone is not "not Europe", it is "no idea". Falling through
             // to the comparison below would read it as no idea -> do not ask -> stay
             // denied forever, which loses the visitor rather than asking them.
             if (!tz) { return true; }
-            return tz.indexOf('Europe/') === 0 || tz === 'Atlantic/Reykjavik' ||
-                   tz === 'Atlantic/Canary' || tz === 'Atlantic/Madeira' ||
-                   tz === 'Atlantic/Azores';
+            // Europe/* covers most of it. The rest of the EU and EEA sits in zones named after
+            // other continents: Cyprus, Ceuta and Melilla, Spain and Portugal's islands, and
+            // France's overseas regions, which are EU territory. Svalbard and the Faroes are
+            // not, and are asked anyway: over-asking is the safe direction.
+            return tz.indexOf('Europe/') === 0 || [
+                'Atlantic/Reykjavik', 'Atlantic/Canary', 'Atlantic/Madeira', 'Atlantic/Azores',
+                'Atlantic/Faroe', 'Arctic/Longyearbyen', 'Asia/Nicosia', 'Asia/Famagusta',
+                'Africa/Ceuta', 'America/Guadeloupe', 'America/Martinique', 'America/Cayenne',
+                'America/Marigot', 'Indian/Reunion', 'Indian/Mayotte'
+            ].indexOf(tz) >= 0;
         } catch (e) { return true; }
     }
 
-    function banner() {
-        if (!mustAsk() || document.getElementById('stride-consent')) { return; }
+    // force: asked again from the privacy policy, wherever the visitor is. Strictly `true`,
+    // because DOMContentLoaded calls this with its event object.
+    function banner(force) {
+        if ((force !== true && !mustAsk()) || document.getElementById('stride-consent')) { return; }
         var css = document.createElement('style');
         // The panel, hairline and copper are the page's own tokens, so this reads as part
         // of Stride rather than as a bolted-on compliance widget. The three legal pages
@@ -142,7 +217,7 @@
         // Short, and it says the thing a visitor actually wants to know: saying no costs
         // them nothing. No "we value your privacy", no scrolling wall of vendor names.
         el.innerHTML =
-            '<p>We use cookies to see which ads bring people here. ' +
+            '<p>We use cookies to see which ads bring people here and how visitors use the site. ' +
             'Say no and nothing on the site changes. ' +
             '<a href="/privacy.html">Privacy&nbsp;Policy</a></p>' +
             '<div><button type="button" data-consent="denied">Decline</button>' +
@@ -312,8 +387,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script type="text/javascript">
     (function(c,l,a,r,i,t,y){
         c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        (c.strideWhenAllowed||function(g){g()})(function(){
         t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
         y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+        if(c.strideConsentAds&&c.strideConsentAds()==='granted'){c[a]('consentv2',{ad_Storage:'granted',analytics_Storage:'granted'});}
+        });
     })(window, document, "clarity", "script", "yj7cm3a9sz");
 </script>
 <!-- End Microsoft Clarity -->
@@ -344,7 +422,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             background-image: linear-gradient(to right, #f97316, #ef4444);
         }
     </style>
-<link rel="stylesheet" href="/_legacy/css/privacy.a049935c53.css">
+<link rel="stylesheet" href="/_legacy/css/privacy.c35191964a.css">
 <meta name="description" content="How Stride handles your data: what is collected, why, who receives it, how long it is kept, and your rights under GDPR.">
 <link rel="canonical" href="https://stridehub.io/privacy.html">
 <script>window.STRIDE_LANGS=["en"]</script>
@@ -697,63 +775,82 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- Content -->
     <main class="flex-1 max-w-4xl mx-auto px-6 py-16">
         <h1 class="text-3xl font-black uppercase tracking-wider mb-2">Privacy Policy</h1>
-        <p class="text-sm text-zinc-500 mb-12">Last updated: September 22, 2026 &nbsp;|&nbsp; Effective: September 22, 2026 &nbsp;|&nbsp; Version 1.3</p>
+        <p class="text-sm text-zinc-500 mb-12">Last updated: September 24, 2026 &nbsp;|&nbsp; Effective: September 24, 2026 &nbsp;|&nbsp; Version 1.4</p>
 
         <div class="space-y-10 text-sm leading-relaxed text-zinc-400">
 
             <!-- 1 -->
             <section>
                 <h2 class="text-base font-bold text-zinc-200 uppercase tracking-wider mb-3">1. Who We Are</h2>
-                <p>Stride ("we", "us", "our") publishes the Stride desktop application and operates the website at <strong class="text-zinc-300">stridehub.io</strong>. Stride is a sound design engine. It runs on your own machine as a VST3 plugin in any VST3 host, and as Max for Live components in Ableton Live, and it helps electronic music producers design modulation curves and apply them to the instruments, effects and Ableton devices in their own setup.</p>
-                <p class="mt-2">For privacy inquiries, contact us at: <strong class="text-zinc-300">home@stridehub.io</strong></p>
+                <p>Stride ("we", "us", "our") makes the Stride plugin and runs the website at <strong class="text-zinc-300">stridehub.io</strong>. Stride is a sound design engine. It runs on your own computer as a plugin in your DAW (VST3 and AU), and as Max for Live components in Ableton Live.</p>
+                <p class="mt-2">Stride is run by <strong class="text-zinc-300">Yossi Bozo</strong>, an independent developer based in Israel, who is responsible for your personal data (its "controller").</p>
+                <p class="mt-2">For anything about your data, email <strong class="text-zinc-300">home@stridehub.io</strong>.</p>
             </section>
 
             <!-- 2 -->
             <section>
                 <h2 class="text-base font-bold text-zinc-200 uppercase tracking-wider mb-3">2. What Data We Collect</h2>
 
-                <h3 class="text-sm font-bold text-zinc-300 mt-4 mb-2">Data you provide directly:</h3>
+                <h3 class="text-sm font-bold text-zinc-300 mt-4 mb-2">Data you give us:</h3>
                 <ul class="list-disc list-inside space-y-1 ml-2">
-                    <li>Email address (when you sign up to the waitlist or purchase a license)</li>
-                    <li>Artist / display name (if you provide one at waitlist signup — optional)</li>
-                    <li>Payment and billing information, collected by our payment provider, see Section 6</li>
+                    <li><strong class="text-zinc-300">Your email address</strong>, when you register for a Discovery Pass, enter it in the buy form, buy Stride, book a session, join the waitlist, or write to us</li>
+                    <li><strong class="text-zinc-300">Your name</strong>, if you give it at checkout or in a message</li>
+                    <li><strong class="text-zinc-300">What you write to us</strong>, through the contact form or by email</li>
+                    <li><strong class="text-zinc-300">Your answers</strong> to the optional two-question survey after a purchase</li>
+                    <li><strong class="text-zinc-300">Payment details</strong>, which Paddle collects as merchant of record. We receive your name, email, country, postcode and what you bought, never your card details</li>
                 </ul>
 
-                <h3 class="text-sm font-bold text-zinc-300 mt-4 mb-2">Data we collect automatically:</h3>
+                <h3 class="text-sm font-bold text-zinc-300 mt-4 mb-2">Data the plugin sends us:</h3>
                 <ul class="list-disc list-inside space-y-1 ml-2">
-                    <li>License key status (validated against our backend when you activate or re-check)</li>
-                    <li>Approximate activation machine identifier (hostname) — so your license can be tied to the devices you installed it on</li>
+                    <li><strong class="text-zinc-300">When you activate or check a license:</strong> your license key, a label made from your computer's name ("Stride on" followed by the name) and an installation ID</li>
+                    <li><strong class="text-zinc-300">When you start or extend a Discovery Pass:</strong> the email you enter, a device ID, your computer's name and your Stride version. The device ID is a one-way hash of your computer's system identifier, so a pass works on one machine</li>
+                    <li><strong class="text-zinc-300">During a Discovery Pass:</strong> a few named moments in how you use Stride, for example the first time a motion lands on several lanes, or a demo chain is picked or heard. Each one carries the name of your DAW, your Stride version, the number of lanes and the time since your pass started</li>
+                    <li><strong class="text-zinc-300">When it checks for updates:</strong> your license key and your operating system</li>
+                    <li>Every request reaches our server with your <strong class="text-zinc-300">IP address</strong> and a technical user agent</li>
                 </ul>
+
+                <h3 class="text-sm font-bold text-zinc-300 mt-4 mb-2">Data the website collects:</h3>
+                <ul class="list-disc list-inside space-y-1 ml-2">
+                    <li>The pages you visit, clicks, scrolling, your device and browser, and your IP address</li>
+                    <li>If you arrive from one of our ads: that ad's click identifier (gclid, wbraid, gbraid or fbclid), and which ad, ad set and campaign it was</li>
+                    <li>A random visitor ID we create, which ties your visits and a later sign-up or purchase to the ad that brought you</li>
+                </ul>
+                <p class="mt-3">In the EEA, the UK and Switzerland, the website collects the ad and analytics data above only after you press <strong class="text-zinc-300">Accept</strong> in the cookie banner. See Section 11.</p>
 
                 <h3 class="text-sm font-bold text-zinc-300 mt-4 mb-2">Data we do NOT collect:</h3>
                 <ul class="list-disc list-inside space-y-1 ml-2">
-                    <li>Your project and rack files, presets, MIDI clips, automation curves, or any content you create in Stride: all of that stays on your local machine and is never transmitted to us</li>
-                    <li>We do not collect device fingerprints</li>
-                    <li>We do not purchase data from third parties</li>
+                    <li>Your projects, racks, presets, MIDI clips, automation curves, audio, or anything else you make in Stride. All of that stays on your computer</li>
+                    <li>We do not buy data about you from anyone</li>
                 </ul>
-                <p class="mt-3">Our website uses the <strong class="text-zinc-300">Meta Pixel</strong> and <strong class="text-zinc-300">Google Ads conversion tracking</strong> to measure ad-campaign performance, and <strong class="text-zinc-300">Google Analytics</strong> and <strong class="text-zinc-300">Microsoft Clarity</strong> to see how visitors use the site. See Section 6 (Third Parties) and Section 11 (Local Storage) for details and your opt-out options.</p>
             </section>
 
             <!-- 3 -->
             <section>
                 <h2 class="text-base font-bold text-zinc-200 uppercase tracking-wider mb-3">3. How We Use Your Data</h2>
-                <ul class="list-disc list-inside space-y-1 ml-2">
-                    <li><strong class="text-zinc-300">To deliver the service:</strong> validate your license key when you activate Stride or launch it periodically</li>
-                    <li><strong class="text-zinc-300">Order fulfillment:</strong> deliver your license key and receipt to the email you provided at purchase</li>
-                    <li><strong class="text-zinc-300">Service communications:</strong> critical updates (e.g. a bug-fix release, security advisory) sent to the email you used for purchase or waitlist signup</li>
+                <ul class="list-disc list-inside space-y-2 ml-2">
+                    <li><strong class="text-zinc-300">To give you what you asked for:</strong> your license and downloads, license checks, your Discovery Pass (one per machine), and support</li>
+                    <li><strong class="text-zinc-300">Order emails:</strong> your license key, receipt and download links</li>
+                    <li><strong class="text-zinc-300">Discovery Pass emails:</strong> your download link and how to start, then a few short emails while your pass runs and one after it ends, which may include an offer</li>
+                    <li><strong class="text-zinc-300">A checkout reminder:</strong> if you enter your email in the buy form and don't finish, we may send you one reminder</li>
+                    <li><strong class="text-zinc-300">News and offers:</strong> occasional emails about Stride to customers and pass users</li>
+                    <li><strong class="text-zinc-300">To improve Stride:</strong> the Discovery Pass moments in Section 2 show us where new users get stuck</li>
+                    <li><strong class="text-zinc-300">To measure and improve our ads:</strong> we tell Meta and Google Ads about page views, checkout starts, Discovery Pass sign-ups, downloads and activations, and purchases. Some of this goes from our server, identified by a hashed email address. We also give Meta hashed email addresses of customers, pass users and people who started a checkout, so Meta can leave customers out of our ads and show our ads again to people who showed interest</li>
+                    <li><strong class="text-zinc-300">To understand the website:</strong> which pages work, through Google Analytics and Microsoft Clarity (heatmaps and session recordings). Clarity masks the text you type into forms before it leaves your browser</li>
+                    <li><strong class="text-zinc-300">To keep our team informed:</strong> when someone registers, buys, activates a pass or writes to us, a notice with those details goes to our private team chat</li>
+                    <li><strong class="text-zinc-300">To prevent fraud and abuse:</strong> limits on activations per license and one pass per machine. To link a pass to the email it was registered with, we may match it to a recent sign-up from the same network</li>
                 </ul>
-                <p class="mt-2">We use the <strong class="text-zinc-300">Meta Pixel</strong> on our landing page and post-purchase confirmation page, and <strong class="text-zinc-300">Google Ads conversion tracking</strong> on our website and from our order records, to measure ad-campaign performance. See Section 6 for details. Aside from those, we do <strong class="text-zinc-300">not</strong> use your data for advertising, profiling, or marketing without your explicit consent.</p>
-                <p class="mt-2">We use <strong class="text-zinc-300">Google Analytics</strong> and <strong class="text-zinc-300">Microsoft Clarity</strong> on our website to understand how visitors use it (the pages they visit, clicks, scrolling, heatmaps and session replays), so we can improve the site. Text you type into form fields is masked by Clarity before it leaves your browser. See Section 6.</p>
+                <p class="mt-3">Reply <strong class="text-zinc-300">STOP</strong> to any of our emails, or write to home@stridehub.io, and we stop sending you anything but what your purchase needs.</p>
             </section>
 
             <!-- 4 -->
             <section>
                 <h2 class="text-base font-bold text-zinc-200 uppercase tracking-wider mb-3">4. Legal Basis for Processing (GDPR)</h2>
-                <p>If you are in the EU/EEA or UK, we process your personal data under the following lawful bases:</p>
+                <p>If you are in the EU, the EEA or the UK, we rely on these legal bases:</p>
                 <ul class="list-disc list-inside space-y-1 ml-2 mt-2">
-                    <li><strong class="text-zinc-300">Contract performance:</strong> order processing, license delivery, license validation — necessary to provide the product you purchased</li>
-                    <li><strong class="text-zinc-300">Legitimate interest:</strong> limiting license activations per seat, preventing fraud, critical service notices</li>
-                    <li><strong class="text-zinc-300">Consent:</strong> marketing communications, if any</li>
+                    <li><strong class="text-zinc-300">Contract:</strong> your order, license and downloads, license checks, the Discovery Pass you asked for, and support</li>
+                    <li><strong class="text-zinc-300">Legitimate interests:</strong> preventing fraud and abuse, improving Stride from the pass moments, emails about the pass you registered for, one checkout reminder, measuring our ads from our server and with hashed customer lists, and team notices. You can object to any of these at any time</li>
+                    <li><strong class="text-zinc-300">Consent:</strong> ad and analytics cookies and similar technologies on the website, given in the cookie banner, and marketing emails where the law requires your consent</li>
+                    <li><strong class="text-zinc-300">Legal obligation:</strong> tax and accounting records</li>
                 </ul>
             </section>
 
@@ -761,150 +858,172 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <section>
                 <h2 class="text-base font-bold text-zinc-200 uppercase tracking-wider mb-3">5. Local-First Processing</h2>
                 <p>Stride runs on your own computer, as a plugin inside your DAW and as Max for Live components inside Ableton Live. All sound design work happens <strong class="text-zinc-300">entirely on your local machine</strong>: scanning the devices you host or map, drawing automation curves, and writing the motion back into your session. Your project files, MIDI data, instrument presets, and canvas state never leave your computer.</p>
-                <p class="mt-3">The only network traffic Stride initiates is:</p>
-                <ul class="list-disc list-inside space-y-1 ml-2 mt-2">
-                    <li>An occasional license-key validation call to our backend (Cloud Functions on Firebase), which checks your key against our own license store and, for older orders, Lemon Squeezy</li>
-                    <li>Downloading application updates, when prompted</li>
-                </ul>
+                <p class="mt-3">The plugin talks to our server only for what Section 2 lists: license checks, starting or extending a Discovery Pass, the pass moments, and update checks.</p>
                 <p class="mt-3">Whatever you create in Stride is yours. Stride does not claim any ownership over content you produce with the software.</p>
             </section>
 
             <!-- 6 -->
             <section>
-                <h2 class="text-base font-bold text-zinc-200 uppercase tracking-wider mb-3">6. Third Parties Who Receive Your Data</h2>
+                <h2 class="text-base font-bold text-zinc-200 uppercase tracking-wider mb-3">6. Who Receives Your Data</h2>
                 <div class="space-y-3 mt-2">
                     <div class="bg-white/5 rounded-lg p-4 border border-white/5">
                         <p class="font-bold text-zinc-300">Paddle (Paddle.com Market Ltd)</p>
-                        <p class="text-xs text-zinc-500 mt-1">Services: Payment processing, order management, tax collection and remittance</p>
-                        <p class="text-xs text-zinc-500">Purpose: Processing your purchase and issuing your receipt, as merchant of record for current orders</p>
-                        <p class="text-xs text-zinc-500">Data shared: name, email, billing country, order details</p>
-                        <p class="text-xs text-zinc-500">DPA: Paddle Data Processing Agreement (acting as Merchant of Record)</p>
+                        <p class="text-xs text-zinc-500 mt-1">What: merchant of record for current orders: payment, tax, receipts</p>
+                        <p class="text-xs text-zinc-500">Data: name, email, country, postcode, order details, your IP address for local prices, and the ad details and cookie choice we attach to a checkout. Paddle processes payments with its own payment partners, such as Stripe for cards and Apple Pay or Google Pay</p>
+                        <p class="text-xs text-zinc-500">Terms: Paddle Data Processing Agreement</p>
                     </div>
                     <div class="bg-white/5 rounded-lg p-4 border border-white/5">
                         <p class="font-bold text-zinc-300">Lemon Squeezy (Lemon Squeezy, LLC), for orders placed before 13 September 2026</p>
-                        <p class="text-xs text-zinc-500 mt-1">Services: Payment processing, order management, license key issuance and validation</p>
-                        <p class="text-xs text-zinc-500">Purpose: Processing your purchase, delivering your license key, validating activations</p>
-                        <p class="text-xs text-zinc-500">Data shared: name, email, billing country, order details, license key metadata</p>
-                        <p class="text-xs text-zinc-500">DPA: Lemon Squeezy Data Processing Addendum (acting as Merchant of Record)</p>
+                        <p class="text-xs text-zinc-500 mt-1">What: merchant of record and license checks for those orders</p>
+                        <p class="text-xs text-zinc-500">Data: name, email, country, order details, license key, and the computer-name label from the plugin</p>
+                        <p class="text-xs text-zinc-500">Terms: Lemon Squeezy Data Processing Addendum</p>
                     </div>
                     <div class="bg-white/5 rounded-lg p-4 border border-white/5">
-                        <p class="font-bold text-zinc-300">Google LLC</p>
-                        <p class="text-xs text-zinc-500 mt-1">Services: Firebase Cloud Functions, Cloud Firestore (for our license validation proxy and waitlist storage), and Google Analytics with Google Tag Manager on our website</p>
-                        <p class="text-xs text-zinc-500">Purpose: Hosting the backend that issues and validates license keys, delivers your download, and stores waitlist signup emails; measuring how visitors use our website</p>
-                        <p class="text-xs text-zinc-500">Data shared: email (waitlist), license key + hostname (validation); pages visited, site interactions, IP address and browser details (Google Analytics)</p>
-                        <p class="text-xs text-zinc-500">DPA: Google Cloud Data Processing Addendum</p>
+                        <p class="font-bold text-zinc-300">Google LLC (Google Cloud and Firebase)</p>
+                        <p class="text-xs text-zinc-500 mt-1">What: hosts our server and database; messages from our contact form also reach us through Gmail</p>
+                        <p class="text-xs text-zinc-500">Data: everything in Section 2 that reaches our server. It also processes the text you type into the older web app's generator to create its MIDI</p>
+                        <p class="text-xs text-zinc-500">Terms: Google Cloud Data Processing Addendum</p>
+                    </div>
+                    <div class="bg-white/5 rounded-lg p-4 border border-white/5">
+                        <p class="font-bold text-zinc-300">Google LLC (Google Analytics and Tag Manager)</p>
+                        <p class="text-xs text-zinc-500 mt-1">What: website analytics</p>
+                        <p class="text-xs text-zinc-500">Data: pages visited, site interactions, IP address and browser details</p>
                         <p class="text-xs text-zinc-500">Opt out: the <a href="https://tools.google.com/dlpage/gaoptout" class="text-orange-400 underline" target="_blank" rel="noopener noreferrer">Google Analytics opt-out browser add-on</a>, or a tracker-blocking browser extension</p>
                     </div>
                     <div class="bg-white/5 rounded-lg p-4 border border-white/5">
                         <p class="font-bold text-zinc-300">Google LLC (Google Ads)</p>
-                        <p class="text-xs text-zinc-500 mt-1">Services: Google Ads conversion tracking, including enhanced conversions and conversion imports sent from our order records</p>
-                        <p class="text-xs text-zinc-500">Purpose: Measure ad-campaign performance, attribute demo registrations and purchases to ad clicks, and report which ads led to a sale</p>
-                        <p class="text-xs text-zinc-500">Data shared: the Google click identifier from the ad you clicked (gclid, wbraid or gbraid); checkout-started and demo-registration events on our website; and, for completed orders, the order ID, amount charged net of tax, currency and a hashed email address. We do not send your name, phone number, postal address, or any payment details to Google Ads.</p>
-                        <p class="text-xs text-zinc-500">DPA: Google Ads Data Processing Terms</p>
-                        <p class="text-xs text-zinc-500">Opt out: adjust your ad settings at <a href="https://myadcenter.google.com/" class="text-orange-400 underline" target="_blank" rel="noopener noreferrer">myadcenter.google.com</a>, or use a tracker-blocking browser extension</p>
+                        <p class="text-xs text-zinc-500 mt-1">What: ad measurement, on the website and from our server</p>
+                        <p class="text-xs text-zinc-500">Data: the click identifier of the ad you clicked (gclid, wbraid or gbraid); checkout starts and Discovery Pass sign-ups on the website; and for purchases and Discovery Pass activations, a hashed email address, the order or pass ID, the amount net of tax and the currency. We never send your name, phone number, postal address or payment details to Google Ads</p>
+                        <p class="text-xs text-zinc-500">Terms: Google Ads Data Processing Terms. Opt out: <a href="https://myadcenter.google.com/" class="text-orange-400 underline" target="_blank" rel="noopener noreferrer">myadcenter.google.com</a></p>
                     </div>
                     <div class="bg-white/5 rounded-lg p-4 border border-white/5">
-                        <p class="font-bold text-zinc-300">Microsoft Corporation</p>
-                        <p class="text-xs text-zinc-500 mt-1">Services: Microsoft Clarity (website analytics: heatmaps and session replay)</p>
-                        <p class="text-xs text-zinc-500">Purpose: See how visitors use our website, such as clicks, scrolling and the pages they move through, so we can improve it</p>
-                        <p class="text-xs text-zinc-500">Data shared: pages visited, clicks, scrolling and mouse movement, device and browser details, IP address. Text typed into form fields is masked before it leaves your browser</p>
-                        <p class="text-xs text-zinc-500">How Microsoft uses this data: <a href="https://www.microsoft.com/privacy/privacystatement" class="text-orange-400 underline" target="_blank" rel="noopener noreferrer">Microsoft Privacy Statement</a></p>
-                        <p class="text-xs text-zinc-500">Opt out: use a tracker-blocking browser extension</p>
+                        <p class="font-bold text-zinc-300">Meta Platforms Ireland Ltd and Meta Platforms, Inc. (Facebook, Instagram)</p>
+                        <p class="text-xs text-zinc-500 mt-1">What: ad measurement with the Meta Pixel on the website and the Conversions API from our server, and customer lists for ad audiences</p>
+                        <p class="text-xs text-zinc-500">Data: page views, checkout starts, Discovery Pass sign-ups, downloads and activations, and purchases (order ID, value, currency); with them a hashed email address, a hashed name, country and postcode where we know them, IP address, browser user agent, ad click identifiers, our visitor ID, and for a pass activation a hashed device ID. For customer lists: hashed email addresses of customers, pass users and people who started a checkout</p>
+                        <p class="text-xs text-zinc-500">Terms: Meta Business Tools Terms. Opt out: <a href="https://www.facebook.com/settings/?tab=ads" class="text-orange-400 underline" target="_blank" rel="noopener noreferrer">facebook.com/settings/?tab=ads</a></p>
                     </div>
                     <div class="bg-white/5 rounded-lg p-4 border border-white/5">
-                        <p class="font-bold text-zinc-300">Meta Platforms, Inc. (Facebook)</p>
-                        <p class="text-xs text-zinc-500 mt-1">Services: Meta Pixel (and, when activated, Conversions API)</p>
-                        <p class="text-xs text-zinc-500">Purpose: Measure ad-campaign performance, attribute purchases to ad clicks, and optimize delivery of our ads to relevant audiences</p>
-                        <p class="text-xs text-zinc-500">Data shared: page-view events on our landing page, purchase events (order ID, value, currency) on our post-purchase confirmation page, hashed email address (purchase events only), IP address and browser user-agent</p>
-                        <p class="text-xs text-zinc-500">DPA: Meta Business Tools Terms of Service</p>
-                        <p class="text-xs text-zinc-500">Opt out: adjust your ad preferences at <a href="https://www.facebook.com/settings/?tab=ads" class="text-orange-400 underline" target="_blank" rel="noopener noreferrer">facebook.com/settings/?tab=ads</a>, or use a tracker-blocking browser extension</p>
+                        <p class="font-bold text-zinc-300">Microsoft Corporation (Microsoft Clarity)</p>
+                        <p class="text-xs text-zinc-500 mt-1">What: website heatmaps and session recordings</p>
+                        <p class="text-xs text-zinc-500">Data: pages visited, clicks, scrolling and mouse movement, device and browser details, IP address. Text typed into forms is masked before it leaves your browser</p>
+                        <p class="text-xs text-zinc-500">How Microsoft uses it: <a href="https://www.microsoft.com/privacy/privacystatement" class="text-orange-400 underline" target="_blank" rel="noopener noreferrer">Microsoft Privacy Statement</a></p>
+                    </div>
+                    <div class="bg-white/5 rounded-lg p-4 border border-white/5">
+                        <p class="font-bold text-zinc-300">Resend</p>
+                        <p class="text-xs text-zinc-500 mt-1">What: sends our emails</p>
+                        <p class="text-xs text-zinc-500">Data: your email address, first name, and the content of each email, which can include your license key and download links</p>
+                    </div>
+                    <div class="bg-white/5 rounded-lg p-4 border border-white/5">
+                        <p class="font-bold text-zinc-300">Discord Inc.</p>
+                        <p class="text-xs text-zinc-500 mt-1">What: our private team chat, where our server posts notices</p>
+                        <p class="text-xs text-zinc-500">Data: for sign-ups, purchases, pass activations and messages: your email, name, what you bought and the amount, your license key, your computer's name, and what you wrote to us</p>
+                    </div>
+                    <div class="bg-white/5 rounded-lg p-4 border border-white/5">
+                        <p class="font-bold text-zinc-300">Calendly LLC</p>
+                        <p class="text-xs text-zinc-500 mt-1">What: booking a 1:1 session</p>
+                        <p class="text-xs text-zinc-500">Data: the name, email and time you give when you book</p>
+                    </div>
+                    <div class="bg-white/5 rounded-lg p-4 border border-white/5">
+                        <p class="font-bold text-zinc-300">Supabase, Inc.</p>
+                        <p class="text-xs text-zinc-500 mt-1">What: accounts of the older web app</p>
+                        <p class="text-xs text-zinc-500">Data: email, display name, and what you generated in that app</p>
+                    </div>
+                    <div class="bg-white/5 rounded-lg p-4 border border-white/5">
+                        <p class="font-bold text-zinc-300">YouTube (Google LLC)</p>
+                        <p class="text-xs text-zinc-500 mt-1">What: the videos on our pages, embedded in privacy-enhanced mode</p>
+                        <p class="text-xs text-zinc-500">Data: none until you press play. Then YouTube receives what any video view gives it</p>
                     </div>
                 </div>
-                <p class="mt-3">We do <strong class="text-zinc-300">not sell, rent, or share your personal data</strong> with any third party for advertising or marketing purposes.</p>
+                <p class="mt-3">We do <strong class="text-zinc-300">not sell</strong> your personal data. We share it with ad platforms only as this section describes.</p>
             </section>
 
             <!-- 7 -->
             <section>
                 <h2 class="text-base font-bold text-zinc-200 uppercase tracking-wider mb-3">7. International Data Transfers</h2>
-                <p>Your data may be transferred to and processed in the United States and the United Kingdom, where Google, Microsoft, Supabase, Lemon Squeezy and Paddle operate. These transfers are protected by:</p>
-                <ul class="list-disc list-inside space-y-1 ml-2 mt-2">
-                    <li>The EU-US Data Privacy Framework</li>
-                    <li>Standard Contractual Clauses (SCCs) where applicable</li>
-                </ul>
-                <p class="mt-2">Google, Microsoft, Supabase, Lemon Squeezy and Paddle are certified under applicable international transfer mechanisms.</p>
+                <p>We are based in Israel, which the European Commission recognizes as giving adequate protection. The services in Section 6 process data in the United States, the United Kingdom and the EU. Transfers to the United States rely on the EU-US Data Privacy Framework where the provider is certified, and on Standard Contractual Clauses otherwise.</p>
             </section>
 
             <!-- 8 -->
             <section>
                 <h2 class="text-base font-bold text-zinc-200 uppercase tracking-wider mb-3">8. Data Retention</h2>
-                <ul class="list-disc list-inside space-y-1 ml-2">
-                    <li><strong class="text-zinc-300">Waitlist email:</strong> retained until you unsubscribe or request deletion</li>
-                    <li><strong class="text-zinc-300">Purchase records (email, order, license key):</strong> retained for the lifetime of the license and as required by applicable tax law (up to 7 years)</li>
-                    <li><strong class="text-zinc-300">License validation logs:</strong> retained for up to 12 months for fraud prevention and support</li>
+                <p>We keep personal data only as long as we need it for the purposes in this policy, to meet legal requirements and to resolve disputes. After that we delete it or make it anonymous.</p>
+                <ul class="list-disc list-inside space-y-1 ml-2 mt-2">
+                    <li><strong class="text-zinc-300">Purchase records</strong> (email, order, license key): for the life of your license, and as long as tax law requires, up to 7 years</li>
+                    <li><strong class="text-zinc-300">Discovery Pass, sign-up and checkout records:</strong> while they are useful for your pass, for support and for the emails in Section 3</li>
+                    <li><strong class="text-zinc-300">Discovery Pass moments</strong> from the plugin: while we use them to improve Stride</li>
+                    <li><strong class="text-zinc-300">Your messages to us:</strong> while we help you, and afterwards as a record of that help</li>
+                    <li><strong class="text-zinc-300">The STOP list:</strong> as long as needed to keep honoring it</li>
+                    <li><strong class="text-zinc-300">Website analytics:</strong> as set in Google Analytics and Microsoft Clarity</li>
                 </ul>
-                <p class="mt-2">Upon deletion request, all personal data we hold about you is purged from our systems within <strong class="text-zinc-300">30 days</strong>, subject to legal retention requirements for tax records.</p>
+                <p class="mt-2">If you ask us to delete your data, we delete it within <strong class="text-zinc-300">one month</strong>, except what tax law requires us to keep.</p>
             </section>
 
             <!-- 9 -->
             <section>
                 <h2 class="text-base font-bold text-zinc-200 uppercase tracking-wider mb-3">9. Your Rights</h2>
 
-                <h3 class="text-sm font-bold text-zinc-300 mt-4 mb-2">All users:</h3>
+                <h3 class="text-sm font-bold text-zinc-300 mt-4 mb-2">Everyone can ask us to:</h3>
                 <ul class="list-disc list-inside space-y-1 ml-2">
-                    <li><strong class="text-zinc-300">Access</strong> — request a copy of all data we hold about you</li>
-                    <li><strong class="text-zinc-300">Correction</strong> — request correction of inaccurate data</li>
-                    <li><strong class="text-zinc-300">Deletion</strong> — request deletion of your account and all associated data</li>
-                    <li><strong class="text-zinc-300">Export</strong> — request your data in a machine-readable format (JSON)</li>
+                    <li><strong class="text-zinc-300">Access:</strong> send you a copy of the data we hold about you</li>
+                    <li><strong class="text-zinc-300">Correct:</strong> fix data that is wrong</li>
+                    <li><strong class="text-zinc-300">Delete:</strong> erase your data</li>
+                    <li><strong class="text-zinc-300">Export:</strong> give you your data in a common machine-readable format</li>
+                    <li><strong class="text-zinc-300">Stop emails:</strong> reply STOP to any of them</li>
                 </ul>
 
-                <h3 class="text-sm font-bold text-zinc-300 mt-4 mb-2">Additional rights for EU/UK residents (GDPR):</h3>
+                <h3 class="text-sm font-bold text-zinc-300 mt-4 mb-2">If you are in the EU, the EEA or the UK (GDPR), you can also:</h3>
                 <ul class="list-disc list-inside space-y-1 ml-2">
-                    <li><strong class="text-zinc-300">Restrict processing</strong> — request that we limit how we use your data</li>
-                    <li><strong class="text-zinc-300">Object to processing</strong> — object to processing based on legitimate interest</li>
-                    <li><strong class="text-zinc-300">Data portability</strong> — receive your data in a structured, machine-readable format</li>
-                    <li><strong class="text-zinc-300">Withdraw consent</strong> — where processing is based on consent, withdraw at any time</li>
-                    <li><strong class="text-zinc-300">Lodge a complaint</strong> — with your local Data Protection Authority</li>
+                    <li><strong class="text-zinc-300">Restrict</strong> how we use your data</li>
+                    <li><strong class="text-zinc-300">Object</strong> to anything we do on legitimate interests, including ad measurement from our server and customer lists</li>
+                    <li><strong class="text-zinc-300">Withdraw consent</strong> at any time, as easily as you gave it (see Section 11)</li>
+                    <li><strong class="text-zinc-300">Complain</strong> to your local data protection authority</li>
                 </ul>
 
-                <p class="mt-3">To exercise any of these rights, email <strong class="text-zinc-300">home@stridehub.io</strong>. We will respond within <strong class="text-zinc-300">30 days</strong>.</p>
+                <p class="mt-3">To use any of these rights, email <strong class="text-zinc-300">home@stridehub.io</strong>. We answer within <strong class="text-zinc-300">one month</strong>.</p>
             </section>
 
             <!-- 10 -->
             <section>
                 <h2 class="text-base font-bold text-zinc-200 uppercase tracking-wider mb-3">10. Data Security</h2>
                 <ul class="list-disc list-inside space-y-1 ml-2">
-                    <li>All data is encrypted in transit (HTTPS/TLS)</li>
-                    <li>All data is encrypted at rest (Firebase and Supabase default encryption)</li>
-                    <li>Passwords are hashed by Firebase Authentication — we never store plaintext passwords</li>
-                    <li>Access to production data is restricted to authorized personnel only</li>
+                    <li>Data is encrypted in transit (HTTPS/TLS) and at rest (Google Cloud and Supabase default encryption)</li>
+                    <li>Passwords for the older web app are handled by Firebase Authentication; we never see or store them</li>
+                    <li>Only the people who run Stride can access production data</li>
                 </ul>
             </section>
 
             <!-- 11 -->
             <section>
-                <h2 class="text-base font-bold text-zinc-200 uppercase tracking-wider mb-3">11. Local Storage &amp; Cookies</h2>
-                <p>Stride's desktop app stores your license status, settings, and your canvas sessions locally on your computer (in your user-data folder). This data is never transmitted to us and is purely there to keep the app working between launches.</p>
-                <p class="mt-3">Our <strong class="text-zinc-300">website</strong> uses the Meta Pixel on our landing page and on the post-purchase confirmation page to measure ad-campaign performance (see Section 6). The pixel sets a <code class="text-zinc-300 bg-white/5 px-1 rounded">_fbp</code> first-party cookie used by Meta to attribute ad clicks to site visits and purchases. The website also uses Google Analytics, which sets <code class="text-zinc-300 bg-white/5 px-1 rounded">_ga</code> cookies, and Microsoft Clarity, which sets <code class="text-zinc-300 bg-white/5 px-1 rounded">_clck</code> and <code class="text-zinc-300 bg-white/5 px-1 rounded">_clsk</code> cookies and may set Microsoft cookies such as <code class="text-zinc-300 bg-white/5 px-1 rounded">MUID</code>, to measure how visitors use the site. For visitors in the EEA, the UK and Switzerland, Clarity sets no cookies unless consent is given. <strong class="text-zinc-300">Google Ads conversion tracking</strong> sets <code class="text-zinc-300 bg-white/5 px-1 rounded">_gcl_au</code> and, after you arrive from one of our ads, <code class="text-zinc-300 bg-white/5 px-1 rounded">_gcl_aw</code> first-party cookies, which record the click that brought you here so a later demo registration or purchase can be attributed to that ad. We do not use any other cookies for tracking, advertising, or analytics. To opt out, adjust your Facebook ad preferences or your Google ad settings (see Section 6) or use a tracker-blocking browser extension.</p>
+                <h2 class="text-base font-bold text-zinc-200 uppercase tracking-wider mb-3">11. Cookies and Local Storage</h2>
+                <p>Stride's plugin keeps your license status, settings and sessions in a folder on your own computer, only so it works between launches.</p>
+                <p class="mt-3">On our <strong class="text-zinc-300">website</strong>:</p>
+                <ul class="list-disc list-inside space-y-2 ml-2 mt-2">
+                    <li><strong class="text-zinc-300">Always, because the site needs them:</strong> your cookie choice (<code class="text-zinc-300 bg-white/5 px-1 rounded">stride_consent_ads</code>, 6 months), your language, the email you registered a Discovery Pass with (so the site does not ask you twice), an offer you opened, and the progress of a checkout, which lasts only until you close the tab. When a checkout loads, Paddle and its payment partners may set their own cookies to prevent fraud</li>
+                    <li><strong class="text-zinc-300">Ads and analytics:</strong> the Meta Pixel (<code class="text-zinc-300 bg-white/5 px-1 rounded">_fbp</code>, and <code class="text-zinc-300 bg-white/5 px-1 rounded">_fbc</code> after a Meta ad, 90 days), our visitor ID (<code class="text-zinc-300 bg-white/5 px-1 rounded">stride_xid</code>, 180 days), the ad you came from (<code class="text-zinc-300 bg-white/5 px-1 rounded">stride_ad</code>, <code class="text-zinc-300 bg-white/5 px-1 rounded">stride_ad_id</code>, <code class="text-zinc-300 bg-white/5 px-1 rounded">stride_fbclid</code>, 180 days; <code class="text-zinc-300 bg-white/5 px-1 rounded">stride_gclid</code>, 90 days), a hashed copy of an email you typed (<code class="text-zinc-300 bg-white/5 px-1 rounded">stride_emh</code>), Microsoft Clarity (<code class="text-zinc-300 bg-white/5 px-1 rounded">_clck</code>, <code class="text-zinc-300 bg-white/5 px-1 rounded">_clsk</code>, and Microsoft may set <code class="text-zinc-300 bg-white/5 px-1 rounded">MUID</code>), Google Analytics (<code class="text-zinc-300 bg-white/5 px-1 rounded">_ga</code>) and Google Ads (<code class="text-zinc-300 bg-white/5 px-1 rounded">_gcl_au</code>, <code class="text-zinc-300 bg-white/5 px-1 rounded">_gcl_aw</code>)</li>
+                </ul>
+                <p class="mt-3"><strong class="text-zinc-300">In the EEA, the UK and Switzerland</strong> we ask first. Nothing in the ads and analytics group is stored, and the Meta Pixel and Clarity do not load, until you press Accept. Before that, Google's tags send only limited signals without cookies (Google Consent Mode). If you press Decline, the Meta Pixel and Clarity never load, Google's tags stay in that limited mode, and we delete the ad data our site stored on earlier visits. Everywhere else they run by default, and you can opt out with the links in Section 6 or a tracker-blocking extension.</p>
+                <p class="mt-3"><button type="button" onclick="window.strideConsentChange &amp;&amp; strideConsentChange()" class="text-orange-400 underline hover:text-orange-300">Change your cookie choice</button></p>
             </section>
 
             <!-- 12 -->
             <section>
                 <h2 class="text-base font-bold text-zinc-200 uppercase tracking-wider mb-3">12. Children's Privacy</h2>
-                <p>Stride is not directed at children. You must be at least <strong class="text-zinc-300">16 years old</strong> to create an account. We do not knowingly collect personal data from anyone under 16. If we become aware that we have collected data from a child under 16, we will delete it promptly.</p>
+                <p>Stride is not directed at children. You must be at least <strong class="text-zinc-300">16 years old</strong> to create an account. We do not knowingly collect personal data from anyone under 16. If we learn that we have, we delete it promptly.</p>
             </section>
 
             <!-- 13 -->
             <section>
                 <h2 class="text-base font-bold text-zinc-200 uppercase tracking-wider mb-3">13. Changes to This Policy</h2>
-                <p>We may update this Privacy Policy from time to time. We will notify you of material changes by email or through a notice in the app. Continued use of the service after changes constitutes acceptance of the updated policy.</p>
-                <p class="mt-2">Previous versions are available upon request.</p>
+                <p>We may update this Privacy Policy. Changes are posted on this page with a new date above, and where the law requires it we will also tell you about significant changes by email or on the website.</p>
+                <p class="mt-2">Previous versions are available on request.</p>
             </section>
 
             <!-- 14 -->
             <section>
                 <h2 class="text-base font-bold text-zinc-200 uppercase tracking-wider mb-3">14. Contact</h2>
-                <p>For any privacy-related questions or requests:</p>
+                <p>For any question or request about your data:</p>
                 <p class="mt-2"><strong class="text-zinc-300">Email:</strong> home@stridehub.io</p>
+                <p class="mt-1"><strong class="text-zinc-300">Controller:</strong> Yossi Bozo, Israel</p>
             </section>
 
         </div>

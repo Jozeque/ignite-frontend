@@ -37,8 +37,11 @@
 // request, so none of this needs an IP lookup of ours. Roughly two thirds of paying
 // customers bill from the denied set, so it is the majority path, not an edge case.
 //
-// It governs GOOGLE tags only. The Meta Pixel and Microsoft Clarity keep the behaviour
-// they have always had, which is a separate decision rather than an oversight.
+// Consent mode governs GOOGLE tags. Everything with no consent mode of its own (the Meta
+// Pixel, Microsoft Clarity, and our own ad-matching storage: the visitor id, the saved ad
+// click, the ad markers) waits for Accept in the same region instead: see strideWhenAllowed
+// below. Until 2026-09-24 those ran for everyone before any answer and kept running after
+// Decline, which the banner's own words ("say no and nothing changes") did not match.
 //     https://developers.google.com/tag-platform/security/guides/consent
 (function () {
     window.dataLayer = window.dataLayer || [];
@@ -80,6 +83,51 @@
     // server reads that as UNSPECIFIED rather than as a yes.
     window.strideConsentAds = function () { return saved; };
 
+    // Everything that is not a Google tag. Where the banner asks, the Meta Pixel, Clarity and
+    // our own ad-matching storage do not load, read or write anything until the visitor says
+    // yes; after a no they never do. Everywhere else they run as they always have. A page
+    // hands each of them over through strideWhenAllowed, and whatever is waiting here runs
+    // the moment the visitor presses Accept, so the page they are on is still counted.
+    var held = [];
+    function allowed() { return saved === 'granted' || (!saved && !inRegion()); }
+    window.strideAllowed = allowed;
+    window.strideWhenAllowed = function (fn) {
+        if (allowed()) { try { fn(); } catch (e) {} return; }
+        held.push(fn);
+    };
+
+    // Our own ad-matching storage, and what the Pixel and Clarity left on this site, go
+    // whenever they are not allowed: after a no, and on every page while the question is
+    // still open, which also clears what a visit before this banner existed stored. Nothing
+    // that reads them later (the checkout's attribution) can then find any. The Pixel and
+    // Clarity set theirs on the parent domain, so each is cleared host-only and there too.
+    var OURS = ['stride_xid', 'stride_ad_id', 'stride_fbclid', 'stride_gclid', 'stride_wbraid',
+                'stride_gbraid', '_fbc', '_fbp', '_clck', '_clsk'];
+    function forget() {
+        var host = location.hostname.replace(/^www\./, '');
+        var scopes = ['', '; domain=' + host, '; domain=.' + host];
+        for (var i = 0; i < OURS.length; i++) {
+            for (var j = 0; j < scopes.length; j++) {
+                try { document.cookie = OURS[i] + '=; max-age=0; path=/' + scopes[j] + '; SameSite=Lax; Secure'; } catch (e) {}
+            }
+        }
+        ['stride_fbclid', 'stride_fbc', 'stride_ad', 'stride_emh', 'stride_gclid', 'stride_wbraid',
+         'stride_gbraid'].forEach(function (k) {
+            try { localStorage.removeItem(k); } catch (e) {}
+            try { sessionStorage.removeItem(k); } catch (e) {}
+        });
+        // Already running on this page (a changed answer): tell them to stop here too. Called
+        // through a variable: pages without the Pixel read this block too, and the React
+        // build refuses a source page that looks like it sends Pixel events.
+        var pixel = window.fbq, rec = window.clarity;
+        try { if (pixel) { pixel('consent', 'revoke'); } } catch (e) {}
+        try { if (rec) { rec('consent', false); } } catch (e) {}
+    }
+    if (!allowed()) { forget(); }
+    // The buy form used to keep every buyer's name, email and country here for good, and
+    // nothing ever read it. It is no longer written; this clears the copies already out there.
+    try { localStorage.removeItem('stride_purchase'); } catch (e) {}
+
     function record(value) {
         saved = value;
         try { localStorage.setItem('stride_consent_ads', value); } catch (e) {}
@@ -91,29 +139,56 @@
         } catch (e) {}
         gtag('consent', 'update', state(value));
         dataLayer.push({ event: 'stride_consent', consent_ads: value });
+        var run = held;
+        held = [];
+        if (value === 'granted') {
+            for (var i = 0; i < run.length; i++) { try { run[i](); } catch (e) {} }
+            var pixel = window.fbq;
+            try { if (pixel) { pixel('consent', 'grant'); } } catch (e) {}
+        } else {
+            forget();
+        }
     }
+
+    // Withdrawing has to be as easy as agreeing, so the privacy policy carries a control
+    // that asks again, wherever the visitor is.
+    window.strideConsentChange = function () {
+        saved = '';
+        try { localStorage.removeItem('stride_consent_ads'); } catch (e) {}
+        try { document.cookie = 'stride_consent_ads=; max-age=0; path=/; SameSite=Lax; Secure'; } catch (e) {}
+        banner(true);
+    };
 
     // Ask only where the answer is legally required. Timezone, not an IP lookup: it costs
     // no request and identifies nobody. It over-asks a little (Europe/Moscow is not the
     // EEA) and that is the safe direction. The harm of not asking a German is that their
     // tags stay denied for good, while the harm of asking a Russian is a dismissed bar.
     // If the timezone cannot be read at all, ask. Never assume consent.
-    function mustAsk() {
-        if (saved) { return false; }
+    function mustAsk() { return !saved && inRegion(); }
+    function inRegion() {
         try {
             var tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '');
             // An empty timezone is not "not Europe", it is "no idea". Falling through
             // to the comparison below would read it as no idea -> do not ask -> stay
             // denied forever, which loses the visitor rather than asking them.
             if (!tz) { return true; }
-            return tz.indexOf('Europe/') === 0 || tz === 'Atlantic/Reykjavik' ||
-                   tz === 'Atlantic/Canary' || tz === 'Atlantic/Madeira' ||
-                   tz === 'Atlantic/Azores';
+            // Europe/* covers most of it. The rest of the EU and EEA sits in zones named after
+            // other continents: Cyprus, Ceuta and Melilla, Spain and Portugal's islands, and
+            // France's overseas regions, which are EU territory. Svalbard and the Faroes are
+            // not, and are asked anyway: over-asking is the safe direction.
+            return tz.indexOf('Europe/') === 0 || [
+                'Atlantic/Reykjavik', 'Atlantic/Canary', 'Atlantic/Madeira', 'Atlantic/Azores',
+                'Atlantic/Faroe', 'Arctic/Longyearbyen', 'Asia/Nicosia', 'Asia/Famagusta',
+                'Africa/Ceuta', 'America/Guadeloupe', 'America/Martinique', 'America/Cayenne',
+                'America/Marigot', 'Indian/Reunion', 'Indian/Mayotte'
+            ].indexOf(tz) >= 0;
         } catch (e) { return true; }
     }
 
-    function banner() {
-        if (!mustAsk() || document.getElementById('stride-consent')) { return; }
+    // force: asked again from the privacy policy, wherever the visitor is. Strictly `true`,
+    // because DOMContentLoaded calls this with its event object.
+    function banner(force) {
+        if ((force !== true && !mustAsk()) || document.getElementById('stride-consent')) { return; }
         var css = document.createElement('style');
         // The panel, hairline and copper are the page's own tokens, so this reads as part
         // of Stride rather than as a bolted-on compliance widget. The three legal pages
@@ -165,7 +240,7 @@
         // Short, and it says the thing a visitor actually wants to know: saying no costs
         // them nothing. No "we value your privacy", no scrolling wall of vendor names.
         el.innerHTML =
-            '<p>We use cookies to see which ads bring people here. ' +
+            '<p>We use cookies to see which ads bring people here and how visitors use the site. ' +
             'Say no and nothing on the site changes. ' +
             '<a href="/privacy.html">Privacy&nbsp;Policy</a></p>' +
             '<div><button type="button" data-consent="denied">Decline</button>' +
@@ -366,8 +441,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script type="text/javascript">
     (function(c,l,a,r,i,t,y){
         c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        (c.strideWhenAllowed||function(g){g()})(function(){
         t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
         y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+        if(c.strideConsentAds&&c.strideConsentAds()==='granted'){c[a]('consentv2',{ad_Storage:'granted',analytics_Storage:'granted'});}
+        });
     })(window, document, "clarity", "script", "yj7cm3a9sz");
 </script>
 <!-- End Microsoft Clarity -->
@@ -414,9 +492,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
     n.callMethod.apply(n,arguments):n.queue.push(arguments)};
     if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-    n.queue=[];t=b.createElement(e);t.async=!0;
+    n.queue=[];(f.strideWhenAllowed||function(g){g()})(function(){t=b.createElement(e);t.async=!0;
     t.src=v;s=b.getElementsByTagName(e)[0];
-    s.parentNode.insertBefore(t,s)}(window, document,'script',
+    s.parentNode.insertBefore(t,s)})}(window, document,'script',
     'https://connect.facebook.net/en_US/fbevents.js');
     // First-party visitor id for Advanced Matching — a stable, deterministic
     // match key sent on EVERY event (browser pixel + the server CAPI below).
@@ -424,6 +502,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     // the pixel's Event Match Quality. Persisted 180d; not PII (random id).
     var _strideXid = (function () {
         try {
+            if (window.strideAllowed && !strideAllowed()) return '';
             var m = document.cookie.match(/(?:^|; )stride_xid=([^;]*)/);
             if (m) return decodeURIComponent(m[1]);
             var id = (self.crypto && crypto.randomUUID) ? crypto.randomUUID()
@@ -459,6 +538,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     // conversions. See docs/meta-pixel-integration-spec.md (attribution
     // wiring). Pixel sets _fbp itself on first PageView for free.
     (function captureFbclid() {
+        if (window.strideAllowed && !strideAllowed()) { strideWhenAllowed(captureFbclid); return; }
         try {
             const params = new URLSearchParams(window.location.search);
             const fbclid = params.get('fbclid');
@@ -489,6 +569,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     // Squeezy checkout so the purchase webhook can upload the conversion back to
     // Google Ads. A click id that is not captured at arrival is gone for good.
     (function captureGoogleClick() {
+        if (window.strideAllowed && !strideAllowed()) { strideWhenAllowed(captureGoogleClick); return; }
         try {
             var p = new URLSearchParams(window.location.search);
             ['gclid', 'wbraid', 'gbraid'].forEach(function (k) {
@@ -533,6 +614,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     // Persisted 180 days (same lifetime as external_id) so it survives
     // navigation and the IG in-app browser.
     (function captureAdClick() {
+        if (window.strideAllowed && !strideAllowed()) { strideWhenAllowed(captureAdClick); return; }
         try {
             const params = new URLSearchParams(window.location.search);
             const adId = (params.get('ad_id') || '').trim();
@@ -592,6 +674,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     // retargeting pool. Fire-and-forget, delayed so _fbp (set by the pixel
     // above) is available. Wrapped so it can never affect the page or checkout.
     (function serverPageView() {
+        if (window.strideAllowed && !strideAllowed()) { strideWhenAllowed(serverPageView); return; }
         try {
             setTimeout(function () {
                 try {
@@ -610,9 +693,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         } catch (e) {}
     })();
     </script>
-    <noscript><img height="1" width="1" style="display:none"
-    src="https://www.facebook.com/tr?id=952457524222772&ev=PageView&noscript=1"
-    /></noscript>
 
     <!-- Favicon — real crawlable files so Google can show the Stride mark
          next to the search result (data-URI icons are ignored by Google). -->
@@ -2580,7 +2660,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
 
         <!-- All-sales-final — plain grey one-liner before the checkbox (Serum-style) -->
-        <p class="text-[11px] text-zinc-500 mb-3 leading-relaxed">Alle Verkäufe sind endgültig, keine Rückerstattung und kein Umtausch. Teste vorher das komplette Produkt 24 Stunden gratis.</p>
+        <p class="text-[11px] text-zinc-500 mb-3 leading-relaxed">Sobald du deine Lizenz aktivierst, sind alle Verkäufe endgültig. Teste vorher das komplette Produkt 24 Stunden gratis.</p>
 
         <!-- Terms acknowledgment — creates a defensible record per email; the same checkbox
              serves as the Article 16(m) express-consent waiver under EU Directive 2011/83/EU. -->
@@ -3691,7 +3771,7 @@ function openBuy() { toggleBuyModal(); }
                 new TextEncoder().encode(_n)).then(function (b) {
                     var h = Array.from(new Uint8Array(b)).map(function (x) {
                         return x.toString(16).padStart(2, '0'); }).join('');
-                    try { localStorage.setItem('stride_emh', h); } catch (e) {}
+                    if (!window.strideAllowed || strideAllowed()) { try { localStorage.setItem('stride_emh', h); } catch (e) {} }
                 }).catch(function () {});
         } catch (e) {}
 
@@ -3798,13 +3878,6 @@ function openBuy() { toggleBuyModal(); }
         // event would otherwise only know the $99 floor.
         try { if (window.StrideTrack) StrideTrack.push('begin_checkout', { value: _orderValue.value, currency: _orderValue.currency }); } catch (e) {}
         try { sessionStorage.setItem('stride_checkout_value', JSON.stringify({ value: _orderValue.value, currency: _orderValue.currency })); } catch (e) {}
-
-        // Store locally
-        localStorage.setItem('stride_purchase', JSON.stringify({
-            name, email, country, source,
-            terms_accepted: termsAccepted,
-            timestamp: new Date().toISOString()
-        }));
 
         // eventId, fbc, fbp, ua were computed above (before the buyer_lead
         // beacon) — reuse the same values here so the LS checkout params and the
@@ -4108,7 +4181,7 @@ function openBuy() { toggleBuyModal(); }
              placeholder="du@studio.de" aria-label="Deine E-Mail">
       <button class="btn-copper" id="dpop-go" type="submit">Gratis testen</button>
     </form>
-    <p class="dpop-fine">Eine E-Mail, mehr nicht. Wir schicken dir deinen Download-Link und wie du deine 24 Stunden startest.</p>
+    <p class="dpop-fine">Nur deine E-Mail. Wir schicken dir deinen Download-Link und wie du deine 24 Stunden startest, dazu ein paar kurze E-Mails zu deinem Pass. Antworte auf eine davon mit STOP, dann hören sie auf.</p>
     <p class="dpop-act">Deine 24 Stunden starten erst, wenn du Stride aktivierst.</p>
     <p class="dpop-err" id="dpop-err"></p>
   </div>

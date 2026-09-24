@@ -43,8 +43,11 @@
 // request, so none of this needs an IP lookup of ours. Roughly two thirds of paying
 // customers bill from the denied set, so it is the majority path, not an edge case.
 //
-// It governs GOOGLE tags only. The Meta Pixel and Microsoft Clarity keep the behaviour
-// they have always had, which is a separate decision rather than an oversight.
+// Consent mode governs GOOGLE tags. Everything with no consent mode of its own (the Meta
+// Pixel, Microsoft Clarity, and our own ad-matching storage: the visitor id, the saved ad
+// click, the ad markers) waits for Accept in the same region instead: see strideWhenAllowed
+// below. Until 2026-09-24 those ran for everyone before any answer and kept running after
+// Decline, which the banner's own words ("say no and nothing changes") did not match.
 //     https://developers.google.com/tag-platform/security/guides/consent
 (function () {
     window.dataLayer = window.dataLayer || [];
@@ -86,6 +89,51 @@
     // server reads that as UNSPECIFIED rather than as a yes.
     window.strideConsentAds = function () { return saved; };
 
+    // Everything that is not a Google tag. Where the banner asks, the Meta Pixel, Clarity and
+    // our own ad-matching storage do not load, read or write anything until the visitor says
+    // yes; after a no they never do. Everywhere else they run as they always have. A page
+    // hands each of them over through strideWhenAllowed, and whatever is waiting here runs
+    // the moment the visitor presses Accept, so the page they are on is still counted.
+    var held = [];
+    function allowed() { return saved === 'granted' || (!saved && !inRegion()); }
+    window.strideAllowed = allowed;
+    window.strideWhenAllowed = function (fn) {
+        if (allowed()) { try { fn(); } catch (e) {} return; }
+        held.push(fn);
+    };
+
+    // Our own ad-matching storage, and what the Pixel and Clarity left on this site, go
+    // whenever they are not allowed: after a no, and on every page while the question is
+    // still open, which also clears what a visit before this banner existed stored. Nothing
+    // that reads them later (the checkout's attribution) can then find any. The Pixel and
+    // Clarity set theirs on the parent domain, so each is cleared host-only and there too.
+    var OURS = ['stride_xid', 'stride_ad_id', 'stride_fbclid', 'stride_gclid', 'stride_wbraid',
+                'stride_gbraid', '_fbc', '_fbp', '_clck', '_clsk'];
+    function forget() {
+        var host = location.hostname.replace(/^www\./, '');
+        var scopes = ['', '; domain=' + host, '; domain=.' + host];
+        for (var i = 0; i < OURS.length; i++) {
+            for (var j = 0; j < scopes.length; j++) {
+                try { document.cookie = OURS[i] + '=; max-age=0; path=/' + scopes[j] + '; SameSite=Lax; Secure'; } catch (e) {}
+            }
+        }
+        ['stride_fbclid', 'stride_fbc', 'stride_ad', 'stride_emh', 'stride_gclid', 'stride_wbraid',
+         'stride_gbraid'].forEach(function (k) {
+            try { localStorage.removeItem(k); } catch (e) {}
+            try { sessionStorage.removeItem(k); } catch (e) {}
+        });
+        // Already running on this page (a changed answer): tell them to stop here too. Called
+        // through a variable: pages without the Pixel read this block too, and the React
+        // build refuses a source page that looks like it sends Pixel events.
+        var pixel = window.fbq, rec = window.clarity;
+        try { if (pixel) { pixel('consent', 'revoke'); } } catch (e) {}
+        try { if (rec) { rec('consent', false); } } catch (e) {}
+    }
+    if (!allowed()) { forget(); }
+    // The buy form used to keep every buyer's name, email and country here for good, and
+    // nothing ever read it. It is no longer written; this clears the copies already out there.
+    try { localStorage.removeItem('stride_purchase'); } catch (e) {}
+
     function record(value) {
         saved = value;
         try { localStorage.setItem('stride_consent_ads', value); } catch (e) {}
@@ -97,29 +145,56 @@
         } catch (e) {}
         gtag('consent', 'update', state(value));
         dataLayer.push({ event: 'stride_consent', consent_ads: value });
+        var run = held;
+        held = [];
+        if (value === 'granted') {
+            for (var i = 0; i < run.length; i++) { try { run[i](); } catch (e) {} }
+            var pixel = window.fbq;
+            try { if (pixel) { pixel('consent', 'grant'); } } catch (e) {}
+        } else {
+            forget();
+        }
     }
+
+    // Withdrawing has to be as easy as agreeing, so the privacy policy carries a control
+    // that asks again, wherever the visitor is.
+    window.strideConsentChange = function () {
+        saved = '';
+        try { localStorage.removeItem('stride_consent_ads'); } catch (e) {}
+        try { document.cookie = 'stride_consent_ads=; max-age=0; path=/; SameSite=Lax; Secure'; } catch (e) {}
+        banner(true);
+    };
 
     // Ask only where the answer is legally required. Timezone, not an IP lookup: it costs
     // no request and identifies nobody. It over-asks a little (Europe/Moscow is not the
     // EEA) and that is the safe direction. The harm of not asking a German is that their
     // tags stay denied for good, while the harm of asking a Russian is a dismissed bar.
     // If the timezone cannot be read at all, ask. Never assume consent.
-    function mustAsk() {
-        if (saved) { return false; }
+    function mustAsk() { return !saved && inRegion(); }
+    function inRegion() {
         try {
             var tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '');
             // An empty timezone is not "not Europe", it is "no idea". Falling through
             // to the comparison below would read it as no idea -> do not ask -> stay
             // denied forever, which loses the visitor rather than asking them.
             if (!tz) { return true; }
-            return tz.indexOf('Europe/') === 0 || tz === 'Atlantic/Reykjavik' ||
-                   tz === 'Atlantic/Canary' || tz === 'Atlantic/Madeira' ||
-                   tz === 'Atlantic/Azores';
+            // Europe/* covers most of it. The rest of the EU and EEA sits in zones named after
+            // other continents: Cyprus, Ceuta and Melilla, Spain and Portugal's islands, and
+            // France's overseas regions, which are EU territory. Svalbard and the Faroes are
+            // not, and are asked anyway: over-asking is the safe direction.
+            return tz.indexOf('Europe/') === 0 || [
+                'Atlantic/Reykjavik', 'Atlantic/Canary', 'Atlantic/Madeira', 'Atlantic/Azores',
+                'Atlantic/Faroe', 'Arctic/Longyearbyen', 'Asia/Nicosia', 'Asia/Famagusta',
+                'Africa/Ceuta', 'America/Guadeloupe', 'America/Martinique', 'America/Cayenne',
+                'America/Marigot', 'Indian/Reunion', 'Indian/Mayotte'
+            ].indexOf(tz) >= 0;
         } catch (e) { return true; }
     }
 
-    function banner() {
-        if (!mustAsk() || document.getElementById('stride-consent')) { return; }
+    // force: asked again from the privacy policy, wherever the visitor is. Strictly `true`,
+    // because DOMContentLoaded calls this with its event object.
+    function banner(force) {
+        if ((force !== true && !mustAsk()) || document.getElementById('stride-consent')) { return; }
         var css = document.createElement('style');
         // The panel, hairline and copper are the page's own tokens, so this reads as part
         // of Stride rather than as a bolted-on compliance widget. The three legal pages
@@ -171,7 +246,7 @@
         // Short, and it says the thing a visitor actually wants to know: saying no costs
         // them nothing. No "we value your privacy", no scrolling wall of vendor names.
         el.innerHTML =
-            '<p>We use cookies to see which ads bring people here. ' +
+            '<p>We use cookies to see which ads bring people here and how visitors use the site. ' +
             'Say no and nothing on the site changes. ' +
             '<a href="/privacy.html">Privacy&nbsp;Policy</a></p>' +
             '<div><button type="button" data-consent="denied">Decline</button>' +
@@ -341,8 +416,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script type="text/javascript">
     (function(c,l,a,r,i,t,y){
         c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        (c.strideWhenAllowed||function(g){g()})(function(){
         t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
         y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+        if(c.strideConsentAds&&c.strideConsentAds()==='granted'){c[a]('consentv2',{ad_Storage:'granted',analytics_Storage:'granted'});}
+        });
     })(window, document, "clarity", "script", "yj7cm3a9sz");
 </script>
 <!-- End Microsoft Clarity -->
@@ -363,14 +441,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
     n.callMethod.apply(n,arguments):n.queue.push(arguments)};
     if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-    n.queue=[];t=b.createElement(e);t.async=!0;
+    n.queue=[];(f.strideWhenAllowed||function(g){g()})(function(){t=b.createElement(e);t.async=!0;
     t.src=v;s=b.getElementsByTagName(e)[0];
-    s.parentNode.insertBefore(t,s)}(window, document,'script',
+    s.parentNode.insertBefore(t,s)})}(window, document,'script',
     'https://connect.facebook.net/en_US/fbevents.js');
     // Same first-party visitor id as the landing page (cookie stride_xid, 180 days), so Meta
     // matches this page's events to the same visitor instead of an anonymous one.
     var _strideXid = (function () {
         try {
+            if (window.strideAllowed && !strideAllowed()) return '';
             var m = document.cookie.match(/(?:^|; )stride_xid=([^;]*)/);
             if (m) return decodeURIComponent(m[1]);
             var id = (self.crypto && crypto.randomUUID) ? crypto.randomUUID()
@@ -523,9 +602,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         }
     })();
     </script>
-    <noscript><img height="1" width="1" style="display:none"
-    src="https://www.facebook.com/tr?id=952457524222772&ev=PageView&noscript=1"
-    /></noscript>
 
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cdefs%3E%3ClinearGradient id='strideGradient' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23eaa54e' /%3E%3Cstop offset='100%25' stop-color='%23c6712b' /%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z' stroke='url(%23strideGradient)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 
