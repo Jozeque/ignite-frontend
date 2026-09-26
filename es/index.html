@@ -118,7 +118,10 @@
             }
         }
         ['stride_fbclid', 'stride_fbc', 'stride_ad', 'stride_emh', 'stride_gclid', 'stride_wbraid',
-         'stride_gbraid'].forEach(function (k) {
+         'stride_gbraid',
+         // What /try keeps under names of its own (its captureAdClick).
+         'stride_ad_id', 'stride_adset_id', 'stride_campaign_id', 'stride_utm_source',
+         'stride_utm_campaign', 'stride_utm_content'].forEach(function (k) {
             try { localStorage.removeItem(k); } catch (e) {}
             try { sessionStorage.removeItem(k); } catch (e) {}
         });
@@ -2792,6 +2795,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                     var v = admk[k] || q.get(k) || '';
                     if (v) parts.push(k + '=' + encodeURIComponent(v));
                 });
+            // The Meta click id goes along as well, read from this page's own address (Q-066):
+            // an ad visitor who picks the free demo instead of buying keeps the link to the
+            // ad, with nothing stored on the device. Never after a Decline.
+            var fb = (q.get('fbclid') || '').trim();
+            if (fb && !(window.strideConsentAds && strideConsentAds() === 'denied')) {
+                parts.push('fbclid=' + encodeURIComponent(fb));
+            }
         } catch (e) {}
         return '/try/' + (parts.length ? '?' + parts.join('&') : '');
     }
@@ -2800,15 +2810,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     function tryDemo() { window.location.href = strideTryUrl(); }
 
     // Decorate every /try link, so the markers ride along on a normal click, a
-    // middle-click and a copied link alike.
-    document.addEventListener('DOMContentLoaded', function () {
+    // middle-click and a copied link alike. Again after an answer to the cookie
+    // question, which decides whether the click id may go along.
+    function strideDecorateTry() {
         try {
             var u = strideTryUrl();
-            document.querySelectorAll('a[href="/try"], a[href="/try/"]').forEach(function (a) {
+            document.querySelectorAll('a[href="/try"], a[href="/try/"], a[href^="/try/?"]').forEach(function (a) {
                 a.setAttribute('href', u);
             });
         } catch (e) {}
-    });
+    }
+    document.addEventListener('DOMContentLoaded', strideDecorateTry);
+    window.addEventListener('stride:consent', strideDecorateTry);
 
     // ─── Buy Modal ───
     function toggleBuyModal() {
@@ -4427,7 +4440,10 @@ function openBuy() { toggleBuyModal(); }
         // up in GA4's page paths, the pixel's page views and every referrer header.
         ls(function () { sessionStorage.setItem(HANDOFF, email); });
         remember();
-        window.location.href = '/try?auto=1';
+        // Through the same builder as every other /try link, so the ad markers and the
+        // click id on this page's address reach the sign-up too (Q-066).
+        var dest = (typeof strideTryUrl === 'function') ? strideTryUrl() : '/try/';
+        window.location.href = dest + (dest.indexOf('?') > -1 ? '&' : '?') + 'auto=1';
     });
 })();
 </script>

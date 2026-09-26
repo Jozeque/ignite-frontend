@@ -114,7 +114,10 @@
             }
         }
         ['stride_fbclid', 'stride_fbc', 'stride_ad', 'stride_emh', 'stride_gclid', 'stride_wbraid',
-         'stride_gbraid'].forEach(function (k) {
+         'stride_gbraid',
+         // What /try keeps under names of its own (its captureAdClick).
+         'stride_ad_id', 'stride_adset_id', 'stride_campaign_id', 'stride_utm_source',
+         'stride_utm_campaign', 'stride_utm_content'].forEach(function (k) {
             try { localStorage.removeItem(k); } catch (e) {}
             try { sessionStorage.removeItem(k); } catch (e) {}
         });
@@ -570,7 +573,12 @@ window.StrideTrack = window.StrideTrack || {
 // the walkthrough video and back. ad_id is the only deterministic paid-click
 // marker in the stack; fbclid is not, because Instagram appends it to organic
 // links too. Stored under the same stride_* keys attribution() already reads.
+// Like the click id above, only once the visitor may be measured: where the banner
+// asks, nothing lands on the device before Accept (it was missed on 2026-09-24 and
+// wrote these for everyone until 2026-09-26). The sign-up still reads them from the
+// address in the meantime.
 (function captureAdClick() {
+    if (window.strideAllowed && !strideAllowed()) { strideWhenAllowed(captureAdClick); return; }
     try {
         var params = new URLSearchParams(window.location.search);
         ['ad_id', 'adset_id', 'campaign_id', 'utm_source', 'utm_campaign', 'utm_content', 'gclid', 'wbraid', 'gbraid']
@@ -990,6 +998,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   }
   function ls(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
   var LANDED_AT = Math.round((window.performance && performance.timeOrigin) || Date.now());
+  // The address as it arrived. The homepage prompt's ?auto=1 hand-off wipes the URL to
+  // /try before it submits, and with nothing stored before Accept, the click id and the
+  // ad markers it carried would otherwise be gone by the time the sign-up reads them.
+  var LANDED_QUERY = location.search;
   function attribution() {
     var out = {};
     // The visitor's own answer and whether they were asked at all ride every beacon, so the
@@ -999,7 +1011,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     if (ans) out.consent_ads = ans;
     // A Decline sends no ad click at all, not even the one in this page's own address.
     if (ans === 'denied') return out;
-    var q = new URLSearchParams(location.search);
+    var q = new URLSearchParams(LANDED_QUERY);
     ['utm_source', 'utm_campaign', 'utm_content', 'ad_id', 'adset_id', 'campaign_id', 'gclid', 'wbraid', 'gbraid'].forEach(function (k) {
       var v = q.get(k) || ls('stride_' + k); if (v) out[k] = v;
     });

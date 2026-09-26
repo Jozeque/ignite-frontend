@@ -130,7 +130,10 @@
             }
         }
         ['stride_fbclid', 'stride_fbc', 'stride_ad', 'stride_emh', 'stride_gclid', 'stride_wbraid',
-         'stride_gbraid'].forEach(function (k) {
+         'stride_gbraid',
+         // What /try keeps under names of its own (its captureAdClick).
+         'stride_ad_id', 'stride_adset_id', 'stride_campaign_id', 'stride_utm_source',
+         'stride_utm_campaign', 'stride_utm_content'].forEach(function (k) {
             try { localStorage.removeItem(k); } catch (e) {}
             try { sessionStorage.removeItem(k); } catch (e) {}
         });
