@@ -97,6 +97,12 @@
     var held = [];
     function allowed() { return saved === 'granted' || (!saved && !inRegion()); }
     window.strideAllowed = allowed;
+    // 'in' where this banner asks (by time zone, see inRegion), 'out' everywhere else. Sent
+    // with every checkout, sign-up and ping so the server can tell an American who was never
+    // asked from a European who has not answered yet: main.py _meta_level.
+    window.strideConsentRegion = function () {
+        try { return inRegion() ? 'in' : 'out'; } catch (e) { return 'in'; }
+    };
     window.strideWhenAllowed = function (fn) {
         if (allowed()) { try { fn(); } catch (e) {} return; }
         held.push(fn);
@@ -154,6 +160,9 @@
         } else {
             forget();
         }
+        // Anything a page already handed on before the answer (the homepage's Apple Pay
+        // checkout, opened at load) is restated with it: see strideSyncExpressConsent.
+        try { window.dispatchEvent(new CustomEvent('stride:consent', { detail: value })); } catch (e) {}
     }
 
     // Withdrawing has to be as easy as agreeing, so the privacy policy carries a control
@@ -243,11 +252,15 @@
         el.id = 'stride-consent';
         el.setAttribute('role', 'dialog');
         el.setAttribute('aria-label', 'Cookie choices');
-        // Short, and it says the thing a visitor actually wants to know: saying no costs
-        // them nothing. No "we value your privacy", no scrolling wall of vendor names.
+        // Short, in the voice of the person who makes it (Yossi 2026-09-26): what a yes is
+        // for, all three uses of it (measuring the ads, how the site is used, ads that find
+        // you again), and that nothing else changes. No "we value your privacy", no wall of
+        // vendor names; the policy one tap away names every one of them. The panel keeps its
+        // size (Yossi), so these words fill exactly the box the previous ones did: measured
+        // equal in width and height at every viewport from 320 to 1920px.
         el.innerHTML =
-            '<p>We use cookies to see which ads bring people here and how visitors use the site. ' +
-            'Say no and nothing on the site changes. ' +
+            '<p>Accepting shows us which videos and ads work and how the site is used, ' +
+            'and lets our ads find you. Nothing else changes. ' +
             '<a href="/privacy.html">Privacy&nbsp;Policy</a></p>' +
             '<div><button type="button" data-consent="denied">Decline</button>' +
             '<button type="button" data-consent="granted">Accept</button></div>';

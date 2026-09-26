@@ -91,6 +91,12 @@
     var held = [];
     function allowed() { return saved === 'granted' || (!saved && !inRegion()); }
     window.strideAllowed = allowed;
+    // 'in' where this banner asks (by time zone, see inRegion), 'out' everywhere else. Sent
+    // with every checkout, sign-up and ping so the server can tell an American who was never
+    // asked from a European who has not answered yet: main.py _meta_level.
+    window.strideConsentRegion = function () {
+        try { return inRegion() ? 'in' : 'out'; } catch (e) { return 'in'; }
+    };
     window.strideWhenAllowed = function (fn) {
         if (allowed()) { try { fn(); } catch (e) {} return; }
         held.push(fn);
@@ -148,6 +154,9 @@
         } else {
             forget();
         }
+        // Anything a page already handed on before the answer (the homepage's Apple Pay
+        // checkout, opened at load) is restated with it: see strideSyncExpressConsent.
+        try { window.dispatchEvent(new CustomEvent('stride:consent', { detail: value })); } catch (e) {}
     }
 
     // Withdrawing has to be as easy as agreeing, so the privacy policy carries a control
@@ -237,11 +246,15 @@
         el.id = 'stride-consent';
         el.setAttribute('role', 'dialog');
         el.setAttribute('aria-label', 'Cookie choices');
-        // Short, and it says the thing a visitor actually wants to know: saying no costs
-        // them nothing. No "we value your privacy", no scrolling wall of vendor names.
+        // Short, in the voice of the person who makes it (Yossi 2026-09-26): what a yes is
+        // for, all three uses of it (measuring the ads, how the site is used, ads that find
+        // you again), and that nothing else changes. No "we value your privacy", no wall of
+        // vendor names; the policy one tap away names every one of them. The panel keeps its
+        // size (Yossi), so these words fill exactly the box the previous ones did: measured
+        // equal in width and height at every viewport from 320 to 1920px.
         el.innerHTML =
-            '<p>We use cookies to see which ads bring people here and how visitors use the site. ' +
-            'Say no and nothing on the site changes. ' +
+            '<p>Accepting shows us which videos and ads work and how the site is used, ' +
+            'and lets our ads find you. Nothing else changes. ' +
             '<a href="/privacy.html">Privacy&nbsp;Policy</a></p>' +
             '<div><button type="button" data-consent="denied">Decline</button>' +
             '<button type="button" data-consent="granted">Accept</button></div>';
@@ -513,7 +526,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         } catch (e) { return ''; }
     })();
     fbq('init', '952457524222772', _strideXid ? { external_id: _strideXid } : {});
-    fbq('track', 'PageView');
+    // One id for this page view, shared with its server copy (serverPageView below), so Meta
+    // counts the visit once. Until 2026-09-26 the server minted an id of its own and every
+    // accepted visit reached Meta as two page views.
+    window.STRIDE_PV_ID = 'pv.' + Date.now() + '.' + Math.random().toString(36).slice(2, 10);
+    fbq('track', 'PageView', {}, { eventID: window.STRIDE_PV_ID });
 
     // Analytics events for Google Tag Manager (the GA4 event tags from Overtone's container).
     // A push carries only the anonymous visitor id, never an email or a name: GA4 does not
@@ -666,6 +683,30 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         return rec;
     };
 
+    // Where the banner asks and the visitor has not answered, the ad click still travels
+    // with a purchase or a demo sign-up (Yossi 2026-09-26, Iddo's Q-066): read from THIS
+    // page's address when it is needed and held in memory only. Nothing here reads or writes
+    // a cookie or storage, so nothing lands on the device before Accept. After a Decline it
+    // returns nothing: whoever said no, said no. What, if anything, of it reaches Meta is the
+    // server's call (main.py _meta_level): Purchase and DemoRegistered only, minimal keys.
+    window.STRIDE_LANDED_AT = Math.round((window.performance && performance.timeOrigin) || Date.now());
+    window.strideLiveAttribution = function () {
+        var out = {};
+        try {
+            if (window.strideConsentAds && strideConsentAds() === 'denied') return out;
+            var q = new URLSearchParams(location.search);
+            ['ad_id', 'adset_id', 'campaign_id', 'utm_source', 'utm_campaign', 'utm_content']
+                .forEach(function (k) { var v = (q.get(k) || '').trim(); if (v) out[k] = v; });
+            var fbclid = (q.get('fbclid') || '').trim();
+            if (fbclid) {
+                out.fbclid = fbclid;
+                // Meta's own shape, stamped with the moment this page was opened from the ad.
+                out.fbc = 'fb.1.' + window.STRIDE_LANDED_AT + '.' + fbclid;
+            }
+        } catch (e) {}
+        return out;
+    };
+
     // Server-side PageView → our backend → Meta CAPI. The browser PageView
     // above is dropped/unmatched for most iOS/Safari/ad-blocker visitors, so
     // Meta can't build a retargetable "site visitors" audience from it alone.
@@ -682,11 +723,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
                     var fbp = ck('_fbp');
                     var fbc = ck('_fbc') || (function () { try { return sessionStorage.getItem('stride_fbc') || ''; } catch (e) { return ''; } })();
                     var xid = ck('stride_xid');
-                    var eid = 'pv.' + Date.now() + '.' + Math.random().toString(36).slice(2, 10);
+                    // The browser PageView's own id, so Meta merges the two into one visit.
+                    var eid = window.STRIDE_PV_ID || ('pv.' + Date.now() + '.' + Math.random().toString(36).slice(2, 10));
                     fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
                         method: 'POST', keepalive: true,
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'track_pageview', em_hash: (function(){try{return localStorage.getItem('stride_emh')||''}catch(e){return ''}})(), fbp: fbp, fbc: fbc, external_id: xid, event_id: eid, url: location.href })
+                        // consent_*: the server re-checks them and drops a ping that says
+                        // "asked, not yes", whatever sent it (a cached old page, a bug).
+                        body: JSON.stringify({ action: 'track_pageview', em_hash: (function(){try{return localStorage.getItem('stride_emh')||''}catch(e){return ''}})(), fbp: fbp, fbc: fbc, external_id: xid, event_id: eid, url: location.href,
+                                               consent_ads: (window.strideConsentAds ? strideConsentAds() : ''),
+                                               consent_region: (window.strideConsentRegion ? strideConsentRegion() : '') })
                     }).catch(function () {});
                 } catch (e) {}
             }, 1500);
@@ -3013,6 +3059,13 @@ function openBuy() { toggleBuyModal(); }
         if (ad.ad_id) out.ad_id = ad.ad_id;
         if (ad.adset_id) out.adset_id = ad.adset_id;
         if (ad.campaign_id) out.campaign_id = ad.campaign_id;
+        // Where nothing was stored (no Accept yet), the ad click on this page's own address
+        // instead: strideLiveAttribution, which is empty after a Decline.
+        var live = (window.strideLiveAttribution ? window.strideLiveAttribution() : {});
+        if (!out.fbc && live.fbc) out.fbc = live.fbc;
+        if (!out.fbclid && live.fbclid) out.fbclid = live.fbclid;
+        ['ad_id', 'adset_id', 'campaign_id'].forEach(function (k) { if (!out[k] && live[k]) out[k] = live[k]; });
+        if (window.strideConsentRegion) out.consent_region = window.strideConsentRegion();
         return out;
     }
 
@@ -3194,6 +3247,22 @@ function openBuy() { toggleBuyModal(); }
             }
         } catch (e) {}
     }
+
+    // The wallet checkout opens at load, before most visitors answer the cookie question, so
+    // Paddle holds the custom data of that moment. An answer given later is restated on it
+    // (updateCheckout replaces custom data, and wants the items alongside): Accept adds the
+    // click id, a Decline takes it all back out, and the purchase reaches the server saying
+    // what the buyer actually chose instead of "no answer".
+    function strideSyncExpressConsent() {
+        if (!strideExpressLive) return;
+        if (typeof Paddle === 'undefined' || !Paddle.Checkout || !Paddle.Checkout.updateCheckout) return;
+        try {
+            var o = { items: strideCheckoutItems(), customData: strideExpressCustomData() };
+            if (strideCodeId) o.discountId = strideCodeId;
+            Paddle.Checkout.updateCheckout(o);
+        } catch (e) {}
+    }
+    window.addEventListener('stride:consent', strideSyncExpressConsent);
 
     // What this visitor was actually quoted, in the currency they were quoted it in.
     // Both Meta events read from here so they can never disagree with each other or
@@ -3809,10 +3878,13 @@ function openBuy() { toggleBuyModal(); }
             ? window.crypto.randomUUID()
             : 'evt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
         try { sessionStorage.setItem('stride_pixel_event_id', eventId); } catch (e) {}
+        // Where nothing was stored because nobody has answered yet, the ad click on this
+        // page's own address (Q-066). Empty after a Decline.
+        const _live = (window.strideLiveAttribution ? window.strideLiveAttribution() : {});
         const fbc = (function () {
             const m = document.cookie.match(/(?:^|; )_fbc=([^;]*)/);
             if (m) return decodeURIComponent(m[1]);
-            try { return sessionStorage.getItem('stride_fbc') || ''; } catch (e) { return ''; }
+            try { return sessionStorage.getItem('stride_fbc') || _live.fbc || ''; } catch (e) { return _live.fbc || ''; }
         })();
         const fbp = (function () {
             const m = document.cookie.match(/(?:^|; )_fbp=([^;]*)/);
@@ -3830,13 +3902,19 @@ function openBuy() { toggleBuyModal(); }
             try { var v = localStorage.getItem('stride_fbclid'); if (v) return v; } catch (e) {}
             var m = document.cookie.match(/(?:^|; )stride_fbclid=([^;]*)/);
             if (m) return decodeURIComponent(m[1]);
+            if (_live.fbclid) return _live.fbclid;
             return fbc ? fbc.split('.').pop() : '';
         })();
         // Deterministic paid-ad markers (ad_id / adset_id / campaign_id + utm_*)
         // set by url_tags on the ad itself. Unlike fbclid these appear on PAID
         // clicks only and name the exact ad, so per-ad revenue can be measured
         // from our own ledger instead of Meta's attribution modelling.
-        const adMk = (window.strideAdMarkers ? window.strideAdMarkers() : {});
+        // Stored ones first (an earlier ad click), else this page's own address.
+        const adMk = (function () {
+            var s = (window.strideAdMarkers ? window.strideAdMarkers() : {}) || {};
+            ['ad_id', 'adset_id', 'campaign_id'].forEach(function (k) { if (!s[k] && _live[k]) s[k] = _live[k]; });
+            return s;
+        })();
 
         // Save lead + terms acceptance to Firestore (non-blocking). Attribution
         // (fbc/fbclid/fbp/ua/event_id) rides along so the backend can join it to
@@ -3871,6 +3949,9 @@ function openBuy() { toggleBuyModal(); }
                 // The banner's answer, carried so google_dm reports what this buyer
                 // actually agreed to instead of inferring it from a billing country.
                 consent_ads: (window.strideConsentAds ? window.strideConsentAds() : ''),
+                // Whether the banner asks this visitor at all, so the server can tell an
+                // unanswered European from somebody who was never asked (main.py _meta_level).
+                consent_region: (window.strideConsentRegion ? window.strideConsentRegion() : ''),
                 terms_accepted: termsAccepted,
             })
         }).catch(() => {});
@@ -3921,6 +4002,7 @@ function openBuy() { toggleBuyModal(); }
             // keepalive but not guaranteed, and the webhook must not have to guess.
             var _consentAns = (window.strideConsentAds ? window.strideConsentAds() : '');
             if (_consentAns) url += '&checkout[custom][consent_ads]=' + encodeURIComponent(_consentAns);
+            if (window.strideConsentRegion) url += '&checkout[custom][consent_region]=' + encodeURIComponent(window.strideConsentRegion());
             strideOpenCheckout(url);
         } else {
             // Fallback: LS URL not configured yet — show thank-you for now
