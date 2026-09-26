@@ -428,7 +428,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 })(window,document,'script','dataLayer','GTM-5R4N7FVP');});</script>
 <!-- End Google Tag Manager -->
 <!-- Google tag (gtag.js), fetched once the page has loaded; the calls below queue until then -->
-<script>strideAfterLoad(function () { var t = document.createElement('script'); t.async = true; t.src = 'https://www.googletagmanager.com/gtag/js?id=G-JCMEXN70CM'; document.head.appendChild(t); });</script>
+<!-- No gtag.js loader of our own: GTM-5R4N7FVP already loads G-JCMEXN70CM (its Google Ads tag is linked to it), so loading it here as well ran the same 188 KB twice. The config below reaches GTM's copy through the dataLayer. Measured 2026-09-26: still exactly one GA4 page_view. -->
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
@@ -1716,6 +1716,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                shift a single pixel of the layout -->
           <div id="heroStage" style="position:relative;border-radius:12px;border:1px solid rgba(198,113,43,.35);overflow:hidden;background:#0a0a09;box-shadow:0 30px 80px -30px rgba(0,0,0,.9),0 0 64px -14px rgba(198,113,43,.22)">
             <video id="heroLoop" class="w-full block" loop muted playsinline preload="none" width="1920" height="1080" poster="/assets/stride-hero-poster.jpg" aria-label="Stride mapea un rack, pone una curva distinta en cada lane, bloquea tres y vuelve a tirar el resto">
+              <!-- Phones get a 960x540 cut (1 MB): the box is ~350px wide there, and an iPhone
+                   used to take the 1080p MP4 (4.2 MB) because it passes on the WebM. MP4 for
+                   the small cut because its VP9 twin went soft on the thin curve lines. A
+                   browser that ignores `media` on a video source takes this first entry too. -->
+              <source src="/assets/stride-hero-540.mp4" type="video/mp4" media="(max-width: 767px)">
               <source src="/assets/stride-hero.webm" type="video/webm">
               <source src="/assets/stride-hero.mp4" type="video/mp4">
             </video>
@@ -2319,7 +2324,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <source src="/assets/every%20lane%20is%20a%20variation.mp4" type="video/mp4">
         </video>
         <script>
-        // 14.8 MB, two screens below the hero. autoplay overrode preload="metadata", so every
+        // Two screens below the hero. It was 14.8 MB until 2026-09-26 and is 1.6 MB now (the same
+        // picture re-encoded, and the audio track dropped: it only ever plays muted). The rest of
+        // this note is why it waits. autoplay overrode preload="metadata", so every
         // visit started pulling it the moment the page opened (5 MB+ before the hero had
         // painted on a phone). It plays when it comes within reach and rests when it leaves.
         (function () {
