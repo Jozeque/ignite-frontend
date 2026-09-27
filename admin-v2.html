@@ -1,0 +1,1632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Stride Funnel Health</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap">
+<style>
+/* Dark-first: the brand's warm charcoal + copper (stridehub.io tokens). Light is its own set, not an inversion. */
+:root{
+  color-scheme: dark;
+  --bg:#141310; --surface:#1b1915; --surface-2:#231f1a; --line:#312b23; --line-soft:#27231d;
+  --ink:#ece4d6; --ink-2:#b8ad9b; --ink-3:#8b8173;
+  --accent:#dd9a52; --accent-deep:#c6712b; --accent-wash:rgba(221,154,82,.13); --accent-ink:#e8b27a;
+  --good:#0ca30c; --warn:#fab219; --bad:#d03b3b; --muted:#6f685d;
+  --s1:#3987e5; --s2:#199e70; --s3:#d55181; --s4:#9085e9; --s5:#c98500; --s6:#8a8378;
+  --grid:#2a261f; --tip-bg:#262219; --shadow:0 10px 30px rgba(0,0,0,.35);
+  --sans:'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono:'Space Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    color-scheme: light;
+    --bg:#f3f2ef; --surface:#ffffff; --surface-2:#f6f4f0; --line:#dfdbd3; --line-soft:#ebe8e2;
+    --ink:#1b1916; --ink-2:#4f4940; --ink-3:#7a7266;
+    --accent:#b4621f; --accent-deep:#9a531a; --accent-wash:rgba(180,98,31,.10); --accent-ink:#9a531a;
+    --s1:#2a78d6; --s2:#1baf7a; --s3:#e87ba4; --s4:#4a3aa7; --s5:#eda100; --s6:#8a8378;
+    --grid:#ebe8e2; --tip-bg:#ffffff; --shadow:0 10px 30px rgba(40,30,20,.14);
+  }
+}
+:root[data-theme="light"]{
+  color-scheme: light;
+  --bg:#f3f2ef; --surface:#ffffff; --surface-2:#f6f4f0; --line:#dfdbd3; --line-soft:#ebe8e2;
+  --ink:#1b1916; --ink-2:#4f4940; --ink-3:#7a7266;
+  --accent:#b4621f; --accent-deep:#9a531a; --accent-wash:rgba(180,98,31,.10); --accent-ink:#9a531a;
+  --s1:#2a78d6; --s2:#1baf7a; --s3:#e87ba4; --s4:#4a3aa7; --s5:#eda100; --s6:#8a8378;
+  --grid:#ebe8e2; --tip-bg:#ffffff; --shadow:0 10px 30px rgba(40,30,20,.14);
+}
+:root[data-theme="dark"]{ color-scheme: dark; }
+
+*{box-sizing:border-box}
+html,body{background:var(--bg)}
+body{margin:0;color:var(--ink);font:400 14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+[hidden]{display:none!important}
+.wrap{max-width:1320px;margin:0 auto;padding-inline:20px}
+@media (max-width:520px){.wrap{padding-inline:16px}}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+h1,h2,h3{margin:0;text-wrap:balance}
+p{margin:0}
+
+/* Sign-in, loading and error screens */
+.gate{min-height:100vh;display:grid;place-items:center;padding:24px 16px}
+.gate-card{max-width:440px;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:26px;display:grid;gap:14px}
+.gate-card .brand b{font-size:22px}
+.gate-card p{color:var(--ink-2);font-size:13.5px;line-height:1.55}
+.gate-card .err{color:var(--bad);font:400 12px/1.5 var(--mono);white-space:pre-wrap;word-break:break-word}
+.spin{width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp 0.8s linear infinite;display:inline-block;vertical-align:-3px;margin-right:8px}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* Header: one sticky block, brand + tabs, then the filter row */
+.app-head{position:sticky;top:env(safe-area-inset-top,0px);z-index:40;background:var(--bg);border-bottom:1px solid var(--line)}
+.head-row{display:flex;align-items:center;gap:14px;min-height:56px}
+.brand{display:flex;align-items:baseline;gap:8px;flex:none}
+.brand b{font:800 20px/1 var(--sans);letter-spacing:.14em;color:var(--ink)}
+.brand span{font:400 11px/1 var(--mono);color:var(--ink-3);letter-spacing:.04em}
+.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0}
+.tabs::-webkit-scrollbar{display:none}
+.tab{background:none;border:0;padding:17px 11px 15px;color:var(--ink-2);font-weight:500;white-space:nowrap;cursor:pointer;border-bottom:2px solid transparent}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.head-side{display:flex;align-items:center;gap:8px;flex:none}
+.live-chip{font:700 10.5px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);border:1px solid var(--line);border-radius:999px;padding:6px 10px;background:var(--surface);white-space:nowrap}
+.live-chip i{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--good);margin-right:6px;vertical-align:0}
+@media (max-width:760px){.live-chip{display:none}}
+.filters{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:10px 0 12px}
+.fgroup{display:flex;align-items:center;gap:8px}
+.flabel{font:700 10.5px/1 var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{background:none;border:0;padding:6px 11px;cursor:pointer;color:var(--ink-2);font-size:13px}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent-wash);color:var(--ink);font-weight:600}
+select.sel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 28px 6px 10px;font-size:13px;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--ink-3) 50%),linear-gradient(135deg,var(--ink-3) 50%,transparent 50%);background-position:calc(100% - 15px) 55%,calc(100% - 10px) 55%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;cursor:pointer}
+.check{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-2);cursor:pointer}
+.check input{accent-color:var(--accent);width:15px;height:15px}
+.asof{margin-left:auto;font:400 11.5px/1.2 var(--mono);color:var(--ink-3)}
+@media (max-width:760px){.asof{margin-left:0;width:100%}}
+
+main{padding-block:22px 48px}
+.panel[hidden]{display:none!important}
+.stack{display:grid;gap:18px;grid-template-columns:minmax(0,1fr)}
+.stack>*,.grid-2>*,.grid-3>*,.hero>*{min-width:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
+.card-h{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.card-h h2{font:600 15px/1.3 var(--sans)}
+.card-h .sub{color:var(--ink-3);font-size:12.5px}
+.kicker{font:700 10.5px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.note{color:var(--ink-3);font-size:12.5px;line-height:1.55;max-width:78ch}
+.note b{color:var(--ink-2);font-weight:600}
+.src{font:400 10.5px/1 var(--mono);color:var(--ink-3);border:1px solid var(--line);border-radius:4px;padding:3px 5px;white-space:nowrap}
+.grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.grid-3{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:18px}
+@media (max-width:900px){.grid-2,.grid-3{grid-template-columns:1fr}}
+
+/* Health lights: shape + word, never colour alone */
+.light{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2);white-space:nowrap}
+.light svg{width:10px;height:10px;flex:none}
+
+/* Overview hero */
+.hero{display:grid;grid-template-columns:minmax(280px,360px) minmax(0,1fr);gap:18px}
+@media (max-width:900px){.hero{grid-template-columns:1fr}}
+.score-card{display:flex;flex-direction:column;gap:14px}
+.score-num{display:flex;align-items:baseline;gap:10px}
+.score-num strong{font:600 64px/0.95 var(--sans);letter-spacing:-.02em}
+.score-num span{color:var(--ink-3);font-size:14px}
+.verdict{font-size:14px;color:var(--ink-2);line-height:1.5}
+.verdict b{color:var(--ink);font-weight:600}
+.secbars{display:grid;gap:8px}
+.secbar{display:grid;grid-template-columns:78px minmax(0,1fr) 34px 70px;align-items:center;gap:10px;font-size:12.5px}
+.secbar .t{height:6px;border-radius:3px;background:var(--surface-2);position:relative;overflow:hidden}
+.secbar .t i{position:absolute;inset:0 auto 0 0;border-radius:0 3px 3px 0}
+.secbar .v{text-align:right;font-variant-numeric:tabular-nums;color:var(--ink)}
+.link{background:none;border:0;padding:0;color:var(--accent-ink);cursor:pointer;font-size:12.5px;text-decoration:underline;text-underline-offset:3px;text-align:left}
+
+/* Tiles */
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 14px 12px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.tile .lab{display:flex;justify-content:space-between;align-items:center;gap:8px;color:var(--ink-2);font-size:12.5px}
+.tile .val{font:600 26px/1.1 var(--sans);letter-spacing:-.01em}
+.tile .foot{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.delta{font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.delta.up-good,.delta.down-good{color:var(--good)}
+.delta.up-bad,.delta.down-bad{color:var(--bad)}
+.delta.flat{color:var(--ink-3)}
+.spark{width:110px;height:28px;flex:none}
+.tile.primary{border-color:var(--accent-deep);background:linear-gradient(0deg,var(--accent-wash),var(--accent-wash)),var(--surface)}
+.tile.primary .val{font-size:34px}
+
+/* Section cards */
+.sections{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.sec{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.sec-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.sec-h h3{font:600 14px/1.2 var(--sans)}
+.sec-h .n{font:600 22px/1 var(--sans);font-variant-numeric:tabular-nums}
+.mlist{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.mlist li{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-2)}
+.mlist li span:nth-child(2){color:var(--ink);font-variant-numeric:tabular-nums;margin-left:auto}
+.mlist li svg{width:10px;height:10px;flex:none}
+.hero .tiles{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:1180px){.hero .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:520px){.hero .tiles{grid-template-columns:1fr}}
+
+/* Needs work */
+ol.work{margin:0;padding:0;list-style:none;counter-reset:w;display:grid;gap:4px}
+ol.work li{counter-increment:w;display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line-soft)}
+ol.work li:last-child{border-bottom:0}
+ol.work li::before{content:counter(w);font:700 11px/1 var(--mono);color:var(--ink-3)}
+.work .what{display:flex;flex-direction:column;gap:2px;min-width:0}
+.work .what b{font-weight:600}
+.work .what small{color:var(--ink-3);font-size:12px}
+.impact{width:90px;height:6px;border-radius:3px;background:var(--surface-2);position:relative;overflow:hidden}
+.impact i{position:absolute;inset:0 auto 0 0;background:var(--accent);border-radius:0 3px 3px 0}
+.cov{display:grid;gap:10px}
+.cov-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding-bottom:10px;border-bottom:1px solid var(--line-soft)}
+.cov-row:last-child{border-bottom:0;padding-bottom:0}
+.cov-row .k{font-size:13px}
+.cov-row .v{text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+.cov-row .d{grid-column:1/-1;color:var(--ink-3);font-size:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.srcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.srcs div{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:var(--ink-2)}
+.srcs div small{display:block;color:var(--ink-3);font-size:11.5px}
+
+/* Tables */
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.tbl{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.tbl th{font:700 10.5px/1.3 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);text-align:right;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:bottom}
+.tbl td{padding:9px 10px;border-bottom:1px solid var(--line-soft);text-align:right;white-space:nowrap}
+.tbl th:first-child,.tbl td:first-child{text-align:left}
+.tbl td.l,.tbl th.l{text-align:left}
+.tbl tbody tr{cursor:default}
+.tbl tbody tr.clickable{cursor:pointer}
+.tbl tbody tr:hover td{background:var(--surface-2)}
+.tbl tbody tr.sel td{background:var(--accent-wash)}
+.tbl tfoot td{font-weight:600;border-top:1px solid var(--line);border-bottom:0}
+.tbl tr.grp td{font:700 10.5px/1.3 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--accent-ink);padding-top:16px;border-bottom:1px solid var(--line);text-align:left}
+.tbl tbody tr.grp:hover td{background:transparent}
+.code{font:700 11px/1 var(--mono);color:var(--ink-3);display:inline-block;min-width:34px}
+.subj{display:block;color:var(--ink-3);font-size:12px;white-space:normal;max-width:40ch;margin:2px 0 0 34px}
+.btn[disabled],.seg button[disabled]{opacity:.55;cursor:not-allowed}
+.cell{display:inline-flex;align-items:center;gap:6px;justify-content:flex-end}
+.cell svg{width:9px;height:9px}
+.tag{font:400 10.5px/1 var(--mono);padding:3px 6px;border-radius:4px;border:1px solid var(--line);color:var(--ink-3)}
+.tag.new{border-color:var(--accent-deep);color:var(--accent-ink)}
+.chdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:0}
+
+/* Funnel rows */
+.fpath{display:grid;gap:4px}
+.frow{display:grid;grid-template-columns:minmax(120px,180px) minmax(0,1fr) 72px minmax(150px,210px);gap:12px;align-items:center;padding:7px 0}
+.frow .nm{font-size:13px}
+.frow .nm small{display:block;color:var(--ink-3);font:400 10.5px/1.3 var(--mono)}
+.track{height:22px;border-radius:4px;background:var(--surface-2);position:relative;overflow:hidden}
+.track i{position:absolute;inset:0 auto 0 0;background:var(--accent);opacity:.9;border-radius:0 4px 4px 0;min-width:2px}
+.frow .cnt{text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+.frow .rate{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-2);justify-content:flex-start}
+.frow .rate b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+@media (max-width:700px){
+  .frow{grid-template-columns:minmax(0,1fr) auto;gap:6px 10px}
+  .frow .track{grid-column:1/-1;grid-row:2}
+  .frow .rate{grid-column:1/-1;grid-row:3}
+}
+
+/* Charts */
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart .ax{fill:var(--ink-3);font:400 11px var(--sans)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:8px;font-size:12.5px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend i{width:14px;height:2px;border-radius:1px;display:inline-block}
+#tip{position:fixed;left:0;top:0;pointer-events:none;z-index:60;background:var(--tip-bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;box-shadow:var(--shadow);min-width:150px}
+#tip .t{color:var(--ink-3);font-size:11.5px;margin-bottom:4px}
+#tip .r{display:flex;align-items:center;gap:8px;justify-content:space-between;line-height:1.7}
+#tip .r b{font-weight:600;font-variant-numeric:tabular-nums}
+#tip .r span{display:inline-flex;align-items:center;gap:6px;color:var(--ink-2)}
+#tip .r i{width:12px;height:2px;border-radius:1px;display:inline-block}
+
+/* Bars (milestones) */
+.hbars{display:grid;gap:8px}
+.hbar{display:grid;grid-template-columns:minmax(150px,230px) minmax(0,1fr) 56px;gap:12px;align-items:center;font-size:12.5px}
+.hbar .nm{display:flex;flex-direction:column;gap:2px}
+.hbar .nm small{font:400 10.5px/1.2 var(--mono);color:var(--ink-3)}
+.hbar .tr{height:10px;border-radius:5px;background:var(--surface-2);position:relative;overflow:hidden}
+.hbar .tr i{position:absolute;inset:0 auto 0 0;border-radius:0 5px 5px 0;background:var(--s1)}
+.hbar .v{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+@media (max-width:600px){.hbar{grid-template-columns:minmax(0,1fr) 48px}.hbar .tr{grid-column:1/-1}}
+
+/* Settings */
+.set-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:12.5px;color:var(--ink-2)}
+.num{background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:5px 8px;width:86px;text-align:right;font-variant-numeric:tabular-nums}
+.num.w{width:60px}
+.unit{color:var(--ink-3);font-size:12px;margin-left:4px}
+input[type=range]{accent-color:var(--accent);width:100%}
+.btn{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer;font-size:13px}
+.btn:hover{border-color:var(--accent-deep)}
+.btn.sm{padding:5px 10px;font-size:12px}
+.btn.primary{background:var(--accent-deep);border-color:var(--accent-deep);color:#1c1206;font-weight:700}
+.btn.primary:hover{background:var(--accent)}
+.btn.warnb{border-color:var(--bad);color:var(--bad)}
+.saved{font-size:12px;color:var(--ink-3)}
+.formula{font:400 12.5px/1.7 var(--mono);color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px;overflow-x:auto}
+.empty{color:var(--ink-3);font-size:13px;padding:18px 0}
+.txt{background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:6px 9px}
+
+/* Mail editor */
+.editor{display:grid;gap:12px}
+.editor .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.editor input.subject{width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px}
+.editor textarea{width:100%;min-height:360px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:400 12.5px/1.6 var(--mono);color:var(--ink);resize:vertical}
+.editor iframe{width:100%;height:460px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.pill{font:700 10px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:5px 8px;border-radius:999px;border:1px solid var(--line);color:var(--ink-3);white-space:nowrap}
+.pill.published{border-color:var(--good);color:var(--good)}
+.pill.draft{border-color:var(--warn);color:var(--warn)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:400 11px/1 var(--mono);padding:4px 6px;border-radius:4px;border:1px solid var(--line);color:var(--ink-2)}
+.chip.miss{border-color:var(--warn);color:var(--warn)}
+.chip.bad{border-color:var(--bad);color:var(--bad)}
+.checks{display:grid;gap:6px;font-size:12.5px;margin:0;padding:0;list-style:none}
+.checks li{display:flex;gap:8px;align-items:flex-start;color:var(--ink-2);line-height:1.45}
+.checks li svg{width:10px;height:10px;flex:none;margin-top:4px}
+.hist{display:grid}
+.hist .h{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line-soft);font-size:12.5px;flex-wrap:wrap}
+.hist .h:last-child{border-bottom:0}
+.hist .h span{color:var(--ink-3)}
+details.parts summary{cursor:pointer;color:var(--ink-2);font-size:12.5px}
+pre.part{white-space:pre-wrap;word-break:break-word;font:400 11.5px/1.5 var(--mono);background:var(--surface-2);border:1px solid var(--line-soft);border-radius:8px;padding:10px;max-height:220px;overflow:auto;margin:8px 0 0}
+.switch-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line-soft)}
+.switch-row:last-child{border-bottom:0}
+.switch-row .k{font-size:13px}
+.switch-row .k small{display:block;color:var(--ink-3);font-size:11.5px}
+.switch-row .d{grid-column:1/-1;color:var(--ink-3);font-size:12px}
+
+/* Modal and toast */
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:grid;place-items:center;z-index:80;padding:16px}
+.modal-card{max-width:560px;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;display:grid;gap:12px;box-shadow:var(--shadow);max-height:90vh;overflow:auto}
+.modal-card h2{font:600 16px/1.3 var(--sans)}
+.modal-card .body{color:var(--ink-2);font-size:13.5px;line-height:1.55}
+.modal-card .body ul{margin:8px 0 0;padding-left:18px}
+.modal-card .acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+#toast{position:fixed;bottom:calc(18px + env(safe-area-inset-bottom,0px));right:18px;z-index:90;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13px;box-shadow:var(--shadow);max-width:min(420px,calc(100vw - 36px))}
+#toast.bad{border-color:var(--bad)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<section class="gate" id="gate">
+  <div class="gate-card">
+    <div class="brand"><b>STRIDE</b><span>funnel health</span></div>
+    <div id="g-signin" hidden>
+      <p>Sign in with the Google account that runs Stride.</p>
+      <p style="margin-top:14px"><button type="button" class="btn primary" id="signin">Sign in with Google</button></p>
+    </div>
+    <div id="g-denied" hidden>
+      <p>This account can’t open the dashboard. <span id="g-who"></span></p>
+      <p style="margin-top:14px"><button type="button" class="btn" id="signout1">Use another account</button></p>
+    </div>
+    <div id="g-loading" hidden><p><span class="spin" aria-hidden="true"></span>Reading Paddle, Meta and the event log…</p><p class="note" style="margin-top:6px">The first load of the day takes up to half a minute; after that it comes from a ten-minute cache.</p></div>
+    <div id="g-error" hidden>
+      <p>The dashboard could not load.</p>
+      <p class="err" id="g-err"></p>
+      <p style="margin-top:14px;display:flex;gap:8px"><button type="button" class="btn primary" id="retry">Try again</button><button type="button" class="btn" id="signout2">Sign out</button></p>
+    </div>
+  </div>
+</section>
+
+<header class="app-head" id="app-head" hidden>
+  <div class="wrap">
+    <div class="head-row">
+      <div class="brand"><b>STRIDE</b><span>funnel health</span></div>
+      <nav class="tabs" role="tablist" aria-label="Dashboard sections" id="tabs"></nav>
+      <div class="head-side"><span class="live-chip" id="live"></span><button type="button" class="btn sm" id="refresh" title="Read everything again now, past the ten-minute cache">Refresh</button></div>
+    </div>
+    <div class="filters" role="group" aria-label="Filters">
+      <div class="fgroup"><span class="flabel">Range</span>
+        <div class="seg" id="f-range">
+          <button type="button" data-v="7">7 days</button><button type="button" data-v="14">14</button><button type="button" data-v="30">30</button><button type="button" data-v="90">90</button>
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" id="f-compare"> Compare with the previous period</label>
+      <div class="fgroup"><label class="flabel" for="f-channel">Channel</label>
+        <select class="sel" id="f-channel"></select>
+      </div>
+      <div class="fgroup"><span class="flabel">Attribution</span>
+        <div class="seg" id="f-model">
+          <button type="button" data-v="first">First touch</button><button type="button" data-v="last">Last touch</button><button type="button" data-v="blended" id="f-blend-btn">Blended</button>
+        </div>
+      </div>
+      <span class="asof" id="asof"></span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="app" hidden>
+  <section class="panel stack" id="p-overview" role="tabpanel" aria-labelledby="t-overview"></section>
+  <section class="panel stack" id="p-funnel" role="tabpanel" aria-labelledby="t-funnel" hidden></section>
+  <section class="panel stack" id="p-creative" role="tabpanel" aria-labelledby="t-creative" hidden></section>
+  <section class="panel stack" id="p-landing" role="tabpanel" aria-labelledby="t-landing" hidden></section>
+  <section class="panel stack" id="p-checkout" role="tabpanel" aria-labelledby="t-checkout" hidden></section>
+  <section class="panel stack" id="p-demo" role="tabpanel" aria-labelledby="t-demo" hidden></section>
+  <section class="panel stack" id="p-email" role="tabpanel" aria-labelledby="t-email" hidden></section>
+  <section class="panel stack" id="p-expenses" role="tabpanel" aria-labelledby="t-expenses" hidden></section>
+  <section class="panel stack" id="p-crm" role="tabpanel" aria-labelledby="t-crm" hidden></section>
+  <section class="panel stack" id="p-settings" role="tabpanel" aria-labelledby="t-settings" hidden></section>
+</main>
+<div id="tip" hidden></div>
+<div id="modal" hidden role="dialog" aria-modal="true" aria-labelledby="m-title"><div class="modal-card"><h2 id="m-title"></h2><div class="body" id="m-body"></div><div class="acts"><button type="button" class="btn" id="m-no">Cancel</button><button type="button" class="btn primary" id="m-yes">OK</button></div></div></div>
+<div id="toast" hidden role="status"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
+(() => {
+'use strict';
+
+/* ---------- who may open this, and where the data comes from ---------- */
+// The backend checks the same two addresses (is_viewer_user) and refuses everyone else, so
+// this list only decides which screen shows first. Flow switches are Yossi's alone there too.
+const VIEWERS = ['yossi.bozo112@gmail.com', 'livni.ido@gmail.com'];
+const ADMIN = 'yossi.bozo112@gmail.com';
+const BACKEND = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
+firebase.initializeApp({
+  apiKey: 'AIzaSyCP6Wt4yAkkphPeUvgbgbLHeUfdijZw7M4',
+  authDomain: 'veero-next.firebaseapp.com',
+  projectId: 'veero-next',
+  storageBucket: 'veero-next.firebasestorage.app',
+  messagingSenderId: '293344511627',
+  appId: '1:293344511627:web:7611f4358284b18422b68e',
+});
+const auth = firebase.auth();
+const fdb = firebase.firestore();
+const DEL = () => firebase.firestore.FieldValue.delete();
+let USER = null, IS_ADMIN = false;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+async function api(action, body) {
+  const token = await USER.getIdToken();
+  const r = await fetch(BACKEND, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ action, ...(body || {}) }) });
+  let j = {};
+  try { j = await r.json(); } catch (e) { /* not JSON */ }
+  if (!r.ok || j.error || j.ok === false) throw new Error(j.error || `HTTP ${r.status}`);
+  return j;
+}
+
+/* ---------- screens ---------- */
+function gate(which, detail) {
+  const app = which === 'app';
+  $('gate').hidden = app; $('app').hidden = !app; $('app-head').hidden = !app;
+  for (const k of ['signin', 'denied', 'loading', 'error']) $('g-' + k).hidden = k !== which;
+  if (which === 'error') $('g-err').textContent = detail || '';
+  if (which === 'denied') $('g-who').textContent = detail ? `(${detail})` : '';
+}
+let toastT = null;
+function toast(msg, bad) {
+  const t = $('toast'); t.textContent = msg; t.className = bad ? 'bad' : ''; t.hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, bad ? 6000 : 3200);
+}
+function ask({ title, body, yes = 'OK', danger = false }) {
+  return new Promise(resolve => {
+    $('m-title').textContent = title; $('m-body').innerHTML = body || ''; $('m-yes').textContent = yes;
+    $('m-yes').className = 'btn ' + (danger ? 'warnb' : 'primary');
+    $('modal').hidden = false; $('m-yes').focus();
+    const done = v => { $('modal').hidden = true; $('m-yes').onclick = $('m-no').onclick = null; document.removeEventListener('keydown', key); resolve(v); };
+    const key = e => { if (e.key === 'Escape') done(false); };
+    $('m-yes').onclick = () => done(true); $('m-no').onclick = () => done(false);
+    document.addEventListener('keydown', key);
+  });
+}
+
+/* ---------- the data the page holds ---------- */
+const CHANNELS = [
+  { id: 'meta', label: 'Meta ads', paid: true, color: 'var(--s1)' },
+  { id: 'google', label: 'Google ads', paid: true, color: 'var(--s2)' },
+  { id: 'ig', label: 'Instagram organic', color: 'var(--s3)' },
+  { id: 'yt', label: 'YouTube', color: 'var(--s4)' },
+  { id: 'email', label: 'Email', color: 'var(--s5)' },
+  { id: 'direct', label: 'Direct or unknown', color: 'var(--s6)' },
+];
+const CH = Object.fromEntries(CHANNELS.map(c => [c.id, c]));
+const PAGES = [['home', 'Home (/)'], ['try', 'Discovery Pass (/try)'], ['samples', 'Collection (/samples.html)'], ['how', 'How it works'], ['setup', 'Setup guide'],
+  ['session', '1:1 session'], ['blog', 'Blog'], ['tv', 'TV pages'], ['tool', 'Curve tool'], ['welcome', 'Welcome (after a purchase)'], ['post', '/post'], ['post2', '/post2'], ['legal', 'Privacy, terms, refund'], ['other', 'Other']];
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const shortDate = d => `${MON[d.getUTCMonth()]} ${d.getUTCDate()}`;
+
+let PAY = null, DAYS = 0, LAST = 0, dates = [], DI = {};
+let days = [], J = [], REG = [], ADS = [], FLOWS = [], FL = {}, OFFERS = { post2: [], post: [] };
+
+function ingest(p) {
+  PAY = p; DAYS = p.days.length; LAST = DAYS - 1;
+  dates = p.days.map(s => new Date(s + 'T12:00:00Z'));
+  DI = Object.fromEntries(p.days.map((d, i) => [d, i]));
+  days = p.days.map((d, i) => ({ i, meta: { spend: 0, imps: 0, reach: 0, plays3: 0, thru: 0, clicks: 0, lpv: 0, ours: 0 },
+    google: { spend: +((p.spend.google || {})[d] || 0) }, pv: {}, pvAny: false, co: {}, coB: {} }));
+  ADS = (p.ads || []).map(a => {
+    const o = { id: a.id, name: a.name || a.id, campaign: a.campaign || '', campaign_id: a.campaign_id || '', kind0: a.kind,
+      spend: new Float64Array(DAYS), imps: new Float64Array(DAYS), reach: new Float64Array(DAYS), plays3: new Float64Array(DAYS),
+      thruN: new Float64Array(DAYS), clicks: new Float64Array(DAYS), lpv: new Float64Array(DAYS), start: null };
+    for (const r of a.rows) {
+      const i = DI[r[0]]; if (i == null) continue;
+      o.spend[i] += r[1]; o.imps[i] += r[2]; o.reach[i] += r[3]; o.plays3[i] += r[4]; o.thruN[i] += r[5]; o.clicks[i] += r[6]; o.lpv[i] += r[7];
+      if (o.start == null || i < o.start) o.start = i;
+      const M = days[i].meta; M.spend += r[1]; M.imps += r[2]; M.reach += r[3]; M.plays3 += r[4]; M.thru += r[5]; M.clicks += r[6]; M.lpv += r[7];
+    }
+    // Fatigue's baseline: CTR over the ad's first three days in the data.
+    let c = 0, m = 0; for (let d = o.start || 0; d < Math.min(DAYS, (o.start || 0) + 3); d++) { c += o.clicks[d]; m += o.imps[d]; }
+    o.ctrFirst3 = m ? c / m : null;
+    return o;
+  });
+  for (const [d, counts] of Object.entries(p.pv || {})) {
+    const D = days[DI[d]]; if (!D) continue;
+    for (const [k, n] of Object.entries(counts)) {
+      if (k.startsWith('ad__')) { D.meta.ours += n; continue; }
+      const [page, ch] = k.split('__');
+      (D.pv[page] = D.pv[page] || {})[ch] = (D.pv[page][ch] || 0) + n;
+      D.pvAny = true;
+    }
+  }
+  for (const c of p.checkouts || []) { const D = days[DI[c.d]]; if (!D) continue; D.co[c.ch] = (D.co[c.ch] || 0) + 1; D.coB[c.ch] = (D.coB[c.ch] || 0) + (c.bo || 0); }
+  J = p.days.map(() => []); for (const j of p.journeys || []) { const i = DI[j.d]; if (i != null) J[i].push(j); }
+  REG = p.days.map(() => []); for (const r of p.demo || []) { const i = DI[r.d]; if (i != null) REG[i].push(r); }
+  OFFERS = { post2: new Array(DAYS).fill(0), post: new Array(DAYS).fill(0) };
+  for (const k of ['post2', 'post']) for (const [d, n] of Object.entries((p.offers || {})[k] || {})) { const i = DI[d]; if (i != null) OFFERS[k][i] = n; }
+  const states = (p.flows || {}).flows || {};
+  FLOWS = (p.mail.catalog || []).map(f => ({ ...f, st: states[f.id] || {}, d: Array.from({ length: DAYS }, () => ({ s: 0, tr: 0, tro: 0, dv: 0, o: 0, c: 0, b: 0, cp: 0, cv: 0, rv: 0 })) }));
+  FL = Object.fromEntries(FLOWS.map(f => [f.id, f]));
+  for (const [fid, rows] of Object.entries(p.mail.rows || {})) {
+    const f = FL[fid]; if (!f) continue;
+    for (const [d, v] of Object.entries(rows)) { const i = DI[d]; if (i == null) continue; const x = f.d[i]; [x.s, x.tr, x.tro, x.dv, x.o, x.c, x.b, x.cp, x.cv, x.rv] = v; }
+  }
+  S = mergeSettings(p.settings);
+  F.model = S.model;
+}
+const pvFrom = () => { for (let i = 0; i < DAYS; i++) if (days[i].pvAny) return i; return null; };
+
+/* ---------- settings: what counts as healthy (shared, saved on the server) ---------- */
+const METRICS = [
+  { id: 'roas', label: 'ROAS', sec: 'money', unit: 'x', better: 'high', g: 2.0, r: 1.3, w: 3, src: 'Paddle + ad APIs' },
+  { id: 'cac', label: 'Cost per customer', sec: 'money', unit: 'usd', better: 'low', g: 35, r: 50, w: 3, src: 'Paddle + ad APIs' },
+  { id: 'hook', label: 'Hook rate', sec: 'creative', unit: 'pct', better: 'high', g: .30, r: .20, w: 2, src: 'Meta' },
+  { id: 'thru', label: 'ThruPlay rate', sec: 'creative', unit: 'pct', better: 'high', g: .10, r: .05, w: 1, src: 'Meta' },
+  { id: 'ctr', label: 'Link CTR', sec: 'creative', unit: 'pct2', better: 'high', g: .02, r: .01, w: 2, src: 'Meta' },
+  { id: 'freq', label: 'Frequency', sec: 'creative', unit: 'dec', better: 'low', g: 2.0, r: 3.0, w: 1, src: 'Meta, over the range' },
+  { id: 'fatigue', label: 'Fatigue', sec: 'creative', unit: 'dec', better: 'high', g: .85, r: .60, w: 1, src: 'Meta' },
+  { id: 'arrival', label: 'Arrival rate, ours', sec: 'landing', unit: 'pct', better: 'high', g: .90, r: .75, w: 2, src: 'Our page-view count' },
+  { id: 'engaged', label: 'Engaged time', sec: 'landing', unit: 'secs', better: 'high', g: 60, r: 25, w: 1, src: 'Clarity, not connected' },
+  { id: 'scroll50', label: 'Scroll 50%', sec: 'landing', unit: 'pct', better: 'high', g: .50, r: .30, w: 1, src: 'Clarity, not connected' },
+  { id: 'coRate', label: 'Checkout rate', sec: 'checkout', unit: 'pct', better: 'high', g: .04, r: .02, w: 3, src: 'Our backend' },
+  { id: 'c2p', label: 'Checkout to purchase', sec: 'checkout', unit: 'pct', better: 'high', g: .45, r: .30, w: 3, src: 'Backend + Paddle' },
+  { id: 'bump', label: 'Bump attach', sec: 'checkout', unit: 'pct', better: 'high', g: .20, r: .10, w: 1, src: 'Paddle' },
+  { id: 'refund', label: 'Refund rate', sec: 'checkout', unit: 'pct', better: 'low', g: .03, r: .07, w: 2, src: 'Paddle' },
+  { id: 'install', label: 'Install rate', sec: 'demo', unit: 'pct', better: 'high', g: .70, r: .50, w: 1, src: 'Our backend' },
+  { id: 'activation', label: 'Activation rate', sec: 'demo', unit: 'pct', better: 'high', g: .50, r: .30, w: 1, src: 'Our backend' },
+  { id: 'success', label: 'Success rate', sec: 'demo', unit: 'pct', better: 'high', g: .50, r: .25, w: 1, src: 'Plugin, needs a release' },
+  { id: 'd2p', label: 'Demo to Purchase', sec: 'demo', unit: 'pct', better: 'high', g: .08, r: .03, w: 3, src: 'Backend + Paddle' },
+  { id: 'cpdc', label: 'Cost per demo-acquired customer', sec: 'demo', unit: 'usd', better: 'low', g: 60, r: 120, w: 3, src: 'Meta + Paddle' },
+  { id: 'deliv', label: 'Delivery rate', sec: 'email', unit: 'pct', better: 'high', g: .98, r: .95, w: 1, src: 'Resend' },
+  { id: 'openR', label: 'Open rate', sec: 'email', unit: 'pct', better: 'high', g: .40, r: .20, w: 0, src: 'Resend, inflated by Apple Mail' },
+  { id: 'clickR', label: 'Click rate', sec: 'email', unit: 'pct', better: 'high', g: .04, r: .015, w: 2, src: 'Resend' },
+  { id: 'conv', label: 'Goal within 7 days', sec: 'email', unit: 'pct', better: 'high', g: .03, r: .01, w: 3, src: 'Resend + Paddle' },
+  { id: 'unsub', label: 'Unsubscribe rate', sec: 'email', unit: 'pct2', better: 'low', g: .003, r: .01, w: 0, src: 'not measured: STOP replies' },
+  { id: 'bounce', label: 'Bounce rate', sec: 'email', unit: 'pct', better: 'low', g: .01, r: .03, w: 1, src: 'Resend' },
+  { id: 'stitched', label: 'Stitched share', sec: 'coverage', unit: 'pct', better: 'high', g: .80, r: .60, w: 0, src: 'Backend + Paddle' },
+];
+const MET = Object.fromEntries(METRICS.map(m => [m.id, m]));
+const SECTIONS = [
+  { id: 'money', label: 'Money', tab: 'overview' },
+  { id: 'creative', label: 'Creative', tab: 'creative' },
+  { id: 'landing', label: 'Landing', tab: 'landing' },
+  { id: 'checkout', label: 'Checkout', tab: 'checkout' },
+  { id: 'demo', label: 'Demo', tab: 'demo' },
+  { id: 'email', label: 'Email', tab: 'email' },
+];
+const DEFAULTS = {
+  metrics: Object.fromEntries(METRICS.map(m => [m.id, { g: m.g, r: m.r, w: m.w }])),
+  secW: { money: 30, checkout: 25, creative: 15, landing: 15, demo: 15, email: 10 },
+  floor: 30, cutGreen: 80, cutAmber: 50,
+  model: 'blended', firstW: 40, lookback: 28,
+  succ: { lanes: 3, minutes: 5, audio: true, motion: true },
+  tools: [], campaignKinds: {},
+};
+const clone = o => JSON.parse(JSON.stringify(o));
+function mergeSettings(got) {
+  const s = clone(DEFAULTS);
+  if (!got) return s;
+  for (const k of ['floor', 'cutGreen', 'cutAmber', 'firstW', 'lookback', 'model']) if (got[k] != null) s[k] = got[k];
+  for (const [id, m] of Object.entries(got.metrics || {})) if (s.metrics[id]) s.metrics[id] = { ...s.metrics[id], ...m };
+  Object.assign(s.secW, got.secW || {}); Object.assign(s.succ, got.succ || {});
+  if (Array.isArray(got.tools)) s.tools = got.tools;
+  if (got.campaignKinds) s.campaignKinds = got.campaignKinds;
+  return s;
+}
+let S = clone(DEFAULTS);
+let saveT = null;
+function save() {
+  $('st-saved') && ($('st-saved').textContent = 'Saving…');
+  clearTimeout(saveT);
+  saveT = setTimeout(async () => {
+    try { await api('health_settings', { settings: S }); $('st-saved') && ($('st-saved').textContent = 'Saved. Both of you see these thresholds.'); }
+    catch (e) { $('st-saved') && ($('st-saved').textContent = 'Not saved: ' + e.message); toast('Settings not saved: ' + e.message, true); }
+  }, 700);
+}
+const kindOf = ad => S.campaignKinds[ad.campaign_id] || ad.kind0 || 'purchase';
+
+/* ---------- filters ---------- */
+const F = { range: 30, compare: true, channel: 'all', model: 'blended' };
+const TABS = [['overview', 'Overview'], ['funnel', 'Funnel'], ['creative', 'Creative'], ['landing', 'Landing'], ['checkout', 'Checkout & revenue'], ['demo', 'Demo'], ['email', 'Email flows'], ['expenses', 'Expenses'], ['crm', 'CRM'], ['settings', 'Settings']];
+let TAB = 'overview';
+let SEL_AD = null;
+const idxRange = (n, back = 0) => { const out = []; const hi = LAST - back * n; for (let d = Math.max(0, hi - n + 1); d <= hi; d++) out.push(d); return out; };
+
+/* ---------- attribution: first and last touch inside the lookback ---------- */
+function ends(j) {
+  if (j._lb === S.lookback) return j._e;
+  const w = (j.t || []).filter(t => t[0] <= S.lookback);
+  const f = w[0], l = w[w.length - 1];
+  j._e = { first: f ? f[1] : 'direct', last: l ? l[1] : 'direct', firstAd: (f && f[2]) || null, lastAd: (l && l[2]) || null };
+  j._lb = S.lookback;
+  return j._e;
+}
+function credit(j, ch, model, w) {
+  const e = ends(j), f = e.first === ch ? 1 : 0, l = e.last === ch ? 1 : 0;
+  return model === 'first' ? f : model === 'last' ? l : w * f + (1 - w) * l;
+}
+function creditAd(j, adId, model, w) {
+  const e = ends(j), f = e.firstAd === adId ? 1 : 0, l = e.lastAd === adId ? 1 : 0;
+  return model === 'first' ? f : model === 'last' ? l : w * f + (1 - w) * l;
+}
+const jNet = j => j.ns + j.nb + j.n2 + j.np;
+
+/* ---------- aggregation: the one place counts are summed ---------- */
+const MS_BITS = { chain_offered: 1, chain_picked: 2, chain_heard: 4, tour_done: 8, multi_lane: 16, new_variation: 32, lock_explore: 64 };
+const PURCHASE_GOAL = g => g === 'buy' || g === 'session' || g === 'collection';
+function agg(idx, ch = F.channel, model = F.model) {
+  const w = S.firstW / 100;
+  const a = { spend: 0, metaSpend: 0, googleSpend: 0, imps: 0, reach: 0, plays3: 0, thru: 0, metaClicks: 0, lpv: 0, paidClicks: 0, paidArrivals: 0,
+    homePV: 0, tryPV: 0, pvDays: 0, checkouts: 0, coPV: 0, coBought: 0, purchB: 0, orders: 0, bump: 0, post2Shown: 0, post2Take: 0, postShown: 0, postTake: 0,
+    refunds: 0, refundAmt: 0, addonOrders: 0, gross: 0, tax: 0, net: 0, fees: 0, purchases: 0, revenue: 0, journeys: 0, stitched: 0, est: 0,
+    nStride: 0, nBump: 0, nPost2: 0, nPost: 0, oStride: 0, oBump: 0, oPost2: 0, oPost: 0, nColl: 0, oColl: 0, nSess: 0, oSess: 0, nOther: 0, oOther: 0,
+    pages: Object.fromEntries(PAGES.map(([p]) => [p, 0])),
+    reg: 0, regPV: 0, dl: 0, act: 0, demoBuyers: 0, demoSpend: 0, regOpen: 0, regOwn: 0,
+    ms: Object.fromEntries(Object.keys(MS_BITS).map(k => [k, 0])) };
+  const inCh = c => ch === 'all' || ch === c;
+  for (const i of idx) {
+    const D = days[i];
+    if (inCh('meta')) {
+      a.metaSpend += D.meta.spend; a.imps += D.meta.imps; a.reach += D.meta.reach; a.plays3 += D.meta.plays3; a.thru += D.meta.thru;
+      a.metaClicks += D.meta.clicks; a.lpv += D.meta.lpv;
+      if (D.pvAny) { a.paidClicks += D.meta.clicks; a.paidArrivals += D.meta.ours; }
+      for (const ad of ADS) if (ad.spend[i] && kindOf(ad) === 'demo') a.demoSpend += ad.spend[i];
+    }
+    if (inCh('google')) a.googleSpend += D.google.spend;
+    if (D.pvAny) a.pvDays++;
+    for (const [page, byCh] of Object.entries(D.pv)) {
+      let n = 0;
+      for (const [c, v] of Object.entries(byCh)) if (c === 'internal' ? ch === 'all' : inCh(c)) n += v;
+      if (a.pages[page] == null) a.pages[page] = 0;
+      a.pages[page] += n;
+      if (page === 'home') a.homePV += n; else if (page === 'try') a.tryPV += n;
+    }
+    for (const c of CHANNELS) {
+      if (!inCh(c.id)) continue;
+      const n = D.co[c.id] || 0;
+      a.checkouts += n; a.coBought += D.coB[c.id] || 0; if (D.pvAny) a.coPV += n;
+    }
+    if (ch === 'all') { a.post2Shown += OFFERS.post2[i]; a.postShown += OFFERS.post[i]; }
+    for (const j of J[i]) {
+      const e = ends(j), net = jNet(j), rev = net - j.r;
+      const cr = ch === 'all' ? 1 : credit(j, ch, model, w);
+      if (cr > 0) { a.revenue += cr * rev; if (j.k === 'stride') a.purchases += cr; }
+      if (!inCh(e.last)) continue;
+      a.journeys++; a.stitched += (j.t || []).length ? 1 : 0; a.est += j.est ? 1 : 0;
+      a.gross += j.g; a.tax += j.x; a.fees += j.f; a.refundAmt += j.r; a.net += net - j.r;
+      if (j.k === 'stride') {
+        a.orders++; a.purchB++; a.bump += j.b; a.post2Take += j.p2; a.postTake += j.p; a.addonOrders += (j.b || j.p2 || j.p) ? 1 : 0;
+        a.refunds += j.r > 0 ? 1 : 0; a.nStride += j.ns; a.nBump += j.nb; a.nPost2 += j.n2; a.nPost += j.np;
+        a.oStride++; a.oBump += j.b; a.oPost2 += j.p2; a.oPost += j.p;
+      } else if (j.k === 'collection') { a.nColl += net; a.oColl++; }
+      else if (j.k === 'session') { a.nSess += net; a.oSess++; }
+      else { a.nOther += net; a.oOther++; }
+    }
+    for (const r of REG[i]) {
+      if (!inCh(r.ch)) continue;
+      a.reg++; if (D.pvAny && r.src !== 'plugin') a.regPV++; a.dl += r.dl; a.regOwn += r.own;
+      const bought = r.b >= 0 && r.b <= 30 && i + r.b <= LAST;
+      if (bought) a.demoBuyers++;
+      if (LAST - i < 30) a.regOpen++;
+      if (r.act) { a.act++; for (const [k, bit] of Object.entries(MS_BITS)) if (r.ms & bit) a.ms[k]++; }
+    }
+  }
+  a.spend = a.metaSpend + a.googleSpend;
+  // Frequency over the range needs Meta's own reach for it: reach does not add up across days.
+  const rr = PAY.reach && PAY.reach[String(idx.length)];
+  a.rangeReach = (rr && idx.length && idx[idx.length - 1] === LAST) ? rr.acct : (PAY.reach && PAY.reach[idx.length + 'p'] && idx[idx.length - 1] === LAST - idx.length ? PAY.reach[idx.length + 'p'].acct : null);
+  if (inCh('meta')) {
+    let num = 0, den = 0;
+    const tail = idx.slice(-3);
+    for (const ad of ADS) {
+      let sp = 0; for (const d of idx) sp += ad.spend[d];
+      if (!sp || !ad.ctrFirst3) continue;
+      let c = 0, m = 0; for (const d of tail) { c += ad.clicks[d]; m += ad.imps[d]; }
+      if (!m) continue;
+      num += sp * (c / m) / ad.ctrFirst3; den += sp;
+    }
+    a.fatigue = den ? num / den : null;
+  } else a.fatigue = null;
+  // Email flows reach people from every channel, so the channel filter leaves them whole.
+  const M = aggMail(idx); a.mail = M.T; a.mailPer = M.per;
+  return a;
+}
+function aggMail(idx) {
+  const per = {}, T = { s: 0, tr: 0, tro: 0, dv: 0, o: 0, c: 0, b: 0, cp: 0, cv: 0, rv: 0, sGoal: 0, cvGoal: 0 };
+  for (const f of FLOWS) {
+    const x = { s: 0, tr: 0, tro: 0, dv: 0, o: 0, c: 0, b: 0, cp: 0, cv: 0, rv: 0, sGoal: 0, cvGoal: 0 };
+    for (const d of idx) { const r = f.d[d]; for (const k of ['s', 'tr', 'tro', 'dv', 'o', 'c', 'b', 'cp', 'cv', 'rv']) x[k] += r[k]; }
+    if (PURCHASE_GOAL(f.goal)) { x.sGoal = x.s; x.cvGoal = x.cv; }
+    per[f.id] = x;
+    for (const k of Object.keys(T)) T[k] += x[k];
+  }
+  return { per, T };
+}
+
+/* ---------- metric values ---------- */
+const VAL = {
+  roas: a => a.spend > 0 ? a.revenue / a.spend : null,
+  cac: a => a.spend > 0 && a.purchases > 0 ? a.spend / a.purchases : null,
+  hook: a => a.imps ? a.plays3 / a.imps : null,
+  thru: a => a.imps ? a.thru / a.imps : null,
+  hold: a => a.plays3 ? a.thru / a.plays3 : null,
+  ctr: a => a.imps ? a.metaClicks / a.imps : null,
+  freq: a => a.rangeReach && a.rangeReach[0] ? a.rangeReach[1] / a.rangeReach[0] : null,
+  fatigue: a => a.fatigue,
+  cpm: a => a.imps ? a.metaSpend / a.imps * 1000 : null,
+  cpc: a => a.metaClicks ? a.metaSpend / a.metaClicks : null,
+  arrival: a => a.paidClicks ? a.paidArrivals / a.paidClicks : null,
+  arrivalMeta: a => a.metaClicks ? a.lpv / a.metaClicks : null,
+  engaged: () => null,
+  scroll50: () => null,
+  scroll75: () => null,
+  coRate: a => a.homePV ? a.coPV / a.homePV : null,
+  c2p: a => a.checkouts ? a.coBought / a.checkouts : null,
+  aov: a => a.orders ? (a.nStride + a.nBump + a.nPost2 + a.nPost) / a.orders : null,
+  bump: a => a.orders ? a.bump / a.orders : null,
+  post2: a => a.post2Shown ? a.post2Take / a.post2Shown : null,
+  post: a => a.postShown ? a.postTake / a.postShown : null,
+  refund: a => a.orders ? a.refunds / a.orders : null,
+  regRate: a => a.tryPV ? a.regPV / a.tryPV : null,
+  install: a => a.reg ? a.dl / a.reg : null,
+  activation: a => a.dl ? a.act / a.dl : null,
+  success: () => null,
+  d2p: a => a.reg ? a.demoBuyers / a.reg : null,
+  cpdc: a => a.demoBuyers && a.demoSpend ? a.demoSpend / a.demoBuyers : null,
+  stitched: a => a.journeys ? a.stitched / a.journeys : null,
+  deliv: a => a.mail && a.mail.tr ? a.mail.dv / a.mail.tr : null,
+  openR: a => a.mail && a.mail.tro ? a.mail.o / a.mail.tro : null,
+  clickR: a => a.mail && a.mail.tro ? a.mail.c / a.mail.tro : null,
+  ctor: a => a.mail && a.mail.o ? a.mail.c / a.mail.o : null,
+  conv: a => a.mail && a.mail.sGoal ? a.mail.cvGoal / a.mail.sGoal : null,
+  unsub: () => null,
+  bounce: a => a.mail && a.mail.tr ? a.mail.b / a.mail.tr : null,
+};
+const SAMPLE = {
+  roas: a => a.purchases, cac: a => a.purchases, hook: a => a.imps, thru: a => a.imps, ctr: a => a.imps, freq: a => a.imps, fatigue: a => a.imps,
+  arrival: a => a.paidClicks, coRate: a => a.homePV, c2p: a => a.checkouts, bump: a => a.orders, refund: a => a.orders,
+  install: a => a.reg, activation: a => a.dl, d2p: a => a.reg, cpdc: a => a.reg, stitched: a => a.journeys,
+  deliv: a => a.mail.tr, openR: a => a.mail.tro, clickR: a => a.mail.tro, conv: a => a.mail.sGoal, bounce: a => a.mail.tr,
+};
+
+/* ---------- health ---------- */
+function judge(id, a) {
+  const v = VAL[id](a);
+  const set = S.metrics[id];
+  if (v == null || !isFinite(v)) return { v: null, state: 'nodata' };
+  if (!set) return { v, state: 'info' };
+  const n = SAMPLE[id] ? SAMPLE[id](a) : Infinity;
+  if (n < S.floor) return { v, state: 'low', n };
+  let t = (v - set.r) / (set.g - set.r);
+  t = Math.max(0, Math.min(1, t));
+  const score = 100 * t;
+  return { v, score, state: score >= 99.999 ? 'good' : score <= 0.001 ? 'bad' : 'warn' };
+}
+function health(a) {
+  const per = {};
+  for (const m of METRICS) per[m.id] = judge(m.id, a);
+  const sec = {};
+  for (const s of SECTIONS) {
+    let num = 0, den = 0;
+    for (const m of METRICS) {
+      if (m.sec !== s.id) continue;
+      const J2 = per[m.id], w = +S.metrics[m.id].w || 0;
+      if (!w || J2.score == null) continue;
+      num += w * J2.score; den += w;
+    }
+    sec[s.id] = den ? num / den : null;
+  }
+  let num = 0, den = 0;
+  for (const s of SECTIONS) { const W = +S.secW[s.id] || 0; if (sec[s.id] == null || !W) continue; num += W * sec[s.id]; den += W; }
+  const funnel = den ? num / den : null;
+  const work = [];
+  for (const m of METRICS) {
+    const J2 = per[m.id], w = +S.metrics[m.id].w || 0;
+    if (!w || (J2.state !== 'warn' && J2.state !== 'bad')) continue;
+    work.push({ m, j: J2, impact: w * (100 - J2.score) });
+  }
+  work.sort((x, y) => y.impact - x.impact);
+  return { per, sec, funnel, work };
+}
+const scoreState = s => s == null ? 'nodata' : s >= S.cutGreen ? 'good' : s >= S.cutAmber ? 'warn' : 'bad';
+
+/* ---------- formatting ---------- */
+const nf = new Intl.NumberFormat('en-US');
+const fmt = {
+  usd: v => v == null || !isFinite(v) ? '—' : Math.abs(v) >= 1000 ? '$' + nf.format(Math.round(v)) : Math.abs(v) >= 100 ? '$' + Math.round(v) : '$' + v.toFixed(2),
+  usd0: v => v == null || !isFinite(v) ? '—' : (v < 0 ? '−$' : '$') + nf.format(Math.abs(Math.round(v))),
+  pct: v => v == null || !isFinite(v) ? '—' : (v * 100).toFixed(1) + '%',
+  pct2: v => v == null || !isFinite(v) ? '—' : (v * 100).toFixed(2) + '%',
+  num: v => v == null || !isFinite(v) ? '—' : nf.format(Math.round(v)),
+  num1: v => v == null || !isFinite(v) ? '—' : (Math.abs(v - Math.round(v)) < 0.05 ? nf.format(Math.round(v)) : v.toFixed(1)),
+  x: v => v == null || !isFinite(v) ? '—' : v.toFixed(2) + '×',
+  dec: v => v == null || !isFinite(v) ? '—' : v.toFixed(2),
+  secs: v => { if (v == null || !isFinite(v)) return '—'; const s = Math.round(v); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; },
+};
+const UNIT_EXTRA = { hold: 'pct', cpm: 'usd', cpc: 'usd', arrivalMeta: 'pct', scroll75: 'pct', aov: 'usd', post2: 'pct', post: 'pct', regRate: 'pct', ctor: 'pct' };
+const fmtM = (id, v) => fmt[(MET[id] && MET[id].unit) || UNIT_EXTRA[id] || 'pct'](v);
+const fmtTime = ms => { if (!ms) return '—'; const d = new Date(ms); return d.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); };
+
+const ICON = {
+  good: '<svg viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="4.2" fill="var(--good)"/></svg>',
+  warn: '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M5 .8L9.4 9H.6z" fill="var(--warn)"/></svg>',
+  bad: '<svg viewBox="0 0 10 10" aria-hidden="true"><rect x="1.3" y="1.3" width="7.4" height="7.4" fill="var(--bad)" transform="rotate(45 5 5)"/></svg>',
+  low: '<svg viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="3.6" fill="none" stroke="var(--muted)" stroke-width="1.4"/></svg>',
+  nodata: '<svg viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="3.6" fill="none" stroke="var(--muted)" stroke-width="1.4" stroke-dasharray="2 1.6"/></svg>',
+  info: '<svg viewBox="0 0 10 10" aria-hidden="true"><rect x="1.5" y="4.3" width="7" height="1.4" rx=".7" fill="var(--muted)"/></svg>',
+};
+const WORD = { good: 'Healthy', warn: 'Watch', bad: 'Fix', low: 'Low sample', nodata: 'No data', info: 'Not scored' };
+const light = (state, word) => `<span class="light" title="${WORD[state]}">${ICON[state]}${word === false ? '' : esc(word || WORD[state])}</span>`;
+const cellLit = (id, a, extraTitle) => { const j = judge(id, a); return `<span class="cell" title="${WORD[j.state]}${extraTitle ? ' · ' + esc(extraTitle) : ''}">${fmtM(id, j.v)}${ICON[j.state]}</span>`; };
+
+function delta(cur, prev, better) {
+  if (!F.compare || cur == null || prev == null || !isFinite(cur) || !isFinite(prev) || prev === 0) return '<span class="delta flat">—</span>';
+  const r = (cur - prev) / Math.abs(prev);
+  if (Math.abs(r) < 0.005) return '<span class="delta flat">flat</span>';
+  const up = r > 0, good = better === 'none' ? null : (up === (better === 'high'));
+  const cls = good == null ? 'flat' : (up ? 'up-' : 'down-') + (good ? 'good' : 'bad');
+  return `<span class="delta ${cls}">${up ? '▲' : '▼'} ${(Math.abs(r) * 100).toFixed(0)}% vs prev.</span>`;
+}
+
+/* ---------- small charts ---------- */
+function spark(vals) {
+  const v = vals.map(x => x == null || !isFinite(x) ? null : x);
+  const ok = v.filter(x => x != null);
+  if (ok.length < 2) return '';
+  const lo = Math.min(...ok), hi = Math.max(...ok), W = 110, H = 28, p = 3;
+  const X = k => p + k / (v.length - 1) * (W - 2 * p), Y = x => hi === lo ? H / 2 : H - p - (x - lo) / (hi - lo) * (H - 2 * p);
+  let d = '', pen = false;
+  v.forEach((x, k) => { if (x == null) { pen = false; return; } d += (pen ? 'L' : 'M') + X(k).toFixed(1) + ' ' + Y(x).toFixed(1); pen = true; });
+  let lastK = v.length - 1; while (lastK > 0 && v[lastK] == null) lastK--;
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" aria-hidden="true"><path d="${d}" fill="none" stroke="var(--ink-3)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="${X(lastK)}" cy="${Y(v[lastK])}" r="3" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/></svg>`;
+}
+const tip = $('tip');
+function showTip(html, x, y) {
+  tip.innerHTML = html; tip.hidden = false;
+  const r = tip.getBoundingClientRect(), vw = window.innerWidth, vh = window.innerHeight;
+  let L = x + 14, T = y + 14;
+  if (L + r.width > vw - 8) L = x - r.width - 14;
+  if (T + r.height > vh - 8) T = y - r.height - 14;
+  tip.style.transform = `translate(${Math.max(8, L)}px, ${Math.max(8, T)}px)`;
+}
+const hideTip = () => { tip.hidden = true; };
+function niceTicks(max, count = 4) {
+  if (!(max > 0)) return [0, 1];
+  const raw = max / count, mag = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / mag;
+  const step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * mag;
+  const out = []; for (let v = 0; v <= max + step * 0.001; v += step) out.push(+v.toFixed(10));
+  if (out.at(-1) < max) out.push(+(out.at(-1) + step).toFixed(10));
+  return out;
+}
+function lineChart(el, { labels, series, format, height = 230 }) {
+  const W = 720, H = height, pl = 54, pr = 16, pt = 12, pb = 30, pw = W - pl - pr, ph = H - pt - pb, n = labels.length;
+  const all = series.flatMap(s => s.values).filter(v => v != null && isFinite(v));
+  const ticks = niceTicks(Math.max(...all, 0));
+  const top = ticks.at(-1) || 1;
+  const X = k => pl + (n === 1 ? pw / 2 : k / (n - 1) * pw), Y = v => pt + ph - v / top * ph;
+  const every = Math.max(1, Math.ceil(n / 8));
+  let g = '';
+  for (const t of ticks) g += `<line x1="${pl}" x2="${W - pr}" y1="${Y(t)}" y2="${Y(t)}" stroke="var(--grid)" stroke-width="1"/><text class="ax" x="${pl - 8}" y="${Y(t) + 4}" text-anchor="end">${esc(format(t))}</text>`;
+  labels.forEach((lb, k) => { if (k % every === 0 || k === n - 1) g += `<text class="ax" x="${X(k)}" y="${H - 8}" text-anchor="${k === 0 ? 'start' : k === n - 1 ? 'end' : 'middle'}">${esc(lb)}</text>`; });
+  let paths = '';
+  for (const s of series) {
+    let d = '', pen = false;
+    s.values.forEach((v, k) => { if (v == null || !isFinite(v)) { pen = false; return; } d += (pen ? 'L' : 'M') + X(k).toFixed(1) + ' ' + Y(v).toFixed(1); pen = true; });
+    let lk = n - 1; while (lk > 0 && (s.values[lk] == null || !isFinite(s.values[lk]))) lk--;
+    if (!d) continue;
+    if (s.area) paths += `<path d="${d}L${X(lk).toFixed(1)} ${Y(0)}L${X(0)} ${Y(0)}Z" fill="${s.color}" opacity=".1"/>`;
+    paths += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    if (s.values[lk] != null) paths += `<circle cx="${X(lk)}" cy="${Y(s.values[lk])}" r="4" fill="${s.color}" stroke="var(--surface)" stroke-width="2"/>`;
+  }
+  const legend = series.length > 1 ? `<div class="legend">${series.map(s => `<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join('')}</div>` : '';
+  el.innerHTML = `${legend}<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(series.map(s => s.name).join(', '))} by day">${g}${paths}<line class="xh" x1="0" x2="0" y1="${pt}" y2="${pt + ph}" stroke="var(--ink-3)" stroke-width="1" opacity="0"/><rect x="${pl}" y="${pt}" width="${pw}" height="${ph}" fill="transparent"/></svg></div>`;
+  const svg = el.querySelector('svg'), xh = svg.querySelector('.xh'), hit = svg.querySelector('rect');
+  const move = e => {
+    const b = svg.getBoundingClientRect(); const x = (e.clientX - b.left) * (W / b.width);
+    const k = Math.max(0, Math.min(n - 1, Math.round((x - pl) / pw * (n - 1))));
+    xh.setAttribute('x1', X(k)); xh.setAttribute('x2', X(k)); xh.setAttribute('opacity', '.6');
+    const rows = series.map(s => `<div class="r"><span><i style="background:${s.color}"></i>${esc(s.name)}</span><b>${esc(format(s.values[k]))}</b></div>`).join('');
+    showTip(`<div class="t">${esc(labels[k])}</div>${rows}`, e.clientX, e.clientY);
+  };
+  hit.addEventListener('pointermove', move);
+  hit.addEventListener('pointerleave', () => { xh.setAttribute('opacity', '0'); hideTip(); });
+}
+
+/* ---------- shared bits ---------- */
+const ctx = () => {
+  const idx = idxRange(F.range), prev = idxRange(F.range, 1);
+  const A = agg(idx), P = agg(prev);
+  return { idx, prev, A, P, H: health(A), HP: health(P) };
+};
+const perDay = (idx, fn) => idx.map(d => fn(agg([d])));
+const chLabel = () => F.channel === 'all' ? 'all channels' : CH[F.channel].label;
+const modelLabel = () => F.model === 'first' ? 'first touch' : F.model === 'last' ? 'last touch' : `blended ${S.firstW}/${100 - S.firstW}`;
+const card = (title, sub, body, extra = '') => `<div class="card"${extra}><div class="card-h"><h2>${title}</h2>${sub ? `<span class="sub">${sub}</span>` : ''}</div>${body}</div>`;
+const srcOk = k => !!(PAY.sources[k] && PAY.sources[k].ok);
+const srcNote = k => (PAY.sources[k] && PAY.sources[k].note) || '';
+
+function tileHTML({ label, value, d, sp, src, lit, cls = '' }) {
+  return `<div class="tile ${cls}"><div class="lab"><span>${esc(label)}</span>${lit || ''}</div><div class="val">${value}</div><div class="foot">${d || '<span></span>'}${sp || ''}</div>${src ? `<div><span class="src">${esc(src)}</span></div>` : ''}</div>`;
+}
+function metricTile(id, c, opts = {}) {
+  const m = MET[id] || {}, j = c.H.per[id] || judge(id, c.A), jp = c.HP.per[id] || judge(id, c.P);
+  const better = m.better || opts.better || 'high';
+  const vals = opts.spark === false || id === 'freq' ? null : perDay(c.idx, a => VAL[id](a));
+  return tileHTML({ label: opts.label || m.label, value: fmtM(id, j.v), d: delta(j.v, jp.v, better), sp: vals ? spark(vals) : '', src: opts.src || m.src,
+    lit: S.metrics[id] ? light(j.state) : (opts.noLight ? light('info', opts.noLight) : ''), cls: opts.cls });
+}
+function toolsFor(idx) {
+  const month = S.tools.reduce((x, y) => x + (+y.usd || 0), 0);
+  let t = 0; for (const d of idx) { const dt = dates[d]; const dim = new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth() + 1, 0)).getUTCDate(); t += month / dim; }
+  return t;
+}
+
+/* ---------- Overview ---------- */
+function renderOverview(c) {
+  const { A, P, H } = c;
+  const fs = H.funnel, st = scoreState(fs);
+  let worstSec = null;
+  for (const s of SECTIONS) if (H.sec[s.id] != null && (worstSec == null || H.sec[s.id] < H.sec[worstSec.id])) worstSec = s;
+  const top = H.work[0];
+  const verdict = fs == null ? 'Not enough data in this range to score the funnel.'
+    : top ? `<b>${esc(worstSec.label)}</b> pulls the score down most. First fix: <b>${esc(top.m.label)}</b> at ${fmtM(top.m.id, top.j.v)} against a green line of ${fmtM(top.m.id, S.metrics[top.m.id].g)}.`
+    : 'Every scored metric is at or past its green line.';
+  const bars = SECTIONS.map(s => { const v = H.sec[s.id], ss = scoreState(v); const col = ss === 'good' ? 'var(--good)' : ss === 'warn' ? 'var(--warn)' : ss === 'bad' ? 'var(--bad)' : 'var(--muted)';
+    return `<div class="secbar"><span>${esc(s.label)}</span><span class="t"><i style="width:${v == null ? 0 : v.toFixed(1)}%;background:${col}"></i></span><span class="v">${v == null ? '—' : Math.round(v)}</span>${light(ss)}</div>`; }).join('');
+  const hero = `<div class="card score-card"><div class="kicker">Funnel health · ${esc(chLabel())}</div>
+    <div class="score-num"><strong>${fs == null ? '—' : Math.round(fs)}</strong><span>of 100</span>${light(st)}</div>
+    <p class="verdict">${verdict}</p><div class="secbars">${bars}</div>
+    <button type="button" class="link" data-go="settings">How the score is worked out</button></div>`;
+
+  const dayRev = perDay(c.idx, a => a.revenue), daySpend = perDay(c.idx, a => a.spend);
+  const all = F.channel === 'all';
+  const profit = (x, idx) => x.revenue - x.spend - (all ? x.fees + toolsFor(idx) : 0);
+  const dayProfit = c.idx.map(d => profit(agg([d]), [d]));
+  const money = srcOk('paddle') ? 'Paddle' : 'stored order totals';
+  const tiles = [
+    tileHTML({ label: 'Net revenue', value: fmt.usd0(A.revenue), d: delta(A.revenue, P.revenue, 'high'), sp: spark(dayRev), src: all ? `${money}, net of tax and refunds` : `${money}, credited ${modelLabel()}` }),
+    tileHTML({ label: 'Ad spend', value: fmt.usd0(A.spend), d: delta(A.spend, P.spend, 'none'), sp: spark(daySpend), src: 'Meta API · Google ' + ((PAY.sources.google || {}).source || 'none') }),
+    tileHTML({ label: all ? 'Net profit' : 'Revenue less spend', value: fmt.usd0(profit(A, c.idx)), d: delta(profit(A, c.idx), profit(P, c.prev), 'high'), sp: spark(dayProfit), src: all ? 'after fees and tools' : 'this channel only' }),
+    metricTile('roas', c),
+    metricTile('cac', c),
+    tileHTML({ label: 'Purchases', value: fmt.num1(A.purchases), d: delta(A.purchases, P.purchases, 'high'), sp: spark(perDay(c.idx, a => a.purchases)), src: all ? 'Stride orders' : `credited ${modelLabel()}` }),
+  ].join('');
+
+  const secCards = SECTIONS.map(s => {
+    const v = H.sec[s.id];
+    const items = METRICS.filter(m => m.sec === s.id && S.metrics[m.id].w > 0).map(m => { const j = H.per[m.id]; return `<li><span>${esc(m.label)}</span><span>${fmtM(m.id, j.v)}</span>${ICON[j.state]}</li>`; }).join('');
+    return `<div class="sec"><div class="sec-h"><h3>${esc(s.label)}</h3><span class="n">${v == null ? '—' : Math.round(v)}</span></div>${light(scoreState(v))}<ul class="mlist">${items}</ul>${s.tab !== 'overview' ? `<button type="button" class="link" data-go="${s.tab}">Open ${esc(s.label)}</button>` : ''}</div>`;
+  }).join('');
+
+  const maxImp = H.work.length ? H.work[0].impact : 1;
+  const work = H.work.slice(0, 6).map(x => `<li><div class="what"><b>${esc(x.m.label)} · ${fmtM(x.m.id, x.j.v)}</b><small>${esc(SECTIONS.find(s => s.id === x.m.sec).label)}: green at ${fmtM(x.m.id, S.metrics[x.m.id].g)}, red at ${fmtM(x.m.id, S.metrics[x.m.id].r)} · weight ${S.metrics[x.m.id].w}</small></div><span style="display:flex;gap:10px;align-items:center">${light(x.j.state)}<span class="impact" title="Impact = weight × (100 − score) = ${x.impact.toFixed(0)}"><i style="width:${(x.impact / maxImp * 100).toFixed(0)}%"></i></span></span></li>`).join('');
+
+  const st2 = judge('stitched', A), pf = pvFrom();
+  const cov = `<div class="cov">
+    <div class="cov-row"><span class="k">Purchases stitched to a source</span><span class="v">${fmtM('stitched', st2.v)}</span><span class="d">${light(st2.state)}<span>carry an ad id, a click id or one of our tags before they bought; the rest are credited to “direct or unknown”</span></span></div>
+    <div class="cov-row"><span class="k">Paid clicks that reached our page</span><span class="v">${fmtM('arrival', VAL.arrival(A))}</span><span class="d"><span class="src">Our page-view count</span><span>vs Meta’s own ${fmtM('arrivalMeta', VAL.arrivalMeta(A))}, which the cookie banner lowers</span></span></div>
+    <div class="cov-row"><span class="k">Page views counted since</span><span class="v">${pf == null ? 'not yet' : shortDate(dates[pf])}</span><span class="d"><span class="src">Our backend</span><span>rates that divide by page views read only the days since then</span></span></div>
+    <div class="cov-row"><span class="k">Orders with estimated money</span><span class="v">${fmt.num(A.est)} of ${fmt.num(A.journeys)}</span><span class="d"><span class="src">Paddle / Lemon Squeezy</span><span>from the stored order totals where the platform’s API did not answer; fees at the published rate</span></span></div>
+  </div>`;
+  const NAMES = { paddle: 'Paddle API', lemonsqueezy: 'Lemon Squeezy API', meta: 'Meta Marketing API', google: 'Google Ads', events: 'Event log', crm: 'CRM rows', pv: 'Page-view count', fx: 'Exchange rate', resend: 'Resend tracking', clarity: 'Clarity', plugin_success: 'Plugin success event' };
+  const srcs = `<div class="srcs">${Object.entries(PAY.sources).map(([k, s]) => `<div>${light(s.ok ? 'good' : (k === 'clarity' || k === 'plugin_success' ? 'nodata' : 'warn'), false)}<span>${esc(NAMES[k] || k)}<small>${esc(s.note || '')}</small></span></div>`).join('')}</div>`;
+
+  $('p-overview').innerHTML = `
+    <div class="hero">${hero}<div class="tiles">${tiles}</div></div>
+    <div class="sections">${secCards}</div>
+    <div class="grid-3">${card('Needs work', 'ranked by weight × distance from green', H.work.length ? `<ol class="work">${work}</ol>` : '<p class="empty">Nothing scored is below its green line in this range.</p>')}
+      ${card('How sure are these numbers', '', cov)}</div>
+    ${card('Sources', `read ${esc(fmtTime(PAY.generated_at_ms))} in ${(PAY.build_ms / 1000).toFixed(1)} s`, srcs)}`;
+}
+
+/* ---------- Funnel ---------- */
+function frow(name, sub, n, max, rateHTML) {
+  const w = max ? Math.max(0.4, n / max * 100) : 0;
+  return `<div class="frow"><div class="nm">${esc(name)}${sub ? `<small>${esc(sub)}</small>` : ''}</div><div class="track" title="${fmt.num(n)}"><i style="width:${w.toFixed(2)}%"></i></div><div class="cnt">${fmt.num(n)}</div><div class="rate">${rateHTML || ''}</div></div>`;
+}
+const rateOf = (label, id, a) => { const j = judge(id, a); return `${light(j.state, false)}<span>${esc(label)} <b>${fmtM(id, j.v)}</b></span>`; };
+function renderFunnel(c) {
+  const A = c.A, paid = F.channel === 'all' || F.channel === 'meta';
+  const p1 = paid ? card('From ad to arrival', 'Meta; arrivals only on days the page-view count ran', `<div class="fpath">
+      ${frow('Impressions', 'Meta', A.imps, A.imps, '')}
+      ${frow('3-second plays', 'Meta', A.plays3, A.imps, rateOf('Hook rate', 'hook', A))}
+      ${frow('Link clicks', 'Meta', A.metaClicks, A.imps, rateOf('Link CTR', 'ctr', A))}
+      ${frow('Arrived on the page', 'our count, ad-tagged', A.paidArrivals, A.imps, rateOf('Arrival rate', 'arrival', A))}
+    </div><p class="note" style="margin-top:8px">ThruPlays (${fmt.num(A.thru)}, ${fmtM('thru', VAL.thru(A))} of impressions) sit beside this path, not on it: a click can come before the 15th second.</p>`)
+    : F.channel === 'google' ? card('From click to arrival', 'Google', '<p class="empty">Google’s click counts are not read yet (its API is test-only), so there is nothing to compare arrivals with.</p>') : '';
+  const p2 = card('From arrival to purchase', esc(chLabel()), `<div class="fpath">
+      ${frow('Home page views', 'our count', A.homePV, A.homePV, '')}
+      ${frow('Checkout opened', 'the buy form, one per person a day', A.checkouts, A.homePV || A.checkouts, rateOf('Checkout rate', 'coRate', A))}
+      ${frow('Bought within 7 days', 'Paddle', A.coBought, A.homePV || A.checkouts, rateOf('Checkout to purchase', 'c2p', A))}
+      ${frow('Took an add-on', 'bump, /post2, /post', A.addonOrders, A.homePV || A.checkouts, `${light('info', false)}<span>Add-on take <b>${fmt.pct(A.orders ? A.addonOrders / A.orders : null)}</b></span>`)}
+    </div><p class="note" style="margin-top:8px">Wallet and payment-link buyers never open the buy form, so ${fmt.num(Math.max(0, A.orders - A.coBought))} of this range’s ${fmt.num(A.orders)} orders are not on this path.</p>`);
+  const p3 = card('Discovery Pass demo', esc(chLabel()), `<div class="fpath">
+      ${frow('/try page views', 'our count', A.tryPV, A.tryPV, '')}
+      ${frow('Registered', 'demo_registered', A.reg, A.tryPV || A.reg, `${light('info', false)}<span>Registration rate <b>${fmtM('regRate', VAL.regRate(A))}</b></span>`)}
+      ${frow('Downloaded', 'demo_download', A.dl, A.tryPV || A.reg, rateOf('Install rate', 'install', A))}
+      ${frow('Activated', 'demo_activated, with an email', A.act, A.tryPV || A.reg, rateOf('Activation rate', 'activation', A))}
+      ${frow('Bought within 30 days', 'of registrants', A.demoBuyers, A.tryPV || A.reg, rateOf('Demo to Purchase', 'd2p', A))}
+    </div>`);
+  const rows = CHANNELS.map(ch => {
+    const a = agg(c.idx, ch.id);
+    return `<tr><td><span class="chdot" style="background:${ch.color}"></span>${esc(ch.label)}</td><td>${fmt.num(a.homePV + a.tryPV)}</td><td>${cellLit('coRate', a)}</td><td>${cellLit('c2p', a)}</td><td>${fmt.num1(a.purchases)}</td><td>${fmt.usd0(a.revenue)}</td><td>${a.spend ? fmt.usd0(a.spend) : '—'}</td><td>${cellLit('roas', a)}</td><td>${cellLit('cac', a)}</td></tr>`;
+  }).join('');
+  const byCh = card('The same steps, by channel', `purchases and revenue credited ${esc(modelLabel())}`, `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Channel</th><th>Page views</th><th>Checkout rate</th><th>Checkout to purchase</th><th>Purchases</th><th>Net revenue</th><th>Spend</th><th>ROAS</th><th>Cost per customer</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="note" style="margin-top:10px">Checkout rate and checkout to purchase follow the visit’s own channel. Purchases, revenue, ROAS and cost per customer follow the attribution model, so switching it moves only the last five columns. A touch older than the lookback (${S.lookback} days) does not count.</p>`);
+  $('p-funnel').innerHTML = p1 + `<div class="grid-2">${p2}${p3}</div>` + byCh;
+}
+
+/* ---------- Creative ---------- */
+function renderCreative(c) {
+  const el = $('p-creative');
+  if (!(F.channel === 'all' || F.channel === 'meta')) { el.innerHTML = card('Creative', '', `<p class="empty">Creative metrics come from Meta. Pick “all channels” or “Meta ads” in the filter row.</p>`); return; }
+  if (!srcOk('meta')) { el.innerHTML = card('Creative', '', `<p class="empty">Meta did not answer: ${esc(srcNote('meta'))}</p>`); return; }
+  const w = S.firstW / 100;
+  const tiles = ['hook', 'thru', 'ctr', 'freq', 'fatigue'].map(id => metricTile(id, c)).join('');
+  const tail = c.idx.slice(-3);
+  const rr = PAY.reach && PAY.reach[String(F.range)];
+  const ads = ADS.map(ad => {
+    let sp = 0, im = 0, p3 = 0, th = 0, cl = 0, pu = 0, rev = 0;
+    for (const d of c.idx) { sp += ad.spend[d]; im += ad.imps[d]; p3 += ad.plays3[d]; th += ad.thruN[d]; cl += ad.clicks[d]; for (const j of J[d]) { const cr = creditAd(j, ad.id, F.model, w); if (cr) { if (j.k === 'stride') pu += cr; rev += cr * (jNet(j) - j.r); } } }
+    let tc = 0, tm = 0; for (const d of tail) { tc += ad.clicks[d]; tm += ad.imps[d]; }
+    const fat = tm && ad.ctrFirst3 ? (tc / tm) / ad.ctrFirst3 : null;
+    const reach = rr && rr.ads ? rr.ads[ad.id] : null;
+    const a = { imps: im, rangeReach: reach, plays3: p3, thru: th, metaClicks: cl, metaSpend: sp, fatigue: fat, spend: sp, purchases: pu, revenue: rev, mail: {} };
+    return { ad, a, sp };
+  }).filter(x => x.sp > 0).sort((x, y) => y.sp - x.sp);
+  if (!SEL_AD || !ads.find(x => x.ad.id === SEL_AD)) SEL_AD = ads.length ? ads[0].ad.id : null;
+  const rows = ads.map(({ ad, a }) => `<tr class="clickable${ad.id === SEL_AD ? ' sel' : ''}" data-ad="${esc(ad.id)}" tabindex="0"><td>${esc(ad.name)} ${kindOf(ad) === 'demo' ? '<span class="tag">demo</span>' : ''}</td><td>${fmt.usd0(a.spend)}</td><td>${fmt.num(a.imps)}</td><td>${cellLit('freq', a)}</td><td>${fmtM('cpm', VAL.cpm(a))}</td><td>${cellLit('hook', a)}</td><td>${cellLit('thru', a)}</td><td>${fmtM('hold', VAL.hold(a))}</td><td>${cellLit('ctr', a)}</td><td>${fmtM('cpc', VAL.cpc(a))}</td><td>${cellLit('fatigue', a)}</td><td>${fmt.num1(a.purchases)}</td><td>${a.purchases ? fmt.usd(a.spend / a.purchases) : '—'}</td><td>${a.spend ? fmt.x(a.revenue / a.spend) : '—'}</td></tr>`).join('');
+  const sel = ADS.find(x => x.id === SEL_AD);
+  el.innerHTML = `<div class="tiles">${tiles}</div>
+    ${card('Ads in this range', `purchases, CPA and ROAS credited ${esc(modelLabel())}; select a row for its trend`, ads.length ? `<div class="tbl-wrap"><table class="tbl" id="ad-table"><thead><tr><th>Ad</th><th>Spend</th><th>Impr.</th><th>Freq.</th><th>CPM</th><th>Hook</th><th>ThruPlay</th><th>Hold</th><th>Link CTR</th><th>CPC</th><th>Fatigue</th><th>Purch.</th><th>CPA</th><th>ROAS</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <p class="note" style="margin-top:10px">Fatigue compares an ad’s link CTR over the last 3 days with its own first 3 days: 1.00 means it still earns clicks as it did at launch. Frequency is impressions over Meta’s own reach for the whole range. Purchases here follow the ad id a buyer carried; a buyer with only a Meta click id counts for the channel, not for an ad.</p>` : '<p class="empty">No Meta spend in this range.</p>')}
+    <div class="grid-2"><div class="card" id="ad-ctr"></div><div class="card" id="ad-freq"></div></div>`;
+  if (sel) {
+    const labels = c.idx.map(d => shortDate(dates[d]));
+    const ctrV = c.idx.map(d => sel.imps[d] ? sel.clicks[d] / sel.imps[d] : null);
+    const hookV = c.idx.map(d => sel.imps[d] ? sel.plays3[d] / sel.imps[d] : null);
+    const frqV = c.idx.map(d => sel.reach[d] ? sel.imps[d] / sel.reach[d] : null);
+    const e1 = $('ad-ctr'), e2 = $('ad-freq');
+    e1.innerHTML = `<div class="card-h"><h2>${esc(sel.name)}: link CTR and hook rate</h2></div><div></div>`;
+    e2.innerHTML = `<div class="card-h"><h2>${esc(sel.name)}: daily frequency</h2><span class="sub">fatigue shows as frequency climbs while CTR sinks</span></div><div></div>`;
+    lineChart(e1.lastElementChild, { labels, series: [{ name: 'Link CTR', color: 'var(--s1)', values: ctrV }, { name: 'Hook rate', color: 'var(--s2)', values: hookV }], format: v => fmt.pct(v) });
+    lineChart(e2.lastElementChild, { labels, series: [{ name: 'Frequency', color: 'var(--s4)', values: frqV, area: true }], format: v => fmt.dec(v) });
+  } else { $('ad-ctr').hidden = true; $('ad-freq').hidden = true; }
+  el.querySelectorAll('#ad-table tbody tr').forEach(tr => {
+    const go = () => { SEL_AD = tr.dataset.ad; renderCreative(ctx()); };
+    tr.addEventListener('click', go);
+    tr.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  });
+}
+
+/* ---------- Landing ---------- */
+function renderLanding(c) {
+  const el = $('p-landing'), A = c.A;
+  const paid = F.channel === 'all' || F.channel === 'meta';
+  const pf = pvFrom();
+  const tiles = [
+    paid ? tileHTML({ label: 'Meta link clicks', value: fmt.num(A.metaClicks), d: delta(A.metaClicks, c.P.metaClicks, 'high'), sp: spark(perDay(c.idx, a => a.metaClicks)), src: 'Meta' }) : '',
+    paid ? metricTile('arrival', c) : '',
+    paid ? tileHTML({ label: 'Arrival rate, Meta', value: fmtM('arrivalMeta', VAL.arrivalMeta(A)), d: delta(VAL.arrivalMeta(A), VAL.arrivalMeta(c.P), 'high'), sp: spark(perDay(c.idx, a => VAL.arrivalMeta(a))), src: 'Meta, consent-limited', lit: light('info', 'No light') }) : '',
+    metricTile('engaged', c, { spark: false }),
+    metricTile('scroll50', c, { spark: false }),
+  ].join('');
+  const prow = PAGES.map(([p, name]) => {
+    const n = A.pages[p] || 0;
+    if (!n && !['home', 'try', 'samples'].includes(p)) return '';
+    const next = p === 'home' ? `Checkout rate ${cellLit('coRate', A)}` : p === 'try' ? `Registration rate ${fmtM('regRate', VAL.regRate(A))}` : '—';
+    return `<tr><td>${esc(name)}</td><td>${fmt.num(n)}</td><td>—</td><td>—</td><td class="l">${next}</td></tr>`;
+  }).join('');
+  el.innerHTML = `<div class="tiles">${tiles}</div>
+    ${pf == null ? `<p class="note"><b>The page-view count has not started.</b> It begins the day the site update with the cookieless counter is deployed; until then every rate that divides by page views reads “No data”.</p>` : ''}
+    ${paid ? `<div class="card" id="arr-chart"><div class="card-h"><h2>Did the clicks arrive?</h2><span class="sub">a gap between the blue and green lines is people lost between the ad and the page</span></div><div></div></div>` : card('Did the clicks arrive?', '', '<p class="empty">Only Meta reports its clicks to us. Pick Meta ads or all channels.</p>')}
+    ${card('Pages', 'page views from our cookieless count; time and scroll need Clarity, not connected yet', `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Page</th><th>Page views</th><th>Engaged time</th><th>Scroll 50%</th><th class="l">Next step</th></tr></thead><tbody>${prow}</tbody></table></div>`)}
+    <p class="note"><b>Why two arrival rates.</b> Meta counts a landing page view only when its pixel may fire, and in Europe it waits for a cookie answer; our own count is cookieless and holds. When ours stays high while Meta’s drops, the banner moved, not the traffic. Ours counts the arrivals that carried an ad id.</p>`;
+  if (paid) {
+    const labels = c.idx.map(d => shortDate(dates[d]));
+    const series = [{ name: 'Meta link clicks', color: 'var(--s1)', values: perDay(c.idx, a => a.metaClicks) },
+      { name: 'Arrived, our count', color: 'var(--s2)', values: c.idx.map(d => days[d].pvAny ? days[d].meta.ours : null) },
+      { name: 'Meta landing page views', color: 'var(--s3)', values: perDay(c.idx, a => a.lpv) }];
+    lineChart(document.querySelector('#arr-chart').lastElementChild, { labels, series, format: v => fmt.num(v) });
+  }
+}
+
+/* ---------- Checkout & revenue ---------- */
+function renderCheckout(c) {
+  const el = $('p-checkout'), A = c.A;
+  const tiles = [metricTile('coRate', c), metricTile('c2p', c),
+    tileHTML({ label: 'AOV', value: fmtM('aov', VAL.aov(A)), d: delta(VAL.aov(A), VAL.aov(c.P), 'high'), sp: spark(perDay(c.idx, a => VAL.aov(a))), src: 'net of tax, with add-ons', lit: light('info') }),
+    metricTile('bump', c),
+    tileHTML({ label: '/post2 take', value: fmtM('post2', VAL.post2(A)), d: delta(VAL.post2(A), VAL.post2(c.P), 'high'), src: `${fmt.num(A.post2Take)} of ${fmt.num(A.post2Shown)} shown`, lit: light('info') }),
+    tileHTML({ label: '/post take', value: fmtM('post', VAL.post(A)), d: delta(VAL.post(A), VAL.post(c.P), 'high'), src: `${fmt.num(A.postTake)} of ${fmt.num(A.postShown)} shown`, lit: light('info') }),
+    metricTile('refund', c)].join('');
+  const tot = A.nStride + A.nBump + A.nPost2 + A.nPost + A.nColl + A.nSess + A.nOther || 1;
+  const prod = [['Stride', A.oStride, A.nStride], ['Experimental Collection, checkout bump', A.oBump, A.nBump], ['Experimental Collection, /post2', A.oPost2, A.nPost2], ['1:1 session, /post', A.oPost, A.nPost],
+    ['Experimental Collection on its own', A.oColl, A.nColl], ['1:1 session on its own', A.oSess, A.nSess], ['Other products', A.oOther, A.nOther]]
+    .filter(([, o]) => o > 0 || true).map(([n, o, v]) => `<tr><td>${esc(n)}</td><td>${fmt.num(o)}</td><td>${fmt.usd0(v)}</td><td>${fmt.pct(v / tot)}</td></tr>`).join('');
+  el.innerHTML = `<div class="tiles">${tiles}</div>
+    <div class="card" id="rev-chart"><div class="card-h"><h2>Net revenue against ad spend</h2><span class="sub">${esc(chLabel())}, revenue credited ${esc(modelLabel())}</span></div><div></div></div>
+    <div class="grid-2">
+      ${card('Revenue by product', 'net of tax, before refunds; by the order’s last touch', `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Product</th><th>Orders</th><th>Net revenue</th><th>Share</th></tr></thead><tbody>${prod}</tbody></table></div>`)}
+      ${card('Refunds and fees', A.est ? `${fmt.num(A.est)} orders estimated` : 'Paddle’s own figures', `<div class="tbl-wrap"><table class="tbl"><tbody>
+        <tr><td>Gross receipts</td><td>${fmt.usd0(A.gross)}</td></tr>
+        <tr><td>Tax held for the authorities</td><td>${fmt.usd0(-A.tax)}</td></tr>
+        <tr><td>Refunded (${fmt.num(A.refunds)} orders)</td><td>${fmt.usd0(-A.refundAmt)}</td></tr>
+        <tr><td>Payment fees</td><td>${fmt.usd0(-A.fees)}</td></tr>
+      </tbody><tfoot><tr><td>Net after refunds and fees</td><td>${fmt.usd0(A.net - A.fees)}</td></tr></tfoot></table></div>`)}
+    </div>`;
+  const labels = c.idx.map(d => shortDate(dates[d]));
+  lineChart(document.querySelector('#rev-chart').lastElementChild, { labels, series: [{ name: 'Net revenue', color: 'var(--s2)', values: perDay(c.idx, a => a.revenue) }, { name: 'Ad spend', color: 'var(--s1)', values: perDay(c.idx, a => a.spend) }], format: v => fmt.usd0(v) });
+}
+
+/* ---------- Demo ---------- */
+function renderDemo(c) {
+  const el = $('p-demo'), A = c.A;
+  const openShare = A.reg ? A.regOpen / A.reg : 0;
+  const prim = [metricTile('d2p', c, { cls: 'primary' }), metricTile('cpdc', c, { cls: 'primary' })].join('');
+  const diag = [
+    tileHTML({ label: 'Registration rate', value: fmtM('regRate', VAL.regRate(A)), d: delta(VAL.regRate(A), VAL.regRate(c.P), 'high'), sp: spark(perDay(c.idx, a => VAL.regRate(a))), src: 'Our backend', lit: light('info') }),
+    metricTile('install', c), metricTile('activation', c), metricTile('success', c, { spark: false })].join('');
+  const MS = [['chain_offered', 'Chain offered', 'demo_chain_offered'], ['chain_picked', 'Chain picked (e.g. Serum)', 'demo_chain_picked'], ['chain_heard', 'Chain heard', 'demo_chain_heard'], ['tour_done', 'Tour finished', 'demo_chain_tour_done'],
+    ['multi_lane', 'First multi-lane motion', 'first_multi_lane_motion'], ['new_variation', 'First new variation', 'first_new_variation'], ['lock_explore', 'First lock and explore', 'first_lock_and_explore']];
+  const bars = MS.map(([k, n, ev]) => { const v = A.act ? A.ms[k] / A.act : null; return `<div class="hbar"><div class="nm">${esc(n)}<small>${esc(ev)}</small></div><div class="tr"><i style="width:${v == null ? 0 : Math.min(100, v * 100).toFixed(1)}%"></i></div><div class="v">${fmt.pct(v)}</div></div>`; }).join('');
+  const newEv = [['Played with audio out', 'audio_out'], ['Curves moving', 'motion_running'], ['Minutes in session', 'session_minutes']].map(([n, ev]) => `<div class="hbar"><div class="nm">${esc(n)}<small>${esc(ev)}</small></div><div class="tr"></div><div class="v"><span class="tag new">new</span></div></div>`).join('');
+  const rule = `mapped ≥ ${S.succ.lanes} lanes · ≥ ${S.succ.minutes} min in session${S.succ.audio ? ' · played with audio out' : ''}${S.succ.motion ? ' · curves moving' : ''}`;
+  el.innerHTML = `<div class="tiles">${prim}</div>
+    <p class="note">These two judge the demo. The steps below are diagnostic lights, never goals. ${openShare > 0.05 ? `<b>${fmt.pct(openShare)} of this range’s registrants are under 30 days old</b>, so Demo to Purchase reads low until their window closes.` : ''} ${A.regOwn ? `${fmt.num(A.regOwn)} registrants already owned Stride and never count as demo-acquired.` : ''}</p>
+    <div class="tiles">${diag}</div>
+    <div class="grid-2">
+      ${card('Activation success', esc(rule), `<p class="note">Success is the one event that says a demo user got what we promised. The plugin does not report lanes mapped, minutes in session or audio out yet, so this stays empty until a plugin release sends them. The rule is ready in Settings; once the events land, this card shows whether successes buy more than other activations.</p><button type="button" class="link" data-go="settings" style="margin-top:8px">Edit the success rule</button>`)}
+      ${card('What activated users reached in the plugin', 'share of activations with an email, from vst_event', `<div class="hbars">${bars}${newEv}</div>`)}
+    </div>`;
+}
+
+/* ---------- Email flows: numbers, switches, and the copy itself ---------- */
+const FLOW_GROUPS = [['A', 'A · Demo lifecycle'], ['B', 'B · Checkout recovery'], ['C', 'C · After a purchase'], ['D', 'D · Winback'], ['T', 'Transactional'], ['R', 'Retired']];
+const GOAL = { buy: 'Buys Stride', session: 'Books the 1:1 session', collection: 'Buys the Collection', click: 'Clicks through', answer: 'Answers the question', none: 'Receipt, no goal' };
+const FAMILY = { FLOWS_INSTANT_MODE: 'Instant mails', DEMO_LIFECYCLE_MODE: 'Demo lifecycle', RECOVERY_MODE: 'Checkout recovery', POST_PURCHASE_MODE: 'After a purchase', WINBACK_MODE: 'Winback' };
+const FLAG_OF = { day_one_depth: 'A5', last_hours: 'A6', recovery_questions: 'B2', recovery_try: 'B3', session_offer: 'C2', first_build: 'C3', one_question: 'C4', referral_ask: 'C4B', collection_nudge: 'C5', discord: 'C6', winback_week: 'D1', winback_update: 'D2' };
+const FAMILY_OF = { demo_welcome: 'FLOWS_INSTANT_MODE', purchase_welcome: 'FLOWS_INSTANT_MODE', referral_ask: 'FLOWS_INSTANT_MODE', collection: 'FLOWS_INSTANT_MODE', session_booking: 'FLOWS_INSTANT_MODE',
+  activate_nudge: 'DEMO_LIFECYCLE_MODE', friction_rescue: 'DEMO_LIFECYCLE_MODE', onboard: 'DEMO_LIFECYCLE_MODE', day_one_depth: 'DEMO_LIFECYCLE_MODE', last_hours: 'DEMO_LIFECYCLE_MODE', post_demo: 'DEMO_LIFECYCLE_MODE', post_demo_unused: 'DEMO_LIFECYCLE_MODE', ext_post: 'DEMO_LIFECYCLE_MODE',
+  checkout_recovery: 'RECOVERY_MODE', recovery_questions: 'RECOVERY_MODE', recovery_try: 'RECOVERY_MODE',
+  session_offer: 'POST_PURCHASE_MODE', first_build: 'POST_PURCHASE_MODE', one_question: 'POST_PURCHASE_MODE', collection_nudge: 'POST_PURCHASE_MODE', discord: 'POST_PURCHASE_MODE',
+  winback_week: 'WINBACK_MODE', winback_update: 'WINBACK_MODE' };
+const flowName = f => f.id.replace(/_/g, ' ');
+const WORD_STATE = { live: 'Live', dry: 'Dry run', off: 'Off' };
+function flowLight(f, short) {
+  const st = f.st || {};
+  if (st.state === 'retired') return light('info', 'Retired');
+  if (st.state == null) return light('nodata', short ? 'Unknown' : 'Not reported yet');
+  if (st.state === 'live') return light('good', 'Live');
+  if (st.state === 'dry') return light('warn', 'Dry run');
+  if (short && st.needs) return `<span title="${esc(st.needs)}">${light('nodata', 'Off')}</span>`;
+  return light('nodata', st.needs ? 'Off, ' + st.needs : 'Off');
+}
+
+// The copy, live from Firestore (mail_copy). Both of you may read and write it; nothing in it
+// reaches a customer until it is Published, and flows then serves it on the next send.
+const COPY = 'mail_copy', VERSIONS = 'mail_copy_versions';
+let MAILS = {}, MAILS_ERR = null, MAILS_READY = false;
+const ED = { mail: null, subject: '', text: '', html: '', tab: 'text', dirty: false, fromDraft: false };
+let SEL_FLOW = null, HISTORY = { mail: null, rows: null };
+function watchCopy() {
+  fdb.collection(COPY).onSnapshot(snap => {
+    MAILS = {}; snap.forEach(d => { MAILS[d.id] = d.data() || {}; }); MAILS_READY = true; MAILS_ERR = null;
+    if (TAB === 'email' && !ED.dirty) renderEmail(ctx()); else if (TAB === 'email') paintStatus();
+  }, e => { MAILS_ERR = e.message; MAILS_READY = true; if (TAB === 'email') renderEmail(ctx()); });
+}
+function openEditor(id, force) {
+  if (ED.mail === id && !force) return;
+  const m = MAILS[id];
+  ED.mail = id; ED.dirty = false; ED.fromDraft = false;
+  if (!m) { ED.subject = ED.text = ED.html = ''; return; }
+  const hasDraft = m.draft_subject != null || m.draft_text != null || m.draft_html != null;
+  ED.fromDraft = hasDraft;
+  ED.subject = hasDraft ? (m.draft_subject ?? m.subject ?? '') : (m.subject ?? m.file_subject ?? '');
+  ED.text = hasDraft ? (m.draft_text ?? m.text ?? '') : (m.text ?? m.file_text ?? '');
+  ED.html = hasDraft ? (m.draft_html ?? m.html ?? '') : (m.html ?? m.file_html ?? '');
+  HISTORY = { mail: id, rows: null };
+  loadHistory(id);
+}
+const SLOT = /\{[a-z0-9_]+\}/gi;
+const slotsOf = s => [...new Set(String(s || '').match(SLOT) || [])].sort();
+const stripTags = h => String(h || '').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ');
+function fileSlots(m) {
+  if (m.file_slots) return m.file_slots;
+  return { subject: slotsOf(m.file_subject), text: slotsOf(m.file_text), html: slotsOf(m.file_html) };
+}
+function copyChecks(m) {
+  const out = [], PART = { subject: 'The subject', text: 'The text part', html: 'The HTML part' };
+  if (!m) return out;
+  const fs = fileSlots(m);
+  for (const part of ['subject', 'text', 'html']) {
+    const have = slotsOf(ED[part]), ref = fs[part] || [];
+    const unknown = have.filter(x => !ref.includes(x)), missing = ref.filter(x => !have.includes(x));
+    if (unknown.length) out.push(['bad', `${PART[part]} uses ${unknown.join(' ')}, which nothing fills. Flows would ignore this publish and keep sending the file.`]);
+    if (missing.length) out.push(['warn', `${PART[part]} drops ${missing.join(' ')}${missing.some(x => /url|block|line|offer|answer/.test(x)) ? ': that link or block will be missing from the mail' : ''}.`]);
+  }
+  if (!ED.subject.trim()) out.push(['bad', 'A subject is required.']);
+  if (!ED.text.trim() && !ED.html.trim()) out.push(['bad', 'The mail needs a body.']);
+  const all = ED.subject + '\n' + ED.text + '\n' + stripTags(ED.html);
+  if (/[–—]/.test(all)) out.push(['bad', 'An em or en dash is in the copy. House rule: none, anywhere. Use a comma, a period or a colon.']);
+  if (/\b(AI|A\.I\.|artificial intelligence|machine learning|LLM|Gemini|GPT)\b/i.test(all)) out.push(['bad', 'The copy mentions AI or a model. House rule: never in customer copy.']);
+  if (ED.subject.length > 60) out.push(['warn', `The subject is ${ED.subject.length} characters; keep it to 60 so phones show it whole.`]);
+  if (/[A-Z]/.test(ED.subject) && ED.subject === ED.subject.toUpperCase()) out.push(['warn', 'The subject is all capitals.']);
+  if (/\bSTOP\b/.test(m.file_text || '') && !/\bSTOP\b/.test(ED.text)) out.push(['warn', 'The file has a STOP line and this text does not. Keep the opt-out line.']);
+  const norm = a => a.map(x => x.replace(/_html\}$/, '}'));
+  if (JSON.stringify(norm(slotsOf(ED.text))) !== JSON.stringify(norm(slotsOf(ED.html)))) out.push(['warn', 'The text and HTML parts use different placeholders, so the two versions of the mail differ.']);
+  return out;
+}
+function liveCopy(m) {
+  if (!m) return null;
+  return m.status === 'published' ? { subject: m.subject, text: m.text, html: m.html } : { subject: m.file_subject ?? m.subject, text: m.file_text ?? m.text, html: m.file_html ?? m.html };
+}
+async function loadHistory(id) {
+  try {
+    const snap = await fdb.collection(VERSIONS).where('mail', '==', id).get();
+    const rows = snap.docs.map(d => d.data() || {}).sort((a, b) => (b.version || 0) - (a.version || 0));
+    if (HISTORY.mail === id) { HISTORY.rows = rows; paintHistory(); }
+  } catch (e) { if (HISTORY.mail === id) { HISTORY.rows = []; HISTORY.err = e.message; paintHistory(); } }
+}
+function paintHistory() {
+  const box = $('ed-history'); if (!box) return;
+  if (HISTORY.rows == null) { box.innerHTML = '<p class="note">Reading…</p>'; return; }
+  if (HISTORY.err) { box.innerHTML = `<p class="note">${esc(HISTORY.err)}</p>`; return; }
+  if (!HISTORY.rows.length) { box.innerHTML = '<p class="note">Never published from here: every send uses the file in the repo.</p>'; return; }
+  box.innerHTML = HISTORY.rows.map(r => `<div class="h"><b>v${r.version}</b><span>${esc(fmtTime(r.published_at_ms))} · ${esc((r.published_by || '').split('@')[0])}</span><span style="flex:1;min-width:120px">${esc(r.subject || '')}</span><button type="button" class="link" data-load="${r.version}">Load into the editor</button></div>`).join('');
+  box.querySelectorAll('[data-load]').forEach(b => b.addEventListener('click', () => {
+    const r = HISTORY.rows.find(x => String(x.version) === b.dataset.load); if (!r) return;
+    ED.subject = r.subject || ''; ED.text = r.text || ''; ED.html = r.html || ''; ED.dirty = true;
+    renderEmail(ctx()); toast(`v${r.version} is in the editor. Publish makes it a new version.`);
+  }));
+}
+function paintStatus() {
+  const m = MAILS[ED.mail], el = $('ed-status'); if (!el) return;
+  if (!m) { el.innerHTML = ''; return; }
+  const st = m.status || 'file';
+  el.innerHTML = `<span class="pill ${st === 'published' ? 'published' : st === 'draft' ? 'draft' : ''}">${st === 'published' ? 'Published v' + (m.version || 1) : st === 'draft' ? 'Draft (old editor)' : 'From the file'}</span>
+    ${m.draft_at_ms ? `<span class="saved">draft saved ${esc(fmtTime(m.draft_at_ms))} by ${esc((m.draft_by || '').split('@')[0])}</span>` : ''}
+    ${ED.dirty ? '<span class="saved" style="color:var(--warn)">unsaved changes</span>' : ''}`;
+}
+function paintChecks() {
+  const m = MAILS[ED.mail], box = $('ed-checks'); if (!box || !m) return;
+  const cs = copyChecks(m), fs = fileSlots(m), have = new Set([...slotsOf(ED.subject), ...slotsOf(ED.text), ...slotsOf(ED.html)]);
+  const ref = new Set([...(fs.subject || []), ...(fs.text || []), ...(fs.html || [])]);
+  const chips = [...new Set([...ref, ...have])].sort().map(x => `<span class="chip${!ref.has(x) ? ' bad' : !have.has(x) ? ' miss' : ''}" title="${!ref.has(x) ? 'nothing fills this' : !have.has(x) ? 'in the file, not in this version' : 'filled by the code'}">${esc(x)}</span>`).join('');
+  const same = (() => { const l = liveCopy(m); return l && l.subject === ED.subject && l.text === ED.text && l.html === ED.html; })();
+  box.innerHTML = `<div class="chips">${chips || '<span class="note">No placeholders.</span>'}</div>
+    <ul class="checks" style="margin-top:10px">${cs.length ? cs.map(([k, msg]) => `<li>${ICON[k === 'bad' ? 'bad' : 'warn']}<span>${esc(msg)}</span></li>`).join('') : `<li>${ICON.good}<span>Placeholders match the file, and the house rules hold.</span></li>`}${same ? `<li>${ICON.info}<span>Same as what sends now.</span></li>` : ''}</ul>
+    <p class="saved" style="margin-top:6px">Subject ${ED.subject.length} / 60</p>`;
+  const pub = $('ed-publish'); if (pub) pub.disabled = cs.some(x => x[0] === 'bad') || same;
+}
+function renderEmail(c) {
+  const el = $('p-email'), A = c.A, P = c.P;
+  const trackOn = PAY.mail.tracking && PAY.mail.tracking.opens_since_ms;
+  const tiles = [
+    tileHTML({ label: 'Mails sent', value: fmt.num(A.mail.s), d: delta(A.mail.s, P.mail.s, 'none'), sp: spark(perDay(c.idx, a => a.mail.s)), src: 'the send log' }),
+    metricTile('deliv', c), metricTile('openR', c), metricTile('clickR', c), metricTile('conv', c), metricTile('bounce', c),
+    tileHTML({ label: 'Revenue after a mail', value: fmt.usd0(A.mail.rv), d: delta(A.mail.rv, P.mail.rv, 'high'), sp: spark(perDay(c.idx, a => a.mail.rv)), src: 'last mail before the purchase', lit: light('info') }),
+  ].join('');
+  if (!SEL_FLOW || !FL[SEL_FLOW]) { let best = null; for (const f of FLOWS) if (!best || A.mailPer[f.id].s > A.mailPer[best.id].s) best = f; SEL_FLOW = best ? best.id : FLOWS[0].id; }
+  if (MAILS_READY) openEditor(SEL_FLOW);
+  const rows = FLOW_GROUPS.map(([g, title]) => {
+    const body = FLOWS.filter(f => f.group === g).map(f => {
+      const x = A.mailPer[f.id], a = { mail: x };
+      const subj = (MAILS[f.id] && (MAILS[f.id].status === 'published' ? MAILS[f.id].subject : (MAILS[f.id].file_subject || MAILS[f.id].subject))) || '';
+      const goalCell = x.s && f.goal !== 'none' ? `${fmt.num(x.cv)}${PURCHASE_GOAL(f.goal) && x.s ? ` (${fmt.pct(x.cv / x.s)})` : ''}` : '—';
+      return `<tr class="clickable${f.id === SEL_FLOW ? ' sel' : ''}" data-flow="${f.id}" tabindex="0">
+        <td><span class="code">${esc(f.code || '·')}</span>${esc(flowName(f))}${subj ? `<small class="subj">${esc(subj)}</small>` : ''}</td>
+        <td class="l">${esc(f.when)}</td><td class="l">${flowLight(f, true)}</td>
+        <td>${x.s ? fmt.num(x.s) : '—'}</td><td>${x.tr ? cellLit('deliv', a) : '—'}</td><td>${x.tro ? cellLit('openR', a) : '—'}</td><td>${x.tro ? cellLit('clickR', a) : '—'}</td>
+        <td class="l">${esc(GOAL[f.goal])}</td><td>${goalCell}</td><td>${x.rv ? fmt.usd0(x.rv) : '—'}</td></tr>`;
+    }).join('');
+    return body ? `<tr class="grp"><td colspan="10">${esc(title)}</td></tr>${body}` : '';
+  }).join('');
+  const f = FL[SEL_FLOW], x = A.mailPer[f.id], fa = { mail: x };
+  const path = x.s ? `<div class="fpath">
+      ${frow('Sent', 'handed to Resend', x.s, x.s, '')}
+      ${frow('Delivered', `of ${fmt.num(x.tr)} Resend reported on`, x.dv, x.tr || x.s, rateOf('Delivery rate', 'deliv', fa))}
+      ${frow('Opened', trackOn ? 'pixel; Apple Mail inflates it' : 'tracking not on yet', x.o, x.tro || x.s, rateOf('Open rate', 'openR', fa))}
+      ${frow('Clicked', trackOn ? 'tracked link' : 'tracking not on yet', x.c, x.tro || x.s, rateOf('Click rate', 'clickR', fa))}
+      ${f.goal !== 'none' ? frow(`${GOAL[f.goal]} within 7 days`, 'after the mail only', x.cv, x.s, PURCHASE_GOAL(f.goal) ? rateOf('Goal rate', 'conv', fa) : '') : ''}
+    </div>` : `<p class="empty">No sends in this range.</p>`;
+  el.innerHTML = `<div class="tiles">${tiles}</div>
+    ${trackOn ? '' : `<p class="note"><b>Opens and clicks are not tracked yet.</b> They start the day open and click tracking is switched on in Resend (with the flows deploy). Sends, delivery and bounces are read for every mail from then on too; goals and revenue already count from the send log.</p>`}
+    ${card('Every flow, in spec order', 'select a flow for its path, its switch and its copy', `<div class="tbl-wrap"><table class="tbl" id="flow-table"><thead><tr><th>Flow</th><th class="l">Sent when</th><th class="l">State</th><th>Sent</th><th>Delivered</th><th>Opened</th><th>Clicked</th><th class="l">Goal</th><th>Goal within 7 days</th><th>Revenue</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <p class="note" style="margin-top:10px">A goal counts only when it happens after the mail and within 7 days of it. A purchase can count for more than one mail, but its revenue goes to the last mail before it, so the Revenue column sums once. Unsubscribes are not measured: an opt-out is a STOP reply, handled by hand. The channel and attribution filters don’t apply here.</p>`)}
+    <div class="grid-2">
+      ${card(`${esc(f.code ? f.code + ' · ' : '')}${esc(flowName(f))}`, esc(f.when), path)}
+      ${card('Switch', 'what decides whether this mail goes out', switchHTML(f))}
+    </div>
+    ${card('Copy', 'edit, save a draft, publish; the next send uses a published version', editorHTML(f), ' id="ed-card"')}
+    ${IS_ADMIN ? card('Runs', 'each run carries a family of mails; a mail leaves only when its run and its own switch are both live', runsHTML()) : ''}
+    <div class="card" id="flow-days"><div class="card-h"><h2>${esc(flowName(f))}: sends, opens and clicks by day</h2><span class="sub">counted on the day the mail went out</span></div><div></div></div>`;
+  if (x.s) {
+    lineChart(document.querySelector('#flow-days').lastElementChild, { labels: c.idx.map(d => shortDate(dates[d])), series: [
+      { name: 'Sent', color: 'var(--s1)', values: c.idx.map(d => f.d[d].s) },
+      { name: 'Opened', color: 'var(--s4)', values: c.idx.map(d => f.d[d].o) },
+      { name: 'Clicked', color: 'var(--s2)', values: c.idx.map(d => f.d[d].c) }], format: v => fmt.num(v) });
+  } else document.querySelector('#flow-days').lastElementChild.innerHTML = `<p class="empty">Nothing to chart: this flow sent nothing in the range.</p>`;
+  el.querySelectorAll('tr[data-flow]').forEach(tr => {
+    const go = async () => {
+      if (tr.dataset.flow === SEL_FLOW) return;
+      if (ED.dirty && !(await ask({ title: 'Leave unsaved changes?', body: `The copy of <b>${esc(flowName(FL[SEL_FLOW]))}</b> has changes that are not saved.`, yes: 'Leave them', danger: true }))) return;
+      SEL_FLOW = tr.dataset.flow; ED.mail = null; renderEmail(ctx());
+    };
+    tr.addEventListener('click', go);
+    tr.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  });
+  bindEditor(f); bindSwitches();
+}
+function segHTML(kind, key, now, disabled) {
+  const opts = [['off', 'Off'], ['dry', 'Dry'], ['live', 'Live'], ['', 'Use file']];
+  return `<div class="seg" role="group" aria-label="${esc(key)}">${opts.map(([v, lab]) => `<button type="button" data-sw="${kind}" data-key="${esc(key)}" data-v="${v}" aria-pressed="${String((now ?? '') === v)}"${disabled ? ' disabled title="Only Yossi can switch a flow"' : ''}>${lab}</button>`).join('')}</div>`;
+}
+function switchHTML(f) {
+  const fl = PAY.flows || {}, st = f.st || {};
+  if (st.state === 'retired') return '<p class="note">Retired on 2026-09-01. Kept so an old send can still be read.</p>';
+  const flag = FLAG_OF[f.id], fam = FAMILY_OF[f.id];
+  const reported = fl.reported_at_ms ? `as of the last run, ${esc(fmtTime(fl.reported_at_ms))}` : 'stride-flows has not reported yet';
+  const famNow = (fl.modes || {})[fam];
+  let out = `<div class="switch-row"><span class="k">State now<small>${reported}</small></span><span>${flowLight(f)}</span></div>
+    <div class="switch-row"><span class="k">${esc(FAMILY[fam] || fam)} run<small>file ${esc((fl.files && fl.files.modes && fl.files.modes[fam]) || '—')}${(fl.pending.modes || {})[fam] ? ` · dashboard ${esc(fl.pending.modes[fam])}` : ''}</small></span><span>${light(famNow === 'live' ? 'good' : famNow === 'dry' ? 'warn' : 'nodata', WORD_STATE[famNow] || '—')}</span></div>`;
+  if (flag) {
+    const pend = (fl.pending.flows || {})[flag];
+    out += `<div class="switch-row"><span class="k">This mail’s own switch (FLOW_${esc(flag)})<small>now ${esc(WORD_STATE[(fl.flags || {})[flag]] || '—')} · file ${esc(WORD_STATE[(fl.files && fl.files.flows && fl.files.flows[flag])] || '—')}${pend ? ` · dashboard ${esc(WORD_STATE[pend])}` : ''}</small></span>${segHTML('flow', flag, pend || '', !IS_ADMIN)}
+      <span class="d">Dry logs what it would send and sends nothing. A switch set here reaches the next run, within 30 minutes; “Use file” hands it back to functions/.env.veero-next.</span></div>`;
+  } else out += `<p class="note" style="margin-top:8px">This mail has no switch of its own: it sends whenever its run is live${st.needs ? `, and it ${esc(st.needs)}` : ''}.${IS_ADMIN ? ' The runs are below the copy.' : ''}</p>`;
+  return out;
+}
+function runsHTML() {
+  const fl = PAY.flows || {};
+  return Object.entries(FAMILY).map(([k, lab]) => {
+    const now = (fl.modes || {})[k], pend = (fl.pending.modes || {})[k], file = fl.files && fl.files.modes && fl.files.modes[k];
+    return `<div class="switch-row"><span class="k">${esc(lab)}<small>${esc(k)} · now ${esc(WORD_STATE[now] || '—')} · file ${esc(WORD_STATE[file] || '—')}${pend ? ` · dashboard ${esc(WORD_STATE[pend])}` : ''}</small></span>${segHTML('mode', k, pend || '', !IS_ADMIN)}</div>`;
+  }).join('');
+}
+function bindSwitches() {
+  document.querySelectorAll('[data-sw]').forEach(b => b.addEventListener('click', async () => {
+    const kind = b.dataset.sw, key = b.dataset.key, v = b.dataset.v || null;
+    const what = kind === 'flow' ? `FLOW_${key}` : `the ${FAMILY[key]} run`;
+    const body = v === 'live' ? `Real customers start getting ${kind === 'flow' ? 'this mail' : 'every mail in this run whose own switch is live'} from the next run, within 30 minutes.`
+      : v === 'off' ? `${kind === 'flow' ? 'This mail' : 'Every mail in this run'} stops from the next run.` : v === 'dry' ? 'The next runs log what they would send and send nothing.' : 'The value in functions/.env.veero-next applies again from the next run.';
+    if (!(await ask({ title: `${v ? 'Set ' + what + ' to ' + WORD_STATE[v] : 'Hand ' + what + ' back to the file'}?`, body, yes: v ? 'Switch' : 'Use the file', danger: v === 'live' }))) return;
+    try {
+      await api('flow_switch', kind === 'flow' ? { flow: key, value: v } : { mode: key, value: v });
+      const pend = PAY.flows.pending[kind === 'flow' ? 'flows' : 'modes'];
+      if (v) pend[key] = v; else delete pend[key];
+      toast('Switched. The next run picks it up.');
+      renderEmail(ctx());
+    } catch (e) { toast('Not switched: ' + e.message, true); }
+  }));
+}
+function editorHTML(f) {
+  if (!MAILS_READY) return '<p class="note"><span class="spin" aria-hidden="true"></span>Reading the copy…</p>';
+  if (MAILS_ERR) return `<p class="note">The copy could not be read: ${esc(MAILS_ERR)}</p>`;
+  const m = MAILS[f.id];
+  if (!m) return `<p class="note">This mail’s copy is not in the dashboard yet. It is seeded from the repo with the flows deploy (tools/seed_copy.py); until then it can only be edited in stride-flows.</p>`;
+  const parts = m.file_parts && Object.keys(m.file_parts).length ? `<details class="parts"><summary>Pieces the code fills in (${Object.keys(m.file_parts).length}), read-only</summary>${Object.entries(m.file_parts).map(([n, t]) => `<p class="kicker" style="margin-top:10px">${esc(n)}</p><pre class="part">${esc(t)}</pre>`).join('')}</details>` : '';
+  return `<div class="editor">
+    <div class="row" id="ed-status"></div>
+    ${ED.fromDraft ? '<p class="note">The editor opened your saved draft. What sends now is the published or file copy; Discard draft goes back to it.</p>' : ''}
+    <div class="field"><label for="ed-subject">Subject</label><input class="subject" id="ed-subject" value="${esc(ED.subject)}" autocomplete="off"></div>
+    <div class="seg" id="ed-tabs"><button type="button" data-t="text" aria-pressed="${ED.tab === 'text'}">Text</button><button type="button" data-t="html" aria-pressed="${ED.tab === 'html'}">HTML</button><button type="button" data-t="preview" aria-pressed="${ED.tab === 'preview'}">Preview</button></div>
+    <textarea id="ed-text" spellcheck="true"${ED.tab !== 'text' ? ' hidden' : ''} aria-label="Plain-text part">${esc(ED.text)}</textarea>
+    <textarea id="ed-html" spellcheck="false"${ED.tab !== 'html' ? ' hidden' : ''} aria-label="HTML part">${esc(ED.html)}</textarea>
+    <iframe id="ed-preview" sandbox=""${ED.tab !== 'preview' ? ' hidden' : ''} title="Preview of the HTML part"></iframe>
+    <div id="ed-checks"></div>
+    ${parts}
+    <div class="row">
+      <button type="button" class="btn" id="ed-draft">Save draft</button>
+      <button type="button" class="btn primary" id="ed-publish">Publish</button>
+      ${ED.fromDraft || m.draft_at_ms ? '<button type="button" class="btn" id="ed-discard">Discard draft</button>' : ''}
+      <button type="button" class="btn" id="ed-revert">Revert to file</button>
+    </div>
+    <p class="note">A draft is kept beside the mail and reaches nobody. Publish makes a new version that flows serves from its next send, with no deploy; flows refuses a version with a placeholder it cannot fill and sends the file instead. Revert puts the repo’s copy back.</p>
+    <div><p class="kicker">Published versions</p><div class="hist" id="ed-history"></div></div>
+  </div>`;
+}
+function bindEditor(f) {
+  const m = MAILS[f.id];
+  if (!m || !$('ed-subject')) { return; }
+  paintStatus(); paintChecks(); paintHistory();
+  const onEdit = () => { ED.subject = $('ed-subject').value; ED.text = $('ed-text').value; ED.html = $('ed-html').value; ED.dirty = true; paintStatus(); paintChecks(); };
+  ['ed-subject', 'ed-text', 'ed-html'].forEach(id => $(id).addEventListener('input', onEdit));
+  const setT = t => { ED.tab = t; $('ed-text').hidden = t !== 'text'; $('ed-html').hidden = t !== 'html'; $('ed-preview').hidden = t !== 'preview';
+    document.querySelectorAll('#ed-tabs button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.t === t)));
+    if (t === 'preview') $('ed-preview').srcdoc = ED.html || '<p style="font:14px sans-serif;color:#888">No HTML part.</p>'; };
+  document.querySelectorAll('#ed-tabs button').forEach(b => b.addEventListener('click', () => setT(b.dataset.t)));
+  if (ED.tab === 'preview') setT('preview');
+  const who = () => (USER && USER.email) || '';
+  $('ed-draft').addEventListener('click', async () => {
+    try {
+      await fdb.collection(COPY).doc(f.id).set({ draft_subject: ED.subject, draft_text: ED.text, draft_html: ED.html, draft_at_ms: Date.now(), draft_by: who() }, { merge: true });
+      ED.dirty = false; ED.fromDraft = true; toast('Draft saved. Nothing changed for customers.'); paintStatus();
+    } catch (e) { toast('Draft not saved: ' + e.message, true); }
+  });
+  $('ed-publish').addEventListener('click', async () => {
+    const cs = copyChecks(m);
+    if (cs.some(x => x[0] === 'bad')) { toast('Fix the red items first.', true); return; }
+    const v = (+m.version || 0) + 1, warns = cs.filter(x => x[0] === 'warn');
+    const body = `The next <b>${esc(flowName(f))}</b> send uses this copy instead of ${m.status === 'published' ? 'v' + (m.version || 1) : 'the file'}. ${(f.st || {}).state === 'live' ? 'This mail is <b>live</b>, so real customers get it.' : 'This mail is not live right now, so nobody gets it until its switch is on.'}${warns.length ? `<ul>${warns.map(w => `<li>${esc(w[1])}</li>`).join('')}</ul>` : ''}`;
+    if (!(await ask({ title: `Publish ${flowName(f)} v${v}?`, body, yes: `Publish v${v}` }))) return;
+    const now = Date.now();
+    try {
+      await fdb.collection(VERSIONS).doc(`${f.id}__${v}`).set({ mail: f.id, version: v, subject: ED.subject, text: ED.text, html: ED.html, published_at_ms: now, published_by: who() });
+      await fdb.collection(COPY).doc(f.id).set({ mail: f.id, status: 'published', subject: ED.subject, text: ED.text, html: ED.html, version: v,
+        updated_at_ms: now, updated_by: who(), published_at_ms: now,
+        draft_subject: DEL(), draft_text: DEL(), draft_html: DEL(), draft_at_ms: DEL(), draft_by: DEL() }, { merge: true });
+      ED.dirty = false; ED.fromDraft = false; toast(`v${v} published. The next send uses it.`);
+      HISTORY = { mail: f.id, rows: null }; loadHistory(f.id);
+    } catch (e) { toast('Not published: ' + e.message + (/permission|exists/i.test(e.message) ? ' (someone may have published at the same moment; reload)' : ''), true); }
+  });
+  const disc = $('ed-discard');
+  if (disc) disc.addEventListener('click', async () => {
+    if (!(await ask({ title: 'Discard the draft?', body: 'The editor goes back to the copy that sends now.', yes: 'Discard', danger: true }))) return;
+    try {
+      await fdb.collection(COPY).doc(f.id).set({ draft_subject: DEL(), draft_text: DEL(), draft_html: DEL(), draft_at_ms: DEL(), draft_by: DEL() }, { merge: true });
+      ED.mail = null; ED.dirty = false; toast('Draft discarded.');
+    } catch (e) { toast('Not discarded: ' + e.message, true); }
+  });
+  $('ed-revert').addEventListener('click', async () => {
+    if (!(m.file_subject || m.file_text || m.file_html)) { toast('No file copy stored for this mail yet.', true); return; }
+    if (!(await ask({ title: `Put the repo’s copy back for ${flowName(f)}?`, body: 'The next send uses the file again. Published versions stay in the history and can be loaded back.', yes: 'Revert to file', danger: true }))) return;
+    try {
+      await fdb.collection(COPY).doc(f.id).set({ status: 'file', subject: m.file_subject || '', text: m.file_text || '', html: m.file_html || '',
+        updated_at_ms: Date.now(), updated_by: who(), draft_subject: DEL(), draft_text: DEL(), draft_html: DEL(), draft_at_ms: DEL(), draft_by: DEL() }, { merge: true });
+      ED.mail = null; ED.dirty = false; toast('Back on the file.');
+    } catch (e) { toast('Not reverted: ' + e.message, true); }
+  });
+}
+
+/* ---------- Expenses ---------- */
+function renderExpenses() {
+  const months = [];
+  for (let d = 0; d < DAYS; d++) { const k = dates[d].getUTCFullYear() * 12 + dates[d].getUTCMonth(); let m = months.find(x => x.k === k); if (!m) { m = { k, label: MON[dates[d].getUTCMonth()], y: dates[d].getUTCFullYear(), mo: dates[d].getUTCMonth(), idx: [] }; months.push(m); } m.idx.push(d); }
+  const show = months.slice(-4);
+  const cols = show.map(m => { const a = agg(m.idx, 'all'); const tools = toolsFor(m.idx); return { m, a, tools, partial: m.idx.length < new Date(Date.UTC(m.y, m.mo + 1, 0)).getUTCDate() }; });
+  const line = (name, src, f, strong) => `<tr${strong ? ' style="font-weight:600"' : ''}><td>${esc(name)}</td>${cols.map(c => `<td>${fmt.usd0(f(c))}</td>`).join('')}<td class="l">${src ? `<span class="src">${esc(src)}</span>` : ''}</td></tr>`;
+  const gsrc = (PAY.sources.google || {}).source || 'none';
+  const rows = [
+    line('Gross receipts', 'Paddle / LS', c => c.a.gross),
+    line('Tax held for the authorities', 'Paddle / LS', c => -c.a.tax),
+    line('Refunds', 'Paddle / LS', c => -c.a.refundAmt),
+    line('Net revenue', '', c => c.a.gross - c.a.tax - c.a.refundAmt, true),
+    line('Meta ads', 'Meta API', c => -c.a.metaSpend),
+    line('Google ads', gsrc === 'api' ? 'Google API' : 'typed in', c => -c.a.googleSpend),
+    line('Payment fees', 'Paddle / LS', c => -c.a.fees),
+    line('Tools', 'Settings', c => -c.tools),
+    line('Net profit', '', c => c.a.gross - c.a.tax - c.a.refundAmt - c.a.spend - c.a.fees - c.tools, true),
+  ].join('');
+  const tools = S.tools.length ? S.tools.map(t => `<tr><td>${esc(t.name)}</td><td>${fmt.usd(+t.usd)}</td></tr>`).join('') : '';
+  $('p-expenses').innerHTML = `
+    ${card('Where the money goes, by month', 'all channels; the filter row does not apply to a ledger', `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Line</th>${cols.map(c => `<th>${esc(c.m.label)}${c.partial ? ' (part)' : ''}</th>`).join('')}<th class="l">Source</th></tr></thead><tbody>${rows}</tbody></table></div>`)}
+    <div class="grid-2">${card('Tools, per month', 'typed in once in Settings, edited when a bill changes', tools ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Tool</th><th>Per month</th></tr></thead><tbody>${tools}</tbody></table></div>` : '<p class="empty">No tools entered yet. Add hosting, mail, design tools and the rest in Settings.</p><button type="button" class="link" data-go="settings">Open Settings</button>')}
+    ${card('Reading the ledger', '', `<p class="note">Tax is money held for the authorities, so it leaves gross receipts before anything is called revenue. Refunds come off the month of the original order, so a month’s profit can still move for a few weeks after it ends. Meta spend is converted from shekels at today’s rate (${esc(srcNote('fx'))}). The first and last months are part months.</p>`)}</div>`;
+}
+
+/* ---------- CRM ---------- */
+function renderCRM() {
+  $('p-crm').innerHTML = card('CRM', 'every contact and customer, unchanged', `<p class="note">The CRM table stays where it is, with its edits (licences, onboarding, contacted). It opens in its own tab so both pages keep their state.</p><p style="margin-top:12px"><a class="btn primary" href="/admin.html" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block">Open the CRM</a></p>`);
+}
+
+/* ---------- Settings ---------- */
+const UNITS = { pct: ['%', 100], pct2: ['%', 100], usd: ['$', 1], x: ['×', 1], dec: ['', 1], secs: ['s', 1] };
+function renderSettings(c) {
+  const H = c.H;
+  const rows = METRICS.map(m => {
+    const u = UNITS[m.unit], s = S.metrics[m.id];
+    const show = v => +(v * u[1]).toFixed(m.unit === 'pct2' ? 2 : m.unit === 'pct' ? 1 : 2);
+    const j = H.per[m.id];
+    return `<tr><td>${esc(m.label)}</td><td class="l">${esc(m.sec === 'coverage' ? 'Coverage' : SECTIONS.find(x => x.id === m.sec).label)}</td><td class="l">${m.better === 'high' ? 'Higher' : 'Lower'}</td>
+      <td><input class="num" type="number" step="any" id="g-${m.id}" data-m="${m.id}" data-k="g" value="${show(s.g)}" aria-label="${esc(m.label)} green at"><span class="unit">${u[0]}</span></td>
+      <td><input class="num" type="number" step="any" id="r-${m.id}" data-m="${m.id}" data-k="r" value="${show(s.r)}" aria-label="${esc(m.label)} red at"><span class="unit">${u[0]}</span></td>
+      <td>${m.sec === 'coverage' ? '<span class="src">not scored</span>' : `<input class="num w" type="number" min="0" step="1" id="w-${m.id}" data-m="${m.id}" data-k="w" value="${s.w}" aria-label="${esc(m.label)} weight">`}</td>
+      <td>${fmtM(m.id, j.v)}</td><td>${j.score == null ? '—' : Math.round(j.score)}</td><td>${light(j.state)}</td></tr>`;
+  }).join('');
+  let num = 0, den = 0;
+  const calc = SECTIONS.map(s => { const v = H.sec[s.id], W = +S.secW[s.id] || 0; if (v != null && W) { num += v * W; den += W; }
+    return `<tr><td>${esc(s.label)}</td><td>${v == null ? '—' : v.toFixed(1)}</td><td><input class="num w" type="number" min="0" step="1" id="sw-${s.id}" data-sec="${s.id}" value="${W}" aria-label="${esc(s.label)} weight"></td><td>${v == null || !W ? '—' : (v * W).toFixed(0)}</td></tr>`; }).join('');
+  const camps = [...new Map(ADS.map(a => [a.campaign_id, a])).values()].filter(a => a.campaign_id);
+  const campRows = camps.map(a => `<tr><td>${esc(a.campaign)}</td><td><select class="sel" data-camp="${esc(a.campaign_id)}"><option value="purchase"${kindOf(a) === 'purchase' ? ' selected' : ''}>Purchase</option><option value="demo"${kindOf(a) === 'demo' ? ' selected' : ''}>Demo</option></select></td></tr>`).join('');
+  const toolRows = S.tools.map((t, k) => `<tr><td><input class="txt" data-tool="${k}" data-f="name" value="${esc(t.name)}" aria-label="Tool name" style="width:100%"></td><td><input class="num" type="number" min="0" step="any" data-tool="${k}" data-f="usd" value="${+t.usd}" aria-label="${esc(t.name)} per month"><span class="unit">$</span></td><td><button type="button" class="link" data-tool-del="${k}">Remove</button></td></tr>`).join('');
+  $('p-settings').innerHTML = `
+    ${card('Benchmarks per metric', 'green at, red at, and how much each counts in its section', `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Metric</th><th class="l">Section</th><th class="l">Better</th><th>Green at</th><th>Red at</th><th>Weight</th><th>Now</th><th>Score</th><th>Light</th></tr></thead><tbody>${rows}</tbody></table></div>`)}
+    <div class="grid-2">
+      ${card('The health calculator', 'sections × weights = the funnel score', `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Section</th><th>Score</th><th>Weight</th><th>Score × weight</th></tr></thead><tbody>${calc}</tbody><tfoot><tr><td>Funnel</td><td>${den ? (num / den).toFixed(1) : '—'}</td><td>${den}</td><td>${num.toFixed(0)} ÷ ${den}</td></tr></tfoot></table></div>
+        <div class="formula" style="margin-top:12px">metric score = 100 × clamp((value − red) ÷ (green − red), 0, 1)<br>section = Σ weight × metric score ÷ Σ weight<br>funnel = Σ section weight × section ÷ Σ section weight</div>
+        <div class="set-grid" style="margin-top:14px">
+          <div class="field"><label for="st-floor">Sample floor (denominator)</label><span><input class="num" type="number" min="0" step="1" id="st-floor" value="${S.floor}"><span class="unit">events</span></span></div>
+          <div class="field"><label for="st-green">Section green from</label><span><input class="num" type="number" min="0" max="100" step="1" id="st-green" value="${S.cutGreen}"></span></div>
+          <div class="field"><label for="st-amber">Section amber from</label><span><input class="num" type="number" min="0" max="100" step="1" id="st-amber" value="${S.cutAmber}"></span></div>
+        </div>`)}
+      <div class="stack">
+        ${card('Attribution', 'what the filter row’s models mean', `<div class="set-grid">
+          <div class="field"><label for="st-model">Default model</label><select class="sel" id="st-model"><option value="first"${S.model === 'first' ? ' selected' : ''}>First touch</option><option value="last"${S.model === 'last' ? ' selected' : ''}>Last touch</option><option value="blended"${S.model === 'blended' ? ' selected' : ''}>Blended</option></select></div>
+          <div class="field"><label for="st-look">Lookback for a touch</label><select class="sel" id="st-look">${[7, 14, 28, 60, 90, 180].map(v => `<option value="${v}"${S.lookback === v ? ' selected' : ''}>${v} days</option>`).join('')}</select></div>
+          <div class="field" style="grid-column:1/-1"><label for="st-first">Blended split: <b id="st-first-lab">${S.firstW}% first touch · ${100 - S.firstW}% last touch</b></label><input type="range" min="0" max="100" step="5" id="st-first" value="${S.firstW}"></div>
+        </div>`)}
+        ${card('Activation success', 'the rule, ready for when the plugin reports it', `<div class="set-grid">
+          <div class="field"><label for="su-lanes">Lanes mapped, at least</label><input class="num" type="number" min="0" step="1" id="su-lanes" value="${S.succ.lanes}"></div>
+          <div class="field"><label for="su-min">Minutes in session, at least</label><input class="num" type="number" min="0" step="1" id="su-min" value="${S.succ.minutes}"></div>
+          <label class="check"><input type="checkbox" id="su-audio"${S.succ.audio ? ' checked' : ''}> Played with audio out</label>
+          <label class="check"><input type="checkbox" id="su-motion"${S.succ.motion ? ' checked' : ''}> Curves moving</label>
+        </div>`)}
+      </div>
+    </div>
+    <div class="grid-2">
+      ${card('Campaigns', 'which Meta spend buys demos (cost per demo-acquired customer divides by it)', camps.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Campaign</th><th>Counts as</th></tr></thead><tbody>${campRows}</tbody></table></div><p class="note" style="margin-top:8px">A campaign whose name says demo, discovery, try or pass starts as Demo.</p>` : '<p class="empty">No Meta campaigns in the data.</p>')}
+      ${card('Tools, per month', 'the running costs the ledger subtracts', `${toolRows ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Tool</th><th>Per month</th><th></th></tr></thead><tbody>${toolRows}</tbody></table></div>` : '<p class="empty">None yet.</p>'}<button type="button" class="btn sm" id="tool-add" style="margin-top:10px">Add a tool</button>`)}
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" id="st-reset">Reset thresholds to defaults</button><span class="saved" id="st-saved">Shared: what you set here, Ido sees too, and the other way round.</span></div>`;
+  bindSettings();
+}
+function bindSettings() {
+  const root = $('p-settings');
+  const changed = (full) => { save(); if (full) renderSettings(ctx()); else refreshSettingsLive(ctx()); setBlendLabel(); };
+  root.querySelectorAll('input[data-m]').forEach(inp => inp.addEventListener('change', () => {
+    const m = MET[inp.dataset.m], k = inp.dataset.k, u = UNITS[m.unit];
+    const v = parseFloat(inp.value); if (!isFinite(v)) return;
+    S.metrics[m.id][k] = k === 'w' ? Math.max(0, v) : v / u[1];
+    changed();
+  }));
+  root.querySelectorAll('input[data-sec]').forEach(inp => inp.addEventListener('change', () => { const v = parseFloat(inp.value); if (isFinite(v)) { S.secW[inp.dataset.sec] = Math.max(0, v); changed(); } }));
+  const numSet = (id, fn) => { const e = $(id); e.addEventListener('change', () => { const v = parseFloat(e.value); if (isFinite(v)) { fn(v); changed(); } }); };
+  numSet('st-floor', v => { S.floor = Math.max(0, v); });
+  numSet('st-green', v => { S.cutGreen = v; });
+  numSet('st-amber', v => { S.cutAmber = v; });
+  numSet('su-lanes', v => { S.succ.lanes = Math.max(0, v); });
+  numSet('su-min', v => { S.succ.minutes = Math.max(0, v); });
+  $('su-audio').addEventListener('change', e => { S.succ.audio = e.target.checked; changed(); });
+  $('su-motion').addEventListener('change', e => { S.succ.motion = e.target.checked; changed(); });
+  $('st-model').addEventListener('change', e => { S.model = e.target.value; F.model = S.model; syncFilters(); changed(); });
+  $('st-look').addEventListener('change', e => { S.lookback = +e.target.value; changed(); });
+  const rng = $('st-first');
+  rng.addEventListener('input', () => { S.firstW = +rng.value; $('st-first-lab').textContent = `${S.firstW}% first touch · ${100 - S.firstW}% last touch`; setBlendLabel(); });
+  rng.addEventListener('change', () => changed());
+  root.querySelectorAll('select[data-camp]').forEach(sel => sel.addEventListener('change', () => { S.campaignKinds[sel.dataset.camp] = sel.value; changed(true); }));
+  root.querySelectorAll('input[data-tool]').forEach(inp => inp.addEventListener('change', () => {
+    const t = S.tools[+inp.dataset.tool]; if (!t) return;
+    if (inp.dataset.f === 'usd') { const v = parseFloat(inp.value); if (isFinite(v) && v >= 0) t.usd = v; } else t.name = inp.value.trim().slice(0, 60);
+    changed();
+  }));
+  root.querySelectorAll('[data-tool-del]').forEach(b => b.addEventListener('click', () => { S.tools.splice(+b.dataset.toolDel, 1); changed(true); }));
+  $('tool-add').addEventListener('click', () => { S.tools.push({ name: 'New tool', usd: 0 }); renderSettings(ctx()); });
+  $('st-reset').addEventListener('click', async () => {
+    if (!(await ask({ title: 'Reset the thresholds?', body: 'Every green line, red line and weight goes back to the defaults, for both of you. Tools and campaigns stay.', yes: 'Reset', danger: true }))) return;
+    const keep = { tools: S.tools, campaignKinds: S.campaignKinds };
+    S = { ...clone(DEFAULTS), ...keep }; F.model = S.model; save(); syncFilters(); render();
+  });
+}
+function refreshSettingsLive(c) {
+  const H = c.H, root = $('p-settings');
+  const rows = root.querySelectorAll('table.tbl')[0].tBodies[0].rows;
+  METRICS.forEach((m, k) => { const j = H.per[m.id], cells = rows[k].cells; cells[6].textContent = fmtM(m.id, j.v); cells[7].textContent = j.score == null ? '—' : Math.round(j.score); cells[8].innerHTML = light(j.state); });
+  const calcTbl = root.querySelectorAll('table.tbl')[1];
+  let num = 0, den = 0;
+  SECTIONS.forEach((s, k) => { const v = H.sec[s.id], W = +S.secW[s.id] || 0; if (v != null && W) { num += v * W; den += W; } const cells = calcTbl.tBodies[0].rows[k].cells; cells[1].textContent = v == null ? '—' : v.toFixed(1); cells[3].textContent = v == null || !W ? '—' : (v * W).toFixed(0); });
+  const f = calcTbl.tFoot.rows[0].cells; f[1].textContent = den ? (num / den).toFixed(1) : '—'; f[2].textContent = den; f[3].textContent = `${num.toFixed(0)} ÷ ${den}`;
+}
+
+/* ---------- chrome: tabs, filters, loading ---------- */
+const tabsEl = $('tabs');
+tabsEl.innerHTML = TABS.map(([id, label]) => `<button type="button" class="tab" role="tab" id="t-${id}" aria-controls="p-${id}" aria-selected="${id === TAB}" data-tab="${id}">${esc(label)}</button>`).join('');
+tabsEl.addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) setTab(b.dataset.tab); });
+document.addEventListener('click', e => { const b = e.target.closest('[data-go]'); if (b) { setTab(b.dataset.go); window.scrollTo({ top: 0 }); } });
+async function setTab(id) {
+  if (TAB === 'email' && id !== 'email' && ED.dirty && !(await ask({ title: 'Leave unsaved changes?', body: 'The mail copy you were editing has changes that are not saved.', yes: 'Leave them', danger: true }))) return;
+  if (TAB === 'email' && id !== 'email') ED.dirty = false;
+  TAB = id;
+  tabsEl.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === id)));
+  document.querySelectorAll('.panel').forEach(p => { p.hidden = p.id !== 'p-' + id; });
+  try { history.replaceState(null, '', '#' + id); } catch (e) { /* ignore */ }
+  try { localStorage.setItem('stride_funnel_health_tab', id); } catch (e) { /* ignore */ }
+  if (PAY) render();
+  const t = $('t-' + id); if (t && t.scrollIntoView) t.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+const chSel = $('f-channel');
+chSel.innerHTML = `<option value="all">All channels</option>` + CHANNELS.map(c => `<option value="${c.id}">${esc(c.label)}</option>`).join('');
+chSel.addEventListener('change', () => { F.channel = chSel.value; render(); });
+$('f-range').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; F.range = +b.dataset.v; syncFilters(); render(); });
+$('f-model').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; F.model = b.dataset.v; syncFilters(); render(); });
+$('f-compare').addEventListener('change', e => { F.compare = e.target.checked; render(); });
+function setBlendLabel() { $('f-blend-btn').textContent = `Blended ${S.firstW}/${100 - S.firstW}`; }
+function syncFilters() {
+  document.querySelectorAll('#f-range button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.v === F.range)));
+  document.querySelectorAll('#f-model button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === F.model)));
+  $('f-compare').checked = F.compare;
+  chSel.value = F.channel;
+  setBlendLabel();
+  const idx = idxRange(F.range);
+  $('asof').textContent = `${shortDate(dates[idx[0]])} to ${shortDate(dates[idx.at(-1)])} · Israel days`;
+  $('live').innerHTML = `<i></i>Live · read ${esc(fmtTime(PAY.generated_at_ms))}`;
+}
+function render() {
+  if (!PAY) return;
+  hideTip();
+  const c = ctx();
+  syncFilters();
+  if (TAB === 'overview') renderOverview(c);
+  else if (TAB === 'funnel') renderFunnel(c);
+  else if (TAB === 'creative') renderCreative(c);
+  else if (TAB === 'landing') renderLanding(c);
+  else if (TAB === 'checkout') renderCheckout(c);
+  else if (TAB === 'demo') renderDemo(c);
+  else if (TAB === 'email') renderEmail(c);
+  else if (TAB === 'expenses') renderExpenses();
+  else if (TAB === 'crm') renderCRM();
+  else if (TAB === 'settings') renderSettings(c);
+}
+async function load(refresh) {
+  if (!PAY) gate('loading');
+  const btn = $('refresh'); btn.disabled = true; btn.textContent = 'Reading…';
+  try {
+    const p = await api('health_data', { refresh: !!refresh });
+    const keepEd = ED.dirty;
+    ingest(p);
+    if (!keepEd) ED.mail = null;
+    gate('app');
+    render();
+    if (refresh) toast('Read again from every source.');
+  } catch (e) {
+    if (!PAY) gate('error', e.message); else toast('Could not refresh: ' + e.message, true);
+  } finally { btn.disabled = false; btn.textContent = 'Refresh'; }
+}
+$('refresh').addEventListener('click', () => load(true));
+$('retry').addEventListener('click', () => load(false));
+$('signin').addEventListener('click', () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e => toast(e.message, true)));
+$('signout1').addEventListener('click', () => auth.signOut());
+$('signout2').addEventListener('click', () => auth.signOut());
+window.addEventListener('scroll', hideTip, { passive: true });
+window.addEventListener('beforeunload', e => { if (ED.dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+const want = (location.hash || '').slice(1);
+let lastTab = null; try { lastTab = localStorage.getItem('stride_funnel_health_tab'); } catch (e) { /* ignore */ }
+TAB = TABS.some(t => t[0] === want) ? want : TABS.some(t => t[0] === lastTab) ? lastTab : 'overview';
+tabsEl.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === TAB)));
+document.querySelectorAll('.panel').forEach(p => { p.hidden = p.id !== 'p-' + TAB; });
+
+let watching = false;
+auth.onAuthStateChanged(user => {
+  if (!user) { USER = null; PAY = null; gate('signin'); return; }
+  const email = (user.email || '').toLowerCase();
+  if (!VIEWERS.includes(email)) { gate('denied', email); return; }
+  USER = user; IS_ADMIN = email === ADMIN;
+  if (!watching) { watching = true; watchCopy(); }
+  load(false);
+});
+})();
+</script>
+</body>
+</html>

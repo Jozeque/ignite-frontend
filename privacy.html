@@ -442,6 +442,39 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta name="description" content="How Stride handles your data: what is collected, why, who receives it, how long it is kept, and your rights under GDPR.">
 <link rel="canonical" href="https://stridehub.io/privacy.html">
 <script>window.STRIDE_LANGS=["en"]</script>
+<script>(function () {
+  function send() {
+    try {
+      if (!navigator.sendBeacon) return;
+      var L = ["de","es","fr","it","ja","zh"], K = {"":"home","try":"try","samples":"samples","setup":"setup","session":"session","welcome":"welcome","post":"post","post2":"post2","blog":"blog","tv":"tv","tools":"tool","vst3":"how","how-it-works":"how","privacy":"legal","terms":"legal","refund":"legal"};
+      var path = location.pathname.replace(/\/index\.html$/, '/').replace(/\.html$/, '').replace(/\/+$/, '');
+      var seg = path.split('/');
+      if (seg[1] && L.indexOf(seg[1]) >= 0) seg.splice(1, 1);
+      var first = seg[1] || '';
+      var p = Object.prototype.hasOwnProperty.call(K, first) ? K[first] : 'other';
+      var q = new URLSearchParams(location.search), rh = '';
+      try { rh = document.referrer ? new URL(document.referrer).hostname : ''; } catch (e) {}
+      var nav = (window.performance && performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {};
+      var here = location.hostname.replace(/^www\./, ''), c = 'direct', a = '';
+      if (nav.type === 'reload' || nav.type === 'back_forward' || (rh && rh.replace(/^www\./, '') === here)) c = 'internal';
+      else {
+        var ad = (q.get('ad_id') || '').trim(), s = (q.get('utm_source') || '').trim().toLowerCase();
+        if (/^\d{6,24}$/.test(ad)) { c = 'meta'; a = ad; }
+        else if (q.get('gclid') || q.get('wbraid') || q.get('gbraid')) c = 'google';
+        else if (/^(stride|email|newsletter|resend|mail)$/.test(s)) c = 'email';
+        else if (/^(ig|instagram|insta|ig_bio|instagram_bio)$/.test(s)) c = 'ig';
+        else if (/^(yt|youtube)$/.test(s)) c = 'yt';
+        else if (/^(google|adwords|google_ads|gads)$/.test(s)) c = 'google';
+        else if (/^(facebook|fb|meta)$/.test(s) || q.get('fbclid')) c = 'meta';
+        else if (/(^|\.)instagram\.com$/.test(rh)) c = 'ig';
+        else if (/(^|\.)(youtube\.com|youtu\.be)$/.test(rh)) c = 'yt';
+      }
+      navigator.sendBeacon("https://generate-midi-z3spyrafvq-uc.a.run.app", JSON.stringify({ action: 'pv', p: p, c: c, a: a }));
+    } catch (e) {}
+  }
+  if (document.prerendering) document.addEventListener('prerenderingchange', send, { once: true });
+  else send();
+})();</script>
 </head>
 <body class="min-h-screen flex flex-col">
 <!-- HEADER:START (scripts/sync-header.mjs writes this, do not edit here) -->
@@ -609,6 +642,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
       <a href="https://www.youtube.com/@strideengine" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[var(--hdr-copper-lt)] transition-colors" title="Subscribe on YouTube">
         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
       </a>
+      <a href="https://x.com/stridevst" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[var(--hdr-copper-lt)] transition-colors hidden xl:block" title="Follow us on X">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="-1 -1 26 26"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/></svg>
+      </a>
       <button onclick="toggleContactModal()" class="ink3 hover:text-[var(--hdr-copper-lt)] transition-colors" title="Contact Us">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
       </button>
@@ -635,6 +671,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     <a href="/session.html">1:1 Session &middot; $199</a>
     <a href="https://www.youtube.com/@strideengine" target="_blank" rel="noopener noreferrer">YouTube</a>
     <a href="https://www.instagram.com/stride_engine/" target="_blank" rel="noopener noreferrer">Instagram</a>
+    <a href="https://x.com/stridevst" target="_blank" rel="noopener noreferrer">X</a>
     <button type="button" onclick="strideMenu(false); toggleContactModal()">Contact</button>
   </nav>
   <div class="m-menu-cta">
@@ -791,7 +828,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- Content -->
     <main class="flex-1 max-w-4xl mx-auto px-6 py-16">
         <h1 class="text-3xl font-black uppercase tracking-wider mb-2">Privacy Policy</h1>
-        <p class="text-sm text-zinc-500 mb-12">Last updated: September 27, 2026 &nbsp;|&nbsp; Effective: September 27, 2026 &nbsp;|&nbsp; Version 1.6</p>
+        <p class="text-sm text-zinc-500 mb-12">Last updated: September 27, 2026 &nbsp;|&nbsp; Effective: September 27, 2026 &nbsp;|&nbsp; Version 1.7</p>
 
         <div class="space-y-10 text-sm leading-relaxed text-zinc-400">
 
@@ -849,9 +886,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                     <li><strong class="text-zinc-300">Discovery Pass emails:</strong> your download link and how to start, then a few short emails while your pass runs and one after it ends, which may include an offer</li>
                     <li><strong class="text-zinc-300">A checkout reminder:</strong> if you enter your email in the buy form and don't finish, we may send you one reminder</li>
                     <li><strong class="text-zinc-300">News and offers:</strong> occasional emails about Stride to customers and pass users</li>
+                    <li><strong class="text-zinc-300">How our emails do:</strong> our emails carry a small image and tracked links, so we learn whether each one was delivered, opened and clicked, and stop sending the ones that don't help</li>
                     <li><strong class="text-zinc-300">To improve Stride:</strong> the Discovery Pass moments in Section 2 show us where new users get stuck</li>
                     <li><strong class="text-zinc-300">To measure and improve our ads:</strong> we tell Meta and Google Ads about page views, checkout starts, Discovery Pass sign-ups, downloads and activations, and purchases. Some of this goes from our server, identified by a hashed email address. We also give Meta hashed email addresses of customers, pass users and people who started a checkout, so Meta can leave customers out of our ads and show our ads again to people who showed interest</li>
-                    <li><strong class="text-zinc-300">To understand the website:</strong> which pages work, through Google Analytics and Microsoft Clarity (heatmaps and session recordings). Clarity masks the text you type into forms before it leaves your browser</li>
+                    <li><strong class="text-zinc-300">To understand the website:</strong> which pages work, through Google Analytics and Microsoft Clarity (heatmaps and session recordings). Clarity masks the text you type into forms before it leaves your browser. We also count page views ourselves, whatever you answer in the cookie banner: each view adds one to a daily count for that page and the kind of link it came from (such as an ad, an email or Instagram). Nothing is stored on your device and nothing in the count identifies you</li>
                     <li><strong class="text-zinc-300">To keep our team informed:</strong> when someone registers, buys, activates a pass or writes to us, a notice with those details goes to our private team chat</li>
                     <li><strong class="text-zinc-300">To prevent fraud and abuse:</strong> limits on activations per license and one pass per machine. To link a pass to the email it was registered with, we may match it to a recent sign-up from the same network</li>
                 </ul>
@@ -864,7 +902,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <p>If you are in the EU, the EEA or the UK, we rely on these legal bases:</p>
                 <ul class="list-disc list-inside space-y-1 ml-2 mt-2">
                     <li><strong class="text-zinc-300">Contract:</strong> your order, license and downloads, license checks, the Discovery Pass you asked for, and support</li>
-                    <li><strong class="text-zinc-300">Legitimate interests:</strong> preventing fraud and abuse, improving Stride from the pass moments, emails about the pass you registered for, one checkout reminder, measuring our ads from our server and with hashed customer lists, and team notices. You can object to any of these at any time</li>
+                    <li><strong class="text-zinc-300">Legitimate interests:</strong> preventing fraud and abuse, improving Stride from the pass moments, emails about the pass you registered for, one checkout reminder, measuring our ads from our server and with hashed customer lists, counting page views without cookies, learning which of our emails are opened and clicked, and team notices. You can object to any of these at any time</li>
                     <li><strong class="text-zinc-300">Consent:</strong> ad and analytics cookies and similar technologies on the website, given in the cookie banner, and marketing emails where the law requires your consent</li>
                     <li><strong class="text-zinc-300">Legal obligation:</strong> tax and accounting records</li>
                 </ul>
@@ -927,7 +965,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                     <div class="bg-white/5 rounded-lg p-4 border border-white/5">
                         <p class="font-bold text-zinc-300">Resend</p>
                         <p class="text-xs text-zinc-500 mt-1">What: sends our emails</p>
-                        <p class="text-xs text-zinc-500">Data: your email address, first name, and the content of each email, which can include your license key and download links</p>
+                        <p class="text-xs text-zinc-500">Data: your email address, first name, and the content of each email, which can include your license key and download links; and whether each email was delivered, opened or clicked</p>
                     </div>
                     <div class="bg-white/5 rounded-lg p-4 border border-white/5">
                         <p class="font-bold text-zinc-300">Discord Inc.</p>

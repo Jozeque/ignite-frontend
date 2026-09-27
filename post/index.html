@@ -618,6 +618,39 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 </style>
 <link rel="stylesheet" href="/_legacy/css/post-index.383ae61107.css">
 <script>window.STRIDE_LANGS=["en"]</script>
+<script>(function () {
+  function send() {
+    try {
+      if (!navigator.sendBeacon) return;
+      var L = ["de","es","fr","it","ja","zh"], K = {"":"home","try":"try","samples":"samples","setup":"setup","session":"session","welcome":"welcome","post":"post","post2":"post2","blog":"blog","tv":"tv","tools":"tool","vst3":"how","how-it-works":"how","privacy":"legal","terms":"legal","refund":"legal"};
+      var path = location.pathname.replace(/\/index\.html$/, '/').replace(/\.html$/, '').replace(/\/+$/, '');
+      var seg = path.split('/');
+      if (seg[1] && L.indexOf(seg[1]) >= 0) seg.splice(1, 1);
+      var first = seg[1] || '';
+      var p = Object.prototype.hasOwnProperty.call(K, first) ? K[first] : 'other';
+      var q = new URLSearchParams(location.search), rh = '';
+      try { rh = document.referrer ? new URL(document.referrer).hostname : ''; } catch (e) {}
+      var nav = (window.performance && performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {};
+      var here = location.hostname.replace(/^www\./, ''), c = 'direct', a = '';
+      if (nav.type === 'reload' || nav.type === 'back_forward' || (rh && rh.replace(/^www\./, '') === here)) c = 'internal';
+      else {
+        var ad = (q.get('ad_id') || '').trim(), s = (q.get('utm_source') || '').trim().toLowerCase();
+        if (/^\d{6,24}$/.test(ad)) { c = 'meta'; a = ad; }
+        else if (q.get('gclid') || q.get('wbraid') || q.get('gbraid')) c = 'google';
+        else if (/^(stride|email|newsletter|resend|mail)$/.test(s)) c = 'email';
+        else if (/^(ig|instagram|insta|ig_bio|instagram_bio)$/.test(s)) c = 'ig';
+        else if (/^(yt|youtube)$/.test(s)) c = 'yt';
+        else if (/^(google|adwords|google_ads|gads)$/.test(s)) c = 'google';
+        else if (/^(facebook|fb|meta)$/.test(s) || q.get('fbclid')) c = 'meta';
+        else if (/(^|\.)instagram\.com$/.test(rh)) c = 'ig';
+        else if (/(^|\.)(youtube\.com|youtu\.be)$/.test(rh)) c = 'yt';
+      }
+      navigator.sendBeacon("https://generate-midi-z3spyrafvq-uc.a.run.app", JSON.stringify({ action: 'pv', p: p, c: c, a: a }));
+    } catch (e) {}
+  }
+  if (document.prerendering) document.addEventListener('prerenderingchange', send, { once: true });
+  else send();
+})();</script>
 </head>
 <body>
 <!-- Google Tag Manager (noscript) -->

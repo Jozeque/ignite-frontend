@@ -376,13 +376,46 @@
         banner();
     }
 })();
-8:X
-0:{"buildId":"4au3iPuRHzyfLu3drZEIn","data":[{"rsc":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/3gyqbviunrrae.css","precedence":"next"}],["$","script","script-0",{"src":"/_next/static/chunks/1mpnoxox0-4cg.js","async":true}]],["$","html",null,{"lang":"en","className":"dark outfit_c8e75115-module__GXCCoG__variable space_mono_d8eecc30-module__bEIZiG__variable","children":[["$","head",null,{"children":[false,["$","script",null,{"dangerouslySetInnerHTML":{"__html":"$2"}}],"$L3","$undefined","$L4","$L5"]}],"$L6"]}]]}],"isPartial":"$@7","staleTime":"$8","varyParams":null}],"isUpgradeableISRFallback":false,"a":"$@9","rootVaryParams":null,"needsRuntimeRequest":"$@a"}
+9:X
+0:{"buildId":"bg-r9QCZzNJVW1U5cjYHm","data":[{"rsc":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/3gyqbviunrrae.css","precedence":"next"}],["$","script","script-0",{"src":"/_next/static/chunks/1mpnoxox0-4cg.js","async":true}]],["$","html",null,{"lang":"en","className":"dark outfit_c8e75115-module__GXCCoG__variable space_mono_d8eecc30-module__bEIZiG__variable","children":[["$","head",null,{"children":[false,["$","script",null,{"dangerouslySetInnerHTML":{"__html":"$2"}}],"$L3","$undefined","$L4","$L5","$L6"]}],"$L7"]}]]}],"isPartial":"$@8","staleTime":"$9","varyParams":null}],"isUpgradeableISRFallback":false,"a":"$@a","rootVaryParams":null,"needsRuntimeRequest":"$@b"}
 3:["$","script",null,{"dangerouslySetInnerHTML":{"__html":"(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':\nnew Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],\nj=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=\n'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);\n})(window,document,'script','dataLayer','GTM-5R4N7FVP');"}}]
 4:["$","script",null,{"dangerouslySetInnerHTML":{"__html":"\n  window.dataLayer = window.dataLayer || [];\n  function gtag(){dataLayer.push(arguments);}\n  gtag('js', new Date());\n\n  gtag('config', 'G-JCMEXN70CM');\n"}}]
 5:["$","script",null,{"dangerouslySetInnerHTML":{"__html":"\n    (function(c,l,a,r,i,t,y){\n        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};\n        (c.strideWhenAllowed||function(g){g()})(function(){\n        t=l.createElement(r);t.async=1;t.src=\"https://www.clarity.ms/tag/\"+i;\n        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);\n        if(c.strideConsentAds&&c.strideConsentAds()==='granted'){c[a]('consentv2',{ad_Storage:'granted',analytics_Storage:'granted'});}\n        });\n    })(window, document, \"clarity\", \"script\", \"yj7cm3a9sz\");\n"}}]
-b:["$","iframe",null,{"src":"https://www.googletagmanager.com/ns.html?id=GTM-5R4N7FVP","height":"0","width":"0","style":{"display":"none","visibility":"hidden"}}]
-c:T5449,<style>
+c:T8c1,(function () {
+  function send() {
+    try {
+      if (!navigator.sendBeacon) return;
+      var L = ["de","es","fr","it","ja","zh"], K = {"":"home","try":"try","samples":"samples","setup":"setup","session":"session","welcome":"welcome","post":"post","post2":"post2","blog":"blog","tv":"tv","tools":"tool","vst3":"how","how-it-works":"how","privacy":"legal","terms":"legal","refund":"legal"};
+      var path = location.pathname.replace(/\/index\.html$/, '/').replace(/\.html$/, '').replace(/\/+$/, '');
+      var seg = path.split('/');
+      if (seg[1] && L.indexOf(seg[1]) >= 0) seg.splice(1, 1);
+      var first = seg[1] || '';
+      var p = Object.prototype.hasOwnProperty.call(K, first) ? K[first] : 'other';
+      var q = new URLSearchParams(location.search), rh = '';
+      try { rh = document.referrer ? new URL(document.referrer).hostname : ''; } catch (e) {}
+      var nav = (window.performance && performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {};
+      var here = location.hostname.replace(/^www\./, ''), c = 'direct', a = '';
+      if (nav.type === 'reload' || nav.type === 'back_forward' || (rh && rh.replace(/^www\./, '') === here)) c = 'internal';
+      else {
+        var ad = (q.get('ad_id') || '').trim(), s = (q.get('utm_source') || '').trim().toLowerCase();
+        if (/^\d{6,24}$/.test(ad)) { c = 'meta'; a = ad; }
+        else if (q.get('gclid') || q.get('wbraid') || q.get('gbraid')) c = 'google';
+        else if (/^(stride|email|newsletter|resend|mail)$/.test(s)) c = 'email';
+        else if (/^(ig|instagram|insta|ig_bio|instagram_bio)$/.test(s)) c = 'ig';
+        else if (/^(yt|youtube)$/.test(s)) c = 'yt';
+        else if (/^(google|adwords|google_ads|gads)$/.test(s)) c = 'google';
+        else if (/^(facebook|fb|meta)$/.test(s) || q.get('fbclid')) c = 'meta';
+        else if (/(^|\.)instagram\.com$/.test(rh)) c = 'ig';
+        else if (/(^|\.)(youtube\.com|youtu\.be)$/.test(rh)) c = 'yt';
+      }
+      navigator.sendBeacon("https://generate-midi-z3spyrafvq-uc.a.run.app", JSON.stringify({ action: 'pv', p: p, c: c, a: a }));
+    } catch (e) {}
+  }
+  if (document.prerendering) document.addEventListener('prerenderingchange', send, { once: true });
+  else send();
+})();6:["$","script",null,{"dangerouslySetInnerHTML":{"__html":"$c"}}]
+d:["$","iframe",null,{"src":"https://www.googletagmanager.com/ns.html?id=GTM-5R4N7FVP","height":"0","width":"0","style":{"display":"none","visibility":"hidden"}}]
+e:T5511,<style>
   /* The header carries everything it needs to look the same anywhere. setup, samples and
      session already define these tokens and classes; privacy, terms and refund define none
      of them, which is how refund.html ended up with a wordmark at a different size. Rather
@@ -532,6 +565,9 @@ c:T5449,<style>
       <a href="https://www.youtube.com/@strideengine" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[var(--hdr-copper-lt)] transition-colors" title="Subscribe on YouTube">
         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
       </a>
+      <a href="https://x.com/stridevst" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[var(--hdr-copper-lt)] transition-colors hidden xl:block" title="Follow us on X">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="-1 -1 26 26"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/></svg>
+      </a>
       <button onclick="toggleContactModal()" class="ink3 hover:text-[var(--hdr-copper-lt)] transition-colors" title="Contact Us">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
       </button>
@@ -558,6 +594,7 @@ c:T5449,<style>
     <a href="/session.html">1:1 Session &middot; $199</a>
     <a href="https://www.youtube.com/@strideengine" target="_blank" rel="noopener noreferrer">YouTube</a>
     <a href="https://www.instagram.com/stride_engine/" target="_blank" rel="noopener noreferrer">Instagram</a>
+    <a href="https://x.com/stridevst" target="_blank" rel="noopener noreferrer">X</a>
     <button type="button" onclick="strideMenu(false); toggleContactModal()">Contact</button>
   </nav>
   <div class="m-menu-cta">
@@ -703,14 +740,14 @@ c:T5449,<style>
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
   })();
 </script>
-6:["$","body",null,{"className":"font-sans min-h-screen flex flex-col","children":[["$","noscript",null,{"children":"$b"}],["$","div",null,{"dangerouslySetInnerHTML":{"__html":"$c"}}],"$Ld","$Le"]}]
-f:I[39756,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default"]
-10:I[37457,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default"]
-11:I[22016,["/_next/static/chunks/1mpnoxox0-4cg.js","/_next/static/chunks/21rmub91oxtxn.js"],""]
-d:["$","main",null,{"className":"wrap flex-1 w-full","children":["$","$Lf",null,{"parallelRouterKey":"children","template":["$","$L10",null,{}],"notFound":[["$","div",null,{"className":"max-w-2xl mx-auto px-6 py-24 text-center","children":[["$","p",null,{"className":"silk mb-4","children":"404"}],["$","h1",null,{"className":"text-4xl md:text-6xl tracking-tight","children":["This lane is ",["$","span",null,{"className":"brand","children":"empty."}]]}],["$","p",null,{"className":"ink2 mt-5","children":"The page moved or never existed. Here is where the sound is."}],["$","div",null,{"className":"flex flex-wrap justify-center gap-3 mt-10","children":[["$","a",null,{"href":"/","className":"btn-copper text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Home"}],["$","$L11",null,{"href":"/tv","className":"btn-ghost text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Videos"}],["$","a",null,{"href":"/blog.html","className":"btn-ghost text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Blog"}],["$","a",null,{"href":"/setup.html","className":"btn-ghost text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Setup"}]]}]]}],[]]}]}]
-e:["$","footer",null,{"className":"wrap w-full border-t py-8 text-center mt-auto","style":{"borderColor":"var(--line)","background":"#100f0c"},"children":[["$","nav",null,{"aria-label":"Explore","className":"flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mb-3 px-6","children":[["$","a",null,{"href":"/blog.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Blog"}],["$","$L11",null,{"href":"/tv","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Videos"}],false,["$","a",null,{"href":"/setup.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Setup"}],["$","a",null,{"href":"/samples.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Experimental Collection"}]]}],["$","nav",null,{"aria-label":"Legal","className":"flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mb-3 px-6","children":[["$","a",null,{"href":"/privacy.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Privacy Policy"}],["$","a",null,{"href":"/terms.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Terms of Service"}],["$","a",null,{"href":"/refund.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Refund Policy"}]]}],["$","p",null,{"className":"text-[13px] text-zinc-500 font-bold uppercase tracking-widest px-6","children":["© ",2026," STRIDE ENGINE. BUILT FOR PRODUCERS. BUILT FOR EVERY DAW."]}],["$","p",null,{"className":"text-[11px] text-zinc-600 mt-3 max-w-2xl mx-auto leading-relaxed px-6","children":"Third-party plugins are sold separately. All product names and trademarks belong to their respective owners. Stride is an independent product and is not affiliated with or endorsed by these companies."}]]}]
-a:true
-8:300
-8:C
-9:0
-7:"$undefined"
+7:["$","body",null,{"className":"font-sans min-h-screen flex flex-col","children":[["$","noscript",null,{"children":"$d"}],["$","div",null,{"dangerouslySetInnerHTML":{"__html":"$e"}}],"$Lf","$L10"]}]
+11:I[39756,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default"]
+12:I[37457,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default"]
+13:I[22016,["/_next/static/chunks/1mpnoxox0-4cg.js","/_next/static/chunks/21rmub91oxtxn.js"],""]
+f:["$","main",null,{"className":"wrap flex-1 w-full","children":["$","$L11",null,{"parallelRouterKey":"children","template":["$","$L12",null,{}],"notFound":[["$","div",null,{"className":"max-w-2xl mx-auto px-6 py-24 text-center","children":[["$","p",null,{"className":"silk mb-4","children":"404"}],["$","h1",null,{"className":"text-4xl md:text-6xl tracking-tight","children":["This lane is ",["$","span",null,{"className":"brand","children":"empty."}]]}],["$","p",null,{"className":"ink2 mt-5","children":"The page moved or never existed. Here is where the sound is."}],["$","div",null,{"className":"flex flex-wrap justify-center gap-3 mt-10","children":[["$","a",null,{"href":"/","className":"btn-copper text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Home"}],["$","$L13",null,{"href":"/tv","className":"btn-ghost text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Videos"}],["$","a",null,{"href":"/blog.html","className":"btn-ghost text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Blog"}],["$","a",null,{"href":"/setup.html","className":"btn-ghost text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Setup"}]]}]]}],[]]}]}]
+10:["$","footer",null,{"className":"wrap w-full border-t py-8 text-center mt-auto","style":{"borderColor":"var(--line)","background":"#100f0c"},"children":[["$","nav",null,{"aria-label":"Explore","className":"flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mb-3 px-6","children":[["$","a",null,{"href":"/blog.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Blog"}],["$","$L13",null,{"href":"/tv","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Videos"}],false,["$","a",null,{"href":"/setup.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Setup"}],["$","a",null,{"href":"/samples.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Experimental Collection"}]]}],["$","nav",null,{"aria-label":"Legal","className":"flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mb-3 px-6","children":[["$","a",null,{"href":"/privacy.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Privacy Policy"}],["$","a",null,{"href":"/terms.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Terms of Service"}],["$","a",null,{"href":"/refund.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Refund Policy"}]]}],["$","p",null,{"className":"text-[13px] text-zinc-500 font-bold uppercase tracking-widest px-6","children":["© ",2026," STRIDE ENGINE. BUILT FOR PRODUCERS. BUILT FOR EVERY DAW."]}],["$","p",null,{"className":"text-[11px] text-zinc-600 mt-3 max-w-2xl mx-auto leading-relaxed px-6","children":"Third-party plugins are sold separately. All product names and trademarks belong to their respective owners. Stride is an independent product and is not affiliated with or endorsed by these companies."}]]}]
+b:true
+9:300
+9:C
+a:0
+8:"$undefined"
