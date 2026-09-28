@@ -77,7 +77,9 @@ p{margin:0}
 .live-chip i{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--good);margin-right:6px;vertical-align:0}
 @media (max-width:760px){.live-chip{display:none}}
 .filters{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:10px 0 12px}
-.fgroup{display:flex;align-items:center;gap:8px}
+.fgroup{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dates{display:inline-flex;align-items:center;gap:6px}
+.dates input{font-size:13px;padding:5px 8px;color:var(--ink);min-width:0}
 .flabel{font:700 10.5px/1 var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
 .seg button{background:none;border:0;padding:6px 11px;cursor:pointer;color:var(--ink-2);font-size:13px}
@@ -334,8 +336,9 @@ pre.part{white-space:pre-wrap;word-break:break-word;font:400 11.5px/1.5 var(--mo
     <div class="filters" role="group" aria-label="Filters">
       <div class="fgroup"><span class="flabel">Range</span>
         <div class="seg" id="f-range">
-          <button type="button" data-v="7">7 days</button><button type="button" data-v="14">14</button><button type="button" data-v="30">30</button><button type="button" data-v="90">90</button>
+          <button type="button" data-v="1">1 day</button><button type="button" data-v="7">7 days</button><button type="button" data-v="14">14</button><button type="button" data-v="30">30</button><button type="button" data-v="90">90</button><button type="button" data-v="custom">Custom</button>
         </div>
+        <span class="dates" id="f-dates" hidden><input type="date" class="txt" id="f-from" aria-label="From"><span class="flabel">to</span><input type="date" class="txt" id="f-to" aria-label="To"></span>
       </div>
       <label class="check"><input type="checkbox" id="f-compare"> Compare with the previous period</label>
       <div class="fgroup"><label class="flabel" for="f-channel">Channel</label>
@@ -583,11 +586,19 @@ async function saveSettings() {
 const kindOf = ad => S.campaignKinds[ad.campaign_id] || ad.kind0 || 'purchase';
 
 /* ---------- filters ---------- */
-const F = { range: 30, compare: true, channel: 'all', model: 'blended' };
+const F = { range: 30, compare: true, channel: 'all', model: 'blended', from: null, to: null };
 const TABS = [['overview', 'Overview'], ['funnel', 'Funnel'], ['creative', 'Creative'], ['landing', 'Landing'], ['checkout', 'Checkout & revenue'], ['demo', 'Demo'], ['email', 'Email flows'], ['expenses', 'Expenses'], ['crm', 'CRM'], ['settings', 'Settings']];
 let TAB = 'overview';
 let SEL_AD = null;
 const idxRange = (n, back = 0) => { const out = []; const hi = LAST - back * n; for (let d = Math.max(0, hi - n + 1); d <= hi; d++) out.push(d); return out; };
+// The days the filters cover: the last N days, or a custom stretch (F.from..F.to). back=1 is the
+// same number of days right before it, which the comparison reads.
+const curIdx = (back = 0) => {
+  if (F.range !== 'custom') return idxRange(F.range, back);
+  const n = F.to - F.from + 1, hi = F.to - back * n, out = [];
+  for (let d = Math.max(0, hi - n + 1); d <= hi; d++) out.push(d);
+  return out;
+};
 
 /* ---------- attribution: first and last touch inside the lookback ---------- */
 function ends(j) {
@@ -909,7 +920,7 @@ function lineChart(el, { labels, series, format, height = 230 }) {
 
 /* ---------- shared bits ---------- */
 const ctx = () => {
-  const idx = idxRange(F.range), prev = idxRange(F.range, 1);
+  const idx = curIdx(0), prev = curIdx(1);
   const A = agg(idx), P = agg(prev);
   return { idx, prev, A, P, H: health(A), HP: health(P) };
 };
@@ -1043,7 +1054,8 @@ function renderCreative(c) {
   const w = S.firstW / 100;
   const tiles = ['hook', 'thru', 'ctr', 'freq', 'fatigue'].map(id => metricTile(id, c)).join('');
   const tail = c.idx.slice(-3);
-  const rr = PAY.reach && PAY.reach[String(F.range)];
+  // Reach does not add up across days, so it exists only for the preset lengths ending today.
+  const rr = PAY.reach && c.idx.at(-1) === LAST ? PAY.reach[String(c.idx.length)] : null;
   const ads = ADS.map(ad => {
     let sp = 0, im = 0, p3 = 0, th = 0, cl = 0, pu = 0, rev = 0;
     for (const d of c.idx) { sp += ad.spend[d]; im += ad.imps[d]; p3 += ad.plays3[d]; th += ad.thruN[d]; cl += ad.clicks[d]; for (const j of J[d]) { const cr = creditAd(j, ad.id, F.model, w); if (cr) { if (j.k === 'stride') pu += cr; rev += cr * (jNet(j) - j.r); } } }
@@ -1185,9 +1197,9 @@ const EXTRA_DAY = new Set(['ext_onboard', 'ext_depth', 'ext_last_hours', 'ext_po
 const groupOf = f => f.group === 'A' ? (PRE_ACTIVATION.has(f.id) ? 'Apre' : EXTRA_DAY.has(f.id) ? 'Aext' : 'Apost') : f.group;
 const GOAL = { buy: 'Buys Stride', session: 'Books the 1:1 session', collection: 'Buys the Collection', click: 'Clicks through', answer: 'Answers the question', none: 'Receipt, no goal' };
 const FAMILY = { FLOWS_INSTANT_MODE: 'Instant mails', DEMO_LIFECYCLE_MODE: 'Demo lifecycle', RECOVERY_MODE: 'Checkout recovery', POST_PURCHASE_MODE: 'After a purchase', WINBACK_MODE: 'Winback' };
-const FLAG_OF = { next_day: 'NEXT_DAY', last_hours: 'LAST_HOURS', ext_onboard: 'EXT_ONBOARD', ext_depth: 'EXT_DEPTH', ext_last_hours: 'EXT_LAST_HOURS', recovery_questions: 'B2', recovery_try: 'B3', session_offer: 'C2', first_build: 'C3', one_question: 'C4', referral_ask: 'C4B', collection_nudge: 'C5', discord: 'C6', winback_week: 'D1', winback_update: 'D2' };
+const FLAG_OF = { next_day: 'NEXT_DAY', last_hours: 'LAST_HOURS', post_demo_offer: 'POST_DEMO_OFFER', ext_onboard: 'EXT_ONBOARD', ext_depth: 'EXT_DEPTH', ext_last_hours: 'EXT_LAST_HOURS', ext_post: 'EXT_POST', recovery_questions: 'B2', recovery_try: 'B3', session_offer: 'C2', first_build: 'C3', one_question: 'C4', referral_ask: 'C4B', collection_nudge: 'C5', discord: 'C6', winback_week: 'D1', winback_update: 'D2' };
 const FAMILY_OF = { demo_welcome: 'FLOWS_INSTANT_MODE', purchase_welcome: 'FLOWS_INSTANT_MODE', referral_ask: 'FLOWS_INSTANT_MODE', collection: 'FLOWS_INSTANT_MODE', session_booking: 'FLOWS_INSTANT_MODE',
-  activate_nudge: 'DEMO_LIFECYCLE_MODE', next_day: 'DEMO_LIFECYCLE_MODE', friction_rescue: 'DEMO_LIFECYCLE_MODE', onboard: 'DEMO_LIFECYCLE_MODE', last_hours: 'DEMO_LIFECYCLE_MODE', post_demo: 'DEMO_LIFECYCLE_MODE',
+  activate_nudge: 'DEMO_LIFECYCLE_MODE', next_day: 'DEMO_LIFECYCLE_MODE', friction_rescue: 'DEMO_LIFECYCLE_MODE', onboard: 'DEMO_LIFECYCLE_MODE', last_hours: 'DEMO_LIFECYCLE_MODE', post_demo: 'DEMO_LIFECYCLE_MODE', post_demo_offer: 'DEMO_LIFECYCLE_MODE',
   ext_onboard: 'DEMO_LIFECYCLE_MODE', ext_depth: 'DEMO_LIFECYCLE_MODE', ext_last_hours: 'DEMO_LIFECYCLE_MODE', ext_post: 'DEMO_LIFECYCLE_MODE',
   checkout_recovery: 'RECOVERY_MODE', recovery_questions: 'RECOVERY_MODE', recovery_try: 'RECOVERY_MODE',
   session_offer: 'POST_PURCHASE_MODE', first_build: 'POST_PURCHASE_MODE', one_question: 'POST_PURCHASE_MODE', collection_nudge: 'POST_PURCHASE_MODE', discord: 'POST_PURCHASE_MODE',
@@ -1799,7 +1811,8 @@ function segHTML(kind, key, now, disabled) {
 function switchHTML(f) {
   const fl = PAY.flows || {}, st = f.st || {};
   if (st.state === 'retired') return '<p class="note">Retired on 2026-09-01. Kept so an old send can still be read.</p>';
-  const flag = FLAG_OF[f.id], fam = FAMILY_OF[f.id];
+  // The backend says which switch a mail has (health.py FLOWS); the maps here cover a report not yet in.
+  const flag = (f.st && f.st.flag) || FLAG_OF[f.id], fam = (f.st && f.st.family) || FAMILY_OF[f.id];
   const reported = fl.reported_at_ms ? `as of the last run, ${esc(fmtTime(fl.reported_at_ms))}` : 'stride-flows has not reported yet';
   const famNow = (fl.modes || {})[fam];
   let out = `<div class="switch-row"><span class="k">State now<small>${reported}</small></span><span>${flowLight(f)}</span></div>
@@ -2100,18 +2113,42 @@ async function setTab(id) {
 const chSel = $('f-channel');
 chSel.innerHTML = `<option value="all">All channels</option>` + CHANNELS.map(c => `<option value="${c.id}">${esc(c.label)}</option>`).join('');
 chSel.addEventListener('change', () => { F.channel = chSel.value; render(); });
-$('f-range').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; F.range = +b.dataset.v; syncFilters(); render(); });
+$('f-range').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.v === 'custom') {
+    // Opens on the last seven days, or whatever was picked before.
+    if (F.from == null || F.to == null) { F.to = LAST; F.from = Math.max(0, LAST - 6); }
+    F.range = 'custom';
+  } else F.range = +b.dataset.v;
+  syncFilters(); render();
+});
+// A picked day outside the data is pulled back into it; From after To swaps them.
+function pickDates() {
+  const f = DI[$('f-from').value], t = DI[$('f-to').value];
+  if (f == null || t == null) { syncFilters(); return; }
+  F.from = Math.min(f, t); F.to = Math.max(f, t); F.range = 'custom';
+  syncFilters(); render();
+}
+$('f-from').addEventListener('change', pickDates);
+$('f-to').addEventListener('change', pickDates);
 $('f-model').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; F.model = b.dataset.v; syncFilters(); render(); });
 $('f-compare').addEventListener('change', e => { F.compare = e.target.checked; render(); });
 function setBlendLabel() { $('f-blend-btn').textContent = `Blended ${S.firstW}/${100 - S.firstW}`; }
 function syncFilters() {
-  document.querySelectorAll('#f-range button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.v === F.range)));
+  document.querySelectorAll('#f-range button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === String(F.range))));
+  const custom = F.range === 'custom';
+  $('f-dates').hidden = !custom;
+  if (custom) {
+    for (const el of [$('f-from'), $('f-to')]) { el.min = PAY.days[0]; el.max = PAY.days[LAST]; }
+    $('f-from').value = PAY.days[F.from]; $('f-to').value = PAY.days[F.to];
+  }
   document.querySelectorAll('#f-model button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === F.model)));
   $('f-compare').checked = F.compare;
   chSel.value = F.channel;
   setBlendLabel();
-  const idx = idxRange(F.range);
-  $('asof').textContent = `${shortDate(dates[idx[0]])} to ${shortDate(dates[idx.at(-1)])} · Israel days`;
+  const idx = curIdx(0);
+  $('asof').textContent = (idx.length === 1 ? shortDate(dates[idx[0]]) : `${shortDate(dates[idx[0]])} to ${shortDate(dates[idx.at(-1)])}`)
+    + ` · ${idx.length === 1 ? 'one Israel day' : idx.length + ' Israel days'}`;
   $('live').innerHTML = `<i></i>Live · read ${esc(fmtTime(PAY.generated_at_ms))}`;
 }
 function render() {
