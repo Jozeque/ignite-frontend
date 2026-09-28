@@ -470,6 +470,7 @@ function ingest(p) {
       D.pvAny = true;
     }
   }
+  for (const [d, v] of Object.entries(p.demo_acts || {})) { const D = days[DI[d]]; if (D) D.acts = v; }
   // Clarity's days (UTC) sit on the Israel day of the same date: close enough for time and scroll.
   for (const [d, pages] of Object.entries(p.clarity || {})) { const D = days[DI[d]]; if (D) D.clar = pages; }
   for (const c of p.checkouts || []) { const D = days[DI[c.d]]; if (!D) continue; D.co[c.ch] = (D.co[c.ch] || 0) + 1; D.coB[c.ch] = (D.coB[c.ch] || 0) + (c.bo || 0); }
@@ -501,20 +502,19 @@ const METRICS = [
   { id: 'arrival', label: 'Arrival rate, ours', sec: 'landing', unit: 'pct', better: 'high', g: .90, r: .75, w: 2, src: 'Our page-view count' },
   { id: 'engaged', label: 'Engaged time', sec: 'landing', unit: 'secs', better: 'high', g: 60, r: 25, w: 1, src: 'Clarity, active time per session' },
   { id: 'scroll', label: 'Scroll depth', sec: 'landing', unit: 'pct', better: 'high', g: .50, r: .30, w: 1, src: 'Clarity, average per session' },
-  { id: 'coRate', label: 'Checkout rate', sec: 'checkout', unit: 'pct', better: 'high', g: .04, r: .02, w: 3, src: 'Our backend' },
+  { id: 'pconv', label: 'Purchase conversion', sec: 'checkout', unit: 'pct2', better: 'high', g: .015, r: .005, w: 3, src: 'Stride purchases per visit' },
+  { id: 'coRate', label: 'Checkout rate', sec: 'checkout', unit: 'pct', better: 'high', g: .04, r: .02, w: 2, src: 'checkouts per visit' },
   { id: 'c2p', label: 'Checkout to purchase', sec: 'checkout', unit: 'pct', better: 'high', g: .45, r: .30, w: 3, src: 'Backend + Paddle' },
   { id: 'bump', label: 'Bump attach', sec: 'checkout', unit: 'pct', better: 'high', g: .20, r: .10, w: 1, src: 'Paddle' },
   { id: 'refund', label: 'Refund rate', sec: 'checkout', unit: 'pct', better: 'low', g: .03, r: .07, w: 2, src: 'Paddle' },
-  { id: 'install', label: 'Install rate', sec: 'demo', unit: 'pct', better: 'high', g: .70, r: .50, w: 1, src: 'Our backend' },
-  { id: 'activation', label: 'Activation rate', sec: 'demo', unit: 'pct', better: 'high', g: .50, r: .30, w: 1, src: 'Our backend' },
-  { id: 'success', label: 'Success rate', sec: 'demo', unit: 'pct', better: 'high', g: .50, r: .25, w: 1, src: 'Plugin, needs a release' },
+  { id: 'install', label: 'Download rate', sec: 'demo', unit: 'pct', better: 'high', g: .70, r: .50, w: 1, src: 'of sign-ups, download button on /try' },
+  { id: 'activation', label: 'Activation rate', sec: 'demo', unit: 'pct', better: 'high', g: .35, r: .20, w: 1, src: 'of sign-ups, pass started in the plugin' },
   { id: 'd2p', label: 'Demo to Purchase', sec: 'demo', unit: 'pct', better: 'high', g: .08, r: .03, w: 3, src: 'Backend + Paddle' },
   { id: 'cpdc', label: 'Cost per demo-acquired customer', sec: 'demo', unit: 'usd', better: 'low', g: 60, r: 120, w: 3, src: 'Meta + Paddle' },
   { id: 'deliv', label: 'Delivery rate', sec: 'email', unit: 'pct', better: 'high', g: .98, r: .95, w: 1, src: 'Resend' },
   { id: 'openR', label: 'Open rate', sec: 'email', unit: 'pct', better: 'high', g: .40, r: .20, w: 0, src: 'Resend, inflated by Apple Mail' },
   { id: 'clickR', label: 'Click rate', sec: 'email', unit: 'pct', better: 'high', g: .04, r: .015, w: 2, src: 'Resend' },
   { id: 'conv', label: 'Goal within 7 days', sec: 'email', unit: 'pct', better: 'high', g: .03, r: .01, w: 3, src: 'Resend + Paddle' },
-  { id: 'unsub', label: 'Unsubscribe rate', sec: 'email', unit: 'pct2', better: 'low', g: .003, r: .01, w: 0, src: 'not measured: STOP replies' },
   { id: 'bounce', label: 'Bounce rate', sec: 'email', unit: 'pct', better: 'low', g: .01, r: .03, w: 1, src: 'Resend' },
   { id: 'stitched', label: 'Stitched share', sec: 'coverage', unit: 'pct', better: 'high', g: .80, r: .60, w: 0, src: 'Backend + Paddle' },
 ];
@@ -532,7 +532,6 @@ const DEFAULTS = {
   secW: { money: 30, checkout: 25, creative: 15, landing: 15, demo: 15, email: 10 },
   floor: 30, cutGreen: 80, cutAmber: 50,
   model: 'blended', firstW: 40, lookback: 28,
-  succ: { lanes: 3, minutes: 5, audio: true, motion: true },
   tools: [], campaignKinds: {},
 };
 const clone = o => JSON.parse(JSON.stringify(o));
@@ -541,20 +540,37 @@ function mergeSettings(got) {
   if (!got) return s;
   for (const k of ['floor', 'cutGreen', 'cutAmber', 'firstW', 'lookback', 'model']) if (got[k] != null) s[k] = got[k];
   for (const [id, m] of Object.entries(got.metrics || {})) if (s.metrics[id]) s.metrics[id] = { ...s.metrics[id], ...m };
-  Object.assign(s.secW, got.secW || {}); Object.assign(s.succ, got.succ || {});
+  Object.assign(s.secW, got.secW || {});
   if (Array.isArray(got.tools)) s.tools = got.tools;
   if (got.campaignKinds) s.campaignKinds = got.campaignKinds;
   return s;
 }
 let S = clone(DEFAULTS);
-let saveT = null;
-function save() {
-  $('st-saved') && ($('st-saved').textContent = 'Saving…');
-  clearTimeout(saveT);
-  saveT = setTimeout(async () => {
-    try { await api('health_settings', { settings: S }); $('st-saved') && ($('st-saved').textContent = 'Saved. Both of you see these thresholds.'); }
-    catch (e) { $('st-saved') && ($('st-saved').textContent = 'Not saved: ' + e.message); toast('Settings not saved: ' + e.message, true); }
-  }, 700);
+// Benchmarks are shared: what one of you saves, the other gets on the next load. Edits apply to
+// your own view at once and reach everyone only when Save is pressed.
+let SET_DIRTY = false;
+function markSettingsDirty() { SET_DIRTY = true; paintSaveBars(); }
+function paintSaveBars() {
+  const st = PAY && PAY.settings;
+  const saved = st && st.updated_at_ms ? `Last saved ${fmtTime(st.updated_at_ms)}${st.who ? ' by ' + st.who : ''}.` : 'Never saved: these are the defaults.';
+  document.querySelectorAll('.st-bar').forEach(bar => {
+    bar.querySelector('.st-state').innerHTML = SET_DIRTY
+      ? '<b style="color:var(--warn)">Unsaved changes.</b> You already see them; Save makes them everyone’s.' : esc(saved);
+    const b = bar.querySelector('.st-save-btn');
+    b.disabled = !SET_DIRTY;
+  });
+}
+async function saveSettings() {
+  document.querySelectorAll('.st-save-btn').forEach(b => { b.disabled = true; b.textContent = 'Saving…'; });
+  try {
+    const r = await api('health_settings', { settings: S });
+    SET_DIRTY = false;
+    const me = (USER && USER.email || '').toLowerCase();
+    PAY.settings = { ...(r.settings || {}), updated_at_ms: (r.settings && r.settings.updated_at_ms) || Date.now(), who: me.startsWith('livni.ido') ? 'Ido' : 'Yossi' };
+    toast('Saved. Everyone who opens the dashboard sees these now.');
+  } catch (e) { toast('Not saved: ' + e.message, true); }
+  document.querySelectorAll('.st-save-btn').forEach(b => { b.textContent = 'Save benchmarks'; });
+  paintSaveBars();
 }
 const kindOf = ad => S.campaignKinds[ad.campaign_id] || ad.kind0 || 'purchase';
 
@@ -590,12 +606,12 @@ const PURCHASE_GOAL = g => g === 'buy' || g === 'session' || g === 'collection';
 function agg(idx, ch = F.channel, model = F.model) {
   const w = S.firstW / 100;
   const a = { spend: 0, metaSpend: 0, googleSpend: 0, imps: 0, reach: 0, plays3: 0, thru: 0, metaClicks: 0, lpv: 0, paidClicks: 0, paidArrivals: 0,
-    homePV: 0, tryPV: 0, pvDays: 0, checkouts: 0, coPV: 0, coBought: 0, purchB: 0, orders: 0, bump: 0, post2Shown: 0, post2Take: 0, postShown: 0, postTake: 0,
+    homePV: 0, tryPV: 0, pvDays: 0, visits: 0, purchPV: 0, coBoughtPV: 0, addonPV: 0, checkouts: 0, coPV: 0, coBought: 0, purchB: 0, orders: 0, bump: 0, post2Shown: 0, post2Take: 0, postShown: 0, postTake: 0,
     refunds: 0, refundAmt: 0, addonOrders: 0, gross: 0, tax: 0, net: 0, fees: 0, purchases: 0, revenue: 0, journeys: 0, stitched: 0, est: 0,
     nStride: 0, nBump: 0, nPost2: 0, nPost: 0, oStride: 0, oBump: 0, oPost2: 0, oPost: 0, nColl: 0, oColl: 0, nSess: 0, oSess: 0, nOther: 0, oOther: 0,
     pages: Object.fromEntries(PAGES.map(([p]) => [p, 0])),
     reg: 0, regPV: 0, dl: 0, act: 0, demoBuyers: 0, demoSpend: 0, regOpen: 0, regOwn: 0,
-    clarS: 0, clarAct: 0, clarActN: 0, clarScr: 0, clarScrN: 0, cpages: {},
+    clarS: 0, clarAct: 0, clarActN: 0, clarScr: 0, clarScrN: 0, cpages: {}, actAll: 0, actEmail: 0,
     ms: Object.fromEntries(Object.keys(MS_BITS).map(k => [k, 0])) };
   const inCh = c => ch === 'all' || ch === c;
   for (const i of idx) {
@@ -608,6 +624,7 @@ function agg(idx, ch = F.channel, model = F.model) {
     }
     if (inCh('google')) a.googleSpend += D.google.spend;
     if (D.pvAny) a.pvDays++;
+    if (ch === 'all' && D.acts) { a.actAll += D.acts[0]; a.actEmail += D.acts[1]; }
     // Clarity is not split by channel, so time and scroll exist for all channels only. The
     // Landing section reads the three landing pages; the Pages table shows every page.
     if (ch === 'all' && D.clar) {
@@ -627,6 +644,7 @@ function agg(idx, ch = F.channel, model = F.model) {
     for (const [page, byCh] of Object.entries(D.pv)) {
       let n = 0;
       for (const [c, v] of Object.entries(byCh)) if (c === 'internal' ? ch === 'all' : inCh(c)) n += v;
+      for (const [c, v] of Object.entries(byCh)) if (c !== 'internal' && inCh(c)) a.visits += v;
       if (a.pages[page] == null) a.pages[page] = 0;
       a.pages[page] += n;
       if (page === 'home') a.homePV += n; else if (page === 'try') a.tryPV += n;
@@ -634,18 +652,19 @@ function agg(idx, ch = F.channel, model = F.model) {
     for (const c of CHANNELS) {
       if (!inCh(c.id)) continue;
       const n = D.co[c.id] || 0;
-      a.checkouts += n; a.coBought += D.coB[c.id] || 0; if (D.pvAny) a.coPV += n;
+      a.checkouts += n; a.coBought += D.coB[c.id] || 0; if (D.pvAny) { a.coPV += n; a.coBoughtPV += D.coB[c.id] || 0; }
     }
     if (ch === 'all') { a.post2Shown += OFFERS.post2[i]; a.postShown += OFFERS.post[i]; }
     for (const j of J[i]) {
       const e = ends(j), net = jNet(j), rev = net - j.r;
       const cr = ch === 'all' ? 1 : credit(j, ch, model, w);
-      if (cr > 0) { a.revenue += cr * rev; if (j.k === 'stride') a.purchases += cr; }
+      if (cr > 0) { a.revenue += cr * rev; if (j.k === 'stride') { a.purchases += cr; if (D.pvAny) a.purchPV += cr; } }
       if (!inCh(e.last)) continue;
       a.journeys++; a.stitched += (j.t || []).length ? 1 : 0; a.est += j.est ? 1 : 0;
       a.gross += j.g; a.tax += j.x; a.fees += j.f; a.refundAmt += j.r; a.net += net - j.r;
       if (j.k === 'stride') {
         a.orders++; a.purchB++; a.bump += j.b; a.post2Take += j.p2; a.postTake += j.p; a.addonOrders += (j.b || j.p2 || j.p) ? 1 : 0;
+        if (D.pvAny && (j.b || j.p2 || j.p)) a.addonPV++;
         a.refunds += j.r > 0 ? 1 : 0; a.nStride += j.ns; a.nBump += j.nb; a.nPost2 += j.n2; a.nPost += j.np;
         a.oStride++; a.oBump += j.b; a.oPost2 += j.p2; a.oPost += j.p;
       } else if (j.k === 'collection') { a.nColl += net; a.oColl++; }
@@ -709,7 +728,8 @@ const VAL = {
   arrivalMeta: a => a.metaClicks ? a.lpv / a.metaClicks : null,
   engaged: a => a.clarActN ? a.clarAct / a.clarActN : null,
   scroll: a => a.clarScrN ? a.clarScr / a.clarScrN : null,
-  coRate: a => a.homePV ? a.coPV / a.homePV : null,
+  coRate: a => a.visits ? a.coPV / a.visits : null,
+  pconv: a => a.visits ? a.purchPV / a.visits : null,
   c2p: a => a.checkouts ? a.coBought / a.checkouts : null,
   aov: a => a.orders ? (a.nStride + a.nBump + a.nPost2 + a.nPost) / a.orders : null,
   bump: a => a.orders ? a.bump / a.orders : null,
@@ -718,8 +738,7 @@ const VAL = {
   refund: a => a.orders ? a.refunds / a.orders : null,
   regRate: a => a.tryPV ? a.regPV / a.tryPV : null,
   install: a => a.reg ? a.dl / a.reg : null,
-  activation: a => a.dl ? a.act / a.dl : null,
-  success: () => null,
+  activation: a => a.reg ? a.act / a.reg : null,
   d2p: a => a.reg ? a.demoBuyers / a.reg : null,
   cpdc: a => a.demoBuyers && a.demoSpend ? a.demoSpend / a.demoBuyers : null,
   stitched: a => a.journeys ? a.stitched / a.journeys : null,
@@ -728,13 +747,12 @@ const VAL = {
   clickR: a => a.mail && a.mail.tro ? a.mail.c / a.mail.tro : null,
   ctor: a => a.mail && a.mail.o ? a.mail.c / a.mail.o : null,
   conv: a => a.mail && a.mail.sGoal ? a.mail.cvGoal / a.mail.sGoal : null,
-  unsub: () => null,
   bounce: a => a.mail && a.mail.tr ? a.mail.b / a.mail.tr : null,
 };
 const SAMPLE = {
   roas: a => a.purchases, cac: a => a.purchases, hook: a => a.imps, thru: a => a.imps, ctr: a => a.imps, freq: a => a.imps, fatigue: a => a.imps,
-  arrival: a => a.paidClicks, engaged: a => a.clarActN, scroll: a => a.clarScrN, coRate: a => a.homePV, c2p: a => a.checkouts, bump: a => a.orders, refund: a => a.orders,
-  install: a => a.reg, activation: a => a.dl, d2p: a => a.reg, cpdc: a => a.reg, stitched: a => a.journeys,
+  arrival: a => a.paidClicks, engaged: a => a.clarActN, scroll: a => a.clarScrN, coRate: a => a.visits, pconv: a => a.visits, c2p: a => a.checkouts, bump: a => a.orders, refund: a => a.orders,
+  install: a => a.reg, activation: a => a.reg, d2p: a => a.reg, cpdc: a => a.reg, stitched: a => a.journeys,
   deliv: a => a.mail.tr, openR: a => a.mail.tro, clickR: a => a.mail.tro, conv: a => a.mail.sGoal, bounce: a => a.mail.tr,
 };
 
@@ -939,6 +957,9 @@ function renderOverview(c) {
     metricTile('roas', c),
     metricTile('cac', c),
     tileHTML({ label: 'Purchases', value: fmt.num1(A.purchases), d: delta(A.purchases, P.purchases, 'high'), sp: spark(perDay(c.idx, a => a.purchases)), src: all ? 'Stride orders' : `credited ${modelLabel()}` }),
+    tileHTML({ label: 'Visits', value: fmt.num(A.visits), d: delta(A.visits, P.visits, 'high'), sp: spark(c.idx.map(d => days[d].pvAny ? agg([d]).visits : null)), src: pvFrom() == null ? 'counting starts with the site update' : 'arrivals, our cookieless count' }),
+    metricTile('pconv', c),
+    metricTile('coRate', c),
   ].join('');
 
   const secCards = SECTIONS.map(s => {
@@ -958,7 +979,7 @@ function renderOverview(c) {
     <div class="cov-row"><span class="k">Orders with estimated money</span><span class="v">${fmt.num(A.est)} of ${fmt.num(A.journeys)}</span><span class="d"><span class="src">Paddle / Lemon Squeezy</span><span>from the stored order totals where the platform’s API did not answer; fees at the published rate</span></span></div>
   </div>`;
   const NAMES = { paddle: 'Paddle API', lemonsqueezy: 'Lemon Squeezy API', meta: 'Meta Marketing API', google: 'Google Ads', events: 'Event log', crm: 'CRM rows', pv: 'Page-view count', fx: 'Exchange rate', resend: 'Resend tracking', clarity: 'Clarity', plugin_success: 'Plugin success event' };
-  const srcs = `<div class="srcs">${Object.entries(PAY.sources).map(([k, s]) => `<div>${light(s.ok ? 'good' : (k === 'clarity' || k === 'plugin_success' ? 'nodata' : 'warn'), false)}<span>${esc(NAMES[k] || k)}<small>${esc(s.note || '')}</small></span></div>`).join('')}</div>`;
+  const srcs = `<div class="srcs">${Object.entries(PAY.sources).filter(([k]) => k !== 'plugin' + '_success').map(([k, s]) => `<div>${light(s.ok ? 'good' : (k === 'clarity' ? 'nodata' : 'warn'), false)}<span>${esc(NAMES[k] || k)}<small>${esc(s.note || '')}</small></span></div>`).join('')}</div>`;
 
   $('p-overview').innerHTML = `
     <div class="hero">${hero}<div class="tiles">${tiles}</div></div>
@@ -984,24 +1005,25 @@ function renderFunnel(c) {
     </div><p class="note" style="margin-top:8px">ThruPlays (${fmt.num(A.thru)}, ${fmtM('thru', VAL.thru(A))} of impressions) sit beside this path, not on it: a click can come before the 15th second.</p>`)
     : F.channel === 'google' ? card('From click to arrival', 'Google', '<p class="empty">Google’s click counts are not read yet (its API is test-only), so there is nothing to compare arrivals with.</p>') : '';
   const p2 = card('From arrival to purchase', esc(chLabel()), `<div class="fpath">
-      ${frow('Home page views', 'our count', A.homePV, A.homePV, '')}
-      ${frow('Checkout opened', 'the buy form, one per person a day', A.checkouts, A.homePV || A.checkouts, rateOf('Checkout rate', 'coRate', A))}
-      ${frow('Bought within 7 days', 'Paddle', A.coBought, A.homePV || A.checkouts, rateOf('Checkout to purchase', 'c2p', A))}
-      ${frow('Took an add-on', 'bump, /post2, /post', A.addonOrders, A.homePV || A.checkouts, `${light('info', false)}<span>Add-on take <b>${fmt.pct(A.orders ? A.addonOrders / A.orders : null)}</b></span>`)}
-    </div><p class="note" style="margin-top:8px">Wallet and payment-link buyers never open the buy form, so ${fmt.num(Math.max(0, A.orders - A.coBought))} of this range’s ${fmt.num(A.orders)} orders are not on this path.</p>`);
+      ${frow('Visits', 'arrivals on any page, our count', A.visits, A.visits, '')}
+      ${frow('Checkout opened', 'the buy form, one per person a day', A.coPV, A.visits || A.coPV, rateOf('Checkout rate', 'coRate', A))}
+      ${frow('Bought within 7 days of it', 'Paddle', A.coBoughtPV, A.visits || A.coPV, `${light('info', false)}<span>Of those checkouts <b>${fmt.pct(A.coPV ? A.coBoughtPV / A.coPV : null)}</b></span>`)}
+      ${frow('All Stride purchases', 'Paddle', A.purchPV, A.visits || A.purchPV, rateOf('Purchase conversion', 'pconv', A))}
+      ${frow('Took an add-on', 'bump, /post2, /post', A.addonPV, A.visits || A.purchPV, `${light('info', false)}<span>Of those purchases <b>${fmt.pct(A.purchPV ? A.addonPV / A.purchPV : null)}</b></span>`)}
+    </div><p class="note" style="margin-top:8px"><b>Visits</b> are arrivals: a page load that is not a click from another stridehub.io page, a reload or a back. <b>Purchase conversion</b> is all Stride purchases over those visits, <b>checkout rate</b> the buy forms opened over them. Every row here counts the same days: ${A.pvDays ? `the ${fmt.num(A.pvDays)} day${A.pvDays === 1 ? '' : 's'} of this range the count has run` : 'none yet, the count has not run in this range'}. Wallet and payment-link buyers never open the buy form, so ${fmt.num(Math.max(0, A.orders - A.coBought))} of this range’s ${fmt.num(A.orders)} orders are not on the checkout path.</p>`);
   const p3 = card('Discovery Pass demo', esc(chLabel()), `<div class="fpath">
       ${frow('/try page views', 'our count', A.tryPV, A.tryPV, '')}
       ${frow('Registered', 'demo_registered', A.reg, A.tryPV || A.reg, `${light('info', false)}<span>Registration rate <b>${fmtM('regRate', VAL.regRate(A))}</b></span>`)}
-      ${frow('Downloaded', 'demo_download', A.dl, A.tryPV || A.reg, rateOf('Install rate', 'install', A))}
-      ${frow('Activated', 'demo_activated, with an email', A.act, A.tryPV || A.reg, rateOf('Activation rate', 'activation', A))}
+      ${frow('Downloaded', 'download button on /try', A.dl, A.tryPV || A.reg, rateOf('Download rate', 'install', A))}
+      ${frow('Activated', 'pass started in the plugin', A.act, A.tryPV || A.reg, rateOf('Activation rate', 'activation', A))}
       ${frow('Bought within 30 days', 'of registrants', A.demoBuyers, A.tryPV || A.reg, rateOf('Demo to Purchase', 'd2p', A))}
     </div>`);
   const rows = CHANNELS.map(ch => {
     const a = agg(c.idx, ch.id);
-    return `<tr><td><span class="chdot" style="background:${ch.color}"></span>${esc(ch.label)}</td><td>${fmt.num(a.homePV + a.tryPV)}</td><td>${cellLit('coRate', a)}</td><td>${cellLit('c2p', a)}</td><td>${fmt.num1(a.purchases)}</td><td>${fmt.usd0(a.revenue)}</td><td>${a.spend ? fmt.usd0(a.spend) : '—'}</td><td>${cellLit('roas', a)}</td><td>${cellLit('cac', a)}</td></tr>`;
+    return `<tr><td><span class="chdot" style="background:${ch.color}"></span>${esc(ch.label)}</td><td>${fmt.num(a.visits)}</td><td>${cellLit('pconv', a)}</td><td>${cellLit('coRate', a)}</td><td>${cellLit('c2p', a)}</td><td>${fmt.num1(a.purchases)}</td><td>${fmt.usd0(a.revenue)}</td><td>${a.spend ? fmt.usd0(a.spend) : '—'}</td><td>${cellLit('roas', a)}</td><td>${cellLit('cac', a)}</td></tr>`;
   }).join('');
-  const byCh = card('The same steps, by channel', `purchases and revenue credited ${esc(modelLabel())}`, `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Channel</th><th>Page views</th><th>Checkout rate</th><th>Checkout to purchase</th><th>Purchases</th><th>Net revenue</th><th>Spend</th><th>ROAS</th><th>Cost per customer</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <p class="note" style="margin-top:10px">Checkout rate and checkout to purchase follow the visit’s own channel. Purchases, revenue, ROAS and cost per customer follow the attribution model, so switching it moves only the last five columns. A touch older than the lookback (${S.lookback} days) does not count.</p>`);
+  const byCh = card('The same steps, by channel', `purchases and revenue credited ${esc(modelLabel())}`, `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Channel</th><th>Visits</th><th>Purchase conversion</th><th>Checkout rate</th><th>Checkout to purchase</th><th>Purchases</th><th>Net revenue</th><th>Spend</th><th>ROAS</th><th>Cost per customer</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="note" style="margin-top:10px">Visits, checkout rate and checkout to purchase follow the visit’s own channel. Purchase conversion, purchases, revenue, ROAS and cost per customer follow the attribution model. A touch older than the lookback (${S.lookback} days) does not count.</p>`);
   $('p-funnel').innerHTML = p1 + `<div class="grid-2">${p2}${p3}</div>` + byCh;
 }
 
@@ -1063,7 +1085,7 @@ function renderLanding(c) {
   const prow = PAGES.map(([p, name]) => {
     const n = A.pages[p] || 0, cp = A.cpages[p];
     if (!n && !(cp && cp.s) && !['home', 'try', 'samples'].includes(p)) return '';
-    const next = p === 'home' ? `Checkout rate ${cellLit('coRate', A)}` : p === 'try' ? `Registration rate ${fmtM('regRate', VAL.regRate(A))}` : '—';
+    const next = p === 'home' ? `Checkouts per home view ${fmt.pct(A.homePV ? A.coPV / A.homePV : null)}` : p === 'try' ? `Registration rate ${fmtM('regRate', VAL.regRate(A))}` : '—';
     const eng = cp && cp.actN ? fmt.secs(cp.act / cp.actN) : '—', scr = cp && cp.scrN ? fmt.pct(cp.scr / cp.scrN) : '—';
     return `<tr><td>${esc(name)}</td><td>${fmt.num(n)}</td><td>${cp && cp.s ? fmt.num(cp.s) : '—'}</td><td>${eng}</td><td>${scr}</td><td class="l">${next}</td></tr>`;
   }).join('');
@@ -1085,7 +1107,7 @@ function renderLanding(c) {
 /* ---------- Checkout & revenue ---------- */
 function renderCheckout(c) {
   const el = $('p-checkout'), A = c.A;
-  const tiles = [metricTile('coRate', c), metricTile('c2p', c),
+  const tiles = [metricTile('pconv', c), metricTile('coRate', c), metricTile('c2p', c),
     tileHTML({ label: 'AOV', value: fmtM('aov', VAL.aov(A)), d: delta(VAL.aov(A), VAL.aov(c.P), 'high'), sp: spark(perDay(c.idx, a => VAL.aov(a))), src: 'net of tax, with add-ons', lit: light('info') }),
     metricTile('bump', c),
     tileHTML({ label: '/post2 take', value: fmtM('post2', VAL.post2(A)), d: delta(VAL.post2(A), VAL.post2(c.P), 'high'), src: `${fmt.num(A.post2Take)} of ${fmt.num(A.post2Shown)} shown`, lit: light('info') }),
@@ -1112,28 +1134,45 @@ function renderCheckout(c) {
 
 /* ---------- Demo ---------- */
 function renderDemo(c) {
-  const el = $('p-demo'), A = c.A;
+  const el = $('p-demo'), A = c.A, P = c.P;
   const openShare = A.reg ? A.regOpen / A.reg : 0;
   const prim = [metricTile('d2p', c, { cls: 'primary' }), metricTile('cpdc', c, { cls: 'primary' })].join('');
-  const diag = [
-    tileHTML({ label: 'Registration rate', value: fmtM('regRate', VAL.regRate(A)), d: delta(VAL.regRate(A), VAL.regRate(c.P), 'high'), sp: spark(perDay(c.idx, a => VAL.regRate(a))), src: 'Our backend', lit: light('info') }),
-    metricTile('install', c), metricTile('activation', c), metricTile('success', c, { spark: false })].join('');
+  const share = n => A.reg ? ` · ${fmt.pct(n / A.reg)} of sign-ups` : '';
+  const cnt = (label, v, pv, fn, src) => tileHTML({ label, value: fmt.num(v), d: delta(v, pv, 'high'), sp: spark(perDay(c.idx, fn)), src });
+  const counts = [
+    cnt('Signed up', A.reg, P.reg, a => a.reg, 'Discovery Pass sign-ups'),
+    cnt('Downloaded', A.dl, P.dl, a => a.dl, 'clicked download on /try' + share(A.dl)),
+    cnt('Activated', A.act, P.act, a => a.act, 'started the pass in the plugin' + share(A.act)),
+    cnt('Bought within 30 days', A.demoBuyers, P.demoBuyers, a => a.demoBuyers, 'bought Stride' + share(A.demoBuyers)),
+  ].join('');
+  const rates = [
+    tileHTML({ label: 'Registration rate', value: fmtM('regRate', VAL.regRate(A)), d: delta(VAL.regRate(A), VAL.regRate(c.P), 'high'), sp: spark(perDay(c.idx, a => VAL.regRate(a))), src: 'sign-ups per /try page view', lit: light('info') }),
+    metricTile('install', c), metricTile('activation', c)].join('');
+  const unmatched = A.actAll - A.actEmail;
+  const path = `<div class="fpath">
+      ${frow('Signed up', 'demo_registered', A.reg, A.reg, '')}
+      ${frow('Downloaded', 'download button on /try', A.dl, A.reg, rateOf('Download rate', 'install', A))}
+      ${frow('Activated', 'pass started in the plugin', A.act, A.reg, rateOf('Activation rate', 'activation', A))}
+      ${frow('Bought within 30 days', 'Stride purchase', A.demoBuyers, A.reg, rateOf('Demo to Purchase', 'd2p', A))}
+    </div>
+    <p class="note" style="margin-top:10px">Every step counts the people who signed up in this range, whenever they took the step. <b>Downloaded</b> counts clicks on the /try download buttons from the browser that signed up; a download from the welcome mail is not seen, so the true share is higher. <b>Activated</b> counts a sign-up whose pass, started in the plugin, carries their confirmed email.${A.actAll ? ` Across all passes started in this range: ${fmt.num(A.actAll)} activations, ${fmt.num(A.actEmail)} of them with an email${unmatched > 0 ? `; the other ${fmt.num(unmatched)} cannot be tied to a sign-up` : ''}.` : ''}</p>`;
   const MS = [['chain_offered', 'Chain offered', 'demo_chain_offered'], ['chain_picked', 'Chain picked (e.g. Serum)', 'demo_chain_picked'], ['chain_heard', 'Chain heard', 'demo_chain_heard'], ['tour_done', 'Tour finished', 'demo_chain_tour_done'],
     ['multi_lane', 'First multi-lane motion', 'first_multi_lane_motion'], ['new_variation', 'First new variation', 'first_new_variation'], ['lock_explore', 'First lock and explore', 'first_lock_and_explore']];
-  const bars = MS.map(([k, n, ev]) => { const v = A.act ? A.ms[k] / A.act : null; return `<div class="hbar"><div class="nm">${esc(n)}<small>${esc(ev)}</small></div><div class="tr"><i style="width:${v == null ? 0 : Math.min(100, v * 100).toFixed(1)}%"></i></div><div class="v">${fmt.pct(v)}</div></div>`; }).join('');
-  const newEv = [['Played with audio out', 'audio_out'], ['Curves moving', 'motion_running'], ['Minutes in session', 'session_minutes']].map(([n, ev]) => `<div class="hbar"><div class="nm">${esc(n)}<small>${esc(ev)}</small></div><div class="tr"></div><div class="v"><span class="tag new">new</span></div></div>`).join('');
-  const rule = `mapped ≥ ${S.succ.lanes} lanes · ≥ ${S.succ.minutes} min in session${S.succ.audio ? ' · played with audio out' : ''}${S.succ.motion ? ' · curves moving' : ''}`;
+  const bars = MS.map(([k, n, ev]) => { const v = A.act ? A.ms[k] / A.act : null; return `<div class="hbar"><div class="nm">${esc(n)}<small>${esc(ev)} · ${fmt.num(A.ms[k])} people</small></div><div class="tr"><i style="width:${v == null ? 0 : Math.min(100, v * 100).toFixed(1)}%"></i></div><div class="v">${fmt.pct(v)}</div></div>`; }).join('');
   el.innerHTML = `<div class="tiles">${prim}</div>
-    <p class="note">These two judge the demo. The steps below are diagnostic lights, never goals. ${openShare > 0.05 ? `<b>${fmt.pct(openShare)} of this range’s registrants are under 30 days old</b>, so Demo to Purchase reads low until their window closes.` : ''} ${A.regOwn ? `${fmt.num(A.regOwn)} registrants already owned Stride and never count as demo-acquired.` : ''}</p>
-    <div class="tiles">${diag}</div>
-    <div class="grid-2">
-      ${card('Activation success', esc(rule), `<p class="note">Success is the one event that says a demo user got what we promised. The plugin does not report lanes mapped, minutes in session or audio out yet, so this stays empty until a plugin release sends them. The rule is ready in Settings; once the events land, this card shows whether successes buy more than other activations.</p><button type="button" class="link" data-go="settings" style="margin-top:8px">Edit the success rule</button>`)}
-      ${card('What activated users reached in the plugin', 'share of activations with an email, from vst_event', `<div class="hbars">${bars}${newEv}</div>`)}
-    </div>`;
+    <p class="note">These two judge the demo; the steps below are diagnostic, never goals. ${openShare > 0.05 ? `<b>${fmt.pct(openShare)} of this range’s sign-ups are under 30 days old</b>, so Demo to Purchase reads low until their window closes.` : ''} ${A.regOwn ? `${fmt.num(A.regOwn)} sign-ups already owned Stride and never count as demo-acquired.` : ''}</p>
+    <div class="tiles">${counts}</div>
+    <div class="tiles">${rates}</div>
+    ${card('From sign-up to purchase', `${fmt.num(A.reg)} sign-ups in this range; every percentage is of them`, path)}
+    ${card('What activated users reached in the plugin', `share of the ${fmt.num(A.act)} activated sign-ups, from the plugin’s own events`, `<div class="hbars">${bars}</div>`)}`;
 }
 
 /* ---------- Email flows: numbers, switches, and the copy itself ---------- */
-const FLOW_GROUPS = [['A', 'A · Demo lifecycle'], ['B', 'B · Checkout recovery'], ['C', 'C · After a purchase'], ['D', 'D · Winback'], ['T', 'Transactional'], ['R', 'Retired']];
+const FLOW_GROUPS = [['Apre', 'A · Demo, before activation'], ['Apost', 'A · Demo, after activation'], ['B', 'B · Checkout recovery'], ['C', 'C · After a purchase'], ['D', 'D · Winback'], ['T', 'Transactional'], ['R', 'Retired']];
+// The demo mails a sign-up gets before the pass starts in the plugin; every other A mail follows
+// an activation (the pass only runs once it is activated).
+const PRE_ACTIVATION = new Set(['demo_welcome', 'activate_nudge', 'friction_rescue']);
+const groupOf = f => f.group === 'A' ? (PRE_ACTIVATION.has(f.id) ? 'Apre' : 'Apost') : f.group;
 const GOAL = { buy: 'Buys Stride', session: 'Books the 1:1 session', collection: 'Buys the Collection', click: 'Clicks through', answer: 'Answers the question', none: 'Receipt, no goal' };
 const FAMILY = { FLOWS_INSTANT_MODE: 'Instant mails', DEMO_LIFECYCLE_MODE: 'Demo lifecycle', RECOVERY_MODE: 'Checkout recovery', POST_PURCHASE_MODE: 'After a purchase', WINBACK_MODE: 'Winback' };
 const FLAG_OF = { day_one_depth: 'A5', last_hours: 'A6', recovery_questions: 'B2', recovery_try: 'B3', session_offer: 'C2', first_build: 'C3', one_question: 'C4', referral_ask: 'C4B', collection_nudge: 'C5', discord: 'C6', winback_week: 'D1', winback_update: 'D2' };
@@ -1261,7 +1300,8 @@ function renderEmail(c) {
   if (!SEL_FLOW || !FL[SEL_FLOW]) { let best = null; for (const f of FLOWS) if (!best || A.mailPer[f.id].s > A.mailPer[best.id].s) best = f; SEL_FLOW = best ? best.id : FLOWS[0].id; }
   if (MAILS_READY) openEditor(SEL_FLOW);
   const rows = FLOW_GROUPS.map(([g, title]) => {
-    const body = FLOWS.filter(f => f.group === g).map(f => {
+    const inGroup = FLOWS.filter(f => groupOf(f) === g);
+    const body = inGroup.map(f => {
       const x = A.mailPer[f.id], a = { mail: x };
       const subj = (MAILS[f.id] && (MAILS[f.id].status === 'published' ? MAILS[f.id].subject : (MAILS[f.id].file_subject || MAILS[f.id].subject))) || '';
       const goalCell = x.s && f.goal !== 'none' ? `${fmt.num(x.cv)}${PURCHASE_GOAL(f.goal) && x.s ? ` (${fmt.pct(x.cv / x.s)})` : ''}` : '—';
@@ -1271,7 +1311,15 @@ function renderEmail(c) {
         <td>${x.s ? fmt.num(x.s) : '—'}</td><td>${x.tr ? cellLit('deliv', a) : '—'}</td><td>${x.tro ? cellLit('openR', a) : '—'}</td><td>${x.tro ? cellLit('clickR', a) : '—'}</td>
         <td class="l">${esc(GOAL[f.goal])}</td><td>${goalCell}</td><td>${x.rv ? fmt.usd0(x.rv) : '—'}</td></tr>`;
     }).join('');
-    return body ? `<tr class="grp"><td colspan="10">${esc(title)}</td></tr>${body}` : '';
+    if (!body) return '';
+    // The group's own totals, so the two halves of the demo can be read side by side.
+    const t = { s: 0, tr: 0, tro: 0, dv: 0, o: 0, c: 0, cv: 0, rv: 0 };
+    for (const f of inGroup) { const x = A.mailPer[f.id]; for (const k in t) t[k] += x[k]; }
+    const pc = (n, d) => d ? fmt.pct(n / d) : '—';
+    const head = t.s
+      ? `<tr class="grp"><td colspan="3">${esc(title)}</td><td>${fmt.num(t.s)}</td><td>${pc(t.dv, t.tr)}</td><td>${pc(t.o, t.tro)}</td><td>${pc(t.c, t.tro)}</td><td></td><td>${t.cv ? fmt.num(t.cv) : '—'}</td><td>${t.rv ? fmt.usd0(t.rv) : '—'}</td></tr>`
+      : `<tr class="grp"><td colspan="10">${esc(title)}</td></tr>`;
+    return head + body;
   }).join('');
   const f = FL[SEL_FLOW], x = A.mailPer[f.id], fa = { mail: x };
   const path = x.s ? `<div class="fpath">
@@ -1481,7 +1529,8 @@ function renderSettings(c) {
   const camps = [...new Map(ADS.map(a => [a.campaign_id, a])).values()].filter(a => a.campaign_id);
   const campRows = camps.map(a => `<tr><td>${esc(a.campaign)}</td><td><select class="sel" data-camp="${esc(a.campaign_id)}"><option value="purchase"${kindOf(a) === 'purchase' ? ' selected' : ''}>Purchase</option><option value="demo"${kindOf(a) === 'demo' ? ' selected' : ''}>Demo</option></select></td></tr>`).join('');
   const toolRows = S.tools.map((t, k) => `<tr><td><input class="txt" data-tool="${k}" data-f="name" value="${esc(t.name)}" aria-label="Tool name" style="width:100%"></td><td><input class="num" type="number" min="0" step="any" data-tool="${k}" data-f="usd" value="${+t.usd}" aria-label="${esc(t.name)} per month"><span class="unit">$</span></td><td><button type="button" class="link" data-tool-del="${k}">Remove</button></td></tr>`).join('');
-  $('p-settings').innerHTML = `
+  const saveBar = `<div class="card st-bar" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 16px"><button type="button" class="btn primary st-save-btn">Save benchmarks</button><button type="button" class="btn st-reset-btn">Reset thresholds to defaults</button><span class="saved st-state"></span></div>`;
+  $('p-settings').innerHTML = `${saveBar}
     ${card('Benchmarks per metric', 'green at, red at, and how much each counts in its section', `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Metric</th><th class="l">Section</th><th class="l">Better</th><th>Green at</th><th>Red at</th><th>Weight</th><th>Now</th><th>Score</th><th>Light</th></tr></thead><tbody>${rows}</tbody></table></div>`)}
     <div class="grid-2">
       ${card('The health calculator', 'sections × weights = the funnel score', `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Section</th><th>Score</th><th>Weight</th><th>Score × weight</th></tr></thead><tbody>${calc}</tbody><tfoot><tr><td>Funnel</td><td>${den ? (num / den).toFixed(1) : '—'}</td><td>${den}</td><td>${num.toFixed(0)} ÷ ${den}</td></tr></tfoot></table></div>
@@ -1497,24 +1546,20 @@ function renderSettings(c) {
           <div class="field"><label for="st-look">Lookback for a touch</label><select class="sel" id="st-look">${[7, 14, 28, 60, 90, 180].map(v => `<option value="${v}"${S.lookback === v ? ' selected' : ''}>${v} days</option>`).join('')}</select></div>
           <div class="field" style="grid-column:1/-1"><label for="st-first">Blended split: <b id="st-first-lab">${S.firstW}% first touch · ${100 - S.firstW}% last touch</b></label><input type="range" min="0" max="100" step="5" id="st-first" value="${S.firstW}"></div>
         </div>`)}
-        ${card('Activation success', 'the rule, ready for when the plugin reports it', `<div class="set-grid">
-          <div class="field"><label for="su-lanes">Lanes mapped, at least</label><input class="num" type="number" min="0" step="1" id="su-lanes" value="${S.succ.lanes}"></div>
-          <div class="field"><label for="su-min">Minutes in session, at least</label><input class="num" type="number" min="0" step="1" id="su-min" value="${S.succ.minutes}"></div>
-          <label class="check"><input type="checkbox" id="su-audio"${S.succ.audio ? ' checked' : ''}> Played with audio out</label>
-          <label class="check"><input type="checkbox" id="su-motion"${S.succ.motion ? ' checked' : ''}> Curves moving</label>
-        </div>`)}
       </div>
     </div>
     <div class="grid-2">
       ${card('Campaigns', 'which Meta spend buys demos (cost per demo-acquired customer divides by it)', camps.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Campaign</th><th>Counts as</th></tr></thead><tbody>${campRows}</tbody></table></div><p class="note" style="margin-top:8px">A campaign whose name says demo, discovery, try or pass starts as Demo.</p>` : '<p class="empty">No Meta campaigns in the data.</p>')}
       ${card('Tools, per month', 'the running costs the ledger subtracts', `${toolRows ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Tool</th><th>Per month</th><th></th></tr></thead><tbody>${toolRows}</tbody></table></div>` : '<p class="empty">None yet.</p>'}<button type="button" class="btn sm" id="tool-add" style="margin-top:10px">Add a tool</button>`)}
     </div>
-    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" id="st-reset">Reset thresholds to defaults</button><span class="saved" id="st-saved">Shared: what you set here, Ido sees too, and the other way round.</span></div>`;
+    ${saveBar}`;
   bindSettings();
 }
 function bindSettings() {
   const root = $('p-settings');
-  const changed = (full) => { save(); if (full) renderSettings(ctx()); else refreshSettingsLive(ctx()); setBlendLabel(); };
+  const changed = (full) => { markSettingsDirty(); if (full) renderSettings(ctx()); else refreshSettingsLive(ctx()); setBlendLabel(); };
+  root.querySelectorAll('.st-save-btn').forEach(b => b.addEventListener('click', saveSettings));
+  paintSaveBars();
   root.querySelectorAll('input[data-m]').forEach(inp => inp.addEventListener('change', () => {
     const m = MET[inp.dataset.m], k = inp.dataset.k, u = UNITS[m.unit];
     const v = parseFloat(inp.value); if (!isFinite(v)) return;
@@ -1526,10 +1571,6 @@ function bindSettings() {
   numSet('st-floor', v => { S.floor = Math.max(0, v); });
   numSet('st-green', v => { S.cutGreen = v; });
   numSet('st-amber', v => { S.cutAmber = v; });
-  numSet('su-lanes', v => { S.succ.lanes = Math.max(0, v); });
-  numSet('su-min', v => { S.succ.minutes = Math.max(0, v); });
-  $('su-audio').addEventListener('change', e => { S.succ.audio = e.target.checked; changed(); });
-  $('su-motion').addEventListener('change', e => { S.succ.motion = e.target.checked; changed(); });
   $('st-model').addEventListener('change', e => { S.model = e.target.value; F.model = S.model; syncFilters(); changed(); });
   $('st-look').addEventListener('change', e => { S.lookback = +e.target.value; changed(); });
   const rng = $('st-first');
@@ -1543,11 +1584,11 @@ function bindSettings() {
   }));
   root.querySelectorAll('[data-tool-del]').forEach(b => b.addEventListener('click', () => { S.tools.splice(+b.dataset.toolDel, 1); changed(true); }));
   $('tool-add').addEventListener('click', () => { S.tools.push({ name: 'New tool', usd: 0 }); renderSettings(ctx()); });
-  $('st-reset').addEventListener('click', async () => {
-    if (!(await ask({ title: 'Reset the thresholds?', body: 'Every green line, red line and weight goes back to the defaults, for both of you. Tools and campaigns stay.', yes: 'Reset', danger: true }))) return;
+  root.querySelectorAll('.st-reset-btn').forEach(b => b.addEventListener('click', async () => {
+    if (!(await ask({ title: 'Reset the thresholds?', body: 'Every green line, red line and weight goes back to the defaults. Tools and campaigns stay. Nothing changes for anyone else until you press Save.', yes: 'Reset', danger: true }))) return;
     const keep = { tools: S.tools, campaignKinds: S.campaignKinds };
-    S = { ...clone(DEFAULTS), ...keep }; F.model = S.model; save(); syncFilters(); render();
-  });
+    S = { ...clone(DEFAULTS), ...keep }; F.model = S.model; SET_DIRTY = true; syncFilters(); render();
+  }));
 }
 function refreshSettingsLive(c) {
   const H = c.H, root = $('p-settings');
@@ -1567,6 +1608,7 @@ document.addEventListener('click', e => { const b = e.target.closest('[data-go]'
 async function setTab(id) {
   if (TAB === 'email' && id !== 'email' && ED.dirty && !(await ask({ title: 'Leave unsaved changes?', body: 'The mail copy you were editing has changes that are not saved.', yes: 'Leave them', danger: true }))) return;
   if (TAB === 'email' && id !== 'email') ED.dirty = false;
+  if (TAB === 'settings' && id !== 'settings' && SET_DIRTY) toast('Your benchmark changes are not saved yet: Save is on the Settings tab.', true);
   TAB = id;
   tabsEl.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === id)));
   document.querySelectorAll('.panel').forEach(p => { p.hidden = p.id !== 'p-' + id; });
@@ -1629,7 +1671,7 @@ $('signin').addEventListener('click', () => auth.signInWithPopup(new firebase.au
 $('signout1').addEventListener('click', () => auth.signOut());
 $('signout2').addEventListener('click', () => auth.signOut());
 window.addEventListener('scroll', hideTip, { passive: true });
-window.addEventListener('beforeunload', e => { if (ED.dirty) { e.preventDefault(); e.returnValue = ''; } });
+window.addEventListener('beforeunload', e => { if (ED.dirty || SET_DIRTY) { e.preventDefault(); e.returnValue = ''; } });
 
 const want = (location.hash || '').slice(1);
 let lastTab = null; try { lastTab = localStorage.getItem('stride_funnel_health_tab'); } catch (e) { /* ignore */ }
