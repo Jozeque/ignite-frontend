@@ -1245,6 +1245,14 @@ function copyChecks(m) {
   if (/\bSTOP\b/.test(m.file_text || '') && !/\bSTOP\b/.test(ED.text)) out.push(['warn', 'The file has a STOP line and this text does not. Keep the opt-out line.']);
   const norm = a => a.map(x => x.replace(/_html\}$/, '}'));
   if (JSON.stringify(norm(slotsOf(ED.text))) !== JSON.stringify(norm(slotsOf(ED.html)))) out.push(['warn', 'The text and HTML parts use different placeholders, so the two versions of the mail differ.']);
+  // Every mail has two bodies. Most inboxes show the HTML one, plain-text apps the other, so a
+  // change made in one tab only reaches half the readers.
+  const live = liveCopy(m);
+  if (live) {
+    const tChanged = ED.text !== (live.text || ''), hChanged = ED.html !== (live.html || '');
+    if (tChanged && !hChanged) out.push(['warn', 'Only the text part changed. Most inboxes show the HTML part, so most readers will not see this: make the same change in the HTML tab.']);
+    if (hChanged && !tChanged) out.push(['warn', 'Only the HTML part changed. Plain-text mail apps still show the old words: make the same change in the Text tab.']);
+  }
   return out;
 }
 function liveCopy(m) {
@@ -1412,7 +1420,15 @@ function editorHTML(f) {
     <div class="seg" id="ed-tabs"><button type="button" data-t="text" aria-pressed="${ED.tab === 'text'}">Text</button><button type="button" data-t="html" aria-pressed="${ED.tab === 'html'}">HTML</button><button type="button" data-t="preview" aria-pressed="${ED.tab === 'preview'}">Preview</button></div>
     <textarea id="ed-text" spellcheck="true"${ED.tab !== 'text' ? ' hidden' : ''} aria-label="Plain-text part">${esc(ED.text)}</textarea>
     <textarea id="ed-html" spellcheck="false"${ED.tab !== 'html' ? ' hidden' : ''} aria-label="HTML part">${esc(ED.html)}</textarea>
-    <iframe id="ed-preview" sandbox=""${ED.tab !== 'preview' ? ' hidden' : ''} title="Preview of the HTML part"></iframe>
+    <div id="ed-preview"${ED.tab !== 'preview' ? ' hidden' : ''}>
+      <p class="kicker">Subject</p>
+      <p id="ed-pv-subject" style="font-weight:600;font-size:15px;margin:4px 0 14px"></p>
+      <p class="kicker">HTML version, what most inboxes show</p>
+      <iframe id="ed-pv-html" sandbox="" title="The HTML part of the mail" style="margin-top:6px"></iframe>
+      <p class="kicker" style="margin-top:14px">Text version, for plain-text mail apps</p>
+      <pre class="part" id="ed-pv-text" style="max-height:none"></pre>
+      <p class="note" style="margin-top:8px">The name reads as a sample (Alex); links and the other {placeholders} are filled in when the mail is sent.</p>
+    </div>
     <div id="ed-checks"></div>
     ${parts}
     <div class="row">
@@ -1433,7 +1449,12 @@ function bindEditor(f) {
   ['ed-subject', 'ed-text', 'ed-html'].forEach(id => $(id).addEventListener('input', onEdit));
   const setT = t => { ED.tab = t; $('ed-text').hidden = t !== 'text'; $('ed-html').hidden = t !== 'html'; $('ed-preview').hidden = t !== 'preview';
     document.querySelectorAll('#ed-tabs button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.t === t)));
-    if (t === 'preview') $('ed-preview').srcdoc = ED.html || '<p style="font:14px sans-serif;color:#888">No HTML part.</p>'; };
+    if (t === 'preview') {
+      const fill = x => String(x || '').replace(/\{name_part\}/g, ' Alex');
+      $('ed-pv-subject').textContent = fill(ED.subject) || '(no subject)';
+      $('ed-pv-html').srcdoc = ED.html ? fill(ED.html) : '<p style="font:14px sans-serif;color:#888">This mail has no HTML part.</p>';
+      $('ed-pv-text').textContent = fill(ED.text) || '(no text part)';
+    } };
   document.querySelectorAll('#ed-tabs button').forEach(b => b.addEventListener('click', () => setT(b.dataset.t)));
   if (ED.tab === 'preview') setT('preview');
   const who = () => (USER && USER.email) || '';
