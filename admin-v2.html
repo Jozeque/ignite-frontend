@@ -470,6 +470,8 @@ function ingest(p) {
       D.pvAny = true;
     }
   }
+  // Clarity's days (UTC) sit on the Israel day of the same date: close enough for time and scroll.
+  for (const [d, pages] of Object.entries(p.clarity || {})) { const D = days[DI[d]]; if (D) D.clar = pages; }
   for (const c of p.checkouts || []) { const D = days[DI[c.d]]; if (!D) continue; D.co[c.ch] = (D.co[c.ch] || 0) + 1; D.coB[c.ch] = (D.coB[c.ch] || 0) + (c.bo || 0); }
   J = p.days.map(() => []); for (const j of p.journeys || []) { const i = DI[j.d]; if (i != null) J[i].push(j); }
   REG = p.days.map(() => []); for (const r of p.demo || []) { const i = DI[r.d]; if (i != null) REG[i].push(r); }
@@ -497,8 +499,8 @@ const METRICS = [
   { id: 'freq', label: 'Frequency', sec: 'creative', unit: 'dec', better: 'low', g: 2.0, r: 3.0, w: 1, src: 'Meta, over the range' },
   { id: 'fatigue', label: 'Fatigue', sec: 'creative', unit: 'dec', better: 'high', g: .85, r: .60, w: 1, src: 'Meta' },
   { id: 'arrival', label: 'Arrival rate, ours', sec: 'landing', unit: 'pct', better: 'high', g: .90, r: .75, w: 2, src: 'Our page-view count' },
-  { id: 'engaged', label: 'Engaged time', sec: 'landing', unit: 'secs', better: 'high', g: 60, r: 25, w: 1, src: 'Clarity, not connected' },
-  { id: 'scroll50', label: 'Scroll 50%', sec: 'landing', unit: 'pct', better: 'high', g: .50, r: .30, w: 1, src: 'Clarity, not connected' },
+  { id: 'engaged', label: 'Engaged time', sec: 'landing', unit: 'secs', better: 'high', g: 60, r: 25, w: 1, src: 'Clarity, active time per session' },
+  { id: 'scroll', label: 'Scroll depth', sec: 'landing', unit: 'pct', better: 'high', g: .50, r: .30, w: 1, src: 'Clarity, average per session' },
   { id: 'coRate', label: 'Checkout rate', sec: 'checkout', unit: 'pct', better: 'high', g: .04, r: .02, w: 3, src: 'Our backend' },
   { id: 'c2p', label: 'Checkout to purchase', sec: 'checkout', unit: 'pct', better: 'high', g: .45, r: .30, w: 3, src: 'Backend + Paddle' },
   { id: 'bump', label: 'Bump attach', sec: 'checkout', unit: 'pct', better: 'high', g: .20, r: .10, w: 1, src: 'Paddle' },
@@ -593,6 +595,7 @@ function agg(idx, ch = F.channel, model = F.model) {
     nStride: 0, nBump: 0, nPost2: 0, nPost: 0, oStride: 0, oBump: 0, oPost2: 0, oPost: 0, nColl: 0, oColl: 0, nSess: 0, oSess: 0, nOther: 0, oOther: 0,
     pages: Object.fromEntries(PAGES.map(([p]) => [p, 0])),
     reg: 0, regPV: 0, dl: 0, act: 0, demoBuyers: 0, demoSpend: 0, regOpen: 0, regOwn: 0,
+    clarS: 0, clarAct: 0, clarActN: 0, clarScr: 0, clarScrN: 0, cpages: {},
     ms: Object.fromEntries(Object.keys(MS_BITS).map(k => [k, 0])) };
   const inCh = c => ch === 'all' || ch === c;
   for (const i of idx) {
@@ -605,6 +608,22 @@ function agg(idx, ch = F.channel, model = F.model) {
     }
     if (inCh('google')) a.googleSpend += D.google.spend;
     if (D.pvAny) a.pvDays++;
+    // Clarity is not split by channel, so time and scroll exist for all channels only. The
+    // Landing section reads the three landing pages; the Pages table shows every page.
+    if (ch === 'all' && D.clar) {
+      for (const [pg, x] of Object.entries(D.clar)) {
+        const n = +x.sessions || 0;
+        if (!n) continue;
+        const cp = a.cpages[pg] || (a.cpages[pg] = { s: 0, act: 0, actN: 0, scr: 0, scrN: 0 });
+        const land = pg === 'home' || pg === 'try' || pg === 'samples';
+        cp.s += n; if (land) a.clarS += n;
+        if (x.active_s != null) { cp.act += x.active_s * n; cp.actN += n; if (land) { a.clarAct += x.active_s * n; a.clarActN += n; } }
+        if (x.scroll != null) {
+          const f = x.scroll > 1.5 ? x.scroll / 100 : x.scroll;
+          cp.scr += f * n; cp.scrN += n; if (land) { a.clarScr += f * n; a.clarScrN += n; }
+        }
+      }
+    }
     for (const [page, byCh] of Object.entries(D.pv)) {
       let n = 0;
       for (const [c, v] of Object.entries(byCh)) if (c === 'internal' ? ch === 'all' : inCh(c)) n += v;
@@ -688,9 +707,8 @@ const VAL = {
   cpc: a => a.metaClicks ? a.metaSpend / a.metaClicks : null,
   arrival: a => a.paidClicks ? a.paidArrivals / a.paidClicks : null,
   arrivalMeta: a => a.metaClicks ? a.lpv / a.metaClicks : null,
-  engaged: () => null,
-  scroll50: () => null,
-  scroll75: () => null,
+  engaged: a => a.clarActN ? a.clarAct / a.clarActN : null,
+  scroll: a => a.clarScrN ? a.clarScr / a.clarScrN : null,
   coRate: a => a.homePV ? a.coPV / a.homePV : null,
   c2p: a => a.checkouts ? a.coBought / a.checkouts : null,
   aov: a => a.orders ? (a.nStride + a.nBump + a.nPost2 + a.nPost) / a.orders : null,
@@ -715,7 +733,7 @@ const VAL = {
 };
 const SAMPLE = {
   roas: a => a.purchases, cac: a => a.purchases, hook: a => a.imps, thru: a => a.imps, ctr: a => a.imps, freq: a => a.imps, fatigue: a => a.imps,
-  arrival: a => a.paidClicks, coRate: a => a.homePV, c2p: a => a.checkouts, bump: a => a.orders, refund: a => a.orders,
+  arrival: a => a.paidClicks, engaged: a => a.clarActN, scroll: a => a.clarScrN, coRate: a => a.homePV, c2p: a => a.checkouts, bump: a => a.orders, refund: a => a.orders,
   install: a => a.reg, activation: a => a.dl, d2p: a => a.reg, cpdc: a => a.reg, stitched: a => a.journeys,
   deliv: a => a.mail.tr, openR: a => a.mail.tro, clickR: a => a.mail.tro, conv: a => a.mail.sGoal, bounce: a => a.mail.tr,
 };
@@ -774,7 +792,7 @@ const fmt = {
   dec: v => v == null || !isFinite(v) ? '—' : v.toFixed(2),
   secs: v => { if (v == null || !isFinite(v)) return '—'; const s = Math.round(v); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; },
 };
-const UNIT_EXTRA = { hold: 'pct', cpm: 'usd', cpc: 'usd', arrivalMeta: 'pct', scroll75: 'pct', aov: 'usd', post2: 'pct', post: 'pct', regRate: 'pct', ctor: 'pct' };
+const UNIT_EXTRA = { hold: 'pct', cpm: 'usd', cpc: 'usd', arrivalMeta: 'pct', aov: 'usd', post2: 'pct', post: 'pct', regRate: 'pct', ctor: 'pct' };
 const fmtM = (id, v) => fmt[(MET[id] && MET[id].unit) || UNIT_EXTRA[id] || 'pct'](v);
 const fmtTime = ms => { if (!ms) return '—'; const d = new Date(ms); return d.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); };
 
@@ -1039,19 +1057,21 @@ function renderLanding(c) {
     paid ? tileHTML({ label: 'Meta link clicks', value: fmt.num(A.metaClicks), d: delta(A.metaClicks, c.P.metaClicks, 'high'), sp: spark(perDay(c.idx, a => a.metaClicks)), src: 'Meta' }) : '',
     paid ? metricTile('arrival', c) : '',
     paid ? tileHTML({ label: 'Arrival rate, Meta', value: fmtM('arrivalMeta', VAL.arrivalMeta(A)), d: delta(VAL.arrivalMeta(A), VAL.arrivalMeta(c.P), 'high'), sp: spark(perDay(c.idx, a => VAL.arrivalMeta(a))), src: 'Meta, consent-limited', lit: light('info', 'No light') }) : '',
-    metricTile('engaged', c, { spark: false }),
-    metricTile('scroll50', c, { spark: false }),
+    metricTile('engaged', c),
+    metricTile('scroll', c),
   ].join('');
   const prow = PAGES.map(([p, name]) => {
-    const n = A.pages[p] || 0;
-    if (!n && !['home', 'try', 'samples'].includes(p)) return '';
+    const n = A.pages[p] || 0, cp = A.cpages[p];
+    if (!n && !(cp && cp.s) && !['home', 'try', 'samples'].includes(p)) return '';
     const next = p === 'home' ? `Checkout rate ${cellLit('coRate', A)}` : p === 'try' ? `Registration rate ${fmtM('regRate', VAL.regRate(A))}` : '—';
-    return `<tr><td>${esc(name)}</td><td>${fmt.num(n)}</td><td>—</td><td>—</td><td class="l">${next}</td></tr>`;
+    const eng = cp && cp.actN ? fmt.secs(cp.act / cp.actN) : '—', scr = cp && cp.scrN ? fmt.pct(cp.scr / cp.scrN) : '—';
+    return `<tr><td>${esc(name)}</td><td>${fmt.num(n)}</td><td>${cp && cp.s ? fmt.num(cp.s) : '—'}</td><td>${eng}</td><td>${scr}</td><td class="l">${next}</td></tr>`;
   }).join('');
   el.innerHTML = `<div class="tiles">${tiles}</div>
     ${pf == null ? `<p class="note"><b>The page-view count has not started.</b> It begins the day the site update with the cookieless counter is deployed; until then every rate that divides by page views reads “No data”.</p>` : ''}
     ${paid ? `<div class="card" id="arr-chart"><div class="card-h"><h2>Did the clicks arrive?</h2><span class="sub">a gap between the blue and green lines is people lost between the ad and the page</span></div><div></div></div>` : card('Did the clicks arrive?', '', '<p class="empty">Only Meta reports its clicks to us. Pick Meta ads or all channels.</p>')}
-    ${card('Pages', 'page views from our cookieless count; time and scroll need Clarity, not connected yet', `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Page</th><th>Page views</th><th>Engaged time</th><th>Scroll 50%</th><th class="l">Next step</th></tr></thead><tbody>${prow}</tbody></table></div>`)}
+    ${card('Pages', `page views from our cookieless count; sessions, time and scroll from Clarity${srcOk('clarity') ? ` (${esc(srcNote('clarity'))})` : ', no day kept yet'}`, `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Page</th><th>Page views</th><th>Clarity sessions</th><th>Engaged time</th><th>Scroll depth</th><th class="l">Next step</th></tr></thead><tbody>${prow}</tbody></table></div>
+      <p class="note" style="margin-top:10px">Engaged time is Clarity’s active time per session (the tab in front, someone moving, scrolling or typing); scroll depth is how far down a session got, on average. Clarity keeps no history for export, so a day appears the morning after it ends, and time and scroll show for all channels only.</p>`)}
     <p class="note"><b>Why two arrival rates.</b> Meta counts a landing page view only when its pixel may fire, and in Europe it waits for a cookie answer; our own count is cookieless and holds. When ours stays high while Meta’s drops, the banner moved, not the traffic. Ours counts the arrivals that carried an ad id.</p>`;
   if (paid) {
     const labels = c.idx.map(d => shortDate(dates[d]));
