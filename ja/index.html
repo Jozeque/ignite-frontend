@@ -1551,7 +1551,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
 
 </style>
-<link rel="stylesheet" href="/_legacy/css/index.38e653a772.css">
+<link rel="stylesheet" href="/_legacy/css/index.817ff4f7b5.css">
 <script>window.STRIDE_LANGS=["en","de","es","fr","it","ja","zh"]</script>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;800;900&display=swap">
@@ -3225,7 +3225,10 @@ function openBuy() { toggleBuyModal(); }
                 } catch (e) {}
             }
         }
-        if (!name || !STRIDE_CODES[name]) return;
+        if (!name) return;
+        // Not one of ours: maybe a personal code from one of Joe's mails, which only the
+        // backend knows. Asked after this runs; until it answers this is the ordinary page.
+        if (!STRIDE_CODES[name]) { strideResolvePersonalCode(name); return; }
         strideCodeId = STRIDE_CODES[name];
         // Read by the 30-second demo prompt at the end of the body, which stays shut for
         // anyone holding a discount: this visitor was brought here to buy at 20% off, and
@@ -3239,6 +3242,58 @@ function openBuy() { toggleBuyModal(); }
             if (seal) { seal.textContent = name.toUpperCase() + ' applied'; seal.hidden = false; }
         } catch (e) {}
     })();
+
+    // A personal code from one of Joe's mails (?code=DANALEVI20): one person's own 20% off
+    // Stride, minted by the mail flows as the mail went, so this file cannot know it. The
+    // backend says what it opens, and it knows only the codes the flows minted, so no other
+    // discount can be reached this way. Once it answers, the price, the checkout, the wallet
+    // and the badge move exactly as for an ad code, and the badge counts down to the end.
+    // A code it does not know, or one that has ended or been used, changes nothing at all.
+    // A checkout takes ONE discount, and the ad-code inference above never runs when the URL
+    // carries a code, so a personal code can never stack with REKZ.
+    function strideResolvePersonalCode(name) {
+        if (!/^[a-z0-9]{4,32}$/.test(name)) return;
+        try {
+            fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'personal_code', code: name })
+            }).then(function (r) { return r.json(); }).then(function (d) {
+                var ends = Number(d && d.expires_at_ms);
+                if (!d || !d.ok || !d.discount_id || !(ends > Date.now())) return;
+                strideCodeId = d.discount_id;
+                window.STRIDE_CODE_ACTIVE = true;
+                strideLocalizePrices();
+                strideSyncExpressItems();
+                strideCountdownSeal(String(d.code || name).toUpperCase(), ends);
+            }).catch(function () {});
+        } catch (e) {}
+    }
+
+    // The badge for a personal code: its name and the time it has left, every second. When
+    // it runs out with the page open, the page reloads without it, at the ordinary price.
+    function strideCountdownSeal(label, endsMs) {
+        var seal = document.getElementById('codeSeal');
+        if (!seal) return;
+        seal.style.fontVariantNumeric = 'tabular-nums';
+        var two = function (n) { return (n < 10 ? '0' : '') + n; };
+        (function tick() {
+            var left = endsMs - Date.now();
+            if (left <= 0) {
+                try {
+                    var u = new URL(window.location.href);
+                    u.searchParams.delete('code');
+                    window.location.replace(u.pathname + u.search + u.hash);
+                } catch (e) {}
+                return;
+            }
+            var s = Math.floor(left / 1000);
+            seal.textContent = label + ' applied · ' + two(Math.floor(s / 3600)) + ':'
+                + two(Math.floor(s / 60) % 60) + ':' + two(s % 60) + ' left';
+            seal.hidden = false;
+            setTimeout(tick, (left % 1000) || 1000);
+        })();
+    }
 
     let strideAddonOn = false;
 
