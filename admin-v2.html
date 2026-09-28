@@ -258,6 +258,13 @@ input[type=range]{accent-color:var(--accent);width:100%}
 .editor{display:grid;gap:12px}
 .editor .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .editor input.subject{width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px}
+.field label small{color:var(--ink-3);margin-left:8px;font-size:11.5px}
+.inbox{margin-top:6px;max-width:440px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);padding:10px 12px;display:grid;gap:2px;font-size:13px;line-height:1.35}
+.inbox .from{display:flex;justify-content:space-between;gap:8px;font-weight:700;color:var(--ink)}
+.inbox .from span{font-weight:400;font-size:12px;color:var(--ink-3)}
+.inbox .s{color:var(--ink);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inbox .p{color:var(--ink-3);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.inbox .p.auto{font-style:italic}
 .editor textarea{width:100%;min-height:360px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:400 12.5px/1.6 var(--mono);color:var(--ink);resize:vertical}
 .editor iframe{width:100%;height:460px;border:1px solid var(--line);border-radius:8px;background:#fff}
 .pill{font:700 10px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:5px 8px;border-radius:999px;border:1px solid var(--line);color:var(--ink-3);white-space:nowrap}
@@ -1197,7 +1204,7 @@ function flowLight(f, short) {
 // reaches a customer until it is Published, and flows then serves it on the next send.
 const COPY = 'mail_copy', VERSIONS = 'mail_copy_versions';
 let MAILS = {}, MAILS_ERR = null, MAILS_READY = false;
-const ED = { mail: null, subject: '', text: '', html: '', tab: 'text', dirty: false, fromDraft: false };
+const ED = { mail: null, subject: '', preheader: '', text: '', html: '', tab: 'text', dirty: false, fromDraft: false };
 let SEL_FLOW = null, HISTORY = { mail: null, rows: null };
 function watchCopy() {
   fdb.collection(COPY).onSnapshot(snap => {
@@ -1209,10 +1216,12 @@ function openEditor(id, force) {
   if (ED.mail === id && !force) return;
   const m = MAILS[id];
   ED.mail = id; ED.dirty = false; ED.fromDraft = false;
-  if (!m) { ED.subject = ED.text = ED.html = ''; return; }
-  const hasDraft = m.draft_subject != null || m.draft_text != null || m.draft_html != null;
+  if (!m) { ED.subject = ED.preheader = ED.text = ED.html = ''; return; }
+  const hasDraft = m.draft_subject != null || m.draft_preheader != null || m.draft_text != null || m.draft_html != null;
   ED.fromDraft = hasDraft;
   ED.subject = hasDraft ? (m.draft_subject ?? m.subject ?? '') : (m.subject ?? m.file_subject ?? '');
+  // A publish with no preview line of its own sends the file's, so that is what the field shows.
+  ED.preheader = hasDraft ? (m.draft_preheader ?? m.preheader ?? m.file_preheader ?? '') : (m.preheader ?? m.file_preheader ?? '');
   ED.text = hasDraft ? (m.draft_text ?? m.text ?? '') : (m.text ?? m.file_text ?? '');
   ED.html = hasDraft ? (m.draft_html ?? m.html ?? '') : (m.html ?? m.file_html ?? '');
   HISTORY = { mail: id, rows: null };
@@ -1221,6 +1230,11 @@ function openEditor(id, force) {
 const SLOT = /\{[a-z0-9_]+\}/gi;
 const slotsOf = s => [...new Set(String(s || '').match(SLOT) || [])].sort();
 const stripTags = h => String(h || '').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ');
+const normPre = s => String(s || '').replace(/\s+/g, ' ').trim();
+// What an inbox shows after the subject when a mail has no preview line: its first words, hidden ones included.
+const firstWords = h => String(h || '').replace(/<head[\s\S]*?<\/head>/gi, ' ').replace(/<(style|script|title)[\s\S]*?<\/\1>/gi, ' ')
+  .replace(/<[^>]+>/g, ' ').replace(/&(nbsp|zwnj|#8203|#847);/gi, ' ').replace(/&(rsquo|#8217);/g, '’').replace(/&(#39|apos);/g, "'")
+  .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 function fileSlots(m) {
   if (m.file_slots) return m.file_slots;
   return { subject: slotsOf(m.file_subject), text: slotsOf(m.file_text), html: slotsOf(m.file_html) };
@@ -1235,13 +1249,20 @@ function copyChecks(m) {
     if (unknown.length) out.push(['bad', `${PART[part]} uses ${unknown.join(' ')}, which nothing fills. Flows would ignore this publish and keep sending the file.`]);
     if (missing.length) out.push(['warn', `${PART[part]} drops ${missing.join(' ')}${missing.some(x => /url|block|line|offer|answer/.test(x)) ? ': that link or block will be missing from the mail' : ''}.`]);
   }
+  // The preview line is placed inside the HTML part, so it can use only what the HTML part is filled with.
+  const preUnknown = slotsOf(ED.preheader).filter(x => !(fs.html || []).includes(x));
+  if (preUnknown.length) out.push(['bad', `The preview line uses ${preUnknown.join(' ')}, which nothing fills there${(fs.html || []).length ? ` (it can use ${fs.html.join(' ')})` : ''}. Flows would ignore this publish and keep sending the file.`]);
   if (!ED.subject.trim()) out.push(['bad', 'A subject is required.']);
   if (!ED.text.trim() && !ED.html.trim()) out.push(['bad', 'The mail needs a body.']);
-  const all = ED.subject + '\n' + ED.text + '\n' + stripTags(ED.html);
+  const all = ED.subject + '\n' + ED.preheader + '\n' + ED.text + '\n' + stripTags(ED.html);
   if (/[–—]/.test(all)) out.push(['bad', 'An em or en dash is in the copy. House rule: none, anywhere. Use a comma, a period or a colon.']);
   if (/\b(AI|A\.I\.|artificial intelligence|machine learning|LLM|Gemini|GPT)\b/i.test(all)) out.push(['bad', 'The copy mentions AI or a model. House rule: never in customer copy.']);
   if (ED.subject.length > 60) out.push(['warn', `The subject is ${ED.subject.length} characters; keep it to 60 so phones show it whole.`]);
   if (/[A-Z]/.test(ED.subject) && ED.subject === ED.subject.toUpperCase()) out.push(['warn', 'The subject is all capitals.']);
+  const pre = normPre(ED.preheader);
+  if (pre.length > 90) out.push(['warn', `The preview line is ${pre.length} characters. Most inboxes show about the first 40 to 90 after the subject, so put the point first.`]);
+  if (pre && pre.toLowerCase() === ED.subject.trim().toLowerCase()) out.push(['warn', 'The preview line repeats the subject, so the inbox reads it twice.']);
+  if (!pre) out.push(['info', 'No preview line: after the subject, the inbox shows the first words of the mail (see Preview).']);
   if (/\bSTOP\b/.test(m.file_text || '') && !/\bSTOP\b/.test(ED.text)) out.push(['warn', 'The file has a STOP line and this text does not. Keep the opt-out line.']);
   const norm = a => a.map(x => x.replace(/_html\}$/, '}'));
   if (JSON.stringify(norm(slotsOf(ED.text))) !== JSON.stringify(norm(slotsOf(ED.html)))) out.push(['warn', 'The text and HTML parts use different placeholders, so the two versions of the mail differ.']);
@@ -1257,7 +1278,8 @@ function copyChecks(m) {
 }
 function liveCopy(m) {
   if (!m) return null;
-  return m.status === 'published' ? { subject: m.subject, text: m.text, html: m.html } : { subject: m.file_subject ?? m.subject, text: m.file_text ?? m.text, html: m.file_html ?? m.html };
+  return m.status === 'published' ? { subject: m.subject, preheader: m.preheader ?? m.file_preheader ?? '', text: m.text, html: m.html }
+    : { subject: m.file_subject ?? m.subject, preheader: m.file_preheader ?? m.preheader ?? '', text: m.file_text ?? m.text, html: m.file_html ?? m.html };
 }
 async function loadHistory(id) {
   try {
@@ -1275,6 +1297,7 @@ function paintHistory() {
   box.querySelectorAll('[data-load]').forEach(b => b.addEventListener('click', () => {
     const r = HISTORY.rows.find(x => String(x.version) === b.dataset.load); if (!r) return;
     ED.subject = r.subject || ''; ED.text = r.text || ''; ED.html = r.html || ''; ED.dirty = true;
+    ED.preheader = r.preheader ?? (MAILS[HISTORY.mail] || {}).file_preheader ?? '';
     renderEmail(ctx()); toast(`v${r.version} is in the editor. Publish makes it a new version.`);
   }));
 }
@@ -1288,13 +1311,14 @@ function paintStatus() {
 }
 function paintChecks() {
   const m = MAILS[ED.mail], box = $('ed-checks'); if (!box || !m) return;
-  const cs = copyChecks(m), fs = fileSlots(m), have = new Set([...slotsOf(ED.subject), ...slotsOf(ED.text), ...slotsOf(ED.html)]);
+  const cs = copyChecks(m), fs = fileSlots(m), have = new Set([...slotsOf(ED.subject), ...slotsOf(ED.preheader), ...slotsOf(ED.text), ...slotsOf(ED.html)]);
   const ref = new Set([...(fs.subject || []), ...(fs.text || []), ...(fs.html || [])]);
   const chips = [...new Set([...ref, ...have])].sort().map(x => `<span class="chip${!ref.has(x) ? ' bad' : !have.has(x) ? ' miss' : ''}" title="${!ref.has(x) ? 'nothing fills this' : !have.has(x) ? 'in the file, not in this version' : 'filled by the code'}">${esc(x)}</span>`).join('');
-  const same = (() => { const l = liveCopy(m); return l && l.subject === ED.subject && l.text === ED.text && l.html === ED.html; })();
+  const same = (() => { const l = liveCopy(m); return l && l.subject === ED.subject && normPre(l.preheader) === normPre(ED.preheader) && l.text === ED.text && l.html === ED.html; })();
+  const probs = cs.filter(x => x[0] !== 'info'), infos = cs.filter(x => x[0] === 'info');
   box.innerHTML = `<div class="chips">${chips || '<span class="note">No placeholders.</span>'}</div>
-    <ul class="checks" style="margin-top:10px">${cs.length ? cs.map(([k, msg]) => `<li>${ICON[k === 'bad' ? 'bad' : 'warn']}<span>${esc(msg)}</span></li>`).join('') : `<li>${ICON.good}<span>Placeholders match the file, and the house rules hold.</span></li>`}${same ? `<li>${ICON.info}<span>Same as what sends now.</span></li>` : ''}</ul>
-    <p class="saved" style="margin-top:6px">Subject ${ED.subject.length} / 60</p>`;
+    <ul class="checks" style="margin-top:10px">${probs.length ? probs.map(([k, msg]) => `<li>${ICON[k === 'bad' ? 'bad' : 'warn']}<span>${esc(msg)}</span></li>`).join('') : `<li>${ICON.good}<span>Placeholders match the file, and the house rules hold.</span></li>`}${infos.map(([, msg]) => `<li>${ICON.info}<span>${esc(msg)}</span></li>`).join('')}${same ? `<li>${ICON.info}<span>Same as what sends now.</span></li>` : ''}</ul>
+    <p class="saved" style="margin-top:6px">Subject ${ED.subject.length} / 60 · Preview line ${normPre(ED.preheader).length} / 90</p>`;
   const pub = $('ed-publish'); if (pub) pub.disabled = cs.some(x => x[0] === 'bad') || same;
 }
 function renderEmail(c) {
@@ -1417,12 +1441,14 @@ function editorHTML(f) {
     <div class="row" id="ed-status"></div>
     ${ED.fromDraft ? '<p class="note">The editor opened your saved draft. What sends now is the published or file copy; Discard draft goes back to it.</p>' : ''}
     <div class="field"><label for="ed-subject">Subject</label><input class="subject" id="ed-subject" value="${esc(ED.subject)}" autocomplete="off"></div>
+    <div class="field"><label for="ed-pre">Preview line<small>the grey line the inbox shows after the subject</small></label><input class="subject" id="ed-pre" value="${esc(ED.preheader)}" autocomplete="off" placeholder="None: the inbox shows the mail’s first words instead"></div>
     <div class="seg" id="ed-tabs"><button type="button" data-t="text" aria-pressed="${ED.tab === 'text'}">Text</button><button type="button" data-t="html" aria-pressed="${ED.tab === 'html'}">HTML</button><button type="button" data-t="preview" aria-pressed="${ED.tab === 'preview'}">Preview</button></div>
     <textarea id="ed-text" spellcheck="true"${ED.tab !== 'text' ? ' hidden' : ''} aria-label="Plain-text part">${esc(ED.text)}</textarea>
     <textarea id="ed-html" spellcheck="false"${ED.tab !== 'html' ? ' hidden' : ''} aria-label="HTML part">${esc(ED.html)}</textarea>
     <div id="ed-preview"${ED.tab !== 'preview' ? ' hidden' : ''}>
-      <p class="kicker">Subject</p>
-      <p id="ed-pv-subject" style="font-weight:600;font-size:15px;margin:4px 0 14px"></p>
+      <p class="kicker">In the inbox</p>
+      <div class="inbox" aria-label="How the mail shows in an inbox list"><div class="from">Joe<span>now</span></div><div class="s" id="ed-pv-subject"></div><div class="p" id="ed-pv-pre"></div></div>
+      <p class="note" id="ed-pv-pre-note" style="margin:6px 0 14px"></p>
       <p class="kicker">HTML version, what most inboxes show</p>
       <iframe id="ed-pv-html" sandbox="" title="The HTML part of the mail" style="margin-top:6px"></iframe>
       <p class="kicker" style="margin-top:14px">Text version, for plain-text mail apps</p>
@@ -1445,13 +1471,22 @@ function bindEditor(f) {
   const m = MAILS[f.id];
   if (!m || !$('ed-subject')) { return; }
   paintStatus(); paintChecks(); paintHistory();
-  const onEdit = () => { ED.subject = $('ed-subject').value; ED.text = $('ed-text').value; ED.html = $('ed-html').value; ED.dirty = true; paintStatus(); paintChecks(); };
-  ['ed-subject', 'ed-text', 'ed-html'].forEach(id => $(id).addEventListener('input', onEdit));
+  const fill = x => String(x || '').replace(/\{name_part\}/g, ' Alex');
+  // The inbox row: sender, subject, then the preview line, or the mail's first words when it has none.
+  const paintInbox = () => {
+    const pre = normPre(ED.preheader), auto = ED.html.trim() ? firstWords(fill(ED.html)) : normPre(fill(ED.text));
+    $('ed-pv-subject').textContent = fill(ED.subject) || '(no subject)';
+    $('ed-pv-pre').textContent = pre ? fill(pre) : auto.slice(0, 160);
+    $('ed-pv-pre').classList.toggle('auto', !pre);
+    $('ed-pv-pre-note').textContent = pre ? 'Placed hidden at the top of the HTML part, so only the inbox shows it.'
+      : 'No preview line, so the inbox shows the first words of the mail, as above. Write one in the Preview line field.';
+  };
+  const onEdit = () => { ED.subject = $('ed-subject').value; ED.preheader = $('ed-pre').value; ED.text = $('ed-text').value; ED.html = $('ed-html').value; ED.dirty = true; paintStatus(); paintChecks(); if (ED.tab === 'preview') paintInbox(); };
+  ['ed-subject', 'ed-pre', 'ed-text', 'ed-html'].forEach(id => $(id).addEventListener('input', onEdit));
   const setT = t => { ED.tab = t; $('ed-text').hidden = t !== 'text'; $('ed-html').hidden = t !== 'html'; $('ed-preview').hidden = t !== 'preview';
     document.querySelectorAll('#ed-tabs button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.t === t)));
     if (t === 'preview') {
-      const fill = x => String(x || '').replace(/\{name_part\}/g, ' Alex');
-      $('ed-pv-subject').textContent = fill(ED.subject) || '(no subject)';
+      paintInbox();
       $('ed-pv-html').srcdoc = ED.html ? fill(ED.html) : '<p style="font:14px sans-serif;color:#888">This mail has no HTML part.</p>';
       $('ed-pv-text').textContent = fill(ED.text) || '(no text part)';
     } };
@@ -1460,7 +1495,7 @@ function bindEditor(f) {
   const who = () => (USER && USER.email) || '';
   $('ed-draft').addEventListener('click', async () => {
     try {
-      await fdb.collection(COPY).doc(f.id).set({ draft_subject: ED.subject, draft_text: ED.text, draft_html: ED.html, draft_at_ms: Date.now(), draft_by: who() }, { merge: true });
+      await fdb.collection(COPY).doc(f.id).set({ draft_subject: ED.subject, draft_preheader: normPre(ED.preheader), draft_text: ED.text, draft_html: ED.html, draft_at_ms: Date.now(), draft_by: who() }, { merge: true });
       ED.dirty = false; ED.fromDraft = true; toast('Draft saved. Nothing changed for customers.'); paintStatus();
     } catch (e) { toast('Draft not saved: ' + e.message, true); }
   });
@@ -1472,10 +1507,12 @@ function bindEditor(f) {
     if (!(await ask({ title: `Publish ${flowName(f)} v${v}?`, body, yes: `Publish v${v}` }))) return;
     const now = Date.now();
     try {
-      await fdb.collection(VERSIONS).doc(`${f.id}__${v}`).set({ mail: f.id, version: v, subject: ED.subject, text: ED.text, html: ED.html, published_at_ms: now, published_by: who() });
-      await fdb.collection(COPY).doc(f.id).set({ mail: f.id, status: 'published', subject: ED.subject, text: ED.text, html: ED.html, version: v,
+      // The preview line is always written, '' included: an empty one means none, not the file's.
+      const pre = normPre(ED.preheader);
+      await fdb.collection(VERSIONS).doc(`${f.id}__${v}`).set({ mail: f.id, version: v, subject: ED.subject, preheader: pre, text: ED.text, html: ED.html, published_at_ms: now, published_by: who() });
+      await fdb.collection(COPY).doc(f.id).set({ mail: f.id, status: 'published', subject: ED.subject, preheader: pre, text: ED.text, html: ED.html, version: v,
         updated_at_ms: now, updated_by: who(), published_at_ms: now,
-        draft_subject: DEL(), draft_text: DEL(), draft_html: DEL(), draft_at_ms: DEL(), draft_by: DEL() }, { merge: true });
+        draft_subject: DEL(), draft_preheader: DEL(), draft_text: DEL(), draft_html: DEL(), draft_at_ms: DEL(), draft_by: DEL() }, { merge: true });
       ED.dirty = false; ED.fromDraft = false; toast(`v${v} published. The next send uses it.`);
       HISTORY = { mail: f.id, rows: null }; loadHistory(f.id);
     } catch (e) { toast('Not published: ' + e.message + (/permission|exists/i.test(e.message) ? ' (someone may have published at the same moment; reload)' : ''), true); }
@@ -1484,7 +1521,7 @@ function bindEditor(f) {
   if (disc) disc.addEventListener('click', async () => {
     if (!(await ask({ title: 'Discard the draft?', body: 'The editor goes back to the copy that sends now.', yes: 'Discard', danger: true }))) return;
     try {
-      await fdb.collection(COPY).doc(f.id).set({ draft_subject: DEL(), draft_text: DEL(), draft_html: DEL(), draft_at_ms: DEL(), draft_by: DEL() }, { merge: true });
+      await fdb.collection(COPY).doc(f.id).set({ draft_subject: DEL(), draft_preheader: DEL(), draft_text: DEL(), draft_html: DEL(), draft_at_ms: DEL(), draft_by: DEL() }, { merge: true });
       ED.mail = null; ED.dirty = false; toast('Draft discarded.');
     } catch (e) { toast('Not discarded: ' + e.message, true); }
   });
@@ -1492,8 +1529,8 @@ function bindEditor(f) {
     if (!(m.file_subject || m.file_text || m.file_html)) { toast('No file copy stored for this mail yet.', true); return; }
     if (!(await ask({ title: `Put the repo’s copy back for ${flowName(f)}?`, body: 'The next send uses the file again. Published versions stay in the history and can be loaded back.', yes: 'Revert to file', danger: true }))) return;
     try {
-      await fdb.collection(COPY).doc(f.id).set({ status: 'file', subject: m.file_subject || '', text: m.file_text || '', html: m.file_html || '',
-        updated_at_ms: Date.now(), updated_by: who(), draft_subject: DEL(), draft_text: DEL(), draft_html: DEL(), draft_at_ms: DEL(), draft_by: DEL() }, { merge: true });
+      await fdb.collection(COPY).doc(f.id).set({ status: 'file', subject: m.file_subject || '', preheader: m.file_preheader || '', text: m.file_text || '', html: m.file_html || '',
+        updated_at_ms: Date.now(), updated_by: who(), draft_subject: DEL(), draft_preheader: DEL(), draft_text: DEL(), draft_html: DEL(), draft_at_ms: DEL(), draft_by: DEL() }, { merge: true });
       ED.mail = null; ED.dirty = false; toast('Back on the file.');
     } catch (e) { toast('Not reverted: ' + e.message, true); }
   });
