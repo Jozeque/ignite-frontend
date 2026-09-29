@@ -101,6 +101,13 @@ main{padding-block:22px 48px}
 .card-h .sub{color:var(--ink-3);font-size:12.5px}
 .kicker{font:700 10.5px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
 .note{color:var(--ink-3);font-size:12.5px;line-height:1.55;max-width:78ch}
+/* The welcome survey card */
+.svy-grid{margin:0}
+.svy-tot td{font-weight:700;border-top:1px solid var(--line, rgba(255,255,255,.12))}
+.svy-h{margin:18px 0 8px;font-size:13px;letter-spacing:.02em}
+.svy-other{list-style:none;margin:0;padding:0;display:grid;gap:8px;max-height:320px;overflow:auto}
+.svy-other li{padding:9px 12px;border:1px solid var(--line, rgba(255,255,255,.12));border-radius:10px;font-size:13px;line-height:1.5}
+.svy-q{display:block;color:var(--ink-3);font-size:11.5px;margin-bottom:2px}
 .note b{color:var(--ink-2);font-weight:600}
 .src{font:400 10.5px/1 var(--mono);color:var(--ink-3);border:1px solid var(--line);border-radius:4px;padding:3px 5px;white-space:nowrap}
 .grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
@@ -450,6 +457,7 @@ const shortDate = d => `${MON[d.getUTCMonth()]} ${d.getUTCDate()}`;
 
 let PAY = null, DAYS = 0, LAST = 0, dates = [], DI = {};
 let days = [], J = [], REG = [], ADS = [], FLOWS = [], FL = {}, OFFERS = { post2: [], post: [] };
+let SURVEY = { blocker: [], heard: [], other: [] };
 
 function ingest(p) {
   PAY = p; DAYS = p.days.length; LAST = DAYS - 1;
@@ -489,6 +497,10 @@ function ingest(p) {
   REG = p.days.map(() => []); for (const r of p.demo || []) { const i = DI[r.d]; if (i != null) REG[i].push(r); }
   OFFERS = { post2: new Array(DAYS).fill(0), post: new Array(DAYS).fill(0) };
   for (const k of ['post2', 'post']) for (const [d, n] of Object.entries((p.offers || {})[k] || {})) { const i = DI[d]; if (i != null) OFFERS[k][i] = n; }
+  // The two questions on /welcome, per day: {answer: n} for each, and the written "Other" answers.
+  SURVEY = { blocker: Array.from({ length: DAYS }, () => ({})), heard: Array.from({ length: DAYS }, () => ({})), other: [] };
+  for (const q of ['blocker', 'heard']) for (const [d, m] of Object.entries((p.survey || {})[q] || {})) { const i = DI[d]; if (i != null) SURVEY[q][i] = m || {}; }
+  for (const o of (p.survey || {}).other || []) { const i = DI[o.d]; if (i != null) SURVEY.other.push({ ...o, i }); }
   const states = (p.flows || {}).flows || {};
   FLOWS = (p.mail.catalog || []).map(f => ({ ...f, st: states[f.id] || {}, d: Array.from({ length: DAYS }, () => ({ s: 0, tr: 0, tro: 0, dv: 0, o: 0, c: 0, b: 0, cp: 0, cv: 0, rv: 0 })) }));
   FL = Object.fromEntries(FLOWS.map(f => [f.id, f]));
@@ -1159,8 +1171,32 @@ function renderCheckout(c) {
     `<div class="tbl-wrap"><table class="tbl" id="offer-table"><thead><tr><th>Offer</th><th>Saw it</th><th>Bought</th><th>Take</th><th>Revenue</th></tr></thead><tbody>${offerRows}</tbody>
       <tfoot><tr><td>Stride buyers who took at least one add-on</td><td>${fmt.num(A.orders)}</td><td>${fmt.num(A.addonOrders)}</td><td>${A.orders ? fmt.pct(A.addonOrders / A.orders) : '—'}</td><td>${fmt.usd0(A.nBump + A.nPost2 + A.nPost)}</td></tr></tfoot></table></div>`
     + (allCh ? '' : '<p class="note" style="margin-top:10px">Views of /post2 and /post count across all channels together; pick “All channels” to see them.</p>'));
+  // The two questions a buyer answers on /welcome (a click on an answer is the send), by the day
+  // they answered. Answers are not tied to a channel, so every channel is counted whatever the
+  // filter, like the offer views above.
+  const svSum = (q) => { const t = {}; for (const i of c.idx) for (const [k, n] of Object.entries(SURVEY[q][i] || {})) t[k] = (t[k] || 0) + n; return t; };
+  const svRows = (t, labels) => {
+    const tot = Object.values(t).reduce((x, y) => x + y, 0);
+    return labels.map(([k, name]) => `<tr><td>${esc(name)}</td><td>${fmt.num(t[k] || 0)}</td><td>${tot ? fmt.pct((t[k] || 0) / tot) : '—'}</td></tr>`).join('')
+      + `<tr class="svy-tot"><td>Answered</td><td>${fmt.num(tot)}</td><td>${A.orders ? fmt.pct(tot / A.orders) + ' of buyers' : ''}</td></tr>`;
+  };
+  const SV_BLOCKER = [['price', 'Price'], ['workflow', 'Not sure it fits my workflow'], ['compatibility', 'Compatibility concerns'],
+    ['try_first', 'Wanted to try it first'], ['unclear', 'Wasn’t sure what it does'], ['nothing', 'Nothing'], ['other', 'Other']];
+  const SV_HEARD = [['instagram_facebook', 'Instagram / Facebook'], ['youtube', 'YouTube'], ['google', 'Google'],
+    ['friend', 'A friend'], ['review', 'A review or article'], ['other', 'Other']];
+  const svOther = SURVEY.other.filter(o => c.idx.includes(o.i));
+  const surveyCard = card('The welcome survey', 'what buyers answered on /welcome, by the day they answered; every channel',
+    `<div class="grid-2 svy-grid">
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>What almost stopped them</th><th>Answers</th><th>Share</th></tr></thead><tbody>${svRows(svSum('blocker'), SV_BLOCKER)}</tbody></table></div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>How they first heard about Stride</th><th>Answers</th><th>Share</th></tr></thead><tbody>${svRows(svSum('heard'), SV_HEARD)}</tbody></table></div>
+    </div>
+    <h3 class="svy-h">In their own words (“Other”)</h3>`
+    + (svOther.length
+      ? `<ul class="svy-other">${svOther.map(o => `<li><span class="svy-q">${o.q === 'blocker' ? 'Almost stopped them' : 'Heard about Stride'} · ${esc(o.d)}</span>${esc(o.text)}</li>`).join('')}</ul>`
+      : '<p class="note">No written answers in this range.</p>'));
   el.innerHTML = `<div class="tiles">${tiles}</div>
     ${offersCard}
+    ${surveyCard}
     <div class="card" id="rev-chart"><div class="card-h"><h2>Net revenue against ad spend</h2><span class="sub">${esc(chLabel())}, revenue credited ${esc(modelLabel())}</span></div><div></div></div>
     <div class="grid-2">
       ${card('Revenue by product', 'net of tax, before refunds; by the order’s last touch', `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Product</th><th>Orders</th><th>Net revenue</th><th>Share</th></tr></thead><tbody>${prod}</tbody></table></div>`)}
