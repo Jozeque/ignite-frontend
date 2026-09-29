@@ -795,8 +795,100 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     box-shadow:0 18px 32px -20px rgba(0,0,0,.95)}
   .rail-stack img + img{margin-left:-14%}
   .rail-stack img:nth-child(1){z-index:1}.rail-stack img:nth-child(2){z-index:2}.rail-stack img:nth-child(3){z-index:3}
+  /* ── The 2026-09-29 layout ─────────────────────────────────────────────────
+     Welcome, the buyer's own link, the two questions, then two columns: the walkthrough
+     and the download on the left, the two offers down the right. Sections are open and
+     split by hairlines rather than boxed, so the page reads as one sheet. */
+  .w-hero{margin:4px 0 0}
+  .w-sec{border-top:1px solid var(--line);margin-top:20px;padding-top:20px}
+  .survey.w-sec{border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;
+    padding:20px 0 0;margin:20px 0 0}
+  .survey.w-sec .survey-h{font-size:22px;letter-spacing:-.01em;margin:0 0 6px}
+  .survey.w-sec .survey-lead{font-size:14px;margin:0 0 12px}
+  .survey.w-sec .survey-opt span{padding:8px 14px;font-size:13px}
+  .w-cols{display:grid;gap:34px}
+  @media (min-width:900px){
+    .w-cols{grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:0}
+    .w-main{padding-right:34px}
+    .w-side{border-left:1px solid var(--line);padding-left:34px}
+    .survey.w-sec .survey-h{font-size:26px}
+  }
+  .w-h{margin:8px 0 4px;font-size:26px;font-weight:900;letter-spacing:-.015em;color:var(--ink);line-height:1.1}
+  @media (min-width:768px){ .w-h{font-size:34px} }
+  .w-main .wcard-s{font-size:14px}
+  .w-dl{margin:16px 0 0}
+  .w-dl .dl-row{gap:10px}
+  .w-dl .dl-row .btn-copper{flex:1 1 220px;padding:15px 18px;font-size:15px;border-radius:12px}
+  .w-dl .dl-note{margin:14px 0 0;text-align:center;font-size:12.5px}
+  /* The platform marks, drawn in the button's own ink. CSS rather than markup, because the
+     download script writes each button's label and would wipe an icon inside it. */
+  .dl-os::before{content:"";flex:0 0 auto;width:19px;height:19px;background:currentColor;
+    -webkit-mask:var(--os) center/contain no-repeat;mask:var(--os) center/contain no-repeat}
+  .dl-os-win{--os:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 5.6l7.4-1v7.1H3zM11.4 4.4L21 3v8.7h-9.6zM3 12.6h7.4v7.1L3 18.6zM11.4 12.6H21V21l-9.6-1.3z'/%3E%3C/svg%3E")}
+  .dl-os-mac{--os:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M16.4 12.7c0-2.4 2-3.5 2-3.6-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9s-1.8-.9-3-.8C7 7.4 5.6 8.3 4.8 9.7c-1.7 2.9-.4 7.2 1.2 9.6.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7c1.3 0 2.1-1.1 2.8-2.3.9-1.3 1.3-2.6 1.3-2.7 0 0-2.6-1-2.6-3.9zM14.1 5.7c.6-.8 1.1-1.8 1-2.9-.9 0-2.1.6-2.7 1.4-.6.7-1.1 1.8-1 2.8 1 .1 2.1-.5 2.7-1.3z'/%3E%3C/svg%3E")}
+  .w-side .xm-head{margin:2px 0 12px;color:var(--copper-lt)}
+  .w-block{display:flex;flex-direction:column}
+  .w-bh{margin:0 0 4px;font-size:20px;font-weight:900;letter-spacing:-.01em;color:var(--ink);line-height:1.2}
+  .w-bs{margin:0;font-size:13px;line-height:1.5;color:var(--ink2)}
+  .w-img{display:block;width:100%;height:150px;margin:14px 0 2px;object-fit:cover;object-position:50% 28%;
+    border-radius:12px;border:1px solid var(--line);filter:grayscale(1) brightness(.72) contrast(1.08)}
+  .w-packs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0 2px}
+  .w-packs img{display:block;width:100%;aspect-ratio:1/1;height:auto;object-fit:cover;border-radius:10px;
+    border:1px solid var(--line);background:var(--bg2)}
+  .w-rule{height:1px;background:var(--line);margin:28px 0}
+  .btn-line{display:flex;align-items:center;justify-content:center;gap:.45rem;margin-top:12px;padding:11px 16px;
+    border:1px solid rgba(221,154,82,.55);border-radius:12px;color:var(--copper-lt);font-size:13.5px;
+    font-weight:800;letter-spacing:.01em;text-decoration:none;transition:background .15s,border-color .15s,color .15s}
+  .btn-line:hover{background:rgba(198,113,43,.1);border-color:var(--copper-lt);color:var(--ink)}
+  /* The buyer's own link, up front under the welcome: copper-tinted so it reads as theirs. */
+  .w-ref{margin:16px 0 0;padding:16px 18px;border:1px solid rgba(221,154,82,.32);border-radius:16px;
+    background:linear-gradient(180deg,rgba(198,113,43,.11),rgba(198,113,43,.04));display:grid;gap:12px;align-items:center}
+  @media (min-width:900px){ .w-ref{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:26px;padding:18px 22px} }
+  .w-ref-k{margin:0;color:var(--copper-lt)}
+  .w-ref-h{margin:5px 0 3px;font-size:19px;font-weight:900;color:var(--ink);letter-spacing:-.01em;line-height:1.15}
+  .w-ref-s{margin:0;font-size:13px;line-height:1.5;color:var(--ink2)}
+  .w-ref-row{display:flex;gap:8px;flex-wrap:wrap;align-items:stretch}
+  .w-ref-box{flex:1 1 220px;min-width:0;padding:11px 13px;border-radius:12px;border:1px solid var(--line);
+    background:rgba(0,0,0,.35);color:var(--ink);font:13.5px Consolas,Menlo,monospace}
+  .w-ref-box:focus{outline:none;border-color:rgba(198,113,43,.55);box-shadow:0 0 0 3px rgba(198,113,43,.15)}
+  .w-ref-copy{flex:0 0 auto;padding:10px 18px;font-size:13px;border-radius:12px}
+  .w-ref .dl-note{margin:8px 0 0}
+  .w-note{margin:26px 0 0}
+  /* Wide screens (Yossi, 2026-09-29): both offers in view without a scroll. The page is wider
+     (1360px), the two columns closer to even, and the session and the Collection stand side by
+     side, split by a hairline, with their buttons on one line. Narrower screens keep them
+     stacked, as they were. */
+  .w-offers{display:flex;flex-direction:column}
+  @media (min-width:1200px){
+    .w-cols{grid-template-columns:minmax(0,1.08fr) minmax(0,1fr)}
+    .w-offers{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:stretch}
+    .w-offers .w-rule{display:none}
+    .w-offers #coll-rail{border-left:1px solid var(--line);padding-left:22px}
+    .w-offers #session-rail{padding-right:22px}
+    .w-offers .w-img{height:96px}
+    .w-offers .offer-flag{margin:8px 0 6px}
+    .w-offers .price.text-3xl{font-size:1.625rem}
+    .w-offers .price-was{font-size:1.05rem}
+    .w-offers .w-bh{font-size:18px}
+    /* Whichever button a card is showing sits on the card's floor, so the two cards' buttons
+       line up however their contents differ: the buy button when an offer is open, the link
+       when it is not. */
+    .w-offers .w-block > .rail-book:not([hidden]),
+    .w-offers .w-block > .rail-coll-buy:not([hidden]),
+    .w-offers .w-block > .rail-book[hidden] ~ .rail-link,
+    .w-offers .w-block > .rail-coll-buy[hidden] ~ .coll-link{margin-top:auto}
+    .w-offers .rail-session,.w-offers .w-packs{margin-bottom:12px}
+  }
+  /* The buyer's own link: the 15% is the headline, in copper. */
+  .w-ref-h{font-size:22px}
+  .w-ref-s{font-size:15px}
+  .w-ref-hl{color:var(--copper-lt);font-weight:900}
+  .w-ref-box{font-size:15px;padding:12px 14px}
+  .w-ref-copy{padding:12px 22px;font-size:14px}
+  @media (min-width:900px){ .w-ref-h{font-size:26px} .w-ref-s{font-size:16px} }
+  .w-cols + .wcard-help{margin-top:34px}
 </style>
-<link rel="stylesheet" href="/_legacy/css/welcome.a05fadcb49.css">
+<link rel="stylesheet" href="/_legacy/css/welcome.e2e6204f7b.css">
 <script>window.STRIDE_LANGS=["en","de","es","fr","it","ja","zh"]</script>
 <script>(function () {
   function send() {
@@ -841,7 +933,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <!-- Nav (post-purchase: minimal, no Get-Stride CTA) -->
   <nav class="w-full border-b sticky top-0 z-50" style="border-color:var(--line);background:rgba(20,19,16,.82);backdrop-filter:blur(18px)">
-    <div class="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+    <div class="max-w-[1360px] mx-auto px-6 py-4 flex items-center justify-between">
       <div class="flex items-center gap-3">
         <a href="/es/index.html" class="text-3xl font-black brand tracking-tighter leading-none">STRIDE</a>
         <div class="lang-switch" data-no-translate>
@@ -862,64 +954,29 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </nav>
 
   <!-- Content -->
-  <main class="flex-1 max-w-6xl mx-auto px-6 py-8 w-full">
+  <main class="flex-1 max-w-[1360px] mx-auto px-6 pt-5 pb-8 w-full">
 
-    <!-- Hero (compact so video + CTAs stay above the fold on desktop) -->
-    <div class="text-center mb-1">
+    <!-- Hero -->
+    <div class="w-hero text-center">
       <span class="chip pill-warm mb-2">Ya estás dentro</span>
-      <h1 class="text-2xl md:text-3xl font-black uppercase tracking-tight mb-1 mt-2">
+      <h1 class="text-3xl md:text-5xl font-black uppercase tracking-tight mb-1 mt-2">
         Bienvenido a <span class="brand">Stride</span>
       </h1>
-      <p class="text-sm ink2 font-medium max-w-lg mx-auto leading-relaxed">
+      <p class="text-sm md:text-base ink2 font-medium max-w-lg mx-auto leading-relaxed">
         Mira esto antes de empezar.
       </p>
     </div>
 
+    <!-- The buyer's own referral link, up front. The script at the end of the page builds it
+         here once the backend has the link (strideReferralCard); until then this is empty. -->
+    <div id="ref-slot"></div>
 
-
-    <!-- The two things a buyer needs in the first minute, side by side and the same shape.
-         The download used to be a thin strip above a video that dwarfed it; they carry equal
-         weight now. Each card names itself, because a kicker alone did not say what the
-         right-hand one was. -->
-    <div class="grid md:grid-cols-2 gap-3 mb-3 items-stretch">
-
-      <!-- Hidden until the backend hands over real URLs, so this is either useful or absent,
-           never a pair of dead buttons on the screen of somebody who has just paid. Each link
-           stays hidden on its own: one published build shows one button, not a broken second. -->
-      <section class="wcard panel rounded-2xl" id="dl-block" hidden>
-        <p class="silk wcard-k">Empezar</p>
-        <p class="wcard-h">Descargar Stride</p>
-        <p class="wcard-s">Windows y macOS, la versión actual.</p>
-        <div class="wcard-body">
-          <div class="dl-row">
-            <a class="btn-copper" id="dl-win" href="#" rel="nofollow" hidden>Descargar para Windows</a>
-            <a class="btn-copper" id="dl-mac" href="#" rel="nofollow" hidden>Descargar para Mac</a>
-          </div>
-          <p class="dl-note">Tu clave de licencia está en el email de bienvenida. <a href="/es/setup.html">Guía de instalación →</a></p>
-        </div>
-      </section>
-
-      <section class="wcard panel rounded-2xl">
-        <p class="silk wcard-k">Ver el walkthrough</p>
-        <p class="wcard-h">Walkthrough de Stride 2.0</p>
-        <p class="wcard-s">El lienzo, un rack y un clip terminado, de principio a fin.</p>
-        <div class="wcard-body">
-          <div class="video-frame rounded-xl overflow-hidden" style="border:1px solid var(--line)">
-            <iframe class="w-full aspect-video bg-black" src="https://www.youtube-nocookie.com/embed/-Z4zRIiPg-4?rel=0&amp;modestbranding=1&amp;playsinline=1" title="Vídeo de bienvenida de Stride" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-          </div>
-        </div>
-      </section>
-
-    </div>
-
-    <!-- Two questions, asked once, of somebody who has just paid and is in a good mood.
-         It sits BELOW the download and the walkthrough, not above them. It used to be the
-         first thing on the page, which put our question ahead of the thing they had just
-         paid for, and it was also the widest block on the screen. Nothing is required,
+    <!-- Two questions, asked once, of somebody who has just paid and is in a good mood. Its
+         own open section under the welcome, as in the 2026-09-29 layout. Nothing is required,
          nothing blocks the page, and the whole block removes itself when there is no
-         purchase to attach an answer to, when it has already been answered on this
-         device, or if the script below never runs. -->
-    <section class="survey" id="survey" hidden aria-labelledby="survey-h">
+         purchase to attach an answer to, when it has already been answered on this device,
+         or if the script below never runs. -->
+    <section class="survey w-sec" id="survey" hidden aria-labelledby="survey-h">
       <form id="survey-form" novalidate>
         <p class="survey-h" id="survey-h">Ayúdanos a mejorar Stride</p>
 
@@ -959,19 +1016,57 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </form>
     </section>
 
-    <!-- EXPLORE MORE. One priced offer and one link, not two offers competing.
-         The session keeps its owner price and its clock, because that is what sells it. The
-         Collection is a LINK ONLY: it has its own screen at /post2/ before this one, and its
-         own page, so putting a second countdown here is what made this page read as a wall of
-         offers in the first place. No price id lives in this markup. -->
-    <p class="silk xm-head">Explora más</p>
-    <div class="grid md:grid-cols-2 gap-3 mb-6">
+    <!-- Two columns (the 2026-09-29 layout): the walkthrough and the download on the left, the
+         two offers down the right, each in the state this buyer's purchase left it in. -->
+    <div class="w-cols w-sec">
 
-      <div class="support-card flex flex-col p-4 rounded-2xl panel" id="session-rail">
+      <div class="w-main">
+        <p class="silk wcard-k">Ver el walkthrough</p>
+        <p class="w-h">Walkthrough de Stride 2.0</p>
+        <p class="wcard-s">El lienzo, un rack y un clip terminado, de principio a fin.</p>
+        <div class="video-frame rounded-xl overflow-hidden mt-4" style="border:1px solid var(--line)">
+          <iframe class="w-full aspect-video bg-black" src="https://www.youtube-nocookie.com/embed/-Z4zRIiPg-4?rel=0&amp;modestbranding=1&amp;playsinline=1" title="Vídeo de bienvenida de Stride" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+        </div>
+
+        <!-- Hidden until the backend hands over real URLs, so this is either useful or absent,
+             never a pair of dead buttons on the screen of somebody who has just paid. Each link
+             stays hidden on its own: one published build shows one button, not a broken second.
+             The platform marks are CSS, so the script that writes each label cannot wipe them. -->
+        <section class="w-dl" id="dl-block" hidden>
+          <div class="dl-row">
+            <a class="btn-copper dl-os dl-os-win" id="dl-win" href="#" rel="nofollow" hidden>Descargar para Windows</a>
+            <a class="btn-copper dl-os dl-os-mac" id="dl-mac" href="#" rel="nofollow" hidden>Descargar para Mac</a>
+          </div>
+          <p class="dl-note">Tu clave de licencia está en el email de bienvenida. <a href="/es/setup.html">Guía de instalación →</a></p>
+        </section>
+
+        <!-- Expectation-setting note (creative tool, not mixing tool). Under the walkthrough
+             and the download, so producers read it before they open Stride. -->
+        <div class="w-note p-5 rounded-2xl panel">
+          <p class="silk mb-2" style="color:var(--copper-lt)">Una nota antes de empezar</p>
+          <!-- Cut from five lines to two. It still does the one job it is here for, which is to
+               say what Stride is for BEFORE somebody opens it expecting a mixing tool. What went
+               was the description of the loop itself: the walkthrough directly above this shows
+               that better than a paragraph can. -->
+          <p class="text-sm ink2 leading-relaxed">
+            Stride es una <b class="ink">herramienta de sound design</b>, no de mezcla. Elige un rack, escanea sus parámetros y diseña movimiento que nunca dibujarías a mano. Úsalo para variación y movimiento, no para trabajo quirúrgico de mezcla.
+          </p>
+        </div>
+      </div>
+
+      <aside class="w-side">
+        <p class="silk xm-head">Explora más</p>
+
+        <!-- The 1:1 session. The owner price and its clock while this purchase's offer is open,
+             the public price otherwise (no offer, an expired one, a Lemon Squeezy buyer, any
+             backend failure), and "booked" once it is paid for, most often on /post. -->
+        <div class="w-offers">
+        <div class="w-block" id="session-rail">
           <div class="rail-session">
             <p class="silk mb-2" style="color:var(--copper-lt)">¿Quieres profundizar?</p>
-            <p class="text-[15px] font-black ink leading-snug mb-1">Pasa una hora con quien hizo Stride.</p>
-            <p class="text-[11px] ink3 leading-snug">Tu sesión. Tus plugins. Tu sonido.</p>
+            <p class="w-bh">Pasa una hora con quien hizo Stride.</p>
+            <p class="w-bs">Tu sesión. Tus plugins. Tu sonido.</p>
+            <img class="w-img" src="/assets/joe-portrait.jpg" alt="" width="640" height="640" loading="lazy" decoding="async">
 
             <!-- Owner state. Hidden until the backend confirms this buyer has an open
                  offer, on the server's clock: showing a price we might not honour and
@@ -987,38 +1082,44 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
             <!-- Public state. Also the fallback for no offer, an expired one, a used one,
                  a Lemon Squeezy buyer, or any backend failure. -->
-            <p class="rail-public text-xl font-black ink mt-2">Sesión 1:1 · $199</p>
+            <p class="rail-public text-xl font-black ink mt-3">Sesión 1:1 · $199</p>
           </div>
 
           <button type="button" class="rail-book btn-copper w-full mt-3 px-4 py-2.5 text-xs uppercase" hidden>Reservar una sesión</button>
           <p class="rail-note text-xs ink3 leading-relaxed mt-3" aria-live="polite" hidden></p>
-          <a href="/es/session.html" class="rail-link silk mt-4 hover:text-[color:var(--ember)] transition-colors" style="color:var(--copper-lt)">Ver qué incluye →</a>
-      </div>
-
-      <a href="/es/samples.html" class="support-card xm-link flex flex-col p-4 rounded-2xl panel group">
-        <div class="rail-stack" aria-hidden="true">
-          <img src="/assets/packs/pack-drums.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
-          <img src="/assets/packs/pack-water.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
-          <img src="/assets/packs/pack-feedback.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
+          <a href="/es/session.html" class="rail-link btn-line">Ver qué incluye →</a>
         </div>
-        <p class="text-[15px] font-black ink leading-snug mt-3 mb-1">Experimental Collection</p>
-        <p class="text-[11px] ink3 leading-snug">250+ sonidos · 15 Ableton Racks · 4 StrideChains</p>
-        <span class="silk mt-auto pt-3 group-hover:text-[color:var(--ember)] transition-colors" style="color:var(--copper-lt)">Ver la Collection →</span>
-      </a>
 
-    </div>
+        <div class="w-rule" aria-hidden="true"></div>
 
-    <!-- Expectation-setting note (creative tool, not mixing tool). Sits between
-         video and closing tag so producers see it after the walkthrough. -->
-    <div class="max-w-2xl mx-auto mb-10 p-5 rounded-2xl panel">
-      <p class="silk mb-2" style="color:var(--copper-lt)">Una nota antes de empezar</p>
-      <!-- Cut from five lines to two. It still does the one job it is here for, which is to
-           say what Stride is for BEFORE somebody opens it expecting a mixing tool. What went
-           was the description of the loop itself: the walkthrough directly above this shows
-           that better than a paragraph can. -->
-      <p class="text-sm ink2 leading-relaxed">
-        Stride es una <b class="ink">herramienta de sound design</b>, no de mezcla. Elige un rack, escanea sus parámetros y diseña movimiento que nunca dibujarías a mano. Úsalo para variación y movimiento, no para trabajo quirúrgico de mezcla.
-      </p>
+        <!-- The Experimental Collection. Its owner price and clock only while this purchase's
+             offer is still open, which is a buyer who said no on /post2/ inside the 72 hours; a
+             buyer who took it (the bump at checkout, or /post2/) and anyone with no open offer
+             get the link to its page. The price and the clock come from the backend, never
+             from this markup. -->
+        <div class="w-block" id="coll-rail">
+          <p class="w-bh">Experimental Collection</p>
+          <p class="w-bs">250+ sonidos · 15 Ableton Racks · 4 StrideChains</p>
+          <div class="w-packs" aria-hidden="true">
+            <img src="/assets/packs/pack-drums.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
+            <img src="/assets/packs/pack-water.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
+            <img src="/assets/packs/pack-feedback.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
+          </div>
+          <div class="coll-offer" hidden>
+            <span class="offer-flag"><span class="offer-dot" aria-hidden="true"></span>Precio para nuevos usuarios de Stride</span>
+            <p class="offer-clock" role="timer">La oferta termina en <b data-coll-left>72h</b></p>
+            <div class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+              <del class="price-was"><span class="sr-only">Precio normal </span><span data-coll-was>$24.99</span></del>
+              <span class="price text-3xl" data-coll-now>$19</span>
+            </div>
+          </div>
+          <button type="button" class="rail-coll-buy btn-copper w-full mt-3 px-4 py-2.5 text-xs uppercase" hidden>Añádelo por <span data-coll-cta>$19</span></button>
+          <p class="coll-note text-xs ink3 leading-relaxed mt-3" aria-live="polite" hidden></p>
+          <a href="/es/samples.html" class="coll-link btn-line">Ver la Collection →</a>
+        </div>
+        </div>
+      </aside>
+
     </div>
 
     <!-- Support, one quiet line. It was a full-width card of its own, then a card in the
@@ -1113,14 +1214,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     try { q('.rail-link').setAttribute('href', 'session.html'); } catch (e) {}
   }
 
-  // The Collection card simply leaves when its offer is over: there is no public price to
-  // fall back to here, and /samples is a click away in the footer.
+  // The offer is over (its clock ran out) or was just taken here: the block goes back to the
+  // link to the Collection's page, which is what everyone without an open offer sees.
   function collGone(text) {
     if (cClock) { clearInterval(cClock); cClock = null; }
     cOffer = null;
     if (!collCard) return;
-    if (text) { collNote(text); qc('.rail-coll-buy').hidden = true; return; }
-    collCard.hidden = true;
+    qc('.coll-offer').hidden = true;
+    qc('.rail-coll-buy').hidden = true;
+    collNote(text || '');
   }
 
   function note(text) {
@@ -1197,9 +1299,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     qc('[data-coll-now]').textContent = now;
     qc('[data-coll-was]').textContent = was;
     qc('[data-coll-cta]').textContent = now;
+    qc('.coll-offer').hidden = false;
     qc('.rail-coll-buy').hidden = false;
     collNote('');
-    collCard.hidden = false;
     if (cClock) clearInterval(cClock);
     collTick();
     cClock = setInterval(collTick, 1000);
@@ -1227,11 +1329,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       // they are shown. Before, an open session hid an open Collection, so the only people
       // who ever saw it were the ones who had just booked a session.
       var sessionStatus = (d.session || {}).status, collectionStatus = (d.collection || {}).status;
-      // The Collection is NOT offered on this page any more: it gets its own screen at
-      // /post2/, before this one, and only for a buyer who did not take it as the bump.
-      // showCollection returns immediately with no card in the page, so this is the one
-      // line to restore if it ever comes back here.
-      void collectionStatus;
+      // The Collection is offered here again (2026-09-29) while this purchase's offer is still
+      // open: the buyer said no on /post2/ and the 72 hours are running. Taken (the bump at
+      // checkout, or /post2/) or over, its block keeps the link to its page.
+      if (collectionStatus === 'open') showCollection(d);
       if (sessionStatus === 'open') showOwner(d);
       else if (sessionStatus === 'used') showBooked();
       // Expired or unknown: the public price stays, and the Collection card stays hidden.
@@ -1510,7 +1611,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   function ss(k) { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } }
   var txn = ss('stride_offer_txn') || ss('stride_last_txn');
-  var anchor = document.getElementById('survey');
+  var anchor = document.getElementById('ref-slot');
   if (!txn || !anchor) return;
 
   function el(tag, cls, text) {
@@ -1527,27 +1628,30 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     shown = true;
     var portal = (ref.portal && ref.portal.indexOf('https://') === 0) ? ref.portal : 'https://stride.affonso.io';
 
-    var card = el('section', 'wcard panel rounded-2xl');
+    // A copper band under the welcome (the 2026-09-29 layout puts the link up front): what it
+    // is on the left, the link to copy on the right, stacked on a phone.
+    var card = el('section', 'w-ref');
     card.id = 'ref-block';
-    card.style.marginBottom = '12px';
-    card.appendChild(el('p', 'silk wcard-k', 'Share Stride'));
-    card.appendChild(el('p', 'wcard-h', 'Your own link'));
-    card.appendChild(el('p', 'wcard-s', "Know a producer who'd get a kick out of Stride? Send them this link. Every sale it brings in pays you 15%."));
+    var intro = el('div');
+    intro.appendChild(el('p', 'silk w-ref-k', 'Your own link'));
+    var head = el('p', 'w-ref-h', 'Share Stride with a friend and ');
+    head.appendChild(el('span', 'w-ref-hl', 'earn 15%!'));
+    intro.appendChild(head);
+    var sub = el('p', 'w-ref-s', 'Send them your link. When they buy, ');
+    sub.appendChild(el('span', 'w-ref-hl', 'you get 15% of the sale.'));
+    intro.appendChild(sub);
+    card.appendChild(intro);
 
-    var body = el('div', 'wcard-body');
-    var row = el('div');
-    row.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:stretch';
-    var box = el('input');
+    var body = el('div');
+    var row = el('div', 'w-ref-row');
+    var box = el('input', 'w-ref-box');
     box.type = 'text';
     box.readOnly = true;
     box.value = link;
     box.setAttribute('aria-label', 'Your referral link');
-    box.style.cssText = 'flex:1 1 220px;min-width:0;padding:10px 12px;border-radius:12px;border:1px solid var(--line);' +
-      'background:rgba(0,0,0,.35);color:var(--ink);font:13.5px Consolas,Menlo,monospace';
     box.addEventListener('focus', function () { box.select(); });
-    var copy = el('button', 'btn-copper', 'Copy link');
+    var copy = el('button', 'btn-copper w-ref-copy', 'Copy link');
     copy.type = 'button';
-    copy.style.cssText = 'flex:0 0 auto;padding:10px 18px;font-size:13px;border-radius:12px';
     copy.addEventListener('click', function () {
       function done() { copy.textContent = 'Copied'; setTimeout(function () { copy.textContent = 'Copy link'; }, 2000); }
       try {
@@ -1571,7 +1675,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     note.appendChild(document.createTextNode(', sign in with the email you bought with.'));
     body.appendChild(note);
     card.appendChild(body);
-    anchor.parentNode.insertBefore(card, anchor);
+    anchor.appendChild(card);
   }
 
   function ask(i) {
