@@ -1137,7 +1137,30 @@ function renderCheckout(c) {
   const prod = [['Stride', A.oStride, A.nStride], ['Experimental Collection, checkout bump', A.oBump, A.nBump], ['Experimental Collection, /post2', A.oPost2, A.nPost2], ['1:1 session, /post', A.oPost, A.nPost],
     ['Experimental Collection on its own', A.oColl, A.nColl], ['1:1 session on its own', A.oSess, A.nSess], ['Other products', A.oOther, A.nOther]]
     .filter(([, o]) => o > 0 || true).map(([n, o, v]) => `<tr><td>${esc(n)}</td><td>${fmt.num(o)}</td><td>${fmt.usd0(v)}</td><td>${fmt.pct(v / tot)}</td></tr>`).join('');
+  // After a purchase, every offer a Stride buyer meets, in the order they meet it: how many saw it
+  // and how many bought. A /post2 or /post view is one per buyer (offer_stage keeps the first), and
+  // views are not tied to a channel, so a channel filter blanks them. A mail's "saw" is its sends.
+  const allCh = F.channel === 'all';
+  const offRow = (name, where, saw, bought, rev) => `<tr><td>${esc(name)}<small class="subj">${esc(where)}</small></td>`
+    + `<td>${saw == null ? '—' : fmt.num(saw)}</td><td>${fmt.num(bought)}</td><td>${saw ? fmt.pct(bought / saw) : '—'}</td><td>${fmt.usd0(rev)}</td></tr>`;
+  const mailRow = (id, name) => {
+    const f = FL[id]; if (!f) return '';
+    const x = A.mailPer[id] || { s: 0, cv: 0, rv: 0 }, off = (f.st || {}).state !== 'live';
+    return offRow(name, `mail ${f.code}, ${f.when}${off ? ', switched off' : ''}; saw it = sent`, x.s, x.cv, x.rv);
+  };
+  const offerRows = [
+    offRow('Experimental Collection, order bump', 'in the checkout, before paying; every Stride buyer passes it', A.orders, A.bump, A.nBump),
+    offRow('Experimental Collection, /post2', 'the page right after the purchase', allCh ? A.post2Shown : null, A.post2Take, A.nPost2),
+    offRow('1:1 session, /post', 'the page after /post2', allCh ? A.postShown : null, A.postTake, A.nPost),
+    mailRow('session_offer', '1:1 session, by mail'),
+    mailRow('collection_nudge', 'Experimental Collection, by mail'),
+  ].join('');
+  const offersCard = card('After a purchase: each offer', 'how many saw it and how many bought it, in the order a buyer meets them',
+    `<div class="tbl-wrap"><table class="tbl" id="offer-table"><thead><tr><th>Offer</th><th>Saw it</th><th>Bought</th><th>Take</th><th>Revenue</th></tr></thead><tbody>${offerRows}</tbody>
+      <tfoot><tr><td>Stride buyers who took at least one add-on</td><td>${fmt.num(A.orders)}</td><td>${fmt.num(A.addonOrders)}</td><td>${A.orders ? fmt.pct(A.addonOrders / A.orders) : '—'}</td><td>${fmt.usd0(A.nBump + A.nPost2 + A.nPost)}</td></tr></tfoot></table></div>`
+    + (allCh ? '' : '<p class="note" style="margin-top:10px">Views of /post2 and /post count across all channels together; pick “All channels” to see them.</p>'));
   el.innerHTML = `<div class="tiles">${tiles}</div>
+    ${offersCard}
     <div class="card" id="rev-chart"><div class="card-h"><h2>Net revenue against ad spend</h2><span class="sub">${esc(chLabel())}, revenue credited ${esc(modelLabel())}</span></div><div></div></div>
     <div class="grid-2">
       ${card('Revenue by product', 'net of tax, before refunds; by the order’s last touch', `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Product</th><th>Orders</th><th>Net revenue</th><th>Share</th></tr></thead><tbody>${prod}</tbody></table></div>`)}
