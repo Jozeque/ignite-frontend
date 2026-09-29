@@ -120,7 +120,7 @@
     // that reads them later (the checkout's attribution) can then find any. The Pixel and
     // Clarity set theirs on the parent domain, so each is cleared host-only and there too.
     var OURS = ['stride_xid', 'stride_ad_id', 'stride_fbclid', 'stride_gclid', 'stride_wbraid',
-                'stride_gbraid', '_fbc', '_fbp', '_clck', '_clsk'];
+                'stride_gbraid', '_fbc', '_fbp', '_clck', '_clsk', 'affonso_referral', 'affonso_data'];
     function forget() {
         var host = location.hostname.replace(/^www\./, '');
         var scopes = ['', '; domain=' + host, '; domain=.' + host];
@@ -145,6 +145,54 @@
         try { if (rec) { rec('consent', false); } } catch (e) {}
     }
     if (!allowed()) { forget(); }
+
+    // Partner links (Affonso). Every Stride owner gets a link of their own to send a friend,
+    // and our partners get theirs from us. A visit that came through one, or that carries the
+    // referral an earlier one left, loads Affonso's tracker; every other visit loads nothing
+    // and is exactly what it was. Where this banner asks and there is no yes yet, the tracker
+    // runs in its consent mode: the visit is counted, the referral rides in the address, and
+    // no cookie is written until Accept. After a no, forget() clears what an earlier yes left.
+    // The keys are the referral parameters the program has switched on.
+    var PARTNER_KEYS = ['via', 'ref', 'aff', 'atp', 'affonso', 'affonso_id'];
+    window.stridePartnerLink = function () {
+        try {
+            var q = new URL(location.href).searchParams;
+            for (var i = 0; i < PARTNER_KEYS.length; i++) { if (q.get(PARTNER_KEYS[i])) { return true; } }
+        } catch (e) {}
+        return false;
+    };
+    // What a checkout hands Paddle as custom_data.affonso_referral, which is what Affonso
+    // credits the sale on. '' for a visit no partner sent.
+    window.strideReferral = function () {
+        try {
+            var r = (window.Affonso && window.Affonso.getReferralId) ? window.Affonso.getReferralId() : '';
+            if (r) { return String(r); }
+        } catch (e) {}
+        if (window.affonso_referral) { return String(window.affonso_referral); }
+        var m = document.cookie.match(/(?:^|;\s*)affonso_referral=([^;]*)/);
+        return m ? decodeURIComponent(m[1]) : '';
+    };
+    (function strideAffonso() {
+        if (!window.stridePartnerLink() && !/(?:^|;\s*)affonso_referral=/.test(document.cookie)) { return; }
+        var consentMode = !allowed(), granted = false;
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://cdn.affonso.io/js/pixel.min.js';
+        s.setAttribute('data-affonso', 'cmulbz8ns001nxejv6qa27jth');
+        // The longest the program allows. Browsers cut it anyway (Chrome at 400 days, Safari at
+        // about a week), which is why a partner's visitor is also recorded by email on sign-up.
+        s.setAttribute('data-cookie_duration', '365');
+        if (consentMode) { s.setAttribute('data-requires-consent', 'true'); }
+        document.head.appendChild(s);
+        // Accept on this page, whether it lands before or after the tracker does.
+        function grant() {
+            if (!consentMode || granted || !allowed() || !window.affonsoConsentGranted) { return; }
+            granted = true;
+            try { window.affonsoConsentGranted(); } catch (e) {}
+        }
+        window.strideWhenAllowed(grant);
+        window.addEventListener('affonso_referral_ready', grant);
+    })();
     // The buy form used to keep every buyer's name, email and country here for good, and
     // nothing ever read it. It is no longer written; this clears the copies already out there.
     try { localStorage.removeItem('stride_purchase'); } catch (e) {}
@@ -1482,7 +1530,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         trackCheckout(standardMinor, standardCurrency);
         Paddle.Checkout.open({
           items: [{ priceId: PADDLE_PRICE_SESSION, quantity: 1 }],
-          customData: { source: 'session_page' },
+          // The partner who sent this visitor rides along, if one did (strideAffonso, in <head>).
+          customData: (function () {
+            var o = { source: 'session_page' };
+            var ref = window.strideReferral ? window.strideReferral() : '';
+            if (ref) o.affonso_referral = ref;
+            return o;
+          })(),
           settings: checkoutSettings
         });
       } catch (e) { window.open(SESSION_PROFILE_URL, '_blank', 'noopener'); }

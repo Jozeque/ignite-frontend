@@ -114,7 +114,7 @@
     // that reads them later (the checkout's attribution) can then find any. The Pixel and
     // Clarity set theirs on the parent domain, so each is cleared host-only and there too.
     var OURS = ['stride_xid', 'stride_ad_id', 'stride_fbclid', 'stride_gclid', 'stride_wbraid',
-                'stride_gbraid', '_fbc', '_fbp', '_clck', '_clsk'];
+                'stride_gbraid', '_fbc', '_fbp', '_clck', '_clsk', 'affonso_referral', 'affonso_data'];
     function forget() {
         var host = location.hostname.replace(/^www\./, '');
         var scopes = ['', '; domain=' + host, '; domain=.' + host];
@@ -1499,6 +1499,100 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     .then(function (r) { return r.json(); })
     .then(function (d) { show(d && d.downloads); })
     .catch(function () {});
+})();
+
+// The buyer's own referral link (Affonso), the same one their welcome mail carries: 15% of
+// every sale it brings in. The card is built here, not in the markup, because this page is
+// translated and a new string in the HTML would take every translated copy down until each
+// language had it; it reads in English everywhere for now. The backend makes the link when
+// the purchase lands, and this page can open before that, so it asks again for a while and
+// shows nothing at all if no link ever comes.
+(function strideReferralCard() {
+  'use strict';
+
+  var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
+  var WAITS = [0, 3000, 6000, 10000, 15000, 25000, 40000];
+
+  function ss(k) { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } }
+  var txn = ss('stride_offer_txn') || ss('stride_last_txn');
+  var anchor = document.getElementById('survey');
+  if (!txn || !anchor) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text) n.textContent = text;
+    return n;
+  }
+
+  var shown = false;
+  function show(ref) {
+    var link = ref && typeof ref.link === 'string' ? ref.link : '';
+    if (shown || link.indexOf('https://stridehub.io/') !== 0) return;
+    shown = true;
+    var portal = (ref.portal && ref.portal.indexOf('https://') === 0) ? ref.portal : 'https://stride.affonso.io';
+
+    var card = el('section', 'wcard panel rounded-2xl');
+    card.id = 'ref-block';
+    card.style.marginBottom = '12px';
+    card.appendChild(el('p', 'silk wcard-k', 'Share Stride'));
+    card.appendChild(el('p', 'wcard-h', 'Your own link'));
+    card.appendChild(el('p', 'wcard-s', "Know a producer who'd get a kick out of Stride? Send them this link. Every sale it brings in pays you 15%."));
+
+    var body = el('div', 'wcard-body');
+    var row = el('div');
+    row.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:stretch';
+    var box = el('input');
+    box.type = 'text';
+    box.readOnly = true;
+    box.value = link;
+    box.setAttribute('aria-label', 'Your referral link');
+    box.style.cssText = 'flex:1 1 220px;min-width:0;padding:10px 12px;border-radius:12px;border:1px solid var(--line);' +
+      'background:rgba(0,0,0,.35);color:var(--ink);font:13.5px Consolas,Menlo,monospace';
+    box.addEventListener('focus', function () { box.select(); });
+    var copy = el('button', 'btn-copper', 'Copy link');
+    copy.type = 'button';
+    copy.style.cssText = 'flex:0 0 auto;padding:10px 18px;font-size:13px;border-radius:12px';
+    copy.addEventListener('click', function () {
+      function done() { copy.textContent = 'Copied'; setTimeout(function () { copy.textContent = 'Copy link'; }, 2000); }
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(link).then(done, function () { box.select(); document.execCommand('copy'); done(); });
+          return;
+        }
+      } catch (e) {}
+      try { box.select(); document.execCommand('copy'); done(); } catch (e) {}
+    });
+    row.appendChild(box);
+    row.appendChild(copy);
+    body.appendChild(row);
+
+    var note = el('p', 'dl-note', 'Your referrals and payouts: ');
+    var a = el('a', '', portal.replace(/^https:\/\//, '').replace(/\/$/, ''));
+    a.href = portal;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    note.appendChild(a);
+    note.appendChild(document.createTextNode(', sign in with the email you bought with.'));
+    body.appendChild(note);
+    card.appendChild(body);
+    anchor.parentNode.insertBefore(card, anchor);
+  }
+
+  function ask(i) {
+    if (shown || i >= WAITS.length) return;
+    setTimeout(function () {
+      if (shown) return;
+      fetch(API, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'referral_link', txn: txn })
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) { if (d && d.referral) show(d.referral); else ask(i + 1); })
+        .catch(function () { ask(i + 1); });
+    }, WAITS[i] - (i ? WAITS[i - 1] : 0));
+  }
+  ask(0);
 })();
 </script>
 
