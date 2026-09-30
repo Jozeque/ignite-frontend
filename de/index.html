@@ -1052,19 +1052,23 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     text-transform:uppercase;color:#1c1206;background:linear-gradient(180deg,var(--ember),var(--copper));
     border-radius:6px;padding:4px 8px;border:1px solid rgba(255,210,150,.28);
     box-shadow:0 1px 0 rgba(255,255,255,.26) inset,0 8px 16px -11px rgba(198,113,43,.9)}
-  /* The ad code, said out loud. Somebody who clicked an ad should be able to see that the
-     thing the ad promised actually landed, rather than having to know what the price would
-     have been. Deliberately NOT the copper seal beside it: that one is the saving and has to
-     stay the loudest thing in the line, so this reads as a receipt, outlined and quiet. It
-     never prints a percentage, which keeps [[summer-sale]]'s rule about never showing 20%
-     OFF next to the struck anchor true by construction. */
-  .code-seal{display:inline-flex;align-items:center;gap:5px;
-    font-size:9px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;
-    color:var(--copper-lt);background:rgba(198,113,43,.10);
-    border:1px solid rgba(198,113,43,.42);border-radius:999px;padding:4px 9px;white-space:nowrap}
+  /* The code, said out loud. Somebody who clicked an ad or a creator's link should see that
+     the thing it promised actually landed, rather than having to know what the price would
+     have been. A line of type on its own above the price, not a badge in the price row: a
+     long code there widened the row, and the bar sizes its price column to that row, so the
+     Collection beside it was squeezed (09-30). No frame, no glow: a copper check, the code in
+     the mono face as it would be typed, then a quiet "applied". The copper seal stays the
+     loudest thing in the line. It never prints a percentage, which keeps [[summer-sale]]'s
+     rule about never showing 20% OFF next to the struck anchor true by construction. */
+  .code-seal{display:flex;align-items:baseline;gap:8px;width:max-content;max-width:100%;
+    margin:0 0 10px;font-size:13px;line-height:1.25;color:var(--ink3);white-space:nowrap}
   .code-seal[hidden]{display:none}
-  .code-seal::before{content:'';width:5px;height:5px;border-radius:50%;
-    background:var(--copper-lt);box-shadow:0 0 7px var(--copper-lt);flex:none}
+  .code-seal::before{content:'';flex:none;align-self:center;width:9px;height:5px;margin:0 1px 3px 1px;
+    border-left:2px solid var(--copper-lt);border-bottom:2px solid var(--copper-lt);transform:rotate(-45deg)}
+  .code-seal .cs-code{font-family:'Space Mono',ui-monospace,monospace;font-weight:700;letter-spacing:.05em;
+    color:var(--ink);padding-bottom:1px;border-bottom:1px dashed rgba(221,154,82,.55)}
+  .code-seal .cs-left{font-family:'Space Mono',ui-monospace,monospace;font-size:12px;
+    color:var(--copper-lt);font-variant-numeric:tabular-nums}
 
   /* ── The hero price group ────────────────────────────────────────────────
      The old price is 70% of the one being charged, up from a 16px footnote.
@@ -1599,7 +1603,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
 
 </style>
-<link rel="stylesheet" href="/_legacy/css/index.817ff4f7b5.css">
+<link rel="stylesheet" href="/_legacy/css/index.38e653a772.css">
 <script>window.STRIDE_LANGS=["en","de","es","fr","it","ja","zh"]</script>
 <link rel="alternate" hreflang="en" href="https://stridehub.io/">
 <link rel="alternate" hreflang="de" href="https://stridehub.io/de/">
@@ -1770,14 +1774,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <!-- The price rail. What used to be a bordered plate with a NEW PRICE tape is one
              line above the buttons, so the copy column is exactly as tall as the video
              beside it. The two CTA anchors below are untouched. -->
+        <!-- Only ever on screen when the URL carried a code we know. Hidden in the markup
+             and unhidden by strideReadCode, so a bare visit reserves no space for it and
+             the ordinary hero is unchanged to the pixel. Its own line above the price, not
+             in the price row: a long code (SCIONAUGH20 applied) widened that row, and the
+             bar's price column is sized to it, so the Collection beside it was squeezed. -->
+        <span class="code-seal" id="codeSeal" hidden></span>
         <div class="sd-price-box hero-price-line flex items-center gap-3 flex-wrap mt-1 mb-4">
           <div class="text-5xl lg:text-[44px] font-black ink leading-none tracking-tight hero-price sd-total">$99</div>
           <div class="text-base fold-strike font-bold ink3 leading-none" style="text-decoration:line-through;opacity:.75">$129</div>
           <span class="seal2">Spare $30</span>
-          <!-- Only ever on screen when the URL carried a code we know. Hidden in the markup
-               and unhidden by strideReadCode, so a bare visit reserves no space for it and
-               the ordinary hero is unchanged to the pixel. -->
-          <span class="code-seal" id="codeSeal" hidden></span>
         </div>
         <!-- Name the two things actually included, then the order bump above the buttons, as it always was. -->
         <ul class="vlist vlist-2 hero-included">
@@ -3255,6 +3261,26 @@ function openBuy() { toggleBuyModal(); }
     }
 
     let strideCodeId = null;
+    // The code line above the hero price: the code in the mono face, then "applied" and, for
+    // a personal code, the time it has left. Built from text nodes, never HTML, because the
+    // code comes from the URL. As plain text it still reads "REKZ applied", as it always did.
+    function strideSealShow(code, left) {
+        var seal = document.getElementById('codeSeal');
+        if (!seal) return;
+        var c = document.createElement('span');
+        c.className = 'cs-code';
+        c.textContent = code;
+        seal.textContent = '';
+        seal.appendChild(c);
+        seal.appendChild(document.createTextNode(' applied'));
+        if (left) {
+            var l = document.createElement('span');
+            l.className = 'cs-left';
+            l.textContent = ' · ' + left + ' left';
+            seal.appendChild(l);
+        }
+        seal.hidden = false;
+    }
     (function strideReadCode() {
         var name = '';
         try {
@@ -3289,10 +3315,7 @@ function openBuy() { toggleBuyModal(); }
         // Say so in the hero. The price already moved, but only somebody who knew the
         // ordinary price could tell, which is no use to the person the ad was aimed at.
         // The code is printed as they typed it into the ad, uppercased.
-        try {
-            var seal = document.getElementById('codeSeal');
-            if (seal) { seal.textContent = name.toUpperCase() + ' applied'; seal.hidden = false; }
-        } catch (e) {}
+        try { strideSealShow(name.toUpperCase()); } catch (e) {}
     })();
 
     // A personal code from one of Joe's mails (?code=DANALEVI20): one person's own 20% off
@@ -3325,9 +3348,7 @@ function openBuy() { toggleBuyModal(); }
     // The badge for a personal code: its name and the time it has left, every second. When
     // it runs out with the page open, the page reloads without it, at the ordinary price.
     function strideCountdownSeal(label, endsMs) {
-        var seal = document.getElementById('codeSeal');
-        if (!seal) return;
-        seal.style.fontVariantNumeric = 'tabular-nums';
+        if (!document.getElementById('codeSeal')) return;
         var two = function (n) { return (n < 10 ? '0' : '') + n; };
         (function tick() {
             var left = endsMs - Date.now();
@@ -3340,9 +3361,8 @@ function openBuy() { toggleBuyModal(); }
                 return;
             }
             var s = Math.floor(left / 1000);
-            seal.textContent = label + ' applied · ' + two(Math.floor(s / 3600)) + ':'
-                + two(Math.floor(s / 60) % 60) + ':' + two(s % 60) + ' left';
-            seal.hidden = false;
+            strideSealShow(label, two(Math.floor(s / 3600)) + ':'
+                + two(Math.floor(s / 60) % 60) + ':' + two(s % 60));
             setTimeout(tick, (left % 1000) || 1000);
         })();
     }
@@ -3436,9 +3456,8 @@ function openBuy() { toggleBuyModal(); }
             window.STRIDE_CODE_ACTIVE = true;
             strideLocalizePrices();
             try {
-                var seal = document.getElementById('codeSeal');
                 var label = String(c.promoCode || '').toUpperCase();
-                if (seal && label) { seal.textContent = label + ' applied'; seal.hidden = false; }
+                if (label) strideSealShow(label);
             } catch (e) {}
         }
         strideSyncExpressConsent();
