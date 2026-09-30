@@ -94,6 +94,8 @@ select.sel{background:var(--surface);border:1px solid var(--line);border-radius:
 main{padding-block:22px 48px}
 .panel[hidden]{display:none!important}
 .stack{display:grid;gap:18px;grid-template-columns:minmax(0,1fr)}
+main.crm-on{padding-block-end:16px}
+.crm-frame{display:block;width:100%;height:70vh;border:1px solid var(--line);border-radius:12px;background:#09090b}
 .stack>*,.grid-2>*,.grid-3>*,.hero>*{min-width:0}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
 .card-h{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap}
@@ -2057,9 +2059,31 @@ function renderExpenses() {
 }
 
 /* ---------- CRM ---------- */
+/* The CRM itself: the same page as /admin.html, every filter, edit and export, run inside this
+   tab with ?embed=1 (it hides the title, Email Flows link and sign-out this page already has).
+   Loaded the first time the tab opens and kept alive after, so its filters and scroll survive a
+   tab switch. One sign-in: both pages share the Firebase sign-in on this origin. It holds
+   customer details, so only the admin gets it. It spans the window's width, as it did on its
+   own page, and fills the height under the header. */
 function renderCRM() {
-  $('p-crm').innerHTML = card('CRM', 'every contact and customer, unchanged', `<p class="note">The CRM table stays where it is, with its edits (licences, onboarding, contacted). It opens in its own tab so both pages keep their state.</p><p style="margin-top:12px"><a class="btn primary" href="/admin.html" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block">Open the CRM</a></p>`);
+  const p = $('p-crm');
+  if (!IS_ADMIN) {
+    p.innerHTML = card('CRM', 'every contact and customer', `<p class="note">The CRM holds customer details, so it opens for the admin only.</p>`);
+    return;
+  }
+  if (!p.querySelector('.crm-frame')) p.innerHTML = '<iframe class="crm-frame" src="/admin.html?embed=1" title="CRM: every contact and customer"></iframe>';
+  requestAnimationFrame(fitCRM);
 }
+function fitCRM() {
+  const f = document.querySelector('#p-crm .crm-frame');
+  if (!f || $('p-crm').hidden) return;
+  const vw = document.documentElement.clientWidth, gut = 16;
+  f.style.width = (vw - 2 * gut) + 'px';
+  f.style.marginLeft = (gut - f.parentElement.getBoundingClientRect().left) + 'px';
+  const top = f.getBoundingClientRect().top + window.scrollY;
+  f.style.height = Math.max(480, window.innerHeight - top - 16) + 'px';
+}
+window.addEventListener('resize', fitCRM);
 
 /* ---------- Settings ---------- */
 const UNITS = { pct: ['%', 100], pct2: ['%', 100], usd: ['$', 1], x: ['×', 1], dec: ['', 1], secs: ['s', 1] };
@@ -2213,6 +2237,7 @@ function syncFilters() {
 function render() {
   if (!PAY) return;
   hideTip();
+  $('app').classList.toggle('crm-on', TAB === 'crm');
   const c = ctx();
   syncFilters();
   if (TAB === 'overview') renderOverview(c);

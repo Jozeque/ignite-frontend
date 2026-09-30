@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <title>Stride CRM</title>
+    <!-- Inside the admin dashboard (admin-v2.html, its CRM tab) this page runs with ?embed=1: the
+         dashboard already has the title, the Email Flows tab and the sign-out, so those hide here.
+         Everything else, every filter, edit and export, is the same page. -->
+    <script>if (/[?&]embed=1(&|$)/.test(location.search)) document.documentElement.classList.add('embed');</script>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -16,6 +20,7 @@
     <style>
         html, body { font-family: 'Outfit', -apple-system, sans-serif; background: #09090b; color: #e4e4e7; margin: 0; height: 100%; }
         body { overflow: hidden; }
+        html.embed .embed-hide { display: none !important; }
 
         /* ── Columns you can take down and drag ──────────────────────────────
            Twelve columns is more than fits a laptop, and which ones matter
@@ -147,8 +152,8 @@
 
         <!-- TOP BAR -->
         <header class="h-14 border-b border-white/5 flex items-center px-5 gap-4 shrink-0 bg-black/40">
-            <h1 class="text-sm font-black uppercase tracking-[0.25em] bg-gradient-to-r from-orange-400 via-fuchsia-400 to-orange-400 bg-clip-text text-transparent">Stride CRM</h1>
-            <div class="w-px h-5 bg-white/10"></div>
+            <h1 class="embed-hide text-sm font-black uppercase tracking-[0.25em] bg-gradient-to-r from-orange-400 via-fuchsia-400 to-orange-400 bg-clip-text text-transparent">Stride CRM</h1>
+            <div class="embed-hide w-px h-5 bg-white/10"></div>
             <div class="text-[9px] text-zinc-500 uppercase tracking-widest font-bold">
                 <span id="count-shown">0</span> shown / <span id="count-total">0</span> total
             </div>
@@ -167,12 +172,12 @@
             </button>
             <!-- The mail copy lives on its own page, and until this link existed there was no
                  way to reach it from the place somebody would look for it. -->
-            <a href="flows.html" class="text-[9px] text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 hover:border-amber-500/40 px-3 py-1.5 rounded-lg uppercase tracking-widest font-bold transition-all flex items-center gap-1.5" title="Read and edit the copy of every lifecycle mail, and see which ones convert">
+            <a href="flows.html" class="embed-hide text-[9px] text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 hover:border-amber-500/40 px-3 py-1.5 rounded-lg uppercase tracking-widest font-bold transition-all flex items-center gap-1.5" title="Read and edit the copy of every lifecycle mail, and see which ones convert">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                 Email Flows
             </a>
             <div class="flex-1"></div>
-            <div class="flex items-center gap-3">
+            <div class="embed-hide flex items-center gap-3">
                 <span id="user-email" class="text-[10px] text-zinc-400 font-medium"></span>
                 <button id="signout-btn" class="text-[9px] text-zinc-500 hover:text-zinc-200 bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg uppercase tracking-widest font-bold transition-all">Sign out</button>
             </div>
