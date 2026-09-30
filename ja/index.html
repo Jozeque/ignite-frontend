@@ -2926,11 +2926,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     window.addEventListener('stride:consent', strideDecorateTry);
 
     // ─── Buy Modal ───
+    // Someone who opens a checkout came to BUY. From that moment the free-demo prompt
+    // leaves them alone, on this visit and on every later one: on 2026-09-30 a buyer
+    // closed the checkout, got the prompt a few seconds later and signed up for the demo
+    // instead of paying. Held in memory as well as storage, so a browser that refuses
+    // storage is still covered for the rest of this visit.
+    function strideMarkBuyIntent() {
+        window.STRIDE_BUY_INTENT = true;
+        try { localStorage.setItem('stride_buy_intent', String(Date.now())); } catch (e) {}
+    }
     function toggleBuyModal() {
         const modal = document.getElementById('buy-modal');
         modal.classList.toggle('hidden');
         if (!modal.classList.contains('hidden')) {
             document.body.style.overflow = 'hidden';
+            strideMarkBuyIntent();
         } else {
             document.body.style.overflow = '';
         }
@@ -3842,6 +3852,10 @@ function openBuy() { toggleBuyModal(); }
                 }
             }
         } catch (e) {}
+        // Paying, or paid, in any checkout on the page, the wallet included: a buyer, so the
+        // demo prompt stays away. Only these two: checkout.loaded and payment.error fire for
+        // every visitor the moment the wallet mounts.
+        if (ev && (ev.name === 'checkout.payment.initiated' || ev.name === 'checkout.completed')) strideMarkBuyIntent();
         if (!strideExpressLive) return;          // the overlay's events are not ours
         var name = ev && ev.name;
         if (name === 'checkout.loaded') { strideExpressReveal(true); return; }
@@ -3976,6 +3990,7 @@ function openBuy() { toggleBuyModal(); }
     // it, and none of those may be allowed to cost a sale. Anything unexpected here
     // navigates instead, which is exactly the behaviour that shipped before.
     function strideOpenCheckout(url) {
+        strideMarkBuyIntent();
         // Paddle first. Everything upstream is untouched: the add-on selection, the
         // buyer_lead beacon and the attribution were all built already, and this reads
         // them back off the URL that was just constructed. So exactly one function in
@@ -4373,6 +4388,7 @@ function openBuy() { toggleBuyModal(); }
                     successUrl: PADDLE_SUCCESS_URL
                 }
             });
+            strideMarkBuyIntent();
             return true;
         } catch (e) { return false; }
     }
@@ -4563,10 +4579,15 @@ function openBuy() { toggleBuyModal(); }
     // Falls back to FALSE, so a browser that refuses storage still gets the prompt:
     // "cannot check" must not quietly become "never show".
     function alreadyDone() {
+        // Opened a checkout (strideMarkBuyIntent): they came to buy, so a free demo is the
+        // wrong offer, now and on every later visit. The in-memory mark is read outside
+        // storage, so a browser that refuses storage is still covered for this visit.
+        if (window.STRIDE_BUY_INTENT) return true;
         return ls(function () {
             // Registered already: they have Stride, there is nothing to offer.
             if (localStorage.getItem('stride_try_email')
                 || localStorage.getItem('stride_try_dl')) return true;
+            if (localStorage.getItem('stride_buy_intent')) return true;
             var last = parseInt(localStorage.getItem(SEEN_KEY) || '0', 10) || 0;
             // A leftover '1' from the flag version parses as 1970 and so simply expires,
             // which is the kind thing to do to everyone it silenced.
