@@ -883,6 +883,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .w-ref-h{font-size:22px}
   .w-ref-s{font-size:15px}
   .w-ref-hl{color:var(--copper-lt);font-weight:900}
+  .w-ref-f{color:var(--ink);font-weight:800}
   .w-ref-box{font-size:15px;padding:12px 14px}
   .w-ref-copy{padding:12px 22px;font-size:14px}
   @media (min-width:900px){ .w-ref-h{font-size:26px} .w-ref-s{font-size:16px} }
@@ -1642,7 +1643,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     var head = el('p', 'w-ref-h', 'Share Stride with a friend and ');
     head.appendChild(el('span', 'w-ref-hl', 'earn 15%!'));
     intro.appendChild(head);
-    var sub = el('p', 'w-ref-s', 'Send them your link. When they buy, ');
+    // The friend's side first (FRIEND20 on the homepage, from this link), then the owner's.
+    var sub = el('p', 'w-ref-s', 'Send them your link. ');
+    sub.appendChild(el('b', 'w-ref-f', 'They get 20% off,'));
+    sub.appendChild(document.createTextNode(' and when they buy, '));
     sub.appendChild(el('span', 'w-ref-hl', 'you get 15% of the sale.'));
     intro.appendChild(sub);
     card.appendChild(intro);

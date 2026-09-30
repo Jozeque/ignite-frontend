@@ -3216,6 +3216,13 @@ function openBuy() { toggleBuyModal(); }
     // scionaugh20: the Scionaugh artist collab (2026-09-30), 20% off Stride for his followers,
     // set up in Paddle exactly like REKZ. No affiliate link and no commission on it.
     const STRIDE_CODES = { rekz: 'dsc_01m2fxadt3hs2myt4k203tpj2t', scionaugh20: 'dsc_01m3rckwadf19e15b3pmvfjrtq' };
+    // FRIEND20: somebody sent by a Stride owner's own referral link (?via=, stridePartnerLink
+    // in <head>) gets 20% off Stride, what the ads give, and the owner earns 15% of the sale
+    // through Affonso: about $32 on a $99 sale, inside what Meta costs per purchase (09-30).
+    // Applied by strideReadCode, on the link visit only, like every code. Deliberately not in
+    // STRIDE_CODES, and not typeable at checkout: ?code=friend20 reaches nothing, so every
+    // FRIEND20 sale is a referral sale. An empty id switches it off.
+    const STRIDE_FRIEND_CODE = { name: 'FRIEND20', id: 'dsc_01m3rs55ckzb79c9gbsmj0gzbw' };
 
     // The code for THIS page load, and ONLY from the URL the ad sent. Nothing is
     // remembered: a visitor who arrives on a bare stridehub.io is organic traffic and must
@@ -3267,6 +3274,9 @@ function openBuy() { toggleBuyModal(); }
     }
 
     let strideCodeId = null;
+    // True while the code on the page is the friend's FRIEND20, which a partner's own code
+    // (Affonso, below) may replace; any other code stands.
+    let strideCodeIsFriend = false;
     // The code line above the hero price: the code in the mono face, then "applied" and, for
     // a personal code, the time it has left. Built from text nodes, never HTML, because the
     // code comes from the URL. As plain text it still reads "REKZ applied", as it always did.
@@ -3308,6 +3318,14 @@ function openBuy() { toggleBuyModal(); }
                     history.replaceState(null, '', u.pathname + u.search + u.hash);
                 } catch (e) {}
             }
+        }
+        // No code on the link, but a Stride owner sent this visitor: the friend's 20%.
+        if (!name && STRIDE_FRIEND_CODE.id && window.stridePartnerLink && window.stridePartnerLink()) {
+            strideCodeId = STRIDE_FRIEND_CODE.id;
+            strideCodeIsFriend = true;
+            window.STRIDE_CODE_ACTIVE = true;
+            try { strideSealShow(STRIDE_FRIEND_CODE.name); } catch (e) {}
+            return;
         }
         if (!name) return;
         // Not one of ours: maybe a personal code from one of Joe's mails, which only the
@@ -3449,16 +3467,18 @@ function openBuy() { toggleBuyModal(); }
 
     // Affonso's tracker answers after the wallet opened (it loads async, and only for a visit
     // a partner sent), so the wallet is restated with the referral once it is known. A
-    // partner's own code then prices the page the way a personal code does, unless the link
-    // carried a ?code= of its own. Like every code, it rides the link visit only: a later
-    // bare visit keeps the partner's credit (the cookie) but pays the ordinary price.
+    // partner's own code then prices the page the way a personal code does, replacing the
+    // friend's FRIEND20, unless the link carried a ?code= of its own. Like every code, it rides
+    // the link visit only: a later bare visit keeps the partner's credit (the cookie) but pays
+    // the ordinary price.
     window.addEventListener('affonso_referral_ready', function () {
         var coupons = [];
         try { coupons = (window.Affonso && window.Affonso.getAffiliateCoupons) ? window.Affonso.getAffiliateCoupons() : []; } catch (e) {}
         var c = (coupons && coupons[0]) || null;
         var id = c ? String(c.couponId || '') : '';
-        if (!strideCodeId && /^dsc_[a-z0-9]{26}$/.test(id)) {
+        if ((!strideCodeId || strideCodeIsFriend) && /^dsc_[a-z0-9]{26}$/.test(id)) {
             strideCodeId = id;
+            strideCodeIsFriend = false;
             window.STRIDE_CODE_ACTIVE = true;
             strideLocalizePrices();
             try {
