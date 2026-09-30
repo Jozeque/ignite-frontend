@@ -1060,14 +1060,20 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      the mono face as it would be typed, then a quiet "applied". The copper seal stays the
      loudest thing in the line. It never prints a percentage, which keeps [[summer-sale]]'s
      rule about never showing 20% OFF next to the struck anchor true by construction. */
-  .code-seal{display:flex;align-items:baseline;gap:8px;width:max-content;max-width:100%;
-    margin:0 0 10px;font-size:13px;line-height:1.25;color:var(--ink3);white-space:nowrap}
+  .code-seal{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px;width:max-content;max-width:100%;
+    margin:0 0 12px;font-size:15px;line-height:1.2;color:var(--ink2);white-space:nowrap}
   .code-seal[hidden]{display:none}
-  .code-seal::before{content:'';flex:none;align-self:center;width:9px;height:5px;margin:0 1px 3px 1px;
+  .code-seal::before{content:'';flex:none;align-self:center;width:10px;height:6px;margin:0 1px 4px 2px;
     border-left:2px solid var(--copper-lt);border-bottom:2px solid var(--copper-lt);transform:rotate(-45deg)}
-  .code-seal .cs-code{font-family:'Space Mono',ui-monospace,monospace;font-weight:700;letter-spacing:.05em;
-    color:var(--ink);padding-bottom:1px;border-bottom:1px dashed rgba(221,154,82,.55)}
-  .code-seal .cs-left{font-family:'Space Mono',ui-monospace,monospace;font-size:12px;
+  /* The code itself as a coupon stub: copper, dashed, with a punched notch in each side. */
+  .code-seal .cs-code{font-family:'Space Mono',ui-monospace,monospace;font-weight:700;letter-spacing:.07em;
+    color:var(--copper-lt);padding:5px 15px;border:1px dashed rgba(221,154,82,.7);border-radius:5px;
+    background:rgba(198,113,43,.09);
+    -webkit-mask:radial-gradient(circle 5px at 0 50%,#0000 96%,#000) 0 0/51% 100% no-repeat,
+                 radial-gradient(circle 5px at 100% 50%,#0000 96%,#000) 100% 0/51% 100% no-repeat;
+            mask:radial-gradient(circle 5px at 0 50%,#0000 96%,#000) 0 0/51% 100% no-repeat,
+                 radial-gradient(circle 5px at 100% 50%,#0000 96%,#000) 100% 0/51% 100% no-repeat}
+  .code-seal .cs-left{font-family:'Space Mono',ui-monospace,monospace;font-size:13px;
     color:var(--copper-lt);font-variant-numeric:tabular-nums}
 
   /* ── The hero price group ────────────────────────────────────────────────
