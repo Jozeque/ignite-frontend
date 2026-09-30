@@ -103,6 +103,9 @@ main.crm-on{padding-block-end:16px}
 .card-h .sub{color:var(--ink-3);font-size:12.5px}
 .kicker{font:700 10.5px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
 .note{color:var(--ink-3);font-size:12.5px;line-height:1.55;max-width:78ch}
+/* Mailing campaigns */
+.cmp-r{color:var(--ink-3);font-size:11.5px;margin-left:4px}
+.cmp-wait td{text-align:left;font-size:12px;color:var(--ink-3);padding-top:2px}
 /* The welcome survey card */
 .svy-grid{margin:0}
 .svy-tot td{font-weight:700;border-top:1px solid var(--line, rgba(255,255,255,.12))}
@@ -371,6 +374,7 @@ pre.part{white-space:pre-wrap;word-break:break-word;font:400 11.5px/1.5 var(--mo
   <section class="panel stack" id="p-checkout" role="tabpanel" aria-labelledby="t-checkout" hidden></section>
   <section class="panel stack" id="p-demo" role="tabpanel" aria-labelledby="t-demo" hidden></section>
   <section class="panel stack" id="p-email" role="tabpanel" aria-labelledby="t-email" hidden></section>
+  <section class="panel stack" id="p-campaigns" role="tabpanel" aria-labelledby="t-campaigns" hidden></section>
   <section class="panel stack" id="p-expenses" role="tabpanel" aria-labelledby="t-expenses" hidden></section>
   <section class="panel stack" id="p-crm" role="tabpanel" aria-labelledby="t-crm" hidden></section>
   <section class="panel stack" id="p-settings" role="tabpanel" aria-labelledby="t-settings" hidden></section>
@@ -460,6 +464,8 @@ const shortDate = d => `${MON[d.getUTCMonth()]} ${d.getUTCDate()}`;
 let PAY = null, DAYS = 0, LAST = 0, dates = [], DI = {};
 let days = [], J = [], REG = [], ADS = [], FLOWS = [], FL = {}, OFFERS = { post2: [], post: [] };
 let SURVEY = { blocker: [], heard: [], other: [] };
+// One-off mailing campaigns, whole (not per day): { projects: {id: name}, list: {mail: counts} }.
+let CAMPAIGNS = { projects: {}, list: {} };
 
 function ingest(p) {
   PAY = p; DAYS = p.days.length; LAST = DAYS - 1;
@@ -503,6 +509,7 @@ function ingest(p) {
   SURVEY = { blocker: Array.from({ length: DAYS }, () => ({})), heard: Array.from({ length: DAYS }, () => ({})), other: [] };
   for (const q of ['blocker', 'heard']) for (const [d, m] of Object.entries((p.survey || {})[q] || {})) { const i = DI[d]; if (i != null) SURVEY[q][i] = m || {}; }
   for (const o of (p.survey || {}).other || []) { const i = DI[o.d]; if (i != null) SURVEY.other.push({ ...o, i }); }
+  CAMPAIGNS = { projects: (p.campaigns || {}).projects || {}, list: (p.campaigns || {}).list || {} };
   const states = (p.flows || {}).flows || {};
   FLOWS = (p.mail.catalog || []).map(f => ({ ...f, st: states[f.id] || {}, d: Array.from({ length: DAYS }, () => ({ s: 0, tr: 0, tro: 0, dv: 0, o: 0, c: 0, b: 0, cp: 0, cv: 0, rv: 0 })) }));
   FL = Object.fromEntries(FLOWS.map(f => [f.id, f]));
@@ -601,7 +608,7 @@ const kindOf = ad => S.campaignKinds[ad.campaign_id] || ad.kind0 || 'purchase';
 
 /* ---------- filters ---------- */
 const F = { range: 30, compare: true, channel: 'all', model: 'blended', from: null, to: null };
-const TABS = [['overview', 'Overview'], ['funnel', 'Funnel'], ['creative', 'Creative'], ['landing', 'Landing'], ['checkout', 'Checkout & revenue'], ['demo', 'Demo'], ['email', 'Email flows'], ['expenses', 'Expenses'], ['crm', 'CRM'], ['settings', 'Settings']];
+const TABS = [['overview', 'Overview'], ['funnel', 'Funnel'], ['creative', 'Creative'], ['landing', 'Landing'], ['checkout', 'Checkout & revenue'], ['demo', 'Demo'], ['email', 'Email flows'], ['campaigns', 'Mailing campaigns'], ['expenses', 'Expenses'], ['crm', 'CRM'], ['settings', 'Settings']];
 let TAB = 'overview';
 let SEL_AD = null;
 const idxRange = (n, back = 0) => { const out = []; const hi = LAST - back * n; for (let d = Math.max(0, hi - n + 1); d <= hi; d++) out.push(d); return out; };
@@ -2032,6 +2039,62 @@ function bindEditor(f) {
   });
 }
 
+/* ---------- Mailing campaigns ---------- */
+// One-off sends (the owners' referral mail, and whatever comes next), one card per project, one row
+// per campaign. Read whole, not cut to the date range: a campaign is one send. The numbers are what
+// Resend reported (stride-flows asks every 3 hours, for 7 days after a send), so every rate is over
+// the sends it has reported on, and a campaign still filling in says so.
+function renderCampaigns() {
+  const el = $('p-campaigns');
+  const list = Object.entries(CAMPAIGNS.list || {}).map(([mail, x]) => ({ mail, ...x }))
+    .sort((a, b) => (b.last_ms || 0) - (a.last_ms || 0));
+  if (!list.length) {
+    el.innerHTML = card('Mailing campaigns', '', '<p class="note">No campaign has gone out through the mail tooling in the last 180 days.</p>');
+    return;
+  }
+  const order = [];
+  for (const x of list) if (!order.includes(x.project)) order.push(x.project);
+  const pctOf = (n, d) => d ? fmt.pct(n / d) : '—';
+  const cell = (n, d) => d ? `${fmt.num(n)} <small class="cmp-r">${fmt.pct(n / d)}</small>` : '—';
+  const subjectOf = m => (MAILS[m] && (MAILS[m].status === 'published' ? MAILS[m].subject : (MAILS[m].file_subject || MAILS[m].subject))) || '';
+  const day = ms => ms ? new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+  const totals = { s: 0, tr: 0, dv: 0, o: 0, c: 0 };
+  for (const x of list) { totals.s += x.sent; totals.tr += x.tracked; totals.dv += x.delivered; totals.o += x.opened; totals.c += x.clicked; }
+  const tiles = [
+    tileHTML({ label: 'Campaigns', value: fmt.num(list.length), src: 'the last 180 days' }),
+    tileHTML({ label: 'Mails sent', value: fmt.num(totals.s), src: 'every campaign' }),
+    tileHTML({ label: 'Delivered', value: pctOf(totals.dv, totals.tr), src: `of the ${fmt.num(totals.tr)} Resend reported on` }),
+    tileHTML({ label: 'Opened', value: pctOf(totals.o, totals.dv), src: 'of those delivered' }),
+    tileHTML({ label: 'Clicked', value: pctOf(totals.c, totals.dv), src: 'of those delivered' }),
+  ].join('');
+  const cards = order.map(p => {
+    const rows = list.filter(x => x.project === p).map(x => {
+      const subj = subjectOf(x.mail);
+      const when = x.first_ms && day(x.first_ms) !== day(x.last_ms) ? `${day(x.first_ms)} to ${day(x.last_ms)}` : day(x.first_ms);
+      const waiting = x.sent - x.tracked;
+      const trouble = (x.failed || 0) + (x.pending || 0);
+      return `<tr>
+        <td><b>${esc(x.title)}</b><small class="subj">${esc(x.mail)}${subj ? ` · “${esc(subj)}”` : ''}</small></td>
+        <td class="l">${esc(when)}</td>
+        <td>${fmt.num(x.sent)}</td>
+        <td>${cell(x.delivered, x.tracked)}</td>
+        <td>${cell(x.opened, x.delivered)}</td>
+        <td>${cell(x.clicked, x.delivered)}</td>
+        <td>${x.bounced ? cell(x.bounced, x.tracked) : '—'}</td>
+        <td>${x.complained ? fmt.num(x.complained) : '—'}</td>
+        <td>${x.suppressed ? fmt.num(x.suppressed) : '—'}</td>
+        <td>${trouble ? fmt.num(trouble) : '—'}</td>
+      </tr>` + (waiting > 0
+        ? `<tr class="cmp-wait"><td colspan="10">Resend has reported on ${fmt.num(x.tracked)} of ${fmt.num(x.sent)} so far; the rest fill in within a few hours.</td></tr>`
+        : '');
+    }).join('');
+    return card(esc((CAMPAIGNS.projects || {})[p] || p), 'every send, whatever the date range above',
+      `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Campaign</th><th>Sent on</th><th>Sent</th><th>Delivered</th><th>Opened</th><th>Clicked</th><th>Bounced</th><th>Complained</th><th>Suppressed</th><th>Failed</th></tr></thead><tbody>${rows}</tbody></table></div>`);
+  }).join('');
+  el.innerHTML = `<div class="tiles">${tiles}</div>` + cards
+    + `<p class="note">Delivered and bounced are shares of the sends Resend has reported on; opened and clicked of those delivered. Apple Mail loads every image, so some opens are not a person reading. Suppressed = Resend held it back (the address bounced or complained before). Failed = the provider refused it, or a run stopped before sending (never retried blind).</p>`;
+}
+
 /* ---------- Expenses ---------- */
 function renderExpenses() {
   const months = [];
@@ -2247,6 +2310,7 @@ function render() {
   else if (TAB === 'checkout') renderCheckout(c);
   else if (TAB === 'demo') renderDemo(c);
   else if (TAB === 'email') renderEmail(c);
+  else if (TAB === 'campaigns') renderCampaigns();
   else if (TAB === 'expenses') renderExpenses();
   else if (TAB === 'crm') renderCRM();
   else if (TAB === 'settings') renderSettings(c);
