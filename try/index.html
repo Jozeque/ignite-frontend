@@ -52,6 +52,12 @@
     var CONSENT_REGION = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR',
                           'HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK',
                           'SI','ES','SE','IS','LI','NO','GB','CH'];
+    // TEMPORARY, Yossi 2026-10-03: until Monday 2026-10-05 08:00 Israel time (05:00 UTC) nobody
+    // is treated as inside the region (see inRegion), so no banner and nothing waits for an
+    // answer: the Meta Pixel counts every ad visitor, as it already does outside Europe, to see
+    // how many really land. A stored answer still rules, so a No stays a No. It switches itself
+    // back at that moment with no deploy. Remove this and its line in inRegion afterwards.
+    var PAUSED_UNTIL = Date.UTC(2026, 9, 5, 5, 0, 0);
     var ALL = ['ad_storage', 'ad_user_data', 'ad_personalization', 'analytics_storage'];
 
     function state(value, extra) {
@@ -222,6 +228,7 @@
     // If the timezone cannot be read at all, ask. Never assume consent.
     function mustAsk() { return !saved && inRegion(); }
     function inRegion() {
+        if (Date.now() < PAUSED_UNTIL) { return false; }   // TEMPORARY, see PAUSED_UNTIL
         try {
             var tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '');
             // An empty timezone is not "not Europe", it is "no idea". Falling through

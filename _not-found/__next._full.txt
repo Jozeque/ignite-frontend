@@ -1,7 +1,7 @@
 1:"$Sreact.fragment"
 c:I[68027,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default",1]
 :HL["/_next/static/chunks/3gyqbviunrrae.css","style"]
-2:T552a,
+2:T5796,
 // Consent mode v2. This must run BEFORE any Google tag: after one has loaded it has
 // already decided how to behave, and a declaration made later is decoration.
 //
@@ -30,6 +30,12 @@ c:I[68027,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default",1]
     var CONSENT_REGION = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR',
                           'HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK',
                           'SI','ES','SE','IS','LI','NO','GB','CH'];
+    // TEMPORARY, Yossi 2026-10-03: until Monday 2026-10-05 08:00 Israel time (05:00 UTC) nobody
+    // is treated as inside the region (see inRegion), so no banner and nothing waits for an
+    // answer: the Meta Pixel counts every ad visitor, as it already does outside Europe, to see
+    // how many really land. A stored answer still rules, so a No stays a No. It switches itself
+    // back at that moment with no deploy. Remove this and its line in inRegion afterwards.
+    var PAUSED_UNTIL = Date.UTC(2026, 9, 5, 5, 0, 0);
     var ALL = ['ad_storage', 'ad_user_data', 'ad_personalization', 'analytics_storage'];
 
     function state(value, extra) {
@@ -152,6 +158,7 @@ c:I[68027,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default",1]
     // If the timezone cannot be read at all, ask. Never assume consent.
     function mustAsk() { return !saved && inRegion(); }
     function inRegion() {
+        if (Date.now() < PAUSED_UNTIL) { return false; }   // TEMPORARY, see PAUSED_UNTIL
         try {
             var tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '');
             // An empty timezone is not "not Europe", it is "no idea". Falling through
@@ -386,7 +393,7 @@ c:I[68027,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default",1]
 1b:I[97367,["/_next/static/chunks/1mpnoxox0-4cg.js"],"MetadataBoundary"]
 1d:I[27201,["/_next/static/chunks/1mpnoxox0-4cg.js"],"IconMark"]
 a:X
-0:{"P":null,"c":["","_not-found"],"q":"","i":false,"f":[[["",{"children":["/_not-found",{"children":["__PAGE__",{},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4624],[["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/3gyqbviunrrae.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","script","script-0",{"src":"/_next/static/chunks/1mpnoxox0-4cg.js","async":true,"nonce":"$undefined"}]],["$","html",null,{"lang":"en","className":"dark outfit_c8e75115-module__GXCCoG__variable space_mono_d8eecc30-module__bEIZiG__variable","children":[["$","head",null,{"children":[false,["$","script",null,{"dangerouslySetInnerHTML":{"__html":"$2"}}],"$L3","$undefined","$L4","$L5","$L6"]}],"$L7"]}]]}],{"children":["$L8",{"children":["$L9",{},null,false,null]},null,false,"$a"]},null,false,null],"$Lb",false]],"m":"$undefined","G":["$c",["$Ld"]],"S":true,"h":null,"r":"$undefined","s":"$undefined","a":"$undefined","l":"$undefined","p":"$undefined","d":"$undefined","b":"BsJ2mj5HEPWd-ljnx6_Iq"}
+0:{"P":null,"c":["","_not-found"],"q":"","i":false,"f":[[["",{"children":["/_not-found",{"children":["__PAGE__",{},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4624],[["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/3gyqbviunrrae.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","script","script-0",{"src":"/_next/static/chunks/1mpnoxox0-4cg.js","async":true,"nonce":"$undefined"}]],["$","html",null,{"lang":"en","className":"dark outfit_c8e75115-module__GXCCoG__variable space_mono_d8eecc30-module__bEIZiG__variable","children":[["$","head",null,{"children":[false,["$","script",null,{"dangerouslySetInnerHTML":{"__html":"$2"}}],"$L3","$undefined","$L4","$L5","$L6"]}],"$L7"]}]]}],{"children":["$L8",{"children":["$L9",{},null,false,null]},null,false,"$a"]},null,false,null],"$Lb",false]],"m":"$undefined","G":["$c",["$Ld"]],"S":true,"h":null,"r":"$undefined","s":"$undefined","a":"$undefined","l":"$undefined","p":"$undefined","d":"$undefined","b":"hzLItYMbWTRDpsyIyIts3"}
 3:["$","script",null,{"dangerouslySetInnerHTML":{"__html":"(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':\nnew Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],\nj=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=\n'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);\n})(window,document,'script','dataLayer','GTM-5R4N7FVP');"}}]
 4:["$","script",null,{"dangerouslySetInnerHTML":{"__html":"\n  window.dataLayer = window.dataLayer || [];\n  function gtag(){dataLayer.push(arguments);}\n  gtag('js', new Date());\n\n  gtag('config', 'G-JCMEXN70CM');\n"}}]
 5:["$","script",null,{"dangerouslySetInnerHTML":{"__html":"\n    (function(c,l,a,r,i,t,y){\n        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};\n        (c.strideWhenAllowed||function(g){g()})(function(){\n        t=l.createElement(r);t.async=1;t.src=\"https://www.clarity.ms/tag/\"+i;\n        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);\n        if(c.strideConsentAds&&c.strideConsentAds()==='granted'){c[a]('consentv2',{ad_Storage:'granted',analytics_Storage:'granted'});}\n        });\n    })(window, document, \"clarity\", \"script\", \"yj7cm3a9sz\");\n"}}]
