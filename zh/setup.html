@@ -419,7 +419,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 </script>
 <!-- End Microsoft Clarity -->
 <title>安装设置 | Stride</title>
-<meta name="description" content="Install Stride and StrideBridge, then map, draw and press play. Windows and macOS paths, plus the optional step for printing curves into a clip.">
+<meta name="description" content="Install Stride and StrideBridge with one installer, then map, draw and press play, plus the optional step for printing curves into a clip.">
 <link rel="canonical" href="https://stridehub.io/zh/setup.html">
 <meta name="robots" content="index, follow">
 <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">
@@ -925,21 +925,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <section>
       <p class="silk" style="margin-bottom:6px">安装一次就好</p>
 
+      <!-- One installer per system since 2.2.6 (Stride, the Audio Unit on Mac, StrideBridge), so the
+           two hand-copy steps are one. The Windows .exe is not code-signed yet, hence the line
+           that walks past SmartScreen. -->
       <div class="step">
         <span class="n">01</span>
         <div>
-          <h2>安装插件</h2>
-          <p>把 <span class="mono ink">Stride.vst3</span> 放进你的 VST3 文件夹，然后在 DAW 里重新扫描。在 macOS 上安装程序还会放置 Audio Unit，所以 Logic 会在乐器插槽里找到它。</p>
-          <code class="path"><i>Win</i>C:\Program Files\Common Files\VST3<br><i>Mac</i>/Library/Audio/Plug-Ins/VST3</code>
-        </div>
-      </div>
-
-      <div class="step">
-        <span class="n">02</span>
-        <div>
-          <h2>把 StrideBridge 添加到 User Library<span class="only">仅限 Ableton</span></h2>
-          <p>把整个 StrideBridge 文件夹复制进去，文件要放在一起。设备需要它们就在旁边。</p>
-          <code class="path"><i>Win</i>Documents\Ableton\User Library\StrideBridge<br><i>Mac</i>~/Music/Ableton/User Library/StrideBridge</code>
+          <h2>运行安装程序</h2>
+          <p>从你的下载链接打开它（Windows 用 .exe，Mac 用 .pkg）。它会把 Stride 放进你的 VST3 文件夹，在 Mac 上为 Logic 放置 Audio Unit，并把 StrideBridge 放进你的 Ableton User Library。然后在 DAW 里重新扫描。</p>
+          <p class="ink3" style="margin-top:6px">如果 Windows 显示“Windows 已保护你的电脑”，点击“更多信息”，再点击“仍要运行”。</p>
         </div>
       </div>
     </section>
