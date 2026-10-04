@@ -141,6 +141,8 @@ main.crm-on{padding-block-end:16px}
 .secbar .t{height:6px;border-radius:3px;background:var(--surface-2);position:relative;overflow:hidden}
 .secbar .t i{position:absolute;inset:0 auto 0 0;border-radius:0 3px 3px 0}
 .secbar .v{text-align:right;font-variant-numeric:tabular-nums;color:var(--ink)}
+.sec-low{margin:0;font-size:12px;line-height:1.45;color:var(--ink-3)}
+.verdict .left-out{color:var(--ink-3)}
 .link{background:none;border:0;padding:0;color:var(--accent-ink);cursor:pointer;font-size:12.5px;text-decoration:underline;text-underline-offset:3px;text-align:left}
 
 /* Tiles */
@@ -793,6 +795,11 @@ const VAL = {
   conv: a => a.mail && a.mail.sGoal ? a.mail.cvGoal / a.mail.sGoal : null,
   bounce: a => a.mail && a.mail.tr ? a.mail.b / a.mail.tr : null,
 };
+// What each metric's sample counts, named the way the cards say it ("4 sales in this range").
+const SAMPLE_NOUN = { roas: 'sales', cac: 'sales', hook: 'impressions', thru: 'impressions', ctr: 'impressions', freq: 'impressions', fatigue: 'impressions',
+  arrival: 'ad clicks', engaged: 'sessions', scroll: 'sessions', coRate: 'visits', pconv: 'visits', c2p: 'checkouts', bump: 'orders', refund: 'orders',
+  install: 'sign-ups', activation: 'sign-ups', d2p: 'sign-ups', cpdc: 'sign-ups', stitched: 'journeys',
+  deliv: 'mails', openR: 'mails', clickR: 'mails', conv: 'mails', bounce: 'mails' };
 const SAMPLE = {
   roas: a => a.purchases, cac: a => a.purchases, hook: a => a.imps, thru: a => a.imps, ctr: a => a.imps, freq: a => a.imps, fatigue: a => a.imps,
   arrival: a => a.paidClicks, engaged: a => a.clarActN, scroll: a => a.clarScrN, coRate: a => a.visits, pconv: a => a.visits, c2p: a => a.checkouts, bump: a => a.orders, refund: a => a.orders,
@@ -840,6 +847,20 @@ function health(a) {
   return { per, sec, funnel, work };
 }
 const scoreState = s => s == null ? 'nodata' : s >= S.cutGreen ? 'good' : s >= S.cutAmber ? 'warn' : 'bad';
+/* A section nothing in it could grade. When its metrics HAVE numbers (a single day's sales), it is
+   a low sample, shown with its weightiest number and the count behind it; "No data" is kept for a
+   section where nothing came in at all. null when the section is graded or truly empty. */
+function secLow(H, s) {
+  if (H.sec[s.id] != null) return null;
+  const ms = METRICS.filter(m => m.sec === s.id && (+S.metrics[m.id].w || 0) > 0 && H.per[m.id].v != null)
+    .sort((x, y) => (+S.metrics[y.id].w || 0) - (+S.metrics[x.id].w || 0));
+  if (!ms.length) return null;
+  const m = ms[0], j = H.per[m.id];
+  const n = j.n != null && isFinite(j.n) ? `${fmt.num(j.n)} ${SAMPLE_NOUN[m.id] || 'events'}` : '';
+  return { short: `${m.label} ${fmtM(m.id, j.v)}${n ? ' · ' + n : ''}`,
+    long: `${m.label} ${fmtM(m.id, j.v)}${n ? `, on ${n} in this range` : ''}. A grade takes ${S.floor}.` };
+}
+const secState = (H, s) => H.sec[s.id] != null ? scoreState(H.sec[s.id]) : secLow(H, s) ? 'low' : 'nodata';
 
 /* ---------- formatting ---------- */
 const nf = new Intl.NumberFormat('en-US');
@@ -979,11 +1000,14 @@ function renderOverview(c) {
   let worstSec = null;
   for (const s of SECTIONS) if (H.sec[s.id] != null && (worstSec == null || H.sec[s.id] < H.sec[worstSec.id])) worstSec = s;
   const top = H.work[0];
-  const verdict = fs == null ? 'Not enough data in this range to score the funnel.'
-    : top ? `<b>${esc(worstSec.label)}</b> pulls the score down most. First fix: <b>${esc(top.m.label)}</b> at ${fmtM(top.m.id, top.j.v)} against a green line of ${fmtM(top.m.id, S.metrics[top.m.id].g)}.`
-    : 'Every scored metric is at or past its green line.';
-  const bars = SECTIONS.map(s => { const v = H.sec[s.id], ss = scoreState(v); const col = ss === 'good' ? 'var(--good)' : ss === 'warn' ? 'var(--warn)' : ss === 'bad' ? 'var(--bad)' : 'var(--muted)';
-    return `<div class="secbar"><span>${esc(s.label)}</span><span class="t"><i style="width:${v == null ? 0 : v.toFixed(1)}%;background:${col}"></i></span><span class="v">${v == null ? '—' : Math.round(v)}</span>${light(ss)}</div>`; }).join('');
+  const low = SECTIONS.filter(s => secLow(H, s)).map(s => s.label);
+  const andList = a => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
+  const leftOut = low.length ? ` <span class="left-out">Too few events in this range to grade ${esc(andList(low))}, so the score leaves ${low.length > 1 ? 'them' : 'it'} out.</span>` : '';
+  const verdict = fs == null ? (low.length ? 'Too few events in this range to grade the funnel: 14 or 30 days give it enough.' : 'Not enough data in this range to score the funnel.')
+    : (top ? `<b>${esc(worstSec.label)}</b> pulls the score down most. First fix: <b>${esc(top.m.label)}</b> at ${fmtM(top.m.id, top.j.v)} against a green line of ${fmtM(top.m.id, S.metrics[top.m.id].g)}.`
+    : 'Every scored metric is at or past its green line.') + leftOut;
+  const bars = SECTIONS.map(s => { const v = H.sec[s.id], ss = secState(H, s), lo = secLow(H, s); const col = ss === 'good' ? 'var(--good)' : ss === 'warn' ? 'var(--warn)' : ss === 'bad' ? 'var(--bad)' : 'var(--muted)';
+    return `<div class="secbar"${lo ? ` title="${esc(lo.long)}"` : ''}><span>${esc(s.label)}</span><span class="t"><i style="width:${v == null ? 0 : v.toFixed(1)}%;background:${col}"></i></span><span class="v">${v == null ? '—' : Math.round(v)}</span>${light(ss)}</div>`; }).join('');
   const hero = `<div class="card score-card"><div class="kicker">Funnel health · ${esc(chLabel())}</div>
     <div class="score-num"><strong>${fs == null ? '—' : Math.round(fs)}</strong><span>of 100</span>${light(st)}</div>
     <p class="verdict">${verdict}</p><div class="secbars">${bars}</div>
@@ -1009,7 +1033,8 @@ function renderOverview(c) {
   const secCards = SECTIONS.map(s => {
     const v = H.sec[s.id];
     const items = METRICS.filter(m => m.sec === s.id && S.metrics[m.id].w > 0).map(m => { const j = H.per[m.id]; return `<li><span>${esc(m.label)}</span><span>${fmtM(m.id, j.v)}</span>${ICON[j.state]}</li>`; }).join('');
-    return `<div class="sec"><div class="sec-h"><h3>${esc(s.label)}</h3><span class="n">${v == null ? '—' : Math.round(v)}</span></div>${light(scoreState(v))}<ul class="mlist">${items}</ul>${s.tab !== 'overview' ? `<button type="button" class="link" data-go="${s.tab}">Open ${esc(s.label)}</button>` : ''}</div>`;
+    const lo = secLow(H, s);
+    return `<div class="sec"><div class="sec-h"><h3>${esc(s.label)}</h3><span class="n">${v == null ? '—' : Math.round(v)}</span></div>${light(secState(H, s))}${lo ? `<p class="sec-low">${esc(lo.long)}</p>` : ''}<ul class="mlist">${items}</ul>${s.tab !== 'overview' ? `<button type="button" class="link" data-go="${s.tab}">Open ${esc(s.label)}</button>` : ''}</div>`;
   }).join('');
 
   const maxImp = H.work.length ? H.work[0].impact : 1;
