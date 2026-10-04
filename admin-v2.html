@@ -63,13 +63,17 @@ p{margin:0}
 
 /* Header: one sticky block, brand + tabs, then the filter row */
 .app-head{position:sticky;top:env(safe-area-inset-top,0px);z-index:40;background:var(--bg);border-bottom:1px solid var(--line)}
-.head-row{display:flex;align-items:center;gap:14px;min-height:56px}
+/* Brand and the live/refresh controls on the first row; every tab on its own row under them,
+   wrapping when the window is narrow, so no tab is ever out of sight (11 tabs never fit beside
+   the brand in the 1320px page, and a hidden scrollbar cannot be scrolled with a mouse). */
+.head-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:2px 14px;padding-top:12px}
 .brand{display:flex;align-items:baseline;gap:8px;flex:none}
 .brand b{font:800 20px/1 var(--sans);letter-spacing:.14em;color:var(--ink)}
 .brand span{font:400 11px/1 var(--mono);color:var(--ink-3);letter-spacing:.04em}
-.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0}
+.tabs{display:flex;flex-wrap:wrap;gap:2px;flex:1 1 100%;min-width:0;margin-left:-11px}
+@media (max-width:760px){.tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}}
 .tabs::-webkit-scrollbar{display:none}
-.tab{background:none;border:0;padding:17px 11px 15px;color:var(--ink-2);font-weight:500;white-space:nowrap;cursor:pointer;border-bottom:2px solid transparent}
+.tab{background:none;border:0;padding:10px 11px 12px;color:var(--ink-2);font-weight:500;white-space:nowrap;cursor:pointer;border-bottom:2px solid transparent}
 .tab:hover{color:var(--ink)}
 .tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
 .head-side{display:flex;align-items:center;gap:8px;flex:none}
@@ -342,8 +346,8 @@ pre.part{white-space:pre-wrap;word-break:break-word;font:400 11.5px/1.5 var(--mo
   <div class="wrap">
     <div class="head-row">
       <div class="brand"><b>STRIDE</b><span>funnel health</span></div>
-      <nav class="tabs" role="tablist" aria-label="Dashboard sections" id="tabs"></nav>
       <div class="head-side"><span class="live-chip" id="live"></span><button type="button" class="btn sm" id="refresh" title="Read everything again now, past the ten-minute cache">Refresh</button></div>
+      <nav class="tabs" role="tablist" aria-label="Dashboard sections" id="tabs"></nav>
     </div>
     <div class="filters" role="group" aria-label="Filters">
       <div class="fgroup"><span class="flabel">Range</span>
