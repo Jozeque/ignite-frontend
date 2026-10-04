@@ -141,8 +141,6 @@ main.crm-on{padding-block-end:16px}
 .secbar .t{height:6px;border-radius:3px;background:var(--surface-2);position:relative;overflow:hidden}
 .secbar .t i{position:absolute;inset:0 auto 0 0;border-radius:0 3px 3px 0}
 .secbar .v{text-align:right;font-variant-numeric:tabular-nums;color:var(--ink)}
-.sec-low{margin:0;font-size:12px;line-height:1.45;color:var(--ink-3)}
-.verdict .left-out{color:var(--ink-3)}
 .link{background:none;border:0;padding:0;color:var(--accent-ink);cursor:pointer;font-size:12.5px;text-decoration:underline;text-underline-offset:3px;text-align:left}
 
 /* Tiles */
@@ -813,12 +811,13 @@ function judge(id, a) {
   const set = S.metrics[id];
   if (v == null || !isFinite(v)) return { v: null, state: 'nodata' };
   if (!set) return { v, state: 'info' };
+  // Every number is graded, however few events are behind it (Yossi, 2026-10-04: exact numbers,
+  // whatever their value). Under the sample floor it is only marked, and the mark shows on hover.
   const n = SAMPLE[id] ? SAMPLE[id](a) : Infinity;
-  if (n < S.floor) return { v, state: 'low', n };
   let t = (v - set.r) / (set.g - set.r);
   t = Math.max(0, Math.min(1, t));
   const score = 100 * t;
-  return { v, score, state: score >= 99.999 ? 'good' : score <= 0.001 ? 'bad' : 'warn' };
+  return { v, score, state: score >= 99.999 ? 'good' : score <= 0.001 ? 'bad' : 'warn', n, small: n < S.floor };
 }
 function health(a) {
   const per = {};
@@ -847,20 +846,8 @@ function health(a) {
   return { per, sec, funnel, work };
 }
 const scoreState = s => s == null ? 'nodata' : s >= S.cutGreen ? 'good' : s >= S.cutAmber ? 'warn' : 'bad';
-/* A section nothing in it could grade. When its metrics HAVE numbers (a single day's sales), it is
-   a low sample, shown with its weightiest number and the count behind it; "No data" is kept for a
-   section where nothing came in at all. null when the section is graded or truly empty. */
-function secLow(H, s) {
-  if (H.sec[s.id] != null) return null;
-  const ms = METRICS.filter(m => m.sec === s.id && (+S.metrics[m.id].w || 0) > 0 && H.per[m.id].v != null)
-    .sort((x, y) => (+S.metrics[y.id].w || 0) - (+S.metrics[x.id].w || 0));
-  if (!ms.length) return null;
-  const m = ms[0], j = H.per[m.id];
-  const n = j.n != null && isFinite(j.n) ? `${fmt.num(j.n)} ${SAMPLE_NOUN[m.id] || 'events'}` : '';
-  return { short: `${m.label} ${fmtM(m.id, j.v)}${n ? ' · ' + n : ''}`,
-    long: `${m.label} ${fmtM(m.id, j.v)}${n ? `, on ${n} in this range` : ''}. A grade takes ${S.floor}.` };
-}
-const secState = (H, s) => H.sec[s.id] != null ? scoreState(H.sec[s.id]) : secLow(H, s) ? 'low' : 'nodata';
+// The hover note on a graded number that rests on fewer events than the sample floor.
+const smallNote = (id, j) => j && j.small && j.n != null && isFinite(j.n) ? `Small sample: ${fmt.num(j.n)} ${SAMPLE_NOUN[id] || 'events'} in this range` : '';
 
 /* ---------- formatting ---------- */
 const nf = new Intl.NumberFormat('en-US');
@@ -889,7 +876,8 @@ const ICON = {
 };
 const WORD = { good: 'Healthy', warn: 'Watch', bad: 'Fix', low: 'Low sample', nodata: 'No data', info: 'Not scored' };
 const light = (state, word) => `<span class="light" title="${WORD[state]}">${ICON[state]}${word === false ? '' : esc(word || WORD[state])}</span>`;
-const cellLit = (id, a, extraTitle) => { const j = judge(id, a); return `<span class="cell" title="${WORD[j.state]}${extraTitle ? ' · ' + esc(extraTitle) : ''}">${fmtM(id, j.v)}${ICON[j.state]}</span>`; };
+const lightNote = (state, note) => note ? light(state).replace(`title="${WORD[state]}"`, `title="${WORD[state]} · ${esc(note)}"`) : light(state);
+const cellLit = (id, a, extraTitle) => { const j = judge(id, a), sm = smallNote(id, j); return `<span class="cell" title="${WORD[j.state]}${sm ? ' · ' + esc(sm) : ''}${extraTitle ? ' · ' + esc(extraTitle) : ''}">${fmtM(id, j.v)}${ICON[j.state]}</span>`; };
 
 function delta(cur, prev, better) {
   if (!F.compare || cur == null || prev == null || !isFinite(cur) || !isFinite(prev) || prev === 0) return '<span class="delta flat">—</span>';
@@ -985,7 +973,7 @@ function metricTile(id, c, opts = {}) {
   const better = m.better || opts.better || 'high';
   const vals = opts.spark === false || id === 'freq' ? null : perDay(c.idx, a => VAL[id](a));
   return tileHTML({ label: opts.label || m.label, value: fmtM(id, j.v), d: delta(j.v, jp.v, better), sp: vals ? spark(vals) : '', src: opts.src || m.src,
-    lit: S.metrics[id] ? light(j.state) : (opts.noLight ? light('info', opts.noLight) : ''), cls: opts.cls });
+    lit: S.metrics[id] ? lightNote(j.state, smallNote(id, j)) : (opts.noLight ? light('info', opts.noLight) : ''), cls: opts.cls });
 }
 function toolsFor(idx) {
   const month = S.tools.reduce((x, y) => x + (+y.usd || 0), 0);
@@ -1000,14 +988,11 @@ function renderOverview(c) {
   let worstSec = null;
   for (const s of SECTIONS) if (H.sec[s.id] != null && (worstSec == null || H.sec[s.id] < H.sec[worstSec.id])) worstSec = s;
   const top = H.work[0];
-  const low = SECTIONS.filter(s => secLow(H, s)).map(s => s.label);
-  const andList = a => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
-  const leftOut = low.length ? ` <span class="left-out">Too few events in this range to grade ${esc(andList(low))}, so the score leaves ${low.length > 1 ? 'them' : 'it'} out.</span>` : '';
-  const verdict = fs == null ? (low.length ? 'Too few events in this range to grade the funnel: 14 or 30 days give it enough.' : 'Not enough data in this range to score the funnel.')
-    : (top ? `<b>${esc(worstSec.label)}</b> pulls the score down most. First fix: <b>${esc(top.m.label)}</b> at ${fmtM(top.m.id, top.j.v)} against a green line of ${fmtM(top.m.id, S.metrics[top.m.id].g)}.`
-    : 'Every scored metric is at or past its green line.') + leftOut;
-  const bars = SECTIONS.map(s => { const v = H.sec[s.id], ss = secState(H, s), lo = secLow(H, s); const col = ss === 'good' ? 'var(--good)' : ss === 'warn' ? 'var(--warn)' : ss === 'bad' ? 'var(--bad)' : 'var(--muted)';
-    return `<div class="secbar"${lo ? ` title="${esc(lo.long)}"` : ''}><span>${esc(s.label)}</span><span class="t"><i style="width:${v == null ? 0 : v.toFixed(1)}%;background:${col}"></i></span><span class="v">${v == null ? '—' : Math.round(v)}</span>${light(ss)}</div>`; }).join('');
+  const verdict = fs == null ? 'No data in this range to score the funnel.'
+    : top ? `<b>${esc(worstSec.label)}</b> pulls the score down most. First fix: <b>${esc(top.m.label)}</b> at ${fmtM(top.m.id, top.j.v)} against a green line of ${fmtM(top.m.id, S.metrics[top.m.id].g)}.`
+    : 'Every scored metric is at or past its green line.';
+  const bars = SECTIONS.map(s => { const v = H.sec[s.id], ss = scoreState(v); const col = ss === 'good' ? 'var(--good)' : ss === 'warn' ? 'var(--warn)' : ss === 'bad' ? 'var(--bad)' : 'var(--muted)';
+    return `<div class="secbar"><span>${esc(s.label)}</span><span class="t"><i style="width:${v == null ? 0 : v.toFixed(1)}%;background:${col}"></i></span><span class="v">${v == null ? '—' : Math.round(v)}</span>${light(ss)}</div>`; }).join('');
   const hero = `<div class="card score-card"><div class="kicker">Funnel health · ${esc(chLabel())}</div>
     <div class="score-num"><strong>${fs == null ? '—' : Math.round(fs)}</strong><span>of 100</span>${light(st)}</div>
     <p class="verdict">${verdict}</p><div class="secbars">${bars}</div>
@@ -1032,9 +1017,8 @@ function renderOverview(c) {
 
   const secCards = SECTIONS.map(s => {
     const v = H.sec[s.id];
-    const items = METRICS.filter(m => m.sec === s.id && S.metrics[m.id].w > 0).map(m => { const j = H.per[m.id]; return `<li><span>${esc(m.label)}</span><span>${fmtM(m.id, j.v)}</span>${ICON[j.state]}</li>`; }).join('');
-    const lo = secLow(H, s);
-    return `<div class="sec"><div class="sec-h"><h3>${esc(s.label)}</h3><span class="n">${v == null ? '—' : Math.round(v)}</span></div>${light(secState(H, s))}${lo ? `<p class="sec-low">${esc(lo.long)}</p>` : ''}<ul class="mlist">${items}</ul>${s.tab !== 'overview' ? `<button type="button" class="link" data-go="${s.tab}">Open ${esc(s.label)}</button>` : ''}</div>`;
+    const items = METRICS.filter(m => m.sec === s.id && S.metrics[m.id].w > 0).map(m => { const j = H.per[m.id], sm = smallNote(m.id, j); return `<li${sm ? ` title="${esc(sm)}"` : ''}><span>${esc(m.label)}</span><span>${fmtM(m.id, j.v)}</span>${ICON[j.state]}</li>`; }).join('');
+    return `<div class="sec"><div class="sec-h"><h3>${esc(s.label)}</h3><span class="n">${v == null ? '—' : Math.round(v)}</span></div>${light(scoreState(v))}<ul class="mlist">${items}</ul>${s.tab !== 'overview' ? `<button type="button" class="link" data-go="${s.tab}">Open ${esc(s.label)}</button>` : ''}</div>`;
   }).join('');
 
   const maxImp = H.work.length ? H.work[0].impact : 1;
@@ -2204,7 +2188,7 @@ function renderSettings(c) {
       ${card('The health calculator', 'sections × weights = the funnel score', `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Section</th><th>Score</th><th>Weight</th><th>Score × weight</th></tr></thead><tbody>${calc}</tbody><tfoot><tr><td>Funnel</td><td>${den ? (num / den).toFixed(1) : '—'}</td><td>${den}</td><td>${num.toFixed(0)} ÷ ${den}</td></tr></tfoot></table></div>
         <div class="formula" style="margin-top:12px">metric score = 100 × clamp((value − red) ÷ (green − red), 0, 1)<br>section = Σ weight × metric score ÷ Σ weight<br>funnel = Σ section weight × section ÷ Σ section weight</div>
         <div class="set-grid" style="margin-top:14px">
-          <div class="field"><label for="st-floor">Sample floor (denominator)</label><span><input class="num" type="number" min="0" step="1" id="st-floor" value="${S.floor}"><span class="unit">events</span></span></div>
+          <div class="field"><label for="st-floor" title="A number resting on fewer events is still graded and shown; it only gets a small-sample note on hover">Small sample under</label><span><input class="num" type="number" min="0" step="1" id="st-floor" value="${S.floor}"><span class="unit">events</span></span></div>
           <div class="field"><label for="st-green">Section green from</label><span><input class="num" type="number" min="0" max="100" step="1" id="st-green" value="${S.cutGreen}"></span></div>
           <div class="field"><label for="st-amber">Section amber from</label><span><input class="num" type="number" min="0" max="100" step="1" id="st-amber" value="${S.cutAmber}"></span></div>
         </div>`)}
