@@ -3253,8 +3253,13 @@ function openBuy() { toggleBuyModal(); }
     // new creative, and because they are dark creatives a new creative mints a NEW POST.
     // That is how 1,192 likes and 160 comments were lost on 2026-09-19. The proof is
     // worth more than the parameter, so the page infers the code instead.
-    // Matched against utm_campaign, lowercased, as Meta expands {{campaign.name}}.
-    const STRIDE_AD_OFFER_CAMPAIGNS = ['cold direct purchase | broad | aug 2026'];
+    // Matched against utm_campaign, lowercased, as Meta expands {{campaign.name}}. And by the
+    // campaign's ID: since 2026-09-17 Meta appends URL parameters of its own to every ad that has
+    // no url_tags (utm_source=ig|fb, utm_medium=paid, utm_campaign AND utm_id = the campaign's ID,
+    // utm_content = the ad's, utm_term = the ad set's), so the untagged ads that print "20% OFF,
+    // code REKZ" no longer arrive with no campaign at all. Without the ID, 545 of their clicks
+    // (09-17 to 10-05, in Clarity) were shown the full price the ad said was 20% off.
+    const STRIDE_AD_OFFER_CAMPAIGNS = ['cold direct purchase | broad | aug 2026', '120254113061210440'];
 
     function strideInferredAdCode() {
         var q;
