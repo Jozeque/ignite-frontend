@@ -470,6 +470,8 @@ let days = [], J = [], REG = [], ADS = [], FLOWS = [], FL = {}, OFFERS = { post2
 let SURVEY = { blocker: [], heard: [], other: [] };
 // One-off mailing campaigns, whole (not per day): { projects: {id: name}, list: {mail: counts} }.
 let CAMPAIGNS = { projects: {}, list: {} };
+// Plugin Boutique serials per day: { act, reg, opt } (health.build_partner).
+let PIB = [];
 
 function ingest(p) {
   PAY = p; DAYS = p.days.length; LAST = DAYS - 1;
@@ -514,6 +516,8 @@ function ingest(p) {
   for (const q of ['blocker', 'heard']) for (const [d, m] of Object.entries((p.survey || {})[q] || {})) { const i = DI[d]; if (i != null) SURVEY[q][i] = m || {}; }
   for (const o of (p.survey || {}).other || []) { const i = DI[o.d]; if (i != null) SURVEY.other.push({ ...o, i }); }
   CAMPAIGNS = { projects: (p.campaigns || {}).projects || {}, list: (p.campaigns || {}).list || {} };
+  PIB = Array.from({ length: DAYS }, () => ({ act: 0, reg: 0, opt: 0 }));
+  for (const [d, v] of Object.entries(p.partner || {})) { const i = DI[d]; if (i != null) PIB[i] = { act: v.act || 0, reg: v.reg || 0, opt: v.opt || 0 }; }
   const states = (p.flows || {}).flows || {};
   FLOWS = (p.mail.catalog || []).map(f => ({ ...f, st: states[f.id] || {}, d: Array.from({ length: DAYS }, () => ({ s: 0, tr: 0, tro: 0, dv: 0, o: 0, c: 0, b: 0, cp: 0, cv: 0, rv: 0 })) }));
   FL = Object.fromEntries(FLOWS.map(f => [f.id, f]));
@@ -1216,9 +1220,22 @@ function renderCheckout(c) {
     + (svOther.length
       ? `<ul class="svy-other">${svOther.map(o => `<li><span class="svy-q">${o.q === 'blocker' ? 'Almost stopped them' : 'Heard about Stride'} · ${esc(o.d)}</span>${esc(o.text)}</li>`).join('')}</ul>`
       : '<p class="note">No written answers in this range.</p>'));
+  // Plugin Boutique: their sales never reach us, so what shows is each serial going live in the
+  // plugin (the sale signal we can see) and its buyer registering it with an email. Not tied to a
+  // channel, so every channel counts, like the survey. The quarterly check: pib_keys.py report.
+  const pib = c.idx.reduce((t, i) => { const x = PIB[i] || {}; t.act += x.act || 0; t.reg += x.reg || 0; t.opt += x.opt || 0; return t; },
+    { act: 0, reg: 0, opt: 0 });
+  const pibCard = card('Plugin Boutique', 'serials going live and registering, in this range; their sales and money arrive in PIB’s quarterly report',
+    `<div class="tbl-wrap"><table class="tbl" id="pib-table"><tbody>
+      <tr><td>Serials activated<small class="subj">the first time a serial runs in Stride</small></td><td>${fmt.num(pib.act)}</td></tr>
+      <tr><td>Registered with an email<small class="subj">now in the CRM as Plugin Boutique buyers</small></td><td>${fmt.num(pib.reg)}</td></tr>
+      <tr><td>Asked for Stride news<small class="subj">of those registered</small></td><td>${fmt.num(pib.opt)}</td></tr>
+    </tbody></table></div>
+    <p class="note" style="margin-top:10px">Activations to date should never be more than the units PIB reports to date. Each quarter: <code>python firebase_cloud/scripts/pib_keys.py report --quarter 2026Q4 --reported-to-date N</code></p>`);
   el.innerHTML = `<div class="tiles">${tiles}</div>
     ${offersCard}
     ${surveyCard}
+    ${pibCard}
     <div class="card" id="rev-chart"><div class="card-h"><h2>Net revenue against ad spend</h2><span class="sub">${esc(chLabel())}, revenue credited ${esc(modelLabel())}</span></div><div></div></div>
     <div class="grid-2">
       ${card('Revenue by product', 'net of tax, before refunds; by the order’s last touch', `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Product</th><th>Orders</th><th>Net revenue</th><th>Share</th></tr></thead><tbody>${prod}</tbody></table></div>`)}
