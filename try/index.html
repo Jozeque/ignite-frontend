@@ -52,12 +52,13 @@
     var CONSENT_REGION = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR',
                           'HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK',
                           'SI','ES','SE','IS','LI','NO','GB','CH'];
-    // TEMPORARY, Yossi 2026-10-03: until Tuesday 2026-10-06 00:00 Israel time (Mon 21:00 UTC) nobody
+    // PAUSED, Yossi 2026-10-07, until he says otherwise (the first pause ran 10-03 to 10-06): nobody
     // is treated as inside the region (see inRegion), so no banner and nothing waits for an
-    // answer: the Meta Pixel counts every ad visitor, as it already does outside Europe, to see
-    // how many really land. A stored answer still rules, so a No stays a No. It switches itself
-    // back at that moment with no deploy. Remove this and its line in inRegion afterwards.
-    var PAUSED_UNTIL = Date.UTC(2026, 9, 5, 21, 0, 0);
+    // answer: the Meta Pixel counts every ad visitor, as it already does outside Europe, so the
+    // ads optimise on every sale. A stored answer still rules, so a No stays a No. There is no end
+    // date: the question returns only with a deploy (a time here, or this and its line in inRegion
+    // removed).
+    var PAUSED_UNTIL = Infinity;
     var ALL = ['ad_storage', 'ad_user_data', 'ad_personalization', 'analytics_storage'];
 
     function state(value, extra) {
