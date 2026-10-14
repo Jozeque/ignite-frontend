@@ -472,6 +472,10 @@ let SURVEY = { blocker: [], heard: [], other: [] };
 let CAMPAIGNS = { projects: {}, list: {} };
 // Plugin Boutique serials per day: { act, reg, opt } (health.build_partner).
 let PIB = [];
+// The homepage's Early Black Friday popup per day: { shown, folded, reopened, failed, claims, sales, usd }
+// (health.build_early_bf), and how its sales were found ('discount' exact, 'email' an estimate).
+let EBF = [], EBF_MATCH = null;
+const EBF_KEYS = ['shown', 'folded', 'reopened', 'failed', 'claims', 'sales', 'usd'];
 
 function ingest(p) {
   PAY = p; DAYS = p.days.length; LAST = DAYS - 1;
@@ -518,6 +522,9 @@ function ingest(p) {
   CAMPAIGNS = { projects: (p.campaigns || {}).projects || {}, list: (p.campaigns || {}).list || {} };
   PIB = Array.from({ length: DAYS }, () => ({ act: 0, reg: 0, opt: 0 }));
   for (const [d, v] of Object.entries(p.partner || {})) { const i = DI[d]; if (i != null) PIB[i] = { act: v.act || 0, reg: v.reg || 0, opt: v.opt || 0 }; }
+  EBF = Array.from({ length: DAYS }, () => Object.fromEntries(EBF_KEYS.map(k => [k, 0])));
+  for (const [d, v] of Object.entries((p.early_bf || {}).days || {})) { const i = DI[d]; if (i != null) EBF[i] = Object.fromEntries(EBF_KEYS.map(k => [k, +v[k] || 0])); }
+  EBF_MATCH = (p.early_bf || {}).match || null;
   const states = (p.flows || {}).flows || {};
   FLOWS = (p.mail.catalog || []).map(f => ({ ...f, st: states[f.id] || {}, d: Array.from({ length: DAYS }, () => ({ s: 0, tr: 0, tro: 0, dv: 0, o: 0, c: 0, b: 0, cp: 0, cv: 0, rv: 0 })) }));
   FL = Object.fromEntries(FLOWS.map(f => [f.id, f]));
@@ -1129,6 +1136,27 @@ function renderCreative(c) {
 }
 
 /* ---------- Landing ---------- */
+// The homepage's Early Black Friday popup (2026-10-14): how often it opened, what it handed out and
+// what sold with one of its codes. Not tied to a channel, so every channel counts, like the survey.
+function ebfCardHTML(c) {
+  const t = c.idx.reduce((t, i) => { const x = EBF[i] || {}; for (const k of EBF_KEYS) t[k] += x[k] || 0; return t; },
+    Object.fromEntries(EBF_KEYS.map(k => [k, 0])));
+  const of = (n, d) => d ? fmt.pct(n / d) : '—';
+  const how = EBF_MATCH === 'email' ? 'Paddle did not answer, so a sale here is a Stride order by a claimer’s address while their code was open: an estimate'
+    : 'A sale is an order whose Paddle discount is one of these codes: exact';
+  return card('Early Black Friday popup', 'the homepage popup in this range, every channel',
+    `<div class="tbl-wrap"><table class="tbl" id="ebf-table"><thead><tr><th>Step</th><th>Count</th><th>Rate</th></tr></thead><tbody>
+      <tr><td>Shown<small class="subj">opened by itself after 15 s on the page, once per browser</small></td><td>${fmt.num(t.shown)}</td><td></td></tr>
+      <tr><td>Folded into the pin<small class="subj">closed with ×, Escape or a click outside</small></td><td>${fmt.num(t.folded)}</td><td>${of(t.folded, t.shown)} of shown</td></tr>
+      <tr><td>Reopened from the pin</td><td>${fmt.num(t.reopened)}</td><td>${of(t.reopened, t.folded)} of folds</td></tr>
+      <tr><td>Codes claimed<small class="subj">an email left, a personal 30% code handed out</small></td><td>${fmt.num(t.claims)}</td><td>${of(t.claims, t.shown)} of shown</td></tr>
+      <tr><td>Bought with the code</td><td>${fmt.num(t.sales)}</td><td>${of(t.sales, t.claims)} of codes</td></tr>
+      <tr><td>Revenue from those orders<small class="subj">net of tax, before refunds</small></td><td>${fmt.usd0(t.usd)}</td><td></td></tr>
+      <tr><td>Claims that failed<small class="subj">a network or server error; the visitor was asked to try again</small></td><td>${fmt.num(t.failed)}</td><td></td></tr>
+    </tbody></table></div>
+    <p class="note" style="margin-top:10px">${esc(how)}. A code lasts 48 hours, so a claim late in the range can still turn into a sale after it.</p>`);
+}
+
 function renderLanding(c) {
   const el = $('p-landing'), A = c.A;
   const paid = F.channel === 'all' || F.channel === 'meta';
@@ -1152,6 +1180,7 @@ function renderLanding(c) {
     ${paid ? `<div class="card" id="arr-chart"><div class="card-h"><h2>Did the clicks arrive?</h2><span class="sub">a gap between the blue and green lines is people lost between the ad and the page</span></div><div></div></div>` : card('Did the clicks arrive?', '', '<p class="empty">Only Meta reports its clicks to us. Pick Meta ads or all channels.</p>')}
     ${card('Pages', `page views from our cookieless count; sessions, time and scroll from Clarity${srcOk('clarity') ? ` (${esc(srcNote('clarity'))})` : ', no day kept yet'}`, `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Page</th><th>Page views</th><th>Clarity sessions</th><th>Engaged time</th><th>Scroll depth</th><th class="l">Next step</th></tr></thead><tbody>${prow}</tbody></table></div>
       <p class="note" style="margin-top:10px">Engaged time is Clarity’s active time per session (the tab in front, someone moving, scrolling or typing); scroll depth is how far down a session got, on average. Clarity keeps no history for export, so a day appears the morning after it ends, and time and scroll show for all channels only.</p>`)}
+    ${ebfCardHTML(c)}
     <p class="note"><b>Why two arrival rates.</b> Meta counts a landing page view only when its pixel may fire, and in Europe it waits for a cookie answer; our own count is cookieless and holds. When ours stays high while Meta’s drops, the banner moved, not the traffic. Ours counts the arrivals that carried an ad id.</p>`;
   if (paid) {
     const labels = c.idx.map(d => shortDate(dates[d]));
@@ -1295,8 +1324,8 @@ const EXTRA_DAY = new Set(['ext_onboard', 'ext_depth', 'ext_last_hours', 'ext_po
 const groupOf = f => f.group === 'A' ? (PRE_ACTIVATION.has(f.id) ? 'Apre' : EXTRA_DAY.has(f.id) ? 'Aext' : 'Apost') : f.group;
 const GOAL = { buy: 'Buys Stride', session: 'Books the 1:1 session', collection: 'Buys the Collection', click: 'Clicks through', answer: 'Answers the question', none: 'Receipt, no goal' };
 const FAMILY = { FLOWS_INSTANT_MODE: 'Instant mails', DEMO_LIFECYCLE_MODE: 'Demo lifecycle', RECOVERY_MODE: 'Checkout recovery', POST_PURCHASE_MODE: 'After a purchase', WINBACK_MODE: 'Winback' };
-const FLAG_OF = { next_day: 'NEXT_DAY', last_hours: 'LAST_HOURS', post_demo_offer: 'POST_DEMO_OFFER', ext_onboard: 'EXT_ONBOARD', ext_depth: 'EXT_DEPTH', ext_last_hours: 'EXT_LAST_HOURS', ext_post: 'EXT_POST', recovery_questions: 'B2', recovery_try: 'B3', session_offer: 'C2', first_build: 'C3', one_question: 'C4', referral_ask: 'C4B', collection_nudge: 'C5', discord: 'C6', winback_week: 'D1', winback_update: 'D2' };
-const FAMILY_OF = { demo_welcome: 'FLOWS_INSTANT_MODE', purchase_welcome: 'FLOWS_INSTANT_MODE', referral_ask: 'FLOWS_INSTANT_MODE', collection: 'FLOWS_INSTANT_MODE', session_booking: 'FLOWS_INSTANT_MODE',
+const FLAG_OF = { next_day: 'NEXT_DAY', last_hours: 'LAST_HOURS', post_demo_offer: 'POST_DEMO_OFFER', ext_onboard: 'EXT_ONBOARD', ext_depth: 'EXT_DEPTH', ext_last_hours: 'EXT_LAST_HOURS', ext_post: 'EXT_POST', recovery_questions: 'B2', recovery_try: 'B3', session_offer: 'C2', first_build: 'C3', one_question: 'C4', referral_ask: 'C4B', collection_nudge: 'C5', discord: 'C6', winback_week: 'D1', winback_update: 'D2', bf_code: 'BF_CODE' };
+const FAMILY_OF = { demo_welcome: 'FLOWS_INSTANT_MODE', purchase_welcome: 'FLOWS_INSTANT_MODE', referral_ask: 'FLOWS_INSTANT_MODE', collection: 'FLOWS_INSTANT_MODE', session_booking: 'FLOWS_INSTANT_MODE', bf_code: 'FLOWS_INSTANT_MODE',
   activate_nudge: 'DEMO_LIFECYCLE_MODE', next_day: 'DEMO_LIFECYCLE_MODE', friction_rescue: 'DEMO_LIFECYCLE_MODE', onboard: 'DEMO_LIFECYCLE_MODE', last_hours: 'DEMO_LIFECYCLE_MODE', post_demo: 'DEMO_LIFECYCLE_MODE', post_demo_offer: 'DEMO_LIFECYCLE_MODE',
   ext_onboard: 'DEMO_LIFECYCLE_MODE', ext_depth: 'DEMO_LIFECYCLE_MODE', ext_last_hours: 'DEMO_LIFECYCLE_MODE', ext_post: 'DEMO_LIFECYCLE_MODE',
   checkout_recovery: 'RECOVERY_MODE', recovery_questions: 'RECOVERY_MODE', recovery_try: 'RECOVERY_MODE',
