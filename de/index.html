@@ -1258,6 +1258,52 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
   @media (max-width:420px){.dpop-card{padding:22px 18px}.dpop-h{font-size:21px}}
 
+  /* ── EARLY BLACK FRIDAY (2026-10-14) ─────────────────────────────────────
+     The popup reuses the panel above (.dpop, .dpop-card, the field and button) and adds
+     the eyebrow, the price, the live clock, the code and the pin it folds into. Every word
+     in it is written by script, so no new text sits in the markup and the six translated
+     homepages keep publishing. */
+  .bf-eyebrow{margin:0 0 6px;font-size:12px;font-weight:800;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--copper-lt)}
+  .bf-off{margin:8px 0 0;font-size:16px;font-weight:800;color:var(--copper-lt)}
+  .bf-price{margin:10px 0 2px;display:flex;align-items:baseline;justify-content:center;gap:10px}
+  .bf-was{font-size:17px;color:var(--ink3);text-decoration:line-through}
+  .bf-now{font-size:30px;font-weight:900;color:var(--ink);letter-spacing:-.01em}
+  .bf-timer{margin:12px auto 16px;display:inline-flex;flex-direction:column;align-items:center;
+    gap:4px;padding:10px 18px;border:1px solid rgba(198,113,43,.38);border-radius:14px;
+    background:rgba(198,113,43,.08)}
+  .bf-timer-l{font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--ink2)}
+  .bf-clock{font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:30px;font-weight:700;line-height:1;color:var(--copper-lt);
+    font-variant-numeric:tabular-nums;letter-spacing:.04em}
+  .bf-code{margin:2px 0 0;font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:24px;font-weight:700;letter-spacing:.06em;color:var(--ink);word-break:break-all}
+  .bf-buy{display:flex;justify-content:center;width:100%;padding:14px 22px;font-size:14px;
+    border-radius:12px;cursor:pointer}
+  /* The pin: the folded popup. Bottom-left, below every modal; on a phone it rides above
+     the sticky buy bar once that bar is up, beside the help button, never over Get Stride. */
+  #bfpin{position:fixed;left:16px;bottom:16px;z-index:998;max-width:calc(100% - 32px);
+    display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:999px;
+    border:1px solid rgba(198,113,43,.55);background:rgba(16,15,12,.94);color:var(--ink);
+    font:inherit;font-size:13px;font-weight:700;line-height:1.2;cursor:pointer;
+    box-shadow:0 14px 34px -14px rgba(0,0,0,.85);backdrop-filter:blur(8px)}
+  #bfpin[hidden]{display:none}
+  #bfpin:hover{border-color:var(--copper-lt)}
+  .bf-pin-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bf-pin-c{font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    color:var(--copper-lt);font-variant-numeric:tabular-nums;white-space:nowrap}
+  /* The sticky bar exists below 900px; the pin steps up over it whenever it is up. */
+  @media (max-width:899.98px){
+    #m-cta.is-on ~ #bfpin{bottom:calc(4.6rem + env(safe-area-inset-bottom,0px))}
+  }
+  @media (max-width:767px){
+    #bfpin{left:.75rem;bottom:calc(.75rem + env(safe-area-inset-bottom,0px));
+      max-width:calc(100% - 4.5rem);font-size:12px;padding:9px 12px}
+    #m-cta.is-on ~ #bfpin{bottom:calc(4.6rem + env(safe-area-inset-bottom,0px))}
+    .bf-now{font-size:26px}.bf-clock{font-size:26px}
+  }
+
   /* ── THE FILM ───────────────────────────────────────────────────────────
      Pressing the hero frame while its loop is running plays the full Stride
      film here, over the page, so nobody is sent to another tab. The hero script
@@ -4574,190 +4620,520 @@ function openBuy() { toggleBuyModal(); }
     })();
 </script>
 
-<!-- ── The 30-second demo prompt ──────────────────────────────────────────────
-     Last in the body and position:fixed, so it overlays the page without being
-     able to move anything in it. It asks for the address and nothing else: the
-     handoff below sends the visitor to /try, which performs the registration and
-     fires the Lead/DemoRegistered pair with its shared event_id exactly as it
-     always has. One demo funnel, one set of events, nothing duplicated here. -->
-<div class="dpop" id="dpop" role="dialog" aria-modal="true" aria-labelledby="dpop-h">
-  <div class="dpop-card">
-    <button type="button" class="dpop-x" id="dpop-x" aria-label="Schließen">&times;</button>
-    <h2 class="dpop-h" id="dpop-h">Teste Stride gratis <span class="brand">24 Stunden lang</span></h2>
-    <p class="dpop-s">Endlose Sound-Design-Variationen in Sekunden.</p>
-    <p class="dpop-keep"><strong>Die volle Version von Stride.</strong> Schreib die Automation, die du in diesen 24 Stunden baust, direkt in deine Clips und behalte sie für immer.</p>
-    <form class="dpop-f" id="dpop-f" novalidate>
-      <input id="dpop-email" type="email" name="email" autocomplete="email" required
-             placeholder="du@studio.de" aria-label="Deine E-Mail">
-      <button class="btn-copper" id="dpop-go" type="submit">Gratis testen</button>
-    </form>
-    <p class="dpop-fine">Nur deine E-Mail. Wir schicken dir deinen Download-Link und wie du deine 24 Stunden startest, dazu ein paar kurze E-Mails zu deinem Pass. Antworte auf eine davon mit STOP, dann hören sie auf.</p>
-    <p class="dpop-act">Deine 24 Stunden starten erst, wenn du Stride aktivierst.</p>
-    <p class="dpop-err" id="dpop-err"></p>
-  </div>
-</div>
+<!-- ── Early Black Friday (2026-10-14) ───────────────────────────────────────────
+     Fifteen seconds on the page, then one panel: 30% off Stride for 48 hours, a personal code
+     for an email. It replaced the 30-second Discovery Pass prompt (the pass keeps its own links).
+     Last in the body and position:fixed, so it overlays the page without being able to move
+     anything in it, and closing it folds it into the pin below. Both are EMPTY here: every word
+     is written by the script in the page's own language, because a new string in the markup
+     takes the six translated homepages off the site until all six translate it. -->
+<div class="dpop" id="dpop" role="dialog" aria-modal="true" aria-labelledby="bf-h"></div>
+<button type="button" id="bfpin" hidden></button>
 
 <script>
-(function strideDemoPrompt() {
-    var SECONDS = 30;
-    var SEEN_KEY = 'stride_demo_pop';      // WHEN it was last shown, in ms
-    var AGAIN_AFTER = 7 * 24 * 60 * 60 * 1000;   // and leave them alone for a week after
-    var HANDOFF  = 'stride_demo_email';    // the address /try?auto=1 picks up
-    var SECS_KEY = 'stride_demo_secs';     // seconds on the page so far, this visit
-
+(function strideEarlyBF() {
+    var SECONDS = 15;                       // on the page, added up, before it opens
+    var HOURS = 48;                         // the offer, from this browser's first sight of it
+    var PERCENT = 30;
+    var KEY = 'stride_bf';                  // { seen, code, did, ends, over } in localStorage
+    var SECS_KEY = 'stride_bf_secs';        // seconds on the page so far, this visit
+    var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
     var pop = document.getElementById('dpop');
-    if (!pop) return;
-    var form = document.getElementById('dpop-f');
-    var input = document.getElementById('dpop-email');
-    var go = document.getElementById('dpop-go');
-    var err = document.getElementById('dpop-err');
-    var lastFocus = null;
+    var pin = document.getElementById('bfpin');
+    if (!pop || !pin) return;
+
+    // Every word, per language. Informal, as the rest of each translation is. No percentage
+    // ever sits beside the struck anchor in the hero; this panel prints its own 30%.
+    var WORDS = {
+        en: { eyebrow: 'Limited time', headline: 'Get the Black Friday deal, earlier.',
+              sub: 'Extra 30% off today’s price',
+              lead: 'Leave your email and get your code now.',
+              offerEnds: 'This offer ends in', codeEnds: 'Your code ends in',
+              emailLabel: 'Your email', go: 'Get my 30% off', wait: 'One moment…',
+              fine: 'We’ll send you Stride news and deals now and then. Unsubscribe anytime.',
+              yourCode: 'Your code', applied: 'Applied to this page. One use, until the timer runs out.',
+              buy: 'Get Stride for {price}', pinOffer: 'Early Black Friday · 30% off', pinCode: '{code} · 30% off',
+              errEmail: 'Please enter a valid email address.', errEnded: 'This offer has ended.',
+              errLimited: 'Too many tries from this connection. Please try again in an hour.',
+              errGeneric: 'Something went wrong. Please try again.', close: 'Close' },
+        de: { eyebrow: 'Nur für kurze Zeit', headline: 'Hol dir den Black-Friday-Deal schon jetzt.',
+              sub: 'Zusätzlich 30 % Rabatt auf den heutigen Preis',
+              lead: 'Gib deine E-Mail ein und hol dir deinen Code sofort.',
+              offerEnds: 'Das Angebot endet in', codeEnds: 'Dein Code endet in',
+              emailLabel: 'Deine E-Mail', go: 'Meine 30 % sichern', wait: 'Einen Moment…',
+              fine: 'Wir schicken dir ab und zu Stride-News und Angebote. Abmelden jederzeit möglich.',
+              yourCode: 'Dein Code', applied: 'Auf dieser Seite angewendet. Einmal einlösbar, bis der Timer abläuft.',
+              buy: 'Stride für {price} holen', pinOffer: 'Early Black Friday · 30 % Rabatt', pinCode: '{code} · 30 % Rabatt',
+              errEmail: 'Bitte gib eine gültige E-Mail-Adresse ein.', errEnded: 'Dieses Angebot ist abgelaufen.',
+              errLimited: 'Zu viele Versuche von dieser Verbindung. Bitte versuch es in einer Stunde noch einmal.',
+              errGeneric: 'Etwas ist schiefgelaufen. Bitte versuch es noch einmal.', close: 'Schließen' },
+        es: { eyebrow: 'Por tiempo limitado', headline: 'Consigue la oferta de Black Friday por adelantado.',
+              sub: 'Un 30 % extra de descuento sobre el precio de hoy',
+              lead: 'Deja tu email y recibe tu código al momento.',
+              offerEnds: 'La oferta termina en', codeEnds: 'Tu código termina en',
+              emailLabel: 'Tu email', go: 'Quiero mi 30 %', wait: 'Un momento…',
+              fine: 'De vez en cuando te enviaremos novedades y ofertas de Stride. Puedes darte de baja cuando quieras.',
+              yourCode: 'Tu código', applied: 'Aplicado en esta página. Un solo uso, hasta que termine el contador.',
+              buy: 'Consigue Stride por {price}', pinOffer: 'Black Friday anticipado · 30 % de descuento', pinCode: '{code} · 30 % de descuento',
+              errEmail: 'Introduce un email válido.', errEnded: 'Esta oferta ha terminado.',
+              errLimited: 'Demasiados intentos desde esta conexión. Vuelve a intentarlo en una hora.',
+              errGeneric: 'Algo ha fallado. Inténtalo de nuevo.', close: 'Cerrar' },
+        fr: { eyebrow: 'Durée limitée', headline: 'Profite de l’offre Black Friday en avance.',
+              sub: '30 % de réduction en plus sur le prix du jour',
+              lead: 'Laisse ton e-mail et reçois ton code tout de suite.',
+              offerEnds: 'L’offre se termine dans', codeEnds: 'Ton code se termine dans',
+              emailLabel: 'Ton e-mail', go: 'Je prends mes 30 %', wait: 'Un instant…',
+              fine: 'On t’enverra de temps en temps des nouvelles et offres Stride. Désinscription à tout moment.',
+              yourCode: 'Ton code', applied: 'Appliqué sur cette page. Utilisable une fois, jusqu’à la fin du compte à rebours.',
+              buy: 'Prendre Stride pour {price}', pinOffer: 'Black Friday en avance · -30 %', pinCode: '{code} · -30 %',
+              errEmail: 'Saisis une adresse e-mail valide.', errEnded: 'Cette offre est terminée.',
+              errLimited: 'Trop d’essais depuis cette connexion. Réessaie dans une heure.',
+              errGeneric: 'Un problème est survenu. Réessaie.', close: 'Fermer' },
+        it: { eyebrow: 'Per poco tempo', headline: 'Prendi l’offerta del Black Friday in anticipo.',
+              sub: 'Un ulteriore 30% di sconto sul prezzo di oggi',
+              lead: 'Lascia la tua email e ricevi subito il tuo codice.',
+              offerEnds: 'L’offerta scade tra', codeEnds: 'Il tuo codice scade tra',
+              emailLabel: 'La tua email', go: 'Voglio il mio 30%', wait: 'Un momento…',
+              fine: 'Ogni tanto ti invieremo novità e offerte di Stride. Puoi annullare l’iscrizione quando vuoi.',
+              yourCode: 'Il tuo codice', applied: 'Applicato a questa pagina. Valido una volta, fino alla fine del timer.',
+              buy: 'Prendi Stride a {price}', pinOffer: 'Black Friday in anticipo · 30% di sconto', pinCode: '{code} · 30% di sconto',
+              errEmail: 'Inserisci un indirizzo email valido.', errEnded: 'Questa offerta è scaduta.',
+              errLimited: 'Troppi tentativi da questa connessione. Riprova tra un’ora.',
+              errGeneric: 'Qualcosa è andato storto. Riprova.', close: 'Chiudi' },
+        ja: { eyebrow: '期間限定', headline: 'ブラックフライデーの特価を、ひと足先に。',
+              sub: '今日の価格からさらに 30% オフ',
+              lead: 'メールアドレスを入力して、今すぐコードを受け取りましょう。',
+              offerEnds: 'オファー終了まで', codeEnds: 'コードの有効期限まで',
+              emailLabel: 'メールアドレス', go: '30% オフを受け取る', wait: '少々お待ちください…',
+              fine: 'Stride のニュースやお得な情報をときどきお届けします。配信停止はいつでも可能です。',
+              yourCode: 'あなたのコード', applied: 'このページに適用済みです。タイマーが終わるまで 1 回使えます。',
+              buy: '{price} で Stride を購入', pinOffer: 'アーリーブラックフライデー · 30% オフ', pinCode: '{code} · 30% オフ',
+              errEmail: '有効なメールアドレスを入力してください。', errEnded: 'このオファーは終了しました。',
+              errLimited: 'この接続からの試行が多すぎます。1 時間後にもう一度お試しください。',
+              errGeneric: '問題が発生しました。もう一度お試しください。', close: '閉じる' },
+        zh: { eyebrow: '限时优惠', headline: '黑五优惠，提前到手。',
+              sub: '在今日价格基础上再减 30%',
+              lead: '留下你的邮箱，马上拿到你的优惠码。',
+              offerEnds: '优惠倒计时', codeEnds: '优惠码剩余时间',
+              emailLabel: '你的邮箱', go: '领取 30% 优惠', wait: '请稍候…',
+              fine: '我们会不时发送 Stride 新闻和优惠。可随时退订。',
+              yourCode: '你的优惠码', applied: '已应用到本页面。限用一次，倒计时结束前有效。',
+              buy: '以 {price} 购买 Stride', pinOffer: '黑五提前购 · 立减 30%', pinCode: '{code} · 立减 30%',
+              errEmail: '请输入有效的邮箱地址。', errEnded: '本次优惠已结束。',
+              errLimited: '此网络尝试次数过多，请一小时后再试。',
+              errGeneric: '出了点问题，请重试。', close: '关闭' }
+    };
+    var lang = String(document.documentElement.lang || 'en').slice(0, 2).toLowerCase();
+    var W = WORDS[lang] || WORDS.en;
+    function t(k, vars) {
+        var s = (W[k] != null ? W[k] : WORDS.en[k]) || '';
+        if (vars) Object.keys(vars).forEach(function (v) { s = s.split('{' + v + '}').join(vars[v]); });
+        return s;
+    }
 
     function ls(fn, d) { try { return fn(); } catch (e) { return d; } }
+    // Held in memory, mirrored to storage: a browser that refuses storage still gets one
+    // coherent visit and only loses the memory of it between visits.
+    var st = ls(function () { return JSON.parse(localStorage.getItem(KEY) || 'null'); }, null) || {};
+    function save() { ls(function () { localStorage.setItem(KEY, JSON.stringify(st)); }); }
+    function forget() { delete st.code; delete st.did; delete st.ends; }
 
-    // A visitor holding a discount code is never asked. They arrived on a paid click to
-    // buy Stride at 20% off, and interrupting that with a free demo competes with the
-    // click that was paid for. Deliberately NOT remembered: if the same person comes back
-    // later without the code, they are ordinary traffic and get the prompt like anyone.
-    function hasCode() {
-        if (window.STRIDE_CODE_ACTIVE) return true;
-        // Independent of the pricing script above, so a code still silences the prompt
-        // even if that script never ran.
-        try { return !!(new URL(window.location.href).searchParams.get('code') || '').trim(); }
-        catch (e) { return false; }
+    // Anonymous counters (shown, folded, reopened, claim_failed): a number per day, nothing else.
+    function stage(name) {
+        try {
+            fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+                         body: JSON.stringify({ action: 'bf_stage', stage: name }) }).catch(function () {});
+        } catch (e) {}
+    }
+    function track(ev, data) { try { if (window.StrideTrack) StrideTrack.push(ev, data || {}); } catch (e) {} }
+
+    // ── the clock ─────────────────────────────────────────────────────────────
+    // The offer runs 48 hours from this browser's first sight of it, and a code claimed in
+    // that time ends at the same moment: the backend gives it exactly that expiry in Paddle.
+    // So the numbers on screen are the real deadline, never a timer that restarts.
+    function two(n) { return (n < 10 ? '0' : '') + n; }
+    function clock(ms) {
+        var s = Math.max(0, Math.floor(ms / 1000));
+        return two(Math.floor(s / 3600)) + ':' + two(Math.floor(s / 60) % 60) + ':' + two(s % 60);
+    }
+    function offerEnds() { return (st.seen || Date.now()) + HOURS * 3600000; }
+    function claimed() { return !!(st.code && st.did && st.ends > Date.now()); }
+    function live() { return claimed() || (!!st.seen && !st.over && Date.now() < offerEnds()); }
+
+    // ── prices, in the visitor's own currency ─────────────────────────────────
+    // The full price is the undiscounted one (strideFx comes from the preview without any
+    // code, so REKZ does not move it). Before the code, the offer is 30% off that; once the
+    // code is on the page, Paddle's own charged price replaces the estimate.
+    function full() {
+        try { if (typeof strideFx !== 'undefined' && strideFx && strideFx.rate) return strideFx.rate * STRIDE_PRICE; } catch (e) {}
+        try { return STRIDE_PRICE; } catch (e) { return 99; }
+    }
+    function money(v) {
+        try { if (typeof strideMoneyExact === 'function') return strideMoneyExact(v); } catch (e) {}
+        return '$' + (Math.round(v * 100) % 100 === 0 ? v.toFixed(0) : v.toFixed(2));
+    }
+    function offerPrice() {
+        try {
+            if (claimed() && strideCodeId === st.did && strideLocal && strideLocal.stride) return strideLocal.stride;
+        } catch (e) {}
+        return Math.round(full() * (100 - PERCENT)) / 100;
     }
 
-    // Nobody who already has the demo is ever asked again, and nobody is nagged.
-    //
-    // This stores WHEN it was last shown, not merely THAT it was. A plain flag meant one
-    // dismissal silenced it permanently, on a browser, forever: someone who waved it away
-    // on a first visit could never be asked again even months later, and it was why the
-    // thing looked dead to us after a single test. A week is long enough not to nag and
-    // short enough that a returning visitor is a fair question again.
-    //
-    // Falls back to FALSE, so a browser that refuses storage still gets the prompt:
-    // "cannot check" must not quietly become "never show".
-    function alreadyDone() {
-        // Opened a checkout (strideMarkBuyIntent): they came to buy, so a free demo is the
-        // wrong offer, now and on every later visit. The in-memory mark is read outside
-        // storage, so a browser that refuses storage is still covered for this visit.
-        if (window.STRIDE_BUY_INTENT) return true;
-        return ls(function () {
-            // Registered already: they have Stride, there is nothing to offer.
-            if (localStorage.getItem('stride_try_email')
-                || localStorage.getItem('stride_try_dl')) return true;
-            if (localStorage.getItem('stride_buy_intent')) return true;
-            var last = parseInt(localStorage.getItem(SEEN_KEY) || '0', 10) || 0;
-            // A leftover '1' from the flag version parses as 1970 and so simply expires,
-            // which is the kind thing to do to everyone it silenced.
-            return last > 0 && (Date.now() - last) < AGAIN_AFTER;
-        }, false);
+    // ── the panel and the pin ─────────────────────────────────────────────────
+    function el(tag, cls, text) {
+        var e = document.createElement(tag);
+        if (cls) e.className = cls;
+        if (text != null) e.textContent = text;
+        return e;
     }
-    function remember() { ls(function () { localStorage.setItem(SEEN_KEY, String(Date.now())); }); }
+    var refs = {};
+    var pinLabel = el('span', 'bf-pin-t');
+    var pinClock = el('span', 'bf-pin-c');
+    pin.appendChild(pinLabel);
+    pin.appendChild(pinClock);
 
-    // /?demopop=1 shows it at once, past the clock and past the week. For looking at the
-    // thing without having to clear storage first, which is how this came up.
-    var FORCE = (function () {
-        try { return new URL(window.location.href).searchParams.get('demopop') === '1'; }
-        catch (e) { return false; }
-    })();
+    function timer() {
+        var box = el('div', 'bf-timer');
+        box.appendChild(el('span', 'bf-timer-l', t(claimed() ? 'codeEnds' : 'offerEnds')));
+        refs.clock = el('span', 'bf-clock');
+        refs.clock.setAttribute('role', 'timer');
+        box.appendChild(refs.clock);
+        return box;
+    }
 
-    // Never over a checkout. The buy modal and Paddle's own overlay are the path the
-    // ads are paid for; interrupting either to offer a free demo would be absurd.
+    function render() {
+        pop.textContent = '';
+        refs = {};
+        var card = el('div', 'dpop-card');
+        var x = el('button', 'dpop-x', '×');
+        x.type = 'button';
+        x.setAttribute('aria-label', t('close'));
+        x.addEventListener('click', function () { fold(); });
+        card.appendChild(x);
+        if (claimed()) {
+            card.appendChild(el('p', 'bf-eyebrow', t('yourCode')));
+            var code = el('h2', 'bf-code', st.code);
+            code.id = 'bf-h';
+            card.appendChild(code);
+            card.appendChild(el('p', 'dpop-s', t('applied')));
+            card.appendChild(timer());
+            var buy = el('a', 'btn-copper bf-buy');
+            buy.href = '#';
+            buy.setAttribute('role', 'button');
+            buy.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                close();
+                try { if (typeof openBuy === 'function') openBuy(); } catch (e) {}
+            });
+            refs.buy = buy;
+            card.appendChild(buy);
+        } else {
+            card.appendChild(el('p', 'bf-eyebrow', t('eyebrow')));
+            var h = el('h2', 'dpop-h', t('headline'));
+            h.id = 'bf-h';
+            card.appendChild(h);
+            card.appendChild(el('p', 'bf-off', t('sub')));
+            var price = el('p', 'bf-price');
+            refs.was = el('s', 'bf-was');
+            refs.now = el('span', 'bf-now');
+            price.appendChild(refs.was);
+            price.appendChild(refs.now);
+            card.appendChild(price);
+            card.appendChild(el('p', 'dpop-s', t('lead')));
+            card.appendChild(timer());
+            var form = el('form', 'dpop-f');
+            form.noValidate = true;
+            var input = el('input');
+            input.type = 'email';
+            input.name = 'email';
+            input.autocomplete = 'email';
+            input.required = true;
+            input.placeholder = 'you@studio.com';
+            input.setAttribute('aria-label', t('emailLabel'));
+            var go = el('button', 'btn-copper', t('go'));
+            go.type = 'submit';
+            form.appendChild(input);
+            form.appendChild(go);
+            form.addEventListener('submit', function (ev) { ev.preventDefault(); submit(); });
+            card.appendChild(form);
+            card.appendChild(el('p', 'dpop-fine', t('fine')));
+            refs.err = el('p', 'dpop-err');
+            card.appendChild(refs.err);
+            refs.input = input;
+            refs.go = go;
+        }
+        pop.appendChild(card);
+        paint();
+    }
+
+    // Everything that moves, once a second: the clocks, the prices (Paddle may answer after
+    // the panel opened) and, with a code on the page, the code line above the hero price.
+    function paint() {
+        var c = clock((claimed() ? st.ends : offerEnds()) - Date.now());
+        if (refs.clock) refs.clock.textContent = c;
+        if (refs.was) refs.was.textContent = money(full());
+        if (refs.now) refs.now.textContent = money(offerPrice());
+        if (refs.buy) refs.buy.textContent = t('buy', { price: money(offerPrice()) });
+        if (!pin.hidden) {
+            pinLabel.textContent = claimed() ? t('pinCode', { code: st.code }) : t('pinOffer');
+            pinClock.textContent = c;
+        }
+        if (claimed()) { try { strideSealShow(st.code, c); } catch (e) {} }
+    }
+
+    var lastFocus = null;
+    function open() {
+        if (pop.classList.contains('on') || !live()) return;
+        lastFocus = document.activeElement;
+        render();
+        pin.hidden = true;
+        pop.classList.add('on');
+        document.body.style.overflow = 'hidden';
+        setTimeout(function () { try { (refs.input || refs.buy).focus(); } catch (e) {} }, 60);
+    }
+    function showPin() {
+        if (!live()) { pin.hidden = true; return; }
+        pin.hidden = false;
+        paint();
+    }
+    function close() {
+        pop.classList.remove('on');
+        document.body.style.overflow = '';
+        showPin();
+        if (lastFocus && lastFocus.focus) { try { lastFocus.focus(); } catch (e) {} }
+    }
+    function fold() {
+        if (!pop.classList.contains('on')) return;
+        close();
+        stage('folded');
+        track('bf_popup_folded');
+    }
+    pin.addEventListener('click', function () {
+        stage('reopened');
+        track('bf_popup_reopened');
+        open();
+    });
+    pop.addEventListener('click', function (ev) { if (ev.target === pop) fold(); });
+    document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape' && pop.classList.contains('on')) fold();
+    });
+
+    // ── putting a code on the page ────────────────────────────────────────────
+    // Exactly what a personal code does (strideResolvePersonalCode): the page's one discount
+    // becomes this one, so the price, the checkout and the wallet all move together. A
+    // checkout takes ONE discount, so this replaces REKZ or any other code, never adds to it.
+    function apply() {
+        try { strideCodeId = st.did; } catch (e) {}
+        try { strideCodeIsFriend = false; } catch (e) {}
+        window.STRIDE_CODE_ACTIVE = true;
+        try { strideLocalizePrices(); } catch (e) {}
+        try { strideSyncExpressItems(); } catch (e) {}
+        paint();
+    }
+    // Reload at the ordinary price: without the code in the address if it is this code,
+    // keeping any other (an ad's REKZ comes back on its own).
+    function reloadPlain() {
+        try {
+            var u = new URL(window.location.href);
+            if (/^blackstride/i.test(u.searchParams.get('code') || '')) u.searchParams.delete('code');
+            window.location.replace(u.pathname + u.search + u.hash);
+        } catch (e) { window.location.reload(); }
+    }
+    // A code from an earlier visit is put on the page at once and checked behind it. Used
+    // (they bought) or gone: drop it and reload at the ordinary price. Unreachable: keep it,
+    // Paddle will refuse a spent code at its own checkout anyway.
+    function verify() {
+        try {
+            fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                         body: JSON.stringify({ action: 'personal_code', code: String(st.code).toLowerCase() }) })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (d && d.ok) return;
+                    if (d && /^(used|expired|unknown)$/.test(d.status || '')) {
+                        forget();
+                        st.over = true;
+                        save();
+                        reloadPlain();
+                    }
+                }).catch(function () {});
+        } catch (e) {}
+    }
+
+    // ── asking for the code ───────────────────────────────────────────────────
+    var sending = false, retries = 0;
+    function showErr(msg) {
+        if (!refs.err) return;
+        refs.err.textContent = msg;
+        refs.err.style.display = 'block';
+    }
+    function submit() {
+        if (sending || !refs.input) return;
+        var email = (refs.input.value || '').trim().toLowerCase();
+        refs.err.style.display = 'none';
+        if (!email || email.indexOf('@') < 1 || email.indexOf('.', email.indexOf('@')) < 0) {
+            showErr(t('errEmail'));
+            refs.input.focus();
+            return;
+        }
+        sending = true;
+        refs.go.disabled = true;
+        refs.go.textContent = t('wait');
+        // One id for the browser's Lead and the server's, so Meta counts the pair once.
+        var eid = (self.crypto && crypto.randomUUID) ? crypto.randomUUID()
+            : (Date.now().toString(36) + Math.random().toString(36).slice(2, 12));
+        // The same click id, consent answer and ad markers the checkout carries.
+        var body = {};
+        try { if (typeof strideExpressCustomData === 'function') body = strideExpressCustomData() || {}; } catch (e) {}
+        delete body.ua;
+        try {
+            var q = new URL(window.location.href).searchParams;
+            ['utm_source', 'utm_campaign', 'utm_content', 'gclid', 'wbraid', 'gbraid'].forEach(function (k) {
+                if (q.get(k) && !body[k]) body[k] = q.get(k);
+            });
+        } catch (e) {}
+        body.action = 'bf_claim';
+        body.email = email;
+        body.first_seen_ms = st.seen || Date.now();
+        body.event_id = eid;
+        body.lang = lang;
+        var again = function () {
+            sending = false;
+            if (refs.go) { refs.go.disabled = false; refs.go.textContent = t('go'); }
+        };
+        fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (d && d.ok && d.code && d.discount_id && Number(d.expires_at_ms) > Date.now()) {
+                    sending = false;
+                    st.code = String(d.code).toUpperCase();
+                    st.did = d.discount_id;
+                    st.ends = Number(d.expires_at_ms);
+                    st.over = false;
+                    save();
+                    apply();
+                    if (!d.again) {
+                        try {
+                            if (window.fbq && (!window.strideAllowed || window.strideAllowed())) {
+                                fbq('track', 'Lead', { content_name: 'Early Black Friday', value: 0, currency: 'USD' }, { eventID: eid });
+                            }
+                        } catch (e) {}
+                        track('bf_claimed', { percent: PERCENT });
+                    }
+                    render();                       // the panel turns into the code
+                    return;
+                }
+                var s = (d && d.status) || '';
+                if (s === 'busy' && retries < 3) { retries += 1; sending = false; setTimeout(submit, 1500); return; }
+                again();
+                if (s === 'invalid') showErr(t('errEmail'));
+                else if (s === 'expired') { showErr(t('errEnded')); st.over = true; save(); }
+                else if (s === 'limited') showErr(t('errLimited'));
+                else { showErr(t('errGeneric')); stage('claim_failed'); }
+            })
+            .catch(function () { again(); showErr(t('errGeneric')); stage('claim_failed'); });
+    }
+
+    // ── when it opens ─────────────────────────────────────────────────────────
+    // Never over a checkout: the buy modal and Paddle's own overlay are where the sale
+    // happens. Someone who already opened a checkout is never interrupted at all: the pin
+    // offers it to them instead, and they choose.
     function busy() {
         var modal = document.getElementById('buy-modal');
         if (modal && !modal.classList.contains('hidden')) return true;
+        // Nor over the film someone chose to watch, a message they are writing, or the menu.
+        if (document.querySelector('.vpop.on')) return true;
+        var contact = document.getElementById('contact-modal');
+        if (contact && !contact.classList.contains('hidden')) return true;
+        var menu = document.getElementById('m-menu');
+        if (menu && !menu.hidden) return true;
         if (typeof strideGiftTxn !== 'undefined' && strideGiftTxn) return true;
         var frames = document.querySelectorAll('iframe[src*="paddle"]');
         for (var i = 0; i < frames.length; i++) {
             var f = frames[i];
-            // The hero's express wallet is always mounted and is not a checkout in
-            // progress; only a full overlay covers the page.
-            if (f.closest && f.closest('.paddle-express-checkout')) continue;
+            if (f.closest && f.closest('.paddle-express-checkout')) continue;   // the hero wallet
             if (f.getBoundingClientRect().height > 200) return true;
         }
         return false;
     }
-
-    function close(remembered) {
-        pop.classList.remove('on');
-        document.body.style.overflow = '';
-        if (remembered !== false) remember();
-        if (lastFocus && lastFocus.focus) { try { lastFocus.focus(); } catch (e) {} }
+    function buyIntent() {
+        if (window.STRIDE_BUY_INTENT) return true;
+        return ls(function () { return !!localStorage.getItem('stride_buy_intent'); }, false);
     }
-
-    function open() {
-        if (!FORCE && (hasCode() || alreadyDone())) return;
-        if (busy()) { setTimeout(open, 5000); return; }   // wait for the checkout to end
-        lastFocus = document.activeElement;
-        pop.classList.add('on');
-        document.body.style.overflow = 'hidden';
-        remember();                                        // asked once, however it ends
-        try { if (window.StrideTrack) StrideTrack.push('demo_prompt_shown'); } catch (e) {}
-        setTimeout(function () { try { input.focus(); } catch (e) {} }, 60);
-    }
-
-    // Thirty seconds ON the page, added up, not thirty seconds since it loaded. Someone
-    // who reads for ten seconds, leaves, and comes back has spent ten; they get the panel
-    // after twenty more, never the instant they return.
-    //
-    // The total is carried in sessionStorage, so it survives a click into /how-it-works
-    // and back: that is the same visit and the same attention, and restarting the count
-    // would mean a visitor who browses the site is asked later than one who sits still.
-    //
-    // Written every 5 seconds rather than every 1, and again whenever the page is left,
-    // so a closed tab loses at most a few seconds and storage is not hammered.
-    var active = ls(function () {
-        return parseInt(sessionStorage.getItem(SECS_KEY) || '0', 10) || 0;
-    }, 0);
-    function saveSecs() { ls(function () { sessionStorage.setItem(SECS_KEY, String(active)); }); }
-
-    var tick = setInterval(function () {
-        // document.hidden covers the tab being switched away from AND the window being
-        // minimised or fully covered, which are all "not on the page" and all correct to
-        // stop counting for. A covered window cannot be read or scrolled either.
-        if (document.hidden) return;
-        active += 1;
-        if (active % 5 === 0) saveSecs();
-        if (active < SECONDS) return;
-        clearInterval(tick);
-        saveSecs();
+    // /?bfpop=1 opens it at once, for looking at it (/?demopop=1, the old prompt's switch, still
+    // works). It never restarts an offer that ended.
+    var FORCE = /[?&](bfpop|demopop)=1(&|$)/.test(window.location.search);
+    function first() {
+        if (st.seen) { if (FORCE) open(); return; }
+        if (busy()) { setTimeout(first, 5000); return; }
+        st.seen = Date.now();
+        save();
+        if (buyIntent() && !FORCE) { showPin(); return; }
+        stage('shown');
+        track('bf_popup_shown');
         open();
-    }, 1000);
-    if (FORCE) { clearInterval(tick); setTimeout(open, 400); }
-    else if (hasCode() || alreadyDone()) clearInterval(tick);
+    }
 
-    // Leaving mid-count keeps what was earned, both on a tab switch and on a real exit.
-    document.addEventListener('visibilitychange', function () { if (document.hidden) saveSecs(); });
-    window.addEventListener('pagehide', saveSecs);
+    // Fifteen seconds ON the page, added up across the visit (sessionStorage, so a trip to
+    // another page and back keeps them), and only while the page is actually in view.
+    function startClock() {
+        if (FORCE) { setTimeout(first, 400); return; }
+        var active = ls(function () { return parseInt(sessionStorage.getItem(SECS_KEY) || '0', 10) || 0; }, 0);
+        var saveSecs = function () { ls(function () { sessionStorage.setItem(SECS_KEY, String(active)); }); };
+        var tick = setInterval(function () {
+            if (document.hidden) return;
+            active += 1;
+            if (active % 5 === 0) saveSecs();
+            if (active < SECONDS) return;
+            clearInterval(tick);
+            saveSecs();
+            first();
+        }, 1000);
+        document.addEventListener('visibilitychange', function () { if (document.hidden) saveSecs(); });
+        window.addEventListener('pagehide', saveSecs);
+    }
 
-    document.getElementById('dpop-x').addEventListener('click', function () { close(); });
-    pop.addEventListener('click', function (ev) { if (ev.target === pop) close(); });
-    document.addEventListener('keydown', function (ev) {
-        if (ev.key === 'Escape' && pop.classList.contains('on')) close();
-    });
+    // ── on arrival ────────────────────────────────────────────────────────────
+    var urlCode = '';
+    try { urlCode = (new URL(window.location.href).searchParams.get('code') || '').toLowerCase(); } catch (e) {}
+    if (/^blackstride[a-z0-9]{4}$/.test(urlCode)) {
+        // The link in the code mail: the personal-code path above prices the page and counts
+        // down. There is nothing more to offer, so it never asks.
+        if (!st.seen) { st.seen = Date.now(); save(); }
+        return;
+    }
+    if (claimed()) {
+        apply();
+        showPin();
+        verify();
+    } else {
+        if (st.code) { forget(); st.over = true; save(); }        // a code that ran out meanwhile
+        if (live()) { showPin(); if (FORCE) open(); }
+        else if (!st.seen) startClock();
+    }
 
-    form.addEventListener('submit', function (ev) {
-        ev.preventDefault();
-        var email = (input.value || '').trim().toLowerCase();
-        err.style.display = 'none';
-        if (!email || email.indexOf('@') < 1 || email.indexOf('.', email.indexOf('@')) < 0) {
-            err.textContent = 'Please enter a valid email address.';
-            err.style.display = 'block';
-            input.focus();
+    // Once a second: the clocks, and the two ends. The offer running out unclaimed simply
+    // ends it on this browser; a code running out with the page open reloads it at the
+    // ordinary price, as a personal code does.
+    setInterval(function () {
+        var now = Date.now();
+        if (st.code && st.ends && now >= st.ends) {
+            forget();
+            st.over = true;
+            save();
+            pin.hidden = true;
+            pop.classList.remove('on');
+            document.body.style.overflow = '';
+            reloadPlain();
             return;
         }
-        go.disabled = true;
-        go.textContent = 'One moment…';
-        // Handed over in storage rather than the URL: an address in a query string ends
-        // up in GA4's page paths, the pixel's page views and every referrer header.
-        ls(function () { sessionStorage.setItem(HANDOFF, email); });
-        remember();
-        // Through the same builder as every other /try link, so the ad markers and the
-        // click id on this page's address reach the sign-up too (Q-066).
-        var dest = (typeof strideTryUrl === 'function') ? strideTryUrl() : '/try/';
-        window.location.href = dest + (dest.indexOf('?') > -1 ? '&' : '?') + 'auto=1';
-    });
+        if (!st.code && st.seen && !st.over && now >= offerEnds()) {
+            st.over = true;
+            save();
+            if (pop.classList.contains('on')) close();
+            pin.hidden = true;
+        }
+        if (pop.classList.contains('on') || !pin.hidden) paint();
+    }, 1000);
 })();
 </script>
 
