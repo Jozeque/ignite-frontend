@@ -943,6 +943,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* The social-proof cards run one notch bigger than the rest of the page. At the
      page-default 10px the genre line read as a footnote under a 62px photo, and the
      whole row felt like a widget dropped into the page rather than part of it. */
+  .hero-more-btn{display:none}
   .proof-card .silk{font-size:11.5px;letter-spacing:.2em}
   .proof-card .credit{width:38px;height:38px;border-radius:11px}
   .proof-card .credit svg{width:16px;height:16px}
@@ -1464,6 +1465,22 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     section[data-ms="hero"] .hero-cols{gap:.9rem}
     #heroVideoNote{margin-top:.6rem}
     .hero-eyebrow{display:none}                /* the phone reads the headline first */
+
+    /* The hero paragraph folds after its first sentence ("... at once."). The rest stays in
+       the DOM, word for word, and the script below the hero wraps it in .hero-more, so every
+       language folds at its own first sentence and no translated string changes. */
+    .hero-sub.is-folded .hero-more{display:none}
+    .hero-more-btn{display:inline;margin-left:.3em;padding:0;border:0;background:none;cursor:pointer;
+      font:inherit;font-weight:700;color:var(--copper-lt);text-decoration:underline;text-underline-offset:3px}
+    .hero-more-btn .hm-close{display:none}
+    .hero-more-btn[aria-expanded="true"] .hm-open{display:none}
+    .hero-more-btn[aria-expanded="true"] .hm-close{display:inline}
+
+    /* Social proof comes straight after the hero on a phone, ahead of the plugin roster
+       (Yossi 2026-10-14). Pure `order`: nav, menu and hero keep their place at -2, the
+       quotes take -1, and everything else keeps DOM order behind them. */
+    .wrap > nav, .wrap > .m-menu, .wrap > section[data-ms="hero"]{order:-2}
+    .wrap > section[data-ms="social"]{order:-1}
     .note-long{display:none}                   /* "Watch the full Stride walkthrough" */
 
     /* -- SOCIAL PROOF ------------------------------------------------------
@@ -1776,6 +1793,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </h1>
         <p class="text-lg lg:text-[16px] lg:leading-[1.55] max-w-xl mb-4 leading-relaxed font-light ink2 hero-sub">
           Stride bewegt deine VSTs und Ableton Devices <b class="ink font-semibold">gemeinsam, an einem Ort, gleichzeitig</b>. Entdecke endlose Variationen aus dem Equipment, das du schon hast. Jeder Klick zeigt eine neue Richtung. <b class="ink font-semibold">Sichere</b> was sitzt, <b class="ink font-semibold">würfle</b> den Rest neu, dann <b class="ink font-semibold">mutiere</b> und <b class="ink font-semibold">bearbeite</b> jede Automation von Hand.
+          <button type="button" class="hero-more-btn" aria-expanded="false"><span class="hm-open">Mehr lesen</span><span class="hm-close">Weniger</span></button>
         </p>
         <!-- Capability line: what it reaches, directly under the claim. Kept small so it
              reads as a spec rather than competing with the headline. -->
@@ -2082,6 +2100,40 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </script>
     </div>
   </section>
+
+  <script>
+  /* Hero "Read more" (phone only, see .hero-more-btn). Everything after the first sentence
+     that follows the first bold phrase ("... at once.") is wrapped in span.hero-more, which
+     the phone hides until the button opens it. Done here, not in the markup, so the
+     paragraph's text nodes, and with them every translation, stay exactly as they are. */
+  (function () {
+    try {
+      var p = document.querySelector('section[data-ms="hero"] .hero-sub');
+      var btn = p && p.querySelector('.hero-more-btn');
+      var b = p && p.querySelector('b');
+      if (!btn || !b) return;
+      var n = b.nextSibling, cut = null;
+      // The first sentence ends at the first terminator after the bold phrase.
+      while (n && n !== btn) {
+        if (n.nodeType === 3) {
+          var m = n.nodeValue.search(/[.!?。！？]/);
+          if (m >= 0) { cut = n.splitText(m + 1); break; }
+        }
+        n = n.nextSibling;
+      }
+      if (!cut) return;                                  // one sentence only: nothing to fold
+      var more = document.createElement('span');
+      more.className = 'hero-more';
+      p.insertBefore(more, cut);
+      while (more.nextSibling && more.nextSibling !== btn) more.appendChild(more.nextSibling);
+      p.classList.add('is-folded');
+      btn.addEventListener('click', function () {
+        var open = p.classList.toggle('is-folded') === false;
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+    } catch (e) {}
+  })();
+  </script>
 
   <!-- ───────────────── WORKS WITH (compatibility strip, right under the hero — kept understated) ───────────────── -->
   <section data-ms="compat-logos" class="mb-20 text-center">
