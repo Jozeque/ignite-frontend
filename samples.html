@@ -493,8 +493,24 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     (function () {
         var TOKEN = 'live_e0101b87a9e6e7024988534cf7b';
         var PRICE = 'pri_01m36e37ja1qnk0cdyy80va9eg';
+        // The "new look" mail (2026-10-14, buyers, demo and checkout leads) links here with
+        // ?offer=newlook: that visitor buys at the $24.99 price and sees the $35 struck beside
+        // it. No end date (Yossi). Kept for the tab, so a reload or #anchor keeps the offer.
+        var OFFER_PRICE = 'pri_01m2dghkc4dn53h2hrzw21ba2f';
+        var offer = false;
+        try {
+            offer = /[?&]offer=newlook(&|#|$)/i.test(location.search) || sessionStorage.getItem('stride_coll_offer') === 'newlook';
+            if (offer) sessionStorage.setItem('stride_coll_offer', 'newlook');
+        } catch (e) {}
+        var BUY = offer ? OFFER_PRICE : PRICE;
         var ready = false;
-        var collection = { value: 35, currency: 'USD' };   // replaced by Paddle's price for this visitor
+        var collection = { value: offer ? 24.99 : 35, currency: 'USD' };   // replaced by Paddle's price for this visitor
+        function showPrice(now, was) {
+            document.querySelectorAll('[data-collection-price]').forEach(function (el) {
+                if (!was) { el.textContent = now; return; }
+                el.innerHTML = '<s style="opacity:.45;font-size:.55em;margin-right:.35em">' + was + '</s>' + now;
+            });
+        }
         function init() {
             if (ready) return true;
             if (!window.Paddle) return false;
@@ -537,7 +553,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
                 try { if (window.StrideTrack) StrideTrack.push('begin_checkout', { value: collection.value, currency: collection.currency }); } catch (e2) {}
                 try { sessionStorage.setItem('stride_checkout_value', JSON.stringify(collection)); } catch (e2) {}
                 Paddle.Checkout.open({
-                    items: [{ priceId: PRICE, quantity: 1 }],
+                    items: [{ priceId: BUY, quantity: 1 }],
                     customData: custom(),
                     settings: { displayMode: 'overlay', variant: 'one-page', theme: 'dark',
                                 successUrl: 'https://stridehub.io/welcome.html' }
@@ -546,9 +562,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             } catch (e) { return true; }
         };
         document.addEventListener('DOMContentLoaded', function () {
+            if (offer) showPrice('$25', '$35');
             if (!init()) return;
             try {
-                Paddle.PricePreview({ items: [{ priceId: PRICE, quantity: 1 }] })
+                // With the offer, line 0 is what they pay and line 1 the $35 it is struck against.
+                var items = [{ priceId: BUY, quantity: 1 }];
+                if (offer) items.push({ priceId: PRICE, quantity: 1 });
+                Paddle.PricePreview({ items: items })
                     .then(function (res) {
                         var li = ((((res || {}).data || {}).details || {}).lineItems || [])[0];
                         var t = li && li.formattedTotals && li.formattedTotals.total;
@@ -558,9 +578,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
                             if (cur && isFinite(minor) && minor > 0) collection = { value: minor / Math.pow(10, digits), currency: cur };
                         } catch (e3) {}
                         if (!t) return;
-                        document.querySelectorAll('[data-collection-price]').forEach(function (el) {
-                            el.textContent = t;
-                        });
+                        var lis = res.data.details.lineItems;
+                        var was = offer && lis[1] && lis[1].formattedTotals && lis[1].formattedTotals.total;
+                        showPrice(t, offer ? (was || '') : '');
                     }).catch(function () {});
             } catch (e) {}
         });
