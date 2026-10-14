@@ -1263,23 +1263,32 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      the eyebrow, the price, the live clock, the code and the pin it folds into. Every word
      in it is written by script, so no new text sits in the markup and the six translated
      homepages keep publishing. */
-  .bf-eyebrow{margin:0 0 6px;font-size:12px;font-weight:800;letter-spacing:.16em;
+  /* One centred column (Yossi's layout, 10-14): eyebrow, headline, the extra 30%, the price,
+     one line, then the field over the button at full width at every size, the clock as a single
+     line under the button, the small print last. Room above the eyebrow keeps it clear of the
+     close button. */
+  .bf-card{padding:46px 28px 26px}
+  .bf-eyebrow{margin:0 0 12px;font-size:12px;font-weight:800;letter-spacing:.2em;
     text-transform:uppercase;color:var(--copper-lt)}
-  .bf-off{margin:8px 0 0;font-size:16px;font-weight:800;color:var(--copper-lt)}
-  .bf-price{margin:10px 0 2px;display:flex;align-items:baseline;justify-content:center;gap:10px}
-  .bf-was{font-size:17px;color:var(--ink3);text-decoration:line-through}
-  .bf-now{font-size:30px;font-weight:900;color:var(--ink);letter-spacing:-.01em}
-  .bf-timer{margin:12px auto 16px;display:inline-flex;flex-direction:column;align-items:center;
-    gap:4px;padding:10px 18px;border:1px solid rgba(198,113,43,.38);border-radius:14px;
-    background:rgba(198,113,43,.08)}
-  .bf-timer-l{font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
-    color:var(--ink2)}
-  .bf-clock{font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-    font-size:30px;font-weight:700;line-height:1;color:var(--copper-lt);
-    font-variant-numeric:tabular-nums;letter-spacing:.04em}
-  .bf-code{margin:2px 0 0;font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  .bf-card .dpop-h{font-size:28px;line-height:1.16}
+  .bf-off{margin:12px 0 0;font-size:17px;font-weight:800;color:var(--copper-lt)}
+  .bf-price{margin:12px 0 0;display:flex;align-items:baseline;justify-content:center;gap:14px}
+  .bf-was{font-size:19px;color:var(--ink3);text-decoration:line-through}
+  .bf-now{font-size:34px;font-weight:900;color:var(--ink);letter-spacing:-.01em}
+  .bf-card .dpop-s{margin:14px 0 18px}
+  .bf-card .dpop-f{flex-direction:column;flex-wrap:nowrap;gap:12px}
+  .bf-card .dpop-f input,
+  .bf-card .dpop-f .btn-copper{flex:none;width:100%}
+  .bf-card .dpop-f .btn-copper{justify-content:center;padding:15px 22px;font-size:15px}
+  .bf-card .dpop-err{margin:12px 0 0}
+  .bf-timer{margin:18px 0 0;font-size:15px;line-height:1.4;color:var(--ink2)}
+  .bf-clock{margin-left:7px;font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:16px;font-weight:700;color:var(--copper-lt);font-variant-numeric:tabular-nums;
+    letter-spacing:.02em;white-space:nowrap}
+  .bf-card .dpop-fine{margin:12px 0 0;font-size:13px;line-height:1.5}
+  .bf-code{margin:4px 0 0;font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
     font-size:24px;font-weight:700;letter-spacing:.06em;color:var(--ink);word-break:break-all}
-  .bf-buy{display:flex;justify-content:center;width:100%;padding:14px 22px;font-size:14px;
+  .bf-buy{display:flex;justify-content:center;width:100%;padding:15px 22px;font-size:15px;
     border-radius:12px;cursor:pointer}
   /* The pin: the folded popup. Bottom-left, below every modal; on a phone it rides above
      the sticky buy bar once that bar is up, beside the help button, never over Get Stride. */
@@ -1301,8 +1310,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     #bfpin{left:.75rem;bottom:calc(.75rem + env(safe-area-inset-bottom,0px));
       max-width:calc(100% - 4.5rem);font-size:12px;padding:9px 12px}
     #m-cta.is-on ~ #bfpin{bottom:calc(4.6rem + env(safe-area-inset-bottom,0px))}
-    .bf-now{font-size:26px}.bf-clock{font-size:26px}
+    .bf-now{font-size:28px}.bf-was{font-size:17px}
   }
+  @media (max-width:420px){.bf-card{padding:42px 20px 24px}.bf-card .dpop-h{font-size:24px}}
 
   /* ── THE FILM ───────────────────────────────────────────────────────────
      Pressing the hero frame while its loop is running plays the full Stride
@@ -4645,10 +4655,10 @@ function openBuy() { toggleBuyModal(); }
     // Every word, per language. Informal, as the rest of each translation is. No percentage
     // ever sits beside the struck anchor in the hero; this panel prints its own 30%.
     var WORDS = {
-        en: { eyebrow: 'Limited time', headline: 'Get the Black Friday deal, earlier.',
+        en: { eyebrow: 'Early Black Friday access', headline: 'Get the Black Friday deal, earlier.',
               sub: 'Extra 30% off today’s price',
               lead: 'Leave your email and get your code now.',
-              offerEnds: 'This offer ends in', codeEnds: 'Your code ends in',
+              offerEnds: 'Offer ends in', codeEnds: 'Your code ends in',
               emailLabel: 'Your email', go: 'Get my 30% off', wait: 'One moment…',
               fine: 'We’ll email your code too, plus Stride news and deals now and then. Unsubscribe anytime.',
               yourCode: 'Your code', applied: 'Applied to this page. One use, until the timer runs out.',
@@ -4656,7 +4666,7 @@ function openBuy() { toggleBuyModal(); }
               errEmail: 'Please enter a valid email address.', errEnded: 'This offer has ended.',
               errLimited: 'Too many tries from this connection. Please try again in an hour.',
               errGeneric: 'Something went wrong. Please try again.', close: 'Close' },
-        de: { eyebrow: 'Nur für kurze Zeit', headline: 'Hol dir den Black-Friday-Deal schon jetzt.',
+        de: { eyebrow: 'Black-Friday-Vorabzugang', headline: 'Hol dir den Black-Friday-Deal schon jetzt.',
               sub: 'Zusätzlich 30 % Rabatt auf den heutigen Preis',
               lead: 'Gib deine E-Mail ein und hol dir deinen Code sofort.',
               offerEnds: 'Das Angebot endet in', codeEnds: 'Dein Code endet in',
@@ -4667,7 +4677,7 @@ function openBuy() { toggleBuyModal(); }
               errEmail: 'Bitte gib eine gültige E-Mail-Adresse ein.', errEnded: 'Dieses Angebot ist abgelaufen.',
               errLimited: 'Zu viele Versuche von dieser Verbindung. Bitte versuch es in einer Stunde noch einmal.',
               errGeneric: 'Etwas ist schiefgelaufen. Bitte versuch es noch einmal.', close: 'Schließen' },
-        es: { eyebrow: 'Por tiempo limitado', headline: 'Consigue la oferta de Black Friday por adelantado.',
+        es: { eyebrow: 'Black Friday anticipado', headline: 'Consigue la oferta de Black Friday por adelantado.',
               sub: 'Un 30 % extra de descuento sobre el precio de hoy',
               lead: 'Deja tu email y recibe tu código al momento.',
               offerEnds: 'La oferta termina en', codeEnds: 'Tu código termina en',
@@ -4678,7 +4688,7 @@ function openBuy() { toggleBuyModal(); }
               errEmail: 'Introduce un email válido.', errEnded: 'Esta oferta ha terminado.',
               errLimited: 'Demasiados intentos desde esta conexión. Vuelve a intentarlo en una hora.',
               errGeneric: 'Algo ha fallado. Inténtalo de nuevo.', close: 'Cerrar' },
-        fr: { eyebrow: 'Durée limitée', headline: 'Profite de l’offre Black Friday en avance.',
+        fr: { eyebrow: 'Accès anticipé Black Friday', headline: 'Profite de l’offre Black Friday en avance.',
               sub: '30 % de réduction en plus sur le prix du jour',
               lead: 'Laisse ton e-mail et reçois ton code tout de suite.',
               offerEnds: 'L’offre se termine dans', codeEnds: 'Ton code se termine dans',
@@ -4689,7 +4699,7 @@ function openBuy() { toggleBuyModal(); }
               errEmail: 'Saisis une adresse e-mail valide.', errEnded: 'Cette offre est terminée.',
               errLimited: 'Trop d’essais depuis cette connexion. Réessaie dans une heure.',
               errGeneric: 'Un problème est survenu. Réessaie.', close: 'Fermer' },
-        it: { eyebrow: 'Per poco tempo', headline: 'Prendi l’offerta del Black Friday in anticipo.',
+        it: { eyebrow: 'Black Friday in anteprima', headline: 'Prendi l’offerta del Black Friday in anticipo.',
               sub: 'Un ulteriore 30% di sconto sul prezzo di oggi',
               lead: 'Lascia la tua email e ricevi subito il tuo codice.',
               offerEnds: 'L’offerta scade tra', codeEnds: 'Il tuo codice scade tra',
@@ -4700,7 +4710,7 @@ function openBuy() { toggleBuyModal(); }
               errEmail: 'Inserisci un indirizzo email valido.', errEnded: 'Questa offerta è scaduta.',
               errLimited: 'Troppi tentativi da questa connessione. Riprova tra un’ora.',
               errGeneric: 'Qualcosa è andato storto. Riprova.', close: 'Chiudi' },
-        ja: { eyebrow: '期間限定', headline: 'ブラックフライデーの特価を、ひと足先に。',
+        ja: { eyebrow: 'ブラックフライデー先行アクセス', headline: 'ブラックフライデーの特価を、ひと足先に。',
               sub: '今日の価格からさらに 30% オフ',
               lead: 'メールアドレスを入力して、今すぐコードを受け取りましょう。',
               offerEnds: 'オファー終了まで', codeEnds: 'コードの有効期限まで',
@@ -4711,7 +4721,7 @@ function openBuy() { toggleBuyModal(); }
               errEmail: '有効なメールアドレスを入力してください。', errEnded: 'このオファーは終了しました。',
               errLimited: 'この接続からの試行が多すぎます。1 時間後にもう一度お試しください。',
               errGeneric: '問題が発生しました。もう一度お試しください。', close: '閉じる' },
-        zh: { eyebrow: '限时优惠', headline: '黑五优惠，提前到手。',
+        zh: { eyebrow: '黑五抢先购', headline: '黑五优惠，提前到手。',
               sub: '在今日价格基础上再减 30%',
               lead: '留下你的邮箱，马上拿到你的优惠码。',
               offerEnds: '优惠倒计时', codeEnds: '优惠码剩余时间',
@@ -4792,19 +4802,20 @@ function openBuy() { toggleBuyModal(); }
     pin.appendChild(pinLabel);
     pin.appendChild(pinClock);
 
+    // One line under the button: "Offer ends in 47:59:44".
     function timer() {
-        var box = el('div', 'bf-timer');
-        box.appendChild(el('span', 'bf-timer-l', t(claimed() ? 'codeEnds' : 'offerEnds')));
+        var line = el('p', 'bf-timer');
+        line.appendChild(el('span', 'bf-timer-l', t(claimed() ? 'codeEnds' : 'offerEnds')));
         refs.clock = el('span', 'bf-clock');
         refs.clock.setAttribute('role', 'timer');
-        box.appendChild(refs.clock);
-        return box;
+        line.appendChild(refs.clock);
+        return line;
     }
 
     function render() {
         pop.textContent = '';
         refs = {};
-        var card = el('div', 'dpop-card');
+        var card = el('div', 'dpop-card bf-card');
         var x = el('button', 'dpop-x', '×');
         x.type = 'button';
         x.setAttribute('aria-label', t('close'));
@@ -4816,7 +4827,6 @@ function openBuy() { toggleBuyModal(); }
             code.id = 'bf-h';
             card.appendChild(code);
             card.appendChild(el('p', 'dpop-s', t('applied')));
-            card.appendChild(timer());
             var buy = el('a', 'btn-copper bf-buy');
             buy.href = '#';
             buy.setAttribute('role', 'button');
@@ -4827,6 +4837,7 @@ function openBuy() { toggleBuyModal(); }
             });
             refs.buy = buy;
             card.appendChild(buy);
+            card.appendChild(timer());
         } else {
             card.appendChild(el('p', 'bf-eyebrow', t('eyebrow')));
             var h = el('h2', 'dpop-h', t('headline'));
@@ -4840,7 +4851,6 @@ function openBuy() { toggleBuyModal(); }
             price.appendChild(refs.now);
             card.appendChild(price);
             card.appendChild(el('p', 'dpop-s', t('lead')));
-            card.appendChild(timer());
             var form = el('form', 'dpop-f');
             form.noValidate = true;
             var input = el('input');
@@ -4856,9 +4866,10 @@ function openBuy() { toggleBuyModal(); }
             form.appendChild(go);
             form.addEventListener('submit', function (ev) { ev.preventDefault(); submit(); });
             card.appendChild(form);
-            card.appendChild(el('p', 'dpop-fine', t('fine')));
             refs.err = el('p', 'dpop-err');
             card.appendChild(refs.err);
+            card.appendChild(timer());
+            card.appendChild(el('p', 'dpop-fine', t('fine')));
             refs.input = input;
             refs.go = go;
         }
