@@ -3082,8 +3082,11 @@ document.addEventListener('keydown', function (e) {
 /* ── Sticky CTA reveal ─────────────────────────────────────────────────────
    The bar exists to replace the hero's CTA once it scrolls away, so showing
    it WHILE the hero block is on screen would just duplicate what the visitor
-   is already looking at. An IntersectionObserver on the hero's own CTA row is
-   the cheap way to know: no scroll handler, no layout reads per frame.
+   is already looking at. An IntersectionObserver on the WHOLE hero section is
+   the cheap way to know: no scroll handler, no layout reads per frame. It used
+   to watch only the CTA row, which in a short in-app browser starts below the
+   fold, so the bar showed on arrival; now it waits until the visitor has
+   scrolled past the hero entirely (Yossi 2026-10-14).
    Fallback for a browser without IO is to leave the bar visible, since a
    reachable CTA beats a hidden one. */
 var _stickyHeroVisible = true;
@@ -3098,7 +3101,7 @@ function strideStickySync() {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-  var anchor = document.querySelector('.hero-cta');
+  var anchor = document.querySelector('section[data-ms="hero"]');
   if (!anchor) return;
   if (!('IntersectionObserver' in window)) { _stickyHeroVisible = false; strideStickySync(); return; }
   new IntersectionObserver(function (entries) {
