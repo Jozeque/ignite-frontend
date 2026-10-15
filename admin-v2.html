@@ -350,10 +350,8 @@ pre.part{white-space:pre-wrap;word-break:break-word;font:400 11.5px/1.5 var(--mo
       <nav class="tabs" role="tablist" aria-label="Dashboard sections" id="tabs"></nav>
     </div>
     <div class="filters" role="group" aria-label="Filters">
-      <div class="fgroup"><span class="flabel">Range</span>
-        <div class="seg" id="f-range">
-          <button type="button" data-v="1">1 day</button><button type="button" data-v="7">7 days</button><button type="button" data-v="14">14</button><button type="button" data-v="30">30</button><button type="button" data-v="90">90</button><button type="button" data-v="custom">Custom</button>
-        </div>
+      <div class="fgroup"><label class="flabel" for="f-range">Range</label>
+        <select class="sel" id="f-range"></select>
         <span class="dates" id="f-dates" hidden><input type="date" class="txt" id="f-from" aria-label="From"><span class="flabel">to</span><input type="date" class="txt" id="f-to" aria-label="To"></span>
       </div>
       <label class="check"><input type="checkbox" id="f-compare"> Compare with the previous period</label>
@@ -622,16 +620,46 @@ async function saveSettings() {
 const kindOf = ad => S.campaignKinds[ad.campaign_id] || ad.kind0 || 'purchase';
 
 /* ---------- filters ---------- */
-const F = { range: 30, compare: true, channel: 'all', model: 'blended', from: null, to: null };
+const F = { range: 'last30', compare: true, channel: 'all', model: 'blended', from: null, to: null };
 const TABS = [['overview', 'Overview'], ['funnel', 'Funnel'], ['creative', 'Creative'], ['landing', 'Landing'], ['checkout', 'Checkout & revenue'], ['demo', 'Demo'], ['email', 'Email flows'], ['campaigns', 'Mailing campaigns'], ['expenses', 'Expenses'], ['crm', 'CRM'], ['settings', 'Settings']];
 let TAB = 'overview';
 let SEL_AD = null;
-const idxRange = (n, back = 0) => { const out = []; const hi = LAST - back * n; for (let d = Math.max(0, hi - n + 1); d <= hi; d++) out.push(d); return out; };
-// The days the filters cover: the last N days, or a custom stretch (F.from..F.to). back=1 is the
-// same number of days right before it, which the comparison reads.
+// Meta's date ranges, as Ads Manager's picker lists them (Yossi 2026-10-15), in Israel days, so a
+// number here and the same range in Meta cover the same days: "Last N days" are the N whole days
+// before today, today not included, and a week starts on Sunday. Maximum is every day this holds.
+const RANGES = [['today', 'Today'], ['yesterday', 'Yesterday'], ['today_yesterday', 'Today and yesterday'],
+  ['last7', 'Last 7 days'], ['last14', 'Last 14 days'], ['last28', 'Last 28 days'], ['last30', 'Last 30 days'],
+  ['this_week', 'This week'], ['last_week', 'Last week'], ['this_month', 'This month'], ['last_month', 'Last month'],
+  ['maximum', 'Maximum']];
+const RANGE_LABEL = Object.fromEntries(RANGES);
+// [first, last] day index of a range: 0 is the first day the data holds, LAST is today.
+function rangeSpan(id) {
+  // PAY.days are the Israel days as 'YYYY-MM-DD' (dates[] holds the same days as Date objects).
+  const weekday = i => { const [y, m, d] = PAY.days[Math.max(0, i)].split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)).getUTCDay(); };
+  const dayOfMonth = i => +PAY.days[Math.max(0, i)].slice(8, 10);
+  switch (id) {
+    case 'today': return [LAST, LAST];
+    case 'yesterday': return [LAST - 1, LAST - 1];
+    case 'today_yesterday': return [LAST - 1, LAST];
+    case 'last7': return [LAST - 7, LAST - 1];
+    case 'last14': return [LAST - 14, LAST - 1];
+    case 'last28': return [LAST - 28, LAST - 1];
+    case 'last30': return [LAST - 30, LAST - 1];
+    case 'this_week': return [LAST - weekday(LAST), LAST];
+    case 'last_week': { const sun = LAST - weekday(LAST) - 7; return [sun, sun + 6]; }
+    case 'this_month': return [LAST - dayOfMonth(LAST) + 1, LAST];
+    case 'last_month': { const end = LAST - dayOfMonth(LAST); return [end - dayOfMonth(end) + 1, end]; }
+    case 'maximum': return [0, LAST];
+    case 'custom': return [F.from, F.to];
+  }
+  return rangeSpan('last30');
+}
+// The days the filters cover. back=1 is the same number of days right before them, which the
+// comparison reads. A range reaching before the first day held is cut at it.
 const curIdx = (back = 0) => {
-  if (F.range !== 'custom') return idxRange(F.range, back);
-  const n = F.to - F.from + 1, hi = F.to - back * n, out = [];
+  let [f, t] = rangeSpan(F.range);
+  t = Math.min(t, LAST); f = Math.min(f, t);
+  const n = t - f + 1, hi = t - back * n, out = [];
   for (let d = Math.max(0, hi - n + 1); d <= hi; d++) out.push(d);
   return out;
 };
@@ -2318,13 +2346,35 @@ async function setTab(id) {
 const chSel = $('f-channel');
 chSel.innerHTML = `<option value="all">All channels</option>` + CHANNELS.map(c => `<option value="${c.id}">${esc(c.label)}</option>`).join('');
 chSel.addEventListener('change', () => { F.channel = chSel.value; render(); });
-$('f-range').addEventListener('click', e => {
-  const b = e.target.closest('button'); if (!b) return;
-  if (b.dataset.v === 'custom') {
-    // Opens on the last seven days, or whatever was picked before.
-    if (F.from == null || F.to == null) { F.to = LAST; F.from = Math.max(0, LAST - 6); }
+const RANGE_KEY = 'stride_funnel_health_range', RECENT_KEY = 'stride_funnel_health_ranges';
+function buildRangeSelect() {
+  let recent = [];
+  try { recent = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]').filter(id => RANGE_LABEL[id]).slice(0, 3); } catch (e) { /* ignore */ }
+  const opt = (id, label) => `<option value="${id}">${esc(label)}</option>`;
+  $('f-range').innerHTML = (recent.length ? `<optgroup label="Recently used">${recent.map(id => opt(id, RANGE_LABEL[id])).join('')}</optgroup>` : '')
+    + `<optgroup label="Date range">${RANGES.map(([id, label]) => opt(id, label)).join('')}${opt('custom', 'Custom')}</optgroup>`;
+}
+function rememberRange(id) {
+  try {
+    const recent = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]').filter(x => x !== id);
+    recent.unshift(id);
+    localStorage.setItem(RECENT_KEY, JSON.stringify(recent.slice(0, 3)));
+    localStorage.setItem(RANGE_KEY, id);
+  } catch (e) { /* ignore */ }
+  buildRangeSelect();
+}
+try { const kept = localStorage.getItem(RANGE_KEY); if (RANGE_LABEL[kept]) F.range = kept; } catch (e) { /* ignore */ }
+buildRangeSelect();
+$('f-range').addEventListener('change', e => {
+  const v = e.target.value;
+  if (v === 'custom') {
+    // Opens on the days the range picked before covered, so Custom starts from what is on screen.
+    if (F.from == null || F.to == null) { const idx = curIdx(0); F.from = idx[0]; F.to = idx[idx.length - 1]; }
     F.range = 'custom';
-  } else F.range = +b.dataset.v;
+  } else {
+    F.range = v;
+    rememberRange(v);
+  }
   syncFilters(); render();
 });
 // A picked day outside the data is pulled back into it; From after To swaps them.
@@ -2340,7 +2390,7 @@ $('f-model').addEventListener('click', e => { const b = e.target.closest('button
 $('f-compare').addEventListener('change', e => { F.compare = e.target.checked; render(); });
 function setBlendLabel() { $('f-blend-btn').textContent = `Blended ${S.firstW}/${100 - S.firstW}`; }
 function syncFilters() {
-  document.querySelectorAll('#f-range button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === String(F.range))));
+  $('f-range').value = F.range;
   const custom = F.range === 'custom';
   $('f-dates').hidden = !custom;
   if (custom) {
