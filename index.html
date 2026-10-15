@@ -3482,6 +3482,29 @@ function openBuy() { toggleBuyModal(); }
         try { strideSealShow(name.toUpperCase()); } catch (e) {}
     })();
 
+    // ?checkout=1 beside a code (the Early Black Friday mails, 2026-10-15): the checkout opens by
+    // itself the moment the code holds and Paddle is up, so one click in the mail lands in the
+    // checkout with the discount already in it. Taken off the address at once, so a reload or
+    // Back never opens it again; the code stays, as always. A code that has ended or been used
+    // never holds, so nothing opens and the page shows the ordinary price.
+    (function strideCheckoutFromLink() {
+        var want = false;
+        try {
+            var u = new URL(window.location.href);
+            want = u.searchParams.get('checkout') === '1' && !!u.searchParams.get('code');
+            if (u.searchParams.has('checkout')) {
+                u.searchParams.delete('checkout');
+                history.replaceState(null, '', u.pathname + u.search + u.hash);
+            }
+        } catch (e) {}
+        if (!want) return;
+        var tries = 0;
+        (function wait() {
+            if (window.STRIDE_CODE_ACTIVE && strideCodeId && stridePaddleReady()) { strideCheckoutDirect(''); return; }
+            if (++tries < 60) setTimeout(wait, 250);       // the code's answer and Paddle, 15 s at most
+        })();
+    })();
+
     // A personal code from one of Joe's mails (?code=DANALEVI20): one person's own 20% off
     // Stride, minted by the mail flows as the mail went, so this file cannot know it. The
     // backend says what it opens, and it knows only the codes the flows minted, so no other
@@ -4165,7 +4188,7 @@ function openBuy() { toggleBuyModal(); }
                         successUrl: PADDLE_SUCCESS_URL
                     }
                 });
-                toggleBuyModal();      // only after open() did not throw
+                strideBuyModalAside(); // only after open() did not throw
                 return;
             } catch (e) { /* fall through to Lemon Squeezy below */ }
         }
@@ -4180,12 +4203,47 @@ function openBuy() { toggleBuyModal(); }
                 // checkout loads.
                 var open_url = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'dark=1';
                 LS.Setup({ eventHandler: strideCheckoutEvent });
-                toggleBuyModal();          // our modal steps aside for theirs
+                strideBuyModalAside();     // our modal steps aside for theirs
                 LS.Url.Open(open_url);
                 return;
             } catch (e) { /* fall through to the redirect */ }
         }
         window.location.href = url;        // unchanged path, no embed param
+    }
+
+    // The buy form steps aside for the checkout when it is open. A checkout opened from a
+    // link (strideCheckoutDirect) has no form open, and toggling would open one instead.
+    function strideBuyModalAside() {
+        var modal = document.getElementById('buy-modal');
+        if (modal && !modal.classList.contains('hidden')) toggleBuyModal();
+    }
+
+    // Straight into Paddle's checkout with the code this page holds, no buy form: the Early
+    // Black Friday mails' button (?code=...&checkout=1, 2026-10-15). It carries the Apple Pay
+    // button's attribution bundle (the click id, the ad, the consent answer, the partner) and
+    // fires the same checkout events as the buy form. No buyer_lead beacon, like the Apple Pay
+    // button: the claim already put this person in the CRM. Without Paddle, the buy form.
+    function strideCheckoutDirect(email) {
+        var base = strideCheckoutUrl();
+        if (!base || !stridePaddleReady()) { openBuy(); return false; }
+        var eventId = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID()
+            : 'evt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+        try { sessionStorage.setItem('stride_pixel_event_id', eventId); } catch (e) {}
+        var custom = {};
+        try { custom = strideExpressCustomData() || {}; } catch (e) {}
+        custom.event_id = eventId;
+        var gMk = (window.strideGoogleClick ? window.strideGoogleClick() : {});
+        ['gclid', 'wbraid', 'gbraid'].forEach(function (k) { if (gMk[k] && !custom[k]) custom[k] = gMk[k]; });
+        var url = base + (base.indexOf('?') >= 0 ? '&' : '?')
+            + (email ? 'checkout[email]=' + encodeURIComponent(email) + '&' : '')
+            + Object.keys(custom).filter(function (k) { return custom[k] !== '' && custom[k] != null; })
+                .map(function (k) { return 'checkout[custom][' + k + ']=' + encodeURIComponent(custom[k]); }).join('&');
+        var v = strideOrderValue();
+        try { if (window.fbq) fbq('track', 'InitiateCheckout', { value: v.value, currency: v.currency }, { eventID: eventId }); } catch (e) {}
+        try { if (window.StrideTrack) StrideTrack.push('begin_checkout', { value: v.value, currency: v.currency }); } catch (e) {}
+        try { sessionStorage.setItem('stride_checkout_value', JSON.stringify({ value: v.value, currency: v.currency })); } catch (e) {}
+        strideOpenCheckout(url);
+        return true;
     }
 
     // lemon.js posts checkout events out of the iframe: ViewCart, ApplyDiscount,
