@@ -3033,14 +3033,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     window.addEventListener('stride:consent', strideDecorateTry);
 
     // ─── Buy Modal ───
-    // Someone who opens a checkout came to BUY. From that moment the free-demo prompt
-    // leaves them alone, on this visit and on every later one: on 2026-09-30 a buyer
-    // closed the checkout, got the prompt a few seconds later and signed up for the demo
-    // instead of paying. Held in memory as well as storage, so a browser that refuses
-    // storage is still covered for the rest of this visit.
+    // Someone who opens a checkout came to BUY, so no popup interrupts them for the rest of
+    // THIS visit (2026-09-30: a buyer closed the checkout, got the demo prompt a few seconds
+    // later and signed up for the demo instead of paying). Only this visit, since 2026-10-15:
+    // a checkout opened days ago used to keep the Early Black Friday popup away for good,
+    // hiding the deal from exactly the visitors who once hesitated at the checkout. Held in
+    // memory as well as sessionStorage, so a browser that refuses storage is still covered.
     function strideMarkBuyIntent() {
         window.STRIDE_BUY_INTENT = true;
-        try { localStorage.setItem('stride_buy_intent', String(Date.now())); } catch (e) {}
+        try { sessionStorage.setItem('stride_buy_intent', String(Date.now())); } catch (e) {}
     }
     function toggleBuyModal() {
         const modal = document.getElementById('buy-modal');
@@ -5068,7 +5069,7 @@ function openBuy() { toggleBuyModal(); }
     }
     function buyIntent() {
         if (window.STRIDE_BUY_INTENT) return true;
-        return ls(function () { return !!localStorage.getItem('stride_buy_intent'); }, false);
+        return ls(function () { return !!sessionStorage.getItem('stride_buy_intent'); }, false);
     }
     // /?bfpop=1 opens it at once, for looking at it (/?demopop=1, the old prompt's switch, still
     // works). It never restarts an offer that ended.
