@@ -1,0 +1,794 @@
+1:"$Sreact.fragment"
+d:I[68027,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default",1]
+:HL["/_next/static/chunks/3h3o974evp9es.css","style"]
+:HL["/_next/static/media/1b99372b3eaef0c8-s.p.1gsd1jahc5dg_.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+:HL["/_next/static/media/8d05cfa5faa8406c-s.p.1s123piy9_v1m.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+:HL["/_next/static/media/dc0d9adbac686440-s.p.3cik_s2si-ft-.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+2:T57a2,
+// Consent mode v2. This must run BEFORE any Google tag: after one has loaded it has
+// already decided how to behave, and a declaration made later is decoration.
+//
+// Two defaults are declared. Denied for the EEA, the UK and Switzerland, where Google's
+// EU user consent policy wants a real answer, and granted everywhere else, which is what
+// the privacy policy discloses. Google resolves the visitor's region itself from the
+// request, so none of this needs an IP lookup of ours. Roughly two thirds of paying
+// customers bill from the denied set, so it is the majority path, not an edge case.
+//
+// Consent mode governs GOOGLE tags. Everything with no consent mode of its own (the Meta
+// Pixel, Microsoft Clarity, and our own ad-matching storage: the visitor id, the saved ad
+// click, the ad markers) waits for Accept in the same region instead: see strideWhenAllowed
+// below. Until 2026-09-24 those ran for everyone before any answer and kept running after
+// Decline, which the banner's own words ("say no and nothing changes") did not match.
+//     https://developers.google.com/tag-platform/security/guides/consent
+(function () {
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    // A stable handle. The GA4 block further down declares its own global gtag; this one
+    // is ours and cannot be redefined out from under the banner.
+    window.strideGtag = gtag;
+
+    // Where Google's EU user consent policy applies: the EU 27, the rest of the EEA,
+    // the UK and Switzerland. Kept in step with _CONSENT_REQUIRED_COUNTRIES in
+    // firebase_cloud/functions/google_dm.py, which decides the same question server-side.
+    var CONSENT_REGION = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR',
+                          'HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK',
+                          'SI','ES','SE','IS','LI','NO','GB','CH'];
+    // PAUSED, Yossi 2026-10-07, until he says otherwise (the first pause ran 10-03 to 10-06): nobody
+    // is treated as inside the region (see inRegion), so no banner and nothing waits for an
+    // answer: the Meta Pixel counts every ad visitor, as it already does outside Europe, so the
+    // ads optimise on every sale. A stored answer still rules, so a No stays a No. There is no end
+    // date: the question returns only with a deploy (a time here, or this and its line in inRegion
+    // removed).
+    var PAUSED_UNTIL = Infinity;
+    var ALL = ['ad_storage', 'ad_user_data', 'ad_personalization', 'analytics_storage'];
+
+    function state(value, extra) {
+        var o = {};
+        for (var i = 0; i < ALL.length; i++) { o[ALL[i]] = value; }
+        for (var k in (extra || {})) { o[k] = extra[k]; }
+        return o;
+    }
+
+    // Region-scoped default first; Google applies the more specific one.
+    // wait_for_update holds the tags briefly so a stored answer below lands first.
+    gtag('consent', 'default', state('denied', { region: CONSENT_REGION,
+                                                 wait_for_update: 500 }));
+    gtag('consent', 'default', state('granted'));
+
+    var saved = '';
+    try { saved = localStorage.getItem('stride_consent_ads') || ''; } catch (e) {}
+    if (saved !== 'granted' && saved !== 'denied') { saved = ''; }
+    // Replay the answer synchronously, before any tag fires, so a returning visitor is
+    // never measured on a footing they already rejected.
+    if (saved) { gtag('consent', 'update', state(saved)); }
+
+    // Read by the checkout, which sends it to the backend so an order months later can
+    // still report what this person actually agreed to. '' means unanswered, and the
+    // server reads that as UNSPECIFIED rather than as a yes.
+    window.strideConsentAds = function () { return saved; };
+
+    // Everything that is not a Google tag. Where the banner asks, the Meta Pixel, Clarity and
+    // our own ad-matching storage do not load, read or write anything until the visitor says
+    // yes; after a no they never do. Everywhere else they run as they always have. A page
+    // hands each of them over through strideWhenAllowed, and whatever is waiting here runs
+    // the moment the visitor presses Accept, so the page they are on is still counted.
+    var held = [];
+    function allowed() { return saved === 'granted' || (!saved && !inRegion()); }
+    window.strideAllowed = allowed;
+    // 'in' where this banner asks (by time zone, see inRegion), 'out' everywhere else. Sent
+    // with every checkout, sign-up and ping so the server can tell an American who was never
+    // asked from a European who has not answered yet: main.py _meta_level.
+    window.strideConsentRegion = function () {
+        try { return inRegion() ? 'in' : 'out'; } catch (e) { return 'in'; }
+    };
+    window.strideWhenAllowed = function (fn) {
+        if (allowed()) { try { fn(); } catch (e) {} return; }
+        held.push(fn);
+    };
+
+    // Our own ad-matching storage, and what the Pixel and Clarity left on this site, go
+    // whenever they are not allowed: after a no, and on every page while the question is
+    // still open, which also clears what a visit before this banner existed stored. Nothing
+    // that reads them later (the checkout's attribution) can then find any. The Pixel and
+    // Clarity set theirs on the parent domain, so each is cleared host-only and there too.
+    var OURS = ['stride_xid', 'stride_ad_id', 'stride_fbclid', 'stride_gclid', 'stride_wbraid',
+                'stride_gbraid', '_fbc', '_fbp', '_clck', '_clsk'];
+    function forget() {
+        var host = location.hostname.replace(/^www\./, '');
+        var scopes = ['', '; domain=' + host, '; domain=.' + host];
+        for (var i = 0; i < OURS.length; i++) {
+            for (var j = 0; j < scopes.length; j++) {
+                try { document.cookie = OURS[i] + '=; max-age=0; path=/' + scopes[j] + '; SameSite=Lax; Secure'; } catch (e) {}
+            }
+        }
+        ['stride_fbclid', 'stride_fbc', 'stride_ad', 'stride_emh', 'stride_gclid', 'stride_wbraid',
+         'stride_gbraid',
+         // What /try keeps under names of its own (its captureAdClick).
+         'stride_ad_id', 'stride_adset_id', 'stride_campaign_id', 'stride_utm_source',
+         'stride_utm_campaign', 'stride_utm_content'].forEach(function (k) {
+            try { localStorage.removeItem(k); } catch (e) {}
+            try { sessionStorage.removeItem(k); } catch (e) {}
+        });
+        // Already running on this page (a changed answer): tell them to stop here too. Called
+        // through a variable: pages without the Pixel read this block too, and the React
+        // build refuses a source page that looks like it sends Pixel events.
+        var pixel = window.fbq, rec = window.clarity;
+        try { if (pixel) { pixel('consent', 'revoke'); } } catch (e) {}
+        try { if (rec) { rec('consent', false); } } catch (e) {}
+    }
+    if (!allowed()) { forget(); }
+    // The buy form used to keep every buyer's name, email and country here for good, and
+    // nothing ever read it. It is no longer written; this clears the copies already out there.
+    try { localStorage.removeItem('stride_purchase'); } catch (e) {}
+
+    function record(value) {
+        saved = value;
+        try { localStorage.setItem('stride_consent_ads', value); } catch (e) {}
+        // A cookie too: the checkout on a different page of this site reads whichever
+        // survives, and Safari evicts localStorage on long gaps more readily.
+        try {
+            document.cookie = 'stride_consent_ads=' + value + '; max-age=' +
+                (180 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+        } catch (e) {}
+        gtag('consent', 'update', state(value));
+        dataLayer.push({ event: 'stride_consent', consent_ads: value });
+        var run = held;
+        held = [];
+        if (value === 'granted') {
+            for (var i = 0; i < run.length; i++) { try { run[i](); } catch (e) {} }
+            var pixel = window.fbq;
+            try { if (pixel) { pixel('consent', 'grant'); } } catch (e) {}
+        } else {
+            forget();
+        }
+        // Anything a page already handed on before the answer (the homepage's Apple Pay
+        // checkout, opened at load) is restated with it: see strideSyncExpressConsent.
+        try { window.dispatchEvent(new CustomEvent('stride:consent', { detail: value })); } catch (e) {}
+    }
+
+    // Withdrawing has to be as easy as agreeing, so the privacy policy carries a control
+    // that asks again, wherever the visitor is.
+    window.strideConsentChange = function () {
+        saved = '';
+        try { localStorage.removeItem('stride_consent_ads'); } catch (e) {}
+        try { document.cookie = 'stride_consent_ads=; max-age=0; path=/; SameSite=Lax; Secure'; } catch (e) {}
+        banner(true);
+    };
+
+    // Ask only where the answer is legally required. Timezone, not an IP lookup: it costs
+    // no request and identifies nobody. It over-asks a little (Europe/Moscow is not the
+    // EEA) and that is the safe direction. The harm of not asking a German is that their
+    // tags stay denied for good, while the harm of asking a Russian is a dismissed bar.
+    // If the timezone cannot be read at all, ask. Never assume consent.
+    function mustAsk() { return !saved && inRegion(); }
+    function inRegion() {
+        if (Date.now() < PAUSED_UNTIL) { return false; }   // TEMPORARY, see PAUSED_UNTIL
+        try {
+            var tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+            // An empty timezone is not "not Europe", it is "no idea". Falling through
+            // to the comparison below would read it as no idea -> do not ask -> stay
+            // denied forever, which loses the visitor rather than asking them.
+            if (!tz) { return true; }
+            // Europe/* covers most of it. The rest of the EU and EEA sits in zones named after
+            // other continents: Cyprus, Ceuta and Melilla, Spain and Portugal's islands, and
+            // France's overseas regions, which are EU territory. Svalbard and the Faroes are
+            // not, and are asked anyway: over-asking is the safe direction.
+            return tz.indexOf('Europe/') === 0 || [
+                'Atlantic/Reykjavik', 'Atlantic/Canary', 'Atlantic/Madeira', 'Atlantic/Azores',
+                'Atlantic/Faroe', 'Arctic/Longyearbyen', 'Asia/Nicosia', 'Asia/Famagusta',
+                'Africa/Ceuta', 'America/Guadeloupe', 'America/Martinique', 'America/Cayenne',
+                'America/Marigot', 'Indian/Reunion', 'Indian/Mayotte'
+            ].indexOf(tz) >= 0;
+        } catch (e) { return true; }
+    }
+
+    // force: asked again from the privacy policy, wherever the visitor is. Strictly `true`,
+    // because DOMContentLoaded calls this with its event object.
+    function banner(force) {
+        if ((force !== true && !mustAsk()) || document.getElementById('stride-consent')) { return; }
+        var css = document.createElement('style');
+        // The panel, hairline and copper are the page's own tokens, so this reads as part
+        // of Stride rather than as a bolted-on compliance widget. The three legal pages
+        // are built on Tailwind and define no tokens, hence a literal fallback on every
+        // var(): identical everywhere, and no page-specific stylesheet.
+        css.textContent =
+            // Layer 1000: above the page, the buy bar (1000, and this panel comes later in
+            // the DOM) and its help dot (999); BELOW everything the visitor opens on purpose:
+            // the contact modal (1001), the buy modal (1002), the phone menu (1100), the film
+            // (1200) and Paddle's checkout. It used to sit above all of those, which put a
+            // cookie notice on top of the email field and "Continue to checkout".
+            '#stride-consent{position:fixed;left:18px;bottom:18px;z-index:1000;' +
+            'width:min(372px,calc(100vw - 36px));' +
+            'background:var(--panel,#1d1b16);border:1px solid var(--line,rgba(216,201,176,.11));' +
+            'border-radius:16px;padding:15px 16px;' +
+            'box-shadow:0 30px 70px -30px rgba(0,0,0,.85);' +
+            'font-family:Outfit,system-ui,-apple-system,sans-serif;' +
+            'color:var(--ink2,#b8ad9b);' +
+            // Starts invisible and a little low, then rises once. A panel that is simply
+            // THERE on first paint reads as part of the page still loading.
+            // While it waits it is also untouchable, so a tap lands on the page beneath.
+            'opacity:0;transform:translateY(12px);visibility:hidden;pointer-events:none;' +
+            'transition:opacity .45s ease,transform .45s cubic-bezier(.22,.8,.3,1),' +
+            'bottom .25s ease,visibility 0s linear .45s}' +
+            '#stride-consent.on{opacity:1;transform:none;visibility:visible;' +
+            'pointer-events:auto;transition-delay:0s}' +
+            '#stride-consent p{margin:0 0 12px;font-size:13px;line-height:1.55}' +
+            '#stride-consent a{color:var(--copper-lt,#dd9a52);text-decoration:none;' +
+            'border-bottom:1px solid rgba(221,154,82,.28)}' +
+            '#stride-consent a:hover{border-bottom-color:rgba(221,154,82,.75)}' +
+            '#stride-consent div{display:flex;gap:8px}' +
+            // Both buttons are one style. Making "accept" the loud one is the nudge the
+            // consent rules exist to stop, and an equal pair is also simply calmer.
+            '#stride-consent button{flex:1 1 0;font:inherit;font-size:13px;font-weight:700;' +
+            'cursor:pointer;padding:9px 14px;border-radius:10px;' +
+            'border:1px solid var(--line,rgba(216,201,176,.11));' +
+            'background:var(--raise,#252119);color:var(--ink,#ece4d6);' +
+            'transition:border-color .18s ease}' +
+            '#stride-consent button:hover{border-color:rgba(216,201,176,.3)}' +
+            '@media(max-width:560px){#stride-consent{left:12px;right:12px;bottom:12px;width:auto}}' +
+            '@media(prefers-reduced-motion:reduce){#stride-consent{transition:none;' +
+            'opacity:1;transform:none}}';
+        document.head.appendChild(css);
+
+        var el = document.createElement('div');
+        el.id = 'stride-consent';
+        el.setAttribute('role', 'dialog');
+        el.setAttribute('aria-label', 'Cookie choices');
+        // Short, in the voice of the person who makes it (Yossi 2026-09-26): what a yes is
+        // for, all three uses of it (measuring the ads, how the site is used, ads that find
+        // you again), and that nothing else changes. No "we value your privacy", no wall of
+        // vendor names; the policy one tap away names every one of them. The panel keeps its
+        // size (Yossi), so these words fill exactly the box the previous ones did: measured
+        // equal in width and height at every viewport from 320 to 1920px.
+        el.innerHTML =
+            '<p>Accepting shows us which videos and ads work and how the site is used, ' +
+            'and lets our ads find you. Nothing else changes. ' +
+            '<a href="/privacy.html">Privacy&nbsp;Policy</a></p>' +
+            '<div><button type="button" data-consent="denied">Decline</button>' +
+            '<button type="button" data-consent="granted">Accept</button></div>';
+        el.addEventListener('click', function (ev) {
+            var v = ev.target && ev.target.getAttribute('data-consent');
+            if (!v) { return; }
+            record(v);
+            answered = true;
+            // Leave the way it arrived rather than vanishing mid-click.
+            el.classList.remove('on');
+            setTimeout(function () { el.remove(); }, 260);
+        });
+        document.body.appendChild(el);
+
+        // The homepage pins a buy bar to the bottom of the viewport (#m-cta, "GET STRIDE"),
+        // and it arrives on scroll rather than on load. A panel sitting at bottom:18px
+        // lands straight on top of it and hides the primary buy button behind a cookie
+        // notice, so the panel rides above the bar and keeps following it as it comes and
+        // goes. Every other page has no such bar, where this is a no-op.
+        //
+        // And it never sits on what the visitor came for: the hero film, a headline, the
+        // hero's price and buy box, the /try form, any copper buy or try button, or the
+        // demo prompt. Riding above the bar was not enough on its own: on a taller phone
+        // the bar has not arrived at load (the hero's own button is still in view) and the
+        // panel sat on that button; on a shorter one it clipped the headline and the price;
+        // on /try it covered GET STRIDE FREE. When the only place it could go is on top of
+        // one of these it waits out of sight, and comes back once the spot is clear, which
+        // on a phone is the first scroll past the hero, right above the bar. Nothing is
+        // lost by waiting: this visitor's tags hold the denied default until they answer.
+        // Selectors, not words, so it holds in every language the site is published in.
+        var KEEP_CLEAR = '#heroStage, h1, .hero-buy, #f, .btn-copper, .dpop, ' +
+                         '#buy-modal, #contact-modal';
+        var ready = false, shown = false, answered = false, showTimer = 0, frame = 0;
+
+        // Would the panel, parked `base` px above the bottom edge, cover any of them?
+        // Measured where it WILL sit, not where it is: while waiting it sits 12px low.
+        function blocked(base) {
+            var box = el.getBoundingClientRect();
+            var bottom = window.innerHeight - base, top = bottom - el.offsetHeight;
+            var keep = document.querySelectorAll(KEEP_CLEAR);
+            for (var i = 0; i < keep.length; i++) {
+                var k = keep[i];
+                if (el.contains(k)) { continue; }
+                var s = window.getComputedStyle(k);
+                if (s.display === 'none' || s.visibility === 'hidden') { continue; }
+                var r = k.getBoundingClientRect();
+                if (!r.width || !r.height) { continue; }
+                if (r.bottom > top && r.top < bottom && r.right > box.left && r.left < box.right) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function show() {
+            shown = true;
+            el.classList.add('on');
+        }
+
+        function place() {
+            frame = 0;
+            if (answered || !el.isConnected) { return; }
+            var base = clearBottomBar();
+            if (!ready) { return; }
+            if (blocked(base)) {
+                clearTimeout(showTimer);
+                showTimer = 0;
+                if (shown) { shown = false; el.classList.remove('on'); }
+            } else if (!shown && !showTimer) {
+                // Come back only once the page has settled in a clear spot, so a scroll
+                // that is passing a button does not make the panel blink on and off.
+                showTimer = setTimeout(function () {
+                    showTimer = 0;
+                    if (answered || blocked(clearBottomBar())) { return; }
+                    show();
+                }, 350);
+            }
+        }
+
+        function schedule() {
+            if (!frame) { frame = window.requestAnimationFrame(place); }
+        }
+
+        function clearBottomBar() {
+            var base = window.innerWidth <= 560 ? 12 : 18;
+            var bar = document.getElementById('m-cta');
+            if (bar) {
+                var r = bar.getBoundingClientRect();
+                // Only when it is really parked at the bottom of the viewport right now.
+                // The bar slides in and out, and once it has slid away its rect sits
+                // BELOW the fold, which still satisfies a bottom-edge test on its own.
+                // Requiring the top edge to be on screen too is what tells the two apart.
+                if (r.height > 0 && r.top < window.innerHeight - 4
+                        && r.bottom > window.innerHeight - 4) {
+                    base += r.height + 10;
+                }
+            }
+            el.style.bottom = base + 'px';
+            return base;
+        }
+        clearBottomBar();
+        window.addEventListener('scroll', schedule, { passive: true });
+        window.addEventListener('resize', schedule);
+        // The bar is switched on by a CLASS, not by scrolling, so it can appear without
+        // either listener above ever firing. Watch the element itself as well.
+        var _bar = document.getElementById('m-cta');
+        if (_bar) {
+            if (window.MutationObserver) {
+                new MutationObserver(schedule).observe(_bar, {
+                    attributes: true, attributeFilter: ['class', 'style'] });
+            }
+            // The class flips first and the bar SLIDES in afterwards, so at the moment the
+            // observer fires it is still below the fold and measures as absent. Waiting for
+            // the slide to finish is what actually catches it in place; without this the
+            // panel stays put and lands on the buy button on a phone.
+            _bar.addEventListener('transitionend', schedule);
+        }
+        // The demo prompt and the two modals also open by a class, without a scroll.
+        if (window.MutationObserver) {
+            ['dpop', 'buy-modal', 'contact-modal'].forEach(function (id) {
+                var o = document.getElementById(id);
+                if (o) {
+                    new MutationObserver(schedule).observe(o, {
+                        attributes: true, attributeFilter: ['class', 'style'] });
+                }
+            });
+        }
+
+        // Hold it back a beat so the page paints first. Nothing waits on this: the tags
+        // already hold the denied default for this visitor, so all the delay changes is
+        // that the page is not interrupted while it is still arriving. Measure once more
+        // on the way in, because the bar may have arrived during that beat, and show it
+        // straight away only if that spot is clear.
+        setTimeout(function () {
+            ready = true;
+            if (!answered && !blocked(clearBottomBar())) { show(); } else { place(); }
+        }, 700);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', banner);
+    } else {
+        banner();
+    }
+})();
+14:I[39756,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default"]
+15:I[37457,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default"]
+17:I[97367,["/_next/static/chunks/1mpnoxox0-4cg.js"],"OutletBoundary"]
+18:"$Sreact.suspense"
+1a:I[97367,["/_next/static/chunks/1mpnoxox0-4cg.js"],"ViewportBoundary"]
+1c:I[97367,["/_next/static/chunks/1mpnoxox0-4cg.js"],"MetadataBoundary"]
+1e:I[22016,["/_next/static/chunks/1mpnoxox0-4cg.js","/_next/static/chunks/21rmub91oxtxn.js"],""]
+2e:I[16857,["/_next/static/chunks/1mpnoxox0-4cg.js","/_next/static/chunks/21rmub91oxtxn.js"],"CtaPanelClient"]
+32:I[27201,["/_next/static/chunks/1mpnoxox0-4cg.js"],"IconMark"]
+b:X
+0:{"P":null,"c":["","compare","shaperbox"],"q":"","i":false,"f":[[["",{"children":["compare",{"children":[["slug","shaperbox","d",[]],{"children":["__PAGE__",{},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4624],[["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/3h3o974evp9es.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","script","script-0",{"src":"/_next/static/chunks/1mpnoxox0-4cg.js","async":true,"nonce":"$undefined"}]],["$","html",null,{"lang":"en","className":"dark outfit_c8e75115-module__GXCCoG__variable space_mono_d8eecc30-module__bEIZiG__variable","children":[["$","head",null,{"children":[false,["$","script",null,{"dangerouslySetInnerHTML":{"__html":"$2"}}],"$L3","$undefined","$L4","$L5","$L6"]}],"$L7"]}]]}],{"children":["$L8",{"children":["$L9",{"children":["$La",{},null,false,null]},null,false,"$b"]},null,false,"$b"]},null,false,null],"$Lc",false]],"m":"$undefined","G":["$d",["$Le"]],"S":true,"h":null,"r":"$undefined","s":"$undefined","a":"$undefined","l":"$undefined","p":"$undefined","d":"$undefined","b":"ZA6zmIYYcqndVLNXOYsSt"}
+3:["$","script",null,{"dangerouslySetInnerHTML":{"__html":"(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':\nnew Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],\nj=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=\n'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);\n})(window,document,'script','dataLayer','GTM-5R4N7FVP');"}}]
+4:["$","script",null,{"dangerouslySetInnerHTML":{"__html":"\n  window.dataLayer = window.dataLayer || [];\n  function gtag(){dataLayer.push(arguments);}\n  gtag('js', new Date());\n\n  gtag('config', 'G-JCMEXN70CM');\n"}}]
+5:["$","script",null,{"dangerouslySetInnerHTML":{"__html":"\n    (function(c,l,a,r,i,t,y){\n        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};\n        (c.strideWhenAllowed||function(g){g()})(function(){\n        t=l.createElement(r);t.async=1;t.src=\"https://www.clarity.ms/tag/\"+i;\n        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);\n        if(c.strideConsentAds&&c.strideConsentAds()==='granted'){c[a]('consentv2',{ad_Storage:'granted',analytics_Storage:'granted'});}\n        });\n    })(window, document, \"clarity\", \"script\", \"yj7cm3a9sz\");\n"}}]
+f:T8c1,(function () {
+  function send() {
+    try {
+      if (!navigator.sendBeacon) return;
+      var L = ["de","es","fr","it","ja","zh"], K = {"":"home","try":"try","samples":"samples","setup":"setup","session":"session","welcome":"welcome","post":"post","post2":"post2","blog":"blog","tv":"tv","tools":"tool","vst3":"how","how-it-works":"how","privacy":"legal","terms":"legal","refund":"legal"};
+      var path = location.pathname.replace(/\/index\.html$/, '/').replace(/\.html$/, '').replace(/\/+$/, '');
+      var seg = path.split('/');
+      if (seg[1] && L.indexOf(seg[1]) >= 0) seg.splice(1, 1);
+      var first = seg[1] || '';
+      var p = Object.prototype.hasOwnProperty.call(K, first) ? K[first] : 'other';
+      var q = new URLSearchParams(location.search), rh = '';
+      try { rh = document.referrer ? new URL(document.referrer).hostname : ''; } catch (e) {}
+      var nav = (window.performance && performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {};
+      var here = location.hostname.replace(/^www\./, ''), c = 'direct', a = '';
+      if (nav.type === 'reload' || nav.type === 'back_forward' || (rh && rh.replace(/^www\./, '') === here)) c = 'internal';
+      else {
+        var ad = (q.get('ad_id') || '').trim(), s = (q.get('utm_source') || '').trim().toLowerCase();
+        if (/^\d{6,24}$/.test(ad)) { c = 'meta'; a = ad; }
+        else if (q.get('gclid') || q.get('wbraid') || q.get('gbraid')) c = 'google';
+        else if (/^(stride|email|newsletter|resend|mail)$/.test(s)) c = 'email';
+        else if (/^(ig|instagram|insta|ig_bio|instagram_bio)$/.test(s)) c = 'ig';
+        else if (/^(yt|youtube)$/.test(s)) c = 'yt';
+        else if (/^(google|adwords|google_ads|gads)$/.test(s)) c = 'google';
+        else if (/^(facebook|fb|meta)$/.test(s) || q.get('fbclid')) c = 'meta';
+        else if (/(^|\.)instagram\.com$/.test(rh)) c = 'ig';
+        else if (/(^|\.)(youtube\.com|youtu\.be)$/.test(rh)) c = 'yt';
+      }
+      navigator.sendBeacon("https://generate-midi-z3spyrafvq-uc.a.run.app", JSON.stringify({ action: 'pv', p: p, c: c, a: a }));
+    } catch (e) {}
+  }
+  if (document.prerendering) document.addEventListener('prerenderingchange', send, { once: true });
+  else send();
+})();6:["$","script",null,{"dangerouslySetInnerHTML":{"__html":"$f"}}]
+10:["$","iframe",null,{"src":"https://www.googletagmanager.com/ns.html?id=GTM-5R4N7FVP","height":"0","width":"0","style":{"display":"none","visibility":"hidden"}}]
+11:T5510,<style>
+  /* The header carries everything it needs to look the same anywhere. setup, samples and
+     session already define these tokens and classes; privacy, terms and refund define none
+     of them, which is how refund.html ended up with a wordmark at a different size. Rather
+     than ask each page to supply them, the three header containers redefine the handful the
+     header uses, with the homepage's own values. Scoped, so nothing outside the header on
+     any page is touched, and identical to what those pages already have where they have it. */
+  .stride-header,#m-menu,#contact-modal{
+    --hdr-line:rgba(216,201,176,.11); --hdr-ink:#ece4d6; --hdr-ink2:#b8ad9b; --hdr-ink3:#857c6e;
+    --hdr-bg:#141310; --hdr-panel:#1d1b16; --hdr-raise:#252119;
+    --hdr-copper:#c6712b; --hdr-copper-lt:#dd9a52; --hdr-ember:#e58a2e}
+  .stride-header .brand,#m-menu .brand{
+    background:linear-gradient(90deg,var(--hdr-copper-lt),var(--hdr-ember));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .stride-header .ink3,#m-menu .ink3,#contact-modal .ink3{color:var(--hdr-ink3)}
+  .stride-header .ink2,#m-menu .ink2,#contact-modal .ink2{color:var(--hdr-ink2)}
+  .stride-header .btn-copper,#m-menu .btn-copper,#contact-modal .btn-copper{
+    display:inline-flex;align-items:center;justify-content:center;gap:.6rem;
+    background:linear-gradient(180deg,var(--hdr-ember),var(--hdr-copper));
+    color:#1c1206;font-weight:900;border:1px solid rgba(255,210,150,.25);
+    box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 12px 24px -14px rgba(198,113,43,.8);
+    transition:transform .15s,filter .15s;cursor:pointer}
+  .stride-header .btn-copper:hover,#m-menu .btn-copper:hover{transform:translateY(-2px);filter:brightness(1.06)}
+  :where(.btn-copper){border-radius:14px;letter-spacing:.04em}
+  #m-menu .btn-ghost{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;
+    border:1px solid var(--hdr-line);background:var(--hdr-raise);color:var(--hdr-ink2);
+    font-weight:800;border-radius:14px;transition:transform .15s,border-color .15s,color .15s;cursor:pointer}
+  #m-menu .btn-ghost:hover{transform:translateY(-2px);border-color:rgba(216,201,176,.28);color:var(--hdr-ink)}
+
+  /* z-index 60, not 1: the header now owns a dropdown, and at 1 the language menu was trapped
+     in the header's own stacking context and painted UNDER the page (measured: the first row of
+     the page received the click). 60 clears ordinary content and still sits below everything
+     that is meant to cover the header: the demo prompt (120), the sticky buy bar (1000), the
+     mobile sheet (1100) and the film (1200). */
+  .stride-header{position:relative;z-index:60;width:100%;max-width:1400px;margin:0 auto;padding:0 1.5rem}
+  .stride-header > nav{display:flex;justify-content:space-between;align-items:center;padding:1.5rem 0}
+  /* ── The strip ──────────────────────────────────────────────────────────
+     A band behind the header with a hairline under it, so the top of the page
+     has a floor instead of the wordmark floating on the background. Bled to
+     the viewport edges from inside a centred container: the negative margin
+     takes it out to the window and the matching padding puts the content back
+     where the container had it, so the band is full width while the wordmark
+     still lines up with everything below it. The homepage carries the same
+     rule on `.wrap > nav`, which is why header-parity passes. */
+  .stride-header > nav{
+    margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw);
+    padding-left:calc(50vw - 50%);padding-right:calc(50vw - 50%);
+    background:rgba(20,19,16,.82);
+    -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+    border-bottom:1px solid var(--hdr-line)}
+  .stride-header .silk{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--hdr-ink3)}
+
+  /* ── Language ──────────────────────────────────────────────────────────
+     A short code beside the wordmark that opens the languages this page is
+     published in. The markup is identical on every page: the script rewrites
+     each href to THIS page in that language and hides the ones the page has
+     not been translated into, so the header stays the same everywhere and the
+     control can never offer a page that does not exist. Hidden until the
+     script has decided, so it cannot flash a list and then shorten it. */
+  .lang-switch{position:relative;display:none}
+  .lang-switch.ready{display:block}
+  .lang-btn{display:inline-flex;align-items:center;gap:.34em;padding:3px 7px;
+    border:1px solid var(--hdr-line);border-radius:8px;background:transparent;
+    color:var(--hdr-ink3);font:inherit;font-size:10px;font-weight:800;
+    letter-spacing:.14em;text-transform:uppercase;cursor:pointer;
+    transition:color .15s,border-color .15s}
+  .lang-btn:hover,.lang-btn[aria-expanded="true"]{color:var(--hdr-ink);border-color:rgba(216,201,176,.28)}
+  .lang-btn::after{content:"";width:0;height:0;border-left:3px solid transparent;
+    border-right:3px solid transparent;border-top:4px solid currentColor;opacity:.7}
+  .lang-menu{position:absolute;top:calc(100% + 8px);left:0;z-index:60;display:none;
+    min-width:150px;padding:6px;background:var(--hdr-panel);
+    border:1px solid var(--hdr-line);border-radius:12px;
+    box-shadow:0 24px 50px -24px rgba(0,0,0,.9)}
+  .lang-menu.on{display:block}
+  .lang-menu a{display:block;padding:8px 10px;border-radius:8px;font-size:13px;
+    font-weight:600;color:var(--hdr-ink2);text-decoration:none;white-space:nowrap}
+  .lang-menu a:hover{background:var(--hdr-raise);color:var(--hdr-ink)}
+  .lang-menu a[aria-selected="true"]{color:var(--hdr-copper-lt)}
+  .lang-menu a.gone{display:none}
+  #m-menu-btn{display:none}
+  @media (max-width:899.98px){
+    /* Tailwind's .flex is loaded after the page's own styles and both selectors are
+       one class, so a bare .nav-desktop loses the tie and the desktop links stay on
+       screen. Two extra points of specificity settle it without !important. */
+    nav > div.nav-desktop{display:none}
+    .stride-header > nav{padding-top:.75rem;padding-bottom:.5rem}
+    #m-menu-btn{
+      display:inline-flex;align-items:center;justify-content:center;
+      width:44px;height:44px;margin-right:-.35rem;border-radius:12px;
+      color:var(--hdr-ink2);background:transparent;border:1px solid var(--hdr-line)}
+    #m-menu-btn svg{width:22px;height:22px}
+    #m-menu{
+      display:flex;flex-direction:column;position:fixed;inset:0;z-index:1100;
+      background:var(--hdr-bg);padding:1rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom,0px));
+      overflow-y:auto;-webkit-overflow-scrolling:touch}
+    #m-menu[hidden]{display:none}
+    .m-menu-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem}
+    .m-menu-top button{
+      width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;
+      border-radius:12px;color:var(--hdr-ink2);background:transparent;border:1px solid var(--hdr-line)}
+    .m-menu-top button svg{width:20px;height:20px}
+    .m-menu-links{display:flex;flex-direction:column;flex:1 1 auto}
+    .m-menu-links > a,.m-menu-links > button{
+      display:flex;align-items:center;min-height:52px;padding:.25rem 0;
+      font-size:16px;font-weight:800;color:var(--hdr-ink);text-align:left;
+      background:none;border:0;border-bottom:1px solid var(--hdr-line);width:100%}
+    .m-menu-cta{display:flex;flex-direction:column;gap:.6rem;margin-top:1.5rem}
+    .m-menu-cta > a{width:100%;justify-content:center;min-height:50px;font-size:14px}
+  }
+  /* Outside the mobile query #m-menu has no display rule, exactly as on the homepage:
+     it carries the hidden attribute until the hamburger opens it, and the hamburger
+     itself is display:none above 900px, so it can never be opened there. */
+</style>
+
+<div class="stride-header">
+  <nav class="flex justify-between items-center py-6">
+    <div class="flex items-center gap-3">
+      <a href="/" class="flex items-center gap-3">
+        <span class="text-3xl font-black brand tracking-tighter leading-none">STRIDE</span>
+      </a>
+      <div class="lang-switch" data-no-translate>
+        <button type="button" class="lang-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Language" onclick="strideLang(this)">EN</button>
+        <div class="lang-menu" role="listbox" aria-label="Language">
+          <a role="option" data-lang="en" href="/">English</a>
+          <a role="option" data-lang="de" href="/de/">Deutsch</a>
+          <a role="option" data-lang="es" href="/es/">Español</a>
+          <a role="option" data-lang="fr" href="/fr/">Français</a>
+          <a role="option" data-lang="it" href="/it/">Italiano</a>
+          <a role="option" data-lang="ja" href="/ja/">日本語</a>
+          <a role="option" data-lang="zh" href="/zh/">简体中文</a>
+        </div>
+      </div>
+    </div>
+    <button id="m-menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="m-menu"
+            onclick="strideMenu(true)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <div class="flex items-center gap-5 nav-desktop">
+      <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors" href="/#how">How it works</a>
+      <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors" href="/setup.html">Setup</a>
+      <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors" href="/blog.html">Blog</a>
+      <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors hidden xl:block" href="/tv">Videos</a>
+      <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors" href="/samples.html">Experimental Collection</a>
+      <a href="https://www.instagram.com/stride_engine/" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[var(--hdr-copper-lt)] transition-colors" title="Follow us on Instagram">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+      </a>
+      <a href="https://www.youtube.com/@strideengine" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[var(--hdr-copper-lt)] transition-colors" title="Subscribe on YouTube">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+      </a>
+      <a href="https://x.com/stridevst" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[var(--hdr-copper-lt)] transition-colors hidden xl:block" title="Follow us on X">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="-1 -1 26 26"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/></svg>
+      </a>
+      <button onclick="toggleContactModal()" class="ink3 hover:text-[var(--hdr-copper-lt)] transition-colors" title="Contact Us">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+      </button>
+      <span class="w-px h-6 mx-1 hidden sm:block" style="background:var(--hdr-line)"></span>
+      <a href="/#pricing" class="btn-copper text-[11px] uppercase tracking-widest px-5 py-2.5 rounded-full">Get Stride</a>
+    </div>
+  </nav>
+</div>
+
+<div id="m-menu" role="dialog" aria-modal="true" aria-label="Menu" hidden>
+  <div class="m-menu-top">
+    <span class="text-2xl font-black brand tracking-tighter leading-none">STRIDE</span>
+    <button type="button" aria-label="Close menu" onclick="strideMenu(false)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <nav class="m-menu-links" aria-label="Mobile">
+    <a href="/#how">How it works</a>
+    <a href="/setup.html">Setup</a>
+    <a href="/blog.html">Blog</a>
+    <a href="/tv">Videos</a>
+    <a href="/samples.html">Experimental Collection</a>
+    <a href="/session.html">1:1 Session &middot; $99</a>
+    <a href="https://www.youtube.com/@strideengine" target="_blank" rel="noopener noreferrer">YouTube</a>
+    <a href="https://www.instagram.com/stride_engine/" target="_blank" rel="noopener noreferrer">Instagram</a>
+    <a href="https://x.com/stridevst" target="_blank" rel="noopener noreferrer">X</a>
+    <button type="button" onclick="strideMenu(false); toggleContactModal()">Contact</button>
+  </nav>
+  <div class="m-menu-cta">
+    <a href="/#pricing" class="btn-copper">GET STRIDE</a>
+    <a href="/try/" class="btn-ghost">Explore free for 24h</a>
+  </div>
+</div>
+
+<div id="contact-modal" class="fixed inset-0 z-[1001] hidden flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
+  <div class="w-full max-w-md p-8 rounded-3xl relative" style="background:var(--hdr-panel);border:1px solid var(--hdr-line)">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-2xl font-black uppercase tracking-tight" style="color:var(--hdr-copper-lt)">Contact Us</h3>
+      <button onclick="toggleContactModal()" class="ink3 hover:text-[var(--hdr-ink)] transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+      </button>
+    </div>
+    <p class="text-sm ink2 mb-6 font-medium">Have a question or feedback? Drop us a line. We reply within 48 hours.</p>
+    <div class="space-y-4 mb-4">
+      <div>
+        <label class="block text-[10px] ink3 font-bold uppercase tracking-widest mb-1.5">Email *</label>
+        <input id="contact-email" type="email" placeholder="you@example.com" class="w-full rounded-xl px-4 py-2.5 text-base focus:outline-none transition-colors" style="background:rgba(0,0,0,.4);border:1px solid var(--hdr-line);color:var(--hdr-ink)">
+      </div>
+      <div>
+        <label class="block text-[10px] ink3 font-bold uppercase tracking-widest mb-1.5">Message *</label>
+        <textarea id="contact-message" rows="5" class="w-full rounded-xl p-4 text-base resize-none focus:outline-none transition-colors" style="background:rgba(0,0,0,.4);border:1px solid var(--hdr-line);color:var(--hdr-ink)" placeholder="What's on your mind?"></textarea>
+      </div>
+    </div>
+    <div id="contact-error" class="hidden text-xs font-medium mb-3" style="color:#e6795f"></div>
+    <div id="contact-success" class="hidden text-xs font-medium mb-3" style="color:#6fbf8f">Got it. We'll reply within 48 hours.</div>
+    <button id="contact-submit-btn" onclick="sendContactMessage()" class="btn-copper w-full py-3 rounded-xl text-xs uppercase tracking-widest">Send Message</button>
+  </div>
+</div>
+
+<script>
+  /* The menu sheet. strideStickySync only exists on the homepage, which has a sticky
+     buy bar to hide behind the sheet; everywhere else there is nothing to sync. */
+  function strideMenu(open) {
+    var m = document.getElementById('m-menu');
+    var btn = document.getElementById('m-menu-btn');
+    if (!m) return;
+    m.hidden = !open;
+    if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    document.body.style.overflow = open ? 'hidden' : '';
+    if (typeof strideStickySync === 'function') strideStickySync();
+    if (open) { var c = m.querySelector('.m-menu-top button'); if (c) c.focus(); }
+    else if (btn) btn.focus();
+  }
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    var m = document.getElementById('m-menu');
+    if (m && !m.hidden) strideMenu(false);
+    var c = document.getElementById('contact-modal');
+    if (c && !c.classList.contains('hidden')) c.classList.add('hidden');
+  });
+
+  function toggleContactModal() {
+    var el = document.getElementById('contact-modal');
+    if (el) el.classList.toggle('hidden');
+  }
+  function sendContactMessage() {
+    var email = (document.getElementById('contact-email').value || '').trim();
+    var message = (document.getElementById('contact-message').value || '').trim();
+    var errorEl = document.getElementById('contact-error');
+    var successEl = document.getElementById('contact-success');
+    var btn = document.getElementById('contact-submit-btn');
+    errorEl.classList.add('hidden'); successEl.classList.add('hidden');
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errorEl.textContent = 'Please enter a valid email so we can reply.';
+      errorEl.classList.remove('hidden'); return;
+    }
+    if (!message) { errorEl.textContent = 'Please write a message.'; errorEl.classList.remove('hidden'); return; }
+    btn.disabled = true; btn.textContent = 'Sending...';
+    fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'contact_message', email: email, name: '', message: message })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function () {
+        successEl.classList.remove('hidden');
+        document.getElementById('contact-message').value = '';
+        btn.disabled = false; btn.textContent = 'Send Message';
+      })
+      .catch(function () {
+        errorEl.textContent = 'That did not send. Email hello@stridehub.io instead.';
+        errorEl.classList.remove('hidden');
+        btn.disabled = false; btn.textContent = 'Send Message';
+      });
+  }
+
+  /* ── Language ──────────────────────────────────────────────────────────
+     The same markup on every page. window.STRIDE_LANGS says which languages
+     THIS page exists in, written per page by the build, so the header itself
+     never has to differ from one page to the next. The control stays hidden
+     until that list has been read: better no control than one that offers a
+     language and lands on a 404. */
+  var STRIDE_LOCALES = ['de', 'es', 'fr', 'it', 'ja', 'zh'];
+
+  function strideLangCurrent() {
+    var seg = location.pathname.split('/')[1];
+    return STRIDE_LOCALES.indexOf(seg) >= 0 ? seg : 'en';
+  }
+
+  /* This page in another language. The query and the hash come along, because
+     ?code= carries a discount and #pricing carries the reader's place. */
+  function strideLangPath(code) {
+    var p = location.pathname;
+    var cur = strideLangCurrent();
+    if (cur !== 'en') p = p.slice(cur.length + 1) || '/';
+    if (code !== 'en') p = '/' + code + (p === '/' ? '/' : p);
+    return p + location.search + location.hash;
+  }
+
+  function strideLang(btn) {
+    var menu = btn.parentNode.querySelector('.lang-menu');
+    var open = menu.classList.toggle('on');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  (function strideLangInit() {
+    var box = document.querySelector('.lang-switch');
+    if (!box) return;
+    var btn = box.querySelector('.lang-btn');
+    var menu = box.querySelector('.lang-menu');
+    var cur = strideLangCurrent();
+    var available = window.STRIDE_LANGS || ['en'];
+
+    btn.textContent = cur.toUpperCase();
+    var links = menu.querySelectorAll('a');
+    for (var i = 0; i < links.length; i++) {
+      var code = links[i].getAttribute('data-lang');
+      if (available.indexOf(code) < 0) { links[i].className = 'gone'; continue; }
+      links[i].href = strideLangPath(code);
+      links[i].setAttribute('aria-selected', code === cur ? 'true' : 'false');
+      links[i].onclick = (function (c) {
+        return function () { try { localStorage.setItem('stride_lang', c); } catch (e) {} };
+      })(code);
+    }
+    /* Nothing to switch to: show nothing rather than a control that does nothing. */
+    if (available.length > 1) box.classList.add('ready');
+
+    function close() { menu.classList.remove('on'); btn.setAttribute('aria-expanded', 'false'); }
+    document.addEventListener('click', function (e) { if (!box.contains(e.target)) close(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+  })();
+</script>
+7:["$","body",null,{"className":"font-sans min-h-screen flex flex-col","children":[["$","noscript",null,{"children":"$10"}],["$","div",null,{"dangerouslySetInnerHTML":{"__html":"$11"}}],"$L12","$L13"]}]
+8:["$","$1","c",{"children":[null,["$","$L14",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L15",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}]
+9:["$","$1","c",{"children":[null,["$","$L14",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L15",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}]
+a:["$","$1","c",{"children":["$L16",[["$","script","script-0",{"src":"/_next/static/chunks/21rmub91oxtxn.js","async":true,"nonce":"$undefined"}]],["$","$L17",null,{"children":["$","$18",null,{"name":"Next.MetadataOutlet","children":"$@19"}]}]]}]
+c:["$","$1","h",{"children":[null,["$","$L1a",null,{"children":"$L1b"}],["$","div",null,{"hidden":true,"children":["$","$L1c",null,{"children":["$","$18",null,{"name":"Next.Metadata","children":"$L1d"}]}]}],["$","meta",null,{"name":"next-size-adjust","content":""}]]}]
+e:["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/3h3o974evp9es.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]
+b:C
+12:["$","main",null,{"className":"wrap flex-1 w-full","children":["$","$L14",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L15",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[["$","div",null,{"className":"max-w-2xl mx-auto px-6 py-24 text-center","children":[["$","p",null,{"className":"silk mb-4","children":"404"}],["$","h1",null,{"className":"text-4xl md:text-6xl tracking-tight","children":["This lane is ",["$","span",null,{"className":"brand","children":"empty."}]]}],["$","p",null,{"className":"ink2 mt-5","children":"The page moved or never existed. Here is where the sound is."}],["$","div",null,{"className":"flex flex-wrap justify-center gap-3 mt-10","children":[["$","a",null,{"href":"/","className":"btn-copper text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Home"}],["$","$L1e",null,{"href":"/tv","className":"btn-ghost text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Videos"}],["$","a",null,{"href":"/blog.html","className":"btn-ghost text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Blog"}],["$","a",null,{"href":"/setup.html","className":"btn-ghost text-xs uppercase tracking-widest px-7 py-3.5 rounded-full","children":"Setup"}]]}]]}],[]],"forbidden":"$undefined","unauthorized":"$undefined"}]}]
+13:["$","footer",null,{"className":"wrap w-full border-t py-8 text-center mt-auto","style":{"borderColor":"var(--line)","background":"#100f0c"},"children":[["$","nav",null,{"aria-label":"Explore","className":"flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mb-3 px-6","children":[["$","a",null,{"href":"/blog.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Blog"}],["$","$L1e",null,{"href":"/tv","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Videos"}],false,["$","a",null,{"href":"/setup.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Setup"}],["$","a",null,{"href":"/samples.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Experimental Collection"}]]}],[["$","nav","Stride vs",{"aria-label":"Stride vs","className":"flex flex-wrap items-center justify-center gap-x-4 gap-y-1 mb-2 px-6","children":[["$","span",null,{"className":"text-[11px] text-zinc-600 font-bold uppercase tracking-widest","children":"Stride vs"}],[["$","$L1e","megamod",{"href":"/compare/megamod","className":"text-[11px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"MegaMod"}],["$","$L1e","lfotool",{"href":"/compare/lfotool","className":"text-[11px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"LFOTool"}],["$","$L1e","shaperbox",{"href":"/compare/shaperbox","className":"text-[11px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"ShaperBox"}],["$","$L1e","movement",{"href":"/compare/movement","className":"text-[11px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Movement"}]]]}],["$","nav","Stride with",{"aria-label":"Stride with","className":"flex flex-wrap items-center justify-center gap-x-4 gap-y-1 mb-2 px-6","children":[["$","span",null,{"className":"text-[11px] text-zinc-600 font-bold uppercase tracking-widest","children":"Stride with"}],[["$","$L1e","portal",{"href":"/with/portal","className":"text-[11px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Portal"}],["$","$L1e","arcade",{"href":"/with/arcade","className":"text-[11px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Arcade"}],["$","$L1e","serum",{"href":"/with/serum","className":"text-[11px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Serum 2"}],["$","$L1e","phase-plant",{"href":"/with/phase-plant","className":"text-[11px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Phase Plant"}],["$","$L1e","diva",{"href":"/with/diva","className":"text-[11px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Diva"}],["$","$L1e","zebra",{"href":"/with/zebra","className":"text-[11px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Zebra"}],["$","$L1e","vital",{"href":"/with/vital","className":"text-[11px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Vital"}],["$","$L1e","massive",{"href":"/with/massive","className":"text-[11px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"MASSIVE"}]]]}]],["$","div",null,{"className":"mb-3"}],["$","nav",null,{"aria-label":"Legal","className":"flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mb-3 px-6","children":["$L1f","$L20","$L21"]}],"$L22","$L23"]}]
+1f:["$","a",null,{"href":"/privacy.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Privacy Policy"}]
+20:["$","a",null,{"href":"/terms.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Terms of Service"}]
+21:["$","a",null,{"href":"/refund.html","className":"text-[13px] text-zinc-500 hover:text-zinc-300 font-bold uppercase tracking-widest transition-colors","children":"Refund Policy"}]
+22:["$","p",null,{"className":"text-[13px] text-zinc-500 font-bold uppercase tracking-widest px-6","children":["© ",2026," STRIDE ENGINE. BUILT FOR PRODUCERS. BUILT FOR EVERY DAW."]}]
+23:["$","p",null,{"className":"text-[11px] text-zinc-600 mt-3 max-w-2xl mx-auto leading-relaxed px-6","children":"Third-party plugins are sold separately. All product names and trademarks belong to their respective owners. Stride is an independent product and is not affiliated with or endorsed by these companies."}]
+16:["$","div",null,{"className":"max-w-6xl mx-auto px-4 sm:px-6 pt-8 pb-24","children":[["$","script",null,{"type":"application/ld+json","dangerouslySetInnerHTML":{"__html":"{\"@context\":\"https://schema.org\",\"@graph\":[{\"@type\":\"WebPage\",\"name\":\"Stride vs ShaperBox\",\"description\":\"ShaperBox modulates the effects built into ShaperBox. Stride puts the knobs on your own synths and effects in motion. Choose the tools you love, map what you want to move, and hear new variations across the chain.\",\"url\":\"https://stridehub.io/compare/shaperbox\"},{\"@type\":\"BreadcrumbList\",\"itemListElement\":[{\"@type\":\"ListItem\",\"position\":1,\"name\":\"Home\",\"item\":\"https://stridehub.io/\"},{\"@type\":\"ListItem\",\"position\":2,\"name\":\"Compare\",\"item\":\"https://stridehub.io/compare\"},{\"@type\":\"ListItem\",\"position\":3,\"name\":\"Stride vs ShaperBox\",\"item\":\"https://stridehub.io/compare/shaperbox\"}]}]}"}}],["$","header",null,{"className":"text-center mb-12 md:mb-16","children":[["$","span",null,{"className":"chip pill-warm","children":"Stride vs ShaperBox"}],["$","h1",null,{"className":"text-4xl md:text-6xl tracking-tight mt-5 leading-[1.05] max-w-4xl mx-auto","children":[["Your Favorite Plugins."," "],["$","span",null,{"className":"brand","children":"No Fixed Effects Rack."}]]}],["$","p",null,{"className":"text-base md:text-lg ink2 mt-5 max-w-2xl mx-auto leading-relaxed","children":"ShaperBox modulates the effects built into ShaperBox. Stride puts the knobs on your own synths and effects in motion. Choose the tools you love, map what you want to move, and hear new variations across the chain."}],["$","div",null,{"className":"flex flex-wrap items-center justify-center gap-3 mt-8","children":[["$","a",null,{"href":"/#pricing","className":"btn-copper text-xs uppercase tracking-widest py-3.5 px-8 rounded-full","children":"Get Stride"}],["$","a",null,{"href":"/try/","className":"btn-ghost text-xs uppercase tracking-widest py-3.5 px-8 rounded-full","children":"Explore free for 24h"}]]}]]}],["$","section",null,{"aria-label":"Stride vs ShaperBox","className":"panel screws rounded-3xl px-3 sm:px-6 md:px-8 pt-10 pb-6 md:pb-8 mb-14","children":[["$","span",null,{"className":"s s1"}],["$","span",null,{"className":"s s2"}],["$","div",null,{"className":"cmp-grid cmp-head mb-2","aria-hidden":"true","children":[["$","div",null,{"className":"hidden md:flex items-end pb-3","children":["$","span",null,{"className":"silk","children":"Comparison"}]}],[["$","div","Stride",{"className":"cmp-plate cmp-plate--lit","children":[["$","span",null,{"className":"silk","style":{"color":"var(--copper-lt)"},"children":"The engine"}],["$","span",null,{"className":"block text-lg md:text-2xl font-black ink tracking-tight mt-1 uppercase","children":"Stride"}]]}],["$","div","ShaperBox",{"className":"cmp-plate ","children":[["$","span",null,{"className":"silk","style":{"color":"$undefined"},"children":"The alternative"}],["$","span",null,{"className":"block text-lg md:text-2xl font-black ink tracking-tight mt-1 uppercase","children":"ShaperBox"}]]}]]]}],["$","table",null,{"className":"cmp-table w-full","children":[["$","caption",null,{"className":"sr-only","children":["Stride vs ShaperBox",": comparison"]}],["$","thead",null,{"className":"sr-only","children":["$","tr",null,{"children":[["$","th",null,{"scope":"col","children":"Comparison"}],["$","th",null,{"scope":"col","children":"Stride"}],["$","th",null,{"scope":"col","children":"ShaperBox"}]]}]}],["$","tbody",null,{"children":[["$","tr","Which effects you use",{"className":"cmp-grid cmp-row","children":[["$","th",null,{"scope":"row","className":"cmp-label","children":"Which effects you use"}],[["$","td","0",{"className":"cmp-cell cmp-cell--lit","children":[["$","span",null,{"className":"cmp-cell-tag silk md:hidden","style":{"color":"var(--copper-lt)"},"children":"Stride"}],"Your choice of supported synths and effects, hosted together in Stride."]}],["$","td","1",{"className":"cmp-cell ","children":[["$","span",null,{"className":"cmp-cell-tag silk md:hidden","style":{"color":"$undefined"},"children":"ShaperBox"}],"The Shaper effects built into ShaperBox."]}]]]}],"$L24","$L25","$L26","$L27","$L28"]}]]}]]}],"$L29","$L2a","$L2b","$L2c","$L2d"]}]
+24:["$","tr","Where modulation reaches",{"className":"cmp-grid cmp-row","children":[["$","th",null,{"scope":"row","className":"cmp-label","children":"Where modulation reaches"}],[["$","td","0",{"className":"cmp-cell cmp-cell--lit","children":[["$","span",null,{"className":"cmp-cell-tag silk md:hidden","style":{"color":"var(--copper-lt)"},"children":"Stride"}],"Inside your synth and across the FX you've mapped."]}],["$","td","1",{"className":"cmp-cell ","children":[["$","span",null,{"className":"cmp-cell-tag silk md:hidden","style":{"color":"$undefined"},"children":"ShaperBox"}],"Inside ShaperBox's own processing modules."]}]]]}]
+25:["$","tr","Changing the source",{"className":"cmp-grid cmp-row","children":[["$","th",null,{"scope":"row","className":"cmp-label","children":"Changing the source"}],[["$","td","0",{"className":"cmp-cell cmp-cell--lit","children":[["$","span",null,{"className":"cmp-cell-tag silk md:hidden","style":{"color":"var(--copper-lt)"},"children":"Stride"}],"Move a synth's mapped wavetable, warp, filter or macro controls."]}],["$","td","1",{"className":"cmp-cell ","children":[["$","span",null,{"className":"cmp-cell-tag silk md:hidden","style":{"color":"$undefined"},"children":"ShaperBox"}],"Shape the audio arriving from the synth."]}]]]}]
+26:["$","tr","Expanding your sound",{"className":"cmp-grid cmp-row","children":[["$","th",null,{"scope":"row","className":"cmp-label","children":"Expanding your sound"}],[["$","td","0",{"className":"cmp-cell cmp-cell--lit","children":[["$","span",null,{"className":"cmp-cell-tag silk md:hidden","style":{"color":"var(--copper-lt)"},"children":"Stride"}],"Load another favorite effect and add its controls to the canvas."]}],["$","td","1",{"className":"cmp-cell ","children":[["$","span",null,{"className":"cmp-cell-tag silk md:hidden","style":{"color":"$undefined"},"children":"ShaperBox"}],"Combine the Shapers in the ShaperBox effects suite."]}]]]}]
+27:["$","tr","Trying another take",{"className":"cmp-grid cmp-row","children":[["$","th",null,{"scope":"row","className":"cmp-label","children":"Trying another take"}],[["$","td","0",{"className":"cmp-cell cmp-cell--lit","children":[["$","span",null,{"className":"cmp-cell-tag silk md:hidden","style":{"color":"var(--copper-lt)"},"children":"Stride"}],"Roll new movements across unlocked lanes. Keep the curves you like."]}],["$","td","1",{"className":"cmp-cell ","children":[["$","span",null,{"className":"cmp-cell-tag silk md:hidden","style":{"color":"$undefined"},"children":"ShaperBox"}],"Draw and combine movement in its Shaper effects."]}]]]}]
+28:["$","tr","The reason to choose Stride",{"className":"cmp-grid cmp-row","children":[["$","th",null,{"scope":"row","className":"cmp-label","children":"The reason to choose Stride"}],[["$","td","0",{"className":"cmp-cell cmp-cell--lit","children":[["$","span",null,{"className":"cmp-cell-tag silk md:hidden","style":{"color":"var(--copper-lt)"},"children":"Stride"}],"Build moving sounds with the tools that already define your setup."]}],["$","td","1",{"className":"cmp-cell ","children":[["$","span",null,{"className":"cmp-cell-tag silk md:hidden","style":{"color":"$undefined"},"children":"ShaperBox"}],"Choose ShaperBox for its own shaping engines and multiband processing."]}]]]}]
+29:["$","p",null,{"className":"text-center text-2xl md:text-4xl font-black ink tracking-tight leading-tight max-w-3xl mx-auto mb-14","children":[["You're not choosing a new set of effects."," "],["$","span",null,{"className":"brand","children":"You're getting more from yours."}]]}]
+2a:["$","section",null,{"aria-labelledby":"good-to-know","className":"panel px-6 py-6 md:px-8 md:py-7 mb-14 max-w-3xl mx-auto","children":[["$","h2",null,{"id":"good-to-know","className":"silk mb-4","children":"Good to know"}],["$","ul",null,{"className":"space-y-2.5","children":[["$","li","Stride hosts VST3 plugins on Windows and macOS, and AU plugins on macOS.",{"className":"flex gap-3 text-sm ink2 leading-relaxed","children":[["$","span",null,{"className":"mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full","style":{"background":"var(--copper)"}}],"Stride hosts VST3 plugins on Windows and macOS, and AU plugins on macOS."]}],["$","li","Map the controls you want to move before creating motion.",{"className":"flex gap-3 text-sm ink2 leading-relaxed","children":[["$","span",null,{"className":"mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full","style":{"background":"var(--copper)"}}],"Map the controls you want to move before creating motion."]}],["$","li","Third-party instruments and effects are sold separately.",{"className":"flex gap-3 text-sm ink2 leading-relaxed","children":[["$","span",null,{"className":"mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full","style":{"background":"var(--copper)"}}],"Third-party instruments and effects are sold separately."]}]]}],["$","p",null,{"className":"text-[11px] ink3 mt-5 leading-relaxed","children":["ShaperBox"," is a trademark of its owner. Stride is an independent product and is not affiliated with or endorsed by them. Details are based on publicly available product information, checked October 2026."]}]]}]
+2b:["$","p",null,{"className":"text-center text-base md:text-lg ink2 mb-10","children":["Your favorite synths. Your favorite effects."," ",["$","span",null,{"className":"ink font-bold","children":"More sounds hiding inside them."}]]}]
+2c:["$","div",null,{"className":"mb-16","children":["$","$L2e",null,{"setup":{"token":"live_e0101b87a9e6e7024988534cf7b","priceId":"pri_01m2dcx05b0z2dcnscp4qjm28d","fallback":99,"codes":{"rekz":"dsc_01m2fxadt3hs2myt4k203tpj2t","scionaugh20":"dsc_01m3rckwadf19e15b3pmvfjrtq"}},"title":["Somewhere in your setup",["$","br",null,{}],["$","span",null,{"className":"brand","children":"is a sound you haven't met."}]],"body":"$undefined"}]}]
+2d:["$","section",null,{"aria-label":"More comparisons","children":[["$","h2",null,{"className":"silk mb-5","children":"More comparisons"}],["$","div",null,{"className":"space-y-6","children":[["$","div","Stride vs",{"children":[["$","p",null,{"className":"text-xs font-black ink3 uppercase tracking-widest mb-3","children":"Stride vs"}],["$","div",null,{"className":"grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4","children":[["$","$L1e","megamod",{"href":"/compare/megamod","className":"panel gen-card block px-4 py-4 hover:border-[rgba(198,113,43,.45)]","children":[["$","span",null,{"className":"block text-base font-black ink uppercase tracking-tight","children":"MegaMod"}],["$","span",null,{"className":"block text-xs ink3 mt-1 leading-snug","children":"Find a movement that works. Keep it. Hear what the rest of the chain can do."}]]}],["$","$L1e","lfotool",{"href":"/compare/lfotool","className":"panel gen-card block px-4 py-4 hover:border-[rgba(198,113,43,.45)]","children":[["$","span",null,{"className":"block text-base font-black ink uppercase tracking-tight","children":"LFOTool"}],["$","span",null,{"className":"block text-xs ink3 mt-1 leading-snug","children":"Less LFO setup. More time hearing what your chain can do."}]]}],["$","$L1e","movement",{"href":"/compare/movement","className":"panel gen-card block px-4 py-4 hover:border-[rgba(198,113,43,.45)]","children":[["$","span",null,{"className":"block text-base font-black ink uppercase tracking-tight","children":"Movement"}],["$","span",null,{"className":"block text-xs ink3 mt-1 leading-snug","children":"Keep your sound. Change what it does."}]]}]]}]]}],["$","div","Stride with",{"children":[["$","p",null,{"className":"text-xs font-black ink3 uppercase tracking-widest mb-3","children":"Stride with"}],["$","div",null,{"className":"grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4","children":[["$","$L1e","portal",{"href":"/with/portal","className":"panel gen-card block px-4 py-4 hover:border-[rgba(198,113,43,.45)]","children":[["$","span",null,{"className":"block text-base font-black ink uppercase tracking-tight","children":"Portal"}],["$","span",null,{"className":"block text-xs ink3 mt-1 leading-snug","children":"Stop at the texture that makes you want to hit Record."}]]}],["$","$L1e","arcade",{"href":"/with/arcade","className":"panel gen-card block px-4 py-4 hover:border-[rgba(198,113,43,.45)]","children":[["$","span",null,{"className":"block text-base font-black ink uppercase tracking-tight","children":"Arcade"}],["$","span",null,{"className":"block text-xs ink3 mt-1 leading-snug","children":"Same kit. More of your own sound."}]]}],["$","$L1e","serum",{"href":"/with/serum","className":"panel gen-card block px-4 py-4 hover:border-[rgba(198,113,43,.45)]","children":[["$","span",null,{"className":"block text-base font-black ink uppercase tracking-tight","children":"Serum 2"}],["$","span",null,{"className":"block text-xs ink3 mt-1 leading-snug","children":"Keep the patch. Find the next bass phrase."}]]}],["$","$L1e","phase-plant",{"href":"/with/phase-plant","className":"panel gen-card block px-4 py-4 hover:border-[rgba(198,113,43,.45)]","children":[["$","span",null,{"className":"block text-base font-black ink uppercase tracking-tight","children":"Phase Plant"}],["$","span",null,{"className":"block text-xs ink3 mt-1 leading-snug","children":"Phase Plant's depth. Your choice of effects. One place to explore them."}]]}],["$","$L1e","diva",{"href":"/with/diva","className":"panel gen-card block px-4 py-4 hover:border-[rgba(198,113,43,.45)]","children":[["$","span",null,{"className":"block text-base font-black ink uppercase tracking-tight","children":"Diva"}],["$","span",null,{"className":"block text-xs ink3 mt-1 leading-snug","children":"Keep the analog sound. Find a different feel."}]]}],["$","$L1e","zebra",{"href":"/with/zebra","className":"panel gen-card block px-4 py-4 hover:border-[rgba(198,113,43,.45)]","children":[["$","span",null,{"className":"block text-base font-black ink uppercase tracking-tight","children":"Zebra"}],"$L2f"]}],"$L30","$L31"]}]]}]]}]]}]
+2f:["$","span",null,{"className":"block text-xs ink3 mt-1 leading-snug","children":"Get more from the performance controls already inside your patches."}]
+30:["$","$L1e","vital",{"href":"/with/vital","className":"panel gen-card block px-4 py-4 hover:border-[rgba(198,113,43,.45)]","children":[["$","span",null,{"className":"block text-base font-black ink uppercase tracking-tight","children":"Vital"}],["$","span",null,{"className":"block text-xs ink3 mt-1 leading-snug","children":"Same patch. More strange places to take it."}]]}]
+31:["$","$L1e","massive",{"href":"/with/massive","className":"panel gen-card block px-4 py-4 hover:border-[rgba(198,113,43,.45)]","children":[["$","span",null,{"className":"block text-base font-black ink uppercase tracking-tight","children":"MASSIVE"}],["$","span",null,{"className":"block text-xs ink3 mt-1 leading-snug","children":"Reopen the preset. Find a reason to use it again."}]]}]
+1b:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}],["$","meta","2",{"name":"theme-color","content":"#141310"}]]
+19:null
+1d:[["$","title","0",{"children":"Stride vs ShaperBox: Your Favorite Plugins. No Fixed Effects Rack. | STRIDE"}],["$","meta","1",{"name":"description","content":"ShaperBox modulates the effects built into ShaperBox. Stride puts the knobs on your own synths and effects in motion. Choose the tools you love, map what you want to move, and hear new variations across the chain."}],["$","meta","2",{"name":"author","content":"Stride"}],["$","link","3",{"rel":"canonical","href":"https://stridehub.io/compare/shaperbox"}],["$","meta","4",{"property":"og:title","content":"Stride vs ShaperBox: Your Favorite Plugins. No Fixed Effects Rack."}],["$","meta","5",{"property":"og:description","content":"ShaperBox modulates the effects built into ShaperBox. Stride puts the knobs on your own synths and effects in motion. Choose the tools you love, map what you want to move, and hear new variations across the chain."}],["$","meta","6",{"property":"og:url","content":"https://stridehub.io/compare/shaperbox"}],["$","meta","7",{"property":"og:site_name","content":"Stride"}],["$","meta","8",{"property":"og:image","content":"https://stridehub.io/og-image.png"}],["$","meta","9",{"property":"og:type","content":"website"}],["$","meta","10",{"name":"twitter:card","content":"summary_large_image"}],["$","meta","11",{"name":"twitter:title","content":"Stride vs ShaperBox: Your Favorite Plugins. No Fixed Effects Rack."}],["$","meta","12",{"name":"twitter:description","content":"ShaperBox modulates the effects built into ShaperBox. Stride puts the knobs on your own synths and effects in motion. Choose the tools you love, map what you want to move, and hear new variations across the chain."}],["$","meta","13",{"name":"twitter:image","content":"https://stridehub.io/og-image.png"}],["$","link","14",{"rel":"icon","href":"/favicon.ico","sizes":"any"}],["$","link","15",{"rel":"icon","href":"/favicon-96x96.png","type":"image/png","sizes":"96x96"}],["$","link","16",{"rel":"icon","href":"/favicon-192x192.png","type":"image/png","sizes":"192x192"}],["$","link","17",{"rel":"apple-touch-icon","href":"/apple-touch-icon.png","sizes":"180x180"}],["$","$L32","18",{}]]
