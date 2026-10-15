@@ -594,16 +594,76 @@ fbq('track', 'PageView');
 // A push carries only the anonymous visitor id, never an email or a name: GA4 does not
 // allow personal data, and every tag in the container can read dataLayer. Keys a push does
 // not set are cleared, so one event's money can never carry over into the next event.
-window.StrideTrack = window.StrideTrack || {
-    push: function (event, params) {
-        try {
-            var d = { event: event, external_id: (typeof _strideXid === 'string' && _strideXid) || undefined,
-                      value: undefined, currency: undefined, transaction_id: undefined, item_name: undefined };
-            for (var k in (params || {})) { if (Object.prototype.hasOwnProperty.call(params, k)) d[k] = params[k]; }
-            (window.dataLayer = window.dataLayer || []).push(d);
-        } catch (e) {}
+// The one exception is user_email_sha256 (2026-10-15, Google Ads enhanced conversions): a
+// SHA-256 of the address, never the address, read ONLY by the two Google Ads conversion
+// tags as user-provided data. Google's tag drops it unless ad_user_data is granted.
+window.StrideTrack = window.StrideTrack || (function () {
+    // Google's rule, the same as firebase_cloud/functions/google_dm.py _norm_email: trim,
+    // lowercase, and for gmail.com / googlemail.com only, drop the dots in the local part
+    // and everything from a '+'. Server and page must hash one person to one value.
+    function norm(v) {
+        v = String(v == null ? '' : v).trim().toLowerCase();
+        var at = v.indexOf('@');
+        if (at <= 0 || at !== v.lastIndexOf('@')) return '';
+        var local = v.slice(0, at), domain = v.slice(at + 1);
+        if (domain.indexOf('.') < 0) return '';
+        if (domain === 'gmail.com' || domain === 'googlemail.com') local = local.split('+')[0].replace(/\./g, '');
+        return local ? local + '@' + domain : '';
     }
-};
+    function sha256(s) {
+        try {
+            if (!(window.crypto && crypto.subtle && window.TextEncoder)) return Promise.resolve('');
+            return crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)).then(function (b) {
+                return Array.from(new Uint8Array(b)).map(function (x) { return x.toString(16).padStart(2, '0'); }).join('');
+            }).catch(function () { return ''; });
+        } catch (e) { return Promise.resolve(''); }
+    }
+    // The last address typed into a watched field, hashed while the visitor types, so the
+    // push at submit can carry it without waiting.
+    var cached = { norm: '', hash: '' };
+    function remember(v) {
+        var n = norm(v);
+        if (!n || n === cached.norm) return Promise.resolve(n === cached.norm ? cached.hash : '');
+        return sha256(n).then(function (h) { if (h) cached = { norm: n, hash: h }; return h; });
+    }
+    var api = {
+        push: function (event, params) {
+            try {
+                var d = { event: event, external_id: (typeof _strideXid === 'string' && _strideXid) || undefined,
+                          value: undefined, currency: undefined, transaction_id: undefined, item_name: undefined,
+                          user_email_sha256: undefined };
+                for (var k in (params || {})) { if (Object.prototype.hasOwnProperty.call(params, k)) d[k] = params[k]; }
+                (window.dataLayer = window.dataLayer || []).push(d);
+            } catch (e) {}
+        },
+        // Hash an email field as it is typed (input + change), so pushWithEmail finds it ready.
+        watchEmail: function (input) {
+            try {
+                if (!input || input.__strideEmh) return;
+                input.__strideEmh = true;
+                var on = function () { remember(input.value); };
+                input.addEventListener('input', on);
+                input.addEventListener('change', on);
+                if (input.value) on();
+            } catch (e) {}
+        },
+        // push() with the hashed address added. Exactly one push: at once when the hash is
+        // ready, else after hashing, at most 300 ms later; without it if hashing fails.
+        pushWithEmail: function (event, params, email) {
+            var p = {};
+            for (var k in (params || {})) { if (Object.prototype.hasOwnProperty.call(params, k)) p[k] = params[k]; }
+            var n = norm(email);
+            if (!n) { api.push(event, p); return; }
+            if (n === cached.norm && cached.hash) { p.user_email_sha256 = cached.hash; api.push(event, p); return; }
+            var done = false;
+            var send = function (h) { if (done) return; done = true; if (h) p.user_email_sha256 = h; api.push(event, p); };
+            setTimeout(function () { send(''); }, 300);
+            remember(n).then(send, function () { send(''); });
+        },
+        _norm: norm
+    };
+    return api;
+})();
 
 // fbclid -> _fbc, identical to the landing page. THIS is the line that was
 // missing: without _fbc the server cannot tie a demo back to the ad click.
@@ -1166,6 +1226,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       input = document.getElementById('email'),
       go = document.getElementById('go'),
       err = document.getElementById('err');
+  try { if (window.StrideTrack && StrideTrack.watchEmail) StrideTrack.watchEmail(input); } catch (e) {}
 
   function fail(msg) { err.textContent = msg; err.style.display = 'block'; }
 
@@ -1454,9 +1515,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             }, { eventID: eid });
           }
         } catch (e4) {}
-        // GA4 (Google Tag Manager): the same first-time registration, with the visitor id
-        // only, never the address.
-        try { if (window.StrideTrack) StrideTrack.push('demo_registered'); } catch (e8) {}
+        // GA4 (Google Tag Manager): the same first-time registration, with the visitor id,
+        // never the address. The hashed address rides along for the Google Ads tag only.
+        try { if (window.StrideTrack) StrideTrack.pushWithEmail('demo_registered', {}, email); } catch (e8) {}
       }
 
       // A visitor a partner sent becomes that partner's lead here, by email, so the purchase

@@ -595,16 +595,76 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     // A push carries only the anonymous visitor id, never an email or a name: GA4 does not
     // allow personal data, and every tag in the container can read dataLayer. Keys a push does
     // not set are cleared, so one event's money can never carry over into the next event.
-    window.StrideTrack = window.StrideTrack || {
-        push: function (event, params) {
-            try {
-                var d = { event: event, external_id: (typeof _strideXid === 'string' && _strideXid) || undefined,
-                          value: undefined, currency: undefined, transaction_id: undefined, item_name: undefined };
-                for (var k in (params || {})) { if (Object.prototype.hasOwnProperty.call(params, k)) d[k] = params[k]; }
-                (window.dataLayer = window.dataLayer || []).push(d);
-            } catch (e) {}
+    // The one exception is user_email_sha256 (2026-10-15, Google Ads enhanced conversions): a
+    // SHA-256 of the address, never the address, read ONLY by the two Google Ads conversion
+    // tags as user-provided data. Google's tag drops it unless ad_user_data is granted.
+    window.StrideTrack = window.StrideTrack || (function () {
+        // Google's rule, the same as firebase_cloud/functions/google_dm.py _norm_email: trim,
+        // lowercase, and for gmail.com / googlemail.com only, drop the dots in the local part
+        // and everything from a '+'. Server and page must hash one person to one value.
+        function norm(v) {
+            v = String(v == null ? '' : v).trim().toLowerCase();
+            var at = v.indexOf('@');
+            if (at <= 0 || at !== v.lastIndexOf('@')) return '';
+            var local = v.slice(0, at), domain = v.slice(at + 1);
+            if (domain.indexOf('.') < 0) return '';
+            if (domain === 'gmail.com' || domain === 'googlemail.com') local = local.split('+')[0].replace(/\./g, '');
+            return local ? local + '@' + domain : '';
         }
-    };
+        function sha256(s) {
+            try {
+                if (!(window.crypto && crypto.subtle && window.TextEncoder)) return Promise.resolve('');
+                return crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)).then(function (b) {
+                    return Array.from(new Uint8Array(b)).map(function (x) { return x.toString(16).padStart(2, '0'); }).join('');
+                }).catch(function () { return ''; });
+            } catch (e) { return Promise.resolve(''); }
+        }
+        // The last address typed into a watched field, hashed while the visitor types, so the
+        // push at submit can carry it without waiting.
+        var cached = { norm: '', hash: '' };
+        function remember(v) {
+            var n = norm(v);
+            if (!n || n === cached.norm) return Promise.resolve(n === cached.norm ? cached.hash : '');
+            return sha256(n).then(function (h) { if (h) cached = { norm: n, hash: h }; return h; });
+        }
+        var api = {
+            push: function (event, params) {
+                try {
+                    var d = { event: event, external_id: (typeof _strideXid === 'string' && _strideXid) || undefined,
+                              value: undefined, currency: undefined, transaction_id: undefined, item_name: undefined,
+                              user_email_sha256: undefined };
+                    for (var k in (params || {})) { if (Object.prototype.hasOwnProperty.call(params, k)) d[k] = params[k]; }
+                    (window.dataLayer = window.dataLayer || []).push(d);
+                } catch (e) {}
+            },
+            // Hash an email field as it is typed (input + change), so pushWithEmail finds it ready.
+            watchEmail: function (input) {
+                try {
+                    if (!input || input.__strideEmh) return;
+                    input.__strideEmh = true;
+                    var on = function () { remember(input.value); };
+                    input.addEventListener('input', on);
+                    input.addEventListener('change', on);
+                    if (input.value) on();
+                } catch (e) {}
+            },
+            // push() with the hashed address added. Exactly one push: at once when the hash is
+            // ready, else after hashing, at most 300 ms later; without it if hashing fails.
+            pushWithEmail: function (event, params, email) {
+                var p = {};
+                for (var k in (params || {})) { if (Object.prototype.hasOwnProperty.call(params, k)) p[k] = params[k]; }
+                var n = norm(email);
+                if (!n) { api.push(event, p); return; }
+                if (n === cached.norm && cached.hash) { p.user_email_sha256 = cached.hash; api.push(event, p); return; }
+                var done = false;
+                var send = function (h) { if (done) return; done = true; if (h) p.user_email_sha256 = h; api.push(event, p); };
+                setTimeout(function () { send(''); }, 300);
+                remember(n).then(send, function () { send(''); });
+            },
+            _norm: norm
+        };
+        return api;
+    })();
 
     // Capture fbclid from the URL on landing → format into Meta's _fbc
     // shape (`fb.{subdomain_index}.{ts}.{fbclid}`) and persist for 90 days
@@ -1690,7 +1750,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
 
 </style>
-<link rel="stylesheet" href="/_legacy/css/index.38e653a772.css">
+<link rel="stylesheet" href="/_legacy/css/index.ad463bbe93.css">
 <script>window.STRIDE_LANGS=["en","de","es","fr","it","ja","zh"]</script>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;800;900&display=swap">
@@ -2924,6 +2984,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div>
                 <label class="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">メールアドレス *</label>
                 <input id="buy-email" type="email" name="email" autocomplete="email" inputmode="email" autocapitalize="off" autocorrect="off" spellcheck="false" required placeholder="you@example.com" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-base text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 transition-colors">
+                <script>try { StrideTrack.watchEmail(document.getElementById('buy-email')); } catch (e) {}</script>
             </div>
             
             
@@ -4236,7 +4297,7 @@ function openBuy() { toggleBuyModal(); }
                 .map(function (k) { return 'checkout[custom][' + k + ']=' + encodeURIComponent(custom[k]); }).join('&');
         var v = strideOrderValue();
         try { if (window.fbq) fbq('track', 'InitiateCheckout', { value: v.value, currency: v.currency }, { eventID: eventId }); } catch (e) {}
-        try { if (window.StrideTrack) StrideTrack.push('begin_checkout', { value: v.value, currency: v.currency }); } catch (e) {}
+        try { if (window.StrideTrack) StrideTrack.pushWithEmail('begin_checkout', { value: v.value, currency: v.currency }, email); } catch (e) {}
         try { sessionStorage.setItem('stride_checkout_value', JSON.stringify({ value: v.value, currency: v.currency })); } catch (e) {}
         strideOpenCheckout(url);
         return true;
@@ -4404,7 +4465,7 @@ function openBuy() { toggleBuyModal(); }
         try { if (window.fbq) fbq('track', 'InitiateCheckout', { value: _orderValue.value, currency: _orderValue.currency }, { eventID: eventId }); } catch (e) {}
         // The same moment for GA4, and the cart's money kept for welcome.html, whose purchase
         // event would otherwise only know the $99 floor.
-        try { if (window.StrideTrack) StrideTrack.push('begin_checkout', { value: _orderValue.value, currency: _orderValue.currency }); } catch (e) {}
+        try { if (window.StrideTrack) StrideTrack.pushWithEmail('begin_checkout', { value: _orderValue.value, currency: _orderValue.currency }, email); } catch (e) {}
         try { sessionStorage.setItem('stride_checkout_value', JSON.stringify({ value: _orderValue.value, currency: _orderValue.currency })); } catch (e) {}
 
         // eventId, fbc, fbp, ua were computed above (before the buyer_lead
