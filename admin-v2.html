@@ -318,6 +318,49 @@ pre.part{white-space:pre-wrap;word-break:break-word;font:400 11.5px/1.5 var(--mo
 #toast{position:fixed;bottom:calc(18px + env(safe-area-inset-bottom,0px));right:18px;z-index:90;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13px;box-shadow:var(--shadow);max-width:min(420px,calc(100vw - 36px))}
 #toast.bad{border-color:var(--bad)}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+/* Reviews: the owners' answers, made ready for the site */
+.rev-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 16px}
+.rev-bar .seg{flex-wrap:wrap}
+.rev-bar .seg small{color:var(--ink-3);font-size:11px;margin-left:3px}
+.rev-bar .grow,.rev-acts .grow{flex:1}
+.rev{display:grid;gap:14px}
+.rev-h{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+.rev-h .who{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.rev-h .who b{font-size:15px;color:var(--ink)}
+.rev-h .meta{color:var(--ink-3);font-size:12px;word-break:break-all}
+.rev-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.rev-grid{grid-template-columns:1fr}}
+.rev .kicker{display:block;margin-bottom:6px}
+.rev-said{margin:0;padding:10px 12px;border-left:3px solid var(--line);background:var(--surface-2);border-radius:6px;white-space:pre-line;color:var(--ink-2);font-size:13.5px;line-height:1.55;word-break:break-word}
+.rev-said-meta{margin-top:6px;font-size:12px;color:var(--ink-3);word-break:break-word}
+.rev-said-meta a{color:var(--accent-ink)}
+.rev-stale{margin:0;padding:8px 10px;border-left:3px solid var(--warn);background:var(--surface-2);border-radius:6px;font-size:12.5px;color:var(--ink-2)}
+.rev-form{display:grid;gap:10px}
+.rev-form label{display:grid;gap:4px;font-size:12px;color:var(--ink-3)}
+.rev-form label>span b{color:var(--ink-2);font-weight:600}
+.rev-form .txt,.rev-form textarea{width:100%;font:inherit;font-size:13px;color:var(--ink)}
+.rev-form textarea{background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:7px 9px;resize:vertical;line-height:1.5}
+.rev-form .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:520px){.rev-form .row2{grid-template-columns:1fr}}
+.rev-form label.rev-ok{display:flex;gap:8px;align-items:flex-start;color:var(--ink-2);font-size:12.5px}
+.rev-ok input{margin-top:2px;accent-color:var(--accent-deep)}
+.rev-photo{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.rev-photo img,.rev-photo .ph{width:56px;height:56px;border-radius:50%;object-fit:cover;border:1px solid var(--line);background:var(--surface-2);flex:none}
+.rev-photo .btn{cursor:pointer}
+.rev-acts{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--line-soft)}
+.rev-acts .sel{margin-left:6px}
+/* The homepage's testimonial card, in its own dark colours whatever this page's theme */
+.rev-card{margin:0;background:#1d1b16;border:1px solid rgba(216,201,176,.11);border-radius:16px;padding:20px 20px 16px;display:flex;flex-direction:column;gap:12px;font-family:var(--sans)}
+.rev-card .mark{font-size:36px;line-height:.6;color:#9a8cbb;opacity:.5}
+.rev-card blockquote{margin:0;color:#b8ad9b;font-size:15px;line-height:1.6;white-space:pre-line;word-break:break-word}
+.rev-card blockquote b{color:#ece4d6;font-weight:700}
+.rev-card figcaption{display:flex;gap:12px;align-items:center;padding-top:12px;border-top:1px solid rgba(216,201,176,.11)}
+.rev-card .av{width:52px;height:52px;border-radius:50%;object-fit:cover;flex:none;border:1px solid rgba(84,75,109,.55);background:#252119;display:grid;place-items:center;color:#857c6e;font:700 15px/1 var(--sans)}
+.rev-card .nm{display:block;font-weight:900;color:#ece4d6;font-size:16px;line-height:1.2}
+.rev-card .tl{display:block;font:800 10.5px/1.3 var(--sans);letter-spacing:.2em;text-transform:uppercase;color:#9a8cbb;margin-top:4px}
+.rev-card .ln{display:flex;gap:6px;flex-wrap:wrap}
+.rev-card .ln span{font:400 11px/1 var(--mono);padding:5px 7px;border:1px solid rgba(216,201,176,.11);border-radius:8px;color:#857c6e;word-break:break-all}
+.rev-card .gap{color:#fab219;font-weight:600;letter-spacing:0;text-transform:none}
 </style>
 </head>
 <body>
@@ -377,6 +420,7 @@ pre.part{white-space:pre-wrap;word-break:break-word;font:400 11.5px/1.5 var(--mo
   <section class="panel stack" id="p-demo" role="tabpanel" aria-labelledby="t-demo" hidden></section>
   <section class="panel stack" id="p-email" role="tabpanel" aria-labelledby="t-email" hidden></section>
   <section class="panel stack" id="p-campaigns" role="tabpanel" aria-labelledby="t-campaigns" hidden></section>
+  <section class="panel stack" id="p-reviews" role="tabpanel" aria-labelledby="t-reviews" hidden></section>
   <section class="panel stack" id="p-expenses" role="tabpanel" aria-labelledby="t-expenses" hidden></section>
   <section class="panel stack" id="p-crm" role="tabpanel" aria-labelledby="t-crm" hidden></section>
   <section class="panel stack" id="p-settings" role="tabpanel" aria-labelledby="t-settings" hidden></section>
@@ -621,7 +665,7 @@ const kindOf = ad => S.campaignKinds[ad.campaign_id] || ad.kind0 || 'purchase';
 
 /* ---------- filters ---------- */
 const F = { range: 'last30', compare: true, channel: 'all', model: 'blended', from: null, to: null };
-const TABS = [['overview', 'Overview'], ['funnel', 'Funnel'], ['creative', 'Creative'], ['landing', 'Landing'], ['checkout', 'Checkout & revenue'], ['demo', 'Demo'], ['email', 'Email flows'], ['campaigns', 'Mailing campaigns'], ['expenses', 'Expenses'], ['crm', 'CRM'], ['settings', 'Settings']];
+const TABS = [['overview', 'Overview'], ['funnel', 'Funnel'], ['creative', 'Creative'], ['landing', 'Landing'], ['checkout', 'Checkout & revenue'], ['demo', 'Demo'], ['email', 'Email flows'], ['campaigns', 'Mailing campaigns'], ['reviews', 'Reviews'], ['expenses', 'Expenses'], ['crm', 'CRM'], ['settings', 'Settings']];
 let TAB = 'overview';
 let SEL_AD = null;
 // Meta's date ranges, as Ads Manager's picker lists them (Yossi 2026-10-15), in Israel days, so a
@@ -2182,6 +2226,300 @@ function renderCampaigns() {
     + `<p class="note">Delivered and bounced are shares of the sends Resend has reported on; opened and clicked of those delivered. Apple Mail loads every image, so some opens are not a person reading. Suppressed = Resend held it back (the address bounced or complained before). Failed = the provider refused it, or a run stopped before sending (never retried blind).</p>`;
 }
 
+/* ---------- Reviews ---------- */
+/* The owners' answers to the review mail (stride-flows review_invite): from the form on
+   stridehub.io/review, or pasted here from an email reply. Each is made ready for the site beside
+   the owner's own answer, never over it: the words as they will read (**double stars** bold a
+   phrase, like the homepage cards), the name, a style line, links and a square photo. Ready = the
+   owner said yes, it is set to Using, and nothing is missing. It reaches the site with a deploy;
+   then it is set to Live here. Read with its own call (reviews_admin), apart from the dashboard
+   data, which holds no person. Only the admin edits; the other viewer reads, without addresses. */
+const REV_STAGES = [['new', 'New'], ['using', 'Using'], ['live', 'Live'], ['skip', 'Not using']];
+const REV_FILTERS = [['all', 'All'], ['new', 'New'], ['using', 'Using'], ['ready', 'Ready to go live'], ['live', 'Live'], ['skip', 'Not using']];
+const REV_NEEDS = [['consent', 'OK to feature'], ['quote', 'words'], ['name', 'name'], ['photo', 'photo'], ['tagline', 'style line']];
+const REV = { list: null, loading: false, err: '', canEdit: false, filter: 'all', tests: false, adding: false, addDraft: {}, drafts: {}, busy: {} };
+let revWired = false;
+const revDirty = () => Object.keys(REV.drafts).length > 0;
+const revMissing = (consent, s) => REV_NEEDS.map(n => n[0]).filter(k => (k === 'consent' ? !consent : !s[k]));
+const revReady = r => r.site.stage === 'using' && !r.missing.length;
+const revBold = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+const revHost = u => { try { const x = new URL(u); return (x.hostname.replace(/^www\./, '') + x.pathname).replace(/\/+$/, ''); } catch (e) { return u; } };
+const revDay = ms => ms ? new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+const revInitials = n => (n || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
+const revBox = id => [...document.querySelectorAll('#p-reviews [data-rev]')].find(b => b.dataset.rev === id);
+
+// The review as it stands on screen: the saved version with any unsaved edits on top.
+function revCur(r) {
+  const d = REV.drafts[r.id];
+  if (!d) return { site: r.site, consent: r.consent, missing: r.missing };
+  const site = { ...r.site, ...d.site };
+  const consent = 'consent' in d ? d.consent : r.consent;
+  return { site, consent, missing: revMissing(consent, site) };
+}
+// Filters and counts read what is SAVED, so a card never jumps out of view while it is edited.
+function revIn(r, f) {
+  if (r.test && !REV.tests) return false;
+  const st = r.site.stage;
+  if (f === 'ready') return revReady(r);
+  return f === 'all' || st === f;
+}
+
+async function loadReviews() {
+  REV.loading = true; REV.err = '';
+  if (TAB === 'reviews') renderReviews();
+  try {
+    const r = await api('reviews_admin');
+    REV.list = r.reviews || []; REV.canEdit = !!r.can_edit;
+    for (const id of Object.keys(REV.drafts)) if (!REV.list.some(x => x.id === id)) delete REV.drafts[id];
+  } catch (e) { REV.err = e.message; }
+  REV.loading = false;
+  if (TAB === 'reviews') renderReviews();
+}
+
+function revPreviewHTML(s) {
+  const links = (s.links || []).filter(Boolean);
+  return `<figure class="rev-card">
+    <span class="mark" aria-hidden="true">&ldquo;</span>
+    <blockquote>${s.quote ? revBold(s.quote) : '<span class="gap">No words for the site yet</span>'}</blockquote>
+    <figcaption>${s.photo ? `<img class="av" src="${esc(s.photo)}" alt="">` : `<span class="av" aria-hidden="true">${esc(revInitials(s.name))}</span>`}
+      <span><span class="nm">${s.name ? esc(s.name) : '<span class="gap">No name</span>'}</span><span class="tl">${s.tagline ? esc(s.tagline) : '<span class="gap">No style line</span>'}</span></span></figcaption>
+    ${links.length ? `<div class="ln">${links.map(l => `<span>${esc(revHost(l))}</span>`).join('')}</div>` : ''}
+  </figure>`;
+}
+function revChecksHTML(cur) {
+  return `<div class="chips" aria-label="What the site needs">${REV_NEEDS.map(([k, label]) => cur.missing.includes(k)
+    ? `<span class="chip miss">missing: ${esc(label)}</span>` : `<span class="chip">&#10003; ${esc(label)}</span>`).join('')}</div>`;
+}
+function revCardHTML(r) {
+  const cur = revCur(r), s = cur.site, d = REV.drafts[r.id], edit = REV.canEdit;
+  const stale = r.saved && s.based_on_revision && r.revision > s.based_on_revision;
+  const ready = s.stage === 'using' && !cur.missing.length;
+  const stageLabel = (REV_STAGES.find(x => x[0] === s.stage) || REV_STAGES[0])[1];
+  const said = `<div><span class="kicker">Their words${r.revision > 1 ? ` · version ${r.revision}` : ''}</span>
+    <p class="rev-said">${esc(r.quote)}</p>
+    <div class="rev-said-meta">${r.display_name ? `Name they gave: <b>${esc(r.display_name)}</b>` : 'No name given'}${r.link ? ` · <a href="${esc(r.link)}" target="_blank" rel="noopener noreferrer">${esc(revHost(r.link))}</a>` : ''}</div></div>`;
+  const yesNote = r.source === 'reply' ? 'from their reply'
+    : r.consent ? 'they ticked it on the form' : 'not ticked on the form: tick it only if they said yes by mail';
+  const form = edit ? `<div class="rev-form">
+      <label><span><b>Words for the site</b>, wrap a phrase in **double stars** to bold it</span><textarea rows="4" data-f="quote" maxlength="1200">${esc(s.quote)}</textarea></label>
+      <div class="row2"><label><span><b>Name on the card</b></span><input class="txt" data-f="name" value="${esc(s.name)}" maxlength="80"></label>
+        <label><span><b>Style line</b> under the name</span><input class="txt" data-f="tagline" value="${esc(s.tagline)}" maxlength="80" placeholder="Experimental &amp; Psychedelic"></label></div>
+      <label><span><b>Links</b>, one per line, up to 4</span><textarea rows="2" data-f="links" placeholder="https://soundcloud.com/...">${esc((s.links || []).join('\n'))}</textarea></label>
+      <div class="rev-photo">${s.photo ? `<img src="${esc(s.photo)}" alt="Photo for the card">` : '<span class="ph" aria-hidden="true"></span>'}
+        <label class="btn sm">${s.photo ? 'Replace photo' : 'Add photo'}<input type="file" accept="image/*" data-photo hidden></label>
+        ${s.photo ? '<button type="button" class="link" data-photo-del>Remove photo</button>' : '<span class="note">cropped square, from 120 px</span>'}</div>
+      <label class="rev-ok"><input type="checkbox" data-f="consent"${cur.consent ? ' checked' : ''}><span>OK to feature on the site <span class="note">(${esc(yesNote)})</span></span></label>
+      <label><span><b>Note</b>, only here, never on the site</span><textarea rows="2" data-f="notes" maxlength="1000">${esc(s.notes)}</textarea></label>
+    </div>` : (s.notes ? `<p class="note"><b>Note:</b> ${esc(s.notes)}</p>` : '');
+  const state = REV.busy[r.id] ? 'Saving…' : d ? 'Unsaved changes' : r.saved ? `Saved ${revDay(s.updated_at_ms)}` : 'Not saved yet';
+  const acts = edit ? `<div class="rev-acts">
+      <label class="saved">Stage<select class="sel" data-f="stage">${REV_STAGES.map(([v, l]) => `<option value="${v}"${s.stage === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+      <span class="grow"></span>
+      ${r.source === 'reply' ? '<button type="button" class="link" data-del>Remove</button>' : ''}
+      <span class="saved" data-state>${esc(state)}</span>
+      <button type="button" class="btn primary" data-save${d && !REV.busy[r.id] ? '' : ' disabled'}>Save</button>
+    </div>` : `<div class="rev-acts"><span class="saved">Stage: ${esc(stageLabel)}</span></div>`;
+  return `<div class="card rev" data-rev="${esc(r.id)}">
+    <div class="rev-h"><div class="who"><b>${esc(s.name || r.display_name || 'No name yet')}</b>
+      <span class="pill">${r.source === 'reply' ? 'Email reply' : 'Form'}</span>
+      <span class="pill ${cur.consent ? 'published' : 'draft'}">${cur.consent ? 'OK to feature' : 'Private'}</span>
+      ${ready ? '<span class="pill published">Ready to go live</span>' : ''}${s.stage === 'live' ? '<span class="pill published">Live</span>' : ''}${s.stage === 'skip' ? '<span class="pill">Not using</span>' : ''}${r.test ? '<span class="tag">test</span>' : ''}</div>
+      <div class="meta">${esc(revDay(r.submitted_at_ms))}${r.email ? ` · ${esc(r.email)}` : ''}</div></div>
+    <div class="rev-grid">
+      <div class="stack" style="gap:12px">${said}${stale ? '<p class="rev-stale">They changed their words after you last saved. Check the words for the site against their new version.</p>' : ''}
+        <div><span class="kicker">For the site</span><div data-checks>${revChecksHTML(cur)}</div></div>${form}</div>
+      <div><span class="kicker">On the homepage it would read</span><div data-preview>${revPreviewHTML(s)}</div></div>
+    </div>
+    ${acts}
+  </div>`;
+}
+function revAddHTML() {
+  const a = REV.addDraft;
+  return card('Add an email reply', 'paste what they wrote; it is kept like a form answer, marked as a reply', `<div class="rev-form">
+    <div class="row2"><label><span><b>Their email</b>, one reply per address</span><input class="txt" data-a="email" type="email" maxlength="200" value="${esc(a.email || '')}"></label>
+      <label><span><b>Name</b> they want on it</span><input class="txt" data-a="display_name" maxlength="80" value="${esc(a.display_name || '')}"></label></div>
+    <label><span><b>What they wrote</b>, the part you want to keep</span><textarea rows="4" data-a="quote" maxlength="2000">${esc(a.quote || '')}</textarea></label>
+    <label><span><b>Link</b> to their music or profile</span><input class="txt" data-a="link" maxlength="300" value="${esc(a.link || '')}"></label>
+    <label class="rev-ok"><input type="checkbox" data-a="consent"${a.consent ? ' checked' : ''}><span>They said I can feature it on the site</span></label>
+    <div class="rev-acts"><span class="grow"></span><button type="button" class="btn primary" data-rev-addsave>Add the reply</button></div>
+  </div>`);
+}
+function renderReviews() {
+  const el = $('p-reviews');
+  wireReviews();
+  if (REV.list === null && !REV.loading && !REV.err) { loadReviews(); return; }
+  if (REV.list === null) {
+    el.innerHTML = card('Reviews', '', REV.err
+      ? `<p class="note">Could not read the reviews: ${esc(REV.err)}</p><button type="button" class="btn" data-rev-reload>Try again</button>`
+      : '<p class="empty">Reading the reviews…</p>');
+    return;
+  }
+  const all = REV.list.filter(r => REV.tests || !r.test);
+  const tiles = [
+    tileHTML({ label: 'Answers', value: fmt.num(all.length), src: 'the form and email replies' }),
+    tileHTML({ label: 'OK to feature', value: fmt.num(all.filter(r => r.consent).length), src: 'said yes' }),
+    tileHTML({ label: 'Ready to go live', value: fmt.num(all.filter(revReady).length), src: 'Using, nothing missing' }),
+    tileHTML({ label: 'Live on the site', value: fmt.num(all.filter(r => r.site.stage === 'live').length), src: 'set to Live' }),
+  ].join('');
+  const bar = `<div class="card rev-bar">
+    <div class="seg" role="group" aria-label="Show">${REV_FILTERS.map(([id, label]) => `<button type="button" data-rev-filter="${id}" aria-pressed="${REV.filter === id}">${esc(label)}<small>${REV.list.filter(r => revIn(r, id)).length}</small></button>`).join('')}</div>
+    <label class="saved"><input type="checkbox" data-rev-tests${REV.tests ? ' checked' : ''}> Show test answers</label>
+    <span class="grow"></span>
+    ${REV.canEdit ? `<button type="button" class="btn" data-rev-add aria-expanded="${REV.adding}">${REV.adding ? 'Close' : 'Add an email reply'}</button>` : ''}
+    <button type="button" class="btn" data-rev-reload${REV.loading ? ' disabled' : ''}>${REV.loading ? 'Reading…' : 'Reload'}</button>
+  </div>`;
+  const shown = REV.list.filter(r => revIn(r, REV.filter));
+  const list = shown.length ? shown.map(revCardHTML).join('')
+    : card('Nothing here', '', `<p class="empty">${all.length ? 'No answer matches this filter.' : 'No answers yet. They show up here the moment an owner sends the form. Replies to the mail can be added with Add an email reply.'}</p>`);
+  el.innerHTML = `<div class="tiles">${tiles}</div>${bar}${REV.adding && REV.canEdit ? revAddHTML() : ''}${list}
+    <p class="note">Ready to go live = they said yes, it is set to Using, and the words, name, photo and style line are all in. It goes on the site with a deploy (the homepage quotes are translated into the six other languages first); then set it to Live here. Every form answer also lands in Discord the moment it is sent.</p>`;
+}
+
+// Edits only touch the preview, the checklist and the save button, so the field being typed in
+// keeps its focus. A change of stage or of the yes redraws the whole card (its badges move).
+function revSetDraft(id, patch, redraw) {
+  const r = REV.list && REV.list.find(x => x.id === id);
+  if (!r) return;
+  const d = REV.drafts[id] || { site: {} };
+  if ('consent' in patch) d.consent = patch.consent;
+  Object.assign(d.site, patch.site || {});
+  REV.drafts[id] = d;
+  const box = revBox(id);
+  if (!box) return;
+  if (redraw) {
+    const t = document.createElement('div');
+    t.innerHTML = revCardHTML(r);
+    box.replaceWith(t.firstElementChild);
+    return;
+  }
+  const cur = revCur(r);
+  box.querySelector('[data-preview]').innerHTML = revPreviewHTML(cur.site);
+  box.querySelector('[data-checks]').innerHTML = revChecksHTML(cur);
+  const st = box.querySelector('[data-state]'); if (st) st.textContent = 'Unsaved changes';
+  const sv = box.querySelector('[data-save]'); if (sv) sv.disabled = false;
+}
+function revField(box, t) {
+  const f = t.dataset.f;
+  if (f === 'consent') return revSetDraft(box.dataset.rev, { consent: t.checked }, true);
+  if (f === 'stage') return revSetDraft(box.dataset.rev, { site: { stage: t.value } }, true);
+  if (f === 'links') return revSetDraft(box.dataset.rev, { site: { links: t.value.split(/\n+/).map(x => x.trim()).filter(Boolean) } });
+  revSetDraft(box.dataset.rev, { site: { [f]: t.value } });
+}
+// A square from the middle of the picture, 320 px, as a JPEG the backend keeps with the review.
+function revSquarePhoto(file) {
+  return new Promise((resolve, reject) => {
+    if (!/^image\//.test(file.type || '')) { reject(new Error('Pick a picture file (JPEG, PNG or WebP).')); return; }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const side = Math.min(img.naturalWidth, img.naturalHeight);
+      if (side < 120) { reject(new Error('That picture is too small: at least 120 px on its short side.')); return; }
+      const c = document.createElement('canvas');
+      c.width = c.height = 320;
+      const g = c.getContext('2d');
+      g.imageSmoothingQuality = 'high';
+      g.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, 320, 320);
+      resolve(c.toDataURL('image/jpeg', 0.86));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('That file could not be read as a picture. An iPhone HEIC photo needs to be saved as JPEG first.')); };
+    img.src = url;
+  });
+}
+async function revSave(id) {
+  const r = REV.list.find(x => x.id === id), d = REV.drafts[id];
+  if (!r || !d || REV.busy[id]) return;
+  const s = revCur(r).site;
+  const body = { id, site: { stage: s.stage, quote: s.quote, name: s.name, tagline: s.tagline, links: s.links || [], photo: s.photo || '', notes: s.notes } };
+  if ('consent' in d) body.consent = !!d.consent;
+  REV.busy[id] = true;
+  revSetDraft(id, {}, true);
+  try {
+    const res = await api('review_admin_save', body);
+    const i = REV.list.findIndex(x => x.id === id);
+    if (i >= 0 && res.review) REV.list[i] = res.review;
+    delete REV.drafts[id];
+    toast('Saved.');
+  } catch (e) {
+    toast('Could not save: ' + e.message, true);
+  }
+  delete REV.busy[id];
+  renderReviews();
+}
+async function revAdd(btn) {
+  const a = REV.addDraft;
+  btn.disabled = true;
+  try {
+    const res = await api('review_admin_add', { email: a.email || '', display_name: a.display_name || '', quote: a.quote || '', link: a.link || '', consent: !!a.consent });
+    if (res.review) REV.list.unshift(res.review);
+    REV.addDraft = {}; REV.adding = false; REV.filter = 'all';
+    toast('Reply added.');
+    renderReviews();
+  } catch (e) {
+    toast('Could not add it: ' + e.message, true);
+    btn.disabled = false;
+  }
+}
+async function revDelete(id) {
+  const r = REV.list.find(x => x.id === id);
+  if (!r) return;
+  const who = r.display_name || r.email || 'This reply';
+  if (!(await ask({ title: 'Remove this reply?', body: `<p>${esc(who)} leaves the list for good. Only replies added here can be removed; a form answer is set to Not using instead.</p>`, yes: 'Remove', danger: true }))) return;
+  try {
+    await api('review_admin_delete', { id });
+    REV.list = REV.list.filter(x => x.id !== id);
+    delete REV.drafts[id];
+    toast('Removed.');
+    renderReviews();
+  } catch (e) { toast('Could not remove it: ' + e.message, true); }
+}
+function wireReviews() {
+  if (revWired) return;
+  revWired = true;
+  const p = $('p-reviews');
+  p.addEventListener('input', e => {
+    const t = e.target;
+    if (t.type === 'checkbox' || t.type === 'file' || t.tagName === 'SELECT') return;
+    if (t.dataset.a) { REV.addDraft[t.dataset.a] = t.value; return; }
+    const box = t.closest('[data-rev]');
+    if (box && t.dataset.f) revField(box, t);
+  });
+  p.addEventListener('change', async e => {
+    const t = e.target;
+    if (t.matches('[data-rev-tests]')) { REV.tests = t.checked; renderReviews(); return; }
+    if (t.dataset.a === 'consent') { REV.addDraft.consent = t.checked; return; }
+    const box = t.closest('[data-rev]');
+    if (!box) return;
+    if (t.matches('[data-photo]')) {
+      const file = t.files && t.files[0];
+      t.value = '';
+      if (!file) return;
+      try { revSetDraft(box.dataset.rev, { site: { photo: await revSquarePhoto(file) } }, true); }
+      catch (err) { toast(err.message, true); }
+      return;
+    }
+    if (t.dataset.f === 'consent' || t.dataset.f === 'stage') revField(box, t);
+  });
+  p.addEventListener('click', async e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.revFilter) { REV.filter = b.dataset.revFilter; renderReviews(); return; }
+    if (b.matches('[data-rev-add]')) { REV.adding = !REV.adding; renderReviews(); return; }
+    if (b.matches('[data-rev-addsave]')) { revAdd(b); return; }
+    if (b.matches('[data-rev-reload]')) {
+      if (revDirty() && !(await ask({ title: 'Reload and drop unsaved edits?', body: '<p>Some reviews have changes that are not saved.</p>', yes: 'Reload', danger: true }))) return;
+      REV.drafts = {};
+      loadReviews();
+      return;
+    }
+    const box = b.closest('[data-rev]');
+    if (!box) return;
+    if (b.matches('[data-save]')) revSave(box.dataset.rev);
+    else if (b.matches('[data-photo-del]')) revSetDraft(box.dataset.rev, { site: { photo: '' } }, true);
+    else if (b.matches('[data-del]')) revDelete(box.dataset.rev);
+  });
+}
+
 /* ---------- Expenses ---------- */
 function renderExpenses() {
   const months = [];
@@ -2335,6 +2673,7 @@ async function setTab(id) {
   if (TAB === 'email' && id !== 'email' && ED.dirty && !(await ask({ title: 'Leave unsaved changes?', body: 'The mail copy you were editing has changes that are not saved.', yes: 'Leave them', danger: true }))) return;
   if (TAB === 'email' && id !== 'email') ED.dirty = false;
   if (TAB === 'settings' && id !== 'settings' && SET_DIRTY) toast('Your benchmark changes are not saved yet: Save is on the Settings tab.', true);
+  if (TAB === 'reviews' && id !== 'reviews' && revDirty()) toast('Your review edits are kept but not saved yet: Save is on each review.', true);
   TAB = id;
   tabsEl.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === id)));
   document.querySelectorAll('.panel').forEach(p => { p.hidden = p.id !== 'p-' + id; });
@@ -2420,6 +2759,7 @@ function render() {
   else if (TAB === 'demo') renderDemo(c);
   else if (TAB === 'email') renderEmail(c);
   else if (TAB === 'campaigns') renderCampaigns();
+  else if (TAB === 'reviews') renderReviews();
   else if (TAB === 'expenses') renderExpenses();
   else if (TAB === 'crm') renderCRM();
   else if (TAB === 'settings') renderSettings(c);
@@ -2445,7 +2785,7 @@ $('signin').addEventListener('click', () => auth.signInWithPopup(new firebase.au
 $('signout1').addEventListener('click', () => auth.signOut());
 $('signout2').addEventListener('click', () => auth.signOut());
 window.addEventListener('scroll', hideTip, { passive: true });
-window.addEventListener('beforeunload', e => { if (ED.dirty || SET_DIRTY) { e.preventDefault(); e.returnValue = ''; } });
+window.addEventListener('beforeunload', e => { if (ED.dirty || SET_DIRTY || revDirty()) { e.preventDefault(); e.returnValue = ''; } });
 
 const want = (location.hash || '').slice(1);
 let lastTab = null; try { lastTab = localStorage.getItem('stride_funnel_health_tab'); } catch (e) { /* ignore */ }

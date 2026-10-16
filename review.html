@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+// The review mail (stride-flows tools/review_campaign.py) links here as /review?t=<token> plus utm
+// tags. The token is the owner's only credential, so it is taken off the address before anything
+// else runs and kept for this tab alone: a phone that reloads the tab after an app switch must not
+// lose the form, and a shared screenshot or copied address must not carry it. It must stay the
+// first script in <head>.
+(function () {
+  var s = { token: '' };
+  var OK = /^[0-9a-f]{32}$/;
+  try {
+    var u = new URL(window.location.href);
+    var t = (u.searchParams.get('t') || '').trim().toLowerCase();
+    if (OK.test(t)) s.token = t;
+    if (u.searchParams.has('t')) {
+      u.searchParams.delete('t');
+      history.replaceState(null, '', u.pathname + u.search + u.hash);
+    }
+  } catch (e) {}
+  try {
+    if (s.token) sessionStorage.setItem('stride_review_t', s.token);
+    else {
+      var kept = sessionStorage.getItem('stride_review_t') || '';
+      if (OK.test(kept)) s.token = kept;
+    }
+  } catch (e) {}
+  window.STRIDE_REVIEW = s;
+})();
+</script>
+<title>Share your experience | Stride</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Tell other producers what Stride has helped you do in your sessions.">
+<meta name="theme-color" content="#141310">
+<link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="preload" as="font" type="font/woff2" href="/assets/fonts/outfit-latin.woff2" crossorigin>
+<style>
+  @font-face{font-family:'Outfit';font-style:normal;font-weight:300 900;font-display:swap;src:url(/assets/fonts/outfit-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+  @font-face{font-family:'Outfit';font-style:normal;font-weight:300 900;font-display:swap;src:url(/assets/fonts/outfit-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+  /* The homepage's palette, verbatim (legacy/pages/index.html :root). */
+  :root{
+    --bg:#141310; --bg2:#191611; --panel:#1d1b16; --raise:#252119; --line:rgba(216,201,176,.11);
+    --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
+    --copper:#c6712b; --copper-lt:#dd9a52; --ember:#e58a2e;
+    --violet-lt:#9a8cbb; --rose-lt:#c5807f;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:'Outfit',system-ui,sans-serif;background:var(--bg);color:var(--ink2);
+    -webkit-font-smoothing:antialiased;min-height:100vh;padding:40px 16px 56px}
+  body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(120% 80% at 50% -10%, rgba(198,113,43,.08), transparent 60%),
+               radial-gradient(100% 60% at 50% 110%, rgba(47,116,142,.05), transparent 60%)}
+  ::selection{background:rgba(198,113,43,.3)}
+  main{position:relative;z-index:1;width:100%;max-width:580px;margin:0 auto}
+  .lockup{display:flex;align-items:center;gap:12px;margin:0 0 22px 4px}
+  .brand{font-size:21px;font-weight:900;letter-spacing:.16em;text-decoration:none;
+    background:linear-gradient(90deg,var(--copper-lt),var(--ember));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .silk{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--ink3)}
+  .lockup .silk{padding-left:12px;border-left:1px solid rgba(216,201,176,.14)}
+  .panel{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(0,0,0,.14)),var(--panel);
+    border:1px solid var(--line);border-radius:18px;
+    box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 24px 50px -30px rgba(0,0,0,.9);padding:34px 32px 30px}
+  h1,h2{color:var(--ink);font-weight:900;letter-spacing:-.015em;margin:0}
+  h1{font-size:30px;line-height:1.15;margin-top:12px}
+  h2{font-size:26px;line-height:1.2}
+  h1 .lit{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  p{margin:0;font-size:16px;line-height:1.65}
+  .lead{margin-top:14px}
+  form{margin-top:28px}
+  .field{margin-top:20px}
+  .field:first-child{margin-top:0}
+  label.top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+    color:var(--ink);font-size:15px;font-weight:700;margin-bottom:8px}
+  label.top .opt{color:var(--ink3);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+  textarea,input[type=text]{display:block;width:100%;font:inherit;font-size:16px;line-height:1.55;color:var(--ink);
+    background:rgba(0,0,0,.28);border:1px solid rgba(216,201,176,.16);border-radius:12px;padding:13px 15px;
+    transition:border-color .15s,box-shadow .15s;-webkit-appearance:none;appearance:none}
+  textarea{min-height:128px;resize:vertical}
+  textarea::placeholder,input::placeholder{color:#6f675b}
+  textarea:focus,input[type=text]:focus{outline:none;border-color:rgba(221,154,82,.65);box-shadow:0 0 0 3px rgba(198,113,43,.18)}
+  .bad textarea,.bad input[type=text]{border-color:rgba(197,128,127,.75)}
+  .note{margin-top:7px;font-size:13px;line-height:1.5;color:var(--ink3)}
+  .note.warn{color:var(--rose-lt)}
+  .count{color:var(--ink3);font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums}
+  .count.low{color:var(--copper-lt)}
+
+  /* How the words would sit on the site: the homepage's testimonial card, in miniature. */
+  .preview{margin-top:26px}
+  .preview .silk{display:block;margin-bottom:10px}
+  .quote-card{background:rgba(0,0,0,.2);border:1px solid var(--line);border-radius:14px;padding:20px 20px 16px;transition:opacity .2s}
+  .quote-card .mark{display:block;font-size:38px;line-height:.6;color:var(--violet-lt);opacity:.5;margin-bottom:10px}
+  .quote-card blockquote{margin:0;color:var(--ink2);font-size:16px;line-height:1.6;white-space:pre-line;word-wrap:break-word}
+  .quote-card .who{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);display:flex;
+    align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .quote-card .who b{color:var(--ink);font-weight:900;font-size:16px}
+  .quote-card .who span{color:var(--copper-lt);font-size:13px;font-weight:600;word-break:break-all}
+  .preview.private .quote-card{opacity:.55}
+
+  .consent{display:flex;gap:12px;align-items:flex-start;margin-top:24px;cursor:pointer;
+    background:rgba(198,113,43,.06);border:1px solid rgba(198,113,43,.22);border-radius:12px;padding:14px 15px}
+  .consent input{flex:none;width:20px;height:20px;margin:2px 0 0;accent-color:var(--copper);cursor:pointer}
+  .consent span{color:var(--ink);font-size:15px;line-height:1.5;font-weight:600}
+  .consent small{display:block;margin-top:3px;color:var(--ink3);font-size:13px;font-weight:400}
+
+  .send{display:flex;width:100%;justify-content:center;align-items:center;gap:.6rem;margin-top:24px;
+    padding:16px 22px;font:inherit;font-size:16px;font-weight:900;letter-spacing:.04em;color:#1c1206;
+    background:linear-gradient(180deg,var(--ember),var(--copper));border:1px solid rgba(255,210,150,.25);border-radius:14px;
+    box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 12px 24px -14px rgba(198,113,43,.8);cursor:pointer;
+    transition:transform .15s,filter .15s,opacity .15s}
+  .send:hover{transform:translateY(-2px);filter:brightness(1.06)}
+  .send:focus-visible{outline:2px solid var(--copper-lt);outline-offset:3px}
+  .send[disabled]{opacity:.6;cursor:default;transform:none;filter:none}
+  .status{margin-top:12px;font-size:14px;line-height:1.55;color:var(--rose-lt);min-height:0}
+  .status:empty{display:none}
+  .again{margin-top:16px;font-size:14px;color:var(--ink3)}
+  .alt{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);font-size:14.5px;color:var(--ink3)}
+  .alt b{color:var(--ink2);font-weight:700}
+
+  .done p+p{margin-top:12px}
+  .done .small{font-size:14px;color:var(--ink3)}
+  .sign{margin-top:26px;color:var(--ink);font-weight:800;font-size:16px}
+  .sign span{display:block;color:var(--ink3);font-weight:400;font-size:13px;margin-top:2px}
+  .home{display:block;margin-top:18px;text-align:center;font-size:13px}
+  .home a{color:var(--ink3);text-decoration:none;font-weight:600}
+  .home a:hover{color:var(--copper-lt)}
+  [hidden]{display:none!important}
+  main[data-view="loading"] .panel{opacity:.6}
+
+  @media (max-width:520px){
+    body{padding:28px 16px 44px}
+    .panel{padding:26px 20px 24px;border-radius:16px}
+    h1{font-size:25px}
+    h2{font-size:23px}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<script>window.STRIDE_LANGS=["en"]</script>
+<script>(function () {
+  function send() {
+    try {
+      if (!navigator.sendBeacon) return;
+      var L = ["de","es","fr","it","ja","zh"], K = {"":"home","try":"try","samples":"samples","setup":"setup","session":"session","welcome":"welcome","post":"post","post2":"post2","blog":"blog","tv":"tv","tools":"tool","vst3":"how","how-it-works":"how","privacy":"legal","terms":"legal","refund":"legal"};
+      var path = location.pathname.replace(/\/index\.html$/, '/').replace(/\.html$/, '').replace(/\/+$/, '');
+      var seg = path.split('/');
+      if (seg[1] && L.indexOf(seg[1]) >= 0) seg.splice(1, 1);
+      var first = seg[1] || '';
+      var p = Object.prototype.hasOwnProperty.call(K, first) ? K[first] : 'other';
+      var q = new URLSearchParams(location.search), rh = '';
+      try { rh = document.referrer ? new URL(document.referrer).hostname : ''; } catch (e) {}
+      var nav = (window.performance && performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {};
+      var here = location.hostname.replace(/^www\./, ''), c = 'direct', a = '';
+      if (nav.type === 'reload' || nav.type === 'back_forward' || (rh && rh.replace(/^www\./, '') === here)) c = 'internal';
+      else {
+        var ad = (q.get('ad_id') || '').trim(), s = (q.get('utm_source') || '').trim().toLowerCase();
+        if (/^\d{6,24}$/.test(ad)) { c = 'meta'; a = ad; }
+        else if (q.get('gclid') || q.get('wbraid') || q.get('gbraid')) c = 'google';
+        else if (/^(stride|email|newsletter|resend|mail)$/.test(s)) c = 'email';
+        else if (/^(ig|instagram|insta|ig_bio|instagram_bio)$/.test(s)) c = 'ig';
+        else if (/^(yt|youtube)$/.test(s)) c = 'yt';
+        else if (/^(google|adwords|google_ads|gads)$/.test(s)) c = 'google';
+        else if (/^(facebook|fb|meta)$/.test(s) || q.get('fbclid')) c = 'meta';
+        else if (/(^|\.)instagram\.com$/.test(rh)) c = 'ig';
+        else if (/(^|\.)(youtube\.com|youtu\.be)$/.test(rh)) c = 'yt';
+      }
+      navigator.sendBeacon("https://generate-midi-z3spyrafvq-uc.a.run.app", JSON.stringify({ action: 'pv', p: p, c: c, a: a }));
+    } catch (e) {}
+  }
+  if (document.prerendering) document.addEventListener('prerenderingchange', send, { once: true });
+  else send();
+})();</script>
+</head>
+<body>
+<main id="app" data-view="loading">
+  <div class="lockup"><a class="brand" href="/">STRIDE</a><span class="silk">Sound Design Engine</span></div>
+
+  <section class="panel" id="view-form" aria-labelledby="ask">
+    <span class="silk">From the Stride community</span>
+    <h1 id="ask">What has Stride helped you do <span class="lit">in your sessions?</span></h1>
+    <p class="lead">A sentence or two is plenty. Maybe you found an unexpected sound, brought an old rack back to life, or just had more fun experimenting.</p>
+    <p class="again" id="again" hidden></p>
+
+    <form id="review" novalidate>
+      <div class="field" id="f-quote">
+        <label class="top" for="quote">Your experience <span class="count" id="count" aria-live="polite"></span></label>
+        <textarea id="quote" name="quote" maxlength="800" rows="4" placeholder="In your own words" aria-describedby="quote-note"></textarea>
+        <p class="note" id="quote-note">No need to polish it. Your own words are the point.</p>
+      </div>
+
+      <div class="field" id="f-name">
+        <label class="top" for="name">Display or artist name</label>
+        <input type="text" id="name" name="display_name" maxlength="80" autocomplete="nickname" placeholder="How you'd like to be credited" aria-describedby="name-note">
+        <p class="note" id="name-note" hidden></p>
+      </div>
+
+      <div class="field" id="f-link">
+        <label class="top" for="link">Link to your music or profile <span class="opt">Optional</span></label>
+        <input type="text" id="link" name="link" maxlength="300" inputmode="url" autocomplete="url" autocapitalize="off" spellcheck="false" placeholder="soundcloud.com/yourname" aria-describedby="link-note">
+        <p class="note" id="link-note">SoundCloud, Spotify, Bandcamp, Instagram, YouTube, your own site.</p>
+      </div>
+
+      <div class="preview" id="preview" hidden aria-hidden="true">
+        <span class="silk" id="preview-label">How it could look on stridehub.io</span>
+        <figure class="quote-card" style="margin:0">
+          <span class="mark">&ldquo;</span>
+          <blockquote id="pv-quote"></blockquote>
+          <figcaption class="who"><b id="pv-name"></b><span id="pv-link"></span></figcaption>
+        </figure>
+      </div>
+
+      <label class="consent" for="consent">
+        <input type="checkbox" id="consent" name="consent">
+        <span>You can feature my words, name and link on the Stride website.
+          <small>Leave it unticked to keep it private.</small></span>
+      </label>
+
+      <button class="send" type="submit" id="send">Send it</button>
+      <p class="status" id="status" role="alert"></p>
+    </form>
+
+    <p class="alt"><b>Prefer email?</b> Just reply to my message with a sentence or two. It counts the same.</p>
+    <p class="sign">Joe<span>Creator of Stride</span></p>
+  </section>
+
+  <section class="panel done" id="view-done" hidden aria-live="polite">
+    <span class="silk">Received</span>
+    <h2 id="done-title" tabindex="-1" style="margin-top:12px;outline:none">Thank you.</h2>
+    <p id="done-line" style="margin-top:14px"></p>
+    <p class="small">Want to change something? Open the link from my email again.</p>
+    <p class="sign">Joe<span>Creator of Stride</span></p>
+  </section>
+
+  <section class="panel" id="view-mail" hidden>
+    <span class="silk">From the Stride community</span>
+    <h1 style="font-size:27px">What has Stride helped you do <span class="lit">in your sessions?</span></h1>
+    <p class="lead">This page opens from the link in my email. If you got here another way, just reply to that email with a sentence or two, the name you'd like to be credited with, and a link to your music if you want. I read every one.</p>
+    <p class="sign">Joe<span>Creator of Stride</span></p>
+  </section>
+
+  <p class="home"><a href="/">stridehub.io</a></p>
+</main>
+<script>
+// One owner, one review. review_open says whether the mailed token is good and hands back what
+// they sent before (so a second visit edits instead of starting over); review_submit keeps it.
+// Whatever the backend does, the owner is never stuck: every dead end points to replying by mail,
+// which counts the same.
+(function () {
+  var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
+  var QUOTE_MAX = 800;
+  var DRAFT_KEY = 'stride_review_draft';
+  var token = (window.STRIDE_REVIEW || {}).token || '';
+  var $ = function (id) { return document.getElementById(id); };
+  var app = $('app'), form = $('review'), quote = $('quote'), name = $('name'), link = $('link'),
+      consent = $('consent'), send = $('send'), status = $('status');
+
+  function view(which) {
+    app.setAttribute('data-view', which);
+    $('view-form').hidden = which !== 'form' && which !== 'loading';
+    $('view-done').hidden = which !== 'done';
+    $('view-mail').hidden = which !== 'mail';
+  }
+
+  function post(body, ms) {
+    var ctl = window.AbortController ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctl) ctl.abort(); }, ms);
+    return fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: ctl ? ctl.signal : undefined
+    }).then(function (r) { return r.json(); })
+      .then(function (res) { clearTimeout(timer); return res || {}; },
+            function (err) { clearTimeout(timer); throw err; });
+  }
+
+  // "soundcloud.com/me" is how people type a link; the backend applies the same rule.
+  function normLink(v) {
+    v = (v || '').trim();
+    if (!v) return '';
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(v)) v = 'https://' + v.replace(/^\/+/, '');
+    return v;
+  }
+  function linkOk(v) {
+    if (!v) return true;
+    try {
+      var u = new URL(v);
+      return (u.protocol === 'https:' || u.protocol === 'http:') && u.hostname.indexOf('.') > 0;
+    } catch (e) { return false; }
+  }
+  function hostOf(v) {
+    try {
+      var u = new URL(v);
+      var p = (u.hostname.replace(/^www\./, '') + u.pathname).replace(/\/+$/, '');
+      return p.length > 48 ? p.slice(0, 47) + '…' : p;
+    } catch (e) { return ''; }
+  }
+
+  function saveDraft() {
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ q: quote.value, n: name.value, l: link.value }));
+    } catch (e) {}
+  }
+  function loadDraft() {
+    try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch (e) { return null; }
+  }
+  function dropDraft() { try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} }
+
+  function mark(fieldId, noteId, msg, keepNote) {
+    var f = $(fieldId), n = $(noteId);
+    f.classList.toggle('bad', !!msg);
+    if (!n) return;
+    if (msg) {
+      if (!n.hasAttribute('data-default')) n.setAttribute('data-default', n.textContent);
+      n.textContent = msg;
+      n.classList.add('warn');
+      n.hidden = false;
+    } else {
+      n.classList.remove('warn');
+      if (n.hasAttribute('data-default')) n.textContent = n.getAttribute('data-default');
+      if (!keepNote && !n.textContent) n.hidden = true;
+    }
+  }
+
+  function refresh() {
+    var left = QUOTE_MAX - quote.value.length;
+    var c = $('count');
+    c.textContent = left <= 200 ? left + ' characters left' : '';
+    c.classList.toggle('low', left <= 60);
+    var q = quote.value.trim();
+    $('preview').hidden = !q;
+    $('pv-quote').textContent = q;
+    $('pv-name').textContent = name.value.trim() || 'Your name';
+    var l = normLink(link.value);
+    $('pv-link').textContent = linkOk(l) ? hostOf(l) : '';
+    $('preview').classList.toggle('private', !consent.checked);
+    $('preview-label').textContent = consent.checked ? 'How it could look on stridehub.io' : 'Private, not shown on the site';
+  }
+
+  function fill(r) {
+    quote.value = r.quote || '';
+    name.value = r.display_name || '';
+    link.value = r.link || '';
+    consent.checked = !!r.consent;
+  }
+
+  [quote, name, link].forEach(function (el) {
+    el.addEventListener('input', function () {
+      refresh();
+      saveDraft();
+      if (el === quote && quote.value.trim()) mark('f-quote', 'quote-note', '');
+      if (el === name && name.value.trim()) mark('f-name', 'name-note', '');
+      if (el === link) mark('f-link', 'link-note', '');
+    });
+  });
+  consent.addEventListener('change', refresh);
+
+  function done(sentName, featured) {
+    dropDraft();
+    $('done-title').textContent = sentName ? 'Thank you, ' + sentName + '.' : 'Thank you.';
+    $('done-line').textContent = featured
+      ? "Your words are in. Keep an eye on stridehub.io, you might see them there soon."
+      : "Got it, and it stays between us. Thanks for taking the time to write.";
+    view('done');
+    try { $('done-title').focus(); } catch (e) {}
+    try { window.scrollTo(0, 0); } catch (e) {}
+  }
+
+  form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    status.textContent = '';
+    var q = quote.value.trim(), n = name.value.trim(), l = normLink(link.value);
+    var first = null;
+    if (q.length < 3) { mark('f-quote', 'quote-note', 'Write a sentence or two about your experience.'); first = first || quote; }
+    if (!n) { mark('f-name', 'name-note', 'Add the name you want to be credited with.'); first = first || name; }
+    if (!linkOk(l)) { mark('f-link', 'link-note', "That link doesn't look right. Paste the full address, or leave it empty."); first = first || link; }
+    if (first) { first.focus(); return; }
+
+    send.disabled = true;
+    send.textContent = 'Sending...';
+    var featured = consent.checked;
+    post({ action: 'review_submit', token: token, quote: q, display_name: n, link: l, consent: featured }, 12000)
+      .then(function (res) {
+        if (res.ok && res.status === 'saved') return done(n, featured);
+        if (res.status === 'missing' || res.status === 'invalid') {
+          if (res.field === 'quote') { mark('f-quote', 'quote-note', 'Write a sentence or two about your experience.'); quote.focus(); return; }
+          if (res.field === 'display_name') { mark('f-name', 'name-note', 'Add the name you want to be credited with.'); name.focus(); return; }
+          if (res.field === 'link') { mark('f-link', 'link-note', "That link doesn't look right. Paste the full address, or leave it empty."); link.focus(); return; }
+          status.textContent = "This link isn't working anymore. Reply to my email with your words and I'll take it from there.";
+          return;
+        }
+        status.textContent = "That didn't go through. Try again in a moment, or reply to my email with the same words.";
+      })
+      .catch(function () {
+        status.textContent = "That didn't go through. Try again in a moment, or reply to my email with the same words.";
+      })
+      .then(function () {
+        send.disabled = false;
+        send.textContent = 'Send it';
+      });
+  });
+
+  function startForm(res) {
+    // Anything typed while the page was still asking is kept: it is newer than what is on record.
+    var empty = !quote.value && !name.value && !link.value;
+    if (res && res.status === 'submitted' && res.review) {
+      if (empty) fill(res.review);
+      var when = '';
+      try {
+        if (res.review.submitted_at_ms) {
+          when = new Date(res.review.submitted_at_ms).toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+        }
+      } catch (e) {}
+      $('again').textContent = 'You sent this' + (when ? ' on ' + when : '') + '. Change anything you like and send it again.';
+      $('again').hidden = false;
+    } else {
+      var d = empty ? loadDraft() : null;
+      if (d) { quote.value = d.q || ''; name.value = d.n || ''; link.value = d.l || ''; }
+    }
+    refresh();
+    view('form');
+  }
+
+  if (!token) { view('mail'); return; }
+  view('loading');
+  post({ action: 'review_open', token: token }, 8000)
+    .then(function (res) {
+      if (res.ok) return startForm(res);
+      if (res.status === 'invalid') return view('mail');
+      startForm(null);
+    })
+    // The backend being slow or down is no reason to hide the form: the send says so if it fails.
+    .catch(function () { startForm(null); });
+})();
+</script>
+</body>
+</html>
