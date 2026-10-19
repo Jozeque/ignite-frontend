@@ -519,6 +519,72 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         if(c.strideConsentAds&&c.strideConsentAds()==='granted'){c[a]('consentv2',{ad_Storage:'granted',analytics_Storage:'granted'});}
         });
     })(window, document, "clarity", "script", "yj7cm3a9sz");
+    // The funnel in Clarity (Yossi 2026-10-19). Every step a page already reports somewhere else
+    // (StrideTrack's GA4 events, the offer stages, Paddle's checkout events, the hero film, the
+    // buy form) also lands in Clarity as a custom event, so recordings and Clarity's funnels can be
+    // cut by it. Event names and a few landing tags only: never an email, a name or an order id.
+    // Calls wait in Clarity's own queue (above) until its tag loads, which happens only where the
+    // visitor may be measured (strideWhenAllowed); after a No nothing is even queued.
+    (function () {
+        var open = {}, upgraded = false;
+        function keep(name) {
+            return name === 'begin_checkout' || name === 'demo_registered' || name === 'purchase'
+                || name === 'checkout_loaded' || /_(payment_started|completed)$/.test(name);
+        }
+        function sc(name, tags) {
+            try {
+                if (typeof window.clarity !== 'function') { return; }
+                if (window.strideConsentAds && window.strideConsentAds() === 'denied') { return; }
+                for (var k in (tags || {})) {
+                    if (Object.prototype.hasOwnProperty.call(tags, k) && tags[k] != null && tags[k] !== '') {
+                        window.clarity('set', k, String(tags[k]).slice(0, 100));
+                    }
+                }
+                if (!name) { return; }
+                window.clarity('event', String(name));
+                // The whole recording of anyone who reached a checkout or signed up is kept.
+                if (!upgraded && keep(String(name))) { upgraded = true; window.clarity('upgrade', String(name)); }
+            } catch (e) {}
+        }
+        // Paddle's checkout events, one prefix per checkout: 'checkout' (the buy form's overlay),
+        // 'wallet' (the Apple Pay / Google Pay button), 'upsell' (/post2, /post), 'session',
+        // 'collection'. A wallet that re-renders (the add-on toggled) is not shown twice, and a
+        // close counts only for a checkout that was showing: the page also closes the wallet's
+        // frame itself when the buy form's checkout takes over.
+        var STEP = { 'checkout.loaded': 'loaded', 'checkout.customer.created': 'details',
+                     'checkout.payment.selected': 'payment_selected',
+                     'checkout.payment.initiated': 'payment_started',
+                     'checkout.payment.failed': 'payment_failed',
+                     'checkout.payment.error': 'payment_error',
+                     'checkout.completed': 'completed', 'checkout.closed': 'closed' };
+        sc.paddle = function (ev, prefix) {
+            try {
+                var step = ev && STEP[ev.name];
+                if (!step || !prefix) { return; }
+                if (step === 'payment_error' && ev.code === 'no_payment_methods_available') { step = 'unavailable'; }
+                if (step === 'loaded') { if (open[prefix]) { return; } open[prefix] = true; }
+                if (step === 'closed') { if (!open[prefix]) { return; } open[prefix] = false; }
+                if (step === 'completed' || step === 'unavailable') { open[prefix] = false; }
+                sc(prefix + '_' + step);
+            } catch (e) {}
+        };
+        window.strideClarity = sc;
+        // Which ad or link brought this visit. Clarity reads utm_source, utm_medium and
+        // utm_campaign by itself; these are the ones it does not.
+        try {
+            var q = new URLSearchParams(location.search), t = {};
+            ['ad_id', 'adset_id', 'campaign_id'].forEach(function (k) {
+                var v = (q.get(k) || '').trim();
+                if (/^\d{6,24}$/.test(v)) { t[k] = v; }
+            });
+            t.ad_name = (q.get('utm_content') || '').trim();
+            if (q.get('fbclid')) { t.click_id = 'meta'; }
+            else if (q.get('gclid') || q.get('wbraid') || q.get('gbraid')) { t.click_id = 'google'; }
+            var code = (q.get('code') || '').trim().toLowerCase();
+            if (code) { t.code = code === 'rekz' ? 'rekz' : 'other'; }
+            sc('', t);
+        } catch (e) {}
+    })();
 </script>
 <!-- End Microsoft Clarity -->
     <title>STRIDE | Sound Design Engine für jede DAW</title>
@@ -636,6 +702,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
                     for (var k in (params || {})) { if (Object.prototype.hasOwnProperty.call(params, k)) d[k] = params[k]; }
                     (window.dataLayer = window.dataLayer || []).push(d);
                 } catch (e) {}
+                // The same step in Clarity, by name only (the Clarity block in <head>).
+                try { if (window.strideClarity) window.strideClarity(event); } catch (e) {}
             },
             // Hash an email field as it is typed (input + change), so pushWithEmail finds it ready.
             watchEmail: function (input) {
@@ -2205,6 +2273,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             if (bar > 0) root.style.paddingRight = bar + 'px';
             pop.classList.add('on');
             openedAt = Date.now();
+            try { if (window.strideClarity) window.strideClarity('film_open'); } catch (e) {}
             wasLooping = !!(loop && !loop.paused);
             if (loop) loop.pause();
             film.currentTime = 0;
@@ -3320,6 +3389,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         if (!modal.classList.contains('hidden')) {
             document.body.style.overflow = 'hidden';
             strideMarkBuyIntent();
+            try { if (window.strideClarity) window.strideClarity('buy_form_open'); } catch (e) {}
         } else {
             document.body.style.overflow = '';
         }
@@ -3962,6 +4032,8 @@ function openBuy() { toggleBuyModal(); }
         // GA4: the Collection added to the order. On the way in only, never on removal.
         if (strideAddonOn) {
             try { if (window.StrideTrack) StrideTrack.push('add_bump', { item_name: 'Experimental Collection', value: COLLECTION_ADDON_PRICE, currency: 'USD' }); } catch (e) {}
+        } else {
+            try { if (window.strideClarity) window.strideClarity('addon_removed'); } catch (e) {}
         }
         // The wallet must charge the same cart the page is showing. Called from the
         // TOGGLE rather than from strideSyncAddon, which also runs on first render
@@ -4251,6 +4323,9 @@ function openBuy() { toggleBuyModal(); }
     //                          state that printed "There are no payment methods
     //                          available for this checkout" inside the frame.
     function strideExpressEvent(ev) {
+        // Every checkout step in Clarity: the wallet's while it is the live checkout, the
+        // buy form's overlay (and a gift or Paddle-link checkout) otherwise.
+        try { if (window.strideClarity) window.strideClarity.paddle(ev, strideExpressLive ? 'wallet' : 'checkout'); } catch (e) {}
         // Any finished checkout (the overlay or the wallet) leaves its transaction id for
         // welcome.html, so the GA4 purchase carries the real order id.
         try {

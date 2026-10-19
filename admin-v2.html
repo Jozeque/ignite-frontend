@@ -519,10 +519,11 @@ let PIB = [];
 let EBF = [], EBF_MATCH = null;
 const EBF_KEYS = ['shown', 'folded', 'reopened', 'failed', 'claims', 'sales', 'usd'];
 // Whether the backend said how each ad's link names the ad (health.link_tag: 'ad_id', 'meta',
-// 'none'), and the first day the site read ad ids from Meta's own utm_content (pv_meta_ids).
-let TAGS_READ = false, META_IDS_FROM = null;
+// 'none'), the day the site began reading ad ids from Meta's own utm_content (the first day of
+// pv_meta_ids, read only from the publish on) and the first whole day after it.
+let TAGS_READ = false, META_IDS_DAY = null, META_IDS_FROM = null;
 // Can our page-view count see this ad's arrivals on day i? Its link names it in our ad_id, or in
-// Meta's own utm_content from the day the site started reading that. An ad Meta's list did not
+// Meta's own utm_content from the first whole day the site read that. An ad Meta's list did not
 // return (a deleted one) counts as before, and so does every ad when no tags came at all.
 const canSee = (ad, i) => !TAGS_READ || !ad.tag || ad.tag === 'ad_id' || (ad.tag === 'meta' && META_IDS_FROM != null && i >= META_IDS_FROM);
 
@@ -534,7 +535,8 @@ function ingest(p) {
     google: { spend: +((p.spend.google || {})[d] || 0) }, pv: {}, pvAny: false, co: {}, coB: {} }));
   TAGS_READ = (p.ads || []).some(a => a.tag);
   const mids = Object.keys(p.pv_meta_ids || {}).filter(d => DI[d] != null && p.pv_meta_ids[d] > 0).sort();
-  META_IDS_FROM = mids.length ? DI[mids[0]] : null;
+  META_IDS_DAY = mids.length ? DI[mids[0]] : null;
+  META_IDS_FROM = META_IDS_DAY == null ? null : META_IDS_DAY + 1;
   ADS = (p.ads || []).map(a => {
     const o = { id: a.id, name: a.name || a.id, campaign: a.campaign || '', campaign_id: a.campaign_id || '', kind0: a.kind, tag: a.tag || '',
       spend: new Float64Array(DAYS), imps: new Float64Array(DAYS), reach: new Float64Array(DAYS), plays3: new Float64Array(DAYS),
@@ -559,6 +561,12 @@ function ingest(p) {
       (D.pv[page] = D.pv[page] || {})[ch] = (D.pv[page][ch] || 0) + n;
       D.pvAny = true;
     }
+  }
+  // The day the site began reading Meta's ids leaves those ads' clicks out (canSee), so the
+  // arrivals it named by Meta's id leave our count too: that day still compares like with like.
+  if (TAGS_READ) for (const [d, n] of Object.entries(p.pv_meta_ids || {})) {
+    const i = DI[d];
+    if (i != null && META_IDS_FROM != null && i < META_IDS_FROM) days[i].meta.ours = Math.max(0, days[i].meta.ours - (+n || 0));
   }
   for (const [d, v] of Object.entries(p.demo_acts || {})) { const D = days[DI[d]]; if (D) D.acts = v; }
   // Clarity's days (UTC) sit on the Israel day of the same date: close enough for time and scroll.
@@ -1163,7 +1171,7 @@ function renderFunnel(c) {
       A.unseenClicks ? `${light('info', false)}<span>${fmt.pct(A.metaClicks ? A.unseenClicks / A.metaClicks : null)} of link clicks, <b>left out of the arrival rate</b></span>` : '', list.length ? names : '');
     if (A.unseenClicks) unseenNote = META_IDS_FROM == null
       ? ' Meta adds these ads’ ids to their links itself (utm_content), and our count reads only our own ad_id until the site update that reads Meta’s goes live.'
-      : ` Our count reads Meta’s own ad id (utm_content) since ${shortDate(dates[META_IDS_FROM])}; these clicks are from the days before, or from ads whose link names no ad at all.`;
+      : ` Our count reads Meta’s own ad id (utm_content) since the site update on ${shortDate(dates[META_IDS_DAY])} and counts those ads in full from the day after; these clicks are from before that, or from ads whose link names no ad at all.`;
   }
   const p1 = paid ? card('From ad to arrival', 'Meta; arrivals only on days the page-view count ran', `<div class="fpath">
       ${frow('Impressions', 'Meta', A.imps, A.imps, '')}
