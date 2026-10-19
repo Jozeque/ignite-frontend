@@ -518,22 +518,33 @@ let PIB = [];
 // (health.build_early_bf), and how its sales were found ('discount' exact, 'email' an estimate).
 let EBF = [], EBF_MATCH = null;
 const EBF_KEYS = ['shown', 'folded', 'reopened', 'failed', 'claims', 'sales', 'usd'];
+// Whether the backend said how each ad's link names the ad (health.link_tag: 'ad_id', 'meta',
+// 'none'), and the first day the site read ad ids from Meta's own utm_content (pv_meta_ids).
+let TAGS_READ = false, META_IDS_FROM = null;
+// Can our page-view count see this ad's arrivals on day i? Its link names it in our ad_id, or in
+// Meta's own utm_content from the day the site started reading that. An ad Meta's list did not
+// return (a deleted one) counts as before, and so does every ad when no tags came at all.
+const canSee = (ad, i) => !TAGS_READ || !ad.tag || ad.tag === 'ad_id' || (ad.tag === 'meta' && META_IDS_FROM != null && i >= META_IDS_FROM);
 
 function ingest(p) {
   PAY = p; DAYS = p.days.length; LAST = DAYS - 1;
   dates = p.days.map(s => new Date(s + 'T12:00:00Z'));
   DI = Object.fromEntries(p.days.map((d, i) => [d, i]));
-  days = p.days.map((d, i) => ({ i, meta: { spend: 0, imps: 0, reach: 0, plays3: 0, thru: 0, clicks: 0, lpv: 0, ours: 0 },
+  days = p.days.map((d, i) => ({ i, meta: { spend: 0, imps: 0, reach: 0, plays3: 0, thru: 0, clicks: 0, lpv: 0, ours: 0, seen: 0, unseen: 0 },
     google: { spend: +((p.spend.google || {})[d] || 0) }, pv: {}, pvAny: false, co: {}, coB: {} }));
+  TAGS_READ = (p.ads || []).some(a => a.tag);
+  const mids = Object.keys(p.pv_meta_ids || {}).filter(d => DI[d] != null && p.pv_meta_ids[d] > 0).sort();
+  META_IDS_FROM = mids.length ? DI[mids[0]] : null;
   ADS = (p.ads || []).map(a => {
-    const o = { id: a.id, name: a.name || a.id, campaign: a.campaign || '', campaign_id: a.campaign_id || '', kind0: a.kind,
+    const o = { id: a.id, name: a.name || a.id, campaign: a.campaign || '', campaign_id: a.campaign_id || '', kind0: a.kind, tag: a.tag || '',
       spend: new Float64Array(DAYS), imps: new Float64Array(DAYS), reach: new Float64Array(DAYS), plays3: new Float64Array(DAYS),
-      thruN: new Float64Array(DAYS), clicks: new Float64Array(DAYS), lpv: new Float64Array(DAYS), start: null };
+      thruN: new Float64Array(DAYS), clicks: new Float64Array(DAYS), lpv: new Float64Array(DAYS), unseen: new Float64Array(DAYS), start: null };
     for (const r of a.rows) {
       const i = DI[r[0]]; if (i == null) continue;
       o.spend[i] += r[1]; o.imps[i] += r[2]; o.reach[i] += r[3]; o.plays3[i] += r[4]; o.thruN[i] += r[5]; o.clicks[i] += r[6]; o.lpv[i] += r[7];
       if (o.start == null || i < o.start) o.start = i;
       const M = days[i].meta; M.spend += r[1]; M.imps += r[2]; M.reach += r[3]; M.plays3 += r[4]; M.thru += r[5]; M.clicks += r[6]; M.lpv += r[7];
+      if (canSee(o, i)) M.seen += r[6]; else { M.unseen += r[6]; o.unseen[i] += r[6]; }
     }
     // Fatigue's baseline: CTR over the ad's first three days in the data.
     let c = 0, m = 0; for (let d = o.start || 0; d < Math.min(DAYS, (o.start || 0) + 3); d++) { c += o.clicks[d]; m += o.imps[d]; }
@@ -732,7 +743,7 @@ const MS_BITS = { chain_offered: 1, chain_picked: 2, chain_heard: 4, tour_done: 
 const PURCHASE_GOAL = g => g === 'buy' || g === 'session' || g === 'collection';
 function agg(idx, ch = F.channel, model = F.model) {
   const w = S.firstW / 100;
-  const a = { spend: 0, metaSpend: 0, googleSpend: 0, imps: 0, reach: 0, plays3: 0, thru: 0, metaClicks: 0, lpv: 0, paidClicks: 0, paidArrivals: 0,
+  const a = { spend: 0, metaSpend: 0, googleSpend: 0, imps: 0, reach: 0, plays3: 0, thru: 0, metaClicks: 0, lpv: 0, paidClicks: 0, paidArrivals: 0, unseenClicks: 0,
     homePV: 0, tryPV: 0, pvDays: 0, visits: 0, purchPV: 0, coBoughtPV: 0, addonPV: 0, checkouts: 0, coPV: 0, coBought: 0, purchB: 0, orders: 0, bump: 0, post2Shown: 0, post2Take: 0, postShown: 0, postTake: 0,
     refunds: 0, refundAmt: 0, addonOrders: 0, gross: 0, tax: 0, net: 0, fees: 0, purchases: 0, revenue: 0, journeys: 0, stitched: 0, est: 0,
     nStride: 0, nBump: 0, nPost2: 0, nPost: 0, oStride: 0, oBump: 0, oPost2: 0, oPost: 0, nColl: 0, oColl: 0, nSess: 0, oSess: 0, nOther: 0, oOther: 0,
@@ -745,8 +756,10 @@ function agg(idx, ch = F.channel, model = F.model) {
     const D = days[i];
     if (inCh('meta')) {
       a.metaSpend += D.meta.spend; a.imps += D.meta.imps; a.reach += D.meta.reach; a.plays3 += D.meta.plays3; a.thru += D.meta.thru;
-      a.metaClicks += D.meta.clicks; a.lpv += D.meta.lpv;
-      if (D.pvAny) { a.paidClicks += D.meta.clicks; a.paidArrivals += D.meta.ours; }
+      a.metaClicks += D.meta.clicks; a.lpv += D.meta.lpv; a.unseenClicks += D.meta.unseen;
+      // Like with like: our ad-tagged arrivals against the clicks of the ads whose arrivals our
+      // count can see (canSee). A click on an ad whose link names no ad never arrives as one.
+      if (D.pvAny) { a.paidClicks += D.meta.seen; a.paidArrivals += D.meta.ours; }
       for (const ad of ADS) if (ad.spend[i] && kindOf(ad) === 'demo') a.demoSpend += ad.spend[i];
     }
     if (inCh('google')) a.googleSpend += D.google.spend;
@@ -1110,7 +1123,7 @@ function renderOverview(c) {
   const st2 = judge('stitched', A), pf = pvFrom();
   const cov = `<div class="cov">
     <div class="cov-row"><span class="k">Purchases stitched to a source</span><span class="v">${fmtM('stitched', st2.v)}</span><span class="d">${light(st2.state)}<span>carry an ad id, a click id or one of our tags before they bought; the rest are credited to “direct or unknown”</span></span></div>
-    <div class="cov-row"><span class="k">Paid clicks that reached our page</span><span class="v">${fmtM('arrival', VAL.arrival(A))}</span><span class="d"><span class="src">Our page-view count</span><span>vs Meta’s own ${fmtM('arrivalMeta', VAL.arrivalMeta(A))}, which the cookie banner lowers</span></span></div>
+    <div class="cov-row"><span class="k">Paid clicks that reached our page</span><span class="v">${fmtM('arrival', VAL.arrival(A))}</span><span class="d"><span class="src">Our page-view count</span><span>${TAGS_READ ? 'of the clicks on ads whose link names the ad; ' : ''}vs Meta’s own ${fmtM('arrivalMeta', VAL.arrivalMeta(A))}, which the cookie banner lowers</span></span></div>
     <div class="cov-row"><span class="k">Page views counted since</span><span class="v">${pf == null ? 'not yet' : shortDate(dates[pf])}</span><span class="d"><span class="src">Our backend</span><span>rates that divide by page views read only the days since then</span></span></div>
     <div class="cov-row"><span class="k">Orders with estimated money</span><span class="v">${fmt.num(A.est)} of ${fmt.num(A.journeys)}</span><span class="d"><span class="src">Paddle / Lemon Squeezy</span><span>from the stored order totals where the platform’s API did not answer; fees at the published rate</span></span></div>
   </div>`;
@@ -1126,19 +1139,39 @@ function renderOverview(c) {
 }
 
 /* ---------- Funnel ---------- */
-function frow(name, sub, n, max, rateHTML) {
+function frow(name, sub, n, max, rateHTML, subHTML) {
   const w = max ? Math.max(0.4, n / max * 100) : 0;
-  return `<div class="frow"><div class="nm">${esc(name)}${sub ? `<small>${esc(sub)}</small>` : ''}</div><div class="track" title="${fmt.num(n)}"><i style="width:${w.toFixed(2)}%"></i></div><div class="cnt">${fmt.num(n)}</div><div class="rate">${rateHTML || ''}</div></div>`;
+  return `<div class="frow"><div class="nm">${esc(name)}${sub ? `<small>${esc(sub)}</small>` : subHTML ? `<small>${subHTML}</small>` : ''}</div><div class="track" title="${fmt.num(n)}"><i style="width:${w.toFixed(2)}%"></i></div><div class="cnt">${fmt.num(n)}</div><div class="rate">${rateHTML || ''}</div></div>`;
 }
 const rateOf = (label, id, a) => { const j = judge(id, a); return `${light(j.state, false)}<span>${esc(label)} <b>${fmtM(id, j.v)}</b></span>`; };
+// The clicks our count cannot see in this range, by ad name (the same creative runs in several ad
+// sets), most first: [[name, clicks]].
+function unseenAds(idx) {
+  const by = {};
+  for (const ad of ADS) { let n = 0; for (const d of idx) n += ad.unseen[d]; if (n) by[ad.name] = (by[ad.name] || 0) + n; }
+  return Object.entries(by).sort((x, y) => y[1] - x[1]);
+}
 function renderFunnel(c) {
   const A = c.A, paid = F.channel === 'all' || F.channel === 'meta';
+  let unseenRow, unseenNote = '';
+  if (!TAGS_READ) {
+    unseenRow = frow('Clicks from ads with no ad id in their link', 'not known: Meta’s list of ads did not load, so every click counts in the arrival rate, as before', null, A.imps, '');
+  } else {
+    const list = unseenAds(c.idx), shown = list.slice(0, 4);
+    const names = shown.map(([n, k]) => `<bdi style="white-space:nowrap">${esc(n)}</bdi> ${fmt.num(k)}`).join(', ') + (list.length > shown.length ? `, and ${list.length - shown.length} more` : '');
+    unseenRow = frow('Clicks from ads with no ad id in their link', list.length ? '' : 'none in this range', A.unseenClicks, A.imps,
+      A.unseenClicks ? `${light('info', false)}<span>${fmt.pct(A.metaClicks ? A.unseenClicks / A.metaClicks : null)} of link clicks, <b>left out of the arrival rate</b></span>` : '', list.length ? names : '');
+    if (A.unseenClicks) unseenNote = META_IDS_FROM == null
+      ? ' Meta adds these ads’ ids to their links itself (utm_content), and our count reads only our own ad_id until the site update that reads Meta’s goes live.'
+      : ` Our count reads Meta’s own ad id (utm_content) since ${shortDate(dates[META_IDS_FROM])}; these clicks are from the days before, or from ads whose link names no ad at all.`;
+  }
   const p1 = paid ? card('From ad to arrival', 'Meta; arrivals only on days the page-view count ran', `<div class="fpath">
       ${frow('Impressions', 'Meta', A.imps, A.imps, '')}
       ${frow('3-second plays', 'Meta', A.plays3, A.imps, rateOf('Hook rate', 'hook', A))}
       ${frow('Link clicks', 'Meta', A.metaClicks, A.imps, rateOf('Link CTR', 'ctr', A))}
-      ${frow('Arrived on the page', 'our count, ad-tagged', A.paidArrivals, A.imps, rateOf('Arrival rate', 'arrival', A))}
-    </div><p class="note" style="margin-top:8px">ThruPlays (${fmt.num(A.thru)}, ${fmtM('thru', VAL.thru(A))} of impressions) sit beside this path, not on it: a click can come before the 15th second.</p>`)
+      ${frow('Arrived on the page', TAGS_READ ? `our count, ad-tagged, against the ${fmt.num(A.paidClicks)} clicks of ads whose link names the ad` : 'our count, ad-tagged', A.paidArrivals, A.imps, rateOf('Arrival rate', 'arrival', A))}
+      ${unseenRow}
+    </div><p class="note" style="margin-top:8px">ThruPlays (${fmt.num(A.thru)}, ${fmtM('thru', VAL.thru(A))} of impressions) sit beside this path, not on it: a click can come before the 15th second. The arrival rate can pass 100%: a link opened twice (Instagram’s browser, then Safari or Chrome) arrives twice.${unseenNote}</p>`)
     : F.channel === 'google' ? card('From click to arrival', 'Google', '<p class="empty">Google’s click counts are not read yet (its API is test-only), so there is nothing to compare arrivals with.</p>') : '';
   const p2 = card('From arrival to purchase', esc(chLabel()), `<div class="fpath">
       ${frow('Visits', 'arrivals on any page, our count', A.visits, A.visits, '')}
@@ -1249,14 +1282,15 @@ function renderLanding(c) {
   }).join('');
   el.innerHTML = `<div class="tiles">${tiles}</div>
     ${pf == null ? `<p class="note"><b>The page-view count has not started.</b> It begins the day the site update with the cookieless counter is deployed; until then every rate that divides by page views reads “No data”.</p>` : ''}
-    ${paid ? `<div class="card" id="arr-chart"><div class="card-h"><h2>Did the clicks arrive?</h2><span class="sub">a gap between the blue and green lines is people lost between the ad and the page</span></div><div></div></div>` : card('Did the clicks arrive?', '', '<p class="empty">Only Meta reports its clicks to us. Pick Meta ads or all channels.</p>')}
+    ${paid ? `<div class="card" id="arr-chart"><div class="card-h"><h2>Did the clicks arrive?</h2><span class="sub">${TAGS_READ ? 'a gap between the purple and green lines is people lost between the ad and the page; the blue line also holds the clicks our count cannot see' : 'a gap between the blue and green lines is people lost between the ad and the page'}</span></div><div></div></div>` : card('Did the clicks arrive?', '', '<p class="empty">Only Meta reports its clicks to us. Pick Meta ads or all channels.</p>')}
     ${card('Pages', `page views from our cookieless count; sessions, time and scroll from Clarity${srcOk('clarity') ? ` (${esc(srcNote('clarity'))})` : ', no day kept yet'}`, `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Page</th><th>Page views</th><th>Clarity sessions</th><th>Engaged time</th><th>Scroll depth</th><th class="l">Next step</th></tr></thead><tbody>${prow}</tbody></table></div>
       <p class="note" style="margin-top:10px">Engaged time is Clarity’s active time per session (the tab in front, someone moving, scrolling or typing); scroll depth is how far down a session got, on average. Clarity keeps no history for export, so a day appears the morning after it ends, and time and scroll show for all channels only.</p>`)}
     ${ebfCardHTML(c)}
-    <p class="note"><b>Why two arrival rates.</b> Meta counts a landing page view only when its pixel may fire, and in Europe it waits for a cookie answer; our own count is cookieless and holds. When ours stays high while Meta’s drops, the banner moved, not the traffic. Ours counts the arrivals that carried an ad id.</p>`;
+    <p class="note"><b>Why two arrival rates.</b> Meta counts a landing page view only when its pixel may fire, and in Europe it waits for a cookie answer; our own count is cookieless and holds. When ours stays high while Meta’s drops, the banner moved, not the traffic. Ours counts the arrivals that carried an ad id${TAGS_READ ? ' and compares them with the clicks of the ads whose link names the ad, so a click it could never see does not read as lost. It can pass 100%: a link opened twice (Instagram’s browser, then Safari or Chrome) arrives twice' : ''}.</p>`;
   if (paid) {
     const labels = c.idx.map(d => shortDate(dates[d]));
     const series = [{ name: 'Meta link clicks', color: 'var(--s1)', values: perDay(c.idx, a => a.metaClicks) },
+      ...(TAGS_READ ? [{ name: 'Clicks our count can see', color: 'var(--s4)', values: c.idx.map(d => days[d].pvAny ? days[d].meta.seen : null) }] : []),
       { name: 'Arrived, our count', color: 'var(--s2)', values: c.idx.map(d => days[d].pvAny ? days[d].meta.ours : null) },
       { name: 'Meta landing page views', color: 'var(--s3)', values: perDay(c.idx, a => a.lpv) }];
     lineChart(document.querySelector('#arr-chart').lastElementChild, { labels, series, format: v => fmt.num(v) });

@@ -539,12 +539,15 @@ fbq('track', 'PageView');
       var q = new URLSearchParams(location.search), rh = '';
       try { rh = document.referrer ? new URL(document.referrer).hostname : ''; } catch (e) {}
       var nav = (window.performance && performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {};
-      var here = location.hostname.replace(/^www\./, ''), c = 'direct', a = '';
+      var here = location.hostname.replace(/^www\./, ''), c = 'direct', a = '', m = 0;
       if (nav.type === 'reload' || nav.type === 'back_forward' || (rh && rh.replace(/^www\./, '') === here)) c = 'internal';
       else {
         var ad = (q.get('ad_id') || '').trim(), s = (q.get('utm_source') || '').trim().toLowerCase();
+        var fromMeta = /^(fb|ig|msg|an|meta|facebook|instagram)$/.test(s), mid = (q.get('utm_content') || '').trim();
         if (/^\d{6,24}$/.test(ad)) { c = 'meta'; a = ad; }
         else if (q.get('gclid') || q.get('wbraid') || q.get('gbraid')) c = 'google';
+        else if (fromMeta && /^\d{6,24}$/.test(mid)) { c = 'meta'; a = mid; m = 1; }
+        else if (fromMeta && (q.get('utm_campaign') || '').indexOf('|') >= 0) c = 'meta';
         else if (/^(stride|email|newsletter|resend|mail)$/.test(s)) c = 'email';
         else if (/^(ig|instagram|insta|ig_bio|instagram_bio)$/.test(s)) c = 'ig';
         else if (/^(yt|youtube)$/.test(s)) c = 'yt';
@@ -553,7 +556,9 @@ fbq('track', 'PageView');
         else if (/(^|\.)instagram\.com$/.test(rh)) c = 'ig';
         else if (/(^|\.)(youtube\.com|youtu\.be)$/.test(rh)) c = 'yt';
       }
-      navigator.sendBeacon("https://generate-midi-z3spyrafvq-uc.a.run.app", JSON.stringify({ action: 'pv', p: p, c: c, a: a }));
+      var body = { action: 'pv', p: p, c: c, a: a };
+      if (m) body.m = 1;
+      navigator.sendBeacon("https://generate-midi-z3spyrafvq-uc.a.run.app", JSON.stringify(body));
     } catch (e) {}
   }
   if (document.prerendering) document.addEventListener('prerenderingchange', send, { once: true });
@@ -1030,7 +1035,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <footer class="border-t py-10 text-center" style="border-color:var(--line)">
     <div class="flex items-center justify-center gap-5 mb-4 flex-wrap">
-      <a class="navlink" href="/it/index.html">Home</a>
+      <a class="navlink" href="/it/">Home</a>
       <a class="navlink" href="/it/samples.html">Sample Packs</a>
       <a class="navlink" href="/blog.html">Blog</a>
       <a class="navlink" href="/tv">Video</a>
