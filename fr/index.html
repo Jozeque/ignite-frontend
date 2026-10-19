@@ -4978,6 +4978,9 @@ function openBuy() { toggleBuyModal(); }
     var KEY = 'stride_bf';                  // { seen, code, did, ends, over } in localStorage
     var SECS_KEY = 'stride_bf_secs';        // seconds on the page so far, this visit
     var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
+    // An Early Black code in either shape: EARLYBLACK30 + the name from the email (since
+    // 2026-10-19, EARLYBLACK30DANA) or the earlier BLACKSTRIDE + 4 characters.
+    var CODE_RE = /^(earlyblack30[a-z0-9]{3,20}|blackstride[a-z0-9]{4})$/i;
     var pop = document.getElementById('dpop');
     var pin = document.getElementById('bfpin');
     if (!pop || !pin) return;
@@ -5276,7 +5279,7 @@ function openBuy() { toggleBuyModal(); }
     function reloadPlain() {
         try {
             var u = new URL(window.location.href);
-            if (/^blackstride/i.test(u.searchParams.get('code') || '')) u.searchParams.delete('code');
+            if (CODE_RE.test(u.searchParams.get('code') || '')) u.searchParams.delete('code');
             window.location.replace(u.pathname + u.search + u.hash);
         } catch (e) { window.location.reload(); }
     }
@@ -5436,7 +5439,7 @@ function openBuy() { toggleBuyModal(); }
     // ── on arrival ────────────────────────────────────────────────────────────
     var urlCode = '';
     try { urlCode = (new URL(window.location.href).searchParams.get('code') || '').toLowerCase(); } catch (e) {}
-    if (/^blackstride[a-z0-9]{4}$/.test(urlCode)) {
+    if (CODE_RE.test(urlCode)) {
         // The link in the code mail: the personal-code path above prices the page and counts
         // down. There is nothing more to offer, so it never asks.
         if (!st.seen) { st.seen = Date.now(); save(); }
