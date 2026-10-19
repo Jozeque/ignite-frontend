@@ -1036,9 +1036,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .proof-arrow:focus-visible{outline:2px solid var(--copper-lt);outline-offset:2px}
   .proof-arrow:disabled{opacity:.35;cursor:default}
   .proof-arrow svg{width:18px;height:18px}
-  .proof-dots{display:flex;align-items:center}
+  /* One dot per stop, so the row grows with every card: on a phone the dots give up width (26px down
+     to 13px each) before the arrows can be pushed off the screen. Wide screens never shrink them. */
+  .proof-dots{display:flex;align-items:center;min-width:0}
   .proof-dot{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;
-    padding:0;border:0;background:none;cursor:pointer}
+    flex:0 1 26px;min-width:13px;padding:0;border:0;background:none;cursor:pointer}
   .proof-dot::before{content:'';width:7px;height:7px;border-radius:999px;background:var(--ink3);opacity:.5;
     transition:width .2s,background-color .2s,opacity .2s}
   .proof-dot[aria-current="true"]::before{width:18px;background:var(--copper-lt);opacity:1}
@@ -1750,7 +1752,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
 
 </style>
-<link rel="stylesheet" href="/_legacy/css/index.ad463bbe93.css">
+<link rel="stylesheet" href="/_legacy/css/index.a05dc6bd41.css">
 <script>window.STRIDE_LANGS=["en","de","es","fr","it","ja","zh"]</script>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;600;800;900&display=swap">
@@ -2522,6 +2524,41 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <a class="credit" href="https://www.youtube.com/watch?v=dbLY0d-In1g" target="_blank" rel="noopener noreferrer" title="YouTube" aria-label="Lucas Ferrell 的 YouTube">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><rect x="2.8" y="5.6" width="18.4" height="12.8" rx="3.6"/><path d="M10.2 9.3v5.4l4.6-2.7z"/></svg></a>
           </div>
+        </figcaption>
+      </figure>
+
+      <!-- Z (sent to Yossi by email, 2026-10-19, signed "-Z"): words verbatim, the photo the one he attached
+           (his Google profile photo); no link, so an empty icon row keeps the caption level. -->
+      <figure class="proof-card panel rounded-2xl p-7 md:p-8 flex flex-col">
+        <span class="block text-[42px] leading-[.6] mb-4" style="color:var(--gold);opacity:.5" aria-hidden="true">&ldquo;</span>
+        <blockquote class="text-[17px] md:text-[18px] leading-relaxed ink2 flex-1">能轻松做出<b>混沌、缓慢演变的东西和可循环的东西</b>，这是 Stride 最吸引我的地方。<b>这三样它都能做到</b>，而且都能<b>非常轻松地定稿到项目里</b>，对于在自动化上难以下决定的人很有帮助。</blockquote>
+        <figcaption class="mt-6 pt-5 border-t" style="border-color:var(--line)">
+          <div class="flex items-center gap-4">
+            <img src="/assets/artist-z.jpg" alt="Z" width="62" height="62" loading="lazy"
+                 class="rounded-full object-cover shrink-0" style="width:62px;height:62px;border:1px solid rgba(201,162,75,.5)">
+            <div class="min-w-0">
+              <p class="text-lg font-black ink leading-tight">Z</p>
+              <p class="silk mt-1" style="color:var(--gold)">声音设计师</p>
+            </div>
+          </div>
+          <div class="mt-5" style="height:38px" aria-hidden="true"></div>
+        </figcaption>
+      </figure>
+
+      <!-- Arthur (the review form, 2026-10-19, OK'd being featured): words verbatim; no photo or link, so
+           his initial; the descriptor is his own ("I took a chance on it very early on"). -->
+      <figure class="proof-card panel rounded-2xl p-7 md:p-8 flex flex-col">
+        <span class="block text-[42px] leading-[.6] mb-4" style="color:var(--rose-lt);opacity:.5" aria-hidden="true">&ldquo;</span>
+        <blockquote class="text-[17px] md:text-[18px] leading-relaxed ink2 flex-1">Joe 有一个了不起的想法，并且把它变成了现实！<b>我很早就决定试一试，真的很庆幸当时这么做了</b>！以前我在界面上遇到问题或疑问时，他都会在聊天里帮我！<b>我想不出还有谁能把客户服务做成这样</b>。他会认真听你的反馈，和你一起改进。它一直在变得更好！至于 Stride 和 Stride Fx，<b>你想要多克制或多激进都可以</b>。这些产品我怎么夸都不为过。<b>这是声音设计师梦想成真</b> :)</blockquote>
+        <figcaption class="mt-6 pt-5 border-t" style="border-color:var(--line)">
+          <div class="flex items-center gap-4">
+            <svg class="shrink-0" width="62" height="62" viewBox="0 0 62 62" aria-hidden="true"><circle cx="31" cy="31" r="30.5" style="fill:var(--raise);stroke:rgba(163,78,82,.55)"/><text x="31" y="31" dy=".35em" text-anchor="middle" style="fill:var(--rose-lt);font:900 20px Outfit,sans-serif;letter-spacing:.02em">A</text></svg>
+            <div class="min-w-0">
+              <p class="text-lg font-black ink leading-tight">Arthur</p>
+              <p class="silk mt-1" style="color:var(--rose-lt)">早期用户</p>
+            </div>
+          </div>
+          <div class="mt-5" style="height:38px" aria-hidden="true"></div>
         </figcaption>
       </figure>
 

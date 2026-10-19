@@ -1036,9 +1036,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .proof-arrow:focus-visible{outline:2px solid var(--copper-lt);outline-offset:2px}
   .proof-arrow:disabled{opacity:.35;cursor:default}
   .proof-arrow svg{width:18px;height:18px}
-  .proof-dots{display:flex;align-items:center}
+  /* One dot per stop, so the row grows with every card: on a phone the dots give up width (26px down
+     to 13px each) before the arrows can be pushed off the screen. Wide screens never shrink them. */
+  .proof-dots{display:flex;align-items:center;min-width:0}
   .proof-dot{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;
-    padding:0;border:0;background:none;cursor:pointer}
+    flex:0 1 26px;min-width:13px;padding:0;border:0;background:none;cursor:pointer}
   .proof-dot::before{content:'';width:7px;height:7px;border-radius:999px;background:var(--ink3);opacity:.5;
     transition:width .2s,background-color .2s,opacity .2s}
   .proof-dot[aria-current="true"]::before{width:18px;background:var(--copper-lt);opacity:1}
@@ -1750,7 +1752,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
 
 </style>
-<link rel="stylesheet" href="/_legacy/css/index.ad463bbe93.css">
+<link rel="stylesheet" href="/_legacy/css/index.a05dc6bd41.css">
 <script>window.STRIDE_LANGS=["en","de","es","fr","it","ja","zh"]</script>
 <link rel="alternate" hreflang="en" href="https://stridehub.io/">
 <link rel="alternate" hreflang="de" href="https://stridehub.io/de/">
@@ -2517,6 +2519,41 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <a class="credit" href="https://www.youtube.com/watch?v=dbLY0d-In1g" target="_blank" rel="noopener noreferrer" title="YouTube" aria-label="Lucas Ferrell auf YouTube">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><rect x="2.8" y="5.6" width="18.4" height="12.8" rx="3.6"/><path d="M10.2 9.3v5.4l4.6-2.7z"/></svg></a>
           </div>
+        </figcaption>
+      </figure>
+
+      <!-- Z (sent to Yossi by email, 2026-10-19, signed "-Z"): words verbatim, the photo the one he attached
+           (his Google profile photo); no link, so an empty icon row keeps the caption level. -->
+      <figure class="proof-card panel rounded-2xl p-7 md:p-8 flex flex-col">
+        <span class="block text-[42px] leading-[.6] mb-4" style="color:var(--gold);opacity:.5" aria-hidden="true">&ldquo;</span>
+        <blockquote class="text-[17px] md:text-[18px] leading-relaxed ink2 flex-1">Wie leicht man <b>Chaos, etwas, das sich langsam entwickelt, und etwas Loopbares</b> erzeugen kann, ist für mich der größte Reiz an Stride. <b>Es kann alle drei</b>, und es macht es bei allen <b>ganz leicht, sie fest in ein Projekt zu übernehmen</b>, was hilft, wenn man sich schwer damit tut, sich bei Automation festzulegen.</blockquote>
+        <figcaption class="mt-6 pt-5 border-t" style="border-color:var(--line)">
+          <div class="flex items-center gap-4">
+            <img src="/assets/artist-z.jpg" alt="Z" width="62" height="62" loading="lazy"
+                 class="rounded-full object-cover shrink-0" style="width:62px;height:62px;border:1px solid rgba(201,162,75,.5)">
+            <div class="min-w-0">
+              <p class="text-lg font-black ink leading-tight">Z</p>
+              <p class="silk mt-1" style="color:var(--gold)">Sounddesign</p>
+            </div>
+          </div>
+          <div class="mt-5" style="height:38px" aria-hidden="true"></div>
+        </figcaption>
+      </figure>
+
+      <!-- Arthur (the review form, 2026-10-19, OK'd being featured): words verbatim; no photo or link, so
+           his initial; the descriptor is his own ("I took a chance on it very early on"). -->
+      <figure class="proof-card panel rounded-2xl p-7 md:p-8 flex flex-col">
+        <span class="block text-[42px] leading-[.6] mb-4" style="color:var(--rose-lt);opacity:.5" aria-hidden="true">&ldquo;</span>
+        <blockquote class="text-[17px] md:text-[18px] leading-relaxed ink2 flex-1">Joe hatte eine großartige Idee und hat sie Wirklichkeit werden lassen! <b>Ich habe es schon ganz früh gewagt und bin so froh darüber</b>! Wenn ich früher Probleme oder Fragen zum Interface hatte, war er im Chat für mich da! <b>Mir fällt niemand ein, der Kundenservice so macht</b>. Er nimmt dein Feedback auf und arbeitet mit dir. Es wird einfach immer besser! Und Stride und Stride Fx <b>können so minimal oder so drastisch sein, wie du willst</b>. Ich kann die Produkte gar nicht genug loben. <b>Das ist ein wahr gewordener Traum für jeden Sounddesigner</b> :)</blockquote>
+        <figcaption class="mt-6 pt-5 border-t" style="border-color:var(--line)">
+          <div class="flex items-center gap-4">
+            <svg class="shrink-0" width="62" height="62" viewBox="0 0 62 62" aria-hidden="true"><circle cx="31" cy="31" r="30.5" style="fill:var(--raise);stroke:rgba(163,78,82,.55)"/><text x="31" y="31" dy=".35em" text-anchor="middle" style="fill:var(--rose-lt);font:900 20px Outfit,sans-serif;letter-spacing:.02em">A</text></svg>
+            <div class="min-w-0">
+              <p class="text-lg font-black ink leading-tight">Arthur</p>
+              <p class="silk mt-1" style="color:var(--rose-lt)">Von Anfang an dabei</p>
+            </div>
+          </div>
+          <div class="mt-5" style="height:38px" aria-hidden="true"></div>
         </figcaption>
       </figure>
 
