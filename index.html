@@ -1408,6 +1408,18 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* The frame answers a double press, so a phone must not read the second tap
      as a zoom gesture. */
   #heroStage{touch-action:manipulation}
+  /* A small, quiet play mark on the loop, so people know the frame opens the full film (Yossi
+     2026-10-05, live 2026-10-19). Decoration only: drawn by CSS (no element, no text for the
+     translations to miss), and pointer-events:none, so a press lands on the frame exactly as it
+     always did. It steps aside while the walkthrough link plays YouTube inside the same frame. */
+  #heroStage::after{content:"";position:absolute;left:50%;top:50%;z-index:2;
+    width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;box-sizing:border-box;
+    border:1.5px solid rgba(221,154,82,.8);
+    background:rgba(10,10,9,.38) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M8.5 5.8v12.4L18.6 12z' fill='%23ece4d6'/%3E%3C/svg%3E") no-repeat 56% 50%/20px 20px;
+    pointer-events:none;transition:border-color .2s ease,background-color .2s ease}
+  @media (hover:hover){#heroStage:hover::after{border-color:#dd9a52;background-color:rgba(10,10,9,.55)}}
+  @media (max-width:767px){#heroStage::after{width:40px;height:40px;margin:-20px 0 0 -20px;background-size:16px 16px}}
+  #heroStage:has(iframe)::after{display:none}
 
   #m-cta{display:none}
   #m-menu{display:none}
@@ -1569,18 +1581,31 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .hero-cta > *{max-width:none}
     .hero-cta > a{width:100%;justify-content:center;min-height:48px}
     .hero-cta > a.btn-ghost{font-size:12px}
-    .hero-included{margin:8px 0 10px}
-
-    /* Video first on mobile. The container is already flex-column here, so this is
-       pure `order`: the DOM keeps text-then-visual, which is the right reading order
-       for a screen reader and the order desktop still uses. */
-    .hero-cols > div:first-child{order:2}
-    .hero-cols > div:nth-of-type(2){order:1}   /* the visual column; the script tag is the real last child */
-    /* The section has to be named here. The utility that sets this gap (gap-10,
-       40px) lives in the Tailwind sheet, which is linked after this block, so a
-       bare .hero-cols rule ties on specificity and loses on order: the phone kept
-       the desktop's 40px between the video note and the headline. */
-    section[data-ms="hero"] .hero-cols{gap:.9rem}
+    /* The phone hero reads: headline, the video, the paragraph (with Read more), the price,
+       "Stride VST + StrideBridge included" with the capability line right under it, then the
+       buttons (Yossi 2026-10-19; until then the video came first). Position only: the copy's
+       wrappers dissolve (display:contents) so the video can sit between the headline and the
+       paragraph, and every piece takes an `order`. The DOM, every word and the desktop
+       composition stay as they are, and a screen reader still reads the text, then the video.
+       With its wrapper dissolved .hero-buy has no box here, so the consent panel's KEEP_CLEAR
+       skips it; it still keeps clear of the headline, the video and GET STRIDE. */
+    section[data-ms="hero"] .hero-copy, section[data-ms="hero"] .hero-text,
+    section[data-ms="hero"] .hero-buy, section[data-ms="hero"] .hero-buy-price{display:contents}
+    /* The section has to be named here: the utility that sets this gap (gap-10, 40px) lives in
+       the Tailwind sheet, which is linked after this block, so a bare .hero-cols rule loses on
+       order. The pieces' own margins space them now. */
+    section[data-ms="hero"] .hero-cols{gap:0}
+    section[data-ms="hero"] h1{order:1}
+    section[data-ms="hero"] .hero-visual{order:2;margin:.4rem 0 .9rem}
+    section[data-ms="hero"] .hero-sub{order:3}
+    section[data-ms="hero"] .code-seal{order:4}
+    section[data-ms="hero"] .hero-price-line{order:5}
+    /* Out of its block its top margin would add to the price's instead of folding into it, so
+       the price's 1rem alone sits above it, and the capability line follows tight. */
+    section[data-ms="hero"] .hero-included{order:6;margin:0 0 .3rem}
+    section[data-ms="hero"] .hero-spec{order:7}
+    section[data-ms="hero"] .hero-buy-addon{order:8}
+    section[data-ms="hero"] .hero-cta{order:9}
     #heroVideoNote{margin-top:.6rem}
     .hero-eyebrow{display:none}                /* the phone reads the headline first */
 
