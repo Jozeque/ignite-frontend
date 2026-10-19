@@ -1594,11 +1594,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .hero-more-btn[aria-expanded="true"] .hm-open{display:none}
     .hero-more-btn[aria-expanded="true"] .hm-close{display:inline}
 
-    /* Social proof comes straight after the hero on a phone, ahead of the plugin roster
-       (Yossi 2026-10-14). Pure `order`: nav, menu and hero keep their place at -2, the
-       quotes take -1, and everything else keeps DOM order behind them. */
-    .wrap > nav, .wrap > .m-menu, .wrap > section[data-ms="hero"]{order:-2}
-    .wrap > section[data-ms="social"]{order:-1}
+    /* Social proof straight after the hero (Yossi 2026-10-14) used to be an `order:` pair
+       here. Since 2026-10-19 the section sits there in the source, desktop included. */
     .note-long{display:none}                   /* "Watch the full Stride walkthrough" */
 
     /* -- SOCIAL PROOF ------------------------------------------------------
@@ -2255,41 +2252,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   })();
   </script>
 
-  <!-- ───────────────── WORKS WITH (compatibility strip, right under the hero — kept understated) ───────────────── -->
-  <section data-ms="compat-logos" class="mb-20 text-center">
-    <p class="silk mb-5">Fonctionne avec les instruments que tu as déjà</p>
-    <div class="flex flex-wrap items-center justify-center gap-2.5">
-      <span class="pill px-4 py-1.5 text-sm">Serum</span><span class="pill px-4 py-1.5 text-sm">Vital</span>
-      <span class="pill px-4 py-1.5 text-sm">Operator</span><span class="pill px-4 py-1.5 text-sm">Wavetable</span>
-      <span class="pill px-4 py-1.5 text-sm">Pigments</span><span class="pill px-4 py-1.5 text-sm">Phase Plant</span>
-      <span class="pill px-4 py-1.5 text-sm">Diva</span><span class="pill px-4 py-1.5 text-sm">Massive X</span>
-      <span class="pill px-4 py-1.5 text-sm">Omnisphere</span>
-      <span class="pill-warm pill px-4 py-1.5 text-sm">N'importe quel instrument VST3 ou Ableton</span>
-    </div>
-    <p class="text-[12px] ink3 mt-5 max-w-xl mx-auto leading-relaxed">Stride VST héberge <b class="ink">VST3</b> instruments et effets à l'intérieur, dans n'importe quel DAW. Dans Ableton Live, <b class="ink">StrideBridge</b> mappe tes devices Ableton sur le même canvas et écrit ce mouvement dans un clip quand tu veux. Il héberge du VST3 partout et de l'AU sur macOS. Pas de VST2.</p>
-  </section>
-
-  <!-- ───────────────── THE PREMISE (you already own it) ───────────────── -->
-  <section data-ms="value" class="mb-28">
-    <div class="max-w-3xl mx-auto text-center">
-      <h2 class="text-4xl md:text-6xl mb-9 leading-[1.05]">Tu as déjà tout ce qu'il te faut.</h2>
-      <div class="text-2xl md:text-3xl leading-snug ink font-light space-y-1.5 mb-9">
-        <p>Tes synthés préférés.</p>
-        <p>Tes effets de confiance.</p>
-        <p>Une variation, c'est facile.</p>
-        <p>Vingt, c'est le boulot.</p>
-      </div>
-      <p class="text-lg md:text-xl leading-relaxed ink2 font-light">
-        Stride en écrit une nouvelle sur chaque lane mappée à chaque clic. Verrouille ce qui touche. Relance le reste.<br>
-        Ça ne remplace rien de tout ça. <span class="brand font-normal">Ça révèle plus de ce qui est déjà là.</span>
-      </p>
-    </div>
-  </section>
-
   <!-- ───────────────── SOCIAL PROOF (real producers, quoted with permission) ─────────────────
-       Sits right after the manifesto on purpose: the manifesto makes the claim
-       ("it reveals more of what's already there"), these producers say it back in
-       their own words. Real names, real links, real photos - nothing invented.
+       Straight after the hero at every width (Yossi 2026-10-19: desktop now reads
+       like the phone, which has had it here since 2026-10-14). The source order
+       is the order, so no `order:` rule is needed anywhere.
+       Real names, real links, real photos - nothing invented.
        One scrolling row (see .proof-rail); the bold in each quote marks the lines
        worth catching on a skim. Quotes stay verbatim: bold only, never reworded. -->
   <section data-ms="social" class="mb-28">
@@ -2636,6 +2603,37 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       build();
     })();
     </script>
+  </section>
+
+  <!-- ───────────────── WORKS WITH (compatibility strip, right under the social proof — kept understated) ───────────────── -->
+  <section data-ms="compat-logos" class="mb-20 text-center">
+    <p class="silk mb-5">Fonctionne avec les instruments que tu as déjà</p>
+    <div class="flex flex-wrap items-center justify-center gap-2.5">
+      <span class="pill px-4 py-1.5 text-sm">Serum</span><span class="pill px-4 py-1.5 text-sm">Vital</span>
+      <span class="pill px-4 py-1.5 text-sm">Operator</span><span class="pill px-4 py-1.5 text-sm">Wavetable</span>
+      <span class="pill px-4 py-1.5 text-sm">Pigments</span><span class="pill px-4 py-1.5 text-sm">Phase Plant</span>
+      <span class="pill px-4 py-1.5 text-sm">Diva</span><span class="pill px-4 py-1.5 text-sm">Massive X</span>
+      <span class="pill px-4 py-1.5 text-sm">Omnisphere</span>
+      <span class="pill-warm pill px-4 py-1.5 text-sm">N'importe quel instrument VST3 ou Ableton</span>
+    </div>
+    <p class="text-[12px] ink3 mt-5 max-w-xl mx-auto leading-relaxed">Stride VST héberge <b class="ink">VST3</b> instruments et effets à l'intérieur, dans n'importe quel DAW. Dans Ableton Live, <b class="ink">StrideBridge</b> mappe tes devices Ableton sur le même canvas et écrit ce mouvement dans un clip quand tu veux. Il héberge du VST3 partout et de l'AU sur macOS. Pas de VST2.</p>
+  </section>
+
+  <!-- ───────────────── THE PREMISE (you already own it) ───────────────── -->
+  <section data-ms="value" class="mb-28">
+    <div class="max-w-3xl mx-auto text-center">
+      <h2 class="text-4xl md:text-6xl mb-9 leading-[1.05]">Tu as déjà tout ce qu'il te faut.</h2>
+      <div class="text-2xl md:text-3xl leading-snug ink font-light space-y-1.5 mb-9">
+        <p>Tes synthés préférés.</p>
+        <p>Tes effets de confiance.</p>
+        <p>Une variation, c'est facile.</p>
+        <p>Vingt, c'est le boulot.</p>
+      </div>
+      <p class="text-lg md:text-xl leading-relaxed ink2 font-light">
+        Stride en écrit une nouvelle sur chaque lane mappée à chaque clic. Verrouille ce qui touche. Relance le reste.<br>
+        Ça ne remplace rien de tout ça. <span class="brand font-normal">Ça révèle plus de ce qui est déjà là.</span>
+      </p>
+    </div>
   </section>
 
   <!-- ───────────────── HOW IT WORKS — interactive Stride VST explainer ───────────────── -->
