@@ -3535,6 +3535,20 @@ document.addEventListener('DOMContentLoaded', function () {
   }, { threshold: 0 }).observe(anchor);
 });
 
+/* ── The price opens the buy form ──────────────────────────────────────────
+   Clarity, 2026-10-02..05: visitors tapped the price, the Save seal and the REKZ line about as
+   often as GET STRIDE itself, and nothing happened. Each now opens the buy form exactly as the
+   GET STRIDE beneath it does (Yossi 2026-10-05): the hero's price row and code line, and the
+   pricing panel's price row. No new element and no layout change, only a click and the pointer.
+   Both rows sit outside the buy form, so the toggle can only ever open it from here. */
+document.addEventListener('DOMContentLoaded', function () {
+  var taps = document.querySelectorAll('.sd-price-box, #codeSeal');
+  for (var i = 0; i < taps.length; i++) {
+    taps[i].style.cursor = 'pointer';
+    taps[i].addEventListener('click', function () { openBuy(); });
+  }
+});
+
 /* The collection teaser, AUDIO only. A sample pack is judged by ear, and the row
    above the CTA never let anyone hear it. preload="none" so the 645 KB is fetched
    on the first press and never for the people who do not ask. */
