@@ -2055,6 +2055,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <span class="code-seal" id="codeSeal" hidden></span>
         <div class="sd-price-box hero-price-line flex items-center gap-3 flex-wrap mt-1 mb-4">
           <div class="text-5xl lg:text-[44px] font-black ink leading-none tracking-tight hero-price sd-total">$99</div>
+          <div class="text-base fold-strike font-bold ink3 leading-none sd-was" style="text-decoration:line-through;opacity:.75;display:none"></div>
+          <span class="seal2 sd-save" style="display:none"></span>
         </div>
         <!-- Name the two things actually included, then the order bump above the buttons, as it always was. -->
         <ul class="vlist vlist-2 hero-included">
@@ -3047,6 +3049,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="md:border-l md:pl-8" style="border-color:var(--line)">
           <div class="sd-price-box flex items-center gap-3 flex-wrap mb-1">
             <div class="text-6xl font-black ink leading-none tracking-tight sd-total">$99</div>
+            <div class="text-lg font-bold ink3 leading-none sd-was" style="text-decoration:line-through;opacity:.75;display:none"></div>
+            <span class="seal2 sd-save" style="display:none"></span>
           </div>
           <p class="text-[12px] font-bold mb-5 mt-2.5 sd-what" style="color:var(--sage-lt)">Stride VST + StrideBridge</p>
           <div class="addon addon-compact" style="margin-bottom:13px" hidden>
@@ -3929,6 +3933,20 @@ function openBuy() { toggleBuyModal(); }
         return stride + (strideAddonActive() ? strideCollectionPrice() : 0);
     }
 
+    // The same order at the ordinary price, without any code: Paddle's preview without the
+    // discount once it has answered, the dollar prices until then.
+    function strideOrderFull() {
+        var stride = strideList ? strideList.stride : STRIDE_PRICE;
+        var coll = (strideList && strideList.collection != null) ? strideList.collection : COLLECTION_ADDON_PRICE;
+        return stride + (strideAddonActive() ? coll : 0);
+    }
+    // "Save $19.80" in the page's own language, the words the translated pages already used.
+    function strideSaveWords(amount) {
+        var lang = String(document.documentElement.lang || 'en').slice(0, 2).toLowerCase();
+        var w = { de: 'Spare {x}', es: 'Ahorra {x}', fr: 'Économise {x}', it: 'Risparmi {x}', ja: '{x} お得', zh: '省 {x}' }[lang] || 'Save {x}';
+        return w.replace('{x}', amount);
+    }
+
     // The Collection's own price in that currency, Paddle's where we have it.
     function strideCollectionPrice() {
         if (strideLocal && strideLocal.collection != null) return strideLocal.collection;
@@ -4018,6 +4036,7 @@ function openBuy() { toggleBuyModal(); }
     // rather than dollars. Both are filled once from Paddle.PricePreview. Until they are, and
     // if Paddle.js never loads, every number prints exactly as before.
     let strideLocal = null;       // { currency, stride, collection } what Paddle charges
+    let strideList = null;        // the same without any code: the ordinary price, struck beside a code's
     let strideFx = null;          // { rate, currency } only for OUR list prices, see strideMoney
 
     // A price in the charged currency, printed as it is. The locale is fixed rather than the
@@ -4128,6 +4147,21 @@ function openBuy() { toggleBuyModal(); }
 
         const total = strideMoneyExact(strideOrderTotal());
         document.querySelectorAll('.sd-total').forEach(function (el) { el.textContent = total; });
+
+        // A discount code on the page (REKZ from an ad, a personal Early Black Friday code, a
+        // friend's or a partner's): the ordinary price stands struck beside the code's price and
+        // the seal says what the code saves. Both are what Paddle charges this visitor without
+        // and with the code, so the struck price is the real one, never an anchor. No code, or
+        // Paddle not answered yet, and there is no struck price at all.
+        const full = strideOrderFull();
+        const saved = full - strideOrderTotal();
+        const showSave = !!strideCodeId && saved >= 0.5;
+        document.querySelectorAll('.sd-price-box').forEach(function (box) {
+            const was = box.querySelector('.sd-was');
+            const seal = box.querySelector('.sd-save');
+            if (was) { was.textContent = showSave ? strideMoneyExact(full) : ''; was.style.display = showSave ? '' : 'none'; }
+            if (seal) { seal.textContent = showSave ? strideSaveWords(strideMoneyExact(saved)) : ''; seal.style.display = showSave ? '' : 'none'; }
+        });
 
         // What the price buys, named rather than implied.
         document.querySelectorAll('.sd-what').forEach(function (el) {
@@ -4255,6 +4289,7 @@ function openBuy() { toggleBuyModal(); }
                     var list = both[0];
                     var charged = both[1] || list;
                     if (!list || !charged) return;
+                    strideList = list;
                     var cur = charged.currency;
                     // Dollars at the list price is what the page already prints.
                     if (cur === 'USD' && Math.abs(charged.stride - STRIDE_PRICE) < 0.005
