@@ -3723,6 +3723,10 @@ function openBuy() { toggleBuyModal(); }
     // scionaugh20: the Scionaugh artist collab (2026-09-30), 20% off Stride for his followers,
     // set up in Paddle exactly like REKZ. No affiliate link and no commission on it.
     const STRIDE_CODES = { rekz: 'dsc_01m2fxadt3hs2myt4k203tpj2t', scionaugh20: 'dsc_01m3rckwadf19e15b3pmvfjrtq' };
+    // Early Black Friday is the page's one deal (Yossi 2026-10-21): an ad's REKZ is neither applied
+    // from its link nor inferred from the click, so every visitor sees the ordinary price until they
+    // claim their 30% code in the popup. REKZ stays valid in Paddle. To bring it back: false.
+    const STRIDE_REKZ_PAUSED = true;
     // FRIEND20: somebody sent by a Stride owner's own referral link (?via=, stridePartnerLink
     // in <head>) gets 20% off Stride, what the ads give, and the owner earns 15% of the sale
     // through Affonso: about $32 on a $99 sale, inside what Meta costs per purchase (09-30).
@@ -3814,13 +3818,16 @@ function openBuy() { toggleBuyModal(); }
         try {
             name = (new URL(window.location.href).searchParams.get('code') || '').trim().toLowerCase();
         } catch (e) {}
+        // While REKZ is paused the visit is priced as if its link carried no code, and nothing is
+        // inferred (the only code ever inferred is REKZ).
+        if (STRIDE_REKZ_PAUSED && name === 'rekz') name = '';
         // Nothing in the URL: this may still be one of the ads that promised the
         // discount and could not carry it. Inferring it writes the code onto the URL, so
         // everything downstream — the seal, the price, the checkout, GA4, the funnel
         // pages — sees exactly what a real ?code=rekz visit looks like, and there is one
         // code path rather than two. Nothing is stored: a later bare stridehub.io is
         // organic traffic and pays full price, same rule as always.
-        if (!name) {
+        if (!name && !STRIDE_REKZ_PAUSED) {
             var inferred = strideInferredAdCode();
             if (inferred && STRIDE_CODES[inferred]) {
                 name = inferred;
@@ -5490,7 +5497,9 @@ function openBuy() { toggleBuyModal(); }
                     if (!d.again) {
                         try {
                             if (window.fbq && (!window.strideAllowed || window.strideAllowed())) {
-                                fbq('track', 'Lead', { content_name: 'Early Black Friday', value: 0, currency: 'USD' }, { eventID: eid });
+                                // lead_source: the same label the server's copy carries, so an
+                                // audience can hold the popup's people apart from demo sign-ups.
+                                fbq('track', 'Lead', { content_name: 'Early Black Friday', value: 0, currency: 'USD', lead_source: 'early_bf' }, { eventID: eid });
                             }
                         } catch (e) {}
                         track('bf_claimed', { percent: PERCENT });
@@ -5538,6 +5547,14 @@ function openBuy() { toggleBuyModal(); }
     // /?bfpop=1 opens it at once, for looking at it (/?demopop=1, the old prompt's switch, still
     // works). It never restarts an offer that ended.
     var FORCE = /[?&](bfpop|demopop)=1(&|$)/.test(window.location.search);
+    // A visit from Facebook or Instagram gets it as the page opens, not after the 15 seconds
+    // (Yossi 2026-10-21). Meta adds fbclid to every click out of its apps; when a phone strips
+    // it, utm_source still says so (meta on our own tags, fb or ig on Meta's). Read from this
+    // address only: the same person typing stridehub.io later waits like everyone else.
+    var FROM_META = ls(function () {
+        var q = new URL(window.location.href).searchParams;
+        return !!q.get('fbclid') || /^(meta|fb|facebook|ig|instagram|an|msg|messenger|threads)$/i.test((q.get('utm_source') || '').trim());
+    }, false);
     function first() {
         if (st.seen) { if (FORCE) open(); return; }
         if (busy()) { setTimeout(first, 5000); return; }
@@ -5552,7 +5569,7 @@ function openBuy() { toggleBuyModal(); }
     // Fifteen seconds ON the page, added up across the visit (sessionStorage, so a trip to
     // another page and back keeps them), and only while the page is actually in view.
     function startClock() {
-        if (FORCE) { setTimeout(first, 400); return; }
+        if (FORCE || FROM_META) { setTimeout(first, 400); return; }
         var active = ls(function () { return parseInt(sessionStorage.getItem(SECS_KEY) || '0', 10) || 0; }, 0);
         var saveSecs = function () { ls(function () { sessionStorage.setItem(SECS_KEY, String(active)); }); };
         var tick = setInterval(function () {
