@@ -719,6 +719,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* The film's part: letterboxed, never cropped (its words sit near the left edge). */
   .msl-film{background:#0e0d0b}
   .msl-film video{display:block;width:100%;height:100%;object-fit:contain}
+  /* On a phone the film stands on its own, upright (Yossi 2026-10-22: "vertical on mobile,
+     horizontal on desktop"): the 9:16 cut over the slider, never taller than the screen. */
+  .film-v{display:none;margin:0}
+  @media (max-width:640px){
+    .film-v{display:block;margin:22px 0 4px}
+    .film-v-frame{position:relative;margin:0 auto;aspect-ratio:9/16;border-radius:16px;overflow:hidden;
+      width:min(100%,calc(78vh * 9 / 16));width:min(100%,calc(78svh * 9 / 16));
+      border:1px solid rgba(198,113,43,.28);background:#0e0d0b;
+      box-shadow:0 34px 70px -34px rgba(0,0,0,.95),0 0 70px -24px rgba(198,113,43,.2)}
+    .film-v-frame video{display:block;width:100%;height:100%;object-fit:cover}
+  }
   .msl-live iframe{position:absolute;left:0;top:0;width:925px;height:747px;border:0;transform-origin:0 0;opacity:0;transition:opacity .45s}
   .msl-live iframe.on{opacity:1}
   .msl-arrow{position:absolute;top:50%;z-index:2;width:40px;height:40px;margin-top:-20px;padding:0;display:flex;align-items:center;justify-content:center;
@@ -746,7 +757,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .msl-stops button:nth-child(4){left:50%} .msl-stops button:nth-child(5){left:calc(66.667% - 3px)}
   .msl-stops button:nth-child(6){left:calc(83.333% - 6px)}
   .msl-stops button:nth-child(7){left:auto;right:0;transform:none}
-  @media (max-width:520px){ .msl-stops{display:none} }
+  @media (max-width:640px){ .msl-stops{display:none} }
   .msl-cap{margin-top:10px;font-size:13.5px;line-height:1.55;color:var(--ink2);min-height:3.1em}
   .msl-cap b{color:var(--ink);font-weight:800}
   /* The whole manual, one click from its slider and from the panels a buyer and an owner see. */
@@ -765,6 +776,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .vpop-x{position:absolute;top:10px;right:10px;width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;
     border-radius:999px;border:1px solid var(--line);background:rgba(16,15,12,.72);color:var(--ink2);font-size:19px;line-height:1;cursor:pointer}
   @media (max-width:640px){ .vpop{--pad:14px} }
+  .vpop.v .vpop-card{width:min(100%,calc((100vh - var(--pad) * 2) * 9 / 16));width:min(100%,calc((100dvh - var(--pad) * 2) * 9 / 16))}
 </style>
 <link rel="stylesheet" href="/_legacy/css/tendril-index.7d86e30b35.css">
 <script>window.STRIDE_LANGS=["en"]</script>
@@ -837,10 +849,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="eyebrow">Built for Stride</div>
           <span class="tdr-word">TENDRIL</span>
           <h1 class="claim">Three engines. <span class="brand">One evolving sound playground.</span></h1>
+          <!-- On a phone the film comes right under the headline, upright (Yossi 2026-10-22): the
+               9:16 cut, a silent loop while it is in sight, its play mark opens it with sound. The
+               words follow it, and the slider further down then starts at the rack. Hidden on a
+               computer, where the film is the slider's first part. -->
+          <figure class="film-v" data-film-v aria-label="Tendril &times; Stride, the film">
+            <div class="film-v-frame">
+              <video data-film-loop-v muted loop playsinline preload="none" poster="/media/tendril/film/poster-9x16.webp"
+                     data-src="/media/tendril/film/tendril-promo-9x16-loop.mp4" aria-label="Tendril and Stride: a silent preview of the film"></video>
+              <button type="button" class="play" data-film-open aria-label="Watch Tendril and Stride with sound"><span><svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="#1c1206"/></svg></span></button>
+            </div>
+          </figure>
           <p class="lead">Shape the harmonics, push the effects, and let three independent patterns play off each other. Explore with Stride to discover fresh sounds, mudpies and sequences from the same patch.</p>
           <p class="excl">Exclusive launch &middot; Stride owners only</p>
           <p class="specs">VST3 &middot; AU &middot; Standalone &middot; Windows and macOS</p>
-          <button type="button" class="btn-ghost text-sm uppercase px-7 py-3.5 mt-6" data-film-open hidden>Watch Tendril &times; Stride</button>
         </div>
         <!-- The manual, in the hero (Yossi 2026-10-22): its first part is the playable rack, live
              (the manual's own page, /media/tendril/manual/?embed=rack, drawn at the rack's own 925 px
@@ -1083,8 +1105,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
   var PADDLE_TOKEN = 'live_e0101b87a9e6e7024988534cf7b';
   // The Tendril x Stride film. Empty until it exists; then the play mark on the picture, the film
-  // section and its button appear. The homepage section reads the same name.
-  var TENDRIL_FILM = '/media/tendril/film/tendril-promo-1080.mp4';
+  // section and its button appear. The homepage section reads the same name. On a phone it plays
+  // upright, the 9:16 cut (Yossi 2026-10-22); everywhere else the wide one.
+  var PHONE = !!(window.matchMedia && window.matchMedia('(max-width:640px)').matches);
+  var TENDRIL_FILM = PHONE ? '/media/tendril/film/tendril-promo-9x16.mp4' : '/media/tendril/film/tendril-promo-1080.mp4';
   // Where someone who has just paid for Stride goes next: their download.
   var NEXT = '/welcome.html';
   var FAILED = 'Checkout could not open. Please try again, or write to home@stridehub.io.';
@@ -1413,7 +1437,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     var openFilm = function () {
       if (!pop) {
         pop = document.createElement('div');
-        pop.className = 'vpop';
+        pop.className = PHONE ? 'vpop v' : 'vpop';
         pop.setAttribute('role', 'dialog');
         pop.setAttribute('aria-modal', 'true');
         pop.setAttribute('aria-label', 'Tendril and Stride');
@@ -1458,8 +1482,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       document.dispatchEvent(new Event('tendril-film'));   // and picks up again once it closes
     };
     document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') closeFilm(); });
-    // The film lives in the hero now (its own part of the slider, and the Watch button under the
-    // lead), so the section that waited for it further down stays hidden: no second copy of it.
+    // The film lives in the hero now (the slider's first part on a computer, upright under the
+    // headline on a phone), so the section that waited for it further down stays hidden: no
+    // second copy of it.
     qa('[data-film-open]').forEach(function (b) { b.hidden = false; b.addEventListener('click', openFilm); });
   }
 })();
@@ -1476,6 +1501,23 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   'use strict';
   var root = document.querySelector('[data-msl]');
   if (!root) return;
+  // On a phone the film stands on its own above the strip (upright, the 9:16 cut), so the strip
+  // drops its film part, with that part's name and caption, and starts at the rack.
+  if (window.matchMedia && window.matchMedia('(max-width:640px)').matches) {
+    var filmPart = root.querySelector('[data-msl-film]');
+    if (filmPart) {
+      var filmAt = Array.prototype.indexOf.call(root.querySelectorAll('[data-msl-slide]'), filmPart);
+      [filmPart, root.querySelectorAll('[data-msl-go]')[filmAt], root.querySelectorAll('[data-msl-cap]')[filmAt]]
+        .forEach(function (el) { if (el && el.parentNode) el.parentNode.removeChild(el); });
+      Array.prototype.forEach.call(root.querySelectorAll('[data-msl-go]'), function (b, j) { b.setAttribute('data-msl-go', String(j)); });
+      var range0 = root.querySelector('[data-msl-range]');
+      if (range0) {
+        range0.max = String(root.querySelectorAll('[data-msl-slide]').length - 1);
+        range0.setAttribute('aria-label', 'Move through the manual');
+      }
+      root.setAttribute('aria-label', 'Tendril: the manual');
+    }
+  }
   var track = root.querySelector('[data-msl-track]');
   var slides = Array.prototype.slice.call(root.querySelectorAll('[data-msl-slide]'));
   var range = root.querySelector('[data-msl-range]');
@@ -1592,6 +1634,36 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   document.addEventListener('tendril-film', filmState);
   fit();
   paint(0);
+})();
+
+// ── The film on a phone ─────────────────────────────────────────────────────────
+// Upright and on its own: the silent loop runs while it is in sight and the page is in front,
+// and rests under the player. Nothing of it loads anywhere else (the block is hidden there).
+(function () {
+  'use strict';
+  var box = document.querySelector('[data-film-v]'), v = box && box.querySelector('video');
+  if (!v || !(window.matchMedia && window.matchMedia('(max-width:640px)').matches)) return;
+  var inView = false;
+  function state() {
+    if (inView && !document.hidden && !document.querySelector('.vpop.on')) {
+      if (!v.getAttribute('src')) v.setAttribute('src', v.getAttribute('data-src'));
+      var p = v.play();
+      if (p && p.catch) p.catch(function () {});
+    } else if (!v.paused) {
+      v.pause();
+    }
+  }
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(function (entries) {
+      inView = entries[entries.length - 1].isIntersecting;
+      state();
+    }, { threshold: 0.2 }).observe(box);
+  } else {
+    inView = true;
+    state();
+  }
+  document.addEventListener('visibilitychange', state);
+  document.addEventListener('tendril-film', state);
 })();
 </script>
 </body>
