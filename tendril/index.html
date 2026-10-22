@@ -613,10 +613,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .skip:hover{border-color:rgba(216,201,176,.4);background:rgba(255,255,255,.08)}
 
   /* The product: the name the way the plugin writes it, the claim, the picture. */
-  .eyebrow{display:inline-flex;align-items:center;gap:8px;margin:0 0 18px;padding:5px 12px 5px 10px;border-radius:999px;
-    border:1px solid rgba(221,154,82,.34);background:rgba(198,113,43,.12);color:var(--copper-lt);
-    font-size:10.5px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
-  .eyebrow i{width:6px;height:6px;border-radius:999px;background:var(--copper-lt);box-shadow:0 0 6px rgba(221,154,82,.7)}
+  /* Labels are plain floating text, never outlined pills with a dot (Yossi 2026-10-22: "those
+     frames with the dot look very AI; the homepage has none"). */
+  .eyebrow{display:block;margin:0 0 14px;font-size:11px;font-weight:900;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3)}
+  .excl{margin-top:18px;font-size:12.5px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:var(--copper-lt)}
   .tdr-word{display:block;font-size:15px;font-weight:800;letter-spacing:.42em;color:var(--copper-lt);margin:0 0 14px}
   .claim{font-size:2.3rem;line-height:1.06;letter-spacing:-.015em}
   @media (min-width:768px){ .claim{font-size:3.4rem} }
@@ -638,16 +638,26 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media (min-width:640px){ .offer{padding:30px 32px} }
   .gate{visibility:hidden}
   .gate.ready{visibility:visible}
-  .offer-flag{display:inline-flex;align-items:center;gap:8px;margin:0 0 16px;padding:5px 11px 5px 9px;
-    border-radius:999px;border:1px solid rgba(221,154,82,.34);background:rgba(198,113,43,.12);
-    color:var(--copper-lt);font-size:10px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
-  .offer-dot{width:6px;height:6px;border-radius:999px;background:var(--copper-lt);animation:offerPulse 2s ease-out infinite}
-  @keyframes offerPulse{0%{box-shadow:0 0 0 0 rgba(221,154,82,.55)}100%{box-shadow:0 0 0 7px rgba(221,154,82,0)}}
-  @media (prefers-reduced-motion:reduce){ .offer-dot{animation:none} }
+  .offer-flag{display:block;margin:0 0 12px;color:var(--copper-lt);font-size:11px;font-weight:900;letter-spacing:.18em;text-transform:uppercase}
   .offer-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:18px 28px}
   .price{font-weight:900;letter-spacing:-.02em;color:var(--ink);line-height:1;font-size:3rem}
   @media (min-width:640px){ .price{font-size:3.6rem} }
   .price-s{margin-top:8px;font-size:14px;color:var(--ink2)}
+  /* The public price, struck beside the owner price. The script draws it only in the open state,
+     which only a verified owner (a mailed token) or a fresh Stride buyer ever reaches. */
+  .price-line{display:flex;align-items:flex-end;flex-wrap:wrap;gap:6px 16px}
+  .was{display:flex;flex-direction:column;padding-bottom:4px}
+  .was s{font-size:1.5rem;font-weight:800;line-height:1;color:var(--ink3);text-decoration-thickness:2px;text-decoration-color:rgba(221,154,82,.85)}
+  .was small{margin-top:6px;font-size:10px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
+  /* The StrideChains get room of their own at the price (Yossi 2026-10-22: "push the StrideChains"),
+     floating: no box, no chips, the names as one line of text. */
+  .chains-in{margin-top:26px}
+  .chains-in h4{margin:0 0 4px;font-size:16px;font-weight:900;color:var(--ink)}
+  .chains-in h4 b{color:var(--copper-lt)}
+  .chains-in p{margin:0;font-size:14px;line-height:1.55;color:var(--ink2)}
+  .chips{display:flex;flex-wrap:wrap;align-items:baseline;margin-top:10px;font-size:13.5px;font-weight:700;line-height:1.7;color:var(--ink)}
+  .chips span:not(:last-child)::after{content:'/';margin:0 10px;font-weight:400;color:var(--ink3)}
+  .chips .more{color:var(--copper-lt)}
   .offer h3{font-size:1.6rem;line-height:1.2;margin:0 0 8px}
   .offer-p{font-size:15.5px;line-height:1.6;color:var(--ink2);max-width:40rem}
   .offer-note{margin:12px 0 0;font-size:13.5px;line-height:1.6;color:#e6795f;max-width:34rem}
@@ -688,7 +698,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   .get{list-style:none;margin:24px 0 0;padding:0;display:grid;gap:12px}
   .get li{display:flex;gap:12px;align-items:flex-start;font-size:1.02rem;line-height:1.5;color:var(--ink)}
-  .get li::before{content:'';flex:none;width:8px;height:8px;margin-top:.55em;border-radius:999px;background:var(--copper-lt);box-shadow:0 0 6px rgba(221,154,82,.6)}
+  .get li::before{content:'\25CF';flex:none;font-size:10px;line-height:1.5rem;color:var(--sage-lt)}
 
   footer{margin-top:80px;padding-top:24px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px 22px;font-size:13px;color:var(--ink3)}
   footer a{color:var(--ink3);text-decoration:none}
@@ -752,7 +762,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     border-radius:999px;border:1px solid var(--line);background:rgba(16,15,12,.72);color:var(--ink2);font-size:19px;line-height:1;cursor:pointer}
   @media (max-width:640px){ .vpop{--pad:14px} }
 </style>
-<link rel="stylesheet" href="/_legacy/css/tendril-index.128ff142bf.css">
+<link rel="stylesheet" href="/_legacy/css/tendril-index.7d86e30b35.css">
 <script>window.STRIDE_LANGS=["en"]</script>
 <script>(function () {
   function send() {
@@ -820,10 +830,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <section>
       <div class="grid lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.18fr)] gap-10 lg:gap-12 items-center">
         <div>
-          <div class="eyebrow"><i aria-hidden="true"></i>Built for Stride</div>
+          <div class="eyebrow">Built for Stride</div>
           <span class="tdr-word">TENDRIL</span>
           <h1 class="claim">Three engines. <span class="brand">One evolving sound playground.</span></h1>
           <p class="lead">Shape the harmonics, push the effects, and let three independent patterns play off each other. Explore with Stride to discover fresh sounds, mudpies and sequences from the same patch.</p>
+          <p class="excl">Exclusive launch &middot; Stride owners only</p>
           <p class="specs">VST3 &middot; AU &middot; Standalone &middot; Windows and macOS</p>
           <button type="button" class="btn-ghost text-sm uppercase px-7 py-3.5 mt-6" data-film-open hidden>Watch Tendril &times; Stride</button>
         </div>
@@ -898,13 +909,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            or error. The price is Paddle's own preview for this visitor, never a number in here. -->
       <div class="panel offer gate" id="offer">
         <div data-state="open" hidden>
-          <div class="offer-flag"><span class="offer-dot" aria-hidden="true"></span>Stride owner price</div>
+          <div class="offer-flag">Stride owner price</div>
           <div class="offer-row">
             <div>
-              <div class="price" data-now></div>
-              <p class="price-s">One-time purchase, with 22 StrideChains. Yours to keep.</p>
+              <div class="price-line">
+                <div class="price" data-now></div>
+                <div class="was" data-was hidden><s data-was-amt></s><small>Public price at launch</small></div>
+              </div>
+              <p class="price-s">One-time purchase. Yours to keep.</p>
             </div>
             <button type="button" class="cta btn-copper px-8 py-4 text-sm uppercase" data-buy>Get Tendril for <span data-cta-price></span></button>
+          </div>
+          <div class="chains-in">
+            <h4><b>+ 22 StrideChains</b> included</h4>
+            <p>Ready-to-load sound design systems: a Tendril sound, its sequence and the Stride mappings, all connected.</p>
+            <div class="chips" aria-label="Some of the 22 StrideChains"><span>Killa Sequence</span><span>Texture Lab</span><span>The Growler</span><span>Glitch Machine</span><span>Soundscape Drift</span><span>Tok Tok</span><span class="more">+16 more</span></div>
           </div>
           <p class="offer-note" aria-live="polite" hidden></p>
           <p class="fine">Your license key and download links arrive by email right after checkout. Sold by Paddle.com Market Ltd. Paying accepts the <a href="/terms.html" target="_blank">Terms</a> and the <a href="/refund.html" target="_blank">Refund Policy</a>.</p>
@@ -936,7 +955,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
 
         <div data-state="done" hidden>
-          <div class="offer-flag" style="color:var(--sage-lt);border-color:rgba(143,174,134,.4);background:rgba(143,174,134,.1)">Thank you</div>
+          <div class="offer-flag" style="color:var(--sage-lt)">Thank you</div>
           <h3>Tendril is yours.</h3>
           <p class="offer-p">Your license key and download links are on their way to your inbox. They usually land within a minute.</p>
           <div class="offer-act">
@@ -1166,6 +1185,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     el.hidden = !text;
   }
 
+  // The public price: what Tendril costs anyone WITHOUT Stride once it launches to everyone
+  // (Yossi 2026-10-22: Stride owners keep the owner price, the public pays $149), in the owner
+  // price's own currency ratios. Drawn struck beside the owner price, in the open state only,
+  // which only a verified owner or a fresh Stride buyer reaches. An unlisted currency shows none.
+  var PUBLIC = { USD: 149, EUR: 149, GBP: 129, ILS: 449, CAD: 209, AUD: 209, CHF: 129, NOK: 1399, NZD: 269 };
+
   function showOpen(d) {
     var p = d.price || {};
     var label = money(p);
@@ -1173,6 +1198,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     offer = { amount: p.amount, currency: p.currency };
     q('[data-now]').textContent = label;
     qa('[data-cta-price]').forEach(function (el) { el.textContent = label; });
+    var cur = String(p.currency || '').toUpperCase(), pub = PUBLIC[cur], was = '';
+    if (pub) {
+      try {
+        var dg = new Intl.NumberFormat('en-US', { style: 'currency', currency: cur }).resolvedOptions().minimumFractionDigits;
+        was = money({ amount: String(pub * Math.pow(10, dg)), currency: cur });
+      } catch (e) { was = ''; }
+    }
+    q('[data-was-amt]').textContent = was;
+    q('[data-was]').hidden = !was;
     show('open');
     stage('viewed');
   }
