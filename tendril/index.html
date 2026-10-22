@@ -1,0 +1,1516 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+    // The owner's credential comes off the address bar before any tag can read it. A mailed link
+    // and the homepage's owner check both arrive as /tendril/?k=<token>: the token is kept for this
+    // tab (and on this device, so a returning owner sees their price again) and the URL is cleaned,
+    // so it never lands in an analytics page URL, a recording or a screenshot.
+    // ?_ptxn= is a Paddle PAYMENT LINK's checkout name, and Paddle.js opens that checkout by itself
+    // once Initialize has run, which this page does. It is not expected here, so it is only removed.
+    // It must stay the first script in <head>.
+    (function () {
+      try {
+        var u = new URL(window.location.href), changed = false;
+        if (u.searchParams.has('k')) {
+          var k = (u.searchParams.get('k') || '').trim().toLowerCase();
+          if (/^[0-9a-f]{32}$/.test(k)) {
+            window.STRIDE_TENDRIL_K = k;
+            try { sessionStorage.setItem('stride_tendril_k', k); } catch (e) {}
+            try { localStorage.setItem('stride_tendril_k', k); } catch (e) {}
+          }
+          u.searchParams.delete('k');
+          changed = true;
+        }
+        if (u.searchParams.has('_ptxn')) { u.searchParams.delete('_ptxn'); changed = true; }
+        if (changed) history.replaceState(null, '', u.pathname + u.search + u.hash);
+      } catch (e) {}
+    })();
+    </script>
+<!-- Google consent mode v2 -->
+<script>
+// Consent mode v2. This must run BEFORE any Google tag: after one has loaded it has
+// already decided how to behave, and a declaration made later is decoration.
+//
+// Two defaults are declared. Denied for the EEA, the UK and Switzerland, where Google's
+// EU user consent policy wants a real answer, and granted everywhere else, which is what
+// the privacy policy discloses. Google resolves the visitor's region itself from the
+// request, so none of this needs an IP lookup of ours. Roughly two thirds of paying
+// customers bill from the denied set, so it is the majority path, not an edge case.
+//
+// Consent mode governs GOOGLE tags. Everything with no consent mode of its own (the Meta
+// Pixel, Microsoft Clarity, and our own ad-matching storage: the visitor id, the saved ad
+// click, the ad markers) waits for Accept in the same region instead: see strideWhenAllowed
+// below. Until 2026-09-24 those ran for everyone before any answer and kept running after
+// Decline, which the banner's own words ("say no and nothing changes") did not match.
+//     https://developers.google.com/tag-platform/security/guides/consent
+(function () {
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    // A stable handle. The GA4 block further down declares its own global gtag; this one
+    // is ours and cannot be redefined out from under the banner.
+    window.strideGtag = gtag;
+
+    // Where Google's EU user consent policy applies: the EU 27, the rest of the EEA,
+    // the UK and Switzerland. Kept in step with _CONSENT_REQUIRED_COUNTRIES in
+    // firebase_cloud/functions/google_dm.py, which decides the same question server-side.
+    var CONSENT_REGION = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR',
+                          'HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK',
+                          'SI','ES','SE','IS','LI','NO','GB','CH'];
+    // PAUSED, Yossi 2026-10-07, until he says otherwise (the first pause ran 10-03 to 10-06): nobody
+    // is treated as inside the region (see inRegion), so no banner and nothing waits for an
+    // answer: the Meta Pixel counts every ad visitor, as it already does outside Europe, so the
+    // ads optimise on every sale. A stored answer still rules, so a No stays a No. There is no end
+    // date: the question returns only with a deploy (a time here, or this and its line in inRegion
+    // removed).
+    var PAUSED_UNTIL = Infinity;
+    var ALL = ['ad_storage', 'ad_user_data', 'ad_personalization', 'analytics_storage'];
+
+    function state(value, extra) {
+        var o = {};
+        for (var i = 0; i < ALL.length; i++) { o[ALL[i]] = value; }
+        for (var k in (extra || {})) { o[k] = extra[k]; }
+        return o;
+    }
+
+    // Region-scoped default first; Google applies the more specific one.
+    // wait_for_update holds the tags briefly so a stored answer below lands first.
+    gtag('consent', 'default', state('denied', { region: CONSENT_REGION,
+                                                 wait_for_update: 500 }));
+    gtag('consent', 'default', state('granted'));
+
+    var saved = '';
+    try { saved = localStorage.getItem('stride_consent_ads') || ''; } catch (e) {}
+    if (saved !== 'granted' && saved !== 'denied') { saved = ''; }
+    // Replay the answer synchronously, before any tag fires, so a returning visitor is
+    // never measured on a footing they already rejected.
+    if (saved) { gtag('consent', 'update', state(saved)); }
+
+    // Read by the checkout, which sends it to the backend so an order months later can
+    // still report what this person actually agreed to. '' means unanswered, and the
+    // server reads that as UNSPECIFIED rather than as a yes.
+    window.strideConsentAds = function () { return saved; };
+
+    // Everything that is not a Google tag. Where the banner asks, the Meta Pixel, Clarity and
+    // our own ad-matching storage do not load, read or write anything until the visitor says
+    // yes; after a no they never do. Everywhere else they run as they always have. A page
+    // hands each of them over through strideWhenAllowed, and whatever is waiting here runs
+    // the moment the visitor presses Accept, so the page they are on is still counted.
+    var held = [];
+    function allowed() { return saved === 'granted' || (!saved && !inRegion()); }
+    window.strideAllowed = allowed;
+    // 'in' where this banner asks (by time zone, see inRegion), 'out' everywhere else. Sent
+    // with every checkout, sign-up and ping so the server can tell an American who was never
+    // asked from a European who has not answered yet: main.py _meta_level.
+    window.strideConsentRegion = function () {
+        try { return inRegion() ? 'in' : 'out'; } catch (e) { return 'in'; }
+    };
+    window.strideWhenAllowed = function (fn) {
+        if (allowed()) { try { fn(); } catch (e) {} return; }
+        held.push(fn);
+    };
+
+    // Our own ad-matching storage, and what the Pixel and Clarity left on this site, go
+    // whenever they are not allowed: after a no, and on every page while the question is
+    // still open, which also clears what a visit before this banner existed stored. Nothing
+    // that reads them later (the checkout's attribution) can then find any. The Pixel and
+    // Clarity set theirs on the parent domain, so each is cleared host-only and there too.
+    var OURS = ['stride_xid', 'stride_ad_id', 'stride_fbclid', 'stride_gclid', 'stride_wbraid',
+                'stride_gbraid', '_fbc', '_fbp', '_clck', '_clsk', 'affonso_referral', 'affonso_data'];
+    function forget() {
+        var host = location.hostname.replace(/^www\./, '');
+        var scopes = ['', '; domain=' + host, '; domain=.' + host];
+        for (var i = 0; i < OURS.length; i++) {
+            for (var j = 0; j < scopes.length; j++) {
+                try { document.cookie = OURS[i] + '=; max-age=0; path=/' + scopes[j] + '; SameSite=Lax; Secure'; } catch (e) {}
+            }
+        }
+        ['stride_fbclid', 'stride_fbc', 'stride_ad', 'stride_emh', 'stride_gclid', 'stride_wbraid',
+         'stride_gbraid',
+         // What /try keeps under names of its own (its captureAdClick).
+         'stride_ad_id', 'stride_adset_id', 'stride_campaign_id', 'stride_utm_source',
+         'stride_utm_campaign', 'stride_utm_content'].forEach(function (k) {
+            try { localStorage.removeItem(k); } catch (e) {}
+            try { sessionStorage.removeItem(k); } catch (e) {}
+        });
+        // Already running on this page (a changed answer): tell them to stop here too. Called
+        // through a variable: pages without the Pixel read this block too, and the React
+        // build refuses a source page that looks like it sends Pixel events.
+        var pixel = window.fbq, rec = window.clarity;
+        try { if (pixel) { pixel('consent', 'revoke'); } } catch (e) {}
+        try { if (rec) { rec('consent', false); } } catch (e) {}
+    }
+    if (!allowed()) { forget(); }
+    // The buy form used to keep every buyer's name, email and country here for good, and
+    // nothing ever read it. It is no longer written; this clears the copies already out there.
+    try { localStorage.removeItem('stride_purchase'); } catch (e) {}
+
+    function record(value) {
+        saved = value;
+        try { localStorage.setItem('stride_consent_ads', value); } catch (e) {}
+        // A cookie too: the checkout on a different page of this site reads whichever
+        // survives, and Safari evicts localStorage on long gaps more readily.
+        try {
+            document.cookie = 'stride_consent_ads=' + value + '; max-age=' +
+                (180 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+        } catch (e) {}
+        gtag('consent', 'update', state(value));
+        dataLayer.push({ event: 'stride_consent', consent_ads: value });
+        var run = held;
+        held = [];
+        if (value === 'granted') {
+            for (var i = 0; i < run.length; i++) { try { run[i](); } catch (e) {} }
+            var pixel = window.fbq;
+            try { if (pixel) { pixel('consent', 'grant'); } } catch (e) {}
+        } else {
+            forget();
+        }
+        // Anything a page already handed on before the answer (the homepage's Apple Pay
+        // checkout, opened at load) is restated with it: see strideSyncExpressConsent.
+        try { window.dispatchEvent(new CustomEvent('stride:consent', { detail: value })); } catch (e) {}
+    }
+
+    // Withdrawing has to be as easy as agreeing, so the privacy policy carries a control
+    // that asks again, wherever the visitor is.
+    window.strideConsentChange = function () {
+        saved = '';
+        try { localStorage.removeItem('stride_consent_ads'); } catch (e) {}
+        try { document.cookie = 'stride_consent_ads=; max-age=0; path=/; SameSite=Lax; Secure'; } catch (e) {}
+        banner(true);
+    };
+
+    // Ask only where the answer is legally required. Timezone, not an IP lookup: it costs
+    // no request and identifies nobody. It over-asks a little (Europe/Moscow is not the
+    // EEA) and that is the safe direction. The harm of not asking a German is that their
+    // tags stay denied for good, while the harm of asking a Russian is a dismissed bar.
+    // If the timezone cannot be read at all, ask. Never assume consent.
+    function mustAsk() { return !saved && inRegion(); }
+    function inRegion() {
+        if (Date.now() < PAUSED_UNTIL) { return false; }   // TEMPORARY, see PAUSED_UNTIL
+        try {
+            var tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+            // An empty timezone is not "not Europe", it is "no idea". Falling through
+            // to the comparison below would read it as no idea -> do not ask -> stay
+            // denied forever, which loses the visitor rather than asking them.
+            if (!tz) { return true; }
+            // Europe/* covers most of it. The rest of the EU and EEA sits in zones named after
+            // other continents: Cyprus, Ceuta and Melilla, Spain and Portugal's islands, and
+            // France's overseas regions, which are EU territory. Svalbard and the Faroes are
+            // not, and are asked anyway: over-asking is the safe direction.
+            return tz.indexOf('Europe/') === 0 || [
+                'Atlantic/Reykjavik', 'Atlantic/Canary', 'Atlantic/Madeira', 'Atlantic/Azores',
+                'Atlantic/Faroe', 'Arctic/Longyearbyen', 'Asia/Nicosia', 'Asia/Famagusta',
+                'Africa/Ceuta', 'America/Guadeloupe', 'America/Martinique', 'America/Cayenne',
+                'America/Marigot', 'Indian/Reunion', 'Indian/Mayotte'
+            ].indexOf(tz) >= 0;
+        } catch (e) { return true; }
+    }
+
+    // force: asked again from the privacy policy, wherever the visitor is. Strictly `true`,
+    // because DOMContentLoaded calls this with its event object.
+    function banner(force) {
+        if ((force !== true && !mustAsk()) || document.getElementById('stride-consent')) { return; }
+        var css = document.createElement('style');
+        // The panel, hairline and copper are the page's own tokens, so this reads as part
+        // of Stride rather than as a bolted-on compliance widget. The three legal pages
+        // are built on Tailwind and define no tokens, hence a literal fallback on every
+        // var(): identical everywhere, and no page-specific stylesheet.
+        css.textContent =
+            // Layer 1000: above the page, the buy bar (1000, and this panel comes later in
+            // the DOM) and its help dot (999); BELOW everything the visitor opens on purpose:
+            // the contact modal (1001), the buy modal (1002), the phone menu (1100), the film
+            // (1200) and Paddle's checkout. It used to sit above all of those, which put a
+            // cookie notice on top of the email field and "Continue to checkout".
+            '#stride-consent{position:fixed;left:18px;bottom:18px;z-index:1000;' +
+            'width:min(372px,calc(100vw - 36px));' +
+            'background:var(--panel,#1d1b16);border:1px solid var(--line,rgba(216,201,176,.11));' +
+            'border-radius:16px;padding:15px 16px;' +
+            'box-shadow:0 30px 70px -30px rgba(0,0,0,.85);' +
+            'font-family:Outfit,system-ui,-apple-system,sans-serif;' +
+            'color:var(--ink2,#b8ad9b);' +
+            // Starts invisible and a little low, then rises once. A panel that is simply
+            // THERE on first paint reads as part of the page still loading.
+            // While it waits it is also untouchable, so a tap lands on the page beneath.
+            'opacity:0;transform:translateY(12px);visibility:hidden;pointer-events:none;' +
+            'transition:opacity .45s ease,transform .45s cubic-bezier(.22,.8,.3,1),' +
+            'bottom .25s ease,visibility 0s linear .45s}' +
+            '#stride-consent.on{opacity:1;transform:none;visibility:visible;' +
+            'pointer-events:auto;transition-delay:0s}' +
+            '#stride-consent p{margin:0 0 12px;font-size:13px;line-height:1.55}' +
+            '#stride-consent a{color:var(--copper-lt,#dd9a52);text-decoration:none;' +
+            'border-bottom:1px solid rgba(221,154,82,.28)}' +
+            '#stride-consent a:hover{border-bottom-color:rgba(221,154,82,.75)}' +
+            '#stride-consent div{display:flex;gap:8px}' +
+            // Both buttons are one style. Making "accept" the loud one is the nudge the
+            // consent rules exist to stop, and an equal pair is also simply calmer.
+            '#stride-consent button{flex:1 1 0;font:inherit;font-size:13px;font-weight:700;' +
+            'cursor:pointer;padding:9px 14px;border-radius:10px;' +
+            'border:1px solid var(--line,rgba(216,201,176,.11));' +
+            'background:var(--raise,#252119);color:var(--ink,#ece4d6);' +
+            'transition:border-color .18s ease}' +
+            '#stride-consent button:hover{border-color:rgba(216,201,176,.3)}' +
+            '@media(max-width:560px){#stride-consent{left:12px;right:12px;bottom:12px;width:auto}}' +
+            '@media(prefers-reduced-motion:reduce){#stride-consent{transition:none;' +
+            'opacity:1;transform:none}}';
+        document.head.appendChild(css);
+
+        var el = document.createElement('div');
+        el.id = 'stride-consent';
+        el.setAttribute('role', 'dialog');
+        el.setAttribute('aria-label', 'Cookie choices');
+        // Short, in the voice of the person who makes it (Yossi 2026-09-26): what a yes is
+        // for, all three uses of it (measuring the ads, how the site is used, ads that find
+        // you again), and that nothing else changes. No "we value your privacy", no wall of
+        // vendor names; the policy one tap away names every one of them. The panel keeps its
+        // size (Yossi), so these words fill exactly the box the previous ones did: measured
+        // equal in width and height at every viewport from 320 to 1920px.
+        el.innerHTML =
+            '<p>Accepting shows us which videos and ads work and how the site is used, ' +
+            'and lets our ads find you. Nothing else changes. ' +
+            '<a href="/privacy.html">Privacy&nbsp;Policy</a></p>' +
+            '<div><button type="button" data-consent="denied">Decline</button>' +
+            '<button type="button" data-consent="granted">Accept</button></div>';
+        el.addEventListener('click', function (ev) {
+            var v = ev.target && ev.target.getAttribute('data-consent');
+            if (!v) { return; }
+            record(v);
+            answered = true;
+            // Leave the way it arrived rather than vanishing mid-click.
+            el.classList.remove('on');
+            setTimeout(function () { el.remove(); }, 260);
+        });
+        document.body.appendChild(el);
+
+        // The homepage pins a buy bar to the bottom of the viewport (#m-cta, "GET STRIDE"),
+        // and it arrives on scroll rather than on load. A panel sitting at bottom:18px
+        // lands straight on top of it and hides the primary buy button behind a cookie
+        // notice, so the panel rides above the bar and keeps following it as it comes and
+        // goes. Every other page has no such bar, where this is a no-op.
+        //
+        // And it never sits on what the visitor came for: the hero film, a headline, the
+        // hero's price and buy box, the /try form, any copper buy or try button, or the
+        // demo prompt. Riding above the bar was not enough on its own: on a taller phone
+        // the bar has not arrived at load (the hero's own button is still in view) and the
+        // panel sat on that button; on a shorter one it clipped the headline and the price;
+        // on /try it covered GET STRIDE FREE. When the only place it could go is on top of
+        // one of these it waits out of sight, and comes back once the spot is clear, which
+        // on a phone is the first scroll past the hero, right above the bar. Nothing is
+        // lost by waiting: this visitor's tags hold the denied default until they answer.
+        // Selectors, not words, so it holds in every language the site is published in.
+        var KEEP_CLEAR = '#heroStage, h1, .hero-buy, #f, .btn-copper, .dpop, ' +
+                         '#buy-modal, #contact-modal';
+        var ready = false, shown = false, answered = false, showTimer = 0, frame = 0;
+
+        // Would the panel, parked `base` px above the bottom edge, cover any of them?
+        // Measured where it WILL sit, not where it is: while waiting it sits 12px low.
+        function blocked(base) {
+            var box = el.getBoundingClientRect();
+            var bottom = window.innerHeight - base, top = bottom - el.offsetHeight;
+            var keep = document.querySelectorAll(KEEP_CLEAR);
+            for (var i = 0; i < keep.length; i++) {
+                var k = keep[i];
+                if (el.contains(k)) { continue; }
+                var s = window.getComputedStyle(k);
+                if (s.display === 'none' || s.visibility === 'hidden') { continue; }
+                var r = k.getBoundingClientRect();
+                if (!r.width || !r.height) { continue; }
+                if (r.bottom > top && r.top < bottom && r.right > box.left && r.left < box.right) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function show() {
+            shown = true;
+            el.classList.add('on');
+        }
+
+        function place() {
+            frame = 0;
+            if (answered || !el.isConnected) { return; }
+            var base = clearBottomBar();
+            if (!ready) { return; }
+            if (blocked(base)) {
+                clearTimeout(showTimer);
+                showTimer = 0;
+                if (shown) { shown = false; el.classList.remove('on'); }
+            } else if (!shown && !showTimer) {
+                // Come back only once the page has settled in a clear spot, so a scroll
+                // that is passing a button does not make the panel blink on and off.
+                showTimer = setTimeout(function () {
+                    showTimer = 0;
+                    if (answered || blocked(clearBottomBar())) { return; }
+                    show();
+                }, 350);
+            }
+        }
+
+        function schedule() {
+            if (!frame) { frame = window.requestAnimationFrame(place); }
+        }
+
+        function clearBottomBar() {
+            var base = window.innerWidth <= 560 ? 12 : 18;
+            var bar = document.getElementById('m-cta');
+            if (bar) {
+                var r = bar.getBoundingClientRect();
+                // Only when it is really parked at the bottom of the viewport right now.
+                // The bar slides in and out, and once it has slid away its rect sits
+                // BELOW the fold, which still satisfies a bottom-edge test on its own.
+                // Requiring the top edge to be on screen too is what tells the two apart.
+                if (r.height > 0 && r.top < window.innerHeight - 4
+                        && r.bottom > window.innerHeight - 4) {
+                    base += r.height + 10;
+                }
+            }
+            el.style.bottom = base + 'px';
+            return base;
+        }
+        clearBottomBar();
+        window.addEventListener('scroll', schedule, { passive: true });
+        window.addEventListener('resize', schedule);
+        // The bar is switched on by a CLASS, not by scrolling, so it can appear without
+        // either listener above ever firing. Watch the element itself as well.
+        var _bar = document.getElementById('m-cta');
+        if (_bar) {
+            if (window.MutationObserver) {
+                new MutationObserver(schedule).observe(_bar, {
+                    attributes: true, attributeFilter: ['class', 'style'] });
+            }
+            // The class flips first and the bar SLIDES in afterwards, so at the moment the
+            // observer fires it is still below the fold and measures as absent. Waiting for
+            // the slide to finish is what actually catches it in place; without this the
+            // panel stays put and lands on the buy button on a phone.
+            _bar.addEventListener('transitionend', schedule);
+        }
+        // The demo prompt and the two modals also open by a class, without a scroll.
+        if (window.MutationObserver) {
+            ['dpop', 'buy-modal', 'contact-modal'].forEach(function (id) {
+                var o = document.getElementById(id);
+                if (o) {
+                    new MutationObserver(schedule).observe(o, {
+                        attributes: true, attributeFilter: ['class', 'style'] });
+                }
+            });
+        }
+
+        // Hold it back a beat so the page paints first. Nothing waits on this: the tags
+        // already hold the denied default for this visitor, so all the delay changes is
+        // that the page is not interrupted while it is still arriving. Measure once more
+        // on the way in, because the bar may have arrived during that beat, and show it
+        // straight away only if that spot is clear.
+        setTimeout(function () {
+            ready = true;
+            if (!answered && !blocked(clearBottomBar())) { show(); } else { place(); }
+        }, 700);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', banner);
+    } else {
+        banner();
+    }
+})();
+</script>
+<!-- End Google consent mode v2 -->
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-5R4N7FVP');</script>
+<!-- End Google Tag Manager -->
+<!-- Google tag (gtag.js) -->
+<!-- No gtag.js loader of our own: GTM-5R4N7FVP already loads G-JCMEXN70CM (its Google Ads tag is linked to it), so loading it here as well ran the same 188 KB twice. The config below reaches GTM's copy through the dataLayer. Measured 2026-09-26: still exactly one GA4 page_view. -->
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-JCMEXN70CM');
+</script>
+<!-- End Google tag (gtag.js) -->
+<!-- Microsoft Clarity -->
+<script type="text/javascript">
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        (c.strideWhenAllowed||function(g){g()})(function(){
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+        if(c.strideConsentAds&&c.strideConsentAds()==='granted'){c[a]('consentv2',{ad_Storage:'granted',analytics_Storage:'granted'});}
+        });
+    })(window, document, "clarity", "script", "yj7cm3a9sz");
+    // The funnel in Clarity (Yossi 2026-10-19). Every step a page already reports somewhere else
+    // (StrideTrack's GA4 events, the offer stages, Paddle's checkout events, the hero film, the
+    // buy form) also lands in Clarity as a custom event, so recordings and Clarity's funnels can be
+    // cut by it. Event names and a few landing tags only: never an email, a name or an order id.
+    // Calls wait in Clarity's own queue (above) until its tag loads, which happens only where the
+    // visitor may be measured (strideWhenAllowed); after a No nothing is even queued.
+    (function () {
+        var open = {}, upgraded = false;
+        function keep(name) {
+            return name === 'begin_checkout' || name === 'demo_registered' || name === 'purchase'
+                || name === 'checkout_loaded' || /_(payment_started|completed)$/.test(name);
+        }
+        function sc(name, tags) {
+            try {
+                if (typeof window.clarity !== 'function') { return; }
+                if (window.strideConsentAds && window.strideConsentAds() === 'denied') { return; }
+                for (var k in (tags || {})) {
+                    if (Object.prototype.hasOwnProperty.call(tags, k) && tags[k] != null && tags[k] !== '') {
+                        window.clarity('set', k, String(tags[k]).slice(0, 100));
+                    }
+                }
+                if (!name) { return; }
+                window.clarity('event', String(name));
+                // The whole recording of anyone who reached a checkout or signed up is kept.
+                if (!upgraded && keep(String(name))) { upgraded = true; window.clarity('upgrade', String(name)); }
+            } catch (e) {}
+        }
+        // Paddle's checkout events, one prefix per checkout: 'checkout' (the buy form's overlay),
+        // 'wallet' (the Apple Pay / Google Pay button), 'upsell' (/post2, /post), 'session',
+        // 'collection'. A wallet that re-renders (the add-on toggled) is not shown twice, and a
+        // close counts only for a checkout that was showing: the page also closes the wallet's
+        // frame itself when the buy form's checkout takes over.
+        var STEP = { 'checkout.loaded': 'loaded', 'checkout.customer.created': 'details',
+                     'checkout.payment.selected': 'payment_selected',
+                     'checkout.payment.initiated': 'payment_started',
+                     'checkout.payment.failed': 'payment_failed',
+                     'checkout.payment.error': 'payment_error',
+                     'checkout.completed': 'completed', 'checkout.closed': 'closed' };
+        sc.paddle = function (ev, prefix) {
+            try {
+                var step = ev && STEP[ev.name];
+                if (!step || !prefix) { return; }
+                if (step === 'payment_error' && ev.code === 'no_payment_methods_available') { step = 'unavailable'; }
+                if (step === 'loaded') { if (open[prefix]) { return; } open[prefix] = true; }
+                if (step === 'closed') { if (!open[prefix]) { return; } open[prefix] = false; }
+                if (step === 'completed' || step === 'unavailable') { open[prefix] = false; }
+                sc(prefix + '_' + step);
+            } catch (e) {}
+        };
+        window.strideClarity = sc;
+        // Which ad or link brought this visit. Clarity reads utm_source, utm_medium and
+        // utm_campaign by itself; these are the ones it does not.
+        try {
+            var q = new URLSearchParams(location.search), t = {};
+            ['ad_id', 'adset_id', 'campaign_id'].forEach(function (k) {
+                var v = (q.get(k) || '').trim();
+                if (/^\d{6,24}$/.test(v)) { t[k] = v; }
+            });
+            t.ad_name = (q.get('utm_content') || '').trim();
+            if (q.get('fbclid')) { t.click_id = 'meta'; }
+            else if (q.get('gclid') || q.get('wbraid') || q.get('gbraid')) { t.click_id = 'google'; }
+            var code = (q.get('code') || '').trim().toLowerCase();
+            if (code) { t.code = code === 'rekz' ? 'rekz' : 'other'; }
+            sc('', t);
+        } catch (e) {}
+    })();
+</script>
+<!-- End Microsoft Clarity -->
+    <title>TENDRIL | A synth built to be explored with Stride</title>
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Tendril: three synth engines, waveforms drawn with knobs, OSC FX, filters, drive and a sequencer for all three. Built to be explored with Stride, sold to Stride owners.">
+    <meta name="theme-color" content="#141310">
+
+    <!-- Meta Pixel. Copied verbatim from welcome.html, because this is now the FIRST
+         post-purchase page a buyer reaches and the purchase events moved here with it.
+         Whatever fires must fire exactly once per purchase, on whichever of these two
+         pages the buyer lands on first. -->
+    <script>
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];(f.strideWhenAllowed||function(g){g()})(function(){t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t,s)})}(window, document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    var _strideXid = (function () {
+        try {
+            if (window.strideAllowed && !strideAllowed()) return '';
+            var m = document.cookie.match(/(?:^|; )stride_xid=([^;]*)/);
+            if (m) return decodeURIComponent(m[1]);
+            var id = (self.crypto && crypto.randomUUID) ? crypto.randomUUID()
+                : (Date.now().toString(36) + Math.random().toString(36).slice(2, 12));
+            document.cookie = 'stride_xid=' + encodeURIComponent(id) +
+                '; max-age=' + (180 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+            return id;
+        } catch (e) { return ''; }
+    })();
+    fbq('init', '952457524222772', _strideXid ? { external_id: _strideXid } : {});
+    fbq('track', 'PageView');
+
+    window.StrideTrack = window.StrideTrack || {
+        push: function (event, params) {
+            try {
+                var d = { event: event, external_id: (typeof _strideXid === 'string' && _strideXid) || undefined,
+                          value: undefined, currency: undefined, transaction_id: undefined, item_name: undefined };
+                for (var k in (params || {})) { if (Object.prototype.hasOwnProperty.call(params, k)) d[k] = params[k]; }
+                (window.dataLayer = window.dataLayer || []).push(d);
+            } catch (e) {}
+            // The same step in Clarity, by name only (the Clarity block in <head>).
+            try { if (window.strideClarity) window.strideClarity(event); } catch (e) {}
+        }
+    };
+    </script>
+
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cdefs%3E%3ClinearGradient id='strideGradient' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23eaa54e' /%3E%3Cstop offset='100%25' stop-color='%23c6712b' /%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z' stroke='url(%23strideGradient)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+
+    <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#141310; --bg2:#191611; --panel:#1d1b16; --raise:#252119; --line:rgba(216,201,176,.11);
+    --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
+    --copper:#c6712b; --copper-lt:#dd9a52; --amber:#d9822b; --ember:#e58a2e;
+    --teal:#2f748e;  --teal-lt:#5e9aad; --sage-lt:#8fae86;
+    --o50:249 241 234;--o100:244 227 213;--o200:232 198 170;--o300:222 154 82;--o400:198 113 43;--o500:174 99 38;--o600:143 81 31;--o700:109 62 24;--o800:79 45 17;--o900:55 32 12;--o950:30 17 6;
+    --z50:241 236 226;--z100:228 221 208;--z200:215 207 192;--z300:195 187 171;--z400:163 154 138;--z500:118 111 99;--z600:88 82 73;--z700:66 61 52;--z800:37 33 25;--z900:29 27 22;--z950:20 19 16;
+    --rd50:250 238 232;--rd100:246 220 209;--rd200:235 186 167;--rd300:216 132 104;--rd400:199 100 66;--rd500:176 80 49;--rd600:150 66 40;--rd700:117 51 32;--rd800:84 37 24;--rd900:56 25 17;--rd950:31 14 10;
+    --em50:235 240 233;--em100:214 224 210;--em200:181 198 175;--em300:134 168 127;--em400:110 146 102;--em500:91 123 85;--em600:73 99 67;--em700:56 77 52;--em800:40 56 38;--em900:27 38 25;--em950:15 22 13;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Outfit',sans-serif;background:var(--bg);color:var(--ink2);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  ::selection{background:rgba(198,113,43,.3)}
+  body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(120% 80% at 50% -10%, rgba(198,113,43,.08), transparent 60%),
+               radial-gradient(100% 60% at 50% 110%, rgba(47,116,142,.05), transparent 60%);}
+  .wrap{position:relative;z-index:1}
+  .mono{font-family:'Space Mono',ui-monospace,monospace}
+  .silk{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--ink3)}
+  .brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .ink{color:var(--ink)} .ink2{color:var(--ink2)} .ink3{color:var(--ink3)}
+  h1,h2,h3,h4{color:var(--ink);font-weight:900;letter-spacing:-.01em;margin:0}
+  p{margin:0}
+  a{color:var(--copper-lt)}
+  .panel{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(0,0,0,.14)),var(--panel);
+    border:1px solid var(--line);border-radius:18px;
+    box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 24px 50px -30px rgba(0,0,0,.9)}
+  .btn-copper{display:inline-flex;align-items:center;justify-content:center;gap:.6rem;background:linear-gradient(180deg,var(--ember),var(--copper));
+    color:#1c1206;font-weight:900;letter-spacing:.04em;border:1px solid rgba(255,210,150,.25);border-radius:14px;text-decoration:none;
+    box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 12px 24px -14px rgba(198,113,43,.8);transition:transform .15s,filter .15s;cursor:pointer}
+  .btn-copper:hover{transform:translateY(-2px);filter:brightness(1.06)}
+  .btn-ghost{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;border:1px solid var(--line);background:var(--raise);color:var(--ink2);
+    font-weight:800;letter-spacing:.04em;border-radius:14px;text-decoration:none;cursor:pointer;transition:transform .15s,border-color .15s,color .15s}
+  .btn-ghost:hover{transform:translateY(-2px);border-color:rgba(216,201,176,.28);color:var(--ink)}
+  [hidden]{display:none!important}
+  [aria-busy="true"]{opacity:.7;pointer-events:none}
+
+  /* Right after a Stride checkout: the purchase is confirmed first, and the way to the download is
+     on screen before any offer, as a real button, not fine print. */
+  .paid{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px 24px;
+    padding:18px 20px;margin:0 0 28px;border-radius:16px;border:1px solid rgba(143,174,134,.32);
+    background:linear-gradient(180deg,rgba(143,174,134,.10),rgba(143,174,134,.03))}
+  .paid-t{font-size:20px;font-weight:900;color:var(--ink);letter-spacing:-.01em;margin:2px 0 4px}
+  .paid-s{font-size:14.5px;line-height:1.5;color:var(--ink2)}
+  .skip{display:inline-flex;align-items:center;gap:.4rem;padding:12px 22px;border-radius:999px;font-size:15px;font-weight:800;
+    color:var(--ink);background:rgba(255,255,255,.04);border:1px solid rgba(216,201,176,.24);
+    text-decoration:none;transition:color .15s,border-color .15s,background .15s;white-space:nowrap}
+  .skip:hover{border-color:rgba(216,201,176,.4);background:rgba(255,255,255,.08)}
+
+  /* The product: the name the way the plugin writes it, the claim, the picture. */
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;margin:0 0 18px;padding:5px 12px 5px 10px;border-radius:999px;
+    border:1px solid rgba(221,154,82,.34);background:rgba(198,113,43,.12);color:var(--copper-lt);
+    font-size:10.5px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
+  .eyebrow i{width:6px;height:6px;border-radius:999px;background:var(--copper-lt);box-shadow:0 0 6px rgba(221,154,82,.7)}
+  .tdr-word{display:block;font-size:15px;font-weight:800;letter-spacing:.42em;color:var(--copper-lt);margin:0 0 14px}
+  .claim{font-size:2.3rem;line-height:1.06;letter-spacing:-.015em}
+  @media (min-width:768px){ .claim{font-size:3.4rem} }
+  .lead{font-size:1.08rem;line-height:1.65;color:var(--ink2);margin-top:18px;max-width:34rem}
+  @media (min-width:768px){ .lead{font-size:1.18rem} }
+  .specs{margin-top:16px;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
+  .shot{position:relative;margin:0;border-radius:16px;overflow:hidden;border:1px solid rgba(198,113,43,.28);background:#11100e;
+    box-shadow:0 34px 70px -34px rgba(0,0,0,.95),0 0 70px -24px rgba(198,113,43,.2)}
+  .shot img{display:block;width:100%;height:auto}
+  .play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border:0;padding:0;margin:0;cursor:pointer;
+    background:rgba(8,7,5,.28);transition:background .2s}
+  .play:hover{background:rgba(8,7,5,.12)}
+  .play span{width:76px;height:76px;border-radius:999px;display:flex;align-items:center;justify-content:center;
+    background:rgba(198,113,43,.95);box-shadow:0 12px 34px -8px rgba(0,0,0,.75)}
+
+  /* The offer: one panel, one state at a time. Nothing renders until the state is known: a price
+     shown and then taken back is worse than a beat of nothing. */
+  .offer{margin-top:32px;padding:24px}
+  @media (min-width:640px){ .offer{padding:30px 32px} }
+  .gate{visibility:hidden}
+  .gate.ready{visibility:visible}
+  .offer-flag{display:inline-flex;align-items:center;gap:8px;margin:0 0 16px;padding:5px 11px 5px 9px;
+    border-radius:999px;border:1px solid rgba(221,154,82,.34);background:rgba(198,113,43,.12);
+    color:var(--copper-lt);font-size:10px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
+  .offer-dot{width:6px;height:6px;border-radius:999px;background:var(--copper-lt);animation:offerPulse 2s ease-out infinite}
+  @keyframes offerPulse{0%{box-shadow:0 0 0 0 rgba(221,154,82,.55)}100%{box-shadow:0 0 0 7px rgba(221,154,82,0)}}
+  @media (prefers-reduced-motion:reduce){ .offer-dot{animation:none} }
+  .offer-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:18px 28px}
+  .price{font-weight:900;letter-spacing:-.02em;color:var(--ink);line-height:1;font-size:3rem}
+  @media (min-width:640px){ .price{font-size:3.6rem} }
+  .price-s{margin-top:8px;font-size:14px;color:var(--ink2)}
+  .offer h3{font-size:1.6rem;line-height:1.2;margin:0 0 8px}
+  .offer-p{font-size:15.5px;line-height:1.6;color:var(--ink2);max-width:40rem}
+  .offer-note{margin:12px 0 0;font-size:13.5px;line-height:1.6;color:#e6795f;max-width:34rem}
+  .fine{margin-top:14px;font-size:12.5px;line-height:1.55;color:var(--ink3)}
+  .check{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px;max-width:34rem}
+  .check input{flex:1 1 220px;min-width:0;background:var(--bg2);color:var(--ink);border:1px solid var(--line);border-radius:12px;
+    padding:14px 15px;font:inherit;font-size:16px}
+  .check input::placeholder{color:var(--ink3)}
+  .check input:focus{outline:none;border-color:rgba(198,113,43,.55);box-shadow:0 0 0 3px rgba(198,113,43,.15)}
+  .check .btn-copper{padding:14px 22px;font-size:14px;border-radius:12px}
+  @media (max-width:560px){ .check input,.check .btn-copper{flex:1 1 100%;width:100%} }
+
+  /* What it is: the plates, each beside what it does. */
+  .sec{margin-top:88px}
+  .sec-h{font-size:2rem;line-height:1.1;margin:0 0 10px}
+  @media (min-width:768px){ .sec-h{font-size:2.6rem} }
+  .sec-s{font-size:1.05rem;line-height:1.65;color:var(--ink2);max-width:42rem}
+  .feat{display:grid;gap:22px;align-items:center;margin-top:40px}
+  @media (min-width:900px){ .feat{grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:44px} .feat.flip>div:first-child{order:2} }
+  .feat h3{font-size:1.45rem;line-height:1.2;margin:0 0 10px}
+  .feat p{font-size:15.5px;line-height:1.65;color:var(--ink2)}
+  .tag{display:block;margin:0 0 10px;font-size:10.5px;font-weight:900;letter-spacing:.2em;text-transform:uppercase;color:var(--copper-lt)}
+  .cards{display:grid;gap:14px;margin-top:34px}
+  @media (min-width:768px){ .cards{grid-template-columns:repeat(3,minmax(0,1fr))} }
+  .card{padding:22px}
+  .card b{display:block;font-size:2.1rem;font-weight:900;color:var(--copper-lt);line-height:1;margin:0 0 10px;font-variant-numeric:tabular-nums}
+  .card h4{font-size:1.05rem;margin:0 0 6px}
+  .card p{font-size:14.5px;line-height:1.6;color:var(--ink2)}
+
+  /* With Stride: the loop the film shows, in three steps. */
+  .steps{list-style:none;margin:30px 0 0;padding:0;display:grid;gap:14px;counter-reset:st}
+  @media (min-width:768px){ .steps{grid-template-columns:repeat(3,minmax(0,1fr))} }
+  .steps li{counter-increment:st;padding:22px}
+  .steps li::before{content:counter(st);display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;
+    border-radius:999px;margin:0 0 12px;font:700 13px 'Space Mono',monospace;color:#1c1206;background:var(--copper-lt)}
+  .steps h4{font-size:1.1rem;margin:0 0 6px}
+  .steps p{font-size:14.5px;line-height:1.6;color:var(--ink2)}
+
+  .get{list-style:none;margin:24px 0 0;padding:0;display:grid;gap:12px}
+  .get li{display:flex;gap:12px;align-items:flex-start;font-size:1.02rem;line-height:1.5;color:var(--ink)}
+  .get li::before{content:'';flex:none;width:8px;height:8px;margin-top:.55em;border-radius:999px;background:var(--copper-lt);box-shadow:0 0 6px rgba(221,154,82,.6)}
+
+  footer{margin-top:80px;padding-top:24px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px 22px;font-size:13px;color:var(--ink3)}
+  footer a{color:var(--ink3);text-decoration:none}
+  footer a:hover{color:var(--ink)}
+
+  /* The manual in the hero: one frame at the rack's own shape (925 x 747), a strip of parts
+     that snaps a part at a time, and the slider under it. The live rack is drawn at its own
+     size and scaled to the frame, because the manual stacks it for a narrow page. */
+  .msl{margin:0;min-width:0}
+  .msl-frame{position:relative;border-radius:16px;overflow:hidden;border:1px solid rgba(198,113,43,.28);background:#11100e;
+    box-shadow:0 34px 70px -34px rgba(0,0,0,.95),0 0 70px -24px rgba(198,113,43,.2)}
+  .msl-track{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-behavior:smooth;
+    scrollbar-width:none;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+  .msl-track::-webkit-scrollbar{display:none}
+  .msl-track.drag{scroll-snap-type:none;scroll-behavior:auto;cursor:grabbing}
+  .msl-slide{position:relative;flex:0 0 100%;aspect-ratio:1850/1494;overflow:hidden;scroll-snap-align:start;scroll-snap-stop:always}
+  .msl-slide img{display:block;width:100%;height:100%;object-fit:cover;user-select:none;-webkit-user-drag:none;pointer-events:none}
+  .msl-live iframe{position:absolute;left:0;top:0;width:925px;height:747px;border:0;transform-origin:0 0;opacity:0;transition:opacity .45s}
+  .msl-live iframe.on{opacity:1}
+  .msl-arrow{position:absolute;top:50%;z-index:2;width:40px;height:40px;margin-top:-20px;padding:0;display:flex;align-items:center;justify-content:center;
+    border-radius:999px;border:1px solid rgba(216,201,176,.2);background:rgba(16,15,12,.74);color:var(--ink);cursor:pointer;
+    -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);transition:opacity .2s,border-color .15s}
+  .msl-arrow:hover{border-color:rgba(221,154,82,.6)}
+  .msl-arrow[disabled]{opacity:0;pointer-events:none}
+  .msl-prev{left:10px} .msl-next{right:10px}
+  .msl-scrub{position:relative;margin-top:16px;padding:0 2px}
+  .msl-scrub input{-webkit-appearance:none;appearance:none;display:block;width:100%;height:22px;margin:0;background:transparent;cursor:pointer;--p:0%}
+  .msl-scrub input:focus{outline:none}
+  .msl-scrub input::-webkit-slider-runnable-track{height:4px;border-radius:999px;background:linear-gradient(90deg,var(--copper-lt) var(--p),rgba(216,201,176,.16) var(--p))}
+  .msl-scrub input::-moz-range-track{height:4px;border-radius:999px;background:linear-gradient(90deg,var(--copper-lt) var(--p),rgba(216,201,176,.16) var(--p))}
+  .msl-scrub input::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:18px;height:18px;margin-top:-7px;border-radius:999px;
+    background:radial-gradient(circle at 40% 35%,#ffd2a0,#dd8a3c 45%,#9a4f1c);border:2px solid #1c1206;box-shadow:0 0 0 3px rgba(221,154,82,.25),0 4px 10px rgba(0,0,0,.6)}
+  .msl-scrub input::-moz-range-thumb{width:16px;height:16px;border-radius:999px;background:#dd8a3c;border:2px solid #1c1206;box-shadow:0 0 0 3px rgba(221,154,82,.25)}
+  .msl-scrub input:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 4px rgba(221,154,82,.55)}
+  .msl-stops{position:relative;height:22px;margin-top:6px}
+  .msl-stops button{position:absolute;top:0;transform:translateX(-50%);padding:4px 2px;border:0;background:none;cursor:pointer;white-space:nowrap;
+    font:inherit;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);transition:color .15s}
+  .msl-stops button:hover{color:var(--ink)}
+  .msl-stops button.on{color:var(--copper-lt)}
+  .msl-stops button:nth-child(1){left:0;transform:none}
+  .msl-stops button:nth-child(2){left:calc(20% + 5px)} .msl-stops button:nth-child(3){left:calc(40% + 2px)}
+  .msl-stops button:nth-child(4){left:calc(60% - 2px)} .msl-stops button:nth-child(5){left:calc(80% - 5px)}
+  .msl-stops button:nth-child(6){left:auto;right:0;transform:none}
+  @media (max-width:520px){ .msl-stops{display:none} }
+  .msl-cap{margin-top:10px;font-size:13.5px;line-height:1.55;color:var(--ink2);min-height:3.1em}
+  .msl-cap b{color:var(--ink);font-weight:800}
+
+  /* The film, once it exists: the homepage's player (.vpop), so both read as one site. */
+  .vpop{--pad:24px;position:fixed;inset:0;z-index:1200;display:none;align-items:center;justify-content:center;padding:var(--pad);background:rgba(8,7,5,.94)}
+  .vpop.on{display:flex}
+  .vpop-card{position:relative;line-height:0;max-width:100%;
+    width:min(1120px,100%,calc((100vh - var(--pad) * 2) * 16 / 9));
+    width:min(1120px,100%,calc((100dvh - var(--pad) * 2) * 16 / 9))}
+  .vpop-card video{display:block;width:100%;height:auto;border-radius:14px;border:1px solid rgba(198,113,43,.35);background:#000;
+    box-shadow:0 40px 90px -40px rgba(0,0,0,.95),0 0 70px -16px rgba(198,113,43,.22)}
+  .vpop-x{position:absolute;top:10px;right:10px;width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;
+    border-radius:999px;border:1px solid var(--line);background:rgba(16,15,12,.72);color:var(--ink2);font-size:19px;line-height:1;cursor:pointer}
+  @media (max-width:640px){ .vpop{--pad:14px} }
+</style>
+<link rel="stylesheet" href="/_legacy/css/tendril-index.6e1161475a.css">
+<script>window.STRIDE_LANGS=["en"]</script>
+<script>(function () {
+  function send() {
+    try {
+      if (!navigator.sendBeacon) return;
+      var L = ["de","es","fr","it","ja","zh"], K = {"":"home","try":"try","samples":"samples","setup":"setup","session":"session","welcome":"welcome","post":"post","post2":"post2","tendril":"tendril","blog":"blog","tv":"tv","tools":"tool","vst3":"how","how-it-works":"how","privacy":"legal","terms":"legal","refund":"legal"};
+      var path = location.pathname.replace(/\/index\.html$/, '/').replace(/\.html$/, '').replace(/\/+$/, '');
+      var seg = path.split('/');
+      if (seg[1] && L.indexOf(seg[1]) >= 0) seg.splice(1, 1);
+      var first = seg[1] || '';
+      var p = Object.prototype.hasOwnProperty.call(K, first) ? K[first] : 'other';
+      var q = new URLSearchParams(location.search), rh = '';
+      try { rh = document.referrer ? new URL(document.referrer).hostname : ''; } catch (e) {}
+      var nav = (window.performance && performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {};
+      var here = location.hostname.replace(/^www\./, ''), c = 'direct', a = '', m = 0;
+      if (nav.type === 'reload' || nav.type === 'back_forward' || (rh && rh.replace(/^www\./, '') === here)) c = 'internal';
+      else {
+        var ad = (q.get('ad_id') || '').trim(), s = (q.get('utm_source') || '').trim().toLowerCase();
+        var fromMeta = /^(fb|ig|msg|an|meta|facebook|instagram)$/.test(s), mid = (q.get('utm_content') || '').trim();
+        if (/^\d{6,24}$/.test(ad)) { c = 'meta'; a = ad; }
+        else if (q.get('gclid') || q.get('wbraid') || q.get('gbraid')) c = 'google';
+        else if (fromMeta && /^\d{6,24}$/.test(mid)) { c = 'meta'; a = mid; m = 1; }
+        else if (fromMeta && (q.get('utm_campaign') || '').indexOf('|') >= 0) c = 'meta';
+        else if (/^(stride|email|newsletter|resend|mail)$/.test(s)) c = 'email';
+        else if (/^(ig|instagram|insta|ig_bio|instagram_bio)$/.test(s)) c = 'ig';
+        else if (/^(yt|youtube)$/.test(s)) c = 'yt';
+        else if (/^(google|adwords|google_ads|gads)$/.test(s)) c = 'google';
+        else if (/^(facebook|fb|meta)$/.test(s) || q.get('fbclid')) c = 'meta';
+        else if (/(^|\.)instagram\.com$/.test(rh)) c = 'ig';
+        else if (/(^|\.)(youtube\.com|youtu\.be)$/.test(rh)) c = 'yt';
+      }
+      var body = { action: 'pv', p: p, c: c, a: a };
+      if (m) body.m = 1;
+      navigator.sendBeacon("https://generate-midi-z3spyrafvq-uc.a.run.app", JSON.stringify(body));
+    } catch (e) {}
+  }
+  if (document.prerendering) document.addEventListener('prerenderingchange', send, { once: true });
+  else send();
+})();</script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-5R4N7FVP"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+<div class="wrap">
+  <nav class="max-w-5xl mx-auto px-6 py-6 flex items-center justify-between">
+    <a href="/index.html" class="flex items-center gap-2.5 group" style="text-decoration:none">
+      <span class="text-3xl font-black brand tracking-tighter leading-none">STRIDE</span>
+    </a>
+  </nav>
+
+  <main class="max-w-5xl mx-auto px-6 pt-2 pb-16 sm:pt-4 sm:pb-20">
+
+    <!-- Shown only right after a Stride checkout (the purchase this tab just made). -->
+    <div class="paid" data-paid hidden>
+      <div>
+        <p class="silk" style="color:var(--sage-lt)">Payment complete</p>
+        <p class="paid-t">Your Stride is ready.</p>
+        <p class="paid-s">Your download and license are one click away. Before you go, one more instrument to explore.</p>
+      </div>
+      <a class="skip" href="/welcome.html" data-skip>Continue to my Stride download &rarr;</a>
+    </div>
+
+    <section>
+      <div class="grid lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.18fr)] gap-10 lg:gap-12 items-center">
+        <div>
+          <div class="eyebrow"><i aria-hidden="true"></i>Built for Stride</div>
+          <span class="tdr-word">TENDRIL</span>
+          <h1 class="claim">A synth built to be explored with <span class="brand">Stride.</span></h1>
+          <p class="lead">Three synth engines in one plugin. Draw each waveform with knobs, shape it with OSC FX, push it through filters and drive, and let the sequencer play all three in their own patterns.</p>
+          <p class="specs">VST3 &middot; AU &middot; Standalone &middot; Windows and macOS</p>
+          <button type="button" class="btn-ghost text-sm uppercase px-7 py-3.5 mt-6" data-film-open hidden>Watch Tendril &times; Stride</button>
+        </div>
+        <!-- The manual, in the hero (Yossi 2026-10-22): its first part is the playable rack, live
+             (the manual's own page, /media/tendril/manual/?embed=rack, drawn at the rack's own 925 px
+             and scaled to the frame), then its other parts as plates. The slider under it, a swipe,
+             the arrows or a part's name moves through them. -->
+        <figure class="msl" data-msl aria-roledescription="carousel" aria-label="The Tendril manual">
+          <div class="msl-frame">
+            <div class="msl-track" data-msl-track>
+              <div class="msl-slide msl-live" data-msl-slide aria-label="Play it">
+                <img src="/media/tendril/manual/slide-rack.webp"
+                     srcset="/media/tendril/manual/slide-rack-925.webp 925w, /media/tendril/manual/slide-rack.webp 1850w"
+                     sizes="(min-width:1024px) 640px, 92vw" width="1850" height="1494" fetchpriority="high"
+                     alt="The playable rack from the Tendril manual: the HARMONICS chamber, its MOTION lanes, PITCH, AMP, the waveform and the keys">
+                <iframe data-msl-live data-src="/media/tendril/manual/?embed=rack" title="Play Tendril: the HARMONICS rack from the manual" scrolling="no" tabindex="-1"></iframe>
+              </div>
+              <div class="msl-slide" data-msl-slide aria-label="The face">
+                <img src="/media/tendril/manual/slide-face.webp" srcset="/media/tendril/manual/slide-face-925.webp 925w, /media/tendril/manual/slide-face.webp 1850w"
+                     sizes="(min-width:1024px) 640px, 92vw" width="1850" height="1494" loading="lazy" decoding="async"
+                     alt="The face from the Tendril manual: one OSC tab with every plate numbered">
+              </div>
+              <div class="msl-slide" data-msl-slide aria-label="Harmonics">
+                <img src="/media/tendril/manual/slide-harmonics.webp" srcset="/media/tendril/manual/slide-harmonics-925.webp 925w, /media/tendril/manual/slide-harmonics.webp 1850w"
+                     sizes="(min-width:1024px) 640px, 92vw" width="1850" height="1494" loading="lazy" decoding="async"
+                     alt="The ten HARMONICS knobs from the Tendril manual, each card drawing what its knob does to the partials">
+              </div>
+              <div class="msl-slide" data-msl-slide aria-label="OSC FX">
+                <img src="/media/tendril/manual/slide-oscfx.webp" srcset="/media/tendril/manual/slide-oscfx-925.webp 925w, /media/tendril/manual/slide-oscfx.webp 1850w"
+                     sizes="(min-width:1024px) 640px, 92vw" width="1850" height="1494" loading="lazy" decoding="async"
+                     alt="OSC FX from the Tendril manual: SIEVE and FOLD on the HARMONICS plate, and a sketch of every SPECTRUM and SHAPE mode">
+              </div>
+              <div class="msl-slide" data-msl-slide aria-label="Mixer">
+                <img src="/media/tendril/manual/slide-mixer.webp" srcset="/media/tendril/manual/slide-mixer-925.webp 925w, /media/tendril/manual/slide-mixer.webp 1850w"
+                     sizes="(min-width:1024px) 640px, 92vw" width="1850" height="1494" loading="lazy" decoding="async"
+                     alt="The mixer from the Tendril manual, every control numbered">
+              </div>
+              <div class="msl-slide" data-msl-slide aria-label="Sequencer">
+                <img src="/media/tendril/manual/slide-sequencer.webp" srcset="/media/tendril/manual/slide-sequencer-925.webp 925w, /media/tendril/manual/slide-sequencer.webp 1850w"
+                     sizes="(min-width:1024px) 640px, 92vw" width="1850" height="1494" loading="lazy" decoding="async"
+                     alt="The sequencer from the Tendril manual: a row of steps for each engine, every control numbered">
+              </div>
+            </div>
+            <button type="button" class="msl-arrow msl-prev" data-msl-prev aria-label="Previous part"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+            <button type="button" class="msl-arrow msl-next" data-msl-next aria-label="Next part"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+          </div>
+          <div class="msl-scrub">
+            <input type="range" min="0" max="5" step="1" value="0" data-msl-range aria-label="Move through the manual">
+            <div class="msl-stops">
+              <button type="button" data-msl-go="0">Play it</button>
+              <button type="button" data-msl-go="1">The face</button>
+              <button type="button" data-msl-go="2">Harmonics</button>
+              <button type="button" data-msl-go="3">OSC FX</button>
+              <button type="button" data-msl-go="4">Mixer</button>
+              <button type="button" data-msl-go="5">Sequencer</button>
+            </div>
+          </div>
+          <figcaption class="msl-cap">
+            <span data-msl-cap><b>Play it.</b> The manual's own rack, running Tendril's HARMONICS math in your browser. Drag a knob, drop a MOTION shape onto one, press PLAY.</span>
+            <span data-msl-cap hidden><b>The face.</b> One OSC tab, plate by plate: the chamber, PITCH, AMP, OSC FX, DRIVE, FILTER, GLITCH, SHARDS and MOTION.</span>
+            <span data-msl-cap hidden><b>Harmonics.</b> Ten knobs instead of a pencil, each one redrawing the 64 partials its own way.</span>
+            <span data-msl-cap hidden><b>OSC FX.</b> Two slots that rework the drawing before it ever reaches a filter.</span>
+            <span data-msl-cap hidden><b>Mixer.</b> A strip for each engine, a key zone for each, and the master with its ceiling.</span>
+            <span data-msl-cap hidden><b>Sequencer.</b> Three rows, one for each engine, eight patterns deep, out to your DAW as MIDI.</span>
+          </figcaption>
+        </figure>
+      </div>
+
+      <!-- The offer. Exactly one state shows, decided by the backend: open (the owner price and
+           the button), public (no owner known yet: the email check), owned, done (just bought),
+           or error. The price is Paddle's own preview for this visitor, never a number in here. -->
+      <div class="panel offer gate" id="offer">
+        <div data-state="open" hidden>
+          <div class="offer-flag"><span class="offer-dot" aria-hidden="true"></span>Stride owner price</div>
+          <div class="offer-row">
+            <div>
+              <div class="price" data-now></div>
+              <p class="price-s">One-time purchase, with 22 StrideChains. Yours to keep.</p>
+            </div>
+            <button type="button" class="cta btn-copper px-8 py-4 text-sm uppercase" data-buy>Get Tendril for <span data-cta-price></span></button>
+          </div>
+          <p class="offer-note" aria-live="polite" hidden></p>
+          <p class="fine">Your license key and download links arrive by email right after checkout. Sold by Paddle.com Market Ltd. Paying accepts the <a href="/terms.html" target="_blank">Terms</a> and the <a href="/refund.html" target="_blank">Refund Policy</a>.</p>
+        </div>
+
+        <div data-state="public" hidden>
+          <div class="offer-flag">For Stride owners</div>
+          <h3>Already using Stride?</h3>
+          <p class="offer-p">Tendril is sold to Stride owners. Enter the email you bought Stride with to see your price.</p>
+          <p class="offer-note" data-expired hidden>That link has expired. Enter your email and your price opens again.</p>
+          <form class="check" data-check novalidate>
+            <input type="email" name="email" autocomplete="email" inputmode="email" placeholder="you@example.com" aria-label="Your email" required>
+            <button type="submit" class="btn-copper">Show my price</button>
+          </form>
+          <p class="offer-note" data-check-msg="miss" hidden>We couldn't find a Stride purchase with that email. Try the address on your Stride receipt, or write to <a href="mailto:home@stridehub.io">home@stridehub.io</a>.</p>
+          <p class="offer-note" data-check-msg="invalid" hidden>That email doesn't look right. Please check it.</p>
+          <p class="offer-note" data-check-msg="limit" hidden>Too many tries from this network. Please wait a few minutes and try again.</p>
+          <p class="offer-note" data-check-msg="down" hidden>We couldn't check right now. Please try again in a minute.</p>
+          <p class="fine">New to Stride? <a href="/#pricing">Get Stride</a>, and a special Tendril offer is waiting right after checkout.</p>
+        </div>
+
+        <div data-state="owned" hidden>
+          <div class="offer-flag">Already yours</div>
+          <h3>Tendril is already yours.</h3>
+          <p class="offer-p">Your license key and download links are in the email we sent when you bought it. Can't find it? Write to <a href="mailto:home@stridehub.io">home@stridehub.io</a>.</p>
+        </div>
+
+        <div data-state="done" hidden>
+          <div class="offer-flag" style="color:var(--sage-lt);border-color:rgba(143,174,134,.4);background:rgba(143,174,134,.1)">Thank you</div>
+          <h3>Tendril is yours.</h3>
+          <p class="offer-p">Your license key and download links are on their way to your inbox. They usually land within a minute.</p>
+        </div>
+
+        <div data-state="error" hidden>
+          <h3>We couldn't load your price.</h3>
+          <p class="offer-p">Refresh in a minute, or write to <a href="mailto:home@stridehub.io">home@stridehub.io</a> and we'll sort it out.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- The film. Hidden until TENDRIL_FILM names it: no dead button and no empty frame. -->
+    <section class="sec" data-film hidden>
+      <h2 class="sec-h">Tendril &times; Stride</h2>
+      <p class="sec-s">A pattern in Tendril. A click in Stride. A new variation every time, and you keep what works.</p>
+      <div class="flex flex-wrap gap-3 mt-6">
+        <button type="button" class="btn-copper text-sm uppercase px-7 py-3.5" data-film-open>Watch Tendril &times; Stride</button>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h2 class="sec-h">Three engines in one instrument.</h2>
+      <p class="sec-s">OSC 1, OSC 2 and OSC 3 are three complete voices, each on its own tab: its own sound, its own effects and its own eight motion lanes. Put a kick on one, a snare on the next, metal on the third.</p>
+      <div class="cards">
+        <div class="panel card"><b>64</b><h4>Partials per hit</h4><p>Draw the waveform with ten knobs: lean it, thin it, stretch it from wood toward metal, carve a region out.</p></div>
+        <div class="panel card"><b>8</b><h4>Motion lanes per engine</h4><p>Give any knob a lane and the drawing keeps moving while the beat plays, in sync with the song or free in Hz.</p></div>
+        <div class="panel card"><b>3</b><h4>Patterns at once</h4><p>One row of steps per engine, each with its own length, rate and swing, so the three drift against each other.</p></div>
+      </div>
+
+      <div class="feat">
+        <div>
+          <span class="tag">OSC FX, filters, drive</span>
+          <h3>Shape it before it ever hits a filter.</h3>
+          <p>SPECTRUM and SHAPE OSC FX fold and sieve the waveform at the source. Then BODY, DRIVE and FILTER, and GLITCH and SHARDS to break it into repeats and echo bursts.</p>
+        </div>
+        <figure class="shot"><img src="/media/tendril/tendril-oscfx.webp" width="970" height="450" loading="lazy" decoding="async" alt="Tendril's OSC FX plate folding the waveform"></figure>
+      </div>
+
+      <div class="feat flip">
+        <div>
+          <span class="tag">The sequencer</span>
+          <h3>A sequencer that plays all three.</h3>
+          <p>Each engine gets its own row: velocity, chance, ratchets and notes per step, eight patterns deep. Three lengths running against each other turn one bar into a phrase. Take the beat into your DAW as a MIDI clip when it lands.</p>
+        </div>
+        <figure class="shot"><img src="/media/tendril/tendril-sequencer.webp" width="1600" height="1160" loading="lazy" decoding="async" alt="Tendril's sequencer: a row of steps for each of the three engines"></figure>
+      </div>
+
+      <div class="feat">
+        <div>
+          <span class="tag">The mixer</span>
+          <h3>One MIDI track plays the whole kit.</h3>
+          <p>A fader, pan, mute and solo for each engine, a key zone so every note finds its engine, and a ceiling on the master. The mixer has motion lanes of its own.</p>
+        </div>
+        <figure class="shot"><img src="/media/tendril/tendril-mixer.webp" width="1600" height="1160" loading="lazy" decoding="async" alt="Tendril's mixer: a strip for each engine and the master"></figure>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h2 class="sec-h">Built to be explored with <span class="brand">Stride.</span></h2>
+      <p class="sec-s">Load Tendril inside Stride, map the knobs you care about, and let the sequencer run. Sounds, mudpies and sequences you would never program by hand, from one pattern and a few clicks.</p>
+      <p class="sec-s" style="margin-top:12px">Tendril comes with <b class="ink">22 StrideChains</b>: whole sound design systems, Tendril with its sound, its sequence and its mapped lanes, ready to load in Stride and explore.</p>
+      <ol class="steps">
+        <li class="panel"><h4>Start a pattern in Tendril.</h4><p>Load a kit or build your own: three engines, three rows, one beat.</p></li>
+        <li class="panel"><h4>Click in Stride.</h4><p>Every mapped knob gets new motion, and the same pattern turns into a new sound.</p></li>
+        <li class="panel"><h4>Keep what works.</h4><p>Hold on to the takes that land, click again for the rest, and keep exploring.</p></li>
+      </ol>
+    </section>
+
+    <section class="sec">
+      <h2 class="sec-h">What you get</h2>
+      <ul class="get">
+        <li>Tendril for Windows (VST3 and Standalone) and macOS (VST3, AU and Standalone)</li>
+        <li>22 StrideChains for Tendril: sound design systems ready to load in Stride and explore</li>
+        <li>14 factory sounds and 4 factory kits, with beats ready in the sequencer</li>
+        <li>Your own license key, for two computers</li>
+        <li>One-time purchase, no subscription</li>
+      </ul>
+      <div class="mt-8" data-again hidden>
+        <button type="button" class="cta btn-copper px-8 py-4 text-sm uppercase" data-buy>Get Tendril for <span data-cta-price></span></button>
+      </div>
+      <div class="mt-8" data-again-check hidden>
+        <button type="button" class="btn-copper px-8 py-4 text-sm uppercase" data-to-check>Already using Stride?</button>
+      </div>
+    </section>
+
+    <!-- Without JavaScript nothing above resolves. Someone who has just paid for Stride still
+         needs a way to their download. -->
+    <noscript>
+      <div class="panel" style="padding:24px;margin-top:32px">
+        <p class="ink" style="font-size:18px;margin-bottom:14px">Your Stride download is ready.</p>
+        <a class="btn-copper px-8 py-4 text-sm uppercase" href="/welcome.html">Take me to Stride</a>
+      </div>
+    </noscript>
+
+    <footer>
+      <a href="/index.html">Stride</a>
+      <a href="/terms.html">Terms</a>
+      <a href="/refund.html">Refund Policy</a>
+      <a href="/privacy.html">Privacy</a>
+      <a href="mailto:home@stridehub.io">home@stridehub.io</a>
+    </footer>
+  </main>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
+  var PADDLE_TOKEN = 'live_e0101b87a9e6e7024988534cf7b';
+  // The Tendril x Stride film. Empty until it exists; then the play mark on the picture, the film
+  // section and its button appear. The homepage section reads the same name.
+  var TENDRIL_FILM = '';
+  // Where someone who has just paid for Stride goes next: their download.
+  var NEXT = '/welcome.html';
+  var FAILED = 'Checkout could not open. Please try again, or write to home@stridehub.io.';
+
+  function q(sel) { return document.querySelector(sel); }
+  function qa(sel) { return Array.prototype.slice.call(document.querySelectorAll(sel)); }
+  function ss(k) { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } }
+  function ssSet(k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} }
+  function ls(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+  function forgetK() {
+    try { sessionStorage.removeItem('stride_tendril_k'); } catch (e) {}
+    try { localStorage.removeItem('stride_tendril_k'); } catch (e) {}
+  }
+  function clarity(name) { try { if (window.strideClarity) window.strideClarity(name); } catch (e) {} }
+
+  // ── Purchase tracking ───────────────────────────────────────────────────────
+  // This page is now the first one a buyer reaches, so the events that used to fire
+  // on welcome.html fire here. Two rules carried from that page, both load-bearing:
+  //   Meta fires ONLY when a real event id exists, because the server already sends
+  //   Purchase through CAPI for every Paddle sale. A browser event with an id the
+  //   server never used is a second, undeduplicated purchase in the ad account.
+  //   The GA4 push happens for any evidence, since nothing else reports it.
+  // Dedup is a FLAG, not a delete: stride_last_txn has to survive, because the offer
+  // below is resolved from it.
+  (function firePurchase() {
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var order = (params.get('order') || '').trim();
+      var eventId = (params.get('event_id') || '').trim() || ss('stride_pixel_event_id');
+      var lastTxn = ss('stride_last_txn');
+      if (!order && !eventId && !lastTxn) return;
+
+      var txnId = order || lastTxn || eventId;
+      if (ss('stride_purchase_tracked') === txnId) return;
+
+      var money = {};
+      try { money = JSON.parse(ss('stride_checkout_value') || '{}') || {}; } catch (e) {}
+
+      if (eventId && ss('stride_pixel_purchase_fired') !== '1') {
+        var purchaseData = { value: 99, currency: 'USD',
+                             content_name: 'Stride Sound Design Engine', content_type: 'product' };
+        if (order) purchaseData.content_ids = [order];
+        try {
+          fbq('track', 'Purchase', purchaseData, { eventID: eventId });
+          fbq('track', 'welcome', purchaseData, { eventID: eventId });
+        } catch (e) {}
+        ssSet('stride_pixel_purchase_fired', '1');
+        try { sessionStorage.removeItem('stride_pixel_event_id'); } catch (e) {}
+      }
+
+      if (window.StrideTrack) {
+        StrideTrack.push('purchase', {
+          value: Number(money.value) > 0 ? Number(money.value) : 99,
+          currency: money.currency || 'USD',
+          transaction_id: txnId
+        });
+      }
+      ssSet('stride_purchase_tracked', txnId);
+    } catch (e) {}
+  })();
+
+  // ── Who is this ─────────────────────────────────────────────────────────────
+  // A token that arrived in THIS address (a mailed link, the homepage's owner check) wins: it is
+  // the newest thing the visitor did. Then a Stride purchase this tab just made (checkout.completed
+  // left it in sessionStorage before Paddle redirected here). Then a token kept from an earlier
+  // visit. With none of them this is the product page, and the email check is the way in.
+  var urlK = (typeof window.STRIDE_TENDRIL_K === 'string' && window.STRIDE_TENDRIL_K) || '';
+  var strideTxn = ss('stride_last_txn');
+  var keptK = ss('stride_tendril_k') || ls('stride_tendril_k');
+  if (!/^[0-9a-f]{32}$/.test(keptK)) keptK = '';
+  var mode = urlK ? 'owner' : (/^txn_[0-9a-z]{26}$/.test(strideTxn) ? 'purchase' : (keptK ? 'owner' : 'public'));
+  var cred = mode === 'purchase' ? { txn: strideTxn } : mode === 'owner' ? { k: urlK || keptK } : {};
+  var offer = null, paddleOn = false, done = false;
+
+  function leave(to) { window.location.replace(to || NEXT); }
+
+  function stage(name) {
+    clarity('tendril_' + name);
+    if (!cred.k && !cred.txn) return;
+    try {
+      fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+                   body: JSON.stringify({ action: 'tendril_stage', stage: name, k: cred.k || '', txn: cred.txn || '' }) })
+        .catch(function () {});
+    } catch (e) {}
+  }
+
+  // A price as the rest of the site writes it: the visitor's currency, decimals only when there
+  // are any ($49, not $49.00). Paddle's own formatting is the fallback.
+  function money(p) {
+    try {
+      var digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: p.currency }).resolvedOptions().minimumFractionDigits;
+      var major = Number(p.amount) / Math.pow(10, digits);
+      var whole = Math.round(major) === major;
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: p.currency,
+        minimumFractionDigits: whole ? 0 : digits, maximumFractionDigits: whole ? 0 : digits }).format(major);
+    } catch (e) { return p.formatted || ''; }
+  }
+
+  function show(state) {
+    qa('#offer [data-state]').forEach(function (el) { el.hidden = el.getAttribute('data-state') !== state; });
+    q('#offer').classList.add('ready');
+    var again = q('[data-again]'), againCheck = q('[data-again-check]');
+    if (again) again.hidden = state !== 'open';
+    if (againCheck) againCheck.hidden = state !== 'public';
+  }
+
+  function note(text) {
+    var el = q('[data-state="open"] .offer-note');
+    if (!el) return;
+    el.textContent = text || '';
+    el.hidden = !text;
+  }
+
+  function showOpen(d) {
+    var p = d.price || {};
+    var label = money(p);
+    if (!label) { show('error'); return; }
+    offer = { amount: p.amount, currency: p.currency };
+    q('[data-now]').textContent = label;
+    qa('[data-cta-price]').forEach(function (el) { el.textContent = label; });
+    show('open');
+    stage('viewed');
+  }
+
+  if (mode === 'purchase') {
+    q('[data-paid]').hidden = false;
+    var skip = q('[data-skip]');
+    skip.setAttribute('href', NEXT);
+    skip.addEventListener('click', function () { stage('skipped'); });
+  }
+
+  // ── The offer ───────────────────────────────────────────────────────────────
+  // Right after a purchase the redirect can beat Paddle's own record of the sale by a few
+  // seconds, so "not found" is asked again for a while; the backend also asks Paddle directly.
+  // Anything final that is not an open offer sends a fresh buyer on to their download, which is
+  // what they came for. An owner's link that no longer resolves falls back to the email check.
+  var WAIT = 10000, STEP = 600;
+  var deadline = Date.now() + WAIT;
+  var settled = false;
+  var bail = mode === 'purchase'
+    ? setTimeout(function () { if (!settled) { settled = true; leave(); } }, WAIT + 3000) : null;
+
+  function resolve(d) {
+    settled = true;
+    if (bail) clearTimeout(bail);
+    var status = (d && d.ok && d.status) || 'unavailable';
+    if (status === 'open') { showOpen(d); return; }
+    if (mode === 'purchase') { leave(); return; }
+    if (status === 'owned') { show('owned'); return; }
+    if (status === 'invalid') {
+      forgetK();
+      cred = {};
+      mode = 'public';
+      q('[data-expired]').hidden = false;
+      show('public');
+      return;
+    }
+    show('error');
+  }
+
+  function ask() {
+    fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify(Object.assign({ action: 'tendril_offer' }, cred)) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (settled) return;
+        var pending = !d || !d.ok || d.status === 'unavailable' || (mode === 'purchase' && d.status === 'invalid');
+        if (pending && Date.now() < deadline) { setTimeout(ask, STEP); return; }
+        resolve(d);
+      })
+      .catch(function () {
+        if (settled) return;
+        if (Date.now() < deadline) { setTimeout(ask, STEP); return; }
+        resolve(null);
+      });
+  }
+
+  if (mode === 'public') show('public');
+  else ask();
+
+  // ── The email check (no owner known yet) ────────────────────────────────────
+  var form = q('[data-check]');
+  function say(which) {
+    qa('[data-check-msg]').forEach(function (el) { el.hidden = el.getAttribute('data-check-msg') !== which; });
+  }
+  form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var input = form.querySelector('input'), btn = form.querySelector('button');
+    var email = (input.value || '').trim();
+    q('[data-expired]').hidden = true;
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { say('invalid'); return; }
+    if (btn.getAttribute('aria-busy') === 'true') return;
+    btn.setAttribute('aria-busy', 'true');
+    say('');
+    fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify({ action: 'tendril_check', email: email }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        btn.removeAttribute('aria-busy');
+        if (d && d.ok && d.eligible && /^[0-9a-f]{32}$/.test(d.k || '')) {
+          clarity('tendril_check_ok');
+          try { sessionStorage.setItem('stride_tendril_k', d.k); } catch (e) {}
+          try { localStorage.setItem('stride_tendril_k', d.k); } catch (e) {}
+          mode = 'owner';
+          cred = { k: d.k };
+          settled = false;
+          deadline = Date.now() + WAIT;
+          ask();
+          return;
+        }
+        if (d && d.ok && d.eligible === false) { clarity('tendril_check_miss'); say('miss'); return; }
+        say(d && d.status === 'rate_limited' ? 'limit' : (d && d.status === 'invalid_email' ? 'invalid' : 'down'));
+      })
+      .catch(function () { btn.removeAttribute('aria-busy'); say('down'); });
+  });
+  var toCheck = q('[data-to-check]');
+  if (toCheck) toCheck.addEventListener('click', function () {
+    q('#offer').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(function () { try { form.querySelector('input').focus(); } catch (e) {} }, 400);
+  });
+
+  // ── Buying it ───────────────────────────────────────────────────────────────
+  // One checkout per press, opened by the backend for this owner at the price it quoted. Tendril's
+  // own events only: Stride's purchase, begin_checkout and the Meta Pixel are not fired for it,
+  // so the ads keep optimising on Stride sales alone (the backend sends Tendril to no ad platform).
+  function checkoutValue() {
+    try {
+      var digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: offer.currency }).resolvedOptions().minimumFractionDigits;
+      return { value: Number(offer.amount) / Math.pow(10, digits), currency: offer.currency };
+    } catch (e) { return { value: 0, currency: '' }; }
+  }
+
+  try {
+    if (window.Paddle) {
+      Paddle.Initialize({
+        token: PADDLE_TOKEN,
+        eventCallback: function (ev) {
+          if (!ev) return;
+          try { if (window.strideClarity) window.strideClarity.paddle(ev, 'tendril'); } catch (e) {}
+          if (ev.name === 'checkout.completed' && ev.data && !done) {
+            done = true;
+            try {
+              var paid = Number((ev.data.totals || {}).total);
+              if (window.StrideTrack) {
+                StrideTrack.push('tendril_purchase', { value: paid > 0 ? paid : checkoutValue().value,
+                                                       currency: String(ev.data.currency_code || (offer && offer.currency) || ''),
+                                                       transaction_id: String(ev.data.transaction_id || ''),
+                                                       item_name: 'Tendril' });
+              }
+            } catch (e) {}
+            show('done');
+            // An owner stays here: their thank-you is this panel. Paddle shows its own receipt in
+            // the overlay first, then steps aside.
+            if (mode !== 'purchase') setTimeout(function () { try { Paddle.Checkout.close(); } catch (e) {} }, 2500);
+          }
+        }
+      });
+      paddleOn = true;
+    }
+  } catch (e) { paddleOn = false; }
+
+  var checkoutCall = null;
+  function openCheckout() {
+    if (checkoutCall) return checkoutCall;
+    checkoutCall = fetch(API, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({ action: 'tendril_checkout',
+                                           external_id: (typeof _strideXid === 'string' && _strideXid) || '' }, cred))
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { checkoutCall = null; return d || {}; },
+            function (e) { checkoutCall = null; throw e; });
+    return checkoutCall;
+  }
+
+  qa('[data-buy]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (!offer) return;
+      if (!paddleOn) { note(FAILED); return; }
+      qa('[data-buy]').forEach(function (b) { b.setAttribute('aria-busy', 'true'); });
+      note('');
+      openCheckout()
+        .then(function (d) {
+          qa('[data-buy]').forEach(function (b) { b.removeAttribute('aria-busy'); });
+          if (d.ok && d.transaction_id) {
+            try {
+              var settings = { displayMode: 'overlay', variant: 'one-page', theme: 'dark' };
+              // Right after a Stride purchase, a paid Tendril goes on to the Stride download too.
+              if (mode === 'purchase') settings.successUrl = 'https://stridehub.io' + NEXT;
+              Paddle.Checkout.open({ transactionId: d.transaction_id, settings: settings });
+              var v = checkoutValue();
+              if (window.StrideTrack && v.value > 0) StrideTrack.push('tendril_checkout', { value: v.value, currency: v.currency, item_name: 'Tendril' });
+              stage('checkout');
+            } catch (e) { note(FAILED); }
+            return;
+          }
+          if (d.status === 'owned') { show('owned'); return; }
+          if (d.status === 'invalid') { resolve({ ok: true, status: 'invalid' }); return; }
+          note(FAILED);
+        })
+        .catch(function () {
+          qa('[data-buy]').forEach(function (b) { b.removeAttribute('aria-busy'); });
+          note(FAILED);
+        });
+    });
+  });
+
+  // ── The film ────────────────────────────────────────────────────────────────
+  if (TENDRIL_FILM) {
+    var pop = null, film = null, openedAt = 0;
+    var openFilm = function () {
+      if (!pop) {
+        pop = document.createElement('div');
+        pop.className = 'vpop';
+        pop.setAttribute('role', 'dialog');
+        pop.setAttribute('aria-modal', 'true');
+        pop.setAttribute('aria-label', 'Tendril and Stride');
+        var card = document.createElement('div');
+        card.className = 'vpop-card';
+        film = document.createElement('video');
+        film.setAttribute('controls', '');
+        film.setAttribute('playsinline', '');
+        film.setAttribute('preload', 'none');
+        film.src = TENDRIL_FILM;
+        var x = document.createElement('button');
+        x.type = 'button';
+        x.className = 'vpop-x';
+        x.setAttribute('aria-label', 'Close');
+        x.innerHTML = '&times;';
+        x.addEventListener('click', closeFilm);
+        card.appendChild(film);
+        card.appendChild(x);
+        pop.appendChild(card);
+        pop.addEventListener('click', function (ev) { if (ev.target === pop && Date.now() - openedAt > 400) closeFilm(); });
+        document.body.appendChild(pop);
+      }
+      document.documentElement.style.overflow = 'hidden';
+      pop.classList.add('on');
+      openedAt = Date.now();
+      clarity('tendril_film_open');
+      film.currentTime = 0;
+      film.muted = false;
+      var p = film.play();
+      if (p && p.catch) p.catch(function () {
+        if (!pop.classList.contains('on')) return;
+        film.muted = true;
+        film.play().catch(function () {});
+      });
+    };
+    var closeFilm = function () {
+      if (!pop || !pop.classList.contains('on')) return;
+      film.pause();
+      pop.classList.remove('on');
+      document.documentElement.style.overflow = '';
+    };
+    document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') closeFilm(); });
+    q('[data-film]').hidden = false;
+    qa('[data-film-open]').forEach(function (b) { b.hidden = false; b.addEventListener('click', openFilm); });
+  }
+})();
+</script>
+
+<script>
+// ── The manual in the hero ────────────────────────────────────────────────────
+// One part at a time: the slider, a swipe (or a mouse drag on a plate), the arrows, a part's name
+// or the arrow keys move through it. The first part is the manual's own rack, live: its page
+// loads once the hero is near the screen, fades in over its own picture, and is taken off the
+// page (so it stops drawing) whenever another part is showing or the hero is out of sight.
+(function () {
+  'use strict';
+  var root = document.querySelector('[data-msl]');
+  if (!root) return;
+  var track = root.querySelector('[data-msl-track]');
+  var slides = Array.prototype.slice.call(root.querySelectorAll('[data-msl-slide]'));
+  var range = root.querySelector('[data-msl-range]');
+  var stops = Array.prototype.slice.call(root.querySelectorAll('[data-msl-go]'));
+  var caps = Array.prototype.slice.call(root.querySelectorAll('[data-msl-cap]'));
+  var prev = root.querySelector('[data-msl-prev]'), next = root.querySelector('[data-msl-next]');
+  var live = root.querySelector('[data-msl-live]');
+  var RACK_W = 925;
+  var n = slides.length, cur = 0, onScreen = false, settle = 0;
+
+  function clarity(name) { try { if (window.strideClarity) window.strideClarity(name); } catch (e) {} }
+  function width() { return track.clientWidth || 1; }
+  function liveShown() { return cur === 0 && onScreen; }
+  function liveState() {
+    if (!live) return;
+    live.style.display = liveShown() || !live.getAttribute('src') ? '' : 'none';
+  }
+  function paint(i) {
+    cur = i;
+    range.value = String(i);
+    range.style.setProperty('--p', (n > 1 ? i / (n - 1) * 100 : 0) + '%');
+    stops.forEach(function (b, j) { b.classList.toggle('on', j === i); });
+    caps.forEach(function (c, j) { c.hidden = j !== i; });
+    slides.forEach(function (s, j) { s.setAttribute('aria-hidden', j === i ? 'false' : 'true'); });
+    prev.disabled = i === 0;
+    next.disabled = i === n - 1;
+    liveState();
+  }
+  function go(i, how) {
+    i = Math.max(0, Math.min(n - 1, i));
+    if (i !== cur) clarity('tendril_manual_' + i);
+    paint(i);
+    track.scrollTo({ left: i * width(), behavior: how || 'smooth' });
+  }
+
+  track.addEventListener('scroll', function () {
+    clearTimeout(settle);
+    settle = setTimeout(function () {
+      var i = Math.round(track.scrollLeft / width());
+      if (i !== cur) { clarity('tendril_manual_' + i); paint(i); }
+    }, 90);
+  }, { passive: true });
+  range.addEventListener('input', function () { go(Number(range.value)); });
+  prev.addEventListener('click', function () { go(cur - 1); });
+  next.addEventListener('click', function () { go(cur + 1); });
+  stops.forEach(function (b) { b.addEventListener('click', function () { go(Number(b.getAttribute('data-msl-go'))); }); });
+  root.addEventListener('keydown', function (ev) {
+    if (ev.target === range) return;
+    if (ev.key === 'ArrowLeft') { ev.preventDefault(); go(cur - 1); }
+    if (ev.key === 'ArrowRight') { ev.preventDefault(); go(cur + 1); }
+  });
+
+  // A mouse drags the strip the way a finger swipes it. The rack takes its own drags: its knobs
+  // live inside its frame, so a drag there never reaches this.
+  var drag = null;
+  track.addEventListener('pointerdown', function (ev) {
+    if (ev.pointerType !== 'mouse' || ev.button !== 0) return;
+    drag = { x: ev.clientX, left: track.scrollLeft, id: ev.pointerId };
+    track.classList.add('drag');
+    try { track.setPointerCapture(ev.pointerId); } catch (e) {}
+  });
+  track.addEventListener('pointermove', function (ev) {
+    if (drag && ev.pointerId === drag.id) track.scrollLeft = drag.left - (ev.clientX - drag.x);
+  });
+  function release(ev) {
+    if (!drag || ev.pointerId !== drag.id) return;
+    var dx = ev.clientX - drag.x;
+    drag = null;
+    track.classList.remove('drag');
+    go(cur + (dx < -40 ? 1 : dx > 40 ? -1 : 0));
+  }
+  track.addEventListener('pointerup', release);
+  track.addEventListener('pointercancel', release);
+
+  // The live rack: drawn at its own width, scaled to the frame.
+  function fit() {
+    if (live) live.style.transform = 'scale(' + (width() / RACK_W) + ')';
+  }
+  window.addEventListener('resize', function () { fit(); track.scrollTo({ left: cur * width(), behavior: 'auto' }); });
+  function loadLive() {
+    if (!live || live.getAttribute('src')) return;
+    live.addEventListener('load', function () { setTimeout(function () { live.classList.add('on'); }, 300); }, { once: true });
+    live.setAttribute('src', live.getAttribute('data-src'));
+    liveState();
+  }
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(function (entries) {
+      onScreen = entries[entries.length - 1].isIntersecting;
+      if (onScreen) loadLive();
+      liveState();
+    }, { rootMargin: '300px 0px' }).observe(root);
+  } else {
+    onScreen = true;
+    loadLive();
+  }
+  fit();
+  paint(0);
+})();
+</script>
+</body>
+</html>

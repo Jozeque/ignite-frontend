@@ -1473,6 +1473,63 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     font-size:19px;line-height:1;cursor:pointer}
   .vpop-x:hover{color:var(--ink);border-color:rgba(216,201,176,.28)}
   @media (max-width:640px){.vpop{--pad:14px}}
+
+  /* ── TENDRIL (2026-10-22) ─────────────────────────────────────────────────
+     The section after "You already have everything you need": a second product, a synth
+     built to be explored with Stride, sold to Stride owners only. No price and no buy
+     button: its button opens the owner check (#tdr-pop, the demo prompt's panel), and the
+     film plays in the panel above (.vpop) once it exists. */
+  .tdr-grid{display:grid;gap:2rem;align-items:center}
+  @media (min-width:1024px){.tdr-grid{grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr);gap:3rem}}
+  .tdr-h{font-size:2.25rem;line-height:1.05}
+  @media (min-width:768px){.tdr-h{font-size:3.2rem}}
+  .tdr-h .brand{display:block}
+  .tdr-word{display:block;font-size:15px;font-weight:800;letter-spacing:.42em;color:var(--copper-lt);margin:0 0 .9rem}
+  [data-tdr-watch][hidden]{display:none}
+  /* The manual, as on /tendril/: one frame at the rack's own shape (925 x 747), a strip of parts
+     that snaps a part at a time, and the slider under it. The live rack is drawn at its own
+     size and scaled to the frame, because the manual stacks it for a narrow page. */
+  .msl{margin:0;min-width:0}
+  .msl-frame{position:relative;border-radius:16px;overflow:hidden;border:1px solid rgba(198,113,43,.28);background:#11100e;
+    box-shadow:0 34px 70px -34px rgba(0,0,0,.95),0 0 70px -24px rgba(198,113,43,.2)}
+  .msl-track{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-behavior:smooth;
+    scrollbar-width:none;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+  .msl-track::-webkit-scrollbar{display:none}
+  .msl-track.drag{scroll-snap-type:none;scroll-behavior:auto;cursor:grabbing}
+  .msl-slide{position:relative;flex:0 0 100%;aspect-ratio:1850/1494;overflow:hidden;scroll-snap-align:start;scroll-snap-stop:always}
+  .msl-slide img{display:block;width:100%;height:100%;object-fit:cover;user-select:none;-webkit-user-drag:none;pointer-events:none}
+  .msl-live iframe{position:absolute;left:0;top:0;width:925px;height:747px;border:0;transform-origin:0 0;opacity:0;transition:opacity .45s}
+  .msl-live iframe.on{opacity:1}
+  .msl-arrow{position:absolute;top:50%;z-index:2;width:40px;height:40px;margin-top:-20px;padding:0;display:flex;align-items:center;justify-content:center;
+    border-radius:999px;border:1px solid rgba(216,201,176,.2);background:rgba(16,15,12,.74);color:var(--ink);cursor:pointer;
+    -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);transition:opacity .2s,border-color .15s}
+  .msl-arrow:hover{border-color:rgba(221,154,82,.6)}
+  .msl-arrow[disabled]{opacity:0;pointer-events:none}
+  .msl-prev{left:10px} .msl-next{right:10px}
+  .msl-scrub{position:relative;margin-top:16px;padding:0 2px}
+  .msl-scrub input{-webkit-appearance:none;appearance:none;display:block;width:100%;height:22px;margin:0;background:transparent;cursor:pointer;--p:0%}
+  .msl-scrub input:focus{outline:none}
+  .msl-scrub input::-webkit-slider-runnable-track{height:4px;border-radius:999px;background:linear-gradient(90deg,var(--copper-lt) var(--p),rgba(216,201,176,.16) var(--p))}
+  .msl-scrub input::-moz-range-track{height:4px;border-radius:999px;background:linear-gradient(90deg,var(--copper-lt) var(--p),rgba(216,201,176,.16) var(--p))}
+  .msl-scrub input::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:18px;height:18px;margin-top:-7px;border-radius:999px;
+    background:radial-gradient(circle at 40% 35%,#ffd2a0,#dd8a3c 45%,#9a4f1c);border:2px solid #1c1206;box-shadow:0 0 0 3px rgba(221,154,82,.25),0 4px 10px rgba(0,0,0,.6)}
+  .msl-scrub input::-moz-range-thumb{width:16px;height:16px;border-radius:999px;background:#dd8a3c;border:2px solid #1c1206;box-shadow:0 0 0 3px rgba(221,154,82,.25)}
+  .msl-scrub input:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 4px rgba(221,154,82,.55)}
+  .msl-stops{position:relative;height:22px;margin-top:6px}
+  .msl-stops button{position:absolute;top:0;transform:translateX(-50%);padding:4px 2px;border:0;background:none;cursor:pointer;white-space:nowrap;
+    font:inherit;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);transition:color .15s}
+  .msl-stops button:hover{color:var(--ink)}
+  .msl-stops button.on{color:var(--copper-lt)}
+  .msl-stops button:nth-child(1){left:0;transform:none}
+  .msl-stops button:nth-child(2){left:calc(20% + 5px)} .msl-stops button:nth-child(3){left:calc(40% + 2px)}
+  .msl-stops button:nth-child(4){left:calc(60% - 2px)} .msl-stops button:nth-child(5){left:calc(80% - 5px)}
+  .msl-stops button:nth-child(6){left:auto;right:0;transform:none}
+  @media (max-width:520px){ .msl-stops{display:none} }
+  .msl-cap{margin-top:10px;font-size:13.5px;line-height:1.55;color:var(--ink2);min-height:3.1em}
+  .msl-cap b{color:var(--ink);font-weight:800}
+  /* Above the sticky buy bar (1000) and the mobile menu (1100), under the film (1200). */
+  .tdr-pop{z-index:1150}
+  .tdr-pop [aria-busy="true"]{opacity:.7;pointer-events:none}
   /* The frame answers a double press, so a phone must not read the second tap
      as a zoom gesture. */
   #heroStage{touch-action:manipulation}
@@ -1863,7 +1920,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
 
 </style>
-<link rel="stylesheet" href="/_legacy/css/index.9e1b3590b6.css">
+<link rel="stylesheet" href="/_legacy/css/index.d08847b24f.css">
 <script>window.STRIDE_LANGS=["en","de","es","fr","it","ja","zh"]</script>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;800;900&display=swap">
@@ -1882,7 +1939,7 @@ p,li,summary,td{line-height:1.8}
   function send() {
     try {
       if (!navigator.sendBeacon) return;
-      var L = ["de","es","fr","it","ja","zh"], K = {"":"home","try":"try","samples":"samples","setup":"setup","session":"session","welcome":"welcome","post":"post","post2":"post2","blog":"blog","tv":"tv","tools":"tool","vst3":"how","how-it-works":"how","privacy":"legal","terms":"legal","refund":"legal"};
+      var L = ["de","es","fr","it","ja","zh"], K = {"":"home","try":"try","samples":"samples","setup":"setup","session":"session","welcome":"welcome","post":"post","post2":"post2","tendril":"tendril","blog":"blog","tv":"tv","tools":"tool","vst3":"how","how-it-works":"how","privacy":"legal","terms":"legal","refund":"legal"};
       var path = location.pathname.replace(/\/index\.html$/, '/').replace(/\.html$/, '').replace(/\/+$/, '');
       var seg = path.split('/');
       if (seg[1] && L.indexOf(seg[1]) >= 0) seg.splice(1, 1);
@@ -2784,6 +2841,91 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
   </section>
 
+  <!-- ───────────────── TENDRIL (2026-10-22): a synth built to be explored with Stride ───────────────── -->
+  <!-- Sold to Stride owners only, so there is no price and no buy button here on purpose. "Already
+       using Stride?" opens the owner check at the end of <body>; a new buyer meets the offer right
+       after checkout (/tendril/). The play mark and the Watch button stay hidden until the film
+       exists (TENDRIL_FILM in the script at the end of <body>). -->
+  <section data-ms="tendril" id="tendril" class="mb-28 scroll-mt-8">
+    <div class="panel screws rounded-3xl p-6 md:p-10"><span class="s s1"></span><span class="s s2"></span>
+      <div class="tdr-grid">
+        <div>
+          <span class="chip pill-warm mb-5 inline-block">新登場 · Stride のために</span>
+          <h2 class="tdr-h mb-5"><span class="tdr-word">TENDRIL</span><span class="brand">Stride で探求するために作られたシンセ。</span></h2>
+          <p class="text-base md:text-lg leading-relaxed ink2 mb-4">ひとつのプラグインに 3 つのシンセエンジン。波形はノブで描き、OSC FX で形を整え、フィルターとドライブに通し、シーケンサーが 3 つすべてをそれぞれのパターンで鳴らします。</p>
+          <p class="text-base md:text-lg leading-relaxed ink2 mb-4">Stride の中に読み込めば、クリックのたびに同じパターンが新しい場所へ。うまくいったものはキープして、探求を続けましょう。</p>
+          <p class="text-base md:text-lg leading-relaxed ink2 mb-7">22 の StrideChain が付属。読み込んですぐ探求できるサウンドデザインのシステムです。</p>
+          <div class="flex flex-wrap gap-3">
+            <button type="button" class="btn-copper text-sm uppercase tracking-widest py-3.5 px-7 rounded-full" data-tdr-check>すでに Stride をお使いですか？</button>
+            <button type="button" class="btn-ghost text-sm uppercase tracking-widest py-3.5 px-7 rounded-full" data-tdr-watch hidden>Tendril × Stride を見る</button>
+          </div>
+          <p class="text-[12px] ink3 mt-5 leading-relaxed">Stride をお持ちの方に別売で販売しています。Stride のご購入後に特別オファーをご用意しています。</p>
+        </div>
+        <!-- The manual, as on /tendril/ (Yossi 2026-10-22): its playable rack first, live once the
+             section is near the screen, then its other parts; the slider under it moves through them. -->
+        <figure class="msl" data-msl aria-roledescription="carousel" aria-label="Tendril マニュアル">
+          <div class="msl-frame">
+            <div class="msl-track" data-msl-track>
+              <div class="msl-slide msl-live" data-msl-slide aria-label="弾いてみる">
+                <img src="/media/tendril/manual/slide-rack.webp"
+                     srcset="/media/tendril/manual/slide-rack-925.webp 925w, /media/tendril/manual/slide-rack.webp 1850w"
+                     sizes="(min-width:1024px) 620px, 92vw" width="1850" height="1494" loading="lazy" decoding="async"
+                     alt="Tendril マニュアルの演奏できるラック：HARMONICS チャンバー、MOTION レーン、PITCH、AMP、波形、鍵盤">
+                <iframe data-msl-live data-src="/media/tendril/manual/?embed=rack" title="Tendril を弾く：マニュアルの HARMONICS ラック" scrolling="no" tabindex="-1"></iframe>
+              </div>
+              <div class="msl-slide" data-msl-slide aria-label="画面">
+                <img src="/media/tendril/manual/slide-face.webp" srcset="/media/tendril/manual/slide-face-925.webp 925w, /media/tendril/manual/slide-face.webp 1850w"
+                     sizes="(min-width:1024px) 620px, 92vw" width="1850" height="1494" loading="lazy" decoding="async"
+                     alt="Tendril マニュアルの画面：すべてのプレートに番号を振った OSC タブ">
+              </div>
+              <div class="msl-slide" data-msl-slide aria-label="Harmonics">
+                <img src="/media/tendril/manual/slide-harmonics.webp" srcset="/media/tendril/manual/slide-harmonics-925.webp 925w, /media/tendril/manual/slide-harmonics.webp 1850w"
+                     sizes="(min-width:1024px) 620px, 92vw" width="1850" height="1494" loading="lazy" decoding="async"
+                     alt="Tendril マニュアルの 10 個の HARMONICS ノブ。各カードが、そのノブがパーシャルをどう変えるかを描きます">
+              </div>
+              <div class="msl-slide" data-msl-slide aria-label="OSC FX">
+                <img src="/media/tendril/manual/slide-oscfx.webp" srcset="/media/tendril/manual/slide-oscfx-925.webp 925w, /media/tendril/manual/slide-oscfx.webp 1850w"
+                     sizes="(min-width:1024px) 620px, 92vw" width="1850" height="1494" loading="lazy" decoding="async"
+                     alt="Tendril マニュアルの OSC FX：HARMONICS プレート上の SIEVE と FOLD、そしてすべての SPECTRUM と SHAPE モードのスケッチ">
+              </div>
+              <div class="msl-slide" data-msl-slide aria-label="ミキサー">
+                <img src="/media/tendril/manual/slide-mixer.webp" srcset="/media/tendril/manual/slide-mixer-925.webp 925w, /media/tendril/manual/slide-mixer.webp 1850w"
+                     sizes="(min-width:1024px) 620px, 92vw" width="1850" height="1494" loading="lazy" decoding="async"
+                     alt="Tendril マニュアルのミキサー。すべてのコントロールに番号付き">
+              </div>
+              <div class="msl-slide" data-msl-slide aria-label="シーケンサー">
+                <img src="/media/tendril/manual/slide-sequencer.webp" srcset="/media/tendril/manual/slide-sequencer-925.webp 925w, /media/tendril/manual/slide-sequencer.webp 1850w"
+                     sizes="(min-width:1024px) 620px, 92vw" width="1850" height="1494" loading="lazy" decoding="async"
+                     alt="Tendril マニュアルのシーケンサー：エンジンごとのステップ列。すべてのコントロールに番号付き">
+              </div>
+            </div>
+            <button type="button" class="msl-arrow msl-prev" data-msl-prev aria-label="前のパート"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+            <button type="button" class="msl-arrow msl-next" data-msl-next aria-label="次のパート"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+          </div>
+          <div class="msl-scrub">
+            <input type="range" min="0" max="5" step="1" value="0" data-msl-range aria-label="マニュアルをめくる">
+            <div class="msl-stops">
+              <button type="button" data-msl-go="0">弾いてみる</button>
+              <button type="button" data-msl-go="1">画面</button>
+              <button type="button" data-msl-go="2">Harmonics</button>
+              <button type="button" data-msl-go="3">OSC FX</button>
+              <button type="button" data-msl-go="4">ミキサー</button>
+              <button type="button" data-msl-go="5">シーケンサー</button>
+            </div>
+          </div>
+          <figcaption class="msl-cap">
+            <span data-msl-cap><b>弾いてみる。</b> マニュアルそのもののラックが、Tendril の HARMONICS の計算でブラウザの中で動きます。ノブを回し、MOTION の形をノブにドロップして、PLAY を押してください。</span>
+            <span data-msl-cap hidden><b>画面。</b> OSC タブをプレートごとに：チャンバー、PITCH、AMP、OSC FX、DRIVE、FILTER、GLITCH、SHARDS、MOTION。</span>
+            <span data-msl-cap hidden><b>Harmonics。</b> 鉛筆の代わりに 10 個のノブ。それぞれが 64 のパーシャルを独自のやり方で描き直します。</span>
+            <span data-msl-cap hidden><b>OSC FX。</b> フィルターに届く前に描画を作り変える 2 つのスロット。</span>
+            <span data-msl-cap hidden><b>ミキサー。</b> エンジンごとのストリップ、それぞれのキーゾーン、そして CEILING 付きのマスター。</span>
+            <span data-msl-cap hidden><b>シーケンサー。</b> エンジンごとに 1 列で計 3 列、8 パターン。DAW へは MIDI で。</span>
+          </figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
   <!-- ───────────────── HOW IT WORKS — interactive Stride VST explainer ───────────────── -->
   <!-- The 1:1 Stride VST window. Embeds docs/how-it-works-vst.html (single source of
        truth, self-contained header). Auto-sizes via the shared postMessage handler. -->
@@ -3619,12 +3761,13 @@ function openBuy() { toggleBuyModal(); }
     const PADDLE_TOKEN            = 'live_e0101b87a9e6e7024988534cf7b';
     const PADDLE_PRICE_STRIDE     = 'pri_01m2dcx05b0z2dcnscp4qjm28d';
     const PADDLE_PRICE_COLLECTION = 'pri_01m2dghkc4dn53h2hrzw21ba2f';
-    // The post-purchase run: /post2/ offers the Experimental Collection to whoever did not
-    // take the order bump, then hands over to /post/ for the 1:1 session, which falls through
-    // to welcome.html. Each page decides for itself whether it has anything to show and skips
-    // straight on if it does not, so someone who already owns both never sees either screen.
-    // The backend decides every price and window; the code in the URL only names the offer.
-    const PADDLE_SUCCESS_URL      = 'https://stridehub.io/post2/';
+    // The post-purchase run (Yossi 2026-10-22): /tendril/ offers Tendril at the Stride owner
+    // price, then welcome.html hands over the download. The page decides for itself whether it
+    // has anything to show and goes straight on if it does not, so someone who already owns
+    // Tendril never sees it. The backend decides every price. Before this, the run was /post2/
+    // (the Collection) and /post/ (the session); both pages still work, the session still lives
+    // on welcome, and the Collection still sells as the bump at checkout.
+    const PADDLE_SUCCESS_URL      = 'https://stridehub.io/tendril/';
 
     let stridePaddleInit = false;
 
@@ -5627,6 +5770,263 @@ function openBuy() { toggleBuyModal(); }
         }
         if (pop.classList.contains('on') || !pin.hidden) paint();
     }, 1000);
+})();
+</script>
+
+<!-- TENDRIL owner check (2026-10-22). "Already using Stride?" opens it. When the backend finds a
+     Stride purchase made with the address, the owner goes straight to their Tendril offer at
+     /tendril/: no mail, no link to wait for, and nothing about the purchase comes back. The words
+     are in the markup so the translated homepages carry them; the script only shows and hides. -->
+<div class="dpop tdr-pop" id="tdr-pop" role="dialog" aria-modal="true" aria-labelledby="tdr-pop-h">
+  <div class="dpop-card bf-card">
+    <button type="button" class="dpop-x" data-tdr-close aria-label="閉じる">&times;</button>
+    <p class="bf-eyebrow">Stride をお持ちの方の Tendril</p>
+    <h3 class="dpop-h" id="tdr-pop-h">すでに Stride をお使いですか？</h3>
+    <p class="dpop-s">Stride を購入したときのメールアドレスを入力してください。一致すれば、すぐに Tendril のオファーが開きます。</p>
+    <form class="dpop-f" data-tdr-form novalidate>
+      <input type="email" name="email" autocomplete="email" inputmode="email" placeholder="you@example.com" aria-label="メールアドレス" required>
+      <button type="submit" class="btn-copper">オファーを見る</button>
+    </form>
+    <p class="dpop-err" data-tdr-err>
+      <span data-tdr-msg="miss" hidden>このメールアドレスでの Stride のご購入が見つかりませんでした。Stride の領収書にあるアドレスをお試しいただくか、home@stridehub.io までご連絡ください。</span>
+      <span data-tdr-msg="invalid" hidden>メールアドレスが正しくないようです。ご確認ください。</span>
+      <span data-tdr-msg="limit" hidden>このネットワークからの試行が多すぎます。数分待ってからもう一度お試しください。</span>
+      <span data-tdr-msg="down" hidden>ただいま確認できませんでした。1 分ほどしてからもう一度お試しください。</span>
+    </p>
+    <p class="dpop-fine">このメールアドレスで Stride のご購入があったかどうかだけを確認します。</p>
+  </div>
+</div>
+
+<script>
+// ── TENDRIL (2026-10-22) ──────────────────────────────────────────────────────
+// The section's buttons. The owner check asks the backend one question, whether a Stride
+// purchase was made with this address (tendril_check), and on a yes gets the owner's own token,
+// which opens their offer at /tendril/ (the page takes it off the address bar before any tag
+// reads it). Yes or no is all that ever comes back. The Watch button and the play mark on the
+// picture appear only once TENDRIL_FILM names the film; /tendril/ reads the same name.
+(function () {
+    'use strict';
+    var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
+    var TENDRIL_FILM = '';
+    var pop = document.getElementById('tdr-pop');
+    var form = pop && pop.querySelector('[data-tdr-form]');
+    if (!pop || !form) return;
+    var input = form.querySelector('input'), btn = form.querySelector('button');
+    var err = pop.querySelector('[data-tdr-err]');
+    var openedAt = 0, busy = false;
+
+    function clarity(name) { try { if (window.strideClarity) window.strideClarity(name); } catch (e) {} }
+    function say(which) {
+        var spans = err.querySelectorAll('[data-tdr-msg]');
+        for (var i = 0; i < spans.length; i++) spans[i].hidden = spans[i].getAttribute('data-tdr-msg') !== which;
+        err.style.display = which ? 'block' : 'none';
+    }
+    function open() {
+        say('');
+        pop.classList.add('on');
+        openedAt = Date.now();
+        document.documentElement.style.overflow = 'hidden';
+        clarity('tendril_check_open');
+        setTimeout(function () { try { input.focus(); } catch (e) {} }, 30);
+    }
+    function close() {
+        if (!pop.classList.contains('on')) return;
+        pop.classList.remove('on');
+        document.documentElement.style.overflow = '';
+    }
+    var checks = document.querySelectorAll('[data-tdr-check]');
+    for (var i = 0; i < checks.length; i++) checks[i].addEventListener('click', open);
+    pop.querySelector('[data-tdr-close]').addEventListener('click', close);
+    // A tap opens this on pointerup and the browser sends that tap's click a moment later, onto a
+    // backdrop that now covers the screen: ignore it, as the film panel does.
+    pop.addEventListener('click', function (ev) { if (ev.target === pop && Date.now() - openedAt > 400) close(); });
+    document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') close(); });
+
+    form.addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        if (busy) return;
+        var email = (input.value || '').trim();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { say('invalid'); return; }
+        busy = true;
+        btn.setAttribute('aria-busy', 'true');
+        say('');
+        fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                     body: JSON.stringify({ action: 'tendril_check', email: email }) })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                busy = false;
+                btn.removeAttribute('aria-busy');
+                if (d && d.ok && d.eligible && /^[0-9a-f]{32}$/.test(d.k || '')) {
+                    clarity('tendril_check_ok');
+                    window.location.href = '/tendril/?k=' + d.k;
+                    return;
+                }
+                if (d && d.ok && d.eligible === false) { clarity('tendril_check_miss'); say('miss'); return; }
+                say(d && d.status === 'rate_limited' ? 'limit' : (d && d.status === 'invalid_email' ? 'invalid' : 'down'));
+            })
+            .catch(function () { busy = false; btn.removeAttribute('aria-busy'); say('down'); });
+    });
+
+    if (!TENDRIL_FILM) return;
+    var vp = null, film = null, filmAt = 0;
+    function closeFilm() {
+        if (!vp || !vp.classList.contains('on')) return;
+        film.pause();
+        vp.classList.remove('on');
+        document.documentElement.style.overflow = '';
+    }
+    function openFilm() {
+        if (!vp) {
+            vp = document.createElement('div');
+            vp.className = 'vpop';
+            vp.setAttribute('role', 'dialog');
+            vp.setAttribute('aria-modal', 'true');
+            vp.setAttribute('aria-label', 'Tendril and Stride');
+            var card = document.createElement('div');
+            card.className = 'vpop-card';
+            film = document.createElement('video');
+            film.setAttribute('controls', '');
+            film.setAttribute('playsinline', '');
+            film.setAttribute('preload', 'none');
+            film.src = TENDRIL_FILM;
+            var x = document.createElement('button');
+            x.type = 'button';
+            x.className = 'vpop-x';
+            x.setAttribute('aria-label', 'Close');
+            x.innerHTML = '&times;';
+            x.addEventListener('click', closeFilm);
+            card.appendChild(film);
+            card.appendChild(x);
+            vp.appendChild(card);
+            vp.addEventListener('click', function (ev) { if (ev.target === vp && Date.now() - filmAt > 400) closeFilm(); });
+            document.body.appendChild(vp);
+        }
+        document.documentElement.style.overflow = 'hidden';
+        vp.classList.add('on');
+        filmAt = Date.now();
+        clarity('tendril_film_open');
+        film.currentTime = 0;
+        film.muted = false;
+        var p = film.play();
+        if (p && p.catch) p.catch(function () {
+            if (!vp.classList.contains('on')) return;
+            film.muted = true;
+            film.play().catch(function () {});
+        });
+    }
+    document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') closeFilm(); });
+    var watch = document.querySelectorAll('[data-tdr-watch], [data-tdr-play]');
+    for (var j = 0; j < watch.length; j++) { watch[j].hidden = false; watch[j].addEventListener('click', openFilm); }
+})();
+</script>
+
+<script>
+// ── The Tendril manual (the section's slider, as on /tendril/) ────────────────────────────────────────────────────
+// One part at a time: the slider, a swipe (or a mouse drag on a plate), the arrows, a part's name
+// or the arrow keys move through it. The first part is the manual's own rack, live: its page
+// loads once the hero is near the screen, fades in over its own picture, and is taken off the
+// page (so it stops drawing) whenever another part is showing or the hero is out of sight.
+(function () {
+  'use strict';
+  var root = document.querySelector('[data-msl]');
+  if (!root) return;
+  var track = root.querySelector('[data-msl-track]');
+  var slides = Array.prototype.slice.call(root.querySelectorAll('[data-msl-slide]'));
+  var range = root.querySelector('[data-msl-range]');
+  var stops = Array.prototype.slice.call(root.querySelectorAll('[data-msl-go]'));
+  var caps = Array.prototype.slice.call(root.querySelectorAll('[data-msl-cap]'));
+  var prev = root.querySelector('[data-msl-prev]'), next = root.querySelector('[data-msl-next]');
+  var live = root.querySelector('[data-msl-live]');
+  var RACK_W = 925;
+  var n = slides.length, cur = 0, onScreen = false, settle = 0;
+
+  function clarity(name) { try { if (window.strideClarity) window.strideClarity(name); } catch (e) {} }
+  function width() { return track.clientWidth || 1; }
+  function liveShown() { return cur === 0 && onScreen; }
+  function liveState() {
+    if (!live) return;
+    live.style.display = liveShown() || !live.getAttribute('src') ? '' : 'none';
+  }
+  function paint(i) {
+    cur = i;
+    range.value = String(i);
+    range.style.setProperty('--p', (n > 1 ? i / (n - 1) * 100 : 0) + '%');
+    stops.forEach(function (b, j) { b.classList.toggle('on', j === i); });
+    caps.forEach(function (c, j) { c.hidden = j !== i; });
+    slides.forEach(function (s, j) { s.setAttribute('aria-hidden', j === i ? 'false' : 'true'); });
+    prev.disabled = i === 0;
+    next.disabled = i === n - 1;
+    liveState();
+  }
+  function go(i, how) {
+    i = Math.max(0, Math.min(n - 1, i));
+    if (i !== cur) clarity('tendril_manual_' + i);
+    paint(i);
+    track.scrollTo({ left: i * width(), behavior: how || 'smooth' });
+  }
+
+  track.addEventListener('scroll', function () {
+    clearTimeout(settle);
+    settle = setTimeout(function () {
+      var i = Math.round(track.scrollLeft / width());
+      if (i !== cur) { clarity('tendril_manual_' + i); paint(i); }
+    }, 90);
+  }, { passive: true });
+  range.addEventListener('input', function () { go(Number(range.value)); });
+  prev.addEventListener('click', function () { go(cur - 1); });
+  next.addEventListener('click', function () { go(cur + 1); });
+  stops.forEach(function (b) { b.addEventListener('click', function () { go(Number(b.getAttribute('data-msl-go'))); }); });
+  root.addEventListener('keydown', function (ev) {
+    if (ev.target === range) return;
+    if (ev.key === 'ArrowLeft') { ev.preventDefault(); go(cur - 1); }
+    if (ev.key === 'ArrowRight') { ev.preventDefault(); go(cur + 1); }
+  });
+
+  // A mouse drags the strip the way a finger swipes it. The rack takes its own drags: its knobs
+  // live inside its frame, so a drag there never reaches this.
+  var drag = null;
+  track.addEventListener('pointerdown', function (ev) {
+    if (ev.pointerType !== 'mouse' || ev.button !== 0) return;
+    drag = { x: ev.clientX, left: track.scrollLeft, id: ev.pointerId };
+    track.classList.add('drag');
+    try { track.setPointerCapture(ev.pointerId); } catch (e) {}
+  });
+  track.addEventListener('pointermove', function (ev) {
+    if (drag && ev.pointerId === drag.id) track.scrollLeft = drag.left - (ev.clientX - drag.x);
+  });
+  function release(ev) {
+    if (!drag || ev.pointerId !== drag.id) return;
+    var dx = ev.clientX - drag.x;
+    drag = null;
+    track.classList.remove('drag');
+    go(cur + (dx < -40 ? 1 : dx > 40 ? -1 : 0));
+  }
+  track.addEventListener('pointerup', release);
+  track.addEventListener('pointercancel', release);
+
+  // The live rack: drawn at its own width, scaled to the frame.
+  function fit() {
+    if (live) live.style.transform = 'scale(' + (width() / RACK_W) + ')';
+  }
+  window.addEventListener('resize', function () { fit(); track.scrollTo({ left: cur * width(), behavior: 'auto' }); });
+  function loadLive() {
+    if (!live || live.getAttribute('src')) return;
+    live.addEventListener('load', function () { setTimeout(function () { live.classList.add('on'); }, 300); }, { once: true });
+    live.setAttribute('src', live.getAttribute('data-src'));
+    liveState();
+  }
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(function (entries) {
+      onScreen = entries[entries.length - 1].isIntersecting;
+      if (onScreen) loadLive();
+      liveState();
+    }, { rootMargin: '300px 0px' }).observe(root);
+  } else {
+    onScreen = true;
+    loadLive();
+  }
+  fit();
+  paint(0);
 })();
 </script>
 
