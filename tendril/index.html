@@ -716,6 +716,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .msl-track.drag{scroll-snap-type:none;scroll-behavior:auto;cursor:grabbing}
   .msl-slide{position:relative;flex:0 0 100%;aspect-ratio:1850/1494;overflow:hidden;scroll-snap-align:start;scroll-snap-stop:always}
   .msl-slide img{display:block;width:100%;height:100%;object-fit:cover;user-select:none;-webkit-user-drag:none;pointer-events:none}
+  /* The film's part: letterboxed, never cropped (its words sit near the left edge). */
+  .msl-film{background:#0e0d0b}
+  .msl-film video{display:block;width:100%;height:100%;object-fit:contain}
   .msl-live iframe{position:absolute;left:0;top:0;width:925px;height:747px;border:0;transform-origin:0 0;opacity:0;transition:opacity .45s}
   .msl-live iframe.on{opacity:1}
   .msl-arrow{position:absolute;top:50%;z-index:2;width:40px;height:40px;margin-top:-20px;padding:0;display:flex;align-items:center;justify-content:center;
@@ -739,9 +742,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .msl-stops button:hover{color:var(--ink)}
   .msl-stops button.on{color:var(--copper-lt)}
   .msl-stops button:nth-child(1){left:0;transform:none}
-  .msl-stops button:nth-child(2){left:calc(20% + 5px)} .msl-stops button:nth-child(3){left:calc(40% + 2px)}
-  .msl-stops button:nth-child(4){left:calc(60% - 2px)} .msl-stops button:nth-child(5){left:calc(80% - 5px)}
-  .msl-stops button:nth-child(6){left:auto;right:0;transform:none}
+  .msl-stops button:nth-child(2){left:calc(16.667% + 6px)} .msl-stops button:nth-child(3){left:calc(33.333% + 3px)}
+  .msl-stops button:nth-child(4){left:50%} .msl-stops button:nth-child(5){left:calc(66.667% - 3px)}
+  .msl-stops button:nth-child(6){left:calc(83.333% - 6px)}
+  .msl-stops button:nth-child(7){left:auto;right:0;transform:none}
   @media (max-width:520px){ .msl-stops{display:none} }
   .msl-cap{margin-top:10px;font-size:13.5px;line-height:1.55;color:var(--ink2);min-height:3.1em}
   .msl-cap b{color:var(--ink);font-weight:800}
@@ -842,9 +846,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              (the manual's own page, /media/tendril/manual/?embed=rack, drawn at the rack's own 925 px
              and scaled to the frame), then its other parts as plates. The slider under it, a swipe,
              the arrows or a part's name moves through them. -->
-        <figure class="msl" data-msl aria-roledescription="carousel" aria-label="The Tendril manual">
+        <figure class="msl" data-msl aria-roledescription="carousel" aria-label="Tendril: the film, then the manual">
           <div class="msl-frame">
             <div class="msl-track" data-msl-track>
+              <!-- The film first (Yossi 2026-10-22: "embed the video in the hero so they can watch"):
+                   a silent loop while this part shows, the play mark opens it with sound. -->
+              <div class="msl-slide msl-film" data-msl-slide data-msl-film aria-label="Tendril &times; Stride, the film">
+                <video data-film-loop muted loop playsinline preload="none" poster="/media/tendril/film/poster-1280.webp"
+                       data-src="/media/tendril/film/tendril-promo-720-loop.mp4" aria-label="Tendril and Stride: a silent preview of the film"></video>
+                <button type="button" class="play" data-film-open aria-label="Watch Tendril and Stride with sound"><span><svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="#1c1206"/></svg></span></button>
+              </div>
               <div class="msl-slide msl-live" data-msl-slide aria-label="Play it">
                 <img src="/media/tendril/manual/slide-rack.webp"
                      srcset="/media/tendril/manual/slide-rack-925.webp 925w, /media/tendril/manual/slide-rack.webp 1850w"
@@ -882,18 +893,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <button type="button" class="msl-arrow msl-next" data-msl-next aria-label="Next part"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
           </div>
           <div class="msl-scrub">
-            <input type="range" min="0" max="5" step="1" value="0" data-msl-range aria-label="Move through the manual">
+            <input type="range" min="0" max="6" step="1" value="0" data-msl-range aria-label="Move through the film and the manual">
             <div class="msl-stops">
-              <button type="button" data-msl-go="0">Play it</button>
-              <button type="button" data-msl-go="1">The face</button>
-              <button type="button" data-msl-go="2">Harmonics</button>
-              <button type="button" data-msl-go="3">OSC FX</button>
-              <button type="button" data-msl-go="4">Mixer</button>
-              <button type="button" data-msl-go="5">Sequencer</button>
+              <button type="button" data-msl-go="0">Watch</button>
+              <button type="button" data-msl-go="1">Play it</button>
+              <button type="button" data-msl-go="2">The face</button>
+              <button type="button" data-msl-go="3">Harmonics</button>
+              <button type="button" data-msl-go="4">OSC FX</button>
+              <button type="button" data-msl-go="5">Mixer</button>
+              <button type="button" data-msl-go="6">Seq</button>
             </div>
           </div>
           <figcaption class="msl-cap">
-            <span data-msl-cap><b>Play it.</b> The manual's own rack, running Tendril's HARMONICS math in your browser. Drag a knob, drop a MOTION shape onto one, press PLAY.</span>
+            <span data-msl-cap><b>Tendril &times; Stride.</b> Thirty seconds of what it does. Press play for the sound.</span>
+            <span data-msl-cap hidden><b>Play it.</b> The manual's own rack, running Tendril's HARMONICS math in your browser. Drag a knob, drop a MOTION shape onto one, press PLAY.</span>
             <span data-msl-cap hidden><b>The face.</b> One OSC tab, plate by plate: the chamber, PITCH, AMP, OSC FX, DRIVE, FILTER, GLITCH, SHARDS and MOTION.</span>
             <span data-msl-cap hidden><b>Harmonics.</b> Ten knobs instead of a pencil, each one redrawing the 64 partials its own way.</span>
             <span data-msl-cap hidden><b>OSC FX.</b> Two slots that rework the drawing before it ever reaches a filter.</span>
@@ -1071,7 +1084,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   var PADDLE_TOKEN = 'live_e0101b87a9e6e7024988534cf7b';
   // The Tendril x Stride film. Empty until it exists; then the play mark on the picture, the film
   // section and its button appear. The homepage section reads the same name.
-  var TENDRIL_FILM = '';
+  var TENDRIL_FILM = '/media/tendril/film/tendril-promo-1080.mp4';
   // Where someone who has just paid for Stride goes next: their download.
   var NEXT = '/welcome.html';
   var FAILED = 'Checkout could not open. Please try again, or write to home@stridehub.io.';
@@ -1425,6 +1438,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       }
       document.documentElement.style.overflow = 'hidden';
       pop.classList.add('on');
+      document.dispatchEvent(new Event('tendril-film'));   // the hero's silent loop pauses under it
       openedAt = Date.now();
       clarity('tendril_film_open');
       film.currentTime = 0;
@@ -1441,9 +1455,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       film.pause();
       pop.classList.remove('on');
       document.documentElement.style.overflow = '';
+      document.dispatchEvent(new Event('tendril-film'));   // and picks up again once it closes
     };
     document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') closeFilm(); });
-    q('[data-film]').hidden = false;
+    // The film lives in the hero now (its own part of the slider, and the Watch button under the
+    // lead), so the section that waited for it further down stays hidden: no second copy of it.
     qa('[data-film-open]').forEach(function (b) { b.hidden = false; b.addEventListener('click', openFilm); });
   }
 })();
@@ -1452,9 +1468,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script>
 // ── The manual in the hero ────────────────────────────────────────────────────
 // One part at a time: the slider, a swipe (or a mouse drag on a plate), the arrows, a part's name
-// or the arrow keys move through it. The first part is the manual's own rack, live: its page
-// loads once the hero is near the screen, fades in over its own picture, and is taken off the
-// page (so it stops drawing) whenever another part is showing or the hero is out of sight.
+// or the arrow keys move through it. The first part is the film: a silent loop that runs only
+// while that part shows and the hero is in sight (its play mark opens it with sound). The second
+// is the manual's own rack, live: its page loads the first time that part shows, fades in over
+// its own picture, and is taken off the page (so it stops drawing) whenever another part shows.
 (function () {
   'use strict';
   var root = document.querySelector('[data-msl]');
@@ -1466,15 +1483,28 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   var caps = Array.prototype.slice.call(root.querySelectorAll('[data-msl-cap]'));
   var prev = root.querySelector('[data-msl-prev]'), next = root.querySelector('[data-msl-next]');
   var live = root.querySelector('[data-msl-live]');
+  var rackI = live ? slides.indexOf(live.closest('[data-msl-slide]')) : -1;
+  var loop = root.querySelector('[data-film-loop]');
+  var filmI = loop ? slides.indexOf(loop.closest('[data-msl-slide]')) : -1;
   var RACK_W = 925;
   var n = slides.length, cur = 0, onScreen = false, settle = 0;
 
   function clarity(name) { try { if (window.strideClarity) window.strideClarity(name); } catch (e) {} }
   function width() { return track.clientWidth || 1; }
-  function liveShown() { return cur === 0 && onScreen; }
+  function liveShown() { return cur === rackI && onScreen; }
   function liveState() {
     if (!live) return;
     live.style.display = liveShown() || !live.getAttribute('src') ? '' : 'none';
+  }
+  function filmState() {
+    if (!loop) return;
+    if (cur === filmI && onScreen && !document.hidden && !document.querySelector('.vpop.on')) {
+      if (!loop.getAttribute('src')) loop.setAttribute('src', loop.getAttribute('data-src'));
+      var p = loop.play();
+      if (p && p.catch) p.catch(function () {});
+    } else if (!loop.paused) {
+      loop.pause();
+    }
   }
   function paint(i) {
     cur = i;
@@ -1485,7 +1515,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     slides.forEach(function (s, j) { s.setAttribute('aria-hidden', j === i ? 'false' : 'true'); });
     prev.disabled = i === 0;
     next.disabled = i === n - 1;
+    if (i === rackI && onScreen) loadLive();
     liveState();
+    filmState();
   }
   function go(i, how) {
     i = Math.max(0, Math.min(n - 1, i));
@@ -1512,10 +1544,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   });
 
   // A mouse drags the strip the way a finger swipes it. The rack takes its own drags: its knobs
-  // live inside its frame, so a drag there never reaches this.
+  // live inside its frame, so a drag there never reaches this. A press on a button inside a part
+  // (the film's play mark) stays a click: capturing the pointer would hand its click to the strip.
   var drag = null;
   track.addEventListener('pointerdown', function (ev) {
     if (ev.pointerType !== 'mouse' || ev.button !== 0) return;
+    if (ev.target.closest && ev.target.closest('button, a')) return;
     drag = { x: ev.clientX, left: track.scrollLeft, id: ev.pointerId };
     track.classList.add('drag');
     try { track.setPointerCapture(ev.pointerId); } catch (e) {}
@@ -1547,13 +1581,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   if ('IntersectionObserver' in window) {
     new IntersectionObserver(function (entries) {
       onScreen = entries[entries.length - 1].isIntersecting;
-      if (onScreen) loadLive();
+      if (onScreen && cur === rackI) loadLive();
       liveState();
+      filmState();
     }, { rootMargin: '300px 0px' }).observe(root);
   } else {
     onScreen = true;
-    loadLive();
   }
+  document.addEventListener('visibilitychange', filmState);
+  document.addEventListener('tendril-film', filmState);
   fit();
   paint(0);
 })();
