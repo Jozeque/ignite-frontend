@@ -776,6 +776,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .msl-open{display:block;width:max-content;margin-top:8px;font-size:13.5px;font-weight:800;text-decoration:none}
   .msl-open:hover{text-decoration:underline}
   .offer-act{display:flex;flex-wrap:wrap;gap:12px;margin-top:18px}
+  /* The thank-you hands over the key and the downloads on the page (Yossi 2026-10-23: "show the key
+     + download buttons on the thank-you screen"), so the mail is a copy and a mistyped address at
+     checkout never leaves a buyer without Tendril. The key is plain text with its own Copy. */
+  .got-l{margin:18px 0 6px;font-size:10.5px;font-weight:900;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3)}
+  .got-key{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
+  .got-key code{font:700 18px 'Space Mono',ui-monospace,monospace;letter-spacing:.03em;color:var(--ink);overflow-wrap:anywhere;user-select:all}
+  @media (max-width:400px){ .got-key code{font-size:15px} }
+  .got-key button{padding:9px 16px;font-size:12px}
+  .got-s{margin-top:6px;font-size:13.5px;line-height:1.6;color:var(--ink2);max-width:36rem}
+  .got-s.got-fine{color:var(--ink3);font-size:12.5px}
 
   /* The film, once it exists: the homepage's player (.vpop), so both read as one site. */
   .vpop{--pad:24px;position:fixed;inset:0;z-index:1200;display:none;align-items:center;justify-content:center;padding:var(--pad);background:rgba(8,7,5,.94)}
@@ -1019,9 +1029,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div data-state="done" hidden>
           <div class="offer-flag" style="color:var(--sage-lt)">Thank you</div>
           <h3>Tendril is yours.</h3>
-          <p class="offer-p">Your license key and download links are on their way to your inbox. They usually land within a minute.</p>
+          <p class="offer-p" data-got-wait>Your license key and download links are on their way to your inbox. They usually land within a minute.</p>
+          <!-- The key and the downloads, right here (Yossi 2026-10-23), from the backend once the sale
+               is in. Until then, and if it never answers, the line above stands. -->
+          <div data-got hidden>
+            <p class="offer-p">Install Tendril, open it, choose Activate your license and paste this key. A copy is on its way to your inbox.</p>
+            <p class="got-l">Your license key</p>
+            <div class="got-key"><code data-got-key></code><button type="button" class="btn-ghost uppercase" data-got-copy>Copy</button></div>
+            <div class="try-dl" data-got-dl></div>
+            <p class="got-s" data-got-chains hidden>Unzip the StrideChains into Documents\Stride\chains (Mac: ~/Documents/Stride/chains), then hit Load in Stride.</p>
+            <p class="got-s got-fine">On Windows, if SmartScreen stops the installer, choose More info, then Run anyway.</p>
+          </div>
           <div class="offer-act">
-            <a class="btn-copper px-7 py-3.5 text-sm uppercase" href="/media/tendril/manual/" target="_blank" rel="noopener">Open the manual</a>
+            <a class="btn-copper px-7 py-3.5 text-sm uppercase" href="/welcome.html" data-got-next hidden>Continue to my Stride download</a>
+            <a class="btn-copper px-7 py-3.5 text-sm uppercase" href="/media/tendril/manual/" target="_blank" rel="noopener" data-got-manual>Open the manual</a>
           </div>
           <p class="fine">Its first page is a rack you can play right in your browser. The link is in your email too.</p>
         </div>
@@ -1339,6 +1360,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     // the 24 hours everywhere else. Gone from the page, so ?demo=1 cannot open it either.
     qa('[data-try-open], [data-try]').forEach(function (el) { el.parentNode.removeChild(el); });
     qa('[data-cta-label]').forEach(function (el) { el.textContent = 'Add Tendril for'; });
+    // A paid Tendril stays on this page for its key and downloads, and the thank-you leads on to
+    // the Stride download first (Yossi 2026-10-23).
+    var gotNext = q('[data-got-next]');
+    gotNext.setAttribute('href', NEXT);
+    gotNext.hidden = false;
+    q('[data-got-manual]').className = 'btn-ghost px-7 py-3.5 text-sm uppercase';
   }
 
   // ── The offer ───────────────────────────────────────────────────────────────
@@ -1442,6 +1469,73 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     } catch (e) { return { value: 0, currency: '' }; }
   }
 
+  // ── The thank-you: the key and the downloads, on the page (Yossi 2026-10-23) ─────
+  // The mail is a copy, not the only way in: a buyer who mistypes their address at checkout still
+  // leaves with Tendril. The backend answers once the sale has minted the key, a few seconds after
+  // Paddle's own receipt, so it is asked every 2 seconds for up to 40, with the owner's credential
+  // and this checkout's transaction. Until then, and if it never answers, the inbox line stands.
+  var GOT_EVERY = 2000, GOT_FOR = 40000;
+  function receipt(tid) {
+    if (!/^txn_[0-9a-z]{26}$/.test(tid) || (!cred.k && !cred.txn)) return;
+    var until = Date.now() + GOT_FOR;
+    var again = function () { if (Date.now() < until) setTimeout(askGot, GOT_EVERY); };
+    function askGot() {
+      fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                   body: JSON.stringify(Object.assign({ action: 'tendril_receipt', transaction_id: tid }, cred)) })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d && d.ok && d.status === 'ready' && d.key) { showGot(d); return; }
+          if (d && d.status === 'invalid') return;
+          again();
+        })
+        .catch(again);
+    }
+    askGot();
+  }
+  function showGot(d) {
+    var links = (d.downloads || []).filter(function (x) { return x && /^https:\/\//.test(x.url || ''); });
+    if (d.chains && /^https:\/\//.test(d.chains.url || '')) links.push({ url: d.chains.url, chains: true });
+    q('[data-got-key]').textContent = String(d.key);
+    var box = q('[data-got-dl]');
+    box.innerHTML = '';
+    links.forEach(function (x) {
+      var a = document.createElement('a');
+      a.className = 'btn-ghost';
+      a.href = x.url;
+      a.textContent = x.chains ? 'The 22 StrideChains' : 'Download for ' + x.label;
+      a.addEventListener('click', function () { clarity(x.chains ? 'tendril_got_chains' : 'tendril_got_dl'); });
+      box.appendChild(a);
+    });
+    box.hidden = !links.length;
+    q('[data-got-chains]').hidden = !links.some(function (x) { return x.chains; });
+    q('[data-got-wait]').hidden = true;
+    q('[data-got]').hidden = false;
+    clarity('tendril_got');
+  }
+  var gotCopy = q('[data-got-copy]');
+  if (gotCopy) gotCopy.addEventListener('click', function () {
+    var el = q('[data-got-key]');
+    var said = function (text) {
+      gotCopy.textContent = text;
+      setTimeout(function () { gotCopy.textContent = 'Copy'; }, 2000);
+    };
+    // No clipboard access (an older browser, an http preview): select the key and copy it the old way.
+    var byHand = function () {
+      var copied = false;
+      try {
+        var range = document.createRange();
+        range.selectNodeContents(el);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        copied = document.execCommand('copy');
+      } catch (e) {}
+      said(copied ? 'Copied' : 'Selected');
+    };
+    try { navigator.clipboard.writeText(el.textContent || '').then(function () { said('Copied'); }, byHand); }
+    catch (e) { byHand(); }
+  });
+
   try {
     if (window.Paddle) {
       Paddle.Initialize({
@@ -1461,9 +1555,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               }
             } catch (e) {}
             show('done');
-            // An owner stays here: their thank-you is this panel. Paddle shows its own receipt in
-            // the overlay first, then steps aside.
-            if (mode !== 'purchase') setTimeout(function () { try { Paddle.Checkout.close(); } catch (e) {} }, 2500);
+            receipt(String(ev.data.transaction_id || ''));
+            // Everyone stays here: the key and the downloads land in this panel (Yossi 2026-10-23), and
+            // right after a Stride purchase it leads on to the Stride download. Paddle shows its own
+            // receipt in the overlay first, then steps aside.
+            setTimeout(function () { try { Paddle.Checkout.close(); } catch (e) {} }, 2500);
           }
         }
       });
@@ -1497,8 +1593,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           if (d.ok && d.transaction_id) {
             try {
               var settings = { displayMode: 'overlay', variant: 'one-page', theme: 'dark' };
-              // Right after a Stride purchase, a paid Tendril goes on to the Stride download too.
-              if (mode === 'purchase') settings.successUrl = 'https://stridehub.io' + NEXT;
               Paddle.Checkout.open({ transactionId: d.transaction_id, settings: settings });
               var v = checkoutValue();
               if (window.StrideTrack && v.value > 0) StrideTrack.push('tendril_checkout', { value: v.value, currency: v.currency, item_name: 'Tendril' });
