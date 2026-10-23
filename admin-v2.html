@@ -335,6 +335,10 @@ pre.part{white-space:pre-wrap;word-break:break-word;font:400 11.5px/1.5 var(--mo
 .rev-said-meta{margin-top:6px;font-size:12px;color:var(--ink-3);word-break:break-word}
 .rev-said-meta a{color:var(--accent-ink)}
 .rev-stale{margin:0;padding:8px 10px;border-left:3px solid var(--warn);background:var(--surface-2);border-radius:6px;font-size:12.5px;color:var(--ink-2)}
+.spend-warn{margin:0 0 16px;padding:10px 12px;border-left:3px solid var(--warn);background:var(--surface-2);border-radius:6px;font-size:13px;line-height:1.5;color:var(--ink-2)}
+.spend-warn p{margin:0}
+.spend-warn p+p{margin-top:4px}
+.spend-warn b{color:var(--ink)}
 .rev-form{display:grid;gap:10px}
 .rev-form label{display:grid;gap:4px;font-size:12px;color:var(--ink-3)}
 .rev-form label>span b{color:var(--ink-2);font-weight:600}
@@ -412,6 +416,7 @@ pre.part{white-space:pre-wrap;word-break:break-word;font:400 11.5px/1.5 var(--mo
 </header>
 
 <main class="wrap" id="app" hidden>
+  <div class="spend-warn" id="spend-warn" role="status" hidden></div>
   <section class="panel stack" id="p-overview" role="tabpanel" aria-labelledby="t-overview"></section>
   <section class="panel stack" id="p-funnel" role="tabpanel" aria-labelledby="t-funnel" hidden></section>
   <section class="panel stack" id="p-creative" role="tabpanel" aria-labelledby="t-creative" hidden></section>
@@ -1069,6 +1074,23 @@ const modelLabel = () => F.model === 'first' ? 'first touch' : F.model === 'last
 const card = (title, sub, body, extra = '') => `<div class="card"${extra}><div class="card-h"><h2>${title}</h2>${sub ? `<span class="sub">${sub}</span>` : ''}</div>${body}</div>`;
 const srcOk = k => !!(PAY.sources[k] && PAY.sources[k].ok);
 const srcNote = k => (PAY.sources[k] && PAY.sources[k].note) || '';
+// Spend that did not load (2026-10-23: Google's API v22 was blocked and every total counted Meta
+// alone for five days, unseen). Only the backend's `failed` counts: ok is also false for a range
+// with no Google spend at all, which is no failure.
+const SPEND_SRCS = [['meta', 'Meta'], ['google', 'Google Ads']];
+const spendFailed = k => !!(PAY.sources[k] && PAY.sources[k].failed);
+const NO_SPEND_TABS = ['email', 'campaigns', 'reviews', 'crm', 'settings'];
+function renderSpendWarn() {
+  const el = $('spend-warn'), bad = SPEND_SRCS.filter(([k]) => spendFailed(k));
+  el.hidden = !bad.length || NO_SPEND_TABS.includes(TAB);
+  if (el.hidden) { el.innerHTML = ''; return; }
+  const why = k => { const s = PAY.sources[k] || {}, t = String(s.error || s.note || '').trim().replace(/[.\s]+$/, ''); return t ? ` (${esc(t.length > 160 ? t.slice(0, 159) + '…' : t)})` : ''; };
+  el.innerHTML = bad.map(([k, name], i) => {
+    const typed = k === 'google' && (PAY.sources.google || {}).source === 'manual';
+    const who = k === 'google' ? 'Google' : 'Meta';
+    return `<p><b>${name} spend did not load</b>${why(k)}. ${typed ? 'Only the days typed in by hand count, so Ad spend, ROAS, cost per customer and profit are short.' : `Ad spend, ROAS, cost per customer and profit leave ${who} out until it does.`}${i === bad.length - 1 ? ' Refresh tries again.' : ''}</p>`;
+  }).join('');
+}
 
 function tileHTML({ label, value, d, sp, src, lit, cls = '' }) {
   return `<div class="tile ${cls}"><div class="lab"><span>${esc(label)}</span>${lit || ''}</div><div class="val">${value}</div><div class="foot">${d || '<span></span>'}${sp || ''}</div>${src ? `<div><span class="src">${esc(src)}</span></div>` : ''}</div>`;
@@ -1110,7 +1132,9 @@ function renderOverview(c) {
   const money = srcOk('paddle') ? 'Paddle' : 'stored order totals';
   const tiles = [
     tileHTML({ label: 'Net revenue', value: fmt.usd0(A.revenue), d: delta(A.revenue, P.revenue, 'high'), sp: spark(dayRev), src: all ? `${money}, net of tax and refunds` : `${money}, credited ${modelLabel()}` }),
-    tileHTML({ label: 'Ad spend', value: fmt.usd0(A.spend), d: delta(A.spend, P.spend, 'none'), sp: spark(daySpend), src: 'Meta API · Google ' + ((PAY.sources.google || {}).source || 'none') }),
+    tileHTML({ label: 'Ad spend', value: fmt.usd0(A.spend), d: delta(A.spend, P.spend, 'none'), sp: spark(daySpend),
+      src: 'Meta ' + (spendFailed('meta') ? 'did not load' : 'API') + ' · Google ' + (spendFailed('google') ? 'did not load' : ((PAY.sources.google || {}).source || 'none')),
+      lit: SPEND_SRCS.some(([k]) => spendFailed(k)) ? light('warn', 'Incomplete') : '' }),
     tileHTML({ label: all ? 'Net profit' : 'Revenue less spend', value: fmt.usd0(profit(A, c.idx)), d: delta(profit(A, c.idx), profit(P, c.prev), 'high'), sp: spark(dayProfit), src: all ? 'after fees and tools' : 'this channel only' }),
     metricTile('roas', c),
     metricTile('cac', c),
@@ -1139,7 +1163,7 @@ function renderOverview(c) {
     <div class="cov-row"><span class="k">Orders with estimated money</span><span class="v">${fmt.num(A.est)} of ${fmt.num(A.journeys)}</span><span class="d"><span class="src">Paddle / Lemon Squeezy</span><span>from the stored order totals where the platform’s API did not answer; fees at the published rate</span></span></div>
   </div>`;
   const NAMES = { paddle: 'Paddle API', lemonsqueezy: 'Lemon Squeezy API', meta: 'Meta Marketing API', google: 'Google Ads', events: 'Event log', crm: 'CRM rows', pv: 'Page-view count', fx: 'Exchange rate', resend: 'Resend tracking', clarity: 'Clarity', plugin_success: 'Plugin success event' };
-  const srcs = `<div class="srcs">${Object.entries(PAY.sources).filter(([k]) => k !== 'plugin' + '_success').map(([k, s]) => `<div>${light(s.ok ? 'good' : (k === 'clarity' ? 'nodata' : 'warn'), false)}<span>${esc(NAMES[k] || k)}<small>${esc(s.note || '')}</small></span></div>`).join('')}</div>`;
+  const srcs = `<div class="srcs">${Object.entries(PAY.sources).filter(([k]) => k !== 'plugin' + '_success').map(([k, s]) => `<div>${light(s.ok && !s.failed ? 'good' : (k === 'clarity' ? 'nodata' : 'warn'), false)}<span>${esc(NAMES[k] || k)}<small>${esc(s.note || '')}</small></span></div>`).join('')}</div>`;
 
   $('p-overview').innerHTML = `
     <div class="hero">${hero}<div class="tiles">${tiles}</div></div>
@@ -2578,8 +2602,8 @@ function renderExpenses() {
     line('Tax held for the authorities', 'Paddle / LS', c => -c.a.tax),
     line('Refunds', 'Paddle / LS', c => -c.a.refundAmt),
     line('Net revenue', '', c => c.a.gross - c.a.tax - c.a.refundAmt, true),
-    line('Meta ads', 'Meta API', c => -c.a.metaSpend),
-    line('Google ads', gsrc === 'api' ? 'Google API' : 'typed in', c => -c.a.googleSpend),
+    line('Meta ads', spendFailed('meta') ? 'did not load' : 'Meta API', c => -c.a.metaSpend),
+    line('Google ads', gsrc === 'api' ? 'Google API' : gsrc === 'manual' ? 'typed in' : 'did not load', c => -c.a.googleSpend),
     line('Payment fees', 'Paddle / LS', c => -c.a.fees),
     line('Tools', 'Settings', c => -c.tools),
     line('Net profit', '', c => c.a.gross - c.a.tax - c.a.refundAmt - c.a.spend - c.a.fees - c.tools, true),
@@ -2796,6 +2820,7 @@ function render() {
   $('app').classList.toggle('crm-on', TAB === 'crm');
   const c = ctx();
   syncFilters();
+  renderSpendWarn();
   if (TAB === 'overview') renderOverview(c);
   else if (TAB === 'funnel') renderFunnel(c);
   else if (TAB === 'creative') renderCreative(c);
