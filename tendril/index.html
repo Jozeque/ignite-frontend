@@ -661,6 +661,19 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .offer h3{font-size:1.6rem;line-height:1.2;margin:0 0 8px}
   .offer-p{font-size:15.5px;line-height:1.6;color:var(--ink2);max-width:40rem}
   .offer-note{margin:12px 0 0;font-size:13.5px;line-height:1.6;color:#e6795f;max-width:34rem}
+  /* The 24 hours (Yossi 2026-10-22: "Try Tendril free for 24h", the same flow as Stride's): a ghost
+     button under the buy button, the pair Stride's own pages use ("Explore free for 24h"). Its panel
+     hands over the installers and the StrideChains; the hours themselves start inside Tendril. */
+  .offer-ctas{display:flex;flex-direction:column;align-items:stretch;gap:10px}
+  [data-try-open][aria-busy="true"]{opacity:.6;pointer-events:none}
+  .try{margin-top:0}
+  .try-panel{margin-top:16px;padding-top:18px;border-top:1px solid var(--line)}
+  .try-panel h4{font-size:15.5px;font-weight:800;color:var(--ink)}
+  .try-panel p{margin-top:6px;font-size:13.5px;line-height:1.6;color:var(--ink2);max-width:36rem}
+  .try-panel .try-fine{color:var(--ink3);font-size:12.5px}
+  .try-dl{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 4px}
+  .try-dl a{padding:12px 20px;font-size:14px;font-weight:800;text-decoration:none}
+  .try-note{margin:12px 0 0;font-size:13.5px;line-height:1.6;color:#e6795f;max-width:34rem}
   .fine{margin-top:14px;font-size:12.5px;line-height:1.55;color:var(--ink3)}
   .check{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px;max-width:34rem}
   .check input{flex:1 1 220px;min-width:0;background:var(--bg2);color:var(--ink);border:1px solid var(--line);border-radius:12px;
@@ -698,7 +711,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   .get{list-style:none;margin:24px 0 0;padding:0;display:grid;gap:12px}
   .get li{display:flex;gap:12px;align-items:flex-start;font-size:1.02rem;line-height:1.5;color:var(--ink)}
-  .get li::before{content:'\25CF';flex:none;font-size:10px;line-height:1.5rem;color:var(--sage-lt)}
 
   footer{margin-top:80px;padding-top:24px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px 22px;font-size:13px;color:var(--ink3)}
   footer a{color:var(--ink3);text-decoration:none}
@@ -953,7 +965,22 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               </div>
               <p class="price-s">One-time purchase. Yours to keep.</p>
             </div>
-            <button type="button" class="cta btn-copper px-8 py-4 text-sm uppercase" data-buy>Get Tendril for <span data-cta-price></span></button>
+            <div class="offer-ctas">
+              <button type="button" class="cta btn-copper px-8 py-4 text-sm uppercase" data-buy>Get Tendril for <span data-cta-price></span></button>
+              <button type="button" class="btn-ghost px-8 py-3.5 text-sm uppercase" data-try-open>Try Tendril free for 24h</button>
+            </div>
+          </div>
+          <!-- The 24 hours (Yossi 2026-10-22: the same flow as Stride's demo, for Stride owners only):
+               the installers and the StrideChains come from the backend, which also mails them. -->
+          <div class="try" data-try>
+            <div class="try-panel" data-try-panel hidden>
+              <h4>Your 24 hours start inside Tendril.</h4>
+              <p>Install it, open Tendril and enter the email you bought Stride with. When they're up, your projects stay safe, and Tendril offers you 24 more hours, once. The links are in your inbox too.</p>
+              <div class="try-dl" data-try-dl></div>
+              <p data-try-chains hidden>Unzip the StrideChains into Documents\Stride\chains (Mac: ~/Documents/Stride/chains), then hit Load in Stride.</p>
+              <p class="try-fine">On Windows, if SmartScreen stops the installer, choose More info, then Run anyway.</p>
+            </div>
+            <p class="try-note" data-try-note aria-live="polite" hidden></p>
           </div>
           <div class="chains-in">
             <h4><b>+ 22 StrideChains</b> included</h4>
@@ -1246,7 +1273,61 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     q('[data-was]').hidden = !was;
     show('open');
     stage('viewed');
+    if (WANT_TRY) { WANT_TRY = false; openTry(true); }
   }
+
+  // ── The 24 hours (Yossi 2026-10-22) ──────────────────────────────────────────
+  // Same footing as the checkout: the backend checks the owner on every call and hands over the
+  // installers and the StrideChains, which it also mails once. ?demo=1 (the invite mail) opens it.
+  var WANT_TRY = /(?:^|[?&])demo=1(?:&|$)/.test(window.location.search);
+  var TRY_FAILED = 'The downloads could not open. Please try again, or write to home@stridehub.io.';
+  function tryNote(text) {
+    var el = q('[data-try-note]');
+    if (!el) return;
+    el.textContent = text || '';
+    el.hidden = !text;
+  }
+  function openTry(arrived) {
+    var btn = q('[data-try-open]');
+    if (!btn || btn.getAttribute('aria-busy') === 'true' || (!cred.k && !cred.txn)) return;
+    btn.setAttribute('aria-busy', 'true');
+    tryNote('');
+    fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify(Object.assign({ action: 'tendril_demo' }, cred)) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        btn.removeAttribute('aria-busy');
+        var links = ((d && d.downloads) || []).filter(function (x) { return x && /^https:\/\//.test(x.url || ''); });
+        if (d && d.ok && d.status === 'open' && links.length) {
+          if (d.chains && /^https:\/\//.test(d.chains.url || '')) links.push({ url: d.chains.url, chains: true });
+          var box = q('[data-try-dl]');
+          box.innerHTML = '';
+          links.forEach(function (x) {
+            var a = document.createElement('a');
+            a.className = 'btn-ghost';
+            a.href = x.url;
+            a.textContent = x.chains ? 'The 22 StrideChains' : 'Download for ' + x.label;
+            a.addEventListener('click', function () { clarity(x.chains ? 'tendril_demo_chains' : 'tendril_demo_dl'); });
+            box.appendChild(a);
+          });
+          q('[data-try-chains]').hidden = !links.some(function (x) { return x.chains; });
+          q('[data-try-panel]').hidden = false;
+          btn.hidden = true;
+          clarity('tendril_demo');
+          if (arrived) { try { q('[data-try]').scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {} }
+          return;
+        }
+        if (d && d.ok && d.status === 'owned') { show('owned'); return; }
+        if (d && d.status === 'invalid') { resolve({ ok: true, status: 'invalid' }); return; }
+        tryNote(TRY_FAILED);
+      })
+      .catch(function () {
+        btn.removeAttribute('aria-busy');
+        tryNote(TRY_FAILED);
+      });
+  }
+  var tryOpen = q('[data-try-open]');
+  if (tryOpen) tryOpen.addEventListener('click', function () { openTry(false); });
 
   if (mode === 'purchase') {
     q('[data-paid]').hidden = false;
