@@ -26,6 +26,64 @@
       } catch (e) {}
     })();
     </script>
+    <!-- The price hold (2026-10-22, the script below). Paddle's script, then the price it
+         quotes this visitor: both connections are opened here, so that price lands sooner. -->
+    <link rel="preconnect" href="https://cdn.paddle.com">
+    <link rel="preconnect" href="https://api.paddle.com" crossorigin>
+    <style>
+    /* The price hold: while html.sd-hold is on, every price keeps its room and shows nothing.
+       It fades in once it is the number Paddle charges this visitor. */
+    html.sd-hold .sd-total, html.sd-hold .sd-was, html.sd-hold .sd-save, html.sd-hold .sd-cta-price,
+    html.sd-hold .m-cta-price, html.sd-hold .addon-p, html.sd-hold .addon-was, html.sd-hold .sd-swap,
+    html.sd-hold .sd-stride, html.sd-hold .bf-was, html.sd-hold .bf-now, html.sd-hold .bf-buy {
+        visibility: hidden; opacity: 0;
+    }
+    .sd-total, .sd-was, .sd-save, .sd-cta-price, .m-cta-price, .addon-p, .addon-was, .sd-swap,
+    .sd-stride, .bf-was, .bf-now, .bf-buy { transition-property: opacity; transition-duration: .15s; }
+    </style>
+    <script>
+    // The price hold (2026-10-22). Every price on this page is written in dollars, and Paddle's
+    // price for this visitor replaces it once Paddle answers: about 0.3 s on a desktop or an
+    // Android phone and 1.25 s on an iPhone, measured on the live page over a fast line, more on
+    // mobile data. A European read "$99", then "€99". So where the number is likely to move,
+    // every price keeps its room and shows nothing (the style above) until strideReleasePrices
+    // puts it back: the page calls it once its prices are final (strideHoldDone), and the timer
+    // here after 3 s whatever happened, so a slow or blocked Paddle shows the dollars it always
+    // did, never an empty price. Left alone: a US time zone with no code on the way, which Paddle
+    // charges the $99 already printed. Without a script there is no hold.
+    (function () {
+      var root = document.documentElement;
+      window.strideReleasePrices = function () {
+        if (!root.classList.contains('sd-hold')) return;
+        // Whatever prints prices on its own clock (the Early Black Friday panel) prints the
+        // final ones first, so the first number anyone sees is the right one.
+        try { document.dispatchEvent(new Event('stride:prices')); } catch (e) {}
+        root.classList.remove('sd-hold');
+      };
+      try {
+        var tz = '';
+        try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
+        var US = ['America/New_York', 'America/Detroit', 'America/Chicago', 'America/Menominee',
+                  'America/Denver', 'America/Boise', 'America/Phoenix', 'America/Los_Angeles',
+                  'America/Anchorage', 'America/Juneau', 'America/Sitka', 'America/Metlakatla',
+                  'America/Yakutat', 'America/Nome', 'America/Adak', 'America/Indianapolis',
+                  'America/Louisville', 'America/Fort_Wayne', 'America/Knox_IN', 'Pacific/Honolulu'];
+        var us = US.indexOf(tz) > -1 || /^(America.(Kentucky|Indiana|North_Dakota).|US.)/.test(tz);
+        // A code moves the price in dollars too: one on the address, or an Early Black Friday
+        // code this browser claimed (that panel's own record, KEY in its script).
+        var code = /[?&]code=[^&#]/.test(location.search);
+        if (!code) {
+          try {
+            var bf = JSON.parse(localStorage.getItem('stride_bf') || 'null');
+            code = !!(bf && bf.code && bf.did && Number(bf.ends) > Date.now());
+          } catch (e) {}
+        }
+        if (us && !code) return;
+        root.classList.add('sd-hold');
+        setTimeout(window.strideReleasePrices, 3000);
+      } catch (e) {}
+    })();
+    </script>
 <!-- Google consent mode v2 -->
 <script>
 // Consent mode v2. This must run BEFORE any Google tag: after one has loaded it has
@@ -2063,7 +2121,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <button type="button" onclick="strideMenu(false); toggleContactModal()">联系我们</button>
     </nav>
     <div class="m-menu-cta">
-      <a onclick="strideMenu(false); openBuy()" class="btn-copper">购买 STRIDE · $99 </a>
+      <a onclick="strideMenu(false); openBuy()" class="btn-copper">购买 STRIDE<span class="sd-cta-price"> &middot; $99</span> </a>
       <a href="/try/" class="btn-ghost">免费体验 24 小时</a>
     </div>
   </div>
@@ -2154,7 +2212,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
         </div>
         <div class="flex flex-wrap items-center gap-2.5 hero-cta">
-          <a onclick="openBuy()" class="btn-copper text-[15px] py-3 px-6 rounded-xl">购买 STRIDE · $99  <span>&rarr;</span></a>
+          <a onclick="openBuy()" class="btn-copper text-[15px] py-3 px-6 rounded-xl">购买 STRIDE<span class="sd-cta-price"> &middot; $99</span>  <span>&rarr;</span></a>
           <!-- Apple Pay / Google Pay, one tap, no form, between the two buttons.
                This is the page's ONLY express checkout: Paddle allows a single
                checkout instance, and a second inline mount silently destroys the
@@ -3204,7 +3262,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <button type="button" class="addon-btn" aria-pressed="false"
                     onclick="strideToggleAddon(event)">+ 添加<span class="addon-full"> 到订单</span></button>
           </div>
-          <a onclick="openBuy()" class="btn-copper w-full justify-center text-base py-3.5 rounded-2xl">购买 Stride · $99 </a>
+          <a onclick="openBuy()" class="btn-copper w-full justify-center text-base py-3.5 rounded-2xl">购买 Stride<span class="sd-cta-price"> · $99</span> </a>
 
 <a href="/try/" class="btn-ghost w-full justify-center text-sm py-3 rounded-2xl mt-2.5">免费体验 24 小时</a>
           <p class="text-[11px] ink3 mt-3">VST3 + AU + Max for Live · 不支持 Pro Tools (AAX)</p>
@@ -3271,7 +3329,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
 
     <div class="text-center mt-9">
-      <a onclick="openBuy()" class="btn-copper text-sm uppercase tracking-widest py-3.5 px-9 rounded-full">购买 Stride · $99 </a>
+      <a onclick="openBuy()" class="btn-copper text-sm uppercase tracking-widest py-3.5 px-9 rounded-full">购买 Stride<span class="sd-cta-price"> · $99</span> </a>
       <p class="text-[12px] ink3 mt-3">StrideBridge 已包含在 Stride 中。一次购买， <span class="sd-swap">$99</span>.</p>
     </div>
     <!-- Mobile-only progressive disclosure. CSS checkbox + label: no JS, no CLS,
@@ -3324,7 +3382,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <h2 class="text-5xl md:text-6xl mb-6 leading-tight">在你的工作环境里<br><span class="brand">总有一个你还没遇见的声音。</span></h2>
         <p class="text-base ink2 mb-10 max-w-lg mx-auto">24 小时，完全解锁，就在你自己的工程里。之后只需购买一次： <span class="sd-swap">$99</span>.</p>
         <div class="flex flex-wrap items-center justify-center gap-3">
-          <a onclick="openBuy()" class="btn-copper text-sm uppercase tracking-widest py-4 px-10 rounded-full">购买 Stride · $99 </a>
+          <a onclick="openBuy()" class="btn-copper text-sm uppercase tracking-widest py-4 px-10 rounded-full">购买 Stride<span class="sd-cta-price"> · $99</span> </a>
           <a href="/try/" class="btn-ghost text-sm uppercase tracking-widest py-4 px-10 rounded-full">免费体验 24 小时</a>
         </div>
       </div>
@@ -3509,7 +3567,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             Object.keys(gm).forEach(function (k) {
                 parts.push(k + '=' + encodeURIComponent(gm[k]));
             });
-            ['ad_id', 'adset_id', 'campaign_id', 'utm_source', 'utm_campaign', 'utm_content']
+            // The ad's whole tag set, as the ad put it on the link (Meta's own: utm_id is the
+            // campaign, utm_term the ad set, utm_content the ad), so /try's page view (GA4,
+            // Clarity) names the same ad and medium this page was reached from.
+            ['ad_id', 'adset_id', 'campaign_id', 'utm_source', 'utm_medium', 'utm_campaign',
+             'utm_content', 'utm_term', 'utm_id']
                 .forEach(function (k) {
                     var v = admk[k] || q.get(k) || '';
                     if (v) parts.push(k + '=' + encodeURIComponent(v));
@@ -3936,6 +3998,15 @@ function openBuy() { toggleBuyModal(); }
     // True while the code on the page is the friend's FRIEND20, which a partner's own code
     // (Affonso, below) may replace; any other code stands.
     let strideCodeIsFriend = false;
+    // The price hold (top of <head>) lifts once the printed prices are final: Paddle has priced
+    // the page, or never will (no Paddle on the page, a failed preview), and no personal code
+    // is still on its way back from the backend.
+    let strideCodePending = false;
+    let stridePriced = false;
+    function strideHoldDone() {
+        if (strideCodePending || !stridePriced) return;
+        try { if (window.strideReleasePrices) window.strideReleasePrices(); } catch (e) {}
+    }
     // The code line above the hero price: the code in the mono face, then "applied" and, for
     // a personal code, the time it has left. Built from text nodes, never HTML, because the
     // code comes from the URL. As plain text it still reads "REKZ applied", as it always did.
@@ -4037,21 +4108,24 @@ function openBuy() { toggleBuyModal(); }
     // carries a code, so a personal code can never stack with REKZ.
     function strideResolvePersonalCode(name) {
         if (!/^[a-z0-9]{4,32}$/.test(name)) return;
+        // The price hold waits for this answer, so a held price shows once, at the code's price.
+        strideCodePending = true;
         try {
             fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'personal_code', code: name })
             }).then(function (r) { return r.json(); }).then(function (d) {
+                strideCodePending = false;
                 var ends = Number(d && d.expires_at_ms);
-                if (!d || !d.ok || !d.discount_id || !(ends > Date.now())) return;
+                if (!d || !d.ok || !d.discount_id || !(ends > Date.now())) { strideHoldDone(); return; }
                 strideCodeId = d.discount_id;
                 window.STRIDE_CODE_ACTIVE = true;
                 strideLocalizePrices();
                 strideSyncExpressItems();
                 strideCountdownSeal(String(d.code || name).toUpperCase(), ends);
-            }).catch(function () {});
-        } catch (e) {}
+            }).catch(function () { strideCodePending = false; strideHoldDone(); });
+        } catch (e) { strideCodePending = false; }
     }
 
     // The badge for a personal code: its name and the time it has left, every second. When
@@ -4364,7 +4438,7 @@ function openBuy() { toggleBuyModal(); }
             if (!el.dataset.baseHtml) el.dataset.baseHtml = el.innerHTML;
             el.innerHTML = on
                 ? el.dataset.baseHtml
-                    .replace(/<span class="m-cta-price">[\s\S]*?<\/span>/g, '')
+                    .replace(/<span class="(?:m|sd)-cta-price">[\s\S]*?<\/span>/g, '')
                     .replace(ctaPrice, '')
                     .replace(/GET STRIDE/g, 'GET STRIDE + COLLECTION')
                     .replace(/Get Stride/g, 'Get Stride + Collection')
@@ -4438,8 +4512,18 @@ function openBuy() { toggleBuyModal(); }
         return Paddle.PricePreview(body).then(strideReadPreview);
     }
 
+    let strideLocalizeGen = 0;
     function strideLocalizePrices() {
-        if (!stridePaddleReady()) return;
+        if (!stridePaddleReady()) {
+            // While the page is still being read, Paddle's deferred script has simply not run
+            // yet. Once it has been read, no Paddle means none is coming (blocked, offline, or
+            // the provider is not Paddle), so the dollars on the page are final.
+            if (document.readyState !== 'loading') { stridePriced = true; strideHoldDone(); }
+            return;
+        }
+        // Only the latest call prints: an answer for the page as it was before a code arrived
+        // must never land after the code's own answer and put the ordinary price back.
+        var gen = ++strideLocalizeGen;
         try {
             // TWO previews when an ad code is in play, and the difference between them
             // matters. strideFx.rate exists to convert OUR price for the Collection (35) into
@@ -4450,6 +4534,7 @@ function openBuy() { toggleBuyModal(); }
             Promise.all([stridePricePreview(''),
                          strideCodeId ? stridePricePreview(strideCodeId) : null])
                 .then(function (both) {
+                    if (gen !== strideLocalizeGen) return;
                     var list = both[0];
                     var charged = both[1] || list;
                     if (!list || !charged) return;
@@ -4462,8 +4547,13 @@ function openBuy() { toggleBuyModal(); }
                     strideLocal = charged;
                     strideFx = { rate: list.stride / STRIDE_PRICE, currency: list.currency };
                     strideSyncAddon();
-                }).catch(function () {});
-        } catch (e) {}
+                }).catch(function () {}).then(function () {
+                    // Printed, confirmed in dollars, or failed: the latest answer is final either way.
+                    if (gen !== strideLocalizeGen) return;
+                    stridePriced = true;
+                    strideHoldDone();
+                });
+        } catch (e) { stridePriced = true; strideHoldDone(); }
     }
 
     // Express Apple Pay / Google Pay. On a compatible Apple device this pays straight
@@ -5506,6 +5596,11 @@ function openBuy() { toggleBuyModal(); }
         }
         if (claimed()) { try { strideSealShow(st.code, c); } catch (e) {} }
     }
+    // The price hold (top of <head>) lifts the moment the page's prices are final: print those
+    // first, rather than on the next tick, so the panel never shows the dollars it opened with.
+    document.addEventListener('stride:prices', function () {
+        if (pop.classList.contains('on') || !pin.hidden) paint();
+    });
 
     var lastFocus = null;
     function open() {
