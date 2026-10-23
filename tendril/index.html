@@ -966,7 +966,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <p class="price-s">One-time purchase. Yours to keep.</p>
             </div>
             <div class="offer-ctas">
-              <button type="button" class="cta btn-copper px-8 py-4 text-sm uppercase" data-buy>Get Tendril for <span data-cta-price></span></button>
+              <button type="button" class="cta btn-copper px-8 py-4 text-sm uppercase" data-buy><span data-cta-label>Get Tendril for</span> <span data-cta-price></span></button>
               <button type="button" class="btn-ghost px-8 py-3.5 text-sm uppercase" data-try-open>Try Tendril free for 24h</button>
             </div>
           </div>
@@ -1100,7 +1100,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <li>One-time purchase, no subscription</li>
       </ul>
       <div class="mt-8" data-again hidden>
-        <button type="button" class="cta btn-copper px-8 py-4 text-sm uppercase" data-buy>Get Tendril for <span data-cta-price></span></button>
+        <button type="button" class="cta btn-copper px-8 py-4 text-sm uppercase" data-buy><span data-cta-label>Get Tendril for</span> <span data-cta-price></span></button>
       </div>
       <div class="mt-8" data-again-check hidden>
         <button type="button" class="btn-copper px-8 py-4 text-sm uppercase" data-to-check>Already using Stride?</button>
@@ -1334,6 +1334,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     var skip = q('[data-skip]');
     skip.setAttribute('href', NEXT);
     skip.addEventListener('click', function () { stage('skipped'); });
+    // Right after a Stride purchase Tendril is an add-on at the owner price, never a free 24 hours
+    // (Yossi 2026-10-23: "in POST it should be without TRY", "ADD TENDRIL FOR 49"). Owners keep
+    // the 24 hours everywhere else. Gone from the page, so ?demo=1 cannot open it either.
+    qa('[data-try-open], [data-try]').forEach(function (el) { el.parentNode.removeChild(el); });
+    qa('[data-cta-label]').forEach(function (el) { el.textContent = 'Add Tendril for'; });
   }
 
   // ── The offer ───────────────────────────────────────────────────────────────
