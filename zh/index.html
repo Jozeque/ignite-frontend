@@ -1171,6 +1171,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     transition:width .2s,background-color .2s,opacity .2s}
   .proof-dot[aria-current="true"]::before{width:18px;background:var(--copper-lt);opacity:1}
   .proof-dot:focus-visible{outline:2px solid var(--copper-lt);outline-offset:-2px;border-radius:8px}
+  /* More stops than 13px dots can hold (past 13 on a 320px phone): the script sets proof-counted and
+     the row shows its position as a count instead, "4 / 14", between the arrows. */
+  .proof-count{display:none;min-width:5.5em;text-align:center;font-size:13px;font-weight:700;
+    letter-spacing:.14em;color:var(--ink2);font-feature-settings:"tnum"}
+  .proof-nav.proof-counted .proof-dots{display:none}
+  .proof-nav.proof-counted .proof-count{display:block}
   .divider{height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
   .lane{fill:none;stroke-width:2}
   details>summary{list-style:none}details>summary::-webkit-details-marker{display:none}
@@ -2787,6 +2793,24 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </figcaption>
       </figure>
 
+      <!-- Findelkind (the review form, 2026-10-23, OK'd being featured): his words, the strongest lines
+           Yossi chose (the line missing a word and the last line left out), "stride" written Stride;
+           no photo or link, so his initial; the label his own ("Findelkind (Braingames Records)"). -->
+      <figure class="proof-card panel rounded-2xl p-7 md:p-8 flex flex-col">
+        <span class="block text-[42px] leading-[.6] mb-4" style="color:var(--copper-lt);opacity:.5" aria-hidden="true">&ldquo;</span>
+        <blockquote class="text-[17px] md:text-[18px] leading-relaxed ink2 flex-1">BROOOO ! Stride <b>正是打破灵感瓶颈的那一招</b>。与其那样，不如直接打开 Stride，<b>让调制彻底放飞</b>，把整个过程录下来，然后<b>从混沌中挑出宝藏</b>。🤯 妙就妙在，<b>你不再需要刻意去想一个好点子</b>。你只是创造条件，让那些你可能从未刻意编排的东西自然发生。</blockquote>
+        <figcaption class="mt-6 pt-5 border-t" style="border-color:var(--line)">
+          <div class="flex items-center gap-4">
+            <svg class="shrink-0" width="62" height="62" viewBox="0 0 62 62" aria-hidden="true"><circle cx="31" cy="31" r="30.5" style="fill:var(--raise);stroke:rgba(198,113,43,.55)"/><text x="31" y="31" dy=".35em" text-anchor="middle" style="fill:var(--copper-lt);font:900 20px Outfit,sans-serif;letter-spacing:.02em">F</text></svg>
+            <div class="min-w-0">
+              <p class="text-lg font-black ink leading-tight">Findelkind</p>
+              <p class="silk mt-1" style="color:var(--copper-lt)">Braingames Records</p>
+            </div>
+          </div>
+          <div class="mt-5" style="height:38px" aria-hidden="true"></div>
+        </figcaption>
+      </figure>
+
     </div>
 
     <!-- Hidden until the script below finds more than one stop, so a page without
@@ -2814,6 +2838,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       var next = nav.querySelector('[data-proof-step="1"]');
       var reduce = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
       var stops = 0, aim = -1, frame = 0, settle = 0;
+      // The count that stands in for the dots once they no longer fit (see .proof-count).
+      var count = document.createElement('span');
+      count.className = 'proof-count';
+      count.setAttribute('aria-live', 'polite');
+      dots.parentNode.insertBefore(count, dots.nextSibling);
 
       function pitch() { return cards.length > 1 ? cards[1].offsetLeft - cards[0].offsetLeft : rail.clientWidth; }
       function maxLeft() { return Math.max(0, rail.scrollWidth - rail.clientWidth); }
@@ -2833,6 +2862,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         for (var i = 0; i < dots.children.length; i++) {
           dots.children[i].setAttribute('aria-current', i === at ? 'true' : 'false');
         }
+        count.textContent = (at + 1) + ' / ' + stops;
       }
       function build() {
         var p = pitch();
@@ -2851,6 +2881,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           }
         }
         nav.hidden = stops < 2;
+        // Each dot gives up width down to 13px; once even that overflows the row (one more would push
+        // the next arrow off a phone's screen), the position shows as a count instead.
+        nav.classList.remove('proof-counted');
+        if (!nav.hidden && dots.scrollWidth > dots.clientWidth + 1) nav.classList.add('proof-counted');
         paint();
       }
       prev.addEventListener('click', function () { go((aim >= 0 ? aim : current()) - 1); });
