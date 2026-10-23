@@ -631,6 +631,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .play:hover{background:rgba(8,7,5,.12)}
   .play span{width:76px;height:76px;border-radius:999px;display:flex;align-items:center;justify-content:center;
     background:rgba(198,113,43,.95);box-shadow:0 12px 34px -8px rgba(0,0,0,.75)}
+  /* The showcase: a 16:9 frame like the shots, the player's own controls once it plays. */
+  .sc{margin-top:28px;aspect-ratio:16/9}
+  .sc video{display:block;width:100%;height:100%;object-fit:contain;background:#0e0d0b}
 
   /* The offer: one panel, one state at a time. Nothing renders until the state is known: a price
      shown and then taken back is worse than a beat of nothing. */
@@ -1052,6 +1055,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <p class="offer-p">Refresh in a minute, or write to <a href="mailto:home@stridehub.io">home@stridehub.io</a> and we'll sort it out.</p>
         </div>
       </div>
+    </section>
+
+    <!-- The showcase (Yossi 2026-10-23): Tendril's own sound, a section of its own under the
+         hero, the same on every way in (an owner's link, the homepage check, right after a Stride
+         purchase). The film stays the hero's. Nothing loads until it is played. -->
+    <section class="sec" data-showcase>
+      <h2 class="sec-h">Showcase</h2>
+      <p class="sec-s">Sounds straight out of Tendril, played inside Stride. Turn your sound on.</p>
+      <figure class="shot sc">
+        <video playsinline preload="none" poster="/media/tendril/showcase/poster.webp" width="1920" height="1080"
+               aria-label="Tendril showcase: sounds played inside Stride">
+          <source src="/media/tendril/showcase/tendril-examples.mp4" type="video/mp4">
+        </video>
+        <button type="button" class="play" data-sc-play aria-label="Play the Tendril showcase with sound"><span><svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="#1c1206"/></svg></span></button>
+      </figure>
     </section>
 
     <!-- The film. Hidden until TENDRIL_FILM names it: no dead button and no empty frame. -->
@@ -1844,6 +1862,27 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   }
   document.addEventListener('visibilitychange', state);
   document.addEventListener('tendril-film', state);
+})();
+</script>
+<script>
+// ── The showcase ──────────────────────────────────────────────────────────────
+// One press: the play mark goes, the player's own controls come up and it plays with sound. The
+// film opening over the page pauses it, so the two never sound at once.
+(function () {
+  var box = document.querySelector('[data-showcase]');
+  if (!box) return;
+  var v = box.querySelector('video'), mark = box.querySelector('[data-sc-play]');
+  function clarity(name) { try { if (window.strideClarity) window.strideClarity(name); } catch (e) {} }
+  mark.addEventListener('click', function () {
+    mark.hidden = true;
+    v.controls = true;
+    clarity('tendril_showcase_play');
+    var p = v.play();
+    if (p && p.catch) p.catch(function () { mark.hidden = false; v.controls = false; });
+  });
+  document.addEventListener('tendril-film', function () {
+    if (document.querySelector('.vpop.on')) v.pause();
+  });
 })();
 </script>
 </body>
