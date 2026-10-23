@@ -754,7 +754,7 @@ function agg(idx, ch = F.channel, model = F.model) {
   const a = { spend: 0, metaSpend: 0, googleSpend: 0, imps: 0, reach: 0, plays3: 0, thru: 0, metaClicks: 0, lpv: 0, paidClicks: 0, paidArrivals: 0, unseenClicks: 0,
     homePV: 0, tryPV: 0, pvDays: 0, visits: 0, purchPV: 0, coBoughtPV: 0, addonPV: 0, checkouts: 0, coPV: 0, coBought: 0, purchB: 0, orders: 0, bump: 0, post2Shown: 0, post2Take: 0, postShown: 0, postTake: 0,
     refunds: 0, refundAmt: 0, addonOrders: 0, gross: 0, tax: 0, net: 0, fees: 0, purchases: 0, revenue: 0, journeys: 0, stitched: 0, est: 0,
-    nStride: 0, nBump: 0, nPost2: 0, nPost: 0, oStride: 0, oBump: 0, oPost2: 0, oPost: 0, nColl: 0, oColl: 0, nSess: 0, oSess: 0, nOther: 0, oOther: 0,
+    nStride: 0, nBump: 0, nPost2: 0, nPost: 0, oStride: 0, oBump: 0, oPost2: 0, oPost: 0, nColl: 0, oColl: 0, nSess: 0, oSess: 0, nOther: 0, oOther: 0, nTdr: 0, oTdr: 0,
     pages: Object.fromEntries(PAGES.map(([p]) => [p, 0])),
     reg: 0, regPV: 0, dl: 0, act: 0, demoBuyers: 0, demoSpend: 0, regOpen: 0, regOwn: 0,
     clarS: 0, clarAct: 0, clarActN: 0, clarScr: 0, clarScrN: 0, cpages: {}, actAll: 0, actEmail: 0,
@@ -817,6 +817,7 @@ function agg(idx, ch = F.channel, model = F.model) {
         a.oStride++; a.oBump += j.b; a.oPost2 += j.p2; a.oPost += j.p;
       } else if (j.k === 'collection') { a.nColl += net; a.oColl++; }
       else if (j.k === 'session') { a.nSess += net; a.oSess++; }
+      else if (j.k === 'tendril') { a.nTdr += net; a.oTdr++; }
       else { a.nOther += net; a.oOther++; }
     }
     for (const r of REG[i]) {
@@ -1114,6 +1115,8 @@ function renderOverview(c) {
     metricTile('roas', c),
     metricTile('cac', c),
     tileHTML({ label: 'Purchases', value: fmt.num1(A.purchases), d: delta(A.purchases, P.purchases, 'high'), sp: spark(perDay(c.idx, a => a.purchases)), src: all ? 'Stride orders' : `credited ${modelLabel()}` }),
+    // Tendril (2026-10-23): its own product, sold to Stride owners, so never in Purchases.
+    tileHTML({ label: 'Tendril sales', value: fmt.num(A.oTdr), d: delta(A.oTdr, P.oTdr, 'high'), sp: spark(perDay(c.idx, a => a.oTdr)), src: `${fmt.usd0(A.nTdr)} net, its own product` }),
     tileHTML({ label: 'Visits', value: fmt.num(A.visits), d: delta(A.visits, P.visits, 'high'), sp: spark(c.idx.map(d => days[d].pvAny ? agg([d]).visits : null)), src: pvFrom() == null ? 'counting starts with the site update' : 'arrivals, our cookieless count' }),
     metricTile('pconv', c),
     metricTile('coRate', c),
@@ -1314,8 +1317,8 @@ function renderCheckout(c) {
     tileHTML({ label: '/post2 take', value: fmtM('post2', VAL.post2(A)), d: delta(VAL.post2(A), VAL.post2(c.P), 'high'), src: `${fmt.num(A.post2Take)} of ${fmt.num(A.post2Shown)} shown`, lit: light('info') }),
     tileHTML({ label: '/post take', value: fmtM('post', VAL.post(A)), d: delta(VAL.post(A), VAL.post(c.P), 'high'), src: `${fmt.num(A.postTake)} of ${fmt.num(A.postShown)} shown`, lit: light('info') }),
     metricTile('refund', c)].join('');
-  const tot = A.nStride + A.nBump + A.nPost2 + A.nPost + A.nColl + A.nSess + A.nOther || 1;
-  const prod = [['Stride', A.oStride, A.nStride], ['Experimental Collection, checkout bump', A.oBump, A.nBump], ['Experimental Collection, /post2', A.oPost2, A.nPost2], ['1:1 session, /post', A.oPost, A.nPost],
+  const tot = A.nStride + A.nBump + A.nPost2 + A.nPost + A.nColl + A.nSess + A.nOther + A.nTdr || 1;
+  const prod = [['Stride', A.oStride, A.nStride], ['Experimental Collection, checkout bump', A.oBump, A.nBump], ['Experimental Collection, /post2', A.oPost2, A.nPost2], ['1:1 session, /post', A.oPost, A.nPost], ['Tendril', A.oTdr, A.nTdr],
     ['Experimental Collection on its own', A.oColl, A.nColl], ['1:1 session on its own', A.oSess, A.nSess], ['Other products', A.oOther, A.nOther]]
     .filter(([, o]) => o > 0 || true).map(([n, o, v]) => `<tr><td>${esc(n)}</td><td>${fmt.num(o)}</td><td>${fmt.usd0(v)}</td><td>${fmt.pct(v / tot)}</td></tr>`).join('');
   // After a purchase, every offer a Stride buyer meets, in the order they meet it: how many saw it
