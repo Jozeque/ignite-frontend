@@ -5,11 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- What the first screen needs before anything else, asked for before any script is
          parsed: the hero's still (the largest thing painted, which is when a phone counts the
-         page as shown) and the brand face. Both from this origin. The still comes in two cuts
-         (2026-10-24): the upright one on a phone, the wide one everywhere else, so each screen
-         asks for its own and never the other's. -->
-    <link rel="preload" as="image" href="/media/stride/film/poster-1280.webp" type="image/webp" media="(min-width: 641px)" fetchpriority="high">
-    <link rel="preload" as="image" href="/media/stride/film/poster-9x16.webp" type="image/webp" media="(max-width: 640px)" fetchpriority="high">
+         page as shown) and the brand face. Both from this origin. -->
+    <link rel="preload" as="image" href="/media/stride/film/poster-1280.webp" type="image/webp" fetchpriority="high">
     <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/outfit-latin.woff2" crossorigin>
     <script>
     // ?gift=<token> is the Discovery Pass gift from the last-hours mail (Audit 08, A6): Stride
@@ -1624,15 +1621,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cpath d='M17 16v8l6.93-4z' fill='%23ece4d6'/%3E%3C/svg%3E");
     background-size:40px 40px}}
   #heroStage:has(iframe)::after{display:none}
-  /* On a phone the frame takes the upright cut's shape (Yossi 2026-10-24: "mobile opens the story
-     version"): 9:16, centred, never taller than most of the screen, the same frame as /tendril's
-     film. The loop and its poster fill it edge to edge. The walkthrough is 16:9, so the frame
-     goes back to that shape while it plays inside. */
-  @media (max-width:640px){
-    #heroStage{aspect-ratio:9/16;margin:0 auto;width:min(100%,calc(78vh * 9 / 16));width:min(100%,calc(78svh * 9 / 16))}
-    #heroStage:has(iframe){aspect-ratio:16/9;width:100%}
-    #heroLoop{height:100%;object-fit:cover}
-  }
 
   #m-cta{display:none}
   #m-menu{display:none}
@@ -2263,14 +2251,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div id="heroStage" style="position:relative;border-radius:12px;border:1px solid rgba(198,113,43,.35);overflow:hidden;background:#0a0a09;box-shadow:0 30px 80px -30px rgba(0,0,0,.9),0 0 64px -14px rgba(198,113,43,.22)">
             <!-- The loop is the Stride promo, silent (Yossi 2026-10-24: "the video that opens in the
                  hero, and the preview instead of the motion graphic"; the motion graphic is kept in
-                 assets/stride-hero* and the tag hero-motion-graphic-before-2026-10-24). Two cuts:
-                 upright 9:16 on a phone (540x960, 2 MB), 16:9 everywhere else (720p, 3.6 MB). The
-                 script under the hero picks one from these attributes, poster included, rather than
-                 <source media>, which a browser may ignore and then play the upright cut in a wide
-                 frame. Root-relative paths, so /de/ and the other homepages load the same files. -->
-            <video id="heroLoop" class="w-full block" loop muted playsinline preload="none" width="1920" height="1080" aria-label="Stride mapping a rack, putting a different curve on every lane, locking three lanes and generating new curves for the rest"
-                   data-wide="/media/stride/film/stride-promo-720-loop.mp4" data-wide-poster="/media/stride/film/poster-1280.webp"
-                   data-tall="/media/stride/film/stride-promo-9x16-loop.mp4" data-tall-poster="/media/stride/film/poster-9x16.webp"></video>
+                 assets/stride-hero* and the tag hero-motion-graphic-before-2026-10-24). Always the
+                 wide cut, in the frame the hero always had (Yossi, same day: "the placeholder stays
+                 landscape like before, and only a press opens the story", so a phone still shows
+                 the words under it without scrolling); a phone gets it at 960x540. The script under
+                 the hero picks the size from these attributes rather than <source media>, which a
+                 browser may ignore. Root-relative paths, so /de/ and the others load the same files. -->
+            <video id="heroLoop" class="w-full block" loop muted playsinline preload="none" width="1920" height="1080" poster="/media/stride/film/poster-1280.webp" aria-label="Stride mapping a rack, putting a different curve on every lane, locking three lanes and generating new curves for the rest"
+                   data-wide="/media/stride/film/stride-promo-720-loop.mp4" data-phone="/media/stride/film/stride-promo-540-loop.mp4"></video>
           </div>
         </div>
         <!-- the full walkthrough plays right here, on top of the loop, and nothing in the hero
@@ -2290,14 +2278,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               loop = document.getElementById('heroLoop'),
               note = document.getElementById('heroVideoNote');
 
-          // The promo in the cut that fits the screen (Yossi 2026-10-24: "mobile opens the story
-          // version and desktop the landscape"): upright on a phone, at the same 640px line as
-          // /tendril's film, wide everywhere else. The loop takes its cut here, before anything
-          // plays (preload="none", so setting it fetches nothing), and follows a phone turned on
-          // its side. The film below asks the same question when it opens.
+          // The promo (Yossi 2026-10-24): the loop is always the wide cut, a phone's at 960x540;
+          // the film a press opens is the story version on a phone ("mobile opens the story
+          // version and desktop the landscape"), at the same 640px line as /tendril's film. The
+          // loop takes its size here, before anything plays (preload="none", so setting it
+          // fetches nothing), and follows a phone turned on its side.
           var TALL = window.matchMedia ? window.matchMedia('(max-width: 640px)') : null;
           var FILM_TALL = '/media/stride/film/stride-promo-9x16.mp4',
-              FILM_WIDE = '/media/stride/film/stride-promo-1080.mp4';
+              FILM_WIDE = '/media/stride/film/stride-promo-1080.mp4',
+              POSTER_TALL = '/media/stride/film/poster-9x16.webp',
+              POSTER_WIDE = '/media/stride/film/poster-1280.webp';
           function tall() { return !!(TALL && TALL.matches); }
           var loopTall = null;
           function fitLoop() {
@@ -2306,8 +2296,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             if (t === loopTall) return;
             var running = loopTall !== null && !loop.paused;
             loopTall = t;
-            loop.poster = loop.getAttribute(t ? 'data-tall-poster' : 'data-wide-poster');
-            loop.src = loop.getAttribute(t ? 'data-tall' : 'data-wide');
+            loop.src = loop.getAttribute(t ? 'data-phone' : 'data-wide');
             if (running) { var p = loop.play(); if (p && p.catch) p.catch(function () {}); }
           }
           fitLoop();
@@ -2403,7 +2392,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             film.setAttribute('controls', '');
             film.setAttribute('playsinline', '');
             film.setAttribute('preload', 'none');
-            if (loop) film.setAttribute('poster', loop.getAttribute(filmTall ? 'data-tall-poster' : 'data-wide-poster'));
+            film.setAttribute('poster', filmTall ? POSTER_TALL : POSTER_WIDE);
             var src = document.createElement('source');
             src.src = filmTall ? FILM_TALL : FILM_WIDE;
             src.type = 'video/mp4';
