@@ -5,8 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- What the first screen needs before anything else, asked for before any script is
          parsed: the hero's still (the largest thing painted, which is when a phone counts the
-         page as shown) and the brand face. Both from this origin. -->
-    <link rel="preload" as="image" href="/assets/stride-hero-poster.jpg" fetchpriority="high">
+         page as shown) and the brand face. Both from this origin. The still comes in two cuts
+         (2026-10-24): the upright one on a phone, the wide one everywhere else, so each screen
+         asks for its own and never the other's. -->
+    <link rel="preload" as="image" href="/media/stride/film/poster-1280.webp" type="image/webp" media="(min-width: 641px)" fetchpriority="high">
+    <link rel="preload" as="image" href="/media/stride/film/poster-9x16.webp" type="image/webp" media="(max-width: 640px)" fetchpriority="high">
     <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/outfit-latin.woff2" crossorigin>
     <script>
     // ?gift=<token> is the Discovery Pass gift from the last-hours mail (Audit 08, A6): Stride
@@ -1537,6 +1540,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     font-size:19px;line-height:1;cursor:pointer}
   .vpop-x:hover{color:var(--ink);border-color:rgba(216,201,176,.28)}
   @media (max-width:640px){.vpop{--pad:14px}}
+  /* The upright film (a phone, 2026-10-24) is sized by the height it has: as wide as its 9:16
+     allows once it fits the screen, the same rule as /tendril's. */
+  .vpop.v .vpop-card{width:min(100%,calc((100vh - var(--pad) * 2) * 9 / 16));width:min(100%,calc((100dvh - var(--pad) * 2) * 9 / 16))}
 
   /* ── TENDRIL (2026-10-22) ─────────────────────────────────────────────────
      The section after "You already have everything you need": a second product, a synth
@@ -1618,6 +1624,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cpath d='M17 16v8l6.93-4z' fill='%23ece4d6'/%3E%3C/svg%3E");
     background-size:40px 40px}}
   #heroStage:has(iframe)::after{display:none}
+  /* On a phone the frame takes the upright cut's shape (Yossi 2026-10-24: "mobile opens the story
+     version"): 9:16, centred, never taller than most of the screen, the same frame as /tendril's
+     film. The loop and its poster fill it edge to edge. The walkthrough is 16:9, so the frame
+     goes back to that shape while it plays inside. */
+  @media (max-width:640px){
+    #heroStage{aspect-ratio:9/16;margin:0 auto;width:min(100%,calc(78vh * 9 / 16));width:min(100%,calc(78svh * 9 / 16))}
+    #heroStage:has(iframe){aspect-ratio:16/9;width:100%}
+    #heroLoop{height:100%;object-fit:cover}
+  }
 
   #m-cta{display:none}
   #m-menu{display:none}
@@ -2244,15 +2259,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                the walkthrough player drops in on top of it, so hitting play does not
                shift a single pixel of the layout -->
           <div id="heroStage" style="position:relative;border-radius:12px;border:1px solid rgba(198,113,43,.35);overflow:hidden;background:#0a0a09;box-shadow:0 30px 80px -30px rgba(0,0,0,.9),0 0 64px -14px rgba(198,113,43,.22)">
-            <video id="heroLoop" class="w-full block" loop muted playsinline preload="none" width="1920" height="1080" poster="/assets/stride-hero-poster.jpg" aria-label="Stride mappe un rack, met une courbe différente sur chaque lane, en verrouille trois et génère de nouvelles courbes pour le reste">
-              <!-- Phones get a 960x540 cut (1 MB): the box is ~350px wide there, and an iPhone
-                   used to take the 1080p MP4 (4.2 MB) because it passes on the WebM. MP4 for
-                   the small cut because its VP9 twin went soft on the thin curve lines. A
-                   browser that ignores `media` on a video source takes this first entry too. -->
-              <source src="/assets/stride-hero-540.mp4" type="video/mp4" media="(max-width: 767px)">
-              <source src="/assets/stride-hero.webm" type="video/webm">
-              <source src="/assets/stride-hero.mp4" type="video/mp4">
-            </video>
+            <!-- The loop is the Stride promo, silent (Yossi 2026-10-24: "the video that opens in the
+                 hero, and the preview instead of the motion graphic"; the motion graphic is kept in
+                 assets/stride-hero* and the tag hero-motion-graphic-before-2026-10-24). Two cuts:
+                 upright 9:16 on a phone (540x960, 2 MB), 16:9 everywhere else (720p, 3.6 MB). The
+                 script under the hero picks one from these attributes, poster included, rather than
+                 <source media>, which a browser may ignore and then play the upright cut in a wide
+                 frame. Root-relative paths, so /de/ and the other homepages load the same files. -->
+            <video id="heroLoop" class="w-full block" loop muted playsinline preload="none" width="1920" height="1080" aria-label="Stride mappe un rack, met une courbe différente sur chaque lane, en verrouille trois et génère de nouvelles courbes pour le reste"
+                   data-wide="/media/stride/film/stride-promo-720-loop.mp4" data-wide-poster="/media/stride/film/poster-1280.webp"
+                   data-tall="/media/stride/film/stride-promo-9x16-loop.mp4" data-tall-poster="/media/stride/film/poster-9x16.webp"></video>
           </div>
         </div>
         <!-- the full walkthrough plays right here, on top of the loop, and nothing in the hero
@@ -2271,6 +2287,32 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               stage = document.getElementById('heroStage'),
               loop = document.getElementById('heroLoop'),
               note = document.getElementById('heroVideoNote');
+
+          // The promo in the cut that fits the screen (Yossi 2026-10-24: "mobile opens the story
+          // version and desktop the landscape"): upright on a phone, at the same 640px line as
+          // /tendril's film, wide everywhere else. The loop takes its cut here, before anything
+          // plays (preload="none", so setting it fetches nothing), and follows a phone turned on
+          // its side. The film below asks the same question when it opens.
+          var TALL = window.matchMedia ? window.matchMedia('(max-width: 640px)') : null;
+          var FILM_TALL = '/media/stride/film/stride-promo-9x16.mp4',
+              FILM_WIDE = '/media/stride/film/stride-promo-1080.mp4';
+          function tall() { return !!(TALL && TALL.matches); }
+          var loopTall = null;
+          function fitLoop() {
+            if (!loop) return;
+            var t = tall();
+            if (t === loopTall) return;
+            var running = loopTall !== null && !loop.paused;
+            loopTall = t;
+            loop.poster = loop.getAttribute(t ? 'data-tall-poster' : 'data-wide-poster');
+            loop.src = loop.getAttribute(t ? 'data-tall' : 'data-wide');
+            if (running) { var p = loop.play(); if (p && p.catch) p.catch(function () {}); }
+          }
+          fitLoop();
+          if (TALL) {
+            if (TALL.addEventListener) TALL.addEventListener('change', fitLoop);
+            else if (TALL.addListener) TALL.addListener(fitLoop);
+          }
 
           // the loop holds still for people who asked for less motion
           if (loop && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -2297,7 +2339,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 po = new PerformanceObserver(function (list) {
                   var es = list.getEntries();
                   for (var i = 0; i < es.length; i++) {
-                    if (es[i].element === loop || /stride-hero-poster/.test(es[i].url || '')) {
+                    if (es[i].element === loop || /\/media\/stride\/film\/poster-/.test(es[i].url || '')) {
                       requestAnimationFrame(start);
                       return;
                     }
@@ -2341,14 +2383,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           // Press the frame while its loop is running and the full Stride film plays
           // over the page. The panel and the <video> are built on that press, so the
           // hero ships without them and nothing is downloaded until somebody asks.
-          // A phone under 760px gets the 720p pair: at that size it is the same
-          // picture for a third of the bytes.
-          var pop = null, film = null, wasLooping = false, openedAt = 0;
+          // It is the promo with its sound, in the loop's cut: the upright 720x1280
+          // on a phone (6 MB, in a panel sized by its height), 1080p everywhere else
+          // (11 MB). The old film stays in assets/stride-promo-*.
+          var pop = null, film = null, filmTall = null, wasLooping = false, openedAt = 0;
 
           function buildFilm() {
-            var small = (window.innerWidth || 0) < 760;
+            filmTall = tall();
             pop = document.createElement('div');
-            pop.className = 'vpop';
+            pop.className = filmTall ? 'vpop v' : 'vpop';
             pop.setAttribute('role', 'dialog');
             pop.setAttribute('aria-modal', 'true');
             pop.setAttribute('aria-label', 'The Stride film');
@@ -2358,13 +2401,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             film.setAttribute('controls', '');
             film.setAttribute('playsinline', '');
             film.setAttribute('preload', 'none');
-            film.setAttribute('poster', '/assets/stride-promo-poster.jpg');
-            [['webm', 'video/webm'], ['mp4', 'video/mp4']].forEach(function (t) {
-              var s = document.createElement('source');
-              s.src = '/assets/stride-promo-' + (small ? '720' : '1080') + '.' + t[0];
-              s.type = t[1];
-              film.appendChild(s);
-            });
+            if (loop) film.setAttribute('poster', loop.getAttribute(filmTall ? 'data-tall-poster' : 'data-wide-poster'));
+            var src = document.createElement('source');
+            src.src = filmTall ? FILM_TALL : FILM_WIDE;
+            src.type = 'video/mp4';
+            film.appendChild(src);
             var x = document.createElement('button');
             x.type = 'button';
             x.className = 'vpop-x';
@@ -2386,6 +2427,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           }
 
           function openFilm() {
+            // Turned on its side since it last opened: the other cut, in a panel of its shape.
+            if (pop && filmTall !== tall() && !pop.classList.contains('on')) { pop.parentNode.removeChild(pop); pop = null; }
             if (!pop) buildFilm();
             if (pop.classList.contains('on')) return;
             // Hiding the page's scroll shortens it by a scrollbar width on desktop,
