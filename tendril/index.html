@@ -719,9 +719,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   footer a{color:var(--ink3);text-decoration:none}
   footer a:hover{color:var(--ink)}
 
-  /* The manual in the hero: one frame at the rack's own shape (925 x 747), a strip of parts
-     that snaps a part at a time, and the slider under it. The live rack is drawn at its own
-     size and scaled to the frame, because the manual stacks it for a narrow page. */
+  /* The manual in the hero: one frame, a strip of parts that snaps a part at a time, and the
+     slider under it. On a computer the frame takes the film's own shape, 16:9 (Yossi 2026-10-24:
+     "a horizontal video sitting on a square is weird: the frame itself should be horizontal,
+     the size of the video"); the manual's plates sit whole inside it, on the same dark they
+     carry to their own edges. On a phone, where the film stands on its own, the frame keeps the
+     plates' shape (925 x 747). The live rack is drawn at its own size and scaled to sit whole
+     in the frame, because the manual stacks it for a narrow page. */
   .msl{margin:0;min-width:0}
   .msl-frame{position:relative;border-radius:16px;overflow:hidden;border:1px solid rgba(198,113,43,.28);background:#11100e;
     box-shadow:0 34px 70px -34px rgba(0,0,0,.95),0 0 70px -24px rgba(198,113,43,.2)}
@@ -729,8 +733,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     scrollbar-width:none;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
   .msl-track::-webkit-scrollbar{display:none}
   .msl-track.drag{scroll-snap-type:none;scroll-behavior:auto;cursor:grabbing}
-  .msl-slide{position:relative;flex:0 0 100%;aspect-ratio:1850/1494;overflow:hidden;scroll-snap-align:start;scroll-snap-stop:always}
-  .msl-slide img{display:block;width:100%;height:100%;object-fit:cover;user-select:none;-webkit-user-drag:none;pointer-events:none}
+  .msl-slide{position:relative;flex:0 0 100%;aspect-ratio:1850/1494;overflow:hidden;scroll-snap-align:start;scroll-snap-stop:always;background:#12100e}
+  @media (min-width:641px){ .msl-slide{aspect-ratio:16/9} }
+  .msl-slide img{display:block;width:100%;height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none;pointer-events:none}
   /* The film's part: letterboxed, never cropped (its words sit near the left edge). */
   .msl-film{background:#0e0d0b}
   .msl-film video{display:block;width:100%;height:100%;object-fit:contain}
@@ -778,6 +783,19 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* The whole manual, one click from its slider and from the panels a buyer and an owner see. */
   .msl-open{display:block;width:max-content;margin-top:8px;font-size:13.5px;font-weight:800;text-decoration:none}
   .msl-open:hover{text-decoration:underline}
+  /* The showcase, small, under the hero's frame (Yossi 2026-10-24): its picture and one line,
+     floating like the caption. A press plays it with sound in the page's own player. */
+  .sc-mini{display:flex;align-items:center;gap:14px;margin-top:18px;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+  .sc-mini-shot{position:relative;display:block;flex:0 0 auto;width:128px;aspect-ratio:16/9;border-radius:10px;overflow:hidden;
+    border:1px solid rgba(198,113,43,.28);background:#0e0d0b;box-shadow:0 14px 30px -18px rgba(0,0,0,.9)}
+  .sc-mini-shot img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .25s}
+  .sc-mini-mark{position:absolute;left:50%;top:50%;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:999px;display:flex;
+    align-items:center;justify-content:center;background:rgba(198,113,43,.95);box-shadow:0 6px 16px -6px rgba(0,0,0,.8)}
+  .sc-mini:hover .sc-mini-shot img{transform:scale(1.04)}
+  .sc-mini:focus-visible{outline:2px solid rgba(221,154,82,.6);outline-offset:4px;border-radius:12px}
+  .sc-mini-t{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .sc-mini-t b{font-size:14.5px;font-weight:800;color:var(--ink)}
+  .sc-mini-t span{font-size:13px;line-height:1.45;color:var(--ink2)}
   .offer-act{display:flex;flex-wrap:wrap;gap:12px;margin-top:18px}
   /* The thank-you hands over the key and the downloads on the page (Yossi 2026-10-23: "show the key
      + download buttons on the thank-you screen"), so the mail is a copy and a mistyped address at
@@ -873,7 +891,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div>
           <div class="eyebrow">Built for Stride</div>
           <span class="tdr-word">TENDRIL</span>
-          <h1 class="claim">Three engines. <span class="brand">One evolving sound playground.</span></h1>
+          <h1 class="claim">Three engines. <span class="brand">One evolving sound design playground.</span></h1>
           <!-- On a phone the film comes right under the headline, upright (Yossi 2026-10-22): the
                9:16 cut, a silent loop while it is in sight, its play mark opens it with sound. The
                words follow it, and the slider further down then starts at the rack. Hidden on a
@@ -960,6 +978,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <span data-msl-cap hidden><b>Mixer.</b> A strip for each engine, a key zone for each, and the master with its ceiling.</span>
             <span data-msl-cap hidden><b>Sequencer.</b> Three rows, one for each engine, eight patterns deep, out to your DAW as MIDI.</span>
             <a class="msl-open" href="/media/tendril/manual/" target="_blank" rel="noopener">Open the full manual &rarr;</a>
+            <!-- The showcase, small (Yossi 2026-10-24: "under it the showcase, or something smaller,
+                 that opens as a popup inside the site"). The big section further down stays. -->
+            <button type="button" class="sc-mini" data-sc-pop aria-label="Play the Tendril showcase with sound">
+              <span class="sc-mini-shot"><img src="/media/tendril/showcase/poster.webp" alt="" width="1920" height="1080" loading="lazy" decoding="async"><span class="sc-mini-mark"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="#1c1206"/></svg></span></span>
+              <span class="sc-mini-t"><b>Showcase</b><span>A minute of sounds straight out of Tendril, played inside Stride.</span></span>
+            </button>
           </figcaption>
         </figure>
       </div>
@@ -1726,7 +1750,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   var rackI = live ? slides.indexOf(live.closest('[data-msl-slide]')) : -1;
   var loop = root.querySelector('[data-film-loop]');
   var filmI = loop ? slides.indexOf(loop.closest('[data-msl-slide]')) : -1;
-  var RACK_W = 925;
+  var RACK_W = 925, RACK_H = 747;
   var n = slides.length, cur = 0, onScreen = false, settle = 0;
 
   function clarity(name) { try { if (window.strideClarity) window.strideClarity(name); } catch (e) {} }
@@ -1807,9 +1831,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   track.addEventListener('pointerup', release);
   track.addEventListener('pointercancel', release);
 
-  // The live rack: drawn at its own width, scaled to the frame.
+  // The live rack: drawn at its own size, scaled to sit whole in the frame (16:9 on a computer,
+  // the rack's own shape on a phone) and centred, right over its picture.
   function fit() {
-    if (live) live.style.transform = 'scale(' + (width() / RACK_W) + ')';
+    if (!live) return;
+    var w = width(), h = live.parentNode.clientHeight || w * RACK_H / RACK_W;
+    var s = Math.min(w / RACK_W, h / RACK_H);
+    live.style.transform = 'translate(' + (w - RACK_W * s) / 2 + 'px,' + (h - RACK_H * s) / 2 + 'px) scale(' + s + ')';
   }
   window.addEventListener('resize', function () { fit(); track.scrollTo({ left: cur * width(), behavior: 'auto' }); });
   function loadLive() {
@@ -1883,6 +1911,68 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   document.addEventListener('tendril-film', function () {
     if (document.querySelector('.vpop.on')) v.pause();
   });
+})();
+
+// ── The showcase, small, under the hero (Yossi 2026-10-24) ──────────────────────
+// Its picture under the hero's frame opens the same video in the page's own player (the film's
+// .vpop), with sound. Opening it pauses the hero's loop and the big showcase; closing lets the
+// loop run again. Nothing of it loads until it is pressed.
+(function () {
+  var btn = document.querySelector('[data-sc-pop]');
+  if (!btn) return;
+  var pop = null, v = null, openedAt = 0;
+  function clarity(name) { try { if (window.strideClarity) window.strideClarity(name); } catch (e) {} }
+  function close() {
+    if (!pop || !pop.classList.contains('on')) return;
+    v.pause();
+    pop.classList.remove('on');
+    document.documentElement.style.overflow = '';
+    document.dispatchEvent(new Event('tendril-film'));
+  }
+  btn.addEventListener('click', function () {
+    if (!pop) {
+      pop = document.createElement('div');
+      pop.className = 'vpop';
+      pop.setAttribute('role', 'dialog');
+      pop.setAttribute('aria-modal', 'true');
+      pop.setAttribute('aria-label', 'Tendril showcase');
+      var card = document.createElement('div');
+      card.className = 'vpop-card';
+      v = document.createElement('video');
+      v.setAttribute('controls', '');
+      v.setAttribute('playsinline', '');
+      v.setAttribute('preload', 'none');
+      v.setAttribute('poster', '/media/tendril/showcase/poster.webp');
+      // A phone plays the 720p copy (10 MB, the one the welcome mail plays), a computer the 1080p one.
+      v.src = window.matchMedia && window.matchMedia('(max-width:640px)').matches
+        ? '/media/tendril/showcase/tendril-examples-720.mp4' : '/media/tendril/showcase/tendril-examples.mp4';
+      var x = document.createElement('button');
+      x.type = 'button';
+      x.className = 'vpop-x';
+      x.setAttribute('aria-label', 'Close');
+      x.innerHTML = '&times;';
+      x.addEventListener('click', close);
+      card.appendChild(v);
+      card.appendChild(x);
+      pop.appendChild(card);
+      pop.addEventListener('click', function (ev) { if (ev.target === pop && Date.now() - openedAt > 400) close(); });
+      document.body.appendChild(pop);
+    }
+    document.documentElement.style.overflow = 'hidden';
+    pop.classList.add('on');
+    document.dispatchEvent(new Event('tendril-film'));   // the hero's loop and the big showcase pause under it
+    openedAt = Date.now();
+    clarity('tendril_showcase_pop');
+    v.currentTime = 0;
+    v.muted = false;
+    var p = v.play();
+    if (p && p.catch) p.catch(function () {
+      if (!pop.classList.contains('on')) return;
+      v.muted = true;
+      v.play().catch(function () {});
+    });
+  });
+  document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') close(); });
 })();
 </script>
 </body>
