@@ -2308,11 +2308,22 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             else if (TALL.addListener) TALL.addListener(fitLoop);
           }
 
-          // the loop holds still for people who asked for less motion
-          if (loop && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-            loop.removeAttribute('autoplay');
-            loop.pause();
-          } else if (loop && window.strideAfterLoad) {
+          // The loop plays for everybody the moment the page is up (Yossi 2026-10-24: "it should play
+          // as soon as someone lands, whatever device they came from"), people who asked for less
+          // motion included: it is one slow, continuous move (it used to hold still for them, and
+          // Windows with its animations off, common on a DAW rig, asks for exactly that). A browser
+          // that still refuses to start a muted video on its own (iOS in Low Power Mode, some in-app
+          // browsers) starts it on the visitor's first tap or key anywhere on the page.
+          function kickLoop() {
+            if (!loop || !loop.paused || document.querySelector('.vpop.on')) return;
+            var p = loop.play();
+            if (p && p.catch) p.catch(function () {});
+          }
+          ['touchend', 'click', 'keydown'].forEach(function (n) { document.addEventListener(n, kickLoop, { passive: true }); });
+          if (loop) loop.addEventListener('playing', function () {
+            ['touchend', 'click', 'keydown'].forEach(function (n) { document.removeEventListener(n, kickLoop, { passive: true }); });
+          }, { once: true });
+          if (loop && window.strideAfterLoad) {
             // The poster is the hero's first paint; the loop is its motion. It used to autoplay
             // with preload="auto", so its 1.8 MB (4.2 MB as MP4) downloaded alongside the poster,
             // the fonts and the headline on a phone. Now it starts once the page has loaded AND
@@ -2374,13 +2385,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           });
 
           // ── The film ──────────────────────────────────────────────────────
-          // Press the frame while its loop is running and the full Stride film plays
-          // over the page. The panel and the <video> are built on that press, so the
-          // hero ships without them and nothing is downloaded until somebody asks.
-          // It is the promo with its sound, in the loop's cut: the upright 720x1280
-          // on a phone (6 MB, in a panel sized by its height), 1080p everywhere else
-          // (11 MB). The old film stays in assets/stride-promo-*.
-          var pop = null, film = null, filmTall = null, wasLooping = false, openedAt = 0;
+          // Press the frame and the full Stride film plays over the page. The panel
+          // and the <video> are built on that press, so the hero ships without them
+          // and nothing is downloaded until somebody asks. It is the promo with its
+          // sound: the upright 720x1280 on a phone (6 MB, in a panel sized by its
+          // height), 1080p everywhere else (11 MB). The old film stays in
+          // assets/stride-promo-*.
+          var pop = null, film = null, filmTall = null, openedAt = 0;
 
           function buildFilm() {
             filmTall = tall();
@@ -2434,11 +2445,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             pop.classList.add('on');
             openedAt = Date.now();
             try { if (window.strideClarity) window.strideClarity('film_open'); } catch (e) {}
-            wasLooping = !!(loop && !loop.paused);
             if (loop) loop.pause();
             film.currentTime = 0;
             film.muted = false;
-            // A double press is a user gesture, so sound is allowed. If a browser
+            // The press is a user gesture, so sound is allowed. If a browser
             // still refuses, play it muted rather than not at all: the controls are
             // right there to turn it up. Closing the panel also rejects this promise,
             // so check we are still open before forcing anything.
@@ -2458,21 +2468,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             var root = document.documentElement;
             root.style.overflow = '';
             root.style.paddingRight = '';
-            if (wasLooping && loop) loop.play().catch(function () {});
+            // The loop runs whenever the film is not over it (the close is a gesture, so even a
+            // browser that blocked the autoplay lets it go now).
+            if (loop) { var p = loop.play(); if (p && p.catch) p.catch(function () {}); }
           }
 
           // While the walkthrough is playing in the frame, the frame belongs to it.
           function frameBusy() { return !!stage.querySelector('iframe'); }
 
-          // One press, and what it does depends on whether the loop is already running.
-          //
-          // On a desktop it is: the loop autoplays, so the first press opens the film.
-          // On a phone the loop often will not start by itself (iOS in Low Power Mode,
-          // Android with Data Saver, or anybody who asked for less motion), so the frame
-          // is sitting there on its poster. There, the first press starts the loop, which
-          // is what somebody tapping a still frame is asking for, and the next one opens
-          // the film. Neither has to know about the other: the rule is just "if it is not
-          // running, run it; if it is, show them the film".
+          // One press opens the film, always, whether or not the loop is running yet (Yossi
+          // 2026-10-24: "if they press the video the first time, it opens our hero video").
+          // It used to be "a paused loop: the first press starts it, the second opens the film",
+          // which on a phone that held the loop still read as a press that does nothing.
           //
           // click, not pointerup: a tap sends the click AFTER the overlay would already be
           // on screen if we opened on pointerup, and that click then lands on the backdrop
@@ -2480,13 +2487,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           stage.addEventListener('click', function (ev) {
             if (frameBusy()) return;              // the walkthrough owns the frame
             ev.preventDefault();
-            if (loop && loop.paused) {
-              var p = loop.play();
-              // If it will not play at all, a press that does nothing is worse than one
-              // that goes straight to the film.
-              if (p && p.catch) p.catch(function () { openFilm(); });
-              return;
-            }
             openFilm();
           });
 
