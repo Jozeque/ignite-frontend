@@ -749,7 +749,10 @@ function creditAd(j, adId, model, w) {
   const e = ends(j), f = e.firstAd === adId ? 1 : 0, l = e.lastAd === adId ? 1 : 0;
   return model === 'first' ? f : model === 'last' ? l : w * f + (1 - w) * l;
 }
-const jNet = j => j.ns + j.nb + j.n2 + j.np;
+// nt: Tendril bought IN the Stride checkout (the order bump test, 2026-10-25), the order's own money
+// like the Collection's nb. npt (Tendril bought after it) is never added here: that order is a
+// Tendril journey of its own.
+const jNet = j => j.ns + j.nb + j.n2 + j.np + (j.nt || 0);
 
 /* ---------- aggregation: the one place counts are summed ---------- */
 const MS_BITS = { chain_offered: 1, chain_picked: 2, chain_heard: 4, tour_done: 8, multi_lane: 16, new_variation: 32, lock_explore: 64 };
@@ -760,6 +763,7 @@ function agg(idx, ch = F.channel, model = F.model) {
     homePV: 0, tryPV: 0, pvDays: 0, visits: 0, purchPV: 0, coBoughtPV: 0, addonPV: 0, checkouts: 0, coPV: 0, coBought: 0, purchB: 0, orders: 0, bump: 0, post2Shown: 0, post2Take: 0, postShown: 0, postTake: 0,
     refunds: 0, refundAmt: 0, addonOrders: 0, gross: 0, tax: 0, net: 0, fees: 0, purchases: 0, revenue: 0, journeys: 0, stitched: 0, est: 0,
     nStride: 0, nBump: 0, nPost2: 0, nPost: 0, oStride: 0, oBump: 0, oPost2: 0, oPost: 0, nColl: 0, oColl: 0, nSess: 0, oSess: 0, nOther: 0, oOther: 0, nTdr: 0, oTdr: 0,
+    nTdrB: 0, oTdrB: 0, sideT: 0,
     pages: Object.fromEntries(PAGES.map(([p]) => [p, 0])),
     reg: 0, regPV: 0, dl: 0, act: 0, demoBuyers: 0, demoSpend: 0, regOpen: 0, regOwn: 0,
     clarS: 0, clarAct: 0, clarActN: 0, clarScr: 0, clarScrN: 0, cpages: {}, actAll: 0, actEmail: 0,
@@ -816,10 +820,13 @@ function agg(idx, ch = F.channel, model = F.model) {
       a.journeys++; a.stitched += (j.t || []).length ? 1 : 0; a.est += j.est ? 1 : 0;
       a.gross += j.g; a.tax += j.x; a.fees += j.f; a.refundAmt += j.r; a.net += net - j.r;
       if (j.k === 'stride') {
-        a.orders++; a.purchB++; a.bump += j.b; a.post2Take += j.p2; a.postTake += j.p; a.addonOrders += (j.b || j.p2 || j.p) ? 1 : 0;
-        if (D.pvAny && (j.b || j.p2 || j.p)) a.addonPV++;
+        // Either bump counts as the bump: a checkout on the order bump test shows one of the two.
+        const addon = j.b || j.bt || j.p2 || j.p || j.pt;
+        a.orders++; a.purchB++; a.bump += j.b + (j.bt || 0); a.post2Take += j.p2; a.postTake += j.p; a.addonOrders += addon ? 1 : 0;
+        if (D.pvAny && addon) a.addonPV++;
         a.refunds += j.r > 0 ? 1 : 0; a.nStride += j.ns; a.nBump += j.nb; a.nPost2 += j.n2; a.nPost += j.np;
         a.oStride++; a.oBump += j.b; a.oPost2 += j.p2; a.oPost += j.p;
+        a.nTdrB += j.nt || 0; a.oTdrB += j.bt || 0; a.sideT += j.ab === 'tendril' ? 1 : 0;
       } else if (j.k === 'collection') { a.nColl += net; a.oColl++; }
       else if (j.k === 'session') { a.nSess += net; a.oSess++; }
       else if (j.k === 'tendril') { a.nTdr += net; a.oTdr++; }
@@ -885,7 +892,7 @@ const VAL = {
   coRate: a => a.visits ? a.coPV / a.visits : null,
   pconv: a => a.visits ? a.purchPV / a.visits : null,
   c2p: a => a.checkouts ? a.coBought / a.checkouts : null,
-  aov: a => a.orders ? (a.nStride + a.nBump + a.nPost2 + a.nPost) / a.orders : null,
+  aov: a => a.orders ? (a.nStride + a.nBump + a.nTdrB + a.nPost2 + a.nPost) / a.orders : null,
   bump: a => a.orders ? a.bump / a.orders : null,
   post2: a => a.post2Shown ? a.post2Take / a.post2Shown : null,
   post: a => a.postShown ? a.postTake / a.postShown : null,
@@ -1140,7 +1147,8 @@ function renderOverview(c) {
     metricTile('cac', c),
     tileHTML({ label: 'Purchases', value: fmt.num1(A.purchases), d: delta(A.purchases, P.purchases, 'high'), sp: spark(perDay(c.idx, a => a.purchases)), src: all ? 'Stride orders' : `credited ${modelLabel()}` }),
     // Tendril (2026-10-23): its own product, sold to Stride owners, so never in Purchases.
-    tileHTML({ label: 'Tendril sales', value: fmt.num(A.oTdr), d: delta(A.oTdr, P.oTdr, 'high'), sp: spark(perDay(c.idx, a => a.oTdr)), src: `${fmt.usd0(A.nTdr)} net, its own product` }),
+    tileHTML({ label: 'Tendril sales', value: fmt.num(A.oTdr + A.oTdrB), d: delta(A.oTdr + A.oTdrB, P.oTdr + P.oTdrB, 'high'), sp: spark(perDay(c.idx, a => a.oTdr + a.oTdrB)),
+      src: `${fmt.usd0(A.nTdr + A.nTdrB)} net, its own product` + (A.oTdrB ? `; ${fmt.num(A.oTdrB)} in the Stride checkout` : '') }),
     tileHTML({ label: 'Visits', value: fmt.num(A.visits), d: delta(A.visits, P.visits, 'high'), sp: spark(c.idx.map(d => days[d].pvAny ? agg([d]).visits : null)), src: pvFrom() == null ? 'counting starts with the site update' : 'arrivals, our cookieless count' }),
     metricTile('pconv', c),
     metricTile('coRate', c),
@@ -1341,8 +1349,9 @@ function renderCheckout(c) {
     tileHTML({ label: '/post2 take', value: fmtM('post2', VAL.post2(A)), d: delta(VAL.post2(A), VAL.post2(c.P), 'high'), src: `${fmt.num(A.post2Take)} of ${fmt.num(A.post2Shown)} shown`, lit: light('info') }),
     tileHTML({ label: '/post take', value: fmtM('post', VAL.post(A)), d: delta(VAL.post(A), VAL.post(c.P), 'high'), src: `${fmt.num(A.postTake)} of ${fmt.num(A.postShown)} shown`, lit: light('info') }),
     metricTile('refund', c)].join('');
-  const tot = A.nStride + A.nBump + A.nPost2 + A.nPost + A.nColl + A.nSess + A.nOther + A.nTdr || 1;
-  const prod = [['Stride', A.oStride, A.nStride], ['Experimental Collection, checkout bump', A.oBump, A.nBump], ['Experimental Collection, /post2', A.oPost2, A.nPost2], ['1:1 session, /post', A.oPost, A.nPost], ['Tendril', A.oTdr, A.nTdr],
+  const tot = A.nStride + A.nBump + A.nTdrB + A.nPost2 + A.nPost + A.nColl + A.nSess + A.nOther + A.nTdr || 1;
+  const prod = [['Stride', A.oStride, A.nStride], ['Experimental Collection, checkout bump', A.oBump, A.nBump], ['Tendril, checkout bump', A.oTdrB, A.nTdrB],
+    ['Experimental Collection, /post2', A.oPost2, A.nPost2], ['1:1 session, /post', A.oPost, A.nPost], ['Tendril', A.oTdr, A.nTdr],
     ['Experimental Collection on its own', A.oColl, A.nColl], ['1:1 session on its own', A.oSess, A.nSess], ['Other products', A.oOther, A.nOther]]
     .filter(([, o]) => o > 0 || true).map(([n, o, v]) => `<tr><td>${esc(n)}</td><td>${fmt.num(o)}</td><td>${fmt.usd0(v)}</td><td>${fmt.pct(v / tot)}</td></tr>`).join('');
   // After a purchase, every offer a Stride buyer meets, in the order they meet it: how many saw it
@@ -1357,7 +1366,8 @@ function renderCheckout(c) {
     return offRow(name, `mail ${f.code}, ${f.when}${off ? ', switched off' : ''}; saw it = sent`, x.s, x.cv, x.rv);
   };
   const offerRows = [
-    offRow('Experimental Collection, order bump', 'in the checkout, before paying; every Stride buyer passes it', A.orders, A.bump, A.nBump),
+    offRow('Experimental Collection, order bump', 'in the checkout, before paying; every Stride buyer passes it, except the order bump test\'s Tendril side', A.orders - A.sideT, A.oBump, A.nBump),
+    offRow('Tendril, order bump', 'in the checkout, before paying; the order bump test\'s Tendril side (since Oct 25)', A.sideT, A.oTdrB, A.nTdrB),
     offRow('Experimental Collection, /post2', 'the page right after the purchase', allCh ? A.post2Shown : null, A.post2Take, A.nPost2),
     offRow('1:1 session, /post', 'the page after /post2', allCh ? A.postShown : null, A.postTake, A.nPost),
     mailRow('session_offer', '1:1 session, by mail'),
@@ -1365,8 +1375,46 @@ function renderCheckout(c) {
   ].join('');
   const offersCard = card('After a purchase: each offer', 'how many saw it and how many bought it, in the order a buyer meets them',
     `<div class="tbl-wrap"><table class="tbl" id="offer-table"><thead><tr><th>Offer</th><th>Saw it</th><th>Bought</th><th>Take</th><th>Revenue</th></tr></thead><tbody>${offerRows}</tbody>
-      <tfoot><tr><td>Stride buyers who took at least one add-on</td><td>${fmt.num(A.orders)}</td><td>${fmt.num(A.addonOrders)}</td><td>${A.orders ? fmt.pct(A.addonOrders / A.orders) : '—'}</td><td>${fmt.usd0(A.nBump + A.nPost2 + A.nPost)}</td></tr></tfoot></table></div>`
+      <tfoot><tr><td>Stride buyers who took at least one add-on</td><td>${fmt.num(A.orders)}</td><td>${fmt.num(A.addonOrders)}</td><td>${A.orders ? fmt.pct(A.addonOrders / A.orders) : '—'}</td><td>${fmt.usd0(A.nBump + A.nTdrB + A.nPost2 + A.nPost)}</td></tr></tfoot></table></div>`
     + (allCh ? '' : '<p class="note" style="margin-top:10px">Views of /post2 and /post count across all channels together; pick “All channels” to see them.</p>'));
+  // The order bump test (Yossi 2026-10-25): half the homepage's visitors are offered the Experimental
+  // Collection in the bump, half Tendril; whoever takes Tendril meets the Collection after checkout
+  // (/post2/), everyone else Tendril (/tendril/). Per side: the Stride orders its checkouts made, how
+  // many took the bump, and the money each brought: Stride, the bump, and what the same buyer bought
+  // within 24 hours after. Every channel, like the offer views: a side is not tied to an ad.
+  const AB = { collection: { n: 0, took: 0, stride: 0, bump: 0, after: 0, afterN: 0 },
+               tendril: { n: 0, took: 0, stride: 0, bump: 0, after: 0, afterN: 0 } };
+  let abOrders = 0;
+  for (const i of c.idx) for (const j of J[i]) {
+    if (j.k !== 'stride') continue;
+    abOrders++;
+    const x = AB[j.ab];
+    if (!x) continue;
+    const tdr = j.ab === 'tendril';
+    x.n++;
+    x.took += (tdr ? j.bt : j.b) ? 1 : 0;
+    x.stride += j.ns;
+    x.bump += tdr ? (j.nt || 0) : j.nb;
+    x.after += j.n2 + j.np + (j.npt || 0);
+    x.afterN += (j.p2 || j.p || j.pt) ? 1 : 0;
+  }
+  const abRow = (side, name, what) => {
+    const x = AB[side], tot = x.stride + x.bump + x.after;
+    return `<tr data-side="${side}"><td>${esc(name)}<small class="subj">${esc(what)}</small></td><td>${fmt.num(x.n)}</td>`
+      + `<td>${fmt.num(x.took)}${x.n ? `<small class="subj">${fmt.pct(x.took / x.n)} of sales</small>` : ''}</td><td>${fmt.usd0(x.bump)}</td>`
+      + `<td>${fmt.usd0(x.after)}<small class="subj">${fmt.num(x.afterN)} buyer${x.afterN === 1 ? '' : 's'}</small></td>`
+      + `<td><b>${x.n ? fmt.usd0(tot / x.n) : '—'}</b></td><td>${fmt.usd0(tot)}</td></tr>`;
+  };
+  const abN = AB.collection.n + AB.tendril.n;
+  const abCard = card('Order bump test', 'since Oct 25: half the homepage visitors get the Experimental Collection in the bump, half Tendril; every channel, net of tax, before refunds',
+    `<div class="tbl-wrap"><table class="tbl" id="ab-table"><thead><tr><th>Side</th><th>Stride sales</th><th>Took the bump</th><th>Bump revenue</th><th>Bought after checkout</th><th>Revenue per sale</th><th>Total</th></tr></thead><tbody>`
+    + abRow('collection', 'Collection side', 'the Experimental Collection in the bump, Tendril offered after checkout')
+    + abRow('tendril', 'Tendril side', 'Tendril in the bump, the Collection offered after checkout to whoever took it')
+    + `</tbody></table></div>`
+    + `<p class="note" style="margin-top:10px">${fmt.num(abN)} of the ${fmt.num(abOrders)} Stride orders in this range came through a homepage checkout on the test. `
+    + 'Revenue per sale is Stride, the bump and what the same buyer bought within 24 hours after (the Collection on /post2, Tendril on /tendril, a session), over the side’s Stride sales. '
+    + 'Each side gets half the visitors, so their sales compare directly'
+    + (AB.collection.n < 30 || AB.tendril.n < 30 ? '; under 30 sales a side is too early to call a winner.' : '.') + '</p>');
   // The two questions a buyer answers on /welcome (a click on an answer is the send), by the day
   // they answered. Answers are not tied to a channel, so every channel is counted whatever the
   // filter, like the offer views above.
@@ -1403,6 +1451,7 @@ function renderCheckout(c) {
     </tbody></table></div>
     <p class="note" style="margin-top:10px">Activations to date should never be more than the units PIB reports to date. Each quarter: <code>python firebase_cloud/scripts/pib_keys.py report --quarter 2026Q4 --reported-to-date N</code></p>`);
   el.innerHTML = `<div class="tiles">${tiles}</div>
+    ${abCard}
     ${offersCard}
     ${surveyCard}
     ${pibCard}
