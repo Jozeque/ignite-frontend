@@ -726,6 +726,44 @@ fbq('track', 'PageView');
   .lang-menu a:hover{background:var(--hdr-raise);color:var(--hdr-ink)}
   .lang-menu a[aria-selected="true"]{color:var(--hdr-copper-lt)}
   .lang-menu a.gone{display:none}
+  /* ── Products ──────────────────────────────────────────────────────────
+     Stride and Tendril side by side under one word (Yossi 2026-10-25), Stride first and the
+     larger of the two, Tendril marked for Stride owners. The bar's panel opens under a mouse,
+     on a press and on keyboard focus, and shuts like the language menu; the sheet carries the
+     same two at its top. One plain panel: no chips, no dots, no boxes inside it. */
+  .pm{position:relative}
+  /* German, Spanish, French and Italian labels run longer: with Products in the bar they
+     wrapped at 1440 in three of them, so their gaps tighten from 20px to 14px. */
+  :is(:lang(de),:lang(es),:lang(fr),:lang(it)) .nav-desktop{column-gap:14px}
+  .pm-btn{display:inline-flex;align-items:center;gap:.5em;background:none;border:0;padding:0;cursor:pointer}
+  .pm-btn svg{width:9px;height:6px;opacity:.75;transition:transform .15s}
+  .pm.on .pm-btn svg{transform:rotate(180deg)}
+  .pm-menu{position:absolute;top:calc(100% + 16px);left:-18px;z-index:60;display:none;
+    width:480px;padding:10px;background:var(--hdr-panel);border:1px solid var(--hdr-line);border-radius:14px;
+    box-shadow:0 24px 50px -24px rgba(0,0,0,.9);grid-template-columns:1.12fr 1fr}
+  .pm-menu::before{content:"";position:absolute;left:0;right:0;top:-18px;height:18px}
+  .pm.on .pm-menu,.pm:focus-within .pm-menu{display:grid}
+  @media (hover:hover){.pm:hover .pm-menu{display:grid}}
+  .pm-item{display:block;padding:14px 16px 15px;border-radius:10px;text-decoration:none;transition:background .15s}
+  .pm-item:hover{background:var(--hdr-raise)}
+  .pm-item + .pm-item{position:relative}
+  .pm-item + .pm-item::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:1px;background:var(--hdr-line)}
+  .pm-name{display:block;line-height:1}
+  .pm-main .pm-name{font-size:24px;font-weight:900;letter-spacing:-.05em}
+  .pm-tdr{padding-top:6px;font-size:14px;font-weight:800;letter-spacing:.42em;color:var(--hdr-copper-lt)}
+  .pm-line{margin:11px 0 0;font-size:13px;line-height:1.45;font-weight:600;color:var(--hdr-ink2);white-space:normal}
+  .pm-sub{margin:4px 0 0;font-size:12px;line-height:1.45;color:var(--hdr-ink3)}
+  .pm-tag{margin:9px 0 0;font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--hdr-copper-lt)}
+  #m-menu .m-products{margin:0 0 .4rem;padding:0 0 1.1rem;border-bottom:1px solid var(--hdr-line)}
+  #m-menu .m-products-h{margin:0 0 .75rem;font-size:10px;font-weight:800;letter-spacing:.24em;text-transform:uppercase;color:var(--hdr-ink3)}
+  #m-menu .m-products-row{display:grid;grid-template-columns:1.12fr 1fr}
+  #m-menu .m-prod{display:block;padding:.2rem 1rem .2rem 0;text-decoration:none}
+  #m-menu .m-prod + .m-prod{padding-left:1rem;border-left:1px solid var(--hdr-line)}
+  #m-menu .m-prod-name{display:block;line-height:1}
+  #m-menu .m-prod-main .m-prod-name{font-size:26px;font-weight:900;letter-spacing:-.05em}
+  #m-menu .m-prod-tdr{padding-top:6px;font-size:14px;font-weight:800;letter-spacing:.4em;color:var(--hdr-copper-lt)}
+  #m-menu .m-prod-line{display:block;margin-top:.6rem;font-size:12.5px;line-height:1.4;font-weight:600;color:var(--hdr-ink2)}
+  #m-menu .m-prod-tag{display:block;margin-top:.6rem;font-size:9.5px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--hdr-copper-lt)}
   #m-menu-btn{display:none}
   @media (max-width:899.98px){
     /* Tailwind's .flex is loaded after the page's own styles and both selectors are
@@ -786,16 +824,23 @@ fbq('track', 'PageView');
         <path d="M4 7h16M4 12h16M4 17h16"/></svg>
     </button>
     <div class="flex items-center gap-5 nav-desktop">
+      <div class="pm">
+        <button type="button" class="silk pm-btn hover:text-[var(--hdr-copper-lt)] transition-colors" aria-haspopup="true" aria-expanded="false" onclick="strideProducts(this)">Productos<svg viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></button>
+        <div class="pm-menu">
+          <a class="pm-item pm-main" href="/"><span class="pm-name brand">STRIDE</span><p class="pm-line">Sound Design Engine</p><p class="pm-sub">En cualquier DAW</p></a>
+          <a class="pm-item" href="/tendril/"><span class="pm-name pm-tdr">TENDRIL</span><p class="pm-line">Tres motores. Un patio de juegos de sound design en constante evolución.</p><p class="pm-tag">Solo para quienes tienen Stride</p></a>
+        </div>
+      </div>
       <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors hidden xl:block" href="/why-stride">¿Por qué Stride?</a>
       <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors" href="/#how">Cómo funciona</a>
       <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors" href="/setup.html">Instalación</a>
       <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors" href="/blog.html">Blog</a>
       <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors hidden xl:block" href="/tv">Vídeos</a>
       <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors" href="/samples.html">Experimental Collection</a>
-      <a href="https://www.instagram.com/stride_engine/" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[var(--hdr-copper-lt)] transition-colors" title="Síguenos en Instagram">
+      <a href="https://www.instagram.com/stride_engine/" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[var(--hdr-copper-lt)] transition-colors hidden xl:block" title="Síguenos en Instagram">
         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
       </a>
-      <a href="https://www.youtube.com/@strideengine" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[var(--hdr-copper-lt)] transition-colors" title="Suscríbete en YouTube">
+      <a href="https://www.youtube.com/@strideengine" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[var(--hdr-copper-lt)] transition-colors hidden xl:block" title="Suscríbete en YouTube">
         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
       </a>
       <a href="https://x.com/stridevst" target="_blank" rel="noopener noreferrer" class="ink3 hover:text-[var(--hdr-copper-lt)] transition-colors hidden xl:block" title="Síguenos en X">
@@ -819,6 +864,13 @@ fbq('track', 'PageView');
     </button>
   </div>
   <nav class="m-menu-links" aria-label="Móvil">
+    <div class="m-products">
+      <p class="m-products-h">Productos</p>
+      <div class="m-products-row">
+        <a class="m-prod m-prod-main" href="/"><span class="m-prod-name brand">STRIDE</span><span class="m-prod-line">Sound Design Engine</span></a>
+        <a class="m-prod" href="/tendril/"><span class="m-prod-name m-prod-tdr">TENDRIL</span><span class="m-prod-tag">Solo para quienes tienen Stride</span></a>
+      </div>
+    </div>
     <a href="/why-stride">¿Por qué Stride?</a>
     <a href="/#how">Cómo funciona</a>
     <a href="/setup.html">Instalación</a>
@@ -940,6 +992,22 @@ fbq('track', 'PageView');
     if (code !== 'en') p = '/' + code + (p === '/' ? '/' : p);
     return p + location.search + location.hash;
   }
+
+  /* Products: a press opens and shuts it, as the language menu does; a click anywhere else or
+     Escape shuts it. Under a mouse it also opens on hover (the stylesheet). */
+  function strideProducts(btn) {
+    var open = btn.parentNode.classList.toggle('on');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  (function strideProductsInit() {
+    var box = document.querySelector('.pm');
+    if (!box) return;
+    var btn = box.querySelector('.pm-btn');
+    function close() { box.classList.remove('on'); btn.setAttribute('aria-expanded', 'false'); }
+    document.addEventListener('click', function (e) { if (!box.contains(e.target)) close(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+  })();
 
   function strideLang(btn) {
     var menu = btn.parentNode.querySelector('.lang-menu');

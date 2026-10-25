@@ -741,7 +741,9 @@ window.StrideTrack = window.StrideTrack || (function () {
         var params = new URLSearchParams(window.location.search);
         var fbclid = params.get('fbclid');
         if (!fbclid) return;
-        var fbc = 'fb.1.' + Date.now() + '.' + fbclid;
+        // A link from one of our mails carries the click's own time (fbc_ts): Meta wants the cookie stamped when the click id was first seen, not when the mail was opened.
+        var ts = Number(params.get('fbc_ts'));
+        var fbc = 'fb.1.' + (ts > 1.6e12 && ts <= Date.now() + 60000 && Date.now() - ts < 90 * 864e5 ? ts : Date.now()) + '.' + fbclid;
         document.cookie = '_fbc=' + encodeURIComponent(fbc) +
             '; max-age=' + (90 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
         try { sessionStorage.setItem('stride_fbc', fbc); } catch (e) {}
@@ -1242,7 +1244,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     var fbc = cookie('_fbc') || ls('stride_fbc');
     // Nobody has answered, so nothing was stored: the click id is built from this page's own
     // address in memory (Iddo's Q-066), never written to the device.
-    if (!fbc && q.get('fbclid')) fbc = 'fb.1.' + LANDED_AT + '.' + q.get('fbclid');
+    var ts = Number(q.get('fbc_ts'));         // the click's own time, from one of our mails
+    if (!fbc && q.get('fbclid')) fbc = 'fb.1.' + (ts > 1.6e12 && ts <= Date.now() + 60000 && Date.now() - ts < 90 * 864e5 ? ts : LANDED_AT) + '.' + q.get('fbclid');
     if (fbc) out.fbc = fbc;
     var fbp = cookie('_fbp'); if (fbp) out.fbp = fbp;
     return out;
