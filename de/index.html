@@ -1359,7 +1359,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* ── Tendril in the bump (the order bump test, 2026-10-25) ──────────────────
      The Collection row's own shapes. Both states are in the markup, .bump-off before the add and
      .bump-on after it, so a translated page never shows English once the script runs. The picture
-     is the showcase as a 16:9 still with /tendril's copper play mark: a press plays the video. */
+     is the Tendril film's 16:9 still with /tendril's copper play mark: a press plays the film. */
   .addon-tdr .bump-on{display:none}
   .addon-tdr.on .bump-on{display:inline}
   .addon-tdr.on .bump-off{display:none}
@@ -1373,6 +1373,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .addon-vid:focus-visible{outline:2px solid var(--copper-lt);outline-offset:2px}
   .addon-compact .addon-vid{width:54px;height:30px;border-radius:7px}
   .addon-tdr .addon-tip-b + .addon-tip-b{margin-top:-4px}
+  /* Where a line has to wrap, it breaks into even halves instead of leaving one word alone. */
+  .addon-tdr .addon-s{text-wrap:balance}
 
   @media (max-width:430px){
     .addon{gap:8px;padding:7px 8px}
@@ -1755,6 +1757,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
        them), so "a hidden row" no longer means "nothing to show". */
     section[data-ms="hero"] .hero-buy-addon:not(:has(> .addon:not([hidden]))){border-color:transparent}
     section[data-ms="hero"] .hero-buy-addon .addon{margin:0;width:100%;max-width:560px;padding:12px 14px}
+    /* Tendril's second line ("A perfect sound design playground + 22 StrideChains") fits whole here. */
+    section[data-ms="hero"] .hero-buy-addon .addon-tdr{max-width:620px}
     /* 350px less the 30px gutter leaves the wallet 320px, more than the 306px it once overflowed. */
     section[data-ms="hero"] .hero-cta{grid-area:cta;padding-left:30px}
     section[data-ms="hero"] .hero-cta > *{max-width:none}
@@ -2284,14 +2288,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <!-- TENDRIL in the bump (Yossi 2026-10-25): the other half of the order bump test, shown
              instead of the Collection's row above to the visitors strideBumpArm puts on Tendril.
              Both of its states are written out here (.bump-off / .bump-on), so the translated pages keep
-             their own words and the script only prints the price. Its picture is the showcase: a
-             press plays it with sound in the page's own player (.vpop). The panel says what Tendril
-             is in the homepage section's own lines. -->
+             their own words and the script only prints the price. Its picture is the Tendril film's
+             still: a press plays the film, the wide cut, with sound in the page's own player (.vpop)
+             (Yossi 2026-10-25: "the product's hero video, its landscape version"). The panel says what
+             Tendril is in the homepage section's own lines. -->
         <div id="addon-tdr" class="addon addon-tdr" data-bump="tendril" hidden>
-          <button type="button" class="addon-vid" data-tdr-show aria-label="Tendril Showcase mit Ton abspielen"><img src="/media/tendril/showcase/poster-thumb.webp" alt="" width="256" height="144" loading="lazy" decoding="async"><span class="addon-vid-i"><svg width="9" height="9" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="#1c1206"/></svg></span></button>
+          <button type="button" class="addon-vid" data-tdr-film aria-label="Tendril × Stride ansehen"><img src="/media/tendril/film/poster-thumb.webp" alt="" width="256" height="144" loading="lazy" decoding="async"><span class="addon-vid-i"><svg width="9" height="9" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="#1c1206"/></svg></span></button>
           <div class="addon-body">
-            <div class="addon-t"><span class="bump-off"><span class="addon-lead">Hinzufügen </span>Tendril </span><span class="bump-on">✓ Tendril hinzugefügt </span><span class="addon-p">+$49</span></div>
-            <div class="addon-s">3 Synth-Engines · 22 StrideChains<span class="addon-full"> · Preis für Stride Besitzer</span></div>
+            <div class="addon-t"><span class="bump-off">Tendril </span><span class="bump-on">✓ Tendril hinzugefügt </span><span class="addon-p">+$49</span></div>
+            <div class="addon-s">Gemacht, um mit Stride erkundet zu werden</div>
+            <div class="addon-s">Ein perfekter Sound-Design-Spielplatz + 22 StrideChains</div>
           </div>
           <button type="button" class="addon-btn" aria-pressed="false" aria-label="Tendril zu deiner Bestellung hinzufügen"
                   onclick="strideToggleAddon(event)"><span class="bump-off">+ Hinzufügen<span class="addon-full"> zur Bestellung</span></span><span class="bump-on">Entfernen</span></button>
@@ -2299,9 +2305,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <p class="addon-tip-h">Drei Engines. Ein lebendiger Sound-Design-Spielplatz.</p>
             <p class="addon-tip-b">Forme die Obertöne, dreh die Effekte auf und lass drei unabhängige Patterns miteinander spielen. Erkunde mit Stride neue Sounds, Mudpies und Sequenzen aus demselben Patch.</p>
             <p class="addon-tip-b">Dazu kommen 22 StrideChains: Sound Design Systeme, bereit zum Laden und Erkunden.</p>
-            <button type="button" class="addon-play" data-tdr-show aria-label="Tendril Showcase mit Ton abspielen">
+            <button type="button" class="addon-play" data-tdr-film aria-label="Tendril × Stride ansehen">
               <span class="addon-play-i" aria-hidden="true">&#9654;</span>
-              <span>Showcase ansehen</span>
+              <span>Tendril × Stride ansehen</span>
             </button>
           </div>
         </div>
@@ -3445,10 +3451,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </div>
           <!-- The Tendril side of the order bump test, as in the hero (#addon-tdr). -->
           <div class="addon addon-compact addon-tdr" data-bump="tendril" style="margin-bottom:13px" hidden>
-            <button type="button" class="addon-vid" data-tdr-show aria-label="Tendril Showcase mit Ton abspielen"><img src="/media/tendril/showcase/poster-thumb.webp" alt="" width="256" height="144" loading="lazy" decoding="async"><span class="addon-vid-i"><svg width="9" height="9" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="#1c1206"/></svg></span></button>
+            <button type="button" class="addon-vid" data-tdr-film aria-label="Tendril × Stride ansehen"><img src="/media/tendril/film/poster-thumb.webp" alt="" width="256" height="144" loading="lazy" decoding="async"><span class="addon-vid-i"><svg width="9" height="9" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="#1c1206"/></svg></span></button>
             <div class="addon-body">
-              <div class="addon-t"><span class="bump-off"><span class="addon-lead">Hinzufügen </span>Tendril </span><span class="bump-on">✓ Tendril hinzugefügt </span><span class="addon-p">+$49</span></div>
-              <div class="addon-s">3 Synth-Engines · 22 StrideChains<span class="addon-full"> · Preis für Stride Besitzer</span></div>
+              <div class="addon-t"><span class="bump-off">Tendril </span><span class="bump-on">✓ Tendril hinzugefügt </span><span class="addon-p">+$49</span></div>
+              <div class="addon-s">Gemacht, um mit Stride erkundet zu werden</div>
+              <div class="addon-s">Ein perfekter Sound-Design-Spielplatz + 22 StrideChains</div>
             </div>
             <button type="button" class="addon-btn" aria-pressed="false" aria-label="Tendril zu deiner Bestellung hinzufügen"
                     onclick="strideToggleAddon(event)"><span class="bump-off">+ Hinzufügen<span class="addon-full"> zur Bestellung</span></span><span class="bump-on">Entfernen</span></button>
@@ -3456,9 +3463,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <p class="addon-tip-h">Drei Engines. Ein lebendiger Sound-Design-Spielplatz.</p>
               <p class="addon-tip-b">Forme die Obertöne, dreh die Effekte auf und lass drei unabhängige Patterns miteinander spielen. Erkunde mit Stride neue Sounds, Mudpies und Sequenzen aus demselben Patch.</p>
               <p class="addon-tip-b">Dazu kommen 22 StrideChains: Sound Design Systeme, bereit zum Laden und Erkunden.</p>
-              <button type="button" class="addon-play" data-tdr-show aria-label="Tendril Showcase mit Ton abspielen">
+              <button type="button" class="addon-play" data-tdr-film aria-label="Tendril × Stride ansehen">
                 <span class="addon-play-i" aria-hidden="true">&#9654;</span>
-                <span>Showcase ansehen</span>
+                <span>Tendril × Stride ansehen</span>
               </button>
             </div>
           </div>
@@ -4028,14 +4035,14 @@ document.addEventListener('DOMContentLoaded', function () {
 /* ── Tendril in the bump (the order bump test, 2026-10-25) ──────────────────────
    Which side this visitor is on goes to Clarity as a tag, so recordings and funnels can be cut by
    it. On a phone a tap on Tendril's row opens its panel, as the Collection's does; Add and the
-   showcase are their own actions. */
+   film are their own actions. */
 document.addEventListener('DOMContentLoaded', function () {
   try { if (window.strideClarity) window.strideClarity('', { bump_arm: strideBumpArm() }); } catch (e) {}
   if (!window.matchMedia || !window.matchMedia('(hover: none)').matches) return;
   var rows = document.querySelectorAll('.addon-tdr');
   rows.forEach(function (row) {
     row.addEventListener('click', function (ev) {
-      if (ev.target.closest('.addon-btn') || ev.target.closest('[data-tdr-show]')) return;
+      if (ev.target.closest('.addon-btn') || ev.target.closest('[data-tdr-film]')) return;
       ev.preventDefault();
       row.classList.toggle('tip-open');
     });
@@ -4045,12 +4052,15 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 });
 
-/* The showcase from the bump box: its picture and the panel's Watch the showcase play the video
-   with sound in the page's own player (.vpop), /tendril/'s showcase popup line for line. The
-   hero's loop pauses under it and runs again after. Nothing loads until a press; a phone gets
-   the 720p copy. */
+/* The Tendril film from the bump box (Yossi 2026-10-25: "the product's hero video", "on mobile the
+   portrait version and on desktop the landscape version"): its picture and the panel's Watch
+   Tendril x Stride play /tendril/'s film with sound in the page's own player (.vpop), the upright
+   9:16 cut in a panel of its shape on a phone and the wide 1080p one everywhere else, as /tendril/'s
+   own player does. The hero's loop pauses under it and runs again after. Nothing loads until a
+   press. */
 (function () {
-  var pop = null, v = null, openedAt = 0, loopWasOn = false;
+  var pop = null, v = null, popTall = null, openedAt = 0, loopWasOn = false;
+  function tall() { return !!(window.matchMedia && window.matchMedia('(max-width:640px)').matches); }
   function close() {
     if (!pop || !pop.classList.contains('on')) return;
     v.pause();
@@ -4061,21 +4071,23 @@ document.addEventListener('DOMContentLoaded', function () {
     if (loop && loopWasOn) { var p = loop.play(); if (p && p.catch) p.catch(function () {}); }
   }
   function open() {
+    // Turned on its side since it last opened: the other cut, in a panel of its shape.
+    if (pop && popTall !== tall() && !pop.classList.contains('on')) { pop.parentNode.removeChild(pop); pop = null; }
     if (!pop) {
+      popTall = tall();
       pop = document.createElement('div');
-      pop.className = 'vpop';
+      pop.className = popTall ? 'vpop v' : 'vpop';
       pop.setAttribute('role', 'dialog');
       pop.setAttribute('aria-modal', 'true');
-      pop.setAttribute('aria-label', 'Tendril showcase');
+      pop.setAttribute('aria-label', 'Tendril and Stride');
       var card = document.createElement('div');
       card.className = 'vpop-card';
       v = document.createElement('video');
       v.setAttribute('controls', '');
       v.setAttribute('playsinline', '');
       v.setAttribute('preload', 'none');
-      v.setAttribute('poster', '/media/tendril/showcase/poster.webp');
-      v.src = window.matchMedia && window.matchMedia('(max-width:640px)').matches
-        ? '/media/tendril/showcase/tendril-examples-720.mp4' : '/media/tendril/showcase/tendril-examples.mp4';
+      v.setAttribute('poster', popTall ? '/media/tendril/film/poster-9x16.webp' : '/media/tendril/film/poster-1280.webp');
+      v.src = popTall ? '/media/tendril/film/tendril-promo-9x16.mp4' : '/media/tendril/film/tendril-promo-1080.mp4';
       var x = document.createElement('button');
       x.type = 'button';
       x.className = 'vpop-x';
@@ -4099,7 +4111,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (loop) loop.pause();
     pop.classList.add('on');
     openedAt = Date.now();
-    try { if (window.strideClarity) window.strideClarity('bump_tendril_showcase'); } catch (e) {}
+    try { if (window.strideClarity) window.strideClarity('bump_tendril_film'); } catch (e) {}
     v.currentTime = 0;
     v.muted = false;
     var p = v.play();
@@ -4110,7 +4122,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
   document.addEventListener('click', function (ev) {
-    if (ev.target.closest && ev.target.closest('[data-tdr-show]')) { ev.preventDefault(); open(); }
+    if (ev.target.closest && ev.target.closest('[data-tdr-film]')) { ev.preventDefault(); open(); }
   });
   document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') close(); });
 })();
@@ -4248,7 +4260,7 @@ function openBuy() { toggleBuyModal(); }
 
     // ── The order bump test (Yossi 2026-10-25) ────────────────────────────────────
     // Half the visitors are offered the Experimental Collection in the bump, as before, and half
-    // Tendril at the Stride owner price, with its showcase in the box. A visitor keeps their side
+    // Tendril at the Stride owner price, with its film in the box. A visitor keeps their side
     // (localStorage), ?bump=collection or ?bump=tendril picks one by hand, and every checkout
     // carries it as custom data (bump_arm), so each side's sales count from Paddle and the CRM.
     // Whoever takes Tendril meets the Collection after checkout instead (/post2/, see
