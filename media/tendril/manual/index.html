@@ -17,7 +17,7 @@ html.embed .rk3{border-radius:0!important;box-shadow:none!important}
 </style></head><body>
 <title>Tendril Manual</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="The Tendril manual: additive percussion drawn with knobs and moved by MOTION lanes, three oscillators, a mixer and a sequencer.">
+<meta name="description" content="The Tendril manual: additive synthesis drawn with knobs and moved by MOTION lanes, three oscillators, a mixer and a sequencer.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
@@ -363,7 +363,7 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
   <a class="tb" href="#face">The face</a>
   <a class="tb" href="#harmonics">Harmonics</a>
   <a class="tb" href="#oscfx">OSC FX</a>
-  <a class="tb" href="#hit">The hit</a>
+  <a class="tb" href="#hit">The voice</a>
   <a class="tb" href="#drive">Drive and filter</a>
   <a class="tb" href="#shards">Shards and glitch</a>
   <a class="tb" href="#arp">Arp, out, keys</a>
@@ -383,7 +383,7 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
   <div class="eyebrow"><span class="cap">The manual</span><span class="cap" style="color:var(--ink-4)">Version 3.0 &middot; VST3 &middot; AU &middot; Standalone</span></div>
   <div class="word" aria-label="Tendril">TENDRIL</div>
   <h1 class="claim">Draw the spectrum with knobs. Then let it move on its own.</h1>
-  <p class="lead">Tendril is a percussion engine built on additive synthesis. Every hit starts as 64 sine partials, and ten knobs decide how loud each one is and where it sits. Give any knob a MOTION lane and the drawing keeps redrawing itself while the beat plays. Three of these oscillators, a mixer and a sequencer share one plugin.</p>
+  <p class="lead">Tendril is a synth built on additive synthesis. Every note starts as 64 sine partials, and ten knobs decide how loud each one is and where it sits. Give any knob a MOTION lane and the drawing keeps redrawing itself while the beat plays. Three of these oscillators, a mixer and a sequencer share one plugin.</p>
 </header>
 
 <div id="specimen">
@@ -393,21 +393,21 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
 
 <section id="overview">
   <div class="plate-title"><span class="cap">Overview</span></div>
-  <h2>Additive percussion, drawn with ten knobs</h2>
+  <h2>Additive synthesis, drawn with ten knobs</h2>
   <div class="prose">
     <p>Any sound can be built from sine waves. Each one is a <strong>partial</strong>: a pure tone at some multiple of the note, at some level. Most synths start from a ready-made wave and filter it. Additive synthesis builds the wave from the partials up, so you shape the tone where it is born.</p>
-    <p>In Live's Operator you can draw an oscillator's partials by hand: pick the User waveform and click each partial's level in with the mouse. The drawing is yours, and it stays exactly as you left it. Tendril takes that idea to percussion and replaces the pencil with ten knobs. <span class="lab">PARTIALS</span> sets how many there are, <span class="lab">TILT</span> leans the whole drawing, <span class="lab">PARITY</span> keeps the odd or the even ones, <span class="lab">STRETCH</span> pulls them off the harmonic series toward a drum skin or a metal bar, and <span class="lab">FOCUS</span> raises one region or carves it out.</p>
-    <p>Because the drawing is made of knobs, every part of it can move. Put a MOTION lane on TILT and the hit darkens and brightens across the bar. Put another on STRETCH and the same hit drifts from wood to metal. Add a third on FORMANT and no two hits in the phrase share a drawing, and you never touched the mouse. Then the drawing runs on through OSC FX, BODY, DRIVE, FILTER, SHARDS and GLITCH, and each of those has knobs that can move too.</p>
+    <p>In Live's Operator you can draw an oscillator's partials by hand: pick the User waveform and click each partial's level in with the mouse. The drawing is yours, and it stays exactly as you left it. Tendril takes that idea and replaces the pencil with ten knobs. <span class="lab">PARTIALS</span> sets how many there are, <span class="lab">TILT</span> leans the whole drawing, <span class="lab">PARITY</span> keeps the odd or the even ones, <span class="lab">STRETCH</span> pulls them off the harmonic series toward a drum skin or a metal bar, and <span class="lab">FOCUS</span> raises one region or carves it out.</p>
+    <p>Because the drawing is made of knobs, every part of it can move. Put a MOTION lane on TILT and the sound darkens and brightens across the bar. Put another on STRETCH and the same sound drifts from wood to metal. Add a third on FORMANT and no two notes in the phrase share a drawing, and you never touched the mouse. Then the drawing runs on through OSC FX, BODY, DRIVE, FILTER, SHARDS and GLITCH, and each of those has knobs that can move too.</p>
   </div>
   <div class="duo">
-    <div><h4>Drawn once</h4><canvas id="duo-still" role="img" aria-label="A still partial drawing"></canvas><p>A pencil drawing holds still. Every hit plays the same partials until you redraw them by hand.</p></div>
-    <div><h4 style="color:var(--sand)">Drawn by knobs, moving</h4><canvas id="duo-move" role="img" aria-label="A partial drawing moved by three lanes"></canvas><p>Three lanes on TILT, PARITY and FOCUS redraw it all the time. Each hit takes the drawing as it stands at that moment.</p></div>
+    <div><h4>Drawn once</h4><canvas id="duo-still" role="img" aria-label="A still partial drawing"></canvas><p>A pencil drawing holds still. Every note plays the same partials until you redraw them by hand.</p></div>
+    <div><h4 style="color:var(--sand)">Drawn by knobs, moving</h4><canvas id="duo-move" role="img" aria-label="A partial drawing moved by three lanes"></canvas><p>Three lanes on TILT, PARITY and FOCUS redraw it all the time. Each note takes the drawing as it stands at that moment.</p></div>
   </div>
   <div class="prose">
     <h3>Three oscillators, one instrument</h3>
     <p><strong>OSC 1, OSC 2 and OSC 3</strong> are three complete voices, each on its own tab: its own drawing, OSC FX, envelopes, BODY, DRIVE, FILTER, ARP, GLITCH, SHARDS and 8 MOTION lanes, twelve voices deep, with its own sound presets and its own undo history.</p>
     <p>The <strong>MIXER</strong> gives each OSC a fader, a pan, MUTE, SOLO and a KEYS zone (the notes it answers). The MASTER and the output CEILING sit at the end. The <strong>SEQUENCER</strong> plays a row of steps into each OSC, eight patterns deep, and hands you the beat as a MIDI clip.</p>
-    <p>Out of the box OSC 1 answers notes up to B1 (kicks on C1), OSC 2 answers C2 to B2 (snares and claps) and OSC 3 answers C3 and up (hats and bells), so one MIDI track plays the whole kit.</p>
+    <p>Out of the box OSC 1 answers notes up to B1, OSC 2 answers C2 to B2 and OSC 3 answers C3 and up, so one MIDI track plays all three.</p>
   </div>
   <figure class="fig">
     <div class="chain">
@@ -429,7 +429,7 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
         <rect class="bx" x="438" y="150" width="128" height="52" rx="8"/><text class="t" x="502" y="172" text-anchor="middle">AMP</text><text class="s" x="502" y="188" text-anchor="middle">x VELOCITY</text>
         <rect class="bx" x="590" y="150" width="128" height="52" rx="8"/><text class="t" x="654" y="172" text-anchor="middle">BODY</text><text class="s" x="654" y="188" text-anchor="middle">THE SQUASH</text>
         <rect class="bx" x="742" y="150" width="128" height="52" rx="8"/><text class="t" x="806" y="172" text-anchor="middle">DRIVE, FILTER</text><text class="s" x="806" y="188" text-anchor="middle">PRE OR POST</text>
-        <rect class="bx" x="894" y="150" width="96" height="52" rx="8"/><text class="t" x="942" y="172" text-anchor="middle">SPREAD</text><text class="s" x="942" y="188" text-anchor="middle">PAN PER HIT</text>
+        <rect class="bx" x="894" y="150" width="96" height="52" rx="8"/><text class="t" x="942" y="172" text-anchor="middle">SPREAD</text><text class="s" x="942" y="188" text-anchor="middle">PAN PER NOTE</text>
         <path class="ar" d="M238 176 H260" marker-end="url(#ah)"/><path class="ar" d="M390 176 H401" marker-end="url(#ah)"/><path class="ar" d="M425 176 H436" marker-end="url(#ah)"/><path class="ar" d="M566 176 H588" marker-end="url(#ah)"/><path class="ar" d="M718 176 H740" marker-end="url(#ah)"/><path class="ar" d="M870 176 H892" marker-end="url(#ah)"/>
         <path class="ar" d="M942 202 V242 H174 V278" marker-end="url(#ah)"/>
         <text class="rl" x="0" y="310">EACH OSC</text>
@@ -486,20 +486,20 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
     </div>
     <ol class="legend">
       <li data-n="1"><b>1</b><span><span class="lab">TENDRIL</span>The name and the license badge: LICENSED with your name, or the time left on a Discovery Pass. UPDATE downloads the newest Tendril for this computer.</span></li>
-      <li data-n="2"><b>2</b><span><span class="lab">INIT, PRESET, SAVE</span>INIT (two clicks) resets this OSC to a sine tom. ‹ › step through the presets, the name opens the browser, SAVE keeps what you hear. On an OSC tab these are SOUNDS; on the MIXER and the SEQUENCER they are KITS.</span></li>
+      <li data-n="2"><b>2</b><span><span class="lab">INIT, PRESET, SAVE</span>INIT (two clicks) resets this OSC to a single sine. ‹ › step through the presets, the name opens the browser, SAVE keeps what you hear. On an OSC tab these are SOUNDS; on the MIXER and the SEQUENCER they are KITS.</span></li>
       <li data-n="3"><b>3</b><span><span class="lab">TABS</span>OSC 1, OSC 2 and OSC 3, each lit while it sounds and showing its sound's name, then MIXER and SEQUENCER.</span></li>
       <li data-n="4"><b>4</b><span><span class="lab">HARMONICS</span>The 64 partials in the chamber, and the ten knobs around it that draw them. <a href="#harmonics">Chapter</a></span></li>
-      <li data-n="5"><b>5</b><span><span class="lab">PITCH</span>The octave, and the sweep each hit starts with. <a href="#hit">Chapter</a></span></li>
+      <li data-n="5"><b>5</b><span><span class="lab">PITCH</span>The octave, and the sweep each note starts with. <a href="#hit">Chapter</a></span></li>
       <li data-n="6"><b>6</b><span><span class="lab">AMP</span>POLY, MONO or LEGATO; ONE SHOT or GATE; the envelope and VELOCITY.</span></li>
       <li data-n="7"><b>7</b><span><span class="lab">BODY / OSC FX</span>Two plates on one: the squash, and the two slots that rework the drawing. Click a tab to switch. <a href="#oscfx">OSC FX</a></span></li>
-      <li data-n="8"><b>8</b><span><span class="lab">NOISE</span>A snap of filtered noise on the hit, up to four clap bursts.</span></li>
+      <li data-n="8"><b>8</b><span><span class="lab">NOISE</span>A snap of filtered noise on the note, up to four bursts.</span></li>
       <li data-n="9"><b>9</b><span><span class="lab">DRIVE</span>Nine shapers, before or after the filter. <a href="#drive">Chapter</a></span></li>
       <li data-n="10"><b>10</b><span><span class="lab">FILTER</span>Five filter models with a sweep that follows the pitch envelope. Off until you touch a knob.</span></li>
       <li data-n="11"><b>11</b><span><span class="lab">ARP</span>Arpeggiates the notes you hold, on the song's grid. <a href="#arp">Chapter</a></span></li>
       <li data-n="12"><b>12</b><span><span class="lab">GLITCH</span>REPEAT, CRUSH and SPECTRAL on this OSC's output. <a href="#shards">Chapter</a></span></li>
       <li data-n="13"><b>13</b><span><span class="lab">OUT</span>SPREAD, the sound's own VOLUME, the last hit, and the meter for everything that leaves Tendril.</span></li>
       <li data-n="14"><b>14</b><span><span class="lab">SHARDS</span>An echo burst after the voices, shaped into a pattern.</span></li>
-      <li data-n="15"><b>15</b><span><span class="lab">KEYS</span>C1 to C4. Press near the top of a key for a soft hit, near the bottom for a hard one. On an OSC tab they play that OSC.</span></li>
+      <li data-n="15"><b>15</b><span><span class="lab">KEYS</span>C1 to C4. Press near the top of a key for a soft note, near the bottom for a hard one. On an OSC tab they play that OSC.</span></li>
       <li data-n="16"><b>16</b><span><span class="lab">MOTION</span>Eight lanes for this OSC: pick a shape, MAP a lane, click knobs, set each lane's RATE. <a href="#motion">Chapter</a></span></li>
       <li data-n="17"><b>17</b><span><span class="lab">STATUS LINE</span>Tendril says what just happened, and what your next click will do.</span></li>
     </ol>
@@ -527,27 +527,27 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
     <div class="ctl"><h4>Tilt <small data-rd="tilt"></small></h4><canvas data-sweep="tilt"></canvas><p>Leans the whole drawing, from minus 12 to plus 12 dB per octave. At noon every partial is equal (FLAT); left darkens, right brightens. Minus 6 dB per octave is a saw's slope. The loudness stays put.</p></div>
     <div class="ctl"><h4>Parity <small data-rd="parity"></small></h4><canvas data-sweep="parity"></canvas><p>Left takes the even partials out; all the way left leaves the odd ones only, the hollow square-wave colour. Right takes the odd ones out from the third up, leaving the fundamental and the evens.</p></div>
     <div class="ctl"><h4>Focus <small data-rd="focus"></small></h4><canvas data-sweep="focus"></canvas><p>Right raises a resonant PEAK at FORMANT and fades the rest; the peak narrows as it grows. Left cuts a NOTCH there instead, and the notch widens as it deepens. At noon FOCUS is off.</p></div>
-    <div class="ctl"><h4>Formant <small data-rd="formant"></small></h4><canvas data-sweep="formant"></canvas><p>Where FOCUS works, from the fundamental (H1) up to partial 64. A marker over the bars shows it. Sweep it under a peak and the hit talks like a vowel. It dims while FOCUS sits at noon.</p></div>
+    <div class="ctl"><h4>Formant <small data-rd="formant"></small></h4><canvas data-sweep="formant"></canvas><p>Where FOCUS works, from the fundamental (H1) up to partial 64. A marker over the bars shows it. Sweep it under a peak and the sound talks like a vowel. It dims while FOCUS sits at noon.</p></div>
     <div class="ctl"><h4>Comb <small data-rd="comb"></small></h4><canvas data-sweep="comb"></canvas><p>How deep the strike comb cuts: a regular row of holes in the drawing, the way a string or a bar sounds when it is hit at one point.</p></div>
     <div class="ctl"><h4>Strike <small data-rd="strike"></small></h4><canvas data-sweep="strike"></canvas><p>Where it is hit. 1/2, the middle, removes every even partial; toward 1/64, the edge, the holes spread apart until a broad hump is left. It dims while COMB is off.</p></div>
     <div class="ctl"><h4>Stretch <small data-rd="stretch"></small></h4><canvas data-sweep="stretch"></canvas><p>Moves every partial off the harmonic series: partial k sits at k to the power of 1 + s. Left heads for SKIN, a drum membrane (1, 1.59, 2.08 ...), right for BAR, a free metal bar (1, 2.83, 5.20 ...). Fine near noon. Here the lines sit at their real pitches; in the chamber the bars keep their places.</p></div>
-    <div class="ctl"><h4>Damp <small data-rd="damp"></small></h4><canvas data-sweep="damp"></canvas><p>Gives every partial its own decay, each one faster than the one below it, so the hit darkens as it rings like a drum or a bell. The fundamental keeps the AMP envelope. The readout is how long partial 8 takes to fall 60 dB. Here: the drawing 120 ms into the hit.</p></div>
+    <div class="ctl"><h4>Damp <small data-rd="damp"></small></h4><canvas data-sweep="damp"></canvas><p>Gives every partial its own decay, each one faster than the one below it, so the sound darkens as it rings, like a bell or a plucked string. The fundamental keeps the AMP envelope. The readout is how long partial 8 takes to fall 60 dB. Here: the drawing 120 ms into the note.</p></div>
     <div class="ctl"><h4>Phase <small data-rd="phase"></small></h4><canvas data-sweep="phase"></canvas><p>Where each partial starts its cycle. SINE starts them all together, the snappiest attack. SCHROEDER spreads them for the lowest peak, the smoothest attack, with the same spectrum. Here: the waveform, not the bars.</p></div>
   </div>
   <div class="prose">
     <h3>Reading the chamber</h3>
     <ul>
       <li>The bars are the drawing after OSC FX, each partial in dB against the loudest, from 0 down to minus 48. A dashed line marks where PARTIALS ends; a triangle marks FORMANT while FOCUS works (cream for a peak, pale teal for a notch).</li>
-      <li>While a hit sounds, the drawing dims and live bars ride over it: each partial as the newest voice plays it, with DAMP, the velocity colour and TWINKLE in. Pale teal ticks show what actually comes out at each partial's frequency, measured 15 times a second.</li>
+      <li>While a note sounds, the drawing dims and live bars ride over it: each partial as the newest voice plays it, with DAMP, the velocity colour and TWINKLE in. Pale teal ticks show what actually comes out at each partial's frequency, measured 15 times a second.</li>
       <li>Hover a bar for its reading: partial number and level, the stretch ratio when it is not harmonic, and its frequency once a note has played.</li>
       <li>With OSC FX SHAPE on, the chamber widens to 256 bars, with a dotted line at partial 64.</li>
       <li>The chamber is for reading. You draw with the knobs.</li>
     </ul>
-    <h3>Loudness, clean highs, the same hit every time</h3>
+    <h3>Loudness, clean highs, the same sound every time</h3>
     <ul>
       <li>PARTIALS, TILT and the pitch never change the level: Tendril holds the drawing's energy at that of one sine at about minus 10.5 dBFS. The carving knobs (PARITY, FOCUS, COMB and OSC FX) are only half made up, so a notch still takes something out and a drawing carved down to nothing goes quiet.</li>
       <li>Each partial fades out by itself as its frequency nears the top of the audio band, so a big pitch sweep never folds partials back down as grit.</li>
-      <li>Every hit restarts each partial at its PHASE and rewinds DAMP, so the same MIDI gives the same audio, bounce after bounce.</li>
+      <li>Every note restarts each partial at its PHASE and rewinds DAMP, so the same MIDI gives the same audio, bounce after bounce.</li>
     </ul>
   </div>
 </section>
@@ -598,44 +598,44 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
 </section>
 
 <section id="hit">
-  <div class="plate-title"><span class="cap">The hit</span></div>
+  <div class="plate-title"><span class="cap">The voice</span></div>
   <h2>Pitch, amp, noise and body</h2>
-  <p class="lead">These four plates turn the drawing into a hit: where its pitch starts and lands, how it rises and dies, the noise that snaps on top, and the resonant squash that thickens its low end.</p>
+  <p class="lead">These four plates turn the drawing into a sound: where its pitch starts and lands, how it rises and dies, the noise that snaps on top, and the resonant squash that thickens its low end.</p>
   <figure class="fig"><div class="shot"><img src="plates/hit.webp" width="615" height="450" alt="The PITCH, AMP and BODY plates" loading="lazy" style="max-width:615px"></div><figcaption>PITCH, AMP and the BODY plate with BODY and DETAIL turned up.</figcaption></figure>
   <p class="group-title">PITCH</p>
   <div class="controls">
-    <div class="ctl"><h4>Octave <small>&minus;3 to +3 OCT</small></h4><p>The dropdown in PITCH's title bar moves the whole oscillator in exact octaves. A hit keeps the octave it started with; the FILTER's KEY and BODY follow it.</p></div>
-    <div class="ctl"><h4>Amount <small>&minus;48 to +48 st</small></h4><p>How far above (or below) the note each hit starts, in semitones, fine near zero. A fresh OSC starts at +24.2 st.</p></div>
+    <div class="ctl"><h4>Octave <small>&minus;3 to +3 OCT</small></h4><p>The dropdown in PITCH's title bar moves the whole oscillator in exact octaves. A note keeps the octave it started with; the FILTER's KEY and BODY follow it.</p></div>
+    <div class="ctl"><h4>Amount <small>&minus;48 to +48 st</small></h4><p>How far above (or below) the note each sweep starts, in semitones, fine near zero. A fresh OSC starts at +24.2 st.</p></div>
     <div class="ctl"><h4>Time <small>1 ms to 2 s</small></h4><p>How long the sweep takes to land exactly on the note.</p></div>
     <div class="ctl"><h4>Curve <small>LINEAR to p 16</small></h4><p>The sweep's shape. LINEAR is a straight line in semitones; higher values drop fast, then settle onto the note with no leftover detune.</p></div>
     <div class="ctl"><h4>Glide <small>JUMP to 2 s</small></h4><p>LEGATO only: an overlapping note slides to its pitch, 95 % of the way in GLIDE. Letting go slides back to the key still held.</p></div>
   </div>
-  <div class="prose"><p>The same sweep drives the FILTER's SWEEP. VELOCITY scales it: a soft hit bends less. Pitch bend reaches every voice, two semitones each way.</p></div>
+  <div class="prose"><p>The same sweep drives the FILTER's SWEEP. VELOCITY scales it: a soft note bends less. Pitch bend reaches every voice, two semitones each way.</p></div>
   <p class="group-title">AMP</p>
   <div class="controls">
-    <div class="ctl"><h4>Voice mode <small>POLY · MONO · LEGATO</small></h4><p>POLY gives every note its own voice (twelve per OSC); a repeated note chokes itself, drum-machine style. MONO is one voice and every note hits again. LEGATO is one voice where an overlapping note slides instead of hitting.</p></div>
-    <div class="ctl"><h4>One shot / gate</h4><p>ONE SHOT (lit) plays every hit's whole decay, whatever the note length. GATE is a normal ADSR that follows the note.</p></div>
+    <div class="ctl"><h4>Voice mode <small>POLY · MONO · LEGATO</small></h4><p>POLY gives every note its own voice (twelve per OSC); a repeated note chokes itself. MONO is one voice and every note starts again. LEGATO is one voice where an overlapping note slides instead of starting again.</p></div>
+    <div class="ctl"><h4>One shot / gate</h4><p>ONE SHOT (lit) plays every note's whole decay, whatever the note length. GATE is a normal ADSR that follows the note.</p></div>
     <div class="ctl"><h4>Attack <small>0.2 ms to 2 s</small></h4><p>A straight rise to full level.</p></div>
     <div class="ctl"><h4>Hold <small>OFF to 200 ms</small></h4><p>Full level after the attack, before the decay: the punch.</p></div>
     <div class="ctl"><h4>Decay <small>2 ms to 10 s</small></h4><p>Time to fall 60 dB: to silence in ONE SHOT, to SUSTAIN in GATE.</p></div>
     <div class="ctl"><h4>Sustain, release</h4><p>GATE only. The level held while the note is down, and the fall after it lets go (2 ms to 10 s).</p></div>
-    <div class="ctl"><h4>Velocity <small>OFF to 100 %</small></h4><p>Three things at once: soft hits play quieter (at 50 % the level follows velocity in a straight line), darker (up to 4 dB per octave) and with a smaller pitch sweep. OFF ignores velocity.</p></div>
+    <div class="ctl"><h4>Velocity <small>OFF to 100 %</small></h4><p>Three things at once: soft notes play quieter (at 50 % the level follows velocity in a straight line), darker (up to 4 dB per octave) and with a smaller pitch sweep. OFF ignores velocity.</p></div>
   </div>
-  <div class="prose"><p>Every voice restarts cleanly on each hit with no click, and every hit starts the same way, so the same MIDI gives the same audio.</p></div>
+  <div class="prose"><p>Every voice restarts cleanly on each note with no click, and every note starts the same way, so the same MIDI gives the same audio.</p></div>
   <p class="group-title">NOISE</p>
   <div class="controls">
-    <div class="ctl"><h4>Level <small>NOISE</small></h4><p>White noise added to the oscillator before the AMP envelope, so it rides the hit's shape and velocity.</p></div>
+    <div class="ctl"><h4>Level <small>NOISE</small></h4><p>White noise added to the oscillator before the AMP envelope, so it rides the note's shape and velocity.</p></div>
     <div class="ctl"><h4>Color <small>LP · WHITE · HP</small></h4><p>Left of noon a low-pass from 20 kHz down to 150 Hz; right of noon a high-pass from 20 Hz up to 12 kHz. The plate's title shows the cutoff.</p></div>
     <div class="ctl"><h4>Snap <small>1 ms to 3 s</small></h4><p>The noise's own decay, on top of the AMP envelope.</p></div>
     <div class="ctl"><h4>Bursts <small>1 to 4</small></h4><p>The classic clap: up to four bursts 11 ms apart, each early one dying inside its gap, the last one taking SNAP's tail.</p></div>
   </div>
   <p class="group-title">BODY</p>
   <div class="controls">
-    <div class="ctl"><h4>Body <small>OFF to 100 %</small></h4><p>Six resonators on the note's own harmonics lift its low end into a clip that sits near the hit's own peak: the squash. The low end folds into a dense, held square; the hit's decay pushes up against the ceiling. At 0 the stage is out of the path.</p></div>
-    <div class="ctl"><h4>Ring <small>SQUASH to 3 s</small></h4><p>Up to 75 % the tight squash, a few milliseconds of resonance. Above it the body rings on after the hit, up to three seconds, upper modes dying first.</p></div>
+    <div class="ctl"><h4>Body <small>OFF to 100 %</small></h4><p>Six resonators on the note's own harmonics lift its low end into a clip that sits near the note's own peak: the squash. The low end folds into a dense, held square; the note's decay pushes up against the ceiling. At 0 the stage is out of the path.</p></div>
+    <div class="ctl"><h4>Ring <small>SQUASH to 3 s</small></h4><p>Up to 75 % the tight squash, a few milliseconds of resonance. Above it the body rings on after the note, up to three seconds, upper modes dying first.</p></div>
     <div class="ctl"><h4>Detail <small>OFF to 100 %</small></h4><p>Keeps the oscillator's own top through the squash. At 0 the clip flattens the top as well; at 100 % everything above the body's resonators comes through untouched, so you get the weight without losing the click.</p></div>
   </div>
-  <div class="prose"><p>BODY's small screen fires one test hit through the body on a log time scale, the dry hit faint behind it and the clip's ceiling dashed. The plate's title reads RING's setting while BODY is on. BODY follows the pitch as it sweeps and glides.</p></div>
+  <div class="prose"><p>BODY's small screen fires one test note through the body on a log time scale, the dry note faint behind it and the clip's ceiling dashed. The plate's title reads RING's setting while BODY is on. BODY follows the pitch as it sweeps and glides.</p></div>
 </section>
 
 <section id="drive">
@@ -675,7 +675,7 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
     <div class="ctl"><h4>Sweep <small>&plusmn;6 oct</small></h4><p>Moves the cutoff along the pitch envelope's shape and time, even with the pitch AMOUNT at zero. Noon is off.</p></div>
     <div class="ctl"><h4>Key <small>0 to 100 %</small></h4><p>Key tracking around C2: at 100 % the cutoff moves an octave for every octave played. It follows the octave and GLIDE.</p></div>
   </div>
-  <div class="prose"><p>The screen draws the real response of the chosen model, a line at CUTOFF, and a brighter line where the cutoff is while a hit plays. A gate on each voice makes a self-oscillating filter or a fuzz loop die with the hit instead of ringing on.</p></div>
+  <div class="prose"><p>The screen draws the real response of the chosen model, a line at CUTOFF, and a brighter line where the cutoff is while a note plays. A gate on each voice makes a self-oscillating filter or a fuzz loop die with the note instead of ringing on.</p></div>
 </section>
 
 <section id="shards">
@@ -683,18 +683,18 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
   <h2>Echo bursts, repeats, crush and smear</h2>
   <p class="lead">These two teal plates work on the OSC's whole output, after the voices: SHARDS first, then GLITCH (REPEAT, CRUSH, SPECTRAL).</p>
   <figure class="fig"><div class="shot"><img src="plates/shards.webp" width="1288" height="143" alt="The SHARDS plate" loading="lazy"></div><figcaption>SHARDS: the echo scope on the left (three loops, left channel above, right below), BURST, FORM and TAIL on the right.</figcaption></figure>
-  <div class="prose"><h3>Shards: a burst of echoes, shaped</h3><p>A delay that throws a short pattern of echoes after each hit, then lets the whole pattern come round again. The title shows how many echoes and how long the loop is, the SYNC dropdown and the POST DRIVE chip. SHARDS is on in a fresh OSC but silent until you raise MIX.</p></div>
+  <div class="prose"><h3>Shards: a burst of echoes, shaped</h3><p>A delay that throws a short pattern of echoes after each note, then lets the whole pattern come round again. The title shows how many echoes and how long the loop is, the SYNC dropdown and the POST DRIVE chip. SHARDS is on in a fresh OSC but silent until you raise MIX.</p></div>
   <div class="controls">
     <div class="ctl"><h4>Sync <small>FREE · 1/1 to 1/64, D, T</small></h4><p>The echo unit, on the song's tempo (or the SEQUENCER's tempo in the standalone). FREE uses TIME.</p></div>
     <div class="ctl"><h4>Time <small>1 ms to 2 s</small></h4><p>The echo unit when SYNC is FREE. Dims otherwise.</p></div>
     <div class="ctl"><h4>Echoes <small>1 to 8</small></h4><p>How many echoes in a burst. The burst lasts ECHOES times the unit, up to 12 seconds.</p></div>
-    <div class="ctl"><h4>Pace <small>SLOWER · EVEN · FASTER</small></h4><p>EVEN spaces them equally. FASTER starts late and closes the gaps, a bouncing ball. SLOWER bunches them right after the hit, then spreads out.</p></div>
+    <div class="ctl"><h4>Pace <small>SLOWER · EVEN · FASTER</small></h4><p>EVEN spaces them equally. FASTER starts late and closes the gaps, a bouncing ball. SLOWER bunches them right after the note, then spreads out.</p></div>
     <div class="ctl"><h4>Swell <small>FADE · FLAT · SWELL</small></h4><p>Levels across the burst: swell into the last echo, or fade from the first, up to 30 dB.</p></div>
     <div class="ctl"><h4>Split <small>LEFT · CENTRE · RIGHT</small></h4><p>Alternate echoes go to one side; the far side drops away. LEFT sends the odd echoes left.</p></div>
     <div class="ctl"><h4>Feedback <small>0 to 100 %, HOLD</small></h4><p>The whole burst comes round again, quieter each pass. At the top it HOLDs, kept in bounds by a soft clip.</p></div>
     <div class="ctl"><h4>Tone <small>LP · FLAT · HP</small></h4><p>A filter inside the loop, so every pass gets darker (left) or thinner (right). It colours the echoes only.</p></div>
-    <div class="ctl"><h4>Mix <small>OFF to WET</small></h4><p>The echoes come up to full; the dry hit stays full until halfway, then falls away to WET.</p></div>
-    <div class="ctl"><h4>Post drive / pre drive</h4><p>POST DRIVE: the echoes repeat the driven hit. PRE DRIVE: SHARDS comes first and the drive runs after it, so every echo is driven again and quiet echoes come out cleaner.</p></div>
+    <div class="ctl"><h4>Mix <small>OFF to WET</small></h4><p>The echoes come up to full; the dry sound stays full until halfway, then falls away to WET.</p></div>
+    <div class="ctl"><h4>Post drive / pre drive</h4><p>POST DRIVE: the echoes repeat the driven sound. PRE DRIVE: SHARDS comes first and the drive runs after it, so every echo is driven again and quiet echoes come out cleaner.</p></div>
   </div>
   <figure class="fig"><div class="shot"><img src="plates/arp_glitch_out.webp" width="1288" height="175" alt="The ARP, GLITCH and OUT plates" loading="lazy"></div><figcaption>ARP, GLITCH (REPEAT with its beat display, CRUSH, SPECTRAL) and OUT.</figcaption></figure>
   <div class="prose"><h3>Glitch</h3></div>
@@ -702,7 +702,7 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
     <div class="ctl"><h4>Repeat: chance <small>OFF to 100 %</small></h4><p>Every beat rolls the dice. When a beat wins, its first slice is captured and looped to the end of the beat, with clean seams. The roll comes from the song position, so a bounce glitches exactly as playback did.</p></div>
     <div class="ctl"><h4>Grid <small>1/8 to 1/64, T</small></h4><p>The slice length REPEAT loops. The display shows sixteen beats and lights the ones the dice will take; the current one glows while it repeats.</p></div>
     <div class="ctl"><h4>Crush <small>OFF to 4 bit</small></h4><p>Sample rate and bit depth come down together, with no smoothing on purpose: digital grit. The title reads the rate and bits.</p></div>
-    <div class="ctl"><h4>Smear <small>30 ms to 8 s, FREEZE</small></h4><p>SPECTRAL holds each frequency of the sound and lets it go slowly, adding a ringing tail on top of the dry hit. At the very top it FREEZEs.</p></div>
+    <div class="ctl"><h4>Smear <small>30 ms to 8 s, FREEZE</small></h4><p>SPECTRAL holds each frequency of the sound and lets it go slowly, adding a ringing tail on top of the dry sound. At the very top it FREEZEs.</p></div>
     <div class="ctl"><h4>Shift <small>&plusmn;3 kHz</small></h4><p>Shifts the held spectrum up or down in Hz (not semitones), for metallic, inharmonic tails.</p></div>
     <div class="ctl"><h4>Mix <small>OFF to 100 %</small></h4><p>How much of SPECTRAL you hear. SMEAR and SHIFT dim while it is off.</p></div>
   </div>
@@ -721,15 +721,15 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
   </div>
   <div class="prose"><h3>Out</h3></div>
   <div class="controls">
-    <div class="ctl"><h4>Spread <small>CENTRE to 100 %</small></h4><p>Each hit lands at a random place in the stereo field, within this width.</p></div>
+    <div class="ctl"><h4>Spread <small>CENTRE to 100 %</small></h4><p>Each note lands at a random place in the stereo field, within this width.</p></div>
     <div class="ctl"><h4>Volume <small>&minus;70 to +6 dB</small></h4><p>This sound's own level. It is saved with the sound and sits before the MIXER's fader, so browsing sounds never moves your mix. A slider: click a spot, drag, double-click for 0 dB.</p></div>
-    <div class="ctl"><h4>Last hit</h4><p>The last hit's waveform, about a third of a second from its note-on, before SHARDS, GLITCH and VOLUME. The title reads its peak.</p></div>
+    <div class="ctl"><h4>Last hit</h4><p>The last note's waveform, about a third of a second from its note-on, before SHARDS, GLITCH and VOLUME. The title reads its peak.</p></div>
     <div class="ctl"><h4>Meter and ceiling lamp</h4><p>Not this OSC alone: everything that leaves Tendril, after the MASTER and the CEILING. Hatching past the bar shows what the ceiling took off the peaks; the lamp reads it (click to clear).</p></div>
   </div>
   <div class="prose">
     <h3>Keys</h3>
     <ul>
-      <li>The keys run from C1 to C4. Press near the top of a key for a soft hit (30 %), near the bottom for a full one; drag across them to glide over the notes.</li>
+      <li>The keys run from C1 to C4. Press near the top of a key for a soft note (30 %), near the bottom for a full one; drag across them to glide over the notes.</li>
       <li>On an OSC tab they play that OSC directly, through its arp. On the MIXER and SEQUENCER tabs they play by the KEYS zones, just like a clip, and each key wears the colour of the OSC that answers it.</li>
       <li>Your computer keyboard plays too: <kbd>A</kbd> <kbd>W</kbd> <kbd>S</kbd> <kbd>E</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>T</kbd> <kbd>G</kbd> <kbd>Y</kbd> <kbd>H</kbd> <kbd>U</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>O</kbd> <kbd>L</kbd> are C2 up to D3, at a firm velocity. They rest while you type in a field or hold <kbd>Ctrl</kbd> or <kbd>Alt</kbd>.</li>
       <li>Switching tabs lets go of any held key first.</li>
@@ -776,7 +776,7 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
     <h3>Phrase, clock and power</h3>
     <ul>
       <li><strong>PHRASE</strong> (1, 2, 4, 8, 16 or 32 bars, default 4) is where the SYNC lanes meet: at the top of every phrase each one starts its curve over, so a dotted or triplet rate lines up with the bar again. A pass longer than the phrase starts over at the top of as many phrases as it needs. PHRASE never sets how fast a lane runs; the RATE does.</li>
-      <li>Inside a DAW the SYNC lanes ride the <strong>song position</strong>: stopped, they hold where the playhead sits; move the playhead and they follow. A FREE lane runs on its own clock, whatever the song does. No lane restarts on a note, so a lane draws its curve across the bars while hits fall through it. The standalone runs the SYNC lanes on its own TEMPO.</li>
+      <li>Inside a DAW the SYNC lanes ride the <strong>song position</strong>: stopped, they hold where the playhead sits; move the playhead and they follow. A FREE lane runs on its own clock, whatever the song does. No lane restarts on a note, so a lane draws its curve across the bars while notes fall through it. The standalone runs the SYNC lanes on its own TEMPO.</li>
       <li><strong>Fast rates</strong> keep their shape at any buffer size: a 1/128 or a 50 Hz lane moves the same at 64 samples as at 2048.</li>
       <li>While a lane drives a knob, the knob plays the lane's range and its own position waits. Its arc turns into the lane's band, in the lane's colour, with a dot at the value now.</li>
       <li>The square lamp beside MOTION switches every lane on this tab off and back on; off, every knob plays where you left it.</li>
@@ -784,7 +784,7 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
       <li>A Tendril 2 sound's lanes keep their timing here.</li>
     </ul>
     <h3>Dropdowns move too</h3>
-    <p>Twelve dropdowns are targets: DRIVE MODEL, FILTER MODEL and TYPE, REPEAT GRID, ARP STYLE, RATE and RANGE, SHARDS SYNC, VOICE MODE, the OCTAVE, and both OSC FX modes. A lane sweeping a dropdown gives each choice an equal share, so a SQUARE lane on SHAPE MODE flips a hit between two shapers every half pass, two bars each at 4 BARS. Not targets: VOLUME, the lamps and the chips.</p>
+    <p>Twelve dropdowns are targets: DRIVE MODEL, FILTER MODEL and TYPE, REPEAT GRID, ARP STYLE, RATE and RANGE, SHARDS SYNC, VOICE MODE, the OCTAVE, and both OSC FX modes. A lane sweeping a dropdown gives each choice an equal share, so a SQUARE lane on SHAPE MODE flips the sound between two shapers every half pass, two bars each at 4 BARS. Not targets: VOLUME, the lamps and the chips.</p>
   </div>
   <figure class="fig"><div class="shot"><img src="plates/lane_editor.webp" width="1264" height="558" alt="The lane editor: LANE 01 HARMONICS TILT, a sine drawn with points over four bars" loading="lazy"></div><figcaption>The lane editor, open on lane 01: one pass of a sine drawn into TILT over the grid of a four-bar phrase, read in TILT's own units.</figcaption></figure>
   <div class="prose">
@@ -802,7 +802,7 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
 <section id="mixer">
   <div class="plate-title"><span class="cap">Mixer</span></div>
   <h2>Three strips, a master and the ceiling</h2>
-  <p class="lead">The MIXER sets how the three OSCs sit together and which notes each one answers. Here it holds the factory kit Forge Kit: a kick on OSC 1, a snare on OSC 2, a hat on OSC 3.</p>
+  <p class="lead">The MIXER sets how the three OSCs sit together and which notes each one answers. Here it holds the factory kit Forge Kit, one sound on each OSC.</p>
   <figure class="fig" data-pins="mixer">
     <div class="shot">
       <img src="plates/mixer.webp" width="1600" height="1160" alt="The MIXER tab: three OSC strips with KEYS, PAN, fader, meter, MUTE and SOLO, the MASTER strip with OUTPUT PEAK and the CEILING switch" loading="lazy">
@@ -890,8 +890,8 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
     </ol>
   </figure>
   <div class="tri">
-    <figure class="fig"><div class="shot"><img src="plates/lane_chance.webp" width="1290" height="900" alt="The CHANCE lane" loading="lazy"></div><figcaption><span class="lab">CHANCE</span> 0 to 100 %. A step's top darkens by what it might skip. Here the hats roll at 55 %.</figcaption></figure>
-    <figure class="fig"><div class="shot"><img src="plates/lane_ratchet.webp" width="1290" height="900" alt="The RATCHET lane" loading="lazy"></div><figcaption><span class="lab">RATCHET</span> 1 to 4 hits inside the step, same note and velocity. Ticks along a step's foot count them.</figcaption></figure>
+    <figure class="fig"><div class="shot"><img src="plates/lane_chance.webp" width="1290" height="900" alt="The CHANCE lane" loading="lazy"></div><figcaption><span class="lab">CHANCE</span> 0 to 100 %. A step's top darkens by what it might skip. Here OSC 3's steps roll at 55 %.</figcaption></figure>
+    <figure class="fig"><div class="shot"><img src="plates/lane_ratchet.webp" width="1290" height="900" alt="The RATCHET lane" loading="lazy"></div><figcaption><span class="lab">RATCHET</span> 1 to 4 repeats inside the step, same note and velocity. Ticks along a step's foot count them.</figcaption></figure>
     <figure class="fig"><div class="shot"><img src="plates/lane_note.webp" width="1290" height="900" alt="The NOTE lane" loading="lazy"></div><figcaption><span class="lab">NOTE</span> up to an octave up or down from the row's NOTE, each mark named (Glass Run's melody).</figcaption></figure>
   </div>
   <div class="prose">
@@ -958,7 +958,7 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
       <li>A <strong>sound</strong> replaces the OSC on screen: its knobs (VOLUME included) and its eight lanes. Its MIXER fader stays where it was.</li>
       <li>A <strong>kit</strong> replaces everything: three sounds, the mixer, all 32 lanes, all eight patterns and the sequencer settings. One <kbd>Ctrl</kbd>+<kbd>Z</kbd> brings back the whole instrument from before.</li>
       <li>Every Tendril 2 sound loads into any OSC, and a sound saved here opens in Tendril 2. With its fader at 0 dB, its pan centred and the MASTER at 0 dB, OSC 1 plays a Tendril 2 sound exactly as Tendril 2 does.</li>
-      <li><span class="lab">INIT</span> takes two clicks. On an OSC tab it turns that OSC into a sine tom (one partial, a +24 st sweep landing in 45 ms, a 331 ms one-shot decay) with empty lanes. On the MIXER or the SEQUENCER it resets all of Tendril, every lane and every pattern.</li>
+      <li><span class="lab">INIT</span> takes two clicks. On an OSC tab it turns that OSC into a single sine (one partial, a +24 st sweep landing in 45 ms, a one-shot that holds 50 ms and then decays in 639 ms) with empty lanes. On the MIXER or the SEQUENCER it resets all of Tendril, every lane and every pattern.</li>
     </ul>
   </div>
   <div class="prose"><h3>The factory kits</h3><p>Each kit carries a beat in patterns A and B and sets the MASTER to minus 3 dB.</p></div>
@@ -1029,43 +1029,43 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
   <h2>Eight ways in</h2>
   <p class="lead">Starting points that use the parts of Tendril a sample can't: the drawing, the lanes, the sequencer's maths. Values are where to start; then move them.</p>
   <div class="recipes">
-    <div class="recipe"><span class="tag">OSC 1 &middot; MOTION</span><h4>A kick that never lands the same twice</h4><ol>
+    <div class="recipe"><span class="tag">OSC 1 &middot; MOTION</span><h4>A sound that never lands the same twice</h4><ol>
       <li>Load <span class="lab">FORGE KICK</span>.</li>
       <li>Drag <span class="lab">RANDOM</span> from the MOTION panel onto PITCH <span class="lab">AMOUNT</span>.</li>
       <li>On that lane's screen, drag the edges so it stays between about +18 and +30 st. Switch on <span class="lab">RND</span>.</li>
       <li>Drag <span class="lab">SINE</span> onto <span class="lab">DAMP</span> and keep its range low; turn that lane's <span class="lab">RATE</span> to 8 BARS.</li>
-    </ol><p>Every kick drops from a slightly different height and darkens a little differently. Nothing is repeated, and nothing needs a second sample.</p></div>
-    <div class="recipe"><span class="tag">OSC 3 &middot; HARMONICS</span><h4>Glass hats from the top of the drawing</h4><ol>
+    </ol><p>Every note drops from a slightly different height and darkens a little differently. Nothing is repeated, and nothing needs a second sample.</p></div>
+    <div class="recipe"><span class="tag">OSC 3 &middot; HARMONICS</span><h4>Glass from the top of the drawing</h4><ol>
       <li>INIT the OSC. <span class="lab">PARTIALS</span> all the way up, <span class="lab">TILT</span> about +6 dB/OCT, <span class="lab">STRETCH</span> toward BAR.</li>
       <li><span class="lab">FOCUS</span> to PEAK 70 %, <span class="lab">FORMANT</span> near H40.</li>
       <li>PITCH <span class="lab">AMOUNT</span> to OFF, AMP <span class="lab">DECAY</span> about 60 ms.</li>
       <li>A little NOISE: <span class="lab">COLOR</span> high-pass near 8 kHz, <span class="lab">SNAP</span> about 30 ms.</li>
       <li>Drag <span class="lab">TRI</span> onto FORMANT, range H16 to H64, <span class="lab">RATE</span> 2 BARS.</li>
-    </ol><p>A metal hat whose shine slides up and back every two bars.</p></div>
-    <div class="recipe"><span class="tag">OSC 2 &middot; BODY</span><h4>A snare with weight and its crack</h4><ol>
+    </ol><p>A metal tone whose shine slides up and back every two bars.</p></div>
+    <div class="recipe"><span class="tag">OSC 2 &middot; BODY</span><h4>A thick body under the crack</h4><ol>
       <li>Load <span class="lab">SPLIT SNARE</span>.</li>
       <li><span class="lab">BODY</span> 40 %, <span class="lab">RING</span> left in the SQUASH range, <span class="lab">DETAIL</span> 70 %.</li>
       <li>Drag <span class="lab">SAW</span> onto NOISE <span class="lab">COLOR</span>, from a low-pass near 6 kHz to a high-pass near 3 kHz, <span class="lab">RATE</span> 16 BARS.</li>
     </ol><p>A thick, squashed body under the original crack, and noise that opens up over sixteen bars.</p></div>
-    <div class="recipe"><span class="tag">OSC 2 &middot; SHARDS</span><h4>A clap that flicks across the stereo</h4><ol>
+    <div class="recipe"><span class="tag">OSC 2 &middot; SHARDS</span><h4>Bursts that flick across the stereo</h4><ol>
       <li>Load <span class="lab">SHARD CLAP</span>.</li>
       <li>SHARDS: <span class="lab">ECHOES</span> 2, <span class="lab">PACE</span> FASTER, <span class="lab">SPLIT</span> LEFT 60 %, <span class="lab">TONE</span> toward HP.</li>
       <li><span class="lab">MIX</span> about 30 %.</li>
-    </ol><p>The four-burst clap, then two thin echoes that land left and right.</p></div>
-    <div class="recipe"><span class="tag">OSC 2 &middot; OSC FX</span><h4>One tom, two skins</h4><ol>
+    </ol><p>Four bursts, then two thin echoes that land left and right.</p></div>
+    <div class="recipe"><span class="tag">OSC 2 &middot; OSC FX</span><h4>One sound, two shapes</h4><ol>
       <li>Load <span class="lab">LOW TOM</span>. On the OSC FX tab set SHAPE to FOLD, <span class="lab">AMOUNT</span> 40 %.</li>
       <li>Drag <span class="lab">SQUARE</span> onto the SHAPE mode dropdown.</li>
       <li>On the lane's screen drag the edges until they read FOLD and RING.</li>
-    </ol><p>At the lane's default RATE of 4 BARS the tom wears a folded skin for two bars and a ringing one for the next two.</p></div>
+    </ol><p>At the lane's default RATE of 4 BARS the sound wears a folded shape for two bars and a ringing one for the next two.</p></div>
     <div class="recipe"><span class="tag">OSC 3 &middot; SHARDS</span><h4>A bouncing-ball fill</h4><ol>
       <li>SHARDS <span class="lab">SYNC</span> 1/16, <span class="lab">ECHOES</span> 6.</li>
       <li><span class="lab">PACE</span> FASTER 60 %, <span class="lab">SWELL</span> FADE, <span class="lab">FEEDBACK</span> 0.</li>
       <li><span class="lab">MIX</span> 40 %; switch to PRE DRIVE with some DRIVE so later echoes come out cleaner.</li>
-    </ol><p>Each hit drops like a ball and settles, on the grid.</p></div>
+    </ol><p>Each note drops like a ball and settles, on the grid.</p></div>
     <div class="recipe"><span class="tag">SEQUENCER</span><h4>Polymeter in a minute</h4><ol>
       <li>Load <span class="lab">FORGE KIT</span> and open the SEQUENCER.</li>
       <li>Set <span class="lab">STEPS</span> to 16, 12 and 7.</li>
-      <li>STEP LANE <span class="lab">CHANCE</span>: pull a few hats to 50 %. STEP LANE <span class="lab">RATCHET</span>: give the last hat 3.</li>
+      <li>STEP LANE <span class="lab">CHANCE</span>: pull a few of OSC 3's steps to 50 %. STEP LANE <span class="lab">RATCHET</span>: give its last step 3.</li>
       <li><kbd>Shift</kbd>+click <span class="lab">B</span> to keep a copy, then keep pushing A.</li>
       <li>When a stretch of it lands, click MIDI, pick 8 BARS and drag it onto a track.</li>
     </ol><p>The rows drift and meet again on the downbeat; the clip freezes the drift you liked.</p></div>
@@ -1073,7 +1073,7 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
       <li>Load <span class="lab">BELL FORGE</span>.</li>
       <li>GLITCH SPECTRAL: <span class="lab">MIX</span> 40 %, <span class="lab">SMEAR</span> all the way to FREEZE.</li>
       <li>Drag <span class="lab">SINE</span> onto <span class="lab">SHIFT</span> with a narrow range around noon. Click the lane's RATE value for FREE and set about 0.1 Hz.</li>
-    </ol><p>The bell's spectrum hangs under the next hits and drifts slowly in pitch, on a clock of its own. Pull SMEAR down to let it go.</p></div>
+    </ol><p>The bell's spectrum hangs under the next notes and drifts slowly in pitch, on a clock of its own. Pull SMEAR down to let it go.</p></div>
   </div>
 </section>
 
@@ -1094,7 +1094,7 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
 <script>
 window.FACTORY=[{"name":"Forge Kick","cat":"KICK","hz":65.406,"nn":"C1","kit":"Forge Kit","v":{"h_partials":0.167,"h_tilt":0.0,"h_parity":0.5,"h_stretch":0.5,"h_damp":0.0,"h_phase":0.0,"h_comb":0.0,"h_strike":0.0,"h_focus":0.5,"h_formant":0.3,"p_amount":0.912,"p_time":0.559,"p_curve":0.58,"a_attack":0.0,"a_hold":0.224,"a_decay":0.67,"a_trig":1.0,"n_level":0.316,"n_color":0.877,"n_snap":0.201,"n_burst":0.0,"drive_on":1.0,"d_amt":0.3,"d_model":0.0,"filt_on":0.0,"f_cut":1.0,"f_model":0.0,"f_type":0.0,"g_repeat":0.0,"g_crush":0.0,"g_mix":0.0,"dl_on":1.0,"dl_mix":0.0,"dl_taps":0.286,"arp_on":0.0,"v_mode":0.0,"gain":6.0}},{"name":"Split Snare","cat":"SNARE","hz":146.832,"nn":"D2","kit":"Forge Kit","v":{"h_partials":0.431,"h_tilt":0.333,"h_parity":0.5,"h_stretch":0.088,"h_damp":0.538,"h_phase":0.0,"h_comb":0.0,"h_strike":0.0,"h_focus":0.5,"h_formant":0.3,"p_amount":0.698,"p_time":0.447,"p_curve":0.396,"a_attack":0.0,"a_hold":0.141,"a_decay":0.596,"a_trig":1.0,"n_level":0.849,"n_color":0.798,"n_snap":0.662,"n_burst":0.0,"drive_on":1.0,"d_amt":0.25,"d_model":1.0,"filt_on":1.0,"f_cut":0.259,"f_model":0.0,"f_type":3.0,"g_repeat":0.0,"g_crush":0.0,"g_mix":0.0,"dl_on":1.0,"dl_mix":0.12,"dl_taps":0.286,"arp_on":0.0,"v_mode":0.0,"gain":-0.5}},{"name":"Rust Hat","cat":"HAT","hz":523.251,"nn":"C4","kit":"Forge Kit","v":{"h_partials":0.597,"h_tilt":0.625,"h_parity":0.75,"h_stretch":0.85,"h_damp":0.0,"h_phase":1.0,"h_comb":0.0,"h_strike":0.0,"h_focus":0.5,"h_formant":0.3,"p_amount":0.5,"p_time":0.5,"p_curve":0.5,"a_attack":0.0,"a_hold":0.0,"a_decay":0.417,"a_trig":1.0,"n_level":0.837,"n_color":0.958,"n_snap":0.475,"n_burst":0.0,"drive_on":1.0,"d_amt":0.0,"d_model":0.0,"filt_on":1.0,"f_cut":0.826,"f_model":0.0,"f_type":3.0,"g_repeat":0.0,"g_crush":0.0,"g_mix":0.0,"dl_on":1.0,"dl_mix":0.0,"dl_taps":0.286,"arp_on":0.0,"v_mode":0.0,"gain":2.0}}];
 window.KEY = [
-["INIT","HEADER","two clicks","On an OSC tab: that OSC becomes a sine tom with empty lanes. On the MIXER or SEQUENCER: all of Tendril, every lane and pattern."],
+["INIT","HEADER","two clicks","On an OSC tab: that OSC becomes a single sine with empty lanes. On the MIXER or SEQUENCER: all of Tendril, every lane and pattern."],
 ["‹ ›","HEADER","","The previous or next preset in the browser's list, loaded at once, even with the browser closed."],
 ["Preset name","HEADER","","Opens the browser: SOUNDS on an OSC tab, KITS on the MIXER and SEQUENCER. A copper dot means changed since loading."],
 ["SAVE","HEADER","NAME, CATEGORY, AUTHOR","Saves the sound (OSC tab) or the kit (MIXER, SEQUENCER). REPLACE when the name exists."],
@@ -1118,20 +1118,20 @@ window.KEY = [
 ["SHAPE mode","OSC FX","SYNC, BEND, FOLD, FEED, RING, STEPS","Reworks the cycle the drawing makes, up to 256 partials. A MOTION target."],
 ["SHAPE AMOUNT","OSC FX","OFF to 100 %","How much. 0 is the dry oscillator; loudness is matched."],
 ["SHAPE CHARACTER","OSC FX","WINDOW, CURVE, SOFT, EVEN, RATIO, LEVEL","The mode's second control. Dims while AMOUNT is off."],
-["OCTAVE","PITCH","-3 to +3 OCT","The whole oscillator in exact octaves; a hit keeps its octave."],
+["OCTAVE","PITCH","-3 to +3 OCT","The whole oscillator in exact octaves; a note keeps its octave."],
 ["AMOUNT","PITCH","-48 to +48 st","Where the sweep starts, fine near zero."],
 ["TIME","PITCH","1 ms to 2 s","How long the sweep takes to land exactly on the note."],
 ["CURVE","PITCH","LINEAR to p 16","The sweep's shape: a straight line to a fast drop that settles."],
 ["GLIDE","PITCH","JUMP to 2 s","LEGATO only: the slide to an overlapping note."],
-["Voice mode","AMP","POLY, MONO, LEGATO","12 voices with same-note choke; one voice that hits again; one voice that slides."],
-["ONE SHOT / GATE","AMP","","The whole decay on every hit, or a normal ADSR."],
+["Voice mode","AMP","POLY, MONO, LEGATO","12 voices with same-note choke; one voice that starts again; one voice that slides."],
+["ONE SHOT / GATE","AMP","","The whole decay on every note, or a normal ADSR."],
 ["ATTACK","AMP","0.2 ms to 2 s","A straight rise to full level."],
 ["HOLD","AMP","OFF to 200 ms","Full level after the attack: the punch."],
 ["DECAY","AMP","2 ms to 10 s","Time to fall 60 dB (to SUSTAIN in GATE)."],
 ["SUSTAIN","AMP","-inf to 0 dB","GATE only: the level held while the note is down."],
 ["RELEASE","AMP","2 ms to 10 s","GATE only: the fall after the note lets go."],
-["VELOCITY","AMP","OFF to 100 %","Soft hits play quieter, darker and with a smaller pitch sweep."],
-["LEVEL","NOISE","OFF to 0 dB","White noise on the hit, under the AMP envelope."],
+["VELOCITY","AMP","OFF to 100 %","Soft notes play quieter, darker and with a smaller pitch sweep."],
+["LEVEL","NOISE","OFF to 0 dB","White noise on the note, under the AMP envelope."],
 ["COLOR","NOISE","LP, WHITE, HP","Low-pass 20 kHz to 150 Hz left of noon, high-pass 20 Hz to 12 kHz right of it."],
 ["SNAP","NOISE","1 ms to 3 s","The noise's own decay."],
 ["BURSTS","NOISE","1 to 4","Clap bursts 11 ms apart; the last one takes SNAP's tail."],
@@ -1168,16 +1168,16 @@ window.KEY = [
 ["MIX","GLITCH","OFF to 100 %","How much SPECTRAL you hear."],
 ["Lamp","SHARDS","on, off","On by default, silent until MIX comes up."],
 ["SYNC","SHARDS","FREE, 1/1 to 1/64, D, T","The echo unit on the tempo, or FREE."],
-["POST / PRE DRIVE","SHARDS","","Echo the driven hit, or drive every echo again."],
+["POST / PRE DRIVE","SHARDS","","Echo the driven sound, or drive every echo again."],
 ["TIME","SHARDS","1 ms to 2 s","The unit when SYNC is FREE."],
 ["ECHOES","SHARDS","1 to 8","Echoes per burst; the burst lasts ECHOES units, up to 12 s."],
-["PACE","SHARDS","SLOWER, EVEN, FASTER","Spacing: bunched after the hit, even, or a bouncing ball."],
+["PACE","SHARDS","SLOWER, EVEN, FASTER","Spacing: bunched after the note, even, or a bouncing ball."],
 ["SWELL","SHARDS","FADE, FLAT, SWELL","Levels across the burst, up to 30 dB."],
 ["SPLIT","SHARDS","LEFT, CENTRE, RIGHT","Alternate echoes to one side."],
 ["FEEDBACK","SHARDS","0 to 100 %, HOLD","The whole burst comes round again."],
 ["TONE","SHARDS","LP, FLAT, HP","A filter in the loop: darker or thinner each pass."],
 ["MIX","SHARDS","OFF to WET","Echoes up; the dry falls away past halfway."],
-["SPREAD","OUT","CENTRE to 100 %","Each hit at a random place in the stereo field."],
+["SPREAD","OUT","CENTRE to 100 %","Each note at a random place in the stereo field."],
 ["VOLUME","OUT","-70 to +6 dB","The sound's own level, before the mixer's fader. Not a MOTION target."],
 ["CEILING lamp","OUT","","What the ceiling took off the peaks. Click to clear."],
 ["On-screen keys","KEYS","C1 to C4","Velocity by where you press. An OSC tab plays that OSC; MIXER and SEQUENCER play by zone."],
@@ -1223,7 +1223,7 @@ window.KEY = [
 ["CLEAR (row)","SEQUENCER","","Every step of the row off; NOTE stays."],
 ["VEL","SEQUENCER","1 to 127","A step's velocity."],
 ["CHANCE (step)","SEQUENCER","0 to 100 %","How likely the step plays; the same every bounce."],
-["RATCHET","SEQUENCER","1 to 4","Hits inside the step."],
+["RATCHET","SEQUENCER","1 to 4","Repeats inside the step."],
 ["NOTE (step)","SEQUENCER","-12 to +12","Semitones from the row's NOTE."]
 ];
 
@@ -2474,7 +2474,7 @@ const Spec = (() => {
   UI.play.title = 'eighth notes at 120 BPM on the last key you pressed';
   el('div', 'rd', tport).textContent = '1/8 · 120 BPM';
   UI.keys = el('div', 'keys', tray); UI.keys.tabIndex = 0; UI.keys.setAttribute('role', 'group');
-  UI.keys.setAttribute('aria-label', 'Keys: press one to hit it. While the rack has focus, A W S E D F T G Y H U J K O L play C2 up to D3');
+  UI.keys.setAttribute('aria-label', 'Keys: press one to play it. While the rack has focus, A W S E D F T G Y H U J K O L play C2 up to D3');
   function buildKeys(lo, hi) {
     UI.keys.textContent = '';
     const BLK = new Set([1, 3, 6, 8, 10]);
@@ -2524,7 +2524,7 @@ const Spec = (() => {
     next = ctx.currentTime + 0.06;
     timer = setInterval(() => { while (next < ctx.currentTime + 0.12) { const n = NOTE.n, at = next; if (hit(n, 0.85, at) === false) { stopPlay(); return; } flashKey(n, at); next += 0.25; } }, 30);
     UI.play.classList.add('on'); UI.play.textContent = 'STOP'; UI.play.setAttribute('aria-pressed', 'true');
-    say('eighths on ' + noteName(NOTE.n) + ': each hit takes the drawing as it stands');
+    say('eighths on ' + noteName(NOTE.n) + ': each note takes the drawing as it stands');
   });
   document.addEventListener('visibilitychange', () => { if (document.hidden) stopPlay(); });
 
