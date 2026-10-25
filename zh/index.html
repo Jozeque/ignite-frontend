@@ -6239,6 +6239,13 @@ function openBuy() { toggleBuyModal(); }
         var q = new URL(window.location.href).searchParams;
         return !!q.get('fbclid') || /^(meta|fb|facebook|ig|instagram|an|msg|messenger|threads)$/i.test((q.get('utm_source') || '').trim());
     }, false);
+    // A click on a Google ad too (Yossi 2026-10-25: "the same way Meta visitors get it"). Auto-tagging
+    // adds gclid to every ad click (gbraid / wbraid from iPhones); an organic Google result carries
+    // none of them, so it waits like everyone else.
+    var FROM_GOOGLE_AD = ls(function () {
+        var q = new URL(window.location.href).searchParams;
+        return !!(q.get('gclid') || q.get('gbraid') || q.get('wbraid'));
+    }, false);
     function first() {
         if (st.seen) { if (FORCE) open(); return; }
         if (busy()) { setTimeout(first, 5000); return; }
@@ -6253,7 +6260,7 @@ function openBuy() { toggleBuyModal(); }
     // Fifteen seconds ON the page, added up across the visit (sessionStorage, so a trip to
     // another page and back keeps them), and only while the page is actually in view.
     function startClock() {
-        if (FORCE || FROM_META) { setTimeout(first, 400); return; }
+        if (FORCE || FROM_META || FROM_GOOGLE_AD) { setTimeout(first, 400); return; }
         var active = ls(function () { return parseInt(sessionStorage.getItem(SECS_KEY) || '0', 10) || 0; }, 0);
         var saveSecs = function () { ls(function () { sessionStorage.setItem(SECS_KEY, String(active)); }); };
         var tick = setInterval(function () {
