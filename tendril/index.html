@@ -27,6 +27,20 @@
         if (u.searchParams.has('_ptxn')) { u.searchParams.delete('_ptxn'); changed = true; }
         if (changed) history.replaceState(null, '', u.pathname + u.search + u.hash);
       } catch (e) {}
+      // The order bump test (Yossi 2026-10-25): whoever took Tendril in the Stride checkout owns it
+      // already, so the first screen after that purchase is the Collection's offer (/post2/). The
+      // homepage marks such a checkout as it completes; the Apple Pay button's checkout lands here
+      // whatever was in its cart, which is why this hand-off lives here and not only in the
+      // overlay's own address. Once per purchase, and never over an owner's mailed link.
+      try {
+        var t = sessionStorage.getItem('stride_last_txn') || '';
+        if (!window.STRIDE_TENDRIL_K && /^txn_[0-9a-z]{26}$/.test(t)
+            && sessionStorage.getItem('stride_bump_tendril') === t
+            && sessionStorage.getItem('stride_bump_routed') !== t) {
+          sessionStorage.setItem('stride_bump_routed', t);
+          window.location.replace('/post2/');
+        }
+      } catch (e) {}
     })();
     </script>
 <!-- Google consent mode v2 -->

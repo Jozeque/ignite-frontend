@@ -892,6 +892,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   function ss(k) { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } }
   function ssSet(k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} }
 
+  // The order bump test (Yossi 2026-10-25): this is now the first screen after a Stride checkout
+  // that had Tendril in it. Marked as done, so /tendril/ never hands the same purchase on to this
+  // page a second time.
+  if (ss('stride_bump_tendril') && ss('stride_bump_tendril') === ss('stride_last_txn')) {
+    ssSet('stride_bump_routed', ss('stride_last_txn'));
+  }
+
   // ── Purchase tracking ───────────────────────────────────────────────────────
   // This page is now the first one a buyer reaches, so the events that used to fire
   // on welcome.html fire here. Two rules carried from that page, both load-bearing:

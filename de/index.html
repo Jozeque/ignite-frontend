@@ -1356,6 +1356,23 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .addon-compact .addon-s{font-size:9.5px;margin-top:1px}
   .addon-compact .addon-btn{font-size:9px;padding:7px 9px;letter-spacing:.05em}
   .addon-compact .addon-lead,.addon-compact .addon-full{display:none}
+  /* ── Tendril in the bump (the order bump test, 2026-10-25) ──────────────────
+     The Collection row's own shapes. Both states are in the markup, .bump-off before the add and
+     .bump-on after it, so a translated page never shows English once the script runs. The picture
+     is the showcase as a 16:9 still with /tendril's copper play mark: a press plays the video. */
+  .addon-tdr .bump-on{display:none}
+  .addon-tdr.on .bump-on{display:inline}
+  .addon-tdr.on .bump-off{display:none}
+  .addon-vid{position:relative;flex:none;width:64px;height:36px;padding:0;border-radius:8px;overflow:hidden;
+    border:1px solid rgba(198,113,43,.28);background:#0e0d0b;cursor:pointer}
+  .addon-vid img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .25s}
+  .addon-vid:hover img{transform:scale(1.06)}
+  .addon-vid-i{position:absolute;left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:999px;
+    display:flex;align-items:center;justify-content:center;background:rgba(198,113,43,.95);
+    box-shadow:0 4px 10px -4px rgba(0,0,0,.8)}
+  .addon-vid:focus-visible{outline:2px solid var(--copper-lt);outline-offset:2px}
+  .addon-compact .addon-vid{width:54px;height:30px;border-radius:7px}
+  .addon-tdr .addon-tip-b + .addon-tip-b{margin-top:-4px}
 
   @media (max-width:430px){
     .addon{gap:8px;padding:7px 8px}
@@ -1365,6 +1382,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .addon-btn{font-size:9px;padding:7px 9px;letter-spacing:.05em}
     /* The button already says Add, and Ableton/Stride are obvious in context. */
     .addon-lead,.addon-full{display:none}
+    .addon-vid{width:54px;height:30px;border-radius:7px}
   }
   .vlist{list-style:none;margin:11px 0 15px;padding:0;display:grid;gap:3px}
   .vlist li{display:flex;gap:8px;align-items:baseline;font-size:12.5px;font-weight:600;color:var(--ink2);line-height:1.35}
@@ -1733,7 +1751,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     section[data-ms="hero"] .hero-buy-addon{grid-area:addon;align-self:stretch;display:flex;
       align-items:center;justify-content:center;padding:0 24px;
       border-left:1px solid var(--line);border-right:1px solid var(--line)}
-    section[data-ms="hero"] .hero-buy-addon:has(> .addon[hidden]){border-color:transparent}
+    /* No divider while no bump shows. Two rows sit here now (the order bump test shows one of
+       them), so "a hidden row" no longer means "nothing to show". */
+    section[data-ms="hero"] .hero-buy-addon:not(:has(> .addon:not([hidden]))){border-color:transparent}
     section[data-ms="hero"] .hero-buy-addon .addon{margin:0;width:100%;max-width:560px;padding:12px 14px}
     /* 350px less the 30px gutter leaves the wallet 320px, more than the 306px it once overflowed. */
     section[data-ms="hero"] .hero-cta{grid-area:cta;padding-left:30px}
@@ -2230,7 +2250,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </ul>
         </div>
         <div class="hero-buy-addon">
-        <div id="addon" class="addon" hidden>
+        <div id="addon" class="addon" data-bump="collection" hidden>
           <!-- A purpose-built 168px PNG rather than the 900px sleeve JPG: this slot is 42 CSS px,
                so 168 is pixel-exact at 4x and the file is a third of the weight. The 900px JPG
                stays where it belongs, as the sleeve and the OG image on samples.html. -->
@@ -2259,6 +2279,30 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <span id="addon-play-t">Hör rein</span>
             </button>
             <audio id="addon-audio" preload="none" src="/assets/packs/collection-teaser.mp3"></audio>
+          </div>
+        </div>
+        <!-- TENDRIL in the bump (Yossi 2026-10-25): the other half of the order bump test, shown
+             instead of the Collection's row above to the visitors strideBumpArm puts on Tendril.
+             Both of its states are written out here (.bump-off / .bump-on), so the translated pages keep
+             their own words and the script only prints the price. Its picture is the showcase: a
+             press plays it with sound in the page's own player (.vpop). The panel says what Tendril
+             is in the homepage section's own lines. -->
+        <div id="addon-tdr" class="addon addon-tdr" data-bump="tendril" hidden>
+          <button type="button" class="addon-vid" data-tdr-show aria-label="Tendril Showcase mit Ton abspielen"><img src="/media/tendril/showcase/poster-thumb.webp" alt="" width="256" height="144" loading="lazy" decoding="async"><span class="addon-vid-i"><svg width="9" height="9" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="#1c1206"/></svg></span></button>
+          <div class="addon-body">
+            <div class="addon-t"><span class="bump-off"><span class="addon-lead">Hinzufügen </span>Tendril </span><span class="bump-on">✓ Tendril hinzugefügt </span><span class="addon-p">+$49</span></div>
+            <div class="addon-s">3 Synth-Engines · 22 StrideChains<span class="addon-full"> · Preis für Stride Besitzer</span></div>
+          </div>
+          <button type="button" class="addon-btn" aria-pressed="false" aria-label="Tendril zu deiner Bestellung hinzufügen"
+                  onclick="strideToggleAddon(event)"><span class="bump-off">+ Hinzufügen<span class="addon-full"> zur Bestellung</span></span><span class="bump-on">Entfernen</span></button>
+          <div class="addon-tip" role="note">
+            <p class="addon-tip-h">Drei Engines. Ein lebendiger Sound-Design-Spielplatz.</p>
+            <p class="addon-tip-b">Forme die Obertöne, dreh die Effekte auf und lass drei unabhängige Patterns miteinander spielen. Erkunde mit Stride neue Sounds, Mudpies und Sequenzen aus demselben Patch.</p>
+            <p class="addon-tip-b">Dazu kommen 22 StrideChains: Sound Design Systeme, bereit zum Laden und Erkunden.</p>
+            <button type="button" class="addon-play" data-tdr-show aria-label="Tendril Showcase mit Ton abspielen">
+              <span class="addon-play-i" aria-hidden="true">&#9654;</span>
+              <span>Showcase ansehen</span>
+            </button>
           </div>
         </div>
         </div>
@@ -3390,7 +3434,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <span class="seal2 sd-save" style="display:none"></span>
           </div>
           <p class="text-[12px] font-bold mb-5 mt-2.5 sd-what" style="color:var(--sage-lt)">Stride VST + StrideBridge</p>
-          <div class="addon addon-compact" style="margin-bottom:13px" hidden>
+          <div class="addon addon-compact" data-bump="collection" style="margin-bottom:13px" hidden>
             <img class="addon-art" src="/assets/packs/pack-drums-thumb.png" alt="" width="168" height="168" loading="lazy" decoding="async">
             <div class="addon-body">
               <div class="addon-t"><span class="addon-lead">Hinzufügen </span>Experimental Collection <span class="addon-p">+$24.99</span><span class="addon-was" style="text-decoration:line-through;opacity:.6;font-weight:700;margin-left:.35rem">$35</span></div>
@@ -3398,6 +3442,25 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             </div>
             <button type="button" class="addon-btn" aria-pressed="false"
                     onclick="strideToggleAddon(event)">+ Hinzufügen<span class="addon-full"> zur Bestellung</span></button>
+          </div>
+          <!-- The Tendril side of the order bump test, as in the hero (#addon-tdr). -->
+          <div class="addon addon-compact addon-tdr" data-bump="tendril" style="margin-bottom:13px" hidden>
+            <button type="button" class="addon-vid" data-tdr-show aria-label="Tendril Showcase mit Ton abspielen"><img src="/media/tendril/showcase/poster-thumb.webp" alt="" width="256" height="144" loading="lazy" decoding="async"><span class="addon-vid-i"><svg width="9" height="9" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="#1c1206"/></svg></span></button>
+            <div class="addon-body">
+              <div class="addon-t"><span class="bump-off"><span class="addon-lead">Hinzufügen </span>Tendril </span><span class="bump-on">✓ Tendril hinzugefügt </span><span class="addon-p">+$49</span></div>
+              <div class="addon-s">3 Synth-Engines · 22 StrideChains<span class="addon-full"> · Preis für Stride Besitzer</span></div>
+            </div>
+            <button type="button" class="addon-btn" aria-pressed="false" aria-label="Tendril zu deiner Bestellung hinzufügen"
+                    onclick="strideToggleAddon(event)"><span class="bump-off">+ Hinzufügen<span class="addon-full"> zur Bestellung</span></span><span class="bump-on">Entfernen</span></button>
+            <div class="addon-tip" role="note">
+              <p class="addon-tip-h">Drei Engines. Ein lebendiger Sound-Design-Spielplatz.</p>
+              <p class="addon-tip-b">Forme die Obertöne, dreh die Effekte auf und lass drei unabhängige Patterns miteinander spielen. Erkunde mit Stride neue Sounds, Mudpies und Sequenzen aus demselben Patch.</p>
+              <p class="addon-tip-b">Dazu kommen 22 StrideChains: Sound Design Systeme, bereit zum Laden und Erkunden.</p>
+              <button type="button" class="addon-play" data-tdr-show aria-label="Tendril Showcase mit Ton abspielen">
+                <span class="addon-play-i" aria-hidden="true">&#9654;</span>
+                <span>Showcase ansehen</span>
+              </button>
+            </div>
           </div>
           <a onclick="openBuy()" class="btn-copper w-full justify-center text-base py-3.5 rounded-2xl">Stride kaufen<span class="sd-cta-price"> · $99</span> </a>
 
@@ -3962,6 +4025,96 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 });
 
+/* ── Tendril in the bump (the order bump test, 2026-10-25) ──────────────────────
+   Which side this visitor is on goes to Clarity as a tag, so recordings and funnels can be cut by
+   it. On a phone a tap on Tendril's row opens its panel, as the Collection's does; Add and the
+   showcase are their own actions. */
+document.addEventListener('DOMContentLoaded', function () {
+  try { if (window.strideClarity) window.strideClarity('', { bump_arm: strideBumpArm() }); } catch (e) {}
+  if (!window.matchMedia || !window.matchMedia('(hover: none)').matches) return;
+  var rows = document.querySelectorAll('.addon-tdr');
+  rows.forEach(function (row) {
+    row.addEventListener('click', function (ev) {
+      if (ev.target.closest('.addon-btn') || ev.target.closest('[data-tdr-show]')) return;
+      ev.preventDefault();
+      row.classList.toggle('tip-open');
+    });
+  });
+  document.addEventListener('click', function (ev) {
+    rows.forEach(function (row) { if (!row.contains(ev.target)) row.classList.remove('tip-open'); });
+  });
+});
+
+/* The showcase from the bump box: its picture and the panel's Watch the showcase play the video
+   with sound in the page's own player (.vpop), /tendril/'s showcase popup line for line. The
+   hero's loop pauses under it and runs again after. Nothing loads until a press; a phone gets
+   the 720p copy. */
+(function () {
+  var pop = null, v = null, openedAt = 0, loopWasOn = false;
+  function close() {
+    if (!pop || !pop.classList.contains('on')) return;
+    v.pause();
+    pop.classList.remove('on');
+    document.documentElement.style.overflow = '';
+    document.documentElement.style.paddingRight = '';
+    var loop = document.getElementById('heroLoop');
+    if (loop && loopWasOn) { var p = loop.play(); if (p && p.catch) p.catch(function () {}); }
+  }
+  function open() {
+    if (!pop) {
+      pop = document.createElement('div');
+      pop.className = 'vpop';
+      pop.setAttribute('role', 'dialog');
+      pop.setAttribute('aria-modal', 'true');
+      pop.setAttribute('aria-label', 'Tendril showcase');
+      var card = document.createElement('div');
+      card.className = 'vpop-card';
+      v = document.createElement('video');
+      v.setAttribute('controls', '');
+      v.setAttribute('playsinline', '');
+      v.setAttribute('preload', 'none');
+      v.setAttribute('poster', '/media/tendril/showcase/poster.webp');
+      v.src = window.matchMedia && window.matchMedia('(max-width:640px)').matches
+        ? '/media/tendril/showcase/tendril-examples-720.mp4' : '/media/tendril/showcase/tendril-examples.mp4';
+      var x = document.createElement('button');
+      x.type = 'button';
+      x.className = 'vpop-x';
+      x.setAttribute('aria-label', 'Close');
+      x.innerHTML = '&times;';
+      x.addEventListener('click', close);
+      card.appendChild(v);
+      card.appendChild(x);
+      pop.appendChild(card);
+      // Only the backdrop closes, and not with the very tap that opened it.
+      pop.addEventListener('click', function (ev) { if (ev.target === pop && Date.now() - openedAt > 400) close(); });
+      document.body.appendChild(pop);
+    }
+    if (pop.classList.contains('on')) return;
+    var root = document.documentElement;
+    var bar = window.innerWidth - root.clientWidth;
+    root.style.overflow = 'hidden';
+    if (bar > 0) root.style.paddingRight = bar + 'px';
+    var loop = document.getElementById('heroLoop');
+    loopWasOn = !!(loop && !loop.paused);
+    if (loop) loop.pause();
+    pop.classList.add('on');
+    openedAt = Date.now();
+    try { if (window.strideClarity) window.strideClarity('bump_tendril_showcase'); } catch (e) {}
+    v.currentTime = 0;
+    v.muted = false;
+    var p = v.play();
+    if (p && p.catch) p.catch(function () {
+      if (!pop.classList.contains('on')) return;
+      v.muted = true;
+      v.play().catch(function () {});
+    });
+  }
+  document.addEventListener('click', function (ev) {
+    if (ev.target.closest && ev.target.closest('[data-tdr-show]')) { ev.preventDefault(); open(); }
+  });
+  document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') close(); });
+})();
+
 function openBuy() { toggleBuyModal(); }
 
     // Bumping TERMS_VERSION invalidates previous acknowledgments.
@@ -3990,6 +4143,12 @@ function openBuy() { toggleBuyModal(); }
     const PADDLE_TOKEN            = 'live_e0101b87a9e6e7024988534cf7b';
     const PADDLE_PRICE_STRIDE     = 'pri_01m2dcx05b0z2dcnscp4qjm28d';
     const PADDLE_PRICE_COLLECTION = 'pri_01m2dghkc4dn53h2hrzw21ba2f';
+    // Tendril at the Stride owner price, for the order bump test below. The /tendril/ offer opens
+    // its own checkout through the backend; here it is a catalog price like the Collection's,
+    // because it only ever rides in a cart with Stride, whose buyer is an owner by the time they
+    // pay. A cart holding it WITHOUT Stride is not something this page builds, and the backend
+    // says so out loud when one is paid.
+    const PADDLE_PRICE_TENDRIL    = 'pri_01m5hgws7pfwwg4yevje6ajqrp';
     // The post-purchase run (Yossi 2026-10-22): /tendril/ offers Tendril at the Stride owner
     // price, then welcome.html hands over the download. The page decides for itself whether it
     // has anything to show and goes straight on if it does not, so someone who already owns
@@ -3997,6 +4156,9 @@ function openBuy() { toggleBuyModal(); }
     // (the Collection) and /post/ (the session); both pages still work, the session still lives
     // on welcome, and the Collection still sells as the bump at checkout.
     const PADDLE_SUCCESS_URL      = 'https://stridehub.io/tendril/';
+    // A buyer who took Tendril in the bump (the order bump test, 2026-10-25) is offered the
+    // Collection next, on the page that used to be the run's first stop.
+    const PADDLE_TENDRIL_BUMP_SUCCESS_URL = 'https://stridehub.io/post2/';
 
     let stridePaddleInit = false;
 
@@ -4055,6 +4217,8 @@ function openBuy() { toggleBuyModal(); }
         // The partner who sent this visitor, if one did (strideAffonso, in <head>).
         var ref = window.strideReferral ? window.strideReferral() : '';
         if (ref) out.affonso_referral = ref;
+        // Which side of the order bump test this visitor saw, so each side's sales can be counted.
+        out.bump_arm = strideBumpArm();
         return out;
     }
 
@@ -4081,6 +4245,31 @@ function openBuy() { toggleBuyModal(); }
     // The Experimental Collection's own price (samples.html sells it alone at $35),
     // shown struck beside the add-on's +$24.99. Stride itself has no struck price.
     const COLLECTION_VALUE = 35;
+
+    // ── The order bump test (Yossi 2026-10-25) ────────────────────────────────────
+    // Half the visitors are offered the Experimental Collection in the bump, as before, and half
+    // Tendril at the Stride owner price, with its showcase in the box. A visitor keeps their side
+    // (localStorage), ?bump=collection or ?bump=tendril picks one by hand, and every checkout
+    // carries it as custom data (bump_arm), so each side's sales count from Paddle and the CRM.
+    // Whoever takes Tendril meets the Collection after checkout instead (/post2/, see
+    // strideSuccessUrl and /tendril/'s head). STRIDE_BUMP_TEST 'ab' is the test; 'collection' or
+    // 'tendril' puts everyone on that side, which is how the test ends.
+    const STRIDE_BUMP_TEST = 'ab';
+    const TENDRIL_ADDON_PRICE = 49;       // dollars; Paddle's own price per country replaces it
+    let strideBumpArmMemo = '';
+    function strideBumpArm() {
+        if (strideBumpArmMemo) return strideBumpArmMemo;
+        var arm = (STRIDE_BUMP_TEST === 'collection' || STRIDE_BUMP_TEST === 'tendril') ? STRIDE_BUMP_TEST : '';
+        if (!arm) {
+            var ok = function (v) { return v === 'collection' || v === 'tendril'; };
+            try { var asked = (new URLSearchParams(location.search).get('bump') || '').toLowerCase(); if (ok(asked)) arm = asked; } catch (e) {}
+            if (!arm) { try { var kept = localStorage.getItem('stride_bump_arm'); if (ok(kept)) arm = kept; } catch (e) {} }
+            if (!arm) arm = Math.random() < 0.5 ? 'collection' : 'tendril';
+            try { localStorage.setItem('stride_bump_arm', arm); } catch (e) {}
+        }
+        strideBumpArmMemo = arm;
+        return arm;
+    }
 
     // ── Ad codes ──────────────────────────────────────────────────────────────────
     // An ad lands on /?code=rekz and the visitor sees the discounted price straight away,
@@ -4324,26 +4513,47 @@ function openBuy() { toggleBuyModal(); }
     // constant would have silently removed the add-on from the page while Paddle was
     // still perfectly able to sell it.
     function strideAddonAvailable() {
+        // Tendril sells through Paddle only, and outside dollars only at a price Paddle quoted for
+        // this visitor: Stride's rate times 49 is not what the checkout would charge.
+        if (strideBumpArm() === 'tendril') {
+            return CHECKOUT_PROVIDER === 'paddle' && !!PADDLE_PRICE_TENDRIL && (!strideLocal || !!strideTendril);
+        }
         if (CHECKOUT_PROVIDER === 'paddle') return !!PADDLE_PRICE_COLLECTION;
         return !!STRIDE_COLLECTION_CHECKOUT_URL;
     }
     function strideAddonActive()    { return strideAddonOn && strideAddonAvailable(); }
-    function strideCheckoutUrl()    { return strideAddonActive() ? STRIDE_COLLECTION_CHECKOUT_URL : STRIDE_CHECKOUT_URL; }
+    // Which bump is in the cart right now: 'collection', 'tendril' or ''.
+    function strideBumpIn()         { return strideAddonActive() ? strideBumpArm() : ''; }
+    function strideCheckoutUrl()    { return strideBumpIn() === 'collection' ? STRIDE_COLLECTION_CHECKOUT_URL : STRIDE_CHECKOUT_URL; }
+    // Where Paddle sends a buyer once paid. Tendril bought in the bump is owned already, so the
+    // first screen after it is the Collection's offer instead of Tendril's (Yossi 2026-10-25). The
+    // wallet fixes its address when it mounts, before any bump is chosen; /tendril/'s head hands
+    // that buyer on to /post2/ the same way.
+    function strideSuccessUrl()     { return strideBumpIn() === 'tendril' ? PADDLE_TENDRIL_BUMP_SUCCESS_URL : PADDLE_SUCCESS_URL; }
     // What the order costs THIS visitor, in the currency they will be charged in. Paddle's own
     // per-item amounts when it has priced them, so the page can never print a total the checkout
     // does not take: the Collection is CA$34.99 in Canada and GBP 18.99 in the UK, not 24.99
     // scaled by Stride's rate, which is what this used to do (page GBP 111.46, charge 107.99).
     function strideOrderTotal() {
         var stride = strideLocal ? strideLocal.stride : STRIDE_PRICE;
-        return stride + (strideAddonActive() ? strideCollectionPrice() : 0);
+        return stride + (strideAddonActive() ? strideBumpPrice() : 0);
     }
 
     // The same order at the ordinary price, without any code: Paddle's preview without the
     // discount once it has answered, the dollar prices until then.
     function strideOrderFull() {
         var stride = strideList ? strideList.stride : STRIDE_PRICE;
-        var coll = (strideList && strideList.collection != null) ? strideList.collection : COLLECTION_ADDON_PRICE;
-        return stride + (strideAddonActive() ? coll : 0);
+        var bump = strideBumpArm() === 'tendril'
+            ? (strideTendril ? strideTendril.list : TENDRIL_ADDON_PRICE)
+            : ((strideList && strideList.collection != null) ? strideList.collection : COLLECTION_ADDON_PRICE);
+        return stride + (strideAddonActive() ? bump : 0);
+    }
+
+    // The bump's own price in the charged currency: Tendril's from its own Paddle preview
+    // (strideTendril), the Collection's as before.
+    function strideBumpPrice() {
+        if (strideBumpArm() === 'tendril') return strideTendril ? strideTendril.charged : TENDRIL_ADDON_PRICE;
+        return strideCollectionPrice();
     }
     // "Save $19.80" in the page's own language, the words the translated pages already used.
     function strideSaveWords(amount) {
@@ -4365,7 +4575,9 @@ function openBuy() { toggleBuyModal(); }
     // never carried the Collection, so the webhook could not grant it either.
     function strideCheckoutItems() {
         var items = [{ priceId: PADDLE_PRICE_STRIDE, quantity: 1 }];
-        if (strideAddonActive()) items.push({ priceId: PADDLE_PRICE_COLLECTION, quantity: 1 });
+        var bump = strideBumpIn();
+        if (bump === 'collection') items.push({ priceId: PADDLE_PRICE_COLLECTION, quantity: 1 });
+        if (bump === 'tendril') items.push({ priceId: PADDLE_PRICE_TENDRIL, quantity: 1 });
         return items;
     }
 
@@ -4442,6 +4654,7 @@ function openBuy() { toggleBuyModal(); }
     // if Paddle.js never loads, every number prints exactly as before.
     let strideLocal = null;       // { currency, stride, collection } what Paddle charges
     let strideList = null;        // the same without any code: the ordinary price, struck beside a code's
+    let strideTendril = null;     // { list, charged } Tendril's price for the bump test, in that same currency
     let strideFx = null;          // { rate, currency } only for OUR list prices, see strideMoney
 
     // A price in the charged currency, printed as it is. The locale is fixed rather than the
@@ -4475,9 +4688,10 @@ function openBuy() { toggleBuyModal(); }
         if (!strideAddonAvailable()) return;
         strideAddonOn = !strideAddonOn;
         strideSyncAddon();
-        // GA4: the Collection added to the order. On the way in only, never on removal.
+        // GA4: the bump added to the order. On the way in only, never on removal.
         if (strideAddonOn) {
-            try { if (window.StrideTrack) StrideTrack.push('add_bump', { item_name: 'Experimental Collection', value: COLLECTION_ADDON_PRICE, currency: 'USD' }); } catch (e) {}
+            var _tdr = strideBumpArm() === 'tendril';
+            try { if (window.StrideTrack) StrideTrack.push('add_bump', { item_name: _tdr ? 'Tendril' : 'Experimental Collection', value: _tdr ? TENDRIL_ADDON_PRICE : COLLECTION_ADDON_PRICE, currency: 'USD' }); } catch (e) {}
         } else {
             try { if (window.strideClarity) window.strideClarity('addon_removed'); } catch (e) {}
         }
@@ -4507,15 +4721,30 @@ function openBuy() { toggleBuyModal(); }
     function strideSyncAddon() {
         const rows = document.querySelectorAll('.addon');
         if (!rows.length) return;
+        const tdr = strideBumpArm() === 'tendril';
         const on = strideAddonActive();
-        const money = strideMoneyExact(strideCollectionPrice());
+        const avail = strideAddonAvailable();
+        const money = strideMoneyExact(strideBumpPrice());
+        // What the bump is called wherever the order is named in words (the order bump test).
+        const bumpName = tdr ? 'Tendril' : 'Collection';
 
         // EVERY bump on the page, not just the hero's. The pricing panel further down
         // is where a scroller actually decides, and it used to sit there with a static
         // $99 beside a button that already said $123.99.
         rows.forEach(function (row) {
-            row.hidden = !strideAddonAvailable();
-            row.classList.toggle('on', on);
+            // Only this visitor's side of the order bump test shows (data-bump names the side).
+            const mine = (row.getAttribute('data-bump') || 'collection') === (tdr ? 'tendril' : 'collection');
+            row.hidden = !(mine && avail);
+            row.classList.toggle('on', mine && on);
+            if (!mine) return;
+            // Tendril's row carries both of its states in the markup, translated: only the price
+            // and the pressed state are the script's.
+            if (tdr) {
+                row.querySelectorAll('.addon-p').forEach(function (p) { p.textContent = '+' + money; });
+                const tb = row.querySelector('.addon-btn');
+                if (tb) tb.setAttribute('aria-pressed', on ? 'true' : 'false');
+                return;
+            }
 
             // The whole row states the selection, not just the button. A shopper
             // glancing back at the plate should not have to read a small control to
@@ -4571,7 +4800,7 @@ function openBuy() { toggleBuyModal(); }
         // What the price buys, named rather than implied.
         document.querySelectorAll('.sd-what').forEach(function (el) {
             el.textContent = on
-                ? 'Stride VST + StrideBridge + Experimental Collection'
+                ? 'Stride VST + StrideBridge + ' + (tdr ? 'Tendril' : 'Experimental Collection')
                 : 'Stride VST + StrideBridge';
         });
 
@@ -4607,8 +4836,8 @@ function openBuy() { toggleBuyModal(); }
                 ? el.dataset.baseHtml
                     .replace(/<span class="(?:m|sd)-cta-price">[\s\S]*?<\/span>/g, '')
                     .replace(ctaPrice, '')
-                    .replace(/GET STRIDE/g, 'GET STRIDE + COLLECTION')
-                    .replace(/Get Stride/g, 'Get Stride + Collection')
+                    .replace(/GET STRIDE/g, 'GET STRIDE + ' + bumpName.toUpperCase())
+                    .replace(/Get Stride/g, 'Get Stride + ' + bumpName)
                 // Off, but still re-priced. Restoring the raw markup here would put a
                 // dollar price back on every CTA while the pricing panel shows the
                 // visitor's own currency. With no Paddle currency loaded, strideMoney
@@ -4625,7 +4854,7 @@ function openBuy() { toggleBuyModal(); }
             el.innerHTML = on
                 ? el.dataset.baseHtml.replace(was, total)
                     // the section heading brands the word: Get <span>Stride</span> for $99
-                    .replace(/Stride<\/span>/g, 'Stride + Collection<\/span>')
+                    .replace(/Stride<\/span>/g, 'Stride + ' + bumpName + '<\/span>')
                 : el.dataset.baseHtml.replace(was, total);
         });
 
@@ -4669,7 +4898,9 @@ function openBuy() { toggleBuyModal(); }
         var stride = amounts[PADDLE_PRICE_STRIDE];
         if (!stride) return null;
         var coll = amounts[PADDLE_PRICE_COLLECTION];
-        return { currency: cur, stride: stride, collection: coll == null ? null : coll };
+        var tendril = amounts[PADDLE_PRICE_TENDRIL];
+        return { currency: cur, stride: stride, collection: coll == null ? null : coll,
+                 tendril: tendril == null ? null : tendril };
     }
 
     function stridePricePreview(discountId) {
@@ -4677,6 +4908,17 @@ function openBuy() { toggleBuyModal(); }
                              { priceId: PADDLE_PRICE_COLLECTION, quantity: 1 }] };
         if (discountId) body.discountId = discountId;
         return Paddle.PricePreview(body).then(strideReadPreview);
+    }
+
+    // Tendril's price for the order bump test, asked SEPARATELY and beside Stride: beside Stride
+    // so it comes back in the currency Stride's does, separately so a Tendril answer that fails
+    // can never take the Stride and Collection prices down with it. A code limited to Stride (the
+    // Early Black Friday ones) leaves Tendril at its own price, as the checkout will.
+    function strideTendrilPreview(discountId) {
+        var body = { items: [{ priceId: PADDLE_PRICE_STRIDE, quantity: 1 },
+                             { priceId: PADDLE_PRICE_TENDRIL, quantity: 1 }] };
+        if (discountId) body.discountId = discountId;
+        return Paddle.PricePreview(body).then(strideReadPreview).catch(function () { return null; });
     }
 
     let strideLocalizeGen = 0;
@@ -4698,13 +4940,21 @@ function openBuy() { toggleBuyModal(); }
             // from the discounted one it would read 0.8 for a US visitor and quietly redraw
             // the Collection's struck 35 as 28. list is what Paddle charges without the code,
             // charged is what it charges with it; the page prints charged.
+            var tdr = strideBumpArm() === 'tendril';
             Promise.all([stridePricePreview(''),
-                         strideCodeId ? stridePricePreview(strideCodeId) : null])
+                         strideCodeId ? stridePricePreview(strideCodeId) : null,
+                         tdr ? strideTendrilPreview('') : null,
+                         tdr && strideCodeId ? strideTendrilPreview(strideCodeId) : null])
                 .then(function (both) {
                     if (gen !== strideLocalizeGen) return;
                     var list = both[0];
                     var charged = both[1] || list;
                     if (!list || !charged) return;
+                    // Tendril's own answers, used only in the currency this page prints.
+                    var tl = both[2], tc = both[3] || both[2];
+                    strideTendril = (tl && tc && tl.tendril != null && tc.tendril != null
+                                     && tl.currency === list.currency && tc.currency === charged.currency)
+                        ? { list: tl.tendril, charged: tc.tendril } : null;
                     strideList = list;
                     var cur = charged.currency;
                     // Dollars at the list price is what the page already prints.
@@ -4798,6 +5048,15 @@ function openBuy() { toggleBuyModal(); }
                 if (_paid > 0 && ev.data.currency_code) {
                     sessionStorage.setItem('stride_checkout_value', JSON.stringify({ value: _paid, currency: String(ev.data.currency_code) }));
                 }
+                // Tendril paid in this checkout (the order bump test): /tendril/ reads this and hands
+                // the buyer on to the Collection's offer, whichever address Paddle sent them to. The
+                // paid items decide; the page's own toggle only when Paddle gave no items.
+                var _it = ev.data.items;
+                var _tdrPaid = Array.isArray(_it)
+                    ? _it.some(function (i) { return i && (i.price_id === PADDLE_PRICE_TENDRIL || ((i.price || {}).id === PADDLE_PRICE_TENDRIL)); })
+                    : strideBumpIn() === 'tendril';
+                if (_tdrPaid) sessionStorage.setItem('stride_bump_tendril', String(ev.data.transaction_id));
+                else sessionStorage.removeItem('stride_bump_tendril');
             }
         } catch (e) {}
         // Paying, or paid, in any checkout on the page, the wallet included: a buyer, so the
@@ -4962,6 +5221,7 @@ function openBuy() { toggleBuyModal(); }
                 if (email) custom.email = email;
                 var _ref = window.strideReferral ? window.strideReferral() : '';
                 if (_ref) custom.affonso_referral = _ref;
+                custom.bump_arm = strideBumpArm();      // the order bump test, as on the wallet
 
                 // The express button holds an INLINE checkout instance, and Paddle
                 // allows only one at a time. Without this close, every buyer who
@@ -4985,7 +5245,7 @@ function openBuy() { toggleBuyModal(); }
                         // page even with the email already filled in.
                         variant: 'one-page',
                         theme: 'dark',
-                        successUrl: PADDLE_SUCCESS_URL
+                        successUrl: strideSuccessUrl()
                     }
                 });
                 strideBuyModalAside(); // only after open() did not throw
@@ -5182,6 +5442,8 @@ function openBuy() { toggleBuyModal(); }
                 // Whether the banner asks this visitor at all, so the server can tell an
                 // unanswered European from somebody who was never asked (main.py _meta_level).
                 consent_region: (window.strideConsentRegion ? window.strideConsentRegion() : ''),
+                // The order bump test: which bump this checkout was offered, and whether it is in.
+                bump_arm: strideBumpArm(), bump: strideBumpIn(),
                 terms_accepted: termsAccepted,
             })
         }).catch(() => {});
