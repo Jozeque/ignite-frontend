@@ -1321,6 +1321,21 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .sd-price-box.hero-price-line .seal2.sd-save.bf-ticket svg{position:absolute;left:50%;top:50%;width:118px;
       transform:translate(-50%,-50%) rotate(-8deg)}
   }
+  /* The same ticket pinned to the corner of a buy button with no price box beside it, and the ordinary
+     price struck before the button's own (2026-10-26). The hero's and the pricing card's buttons sit
+     beside boxes that show both already (data-bf-beside-price). */
+  .btn-copper.bf-pinned{position:relative}
+  .bf-pin{position:absolute;top:-30px;right:-18px;width:66px;pointer-events:none;transform:rotate(9deg);
+    filter:drop-shadow(0 6px 8px rgba(0,0,0,.45)) drop-shadow(0 1px 2px rgba(0,0,0,.35))}
+  .bf-pin svg{display:block;width:100%;height:auto;overflow:visible}
+  #m-cta-buy .bf-pin{top:-27px;right:4px;width:56px}
+  .sd-cta-was{text-decoration:line-through;text-decoration-thickness:2px;opacity:.6;margin-right:.2em}
+  /* With the struck price in it a button stays one line: the wide-tracked section buttons take less
+     tracking and side padding on a phone rather than breaking into two rows. */
+  .btn-copper.bf-pinned{white-space:nowrap}
+  @media (max-width: 640px){
+    .btn-copper.bf-pinned.tracking-widest{letter-spacing:.04em;padding-left:1.25rem;padding-right:1.25rem}
+  }
   /* The code, said out loud. Somebody who clicked an ad or a creator's link should see that
      the thing it promised actually landed, rather than having to know what the price would
      have been. A line of type on its own above the price, not a badge in the price row: a
@@ -2356,7 +2371,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
         </div>
         <div class="flex flex-wrap items-center gap-2.5 hero-cta">
-          <a onclick="openBuy()" class="btn-copper text-[15px] py-3 px-6 rounded-xl">STRIDE KAUFEN<span class="sd-cta-price"> &middot; $99</span>  <span>&rarr;</span></a>
+          <a onclick="openBuy()" class="btn-copper text-[15px] py-3 px-6 rounded-xl" data-bf-beside-price>STRIDE KAUFEN<span class="sd-cta-price"> &middot; $99</span>  <span>&rarr;</span></a>
           <!-- Apple Pay / Google Pay, one tap, no form, between the two buttons.
                This is the page's ONLY express checkout: Paddle allows a single
                checkout instance, and a second inline mount silently destroys the
@@ -3516,7 +3531,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               </button>
             </div>
           </div>
-          <a onclick="openBuy()" class="btn-copper w-full justify-center text-base py-3.5 rounded-2xl">Stride kaufen<span class="sd-cta-price"> · $99</span> </a>
+          <a onclick="openBuy()" class="btn-copper w-full justify-center text-base py-3.5 rounded-2xl" data-bf-beside-price>Stride kaufen<span class="sd-cta-price"> · $99</span> </a>
 
 <a href="/try/" class="btn-ghost w-full justify-center text-sm py-3 rounded-2xl mt-2.5">24 Stunden gratis erkunden</a>
           <p class="text-[11px] ink3 mt-3">VST3 + AU + Max for Live · nicht Pro Tools (AAX)</p>
@@ -4669,6 +4684,10 @@ function openBuy() { toggleBuyModal(); }
             + '<text x="180" y="203" text-anchor="middle" font-family="' + face + '" font-weight="900" font-size="112" fill="' + ink + '" letter-spacing="-3">30%</text>'
             + '</svg>';
     }
+    // The ticket pinned to a buy button's corner (.bf-pin).
+    function strideTicketPin() {
+        return '<span class="bf-pin" aria-hidden="true">' + strideTicketSvg() + '</span>';
+    }
 
     // The Collection's own price in that currency, Paddle's where we have it.
     function strideCollectionPrice() {
@@ -4960,8 +4979,16 @@ function openBuy() { toggleBuyModal(); }
         //
         // data-plain-cta opts an element out. Only the nav bar's button carries it: that
         // one states no price, and at 11px in a fixed bar the longer word does not fit.
+        //
+        // Early Black Friday (Yossi 2026-10-26: "every CTA button with a price gets the Black Friday
+        // badge with the old price struck"): while the seal is the ticket, a button with no price box
+        // beside it gets the ticket pinned to its corner and the ordinary price struck before its own.
+        // data-bf-beside-price marks the hero's and the pricing card's, whose boxes show both already.
+        const struck = ticket ? '<s class="sd-cta-was">' + strideMoneyExact(full) + '</s> ' : '';
         document.querySelectorAll('a[onclick*="openBuy"]:not([data-plain-cta])').forEach(function (el) {
             if (!el.dataset.baseHtml) el.dataset.baseHtml = el.innerHTML;
+            const pin = ticket && !el.hasAttribute('data-bf-beside-price');
+            el.classList.toggle('bf-pinned', pin);
             el.innerHTML = on
                 ? el.dataset.baseHtml
                     .replace(/<span class="(?:m|sd)-cta-price">[\s\S]*?<\/span>/g, '')
@@ -4973,7 +5000,7 @@ function openBuy() { toggleBuyModal(); }
                 // visitor's own currency. With no Paddle currency loaded, strideMoney
                 // returns the same dollars it always did, so this is a no-op for
                 // Lemon Squeezy.
-                : el.dataset.baseHtml.replace(was, total);
+                : el.dataset.baseHtml.replace(was, (pin ? struck : '') + total) + (pin ? strideTicketPin() : '');
         });
 
         // Prose that states the order in words. Unlike the buttons it KEEPS the number:
