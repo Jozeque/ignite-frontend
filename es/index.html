@@ -26,25 +26,6 @@
       } catch (e) {}
     })();
     </script>
-    <script>
-    // Early Black Friday for everyone, on every page (Yossi 2026-10-26: "a general Black Friday code
-    // baked into the hero and the checkout, no email wall and no popup, so nobody misses it", then
-    // "on all the pages: the landing simply is Black Friday"). Every visit gets EARLYBF30 (30% off
-    // Stride, Paddle dsc_01m5wt7ben1x97t6qv0chz08kf, ends with Cyber Monday) on the page at once.
-    // window.STRIDE_BF names it for the price hold below, strideReadCode (the price, the Black Friday
-    // ticket beside it, the code line above it, the checkout and the wallet) and the Early Black
-    // Friday popup, which then neither opens nor pins. The address is left as it came, so every tag
-    // records the visit as before. REKZ and SCIONAUGH20 on a link give 20% and yield to it; a personal
-    // code from a mail wins only if it gives at least as much (strideResolvePersonalCode); the gift
-    // checkout is its own offer. The React pages read NAME and END from this line at build time
-    // (src/lib/paddle-config.ts). Tests switch it off by serving END = 0.
-    (function () {
-      var NAME = 'earlybf30', END = Date.parse('2026-12-01T08:00:00Z');   // midnight after Cyber Monday, US Pacific
-      try {
-        if (Date.now() < END && !window.STRIDE_GIFT) window.STRIDE_BF = NAME;
-      } catch (e) {}
-    })();
-    </script>
     <!-- The price hold (2026-10-22, the script below). Paddle's script, then the price it
          quotes this visitor: both connections are opened here, so that price lands sooner. -->
     <link rel="preconnect" href="https://cdn.paddle.com">
@@ -88,10 +69,9 @@
                   'America/Yakutat', 'America/Nome', 'America/Adak', 'America/Indianapolis',
                   'America/Louisville', 'America/Fort_Wayne', 'America/Knox_IN', 'Pacific/Honolulu'];
         var us = US.indexOf(tz) > -1 || /^(America.(Kentucky|Indiana|North_Dakota).|US.)/.test(tz);
-        // A code moves the price in dollars too: one on the address, the Early Black Friday code
-        // every visit gets (the script above), or an Early Black Friday code this browser claimed
-        // (that panel's own record, KEY in its script).
-        var code = /[?&]code=[^&#]/.test(location.search) || !!window.STRIDE_BF;
+        // A code moves the price in dollars too: one on the address, or an Early Black Friday
+        // code this browser claimed (that panel's own record, KEY in its script).
+        var code = /[?&]code=[^&#]/.test(location.search);
         if (!code) {
           try {
             var bf = JSON.parse(localStorage.getItem('stride_bf') || 'null');
@@ -1308,10 +1288,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     text-transform:uppercase;color:#1c1206;background:linear-gradient(180deg,var(--ember),var(--copper));
     border-radius:6px;padding:4px 8px;border:1px solid rgba(255,210,150,.28);
     box-shadow:0 1px 0 rgba(255,255,255,.26) inset,0 8px 16px -11px rgba(198,113,43,.9)}
-  /* The Black Friday ticket of the ads in the seal's place (Early Black Friday, 2026-10-26). Its box is
-     the ticket, so wherever the price row wraps it takes a line of its own and covers nothing. In the
-     desktop hero bar, whose price row never wraps, the box keeps a seal's size instead, so the bar keeps
-     its height and its column widths, and the ticket hangs over it. */
+  /* The Black Friday ticket of the ads in the hero seal's place, once the visitor has left their email
+     for their own 30% code (Early Black Friday, 2026-10-27). Its box is the ticket, so wherever the
+     price row wraps it takes a line of its own and covers nothing. In the desktop hero bar, whose price
+     row never wraps, the box keeps a seal's size instead, so the bar keeps its height and its column
+     widths, and the ticket hangs over it. */
   .sd-price-box .seal2.sd-save.bf-ticket{position:relative;width:100px;height:66px;padding:0;background:none;
     border:0;box-shadow:none;transform:none;vertical-align:middle;flex:none}
   .sd-price-box .seal2.sd-save.bf-ticket svg{display:block;width:100%;height:auto;overflow:visible;pointer-events:none;
@@ -1320,21 +1301,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .sd-price-box.hero-price-line .seal2.sd-save.bf-ticket{width:104px;height:26px}
     .sd-price-box.hero-price-line .seal2.sd-save.bf-ticket svg{position:absolute;left:50%;top:50%;width:118px;
       transform:translate(-50%,-50%) rotate(-8deg)}
-  }
-  /* The same ticket pinned to the corner of a buy button with no price box beside it, and the ordinary
-     price struck before the button's own (2026-10-26). The hero's and the pricing card's buttons sit
-     beside boxes that show both already (data-bf-beside-price). */
-  .btn-copper.bf-pinned{position:relative}
-  .bf-pin{position:absolute;top:-30px;right:-18px;width:66px;pointer-events:none;transform:rotate(9deg);
-    filter:drop-shadow(0 6px 8px rgba(0,0,0,.45)) drop-shadow(0 1px 2px rgba(0,0,0,.35))}
-  .bf-pin svg{display:block;width:100%;height:auto;overflow:visible}
-  #m-cta-buy .bf-pin{top:-27px;right:4px;width:56px}
-  .sd-cta-was{text-decoration:line-through;text-decoration-thickness:2px;opacity:.6;margin-right:.2em}
-  /* With the struck price in it a button stays one line: the wide-tracked section buttons take less
-     tracking and side padding on a phone rather than breaking into two rows. */
-  .btn-copper.bf-pinned{white-space:nowrap}
-  @media (max-width: 640px){
-    .btn-copper.bf-pinned.tracking-widest{letter-spacing:.04em;padding-left:1.25rem;padding-right:1.25rem}
   }
   /* The code, said out loud. Somebody who clicked an ad or a creator's link should see that
      the thing it promised actually landed, rather than having to know what the price would
@@ -2371,7 +2337,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
         </div>
         <div class="flex flex-wrap items-center gap-2.5 hero-cta">
-          <a onclick="openBuy()" class="btn-copper text-[15px] py-3 px-6 rounded-xl" data-bf-beside-price>COMPRAR STRIDE<span class="sd-cta-price"> &middot; $99</span>  <span>&rarr;</span></a>
+          <a onclick="openBuy()" class="btn-copper text-[15px] py-3 px-6 rounded-xl">COMPRAR STRIDE<span class="sd-cta-price"> &middot; $99</span>  <span>&rarr;</span></a>
           <!-- Apple Pay / Google Pay, one tap, no form, between the two buttons.
                This is the page's ONLY express checkout: Paddle allows a single
                checkout instance, and a second inline mount silently destroys the
@@ -3531,7 +3497,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               </button>
             </div>
           </div>
-          <a onclick="openBuy()" class="btn-copper w-full justify-center text-base py-3.5 rounded-2xl" data-bf-beside-price>Comprar Stride<span class="sd-cta-price"> · $99</span> </a>
+          <a onclick="openBuy()" class="btn-copper w-full justify-center text-base py-3.5 rounded-2xl">Comprar Stride<span class="sd-cta-price"> · $99</span> </a>
 
 <a href="/try/" class="btn-ghost w-full justify-center text-sm py-3 rounded-2xl mt-2.5">Explora gratis 24 h</a>
           <p class="text-[11px] ink3 mt-3">VST3 + AU + Max for Live · no Pro Tools (AAX)</p>
@@ -4360,13 +4326,10 @@ function openBuy() { toggleBuyModal(); }
     // discount would be refused outside its own currency (see sesh1o1 in the backend).
     // scionaugh20: the Scionaugh artist collab (2026-09-30), 20% off Stride for his followers,
     // set up in Paddle exactly like REKZ. No affiliate link and no commission on it.
-    // earlybf30: the general Early Black Friday code (2026-10-26), 30% off Stride only (restrict_to
-    // the Stride price), no usage cap, ends 2026-12-01 08:00 UTC. Every visit gets it (STRIDE_BF, the
-    // second script in <head>); typed at checkout it works too.
-    const STRIDE_CODES = { rekz: 'dsc_01m2fxadt3hs2myt4k203tpj2t', scionaugh20: 'dsc_01m3rckwadf19e15b3pmvfjrtq', earlybf30: 'dsc_01m5wt7ben1x97t6qv0chz08kf' };
+    const STRIDE_CODES = { rekz: 'dsc_01m2fxadt3hs2myt4k203tpj2t', scionaugh20: 'dsc_01m3rckwadf19e15b3pmvfjrtq' };
     // Early Black Friday is the page's one deal (Yossi 2026-10-21): an ad's REKZ is neither applied
-    // from its link nor inferred from the click; since 2026-10-26 every visitor has EARLYBF30 on the
-    // page instead. REKZ stays valid in Paddle. To bring it back: false.
+    // from its link nor inferred from the click, so every visitor sees the ordinary price until they
+    // claim their 30% code in the popup. REKZ stays valid in Paddle. To bring it back: false.
     const STRIDE_REKZ_PAUSED = true;
     // FRIEND20: somebody sent by a Stride owner's own referral link (?via=, stridePartnerLink
     // in <head>) gets 20% off Stride, what the ads give, and the owner earns 15% of the sale
@@ -4434,6 +4397,14 @@ function openBuy() { toggleBuyModal(); }
     // True while the code on the page is the friend's FRIEND20, which a partner's own code
     // (Affonso, below) may replace; any other code stands.
     let strideCodeIsFriend = false;
+    // An Early Black Friday code in either shape: EARLYBLACK30 + the name from the email, or the
+    // earlier BLACKSTRIDE + 4 characters. The popup below keeps its own copy (CODE_RE), so it never
+    // depends on this script having run.
+    const STRIDE_BF_CODE_RE = /^(earlyblack30[a-z0-9]{3,20}|blackstride[a-z0-9]{4})$/i;
+    // The discount of this visitor's own Early Black Friday code, once they have left their email
+    // for it: the popup's claim, a later visit, or the code mail's link. While it is the page's
+    // code, the hero's seal is the Black Friday ticket of the ads (strideSyncAddon).
+    let strideBfDid = null;
     // The price hold (top of <head>) lifts once the printed prices are final: Paddle has priced
     // the page, or never will (no Paddle on the page, a failed preview), and no personal code
     // is still on its way back from the backend.
@@ -4471,11 +4442,6 @@ function openBuy() { toggleBuyModal(); }
         // While REKZ is paused the visit is priced as if its link carried no code, and nothing is
         // inferred (the only code ever inferred is REKZ).
         if (STRIDE_REKZ_PAUSED && name === 'rekz') name = '';
-        // Early Black Friday (the second script in <head>): EARLYBF30 is every visit's code. A code
-        // of STRIDE_CODES on the link (REKZ, SCIONAUGH20: 20% each) gives less and yields to it; a
-        // personal code from a mail is asked about below and wins only if it gives at least as much.
-        var bfCode = window.STRIDE_BF || '';
-        if (bfCode && (!name || STRIDE_CODES[name])) name = bfCode;
         // Nothing in the URL: this may still be one of the ads that promised the
         // discount and could not carry it. Inferring it writes the code onto the URL, so
         // everything downstream — the seal, the price, the checkout, GA4, the funnel
@@ -4493,7 +4459,7 @@ function openBuy() { toggleBuyModal(); }
                 } catch (e) {}
             }
         }
-        // No code on the link (and no Black Friday), but a Stride owner sent this visitor: the friend's 20%.
+        // No code on the link, but a Stride owner sent this visitor: the friend's 20%.
         if (!name && STRIDE_FRIEND_CODE.id && window.stridePartnerLink && window.stridePartnerLink()) {
             strideCodeId = STRIDE_FRIEND_CODE.id;
             strideCodeIsFriend = true;
@@ -4501,30 +4467,19 @@ function openBuy() { toggleBuyModal(); }
             try { strideSealShow(STRIDE_FRIEND_CODE.name); } catch (e) {}
             return;
         }
-        function use(n) {
-            strideCodeId = STRIDE_CODES[n];
-            // Read by the 30-second demo prompt at the end of the body, which stays shut for
-            // anyone holding a discount: this visitor was brought here to buy at 20% off, and
-            // offering them a free demo instead competes with the click that was paid for.
-            window.STRIDE_CODE_ACTIVE = true;
-            // Say so in the hero. The price already moved, but only somebody who knew the
-            // ordinary price could tell, which is no use to the person the ad was aimed at.
-            // The code is printed as they typed it into the ad, uppercased.
-            try { strideSealShow(n.toUpperCase()); } catch (e) {}
-            // Clarity's tag for the visit says which code it carried; the Black Friday code is not on
-            // the address, so it is told here.
-            if (n === bfCode) { try { if (window.strideClarity) window.strideClarity('', { code: n }); } catch (e) {} }
-        }
         if (!name) return;
         // Not one of ours: maybe a personal code from one of Joe's mails, which only the
-        // backend knows. Asked after this runs; until it answers this is the ordinary page, or
-        // the Black Friday one while EARLYBF30 runs.
-        if (!STRIDE_CODES[name]) {
-            if (bfCode) use(bfCode);
-            strideResolvePersonalCode(name);
-            return;
-        }
-        use(name);
+        // backend knows. Asked after this runs; until it answers this is the ordinary page.
+        if (!STRIDE_CODES[name]) { strideResolvePersonalCode(name); return; }
+        strideCodeId = STRIDE_CODES[name];
+        // Read by the 30-second demo prompt at the end of the body, which stays shut for
+        // anyone holding a discount: this visitor was brought here to buy at 20% off, and
+        // offering them a free demo instead competes with the click that was paid for.
+        window.STRIDE_CODE_ACTIVE = true;
+        // Say so in the hero. The price already moved, but only somebody who knew the
+        // ordinary price could tell, which is no use to the person the ad was aimed at.
+        // The code is printed as they typed it into the ad, uppercased.
+        try { strideSealShow(name.toUpperCase()); } catch (e) {}
     })();
 
     // ?checkout=1 beside a code (the Early Black Friday mails, 2026-10-15): the checkout opens by
@@ -4545,9 +4500,7 @@ function openBuy() { toggleBuyModal(); }
         if (!want) return;
         var tries = 0;
         (function wait() {
-            // Not before a personal code has had its answer: until then the page may hold EARLYBF30,
-            // which the personal code is about to replace.
-            if (window.STRIDE_CODE_ACTIVE && strideCodeId && !strideCodePending && stridePaddleReady()) { strideCheckoutDirect(''); return; }
+            if (window.STRIDE_CODE_ACTIVE && strideCodeId && stridePaddleReady()) { strideCheckoutDirect(''); return; }
             if (++tries < 60) setTimeout(wait, 250);       // the code's answer and Paddle, 15 s at most
         })();
     })();
@@ -4573,11 +4526,9 @@ function openBuy() { toggleBuyModal(); }
                 strideCodePending = false;
                 var ends = Number(d && d.expires_at_ms);
                 if (!d || !d.ok || !d.discount_id || !(ends > Date.now())) { strideHoldDone(); return; }
-                // While EARLYBF30 is the page's code (Early Black Friday, 2026-10-26), a personal code
-                // takes its place only if it gives at least its 30%: a 20% one from an older mail would
-                // charge this person more than everybody else.
-                if (window.STRIDE_BF && !(Number(d.percent) >= 30)) { strideHoldDone(); return; }
                 strideCodeId = d.discount_id;
+                // The code mail's link to an Early Black Friday code: the hero's seal is the ticket.
+                if (STRIDE_BF_CODE_RE.test(name)) strideBfDid = d.discount_id;
                 window.STRIDE_CODE_ACTIVE = true;
                 strideLocalizePrices();
                 strideSyncExpressItems();
@@ -4665,7 +4616,7 @@ function openBuy() { toggleBuyModal(); }
     }
     // The Black Friday ticket of the ads (BLACK FRIDAY / SALE / 30%, the Google Ads posters and the
     // 2026-10-26 videos), drawn rather than written, so it reads as it does in the ads on every
-    // homepage. Each one gets its own gradient id: there are two price boxes on the page.
+    // homepage. Each one drawn gets its own gradient id.
     let strideTicketCount = 0;
     function strideTicketSvg() {
         const g = 'bftg' + (++strideTicketCount);
@@ -4683,10 +4634,6 @@ function openBuy() { toggleBuyModal(); }
             + '<line x1="220" y1="97" x2="268" y2="97" stroke="' + ink + '" stroke-width="3.4" stroke-linecap="round"/>'
             + '<text x="180" y="203" text-anchor="middle" font-family="' + face + '" font-weight="900" font-size="112" fill="' + ink + '" letter-spacing="-3">30%</text>'
             + '</svg>';
-    }
-    // The ticket pinned to a buy button's corner (.bf-pin).
-    function strideTicketPin() {
-        return '<span class="bf-pin" aria-hidden="true">' + strideTicketSvg() + '</span>';
     }
 
     // The Collection's own price in that currency, Paddle's where we have it.
@@ -4917,17 +4864,18 @@ function openBuy() { toggleBuyModal(); }
         const full = strideOrderFull();
         const saved = full - strideOrderTotal();
         const showSave = !!strideCodeId && saved >= 0.5;
-        // While EARLYBF30 is the code on the page and Stride is the whole order, the seal is the Black
-        // Friday ticket of the ads (Yossi 2026-10-26) rather than "Save X": the struck price beside it
-        // is the ordinary one and the code takes exactly 30% off it. With an add-on in the order the
-        // struck total is no longer 30% off, so the seal says what is saved, as before.
-        const ticket = showSave && !on && !!window.STRIDE_BF && strideCodeId === STRIDE_CODES[window.STRIDE_BF];
+        // Early Black Friday (Yossi 2026-10-27: "once they leave their details, the Black Friday badge
+        // can stay in the hero"): while the visitor's own 30% code is the page's code and Stride is the
+        // whole order, the hero's seal is the Black Friday ticket of the ads rather than "Save X". The
+        // struck price beside it is the ordinary one and the code takes exactly 30% off it. With an
+        // add-on in the order the struck total is no longer 30% off, so the seal says what is saved.
+        const ticket = showSave && !on && !!strideBfDid && strideCodeId === strideBfDid;
         document.querySelectorAll('.sd-price-box').forEach(function (box) {
             const was = box.querySelector('.sd-was');
             const seal = box.querySelector('.sd-save');
             if (was) { was.textContent = showSave ? strideMoneyExact(full) : ''; was.style.display = showSave ? '' : 'none'; }
             if (seal) {
-                if (ticket) {
+                if (ticket && box.classList.contains('hero-price-line')) {
                     if (!seal.classList.contains('bf-ticket')) {
                         seal.classList.add('bf-ticket');
                         seal.innerHTML = strideTicketSvg();
@@ -4979,16 +4927,8 @@ function openBuy() { toggleBuyModal(); }
         //
         // data-plain-cta opts an element out. Only the nav bar's button carries it: that
         // one states no price, and at 11px in a fixed bar the longer word does not fit.
-        //
-        // Early Black Friday (Yossi 2026-10-26: "every CTA button with a price gets the Black Friday
-        // badge with the old price struck"): while the seal is the ticket, a button with no price box
-        // beside it gets the ticket pinned to its corner and the ordinary price struck before its own.
-        // data-bf-beside-price marks the hero's and the pricing card's, whose boxes show both already.
-        const struck = ticket ? '<s class="sd-cta-was">' + strideMoneyExact(full) + '</s> ' : '';
         document.querySelectorAll('a[onclick*="openBuy"]:not([data-plain-cta])').forEach(function (el) {
             if (!el.dataset.baseHtml) el.dataset.baseHtml = el.innerHTML;
-            const pin = ticket && !el.hasAttribute('data-bf-beside-price');
-            el.classList.toggle('bf-pinned', pin);
             el.innerHTML = on
                 ? el.dataset.baseHtml
                     .replace(/<span class="(?:m|sd)-cta-price">[\s\S]*?<\/span>/g, '')
@@ -5000,7 +4940,7 @@ function openBuy() { toggleBuyModal(); }
                 // visitor's own currency. With no Paddle currency loaded, strideMoney
                 // returns the same dollars it always did, so this is a no-op for
                 // Lemon Squeezy.
-                : el.dataset.baseHtml.replace(was, (pin ? struck : '') + total) + (pin ? strideTicketPin() : '');
+                : el.dataset.baseHtml.replace(was, total);
         });
 
         // Prose that states the order in words. Unlike the buttons it KEEPS the number:
@@ -6278,6 +6218,8 @@ function openBuy() { toggleBuyModal(); }
     // checkout takes ONE discount, so this replaces REKZ or any other code, never adds to it.
     function apply() {
         try { strideCodeId = st.did; } catch (e) {}
+        // Their email is in: the hero's seal is the Black Friday ticket (strideSyncAddon).
+        try { strideBfDid = st.did; } catch (e) {}
         try { strideCodeIsFriend = false; } catch (e) {}
         window.STRIDE_CODE_ACTIVE = true;
         try { strideLocalizePrices(); } catch (e) {}
@@ -6464,10 +6406,6 @@ function openBuy() { toggleBuyModal(); }
     }
 
     // ── on arrival ────────────────────────────────────────────────────────────
-    // While EARLYBF30 runs, every visit has the general Early Black Friday code on the page already
-    // (STRIDE_BF, the second script in <head>), so there is nothing to ask for and nothing to pin,
-    // and no first sight is written down.
-    if (window.STRIDE_BF) return;
     var urlCode = '';
     try { urlCode = (new URL(window.location.href).searchParams.get('code') || '').toLowerCase(); } catch (e) {}
     if (CODE_RE.test(urlCode)) {
