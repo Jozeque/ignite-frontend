@@ -999,8 +999,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   // that ran the checkout, 2026-10-28): under that checkout's event id, the id the server reports
   // it under, and at the money the server reports. Never on an event id alone: one is stored when
   // a checkout OPENS, so an abandoned checkout would read as a purchase that never happened.
-  // GA4 records the completed transaction (or the URL's order). Dedup is a FLAG, not a delete:
-  // stride_last_txn has to survive, because the offer below is resolved from it.
+  // GA4 records the same sale from the same record, at the whole checkout as Paddle charged it:
+  // never an order in the address or a stored transaction alone, neither proves a payment.
+  // Dedup is a FLAG, not a delete: stride_last_txn has to survive, because the offer below is
+  // resolved from it.
   (function firePurchase() {
     try {
       var params = new URLSearchParams(window.location.search);
@@ -1008,9 +1010,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
       var sale = null;
       try { sale = JSON.parse(ss('stride_paid') || 'null'); } catch (e) {}
-      if (sale && sale.txn && sale.eid && Number(sale.value) > 0 && sale.currency
-          && Date.now() - Number(sale.ts || 0) < 6 * 3600 * 1000
-          && (!order || order === sale.txn) && ss('stride_pixel_purchase_fired') !== String(sale.txn)) {
+      // This tab's own sale: recorded in the last 6 hours, and the one the address names, if any.
+      var mine = !!(sale && sale.txn && sale.currency && Date.now() - Number(sale.ts || 0) < 6 * 3600 * 1000
+                    && (!order || order === sale.txn));
+      if (mine && sale.eid && Number(sale.value) > 0 && ss('stride_pixel_purchase_fired') !== String(sale.txn)) {
         var purchaseData = { value: Number(sale.value), currency: String(sale.currency),
                              content_name: 'Stride Sound Design Engine', content_type: 'product',
                              content_ids: [String(sale.txn)] };
@@ -1022,20 +1025,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         try { sessionStorage.removeItem('stride_pixel_event_id'); } catch (e) {}
       }
 
-      var txnId = order || ss('stride_last_txn');
-      if (!txnId || ss('stride_purchase_tracked') === txnId) return;
-
-      var paid = {};
-      try { paid = JSON.parse(ss('stride_checkout_value') || '{}') || {}; } catch (e) {}
+      var ga = mine ? Number(sale.total || sale.value) : 0;
+      if (!(ga > 0) || ss('stride_purchase_tracked') === String(sale.txn)) return;
 
       if (window.StrideTrack) {
         StrideTrack.push('purchase', {
-          value: Number(paid.value) > 0 ? Number(paid.value) : 99,
-          currency: paid.currency || 'USD',
-          transaction_id: txnId
+          value: ga,
+          currency: String(sale.currency),
+          transaction_id: String(sale.txn)
         });
       }
-      ssSet('stride_purchase_tracked', txnId);
+      ssSet('stride_purchase_tracked', String(sale.txn));
     } catch (e) {}
   })();
 

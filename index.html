@@ -5289,21 +5289,26 @@ function openBuy() { toggleBuyModal(); }
                     : strideBumpIn() === 'tendril';
                 if (_tdrPaid) sessionStorage.setItem('stride_bump_tendril', String(ev.data.transaction_id));
                 else sessionStorage.removeItem('stride_bump_tendril');
-                // The Meta Purchase the next page fires for this sale, bound to it (2026-10-28): Paddle's
-                // own transaction, the event id this checkout carried (the id the server reports this
-                // sale under) and the money the server reports under that id: ex-tax, and without a
-                // Tendril bump line, which the server reports as a purchase of its own. Anything
-                // missing (the wallet carries no event id) = no browser Purchase: the server's covers it.
+                // The record the next page fires this sale's purchase events from, bound to it
+                // (2026-10-28): Paddle's own transaction, the event id this checkout carried (the id the
+                // server reports this sale under), the money the server reports under that id (ex-tax,
+                // and without a Tendril bump line, which the server reports as a purchase of its own) and
+                // the whole checkout as Paddle charged it, for GA4. The Meta Purchase needs the event id
+                // and a value above 0 (the wallet carries no event id: the server's covers it). A
+                // checkout Paddle does not call completed or paid, or one worth nothing, leaves no record.
                 var _ex = function (t) { return Number((t || {}).total) - Number((t || {}).tax || 0); };
                 var _eid = String((ev.data.custom_data || {}).event_id || '');
+                var _st = String(ev.data.status || '');
+                var _tot = Math.round(Number((ev.data.totals || {}).total) * 100) / 100;
                 var _val = _ex(ev.data.totals);
                 (Array.isArray(_it) ? _it : []).forEach(function (i) {
                     if (i && (i.price_id === PADDLE_PRICE_TENDRIL || ((i.price || {}).id === PADDLE_PRICE_TENDRIL))) _val -= _ex(i.totals);
                 });
                 _val = Math.round(_val * 100) / 100;
-                if (_eid && isFinite(_val) && _val > 0 && ev.data.currency_code) {
+                if ((!_st || _st === 'completed' || _st === 'paid') && isFinite(_tot) && _tot > 0 && ev.data.currency_code) {
                     sessionStorage.setItem('stride_paid', JSON.stringify({ txn: String(ev.data.transaction_id), eid: _eid,
-                        value: _val, currency: String(ev.data.currency_code), ts: Date.now() }));
+                        value: isFinite(_val) && _val > 0 ? _val : 0, total: _tot,
+                        currency: String(ev.data.currency_code), ts: Date.now() }));
                 } else {
                     sessionStorage.removeItem('stride_paid');
                 }

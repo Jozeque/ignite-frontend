@@ -589,9 +589,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             try { paid = JSON.parse(sessionStorage.getItem('stride_paid') || 'null'); } catch (e) {}
             let fired = '';
             try { fired = sessionStorage.getItem('stride_pixel_purchase_fired') || ''; } catch (e) {}
-            if (paid && paid.txn && paid.eid && Number(paid.value) > 0 && paid.currency
-                && Date.now() - Number(paid.ts || 0) < 6 * 3600 * 1000
-                && (!order || order === paid.txn) && fired !== paid.txn) {
+            // This tab's own sale: recorded in the last 6 hours, and the one the address names, if any.
+            const mine = !!(paid && paid.txn && paid.currency && Date.now() - Number(paid.ts || 0) < 6 * 3600 * 1000
+                            && (!order || order === paid.txn));
+            if (mine && paid.eid && Number(paid.value) > 0 && fired !== paid.txn) {
                 const purchaseData = {
                     value: Number(paid.value),
                     currency: String(paid.currency),
@@ -616,27 +617,23 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
                 try { sessionStorage.removeItem('stride_pixel_event_id'); } catch (e) {}
             }
 
-            // GA4 purchase: the transaction this tab completed (or the URL's order), once per
-            // sale, since /post usually records it first. Not on an event id alone (see above).
-            // The money is what the checkout recorded in this tab; without it, the $99 floor.
-            var _txn = '';
-            try { _txn = sessionStorage.getItem('stride_last_txn') || ''; } catch (e) {}
-            var _id = order || _txn;
+            // GA4 purchase: the same record, once per sale, since /post usually records it first,
+            // at the whole checkout as Paddle charged it (2026-10-28). Never an order in the address
+            // or a stored transaction alone: neither proves a payment.
             var _tracked = '';
             try { _tracked = sessionStorage.getItem('stride_purchase_tracked') || ''; } catch (e) {}
-            if (_id && _id !== _tracked && window.StrideTrack) {
-                var _ck = {};
-                try { _ck = JSON.parse(sessionStorage.getItem('stride_checkout_value') || '{}') || {}; } catch (e) {}
+            var _ga = mine ? Number(paid.total || paid.value) : 0;
+            if (_ga > 0 && String(paid.txn) !== _tracked && window.StrideTrack) {
                 StrideTrack.push('purchase', {
-                    value: Number(_ck.value) > 0 ? Number(_ck.value) : 99,
-                    currency: _ck.currency || 'USD',
-                    transaction_id: _id
+                    value: _ga,
+                    currency: String(paid.currency),
+                    transaction_id: String(paid.txn)
                 });
-                // Dedup by FLAG, never by deleting the key. /post and the session
+                // Dedup by FLAG, never by deleting a key. /post and the session
                 // rail below both resolve the buyer's 72h offer from
                 // stride_last_txn, so removing it here would silently kill the
                 // offer for anyone who reaches this page.
-                try { sessionStorage.setItem('stride_purchase_tracked', _id); } catch (e) {}
+                try { sessionStorage.setItem('stride_purchase_tracked', String(paid.txn)); } catch (e) {}
             }
         } catch (e) {
             // Never let tracking break the page
@@ -1416,6 +1413,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               var paid = Number((data.totals || {}).total);
               if (paid > 0 && data.currency_code) {
                 ssSet('stride_checkout_value', JSON.stringify({ value: paid, currency: String(data.currency_code) }));
+              }
+              // ...through the record that tracking fires from (2026-10-28). No event id: this sale's
+              // Meta Purchase is the server's alone.
+              var st = String(data.status || '');
+              if (data.transaction_id && (!st || st === 'completed' || st === 'paid') && paid > 0 && data.currency_code) {
+                ssSet('stride_paid', JSON.stringify({ txn: String(data.transaction_id), eid: '', value: 0,
+                  total: Math.round(paid * 100) / 100, currency: String(data.currency_code), ts: Date.now() }));
+              } else {
+                sessionStorage.removeItem('stride_paid');
               }
             } catch (e) {}
             collGone("The Collection is yours. Check your inbox for the download.");
