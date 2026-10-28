@@ -514,6 +514,15 @@ const shortDate = d => `${MON[d.getUTCMonth()]} ${d.getUTCDate()}`;
 
 let PAY = null, DAYS = 0, LAST = 0, dates = [], DI = {};
 let days = [], J = [], REG = [], ADS = [], FLOWS = [], FL = {}, OFFERS = { post2: [], post: [] };
+// The buy path, one record per person, every step as day indexes: e the buy form's email, f Paddle's
+// details filled, i a payment started, b paid; w the wallet a never-paid payment began in; fm 1 when
+// a checkout came from the buy form (health.build_buyflow). STEPS: the presses per day,
+// {"cta__meta": n, ...} (health.count_step). OFFER_BUYS: orders from each page after a purchase,
+// per day, or null when Paddle did not answer.
+let BUY = [], STEPS = [], OFFER_BUYS = null;
+// Every machine's first run in the plugin, with its day index (health.build_onboarding), and per
+// person mailed, [[day index, flow index, bought after it]] (health.build_mail).
+let ONB = [], MAIL_PEOPLE = [];
 let SURVEY = { blocker: [], heard: [], other: [] };
 // One-off mailing campaigns, whole (not per day): { projects: {id: name}, list: {mail: counts} }.
 let CAMPAIGNS = { projects: {}, list: {} };
@@ -579,8 +588,15 @@ function ingest(p) {
   for (const c of p.checkouts || []) { const D = days[DI[c.d]]; if (!D) continue; D.co[c.ch] = (D.co[c.ch] || 0) + 1; D.coB[c.ch] = (D.coB[c.ch] || 0) + (c.bo || 0); }
   J = p.days.map(() => []); for (const j of p.journeys || []) { const i = DI[j.d]; if (i != null) J[i].push(j); }
   REG = p.days.map(() => []); for (const r of p.demo || []) { const i = DI[r.d]; if (i != null) REG[i].push(r); }
-  OFFERS = { post2: new Array(DAYS).fill(0), post: new Array(DAYS).fill(0) };
-  for (const k of ['post2', 'post']) for (const [d, n] of Object.entries((p.offers || {})[k] || {})) { const i = DI[d]; if (i != null) OFFERS[k][i] = n; }
+  const perDayOf = obj => { const a = new Array(DAYS).fill(0); for (const [d, n] of Object.entries(obj || {})) { const i = DI[d]; if (i != null) a[i] = n; } return a; };
+  OFFERS = {};
+  for (const k of ['post2', 'post', 'tendril', 'post2_co', 'post_co', 'tendril_co']) OFFERS[k] = perDayOf((p.offers || {})[k]);
+  OFFER_BUYS = p.offer_buys ? Object.fromEntries(['post2_buy', 'post_buy', 'tendril_buy'].map(k => [k, perDayOf(p.offer_buys[k])])) : null;
+  const ix = list => (list || []).map(d => DI[d]).filter(i => i != null);
+  BUY = (p.buyflow || []).map(r => ({ ch: r.ch || 'direct', fm: r.fm || 0, w: r.w || '', e: ix(r.e), f: ix(r.f), i: ix(r.i), b: ix(r.b) }));
+  STEPS = p.days.map(d => (p.steps || {})[d] || null);
+  ONB = (p.onboarding || []).map(r => ({ ...r, i: DI[r.d] })).filter(r => r.i != null);
+  MAIL_PEOPLE = (p.mail && p.mail.people) || [];
   // The two questions on /welcome, per day: {answer: n} for each, and the written "Other" answers.
   SURVEY = { blocker: Array.from({ length: DAYS }, () => ({})), heard: Array.from({ length: DAYS }, () => ({})), other: [] };
   for (const q of ['blocker', 'heard']) for (const [d, m] of Object.entries((p.survey || {})[q] || {})) { const i = DI[d]; if (i != null) SURVEY[q][i] = m || {}; }
@@ -592,11 +608,13 @@ function ingest(p) {
   for (const [d, v] of Object.entries((p.early_bf || {}).days || {})) { const i = DI[d]; if (i != null) EBF[i] = Object.fromEntries(EBF_KEYS.map(k => [k, +v[k] || 0])); }
   EBF_MATCH = (p.early_bf || {}).match || null;
   const states = (p.flows || {}).flows || {};
-  FLOWS = (p.mail.catalog || []).map(f => ({ ...f, st: states[f.id] || {}, d: Array.from({ length: DAYS }, () => ({ s: 0, tr: 0, tro: 0, dv: 0, o: 0, c: 0, b: 0, cp: 0, cv: 0, rv: 0 })) }));
+  // c1: purchases this mail was the last before (each purchase once); q: purchases within
+  // mail.at_once_min of an instant mail, shown apart and never a goal.
+  FLOWS = (p.mail.catalog || []).map(f => ({ ...f, st: states[f.id] || {}, d: Array.from({ length: DAYS }, () => ({ s: 0, tr: 0, tro: 0, dv: 0, o: 0, c: 0, b: 0, cp: 0, cv: 0, rv: 0, c1: 0, q: 0 })) }));
   FL = Object.fromEntries(FLOWS.map(f => [f.id, f]));
   for (const [fid, rows] of Object.entries(p.mail.rows || {})) {
     const f = FL[fid]; if (!f) continue;
-    for (const [d, v] of Object.entries(rows)) { const i = DI[d]; if (i == null) continue; const x = f.d[i]; [x.s, x.tr, x.tro, x.dv, x.o, x.c, x.b, x.cp, x.cv, x.rv] = v; }
+    for (const [d, v] of Object.entries(rows)) { const i = DI[d]; if (i == null) continue; const x = f.d[i]; [x.s, x.tr, x.tro, x.dv, x.o, x.c, x.b, x.cp, x.cv, x.rv] = v; x.c1 = v[10] || 0; x.q = v[11] || 0; }
   }
   S = mergeSettings(p.settings);
   F.model = S.model;
@@ -862,15 +880,34 @@ function agg(idx, ch = F.channel, model = F.model) {
   return a;
 }
 function aggMail(idx) {
-  const per = {}, T = { s: 0, tr: 0, tro: 0, dv: 0, o: 0, c: 0, b: 0, cp: 0, cv: 0, rv: 0, sGoal: 0, cvGoal: 0 };
+  const per = {}, T = { s: 0, tr: 0, tro: 0, dv: 0, o: 0, c: 0, b: 0, cp: 0, cv: 0, rv: 0, c1: 0, q: 0, sGoal: 0, cvGoal: 0, open: 0 };
   for (const f of FLOWS) {
-    const x = { s: 0, tr: 0, tro: 0, dv: 0, o: 0, c: 0, b: 0, cp: 0, cv: 0, rv: 0, sGoal: 0, cvGoal: 0 };
-    for (const d of idx) { const r = f.d[d]; for (const k of ['s', 'tr', 'tro', 'dv', 'o', 'c', 'b', 'cp', 'cv', 'rv']) x[k] += r[k]; }
+    const x = { s: 0, tr: 0, tro: 0, dv: 0, o: 0, c: 0, b: 0, cp: 0, cv: 0, rv: 0, c1: 0, q: 0, sGoal: 0, cvGoal: 0, open: 0 };
+    for (const d of idx) {
+      const r = f.d[d]; for (const k of ['s', 'tr', 'tro', 'dv', 'o', 'c', 'b', 'cp', 'cv', 'rv', 'c1', 'q']) x[k] += r[k];
+      // Sent less than 7 days ago: its goal window is still open, so its goal can still come.
+      if (LAST - d < 7 && f.goal !== 'none') x.open += r.s;
+    }
     if (PURCHASE_GOAL(f.goal)) { x.sGoal = x.s; x.cvGoal = x.cv; }
     per[f.id] = x;
     for (const k of Object.keys(T)) T[k] += x[k];
   }
+  // People, not mails: everyone sent a purchase-goal mail in the range, and of them everyone a
+  // purchase followed within 7 days of one of those mails. Each person once, however many mails.
+  Object.assign(T, mailPeople(idx));
   return { per, T };
+}
+// {pp: people sent a purchase-goal mail in the range, pb: of them, people who bought within its
+// 7 days}, for every flow or only the flow indexes in `only`.
+function mailPeople(idx, only) {
+  const lo = idx[0], hi = idx[idx.length - 1];
+  let pp = 0, pb = 0;
+  for (const sends of MAIL_PEOPLE) {
+    let got = false, won = false;
+    for (const [d, f, c] of sends) if (d >= lo && d <= hi && (!only || only.has(f))) { got = true; if (c) won = true; }
+    if (got) { pp++; if (won) pb++; }
+  }
+  return { pp, pb };
 }
 
 /* ---------- metric values ---------- */
@@ -907,19 +944,20 @@ const VAL = {
   openR: a => a.mail && a.mail.tro ? a.mail.o / a.mail.tro : null,
   clickR: a => a.mail && a.mail.tro ? a.mail.c / a.mail.tro : null,
   ctor: a => a.mail && a.mail.o ? a.mail.c / a.mail.o : null,
-  conv: a => a.mail && a.mail.sGoal ? a.mail.cvGoal / a.mail.sGoal : null,
+  // The total counts people (mailPeople); a single flow's row counts its mails.
+  conv: a => !a.mail ? null : a.mail.pp != null ? (a.mail.pp ? a.mail.pb / a.mail.pp : null) : a.mail.sGoal ? a.mail.cvGoal / a.mail.sGoal : null,
   bounce: a => a.mail && a.mail.tr ? a.mail.b / a.mail.tr : null,
 };
 // What each metric's sample counts, named the way the cards say it ("4 sales in this range").
 const SAMPLE_NOUN = { roas: 'sales', cac: 'sales', hook: 'impressions', thru: 'impressions', ctr: 'impressions', freq: 'impressions', fatigue: 'impressions',
   arrival: 'ad clicks', engaged: 'sessions', scroll: 'sessions', coRate: 'visits', pconv: 'visits', c2p: 'checkouts', bump: 'orders', refund: 'orders',
   install: 'sign-ups', activation: 'sign-ups', d2p: 'sign-ups', cpdc: 'sign-ups', stitched: 'journeys',
-  deliv: 'mails', openR: 'mails', clickR: 'mails', conv: 'mails', bounce: 'mails' };
+  deliv: 'mails', openR: 'mails', clickR: 'mails', conv: 'people mailed', bounce: 'mails' };
 const SAMPLE = {
   roas: a => a.purchases, cac: a => a.purchases, hook: a => a.imps, thru: a => a.imps, ctr: a => a.imps, freq: a => a.imps, fatigue: a => a.imps,
   arrival: a => a.paidClicks, engaged: a => a.clarActN, scroll: a => a.clarScrN, coRate: a => a.visits, pconv: a => a.visits, c2p: a => a.checkouts, bump: a => a.orders, refund: a => a.orders,
   install: a => a.reg, activation: a => a.reg, d2p: a => a.reg, cpdc: a => a.reg, stitched: a => a.journeys,
-  deliv: a => a.mail.tr, openR: a => a.mail.tro, clickR: a => a.mail.tro, conv: a => a.mail.sGoal, bounce: a => a.mail.tr,
+  deliv: a => a.mail.tr, openR: a => a.mail.tro, clickR: a => a.mail.tro, conv: a => a.mail.pp != null ? a.mail.pp : a.mail.sGoal, bounce: a => a.mail.tr,
 };
 
 /* ---------- health ---------- */
@@ -1170,8 +1208,8 @@ function renderOverview(c) {
     <div class="cov-row"><span class="k">Page views counted since</span><span class="v">${pf == null ? 'not yet' : shortDate(dates[pf])}</span><span class="d"><span class="src">Our backend</span><span>rates that divide by page views read only the days since then</span></span></div>
     <div class="cov-row"><span class="k">Orders with estimated money</span><span class="v">${fmt.num(A.est)} of ${fmt.num(A.journeys)}</span><span class="d"><span class="src">Paddle / Lemon Squeezy</span><span>from the stored order totals where the platform’s API did not answer; fees at the published rate</span></span></div>
   </div>`;
-  const NAMES = { paddle: 'Paddle API', lemonsqueezy: 'Lemon Squeezy API', meta: 'Meta Marketing API', google: 'Google Ads', events: 'Event log', crm: 'CRM rows', pv: 'Page-view count', fx: 'Exchange rate', resend: 'Resend tracking', clarity: 'Clarity', plugin_success: 'Plugin success event' };
-  const srcs = `<div class="srcs">${Object.entries(PAY.sources).filter(([k]) => k !== 'plugin' + '_success').map(([k, s]) => `<div>${light(s.ok && !s.failed ? 'good' : (k === 'clarity' ? 'nodata' : 'warn'), false)}<span>${esc(NAMES[k] || k)}<small>${esc(s.note || '')}</small></span></div>`).join('')}</div>`;
+  const NAMES = { paddle: 'Paddle API', lemonsqueezy: 'Lemon Squeezy API', meta: 'Meta Marketing API', google: 'Google Ads', events: 'Event log', crm: 'CRM rows', pv: 'Page-view count', fx: 'Exchange rate', resend: 'Resend tracking', clarity: 'Clarity', plugin_success: 'Plugin success event', steps: 'Buy-path presses, our count', buyflow: 'Paddle checkouts, paid and unpaid', early_bf: 'Early Black Friday codes' };
+  const srcs = `<div class="srcs">${Object.entries(PAY.sources).filter(([k]) => k !== 'plugin' + '_success').map(([k, s]) => `<div>${light(s.ok && !s.failed ? 'good' : (k === 'clarity' || k === 'steps' ? 'nodata' : 'warn'), false)}<span>${esc(NAMES[k] || k)}<small>${esc(s.note || '')}</small></span></div>`).join('')}</div>`;
 
   $('p-overview').innerHTML = `
     <div class="hero">${hero}<div class="tiles">${tiles}</div></div>
@@ -1193,6 +1231,64 @@ function unseenAds(idx) {
   const by = {};
   for (const ad of ADS) { let n = 0; for (const d of idx) n += ad.unseen[d]; if (n) by[ad.name] = (by[ad.name] || 0) + n; }
   return Object.entries(by).sort((x, y) => y[1] - x[1]);
+}
+// The buy path for the range: page views and presses (counts), then people, each counted once per
+// step when they took it on a day of the range, by the channel of their first record that names one.
+function buyPath(idx, ch = F.channel) {
+  const lo = idx[0], hi = idx[idx.length - 1], inR = i => i >= lo && i <= hi;
+  const inCh = c => ch === 'all' || ch === c;
+  const o = { views: 0, pvDays: 0, stepDays: 0, cta: 0, pay: 0, co: 0, e: 0, f: 0, fForm: 0, i: 0, b: 0, bForm: 0,
+    neverPaid: 0, stuck: 0, stuckBy: {}, reg: 0, firstStep: null };
+  for (const i of idx) {
+    const D = days[i];
+    if (D.pvAny) o.pvDays++;
+    for (const byCh of Object.values(D.pv)) for (const [c, v] of Object.entries(byCh)) if (c !== 'internal' && inCh(c)) o.views += v;
+    const st = STEPS[i];
+    if (st) {
+      o.stepDays++;
+      for (const [k, n] of Object.entries(st)) { const [s, c] = k.split('__'); if (o[s] != null && (c === 'internal' ? ch === 'all' : inCh(c))) o[s] += n; }
+    }
+    for (const r of REG[i]) if (inCh(r.ch)) o.reg++;
+  }
+  for (let i = 0; i < DAYS; i++) if (STEPS[i]) { o.firstStep = i; break; }
+  for (const r of BUY) {
+    if (!inCh(r.ch)) continue;
+    const f = r.f.some(inR), b = r.b.some(inR);
+    if (r.e.some(inR)) o.e++;
+    if (f) { o.f++; o.fForm += r.fm; }
+    if (r.i.some(inR)) o.i++;
+    if (b) { o.b++; o.bForm += r.fm; }
+    if (f && !r.b.length) { o.neverPaid++; if (r.w) { o.stuck++; o.stuckBy[r.w] = (o.stuckBy[r.w] || 0) + 1; } }
+  }
+  return o;
+}
+const WALLET_NAME = { paypal: 'PayPal', apple_pay: 'Apple Pay', google_pay: 'Google Pay' };
+function buyPathCard(c) {
+  const B = buyPath(c.idx), A = c.A, sum = (arr, idx) => arr ? idx.reduce((n, i) => n + (arr[i] || 0), 0) : null;
+  const pressed = B.cta + B.pay, counted = B.stepDays > 0;
+  // n of the step before, and of the page views: the two numbers every row carries.
+  const rate = (n, prev, prevName) => n == null ? '' : prevName === 'page views' ? `<span><b>${B.views ? fmt.pct2(n / B.views) : '—'}</b> of page views</span>`
+    : `<span><b>${prev ? fmt.pct(n / prev) : '—'}</b> of ${esc(prevName)} · ${B.views ? fmt.pct2(n / B.views) : '—'} of page views</span>`;
+  const notYet = `${light('nodata', false)}<span>counted from ${B.firstStep == null ? 'the site update that adds it' : shortDate(dates[B.firstStep])}</span>`;
+  const stuck = Object.entries(B.stuckBy).sort((x, y) => y[1] - x[1]).map(([w, n]) => `${esc(WALLET_NAME[w] || w)} ${fmt.num(n)}`).join(', ');
+  const after = [['tendril', '/tendril, the first screen after a purchase', 'Tendril'], ['post2', '/post2', 'the Collection'], ['post', '/post', 'the 1:1 session']].map(([k, page, what]) => {
+    const seen = sum(OFFERS[k], c.idx), co = sum(OFFERS[k + '_co'], c.idx), got = OFFER_BUYS ? sum(OFFER_BUYS[k + '_buy'], c.idx) : null;
+    return `<tr><td>${esc(page)} <small class="subj">${esc(what)}</small></td><td>${fmt.num(seen)}</td><td>${fmt.num(co)}${seen ? ` <small>(${fmt.pct(co / seen)})</small>` : ''}</td><td>${got == null ? '—' : fmt.num(got)}${got != null && seen ? ` <small>(${fmt.pct(got / seen)})</small>` : ''}</td></tr>`;
+  }).join('');
+  const bumpRow = `<tr><td>Order bump <small class="subj">in the Stride checkout</small></td><td>${fmt.num(A.orders)}</td><td></td><td>${fmt.num(A.bump)}${A.orders ? ` <small>(${fmt.pct(A.bump / A.orders)})</small>` : ''}</td></tr>`;
+  const path = `<div class="fpath">
+      ${frow('Page views from outside the site', 'our count, a page view and not a person', B.views, B.views, '')}
+      ${frow('Pressed Get Stride or a pay button', counted ? `Get Stride ${fmt.num(B.cta)} · PayPal or a wallet ${fmt.num(B.pay)}; at most one press each per page view` : 'presses on the buy path', counted ? pressed : null, B.views, counted ? rate(pressed, B.views, 'page views') : notYet)}
+      ${frow('Gave their email in the buy form', 'people; the buy form is the email and the terms in one step', B.e, B.views, counted ? rate(B.e, B.cta, 'Get Stride presses') : rate(B.e, B.views, 'page views'))}
+      ${frow('Paddle’s checkout loaded', 'after the buy form, or straight after the PayPal button', counted ? B.co : null, B.views, counted ? rate(B.co, B.e + B.pay, 'emails and pay buttons') : notYet)}
+      ${frow('Filled in their details', `people; ${fmt.num(B.fForm)} came through the buy form, the rest by a pay button or a mail’s link`, B.f, B.views, rate(B.f, counted ? B.co : B.e, counted ? 'checkouts loaded' : 'emails'))}
+      ${frow('Started paying', 'people Paddle saw a payment attempt from', B.i, B.views, rate(B.i, B.f, 'filled in'))}
+      ${frow('Paid', `people; ${fmt.num(B.bForm)} through the buy form`, B.b, B.views, rate(B.b, B.i, 'started paying'))}
+    </div>
+    <p class="note" style="margin-top:8px">${B.neverPaid ? `<b>${fmt.num(B.neverPaid)} filled in their details and never paid</b>${B.stuck ? `, ${fmt.num(B.stuck)} of them after a payment began in a wallet (${stuck})` : ''}. ` : ''}Beside this path: <b>${fmt.num(B.reg)} Discovery Pass sign-ups</b> (${B.views ? fmt.pct2(B.reg / B.views) : '—'} of page views), the demo’s own path on the Demo tab.</p>`;
+  return card('The buy path, step by step', `${esc(chLabel())}; each step counts what happened on the days of this range`, path
+    + `<div class="tbl-wrap" style="margin-top:14px"><table class="tbl"><thead><tr><th>After the purchase</th><th>Reached</th><th>Opened its checkout</th><th>Bought</th></tr></thead><tbody>${after}${bumpRow}</tbody></table></div>
+    <p class="note" style="margin-top:10px">Page views and presses are counts with nobody in them; from the buy form on, every number is people, each once per step: someone who paid on two days of the range is one payer. A step taken on a day outside the range does not count, so near the range’s edges a later step can be bigger than the one before it. With a channel picked, a page opened from another stridehub.io page, and its presses, count under all channels only. ${F.channel === 'all' ? '' : 'The pages after a purchase and the bump are all channels. '}${OFFER_BUYS ? '' : 'Bought on those pages needs Paddle’s API, which did not answer. '}${PAY.sources.buyflow && !PAY.sources.buyflow.ok ? esc(PAY.sources.buyflow.note) + '.' : ''}</p>`);
 }
 function renderFunnel(c) {
   const A = c.A, paid = F.channel === 'all' || F.channel === 'meta';
@@ -1236,7 +1332,7 @@ function renderFunnel(c) {
   }).join('');
   const byCh = card('The same steps, by channel', `purchases and revenue credited ${esc(modelLabel())}`, `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Channel</th><th>Visits</th><th>Purchase conversion</th><th>Checkout rate</th><th>Checkout to purchase</th><th>Purchases</th><th>Net revenue</th><th>Spend</th><th>ROAS</th><th>Cost per customer</th></tr></thead><tbody>${rows}</tbody></table></div>
     <p class="note" style="margin-top:10px">Visits, checkout rate and checkout to purchase follow the visit’s own channel. Purchase conversion, purchases, revenue, ROAS and cost per customer follow the attribution model. A touch older than the lookback (${S.lookback} days) does not count.</p>`);
-  $('p-funnel').innerHTML = p1 + `<div class="grid-2">${p2}${p3}</div>` + byCh;
+  $('p-funnel').innerHTML = buyPathCard(c) + p1 + `<div class="grid-2">${p2}${p3}</div>` + byCh;
 }
 
 /* ---------- Creative ---------- */
@@ -1501,7 +1597,92 @@ function renderDemo(c) {
     <div class="tiles">${counts}</div>
     <div class="tiles">${rates}</div>
     ${card('From sign-up to purchase', `${fmt.num(A.reg)} sign-ups in this range; every percentage is of them`, path)}
-    ${card('What activated users reached in the plugin', `share of the ${fmt.num(A.act)} activated sign-ups, from the plugin’s own events`, `<div class="hbars">${bars}</div>`)}`;
+    ${card('What activated users reached in the plugin', `share of the ${fmt.num(A.act)} activated sign-ups, from the plugin’s own events`, `<div class="hbars">${bars}</div>`)}
+    ${onboardingCards(c)}`;
+}
+
+/* ---------- Demo: the plugin's first run (Yossi 2026-10-27: "more data on every situation in the onboarding") ---------- */
+// The first screen offers a synth chain (Serum 2, Vital) that starts the tour, or the plain
+// walkthrough; machines without either synth never see it. Bits as health.VST_BITS.
+const ONB_BITS = { offered: 1, picked: 2, heard: 4, tour_done: 8, skipped: 128, card_skip: 256, walk_done: 512,
+  end_keep: 1024, end_own: 2048, bridge_offered: 4096, bridge_yes: 8192, bridge_no: 16384 };
+// The walkthrough's cards in the order a run meets them (health.TOUR_STEPS): a chain tour has all
+// ten, the plain walkthrough has no Open or Add.
+const TOUR_CARDS = [['1', '1 · Load a device, or hear the chain'], ['open', 'Open the synth'], ['add', 'Add more to the chain'],
+  ['2', '2 · Map knobs'], ['3', '3 · Give every lane motion'], ['4', '4 · Keep one, change the rest'], ['5', '5 · Set a range'],
+  ['6', '6 · Set a lane’s speed'], ['7', '7 · Focus one lane'], ['end', 'That’s the loop, the last card']];
+// Which way an activated sign-up went through the first screen.
+function onbPath(r) {
+  if (!(r.ms & ONB_BITS.offered)) return 'never';
+  if (!(r.ms & ONB_BITS.picked)) return 'nopick';
+  if (r.pk === 'walk') return 'walk';
+  return r.ms & ONB_BITS.tour_done ? 'done' : 'left';
+}
+const ONB_PATHS = [['never', 'Never shown the first screen', 'no Serum 2 or Vital on the machine, or a plugin from before 2.2.4'],
+  ['nopick', 'Shown it, picked nothing', 'pressed Skip or closed it'], ['walk', 'Picked the plain walkthrough', 'no synth chain'],
+  ['left', 'Picked a synth, left the tour early', 'the tour started on the chain, the last card was never pressed'],
+  ['done', 'Picked a synth, finished the tour', 'every card, then the last one']];
+function onboardingCards(c) {
+  const lo = c.idx[0], hi = c.idx[c.idx.length - 1], inCh = ch => F.channel === 'all' || F.channel === ch;
+  // 1. Activated sign-ups of the range, by path, and how each path bought.
+  const P = Object.fromEntries(ONB_PATHS.map(([k]) => [k, { n: 0, buy: 0, open: 0, skip: 0 }]));
+  let n = 0;
+  for (const i of c.idx) for (const r of REG[i]) {
+    if (!inCh(r.ch) || !r.act || r.own) continue;
+    const x = P[onbPath(r)];
+    x.n++; n++;
+    if (r.b >= 0 && r.b <= 30 && i + r.b <= LAST) x.buy++;
+    else if (LAST - i < 30) x.open++;
+    if (r.ms & ONB_BITS.skipped) x.skip++;
+  }
+  const rows = ONB_PATHS.map(([k, name, why]) => { const x = P[k]; return `<tr><td>${esc(name)}<small class="subj">${esc(why)}${k === 'nopick' && x.skip ? `; ${fmt.num(x.skip)} pressed Skip` : ''}</small></td><td>${fmt.num(x.n)}</td><td>${n ? fmt.pct(x.n / n) : '—'}</td><td>${fmt.num(x.buy)}</td><td>${x.n ? fmt.pct(x.buy / x.n) : '—'}</td><td>${x.open ? fmt.num(x.open) : '—'}</td></tr>`; }).join('');
+  const paths = card('Activated sign-ups, by what they did on the first screen', `${fmt.num(n)} activated sign-ups of this range who did not own Stride yet`,
+    `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Path</th><th>People</th><th>Share</th><th>Bought within 30 days</th><th>Buy rate</th><th>Still inside their 30 days</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="note" style="margin-top:10px">A sign-up counts here once their pass started in the plugin with their confirmed email. Until the plugin build after 2.3.8 reaches people, Skip and closing the first screen look the same (both send nothing), so “picked nothing” holds both. “Still inside their 30 days” have not bought yet but still can.</p>`);
+  // 2. Every machine that reported its first run in the range, demo and paid installs apart.
+  const M = [0, 1].map(() => ({ n: 0 }));
+  const KEYS = ['offered', 'skipped', 'picked', 'walk', 'heard', 'tour_done', 'walk_done', 'end_keep', 'end_own', 'card_skip', 'bridge_offered', 'bridge_yes', 'bridge_no'];
+  for (const r of ONB) {
+    if (r.i < lo || r.i > hi) continue;
+    const x = M[r.ps ? 0 : 1];
+    x.n++;
+    for (const k of KEYS) {
+      const hit = k === 'walk' ? r.pk === 'walk' : k === 'picked' ? r.pk === 'chain' : !!(r.ms & ONB_BITS[k]);
+      if (hit) x[k] = (x[k] || 0) + 1;
+    }
+  }
+  const NAMES = { offered: 'Shown the first screen', skipped: 'Pressed its Skip', picked: 'Picked a synth chain', walk: 'Picked the plain walkthrough',
+    heard: 'Heard the chain', tour_done: 'Finished the chain tour', walk_done: 'Finished the plain walkthrough', end_keep: 'Last card: kept the chain',
+    end_own: 'Last card: start from my own', card_skip: 'Pressed Skip on a card', bridge_offered: 'Asked about Ableton’s own devices',
+    bridge_yes: 'Said yes', bridge_no: 'Said no' };
+  // Counted from later on: the moments only the next plugin build reports, and the Ableton pair the
+  // plugin has always sent but the backend kept only from the update that added them (built 2026-10-27).
+  const NEW = new Set(['skipped', 'walk_done', 'end_keep', 'end_own', 'card_skip', 'bridge_no']), KEPT = new Set(['bridge_offered', 'bridge_yes']);
+  const cell = (x, k) => x.n ? `${fmt.num(x[k] || 0)} <small>(${fmt.pct((x[k] || 0) / x.n)})</small>` : '—';
+  const mrows = KEYS.map(k => `<tr><td>${esc(NAMES[k])}${NEW.has(k) ? '<small class="subj">from the plugin build after 2.3.8</small>' : KEPT.has(k) ? '<small class="subj">counted from the backend update that adds it</small>' : ''}</td><td>${cell(M[0], k)}</td><td>${cell(M[1], k)}</td></tr>`).join('');
+  const machines = card('Every machine’s first run', 'by the day it first reported; demo passes and paid installs apart',
+    `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Moment</th><th>On a Discovery Pass</th><th>Paid installs</th></tr></thead><tbody>
+      <tr><td><b>Machines</b></td><td><b>${fmt.num(M[0].n)}</b></td><td><b>${fmt.num(M[1].n)}</b></td></tr>${mrows}</tbody></table></div>
+    <p class="note" style="margin-top:10px">Every machine the plugin reported from, whether or not a sign-up can be tied to it: the paid installs are customers, and they never show on the rest of this tab. Each moment counts once per machine. The Ableton question comes after a finished run, in Ableton only. The channel filter does not apply here: a machine has no channel.</p>`);
+  // 3. The tour card by card: how many runs got at least as far as each card, and how many pressed
+  // Skip on it. Open and Add exist in a chain tour only, so they are counted over chain tours.
+  const reached = TOUR_CARDS.map(() => 0), skipped = TOUR_CARDS.map(() => 0), runs = TOUR_CARDS.map(() => 0);
+  const CHAIN_ONLY = new Set(['open', 'add']);
+  let started = 0;
+  for (const r of ONB) {
+    if (r.i < lo || r.i > hi || !r.st) continue;
+    started++;
+    TOUR_CARDS.forEach(([k], j) => {
+      if (CHAIN_ONLY.has(k) && r.pk !== 'chain') return;
+      runs[j]++;
+      if (j < r.st) reached[j]++;
+    });
+    if (r.sk) skipped[r.sk - 1]++;
+  }
+  const tour = started ? `<div class="fpath">${TOUR_CARDS.map(([k, label], j) => frow(label, skipped[j] ? `${fmt.num(skipped[j])} pressed Skip here` : (CHAIN_ONLY.has(k) ? 'chain tours only' : ''), reached[j], started, `<span><b>${runs[j] ? fmt.pct(reached[j] / runs[j]) : '—'}</b> of the ${fmt.num(runs[j])} runs that have this card</span>`)).join('')}</div>
+      <p class="note" style="margin-top:8px">Each card counts the runs that got at least that far. The plain walkthrough has no Open or Add card, so those two count chain tours only.</p>`
+    : `<p class="empty">Counted from the plugin build after 2.3.8: the plugin reports each card a machine reaches and the card a Skip was pressed on. Until then, the table above shows how far each machine got.</p>`;
+  return paths + machines + card('The walkthrough, card by card', started ? `${fmt.num(started)} machines whose run reported its cards in this range` : '', tour);
 }
 
 /* ---------- Email flows: numbers, switches, and the copy itself ---------- */
@@ -2058,9 +2239,12 @@ function renderEmail(c) {
   const trackOn = PAY.mail.tracking && PAY.mail.tracking.opens_since_ms;
   const tiles = [
     tileHTML({ label: 'Mails sent', value: fmt.num(A.mail.s), d: delta(A.mail.s, P.mail.s, 'none'), sp: spark(perDay(c.idx, a => a.mail.s)), src: 'the send log' }),
-    metricTile('deliv', c), metricTile('openR', c), metricTile('clickR', c), metricTile('conv', c), metricTile('bounce', c),
+    metricTile('deliv', c), metricTile('openR', c), metricTile('clickR', c),
+    metricTile('conv', c, { src: `${fmt.num(A.mail.pb)} of ${fmt.num(A.mail.pp)} people, each once` }), metricTile('bounce', c),
     tileHTML({ label: 'Revenue after a mail', value: fmt.usd0(A.mail.rv), d: delta(A.mail.rv, P.mail.rv, 'high'), sp: spark(perDay(c.idx, a => a.mail.rv)), src: 'last mail before the purchase', lit: light('info') }),
+    tileHTML({ label: 'Bought at once', value: fmt.num(A.mail.q), d: delta(A.mail.q, P.mail.q, 'none'), sp: spark(perDay(c.idx, a => a.mail.q)), src: `${PAY.mail.at_once_min || 30} min after an instant mail`, lit: light('info') }),
   ].join('');
+  const groupIx = g => new Set(FLOWS.map((f, k) => groupOf(f) === g ? k : -1).filter(k => k >= 0));
   if (!SEL_FLOW || !FL[SEL_FLOW]) { let best = null; for (const f of FLOWS) if (!best || A.mailPer[f.id].s > A.mailPer[best.id].s) best = f; SEL_FLOW = best ? best.id : FLOWS[0].id; }
   if (MAILS_READY) openEditor(SEL_FLOW);
   const rows = FLOW_GROUPS.map(([g, title]) => {
@@ -2068,7 +2252,10 @@ function renderEmail(c) {
     const body = inGroup.map(f => {
       const x = A.mailPer[f.id], a = { mail: x };
       const subj = (MAILS[f.id] && (MAILS[f.id].status === 'published' ? MAILS[f.id].subject : (MAILS[f.id].file_subject || MAILS[f.id].subject))) || '';
-      const goalCell = x.s && f.goal !== 'none' ? `${fmt.num(x.cv)}${PURCHASE_GOAL(f.goal) && x.s ? ` (${fmt.pct(x.cv / x.s)})` : ''}` : '—';
+      // Beside the goal: purchases at once (not counted), and sends whose 7 days are still running.
+      const goalCell = x.s && f.goal !== 'none' ? `${fmt.num(x.cv)}${PURCHASE_GOAL(f.goal) && x.s ? ` (${fmt.pct(x.cv / x.s)})` : ''}`
+        + (x.q ? `<small class="subj">+${fmt.num(x.q)} bought at once</small>` : '')
+        + (x.open ? `<small class="subj">${fmt.num(x.open)} still in their 7 days</small>` : '') : '—';
       return `<tr class="clickable${f.id === SEL_FLOW ? ' sel' : ''}" data-flow="${f.id}" tabindex="0">
         <td><span class="code">${esc(f.code || '·')}</span>${esc(flowName(f))}${subj ? `<small class="subj">${esc(subj)}</small>` : ''}</td>
         <td class="l">${esc(f.when)}</td><td class="l">${flowLight(f, true)}</td>
@@ -2076,12 +2263,14 @@ function renderEmail(c) {
         <td class="l">${esc(GOAL[f.goal])}</td><td>${goalCell}</td><td>${x.rv ? fmt.usd0(x.rv) : '—'}</td></tr>`;
     }).join('');
     if (!body) return '';
-    // The group's own totals, so the two halves of the demo can be read side by side.
+    // The group's own totals, so the two halves of the demo can be read side by side. Its goal
+    // counts people, each once however many of the group's mails they had.
     const t = { s: 0, tr: 0, tro: 0, dv: 0, o: 0, c: 0, cv: 0, rv: 0 };
     for (const f of inGroup) { const x = A.mailPer[f.id]; for (const k in t) t[k] += x[k]; }
     const pc = (n, d) => d ? fmt.pct(n / d) : '—';
+    const gp = mailPeople(c.idx, groupIx(g));
     const head = t.s
-      ? `<tr class="grp"><td colspan="3">${esc(title)}</td><td>${fmt.num(t.s)}</td><td>${pc(t.dv, t.tr)}</td><td>${pc(t.o, t.tro)}</td><td>${pc(t.c, t.tro)}</td><td></td><td>${t.cv ? fmt.num(t.cv) : '—'}</td><td>${t.rv ? fmt.usd0(t.rv) : '—'}</td></tr>`
+      ? `<tr class="grp"><td colspan="3">${esc(title)}</td><td>${fmt.num(t.s)}</td><td>${pc(t.dv, t.tr)}</td><td>${pc(t.o, t.tro)}</td><td>${pc(t.c, t.tro)}</td><td></td><td title="people sent a purchase mail of this group, and of them who bought within 7 days of one">${gp.pp ? `${fmt.num(gp.pb)} of ${fmt.num(gp.pp)} people` : '—'}</td><td>${t.rv ? fmt.usd0(t.rv) : '—'}</td></tr>`
       : `<tr class="grp"><td colspan="10">${esc(title)}</td></tr>`;
     return head + body;
   }).join('');
@@ -2092,11 +2281,12 @@ function renderEmail(c) {
       ${frow('Opened', trackOn ? 'pixel; Apple Mail inflates it' : 'tracking not on yet', x.o, x.tro || x.s, rateOf('Open rate', 'openR', fa))}
       ${frow('Clicked', trackOn ? 'tracked link' : 'tracking not on yet', x.c, x.tro || x.s, rateOf('Click rate', 'clickR', fa))}
       ${f.goal !== 'none' ? frow(`${GOAL[f.goal]} within 7 days`, 'after the mail only', x.cv, x.s, PURCHASE_GOAL(f.goal) ? rateOf('Goal rate', 'conv', fa) : '') : ''}
-    </div>` : `<p class="empty">No sends in this range.</p>`;
+      ${x.q ? frow(`Bought within ${PAY.mail.at_once_min || 30} minutes`, 'already buying when the mail left: not counted as its goal', x.q, x.s, '') : ''}
+    </div>${x.open ? `<p class="note" style="margin-top:8px">${fmt.num(x.open)} of these ${fmt.num(x.s)} sends went out less than 7 days ago: their goal can still come, so this rate is still rising.</p>` : ''}` : `<p class="empty">No sends in this range.</p>`;
   el.innerHTML = `<div class="tiles">${tiles}</div>
     ${trackOn ? '' : `<p class="note"><b>Opens and clicks are not tracked yet.</b> They start the day open and click tracking is switched on in Resend (with the flows deploy). Sends, delivery and bounces are read for every mail from then on too; goals and revenue already count from the send log.</p>`}
     ${card('Every flow, in spec order', 'select a flow for its path, its switch and its copy', `<div class="tbl-wrap"><table class="tbl" id="flow-table"><thead><tr><th>Flow</th><th class="l">Sent when</th><th class="l">State</th><th>Sent</th><th>Delivered</th><th>Opened</th><th>Clicked</th><th class="l">Goal</th><th>Goal within 7 days</th><th>Revenue</th></tr></thead><tbody>${rows}</tbody></table></div>
-      <p class="note" style="margin-top:10px">A goal counts only when it happens after the mail and within 7 days of it. A purchase can count for more than one mail, but its revenue goes to the last mail before it, so the Revenue column sums once. Unsubscribes are not measured: an opt-out is a STOP reply, handled by hand. The channel and attribution filters don’t apply here.</p>`)}
+      <p class="note" style="margin-top:10px">A goal counts only when it happens after the mail and within 7 days of it, and never within ${PAY.mail.at_once_min || 30} minutes of a mail sent the moment the person acted (the code mail, the demo welcome): that buyer was already at the checkout, so it shows as “bought at once” instead. A purchase can count for more than one mail in a flow’s row; the group rows and the Goal tile count people, each once, and its revenue goes to the last mail before it, so the Revenue column sums once. Opens and clicks come from Resend as they happen (its webhook), with a check every 3 hours for any mail it missed. Unsubscribes are not measured: an opt-out is a STOP reply. The channel and attribution filters don’t apply here.</p>`)}
     <div class="grid-2">
       ${card(`${esc(f.code ? f.code + ' · ' : '')}${esc(flowName(f))}`, esc(f.when), path)}
       ${card('Switch', 'what decides whether this mail goes out', switchHTML(f))}
