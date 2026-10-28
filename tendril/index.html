@@ -1235,6 +1235,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   var TENDRIL_FILM = PHONE ? '/media/tendril/film/tendril-promo-9x16.mp4' : '/media/tendril/film/tendril-promo-1080.mp4';
   // Where someone who has just paid for Stride goes next: their download.
   var NEXT = '/welcome.html';
+  // ...unless they then paid for Tendril here: the Collection's offer comes first (Yossi
+  // 2026-10-28: "if someone did the flow Stride, then bought Tendril, I want to offer them the
+  // Collection too, afterwards, at $19 as POST PURCHASE 2"). /post2/ leads on to the download.
+  var POST2 = '/post2/';
   var FAILED = 'Checkout could not open. Please try again, or write to home@stridehub.io.';
 
   function q(sel) { return document.querySelector(sel); }
@@ -1439,10 +1443,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     // the 24 hours everywhere else. Gone from the page, so ?demo=1 cannot open it either.
     qa('[data-try-open], [data-try]').forEach(function (el) { el.parentNode.removeChild(el); });
     qa('[data-cta-label]').forEach(function (el) { el.textContent = 'Add Tendril for'; });
-    // A paid Tendril stays on this page for its key and downloads, and the thank-you leads on to
-    // the Stride download first (Yossi 2026-10-23).
+    // A paid Tendril stays on this page for its key and downloads (Yossi 2026-10-23), and the
+    // thank-you leads on to the Collection's offer, which then hands over to the Stride download
+    // (2026-10-28). Not "to my Stride download" any more: an offer comes first.
     var gotNext = q('[data-got-next]');
-    gotNext.setAttribute('href', NEXT);
+    gotNext.setAttribute('href', POST2);
+    gotNext.textContent = 'Continue';
     gotNext.hidden = false;
     q('[data-got-manual]').className = 'btn-ghost px-7 py-3.5 text-sm uppercase';
   }
@@ -1463,7 +1469,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     if (bail) clearTimeout(bail);
     var status = (d && d.ok && d.status) || 'unavailable';
     if (status === 'open') { showOpen(d); return; }
-    if (mode === 'purchase') { leave(); return; }
+    // Tendril paid for in this tab (a reload of the thank-you): on to the Collection's offer, as
+    // the thank-you's button leads, never past it.
+    if (mode === 'purchase') { leave(ss('stride_tendril_paid') === cred.txn ? POST2 : NEXT); return; }
     if (status === 'owned') { show('owned'); return; }
     if (status === 'invalid') {
       forgetK();
@@ -1624,6 +1632,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           try { if (window.strideClarity) window.strideClarity.paddle(ev, 'tendril'); } catch (e) {}
           if (ev.name === 'checkout.completed' && ev.data && !done) {
             done = true;
+            // Right after a Stride purchase, marked against that purchase: /post2/ knows which road
+            // brought the buyer, and a reload here still leads there (Yossi 2026-10-28).
+            if (mode === 'purchase' && cred.txn) ssSet('stride_tendril_paid', cred.txn);
             try {
               var paid = Number((ev.data.totals || {}).total);
               if (window.StrideTrack) {
@@ -1636,8 +1647,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             show('done');
             receipt(String(ev.data.transaction_id || ''));
             // Everyone stays here: the key and the downloads land in this panel (Yossi 2026-10-23), and
-            // right after a Stride purchase it leads on to the Stride download. Paddle shows its own
-            // receipt in the overlay first, then steps aside.
+            // right after a Stride purchase it leads on to the Collection's offer, then the Stride
+            // download (2026-10-28). Paddle shows its own receipt in the overlay first, then steps aside.
             setTimeout(function () { try { Paddle.Checkout.close(); } catch (e) {} }, 2500);
           }
         }

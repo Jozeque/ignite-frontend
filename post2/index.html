@@ -900,6 +900,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   //   Did not buy it  -> this screen IS their offer. Once it is dealt with, taken, skipped
   //                      or run out, they go to the product. Their session offer is on
   //                      welcome, so they are not shown two offers in a row.
+  //   From /tendril/  -> Tendril bought there right after the Stride purchase (Yossi
+  //                      2026-10-28). The same offer, the same exits, except that one who
+  //                      owns the Collection already goes on to the product, as they did
+  //                      before this road existed: no session screen on this road.
   //
   // One offer per screen, each buyer seeing each offer once. Everything that leaves this
   // page goes through one of these two: the skip link, a closed or expired offer, a
@@ -976,6 +980,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                   || ss('stride_last_txn');
   var offer = null, clock = null, paddleOn = false;
 
+  // Which road brought this buyer: Tendril bought on /tendril/ right after this purchase (it
+  // marks the purchase as it completes), or Tendril in the Stride checkout itself (the bump).
+  var viaTendril = !!strideTxn && ss('stride_tendril_paid') === strideTxn;
+  var VIA = viaTendril ? 'tendril'
+          : (strideTxn && ss('stride_bump_tendril') === strideTxn ? 'bump' : '');
+  // Owning the Collection already: the session screen on the bump's road, the product on Tendril's.
+  function ownedNext() { return viaTendril ? NEXT : OWNED_NEXT; }
+
   function leave(to) { window.location.replace(to || NEXT); }
 
   // One stage of the funnel, recorded against the purchase that earned the offer. This page
@@ -1034,6 +1046,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     tick();
     clock = setInterval(tick, 1000);
     q('#offer').classList.add('ready');
+    // The road, on this visit's recording, so each road's take can be read on its own.
+    if (VIA) { try { if (window.strideClarity) window.strideClarity('', { post2_via: VIA }); } catch (e) {} }
     stage('post2_viewed');
     mountWallet();
   }
@@ -1082,7 +1096,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         // expired and every error still land on the product.
         if (!d || !d.ok) { leave(); return; }
         var cstat = ((d.collection || {}).status) || '';
-        if (cstat !== 'open') { leave(cstat === 'owned' ? OWNED_NEXT : NEXT); return; }
+        if (cstat !== 'open') { leave(cstat === 'owned' ? ownedNext() : NEXT); return; }
         show(d);
       })
       .catch(function () {
@@ -1292,9 +1306,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           return;
         }
         // Ended, already bought, or already owned: the offer is over, so is this page.
-        // Owned means the bump paid for it, so that one exits to the session offer.
+        // Owned means the bump paid for it, so that one exits as ownedNext() says.
         if (d.status === 'expired' || d.status === 'used' || d.status === 'owned' || d.status === 'invalid') {
-          leave(d.status === 'owned' ? OWNED_NEXT : NEXT); return;
+          leave(d.status === 'owned' ? ownedNext() : NEXT); return;
         }
         note(FAILED);
       })
