@@ -1611,6 +1611,60 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      allows once it fits the screen, the same rule as /tendril's. */
   .vpop.v .vpop-card{width:min(100%,calc((100vh - var(--pad) * 2) * 9 / 16));width:min(100%,calc((100dvh - var(--pad) * 2) * 9 / 16))}
 
+  /* ── AS SEEN IN (2026-10-28) ────────────────────────────────────────────
+     The publications that covered Stride, between the hero and the producers' quotes. Plain
+     floating marks: no frames, no chips, no dots. Each is the publication's own logo in the
+     page's ink, dimmed until pointed at, sized by eye so the five weigh the same (--h, in px). */
+  .press-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;
+    gap:12px 52px;margin:0;padding:0;list-style:none}
+  .press-logo{display:flex;align-items:center;justify-content:center;min-height:52px;padding:6px 4px;
+    background:none;border:0;border-radius:10px;cursor:pointer;opacity:.6;
+    transition:opacity .2s,transform .2s}
+  .press-logo:hover{opacity:1;transform:translateY(-1px)}
+  .press-logo:focus-visible{opacity:1;outline:2px solid var(--copper-lt);outline-offset:4px}
+  .press-logo img{display:block;width:auto;max-width:none;height:calc(var(--h) * 1px)}
+  @media (max-width:640px){
+    .press-row{gap:4px 30px}
+    .press-logo{min-height:46px}
+    .press-logo img{height:calc(var(--h) * .78px)}
+  }
+  /* The article, opened over the page from a logo (#press-pop, at the end of <body> beside the
+     other panels, so the sticky bar cannot cover it). The demo prompt's card at reading width.
+     Its head, whose article and the headline as they wrote it, stays put while the screenshots
+     scroll under it, so the close button is always in reach however long the article runs. On
+     a phone the screenshot is the article as it reads on a phone. */
+  .press-pop{--pad:24px;position:fixed;inset:0;z-index:1200;display:none;align-items:center;
+    justify-content:center;padding:var(--pad);background:rgba(8,7,5,.86)}
+  .press-pop.on{display:flex}
+  .press-card{position:relative;display:flex;flex-direction:column;width:100%;max-width:960px;
+    max-height:calc(100vh - var(--pad) * 2);max-height:calc(100dvh - var(--pad) * 2);overflow:hidden;
+    background:var(--panel);border:1px solid var(--line);border-radius:18px;
+    box-shadow:0 40px 90px -40px rgba(0,0,0,.95)}
+  .press-head{flex:none;padding:22px 66px 18px 26px;border-bottom:1px solid var(--line)}
+  .press-name{margin:0;font-size:11px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:var(--copper-lt)}
+  .press-title{margin:8px 0 0;font-size:24px;line-height:1.22;font-weight:900;color:var(--ink);letter-spacing:-.01em}
+  .press-from{margin:6px 0 0;font-size:14px;line-height:1.45;color:var(--ink3)}
+  .press-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;padding:20px 26px 26px}
+  .press-body:focus{outline:none}
+  .press-shot{display:block;margin:0}
+  .press-shot + .press-shot{margin-top:14px}
+  .press-shot img{display:block;width:100%;height:auto;border-radius:10px;border:1px solid var(--line);background:var(--bg2)}
+  .press-x{position:absolute;top:14px;right:14px;width:36px;height:36px;padding:0;
+    display:inline-flex;align-items:center;justify-content:center;border-radius:999px;
+    border:1px solid var(--line);background:var(--raise);color:var(--ink2);
+    font-size:19px;line-height:1;cursor:pointer}
+  .press-x:hover{color:var(--ink);border-color:rgba(216,201,176,.28)}
+  .press-x:focus-visible{outline:2px solid var(--copper-lt);outline-offset:2px}
+  @media (max-width:640px){
+    .press-pop{--pad:12px}
+    .press-head{padding:16px 58px 14px 18px}
+    .press-title{font-size:19px}
+    .press-from{font-size:13px}
+    .press-body{padding:14px 14px 18px}
+    .press-x{top:10px;right:10px}
+  }
+
   /* ── TENDRIL (2026-10-22) ─────────────────────────────────────────────────
      The section after "You already have everything you need": a second product, a synth
      built to be explored with Stride, sold to Stride owners only. No price and no buy
@@ -2676,6 +2730,23 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     } catch (e) {}
   })();
   </script>
+
+  <!-- ───────────────── AS SEEN IN (press, 2026-10-28) ─────────────────
+       Right under the hero, before the quotes. Five publications that covered Stride, each its
+       own logo. A press opens that article as a screenshot in a panel over this page (#press-pop
+       and its script, at the end of <body>): buttons, not links, so nobody is sent away from
+       stridehub.io, least of all to a store. The logos are names, so data-no-translate keeps
+       them as they are in every language; "As seen in" is translated. -->
+  <section data-ms="press" class="mb-20" aria-labelledby="press-h">
+    <p id="press-h" class="silk text-center mb-4">Vu dans</p>
+    <ul class="press-row" role="list" data-no-translate>
+      <li><button type="button" class="press-logo" data-press="pluginboutique" aria-haspopup="dialog"><img src="/media/press/logo-pluginboutique.svg" alt="Plugin Boutique" width="111" height="28" style="--h:30" loading="lazy" decoding="async"></button></li>
+      <li><button type="button" class="press-logo" data-press="altwire" aria-haspopup="dialog"><img src="/media/press/logo-altwire.webp" alt="AltWire" width="761" height="132" style="--h:21" loading="lazy" decoding="async"></button></li>
+      <li><button type="button" class="press-logo" data-press="integraudio" aria-haspopup="dialog"><img src="/media/press/logo-integraudio.webp" alt="Integraudio" width="279" height="132" style="--h:42" loading="lazy" decoding="async"></button></li>
+      <li><button type="button" class="press-logo" data-press="dubspot" aria-haspopup="dialog"><img src="/media/press/logo-dubspot.webp" alt="Dubspot" width="481" height="132" style="--h:29" loading="lazy" decoding="async"></button></li>
+      <li><button type="button" class="press-logo" data-press="rekkerd" aria-haspopup="dialog"><img src="/media/press/logo-rekkerd.webp" alt="Rekkerd.org" width="759" height="132" style="--h:23" loading="lazy" decoding="async"></button></li>
+    </ul>
+  </section>
 
   <!-- ───────────────── SOCIAL PROOF (real producers, quoted with permission) ─────────────────
        Straight after the hero at every width (Yossi 2026-10-19: desktop now reads
@@ -6358,8 +6429,9 @@ function openBuy() { toggleBuyModal(); }
     function busy() {
         var modal = document.getElementById('buy-modal');
         if (modal && !modal.classList.contains('hidden')) return true;
-        // Nor over the film someone chose to watch, a message they are writing, or the menu.
-        if (document.querySelector('.vpop.on')) return true;
+        // Nor over the film someone chose to watch, an article they opened from "As seen in",
+        // a message they are writing, or the menu.
+        if (document.querySelector('.vpop.on, .press-pop.on')) return true;
         var contact = document.getElementById('contact-modal');
         if (contact && !contact.classList.contains('hidden')) return true;
         var menu = document.getElementById('m-menu');
@@ -6724,6 +6796,152 @@ function openBuy() { toggleBuyModal(); }
   }
   fit();
   paint(0);
+})();
+</script>
+
+<!-- AS SEEN IN (2026-10-28): the article a logo in the strip under the hero opens. The script fills
+     it; the close button sits in the markup so its label is translated with the page. -->
+<div class="press-pop" id="press-pop" role="dialog" aria-modal="true" aria-labelledby="press-pop-h">
+  <div class="press-card">
+    <div class="press-head">
+      <p class="press-name" data-press-name></p>
+      <h2 class="press-title" id="press-pop-h" data-press-title></h2>
+      <p class="press-from" data-press-from hidden></p>
+    </div>
+    <div class="press-body" data-press-body tabindex="-1"></div>
+    <button type="button" class="press-x" data-press-close aria-label="Fermer">&times;</button>
+  </div>
+</div>
+
+<script>
+// ── AS SEEN IN (2026-10-28) ──────────────────────────────────────────────────
+// A press on a logo opens that article here, over the page. Its pictures are asked for only then
+// (each article's own, the phone cut at 640px and under), so the page itself carries nothing but
+// the five logos. It shuts on the close button, Escape or a press outside the card, and the focus
+// goes back to the logo. The screenshots were taken from the live articles on 2026-10-28: the
+// headline and the part about Stride as published, with the sites' cookie bars and floating deal
+// boxes left out. Names and headlines are the publications' own words, so they stay in English
+// on every language's page. Plugin Boutique's is a section of a weekly list that moves on, which
+// is why it is kept as a picture.
+(function () {
+  var pop = document.getElementById('press-pop');
+  var row = document.querySelector('section[data-ms="press"] .press-row');
+  if (!pop || !row) return;
+  var M = '/media/press/';
+  // Per screenshot: file, desktop width, height, phone width, height, alt text.
+  var PRESS = {
+    pluginboutique: {
+      name: 'Plugin Boutique',
+      title: 'New Plugin Manufacturer - Stride',
+      from: 'The Best Music Software Deals This Week [Live List]',
+      shots: [
+        ['pluginboutique-1', 1600, 266, 780, 346, 'Plugin Boutique: The Best Music Software Deals This Week [Live List]'],
+        ['pluginboutique-2', 1600, 1129, 780, 1064, 'Plugin Boutique: New Plugin Manufacturer - Stride. We are pleased to welcome Stride to Plugin Boutique. This sound design engine acts as a host for plugins that you already own.']
+      ]
+    },
+    altwire: {
+      name: 'AltWire',
+      title: 'Stride 1.4.1 Review: Turning Happy Accidents Into Movement',
+      shots: [
+        ['altwire-1', 1600, 1003, 780, 1664, 'AltWire: Stride 1.4.1 Review: Turning Happy Accidents Into Movement, by Derek Oswald']
+      ]
+    },
+    integraudio: {
+      name: 'Integraudio',
+      title: 'Best New Plugins - October 2026 Roundup: 16 Essential Releases',
+      shots: [
+        ['integraudio-1', 1600, 329, 780, 636, 'Integraudio: Best New Plugins - October 2026 Roundup: 16 Essential Releases, by Berk Oztuna'],
+        ['integraudio-2', 1584, 1370, 780, 1048, 'Integraudio: Stride in the October 2026 roundup. Stride turns plugin automation into something much more playful.']
+      ]
+    },
+    dubspot: {
+      name: 'Dubspot',
+      title: 'Stride Engine First Look (2026): Modulate Any VST3 Plugin',
+      shots: [
+        ['dubspot-1', 1600, 1112, 780, 1930, 'Dubspot: Stride Engine First Look (2026): Modulate Any VST3 Plugin, by Elena Marsh']
+      ]
+    },
+    rekkerd: {
+      name: 'Rekkerd.org',
+      title: 'Modulate your plugins with Stride sound design engine',
+      shots: [
+        ['rekkerd-1', 1600, 2350, 780, 3068, 'Rekkerd.org: Modulate your plugins with Stride sound design engine']
+      ]
+    }
+  };
+  var nameEl = pop.querySelector('[data-press-name]');
+  var titleEl = pop.querySelector('[data-press-title]');
+  var fromEl = pop.querySelector('[data-press-from]');
+  var body = pop.querySelector('[data-press-body]');
+  var x = pop.querySelector('[data-press-close]');
+  var opener = null;
+
+  function open(id, btn) {
+    var p = PRESS[id];
+    if (!p || pop.classList.contains('on')) return;
+    opener = btn || null;
+    nameEl.textContent = p.name;
+    titleEl.textContent = p.title;
+    fromEl.textContent = p.from || '';
+    fromEl.hidden = !p.from;
+    body.innerHTML = '';
+    p.shots.forEach(function (s) {
+      var pic = document.createElement('picture');
+      pic.className = 'press-shot';
+      var phone = document.createElement('source');
+      phone.setAttribute('media', '(max-width: 640px)');
+      phone.setAttribute('srcset', M + s[0] + '-m.webp');
+      phone.setAttribute('width', s[3]);
+      phone.setAttribute('height', s[4]);
+      var img = document.createElement('img');
+      img.setAttribute('src', M + s[0] + '.webp');
+      img.setAttribute('width', s[1]);
+      img.setAttribute('height', s[2]);
+      img.setAttribute('alt', s[5]);
+      img.setAttribute('decoding', 'async');
+      pic.appendChild(phone);
+      pic.appendChild(img);
+      body.appendChild(pic);
+    });
+    // Hiding the page's scroll shortens it by a scrollbar width on desktop, which would shift
+    // everything under the scrim. Give the width back, as the film does.
+    var root = document.documentElement;
+    var bar = window.innerWidth - root.clientWidth;
+    root.style.overflow = 'hidden';
+    if (bar > 0) root.style.paddingRight = bar + 'px';
+    pop.classList.add('on');
+    body.scrollTop = 0;
+    try { if (window.strideClarity) window.strideClarity('press_open', { press: id }); } catch (e) {}
+    // The article takes the focus, so the arrow keys and space scroll it straight away.
+    setTimeout(function () { try { body.focus({ preventScroll: true }); } catch (e) { body.focus(); } }, 0);
+  }
+
+  function close() {
+    if (!pop.classList.contains('on')) return;
+    pop.classList.remove('on');
+    var root = document.documentElement;
+    root.style.overflow = '';
+    root.style.paddingRight = '';
+    if (opener) { try { opener.focus({ preventScroll: true }); } catch (e) { opener.focus(); } }
+    opener = null;
+  }
+
+  row.addEventListener('click', function (ev) {
+    var b = ev.target && ev.target.closest ? ev.target.closest('[data-press]') : null;
+    if (b) open(b.getAttribute('data-press'), b);
+  });
+  x.addEventListener('click', close);
+  // Only the backdrop closes it; a press on the article itself does nothing.
+  pop.addEventListener('click', function (ev) { if (ev.target === pop) close(); });
+  document.addEventListener('keydown', function (ev) {
+    if (!pop.classList.contains('on')) return;
+    if (ev.key === 'Escape' || ev.key === 'Esc') { ev.preventDefault(); close(); return; }
+    // The focus stays in the panel, going between the article and the close button.
+    if (ev.key === 'Tab') {
+      ev.preventDefault();
+      (document.activeElement === x ? body : x).focus();
+    }
+  });
 })();
 </script>
 
