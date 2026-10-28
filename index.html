@@ -1554,26 +1554,61 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     font-size:24px;font-weight:700;letter-spacing:.06em;color:var(--ink);word-break:break-all}
   .bf-buy{display:flex;justify-content:center;width:100%;padding:15px 22px;font-size:15px;
     border-radius:12px;cursor:pointer}
-  /* The pin: the folded popup. Bottom-left, below every modal; on a phone it rides above
-     the sticky buy bar once that bar is up, beside the help button, never over Get Stride. */
-  #bfpin{position:fixed;left:16px;bottom:16px;z-index:998;max-width:calc(100% - 32px);
+  /* The pin: the folded popup, in one of two looks, each for half the browsers (PIN_ARM in its
+     script; Yossi 2026-10-28: "make an A/B of it"). Bottom-left, below every modal; on a phone
+     it rides above the sticky buy bar once that bar is up, beside the help button, never over
+     Get Stride.
+     .bfp-pill, the pin since 10-14: a dark pill with the offer's words and, once a code exists,
+     its clock. */
+  #bfpin{position:fixed;z-index:998;font:inherit;cursor:pointer}
+  #bfpin[hidden]{display:none}
+  #bfpin.bfp-pill{left:16px;bottom:16px;max-width:calc(100% - 32px);
     display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:999px;
     border:1px solid rgba(198,113,43,.55);background:rgba(16,15,12,.94);color:var(--ink);
-    font:inherit;font-size:13px;font-weight:700;line-height:1.2;cursor:pointer;
+    font-size:13px;font-weight:700;line-height:1.2;
     box-shadow:0 14px 34px -14px rgba(0,0,0,.85);backdrop-filter:blur(8px)}
-  #bfpin[hidden]{display:none}
-  #bfpin:hover{border-color:var(--copper-lt)}
-  .bf-pin-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .bf-pin-c{font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  #bfpin.bfp-pill:hover{border-color:var(--copper-lt)}
+  .bfp-pill .bf-pin-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bfp-pill .bf-pin-c{font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
     color:var(--copper-lt);font-variant-numeric:tabular-nums;white-space:nowrap}
+  /* .bfp-ticket (2026-10-28): drawn as the hero's Black Friday ticket (the ads' BLACK FRIDAY /
+     SALE / 30%) with a stub torn along a perforation: the code's clock once a code exists, the
+     struck price over the 30% price before that (Yossi: "in the style of the hero's sticker,
+     with the countdown, so it is not missed"; "it can be a little smaller"). Tilted like the
+     hero's, it lands like a sticker and gives a small shake now and then, four times at most.
+     The padding keeps the tilted corners inside the button. */
+  #bfpin.bfp-ticket{left:8px;bottom:6px;display:block;margin:0;padding:11px 8px;border:0;background:none;
+    color:var(--ink);-webkit-tap-highlight-color:transparent;animation:bfpin-in .5s cubic-bezier(.2,1.5,.45,1) both}
+  .bfp-ticket .bfp-t{display:block;width:206px;transform:rotate(-5deg);transition:transform .2s ease}
+  .bfp-ticket svg{display:block;width:100%;height:auto;overflow:visible;
+    filter:drop-shadow(0 10px 14px rgba(0,0,0,.5)) drop-shadow(0 2px 3px rgba(0,0,0,.4));
+    animation:bfpin-nudge 9s ease-in-out 3s 4}
+  #bfpin.bfp-ticket:hover .bfp-t,#bfpin.bfp-ticket:focus-visible .bfp-t{transform:rotate(-3deg) scale(1.04)}
+  #bfpin.bfp-ticket:focus-visible{outline:2px solid var(--copper-lt);outline-offset:-2px;border-radius:16px}
+  /* The words, for a screen reader: the ticket itself is drawn. */
+  .bfp-ticket .bf-pin-t{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  /* Prices wait for the price hold like every other price on the page. */
+  html.sd-hold #bfpin.is-price .bfp-stub{visibility:hidden}
+  /* Never over the hero's price or its buttons (placePin): on the page just above the desktop
+     buy bar while that bar is down in the corner, out of sight while a phone's buy row is. */
+  #bfpin.is-riding{position:absolute}
+  #bfpin.is-parked{visibility:hidden;pointer-events:none}
+  @keyframes bfpin-in{from{opacity:0;transform:translateY(18px) scale(.82)}to{opacity:1;transform:none}}
+  @keyframes bfpin-nudge{0%,13%,100%{transform:none}3%{transform:rotate(4deg) scale(1.06)}
+    6.5%{transform:rotate(-4deg) scale(1.06)}10%{transform:rotate(1.5deg)}}
+  @media (prefers-reduced-motion:reduce){#bfpin.bfp-ticket,.bfp-ticket svg{animation:none}.bfp-ticket .bfp-t{transition:none}}
   /* The sticky bar exists below 900px; the pin steps up over it whenever it is up. */
   @media (max-width:899.98px){
     #m-cta.is-on ~ #bfpin{bottom:calc(4.6rem + env(safe-area-inset-bottom,0px))}
+    #m-cta.is-on ~ #bfpin.bfp-ticket{bottom:calc(4.4rem + env(safe-area-inset-bottom,0px))}
   }
   @media (max-width:767px){
-    #bfpin{left:.75rem;bottom:calc(.75rem + env(safe-area-inset-bottom,0px));
+    #bfpin.bfp-pill{left:.75rem;bottom:calc(.75rem + env(safe-area-inset-bottom,0px));
       max-width:calc(100% - 4.5rem);font-size:12px;padding:9px 12px}
+    #bfpin.bfp-ticket{left:4px;bottom:calc(2px + env(safe-area-inset-bottom,0px))}
+    .bfp-ticket .bfp-t{width:172px}
     #m-cta.is-on ~ #bfpin{bottom:calc(4.6rem + env(safe-area-inset-bottom,0px))}
+    #m-cta.is-on ~ #bfpin.bfp-ticket{bottom:calc(4.4rem + env(safe-area-inset-bottom,0px))}
     .bf-now{font-size:28px}.bf-was{font-size:17px}
   }
   @media (max-width:420px){.bf-card{padding:42px 20px 24px}.bf-card .dpop-h{font-size:24px}}
@@ -3211,91 +3246,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
   </section>
 
-  <!-- ───────────────── TENDRIL (2026-10-22): a synth built to be explored with Stride ───────────────── -->
-  <!-- Sold to Stride owners only, so there is no price and no buy button here on purpose. "Already
-       using Stride?" opens the owner check at the end of <body>; a new buyer meets the offer right
-       after checkout (/tendril/). The play mark and the Watch button stay hidden until the film
-       exists (TENDRIL_FILM in the script at the end of <body>). -->
-  <section data-ms="tendril" id="tendril" class="mb-28 scroll-mt-8">
-    <div class="panel screws rounded-3xl p-6 md:p-10"><span class="s s1"></span><span class="s s2"></span>
-      <div class="tdr-grid">
-        <div>
-          <span class="chip pill-warm mb-5 inline-block">New &middot; built for Stride</span>
-          <h2 class="tdr-h mb-5"><span class="tdr-word">TENDRIL</span><span class="brand">Three engines. One evolving sound design playground.</span></h2>
-          <p class="text-base md:text-lg leading-relaxed ink2 mb-4">Shape the harmonics, push the effects, and let three independent patterns play off each other. Explore with Stride to discover fresh sounds, mudpies and sequences from the same patch.</p>
-          <p class="text-base md:text-lg leading-relaxed ink2 mb-4">Stride lets you try fresh motion across the parameters you map, lock what works and regenerate the rest.</p>
-          <p class="text-base md:text-lg leading-relaxed ink2 mb-7">It comes with 22 StrideChains: sound design systems ready to load and explore.</p>
-          <div class="flex flex-wrap gap-3">
-            <button type="button" class="btn-copper text-sm uppercase tracking-widest py-3.5 px-7 rounded-full" data-tdr-check>Already using Stride?</button>
-            <button type="button" class="btn-ghost text-sm uppercase tracking-widest py-3.5 px-7 rounded-full" data-tdr-watch hidden>Watch Tendril &times; Stride</button>
-          </div>
-          <p class="text-[12px] ink3 mt-5 leading-relaxed">Sold separately to Stride owners. A special offer is available after you buy Stride.</p>
-        </div>
-        <!-- The manual, as on /tendril/ (Yossi 2026-10-22): its playable rack first, live once the
-             section is near the screen, then its other parts; the slider under it moves through them. -->
-        <figure class="msl" data-msl aria-roledescription="carousel" aria-label="The Tendril manual">
-          <div class="msl-frame">
-            <div class="msl-track" data-msl-track>
-              <div class="msl-slide msl-live" data-msl-slide aria-label="Play it">
-                <img src="/media/tendril/manual/slide-rack.webp"
-                     srcset="/media/tendril/manual/slide-rack-925.webp 925w, /media/tendril/manual/slide-rack.webp 1850w"
-                     sizes="(min-width:1024px) 620px, 92vw" width="1850" height="1494" loading="lazy" decoding="async"
-                     alt="The playable rack from the Tendril manual: the HARMONICS chamber, its MOTION lanes, PITCH, AMP, the waveform and the keys">
-                <iframe data-msl-live data-src="/media/tendril/manual/?embed=rack" title="Play Tendril: the HARMONICS rack from the manual" scrolling="no" tabindex="-1"></iframe>
-              </div>
-              <div class="msl-slide" data-msl-slide aria-label="The face">
-                <img src="/media/tendril/manual/slide-face.webp" srcset="/media/tendril/manual/slide-face-925.webp 925w, /media/tendril/manual/slide-face.webp 1850w"
-                     sizes="(min-width:1024px) 620px, 92vw" width="1850" height="1494" loading="lazy" decoding="async"
-                     alt="The face from the Tendril manual: one OSC tab with every plate numbered">
-              </div>
-              <div class="msl-slide" data-msl-slide aria-label="Harmonics">
-                <img src="/media/tendril/manual/slide-harmonics.webp" srcset="/media/tendril/manual/slide-harmonics-925.webp 925w, /media/tendril/manual/slide-harmonics.webp 1850w"
-                     sizes="(min-width:1024px) 620px, 92vw" width="1850" height="1494" loading="lazy" decoding="async"
-                     alt="The ten HARMONICS knobs from the Tendril manual, each card drawing what its knob does to the partials">
-              </div>
-              <div class="msl-slide" data-msl-slide aria-label="OSC FX">
-                <img src="/media/tendril/manual/slide-oscfx.webp" srcset="/media/tendril/manual/slide-oscfx-925.webp 925w, /media/tendril/manual/slide-oscfx.webp 1850w"
-                     sizes="(min-width:1024px) 620px, 92vw" width="1850" height="1494" loading="lazy" decoding="async"
-                     alt="OSC FX from the Tendril manual: SIEVE and FOLD on the HARMONICS plate, and a sketch of every SPECTRUM and SHAPE mode">
-              </div>
-              <div class="msl-slide" data-msl-slide aria-label="Mixer">
-                <img src="/media/tendril/manual/slide-mixer.webp" srcset="/media/tendril/manual/slide-mixer-925.webp 925w, /media/tendril/manual/slide-mixer.webp 1850w"
-                     sizes="(min-width:1024px) 620px, 92vw" width="1850" height="1494" loading="lazy" decoding="async"
-                     alt="The mixer from the Tendril manual, every control numbered">
-              </div>
-              <div class="msl-slide" data-msl-slide aria-label="Sequencer">
-                <img src="/media/tendril/manual/slide-sequencer.webp" srcset="/media/tendril/manual/slide-sequencer-925.webp 925w, /media/tendril/manual/slide-sequencer.webp 1850w"
-                     sizes="(min-width:1024px) 620px, 92vw" width="1850" height="1494" loading="lazy" decoding="async"
-                     alt="The sequencer from the Tendril manual: a row of steps for each engine, every control numbered">
-              </div>
-            </div>
-            <button type="button" class="msl-arrow msl-prev" data-msl-prev aria-label="Previous part"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
-            <button type="button" class="msl-arrow msl-next" data-msl-next aria-label="Next part"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
-          </div>
-          <div class="msl-scrub">
-            <input type="range" min="0" max="5" step="1" value="0" data-msl-range aria-label="Move through the manual">
-            <div class="msl-stops">
-              <button type="button" data-msl-go="0">Play it</button>
-              <button type="button" data-msl-go="1">The face</button>
-              <button type="button" data-msl-go="2">Harmonics</button>
-              <button type="button" data-msl-go="3">OSC FX</button>
-              <button type="button" data-msl-go="4">Mixer</button>
-              <button type="button" data-msl-go="5">Sequencer</button>
-            </div>
-          </div>
-          <figcaption class="msl-cap">
-            <span data-msl-cap><b>Play it.</b> The manual's own rack, running Tendril's HARMONICS math in your browser. Drag a knob, drop a MOTION shape onto one, press PLAY.</span>
-            <span data-msl-cap hidden><b>The face.</b> One OSC tab, plate by plate: the chamber, PITCH, AMP, OSC FX, DRIVE, FILTER, GLITCH, SHARDS and MOTION.</span>
-            <span data-msl-cap hidden><b>Harmonics.</b> Ten knobs instead of a pencil, each one redrawing the 64 partials its own way.</span>
-            <span data-msl-cap hidden><b>OSC FX.</b> Two slots that rework the drawing before it ever reaches a filter.</span>
-            <span data-msl-cap hidden><b>Mixer.</b> A strip for each engine, a key zone for each, and the master with its ceiling.</span>
-            <span data-msl-cap hidden><b>Sequencer.</b> Three rows, one for each engine, eight patterns deep, out to your DAW as MIDI.</span>
-          </figcaption>
-        </figure>
-      </div>
-    </div>
-  </section>
-
   <!-- ───────────────── HOW IT WORKS — interactive Stride VST explainer ───────────────── -->
   <!-- The 1:1 Stride VST window. Embeds docs/how-it-works-vst.html (single source of
        truth, self-contained header). Auto-sizes via the shared postMessage handler. -->
@@ -3688,6 +3638,91 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       });
     })();
   </script>
+
+  <!-- ───────────────── TENDRIL (2026-10-22): a synth built to be explored with Stride ───────────────── -->
+  <!-- Sold to Stride owners only, so there is no price and no buy button here on purpose. "Already
+       using Stride?" opens the owner check at the end of <body>; a new buyer meets the offer right
+       after checkout (/tendril/). The play mark and the Watch button stay hidden until the film
+       exists (TENDRIL_FILM in the script at the end of <body>). -->
+  <section data-ms="tendril" id="tendril" class="mb-28 scroll-mt-8">
+    <div class="panel screws rounded-3xl p-6 md:p-10"><span class="s s1"></span><span class="s s2"></span>
+      <div class="tdr-grid">
+        <div>
+          <span class="chip pill-warm mb-5 inline-block">New &middot; built for Stride</span>
+          <h2 class="tdr-h mb-5"><span class="tdr-word">TENDRIL</span><span class="brand">Three engines. One evolving sound design playground.</span></h2>
+          <p class="text-base md:text-lg leading-relaxed ink2 mb-4">Shape the harmonics, push the effects, and let three independent patterns play off each other. Explore with Stride to discover fresh sounds, mudpies and sequences from the same patch.</p>
+          <p class="text-base md:text-lg leading-relaxed ink2 mb-4">Stride lets you try fresh motion across the parameters you map, lock what works and regenerate the rest.</p>
+          <p class="text-base md:text-lg leading-relaxed ink2 mb-7">It comes with 22 StrideChains: sound design systems ready to load and explore.</p>
+          <div class="flex flex-wrap gap-3">
+            <button type="button" class="btn-copper text-sm uppercase tracking-widest py-3.5 px-7 rounded-full" data-tdr-check>Already using Stride?</button>
+            <button type="button" class="btn-ghost text-sm uppercase tracking-widest py-3.5 px-7 rounded-full" data-tdr-watch hidden>Watch Tendril &times; Stride</button>
+          </div>
+          <p class="text-[12px] ink3 mt-5 leading-relaxed">Sold separately to Stride owners. A special offer is available after you buy Stride.</p>
+        </div>
+        <!-- The manual, as on /tendril/ (Yossi 2026-10-22): its playable rack first, live once the
+             section is near the screen, then its other parts; the slider under it moves through them. -->
+        <figure class="msl" data-msl aria-roledescription="carousel" aria-label="The Tendril manual">
+          <div class="msl-frame">
+            <div class="msl-track" data-msl-track>
+              <div class="msl-slide msl-live" data-msl-slide aria-label="Play it">
+                <img src="/media/tendril/manual/slide-rack.webp"
+                     srcset="/media/tendril/manual/slide-rack-925.webp 925w, /media/tendril/manual/slide-rack.webp 1850w"
+                     sizes="(min-width:1024px) 620px, 92vw" width="1850" height="1494" loading="lazy" decoding="async"
+                     alt="The playable rack from the Tendril manual: the HARMONICS chamber, its MOTION lanes, PITCH, AMP, the waveform and the keys">
+                <iframe data-msl-live data-src="/media/tendril/manual/?embed=rack" title="Play Tendril: the HARMONICS rack from the manual" scrolling="no" tabindex="-1"></iframe>
+              </div>
+              <div class="msl-slide" data-msl-slide aria-label="The face">
+                <img src="/media/tendril/manual/slide-face.webp" srcset="/media/tendril/manual/slide-face-925.webp 925w, /media/tendril/manual/slide-face.webp 1850w"
+                     sizes="(min-width:1024px) 620px, 92vw" width="1850" height="1494" loading="lazy" decoding="async"
+                     alt="The face from the Tendril manual: one OSC tab with every plate numbered">
+              </div>
+              <div class="msl-slide" data-msl-slide aria-label="Harmonics">
+                <img src="/media/tendril/manual/slide-harmonics.webp" srcset="/media/tendril/manual/slide-harmonics-925.webp 925w, /media/tendril/manual/slide-harmonics.webp 1850w"
+                     sizes="(min-width:1024px) 620px, 92vw" width="1850" height="1494" loading="lazy" decoding="async"
+                     alt="The ten HARMONICS knobs from the Tendril manual, each card drawing what its knob does to the partials">
+              </div>
+              <div class="msl-slide" data-msl-slide aria-label="OSC FX">
+                <img src="/media/tendril/manual/slide-oscfx.webp" srcset="/media/tendril/manual/slide-oscfx-925.webp 925w, /media/tendril/manual/slide-oscfx.webp 1850w"
+                     sizes="(min-width:1024px) 620px, 92vw" width="1850" height="1494" loading="lazy" decoding="async"
+                     alt="OSC FX from the Tendril manual: SIEVE and FOLD on the HARMONICS plate, and a sketch of every SPECTRUM and SHAPE mode">
+              </div>
+              <div class="msl-slide" data-msl-slide aria-label="Mixer">
+                <img src="/media/tendril/manual/slide-mixer.webp" srcset="/media/tendril/manual/slide-mixer-925.webp 925w, /media/tendril/manual/slide-mixer.webp 1850w"
+                     sizes="(min-width:1024px) 620px, 92vw" width="1850" height="1494" loading="lazy" decoding="async"
+                     alt="The mixer from the Tendril manual, every control numbered">
+              </div>
+              <div class="msl-slide" data-msl-slide aria-label="Sequencer">
+                <img src="/media/tendril/manual/slide-sequencer.webp" srcset="/media/tendril/manual/slide-sequencer-925.webp 925w, /media/tendril/manual/slide-sequencer.webp 1850w"
+                     sizes="(min-width:1024px) 620px, 92vw" width="1850" height="1494" loading="lazy" decoding="async"
+                     alt="The sequencer from the Tendril manual: a row of steps for each engine, every control numbered">
+              </div>
+            </div>
+            <button type="button" class="msl-arrow msl-prev" data-msl-prev aria-label="Previous part"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+            <button type="button" class="msl-arrow msl-next" data-msl-next aria-label="Next part"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+          </div>
+          <div class="msl-scrub">
+            <input type="range" min="0" max="5" step="1" value="0" data-msl-range aria-label="Move through the manual">
+            <div class="msl-stops">
+              <button type="button" data-msl-go="0">Play it</button>
+              <button type="button" data-msl-go="1">The face</button>
+              <button type="button" data-msl-go="2">Harmonics</button>
+              <button type="button" data-msl-go="3">OSC FX</button>
+              <button type="button" data-msl-go="4">Mixer</button>
+              <button type="button" data-msl-go="5">Sequencer</button>
+            </div>
+          </div>
+          <figcaption class="msl-cap">
+            <span data-msl-cap><b>Play it.</b> The manual's own rack, running Tendril's HARMONICS math in your browser. Drag a knob, drop a MOTION shape onto one, press PLAY.</span>
+            <span data-msl-cap hidden><b>The face.</b> One OSC tab, plate by plate: the chamber, PITCH, AMP, OSC FX, DRIVE, FILTER, GLITCH, SHARDS and MOTION.</span>
+            <span data-msl-cap hidden><b>Harmonics.</b> Ten knobs instead of a pencil, each one redrawing the 64 partials its own way.</span>
+            <span data-msl-cap hidden><b>OSC FX.</b> Two slots that rework the drawing before it ever reaches a filter.</span>
+            <span data-msl-cap hidden><b>Mixer.</b> A strip for each engine, a key zone for each, and the master with its ceiling.</span>
+            <span data-msl-cap hidden><b>Sequencer.</b> Three rows, one for each engine, eight patterns deep, out to your DAW as MIDI.</span>
+          </figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
 
   <!-- ───────────────── FAQ ───────────────── -->
   <section data-ms="faq" class="max-w-3xl mx-auto mb-24">
@@ -6039,7 +6074,7 @@ function openBuy() { toggleBuyModal(); }
               emailLabel: 'Your email', go: 'Get my 30% off', wait: 'One moment…',
               fine: 'We’ll email your code too, plus Stride news and deals now and then. Unsubscribe anytime.',
               yourCode: 'Your code', applied: 'Applied to this page. One use, until the timer runs out.',
-              buy: 'Get Stride for {price}', pinOffer: 'Early Black Friday · 30% off', pinCode: '{code} · 30% off',
+              buy: 'Get Stride for {price}', pinOffer: 'Early Black Friday · 30% off', pinCode: '{code} · 30% off', pinEnds: 'Ends in',
               errEmail: 'Please enter a valid email address.', errEnded: 'This offer has ended.',
               errLimited: 'Too many tries from this connection. Please try again in an hour.',
               errGeneric: 'Something went wrong. Please try again.', close: 'Close' },
@@ -6050,7 +6085,7 @@ function openBuy() { toggleBuyModal(); }
               emailLabel: 'Deine E-Mail', go: 'Meine 30 % sichern', wait: 'Einen Moment…',
               fine: 'Wir schicken dir den Code auch per E-Mail, dazu ab und zu Stride-News und Angebote. Abmelden jederzeit möglich.',
               yourCode: 'Dein Code', applied: 'Auf dieser Seite angewendet. Einmal einlösbar, bis der Timer abläuft.',
-              buy: 'Stride für {price} holen', pinOffer: 'Early Black Friday · 30 % Rabatt', pinCode: '{code} · 30 % Rabatt',
+              buy: 'Stride für {price} holen', pinOffer: 'Early Black Friday · 30 % Rabatt', pinCode: '{code} · 30 % Rabatt', pinEnds: 'Endet in',
               errEmail: 'Bitte gib eine gültige E-Mail-Adresse ein.', errEnded: 'Dieses Angebot ist abgelaufen.',
               errLimited: 'Zu viele Versuche von dieser Verbindung. Bitte versuch es in einer Stunde noch einmal.',
               errGeneric: 'Etwas ist schiefgelaufen. Bitte versuch es noch einmal.', close: 'Schließen' },
@@ -6061,7 +6096,7 @@ function openBuy() { toggleBuyModal(); }
               emailLabel: 'Tu email', go: 'Quiero mi 30 %', wait: 'Un momento…',
               fine: 'También te enviaremos el código por email, y de vez en cuando novedades y ofertas de Stride. Puedes darte de baja cuando quieras.',
               yourCode: 'Tu código', applied: 'Aplicado en esta página. Un solo uso, hasta que termine el contador.',
-              buy: 'Consigue Stride por {price}', pinOffer: 'Black Friday anticipado · 30 % de descuento', pinCode: '{code} · 30 % de descuento',
+              buy: 'Consigue Stride por {price}', pinOffer: 'Black Friday anticipado · 30 % de descuento', pinCode: '{code} · 30 % de descuento', pinEnds: 'Termina en',
               errEmail: 'Introduce un email válido.', errEnded: 'Esta oferta ha terminado.',
               errLimited: 'Demasiados intentos desde esta conexión. Vuelve a intentarlo en una hora.',
               errGeneric: 'Algo ha fallado. Inténtalo de nuevo.', close: 'Cerrar' },
@@ -6072,7 +6107,7 @@ function openBuy() { toggleBuyModal(); }
               emailLabel: 'Ton e-mail', go: 'Je prends mes 30 %', wait: 'Un instant…',
               fine: 'On t’envoie aussi le code par e-mail, plus des nouvelles et offres Stride de temps en temps. Désinscription à tout moment.',
               yourCode: 'Ton code', applied: 'Appliqué sur cette page. Utilisable une fois, jusqu’à la fin du compte à rebours.',
-              buy: 'Prendre Stride pour {price}', pinOffer: 'Black Friday en avance · -30 %', pinCode: '{code} · -30 %',
+              buy: 'Prendre Stride pour {price}', pinOffer: 'Black Friday en avance · -30 %', pinCode: '{code} · -30 %', pinEnds: 'Fin dans',
               errEmail: 'Saisis une adresse e-mail valide.', errEnded: 'Cette offre est terminée.',
               errLimited: 'Trop d’essais depuis cette connexion. Réessaie dans une heure.',
               errGeneric: 'Un problème est survenu. Réessaie.', close: 'Fermer' },
@@ -6083,7 +6118,7 @@ function openBuy() { toggleBuyModal(); }
               emailLabel: 'La tua email', go: 'Voglio il mio 30%', wait: 'Un momento…',
               fine: 'Ti invieremo il codice anche via email, insieme a novità e offerte di Stride ogni tanto. Puoi annullare l’iscrizione quando vuoi.',
               yourCode: 'Il tuo codice', applied: 'Applicato a questa pagina. Valido una volta, fino alla fine del timer.',
-              buy: 'Prendi Stride a {price}', pinOffer: 'Black Friday in anticipo · 30% di sconto', pinCode: '{code} · 30% di sconto',
+              buy: 'Prendi Stride a {price}', pinOffer: 'Black Friday in anticipo · 30% di sconto', pinCode: '{code} · 30% di sconto', pinEnds: 'Scade tra',
               errEmail: 'Inserisci un indirizzo email valido.', errEnded: 'Questa offerta è scaduta.',
               errLimited: 'Troppi tentativi da questa connessione. Riprova tra un’ora.',
               errGeneric: 'Qualcosa è andato storto. Riprova.', close: 'Chiudi' },
@@ -6094,7 +6129,7 @@ function openBuy() { toggleBuyModal(); }
               emailLabel: 'メールアドレス', go: '30% オフを受け取る', wait: '少々お待ちください…',
               fine: 'コードはメールでもお送りします。Stride のニュースやお得な情報もときどきお届けします。配信停止はいつでも可能です。',
               yourCode: 'あなたのコード', applied: 'このページに適用済みです。タイマーが終わるまで 1 回使えます。',
-              buy: '{price} で Stride を購入', pinOffer: 'アーリーブラックフライデー · 30% オフ', pinCode: '{code} · 30% オフ',
+              buy: '{price} で Stride を購入', pinOffer: 'アーリーブラックフライデー · 30% オフ', pinCode: '{code} · 30% オフ', pinEnds: '終了まで',
               errEmail: '有効なメールアドレスを入力してください。', errEnded: 'このオファーは終了しました。',
               errLimited: 'この接続からの試行が多すぎます。1 時間後にもう一度お試しください。',
               errGeneric: '問題が発生しました。もう一度お試しください。', close: '閉じる' },
@@ -6105,7 +6140,7 @@ function openBuy() { toggleBuyModal(); }
               emailLabel: '你的邮箱', go: '领取 30% 优惠', wait: '请稍候…',
               fine: '我们也会把优惠码发到你的邮箱，并不时发送 Stride 新闻和优惠。可随时退订。',
               yourCode: '你的优惠码', applied: '已应用到本页面。限用一次，倒计时结束前有效。',
-              buy: '以 {price} 购买 Stride', pinOffer: '黑五提前购 · 立减 30%', pinCode: '{code} · 立减 30%',
+              buy: '以 {price} 购买 Stride', pinOffer: '黑五提前购 · 立减 30%', pinCode: '{code} · 立减 30%', pinEnds: '剩余时间',
               errEmail: '请输入有效的邮箱地址。', errEnded: '本次优惠已结束。',
               errLimited: '此网络尝试次数过多，请一小时后再试。',
               errGeneric: '出了点问题，请重试。', close: '关闭' }
@@ -6125,11 +6160,27 @@ function openBuy() { toggleBuyModal(); }
     function save() { ls(function () { localStorage.setItem(KEY, JSON.stringify(st)); }); }
     function forget() { delete st.code; delete st.did; delete st.ends; }
 
-    // Anonymous counters (shown, folded, reopened, claim_failed): a number per day, nothing else.
+    // The pin's A/B (Yossi 2026-10-28: "make an A/B of it"): half the browsers fold the popup into
+    // the drawn ticket, half into the dark pill it was before, one side per browser, kept; ?pin=
+    // ticket or ?pin=pill shows a side. The side rides along with the counters and the claim, so
+    // each side's folds, reopens, codes and sales are told apart.
+    var PIN_ARM = (function () {
+        var ok = function (v) { return v === 'ticket' || v === 'pill'; };
+        var a = ls(function () { return (new URL(window.location.href).searchParams.get('pin') || '').toLowerCase(); }, '');
+        if (!ok(a)) a = ls(function () { return localStorage.getItem('stride_pin_arm'); }, '');
+        if (!ok(a)) a = Math.random() < 0.5 ? 'ticket' : 'pill';
+        ls(function () { localStorage.setItem('stride_pin_arm', a); });
+        return a;
+    })();
+    var TICKET = PIN_ARM === 'ticket';
+    var viaPin = false;                     // this view's popup was opened again from the pin
+
+    // Anonymous counters (shown, folded, reopened, claim_failed): a number per day, nothing else,
+    // and the pin's side.
     function stage(name) {
         try {
             fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
-                         body: JSON.stringify({ action: 'bf_stage', stage: name }) }).catch(function () {});
+                         body: JSON.stringify({ action: 'bf_stage', stage: name, arm: PIN_ARM }) }).catch(function () {});
         } catch (e) {}
     }
     function track(ev, data) { try { if (window.StrideTrack) StrideTrack.push(ev, data || {}); } catch (e) {} }
@@ -6174,10 +6225,142 @@ function openBuy() { toggleBuyModal(); }
         return e;
     }
     var refs = {};
+    // The pin, drawn: the hero's Black Friday ticket (strideTicketSvg's ink, paths and words, the
+    // ads' BLACK FRIDAY / SALE / 30%) and a stub torn along a perforation, whose two lines
+    // paintPin fills. Drawn here rather than borrowed, so the pin never depends on the page's
+    // main script.
+    var STUB_X = 500, STUB_ROOM = 222;      // the stub's middle, and the width a line may take
+    function pinTicket() {
+        var ink = '#1d130a', face = 'Outfit,system-ui,sans-serif';
+        return '<svg viewBox="0 0 640 232" aria-hidden="true" focusable="false">'
+            + '<defs><linearGradient id="bfpin-g" x1="0" y1="0" x2="0.14" y2="1"><stop offset="0" stop-color="#f7b25c"/>'
+            + '<stop offset=".55" stop-color="#ec9a45"/><stop offset="1" stop-color="#d9832f"/></linearGradient></defs>'
+            + '<path d="M22,0 H346 A14,14 0 0 0 374,0 H618 Q640,0 640,22 V210 Q640,232 618,232 H374 A14,14 0 0 0 346,232 H22 Q0,232 0,210 V143 A27,27 0 0 0 0,89 V22 Q0,0 22,0 Z" fill="url(#bfpin-g)"/>'
+            + '<g fill="none" stroke="#a85c19" stroke-width="3.2" opacity=".85">'
+            + '<path d="M26,13 H334 Q347,13 347,26 V206 Q347,219 334,219 H26 Q13,219 13,206 V134 A18,18 0 0 0 13,98 V26 Q13,13 26,13 Z"/>'
+            + '<path d="M386,13 H614 Q627,13 627,26 V206 Q627,219 614,219 H386 Q373,219 373,206 V26 Q373,13 386,13 Z"/>'
+            + '<path d="M360,24 V208" stroke-dasharray="9 8"/></g>'
+            + '<text x="180" y="76" text-anchor="middle" font-family="' + face + '" font-weight="900" font-size="47" fill="' + ink + '" letter-spacing="-0.4">BLACK FRIDAY</text>'
+            + '<line x1="92" y1="97" x2="140" y2="97" stroke="' + ink + '" stroke-width="3.4" stroke-linecap="round"/>'
+            + '<text x="180" y="106" text-anchor="middle" font-family="' + face + '" font-weight="800" font-size="27" fill="' + ink + '" letter-spacing="2">SALE</text>'
+            + '<line x1="220" y1="97" x2="268" y2="97" stroke="' + ink + '" stroke-width="3.4" stroke-linecap="round"/>'
+            + '<text x="180" y="203" text-anchor="middle" font-family="' + face + '" font-weight="900" font-size="112" fill="' + ink + '" letter-spacing="-3">30%</text>'
+            + '<g class="bfp-stub" fill="' + ink + '" font-family="' + face + '" text-anchor="middle">'
+            + '<text class="bfp-top" x="' + STUB_X + '" y="90" font-weight="800" letter-spacing="2"></text>'
+            + '<line class="bfp-strike" display="none" stroke="' + ink + '" stroke-width="4" stroke-linecap="round"/>'
+            + '<text class="bfp-big" x="' + STUB_X + '" y="166" font-weight="900" style="font-variant-numeric:tabular-nums"></text></g>'
+            + '</svg>';
+    }
+    // The ticket's side draws it, with the words kept for a screen reader; the pill's side shows
+    // the words and its clock, as it always did.
     var pinLabel = el('span', 'bf-pin-t');
     var pinClock = el('span', 'bf-pin-c');
+    pin.classList.add(TICKET ? 'bfp-ticket' : 'bfp-pill');
     pin.appendChild(pinLabel);
-    pin.appendChild(pinClock);
+    if (TICKET) pin.insertAdjacentHTML('beforeend', '<span class="bfp-t">' + pinTicket() + '</span>');
+    else pin.appendChild(pinClock);
+    var pinTop = pin.querySelector('.bfp-top'), pinBig = pin.querySelector('.bfp-big'),
+        pinStrike = pin.querySelector('.bfp-strike');
+    // A stub line at its own size, smaller only where it would not fit (a long price in some
+    // currencies, a longer word in some languages), measured in the drawing's own units.
+    function stubLine(node, text, size) {
+        node.textContent = text;
+        node.setAttribute('font-size', size);
+        var w = 0;
+        try { w = node.getComputedTextLength(); } catch (e) {}
+        if (w > STUB_ROOM) node.setAttribute('font-size', (size * STUB_ROOM / w).toFixed(1));
+        return Math.min(w, STUB_ROOM);
+    }
+    // The stub, once a second: the clock once a code exists (the moment the hero's code line counts
+    // to), before that the struck price over the 30% price. No clock before the email: a fresh
+    // browser would start a new 48 hours, so it would not be anyone's real deadline (2026-10-20).
+    function paintPin(c) {
+        var timed = claimed();
+        pinLabel.textContent = (claimed() ? t('pinCode', { code: st.code }) : t('pinOffer')) + (timed ? ' · ' + c : '');
+        pin.classList.toggle('is-price', !timed);
+        var w = stubLine(pinTop, timed ? t('pinEnds').toUpperCase() : money(full()), 36);
+        stubLine(pinBig, timed ? c : money(offerPrice()), 64);
+        pinStrike.setAttribute('display', timed || !w ? 'none' : 'inline');
+        if (timed || !w) return;
+        var y = (90 - 0.36 * Number(pinTop.getAttribute('font-size'))).toFixed(1);
+        pinStrike.setAttribute('x1', (STUB_X - w / 2 - 6).toFixed(1));
+        pinStrike.setAttribute('x2', (STUB_X + w / 2 + 6).toFixed(1));
+        pinStrike.setAttribute('y1', y);
+        pinStrike.setAttribute('y2', y);
+    }
+    // Never over the hero's price or its buttons (.hero-buy, the row a purchase starts from).
+    // While that row reaches the pin's corner: on a desktop, where the row is one bar across the
+    // page, the pin sits on the page just above the bar's left end and travels with it; on a
+    // phone, where the row's pieces stack down the screen, it waits out of sight, as the consent
+    // panel does (KEEP_CLEAR in its script). Once the row has moved on, it lands in its corner.
+    var heroBuy = document.querySelector('section[data-ms="hero"] .hero-buy');
+    var pinMode = '', placing = 0;
+    // The row's box: on a phone its wrappers have none of their own (display:contents), so the
+    // pieces inside are measured together.
+    function rowBox(node) {
+        var r = node.getBoundingClientRect();
+        if (r.width && r.height) return r;
+        var box = null;
+        for (var i = 0; i < node.children.length; i++) {
+            var k = rowBox(node.children[i]);
+            if (!k) continue;
+            box = box ? { top: Math.min(box.top, k.top), bottom: Math.max(box.bottom, k.bottom),
+                          left: Math.min(box.left, k.left), right: Math.max(box.right, k.right) } : k;
+        }
+        return box;
+    }
+    function land() {                       // the sticker's landing and its shakes, once more
+        [pin, pin.querySelector('svg')].forEach(function (n) {
+            n.style.animation = 'none';
+            n.getBoundingClientRect();
+            n.style.animation = '';
+        });
+    }
+    function placePin() {
+        if (pin.hidden || !TICKET) return;
+        pin.classList.remove('is-riding', 'is-parked');
+        pin.style.top = pin.style.bottom = '';
+        // Its corner, from its own size and place (its rect would carry the landing's scale).
+        var cs = window.getComputedStyle(pin), h = pin.offsetHeight, mode = '';
+        var base = window.innerHeight - (parseFloat(cs.bottom) || 0), left = parseFloat(cs.left) || 0;
+        var c = { top: base - h, bottom: base, left: left, right: left + pin.offsetWidth, height: h };
+        var row = heroBuy && rowBox(heroBuy);
+        // It leaves the corner the moment the row reaches it, and comes back only once the row is
+        // 24px clear of it, so a scroll right at the line does not toss it back and forth.
+        var slack = pinMode ? -24 : 0;
+        if (row && row.top < c.bottom && row.bottom > c.top + slack && row.left < c.right && row.right > c.left) {
+            mode = 'is-parked';
+            // On the bar's corner like a sticker, its lowest point 15px over the bar's top edge,
+            // lower where the copy above comes down further, never as low as the price inside the
+            // bar. Where the copy and the price leave it no room (a 1024px screen), it waits. The
+            // tilted ticket reaches within a pixel of its box at the top and at the bottom.
+            if (window.getComputedStyle(heroBuy).display === 'grid') {
+                var copy = document.querySelectorAll('section[data-ms="hero"] .hero-text > *'), above = 0;
+                for (var i = 0; i < copy.length; i++) {
+                    var k = copy[i].getBoundingClientRect();
+                    if (k.height && k.left < c.right) above = Math.max(above, k.bottom);
+                }
+                var price = heroBuy.querySelector('.hero-buy-price');
+                var below = price ? price.getBoundingClientRect().top : row.bottom;
+                var top = Math.max(row.top + 16 - c.height, above + 2);
+                if (top > 0 && top + c.height - 1 <= below - 4) {
+                    mode = 'is-riding';
+                    pin.style.top = Math.round(top + window.pageYOffset) + 'px';
+                    pin.style.bottom = 'auto';
+                }
+            }
+        }
+        if (mode) pin.classList.add(mode);
+        if (mode !== pinMode) {
+            pinMode = mode;
+            if (mode !== 'is-parked') land();
+        }
+    }
+    function placeSoon() {
+        if (!placing) placing = requestAnimationFrame(function () { placing = 0; placePin(); });
+    }
+    window.addEventListener('scroll', placeSoon, { passive: true });
+    window.addEventListener('resize', placeSoon);
 
     // One line under the button, once a code is claimed: "Your code ends in 47:59:44".
     // Before the email there is no clock: the code's own expiry is the only deadline shown.
@@ -6262,7 +6445,8 @@ function openBuy() { toggleBuyModal(); }
         if (refs.was) refs.was.textContent = money(full());
         if (refs.now) refs.now.textContent = money(offerPrice());
         if (refs.buy) refs.buy.textContent = t('buy', { price: money(offerPrice()) });
-        if (!pin.hidden) {
+        if (!pin.hidden && TICKET) { paintPin(c); placePin(); }
+        else if (!pin.hidden) {
             pinLabel.textContent = claimed() ? t('pinCode', { code: st.code }) : t('pinOffer');
             pinClock.textContent = claimed() ? c : '';
             pinClock.style.display = claimed() ? '' : 'none';
@@ -6285,9 +6469,12 @@ function openBuy() { toggleBuyModal(); }
         document.body.style.overflow = 'hidden';
         setTimeout(function () { try { (refs.input || refs.buy).focus(); } catch (e) {} }, 60);
     }
+    var tagged = false;
     function showPin() {
         if (!live()) { pin.hidden = true; return; }
         pin.hidden = false;
+        // The session's recording in Clarity says which pin it saw.
+        if (!tagged) { tagged = true; try { if (window.clarity) window.clarity('set', 'pin_arm', PIN_ARM); } catch (e) {} }
         paint();
     }
     function close() {
@@ -6300,11 +6487,12 @@ function openBuy() { toggleBuyModal(); }
         if (!pop.classList.contains('on')) return;
         close();
         stage('folded');
-        track('bf_popup_folded');
+        track('bf_popup_folded', { pin_arm: PIN_ARM });
     }
     pin.addEventListener('click', function () {
+        viaPin = true;
         stage('reopened');
-        track('bf_popup_reopened');
+        track('bf_popup_reopened', { pin_arm: PIN_ARM });
         open();
     });
     pop.addEventListener('click', function (ev) { if (ev.target === pop) fold(); });
@@ -6392,6 +6580,8 @@ function openBuy() { toggleBuyModal(); }
         body.first_seen_ms = st.seen || Date.now();
         body.event_id = eid;
         body.lang = lang;
+        body.pin_arm = PIN_ARM;             // the pin's A/B: its side, and whether the pin brought them back
+        body.via_pin = viaPin;
         var again = function () {
             sending = false;
             if (refs.go) { refs.go.disabled = false; refs.go.textContent = t('go'); }

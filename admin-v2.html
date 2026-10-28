@@ -532,6 +532,11 @@ let PIB = [];
 // (health.build_early_bf), and how its sales were found ('discount' exact, 'email' an estimate).
 let EBF = [], EBF_MATCH = null;
 const EBF_KEYS = ['shown', 'folded', 'reopened', 'failed', 'claims', 'sales', 'usd'];
+// The pin's A/B (2026-10-28) per day and side, { ticket: {folded, reopened, claims, sales, usd}, pill }:
+// the popups closed into that side's pin, the reopens from it, the codes taken after it brought them back
+// and those codes' sales (health.build_early_bf's pin).
+let EBF_PIN = [];
+const EBF_PIN_KEYS = ['folded', 'reopened', 'claims', 'sales', 'usd'], EBF_PIN_ARMS = ['ticket', 'pill'];
 // Whether the backend said how each ad's link names the ad (health.link_tag: 'ad_id', 'meta',
 // 'none'), the day the site began reading ad ids from Meta's own utm_content (the first day of
 // pv_meta_ids, read only from the publish on) and the first whole day after it.
@@ -607,6 +612,8 @@ function ingest(p) {
   EBF = Array.from({ length: DAYS }, () => Object.fromEntries(EBF_KEYS.map(k => [k, 0])));
   for (const [d, v] of Object.entries((p.early_bf || {}).days || {})) { const i = DI[d]; if (i != null) EBF[i] = Object.fromEntries(EBF_KEYS.map(k => [k, +v[k] || 0])); }
   EBF_MATCH = (p.early_bf || {}).match || null;
+  EBF_PIN = Array.from({ length: DAYS }, () => Object.fromEntries(EBF_PIN_ARMS.map(a => [a, Object.fromEntries(EBF_PIN_KEYS.map(k => [k, 0]))])));
+  for (const [d, v] of Object.entries((p.early_bf || {}).days || {})) { const i = DI[d]; if (i != null && v.pin) for (const a of EBF_PIN_ARMS) EBF_PIN[i][a] = Object.fromEntries(EBF_PIN_KEYS.map(k => [k, +((v.pin[a] || {})[k]) || 0])); }
   const states = (p.flows || {}).flows || {};
   // c1: purchases this mail was the last before (each purchase once); q: purchases within
   // mail.at_once_min of an instant mail, shown apart and never a goal.
@@ -1388,6 +1395,18 @@ function ebfCardHTML(c) {
   const of = (n, d) => d ? fmt.pct(n / d) : '—';
   const how = EBF_MATCH === 'email' ? 'Paddle did not answer, so a sale here is a Stride order by a claimer’s address while their code was open: an estimate'
     : 'A sale is an order whose Paddle discount is one of these codes: exact';
+  // The pin's A/B, once its counts have begun in the range: half the browsers get each pin.
+  const pt = Object.fromEntries(EBF_PIN_ARMS.map(a => [a, c.idx.reduce((s, i) => {
+    const x = (EBF_PIN[i] || {})[a] || {}; for (const k of EBF_PIN_KEYS) s[k] += x[k] || 0; return s; },
+    Object.fromEntries(EBF_PIN_KEYS.map(k => [k, 0])))]));
+  const abRow = (a, name, sub) => { const x = pt[a];
+    return `<tr><td>${name}<small class="subj">${sub}</small></td><td>${fmt.num(x.folded)}</td><td>${fmt.num(x.reopened)}</td><td>${of(x.reopened, x.folded)}</td><td>${fmt.num(x.claims)}</td><td>${of(x.claims, x.folded)}</td><td>${fmt.num(x.sales)}</td><td>${fmt.usd0(x.usd)}</td></tr>`; };
+  const ab = pt.ticket.folded + pt.pill.folded ? `<h3 class="svy-h">The pin’s A/B</h3>
+    <div class="tbl-wrap"><table class="tbl" id="ebf-ab"><thead><tr><th>Pin</th><th>Closed into it</th><th>Reopened</th><th>Rate</th><th>Codes it brought back</th><th>Rate</th><th>Sales</th><th>Revenue</th></tr></thead><tbody>
+      ${abRow('ticket', 'Ticket', 'the hero’s Black Friday sticker, with the countdown once a code exists')}
+      ${abRow('pill', 'Dark pill', 'the pin as it was until 2026-10-28')}
+    </tbody></table></div>
+    <p class="note" style="margin-top:8px">Half the browsers get each pin, one each, kept. Rates are of the popups closed into that pin; a code counts here only when the pin brought them back to the popup, and a sale only when it was made with such a code.</p>` : '';
   return card('Early Black Friday popup', 'the homepage popup in this range, every channel',
     `<div class="tbl-wrap"><table class="tbl" id="ebf-table"><thead><tr><th>Step</th><th>Count</th><th>Rate</th></tr></thead><tbody>
       <tr><td>Shown<small class="subj">opened by itself after 15 s on the page, once per browser</small></td><td>${fmt.num(t.shown)}</td><td></td></tr>
@@ -1398,7 +1417,7 @@ function ebfCardHTML(c) {
       <tr><td>Revenue from those orders<small class="subj">net of tax, before refunds</small></td><td>${fmt.usd0(t.usd)}</td><td></td></tr>
       <tr><td>Claims that failed<small class="subj">a network or server error; the visitor was asked to try again</small></td><td>${fmt.num(t.failed)}</td><td></td></tr>
     </tbody></table></div>
-    <p class="note" style="margin-top:10px">${esc(how)}. A code lasts 48 hours, so a claim late in the range can still turn into a sale after it.</p>`);
+    <p class="note" style="margin-top:10px">${esc(how)}. A code lasts 48 hours, so a claim late in the range can still turn into a sale after it.</p>${ab}`);
 }
 
 function renderLanding(c) {
