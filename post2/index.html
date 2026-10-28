@@ -922,37 +922,40 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   // ── Purchase tracking ───────────────────────────────────────────────────────
   // This page is now the first one a buyer reaches, so the events that used to fire
   // on welcome.html fire here. Two rules carried from that page, both load-bearing:
-  //   Meta fires ONLY when a real event id exists, because the server already sends
-  //   Purchase through CAPI for every Paddle sale. A browser event with an id the
-  //   server never used is a second, undeduplicated purchase in the ad account.
-  //   The GA4 push happens for any evidence, since nothing else reports it.
+  //   Meta fires ONLY for the sale this tab saw Paddle complete (stride_paid, written by
+  //   the page that ran the checkout, 2026-10-28): under that checkout's event id, the id
+  //   the server reports it under, and at the money the server reports. Never on an event
+  //   id alone: one is stored when a checkout OPENS, so an abandoned checkout followed by a
+  //   visit here would be a purchase that never happened.
+  //   GA4 records the completed transaction (or the URL's order), since nothing else does.
   // Dedup is a FLAG, not a delete: stride_last_txn has to survive, because the offer
   // below is resolved from it.
   (function firePurchase() {
     try {
       var params = new URLSearchParams(window.location.search);
       var order = (params.get('order') || '').trim();
-      var eventId = (params.get('event_id') || '').trim() || ss('stride_pixel_event_id');
-      var lastTxn = ss('stride_last_txn');
-      if (!order && !eventId && !lastTxn) return;
 
-      var txnId = order || lastTxn || eventId;
-      if (ss('stride_purchase_tracked') === txnId) return;
+      var paid = null;
+      try { paid = JSON.parse(ss('stride_paid') || 'null'); } catch (e) {}
+      if (paid && paid.txn && paid.eid && Number(paid.value) > 0 && paid.currency
+          && Date.now() - Number(paid.ts || 0) < 6 * 3600 * 1000
+          && (!order || order === paid.txn) && ss('stride_pixel_purchase_fired') !== String(paid.txn)) {
+        var purchaseData = { value: Number(paid.value), currency: String(paid.currency),
+                             content_name: 'Stride Sound Design Engine', content_type: 'product',
+                             content_ids: [String(paid.txn)] };
+        try {
+          fbq('track', 'Purchase', purchaseData, { eventID: paid.eid });
+          fbq('track', 'welcome', purchaseData, { eventID: paid.eid });
+        } catch (e) {}
+        ssSet('stride_pixel_purchase_fired', String(paid.txn));
+        try { sessionStorage.removeItem('stride_pixel_event_id'); } catch (e) {}
+      }
+
+      var txnId = order || ss('stride_last_txn');
+      if (!txnId || ss('stride_purchase_tracked') === txnId) return;
 
       var money = {};
       try { money = JSON.parse(ss('stride_checkout_value') || '{}') || {}; } catch (e) {}
-
-      if (eventId && ss('stride_pixel_purchase_fired') !== '1') {
-        var purchaseData = { value: 99, currency: 'USD',
-                             content_name: 'Stride Sound Design Engine', content_type: 'product' };
-        if (order) purchaseData.content_ids = [order];
-        try {
-          fbq('track', 'Purchase', purchaseData, { eventID: eventId });
-          fbq('track', 'welcome', purchaseData, { eventID: eventId });
-        } catch (e) {}
-        ssSet('stride_pixel_purchase_fired', '1');
-        try { sessionStorage.removeItem('stride_pixel_event_id'); } catch (e) {}
-      }
 
       if (window.StrideTrack) {
         StrideTrack.push('purchase', {

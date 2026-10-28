@@ -572,125 +572,72 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         }
     };
 
-    // Fire Purchase ONLY when we have evidence this is a real post-purchase
-    // landing — either an order_id in the URL (from the LS confirmation
-    // modal's Button link variable substitution) OR an event_id we stored
-    // in sessionStorage when the user clicked GET STRIDE on the landing
-    // page. Random/bookmarked visits get PageView only, not Purchase.
+    // The Meta Purchase (and 'welcome') for the sale this tab just paid for, bound to it
+    // (2026-10-28). The page that ran the checkout writes stride_paid from Paddle's own
+    // checkout.completed: the transaction, the event id the checkout carried (the id the
+    // server reports the sale under) and the money the server reports under that id. Only
+    // that fires, at that value. Never an event id alone: one is stored when a checkout
+    // OPENS, so an abandoned checkout followed by a visit here would report a purchase that
+    // never happened. Never a made-up id either: Meta would count the sale twice. A sale with
+    // no record (the hero wallet, /samples) is the webhook's alone. Random or bookmarked
+    // visits get PageView only.
     (function fireStridePurchase() {
         try {
             const params = new URLSearchParams(window.location.search);
             const order = (params.get('order') || '').trim();
+            let paid = null;
+            try { paid = JSON.parse(sessionStorage.getItem('stride_paid') || 'null'); } catch (e) {}
+            let fired = '';
+            try { fired = sessionStorage.getItem('stride_pixel_purchase_fired') || ''; } catch (e) {}
+            if (paid && paid.txn && paid.eid && Number(paid.value) > 0 && paid.currency
+                && Date.now() - Number(paid.ts || 0) < 6 * 3600 * 1000
+                && (!order || order === paid.txn) && fired !== paid.txn) {
+                const purchaseData = {
+                    value: Number(paid.value),
+                    currency: String(paid.currency),
+                    content_name: 'Stride Sound Design Engine',
+                    content_type: 'product',
+                    content_ids: [String(paid.txn)],
+                };
+                fbq('track', 'Purchase', purchaseData, { eventID: paid.eid });
 
-            // event_id resolution order:
-            //   1. URL param  (LS link variable {checkout.custom.event_id})
-            //   2. sessionStorage (set on landing page at GET STRIDE click)
-            //   3. Fresh UUID — last resort; means no dedup with server CAPI
-            let eventId = (params.get('event_id') || '').trim();
-            if (!eventId) {
-                try { eventId = sessionStorage.getItem('stride_pixel_event_id') || ''; } catch (e) {}
+                // Custom conversion event 'welcome' — the optimization target
+                // for the conversion campaign. Same event_id as Purchase: Meta
+                // dedupes per (event_name + event_id), so different event names
+                // sharing an event_id are still counted separately (one welcome,
+                // one Purchase) — what the same event_id buys us is server-side
+                // CAPI dedup of THIS welcome event against the corresponding
+                // CAPI welcome event for the same conversion.
+                fbq('track', 'welcome', purchaseData, { eventID: paid.eid });
+
+                // Fired for THIS sale (a later sale in the same tab fires its own), and the
+                // checkout's event id cleared so it never tags anything else.
+                try { sessionStorage.setItem('stride_pixel_purchase_fired', String(paid.txn)); } catch (e) {}
+                try { sessionStorage.removeItem('stride_pixel_event_id'); } catch (e) {}
             }
 
-            const isFreshPurchase = !!(order || eventId);
-            let alreadyFired = false;
-            try { alreadyFired = sessionStorage.getItem('stride_pixel_purchase_fired') === '1'; } catch (e) {}
-            // A Paddle checkout that left no event id (the hero wallet, /samples) still completed:
-            // GA4 records it from its transaction id and what it charged. Meta is deliberately
-            // not fired here: the webhook already sends that sale server-side, and a browser
-            // Purchase with an id the server never used would count it twice.
-            if (!isFreshPurchase) {
-                try {
-                    var _lt = sessionStorage.getItem('stride_last_txn') || '';
-                    // /post is now the FIRST post-purchase page, so it usually fires this
-                    // already. The flag is what stops a second push for the same sale; a
-                    // flag that is only written and never read is not a guard.
-                    var _tracked = '';
-                    try { _tracked = sessionStorage.getItem('stride_purchase_tracked') || ''; } catch (e) {}
-                    if (_lt && _lt !== _tracked && window.StrideTrack) {
-                        var _cv = {};
-                        try { _cv = JSON.parse(sessionStorage.getItem('stride_checkout_value') || '{}') || {}; } catch (e) {}
-                        StrideTrack.push('purchase', {
-                            value: Number(_cv.value) > 0 ? Number(_cv.value) : 99,
-                            currency: _cv.currency || 'USD',
-                            transaction_id: _lt
-                        });
-                        // Dedup by FLAG, never by deleting the key. /post and the session
-                        // rail below both resolve the buyer's 72h offer from
-                        // stride_last_txn, so removing it here would silently kill the
-                        // offer for anyone who reaches this page.
-                        try { sessionStorage.setItem('stride_purchase_tracked', _lt); } catch (e) {}
-                    }
-                } catch (e) {}
-                return;
-            }
-            if (!isFreshPurchase || alreadyFired) return;
-
-            if (!eventId) {
-                eventId = (window.crypto && window.crypto.randomUUID)
-                    ? window.crypto.randomUUID()
-                    : 'evt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
-            }
-
-            // Value: current list price ($99 from 2026-09-01; the $79 summer sale
-            // ended 2026-08-31). Bump this when the price flips. LS link variables
-            // don't include order_total, so the client side fires a fixed
-            // value. Server-
-            // side CAPI carries the REAL order_total from the webhook —
-            // Meta dedupes via event_id and treats the server value as
-            // authoritative when both events arrive. Meta penalizes
-            // zero-value Purchase events for optimization, so we never
-            // fire 0; this hardcoded value is the optimistic floor that
-            // gets corrected by CAPI seconds later. Bump this if base price
-            // changes again. With REKZ-style coupons in flight, expect
-            // CAPI to often correct DOWN ($59 → ~$50 after 15% off).
-            const purchaseData = {
-                value: 99,
-                currency: 'USD',
-                content_name: 'Stride Sound Design Engine',
-                content_type: 'product',
-            };
-            if (order) purchaseData.content_ids = [order];
-
-            fbq('track', 'Purchase', purchaseData, { eventID: eventId });
-
-            // Custom conversion event 'welcome' — the optimization target
-            // for the conversion campaign. Same event_id as Purchase: Meta
-            // dedupes per (event_name + event_id), so different event names
-            // sharing an event_id are still counted separately (one welcome,
-            // one Purchase) — what the same event_id buys us is server-side
-            // CAPI dedup of THIS welcome event against the corresponding
-            // CAPI welcome event for the same conversion.
-            fbq('track', 'welcome', purchaseData, { eventID: eventId });
-
-            // GA4 purchase, under the same once-per-landing guard as the Meta pair above. The money
-            // and the order id come from what the checkout recorded in this tab (the real cart and
-            // currency, the Paddle transaction id); without them, the same floor Meta gets.
-            try {
+            // GA4 purchase: the transaction this tab completed (or the URL's order), once per
+            // sale, since /post usually records it first. Not on an event id alone (see above).
+            // The money is what the checkout recorded in this tab; without it, the $99 floor.
+            var _txn = '';
+            try { _txn = sessionStorage.getItem('stride_last_txn') || ''; } catch (e) {}
+            var _id = order || _txn;
+            var _tracked = '';
+            try { _tracked = sessionStorage.getItem('stride_purchase_tracked') || ''; } catch (e) {}
+            if (_id && _id !== _tracked && window.StrideTrack) {
                 var _ck = {};
                 try { _ck = JSON.parse(sessionStorage.getItem('stride_checkout_value') || '{}') || {}; } catch (e) {}
-                var _txn = '';
-                try { _txn = sessionStorage.getItem('stride_last_txn') || ''; } catch (e) {}
-                var _id = order || _txn || eventId;
-                var _tracked2 = '';
-                try { _tracked2 = sessionStorage.getItem('stride_purchase_tracked') || ''; } catch (e) {}
-                // Same guard as the wallet branch: /post may already have recorded this
-                // exact sale. Meta above is guarded separately by stride_pixel_purchase_fired.
-                if (_id !== _tracked2) {
-                    StrideTrack.push('purchase', {
-                        value: Number(_ck.value) > 0 ? Number(_ck.value) : purchaseData.value,
-                        currency: _ck.currency || purchaseData.currency,
-                        transaction_id: _id
-                    });
-                    // Flag, not delete: stride_last_txn is what the session rail resolves
-                    // this buyer's offer from, so removing it would kill the offer.
-                    try { sessionStorage.setItem('stride_purchase_tracked', _id); } catch (e) {}
-                }
-            } catch (e) {}
-
-            // Mark as fired so reloads don't double-count, then clear the
-            // event_id so it doesn't accidentally tag a future purchase.
-            try { sessionStorage.setItem('stride_pixel_purchase_fired', '1'); } catch (e) {}
-            try { sessionStorage.removeItem('stride_pixel_event_id'); } catch (e) {}
+                StrideTrack.push('purchase', {
+                    value: Number(_ck.value) > 0 ? Number(_ck.value) : 99,
+                    currency: _ck.currency || 'USD',
+                    transaction_id: _id
+                });
+                // Dedup by FLAG, never by deleting the key. /post and the session
+                // rail below both resolve the buyer's 72h offer from
+                // stride_last_txn, so removing it here would silently kill the
+                // offer for anyone who reaches this page.
+                try { sessionStorage.setItem('stride_purchase_tracked', _id); } catch (e) {}
+            }
         } catch (e) {
             // Never let tracking break the page
             if (window.console && console.warn) console.warn('Stride pixel: Purchase event failed', e);
@@ -968,7 +915,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media (min-width:900px){ .w-ref-h{font-size:26px} .w-ref-s{font-size:16px} }
   .w-cols + .wcard-help{margin-top:34px}
 </style>
-<link rel="stylesheet" href="/_legacy/css/welcome.e2e6204f7b.css">
+<link rel="stylesheet" href="/_legacy/css/welcome.93d9ab3c82.css">
 <meta property="og:image" content="https://stridehub.io/media/stride/og/stride-share-1200x630.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">

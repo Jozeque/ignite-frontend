@@ -5289,6 +5289,24 @@ function openBuy() { toggleBuyModal(); }
                     : strideBumpIn() === 'tendril';
                 if (_tdrPaid) sessionStorage.setItem('stride_bump_tendril', String(ev.data.transaction_id));
                 else sessionStorage.removeItem('stride_bump_tendril');
+                // The Meta Purchase the next page fires for this sale, bound to it (2026-10-28): Paddle's
+                // own transaction, the event id this checkout carried (the id the server reports this
+                // sale under) and the money the server reports under that id: ex-tax, and without a
+                // Tendril bump line, which the server reports as a purchase of its own. Anything
+                // missing (the wallet carries no event id) = no browser Purchase: the server's covers it.
+                var _ex = function (t) { return Number((t || {}).total) - Number((t || {}).tax || 0); };
+                var _eid = String((ev.data.custom_data || {}).event_id || '');
+                var _val = _ex(ev.data.totals);
+                (Array.isArray(_it) ? _it : []).forEach(function (i) {
+                    if (i && (i.price_id === PADDLE_PRICE_TENDRIL || ((i.price || {}).id === PADDLE_PRICE_TENDRIL))) _val -= _ex(i.totals);
+                });
+                _val = Math.round(_val * 100) / 100;
+                if (_eid && isFinite(_val) && _val > 0 && ev.data.currency_code) {
+                    sessionStorage.setItem('stride_paid', JSON.stringify({ txn: String(ev.data.transaction_id), eid: _eid,
+                        value: _val, currency: String(ev.data.currency_code), ts: Date.now() }));
+                } else {
+                    sessionStorage.removeItem('stride_paid');
+                }
             }
         } catch (e) {}
         // Paying, or paid, in any checkout on the page, the wallet included: a buyer, so the

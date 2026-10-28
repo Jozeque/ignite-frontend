@@ -995,34 +995,38 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   function ssSet(k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} }
 
   // ── The Stride purchase this page follows ───────────────────────────────────
-  // Meta fires ONLY with a real event id, because the server already reports every Paddle
-  // sale through CAPI. The GA4 push happens for any evidence. Dedup is a FLAG, not a delete:
+  // Meta fires ONLY for the sale this tab saw Paddle complete (stride_paid, written by the page
+  // that ran the checkout, 2026-10-28): under that checkout's event id, the id the server reports
+  // it under, and at the money the server reports. Never on an event id alone: one is stored when
+  // a checkout OPENS, so an abandoned checkout would read as a purchase that never happened.
+  // GA4 records the completed transaction (or the URL's order). Dedup is a FLAG, not a delete:
   // stride_last_txn has to survive, because the offer below is resolved from it.
   (function firePurchase() {
     try {
       var params = new URLSearchParams(window.location.search);
       var order = (params.get('order') || '').trim();
-      var eventId = (params.get('event_id') || '').trim() || ss('stride_pixel_event_id');
-      var lastTxn = ss('stride_last_txn');
-      if (!order && !eventId && !lastTxn) return;
 
-      var txnId = order || lastTxn || eventId;
-      if (ss('stride_purchase_tracked') === txnId) return;
+      var sale = null;
+      try { sale = JSON.parse(ss('stride_paid') || 'null'); } catch (e) {}
+      if (sale && sale.txn && sale.eid && Number(sale.value) > 0 && sale.currency
+          && Date.now() - Number(sale.ts || 0) < 6 * 3600 * 1000
+          && (!order || order === sale.txn) && ss('stride_pixel_purchase_fired') !== String(sale.txn)) {
+        var purchaseData = { value: Number(sale.value), currency: String(sale.currency),
+                             content_name: 'Stride Sound Design Engine', content_type: 'product',
+                             content_ids: [String(sale.txn)] };
+        try {
+          fbq('track', 'Purchase', purchaseData, { eventID: sale.eid });
+          fbq('track', 'welcome', purchaseData, { eventID: sale.eid });
+        } catch (e) {}
+        ssSet('stride_pixel_purchase_fired', String(sale.txn));
+        try { sessionStorage.removeItem('stride_pixel_event_id'); } catch (e) {}
+      }
+
+      var txnId = order || ss('stride_last_txn');
+      if (!txnId || ss('stride_purchase_tracked') === txnId) return;
 
       var paid = {};
       try { paid = JSON.parse(ss('stride_checkout_value') || '{}') || {}; } catch (e) {}
-
-      if (eventId && ss('stride_pixel_purchase_fired') !== '1') {
-        var purchaseData = { value: 99, currency: 'USD',
-                             content_name: 'Stride Sound Design Engine', content_type: 'product' };
-        if (order) purchaseData.content_ids = [order];
-        try {
-          fbq('track', 'Purchase', purchaseData, { eventID: eventId });
-          fbq('track', 'welcome', purchaseData, { eventID: eventId });
-        } catch (e) {}
-        ssSet('stride_pixel_purchase_fired', '1');
-        try { sessionStorage.removeItem('stride_pixel_event_id'); } catch (e) {}
-      }
 
       if (window.StrideTrack) {
         StrideTrack.push('purchase', {
