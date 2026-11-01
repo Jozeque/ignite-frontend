@@ -1610,6 +1610,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .bf-now{font-size:28px}.bf-was{font-size:17px}
   }
   @media (max-width:420px){.bf-card{padding:42px 20px 24px}.bf-card .dpop-h{font-size:24px}}
+  /* Over an open film on a phone (Yossi 2026-11-01: "when a user opens the video on mobile, the
+     Black Friday sticky should be at the bottom"): under the picture, in the room the panel leaves
+     for it (--bf-h, the pin's height, from its script), never over the film's controls. */
+  #bfpin.is-film{z-index:1201;left:0;right:0;width:max-content;max-width:calc(100% - 16px);margin:0 auto;
+    bottom:calc(6px + env(safe-area-inset-bottom,0px))!important}
+  html.bf-film .vpop{--below:calc(var(--bf-h,84px) + 6px + env(safe-area-inset-bottom,0px));
+    padding-bottom:calc(var(--pad) + var(--below))}
 
   /* ── THE FILM ───────────────────────────────────────────────────────────
      Pressing the hero frame while its loop is running plays the full Stride
@@ -1642,7 +1649,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media (max-width:640px){.vpop{--pad:14px}}
   /* The upright film (a phone, 2026-10-24) is sized by the height it has: as wide as its 9:16
      allows once it fits the screen, the same rule as /tendril's. */
-  .vpop.v .vpop-card{width:min(100%,calc((100vh - var(--pad) * 2) * 9 / 16));width:min(100%,calc((100dvh - var(--pad) * 2) * 9 / 16))}
+  .vpop.v .vpop-card{width:min(100%,calc((100vh - var(--pad) * 2 - var(--below,0px)) * 9 / 16));width:min(100%,calc((100dvh - var(--pad) * 2 - var(--below,0px)) * 9 / 16))}
 
   /* ── AS SEEN IN (2026-10-28) ────────────────────────────────────────────
      The publications that covered Stride, between the hero and the producers' quotes. Plain
@@ -6334,7 +6341,7 @@ function openBuy() { toggleBuyModal(); }
         });
     }
     function placePin() {
-        if (pin.hidden || !TICKET) return;
+        if (pin.hidden || !TICKET || filmOn) return;
         pin.classList.remove('is-riding', 'is-parked');
         pin.style.top = pin.style.bottom = '';
         // Its corner, from its own size and place (its rect would carry the landing's scale).
@@ -6487,8 +6494,11 @@ function openBuy() { toggleBuyModal(); }
     var tagged = false;
     // The pin is for someone who can still leave their email, so a pin on screen always opens the
     // popup. Once a code is on the page there is none: the hero has the ticket, the price and the
-    // clock (Yossi 2026-10-28). Nor once the offer is over: there would be nothing to open.
-    function pinWanted() { return live() && !claimed(); }
+    // clock (Yossi 2026-10-28). Nor once the offer is over: there would be nothing to open. Over a
+    // film on a phone it is also for someone who has not met the offer yet: a press is their first
+    // sight of it, and until then their 48 hours have not started.
+    var filmOn = false;
+    function pinWanted() { return !claimed() && (live() || (filmOn && !st.seen)); }
     function showPin() {
         if (!pinWanted()) { pin.hidden = true; return; }
         pin.hidden = false;
@@ -6511,11 +6521,45 @@ function openBuy() { toggleBuyModal(); }
     }
     pin.addEventListener('click', function () {
         if (!pinWanted()) { pin.hidden = true; return; }
+        // Pressed over a film: the film closes through its own ×, the popup lies under its panel.
+        var filmX = document.querySelector('.vpop.on .vpop-x');
+        if (filmX) {
+            filmX.click();
+            syncFilm();
+            track('bf_pin_over_film', { pin_arm: PIN_ARM });
+        }
+        if (!st.seen) {                     // their first sight of the offer: the 48 hours start here
+            st.seen = Date.now();
+            save();
+            stage('shown');
+            track('bf_popup_shown');
+        }
         viaPin = true;
         stage('reopened');
         track('bf_popup_reopened', { pin_arm: PIN_ARM });
         open();
     });
+    // ── over a film, on a phone ───────────────────────────────────────────────
+    // Any film panel on the page (.vpop), where it stands upright and the screen has the height to
+    // spare. The popup still never opens over a film by itself (busy()): the pin lies under the
+    // picture, and they choose.
+    var PHONE = window.matchMedia ? window.matchMedia('(max-width:640px) and (min-height:480px)') : null;
+    function syncFilm() {
+        var on = !!(PHONE && PHONE.matches && document.querySelector('.vpop.on'));
+        if (on === filmOn) return;
+        filmOn = on;
+        pin.classList.toggle('is-film', on);
+        pin.classList.remove('is-riding', 'is-parked');
+        pin.style.top = pin.style.bottom = '';
+        pinMode = '';
+        showPin();
+        var root = document.documentElement, shown = on && !pin.hidden;
+        if (shown) {
+            root.style.setProperty('--bf-h', pin.offsetHeight + 'px');
+            if (TICKET) land();
+        }
+        root.classList.toggle('bf-film', shown);
+    }
     pop.addEventListener('click', function (ev) { if (ev.target === pop) fold(); });
     document.addEventListener('keydown', function (ev) {
         if (ev.key === 'Escape' && pop.classList.contains('on')) fold();
@@ -6740,6 +6784,18 @@ function openBuy() { toggleBuyModal(); }
         if (live()) { showPin(); if (FORCE) open(); }
         else if (!st.seen) startClock();
     }
+
+    // A film's panel is built on its first press; from then on its class says whether it is open.
+    function watchFilm(node) { new MutationObserver(syncFilm).observe(node, { attributes: true, attributeFilter: ['class'] }); }
+    new MutationObserver(function (list) {
+        list.forEach(function (m) {
+            m.addedNodes.forEach(function (n) { if (n.classList && n.classList.contains('vpop')) watchFilm(n); });
+        });
+        syncFilm();
+    }).observe(document.body, { childList: true });
+    Array.prototype.forEach.call(document.querySelectorAll('.vpop'), watchFilm);
+    if (PHONE && PHONE.addEventListener) PHONE.addEventListener('change', syncFilm);
+    syncFilm();
 
     // Once a second: the clocks, and the two ends. The offer running out unclaimed simply
     // ends it on this browser; a code running out with the page open reloads it at the
