@@ -1793,6 +1793,26 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cpath d='M17 16v8l6.93-4z' fill='%23ece4d6'/%3E%3C/svg%3E");
     background-size:40px 40px}}
   #heroStage:has(iframe)::after{display:none}
+  /* The hero quote test (strideQuoteArm, phones only): a producer's words along the picture's bottom
+     edge, inside the landscape frame, so the frame and everything under it stay where they were.
+     Decoration like the play mark: a press lands on the frame as it always did. */
+  .hero-quote{position:absolute;left:0;right:0;bottom:0;z-index:1;margin:0;padding:30px 12px 9px;
+    background:linear-gradient(to top,rgba(10,10,9,.94) 42%,rgba(10,10,9,0));pointer-events:none;
+    font-size:13px;line-height:1.25;font-weight:500;color:#f4f1ea;text-align:left}
+  .hero-quote .hq-n{display:block;margin-top:2px;font-size:10px;font-weight:800;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--copper-lt)}
+  .hero-quote[hidden],#heroStage:has(iframe) .hero-quote{display:none}
+  @media (min-width:768px){.hero-quote{display:none}}
+
+  /* The buy form states the order before it asks for anything: the price the checkout will charge,
+     the struck price and a plain note while a code is on the page. */
+  .buy-sum{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;margin:2px 0 4px}
+  .buy-sum .sd-total{font-size:30px;font-weight:900;line-height:1.1;letter-spacing:-.01em;color:#fff}
+  .buy-sum .sd-was{font-size:16px;font-weight:700;color:#8b8b86;text-decoration:line-through}
+  .buy-sum .buy-code{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--copper-lt)}
+  .buy-sum .buy-code[hidden]{display:none}
+  /* Room for the price on the button: "CONTINUE TO CHECKOUT · CA$97.30" on one line on a phone. */
+  #buy-go{letter-spacing:.05em}
 
   #m-cta{display:none}
   #m-menu{display:none}
@@ -2173,7 +2193,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
 
 </style>
-<link rel="stylesheet" href="/_legacy/css/index.a2e4737e3c.css">
+<link rel="stylesheet" href="/_legacy/css/index.68de5c1a69.css">
 <meta property="og:image" content="https://stridehub.io/media/stride/og/stride-share-1200x630.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -2509,6 +2529,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                  and the others load the same files. -->
             <video id="heroLoop" class="w-full block" loop muted playsinline preload="none" width="1920" height="1080" poster="/media/stride/film/poster-ui-1280.webp" aria-label="Stride mappa un rack, mette una curva diversa su ogni lane, ne blocca tre e genera curve nuove per il resto"
                    data-wide="/media/stride/film/stride-ui-loop-720.mp4" data-phone="/media/stride/film/stride-ui-loop-540.mp4"></video>
+            <!-- The hero quote test: shown to the phones strideQuoteArm puts on 'quote'. -->
+            <p id="heroQuote" class="hero-quote" hidden><span class="hq-t">“Una specie di vaso di Pandora di caos casuale controllato.”</span><span class="hq-n">Brojanowski</span></p>
           </div>
         </div>
         <!-- the full walkthrough plays right here, on top of the loop, and nothing in the hero
@@ -3856,6 +3878,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
         </div>
+        <!-- The order, stated before anything is asked (Clarity 2026-11-01: 13 of 20 phones opened this
+             form and closed it without typing; someone who pressed "Get Stride for $69.30" saw no price
+             and nothing about their code). strideSyncAddon prints all of it, like every price here. -->
+        <div class="buy-sum">
+            <span class="sd-total">$99</span>
+            <span class="sd-was" id="buy-was" style="display:none"></span>
+            <span class="buy-code" id="buy-code" hidden>Codice applicato</span>
+        </div>
+        <p class="text-sm text-zinc-300 font-semibold sd-what">Stride VST + StrideBridge</p>
         <p class="text-sm text-zinc-400 mb-6 font-medium">Acquisto unico. Windows + Mac. Download immediato e chiave di licenza via email.</p>
 
         <div class="space-y-4 mb-6">
@@ -3869,24 +3900,25 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             
         </div>
 
-        <!-- All-sales-final — plain grey one-liner before the checkbox (Serum-style) -->
-        <p class="text-[11px] text-zinc-500 mb-3 leading-relaxed">Una volta attivata la licenza, tutte le vendite sono definitive. Prima prova il prodotto completo gratis per 24 ore.</p>
-
         <!-- Terms acknowledgment — creates a defensible record per email; the same checkbox
-             serves as the Article 16(m) express-consent waiver under EU Directive 2011/83/EU. -->
+             serves as the Article 16(m) express-consent waiver under EU Directive 2011/83/EU, so the
+             sale-is-final line and the waiver stay on screen in the label, never behind a tap. A change
+             to these words bumps TERMS_VERSION, which is stored with each acceptance. -->
         <label class="flex items-start gap-2.5 mb-4 cursor-pointer select-none group">
             <input id="buy-terms" type="checkbox" class="mt-0.5 shrink-0 w-4 h-4 accent-orange-500 cursor-pointer">
             <span class="text-[11px] text-zinc-400 leading-snug group-hover:text-zinc-300 transition-colors">
-                Ho letto i <a href="/terms.html#requirements" target="_blank" class="text-orange-400 hover:text-orange-300 underline">requisiti di sistema</a>, la <a href="/refund.html" target="_blank" class="text-orange-400 hover:text-orange-300 underline">politica di rimborso</a>e i <a href="/terms.html" target="_blank" class="text-orange-400 hover:text-orange-300 underline">Termini di servizio</a>. Capisco che Stride viene consegnato subito e che <strong class="text-zinc-300">una volta attivata la licenza la vendita è definitiva</strong>. Acconsento all'accesso immediato e rinuncio al diritto di recesso di 14 giorni sul software consegnato.
+                Ho letto i <a href="/terms.html#requirements" target="_blank" class="text-orange-400 hover:text-orange-300 underline">requisiti di sistema</a>, la <a href="/refund.html" target="_blank" class="text-orange-400 hover:text-orange-300 underline">politica di rimborso</a> e i <a href="/terms.html" target="_blank" class="text-orange-400 hover:text-orange-300 underline">Termini di servizio</a>, e capisco che <strong class="text-zinc-300">una volta attivata la licenza la vendita è definitiva</strong>. Acconsento all'accesso immediato e rinuncio al diritto di recesso di 14 giorni.
             </span>
         </label>
 
         <p id="buy-error" class="text-xs text-red-400 mb-3 hidden font-medium"></p>
 
-        <button onclick="submitBuyForm()" class="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black py-3.5 rounded-xl text-xs uppercase tracking-widest transition-all shadow-[0_10px_30px_rgba(255,50,0,0.3)] hover:shadow-[0_10px_40px_rgba(255,50,0,0.5)]">
-            Vai al pagamento
+        <!-- The page's own copper, the same class as GET STRIDE (Yossi 2026-11-01: "exactly like the color of the GET STRIDE CTA"). -->
+        <button id="buy-go" onclick="submitBuyForm()" class="btn-copper w-full justify-center py-3.5 rounded-xl text-xs uppercase tracking-widest">
+            Vai al pagamento<span> &middot; <span class="sd-total">$99</span></span>
         </button>
-        <p class="text-[11px] text-zinc-600 mt-3 text-center font-medium">Pagamento sicuro con Paddle. Carte, Apple Pay e Google Pay. Le tasse sono incluse nel prezzo mostrato.</p>
+        <p class="text-[11px] text-zinc-600 mt-3 text-center font-medium">Pagamento sicuro con Paddle. Carte, PayPal, Apple Pay e Google Pay. Le tasse sono incluse nel prezzo mostrato.</p>
+        <p class="text-[11px] text-zinc-500 mt-1 text-center font-medium">Prima prova il prodotto completo gratis per 24 ore.</p>
     </div>
 </div>
 
@@ -3997,6 +4029,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         modal.classList.toggle('hidden');
         if (!modal.classList.contains('hidden')) {
             document.body.style.overflow = 'hidden';
+            // The address they just gave the popup, on this same page view: 12 of 16 claimers typed
+            // it again within 40 seconds (Clarity 2026-11-01). Kept in memory only, never stored.
+            var field = document.getElementById('buy-email');
+            if (field && !field.value && window.strideKnownEmail) {
+                field.value = window.strideKnownEmail;
+                field.dispatchEvent(new Event('input', { bubbles: true }));
+            }
             strideMarkBuyIntent();
             try { if (window.strideClarity) window.strideClarity('buy_form_open'); } catch (e) {}
         } else {
@@ -4208,6 +4247,12 @@ document.addEventListener('DOMContentLoaded', function () {
    film are their own actions. */
 document.addEventListener('DOMContentLoaded', function () {
   try { if (window.strideClarity) window.strideClarity('', { bump_arm: strideBumpArm() }); } catch (e) {}
+  // The hero quote test: the same tag for its side, and the quote for the phones on 'quote'.
+  try {
+    var quoteArm = strideQuoteArm();
+    if (quoteArm === 'quote') document.getElementById('heroQuote').hidden = false;
+    if (quoteArm && window.strideClarity) window.strideClarity('', { quote_arm: quoteArm });
+  } catch (e) {}
   if (!window.matchMedia || !window.matchMedia('(hover: none)').matches) return;
   var rows = document.querySelectorAll('.addon-tdr');
   rows.forEach(function (row) {
@@ -4300,7 +4345,25 @@ document.addEventListener('DOMContentLoaded', function () {
 function openBuy() { toggleBuyModal(); }
 
     // Bumping TERMS_VERSION invalidates previous acknowledgments.
-    const TERMS_VERSION = '2026-04-16-v2';
+    const TERMS_VERSION = '2026-11-01-v3';
+
+    // One check for an address, the popup's and the buy form's. They used to differ, so the popup could
+    // take an address and the form then refuse one, with nothing to say why (Clarity 2026-10-30).
+    function strideEmailOk(s) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || '').trim()); }
+    // The buy form's two messages, per language: script text is not in the translated pages' files.
+    const STRIDE_BUY_ERRORS = {
+        en: { email: 'That email doesn\'t look right. Check it for a typo or a space.', terms: 'Please read and accept the terms to continue' },
+        de: { email: 'Diese E-Mail sieht nicht richtig aus. Prüf sie auf Tippfehler oder Leerzeichen.', terms: 'Bitte lies und akzeptiere die Bedingungen, um fortzufahren.' },
+        es: { email: 'Ese email no parece correcto. Revisa si hay una errata o un espacio.', terms: 'Lee y acepta las condiciones para continuar.' },
+        fr: { email: 'Cet e-mail semble incorrect. Vérifie qu\'il n\'y a ni faute de frappe ni espace.', terms: 'Lis et accepte les conditions pour continuer.' },
+        it: { email: 'Questa email non sembra corretta. Controlla che non ci siano errori o spazi.', terms: 'Leggi e accetta i termini per continuare.' },
+        ja: { email: 'メールアドレスが正しくないようです。入力ミスや空白がないか確認してください。', terms: '続行するには規約を読んで同意してください。' },
+        zh: { email: '这个邮箱看起来不对。请检查是否有错字或空格。', terms: '请阅读并接受条款后继续。' }
+    };
+    function strideBuyErrorText(k) {
+        var l = String(document.documentElement.lang || 'en').slice(0, 2).toLowerCase();
+        return (STRIDE_BUY_ERRORS[l] || STRIDE_BUY_ERRORS.en)[k];
+    }
 
     // ── Lemon Squeezy checkout URL ──
     // PLACEHOLDER — a human fills this with the live $99 (Stride VST + StrideBridge)
@@ -4404,6 +4467,8 @@ function openBuy() { toggleBuyModal(); }
         if (ref) out.affonso_referral = ref;
         // Which side of the order bump test this visitor saw, so each side's sales can be counted.
         out.bump_arm = strideBumpArm();
+        var quoteArm = strideQuoteArm();        // the hero quote test: phones only
+        if (quoteArm) out.quote_arm = quoteArm;
         return out;
     }
 
@@ -4453,6 +4518,27 @@ function openBuy() { toggleBuyModal(); }
             try { localStorage.setItem('stride_bump_arm', arm); } catch (e) {}
         }
         strideBumpArmMemo = arm;
+        return arm;
+    }
+
+    // The hero quote test (Yossi 2026-11-01, on the Clarity review): most phones never scroll to the
+    // producer quotes, so half of them ('quote') get one short quote on the hero's picture and half
+    // ('none') the hero as it was. One side per browser, kept; ?quote=quote or ?quote=none shows a
+    // side. The side goes to Clarity (tag quote_arm) and into every checkout's custom data, so each
+    // side's sales count from Paddle. A wider screen is in neither side: '' and no tag. To end it,
+    // return 'quote' or 'none' here and drop the rest.
+    let strideQuoteArmMemo = null;
+    function strideQuoteArm() {
+        if (strideQuoteArmMemo !== null) return strideQuoteArmMemo;
+        var arm = '';
+        if (window.matchMedia && window.matchMedia('(max-width: 767px)').matches) {
+            var ok = function (v) { return v === 'quote' || v === 'none'; };
+            try { var asked = (new URLSearchParams(location.search).get('quote') || '').toLowerCase(); if (ok(asked)) arm = asked; } catch (e) {}
+            if (!arm) { try { var kept = localStorage.getItem('stride_quote_arm'); if (ok(kept)) arm = kept; } catch (e) {} }
+            if (!arm) arm = Math.random() < 0.5 ? 'quote' : 'none';
+            try { localStorage.setItem('stride_quote_arm', arm); } catch (e) {}
+        }
+        strideQuoteArmMemo = arm;
         return arm;
     }
 
@@ -5035,6 +5121,10 @@ function openBuy() { toggleBuyModal(); }
                 seal.style.display = showSave ? '' : 'none';
             }
         });
+        // The buy form says the same: the struck price and a plain note while a code is on the page.
+        const buyWas = document.getElementById('buy-was'), buyCode = document.getElementById('buy-code');
+        if (buyWas) { buyWas.textContent = showSave ? strideMoneyExact(full) : ''; buyWas.style.display = showSave ? '' : 'none'; }
+        if (buyCode) buyCode.hidden = !showSave;
 
         // What the price buys, named rather than implied.
         document.querySelectorAll('.sd-what').forEach(function (el) {
@@ -5526,6 +5616,8 @@ function openBuy() { toggleBuyModal(); }
                 var _ref = window.strideReferral ? window.strideReferral() : '';
                 if (_ref) custom.affonso_referral = _ref;
                 custom.bump_arm = strideBumpArm();      // the order bump test, as on the wallet
+                var _quoteArm = strideQuoteArm();       // the hero quote test: phones only
+                if (_quoteArm) custom.quote_arm = _quoteArm;
 
                 // The express button holds an INLINE checkout instance, and Paddle
                 // allows only one at a time. Without this close, every buyer who
@@ -5641,8 +5733,8 @@ function openBuy() { toggleBuyModal(); }
         const name = '', country = '', source = '';
 
         // Validate
-        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showBuyError('Please enter a valid email'); return; }
-        if (!termsChecked) { showBuyError('Please read and accept the terms to continue'); return; }
+        if (!strideEmailOk(email)) { showBuyError(strideBuyErrorText('email')); try { document.getElementById('buy-email').focus(); } catch (e) {} return; }
+        if (!termsChecked) { showBuyError(strideBuyErrorText('terms')); return; }
         // Remember a HASHED id of this person so future PageView beacons can
         // carry em: sha256 of the normalized address, never the address itself.
         try {
@@ -6625,7 +6717,7 @@ function openBuy() { toggleBuyModal(); }
         if (sending || !refs.input) return;
         var email = (refs.input.value || '').trim().toLowerCase();
         refs.err.style.display = 'none';
-        if (!email || email.indexOf('@') < 1 || email.indexOf('.', email.indexOf('@')) < 0) {
+        if (!strideEmailOk(email)) {
             showErr(t('errEmail'));
             refs.input.focus();
             return;
@@ -6668,6 +6760,7 @@ function openBuy() { toggleBuyModal(); }
                     st.over = false;
                     save();
                     apply();
+                    window.strideKnownEmail = email;    // the buy form fills it in (toggleBuyModal)
                     if (!d.again) {
                         try {
                             if (window.fbq && (!window.strideAllowed || window.strideAllowed())) {
