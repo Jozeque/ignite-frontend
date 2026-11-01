@@ -957,6 +957,8 @@ input[type=email]:focus{outline:none;border-color:rgba(198,113,43,.55);
 #done .fvideo .silk{margin-bottom:8px !important}
 #done .vph{aspect-ratio:2/1}
 #done .dl{margin-top:14px}
+/* What stands where the download buttons would: on a phone, or in a browser that did not sign up. */
+.dlnote{margin:16px auto 0;max-width:460px;text-align:center;font-size:16px;line-height:1.4;font-weight:600;color:var(--ink)}
 .vph-label{font:700 15px 'Space Mono',ui-monospace,monospace;color:var(--copper-lt);
   letter-spacing:.06em}
 .vph-sub{margin:10px 0 0;font-size:13px;color:var(--ink3)}
@@ -1145,6 +1147,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a class="btn-copper" id="dlMac" href="#" rel="nofollow">Download for macOS</a>
     </div>
     <p class="err" id="err2" style="text-align:center"></p>
+    <!-- Clarity 2026-11-01: a phone cannot install a plugin, yet it was offered the installers (one
+         pressed Download for macOS on an iPhone); and 2 of 3 phone sign-ups reopened this address in
+         Safari, which holds no sign-up, so it asked them to sign up again. showDone shows these. -->
+    <p class="dlnote" id="dlNote" hidden>Your download link is in your email.<span id="dlNotePhone" hidden> Open it on your computer to install Stride.</span></p>
+    <p class="buyalt" id="dlNoteNew" hidden>Haven't signed up yet? <a id="dlNoteForm" href="/try/">Get your free 24 hours &rarr;</a></p>
 
     <!-- A quiet second path, deliberately NOT a competing CTA: small, un-buttoned, and
          below the downloads, so it reads as an alternative rather than an upsell. It
@@ -1333,10 +1340,31 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   function fail(msg) { err.textContent = msg; err.style.display = 'block'; }
 
   var deepTarget = null;   // element a /try?done=1#... deep link should land on
-  function showDone(dl, sessionsOnly) {
+  // A touch screen with no mouse: Stride's installers are of no use here, the email is.
+  var PHONE = !!(window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches);
+  // elsewhere: this browser holds no sign-up, so it has no links to offer and cannot know
+  // whether its reader signed up somewhere else.
+  function showDone(dl, sessionsOnly, elsewhere) {
     var w = document.getElementById('dlWin'), m = document.getElementById('dlMac');
     if (dl.windows) { w.href = dl.windows; } else { w.style.display = 'none'; }
     if (dl.mac)     { m.href = dl.mac; }     else { m.style.display = 'none'; }
+    if (PHONE) document.querySelector('#done .dl').style.display = 'none';
+    // The sessions link's reader already has the plugin: nothing to say about the download.
+    var note = !sessionsOnly && location.hash !== '#sessions' && (PHONE || !!elsewhere);
+    if (note) {
+      document.getElementById('dlNote').hidden = false;
+      document.getElementById('dlNotePhone').hidden = !PHONE;
+    }
+    if (elsewhere) {
+      document.getElementById('dlNoteNew').hidden = false;
+      // Back to the form with this visit's own ad markers, which is where a new reader belongs.
+      try {
+        var form = new URL(location.href);
+        form.searchParams.delete('done');
+        form.hash = '';
+        document.getElementById('dlNoteForm').href = form.pathname + form.search;
+      } catch (e7) {}
+    }
     // Registration proves intent; this proves they got the file. Without it the funnel
     // jumps from "registered" to "activated" and "never downloaded" is indistinguishable
     // from "downloaded and never installed", which need opposite emails. keepalive so the
@@ -1373,7 +1401,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         } catch (e) {}
       });
     });
-    if (!dl.windows && !dl.mac && !sessionsOnly) {
+    if (!dl.windows && !dl.mac && !sessionsOnly && !note) {
       document.getElementById('err2').textContent =
         'Your download link is being prepared — check your email in a moment.';
       document.getElementById('err2').style.display = 'block';
@@ -1400,6 +1428,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       // mail opened on a phone) still gets the post-signup page, minus the download
       // row, instead of the email form with the sessions hidden behind it.
       else if (location.hash === '#sessions') showDone({}, true);
+      // Any other reader in a browser with no sign-up: the phone that signed up in Instagram's
+      // browser and reopened this address in Safari, or the welcome mail opened elsewhere. The
+      // email form would tell them it never happened.
+      else showDone({}, false, true);
     }
   } catch (e0) {}
 
