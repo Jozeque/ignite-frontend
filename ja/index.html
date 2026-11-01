@@ -1557,11 +1557,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* The pin: the folded popup, in one of two looks, each for half the browsers (PIN_ARM in its
      script; Yossi 2026-10-28: "make an A/B of it"). Bottom-left, below every modal; on a phone
      it rides above the sticky buy bar once that bar is up, beside the help button, never over
-     Get Stride.
-     .bfp-pill, the pin since 10-14: a dark pill with the offer's words and, once a code exists,
-     its clock. */
+     Get Stride. Only before the email: once a code is on the page the hero carries it all
+     (Yossi: "if they left an email in the popup, there shouldn't be a badge at all").
+     .bfp-pill, the pin since 10-14: a dark pill with the offer's words. */
   #bfpin{position:fixed;z-index:998;font:inherit;cursor:pointer}
-  #bfpin[hidden]{display:none}
+  /* Over the display each look sets for itself below: without it a hidden pin stays on screen. */
+  #bfpin[hidden]{display:none!important}
   #bfpin.bfp-pill{left:16px;bottom:16px;max-width:calc(100% - 32px);
     display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:999px;
     border:1px solid rgba(198,113,43,.55);background:rgba(16,15,12,.94);color:var(--ink);
@@ -1569,13 +1570,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     box-shadow:0 14px 34px -14px rgba(0,0,0,.85);backdrop-filter:blur(8px)}
   #bfpin.bfp-pill:hover{border-color:var(--copper-lt)}
   .bfp-pill .bf-pin-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .bfp-pill .bf-pin-c{font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-    color:var(--copper-lt);font-variant-numeric:tabular-nums;white-space:nowrap}
   /* .bfp-ticket (2026-10-28): drawn as the hero's Black Friday ticket (the ads' BLACK FRIDAY /
-     SALE / 30%) with a stub torn along a perforation: the code's clock once a code exists, the
-     struck price over the 30% price before that (Yossi: "in the style of the hero's sticker,
-     with the countdown, so it is not missed"; "it can be a little smaller"). Tilted like the
-     hero's, it lands like a sticker and gives a small shake now and then, four times at most.
+     SALE / 30%) with a stub torn along a perforation: the struck price over the 30% price (Yossi:
+     "it can be a little smaller"; 2026-11-01: no clock). Tilted like the hero's, it lands like a
+     sticker and gives a small shake now and then, four times at most.
      The padding keeps the tilted corners inside the button. */
   #bfpin.bfp-ticket{left:8px;bottom:6px;display:block;margin:0;padding:11px 8px;border:0;background:none;
     color:var(--ink);-webkit-tap-highlight-color:transparent;animation:bfpin-in .5s cubic-bezier(.2,1.5,.45,1) both}
@@ -1588,7 +1586,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* The words, for a screen reader: the ticket itself is drawn. */
   .bfp-ticket .bf-pin-t{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   /* Prices wait for the price hold like every other price on the page. */
-  html.sd-hold #bfpin.is-price .bfp-stub{visibility:hidden}
+  html.sd-hold #bfpin .bfp-stub{visibility:hidden}
   /* Never over the hero's price or its buttons (placePin): on the page just above the desktop
      buy bar while that bar is down in the corner, out of sight while a phone's buy row is. */
   #bfpin.is-riding{position:absolute}
@@ -1649,19 +1647,27 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* ── AS SEEN IN (2026-10-28) ────────────────────────────────────────────
      The publications that covered Stride, between the hero and the producers' quotes. Plain
      floating marks: no frames, no chips, no dots. Each is the publication's own logo in the
-     page's ink, dimmed until pointed at, sized by eye so the five weigh the same (--h, in px). */
-  .press-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;
-    gap:12px 52px;margin:0;padding:0;list-style:none}
-  .press-logo{display:flex;align-items:center;justify-content:center;min-height:52px;padding:6px 4px;
+     page's ink, dimmed until pointed at, sized by eye so the five weigh the same (--h, times the
+     strip's scale --s). Plugin Boutique sits in the middle (Yossi 2026-10-28: "make the whole AS
+     SEEN IN section bigger, so it takes a bit more space, and put Plugin Boutique's logo in the
+     center"): the middle of one row from 900px, and alone on the middle line under it, two
+     logos above and two below, so it is the center on a phone too. */
+  section[data-ms="press"]{padding-top:16px;margin-bottom:88px}
+  .press-h{margin:0 0 26px;font-size:12px;letter-spacing:.3em}
+  .press-row{--s:clamp(1.05px,.1167vw,1.4px);display:flex;flex-wrap:wrap;align-items:center;justify-content:center;
+    gap:12px clamp(40px,5vw,76px);margin:0;padding:0;list-style:none}
+  .press-logo{display:flex;align-items:center;justify-content:center;min-height:72px;padding:6px 4px;
     background:none;border:0;border-radius:10px;cursor:pointer;opacity:.6;
     transition:opacity .2s,transform .2s}
   .press-logo:hover{opacity:1;transform:translateY(-1px)}
   .press-logo:focus-visible{opacity:1;outline:2px solid var(--copper-lt);outline-offset:4px}
-  .press-logo img{display:block;width:auto;max-width:none;height:calc(var(--h) * 1px)}
-  @media (max-width:640px){
-    .press-row{gap:4px 30px}
-    .press-logo{min-height:46px}
-    .press-logo img{height:calc(var(--h) * .78px)}
+  .press-logo img{display:block;width:auto;max-width:none;height:calc(var(--h) * var(--s))}
+  @media (max-width:899px){
+    section[data-ms="press"]{padding-top:0}
+    .press-row{--s:clamp(.82px,.27vw,1.2px);display:grid;grid-template-columns:1fr 1fr;
+      justify-items:center;gap:6px 16px;max-width:460px;margin:0 auto}
+    .press-mid{grid-column:1 / -1}
+    .press-logo{min-height:60px}
   }
   /* The article, opened over the page from a logo (#press-pop, at the end of <body> beside the
      other panels, so the sticky bar cannot cover it). The demo prompt's card at reading width.
@@ -2776,15 +2782,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
        own logo. A press opens that article as a screenshot in a panel over this page (#press-pop
        and its script, at the end of <body>): buttons, not links, so nobody is sent away from
        stridehub.io, least of all to a store. The logos are names, so data-no-translate keeps
-       them as they are in every language; "As seen in" is translated. -->
-  <section data-ms="press" class="mb-20" aria-labelledby="press-h">
-    <p id="press-h" class="silk text-center mb-4">掲載メディア</p>
+       them as they are in every language; "As seen in" is translated. Plugin Boutique is the
+       middle one (.press-mid), the two wide marks at the ends; AltWire + Dubspot are exactly as
+       wide as Integraudio + Rekkerd (Rekkerd's --h is 24 for that), so the middle of Plugin
+       Boutique's mark is the middle of the page. -->
+  <section data-ms="press" aria-labelledby="press-h">
+    <p id="press-h" class="silk press-h text-center">掲載メディア</p>
     <ul class="press-row" role="list" data-no-translate>
-      <li><button type="button" class="press-logo" data-press="pluginboutique" aria-haspopup="dialog"><img src="/media/press/logo-pluginboutique.svg" alt="Plugin Boutique" width="111" height="28" style="--h:30" loading="lazy" decoding="async"></button></li>
       <li><button type="button" class="press-logo" data-press="altwire" aria-haspopup="dialog"><img src="/media/press/logo-altwire.webp" alt="AltWire" width="761" height="132" style="--h:21" loading="lazy" decoding="async"></button></li>
-      <li><button type="button" class="press-logo" data-press="integraudio" aria-haspopup="dialog"><img src="/media/press/logo-integraudio.webp" alt="Integraudio" width="279" height="132" style="--h:42" loading="lazy" decoding="async"></button></li>
       <li><button type="button" class="press-logo" data-press="dubspot" aria-haspopup="dialog"><img src="/media/press/logo-dubspot.webp" alt="Dubspot" width="481" height="132" style="--h:29" loading="lazy" decoding="async"></button></li>
-      <li><button type="button" class="press-logo" data-press="rekkerd" aria-haspopup="dialog"><img src="/media/press/logo-rekkerd.webp" alt="Rekkerd.org" width="759" height="132" style="--h:23" loading="lazy" decoding="async"></button></li>
+      <li class="press-mid"><button type="button" class="press-logo" data-press="pluginboutique" aria-haspopup="dialog"><img src="/media/press/logo-pluginboutique.svg" alt="Plugin Boutique" width="111" height="28" style="--h:30" loading="lazy" decoding="async"></button></li>
+      <li><button type="button" class="press-logo" data-press="integraudio" aria-haspopup="dialog"><img src="/media/press/logo-integraudio.webp" alt="Integraudio" width="279" height="132" style="--h:42" loading="lazy" decoding="async"></button></li>
+      <li><button type="button" class="press-logo" data-press="rekkerd" aria-haspopup="dialog"><img src="/media/press/logo-rekkerd.webp" alt="Rekkerd.org" width="759" height="132" style="--h:24" loading="lazy" decoding="async"></button></li>
     </ul>
   </section>
 
@@ -6093,7 +6102,7 @@ function openBuy() { toggleBuyModal(); }
               emailLabel: 'Your email', go: 'Get my 30% off', wait: 'One moment…',
               fine: 'We’ll email your code too, plus Stride news and deals now and then. Unsubscribe anytime.',
               yourCode: 'Your code', applied: 'Applied to this page. One use, until the timer runs out.',
-              buy: 'Get Stride for {price}', pinOffer: 'Early Black Friday · 30% off', pinCode: '{code} · 30% off', pinEnds: 'Ends in',
+              buy: 'Get Stride for {price}', pinOffer: 'Early Black Friday · 30% off',
               errEmail: 'Please enter a valid email address.', errEnded: 'This offer has ended.',
               errLimited: 'Too many tries from this connection. Please try again in an hour.',
               errGeneric: 'Something went wrong. Please try again.', close: 'Close' },
@@ -6104,7 +6113,7 @@ function openBuy() { toggleBuyModal(); }
               emailLabel: 'Deine E-Mail', go: 'Meine 30 % sichern', wait: 'Einen Moment…',
               fine: 'Wir schicken dir den Code auch per E-Mail, dazu ab und zu Stride-News und Angebote. Abmelden jederzeit möglich.',
               yourCode: 'Dein Code', applied: 'Auf dieser Seite angewendet. Einmal einlösbar, bis der Timer abläuft.',
-              buy: 'Stride für {price} holen', pinOffer: 'Early Black Friday · 30 % Rabatt', pinCode: '{code} · 30 % Rabatt', pinEnds: 'Endet in',
+              buy: 'Stride für {price} holen', pinOffer: 'Early Black Friday · 30 % Rabatt',
               errEmail: 'Bitte gib eine gültige E-Mail-Adresse ein.', errEnded: 'Dieses Angebot ist abgelaufen.',
               errLimited: 'Zu viele Versuche von dieser Verbindung. Bitte versuch es in einer Stunde noch einmal.',
               errGeneric: 'Etwas ist schiefgelaufen. Bitte versuch es noch einmal.', close: 'Schließen' },
@@ -6115,7 +6124,7 @@ function openBuy() { toggleBuyModal(); }
               emailLabel: 'Tu email', go: 'Quiero mi 30 %', wait: 'Un momento…',
               fine: 'También te enviaremos el código por email, y de vez en cuando novedades y ofertas de Stride. Puedes darte de baja cuando quieras.',
               yourCode: 'Tu código', applied: 'Aplicado en esta página. Un solo uso, hasta que termine el contador.',
-              buy: 'Consigue Stride por {price}', pinOffer: 'Black Friday anticipado · 30 % de descuento', pinCode: '{code} · 30 % de descuento', pinEnds: 'Termina en',
+              buy: 'Consigue Stride por {price}', pinOffer: 'Black Friday anticipado · 30 % de descuento',
               errEmail: 'Introduce un email válido.', errEnded: 'Esta oferta ha terminado.',
               errLimited: 'Demasiados intentos desde esta conexión. Vuelve a intentarlo en una hora.',
               errGeneric: 'Algo ha fallado. Inténtalo de nuevo.', close: 'Cerrar' },
@@ -6126,7 +6135,7 @@ function openBuy() { toggleBuyModal(); }
               emailLabel: 'Ton e-mail', go: 'Je prends mes 30 %', wait: 'Un instant…',
               fine: 'On t’envoie aussi le code par e-mail, plus des nouvelles et offres Stride de temps en temps. Désinscription à tout moment.',
               yourCode: 'Ton code', applied: 'Appliqué sur cette page. Utilisable une fois, jusqu’à la fin du compte à rebours.',
-              buy: 'Prendre Stride pour {price}', pinOffer: 'Black Friday en avance · -30 %', pinCode: '{code} · -30 %', pinEnds: 'Fin dans',
+              buy: 'Prendre Stride pour {price}', pinOffer: 'Black Friday en avance · -30 %',
               errEmail: 'Saisis une adresse e-mail valide.', errEnded: 'Cette offre est terminée.',
               errLimited: 'Trop d’essais depuis cette connexion. Réessaie dans une heure.',
               errGeneric: 'Un problème est survenu. Réessaie.', close: 'Fermer' },
@@ -6137,7 +6146,7 @@ function openBuy() { toggleBuyModal(); }
               emailLabel: 'La tua email', go: 'Voglio il mio 30%', wait: 'Un momento…',
               fine: 'Ti invieremo il codice anche via email, insieme a novità e offerte di Stride ogni tanto. Puoi annullare l’iscrizione quando vuoi.',
               yourCode: 'Il tuo codice', applied: 'Applicato a questa pagina. Valido una volta, fino alla fine del timer.',
-              buy: 'Prendi Stride a {price}', pinOffer: 'Black Friday in anticipo · 30% di sconto', pinCode: '{code} · 30% di sconto', pinEnds: 'Scade tra',
+              buy: 'Prendi Stride a {price}', pinOffer: 'Black Friday in anticipo · 30% di sconto',
               errEmail: 'Inserisci un indirizzo email valido.', errEnded: 'Questa offerta è scaduta.',
               errLimited: 'Troppi tentativi da questa connessione. Riprova tra un’ora.',
               errGeneric: 'Qualcosa è andato storto. Riprova.', close: 'Chiudi' },
@@ -6148,7 +6157,7 @@ function openBuy() { toggleBuyModal(); }
               emailLabel: 'メールアドレス', go: '30% オフを受け取る', wait: '少々お待ちください…',
               fine: 'コードはメールでもお送りします。Stride のニュースやお得な情報もときどきお届けします。配信停止はいつでも可能です。',
               yourCode: 'あなたのコード', applied: 'このページに適用済みです。タイマーが終わるまで 1 回使えます。',
-              buy: '{price} で Stride を購入', pinOffer: 'アーリーブラックフライデー · 30% オフ', pinCode: '{code} · 30% オフ', pinEnds: '終了まで',
+              buy: '{price} で Stride を購入', pinOffer: 'アーリーブラックフライデー · 30% オフ',
               errEmail: '有効なメールアドレスを入力してください。', errEnded: 'このオファーは終了しました。',
               errLimited: 'この接続からの試行が多すぎます。1 時間後にもう一度お試しください。',
               errGeneric: '問題が発生しました。もう一度お試しください。', close: '閉じる' },
@@ -6159,7 +6168,7 @@ function openBuy() { toggleBuyModal(); }
               emailLabel: '你的邮箱', go: '领取 30% 优惠', wait: '请稍候…',
               fine: '我们也会把优惠码发到你的邮箱，并不时发送 Stride 新闻和优惠。可随时退订。',
               yourCode: '你的优惠码', applied: '已应用到本页面。限用一次，倒计时结束前有效。',
-              buy: '以 {price} 购买 Stride', pinOffer: '黑五提前购 · 立减 30%', pinCode: '{code} · 立减 30%', pinEnds: '剩余时间',
+              buy: '以 {price} 购买 Stride', pinOffer: '黑五提前购 · 立减 30%',
               errEmail: '请输入有效的邮箱地址。', errEnded: '本次优惠已结束。',
               errLimited: '此网络尝试次数过多，请一小时后再试。',
               errGeneric: '出了点问题，请重试。', close: '关闭' }
@@ -6271,13 +6280,11 @@ function openBuy() { toggleBuyModal(); }
             + '</svg>';
     }
     // The ticket's side draws it, with the words kept for a screen reader; the pill's side shows
-    // the words and its clock, as it always did.
+    // the words, as it always did.
     var pinLabel = el('span', 'bf-pin-t');
-    var pinClock = el('span', 'bf-pin-c');
     pin.classList.add(TICKET ? 'bfp-ticket' : 'bfp-pill');
     pin.appendChild(pinLabel);
     if (TICKET) pin.insertAdjacentHTML('beforeend', '<span class="bfp-t">' + pinTicket() + '</span>');
-    else pin.appendChild(pinClock);
     var pinTop = pin.querySelector('.bfp-top'), pinBig = pin.querySelector('.bfp-big'),
         pinStrike = pin.querySelector('.bfp-strike');
     // A stub line at its own size, smaller only where it would not fit (a long price in some
@@ -6290,17 +6297,13 @@ function openBuy() { toggleBuyModal(); }
         if (w > STUB_ROOM) node.setAttribute('font-size', (size * STUB_ROOM / w).toFixed(1));
         return Math.min(w, STUB_ROOM);
     }
-    // The stub, once a second: the clock once a code exists (the moment the hero's code line counts
-    // to), before that the struck price over the 30% price. No clock before the email: a fresh
-    // browser would start a new 48 hours, so it would not be anyone's real deadline (2026-10-20).
-    function paintPin(c) {
-        var timed = claimed();
-        pinLabel.textContent = (claimed() ? t('pinCode', { code: st.code }) : t('pinOffer')) + (timed ? ' · ' + c : '');
-        pin.classList.toggle('is-price', !timed);
-        var w = stubLine(pinTop, timed ? t('pinEnds').toUpperCase() : money(full()), 36);
-        stubLine(pinBig, timed ? c : money(offerPrice()), 64);
-        pinStrike.setAttribute('display', timed || !w ? 'none' : 'inline');
-        if (timed || !w) return;
+    // The stub, once a second: the struck price over the 30% price. No clock: a fresh browser would
+    // start a new 48 hours, so it would not be anyone's real deadline (2026-10-20).
+    function paintPin() {
+        var w = stubLine(pinTop, money(full()), 36);
+        stubLine(pinBig, money(offerPrice()), 64);
+        pinStrike.setAttribute('display', w ? 'inline' : 'none');
+        if (!w) return;
         var y = (90 - 0.36 * Number(pinTop.getAttribute('font-size'))).toFixed(1);
         pinStrike.setAttribute('x1', (STUB_X - w / 2 - 6).toFixed(1));
         pinStrike.setAttribute('x2', (STUB_X + w / 2 + 6).toFixed(1));
@@ -6464,18 +6467,16 @@ function openBuy() { toggleBuyModal(); }
         if (refs.was) refs.was.textContent = money(full());
         if (refs.now) refs.now.textContent = money(offerPrice());
         if (refs.buy) refs.buy.textContent = t('buy', { price: money(offerPrice()) });
-        if (!pin.hidden && TICKET) { paintPin(c); placePin(); }
-        else if (!pin.hidden) {
-            pinLabel.textContent = claimed() ? t('pinCode', { code: st.code }) : t('pinOffer');
-            pinClock.textContent = claimed() ? c : '';
-            pinClock.style.display = claimed() ? '' : 'none';
+        if (!pin.hidden) {
+            pinLabel.textContent = t('pinOffer');
+            if (TICKET) { paintPin(); placePin(); }
         }
         if (claimed()) { try { strideSealShow(st.code, c); } catch (e) {} }
     }
     // The price hold (top of <head>) lifts the moment the page's prices are final: print those
     // first, rather than on the next tick, so the panel never shows the dollars it opened with.
     document.addEventListener('stride:prices', function () {
-        if (pop.classList.contains('on') || !pin.hidden) paint();
+        if (pop.classList.contains('on') || !pin.hidden || claimed()) paint();
     });
 
     var lastFocus = null;
@@ -6489,8 +6490,12 @@ function openBuy() { toggleBuyModal(); }
         setTimeout(function () { try { (refs.input || refs.buy).focus(); } catch (e) {} }, 60);
     }
     var tagged = false;
+    // The pin is for someone who can still leave their email, so a pin on screen always opens the
+    // popup. Once a code is on the page there is none: the hero has the ticket, the price and the
+    // clock (Yossi 2026-10-28). Nor once the offer is over: there would be nothing to open.
+    function pinWanted() { return live() && !claimed(); }
     function showPin() {
-        if (!live()) { pin.hidden = true; return; }
+        if (!pinWanted()) { pin.hidden = true; return; }
         pin.hidden = false;
         // The session's recording in Clarity says which pin it saw.
         if (!tagged) { tagged = true; try { if (window.clarity) window.clarity('set', 'pin_arm', PIN_ARM); } catch (e) {} }
@@ -6505,10 +6510,12 @@ function openBuy() { toggleBuyModal(); }
     function fold() {
         if (!pop.classList.contains('on')) return;
         close();
+        if (pin.hidden) return;             // no pin to fold into: the code is on the page, or the offer is over
         stage('folded');
         track('bf_popup_folded', { pin_arm: PIN_ARM });
     }
     pin.addEventListener('click', function () {
+        if (!pinWanted()) { pin.hidden = true; return; }
         viaPin = true;
         stage('reopened');
         track('bf_popup_reopened', { pin_arm: PIN_ARM });
@@ -6531,16 +6538,22 @@ function openBuy() { toggleBuyModal(); }
         window.STRIDE_CODE_ACTIVE = true;
         try { strideLocalizePrices(); } catch (e) {}
         try { strideSyncExpressItems(); } catch (e) {}
+        pin.hidden = true;
         paint();
     }
     // Reload at the ordinary price: without the code in the address if it is this code,
-    // keeping any other (an ad's REKZ comes back on its own).
+    // keeping any other (an ad's REKZ comes back on its own). An address that stays the same
+    // reloads outright: with a #section in it, a replace would only jump inside the page.
     function reloadPlain() {
         try {
             var u = new URL(window.location.href);
-            if (CODE_RE.test(u.searchParams.get('code') || '')) u.searchParams.delete('code');
-            window.location.replace(u.pathname + u.search + u.hash);
-        } catch (e) { window.location.reload(); }
+            if (CODE_RE.test(u.searchParams.get('code') || '')) {
+                u.searchParams.delete('code');
+                window.location.replace(u.pathname + u.search + u.hash);
+                return;
+            }
+        } catch (e) {}
+        window.location.reload();
     }
     // A code from an earlier visit is put on the page at once and checked behind it. Used
     // (they bought) or gone: drop it and reload at the ordinary price. Unreachable: keep it,
@@ -6726,7 +6739,6 @@ function openBuy() { toggleBuyModal(); }
     }
     if (claimed()) {
         apply();
-        showPin();
         verify();
     } else {
         if (st.code) { forget(); st.over = true; save(); }        // a code that ran out meanwhile
@@ -6753,9 +6765,10 @@ function openBuy() { toggleBuyModal(); }
             st.over = true;
             save();
             if (pop.classList.contains('on')) close();
-            pin.hidden = true;
         }
-        if (pop.classList.contains('on') || !pin.hidden) paint();
+        if (!pinWanted()) pin.hidden = true;
+        // The code line above the hero price counts down with nothing else on screen.
+        if (pop.classList.contains('on') || !pin.hidden || claimed()) paint();
     }, 1000);
 })();
 </script>
