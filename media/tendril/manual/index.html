@@ -361,6 +361,7 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
   <a class="brand" href="#top">TENDRIL</a>
   <a class="tb" href="#overview">Overview</a>
   <a class="tb" href="#face">The face</a>
+  <a class="tb" href="#mode">Sequencer or synth</a>
   <a class="tb" href="#harmonics">Harmonics</a>
   <a class="tb" href="#oscfx">OSC FX</a>
   <a class="tb" href="#hit">The voice</a>
@@ -371,7 +372,7 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
   <span class="sep"></span>
   <a class="tb" href="#mixer" data-c="blue">Mixer</a>
   <a class="tb" href="#sequencer" data-c="green">Sequencer</a>
-  <a class="tb" href="#sounds">Sounds and kits</a>
+  <a class="tb" href="#sounds">Presets and sounds</a>
   <a class="tb" href="#setup">Setup</a>
   <span class="sep"></span>
   <a class="tb" href="#recipes">Field notes</a>
@@ -380,10 +381,10 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
 
 <main id="top">
 <header class="hero">
-  <div class="eyebrow"><span class="cap">The manual</span><span class="cap" style="color:var(--ink-4)">Version 3.0 &middot; VST3 &middot; AU &middot; Standalone</span></div>
+  <div class="eyebrow"><span class="cap">The manual</span><span class="cap" style="color:var(--ink-4)">Version 3.1 &middot; VST3 &middot; AU &middot; Standalone</span></div>
   <div class="word" aria-label="Tendril">TENDRIL</div>
   <h1 class="claim">Draw the spectrum with knobs. Then let it move on its own.</h1>
-  <p class="lead">Tendril is a synth built on additive synthesis. Every note starts as 64 sine partials, and ten knobs decide how loud each one is and where it sits. Give any knob a MOTION lane and the drawing keeps redrawing itself while the beat plays. Three of these oscillators, a mixer and a sequencer share one plugin.</p>
+  <p class="lead">Tendril is a synth built on additive synthesis. Every note starts as 64 sine partials, and ten knobs decide how loud each one is and where it sits. Give any knob a MOTION lane and the drawing keeps redrawing itself while the beat plays. Three of these oscillators, a mixer and a sequencer share one plugin, and one lever turns the three into a single synth.</p>
 </header>
 
 <div id="specimen">
@@ -408,6 +409,7 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
     <p><strong>OSC 1, OSC 2 and OSC 3</strong> are three complete voices, each on its own tab: its own drawing, OSC FX, envelopes, BODY, DRIVE, FILTER, ARP, GLITCH, SHARDS and 8 MOTION lanes, twelve voices deep, with its own sound presets and its own undo history.</p>
     <p>The <strong>MIXER</strong> gives each OSC a fader, a pan, MUTE, SOLO and a KEYS zone (the notes it answers). The MASTER and the output CEILING sit at the end. The <strong>SEQUENCER</strong> plays a row of steps into each OSC, eight patterns deep, and hands you the beat as a MIDI clip.</p>
     <p>Out of the box OSC 1 answers notes up to B1, OSC 2 answers C2 to B2 and OSC 3 answers C3 and up, so one MIDI track plays all three.</p>
+    <p>That is SEQUENCER mode. Push the lever in the header to SYNTH and every note plays all three OSCs, as one instrument you can hold and bend. <a href="#mode">Sequencer or synth</a> tells it all.</p>
   </div>
   <figure class="fig">
     <div class="chain">
@@ -455,7 +457,7 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
         <text class="ms" x="1008" y="440" text-anchor="middle">8 LANES: FADERS, PANS,</text><text class="ms" x="1008" y="455" text-anchor="middle">MASTER, ROW SWING, GATE</text>
       </svg>
     </div>
-    <figcaption>One OSC from the note to the output. Three of these run side by side and meet in the mixer.</figcaption>
+    <figcaption>One OSC from the note to the output. Three of these run side by side and meet in the mixer. In SYNTH mode every note skips the KEYS zones and plays all three, and the SEQUENCER rows rest.</figcaption>
   </figure>
 </section>
 
@@ -465,43 +467,47 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
   <p class="lead">OSC 1, OSC 2 and OSC 3 wear the same face. This is OSC 2 holding the factory sound Bell Forge, with three MOTION lanes mapped onto its HARMONICS knobs. Tap a number to find its plate.</p>
   <figure class="fig" data-pins="face">
     <div class="shot">
-      <img loading="lazy" decoding="async" src="plates/face.webp" width="1600" height="1160" alt="The Tendril OSC tab: the HARMONICS chamber with its ten knobs, PITCH, AMP, BODY and OSC FX, NOISE, DRIVE, FILTER, ARP, GLITCH, OUT, SHARDS, the keys and the MOTION panel">
-      <button type="button" class="pin" data-n="1" style="left:43.8%;top:3.2%" aria-label="1: name and license">1</button>
-      <button type="button" class="pin" data-n="2" style="left:79.3%;top:5.6%" aria-label="2: presets">2</button>
-      <button type="button" class="pin" data-n="3" style="left:19.5%;top:6.4%" aria-label="3: tabs">3</button>
-      <button type="button" class="pin" data-n="4" style="left:29.4%;top:12.4%" aria-label="4: HARMONICS">4</button>
-      <button type="button" class="pin" data-n="5" style="left:51.9%;top:11.2%" aria-label="5: PITCH">5</button>
-      <button type="button" class="pin" data-n="6" style="left:68.1%;top:11.2%" aria-label="6: AMP">6</button>
-      <button type="button" class="pin" data-n="7" style="left:56.3%;top:35.5%" aria-label="7: BODY and OSC FX">7</button>
-      <button type="button" class="pin" data-n="8" style="left:12.5%;top:50.3%" aria-label="8: NOISE">8</button>
-      <button type="button" class="pin" data-n="9" style="left:35%;top:50.3%" aria-label="9: DRIVE">9</button>
-      <button type="button" class="pin" data-n="10" style="left:63.1%;top:50.3%" aria-label="10: FILTER">10</button>
-      <button type="button" class="pin" data-n="11" style="left:11.3%;top:66.7%" aria-label="11: ARP">11</button>
-      <button type="button" class="pin" data-n="12" style="left:32.5%;top:66.7%" aria-label="12: GLITCH">12</button>
-      <button type="button" class="pin" data-n="13" style="left:68.8%;top:66.7%" aria-label="13: OUT">13</button>
-      <button type="button" class="pin" data-n="14" style="left:18.8%;top:82.4%" aria-label="14: SHARDS">14</button>
-      <button type="button" class="pin" data-n="15" style="left:41.3%;top:93.4%" aria-label="15: the keys">15</button>
-      <button type="button" class="pin" data-n="16" style="left:93.8%;top:11.2%" aria-label="16: MOTION">16</button>
-      <button type="button" class="pin" data-n="17" style="left:90.6%;top:96.6%" aria-label="17: the status line">17</button>
+      <img loading="lazy" decoding="async" src="plates/face.webp" width="1600" height="1160" alt="The Tendril OSC tab: the MODE lever, the HARMONICS chamber with its ten knobs, PITCH with TUNE and FINE, AMP, BODY and OSC FX, NOISE, DRIVE, FILTER, ARP, GLITCH, OUT, SHARDS, the PITCH wheel, the keys and the MOTION panel">
+      <button type="button" class="pin" data-n="1" style="left:25.1%;top:3.2%" aria-label="1: name and license">1</button>
+      <button type="button" class="pin" data-n="2" style="left:33.5%;top:3.2%" aria-label="2: the MODE lever">2</button>
+      <button type="button" class="pin" data-n="3" style="left:79.3%;top:5.6%" aria-label="3: presets">3</button>
+      <button type="button" class="pin" data-n="4" style="left:19.5%;top:6.4%" aria-label="4: tabs">4</button>
+      <button type="button" class="pin" data-n="5" style="left:29.4%;top:12.4%" aria-label="5: HARMONICS">5</button>
+      <button type="button" class="pin" data-n="6" style="left:51.9%;top:11.2%" aria-label="6: PITCH">6</button>
+      <button type="button" class="pin" data-n="7" style="left:67.9%;top:11.2%" aria-label="7: AMP">7</button>
+      <button type="button" class="pin" data-n="8" style="left:56.2%;top:35.5%" aria-label="8: BODY and OSC FX">8</button>
+      <button type="button" class="pin" data-n="9" style="left:12.5%;top:50.3%" aria-label="9: NOISE">9</button>
+      <button type="button" class="pin" data-n="10" style="left:35%;top:50.3%" aria-label="10: DRIVE">10</button>
+      <button type="button" class="pin" data-n="11" style="left:63.1%;top:50.3%" aria-label="11: FILTER">11</button>
+      <button type="button" class="pin" data-n="12" style="left:11.3%;top:66.7%" aria-label="12: ARP">12</button>
+      <button type="button" class="pin" data-n="13" style="left:32.5%;top:66.7%" aria-label="13: GLITCH">13</button>
+      <button type="button" class="pin" data-n="14" style="left:68.8%;top:66.7%" aria-label="14: OUT">14</button>
+      <button type="button" class="pin" data-n="15" style="left:18.8%;top:82.4%" aria-label="15: SHARDS">15</button>
+      <button type="button" class="pin" data-n="16" style="left:3.5%;top:92.2%" aria-label="16: the PITCH wheel">16</button>
+      <button type="button" class="pin" data-n="17" style="left:41.2%;top:93.4%" aria-label="17: the keys">17</button>
+      <button type="button" class="pin" data-n="18" style="left:93.8%;top:11.2%" aria-label="18: MOTION">18</button>
+      <button type="button" class="pin" data-n="19" style="left:97%;top:96.4%" aria-label="19: the status line">19</button>
     </div>
     <ol class="legend">
       <li data-n="1"><b>1</b><span><span class="lab">TENDRIL</span>The name and the license badge: LICENSED with your name, or the time left on a Discovery Pass. UPDATE downloads the newest Tendril for this computer.</span></li>
-      <li data-n="2"><b>2</b><span><span class="lab">INIT, PRESET, SAVE</span>INIT (two clicks) resets this OSC to a single sine. ‹ › step through the presets, the name opens the browser, SAVE keeps what you hear. On an OSC tab these are SOUNDS; on the MIXER and the SEQUENCER they are KITS.</span></li>
-      <li data-n="3"><b>3</b><span><span class="lab">TABS</span>OSC 1, OSC 2 and OSC 3, each lit while it sounds and showing its sound's name, then MIXER and SEQUENCER.</span></li>
-      <li data-n="4"><b>4</b><span><span class="lab">HARMONICS</span>The 64 partials in the chamber, and the ten knobs around it that draw them. <a href="#harmonics">Chapter</a></span></li>
-      <li data-n="5"><b>5</b><span><span class="lab">PITCH</span>The octave, and the sweep each note starts with. <a href="#hit">Chapter</a></span></li>
-      <li data-n="6"><b>6</b><span><span class="lab">AMP</span>POLY, MONO or LEGATO; ONE SHOT or GATE; the envelope and VELOCITY.</span></li>
-      <li data-n="7"><b>7</b><span><span class="lab">BODY / OSC FX</span>Two plates on one: the squash, and the two slots that rework the drawing. Click a tab to switch. <a href="#oscfx">OSC FX</a></span></li>
-      <li data-n="8"><b>8</b><span><span class="lab">NOISE</span>A snap of filtered noise on the note, up to four bursts.</span></li>
-      <li data-n="9"><b>9</b><span><span class="lab">DRIVE</span>Nine shapers, before or after the filter. <a href="#drive">Chapter</a></span></li>
-      <li data-n="10"><b>10</b><span><span class="lab">FILTER</span>Five filter models with a sweep that follows the pitch envelope. Off until you touch a knob.</span></li>
-      <li data-n="11"><b>11</b><span><span class="lab">ARP</span>Arpeggiates the notes you hold, on the song's grid. <a href="#arp">Chapter</a></span></li>
-      <li data-n="12"><b>12</b><span><span class="lab">GLITCH</span>REPEAT, CRUSH and SPECTRAL on this OSC's output. <a href="#shards">Chapter</a></span></li>
-      <li data-n="13"><b>13</b><span><span class="lab">OUT</span>SPREAD, the sound's own VOLUME, the last hit, and the meter for everything that leaves Tendril.</span></li>
-      <li data-n="14"><b>14</b><span><span class="lab">SHARDS</span>An echo burst after the voices, shaped into a pattern.</span></li>
-      <li data-n="15"><b>15</b><span><span class="lab">KEYS</span>C1 to C4. Press near the top of a key for a soft note, near the bottom for a hard one. On an OSC tab they play that OSC.</span></li>
-      <li data-n="16"><b>16</b><span><span class="lab">MOTION</span>Eight lanes for this OSC: pick a shape, MAP a lane, click knobs, set each lane's RATE. <a href="#motion">Chapter</a></span></li>
-      <li data-n="17"><b>17</b><span><span class="lab">STATUS LINE</span>Tendril says what just happened, and what your next click will do.</span></li>
+      <li data-n="2"><b>2</b><span><span class="lab">MODE</span>SEQUENCER or SYNTH: what Tendril is right now, and a line saying what that means. <a href="#mode">Chapter</a></span></li>
+      <li data-n="3"><b>3</b><span><span class="lab">INIT, PRESET, SAVE</span>The whole instrument, on every tab. ‹ › step through the presets, the name opens the browser, SAVE keeps what you hear. INIT (two clicks) resets the OSC on screen to a single sine; on the MIXER and the SEQUENCER, all of Tendril. <a href="#sounds">Chapter</a></span></li>
+      <li data-n="4"><b>4</b><span><span class="lab">TABS</span>OSC 1, OSC 2 and OSC 3, each lit while it sounds, showing its sound's name, with its power switch at the right. Then MIXER and SEQUENCER.</span></li>
+      <li data-n="5"><b>5</b><span><span class="lab">HARMONICS</span>The 64 partials in the chamber, and the ten knobs around it that draw them. <a href="#harmonics">Chapter</a></span></li>
+      <li data-n="6"><b>6</b><span><span class="lab">PITCH</span>The octave, TUNE and FINE, and the sweep each note starts with. <a href="#hit">Chapter</a></span></li>
+      <li data-n="7"><b>7</b><span><span class="lab">AMP</span>POLY, MONO or LEGATO; ONE SHOT or GATE; the envelope, by its knobs or drawn on its screen; VELOCITY.</span></li>
+      <li data-n="8"><b>8</b><span><span class="lab">BODY / OSC FX</span>Two plates on one: the squash, and the two slots that rework the drawing. Click a tab to switch. <a href="#oscfx">OSC FX</a></span></li>
+      <li data-n="9"><b>9</b><span><span class="lab">NOISE</span>A snap of filtered noise on the note, up to four bursts.</span></li>
+      <li data-n="10"><b>10</b><span><span class="lab">DRIVE</span>Nine shapers, before or after the filter. <a href="#drive">Chapter</a></span></li>
+      <li data-n="11"><b>11</b><span><span class="lab">FILTER</span>Five filter models with a sweep that follows the pitch envelope. Off until you touch a knob.</span></li>
+      <li data-n="12"><b>12</b><span><span class="lab">ARP</span>Arpeggiates the notes you hold, on the song's grid. <a href="#arp">Chapter</a></span></li>
+      <li data-n="13"><b>13</b><span><span class="lab">GLITCH</span>REPEAT, CRUSH and SPECTRAL on this OSC's output. <a href="#shards">Chapter</a></span></li>
+      <li data-n="14"><b>14</b><span><span class="lab">OUT</span>SPREAD, the sound's own VOLUME, the last hit, and the meter for everything that leaves Tendril.</span></li>
+      <li data-n="15"><b>15</b><span><span class="lab">SHARDS</span>An echo burst after the voices, shaped into a pattern.</span></li>
+      <li data-n="16"><b>16</b><span><span class="lab">PITCH WHEEL</span>Bends all three OSCs and springs back. The two numbers beside it are how far it reaches, up and down. <a href="#bend">More</a></span></li>
+      <li data-n="17"><b>17</b><span><span class="lab">KEYS</span>C1 to C4. Press near the top of a key for a soft note, near the bottom for a hard one. On an OSC tab they play that OSC; in SYNTH mode, all three.</span></li>
+      <li data-n="18"><b>18</b><span><span class="lab">MOTION</span>Eight lanes for this OSC: pick a shape, MAP a lane, click knobs, set each lane's RATE. <a href="#motion">Chapter</a></span></li>
+      <li data-n="19"><b>19</b><span><span class="lab">STATUS LINE</span>Tendril says what just happened, and what your next click will do.</span></li>
     </ol>
   </figure>
   <div class="prose">
@@ -509,13 +515,44 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
     <ul>
       <li><strong>Knobs.</strong> Drag up or down; 150 pixels cover the whole travel. Hold <kbd>Shift</kbd> for fine moves, scroll the wheel for small steps, double-click for the default. Click a knob, then the arrow keys move it.</li>
       <li><strong>Dropdowns.</strong> ‹ and › step through the choices, a click on the name opens the list, the wheel steps too.</li>
+      <li><strong>Power switches.</strong> Each OSC has one, on its tab and in front of its name on its SEQUENCER row. Off, nothing plays it: not the keys, its row or your clips. What was ringing fades out, the OSC stops using any CPU, and it comes back clean. Your DAW can automate it.</li>
       <li><strong>Lamps</strong> switch a section on or off; a section that is off greys out. Pressing a FILTER or SHARDS knob switches that section on by itself.</li>
       <li><strong>Dimmed knobs</strong> do nothing right now: SUSTAIN and RELEASE in ONE SHOT, STRIKE while COMB is off, FORMANT while FOCUS sits at noon, GLIDE outside LEGATO, RING and DETAIL while BODY is off, a CHARACTER knob while its AMOUNT is off. Turn up the knob it depends on and it wakes.</li>
       <li><strong>Right-click</strong> a knob or dropdown that a MOTION lane drives: UNMAP takes it off the lane.</li>
       <li><strong>Undo</strong> with <kbd>Ctrl</kbd>+<kbd>Z</kbd> (<kbd>Cmd</kbd>+<kbd>Z</kbd> on a Mac), redo with <kbd>Ctrl</kbd>+<kbd>Y</kbd> or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd>. Each tab keeps its own 50 steps.</li>
-      <li><strong>The window</strong> opens at 1030 by 747 and scales up to 2800 by 2030, keeping its shape.</li>
+      <li><strong>The window</strong> opens at 1030 by 747, keeping its shape from 880 by 638 up to 2800 by 2030.</li>
     </ul>
   </div>
+</section>
+
+<section id="mode">
+  <div class="plate-title"><span class="cap">Sequencer or synth</span></div>
+  <h2>One lever, two instruments</h2>
+  <p class="lead">The lever in the header says what Tendril is right now. In SEQUENCER mode each OSC is its own voice, with its own steps and its own notes. In SYNTH mode all three play every note: one instrument, on any key, that you can hold and bend.</p>
+  <figure class="fig"><div class="shot"><img src="plates/mode_seq.webp" width="1980" height="168" alt="The header in SEQUENCER mode: the word SEQUENCER lit, the lever on its side, EACH OSC PLAYS ITS OWN STEPS under it" loading="lazy"></div><figcaption><span class="lab">SEQUENCER</span> The word lit is the mode. The SEQUENCER tab only opens its page.</figcaption></figure>
+  <figure class="fig"><div class="shot"><img src="plates/mode_syn.webp" width="1980" height="168" alt="The header in SYNTH mode: the word SYNTH lit, ALL 3 OSCS AS ONE, SEQUENCER OFF under it, and the SEQUENCER tab reading OFF" loading="lazy"></div><figcaption><span class="lab">SYNTH</span> The line under the lever says the SEQUENCER is off, and so does its tab.</figcaption></figure>
+  <div class="tblwrap"><table class="tbl">
+    <thead><tr><th></th><th>In SEQUENCER mode</th><th>In SYNTH mode</th></tr></thead>
+    <tbody>
+      <tr><td>A note from a clip or a keyboard</td><td>Goes to the OSCs whose KEYS hold it</td><td>Plays all three OSCs, whatever their KEYS say</td></tr>
+      <tr><td>The keys on screen</td><td>On an OSC tab, that OSC; on the MIXER and SEQUENCER, by KEYS</td><td>All three OSCs, on every tab</td></tr>
+      <tr><td>The rows of steps</td><td>Play with your song, or with PLAY in the standalone</td><td>Rest. They stay as they are</td></tr>
+      <tr><td>KEYS on the MIXER</td><td>Each OSC's zone, in its colour on the keys</td><td>Dim, and kept for when you come back</td></tr>
+      <tr><td>A new sound (INIT)</td><td>A single sine with a pitch sweep: MONO, ONE SHOT</td><td>A plain held note: POLY, GATE, full sustain, no sweep</td></tr>
+    </tbody></table></div>
+  <div class="prose">
+    <h3>Moving it</h3>
+    <ul>
+      <li>Click the lever, or the word you want. Every held note lets go first, so nothing is left hanging, and PLAY stops in the standalone.</li>
+      <li>Your patterns, your KEYS and the sequencer's ON / OFF are not touched. Back on SEQUENCER, everything is as it was.</li>
+      <li>Each OSC keeps its whole chain in SYNTH, and they meet at the MIXER as always: FADER, PAN, MUTE and SOLO still work. MOTION keeps running, all its lanes.</li>
+      <li>A preset and a project remember the mode, so loading one can move the lever. Anything saved before 3.1 opens in SEQUENCER. The lever takes no undo step, and your DAW can't automate it.</li>
+      <li>If the sound is still an untouched INIT, the lever turns it into the other mode's INIT. Anything else keeps every knob where it is.</li>
+    </ul>
+    <h3>Starting a synth sound</h3>
+    <p>Push the lever to SYNTH, go to the MIXER and press <span class="lab">INIT</span> twice. You get OSC 1 alone, a plain held note on every key. OSC 2 and OSC 3 wait with their power switches off: switch one on, give it a drawing, set its <span class="lab">TUNE</span> or <span class="lab">FINE</span>, and it plays on the same keys. <span class="lab">INIT</span> on an OSC's tab gives that OSC the same plain note and leaves the others alone.</p>
+  </div>
+  <figure class="fig"><div class="shot"><img src="plates/seq_off.webp" width="1600" height="1160" alt="The SEQUENCER page in SYNTH mode, covered: THE SEQUENCER IS OFF IN SYNTH MODE, with a button SWITCH TO SEQUENCER" loading="lazy"></div><figcaption>The SEQUENCER tab in SYNTH mode. Your steps show through and take no clicks, the keys below still play, and <span class="lab">SWITCH TO SEQUENCER</span> is the way back.</figcaption></figure>
 </section>
 
 <section id="harmonics">
@@ -601,19 +638,21 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
   <div class="plate-title"><span class="cap">The voice</span></div>
   <h2>Pitch, amp, noise and body</h2>
   <p class="lead">These four plates turn the drawing into a sound: where its pitch starts and lands, how it rises and dies, the noise that snaps on top, and the resonant squash that thickens its low end.</p>
-  <figure class="fig"><div class="shot"><img src="plates/hit.webp" width="615" height="450" alt="The PITCH, AMP and BODY plates" loading="lazy" style="max-width:615px"></div><figcaption>PITCH, AMP and the BODY plate with BODY and DETAIL turned up.</figcaption></figure>
+  <figure class="fig"><div class="shot"><img src="plates/hit.webp" width="615" height="450" alt="The PITCH, AMP and BODY plates" loading="lazy" style="max-width:615px"></div><figcaption>PITCH with TUNE and FINE beside its screen, AMP drawn on its own, and the BODY plate with BODY and DETAIL turned up.</figcaption></figure>
   <p class="group-title">PITCH</p>
   <div class="controls">
     <div class="ctl"><h4>Octave <small>&minus;3 to +3 OCT</small></h4><p>The dropdown in PITCH's title bar moves the whole oscillator in exact octaves. A note keeps the octave it started with; the FILTER's KEY and BODY follow it.</p></div>
+    <div class="ctl"><h4>Tune <small>&minus;12 to +12 st</small></h4><p>The whole oscillator in semitones, on top of OCTAVE. Unlike OCTAVE, a held note follows it. A MOTION target.</p></div>
+    <div class="ctl"><h4>Fine <small>&minus;100 to +100 ct</small></h4><p>Up to a semitone either way, in cents. A few cents against another OSC and the two start to beat. A held note follows it too, and it is a MOTION target.</p></div>
     <div class="ctl"><h4>Amount <small>&minus;48 to +48 st</small></h4><p>How far above (or below) the note each sweep starts, in semitones, fine near zero. A fresh OSC starts at +24.2 st.</p></div>
     <div class="ctl"><h4>Time <small>1 ms to 2 s</small></h4><p>How long the sweep takes to land exactly on the note.</p></div>
     <div class="ctl"><h4>Curve <small>LINEAR to p 16</small></h4><p>The sweep's shape. LINEAR is a straight line in semitones; higher values drop fast, then settle onto the note with no leftover detune.</p></div>
     <div class="ctl"><h4>Glide <small>JUMP to 2 s</small></h4><p>LEGATO only: an overlapping note slides to its pitch, 95 % of the way in GLIDE. Letting go slides back to the key still held.</p></div>
   </div>
-  <div class="prose"><p>The same sweep drives the FILTER's SWEEP. VELOCITY scales it: a soft note bends less. Pitch bend reaches every voice, two semitones each way.</p></div>
+  <div class="prose"><p>The same sweep drives the FILTER's SWEEP. VELOCITY scales it: a soft note bends less. Pitch bend reaches every voice, as far as <a href="#bend">BEND UP and BEND DOWN</a> say.</p></div>
   <p class="group-title">AMP</p>
   <div class="controls">
-    <div class="ctl"><h4>Voice mode <small>POLY · MONO · LEGATO</small></h4><p>POLY gives every note its own voice (twelve per OSC); a repeated note chokes itself. MONO is one voice and every note starts again. LEGATO is one voice where an overlapping note slides instead of starting again.</p></div>
+    <div class="ctl"><h4>Voice mode <small>POLY · MONO · LEGATO</small></h4><p>POLY gives every note its own voice (twelve per OSC); a repeated note chokes itself. MONO is one voice and every note starts again. LEGATO is one voice where an overlapping note slides instead of starting again. A new sound starts on MONO, and on POLY in SYNTH mode. A saved sound keeps its own.</p></div>
     <div class="ctl"><h4>One shot / gate</h4><p>ONE SHOT (lit) plays every note's whole decay, whatever the note length. GATE is a normal ADSR that follows the note.</p></div>
     <div class="ctl"><h4>Attack <small>0.2 ms to 2 s</small></h4><p>A straight rise to full level.</p></div>
     <div class="ctl"><h4>Hold <small>OFF to 200 ms</small></h4><p>Full level after the attack, before the decay: the punch.</p></div>
@@ -622,6 +661,19 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
     <div class="ctl"><h4>Velocity <small>OFF to 100 %</small></h4><p>Three things at once: soft notes play quieter (at 50 % the level follows velocity in a straight line), darker (up to 4 dB per octave) and with a smaller pitch sweep. OFF ignores velocity.</p></div>
   </div>
   <div class="prose"><p>Every voice restarts cleanly on each note with no click, and every note starts the same way, so the same MIDI gives the same audio.</p></div>
+  <div class="figs side">
+    <figure class="fig"><div class="shot"><img src="plates/amp_drawn.webp" width="616" height="888" alt="The AMP plate in GATE: round points and small hollow handles on its screen, the readout DECAY 393 ms, SUSTAIN minus 4.2 dB" loading="lazy"></div><figcaption>AMP in GATE with its curves bent, the mouse on the point after the decay: the readout gives the time and the level.</figcaption></figure>
+    <div class="prose" style="max-width:none">
+      <h3>Drawing the envelope</h3>
+      <ul>
+        <li><strong>The round points are the knobs.</strong> Drag one and ATTACK, HOLD, DECAY or RELEASE moves with it, showing its value. In GATE the point after the decay moves DECAY sideways and SUSTAIN up and down. Undo and your DAW's automation take it as a knob move.</li>
+        <li><strong>The small hollow handles bend the curves</strong> of the attack, the decay and the release. Drag up to bend a segment up, down to bend it down. The centre catches: there the curve runs the way it always has. These have no knob, so the handle is the control.</li>
+        <li><kbd>Shift</kbd> moves finely, and a double-click puts a point or a handle back.</li>
+        <li>The screen keeps its own time: a segment's width is its knob's travel, so nothing rescales under your hand. The readout gives the real time and level.</li>
+        <li>Curves are saved with the sound. No MOTION lane can move them, but your DAW sees each one, as <span class="mono">OSC 1 Attack Curve</span> and so on.</li>
+      </ul>
+    </div>
+  </div>
   <p class="group-title">NOISE</p>
   <div class="controls">
     <div class="ctl"><h4>Level <small>NOISE</small></h4><p>White noise added to the oscillator before the AMP envelope, so it rides the note's shape and velocity.</p></div>
@@ -730,9 +782,19 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
     <h3>Keys</h3>
     <ul>
       <li>The keys run from C1 to C4. Press near the top of a key for a soft note (30 %), near the bottom for a full one; drag across them to glide over the notes.</li>
-      <li>On an OSC tab they play that OSC directly, through its arp. On the MIXER and SEQUENCER tabs they play by the KEYS zones, just like a clip, and each key wears the colour of the OSC that answers it.</li>
+      <li>On an OSC tab they play that OSC directly, through its arp. On the MIXER and SEQUENCER tabs they play by the KEYS zones, just like a clip, and each key wears the colour of the OSC that answers it. In SYNTH mode they play all three OSCs, on every tab.</li>
       <li>Your computer keyboard plays too: <kbd>A</kbd> <kbd>W</kbd> <kbd>S</kbd> <kbd>E</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>T</kbd> <kbd>G</kbd> <kbd>Y</kbd> <kbd>H</kbd> <kbd>U</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>O</kbd> <kbd>L</kbd> are C2 up to D3, at a firm velocity. They rest while you type in a field or hold <kbd>Ctrl</kbd> or <kbd>Alt</kbd>.</li>
       <li>Switching tabs lets go of any held key first.</li>
+    </ul>
+    <h3 id="bend">The PITCH wheel and the bend range</h3>
+  </div>
+  <figure class="fig"><div class="shot"><img src="plates/keys_bend.webp" width="1320" height="128" alt="The PITCH wheel pushed up, reading plus 2.4 st, beside the numbers plus 12 and minus 24 and the first keys" loading="lazy"></div><figcaption>The wheel on its way up, with BEND UP at +12 and BEND DOWN at &minus;24. While it moves, the word PITCH reads the bend.</figcaption></figure>
+  <div class="prose">
+    <ul>
+      <li><strong>The wheel</strong> sits left of the keys on every tab. Drag it up or down; let go and it springs back. It bends all three OSCs on top of TUNE, so a held note follows it, and so does the FILTER's KEY. It adds to your MIDI keyboard's pitch wheel, and shows that wheel moving too.</li>
+      <li><strong>BEND UP and BEND DOWN</strong>, the two numbers beside it, are how far a full bend reaches: 0 to 48 semitones each way, on their own, 2 at rest. They set this wheel and your MIDI wheel alike. Drag a number up or down (<kbd>Shift</kbd> for fine), scroll it one semitone at a time, double-click or <kbd>Ctrl</kbd>+click to go back to 2.</li>
+      <li>A preset and a project hold the two numbers. INIT on the MIXER or the SEQUENCER puts them back to 2; INIT on an OSC's tab leaves them.</li>
+      <li>The wheel itself is played, not set: no preset stores it, a move takes no undo step and it is not a MOTION target. Your DAW can automate it as <span class="mono">Pitch Wheel</span>, with the centre at 0.5 and the lane reading semitones.</li>
     </ul>
   </div>
 </section>
@@ -784,7 +846,7 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
       <li>A Tendril 2 sound's lanes keep their timing here.</li>
     </ul>
     <h3>Dropdowns move too</h3>
-    <p>Twelve dropdowns are targets: DRIVE MODEL, FILTER MODEL and TYPE, REPEAT GRID, ARP STYLE, RATE and RANGE, SHARDS SYNC, VOICE MODE, the OCTAVE, and both OSC FX modes. A lane sweeping a dropdown gives each choice an equal share, so a SQUARE lane on SHAPE MODE flips the sound between two shapers every half pass, two bars each at 4 BARS. Not targets: VOLUME, the lamps and the chips.</p>
+    <p>Twelve dropdowns are targets: DRIVE MODEL, FILTER MODEL and TYPE, REPEAT GRID, ARP STYLE, RATE and RANGE, SHARDS SYNC, VOICE MODE, the OCTAVE, and both OSC FX modes. A lane sweeping a dropdown gives each choice an equal share, so a SQUARE lane on SHAPE MODE flips the sound between two shapers every half pass, two bars each at 4 BARS. TUNE and FINE are targets like any other knob. Not targets: VOLUME, the lamps and the chips, the PITCH wheel and AMP's drawn curves.</p>
   </div>
   <figure class="fig"><div class="shot"><img src="plates/lane_editor.webp" width="1264" height="558" alt="The lane editor: LANE 01 HARMONICS TILT, a sine drawn with points over four bars" loading="lazy"></div><figcaption>The lane editor, open on lane 01: one pass of a sine drawn into TILT over the grid of a four-bar phrase, read in TILT's own units.</figcaption></figure>
   <div class="prose">
@@ -807,7 +869,7 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
     <div class="shot">
       <img src="plates/mixer.webp" width="1600" height="1160" alt="The MIXER tab: three OSC strips with KEYS, PAN, fader, meter, MUTE and SOLO, the MASTER strip with OUTPUT PEAK and the CEILING switch" loading="lazy">
       <button type="button" class="pin" data-n="1" style="left:18.8%;top:11.2%" aria-label="1: the strip">1</button>
-      <button type="button" class="pin" data-n="2" style="left:19.9%;top:17.5%" aria-label="2: KEYS">2</button>
+      <button type="button" class="pin" data-n="2" style="left:20.5%;top:17.5%" aria-label="2: KEYS">2</button>
       <button type="button" class="pin" data-n="3" style="left:15.9%;top:25%" aria-label="3: PAN">3</button>
       <button type="button" class="pin" data-n="4" style="left:10.1%;top:40.5%" aria-label="4: FADER">4</button>
       <button type="button" class="pin" data-n="5" style="left:13.9%;top:51.7%" aria-label="5: strip meter">5</button>
@@ -819,8 +881,8 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
       <button type="button" class="pin" data-n="11" style="left:93.8%;top:11.2%" aria-label="11: MIXER MOTION">11</button>
     </div>
     <ol class="legend">
-      <li data-n="1"><b>1</b><span><span class="lab">THE STRIP</span>One per OSC, in its colour, with the sound it holds. Click the sound (or EDIT ›) to open that OSC's tab.</span></li>
-      <li data-n="2"><b>2</b><span><span class="lab">KEYS</span>The notes this OSC answers from a clip or a keyboard, LO to HI. Zones that overlap layer; LO above HI takes it off the keys and reads NO KEYS.</span></li>
+      <li data-n="1"><b>1</b><span><span class="lab">THE STRIP</span>One per OSC, in its colour, with the sound it holds. Click the sound (or EDIT ›) to open that OSC's tab. An OSC whose power switch is off dims here.</span></li>
+      <li data-n="2"><b>2</b><span><span class="lab">KEYS</span>The notes this OSC answers from a clip or a keyboard, LO to HI. Zones that overlap layer; LO above HI takes it off the keys and reads NO KEYS. In SYNTH mode they dim and rest.</span></li>
       <li data-n="3"><b>3</b><span><span class="lab">PAN</span>A balance: at noon both sides are full, and turning toward one side turns the other down. Hard left empties the right.</span></li>
       <li data-n="4"><b>4</b><span><span class="lab">FADER</span>Minus 70 to plus 6 dB, 0 dB at three quarters. <kbd>Shift</kbd> for fine, double-click for 0 dB.</span></li>
       <li data-n="5"><b>5</b><span><span class="lab">STRIP METER</span>This OSC alone, after its fader, pan and mute, before the MASTER. Its lamp lights at 0 dBFS.</span></li>
@@ -841,6 +903,7 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
     <p>All three run four times oversampled and share one tiny latency (6 samples, reported to your DAW), so switching never shifts your timing; a switch fades over 5 ms. The OUT meter on every OSC tab and the MASTER meter both show the output after the ceiling, and the lamp reads what it took off the peaks, held for a second and a half.</p>
     <h3>How notes find their OSC</h3>
     <ul>
+      <li>In SYNTH mode none of this applies: every note plays all three OSCs. What follows is SEQUENCER mode.</li>
       <li>A clip's notes go by KEYS; the MIDI channel does not matter. A note-off always follows its note-on to the same OSCs, even if you move a zone mid-note.</li>
       <li>The keys on an OSC tab play that OSC directly. The SEQUENCER's rows also play their own OSC directly.</li>
       <li>Default zones: OSC 1 from C-2 to B1, OSC 2 from C2 to B2, OSC 3 from C3 to G8 (Live's note names, where C3 is middle C).</li>
@@ -853,40 +916,48 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
 <section id="sequencer">
   <div class="plate-title"><span class="cap">Sequencer</span></div>
   <h2>Three rows, one for each OSC</h2>
-  <p class="lead">The SEQUENCER plays a row of steps into each OSC, all three on one screen, in time with your song. Rows can be different lengths and run against each other, chances roll the same way every bounce, and every pattern can leave as a MIDI clip.</p>
+  <p class="lead">The SEQUENCER plays a row of steps into each OSC, all three on one screen, in time with your song. Rows can be different lengths and run against each other, chances roll the same way every bounce, and every pattern can leave as a MIDI clip. In <a href="#mode">SYNTH mode</a> the rows rest and this page is covered.</p>
   <figure class="fig" data-pins="seq">
     <div class="shot">
-      <img src="plates/sequencer.webp" width="1600" height="1160" alt="The SEQUENCER tab inside a DAW: ON, TEMPO, PATTERN A to H, STEP LANE, MIDI, and three rows of steps with their velocity lanes" loading="lazy">
-      <button type="button" class="pin" data-n="1" style="left:11%;top:10.6%" aria-label="1: the lamp">1</button>
-      <button type="button" class="pin" data-n="2" style="left:19.1%;top:10.6%" aria-label="2: ON and OFF">2</button>
-      <button type="button" class="pin" data-n="3" style="left:27.6%;top:10.6%" aria-label="3: TEMPO">3</button>
-      <button type="button" class="pin" data-n="4" style="left:51.9%;top:10.6%" aria-label="4: PATTERN">4</button>
-      <button type="button" class="pin" data-n="5" style="left:72.9%;top:10.6%" aria-label="5: STEP LANE">5</button>
-      <button type="button" class="pin" data-n="6" style="left:80.6%;top:10.6%" aria-label="6: MIDI">6</button>
-      <button type="button" class="pin" data-n="7" style="left:15%;top:17.4%" aria-label="7: the row">7</button>
-      <button type="button" class="pin" data-n="8" style="left:1.4%;top:22.8%" aria-label="8: MUTE and NOTE">8</button>
-      <button type="button" class="pin" data-n="9" style="left:1.4%;top:25.8%" aria-label="9: STEPS and RATE">9</button>
-      <button type="button" class="pin" data-n="10" style="left:15.6%;top:33.6%" aria-label="10: SWING and GATE">10</button>
-      <button type="button" class="pin" data-n="11" style="left:17.2%;top:38.5%" aria-label="11: shift, MIDI grip, CLEAR">11</button>
-      <button type="button" class="pin" data-n="12" style="left:40%;top:17.4%" aria-label="12: the steps">12</button>
-      <button type="button" class="pin" data-n="13" style="left:43.8%;top:28.4%" aria-label="13: the step lane">13</button>
-      <button type="button" class="pin" data-n="14" style="left:93.8%;top:11.2%" aria-label="14: MOTION">14</button>
+      <img src="plates/sequencer.webp" width="1600" height="1160" alt="The SEQUENCER tab inside a DAW: ON, TEMPO, PATTERNS, A to H, TRANSPOSE, STEP LANE, RANDOM, MIDI, and three rows of steps with their velocity lanes" loading="lazy">
+      <button type="button" class="pin" data-n="1" style="left:2.7%;top:13.8%" aria-label="1: the lamp">1</button>
+      <button type="button" class="pin" data-n="2" style="left:13.8%;top:15%" aria-label="2: ON and OFF">2</button>
+      <button type="button" class="pin" data-n="3" style="left:18.5%;top:15%" aria-label="3: TEMPO">3</button>
+      <button type="button" class="pin" data-n="4" style="left:25.1%;top:15%" aria-label="4: PATTERNS">4</button>
+      <button type="button" class="pin" data-n="5" style="left:35.8%;top:15%" aria-label="5: A to H">5</button>
+      <button type="button" class="pin" data-n="6" style="left:48.3%;top:15%" aria-label="6: TRANSPOSE">6</button>
+      <button type="button" class="pin" data-n="7" style="left:61.2%;top:15%" aria-label="7: STEP LANE">7</button>
+      <button type="button" class="pin" data-n="8" style="left:71.4%;top:15%" aria-label="8: RANDOM">8</button>
+      <button type="button" class="pin" data-n="9" style="left:77.5%;top:15%" aria-label="9: MIDI">9</button>
+      <button type="button" class="pin" data-n="10" style="left:11.9%;top:17.4%" aria-label="10: the row">10</button>
+      <button type="button" class="pin" data-n="11" style="left:1.2%;top:22.4%" aria-label="11: MUTE and NOTE">11</button>
+      <button type="button" class="pin" data-n="12" style="left:1.2%;top:26.6%" aria-label="12: STEPS and RATE">12</button>
+      <button type="button" class="pin" data-n="13" style="left:1.2%;top:32.1%" aria-label="13: SWING and GATE">13</button>
+      <button type="button" class="pin" data-n="14" style="left:18.3%;top:32.5%" aria-label="14: SHUFFLE and SWAP">14</button>
+      <button type="button" class="pin" data-n="15" style="left:18.3%;top:38.5%" aria-label="15: shift, MIDI grip, CLEAR">15</button>
+      <button type="button" class="pin" data-n="16" style="left:43.8%;top:20.9%" aria-label="16: the steps">16</button>
+      <button type="button" class="pin" data-n="17" style="left:43.8%;top:32.8%" aria-label="17: the step lane">17</button>
+      <button type="button" class="pin" data-n="18" style="left:93.8%;top:11.2%" aria-label="18: MOTION">18</button>
     </div>
     <ol class="legend">
       <li data-n="1"><b>1</b><span><span class="lab">LAMP</span>Switches the sequencer, the same as ON / OFF.</span></li>
       <li data-n="2"><b>2</b><span><span class="lab">ON / OFF</span>In a DAW: ON plays your steps with the song (a dot shows while it does), OFF stops them so only your clips and the keys play Tendril. The standalone shows PLAY here.</span></li>
       <li data-n="3"><b>3</b><span><span class="lab">TEMPO</span>The song's tempo in a DAW. In the standalone it is yours: drag up or down, double-click for 120.</span></li>
-      <li data-n="4"><b>4</b><span><span class="lab">PATTERN</span>A to H. Click to play one; <kbd>Shift</kbd>+click copies the pattern on screen into that letter. A dot marks the ones that hold something.</span></li>
-      <li data-n="5"><b>5</b><span><span class="lab">STEP LANE</span>Which value the lanes under the steps show and edit, for all three rows: VEL, CHANCE, RATCHET or NOTE.</span></li>
-      <li data-n="6"><b>6</b><span><span class="lab">MIDI</span>Drag it onto a track for the whole beat as a clip. Click it for LENGTH and EXPORT.</span></li>
-      <li data-n="7"><b>7</b><span><span class="lab">THE ROW</span>OSC 1, 2 or 3 in its colour, with its sound. Click the sound (or EDIT ›) to open that OSC.</span></li>
-      <li data-n="8"><b>8</b><span><span class="lab">MUTE, NOTE</span>MUTE stops the row (the OSC still plays from the keys). NOTE is the row's pitch; the NOTE lane moves steps up or down from it.</span></li>
-      <li data-n="9"><b>9</b><span><span class="lab">STEPS, RATE</span>How many steps before the row starts again (1 to 64), and how long a step is.</span></li>
-      <li data-n="10"><b>10</b><span><span class="lab">SWING, GATE</span>Every second step later, up to 75 / 25; and how much of its step a note holds.</span></li>
-      <li data-n="11"><b>11</b><span><span class="lab">‹ › MIDI CLEAR</span>Rotate every step one place earlier or later; drag the row out as a clip; turn every step of the row off.</span></li>
-      <li data-n="12"><b>12</b><span><span class="lab">STEPS</span>Click a step on or off, drag along the row to paint. Brighter means harder.</span></li>
-      <li data-n="13"><b>13</b><span><span class="lab">THE LANE</span>Drag to draw the shown value across steps, double-click a step to reset it. Off steps keep their values and show them faintly.</span></li>
-      <li data-n="14"><b>14</b><span><span class="lab">MOTION</span>The MIXER's eight lanes: here they can move each row's SWING and GATE.</span></li>
+      <li data-n="4"><b>4</b><span><span class="lab">PATTERNS</span>The 100 built-in patterns. One fills all three rows of the pattern on screen. <a href="#seqtools">More</a></span></li>
+      <li data-n="5"><b>5</b><span><span class="lab">A TO H</span>The eight patterns. Click to play one; <kbd>Shift</kbd>+click copies the pattern on screen into that letter. A dot marks the ones that hold something.</span></li>
+      <li data-n="6"><b>6</b><span><span class="lab">TRANSPOSE</span>Every note in the sequencer, all three rows in all eight patterns, a semitone. <kbd>Shift</kbd>: an octave.</span></li>
+      <li data-n="7"><b>7</b><span><span class="lab">STEP LANE</span>Which value the lanes under the steps show and edit, for all three rows: VEL, CHANCE, RATCHET or NOTE.</span></li>
+      <li data-n="8"><b>8</b><span><span class="lab">RANDOM</span>Every lit step of the three rows gets a new velocity or chance, whichever the step lane shows.</span></li>
+      <li data-n="9"><b>9</b><span><span class="lab">MIDI</span>Drag it onto a track for the whole beat as a clip. Click it for LENGTH and EXPORT.</span></li>
+      <li data-n="10"><b>10</b><span><span class="lab">THE ROW</span>The power switch, then OSC 1, 2 or 3 in its colour, with its sound. Click the sound (or EDIT ›) to open that OSC.</span></li>
+      <li data-n="11"><b>11</b><span><span class="lab">MUTE, NOTE</span>MUTE stops the row (the OSC still plays from the keys). NOTE is the row's pitch; the NOTE lane moves steps up or down from it.</span></li>
+      <li data-n="12"><b>12</b><span><span class="lab">STEPS, RATE</span>How many steps before the row starts again (1 to 64), and how long a step is.</span></li>
+      <li data-n="13"><b>13</b><span><span class="lab">SWING, GATE</span>Every second step later, up to 75 / 25; and how much of its step a note holds.</span></li>
+      <li data-n="14"><b>14</b><span><span class="lab">SHUFFLE, SWAP</span>Mix this row's notes over its rhythm; trade lines with another row. <a href="#seqtools">More</a></span></li>
+      <li data-n="15"><b>15</b><span><span class="lab">‹ › MIDI CLEAR</span>Rotate every step one place earlier or later; drag the row out as a clip; turn every step of the row off.</span></li>
+      <li data-n="16"><b>16</b><span><span class="lab">STEPS</span>Click a step on or off, drag along the row to paint. Brighter means harder.</span></li>
+      <li data-n="17"><b>17</b><span><span class="lab">THE LANE</span>Drag to draw the shown value across steps, double-click a step to reset it. Off steps keep their values and show them faintly.</span></li>
+      <li data-n="18"><b>18</b><span><span class="lab">MOTION</span>The MIXER's eight lanes: here they can move each row's SWING and GATE.</span></li>
     </ol>
   </figure>
   <div class="tri">
@@ -911,7 +982,17 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
       <li>Loops and jumps end the sounding notes cleanly; a new RATE re-places the row on the new grid. Pattern changes happen at once and keep each row's place.</li>
       <li>In the standalone, PLAY runs the pattern from the top on Tendril's own TEMPO, and SHARDS, REPEAT and every SYNC lane follow that tempo too.</li>
     </ul>
+    <h3 id="seqtools">Tools that rewrite the patterns</h3>
+    <ul>
+      <li><span class="lab">PATTERNS</span> opens the 100 built-ins, 25 each in Phrygian, Dorian, minor and minor pentatonic. Click one and it fills all three rows of the pattern on screen and sets their STEPS and RATE. Each row keeps its NOTE, so it lands in your key, and no two rows clash on a step.</li>
+      <li><span class="lab">TRANSPOSE</span> moves every note in the sequencer, all three rows in all eight patterns, a semitone (<kbd>Shift</kbd>: an octave). It refuses a move that would take a lit note out of MIDI's range.</li>
+      <li><span class="lab">RANDOM</span> works on what the step lane shows: on VEL, every lit step gets a new velocity from 60 to 127; on CHANCE, a new chance from 50 to 100 %, in fives.</li>
+      <li><span class="lab">SHUFFLE</span> mixes the notes of a row's lit steps. The same steps play with the same velocity, chance and ratchet, and every click makes a new order. A row where every step plays the same note has nothing to shuffle.</li>
+      <li><span class="lab">SWAP</span> trades lines with another row: its steps, NOTE, STEPS, RATE, SWING, GATE and MUTE, in every pattern. The sounds stay on their OSCs, so you hear OSC 1's sound play what OSC 2 was playing. A MOTION lane on a row's SWING or GATE stays on that row.</li>
+      <li>Every one of these is one <kbd>Ctrl</kbd>+<kbd>Z</kbd> on the SEQUENCER tab.</li>
+    </ul>
   </div>
+  <figure class="fig"><div class="shot"><img src="plates/seq_lib.webp" width="900" height="640" alt="The PATTERNS browser: PHRYGIAN, DORIAN, MINOR and PENTATONIC down the side, 100 named patterns with each row's steps, loading into pattern A" loading="lazy" style="max-width:900px"></div><figcaption>The PATTERNS browser. Each line gives its scale and how many steps each row runs, and a rate when a row runs its own.</figcaption></figure>
   <div class="loom" id="loom">
     <div class="loomtop"><span class="cap" style="color:var(--ink-2)">Three lengths against each other</span><span class="loomcount" id="loom-count">SONG STEP 1</span></div>
     <div id="loom-rows"></div>
@@ -921,7 +1002,7 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
     </div>
   </div>
   <div class="figs side">
-    <figure class="fig"><div class="shot"><img src="plates/seq_menu.webp" width="360" height="340" alt="The MIDI menu: LENGTH, EXPORT .MID and its note" loading="lazy"></div><figcaption>A click on MIDI: LENGTH and EXPORT .MID.</figcaption></figure>
+    <figure class="fig"><div class="shot"><img src="plates/seq_menu.webp" width="676" height="466" alt="The MIDI menu: LENGTH, EXPORT .MID and its note" loading="lazy"></div><figcaption>A click on MIDI: LENGTH and EXPORT .MID.</figcaption></figure>
     <div class="prose" style="max-width:none">
       <h3>Taking the beat out as MIDI</h3>
       <ol class="steps">
@@ -937,31 +1018,31 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
 </section>
 
 <section id="sounds">
-  <div class="plate-title"><span class="cap">Sounds and kits</span></div>
-  <h2>A sound per OSC, a kit for the whole thing</h2>
-  <p class="lead">On an OSC tab the header browses SOUNDS: one OSC's drawing, chain and lanes. On the MIXER and the SEQUENCER it browses KITS: all three OSCs, the mix, every lane and all eight patterns.</p>
-  <figure class="fig"><div class="shot"><img src="plates/browser.webp" width="1600" height="1160" alt="The SOUNDS browser on OSC 3: banks, categories, the factory list with stars" loading="lazy"></div><figcaption>The SOUNDS browser on OSC 3. Click a row to load it and keep browsing; double-click to load and close.</figcaption></figure>
+  <div class="plate-title"><span class="cap">Presets and sounds</span></div>
+  <h2>A preset for the whole instrument, a sound for one OSC</h2>
+  <p class="lead">The header's preset is the whole instrument on every tab: all three OSCs, the mix, every lane and all eight patterns. On an OSC's tab the browser also holds that OSC's SOUNDS, and one of those loads into that OSC alone.</p>
+  <figure class="fig"><div class="shot"><img src="plates/browser.webp" width="1600" height="1160" alt="The browser on OSC 3, showing OSC 3 SOUNDS: banks, categories, the factory list with stars" loading="lazy"></div><figcaption>The browser on OSC 3, switched to OSC 3 SOUNDS. Click a row to load it and keep browsing; double-click to load and close.</figcaption></figure>
   <div class="prose">
     <h3>Browsing</h3>
     <ul>
-      <li>Click the preset name in the header to open the browser. On the left: <span class="lab">ALL</span>, <span class="lab">FAVOURITES</span>, <span class="lab">FACTORY</span>, <span class="lab">USER</span>, then the categories with their counts. Sounds: KICK, SNARE, CLAP, HAT, TOM, PERC, METAL, BASS, ZAP, FX, SEQUENCE. Kits: PUNCH, DEEP, METAL, GLITCH, TONAL, FX.</li>
+      <li>Click the preset name in the header to open the browser. It opens on <span class="lab">PRESETS</span>; on an OSC's tab, <span class="lab">OSC 1 SOUNDS</span> in its title bar (or 2, or 3) switches it to that OSC's sounds. On the left: <span class="lab">ALL</span>, <span class="lab">FAVOURITES</span>, <span class="lab">FACTORY</span>, <span class="lab">USER</span>, then the categories with their counts. Presets: PUNCH, DEEP, METAL, GLITCH, TONAL, FX. Sounds: KICK, SNARE, CLAP, HAT, TOM, PERC, METAL, BASS, ZAP, FX, SEQUENCE.</li>
       <li>The star keeps a preset in FAVOURITES. SEARCH matches every word you type against the name, the category and the author.</li>
       <li><kbd>&uarr;</kbd> and <kbd>&darr;</kbd> load the previous and next preset; <kbd>Enter</kbd> closes; <kbd>Esc</kbd> clears the search, then closes. The keys stay playable while the browser is open, so you can audition as you go.</li>
-      <li>The header's ‹ and › step through the list the browser last showed, even while it is closed, loading as they go.</li>
+      <li>The header's ‹ and › step through the presets, even while the browser is closed, loading as they go.</li>
       <li><span class="lab">OPEN FOLDER</span> opens your preset folder; anything you drop in there (whole folders too) shows up the next time the browser opens. <span class="lab">DELETE</span> works on your own presets: two clicks, and it goes to the bin.</li>
       <li>A copper dot on the name (and on the OSC's tab) means what you hear has changed since it loaded.</li>
     </ul>
     <h3>Saving</h3>
-    <p><span class="lab">SAVE</span> opens a small panel: NAME (up to 64 characters), a CATEGORY chip, AUTHOR (remembered for next time), then SAVE. If the name exists the button turns into REPLACE. <kbd>Enter</kbd> saves, <kbd>Esc</kbd> cancels, and the preset bar glows when it is done. The file name is the preset's name, so renaming the file renames the preset.</p>
+    <p><span class="lab">SAVE</span> always saves the whole preset, from any tab; one OSC is never saved on its own. It opens a small panel: NAME (up to 64 characters), a CATEGORY chip, AUTHOR (remembered for next time), then SAVE. If the name exists the button turns into REPLACE. <kbd>Enter</kbd> saves, <kbd>Esc</kbd> cancels, and the preset bar glows when it is done. The file name is the preset's name, so renaming the file renames the preset.</p>
     <h3>What loads what</h3>
     <ul>
-      <li>A <strong>sound</strong> replaces the OSC on screen: its knobs (VOLUME included) and its eight lanes. Its MIXER fader stays where it was.</li>
-      <li>A <strong>kit</strong> replaces everything: three sounds, the mixer, all 32 lanes, all eight patterns and the sequencer settings. One <kbd>Ctrl</kbd>+<kbd>Z</kbd> brings back the whole instrument from before.</li>
-      <li>Every Tendril 2 sound loads into any OSC, and a sound saved here opens in Tendril 2. With its fader at 0 dB, its pan centred and the MASTER at 0 dB, OSC 1 plays a Tendril 2 sound exactly as Tendril 2 does.</li>
-      <li><span class="lab">INIT</span> takes two clicks. On an OSC tab it turns that OSC into a single sine (one partial, a +24 st sweep landing in 45 ms, a one-shot that holds 50 ms and then decays in 639 ms) with empty lanes. On the MIXER or the SEQUENCER it resets all of Tendril, every lane and every pattern.</li>
+      <li>A <strong>sound</strong> replaces the OSC on screen: its knobs (VOLUME included) and its eight lanes. Its MIXER fader stays where it was, and the rest of the preset stays, now marked as changed.</li>
+      <li>A <strong>preset</strong> replaces everything: three sounds, the mixer, all 32 lanes, all eight patterns, the sequencer settings, SEQUENCER or SYNTH and the bend range. One <kbd>Ctrl</kbd>+<kbd>Z</kbd> brings back the whole instrument from before.</li>
+      <li>Every Tendril 2 sound loads into any OSC. With its fader at 0 dB, its pan centred and the MASTER at 0 dB, OSC 1 plays a Tendril 2 sound exactly as Tendril 2 does.</li>
+      <li><span class="lab">INIT</span> takes two clicks. On an OSC tab it turns that OSC into a single sine (one partial, a +24 st sweep landing in 45 ms, a one-shot that holds 50 ms and then decays in 639 ms, on MONO) with empty lanes. On the MIXER or the SEQUENCER it resets all of Tendril, every lane and every pattern. In SYNTH mode it gives a plain held note instead, and on the MIXER or the SEQUENCER that is OSC 1 alone (<a href="#mode">more</a>).</li>
     </ul>
   </div>
-  <div class="prose"><h3>The factory kits</h3><p>Each kit carries a beat in patterns A and B and sets the MASTER to minus 3 dB.</p></div>
+  <div class="prose"><h3>The factory presets</h3><p>Each of these kits carries a beat in patterns A and B and sets the MASTER to minus 3 dB.</p></div>
   <div class="kits">
     <div class="kit"><div class="cap" style="color:var(--copper)">Punch</div><b class="lab" style="font-size:.95rem">FORGE KIT</b><div class="lanes"><span><i style="background:var(--copper)"></i>OSC 1 &middot; Forge Kick</span><span><i style="background:var(--blue)"></i>OSC 2 &middot; Split Snare</span><span><i style="background:var(--green)"></i>OSC 3 &middot; Rust Hat</span></div></div>
     <div class="kit"><div class="cap" style="color:var(--copper)">Deep</div><b class="lab" style="font-size:.95rem">LOW WOOD</b><div class="lanes"><span><i style="background:var(--copper)"></i>OSC 1 &middot; Sub Hammer</span><span><i style="background:var(--blue)"></i>OSC 2 &middot; Low Tom</span><span><i style="background:var(--green)"></i>OSC 3 &middot; Wood Tick (12 steps)</span></div></div>
@@ -973,7 +1054,7 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
     <ul>
       <li>Each tab keeps its own history, 50 steps deep: OSC 1, OSC 2, OSC 3, the MIXER and the SEQUENCER. Undo with <kbd>Ctrl</kbd>+<kbd>Z</kbd>, redo with <kbd>Ctrl</kbd>+<kbd>Y</kbd> or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> (<kbd>Cmd</kbd> on a Mac). The status line says <span class="mono">undo: tendril</span>.</li>
       <li>Undoable: every knob, switch, dropdown and fader move, every MOTION action (mapping, ranges, RATE and its SYNC / FREE switch, lock, RND, shapes, CLEAR, PHRASE, lane-editor strokes), preset loads, INIT and every sequencer edit.</li>
-      <li>Not undoable: saving, deleting, favourites, switching tabs, PLAY and MIDI export.</li>
+      <li>Not undoable: saving, deleting, favourites, switching tabs, PLAY, MIDI export, the MODE lever, the PITCH wheel and an OSC's power switch on its tab (on its SEQUENCER row, the switch is one more edit, and <kbd>Ctrl</kbd>+<kbd>Z</kbd> there takes it back).</li>
       <li>Inside a DAW the keys belong to Tendril once you have clicked, scrolled or typed in it; otherwise they go to your DAW.</li>
     </ul>
   </div>
@@ -984,7 +1065,7 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
   <h2>In your DAW, on its own, and on disk</h2>
   <div class="prose">
     <h3>Finding it</h3>
-    <p>Tendril is a VST3 and an AU instrument (AU on a Mac), plus a standalone app. It installs beside Tendril and Tendril 2 and leaves them alone. In Live look under Plug-Ins, in the Patchbay folder; in Logic under AU Instruments, Patchbay. On Windows it needs Microsoft's WebView2 runtime, which the installer offers if it is missing.</p>
+    <p>Tendril is a VST3 and an AU instrument (AU on a Mac), plus a standalone app. It installs beside Tendril 2 and leaves it alone. In Live look under Plug-Ins, in the Patchbay folder; in Logic under AU Instruments, Patchbay. On Windows it needs Microsoft's WebView2 runtime, which the installer offers if it is missing.</p>
     <h3>License</h3>
     <ul>
       <li>Once activated, the header reads <span class="lab">LICENSED</span> and your name. <span class="lab">UPDATE</span> downloads the newest Tendril for this computer.</li>
@@ -994,7 +1075,7 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
     <h3>Inside a DAW</h3>
     <ul>
       <li>MOTION's SYNC lanes, the ARP, the SEQUENCER, SHARDS' sync and REPEAT all follow your song; a FREE lane keeps its own speed. The SEQUENCER shows ON / OFF; its TEMPO reads the song's.</li>
-      <li>Everything saves with your project: every knob, all 32 lanes, each OSC's sound, the kit, all eight patterns and the tab you were on.</li>
+      <li>Everything saves with your project: every knob, all 32 lanes, each OSC's sound, the preset, all eight patterns, SEQUENCER or SYNTH, the bend range and the tab you were on.</li>
       <li>On Windows, <kbd>Space</kbd> and <kbd>Ctrl</kbd>+<kbd>S</kbd> pass through to your DAW, so play, stop and save keep working with Tendril in front.</li>
       <li>The output is 6 samples late (the ceiling's oversampling), and Tendril tells your DAW so it lines up.</li>
     </ul>
@@ -1006,8 +1087,8 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
     </ul>
     <h3>MIDI and automation</h3>
     <ul>
-      <li>Notes arrive on any MIDI channel and go to the OSCs by their KEYS zones. Pitch bend moves every voice two semitones each way. The mod wheel, other controllers and aftertouch do nothing, and there is no MIDI learn: to play knobs from hardware, map your controller to Tendril's parameters in your DAW.</li>
-      <li>Your DAW sees 267 automatable parameters, named the way the face reads them: <span class="mono">OSC 1 Partials</span>, <span class="mono">OSC 2 Shards Mix</span>, <span class="mono">OSC 3 Fader</span>, <span class="mono">Pattern</span>. Knobs show plain 0 to 1 values in a DAW's lanes. The KEYS zones are not automatable, and MOTION lanes are not parameters (each tab's MOTION lamp is).</li>
+      <li>Notes arrive on any MIDI channel and go to the OSCs by their KEYS zones; in SYNTH mode, to all three. Pitch bend moves every voice as far as BEND UP and BEND DOWN say. The mod wheel, other controllers and aftertouch do nothing, and there is no MIDI learn: to play knobs from hardware, map your controller to Tendril's parameters in your DAW.</li>
+      <li>Your DAW sees 286 automatable parameters, named the way the face reads them: <span class="mono">OSC 1 Partials</span>, <span class="mono">OSC 2 Shards Mix</span>, <span class="mono">OSC 3 Fader</span>, <span class="mono">Pattern</span>, <span class="mono">Pitch Wheel</span>. Knobs show plain 0 to 1 values in a DAW's lanes; the Pitch Wheel's lane reads semitones. The KEYS zones, the MODE lever and the two BEND numbers are not automatable, and MOTION lanes are not parameters (each tab's MOTION lamp is).</li>
       <li><span class="mono">Pattern</span> is automatable, so your arrangement can switch A to H.</li>
     </ul>
   </div>
@@ -1015,7 +1096,7 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
     <thead><tr><th>What</th><th>Windows</th><th>macOS</th></tr></thead>
     <tbody>
       <tr><td>Sounds</td><td class="m">Documents\Tendril\Presets</td><td class="m">~/Music/Tendril/Presets</td></tr>
-      <tr><td>Kits</td><td class="m">Documents\Tendril\Kits</td><td class="m">~/Music/Tendril/Kits</td></tr>
+      <tr><td>Presets (kits)</td><td class="m">Documents\Tendril\Kits</td><td class="m">~/Music/Tendril/Kits</td></tr>
       <tr><td>MIDI exports</td><td class="m">Documents\Tendril\MIDI</td><td class="m">~/Music/Tendril/MIDI</td></tr>
       <tr><td>Favourites</td><td class="m">Documents\Tendril\library.json, kits.json</td><td class="m">~/Music/Tendril/library.json, kits.json</td></tr>
       <tr><td>License</td><td class="m">%APPDATA%\Tendril</td><td class="m">~/Library/Application Support/Tendril</td></tr>
@@ -1026,9 +1107,16 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
 
 <section id="recipes">
   <div class="plate-title"><span class="cap">Field notes</span></div>
-  <h2>Eight ways in</h2>
+  <h2>Nine ways in</h2>
   <p class="lead">Starting points that use the parts of Tendril a sample can't: the drawing, the lanes, the sequencer's maths. Values are where to start; then move them.</p>
   <div class="recipes">
+    <div class="recipe"><span class="tag">SYNTH</span><h4>One note, three drawings</h4><ol>
+      <li>Push the lever to <span class="lab">SYNTH</span>. On the MIXER press <span class="lab">INIT</span> twice: OSC 1 alone, a plain held note.</li>
+      <li>On OSC 1 turn <span class="lab">PARTIALS</span> all the way up and <span class="lab">TILT</span> to &minus;6 dB/OCT: a saw.</li>
+      <li>Switch OSC 2 on at its tab. <span class="lab">PARTIALS</span> about 8, <span class="lab">TUNE</span> +7 st.</li>
+      <li>Switch OSC 3 on. <span class="lab">PARTIALS</span> about 16, <span class="lab">TUNE</span> &minus;12 st, <span class="lab">FINE</span> +8 ct.</li>
+      <li>Drag <span class="lab">SINE</span> onto OSC 2's <span class="lab">TILT</span>, <span class="lab">RATE</span> 8 BARS. Set <span class="lab">BEND UP</span> and <span class="lab">BEND DOWN</span> to 12.</li>
+    </ol><p>Every key plays a stack of three drawings, each with its own chain, and one of them keeps changing. Hold a note and ride the wheel: the whole stack bends an octave.</p></div>
     <div class="recipe"><span class="tag">OSC 1 &middot; MOTION</span><h4>A sound that never lands the same twice</h4><ol>
       <li>Load <span class="lab">FORGE KICK</span>.</li>
       <li>Drag <span class="lab">RANDOM</span> from the MOTION panel onto PITCH <span class="lab">AMOUNT</span>.</li>
@@ -1088,19 +1176,21 @@ table.key td:first-child,table.key td:nth-child(3){white-space:normal;overflow-w
   <div class="keybar" id="keychips"></div>
   <div class="tablewrap"><table class="key"><thead><tr><th>Control</th><th>Where</th><th>Range</th><th>What it does</th></tr></thead><tbody id="keybody"></tbody></table></div>
 </section>
-<footer><span>Tendril &middot; version 3.0.1 &middot; VST3, AU and Standalone &middot; Patchbay</span><span>Factory sounds and kits by STRIDE</span></footer>
+<footer><span>Tendril &middot; version 3.1 &middot; VST3, AU and Standalone &middot; Patchbay</span><span>Factory sounds and kits by STRIDE</span></footer>
 </main>
 </div>
 <script>
 window.FACTORY=[{"name":"Forge Kick","cat":"KICK","hz":65.406,"nn":"C1","kit":"Forge Kit","v":{"h_partials":0.167,"h_tilt":0.0,"h_parity":0.5,"h_stretch":0.5,"h_damp":0.0,"h_phase":0.0,"h_comb":0.0,"h_strike":0.0,"h_focus":0.5,"h_formant":0.3,"p_amount":0.912,"p_time":0.559,"p_curve":0.58,"a_attack":0.0,"a_hold":0.224,"a_decay":0.67,"a_trig":1.0,"n_level":0.316,"n_color":0.877,"n_snap":0.201,"n_burst":0.0,"drive_on":1.0,"d_amt":0.3,"d_model":0.0,"filt_on":0.0,"f_cut":1.0,"f_model":0.0,"f_type":0.0,"g_repeat":0.0,"g_crush":0.0,"g_mix":0.0,"dl_on":1.0,"dl_mix":0.0,"dl_taps":0.286,"arp_on":0.0,"v_mode":0.0,"gain":6.0}},{"name":"Split Snare","cat":"SNARE","hz":146.832,"nn":"D2","kit":"Forge Kit","v":{"h_partials":0.431,"h_tilt":0.333,"h_parity":0.5,"h_stretch":0.088,"h_damp":0.538,"h_phase":0.0,"h_comb":0.0,"h_strike":0.0,"h_focus":0.5,"h_formant":0.3,"p_amount":0.698,"p_time":0.447,"p_curve":0.396,"a_attack":0.0,"a_hold":0.141,"a_decay":0.596,"a_trig":1.0,"n_level":0.849,"n_color":0.798,"n_snap":0.662,"n_burst":0.0,"drive_on":1.0,"d_amt":0.25,"d_model":1.0,"filt_on":1.0,"f_cut":0.259,"f_model":0.0,"f_type":3.0,"g_repeat":0.0,"g_crush":0.0,"g_mix":0.0,"dl_on":1.0,"dl_mix":0.12,"dl_taps":0.286,"arp_on":0.0,"v_mode":0.0,"gain":-0.5}},{"name":"Rust Hat","cat":"HAT","hz":523.251,"nn":"C4","kit":"Forge Kit","v":{"h_partials":0.597,"h_tilt":0.625,"h_parity":0.75,"h_stretch":0.85,"h_damp":0.0,"h_phase":1.0,"h_comb":0.0,"h_strike":0.0,"h_focus":0.5,"h_formant":0.3,"p_amount":0.5,"p_time":0.5,"p_curve":0.5,"a_attack":0.0,"a_hold":0.0,"a_decay":0.417,"a_trig":1.0,"n_level":0.837,"n_color":0.958,"n_snap":0.475,"n_burst":0.0,"drive_on":1.0,"d_amt":0.0,"d_model":0.0,"filt_on":1.0,"f_cut":0.826,"f_model":0.0,"f_type":3.0,"g_repeat":0.0,"g_crush":0.0,"g_mix":0.0,"dl_on":1.0,"dl_mix":0.0,"dl_taps":0.286,"arp_on":0.0,"v_mode":0.0,"gain":2.0}}];
 window.KEY = [
-["INIT","HEADER","two clicks","On an OSC tab: that OSC becomes a single sine with empty lanes. On the MIXER or SEQUENCER: all of Tendril, every lane and pattern."],
-["‹ ›","HEADER","","The previous or next preset in the browser's list, loaded at once, even with the browser closed."],
-["Preset name","HEADER","","Opens the browser: SOUNDS on an OSC tab, KITS on the MIXER and SEQUENCER. A copper dot means changed since loading."],
-["SAVE","HEADER","NAME, CATEGORY, AUTHOR","Saves the sound (OSC tab) or the kit (MIXER, SEQUENCER). REPLACE when the name exists."],
+["MODE lever","HEADER","SEQUENCER, SYNTH","What Tendril is now. SYNTH: every note plays all three OSCs and the SEQUENCER rests. Click the lever or a word."],
+["INIT","HEADER","two clicks","On an OSC tab: that OSC becomes a single sine with empty lanes (a plain held note in SYNTH mode). On the MIXER or SEQUENCER: all of Tendril, every lane and pattern."],
+["‹ ›","HEADER","","The previous or next preset, loaded at once, even with the browser closed."],
+["Preset name","HEADER","","Opens the browser on the presets. On an OSC tab, OSC n SOUNDS switches it to that OSC's sounds. A copper dot means changed since loading."],
+["SAVE","HEADER","NAME, CATEGORY, AUTHOR","Saves the whole preset, from any tab. REPLACE when the name exists."],
 ["UPDATE","HEADER","","Downloads the newest Tendril for this computer (licensed copies)."],
 ["ACTIVATE","HEADER","","Opens the license screen: paste the key from your order email."],
-["Tabs","HEADER","OSC 1, 2, 3, MIXER, SEQUENCER","Each OSC tab lights while it sounds and shows its sound's name."],
+["Tabs","HEADER","OSC 1, 2, 3, MIXER, SEQUENCER","Each OSC tab lights while it sounds and shows its sound's name. In SYNTH mode the SEQUENCER tab says OFF."],
+["Power switch","HEADER","on, off","On each OSC's tab. Off, nothing plays that OSC: not the keys, its row or your clips. It stops using CPU."],
 ["PARTIALS","HARMONICS","1 to 64","How many partials sound, growing evenly in octaves; the top one fades in. Level stays the same."],
 ["TILT","HARMONICS","-12 to +12 dB/OCT","Slope of the drawing. FLAT at noon; -6 dB/OCT is a saw."],
 ["PARITY","HARMONICS","ODD, ALL, EVEN","Left removes even partials, right removes odd ones from the third up."],
@@ -1119,12 +1209,16 @@ window.KEY = [
 ["SHAPE AMOUNT","OSC FX","OFF to 100 %","How much. 0 is the dry oscillator; loudness is matched."],
 ["SHAPE CHARACTER","OSC FX","WINDOW, CURVE, SOFT, EVEN, RATIO, LEVEL","The mode's second control. Dims while AMOUNT is off."],
 ["OCTAVE","PITCH","-3 to +3 OCT","The whole oscillator in exact octaves; a note keeps its octave."],
+["TUNE","PITCH","-12 to +12 st","The whole oscillator in semitones, on top of OCTAVE; a held note follows it."],
+["FINE","PITCH","-100 to +100 ct","Up to a semitone either way, in cents; a held note follows it."],
 ["AMOUNT","PITCH","-48 to +48 st","Where the sweep starts, fine near zero."],
 ["TIME","PITCH","1 ms to 2 s","How long the sweep takes to land exactly on the note."],
 ["CURVE","PITCH","LINEAR to p 16","The sweep's shape: a straight line to a fast drop that settles."],
 ["GLIDE","PITCH","JUMP to 2 s","LEGATO only: the slide to an overlapping note."],
-["Voice mode","AMP","POLY, MONO, LEGATO","12 voices with same-note choke; one voice that starts again; one voice that slides."],
+["Voice mode","AMP","POLY, MONO, LEGATO","12 voices with same-note choke; one voice that starts again; one voice that slides. A new sound starts on MONO (POLY in SYNTH mode)."],
 ["ONE SHOT / GATE","AMP","","The whole decay on every note, or a normal ADSR."],
+["Screen points","AMP","","Drag to draw the envelope: they move ATTACK, HOLD, DECAY, SUSTAIN and RELEASE. Shift for fine; double-click puts one back."],
+["Screen handles","AMP","","Small and hollow: bend the curve of the attack, the decay or the release. The centre catches. Double-click puts one back."],
 ["ATTACK","AMP","0.2 ms to 2 s","A straight rise to full level."],
 ["HOLD","AMP","OFF to 200 ms","Full level after the attack: the punch."],
 ["DECAY","AMP","2 ms to 10 s","Time to fall 60 dB (to SUSTAIN in GATE)."],
@@ -1180,8 +1274,10 @@ window.KEY = [
 ["SPREAD","OUT","CENTRE to 100 %","Each note at a random place in the stereo field."],
 ["VOLUME","OUT","-70 to +6 dB","The sound's own level, before the mixer's fader. Not a MOTION target."],
 ["CEILING lamp","OUT","","What the ceiling took off the peaks. Click to clear."],
-["On-screen keys","KEYS","C1 to C4","Velocity by where you press. An OSC tab plays that OSC; MIXER and SEQUENCER play by zone."],
+["On-screen keys","KEYS","C1 to C4","Velocity by where you press. An OSC tab plays that OSC; MIXER and SEQUENCER play by zone; in SYNTH mode all three."],
 ["Computer keys","KEYS","A W S E D F T G Y H U J K O L","C2 up to D3 at a firm velocity."],
+["PITCH wheel","KEYS","as far as BEND says","Bends all three OSCs and springs back. Automate it as Pitch Wheel."],
+["BEND UP, BEND DOWN","KEYS","0 to 48 st, 2 at rest","How far a full bend reaches each way, for this wheel and your MIDI wheel. Drag, scroll, double-click or Ctrl+click for 2."],
 ["Lamp","MOTION","on, off","Every lane on this tab; off, each knob plays where you left it."],
 ["SINE, TRI, SAW, SQUARE, RANDOM","MOTION","","Click: every mapped, unlocked lane. Drag onto a knob: that knob alone."],
 ["CLEAR","MOTION","","Empties unlocked lanes' curves, keeping their knobs. Drag onto a knob to stop it."],
@@ -1198,7 +1294,7 @@ window.KEY = [
 ["GRID","LANE EDITOR","1/4 to 1/64","Where time snaps."],
 ["SNAP","LANE EDITOR","on, off","FREE with SNAP draws a step sequence for a knob."],
 ["CLEAR","LANE EDITOR","","Empties this lane (undo brings it back)."],
-["KEYS LO, HI","MIXER","C-2 to G8","The notes each OSC answers. Overlaps layer; LO above HI is NO KEYS."],
+["KEYS LO, HI","MIXER","C-2 to G8","The notes each OSC answers. Overlaps layer; LO above HI is NO KEYS. They rest in SYNTH mode."],
 ["PAN","MIXER","L to R","A balance; hard left empties the right."],
 ["FADER","MIXER","-70 to +6 dB","0 dB at three quarters. Double-click for 0 dB."],
 ["MUTE","MIXER","","Silences the OSC; it keeps running. Wins over SOLO."],
@@ -1209,15 +1305,21 @@ window.KEY = [
 ["Lamp, ON / OFF","SEQUENCER","","Runs the steps with the song, or stops them so only clips and keys play."],
 ["PLAY","SEQUENCER","standalone","Runs the pattern on Tendril's own clock."],
 ["TEMPO","SEQUENCER","40 to 240 BPM","The song's in a DAW; yours in the standalone (double-click: 120)."],
-["PATTERN","SEQUENCER","A to H","Click to play; Shift+click copies the pattern on screen into it."],
+["PATTERNS","SEQUENCER","100 built-ins","Phrygian, Dorian, minor, minor pentatonic. One fills all three rows of the pattern on screen; each row keeps its NOTE."],
+["A to H","SEQUENCER","8 patterns","Click to play; Shift+click copies the pattern on screen into it."],
+["TRANSPOSE","SEQUENCER","a semitone; Shift: an octave","Every note in the sequencer, all three rows in all eight patterns."],
 ["STEP LANE","SEQUENCER","VEL, CHANCE, RATCHET, NOTE","Which value the lanes show and edit."],
+["RANDOM","SEQUENCER","VEL 60 to 127; CHANCE 50 to 100 %","Every lit step gets a new value, whichever of the two the step lane shows."],
 ["MIDI","SEQUENCER","1, 2, 4, 8 BARS","Drag out the beat as a clip; click for LENGTH and EXPORT .MID."],
+["Power switch (row)","SEQUENCER","on, off","The same switch as on the OSC's tab. Ctrl+Z here takes it back."],
 ["MUTE (row)","SEQUENCER","","The row stops playing; the OSC still plays from keys."],
 ["NOTE (row)","SEQUENCER","C-2 to G8","The row's pitch; part of the pattern."],
 ["STEPS","SEQUENCER","1 to 64","The row's length before it starts again."],
 ["RATE","SEQUENCER","1/4 to 1/32, T","How long a step is."],
 ["SWING","SEQUENCER","50 to 75 %","Every second step later. A MOTION target."],
 ["GATE","SEQUENCER","5 to 100 %","How much of its step a note holds. A MOTION target."],
+["SHUFFLE","SEQUENCER","","Mixes the notes of this row's lit steps; the rhythm, velocity, chance and ratchet stay."],
+["SWAP","SEQUENCER","the other two rows","Trades lines with another row, in every pattern. The sounds stay on their OSCs."],
 ["‹ ›","SEQUENCER","","Rotate the row one step earlier or later."],
 ["MIDI grip","SEQUENCER","drag","This row alone as a clip."],
 ["CLEAR (row)","SEQUENCER","","Every step of the row off; NOTE stays."],
