@@ -173,7 +173,7 @@
     // that reads them later (the checkout's attribution) can then find any. The Pixel and
     // Clarity set theirs on the parent domain, so each is cleared host-only and there too.
     var OURS = ['stride_xid', 'stride_ad_id', 'stride_fbclid', 'stride_gclid', 'stride_wbraid',
-                'stride_gbraid', '_fbc', '_fbp', '_clck', '_clsk', 'affonso_referral', 'affonso_data'];
+                'stride_gbraid', 'stride_gad', 'stride_gfirst', '_fbc', '_fbp', '_clck', '_clsk', 'affonso_referral', 'affonso_data'];
     function forget() {
         var host = location.hostname.replace(/^www\./, '');
         var scopes = ['', '; domain=' + host, '; domain=.' + host];
@@ -183,7 +183,7 @@
             }
         }
         ['stride_fbclid', 'stride_fbc', 'stride_ad', 'stride_emh', 'stride_gclid', 'stride_wbraid',
-         'stride_gbraid',
+         'stride_gbraid', 'stride_gad', 'stride_gfirst',
          // What /try keeps under names of its own (its captureAdClick).
          'stride_ad_id', 'stride_adset_id', 'stride_campaign_id', 'stride_utm_source',
          'stride_utm_campaign', 'stride_utm_content'].forEach(function (k) {
@@ -707,6 +707,26 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             return id;
         } catch (e) { return ''; }
     })();
+    // The visitor id for what this page sends on (a checkout, a claim, the server page view):
+    // the cookie, else the id this page made on load, which the Pixel was given just below.
+    // On some iPhones (Safari, Facebook's in-app browser) the cookie was gone by checkout
+    // time, and 7 of 85 web checkouts from 2026-10-04 to 11-03 reached Meta with no External
+    // ID while the Pixel had one. Written back when missing, minted if the visitor was only
+    // allowed after load. Nothing while measurement is not allowed (no answer yet, Decline).
+    window.strideXid = function () {
+        try {
+            if (window.strideAllowed && !strideAllowed()) return '';
+            var m = document.cookie.match(/(?:^|; )stride_xid=([^;]*)/);
+            if (m) return decodeURIComponent(m[1]);
+            if (!_strideXid) {
+                _strideXid = (self.crypto && crypto.randomUUID) ? crypto.randomUUID()
+                    : (Date.now().toString(36) + Math.random().toString(36).slice(2, 12));
+            }
+            document.cookie = 'stride_xid=' + encodeURIComponent(_strideXid) +
+                '; max-age=' + (180 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+            return _strideXid;
+        } catch (e) { return ''; }
+    };
     fbq('init', '952457524222772', _strideXid ? { external_id: _strideXid } : {});
     // One id for this page view, shared with its server copy (serverPageView below), so Meta
     // counts the visit once. Until 2026-09-26 the server minted an id of its own and every
@@ -831,13 +851,61 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     // matching Google's default conversion window, and carried into the Lemon
     // Squeezy checkout so the purchase webhook can upload the conversion back to
     // Google Ads. A click id that is not captured at arrival is gone for good.
+    //
+    // Beside the click id, which campaign it came from and when (Yossi 2026-11-03: the
+    // Discord sale alert names the campaign and the day Google files the sale under).
+    // Google puts the campaign on every ad link as gad_campaignid; PMax sends one id per
+    // channel. Kept as "<campaign>.<click ms>.<end of the click id>": the end ties the
+    // record to its own click id, so a click id written without one never borrows another
+    // click's campaign. stride_gad = the latest Google click, stride_gfirst = the first one
+    // this browser had. Same consent gate and 90 days as the click id.
+    function strideGget(name) {
+        var v = '';
+        try { v = localStorage.getItem(name) || ''; } catch (e) {}
+        if (!v) {
+            try {
+                var m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+                if (m) v = decodeURIComponent(m[1]);
+            } catch (e) {}
+        }
+        return v;
+    }
+    function strideGkeep(name, v) {
+        try { localStorage.setItem(name, v); } catch (e) {}
+        try {
+            document.cookie = name + '=' + encodeURIComponent(v) +
+                '; max-age=' + (90 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+        } catch (e) {}
+    }
+    function strideKeepGoogleCampaign(p, click, heldOne) {
+        var cid = (p.get('gad_campaignid') || '').trim();
+        if (!/^\d{6,20}$/.test(cid)) cid = '';
+        // The click's time: this page's arrival, or the one /try is handed with the click.
+        var t = Number(p.get('gclid_ts'));
+        var ts = (t > 1.6e12 && t <= Date.now() + 60000 && Date.now() - t < 90 * 864e5) ? t
+            : Math.round((window.performance && performance.timeOrigin) || Date.now());
+        var tag = click.slice(-10);
+        var last = strideGget('stride_gad').split('.');
+        if (last[2] === tag && last[1]) return;          // the same click again (a reload)
+        var rec = cid + '.' + ts + '.' + tag;
+        strideGkeep('stride_gad', rec);
+        var first = strideGget('stride_gfirst').split('.');
+        var fresh = !!first[1] && Date.now() - Number(first[1]) < 90 * 864e5;
+        // A click id stored before this record existed hides the real first click, so then
+        // there is no first one rather than a wrong one.
+        if (!fresh && (!heldOne || first[1])) strideGkeep('stride_gfirst', rec);
+    }
+
     (function captureGoogleClick() {
         if (window.strideAllowed && !strideAllowed()) { strideWhenAllowed(captureGoogleClick); return; }
         try {
             var p = new URLSearchParams(window.location.search);
+            var heldOne = !!(strideGget('stride_gclid') || strideGget('stride_wbraid') || strideGget('stride_gbraid'));
+            var click = '';
             ['gclid', 'wbraid', 'gbraid'].forEach(function (k) {
                 var v = (p.get(k) || '').trim();
                 if (!v) return;
+                if (!click) click = v;
                 try { localStorage.setItem('stride_' + k, v); } catch (e) {}
                 try {
                     document.cookie = 'stride_' + k + '=' + encodeURIComponent(v) +
@@ -845,6 +913,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
                         '; path=/; SameSite=Lax; Secure';
                 } catch (e) {}
             });
+            if (click) strideKeepGoogleCampaign(p, click, heldOne);
         } catch (e) {}
     })();
 
@@ -863,6 +932,19 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             }
             if (v) out[k] = v;
         });
+        // Its campaign and time, only when the record belongs to the click id the
+        // webhook will use (gclid first, as google_dm picks it).
+        var click = out.gclid || out.wbraid || out.gbraid || '';
+        var last = strideGget('stride_gad').split('.');
+        if (click && last[2] && click.slice(-10) === last[2]) {
+            if (last[0]) out.gad_campaignid = last[0];
+            if (last[1]) out.gclid_ts = last[1];
+            var first = strideGget('stride_gfirst').split('.');
+            if (first[1]) {
+                out.gfirst_ts = first[1];
+                if (first[0]) out.gfirst_campaignid = first[0];
+            }
+        }
         return out;
     };
 
@@ -970,7 +1052,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
                     var ck = function (n) { var m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : ''; };
                     var fbp = ck('_fbp');
                     var fbc = ck('_fbc') || (function () { try { return sessionStorage.getItem('stride_fbc') || ''; } catch (e) { return ''; } })();
-                    var xid = ck('stride_xid');
+                    var xid = window.strideXid ? window.strideXid() : ck('stride_xid');
                     // The browser PageView's own id, so Meta merges the two into one visit.
                     var eid = window.STRIDE_PV_ID || ('pv.' + Date.now() + '.' + Math.random().toString(36).slice(2, 10));
                     fetch('https://generate-midi-z3spyrafvq-uc.a.run.app', {
@@ -4444,7 +4526,7 @@ function openBuy() { toggleBuyModal(); }
         var out = {
             fbc: fbc,
             fbp: ck(/(?:^|; )_fbp=([^;]*)/),
-            external_id: ck(/(?:^|; )stride_xid=([^;]*)/),
+            external_id: window.strideXid ? window.strideXid() : ck(/(?:^|; )stride_xid=([^;]*)/),
             ua: (navigator.userAgent || '').slice(0, 512)
         };
         try { out.fbclid = localStorage.getItem('stride_fbclid') || (fbc ? fbc.split('.').pop() : ''); } catch (e) {}
@@ -5693,7 +5775,8 @@ function openBuy() { toggleBuyModal(); }
         custom.event_id = eventId;
         if (opts && opts.via) custom.pay_button = opts.via;
         var gMk = (window.strideGoogleClick ? window.strideGoogleClick() : {});
-        ['gclid', 'wbraid', 'gbraid'].forEach(function (k) { if (gMk[k] && !custom[k]) custom[k] = gMk[k]; });
+        ['gclid', 'wbraid', 'gbraid', 'gad_campaignid', 'gclid_ts', 'gfirst_campaignid', 'gfirst_ts']
+            .forEach(function (k) { if (gMk[k] && !custom[k]) custom[k] = gMk[k]; });
         var url = base + (base.indexOf('?') >= 0 ? '&' : '?')
             + (email ? 'checkout[email]=' + encodeURIComponent(email) + '&' : '')
             + Object.keys(custom).filter(function (k) { return custom[k] !== '' && custom[k] != null; })
@@ -5781,6 +5864,7 @@ function openBuy() { toggleBuyModal(); }
             return m ? decodeURIComponent(m[1]) : '';
         })();
         const xid = (function () {
+            if (window.strideXid) return window.strideXid();
             const m = document.cookie.match(/(?:^|; )stride_xid=([^;]*)/);
             return m ? decodeURIComponent(m[1]) : '';
         })();
@@ -5894,9 +5978,10 @@ function openBuy() { toggleBuyModal(); }
             // ad on the sale even when the buyer_lead beacon was dropped.
             if (adMk.ad_id) url += '&checkout[custom][ad_id]=' + encodeURIComponent(adMk.ad_id);
             // Google click id rides the same checkout, so the order webhook
-            // can hand the conversion back to Google Ads with the real value.
+            // can hand the conversion back to Google Ads with the real value,
+            // and its campaign and click time, which the sale alert names.
             var gMk = (window.strideGoogleClick ? window.strideGoogleClick() : {});
-            ['gclid', 'wbraid', 'gbraid'].forEach(function (k) {
+            ['gclid', 'wbraid', 'gbraid', 'gad_campaignid', 'gclid_ts', 'gfirst_campaignid', 'gfirst_ts'].forEach(function (k) {
                 if (gMk[k]) url += '&checkout[custom][' + k + ']=' + encodeURIComponent(gMk[k]);
             });
             // Rides the checkout for the same reason the click id does: the beacon is
@@ -6733,9 +6818,22 @@ function openBuy() { toggleBuyModal(); }
         delete body.ua;
         try {
             var q = new URL(window.location.href).searchParams;
-            ['utm_source', 'utm_campaign', 'utm_content', 'gclid', 'wbraid', 'gbraid'].forEach(function (k) {
+            ['utm_source', 'utm_campaign', 'utm_content', 'gclid', 'wbraid', 'gbraid', 'gad_campaignid'].forEach(function (k) {
                 if (q.get(k) && !body[k]) body[k] = q.get(k);
             });
+            // A Google click from this address carries its time (this page's arrival, or the
+            // stored one for the same click) and the first Google click this browser had.
+            var gHere = body.gclid || body.wbraid || body.gbraid;
+            if (gHere) {
+                var gx = (window.strideGoogleClick ? window.strideGoogleClick() : {});
+                var gSame = (gx.gclid || gx.wbraid || gx.gbraid) === gHere;
+                body.gclid_ts = gSame && gx.gclid_ts ? gx.gclid_ts
+                    : String(Math.round((window.performance && performance.timeOrigin) || Date.now()));
+                if (gSame && gx.gfirst_ts) {
+                    body.gfirst_ts = gx.gfirst_ts;
+                    if (gx.gfirst_campaignid) body.gfirst_campaignid = gx.gfirst_campaignid;
+                }
+            }
         } catch (e) {}
         body.action = 'bf_claim';
         body.email = email;

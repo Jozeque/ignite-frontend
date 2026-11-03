@@ -132,7 +132,7 @@
     // that reads them later (the checkout's attribution) can then find any. The Pixel and
     // Clarity set theirs on the parent domain, so each is cleared host-only and there too.
     var OURS = ['stride_xid', 'stride_ad_id', 'stride_fbclid', 'stride_gclid', 'stride_wbraid',
-                'stride_gbraid', '_fbc', '_fbp', '_clck', '_clsk', 'affonso_referral', 'affonso_data'];
+                'stride_gbraid', 'stride_gad', 'stride_gfirst', '_fbc', '_fbp', '_clck', '_clsk', 'affonso_referral', 'affonso_data'];
     function forget() {
         var host = location.hostname.replace(/^www\./, '');
         var scopes = ['', '; domain=' + host, '; domain=.' + host];
@@ -142,7 +142,7 @@
             }
         }
         ['stride_fbclid', 'stride_fbc', 'stride_ad', 'stride_emh', 'stride_gclid', 'stride_wbraid',
-         'stride_gbraid',
+         'stride_gbraid', 'stride_gad', 'stride_gfirst',
          // What /try keeps under names of its own (its captureAdClick).
          'stride_ad_id', 'stride_adset_id', 'stride_campaign_id', 'stride_utm_source',
          'stride_utm_campaign', 'stride_utm_content'].forEach(function (k) {

@@ -111,7 +111,7 @@
     // that reads them later (the checkout's attribution) can then find any. The Pixel and
     // Clarity set theirs on the parent domain, so each is cleared host-only and there too.
     var OURS = ['stride_xid', 'stride_ad_id', 'stride_fbclid', 'stride_gclid', 'stride_wbraid',
-                'stride_gbraid', '_fbc', '_fbp', '_clck', '_clsk', 'affonso_referral', 'affonso_data'];
+                'stride_gbraid', 'stride_gad', 'stride_gfirst', '_fbc', '_fbp', '_clck', '_clsk', 'affonso_referral', 'affonso_data'];
     function forget() {
         var host = location.hostname.replace(/^www\./, '');
         var scopes = ['', '; domain=' + host, '; domain=.' + host];
@@ -121,7 +121,7 @@
             }
         }
         ['stride_fbclid', 'stride_fbc', 'stride_ad', 'stride_emh', 'stride_gclid', 'stride_wbraid',
-         'stride_gbraid',
+         'stride_gbraid', 'stride_gad', 'stride_gfirst',
          // What /try keeps under names of its own (its captureAdClick).
          'stride_ad_id', 'stride_adset_id', 'stride_campaign_id', 'stride_utm_source',
          'stride_utm_campaign', 'stride_utm_content'].forEach(function (k) {
@@ -766,15 +766,55 @@ window.StrideTrack = window.StrideTrack || (function () {
 // asks, nothing lands on the device before Accept (it was missed on 2026-09-24 and
 // wrote these for everyone until 2026-09-26). The sign-up still reads them from the
 // address in the meantime.
+// A Google click also keeps which campaign it came from and when, exactly as the homepage
+// does (its strideKeepGoogleCampaign): stride_gad / stride_gfirst, "<campaign>.<ms>.<end of
+// the click id>". An ad can land here directly; from the homepage the hand-off already
+// carries the record's campaign and time.
 (function captureAdClick() {
     if (window.strideAllowed && !strideAllowed()) { strideWhenAllowed(captureAdClick); return; }
+    function gget(name) {
+        var v = '';
+        try { v = localStorage.getItem(name) || ''; } catch (e) {}
+        if (!v) {
+            try {
+                var m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+                if (m) v = decodeURIComponent(m[1]);
+            } catch (e) {}
+        }
+        return v;
+    }
+    function gkeep(name, v) {
+        try { localStorage.setItem(name, v); } catch (e) {}
+        try {
+            document.cookie = name + '=' + encodeURIComponent(v) +
+                '; max-age=' + (90 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+        } catch (e) {}
+    }
     try {
         var params = new URLSearchParams(window.location.search);
+        var heldOne = !!(gget('stride_gclid') || gget('stride_wbraid') || gget('stride_gbraid'));
         ['ad_id', 'adset_id', 'campaign_id', 'utm_source', 'utm_campaign', 'utm_content', 'gclid', 'wbraid', 'gbraid']
             .forEach(function (k) {
                 var v = (params.get(k) || '').trim();
                 if (v) { try { localStorage.setItem('stride_' + k, v); } catch (e) {} }
             });
+        var click = (params.get('gclid') || params.get('wbraid') || params.get('gbraid') || '').trim();
+        if (click) {
+            var cid = (params.get('gad_campaignid') || '').trim();
+            if (!/^\d{6,20}$/.test(cid)) cid = '';
+            var t = Number(params.get('gclid_ts'));
+            var ts = (t > 1.6e12 && t <= Date.now() + 60000 && Date.now() - t < 90 * 864e5) ? t
+                : Math.round((window.performance && performance.timeOrigin) || Date.now());
+            var tag = click.slice(-10);
+            var last = gget('stride_gad').split('.');
+            if (!(last[2] === tag && last[1])) {
+                var rec = cid + '.' + ts + '.' + tag;
+                gkeep('stride_gad', rec);
+                var first = gget('stride_gfirst').split('.');
+                var fresh = !!first[1] && Date.now() - Number(first[1]) < 90 * 864e5;
+                if (!fresh && (!heldOne || first[1])) gkeep('stride_gfirst', rec);
+            }
+        }
     } catch (e) {}
 })();
 </script>
@@ -1283,6 +1323,27 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     ['utm_source', 'utm_campaign', 'utm_content', 'ad_id', 'adset_id', 'campaign_id', 'gclid', 'wbraid', 'gbraid'].forEach(function (k) {
       var v = q.get(k) || ls('stride_' + k); if (v) out[k] = v;
     });
+    // The Google click's campaign and time (the alert names them): the stored record when it
+    // belongs to this click id, else what this address carries for a click it brought.
+    var gclick = out.gclid || out.wbraid || out.gbraid || '';
+    if (gclick) {
+      var glast = (ls('stride_gad') || cookie('stride_gad')).split('.');
+      var gnum = function (v) { return /^\d{6,20}$/.test(v || '') ? v : ''; };
+      if (glast[2] && gclick.slice(-10) === glast[2]) {
+        if (glast[0]) out.gad_campaignid = glast[0];
+        if (glast[1]) out.gclid_ts = glast[1];
+        var gfirst = (ls('stride_gfirst') || cookie('stride_gfirst')).split('.');
+        if (gfirst[1]) { out.gfirst_ts = gfirst[1]; if (gfirst[0]) out.gfirst_campaignid = gfirst[0]; }
+      } else if ((q.get('gclid') || q.get('wbraid') || q.get('gbraid') || '') === gclick) {
+        if (gnum(q.get('gad_campaignid'))) out.gad_campaignid = q.get('gad_campaignid');
+        var gt = Number(q.get('gclid_ts'));
+        out.gclid_ts = String(gt > 1.6e12 && gt <= Date.now() + 60000 && Date.now() - gt < 90 * 864e5 ? gt : LANDED_AT);
+        if (gnum(q.get('gfirst_ts'))) {
+          out.gfirst_ts = q.get('gfirst_ts');
+          if (gnum(q.get('gfirst_campaignid'))) out.gfirst_campaignid = q.get('gfirst_campaignid');
+        }
+      }
+    }
     var fbclid = q.get('fbclid') || ls('stride_fbclid') || cookie('stride_fbclid');
     if (fbclid) out.fbclid = fbclid;
     var fbc = cookie('_fbc') || ls('stride_fbc');

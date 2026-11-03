@@ -92,7 +92,7 @@
     // that reads them later (the checkout's attribution) can then find any. The Pixel and
     // Clarity set theirs on the parent domain, so each is cleared host-only and there too.
     var OURS = ['stride_xid', 'stride_ad_id', 'stride_fbclid', 'stride_gclid', 'stride_wbraid',
-                'stride_gbraid', '_fbc', '_fbp', '_clck', '_clsk', 'affonso_referral', 'affonso_data'];
+                'stride_gbraid', 'stride_gad', 'stride_gfirst', '_fbc', '_fbp', '_clck', '_clsk', 'affonso_referral', 'affonso_data'];
     function forget() {
         var host = location.hostname.replace(/^www\./, '');
         var scopes = ['', '; domain=' + host, '; domain=.' + host];
@@ -102,7 +102,7 @@
             }
         }
         ['stride_fbclid', 'stride_fbc', 'stride_ad', 'stride_emh', 'stride_gclid', 'stride_wbraid',
-         'stride_gbraid',
+         'stride_gbraid', 'stride_gad', 'stride_gfirst',
          // What /try keeps under names of its own (its captureAdClick).
          'stride_ad_id', 'stride_adset_id', 'stride_campaign_id', 'stride_utm_source',
          'stride_utm_campaign', 'stride_utm_content'].forEach(function (k) {
@@ -1010,7 +1010,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- Content -->
     <main class="flex-1 max-w-4xl mx-auto px-6 py-16">
         <h1 class="text-3xl font-black uppercase tracking-wider mb-2">Privacy Policy</h1>
-        <p class="text-sm text-zinc-500 mb-12">Last updated: November 2, 2026 &nbsp;|&nbsp; Effective: November 2, 2026 &nbsp;|&nbsp; Version 1.11</p>
+        <p class="text-sm text-zinc-500 mb-12">Last updated: November 3, 2026 &nbsp;|&nbsp; Effective: November 3, 2026 &nbsp;|&nbsp; Version 1.12</p>
 
         <div class="space-y-10 text-sm leading-relaxed text-zinc-400">
 
@@ -1247,7 +1247,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <p class="mt-3">On our <strong class="text-zinc-300">website</strong>:</p>
                 <ul class="list-disc list-inside space-y-2 ml-2 mt-2">
                     <li><strong class="text-zinc-300">Always, because the site needs them:</strong> your cookie choice (<code class="text-zinc-300 bg-white/5 px-1 rounded">stride_consent_ads</code>, 6 months), your language, the email you registered a Discovery Pass with (so the site does not ask you twice), an offer you opened, and the progress of a checkout, which lasts only until you close the tab. When a checkout loads, Paddle and its payment partners may set their own cookies to prevent fraud</li>
-                    <li><strong class="text-zinc-300">Ads and analytics:</strong> the Meta Pixel (<code class="text-zinc-300 bg-white/5 px-1 rounded">_fbp</code>, and <code class="text-zinc-300 bg-white/5 px-1 rounded">_fbc</code> after a Meta ad, 90 days), our visitor ID (<code class="text-zinc-300 bg-white/5 px-1 rounded">stride_xid</code>, 180 days), the ad you came from (<code class="text-zinc-300 bg-white/5 px-1 rounded">stride_ad</code>, <code class="text-zinc-300 bg-white/5 px-1 rounded">stride_ad_id</code>, <code class="text-zinc-300 bg-white/5 px-1 rounded">stride_fbclid</code>, 180 days; <code class="text-zinc-300 bg-white/5 px-1 rounded">stride_gclid</code>, 90 days), a hashed copy of an email you typed (<code class="text-zinc-300 bg-white/5 px-1 rounded">stride_emh</code>), Microsoft Clarity (<code class="text-zinc-300 bg-white/5 px-1 rounded">_clck</code>, <code class="text-zinc-300 bg-white/5 px-1 rounded">_clsk</code>, and Microsoft may set <code class="text-zinc-300 bg-white/5 px-1 rounded">MUID</code>), Google Analytics (<code class="text-zinc-300 bg-white/5 px-1 rounded">_ga</code>) and Google Ads (<code class="text-zinc-300 bg-white/5 px-1 rounded">_gcl_au</code>, <code class="text-zinc-300 bg-white/5 px-1 rounded">_gcl_aw</code>)</li>
+                    <li><strong class="text-zinc-300">Ads and analytics:</strong> the Meta Pixel (<code class="text-zinc-300 bg-white/5 px-1 rounded">_fbp</code>, and <code class="text-zinc-300 bg-white/5 px-1 rounded">_fbc</code> after a Meta ad, 90 days), our visitor ID (<code class="text-zinc-300 bg-white/5 px-1 rounded">stride_xid</code>, 180 days), the ad you came from (<code class="text-zinc-300 bg-white/5 px-1 rounded">stride_ad</code>, <code class="text-zinc-300 bg-white/5 px-1 rounded">stride_ad_id</code>, <code class="text-zinc-300 bg-white/5 px-1 rounded">stride_fbclid</code>, 180 days; <code class="text-zinc-300 bg-white/5 px-1 rounded">stride_gclid</code>, <code class="text-zinc-300 bg-white/5 px-1 rounded">stride_gad</code>, <code class="text-zinc-300 bg-white/5 px-1 rounded">stride_gfirst</code>, 90 days), a hashed copy of an email you typed (<code class="text-zinc-300 bg-white/5 px-1 rounded">stride_emh</code>), Microsoft Clarity (<code class="text-zinc-300 bg-white/5 px-1 rounded">_clck</code>, <code class="text-zinc-300 bg-white/5 px-1 rounded">_clsk</code>, and Microsoft may set <code class="text-zinc-300 bg-white/5 px-1 rounded">MUID</code>), Google Analytics (<code class="text-zinc-300 bg-white/5 px-1 rounded">_ga</code>) and Google Ads (<code class="text-zinc-300 bg-white/5 px-1 rounded">_gcl_au</code>, <code class="text-zinc-300 bg-white/5 px-1 rounded">_gcl_aw</code>)</li>
                     <li><strong class="text-zinc-300">Referral links:</strong> only if you arrive through a customer's or partner's link, Affonso's <code class="text-zinc-300 bg-white/5 px-1 rounded">affonso_referral</code> and <code class="text-zinc-300 bg-white/5 px-1 rounded">affonso_data</code> (up to 12 months), so a purchase you make is credited to them. Where we ask first (below), they wait for Accept like the ads and analytics group</li>
                 </ul>
                 <p class="mt-3"><strong class="text-zinc-300">In the EEA, the UK and Switzerland</strong> we ask first. Nothing in the ads and analytics group is stored, and the Meta Pixel and Clarity do not load, until you press Accept. Before that, Google's tags send only limited signals without cookies (Google Consent Mode). If you press Decline, the Meta Pixel and Clarity never load, Google's tags stay in that limited mode, and we delete the ad data our site stored on earlier visits. Everywhere else they run by default, and you can opt out with the links in Section 6 or a tracker-blocking extension.</p>
