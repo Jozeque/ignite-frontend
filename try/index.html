@@ -941,27 +941,23 @@ input[type=email]:focus{outline:none;border-color:rgba(198,113,43,.55);
 .steps small{display:block;color:var(--ink3);font-weight:500;font-size:12.5px;margin-top:2px}
 .steps.first li{font-weight:600;color:var(--ink2)}
 .steps.first li::before{color:var(--ink3)}
-/* founder video: THE central object of the screen.
-   Swaps for the actual 25-45s film with no reflow. */
-.fvideo{margin:28px auto 0;max-width:860px}
-.vph{aspect-ratio:16/9}
-
 /* ── done-state fold budget ─────────────────────────────────────────────
-   "You're in" + video + both download buttons should fit a normal desktop
-   viewport. Everything above the video gives back height, the container runs
-   a touch wider than tall (2:1, ~12% shorter than 16:9), and the buttons sit
-   tight under it. Scoped to #done so the offer state keeps its own rhythm. */
+   "You're in" + the countdown + the walkthrough should fit a normal desktop
+   viewport. Scoped to #done so the offer state keeps its own rhythm. */
 #done .hero{padding:36px 0 0}
 #done .sub{margin-top:12px}
-#done .fvideo{margin-top:16px;max-width:800px}
-#done .fvideo .silk{margin-bottom:8px !important}
-#done .vph{aspect-ratio:2/1}
-#done .dl{margin-top:14px}
+#done .video{margin-top:26px}
 /* What stands where the download buttons would: on a phone, or in a browser that did not sign up. */
 .dlnote{margin:16px auto 0;max-width:460px;text-align:center;font-size:16px;line-height:1.4;font-weight:600;color:var(--ink)}
-.vph-label{font:700 15px 'Space Mono',ui-monospace,monospace;color:var(--copper-lt);
-  letter-spacing:.06em}
-.vph-sub{margin:10px 0 0;font-size:13px;color:var(--ink3)}
+/* The download: a countdown, then the file starts by itself, and these lines stay for whatever
+   went wrong or whoever needs the other computer's installer. */
+.dlbox{margin:22px auto 0;max-width:560px;text-align:center}
+.dlcount{margin:0;font-size:17px;font-weight:600;color:var(--ink)}
+.dlnum{display:block;margin-top:6px;font:700 64px/1 'Space Mono',ui-monospace,monospace;color:var(--copper-lt)}
+.dlstarted{margin:0;font-size:19px;font-weight:700;color:var(--ink)}
+.dlline{margin:10px 0 0;font-size:15px;color:var(--ink3)}
+.dlline a{color:var(--copper-lt);font-weight:700;text-decoration:underline}
+.dlwarn{margin:12px 0 0;font-size:13px;color:var(--ink3)}
 
 /* three beats of value, small cards, not a features section */
 .valcards{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;
@@ -970,7 +966,6 @@ input[type=email]:focus{outline:none;border-color:rgba(198,113,43,.55);
   border-radius:14px;padding:18px}
 .vcard h3{font-size:14.5px;line-height:1.35;margin:0}
 .vcard p{margin:8px 0 0;font-size:13px;line-height:1.5;color:var(--ink3)}
-.dl{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:22px}
 footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text-align:center}
 @media(max-width:560px){.hero{padding-top:44px}.card{padding:20px}
   /* The field already takes the whole row on a phone, so the button wrapped underneath it
@@ -984,6 +979,10 @@ footer{border-top:1px solid var(--line);margin-top:70px;padding:26px 0 40px;text
 <meta property="og:image:alt" content="Stride, the sound design engine: every lane of the chain in motion">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://stridehub.io/media/stride/og/stride-share-1200x630.jpg">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/favicon-192x192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <script>window.STRIDE_LANGS=["en"]</script>
 <script>(function () {
   var view = null, pressed = {};
@@ -1119,39 +1118,51 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <!-- ── STEP 2: you're in ───────────────────────────────────────────────── -->
   <section id="done">
-    <!-- Registered -> here is the thing -> download. Text above the video is close to
-         minimal on purpose: one message, then the video carries the moment. -->
+    <!-- Registered -> the file is on its way -> how to use it. The text is close to minimal on
+         purpose: one message, then the download, then the walkthrough. -->
     <div class="hero">
       <h1>You're in.</h1>
       <p class="sub"><b>Your 24 hours haven't started yet.</b><br>
          They begin when you activate Stride inside the plugin.</p>
     </div>
 
-    <!-- Joe, to camera, before they touch anything: what Stride is and how to approach
-         the first session. 25 to 45 seconds. Click to play, never autoplay.
-         THUMBNAIL BRIEF for the real film: it must be alive, not this dark slab - Joe
-         facing camera, studio behind, Stride UI or synths visible. This frame is the
-         colour and energy centre of the whole upper half. -->
-    <div class="fvideo">
-      <!-- Holding the slot until the founder film lands: the Stride UI itself, mapped
-           and in motion. The frame stays 2:1 at max 800px wide - the film inherits
-           these exact proportions, so the swap causes no reflow. -->
-      <div class="frame vph">
-        <img src="/assets/try-stride-ui.jpg" alt="Stride running a full rack: Saturn 2 and OTT mapped across dozens of lanes, every parameter in motion"
-             style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">
+    <!-- The download (Yossi 2026-11-02): 3, 2, 1, and this computer's installer starts by itself.
+         "Didn't start?" for when a browser held it back, and the other computer's installer under
+         it. A touch screen gets the note below instead, and a return visit gets the links with no
+         countdown: a reload must never start a second download. showDownloads fills this. -->
+    <div class="dlbox" id="dlBox" hidden>
+      <p class="dlcount" id="dlCount" hidden>Your Stride download starts in <b class="dlnum" id="dlNum">3</b></p>
+      <p class="dlstarted" id="dlStarted" hidden></p>
+      <div id="dlLinks">
+        <p class="dlline" id="dlWinLine" hidden><span id="dlWinLead"></span> <a id="dlWin" href="#" rel="nofollow">Click here</a></p>
+        <p class="dlline" id="dlMacLine" hidden><span id="dlMacLead"></span> <a id="dlMac" href="#" rel="nofollow">Click here</a></p>
       </div>
-    </div>
-
-    <div class="dl">
-      <a class="btn-copper" id="dlWin" href="#" rel="nofollow">Download for Windows</a>
-      <a class="btn-copper" id="dlMac" href="#" rel="nofollow">Download for macOS</a>
+      <p class="dlwarn" id="dlWarn" hidden>If you see &ldquo;Windows protected your PC&rdquo;, click More info, then Run anyway.</p>
     </div>
     <p class="err" id="err2" style="text-align:center"></p>
     <!-- Clarity 2026-11-01: a phone cannot install a plugin, yet it was offered the installers (one
          pressed Download for macOS on an iPhone); and 2 of 3 phone sign-ups reopened this address in
          Safari, which holds no sign-up, so it asked them to sign up again. showDone shows these. -->
-    <p class="dlnote" id="dlNote" hidden>Your download link is in your email.<span id="dlNotePhone" hidden> Open it on your computer to install Stride.</span></p>
+    <p class="dlnote" id="dlNote" hidden>We sent your download link to your email.<span id="dlNotePhone" hidden> Open it on your computer to install Stride.</span></p>
     <p class="buyalt" id="dlNoteNew" hidden>Haven't signed up yet? <a id="dlNoteForm" href="/try/">Get your free 24 hours &rarr;</a></p>
+
+    <!-- The walkthrough, the same film /welcome carries. Click to play, never autoplay: nothing
+         from YouTube loads until asked, and a download has only just started. -->
+    <div class="video">
+      <div class="frame" id="doneVideoFrame">
+        <img src="/assets/try-video-thumb.jpg"
+             alt="Stride canvas mapped across a full chain: hear more directions and let your own taste be the guide"
+             style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">
+        <div class="slot" id="doneVideoSlot"
+             style="position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;padding:22px">
+          <button class="playbtn" id="donePlay" type="button"
+                  style="background:linear-gradient(180deg,var(--ember),var(--copper));color:#1b1206;border:0;font-size:16px;font-weight:800;padding:16px 32px;box-shadow:0 8px 28px -6px rgba(229,138,46,.75)">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            Watch the walkthrough
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- A quiet second path, deliberately NOT a competing CTA: small, un-buttoned, and
          below the downloads, so it reads as an alternative rather than an upsell. It
@@ -1287,16 +1298,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   // ── click-to-play walkthrough ──────────────────────────────────────────────
   // Nothing from YouTube loads until asked. NOTE: embeds refuse to play over
   // file:// ("Error 153") — test this page over http.
-  var play = document.getElementById('play');
-  if (play) play.addEventListener('click', function () {
-    var f = document.createElement('iframe');
-    f.src = 'https://www.youtube-nocookie.com/embed/-Z4zRIiPg-4?autoplay=1&rel=0';
-    f.title = 'Stride walkthrough';
-    f.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture';
-    f.allowFullscreen = true;
-    var slot = document.getElementById('videoSlot');
-    if (slot) slot.remove();
-    document.getElementById('videoFrame').appendChild(f);
+  [['play', 'videoSlot', 'videoFrame'], ['donePlay', 'doneVideoSlot', 'doneVideoFrame']].forEach(function (ids) {
+    var play = document.getElementById(ids[0]);
+    if (play) play.addEventListener('click', function () {
+      var f = document.createElement('iframe');
+      f.src = 'https://www.youtube-nocookie.com/embed/-Z4zRIiPg-4?autoplay=1&rel=0';
+      f.title = 'Stride walkthrough';
+      f.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture';
+      f.allowFullscreen = true;
+      var slot = document.getElementById(ids[1]);
+      if (slot) slot.remove();
+      document.getElementById(ids[2]).appendChild(f);
+    });
   });
 
   // ── session videos: poster until clicked, then a nocookie embed IN PLACE (with its
@@ -1341,14 +1354,72 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   var deepTarget = null;   // element a /try?done=1#... deep link should land on
   // A touch screen with no mouse: Stride's installers are of no use here, the email is.
-  var PHONE = !!(window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches);
+  // An iPad in its desktop mode says Macintosh, and its touch points are the only thing that tells.
+  var PHONE = !!(window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches)
+    || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent || ''));
+
+  // Which installer this computer takes. null = neither (Linux, a Chromebook): it picks for itself.
+  function dlComputer() {
+    var s = ((navigator.userAgentData && navigator.userAgentData.platform) || '') + ' '
+          + (navigator.platform || '') + ' ' + (navigator.userAgent || '');
+    if (/Windows|Win32|Win64/.test(s)) return 'windows';
+    if (/Macintosh|MacIntel|Mac OS X|macOS/.test(s)) return 'mac';
+    return null;
+  }
+  var DL = {
+    windows: { name: 'Windows', line: 'dlWinLine', lead: 'dlWinLead', link: 'dlWin' },
+    mac:     { name: 'Mac',     line: 'dlMacLine', lead: 'dlMacLead', link: 'dlMac' }
+  };
+  var dlTimer = 0, dlStarting = false, dlOwn = null;
+  function dlStopCount() {
+    if (dlTimer) { clearInterval(dlTimer); dlTimer = 0; }
+    document.getElementById('dlCount').hidden = true;
+  }
+  // A press or the countdown's end: either way the file is on its way, and the count is over.
+  function dlSaid(platform) {
+    dlStopCount();
+    var st = document.getElementById('dlStarted');
+    st.textContent = 'Downloading Stride for ' + DL[platform].name + '.';
+    st.hidden = false;
+    document.getElementById('dlWarn').hidden = platform !== 'windows';
+    if (dlOwn) document.getElementById(DL[dlOwn].lead).textContent =
+      platform === dlOwn ? "Didn't start?" : 'Download Stride for ' + DL[dlOwn].name + ':';
+  }
+  // fresh: the form has just been sent, so the file may start by itself. A reload or a return
+  // visit never does that: it gets the links.
+  function showDownloads(dl, fresh) {
+    var os = dlComputer();
+    var own = dlOwn = (os && dl[os]) ? os : null;
+    var links = document.getElementById('dlLinks');
+    ['windows', 'mac'].forEach(function (k) {
+      var d = DL[k], a = document.getElementById(d.link), has = !!dl[k];
+      document.getElementById(d.line).hidden = !has;
+      if (!has) return;
+      a.href = dl[k];
+      document.getElementById(d.lead).textContent =
+          k !== own ? (own ? 'Need the version for ' + d.name + '?' : 'Stride for ' + d.name + ':')
+        : (fresh ? "Don't want to wait?" : 'Download Stride for ' + d.name + ':');
+    });
+    if (own) links.insertBefore(document.getElementById(DL[own].line), links.firstChild);
+    document.getElementById('dlBox').hidden = false;
+    if (!fresh || !own) { document.getElementById('dlWarn').hidden = own !== 'windows'; return; }
+    var left = 3, num = document.getElementById('dlNum');
+    num.textContent = left;
+    document.getElementById('dlCount').hidden = false;
+    dlTimer = setInterval(function () {
+      left -= 1;
+      if (left > 0) { num.textContent = left; return; }
+      dlStopCount();
+      dlStarting = true;
+      document.getElementById(DL[own].link).click();
+      dlStarting = false;
+    }, 1000);
+  }
   // elsewhere: this browser holds no sign-up, so it has no links to offer and cannot know
   // whether its reader signed up somewhere else.
-  function showDone(dl, sessionsOnly, elsewhere) {
+  function showDone(dl, sessionsOnly, elsewhere, fresh) {
     var w = document.getElementById('dlWin'), m = document.getElementById('dlMac');
-    if (dl.windows) { w.href = dl.windows; } else { w.style.display = 'none'; }
-    if (dl.mac)     { m.href = dl.mac; }     else { m.style.display = 'none'; }
-    if (PHONE) document.querySelector('#done .dl').style.display = 'none';
+    if (!PHONE && (dl.windows || dl.mac)) showDownloads(dl, !!fresh);
     // The sessions link's reader already has the plugin: nothing to say about the download.
     var note = !sessionsOnly && location.hash !== '#sessions' && (PHONE || !!elsewhere);
     if (note) {
@@ -1373,7 +1444,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       if (!pair[0] || pair[0].__dlTracked) return;
       pair[0].__dlTracked = true;
       pair[0].addEventListener('click', function () {
-        try { if (window.strideClarity) window.strideClarity('demo_download', { platform: pair[1] }); } catch (e) {}
+        dlSaid(pair[1]);
+        try { if (window.strideClarity) window.strideClarity('demo_download', { platform: pair[1], how: dlStarting ? 'auto' : 'click' }); } catch (e) {}
         try {
           var em = (localStorage.getItem('stride_try_email') || '').trim();
           if (!em) return;
@@ -1668,7 +1740,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         }
       } catch (e9) {}
 
-      showDone(d.downloads || {});
+      showDone(d.downloads || {}, false, false, true);
       try { history.replaceState(null, '', '/try?done=1'); } catch (e2) {}
     })
     .catch(function () {
