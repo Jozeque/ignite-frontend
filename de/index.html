@@ -1636,12 +1636,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     font-size:24px;font-weight:700;letter-spacing:.06em;color:var(--ink);word-break:break-all}
   .bf-buy{display:flex;justify-content:center;width:100%;padding:15px 22px;font-size:15px;
     border-radius:12px;cursor:pointer}
-  /* The pin: the folded popup, in one of two looks, each for half the browsers (PIN_ARM in its
-     script; Yossi 2026-10-28: "make an A/B of it"). Bottom-left, below every modal; on a phone
+  /* The pin: the folded popup, drawn as the ticket for every browser since 2026-11-03 (from 10-28
+     an A/B against the dark pill, PIN_ARM in its script). Bottom-left, below every modal; on a phone
      it rides above the sticky buy bar once that bar is up, beside the help button, never over
      Get Stride. Only before the email: once a code is on the page the hero carries it all
      (Yossi: "if they left an email in the popup, there shouldn't be a badge at all").
-     .bfp-pill, the pin since 10-14: a dark pill with the offer's words. */
+     .bfp-pill, the pin from 10-14 to 11-03: a dark pill with the offer's words, no longer shown. */
   #bfpin{position:fixed;z-index:998;font:inherit;cursor:pointer}
   /* Over the display each look sets for itself below: without it a hidden pin stays on screen. */
   #bfpin[hidden]{display:none!important}
@@ -6366,19 +6366,12 @@ function openBuy() { toggleBuyModal(); }
     function save() { ls(function () { localStorage.setItem(KEY, JSON.stringify(st)); }); }
     function forget() { delete st.code; delete st.did; delete st.ends; }
 
-    // The pin's A/B (Yossi 2026-10-28: "make an A/B of it"): half the browsers fold the popup into
-    // the drawn ticket, half into the dark pill it was before, one side per browser, kept; ?pin=
-    // ticket or ?pin=pill shows a side. The side rides along with the counters and the claim, so
-    // each side's folds, reopens, codes and sales are told apart.
-    var PIN_ARM = (function () {
-        var ok = function (v) { return v === 'ticket' || v === 'pill'; };
-        var a = ls(function () { return (new URL(window.location.href).searchParams.get('pin') || '').toLowerCase(); }, '');
-        if (!ok(a)) a = ls(function () { return localStorage.getItem('stride_pin_arm'); }, '');
-        if (!ok(a)) a = Math.random() < 0.5 ? 'ticket' : 'pill';
-        ls(function () { localStorage.setItem('stride_pin_arm', a); });
-        return a;
-    })();
-    var TICKET = PIN_ARM === 'ticket';
+    // The pin is the drawn ticket for every browser (Yossi 2026-11-03, ending the A/B of 10-28 against
+    // the dark pill: "I want the cool yellow badge to always be there"). Browsers the A/B put on the
+    // pill get the ticket too, and ?pin= no longer picks a side. The counters and the claim still
+    // name it, as they did during the A/B.
+    var PIN_ARM = 'ticket';
+    var TICKET = true;
     var viaPin = false;                     // this view's popup was opened again from the pin
 
     // Anonymous counters (shown, folded, reopened, claim_failed): a number per day, nothing else,
