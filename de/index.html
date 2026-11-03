@@ -1653,13 +1653,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   #bfpin.bfp-pill:hover{border-color:var(--copper-lt)}
   .bfp-pill .bf-pin-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   /* .bfp-ticket (2026-10-28): drawn as the hero's Black Friday ticket (the ads' BLACK FRIDAY /
-     SALE / 30%) with a stub torn along a perforation: the struck price over the 30% price (Yossi:
-     "it can be a little smaller"; 2026-11-01: no clock). Tilted like the hero's, it lands like a
-     sticker and gives a small shake now and then, four times at most.
+     SALE / 30%), since 2026-11-03 that 30% part alone, no price (Yossi: "only the left part of the
+     30% badge, not the price"). Tilted like the hero's, it lands like a sticker and gives a small
+     shake now and then, four times at most.
      The padding keeps the tilted corners inside the button. */
   #bfpin.bfp-ticket{left:8px;bottom:6px;display:block;margin:0;padding:11px 8px;border:0;background:none;
     color:var(--ink);-webkit-tap-highlight-color:transparent;animation:bfpin-in .5s cubic-bezier(.2,1.5,.45,1) both}
-  .bfp-ticket .bfp-t{display:block;width:206px;transform:rotate(-5deg);transition:transform .2s ease}
+  .bfp-ticket .bfp-t{display:block;width:128px;transform:rotate(-5deg);transition:transform .2s ease}
   .bfp-ticket svg{display:block;width:100%;height:auto;overflow:visible;
     filter:drop-shadow(0 10px 14px rgba(0,0,0,.5)) drop-shadow(0 2px 3px rgba(0,0,0,.4));
     animation:bfpin-nudge 9s ease-in-out 3s 4}
@@ -1667,8 +1667,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   #bfpin.bfp-ticket:focus-visible{outline:2px solid var(--copper-lt);outline-offset:-2px;border-radius:16px}
   /* The words, for a screen reader: the ticket itself is drawn. */
   .bfp-ticket .bf-pin-t{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-  /* Prices wait for the price hold like every other price on the page. */
-  html.sd-hold #bfpin .bfp-stub{visibility:hidden}
   /* Never over the hero's price or its buttons (placePin): on the page just above the desktop
      buy bar while that bar is down in the corner, out of sight while a phone's buy row is. */
   #bfpin.is-riding{position:absolute}
@@ -1686,7 +1684,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     #bfpin.bfp-pill{left:.75rem;bottom:calc(.75rem + env(safe-area-inset-bottom,0px));
       max-width:calc(100% - 4.5rem);font-size:12px;padding:9px 12px}
     #bfpin.bfp-ticket{left:4px;bottom:calc(2px + env(safe-area-inset-bottom,0px))}
-    .bfp-ticket .bfp-t{width:172px}
+    .bfp-ticket .bfp-t{width:108px}
     #m-cta.is-on ~ #bfpin{bottom:calc(4.6rem + env(safe-area-inset-bottom,0px))}
     #m-cta.is-on ~ #bfpin.bfp-ticket{bottom:calc(4.4rem + env(safe-area-inset-bottom,0px))}
     .bf-now{font-size:28px}.bf-was{font-size:17px}
@@ -1694,19 +1692,21 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media (max-width:420px){.bf-card{padding:42px 20px 24px}.bf-card .dpop-h{font-size:24px}}
   /* The ticket on the buy form (Yossi 2026-11-03: "the Black Friday badge at the bottom left, or
      something hanging on the popup, that says BLACK FRIDAY 30%"): the pin's drawing, hung on the
-     form's lower left corner, out over its edge and clear of the form's words. */
+     form's lower left corner, out over its edge and clear of the form's words. Before the email the
+     30% part alone, like the pin (.is-half); with their code the whole ticket, its stub the clock. */
   .bf-buyt{position:absolute;left:-124px;bottom:-62px;z-index:2;display:block;margin:0;padding:8px;border:0;
     background:none;color:var(--ink);cursor:pointer;-webkit-tap-highlight-color:transparent;
     animation:bfpin-in .5s cubic-bezier(.2,1.5,.45,1) both}
   .bf-buyt[hidden]{display:none!important}
   .bf-buyt .bfp-t{display:block;width:206px;transform:rotate(-7deg);transition:transform .2s ease}
+  .bf-buyt.is-half{left:-100px;bottom:-70px}
+  .bf-buyt.is-half .bfp-t{width:128px}
   .bf-buyt svg{display:block;width:100%;height:auto;overflow:visible;
     filter:drop-shadow(0 10px 14px rgba(0,0,0,.55)) drop-shadow(0 2px 3px rgba(0,0,0,.4));
     animation:bfpin-nudge 9s ease-in-out 2s 4}
   .bf-buyt:hover:not(:disabled) .bfp-t,.bf-buyt:focus-visible .bfp-t{transform:rotate(-4deg) scale(1.04)}
   .bf-buyt:disabled{cursor:default}
   .bf-buyt:focus-visible{outline:2px solid var(--copper-lt);outline-offset:-2px;border-radius:16px}
-  html.sd-hold .bf-buyt .bfp-stub{visibility:hidden}
   /* While the form shows its ticket, the pin behind the form's backdrop steps out of view. */
   html.bf-buying #bfpin{visibility:hidden}
   @media (prefers-reduced-motion:reduce){.bf-buyt,.bf-buyt svg{animation:none}.bf-buyt .bfp-t{transition:none}}
@@ -1715,6 +1715,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media (max-width:899.98px){
     .bf-buyt{left:-12px;bottom:-60px}
     .bf-buyt .bfp-t{width:172px}
+    .bf-buyt.is-half{left:-12px;bottom:-64px}
+    .bf-buyt.is-half .bfp-t{width:108px}
     #buy-modal.has-bft{padding-bottom:calc(5rem + env(safe-area-inset-bottom,0px))}
   }
   /* Over an open film on a phone (Yossi 2026-11-01: "when a user opens the video on mobile, the
@@ -6453,28 +6455,36 @@ function openBuy() { toggleBuyModal(); }
     }
     var refs = {};
     // The pin, drawn: the hero's Black Friday ticket (strideTicketSvg's ink, paths and words, the
-    // ads' BLACK FRIDAY / SALE / 30%) and a stub torn along a perforation, whose two lines
-    // paintPin fills. Drawn here rather than borrowed, so the pin never depends on the page's
-    // main script.
+    // ads' BLACK FRIDAY / SALE / 30%). Since 2026-11-03 it is that 30% part alone, no price (Yossi:
+    // "only the left part of the 30% badge, not the price"); the whole ticket, with a stub torn along
+    // a perforation, is left for the buy form once their code is on the page, where the stub counts
+    // that code down. Drawn here rather than borrowed, so the pin never depends on the page's main
+    // script.
     var STUB_X = 500, STUB_ROOM = 222;      // the stub's middle, and the width a line may take
-    function pinTicket(gid) {               // gid: each drawing its own gradient, as strideTicketSvg does
+    function pinTicket(gid, half) {         // gid: each drawing its own gradient, as strideTicketSvg does
         var ink = '#1d130a', face = 'Outfit,system-ui,sans-serif';
+        var stops = '<stop offset="0" stop-color="#f7b25c"/><stop offset=".55" stop-color="#ec9a45"/>'
+            + '<stop offset="1" stop-color="#d9832f"/></linearGradient></defs>';
+        var words = '<text x="180" y="76" text-anchor="middle" font-family="' + face + '" font-weight="900" font-size="47" fill="' + ink + '" letter-spacing="-0.4">BLACK FRIDAY</text>'
+            + '<line x1="92" y1="97" x2="140" y2="97" stroke="' + ink + '" stroke-width="3.4" stroke-linecap="round"/>'
+            + '<text x="180" y="106" text-anchor="middle" font-family="' + face + '" font-weight="800" font-size="27" fill="' + ink + '" letter-spacing="2">SALE</text>'
+            + '<line x1="220" y1="97" x2="268" y2="97" stroke="' + ink + '" stroke-width="3.4" stroke-linecap="round"/>'
+            + '<text x="180" y="203" text-anchor="middle" font-family="' + face + '" font-weight="900" font-size="112" fill="' + ink + '" letter-spacing="-3">30%</text>';
+        if (half) return '<svg viewBox="0 0 360 232" aria-hidden="true" focusable="false">'
+            + '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0.25" y2="1">' + stops
+            + '<path d="M22,0 H338 Q360,0 360,22 V89 A27,27 0 0 0 360,143 V210 Q360,232 338,232 H22 Q0,232 0,210 V143 A27,27 0 0 0 0,89 V22 Q0,0 22,0 Z" fill="url(#' + gid + ')"/>'
+            + '<path d="M26,13 H334 Q347,13 347,26 V98 A18,18 0 0 0 347,134 V206 Q347,219 334,219 H26 Q13,219 13,206 V134 A18,18 0 0 0 13,98 V26 Q13,13 26,13 Z" fill="none" stroke="#a85c19" stroke-width="3.2" opacity=".85"/>'
+            + words + '</svg>';
         return '<svg viewBox="0 0 640 232" aria-hidden="true" focusable="false">'
-            + '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0.14" y2="1"><stop offset="0" stop-color="#f7b25c"/>'
-            + '<stop offset=".55" stop-color="#ec9a45"/><stop offset="1" stop-color="#d9832f"/></linearGradient></defs>'
+            + '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0.14" y2="1">' + stops
             + '<path d="M22,0 H346 A14,14 0 0 0 374,0 H618 Q640,0 640,22 V210 Q640,232 618,232 H374 A14,14 0 0 0 346,232 H22 Q0,232 0,210 V143 A27,27 0 0 0 0,89 V22 Q0,0 22,0 Z" fill="url(#' + gid + ')"/>'
             + '<g fill="none" stroke="#a85c19" stroke-width="3.2" opacity=".85">'
             + '<path d="M26,13 H334 Q347,13 347,26 V206 Q347,219 334,219 H26 Q13,219 13,206 V134 A18,18 0 0 0 13,98 V26 Q13,13 26,13 Z"/>'
             + '<path d="M386,13 H614 Q627,13 627,26 V206 Q627,219 614,219 H386 Q373,219 373,206 V26 Q373,13 386,13 Z"/>'
             + '<path d="M360,24 V208" stroke-dasharray="9 8"/></g>'
-            + '<text x="180" y="76" text-anchor="middle" font-family="' + face + '" font-weight="900" font-size="47" fill="' + ink + '" letter-spacing="-0.4">BLACK FRIDAY</text>'
-            + '<line x1="92" y1="97" x2="140" y2="97" stroke="' + ink + '" stroke-width="3.4" stroke-linecap="round"/>'
-            + '<text x="180" y="106" text-anchor="middle" font-family="' + face + '" font-weight="800" font-size="27" fill="' + ink + '" letter-spacing="2">SALE</text>'
-            + '<line x1="220" y1="97" x2="268" y2="97" stroke="' + ink + '" stroke-width="3.4" stroke-linecap="round"/>'
-            + '<text x="180" y="203" text-anchor="middle" font-family="' + face + '" font-weight="900" font-size="112" fill="' + ink + '" letter-spacing="-3">30%</text>'
+            + words
             + '<g class="bfp-stub" fill="' + ink + '" font-family="' + face + '" text-anchor="middle">'
             + '<text class="bfp-top" x="' + STUB_X + '" y="90" font-weight="800" letter-spacing="2"></text>'
-            + '<line class="bfp-strike" display="none" stroke="' + ink + '" stroke-width="4" stroke-linecap="round"/>'
             + '<text class="bfp-big" x="' + STUB_X + '" y="166" font-weight="900" style="font-variant-numeric:tabular-nums"></text></g>'
             + '</svg>';
     }
@@ -6483,34 +6493,23 @@ function openBuy() { toggleBuyModal(); }
     var pinLabel = el('span', 'bf-pin-t');
     pin.classList.add(TICKET ? 'bfp-ticket' : 'bfp-pill');
     pin.appendChild(pinLabel);
-    if (TICKET) pin.insertAdjacentHTML('beforeend', '<span class="bfp-t">' + pinTicket('bfpin-g') + '</span>');
-    var pinTop = pin.querySelector('.bfp-top'), pinBig = pin.querySelector('.bfp-big'),
-        pinStrike = pin.querySelector('.bfp-strike');
-    // A stub line at its own size, smaller only where it would not fit (a long price in some
-    // currencies, a longer word in some languages), measured in the drawing's own units.
+    if (TICKET) pin.insertAdjacentHTML('beforeend', '<span class="bfp-t">' + pinTicket('bfpin-g', true) + '</span>');
+    // A stub line at its own size, smaller only where it would not fit (a longer word in some
+    // languages), measured in the drawing's own units.
     function stubLine(node, text, size) {
         node.textContent = text;
         node.setAttribute('font-size', size);
         var w = 0;
         try { w = node.getComputedTextLength(); } catch (e) {}
         if (w > STUB_ROOM) node.setAttribute('font-size', (size * STUB_ROOM / w).toFixed(1));
-        return Math.min(w, STUB_ROOM);
     }
-    // A stub, once a second: the struck price over the 30% price, or, given the clock of their code
-    // on the page (c), "ENDS IN" over that clock. The pin never gets a clock: before the email a fresh
-    // browser would start a new 48 hours, so it would not be anyone's real deadline (2026-10-20).
-    function paintStub(top, big, strike, c) {
-        var w = stubLine(top, c ? t('endsIn').toUpperCase() : money(full()), c ? 34 : 36);
-        stubLine(big, c || money(offerPrice()), 64);
-        strike.setAttribute('display', !c && w ? 'inline' : 'none');
-        if (c || !w) return;
-        var y = (90 - 0.36 * Number(top.getAttribute('font-size'))).toFixed(1);
-        strike.setAttribute('x1', (STUB_X - w / 2 - 6).toFixed(1));
-        strike.setAttribute('x2', (STUB_X + w / 2 + 6).toFixed(1));
-        strike.setAttribute('y1', y);
-        strike.setAttribute('y2', y);
+    // The buy form's whole ticket, once a second: "ENDS IN" over the clock of their code on the page.
+    // Before the email nothing has a clock: a fresh browser would start a new 48 hours, so it would
+    // not be anyone's real deadline (2026-10-20).
+    function paintStub(top, big, c) {
+        stubLine(top, t('endsIn').toUpperCase(), 34);
+        stubLine(big, c, 64);
     }
-    function paintPin() { paintStub(pinTop, pinBig, pinStrike, ''); }
     // Never over the hero's price or its buttons (.hero-buy, the row a purchase starts from).
     // While that row reaches the pin's corner: on a desktop, where the row is one bar across the
     // page, the pin sits on the page just above the bar's left end and travels with it; on a
@@ -6670,7 +6669,7 @@ function openBuy() { toggleBuyModal(); }
         if (refs.buy) refs.buy.textContent = t('buy', { price: money(offerPrice()) });
         if (!pin.hidden) {
             pinLabel.textContent = t('pinOffer');
-            if (TICKET) { paintPin(); placePin(); }
+            if (TICKET) placePin();
         }
         if (claimed()) { try { strideSealShow(st.code, c); } catch (e) {} }
     }
@@ -6983,11 +6982,12 @@ function openBuy() { toggleBuyModal(); }
     // ── the ticket on the buy form ────────────────────────────────────────────
     // Yossi 2026-11-03, on the buy form: "the Black Friday badge at the bottom left, or something
     // hanging on the popup, that says BLACK FRIDAY 30%, so they feel the deal and the urgency all
-    // the way". The pin's drawing, hung on the form's lower left corner. Before the email its stub
-    // holds the struck price over the 30% price, and a press takes them to the popup for their code,
-    // with the address they typed in the form. Once their code is the page's code it counts that
-    // code down to its real end. Nothing once the offer is over. Set up before the code mail's link
-    // leaves this script below, so that link's visitors see their clock too.
+    // the way". The pin's drawing, hung on the form's lower left corner. Before the email it is the
+    // 30% part alone, like the pin (same day: "only the left part of the 30% badge, not the price"),
+    // and a press takes them to the popup for their code, with the address they typed in the form.
+    // Once their code is the page's code it is the whole ticket, its stub counting that code down to
+    // its real end. Nothing once the offer is over. Set up before the code mail's link leaves this
+    // script below, so that link's visitors see their clock too.
     var buyModal = document.getElementById('buy-modal');
     var buyCard = buyModal ? buyModal.querySelector('.glass-panel') : null;
     var MAIL_LINK = ls(function () { return CODE_RE.test(new URL(window.location.href).searchParams.get('code') || ''); }, false);
@@ -7009,18 +7009,23 @@ function openBuy() { toggleBuyModal(); }
         buyT.type = 'button';
         buyT.hidden = true;
         buyT.setAttribute('aria-label', t('pinOffer'));
-        buyT.innerHTML = '<span class="bfp-t">' + pinTicket('bfbuy-g') + '</span>';
         buyCard.appendChild(buyT);
-        var buyTop = buyT.querySelector('.bfp-top'), buyBig = buyT.querySelector('.bfp-big'),
-            buyStrike = buyT.querySelector('.bfp-strike');
+        var buyDrawn = '', buyTop = null, buyBig = null;   // the look drawn last, and its stub's lines
         var paintBuy = function () {
             var look = buyModal.classList.contains('hidden') ? '' : buyLook();
             buyT.hidden = !look;
             buyModal.classList.toggle('has-bft', !!look);
             document.documentElement.classList.toggle('bf-buying', !!look);
             if (!look) return;
+            if (look !== buyDrawn) {
+                buyDrawn = look;
+                buyT.classList.toggle('is-half', look === 'offer');
+                buyT.innerHTML = '<span class="bfp-t">' + pinTicket('bfbuy-g', look === 'offer') + '</span>';
+                buyTop = buyT.querySelector('.bfp-top');
+                buyBig = buyT.querySelector('.bfp-big');
+            }
             buyT.disabled = look === 'code';
-            paintStub(buyTop, buyBig, buyStrike, look === 'code' ? clock(bfCodeEnds() - Date.now()) : '');
+            if (look === 'code') paintStub(buyTop, buyBig, clock(bfCodeEnds() - Date.now()));
         };
         buyT.addEventListener('click', function () {
             if (buyLook() !== 'offer') return;
