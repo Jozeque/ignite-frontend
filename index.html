@@ -1692,6 +1692,31 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .bf-now{font-size:28px}.bf-was{font-size:17px}
   }
   @media (max-width:420px){.bf-card{padding:42px 20px 24px}.bf-card .dpop-h{font-size:24px}}
+  /* The ticket on the buy form (Yossi 2026-11-03: "the Black Friday badge at the bottom left, or
+     something hanging on the popup, that says BLACK FRIDAY 30%"): the pin's drawing, hung on the
+     form's lower left corner, out over its edge and clear of the form's words. */
+  .bf-buyt{position:absolute;left:-124px;bottom:-62px;z-index:2;display:block;margin:0;padding:8px;border:0;
+    background:none;color:var(--ink);cursor:pointer;-webkit-tap-highlight-color:transparent;
+    animation:bfpin-in .5s cubic-bezier(.2,1.5,.45,1) both}
+  .bf-buyt[hidden]{display:none!important}
+  .bf-buyt .bfp-t{display:block;width:206px;transform:rotate(-7deg);transition:transform .2s ease}
+  .bf-buyt svg{display:block;width:100%;height:auto;overflow:visible;
+    filter:drop-shadow(0 10px 14px rgba(0,0,0,.55)) drop-shadow(0 2px 3px rgba(0,0,0,.4));
+    animation:bfpin-nudge 9s ease-in-out 2s 4}
+  .bf-buyt:hover:not(:disabled) .bfp-t,.bf-buyt:focus-visible .bfp-t{transform:rotate(-4deg) scale(1.04)}
+  .bf-buyt:disabled{cursor:default}
+  .bf-buyt:focus-visible{outline:2px solid var(--copper-lt);outline-offset:-2px;border-radius:16px}
+  html.sd-hold .bf-buyt .bfp-stub{visibility:hidden}
+  /* While the form shows its ticket, the pin behind the form's backdrop steps out of view. */
+  html.bf-buying #bfpin{visibility:hidden}
+  @media (prefers-reduced-motion:reduce){.bf-buyt,.bf-buyt svg{animation:none}.bf-buyt .bfp-t{transition:none}}
+  /* Below 900px the form scrolls in its own box: the ticket hangs under the card, inside that box,
+     and the box keeps room for it at the end. */
+  @media (max-width:899.98px){
+    .bf-buyt{left:-12px;bottom:-60px}
+    .bf-buyt .bfp-t{width:172px}
+    #buy-modal.has-bft{padding-bottom:calc(5rem + env(safe-area-inset-bottom,0px))}
+  }
   /* Over an open film on a phone (Yossi 2026-11-01: "when a user opens the video on mobile, the
      Black Friday sticky should be at the bottom"): under the picture, in the room the panel leaves
      for it (--bf-h, the pin's height, from its script), never over the film's controls. */
@@ -4722,6 +4747,9 @@ function openBuy() { toggleBuyModal(); }
     // for it: the popup's claim, a later visit, or the code mail's link. While it is the page's
     // code, the hero's seal is the Black Friday ticket of the ads (strideSyncAddon).
     let strideBfDid = null;
+    // That code's end when it came by the code mail's link (a claim keeps its own with the popup):
+    // the clock on the buy form's ticket counts to it.
+    let strideBfEnds = 0;
     // The price hold (top of <head>) lifts once the printed prices are final: Paddle has priced
     // the page, or never will (no Paddle on the page, a failed preview), and no personal code
     // is still on its way back from the backend.
@@ -4845,7 +4873,7 @@ function openBuy() { toggleBuyModal(); }
                 if (!d || !d.ok || !d.discount_id || !(ends > Date.now())) { strideHoldDone(); return; }
                 strideCodeId = d.discount_id;
                 // The code mail's link to an Early Black Friday code: the hero's seal is the ticket.
-                if (STRIDE_BF_CODE_RE.test(name)) strideBfDid = d.discount_id;
+                if (STRIDE_BF_CODE_RE.test(name)) { strideBfDid = d.discount_id; strideBfEnds = ends; }
                 window.STRIDE_CODE_ACTIVE = true;
                 strideLocalizePrices();
                 strideSyncExpressItems();
@@ -6288,7 +6316,7 @@ function openBuy() { toggleBuyModal(); }
               emailLabel: 'Your email', go: 'Get my 30% off', wait: 'One moment…',
               fine: 'We’ll email your code too, plus Stride news and deals now and then. Unsubscribe anytime.',
               yourCode: 'Your code', applied: 'Applied to this page. One use, until the timer runs out.',
-              buy: 'Get Stride for {price}', pinOffer: 'Early Black Friday · 30% off',
+              buy: 'Get Stride for {price}', pinOffer: 'Early Black Friday · 30% off', endsIn: 'Ends in',
               errEmail: 'Please enter a valid email address.', errEnded: 'This offer has ended.',
               errLimited: 'Too many tries from this connection. Please try again in an hour.',
               errGeneric: 'Something went wrong. Please try again.', close: 'Close' },
@@ -6299,7 +6327,7 @@ function openBuy() { toggleBuyModal(); }
               emailLabel: 'Deine E-Mail', go: 'Meine 30 % sichern', wait: 'Einen Moment…',
               fine: 'Wir schicken dir den Code auch per E-Mail, dazu ab und zu Stride-News und Angebote. Abmelden jederzeit möglich.',
               yourCode: 'Dein Code', applied: 'Auf dieser Seite angewendet. Einmal einlösbar, bis der Timer abläuft.',
-              buy: 'Stride für {price} holen', pinOffer: 'Early Black Friday · 30 % Rabatt',
+              buy: 'Stride für {price} holen', pinOffer: 'Early Black Friday · 30 % Rabatt', endsIn: 'Endet in',
               errEmail: 'Bitte gib eine gültige E-Mail-Adresse ein.', errEnded: 'Dieses Angebot ist abgelaufen.',
               errLimited: 'Zu viele Versuche von dieser Verbindung. Bitte versuch es in einer Stunde noch einmal.',
               errGeneric: 'Etwas ist schiefgelaufen. Bitte versuch es noch einmal.', close: 'Schließen' },
@@ -6310,7 +6338,7 @@ function openBuy() { toggleBuyModal(); }
               emailLabel: 'Tu email', go: 'Quiero mi 30 %', wait: 'Un momento…',
               fine: 'También te enviaremos el código por email, y de vez en cuando novedades y ofertas de Stride. Puedes darte de baja cuando quieras.',
               yourCode: 'Tu código', applied: 'Aplicado en esta página. Un solo uso, hasta que termine el contador.',
-              buy: 'Consigue Stride por {price}', pinOffer: 'Black Friday anticipado · 30 % de descuento',
+              buy: 'Consigue Stride por {price}', pinOffer: 'Black Friday anticipado · 30 % de descuento', endsIn: 'Termina en',
               errEmail: 'Introduce un email válido.', errEnded: 'Esta oferta ha terminado.',
               errLimited: 'Demasiados intentos desde esta conexión. Vuelve a intentarlo en una hora.',
               errGeneric: 'Algo ha fallado. Inténtalo de nuevo.', close: 'Cerrar' },
@@ -6321,7 +6349,7 @@ function openBuy() { toggleBuyModal(); }
               emailLabel: 'Ton e-mail', go: 'Je prends mes 30 %', wait: 'Un instant…',
               fine: 'On t’envoie aussi le code par e-mail, plus des nouvelles et offres Stride de temps en temps. Désinscription à tout moment.',
               yourCode: 'Ton code', applied: 'Appliqué sur cette page. Utilisable une fois, jusqu’à la fin du compte à rebours.',
-              buy: 'Prendre Stride pour {price}', pinOffer: 'Black Friday en avance · -30 %',
+              buy: 'Prendre Stride pour {price}', pinOffer: 'Black Friday en avance · -30 %', endsIn: 'Fin dans',
               errEmail: 'Saisis une adresse e-mail valide.', errEnded: 'Cette offre est terminée.',
               errLimited: 'Trop d’essais depuis cette connexion. Réessaie dans une heure.',
               errGeneric: 'Un problème est survenu. Réessaie.', close: 'Fermer' },
@@ -6332,7 +6360,7 @@ function openBuy() { toggleBuyModal(); }
               emailLabel: 'La tua email', go: 'Voglio il mio 30%', wait: 'Un momento…',
               fine: 'Ti invieremo il codice anche via email, insieme a novità e offerte di Stride ogni tanto. Puoi annullare l’iscrizione quando vuoi.',
               yourCode: 'Il tuo codice', applied: 'Applicato a questa pagina. Valido una volta, fino alla fine del timer.',
-              buy: 'Prendi Stride a {price}', pinOffer: 'Black Friday in anticipo · 30% di sconto',
+              buy: 'Prendi Stride a {price}', pinOffer: 'Black Friday in anticipo · 30% di sconto', endsIn: 'Scade tra',
               errEmail: 'Inserisci un indirizzo email valido.', errEnded: 'Questa offerta è scaduta.',
               errLimited: 'Troppi tentativi da questa connessione. Riprova tra un’ora.',
               errGeneric: 'Qualcosa è andato storto. Riprova.', close: 'Chiudi' },
@@ -6343,7 +6371,7 @@ function openBuy() { toggleBuyModal(); }
               emailLabel: 'メールアドレス', go: '30% オフを受け取る', wait: '少々お待ちください…',
               fine: 'コードはメールでもお送りします。Stride のニュースやお得な情報もときどきお届けします。配信停止はいつでも可能です。',
               yourCode: 'あなたのコード', applied: 'このページに適用済みです。タイマーが終わるまで 1 回使えます。',
-              buy: '{price} で Stride を購入', pinOffer: 'アーリーブラックフライデー · 30% オフ',
+              buy: '{price} で Stride を購入', pinOffer: 'アーリーブラックフライデー · 30% オフ', endsIn: '終了まで',
               errEmail: '有効なメールアドレスを入力してください。', errEnded: 'このオファーは終了しました。',
               errLimited: 'この接続からの試行が多すぎます。1 時間後にもう一度お試しください。',
               errGeneric: '問題が発生しました。もう一度お試しください。', close: '閉じる' },
@@ -6354,7 +6382,7 @@ function openBuy() { toggleBuyModal(); }
               emailLabel: '你的邮箱', go: '领取 30% 优惠', wait: '请稍候…',
               fine: '我们也会把优惠码发到你的邮箱，并不时发送 Stride 新闻和优惠。可随时退订。',
               yourCode: '你的优惠码', applied: '已应用到本页面。限用一次，倒计时结束前有效。',
-              buy: '以 {price} 购买 Stride', pinOffer: '黑五提前购 · 立减 30%',
+              buy: '以 {price} 购买 Stride', pinOffer: '黑五提前购 · 立减 30%', endsIn: '剩余时间',
               errEmail: '请输入有效的邮箱地址。', errEnded: '本次优惠已结束。',
               errLimited: '此网络尝试次数过多，请一小时后再试。',
               errGeneric: '出了点问题，请重试。', close: '关闭' }
@@ -6437,12 +6465,12 @@ function openBuy() { toggleBuyModal(); }
     // paintPin fills. Drawn here rather than borrowed, so the pin never depends on the page's
     // main script.
     var STUB_X = 500, STUB_ROOM = 222;      // the stub's middle, and the width a line may take
-    function pinTicket() {
+    function pinTicket(gid) {               // gid: each drawing its own gradient, as strideTicketSvg does
         var ink = '#1d130a', face = 'Outfit,system-ui,sans-serif';
         return '<svg viewBox="0 0 640 232" aria-hidden="true" focusable="false">'
-            + '<defs><linearGradient id="bfpin-g" x1="0" y1="0" x2="0.14" y2="1"><stop offset="0" stop-color="#f7b25c"/>'
+            + '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0.14" y2="1"><stop offset="0" stop-color="#f7b25c"/>'
             + '<stop offset=".55" stop-color="#ec9a45"/><stop offset="1" stop-color="#d9832f"/></linearGradient></defs>'
-            + '<path d="M22,0 H346 A14,14 0 0 0 374,0 H618 Q640,0 640,22 V210 Q640,232 618,232 H374 A14,14 0 0 0 346,232 H22 Q0,232 0,210 V143 A27,27 0 0 0 0,89 V22 Q0,0 22,0 Z" fill="url(#bfpin-g)"/>'
+            + '<path d="M22,0 H346 A14,14 0 0 0 374,0 H618 Q640,0 640,22 V210 Q640,232 618,232 H374 A14,14 0 0 0 346,232 H22 Q0,232 0,210 V143 A27,27 0 0 0 0,89 V22 Q0,0 22,0 Z" fill="url(#' + gid + ')"/>'
             + '<g fill="none" stroke="#a85c19" stroke-width="3.2" opacity=".85">'
             + '<path d="M26,13 H334 Q347,13 347,26 V206 Q347,219 334,219 H26 Q13,219 13,206 V134 A18,18 0 0 0 13,98 V26 Q13,13 26,13 Z"/>'
             + '<path d="M386,13 H614 Q627,13 627,26 V206 Q627,219 614,219 H386 Q373,219 373,206 V26 Q373,13 386,13 Z"/>'
@@ -6463,7 +6491,7 @@ function openBuy() { toggleBuyModal(); }
     var pinLabel = el('span', 'bf-pin-t');
     pin.classList.add(TICKET ? 'bfp-ticket' : 'bfp-pill');
     pin.appendChild(pinLabel);
-    if (TICKET) pin.insertAdjacentHTML('beforeend', '<span class="bfp-t">' + pinTicket() + '</span>');
+    if (TICKET) pin.insertAdjacentHTML('beforeend', '<span class="bfp-t">' + pinTicket('bfpin-g') + '</span>');
     var pinTop = pin.querySelector('.bfp-top'), pinBig = pin.querySelector('.bfp-big'),
         pinStrike = pin.querySelector('.bfp-strike');
     // A stub line at its own size, smaller only where it would not fit (a long price in some
@@ -6476,19 +6504,21 @@ function openBuy() { toggleBuyModal(); }
         if (w > STUB_ROOM) node.setAttribute('font-size', (size * STUB_ROOM / w).toFixed(1));
         return Math.min(w, STUB_ROOM);
     }
-    // The stub, once a second: the struck price over the 30% price. No clock: a fresh browser would
-    // start a new 48 hours, so it would not be anyone's real deadline (2026-10-20).
-    function paintPin() {
-        var w = stubLine(pinTop, money(full()), 36);
-        stubLine(pinBig, money(offerPrice()), 64);
-        pinStrike.setAttribute('display', w ? 'inline' : 'none');
-        if (!w) return;
-        var y = (90 - 0.36 * Number(pinTop.getAttribute('font-size'))).toFixed(1);
-        pinStrike.setAttribute('x1', (STUB_X - w / 2 - 6).toFixed(1));
-        pinStrike.setAttribute('x2', (STUB_X + w / 2 + 6).toFixed(1));
-        pinStrike.setAttribute('y1', y);
-        pinStrike.setAttribute('y2', y);
+    // A stub, once a second: the struck price over the 30% price, or, given the clock of their code
+    // on the page (c), "ENDS IN" over that clock. The pin never gets a clock: before the email a fresh
+    // browser would start a new 48 hours, so it would not be anyone's real deadline (2026-10-20).
+    function paintStub(top, big, strike, c) {
+        var w = stubLine(top, c ? t('endsIn').toUpperCase() : money(full()), c ? 34 : 36);
+        stubLine(big, c || money(offerPrice()), 64);
+        strike.setAttribute('display', !c && w ? 'inline' : 'none');
+        if (c || !w) return;
+        var y = (90 - 0.36 * Number(top.getAttribute('font-size'))).toFixed(1);
+        strike.setAttribute('x1', (STUB_X - w / 2 - 6).toFixed(1));
+        strike.setAttribute('x2', (STUB_X + w / 2 + 6).toFixed(1));
+        strike.setAttribute('y1', y);
+        strike.setAttribute('y2', y);
     }
+    function paintPin() { paintStub(pinTop, pinBig, pinStrike, ''); }
     // Never over the hero's price or its buttons (.hero-buy, the row a purchase starts from).
     // While that row reaches the pin's corner: on a desktop, where the row is one bar across the
     // page, the pin sits on the page just above the bar's left end and travels with it; on a
@@ -6956,6 +6986,69 @@ function openBuy() { toggleBuyModal(); }
         }, 1000);
         document.addEventListener('visibilitychange', function () { if (document.hidden) saveSecs(); });
         window.addEventListener('pagehide', saveSecs);
+    }
+
+    // ── the ticket on the buy form ────────────────────────────────────────────
+    // Yossi 2026-11-03, on the buy form: "the Black Friday badge at the bottom left, or something
+    // hanging on the popup, that says BLACK FRIDAY 30%, so they feel the deal and the urgency all
+    // the way". The pin's drawing, hung on the form's lower left corner. Before the email its stub
+    // holds the struck price over the 30% price, and a press takes them to the popup for their code,
+    // with the address they typed in the form. Once their code is the page's code it counts that
+    // code down to its real end. Nothing once the offer is over. Set up before the code mail's link
+    // leaves this script below, so that link's visitors see their clock too.
+    var buyModal = document.getElementById('buy-modal');
+    var buyCard = buyModal ? buyModal.querySelector('.glass-panel') : null;
+    var MAIL_LINK = ls(function () { return CODE_RE.test(new URL(window.location.href).searchParams.get('code') || ''); }, false);
+    // The end of their 30% code while it is the page's code: a claim's own, or the code mail's
+    // (strideBfEnds, the backend's answer for it). 0 otherwise.
+    function bfCodeEnds() {
+        try {
+            if (!strideBfDid || strideCodeId !== strideBfDid) return 0;
+            return st.did === strideBfDid && st.ends ? st.ends : (strideBfEnds || 0);
+        } catch (e) { return 0; }
+    }
+    function buyLook() {
+        if (bfCodeEnds() > Date.now()) return 'code';
+        if (MAIL_LINK || claimed() || st.over) return '';
+        return !st.seen || Date.now() < offerEnds() ? 'offer' : '';
+    }
+    if (buyCard) {
+        var buyT = el('button', 'bf-buyt');
+        buyT.type = 'button';
+        buyT.hidden = true;
+        buyT.setAttribute('aria-label', t('pinOffer'));
+        buyT.innerHTML = '<span class="bfp-t">' + pinTicket('bfbuy-g') + '</span>';
+        buyCard.appendChild(buyT);
+        var buyTop = buyT.querySelector('.bfp-top'), buyBig = buyT.querySelector('.bfp-big'),
+            buyStrike = buyT.querySelector('.bfp-strike');
+        var paintBuy = function () {
+            var look = buyModal.classList.contains('hidden') ? '' : buyLook();
+            buyT.hidden = !look;
+            buyModal.classList.toggle('has-bft', !!look);
+            document.documentElement.classList.toggle('bf-buying', !!look);
+            if (!look) return;
+            buyT.disabled = look === 'code';
+            paintStub(buyTop, buyBig, buyStrike, look === 'code' ? clock(bfCodeEnds() - Date.now()) : '');
+        };
+        buyT.addEventListener('click', function () {
+            if (buyLook() !== 'offer') return;
+            var typed = ls(function () { return document.getElementById('buy-email').value.trim(); }, '');
+            try { strideBuyModalAside(); } catch (e) {}
+            if (!st.seen) {                 // their first sight of the offer: the 48 hours start here
+                st.seen = Date.now();
+                save();
+                stage('shown');
+                track('bf_popup_shown');
+            }
+            viaPin = false;
+            stage('reopened');
+            track('bf_popup_reopened', { from: 'buy_form' });
+            open();
+            if (typed && refs.input && !refs.input.value) refs.input.value = typed;
+        });
+        new MutationObserver(paintBuy).observe(buyModal, { attributes: true, attributeFilter: ['class'] });
+        document.addEventListener('stride:prices', paintBuy);
+        setInterval(paintBuy, 1000);
     }
 
     // ── on arrival ────────────────────────────────────────────────────────────
