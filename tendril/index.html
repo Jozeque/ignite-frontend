@@ -1450,7 +1450,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   if (mode === 'purchase') {
     q('[data-paid]').hidden = false;
     var skip = q('[data-skip]');
-    skip.setAttribute('href', NEXT);
+    // Saying no to Tendril leads to the Stride Collection offer first, then the download (2026-11-05: every
+    // Stride buyer meets it once right after paying). /post2/ leads on to welcome by itself, and
+    // straight through for anyone it has nothing to offer. The words follow the road: no promise of a
+    // download one screen early.
+    skip.setAttribute('href', POST2);
+    skip.innerHTML = 'Continue &rarr;';
     skip.addEventListener('click', function () { stage('skipped'); });
     // Right after a Stride purchase Tendril is an add-on at the owner price, never a free 24 hours
     // (Yossi 2026-10-23: "in POST it should be without TRY", "ADD TENDRIL FOR 49"). Owners keep

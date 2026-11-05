@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Google consent mode v2 -->
+<script>
+// Consent mode v2. This must run BEFORE any Google tag: after one has loaded it has
+// already decided how to behave, and a declaration made later is decoration.
+//
+// Two defaults are declared. Denied for the EEA, the UK and Switzerland, where Google's
+// EU user consent policy wants a real answer, and granted everywhere else, which is what
+// the privacy policy discloses. Google resolves the visitor's region itself from the
+// request, so none of this needs an IP lookup of ours. Roughly two thirds of paying
+// customers bill from the denied set, so it is the majority path, not an edge case.
+//
+// Consent mode governs GOOGLE tags. Everything with no consent mode of its own (the Meta
+// Pixel, Microsoft Clarity, and our own ad-matching storage: the visitor id, the saved ad
+// click, the ad markers) waits for Accept in the same region instead: see strideWhenAllowed
+// below. Until 2026-09-24 those ran for everyone before any answer and kept running after
+// Decline, which the banner's own words ("say no and nothing changes") did not match.
+//     https://developers.google.com/tag-platform/security/guides/consent
+(function () {
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    // A stable handle. The GA4 block further down declares its own global gtag; this one
+    // is ours and cannot be redefined out from under the banner.
+    window.strideGtag = gtag;
+
+    // Where Google's EU user consent policy applies: the EU 27, the rest of the EEA,
+    // the UK and Switzerland. Kept in step with _CONSENT_REQUIRED_COUNTRIES in
+    // firebase_cloud/functions/google_dm.py, which decides the same question server-side.
+    var CONSENT_REGION = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR',
+                          'HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK',
+                          'SI','ES','SE','IS','LI','NO','GB','CH'];
+    // PAUSED, Yossi 2026-10-07, until he says otherwise (the first pause ran 10-03 to 10-06): nobody
+    // is treated as inside the region (see inRegion), so no banner and nothing waits for an
+    // answer: the Meta Pixel counts every ad visitor, as it already does outside Europe, so the
+    // ads optimise on every sale. A stored answer still rules, so a No stays a No. There is no end
+    // date: the question returns only with a deploy (a time here, or this and its line in inRegion
+    // removed).
+    var PAUSED_UNTIL = Infinity;
+    var ALL = ['ad_storage', 'ad_user_data', 'ad_personalization', 'analytics_storage'];
+
+    function state(value, extra) {
+        var o = {};
+        for (var i = 0; i < ALL.length; i++) { o[ALL[i]] = value; }
+        for (var k in (extra || {})) { o[k] = extra[k]; }
+        return o;
+    }
+
+    // Region-scoped default first; Google applies the more specific one.
+    // wait_for_update holds the tags briefly so a stored answer below lands first.
+    gtag('consent', 'default', state('denied', { region: CONSENT_REGION,
+                                                 wait_for_update: 500 }));
+    gtag('consent', 'default', state('granted'));
+
+    var saved = '';
+    try { saved = localStorage.getItem('stride_consent_ads') || ''; } catch (e) {}
+    if (saved !== 'granted' && saved !== 'denied') { saved = ''; }
+    // Replay the answer synchronously, before any tag fires, so a returning visitor is
+    // never measured on a footing they already rejected.
+    if (saved) { gtag('consent', 'update', state(saved)); }
+
+    // Read by the checkout, which sends it to the backend so an order months later can
+    // still report what this person actually agreed to. '' means unanswered, and the
+    // server reads that as UNSPECIFIED rather than as a yes.
+    window.strideConsentAds = function () { return saved; };
+
+    // Everything that is not a Google tag. Where the banner asks, the Meta Pixel, Clarity and
+    // our own ad-matching storage do not load, read or write anything until the visitor says
+    // yes; after a no they never do. Everywhere else they run as they always have. A page
+    // hands each of them over through strideWhenAllowed, and whatever is waiting here runs
+    // the moment the visitor presses Accept, so the page they are on is still counted.
+    var held = [];
+    function allowed() { return saved === 'granted' || (!saved && !inRegion()); }
+    window.strideAllowed = allowed;
+    // 'in' where this banner asks (by time zone, see inRegion), 'out' everywhere else. Sent
+    // with every checkout, sign-up and ping so the server can tell an American who was never
+    // asked from a European who has not answered yet: main.py _meta_level.
+    window.strideConsentRegion = function () {
+        try { return inRegion() ? 'in' : 'out'; } catch (e) { return 'in'; }
+    };
+    window.strideWhenAllowed = function (fn) {
+        if (allowed()) { try { fn(); } catch (e) {} return; }
+        held.push(fn);
+    };
+
+    // Our own ad-matching storage, and what the Pixel and Clarity left on this site, go
+    // whenever they are not allowed: after a no, and on every page while the question is
+    // still open, which also clears what a visit before this banner existed stored. Nothing
+    // that reads them later (the checkout's attribution) can then find any. The Pixel and
+    // Clarity set theirs on the parent domain, so each is cleared host-only and there too.
+    var OURS = ['stride_xid', 'stride_ad_id', 'stride_fbclid', 'stride_gclid', 'stride_wbraid',
+                'stride_gbraid', 'stride_gad', 'stride_gfirst', '_fbc', '_fbp', '_clck', '_clsk', 'affonso_referral', 'affonso_data'];
+    function forget() {
+        var host = location.hostname.replace(/^www\./, '');
+        var scopes = ['', '; domain=' + host, '; domain=.' + host];
+        for (var i = 0; i < OURS.length; i++) {
+            for (var j = 0; j < scopes.length; j++) {
+                try { document.cookie = OURS[i] + '=; max-age=0; path=/' + scopes[j] + '; SameSite=Lax; Secure'; } catch (e) {}
+            }
+        }
+        ['stride_fbclid', 'stride_fbc', 'stride_ad', 'stride_emh', 'stride_gclid', 'stride_wbraid',
+         'stride_gbraid', 'stride_gad', 'stride_gfirst',
+         // What /try keeps under names of its own (its captureAdClick).
+         'stride_ad_id', 'stride_adset_id', 'stride_campaign_id', 'stride_utm_source',
+         'stride_utm_campaign', 'stride_utm_content'].forEach(function (k) {
+            try { localStorage.removeItem(k); } catch (e) {}
+            try { sessionStorage.removeItem(k); } catch (e) {}
+        });
+        // Already running on this page (a changed answer): tell them to stop here too. Called
+        // through a variable: pages without the Pixel read this block too, and the React
+        // build refuses a source page that looks like it sends Pixel events.
+        var pixel = window.fbq, rec = window.clarity;
+        try { if (pixel) { pixel('consent', 'revoke'); } } catch (e) {}
+        try { if (rec) { rec('consent', false); } } catch (e) {}
+    }
+    if (!allowed()) { forget(); }
+
+    // Partner links (Affonso). Every Stride owner gets a link of their own to send a friend,
+    // and our partners get theirs from us. A visit that came through one, or that carries the
+    // referral an earlier one left, loads Affonso's tracker; every other visit loads nothing
+    // and is exactly what it was. Where this banner asks and there is no yes yet, the tracker
+    // runs in its consent mode: the visit is counted, the referral rides in the address, and
+    // no cookie is written until Accept. After a no, forget() clears what an earlier yes left.
+    // The keys are the referral parameters the program has switched on.
+    var PARTNER_KEYS = ['via', 'ref', 'aff', 'atp', 'affonso', 'affonso_id'];
+    window.stridePartnerLink = function () {
+        try {
+            var q = new URL(location.href).searchParams;
+            for (var i = 0; i < PARTNER_KEYS.length; i++) { if (q.get(PARTNER_KEYS[i])) { return true; } }
+        } catch (e) {}
+        return false;
+    };
+    // What a checkout hands Paddle as custom_data.affonso_referral, which is what Affonso
+    // credits the sale on. '' for a visit no partner sent.
+    window.strideReferral = function () {
+        try {
+            var r = (window.Affonso && window.Affonso.getReferralId) ? window.Affonso.getReferralId() : '';
+            if (r) { return String(r); }
+        } catch (e) {}
+        if (window.affonso_referral) { return String(window.affonso_referral); }
+        var m = document.cookie.match(/(?:^|;\s*)affonso_referral=([^;]*)/);
+        return m ? decodeURIComponent(m[1]) : '';
+    };
+    (function strideAffonso() {
+        if (!window.stridePartnerLink() && !/(?:^|;\s*)affonso_referral=/.test(document.cookie)) { return; }
+        var consentMode = !allowed(), granted = false;
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://cdn.affonso.io/js/pixel.min.js';
+        s.setAttribute('data-affonso', 'cmulbz8ns001nxejv6qa27jth');
+        // The longest the program allows. Browsers cut it anyway (Chrome at 400 days, Safari at
+        // about a week), which is why a partner's visitor is also recorded by email on sign-up.
+        s.setAttribute('data-cookie_duration', '365');
+        if (consentMode) { s.setAttribute('data-requires-consent', 'true'); }
+        document.head.appendChild(s);
+        // Accept on this page, whether it lands before or after the tracker does.
+        function grant() {
+            if (!consentMode || granted || !allowed() || !window.affonsoConsentGranted) { return; }
+            granted = true;
+            try { window.affonsoConsentGranted(); } catch (e) {}
+        }
+        window.strideWhenAllowed(grant);
+        window.addEventListener('affonso_referral_ready', grant);
+    })();
+    // The buy form used to keep every buyer's name, email and country here for good, and
+    // nothing ever read it. It is no longer written; this clears the copies already out there.
+    try { localStorage.removeItem('stride_purchase'); } catch (e) {}
+
+    function record(value) {
+        saved = value;
+        try { localStorage.setItem('stride_consent_ads', value); } catch (e) {}
+        // A cookie too: the checkout on a different page of this site reads whichever
+        // survives, and Safari evicts localStorage on long gaps more readily.
+        try {
+            document.cookie = 'stride_consent_ads=' + value + '; max-age=' +
+                (180 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+        } catch (e) {}
+        gtag('consent', 'update', state(value));
+        dataLayer.push({ event: 'stride_consent', consent_ads: value });
+        var run = held;
+        held = [];
+        if (value === 'granted') {
+            for (var i = 0; i < run.length; i++) { try { run[i](); } catch (e) {} }
+            var pixel = window.fbq;
+            try { if (pixel) { pixel('consent', 'grant'); } } catch (e) {}
+        } else {
+            forget();
+        }
+        // Anything a page already handed on before the answer (the homepage's Apple Pay
+        // checkout, opened at load) is restated with it: see strideSyncExpressConsent.
+        try { window.dispatchEvent(new CustomEvent('stride:consent', { detail: value })); } catch (e) {}
+    }
+
+    // Withdrawing has to be as easy as agreeing, so the privacy policy carries a control
+    // that asks again, wherever the visitor is.
+    window.strideConsentChange = function () {
+        saved = '';
+        try { localStorage.removeItem('stride_consent_ads'); } catch (e) {}
+        try { document.cookie = 'stride_consent_ads=; max-age=0; path=/; SameSite=Lax; Secure'; } catch (e) {}
+        banner(true);
+    };
+
+    // Ask only where the answer is legally required. Timezone, not an IP lookup: it costs
+    // no request and identifies nobody. It over-asks a little (Europe/Moscow is not the
+    // EEA) and that is the safe direction. The harm of not asking a German is that their
+    // tags stay denied for good, while the harm of asking a Russian is a dismissed bar.
+    // If the timezone cannot be read at all, ask. Never assume consent.
+    function mustAsk() { return !saved && inRegion(); }
+    function inRegion() {
+        if (Date.now() < PAUSED_UNTIL) { return false; }   // TEMPORARY, see PAUSED_UNTIL
+        try {
+            var tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+            // An empty timezone is not "not Europe", it is "no idea". Falling through
+            // to the comparison below would read it as no idea -> do not ask -> stay
+            // denied forever, which loses the visitor rather than asking them.
+            if (!tz) { return true; }
+            // Europe/* covers most of it. The rest of the EU and EEA sits in zones named after
+            // other continents: Cyprus, Ceuta and Melilla, Spain and Portugal's islands, and
+            // France's overseas regions, which are EU territory. Svalbard and the Faroes are
+            // not, and are asked anyway: over-asking is the safe direction.
+            return tz.indexOf('Europe/') === 0 || [
+                'Atlantic/Reykjavik', 'Atlantic/Canary', 'Atlantic/Madeira', 'Atlantic/Azores',
+                'Atlantic/Faroe', 'Arctic/Longyearbyen', 'Asia/Nicosia', 'Asia/Famagusta',
+                'Africa/Ceuta', 'America/Guadeloupe', 'America/Martinique', 'America/Cayenne',
+                'America/Marigot', 'Indian/Reunion', 'Indian/Mayotte'
+            ].indexOf(tz) >= 0;
+        } catch (e) { return true; }
+    }
+
+    // force: asked again from the privacy policy, wherever the visitor is. Strictly `true`,
+    // because DOMContentLoaded calls this with its event object.
+    function banner(force) {
+        if ((force !== true && !mustAsk()) || document.getElementById('stride-consent')) { return; }
+        var css = document.createElement('style');
+        // The panel, hairline and copper are the page's own tokens, so this reads as part
+        // of Stride rather than as a bolted-on compliance widget. The three legal pages
+        // are built on Tailwind and define no tokens, hence a literal fallback on every
+        // var(): identical everywhere, and no page-specific stylesheet.
+        css.textContent =
+            // Layer 1000: above the page, the buy bar (1000, and this panel comes later in
+            // the DOM) and its help dot (999); BELOW everything the visitor opens on purpose:
+            // the contact modal (1001), the buy modal (1002), the phone menu (1100), the film
+            // (1200) and Paddle's checkout. It used to sit above all of those, which put a
+            // cookie notice on top of the email field and "Continue to checkout".
+            '#stride-consent{position:fixed;left:18px;bottom:18px;z-index:1000;' +
+            'width:min(372px,calc(100vw - 36px));' +
+            'background:var(--panel,#1d1b16);border:1px solid var(--line,rgba(216,201,176,.11));' +
+            'border-radius:16px;padding:15px 16px;' +
+            'box-shadow:0 30px 70px -30px rgba(0,0,0,.85);' +
+            'font-family:Outfit,system-ui,-apple-system,sans-serif;' +
+            'color:var(--ink2,#b8ad9b);' +
+            // Starts invisible and a little low, then rises once. A panel that is simply
+            // THERE on first paint reads as part of the page still loading.
+            // While it waits it is also untouchable, so a tap lands on the page beneath.
+            'opacity:0;transform:translateY(12px);visibility:hidden;pointer-events:none;' +
+            'transition:opacity .45s ease,transform .45s cubic-bezier(.22,.8,.3,1),' +
+            'bottom .25s ease,visibility 0s linear .45s}' +
+            '#stride-consent.on{opacity:1;transform:none;visibility:visible;' +
+            'pointer-events:auto;transition-delay:0s}' +
+            '#stride-consent p{margin:0 0 12px;font-size:13px;line-height:1.55}' +
+            '#stride-consent a{color:var(--copper-lt,#dd9a52);text-decoration:none;' +
+            'border-bottom:1px solid rgba(221,154,82,.28)}' +
+            '#stride-consent a:hover{border-bottom-color:rgba(221,154,82,.75)}' +
+            '#stride-consent div{display:flex;gap:8px}' +
+            // Both buttons are one style. Making "accept" the loud one is the nudge the
+            // consent rules exist to stop, and an equal pair is also simply calmer.
+            '#stride-consent button{flex:1 1 0;font:inherit;font-size:13px;font-weight:700;' +
+            'cursor:pointer;padding:9px 14px;border-radius:10px;' +
+            'border:1px solid var(--line,rgba(216,201,176,.11));' +
+            'background:var(--raise,#252119);color:var(--ink,#ece4d6);' +
+            'transition:border-color .18s ease}' +
+            '#stride-consent button:hover{border-color:rgba(216,201,176,.3)}' +
+            '@media(max-width:560px){#stride-consent{left:12px;right:12px;bottom:12px;width:auto}}' +
+            '@media(prefers-reduced-motion:reduce){#stride-consent{transition:none;' +
+            'opacity:1;transform:none}}';
+        document.head.appendChild(css);
+
+        var el = document.createElement('div');
+        el.id = 'stride-consent';
+        el.setAttribute('role', 'dialog');
+        el.setAttribute('aria-label', 'Cookie choices');
+        // Short, in the voice of the person who makes it (Yossi 2026-09-26): what a yes is
+        // for, all three uses of it (measuring the ads, how the site is used, ads that find
+        // you again), and that nothing else changes. No "we value your privacy", no wall of
+        // vendor names; the policy one tap away names every one of them. The panel keeps its
+        // size (Yossi), so these words fill exactly the box the previous ones did: measured
+        // equal in width and height at every viewport from 320 to 1920px.
+        el.innerHTML =
+            '<p>Accepting shows us which videos and ads work and how the site is used, ' +
+            'and lets our ads find you. Nothing else changes. ' +
+            '<a href="/privacy.html">Privacy&nbsp;Policy</a></p>' +
+            '<div><button type="button" data-consent="denied">Decline</button>' +
+            '<button type="button" data-consent="granted">Accept</button></div>';
+        el.addEventListener('click', function (ev) {
+            var v = ev.target && ev.target.getAttribute('data-consent');
+            if (!v) { return; }
+            record(v);
+            answered = true;
+            // Leave the way it arrived rather than vanishing mid-click.
+            el.classList.remove('on');
+            setTimeout(function () { el.remove(); }, 260);
+        });
+        document.body.appendChild(el);
+
+        // The homepage pins a buy bar to the bottom of the viewport (#m-cta, "GET STRIDE"),
+        // and it arrives on scroll rather than on load. A panel sitting at bottom:18px
+        // lands straight on top of it and hides the primary buy button behind a cookie
+        // notice, so the panel rides above the bar and keeps following it as it comes and
+        // goes. Every other page has no such bar, where this is a no-op.
+        //
+        // And it never sits on what the visitor came for: the hero film, a headline, the
+        // hero's price and buy box, the /try form, any copper buy or try button, or the
+        // demo prompt. Riding above the bar was not enough on its own: on a taller phone
+        // the bar has not arrived at load (the hero's own button is still in view) and the
+        // panel sat on that button; on a shorter one it clipped the headline and the price;
+        // on /try it covered GET STRIDE FREE. When the only place it could go is on top of
+        // one of these it waits out of sight, and comes back once the spot is clear, which
+        // on a phone is the first scroll past the hero, right above the bar. Nothing is
+        // lost by waiting: this visitor's tags hold the denied default until they answer.
+        // Selectors, not words, so it holds in every language the site is published in.
+        var KEEP_CLEAR = '#heroStage, h1, .hero-buy, #f, .btn-copper, .dpop, ' +
+                         '#buy-modal, #contact-modal';
+        var ready = false, shown = false, answered = false, showTimer = 0, frame = 0;
+
+        // Would the panel, parked `base` px above the bottom edge, cover any of them?
+        // Measured where it WILL sit, not where it is: while waiting it sits 12px low.
+        function blocked(base) {
+            var box = el.getBoundingClientRect();
+            var bottom = window.innerHeight - base, top = bottom - el.offsetHeight;
+            var keep = document.querySelectorAll(KEEP_CLEAR);
+            for (var i = 0; i < keep.length; i++) {
+                var k = keep[i];
+                if (el.contains(k)) { continue; }
+                var s = window.getComputedStyle(k);
+                if (s.display === 'none' || s.visibility === 'hidden') { continue; }
+                var r = k.getBoundingClientRect();
+                if (!r.width || !r.height) { continue; }
+                if (r.bottom > top && r.top < bottom && r.right > box.left && r.left < box.right) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function show() {
+            shown = true;
+            el.classList.add('on');
+        }
+
+        function place() {
+            frame = 0;
+            if (answered || !el.isConnected) { return; }
+            var base = clearBottomBar();
+            if (!ready) { return; }
+            if (blocked(base)) {
+                clearTimeout(showTimer);
+                showTimer = 0;
+                if (shown) { shown = false; el.classList.remove('on'); }
+            } else if (!shown && !showTimer) {
+                // Come back only once the page has settled in a clear spot, so a scroll
+                // that is passing a button does not make the panel blink on and off.
+                showTimer = setTimeout(function () {
+                    showTimer = 0;
+                    if (answered || blocked(clearBottomBar())) { return; }
+                    show();
+                }, 350);
+            }
+        }
+
+        function schedule() {
+            if (!frame) { frame = window.requestAnimationFrame(place); }
+        }
+
+        function clearBottomBar() {
+            var base = window.innerWidth <= 560 ? 12 : 18;
+            var bar = document.getElementById('m-cta');
+            if (bar) {
+                var r = bar.getBoundingClientRect();
+                // Only when it is really parked at the bottom of the viewport right now.
+                // The bar slides in and out, and once it has slid away its rect sits
+                // BELOW the fold, which still satisfies a bottom-edge test on its own.
+                // Requiring the top edge to be on screen too is what tells the two apart.
+                if (r.height > 0 && r.top < window.innerHeight - 4
+                        && r.bottom > window.innerHeight - 4) {
+                    base += r.height + 10;
+                }
+            }
+            el.style.bottom = base + 'px';
+            return base;
+        }
+        clearBottomBar();
+        window.addEventListener('scroll', schedule, { passive: true });
+        window.addEventListener('resize', schedule);
+        // The bar is switched on by a CLASS, not by scrolling, so it can appear without
+        // either listener above ever firing. Watch the element itself as well.
+        var _bar = document.getElementById('m-cta');
+        if (_bar) {
+            if (window.MutationObserver) {
+                new MutationObserver(schedule).observe(_bar, {
+                    attributes: true, attributeFilter: ['class', 'style'] });
+            }
+            // The class flips first and the bar SLIDES in afterwards, so at the moment the
+            // observer fires it is still below the fold and measures as absent. Waiting for
+            // the slide to finish is what actually catches it in place; without this the
+            // panel stays put and lands on the buy button on a phone.
+            _bar.addEventListener('transitionend', schedule);
+        }
+        // The demo prompt and the two modals also open by a class, without a scroll.
+        if (window.MutationObserver) {
+            ['dpop', 'buy-modal', 'contact-modal'].forEach(function (id) {
+                var o = document.getElementById(id);
+                if (o) {
+                    new MutationObserver(schedule).observe(o, {
+                        attributes: true, attributeFilter: ['class', 'style'] });
+                }
+            });
+        }
+
+        // Hold it back a beat so the page paints first. Nothing waits on this: the tags
+        // already hold the denied default for this visitor, so all the delay changes is
+        // that the page is not interrupted while it is still arriving. Measure once more
+        // on the way in, because the bar may have arrived during that beat, and show it
+        // straight away only if that spot is clear.
+        setTimeout(function () {
+            ready = true;
+            if (!answered && !blocked(clearBottomBar())) { show(); } else { place(); }
+        }, 700);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', banner);
+    } else {
+        banner();
+    }
+})();
+</script>
+<!-- End Google consent mode v2 -->
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-5R4N7FVP');</script>
+<!-- End Google Tag Manager -->
+<!-- Google tag (gtag.js) -->
+<!-- No gtag.js loader of our own: GTM-5R4N7FVP already loads G-JCMEXN70CM (its Google Ads tag is linked to it), so loading it here as well ran the same 188 KB twice. The config below reaches GTM's copy through the dataLayer. Measured 2026-09-26: still exactly one GA4 page_view. -->
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-JCMEXN70CM');
+</script>
+<!-- End Google tag (gtag.js) -->
+<!-- Microsoft Clarity -->
+<script type="text/javascript">
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        (c.strideWhenAllowed||function(g){g()})(function(){
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+        if(c.strideConsentAds&&c.strideConsentAds()==='granted'){c[a]('consentv2',{ad_Storage:'granted',analytics_Storage:'granted'});}
+        });
+    })(window, document, "clarity", "script", "yj7cm3a9sz");
+    // The funnel in Clarity (Yossi 2026-10-19). Every step a page already reports somewhere else
+    // (StrideTrack's GA4 events, the offer stages, Paddle's checkout events, the hero film, the
+    // buy form) also lands in Clarity as a custom event, so recordings and Clarity's funnels can be
+    // cut by it. Event names and a few landing tags only: never an email, a name or an order id.
+    // Calls wait in Clarity's own queue (above) until its tag loads, which happens only where the
+    // visitor may be measured (strideWhenAllowed); after a No nothing is even queued.
+    (function () {
+        var open = {}, upgraded = false;
+        function keep(name) {
+            return name === 'begin_checkout' || name === 'demo_registered' || name === 'purchase'
+                || name === 'checkout_loaded' || /_(payment_started|completed)$/.test(name);
+        }
+        function sc(name, tags) {
+            try {
+                // A press on the buy path also goes to our own cookieless count (pageview.ts),
+                // whatever the banner answer: a step name and nothing else.
+                if (name && window.strideStep) { window.strideStep(String(name)); }
+                if (typeof window.clarity !== 'function') { return; }
+                if (window.strideConsentAds && window.strideConsentAds() === 'denied') { return; }
+                for (var k in (tags || {})) {
+                    if (Object.prototype.hasOwnProperty.call(tags, k) && tags[k] != null && tags[k] !== '') {
+                        window.clarity('set', k, String(tags[k]).slice(0, 100));
+                    }
+                }
+                if (!name) { return; }
+                window.clarity('event', String(name));
+                // The whole recording of anyone who reached a checkout or signed up is kept.
+                if (!upgraded && keep(String(name))) { upgraded = true; window.clarity('upgrade', String(name)); }
+            } catch (e) {}
+        }
+        // Paddle's checkout events, one prefix per checkout: 'checkout' (the buy form's overlay),
+        // 'wallet' (the Apple Pay / Google Pay button), 'upsell' (/post2, /post), 'session',
+        // 'collection'. A wallet that re-renders (the add-on toggled) is not shown twice, and a
+        // close counts only for a checkout that was showing: the page also closes the wallet's
+        // frame itself when the buy form's checkout takes over.
+        var STEP = { 'checkout.loaded': 'loaded', 'checkout.customer.created': 'details',
+                     'checkout.payment.selected': 'payment_selected',
+                     'checkout.payment.initiated': 'payment_started',
+                     'checkout.payment.failed': 'payment_failed',
+                     'checkout.payment.error': 'payment_error',
+                     'checkout.completed': 'completed', 'checkout.closed': 'closed' };
+        sc.paddle = function (ev, prefix) {
+            try {
+                var step = ev && STEP[ev.name];
+                if (!step || !prefix) { return; }
+                if (step === 'payment_error' && ev.code === 'no_payment_methods_available') { step = 'unavailable'; }
+                if (step === 'loaded') { if (open[prefix]) { return; } open[prefix] = true; }
+                if (step === 'closed') { if (!open[prefix]) { return; } open[prefix] = false; }
+                if (step === 'completed' || step === 'unavailable') { open[prefix] = false; }
+                sc(prefix + '_' + step);
+            } catch (e) {}
+        };
+        window.strideClarity = sc;
+        // Which ad or link brought this visit. Clarity reads utm_source, utm_medium and
+        // utm_campaign by itself; these are the ones it does not.
+        try {
+            var q = new URLSearchParams(location.search), t = {};
+            ['ad_id', 'adset_id', 'campaign_id'].forEach(function (k) {
+                var v = (q.get(k) || '').trim();
+                if (/^\d{6,24}$/.test(v)) { t[k] = v; }
+            });
+            t.ad_name = (q.get('utm_content') || '').trim();
+            if (q.get('fbclid')) { t.click_id = 'meta'; }
+            else if (q.get('gclid') || q.get('wbraid') || q.get('gbraid')) { t.click_id = 'google'; }
+            var code = (q.get('code') || '').trim().toLowerCase();
+            if (code) { t.code = code === 'rekz' ? 'rekz' : 'other'; }
+            sc('', t);
+        } catch (e) {}
+    })();
+</script>
+<!-- End Microsoft Clarity -->
+    <title>STRIDE | The Stride Collection: synth presets with the motion built in</title>
+
+    <!-- SEO -->
+    <meta name="description" content="StrideChains presets for Diva, Serum 2, Vital and Tendril, built for Stride: every lane mapped and ranged, the core knobs locked, five states in each. Plus 250+ experimental sounds and 15 Ableton racks.">
+    <link rel="canonical" href="https://stridehub.io/collection/">
+
+    <!-- Paddle.js. The client-side token is public by design. -->
+    <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+
+    <!-- Open Graph / Social cards (the share picture is added by the build, as on every Stride page) -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://stridehub.io/collection/">
+    <meta property="og:title" content="STRIDE | The Stride Collection: synth presets with the motion built in">
+    <meta property="og:description" content="StrideChains presets for Diva, Serum 2, Vital and Tendril, built for Stride: every lane mapped and ranged, the core knobs locked, five states in each. Plus 250+ experimental sounds and 15 Ableton racks.">
+    <meta property="og:site_name" content="Stride">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="STRIDE | The Stride Collection: synth presets with the motion built in">
+    <meta name="twitter:description" content="StrideChains presets for Diva, Serum 2, Vital and Tendril, built for Stride: every lane mapped and ranged, the core knobs locked, five states in each. Plus 250+ experimental sounds and 15 Ableton racks.">
+
+    <meta name="theme-color" content="#141310">
+
+    <!-- Meta Pixel: the same pixel, visitor id and fbclid capture as samples.html, so a checkout here
+         reaches Meta matched to the same visitor. Fires PageView early. -->
+    <script>
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];(f.strideWhenAllowed||function(g){g()})(function(){t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t,s)})}(window, document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    // Same first-party visitor id as the landing page (cookie stride_xid, 180 days), so Meta
+    // matches this page's events to the same visitor instead of an anonymous one.
+    var _strideXid = (function () {
+        try {
+            if (window.strideAllowed && !strideAllowed()) return '';
+            var m = document.cookie.match(/(?:^|; )stride_xid=([^;]*)/);
+            if (m) return decodeURIComponent(m[1]);
+            var id = (self.crypto && crypto.randomUUID) ? crypto.randomUUID()
+                : (Date.now().toString(36) + Math.random().toString(36).slice(2, 12));
+            document.cookie = 'stride_xid=' + encodeURIComponent(id) +
+                '; max-age=' + (180 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+            return id;
+        } catch (e) { return ''; }
+    })();
+    // The homepage's strideXid: the cookie, else the id this page made on load (the Pixel's),
+    // written back when missing, so a checkout here never reaches Meta without one. Nothing
+    // while measurement is not allowed.
+    window.strideXid = function () {
+        try {
+            if (window.strideAllowed && !strideAllowed()) return '';
+            var m = document.cookie.match(/(?:^|; )stride_xid=([^;]*)/);
+            if (m) return decodeURIComponent(m[1]);
+            if (!_strideXid) {
+                _strideXid = (self.crypto && crypto.randomUUID) ? crypto.randomUUID()
+                    : (Date.now().toString(36) + Math.random().toString(36).slice(2, 12));
+            }
+            document.cookie = 'stride_xid=' + encodeURIComponent(_strideXid) +
+                '; max-age=' + (180 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+            return _strideXid;
+        } catch (e) { return ''; }
+    };
+    fbq('init', '952457524222772', _strideXid ? { external_id: _strideXid } : {});
+    fbq('track', 'PageView');
+
+    // Analytics events for Google Tag Manager (the GA4 event tags from Overtone's container).
+    // A push carries only the anonymous visitor id, never an email or a name: GA4 does not
+    // allow personal data, and every tag in the container can read dataLayer. Keys a push does
+    // not set are cleared, so one event's money can never carry over into the next event.
+    window.StrideTrack = window.StrideTrack || {
+        push: function (event, params) {
+            try {
+                var d = { event: event, external_id: (typeof _strideXid === 'string' && _strideXid) || undefined,
+                          value: undefined, currency: undefined, transaction_id: undefined, item_name: undefined };
+                for (var k in (params || {})) { if (Object.prototype.hasOwnProperty.call(params, k)) d[k] = params[k]; }
+                (window.dataLayer = window.dataLayer || []).push(d);
+            } catch (e) {}
+            // The same step in Clarity, by name only (the Clarity block in <head>).
+            try { if (window.strideClarity) window.strideClarity(event); } catch (e) {}
+        }
+    };
+
+    // Capture fbclid -> _fbc (90-day cookie) exactly like index.html so the
+    // Lead event can be matched back to the ad click that drove the visit.
+    (function captureFbclid() {
+        if (window.strideAllowed && !strideAllowed()) { strideWhenAllowed(captureFbclid); return; }
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const fbclid = params.get('fbclid');
+            if (!fbclid) return;
+            // A link from one of our mails carries the click's own time (fbc_ts): Meta wants the cookie stamped when the click id was first seen, not when the mail was opened.
+            const ts = Number(params.get('fbc_ts'));
+            const fbc = 'fb.1.' + (ts > 1.6e12 && ts <= Date.now() + 60000 && Date.now() - ts < 90 * 864e5 ? ts : Date.now()) + '.' + fbclid;
+            const maxAge = 90 * 24 * 60 * 60;
+            document.cookie = '_fbc=' + encodeURIComponent(fbc) +
+                '; max-age=' + maxAge + '; path=/; SameSite=Lax; Secure';
+            try { sessionStorage.setItem('stride_fbc', fbc); } catch (e) {}
+            // Durable raw-fbclid marker (localStorage + 180-day cookie), same as
+            // index.html: IG/FB in-app browsers strip the _fbc cookie, this
+            // survives, so a later signup/purchase can still be tied to the ad.
+            try { localStorage.setItem('stride_fbclid', fbclid); } catch (e) {}
+            try {
+                document.cookie = 'stride_fbclid=' + encodeURIComponent(fbclid) +
+                    '; max-age=' + (180 * 24 * 60 * 60) + '; path=/; SameSite=Lax; Secure';
+            } catch (e) {}
+        } catch (e) {}
+    })();
+    </script>
+
+
+        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  /* The Stride Collection (2026-11-05). Same tokens as samples.html and /tendril/: the site's palette. */
+  :root{
+    --bg:#141310; --bg2:#191611; --panel:#1d1b16; --raise:#252119; --line:rgba(216,201,176,.11);
+    --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
+    --copper:#c6712b; --copper-lt:#dd9a52; --amber:#d9822b; --ember:#e58a2e;
+    --teal:#2f748e; --teal-lt:#5e9aad; --sage-lt:#8fae86;
+    --o50:249 241 234;--o100:244 227 213;--o200:232 198 170;--o300:222 154 82;--o400:198 113 43;--o500:174 99 38;--o600:143 81 31;--o700:109 62 24;--o800:79 45 17;--o900:55 32 12;--o950:30 17 6;
+    --z50:241 236 226;--z100:228 221 208;--z200:215 207 192;--z300:195 187 171;--z400:163 154 138;--z500:118 111 99;--z600:88 82 73;--z700:66 61 52;--z800:37 33 25;--z900:29 27 22;--z950:20 19 16;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Outfit',system-ui,sans-serif;background:var(--bg);color:var(--ink2);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(120% 80% at 50% -10%, rgba(198,113,43,.08), transparent 60%),
+               radial-gradient(100% 60% at 50% 110%, rgba(47,116,142,.05), transparent 60%)}
+  .wrap{position:relative;z-index:1}
+  /* Zero-specificity resets, so every class below sets its own spacing. */
+  /* Weight and colour at class strength, so the page's base styles (loaded after this) cannot thin the
+     headings; the margins at zero strength, so every class below sets its own spacing. */
+  .mk h1,.mk h2,.mk h3,.mk h4{color:var(--ink);font-weight:900;letter-spacing:-.01em}
+  :where(.mk) :where(h1,h2,h3,h4,p){margin:0}
+  .mk a{color:var(--copper-lt);text-decoration:none}
+  .mk .brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .mk .ink{color:var(--ink)} .mk .ink2{color:var(--ink2)} .mk .ink3{color:var(--ink3)}
+  .mk [hidden]{display:none!important}
+  .mk-c{max-width:1160px;margin:0 auto;padding:0 24px}
+  /* Labels are plain floating text: no pill, no outline, no dot (Yossi 2026-10-22). */
+  .mk-kick{display:block;font-size:11px;font-weight:900;letter-spacing:.2em;text-transform:uppercase;color:var(--copper-lt)}
+  .mk-panel{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(0,0,0,.14)),var(--panel);
+    border:1px solid var(--line);border-radius:18px;box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 24px 50px -30px rgba(0,0,0,.9)}
+  .mk-btn{display:inline-flex;align-items:center;justify-content:center;gap:.6rem;background:linear-gradient(180deg,var(--ember),var(--copper));
+    color:#1c1206!important;font-weight:900;letter-spacing:.06em;text-transform:uppercase;font-size:13px;border:1px solid rgba(255,210,150,.25);border-radius:14px;
+    padding:15px 26px;cursor:pointer;box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 12px 24px -14px rgba(198,113,43,.8);font-family:inherit;
+    transition:transform .15s,filter .15s}
+  .mk-btn:hover{transform:translateY(-2px);filter:brightness(1.06)}
+  .mk-btn[disabled]{opacity:.45;cursor:default;transform:none}
+  .mk-ghost{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);background:var(--raise);color:var(--ink2)!important;
+    font-weight:800;letter-spacing:.06em;text-transform:uppercase;font-size:13px;border-radius:14px;padding:15px 24px;cursor:pointer;font-family:inherit;
+    transition:transform .15s,border-color .15s,color .15s}
+  .mk-ghost:hover{transform:translateY(-2px);border-color:rgba(216,201,176,.28);color:var(--ink)!important}
+  .mk-price{font-weight:900;letter-spacing:-.02em;color:var(--ink);line-height:1}
+  .mk s.was{color:var(--ink3);font-weight:800;text-decoration-thickness:2px;text-decoration-color:rgba(221,154,82,.85)}
+
+  /* Hero */
+  .mk-hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:48px;align-items:center;padding:34px 0 0}
+  .mk-hero h1{font-size:3.3rem;line-height:1.02;letter-spacing:-.02em;margin-top:16px}
+  .mk-lead{margin-top:18px;font-size:1.14rem;line-height:1.62;max-width:34rem;color:var(--ink2)}
+  .mk-ctas{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px}
+  /* The showcase: 16:9 on every screen (phones too); the upright cut only opens on a press.
+     Until the film exists it is a still and nothing in it pretends to play. */
+  .mk-sc{position:relative;aspect-ratio:16/9;margin:0;border-radius:16px;overflow:hidden;border:1px solid rgba(198,113,43,.28);background:#0f0e0c;
+    box-shadow:0 34px 70px -34px rgba(0,0,0,.95),0 0 70px -24px rgba(198,113,43,.2)}
+  .mk-sc img{display:block;width:100%;height:100%;object-fit:cover}
+  .mk-sc .mk-scplay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border:0;padding:0;margin:0;cursor:pointer;background:rgba(8,7,5,.28)}
+  .mk-sc .mk-scplay span{width:76px;height:76px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:rgba(198,113,43,.95);
+    box-shadow:0 12px 34px -8px rgba(0,0,0,.75)}
+  .mk-sc-cap{margin-top:10px;font-size:12.5px;line-height:1.5;color:var(--ink3)}
+  .mk-needs{margin-top:16px;font-size:13px;line-height:1.55;color:var(--ink3)}
+
+  /* The count */
+  .mk-band{margin-top:64px;padding-top:36px;border-top:1px solid var(--line)}
+  .mk-math{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px 18px;max-width:980px}
+  .mk-math div{display:flex;flex-direction:column}
+  .mk-math b{font-size:3.4rem;font-weight:900;line-height:1;color:var(--ink);letter-spacing:-.03em;white-space:nowrap}
+  .mk-math span{margin-top:8px;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
+  .mk-play-line{margin-top:26px;max-width:46rem;font-size:16px;line-height:1.65}
+
+  /* How they are built */
+  .mk-sec{margin-top:96px}
+  .mk-h{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;margin-bottom:26px}
+  .mk-h h2{font-size:2.1rem;line-height:1.08;margin-top:10px}
+  .mk-h p{font-size:15.5px;line-height:1.6;max-width:40rem;margin-top:10px}
+  .mk-built{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:26px 30px}
+  .mk-built div b{display:block;font-size:2.6rem;font-weight:900;line-height:1;color:var(--ink);letter-spacing:-.03em}
+  .mk-built div h4{margin-top:12px;font-size:15px}
+  .mk-built div p{margin-top:6px;font-size:14px;line-height:1.6;color:var(--ink2)}
+  .mk-wt{margin-top:34px;padding-top:24px;border-top:1px solid var(--line);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:12px 30px}
+  .mk-wt h4{font-size:16px}
+  .mk-wt p{font-size:14px;line-height:1.65;color:var(--ink2)}
+  .mk-names{margin-top:10px;font-size:13px;line-height:1.75;color:var(--ink)}
+  .mk-names span{white-space:nowrap}
+  .mk-names span:not(:last-child)::after{content:'/';margin:0 2px 0 8px;color:var(--ink3);font-weight:400}
+
+  /* The whole Collection: what is inside on hairlines, the one price beside it (no box in the box). */
+  .mk-whole{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:28px 44px;align-items:center;padding:30px 34px}
+  .mk-inside{list-style:none;margin:0;padding:0}
+  .mk-inside li{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 0;border-top:1px solid var(--line)}
+  .mk-inside li:last-child{border-bottom:1px solid var(--line)}
+  .mk-inside b{font-size:16px;color:var(--ink)}
+  .mk-inside span{font-size:13px;color:var(--ink3);text-align:right}
+  .mk-buyw .mk-price{display:block;font-size:3.4rem}
+  .mk-wwas{margin-top:10px;font-size:13px;font-weight:700;color:var(--ink3)}
+  .mk-wwas s{font-size:1.15rem;margin-right:8px}
+  .mk-buyw .mk-btn{margin-top:22px;width:100%}
+  .mk-buyw .mk-needs{margin-top:12px}
+
+  /* Pick the parts: a card per pack, its disc peeking out behind it (2026-11-05). */
+  .mk-pks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:34px 16px}
+  .mk-pk{position:relative;display:flex;flex-direction:column;min-width:0}
+  /* PLAY on the disc: the pack's preview reel. The ring fills as it plays (--prog), the disc breathes meanwhile. */
+  .mk-pplay{position:absolute;z-index:3;top:12px;left:calc(50% + 46px);width:52px;height:52px;padding:0;border:0;border-radius:50%;cursor:pointer;
+    background:conic-gradient(#f4ede2 calc(var(--prog,0) * 1%),rgba(18,15,11,.9) 0);box-shadow:0 12px 26px -10px rgba(0,0,0,.95);transition:transform .15s}
+  .mk-pplay::before{content:'';position:absolute;inset:3px;border-radius:50%;background:radial-gradient(circle at 34% 28%,rgba(255,255,255,.35),transparent 55%),var(--a)}
+  .mk-pplay i{position:absolute;inset:0;display:block}
+  .mk-pplay i::before{content:'';position:absolute;top:50%;left:53%;width:0;height:0;transform:translate(-50%,-50%);
+    border-style:solid;border-width:9px 0 9px 15px;border-color:transparent transparent transparent #fff}
+  .mk-pplay.on i::before{left:50%;width:14px;height:16px;border:0;background:linear-gradient(90deg,#fff 0 35%,transparent 35% 65%,#fff 65%)}
+  .mk-pplay:hover{transform:scale(1.06)}
+  .mk-pplay:focus-visible{outline:2px solid var(--copper-lt);outline-offset:3px}
+  .mk-pk.hearing .mk-disc{animation:mk-breathe 1.8s ease-in-out infinite}
+  @keyframes mk-breathe{0%,100%{box-shadow:0 0 0 8px #24201a,0 0 0 9px rgba(216,201,176,.16),0 24px 44px -20px rgba(0,0,0,.9)}
+    50%{box-shadow:0 0 0 8px #24201a,0 0 0 11px rgba(221,154,82,.42),0 24px 54px -16px rgba(0,0,0,.9)}}
+  @media (prefers-reduced-motion:reduce){.mk-pk.hearing .mk-disc{animation:none}}
+  .mk-disc{position:relative;z-index:0;flex:none;width:168px;height:168px;margin:0 auto;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;
+    background:radial-gradient(circle at 30% 26%,rgba(255,255,255,.22),transparent 42%),radial-gradient(circle at 72% 80%,rgba(0,0,0,.6),transparent 56%),
+               conic-gradient(from 200deg,var(--a),var(--b) 30%,var(--a) 55%,var(--b) 80%,var(--a));
+    box-shadow:0 0 0 8px #24201a,0 0 0 9px rgba(216,201,176,.16),0 24px 44px -20px rgba(0,0,0,.9)}
+  .mk-disc img{position:relative;max-width:70%;max-height:46%;width:auto;height:auto;object-fit:contain;filter:drop-shadow(0 6px 14px rgba(0,0,0,.65))}
+  .mk-disc img.wide{max-width:86%}
+  .mk-disc.art img{max-width:none;max-height:none;width:100%;height:100%;object-fit:cover;filter:none}
+  .mk-disc .w{position:relative;font-size:24px;font-weight:900;letter-spacing:.05em;color:#f4ede2;text-shadow:0 4px 14px rgba(0,0,0,.6)}
+  .mk-disc .w.tdr{font-size:15px;font-weight:800;letter-spacing:.42em;margin-left:.42em;color:var(--copper-lt)}
+  .mk-disc.mini{width:30px;height:30px;margin:0 12px 0 0;box-shadow:0 0 0 2px #24201a,0 0 0 3px rgba(216,201,176,.14)}
+  .mk-disc.mini .w{font-size:10px;letter-spacing:0}
+  .mk-pkb{position:relative;z-index:1;flex:1;display:flex;flex-direction:column;margin-top:-56px;padding:24px 18px 0;text-align:center;overflow:hidden;
+    transition:border-color .15s,box-shadow .15s}
+  .mk-pk.on .mk-pkb,.mk-pk.on .mk-wide{border-color:rgba(221,154,82,.55);box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 0 0 1px rgba(221,154,82,.25),0 24px 50px -30px rgba(0,0,0,.9)}
+  .mk-cat{font-size:13px;color:var(--ink2)}
+  .mk .mk-nm{margin-top:4px;font-size:25px;line-height:1.05;text-transform:uppercase;letter-spacing:.03em}
+  .mk-pr{margin-top:10px;font-size:13.5px;color:var(--ink2)}
+  .mk-pr b{color:var(--ink);font-weight:900;font-size:15px}
+  .mk-pr small{display:block;margin-top:3px;font-size:11px;font-weight:700;color:var(--ink3)}
+  .mk-eng{margin-top:12px;font-size:12.5px;line-height:1.55;color:var(--ink2)}
+  .mk-strip{margin:16px -18px 0;margin-top:auto;padding:12px 16px 13px;border-top:1px solid var(--line);background:rgba(0,0,0,.24);font-size:11.5px;line-height:1.5;color:var(--ink3)}
+  .mk-eng + .mk-strip{margin-top:16px}
+  .mk-bonus{margin-top:3px;font-weight:700;color:var(--copper-lt)}
+  .mk-pka{display:flex;align-items:center;justify-content:center;gap:18px;margin-top:14px}
+  .mk-pka .mk-add{min-width:0;padding:11px 18px;border-radius:12px;font:inherit;font-size:12px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;
+    border:1px solid rgba(255,210,150,.25);background:linear-gradient(180deg,var(--ember),var(--copper));color:#1c1206}
+  .mk-pk.on .mk-add{background:var(--raise);border-color:rgba(221,154,82,.4);color:var(--copper-lt)}
+  .mk-see{font-size:13px;font-weight:800;color:var(--ink2)!important}
+  .mk-see:hover{color:var(--ink)!important}
+  .mk-pk.wide{grid-column:1 / -1}
+  .mk-wide{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:16px 28px;align-items:center;padding:22px 26px}
+  .mk-disc.sm{width:118px;height:118px;margin:0}
+  .mk-wtxt .mk-eng{margin-top:8px;max-width:40rem}
+  .mk-wtxt .mk-needs{margin-top:8px;font-size:11.5px;color:var(--ink3)}
+  .mk-wr{text-align:right}
+  .mk-wr .mk-pr{margin-top:0}
+  .mk-wr .mk-pka{justify-content:flex-end}
+  .mk-hear{display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:12.5px;font-weight:800;color:var(--ink2);background:none;border:0;cursor:pointer;padding:6px 0}
+  .mk-hear:hover{color:var(--ink)}
+  .mk-tabs button sup{margin-left:3px;font-size:9px;font-weight:800;color:var(--ink3);vertical-align:super}
+  .mk-tm{margin-top:12px;font-size:11.5px;line-height:1.5;color:var(--ink3)}
+  .mk-inside b{display:flex;align-items:center}
+  .mk-picks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+  .mk-tile{padding:22px 22px 20px;display:flex;flex-direction:column;min-height:250px;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+  .mk-tile.on{border-color:rgba(221,154,82,.55);box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 0 0 1px rgba(221,154,82,.25),0 24px 50px -30px rgba(0,0,0,.9)}
+  .mk-tile.soon{cursor:default}
+  .mk-tile.soon > *:not(.mk-row){opacity:.6}
+  .mk-tile .syn{font-size:22px;font-weight:900;color:var(--ink);letter-spacing:-.01em}
+  .mk-tile .ct{margin-top:8px;font-size:14px;font-weight:700;color:var(--ink2)}
+  .mk-tile .roles{margin-top:4px;font-size:12.5px;color:var(--ink3)}
+  .mk-tile .eng{margin-top:12px;font-size:13px;line-height:1.55;color:var(--ink2)}
+  .mk-tile .needs{margin-top:10px;font-size:12px;color:var(--ink3)}
+  .mk-tile .bonus{margin-top:4px;font-size:12px;font-weight:700;color:var(--copper-lt)}
+  .mk-row{margin-top:auto;padding-top:18px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .mk-row .p{font-size:26px;font-weight:900;color:var(--ink);letter-spacing:-.02em}
+  .mk-row .p small{display:block;margin-top:4px;font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
+  .mk-add{min-width:112px;padding:11px 16px;border-radius:12px;font:inherit;font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;
+    border:1px solid var(--line);background:var(--raise);color:var(--ink)}
+  .mk-tile.on .mk-add{background:linear-gradient(180deg,var(--ember),var(--copper));color:#1c1206;border-color:rgba(255,210,150,.25)}
+  .mk-tile.soon .mk-add{cursor:default;color:var(--ink3)}
+  .mk-total{position:sticky;bottom:14px;z-index:5;margin-top:18px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px 24px;
+    padding:16px 18px 16px 24px;border-radius:16px;background:rgba(29,27,22,.96);border:1px solid rgba(221,154,82,.32);
+    box-shadow:0 20px 50px -20px rgba(0,0,0,.95);backdrop-filter:blur(6px)}
+  .mk-total .what{font-size:15px;font-weight:800;color:var(--ink)}
+  .mk-total .what small{display:block;margin-top:3px;font-size:12px;font-weight:600;color:var(--ink3)}
+  .mk-total .right{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .mk-total .sum{display:flex;align-items:baseline;gap:10px}
+  .mk-total .sum .mk-price{font-size:2rem}
+  .mk-total .sum s{font-size:1.1rem}
+  .mk-all{font:inherit;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--copper-lt);background:none;border:0;cursor:pointer;padding:6px 0}
+  .mk-note{margin-top:12px;font-size:13px;color:var(--ink3)}
+  .mk-aside{margin-top:14px;font-size:14px;color:var(--ink3)}
+
+  /* Every StrideChain */
+  .mk-tabs{display:flex;flex-wrap:wrap;gap:4px 22px;margin:2px 0 8px}
+  .mk-tabs button{font:inherit;background:none;border:0;padding:6px 0;cursor:pointer;font-size:13px;font-weight:800;letter-spacing:.06em;color:var(--ink3);border-bottom:2px solid transparent}
+  .mk-tabs button.on{color:var(--ink);border-bottom-color:var(--copper-lt)}
+  .mk-tabs button[disabled]{opacity:.45;cursor:default}
+  .mk-shelf{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:18px}
+  .mk-card{padding:18px 20px}
+  .mk-card h4{font-size:17px}
+  .mk-card .cm{margin-top:6px;font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3)}
+  .mk-card .cb{margin-top:10px;font-size:13.5px;line-height:1.55;color:var(--ink2)}
+  .mk-card .cs{margin-top:12px;font-size:12.5px;line-height:1.65;color:var(--ink)}
+  .mk-card .cs b{display:block;margin-bottom:2px;font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--copper-lt)}
+  .mk-card .cs span{white-space:nowrap}
+  .mk-card .cs span:not(:last-child)::after{content:'/';margin:0 2px 0 7px;color:var(--ink3);font-weight:400}
+  .mk-card .cl{margin-top:10px;font-size:12px;color:var(--ink3)}
+  .mk-shelf .mk-card.out{display:none}
+  .mk-more{margin-top:20px;text-align:center}
+  .mk-empty{grid-column:1 / -1;padding:26px 4px;font-size:15px;color:var(--ink3)}
+  .mk-soon{margin-top:16px;font-size:14px;color:var(--ink3)}
+
+  /* How it works + questions */
+  .mk-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px}
+  .mk-step .n{width:34px;height:34px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:900;color:#1c1206;
+    background:linear-gradient(180deg,var(--ember),var(--copper));font-size:15px}
+  .mk-step h4{margin-top:14px;font-size:17px}
+  .mk-step p{margin-top:6px;font-size:14px;line-height:1.6;color:var(--ink2)}
+  .mk code{font-family:'Space Mono',monospace;font-size:12px;color:var(--ink)}
+  .mk-faq{max-width:860px}
+  .mk-faq details{border-top:1px solid var(--line);padding:16px 0}
+  .mk-faq details:last-child{border-bottom:1px solid var(--line)}
+  .mk-faq summary{cursor:pointer;list-style:none;font-size:16px;font-weight:800;color:var(--ink)}
+  .mk-faq summary::-webkit-details-marker{display:none}
+  .mk-faq summary::after{content:'+';float:right;color:var(--copper-lt);font-weight:700}
+  .mk-faq details[open] summary::after{content:'\2212'}
+  .mk-faq details p{margin-top:10px;font-size:14.5px;line-height:1.65;max-width:46rem;color:var(--ink2)}
+  .mk-end{margin-top:96px;padding:40px 0 10px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:18px}
+  .mk-end p{font-size:1.5rem;font-weight:900;color:var(--ink);letter-spacing:-.01em;max-width:36rem;line-height:1.25}
+
+  .mk-vpop{position:fixed;inset:0;z-index:1200;background:rgba(8,7,6,.92);display:none;align-items:center;justify-content:center;padding:1.25rem}
+  .mk-vpop.on{display:flex}
+  .mk-vpop video{width:100%;max-width:1100px;max-height:88vh;border-radius:12px;outline:none;background:#000}
+  .mk-vpop .x{position:absolute;top:1rem;right:1rem;width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.08);
+    border:1px solid rgba(216,201,176,.18);color:#e8e2d6;font-size:20px;line-height:1;cursor:pointer}
+
+  @media (max-width:1023px){
+    .mk-hero{grid-template-columns:1fr;gap:34px}
+    .mk-picks,.mk-shelf{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .mk-pks{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .mk-built{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .mk-wt{grid-template-columns:1fr}
+    .mk-whole{grid-template-columns:1fr}
+  }
+  @media (max-width:639px){
+    .mk-c{padding-left:16px;padding-right:16px}
+    .mk-hero h1{font-size:2.35rem}
+    .mk-math{justify-content:flex-start}
+    .mk-math b{font-size:2.1rem}
+    .mk-built b{font-size:2.1rem}
+    .mk-picks,.mk-shelf,.mk-steps,.mk-built{grid-template-columns:1fr}
+    .mk-pks{grid-template-columns:1fr;gap:30px}
+    .mk-wide{grid-template-columns:1fr;justify-items:center;text-align:center;padding:22px 18px}
+    .mk-wr{text-align:center}
+    .mk-wr .mk-pka{justify-content:center}
+    .mk-tile{min-height:0}
+    .mk-whole{padding:22px 18px}
+    .mk-inside li{flex-direction:column;gap:2px}
+    .mk-inside span{text-align:left}
+    .mk-buyw .mk-price{font-size:2.6rem}
+    .mk-total{padding:14px 16px}
+    .mk-total .sum .mk-price{font-size:1.6rem}
+    .mk-h h2{font-size:1.7rem}
+    .mk-end p{font-size:1.25rem}
+  }
+</style>
+<link rel="stylesheet" href="/_legacy/css/collection-index.7c74f32ea1.css">
+<meta property="og:image" content="https://stridehub.io/media/stride/og/stride-share-1200x630.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Stride, the sound design engine: every lane of the chain in motion">
+<meta name="twitter:image" content="https://stridehub.io/media/stride/og/stride-share-1200x630.jpg">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/favicon-192x192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<script>window.STRIDE_LANGS=["en"]</script>
+<script>(function () {
+  var view = null, pressed = {};
+  // This page view: its page key, channel, ad id and Meta-id flag, read once.
+  function read() {
+    if (view) return view;
+    var L = ["de","es","fr","it","ja","zh"], K = {"":"home","try":"try","samples":"samples","setup":"setup","session":"session","welcome":"welcome","post":"post","post2":"post2","tendril":"tendril","blog":"blog","tv":"tv","tools":"tool","vst3":"how","how-it-works":"how","privacy":"legal","terms":"legal","refund":"legal"};
+    var path = location.pathname.replace(/\/index\.html$/, '/').replace(/\.html$/, '').replace(/\/+$/, '');
+    var seg = path.split('/');
+    if (seg[1] && L.indexOf(seg[1]) >= 0) seg.splice(1, 1);
+    var first = seg[1] || '';
+    var p = Object.prototype.hasOwnProperty.call(K, first) ? K[first] : 'other';
+    var q = new URLSearchParams(location.search), rh = '';
+    try { rh = document.referrer ? new URL(document.referrer).hostname : ''; } catch (e) {}
+    var nav = (window.performance && performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {};
+    var here = location.hostname.replace(/^www\./, ''), c = 'direct', a = '', m = 0;
+    if (nav.type === 'reload' || nav.type === 'back_forward' || (rh && rh.replace(/^www\./, '') === here)) c = 'internal';
+    else {
+      var ad = (q.get('ad_id') || '').trim(), s = (q.get('utm_source') || '').trim().toLowerCase();
+      var fromMeta = /^(fb|ig|msg|an|meta|facebook|instagram)$/.test(s), mid = (q.get('utm_content') || '').trim();
+      if (/^\d{6,24}$/.test(ad)) { c = 'meta'; a = ad; }
+      else if (q.get('gclid') || q.get('wbraid') || q.get('gbraid')) c = 'google';
+      else if (fromMeta && /^\d{6,24}$/.test(mid)) { c = 'meta'; a = mid; m = 1; }
+      else if (fromMeta && (q.get('utm_campaign') || '').indexOf('|') >= 0) c = 'meta';
+      else if (/^(stride|email|newsletter|resend|mail)$/.test(s)) c = 'email';
+      else if (/^(ig|instagram|insta|ig_bio|instagram_bio)$/.test(s)) c = 'ig';
+      else if (/^(yt|youtube)$/.test(s)) c = 'yt';
+      else if (/^(google|adwords|google_ads|gads)$/.test(s)) c = 'google';
+      else if (/^(facebook|fb|meta)$/.test(s) || q.get('fbclid')) c = 'meta';
+      else if (/(^|\.)instagram\.com$/.test(rh)) c = 'ig';
+      else if (/(^|\.)(youtube\.com|youtu\.be)$/.test(rh)) c = 'yt';
+    }
+    view = { p: p, c: c, a: a, m: m };
+    return view;
+  }
+  function send() {
+    try {
+      if (!navigator.sendBeacon) return;
+      var v = read(), body = { action: 'pv', p: v.p, c: v.c, a: v.a };
+      if (v.m) body.m = 1;
+      navigator.sendBeacon("https://generate-midi-z3spyrafvq-uc.a.run.app", JSON.stringify(body));
+    } catch (e) {}
+  }
+  // A funnel step by the name the Clarity block gives it, counted when it is a press on the buy path.
+  var STEP = {"buy_form_open":"cta","paypal_button":"pay","wallet_payment_selected":"pay","wallet_payment_started":"pay","checkout_loaded":"co"};
+  window.strideStep = function (name) {
+    try {
+      var s = STEP[name];
+      if (!s || pressed[s] || !navigator.sendBeacon) return;
+      pressed[s] = 1;
+      navigator.sendBeacon("https://generate-midi-z3spyrafvq-uc.a.run.app", JSON.stringify({ action: 'fs', s: s, c: read().c }));
+    } catch (e) {}
+  };
+  if (document.prerendering) document.addEventListener('prerenderingchange', send, { once: true });
+  else send();
+})();</script>
+</head>
+<body>
+<!-- HEADER:START (scripts/sync-header.mjs writes this, do not edit here) -->
+<!-- HEADER:END -->
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-5R4N7FVP"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+<div class="wrap mk">
+<main>
+
+  <!-- ===================== HERO ===================== -->
+  <section class="mk-c">
+    <div class="mk-hero">
+      <div>
+        <span class="mk-kick">The Stride Collection</span>
+        <h1>Synth presets with the motion <span class="brand">already built in.</span></h1>
+        <p class="mk-lead">100 StrideChains for Serum 2, Vital, Diva and Tendril, each one mapped for Stride: lanes set, ranges chosen, the core knobs locked and five states to start from. Plus 250+ experimental sounds and 15 Ableton racks. Load a chain, press play and reroll it until it sounds like yours.</p>
+        <div class="mk-ctas">
+          <a class="mk-btn" href="#whole">Get the whole Collection</a>
+          <a class="mk-ghost" href="#picks">Pick your synths</a>
+        </div>
+        <p class="mk-needs">Needs Stride and the synth for each pack. Synths not included. Racks need Ableton Live.</p>
+      </div>
+      <div>
+        <!-- The showcase: the film's own poster, and its play button once SHOWCASE (in the script below)
+             names the film (2026-11-05: Formant Beast for Vital through its five states, 26 s). -->
+        <figure class="mk-sc" data-showcase>
+          <img src="/media/collection/film/poster-1280.webp" width="1280" height="720" alt="The Stride Collection showcase: a StrideChain in Stride, through its five states" loading="eager" decoding="async">
+          <button type="button" class="mk-scplay" data-showcase-play aria-label="Watch the Stride Collection showcase" hidden><span><svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="#1c1206"/></svg></span></button>
+        </figure>
+      </div>
+    </div>
+
+    <!-- The count: plain numbers, no sums; what Stride adds stays in words. -->
+    <div class="mk-band">
+      <div class="mk-math">
+        <div><b data-n="chains">100</b><span>StrideChains</span></div>
+        <div><b data-n="states">500</b><span>States</span></div>
+        <div><b>250+</b><span>Experimental sounds</span></div>
+        <div><b>15</b><span>Ableton racks</span></div>
+      </div>
+      <p class="mk-play-line ink2">Every state opens into everything Stride does: reroll a lane, mutate it, redraw it, lock what you love. Endless sound design variations from every patch, and a playground for studying sound that you never reach the bottom of.</p>
+    </div>
+  </section>
+
+  <!-- ===================== HOW THEY ARE BUILT ===================== -->
+  <section class="mk-c mk-sec" id="built">
+    <div class="mk-h">
+      <div>
+        <span class="mk-kick">Built from the sound up</span>
+        <h2>Every StrideChain is a sound design system.</h2>
+        <p class="ink2">Not a preset with a few knobs on a lane. Each chain was built as one piece: the patch, the lanes that move it, the range of every lane, the knobs that stay locked and five states that each take the sound somewhere new. Hundreds of decisions per chain, made so the only thing left for you is to explore.</p>
+      </div>
+    </div>
+    <div class="mk-built">
+      <div><b>1085</b><h4>Lanes, each on its own range</h4><p>Every lane moves one knob between limits picked for that sound, so a reroll lands inside the patch instead of off a cliff.</p></div>
+      <div><b>132</b><h4>Locked lanes</h4><p>The knobs that make each chain itself stay put while you reroll, mutate and redraw everything around them.</p></div>
+      <div><b>500</b><h4>States</h4><p>Five per chain. Same patch, five directions: their own lanes, shapes and lengths, from a few beats to sixteen bars.</p></div>
+      <div><b>14</b><h4>Original wavetables</h4><p>The Vital chains run on wavetables built from scratch for this pack. Not one factory table among them.</p></div>
+    </div>
+    <div class="mk-wt">
+      <h4>Built into every Vital chain</h4>
+      <div>
+        <p>Formant vowels for talking basses and choirs, FM index ladders, sync and phase-bend sweeps, growl cells, glass partials, data noise and drawbars, each one shaped for the chains that play it.</p>
+        <p class="mk-names"><span>Speech</span> <span>Low Speech</span> <span>Harmonic Sweep</span> <span>FM Ladder</span> <span>FM Ratios</span> <span>Sync Sweep</span> <span>Phase Bend</span> <span>Pulse Width</span> <span>Growl Cells</span> <span>Data Noise</span> <span>Dark Data</span> <span>Glass Partials</span> <span>Warm Sub</span> <span>Drawbars</span></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== THE WHOLE COLLECTION ===================== -->
+  <section class="mk-c mk-sec" id="whole">
+    <div class="mk-h">
+      <div>
+        <span class="mk-kick">The whole Collection</span>
+        <h2>Everything, for one price.</h2>
+        <p class="ink2">Every StrideChains pack and the Experimental Collection's sounds and racks, in one checkout.</p>
+      </div>
+    </div>
+    <div class="mk-panel mk-whole">
+      <ul class="mk-inside"><li><b><span class="mk-disc mini" style="--a:#2f8fb0;--b:#0c171d" aria-hidden="true"><span class="w">S2</span></span>StrideChains: Serum 2</b><span>30 StrideChains / 150 states</span></li><li><b><span class="mk-disc mini" style="--a:#7b5cd6;--b:#130f21" aria-hidden="true"><img src="/media/synths/vital.webp" alt="" width="77" height="80" loading="lazy" decoding="async"></span>StrideChains: Vital</b><span>30 StrideChains / 150 states</span></li><li><b><span class="mk-disc mini" style="--a:#a4763f;--b:#15110d" aria-hidden="true"><img src="/media/synths/diva.webp" alt="" width="143" height="48" loading="lazy" decoding="async"></span>StrideChains: Diva</b><span>20 StrideChains / 100 states</span></li><li><b><span class="mk-disc mini" style="--a:#c6712b;--b:#1a0f07" aria-hidden="true"><span class="w">T</span></span>StrideChains: Tendril</b><span>20 StrideChains / 100 states</span></li><li><b><span class="mk-disc art mini" aria-hidden="true"><img src="/media/synths/sounds-racks.webp" alt="" width="320" height="320" loading="lazy" decoding="async"></span>Experimental Sounds &amp; Racks</b><span>250+ sounds / 15 Ableton Racks</span></li></ul>
+      <div class="mk-buyw">
+        <span class="mk-price" data-w-now>$69</span>
+        <p class="mk-wwas" data-w-was><s class="was" data-w-parts>$83.99</s>bought as parts</p>
+        <button class="mk-btn" type="button" data-buy-whole>Get the whole Collection</button>
+        <p class="mk-needs">Needs Stride and the synth for each pack. Synths not included. Racks need Ableton Live.</p>
+        <p class="mk-note" data-wnote aria-live="polite" hidden></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== PICK YOUR SYNTHS ===================== -->
+  <section class="mk-c mk-sec" id="picks">
+    <div class="mk-h">
+      <div>
+        <span class="mk-kick">Or pick the parts</span>
+        <h2>Only some of the synths? Take just those packs.</h2>
+        <p class="ink2">Each pack plays the synth it was built on. Pick the ones you have. If your picks come to more than the whole Collection, you get the whole Collection for less.</p>
+      </div>
+      <button class="mk-all" type="button" data-all>Take all of it</button>
+    </div>
+    <div class="mk-pks" data-picks><div class="mk-pk" data-pick="serum"><span class="mk-disc" style="--a:#2f8fb0;--b:#0c171d" aria-hidden="true"><img class="wide" src="/media/synths/serum-2.webp" alt="" width="210" height="32" loading="lazy" decoding="async"></span><button type="button" class="mk-pplay" data-hear data-key="serum" data-name="Serum 2" style="--a:#2f8fb0" aria-label="Play the Serum 2 sounds" title="Hear the Serum 2 pack"><i aria-hidden="true"></i></button><audio data-hear-audio preload="none" src="/assets/packs/reel-serum.mp3"></audio><div class="mk-panel mk-pkb"><p class="mk-cat">Granular and spectral</p><h3 class="mk-nm">Serum 2</h3><p class="mk-pr"><b data-p>$19</b> &middot; 30 StrideChains &middot; 150 states</p><p class="mk-eng">Granular and spectral engines at the center: grain clouds, frozen textures, robot voices. Every pitched sample tuned.</p><div class="mk-strip"><p>Needs Serum 2 (built on 2.0.23)</p><p class="mk-bonus">+ Pluck Foundry, a bigger 19-lane system</p></div></div><div class="mk-pka"><button type="button" class="mk-add" aria-pressed="false">Add to cart</button><a class="mk-see" href="#shelf" data-shelf-synth="serum">See the chains</a></div></div><div class="mk-pk" data-pick="vital"><span class="mk-disc" style="--a:#7b5cd6;--b:#130f21" aria-hidden="true"><img src="/media/synths/vital.webp" alt="" width="77" height="80" loading="lazy" decoding="async"></span><button type="button" class="mk-pplay" data-hear data-key="vital" data-name="Vital" style="--a:#7b5cd6" aria-label="Play the Vital sounds" title="Hear the Vital pack"><i aria-hidden="true"></i></button><audio data-hear-audio preload="none" src="/assets/packs/reel-vital.mp3"></audio><div class="mk-panel mk-pkb"><p class="mk-cat">14 original wavetables</p><h3 class="mk-nm">Vital</h3><p class="mk-pr"><b data-p>$19</b> &middot; 30 StrideChains &middot; 150 states</p><p class="mk-eng">Runs on 14 original wavetables built for this pack, through Vital&#x27;s spectral and wave morphs.</p><div class="mk-strip"><p>Needs Vital (built on 1.6.4)</p><p class="mk-bonus">+ Spectral Tides, a bigger 19-lane system</p></div></div><div class="mk-pka"><button type="button" class="mk-add" aria-pressed="false">Add to cart</button><a class="mk-see" href="#shelf" data-shelf-synth="vital">See the chains</a></div></div><div class="mk-pk" data-pick="diva"><span class="mk-disc" style="--a:#a4763f;--b:#15110d" aria-hidden="true"><img src="/media/synths/diva.webp" alt="" width="143" height="48" loading="lazy" decoding="async"></span><button type="button" class="mk-pplay" data-hear data-key="diva" data-name="Diva" style="--a:#a4763f" aria-label="Play the Diva sounds" title="Hear the Diva pack"><i aria-hidden="true"></i></button><audio data-hear-audio preload="none" src="/assets/packs/reel-diva.mp3"></audio><div class="mk-panel mk-pkb"><p class="mk-cat">Analog modelling</p><h3 class="mk-nm">Diva</h3><p class="mk-pr"><b data-p>$19</b> &middot; 20 StrideChains &middot; 100 states</p><p class="mk-eng">Triple VCO, DCO and Digital oscillators into the Ladder, Cascade, BITE and Uhbie filters.</p><div class="mk-strip"><p>Needs Diva (built on 1.4.5)</p><p class="mk-bonus">+ Deep Current, a bigger 15-lane system</p></div></div><div class="mk-pka"><button type="button" class="mk-add" aria-pressed="false">Add to cart</button><a class="mk-see" href="#shelf" data-shelf-synth="diva">See the chains</a></div></div><div class="mk-pk" data-pick="tendril"><span class="mk-disc" style="--a:#c6712b;--b:#1a0f07" aria-hidden="true"><span class="w tdr">TENDRIL</span></span><button type="button" class="mk-pplay" data-hear data-key="tendril" data-name="Tendril" style="--a:#c6712b" aria-label="Play the Tendril sounds" title="Hear the Tendril pack"><i aria-hidden="true"></i></button><audio data-hear-audio preload="none" src="/assets/packs/reel-tendril.mp3"></audio><div class="mk-panel mk-pkb"><p class="mk-cat">Three engines</p><h3 class="mk-nm">Tendril</h3><p class="mk-pr"><b data-p>$19</b> &middot; 20 StrideChains &middot; 100 states</p><p class="mk-eng">Ten play like a synth, all three engines on every key; ten run Tendril&#x27;s sequencer under Stride&#x27;s clock.</p><div class="mk-strip"><p>Needs Tendril (for Stride owners)</p><p class="mk-bonus">+ Pulse Organism, a bigger 23-lane system</p></div></div><div class="mk-pka"><button type="button" class="mk-add" aria-pressed="false">Add to cart</button><a class="mk-see" href="#shelf" data-shelf-synth="tendril">See the chains</a></div></div><div class="mk-pk wide" data-pick="coll"><div class="mk-panel mk-wide"><span class="mk-disc art sm" aria-hidden="true"><img src="/media/synths/sounds-racks.webp" alt="" width="320" height="320" loading="lazy" decoding="async"></span><div class="mk-wtxt"><p class="mk-cat">The Experimental Collection</p><h3 class="mk-nm">Sounds &amp; Racks</h3><p class="mk-eng">250+ sounds from broken drums, one falling water drop and a simple signal pushed into endless feedback, and 15 Ableton Racks that move with Stride FX.</p><p class="mk-needs">The racks need Ableton Live.</p></div><div class="mk-wr"><p class="mk-pr"><b data-p>$24.99<small>with any pack, $35 alone</small></b></p><div class="mk-pka"><button type="button" class="mk-add" aria-pressed="false">Add to cart</button><button type="button" class="mk-hear" data-hear aria-label="Hear the sounds">&#9654;<span>Hear the sounds</span></button></div></div><audio data-hear-audio preload="none" src="/assets/packs/collection-teaser.mp3"></audio></div></div></div>
+    <div class="mk-total" data-total>
+      <div class="what"><span data-t-what>All four packs</span><small data-t-sub></small></div>
+      <div class="right">
+        <div class="sum"><s class="was" data-t-was hidden></s><span class="mk-price" data-t-now></span></div>
+        <button class="mk-btn" type="button" data-buy>Get them</button>
+      </div>
+    </div>
+    <p class="mk-note" data-buy-note aria-live="polite" hidden></p>
+    <p class="mk-aside">The sounds and racks have their own page: <a href="/samples.html">hear them there &rarr;</a></p>
+  </section>
+
+  <!-- ===================== EVERY STRIDECHAIN ===================== -->
+  <section class="mk-c mk-sec" id="shelf">
+    <div class="mk-h">
+      <div>
+        <span class="mk-kick">Every StrideChain</span>
+        <h2>The whole shelf.</h2>
+        <p class="ink2">Each one is a full patch with its lanes, ranges, locks and five named states.</p>
+      </div>
+    </div>
+    <div class="mk-tabs" data-tabs="synth" role="tablist" aria-label="Synth"><button type="button" class="on" data-v="all">All synths<sup>100</sup></button><button type="button" data-v="serum">Serum 2<sup>30</sup></button><button type="button" data-v="vital">Vital<sup>30</sup></button><button type="button" data-v="diva">Diva<sup>20</sup></button><button type="button" data-v="tendril">Tendril<sup>20</sup></button></div>
+    <div class="mk-tabs" data-tabs="role" role="tablist" aria-label="Role">
+      <button type="button" class="on" data-v="all">All</button>
+      <button type="button" data-v="Bass">Basses</button>
+      <button type="button" data-v="Pluck">Plucks</button>
+      <button type="button" data-v="Pad">Pads</button>
+      <button type="button" data-v="FX">FX</button>
+      <button type="button" data-v="Feedback">Feedback</button>
+      <button type="button" data-v="Seq">Sequences</button>
+    </div>
+    <div class="mk-shelf" data-shelf><article class="mk-panel mk-card" data-synth="serum" data-role="Feedback"><h4>Black Hole Loop</h4><p class="cm">Serum 2 / Feedback</p><p class="cb">One kick into a half-second delay at 97 % that a Bode shifter keeps pulling downward, into a convolution space: gravity, falling forever, then let go.</p><p class="cs"><b>5 states</b><span>Fall</span> <span>Orbit</span> <span>Accretion</span> <span>Pulsar</span> <span>Singularity</span></p><p class="cl">10 lanes / 1 locked / One short note, then let the effects carry it</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="FX"><h4>Black Hole</h4><p class="cm">Serum 2 / FX</p><p class="cb">Downlifters, impacts and gravity: a dying sine falls 48 semitones into a sub, an impact gets stretched into grains, convolution space and a Bode shifter bend the light.</p><p class="cs"><b>5 states</b><span>Event Horizon</span> <span>Impact</span> <span>Gravity Well</span> <span>Spaghettify</span> <span>Singularity</span></p><p class="cl">12 lanes / 1 locked / Hold a note. Runs on notes: each note from silence fires the scene again</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="FX"><h4>Bode Laser</h4><p class="cm">Serum 2 / FX</p><p class="cb">Every note fires a shot: coarse pitch dives 64 semitones, the Bode frequency shifter feeds back into barber-pole sweeps, the delay throws the shells.</p><p class="cs"><b>5 states</b><span>Laser</span> <span>Barber Pole</span> <span>Blaster</span> <span>Tractor Beam</span> <span>Dogfight</span></p><p class="cl">10 lanes / 1 locked / Short notes. Runs on notes: each note from silence fires the scene again</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="Feedback"><h4>Bode Spiral</h4><p class="cm">Serum 2 / Feedback</p><p class="cb">An FM blip caught between a 90 % delay and the Bode frequency shifter feeding back on itself: every repeat moves a step further, up or down, into an endless spiral.</p><p class="cs"><b>5 states</b><span>Ascend</span> <span>Descend</span> <span>Barber Pole</span> <span>Whirlpool</span> <span>Event Horizon</span></p><p class="cl">14 lanes / 1 locked / One short note, then let the effects carry it</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="Feedback"><h4>Comb Machine</h4><p class="cm">Serum 2 / Feedback</p><p class="cb">A click of noise into delays of 2 to 10 milliseconds at 99.5 % feedback: the delay time becomes a pitch, so the time lanes play melodies on a ringing metal string you can drive, bend and flange.</p><p class="cs"><b>5 states</b><span>Strings</span> <span>Gamelan</span> <span>Bent Metal</span> <span>Jet String</span> <span>Scrapyard</span></p><p class="cl">14 lanes / 3 locked / A short note every two bars, the loop keeps the rest</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="FX"><h4>Data Corruption</h4><p class="cm">Serum 2 / FX</p><p class="cb">Radio glitches and a binary creature chopped into tiny grains through the sample and hold filter: stutters, packet loss and data screams.</p><p class="cs"><b>5 states</b><span>Packet Loss</span> <span>Buffer Stutter</span> <span>Creature Feature</span> <span>Data Scream</span> <span>Total Corruption</span></p><p class="cl">11 lanes / 1 locked / Long notes</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="Pad"><h4>Drone Weaver</h4><p class="cm">Serum 2 / Pad</p><p class="cb">A 64 second evolving drone as the grain source: the position lane is a time machine through it, the Bode shifter and convolution space bend it into a new world.</p><p class="cs"><b>5 states</b><span>Weave</span> <span>Time Loop</span> <span>Bent World</span> <span>Pulse Weave</span> <span>Unravel</span></p><p class="cl">13 lanes / 1 locked / Long chords</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="Feedback"><h4>Dub Chamber</h4><p class="cm">Serum 2 / Feedback</p><p class="cb">A rim click into the dub engineer&#x27;s favourite trick: a delay pushed into runaway feedback with its filter in the loop, throws, sweeps and a tube that warms every pass.</p><p class="cs"><b>5 states</b><span>Throws</span> <span>Runaway</span> <span>Filter Dive</span> <span>Spring Shake</span> <span>Sound System Riot</span></p><p class="cl">9 lanes / 1 locked / A short note every two bars, the loop keeps the rest</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="Bass"><h4>FM Wobble</h4><p class="cm">Serum 2 / Bass</p><p class="cb">FM from a silent oscillator C into the Distortion Comb filters: the wobble lives in the FM amount, the fold and C&#x27;s pitch, not only the cutoff.</p><p class="cs"><b>5 states</b><span>Wobble</span> <span>Ratio Steps</span> <span>Half Speed</span> <span>Yoi</span> <span>Meltdown</span></p><p class="cl">12 lanes / 1 locked / Eighth notes</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="Pad"><h4>Frozen Grains</h4><p class="cm">Serum 2 / Pad</p><p class="cb">Two field textures frozen in time by long grains, over a quiet string table for harmony: each scene picks where the freeze happens and how much it thaws.</p><p class="cs"><b>5 states</b><span>Freeze</span> <span>Thaw</span> <span>Ice Crystals</span> <span>Breathing Ice</span> <span>Avalanche</span></p><p class="cl">12 lanes / 1 locked / Long chords</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="Pluck"><h4>Glass Spectral</h4><p class="cm">Serum 2 / Pluck</p><p class="cb">A struck wine glass resynthesized: Shepard filter and spectral shift reshape every strike, the Bode shifter bends the whole thing off its axis.</p><p class="cs"><b>5 states</b><span>Crystal Ring</span> <span>Off Axis</span> <span>Prism Steps</span> <span>Frozen Lake</span> <span>Shards</span></p><p class="cl">11 lanes / 1 locked / Eighth arpeggios</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="Feedback"><h4>Glitch Loop</h4><p class="cm">Serum 2 / Feedback</p><p class="cb">A string-machine chord stab trapped in a 98 % delay whose time jumps between musical values: the buffer stutters, repeats and reverses into a loop you play with filter, clip and gain.</p><p class="cs"><b>5 states</b><span>Stutter</span> <span>Buffer Gate</span> <span>Tape Repeat</span> <span>Crunch Loop</span> <span>Corrupt Buffer</span></p><p class="cl">9 lanes / 2 locked / One short chord, then let the effects carry it</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="Pluck"><h4>Glitch Pluck</h4><p class="cm">Serum 2 / Pluck</p><p class="cb">A rich pluck table with a granular layer of computer chatter on top: quantize the table, scatter the grains, crunch the tube.</p><p class="cs"><b>5 states</b><span>Byte Pluck</span> <span>Modem</span> <span>Clean Keys</span> <span>Crunch Echo</span> <span>Bit Storm</span></p><p class="cl">11 lanes / 1 locked / Sixteenth arpeggios</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="Pluck"><h4>Grain Bells</h4><p class="cm">Serum 2 / Pluck</p><p class="cb">A bell sample played as a cloud of grains, with a bell table an octave up for the strike: move the position and grain size and every note rings differently.</p><p class="cs"><b>5 states</b><span>Chime Cloud</span> <span>Music Box</span> <span>Frosted</span> <span>Echo Garden</span> <span>Shattered Glass</span></p><p class="cl">11 lanes / 1 locked / Sixteenth arpeggios</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="Pad"><h4>Grain Choir</h4><p class="cm">Serum 2 / Pad</p><p class="cb">Two vocal takes as grain clouds: each position lane walks through a different part of the voice, density and grain size decide between a choir and a whisper.</p><p class="cs"><b>5 states</b><span>Choir</span> <span>Whisper</span> <span>Breath Pulse</span> <span>Angels</span> <span>Possessed</span></p><p class="cl">12 lanes / 1 locked / Long chords</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="Feedback"><h4>Grain Echo Field</h4><p class="cm">Serum 2 / Feedback</p><p class="cb">A cloud of grains into a chorus with feedback, a 90 % delay and a hall with feedback of its own: the grain lanes and the three feedback paths grow a field out of one touch.</p><p class="cs"><b>5 states</b><span>Field</span> <span>Swarm</span> <span>Wide Open</span> <span>Breathing Field</span> <span>Overgrowth</span></p><p class="cl">12 lanes / 1 locked / One short note, then let the effects carry it</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="Bass"><h4>Grain Sub</h4><p class="cm">Serum 2 / Bass</p><p class="cb">A clean sub under a granular bass cloud: grain size, density and position turn the top end from smooth to shredded while the sub never moves.</p><p class="cs"><b>5 states</b><span>Shred</span> <span>Smooth Operator</span> <span>Scatter Roll</span> <span>Grain Wobble</span> <span>Shrapnel</span></p><p class="cl">11 lanes / 2 locked / Rolling sixteenths</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="FX"><h4>Granular Storm</h4><p class="cm">Serum 2 / FX</p><p class="cb">Hold a note and a storm rises out of two field recordings: wind grains climb through the sample while the high-pass opens and thunder grains roll underneath.</p><p class="cs"><b>5 states</b><span>Rising Storm</span> <span>Eye Of The Storm</span> <span>Gust Down</span> <span>Lightning</span> <span>Tornado</span></p><p class="cl">11 lanes / 1 locked / Hold a note. Runs on notes: each note from silence fires the scene again</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="Pad"><h4>Hyper Saw Sky</h4><p class="cm">Serum 2 / Pad</p><p class="cb">Seven-voice saws through a 36-pole phaser filter into Hyper/Dimension: the phaser center and resonance carry the euphoria.</p><p class="cs"><b>5 states</b><span>Sky</span> <span>Supernova</span> <span>Gated Sky</span> <span>Jet Trail</span> <span>Overload</span></p><p class="cl">13 lanes / 1 locked / Long chords</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="Feedback"><h4>Infinite Ping</h4><p class="cm">Serum 2 / Feedback</p><p class="cb">One bell strike into a ping-pong delay held near 100 % feedback: the delay times bend the echoes, the Bode shifter spirals them, the loop filter darkens them, and the clip lets go at the end.</p><p class="cs"><b>5 states</b><span>Ping</span> <span>Tape Bend</span> <span>Spiral</span> <span>Choke</span> <span>Meltdown</span></p><p class="cl">13 lanes / 1 locked / One short note, then let the effects carry it</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="Bass"><h4>Neuro Foundry</h4><p class="cm">Serum 2 / Bass</p><p class="cb">Bark and Talking Vox tables, sync plus tube warps, and a filter lane that jumps between the formant and scream filters: the talking, growling neuro machine.</p><p class="cs"><b>5 states</b><span>Talk</span> <span>Growl Roll</span> <span>Machine Gun</span> <span>Halftime Monster</span> <span>Rage</span></p><p class="cl">14 lanes / 1 locked / Rolling sixteenths</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="Feedback"><h4>Phaser Vortex</h4><p class="cm">Serum 2 / Feedback</p><p class="cb">A saw chord into a 90 % delay, then a phaser and a flanger both at heavy feedback: jets, whirlpools and screaming notches spun by Stride.</p><p class="cs"><b>5 states</b><span>Vortex</span> <span>Jet</span> <span>Notch Scream</span> <span>Whirlpool</span> <span>Tornado Alley</span></p><p class="cl">11 lanes / 1 locked / One short chord, then let the effects carry it</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="Bass"><h4>Reese Engine</h4><p class="cm">Serum 2 / Bass</p><p class="cb">Drifting saws in unison through the MG Ladder, a phaser you play by hand and Hyper/Dimension width: the reese from liquid to darkstep.</p><p class="cs"><b>5 states</b><span>Liquid</span> <span>Darkstep</span> <span>Wide Open</span> <span>Phaser Hand</span> <span>Engine Fire</span></p><p class="cl">13 lanes / 1 locked / Long notes</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="Pluck"><h4>Resonator Plucks</h4><p class="cm">Serum 2 / Pluck</p><p class="cb">A mallet table and a burst of noise struck into Serum&#x27;s comb filters: the comb frequency is a second, fixed pitch that rings against every note.</p><p class="cs"><b>5 states</b><span>Tuned Metal</span> <span>Ringing Wires</span> <span>Wood Block</span> <span>Gamelan</span> <span>Junkyard</span></p><p class="cl">12 lanes / 1 locked / Sixteenth arpeggios</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="FX"><h4>Robot Voice</h4><p class="cm">Serum 2 / FX</p><p class="cb">A speaking table quantized into steps, a second voice ring-modulated by a silent oscillator, formant filters and a Bode shifter: robots that talk, interrogate and short-circuit.</p><p class="cs"><b>5 states</b><span>Speak</span> <span>Interrogation</span> <span>Machine Choir</span> <span>Malfunction</span> <span>Short Circuit</span></p><p class="cl">13 lanes / 1 locked / Long notes</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="Feedback"><h4>Shimmer Vault</h4><p class="cm">Serum 2 / Feedback</p><p class="cb">One bell into echoes and a hall whose own feedback can hold it forever, with Hyper/Dimension and a high-pass in the chain: the reverb feedback lane decides whether it fades, freezes or blooms.</p><p class="cs"><b>5 states</b><span>Vault</span> <span>Freeze</span> <span>Bloom Pulse</span> <span>Choir Of Ghosts</span> <span>Crystal Storm</span></p><p class="cl">11 lanes / 1 locked / One short note, then let the effects carry it</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="Bass"><h4>Spectral Rumble</h4><p class="cm">Serum 2 / Bass</p><p class="cb">A reese resynthesized by the spectral engine: scan it, smear it, add subharmonics and close its band from the top down.</p><p class="cs"><b>5 states</b><span>Scan</span> <span>Subterranean</span> <span>Spectral Roll</span> <span>Band Squeeze</span> <span>Collapse</span></p><p class="cl">12 lanes / 1 locked / Long notes</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="Pad"><h4>Spectral Strings</h4><p class="cm">Serum 2 / Pad</p><p class="cb">A string section frozen by the spectral engine and smeared into glass, with a string table underneath: from silk to frost to phase-twisted ghosts.</p><p class="cs"><b>5 states</b><span>Silk</span> <span>Frost</span> <span>Ghosts</span> <span>Tremolo Bows</span> <span>Shatter Strings</span></p><p class="cl">10 lanes / 1 locked / Long chords</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="Feedback"><h4>Tape Monster</h4><p class="cm">Serum 2 / Feedback</p><p class="cb">A single vocal grain into a tape-style delay at 95 %: moving the delay times bends every repeat like a stretched tape, the loop filter and tube drive chew it, the gain lane chops it.</p><p class="cs"><b>5 states</b><span>Wow And Flutter</span> <span>Stretched</span> <span>Chewed</span> <span>Chopped Tape</span> <span>Tape Eater</span></p><p class="cl">12 lanes / 1 locked / One short note, then let the effects carry it</p></article><article class="mk-panel mk-card" data-synth="serum" data-role="Pluck"><h4>Vowel Pluck</h4><p class="cm">Serum 2 / Pluck</p><p class="cb">Every pluck says a syllable: Env 2 sweeps the speaking table and the formant filter, and the lanes choose the vowel, the mouth and how far it opens.</p><p class="cs"><b>5 states</b><span>Speak</span> <span>Chatter</span> <span>Whisper Arp</span> <span>Rubber Mouth</span> <span>Babble</span></p><p class="cl">13 lanes / 1 locked / Sixteenth arpeggios</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="Pad"><h4>Aurora Glass</h4><p class="cm">Vital / Pad</p><p class="cb">Glass partials smeared, a harmonic sweep through the spectral flanger, all inside a phaser filter: northern lights that fold and unfold over 16 bars.</p><p class="cs"><b>5 states</b><span>Aurora</span> <span>Curtains</span> <span>Solar Wind</span> <span>Pulse Light</span> <span>Magnetic Storm</span></p><p class="cl">10 lanes / 1 locked / Long chords</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="Pluck"><h4>Bell Stretch</h4><p class="cm">Vital / Pluck</p><p class="cb">Pure glass partials pulled apart by inharmonic stretch: the stretch lane takes a tuned pluck to a bell, a gong, a broken music box.</p><p class="cs"><b>5 states</b><span>Bells</span> <span>Music Box</span> <span>Gong Garden</span> <span>Echo Bells</span> <span>Broken Box</span></p><p class="cl">9 lanes / 1 locked / Sixteenth arpeggios</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="Pad"><h4>Deep Field</h4><p class="cm">Vital / Pad</p><p class="cb">Growl cells under a spectral low pass and a band of filtered noise through a diode filter: a dark, slow, deep-space bed.</p><p class="cs"><b>5 states</b><span>Deep Field</span> <span>Signal From Below</span> <span>Event</span> <span>Pulsar</span> <span>Supernova Remnant</span></p><p class="cl">9 lanes / 1 locked / Long chords</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="Pad"><h4>Disperse Clouds</h4><p class="cm">Vital / Pad</p><p class="cb">Eight unison voices of a harmonic sweep scattered by phase disperse and time skew: clouds that drift apart and gather again.</p><p class="cs"><b>5 states</b><span>Drift</span> <span>Gather</span> <span>Cloud Burst</span> <span>High Altitude</span> <span>Thunderhead</span></p><p class="cl">9 lanes / 1 locked / Long chords</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="Feedback"><h4>Echo Collapse</h4><p class="cm">Vital / Feedback</p><p class="cb">A low thump into a delay held at 100 % whose time collapses: the echoes speed up from half a second to a few milliseconds and everything in the loop rises with them, from sub to a screaming buzz, then the loop is clipped, filtered and thrown into a room.</p><p class="cs"><b>5 states</b><span>Collapse</span> <span>Power Down</span> <span>Bouncing Ball</span> <span>Event Horizon</span> <span>Singularity</span></p><p class="cl">10 lanes / 2 locked / One short note, then let the effects carry it</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="Feedback"><h4>Endless Echo</h4><p class="cm">Vital / Feedback</p><p class="cb">One glass strike into a dotted ping-pong delay held at 100 % feedback: the echoes never die, and everything after them folds, filters, phases and chops the endless stream until the clip lets go.</p><p class="cs"><b>5 states</b><span>Endless</span> <span>Division Shift</span> <span>Fold Bloom</span> <span>Gate Chop</span> <span>Echo Storm</span></p><p class="cl">12 lanes / 1 locked / One short note, then let the effects carry it</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="Bass"><h4>FM Ladder</h4><p class="cm">Vital / Bass</p><p class="cb">An FM table climbing from sine to metal, plus FM from a silent second oscillator whose pitch is a lane: stepped ratios, dirty filter, solid sub.</p><p class="cs"><b>5 states</b><span>Metal Roll</span> <span>Ratio Ladder</span> <span>Bell Bass</span> <span>Gear Grind</span> <span>Overclock</span></p><p class="cl">10 lanes / 2 locked / Rolling sixteenths</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="Feedback"><h4>Feedback Drone</h4><p class="cm">Vital / Feedback</p><p class="cb">One organ chord into a stereo delay of more than a second at 100 % and a twenty-second reverb: the chord becomes a drone that never ends, and slow lanes sweep its loop filter, phase filter, flanger and swells.</p><p class="cs"><b>5 states</b><span>Drone</span> <span>Tidal</span> <span>Time Smear</span> <span>Sinking</span> <span>Drone Fracture</span></p><p class="cl">12 lanes / 1 locked / One short chord, then let the effects carry it</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="Feedback"><h4>Flanger Abyss</h4><p class="cm">Vital / Feedback</p><p class="cb">A burst of noise into echoes and a flanger at 100 % feedback: the flanger rings forever at its Center note, so the pitch lane plays melodies on the ring, negative feedback drops it to a hollow octave, depth and rate turn it into jets.</p><p class="cs"><b>5 states</b><span>Abyss</span> <span>Jet Engine</span> <span>Hollow Octave</span> <span>Ring Melody</span> <span>Abyss Storm</span></p><p class="cl">12 lanes / 1 locked / One short note, then let the effects carry it</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="Feedback"><h4>Fold Loop</h4><p class="cm">Vital / Feedback</p><p class="cb">A pure sine echoing at 97 % into a wavefolder: as each repeat gets quieter the fold opens and closes on its own, and the fold, type and post filter lanes carve harmonics out of a signal that started with none.</p><p class="cs"><b>5 states</b><span>Fold</span> <span>Wavefolder Melt</span> <span>Fold Pulse</span> <span>Hollow Fold</span> <span>Fold Riot</span></p><p class="cl">12 lanes / 2 locked / One short note, then let the effects carry it</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="Bass"><h4>Formant Beast</h4><p class="cm">Vital / Bass</p><p class="cb">A speaking table into the formant filter with a formant wave morph on top: X and Y are the mouth, the sub keeps the floor, the filter after it decides how much it snarls.</p><p class="cs"><b>5 states</b><span>Mouth</span> <span>Snarl Roll</span> <span>Yapping</span> <span>Slow Jaw</span> <span>Rabid</span></p><p class="cl">11 lanes / 1 locked / Rolling sixteenths</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="Pluck"><h4>Formant Drops</h4><p class="cm">Vital / Pluck</p><p class="cb">Water drops that talk: Env 2 throws every pluck across the formant filter and the speaking table, the lanes pick where each drop lands.</p><p class="cs"><b>5 states</b><span>Drops</span> <span>Puddle Talk</span> <span>Rain Choir</span> <span>Gurgle</span> <span>Flood</span></p><p class="cl">10 lanes / 1 locked / Sixteenth arpeggios</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="Feedback"><h4>Ghost Reverb</h4><p class="cm">Vital / Feedback</p><p class="cb">One sung vowel into a slow delay held at 100 % and a reverb that can hang for a minute: the ghost lanes freeze it, darken it, make it warble and breathe, and every new spark adds another voice to the haunting.</p><p class="cs"><b>5 states</b><span>Haunt</span> <span>Freeze Frame</span> <span>Breathing Ghost</span> <span>Dark Cathedral</span> <span>Poltergeist</span></p><p class="cl">11 lanes / 1 locked / One short note, then let the effects carry it</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="FX"><h4>Glitch Organism</h4><p class="cm">Vital / FX</p><p class="cb">Something alive in the machine: growl cells and noise quantized, squeezed and randomized at the sixteenth, through a downsampler that eats the top end.</p><p class="cs"><b>5 states</b><span>Organism</span> <span>Breathing Machine</span> <span>Feeding</span> <span>Cell Division</span> <span>Mutation</span></p><p class="cl">11 lanes / 1 locked / Long notes</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="FX"><h4>Gravity Drop</h4><p class="cm">Vital / FX</p><p class="cb">Every note from silence drops: three oscillators dive up to four octaves through a ladder filter and drive, into a long room.</p><p class="cs"><b>5 states</b><span>Drop</span> <span>Freefall</span> <span>Bounce</span> <span>Orbit Decay</span> <span>Gravity Storm</span></p><p class="cl">8 lanes / 1 locked / Short notes. Runs on notes: each note from silence fires the scene again</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="Pad"><h4>Harmonic Shimmer</h4><p class="cm">Vital / Pad</p><p class="cb">Drawbars and glass two octaves up, both stretched by harmonic stretch: the partials tilt from organ to shimmer to something not quite tuned.</p><p class="cs"><b>5 states</b><span>Shimmer</span> <span>Tilting</span> <span>Cathedral Organ</span> <span>Prism Pulse</span> <span>Detuned Heaven</span></p><p class="cl">10 lanes / 1 locked / Long chords</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="Feedback"><h4>Karplus Strings</h4><p class="cm">Vital / Feedback</p><p class="cb">A click of noise into a delay a few milliseconds long at 100 % feedback becomes a plucked string: the delay time is the pitch, so the pitch lane plays it like a fretless, Sustain flips to a hollow octave below, and the fold turns it electric.</p><p class="cs"><b>5 states</b><span>Strings</span> <span>Fretless</span> <span>Hollow Octaves</span> <span>Electric</span> <span>Broken Harp</span></p><p class="cl">11 lanes / 2 locked / A short note every two bars, the loop keeps the rest</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="Pluck"><h4>Quantize Keys</h4><p class="cm">Vital / Pluck</p><p class="cb">Drawbar and pulse tables through Vital&#x27;s quantize wave morph: from clean organ plucks to 8-bit keys, one lane apart.</p><p class="cs"><b>5 states</b><span>Clean Keys</span> <span>Eight Bit</span> <span>Crunch Fade</span> <span>Toy Piano</span> <span>Pixel Storm</span></p><p class="cl">9 lanes / 1 locked / Sixteenth arpeggios</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="Pluck"><h4>Shepard Pluck</h4><p class="cm">Vital / Pluck</p><p class="cb">Plucks that never stop rising: the Shepard tone morph slides each note&#x27;s spectrum upward, a phaser filter and long echoes make the illusion endless.</p><p class="cs"><b>5 states</b><span>Endless</span> <span>Escalator</span> <span>Falling Forever</span> <span>Spiral Echo</span> <span>Paradox</span></p><p class="cl">10 lanes / 1 locked / Sixteenth arpeggios</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="FX"><h4>Signal Leak</h4><p class="cm">Vital / FX</p><p class="cb">Random amplitudes and data compression on noise and FM tables, into a comb and a bit crusher: interference, leaking transmissions, machine whispers.</p><p class="cs"><b>5 states</b><span>Leak</span> <span>Number Station</span> <span>Static Bloom</span> <span>Interference</span> <span>Breach</span></p><p class="cl">9 lanes / 1 locked / Long notes</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="Feedback"><h4>Space Station</h4><p class="cm">Vital / Feedback</p><p class="cb">FM blips into a stereo delay held at 96 %, left and right orbiting at their own times, then a resonant radio band, a phaser and a flanger: transmissions, docking beams and solar storms on a loop that never lands.</p><p class="cs"><b>5 states</b><span>Orbit</span> <span>Transmission</span> <span>Radio Scan</span> <span>Docking Beam</span> <span>Solar Storm</span></p><p class="cl">12 lanes / 1 locked / A short note every two bars, the loop keeps the rest</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="Bass"><h4>Squeeze Growl</h4><p class="cm">Vital / Bass</p><p class="cb">Phase-bent and pulse tables squeezed and bent by wave morphs into Vital&#x27;s comb filter: the comb pitch is the growl&#x27;s vowel.</p><p class="cs"><b>5 states</b><span>Squeeze</span> <span>Comb Vowels</span> <span>Wrench</span> <span>Lurker</span> <span>Mangle</span></p><p class="cl">9 lanes / 2 locked / Rolling sixteenths</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="FX"><h4>Starship Beacon</h4><p class="cm">Vital / FX</p><p class="cb">FM ratios from a silent oscillator a twelfth up, into ping-pong echoes: beacons, sonar pings, telemetry and a docking sequence.</p><p class="cs"><b>5 states</b><span>Sonar</span> <span>Telemetry</span> <span>Docking</span> <span>Distress</span> <span>Jammed</span></p><p class="cl">9 lanes / 1 locked / Short notes</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="Pluck"><h4>String Theory</h4><p class="cm">Vital / Pluck</p><p class="cb">Karplus-style strings: a burst of noise into a key-tracked comb filter at high feedback, so every note is a plucked string you can damp, brighten and detune.</p><p class="cs"><b>5 states</b><span>Nylon</span> <span>Steel</span> <span>Harp Sweep</span> <span>Sitar Buzz</span> <span>Prepared Piano</span></p><p class="cl">9 lanes / 1 locked / Sixteenth arpeggios</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="Bass"><h4>Sub Engine</h4><p class="cm">Vital / Bass</p><p class="cb">A pure sub that never moves, with a growl table an octave up through a diode filter and phase disperse: the movement lives above the floor.</p><p class="cs"><b>5 states</b><span>Engine</span> <span>Idle</span> <span>Turbo</span> <span>Exhaust</span> <span>Redline</span></p><p class="cl">9 lanes / 2 locked / Eighth and two sixteenths</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="Bass"><h4>Sync Reese</h4><p class="cm">Vital / Bass</p><p class="cb">Two detuned unison stacks on a sync-sweep table with Vital&#x27;s sync wave morph: the reese beats on its own, the sync carves the vowels into it.</p><p class="cs"><b>5 states</b><span>Breathing Reese</span> <span>Sync Talk</span> <span>Rolling Reese</span> <span>Dark Matter</span> <span>Sync Riot</span></p><p class="cl">11 lanes / 2 locked / Long notes</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="Feedback"><h4>Talking Loop</h4><p class="cm">Vital / Feedback</p><p class="cb">One bright chord caught in a 100 % delay loop and fed through a formant filter: Mouth X and Y make the endless chord speak, chant and babble, the throat shifts its size, and the echo time bends the whole choir.</p><p class="cs"><b>5 states</b><span>Talking Loop</span> <span>Whisper Chant</span> <span>Yapping Loop</span> <span>Choir Melt</span> <span>Babble Storm</span></p><p class="cl">11 lanes / 2 locked / One short chord, then let the effects carry it</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="Feedback"><h4>Tape Warp</h4><p class="cm">Vital / Feedback</p><p class="cb">One chord recorded onto an endless tape loop: the speed lanes are the delay times, so every move bends the pitch of everything already on the tape, into wow, flutter, stops and rewinds through saturation and a dirty filter.</p><p class="cs"><b>5 states</b><span>Wow</span> <span>Flutter</span> <span>Tape Stop</span> <span>Rewind</span> <span>Chewed Tape</span></p><p class="cl">10 lanes / 2 locked / One short chord, then let the effects carry it</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="Pad"><h4>Vocoded Choir</h4><p class="cm">Vital / Pad</p><p class="cb">The speaking table run through Vital&#x27;s vocode morph and the formant filter, over drawbars in formant scale: a choir that sings words it does not know.</p><p class="cs"><b>5 states</b><span>Hymn</span> <span>Chant</span> <span>Whisper Mass</span> <span>Stutter Choir</span> <span>Tongues</span></p><p class="cl">9 lanes / 2 locked / Long chords</p></article><article class="mk-panel mk-card" data-synth="vital" data-role="FX"><h4>Wormhole</h4><p class="cm">Vital / FX</p><p class="cb">Hold a note and fall through: a Shepard tone morph that rises forever while the filter, noise and flanger climb with it; let go and it hangs in space.</p><p class="cs"><b>5 states</b><span>Wormhole</span> <span>Hyperspace</span> <span>Collapse</span> <span>Tunnel Loop</span> <span>Spacetime Tear</span></p><p class="cl">10 lanes / 1 locked / Hold a note. Runs on notes: each note from silence fires the scene again</p></article><article class="mk-panel mk-card" data-synth="diva" data-role="FX"><h4>Alarm Planet</h4><p class="cm">Diva / FX</p><p class="cb">Digital pulse against feedback FM in a fast rotor: klaxons, red alerts, beacons and a planet in full panic.</p><p class="cs"><b>5 states</b><span>Klaxon</span> <span>Red Alert</span> <span>Beacon</span> <span>Evacuate</span> <span>Planet Panic</span></p><p class="cl">11 lanes / 1 locked / Long notes</p></article><article class="mk-panel mk-card" data-synth="diva" data-role="Bass"><h4>Bone Shaker</h4><p class="cm">Diva / Bass</p><p class="cb">A synced saw pair with a sub under it into a driven ladder that a synced, lagged LFO pumps in time, through a rotary amp and a phaser: rhythmic tech house and bass house movement built into the patch.</p><p class="cs"><b>5 states</b><span>Bone Groove</span> <span>Eighth Pump</span> <span>Triplet Shake</span> <span>Sync Breaker</span> <span>Bone Crusher</span></p><p class="cl">11 lanes / 1 locked / Rolling sixteenths</p></article><article class="mk-panel mk-card" data-synth="diva" data-role="Pad"><h4>Cold Fusion</h4><p class="cm">Diva / Pad</p><p class="cb">The digital multisaw against a triangle an octave up, through a rotary speaker: frozen, spinning and finally overdriven.</p><p class="cs"><b>5 states</b><span>Fusion</span> <span>Leslie Wind</span> <span>Cryo Pulse</span> <span>Frozen Lake</span> <span>Reactor</span></p><p class="cl">11 lanes / 1 locked / Long chords</p></article><article class="mk-panel mk-card" data-synth="diva" data-role="Pluck"><h4>Crystal Wrap</h4><p class="cm">Diva / Pluck</p><p class="cb">A wavefolded triangle and a digital pulse an octave up, through the Cascade filter into a long plate: glass, ice and digital rain.</p><p class="cs"><b>5 states</b><span>Crystal</span> <span>Ice Steps</span> <span>Frost Bloom</span> <span>Digital Rain</span> <span>Splinter</span></p><p class="cl">12 lanes / 1 locked / Sixteenth arpeggios</p></article><article class="mk-panel mk-card" data-synth="diva" data-role="FX"><h4>Dub Siren</h4><p class="cm">Diva / FX</p><p class="cb">Hold a note and the siren plays: the lanes are the siren, and the tape echo times shift under it on the bar.</p><p class="cs"><b>5 states</b><span>Classic Siren</span> <span>Rising Alarm</span> <span>Tape Bend</span> <span>Echo Throw</span> <span>Runaway</span></p><p class="cl">12 lanes / 1 locked / Hold a note</p></article><article class="mk-panel mk-card" data-synth="diva" data-role="Bass"><h4>Fuzz Sync</h4><p class="cm">Diva / Bass</p><p class="cb">Two hard-synced oscillators whose pitch the filter envelope sweeps on every note, into a driven ladder with chorus and a short slap echo: the electro and bass house sync scream.</p><p class="cs"><b>5 states</b><span>Sync Punch</span> <span>Electro Scream</span> <span>Fuzz Roll</span> <span>Sync Talk</span> <span>Red Alert</span></p><p class="cl">12 lanes / 1 locked / Eighth notes</p></article><article class="mk-panel mk-card" data-synth="diva" data-role="Bass"><h4>Hoover Rave</h4><p class="cm">Diva / Bass</p><p class="cb">Three pulse oscillators whose widths a slow LFO sweeps, one an octave down, into an open filter with drive and two choruses: the rave hoover.</p><p class="cs"><b>5 states</b><span>Mentasm</span> <span>Hoover Stabs</span> <span>Dark Rave</span> <span>Hard Hoover</span> <span>Hoover Storm</span></p><p class="cl">11 lanes / 1 locked / Long notes</p></article><article class="mk-panel mk-card" data-synth="diva" data-role="Pad"><h4>Juno Dream</h4><p class="cm">Diva / Pad</p><p class="cb">The DCO pad: pulse and saw with slow PWM, the Classic chorus and a big plate, breathing through 16 bars of light.</p><p class="cs"><b>5 states</b><span>Dream</span> <span>Breathing</span> <span>Pulse Pad</span> <span>Shimmer Haze</span> <span>Melting Tape</span></p><p class="cl">13 lanes / 1 locked / Long chords</p></article><article class="mk-panel mk-card" data-synth="diva" data-role="Pluck"><h4>Juno Stabs</h4><p class="cm">Diva / Pluck</p><p class="cb">Pulse plus saw through the Cascade filter and the Dramatic chorus: deep house stabs, chord echoes and a disco filter.</p><p class="cs"><b>5 states</b><span>Deep House</span> <span>Chord Echo</span> <span>Filter Disco</span> <span>Swing Organ</span> <span>Smear</span></p><p class="cl">13 lanes / 1 locked / Off-beat chord stabs</p></article><article class="mk-panel mk-card" data-synth="diva" data-role="FX"><h4>Laser Grid</h4><p class="cm">Diva / FX</p><p class="cb">A shot on the bar: pitch zaps on oscillator 3, a sync sweep that follows, FM bite and BITE filters.</p><p class="cs"><b>5 states</b><span>Laser</span> <span>Blaster Volley</span> <span>Charge Shot</span> <span>Ricochet</span> <span>Grid Meltdown</span></p><p class="cl">10 lanes / 1 locked / Short notes</p></article><article class="mk-panel mk-card" data-synth="diva" data-role="Pluck"><h4>Mallet Bite</h4><p class="cm">Diva / Pluck</p><p class="cb">Triangle and square crossed with cross-mod into the MS-20 style BITE filters, ringing on their own resonance: marimba, kalimba, steel and scrap metal.</p><p class="cs"><b>5 states</b><span>Marimba</span> <span>Kalimba Rain</span> <span>Steel Drum</span> <span>Bitten</span> <span>Metal Shop</span></p><p class="cl">11 lanes / 1 locked / Sixteenth arpeggios</p></article><article class="mk-panel mk-card" data-synth="diva" data-role="Pad"><h4>Phase Cathedral</h4><p class="cm">Diva / Pad</p><p class="cb">Saws through a deep phaser into the biggest plate: the phaser center and feedback carry the whole piece.</p><p class="cs"><b>5 states</b><span>Nave</span> <span>Jet Stream</span> <span>Chime Pulses</span> <span>Undersea</span> <span>Vortex</span></p><p class="cl">13 lanes / 1 locked / Long chords</p></article><article class="mk-panel mk-card" data-synth="diva" data-role="Bass"><h4>Reese Monster</h4><p class="cm">Diva / Bass</p><p class="cb">Three detuned saws and a pulse into a screaming BITE filter with mixer drive, a phaser and a chorus around it.</p><p class="cs"><b>5 states</b><span>Liquid</span> <span>Neuro Roll</span> <span>Halftime Talk</span> <span>Wide Open</span> <span>Reese Riot</span></p><p class="cl">12 lanes / 1 locked / Long notes</p></article><article class="mk-panel mk-card" data-synth="diva" data-role="FX"><h4>Riser Engine</h4><p class="cm">Diva / FX</p><p class="cb">Hold a note across the clip and it builds: one curve lifts the low cut, the noise, the feedback and the plate together, from the clip start to its end.</p><p class="cs"><b>5 states</b><span>4 Bar Rise</span> <span>8 Bar Rise</span> <span>Downlifter</span> <span>Impact Swell</span> <span>Tension Loop</span></p><p class="cl">11 lanes / 1 locked / Hold a note</p></article><article class="mk-panel mk-card" data-synth="diva" data-role="Pluck"><h4>Step Writer</h4><p class="cm">Diva / Pluck</p><p class="cb">Hold one note in sixteenths: the Transpose lane writes the melody, a second oscillator stacks the interval, and every scene is a new tune.</p><p class="cs"><b>5 states</b><span>Minor Run</span> <span>Pentatonic Rain</span> <span>Octave Jumper</span> <span>Fifth Circle</span> <span>Scale Chaos</span></p><p class="cl">13 lanes / 1 locked / One note in sixteenths: Stride writes the line</p></article><article class="mk-panel mk-card" data-synth="diva" data-role="Pluck"><h4>Sync Glass</h4><p class="cm">Diva / Pluck</p><p class="cb">Oscillator 2 hard-synced to a silent master: the sync ratio is the melody of the tone, swept, stepped and shattered.</p><p class="cs"><b>5 states</b><span>Glass</span> <span>Sweep</span> <span>Ping Pong</span> <span>Data Pluck</span> <span>Shatter</span></p><p class="cl">13 lanes / 1 locked / Sixteenth arpeggios</p></article><article class="mk-panel mk-card" data-synth="diva" data-role="Pad"><h4>Tape Drift</h4><p class="cm">Diva / Pad</p><p class="cb">Three saws with heavy drift into a wowing tape echo and a plate: a pad that sags, wobbles and melts like an old cassette.</p><p class="cs"><b>5 states</b><span>Warm Tape</span> <span>Warped Memory</span> <span>Seasick</span> <span>Dust Loop</span> <span>Melted</span></p><p class="cl">12 lanes / 1 locked / Long chords</p></article><article class="mk-panel mk-card" data-synth="diva" data-role="FX"><h4>Transmission</h4><p class="cm">Diva / FX</p><p class="cb">A droid on a shortwave band: Transpose S&amp;H chatter, a bandpass sweeping the static, a rotor for the radio speaker.</p><p class="cs"><b>5 states</b><span>Droid Talk</span> <span>Shortwave</span> <span>Morse</span> <span>Satellite</span> <span>Signal Lost</span></p><p class="cl">11 lanes / 1 locked / One note in sixteenths: Stride writes the line</p></article><article class="mk-panel mk-card" data-synth="diva" data-role="Pad"><h4>Wire Choir</h4><p class="cm">Diva / Pad</p><p class="cb">Three oscillators into the Uhbie filter used as a throat: its morph and cutoff sing vowels, from slow monks to glossolalia.</p><p class="cs"><b>5 states</b><span>Choir</span> <span>Wind Chant</span> <span>Monks</span> <span>Robot Hymn</span> <span>Glossolalia</span></p><p class="cl">11 lanes / 1 locked / Long chords</p></article><article class="mk-panel mk-card" data-synth="diva" data-role="Bass"><h4>Wobble Factory</h4><p class="cm">Diva / Bass</p><p class="cb">A DCO pulse with a square sub through a multimode filter that a synced LFO wobbles, drive in the mixer and a phaser on top.</p><p class="cs"><b>5 states</b><span>Rate Switch</span> <span>Speed Ride</span> <span>Yoi Talk</span> <span>Triplet Wobble</span> <span>Riddim Chop</span></p><p class="cl">12 lanes / 1 locked / Long notes</p></article><article class="mk-panel mk-card" data-synth="tendril" data-role="Seq"><h4>Acid Engine</h4><p class="cm">Tendril / Sequence</p><p class="cb">A squelching acid line on a resonant diode filter, a 12-step blip with echoes against it and a 7-step zap.</p><p class="cs"><b>5 states</b><span>Acid Line</span> <span>Squelch</span> <span>Half Time Acid</span> <span>Ratchet Roll</span> <span>Acid Meltdown</span></p><p class="cl">10 lanes / 2 locked / Press play: no MIDI needed</p></article><article class="mk-panel mk-card" data-synth="tendril" data-role="Seq"><h4>Arp Cascade</h4><p class="cm">Tendril / Sequence</p><p class="cb">Two arpeggios over an off-beat bass through Am, F, C and G: one running every sixteenth, a brighter one an octave up skipping steps.</p><p class="cs"><b>5 states</b><span>Cascade</span> <span>Falling</span> <span>Octave Run</span> <span>Breakdown</span> <span>Uplift</span></p><p class="cl">9 lanes / 3 locked / Press play: no MIDI needed</p></article><article class="mk-panel mk-card" data-synth="tendril" data-role="Pluck"><h4>Arp Crystals</h4><p class="cm">Tendril / Pluck</p><p class="cb">Hold a chord: two of Tendril&#x27;s arpeggiators run against each other, sixteenths and sixteenth triplets, and Stride plays their gates, styles and the crystal stretch.</p><p class="cs"><b>5 states</b><span>Crystals</span> <span>Two Clocks</span> <span>Cascade</span> <span>Frozen Arp</span> <span>Crystal Storm</span></p><p class="cl">10 lanes / 1 locked / Long chords</p></article><article class="mk-panel mk-card" data-synth="tendril" data-role="Seq"><h4>Chord Stepper</h4><p class="cm">Tendril / Sequence</p><p class="cb">A four-bar Am, F, C, G progression stepped out by three voices, one per row, with dub echoes on every hit.</p><p class="cs"><b>5 states</b><span>Deep Stabs</span> <span>Detroit</span> <span>Chord Pulse</span> <span>Dub Throws</span> <span>Filter Jam</span></p><p class="cl">10 lanes / 1 locked / Press play: no MIDI needed</p></article><article class="mk-panel mk-card" data-synth="tendril" data-role="Bass"><h4>Comb Sub</h4><p class="cm">Tendril / Bass</p><p class="cb">Comb notches cut through the partials while a resonant body rings under them: hollow, wooden and metallic basses over a fixed sub.</p><p class="cs"><b>5 states</b><span>Hollow</span> <span>Wood</span> <span>Metal Pipe</span> <span>Cave</span> <span>Junk Bass</span></p><p class="cl">9 lanes / 2 locked / Eighth and two sixteenths</p></article><article class="mk-panel mk-card" data-synth="tendril" data-role="Bass"><h4>Fold Snarl</h4><p class="cm">Tendril / Bass</p><p class="cb">Shape FX in fold mode into a sine-fold drive and the Scream filter: the fold amount is the snarl, the character lane its accent.</p><p class="cs"><b>5 states</b><span>Snarl</span> <span>Grinder</span> <span>Scream Talk</span> <span>Lurking</span> <span>Shred</span></p><p class="cl">10 lanes / 2 locked / Rolling sixteenths</p></article><article class="mk-panel mk-card" data-synth="tendril" data-role="Pad"><h4>Formant Choir</h4><p class="cm">Tendril / Pad</p><p class="cb">Three voices, each with its own vowel: formant and focus per engine plus Spectrum Formant, so the choir can sing in unison or in three different words.</p><p class="cs"><b>5 states</b><span>Unison</span> <span>Three Words</span> <span>Chant</span> <span>Ghost Choir</span> <span>Speaking In Tongues</span></p><p class="cl">10 lanes / 1 locked / Long chords</p></article><article class="mk-panel mk-card" data-synth="tendril" data-role="Pluck"><h4>Formant Keys</h4><p class="cm">Tendril / Pluck</p><p class="cb">Two vowels at once: the harmonic formant inside the engine and the formant filter after it, so every pluck speaks, chatters or sings.</p><p class="cs"><b>5 states</b><span>Speak</span> <span>Chatter</span> <span>Choir Plucks</span> <span>Wah Keys</span> <span>Babble</span></p><p class="cl">10 lanes / 1 locked / Sixteenth arpeggios</p></article><article class="mk-panel mk-card" data-synth="tendril" data-role="Seq"><h4>Generative Garden</h4><p class="cm">Tendril / Sequence</p><p class="cb">Ambient that writes itself: soft bells on 13 eighths, a warm resonant tone on 11 triplet eighths and a slow drone on 7 quarters, with chance on most steps so it keeps changing.</p><p class="cs"><b>5 states</b><span>Garden</span> <span>Rain Garden</span> <span>Night Bloom</span> <span>Wind Chimes</span> <span>Overgrowth</span></p><p class="cl">9 lanes / 4 locked / Press play: no MIDI needed</p></article><article class="mk-panel mk-card" data-synth="tendril" data-role="Pluck"><h4>Glass Comb</h4><p class="cm">Tendril / Pluck</p><p class="cb">Bright partials cut by the comb and sprinkled by Spectrum Twinkle: glass plucks that sparkle differently on every note.</p><p class="cs"><b>5 states</b><span>Glass</span> <span>Sparkle</span> <span>Prism Run</span> <span>Ice Cave</span> <span>Broken Glass</span></p><p class="cl">10 lanes / 1 locked / Sixteenth arpeggios</p></article><article class="mk-panel mk-card" data-synth="tendril" data-role="Seq"><h4>Glitch Sequencer</h4><p class="cm">Tendril / Sequence</p><p class="cb">Three broken clocks: a crushed stepping bass on 13 steps, pitch-zap bleeps in triplets on 11, noise clicks in 32nds with chance on every step, ratchets everywhere.</p><p class="cs"><b>5 states</b><span>Glitch Bits</span> <span>Stutter Logic</span> <span>Bit Rain</span> <span>Broken Clock</span> <span>Total Glitch</span></p><p class="cl">10 lanes / 3 locked / Press play: no MIDI needed</p></article><article class="mk-panel mk-card" data-synth="tendril" data-role="FX"><h4>Noise Grains</h4><p class="cm">Tendril / FX</p><p class="cb">Hold a note: Tendril&#x27;s arpeggiator retriggers a snap of noise up to 64 times a bar, so the rate lane is grain density and a resonant band-pass sculpts the stream into whooshes, wind and machines.</p><p class="cs"><b>5 states</b><span>Whoosh Up</span> <span>Whoosh Down</span> <span>Breathing Machine</span> <span>Wind Gusts</span> <span>Static Storm</span></p><p class="cl">8 lanes / 1 locked / Hold a note. Runs on notes: each note from silence fires the scene again</p></article><article class="mk-panel mk-card" data-synth="tendril" data-role="Bass"><h4>Partial Bass</h4><p class="cm">Tendril / Bass</p><p class="cb">One harmonic engine for the bite, one sine an octave down for the floor: formant, focus and partials sculpt the roll while the pitch envelope punches every note.</p><p class="cs"><b>5 states</b><span>Rolling Partials</span> <span>Talk Bass</span> <span>Punch Line</span> <span>Deep Slide</span> <span>Partial Storm</span></p><p class="cl">11 lanes / 2 locked / Rolling sixteenths</p></article><article class="mk-panel mk-card" data-synth="tendril" data-role="Seq"><h4>Partial Drums</h4><p class="cm">Tendril / Sequence</p><p class="cb">A drum machine built from partials: a pitch-dropped sine kick, a noise snare with a body that turns into toms, metallic hats.</p><p class="cs"><b>5 states</b><span>Four To The Floor</span> <span>Broken Beat</span> <span>Snare Rolls</span> <span>Tribal Toms</span> <span>Machine Melt</span></p><p class="cl">11 lanes / 2 locked / Press play: no MIDI needed</p></article><article class="mk-panel mk-card" data-synth="tendril" data-role="Seq"><h4>Poly Bells</h4><p class="cm">Tendril / Sequence</p><p class="cb">Three clocks of bells in A minor pentatonic: 16 steps of bells, 12 of glass, 7 of wooden mallets an eighth apart, so the line never repeats the same way.</p><p class="cs"><b>5 states</b><span>Three Clocks</span> <span>Shifting Meter</span> <span>Triplet Glass</span> <span>Chance Garden</span> <span>Clockwork Storm</span></p><p class="cl">10 lanes / 4 locked / Press play: no MIDI needed</p></article><article class="mk-panel mk-card" data-synth="tendril" data-role="Seq"><h4>Psy Roller</h4><p class="cm">Tendril / Sequence</p><p class="cb">A kick and a rolling bass on the three sixteenths between, with a resonant lead above.</p><p class="cs"><b>5 states</b><span>Psy Roll</span> <span>Gallop</span> <span>Breakdown</span> <span>Triplet Roll</span> <span>Full Power</span></p><p class="cl">10 lanes / 3 locked / Press play: no MIDI needed</p></article><article class="mk-panel mk-card" data-synth="tendril" data-role="FX"><h4>Repeat Storm</h4><p class="cm">Tendril / FX</p><p class="cb">Tendril&#x27;s glitch section played by Stride: repeat, crush and shift at the sixteenth, noise bursts and a crush drive, from tape stops to data storms.</p><p class="cs"><b>5 states</b><span>Stutter</span> <span>Tape Stop</span> <span>Data Rain</span> <span>Pitch Glitch</span> <span>Storm</span></p><p class="cl">8 lanes / 1 locked / Long notes</p></article><article class="mk-panel mk-card" data-synth="tendril" data-role="Seq"><h4>Sequenced Hive</h4><p class="cm">Tendril / Sequence</p><p class="cb">Press play and the hive runs itself: three sequenced rows of metallic ticks, ring-modulated chirps and dropping kicks on 14, 16 and 12 steps, a pattern lane arranging A to D.</p><p class="cs"><b>5 states</b><span>Hive</span> <span>Swarm</span> <span>Mechanism</span> <span>Arrangement</span> <span>Hive Meltdown</span></p><p class="cl">10 lanes / 1 locked / Press play: no MIDI needed</p></article><article class="mk-panel mk-card" data-synth="tendril" data-role="Seq"><h4>Talking Sequence</h4><p class="cm">Tendril / Sequence</p><p class="cb">Three voices through formant filters: a talking bassline, a chant on 12 steps and a yapping voice in triplets on 10.</p><p class="cs"><b>5 states</b><span>Talk Line</span> <span>Chant</span> <span>Yapping</span> <span>Robot Chant</span> <span>Babble Storm</span></p><p class="cl">10 lanes / 2 locked / Press play: no MIDI needed</p></article><article class="mk-panel mk-card" data-synth="tendril" data-role="Pad"><h4>Twinkle Field</h4><p class="cm">Tendril / Pad</p><p class="cb">Spectrum Twinkle and Sieve over a warm low engine: a field of partials switching on and off like stars, slow enough to sit under a whole track.</p><p class="cs"><b>5 states</b><span>Stars</span> <span>Constellations</span> <span>Meteor Pulse</span> <span>Dawn Field</span> <span>Supernova</span></p><p class="cl">9 lanes / 1 locked / Long chords</p></article></div>
+    
+    <div class="mk-more"><button class="mk-ghost" type="button" data-more>Show all</button></div>
+  </section>
+
+  <!-- ===================== HOW IT WORKS ===================== -->
+  <section class="mk-c mk-sec">
+    <div class="mk-h"><div><span class="mk-kick">How it works</span><h2>From the inbox to the first sound.</h2></div></div>
+    <div class="mk-steps">
+      <div class="mk-step"><div class="n">1</div><h4>Get the Collection, or your packs</h4><p>The download links come to your inbox right after checkout.</p></div>
+      <div class="mk-step"><div class="n">2</div><h4>Put them in your chains folder</h4><p>Unzip into <code>Documents\Stride\chains</code> (Mac: <code>~/Documents/Stride/chains</code>).</p></div>
+      <div class="mk-step"><div class="n">3</div><h4>Load, pick a state, press play</h4><p>Then make it yours: redraw a lane, reroll it, lock what you love.</p></div>
+    </div>
+  </section>
+
+  <!-- ===================== QUESTIONS ===================== -->
+  <section class="mk-c mk-sec mk-faq">
+    <div class="mk-h"><div><span class="mk-kick">Questions</span><h2>Before you pick.</h2></div></div>
+    <details open><summary>Do I need the synths?</summary><p>Yes. Each pack plays the synth it was built on: Serum 2, Vital, Diva or Tendril. Synths are not included. Take only the packs for the synths you have, or the whole Collection.</p></details>
+    <details><summary>Do I need Stride?</summary><p>Yes. StrideChains open in Stride, in every DAW, and Stride is what moves the racks.</p></details>
+    <details><summary>Do I need Ableton Live?</summary><p>Only for the racks. The sounds are samples for any DAW, and the StrideChains open in Stride wherever you run it.</p></details>
+    <details><summary>I already have the Experimental Collection.</summary><p>Then its sounds and racks are already yours. Take the StrideChains packs on their own.</p></details>
+    <details><summary>What is a state?</summary><p>A full take on the chain: the patch, the lanes, their ranges and their shapes. Five in each chain, five different directions from the same sound, one click apart.</p></details>
+    <details><summary>Which versions?</summary><p>Built on Serum 2.0.23, Vital 1.6.4, Diva 1.4.5 and Tendril 3.1.0.</p></details>
+    <details><summary>Can I change them?</summary><p>That is the point. Redraw any lane, move its range, unlock a knob, save your own states. The chain is yours to take apart.</p></details>
+  </section>
+
+  <section class="mk-c">
+    <div class="mk-end">
+      <p>Every chain is a place to start. <span class="brand">Where it goes is yours.</span></p>
+      <a class="mk-btn" href="#whole">Get the whole Collection</a>
+    </div>
+  </section>
+</main>
+
+<footer class="mk-c" style="padding-top:40px;padding-bottom:40px;margin-top:40px;border-top:1px solid var(--line)">
+  <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;font-size:14px;color:var(--ink3)">
+    <span style="font-family:'Space Mono',monospace">&copy; STRIDE | Sound Design Engine</span>
+    <div style="display:flex;gap:20px">
+      <a href="/" style="color:var(--ink3)">Stride</a>
+      <a href="/privacy.html" style="color:var(--ink3)">Privacy</a>
+      <a href="/terms.html" style="color:var(--ink3)">Terms</a>
+    </div>
+  </div>
+  <p class="mk-tm">Serum, Vital and Diva are trademarks of their respective owners. StrideChains are made by Stride and are not affiliated with or endorsed by them.</p>
+</footer>
+</div>
+
+<div class="mk-vpop" data-vpop role="dialog" aria-modal="true" aria-label="Stride Collection showcase">
+  <button type="button" class="x" aria-label="Close" data-vpop-close>&times;</button>
+  <video controls playsinline preload="none"></video>
+</div>
+
+<script>
+// ── The Stride Collection ────────────────────────────────────────────────────
+// The whole Collection, the packs, the sounds and racks, and the checkout. Prices are Paddle's: each
+// catalog price is quoted for this visitor (PricePreview), and the USD figures here only show until it
+// answers, as samples.html does with its $35. Nothing starts picked: the whole Collection above is the
+// one-price default. Picks are charged the cheapest way Paddle sells them: the packs one by one, All four
+// (one price, never the sum) or the whole Collection, whichever costs least, and the total says so. The
+// sounds and racks beside any pack are their "with something" price ($24.99), alone their own ($35).
+(function () {
+  'use strict';
+  var TOKEN = 'live_e0101b87a9e6e7024988534cf7b';
+  var PACKS = [{"key": "serum", "name": "Serum 2", "price": "pri_01m6nhsbz08y4ssqy1x7hp645e", "usd": 19, "ready": true, "n": 30}, {"key": "vital", "name": "Vital", "price": "pri_01m6nhscrmhzrv6x1882rprztt", "usd": 19, "ready": true, "n": 30}, {"key": "diva", "name": "Diva", "price": "pri_01m6nhsaq7ry0zfavc3ncyzcrn", "usd": 19, "ready": true, "n": 20}, {"key": "tendril", "name": "Tendril", "price": "pri_01m6nhsdkznzws5e322qzvtnce", "usd": 19, "ready": true, "n": 20}];
+  var ALL_FOUR = { price: 'pri_01m6nhsedq25h74mm6zf210njz', usd: 59 };
+  var WHOLE = { price: 'pri_01m6nnycexzy151nynszqdn87n', usd: 69 };
+  var COLL = { key: 'coll', withPacks: 'pri_01m2dghkc4dn53h2hrzw21ba2f', alone: 'pri_01m36e37ja1qnk0cdyy80va9eg', usdWith: 24.99, usdAlone: 35 };
+  // The showcase film (2026-11-05). Empty: the frame keeps its still and has no play button.
+  var SHOWCASE = { film16x9: '/media/collection/film/collection-showcase-1080.mp4', film9x16: '/media/collection/film/collection-showcase-9x16.mp4' };
+
+  function q(s, r) { return (r || document).querySelector(s); }
+  function qa(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
+  var ready = PACKS.filter(function (p) { return p.ready; });
+  var picked = {};
+  var coll = false;
+  // Local prices once Paddle answers: { id: { minor } }.
+  var local = {}, currency = 'USD', digits = 2;
+
+  function fmt(major, cur) {
+    cur = cur || currency;
+    var whole = Math.abs(major - Math.round(major)) < 1e-9;
+    try {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: cur,
+        minimumFractionDigits: whole ? 0 : undefined, maximumFractionDigits: whole ? 0 : undefined }).format(major);
+    } catch (e) { return '$' + (whole ? Math.round(major) : major.toFixed(2)); }
+  }
+  function price(id, usd) {
+    var l = local[id];
+    return l ? l.minor / Math.pow(10, digits) : usd;
+  }
+  function packPrice(p) { return price(p.price, p.usd); }
+  function collPrice(withPacks) { return withPacks ? price(COLL.withPacks, COLL.usdWith) : price(COLL.alone, COLL.usdAlone); }
+  function allPrice() { return price(ALL_FOUR.price, ALL_FOUR.usd); }
+  function wholePrice() { return price(WHOLE.price, WHOLE.usd); }
+
+  // What the picks cost, the cheapest way Paddle sells them. On a tie, the one with more in it.
+  function totals() {
+    var keys = ready.filter(function (p) { return picked[p.key]; });
+    var n = keys.length, any = !!(n || coll);
+    var sum = keys.reduce(function (a, p) { return a + packPrice(p); }, 0) + (coll ? collPrice(n > 0) : 0);
+    var opts = [{ mode: 'parts', rank: 0, now: sum }];
+    if (n && ready.length === PACKS.length) opts.push({ mode: 'all', rank: 1, now: allPrice() + (coll ? collPrice(true) : 0) });
+    if (any) opts.push({ mode: 'whole', rank: 2, now: wholePrice() });
+    opts.sort(function (a, b) { var d = a.now - b.now; return Math.abs(d) > 0.004 ? d : b.rank - a.rank; });
+    return { keys: keys, n: n, any: any, now: any ? opts[0].now : 0, sum: sum, mode: any ? opts[0].mode : 'parts' };
+  }
+
+  function chainsIn(keys) { return keys.reduce(function (a, p) { return a + p.n; }, 0); }
+  var TOTAL_CHAINS = chainsIn(PACKS);
+
+  function draw() {
+    qa('[data-pick]').forEach(function (tile) {
+      var k = tile.getAttribute('data-pick');
+      var on = k === 'coll' ? coll : !!picked[k];
+      tile.classList.toggle('on', on);
+      var b = q('.mk-add', tile);
+      if (b) { b.textContent = on ? '\u2713 In your cart' : 'Add to cart'; b.setAttribute('aria-pressed', on ? 'true' : 'false'); }
+      var pp = q('[data-p]', tile);
+      if (pp && k !== 'coll') {
+        var p = PACKS.filter(function (x) { return x.key === k; })[0];
+        if (p && p.ready) pp.firstChild.nodeValue = fmt(packPrice(p));
+      }
+      if (pp && k === 'coll') {
+        pp.firstChild.nodeValue = fmt(collPrice(true));
+        var sm = q('small', pp); if (sm) sm.textContent = 'with any pack, ' + fmt(collPrice(false)) + ' alone';
+      }
+    });
+    var t = totals(), chains = chainsIn(t.keys), what, sub;
+    if (!t.any) { what = 'Pick a pack'; sub = 'Nothing picked yet'; }
+    else if (t.mode === 'whole') {
+      what = 'The whole Collection';
+      sub = (t.n === PACKS.length && coll) ? TOTAL_CHAINS + ' StrideChains / 250+ sounds / 15 Ableton racks'
+                                           : 'Less than your picks, so all of it is yours';
+    } else if (t.mode === 'all') {
+      what = 'All four packs' + (coll ? ' + Sounds & Racks' : '');
+      sub = chains + ' StrideChains / ' + chains * 5 + ' states / the All four price';
+    } else if (t.n) {
+      what = t.n + (t.n === 1 ? ' pack' : ' packs') + (coll ? ' + Sounds & Racks' : '');
+      sub = chains + ' StrideChains / ' + chains * 5 + ' states' + (coll ? ' / 250+ sounds / 15 Ableton racks' : '');
+    } else {
+      what = 'Experimental Sounds & Racks'; sub = '250+ sounds / 15 Ableton racks';
+    }
+    q('[data-t-what]').textContent = what;
+    q('[data-t-sub]').textContent = sub;
+    var was = q('[data-t-was]');
+    was.hidden = !(t.any && t.sum > t.now + 0.004);
+    was.textContent = was.hidden ? '' : fmt(t.sum);
+    q('[data-t-now]').textContent = t.any ? fmt(t.now) : '';
+    q('[data-buy]').disabled = !t.any;
+    // The whole Collection's own price, and what the same things cost bought as parts.
+    var parts = allPrice() + collPrice(true), wn = q('[data-w-now]'), ww = q('[data-w-was]');
+    if (wn) wn.textContent = fmt(wholePrice());
+    if (ww) { ww.hidden = !(parts > wholePrice() + 0.004); q('[data-w-parts]').textContent = fmt(parts); }
+  }
+
+  document.addEventListener('click', function (e) {
+    var add = e.target.closest && e.target.closest('[data-pick] .mk-add');
+    if (add) {
+      var k = add.closest('[data-pick]').getAttribute('data-pick');
+      if (k === 'coll') coll = !coll; else picked[k] = !picked[k];
+      draw();
+      return;
+    }
+    // See the chains: the shelf, already showing that synth's.
+    var more = e.target.closest && e.target.closest('[data-shelf-synth]');
+    if (more) {
+      var tab = q('[data-tabs="synth"] [data-v="' + more.getAttribute('data-shelf-synth') + '"]');
+      if (tab) tab.click();
+      return;
+    }
+    if (e.target.closest && e.target.closest('[data-all]')) {
+      ready.forEach(function (p) { picked[p.key] = true; }); coll = true; draw();
+    }
+  });
+  // Every pack's preview reel and the sounds and racks' teaser: one plays at a time, on a press only.
+  (function () {
+    var all = qa('[data-hear]');
+    if (!all.length) return;
+    function audioOf(btn) { var box = btn.closest('.mk-pk'); return box ? box.querySelector('[data-hear-audio]') : null; }
+    function show(btn, playing) {
+      if (btn.classList.contains('mk-pplay')) {
+        btn.classList.toggle('on', playing);
+        btn.setAttribute('aria-label', (playing ? 'Pause the ' : 'Play the ') + btn.getAttribute('data-name') + ' sounds');
+        btn.closest('.mk-pk').classList.toggle('hearing', playing);
+      } else btn.innerHTML = (playing ? '&#10074;&#10074;' : '&#9654;') + '<span>' + (playing ? 'Pause' : 'Hear the sounds') + '</span>';
+    }
+    all.forEach(function (btn) {
+      var au = audioOf(btn);
+      if (!au) return;
+      btn.addEventListener('click', function () {
+        if (au.paused) {
+          all.forEach(function (b) { var a = audioOf(b); if (a && a !== au && !a.paused) { a.pause(); show(b, false); } });
+          var pr = au.play(); if (pr && pr.catch) pr.catch(function () { show(btn, false); });
+          show(btn, true);
+          var k = btn.getAttribute('data-key');
+          try { if (window.strideClarity) window.strideClarity(k ? 'collection_hear_' + k : 'collection_hear'); } catch (e) {}
+        } else { au.pause(); show(btn, false); }
+      });
+      au.addEventListener('timeupdate', function () { if (au.duration) btn.style.setProperty('--prog', (100 * au.currentTime / au.duration).toFixed(2)); });
+      au.addEventListener('ended', function () { show(btn, false); au.currentTime = 0; btn.style.setProperty('--prog', 0); });
+    });
+  })();
+
+  // ── Paddle ──
+  var paddleOn = false;
+  function custom() {
+    function ck(re) { var m = document.cookie.match(re); return m ? decodeURIComponent(m[1]) : ''; }
+    var fbc = ck(/(?:^|; )_fbc=([^;]*)/);
+    var o = { fbc: fbc, fbp: ck(/(?:^|; )_fbp=([^;]*)/),
+              external_id: window.strideXid ? window.strideXid() : ck(/(?:^|; )stride_xid=([^;]*)/),
+              ua: (navigator.userAgent || '').slice(0, 512), source: 'collection' };
+    try { o.fbclid = localStorage.getItem('stride_fbclid') || (fbc ? fbc.split('.').pop() : ''); } catch (e) {}
+    var ad = (window.strideAdMarkers ? window.strideAdMarkers() : {});
+    if (ad.ad_id) o.ad_id = ad.ad_id;
+    var ref = window.strideReferral ? window.strideReferral() : '';
+    if (ref) o.affonso_referral = ref;
+    return o;
+  }
+  function init() {
+    if (paddleOn) return true;
+    if (!window.Paddle) return false;
+    try {
+      Paddle.Initialize({ token: TOKEN, eventCallback: function (ev) {
+        try { if (window.strideClarity) window.strideClarity.paddle(ev, 'collection'); } catch (e) {}
+        try {
+          if (ev && ev.name === 'checkout.completed' && ev.data && ev.data.transaction_id) {
+            sessionStorage.setItem('stride_last_txn', String(ev.data.transaction_id));
+            var paid = Number((ev.data.totals || {}).total);
+            if (paid > 0 && ev.data.currency_code) {
+              sessionStorage.setItem('stride_checkout_value', JSON.stringify({ value: paid, currency: String(ev.data.currency_code) }));
+            }
+            // The record welcome.html's GA4 purchase fires from. No event id: this sale's Meta
+            // Purchase is the server's alone, as the Collection's is.
+            var st = String(ev.data.status || '');
+            if ((!st || st === 'completed' || st === 'paid') && paid > 0 && ev.data.currency_code) {
+              sessionStorage.setItem('stride_paid', JSON.stringify({ txn: String(ev.data.transaction_id), eid: '', value: 0,
+                total: Math.round(paid * 100) / 100, currency: String(ev.data.currency_code), ts: Date.now() }));
+            } else {
+              sessionStorage.removeItem('stride_paid');
+            }
+          }
+        } catch (e2) {}
+      } });
+      paddleOn = true;
+    } catch (e) { return false; }
+    return true;
+  }
+  var FAILED = 'Checkout could not open. Please try again, or write to home@stridehub.io.';
+  function note(sel, text) { var el = q(sel); el.textContent = text || ''; el.hidden = !text; }
+
+  function checkout(items, amount, noteSel, clarityName) {
+    if (!init()) { note(noteSel, FAILED); return; }
+    try {
+      var value = { value: Math.round(amount * 100) / 100, currency: currency };
+      try { if (window.StrideTrack) StrideTrack.push('begin_checkout', value); } catch (e2) {}
+      try { sessionStorage.setItem('stride_checkout_value', JSON.stringify(value)); } catch (e2) {}
+      try { if (window.strideClarity) window.strideClarity(clarityName); } catch (e2) {}
+      Paddle.Checkout.open({ items: items, customData: custom(),
+        settings: { displayMode: 'overlay', variant: 'one-page', theme: 'dark', successUrl: 'https://stridehub.io/welcome.html' } });
+      note(noteSel, '');
+    } catch (e) { note(noteSel, FAILED); }
+  }
+
+  q('[data-buy-whole]').addEventListener('click', function () {
+    checkout([{ priceId: WHOLE.price, quantity: 1 }], wholePrice(), '[data-wnote]', 'collection_checkout_whole');
+  });
+  q('[data-buy]').addEventListener('click', function () {
+    var t = totals();
+    if (!t.any) return;
+    var one = function (id) { return { priceId: id, quantity: 1 }; };
+    var items = t.mode === 'whole' ? [one(WHOLE.price)]
+      : t.mode === 'all' ? [one(ALL_FOUR.price)].concat(coll ? [one(COLL.withPacks)] : [])
+      : t.keys.map(function (p) { return one(p.price); }).concat(coll ? [one(t.n ? COLL.withPacks : COLL.alone)] : []);
+    checkout(items, t.now, '[data-buy-note]', 'collection_checkout');
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    draw();
+    if (!init()) return;
+    var ids = ready.map(function (p) { return p.price; });
+    if (ready.length === PACKS.length) ids.push(ALL_FOUR.price);
+    ids.push(COLL.withPacks, COLL.alone, WHOLE.price);
+    try {
+      Paddle.PricePreview({ items: ids.map(function (id) { return { priceId: id, quantity: 1 }; }) })
+        .then(function (res) {
+          var d = (res || {}).data || {}, lis = (d.details || {}).lineItems || [];
+          currency = d.currencyCode || currency;
+          try { digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: currency }).resolvedOptions().minimumFractionDigits; } catch (e) {}
+          lis.forEach(function (li) {
+            var minor = parseInt((li.totals || {}).total, 10);
+            if (li.price && li.price.id && isFinite(minor) && minor > 0) local[li.price.id] = { minor: minor };
+          });
+          draw();
+        }).catch(function () {});
+    } catch (e) {}
+  });
+  draw();
+
+  // ── The shelf: filter by synth and by role, nine at a time until "Show all". ──
+  var synth = 'all', role = 'all', open = false, PAGE = 9;
+  function shelf() {
+    var cards = qa('[data-shelf] .mk-card'), shown = 0, matched = 0;
+    cards.forEach(function (c) {
+      var hit = (synth === 'all' || c.getAttribute('data-synth') === synth) && (role === 'all' || c.getAttribute('data-role') === role);
+      if (hit) matched++;
+      var vis = hit && (open || shown < PAGE);
+      if (vis) shown++;
+      c.classList.toggle('out', !vis);
+    });
+    var empty = q('[data-shelf] .mk-empty');
+    if (!matched && !empty) { empty = document.createElement('p'); empty.className = 'mk-empty'; q('[data-shelf]').appendChild(empty); }
+    if (empty) { empty.hidden = !!matched; empty.textContent = 'Nothing here yet.'; }
+    var more = q('[data-more]');
+    more.parentNode.hidden = matched <= PAGE;
+    more.textContent = open ? 'Show fewer' : 'Show all ' + matched;
+  }
+  qa('[data-tabs]').forEach(function (bar) {
+    bar.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b || b.disabled) return;
+      qa('button', bar).forEach(function (x) { x.classList.toggle('on', x === b); });
+      if (bar.getAttribute('data-tabs') === 'synth') synth = b.getAttribute('data-v'); else role = b.getAttribute('data-v');
+      open = false; shelf();
+    });
+  });
+  q('[data-more]').addEventListener('click', function () { open = !open; shelf(); });
+  shelf();
+
+  // ── The showcase ──
+  var pop = q('[data-vpop]'), vid = pop && q('video', pop), playBtn = q('[data-showcase-play]');
+  var phone = window.matchMedia && window.matchMedia('(max-width: 640px)').matches;
+  var film = phone ? (SHOWCASE.film9x16 || SHOWCASE.film16x9) : (SHOWCASE.film16x9 || SHOWCASE.film9x16);
+  if (film && playBtn) {
+    playBtn.hidden = false;
+    playBtn.addEventListener('click', function () {
+      if (!vid.src) vid.src = film;
+      pop.classList.add('on'); document.body.style.overflow = 'hidden';
+      var pr = vid.play(); if (pr && pr.catch) pr.catch(function () {});
+      try { if (window.strideClarity) window.strideClarity('collection_showcase'); } catch (e) {}
+    });
+  }
+  function closePop() { if (!pop) return; pop.classList.remove('on'); document.body.style.overflow = ''; try { vid.pause(); } catch (e) {} }
+  if (pop) {
+    pop.addEventListener('click', function (e) { if (e.target === pop || e.target.closest('[data-vpop-close]')) closePop(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closePop(); });
+  }
+})();
+</script>
+</body>
+</html>

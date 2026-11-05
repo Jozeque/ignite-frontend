@@ -594,13 +594,81 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   [hidden]{display:none!important}
 
   /* The offer language, identical to session.html so the two offers read as one system. */
-  .offer-flag{display:inline-flex;align-items:center;gap:8px;margin:0 0 16px;padding:5px 11px 5px 9px;
-    border-radius:999px;border:1px solid rgba(221,154,82,.34);background:rgba(198,113,43,.12);
-    color:var(--copper-lt);font-size:10px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
-  .offer-dot{width:6px;height:6px;border-radius:999px;background:var(--copper-lt);
-    animation:offerPulse 2s ease-out infinite}
-  @keyframes offerPulse{0%{box-shadow:0 0 0 0 rgba(221,154,82,.55)}100%{box-shadow:0 0 0 7px rgba(221,154,82,0)}}
-  @media (prefers-reduced-motion:reduce){ .offer-dot{animation:none} }
+  /* The offer's label is plain floating text (Yossi 2026-10-22: no outlined pill, no dot). */
+  .offer-flag{display:block;margin:0 0 12px;color:var(--copper-lt);font-size:11px;font-weight:900;letter-spacing:.18em;text-transform:uppercase}
+
+  /* StrideChains (2026-11-05): what they are and the showcase side by side, the picks under the words;
+     one column on a phone, the showcase between the words and the picks. */
+  .og{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,16.5rem);grid-template-areas:"h b" "r r" "s s";column-gap:28px;align-items:start}
+  .og-h{grid-area:h} .og-b{grid-area:b} .og-s{grid-area:s;margin-top:24px;max-width:22rem} .og-rows{grid-area:r}
+  .og-b .buy-col{display:block}
+  .offer-hint{margin:8px 0 0;font-size:12.5px;line-height:1.5;font-weight:700;color:var(--copper-lt)}
+  @media (max-width:767px){ .og{grid-template-columns:1fr;grid-template-areas:"h" "b" "r" "s"} .og-b{margin-top:18px} .og-s{max-width:none} }
+  .ol{margin:8px 0 0;font-size:15.5px;line-height:1.55;color:var(--ink2)}
+  /* The sub-hero's facts stand out (Yossi 2026-11-05): the offer in copper, the numbers in white. */
+  .ol b{color:var(--ink);font-weight:800}
+  .ol b.hl{color:var(--copper-lt)}
+  /* The showcase: 16:9 on every screen. A still until SHOWCASE names the film. */
+  .sc{position:relative;aspect-ratio:16/9;margin:4px 0 0;border-radius:14px;overflow:hidden;border:1px solid rgba(198,113,43,.28);background:#0f0e0c;
+    box-shadow:0 26px 50px -28px rgba(0,0,0,.95),0 0 50px -24px rgba(198,113,43,.2)}
+  .sc img{display:block;width:100%;height:100%;object-fit:cover}
+  .sc-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border:0;padding:0;margin:0;cursor:pointer;background:rgba(8,7,5,.28)}
+  .sc-play span{width:56px;height:56px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:rgba(198,113,43,.94);
+    box-shadow:0 10px 30px -8px rgba(0,0,0,.7)}
+  /* The picks: plain rows on hairlines inside the panel (no box in a box), a switch on each. */
+  /* The parts as cards (2026-11-05), all in the cart to start: a disc of colour with the synth's logo peeking out
+     behind each card, as on /collection/. A press on a card takes it out of the cart and puts it back. */
+  .rows{margin-top:24px}
+  .pcs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:22px 10px}
+  .prow{position:relative;display:flex;flex-direction:column;align-items:center;cursor:pointer;user-select:none;text-align:center;min-width:0}
+  /* PLAY on each disc (2026-11-05): the part's preview reel. The ring fills as it plays (--prog). */
+  .pc-play{position:absolute;z-index:3;top:-4px;left:calc(50% + 20px);width:32px;height:32px;padding:0;border:0;border-radius:50%;cursor:pointer;
+    background:conic-gradient(#f4ede2 calc(var(--prog,0) * 1%),rgba(18,15,11,.9) 0);box-shadow:0 8px 18px -8px rgba(0,0,0,.95);transition:transform .15s}
+  .pc-play::before{content:'';position:absolute;inset:2px;border-radius:50%;background:radial-gradient(circle at 34% 28%,rgba(255,255,255,.35),transparent 55%),var(--a)}
+  .pc-play i{position:absolute;inset:0;display:block}
+  .pc-play i::before{content:'';position:absolute;top:50%;left:54%;width:0;height:0;transform:translate(-50%,-50%);
+    border-style:solid;border-width:6px 0 6px 10px;border-color:transparent transparent transparent #fff}
+  .pc-play.on i::before{left:50%;width:9px;height:11px;border:0;background:linear-gradient(90deg,#fff 0 35%,transparent 35% 65%,#fff 65%)}
+  .pc-play:hover{transform:scale(1.08)}
+  .pc-play:focus-visible{outline:2px solid var(--copper-lt);outline-offset:2px}
+  .pc-disc{position:relative;z-index:0;flex:none;width:84px;height:84px;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;
+    background:radial-gradient(circle at 30% 26%,rgba(255,255,255,.22),transparent 42%),radial-gradient(circle at 72% 80%,rgba(0,0,0,.6),transparent 56%),
+               conic-gradient(from 200deg,var(--a),var(--b) 30%,var(--a) 55%,var(--b) 80%,var(--a));
+    box-shadow:0 0 0 5px #24201a,0 0 0 6px rgba(216,201,176,.16),0 16px 30px -16px rgba(0,0,0,.9);transition:filter .15s,opacity .15s}
+  .pc-disc img{position:relative;max-width:72%;max-height:46%;width:auto;height:auto;filter:drop-shadow(0 4px 10px rgba(0,0,0,.65))}
+  .pc-disc img.wide{max-width:88%}
+  .pc-disc.art img{max-width:none;max-height:none;width:100%;height:100%;object-fit:cover;filter:none}
+  .pc-disc .w{position:relative;font-size:12.5px;font-weight:900;letter-spacing:.04em;color:#f4ede2;text-shadow:0 3px 10px rgba(0,0,0,.6)}
+  .pc-disc .w.tdr{font-size:8.5px;font-weight:800;letter-spacing:.34em;margin-left:.34em;color:var(--copper-lt)}
+  .pc-b{position:relative;z-index:1;align-self:stretch;flex:1;display:flex;flex-direction:column;margin-top:-26px;padding:16px 8px 12px;border-radius:14px;
+    background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(0,0,0,.12)),#221f19;border:1px solid var(--line);transition:border-color .15s,opacity .15s}
+  .prow.on .pc-b{border-color:rgba(221,154,82,.55);box-shadow:0 0 0 1px rgba(221,154,82,.2)}
+  .prow .nm{display:block}
+  .prow .nm b{display:block;font-size:14px;line-height:1.15;color:var(--ink);text-transform:uppercase;letter-spacing:.03em}
+  .prow .nm span{display:block;margin-top:3px;font-size:11px;line-height:1.35;color:var(--ink3)}
+  .prow .pc-cat{font-size:10.5px;line-height:1.3;color:var(--ink2);margin-bottom:4px}
+  .prow .pp{margin-top:8px;font-size:14.5px;font-weight:900;color:var(--ink);white-space:nowrap}
+  .prow .pp s{font-size:12px;font-weight:700;color:var(--ink3);margin-right:4px;text-decoration-thickness:2px;text-decoration-color:rgba(221,154,82,.85)}
+  .prow .pc-st{margin-top:auto;padding-top:9px;font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--copper-lt)}
+  .prow:not(.on):not(.owned) .pc-st{color:var(--copper-lt)}
+  .prow:not(.on):not(.owned) .pc-disc{filter:grayscale(.85);opacity:.55}
+  .prow:not(.on):not(.owned) .pc-b > :not(.pc-st){opacity:.6}
+  .prow.owned{cursor:default}
+  .prow.owned .pp{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#8fae86}
+  .prow:focus-visible{outline:none}
+  .prow:focus-visible .pc-b{outline:2px solid var(--copper-lt);outline-offset:2px}
+  @media (max-width:639px){ .pcs{grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 12px} .pc-disc{width:92px;height:92px}
+    .pcs > .prow:last-child:nth-child(odd){grid-column:1 / -1;justify-self:center;width:calc(50% - 6px)} }
+  .bundle{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:18px;padding:14px 4px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+    font-size:14px;font-weight:800;color:var(--copper-lt)}
+  .bundle b{font-size:15px;color:var(--ink)}
+  .bundle small{display:block;margin-top:3px;font-size:12px;font-weight:600;color:var(--ink3)}
+  .was-l{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
+  .offer-needs{margin:10px 0 0;font-size:12.5px;line-height:1.55;color:var(--ink3);max-width:28rem}
+  .cta[disabled]{opacity:.5;cursor:default;transform:none}
+  .sc-pop{position:fixed;inset:0;z-index:1200;background:rgba(8,7,6,.92);display:none;align-items:center;justify-content:center;padding:1.25rem}
+  .sc-pop.on{display:flex}
+  .sc-pop video{width:100%;max-width:1000px;max-height:88vh;border-radius:12px;outline:none;background:#000}
   .price{font-weight:900;letter-spacing:-.02em;color:var(--ink);line-height:1}
   .price-was{font-size:1.6rem;font-weight:800;letter-spacing:-.01em;line-height:1;color:var(--ink3);opacity:.75;
     text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:rgba(221,154,82,.6)}
@@ -650,6 +718,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      copper button and read as fine print, so someone who had just paid could not see how
      to move on. It is a real secondary button now, in the same shape the rest of the site
      uses for "not this, the other one", and still clearly quieter than the offer. */
+  .hd{display:flex;align-items:flex-end;justify-content:space-between;gap:14px 24px;flex-wrap:wrap}
+  .hd .skip{margin-top:0;flex:none}
   .skip{display:inline-flex;align-items:center;gap:.4rem;margin-top:20px;
     padding:12px 22px;border-radius:999px;font-size:15px;font-weight:800;
     color:var(--ink2);background:rgba(255,255,255,.03);border:1px solid var(--line);
@@ -674,7 +744,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .gate{visibility:hidden}
   .gate.ready{visibility:visible}
 </style>
-<link rel="stylesheet" href="/_legacy/css/post2-index.146fd9e5b7.css">
+<link rel="stylesheet" href="/_legacy/css/post2-index.91fb4dcbf2.css">
 <meta property="og:image" content="https://stridehub.io/media/stride/og/stride-share-1200x630.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -748,84 +818,68 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- End Google Tag Manager (noscript) -->
 <div class="wrap">
-  <nav class="max-w-3xl mx-auto px-6 py-6 flex items-center justify-between">
+  <nav class="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
     <a href="/index.html" class="flex items-center gap-2.5 group">
       <span class="text-3xl font-black brand tracking-tighter leading-none">STRIDE</span>
     </a>
   </nav>
 
-  <main class="max-w-3xl mx-auto px-6 pt-4 pb-16 sm:pt-8 sm:pb-20">
+  <main class="max-w-3xl mx-auto px-6 pt-1 pb-16 sm:pt-2 sm:pb-20">
 
-    <header class="mb-8">
-      <p class="silk mb-3" style="color:var(--copper-lt)">Payment complete</p>
-      <h1 class="text-3xl sm:text-4xl leading-[1.1] mb-3">Your Stride setup is ready.</h1>
-      <p class="text-base sm:text-lg ink2 leading-relaxed">Before you jump in, one thing you might want with it.</p>
+    <!-- The way on sits up here, beside the welcome, on the first screen (Yossi 2026-11-05: "you can't see how to move
+         on here, the NO THANKS button has to go up, not at the bottom of the page"). It shows before the offer has
+         resolved, so its markup address is the product; the script points it where this buyer goes. -->
+    <header class="mb-5 hd">
+      <div>
+        <p class="silk mb-2" style="color:var(--copper-lt)">Payment complete</p>
+        <h1 class="text-2xl sm:text-3xl leading-[1.15]">Before you jump in, one thing you might want with it.</h1>
+      </div>
+      <a class="skip" href="/welcome.html" data-skip>No thanks &rarr;</a>
     </header>
 
-    <section class="panel p-6 sm:p-8 gate" id="offer">
-      <div class="offer-flag"><span class="offer-dot" aria-hidden="true"></span>New Stride owner price</div>
-
-      <!-- What it is on the left, what it looks like on the right. The covers are the
-           same object /samples leads with, so a buyer who saw the pack there recognises
-           it here instead of being asked to buy a list. One column on a phone, where the
-           art goes under the words rather than squeezing them. The price, the clock and
-           the button stay full width below: this panel has one action. -->
-      <div class="grid sm:grid-cols-[1fr_minmax(0,17rem)] gap-6 sm:gap-8 items-start">
-        <div>
-          <h2 class="text-2xl sm:text-3xl uppercase tracking-tight leading-tight mb-1">Stride Experimental Collection</h2>
-
-          <ul class="inv">
-            <li><span class="n">250+</span><span>sounds</span></li>
-            <li><span class="n">15</span><span>Ableton Racks, pre-mapped with Stride FX</span></li>
-            <li><span class="n">4</span><span>StrideChains</span></li>
-          </ul>
+    <section class="panel p-5 sm:p-7 gate" id="offer">
+      <!-- The Stride Collection (Yossi 2026-11-05: "a full discount on everything", "the option to take things
+           out", "48 hours from the moment of purchase", "about 50% off everything"): the four StrideChains packs
+           and the Experimental Sounds & Racks at half their public price, all on to start, each one switchable.
+           Prices are the backend's (post_purchase_offers: chains), never this markup's, and so is the checkout
+           (chains_checkout), inside the buyer's 48 hours. Anything they already own shows as theirs and is left
+           out. The rows are drawn by the script once the offer is known. -->
+      <div class="og">
+        <div class="og-h">
+          <p class="offer-flag">Special offer for new Stride owners</p>
+          <h2 class="text-2xl sm:text-3xl uppercase tracking-tight leading-tight">The Stride Collection</h2>
+          <p class="ol"><b class="hl">Half price on everything</b> for <b>48 hours</b>: <b>100 StrideChains</b> for Serum 2, Vital, Diva and Tendril, every lane mapped and ranged with <b>five states</b> in each, plus <b>250+ experimental sounds</b> and <b>15 Ableton racks</b>. It is all in your cart already: switch off what you don't need.</p>
         </div>
-
-        <!-- The stack is the play surface, as it is on /samples. The covers are already
-             on this domain, so nothing new ships to serve them. -->
-        <button type="button" class="stack" aria-label="Play the Experimental Collection teaser"
-                onclick="strideTeaser(true)"
-                style="width:100%;padding:0;border:0;background:none;cursor:pointer;position:relative"><!-- no display here on purpose: .stack sets flex, and overriding it stacks the three sleeves vertically -->
-          <figure class="sleeve"><img src="/assets/packs/pack-drums.jpg" alt="Vol. 1 Broken Drums" width="900" height="900" loading="eager"></figure>
-          <figure class="sleeve"><img src="/assets/packs/pack-water.jpg" alt="Vol. 2 One Drop" width="900" height="900" loading="eager"></figure>
-          <figure class="sleeve"><img src="/assets/packs/pack-feedback.jpg" alt="Vol. 3 Feedback" width="900" height="900" loading="eager"></figure>
-          <span aria-hidden="true"
-                style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-                       width:56px;height:56px;border-radius:999px;display:flex;
-                       align-items:center;justify-content:center;z-index:5;
-                       background:rgba(198,113,43,.94);box-shadow:0 10px 30px -8px rgba(0,0,0,.7)">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="#1c1206"
-                 style="margin-left:3px"><path d="M8 5v14l11-7z"/></svg>
-          </span>
-        </button>
-      </div>
-
-      <!-- The clock reads before the price, not after it. This is the first screen after a
-           purchase and the window is the reason to decide now, so it has to be read on the
-           way IN to the number rather than found underneath it. -->
-      <p class="offer-clock mt-8" role="timer">Available for the next <b data-left>72 hours</b></p>
-      <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <del class="price-was"><span class="sr-only">Full price </span><span data-was>$24.99</span></del>
-        <div class="price text-4xl sm:text-5xl" data-now>$19</div>
-      </div>
-
-      <div class="mt-7">
-        <div class="buy-col">
-          <button type="button" class="cta btn-copper px-8 py-4 text-sm uppercase w-full sm:w-auto" data-buy>Add it for <span data-cta-price>$19</span></button>
-          <!-- Apple Pay / Google Pay, one tap, no form. Paddle renders Apple's and Google's own
-               button in a cross-origin frame, so it cannot be restyled from here, and it shows
-               nothing at all on a device that cannot pay that way. This is the page's only
-               inline checkout: Paddle keeps ONE per page, so the button's overlay closes it.
-               The container starts WITHOUT `hidden`: Paddle must mount its frame into a
-               laid-out element. Empty, it measures 0px and shows nothing. -->
-          <div class="wallet">
-            <div class="paddle-express-checkout"></div>
-            <p class="wallet-terms" hidden>Sold by Paddle.com Market Ltd. Paying above accepts the <a href="/terms.html" target="_blank">Terms</a> and the <a href="/refund.html" target="_blank">Refund Policy</a>.</p>
+        <!-- The buy box, beside the title, on the first screen (Yossi 2026-11-05: "everything reachable on one screen
+             without scrolling"). The clock reads before the price, on the way in to the number. -->
+        <div class="og-b">
+          <p class="offer-clock" role="timer">Available for the next <b data-left>48 hours</b></p>
+          <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span class="was-l" data-was-l>Public price</span>
+            <del class="price-was" data-was-wrap><span class="sr-only">Public price </span><span data-was></span></del>
+            <div class="price text-4xl" data-now></div>
+          </div>
+          <p class="offer-hint" data-hint hidden>The whole Collection costs less than your picks, so all of it is yours.</p>
+          <div class="mt-4">
+            <div class="buy-col">
+              <button type="button" class="cta btn-copper px-6 py-4 text-sm uppercase w-full" data-buy><span data-cta-words>Add them for</span> <span data-cta-price></span></button>
+              <!-- Apple Pay / Google Pay, one tap, no form, on the same transaction as the button. The
+                   container starts WITHOUT `hidden`: Paddle must mount its frame into a laid-out element. -->
+              <div class="wallet">
+                <div class="paddle-express-checkout"></div>
+                <p class="wallet-terms" hidden>Sold by Paddle.com Market Ltd. Paying above accepts the <a href="/terms.html" target="_blank">Terms</a> and the <a href="/refund.html" target="_blank">Refund Policy</a>.</p>
+              </div>
+            </div>
+            <p class="offer-needs" data-needs hidden>Each pack needs its synth. Synths not included. Racks need Ableton Live.</p>
+            <p class="offer-note" aria-live="polite" hidden></p>
           </div>
         </div>
-        <p class="offer-note" aria-live="polite" hidden></p>
-        <div>
-          <a class="skip" href="/post/?code=sesh1o1" data-skip>No thanks &rarr;</a>
+        <div class="rows og-rows" data-picks role="group" aria-label="What to add"></div>
+        <div class="og-s">
+          <figure class="sc" data-showcase>
+            <img src="/media/collection/film/poster-1280.webp" width="1280" height="720" alt="The Stride Collection showcase: a StrideChain in Stride, through its five states" loading="lazy" decoding="async">
+            <button type="button" class="sc-play" data-showcase-play aria-label="Watch the Stride Collection showcase" hidden><span><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="#1c1206"/></svg></span></button>
+          </figure>
         </div>
       </div>
     </section>
@@ -1003,7 +1057,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     try {
       fetch(API, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
-        body: JSON.stringify({ action: 'offer_stage', stage: name, txn: strideTxn, offer: 'collection' })
+        body: JSON.stringify({ action: 'offer_stage', stage: name, txn: strideTxn, offer: OFFER_KIND })
       }).catch(function () {});
     } catch (e) {}
   }
@@ -1027,7 +1081,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   function tick() {
     if (!offer) return;
     var left = offer.expires - (Date.now() + offer.skew);
-    if (left <= 0) { if (clock) clearInterval(clock); leave(); return; }
+    if (left <= 0) { if (clock) clearInterval(clock); leave(EXIT); return; }
     q('[data-left]').textContent = human(left);
   }
 
@@ -1037,15 +1091,175 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     el.hidden = !text;
   }
 
+  // ── What is on offer: the Stride Collection (2026-11-05) ───────────────────
+  // d.chains { status, expires_at_ms, percent,
+  //            packs:  [{ key, label, n, owned, ready, list_price, offer_price }],
+  //            all?:   { list_price, offer_price }   All four, while no pack is theirs
+  //            whole?: { list_price, offer_price }   the whole Stride Collection, while none of it is theirs
+  //            sounds: { owned, alone?: {...}, with_packs?: {...} } }   the Experimental Sounds & Racks
+  // Half the public price of everything, for 48 hours from the Stride purchase. Everything starts on and the
+  // buyer switches off what they don't want; they pay the cheapest of the parts, All four (+ the sounds and
+  // racks) or the whole Collection that covers what is on, exactly as chains_checkout charges it.
+  // d.collection { status, list_price, offer_price }: the older Collection-only offer, from a backend without
+  // the chains block, sold here through collection_checkout as before.
+  var picks = [], C = null, OFFER_KIND = 'collection';
+  // Where this page leads once the offer is dealt with. Someone who already owns the sounds and racks (the
+  // bump) leaves for where they always went from here; everyone else for the product.
+  var EXIT = NEXT;
+
+  function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  // Minor units to the site's own money: en-US, whole amounts without decimals (StridePrice).
+  function money(amount, currency) {
+    var digits = 2;
+    try { digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: currency }).resolvedOptions().minimumFractionDigits; } catch (e) {}
+    var major = Number(amount) / Math.pow(10, digits);
+    var whole = Math.abs(major - Math.round(major)) < 1e-9;
+    try {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency,
+        minimumFractionDigits: whole ? 0 : digits, maximumFractionDigits: whole ? 0 : digits }).format(major);
+    } catch (e) { return currency + ' ' + major.toFixed(digits); }
+  }
+  function amt(x) { return Number(((x || {}).offer_price || {}).amount) || 0; }
+  // Each part's disc, as on /collection/: the synth's logo (Diva's, Serum 2's and Vital's own; Tendril in its own
+  // wordmark), the sounds and racks in the drum art. Decorative: the name is beside it.
+  var LOOK = {
+    diva:       { cat: 'Analog modelling', logo: '/media/synths/diva.webp', a: '#a4763f', b: '#15110d' },
+    serum:      { cat: 'Granular and spectral', logo: '/media/synths/serum-2.webp', wide: true, a: '#2f8fb0', b: '#0c171d' },
+    vital:      { cat: '14 original wavetables', logo: '/media/synths/vital.webp', a: '#7b5cd6', b: '#130f21' },
+    tendril:    { cat: 'Three engines', word: 'TENDRIL', tdr: true, a: '#c6712b', b: '#1a0f07' },
+    collection: { cat: 'Experimental Collection', art: '/media/synths/sounds-racks.webp' }
+  };
+  function discHtml(key) {
+    var lk = LOOK[key] || {};
+    if (lk.art) return '<span class="pc-disc art" aria-hidden="true"><img src="' + lk.art + '" alt="" width="320" height="320" decoding="async"></span>';
+    var inner = lk.logo ? '<img' + (lk.wide ? ' class="wide"' : '') + ' src="' + lk.logo + '" alt="" decoding="async">'
+                        : '<span class="w' + (lk.tdr ? ' tdr' : '') + '">' + esc(lk.word || key) + '</span>';
+    return '<span class="pc-disc" style="--a:' + (lk.a || '#555') + ';--b:' + (lk.b || '#111') + '" aria-hidden="true">' + inner + '</span>';
+  }
+  // PLAY on each disc: the synth's preview reel, the sounds and racks' teaser. One Audio per part, outside the cards.
+  var HEAR = { diva: '/assets/packs/reel-diva.mp3', serum: '/assets/packs/reel-serum.mp3', vital: '/assets/packs/reel-vital.mp3',
+               tendril: '/assets/packs/reel-tendril.mp3', collection: '/assets/packs/collection-teaser.mp3' };
+  var hearing = null, hearPlayers = {};
+  function hearHtml(key, label) {
+    if (!HEAR[key]) return '';
+    var on = hearing === key, a = hearPlayers[key];
+    var prog = a && a.duration ? (100 * a.currentTime / a.duration).toFixed(2) : '0';
+    return '<button type="button" class="pc-play' + (on ? ' on' : '') + '" data-hear="' + key + '" data-name="' + esc(label) + '"'
+      + ' style="--a:' + ((LOOK[key] || {}).a || '#c6712b') + ';--prog:' + prog + '"'
+      + ' aria-label="' + (on ? 'Pause' : 'Play') + ' the ' + esc(label) + (key === 'collection' ? ' teaser' : ' sounds') + '"><i aria-hidden="true"></i></button>';
+  }
+  function lst(x) { return Number(((x || {}).list_price || {}).amount) || 0; }
+
+  function build(d) {
+    var ch = d.chains || {}, co = d.collection || {};
+    picks = []; C = null; OFFER_KIND = 'collection';
+    if (ch.status === 'open') {
+      var snd = ch.sounds || {};
+      C = { all: amt(ch.all) ? ch.all : null, whole: amt(ch.whole) ? ch.whole : null,
+            alone: amt(snd.alone) ? snd.alone : null, withPacks: amt(snd.with_packs) ? snd.with_packs : null,
+            soundsOwned: !!snd.owned, expires: Number(ch.expires_at_ms) || 0, percent: Number(ch.percent) || 0 };
+      (ch.packs || []).forEach(function (p) {
+        var lp = p.list_price || {}, op = p.offer_price || {}, owned = !!p.owned;
+        if (!owned && !(Number(op.amount) > 0)) return;     // no price we can honour: not shown
+        var n = Number(p.n) || ({ diva: 20, serum: 30, vital: 30, tendril: 20 })[p.key] || 20;
+        picks.push({ key: String(p.key), label: String(p.label || p.key), sub: n + ' StrideChains',
+                     kind: 'pack', on: !owned, owned: owned,
+                     now: Number(op.amount) || 0, was: Number(lp.amount) || 0, currency: op.currency || lp.currency || '' });
+      });
+      if (C.soundsOwned) {
+        picks.push({ key: 'collection', label: 'Sounds & Racks', sub: '250+ sounds, 15 racks',
+                     kind: 'coll', on: false, owned: true, now: 0, was: 0, currency: '' });
+      } else if (C.alone && C.withPacks) {
+        picks.push({ key: 'collection', label: 'Sounds & Racks', sub: '250+ sounds, 15 racks',
+                     kind: 'coll', on: true, owned: false, now: 0, was: 0, currency: C.alone.offer_price.currency });
+      }
+      if (picks.some(function (p) { return !p.owned; })) OFFER_KIND = 'chains';
+    } else if (co.status === 'open' && Number((co.offer_price || {}).amount) > 0) {
+      picks.push({ key: 'collection', label: 'Experimental Collection', sub: '250+ sounds / 15 Ableton Racks / 4 StrideChains',
+                   kind: 'coll', on: true, owned: false,
+                   now: Number(co.offer_price.amount), was: Number((co.list_price || {}).amount) || 0, currency: co.offer_price.currency });
+    }
+  }
+  function sellable() { return picks.filter(function (p) { return !p.owned; }); }
+  function packsOn() { return picks.filter(function (p) { return p.kind === 'pack' && p.on && !p.owned; }); }
+  function soundsOn() { return picks.some(function (p) { return p.kind === 'coll' && p.on && !p.owned; }); }
+  // What is on, at the price chains_checkout charges for it: { mode: parts|all|whole, now, was, currency, count }.
+  // On a tie, the one with more in it. null when nothing is on.
+  function cover() {
+    var on = picks.filter(function (p) { return p.on && !p.owned; });
+    if (!on.length) return null;
+    var cur = (sellable()[0] || {}).currency || 'USD';
+    if (!C) return { mode: 'parts', now: on[0].now, was: on[0].was, currency: cur, count: 1 };
+    var packs = packsOn(), snd = soundsOn(), sp = snd ? (packs.length ? C.withPacks : C.alone) : null;
+    var opts = [{ mode: 'parts', rank: 0,
+                  now: packs.reduce(function (a, p) { return a + p.now; }, 0) + (sp ? amt(sp) : 0),
+                  was: packs.reduce(function (a, p) { return a + p.was; }, 0) + (sp ? lst(sp) : 0) }];
+    if (C.all && packs.length) opts.push({ mode: 'all', rank: 1, now: amt(C.all) + (snd ? amt(C.withPacks) : 0),
+                                           was: lst(C.all) + (snd ? lst(C.withPacks) : 0) });
+    if (C.whole) opts.push({ mode: 'whole', rank: 2, now: amt(C.whole), was: lst(C.whole) });
+    opts.sort(function (x, y) { return (x.now - y.now) || (y.rank - x.rank); });
+    var o = opts[0];
+    o.currency = cur; o.count = on.length;
+    return o;
+  }
+
+  function drawPicks(focusIndex) {
+    var host = q('[data-picks]');
+    if (!host) return;
+    var cv = cover(), mode = cv ? cv.mode : 'parts', anyPack = packsOn().length > 0, cards = [];
+    picks.forEach(function (p, i) {
+      var price = (p.kind === 'coll' && C) ? amt(anyPack ? C.withPacks : C.alone) : p.now;
+      var was = (p.kind === 'coll' && C) ? lst(anyPack ? C.withPacks : C.alone) : p.was;
+      // A card taken out reads as taken out, with the way back in (Yossi 2026-11-05: not "In the bundle", "RE-ADD
+      // or something like that"). When the whole Collection still costs less than what is left, the bundle line
+      // under the cards says so.
+      var right = p.owned ? 'Yours'
+        : (was > price ? '<s>' + money(was, p.currency) + '</s>' : '') + money(price, p.currency);
+      var state = p.owned ? '' : p.on ? '\u2713 In your cart' : '+ Re-add';
+      var lk = LOOK[p.key] || {};
+      cards.push('<div class="prow' + (p.on ? ' on' : '') + (p.owned ? ' owned' : '') + '" data-i="' + i + '"'
+        + (!p.owned ? ' role="switch" tabindex="0" aria-checked="' + (p.on ? 'true' : 'false') + '"' : '') + '>'
+        + discHtml(p.key) + hearHtml(p.key, p.label)
+        + '<div class="pc-b">' + (lk.cat ? '<p class="pc-cat">' + esc(lk.cat) + '</p>' : '')
+        + '<div class="nm"><b>' + esc(p.label) + '</b><span>' + esc(p.sub) + '</span></div>'
+        + '<span class="pp">' + right + '</span>'
+        + (state ? '<span class="pc-st">' + state + '</span>' : '') + '</div></div>');
+    });
+    // No bundle line under the cards (Yossi 2026-11-05: "even drop this part"): the buy box says what is charged.
+    host.innerHTML = '<div class="pcs">' + cards.join('') + '</div>';
+    if (typeof focusIndex === 'number') { var f = host.querySelector('[data-i="' + focusIndex + '"]'); if (f) f.focus(); }
+  }
+
+  function drawTotals() {
+    var cv = cover(), was = q('[data-was-wrap]'), lbl = q('[data-was-l]');
+    var showWas = !!cv && cv.was > cv.now;
+    was.hidden = !showWas;
+    if (lbl) lbl.hidden = !showWas;
+    q('[data-was]').textContent = showWas ? money(cv.was, cv.currency) : '';
+    q('[data-now]').textContent = cv ? money(cv.now, cv.currency) : '';
+    q('[data-cta-price]').textContent = cv ? money(cv.now, cv.currency) : '';
+    q('[data-cta-words]').textContent = !cv ? 'Pick something to add'
+      : cv.mode === 'whole' ? 'Get it all for' : (cv.count === 1 ? 'Add it for' : 'Add them for');
+    q('[data-buy]').disabled = !cv;
+    // The whole Collection still charged with something switched off: say why the price did not move.
+    var hint = q('[data-hint]');
+    if (hint) hint.hidden = !(cv && cv.mode === 'whole' && !picks.every(function (p) { return p.owned || p.on; }));
+    if (offer && cv) { offer.amount = cv.now; offer.currency = cv.currency; }
+    if (offer && !cv) offer.amount = 0;
+  }
+
   function show(d) {
-    var c = d.collection || {};
-    var was = (c.list_price || {}).formatted, now = (c.offer_price || {}).formatted;
-    if (!was || !now) { leave(); return; }
-    offer = { expires: Number(d.expires_at_ms), skew: Number(d.server_now_ms) - Date.now(),
-              amount: (c.offer_price || {}).amount, currency: (c.offer_price || {}).currency };
-    q('[data-was]').textContent = was;
-    q('[data-now]').textContent = now;
-    q('[data-cta-price]').textContent = now;
+    build(d);
+    var ownsSounds = (C && C.soundsOwned) || (d.collection || {}).status === 'owned';
+    EXIT = ownsSounds ? ownedNext() : NEXT;
+    if (!sellable().length) { leave(EXIT); return; }
+    var skipLink = q('[data-skip]');
+    if (skipLink) skipLink.setAttribute('href', EXIT);
+    q('[data-needs]').hidden = !C;
+    // The Collection's clock is its own 48 hours; the older Collection offer keeps the record's.
+    offer = { expires: (C && C.expires) || Number(d.expires_at_ms), skew: Number(d.server_now_ms) - Date.now(), amount: 0, currency: 'USD' };
+    drawPicks();
+    drawTotals();
     tick();
     clock = setInterval(tick, 1000);
     q('#offer').classList.add('ready');
@@ -1099,8 +1313,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         // expired and every error still land on the product.
         if (!d || !d.ok) { leave(); return; }
         var cstat = ((d.collection || {}).status) || '';
-        if (cstat !== 'open') { leave(cstat === 'owned' ? ownedNext() : NEXT); return; }
-        show(d);
+        var kstat = ((d.chains || {}).status) || '';
+        // Something left to offer: the chains, the Collection, or both.
+        if (kstat === 'open' || cstat === 'open') { show(d); return; }
+        leave(cstat === 'owned' ? ownedNext() : NEXT);
       })
       .catch(function () {
         if (settled) return;
@@ -1116,13 +1332,22 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   // screen, and a press of the button while that answer is still on its way waits for it
   // rather than opening a second transaction beside it. Only an answer that carries a
   // transaction is kept; anything else is asked again on the next press.
-  var checkoutCall = null;
+  // The transaction belongs to the picks it was opened for: a different set of picks is a new one.
+  var checkoutCall = null, checkoutSig = '';
+  function picksSig() { return picks.filter(function (p) { return p.on; }).map(function (p) { return p.key; }).join(','); }
   function offerCheckout() {
-    if (checkoutCall) return checkoutCall;
+    var sig = picksSig();
+    if (checkoutCall && checkoutSig === sig) return checkoutCall;
+    checkoutSig = sig;
+    var packs = packsOn().map(function (p) { return p.key; });
+    var withColl = soundsOn();
+    var xid = (typeof _strideXid === 'string' && _strideXid) || '';
+    var body = C
+      ? { action: 'chains_checkout', txn: strideTxn, picks: packs, collection: withColl, external_id: xid }
+      : { action: 'collection_checkout', txn: strideTxn, external_id: xid };
     checkoutCall = fetch(API, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'collection_checkout', txn: strideTxn,
-                             external_id: (typeof _strideXid === 'string' && _strideXid) || '' })
+      body: JSON.stringify(body)
     })
       .then(function (r) { return r.json(); })
       .then(function (d) {
@@ -1201,7 +1426,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             // Only the wallet. The card path is the button above it.
             showNonExpressPaymentMethods: false,
             theme: 'dark',
-            successUrl: 'https://stridehub.io' + NEXT
+            successUrl: 'https://stridehub.io' + EXIT
           }
         });
       } catch (e) { walletLive = false; }
@@ -1234,6 +1459,97 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       stage('post2_checkout');
     }
   }
+
+  // ── Switching a pick ────────────────────────────────────────────────────────
+  // The wallet's transaction was opened for the picks as they were, so a change closes it and a new
+  // one is asked for once the buyer has stopped switching. The latch for "no wallet on this device"
+  // is left alone: that is about the device, not the basket.
+  var repickTimer = null;
+  function walletHide() {
+    var box = q('.paddle-express-checkout'), terms = q('.wallet-terms');
+    if (box) box.hidden = true;
+    if (terms) terms.hidden = true;
+  }
+  function repick() {
+    checkoutCall = null;
+    clearTimeout(repickTimer); clearTimeout(walletTimer);
+    if (walletLive) { walletLive = false; try { Paddle.Checkout.close(); } catch (e) {} }
+    walletHide();
+    repickTimer = setTimeout(function () {
+      if (!cover() || buyPressed) return;
+      var box = q('.paddle-express-checkout');
+      if (box && !walletDead) box.hidden = false;
+      mountWallet();
+    }, 700);
+  }
+  function toggle(i, fromKey) {
+    var p = picks[i];
+    if (!p || p.owned || p.soon) return;
+    p.on = !p.on;
+    drawPicks(fromKey ? i : undefined);
+    drawTotals();
+    repick();
+    try { if (window.strideClarity) window.strideClarity('post2_pick'); } catch (e) {}
+  }
+  (function () {
+    var host = q('[data-picks]');
+    if (!host) return;
+    host.addEventListener('click', function (e) {
+      var r = e.target.closest && e.target.closest('.prow');
+      if (r && r.hasAttribute('data-i')) toggle(Number(r.getAttribute('data-i')), false);
+    });
+    host.addEventListener('keydown', function (e) {
+      if ((e.key === ' ' || e.key === 'Enter') && e.target.classList && e.target.classList.contains('prow')) {
+        e.preventDefault(); toggle(Number(e.target.getAttribute('data-i')), true);
+      }
+    });
+  })();
+  // PLAY: caught on the way down, so a press on it never takes the card out of the cart.
+  (function () {
+    function buttons(key) { return Array.prototype.slice.call(document.querySelectorAll('.pc-play[data-hear="' + key + '"]')); }
+    function show(key, on) {
+      buttons(key).forEach(function (b) {
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-label', (on ? 'Pause' : 'Play') + ' the ' + b.getAttribute('data-name') + (key === 'collection' ? ' teaser' : ' sounds'));
+      });
+    }
+    function player(key) {
+      if (hearPlayers[key]) return hearPlayers[key];
+      var a = new Audio();
+      a.preload = 'none';
+      a.src = HEAR[key];
+      a.addEventListener('timeupdate', function () {
+        if (a.duration) buttons(key).forEach(function (b) { b.style.setProperty('--prog', (100 * a.currentTime / a.duration).toFixed(2)); });
+      });
+      a.addEventListener('ended', function () {
+        a.currentTime = 0;
+        if (hearing === key) hearing = null;
+        show(key, false);
+        buttons(key).forEach(function (b) { b.style.setProperty('--prog', '0'); });
+      });
+      return (hearPlayers[key] = a);
+    }
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('.pc-play[data-hear]');
+      if (!b) return;
+      e.stopPropagation();
+      e.preventDefault();
+      var key = b.getAttribute('data-hear'), a = player(key);
+      if (a.paused) {
+        Object.keys(hearPlayers).forEach(function (k) { if (k !== key && !hearPlayers[k].paused) { hearPlayers[k].pause(); show(k, false); } });
+        Array.prototype.slice.call(document.querySelectorAll('video')).forEach(function (v) { if (!v.paused) v.pause(); });
+        var pr = a.play();
+        if (pr && pr.catch) pr.catch(function () { if (hearing === key) hearing = null; show(key, false); });
+        hearing = key;
+        show(key, true);
+        try { if (window.strideClarity) window.strideClarity('post2_hear_' + key); } catch (x) {}
+      } else {
+        a.pause();
+        hearing = null;
+        show(key, false);
+      }
+    }, true);
+  })();
 
   // ── Buying it ───────────────────────────────────────────────────────────────
   try {
@@ -1275,6 +1591,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   } catch (e) { paddleOn = false; }
 
   q('[data-buy]').addEventListener('click', function () {
+    if (offer && !cover()) return;
     if (!paddleOn || !offer) { leave(); return; }
     var btn = this;
     buyPressed = true;
@@ -1299,7 +1616,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             walletShow(false);
             Paddle.Checkout.open({ transactionId: d.transaction_id,
                                    settings: { displayMode: 'overlay', variant: 'one-page', theme: 'dark',
-                                               successUrl: 'https://stridehub.io' + NEXT } });
+                                               successUrl: 'https://stridehub.io' + EXIT } });
             // begin_checkout only once a checkout has actually opened.
             if (window.StrideTrack && checkoutValue.value > 0) {
               StrideTrack.push('begin_checkout', { value: checkoutValue.value, currency: checkoutValue.currency });
@@ -1311,7 +1628,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         // Ended, already bought, or already owned: the offer is over, so is this page.
         // Owned means the bump paid for it, so that one exits as ownedNext() says.
         if (d.status === 'expired' || d.status === 'used' || d.status === 'owned' || d.status === 'invalid') {
-          leave(d.status === 'owned' ? ownedNext() : NEXT); return;
+          leave(d.status === 'owned' ? ownedNext() : EXIT); return;
         }
         note(FAILED);
       })
@@ -1325,9 +1642,38 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   if (skip) {
     // One source of truth for where this page leads, so the link and every scripted exit
     // can never point at different screens.
-    skip.setAttribute('href', NEXT);
+    if (!offer) skip.setAttribute('href', EXIT);
     skip.addEventListener('click', function () { stage('post2_skipped'); });
   }
+})();
+</script>
+
+<div class="sc-pop" data-sc-pop role="dialog" aria-modal="true" aria-label="Stride Collection showcase">
+  <button type="button" aria-label="Close" data-sc-close
+          style="position:absolute;top:1rem;right:1rem;width:44px;height:44px;border-radius:12px;
+                 background:rgba(255,255,255,.08);border:1px solid rgba(216,201,176,.18);
+                 color:#e8e2d6;font-size:20px;line-height:1;cursor:pointer">&times;</button>
+  <video controls playsinline preload="none"></video>
+</div>
+<script>
+// The Stride Collection showcase (2026-11-05). Empty: the frame keeps its still and has no play button.
+(function () {
+  var SHOWCASE = { film16x9: '/media/collection/film/collection-showcase-1080.mp4', film9x16: '/media/collection/film/collection-showcase-9x16.mp4' };
+  var btn = document.querySelector('[data-showcase-play]'), pop = document.querySelector('[data-sc-pop]');
+  var phone = window.matchMedia && window.matchMedia('(max-width: 640px)').matches;
+  var film = phone ? (SHOWCASE.film9x16 || SHOWCASE.film16x9) : (SHOWCASE.film16x9 || SHOWCASE.film9x16);
+  if (!film || !btn || !pop) return;
+  var v = pop.querySelector('video');
+  btn.hidden = false;
+  btn.addEventListener('click', function () {
+    if (!v.src) v.src = film;
+    pop.classList.add('on'); document.body.style.overflow = 'hidden';
+    var pr = v.play(); if (pr && pr.catch) pr.catch(function () {});
+    try { if (window.strideClarity) window.strideClarity('post2_showcase'); } catch (e) {}
+  });
+  function close() { pop.classList.remove('on'); document.body.style.overflow = ''; try { v.pause(); } catch (e) {} }
+  pop.addEventListener('click', function (e) { if (e.target === pop || e.target.closest('[data-sc-close]')) close(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
 })();
 </script>
 </body>

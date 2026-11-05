@@ -888,6 +888,47 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .w-offers .price-was{font-size:1.05rem}
     .w-offers .w-bh{font-size:18px}
   }
+  /* ── StrideChains, where the Collection was (2026-11-05) ─────────────────────────────
+     The special offer under Tendril: the packs this purchase can add and the Collection beside them,
+     each row a switch, the owner total and one button. Plain floating label, rows on hairlines (no box
+     in a box). Without an open offer: the words, the still and the way to the Marketplace. */
+  .mkc-k{margin:0 0 8px;color:var(--copper-lt)}
+  .mkc-sc{margin:14px 0 0;aspect-ratio:16/9;border-radius:12px;overflow:hidden;border:1px solid rgba(198,113,43,.28);background:#0f0e0c}
+  .mkc-sc img{display:block;width:100%;height:100%;object-fit:cover}
+  .mkc-offer{margin-top:14px}
+  .mkc-rows{margin:0 0 14px;border-bottom:1px solid var(--line)}
+  .mkc-row{display:flex;align-items:center;gap:12px;padding:9px 2px;border-top:1px solid var(--line);cursor:pointer;user-select:none}
+  .mkc-row .nm{flex:1;min-width:0;display:flex;flex-direction:column}
+  .mkc-disc{flex:none;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;
+    background:radial-gradient(circle at 30% 26%,rgba(255,255,255,.22),transparent 42%),conic-gradient(from 200deg,var(--a),var(--b) 30%,var(--a) 55%,var(--b) 80%,var(--a));
+    box-shadow:0 0 0 2px #24201a,0 0 0 3px rgba(216,201,176,.14)}
+  .mkc-disc img{max-width:74%;max-height:50%;width:auto;height:auto}
+  .mkc-disc.art img{max-width:none;max-height:none;width:100%;height:100%;object-fit:cover}
+  .mkc-disc b{font-size:10px;font-weight:900;color:#f4ede2}
+  .mkc-row:not(.on):not(.owned) .mkc-disc{filter:grayscale(.85);opacity:.55}
+  .mkc-row .nm b{font-size:14px;color:var(--ink)}
+  .mkc-row .nm > span{margin-top:1px;font-size:11.5px;color:var(--ink3)}
+  .mkc-row .pp{font-size:13.5px;font-weight:800;color:var(--ink);white-space:nowrap}
+  .mkc-row .pp s{font-size:12px;color:var(--ink3);text-decoration-thickness:2px;text-decoration-color:rgba(221,154,82,.85)}
+  .mkc-row.owned,.mkc-row.soon{cursor:default}
+  .mkc-row.owned .pp{color:#8fae86;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase}
+  .mkc-row.soon{opacity:.55}
+  .mkc-row.soon .pp{color:var(--ink3);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase}
+  .mkc-row .sw{position:relative;flex:none;width:36px;height:20px;border-radius:999px;background:#38332a;transition:background .15s}
+  .mkc-row .sw::after{content:'';position:absolute;left:3px;top:3px;width:14px;height:14px;border-radius:999px;background:#9d9384;transition:transform .15s,background .15s}
+  .mkc-row.on .sw{background:linear-gradient(180deg,var(--ember),var(--copper))}
+  .mkc-row.on .sw::after{transform:translateX(16px);background:#1c1206}
+  .mkc-row.owned .sw,.mkc-row.soon .sw{visibility:hidden}
+  .mkc-row:focus-visible{outline:2px solid var(--copper-lt);outline-offset:2px;border-radius:8px}
+  .mkc-bundle{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:0;padding:9px 50px 9px 2px;border-top:1px solid var(--line);
+    font-size:12.5px;font-weight:800;color:var(--copper-lt)}
+  .mkc-bundle b{font-size:13.5px;color:var(--ink)}
+  .mkc-bundle small{display:block;margin-top:2px;font-size:11px;font-weight:600;color:var(--ink3)}
+  .mkc-row.incl .pp{color:var(--copper-lt);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase}
+  .mkc-half{margin:0 0 12px;font-size:12.5px;line-height:1.5;color:var(--ink2)}
+  .mkc-wl{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
+  .mkc-needs{margin:8px 0 0;font-size:11.5px;line-height:1.5;color:var(--ink3)}
+  .mkc-buy[disabled]{opacity:.5;cursor:default;transform:none}
   /* ── Tendril, where the session was (Yossi 2026-11-04) ─────────────────────────────
      /tendril/'s hero in the right column: the name the way the plugin writes it, the claim, the
      film, the owner price and its button. Labels are plain floating text: no pill, no dot, no
@@ -964,7 +1005,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media (min-width:900px){ .w-ref-h{font-size:26px} .w-ref-s{font-size:16px} }
   .w-cols + .wcard-help{margin-top:34px}
 </style>
-<link rel="stylesheet" href="/_legacy/css/welcome.a85ffae766.css">
+<link rel="stylesheet" href="/_legacy/css/welcome.b2d390ef26.css">
 <meta property="og:image" content="https://stridehub.io/media/stride/og/stride-share-1200x630.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -1216,31 +1257,42 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="tdr-done" hidden></div>
         </section>
 
-        <!-- The Experimental Collection. Its owner price and clock only while this purchase's
-             offer is still open, which is a buyer who said no on /post2/ inside the 72 hours; a
-             buyer who took it (the bump at checkout, or /post2/) and anyone with no open offer
-             get the link to its page. The price and the clock come from the backend, never
-             from this markup. -->
-        <div class="w-block" id="coll-rail">
-          <p class="w-bh">Experimental Collection</p>
-          <p class="w-bs">250+ 音色 · 15 个 Ableton 机架 · 4 条 StrideChain</p>
-          <div class="w-packs" aria-hidden="true">
-            <img src="/assets/packs/pack-drums.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
-            <img src="/assets/packs/pack-water.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
-            <img src="/assets/packs/pack-feedback.jpg" alt="" width="900" height="900" loading="lazy" decoding="async">
-          </div>
-          <div class="coll-offer" hidden>
-            <span class="offer-flag"><span class="offer-dot" aria-hidden="true"></span>Stride 新用户价格</span>
-            <p class="offer-clock" role="timer">优惠剩余 <b data-coll-left>72h</b></p>
-            <div class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-              <del class="price-was"><span class="sr-only">原价 </span><span data-coll-was>$24.99</span></del>
-              <span class="price text-3xl" data-coll-now>$19</span>
+        <!-- The Stride Collection, where the Collection's card was (Yossi 2026-11-05: "part of ... WELCOME ...
+             always as a SPECIAL OFFER"; "a full discount on everything", "the option to take things out", "48
+             hours from the moment of purchase"). Half the public price of everything and the clock only while
+             this purchase's offer is open; everyone else gets the words, the still and the way to /collection/.
+             The rows are in the markup so every language has its words: the script only marks them on or off,
+             writes the prices the backend quotes (post_purchase_offers: chains) and hides what is not on offer.
+             Hidden until the script knows who this is. -->
+        <section class="w-block mkc" id="chains-rail" aria-labelledby="mkc-h" hidden>
+          <p class="silk mkc-k" hidden>特别优惠</p>
+          <p class="w-bh" id="mkc-h"><span data-mkc-title-chains>The Stride Collection</span><span data-mkc-title-coll hidden>Experimental Collection</span></p>
+          <p class="w-bs">为四款合成器打造的 100 条 StrideChain，每条通道都已映射并设好范围，另有 250+ 音色和 15 个 Ableton 机架。</p>
+          <figure class="mkc-sc"><img src="/media/stride/film/poster-ui-1280.webp" width="1280" height="720" alt="Stride 中的一条 StrideChain：音色的每条通道都在运动" loading="lazy" decoding="async"></figure>
+          <div class="mkc-offer" hidden>
+            <p class="mkc-half" data-mkc-half>48 小时内全部半价。不需要的可以关掉。</p>
+            <div class="mkc-rows" role="group" aria-label="选择要添加的内容">
+              <div class="mkc-row" data-mk="serum" hidden><span class="mkc-disc" style="--a:#2f8fb0;--b:#0c171d" aria-hidden="true"><b>S2</b></span><span class="nm"><b>Serum 2</b><span>30 条 StrideChain / 150 个状态</span></span><span class="pp" data-pp></span><span class="sw" aria-hidden="true"></span></div>
+              <div class="mkc-row" data-mk="vital" hidden><span class="mkc-disc" style="--a:#7b5cd6;--b:#130f21" aria-hidden="true"><img src="/media/synths/vital.webp" alt="" width="77" height="80" loading="lazy" decoding="async"></span><span class="nm"><b>Vital</b><span>30 条 StrideChain / 150 个状态</span></span><span class="pp" data-pp></span><span class="sw" aria-hidden="true"></span></div>
+              <div class="mkc-row" data-mk="diva" hidden><span class="mkc-disc" style="--a:#a4763f;--b:#15110d" aria-hidden="true"><img src="/media/synths/diva.webp" alt="" width="143" height="48" loading="lazy" decoding="async"></span><span class="nm"><b>Diva</b><span>20 条 StrideChain / 100 个状态</span></span><span class="pp" data-pp></span><span class="sw" aria-hidden="true"></span></div>
+              <div class="mkc-row" data-mk="tendril" hidden><span class="mkc-disc" style="--a:#c6712b;--b:#1a0f07" aria-hidden="true"><b class="tdr">T</b></span><span class="nm"><b>Tendril</b><span>20 条 StrideChain / 100 个状态</span></span><span class="pp" data-pp></span><span class="sw" aria-hidden="true"></span></div>
+              <p class="mkc-bundle" data-mkc-bundle hidden><span>四个包一起</span><b data-mkc-all></b></p>
+              <div class="mkc-row" data-mk="collection" hidden><span class="mkc-disc art" aria-hidden="true"><img src="/media/synths/sounds-racks.webp" alt="" width="320" height="320" loading="lazy" decoding="async"></span><span class="nm"><b><span data-coll-new>Experimental Sounds &amp; Racks</span><span data-coll-old hidden>Experimental Collection</span></b><span><span data-coll-new>250+ 音色 / 15 个 Ableton 机架</span><span data-coll-old hidden>250+ 音色 / 15 个 Ableton 机架 / 4 条 StrideChain</span></span></span><span class="pp" data-pp></span><span class="sw" aria-hidden="true"></span></div>
+              <p class="mkc-bundle" data-mkc-whole hidden><span>完整的 Stride Collection<small data-mkc-less hidden>比你选的更便宜，所以全部归你</small></span><b data-mkc-wholep></b></p>
             </div>
+            <p class="offer-clock" role="timer">优惠剩余 <b data-mkc-left>48h</b></p>
+            <div class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+              <span class="mkc-wl" data-mkc-wl hidden>公开价</span>
+              <del class="price-was" data-mkc-was hidden></del>
+              <span class="price text-3xl" data-mkc-now></span>
+            </div>
+            <button type="button" class="mkc-buy btn-copper w-full mt-3 px-4 py-2.5 text-xs uppercase"><span data-w="many">添加，仅需</span><span data-w="one" hidden>添加，仅需</span><span data-w="whole" hidden>全部拿下，仅需</span><span data-w="none" hidden>请先选择要添加的内容</span> <span data-mkc-cta></span></button>
+            <p class="mkc-needs" data-mkc-needs hidden>每个包都需要对应的合成器。不含合成器。机架需要 Ableton Live。</p>
+            <span hidden data-w="yours">已拥有</span><span hidden data-w="soon">即将推出</span><span hidden data-w="incl">已包含</span>
           </div>
-          <button type="button" class="rail-coll-buy btn-copper w-full mt-3 px-4 py-2.5 text-xs uppercase" hidden>添加，仅需 <span data-coll-cta>$19</span></button>
-          <p class="coll-note text-xs ink3 leading-relaxed mt-3" aria-live="polite" hidden></p>
-          <a href="/zh/samples.html" class="coll-link btn-line">查看 Collection →</a>
-        </div>
+          <p class="mkc-note text-xs ink3 leading-relaxed mt-3" aria-live="polite" hidden></p>
+          <a href="/collection/" class="mkc-link btn-line">查看完整 Collection →</a>
+        </section>
         </div>
       </aside>
 
@@ -1298,6 +1350,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   // being absent: this page has shipped without the Collection's.
   var collCard = document.getElementById('coll-rail');
   var tdr = document.getElementById('tdr-rail');
+  // StrideChains (2026-11-05), in the Collection card's place; the Collection's code below stays and
+  // finds no card of its own.
+  var mkc = document.getElementById('chains-rail');
   function qc(sel) { return collCard ? collCard.querySelector(sel) : null; }
   function qt(sel) { return tdr ? tdr.querySelector(sel) : null; }
   function ss(k) { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } }
@@ -1316,7 +1371,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   // second checkout overwrote stride_last_txn. Prefer it: the offers belong to the Stride
   // purchase, not to whatever was bought a minute later.
   var txn = ss('stride_offer_txn') || ss('stride_last_txn');
-  if (!txn) { tdrPublic(); return; }      // Tendril without a price, the Collection's link
+  if (!txn) { tdrPublic(); mkcPublic(); return; }      // Tendril and StrideChains without a price
 
   // One stage of the funnel, against the purchase that earned the offer. Fire and forget.
   function stage(name, kind) {
@@ -1393,7 +1448,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   // What the backend knows, which now includes a checkout Paddle has already been paid for: a
   // session booked a moment ago reads booked here even before its webhook lands.
   var settled = false;
-  var bail = setTimeout(function () { settled = true; }, 6000);
+  var bail = setTimeout(function () { settled = true; mkcPublic(); }, 6000);
   fetch(API, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'post_purchase_offers', txn: txn })
@@ -1402,7 +1457,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     .then(function (d) {
       if (settled) return;
       settled = true; clearTimeout(bail);
-      if (!d || !d.ok) return;
+      if (!d || !d.ok) { mkcPublic(); return; }
       // The download panel rides on this same answer, so the page makes one backend call
       // rather than two. Defined by the block at the end of the document; the guard is for
       // a page served without it.
@@ -1413,8 +1468,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       // itself (below), so a slow answer here never holds it up.
       var collectionStatus = (d.collection || {}).status;
       if (collectionStatus === 'open') showCollection(d);
+      // StrideChains, with the Collection as one of its rows: priced while this purchase's offer is
+      // open, the plain card otherwise.
+      mkcFrom(d);
     })
-    .catch(function () { settled = true; clearTimeout(bail); });
+    .catch(function () { settled = true; clearTimeout(bail); mkcPublic(); });
 
   try {
     if (window.Paddle) {
@@ -1424,7 +1482,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           try { if (window.strideClarity) window.strideClarity.paddle(ev, openKind || 'offer'); } catch (e) {}
           if (!ev || ev.name !== 'checkout.completed') return;
           if (openKind === 'tendril') { tdrPaid(ev); return; }
-          if (openKind === 'collection') {
+          if (openKind === 'collection' || openKind === 'chains') {
             // A second, separate purchase. Hand it to this page's own purchase tracking, which
             // records it on the reload the success URL brings, exactly as /post2 does.
             try {
@@ -1444,7 +1502,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 sessionStorage.removeItem('stride_paid');
               }
             } catch (e) {}
-            collGone("The Collection is yours. Check your inbox for the download.");
+            if (openKind === 'chains') mkcGone('They are yours. The download links are on their way to your inbox.');
+            else collGone("The Collection is yours. Check your inbox for the download.");
           }
         }
       });
@@ -1513,6 +1572,215 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       if (isFinite(major) && major > 0) ssSet('stride_checkout_value', JSON.stringify({ value: major, currency: cOffer.currency }));
     } catch (e) {}
     openCheckout(this, 'collection_checkout', 'collection', HERE_URL, 'welcome_collection_checkout');
+  });
+
+  // ── The Stride Collection (2026-11-05) ──────────────────────────────────────
+  // Everything this purchase can still add, at half the public price the backend quotes for THIS purchase, for
+  // 48 hours from it, all on to start. A part already owned shows as theirs. The total is the cheapest of the
+  // parts, All four (+ the sounds and racks) or the whole Collection that covers what is on, as chains_checkout
+  // charges it. A backend without the chains block sells the older Collection offer here, through
+  // collection_checkout, as the only row.
+  var mOffer = null, mClock = null, mPicks = [], M = null;
+  function qm(sel) { return mkc ? mkc.querySelector(sel) : null; }
+  function qma(sel) { return mkc ? Array.prototype.slice.call(mkc.querySelectorAll(sel)) : []; }
+  function mWord(k) { var el = qm('[data-w="' + k + '"]'); return el ? el.textContent : k; }
+  function mMoney(amount, currency) {
+    var digits = 2;
+    try { digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: currency }).resolvedOptions().minimumFractionDigits; } catch (e) {}
+    var major = Number(amount) / Math.pow(10, digits);
+    var whole = Math.abs(major - Math.round(major)) < 1e-9;
+    try {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency,
+        minimumFractionDigits: whole ? 0 : digits, maximumFractionDigits: whole ? 0 : digits }).format(major);
+    } catch (e) { return currency + ' ' + major.toFixed(digits); }
+  }
+  function mAmt(x) { return Number(((x || {}).offer_price || {}).amount) || 0; }
+  function mLst(x) { return Number(((x || {}).list_price || {}).amount) || 0; }
+  function mkcPublic() {
+    if (!mkc) return;
+    if (mClock) { clearInterval(mClock); mClock = null; }
+    mOffer = null;
+    qm('.mkc-offer').hidden = true;
+    qm('.mkc-k').hidden = true;
+    qm('[data-mkc-title-chains]').hidden = false;
+    qm('[data-mkc-title-coll]').hidden = true;
+    mkc.hidden = false;
+  }
+  function mkcNote(text) { var el = qm('.mkc-note'); if (!el) return; el.textContent = text || ''; el.hidden = !text; }
+  function mkcGone(text) { mkcPublic(); mkcNote(text || ''); }
+  function mkcTick() {
+    if (!mOffer) return;
+    var left = mOffer.expires - (Date.now() + mOffer.skew);
+    if (left <= 0) { mkcGone(''); return; }
+    qm('[data-mkc-left]').textContent = human(left);
+  }
+  function mPacksOn() { return mPicks.filter(function (p) { return p.kind === 'pack' && p.on && !p.owned; }); }
+  function mSoundsOn() { return mPicks.some(function (p) { return p.kind === 'coll' && p.on && !p.owned; }); }
+  // What is on, at the price chains_checkout charges: { mode: parts|all|whole, now, was, currency, count }, or null.
+  function mCover() {
+    var on = mPicks.filter(function (p) { return p.on && !p.owned; });
+    if (!on.length) return null;
+    var sell = mPicks.filter(function (p) { return !p.owned; });
+    var cur = (sell[0] || {}).currency || 'USD';
+    if (!M) return { mode: 'parts', now: on[0].now, was: on[0].was, currency: cur, count: 1 };
+    var packs = mPacksOn(), snd = mSoundsOn(), sp = snd ? (packs.length ? M.withPacks : M.alone) : null;
+    var opts = [{ mode: 'parts', rank: 0,
+                  now: packs.reduce(function (a, p) { return a + p.now; }, 0) + (sp ? mAmt(sp) : 0),
+                  was: packs.reduce(function (a, p) { return a + p.was; }, 0) + (sp ? mLst(sp) : 0) }];
+    if (M.all && packs.length) opts.push({ mode: 'all', rank: 1, now: mAmt(M.all) + (snd ? mAmt(M.withPacks) : 0),
+                                           was: mLst(M.all) + (snd ? mLst(M.withPacks) : 0) });
+    if (M.whole) opts.push({ mode: 'whole', rank: 2, now: mAmt(M.whole), was: mLst(M.whole) });
+    opts.sort(function (x, y) { return (x.now - y.now) || (y.rank - x.rank); });
+    var o = opts[0];
+    o.currency = cur; o.count = on.length;
+    return o;
+  }
+  function mkcDraw() {
+    var cv = mCover(), mode = cv ? cv.mode : 'parts', anyPack = mPacksOn().length > 0;
+    mPicks.forEach(function (p) {
+      var r = p.row, pp = r.querySelector('[data-pp]');
+      var covered = !p.owned && (mode === 'whole' || (mode === 'all' && p.kind === 'pack'));
+      r.classList.toggle('on', !!p.on); r.classList.toggle('owned', !!p.owned); r.classList.toggle('incl', covered && !p.on);
+      if (p.owned) {
+        r.removeAttribute('role'); r.removeAttribute('tabindex'); r.removeAttribute('aria-checked');
+        pp.textContent = mWord('yours');
+        return;
+      }
+      r.setAttribute('role', 'switch'); r.setAttribute('tabindex', '0'); r.setAttribute('aria-checked', p.on ? 'true' : 'false');
+      var price = (p.kind === 'coll' && M) ? mAmt(anyPack ? M.withPacks : M.alone) : p.now;
+      var txt = mMoney(price, p.currency);
+      pp.textContent = '';
+      if (covered && !p.on) pp.textContent = mWord('incl');
+      else if (covered) { var st = document.createElement('s'); st.textContent = txt; pp.appendChild(st); }
+      else pp.textContent = txt;
+    });
+    var bAll = qm('[data-mkc-bundle]'), bWhole = qm('[data-mkc-whole]');
+    bAll.hidden = mode !== 'all';
+    bWhole.hidden = mode !== 'whole';
+    if (mode === 'all') qm('[data-mkc-all]').textContent = mMoney(mAmt(M.all), cv.currency);
+    if (mode === 'whole') {
+      qm('[data-mkc-wholep]').textContent = mMoney(mAmt(M.whole), cv.currency);
+      qm('[data-mkc-less]').hidden = mPicks.every(function (p) { return p.owned || p.on; });
+    }
+    var was = qm('[data-mkc-was]'), showWas = !!cv && cv.was > cv.now;
+    was.hidden = !showWas;
+    qm('[data-mkc-wl]').hidden = !showWas;
+    was.textContent = showWas ? mMoney(cv.was, cv.currency) : '';
+    qm('[data-mkc-now]').textContent = cv ? mMoney(cv.now, cv.currency) : '';
+    qm('[data-mkc-cta]').textContent = cv ? mMoney(cv.now, cv.currency) : '';
+    qm('[data-w="whole"]').hidden = !(cv && cv.mode === 'whole');
+    qm('[data-w="many"]').hidden = !(cv && cv.mode !== 'whole' && cv.count > 1);
+    qm('[data-w="one"]').hidden = !(cv && cv.mode !== 'whole' && cv.count === 1);
+    qm('[data-w="none"]').hidden = !!cv;
+    qm('.mkc-buy').disabled = !cv;
+    if (mOffer) { mOffer.amount = cv ? cv.now : 0; if (cv) mOffer.currency = cv.currency; }
+  }
+  function mkcFrom(d) {
+    if (!mkc) return;
+    var ch = d.chains || {}, co = d.collection || {}, byKey = {};
+    mPicks = []; M = null;
+    if (ch.status === 'open') {
+      var snd = ch.sounds || {};
+      M = { all: mAmt(ch.all) ? ch.all : null, whole: mAmt(ch.whole) ? ch.whole : null,
+            alone: mAmt(snd.alone) ? snd.alone : null, withPacks: mAmt(snd.with_packs) ? snd.with_packs : null,
+            soundsOwned: !!snd.owned, expires: Number(ch.expires_at_ms) || 0 };
+      (ch.packs || []).forEach(function (p) { byKey[String(p.key)] = p; });
+    }
+    Array.prototype.slice.call(mkc.querySelectorAll('[data-mk]')).forEach(function (row) {
+      var k = row.getAttribute('data-mk'), pick = null;
+      if (k === 'collection') {
+        if (M && M.soundsOwned) pick = { kind: 'coll', owned: true, on: false, now: 0, was: 0 };
+        else if (M && M.alone && M.withPacks) pick = { kind: 'coll', on: true, now: 0, was: 0, currency: M.alone.offer_price.currency };
+        else if (!M && co.status === 'open' && Number((co.offer_price || {}).amount) > 0) {
+          pick = { kind: 'coll', on: true, now: Number(co.offer_price.amount), was: Number((co.list_price || {}).amount) || 0, currency: co.offer_price.currency };
+        }
+      } else if (byKey[k]) {
+        var p = byKey[k], op = p.offer_price || {}, lp = p.list_price || {};
+        if (p.owned) pick = { kind: 'pack', owned: true, on: false, now: 0, was: 0 };
+        else if (Number(op.amount) > 0) pick = { kind: 'pack', on: true, now: Number(op.amount), was: Number(lp.amount) || 0, currency: op.currency };
+      }
+      row.hidden = !pick;
+      if (pick) { pick.key = k; pick.row = row; mPicks.push(pick); }
+    });
+    var sell = mPicks.filter(function (p) { return !p.owned; });
+    if (!sell.length) { mkcPublic(); return; }
+    mOffer = { expires: (M && M.expires) || Number(d.expires_at_ms), skew: Number(d.server_now_ms) - Date.now(),
+               amount: 0, currency: sell[0].currency || 'USD' };
+    // The older Collection-only offer (a backend without the chains): the card speaks for the Collection.
+    qm('[data-mkc-title-chains]').hidden = !M;
+    qm('[data-mkc-title-coll]').hidden = !!M;
+    qma('[data-coll-new]').forEach(function (el) { el.hidden = !M; });
+    qma('[data-coll-old]').forEach(function (el) { el.hidden = !!M; });
+    qm('[data-mkc-half]').hidden = !M;
+    qm('[data-mkc-needs]').hidden = !M;
+    mkcDraw();
+    qm('.mkc-offer').hidden = false;
+    qm('.mkc-k').hidden = false;
+    mkc.hidden = false;
+    if (mClock) clearInterval(mClock);
+    mkcTick();
+    mClock = setInterval(mkcTick, 1000);
+    stage('welcome_chains_viewed', 'chains');
+  }
+  function mToggle(row) {
+    var p = mPicks.filter(function (x) { return x.row === row; })[0];
+    if (!p || p.owned || !mOffer) return;
+    p.on = !p.on;
+    mkcDraw();
+    if (document.activeElement !== row) { try { row.focus({ preventScroll: true }); } catch (e) {} }
+    clarity('welcome_chains_pick');
+  }
+  if (mkc) {
+    mkc.addEventListener('click', function (e) {
+      var r = e.target.closest && e.target.closest('[data-mk]');
+      if (r) mToggle(r);
+    });
+    mkc.addEventListener('keydown', function (e) {
+      if ((e.key === ' ' || e.key === 'Enter') && e.target.hasAttribute && e.target.hasAttribute('data-mk')) { e.preventDefault(); mToggle(e.target); }
+    });
+  }
+  var mBuy = qm('.mkc-buy');
+  if (mBuy) mBuy.addEventListener('click', function () {
+    if (!mOffer) return;
+    var t = mCover();
+    if (!t) return;
+    if (!paddleOn) { mkcNote(FAILED); return; }
+    var btn = this, major = 0;
+    try {
+      var digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: t.currency }).resolvedOptions().minimumFractionDigits;
+      major = Number(t.now) / Math.pow(10, digits);
+      if (isFinite(major) && major > 0) ssSet('stride_checkout_value', JSON.stringify({ value: major, currency: t.currency }));
+    } catch (e) {}
+    btn.setAttribute('aria-busy', 'true');
+    mkcNote('');
+    // The Stride purchase, kept where these cards look first, before the checkout can overwrite it.
+    ssSet('stride_offer_txn', txn);
+    var packs = mPacksOn().map(function (p) { return p.key; });
+    var withColl = mSoundsOn();
+    var xid = (typeof _strideXid === 'string' && _strideXid) || '';
+    var body = M
+      ? { action: 'chains_checkout', txn: txn, picks: packs, collection: withColl, external_id: xid }
+      : { action: 'collection_checkout', txn: txn, external_id: xid };
+    fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        btn.removeAttribute('aria-busy');
+        if (d && d.ok && d.transaction_id) {
+          openKind = M ? 'chains' : 'collection';
+          try {
+            Paddle.Checkout.open({ transactionId: d.transaction_id,
+                                   settings: { displayMode: 'overlay', variant: 'one-page', theme: 'dark', successUrl: HERE_URL } });
+          } catch (e) { mkcNote(FAILED); return; }
+          try { if (window.StrideTrack && major > 0) StrideTrack.push('begin_checkout', { value: major, currency: t.currency }); } catch (e) {}
+          stage('welcome_chains_checkout', 'chains');
+          return;
+        }
+        var st = d && d.status;
+        if (st === 'used' || st === 'owned') { mkcGone('They are yours. The download links are on their way to your inbox.'); return; }
+        if (st === 'expired' || st === 'invalid') { mkcGone('This offer has ended.'); return; }
+        mkcNote(FAILED);
+      })
+      .catch(function () { btn.removeAttribute('aria-busy'); mkcNote(FAILED); });
   });
 
   // ── Tendril ─────────────────────────────────────────────────────────────────
