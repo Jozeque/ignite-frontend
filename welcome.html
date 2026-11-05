@@ -643,10 +643,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     </script>
 
 
-    <!-- Paddle. The session rail opens a checkout for the owner price, which the backend
-         creates server-side, so this page needs Paddle.js. Without it the rail falls back
-         to the public price and a plain link to session.html, which is why its absence
-         degrades rather than breaks. -->
+    <!-- Paddle. Tendril and the Collection open checkouts for the owner price, which the
+         backend creates server-side, so this page needs Paddle.js. Without it each card falls
+         back to a plain link to its own page, which is why its absence degrades rather than
+         breaks. -->
     <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -852,12 +852,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .w-block{display:flex;flex-direction:column}
   .w-bh{margin:0 0 4px;font-size:20px;font-weight:900;letter-spacing:-.01em;color:var(--ink);line-height:1.2}
   .w-bs{margin:0;font-size:13px;line-height:1.5;color:var(--ink2)}
-  .w-img{display:block;width:100%;height:150px;margin:14px 0 2px;object-fit:cover;object-position:50% 28%;
-    border-radius:12px;border:1px solid var(--line);filter:grayscale(1) brightness(.72) contrast(1.08)}
   .w-packs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0 2px}
   .w-packs img{display:block;width:100%;aspect-ratio:1/1;height:auto;object-fit:cover;border-radius:10px;
     border:1px solid var(--line);background:var(--bg2)}
-  .w-rule{height:1px;background:var(--line);margin:28px 0}
   .btn-line{display:flex;align-items:center;justify-content:center;gap:.45rem;margin-top:12px;padding:11px 16px;
     border:1px solid rgba(221,154,82,.55);border-radius:12px;color:var(--copper-lt);font-size:13.5px;
     font-weight:800;letter-spacing:.01em;text-decoration:none;transition:background .15s,border-color .15s,color .15s}
@@ -876,31 +873,87 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .w-ref-copy{flex:0 0 auto;padding:10px 18px;font-size:13px;border-radius:12px}
   .w-ref .dl-note{margin:8px 0 0}
   .w-note{margin:26px 0 0}
-  /* Wide screens (Yossi, 2026-09-29): both offers in view without a scroll. The page is wider
-     (1360px), the two columns closer to even, and the session and the Collection stand side by
-     side, split by a hairline, with their buttons on one line. Narrower screens keep them
-     stacked, as they were. */
+  /* Wide screens (Yossi, 2026-09-29): the page is wider (1360px) and the two columns closer to
+     even. On the right, Tendril across the column (2026-11-04), and the Collection under it as
+     one row: its covers on the left, its words and its button on the right. Narrower screens
+     stack everything, as they always did. */
   .w-offers{display:flex;flex-direction:column}
   @media (min-width:1200px){
     .w-cols{grid-template-columns:minmax(0,1.08fr) minmax(0,1fr)}
-    .w-offers{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:stretch}
-    .w-offers .w-rule{display:none}
-    .w-offers #coll-rail{border-left:1px solid var(--line);padding-left:22px}
-    .w-offers #session-rail{padding-right:22px}
-    .w-offers .w-img{height:96px}
+    .w-offers #coll-rail{display:grid;grid-template-columns:minmax(0,.92fr) minmax(0,1fr);column-gap:22px;align-items:start}
+    .w-offers #coll-rail > *{grid-column:2}
+    .w-offers #coll-rail > .w-packs{grid-column:1;grid-row:1 / span 7;margin:4px 0 0}
     .w-offers .offer-flag{margin:8px 0 6px}
     .w-offers .price.text-3xl{font-size:1.625rem}
     .w-offers .price-was{font-size:1.05rem}
     .w-offers .w-bh{font-size:18px}
-    /* Whichever button a card is showing sits on the card's floor, so the two cards' buttons
-       line up however their contents differ: the buy button when an offer is open, the link
-       when it is not. */
-    .w-offers .w-block > .rail-book:not([hidden]),
-    .w-offers .w-block > .rail-coll-buy:not([hidden]),
-    .w-offers .w-block > .rail-book[hidden] ~ .rail-link,
-    .w-offers .w-block > .rail-coll-buy[hidden] ~ .coll-link{margin-top:auto}
-    .w-offers .rail-session,.w-offers .w-packs{margin-bottom:12px}
   }
+  /* ── Tendril, where the session was (Yossi 2026-11-04) ─────────────────────────────
+     /tendril/'s hero in the right column: the name the way the plugin writes it, the claim, the
+     film, the owner price and its button. Labels are plain floating text: no pill, no dot, no
+     box in a box. The rule under it parts it from the Collection and goes with it when it is
+     hidden. */
+  .tdr{padding-bottom:28px;margin-bottom:28px;border-bottom:1px solid var(--line)}
+  /* Muted, as /tendril/'s eyebrow is: the name under it is the copper line. */
+  .tdr-k{margin:0 0 12px;color:var(--ink3)}
+  .tdr-word{margin:0 0 8px;font-size:15px;font-weight:800;letter-spacing:.42em;color:var(--copper-lt)}
+  .tdr-h{margin:0;font-size:26px;font-weight:900;letter-spacing:-.015em;line-height:1.1;color:var(--ink)}
+  @media (min-width:1200px){ .tdr-h{font-size:30px} }
+  .tdr-film{position:relative;margin:16px 0 0;aspect-ratio:16/9;border-radius:14px;overflow:hidden;
+    border:1px solid rgba(198,113,43,.28);background:#0e0d0b;
+    box-shadow:0 34px 70px -34px rgba(0,0,0,.95),0 0 70px -24px rgba(198,113,43,.2)}
+  .tdr-film video{display:block;width:100%;height:100%;object-fit:cover}
+  .tdr-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border:0;padding:0;margin:0;
+    cursor:pointer;background:rgba(8,7,5,.28);transition:background .2s}
+  .tdr-play:hover{background:rgba(8,7,5,.12)}
+  .tdr-play span{width:66px;height:66px;border-radius:999px;display:flex;align-items:center;justify-content:center;
+    background:rgba(198,113,43,.95);box-shadow:0 12px 34px -8px rgba(0,0,0,.75);transition:transform .15s}
+  .tdr-play:hover span{transform:scale(1.05)}
+  .tdr-lead{margin:16px 0 0;font-size:14px;line-height:1.6;color:var(--ink2)}
+  .tdr-chains{margin:10px 0 0;font-size:13.5px;font-weight:800;letter-spacing:.01em;color:var(--copper-lt)}
+  .tdr-flag{margin:0 0 8px;color:var(--copper-lt)}
+  /* The price on the left and the button on the right, stacked when the column is narrow. */
+  .tdr-offer{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px 22px;margin-top:22px}
+  .tdr-price-line{display:flex;align-items:flex-end;flex-wrap:wrap;gap:4px 14px}
+  .tdr-now{font-size:2.6rem}
+  .tdr-was{display:flex;flex-direction:column;padding-bottom:3px}
+  .tdr-was s{font-size:1.25rem;font-weight:800;line-height:1;color:var(--ink3);
+    text-decoration-thickness:2px;text-decoration-color:rgba(221,154,82,.85)}
+  .tdr-was small{margin-top:5px;font-size:9.5px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
+  .tdr-price-s{margin:8px 0 0;font-size:13px;color:var(--ink2)}
+  .tdr-buy{flex:1 1 230px;padding:15px 20px;font-size:13.5px;text-transform:uppercase}
+  .tdr-public{margin-top:22px}
+  .tdr-see{display:flex;width:100%;padding:14px 20px;font-size:13.5px;text-transform:uppercase;text-decoration:none}
+  .tdr-note{margin:12px 0 0;font-size:13px;line-height:1.55;color:#e6795f}
+  .tdr-note.tdr-fyi{color:var(--ink2)}
+  /* The thank-you: the key and the downloads right here, as /tendril/ hands them over. */
+  .tdr-done{margin-top:22px}
+  .tdr-done-k{margin:0 0 6px;color:rgb(var(--em300))}
+  .tdr-done-h{margin:0 0 6px;font-size:22px;font-weight:900;letter-spacing:-.01em;color:var(--ink)}
+  .tdr-done-p{margin:0;font-size:14px;line-height:1.6;color:var(--ink2)}
+  .tdr-done-l{margin:16px 0 6px}
+  .tdr-key{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
+  .tdr-key code{font:700 17px 'Space Mono',ui-monospace,monospace;letter-spacing:.03em;color:var(--ink);overflow-wrap:anywhere;user-select:all}
+  .tdr-dl{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 4px}
+  .tdr-ghost{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:11px 18px;border:1px solid var(--line);
+    background:var(--raise);color:var(--ink2);font-size:13px;font-weight:800;letter-spacing:.04em;border-radius:12px;
+    text-decoration:none;cursor:pointer;transition:transform .15s,border-color .15s,color .15s}
+  .tdr-ghost:hover{transform:translateY(-2px);border-color:rgba(216,201,176,.28);color:var(--ink)}
+  .tdr-done-s{margin:8px 0 0;font-size:13px;line-height:1.55;color:var(--ink2)}
+  .tdr-done-s.tdr-fine{color:var(--ink3);font-size:12.5px}
+  .tdr-done .tdr-manual{margin-top:16px}
+  /* The film with sound: the homepage's player (.vpop), as /tendril/ has it. */
+  .vpop{--pad:24px;position:fixed;inset:0;z-index:1200;display:none;align-items:center;justify-content:center;padding:var(--pad);background:rgba(8,7,5,.94)}
+  .vpop.on{display:flex}
+  .vpop-card{position:relative;line-height:0;max-width:100%;
+    width:min(1120px,100%,calc((100vh - var(--pad) * 2) * 16 / 9));
+    width:min(1120px,100%,calc((100dvh - var(--pad) * 2) * 16 / 9))}
+  .vpop-card video{display:block;width:100%;height:auto;border-radius:14px;border:1px solid rgba(198,113,43,.35);background:#000;
+    box-shadow:0 40px 90px -40px rgba(0,0,0,.95),0 0 70px -16px rgba(198,113,43,.22)}
+  .vpop-x{position:absolute;top:10px;right:10px;width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;
+    border-radius:999px;border:1px solid var(--line);background:rgba(16,15,12,.72);color:var(--ink2);font-size:19px;line-height:1;cursor:pointer}
+  @media (max-width:640px){ .vpop{--pad:14px} }
+  .vpop.v .vpop-card{width:min(100%,calc((100vh - var(--pad) * 2) * 9 / 16));width:min(100%,calc((100dvh - var(--pad) * 2) * 9 / 16))}
   /* The buyer's own link: the 15% is the headline, in copper. */
   .w-ref-h{font-size:22px}
   .w-ref-s{font-size:15px}
@@ -911,7 +964,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media (min-width:900px){ .w-ref-h{font-size:26px} .w-ref-s{font-size:16px} }
   .w-cols + .wcard-help{margin-top:34px}
 </style>
-<link rel="stylesheet" href="/_legacy/css/welcome.93d9ab3c82.css">
+<link rel="stylesheet" href="/_legacy/css/welcome.a85ffae766.css">
 <meta property="og:image" content="https://stridehub.io/media/stride/og/stride-share-1200x630.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -1112,40 +1165,51 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <aside class="w-side">
         <p class="silk xm-head">Explore more</p>
 
-        <!-- The 1:1 session. The owner price and its clock while this purchase's offer is open,
-             the public price otherwise (no offer, an expired one, a Lemon Squeezy buyer, any
-             backend failure), and "booked" once it is paid for, most often on /post. -->
+        <!-- Tendril, where the 1:1 session was (Yossi 2026-11-04: "remove the session and put a
+             full Tendril hero there", "keep the whole left side exactly the same"): /tendril/'s
+             words, its film and its owner price, with the same checkout. Hidden until the script
+             knows who this is. Someone who already has Tendril (the bump at checkout, /tendril/ a
+             minute ago, a key on their address) never sees it; a buyer who skipped it gets the
+             owner price the backend quotes for this purchase; without a purchase in this tab it
+             shows without a price and its button opens /tendril/, where the email check finds
+             the owner. The thank-you is built by the script, so its lines stay English. -->
         <div class="w-offers">
-        <div class="w-block" id="session-rail">
-          <div class="rail-session">
-            <p class="silk mb-2" style="color:var(--copper-lt)">Want to go deeper?</p>
-            <p class="w-bh">Spend an hour with the person who built Stride.</p>
-            <p class="w-bs">Your session. Your plugins. Your sound.</p>
-            <img class="w-img" src="assets/joe-portrait.jpg" alt="" width="640" height="640" loading="lazy" decoding="async">
+        <section class="w-block tdr" id="tdr-rail" aria-labelledby="tdr-h" hidden>
+          <p class="silk tdr-k">Built to be explored with Stride</p>
+          <p class="tdr-word">TENDRIL</p>
+          <p class="tdr-h" id="tdr-h">Three engines. One evolving sound design playground.</p>
+          <!-- The film: a silent loop while the card is in sight, and a press opens it with
+               sound (the upright cut on a phone). The frame on the page stays landscape. -->
+          <div class="tdr-film">
+            <video data-tdr-loop muted loop playsinline preload="none" poster="/media/tendril/film/poster-1280.webp"
+                   data-src="/media/tendril/film/tendril-promo-720-loop.mp4" aria-hidden="true"></video>
+            <button type="button" class="tdr-play" data-tdr-film aria-label="Watch Tendril × Stride"><span><svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="#1c1206"/></svg></span></button>
+          </div>
+          <p class="tdr-lead">Shape the harmonics, push the effects, and let three independent patterns play off each other. Explore with Stride to discover fresh sounds, mudpies and sequences from the same patch.</p>
+          <p class="tdr-chains">+ 22 StrideChains included</p>
 
-            <!-- Owner state. Hidden until the backend confirms this buyer has an open
-                 offer, on the server's clock: showing a price we might not honour and
-                 then correcting it is worse than showing the public one. -->
-            <div class="rail-offer" hidden>
-              <span class="offer-flag"><span class="offer-dot" aria-hidden="true"></span>New Stride owner price</span>
-              <p class="offer-clock" role="timer">Offer ends in <b data-rail-left>72h</b></p>
-              <div class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-                <del class="price-was"><span class="sr-only">Full price </span><span data-rail-was>$99</span></del>
-                <span class="price text-3xl" data-rail-now>$59</span>
+          <!-- The owner price, once the backend has quoted it for this purchase. The public price
+               is struck beside it as /tendril/ shows it: drawn only in this state. -->
+          <div class="tdr-offer" hidden>
+            <div>
+              <p class="silk tdr-flag">New Stride owner price</p>
+              <div class="tdr-price-line">
+                <span class="price tdr-now" data-tdr-now></span>
+                <span class="tdr-was" data-tdr-was hidden><s data-tdr-was-amt></s><small>Public price at launch</small></span>
               </div>
+              <p class="tdr-price-s">One-time purchase. Yours to keep.</p>
             </div>
-
-            <!-- Public state. Also the fallback for no offer, an expired one, a used one,
-                 a Lemon Squeezy buyer, or any backend failure. -->
-            <p class="rail-public text-xl font-black ink mt-3">1:1 session &middot; $99</p>
+            <button type="button" class="tdr-buy btn-copper"><span>Add Tendril for</span> <span data-tdr-cta></span></button>
           </div>
 
-          <button type="button" class="rail-book btn-copper w-full mt-3 px-4 py-2.5 text-xs uppercase" hidden>Book a session</button>
-          <p class="rail-note text-xs ink3 leading-relaxed mt-3" aria-live="polite" hidden></p>
-          <a href="session.html" class="rail-link btn-line">See what it covers &rarr;</a>
-        </div>
-
-        <div class="w-rule" aria-hidden="true"></div>
+          <!-- No purchase to price it against: the way to their price. -->
+          <div class="tdr-public">
+            <p class="silk tdr-flag">Stride owners only</p>
+            <a class="tdr-see btn-copper" href="/tendril/">See your owner price</a>
+          </div>
+          <p class="tdr-note" aria-live="polite" hidden></p>
+          <div class="tdr-done" hidden></div>
+        </section>
 
         <!-- The Experimental Collection. Its owner price and clock only while this purchase's
              offer is still open, which is a buyer who said no on /post2/ inside the 72 hours; a
@@ -1199,38 +1263,55 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </div>
 
 <script>
-// The 1:1 session offer in the support rail.
+// The offers down the right: Tendril, then the Experimental Collection.
 //
-// A Stride owner gets the owner price for 72 hours from their purchase. This page shows
-// the PUBLIC price by default and only upgrades to the owner view once the backend has
-// confirmed, on ITS clock, that this buyer has an open offer. Every failure path, no
-// transaction, no offer, expired, used, Lemon Squeezy, backend down, Paddle blocked, ends
-// with the public price and a plain link to session.html: nobody is ever shown a price we
-// cannot honour, and nobody is ever blocked from the page.
+// Tendril (Yossi 2026-11-04, where the 1:1 session was): a Stride owner who has not bought it gets
+// the owner price the backend quotes for THIS purchase (tendril_offer, the call /tendril/ makes
+// with the same transaction), and its button opens the same checkout (tendril_checkout). The card
+// stays hidden until the backend has answered, so somebody who already has Tendril never sees it
+// and no price is drawn before it is confirmed. Without a purchase in this tab, or when no price
+// can be had, it shows without one and its button opens /tendril/.
+//
+// The Collection shows its owner price and clock while this purchase's 72 hours are open, and
+// the link to its page otherwise. Every failure path, no transaction, no offer, expired, used,
+// backend down, Paddle blocked, ends with a plain link: nobody is ever shown a price we cannot
+// honour, and nobody is ever blocked from the page.
 (function () {
   'use strict';
 
   var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
   var PADDLE_TOKEN = 'live_e0101b87a9e6e7024988534cf7b';
-  var BOOKED_URL = 'https://stridehub.io/session.html?booked=1';
   var HERE_URL = 'https://stridehub.io/welcome.html';
   var FAILED = 'That did not open. Try again, or use the link below.';
+  var TDR_FAILED = 'Checkout could not open. Please try again, or write to home@stridehub.io.';
+  // The public price: what Tendril costs anyone WITHOUT Stride once it launches to everyone,
+  // struck beside the owner price. /tendril/'s own table, so keep the two in step. A currency it
+  // does not list shows no struck price at all.
+  var TDR_PUBLIC = { USD: 149, EUR: 149, GBP: 129, ILS: 449, CAD: 209, AUD: 209, CHF: 129, NOK: 1399, NZD: 269 };
 
-  var rail = document.getElementById('session-rail');
-  if (!rail) return;
-  function q(sel) { return rail.querySelector(sel); }
-  // The Collection card is a sibling, not part of this one, so it needs its own lookup.
-  // Everything below tolerates it being absent: this page has shipped without it.
+  // The two cards are siblings, each looked up on its own. Everything below tolerates either
+  // being absent: this page has shipped without the Collection's.
   var collCard = document.getElementById('coll-rail');
+  var tdr = document.getElementById('tdr-rail');
   function qc(sel) { return collCard ? collCard.querySelector(sel) : null; }
+  function qt(sel) { return tdr ? tdr.querySelector(sel) : null; }
   function ss(k) { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } }
   function ssSet(k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} }
+  function clarity(name) { try { if (window.strideClarity) window.strideClarity(name); } catch (e) {} }
 
-  // stride_offer_txn is the STRIDE transaction, stashed by /post, /post2 and this card before a
+  // Tendril without a price: its words and its film, and the way to the owner price on /tendril/.
+  function tdrPublic() {
+    if (!tdr) return;
+    qt('.tdr-offer').hidden = true;
+    qt('.tdr-public').hidden = false;
+    tdr.hidden = false;
+  }
+
+  // stride_offer_txn is the STRIDE transaction, stashed by /post, /post2 and this page before a
   // second checkout overwrote stride_last_txn. Prefer it: the offers belong to the Stride
   // purchase, not to whatever was bought a minute later.
   var txn = ss('stride_offer_txn') || ss('stride_last_txn');
-  if (!txn) return;                       // public price stays, link stays
+  if (!txn) { tdrPublic(); return; }      // Tendril without a price, the Collection's link
 
   // One stage of the funnel, against the purchase that earned the offer. Fire and forget.
   function stage(name, kind) {
@@ -1243,10 +1324,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     } catch (e) {}
   }
 
-  // One state per card, because the two offers are independent and can both be open. Each is
-  // { expires, skew } plus, for the Collection, the money its button reports.
+  // One state per card, because the two offers are independent. The Collection's is
+  // { expires, skew } plus the money its button reports; Tendril's is the price it was quoted.
   // openKind: which checkout is open, so a completed one is read for what it was.
-  var sOffer = null, sClock = null, cOffer = null, cClock = null, paddleOn = false, openKind = '';
+  var cOffer = null, cClock = null, tOffer = null, paddleOn = false, openKind = '', tdrPaidDone = false;
 
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function human(ms) {
@@ -1256,18 +1337,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     if (d > 0) return d + 'd ' + h + 'h ' + m + 'm';
     if (h > 0) return h + 'h ' + pad(m) + 'm';
     return m + 'm ' + pad(sec) + 's';
-  }
-
-  function toPublic() {
-    if (sClock) { clearInterval(sClock); sClock = null; }
-    sOffer = null;
-    q('.rail-session').hidden = false;
-    q('.rail-offer').hidden = true;
-    q('.rail-public').hidden = false;
-    q('.rail-book').hidden = true;
-    q('.rail-link').hidden = false;
-    // No offer left to carry, so the link goes back to the plain page.
-    try { q('.rail-link').setAttribute('href', 'session.html'); } catch (e) {}
   }
 
   // The offer is over (its clock ran out) or was just taken here: the block goes back to the
@@ -1281,12 +1350,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     collNote(text || '');
   }
 
-  function note(text) {
-    var el = q('.rail-note');
-    el.textContent = text || '';
-    el.hidden = !text;
-  }
-
   function collNote(text) {
     var el = qc('.coll-note');
     if (!el) return;
@@ -1294,53 +1357,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     el.hidden = !text;
   }
 
-  // Booked already, most often on /post a minute ago. Say so, instead of offering the public
-  // price for the session they have just bought. `collection`: the Collection came off this
-  // purchase's offer too.
-  function showBooked() {
-    toPublic();
-    q('.rail-public').hidden = true;
-    note("You're booked in. Check your inbox for the link to pick your time.");
-  }
-
-  function tick() {
-    if (!sOffer) return;
-    var left = sOffer.expires - (Date.now() + sOffer.skew);
-    // The window closed with the card open: the session goes back to its public price.
-    if (left <= 0) { toPublic(); return; }
-    q('[data-rail-left]').textContent = human(left);
-  }
-
   function collTick() {
     if (!cOffer) return;
     var left = cOffer.expires - (Date.now() + cOffer.skew);
     if (left <= 0) { collGone(''); return; }
     qc('[data-coll-left]').textContent = human(left);
-  }
-
-  function showOwner(d) {
-    var s = d.session || {};
-    var now = (s.owner_price || {}).formatted, was = (s.standard_price || {}).formatted;
-    if (!now || !was) return;                       // keep the public price
-    sOffer = { expires: Number(d.expires_at_ms), skew: Number(d.server_now_ms) - Date.now() };
-    q('[data-rail-now]').textContent = now;
-    q('[data-rail-was]').textContent = was;
-    q('.rail-public').hidden = true;
-    q('.rail-offer').hidden = false;
-    q('.rail-book').hidden = false;
-    q('.rail-link').hidden = false;
-    // Carry the purchase through to session.html. Without it, that page can only resolve
-    // the owner price from the token in the welcome MAIL, so a buyer who reads the offer
-    // here and clicks through before the mail lands is quoted the FULL price for the thing
-    // they were just offered at half of it. That is what happened to the first buyer.
-    // The id is identity, never price: session.html still asks the backend what this offer
-    // is worth and how long it has, and the markup keeps the bare href for anyone with no
-    // offer and no JavaScript.
-    try { q('.rail-link').setAttribute('href', 'session.html?txn=' + encodeURIComponent(txn)); } catch (e) {}
-    if (sClock) clearInterval(sClock);
-    tick();
-    sClock = setInterval(tick, 1000);
-    stage('welcome_viewed', 'session');
   }
 
   // The Collection is still on offer, whatever the session is doing. Its card stands on its
@@ -1381,17 +1402,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       // rather than two. Defined by the block at the end of the document; the guard is for
       // a page served without it.
       if (window.strideShowDownloads) window.strideShowDownloads(d.downloads);
-      // The two offers are read separately: whatever this buyer has not taken yet is what
-      // they are shown. Before, an open session hid an open Collection, so the only people
-      // who ever saw it were the ones who had just booked a session.
-      var sessionStatus = (d.session || {}).status, collectionStatus = (d.collection || {}).status;
       // The Collection is offered here again (2026-09-29) while this purchase's offer is still
       // open: the buyer said no on /post2/ and the 72 hours are running. Taken (the bump at
-      // checkout, or /post2/) or over, its block keeps the link to its page.
+      // checkout, or /post2/) or over, its block keeps the link to its page. Tendril asks for
+      // itself (below), so a slow answer here never holds it up.
+      var collectionStatus = (d.collection || {}).status;
       if (collectionStatus === 'open') showCollection(d);
-      if (sessionStatus === 'open') showOwner(d);
-      else if (sessionStatus === 'used') showBooked();
-      // Expired or unknown: the public price stays, and the Collection card stays hidden.
     })
     .catch(function () { settled = true; clearTimeout(bail); });
 
@@ -1402,6 +1418,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         eventCallback: function (ev) {
           try { if (window.strideClarity) window.strideClarity.paddle(ev, openKind || 'offer'); } catch (e) {}
           if (!ev || ev.name !== 'checkout.completed') return;
+          if (openKind === 'tendril') { tdrPaid(ev); return; }
           if (openKind === 'collection') {
             // A second, separate purchase. Hand it to this page's own purchase tracking, which
             // records it on the reload the success URL brings, exactly as /post2 does.
@@ -1423,20 +1440,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               }
             } catch (e) {}
             collGone("The Collection is yours. Check your inbox for the download.");
-            return;
           }
-          showBooked();
         }
       });
       paddleOn = true;
     }
   } catch (e) { paddleOn = false; }
 
-  // Both buttons open a checkout the backend made, so no price and no discount live in this page.
+  // The Collection's button opens a checkout the backend made, so no price and no discount live
+  // in this page. Tendril's has its own, below: its sale is handed over on the page, not on a
+  // reload.
   function openCheckout(btn, action, kind, successUrl, stageName) {
-    // Each card owns its own message line, so a failure is reported under the button that
-    // was pressed rather than on the other offer.
-    var say = kind === 'collection' ? collNote : note;
+    var say = collNote;
     btn.setAttribute('aria-busy', 'true');
     say('');
     // The Stride purchase, kept where this card looks first, before the checkout can overwrite
@@ -1444,7 +1459,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     ssSet('stride_offer_txn', txn);
     var body = { action: action, txn: txn };
     if (kind === 'collection') body.external_id = (typeof _strideXid === 'string' && _strideXid) || '';
-    var shown = kind === 'collection' ? cOffer : sOffer;
+    var shown = cOffer;
     fetch(API, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
@@ -1470,13 +1485,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           return;
         }
         var st = d && d.status;
-        if (kind === 'session') {
-          if (st === 'used') { showBooked(); return; }
-          if (st === 'expired' || st === 'invalid') { toPublic(); note('Your owner price has ended.'); return; }
-        } else {
-          if (st === 'used' || st === 'owned') { collGone("The Collection is yours. Check your inbox for the download."); return; }
-          if (st === 'expired' || st === 'invalid') { collGone('This offer has ended.'); return; }
-        }
+        if (st === 'used' || st === 'owned') { collGone("The Collection is yours. Check your inbox for the download."); return; }
+        if (st === 'expired' || st === 'invalid') { collGone('This offer has ended.'); return; }
         say(FAILED);
       })
       .catch(function () {
@@ -1484,13 +1494,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         say(FAILED);
       });
   }
-
-  q('.rail-book').addEventListener('click', function () {
-    if (!sOffer) return;
-    // No Paddle means no checkout to open. Send them to the page rather than fail silently.
-    if (!paddleOn) { window.location.href = 'session.html'; return; }
-    openCheckout(this, 'session_checkout', 'session', BOOKED_URL, 'welcome_checkout');
-  });
 
   var collBuy = qc('.rail-coll-buy');
   if (collBuy) collBuy.addEventListener('click', function () {
@@ -1506,6 +1509,353 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     } catch (e) {}
     openCheckout(this, 'collection_checkout', 'collection', HERE_URL, 'welcome_collection_checkout');
   });
+
+  // ── Tendril ─────────────────────────────────────────────────────────────────
+  function tdrNote(text, fyi) {
+    var el = qt('.tdr-note');
+    if (!el) return;
+    el.textContent = text || '';
+    el.className = 'tdr-note' + (fyi ? ' tdr-fyi' : '');
+    el.hidden = !text;
+  }
+
+  // A price as /tendril/ writes it: the visitor's currency, decimals only when there are any
+  // ($49, not $49.00). Paddle's own formatting is the fallback.
+  function tdrMoney(p) {
+    try {
+      var digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: p.currency }).resolvedOptions().minimumFractionDigits;
+      var major = Number(p.amount) / Math.pow(10, digits);
+      var whole = Math.round(major) === major;
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: p.currency,
+        minimumFractionDigits: whole ? 0 : digits, maximumFractionDigits: whole ? 0 : digits }).format(major);
+    } catch (e) { return p.formatted || ''; }
+  }
+
+  // The money on screen, in major units, for Tendril's own analytics events.
+  function tdrValue() {
+    try {
+      var digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: tOffer.currency }).resolvedOptions().minimumFractionDigits;
+      return { value: Number(tOffer.amount) / Math.pow(10, digits), currency: tOffer.currency };
+    } catch (e) { return { value: 0, currency: '' }; }
+  }
+
+  function showTendril(d) {
+    var p = d.price || {};
+    var label = tdrMoney(p);
+    if (!label) { tdrPublic(); return; }
+    tOffer = { amount: p.amount, currency: p.currency };
+    qt('[data-tdr-now]').textContent = label;
+    qt('[data-tdr-cta]').textContent = label;
+    var cur = String(p.currency || '').toUpperCase(), pub = TDR_PUBLIC[cur], was = '';
+    if (pub) {
+      try {
+        var dg = new Intl.NumberFormat('en-US', { style: 'currency', currency: cur }).resolvedOptions().minimumFractionDigits;
+        was = tdrMoney({ amount: String(pub * Math.pow(10, dg)), currency: cur });
+      } catch (e) { was = ''; }
+    }
+    qt('[data-tdr-was-amt]').textContent = was;
+    qt('[data-tdr-was]').hidden = !was;
+    qt('.tdr-public').hidden = true;
+    qt('.tdr-offer').hidden = false;
+    tdr.hidden = false;
+    stage('welcome_viewed', 'tendril');
+  }
+
+  // Bought in another tab since, or a key already on their address: no offer, and a line saying
+  // where it is.
+  function tdrOwnedNow() {
+    tOffer = null;
+    qt('.tdr-offer').hidden = true;
+    qt('.tdr-public').hidden = true;
+    tdrNote('Tendril is already yours. Your license key and download links are in the email we sent when you bought it.', true);
+  }
+
+  // Already theirs in this tab: in the order bump (the homepage marks the Stride purchase it rode
+  // on) or bought on /tendril/ a minute ago. Nothing to ask, and nothing to show.
+  var tdrOwned = ss('stride_bump_tendril') === txn || ss('stride_tendril_paid') === txn;
+  // Otherwise the backend says: open (with the price), owned, invalid (not a Stride purchase it can
+  // price, or a refunded one) or unavailable. Anything but open or owned is asked twice more.
+  var TDR_TRIES = [1500, 4000];
+  function askTendril(i) {
+    var later = function () { setTimeout(function () { askTendril(i + 1); }, TDR_TRIES[i]); };
+    fetch(API, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'tendril_offer', txn: txn })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var status = (d && d.ok && d.status) || 'unavailable';
+        if (status === 'open') { showTendril(d); return; }
+        if (status === 'owned') return;                  // theirs already: the card stays hidden
+        if (i < TDR_TRIES.length) { later(); return; }
+        // Nothing Tendril can be offered against stays hidden. A backend that never gave a price
+        // leaves the way to it on /tendril/.
+        if (status !== 'invalid') tdrPublic();
+      })
+      .catch(function () {
+        if (i < TDR_TRIES.length) { later(); return; }
+        tdrPublic();
+      });
+  }
+  if (tdr && !tdrOwned) askTendril(0);
+
+  // Buying it here: the checkout the backend opens for this owner at the price it quoted, as on
+  // /tendril/, with Tendril's own events only. Stride's purchase, begin_checkout and the Meta
+  // Pixel are not fired for it: the server reports the sale.
+  var tdrBuy = qt('.tdr-buy');
+  if (tdrBuy) tdrBuy.addEventListener('click', function () {
+    var btn = this;
+    if (!tOffer) return;
+    if (!paddleOn) { tdrNote(TDR_FAILED); return; }
+    btn.setAttribute('aria-busy', 'true');
+    tdrNote('');
+    // The Stride purchase, kept where this page looks first, before the checkout can overwrite
+    // stride_last_txn.
+    ssSet('stride_offer_txn', txn);
+    fetch(API, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'tendril_checkout', txn: txn,
+                             external_id: (typeof _strideXid === 'string' && _strideXid) || '' })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        btn.removeAttribute('aria-busy');
+        if (d && d.ok && d.transaction_id) {
+          openKind = 'tendril';
+          try {
+            Paddle.Checkout.open({ transactionId: d.transaction_id,
+                                   settings: { displayMode: 'overlay', variant: 'one-page', theme: 'dark' } });
+          } catch (e) { tdrNote(TDR_FAILED); return; }
+          var v = tdrValue();
+          try { if (window.StrideTrack && v.value > 0) StrideTrack.push('tendril_checkout', { value: v.value, currency: v.currency, item_name: 'Tendril' }); } catch (e) {}
+          stage('welcome_checkout', 'tendril');
+          return;
+        }
+        if (d && d.status === 'owned') { tdrOwnedNow(); return; }
+        if (d && d.status === 'invalid') { tdr.hidden = true; return; }
+        tdrNote(TDR_FAILED);
+      })
+      .catch(function () {
+        btn.removeAttribute('aria-busy');
+        tdrNote(TDR_FAILED);
+      });
+  });
+
+  // The thank-you: the key and the downloads right here, as /tendril/ hands them over, so the
+  // mail is a copy and not the only way in. Built here rather than in the markup, because this
+  // page is translated and new lines in the HTML would take every translated copy down until
+  // each language had them; it reads in English everywhere for now. The backend answers once the
+  // sale has minted the key, a few seconds after Paddle's own receipt, so it is asked every 2
+  // seconds for up to 40, with this purchase and the checkout just paid. Until then, and if it
+  // never answers, the inbox line stands.
+  var got = null;
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text) n.textContent = text;
+    return n;
+  }
+  function tdrThanks() {
+    var box = qt('.tdr-done');
+    if (!box) return;
+    qt('.tdr-offer').hidden = true;
+    qt('.tdr-public').hidden = true;
+    tdrNote('');
+    box.innerHTML = '';
+    box.appendChild(el('p', 'silk tdr-done-k', 'Thank you'));
+    box.appendChild(el('p', 'tdr-done-h', 'Tendril is yours.'));
+    var wait = el('p', 'tdr-done-p', 'Your license key and download links are on their way to your inbox. They usually land within a minute.');
+    box.appendChild(wait);
+    var keyed = el('div');
+    keyed.hidden = true;
+    keyed.appendChild(el('p', 'tdr-done-p', 'Install Tendril, open it, choose Activate your license and paste this key. A copy is on its way to your inbox.'));
+    keyed.appendChild(el('p', 'silk tdr-done-l', 'Your license key'));
+    var row = el('div', 'tdr-key');
+    var code = el('code');
+    var copy = el('button', 'tdr-ghost', 'Copy');
+    copy.type = 'button';
+    copy.addEventListener('click', function () {
+      var said = function (text) {
+        copy.textContent = text;
+        setTimeout(function () { copy.textContent = 'Copy'; }, 2000);
+      };
+      // No clipboard access (an older browser, an http preview): select the key and copy it the old way.
+      var byHand = function () {
+        var copied = false;
+        try {
+          var range = document.createRange();
+          range.selectNodeContents(code);
+          var sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+          copied = document.execCommand('copy');
+        } catch (e) {}
+        said(copied ? 'Copied' : 'Selected');
+      };
+      try { navigator.clipboard.writeText(code.textContent || '').then(function () { said('Copied'); }, byHand); }
+      catch (e) { byHand(); }
+    });
+    row.appendChild(code);
+    row.appendChild(copy);
+    keyed.appendChild(row);
+    var dl = el('div', 'tdr-dl');
+    keyed.appendChild(dl);
+    var chains = el('p', 'tdr-done-s', 'Unzip the StrideChains into Documents\\Stride\\chains (Mac: ~/Documents/Stride/chains), then hit Load in Stride.');
+    chains.hidden = true;
+    keyed.appendChild(chains);
+    keyed.appendChild(el('p', 'tdr-done-s tdr-fine', 'On Windows, if SmartScreen stops the installer, choose More info, then Run anyway.'));
+    box.appendChild(keyed);
+    var manual = el('a', 'tdr-ghost tdr-manual', 'Open the manual');
+    manual.href = '/media/tendril/manual/';
+    manual.target = '_blank';
+    manual.rel = 'noopener';
+    box.appendChild(manual);
+    box.hidden = false;
+    got = { wait: wait, keyed: keyed, code: code, dl: dl, chains: chains };
+  }
+  function tdrGot(d) {
+    if (!got) return;
+    var links = (d.downloads || []).filter(function (x) { return x && /^https:\/\//.test(x.url || ''); });
+    if (d.chains && /^https:\/\//.test(d.chains.url || '')) links.push({ url: d.chains.url, chains: true });
+    got.code.textContent = String(d.key);
+    got.dl.innerHTML = '';
+    links.forEach(function (x) {
+      var a = el('a', 'tdr-ghost', x.chains ? 'The 22 StrideChains' : 'Download for ' + x.label);
+      a.href = x.url;
+      a.addEventListener('click', function () { clarity(x.chains ? 'welcome_tendril_chains' : 'welcome_tendril_dl'); });
+      got.dl.appendChild(a);
+    });
+    got.dl.hidden = !links.length;
+    got.chains.hidden = !links.some(function (x) { return x.chains; });
+    got.wait.hidden = true;
+    got.keyed.hidden = false;
+    clarity('welcome_tendril_got');
+  }
+  var GOT_EVERY = 2000, GOT_FOR = 40000;
+  function tdrReceipt(tid) {
+    if (!/^txn_[0-9a-z]{26}$/.test(tid)) return;
+    var until = Date.now() + GOT_FOR;
+    var again = function () { if (Date.now() < until) setTimeout(askGot, GOT_EVERY); };
+    function askGot() {
+      fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                   body: JSON.stringify({ action: 'tendril_receipt', txn: txn, transaction_id: tid }) })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d && d.ok && d.status === 'ready' && d.key) { tdrGot(d); return; }
+          if (d && d.status === 'invalid') return;
+          again();
+        })
+        .catch(again);
+    }
+    askGot();
+  }
+  function tdrPaid(ev) {
+    if (tdrPaidDone || !ev.data) return;
+    tdrPaidDone = true;
+    // Marked against the Stride purchase, as /tendril/ marks it: a reload here does not offer it
+    // again, and /post2/ knows which road the buyer came by.
+    ssSet('stride_tendril_paid', txn);
+    try {
+      var paid = Number((ev.data.totals || {}).total);
+      if (window.StrideTrack) {
+        StrideTrack.push('tendril_purchase', { value: paid > 0 ? paid : tdrValue().value,
+                                               currency: String(ev.data.currency_code || (tOffer && tOffer.currency) || ''),
+                                               transaction_id: String(ev.data.transaction_id || ''),
+                                               item_name: 'Tendril' });
+      }
+    } catch (e) {}
+    tdrThanks();
+    tdrReceipt(String(ev.data.transaction_id || ''));
+    // Paddle shows its own receipt in the overlay first, then steps aside.
+    setTimeout(function () { try { Paddle.Checkout.close(); } catch (e) {} }, 2500);
+  }
+})();
+</script>
+
+<!-- Tendril's film, in its card down the right. Its own block: it plays for everybody the card
+     is shown to, with or without a purchase in this tab. -->
+<script>
+(function () {
+  'use strict';
+
+  var card = document.getElementById('tdr-rail');
+  if (!card) return;
+  var loop = card.querySelector('[data-tdr-loop]');
+  var press = card.querySelector('[data-tdr-film]');
+  // On a phone the film opens upright, the 9:16 cut; everywhere else the wide one, as /tendril/.
+  var PHONE = !!(window.matchMedia && window.matchMedia('(max-width:640px)').matches);
+  var FILM = PHONE ? '/media/tendril/film/tendril-promo-9x16.mp4' : '/media/tendril/film/tendril-promo-1080.mp4';
+  var STILL = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  var inSight = false, open = false;
+  function clarity(name) { try { if (window.strideClarity) window.strideClarity(name); } catch (e) {} }
+
+  // The silent loop: fetched the first time the card comes into sight, running only while it is
+  // in sight and the film itself is shut, and never for somebody who asked for less motion.
+  function run() {
+    if (!loop) return;
+    if (STILL || !inSight || open) { try { loop.pause(); } catch (e) {} return; }
+    if (!loop.getAttribute('src')) loop.setAttribute('src', loop.getAttribute('data-src'));
+    try { var p = loop.play(); if (p && p.catch) p.catch(function () {}); } catch (e) {}
+  }
+  if (loop && 'IntersectionObserver' in window) {
+    new IntersectionObserver(function (entries) {
+      inSight = entries[entries.length - 1].isIntersecting;
+      run();
+    }, { threshold: 0.35 }).observe(loop);
+  }
+
+  var pop = null, film = null, openedAt = 0;
+  function closeFilm() {
+    if (!pop || !pop.classList.contains('on')) return;
+    film.pause();
+    pop.classList.remove('on');
+    document.documentElement.style.overflow = '';
+    open = false;
+    run();
+  }
+  function openFilm() {
+    if (!pop) {
+      pop = document.createElement('div');
+      pop.className = PHONE ? 'vpop v' : 'vpop';
+      pop.setAttribute('role', 'dialog');
+      pop.setAttribute('aria-modal', 'true');
+      pop.setAttribute('aria-label', 'Tendril and Stride');
+      var box = document.createElement('div');
+      box.className = 'vpop-card';
+      film = document.createElement('video');
+      film.setAttribute('controls', '');
+      film.setAttribute('playsinline', '');
+      film.setAttribute('preload', 'none');
+      film.src = FILM;
+      var x = document.createElement('button');
+      x.type = 'button';
+      x.className = 'vpop-x';
+      x.setAttribute('aria-label', 'Close');
+      x.innerHTML = '&times;';
+      x.addEventListener('click', closeFilm);
+      box.appendChild(film);
+      box.appendChild(x);
+      pop.appendChild(box);
+      pop.addEventListener('click', function (ev) { if (ev.target === pop && Date.now() - openedAt > 400) closeFilm(); });
+      document.body.appendChild(pop);
+    }
+    document.documentElement.style.overflow = 'hidden';
+    pop.classList.add('on');
+    open = true;
+    run();
+    openedAt = Date.now();
+    clarity('welcome_tendril_film');
+    film.currentTime = 0;
+    film.muted = false;
+    var p = film.play();
+    if (p && p.catch) p.catch(function () {
+      if (!pop.classList.contains('on')) return;
+      film.muted = true;
+      film.play().catch(function () {});
+    });
+  }
+  if (press) press.addEventListener('click', openFilm);
+  document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') closeFilm(); });
 })();
 </script>
 
