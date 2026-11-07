@@ -26,6 +26,24 @@
       } catch (e) {}
     })();
     </script>
+    <script>
+    // Black Friday for everyone, baked into the price (Yossi 2026-11-07: "the 30% discount on Stride BAKED in
+    // the HERO, with a countdown until the end of November"; the popup off; after it, back to $99 and no popup).
+    // Every visit gets EARLYBF30 (30% off Stride, Paddle dsc_01m5wt7ben1x97t6qv0chz08kf, which Paddle ends at the
+    // same moment) on the page at once: the price, the ticket beside it, the countdown above it, the checkout
+    // and the wallet. END is one date for every visitor, midnight at the end of November 30 in US Pacific time,
+    // so the clock never restarts in a fresh browser. window.STRIDE_BF names the code for the price hold below,
+    // strideReadCode and the Early Black Friday popup, which then neither opens nor pins; STRIDE_BF_END tells
+    // that popup it stays shut after the end too. Not over the gift checkout, its own offer. The React pages
+    // read NAME and END from this exact line at build time (src/lib/paddle-config.ts). Tests serve END = 0.
+    (function () {
+      var NAME = 'earlybf30', END = Date.parse('2026-12-01T08:00:00Z');   // midnight after November 30, US Pacific
+      try {
+        window.STRIDE_BF_END = END;
+        if (Date.now() < END && !window.STRIDE_GIFT) window.STRIDE_BF = NAME;
+      } catch (e) {}
+    })();
+    </script>
     <!-- The price hold (2026-10-22, the script below). Paddle's script, then the price it
          quotes this visitor: both connections are opened here, so that price lands sooner. -->
     <link rel="preconnect" href="https://cdn.paddle.com">
@@ -35,11 +53,12 @@
        It fades in once it is the number Paddle charges this visitor. */
     html.sd-hold .sd-total, html.sd-hold .sd-was, html.sd-hold .sd-save, html.sd-hold .sd-cta-price,
     html.sd-hold .m-cta-price, html.sd-hold .addon-p, html.sd-hold .addon-was, html.sd-hold .sd-swap,
-    html.sd-hold .sd-stride, html.sd-hold .bf-was, html.sd-hold .bf-now, html.sd-hold .bf-buy {
+    html.sd-hold .sd-stride, html.sd-hold .bf-was, html.sd-hold .bf-now, html.sd-hold .bf-buy,
+    html.sd-hold [data-bundle-now], html.sd-hold [data-bundle-was] {
         visibility: hidden; opacity: 0;
     }
     .sd-total, .sd-was, .sd-save, .sd-cta-price, .m-cta-price, .addon-p, .addon-was, .sd-swap,
-    .sd-stride, .bf-was, .bf-now, .bf-buy { transition-property: opacity; transition-duration: .15s; }
+    .sd-stride, .bf-was, .bf-now, .bf-buy, [data-bundle-now], [data-bundle-was] { transition-property: opacity; transition-duration: .15s; }
     </style>
     <script>
     // The price hold (2026-10-22). Every price on this page is written in dollars, and Paddle's
@@ -69,9 +88,10 @@
                   'America/Yakutat', 'America/Nome', 'America/Adak', 'America/Indianapolis',
                   'America/Louisville', 'America/Fort_Wayne', 'America/Knox_IN', 'Pacific/Honolulu'];
         var us = US.indexOf(tz) > -1 || /^(America.(Kentucky|Indiana|North_Dakota).|US.)/.test(tz);
-        // A code moves the price in dollars too: one on the address, or an Early Black Friday
-        // code this browser claimed (that panel's own record, KEY in its script).
-        var code = /[?&]code=[^&#]/.test(location.search);
+        // A code moves the price in dollars too: one on the address, the Black Friday code every
+        // visit gets (the script above), or an Early Black Friday code this browser claimed (that
+        // panel's own record, KEY in its script).
+        var code = /[?&]code=[^&#]/.test(location.search) || !!window.STRIDE_BF;
         if (!code) {
           try {
             var bf = JSON.parse(localStorage.getItem('stride_bf') || 'null');
@@ -1415,6 +1435,24 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
                  radial-gradient(circle 5px at 100% 50%,#0000 96%,#000) 100% 0/51% 100% no-repeat}
   .code-seal .cs-left{font-family:'Space Mono',ui-monospace,monospace;font-size:13px;
     color:var(--copper-lt);font-variant-numeric:tabular-nums}
+  /* Black November across the top of the screen (2026-11-07): sticky above everything on the page and under every
+     overlay (the menu, the buy form, the consent panel and the popups all sit higher). The words in the page's own
+     face, the clock in mono so it does not jitter. No pills, no dots: plain words on the ticket's own gradient. */
+  .bfbar{position:sticky;top:0;z-index:90;display:flex;align-items:baseline;justify-content:center;flex-wrap:wrap;
+    gap:2px 14px;padding:9px 16px;background:linear-gradient(90deg,#d9832f,#f7b25c 50%,#d9832f);color:#1d130a;
+    font-size:13px;font-weight:900;letter-spacing:.08em;line-height:1.3;text-transform:uppercase;text-align:center;
+    box-shadow:0 8px 20px -12px rgba(0,0,0,.85)}
+  .bfbar[hidden]{display:none}
+  .bfbar-promo{font-weight:700;letter-spacing:.06em}
+  .bfbar-ends{display:inline-flex;align-items:baseline;gap:7px}
+  .bfbar-k{font-weight:700}
+  .bfbar-clock{font-family:'Space Mono',ui-monospace,monospace;font-size:15px;font-weight:700;letter-spacing:.02em;
+    font-variant-numeric:tabular-nums}
+  html.has-bfbar{scroll-padding-top:46px}
+  @media (max-width:640px){
+    .bfbar{font-size:10.5px;gap:1px 10px;padding:6px 10px;letter-spacing:.06em}
+    .bfbar-clock{font-size:12.5px}
+  }
 
   /* ── The hero price group ────────────────────────────────────────────────
      The old price is 70% of the one being charged, up from a 16px footnote.
@@ -1467,6 +1505,100 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .addon-tdr .bump-on{display:none}
   .addon-tdr.on .bump-on{display:inline}
   .addon-tdr.on .bump-off{display:none}
+  /* The Stride Bundle's row (2026-11-07): Tendril's still with the Collection's sleeve over its corner, the
+     upgrade's price in the title, and a line with the three at their own prices struck beside all three at half. */
+  .addon-bundle .bump-on{display:none}
+  .addon-bundle.on .bump-on{display:inline}
+  .addon-bundle.on .bump-off{display:none}
+  .addon-pair{position:relative;flex:none;width:70px;height:44px}
+  .addon-pair img{position:absolute;display:block;object-fit:cover;border:1px solid var(--line);background:var(--bg2)}
+  .addon-pair .ap-t{left:0;top:3px;width:56px;height:32px;border-radius:7px}
+  .addon-pair .ap-c{right:0;bottom:0;width:28px;height:28px;border-radius:6px;box-shadow:0 6px 12px -6px rgba(0,0,0,.9)}
+  .addon-compact .addon-pair{width:52px;height:34px}
+  .addon-compact .addon-pair .ap-t{width:42px;height:24px;top:2px}
+  .addon-compact .addon-pair .ap-c{width:22px;height:22px}
+  .addon-bprice s{opacity:.6;font-weight:700;text-decoration-thickness:1.5px}
+  .addon-bprice b{color:var(--ink);font-weight:800;margin-left:.2rem}
+  /* ── The hero's Stride Bundle card (Yossi 2026-11-07, his design) ───────────────────────────────────────
+     A card of its own in the buy bar: copper-edged, the products' real art on the left (Tendril's window over
+     the Collection in brief), the name, what is in it, the upgrade and the total on the right, our Black Friday
+     ticket at 50% hanging off the top right corner. */
+  .addon.bcard{display:grid;grid-template-columns:140px minmax(0,1fr);align-items:center;gap:4px 16px;
+    margin:0;padding:14px 20px 14px 12px;border:1.5px solid rgba(221,154,82,.62);border-radius:18px;
+    background:radial-gradient(130% 150% at 0% 0%,rgba(198,113,43,.18),transparent 58%),rgba(0,0,0,.30);
+    box-shadow:0 0 0 1px rgba(198,113,43,.10) inset,0 24px 48px -30px rgba(198,113,43,.6)}
+  /* Its own display (grid) outranks the [hidden] reset, so a hidden card would show (the bundle off: no discount
+     id, or after Black Friday) unless it is said here. */
+  .addon.bcard[hidden]{display:none}
+  .addon.bcard.on{border-color:var(--copper-lt);
+    background:radial-gradient(130% 150% at 0% 0%,rgba(198,113,43,.26),transparent 60%),rgba(198,113,43,.08)}
+  .bcard-art{position:relative;width:140px;height:120px}
+  .bc-in{position:absolute;left:0;top:0;width:150px;height:128px;transform:scale(.9333);transform-origin:0 0}
+  .bc-tdr{position:absolute;left:0;top:0;display:block;width:150px;height:82px;object-fit:cover;object-position:50% 0;
+    border-radius:8px;border:1px solid rgba(221,154,82,.38);box-shadow:0 14px 26px -12px rgba(0,0,0,.95)}
+  /* The Collection in brief: a disc per synth in /collection/'s colours with its StrideChains count under it. */
+  .bc-chains{position:absolute;left:0;top:88px;width:150px;display:flex;justify-content:space-between}
+  .bcc{display:flex;flex-direction:column;align-items:center;gap:3px;width:26px}
+  .bcc-d{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;
+    background:radial-gradient(circle at 30% 26%,rgba(255,255,255,.22),transparent 42%),conic-gradient(from 200deg,var(--a),var(--b) 30%,var(--a) 55%,var(--b) 80%,var(--a));
+    box-shadow:0 0 0 1.5px #24201a,0 0 0 2.5px rgba(216,201,176,.16)}
+  .bcc-d img{display:block;max-width:86%;max-height:58%;width:auto;height:auto}
+  .bcc-sr .bcc-d{background:#15110d}
+  .bcc-sr .bcc-d img{max-width:none;max-height:none;width:100%;height:100%;object-fit:cover}
+  .bcc-d i{font-style:normal;font-size:12px;font-weight:900;line-height:1;color:#f4ede2}
+  .bcc b{font-size:11px;font-weight:900;line-height:1;letter-spacing:.02em;color:var(--ink);white-space:nowrap}
+  .bcard-body{min-width:0}
+  .bcard-h{margin:0;font-size:24px;font-weight:900;letter-spacing:-.01em;line-height:1;color:var(--ink);text-transform:uppercase}
+  .bcard-sub{margin:5px 0 0;font-size:13px;font-weight:900;letter-spacing:.14em;line-height:1.2;color:var(--copper-lt);text-transform:uppercase}
+  .bcard-facts{margin:5px 0 0;font-size:12.5px;font-weight:600;line-height:1.35;color:var(--ink2);overflow:hidden}
+  /* The facts break between items, never inside one ("15 / Racks"), and no line starts with a dot: each item
+     carries its dot in the gap before it, and a line's first dot falls outside the box and is cut. The items
+     are built from the (translated) line by the script under the card. */
+  .bcf-in{display:flex;flex-wrap:wrap;margin-left:-11px}
+  .bcf{position:relative;margin-left:11px;white-space:nowrap}
+  .bcf i{position:absolute;left:-6.5px;font-style:normal}
+  .bcard-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;margin-top:10px}
+  .addon.bcard .addon-btn.bcard-btn{padding:10px 16px;font-size:12px;letter-spacing:.08em;border-radius:10px;
+    border:1.5px solid rgba(221,154,82,.85);background:rgba(198,113,43,.06);color:var(--copper-lt)}
+  .addon.bcard .addon-btn.bcard-btn:hover{background:rgba(198,113,43,.16);color:var(--ink)}
+  .addon.bcard.on .addon-btn.bcard-btn{border-color:transparent;color:#1c1206;background:linear-gradient(180deg,var(--ember),var(--copper))}
+  .bcard-btn .addon-p{color:inherit}
+  /* "Bundle total" over the two prices, as in his design, so the block stays narrow beside the button. */
+  .bcard-total{margin:0;display:grid;grid-template-columns:auto auto;justify-content:start;align-items:baseline;gap:1px 7px;
+    font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--ink3)}
+  .bcard-total > span{grid-column:1 / -1}
+  .bcard-total b{font-size:19px;font-weight:900;color:var(--ink)}
+  .bcard-total s{font-size:13px;opacity:.8;text-decoration-thickness:1.5px}
+  /* 1280 to 1439px: the bar's middle column is about 350px, so a tighter card: smaller art and type, and the button
+     with the total on a row of their own under the words. */
+  @media (min-width:1280px) and (max-width:1439.98px){
+    .addon.bcard{grid-template-columns:110px minmax(0,1fr);gap:2px 12px;padding:12px 14px 12px 10px}
+    .bcard-art{width:110px;height:94px}
+    .bc-in{transform:scale(.7333)}
+    .bcard-h{font-size:20px}
+    .bcard-sub{font-size:11px;letter-spacing:.08em}
+    .bcard-facts{font-size:11.5px}
+    .bcard-row{grid-column:1 / -1;margin-top:8px}
+    .bcard-ticket{width:80px;top:-32px;right:-30px}
+  }
+  /* Hung off the top right corner, clear of the title: it overflows the card on the right and above. */
+  .bcard-ticket{position:absolute;top:-36px;right:-38px;width:92px;transform:rotate(9deg);pointer-events:none;
+    filter:drop-shadow(0 8px 10px rgba(0,0,0,.45)) drop-shadow(0 2px 2px rgba(0,0,0,.35))}
+  .bcard-ticket svg{display:block;width:100%;height:auto;overflow:visible}
+  /* Where the card takes a whole row (a tablet, or the bar's own row from 1024 to 1279px), it hangs less far out. */
+  @media (max-width:1279.98px){ .bcard-ticket{right:-14px;top:-30px} }
+  @media (max-width:640px){
+    .addon.bcard{grid-template-columns:120px minmax(0,1fr);gap:4px 12px;padding:14px 12px 14px 10px;border-radius:16px}
+    .bcard-art{width:120px;height:103px}
+    .bc-in{transform:scale(.8)}
+    .bcard-h{font-size:20px;padding-right:58px}
+    .bcard-sub{font-size:11px;letter-spacing:.1em}
+    .bcard-facts{font-size:11px}
+    .bcard-row{grid-column:1 / -1;margin-top:8px;gap:8px 12px}
+    .addon.bcard .addon-btn.bcard-btn{font-size:11px;padding:9px 12px}
+    /* Inside the corner on a phone: the screen's edge is right there, and a ticket past it is cut off. */
+    .bcard-ticket{width:66px;top:-16px;right:4px}
+  }
   .addon-vid{position:relative;flex:none;width:64px;height:36px;padding:0;border-radius:8px;overflow:hidden;
     border:1px solid rgba(198,113,43,.28);background:#0e0d0b;cursor:pointer}
   .addon-vid img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .25s}
@@ -1938,6 +2070,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      label. Colour and weight buy legibility without costing any vertical space, which
      matters because this line sits above the mobile buy CTA. */
   .hero-spec-b{color:var(--ink2);font-weight:600}
+  /* The DAWs by name under the capability line: the names in ink, the lead-in quieter. */
+  .hero-daws{display:block;margin-top:8px;font-size:13px;line-height:1.5;color:var(--ink2)}
+  .hero-daws-k{color:var(--ink3);font-weight:600}
+  .hero-daws-n{color:var(--ink);font-weight:700}
+  @media (max-width:899.98px){ section[data-ms="hero"] .hero-daws{font-size:11.5px;margin-top:5px} }
   /* One stack of identical buttons. The wallet sits between the two anchors and
      claims a full line, so all three stack; auto widths would leave them ragged
      (224px, 340px, 190px) and reading as three unrelated things rather than one
@@ -2022,6 +2159,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     section[data-ms="hero"] .hero-buy-addon .addon{margin:0;width:100%;max-width:560px;padding:12px 14px}
     /* Tendril's second line ("A perfect sound design playground + 22 StrideChains") fits whole here. */
     section[data-ms="hero"] .hero-buy-addon .addon-tdr{max-width:620px}
+    section[data-ms="hero"] .hero-buy-addon .addon-bundle{max-width:620px}
+    section[data-ms="hero"] .hero-buy-addon .addon.bcard{max-width:600px;padding:16px 22px 16px 14px}
     /* 350px less the 30px gutter leaves the wallet 320px, more than the 306px it once overflowed. */
     section[data-ms="hero"] .hero-cta{grid-area:cta;padding-left:30px}
     section[data-ms="hero"] .hero-cta > *{max-width:none}
@@ -2384,6 +2523,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- End Google Tag Manager (noscript) -->
 
+<!-- Black November across the top of the screen (Yossi 2026-11-07: "take the countdown from the hero and make it sticky
+     at the top of the screen with the text: Up to 50% OFF Black November Promotion / Ends in XX:XX:XX"). Empty here: the
+     script fills it in the page's language while Black Friday runs (STRIDE_BF) and counts it down to STRIDE_BF_END, the
+     same moment for every visitor (strideBfBar). After that it stays hidden. -->
+<div id="bfbar" class="bfbar" role="region" aria-label="Black November" data-no-translate hidden></div>
+
 <div class="wrap max-w-[1400px] mx-auto px-6">
 
   <!-- ───────────────── NAV ───────────────── -->
@@ -2470,7 +2615,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="/fr/setup.html">Installation</a>
       <a href="/blog.html">Blog</a>
       <a href="/tv">Videos</a>
-      <a href="/fr/session.html">1:1 Session · $99</a>
       <a href="https://www.youtube.com/@strideengine" target="_blank" rel="noopener noreferrer">YouTube</a>
       <a href="https://www.instagram.com/stride_engine/" target="_blank" rel="noopener noreferrer">Instagram</a>
       <a href="https://x.com/stridevst" target="_blank" rel="noopener noreferrer">X</a>
@@ -2511,6 +2655,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              reads as a spec rather than competing with the headline. -->
         <p class="text-[12px] leading-relaxed mb-6 max-w-xl hero-spec">
           <span class="font-black uppercase tracking-[0.14em]" style="color:var(--copper-lt)">VST3 + AU + Ableton Devices</span><span class="hero-spec-b"> · Audio In pour guitare, voix, hardware et enregistrements</span>
+          <!-- The DAWs by name, in the hero (Yossi 2026-11-07, after buyers named compatibility as what almost
+               stopped them). The same list the pricing card states: any VST3 DAW, Logic as AU, not Pro Tools.
+               The names are brands and stay as written in every language. -->
+          <span class="hero-daws"><span class="hero-daws-k">Fonctionne dans</span> <span class="hero-daws-n" data-no-translate>Ableton Live &middot; FL Studio &middot; Logic Pro &middot; Bitwig &middot; Cubase &middot; Studio One &middot; Reaper</span></span>
         </p>
         </div>
         <div class="hero-buy">
@@ -2593,6 +2741,62 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             </button>
           </div>
         </div>
+        <!-- THE STRIDE BUNDLE in the bump (Yossi 2026-11-07: "the ORDER BUMP, so it can be upgraded to a STRIDE
+             BUNDLE, 50% off the whole bundle: STRIDE + TENDRIL + COLLECTION, the old prices DISABLED"): every visitor's
+             one bump while Black Friday runs, in place of the Collection/Tendril test. Both of its states are written
+             out (.bump-off / .bump-on) so translated pages keep their words; the script prints the upgrade's price,
+             the three products at their own prices struck, and all three at half price. Its panel says what Tendril
+             and the Collection are in the lines the rows above already use. -->
+        <!-- The hero's Stride Bundle as a card of its own (Yossi 2026-11-07, his design: the products' real art on the
+             left, the name, what is in it, the upgrade and the bundle's total, our Black Friday ticket at 50% on the
+             corner, hanging off the card). The picture is Tendril's real window (public/media/bundle/) over the
+             Collection in brief (below). The script prints the upgrade's price,
+             the total and the struck total, and draws the ticket (strideTicketSvg('50%')). -->
+        <div id="addon-bundle" class="addon addon-bundle bcard" data-bump="bundle" hidden>
+          <!-- The picture: Tendril's real window on top, and under it the Collection in brief (Yossi 2026-11-07: "a
+               summary with all these logos, colours and chain numbers, so it's clear; condensed"): each synth's disc
+               in /collection/'s colours with how many StrideChains it gets, and the Sounds & Racks with its 250+.
+               Drawn at 150x124 and scaled to the card's size. -->
+          <div class="bcard-art" aria-hidden="true"><div class="bc-in">
+            <img class="bc-tdr" src="/media/bundle/tendril-window.webp" alt="" width="440" height="332" loading="lazy" decoding="async">
+            <div class="bc-chains" data-no-translate>
+              <span class="bcc" style="--a:#2f8fb0;--b:#0c171d"><span class="bcc-d"><img src="/media/synths/serum-2.webp" alt="" loading="lazy" decoding="async"></span><b>30</b></span>
+              <span class="bcc" style="--a:#7b5cd6;--b:#130f21"><span class="bcc-d"><img src="/media/synths/vital.webp" alt="" loading="lazy" decoding="async"></span><b>30</b></span>
+              <span class="bcc" style="--a:#a4763f;--b:#15110d"><span class="bcc-d"><img src="/media/synths/diva.webp" alt="" loading="lazy" decoding="async"></span><b>20</b></span>
+              <span class="bcc" style="--a:#c6712b;--b:#1a0f07"><span class="bcc-d"><i>T</i></span><b>20</b></span>
+              <span class="bcc bcc-sr"><span class="bcc-d"><img src="/media/synths/sounds-racks.webp" alt="" loading="lazy" decoding="async"></span><b>250+</b></span>
+            </div>
+          </div></div>
+          <div class="addon-body bcard-body">
+            <p class="bcard-h">Stride Bundle</p>
+            <p class="bcard-sub">+ Tendril + Collection</p>
+            <p class="bcard-facts">100 StrideChains · 250+ sons · 15 racks</p>
+            <div class="bcard-row">
+              <button type="button" class="addon-btn bcard-btn" aria-pressed="false" aria-label="Passe au Stride Bundle"
+                      onclick="strideToggleAddon(event)"><span class="bump-off">Passer au bundle <span class="addon-p">+$39.20</span> &rarr;</span><span class="bump-on">Retirer</span></button>
+              <p class="bcard-total"><span class="bump-off">Total du bundle</span><span class="bump-on">✓ Bundle ajouté</span> <b data-bundle-now>$108.50</b> <s data-bundle-was>$217</s></p>
+            </div>
+          </div>
+          <span class="bcard-ticket" aria-hidden="true"></span>
+        </div>
+        <script>
+          // The card's facts line as whole items (see .bcf): split at its dots, in whatever language the page is in.
+          (function () {
+            try {
+              var f = document.querySelector('#addon-bundle .bcard-facts');
+              if (!f || f.querySelector('.bcf-in')) return;
+              var parts = f.textContent.trim().split(/\s*·\s*/);
+              if (parts.length < 2) return;
+              var box = document.createElement('span'); box.className = 'bcf-in';
+              parts.forEach(function (p, i) {
+                var s = document.createElement('span'); s.className = 'bcf';
+                if (i) { var d = document.createElement('i'); d.setAttribute('aria-hidden', 'true'); d.textContent = '·'; s.appendChild(d); }
+                s.appendChild(document.createTextNode(p)); box.appendChild(s);
+              });
+              f.textContent = ''; f.appendChild(box);
+            } catch (e) {}
+          })();
+        </script>
         </div>
         <div class="flex flex-wrap items-center gap-2.5 hero-cta">
           <a onclick="openBuy()" class="btn-copper text-[15px] py-3 px-6 rounded-xl">ACHETER STRIDE<span class="sd-cta-price"> &middot; $99</span>  <span>&rarr;</span></a>
@@ -3711,6 +3915,24 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               </button>
             </div>
           </div>
+          <!-- The Stride Bundle, as in the hero (#addon-bundle). -->
+          <div class="addon addon-compact addon-bundle" data-bump="bundle" style="margin-bottom:13px" hidden>
+            <span class="addon-pair" aria-hidden="true"><img class="ap-t" src="/media/tendril/film/poster-thumb.webp" alt="" width="256" height="144" loading="lazy" decoding="async"><img class="ap-c" src="/assets/packs/pack-drums-thumb.png" alt="" width="168" height="168" loading="lazy" decoding="async"></span>
+            <div class="addon-body">
+              <div class="addon-t"><span class="bump-off">Passe au Stride Bundle </span><span class="bump-on">✓ Stride Bundle </span><span class="addon-p">+$39.20</span></div>
+              <div class="addon-s">Stride + Tendril + la Stride Collection</div>
+              <div class="addon-s addon-bprice"><span>Les trois à moitié prix :</span> <s data-bundle-was>$217</s> <b data-bundle-now>$108.50</b></div>
+            </div>
+            <button type="button" class="addon-btn" aria-pressed="false" aria-label="Passe au Stride Bundle"
+                    onclick="strideToggleAddon(event)"><span class="bump-off">Passer au bundle</span><span class="bump-on">Retirer</span></button>
+            <div class="addon-tip" role="note">
+              <p class="addon-tip-h">Trois moteurs. Un terrain de jeu de sound design en perpétuelle évolution.</p>
+              <p class="addon-tip-b">Façonne les harmoniques, pousse les effets et laisse trois patterns indépendants se répondre. Explore avec Stride pour découvrir de nouveaux sons, des mudpies et des séquences à partir du même patch.</p>
+              <p class="addon-tip-h">Des presets de synthé avec le mouvement déjà intégré</p>
+              <p class="addon-tip-b">100 StrideChains pour Serum 2, Vital, Diva et Tendril, chaque lane mappée avec sa plage, cinq états dans chacune. Plus l'Experimental Collection : 250+ sons issus de batteries détruites, d'une goutte d'eau qui tombe et d'un signal poussé dans le feedback, et 15 Ableton Racks mappés sur Stride FX.</p>
+              <p class="addon-tip-b">Chaque pack a besoin de son synthé. Synthés non inclus.</p>
+            </div>
+          </div>
           <a onclick="openBuy()" class="btn-copper w-full justify-center text-base py-3.5 rounded-2xl">Acheter Stride<span class="sd-cta-price"> · $99</span> </a>
 
 <a href="/try/" class="btn-ghost w-full justify-center text-sm py-3 rounded-2xl mt-2.5">Explore gratuitement 24 h</a>
@@ -4537,6 +4759,16 @@ function openBuy() { toggleBuyModal(); }
     // pay. A cart holding it WITHOUT Stride is not something this page builds, and the backend
     // says so out loud when one is paid.
     const PADDLE_PRICE_TENDRIL    = 'pri_01m5hgws7pfwwg4yevje6ajqrp';
+    // The Stride Bundle in the order bump (Yossi 2026-11-07: "the ORDER BUMP, so it can be upgraded to a STRIDE BUNDLE,
+    // 50% off the whole bundle: STRIDE + TENDRIL + COLLECTION, the old prices DISABLED"): Stride, Tendril at its owner
+    // price and the whole Stride Collection at its PUBLIC price (PADDLE_PRICE_COLLECTION_VALUE), with this one Paddle
+    // discount on all three: 50%, restrict_to those three prices, never typeable, ending with Black Friday. A checkout
+    // takes one discount, so with the bundle in the cart it stands in for the page's code (strideCartDiscount); its 50%
+    // covers Stride too. Empty: no bundle anywhere, and the bump test below runs as before.
+    // STRIDEBUNDLE50, made 2026-11-07 (expires 2026-12-01 08:00 UTC with EARLYBF30; US preview 49.50 + 24.50 + 34.50).
+    const STRIDE_BUNDLE_DISCOUNT  = 'dsc_01m6v6ynbx4s2bp6bhb5zejadw';
+    // A bundle buyer owns all three, so nothing after checkout has anything to offer them: straight to the download.
+    const PADDLE_BUNDLE_SUCCESS_URL = 'https://stridehub.io/welcome.html';
     // The post-purchase run (Yossi 2026-10-22): /tendril/ offers Tendril at the Stride owner
     // price, then welcome.html hands over the download. The page decides for itself whether it
     // has anything to show and goes straight on if it does not, so someone who already owns
@@ -4645,11 +4877,15 @@ function openBuy() { toggleBuyModal(); }
     // Whoever takes Tendril meets the Collection after checkout instead (/post2/, see
     // strideSuccessUrl and /tendril/'s head). STRIDE_BUMP_TEST 'ab' is the test; 'collection' or
     // 'tendril' puts everyone on that side, which is how the test ends.
-    const STRIDE_BUMP_TEST = 'ab';
+    // Since 2026-11-07 the bump is the Stride Bundle ('bundle') for every visitor while Black Friday runs (STRIDE_BF) and
+    // its discount exists; the test's two sides come back by themselves after it (nothing about the bundle is stored).
+    const STRIDE_BUMP_TEST = (window.STRIDE_BF && /^dsc_[a-z0-9]{26}$/.test(STRIDE_BUNDLE_DISCOUNT)) ? 'bundle' : 'ab';
     const TENDRIL_ADDON_PRICE = 49;       // dollars; Paddle's own price per country replaces it
+    const BUNDLE_PERCENT = 50;            // the Stride Bundle's discount, for the dollar figures before Paddle answers
     let strideBumpArmMemo = '';
     function strideBumpArm() {
         if (strideBumpArmMemo) return strideBumpArmMemo;
+        if (STRIDE_BUMP_TEST === 'bundle') { strideBumpArmMemo = 'bundle'; return strideBumpArmMemo; }
         var arm = (STRIDE_BUMP_TEST === 'collection' || STRIDE_BUMP_TEST === 'tendril') ? STRIDE_BUMP_TEST : '';
         if (!arm) {
             var ok = function (v) { return v === 'collection' || v === 'tendril'; };
@@ -4695,10 +4931,13 @@ function openBuy() { toggleBuyModal(); }
     // discount would be refused outside its own currency (see sesh1o1 in the backend).
     // scionaugh20: the Scionaugh artist collab (2026-09-30), 20% off Stride for his followers,
     // set up in Paddle exactly like REKZ. No affiliate link and no commission on it.
-    const STRIDE_CODES = { rekz: 'dsc_01m2fxadt3hs2myt4k203tpj2t', scionaugh20: 'dsc_01m3rckwadf19e15b3pmvfjrtq' };
-    // Early Black Friday is the page's one deal (Yossi 2026-10-21): an ad's REKZ is neither applied
-    // from its link nor inferred from the click, so every visitor sees the ordinary price until they
-    // claim their 30% code in the popup. REKZ stays valid in Paddle. To bring it back: false.
+    // earlybf30: Black Friday (2026-10-26, baked in again 2026-11-07), 30% off Stride only (restrict_to the
+    // Stride price), no usage cap, ends 2026-12-01 08:00 UTC. Every visit gets it while STRIDE_BF is set (the
+    // second script in <head>); typed at checkout it works too.
+    const STRIDE_CODES = { rekz: 'dsc_01m2fxadt3hs2myt4k203tpj2t', scionaugh20: 'dsc_01m3rckwadf19e15b3pmvfjrtq', earlybf30: 'dsc_01m5wt7ben1x97t6qv0chz08kf' };
+    // Black Friday is the page's one deal (Yossi 2026-10-21): an ad's REKZ is neither applied from its link
+    // nor inferred from the click; every visit has EARLYBF30 on the page instead (2026-11-07). REKZ stays
+    // valid in Paddle. To bring it back: false.
     const STRIDE_REKZ_PAUSED = true;
     // FRIEND20: somebody sent by a Stride owner's own referral link (?via=, stridePartnerLink
     // in <head>) gets 20% off Stride, what the ads give, and the owner earns 15% of the sale
@@ -4814,6 +5053,11 @@ function openBuy() { toggleBuyModal(); }
         // While REKZ is paused the visit is priced as if its link carried no code, and nothing is
         // inferred (the only code ever inferred is REKZ).
         if (STRIDE_REKZ_PAUSED && name === 'rekz') name = '';
+        // Black Friday (the second script in <head>): EARLYBF30 is every visit's code. A code of
+        // STRIDE_CODES on the link (REKZ, SCIONAUGH20: 20% each) gives less and yields to it; a
+        // personal code from a mail is asked about below and wins only if it gives at least as much.
+        var bfCode = window.STRIDE_BF || '';
+        if (bfCode && (!name || STRIDE_CODES[name])) name = bfCode;
         // Nothing in the URL: this may still be one of the ads that promised the
         // discount and could not carry it. Inferring it writes the code onto the URL, so
         // everything downstream — the seal, the price, the checkout, GA4, the funnel
@@ -4831,7 +5075,7 @@ function openBuy() { toggleBuyModal(); }
                 } catch (e) {}
             }
         }
-        // No code on the link, but a Stride owner sent this visitor: the friend's 20%.
+        // No code on the link (and no Black Friday), but a Stride owner sent this visitor: the friend's 20%.
         if (!name && STRIDE_FRIEND_CODE.id && window.stridePartnerLink && window.stridePartnerLink()) {
             strideCodeId = STRIDE_FRIEND_CODE.id;
             strideCodeIsFriend = true;
@@ -4839,19 +5083,33 @@ function openBuy() { toggleBuyModal(); }
             try { strideSealShow(STRIDE_FRIEND_CODE.name); } catch (e) {}
             return;
         }
+        function use(n) {
+            strideCodeId = STRIDE_CODES[n];
+            // Read by the 30-second demo prompt at the end of the body, which stays shut for
+            // anyone holding a discount: this visitor was brought here to buy at 20% off, and
+            // offering them a free demo instead competes with the click that was paid for.
+            window.STRIDE_CODE_ACTIVE = true;
+            // Black Friday says itself in the bar across the top with its clock (strideBfBar); any other code is
+            // printed as they typed it into the ad, uppercased. The price already moved, but only
+            // somebody who knew the ordinary price could tell.
+            if (n === bfCode) {
+                try { strideBfBar(); } catch (e) {}
+                // Clarity's tag for the visit: the Black Friday code is not on the address.
+                try { if (window.strideClarity) window.strideClarity('', { code: n }); } catch (e) {}
+                return;
+            }
+            try { strideSealShow(n.toUpperCase()); } catch (e) {}
+        }
         if (!name) return;
         // Not one of ours: maybe a personal code from one of Joe's mails, which only the
-        // backend knows. Asked after this runs; until it answers this is the ordinary page.
-        if (!STRIDE_CODES[name]) { strideResolvePersonalCode(name); return; }
-        strideCodeId = STRIDE_CODES[name];
-        // Read by the 30-second demo prompt at the end of the body, which stays shut for
-        // anyone holding a discount: this visitor was brought here to buy at 20% off, and
-        // offering them a free demo instead competes with the click that was paid for.
-        window.STRIDE_CODE_ACTIVE = true;
-        // Say so in the hero. The price already moved, but only somebody who knew the
-        // ordinary price could tell, which is no use to the person the ad was aimed at.
-        // The code is printed as they typed it into the ad, uppercased.
-        try { strideSealShow(name.toUpperCase()); } catch (e) {}
+        // backend knows. Asked after this runs; until it answers this is the ordinary page, or
+        // the Black Friday one while EARLYBF30 runs.
+        if (!STRIDE_CODES[name]) {
+            if (bfCode) use(bfCode);
+            strideResolvePersonalCode(name);
+            return;
+        }
+        use(name);
     })();
 
     // ?checkout=1 beside a code (the Early Black Friday mails, 2026-10-15): the checkout opens by
@@ -4872,7 +5130,9 @@ function openBuy() { toggleBuyModal(); }
         if (!want) return;
         var tries = 0;
         (function wait() {
-            if (window.STRIDE_CODE_ACTIVE && strideCodeId && stridePaddleReady()) { strideCheckoutDirect(''); return; }
+            // Not before a personal code has had its answer: until then the page may hold EARLYBF30,
+            // which the personal code could replace.
+            if (window.STRIDE_CODE_ACTIVE && strideCodeId && !strideCodePending && stridePaddleReady()) { strideCheckoutDirect(''); return; }
             if (++tries < 60) setTimeout(wait, 250);       // the code's answer and Paddle, 15 s at most
         })();
     })();
@@ -4898,6 +5158,11 @@ function openBuy() { toggleBuyModal(); }
                 strideCodePending = false;
                 var ends = Number(d && d.expires_at_ms);
                 if (!d || !d.ok || !d.discount_id || !(ends > Date.now())) { strideHoldDone(); return; }
+                // While Black Friday's EARLYBF30 is every visit's code, a personal code takes its place only
+                // if it gives at least its 30%: a 20% one from an older mail would charge this person more
+                // than everybody else. An Early Black Friday code (30%) does take it, at the same price, so a
+                // sale from its mail stays that code's sale.
+                if (window.STRIDE_BF && !(Number(d.percent) >= 30)) { strideHoldDone(); return; }
                 strideCodeId = d.discount_id;
                 // The code mail's link to an Early Black Friday code: the hero's seal is the ticket.
                 if (STRIDE_BF_CODE_RE.test(name)) { strideBfDid = d.discount_id; strideBfEnds = ends; }
@@ -4931,6 +5196,48 @@ function openBuy() { toggleBuyModal(); }
         })();
     }
 
+    // Black November across the top of the screen (Yossi 2026-11-07: "with a countdown until the end of November",
+    // then "take the countdown from the hero and make it sticky at the top of the screen with the text: Up to 50% OFF
+    // Black November Promotion / Ends in XX:XX:XX"). It counts to STRIDE_BF_END, one moment for every visitor, so a
+    // fresh browser never restarts it. In the page's own language from this small dictionary (JS, so no translated
+    // homepage loses its translation). When it reaches zero with the page open, the page reloads and is the ordinary
+    // page again: $99, no bar, no popup. The hero keeps the price and the ticket, without a line of its own.
+    function strideBfBar() {
+        var bar = document.getElementById('bfbar');
+        var end = Number(window.STRIDE_BF_END) || 0;
+        if (!bar || !window.STRIDE_BF || !(end > Date.now())) return;
+        var lang = String(document.documentElement.lang || 'en').slice(0, 2).toLowerCase();
+        var W = {
+            en: ['Up to 50% OFF', 'Black November Promotion', 'Ends in', 'd'],
+            de: ['Bis zu 50 % Rabatt', 'Black November Aktion', 'Endet in', 'T'],
+            es: ['Hasta 50 % de descuento', 'Promoción Black November', 'Termina en', 'd'],
+            fr: ['Jusqu’à -50 %', 'Promotion Black November', 'Se termine dans', 'j'],
+            it: ['Fino al 50% di sconto', 'Promozione Black November', 'Termina tra', 'g'],
+            ja: ['最大50%オフ', 'ブラックノベンバー・プロモーション', '終了まで', '日'],
+            zh: ['最高5折', '黑色十一月促销', '距结束', '天']
+        }[lang] || ['Up to 50% OFF', 'Black November Promotion', 'Ends in', 'd'];
+        var two = function (n) { return (n < 10 ? '0' : '') + n; };
+        var el = function (tag, cls, text) { var n = document.createElement(tag); n.className = cls; if (text) n.textContent = text; return n; };
+        var ends = el('span', 'bfbar-ends');
+        var clock = el('b', 'bfbar-clock');
+        ends.appendChild(el('span', 'bfbar-k', W[2]));
+        ends.appendChild(clock);
+        bar.textContent = '';
+        bar.appendChild(el('span', 'bfbar-off', W[0]));
+        bar.appendChild(el('span', 'bfbar-promo', W[1]));
+        bar.appendChild(ends);
+        bar.hidden = false;
+        document.documentElement.classList.add('has-bfbar');
+        (function tick() {
+            var left = end - Date.now();
+            if (left <= 0) { try { window.location.reload(); } catch (e) {} return; }
+            var s = Math.floor(left / 1000), d = Math.floor(s / 86400);
+            clock.textContent = (d ? d + W[3] + ' ' : '') + two(Math.floor(s / 3600) % 24) + ':'
+                + two(Math.floor(s / 60) % 60) + ':' + two(s % 60);
+            setTimeout(tick, (left % 1000) || 1000);
+        })();
+    }
+
     let strideAddonOn = false;
 
     // Whatever actually charges for the Collection decides whether we offer it. This
@@ -4938,6 +5245,11 @@ function openBuy() { toggleBuyModal(); }
     // constant would have silently removed the add-on from the page while Paddle was
     // still perfectly able to sell it.
     function strideAddonAvailable() {
+        // The Stride Bundle: Paddle only, and outside dollars only at the prices Paddle quoted for this visitor, with
+        // and without its 50% (strideBundle), as for Tendril below.
+        if (strideBumpArm() === 'bundle') {
+            return CHECKOUT_PROVIDER === 'paddle' && !!STRIDE_BUNDLE_DISCOUNT && (!strideLocal || !!strideBundle);
+        }
         // Tendril sells through Paddle only, and outside dollars only at a price Paddle quoted for
         // this visitor: Stride's rate times 49 is not what the checkout would charge.
         if (strideBumpArm() === 'tendril') {
@@ -4957,19 +5269,35 @@ function openBuy() { toggleBuyModal(); }
     // first screen after it is the Collection's offer instead of Tendril's (Yossi 2026-10-25). The
     // wallet fixes its address when it mounts, before any bump is chosen; /tendril/'s head hands
     // that buyer on to /post2/ the same way.
-    function strideSuccessUrl()     { return strideBumpIn() === 'tendril' ? PADDLE_TENDRIL_BUMP_SUCCESS_URL : PADDLE_SUCCESS_URL; }
+    function strideSuccessUrl() {
+        var b = strideBumpIn();
+        return b === 'bundle' ? PADDLE_BUNDLE_SUCCESS_URL : b === 'tendril' ? PADDLE_TENDRIL_BUMP_SUCCESS_URL : PADDLE_SUCCESS_URL;
+    }
+    // The one discount the cart carries: the Stride Bundle's own while the bundle is in the cart, else the page's code
+    // (Black Friday's EARLYBF30, an ad's, a personal one), or none.
+    function strideCartDiscount()   { return strideBumpIn() === 'bundle' ? STRIDE_BUNDLE_DISCOUNT : strideCodeId; }
     // What the order costs THIS visitor, in the currency they will be charged in. Paddle's own
     // per-item amounts when it has priced them, so the page can never print a total the checkout
     // does not take: the Collection is CA$34.99 in Canada and GBP 18.99 in the UK, not 24.99
     // scaled by Stride's rate, which is what this used to do (page GBP 111.46, charge 107.99).
     function strideOrderTotal() {
+        // The Stride Bundle: all three at its 50%, Paddle's figure once it has answered.
+        if (strideBumpIn() === 'bundle') return strideBundle ? strideBundle.charged : strideBundleDollars().charged;
         var stride = strideLocal ? strideLocal.stride : STRIDE_PRICE;
         return stride + (strideAddonActive() ? strideBumpPrice() : 0);
+    }
+
+    // The Stride Bundle in dollars, until Paddle has priced it: $99 + $49 + $69 = $217, and half of each.
+    function strideBundleDollars() {
+        var half = function (v) { return Math.round(v * (100 - BUNDLE_PERCENT)) / 100; };
+        return { list: STRIDE_PRICE + TENDRIL_ADDON_PRICE + COLLECTION_VALUE,
+                 charged: half(STRIDE_PRICE) + half(TENDRIL_ADDON_PRICE) + half(COLLECTION_VALUE) };
     }
 
     // The same order at the ordinary price, without any code: Paddle's preview without the
     // discount once it has answered, the dollar prices until then.
     function strideOrderFull() {
+        if (strideBumpIn() === 'bundle') return strideBundle ? strideBundle.list : strideBundleDollars().list;
         var stride = strideList ? strideList.stride : STRIDE_PRICE;
         var bump = strideBumpArm() === 'tendril'
             ? (strideTendril ? strideTendril.list : TENDRIL_ADDON_PRICE)
@@ -4980,6 +5308,11 @@ function openBuy() { toggleBuyModal(); }
     // The bump's own price in the charged currency: Tendril's from its own Paddle preview
     // (strideTendril), the Collection's as before.
     function strideBumpPrice() {
+        // The bundle as an upgrade: what it adds to Stride alone at the page's own price (EARLYBF30's, say).
+        if (strideBumpArm() === 'bundle') {
+            var b = strideBundle ? strideBundle.charged : strideBundleDollars().charged;
+            return Math.max(0, b - (strideLocal ? strideLocal.stride : STRIDE_PRICE));
+        }
         if (strideBumpArm() === 'tendril') return strideTendril ? strideTendril.charged : TENDRIL_ADDON_PRICE;
         return strideCollectionPrice();
     }
@@ -4993,7 +5326,9 @@ function openBuy() { toggleBuyModal(); }
     // 2026-10-26 videos), drawn rather than written, so it reads as it does in the ads on every
     // homepage. Each one drawn gets its own gradient id.
     let strideTicketCount = 0;
-    function strideTicketSvg() {
+    // pct: the big figure, 30% by default; the Stride Bundle's card draws it at 50% (2026-11-07).
+    function strideTicketSvg(pct) {
+        const big = /^\d{1,2}%$/.test(pct || '') ? pct : '30%';
         const g = 'bftg' + (++strideTicketCount);
         const outline = 'M22,0 H338 Q360,0 360,22 V89 A27,27 0 0 0 360,143 V210 Q360,232 338,232 H22 Q0,232 0,210 V143 A27,27 0 0 0 0,89 V22 Q0,0 22,0 Z';
         const inner = 'M26,13 H334 Q347,13 347,26 V98 A18,18 0 0 0 347,134 V206 Q347,219 334,219 H26 Q13,219 13,206 V134 A18,18 0 0 0 13,98 V26 Q13,13 26,13 Z';
@@ -5007,7 +5342,7 @@ function openBuy() { toggleBuyModal(); }
             + '<line x1="92" y1="97" x2="140" y2="97" stroke="' + ink + '" stroke-width="3.4" stroke-linecap="round"/>'
             + '<text x="180" y="106" text-anchor="middle" font-family="' + face + '" font-weight="800" font-size="27" fill="' + ink + '" letter-spacing="2">SALE</text>'
             + '<line x1="220" y1="97" x2="268" y2="97" stroke="' + ink + '" stroke-width="3.4" stroke-linecap="round"/>'
-            + '<text x="180" y="203" text-anchor="middle" font-family="' + face + '" font-weight="900" font-size="112" fill="' + ink + '" letter-spacing="-3">30%</text>'
+            + '<text x="180" y="203" text-anchor="middle" font-family="' + face + '" font-weight="900" font-size="112" fill="' + ink + '" letter-spacing="-3">' + big + '</text>'
             + '</svg>';
     }
 
@@ -5035,6 +5370,12 @@ function openBuy() { toggleBuyModal(); }
         var bump = strideBumpIn();
         if (bump === 'collection') items.push({ priceId: PADDLE_PRICE_COLLECTION, quantity: 1 });
         if (bump === 'tendril') items.push({ priceId: PADDLE_PRICE_TENDRIL, quantity: 1 });
+        // The Stride Bundle: Tendril at its owner price and the whole Collection at its public price, both under
+        // the bundle's 50% (strideCartDiscount), so each line's struck price is one Paddle really charges.
+        if (bump === 'bundle') {
+            items.push({ priceId: PADDLE_PRICE_TENDRIL, quantity: 1 });
+            items.push({ priceId: PADDLE_PRICE_COLLECTION_VALUE, quantity: 1 });
+        }
         return items;
     }
 
@@ -5049,9 +5390,11 @@ function openBuy() { toggleBuyModal(); }
         // items the code would fall off exactly when someone adds the Collection, and the
         // wallet would charge more than the page says.
         try {
-            if (strideCodeId && Paddle.Checkout.updateCheckout) {
+            // The cart's one discount (the Stride Bundle's own while it is in, else the page's code).
+            var disc = strideCartDiscount();
+            if (disc && Paddle.Checkout.updateCheckout) {
                 Paddle.Checkout.updateCheckout({ items: strideCheckoutItems(),
-                                                 discountId: strideCodeId });
+                                                 discountId: disc });
             } else {
                 Paddle.Checkout.updateItems(strideCheckoutItems());
             }
@@ -5068,7 +5411,8 @@ function openBuy() { toggleBuyModal(); }
         if (typeof Paddle === 'undefined' || !Paddle.Checkout || !Paddle.Checkout.updateCheckout) return;
         try {
             var o = { items: strideCheckoutItems(), customData: strideExpressCustomData() };
-            if (strideCodeId) o.discountId = strideCodeId;
+            var disc = strideCartDiscount();
+            if (disc) o.discountId = disc;
             Paddle.Checkout.updateCheckout(o);
         } catch (e) {}
     }
@@ -5112,6 +5456,7 @@ function openBuy() { toggleBuyModal(); }
     let strideLocal = null;       // { currency, stride, collection } what Paddle charges
     let strideList = null;        // the same without any code: the ordinary price, struck beside a code's
     let strideTendril = null;     // { list, charged } Tendril's price for the bump test, in that same currency
+    let strideBundle = null;      // { list, charged } the Stride Bundle's three items, without and with its 50%, ditto
     let strideFx = null;          // { rate, currency } only for OUR list prices, see strideMoney
 
     // A price in the charged currency, printed as it is. The locale is fixed rather than the
@@ -5147,8 +5492,13 @@ function openBuy() { toggleBuyModal(); }
         strideSyncAddon();
         // GA4: the bump added to the order. On the way in only, never on removal.
         if (strideAddonOn) {
-            var _tdr = strideBumpArm() === 'tendril';
-            try { if (window.StrideTrack) StrideTrack.push('add_bump', { item_name: _tdr ? 'Tendril' : 'The Stride Collection', value: _tdr ? TENDRIL_ADDON_PRICE : COLLECTION_ADDON_PRICE, currency: 'USD' }); } catch (e) {}
+            var _arm = strideBumpArm(), _tdr = _arm === 'tendril';
+            if (_arm === 'bundle') {
+                // What the upgrade adds, in the currency the page prints.
+                try { if (window.StrideTrack) StrideTrack.push('add_bump', { item_name: 'The Stride Bundle', value: Math.round(strideBumpPrice() * 100) / 100, currency: strideLocal ? strideLocal.currency : 'USD' }); } catch (e) {}
+            } else {
+                try { if (window.StrideTrack) StrideTrack.push('add_bump', { item_name: _tdr ? 'Tendril' : 'The Stride Collection', value: _tdr ? TENDRIL_ADDON_PRICE : COLLECTION_ADDON_PRICE, currency: 'USD' }); } catch (e) {}
+            }
         } else {
             try { if (window.strideClarity) window.strideClarity('addon_removed'); } catch (e) {}
         }
@@ -5178,26 +5528,39 @@ function openBuy() { toggleBuyModal(); }
     function strideSyncAddon() {
         const rows = document.querySelectorAll('.addon');
         if (!rows.length) return;
-        const tdr = strideBumpArm() === 'tendril';
+        const arm = strideBumpArm();
+        const tdr = arm === 'tendril';
+        const bdl = arm === 'bundle';
         const on = strideAddonActive();
         const avail = strideAddonAvailable();
         const money = strideMoneyExact(strideBumpPrice());
         // What the bump is called wherever the order is named in words (the order bump test).
-        const bumpName = tdr ? 'Tendril' : 'Collection';
+        const bumpName = bdl ? 'Tendril + Collection' : tdr ? 'Tendril' : 'Collection';
 
         // EVERY bump on the page, not just the hero's. The pricing panel further down
         // is where a scroller actually decides, and it used to sit there with a static
         // $99 beside a button that already said $123.99.
         rows.forEach(function (row) {
-            // Only this visitor's side of the order bump test shows (data-bump names the side).
-            const mine = (row.getAttribute('data-bump') || 'collection') === (tdr ? 'tendril' : 'collection');
+            // Only this visitor's bump shows (data-bump names it: the Stride Bundle, or a side of the test).
+            const mine = (row.getAttribute('data-bump') || 'collection') === arm;
             row.hidden = !(mine && avail);
             row.classList.toggle('on', mine && on);
             if (!mine) return;
-            // Tendril's row carries both of its states in the markup, translated: only the price
-            // and the pressed state are the script's.
-            if (tdr) {
+            // Tendril's row and the Stride Bundle's carry both of their states in the markup, translated: only
+            // the prices and the pressed state are the script's.
+            if (tdr || bdl) {
                 row.querySelectorAll('.addon-p').forEach(function (p) { p.textContent = '+' + money; });
+                if (bdl) {
+                    // Our Black Friday ticket at 50% on the card's corner (Yossi 2026-11-07), drawn once.
+                    row.querySelectorAll('.bcard-ticket').forEach(function (el) {
+                        if (!el.firstChild) el.innerHTML = strideTicketSvg('50%');
+                    });
+                    // The three at their own prices, struck ("the old prices DISABLED"), beside what all three cost
+                    // at the bundle's 50%: both are Paddle's figures for this visitor once it has answered.
+                    const b = strideBundle || strideBundleDollars();
+                    row.querySelectorAll('[data-bundle-was]').forEach(function (el) { el.textContent = strideMoneyExact(b.list); });
+                    row.querySelectorAll('[data-bundle-now]').forEach(function (el) { el.textContent = strideMoneyExact(b.charged); });
+                }
                 const tb = row.querySelector('.addon-btn');
                 if (tb) tb.setAttribute('aria-pressed', on ? 'true' : 'false');
                 return;
@@ -5252,7 +5615,10 @@ function openBuy() { toggleBuyModal(); }
         // whole order, the hero's seal is the Black Friday ticket of the ads rather than "Save X". The
         // struck price beside it is the ordinary one and the code takes exactly 30% off it. With an
         // add-on in the order the struck total is no longer 30% off, so the seal says what is saved.
-        const ticket = showSave && !on && !!strideBfDid && strideCodeId === strideBfDid;
+        // Since 2026-11-07 every visit holds Black Friday's EARLYBF30 (STRIDE_BF), so the ticket is there for
+        // everyone while Stride is the whole order.
+        const ticket = showSave && !on && ((!!strideBfDid && strideCodeId === strideBfDid)
+            || (!!window.STRIDE_BF && strideCodeId === STRIDE_CODES[window.STRIDE_BF]));
         document.querySelectorAll('.sd-price-box').forEach(function (box) {
             const was = box.querySelector('.sd-was');
             const seal = box.querySelector('.sd-save');
@@ -5314,14 +5680,16 @@ function openBuy() { toggleBuyModal(); }
         //
         // data-plain-cta opts an element out. Only the nav bar's button carries it: that
         // one states no price, and at 11px in a fixed bar the longer word does not fit.
+        // The Stride Bundle reads "GET THE STRIDE BUNDLE": "GET STRIDE + TENDRIL + COLLECTION" took two rows in
+        // that same 350px column (site-fixes section 6).
         document.querySelectorAll('a[onclick*="openBuy"]:not([data-plain-cta])').forEach(function (el) {
             if (!el.dataset.baseHtml) el.dataset.baseHtml = el.innerHTML;
             el.innerHTML = on
                 ? el.dataset.baseHtml
                     .replace(/<span class="(?:m|sd)-cta-price">[\s\S]*?<\/span>/g, '')
                     .replace(ctaPrice, '')
-                    .replace(/GET STRIDE/g, 'GET STRIDE + ' + bumpName.toUpperCase())
-                    .replace(/Get Stride/g, 'Get Stride + ' + bumpName)
+                    .replace(/GET STRIDE/g, bdl ? 'GET THE STRIDE BUNDLE' : 'GET STRIDE + ' + bumpName.toUpperCase())
+                    .replace(/Get Stride/g, bdl ? 'Get the Stride Bundle' : 'Get Stride + ' + bumpName)
                 // Off, but still re-priced. Restoring the raw markup here would put a
                 // dollar price back on every CTA while the pricing panel shows the
                 // visitor's own currency. With no Paddle currency loaded, strideMoney
@@ -5406,6 +5774,14 @@ function openBuy() { toggleBuyModal(); }
         if (discountId) body.discountId = discountId;
         return Paddle.PricePreview(body).then(strideReadPreview).catch(function () { return null; });
     }
+    // The Stride Bundle's three items as one cart, without a discount (the struck prices) and with its own 50%.
+    function strideBundlePreview(discountId) {
+        var body = { items: [{ priceId: PADDLE_PRICE_STRIDE, quantity: 1 },
+                             { priceId: PADDLE_PRICE_TENDRIL, quantity: 1 },
+                             { priceId: PADDLE_PRICE_COLLECTION_VALUE, quantity: 1 }] };
+        if (discountId) body.discountId = discountId;
+        return Paddle.PricePreview(body).then(strideReadPreview).catch(function () { return null; });
+    }
 
     let strideLocalizeGen = 0;
     function strideLocalizePrices() {
@@ -5427,10 +5803,13 @@ function openBuy() { toggleBuyModal(); }
             // the Collection's struck 35 as 28. list is what Paddle charges without the code,
             // charged is what it charges with it; the page prints charged.
             var tdr = strideBumpArm() === 'tendril';
+            var bdl = strideBumpArm() === 'bundle';
             Promise.all([stridePricePreview(''),
                          strideCodeId ? stridePricePreview(strideCodeId) : null,
                          tdr ? strideTendrilPreview('') : null,
-                         tdr && strideCodeId ? strideTendrilPreview(strideCodeId) : null])
+                         tdr && strideCodeId ? strideTendrilPreview(strideCodeId) : null,
+                         bdl ? strideBundlePreview('') : null,
+                         bdl ? strideBundlePreview(STRIDE_BUNDLE_DISCOUNT) : null])
                 .then(function (both) {
                     if (gen !== strideLocalizeGen) return;
                     var list = both[0];
@@ -5441,6 +5820,13 @@ function openBuy() { toggleBuyModal(); }
                     strideTendril = (tl && tc && tl.tendril != null && tc.tendril != null
                                      && tl.currency === list.currency && tc.currency === charged.currency)
                         ? { list: tl.tendril, charged: tc.tendril } : null;
+                    // The Stride Bundle's: the three lines' sum without and with its 50%, in this same currency only.
+                    var bl = both[4], bc = both[5];
+                    var three = function (p) { return p.stride + p.tendril + p.value; };
+                    strideBundle = (bl && bc && bl.tendril != null && bc.tendril != null && bl.value != null && bc.value != null
+                                    && bl.currency === list.currency && bc.currency === list.currency
+                                    && three(bc) < three(bl))
+                        ? { list: three(bl), charged: three(bc) } : null;
                     strideList = list;
                     var cur = charged.currency;
                     // Dollars at the list price is what the page already prints.
@@ -5538,9 +5924,11 @@ function openBuy() { toggleBuyModal(); }
                 // the buyer on to the Collection's offer, whichever address Paddle sent them to. The
                 // paid items decide; the page's own toggle only when Paddle gave no items.
                 var _it = ev.data.items;
+                // Tendril rides in the Stride Bundle too (2026-11-07): either way it is theirs, so no page after this
+                // one offers it again, even before the webhook has landed.
                 var _tdrPaid = Array.isArray(_it)
                     ? _it.some(function (i) { return i && (i.price_id === PADDLE_PRICE_TENDRIL || ((i.price || {}).id === PADDLE_PRICE_TENDRIL)); })
-                    : strideBumpIn() === 'tendril';
+                    : (strideBumpIn() === 'tendril' || strideBumpIn() === 'bundle');
                 if (_tdrPaid) sessionStorage.setItem('stride_bump_tendril', String(ev.data.transaction_id));
                 else sessionStorage.removeItem('stride_bump_tendril');
                 // The record the next page fires this sale's purchase events from, bound to it
@@ -5642,7 +6030,7 @@ function openBuy() { toggleBuyModal(); }
                 // the same price the hero quoted them. Paddle marks only the discount UI
                 // settings (showAddDiscounts, allowDiscountRemoval) as ignored in express,
                 // not the discount itself: the buyer cannot change it, which is the point.
-                discountId: strideCodeId || undefined,
+                discountId: strideCartDiscount() || undefined,
                 customData: strideExpressCustomData(),
                 settings: {
                     displayMode: 'inline',
@@ -5798,7 +6186,7 @@ function openBuy() { toggleBuyModal(); }
                 if (opts && opts.methods) settings.allowedPaymentMethods = opts.methods;
                 Paddle.Checkout.open({
                     items: items,
-                    discountId: strideCodeId || undefined,
+                    discountId: strideCartDiscount() || undefined,
                     customer: email ? { email: email } : undefined,
                     customData: custom,
                     settings: settings
@@ -6469,6 +6857,15 @@ function openBuy() { toggleBuyModal(); }
         var s = Math.max(0, Math.floor(ms / 1000));
         return two(Math.floor(s / 3600)) + ':' + two(Math.floor(s / 60) % 60) + ':' + two(s % 60);
     }
+    // The same clock for an end weeks away (Black Friday's, 2026-11-07): days, then hours and minutes, so
+    // it fits the ticket's stub ("23D 14:05"); under two days it is the ordinary clock, as a personal 48-hour
+    // code has always shown it ("47:59:59").
+    function longClock(ms) {
+        var s = Math.max(0, Math.floor(ms / 1000)), d = Math.floor(s / 86400);
+        if (d < 2) return clock(ms);
+        var unit = { de: 'T', fr: 'J', it: 'G', ja: '日', zh: '天' }[lang] || 'D';
+        return d + unit + ' ' + two(Math.floor(s / 3600) % 24) + ':' + two(Math.floor(s / 60) % 60);
+    }
     function offerEnds() { return (st.seen || Date.now()) + HOURS * 3600000; }
     function claimed() { return !!(st.code && st.did && st.ends > Date.now()); }
     function live() { return claimed() || (!!st.seen && !st.over && Date.now() < offerEnds()); }
@@ -7041,6 +7438,9 @@ function openBuy() { toggleBuyModal(); }
     // (strideBfEnds, the backend's answer for it). 0 otherwise.
     function bfCodeEnds() {
         try {
+            // Black Friday baked into the price (2026-11-07): the page's EARLYBF30 ends with STRIDE_BF_END,
+            // the same moment for every visitor, and the buy form's ticket counts down to it.
+            if (window.STRIDE_BF && strideCodeId === STRIDE_CODES[window.STRIDE_BF]) return Number(window.STRIDE_BF_END) || 0;
             if (!strideBfDid || strideCodeId !== strideBfDid) return 0;
             return st.did === strideBfDid && st.ends ? st.ends : (strideBfEnds || 0);
         } catch (e) { return 0; }
@@ -7071,7 +7471,7 @@ function openBuy() { toggleBuyModal(); }
                 buyBig = buyT.querySelector('.bfp-big');
             }
             buyT.disabled = look === 'code';
-            if (look === 'code') paintStub(buyTop, buyBig, clock(bfCodeEnds() - Date.now()));
+            if (look === 'code') paintStub(buyTop, buyBig, longClock(bfCodeEnds() - Date.now()));
         };
         buyT.addEventListener('click', function () {
             if (buyLook() !== 'offer') return;
@@ -7095,6 +7495,11 @@ function openBuy() { toggleBuyModal(); }
     }
 
     // ── on arrival ────────────────────────────────────────────────────────────
+    // Black Friday baked into the price (Yossi 2026-11-07): every visit holds EARLYBF30 already (STRIDE_BF, the
+    // second script in <head>), so there is nothing to ask for and nothing to pin, and no first sight is written
+    // down; the buy form's ticket above still shows, counting to the same end. Once that end has passed the
+    // offer is over for good: back to $99, and no popup ("After November 30: back to $99, no popup").
+    if (window.STRIDE_BF || (Number(window.STRIDE_BF_END) > 0 && Date.now() >= Number(window.STRIDE_BF_END))) return;
     var urlCode = '';
     try { urlCode = (new URL(window.location.href).searchParams.get('code') || '').toLowerCase(); } catch (e) {}
     if (CODE_RE.test(urlCode)) {

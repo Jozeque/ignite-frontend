@@ -775,36 +775,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     color:var(--ink2);font-weight:800}
   .offer-clock b{color:var(--copper-lt);font-weight:900;letter-spacing:.03em;font-size:17px}
 
-  /* ── The two questions ───────────────────────────────────────────────────
-     /try's shape: one quiet panel, the options as chips that fill copper when
-     chosen, one copper button. Small type throughout, because this sits between
-     the welcome and the video and must read as a question, not as a form. The
-     radio itself is invisible and covers its own chip, so the whole chip is the
-     hit target and the keyboard still gets a real radio group. */
-  .survey{margin:0 0 .75rem;padding:11px 14px;border:1px solid var(--line);
-    border-radius:18px;background:var(--panel);text-align:left}
-  .survey[hidden]{display:none}
-  .survey-h{margin:0 0 4px;font-size:14px;font-weight:900;color:var(--ink);letter-spacing:.02em}
-  .survey-lead{margin:0 0 8px;font-size:12.5px;line-height:1.45;color:var(--ink2)}
-  .survey-lead-2{margin-top:16px}
-  .survey-row{display:flex;flex-wrap:wrap;gap:6px}
-  .survey-opt{position:relative;display:inline-flex}
-  .survey-opt input{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;cursor:pointer}
-  .survey-opt span{display:inline-block;padding:6px 11px;border-radius:999px;
-    border:1px solid var(--line);background:rgba(255,255,255,.03);
-    font-size:12px;font-weight:700;color:var(--ink2);
-    transition:color .15s,border-color .15s,background .15s}
-  .survey-opt:hover span{color:var(--ink);border-color:rgba(216,201,176,.28)}
-  .survey-opt input:focus-visible + span{outline:2px solid var(--copper-lt);outline-offset:2px}
-  .survey-opt input:checked + span{color:#1c1206;font-weight:800;border-color:transparent;
-    background:linear-gradient(180deg,var(--ember),var(--copper))}
-  .survey-other{width:100%;margin-top:9px;background:var(--bg2);color:var(--ink);
-    border:1px solid var(--line);border-radius:12px;padding:10px 12px;font:inherit;font-size:13px}
-  .survey-other::placeholder{color:var(--ink3)}
-  .survey-other:focus{outline:none;border-color:rgba(198,113,43,.55);
-    box-shadow:0 0 0 3px rgba(198,113,43,.15)}
-  .survey-foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px}
-  .survey-note{margin:0;font-size:12px;color:var(--ink2)}
   .btn-copper{display:inline-flex;align-items:center;justify-content:center;gap:.6rem;background:linear-gradient(180deg,var(--ember),var(--copper));
     color:#1c1206;font-weight:900;letter-spacing:.04em;border:1px solid rgba(255,210,150,.25);border-radius:14px;
     box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 12px 24px -14px rgba(198,113,43,.8);transition:transform .15s,filter .15s;cursor:pointer}
@@ -823,17 +793,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      split by hairlines rather than boxed, so the page reads as one sheet. */
   .w-hero{margin:4px 0 0}
   .w-sec{border-top:1px solid var(--line);margin-top:20px;padding-top:20px}
-  .survey.w-sec{border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;
-    padding:20px 0 0;margin:20px 0 0}
-  .survey.w-sec .survey-h{font-size:22px;letter-spacing:-.01em;margin:0 0 6px}
-  .survey.w-sec .survey-lead{font-size:14px;margin:0 0 12px}
-  .survey.w-sec .survey-opt span{padding:8px 14px;font-size:13px}
   .w-cols{display:grid;gap:34px}
   @media (min-width:900px){
     .w-cols{grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:0}
     .w-main{padding-right:34px}
     .w-side{border-left:1px solid var(--line);padding-left:34px}
-    .survey.w-sec .survey-h{font-size:26px}
   }
   .w-h{margin:8px 0 4px;font-size:26px;font-weight:900;letter-spacing:-.015em;color:var(--ink);line-height:1.1}
   @media (min-width:768px){ .w-h{font-size:34px} }
@@ -859,19 +823,19 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     border:1px solid rgba(221,154,82,.55);border-radius:12px;color:var(--copper-lt);font-size:13.5px;
     font-weight:800;letter-spacing:.01em;text-decoration:none;transition:background .15s,border-color .15s,color .15s}
   .btn-line:hover{background:rgba(198,113,43,.1);border-color:var(--copper-lt);color:var(--ink)}
-  /* The buyer's own link, up front under the welcome: copper-tinted so it reads as theirs. */
-  .w-ref{margin:16px 0 0;padding:16px 18px;border:1px solid rgba(221,154,82,.32);border-radius:16px;
-    background:linear-gradient(180deg,rgba(198,113,43,.11),rgba(198,113,43,.04));display:grid;gap:12px;align-items:center}
-  @media (min-width:900px){ .w-ref{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:26px;padding:18px 22px} }
-  .w-ref-k{margin:0;color:var(--copper-lt)}
-  .w-ref-h{margin:5px 0 3px;font-size:19px;font-weight:900;color:var(--ink);letter-spacing:-.01em;line-height:1.15}
-  .w-ref-s{margin:0;font-size:13px;line-height:1.5;color:var(--ink2)}
-  .w-ref-row{display:flex;gap:8px;flex-wrap:wrap;align-items:stretch}
-  .w-ref-box{flex:1 1 220px;min-width:0;padding:11px 13px;border-radius:12px;border:1px solid var(--line);
-    background:rgba(0,0,0,.35);color:var(--ink);font:13.5px Consolas,Menlo,monospace}
+  /* The buyer's own link, one quiet line at the foot of the page (2026-11-07, was a copper band under the
+     welcome): the words, the link to copy and the way to their payouts, in one row on a wide screen. */
+  .w-ref{margin:26px 0 0;padding:16px 0 0;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;
+    align-items:center;gap:10px 18px}
+  .w-ref-t{flex:1 1 340px;margin:0;font-size:13px;line-height:1.5;color:var(--ink2)}
+  .w-ref-row{flex:0 1 460px;display:flex;gap:8px;align-items:center;min-width:0}
+  .w-ref-box{flex:1 1 200px;min-width:0;padding:8px 11px;border-radius:10px;border:1px solid var(--line);
+    background:rgba(0,0,0,.35);color:var(--ink);font:12.5px Consolas,Menlo,monospace}
   .w-ref-box:focus{outline:none;border-color:rgba(198,113,43,.55);box-shadow:0 0 0 3px rgba(198,113,43,.15)}
-  .w-ref-copy{flex:0 0 auto;padding:10px 18px;font-size:13px;border-radius:12px}
-  .w-ref .dl-note{margin:8px 0 0}
+  .w-ref-copy{flex:0 0 auto;padding:8px 14px;font-size:12px;border-radius:10px}
+  .w-ref-p{flex:0 0 auto;margin:0;font-size:12px}
+  .w-ref-p a{color:var(--copper-lt);text-decoration:none}
+  .w-ref-p a:hover{text-decoration:underline}
   .w-note{margin:26px 0 0}
   /* Wide screens (Yossi, 2026-09-29): the page is wider (1360px) and the two columns closer to
      even. On the right, Tendril across the column (2026-11-04), and the Collection under it as
@@ -995,17 +959,71 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     border-radius:999px;border:1px solid var(--line);background:rgba(16,15,12,.72);color:var(--ink2);font-size:19px;line-height:1;cursor:pointer}
   @media (max-width:640px){ .vpop{--pad:14px} }
   .vpop.v .vpop-card{width:min(100%,calc((100vh - var(--pad) * 2) * 9 / 16));width:min(100%,calc((100dvh - var(--pad) * 2) * 9 / 16))}
-  /* The buyer's own link: the 15% is the headline, in copper. */
-  .w-ref-h{font-size:22px}
-  .w-ref-s{font-size:15px}
-  .w-ref-hl{color:var(--copper-lt);font-weight:900}
+  /* The buyer's own link: the two percentages are the words that matter, in copper and ink. */
+  .w-ref-hl{color:var(--copper-lt);font-weight:800}
   .w-ref-f{color:var(--ink);font-weight:800}
-  .w-ref-box{font-size:15px;padding:12px 14px}
-  .w-ref-copy{padding:12px 22px;font-size:14px}
-  @media (min-width:900px){ .w-ref-h{font-size:26px} .w-ref-s{font-size:16px} }
   .w-cols + .wcard-help{margin-top:34px}
+  #ref-slot + .wcard-help{margin-top:22px}
+
+  /* ── 2026-11-07: the products first ─────────────────────────────────────────────────────────────
+     The welcome, the download right under it, then the two products this purchase did not include, then
+     the walkthrough. Position and styling only: every word on the cards is the one they carried before. */
+  /* The download as one centred row under the welcome. */
+  .w-hero + .w-dl{max-width:620px;margin:16px auto 0}
+  .w-hero + .w-dl .dl-row .btn-copper{flex:1 1 200px;padding:13px 18px;font-size:14px}
+  .w-hero + .w-dl .dl-note{margin:10px 0 0}
+  /* The offers row: hidden until a card shows, its label with it, so an owner of both sees no empty row. */
+  .w-xm:not(:has(.w-block:not([hidden]))){display:none}
+  .w-xm .xm-head{margin:0 0 14px;color:var(--copper-lt)}
+  /* Tendril: the film beside its words from a tablet up, so the price and the button come up with it. */
+  @media (min-width:760px){
+    .w-xm #tdr-rail{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);column-gap:22px;
+      grid-template-areas:"k k" "word word" "h h" "film lead" "film chains" "offer offer" "pub pub" "note note" "done done";
+      grid-template-rows:auto auto auto auto 1fr auto auto auto auto;align-content:start}
+    .w-xm #tdr-rail > .tdr-k{grid-area:k}
+    .w-xm #tdr-rail > .tdr-word{grid-area:word}
+    .w-xm #tdr-rail > .tdr-h{grid-area:h}
+    .w-xm #tdr-rail > .tdr-film{grid-area:film;align-self:start}
+    .w-xm #tdr-rail > .tdr-lead{grid-area:lead;margin-top:16px;font-size:13.5px;line-height:1.55}
+    .w-xm #tdr-rail > .tdr-chains{grid-area:chains}
+    .w-xm #tdr-rail > .tdr-offer{grid-area:offer}
+    .w-xm #tdr-rail > .tdr-public{grid-area:pub}
+    .w-xm #tdr-rail > .tdr-note{grid-area:note}
+    .w-xm #tdr-rail > .tdr-done{grid-area:done}
+    .w-xm .tdr-h{font-size:26px}
+    /* The button's words on one line in every language: where they do not fit beside the price, the button
+       takes its own row (the offer row wraps) rather than breaking into two lines. */
+    .w-xm .tdr-buy{white-space:nowrap}
+  }
+  /* The Collection: the offer's price and button come before the rows that let the buyer switch parts off. */
+  .w-xm #chains-rail .mkc-offer{display:flex;flex-direction:column}
+  .w-xm #chains-rail .mkc-offer > .mkc-half{order:0;margin:0 0 6px}
+  .w-xm #chains-rail .mkc-offer > .offer-clock{order:1}
+  .w-xm #chains-rail .mkc-offer > div:not(.mkc-rows){order:2}
+  .w-xm #chains-rail .mkc-offer > .mkc-buy{order:3}
+  .w-xm #chains-rail .mkc-offer > .mkc-needs{order:4}
+  .w-xm #chains-rail .mkc-offer > .mkc-rows{order:5;margin:16px 0 0}
+  /* While an offer is open the rows carry each part's own disc, so the still steps aside and the card ends
+     on its link; without an offer (no purchase in this tab, or the offer is over) the still stays. */
+  .w-xm #chains-rail:has(> .mkc-offer:not([hidden])) > .mkc-sc{display:none}
+  /* Side by side from a laptop up, a hairline between them; one card alone sits centred, not stretched. */
+  @media (min-width:1100px){
+    .w-xm .w-offers{flex-direction:row;align-items:flex-start}
+    .w-xm .w-offers > .w-block{flex:1 1 0;min-width:0}
+    .w-xm #tdr-rail{padding:0 34px 0 0;margin:0;border-bottom:0}
+    .w-xm #tdr-rail:not([hidden]) + #chains-rail{padding-left:34px;border-left:1px solid var(--line)}
+    .w-xm .w-offers:not(:has(#chains-rail:not([hidden]))) #tdr-rail,
+    .w-xm .w-offers:not(:has(#tdr-rail:not([hidden]))) #chains-rail{flex:0 1 780px;margin:0 auto;padding:0}
+    .w-xm .w-bh{font-size:22px}
+  }
+  /* The walkthrough beside the note: the video takes the room, the note sits at its top. */
+  @media (min-width:1200px){
+    .w-cols{grid-template-columns:minmax(0,1.7fr) minmax(0,1fr)}
+  }
+  .w-side .w-note{margin:0}
+  @media (max-width:899.98px){ .w-side .w-note{margin-top:0} }
 </style>
-<link rel="stylesheet" href="/_legacy/css/welcome.b2d390ef26.css">
+<link rel="stylesheet" href="/_legacy/css/welcome.85e3baca1d.css">
 <meta property="og:image" content="https://stridehub.io/media/stride/og/stride-share-1200x630.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -1111,72 +1129,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <h1 class="text-3xl md:text-5xl font-black uppercase tracking-tight mb-1 mt-2">
         Bienvenido a <span class="brand">Stride</span>
       </h1>
-      <p class="text-sm md:text-base ink2 font-medium max-w-lg mx-auto leading-relaxed">
-        Mira esto antes de empezar.
-      </p>
     </div>
 
-    <!-- The buyer's own referral link, up front. The script at the end of the page builds it
-         here once the backend has the link (strideReferralCard); until then this is empty. -->
-    <div id="ref-slot"></div>
-
-    <!-- Two questions, asked once, of somebody who has just paid and is in a good mood. Its
-         own open section under the welcome, as in the 2026-09-29 layout. Nothing is required,
-         nothing blocks the page, and the whole block removes itself when there is no
-         purchase to attach an answer to, when it has already been answered on this device,
-         or if the script below never runs. -->
-    <section class="survey w-sec" id="survey" hidden aria-labelledby="survey-h">
-      <form id="survey-form" novalidate>
-        <p class="survey-h" id="survey-h">Ayúdanos a mejorar Stride</p>
-
-        <!-- One question at a time, and choosing an answer IS sending it. There is no submit
-             button: somebody who has just paid should not have to press a second thing to do
-             us a favour, and an answer that is already recorded cannot be lost by leaving. -->
-        <div class="survey-step" data-step="blocker">
-          <p class="survey-lead">Siempre estamos llevando Stride un poco más lejos. ¿Qué casi te frena hoy a la hora de comprar?</p>
-          <div class="survey-row" role="radiogroup" aria-labelledby="survey-h">
-            <label class="survey-opt"><input type="radio" name="blocker" value="price"><span>El precio</span></label>
-            <label class="survey-opt"><input type="radio" name="blocker" value="workflow"><span>No sabía si encaja con mi flujo de trabajo</span></label>
-            <label class="survey-opt"><input type="radio" name="blocker" value="compatibility"><span>Dudas de compatibilidad</span></label>
-            <label class="survey-opt"><input type="radio" name="blocker" value="try_first"><span>Quería probarlo antes</span></label>
-            <label class="survey-opt"><input type="radio" name="blocker" value="unclear"><span>No tenía claro qué hace</span></label>
-            <label class="survey-opt"><input type="radio" name="blocker" value="nothing"><span>Nada</span></label>
-            <label class="survey-opt"><input type="radio" name="blocker" value="other"><span>Otra cosa</span></label>
-          </div>
-          <input class="survey-other" type="text" name="blocker_other" maxlength="400"
-                 placeholder="Cuéntanos más y pulsa Enter" hidden>
-        </div>
-
-        <div class="survey-step" data-step="heard" hidden>
-          <p class="survey-lead">Gracias. ¿Y cómo conociste Stride?</p>
-          <div class="survey-row" role="radiogroup" aria-label="¿Cómo conociste Stride?">
-            <label class="survey-opt"><input type="radio" name="heard" value="instagram_facebook"><span>Instagram / Facebook</span></label>
-            <label class="survey-opt"><input type="radio" name="heard" value="youtube"><span>YouTube</span></label>
-            <label class="survey-opt"><input type="radio" name="heard" value="google"><span>Google</span></label>
-            <label class="survey-opt"><input type="radio" name="heard" value="friend"><span>Por un amigo</span></label>
-            <label class="survey-opt"><input type="radio" name="heard" value="review"><span>Una review o un artículo</span></label>
-            <label class="survey-opt"><input type="radio" name="heard" value="other"><span>Otra cosa</span></label>
-          </div>
-          <input class="survey-other" type="text" name="heard_other" maxlength="400"
-                 placeholder="Especifícalo y pulsa Enter" hidden>
-        </div>
-
-        <p class="survey-note" aria-live="polite" hidden></p>
-      </form>
-    </section>
-
-    <!-- Two columns (the 2026-09-29 layout): the walkthrough and the download on the left, the
-         two offers down the right, each in the state this buyer's purchase left it in. -->
-    <div class="w-cols w-sec">
-
-      <div class="w-main">
-        <p class="silk wcard-k">Ver el walkthrough</p>
-        <p class="w-h">Walkthrough de Stride 2.0</p>
-        <p class="wcard-s">El lienzo, un rack y un clip terminado, de principio a fin.</p>
-        <div class="video-frame rounded-xl overflow-hidden mt-4" style="border:1px solid var(--line)">
-          <iframe class="w-full aspect-video bg-black" src="https://www.youtube-nocookie.com/embed/-Z4zRIiPg-4?rel=0&amp;modestbranding=1&amp;playsinline=1" title="Vídeo de bienvenida de Stride" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-        </div>
-
+    <!-- The download, right under the welcome (2026-11-07: the products moved up and the walkthrough
+         below them, so the software stays on the first screen). -->
         <!-- Hidden until the backend hands over real URLs, so this is either useful or absent,
              never a pair of dead buttons on the screen of somebody who has just paid. Each link
              stays hidden on its own: one published build shows one button, not a broken second.
@@ -1189,23 +1145,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <p class="dl-note">Tu clave de licencia está en el email de bienvenida. <a href="/es/setup.html">Guía de instalación →</a></p>
         </section>
 
-        <!-- Expectation-setting note (creative tool, not mixing tool). Under the walkthrough
-             and the download, so producers read it before they open Stride. -->
-        <div class="w-note p-5 rounded-2xl panel">
-          <p class="silk mb-2" style="color:var(--copper-lt)">Una nota antes de empezar</p>
-          <!-- Cut from five lines to two. It still does the one job it is here for, which is to
-               say what Stride is for BEFORE somebody opens it expecting a mixing tool. What went
-               was the description of the loop itself: the walkthrough directly above this shows
-               that better than a paragraph can. -->
-          <p class="text-sm ink2 leading-relaxed">
-            Stride es una <b class="ink">herramienta de sound design</b>, no de mezcla. Elige un rack, escanea sus parámetros y diseña movimiento que nunca dibujarías a mano. Úsalo para variación y movimiento, no para trabajo quirúrgico de mezcla.
-          </p>
-        </div>
-      </div>
-
-      <aside class="w-side">
-        <p class="silk xm-head">Explora más</p>
-
+    <!-- The products this purchase did not include, first (Yossi 2026-11-07: "EMPHASIZE the products
+         that were not taken in POST PURCHASE or in the ORDER BUMP"). Each card shows itself only for a
+         product the buyer does not own yet; a buyer who has both sees neither, and then this row and
+         its label stay hidden (CSS :has). Side by side on a wide screen, stacked below that. -->
+    <section class="w-xm w-sec" aria-labelledby="xm-h">
+      <p class="silk xm-head" id="xm-h">Explora más</p>
         <!-- Tendril, where the 1:1 session was (Yossi 2026-11-04: "remove the session and put a
              full Tendril hero there", "keep the whole left side exactly the same"): /tendril/'s
              words, its film and its owner price, with the same checkout. Hidden until the script
@@ -1265,7 +1210,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <p class="w-bs">100 StrideChains para cuatro sintes, cada lane mapeada y con su rango, más 250+ sonidos y 15 Ableton Racks.</p>
           <figure class="mkc-sc"><img src="/media/stride/film/poster-ui-1280.webp" width="1280" height="720" alt="Una StrideChain en Stride: cada lane del patch en movimiento" loading="lazy" decoding="async"></figure>
           <div class="mkc-offer" hidden>
-            <p class="mkc-half" data-mkc-half>Todo a mitad de precio durante 48 horas. Desactiva lo que no necesites.</p>
+            <p class="mkc-half" data-mkc-half>Todo a mitad de precio hasta finales de noviembre. Desactiva lo que no necesites.</p>
             <div class="mkc-rows" role="group" aria-label="Qué añadir">
               <div class="mkc-row" data-mk="serum" hidden><span class="mkc-disc" style="--a:#2f8fb0;--b:#0c171d" aria-hidden="true"><b>S2</b></span><span class="nm"><b>Serum 2</b><span>30 StrideChains / 150 estados</span></span><span class="pp" data-pp></span><span class="sw" aria-hidden="true"></span></div>
               <div class="mkc-row" data-mk="vital" hidden><span class="mkc-disc" style="--a:#7b5cd6;--b:#130f21" aria-hidden="true"><img src="/media/synths/vital.webp" alt="" width="77" height="80" loading="lazy" decoding="async"></span><span class="nm"><b>Vital</b><span>30 StrideChains / 150 estados</span></span><span class="pp" data-pp></span><span class="sw" aria-hidden="true"></span></div>
@@ -1275,7 +1220,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <div class="mkc-row" data-mk="collection" hidden><span class="mkc-disc art" aria-hidden="true"><img src="/media/synths/sounds-racks.webp" alt="" width="320" height="320" loading="lazy" decoding="async"></span><span class="nm"><b><span data-coll-new>Experimental Sounds &amp; Racks</span><span data-coll-old hidden>Experimental Collection</span></b><span><span data-coll-new>250+ sonidos / 15 Ableton Racks</span><span data-coll-old hidden>250+ sonidos / 15 Ableton Racks / 4 StrideChains</span></span></span><span class="pp" data-pp></span><span class="sw" aria-hidden="true"></span></div>
               <p class="mkc-bundle" data-mkc-whole hidden><span>Toda la Stride Collection<small data-mkc-less hidden>Cuesta menos que lo que elegiste, así que te llevas todo</small></span><b data-mkc-wholep></b></p>
             </div>
-            <p class="offer-clock" role="timer">La oferta termina en <b data-mkc-left>48h</b></p>
             <div class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
               <span class="mkc-wl" data-mkc-wl hidden>Precio público</span>
               <del class="price-was" data-mkc-was hidden></del>
@@ -1289,9 +1233,38 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <a href="/collection/" class="mkc-link btn-line">Ver toda la Collection →</a>
         </section>
         </div>
-      </aside>
+    </section>
 
+    <!-- The walkthrough, with the note beside it on a wide screen. -->
+    <div class="w-cols w-sec">
+      <div class="w-main">
+        <p class="silk wcard-k">Ver el walkthrough</p>
+        <p class="w-h">Walkthrough de Stride 2.0</p>
+        <p class="wcard-s">El lienzo, un rack y un clip terminado, de principio a fin.</p>
+        <div class="video-frame rounded-xl overflow-hidden mt-4" style="border:1px solid var(--line)">
+          <iframe class="w-full aspect-video bg-black" src="https://www.youtube-nocookie.com/embed/-Z4zRIiPg-4?rel=0&amp;modestbranding=1&amp;playsinline=1" title="Vídeo de bienvenida de Stride" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+        </div>
+      </div>
+      <aside class="w-side">
+        <!-- Expectation-setting note (creative tool, not mixing tool). Under the walkthrough
+             and the download, so producers read it before they open Stride. -->
+        <div class="w-note p-5 rounded-2xl panel">
+          <p class="silk mb-2" style="color:var(--copper-lt)">Una nota antes de empezar</p>
+          <!-- Cut from five lines to two. It still does the one job it is here for, which is to
+               say what Stride is for BEFORE somebody opens it expecting a mixing tool. What went
+               was the description of the loop itself: the walkthrough directly above this shows
+               that better than a paragraph can. -->
+          <p class="text-sm ink2 leading-relaxed">
+            Stride es una <b class="ink">herramienta de sound design</b>, no de mezcla. Elige un rack, escanea sus parámetros y diseña movimiento que nunca dibujarías a mano. Úsalo para variación y movimiento, no para trabajo quirúrgico de mezcla.
+          </p>
+        </div>
+      </aside>
     </div>
+
+    <!-- The buyer's own referral link, one line at the foot of the page (Yossi 2026-11-07: "shrink the
+         referral"; it was a band under the welcome). The script at the end of the page builds it once
+         the backend has the link (strideReferralCard); until then this is empty. -->
+    <div id="ref-slot"></div>
 
     <!-- Support, one quiet line. It was a full-width card of its own, then a card in the
          offers column; it is neither an offer nor a step, so it reads as a footnote now. -->
@@ -1607,7 +1580,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     if (!mOffer) return;
     var left = mOffer.expires - (Date.now() + mOffer.skew);
     if (left <= 0) { mkcGone(''); return; }
-    qm('[data-mkc-left]').textContent = human(left);
+    // No clock on the page since 2026-11-07 (every 50% runs to the end of November); the end still closes it.
+    var lf = qm('[data-mkc-left]'); if (lf) lf.textContent = human(left);
   }
   function mPacksOn() { return mPicks.filter(function (p) { return p.kind === 'pack' && p.on && !p.owned; }); }
   function mSoundsOn() { return mPicks.some(function (p) { return p.kind === 'coll' && p.on && !p.owned; }); }
@@ -1674,6 +1648,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     if (!mkc) return;
     var ch = d.chains || {}, co = d.collection || {}, byKey = {};
     mPicks = []; M = null;
+    // All of it theirs already (the order bump, /post2/ or here): nothing to put in front of them, so the
+    // card stays hidden (Yossi 2026-11-07: emphasize only what was not taken).
+    if (ch.status === 'used') { mkc.hidden = true; return; }
     if (ch.status === 'open') {
       var snd = ch.sounds || {};
       M = { all: mAmt(ch.all) ? ch.all : null, whole: mAmt(ch.whole) ? ch.whole : null,
@@ -1698,6 +1675,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       if (pick) { pick.key = k; pick.row = row; mPicks.push(pick); }
     });
     var sell = mPicks.filter(function (p) { return !p.owned; });
+    if (!sell.length && mPicks.length) { mkc.hidden = true; return; }   // every row is theirs
     if (!sell.length) { mkcPublic(); return; }
     mOffer = { expires: (M && M.expires) || Number(d.expires_at_ms), skew: Number(d.server_now_ms) - Date.now(),
                amount: 0, currency: sell[0].currency || 'USD' };
@@ -2127,115 +2105,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 })();
 </script>
 
-<!-- The two questions under the title. Its own block because it shares nothing with the
-     offer rail: no Paddle, no prices, no clock. -->
-<script>
-(function () {
-  'use strict';
-
-  var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
-  var DONE_KEY = 'stride_survey_done';
-
-  var box = document.getElementById('survey');
-  var form = document.getElementById('survey-form');
-  if (!box || !form) return;
-
-  function ss(k) { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } }
-  function ls(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
-  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
-
-  // Same id the offer rail resolves against: the answers belong to the Stride purchase, not
-  // to a Collection bought a minute later. No purchase means nothing to attach an answer to,
-  // so the block never appears.
-  var txn = ss('stride_offer_txn') || ss('stride_last_txn');
-  if (!txn) return;
-  // Answered already on this device. The backend keeps the first answer regardless, this
-  // just stops the page asking a second time.
-  if (ls(DONE_KEY) === txn) return;
-
-  box.hidden = false;
-
-  var steps = [].slice.call(form.querySelectorAll('.survey-step'));
-  var sent = {};
-
-  // An answer is a gift, not a transaction. Whatever the network does with it, this page
-  // never shows a failure to somebody who has just paid for telling us something. Each
-  // question is sent on its own the moment it is answered, so leaving after the first one
-  // still leaves us the first one. keepalive, because the next thing they do may be to go.
-  function send(name, value, other) {
-    if (sent[name]) return;
-    sent[name] = true;
-    // The chosen answer only: what someone types under "Other" stays out of Clarity.
-    try {
-      var tag = {}; tag['survey_' + name] = value;
-      if (window.strideClarity) window.strideClarity('survey_answered', tag);
-    } catch (e) {}
-    var body = { action: 'purchase_survey', txn: txn };
-    body[name] = value;
-    body[name + '_other'] = other || '';
-    try {
-      fetch(API, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
-        body: JSON.stringify(body)
-      }).catch(function () {});
-    } catch (e) {}
-  }
-
-  function thanks() {
-    lsSet(DONE_KEY, txn);
-    box.innerHTML = '<p class="survey-h">Thank you.</p>'
-      + '<p class="survey-lead" style="margin:0">That goes straight to the person who builds Stride.</p>';
-  }
-
-  // One question at a time. The next one only exists once this one is answered.
-  function advance(i) {
-    if (!steps[i] || steps[i].hidden) return;
-    steps[i].hidden = true;
-    if (steps[i + 1]) { steps[i + 1].hidden = false; return; }
-    thanks();
-  }
-
-  form.addEventListener('submit', function (ev) { ev.preventDefault(); });
-
-  form.addEventListener('change', function (ev) {
-    var t = ev.target;
-    if (!t || t.type !== 'radio') return;
-    var step = null;
-    for (var n = t.parentNode; n && n !== form; n = n.parentNode) {
-      if (steps.indexOf(n) >= 0) { step = n; break; }
-    }
-    var i = steps.indexOf(step);
-    if (i < 0) return;
-    var other = step.querySelector('.survey-other');
-    // "Other" is the only answer that asks for words, so it is the only one that waits.
-    if (t.value === 'other') {
-      if (other) { other.hidden = false; try { other.focus(); } catch (e) {} }
-      return;
-    }
-    if (other) { other.hidden = true; other.value = ''; }
-    send(t.name, t.value, '');
-    advance(i);
-  });
-
-  // The free-text answer goes when they say it is finished, by pressing Enter or by
-  // leaving the field. Empty still counts: they chose Other and that is the answer.
-  steps.forEach(function (step, i) {
-    var other = step.querySelector('.survey-other');
-    if (!other) return;
-    var go = function () {
-      var picked = step.querySelector('input[type="radio"]:checked');
-      if (!picked || picked.value !== 'other' || sent[picked.name]) return;
-      send(picked.name, 'other', (other.value || '').trim());
-      advance(i);
-    };
-    other.addEventListener('keydown', function (ev) {
-      if (ev.key === 'Enter') { ev.preventDefault(); go(); }
-    });
-    other.addEventListener('blur', go);
-  });
-})();
-</script>
-
 <!-- The download buttons. Its own block on purpose: the offer rail above returns early
      when this tab carries no transaction id, and getting the software is the one thing
      this page must do for everybody. Nothing below depends on a transaction.
@@ -2317,24 +2186,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     shown = true;
     var portal = (ref.portal && ref.portal.indexOf('https://') === 0) ? ref.portal : 'https://stride.affonso.io';
 
-    // A copper band under the welcome (the 2026-09-29 layout puts the link up front): what it
-    // is on the left, the link to copy on the right, stacked on a phone.
+    // One quiet line at the foot of the page (Yossi 2026-11-07: "shrink the referral"; it was a
+    // copper band under the welcome): the offer in a sentence, the link to copy, the way to payouts.
     var card = el('section', 'w-ref');
     card.id = 'ref-block';
-    var intro = el('div');
-    intro.appendChild(el('p', 'silk w-ref-k', 'Your own link'));
-    var head = el('p', 'w-ref-h', 'Share Stride with a friend and ');
-    head.appendChild(el('span', 'w-ref-hl', 'earn 15%!'));
-    intro.appendChild(head);
     // The friend's side first (FRIEND20 on the homepage, from this link), then the owner's.
-    var sub = el('p', 'w-ref-s', 'Send them your link. ');
-    sub.appendChild(el('b', 'w-ref-f', 'They get 20% off,'));
-    sub.appendChild(document.createTextNode(' and when they buy, '));
-    sub.appendChild(el('span', 'w-ref-hl', 'you get 15% of the sale.'));
-    intro.appendChild(sub);
-    card.appendChild(intro);
+    var line = el('p', 'w-ref-t', 'Share Stride with a friend. ');
+    line.appendChild(el('b', 'w-ref-f', 'They get 20% off,'));
+    line.appendChild(document.createTextNode(' and when they buy, '));
+    line.appendChild(el('span', 'w-ref-hl', 'you get 15% of the sale.'));
+    card.appendChild(line);
 
-    var body = el('div');
     var row = el('div', 'w-ref-row');
     var box = el('input', 'w-ref-box');
     box.type = 'text';
@@ -2356,17 +2218,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     });
     row.appendChild(box);
     row.appendChild(copy);
-    body.appendChild(row);
+    card.appendChild(row);
 
-    var note = el('p', 'dl-note', 'Your referrals and payouts: ');
-    var a = el('a', '', portal.replace(/^https:\/\//, '').replace(/\/$/, ''));
+    // Their referrals and payouts, signed in with the email they bought with.
+    var note = el('p', 'w-ref-p');
+    var a = el('a', '', 'Your referrals and payouts →');
     a.href = portal;
     a.target = '_blank';
     a.rel = 'noopener';
+    a.title = 'Sign in with the email you bought with';
     note.appendChild(a);
-    note.appendChild(document.createTextNode(', sign in with the email you bought with.'));
-    body.appendChild(note);
-    card.appendChild(body);
+    card.appendChild(note);
     anchor.appendChild(card);
   }
 

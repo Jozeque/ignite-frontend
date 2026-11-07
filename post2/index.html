@@ -848,12 +848,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="og-h">
           <p class="offer-flag">Special offer for new Stride owners</p>
           <h2 class="text-2xl sm:text-3xl uppercase tracking-tight leading-tight">The Stride Collection</h2>
-          <p class="ol"><b class="hl">Half price on everything</b> for <b>48 hours</b>: <b>100 StrideChains</b> for Serum 2, Vital, Diva and Tendril, every lane mapped and ranged with <b>five states</b> in each, plus <b>250+ experimental sounds</b> and <b>15 Ableton racks</b>. It is all in your cart already: switch off what you don't need.</p>
+          <p class="ol"><b class="hl">Half price on everything</b> until <b>the end of November</b>: <b>100 StrideChains</b> for Serum 2, Vital, Diva and Tendril, every lane mapped and ranged with <b>five states</b> in each, plus <b>250+ experimental sounds</b> and <b>15 Ableton racks</b>. It is all in your cart already: switch off what you don't need.</p>
         </div>
         <!-- The buy box, beside the title, on the first screen (Yossi 2026-11-05: "everything reachable on one screen
              without scrolling"). The clock reads before the price, on the way in to the number. -->
         <div class="og-b">
-          <p class="offer-clock" role="timer">Available for the next <b data-left>48 hours</b></p>
           <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <span class="was-l" data-was-l>Public price</span>
             <del class="price-was" data-was-wrap><span class="sr-only">Public price </span><span data-was></span></del>
@@ -966,7 +965,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   // page goes through one of these two: the skip link, a closed or expired offer, a
   // finished checkout, and the owned case above.
   var NEXT = '/welcome.html';
-  var OWNED_NEXT = '/post/?code=sesh1o1';
+  // Was /post/?code=sesh1o1, the 1:1 session's screen; the session is no longer offered (Yossi
+  // 2026-11-07), so an owner of the Collection goes on to the product on every road.
+  var OWNED_NEXT = '/welcome.html';
   var FAILED = 'Checkout could not open. Move on and I will email you the offer instead.';
 
   function q(sel) { return document.querySelector(sel); }
@@ -1082,7 +1083,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     if (!offer) return;
     var left = offer.expires - (Date.now() + offer.skew);
     if (left <= 0) { if (clock) clearInterval(clock); leave(EXIT); return; }
-    q('[data-left]').textContent = human(left);
+    // No clock on the page since 2026-11-07 (every 50% runs to the end of November); the end still closes it.
+    var lf = q('[data-left]'); if (lf) lf.textContent = human(left);
   }
 
   function note(text) {
