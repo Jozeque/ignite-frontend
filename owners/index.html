@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your half price | Stride</title>
+<meta name="description" content="Everything a Stride owner doesn't have yet, at half price, until the end of November.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>
+@font-face{font-family:'Outfit';font-style:normal;font-weight:300 900;font-display:swap;src:url(/assets/fonts/outfit-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+  @font-face{font-family:'Outfit';font-style:normal;font-weight:300 900;font-display:swap;src:url(/assets/fonts/outfit-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+:root{
+  --bg:#141310; --bg2:#191611; --raise:#252119; --card:#1b1813;
+  --line:rgba(216,201,176,.11);
+  --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
+  --copper:#c6712b; --copper-lt:#dd9a52; --ember:#e58a2e; --ok:#8fae86;
+}
+*{box-sizing:border-box}
+html{color-scheme:dark}
+body{margin:0;min-height:100vh;display:flex;flex-direction:column;font-family:'Outfit',sans-serif;
+     background:var(--bg);color:var(--ink2);-webkit-font-smoothing:antialiased;overflow-x:hidden;line-height:1.6}
+[hidden]{display:none !important}
+a{color:inherit}
+h1{color:var(--ink);font-weight:900;letter-spacing:-.01em;margin:0;
+   font-size:clamp(32px,6vw,54px);line-height:1.06;text-wrap:balance}
+h1:focus{outline:none}
+h2{color:var(--ink);font-weight:900;letter-spacing:-.005em;margin:0;font-size:clamp(24px,3.4vw,32px);line-height:1.12;text-wrap:balance}
+:focus-visible{outline:2px solid var(--copper-lt);outline-offset:2px}
+.wrap{width:100%;max-width:980px;margin:0 auto;padding:0 22px}
+.silk{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--ink3)}
+.kick{margin:0 0 10px;font-size:12px;letter-spacing:.22em;text-transform:uppercase;font-weight:800;color:var(--copper-lt)}
+.cu{color:var(--copper-lt)}
+
+header{border-bottom:1px solid var(--line);background:rgba(20,19,16,.9);
+  backdrop-filter:blur(8px);position:sticky;top:0;z-index:20}
+.hrow{display:flex;align-items:center;justify-content:space-between;height:60px}
+.logo{font-weight:900;font-size:17px;letter-spacing:-.02em;text-decoration:none;background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+footer{border-top:1px solid var(--line);padding:26px 0}
+footer a{color:var(--ink3);text-decoration:none}
+footer a:hover{color:var(--ink2)}
+
+main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
+.lead{margin:16px 0 0;max-width:600px;font-size:17px}
+.fine{margin:12px 0 0;font-size:13px;color:var(--ink3)}
+.bad{color:#e6795f}
+
+/* Waiting */
+.dots{display:flex;gap:8px;margin-top:18px}
+.dots i{width:9px;height:9px;border-radius:50%;background:var(--copper-lt);opacity:.25;animation:blink 1.2s infinite}
+.dots i:nth-child(2){animation-delay:.2s}.dots i:nth-child(3){animation-delay:.4s}
+@keyframes blink{50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.dots i{animation:none;opacity:.6}}
+
+.acts{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
+.btn-copper,.btn-flat{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:12px;
+  padding:15px 26px;font:inherit;font-weight:800;font-size:15px;cursor:pointer;text-decoration:none;white-space:nowrap}
+.btn-copper{background:linear-gradient(180deg,var(--ember),var(--copper));color:#1b1206;transition:filter .15s}
+.btn-copper:hover{filter:brightness(1.06)}
+.btn-copper[disabled]{opacity:.55;cursor:default;filter:none}
+.btn-copper[aria-busy="true"]{opacity:.7;pointer-events:none}
+.btn-flat{background:var(--raise);color:var(--ink);transition:background .15s}
+.btn-flat:hover{background:#2e2920}
+
+/* One block per product, separated by a hairline */
+.blk{margin-top:44px;padding-top:40px;border-top:1px solid var(--line)}
+
+/* Tendril: the showcase beside the words */
+.tdr{display:grid;gap:26px;align-items:start}
+@media (min-width:820px){ .tdr{grid-template-columns:1.15fr 1fr;gap:34px} }
+.film{position:relative;border-radius:14px;overflow:hidden;background:#0e0d0b;border:1px solid var(--line);aspect-ratio:16/9}
+.film video{display:block;width:100%;height:100%;object-fit:cover}
+.tdr .pp{margin:10px 0 0;font-size:22px;font-weight:900;color:var(--ink)}
+.pp s,.tot s{color:var(--ink3);font-weight:700;margin-right:8px;text-decoration-thickness:2px;text-decoration-color:rgba(221,154,82,.85)}
+.body{margin:14px 0 0;font-size:16px;line-height:1.7}
+.watch{margin:14px 0 0;font-size:15px;line-height:2}
+.watch a{color:var(--copper-lt);font-weight:800;text-decoration:none;margin-right:18px;white-space:nowrap}
+.watch a:hover{text-decoration:underline;text-underline-offset:3px}
+.tgl{margin-top:18px;padding:12px 18px;border-radius:12px;border:1px solid rgba(221,154,82,.55);background:rgba(198,113,43,.12);
+  color:var(--copper-lt);font:inherit;font-size:13px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.tgl[aria-checked="false"]{border-color:var(--line);background:var(--raise);color:var(--ink2)}
+.tdr.off .film,.tdr.off .tdr-b > :not(.tgl){opacity:.55}
+
+/* The Collection: the playground, its multiplication, the parts */
+.eq{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;align-items:center;margin-top:22px;padding:18px 22px;
+  border-radius:16px;background:#120f0b;border:1px solid var(--line);max-width:640px}
+.eq .op{font-size:24px;font-weight:800;color:var(--copper-lt);width:18px;text-align:center}
+.eq .t{display:flex;align-items:baseline;gap:14px;min-width:0}
+.eq .t b{font-size:clamp(28px,4vw,36px);line-height:1.15;font-weight:900;color:var(--ink);white-space:nowrap}
+.eq .t span{font-size:14.5px;line-height:1.4;color:var(--ink2)}
+.eq .t.inf b{color:var(--copper-lt)}
+@media (max-width:520px){ .eq{padding:14px 16px;gap:2px 12px} .eq .t{gap:10px} .eq .t span{font-size:13.5px} }
+
+.pcs{display:grid;grid-template-columns:repeat(var(--cols,5),minmax(0,1fr));gap:22px 12px;margin-top:30px}
+.prow{position:relative;display:flex;flex-direction:column;align-items:center;cursor:pointer;user-select:none;text-align:center;min-width:0}
+.pc-disc{position:relative;z-index:0;flex:none;width:96px;height:96px;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;
+  background:radial-gradient(circle at 30% 26%,rgba(255,255,255,.22),transparent 42%),radial-gradient(circle at 72% 80%,rgba(0,0,0,.6),transparent 56%),
+             conic-gradient(from 200deg,var(--a),var(--b) 30%,var(--a) 55%,var(--b) 80%,var(--a));
+  box-shadow:0 0 0 5px #24201a,0 0 0 6px rgba(216,201,176,.16),0 18px 30px -16px rgba(0,0,0,.9)}
+.pc-disc img{position:relative;max-width:72%;max-height:46%;width:auto;height:auto;filter:drop-shadow(0 4px 10px rgba(0,0,0,.65))}
+.pc-disc img.wide{max-width:88%}
+.pc-disc.art img{max-width:none;max-height:none;width:100%;height:100%;object-fit:cover;filter:none}
+.pc-disc .w{position:relative;font-size:9px;font-weight:800;letter-spacing:.32em;margin-left:.32em;color:var(--copper-lt);text-shadow:0 3px 10px rgba(0,0,0,.6)}
+.hear{position:absolute;top:62px;left:calc(50% + 22px);z-index:2;width:34px;height:34px;border-radius:50%;border:0;padding:0;cursor:pointer;
+  background:linear-gradient(180deg,var(--ember),var(--copper));color:#1b1206;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 0 3px #1b1813,0 6px 14px rgba(0,0,0,.5)}
+.hear svg{width:13px;height:13px;fill:currentColor}
+.hear[aria-pressed="true"]{background:var(--ink);color:#1b1206}
+.pc-b{position:relative;z-index:1;align-self:stretch;flex:1;display:flex;flex-direction:column;margin-top:-26px;padding:34px 10px 14px;border-radius:14px;
+  background:var(--card);border:1px solid var(--line)}
+.prow.on .pc-b{border-color:rgba(221,154,82,.55);box-shadow:0 0 0 1px rgba(221,154,82,.2)}
+.prow .nm b{display:block;font-size:14px;line-height:1.15;color:var(--ink);text-transform:uppercase;letter-spacing:.03em}
+.prow .nm span{display:block;margin-top:4px;font-size:11.5px;line-height:1.35;color:var(--ink3)}
+.prow .pc-cat{margin:6px 0 0;font-size:11px;line-height:1.35;color:var(--ink2)}
+.prow .pp{margin-top:9px;font-size:15px;font-weight:900;color:var(--ink);white-space:nowrap}
+.prow .pp s{font-size:12px;margin-right:5px}
+.prow .pc-st{margin-top:auto;padding-top:10px;font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--copper-lt)}
+.prow:not(.on):not(.owned) .pc-disc{filter:grayscale(.85);opacity:.55}
+.prow:not(.on):not(.owned) .pc-b > :not(.pc-st){opacity:.6}
+.prow.owned{cursor:default}
+.prow.owned .pp{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ok)}
+.prow:focus-visible{outline:none}
+.prow:focus-visible .pc-b{outline:2px solid var(--copper-lt);outline-offset:2px}
+@media (max-width:639px){
+  .pcs{grid-template-columns:repeat(2,minmax(0,1fr));gap:26px 12px}
+  .pcs > .prow:last-child:nth-child(odd){grid-column:1 / -1;justify-self:center;width:calc(50% - 6px)}
+}
+
+/* The total, always in reach */
+.buy{position:sticky;bottom:0;z-index:15;margin:44px -22px 0;padding:16px 22px calc(16px + env(safe-area-inset-bottom));
+  background:rgba(20,19,16,.94);backdrop-filter:blur(10px);border-top:1px solid var(--line)}
+.buy-row{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.tot{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.tot .was-l{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
+.tot s{font-size:20px}
+.tot b{font-size:30px;font-weight:900;color:var(--ink);line-height:1}
+.tot .half{font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--copper-lt)}
+.buy .fine{margin-top:8px}
+@media (max-width:520px){
+  .buy{margin-top:36px;padding:12px 16px calc(12px + env(safe-area-inset-bottom))}
+  .buy-row{flex-wrap:nowrap;gap:12px}
+  .buy-row .btn-copper{flex:0 1 auto;padding:13px 18px;font-size:14.5px}
+  .tot{gap:8px;flex-wrap:nowrap}
+  .tot .was-l,.tot .half,.buy .pay{display:none}
+  .tot s{font-size:15px;margin-right:0}
+  .tot b{font-size:24px}
+}
+</style>
+<script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+<meta property="og:image" content="https://stridehub.io/media/stride/og/stride-share-1200x630.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Stride, the sound design engine: every lane of the chain in motion">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://stridehub.io/media/stride/og/stride-share-1200x630.jpg">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/favicon-192x192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<script>window.STRIDE_LANGS=["en"]</script>
+<script>(function () {
+  var view = null, pressed = {};
+  // This page view: its page key, channel, ad id and Meta-id flag, read once.
+  function read() {
+    if (view) return view;
+    var L = ["de","es","fr","it","ja","zh"], K = {"":"home","try":"try","samples":"samples","setup":"setup","session":"session","welcome":"welcome","post":"post","post2":"post2","tendril":"tendril","blog":"blog","tv":"tv","tools":"tool","vst3":"how","how-it-works":"how","privacy":"legal","terms":"legal","refund":"legal"};
+    var path = location.pathname.replace(/\/index\.html$/, '/').replace(/\.html$/, '').replace(/\/+$/, '');
+    var seg = path.split('/');
+    if (seg[1] && L.indexOf(seg[1]) >= 0) seg.splice(1, 1);
+    var first = seg[1] || '';
+    var p = Object.prototype.hasOwnProperty.call(K, first) ? K[first] : 'other';
+    var q = new URLSearchParams(location.search), rh = '';
+    try { rh = document.referrer ? new URL(document.referrer).hostname : ''; } catch (e) {}
+    var nav = (window.performance && performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {};
+    var here = location.hostname.replace(/^www\./, ''), c = 'direct', a = '', m = 0;
+    if (nav.type === 'reload' || nav.type === 'back_forward' || (rh && rh.replace(/^www\./, '') === here)) c = 'internal';
+    else {
+      var ad = (q.get('ad_id') || '').trim(), s = (q.get('utm_source') || '').trim().toLowerCase();
+      var fromMeta = /^(fb|ig|msg|an|meta|facebook|instagram)$/.test(s), mid = (q.get('utm_content') || '').trim();
+      if (/^\d{6,24}$/.test(ad)) { c = 'meta'; a = ad; }
+      else if (q.get('gclid') || q.get('wbraid') || q.get('gbraid')) c = 'google';
+      else if (fromMeta && /^\d{6,24}$/.test(mid)) { c = 'meta'; a = mid; m = 1; }
+      else if (fromMeta && (q.get('utm_campaign') || '').indexOf('|') >= 0) c = 'meta';
+      else if (/^(stride|email|newsletter|resend|mail)$/.test(s)) c = 'email';
+      else if (/^(ig|instagram|insta|ig_bio|instagram_bio)$/.test(s)) c = 'ig';
+      else if (/^(yt|youtube)$/.test(s)) c = 'yt';
+      else if (/^(google|adwords|google_ads|gads)$/.test(s)) c = 'google';
+      else if (/^(facebook|fb|meta)$/.test(s) || q.get('fbclid')) c = 'meta';
+      else if (/(^|\.)instagram\.com$/.test(rh)) c = 'ig';
+      else if (/(^|\.)(youtube\.com|youtu\.be)$/.test(rh)) c = 'yt';
+    }
+    view = { p: p, c: c, a: a, m: m };
+    return view;
+  }
+  function send() {
+    try {
+      if (!navigator.sendBeacon) return;
+      var v = read(), body = { action: 'pv', p: v.p, c: v.c, a: v.a };
+      if (v.m) body.m = 1;
+      navigator.sendBeacon("https://generate-midi-z3spyrafvq-uc.a.run.app", JSON.stringify(body));
+    } catch (e) {}
+  }
+  // A funnel step by the name the Clarity block gives it, counted when it is a press on the buy path.
+  var STEP = {"buy_form_open":"cta","paypal_button":"pay","wallet_payment_selected":"pay","wallet_payment_started":"pay","checkout_loaded":"co"};
+  window.strideStep = function (name) {
+    try {
+      var s = STEP[name];
+      if (!s || pressed[s] || !navigator.sendBeacon) return;
+      pressed[s] = 1;
+      navigator.sendBeacon("https://generate-midi-z3spyrafvq-uc.a.run.app", JSON.stringify({ action: 'fs', s: s, c: read().c }));
+    } catch (e) {}
+  };
+  if (document.prerendering) document.addEventListener('prerenderingchange', send, { once: true });
+  else send();
+})();</script>
+</head>
+<body>
+
+<header><div class="wrap hrow">
+  <a class="logo" href="/">STRIDE</a>
+  <div class="silk">For owners</div>
+</div></header>
+
+<main class="wrap">
+
+  <section id="wait">
+    <p class="silk">Opening your price</p>
+    <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+  </section>
+
+  <section id="msg" hidden>
+    <h1 tabindex="-1" data-mh></h1>
+    <p class="lead" data-mp></p>
+    <div class="acts"><a class="btn-flat" href="/">Go to stridehub.io</a></div>
+  </section>
+
+  <section id="offer" hidden>
+    <p class="silk">Stride owners &middot; until the end of November</p>
+    <h1 tabindex="-1">Everything you don't have yet, <span class="cu">half price.</span></h1>
+    <p class="lead">Your price, in your currency. Take out anything you don't want and the total follows.</p>
+
+    <article class="blk tdr" data-tendril hidden>
+      <div class="film">
+        <video controls playsinline preload="none" poster="/media/tendril/showcase/poster.webp" width="1920" height="1080"
+               aria-label="Tendril showcase: sounds played inside Stride">
+          <source src="/media/tendril/showcase/tendril-examples-720.mp4" type="video/mp4">
+        </video>
+      </div>
+      <div class="tdr-b">
+        <p class="kick">Tendril</p>
+        <h2>A synth built to be explored with Stride.</h2>
+        <p class="pp" data-tprice></p>
+        <p class="body">Three engines, ten knobs that reshape the harmonics at the source, and a sequencer row for each engine, so three patterns play off each other. Map it in Stride, lock what works and regenerate the rest. 22 StrideChains come with it.</p>
+        <p class="watch">&#9654;&nbsp;<a href="https://youtu.be/XraEBnkyrc0" target="_blank" rel="noopener">Watch the showcase</a>&#9654;&nbsp;<a href="https://youtu.be/NcxIM_lNBDw" target="_blank" rel="noopener">Tendril Tutorial #1</a></p>
+        <button type="button" class="tgl" role="switch" aria-checked="true" data-ttgl>&#10003; In your cart</button>
+      </div>
+    </article>
+
+    <section class="blk" data-coll hidden>
+      <p class="kick" data-ckick>The Stride Collection</p>
+      <h2>A sound design playground you'll never reach the bottom of.</h2>
+      <div class="eq" role="img" data-eq>
+        <span class="op"></span><div class="t"><b data-eqn>120</b><span>StrideChains for Serum 2, Vital, Diva and Tendril</span></div>
+        <span class="op">&times;</span><div class="t"><b>5</b><span>states in every chain, <span data-eqs>600</span> in all</span></div>
+        <span class="op">&times;</span><div class="t"><b>Stride</b><span>everything it does: Motions, Shapes, Mutate, Shuffle, your own drawing, locks</span></div>
+        <span class="op">=</span><div class="t inf"><b>&infin;</b><span>sound design, wherever you take it</span></div>
+      </div>
+      <p class="body">Every chain comes mapped for Stride: lanes set, ranges chosen, the core knobs locked. Each of its five states is a different place to start, and from every one of them Stride can take the sound wherever you want. 66 of the chains are built on Stride original wavetables, and the Serum 2 and Vital packs bring all 111 of them for your own patches too.</p>
+      <p class="body" data-own-sounds hidden>Your sounds and racks are already yours, so your price covers only the packs.</p>
+      <div class="pcs" data-picks></div>
+      <p class="fine">Synths not included: each pack needs your own copy of its synth. The chains open in Stride, and the racks need Ableton Live. Only have some of those synths? Keep just the packs you can play.</p>
+    </section>
+
+    <div class="buy" data-buybox>
+      <div class="buy-row">
+        <div class="tot" aria-live="polite">
+          <span class="was-l" data-wasl hidden>Full price</span><s data-was></s><b data-now></b><span class="half" data-half hidden>Half price</span>
+        </div>
+        <button type="button" class="btn-copper" data-buy>Pick something to add</button>
+      </div>
+      <p class="fine" data-hint hidden>The whole Collection costs less than the parts you kept, so you get all of it.</p>
+      <p class="fine bad" data-err hidden></p>
+      <p class="fine pay">Checkout by Paddle, in your currency. Keys and downloads arrive by mail.</p>
+    </div>
+  </section>
+
+  <section id="done" hidden>
+    <p class="silk">Paid</p>
+    <h1 tabindex="-1">Thank you. It's on its way.</h1>
+    <p class="lead">Everything you just got is on its way to your inbox: Tendril's key and installers, and a download link for every pack. Load a chain in Stride and start exploring.</p>
+    <div class="acts"><button type="button" class="btn-flat" data-more hidden>See what's left at half price</button><a class="btn-flat" href="/">Go to stridehub.io</a></div>
+  </section>
+
+</main>
+
+<footer><div class="wrap silk">Stride &middot; Sound design engine &middot; <a href="/privacy.html">Privacy</a> &middot; <a href="/refund.html">Refunds</a> &middot; <a href="/terms.html">Terms</a></div></footer>
+
+<script>
+(function () {
+  'use strict';
+  // The owners' half price (Yossi 2026-11-07). The mail's link carries ?k=<token>; generate_midi
+  // (owners_offer, owners_checkout) prices it in the visitor's own currency and opens ONE checkout.
+  // No tracker on this page: the sale is reported by the server once Paddle confirms it.
+  var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
+  var PADDLE_TOKEN = 'live_e0101b87a9e6e7024988534cf7b';
+  var REELS = { serum: '/assets/packs/reel-serum.mp3', vital: '/assets/packs/reel-vital.mp3',
+                diva: '/assets/packs/reel-diva.mp3', tendril: '/assets/packs/reel-tendril.mp3',
+                sounds: '/assets/packs/collection-teaser.mp3' };
+  // Each part's disc, as on /collection/ and /post2.
+  var LOOK = {
+    serum:   { cat: '+ all 111 Stride wavetables', logo: '/media/synths/serum-2.webp', wide: true, a: '#2f8fb0', b: '#0c171d' },
+    vital:   { cat: '+ all 111 Stride wavetables', logo: '/media/synths/vital.webp', a: '#7b5cd6', b: '#130f21' },
+    diva:    { cat: 'Analog modelling', logo: '/media/synths/diva.webp', a: '#a4763f', b: '#15110d' },
+    tendril: { cat: 'Three engines', word: 'TENDRIL', a: '#c6712b', b: '#1a0f07' },
+    sounds:  { cat: '250+ sounds, 15 Ableton Racks', art: '/media/synths/sounds-racks.webp' }
+  };
+  var SAY = {
+    invalid: ["This link doesn't open an offer", 'Open the whole link from the mail. Still stuck? Reply to the mail and Joe will sort it out.'],
+    expired: ['This offer has ended', 'The half price ran until the end of November. Thanks for having a look.'],
+    owned: ["It's all yours already", 'You own everything this offer had in it. Thanks for making it part of your sound.'],
+    unavailable: ["Your price didn't load", 'Give it a minute and refresh the page. If it keeps happening, reply to the mail.']
+  };
+
+  function q(s) { return document.querySelector(s); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function money(amount, currency) {
+    var digits = 2;
+    try { digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: currency }).resolvedOptions().minimumFractionDigits; } catch (e) {}
+    var major = Number(amount) / Math.pow(10, digits);
+    var whole = Math.abs(major - Math.round(major)) < 1e-9;
+    try {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency,
+        minimumFractionDigits: whole ? 0 : digits, maximumFractionDigits: whole ? 0 : digits }).format(major);
+    } catch (e) { return currency + ' ' + major.toFixed(digits); }
+  }
+  function amt(x) { return Number(((x || {}).offer_price || {}).amount) || 0; }
+  function lst(x) { return Number(((x || {}).list_price || {}).amount) || 0; }
+  function cur(x) { return ((x || {}).offer_price || {}).currency || ''; }
+
+  var K = '';
+  try { K = (new URL(window.location.href).searchParams.get('k') || '').trim().toLowerCase(); } catch (e) {}
+
+  function post(body) {
+    return fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); });
+  }
+  function stage(name) {
+    try {
+      fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+                   body: JSON.stringify({ action: 'owners_stage', stage: name, k: K }) }).catch(function () {});
+    } catch (e) {}
+  }
+
+  function show(id) {
+    ['wait', 'msg', 'offer', 'done'].forEach(function (s) { q('#' + s).hidden = s !== id; });
+    var h = q('#' + id + ' h1');
+    if (h && id !== 'wait') { try { h.focus({ preventScroll: true }); } catch (e) {} }
+  }
+  function message(status) {
+    var say = SAY[status] || SAY.unavailable;
+    q('[data-mh]').textContent = say[0];
+    q('[data-mp]').textContent = say[1];
+    show('msg');
+  }
+
+  // ── What is on offer, and what is in the cart ────────────────────────────────
+  var T = null;      // Tendril: { now, was, currency, on }
+  var C = null;      // the Collection's prices: { all, whole, alone, withPacks, soundsOwned }
+  var picks = [];    // the Collection's parts: { key, label, n, kind: pack|sounds, owned, on, now, was, currency }
+
+  function build(d) {
+    T = d.tendril ? { now: amt(d.tendril), was: lst(d.tendril), currency: cur(d.tendril), on: true } : null;
+    C = null; picks = [];
+    var ch = d.chains;
+    if (ch) {
+      var s = ch.sounds || {};
+      C = { all: ch.all || null, whole: ch.whole || null, alone: s.alone || null, withPacks: s.with_packs || null, soundsOwned: !!s.owned };
+      (ch.packs || []).forEach(function (p) {
+        picks.push({ key: p.key, label: p.label, n: Number(p.n) || 0, kind: 'pack', owned: !!p.owned, on: !p.owned,
+                     now: amt(p), was: lst(p), currency: cur(p) });
+      });
+      if (!C.soundsOwned && C.alone) {
+        picks.push({ key: 'sounds', label: 'Sounds & Racks', kind: 'sounds', owned: false, on: true,
+                     now: amt(C.alone), was: lst(C.alone), currency: cur(C.alone) });
+      }
+    }
+  }
+  function packsOn() { return picks.filter(function (p) { return p.kind === 'pack' && p.on && !p.owned; }); }
+  function soundsOn() { return picks.some(function (p) { return p.kind === 'sounds' && p.on; }); }
+  function sum(list, f) { return list.reduce(function (a, p) { return a + p[f]; }, 0); }
+  // The Collection's part of the cart, priced exactly as owners_checkout charges it: the cheapest of the parts,
+  // All four (+ the sounds beside a pack) or the whole Stride Collection that covers it; on a tie, the bigger one.
+  function cover() {
+    if (!C) return null;
+    var packs = packsOn(), snd = soundsOn();
+    if (!packs.length && !snd) return null;
+    var sp = snd ? (packs.length ? C.withPacks : C.alone) : null;
+    var opts = [{ mode: 'parts', rank: 0, now: sum(packs, 'now') + (sp ? amt(sp) : 0), was: sum(packs, 'was') + (sp ? lst(sp) : 0) }];
+    if (C.all && packs.length) opts.push({ mode: 'all', rank: 1, now: amt(C.all) + (snd ? amt(C.withPacks) : 0),
+                                           was: lst(C.all) + (snd ? lst(C.withPacks) : 0) });
+    if (C.whole) opts.push({ mode: 'whole', rank: 2, now: amt(C.whole), was: lst(C.whole) });
+    opts.sort(function (x, y) { return (x.now - y.now) || (y.rank - x.rank); });
+    return opts[0];
+  }
+  function total() {
+    var cv = cover(), tOn = !!(T && T.on);
+    var currency = (T && T.currency) || ((picks[0] || {}).currency) || 'USD';
+    return { cv: cv, any: tOn || !!cv, currency: currency,
+             now: (tOn ? T.now : 0) + (cv ? cv.now : 0), was: (tOn ? T.was : 0) + (cv ? cv.was : 0) };
+  }
+
+  // ── Drawing ──────────────────────────────────────────────────────────────────
+  var PLAY = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.5v9l7.5-4.5z"/></svg>';
+  var PAUSE = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1.5h2.6v9H2.5zM6.9 1.5h2.6v9H6.9z"/></svg>';
+  function discHtml(key) {
+    var lk = LOOK[key] || {};
+    if (lk.art) return '<span class="pc-disc art" aria-hidden="true"><img src="' + lk.art + '" alt=""></span>';
+    return '<span class="pc-disc" style="--a:' + lk.a + ';--b:' + lk.b + '" aria-hidden="true">'
+      + (lk.logo ? '<img' + (lk.wide ? ' class="wide"' : '') + ' src="' + lk.logo + '" alt="">' : '<span class="w">' + lk.word + '</span>')
+      + '</span>';
+  }
+  function drawTendril() {
+    var box = q('[data-tendril]');
+    box.hidden = !T;
+    if (!T) return;
+    box.classList.toggle('off', !T.on);
+    q('[data-tprice]').innerHTML = (T.was > T.now ? '<s>' + money(T.was, T.currency) + '</s>' : '') + money(T.now, T.currency);
+    var b = q('[data-ttgl]');
+    b.setAttribute('aria-checked', T.on ? 'true' : 'false');
+    b.innerHTML = T.on ? '&#10003; In your cart' : '+ Re-add Tendril';
+  }
+  function drawPicks(focusKey) {
+    var sec = q('[data-coll]');
+    sec.hidden = !C;
+    if (!C) return;
+    var packs = picks.filter(function (p) { return p.kind === 'pack'; });
+    var n = sum(packs, 'n');
+    q('[data-eqn]').textContent = String(n);
+    q('[data-eqs]').textContent = String(n * 5);
+    q('[data-eq]').setAttribute('aria-label', n + ' StrideChains, times 5 states in every chain, times everything Stride does, equals endless sound design');
+    q('[data-ckick]').textContent = C.soundsOwned ? 'StrideChains' : 'The Stride Collection';
+    q('[data-own-sounds]').hidden = !C.soundsOwned;
+    var anyPack = packsOn().length > 0, cards = [];
+    picks.forEach(function (p) {
+      var sp = anyPack ? C.withPacks : C.alone;
+      var price = p.kind === 'sounds' ? amt(sp) : p.now, was = p.kind === 'sounds' ? lst(sp) : p.was;
+      var lk = LOOK[p.key] || {};
+      var right = p.owned ? 'Yours' : (was > price ? '<s>' + money(was, p.currency) + '</s>' : '') + money(price, p.currency);
+      var sub = p.kind === 'pack' ? p.n + ' StrideChains &middot; ' + (p.n * 5) + ' states' : 'Experimental Collection';
+      cards.push('<div class="prow' + (p.on ? ' on' : '') + (p.owned ? ' owned' : '') + '" data-key="' + p.key + '"'
+        + (!p.owned ? ' role="switch" tabindex="0" aria-checked="' + (p.on ? 'true' : 'false') + '" aria-label="' + esc(p.label) + '"' : '') + '>'
+        + discHtml(p.key)
+        + '<button type="button" class="hear" data-hear="' + p.key + '" aria-pressed="false" aria-label="Hear the ' + esc(p.label) + ' preview">' + PLAY + '</button>'
+        + '<div class="pc-b"><div class="nm"><b>' + esc(p.label) + '</b><span>' + sub + '</span></div>'
+        + (lk.cat ? '<p class="pc-cat">' + esc(lk.cat) + '</p>' : '')
+        + '<span class="pp">' + right + '</span>'
+        + (p.owned ? '' : '<span class="pc-st">' + (p.on ? '&#10003; In your cart' : '+ Re-add') + '</span>') + '</div></div>');
+    });
+    var host = q('[data-picks]');
+    host.style.setProperty('--cols', String(Math.max(2, picks.length)));
+    host.innerHTML = cards.join('');
+    syncHear();
+    if (focusKey) { var f = host.querySelector('[data-key="' + focusKey + '"]'); if (f) f.focus(); }
+  }
+  function drawTotals() {
+    var t = total(), showWas = t.any && t.was > t.now;
+    q('[data-wasl]').hidden = !showWas;
+    q('[data-was]').textContent = showWas ? money(t.was, t.currency) : '';
+    q('[data-now]').textContent = t.any ? money(t.now, t.currency) : '';
+    q('[data-half]').hidden = !showWas;
+    var b = q('[data-buy]');
+    b.disabled = !t.any;
+    b.textContent = t.any ? 'Get it for ' + money(t.now, t.currency) : 'Pick something to add';
+    q('[data-hint]').hidden = !(t.cv && t.cv.mode === 'whole' && !picks.every(function (p) { return p.owned || p.on; }));
+  }
+  function draw(focusKey) { drawTendril(); drawPicks(focusKey); drawTotals(); }
+
+  // ── The previews: one player for the whole page ──────────────────────────────
+  var audio = null, playing = '';
+  function syncHear() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-hear]'), function (b) {
+      var on = b.getAttribute('data-hear') === playing;
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.innerHTML = on ? PAUSE : PLAY;
+    });
+  }
+  function hear(key) {
+    try {
+      if (!audio) {
+        audio = new Audio();
+        audio.preload = 'none';
+        audio.addEventListener('ended', function () { playing = ''; syncHear(); });
+      }
+      if (playing === key) { audio.pause(); playing = ''; syncHear(); return; }
+      var v = document.querySelector('video');
+      if (v && !v.paused) v.pause();
+      audio.src = REELS[key];
+      playing = key;
+      syncHear();
+      var p = audio.play();
+      if (p && p.catch) p.catch(function () { playing = ''; syncHear(); });
+    } catch (e) { playing = ''; syncHear(); }
+  }
+
+  // ── Toggling ────────────────────────────────────────────────────────────────
+  function toggle(key) {
+    var p = picks.filter(function (x) { return x.key === key; })[0];
+    if (!p || p.owned) return;
+    p.on = !p.on;
+    q('[data-err]').hidden = true;
+    draw(key);
+  }
+  document.addEventListener('click', function (e) {
+    var h = e.target.closest && e.target.closest('[data-hear]');
+    if (h) { e.stopPropagation(); hear(h.getAttribute('data-hear')); return; }
+    var row = e.target.closest && e.target.closest('.prow[role="switch"]');
+    if (row) toggle(row.getAttribute('data-key'));
+  });
+  document.addEventListener('keydown', function (e) {
+    var row = e.target.closest && e.target.closest('.prow[role="switch"]');
+    if (row && (e.key === ' ' || e.key === 'Enter') && e.target === row) { e.preventDefault(); toggle(row.getAttribute('data-key')); }
+  });
+  q('[data-ttgl]').addEventListener('click', function () {
+    if (!T) return;
+    T.on = !T.on;
+    q('[data-err]').hidden = true;
+    draw();
+  });
+  document.querySelector('video').addEventListener('play', function () {
+    if (audio && playing) { audio.pause(); playing = ''; syncHear(); }
+  });
+
+  // ── Buying ──────────────────────────────────────────────────────────────────
+  var busy = false, paid = false;
+  function err(text) { var e = q('[data-err]'); e.textContent = text; e.hidden = false; }
+  q('[data-buy]').addEventListener('click', function () {
+    var t = total(), b = q('[data-buy]');
+    if (busy || !t.any) return;
+    if (!window.Paddle) { err("The checkout didn't load. Refresh the page and try again."); return; }
+    busy = true;
+    b.setAttribute('aria-busy', 'true');
+    q('[data-err]').hidden = true;
+    stage('checkout');
+    post({ action: 'owners_checkout', k: K, tendril: !!(T && T.on),
+           picks: packsOn().map(function (p) { return p.key; }), collection: soundsOn() })
+      .then(function (d) {
+        busy = false;
+        b.removeAttribute('aria-busy');
+        if (d && d.ok && d.transaction_id) {
+          Paddle.Checkout.open({ transactionId: d.transaction_id, settings: { displayMode: 'overlay', theme: 'dark', locale: 'en' } });
+          return;
+        }
+        var st = (d && d.status) || '';
+        if (st === 'owned' || st === 'expired' || st === 'invalid') { load(); return; }
+        err("Couldn't open the checkout just now. Try again in a moment.");
+      })
+      .catch(function () {
+        busy = false;
+        b.removeAttribute('aria-busy');
+        err("Couldn't reach the checkout. Check your connection and try again.");
+      });
+  });
+
+  function done() {
+    if (paid) return;
+    paid = true;
+    if (audio) { try { audio.pause(); } catch (e) {} }
+    show('done');
+    // Anything they left out is still theirs to take until the end of November.
+    setTimeout(function () {
+      post({ action: 'owners_offer', k: K }).then(function (d) {
+        if (d && d.status === 'open') q('[data-more]').hidden = false;
+      }).catch(function () {});
+    }, 4000);
+  }
+  q('[data-more]').addEventListener('click', function () { paid = false; load(); });
+
+  try {
+    if (window.Paddle) {
+      Paddle.Initialize({
+        token: PADDLE_TOKEN,
+        eventCallback: function (ev) {
+          if (ev && ev.name === 'checkout.completed') {
+            done();
+            setTimeout(function () { try { Paddle.Checkout.close(); } catch (e) {} }, 2500);
+          }
+        }
+      });
+    }
+  } catch (e) {}
+
+  // ── Loading ─────────────────────────────────────────────────────────────────
+  var seen = false;
+  function load() {
+    show('wait');
+    if (!/^[0-9a-f]{32}$/.test(K)) { message('invalid'); return; }
+    post({ action: 'owners_offer', k: K })
+      .then(function (d) {
+        if (!d || d.status !== 'open') { message((d && d.status) || 'unavailable'); return; }
+        build(d);
+        draw();
+        show('offer');
+        if (!seen) { seen = true; stage('viewed'); }
+      })
+      .catch(function () { message('unavailable'); });
+  }
+  load();
+})();
+</script>
+</body>
+</html>
