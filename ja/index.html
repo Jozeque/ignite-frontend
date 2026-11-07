@@ -1411,7 +1411,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     /* The ticket's box is narrower than the ticket (2026-11-07, his reference): it laps over the struck price a
        little and into the column's right padding, which gives the Stride Bundle's card beside it the room. */
     .sd-price-box.hero-price-line .seal2.sd-save.bf-ticket{width:66px;height:26px}
-    .sd-price-box.hero-price-line .seal2.sd-save.bf-ticket svg{position:absolute;left:calc(50% + 12px);top:50%;width:118px;
+    .sd-price-box.hero-price-line .seal2.sd-save.bf-ticket svg{position:absolute;left:calc(50% + 4px);top:50%;width:100px;
       transform:translate(-50%,-50%) rotate(-8deg)}
   }
   /* The code, said out loud. Somebody who clicked an ad or a creator's link should see that
@@ -2088,11 +2088,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      label. Colour and weight buy legibility without costing any vertical space, which
      matters because this line sits above the mobile buy CTA. */
   .hero-spec-b{color:var(--ink2);font-weight:600}
-  /* The DAWs by name under the capability line: the names in ink, the lead-in quieter. */
-  .hero-daws{display:block;margin-top:8px;font-size:13px;line-height:1.5;color:var(--ink2)}
+  /* The DAWs by name, in the buy strip under the price (Yossi 2026-11-07): the names in ink, the lead-in quieter.
+     width 0 + min-width 100%: the line takes the price column's width and wraps in it, and never widens that
+     column itself (it is sized by its content, and one line of seven DAWs is wider than the price). */
+  .hero-daws{display:block;margin:10px 0 0;font-size:12.5px;line-height:1.45;color:var(--ink2);width:0;min-width:100%}
   .hero-daws-k{color:var(--ink3);font-weight:600}
   .hero-daws-n{color:var(--ink);font-weight:700}
-  @media (max-width:899.98px){ section[data-ms="hero"] .hero-daws{font-size:11.5px;margin-top:5px} }
+  /* A phone reads the hero piece by piece (the ORDER block below): it keeps its place after the capability line. */
+  @media (max-width:899.98px){ section[data-ms="hero"] .hero-daws{order:7;font-size:11.5px;margin:5px 0 0} }
   /* One stack of identical buttons. The wallet sits between the two anchors and
      claims a full line, so all three stack; auto widths would leave them ragged
      (224px, 340px, 190px) and reading as three unrelated things rather than one
@@ -2144,7 +2147,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     section[data-ms="hero"] .hero-cols{display:grid;
       grid-template-columns:minmax(0,35fr) minmax(0,65fr);
       grid-template-areas:"text video" "buy buy";
-      column-gap:2rem;row-gap:2rem;align-items:center}
+      column-gap:2rem;row-gap:1rem;align-items:center}
+    /* A little less air above the hero so the buy strip shows whole on a laptop's first screen (Yossi 2026-11-07:
+       "move the whole strip up a bit, so the strip shows in full"). Named with the section: pt-12 is Tailwind's. */
+    section[data-ms="hero"]{padding-top:2rem}
     /* The left column's two bands become grid items of their own. */
     section[data-ms="hero"] .hero-copy{display:contents}
     section[data-ms="hero"] .hero-text{grid-area:text}
@@ -2465,7 +2471,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
 
 </style>
-<link rel="stylesheet" href="/_legacy/css/index.68de5c1a69.css">
+<link rel="stylesheet" href="/_legacy/css/index.ea208348f4.css">
 <meta property="og:image" content="https://stridehub.io/media/stride/og/stride-share-1200x630.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -2679,10 +2685,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              reads as a spec rather than competing with the headline. -->
         <p class="text-[12px] leading-relaxed mb-6 max-w-xl hero-spec">
           <span class="font-black uppercase tracking-[0.14em]" style="color:var(--copper-lt)">VST3 + AU + Ableton Devices</span><span class="hero-spec-b"> · ギター、ボーカル、ハードウェア、録音のための Audio In</span>
-          <!-- The DAWs by name, in the hero (Yossi 2026-11-07, after buyers named compatibility as what almost
-               stopped them). The same list the pricing card states: any VST3 DAW, Logic as AU, not Pro Tools.
-               The names are brands and stay as written in every language. -->
-          <span class="hero-daws"><span class="hero-daws-k">対応 DAW：</span> <span class="hero-daws-n" data-no-translate>Ableton Live &middot; FL Studio &middot; Logic Pro &middot; Bitwig &middot; Cubase &middot; Studio One &middot; Reaper</span></span>
         </p>
         </div>
         <div class="hero-buy">
@@ -2705,6 +2707,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <ul class="vlist vlist-2 hero-included">
           <li><span class="d">&#9679;</span><span><b>Stride VST + StrideBridge</b> 同梱</span></li>
         </ul>
+        <!-- The DAWs by name (Yossi 2026-11-07, after buyers named compatibility as what almost stopped them), in the
+             buy strip under the price since the same evening ("the whole DAW section down into the strip, under the
+             price"). The same list the pricing card states: any VST3 DAW, Logic as AU, not Pro Tools. The names are
+             brands and stay as written in every language. -->
+        <p class="hero-daws"><span class="hero-daws-k">対応 DAW：</span> <span class="hero-daws-n" data-no-translate>Ableton Live &middot; FL Studio &middot; Logic Pro &middot; Bitwig &middot; Cubase &middot; Studio One &middot; Reaper</span></p>
         </div>
         <div class="hero-buy-addon">
         <div id="addon" class="addon" data-bump="collection" hidden>
@@ -2900,11 +2907,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <p id="heroQuote" class="hero-quote" hidden><span class="hq-t">「コントロールされたランダムなカオスが詰まった、パンドラの箱みたいな感じ。」</span><span class="hq-n">Brojanowski</span></p>
           </div>
         </div>
-        <!-- the full walkthrough plays right here, on top of the loop, and nothing in the hero
-             leads off to YouTube (Yossi 2026-10-20: keep people on the site). The note points at
-             the frame, so a middle click, a long press or a page without script stays on this
-             page; the handler loads the player in place and the note steps away. -->
-        <p id="heroVideoNote" class="text-center mono text-[10px] ink3 mt-4"><a id="heroPlay" href="#heroStage" aria-label="Stride のウォークスルーを再生" class="transition-colors hover:text-[var(--copper-lt)]" style="color:var(--copper-lt)">▶ ご覧ください <span class="note-long">平坦なパッチが動き出すまで: </span>Stride の完全なウォークスルー</a></p>
+        <!-- The "Watch the full Stride walkthrough" note under the frame is gone (Yossi 2026-11-07: "delete the line of
+             text under the hero video and move the whole strip up a bit, so the strip shows in full"). The frame itself
+             still opens the film; the script below skips the note's handlers when it is not on the page. -->
       </div>
 
       <!-- Click-to-play. The player is only fetched once someone asks for it, so the
@@ -2992,8 +2997,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               setTimeout(start, 2500);
             });
           }
-          if (!play || !stage) return;
-
+          // The note under the frame is gone since 2026-11-07; its handlers run only where it is still on the page.
+          // (This used to return here, which would have skipped the film below with it.)
+          if (play && stage) {
           // warm the connection on first hover so the player starts faster on click
           var warmed = false;
           play.addEventListener('pointerover', function () {
@@ -3019,6 +3025,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             // into an "open on YouTube" link, which sent people off the site.
             if (note) note.hidden = true;
           });
+          }
 
           // ── The film ──────────────────────────────────────────────────────
           // Press the frame and the full Stride film plays over the page. The panel
