@@ -1408,8 +1408,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .sd-price-box .seal2.sd-save.bf-ticket svg{display:block;width:100%;height:auto;overflow:visible;pointer-events:none;
     transform:rotate(-8deg);filter:drop-shadow(0 8px 10px rgba(0,0,0,.45)) drop-shadow(0 2px 2px rgba(0,0,0,.35))}
   @media (min-width: 1280px){
-    .sd-price-box.hero-price-line .seal2.sd-save.bf-ticket{width:104px;height:26px}
-    .sd-price-box.hero-price-line .seal2.sd-save.bf-ticket svg{position:absolute;left:50%;top:50%;width:118px;
+    /* The ticket's box is narrower than the ticket (2026-11-07, his reference): it laps over the struck price a
+       little and into the column's right padding, which gives the Stride Bundle's card beside it the room. */
+    .sd-price-box.hero-price-line .seal2.sd-save.bf-ticket{width:66px;height:26px}
+    .sd-price-box.hero-price-line .seal2.sd-save.bf-ticket svg{position:absolute;left:calc(50% + 12px);top:50%;width:118px;
       transform:translate(-50%,-50%) rotate(-8deg)}
   }
   /* The code, said out loud. Somebody who clicked an ad or a creator's link should see that
@@ -1519,85 +1521,101 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .addon-compact .addon-pair .ap-c{width:22px;height:22px}
   .addon-bprice s{opacity:.6;font-weight:700;text-decoration-thickness:1.5px}
   .addon-bprice b{color:var(--ink);font-weight:800;margin-left:.2rem}
-  /* ── The hero's Stride Bundle card (Yossi 2026-11-07, his design) ───────────────────────────────────────
-     A card of its own in the buy bar: copper-edged, the products' real art on the left (Tendril's window over
-     the Collection in brief), the name, what is in it, the upgrade and the total on the right, our Black Friday
-     ticket at 50% hanging off the top right corner. */
-  .addon.bcard{display:grid;grid-template-columns:140px minmax(0,1fr);align-items:center;gap:4px 16px;
-    margin:0;padding:14px 20px 14px 12px;border:1.5px solid rgba(221,154,82,.62);border-radius:18px;
-    background:radial-gradient(130% 150% at 0% 0%,rgba(198,113,43,.18),transparent 58%),rgba(0,0,0,.30);
-    box-shadow:0 0 0 1px rgba(198,113,43,.10) inset,0 24px 48px -30px rgba(198,113,43,.6)}
+  /* ── The hero's Stride Bundle card (Yossi 2026-11-07, to his reference) ──────────────────────────────────
+     A card of its own in the buy bar, copper-edged. On the left the three products' real art: Tendril's window,
+     the Collection's synths as discs in /collection/'s colours, Stride's lanes in front. On the right the name,
+     what is in it, the upgrade and the bundle's total. Our Black Friday ticket at 50% hangs off the top right
+     corner. The WHOLE card adds the bundle (the click handler under it), and both of its states take exactly the
+     same room: the button's two labels and the total's two labels share one cell each, and the bar's price
+     column holds the width the bundle's price needs (strideHoldBundleRoom), so adding it moves nothing. */
+  .addon.bcard{display:grid;grid-template-columns:minmax(0,40fr) minmax(0,60fr);align-items:center;gap:8px 18px;
+    margin:0;padding:14px 18px 14px 14px;border:2px solid var(--copper-lt);border-radius:16px;cursor:pointer;
+    container-type:inline-size;
+    background:radial-gradient(120% 150% at 0% 100%,rgba(198,113,43,.16),transparent 60%),rgba(0,0,0,.34);
+    box-shadow:0 0 0 1px rgba(198,113,43,.10) inset,0 24px 48px -30px rgba(198,113,43,.6);
+    transition:background .2s,box-shadow .2s}
   /* Its own display (grid) outranks the [hidden] reset, so a hidden card would show (the bundle off: no discount
      id, or after Black Friday) unless it is said here. */
   .addon.bcard[hidden]{display:none}
-  .addon.bcard.on{border-color:var(--copper-lt);
-    background:radial-gradient(130% 150% at 0% 0%,rgba(198,113,43,.26),transparent 60%),rgba(198,113,43,.08)}
-  .bcard-art{position:relative;width:140px;height:120px}
-  .bc-in{position:absolute;left:0;top:0;width:150px;height:128px;transform:scale(.9333);transform-origin:0 0}
-  .bc-tdr{position:absolute;left:0;top:0;display:block;width:150px;height:82px;object-fit:cover;object-position:50% 0;
-    border-radius:8px;border:1px solid rgba(221,154,82,.38);box-shadow:0 14px 26px -12px rgba(0,0,0,.95)}
-  /* The Collection in brief: a disc per synth in /collection/'s colours with its StrideChains count under it. */
-  .bc-chains{position:absolute;left:0;top:88px;width:150px;display:flex;justify-content:space-between}
-  .bcc{display:flex;flex-direction:column;align-items:center;gap:3px;width:26px}
-  .bcc-d{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;
-    background:radial-gradient(circle at 30% 26%,rgba(255,255,255,.22),transparent 42%),conic-gradient(from 200deg,var(--a),var(--b) 30%,var(--a) 55%,var(--b) 80%,var(--a));
-    box-shadow:0 0 0 1.5px #24201a,0 0 0 2.5px rgba(216,201,176,.16)}
-  .bcc-d img{display:block;max-width:86%;max-height:58%;width:auto;height:auto}
-  .bcc-sr .bcc-d{background:#15110d}
-  .bcc-sr .bcc-d img{max-width:none;max-height:none;width:100%;height:100%;object-fit:cover}
-  .bcc-d i{font-style:normal;font-size:12px;font-weight:900;line-height:1;color:#f4ede2}
-  .bcc b{font-size:11px;font-weight:900;line-height:1;letter-spacing:.02em;color:var(--ink);white-space:nowrap}
+  .addon.bcard:hover{background:radial-gradient(120% 150% at 0% 100%,rgba(198,113,43,.22),transparent 62%),rgba(0,0,0,.30)}
+  .addon.bcard.on{background:radial-gradient(120% 150% at 0% 100%,rgba(198,113,43,.28),transparent 64%),rgba(198,113,43,.08)}
+  .addon.bcard:focus-within{box-shadow:0 0 0 1px rgba(198,113,43,.10) inset,0 0 0 3px rgba(221,154,82,.22),0 24px 48px -30px rgba(198,113,43,.6)}
+  /* The picture, drawn in percent of its own box so it scales with the card. */
+  .bcard-art{position:relative;width:100%;aspect-ratio:300/190}
+  .bcard-art > img{position:absolute;display:block;object-fit:cover;box-shadow:0 12px 24px -10px rgba(0,0,0,.95)}
+  .bc-tdr{left:0;top:2%;width:40%;height:46%;border-radius:6px;border:1px solid rgba(221,154,82,.35);object-position:50% 0}
+  .bc-stride{left:4%;top:38%;width:96%;height:62%;border-radius:7px;border:1px solid rgba(221,154,82,.45);object-position:50% 40%}
+  .bc-discs{position:absolute;left:31%;top:3%;width:69%;height:32%}
+  .bcd{position:absolute;top:0;width:25.4%;aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    overflow:hidden;background:radial-gradient(circle at 30% 26%,rgba(255,255,255,.22),transparent 42%),
+    conic-gradient(from 200deg,var(--a),var(--b) 30%,var(--a) 55%,var(--b) 80%,var(--a));
+    box-shadow:0 0 0 2px #191510,0 0 0 3px rgba(216,201,176,.16),0 8px 14px -6px rgba(0,0,0,.85)}
+  .bcd:nth-child(2){left:18.65%}
+  .bcd:nth-child(3){left:37.3%}
+  .bcd:nth-child(4){left:55.95%}
+  .bcd:nth-child(5){left:74.6%}
+  .bcd img{display:block;max-width:84%;max-height:56%;width:auto;height:auto}
+  .bcd-sr{background:#15110d}
+  .bcd-sr img{max-width:none;max-height:none;width:100%;height:100%;object-fit:cover}
+  .bcd i{font-style:normal;font-weight:900;font-size:min(16px,3.6cqi);line-height:1;color:#f4ede2}
   .bcard-body{min-width:0}
-  .bcard-h{margin:0;font-size:24px;font-weight:900;letter-spacing:-.01em;line-height:1;color:var(--ink);text-transform:uppercase}
-  .bcard-sub{margin:5px 0 0;font-size:13px;font-weight:900;letter-spacing:.14em;line-height:1.2;color:var(--copper-lt);text-transform:uppercase}
-  .bcard-facts{margin:5px 0 0;font-size:12.5px;font-weight:600;line-height:1.35;color:var(--ink2);overflow:hidden}
+  .bcard-h{margin:0;font-size:clamp(19px,6.3cqi,30px);font-weight:900;letter-spacing:-.01em;line-height:1;color:var(--ink);
+    text-transform:uppercase;white-space:nowrap}
+  .bcard-sub{margin:6px 0 0;font-size:clamp(11px,3.15cqi,15px);font-weight:900;letter-spacing:.09em;line-height:1.15;
+    color:var(--ink);text-transform:uppercase}
+  .bcard-sub .bcp{color:var(--copper-lt)}
+  .bcard-facts{margin:7px 0 0;font-size:clamp(11px,2.75cqi,13px);font-weight:600;line-height:1.35;color:var(--ink2);overflow:hidden}
   /* The facts break between items, never inside one ("15 / Racks"), and no line starts with a dot: each item
      carries its dot in the gap before it, and a line's first dot falls outside the box and is cut. The items
      are built from the (translated) line by the script under the card. */
-  .bcf-in{display:flex;flex-wrap:wrap;margin-left:-11px}
-  .bcf{position:relative;margin-left:11px;white-space:nowrap}
-  .bcf i{position:absolute;left:-6.5px;font-style:normal}
-  .bcard-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;margin-top:10px}
-  .addon.bcard .addon-btn.bcard-btn{padding:10px 16px;font-size:12px;letter-spacing:.08em;border-radius:10px;
-    border:1.5px solid rgba(221,154,82,.85);background:rgba(198,113,43,.06);color:var(--copper-lt)}
-  .addon.bcard .addon-btn.bcard-btn:hover{background:rgba(198,113,43,.16);color:var(--ink)}
+  .bcf-in{display:flex;flex-wrap:wrap;margin-left:-15px}
+  .bcf{position:relative;margin-left:15px;white-space:nowrap}
+  .bcf i{position:absolute;left:-9.5px;font-style:normal}
+  .bcard-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;margin-top:12px}
+  .addon.bcard .addon-btn.bcard-btn{display:inline-grid;padding:10px 12px;font-size:clamp(11px,2.4cqi,12px);letter-spacing:.04em;
+    border-radius:8px;border:2px solid var(--copper-lt);background:rgba(198,113,43,.06);color:var(--copper-lt)}
+  .addon.bcard:hover .addon-btn.bcard-btn{background:rgba(198,113,43,.16);color:var(--ink)}
   .addon.bcard.on .addon-btn.bcard-btn{border-color:transparent;color:#1c1206;background:linear-gradient(180deg,var(--ember),var(--copper))}
   .bcard-btn .addon-p{color:inherit}
-  /* "Bundle total" over the two prices, as in his design, so the block stays narrow beside the button. */
-  .bcard-total{margin:0;display:grid;grid-template-columns:auto auto;justify-content:start;align-items:baseline;gap:1px 7px;
-    font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--ink3)}
-  .bcard-total > span{grid-column:1 / -1}
-  .bcard-total b{font-size:19px;font-weight:900;color:var(--ink)}
-  .bcard-total s{font-size:13px;opacity:.8;text-decoration-thickness:1.5px}
-  /* 1280 to 1439px: the bar's middle column is about 350px, so a tighter card: smaller art and type, and the button
-     with the total on a row of their own under the words. */
-  @media (min-width:1280px) and (max-width:1439.98px){
-    .addon.bcard{grid-template-columns:110px minmax(0,1fr);gap:2px 12px;padding:12px 14px 12px 10px}
-    .bcard-art{width:110px;height:94px}
-    .bc-in{transform:scale(.7333)}
-    .bcard-h{font-size:20px}
-    .bcard-sub{font-size:11px;letter-spacing:.08em}
-    .bcard-facts{font-size:11.5px}
-    .bcard-row{grid-column:1 / -1;margin-top:8px}
-    .bcard-ticket{width:80px;top:-32px;right:-30px}
-  }
+  /* "Bundle total" over the two prices, so the block stays narrow beside the button. */
+  .bcard-total{margin:0;display:grid;grid-template-columns:auto auto;justify-content:start;align-items:baseline;gap:2px 7px;
+    font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--ink2)}
+  .bcard-total b{font-size:clamp(15px,4cqi,18px);font-weight:900;color:var(--ink)}
+  .bcard-total s{font-size:clamp(11px,2.8cqi,13px);color:var(--ink3);text-decoration-thickness:1.5px}
+  /* Both states in the same room: each pair of labels shares one cell and only shows the one that applies. */
+  .addon.bcard .bcard-btn > .bump-off, .addon.bcard .bcard-btn > .bump-on{display:block;grid-area:1 / 1;text-align:center}
+  .addon.bcard .bcard-total > .bump-off, .addon.bcard .bcard-total > .bump-on{display:block;grid-row:1;grid-column:1 / -1}
+  .addon.bcard .bump-on{visibility:hidden}
+  .addon.bcard.on .bump-on{visibility:visible}
+  .addon.bcard.on .bump-off{visibility:hidden}
   /* Hung off the top right corner, clear of the title: it overflows the card on the right and above. */
-  .bcard-ticket{position:absolute;top:-36px;right:-38px;width:92px;transform:rotate(9deg);pointer-events:none;
+  .bcard-ticket{position:absolute;top:-42px;right:-40px;width:92px;transform:rotate(9deg);pointer-events:none;
     filter:drop-shadow(0 8px 10px rgba(0,0,0,.45)) drop-shadow(0 2px 2px rgba(0,0,0,.35))}
   .bcard-ticket svg{display:block;width:100%;height:auto;overflow:visible}
-  /* Where the card takes a whole row (a tablet, or the bar's own row from 1024 to 1279px), it hangs less far out. */
-  @media (max-width:1279.98px){ .bcard-ticket{right:-14px;top:-30px} }
+  /* Below 1440px the bar's middle column is narrower: the button and the total take a row of their own. */
+  @media (max-width:1439.98px){
+    .addon.bcard .bcard-row{grid-column:1 / -1;margin-top:4px}
+    .bcard-ticket{width:80px;top:-32px;right:-30px}
+  }
+  /* Where the card takes a row of its own (the bar's own row from 1024 to 1279px, a tablet), it stays card-sized
+     and its ticket hangs less far out. */
+  @media (max-width:1279.98px){
+    .bcard-ticket{right:-14px;top:-30px}
+    section[data-ms="hero"] .hero-buy-addon .addon.bcard{max-width:620px;margin:0 auto}
+  }
+  /* A phone: the picture on top (narrower, so the ticket has the corner), the words and the row under it. */
   @media (max-width:640px){
-    .addon.bcard{grid-template-columns:120px minmax(0,1fr);gap:4px 12px;padding:14px 12px 14px 10px;border-radius:16px}
-    .bcard-art{width:120px;height:103px}
-    .bc-in{transform:scale(.8)}
-    .bcard-h{font-size:20px;padding-right:58px}
-    .bcard-sub{font-size:11px;letter-spacing:.1em}
-    .bcard-facts{font-size:11px}
-    .bcard-row{grid-column:1 / -1;margin-top:8px;gap:8px 12px}
-    .addon.bcard .addon-btn.bcard-btn{font-size:11px;padding:9px 12px}
+    .addon.bcard{grid-template-columns:minmax(0,1fr);gap:10px;padding:14px 14px 16px;border-radius:16px}
+    .bcard-art{width:74%}
+    .bcard-h{font-size:24px}
+    .bcard-sub{font-size:13px}
+    .bcard-facts{font-size:12px}
+    .addon.bcard .bcard-row{margin-top:2px}
+    .addon.bcard .addon-btn.bcard-btn{font-size:12px;padding:10px 14px}
+    .bcard-total{font-size:11px}
+    .bcard-total b{font-size:17px}
     /* Inside the corner on a phone: the screen's edge is right there, and a ticket past it is cut off. */
-    .bcard-ticket{width:66px;top:-16px;right:4px}
+    .bcard-ticket{width:70px;top:-14px;right:6px}
   }
   .addon-vid{position:relative;flex:none;width:64px;height:36px;padding:0;border-radius:8px;overflow:hidden;
     border:1px solid rgba(198,113,43,.28);background:#0e0d0b;cursor:pointer}
@@ -2160,7 +2178,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     /* Tendril's second line ("A perfect sound design playground + 22 StrideChains") fits whole here. */
     section[data-ms="hero"] .hero-buy-addon .addon-tdr{max-width:620px}
     section[data-ms="hero"] .hero-buy-addon .addon-bundle{max-width:620px}
-    section[data-ms="hero"] .hero-buy-addon .addon.bcard{max-width:600px;padding:16px 22px 16px 14px}
+    section[data-ms="hero"] .hero-buy-addon .addon.bcard{max-width:640px;padding:14px 18px 14px 14px}
+    section[data-ms="hero"] .hero-buy-addon:has(> .addon.bcard:not([hidden])){padding:0 8px}
     /* 350px less the 30px gutter leaves the wallet 320px, more than the 306px it once overflowed. */
     section[data-ms="hero"] .hero-cta{grid-area:cta;padding-left:30px}
     section[data-ms="hero"] .hero-cta > *{max-width:none}
@@ -2751,24 +2770,23 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              and the Collection are in the lines the rows above already use. -->
         <!-- The hero's Stride Bundle as a card of its own (Yossi 2026-11-07, his design: the products' real art on the
              left, the name, what is in it, the upgrade and the bundle's total, our Black Friday ticket at 50% on the
-             corner, hanging off the card). The picture is Tendril's real window (public/media/bundle/) over the
-             Collection in brief (below). The script prints the upgrade's price,
+             corner, hanging off the card; redrawn to his reference the same day: the three products' real art,
+             the whole card clickable, nothing on the strip moving when it goes in). The script prints the upgrade's price,
              the total and the struck total, and draws the ticket (strideTicketSvg('50%')). -->
         <div id="addon-bundle" class="addon addon-bundle bcard" data-bump="bundle" hidden>
-          <!-- The picture: Tendril's real window on top, and under it the Collection in brief (Yossi 2026-11-07: "a
-               summary with all these logos, colours and chain numbers, so it's clear; condensed"): each synth's disc
-               in /collection/'s colours with how many StrideChains it gets, and the Sounds & Racks with its 250+.
-               Drawn at 150x124 and scaled to the card's size. -->
-          <div class="bcard-art" aria-hidden="true"><div class="bc-in">
-            <img class="bc-tdr" src="/media/bundle/tendril-window.webp" alt="" width="440" height="332" loading="lazy" decoding="async">
-            <div class="bc-chains" data-no-translate>
-              <span class="bcc" style="--a:#2f8fb0;--b:#0c171d"><span class="bcc-d"><img src="/media/synths/serum-2.webp" alt="" loading="lazy" decoding="async"></span><b>30</b></span>
-              <span class="bcc" style="--a:#7b5cd6;--b:#130f21"><span class="bcc-d"><img src="/media/synths/vital.webp" alt="" loading="lazy" decoding="async"></span><b>30</b></span>
-              <span class="bcc" style="--a:#a4763f;--b:#15110d"><span class="bcc-d"><img src="/media/synths/diva.webp" alt="" loading="lazy" decoding="async"></span><b>20</b></span>
-              <span class="bcc" style="--a:#c6712b;--b:#1a0f07"><span class="bcc-d"><i>T</i></span><b>20</b></span>
-              <span class="bcc bcc-sr"><span class="bcc-d"><img src="/media/synths/sounds-racks.webp" alt="" loading="lazy" decoding="async"></span><b>250+</b></span>
+          <!-- The picture, to his reference: Tendril's real window, the Collection's synths as discs in /collection/'s
+               colours (Serum 2, Vital, Diva, Tendril, then the Sounds & Racks' art), Stride's lanes in front. -->
+          <div class="bcard-art" aria-hidden="true">
+            <img class="bc-tdr" src="/media/bundle/tendril-window.webp" alt="" width="440" height="332" decoding="async">
+            <img class="bc-stride" src="/media/bundle/stride-ui.webp" alt="" width="480" height="298" decoding="async">
+            <div class="bc-discs" data-no-translate>
+              <span class="bcd" style="--a:#2f8fb0;--b:#0c171d"><img src="/media/synths/serum-2.webp" alt="" decoding="async"></span>
+              <span class="bcd" style="--a:#7b5cd6;--b:#130f21"><img src="/media/synths/vital.webp" alt="" decoding="async"></span>
+              <span class="bcd" style="--a:#a4763f;--b:#15110d"><img src="/media/synths/diva.webp" alt="" decoding="async"></span>
+              <span class="bcd" style="--a:#c6712b;--b:#1a0f07"><i>T</i></span>
+              <span class="bcd bcd-sr"><img src="/media/synths/sounds-racks.webp" alt="" decoding="async"></span>
             </div>
-          </div></div>
+          </div>
           <div class="addon-body bcard-body">
             <p class="bcard-h">Stride Bundle</p>
             <p class="bcard-sub">+ Tendril + Collection</p>
@@ -2798,6 +2816,30 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               f.textContent = ''; f.appendChild(box);
             } catch (e) {}
           })();
+          // "+ Tendril + Collection": the words in the card's ink, the plus signs in copper (his reference).
+          (function () {
+            try {
+              var sub = document.querySelector('#addon-bundle .bcard-sub');
+              if (!sub || sub.querySelector('.bcp')) return;
+              var parts = sub.textContent.split('+');
+              if (parts.length < 2) return;
+              sub.textContent = '';
+              parts.forEach(function (p, i) {
+                if (i) { var c = document.createElement('span'); c.className = 'bcp'; c.textContent = '+'; sub.appendChild(c); }
+                sub.appendChild(document.createTextNode(p));
+              });
+            } catch (e) {}
+          })();
+          // The whole bundle row adds it, not only its button (Yossi 2026-11-07: "make the whole ORDER BUMP chunk
+          // clickable, not just the UPGRADE button"): the hero's card and the pricing card's row. The button keeps its
+          // own handler (and stays the keyboard's way in), so a press on it is left to it.
+          document.addEventListener('click', function (e) {
+            try {
+              var row = e.target && e.target.closest && e.target.closest('.addon-bundle');
+              if (!row || e.target.closest('.addon-btn, a')) return;
+              if (typeof strideToggleAddon === 'function') strideToggleAddon(e);
+            } catch (err) {}
+          });
         </script>
         </div>
         <div class="flex flex-wrap items-center gap-2.5 hero-cta">
@@ -5625,23 +5667,29 @@ function openBuy() { toggleBuyModal(); }
         // add-on in the order the struck total is no longer 30% off, so the seal says what is saved.
         // Since 2026-11-07 every visit holds Black Friday's EARLYBF30 (STRIDE_BF), so the ticket is there for
         // everyone while Stride is the whole order.
-        const ticket = showSave && !on && ((!!strideBfDid && strideCodeId === strideBfDid)
-            || (!!window.STRIDE_BF && strideCodeId === STRIDE_CODES[window.STRIDE_BF]));
+        // With the Stride Bundle in the order (2026-11-07) the ticket stays and reads 50%, the bundle's own Black
+        // Friday discount, so the hero says the same as the card and keeps its shape (a ticket, not "Save $108.50").
+        const bundleIn = on && bdl;
+        const ticket = showSave && ((!on && ((!!strideBfDid && strideCodeId === strideBfDid)
+            || (!!window.STRIDE_BF && strideCodeId === STRIDE_CODES[window.STRIDE_BF]))) || bundleIn);
+        const ticketPct = bundleIn ? '50%' : '30%';
         document.querySelectorAll('.sd-price-box').forEach(function (box) {
             const was = box.querySelector('.sd-was');
             const seal = box.querySelector('.sd-save');
             if (was) { was.textContent = showSave ? strideMoneyExact(full) : ''; was.style.display = showSave ? '' : 'none'; }
             if (seal) {
                 if (ticket && box.classList.contains('hero-price-line')) {
-                    if (!seal.classList.contains('bf-ticket')) {
+                    if (!seal.classList.contains('bf-ticket') || seal.getAttribute('data-pct') !== ticketPct) {
                         seal.classList.add('bf-ticket');
-                        seal.innerHTML = strideTicketSvg();
+                        seal.innerHTML = strideTicketSvg(ticketPct);
+                        seal.setAttribute('data-pct', ticketPct);
                         seal.setAttribute('role', 'img');
-                        seal.setAttribute('aria-label', 'Black Friday sale, 30% off');
+                        seal.setAttribute('aria-label', 'Black Friday sale, ' + ticketPct + ' off');
                     }
                 } else {
                     if (seal.classList.contains('bf-ticket')) {
                         seal.classList.remove('bf-ticket');
+                        seal.removeAttribute('data-pct');
                         seal.removeAttribute('role');
                         seal.removeAttribute('aria-label');
                     }
@@ -5658,7 +5706,7 @@ function openBuy() { toggleBuyModal(); }
         // What the price buys, named rather than implied.
         document.querySelectorAll('.sd-what').forEach(function (el) {
             el.textContent = on
-                ? 'Stride VST + StrideBridge + ' + (tdr ? 'Tendril' : 'the Stride Collection')
+                ? 'Stride VST + StrideBridge + ' + (bdl ? 'Tendril + the Stride Collection' : tdr ? 'Tendril' : 'the Stride Collection')
                 : 'Stride VST + StrideBridge';
         });
 
@@ -5727,7 +5775,35 @@ function openBuy() { toggleBuyModal(); }
             if (!el.dataset.baseHtml) el.dataset.baseHtml = el.innerHTML;
             el.innerHTML = el.dataset.baseHtml.replace(was, strideOnly);
         });
+        strideHoldBundleRoom();
     }
+
+    // The strip keeps its shape when the Stride Bundle goes in or out (Yossi 2026-11-07: "after clicking it, its
+    // LAYOUT should not change; now it changes the whole shape of the strip"). The hero's price column is sized by
+    // its content, and the bundle's price is wider than Stride's, so both states are drawn once, in the same task
+    // (nothing is painted in between), and the column keeps the wider of the two widths in both. Again on resize,
+    // and whenever the prices change (strideSyncAddon calls this).
+    let strideHoldingRoom = false;
+    function strideHoldBundleRoom() {
+        if (strideHoldingRoom) return;
+        const col = document.querySelector('section[data-ms="hero"] .hero-buy-price');
+        if (!col) return;
+        col.style.minWidth = '';
+        if (strideBumpArm() !== 'bundle' || !strideAddonAvailable()) return;
+        strideHoldingRoom = true;
+        try {
+            const w1 = col.getBoundingClientRect().width;
+            strideAddonOn = !strideAddonOn; strideSyncAddon();
+            const w2 = col.getBoundingClientRect().width;
+            strideAddonOn = !strideAddonOn; strideSyncAddon();
+            if (w1 && w2) col.style.minWidth = Math.ceil(Math.max(w1, w2)) + 'px';
+        } catch (e) {} finally { strideHoldingRoom = false; }
+    }
+    let strideRoomTimer = 0;
+    window.addEventListener('resize', function () {
+        clearTimeout(strideRoomTimer);
+        strideRoomTimer = setTimeout(strideHoldBundleRoom, 150);
+    });
 
     document.addEventListener('DOMContentLoaded', strideSyncAddon);
 
@@ -6912,7 +6988,9 @@ function openBuy() { toggleBuyModal(); }
     // that code down. Drawn here rather than borrowed, so the pin never depends on the page's main
     // script.
     var STUB_X = 500, STUB_ROOM = 222;      // the stub's middle, and the width a line may take
-    function pinTicket(gid, half) {         // gid: each drawing its own gradient, as strideTicketSvg does
+    // pct: what the ticket says off. 30% (EARLYBF30) unless the order is the Stride Bundle, whose own discount is 50%.
+    function pinTicket(gid, half, pct) {    // gid: each drawing its own gradient, as strideTicketSvg does
+        pct = /^\d{1,2}%$/.test(pct || '') ? pct : '30%';
         var ink = '#1d130a', face = 'Outfit,system-ui,sans-serif';
         var stops = '<stop offset="0" stop-color="#f7b25c"/><stop offset=".55" stop-color="#ec9a45"/>'
             + '<stop offset="1" stop-color="#d9832f"/></linearGradient></defs>';
@@ -6920,7 +6998,7 @@ function openBuy() { toggleBuyModal(); }
             + '<line x1="92" y1="97" x2="140" y2="97" stroke="' + ink + '" stroke-width="3.4" stroke-linecap="round"/>'
             + '<text x="180" y="106" text-anchor="middle" font-family="' + face + '" font-weight="800" font-size="27" fill="' + ink + '" letter-spacing="2">SALE</text>'
             + '<line x1="220" y1="97" x2="268" y2="97" stroke="' + ink + '" stroke-width="3.4" stroke-linecap="round"/>'
-            + '<text x="180" y="203" text-anchor="middle" font-family="' + face + '" font-weight="900" font-size="112" fill="' + ink + '" letter-spacing="-3">30%</text>';
+            + '<text x="180" y="203" text-anchor="middle" font-family="' + face + '" font-weight="900" font-size="112" fill="' + ink + '" letter-spacing="-3">' + pct + '</text>';
         if (half) return '<svg viewBox="0 0 360 232" aria-hidden="true" focusable="false">'
             + '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0.25" y2="1">' + stops
             + '<path d="M22,0 H338 Q360,0 360,22 V89 A27,27 0 0 0 360,143 V210 Q360,232 338,232 H22 Q0,232 0,210 V143 A27,27 0 0 0 0,89 V22 Q0,0 22,0 Z" fill="url(#' + gid + ')"/>'
@@ -7471,10 +7549,14 @@ function openBuy() { toggleBuyModal(); }
             buyModal.classList.toggle('has-bft', !!look);
             document.documentElement.classList.toggle('bf-buying', !!look);
             if (!look) return;
-            if (look !== buyDrawn) {
-                buyDrawn = look;
+            // The deal in the cart (Yossi 2026-11-07): with the Stride Bundle in the order the ticket says its 50%,
+            // not Stride's 30%. Both end at Black Friday's end, so the stub's clock is the same.
+            var pct = '30%';
+            try { if (typeof strideBumpIn === 'function' && strideBumpIn() === 'bundle') pct = '50%'; } catch (e) {}
+            if (look + pct !== buyDrawn) {
+                buyDrawn = look + pct;
                 buyT.classList.toggle('is-half', look === 'offer');
-                buyT.innerHTML = '<span class="bfp-t">' + pinTicket('bfbuy-g', look === 'offer') + '</span>';
+                buyT.innerHTML = '<span class="bfp-t">' + pinTicket('bfbuy-g', look === 'offer', pct) + '</span>';
                 buyTop = buyT.querySelector('.bfp-top');
                 buyBig = buyT.querySelector('.bfp-big');
             }
