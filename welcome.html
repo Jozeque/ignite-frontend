@@ -1429,7 +1429,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       // The download panel rides on this same answer, so the page makes one backend call
       // rather than two. Defined by the block at the end of the document; the guard is for
       // a page served without it.
-      if (window.strideShowDownloads) window.strideShowDownloads(d.downloads);
+      // A Stride Bundle purchase (2026-11-07): the backend names its one installer, which the panel offers instead.
+      var bdl = (d.bundle_downloads || []).filter(function (x) { return x && /^https:\/\//.test(x.url || ''); });
+      if (window.strideShowDownloads) window.strideShowDownloads(bdl.length ? bdl : d.downloads, !!bdl.length);
       // The Collection is offered here again (2026-09-29) while this purchase's offer is still
       // open: the buyer said no on /post2/ and the 72 hours are running. Taken (the bump at
       // checkout, or /post2/) or over, its block keeps the link to its page. Tendril asks for
@@ -2124,7 +2126,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   var els = { Windows: document.getElementById('dl-win'), Mac: document.getElementById('dl-mac') };
   var done = false;
 
-  function show(list) {
+  // bundle: the list is the Stride Bundle's one installer (Yossi 2026-11-07: "if someone downloads the BUNDLE they
+  // download the installer that installs everything"). The panel then says what it is and where the two keys are.
+  // Written here in English, like the referral card below: a new string in the markup would take every translated
+  // copy of this page down until each language had it.
+  function show(list, bundle) {
     if (done) return;
     var shown = 0;
     (list || []).forEach(function (item) {
@@ -2137,7 +2143,25 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     });
     // Only reveal the panel once something in it works. A release published for one
     // platform and not the other shows the one button, never a dead second.
-    if (shown) { done = true; box.hidden = false; }
+    if (shown) {
+      done = true;
+      if (bundle) {
+        box.classList.add('is-bundle');
+        var k = document.createElement('p');
+        k.className = 'dl-kicker dl-bundle-k';
+        k.textContent = 'The Stride Bundle installer: Stride, Tendril and the whole Stride Collection in one run.';
+        box.insertBefore(k, box.firstChild);
+        var n = box.querySelector('.dl-note');
+        if (n) {
+          n.textContent = 'Your Stride key is in your welcome email, Tendril\'s key in its own. ';
+          var a = document.createElement('a');
+          a.href = 'setup.html';
+          a.textContent = 'Setup guide →';
+          n.appendChild(a);
+        }
+      }
+      box.hidden = false;
+    }
   }
   window.strideShowDownloads = show;
 

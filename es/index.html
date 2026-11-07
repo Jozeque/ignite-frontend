@@ -2099,11 +2099,20 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* The DAWs by name, in the buy strip under the price (Yossi 2026-11-07): the names in ink, the lead-in quieter.
      width 0 + min-width 100%: the line takes the price column's width and wraps in it, and never widens that
      column itself (it is sized by its content, and one line of seven DAWs is wider than the price). */
-  .hero-daws{display:block;margin:10px 0 0;font-size:12.5px;line-height:1.45;color:var(--ink2);width:0;min-width:100%}
+  /* Under the price, two lines (Yossi 2026-11-07, his words): "Stride (VST3 + AU) & StrideBridge (Ableton Devices
+     integration)", then the DAWs by name. The names in ink, what they are quieter. width 0 + min-width 100% on both:
+     they wrap inside the price column and never widen it. */
+  .hero-included{margin:0;font-weight:600;line-height:1.45;color:var(--ink2);width:0;min-width:100%}
+  .hero-included b{font-weight:800;color:var(--ink)}
+  /* Each name keeps its brackets: the line breaks before "(Ableton Devices integration)", never inside it. */
+  .hero-included .hi-nw{white-space:nowrap}
+  .hero-daws{display:block;margin:7px 0 0;font-size:12.5px;line-height:1.45;color:var(--ink2);width:0;min-width:100%}
   .hero-daws-k{color:var(--ink3);font-weight:600}
   .hero-daws-n{color:var(--ink);font-weight:700}
-  /* A phone reads the hero piece by piece (the ORDER block below): it keeps its place after the capability line. */
-  @media (max-width:899.98px){ section[data-ms="hero"] .hero-daws{order:7;font-size:11.5px;margin:5px 0 0} }
+  /* A phone reads the hero piece by piece (the ORDER block below): the DAWs right after it. */
+  @media (max-width:899.98px){
+    section[data-ms="hero"] .hero-daws{order:7;font-size:11.5px;margin:4px 0 12px}
+  }
   /* One stack of identical buttons. The wallet sits between the two anchors and
      claims a full line, so all three stack; auto widths would leave them ragged
      (224px, 340px, 190px) and reading as three unrelated things rather than one
@@ -2153,7 +2162,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      ══════════════════════════════════════════════════════════════════════════ */
   @media (min-width:1024px){
     section[data-ms="hero"] .hero-cols{display:grid;
-      grid-template-columns:minmax(0,35fr) minmax(0,65fr);
+      grid-template-columns:minmax(0,38fr) minmax(0,62fr);
       grid-template-areas:"text video" "buy buy";
       column-gap:2rem;row-gap:1rem;align-items:center}
     /* A little less air above the hero so the buy strip shows whole on a laptop's first screen (Yossi 2026-11-07:
@@ -2164,9 +2173,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     section[data-ms="hero"] .hero-text{grid-area:text}
     section[data-ms="hero"] .hero-visual{grid-area:video}
     /* Sized to the column, so "automation engine that" holds one line and the copper
-       phrase starts the next, as in the comp (the column is 35% of the container). */
-    section[data-ms="hero"] .hero-text h1{font-size:clamp(36px,calc(3.4vw - 3px),45px);line-height:1.06}
-    section[data-ms="hero"] .hero-text .hero-sub{margin-bottom:1.6rem}
+       phrase starts the next, as in the comp (the column is 38% of the container since 2026-11-07, when the
+       headline grew a touch: at 35% the larger size pushed "that" down a line). */
+    section[data-ms="hero"] .hero-text h1{font-size:clamp(36px,calc(3.5vw - 3px),47px);line-height:1.06}
+    /* A touch larger since 2026-11-07 (Yossi: "enlarge the H1 and H2 fonts a bit"), with the space the capability
+       line left when it moved into the strip. */
+    section[data-ms="hero"] .hero-text .hero-sub{margin-bottom:1.6rem;font-size:17.5px}
     section[data-ms="hero"] .hero-spec{margin-bottom:0}
 
     /* The buy bar. */
@@ -2180,8 +2192,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     section[data-ms="hero"] .hero-buy .hero-price{font-size:54px}
     section[data-ms="hero"] .hero-buy .fold-strike{font-size:38px}
     section[data-ms="hero"] .hero-buy .seal2{font-size:13px;padding:7px 12px}
-    section[data-ms="hero"] .hero-included{margin:0}
-    section[data-ms="hero"] .hero-included li{font-size:15px}
+    section[data-ms="hero"] .hero-included{margin:0;font-size:15px}
     section[data-ms="hero"] .hero-buy-addon{grid-area:addon;align-self:stretch;display:flex;
       align-items:center;justify-content:center;padding:0 24px;
       border-left:1px solid var(--line);border-right:1px solid var(--line)}
@@ -2479,7 +2490,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
 
 </style>
-<link rel="stylesheet" href="/_legacy/css/index.ea208348f4.css">
+<link rel="stylesheet" href="/_legacy/css/index.7fad811634.css">
 <meta property="og:image" content="https://stridehub.io/media/stride/og/stride-share-1200x630.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -2684,11 +2695,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           Stride mueve tus VST y tus devices de Ableton <b class="ink font-semibold">juntos, en un solo sitio, a la vez</b>. Explora variaciones infinitas con el equipo que ya tienes. Cada clic abre una dirección nueva. <b class="ink font-semibold">Conserva</b> lo que funciona, <b class="ink font-semibold">regenera</b> el resto, luego <b class="ink font-semibold">muta</b> y <b class="ink font-semibold">edita</b> cada automatización a mano.
           <button type="button" class="hero-more-btn" aria-expanded="false"><span class="hm-open">Leer más</span><span class="hm-close">Ver menos</span></button>
         </p>
-        <!-- Capability line: what it reaches, directly under the claim. Kept small so it
-             reads as a spec rather than competing with the headline. -->
-        <p class="text-[12px] leading-relaxed mb-6 max-w-xl hero-spec">
-          <span class="font-black uppercase tracking-[0.14em]" style="color:var(--copper-lt)">VST3 + AU + Ableton Devices</span><span class="hero-spec-b"> · Audio In para guitarra, voces, hardware y grabaciones</span>
-        </p>
+        <!-- The capability line that sat here moved into the buy strip, under the price, shorter (Yossi 2026-11-07:
+             "just delete VST3 + AU + Ableton Devices · Audio In for guitar, vocals, hardware & recordings from the hero"). -->
         </div>
         <div class="hero-buy">
         <div class="hero-buy-price">
@@ -2707,14 +2715,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <span class="seal2 sd-save" style="display:none"></span>
         </div>
         <!-- Name the two things actually included, then the order bump above the buttons, as it always was. -->
-        <ul class="vlist vlist-2 hero-included">
-          <li><span class="d">&#9679;</span><span><b>Stride VST + StrideBridge</b> incluido</span></li>
-        </ul>
-        <!-- The DAWs by name (Yossi 2026-11-07, after buyers named compatibility as what almost stopped them), in the
-             buy strip under the price since the same evening ("the whole DAW section down into the strip, under the
-             price"). The same list the pricing card states: any VST3 DAW, Logic as AU, not Pro Tools. The names are
-             brands and stay as written in every language. -->
-        <p class="hero-daws"><span class="hero-daws-k">Funciona en</span> <span class="hero-daws-n" data-no-translate>Ableton Live &middot; FL Studio &middot; Logic Pro &middot; Bitwig &middot; Cubase &middot; Studio One &middot; Reaper</span></p>
+        <!-- Under the price, two lines (Yossi 2026-11-07, his words): what it is, and where it runs (the DAWs by name,
+             after buyers named compatibility as what almost stopped them; the same list the pricing card states: any
+             VST3 DAW, Logic as AU, not Pro Tools). Brand and format names stay as written in every language: only
+             "Works in" is translated. -->
+        <p class="hero-included" data-no-translate><span class="hi-nw"><b>Stride</b> (VST3 + AU)</span> &amp; <b>StrideBridge</b> <span class="hi-nw">(Ableton Devices)</span></p>
+        <p class="hero-daws"><span class="hero-daws-k">Funciona en</span> <span class="hero-daws-n" data-no-translate>Ableton Live &middot; FL Studio &middot; Logic Pro &middot; Cubase &middot; Bitwig &middot; Studio One &middot; Reaper</span></p>
         </div>
         <div class="hero-buy-addon">
         <div id="addon" class="addon" data-bump="collection" hidden>
@@ -5337,10 +5343,20 @@ function openBuy() { toggleBuyModal(); }
     // per-item amounts when it has priced them, so the page can never print a total the checkout
     // does not take: the Collection is CA$34.99 in Canada and GBP 18.99 in the UK, not 24.99
     // scaled by Stride's rate, which is what this used to do (page GBP 111.46, charge 107.99).
+    // Stride alone at this visitor's price: Paddle's once it has priced the visit. Until then, or when Paddle never
+    // answers (an ad blocker, a dead line), the dollars, with Black Friday's 30% already off while its code (or the
+    // visitor's own 30% code) is the page's: nobody sees the full price this month (Yossi 2026-11-07: "nobody is supposed
+    // to see FULL PRICE this month"). The hold's 3-second timer used to show $99 there.
+    function strideStridePrice() {
+        if (strideLocal) return strideLocal.stride;
+        var bf = (!!window.STRIDE_BF && strideCodeId === STRIDE_CODES[window.STRIDE_BF])
+            || (!!strideBfDid && strideCodeId === strideBfDid);
+        return bf ? Math.round(STRIDE_PRICE * 70) / 100 : STRIDE_PRICE;
+    }
     function strideOrderTotal() {
         // The Stride Bundle: all three at its 50%, Paddle's figure once it has answered.
         if (strideBumpIn() === 'bundle') return strideBundle ? strideBundle.charged : strideBundleDollars().charged;
-        var stride = strideLocal ? strideLocal.stride : STRIDE_PRICE;
+        var stride = strideStridePrice();
         return stride + (strideAddonActive() ? strideBumpPrice() : 0);
     }
 
@@ -5368,7 +5384,7 @@ function openBuy() { toggleBuyModal(); }
         // The bundle as an upgrade: what it adds to Stride alone at the page's own price (EARLYBF30's, say).
         if (strideBumpArm() === 'bundle') {
             var b = strideBundle ? strideBundle.charged : strideBundleDollars().charged;
-            return Math.max(0, b - (strideLocal ? strideLocal.stride : STRIDE_PRICE));
+            return Math.max(0, b - strideStridePrice());
         }
         if (strideBumpArm() === 'tendril') return strideTendril ? strideTendril.charged : TENDRIL_ADDON_PRICE;
         return strideCollectionPrice();
@@ -5777,7 +5793,7 @@ function openBuy() { toggleBuyModal(); }
         // breath that the Collection is a separate add-on and is not included, so pricing
         // it at the order total would have the sentence contradict itself the moment the
         // add-on goes in. Same re-print from pristine markup as above.
-        const strideOnly = strideMoneyExact(strideLocal ? strideLocal.stride : STRIDE_PRICE);
+        const strideOnly = strideMoneyExact(strideStridePrice());
         document.querySelectorAll('.sd-stride').forEach(function (el) {
             if (!el.dataset.baseHtml) el.dataset.baseHtml = el.innerHTML;
             el.innerHTML = el.dataset.baseHtml.replace(was, strideOnly);
@@ -5920,8 +5936,10 @@ function openBuy() { toggleBuyModal(); }
                         ? { list: three(bl), charged: three(bc) } : null;
                     strideList = list;
                     var cur = charged.currency;
-                    // Dollars at the list price is what the page already prints.
+                    // Dollars at the list price is what the page already prints, unless its own dollars have a code's
+                    // 30% off (strideStridePrice): then Paddle's figure is the truth and is set below like any other.
                     if (cur === 'USD' && Math.abs(charged.stride - STRIDE_PRICE) < 0.005
+                        && Math.abs(strideStridePrice() - STRIDE_PRICE) < 0.005
                         && (charged.collection == null
                             || Math.abs(charged.collection - COLLECTION_ADDON_PRICE) < 0.005)) return;
                     strideLocal = charged;
@@ -6701,7 +6719,7 @@ function openBuy() { toggleBuyModal(); }
             // The checkout opened: the same moment of intent the buy form reports. The Collection
             // is free, so the value is Stride's alone.
             try {
-                var v = { value: Math.round((strideLocal ? strideLocal.stride : STRIDE_PRICE) * 100) / 100,
+                var v = { value: Math.round(strideStridePrice() * 100) / 100,
                           currency: strideLocal ? strideLocal.currency : 'USD' };
                 if (window.fbq) fbq('track', 'InitiateCheckout', v);
                 if (window.StrideTrack) StrideTrack.push('begin_checkout', v);
