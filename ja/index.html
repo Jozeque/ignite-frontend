@@ -54,11 +54,11 @@
     html.sd-hold .sd-total, html.sd-hold .sd-was, html.sd-hold .sd-save, html.sd-hold .sd-cta-price,
     html.sd-hold .m-cta-price, html.sd-hold .addon-p, html.sd-hold .addon-was, html.sd-hold .sd-swap,
     html.sd-hold .sd-stride, html.sd-hold .bf-was, html.sd-hold .bf-now, html.sd-hold .bf-buy,
-    html.sd-hold [data-bundle-now], html.sd-hold [data-bundle-was] {
+    html.sd-hold [data-bundle-now], html.sd-hold [data-bundle-was], html.sd-hold .bfd-now, html.sd-hold .bfd-was {
         visibility: hidden; opacity: 0;
     }
     .sd-total, .sd-was, .sd-save, .sd-cta-price, .m-cta-price, .addon-p, .addon-was, .sd-swap,
-    .sd-stride, .bf-was, .bf-now, .bf-buy, [data-bundle-now], [data-bundle-was] { transition-property: opacity; transition-duration: .15s; }
+    .sd-stride, .bf-was, .bf-now, .bf-buy, [data-bundle-now], [data-bundle-was], .bfd-now, .bfd-was { transition-property: opacity; transition-duration: .15s; }
     </style>
     <script>
     // The price hold (2026-10-22). Every price on this page is written in dollars, and Paddle's
@@ -1462,6 +1462,93 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media (max-width:640px){
     .bfbar{font-size:10.5px;gap:1px 10px;padding:6px 10px;letter-spacing:.06em}
     .bfbar-clock{font-size:12.5px}
+  }
+  /* ── Black November's two deals (Yossi 2026-11-08) ────────────────────────────────────────────────────────────
+     A press on the bar above opens the two ways in: the Stride Bundle at 50% off everything, the primary (first,
+     in the hero card's copper edge with its 50% ticket, the copper button, the whole card a button), and Stride
+     alone at 30% (plain beside it, as the strip's price is, with its 30% ticket and the quieter button). The bar's
+     own band and clock across the top, the strip's panel under it. Either one goes on to the buy form. */
+  .bfbar.bfbar-go{cursor:pointer;transition:filter .15s}
+  .bfbar.bfbar-go:hover{filter:brightness(1.07)}
+  .bfbar.bfbar-go:focus-visible{outline:2px solid #1d130a;outline-offset:-5px}
+  .bfbar-go-i{font-weight:900;letter-spacing:0;transition:transform .15s}
+  .bfbar.bfbar-go:hover .bfbar-go-i{transform:translateX(3px)}
+  .bfd{position:fixed;inset:0;z-index:1001;display:flex;padding:16px;overflow-y:auto;overscroll-behavior:contain;
+    background:rgba(0,0,0,.8);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+  .bfd[hidden]{display:none}
+  .bfd-panel{position:relative;width:100%;max-width:940px;margin:auto;border:1px solid var(--line);border-radius:20px;
+    background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.16)),var(--panel);
+    box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 40px 90px -30px rgba(0,0,0,.95)}
+  .bfd-band{display:flex;align-items:baseline;justify-content:center;flex-wrap:wrap;gap:2px 14px;padding:12px 56px;
+    border-radius:19px 19px 0 0;background:linear-gradient(90deg,#d9832f,#f7b25c 50%,#d9832f);color:#1d130a;
+    font-size:13px;font-weight:900;letter-spacing:.08em;line-height:1.3;text-transform:uppercase;text-align:center}
+  .bfd-x{position:absolute;top:5px;right:8px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;
+    padding:0;border:0;border-radius:10px;background:none;color:#1d130a;cursor:pointer}
+  .bfd-x:hover{background:rgba(29,19,10,.12)}
+  .bfd-x:focus-visible{outline:2px solid #1d130a;outline-offset:-3px}
+  .bfd-body{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);padding:46px 30px 28px}
+  /* The Stride Bundle, the hero card's own look; the art and the three lines are the hero card's, copied. */
+  .bfd-b{position:relative;container-type:inline-size;display:flex;flex-direction:column;gap:16px;padding:16px 18px 18px 16px;
+    border:2px solid var(--copper-lt);border-radius:16px;cursor:pointer;
+    background:radial-gradient(120% 150% at 0% 100%,rgba(198,113,43,.16),transparent 60%),rgba(0,0,0,.34);
+    box-shadow:0 0 0 1px rgba(198,113,43,.10) inset,0 24px 48px -30px rgba(198,113,43,.6);transition:background .2s}
+  .bfd-b:hover{background:radial-gradient(120% 150% at 0% 100%,rgba(198,113,43,.22),transparent 62%),rgba(0,0,0,.30)}
+  .bfd-b-top{display:grid;grid-template-columns:minmax(0,40fr) minmax(0,60fr);align-items:center;gap:8px 18px}
+  .bfd-b-words{min-width:0}
+  .bfd-tk{pointer-events:none;filter:drop-shadow(0 8px 10px rgba(0,0,0,.45)) drop-shadow(0 2px 2px rgba(0,0,0,.35))}
+  .bfd-tk svg{display:block;width:100%;height:auto;overflow:visible}
+  .bfd-tk[hidden]{display:none}
+  .bfd-b > .bfd-tk{position:absolute;top:-42px;right:-30px;width:96px;transform:rotate(9deg)}
+  /* Stride alone, as the strip's price column: no card of its own. */
+  .bfd-s{display:flex;flex-direction:column;margin-left:28px;padding:4px 0 2px 28px;border-left:1px solid var(--line)}
+  .bfd-sh{margin:0 0 9px;font-size:30px;font-weight:900;letter-spacing:-.01em;line-height:1;color:var(--ink);text-transform:uppercase}
+  .bfd-s .hero-included{font-size:14px}
+  .bfd-s .hero-daws{font-size:12px}
+  .bfd-foot{margin-top:auto;display:flex;flex-direction:column;gap:12px}
+  .bfd-s .bfd-foot{padding-top:18px}
+  /* Row gap: a long price in another currency can send the ticket to a line of its own, clear of the price. */
+  .bfd-price{display:flex;align-items:center;flex-wrap:wrap;gap:10px 12px}
+  .bfd-lbl{flex-basis:100%;margin-bottom:-6px;font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--ink2)}
+  .bfd-now{font-size:38px;font-weight:900;line-height:1;letter-spacing:-.02em;color:var(--ink)}
+  .bfd-was{font-size:22px;font-weight:700;line-height:1;color:var(--ink3);opacity:.75;text-decoration-thickness:2px}
+  .bfd-price .bfd-tk{flex:none;width:80px;margin:-8px 0 -8px 2px;transform:rotate(-5deg)}
+  .bfd-go{width:100%;justify-content:center;text-transform:uppercase;text-align:center}
+  .bfd-go-b{min-height:52px;padding:0 20px;font-size:16px;letter-spacing:.04em}
+  .bfd-go-s{min-height:46px;padding:0 16px;font-size:12px;letter-spacing:.12em;border-radius:12px}
+  .bfd-go:focus-visible{outline:2px solid var(--copper-lt);outline-offset:3px}
+  /* Two columns on a narrower screen: Stride's price a size down, so it keeps its ticket on its line. */
+  @media (min-width:900px) and (max-width:1023.98px){
+    .bfd-s .bfd-now{font-size:32px}
+    .bfd-s .bfd-was{font-size:19px}
+    .bfd-s .bfd-price .bfd-tk{width:66px}
+  }
+  @media (max-width:899.98px){
+    .bfd-panel{max-width:620px}
+    .bfd-body{grid-template-columns:minmax(0,1fr);row-gap:22px;padding:40px 18px 20px}
+    .bfd-s{margin:0;padding:20px 2px 0;border-left:0;border-top:1px solid var(--line)}
+  }
+  /* A phone: the bundle's art on top as in the hero's phone card, and Stride alone in three short rows. */
+  @media (max-width:640px){
+    .bfd{padding:10px}
+    .bfd-band{font-size:10.5px;gap:1px 10px;padding:9px 44px;letter-spacing:.06em}
+    .bfd-band .bfbar-clock{font-size:12.5px}
+    .bfd-x{top:2px;right:4px}
+    .bfd-body{padding:24px 12px 14px;row-gap:18px}
+    .bfd-b{padding:14px 14px 16px;gap:12px}
+    .bfd-b-top{grid-template-columns:minmax(0,1fr);gap:10px}
+    .bfd-b .bcard-art{width:64%}
+    .bfd-b > .bfd-tk{width:70px;top:-14px;right:6px}
+    .bfd-now{font-size:32px}
+    .bfd-was{font-size:19px}
+    .bfd-s{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-areas:"h p" "i i" "g g";align-items:center;
+      column-gap:12px;padding-top:16px}
+    .bfd-s .bfd-foot{display:contents}
+    .bfd-sh{grid-area:h;margin:0;font-size:24px}
+    .bfd-s .bfd-price{grid-area:p;justify-content:flex-end}
+    .bfd-price .bfd-tk{width:66px}
+    .bfd-s .hero-included{grid-area:i;margin:10px 0 12px;font-size:13px}
+    .bfd-s .hero-daws{display:none}
+    .bfd-s .bfd-go{grid-area:g}
   }
 
   /* ── The hero price group ────────────────────────────────────────────────
@@ -5270,12 +5357,9 @@ function openBuy() { toggleBuyModal(); }
     // fresh browser never restarts it. In the page's own language from this small dictionary (JS, so no translated
     // homepage loses its translation). When it reaches zero with the page open, the page reloads and is the ordinary
     // page again: $99, no bar, no popup. The hero keeps the price and the ticket, without a line of its own.
-    function strideBfBar() {
-        var bar = document.getElementById('bfbar');
-        var end = Number(window.STRIDE_BF_END) || 0;
-        if (!bar || !window.STRIDE_BF || !(end > Date.now())) return;
+    function strideBfWords() {
         var lang = String(document.documentElement.lang || 'en').slice(0, 2).toLowerCase();
-        var W = {
+        return {
             en: ['Up to 50% OFF', 'Black November Promotion', 'Ends in', 'd'],
             de: ['Bis zu 50 % Rabatt', 'Black November Aktion', 'Endet in', 'T'],
             es: ['Hasta 50 % de descuento', 'Promoción Black November', 'Termina en', 'd'],
@@ -5284,26 +5368,238 @@ function openBuy() { toggleBuyModal(); }
             ja: ['最大50%オフ', 'ブラックノベンバー・プロモーション', '終了まで', '日'],
             zh: ['最高5折', '黑色十一月促销', '距结束', '天']
         }[lang] || ['Up to 50% OFF', 'Black November Promotion', 'Ends in', 'd'];
+    }
+    function strideBfBar() {
+        var bar = document.getElementById('bfbar');
+        var end = Number(window.STRIDE_BF_END) || 0;
+        if (!bar || !window.STRIDE_BF || !(end > Date.now())) return;
+        var W = strideBfWords();
         var two = function (n) { return (n < 10 ? '0' : '') + n; };
         var el = function (tag, cls, text) { var n = document.createElement(tag); n.className = cls; if (text) n.textContent = text; return n; };
         var ends = el('span', 'bfbar-ends');
         var clock = el('b', 'bfbar-clock');
         ends.appendChild(el('span', 'bfbar-k', W[2]));
         ends.appendChild(clock);
+        // The bar is a button since 2026-11-08: it opens the two deals (strideBfDealOpen). The arrow says so on a
+        // phone, where nothing hovers.
+        var go = el('span', 'bfbar-go-i', '→');
+        go.setAttribute('aria-hidden', 'true');
+        ends.appendChild(go);
         bar.textContent = '';
         bar.appendChild(el('span', 'bfbar-off', W[0]));
         bar.appendChild(el('span', 'bfbar-promo', W[1]));
         bar.appendChild(ends);
         bar.hidden = false;
         document.documentElement.classList.add('has-bfbar');
+        if (!bar.hasAttribute('data-deal')) {
+            bar.setAttribute('data-deal', '');
+            bar.classList.add('bfbar-go');
+            bar.setAttribute('role', 'button');
+            bar.setAttribute('tabindex', '0');
+            bar.setAttribute('aria-haspopup', 'dialog');
+            bar.addEventListener('click', function () { strideBfDealOpen(); });
+            bar.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); strideBfDealOpen(); }
+            });
+        }
         (function tick() {
             var left = end - Date.now();
             if (left <= 0) { try { window.location.reload(); } catch (e) {} return; }
             var s = Math.floor(left / 1000), d = Math.floor(s / 86400);
             clock.textContent = (d ? d + W[3] + ' ' : '') + two(Math.floor(s / 3600) % 24) + ':'
                 + two(Math.floor(s / 60) % 60) + ':' + two(s % 60);
+            // The same clock in the deals' band, while it is open.
+            var dc = document.querySelector('#bfdeal .bfbar-clock');
+            if (dc) dc.textContent = clock.textContent;
             setTimeout(tick, (left % 1000) || 1000);
         })();
+    }
+
+    // Black November's two deals (Yossi 2026-11-08: "if a user presses the strip, a popup opens with both options:
+    // on to the checkout with Stride alone at 30%, or with the whole bundle at 50% on everything; the bundle of
+    // course as the PRIMARY; in the design language we already have in the strip and the hero"; the strip being the
+    // bar across the top, his pick). The Stride Bundle comes first, in the hero card's copper edge with its 50%
+    // ticket and the copper button, the whole card a button; Stride alone sits plain beside it, as the strip's price
+    // does, with its 30% ticket and the quieter button. Either one sets the order the way the hero card's own toggle
+    // does (so the wallet, GA4's add_bump and every price on the page follow) and opens the buy form, the same one
+    // GET STRIDE opens. Built on the first press from the hero's own lines (the card's art, name, contents and
+    // "Bundle total", the strip's two lines under the price), so a translated homepage shows its own words; the
+    // three of its own are in this small dictionary, like the bar's, so no translated page loses its translation.
+    function strideBfDealWords() {
+        var lang = String(document.documentElement.lang || 'en').slice(0, 2).toLowerCase();
+        return {
+            en: ['Get the Stride Bundle', 'Get Stride only', 'Close'],
+            de: ['Stride Bundle kaufen', 'Nur Stride kaufen', 'Schließen'],
+            es: ['Comprar el Stride Bundle', 'Comprar solo Stride', 'Cerrar'],
+            fr: ['Acheter le Stride Bundle', 'Acheter Stride seul', 'Fermer'],
+            it: ['Acquista lo Stride Bundle', 'Acquista solo Stride', 'Chiudi'],
+            ja: ['Stride Bundle を購入', 'Stride のみ購入', '閉じる'],
+            zh: ['购买 Stride Bundle', '仅购买 Stride', '关闭']
+        }[lang] || ['Get the Stride Bundle', 'Get Stride only', 'Close'];
+    }
+    // The bundle is there to offer: Paddle sells it to this visitor at a price it quoted (strideAddonAvailable).
+    function strideBfDealOffered() {
+        try { return strideBumpArm() === 'bundle' && strideAddonAvailable(); } catch (e) { return false; }
+    }
+    function strideBfDealBuild() {
+        var box = document.getElementById('bfdeal');
+        if (box) return box;
+        if (!document.getElementById('addon-bundle')) return null;
+        var W = strideBfWords(), D = strideBfDealWords();
+        var el = function (tag, cls, text) { var n = document.createElement(tag); n.className = cls; if (text) n.textContent = text; return n; };
+        var copy = function (sel) { var n = document.querySelector(sel); return n ? n.cloneNode(true) : null; };
+        var arrow = function (btn) { var a = el('span', '', '→'); a.setAttribute('aria-hidden', 'true'); btn.appendChild(a); };
+        box = el('div', 'bfd');
+        box.id = 'bfdeal';
+        box.hidden = true;
+        box.setAttribute('data-no-translate', '');
+        var panel = el('div', 'bfd-panel');
+        panel.setAttribute('role', 'dialog');
+        panel.setAttribute('aria-modal', 'true');
+        panel.setAttribute('aria-labelledby', 'bfd-title');
+        // The bar's own band and clock.
+        var band = el('div', 'bfd-band');
+        band.appendChild(el('span', 'bfbar-off', W[0]));
+        var promo = el('span', 'bfbar-promo', W[1]);
+        promo.id = 'bfd-title';
+        band.appendChild(promo);
+        var ends = el('span', 'bfbar-ends');
+        ends.appendChild(el('span', 'bfbar-k', W[2]));
+        var barClock = document.querySelector('#bfbar .bfbar-clock');
+        ends.appendChild(el('b', 'bfbar-clock', barClock ? barClock.textContent : ''));
+        band.appendChild(ends);
+        panel.appendChild(band);
+        var x = el('button', 'bfd-x');
+        x.type = 'button';
+        x.setAttribute('aria-label', D[2]);
+        x.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" '
+            + 'stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+        x.addEventListener('click', function () { strideBfDealClose(); });
+        panel.appendChild(x);
+        var body = el('div', 'bfd-body');
+        // The Stride Bundle: the hero card's art and lines, its total, the copper button, the 50% ticket.
+        var b = el('div', 'bfd-b');
+        var top = el('div', 'bfd-b-top');
+        var art = copy('#addon-bundle .bcard-art');
+        if (art) top.appendChild(art);
+        var words = el('div', 'bfd-b-words');
+        ['.bcard-h', '.bcard-sub', '.bcard-facts'].forEach(function (s) {
+            var n = copy('#addon-bundle ' + s);
+            if (n) words.appendChild(n);
+        });
+        top.appendChild(words);
+        b.appendChild(top);
+        var bFoot = el('div', 'bfd-foot');
+        var bPrice = el('div', 'bfd-price');
+        var lbl = document.querySelector('#addon-bundle .bcard-total .bump-off');
+        if (lbl && lbl.textContent.trim()) bPrice.appendChild(el('span', 'bfd-lbl', lbl.textContent.trim()));
+        bPrice.appendChild(el('b', 'bfd-now'));
+        bPrice.appendChild(el('s', 'bfd-was'));
+        bFoot.appendChild(bPrice);
+        var goB = el('button', 'btn-copper bfd-go bfd-go-b', D[0] + ' ');
+        goB.type = 'button';
+        arrow(goB);
+        bFoot.appendChild(goB);
+        b.appendChild(bFoot);
+        var bTk = el('span', 'bfd-tk');
+        bTk.setAttribute('aria-hidden', 'true');
+        b.appendChild(bTk);
+        // The whole card takes the bundle, as the hero's does; the button stays the keyboard's way in.
+        b.addEventListener('click', function () { strideBfDealGo(true); });
+        body.appendChild(b);
+        // Stride alone: the strip's two lines under its price, Stride's price with the 30% ticket, the quiet button.
+        var s = el('div', 'bfd-s');
+        s.appendChild(el('p', 'bfd-sh', 'Stride'));
+        ['.hero-buy-price .hero-included', '.hero-buy-price .hero-daws'].forEach(function (sel) {
+            var n = copy(sel);
+            if (n) s.appendChild(n);
+        });
+        var sFoot = el('div', 'bfd-foot');
+        var sPrice = el('div', 'bfd-price');
+        sPrice.appendChild(el('b', 'bfd-now'));
+        sPrice.appendChild(el('s', 'bfd-was'));
+        var sTk = el('span', 'bfd-tk');
+        sTk.setAttribute('aria-hidden', 'true');
+        sTk.hidden = true;
+        sPrice.appendChild(sTk);
+        sFoot.appendChild(sPrice);
+        var goS = el('button', 'btn-ghost bfd-go bfd-go-s', D[1] + ' ');
+        goS.type = 'button';
+        arrow(goS);
+        goS.addEventListener('click', function () { strideBfDealGo(false); });
+        sFoot.appendChild(goS);
+        s.appendChild(sFoot);
+        body.appendChild(s);
+        panel.appendChild(body);
+        box.appendChild(panel);
+        // Shut by the cross, a press outside the panel, or Escape.
+        box.addEventListener('click', function (e) { if (e.target === box) strideBfDealClose(); });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && !box.hidden) strideBfDealClose();
+        });
+        document.body.appendChild(box);
+        return box;
+    }
+    // The two prices, each the way the hero states it: the bundle's total with all three struck at their own prices,
+    // Stride's own price with its ordinary one struck, both Paddle's figures for this visitor once it has answered
+    // (strideSyncAddon calls this again then). The 30% ticket only while the page's code is Black Friday's own.
+    function strideBfDealFill() {
+        var box = document.getElementById('bfdeal');
+        if (!box) return;
+        var set = function (sel, text) {
+            var n = box.querySelector(sel);
+            if (n) { n.textContent = text; n.style.display = text ? '' : 'none'; }
+        };
+        var bundle = strideBundle || strideBundleDollars();
+        set('.bfd-b .bfd-now', strideMoneyExact(bundle.charged));
+        set('.bfd-b .bfd-was', bundle.list - bundle.charged >= 0.5 ? strideMoneyExact(bundle.list) : '');
+        var now = strideStridePrice();
+        var list = strideList ? strideList.stride : STRIDE_PRICE;
+        set('.bfd-s .bfd-now', strideMoneyExact(now));
+        set('.bfd-s .bfd-was', list - now >= 0.5 ? strideMoneyExact(list) : '');
+        var bTk = box.querySelector('.bfd-b > .bfd-tk');
+        if (bTk && !bTk.firstChild) bTk.innerHTML = strideTicketSvg('50%');
+        var bf = (!!strideBfDid && strideCodeId === strideBfDid)
+            || (!!window.STRIDE_BF && strideCodeId === STRIDE_CODES[window.STRIDE_BF]);
+        var sTk = box.querySelector('.bfd-s .bfd-tk');
+        if (sTk) {
+            if (bf && !sTk.firstChild) sTk.innerHTML = strideTicketSvg('30%');
+            sTk.hidden = !(bf && list - now >= 0.5);
+        }
+    }
+    let strideBfDealFrom = null;
+    function strideBfDealOpen() {
+        // No bundle for this visitor (Paddle could not price it): the bar's deal is Stride's 30%, the buy form at once.
+        if (!strideBfDealOffered()) { strideBfDealBuy(); return; }
+        var box = strideBfDealBuild();
+        if (!box) { strideBfDealBuy(); return; }
+        strideBfDealFill();
+        strideBfDealFrom = document.activeElement;
+        box.hidden = false;
+        document.body.style.overflow = 'hidden';
+        try { box.querySelector('.bfd-go-b').focus({ preventScroll: true }); } catch (e) {}
+        try { if (window.strideClarity) window.strideClarity('bfdeal_open'); } catch (e) {}
+    }
+    // going: a deal was picked and the buy form opens next, which keeps the page still and takes the focus.
+    function strideBfDealClose(going) {
+        var box = document.getElementById('bfdeal');
+        if (!box || box.hidden) return;
+        box.hidden = true;
+        if (going) return;
+        document.body.style.overflow = '';
+        try { if (strideBfDealFrom && strideBfDealFrom.focus) strideBfDealFrom.focus({ preventScroll: true }); } catch (e) {}
+    }
+    function strideBfDealGo(bundle) {
+        try { if (window.strideClarity) window.strideClarity(bundle ? 'bfdeal_bundle' : 'bfdeal_stride'); } catch (e) {}
+        // The hero card's own toggle, so the order, the wallet and every price on the page say the same.
+        try { if (strideBfDealOffered() && !!bundle !== !!strideAddonOn) strideToggleAddon(); } catch (e) {}
+        strideBfDealClose(true);
+        strideBfDealBuy();
+    }
+    function strideBfDealBuy() {
+        var modal = document.getElementById('buy-modal');
+        if (modal && modal.classList.contains('hidden')) openBuy();
+        else if (!modal) document.body.style.overflow = '';
     }
 
     let strideAddonOn = false;
@@ -5804,6 +6100,8 @@ function openBuy() { toggleBuyModal(); }
             el.innerHTML = el.dataset.baseHtml.replace(was, strideOnly);
         });
         strideHoldBundleRoom();
+        // Black November's two deals, once built, follow the prices too.
+        try { strideBfDealFill(); } catch (e) {}
     }
 
     // The strip keeps its shape when the Stride Bundle goes in or out (Yossi 2026-11-07: "after clicking it, its
