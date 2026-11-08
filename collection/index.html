@@ -875,6 +875,41 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .mk-all{font:inherit;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--copper-lt);background:none;border:0;cursor:pointer;padding:6px 0}
   .mk-note{margin-top:12px;font-size:13px;color:var(--ink3)}
   .mk-aside{margin-top:14px;font-size:14px;color:var(--ink3)}
+  /* The packs under the hero (2026-11-08): all five in, each with its way out, and the price in the hero. A part taken
+     out greys like a /post2 card taken out. Five in a row on a laptop, two on a tablet (the fifth centred), one on a phone. */
+  .mk-hero{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:44px;padding-top:24px}
+  .mk-hero h1{font-size:2.75rem}
+  .mk-lead{max-width:37rem}
+  .mk-hero .mk-own{margin-top:14px;max-width:37rem}
+  .mk-hbuy{display:flex;flex-wrap:wrap;align-items:center;gap:16px 24px;margin-top:24px}
+  .mk-hsum{display:flex;align-items:baseline;gap:12px}
+  .mk-hsum .mk-price{font-size:2.7rem}
+  .mk-hsum s{font-size:1.2rem}
+  .mk-top{margin-top:40px}
+  .mk-pkhint{margin-bottom:18px;font-size:15.5px;line-height:1.6;color:var(--ink2)}
+  .mk-pk:not(.on) .mk-disc{filter:grayscale(.85);opacity:.55}
+  .mk-pk:not(.on) .mk-pkb > *{opacity:.6}
+  .mk-pk.on .mk-add{background:var(--raise);border-color:var(--line);color:var(--ink2)}
+  .mk-pk.on .mk-add:hover{color:var(--ink);border-color:rgba(216,201,176,.28)}
+  @media (min-width:1100px){
+    .mk-pks{grid-template-columns:repeat(5,minmax(0,1fr));gap:34px 14px}
+    .mk-top .mk-total{position:relative;bottom:auto}
+  }
+  @media (min-width:640px) and (max-width:1099px){
+    .mk-pks{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .mk-pks .mk-pk:last-child:nth-child(odd){grid-column:1 / -1;justify-self:center;width:calc(50% - 8px)}
+  }
+  /* On a phone the bar rides along under the cards, so it stays two short rows: what and its price, then the
+     button. The counts and the synths line are in the hero and on every card. */
+  @media (max-width:639px){
+    .mk-top .mk-total{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px 12px;padding:12px 14px}
+    .mk-top .mk-total .what small{display:none}
+    .mk-top .mk-total .right{display:contents}
+    .mk-top .mk-total .sum{justify-self:end}
+    .mk-top .mk-total .sum .mk-price{font-size:1.5rem}
+    .mk-top .mk-total .sum s{font-size:1rem}
+    .mk-top .mk-total .mk-btn{grid-column:1 / -1;width:100%;padding:13px 16px}
+  }
 
   /* Every StrideChain */
   .mk-tabs{display:flex;flex-wrap:wrap;gap:4px 22px;margin:2px 0 8px}
@@ -950,7 +985,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .mk-end p{font-size:1.25rem}
   }
 </style>
-<link rel="stylesheet" href="/_legacy/css/collection-index.40144da53d.css">
+<link rel="stylesheet" href="/_legacy/css/collection-index.a69bee789a.css">
 <meta property="og:image" content="https://stridehub.io/media/stride/og/stride-share-1200x630.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -1461,10 +1496,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <span class="mk-kick">The Stride Collection</span>
         <h1>Synth presets with the motion <span class="brand">already built in.</span></h1>
         <p class="mk-lead">120 StrideChains for Serum 2, Vital, Diva and Tendril, each one mapped for Stride: lanes set, ranges chosen, the core knobs locked and five states to start from. 66 of them play Stride original wavetables. Plus 250+ experimental sounds and 15 Ableton racks. Load a chain, press play and reroll it until it sounds like yours.</p>
-        <div class="mk-ctas">
-          <a class="mk-btn" href="#whole">Get the whole Collection</a>
-          <a class="mk-ghost" href="#picks">Pick your synths</a>
+        <!-- The price in the hero (Yossi 2026-11-08: "there's nothing about price in the hero", "a clear CTA of the price
+             after the discount"): what the cards below come to, the same parts bought one by one struck beside it,
+             and the button. It follows every Remove and Re-add. -->
+        <div class="mk-hbuy">
+          <div class="mk-hsum"><span class="mk-price" data-h-now>$69</span><s class="was" data-h-was>$100.99</s></div>
+          <button class="mk-btn" type="button" data-buy="hero">Get the whole Collection</button>
         </div>
+        <p class="mk-note" data-note="hero" aria-live="polite" hidden></p>
         <p class="mk-own"><b>Synths not included</b>Each pack needs your own copy of its synth: Serum 2, Vital, Diva or Tendril. The chains open in Stride, and the racks need Ableton Live.</p>
       </div>
       <div>
@@ -1475,6 +1514,25 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <button type="button" class="mk-scplay" data-showcase-play aria-label="Watch the Stride Collection showcase" hidden><span><svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="#1c1206"/></svg></span></button>
         </figure>
       </div>
+    </div>
+
+    <!-- ===================== THE PACKS, RIGHT UNDER THE HERO ===================== -->
+    <!-- 2026-11-08, Yossi: "this whole part needs to be much higher on the screen ... the hero or right after it",
+         "without the title ONLY SOME OF THE SYNTHS", "this is what there is, this is what it costs as a bundle,
+         there's an option to REMOVE certain things, by default everything is selected". The line above the cards is
+         /post2's own ("It is all in your cart already"). -->
+    <div class="mk-top" id="picks">
+      <p class="mk-pkhint">It is all in your cart already: remove what you don't need.</p>
+      <div class="mk-pks" data-picks><div class="mk-pk on" data-pick="serum"><span class="mk-disc" style="--a:#2f8fb0;--b:#0c171d" aria-hidden="true"><img class="wide" src="/media/synths/serum-2.webp" alt="" width="210" height="32" loading="lazy" decoding="async"></span><button type="button" class="mk-pplay" data-hear data-key="serum" data-name="Serum 2" style="--a:#2f8fb0" aria-label="Play the Serum 2 sounds" title="Hear the Serum 2 pack"><i aria-hidden="true"></i></button><audio data-hear-audio preload="none" src="/assets/packs/reel-serum.mp3"></audio><div class="mk-panel mk-pkb"><p class="mk-cat">38 Stride wavetables</p><h3 class="mk-nm">Serum 2</h3><p class="mk-pr"><b data-p>$19</b> &middot; 40 StrideChains &middot; 200 states</p><p class="mk-eng">26 chains play Stride original wavetables, built in: reeses, mouths, glass, strings and the Collection&#x27;s own samples through Serum 2&#x27;s filters, warps and FX. 14 run on Serum 2&#x27;s own granular and spectral engines.</p><div class="mk-strip"><p><span class="own">Synth not included.</span> You need your own Serum 2 (built on 2.0.23).</p><p class="mk-bonus">+ Pluck Foundry, a bigger 19-lane system</p><p class="mk-bonus">+ all 111 Stride wavetables, for your own patches</p></div></div><div class="mk-pka"><button type="button" class="mk-add" aria-label="Remove Serum 2 from your cart">Remove</button><a class="mk-see" href="#shelf" data-shelf-synth="serum">See the chains</a></div></div><div class="mk-pk on" data-pick="vital"><span class="mk-disc" style="--a:#7b5cd6;--b:#130f21" aria-hidden="true"><img src="/media/synths/vital.webp" alt="" width="77" height="80" loading="lazy" decoding="async"></span><button type="button" class="mk-pplay" data-hear data-key="vital" data-name="Vital" style="--a:#7b5cd6" aria-label="Play the Vital sounds" title="Hear the Vital pack"><i aria-hidden="true"></i></button><audio data-hear-audio preload="none" src="/assets/packs/reel-vital.mp3"></audio><div class="mk-panel mk-pkb"><p class="mk-cat">53 Stride wavetables</p><h3 class="mk-nm">Vital</h3><p class="mk-pr"><b data-p>$19</b> &middot; 40 StrideChains &middot; 200 states</p><p class="mk-eng">Every chain plays Stride original wavetables, built in, through Vital&#x27;s spectral and wave morphs.</p><div class="mk-strip"><p><span class="own">Synth not included.</span> You need your own Vital (built on 1.6.4).</p><p class="mk-bonus">+ Spectral Tides, a bigger 19-lane system</p><p class="mk-bonus">+ all 111 Stride wavetables, for your own patches</p></div></div><div class="mk-pka"><button type="button" class="mk-add" aria-label="Remove Vital from your cart">Remove</button><a class="mk-see" href="#shelf" data-shelf-synth="vital">See the chains</a></div></div><div class="mk-pk on" data-pick="diva"><span class="mk-disc" style="--a:#a4763f;--b:#15110d" aria-hidden="true"><img src="/media/synths/diva.webp" alt="" width="143" height="48" loading="lazy" decoding="async"></span><button type="button" class="mk-pplay" data-hear data-key="diva" data-name="Diva" style="--a:#a4763f" aria-label="Play the Diva sounds" title="Hear the Diva pack"><i aria-hidden="true"></i></button><audio data-hear-audio preload="none" src="/assets/packs/reel-diva.mp3"></audio><div class="mk-panel mk-pkb"><p class="mk-cat">Analog modelling</p><h3 class="mk-nm">Diva</h3><p class="mk-pr"><b data-p>$19</b> &middot; 20 StrideChains &middot; 100 states</p><p class="mk-eng">Triple VCO, DCO and Digital oscillators into the Ladder, Cascade, BITE and Uhbie filters.</p><div class="mk-strip"><p><span class="own">Synth not included.</span> You need your own Diva (built on 1.4.5).</p><p class="mk-bonus">+ Deep Current, a bigger 15-lane system</p></div></div><div class="mk-pka"><button type="button" class="mk-add" aria-label="Remove Diva from your cart">Remove</button><a class="mk-see" href="#shelf" data-shelf-synth="diva">See the chains</a></div></div><div class="mk-pk on" data-pick="tendril"><span class="mk-disc" style="--a:#c6712b;--b:#1a0f07" aria-hidden="true"><span class="w tdr">TENDRIL</span></span><button type="button" class="mk-pplay" data-hear data-key="tendril" data-name="Tendril" style="--a:#c6712b" aria-label="Play the Tendril sounds" title="Hear the Tendril pack"><i aria-hidden="true"></i></button><audio data-hear-audio preload="none" src="/assets/packs/reel-tendril.mp3"></audio><div class="mk-panel mk-pkb"><p class="mk-cat">Three engines</p><h3 class="mk-nm">Tendril</h3><p class="mk-pr"><b data-p>$19</b> &middot; 20 StrideChains &middot; 100 states</p><p class="mk-eng">Ten play like a synth, all three engines on every key; ten run Tendril&#x27;s sequencer under Stride&#x27;s clock.</p><div class="mk-strip"><p><span class="own">Synth not included.</span> You need your own Tendril (for Stride owners).</p><p class="mk-bonus">+ Pulse Organism, a bigger 23-lane system</p></div></div><div class="mk-pka"><button type="button" class="mk-add" aria-label="Remove Tendril from your cart">Remove</button><a class="mk-see" href="#shelf" data-shelf-synth="tendril">See the chains</a></div></div><div class="mk-pk on" data-pick="coll"><span class="mk-disc art" aria-hidden="true"><img src="/media/synths/sounds-racks.webp" alt="" width="320" height="320" loading="lazy" decoding="async"></span><button type="button" class="mk-pplay" data-hear data-name="Experimental Collection" style="--a:#d9822b" aria-label="Play the Experimental Collection sounds" title="Hear the sounds"><i aria-hidden="true"></i></button><audio data-hear-audio preload="none" src="/assets/packs/collection-teaser.mp3"></audio><div class="mk-panel mk-pkb"><p class="mk-cat">The Experimental Collection</p><h3 class="mk-nm">Sounds &amp; Racks</h3><p class="mk-pr"><b data-p>$24.99<small>with any pack, $35 alone</small></b></p><p class="mk-eng">250+ sounds from broken drums, one falling water drop and a simple signal pushed into endless feedback, and 15 Ableton Racks that move with Stride FX.</p><div class="mk-strip"><p><span class="own">The racks need Ableton Live.</span></p></div></div><div class="mk-pka"><button type="button" class="mk-add" aria-label="Remove Sounds &amp; Racks from your cart">Remove</button><a class="mk-see" href="/samples.html">See the sounds</a></div></div></div>
+      <div class="mk-total" data-total>
+        <div class="what"><span data-t-what>The whole Collection</span><small data-t-sub></small><small class="own">Synths not included</small></div>
+        <div class="right">
+          <div class="sum"><s class="was" data-t-was hidden></s><span class="mk-price" data-t-now></span></div>
+          <button class="mk-btn" type="button" data-buy="bar">Get the whole Collection</button>
+        </div>
+      </div>
+      <p class="mk-note" data-note="bar" aria-live="polite" hidden></p>
+      <p class="mk-aside">The sounds and racks have their own page: <a href="/samples.html">hear them there &rarr;</a></p>
     </div>
 
     <!-- The count: plain numbers, no sums; what Stride adds stays in words. -->
@@ -1541,49 +1599,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
   </section>
 
-  <!-- ===================== THE WHOLE COLLECTION ===================== -->
-  <section class="mk-c mk-sec" id="whole">
-    <div class="mk-h">
-      <div>
-        <span class="mk-kick">The whole Collection</span>
-        <h2>Everything, for one price.</h2>
-        <p class="ink2">Every StrideChains pack and the Experimental Collection's sounds and racks, in one checkout.</p>
-      </div>
-    </div>
-    <div class="mk-panel mk-whole">
-      <ul class="mk-inside"><li><b><span class="mk-disc mini" style="--a:#2f8fb0;--b:#0c171d" aria-hidden="true"><span class="w">S2</span></span>StrideChains: Serum 2</b><span>40 StrideChains / 200 states</span></li><li><b><span class="mk-disc mini" style="--a:#7b5cd6;--b:#130f21" aria-hidden="true"><img src="/media/synths/vital.webp" alt="" width="77" height="80" loading="lazy" decoding="async"></span>StrideChains: Vital</b><span>40 StrideChains / 200 states</span></li><li><b><span class="mk-disc mini" style="--a:#a4763f;--b:#15110d" aria-hidden="true"><img src="/media/synths/diva.webp" alt="" width="143" height="48" loading="lazy" decoding="async"></span>StrideChains: Diva</b><span>20 StrideChains / 100 states</span></li><li><b><span class="mk-disc mini" style="--a:#c6712b;--b:#1a0f07" aria-hidden="true"><span class="w">T</span></span>StrideChains: Tendril</b><span>20 StrideChains / 100 states</span></li><li><b><span class="mk-disc mini" style="--a:#5a6fc4;--b:#0f1420" aria-hidden="true"><span class="w">WT</span></span>Stride Wavetables</b><span>111 wavetables / in the Serum 2 and Vital packs</span></li><li><b><span class="mk-disc art mini" aria-hidden="true"><img src="/media/synths/sounds-racks.webp" alt="" width="320" height="320" loading="lazy" decoding="async"></span>Experimental Sounds &amp; Racks</b><span>250+ sounds / 15 Ableton Racks</span></li></ul>
-      <div class="mk-buyw">
-        <span class="mk-price" data-w-now>$69</span>
-        <p class="mk-wwas" data-w-was><s class="was" data-w-parts>$83.99</s>bought as parts</p>
-        <button class="mk-btn" type="button" data-buy-whole>Get the whole Collection</button>
-        <p class="mk-own"><b>Synths not included</b>Each pack needs your own copy of its synth. The chains open in Stride, and the racks need Ableton Live.</p>
-        <p class="mk-note" data-wnote aria-live="polite" hidden></p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== PICK YOUR SYNTHS ===================== -->
-  <section class="mk-c mk-sec" id="picks">
-    <div class="mk-h">
-      <div>
-        <span class="mk-kick">Or pick the parts</span>
-        <h2>Only some of the synths? Take just those packs.</h2>
-        <p class="ink2">Each pack plays the synth it was built on. Pick the ones you have. If your picks come to more than the whole Collection, you get the whole Collection for less.</p>
-      </div>
-      <button class="mk-all" type="button" data-all>Take all of it</button>
-    </div>
-    <div class="mk-pks" data-picks><div class="mk-pk" data-pick="serum"><span class="mk-disc" style="--a:#2f8fb0;--b:#0c171d" aria-hidden="true"><img class="wide" src="/media/synths/serum-2.webp" alt="" width="210" height="32" loading="lazy" decoding="async"></span><button type="button" class="mk-pplay" data-hear data-key="serum" data-name="Serum 2" style="--a:#2f8fb0" aria-label="Play the Serum 2 sounds" title="Hear the Serum 2 pack"><i aria-hidden="true"></i></button><audio data-hear-audio preload="none" src="/assets/packs/reel-serum.mp3"></audio><div class="mk-panel mk-pkb"><p class="mk-cat">38 Stride wavetables</p><h3 class="mk-nm">Serum 2</h3><p class="mk-pr"><b data-p>$19</b> &middot; 40 StrideChains &middot; 200 states</p><p class="mk-eng">26 chains play Stride original wavetables, built in: reeses, mouths, glass, strings and the Collection&#x27;s own samples through Serum 2&#x27;s filters, warps and FX. 14 run on Serum 2&#x27;s own granular and spectral engines.</p><div class="mk-strip"><p><span class="own">Synth not included.</span> You need your own Serum 2 (built on 2.0.23).</p><p class="mk-bonus">+ Pluck Foundry, a bigger 19-lane system</p><p class="mk-bonus">+ all 111 Stride wavetables, for your own patches</p></div></div><div class="mk-pka"><button type="button" class="mk-add" aria-pressed="false">Add to cart</button><a class="mk-see" href="#shelf" data-shelf-synth="serum">See the chains</a></div></div><div class="mk-pk" data-pick="vital"><span class="mk-disc" style="--a:#7b5cd6;--b:#130f21" aria-hidden="true"><img src="/media/synths/vital.webp" alt="" width="77" height="80" loading="lazy" decoding="async"></span><button type="button" class="mk-pplay" data-hear data-key="vital" data-name="Vital" style="--a:#7b5cd6" aria-label="Play the Vital sounds" title="Hear the Vital pack"><i aria-hidden="true"></i></button><audio data-hear-audio preload="none" src="/assets/packs/reel-vital.mp3"></audio><div class="mk-panel mk-pkb"><p class="mk-cat">53 Stride wavetables</p><h3 class="mk-nm">Vital</h3><p class="mk-pr"><b data-p>$19</b> &middot; 40 StrideChains &middot; 200 states</p><p class="mk-eng">Every chain plays Stride original wavetables, built in, through Vital&#x27;s spectral and wave morphs.</p><div class="mk-strip"><p><span class="own">Synth not included.</span> You need your own Vital (built on 1.6.4).</p><p class="mk-bonus">+ Spectral Tides, a bigger 19-lane system</p><p class="mk-bonus">+ all 111 Stride wavetables, for your own patches</p></div></div><div class="mk-pka"><button type="button" class="mk-add" aria-pressed="false">Add to cart</button><a class="mk-see" href="#shelf" data-shelf-synth="vital">See the chains</a></div></div><div class="mk-pk" data-pick="diva"><span class="mk-disc" style="--a:#a4763f;--b:#15110d" aria-hidden="true"><img src="/media/synths/diva.webp" alt="" width="143" height="48" loading="lazy" decoding="async"></span><button type="button" class="mk-pplay" data-hear data-key="diva" data-name="Diva" style="--a:#a4763f" aria-label="Play the Diva sounds" title="Hear the Diva pack"><i aria-hidden="true"></i></button><audio data-hear-audio preload="none" src="/assets/packs/reel-diva.mp3"></audio><div class="mk-panel mk-pkb"><p class="mk-cat">Analog modelling</p><h3 class="mk-nm">Diva</h3><p class="mk-pr"><b data-p>$19</b> &middot; 20 StrideChains &middot; 100 states</p><p class="mk-eng">Triple VCO, DCO and Digital oscillators into the Ladder, Cascade, BITE and Uhbie filters.</p><div class="mk-strip"><p><span class="own">Synth not included.</span> You need your own Diva (built on 1.4.5).</p><p class="mk-bonus">+ Deep Current, a bigger 15-lane system</p></div></div><div class="mk-pka"><button type="button" class="mk-add" aria-pressed="false">Add to cart</button><a class="mk-see" href="#shelf" data-shelf-synth="diva">See the chains</a></div></div><div class="mk-pk" data-pick="tendril"><span class="mk-disc" style="--a:#c6712b;--b:#1a0f07" aria-hidden="true"><span class="w tdr">TENDRIL</span></span><button type="button" class="mk-pplay" data-hear data-key="tendril" data-name="Tendril" style="--a:#c6712b" aria-label="Play the Tendril sounds" title="Hear the Tendril pack"><i aria-hidden="true"></i></button><audio data-hear-audio preload="none" src="/assets/packs/reel-tendril.mp3"></audio><div class="mk-panel mk-pkb"><p class="mk-cat">Three engines</p><h3 class="mk-nm">Tendril</h3><p class="mk-pr"><b data-p>$19</b> &middot; 20 StrideChains &middot; 100 states</p><p class="mk-eng">Ten play like a synth, all three engines on every key; ten run Tendril&#x27;s sequencer under Stride&#x27;s clock.</p><div class="mk-strip"><p><span class="own">Synth not included.</span> You need your own Tendril (for Stride owners).</p><p class="mk-bonus">+ Pulse Organism, a bigger 23-lane system</p></div></div><div class="mk-pka"><button type="button" class="mk-add" aria-pressed="false">Add to cart</button><a class="mk-see" href="#shelf" data-shelf-synth="tendril">See the chains</a></div></div><div class="mk-pk wide" data-pick="coll"><div class="mk-panel mk-wide"><span class="mk-disc art sm" aria-hidden="true"><img src="/media/synths/sounds-racks.webp" alt="" width="320" height="320" loading="lazy" decoding="async"></span><div class="mk-wtxt"><p class="mk-cat">The Experimental Collection</p><h3 class="mk-nm">Sounds &amp; Racks</h3><p class="mk-eng">250+ sounds from broken drums, one falling water drop and a simple signal pushed into endless feedback, and 15 Ableton Racks that move with Stride FX.</p><p class="mk-needs">The racks need Ableton Live.</p></div><div class="mk-wr"><p class="mk-pr"><b data-p>$24.99<small>with any pack, $35 alone</small></b></p><div class="mk-pka"><button type="button" class="mk-add" aria-pressed="false">Add to cart</button><button type="button" class="mk-hear" data-hear aria-label="Hear the sounds">&#9654;<span>Hear the sounds</span></button></div></div><audio data-hear-audio preload="none" src="/assets/packs/collection-teaser.mp3"></audio></div></div></div>
-    <div class="mk-total" data-total>
-      <div class="what"><span data-t-what>All four packs</span><small data-t-sub></small><small class="own">Synths not included</small></div>
-      <div class="right">
-        <div class="sum"><s class="was" data-t-was hidden></s><span class="mk-price" data-t-now></span></div>
-        <button class="mk-btn" type="button" data-buy>Get them</button>
-      </div>
-    </div>
-    <p class="mk-note" data-buy-note aria-live="polite" hidden></p>
-    <p class="mk-aside">The sounds and racks have their own page: <a href="/samples.html">hear them there &rarr;</a></p>
-  </section>
-
   <!-- ===================== EVERY STRIDECHAIN ===================== -->
   <section class="mk-c mk-sec" id="shelf">
     <div class="mk-h">
@@ -1634,8 +1649,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <section class="mk-c">
     <div class="mk-end">
       <p>Every chain is a place to start. <span class="brand">Where it goes is yours.</span></p>
-      <a class="mk-btn" href="#whole">Get the whole Collection</a>
+      <button class="mk-btn" type="button" data-buy="end">Get the whole Collection</button>
     </div>
+    <p class="mk-note" data-note="end" aria-live="polite" hidden></p>
   </section>
 </main>
 
@@ -1661,8 +1677,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 // ── The Stride Collection ────────────────────────────────────────────────────
 // The whole Collection, the packs, the sounds and racks, and the checkout. Prices are Paddle's: each
 // catalog price is quoted for this visitor (PricePreview), and the USD figures here only show until it
-// answers, as samples.html does with its $35. Nothing starts picked: the whole Collection above is the
-// one-price default. Picks are charged the cheapest way Paddle sells them: the packs one by one, All four
+// answers, as samples.html does with its $35. Everything starts picked (Yossi 2026-11-08: "by default
+// everything is selected"), and a part taken out reads "+ Re-add". Picks are charged the cheapest way Paddle sells them: the packs one by one, All four
 // (one price, never the sum) or the whole Collection, whichever costs least, and the total says so. The
 // sounds and racks beside any pack are their "with something" price ($24.99), alone their own ($35).
 (function () {
@@ -1679,7 +1695,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   function qa(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
   var ready = PACKS.filter(function (p) { return p.ready; });
   var picked = {};
-  var coll = false;
+  ready.forEach(function (p) { picked[p.key] = true; });   // everything starts in (2026-11-08)
+  var coll = true;
   // Local prices once Paddle answers: { id: { minor } }.
   var local = {}, currency = 'USD', digits = 2;
 
@@ -1720,8 +1737,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       var k = tile.getAttribute('data-pick');
       var on = k === 'coll' ? coll : !!picked[k];
       tile.classList.toggle('on', on);
-      var b = q('.mk-add', tile);
-      if (b) { b.textContent = on ? '\u2713 In your cart' : 'Add to cart'; b.setAttribute('aria-pressed', on ? 'true' : 'false'); }
+      // In: Remove. Out: + Re-add (/post2's words for a card taken out, Yossi 2026-11-05).
+      var b = q('.mk-add', tile), nm = q('.mk-nm', tile);
+      if (b) {
+        b.textContent = on ? 'Remove' : '+ Re-add';
+        b.setAttribute('aria-label', (on ? 'Remove ' : 'Re-add ') + (nm ? nm.textContent : '') + (on ? ' from your cart' : ' to your cart'));
+      }
       var pp = q('[data-p]', tile);
       if (pp && k !== 'coll') {
         var p = PACKS.filter(function (x) { return x.key === k; })[0];
@@ -1736,7 +1757,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     if (!t.any) { what = 'Pick a pack'; sub = 'Nothing picked yet'; }
     else if (t.mode === 'whole') {
       what = 'The whole Collection';
-      sub = (t.n === PACKS.length && coll) ? TOTAL_CHAINS + ' StrideChains / 250+ sounds / 15 Ableton racks'
+      sub = (t.n === PACKS.length && coll) ? TOTAL_CHAINS + ' StrideChains / 111 Stride wavetables / 250+ sounds / 15 Ableton racks'
                                            : 'Less than your picks, so all of it is yours';
     } else if (t.mode === 'all') {
       what = 'All four packs' + (coll ? ' + Sounds & Racks' : '');
@@ -1753,11 +1774,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     was.hidden = !(t.any && t.sum > t.now + 0.004);
     was.textContent = was.hidden ? '' : fmt(t.sum);
     q('[data-t-now]').textContent = t.any ? fmt(t.now) : '';
-    q('[data-buy]').disabled = !t.any;
-    // The whole Collection's own price, and what the same things cost bought as parts.
-    var parts = allPrice() + collPrice(true), wn = q('[data-w-now]'), ww = q('[data-w-was]');
-    if (wn) wn.textContent = fmt(wholePrice());
-    if (ww) { ww.hidden = !(parts > wholePrice() + 0.004); q('[data-w-parts]').textContent = fmt(parts); }
+    // Every buy button (the hero's, the bar's, the end's) sells what the cards hold, and says so.
+    qa('[data-buy]').forEach(function (btn) {
+      btn.disabled = !t.any;
+      btn.textContent = t.mode === 'whole' ? 'Get the whole Collection' : 'Get them';
+    });
+    // The hero's price: the same total, the parts struck beside it.
+    var hn = q('[data-h-now]'), hw = q('[data-h-was]');
+    if (hn) hn.textContent = t.any ? fmt(t.now) : '';
+    if (hw) { hw.hidden = was.hidden; hw.textContent = was.textContent; }
   }
 
   document.addEventListener('click', function (e) {
@@ -1868,17 +1893,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     } catch (e) { note(noteSel, FAILED); }
   }
 
-  q('[data-buy-whole]').addEventListener('click', function () {
-    checkout([{ priceId: WHOLE.price, quantity: 1 }], wholePrice(), '[data-wnote]', 'collection_checkout_whole');
-  });
-  q('[data-buy]').addEventListener('click', function () {
-    var t = totals();
-    if (!t.any) return;
-    var one = function (id) { return { priceId: id, quantity: 1 }; };
-    var items = t.mode === 'whole' ? [one(WHOLE.price)]
-      : t.mode === 'all' ? [one(ALL_FOUR.price)].concat(coll ? [one(COLL.withPacks)] : [])
-      : t.keys.map(function (p) { return one(p.price); }).concat(coll ? [one(t.n ? COLL.withPacks : COLL.alone)] : []);
-    checkout(items, t.now, '[data-buy-note]', 'collection_checkout');
+  // One checkout behind every buy button: what the cards hold, charged the cheapest way. The whole Collection keeps
+  // its own Clarity tag, as when it had a section of its own.
+  qa('[data-buy]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var t = totals();
+      if (!t.any) return;
+      var one = function (id) { return { priceId: id, quantity: 1 }; };
+      var items = t.mode === 'whole' ? [one(WHOLE.price)]
+        : t.mode === 'all' ? [one(ALL_FOUR.price)].concat(coll ? [one(COLL.withPacks)] : [])
+        : t.keys.map(function (p) { return one(p.price); }).concat(coll ? [one(t.n ? COLL.withPacks : COLL.alone)] : []);
+      checkout(items, t.now, '[data-note="' + btn.getAttribute('data-buy') + '"]',
+               t.mode === 'whole' ? 'collection_checkout_whole' : 'collection_checkout');
+    });
   });
 
   document.addEventListener('DOMContentLoaded', function () {
