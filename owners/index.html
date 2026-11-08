@@ -45,6 +45,15 @@ main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
 .fine{margin:12px 0 0;font-size:13px;color:var(--ink3)}
 .bad{color:#e6795f}
 
+/* The ad's way in (2026-11-08): the address Stride was bought with */
+.ask{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px;max-width:560px}
+.ask input{flex:1 1 260px;min-width:0;padding:14px 16px;border-radius:12px;border:1px solid var(--line);background:var(--raise);
+  color:var(--ink);font:inherit;font-size:16px}
+.ask input::placeholder{color:var(--ink3)}
+.ask input:focus{outline:none;border-color:rgba(221,154,82,.6)}
+.ask .btn-copper{flex:0 0 auto}
+@media (max-width:520px){ .ask .btn-copper{flex:1 1 100%} }
+
 /* Waiting */
 .dots{display:flex;gap:8px;margin-top:18px}
 .dots i{width:9px;height:9px;border-radius:50%;background:var(--copper-lt);opacity:.25;animation:blink 1.2s infinite}
@@ -234,6 +243,21 @@ main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
     <div class="acts"><a class="btn-flat" href="/">Go to stridehub.io</a></div>
   </section>
 
+  <section id="find" hidden>
+    <p class="silk">Stride owners &middot; until the end of November</p>
+    <h1 tabindex="-1">Tendril + the Collection, <span class="cu">half price.</span></h1>
+    <p class="lead">Only for Stride owners. Enter the email you bought Stride with to see your price, in your currency.</p>
+    <form class="ask" data-find novalidate>
+      <input type="email" name="email" autocomplete="email" inputmode="email" placeholder="you@example.com" aria-label="The email you bought Stride with" required>
+      <button type="submit" class="btn-copper">Show my price</button>
+    </form>
+    <p class="fine bad" data-fmsg="miss" hidden>We couldn't find a Stride purchase with that email. Try the address on your Stride receipt, or write to <a href="mailto:home@stridehub.io">home@stridehub.io</a>.</p>
+    <p class="fine bad" data-fmsg="invalid" hidden>That email doesn't look right. Please check it.</p>
+    <p class="fine bad" data-fmsg="limit" hidden>Too many tries from this network. Please wait a few minutes and try again.</p>
+    <p class="fine bad" data-fmsg="down" hidden>We couldn't check right now. Please try again in a minute.</p>
+    <p class="fine">Anything you already own stays out of your price.</p>
+  </section>
+
   <section id="offer" hidden>
     <p class="silk">Stride owners &middot; until the end of November</p>
     <h1 tabindex="-1">Everything you don't have yet, <span class="cu">half price.</span></h1>
@@ -338,8 +362,14 @@ main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
   function lst(x) { return Number(((x || {}).list_price || {}).amount) || 0; }
   function cur(x) { return ((x || {}).offer_price || {}).currency || ''; }
 
-  var K = '';
-  try { K = (new URL(window.location.href).searchParams.get('k') || '').trim().toLowerCase(); } catch (e) {}
+  var K = '', VIA = '';
+  try {
+    var here = new URL(window.location.href);
+    K = (here.searchParams.get('k') || '').trim().toLowerCase();
+    // The Meta ad (STRIDE PURCHASERS, 2026-11-08) links here with utm_source=meta and no token: the owner types the
+    // address they bought Stride with, owners_find hands back their token, and the order says it came from the ad.
+    VIA = (here.searchParams.get('utm_source') || '').toLowerCase() === 'meta' ? 'ad' : '';
+  } catch (e) {}
 
   function post(body) {
     return fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -353,7 +383,7 @@ main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
   }
 
   function show(id) {
-    ['wait', 'msg', 'offer', 'done'].forEach(function (s) { q('#' + s).hidden = s !== id; });
+    ['wait', 'msg', 'find', 'offer', 'done'].forEach(function (s) { q('#' + s).hidden = s !== id; });
     var h = q('#' + id + ' h1');
     if (h && id !== 'wait') { try { h.focus({ preventScroll: true }); } catch (e) {} }
   }
@@ -542,8 +572,10 @@ main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
     b.setAttribute('aria-busy', 'true');
     q('[data-err]').hidden = true;
     stage('checkout');
-    post({ action: 'owners_checkout', k: K, tendril: !!(T && T.on),
-           picks: packsOn().map(function (p) { return p.key; }), collection: soundsOn() })
+    var ask = { action: 'owners_checkout', k: K, tendril: !!(T && T.on),
+                picks: packsOn().map(function (p) { return p.key; }), collection: soundsOn() };
+    if (VIA) ask.via = VIA;
+    post(ask)
       .then(function (d) {
         busy = false;
         b.removeAttribute('aria-busy');
@@ -590,10 +622,44 @@ main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
     }
   } catch (e) {}
 
+  // ── The ad's way in: the address Stride was bought with opens that owner's price ──
+  var fform = q('[data-find]');
+  function fsay(which) {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-fmsg]'), function (el) {
+      el.hidden = el.getAttribute('data-fmsg') !== which;
+    });
+  }
+  fform.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var input = fform.querySelector('input'), btn = fform.querySelector('button');
+    var email = (input.value || '').trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { fsay('invalid'); try { input.focus(); } catch (e) {} return; }
+    if (btn.getAttribute('aria-busy') === 'true') return;
+    btn.setAttribute('aria-busy', 'true');
+    fsay('');
+    post({ action: 'owners_find', email: email, via: VIA || 'find' })
+      .then(function (d) {
+        btn.removeAttribute('aria-busy');
+        if (d && d.ok && d.status === 'found' && /^[0-9a-f]{32}$/.test(d.k || '')) {
+          K = d.k;
+          if (!VIA) VIA = 'find';
+          // A refresh keeps the price open, as a mailed link does.
+          try { var u = new URL(window.location.href); u.searchParams.set('k', K); history.replaceState(null, '', u.toString()); } catch (e) {}
+          load();
+          return;
+        }
+        if (d && d.ok && d.status === 'not_owner') { fsay('miss'); return; }
+        if (d && d.ok && d.status === 'expired') { message('expired'); return; }
+        fsay(d && d.status === 'rate_limited' ? 'limit' : (d && d.status === 'invalid_email' ? 'invalid' : 'down'));
+      })
+      .catch(function () { btn.removeAttribute('aria-busy'); fsay('down'); });
+  });
+
   // ── Loading ─────────────────────────────────────────────────────────────────
   var seen = false;
   function load() {
     show('wait');
+    if (!K) { show('find'); return; }
     if (!/^[0-9a-f]{32}$/.test(K)) { message('invalid'); return; }
     post({ action: 'owners_offer', k: K })
       .then(function (d) {
