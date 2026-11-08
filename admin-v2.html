@@ -1465,9 +1465,9 @@ function renderCheckout(c) {
     tileHTML({ label: '/post take', value: fmtM('post', VAL.post(A)), d: delta(VAL.post(A), VAL.post(c.P), 'high'), src: `${fmt.num(A.postTake)} of ${fmt.num(A.postShown)} shown`, lit: light('info') }),
     metricTile('refund', c)].join('');
   const tot = A.nStride + A.nBump + A.nTdrB + A.nPost2 + A.nPost + A.nColl + A.nSess + A.nOther + A.nTdr || 1;
-  const prod = [['Stride', A.oStride, A.nStride], ['Experimental Collection, checkout bump', A.oBump, A.nBump], ['Tendril, checkout bump', A.oTdrB, A.nTdrB],
-    ['Experimental Collection, /post2', A.oPost2, A.nPost2], ['1:1 session, /post', A.oPost, A.nPost], ['Tendril', A.oTdr, A.nTdr],
-    ['Experimental Collection on its own', A.oColl, A.nColl], ['1:1 session on its own', A.oSess, A.nSess], ['Other products', A.oOther, A.nOther]]
+  const prod = [['Stride', A.oStride, A.nStride], ['Collection, checkout bump', A.oBump, A.nBump], ['Tendril, checkout bump', A.oTdrB, A.nTdrB],
+    ['Collection, /post2', A.oPost2, A.nPost2], ['1:1 session, /post', A.oPost, A.nPost], ['Tendril', A.oTdr, A.nTdr],
+    ['Collection on its own', A.oColl, A.nColl], ['1:1 session on its own', A.oSess, A.nSess], ['Other products', A.oOther, A.nOther]]
     .filter(([, o]) => o > 0 || true).map(([n, o, v]) => `<tr><td>${esc(n)}</td><td>${fmt.num(o)}</td><td>${fmt.usd0(v)}</td><td>${fmt.pct(v / tot)}</td></tr>`).join('');
   // After a purchase, every offer a Stride buyer meets, in the order they meet it: how many saw it
   // and how many bought. A /post2 or /post view is one per buyer (offer_stage keeps the first), and
@@ -1481,12 +1481,12 @@ function renderCheckout(c) {
     return offRow(name, `mail ${f.code}, ${f.when}${off ? ', switched off' : ''}; saw it = sent`, x.s, x.cv, x.rv);
   };
   const offerRows = [
-    offRow('Experimental Collection, order bump', 'in the checkout, before paying; every Stride buyer passes it, except the order bump test\'s Tendril side', A.orders - A.sideT, A.oBump, A.nBump),
+    offRow('Collection, order bump', 'in the checkout, before paying; every Stride buyer passes it, except the order bump test\'s Tendril side', A.orders - A.sideT, A.oBump, A.nBump),
     offRow('Tendril, order bump', 'in the checkout, before paying; the order bump test\'s Tendril side (since Oct 25)', A.sideT, A.oTdrB, A.nTdrB),
-    offRow('Experimental Collection, /post2', 'the page right after the purchase', allCh ? A.post2Shown : null, A.post2Take, A.nPost2),
+    offRow('Collection, /post2', 'the page right after the purchase', allCh ? A.post2Shown : null, A.post2Take, A.nPost2),
     offRow('1:1 session, /post', 'the page after /post2', allCh ? A.postShown : null, A.postTake, A.nPost),
     mailRow('session_offer', '1:1 session, by mail'),
-    mailRow('collection_nudge', 'Experimental Collection, by mail'),
+    mailRow('collection_nudge', 'Collection, by mail'),
   ].join('');
   const offersCard = card('After a purchase: each offer', 'how many saw it and how many bought it, in the order a buyer meets them',
     `<div class="tbl-wrap"><table class="tbl" id="offer-table"><thead><tr><th>Offer</th><th>Saw it</th><th>Bought</th><th>Take</th><th>Revenue</th></tr></thead><tbody>${offerRows}</tbody>
@@ -1521,9 +1521,9 @@ function renderCheckout(c) {
       + `<td><b>${x.n ? fmt.usd0(tot / x.n) : '—'}</b></td><td>${fmt.usd0(tot)}</td></tr>`;
   };
   const abN = AB.collection.n + AB.tendril.n;
-  const abCard = card('Order bump test', 'since Oct 25: half the homepage visitors get the Experimental Collection in the bump, half Tendril; every channel, net of tax, before refunds',
+  const abCard = card('Order bump test', 'since Oct 25: half the homepage visitors get the Collection in the bump, half Tendril; every channel, net of tax, before refunds',
     `<div class="tbl-wrap"><table class="tbl" id="ab-table"><thead><tr><th>Side</th><th>Stride sales</th><th>Took the bump</th><th>Bump revenue</th><th>Bought after checkout</th><th>Revenue per sale</th><th>Total</th></tr></thead><tbody>`
-    + abRow('collection', 'Collection side', 'the Experimental Collection in the bump, Tendril offered after checkout')
+    + abRow('collection', 'Collection side', 'the Collection in the bump, Tendril offered after checkout')
     + abRow('tendril', 'Tendril side', 'Tendril in the bump, the Collection offered after checkout to whoever took it')
     + `</tbody></table></div>`
     + `<p class="note" style="margin-top:10px">${fmt.num(abN)} of the ${fmt.num(abOrders)} Stride orders in this range came through a homepage checkout on the test. `
