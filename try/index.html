@@ -586,12 +586,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     })();
 </script>
 <!-- End Microsoft Clarity -->
-<title>Try Stride free for 24 hours</title>
-<meta name="description" content="Use Stride on the synths and effects you already own. Full version, everything unlocked, for 24 hours.">
+<title>Try Stride free for 7 days</title>
+<meta name="description" content="Use Stride on the synths and effects you already own. Full version, everything unlocked, for 7 days.">
 <meta name="robots" content="index,follow">
 <link rel="canonical" href="https://stridehub.io/try/">
-<meta property="og:title" content="Try Stride free for 24 hours">
-<meta property="og:description" content="Full version. Everything unlocked. Your 24 hours only start when you activate Stride.">
+<meta property="og:title" content="Try Stride free for 7 days">
+<meta property="og:description" content="Full version. Everything unlocked. Your 7 days only start when you activate Stride.">
 <meta property="og:url" content="https://stridehub.io/try/">
 <meta property="og:type" content="website">
 
@@ -1088,7 +1088,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <header><div class="wrap hrow">
   <a class="logo" href="/">STRIDE</a>
-  <div class="silk">24-hour discovery pass</div>
+  <div class="silk">7-day discovery pass</div>
 </div></header>
 
 <main class="wrap">
@@ -1100,12 +1100,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="pk">STRIDE</div>
       <h1>Get endless sound design variations in seconds.</h1>
       <p class="hsub">With the synths and FX you already own.</p>
-      <p class="trial">Try Stride free <span class="brand">for 24 hours</span></p>
+      <p class="trial">Try Stride free <span class="brand">for 7 days</span></p>
       <!-- The objection the pass creates: 24 hours sounds like a crippled build. It is
            not one, and what you make in it does not expire with the pass. "Inject" is
            the workflow, never "drag" and never the dead .alc step. -->
       <p class="keepline"><strong>The full version of Stride.</strong> Inject the automation you
-        build in these 24 hours straight into your clips, and keep it forever.</p>
+        build in these 7 days straight into your clips, and keep it forever.</p>
     </div>
 
     <div class="card">
@@ -1114,8 +1114,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                placeholder="you@studio.com" aria-label="Your email">
         <button class="btn-copper" id="go" type="submit">GET STRIDE FREE</button>
       </form>
-      <p class="fineprint">Just your email. We'll send your download link and how to start your 24 hours, plus a few short emails about your pass. Reply STOP to any of them to stop.</p>
-      <p class="activation">Your 24 hours only start when you activate Stride.</p>
+      <p class="fineprint">Just your email. We'll send your download link and how to start your 7 days, plus a few short emails about your pass. Reply STOP to any of them to stop.</p>
+      <p class="activation">Your 7 days only start when you activate Stride.</p>
       <p class="err" id="err"></p>
     </div>
 
@@ -1162,7 +1162,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          purpose: one message, then the download, then the walkthrough. -->
     <div class="hero">
       <h1>You're in.</h1>
-      <p class="sub"><b>Your 24 hours haven't started yet.</b><br>
+      <p class="sub"><b>Your 7 days haven't started yet.</b><br>
          They begin when you activate Stride inside the plugin.</p>
     </div>
 
@@ -1184,7 +1184,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          pressed Download for macOS on an iPhone); and 2 of 3 phone sign-ups reopened this address in
          Safari, which holds no sign-up, so it asked them to sign up again. showDone shows these. -->
     <p class="dlnote" id="dlNote" hidden>We sent your download link to your email.<span id="dlNotePhone" hidden> Open it on your computer to install Stride.</span></p>
-    <p class="buyalt" id="dlNoteNew" hidden>Haven't signed up yet? <a id="dlNoteForm" href="/try/">Get your free 24 hours &rarr;</a></p>
+    <p class="buyalt" id="dlNoteNew" hidden>Haven't signed up yet? <a id="dlNoteForm" href="/try/">Get your free 7 days &rarr;</a></p>
 
     <!-- The walkthrough, the same film /welcome carries. Click to play, never autoplay: nothing
          from YouTube loads until asked, and a download has only just started. -->
@@ -1604,9 +1604,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     }
   } catch (e7) {}
 
-  // /try?extend=<token> is the "Get 24 more hours" button in the pass-ended mail. The token
-  // (read and taken off the address in <head>) is the credential, so there is no form: the
-  // backend grants the one extra day, and it starts the next time Stride opens.
+  // /try?extend=<token> is the "Get 24 more hours" button in the old pass-ended mails. The token
+  // (read and taken off the address in <head>) is the credential, so there is no form. Since the
+  // 7-day pass (2026-11-08) the backend answers it with a fresh 7 days instead of the extra day,
+  // and they start the next time Stride opens.
   try {
     var extendToken = window.STRIDE_EXTEND_TOKEN;
     if (extendToken) {
@@ -1617,7 +1618,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         var hero = document.querySelector('#done .hero');
         if (!hero) return;
         var h1 = hero.querySelector('h1'), sub = hero.querySelector('.sub');
-        if (h1) h1.textContent = state === 'already_active' ? 'Your extra day is running.' : 'Your extra 24 hours are ready.';
+        if (h1) h1.textContent = state === 'already_active' ? 'Your pass is running.' : 'Your fresh 7 days are ready.';
         if (sub) {
           sub.textContent = '';
           var b = document.createElement('b');
@@ -1643,7 +1644,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         note.appendChild(h2);
         note.appendChild(p);
         if (state === 'used') {
-          h2.textContent = "You've had your extra day.";
+          h2.textContent = "You've had your free 7 days.";
           p.textContent = 'Stride picks up right where you left off.';
           var buy = document.createElement('a');
           buy.className = 'btn-copper';
