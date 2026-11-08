@@ -2361,6 +2361,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     section[data-ms="hero"] .plate{max-width:none}
     section[data-ms="hero"] .hero-price{font-size:2.5rem}
     section[data-ms="hero"] .hero-price-line .fold-strike{font-size:1.75rem}
+    /* The Black Friday ticket keeps the price's line on a phone (Yossi 2026-11-08: "the Black Friday tag drops under
+       the price line, maybe change its size so it sits on the same line on the right"). It takes the room the price
+       leaves: its own 100px where that fits, as before, smaller down to 64px where it does not (a shekel price on a
+       390px phone leaves it 94px), and only where even 64px is missing (a long currency on a narrow phone) does it
+       take a line of its own, as it always did. The box keeps the ticket's 100:66, so where it fitted it is unchanged. */
+    section[data-ms="hero"] .sd-price-box.hero-price-line .seal2.sd-save.bf-ticket{flex:1 1 64px;width:auto;max-width:100px;
+      height:auto;aspect-ratio:100/66}
     section[data-ms="hero"] .tape2{padding-top:.3rem;padding-bottom:.3rem}
 
     /* Both paths stay parallel and equally reachable: Buy keeps the copper
@@ -2398,6 +2405,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     section[data-ms="hero"] .hero-spec{order:7}
     section[data-ms="hero"] .hero-buy-addon{order:8}
     section[data-ms="hero"] .hero-cta{order:9}
+    /* GET STRIDE keeps 13px off the Stride Bundle's card above it (Yossi 2026-11-08: "a small gap between the GET
+       button and the box on mobile"), the room the bump rows always had from .addon's own margin, which the card
+       drops because in the desktop bar it sits in the middle column. */
+    section[data-ms="hero"] .hero-buy-addon .addon.bcard{margin-bottom:13px}
     /* No hardware frame round the video on a phone (Yossi 2026-10-19: "no need for the whole TV
        frame, frame it a little, much more subtly"): the panel's padding, border, fill and screws
        go, so the picture runs the full width of the text (342px on a 390px phone, was 324px),
