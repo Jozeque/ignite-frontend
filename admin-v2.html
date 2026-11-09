@@ -790,7 +790,7 @@ function agg(idx, ch = F.channel, model = F.model) {
     nStride: 0, nBump: 0, nPost2: 0, nPost: 0, oStride: 0, oBump: 0, oPost2: 0, oPost: 0, nColl: 0, oColl: 0, nSess: 0, oSess: 0, nOther: 0, oOther: 0, nTdr: 0, oTdr: 0,
     nTdrB: 0, oTdrB: 0, sideT: 0,
     pages: Object.fromEntries(PAGES.map(([p]) => [p, 0])),
-    reg: 0, regPV: 0, dl: 0, act: 0, demoBuyers: 0, demoSpend: 0, regOpen: 0, regOwn: 0,
+    reg: 0, regT: 0, regPV: 0, dl: 0, act: 0, demoBuyers: 0, demoSpend: 0, regOpen: 0, regOwn: 0,
     clarS: 0, clarAct: 0, clarActN: 0, clarScr: 0, clarScrN: 0, cpages: {}, actAll: 0, actEmail: 0,
     ms: Object.fromEntries(Object.keys(MS_BITS).map(k => [k, 0])) };
   const inCh = c => ch === 'all' || ch === c;
@@ -859,7 +859,7 @@ function agg(idx, ch = F.channel, model = F.model) {
     }
     for (const r of REG[i]) {
       if (!inCh(r.ch)) continue;
-      a.reg++; if (D.pvAny && r.src !== 'plugin') a.regPV++; a.dl += r.dl; a.regOwn += r.own;
+      a.reg++; if (!r.crm) a.regT++; if (D.pvAny && r.src !== 'plugin' && !r.crm) a.regPV++; a.dl += r.dl; a.regOwn += r.own;
       const bought = r.b >= 0 && r.b <= 30 && i + r.b <= LAST;
       if (bought) a.demoBuyers++;
       if (LAST - i < 30) a.regOpen++;
@@ -942,8 +942,8 @@ const VAL = {
   post: a => a.postShown ? a.postTake / a.postShown : null,
   refund: a => a.orders ? a.refunds / a.orders : null,
   regRate: a => a.tryPV ? a.regPV / a.tryPV : null,
-  install: a => a.reg ? a.dl / a.reg : null,
-  activation: a => a.reg ? a.act / a.reg : null,
+  install: a => a.regT ? a.dl / a.regT : null,
+  activation: a => a.regT ? a.act / a.regT : null,
   d2p: a => a.reg ? a.demoBuyers / a.reg : null,
   cpdc: a => a.demoBuyers && a.demoSpend ? a.demoSpend / a.demoBuyers : null,
   stitched: a => a.journeys ? a.stitched / a.journeys : null,
@@ -963,7 +963,7 @@ const SAMPLE_NOUN = { roas: 'sales', cac: 'sales', hook: 'impressions', thru: 'i
 const SAMPLE = {
   roas: a => a.purchases, cac: a => a.purchases, hook: a => a.imps, thru: a => a.imps, ctr: a => a.imps, freq: a => a.imps, fatigue: a => a.imps,
   arrival: a => a.paidClicks, engaged: a => a.clarActN, scroll: a => a.clarScrN, coRate: a => a.visits, pconv: a => a.visits, c2p: a => a.checkouts, bump: a => a.orders, refund: a => a.orders,
-  install: a => a.reg, activation: a => a.reg, d2p: a => a.reg, cpdc: a => a.reg, stitched: a => a.journeys,
+  install: a => a.regT, activation: a => a.regT, d2p: a => a.reg, cpdc: a => a.reg, stitched: a => a.journeys,
   deliv: a => a.mail.tr, openR: a => a.mail.tro, clickR: a => a.mail.tro, conv: a => a.mail.pp != null ? a.mail.pp : a.mail.sGoal, bounce: a => a.mail.tr,
 };
 
@@ -1329,8 +1329,8 @@ function renderFunnel(c) {
   const p3 = card('Discovery Pass demo', esc(chLabel()), `<div class="fpath">
       ${frow('/try page views', 'our count', A.tryPV, A.tryPV, '')}
       ${frow('Registered', 'demo_registered', A.reg, A.tryPV || A.reg, `${light('info', false)}<span>Registration rate <b>${fmtM('regRate', VAL.regRate(A))}</b></span>`)}
-      ${frow('Downloaded', 'download button on /try', A.dl, A.tryPV || A.reg, rateOf('Download rate', 'install', A))}
-      ${frow('Activated', 'pass started in the plugin', A.act, A.tryPV || A.reg, rateOf('Activation rate', 'activation', A))}
+      ${frow('Downloaded', 'download button on /try', A.dl, A.tryPV || A.regT, rateOf('Download rate', 'install', A))}
+      ${frow('Activated', 'pass started in the plugin', A.act, A.tryPV || A.regT, rateOf('Activation rate', 'activation', A))}
       ${frow('Bought within 30 days', 'of registrants', A.demoBuyers, A.tryPV || A.reg, rateOf('Demo to Purchase', 'd2p', A))}
     </div>`);
   const rows = CHANNELS.map(ch => {
@@ -1590,11 +1590,13 @@ function renderDemo(c) {
   const openShare = A.reg ? A.regOpen / A.reg : 0;
   const prim = [metricTile('d2p', c, { cls: 'primary' }), metricTile('cpdc', c, { cls: 'primary' })].join('');
   const share = n => A.reg ? ` · ${fmt.pct(n / A.reg)} of sign-ups` : '';
+  const shareT = n => A.regT ? ` · ${fmt.pct(n / A.regT)} of sign-ups` : '';
+  const crmOnly = A.reg - A.regT;
   const cnt = (label, v, pv, fn, src) => tileHTML({ label, value: fmt.num(v), d: delta(v, pv, 'high'), sp: spark(perDay(c.idx, fn)), src });
   const counts = [
     cnt('Signed up', A.reg, P.reg, a => a.reg, 'Discovery Pass sign-ups'),
-    cnt('Downloaded', A.dl, P.dl, a => a.dl, 'clicked download on /try' + share(A.dl)),
-    cnt('Activated', A.act, P.act, a => a.act, 'started the pass in the plugin' + share(A.act)),
+    cnt('Downloaded', A.dl, P.dl, a => a.dl, 'clicked download on /try' + shareT(A.dl)),
+    cnt('Activated', A.act, P.act, a => a.act, 'started the pass in the plugin' + shareT(A.act)),
     cnt('Bought within 30 days', A.demoBuyers, P.demoBuyers, a => a.demoBuyers, 'bought Stride' + share(A.demoBuyers)),
   ].join('');
   const rates = [
@@ -1603,8 +1605,8 @@ function renderDemo(c) {
   const unmatched = A.actAll - A.actEmail;
   const path = `<div class="fpath">
       ${frow('Signed up', 'demo_registered', A.reg, A.reg, '')}
-      ${frow('Downloaded', 'download button on /try', A.dl, A.reg, rateOf('Download rate', 'install', A))}
-      ${frow('Activated', 'pass started in the plugin', A.act, A.reg, rateOf('Activation rate', 'activation', A))}
+      ${frow('Downloaded', 'download button on /try', A.dl, A.regT, rateOf('Download rate', 'install', A))}
+      ${frow('Activated', 'pass started in the plugin', A.act, A.regT, rateOf('Activation rate', 'activation', A))}
       ${frow('Bought within 30 days', 'Stride purchase', A.demoBuyers, A.reg, rateOf('Demo to Purchase', 'd2p', A))}
     </div>
     <p class="note" style="margin-top:10px">Every step counts the people who signed up in this range, whenever they took the step. <b>Downloaded</b> counts clicks on the /try download buttons from the browser that signed up; a download from the welcome mail is not seen, so the true share is higher. <b>Activated</b> counts a sign-up whose pass, started in the plugin, carries their confirmed email.${A.actAll ? ` Across all passes started in this range: ${fmt.num(A.actAll)} activations, ${fmt.num(A.actEmail)} of them with an email${unmatched > 0 ? `; the other ${fmt.num(unmatched)} cannot be tied to a sign-up` : ''}.` : ''}</p>`;
@@ -1612,7 +1614,7 @@ function renderDemo(c) {
     ['multi_lane', 'First multi-lane motion', 'first_multi_lane_motion'], ['new_variation', 'First new variation', 'first_new_variation'], ['lock_explore', 'First lock and explore', 'first_lock_and_explore']];
   const bars = MS.map(([k, n, ev]) => { const v = A.act ? A.ms[k] / A.act : null; return `<div class="hbar"><div class="nm">${esc(n)}<small>${esc(ev)} · ${fmt.num(A.ms[k])} people</small></div><div class="tr"><i style="width:${v == null ? 0 : Math.min(100, v * 100).toFixed(1)}%"></i></div><div class="v">${fmt.pct(v)}</div></div>`; }).join('');
   el.innerHTML = `<div class="tiles">${prim}</div>
-    <p class="note">These two judge the demo; the steps below are diagnostic, never goals. ${openShare > 0.05 ? `<b>${fmt.pct(openShare)} of this range’s sign-ups are under 30 days old</b>, so Demo to Purchase reads low until their window closes.` : ''} ${A.regOwn ? `${fmt.num(A.regOwn)} sign-ups already owned Stride and never count as demo-acquired.` : ''}</p>
+    <p class="note">These two judge the demo; the steps below are diagnostic, never goals. ${crmOnly > 0 ? `<b>${fmt.num(crmOnly)} of these sign-ups come from the CRM</b> (demos before the event log began, 2026-08-25): they count in Demo to Purchase and its cost; their downloads and activations were never recorded, so those two rates read the other ${fmt.num(A.regT)}. ` : ''}${openShare > 0.05 ? `<b>${fmt.pct(openShare)} of this range’s sign-ups are under 30 days old</b>, so Demo to Purchase reads low until their window closes.` : ''} ${A.regOwn ? `${fmt.num(A.regOwn)} sign-ups already owned Stride and never count as demo-acquired.` : ''}</p>
     <div class="tiles">${counts}</div>
     <div class="tiles">${rates}</div>
     ${card('From sign-up to purchase', `${fmt.num(A.reg)} sign-ups in this range; every percentage is of them`, path)}
