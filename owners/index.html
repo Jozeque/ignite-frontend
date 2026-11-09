@@ -363,14 +363,50 @@ main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
   function lst(x) { return Number(((x || {}).list_price || {}).amount) || 0; }
   function cur(x) { return ((x || {}).offer_price || {}).currency || ''; }
 
-  var K = '', VIA = '';
+  var K = '', VIA = '', CLICK = null, ANSWER = '';
+  // This browser's stored answer to ad measurement (the banner on the site's other pages keeps it here). After a No,
+  // nothing of the browser leaves this page: only the No itself, with the checkout.
+  try { ANSWER = localStorage.getItem('stride_consent_ads') || ''; } catch (e) {}
+  if (ANSWER !== 'granted' && ANSWER !== 'denied') ANSWER = '';
   try {
     var here = new URL(window.location.href);
     K = (here.searchParams.get('k') || '').trim().toLowerCase();
     // The Meta ad (STRIDE PURCHASERS, 2026-11-08) links here with utm_source=meta and no token: the owner types the
     // address they bought Stride with, owners_find hands back their token, and the order says it came from the ad.
     VIA = (here.searchParams.get('utm_source') || '').toLowerCase() === 'meta' ? 'ad' : '';
+    // The ad's click (2026-11-09): Meta adds fbclid to every ad link. The lookup and the checkout send it, with when
+    // this page saw it and Meta's own browser cookie when there is one, so the owner's purchase reaches Meta with the
+    // click that brought them. generate_midi keeps it on the owner's offer, never on the order. No tracker loads here.
+    var fbclid = (here.searchParams.get('fbclid') || '').trim();
+    if (ANSWER !== 'denied' && /^[A-Za-z0-9_-]{8,500}$/.test(fbclid)) {
+      CLICK = { fbclid: fbclid, fbclid_ms: Date.now() };
+      var fbp = (document.cookie.match(/(?:^|;\s*)_fbp=([^;]+)/) || [])[1] || '';
+      if (/^fb\.\d\.\d{10,13}\.\d{1,25}$/.test(fbp)) CLICK.fbp = fbp;
+    }
   } catch (e) {}
+  function withClick(body) {
+    if (CLICK) for (var c in CLICK) body[c] = CLICK[c];
+    return body;
+  }
+  // The browser's own match keys, with the checkout only (2026-11-09, Purchase match quality: Meta scored 14 owners
+  // sales that carried nothing of the buyer's browser). Meta's browser and click cookies and our visitor id, when the
+  // site's other pages left them on this browser, and the stored answer. generate_midi keeps them, with this
+  // request's address and browser, on the owner's offer for that order's Meta report only, never on the order.
+  function withVisit(body) {
+    function ck(n) {
+      var m = document.cookie.match(new RegExp('(?:^|;\\s*)' + n + '=([^;]*)'));
+      try { return m ? decodeURIComponent(m[1]) : ''; } catch (e) { return ''; }
+    }
+    if (ANSWER) body.consent_ads = ANSWER;
+    if (ANSWER === 'denied') return body;
+    try {
+      var fbp = ck('_fbp'), fbc = ck('_fbc'), xid = ck('stride_xid');
+      if (/^fb\.\d\.\d{10,13}\.\d{1,25}$/.test(fbp)) body.fbp = fbp;
+      if (/^fb\.\d\.\d{10,13}\.[A-Za-z0-9_-]{8,500}$/.test(fbc)) body.fbc = fbc;
+      if (/^[A-Za-z0-9._-]{1,64}$/.test(xid)) body.external_id = xid;
+    } catch (e) {}
+    return body;
+  }
 
   function post(body) {
     return fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -577,7 +613,7 @@ main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
                 picks: packsOn().map(function (p) { return p.key; }), collection: soundsOn(),
                 consent_dl: '2026-11-09' };   // the instant-download line under the button (refund policy)
     if (VIA) ask.via = VIA;
-    post(ask)
+    post(withClick(withVisit(ask)))
       .then(function (d) {
         busy = false;
         b.removeAttribute('aria-busy');
@@ -639,7 +675,7 @@ main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
     if (btn.getAttribute('aria-busy') === 'true') return;
     btn.setAttribute('aria-busy', 'true');
     fsay('');
-    post({ action: 'owners_find', email: email, via: VIA || 'find' })
+    post(withClick({ action: 'owners_find', email: email, via: VIA || 'find' }))
       .then(function (d) {
         btn.removeAttribute('aria-busy');
         if (d && d.ok && d.status === 'found' && /^[0-9a-f]{32}$/.test(d.k || '')) {

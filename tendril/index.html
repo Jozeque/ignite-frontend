@@ -1676,13 +1676,37 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     }
   } catch (e) { paddleOn = false; }
 
+  // The ad's click this page arrived with, read once at load (a later address change cannot lose it).
+  var landingFbclid = '';
+  try { landingFbclid = new URL(window.location.href).searchParams.get('fbclid') || ''; } catch (e) {}
+  // The browser's own match keys for this sale's Meta report (2026-11-09, Purchase match quality), as the homepage's
+  // checkout sends them: Meta's browser and click cookies (else this landing's raw click), the visitor's answer and
+  // region. generate_midi keeps them, with this request's address and browser, on the Tendril offer for this sale's
+  // report only: never on the order. After a No only the No goes.
+  function visitKeys() {
+    var out = {};
+    try {
+      var ans = window.strideConsentAds ? strideConsentAds() : '';
+      if (ans) out.consent_ads = ans;
+      if (window.strideConsentRegion) out.consent_region = strideConsentRegion();
+      if (window.strideAllowed && !strideAllowed()) return out;
+      var ck = function (re) { var m = document.cookie.match(re); return m ? decodeURIComponent(m[1]) : ''; };
+      var fbp = ck(/(?:^|; )_fbp=([^;]*)/), fbc = ck(/(?:^|; )_fbc=([^;]*)/);
+      if (fbp) out.fbp = fbp;
+      if (fbc) out.fbc = fbc;
+      if (landingFbclid) out.fbclid = landingFbclid;
+    } catch (e) {}
+    return out;
+  }
+
   var checkoutCall = null;
   function openCheckout() {
     if (checkoutCall) return checkoutCall;
     checkoutCall = fetch(API, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(Object.assign({ action: 'tendril_checkout',
-                                           external_id: (typeof _strideXid === 'string' && _strideXid) || '' }, cred))
+                                           external_id: (typeof _strideXid === 'string' && _strideXid) || '' },
+                                         visitKeys(), cred))
     })
       .then(function (r) { return r.json(); })
       .then(function (d) { checkoutCall = null; return d || {}; },
