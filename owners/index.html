@@ -305,6 +305,7 @@ main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
       <p class="fine" data-hint hidden>The whole Collection costs less than the parts you kept, so you get all of it.</p>
       <p class="fine bad" data-err hidden></p>
       <p class="fine pay">Checkout by Paddle, in your currency. Keys and downloads arrive by mail.</p>
+      <p class="fine">The Collection is an instant download: by buying you ask for the files right away and agree that your 14-day right to cancel ends once the download starts. <a href="/refund.html">Refund policy</a></p>
     </div>
   </section>
 
@@ -573,7 +574,8 @@ main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
     q('[data-err]').hidden = true;
     stage('checkout');
     var ask = { action: 'owners_checkout', k: K, tendril: !!(T && T.on),
-                picks: packsOn().map(function (p) { return p.key; }), collection: soundsOn() };
+                picks: packsOn().map(function (p) { return p.key; }), collection: soundsOn(),
+                consent_dl: '2026-11-09' };   // the instant-download line under the button (refund policy)
     if (VIA) ask.via = VIA;
     post(ask)
       .then(function (d) {

@@ -875,6 +875,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .mk-all{font:inherit;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--copper-lt);background:none;border:0;cursor:pointer;padding:6px 0}
   .mk-note{margin-top:12px;font-size:13px;color:var(--ink3)}
   .mk-aside{margin-top:14px;font-size:14px;color:var(--ink3)}
+  /* The instant-download line under every buy button (2026-11-09): what the refund policy's download rule rests on. */
+  .mk-legal{margin-top:10px;max-width:34rem;font-size:12px;line-height:1.55;color:var(--ink3)}
+  .mk-legal a{color:inherit;text-decoration:underline}
   /* The packs under the hero (2026-11-08): all five in, each with its way out, and the price in the hero. A part taken
      out greys like a /post2 card taken out. Five in a row on a laptop, two on a tablet (the fifth centred), one on a phone. */
   .mk-hero{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:44px;padding-top:24px}
@@ -1504,6 +1507,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <button class="mk-btn" type="button" data-buy="hero">Get the whole Collection</button>
         </div>
         <p class="mk-note" data-note="hero" aria-live="polite" hidden></p>
+        <p class="mk-legal">Instant download. By buying you ask for the files right away and agree that your 14-day right to cancel ends once the download starts. <a href="/refund.html">Refund policy</a></p>
         <p class="mk-own"><b>Synths not included</b>Each pack needs your own copy of its synth: Serum 2, Vital, Diva or Tendril. The chains open in Stride, and the racks need Ableton Live.</p>
       </div>
       <div>
@@ -1532,6 +1536,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
       </div>
       <p class="mk-note" data-note="bar" aria-live="polite" hidden></p>
+        <p class="mk-legal">Instant download. By buying you ask for the files right away and agree that your 14-day right to cancel ends once the download starts. <a href="/refund.html">Refund policy</a></p>
       <p class="mk-aside">The sounds and racks have their own page: <a href="/samples.html">hear them there &rarr;</a></p>
     </div>
 
@@ -1652,6 +1657,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <button class="mk-btn" type="button" data-buy="end">Get the whole Collection</button>
     </div>
     <p class="mk-note" data-note="end" aria-live="polite" hidden></p>
+        <p class="mk-legal">Instant download. By buying you ask for the files right away and agree that your 14-day right to cancel ends once the download starts. <a href="/refund.html">Refund policy</a></p>
   </section>
 </main>
 
@@ -1840,7 +1846,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     var fbc = ck(/(?:^|; )_fbc=([^;]*)/);
     var o = { fbc: fbc, fbp: ck(/(?:^|; )_fbp=([^;]*)/),
               external_id: window.strideXid ? window.strideXid() : ck(/(?:^|; )stride_xid=([^;]*)/),
-              ua: (navigator.userAgent || '').slice(0, 512), source: 'collection' };
+              ua: (navigator.userAgent || '').slice(0, 512), source: 'collection',
+              consent_dl: '2026-11-09' };   // the instant-download line beside the button (refund policy)
     try { o.fbclid = localStorage.getItem('stride_fbclid') || (fbc ? fbc.split('.').pop() : ''); } catch (e) {}
     var ad = (window.strideAdMarkers ? window.strideAdMarkers() : {});
     if (ad.ad_id) o.ad_id = ad.ad_id;
